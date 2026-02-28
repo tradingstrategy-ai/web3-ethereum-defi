@@ -394,3 +394,66 @@ SUBSQUID_ORDER_TRACKING_BACKOFF_MULTIPLIER = 2.0
 
 # GMX API retry configuration has moved to eth_defi.gmx.retry.GMXRetryConfig.
 # The old module-level constants are no longer used.
+
+# ---------------------------------------------------------------------------
+# Gas-critical pause behaviour (freqtrade exchange layer)
+# ---------------------------------------------------------------------------
+
+#: Maximum number of consecutive gas-critical order rejections within the
+#: sliding window before exit orders are paused for the pair.
+_GAS_CRITICAL_MAX_RETRIES: int = 3
+
+#: Sliding-window duration (seconds) for counting consecutive gas-critical
+#: failures.  The counter resets once this window has elapsed without a new
+#: failure.
+_GAS_CRITICAL_WINDOW_SECS: int = 300  # 5-minute window
+
+#: How long (seconds) to pause exit orders for a pair after
+#: :data:`_GAS_CRITICAL_MAX_RETRIES` failures inside the window.
+_GAS_CRITICAL_PAUSE_SECS: int = 900  # 15-minute pause
+
+# ---------------------------------------------------------------------------
+# Execution buffer thresholds
+# ---------------------------------------------------------------------------
+
+#: Default execution-fee buffer multiplier for standard orders
+#: (increase, decrease, swap).  The estimated fee is multiplied by this value
+#: so that keepers are covered even during gas-price spikes.  Any excess is
+#: refunded by GMX.
+DEFAULT_EXECUTION_BUFFER: float = 2.2
+
+#: Default execution-fee buffer for bundled SL/TP multicall transactions,
+#: which include multiple sub-orders and therefore need a higher margin.
+DEFAULT_SLTP_EXECUTION_BUFFER: float = 2.5
+
+#: Additional fee-buffer multiplier applied to the individual SL/TP
+#: sub-orders *within* a bundled multicall on top of
+#: :data:`DEFAULT_SLTP_EXECUTION_BUFFER`.
+#: Set to ``1.0`` (no compounding) to match GMX interface behaviour —
+#: the UI applies a single ``executionFeeBufferBps`` (30 %) to all order
+#: types uniformly.
+DEFAULT_SLTP_EXECUTION_FEE_BUFFER: float = 1.0
+
+#: Execution buffer below this value triggers a critical error log.
+#: GMX keepers will very likely reject orders with a buffer this low.
+EXECUTION_BUFFER_CRITICAL_THRESHOLD: float = 1.2
+
+#: Execution buffer below this value triggers a warning log.
+#: Orders may fail during gas-price spikes.
+EXECUTION_BUFFER_WARNING_THRESHOLD: float = 1.5
+
+#: Lower bound of the recommended execution-buffer range for standard orders.
+EXECUTION_BUFFER_RECOMMENDED_MIN: float = 1.8
+
+#: Upper bound of the recommended execution-buffer range for standard orders.
+#: Equals :data:`DEFAULT_EXECUTION_BUFFER`.
+EXECUTION_BUFFER_RECOMMENDED_MAX: float = 2.2
+
+# ---------------------------------------------------------------------------
+# RPC / blockchain query limits
+# ---------------------------------------------------------------------------
+
+#: Minimum block range when adaptively splitting an overflowing
+#: ``eth_getLogs`` query.  Some RPC providers (e.g. Alchemy) cap the number
+#: of log entries per query; below this size we stop splitting further.
+_MIN_LOG_CHUNK_BLOCKS: int = 100

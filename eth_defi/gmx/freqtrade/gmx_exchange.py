@@ -35,14 +35,15 @@ from freqtrade.exchange.common import retrier
 from freqtrade.exchange.exchange_types import FtHas
 
 from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
+from eth_defi.gmx.constants import (
+    _GAS_CRITICAL_MAX_RETRIES,
+    _GAS_CRITICAL_PAUSE_SECS,
+    _GAS_CRITICAL_WINDOW_SECS,
+)
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.freqtrade.telegram_utils import send_freqtrade_telegram_message
 
 logger = logging.getLogger(__name__)
-
-_GAS_CRITICAL_MAX_RETRIES = 3
-_GAS_CRITICAL_WINDOW_SECS = 300   # 5-minute sliding window for failure counting
-_GAS_CRITICAL_PAUSE_SECS  = 900   # 15-minute pause once threshold is reached
 
 
 class Gmx(Exchange):
@@ -494,14 +495,10 @@ class Gmx(Exchange):
                     symbol=pair,
                     params={"pending_orders_only": True},
                 )
-                existing_sl = [
-                    o for o in pending
-                    if o.get("type") in ("stopLoss", "stop_loss") and o.get("side") == side
-                ]
+                existing_sl = [o for o in pending if o.get("type") in ("stopLoss", "stop_loss") and o.get("side") == side]
                 if existing_sl:
                     logger.warning(
-                        "Stop-loss already exists on GMX for %s (side=%s, trigger=%.4f, id=%s) — "
-                        "skipping duplicate creation to avoid wasting ETH",
+                        "Stop-loss already exists on GMX for %s (side=%s, trigger=%.4f, id=%s) — skipping duplicate creation to avoid wasting ETH",
                         pair,
                         side,
                         existing_sl[0].get("price", 0),
@@ -620,13 +617,7 @@ class Gmx(Exchange):
 
         bot_name = self._config.get("bot_name", "freqtrade")
         pause_mins = _GAS_CRITICAL_PAUSE_SECS // 60
-        msg = (
-            f"⛽ *{bot_name} — Gas Critical*\n\n"
-            f"Exit orders for `{pair}` are *paused for {pause_mins} minutes* after "
-            f"{attempt_count} consecutive gas failures.\n\n"
-            f"Top up wallet `{wallet_address}` with ETH on Arbitrum to resume trading.\n"
-            f"The bot will automatically retry after the pause expires."
-        )
+        msg = f"⛽ *{bot_name} — Gas Critical*\n\nExit orders for `{pair}` are *paused for {pause_mins} minutes* after {attempt_count} consecutive gas failures.\n\nTop up wallet `{wallet_address}` with ETH on Arbitrum to resume trading.\nThe bot will automatically retry after the pause expires."
 
         sent = send_freqtrade_telegram_message(self._config, msg)
         if sent:
@@ -773,10 +764,7 @@ class Gmx(Exchange):
                     pair,
                     _remaining,
                 )
-                raise InsufficientFundsError(
-                    f"GMX gas critical: exit orders paused for {pair} ({_remaining}s remaining). "
-                    "Top up wallet ETH to resume."
-                )
+                raise InsufficientFundsError(f"GMX gas critical: exit orders paused for {pair} ({_remaining}s remaining). Top up wallet ETH to resume.")
             elif _paused_until > 0.0:
                 # Pause expired — clear state and log recovery
                 logger.info(
@@ -794,11 +782,7 @@ class Gmx(Exchange):
 
                 # Warn if balance is low (< 0.01 ETH)
                 if balance_eth < 0.01:
-                    _gas_warn_msg = (
-                        f"💰 GMX GAS WARNING: Low ETH balance {balance_eth:.6f} ETH. "
-                        f"Minimum recommended: 0.01 ETH. "
-                        f"Top up wallet {self._api.wallet.address} to avoid order failures."
-                    )
+                    _gas_warn_msg = f"💰 GMX GAS WARNING: Low ETH balance {balance_eth:.6f} ETH. Minimum recommended: 0.01 ETH. Top up wallet {self._api.wallet.address} to avoid order failures."
                     logger.warning(_gas_warn_msg)
                     send_freqtrade_telegram_message(self._config, _gas_warn_msg)
         except Exception:
@@ -865,17 +849,13 @@ class Gmx(Exchange):
                 paused_until = now + _GAS_CRITICAL_PAUSE_SECS
                 self._gas_critical_attempts[pair] = (count, window_start, paused_until)
                 logger.error(
-                    "🚫 Gas critical: %d consecutive failed attempts for %s. "
-                    "Pausing exit orders for %ds. Top up wallet ETH to resume trading.",
+                    "🚫 Gas critical: %d consecutive failed attempts for %s. Pausing exit orders for %ds. Top up wallet ETH to resume trading.",
                     count,
                     pair,
                     _GAS_CRITICAL_PAUSE_SECS,
                 )
                 self._send_gas_critical_telegram_alert(pair, count)
-                raise InsufficientFundsError(
-                    f"GMX gas critical after {count} attempts for {pair}. "
-                    f"Exit orders paused for {_GAS_CRITICAL_PAUSE_SECS}s. Top up wallet ETH."
-                )
+                raise InsufficientFundsError(f"GMX gas critical after {count} attempts for {pair}. Exit orders paused for {_GAS_CRITICAL_PAUSE_SECS}s. Top up wallet ETH.")
             elif count > _GAS_CRITICAL_MAX_RETRIES:
                 # Unreachable in steady-state: once count hits the threshold the pre-flight
                 # guard intercepts all subsequent calls before reaching this post-order block.
@@ -887,9 +867,7 @@ class Gmx(Exchange):
                     pair,
                     count,
                 )
-                raise InsufficientFundsError(
-                    f"GMX gas critical (attempt {count}) for {pair}. Pause is active."
-                )
+                raise InsufficientFundsError(f"GMX gas critical (attempt {count}) for {pair}. Pause is active.")
             else:
                 logger.warning(
                     "⛽ Gas critical attempt %d/%d for %s — will pause exit orders after %d failures.",

@@ -43,7 +43,16 @@ from eth_defi.gmx.ccxt.cancel_helpers import build_cancel_order_response, resolv
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.constants import DEFAULT_GAS_CRITICAL_THRESHOLD_USD, DEFAULT_GAS_ESTIMATE_BUFFER, DEFAULT_GAS_MONITOR_ENABLED, DEFAULT_GAS_RAISE_ON_CRITICAL, DEFAULT_GAS_WARNING_THRESHOLD_USD, GMX_MIN_COST_USD, PRECISION
+from eth_defi.gmx.constants import (
+    DEFAULT_GAS_CRITICAL_THRESHOLD_USD,
+    DEFAULT_GAS_ESTIMATE_BUFFER,
+    DEFAULT_GAS_MONITOR_ENABLED,
+    DEFAULT_GAS_RAISE_ON_CRITICAL,
+    DEFAULT_GAS_WARNING_THRESHOLD_USD,
+    GMX_MIN_COST_USD,
+    PRECISION,
+    _MIN_LOG_CHUNK_BLOCKS,
+)
 from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
@@ -64,9 +73,6 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 
 logger = logging.getLogger(__name__)
-
-#: Minimum block range used when adaptively splitting an overflowing eth_getLogs query.
-_MIN_LOG_CHUNK_BLOCKS = 100
 
 
 def _get_logs_adaptive(web3, address: str, from_block: int, to_block: int) -> list:

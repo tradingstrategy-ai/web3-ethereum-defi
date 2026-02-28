@@ -109,40 +109,17 @@ See also
 
 import logging
 
+from eth_defi.gmx.constants import (
+    DEFAULT_EXECUTION_BUFFER,
+    DEFAULT_SLTP_EXECUTION_BUFFER,
+    DEFAULT_SLTP_EXECUTION_FEE_BUFFER,
+    EXECUTION_BUFFER_CRITICAL_THRESHOLD,
+    EXECUTION_BUFFER_RECOMMENDED_MAX,
+    EXECUTION_BUFFER_RECOMMENDED_MIN,
+    EXECUTION_BUFFER_WARNING_THRESHOLD,
+)
+
 logger = logging.getLogger(__name__)
-
-#: Default execution buffer multiplier for standard orders (increase, decrease, swap).
-#: This is a 2.2x multiplier on the base execution fee, meaning a 120% safety margin.
-DEFAULT_EXECUTION_BUFFER: float = 2.2
-
-#: Default execution buffer for bundled SL/TP operations which involve multiple
-#: sub-orders in a single multicall transaction and therefore require a higher margin.
-DEFAULT_SLTP_EXECUTION_BUFFER: float = 2.5
-
-#: Additional fee buffer multiplier specific to the SL/TP sub-orders within a
-#: bundled transaction. Applied on top of the main execution buffer:
-#: ``total_multiplier = execution_buffer * execution_fee_buffer``.
-#:
-#: Set to 1.0 (no compound multiplier) to match the GMX interface behaviour —
-#: the interface applies the same single buffer (``executionFeeBufferBps = 30%``)
-#: to all order types including SL/TP sub-orders in a multicall.
-#: The previous value of 3.0 caused SL/TP fees to be ~5x higher than the UI.
-DEFAULT_SLTP_EXECUTION_FEE_BUFFER: float = 1.0
-
-#: Execution buffer below this value will trigger a critical error log.
-#: Keepers will very likely reject orders with a buffer this low.
-EXECUTION_BUFFER_CRITICAL_THRESHOLD: float = 1.2
-
-#: Execution buffer below this value will trigger a warning log.
-#: Orders may fail during gas price spikes.
-EXECUTION_BUFFER_WARNING_THRESHOLD: float = 1.5
-
-#: Lower bound of the recommended execution buffer range for standard orders.
-EXECUTION_BUFFER_RECOMMENDED_MIN: float = 1.8
-
-#: Upper bound of the recommended execution buffer range for standard orders.
-#: Also the default value for :data:`DEFAULT_EXECUTION_BUFFER`.
-EXECUTION_BUFFER_RECOMMENDED_MAX: float = 2.2
 
 
 def validate_execution_buffer(execution_buffer: float) -> None:

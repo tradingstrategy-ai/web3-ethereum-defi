@@ -29,7 +29,11 @@ from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_reques
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.constants import GMX_MIN_COST_USD, PRECISION
+from eth_defi.gmx.constants import (
+    GMX_MIN_COST_USD,
+    PRECISION,
+    _MIN_LOG_CHUNK_BLOCKS,
+)
 from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.core import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
@@ -48,9 +52,6 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 
 logger = logging.getLogger(__name__)
-
-#: Minimum block range used when adaptively splitting an overflowing eth_getLogs query.
-_MIN_LOG_CHUNK_BLOCKS = 100
 
 
 async def _get_logs_adaptive_async(
