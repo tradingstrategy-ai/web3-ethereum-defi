@@ -220,6 +220,7 @@ class GMX(Exchange):
         self._private_key = config.get("privateKey", "") if config else ""
         self._chain_id_override = config.get("chainId") if config else None
         self._subsquid_endpoint = config.get("subsquidEndpoint") if config else None
+        self.execution_buffer = config.get("executionBuffer", 2.2) if config else 2.2
 
         # Async components (lazy initialization)
         self.session: aiohttp.ClientSession | None = None
