@@ -42,11 +42,46 @@ from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
 from eth_defi.gmx.utils import convert_raw_price_to_usd
 from eth_defi.gmx.verification import verify_gmx_order_execution
 from eth_defi.hotwallet import HotWallet
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.log_block_range import get_logs_max_block_range
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 
 logger = logging.getLogger(__name__)
+
+#: Minimum block range used when adaptively splitting an overflowing eth_getLogs query.
+_MIN_LOG_CHUNK_BLOCKS = 100
+
+
+async def _get_logs_adaptive_async(async_web3: AsyncWeb3, address: str, from_block: int, to_block: int) -> list:
+    """Async version of adaptive eth_getLogs that bisects the range on log-count overflow.
+
+    See ``eth_defi.gmx.ccxt.exchange._get_logs_adaptive`` for full documentation.
+
+    :param async_web3: AsyncWeb3 instance.
+    :param address: Contract address to filter logs by.
+    :param from_block: Start block (inclusive).
+    :param to_block: End block (inclusive).
+    :returns: Combined list of log entries across all sub-ranges.
+    :raises ExtraValueError: Re-raised when the range is already at the minimum and still overflows.
+    """
+    try:
+        return await async_web3.eth.get_logs({"address": address, "fromBlock": from_block, "toBlock": to_block})
+    except ExtraValueError as exc:
+        payload = exc.args[0] if exc.args else {}
+        msg = payload.get("message", "") if isinstance(payload, dict) else str(payload)
+        if "exceeds limit" in msg and to_block > from_block and (to_block - from_block) >= _MIN_LOG_CHUNK_BLOCKS:
+            mid = (from_block + to_block) // 2
+            logger.debug(
+                "Log count exceeded for blocks %d-%d, bisecting at block %d",
+                from_block,
+                to_block,
+                mid,
+            )
+            left = await _get_logs_adaptive_async(async_web3, address, from_block, mid)
+            right = await _get_logs_adaptive_async(async_web3, address, mid + 1, to_block)
+            return left + right
+        raise
 
 
 async def _async_scan_logs_chunked_for_trade_action(
@@ -105,13 +140,7 @@ async def _async_scan_logs_chunked_for_trade_action(
         )
 
         try:
-            logs = await async_web3.eth.get_logs(
-                {
-                    "address": event_emitter,
-                    "fromBlock": chunk_start,
-                    "toBlock": chunk_end,
-                }
-            )
+            logs = await _get_logs_adaptive_async(async_web3, event_emitter, chunk_start, chunk_end)
 
             for log in logs:
                 try:

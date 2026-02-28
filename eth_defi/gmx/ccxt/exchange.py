@@ -58,12 +58,52 @@ from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.utils import calculate_estimated_liquidation_price, convert_raw_price_to_usd
 from eth_defi.hotwallet import HotWallet
-from eth_defi.provider.fallback import get_fallback_provider
+from eth_defi.provider.fallback import ExtraValueError, get_fallback_provider
 from eth_defi.provider.log_block_range import get_logs_max_block_range
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 
 logger = logging.getLogger(__name__)
+
+#: Minimum block range used when adaptively splitting an overflowing eth_getLogs query.
+_MIN_LOG_CHUNK_BLOCKS = 100
+
+
+def _get_logs_adaptive(web3, address: str, from_block: int, to_block: int) -> list:
+    """Fetch eth_getLogs, splitting into smaller sub-ranges when the log-count limit is exceeded.
+
+    Some RPC providers (e.g. Alchemy) cap the number of log *entries* per query at 10,000
+    regardless of the block range.  When the GMX EventEmitter is busy a single 10,000-block
+    chunk can contain more than 10,000 events, causing the provider to return an error instead
+    of truncating results.
+
+    This helper catches that error and recursively bisects the block range until each
+    sub-range fits within the provider limit.
+
+    :param web3: Web3 instance.
+    :param address: Contract address to filter logs by.
+    :param from_block: Start block (inclusive).
+    :param to_block: End block (inclusive).
+    :returns: Combined list of log entries across all sub-ranges.
+    :raises ExtraValueError: Re-raised when the range is already at the minimum and still overflows.
+    """
+    try:
+        return web3.eth.get_logs({"address": address, "fromBlock": from_block, "toBlock": to_block})
+    except ExtraValueError as exc:
+        payload = exc.args[0] if exc.args else {}
+        msg = payload.get("message", "") if isinstance(payload, dict) else str(payload)
+        if "exceeds limit" in msg and to_block > from_block and (to_block - from_block) >= _MIN_LOG_CHUNK_BLOCKS:
+            mid = (from_block + to_block) // 2
+            logger.debug(
+                "Log count exceeded for blocks %d-%d, bisecting at block %d",
+                from_block,
+                to_block,
+                mid,
+            )
+            left = _get_logs_adaptive(web3, address, from_block, mid)
+            right = _get_logs_adaptive(web3, address, mid + 1, to_block)
+            return left + right
+        raise
 
 
 def _scan_logs_chunked_for_trade_action(
@@ -117,13 +157,7 @@ def _scan_logs_chunked_for_trade_action(
         )
 
         try:
-            logs = web3.eth.get_logs(
-                {
-                    "address": event_emitter,
-                    "fromBlock": chunk_start,
-                    "toBlock": chunk_end,
-                }
-            )
+            logs = _get_logs_adaptive(web3, event_emitter, chunk_start, chunk_end)
 
             for log in logs:
                 try:
