@@ -794,11 +794,13 @@ class Gmx(Exchange):
 
                 # Warn if balance is low (< 0.01 ETH)
                 if balance_eth < 0.01:
-                    logger.warning(
-                        "💰 GMX GAS WARNING: Low ETH balance %.6f ETH. Minimum recommended: 0.01 ETH. Top up wallet %s to avoid order failures.",
-                        balance_eth,
-                        self._api.wallet.address,
+                    _gas_warn_msg = (
+                        f"💰 GMX GAS WARNING: Low ETH balance {balance_eth:.6f} ETH. "
+                        f"Minimum recommended: 0.01 ETH. "
+                        f"Top up wallet {self._api.wallet.address} to avoid order failures."
                     )
+                    logger.warning(_gas_warn_msg)
+                    send_freqtrade_telegram_message(self._config, _gas_warn_msg)
         except Exception:
             # Silently ignore balance check failures (don't block order creation)
             pass
