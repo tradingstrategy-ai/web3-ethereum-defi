@@ -60,7 +60,6 @@ from rich.logging import RichHandler
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
-from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.gas_monitor import GasMonitorConfig
 from eth_defi.gmx.order.pending_orders import fetch_pending_orders
 from eth_defi.gmx.trading import GMXTrading
@@ -68,6 +67,7 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
+from scripts.gmx.script_utils import fetch_eth_spot_price
 
 console = Console()
 
@@ -84,41 +84,6 @@ EXECUTION_BUFFER = 30
 
 #: Event topic hash for ``OrderCreated(bytes32,OrderProps)``
 ORDER_CREATED_TOPIC = "a7427759bfd3b941f14e687e129519da3c9b0046c5b9aaa290bb1dede63753b3"
-
-#: WETH mainnet address used for oracle price lookup (GMX testnet oracle uses mainnet prices)
-WETH_MAINNET_ARBITRUM = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
-
-
-def _fetch_eth_spot_price(chain: str) -> float:
-    """Fetch current ETH spot price from the GMX oracle API.
-
-    For Arbitrum Sepolia, the oracle uses mainnet prices since the testnet
-    does not have its own oracle. The returned price is in USD.
-
-    :param chain:
-        GMX chain name, e.g. ``"arbitrum_sepolia"``.
-    :return:
-        Current ETH price in USD as a float.
-    :raises RuntimeError:
-        If the oracle API cannot be reached or ETH price is not in the response.
-    """
-    oracle = OraclePrices(chain)
-    weth_address = get_token_address_normalized(chain, "WETH") or WETH_MAINNET_ARBITRUM
-    price_data = oracle.get_price_for_token(weth_address)
-
-    if price_data is None:
-        # Fallback: iterate all returned prices looking for the known WETH address
-        all_prices = oracle.get_recent_prices()
-        for addr, data in all_prices.items():
-            if addr.lower() == WETH_MAINNET_ARBITRUM.lower():
-                price_data = data
-                break
-
-    if price_data is None:
-        raise RuntimeError(f"Could not find ETH/WETH price in GMX oracle response for chain '{chain}'")
-
-    # GMX stores WETH price as USD × 10^12 (30-decimal precision, WETH has 18 decimals)
-    return int(price_data["maxPriceFull"]) / 10**12
 
 
 def _extract_order_keys(receipt: dict) -> list[bytes]:
@@ -204,7 +169,7 @@ def main():
     else:
         console.print("\nFetching current ETH oracle price from GMX API…")
         try:
-            spot_price = _fetch_eth_spot_price(chain)
+            spot_price = fetch_eth_spot_price(chain)
             trigger_price_usd = spot_price * 1.10
             console.print(f"  Oracle spot price:  ${spot_price:,.2f}")
             console.print(f"  Trigger price (+10%): ${trigger_price_usd:,.2f}")
