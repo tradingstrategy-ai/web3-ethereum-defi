@@ -299,7 +299,7 @@ def _build_result_from_subsquid_action(
     web3: Web3,
     action: dict,
     order_key_hex: str,
-) -> OrderStatusResult:
+) -> OrderStatusResult | None:
     """Build OrderStatusResult from Subsquid action data.
 
     :param web3:
@@ -309,7 +309,10 @@ def _build_result_from_subsquid_action(
     :param order_key_hex:
         Order key for logging
     :return:
-        OrderStatusResult with execution details
+        OrderStatusResult with execution details, or ``None`` if the receipt
+        for the Subsquid-reported tx cannot be fetched (e.g. the tx lives on
+        the live chain but we are running against an Anvil fork).  Returning
+        ``None`` causes the caller to fall through to the on-chain RPC log scan.
     """
     tx_hash = action.get("transaction", {}).get("hash")
     event_name = action.get("eventName", "unknown")
@@ -330,7 +333,15 @@ def _build_result_from_subsquid_action(
             execution_receipt = dict(receipt)
             execution_block = receipt.get("blockNumber")
         except Exception as e:
-            logger.warning("Could not fetch receipt for tx %s: %s", tx_hash, e)
+            logger.warning(
+                "Could not fetch receipt for tx %s: %s — falling back to on-chain log scan",
+                tx_hash,
+                e,
+            )
+            # Return None so check_order_status() falls through to the RPC log
+            # scan.  This handles the case where Subsquid returns a tx from the
+            # live chain that does not exist on an Anvil fork.
+            return None
 
     return OrderStatusResult(
         is_pending=False,
