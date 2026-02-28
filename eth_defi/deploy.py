@@ -193,10 +193,17 @@ def deploy_contract(
         Contract = contract
         contract_name = None
 
-    if isinstance(deployer, HotWallet):
-        # Sign locally with managed nonce counter (avoids stale RPC nonce reads)
-        nonce = deployer.allocate_nonce()
-        local_account = deployer.account
+    if isinstance(deployer, (HotWallet, LocalAccount)):
+        # Normalise deployer to (nonce, LocalAccount).
+        # HotWallet uses its internal nonce counter (avoids stale reads
+        # from load-balanced RPCs); plain LocalAccount reads from chain.
+        if isinstance(deployer, HotWallet):
+            nonce = deployer.allocate_nonce()
+            local_account = deployer.account
+        else:
+            nonce = web3.eth.get_transaction_count(deployer.address)
+            local_account = deployer
+
         tx_params = {
             "from": local_account.address,
             "nonce": nonce,
@@ -207,21 +214,6 @@ def deploy_contract(
         tx_data = Contract.constructor(*constructor_args).build_transaction(tx_params)
 
         signed_tx = local_account.sign_transaction(tx_data)
-        raw_bytes = get_tx_broadcast_data(signed_tx)
-        tx_hash = web3.eth.send_raw_transaction(raw_bytes)
-    elif isinstance(deployer, LocalAccount):
-        # Sign locally — reads nonce from chain (may be stale with load-balanced RPCs)
-        nonce = web3.eth.get_transaction_count(deployer.address)
-        tx_params = {
-            "from": deployer.address,
-            "nonce": nonce,
-            "chainId": web3.eth.chain_id,
-        }
-        if gas:
-            tx_params["gas"] = gas
-        tx_data = Contract.constructor(*constructor_args).build_transaction(tx_params)
-
-        signed_tx = deployer.sign_transaction(tx_data)
         raw_bytes = get_tx_broadcast_data(signed_tx)
         tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     else:

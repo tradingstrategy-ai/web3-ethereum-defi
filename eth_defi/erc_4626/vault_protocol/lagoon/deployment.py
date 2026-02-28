@@ -691,6 +691,17 @@ def deploy_lagoon(
 
     chain_id = web3.eth.chain_id
 
+    def _resolve_deployer():
+        """Normalise deployer to (nonce, LocalAccount).
+
+        When deployer is a :class:`~eth_defi.hotwallet.HotWallet`, uses its
+        internal nonce counter (avoids stale reads from load-balanced RPCs).
+        For a plain :class:`LocalAccount`, falls back to on-chain nonce lookup.
+        """
+        if isinstance(deployer, HotWallet):
+            return deployer.allocate_nonce(), deployer.account
+        return web3.eth.get_transaction_count(deployer.address), deployer
+
     logger.info(
         "Deploying Lagoon vault on chain %d, deployer is %s, legacy is %s",
         chain_id,
@@ -755,23 +766,18 @@ def deploy_lagoon(
                 False,
             )
 
-        if isinstance(deployer, HotWallet):
-            _init_nonce = deployer.allocate_nonce()
-            _init_acct = deployer.account
-        else:
-            _init_nonce = web3.eth.get_transaction_count(deployer.address)
-            _init_acct = deployer
+        nonce, acct = _resolve_deployer()
         tx_params = vault.functions.initialize(
             init_struct,
         ).build_transaction(
             {
                 "gas": 2_000_000,
                 "chainId": chain_id,
-                "nonce": _init_nonce,
+                "nonce": nonce,
             }
         )
 
-        signed_tx = _init_acct.sign_transaction(tx_params)
+        signed_tx = acct.sign_transaction(tx_params)
         raw_bytes = get_tx_broadcast_data(signed_tx)
         tx_hash = web3.eth.send_raw_transaction(raw_bytes)
         assert_transaction_success_with_explanation(web3, tx_hash)
@@ -821,19 +827,14 @@ def deploy_lagoon(
             case _:
                 raise NotImplementedError(f"Unknown Lagoon proxy factory ABI pattern: {beacon_proxy_factory_abi}")
 
-        if isinstance(deployer, HotWallet):
-            nonce = deployer.allocate_nonce()
-            _local_acct = deployer.account
-        else:
-            nonce = web3.eth.get_transaction_count(deployer.address)
-            _local_acct = deployer
+        nonce, acct = _resolve_deployer()
         tx_params = {
             "gas": 2_000_000,
             "chainId": chain_id,
             "nonce": nonce,
         }
         tx_data = bound_func.build_transaction(tx_params)
-        signed_tx = _local_acct.sign_transaction(tx_data)
+        signed_tx = acct.sign_transaction(tx_data)
         raw_bytes = get_tx_broadcast_data(signed_tx)
         tx_hash = web3.eth.send_raw_transaction(raw_bytes)
         receipt = assert_transaction_success_with_explanation(web3, tx_hash)
