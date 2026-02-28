@@ -6618,7 +6618,9 @@ class GMX(ExchangeCompatible):
                 on_chain_nonce = self.web3.eth.get_transaction_count(self.wallet.address)
                 logger.warning(
                     "Nonce too high in %s (signed %d, chain at %d) – resyncing and retrying",
-                    context, signed_tx.nonce, on_chain_nonce,
+                    context,
+                    signed_tx.nonce,
+                    on_chain_nonce,
                 )
                 # Direct assignment bypasses sync_nonce()'s stale-read guard —
                 # the RPC error confirms the on-chain state is authoritative.
@@ -6626,12 +6628,12 @@ class GMX(ExchangeCompatible):
             elif "nonce too low" in err:
                 # Wallet counter behind the chain (external tx mined, or mempool race).
                 # Use "pending" to account for already-queued transactions.
-                on_chain_nonce = self.web3.eth.get_transaction_count(
-                    self.wallet.address, "pending"
-                )
+                on_chain_nonce = self.web3.eth.get_transaction_count(self.wallet.address, "pending")
                 logger.warning(
                     "Nonce too low in %s (signed %d, chain pending at %d) – resyncing and retrying",
-                    context, signed_tx.nonce, on_chain_nonce,
+                    context,
+                    signed_tx.nonce,
+                    on_chain_nonce,
                 )
                 # Direct assignment bypasses sync_nonce()'s stale-read guard —
                 # the RPC error confirms the on-chain state is authoritative.
@@ -6646,9 +6648,7 @@ class GMX(ExchangeCompatible):
             try:
                 return self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
             except Web3RPCError as retry_err:
-                raise Web3RPCError(
-                    f"Nonce recovery retry failed in {context} (original error: {err!r}): {retry_err}"
-                ) from retry_err
+                raise Web3RPCError(f"Nonce recovery retry failed in {context} (original error: {err!r}): {retry_err}") from retry_err
 
     def cancel_order(
         self,
@@ -7275,8 +7275,7 @@ class GMX(ExchangeCompatible):
                             self._orders[id] = recovered
                             self._orders[normalized_id] = recovered
                             logger.info(
-                                "ORDER_TRACE: fetch_order(%s) - RECOVERED via pending orders "
-                                "(tx not on node), order still active on GMX, order_key=%s",
+                                "ORDER_TRACE: fetch_order(%s) - RECOVERED via pending orders (tx not on node), order still active on GMX, order_key=%s",
                                 id[:16],
                                 matching[0].get("info", {}).get("order_key", "?")[:18],
                             )

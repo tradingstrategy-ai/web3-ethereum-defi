@@ -1,6 +1,11 @@
 """Shared utilities for GMX example scripts.
 
 Provides helpers that are used across multiple scripts to avoid duplication.
+
+.. note::
+    Scripts import this module as ``from scripts.gmx.script_utils import ...``.
+    This requires the scripts to be run from the repository root (where ``scripts/``
+    is on the Python path), e.g. ``poetry run python scripts/gmx/my_script.py``.
 """
 
 from eth_defi.gmx.contracts import get_token_address_normalized
@@ -34,9 +39,7 @@ def fetch_eth_spot_price(chain: str) -> float:
                 break
 
     if price_data is None:
-        raise RuntimeError(
-            f"Could not find ETH/WETH price in GMX oracle response for chain '{chain}'"
-        )
+        raise RuntimeError(f"Could not find ETH/WETH price in GMX oracle response for chain '{chain}'")
 
     # GMX stores WETH price as USD × 10^12 (30-decimal precision, WETH has 18 decimals)
     return int(price_data["maxPriceFull"]) / 10**12
