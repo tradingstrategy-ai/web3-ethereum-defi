@@ -27,17 +27,17 @@ logger = logging.getLogger(__name__)
 
 
 # Subsquid GraphQL endpoints by chain (primary)
-# Arbitrum uses a versioned hash rather than :prod alias; see gmx-interface/src/config/indexers.ts
+# Official :prod aliases per GMX docs. If :prod becomes unresponsive, the versioned hash backup is used.
 GMX_SUBSQUID_ENDPOINTS = {
-    "arbitrum": "https://gmx.squids.live/gmx-synthetics-arbitrum@5acc9d/api/graphql",
+    "arbitrum": "https://gmx.squids.live/gmx-synthetics-arbitrum:prod/api/graphql",
     "avalanche": "https://gmx.squids.live/gmx-synthetics-avalanche:prod/api/graphql",
     "arbitrum_sepolia": "https://gmx.squids.live/gmx-synthetics-arb-sepolia:prod/api/graphql",
 }
 
 # Subsquid GraphQL backup endpoints by chain (versioned deployments)
-# arbitrum :prod alias is kept as backup; it was non-responsive as of 2026-02-26 but may be restored
+# @5acc9d is the active Arbitrum versioned hash as of 2026-02-26; see gmx-interface/src/config/indexers.ts
 GMX_SUBSQUID_ENDPOINTS_BACKUP = {
-    "arbitrum": "https://gmx.squids.live/gmx-synthetics-arbitrum:prod/api/graphql",
+    "arbitrum": "https://gmx.squids.live/gmx-synthetics-arbitrum@5acc9d/api/graphql",
     "avalanche": "https://gmx.squids.live/gmx-synthetics-avalanche@cc00ce/api/graphql",
     "arbitrum_sepolia": "https://gmx.squids.live/gmx-synthetics-arb-sepolia:prod/api/graphql",
 }
