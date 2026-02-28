@@ -6,6 +6,8 @@ across different chains and price types, with tests updated to match
 the actual output structure of the get_data() method.
 """
 
+import math
+
 import pytest
 import time
 
@@ -64,13 +66,14 @@ def test_get_gm_prices_direct_call(chain_name, get_gm_prices):
         # Note: May be empty due to network/oracle issues
         # Just verify structure is correct
 
-        # Verify all values are numeric (float) if we have data
+        # Verify all values are numeric (float) if we have data.
+        # GM pool prices can be negative for distressed markets: GMX Reader's
+        # getMarketTokenPrice returns a signed int256 and does not revert when
+        # pool liabilities exceed assets (e.g. OM/MANTRA crash, April 2025).
         if len(prices_data["gm_prices"]) > 0:
             for market, price in prices_data["gm_prices"].items():
                 assert isinstance(price, float), f"Price for {market} should be float, got {type(price)}"
-                # Note: UNKNOWN market can have price 0.0
-                if market != "UNKNOWN":
-                    assert price != 0, f"Price for {market} should be non-zero, got {price}"
+                assert math.isfinite(price), f"Price for {market} should be a finite number, got {price}"
 
         # print(f"\n{chain_name.upper()}: GetGMPrices ({price_type}) completed in {execution_time:.2f} seconds")
         # print(f"{chain_name.upper()}: Retrieved prices for {len(prices_data['gm_prices'])} markets")
@@ -302,11 +305,14 @@ def test_get_gm_prices_comprehensive_data(chain_name, get_gm_prices):
         deposits_price = price_types["deposits"][market]
         withdrawals_price = price_types["withdrawals"][market]
 
-        # In current implementation, all price types return identical values
-        assert traders_price == pytest.approx(deposits_price, rel=0.01), f"Traders/deposits prices differ for {market}: traders={traders_price}, deposits={deposits_price}"
-        assert traders_price == pytest.approx(withdrawals_price, rel=0.01), f"Traders/withdrawals prices differ for {market}: traders={traders_price}, withdrawals={withdrawals_price}"
-
-        # Verify price is a float and (except for UNKNOWN) non-zero
-        assert isinstance(traders_price, float)
-        if market != "UNKNOWN":
-            assert traders_price != 0
+        # Each PNL factor type (traders / deposits / withdrawals) caps how much
+        # pending PnL is counted against the pool, so prices legitimately differ
+        # across types — especially for distressed markets.  We only assert all
+        # three are finite floats.  Negative values are valid per the GMX Reader
+        # contract (signed int256 return, no revert on negative pool value).
+        assert isinstance(traders_price, float), f"Traders price for {market} should be float"
+        assert isinstance(deposits_price, float), f"Deposits price for {market} should be float"
+        assert isinstance(withdrawals_price, float), f"Withdrawals price for {market} should be float"
+        assert math.isfinite(traders_price), f"Traders price for {market} should be finite, got {traders_price}"
+        assert math.isfinite(deposits_price), f"Deposits price for {market} should be finite, got {deposits_price}"
+        assert math.isfinite(withdrawals_price), f"Withdrawals price for {market} should be finite, got {withdrawals_price}"
