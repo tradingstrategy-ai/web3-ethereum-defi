@@ -1271,8 +1271,11 @@ class GMX(Exchange):
         if params is None:
             params = {}
 
-        # Read execution_buffer from params or fall back to ccxt_config value.
-        execution_buffer = params.get("execution_buffer", self.options.get("executionBuffer", 2.2))
+        # Read execution_buffer from params or fall back to instance variable, then ccxt_config value.
+        execution_buffer = params.get(
+            "execution_buffer",
+            getattr(self, "execution_buffer", self.options.get("executionBuffer", 2.2)),
+        )
 
         # Normalise id → bytes32, resolving tx-hash → order_key via cache if needed.
         # freqtrade stores the tx_hash returned by create_stoploss(); the GMX
@@ -1407,7 +1410,10 @@ class GMX(Exchange):
         if params is None:
             params = {}
 
-        execution_buffer = params.get("execution_buffer", self.options.get("executionBuffer", 2.2))
+        execution_buffer = params.get(
+            "execution_buffer",
+            getattr(self, "execution_buffer", self.options.get("executionBuffer", 2.2)),
+        )
 
         order_keys: list[bytes] = []
         resolved_ids: list[str] = []
