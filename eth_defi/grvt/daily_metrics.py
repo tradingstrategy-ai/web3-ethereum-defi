@@ -33,6 +33,7 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.grvt.constants import GRVT_DAILY_METRICS_DATABASE
 from eth_defi.grvt.vault import (
     GRVTVaultSummary,
+    build_vault_description,
     fetch_vault_details,
     fetch_vault_listing_graphql,
     fetch_vault_summary_history,
@@ -292,12 +293,12 @@ def fetch_and_store_vault(
         logger.debug("Skipping vault %s (%s): empty share price history", summary.name, summary.vault_id)
         return False
 
-    # Store metadata
+    # Store metadata with merged markdown description
     db.upsert_vault_metadata(
         vault_id=summary.vault_id,
         chain_vault_id=summary.chain_vault_id,
         name=summary.name,
-        description=summary.description,
+        description=build_vault_description(summary),
         vault_type=summary.vault_type,
         manager_name=summary.manager_name,
         tvl=summary.tvl,

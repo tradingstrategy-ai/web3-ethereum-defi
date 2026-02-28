@@ -51,8 +51,17 @@ class GRVTVaultSummary:
     #: Vault display name
     name: str
 
-    #: Description of the strategy
+    #: Short description of the strategy
     description: str
+
+    #: Manager biography ("Things to know about the trader" on the strategies page)
+    manager_bio: str
+
+    #: Investment philosophy ("How they trade" on the strategies page)
+    investment_philosophy: str
+
+    #: Risk management process ("How they manage risks" on the strategies page)
+    risk_management_process: str
 
     #: Vault type (``prime`` or ``launchpad``)
     vault_type: str
@@ -138,6 +147,9 @@ query VaultListingQuery($first: Int, $where: VaultWhereInput) {
                 discoverable
                 status
                 managerName
+                managerBio
+                investmentPhilosophy
+                riskManagementProcess
                 managementFee
                 performanceFee
                 createTime
@@ -181,6 +193,9 @@ def _graphql_node_to_summary(node: dict[str, Any]) -> GRVTVaultSummary:
         chain_vault_id=int(node["chainVaultID"]),
         name=node.get("name", ""),
         description=node.get("description", ""),
+        manager_bio=node.get("managerBio", ""),
+        investment_philosophy=node.get("investmentPhilosophy", ""),
+        risk_management_process=node.get("riskManagementProcess", ""),
         vault_type=node.get("type", ""),
         discoverable=node.get("discoverable", False),
         status=node.get("status", ""),
@@ -190,6 +205,37 @@ def _graphql_node_to_summary(node: dict[str, Any]) -> GRVTVaultSummary:
         management_fee=management_fee,
         performance_fee=performance_fee,
     )
+
+
+def build_vault_description(summary: GRVTVaultSummary) -> str:
+    """Build a merged markdown description from all GRVT vault description fields.
+
+    Combines the short description, manager bio, investment philosophy,
+    and risk management process into a single markdown string with headings
+    matching the GRVT strategies page layout.
+
+    Only includes sections where the text is non-empty.
+
+    :param summary:
+        Vault summary with description fields populated from the GraphQL API.
+    :return:
+        Merged markdown description, or empty string if all fields are empty.
+    """
+    parts = []
+
+    if summary.description:
+        parts.append(summary.description.strip())
+
+    if summary.manager_bio:
+        parts.append(f"## About the vault leader\n\n{summary.manager_bio.strip()}")
+
+    if summary.investment_philosophy:
+        parts.append(f"## Trading strategy\n\n{summary.investment_philosophy.strip()}")
+
+    if summary.risk_management_process:
+        parts.append(f"## Risk management\n\n{summary.risk_management_process.strip()}")
+
+    return "\n\n".join(parts)
 
 
 def fetch_vault_listing_graphql(
