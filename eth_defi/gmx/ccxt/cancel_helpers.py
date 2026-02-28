@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def resolve_order_id(
-    orders_cache: dict,
+    orders_cache: dict[str, dict],
     raw_id: str,
     log_context: str = "cancel_order",
 ) -> tuple[str, bytes]:
@@ -33,7 +33,7 @@ def resolve_order_id(
     ``_create_standalone_sltp_order()``.
 
     :param orders_cache:
-        The exchange's ``_orders`` dict mapping tx_hash → cached order dict.
+        The exchange's ``_orders`` dict mapping tx_hash -> cached order dict.
     :param raw_id:
         Order id as supplied by the caller — ``"0x..."`` or bare hex.
     :param log_context:
@@ -51,7 +51,7 @@ def resolve_order_id(
         _cached_key = _cached.get("info", {}).get("order_key")
         if _cached_key:
             logger.debug(
-                "%s: resolved tx_hash %s → order_key %s via cache",
+                "%s: resolved tx_hash %s -> order_key %s via cache",
                 log_context,
                 raw_id[:18],
                 _cached_key[:18],

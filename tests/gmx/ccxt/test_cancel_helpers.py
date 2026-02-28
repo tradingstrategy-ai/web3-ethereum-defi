@@ -1,0 +1,100 @@
+"""Unit tests for eth_defi.gmx.ccxt.cancel_helpers.
+
+These tests exercise pure logic only — no blockchain RPC calls required.
+"""
+import pytest
+
+from eth_defi.gmx.ccxt.cancel_helpers import build_cancel_order_response, resolve_order_id
+
+# A valid 64-hex-char order key (32 bytes)
+_VALID_KEY = "a" * 64
+_VALID_KEY_0X = "0x" + _VALID_KEY
+
+
+class TestResolveOrderId:
+    def test_bare_hex_passthrough(self):
+        """A raw 64-char hex string with no cache entry is returned as-is."""
+        resolved_id, order_key = resolve_order_id({}, _VALID_KEY)
+        assert resolved_id == _VALID_KEY
+        assert order_key == bytes.fromhex(_VALID_KEY)
+
+    def test_0x_prefixed_passthrough(self):
+        """A 0x-prefixed key with no cache entry strips prefix for bytes but keeps 0x in str."""
+        resolved_id, order_key = resolve_order_id({}, _VALID_KEY_0X)
+        assert resolved_id == _VALID_KEY_0X
+        assert order_key == bytes.fromhex(_VALID_KEY)
+
+    def test_tx_hash_resolves_via_cache(self):
+        """A tx_hash stored in the cache resolves to the cached order_key."""
+        tx_hash = "0xdeadbeef"
+        cached_key = _VALID_KEY_0X
+        cache = {tx_hash: {"info": {"order_key": cached_key}}}
+
+        resolved_id, order_key = resolve_order_id(cache, tx_hash)
+        assert resolved_id == cached_key
+        assert order_key == bytes.fromhex(_VALID_KEY)
+
+    def test_bare_tx_hash_also_resolved_via_cache(self):
+        """A tx_hash without 0x prefix is still found in cache via normalisation."""
+        tx_hash_bare = "deadbeef"
+        tx_hash_0x = "0x" + tx_hash_bare
+        cached_key = _VALID_KEY_0X
+        cache = {tx_hash_bare: {"info": {"order_key": cached_key}}}
+
+        resolved_id, _ = resolve_order_id(cache, tx_hash_bare)
+        assert resolved_id == cached_key
+
+    def test_cache_entry_without_order_key_is_ignored(self):
+        """Cache hit where 'order_key' is absent falls through to raw id validation."""
+        cache = {"0xdeadbeef": {"info": {}}}
+        # _VALID_KEY is the raw_id — not a tx_hash, so it passes validation
+        resolved_id, _ = resolve_order_id(cache, _VALID_KEY)
+        assert resolved_id == _VALID_KEY
+
+    def test_invalid_key_too_short_raises(self):
+        """A key shorter than 64 hex chars raises ValueError."""
+        with pytest.raises(ValueError, match="expected 32-byte"):
+            resolve_order_id({}, "0xdeadbeef")
+
+    def test_invalid_key_too_long_raises(self):
+        """A key longer than 64 hex chars raises ValueError."""
+        with pytest.raises(ValueError, match="expected 32-byte"):
+            resolve_order_id({}, "a" * 65)
+
+
+class TestBuildCancelOrderResponse:
+    def _iso8601(self, ms: int) -> str:
+        return f"2026-01-01T00:00:00.{ms:03d}Z"
+
+    def test_basic_structure(self):
+        """Response contains all required CCXT fields."""
+        resp = build_cancel_order_response(
+            order_id=_VALID_KEY_0X,
+            symbol="ETH/USDC:USDC",
+            tx_hash="0xabc123",
+            block_number=12345,
+            timestamp_ms=1000,
+            iso8601_fn=self._iso8601,
+        )
+        assert resp["id"] == _VALID_KEY_0X
+        assert resp["status"] == "cancelled"
+        assert resp["symbol"] == "ETH/USDC:USDC"
+        assert resp["filled"] == 0.0
+        assert resp["info"]["order_key"] == _VALID_KEY_0X
+        assert resp["info"]["tx_hash"] == "0xabc123"
+        assert resp["info"]["block_number"] == 12345
+        assert resp["timestamp"] == 1000
+        assert resp["datetime"] == self._iso8601(1000)
+
+    def test_none_symbol_allowed(self):
+        """symbol=None is a valid CCXT-compatible value."""
+        resp = build_cancel_order_response(
+            order_id=_VALID_KEY_0X,
+            symbol=None,
+            tx_hash="0xabc",
+            block_number=None,
+            timestamp_ms=0,
+            iso8601_fn=self._iso8601,
+        )
+        assert resp["symbol"] is None
+        assert resp["info"]["block_number"] is None
