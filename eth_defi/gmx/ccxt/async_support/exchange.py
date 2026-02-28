@@ -35,6 +35,7 @@ from eth_defi.gmx.core import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.events import decode_gmx_event, extract_order_key_from_receipt
+from eth_defi.gmx.ccxt.cancel_helpers import build_cancel_order_response, resolve_order_id
 from eth_defi.gmx.order.cancel_order import CancelOrder
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
@@ -1278,27 +1279,7 @@ class GMX(Exchange):
             getattr(self, "execution_buffer", self.options.get("executionBuffer", 2.2)),
         )
 
-        # Normalise id → bytes32, resolving tx-hash → order_key via cache if needed.
-        # freqtrade stores the tx_hash returned by create_stoploss(); the GMX
-        # DataStore uses a separate order_key.  Look up the mapping in _orders.
-        _lookup_id = id if id.startswith("0x") else "0x" + id
-        _cached = self._orders.get(id) or self._orders.get(_lookup_id)
-        if _cached:
-            _cached_key = _cached.get("info", {}).get("order_key")
-            if _cached_key:
-                logger.debug(
-                    "cancel_order: resolved tx_hash %s → order_key %s via cache",
-                    id[:18],
-                    _cached_key[:18],
-                )
-                id = _cached_key
-
-        hex_str = id.removeprefix("0x")
-        if len(hex_str) != 64:
-            raise ValueError(
-                f"Invalid order key '{id}': expected 32-byte (64 hex chars) key, got {len(hex_str)} chars.",
-            )
-        order_key = bytes.fromhex(hex_str)
+        id, order_key = resolve_order_id(self._orders, id, "cancel_order")
 
         chain = self.config.get_chain()
 
@@ -1335,39 +1316,14 @@ class GMX(Exchange):
 
         logger.info("Order %s cancelled successfully: tx_hash=%s", id[:18], tx_hash)
 
-        return {
-            "id": id,
-            "clientOrderId": None,
-            "timestamp": self.milliseconds(),
-            "datetime": self.iso8601(self.milliseconds()),
-            "lastTradeTimestamp": None,
-            "status": "cancelled",
-            "symbol": symbol,
-            "type": None,
-            "timeInForce": None,
-            "side": None,
-            "price": None,
-            "amount": None,
-            "filled": 0.0,
-            "remaining": None,
-            "cost": None,
-            "trades": [],
-            "fee": None,
-            "info": {
-                "status": "ok",
-                "response": {
-                    "type": "cancel",
-                    "data": {
-                        "statuses": ["success"],
-                    },
-                },
-                "order_key": id,
-                "tx_hash": tx_hash,
-                "block_number": receipt.get("blockNumber"),
-            },
-            "average": None,
-            "fees": [],
-        }
+        return build_cancel_order_response(
+            order_id=id,
+            symbol=symbol,
+            tx_hash=tx_hash,
+            block_number=receipt.get("blockNumber"),
+            timestamp_ms=self.milliseconds(),
+            iso8601_fn=self.iso8601,
+        )
 
     async def cancel_orders(
         self,
@@ -1422,31 +1378,11 @@ class GMX(Exchange):
         chain = self.config.get_chain()
 
         for raw_id in ids:
-            # Resolve tx_hash → order_key via cache (same logic as cancel_order)
-            _lookup_id = raw_id if raw_id.startswith("0x") else "0x" + raw_id
-            _cached = self._orders.get(raw_id) or self._orders.get(_lookup_id)
-            if _cached:
-                _cached_key = _cached.get("info", {}).get("order_key")
-                if _cached_key:
-                    logger.debug(
-                        "cancel_orders: resolved tx_hash %s → order_key %s via cache",
-                        raw_id[:18],
-                        _cached_key[:18],
-                    )
-                    raw_id = _cached_key
-
-            hex_str = raw_id.removeprefix("0x")
-            if len(hex_str) != 64:
-                raise ValueError(
-                    f"Invalid order key '{raw_id}': expected 32-byte (64 hex chars) key, got {len(hex_str)} chars.",
-                )
-            order_key = bytes.fromhex(hex_str)
-
+            raw_id, order_key = resolve_order_id(self._orders, raw_id, "cancel_orders")
             if not is_order_pending(self.sync_web3, order_key, chain):
                 raise OrderNotFound(
                     f"{self.id} order {raw_id} not found in DataStore (may have already been executed or cancelled).",
                 )
-
             order_keys.append(order_key)
             resolved_ids.append(raw_id)
 
@@ -1483,39 +1419,14 @@ class GMX(Exchange):
         timestamp = self.milliseconds()
         block_number = receipt.get("blockNumber")
         return [
-            {
-                "id": resolved_id,
-                "clientOrderId": None,
-                "timestamp": timestamp,
-                "datetime": self.iso8601(timestamp),
-                "lastTradeTimestamp": None,
-                "status": "cancelled",
-                "symbol": symbol,
-                "type": None,
-                "timeInForce": None,
-                "side": None,
-                "price": None,
-                "amount": None,
-                "filled": 0.0,
-                "remaining": None,
-                "cost": None,
-                "trades": [],
-                "fee": None,
-                "info": {
-                    "status": "ok",
-                    "response": {
-                        "type": "cancel",
-                        "data": {
-                            "statuses": ["success"],
-                        },
-                    },
-                    "order_key": resolved_id,
-                    "tx_hash": tx_hash,
-                    "block_number": block_number,
-                },
-                "average": None,
-                "fees": [],
-            }
+            build_cancel_order_response(
+                order_id=resolved_id,
+                symbol=symbol,
+                tx_hash=tx_hash,
+                block_number=block_number,
+                timestamp_ms=timestamp,
+                iso8601_fn=self.iso8601,
+            )
             for resolved_id in resolved_ids
         ]
 
