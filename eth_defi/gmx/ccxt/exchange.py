@@ -88,7 +88,13 @@ def _get_logs_adaptive(web3, address: str, from_block: int, to_block: int) -> li
     :raises ExtraValueError: Re-raised when the range is already at the minimum and still overflows.
     """
     try:
-        return web3.eth.get_logs({"address": address, "fromBlock": from_block, "toBlock": to_block})
+        return web3.eth.get_logs(
+            {
+                "address": address,
+                "fromBlock": from_block,
+                "toBlock": to_block,
+            }
+        )
     except ExtraValueError as exc:
         payload = exc.args[0] if exc.args else {}
         msg = payload.get("message", "") if isinstance(payload, dict) else str(payload)

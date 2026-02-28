@@ -53,7 +53,12 @@ logger = logging.getLogger(__name__)
 _MIN_LOG_CHUNK_BLOCKS = 100
 
 
-async def _get_logs_adaptive_async(async_web3: AsyncWeb3, address: str, from_block: int, to_block: int) -> list:
+async def _get_logs_adaptive_async(
+    async_web3: AsyncWeb3,
+    address: str,
+    from_block: int,
+    to_block: int,
+) -> list:
     """Async version of adaptive eth_getLogs that bisects the range on log-count overflow.
 
     See ``eth_defi.gmx.ccxt.exchange._get_logs_adaptive`` for full documentation.
@@ -66,7 +71,13 @@ async def _get_logs_adaptive_async(async_web3: AsyncWeb3, address: str, from_blo
     :raises ExtraValueError: Re-raised when the range is already at the minimum and still overflows.
     """
     try:
-        return await async_web3.eth.get_logs({"address": address, "fromBlock": from_block, "toBlock": to_block})
+        return await async_web3.eth.get_logs(
+            {
+                "address": address,
+                "fromBlock": from_block,
+                "toBlock": to_block,
+            }
+        )
     except ExtraValueError as exc:
         payload = exc.args[0] if exc.args else {}
         msg = payload.get("message", "") if isinstance(payload, dict) else str(payload)
