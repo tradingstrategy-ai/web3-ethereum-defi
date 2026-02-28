@@ -109,7 +109,6 @@ def test_fetch_ticker_disabled_sanity_check(chain_rpc_url):
         pytest.fail("Price sanity check should not run when disabled")
 
 
-
 def test_fetch_ticker_multiple_markets(chain_rpc_url):
     """Test price sanity checks work for multiple markets.
 

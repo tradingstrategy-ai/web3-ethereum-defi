@@ -157,7 +157,11 @@ class CancelOrder:
             gas_limit=gas_limit,
         )
 
-    def cancel_orders(self, order_keys: list[bytes], execution_buffer: float = DEFAULT_EXECUTION_BUFFER,) -> BatchCancelOrderResult:
+    def cancel_orders(
+        self,
+        order_keys: list[bytes],
+        execution_buffer: float = DEFAULT_EXECUTION_BUFFER,
+    ) -> BatchCancelOrderResult:
         """Build an unsigned transaction to cancel multiple pending orders at once.
 
         Batches all ``cancelOrder`` calls into a single ``multicall`` transaction

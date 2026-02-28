@@ -149,16 +149,14 @@ def _prompt_selection(orders: list[PendingOrder]) -> list[PendingOrder]:
     :return: Subset of orders selected for cancellation.
     """
     console.print()
-    console.print(Panel(
-        "[dim]  [bold white]all[/bold white]       – cancel every order\n"
-        "  [bold white]sl[/bold white]        – cancel [bold red]stop-loss[/bold red] orders only\n"
-        "  [bold white]tp[/bold white]        – cancel [bold green]take-profit[/bold green] orders only\n"
-        "  [bold white]1,2,3[/bold white]     – cancel specific orders by number\n"
-        "  [bold white]q[/bold white] / Enter – quit without cancelling[/dim]",
-        title="[bold]Select orders to cancel[/bold]",
-        border_style="bright_black",
-        expand=False,
-    ))
+    console.print(
+        Panel(
+            "[dim]  [bold white]all[/bold white]       – cancel every order\n  [bold white]sl[/bold white]        – cancel [bold red]stop-loss[/bold red] orders only\n  [bold white]tp[/bold white]        – cancel [bold green]take-profit[/bold green] orders only\n  [bold white]1,2,3[/bold white]     – cancel specific orders by number\n  [bold white]q[/bold white] / Enter – quit without cancelling[/dim]",
+            title="[bold]Select orders to cancel[/bold]",
+            border_style="bright_black",
+            expand=False,
+        )
+    )
     console.print()
 
     choice = Prompt.ask("[bold cyan]Your choice[/bold cyan]", default="q").strip().lower()
@@ -231,13 +229,14 @@ def main() -> None:
     config = GMXConfig(web3=web3, user_wallet_address=wallet_address, wallet=hot_wallet)
     chain = config.get_chain()
 
-    console.print(Panel(
-        f"[bold]Chain:[/bold]   [cyan]{chain}[/cyan] (chain_id=[cyan]{web3.eth.chain_id}[/cyan])\n"
-        f"[bold]Wallet:[/bold]  [cyan]{wallet_address}[/cyan]",
-        title="[bold]Connection[/bold]",
-        border_style="blue",
-        expand=False,
-    ))
+    console.print(
+        Panel(
+            f"[bold]Chain:[/bold]   [cyan]{chain}[/cyan] (chain_id=[cyan]{web3.eth.chain_id}[/cyan])\n[bold]Wallet:[/bold]  [cyan]{wallet_address}[/cyan]",
+            title="[bold]Connection[/bold]",
+            border_style="blue",
+            expand=False,
+        )
+    )
 
     # Fetch pending orders from GMX DataStore
     logger.info("Fetching pending orders from GMX DataStore…")
@@ -271,12 +270,14 @@ def main() -> None:
             f"${o.trigger_price_usd:,.4f}",
         )
 
-    console.print(Panel(
-        confirm_table,
-        title=f"[bold]Cancelling {len(selected)} order(s)[/bold]",
-        border_style="yellow",
-        expand=False,
-    ))
+    console.print(
+        Panel(
+            confirm_table,
+            title=f"[bold]Cancelling {len(selected)} order(s)[/bold]",
+            border_style="yellow",
+            expand=False,
+        )
+    )
 
     confirm = Prompt.ask("[bold yellow]Proceed?[/bold yellow] [dim]\[y/N][/dim]", default="n").strip().lower()
     if confirm not in ("y", "yes"):
@@ -307,22 +308,23 @@ def main() -> None:
         receipt = web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
 
     if receipt.get("status") == 1:
-        console.print(Panel(
-            f"[bold green]✓ {len(order_keys)} order(s) cancelled[/bold green]\n"
-            f"[bold]Block:[/bold]    [cyan]{receipt['blockNumber']}[/cyan]\n"
-            f"[bold]Gas used:[/bold] [cyan]{receipt['gasUsed']:,}[/cyan]\n"
-            f"[bold]TX:[/bold]       [cyan]{tx_hash}[/cyan]",
-            title="[bold green]Success[/bold green]",
-            border_style="green",
-            expand=False,
-        ))
+        console.print(
+            Panel(
+                f"[bold green]✓ {len(order_keys)} order(s) cancelled[/bold green]\n[bold]Block:[/bold]    [cyan]{receipt['blockNumber']}[/cyan]\n[bold]Gas used:[/bold] [cyan]{receipt['gasUsed']:,}[/cyan]\n[bold]TX:[/bold]       [cyan]{tx_hash}[/cyan]",
+                title="[bold green]Success[/bold green]",
+                border_style="green",
+                expand=False,
+            )
+        )
     else:
-        console.print(Panel(
-            f"[bold red]Transaction reverted[/bold red]\n[dim]{tx_hash}[/dim]",
-            title="[bold red]Failed[/bold red]",
-            border_style="red",
-            expand=False,
-        ))
+        console.print(
+            Panel(
+                f"[bold red]Transaction reverted[/bold red]\n[dim]{tx_hash}[/dim]",
+                title="[bold red]Failed[/bold red]",
+                border_style="red",
+                expand=False,
+            )
+        )
         sys.exit(1)
 
 

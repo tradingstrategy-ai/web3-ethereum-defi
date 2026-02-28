@@ -2,6 +2,7 @@
 
 These tests exercise pure logic only — no blockchain RPC calls required.
 """
+
 import pytest
 
 from eth_defi.gmx.ccxt.cancel_helpers import build_cancel_order_response, resolve_order_id

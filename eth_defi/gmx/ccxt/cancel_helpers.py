@@ -15,6 +15,7 @@ without inheriting from each other (they have different CCXT base classes).
     key) is still duplicated.  A multicall-based batch validator would also
     remove the O(N) RPC overhead documented in cancel_orders().
 """
+
 import logging
 from collections.abc import Callable
 
