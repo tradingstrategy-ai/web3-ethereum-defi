@@ -28,6 +28,7 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 from eth_defi.gmx.order import OrderResult
+from eth_defi.gmx.whitelist import GMXDeployment
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.hotwallet import HotWallet
@@ -104,7 +105,7 @@ def _create_lagoon_gmx_fork_env(rpc_url: str) -> LagoonGMXForkEnv:
         default_http_timeout=(3.0, 180.0),
     )
 
-    logger.info(f"Forked Arbitrum at block {web3.eth.block_number}")
+    logger.info("Forked Arbitrum at block %s", web3.eth.block_number)
 
     # === Step 2: Setup mock oracle FIRST ===
     setup_mock_oracle(web3)
@@ -140,7 +141,18 @@ def _create_lagoon_gmx_fork_env(rpc_url: str) -> LagoonGMXForkEnv:
         symbol="TGMX",
     )
 
-    logger.info("Deploying Lagoon vault...")
+    # ETH/USDC market address on Arbitrum
+    GMX_ETH_USDC_MARKET = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
+
+    gmx_deployment = GMXDeployment(
+        exchange_router=GMX_EXCHANGE_ROUTER,
+        synthetics_router=GMX_SYNTHETICS_ROUTER,
+        order_vault=GMX_ORDER_VAULT,
+        markets=[GMX_ETH_USDC_MARKET],
+        tokens=[WETH_ARBITRUM, USDC_ARBITRUM],
+    )
+
+    logger.info("Deploying Lagoon vault with GMX support...")
     deploy_info = deploy_automated_lagoon_vault(
         web3=web3,
         deployer=deployer_wallet,
@@ -154,73 +166,29 @@ def _create_lagoon_gmx_fork_env(rpc_url: str) -> LagoonGMXForkEnv:
         cowswap=False,
         use_forge=True,
         from_the_scratch=False,
+        gmx_deployment=gmx_deployment,
     )
 
     vault = deploy_info.vault
     safe_address = vault.safe_address
     module = deploy_info.trading_strategy_module
-    logger.info(f"Lagoon vault deployed. Safe address: {safe_address}")
+    logger.info("Lagoon vault deployed. Safe address: %s", safe_address)
 
-    # Fund Safe with ETH first (needed for whitelisting calls below)
+    # Fund Safe with ETH (needed for execution fees)
     web3.provider.make_request("anvil_setBalance", [safe_address, hex(100 * 10**18)])
 
-    # === Step 3.5: Whitelist GMX contracts ===
-    # After deployment, the Safe owns the module. We impersonate the Safe to call whitelisting functions.
-    logger.info("Whitelisting GMX contracts...")
-
-    # ETH/USDC market address on Arbitrum
-    GMX_ETH_USDC_MARKET = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
-
-    # Impersonate the Safe address to call owner-only functions
-    web3.provider.make_request("anvil_impersonateAccount", [safe_address])
-
-    # Whitelist core GMX contracts
-    tx_hash = module.functions.whitelistGMX(
-        GMX_EXCHANGE_ROUTER,
-        GMX_SYNTHETICS_ROUTER,
-        GMX_ORDER_VAULT,
-        "GMX V2 trading",
-    ).transact({"from": safe_address, "gas": 500_000})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    # Whitelist ETH/USDC market
-    tx_hash = module.functions.whitelistGMXMarket(
-        GMX_ETH_USDC_MARKET,
-        "ETH/USDC market",
-    ).transact({"from": safe_address, "gas": 200_000})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    # Whitelist WETH and USDC tokens for trading
-    tx_hash = module.functions.whitelistToken(
-        WETH_ARBITRUM,
-        "WETH collateral",
-    ).transact({"from": safe_address, "gas": 200_000})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    tx_hash = module.functions.whitelistToken(
-        USDC_ARBITRUM,
-        "USDC collateral",
-    ).transact({"from": safe_address, "gas": 200_000})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    # Whitelist Safe as receiver for GMX order proceeds
-    tx_hash = module.functions.allowReceiver(
-        safe_address,
-        "Safe receives GMX order proceeds",
-    ).transact({"from": safe_address, "gas": 200_000})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    # Stop impersonating
-    web3.provider.make_request("anvil_stopImpersonatingAccount", [safe_address])
-
-    # Verify whitelisting succeeded
+    # Verify GMX whitelisting succeeded (done automatically during deployment)
     is_exchange_router_allowed = module.functions.isAllowedTarget(GMX_EXCHANGE_ROUTER).call()
     is_synthetics_router_approved = module.functions.isAllowedApprovalDestination(GMX_SYNTHETICS_ROUTER).call()
-    logger.info(f"Whitelisting verification - ExchangeRouter allowed: {is_exchange_router_allowed}, SyntheticsRouter approved: {is_synthetics_router_approved}")
+    logger.info(
+        "Whitelisting verification - ExchangeRouter allowed: %s, SyntheticsRouter approved: %s",
+        is_exchange_router_allowed,
+        is_synthetics_router_approved,
+    )
     assert is_exchange_router_allowed, f"ExchangeRouter {GMX_EXCHANGE_ROUTER} should be allowed"
     assert is_synthetics_router_approved, f"SyntheticsRouter {GMX_SYNTHETICS_ROUTER} should be approved"
 
-    logger.info("GMX contracts whitelisted")
+    logger.info("GMX contracts whitelisted via deployment")
 
     # === Step 4: Fund vault's Safe with tokens ===
     # Fund whales with gas
@@ -240,7 +208,7 @@ def _create_lagoon_gmx_fork_env(rpc_url: str) -> LagoonGMXForkEnv:
     # Also fund Safe with native ETH for execution fees
     web3.provider.make_request("anvil_setBalance", [safe_address, hex(100 * 10**18)])
 
-    logger.info(f"Safe funded: {usdc_amount / 10**6} USDC, {weth_amount / 10**18} WETH")
+    logger.info("Safe funded: %s USDC, %s WETH", usdc_amount / 10**6, weth_amount / 10**18)
 
     # === Step 5: Create LagoonGMXTradingWallet ===
     lagoon_wallet = LagoonGMXTradingWallet(
@@ -360,9 +328,9 @@ def test_lagoon_wallet_open_long_position(lagoon_gmx_fork_env: LagoonGMXForkEnv)
         del transaction["nonce"]
 
     # Log the original transaction target
-    logger.info(f"Original transaction target: {transaction.get('to')}")
-    logger.info(f"Expected ExchangeRouter: {GMX_EXCHANGE_ROUTER}")
-    logger.info(f"Target matches ExchangeRouter: {transaction.get('to') == GMX_EXCHANGE_ROUTER}")
+    logger.info("Original transaction target: %s", transaction.get("to"))
+    logger.info("Expected ExchangeRouter: %s", GMX_EXCHANGE_ROUTER)
+    logger.info("Target matches ExchangeRouter: %s", transaction.get("to") == GMX_EXCHANGE_ROUTER)
 
     logger.info("Signing transaction with LagoonGMXTradingWallet...")
     signed_tx = env.lagoon_wallet.sign_transaction_with_new_nonce(transaction)
@@ -372,7 +340,7 @@ def test_lagoon_wallet_open_long_position(lagoon_gmx_fork_env: LagoonGMXForkEnv)
     tx_hash = env.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
     assert_transaction_success_with_explanation(env.web3, tx_hash)
     receipt = env.web3.eth.wait_for_transaction_receipt(tx_hash)
-    logger.info(f"Order submitted: {tx_hash.hex()}")
+    logger.info("Order submitted: %s", tx_hash.hex())
 
     # Extract order key
     order_key = extract_order_key_from_receipt(receipt)
@@ -396,8 +364,8 @@ def test_lagoon_wallet_open_long_position(lagoon_gmx_fork_env: LagoonGMXForkEnv)
     assert position["is_long"] is True, "Position should be long"
     assert position["position_size"] > 0, "Position size should be > 0"
 
-    logger.info(f"Position opened: {position['market_symbol']} {'Long' if position['is_long'] else 'Short'}")
-    logger.info(f"Position size: ${position['position_size']:.2f}")
+    logger.info("Position opened: %s %s", position["market_symbol"], "Long" if position["is_long"] else "Short")
+    logger.info("Position size: $%.2f", position["position_size"])
 
 
 @flaky(max_runs=3, min_passes=1)
@@ -453,7 +421,7 @@ def test_lagoon_wallet_open_short_position(lagoon_gmx_fork_env: LagoonGMXForkEnv
     assert position["market_symbol"] == "ETH"
     assert position["is_long"] is False, "Position should be short"
 
-    logger.info(f"Short position opened: {position['market_symbol']}")
+    logger.info("Short position opened: %s", position["market_symbol"])
 
 
 def test_lagoon_wallet_address_is_safe(lagoon_gmx_fork_env: LagoonGMXForkEnv):
