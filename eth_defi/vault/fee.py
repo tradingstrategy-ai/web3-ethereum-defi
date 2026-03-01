@@ -139,6 +139,10 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # https://help.grvt.io/en/articles/11424466-grvt-strategies-core-concepts
     # https://help.grvt.io/en/articles/11640733-strategy-setup-guide-how-to-configure-fees-redemptions-and-rewards-on-grvt
     "GRVT": VaultFeeMode.externalised,
+    # Lighter pools - operator fee is a performance fee taken from PnL,
+    # already reflected in share prices (internalised skimming).
+    # Per-pool operator fees range from 0% (LLP) to variable amounts for user pools.
+    "Lighter": VaultFeeMode.internalised_skimming,
 }
 
 

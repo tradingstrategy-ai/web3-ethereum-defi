@@ -102,6 +102,7 @@ SEQUENCERS: dict[int, dict[str, str]] = {
 #: Manually maintained shorthand names for different EVM chains
 CHAIN_NAMES = {
     325: "Grvt",  # GRVT (Gravity Markets) decentralised perp DEX
+    9998: "Lighter",  # Synthetic in-house ID for Lighter DEX pools (ZK-rollup)
     9999: "Hypercore",  # Synthetic in-house ID for native Hyperliquid vaults (non-EVM)
     1: "Ethereum",
     56: "Binance",
@@ -156,6 +157,7 @@ CHAIN_HOMEPAGES = {
     5000: {"name": "Mantle", "homepage": "https://www.mantle.xyz"},
     999: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # HyperEVM, see https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm
     998: {"name": "Hyperliquid Testnet", "homepage": "https://hyperliquid.xyz"},  # HyperEVM testnet
+    9998: {"name": "Lighter", "homepage": "https://lighter.xyz"},  # See eth_defi.lighter.constants.LIGHTER_CHAIN_ID for synthetic chain ID for Lighter pools (ZK-rollup)
     9999: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # See eth_defi.hyperliquid.constants.HYPERCORE_CHAIN_ID for synthetic chain ID for Hyperliquid native vaults (non-EVM)
     42161: {"name": "Arbitrum", "homepage": "https://arbitrum.io"},
     11155111: {"name": "Ethereum Sepolia", "homepage": "https://ethereum.org"},

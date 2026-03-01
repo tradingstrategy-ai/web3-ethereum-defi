@@ -549,6 +549,13 @@ class ERC4626Feature(enum.Enum):
     #: https://grvt.io/exchange/strategies
     grvt_native = "grvt_native"
 
+    #: Lighter native pool
+    #:
+    #: Native Lighter perpetuals trading pool on their ZK-rollup.
+    #: Not an ERC-4626 vault but shares the same metrics interface.
+    #: https://lighter.xyz
+    lighter_native = "lighter_native"
+
     #: Ember Protocol
     #:
     #: Investment platform for launching and distributing onchain financial products.
@@ -833,6 +840,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.grvt_native in features:
         return "GRVT"
+
+    elif ERC4626Feature.lighter_native in features:
+        return "Lighter"
 
     elif ERC4626Feature.ember_like in features:
         return "Ember"
