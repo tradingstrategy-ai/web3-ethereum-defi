@@ -313,12 +313,86 @@ def fetch_pool_detail(
     )
 
 
-def pool_detail_to_daily_dataframe(detail: LighterPoolDetail) -> pd.DataFrame:
+def fetch_pool_total_shares_history(
+    session: LighterSession,
+    account_index: int,
+    start_timestamp: int | None = None,
+    timeout: float = 30.0,
+) -> dict[datetime.date, int]:
+    """Fetch historical total shares from the PnL endpoint.
+
+    Uses ``/api/v1/pnl`` at daily resolution to get ``pool_total_shares``
+    at each timestamp. This is the only endpoint that provides full
+    history for all pool types (including user pools).
+
+    The returned shares can be combined with share prices to compute
+    historical TVL: ``tvl = pool_total_shares * share_price``.
+
+    :param session:
+        HTTP session.
+    :param account_index:
+        Pool account index.
+    :param start_timestamp:
+        Unix timestamp for the start of the range. Defaults to Jan 1 2025.
+    :param timeout:
+        HTTP request timeout.
+    :return:
+        Mapping of ``{date: pool_total_shares}``.
+    """
+    if start_timestamp is None:
+        start_timestamp = int(datetime.datetime(2025, 1, 1).timestamp())
+
+    # Use a far-future end timestamp to get all available data
+    end_timestamp = int(datetime.datetime(2030, 1, 1).timestamp())
+
+    url = f"{session.api_url}/api/v1/pnl"
+    params = {
+        "by": "index",
+        "value": str(account_index),
+        "resolution": "1d",
+        "start_timestamp": str(start_timestamp),
+        "end_timestamp": str(end_timestamp),
+        "count_back": "0",
+        "ignore_transfers": "true",
+    }
+    resp = session.get(url, params=params, timeout=timeout)
+    resp.raise_for_status()
+    data = resp.json()
+
+    result = {}
+    now = datetime.datetime(2030, 1, 1)
+    for entry in data.get("pnl", []):
+        ts = int(entry["timestamp"])
+        dt = datetime.datetime.fromtimestamp(ts)
+        # Skip entries with future timestamps (API sometimes returns
+        # a "current state" entry with a far-future timestamp)
+        if dt > now:
+            continue
+        total_shares = int(entry.get("pool_total_shares", 0))
+        result[dt.date()] = total_shares
+
+    logger.debug(
+        "Fetched %d daily total_shares entries for pool %d",
+        len(result),
+        account_index,
+    )
+    return result
+
+
+def pool_detail_to_daily_dataframe(
+    detail: LighterPoolDetail,
+    total_shares_by_date: dict[datetime.date, int] | None = None,
+) -> pd.DataFrame:
     """Convert pool detail share prices into a daily DataFrame.
 
     Takes the share price history from the ``/api/v1/account`` endpoint
-    and produces a DataFrame indexed by date with ``share_price`` and
-    ``daily_return`` columns.
+    and produces a DataFrame indexed by date with ``share_price``,
+    ``daily_return``, and ``tvl`` columns.
+
+    Historical TVL is computed as ``pool_total_shares * share_price``
+    when ``total_shares_by_date`` is provided (from
+    :py:func:`fetch_pool_total_shares_history`). Without it, TVL
+    defaults to 0.
 
     The share price array from the API contains daily entries with unix
     timestamps. We convert to dates and compute daily returns via
@@ -326,12 +400,15 @@ def pool_detail_to_daily_dataframe(detail: LighterPoolDetail) -> pd.DataFrame:
 
     :param detail:
         Pool detail with share_prices array.
+    :param total_shares_by_date:
+        Mapping of ``{date: pool_total_shares}`` from the PnL endpoint.
+        Used to compute historical TVL.
     :return:
-        DataFrame indexed by date with ``share_price`` and
-        ``daily_return`` columns. Empty if insufficient data.
+        DataFrame indexed by date with ``share_price``,
+        ``daily_return``, and ``tvl`` columns. Empty if insufficient data.
     """
     if len(detail.share_prices) < 2:
-        return pd.DataFrame(columns=["share_price", "daily_return"])
+        return pd.DataFrame(columns=["share_price", "daily_return", "tvl"])
 
     records = []
     for ts, price in detail.share_prices:
@@ -349,8 +426,20 @@ def pool_detail_to_daily_dataframe(detail: LighterPoolDetail) -> pd.DataFrame:
     daily = df.groupby("date").last().sort_index()
 
     if len(daily) < 2:
-        return pd.DataFrame(columns=["share_price", "daily_return"])
+        return pd.DataFrame(columns=["share_price", "daily_return", "tvl"])
 
     daily["daily_return"] = daily["share_price"].pct_change().fillna(0.0)
+
+    # Compute historical TVL from total_shares * share_price
+    if total_shares_by_date:
+        shares_series = pd.Series(total_shares_by_date, name="total_shares")
+        shares_series.index = pd.to_datetime(shares_series.index)
+        shares_series.index = shares_series.index.date
+
+        # Reindex to match daily dates, forward-fill gaps
+        shares_aligned = shares_series.reindex(daily.index).ffill().fillna(0)
+        daily["tvl"] = daily["share_price"] * shares_aligned
+    else:
+        daily["tvl"] = 0.0
 
     return daily
