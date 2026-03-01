@@ -129,7 +129,7 @@ def create_lighter_pool_row(
         "_flags": flags,
         "_lockup": LIGHTER_POOL_LOCKUP,
         "_description": description,
-        "_short_description": None,
+        "_short_description": description.split(".")[0].strip() + "." if description else None,
         "_available_liquidity": None,
         "_utilisation": None,
         "_deposit_closed_reason": None,

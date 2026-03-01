@@ -171,6 +171,12 @@ ETH_STRATEGY_ESPN = """ESPN (ETH Strategy Perpetual Note) lends USDS to ETH Stra
 [Discussion about the ESPN vault](https://x.com/TradingProtocol/status/2011043276283900198).
 """
 
+LIGHTER_LLP_STAKING = """LLP (Lighter Liquidity Provider) is the protocol's community-owned market-making pool providing liquidity and handling liquidations on Lighter DEX.
+
+Depositing into LLP requires staking LIT tokens at a 1:10 ratio (1 LIT staked per 10 USDC deposited). Staking ≥100 LIT waives withdrawal and transfer fees. If staked LIT does not fully cover the deposit, up to 3% or 100 USDC of the uncovered amount is returned daily to the user's balance.
+
+Withdrawal cooldown is 5 minutes. Operator fee is 0%."""
+
 GRVT_GLP_DEPOSIT_LIMITS = """GLP deposit limits are tied to your lifetime trading volume on GRVT. Each tier sets a maximum percentage of account equity and an absolute USDT cap:
 
 | Trading volume | % of equity | Max USDT |
@@ -374,6 +380,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x5103d3ee6d599984609daaadd3a439152cc0c392": (VaultFlag.subvault, SUBVAULT),
     # Grvt Liquidity Provider (GLP)
     "vlt:34dtzyg6lhkgm49je5aabi9tebw": (None, GRVT_GLP_DEPOSIT_LIMITS),
+    # Lighter Liquidity Provider (LLP) — requires LIT token staking for deposits
+    "lighter-pool-281474976710654": (None, LIGHTER_LLP_STAKING),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
