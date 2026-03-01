@@ -25,6 +25,7 @@ def is_good_multichain_address(address: str) -> bool:
 
     - EVM vaults use ``0x``-prefixed hex addresses
     - Non-EVM protocols like GRVT use platform-specific IDs (e.g. ``VLT:xxx``)
+    - Lighter pools use synthetic IDs (e.g. ``lighter-pool-281474976710654``)
 
     :param address:
         The vault address string to validate.
@@ -32,7 +33,7 @@ def is_good_multichain_address(address: str) -> bool:
         ``True`` if the address starts with a known prefix.
     """
     addr_lower = address.lower()
-    return addr_lower.startswith("0x") or addr_lower.startswith("vlt:")
+    return addr_lower.startswith("0x") or addr_lower.startswith("vlt:") or addr_lower.startswith("lighter-pool-")
 
 
 def sanitise_string(s: str, max_length: int | None = None) -> str:

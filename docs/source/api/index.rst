@@ -26,6 +26,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    gmx/index
    hyperliquid/index
    grvt/index
+   lighter/index
    cctp/index
    orderly/index
    one_delta/index
