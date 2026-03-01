@@ -146,6 +146,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "GRVT": VaultTechnicalRisk.severe,
     # Ember - investment platform, audited but limited on-chain transparency
     "Ember": VaultTechnicalRisk.severe,
+    # Lighter - centralised perp DEX on ZK-rollup, closed-source
+    "Lighter": VaultTechnicalRisk.severe,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

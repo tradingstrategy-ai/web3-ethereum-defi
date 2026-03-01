@@ -38,6 +38,7 @@ from eth_defi.lighter.vault import (
     LighterPoolSummary,
     fetch_all_pools,
     fetch_pool_detail,
+    fetch_pool_total_shares_history,
     pool_detail_to_daily_dataframe,
 )
 
@@ -71,6 +72,7 @@ class LighterDailyMetricsDatabase:
                 description VARCHAR,
                 l1_address VARCHAR,
                 is_llp BOOLEAN DEFAULT FALSE,
+                status INTEGER DEFAULT 0,
                 operator_fee DOUBLE,
                 total_asset_value DOUBLE,
                 annual_percentage_yield DOUBLE,
@@ -79,6 +81,12 @@ class LighterDailyMetricsDatabase:
                 last_updated TIMESTAMP NOT NULL
             )
         """)
+        # Migrate existing databases that lack the status column
+        try:
+            self.con.execute("ALTER TABLE pool_metadata ADD COLUMN status INTEGER DEFAULT 0")
+        except duckdb.CatalogException:
+            pass  # Column already exists
+
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS pool_daily_prices (
                 account_index BIGINT NOT NULL,
@@ -98,6 +106,7 @@ class LighterDailyMetricsDatabase:
         description: str | None = None,
         l1_address: str | None = None,
         is_llp: bool = False,
+        status: int = 0,
         operator_fee: float | None = None,
         total_asset_value: float | None = None,
         annual_percentage_yield: float | None = None,
@@ -116,6 +125,8 @@ class LighterDailyMetricsDatabase:
             L1 Ethereum address.
         :param is_llp:
             Whether this is the LLP protocol pool.
+        :param status:
+            Pool status code from the API (0 = active).
         :param operator_fee:
             Operator fee percentage.
         :param total_asset_value:
@@ -131,14 +142,15 @@ class LighterDailyMetricsDatabase:
             """
             INSERT INTO pool_metadata (
                 account_index, name, description, l1_address, is_llp,
-                operator_fee, total_asset_value, annual_percentage_yield,
+                status, operator_fee, total_asset_value, annual_percentage_yield,
                 sharpe_ratio, created_at, last_updated
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (account_index) DO UPDATE SET
                 name = excluded.name,
                 description = excluded.description,
                 l1_address = excluded.l1_address,
                 is_llp = excluded.is_llp,
+                status = excluded.status,
                 operator_fee = excluded.operator_fee,
                 total_asset_value = excluded.total_asset_value,
                 annual_percentage_yield = excluded.annual_percentage_yield,
@@ -152,6 +164,7 @@ class LighterDailyMetricsDatabase:
                 description,
                 l1_address,
                 is_llp,
+                status,
                 operator_fee,
                 total_asset_value,
                 annual_percentage_yield,
@@ -323,7 +336,23 @@ def fetch_and_store_pool(
         )
         return False
 
-    daily_df = pool_detail_to_daily_dataframe(detail)
+    # Fetch historical total shares for TVL computation
+    try:
+        total_shares_by_date = fetch_pool_total_shares_history(
+            session,
+            summary.account_index,
+            timeout=timeout,
+        )
+    except Exception as e:
+        logger.warning(
+            "Failed to fetch PnL shares for %s (%d), using current TVL: %s",
+            summary.name,
+            summary.account_index,
+            e,
+        )
+        total_shares_by_date = None
+
+    daily_df = pool_detail_to_daily_dataframe(detail, total_shares_by_date=total_shares_by_date)
     if daily_df.empty:
         logger.debug(
             "Skipping pool %s (%d): empty share price history",
@@ -339,6 +368,7 @@ def fetch_and_store_pool(
         description=detail.description,
         l1_address=summary.l1_address,
         is_llp=summary.is_llp,
+        status=summary.status,
         operator_fee=detail.operator_fee,
         total_asset_value=summary.total_asset_value,
         annual_percentage_yield=detail.annual_percentage_yield,
@@ -354,7 +384,7 @@ def fetch_and_store_pool(
                 summary.account_index,
                 date_val,
                 row_data["share_price"],
-                summary.total_asset_value,
+                row_data["tvl"],
                 row_data["daily_return"],
                 summary.annual_percentage_yield,
             )

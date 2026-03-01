@@ -38,6 +38,7 @@ from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.risk import get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,7 @@ def create_lighter_pool_row(
     created_at: datetime.datetime | None,
     operator_fee: float = 0.0,
     is_llp: bool = False,
+    status: int = 0,
 ) -> tuple[VaultSpec, VaultRow]:
     """Create a synthetic VaultRow for a Lighter pool.
 
@@ -76,6 +78,8 @@ def create_lighter_pool_row(
         Operator fee percentage (e.g. 10.0 = 10%).
     :param is_llp:
         Whether this is the LLP protocol pool.
+    :param status:
+        Pool status code from the API (0 = active).
     :return:
         Tuple of (VaultSpec, VaultRow).
     """
@@ -132,10 +136,11 @@ def create_lighter_pool_row(
         "_short_description": description.split(".")[0].strip() + "." if description else None,
         "_available_liquidity": None,
         "_utilisation": None,
-        "_deposit_closed_reason": None,
+        "_deposit_closed_reason": f"Pool not active (status {status})" if status != 0 else None,
         "_deposit_next_open": None,
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,
+        "_risk": get_vault_risk("Lighter", address),
     }
 
     spec = VaultSpec(chain_id=chain_id, vault_address=address)
@@ -231,6 +236,7 @@ def merge_into_vault_database(
             created_at=row.get("created_at"),
             operator_fee=row.get("operator_fee", 0.0) or 0.0,
             is_llp=bool(row.get("is_llp", False)),
+            status=int(row.get("status", 0) or 0),
         )
 
         if spec in vault_db.rows:
