@@ -1500,9 +1500,9 @@ def calculate_vault_rankings(
 #: Protocol slugs for vaults where we do not necessarily have
 #: on-chain deposit/redeem event data.
 #:
-#: These vaults get their data from off-chain APIs (e.g. GRVT, Hyperliquid)
+#: These vaults get their data from off-chain APIs (e.g. GRVT, Hyperliquid, Lighter)
 #: or are hardcoded protocol entries that may lack standard ERC-4626 events.
-SPECIAL_VAULT_PROTOCOL_SLUGS = {"grvt", "hyperliquid"}
+SPECIAL_VAULT_PROTOCOL_SLUGS = {"grvt", "hyperliquid", "lighter"}
 
 
 def is_special_vault(

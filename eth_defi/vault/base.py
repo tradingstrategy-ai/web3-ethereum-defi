@@ -108,14 +108,27 @@ class VaultSpec:
                 raise ValueError(f"Cannot parse vault spec from string: {spec}. No separator found.")
 
         try:
-            # Use rsplit with maxsplit=1 to handle negative chain IDs like "-1-0xabc..."
-            # where a naive split("-") would break on the leading minus sign
-            parts = spec.rsplit(separator, 1)
+            # Split chain_id from address.
+            # Use split(separator, 1) to get chain_id as the first token,
+            # leaving the rest (which may contain separators) as the address.
+            # For negative chain IDs (e.g. "-1-0xabc..."), the first part
+            # will be empty after split, so we recombine.
+            parts = spec.split(separator, 1)
             if len(parts) != 2:
-                raise ValueError(f"Expected exactly one separator '{separator}' in spec: {spec}")
-            chain_id = parts[0].strip()
+                raise ValueError(f"Expected at least one separator '{separator}' in spec: {spec}")
+            chain_id_str = parts[0].strip()
             address = parts[1].strip()
-            return VaultSpec(chain_id=int(chain_id), vault_address=address)
+            # Handle negative chain IDs: if chain_id_str is empty or not a valid int,
+            # the address part starts with the negative sign
+            if chain_id_str == "" or (not chain_id_str.lstrip("-").isdigit()):
+                # Negative chain ID: e.g. spec="-1-0xabc" splits to ["", "1-0xabc"]
+                # Re-split the remainder to get the actual chain_id and address
+                rest_parts = address.split(separator, 1)
+                if len(rest_parts) != 2:
+                    raise ValueError(f"Cannot parse negative chain ID from spec: {spec}")
+                chain_id_str = f"-{rest_parts[0].strip()}"
+                address = rest_parts[1].strip()
+            return VaultSpec(chain_id=int(chain_id_str), vault_address=address)
         except Exception as e:
             raise ValueError(f"Cannot parse vault spec from string: {spec}") from e
 
