@@ -25,6 +25,7 @@ def anvil() -> AnvilLaunch:
         anvil.close()
 
 
+@pytest.mark.skip(reason="rpc.mevblocker.io is unreliable public RPC")
 def test_multi_provider_mev_and_fallback():
     """Configure complex Web3 instance correctly."""
     config = """ 
@@ -51,9 +52,10 @@ def test_multi_provider_fallback_only():
     assert "polygon-rpc.com" in get_provider_name(web3.get_fallback_provider())
 
 
+@pytest.mark.skip(reason="rpc.mevblocker.io is unreliable public RPC")
 def test_multi_provider_no_graphql():
     """GraphQL check for multi provider config"""
-    config = """ 
+    config = """
     mev+https://rpc.mevblocker.io
     https://polygon-rpc.com
     https://bsc-dataseed2.bnbchain.org
