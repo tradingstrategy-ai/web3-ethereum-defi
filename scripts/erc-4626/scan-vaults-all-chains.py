@@ -24,6 +24,9 @@ Usage:
     # Include GRVT native vaults
     SCAN_GRVT=true python scripts/erc-4626/scan-vaults-all-chains.py
 
+    # Include Lighter native pools
+    SCAN_LIGHTER=true python scripts/erc-4626/scan-vaults-all-chains.py
+
     # Custom retry count
     RETRY_COUNT=2 python scripts/erc-4626/scan-vaults-all-chains.py
 
@@ -70,6 +73,7 @@ Environment variables:
     - SCAN_PRICES: "true" or "false" (default: "false")
     - SCAN_HYPERCORE: "true" to scan Hyperliquid native (Hypercore) vaults via REST API (default: "false")
     - SCAN_GRVT: "true" to scan GRVT native vaults via public endpoints (default: "false")
+    - SCAN_LIGHTER: "true" to scan Lighter native pools via public endpoints (default: "false")
     - RETRY_COUNT: Number of retry attempts (default: "1")
     - MAX_WORKERS: Number of parallel workers (default: "50")
     - FREQUENCY: "1h" or "1d" (default: "1h")
@@ -502,6 +506,60 @@ def scan_grvt_fn() -> ChainResult:
     return result
 
 
+def scan_lighter_fn(max_workers: int) -> ChainResult:
+    """Scan Lighter native pools via public endpoints.
+
+    Runs the Lighter daily metrics pipeline: discovers pools from the
+    public API, fetches share price history, stores in DuckDB, and
+    merges into the shared ERC-4626 pipeline files (VaultDatabase pickle
+    + cleaned Parquet).
+
+    No authentication required.
+
+    :param max_workers:
+        Number of parallel workers for fetching pool details.
+    :return:
+        Scan result with vault count and duration.
+    """
+    from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE
+    from eth_defi.lighter.daily_metrics import run_daily_scan
+    from eth_defi.lighter.session import create_lighter_session
+    from eth_defi.lighter.vault_data_export import merge_into_vault_database
+
+    result = ChainResult(name="Lighter", status="running")
+    start_time = time.time()
+
+    try:
+        session = create_lighter_session()
+
+        db = run_daily_scan(
+            session=session,
+            db_path=LIGHTER_DAILY_METRICS_DATABASE,
+            max_workers=max_workers,
+        )
+
+        try:
+            vault_count = db.get_vault_count()
+            result.vault_count = vault_count
+            result.vault_scan_ok = True
+
+            merge_into_vault_database(db, DEFAULT_VAULT_DATABASE)
+            result.price_scan_ok = True
+        finally:
+            db.close()
+
+        result.status = "success"
+
+    except Exception as e:
+        logger.exception("Lighter scan failed")
+        result.status = "failed"
+        result.error = str(e)
+        result.traceback_str = traceback.format_exc()
+
+    result.duration = time.time() - start_time
+    return result
+
+
 def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | None = None) -> None:
     """Print console dashboard showing scan progress.
 
@@ -567,7 +625,7 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
         logger.error("%s: %s", r.name, r.error)
 
 
-def run_post_processing(scan_hypercore: bool = False, scan_grvt: bool = False) -> dict[str, bool]:
+def run_post_processing(scan_hypercore: bool = False, scan_grvt: bool = False, scan_lighter: bool = False) -> dict[str, bool]:
     """Run post-processing steps after all chain scans complete.
 
     :param scan_hypercore:
@@ -576,6 +634,9 @@ def run_post_processing(scan_hypercore: bool = False, scan_grvt: bool = False) -
         Hypercore data goes through the same cleaning pipeline.
     :param scan_grvt:
         Whether to merge GRVT native vault price data into the
+        uncleaned Parquet before the cleaning step.
+    :param scan_lighter:
+        Whether to merge Lighter native pool price data into the
         uncleaned Parquet before the cleaning step.
     :return: Dictionary mapping step name to success boolean
     """
@@ -629,7 +690,31 @@ def run_post_processing(scan_hypercore: bool = False, scan_grvt: bool = False) -
             logger.exception("GRVT price merge failed")
             steps["grvt-price-merge"] = False
 
-    # Step 2: Clean prices (all vaults — reads raw parquet including Hypercore + GRVT, writes cleaned)
+    # Step 1c: Merge Lighter prices into the uncleaned Parquet
+    # Must run BEFORE clean-prices so Lighter data goes through the
+    # same cleaning pipeline as EVM vaults.
+    if scan_lighter:
+        try:
+            from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_DAILY_METRICS_DATABASE
+            from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
+            from eth_defi.lighter.vault_data_export import merge_into_uncleaned_parquet as lighter_merge_parquet
+            from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE
+
+            logger.info("Merging Lighter prices into uncleaned Parquet")
+            db = LighterDailyMetricsDatabase(LIGHTER_DAILY_METRICS_DATABASE)
+            try:
+                combined_df = lighter_merge_parquet(db, DEFAULT_UNCLEANED_PRICE_DATABASE)
+                lighter_rows = len(combined_df[combined_df["chain"] == LIGHTER_CHAIN_ID]) if len(combined_df) > 0 else 0
+                logger.info("Lighter price merge: %d Lighter price entries in uncleaned Parquet", lighter_rows)
+            finally:
+                db.close()
+            steps["lighter-price-merge"] = True
+            logger.info("Lighter price merge complete")
+        except Exception as e:
+            logger.exception("Lighter price merge failed")
+            steps["lighter-price-merge"] = False
+
+    # Step 2: Clean prices (all vaults — reads raw parquet including Hypercore + GRVT + Lighter, writes cleaned)
     try:
         logger.info("Cleaning vault prices data")
         generate_cleaned_vault_datasets()
@@ -684,6 +769,7 @@ def main():
     scan_prices = os.environ.get("SCAN_PRICES", "false").lower() == "true"
     scan_hypercore = os.environ.get("SCAN_HYPERCORE", "false").lower() == "true"
     scan_grvt = os.environ.get("SCAN_GRVT", "false").lower() == "true"
+    scan_lighter = os.environ.get("SCAN_LIGHTER", "false").lower() == "true"
     max_workers = int(os.environ.get("MAX_WORKERS", "50"))
     frequency = os.environ.get("FREQUENCY", "1h")
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"
@@ -699,7 +785,7 @@ def main():
 
     logger.info("=" * 80)
     logger.info("Starting multi-chain vault scan")
-    logger.info("SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, FREQUENCY: %s", scan_prices, scan_hypercore, scan_grvt, retry_count, max_workers, frequency)
+    logger.info("SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, FREQUENCY: %s", scan_prices, scan_hypercore, scan_grvt, scan_lighter, retry_count, max_workers, frequency)
     if skip_post_processing:
         logger.info("SKIP_POST_PROCESSING: true - post-processing will be skipped")
     if test_chain_names:
@@ -765,6 +851,10 @@ def main():
     if scan_grvt:
         results["GRVT"] = ChainResult(name="GRVT", status="pending")
 
+    # Add Lighter (native pools) to tracking
+    if scan_lighter:
+        results["Lighter"] = ChainResult(name="Lighter", status="pending")
+
     # Add chains skipped by CHAIN_ORDER to results
     for chain in skipped_by_order:
         results[chain.name] = ChainResult(name=chain.name, status="skipped", error="Not in CHAIN_ORDER")
@@ -779,6 +869,8 @@ def main():
         display_order.append("Hypercore")
     if scan_grvt:
         display_order.append("GRVT")
+    if scan_lighter:
+        display_order.append("Lighter")
     display_order += [c.name for c in skipped_by_order] + [c.name for c in disabled_chains]
 
     # Display initial dashboard
@@ -862,7 +954,29 @@ def main():
 
         print_dashboard(results, display_order)
 
-    # Retry passes - retry failed EVM chains (Hypercore/GRVT are not retried)
+    # Lighter scan (native pools via public API)
+    if scan_lighter:
+        logger.info("Scanning Lighter (native pools)")
+        try:
+            results["Lighter"] = scan_lighter_fn(max_workers)
+        except Exception as e:
+            logger.exception("Lighter scan crashed with unhandled exception")
+            results["Lighter"] = ChainResult(
+                name="Lighter",
+                status="failed",
+                error=str(e),
+                traceback_str=traceback.format_exc(),
+            )
+
+        r = results["Lighter"]
+        if r.status == "success":
+            logger.info("Lighter: SUCCESS - %d pools", r.vault_count or 0)
+        elif r.status == "failed":
+            logger.error("Lighter: FAILED - %s", r.error)
+
+        print_dashboard(results, display_order)
+
+    # Retry passes - retry failed EVM chains (Hypercore/GRVT/Lighter are not retried)
     evm_chain_names = {c.name for c in chains}
     for attempt in range(1, retry_count + 1):
         failed_chain_names = [name for name, r in results.items() if r.status == "failed" and name in evm_chain_names]
@@ -914,7 +1028,7 @@ def main():
         logger.info("All chain scans complete, starting post-processing")
         logger.info("=" * 80)
 
-        post_results = run_post_processing(scan_hypercore=scan_hypercore, scan_grvt=scan_grvt)
+        post_results = run_post_processing(scan_hypercore=scan_hypercore, scan_grvt=scan_grvt, scan_lighter=scan_lighter)
         for step, success in post_results.items():
             status_str = "SUCCESS" if success else "FAILED"
             logger.info("Post-processing %s: %s", step, status_str)
