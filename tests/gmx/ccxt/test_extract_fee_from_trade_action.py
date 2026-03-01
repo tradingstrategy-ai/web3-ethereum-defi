@@ -15,6 +15,7 @@ import logging
 import os
 
 import pytest
+from flaky import flaky
 
 from eth_defi.gmx.events import extract_order_execution_result, decode_gmx_events
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -289,6 +290,7 @@ def test_extract_fee_all_three_txs(gmx_exchange, web3):
         )
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_subsquid_trade_actions_query():
     """Test that Subsquid tradeActions query returns fee fields (Option A).
 

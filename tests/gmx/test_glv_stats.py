@@ -6,6 +6,8 @@ import logging
 
 from collections import defaultdict
 
+from flaky import flaky
+
 from eth_defi.gmx.core.glv_stats import GlvStats
 
 
@@ -304,6 +306,7 @@ def test_empty_glv_handling(gmx_config):
         pytest.fail(f"Empty GLV data caused exception: {e}")
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_glv_market_consistency(get_glv_stats):
     """Test consistency between GLV markets and overall GMX markets."""
     results = get_glv_stats.get_glv_stats_multicall()

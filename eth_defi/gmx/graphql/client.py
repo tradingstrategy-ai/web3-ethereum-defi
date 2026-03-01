@@ -1212,7 +1212,7 @@ class GMXSubsquidClient:
             collateralTokenPriceMax
             proportionalPendingImpactUsd
             timestamp
-            transaction { hash }
+            transactionHash
           }
         }
         """
@@ -1276,7 +1276,7 @@ class GMXSubsquidClient:
                                 "collateralToken": action.get("initialCollateralTokenAddress"),
                                 "collateralTokenPriceMax": str(action.get("collateralTokenPriceMax") or 0) if action.get("collateralTokenPriceMax") else None,
                                 "timestamp": action.get("timestamp"),
-                                "transaction": action.get("transaction", {}),
+                                "transaction": {"hash": action.get("transactionHash")},
                             }
                             logger.info(
                                 "Subsquid tradeActions returned fee data: eventName=%s | positionFee=%s, borrowingFee=%s, fundingFee=%s | collateral=%s (price=%s) | orderKey=%s",

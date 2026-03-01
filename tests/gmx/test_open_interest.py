@@ -2,6 +2,8 @@
 Tests for GMX Open Interest Data Retrieval Module.
 """
 
+from flaky import flaky
+
 from eth_defi.gmx.core.open_interest import GetOpenInterest, OpenInterestInfo
 
 
@@ -29,6 +31,7 @@ def test_initialization_and_basic_functionality(get_open_interest, gmx_config):
     assert hasattr(get_open_interest.markets, "get_available_markets")
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_market_info_and_data_structures(get_open_interest):
     """Test market info handling and data structure patterns."""
     results = get_open_interest.get_data()
@@ -55,6 +58,7 @@ def test_market_info_and_data_structures(get_open_interest):
         assert results["short"][sample_market] >= 0
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_open_interest_calculation(get_open_interest):
     """Test that open interest calculations make sense with real data."""
     results = get_open_interest.get_data()

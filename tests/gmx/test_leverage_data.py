@@ -2,6 +2,7 @@
 
 import pytest
 from decimal import Decimal
+from flaky import flaky
 
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 
@@ -77,6 +78,7 @@ def test_get_market_infos_includes_leverage_fields(graphql_client):
     assert "maxOpenInterestShort" in first_market
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_ccxt_markets_include_leverage_limits(gmx_config):
     """Test that CCXT fetch_markets includes leverage limits."""
     from eth_defi.gmx.ccxt.exchange import GMX

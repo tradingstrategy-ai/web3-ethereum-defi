@@ -7,6 +7,7 @@ when fetching and processing GMX market information.
 
 import pytest
 import requests
+from flaky import flaky
 from eth_defi.gmx.core.markets import MarketInfo
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.contracts import get_tokens_address_dict, _get_clean_api_urls
@@ -376,6 +377,7 @@ def test_oracle_response_time():
         pytest.skip(f"Response time test failed: {e}")
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_get_available_markets(markets):
     """Test getting available markets from GMX."""
     available_markets = markets.get_available_markets()

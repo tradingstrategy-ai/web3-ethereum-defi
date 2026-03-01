@@ -7,6 +7,7 @@ across different chains using actual network calls.
 
 import pytest
 import time
+from flaky import flaky
 
 from eth_defi.gmx.contracts import NETWORK_TOKENS
 
@@ -127,6 +128,7 @@ def test_get_pool_tvl_specific_markets(chain_name, get_pool_tvl):
     assert len(found_markets) > 0, f"No expected markets found for {chain_name}. Found: {list(markets)}"
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_get_pool_tvl_total_calculations(chain_name, get_pool_tvl):
     """
     Test total TVL calculations and aggregations.

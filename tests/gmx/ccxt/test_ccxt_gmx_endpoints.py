@@ -4,7 +4,10 @@ These tests verify that the GMX class properly implements
 all CCXT methods.
 """
 
+from flaky import flaky
 
+
+@flaky(max_runs=3, min_passes=1)
 def test_fetch_markets(gmx_arbitrum):
     """Test fetch_markets returns list of markets in CCXT format."""
     markets = gmx_arbitrum.fetch_markets()

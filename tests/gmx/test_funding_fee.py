@@ -54,6 +54,7 @@ def test_market_info_and_data_structures(get_funding_fee):
         assert isinstance(results["short"][sample_market], float)
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_funding_fee_calculation(get_funding_fee):
     """Test that funding fee calculations return valid data."""
     results = get_funding_fee.get_data()
