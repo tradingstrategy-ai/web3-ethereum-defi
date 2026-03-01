@@ -138,7 +138,72 @@ Response fields (inside `accounts[0]`):
 | `pool_info.total_shares` | int | Outstanding shares |
 | `pool_info.operator_shares` | int | Operator's shares |
 
-Share price arrays typically contain ~379 daily entries.
+Share price arrays have different retention depending on pool type
+(see [Share price history limitations](#share-price-history-limitations) below).
+
+#### PnL history (`/api/v1/pnl`)
+
+Per-account PnL and balance history with configurable resolution and
+time range. This is the **only endpoint with full history** back to
+pool inception for all pools.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `by` | string | `"index"` |
+| `value` | string | Account index |
+| `resolution` | string | `"1m"`, `"5m"`, `"15m"`, `"1h"`, `"4h"`, `"1d"` |
+| `start_timestamp` | int | Unix timestamp for range start |
+| `end_timestamp` | int | Unix timestamp for range end |
+| `count_back` | int | `0` |
+| `ignore_transfers` | bool | `true` for balance chart, `false` for PnL chart |
+
+Response fields (inside `pnl[]`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `timestamp` | int | Unix timestamp |
+| `trade_pnl` | float | Cumulative trading PnL (USDC) |
+| `trade_spot_pnl` | float | Cumulative spot PnL |
+| `pool_pnl` | float | Pool-level PnL |
+| `pool_inflow` | float | Cumulative deposit inflow (USDC) |
+| `pool_outflow` | float | Cumulative withdrawal outflow (USDC) |
+| `pool_total_shares` | int | Total outstanding shares at this point |
+| `staking_pnl` | float | LIT staking PnL |
+| `staking_inflow` | float | Staking inflow |
+| `staking_outflow` | float | Staking outflow |
+
+**Note:** This endpoint does **not** return `share_price`. The
+`pool_total_shares` field cannot be trivially combined with PnL fields
+to reconstruct share price — the data model is more complex than
+`(inflow - outflow + trade_pnl) / shares`. The Lighter website uses
+this endpoint for its TVL/balance chart, but uses the separate
+`share_prices` array from `/api/v1/account` for the NAV chart.
+
+### Share price history limitations
+
+The `/api/v1/account` endpoint's `share_prices` array has **different
+retention depending on pool type**:
+
+| Pool type | History | Entries (as of Mar 2026) |
+|-----------|---------|------------------------|
+| **LLP (protocol pool)** | Full history from inception (Jan 2025) | ~409 |
+| **User-created pools** | Rolling window of ~208 days | ~208 max |
+
+User pools created before the rolling window cutoff (around Aug 2025)
+have their earliest share price entries truncated. Pools created within
+the window have full history from their creation date.
+
+**Implication for the pipeline:** The pipeline should run at least daily
+to capture share prices before they fall off the rolling window for user
+pools. The DuckDB database preserves all previously fetched data, so
+historical entries are not lost once stored.
+
+The `/api/v1/pnl` endpoint **does** return full history (409+ entries)
+for all pools, but only provides `pool_total_shares` and cumulative PnL
+fields — not share prices. The Lighter website's "All-time" TVL chart
+uses this PnL endpoint (which is why TVL goes back to Jan 2025 for all
+pools), while the NAV/share-price chart is limited by the `share_prices`
+retention window.
 
 ### DuckDB schema
 
