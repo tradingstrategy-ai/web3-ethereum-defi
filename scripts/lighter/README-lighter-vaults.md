@@ -12,6 +12,15 @@ pipeline as EVM vaults.
 
 **No authentication is required** — all data comes from public endpoints.
 
+## Lighter canonical documentation
+
+- [Lighter homepage](https://lighter.xyz)
+- [Public pools app](https://app.lighter.xyz/public-pools)
+- [Public pools documentation](https://docs.lighter.xyz/perpetual-futures/public-pools)
+- [Fees documentation](https://docs.lighter.xyz/perpetual-futures/fees)
+- [API reference (Swagger)](https://apidocs.lighter.xyz/)
+- [DeFi Llama](https://defillama.com/protocol/lighter-perps)
+
 ## Architecture
 
 ```
