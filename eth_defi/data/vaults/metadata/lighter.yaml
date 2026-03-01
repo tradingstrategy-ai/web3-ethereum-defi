@@ -1,0 +1,42 @@
+name: Lighter
+slug: lighter
+short_description: |
+  Native perpetual trading pools on Lighter DEX (ZK-rollup).
+long_description: |
+  Lighter is a zero-fee perpetual futures DEX built as a ZK-rollup on
+  Ethereum. It uses custom zero-knowledge circuits for verifiable order
+  matching and liquidations, delivering low-cost, low-latency trading
+  with cryptographic proofs.
+
+  Public pools allow operators to trade perpetuals using pooled funds
+  from depositors. The main protocol pool is the LLP (Lighter Liquidity
+  Pool), which provides market-making liquidity across all trading pairs.
+
+  All pools are denominated in USDC. Withdrawals have a 5-minute cooldown
+  period.
+
+  Key features:
+
+  - Zero maker/taker fees for standard accounts
+  - Operators set per-pool performance fees (0-100%), deducted from PnL
+  - LLP protocol pool has 0% operator fee
+  - ZK-rollup on Ethereum with verifiable matching and liquidations
+  - 5-minute withdrawal cooldown period
+  - All pools denominated in USDC
+fee_description: |
+  Pool operators set a per-pool performance fee (operator fee) that is
+  deducted from trading profits. This fee is already reflected in the
+  share price (internalised skimming model). The LLP protocol pool has
+  0% operator fee. User-created pools typically charge 10-20%. There
+  are no management fees, deposit fees, or withdrawal fees.
+links:
+  homepage: https://lighter.xyz
+  app: https://app.lighter.xyz/public-pools
+  twitter: https://x.com/Lighter_xyz
+  github:
+  documentation: https://docs.lighter.xyz/perpetual-futures/public-pools
+  defillama: https://defillama.com/protocol/lighter-perps
+  audits:
+  fees: https://docs.lighter.xyz/perpetual-futures/fees
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/lighter
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/api/lighter/index.html
