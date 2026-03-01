@@ -303,6 +303,23 @@ MIN_TVL=10000 MAX_POOLS=20 \
 | `eth_defi/lighter/session.py` | Rate-limited HTTP session with retry logic |
 | `eth_defi/lighter/constants.py` | Chain ID, API URL, fee constants, lockup period |
 
+## Testing with scan-vaults-all-chains.py (Lighter only)
+
+To run the full pipeline scanning only Lighter pools (no EVM chains):
+
+```shell
+source .local-test.env && \
+SCAN_LIGHTER=true \
+DISABLE_CHAINS=Sonic,Monad,Hyperliquid,Base,Arbitrum,Ethereum,Linea,Gnosis,Zora,Polygon,Avalanche,Berachain,Unichain,Hemi,Plasma,Binance,Mantle,Katana,Ink,Blast,Soneium,Optimism \
+MAX_WORKERS=20 \
+LOG_LEVEL=info \
+poetry run python scripts/erc-4626/scan-vaults-all-chains.py
+```
+
+This runs the Lighter scan, merges data into the vault pipeline, cleans prices,
+exports sparklines and protocol metadata to R2. Takes ~7 minutes total
+(~20s scan + ~6min post-processing/upload).
+
 ## Running tests
 
 ```shell

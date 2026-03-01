@@ -23,9 +23,12 @@ Google Sheets (optional):
   GS_WORKSHEET_NAME=TopVaults
 """
 
+import logging
 import os
 from pathlib import Path
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 # Keep imports consistent with the notebook (even if not all are used directly)
 from eth_defi.vault.base import VaultSpec  # noqa: F401
@@ -160,8 +163,7 @@ def main():
 
     lifetime_data_df = lifetime_data_df.sort_values(["one_month_cagr"], ascending=False)
 
-    print("\nTop-2 lifetime metrics preview (no display):")
-    print(lifetime_data_df.head(2).to_string())
+    logger.debug("Top-2 lifetime metrics preview (no display):\n%s", lifetime_data_df.head(2).to_string())
 
     # -----------------------------
     # Filter by TVL and format table

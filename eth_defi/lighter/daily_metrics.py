@@ -234,6 +234,17 @@ class LighterDailyMetricsDatabase:
         result = self.con.execute("SELECT COUNT(DISTINCT account_index) FROM pool_daily_prices").fetchone()
         return result[0] if result else 0
 
+    def get_vault_count(self) -> int:
+        """Get number of pools with daily price data.
+
+        Alias for :py:meth:`get_pool_count` to unify the interface
+        across Hyperliquid, GRVT, and Lighter scanners.
+
+        :return:
+            Count of unique pools.
+        """
+        return self.get_pool_count()
+
     def get_pool_daily_price_count(self, account_index: int) -> int:
         """Get number of daily price records for a specific pool.
 
