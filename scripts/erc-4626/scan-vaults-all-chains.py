@@ -89,6 +89,7 @@ Example CHAIN_ORDER for all chains:
 """
 
 import datetime
+import importlib.util
 import logging
 import os
 import pickle
@@ -100,7 +101,24 @@ from pathlib import Path
 
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
 from eth_defi.erc_4626.lead_scan_core import scan_leads
+from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
+from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
+from eth_defi.grvt.daily_metrics import run_daily_scan as grvt_run_daily_scan
+from eth_defi.grvt.vault_data_export import merge_into_uncleaned_parquet as grvt_merge_parquet
+from eth_defi.grvt.vault_data_export import merge_into_vault_database as grvt_merge_vault_db
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE
+from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
+from eth_defi.hyperliquid.daily_metrics import run_daily_scan as hyperliquid_run_daily_scan
+from eth_defi.hyperliquid.session import create_hyperliquid_session
+from eth_defi.hyperliquid.vault_data_export import merge_into_uncleaned_parquet as hyperliquid_merge_parquet
+from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database as hyperliquid_merge_vault_db
 from eth_defi.hypersync.utils import configure_hypersync_from_env
+from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_DAILY_METRICS_DATABASE
+from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
+from eth_defi.lighter.daily_metrics import run_daily_scan as lighter_run_daily_scan
+from eth_defi.lighter.session import create_lighter_session
+from eth_defi.lighter.vault_data_export import merge_into_uncleaned_parquet as lighter_merge_parquet
+from eth_defi.lighter.vault_data_export import merge_into_vault_database as lighter_merge_vault_db
 from eth_defi.provider.broken_provider import verify_archive_node
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
@@ -416,18 +434,13 @@ def scan_hypercore_fn(max_workers: int) -> ChainResult:
     :return:
         Scan result with vault count and duration.
     """
-    from eth_defi.hyperliquid.constants import HYPERLIQUID_DAILY_METRICS_DATABASE
-    from eth_defi.hyperliquid.daily_metrics import run_daily_scan
-    from eth_defi.hyperliquid.session import create_hyperliquid_session
-    from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database
-
     result = ChainResult(name="Hypercore", status="running")
     start_time = time.time()
 
     try:
         session = create_hyperliquid_session(requests_per_second=2.75)
 
-        db = run_daily_scan(
+        db = hyperliquid_run_daily_scan(
             session=session,
             db_path=HYPERLIQUID_DAILY_METRICS_DATABASE,
             max_workers=max_workers,
@@ -438,7 +451,7 @@ def scan_hypercore_fn(max_workers: int) -> ChainResult:
             result.vault_count = vault_count
             result.vault_scan_ok = True
 
-            merge_into_vault_database(db, DEFAULT_VAULT_DATABASE)
+            hyperliquid_merge_vault_db(db, DEFAULT_VAULT_DATABASE)
             # Price merge happens in post-processing after generate_cleaned_vault_datasets()
             # to avoid being overwritten by the EVM price cleaning step
             result.price_scan_ok = True
@@ -470,15 +483,11 @@ def scan_grvt_fn() -> ChainResult:
     :return:
         Scan result with vault count and duration.
     """
-    from eth_defi.grvt.constants import GRVT_DAILY_METRICS_DATABASE
-    from eth_defi.grvt.daily_metrics import run_daily_scan
-    from eth_defi.grvt.vault_data_export import merge_into_vault_database
-
     result = ChainResult(name="GRVT", status="running")
     start_time = time.time()
 
     try:
-        db = run_daily_scan(
+        db = grvt_run_daily_scan(
             db_path=GRVT_DAILY_METRICS_DATABASE,
         )
 
@@ -487,7 +496,7 @@ def scan_grvt_fn() -> ChainResult:
             result.vault_count = vault_count
             result.vault_scan_ok = True
 
-            merge_into_vault_database(db, DEFAULT_VAULT_DATABASE)
+            grvt_merge_vault_db(db, DEFAULT_VAULT_DATABASE)
             # Price merge happens in post-processing after generate_cleaned_vault_datasets()
             # to avoid being overwritten by the EVM price cleaning step
             result.price_scan_ok = True
@@ -521,18 +530,13 @@ def scan_lighter_fn(max_workers: int) -> ChainResult:
     :return:
         Scan result with vault count and duration.
     """
-    from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE
-    from eth_defi.lighter.daily_metrics import run_daily_scan
-    from eth_defi.lighter.session import create_lighter_session
-    from eth_defi.lighter.vault_data_export import merge_into_vault_database
-
     result = ChainResult(name="Lighter", status="running")
     start_time = time.time()
 
     try:
         session = create_lighter_session()
 
-        db = run_daily_scan(
+        db = lighter_run_daily_scan(
             session=session,
             db_path=LIGHTER_DAILY_METRICS_DATABASE,
             max_workers=max_workers,
@@ -543,7 +547,7 @@ def scan_lighter_fn(max_workers: int) -> ChainResult:
             result.vault_count = vault_count
             result.vault_scan_ok = True
 
-            merge_into_vault_database(db, DEFAULT_VAULT_DATABASE)
+            lighter_merge_vault_db(db, DEFAULT_VAULT_DATABASE)
             result.price_scan_ok = True
         finally:
             db.close()
@@ -647,15 +651,10 @@ def run_post_processing(scan_hypercore: bool = False, scan_grvt: bool = False, s
     # same cleaning pipeline as EVM vaults.
     if scan_hypercore:
         try:
-            from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE
-            from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
-            from eth_defi.hyperliquid.vault_data_export import merge_into_uncleaned_parquet
-            from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE
-
             logger.info("Merging Hypercore prices into uncleaned Parquet")
             db = HyperliquidDailyMetricsDatabase(HYPERLIQUID_DAILY_METRICS_DATABASE)
             try:
-                combined_df = merge_into_uncleaned_parquet(db, DEFAULT_UNCLEANED_PRICE_DATABASE)
+                combined_df = hyperliquid_merge_parquet(db, DEFAULT_UNCLEANED_PRICE_DATABASE)
                 hl_rows = len(combined_df[combined_df["chain"] == HYPERCORE_CHAIN_ID]) if len(combined_df) > 0 else 0
                 logger.info("Hypercore price merge: %d Hyperliquid price entries in uncleaned Parquet", hl_rows)
             finally:
@@ -671,11 +670,6 @@ def run_post_processing(scan_hypercore: bool = False, scan_grvt: bool = False, s
     # same cleaning pipeline as EVM vaults.
     if scan_grvt:
         try:
-            from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
-            from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
-            from eth_defi.grvt.vault_data_export import merge_into_uncleaned_parquet as grvt_merge_parquet
-            from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE
-
             logger.info("Merging GRVT prices into uncleaned Parquet")
             db = GRVTDailyMetricsDatabase(GRVT_DAILY_METRICS_DATABASE)
             try:
@@ -695,11 +689,6 @@ def run_post_processing(scan_hypercore: bool = False, scan_grvt: bool = False, s
     # same cleaning pipeline as EVM vaults.
     if scan_lighter:
         try:
-            from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_DAILY_METRICS_DATABASE
-            from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
-            from eth_defi.lighter.vault_data_export import merge_into_uncleaned_parquet as lighter_merge_parquet
-            from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE
-
             logger.info("Merging Lighter prices into uncleaned Parquet")
             db = LighterDailyMetricsDatabase(LIGHTER_DAILY_METRICS_DATABASE)
             try:
@@ -727,8 +716,6 @@ def run_post_processing(scan_hypercore: bool = False, scan_grvt: bool = False, s
     # Step 3: Export sparklines
     try:
         logger.info("Creating sparkline images")
-        import importlib.util
-
         spec = importlib.util.spec_from_file_location("export_sparklines", "scripts/erc-4626/export-sparklines.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
