@@ -85,6 +85,7 @@ Tutorials and examples
    scratchpad
    hyperliquid-vault-benchmark
    hyperliquid-vault-analysis
+   lighter-vault-benchmark
    enzyme-read-vaults
    enzyme-deploy
    verify-node-integrity

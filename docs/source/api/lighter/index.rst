@@ -14,9 +14,14 @@ and :doc:`GRVT integration <../grvt/index>`:
 
 No authentication is required -- all data comes from public endpoints.
 
+Tutorials
+~~~~~~~~~
+
+- :doc:`Lighter: benchmark pools </tutorials/lighter-vault-benchmark>` - Benchmark Lighter pool performance, equity curves, and rolling returns
+
 For architecture details, API endpoint reference, DuckDB schema, and
 fee model documentation, see
-`README-lighter-vaults.md <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/lighter/README-lighter-vaults.md>`__.
+`README-lighter-vaults.md <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/lighter/README-lighter-vaults.md>`__.
 
 .. autosummary::
    :toctree: _autosummary_lighter
