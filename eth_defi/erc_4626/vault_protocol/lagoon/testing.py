@@ -144,8 +144,120 @@ def fund_lagoon_vault(
     _send_as_manager(vault.post_new_valuation(nav), "Post valuation for settlement")
     _send_as_manager(vault.settle_via_trading_strategy_module(nav), "Settle vault deposits")
 
+    # 5. Claim shares (ERC-7540: settlement mints shares to the vault contract,
+    #    depositor must call deposit() to transfer them to their wallet)
+    finalise_func = vault.finalise_deposit(test_account_with_balance)
+    _send(finalise_func, f"Claim shares for {test_account_with_balance}")
+
+    share_balance = vault.share_token.fetch_balance_of(test_account_with_balance)
     balance = vault.underlying_token.fetch_balance_of(vault.safe_address)
-    logger.info("Vault funded: Safe balance is %s %s", balance, vault.underlying_token.symbol)
+    logger.info("Vault funded: Safe balance is %s %s, depositor shares: %s", balance, vault.underlying_token.symbol, share_balance)
+
+
+def redeem_vault_shares(
+    web3: Web3,
+    vault_address: HexAddress,
+    redeemer: HexAddress,
+    hot_wallet: HotWallet | None = None,
+) -> LagoonVault:
+    """Request a full redemption of vault shares for a given depositor.
+
+    Initiates Phase 1 of the ERC-7540 async redemption flow:
+
+    1. Approve all shares for the vault
+    2. Call ``requestRedeem()`` to queue the redemption
+
+    After calling this function, the vault must be *settled* to process
+    the redemption (Phase 2), then the redeemer calls
+    ``vault.finalise_redeem()`` to claim their USDC (Phase 3).
+
+    Supports two transaction signing modes:
+
+    - **Anvil mode** (default): uses ``.transact({"from": ...})`` for
+      unlocked accounts on Anvil forks.
+    - **HotWallet mode**: when *hot_wallet* is provided, signs and
+      broadcasts each transaction via
+      :py:meth:`HotWallet.transact_and_broadcast_with_contract`.
+
+    Example (HotWallet mode)::
+
+        deployer.sync_nonce(web3)
+        vault = redeem_vault_shares(
+            web3,
+            vault_address,
+            redeemer=deployer.address,
+            hot_wallet=deployer,
+        )
+        # Then settle the vault (e.g. via CLI lagoon-settle)
+        # Then finalise:
+        tx_hash = deployer.transact_and_broadcast_with_contract(
+            vault.finalise_redeem(deployer.address),
+        )
+
+    :param web3:
+        Web3 connection to the chain where the vault lives.
+
+    :param vault_address:
+        On-chain address of the Lagoon vault.
+
+    :param redeemer:
+        Address that holds vault shares and wants to redeem them.
+
+    :param hot_wallet:
+        When provided, all transactions are signed with this wallet
+        instead of using Anvil's unlocked-account shortcut.
+
+    :return:
+        The :class:`LagoonVault` instance, which can be used for
+        Phase 3 (``vault.finalise_redeem()``).
+    """
+    assert vault_address.startswith("0x"), f"Vault address should be an address, got: {vault_address}"
+    assert redeemer.startswith("0x"), f"redeemer should be an address, got: {redeemer}"
+
+    vault = create_vault_instance(
+        web3,
+        vault_address,
+        features={ERC4626Feature.lagoon_like},
+        default_block_identifier="latest",
+        require_denomination_token=True,
+    )
+    assert isinstance(vault, LagoonVault), f"Vault is not a Lagoon vault: {vault}"
+
+    share_token = vault.share_token
+    raw_shares = share_token.fetch_raw_balance_of(redeemer)
+    human_shares = share_token.convert_to_decimals(raw_shares)
+    assert raw_shares > 0, f"Redeemer {redeemer} has no vault shares to redeem"
+
+    logger.info(
+        "Requesting full redemption: %s %s shares for %s",
+        human_shares,
+        share_token.symbol,
+        redeemer,
+    )
+
+    def _send(bound_func, description: str, gas: int = 1_000_000):
+        if hot_wallet is not None:
+            logger.info("Broadcasting (HotWallet): %s", description)
+            tx_hash = hot_wallet.transact_and_broadcast_with_contract(bound_func, gas_limit=gas)
+        else:
+            tx_hash = bound_func.transact({"from": redeemer, "gas": gas})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # 1. Approve shares for the vault
+    _send(
+        share_token.approve(vault.address, human_shares),
+        f"Approve {human_shares} shares for redemption",
+    )
+
+    # 2. Queue the redemption
+    _send(
+        vault.request_redeem(redeemer, raw_shares),
+        f"Request redemption of {human_shares} shares",
+    )
+
+    logger.info("Redemption requested for %s %s shares", human_shares, share_token.symbol)
+
+    return vault
 
 
 def force_lagoon_settle(
