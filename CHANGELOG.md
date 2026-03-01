@@ -1,6 +1,6 @@
 # Current
 
-- **Add: Lighter DEX native pool metrics pipeline with public API discovery, DuckDB storage, incremental scanning, and unified ERC-4626 pipeline export (2026-03-01)**
+- **Add: Lighter DEX native pool metrics pipeline with public API discovery, DuckDB storage, incremental scanning, and unified ERC-4626 pipeline export (2026-03-01, [#781](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/781))**
 - Add Lagoon vault share claiming to `fund_lagoon_vault` and new `redeem_vault_shares()` testing helper for ERC-7540 async redemption flow (2026-03-01, [#780](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/780))
 - **Guard security hardening round 2: ERC-4626/7540 deposit receiver validation, SwapRouter02 recipient validation, Velora balance-envelope check with dual-balance verification and minAmountOut > 0 enforcement, exactOutput dispatcher fix (2026-02-26, [#772](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/772))**
 - Fix test suite: skip TokenSniffer (expired API key) and Orderly (no archive RPC) tests, fix guard Umami regex assertions, refactor GMX retry from module constants to configurable `GMXRetryConfig` dataclass with fast-fail test defaults (2026-02-25)
