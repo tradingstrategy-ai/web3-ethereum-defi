@@ -43,6 +43,7 @@ services:
       SCAN_PRICES: ${SCAN_PRICES:-true}
       SCAN_HYPERCORE: ${SCAN_HYPERCORE:-false}
       SCAN_GRVT: ${SCAN_GRVT:-false}
+      SCAN_LIGHTER: ${SCAN_LIGHTER:-false}
       LOG_LEVEL: ${LOG_LEVEL:-warning}
       MAX_WORKERS: ${MAX_WORKERS:-50}
 
