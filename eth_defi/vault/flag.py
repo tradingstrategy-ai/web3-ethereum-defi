@@ -382,6 +382,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "vlt:34dtzyg6lhkgm49je5aabi9tebw": (None, GRVT_GLP_DEPOSIT_LIMITS),
     # Lighter Liquidity Provider (LLP) — requires LIT token staking for deposits
     "lighter-pool-281474976710654": (None, LIGHTER_LLP_STAKING),
+    # Morpho Yearn Morpho Vault 1 Compounder (Base)
+    "0xf115c134c23c7a05fbd489a8be3116ebf54b0d9f": (VaultFlag.subvault, SUBVAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
