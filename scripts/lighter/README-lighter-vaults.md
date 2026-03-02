@@ -303,9 +303,10 @@ MIN_TVL=10000 MAX_POOLS=20 \
 | `eth_defi/lighter/session.py` | Rate-limited HTTP session with retry logic |
 | `eth_defi/lighter/constants.py` | Chain ID, API URL, fee constants, lockup period |
 
-## Testing with scan-vaults-all-chains.py (Lighter only)
+## Running the full pipeline (Lighter only)
 
-To run the full pipeline scanning only Lighter pools (no EVM chains):
+To run the full pipeline scanning only Lighter pools (no EVM chains),
+disable all other chains and set `SCAN_LIGHTER=true`:
 
 ```shell
 source .local-test.env && \
@@ -316,11 +317,63 @@ LOG_LEVEL=info \
 poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 ```
 
-This runs the Lighter scan, merges data into the vault pipeline, cleans prices,
-exports sparklines and protocol metadata to R2. Takes ~7 minutes total
-(~20s scan + ~6min post-processing/upload).
+This runs through the following stages:
 
-## Running tests
+1. **Lighter scan** (~20s) — discovers pools from the public API, fetches share price
+   history and total shares, stores in `lighter-pools.duckdb`
+2. **Merge vault metadata** — upserts Lighter VaultRows into `vault-metadata-db.pickle`
+3. **Merge prices** — appends Lighter daily prices into `vault-prices-1h.parquet`
+   (uncleaned), replacing any prior Lighter rows
+4. **Clean prices** — runs `process_raw_vault_scan_data()` (outlier detection,
+   return calculation) producing `cleaned-vault-prices-1h.parquet`
+5. **Export** (~6min) — generates sparklines, protocol metadata, and uploads to R2
+
+Total time: ~7 minutes.
+
+To rebuild only the Lighter DuckDB without running the rest of the
+pipeline (no merge, no clean, no upload):
+
+```shell
+LOG_LEVEL=info poetry run python scripts/lighter/daily-pool-metrics.py
+```
+
+## Purging and rescanning
+
+If Lighter price data is stale or incorrect (e.g. after a bug fix
+that changes how TVL or share prices are computed), purge the old data
+and rescan from scratch.
+
+### Step 1: Delete the Lighter DuckDB
+
+```shell
+rm ~/.tradingstrategy/vaults/lighter-pools.duckdb
+```
+
+This removes the intermediate DuckDB that holds pool metadata and
+daily prices before they are merged into the unified pipeline.
+
+### Step 2: Purge Lighter rows from the uncleaned Parquet
+
+Use `purge-price-data.py` with the Lighter synthetic chain ID
+(`9998`) to strip Lighter rows from the shared Parquet file:
+
+```shell
+CHAIN_ID=9998 python scripts/erc-4626/purge-price-data.py
+```
+
+### Step 3: Rescan
+
+Run the Lighter-only full pipeline to rebuild from scratch:
+
+```shell
+SCAN_LIGHTER=true \
+DISABLE_CHAINS=Sonic,Monad,Hyperliquid,Base,Arbitrum,Ethereum,Linea,Gnosis,Zora,Polygon,Avalanche,Berachain,Unichain,Hemi,Plasma,Binance,Mantle,Katana,Ink,Blast,Soneium,Optimism \
+MAX_WORKERS=20 \
+LOG_LEVEL=info \
+python scripts/erc-4626/scan-vaults-all-chains.py
+```
+
+## Running Lighter-specic tests
 
 ```shell
 poetry run pytest tests/lighter/ -x --timeout=300
