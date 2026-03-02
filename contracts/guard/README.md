@@ -84,6 +84,28 @@ on the library extraction pattern and compiler settings.
   - [Lagoon + Hyperliquid vault](https://web3-ethereum-defi.readthedocs.io/tutorials/lagoon-hyperliquid.html)
   - [Enzyme vault deployment](https://web3-ethereum-defi.readthedocs.io/tutorials/enzyme-deploy.html)
 
+## Reading back guard configuration
+
+The Python module
+[`config_event_scanner`](../../eth_defi/erc_4626/vault_protocol/lagoon/config_event_scanner.py)
+decodes the full cross-chain guard configuration by scanning on-chain events
+emitted during deployment. It follows CCTP destination chains automatically
+to build a multichain picture.
+
+Diagnostic script:
+
+```shell
+source .local-test.env
+export CHAIN_ID=42161
+export SAFE_ADDRESS=0x...
+poetry run python scripts/lagoon/read-guard-config.py
+```
+
+See [`scripts/lagoon/read-guard-config.py`](../../scripts/lagoon/read-guard-config.py) for details.
+
+**Note:** When adding new guard configuration events (in GuardV0Base or any linked library),
+update `GUARD_CONFIG_EVENT_NAMES` and `_build_chain_config()` in `config_event_scanner.py`.
+
 ## Tests
 
 Integration tests use the [eth-defi](https://github.com/tradingstrategy-ai/web3-ethereum-defi)
@@ -105,6 +127,7 @@ source .local-test.env && poetry run pytest tests/guard/<module> -v
 | [test_guard_gmx_validation.py](../../tests/guard/test_guard_gmx_validation.py) | GMX V2 multicall validation, market/router whitelisting |
 | [test_guard_simple_vault_hypercore.py](../../tests/guard/test_guard_simple_vault_hypercore.py) | Hypercore vault guard validation |
 | [test_guard_hypercore_vault_lagoon.py](../../tests/guard/test_guard_hypercore_vault_lagoon.py) | Full Lagoon vault with Hypercore integration |
+| [test_lagoon_config_event_scanner.py](../../tests/lagoon/test_lagoon_config_event_scanner.py) | Multichain guard config event scanning and decoding |
 
 ### Forge tests
 

@@ -208,6 +208,16 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // ========================================================================
     //                                 EVENTS
     // ========================================================================
+    //
+    // NOTE: If you add, rename, or remove events here (or in linked libraries
+    // like CowSwapLib, GmxLib, VeloraLib, HypercoreVaultLib), you must also
+    // update the Python event scanner:
+    //
+    //   eth_defi/erc_4626/vault_protocol/lagoon/config_event_scanner.py
+    //
+    // Specifically update GUARD_CONFIG_EVENT_NAMES and the event-processing
+    // logic in _build_chain_config().
+    //
 
     event CallSiteApproved(address target, bytes4 selector, string notes);
     event CallSiteRemoved(address target, bytes4 selector, string notes);

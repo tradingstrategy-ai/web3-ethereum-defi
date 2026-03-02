@@ -1,5 +1,6 @@
 # Current
 
+- **Add: Guard configuration event scanner for reading back multichain Lagoon deployment whitelisting from on-chain events, with symbolic address resolution and human-readable reporting (2026-03-02)**
 - Fix Lighter vault historical TVL tracking to use PnL endpoint shares history instead of constant current snapshot (2026-03-01, [#782](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/782))
 - **Add: Lighter DEX native pool metrics pipeline with public API discovery, DuckDB storage, incremental scanning, and unified ERC-4626 pipeline export (2026-03-01, [#781](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/781))**
 - Add Lagoon vault share claiming to `fund_lagoon_vault` and new `redeem_vault_shares()` testing helper for ERC-7540 async redemption flow (2026-03-01, [#780](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/780))

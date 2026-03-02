@@ -67,6 +67,12 @@ Environment variables
 ``JSON_RPC_BASE_SEPOLIA``
     Base Sepolia RPC URL (testnet mode).
 
+``HYPERSYNC_API_KEY``
+    Optional. If set, the script reads back the guard configuration
+    from on-chain events via Hypersync after deployment and prints
+    it as a verification step. Get an API key from
+    https://envio.dev/app/api-tokens.
+
 Mainnet simulation
 ------------------
 
@@ -139,6 +145,11 @@ from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.cctp.bridge import CCTPBridgeDestination, bridge_usdc_cctp_parallel
+from eth_defi.erc_4626.vault_protocol.lagoon.config_event_scanner import (
+    build_multichain_guard_config,
+    fetch_guard_config_events,
+    format_guard_config_report,
+)
 from eth_defi.cctp.constants import CHAIN_ID_TO_CCTP_DOMAIN, TESTNET_CHAIN_ID_TO_CCTP_DOMAIN
 from eth_defi.cctp.testing import replace_attester_on_fork
 from eth_defi.cctp.whitelist import CCTPDeployment
@@ -1038,6 +1049,47 @@ def main():
             if deployment.whitelisted_items:
                 print(f"    Whitelisted:")
                 print(deployment.format_whitelisted_items(indent="      "))
+
+        # --- Step 11: Read back and verify guard configuration ---
+        hypersync_api_key = os.environ.get("HYPERSYNC_API_KEY")
+        if hypersync_api_key:
+            print("\n" + "=" * 70)
+            print("Guard configuration readback (via Hypersync)")
+            print("=" * 70)
+
+            try:
+                import hypersync as _hypersync
+
+                source_chain_id_for_scan = chain_web3[source_chain].eth.chain_id
+                source_web3_for_scan = chain_web3[source_chain]
+
+                from eth_defi.hypersync.server import get_hypersync_server
+
+                hs_url = get_hypersync_server(source_chain_id_for_scan)
+                hs_client = _hypersync.HypersyncClient(_hypersync.ClientConfig(url=hs_url, bearer_token=hypersync_api_key))
+
+                # Build chain_id -> Web3 map for CCTP chain following
+                readback_chain_web3 = {w.eth.chain_id: w for w in chain_web3.values()}
+
+                events, module_addresses = fetch_guard_config_events(
+                    safe_address=result.safe_address,
+                    web3=source_web3_for_scan,
+                    hypersync_client=hs_client,
+                    chain_web3=readback_chain_web3,
+                    follow_cctp=True,
+                )
+
+                config = build_multichain_guard_config(events, result.safe_address, module_addresses)
+                report = format_guard_config_report(
+                    config=config,
+                    events=events,
+                    chain_web3=readback_chain_web3,
+                )
+                print(report)
+            except Exception as e:
+                logger.warning("Guard config readback failed: %s", e)
+        else:
+            print("\nSkipping guard configuration readback (set HYPERSYNC_API_KEY to enable post-deployment verification)")
 
         print("\nDone!")
 
