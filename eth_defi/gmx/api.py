@@ -11,6 +11,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.market_depth import MarketDepthInfo, parse_market_depth
 from eth_defi.gmx.constants import (
     GMX_API_URLS,
     GMX_API_URLS_BACKUP,
@@ -532,3 +533,67 @@ class GMXAPI:
             logger.debug("Cached APY data for %s period %s", self.chain, period)
 
         return data
+
+    def get_market_depth(
+        self,
+        market_symbol: str | None = None,
+        use_cache: bool = True,
+    ) -> list[MarketDepthInfo]:
+        """Get market depth information for all listed GMX markets.
+
+        Parses the ``/markets/info`` REST response into structured
+        :class:`~eth_defi.gmx.market_depth.MarketDepthInfo` dataclasses,
+        giving a real-time view of:
+
+        - Current long / short open interest (USD)
+        - Remaining pool capacity before the reserve cap is hit
+        - Funding and borrowing rates
+
+        The response is cached for 60 seconds by default (``use_cache=True``),
+        so calling this method repeatedly in a tight loop is safe.
+
+        Example:
+
+        .. code-block:: python
+
+            api = GMXAPI(chain="arbitrum")
+            eth_markets = api.get_market_depth(market_symbol="ETH")
+
+            for m in eth_markets:
+                print(f"{m.market_symbol}: longOI=${m.long_open_interest_usd:,.0f}")
+                print(f"  Available long cap: ${m.available_long_oi_usd:,.0f}")
+                print(f"  Available short cap: ${m.available_short_oi_usd:,.0f}")
+
+        :param market_symbol:
+            Optional case-insensitive substring filter applied to the market
+            name.  For example ``"ETH"`` matches
+            ``"ETH/USD [WETH-USDC]"`` but not ``"BTC/USD"``.
+            If ``None``, all listed markets are returned.
+        :param use_cache:
+            Whether to use the module-level 60-second cache for
+            ``/markets/info``.  Set to ``False`` to force a fresh API call.
+        :return:
+            List of :class:`~eth_defi.gmx.market_depth.MarketDepthInfo` for
+            all active (``isListed=True``) markets, optionally filtered by
+            *market_symbol*.
+        :raises RuntimeError: If all API endpoints fail after retries
+        """
+        raw = self.get_markets_info(use_cache=use_cache)
+        markets_list = raw.get("markets", [])
+
+        result: list[MarketDepthInfo] = []
+        for market_data in markets_list:
+            info = parse_market_depth(market_data)
+            if not info.is_listed:
+                continue
+            if market_symbol is not None and market_symbol.lower() not in info.market_symbol.lower():
+                continue
+            result.append(info)
+
+        logger.debug(
+            "get_market_depth: returned %d markets (filter=%r, chain=%s)",
+            len(result),
+            market_symbol,
+            self.chain,
+        )
+        return result

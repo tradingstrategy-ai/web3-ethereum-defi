@@ -7,6 +7,14 @@ implementation based on eth_defi patterns.
 """
 
 from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity, LiquidityInfo
+from eth_defi.gmx.market_depth import (
+    MarketDepthInfo,
+    PriceImpactParams,
+    estimate_position_price_impact,
+    fetch_price_impact_params,
+    find_max_position_size,
+    parse_market_depth,
+)
 from eth_defi.gmx.core.borrow_apr import GetBorrowAPR
 from eth_defi.gmx.core.claimable_fees import GetClaimableFees
 from eth_defi.gmx.core.funding_fee import GetFundingFee
@@ -32,9 +40,15 @@ __all__ = [
     "GetPoolTVL",
     "GlvStats",
     "LiquidityInfo",
+    "MarketDepthInfo",
     "Markets",
     "OpenInterestInfo",
     "OraclePrices",
+    "PriceImpactParams",
     "calculate_liquidation_price",
+    "estimate_position_price_impact",
+    "fetch_price_impact_params",
+    "find_max_position_size",
     "get_liquidation_price",
+    "parse_market_depth",
 ]

@@ -238,6 +238,13 @@ EVENT_SIGNATURES = {
 }
 
 # GMX Protocol Constants
+
+#: GMX uses 30-decimal fixed-point arithmetic throughout the protocol.
+#: All OI, liquidity, rate, and price-impact values returned by the REST API
+#: and DataStore contract are integers scaled by ``10 ** PRECISION``.
+#: Divide by ``10 ** PRECISION`` to convert to plain USD / dimensionless floats.
+#:
+#: Reference: https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/utils/Precision.sol
 PRECISION = 30
 
 #: Wei per ETH — used to convert raw Wei balances to ETH floats.
