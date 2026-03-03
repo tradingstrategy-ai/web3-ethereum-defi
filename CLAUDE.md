@@ -254,3 +254,98 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `tests/guard/README.md` | Integration tests for GuardV0 and TradingStrategyModuleV0 |
 | `tests/provider/README.md` | Service provider integration tests |
 | `tests/rpc/README.md` | JSON-RPC scenario tests |
+
+## GitHub PR reviews
+
+Claude responds to `@claude` mentions in GitHub PR comments, issues, and reviews. Reviews are **never** triggered automatically — always wait for an explicit `@claude` mention.
+
+### Scope classification
+
+Every finding in a review must be classified:
+
+| Label | Meaning | Action |
+|-------|---------|--------|
+| **BLOCKING** | Bug, security issue, or regression introduced by this change | Must fix before merge |
+| **IN-SCOPE** | Issue directly related to stated requirements | Should address in this PR |
+| **SUGGESTION** | Improvement within changed code, not required | Author decides |
+| **BACKLOG** | Good idea but outside PR scope | Create a GitHub issue |
+| **IGNORE** | Nitpick, style preference, or not worth tracking | Skip entirely |
+
+A PR review validates scope compliance, not code perfection. Improvements beyond scope belong in future PRs.
+
+### Anti-patterns to avoid
+
+- Do not flag issues in **unchanged** code — create a separate issue instead
+- Do not block on style preferences — use ruff/linters for style
+- Do not suggest "while you're here" refactors — those are BACKLOG items
+- Do not demand perfection when requirements are met
+
+### Review report structure
+
+```markdown
+## PR review: #<number> <title>
+
+### Scope compliance
+Requirements from PR description / plan:
+- [x] Requirement A — implemented
+- [ ] Requirement B — **missing**
+
+### Blocking (N)
+1. [BLOCKING] Description — `file.py:line`
+
+### In-scope (N)
+1. [IN-SCOPE] Description — `file.py:line`
+
+### Suggestions (N)
+1. [SUGGESTION] Description — `file.py:line`
+
+### Recommendation
+APPROVE / APPROVE WITH CHANGES / REQUEST CHANGES
+```
+
+### Posting inline comments
+
+Use the GitHub reviews API (not individual comments endpoint) to post inline comments on specific diff lines:
+
+```bash
+# Single inline comment
+gh api repos/{owner}/{repo}/pulls/{pr}/reviews \
+  --method POST \
+  -f event="COMMENT" \
+  -f body="Review summary here." \
+  -f 'comments[][path]=eth_defi/some_module.py' \
+  -F 'comments[][line]=42' \
+  -f 'comments[][side]=RIGHT' \
+  -f 'comments[][body]=**[BLOCKING]** Missing input validation here.'
+
+# Multiple inline comments — use JSON input
+gh api repos/{owner}/{repo}/pulls/{pr}/reviews \
+  --method POST \
+  --input - <<'EOF'
+{
+  "event": "COMMENT",
+  "body": "Review with inline comments.",
+  "comments": [
+    {"path": "eth_defi/module.py", "line": 10, "side": "RIGHT", "body": "**[IN-SCOPE]** ..."},
+    {"path": "eth_defi/other.py", "line": 25, "side": "RIGHT", "body": "**[SUGGESTION]** ..."}
+  ]
+}
+EOF
+```
+
+**Important:** Use `-F` (not `-f`) for integer values like line numbers. If a line is not in the PR diff, fall back to `gh pr comment` with a `file:line` reference in the body.
+
+### Version validation
+
+When a PR changes `pyproject.toml` or `__version__`, verify:
+- `pyproject.toml` version matches `__version__` in `eth_defi/__init__.py` (if present)
+- `CHANGELOG.md` has an entry for the new version
+- Version follows semver format
+
+### Code comment quality
+
+When reviewing code comments, check:
+- Comments explain **why**, not what the code does
+- No commented-out dead code (delete instead — git preserves history)
+- No stale TODOs without issue references
+- Public functions/classes have Sphinx docstrings
