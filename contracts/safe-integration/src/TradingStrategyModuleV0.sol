@@ -42,7 +42,7 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
         pure
         returns (string memory)
     {
-        return "v0.3";
+        return "v0.4";
     }
 
     /**
@@ -91,14 +91,26 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
     // by the guard. This is accepted behaviour — Safes typically hold minimal
     // ETH (gas money), all targets are governance-approved contracts, and any
     // ETH sent goes to those trusted targets (not to the asset manager).
+    //
+    // If msg.value > 0, the caller's ETH is forwarded to the Safe (avatar)
+    // before execution — this allows the asset manager to fund execution fees
+    // (e.g. GMX keeper fees) without the Safe needing a pre-funded ETH balance.
+    // If msg.value == 0, the Safe uses its own ETH balance (backward compatible).
     function performCall(
         address target,
         bytes calldata callData,
         uint256 value
-    ) public {
+    ) public payable {
         // Check that the asset manager can perform this function.
         // Will revert() on error
         _validateCallInternal(msg.sender, target, callData);
+
+        // Forward any ETH sent by the caller to the Safe.
+        // The Safe's receive() function accepts plain ETH transfers.
+        if (msg.value > 0) {
+            (bool sent, ) = avatar.call{value: msg.value}("");
+            require(sent, "ETH forward failed");
+        }
 
         // Inherit from Module contract,
         // execute a tx on behalf of Gnosis

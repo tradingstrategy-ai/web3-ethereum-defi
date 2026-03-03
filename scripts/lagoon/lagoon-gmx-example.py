@@ -10,6 +10,7 @@ through a Lagoon vault using the CCXT-compatible GMX adapter:
 5. Close the position and realise PnL
 6. Withdraw collateral from the vault
 7. Display summary of all transactions and costs
+8. Print guard configuration report
 
 Simulation mode
 ---------------
@@ -63,6 +64,68 @@ The Guard contract validates all GMX calls to ensure:
 
 For security details, see: README-GMX-Lagoon.md
 
+
+Testnet mode
+------------
+
+Set ``NETWORK=testnet`` to deploy on Arbitrum Sepolia with real testnet transactions.
+Unlike simulation mode, GMX keepers operate on Arbitrum Sepolia so the full
+trading flow (open/close positions) works on testnet.
+
+Unlike mainnet deployment, we do not use factory contracts — both Gnosis Safe
+and all Lagoon contracts are deployed from scratch using Forge.
+
+In testnet mode:
+
+- Deploys on Arbitrum Sepolia (chain ID 421614)
+- Uses GMX testnet tokens (different from Circle faucet USDC)
+- No Chainlink price feeds (USD cost estimates are unavailable)
+- Simulation is **not supported** on testnet because Lagoon factory contracts
+  are not deployed on Sepolia chains
+
+To get testnet ETH funding, use `LearnWeb3 faucet for Arbitrum Sepolia
+<https://learnweb3.io/faucets/arbitrum_sepolia/>`__.
+GMX test tokens are ``MintableToken`` contracts — call
+``mint(your_address, amount)`` directly on Arbiscan Sepolia
+(Write Contract → ``mint``).  GMX markets on Arbitrum Sepolia use
+**USDC.SG** (``0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773``) as their
+stablecoin, not the regular USDC.  Mint USDC.SG on `Arbiscan Sepolia
+<https://sepolia.arbiscan.io/address/0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773#writeContract>`__.
+For example, to mint 999 USDC.SG pass ``account`` = your wallet address
+and ``amount`` = ``999000000`` (6 decimals, so 999 × 10⁶).
+
+Example:
+
+.. code-block:: shell
+
+    NETWORK=testnet \
+    JSON_RPC_ARBITRUM_SEPOLIA="https://sepolia-rollup.arbitrum.io/rpc" \
+    GMX_PRIVATE_KEY="0x..." \
+    python scripts/lagoon/lagoon-gmx-example.py
+
+Environment variables
+---------------------
+
+``NETWORK``
+    ``mainnet`` (default) or ``testnet``.  Selects the target chain
+    (Arbitrum mainnet or Arbitrum Sepolia).
+
+``SIMULATE``
+    Set to ``true`` to run using an Anvil mainnet fork.  Only compatible
+    with ``NETWORK=mainnet`` (the default).
+
+``JSON_RPC_ARBITRUM``
+    Arbitrum mainnet RPC endpoint.  Required when ``NETWORK=mainnet``.
+
+``JSON_RPC_ARBITRUM_SEPOLIA``
+    Arbitrum Sepolia RPC endpoint.  Required when ``NETWORK=testnet``.
+
+``GMX_PRIVATE_KEY``
+    Private key of a funded wallet.  Required in non-simulate modes.
+
+``ETHERSCAN_API_KEY``
+    Optional.  API key for contract verification on Arbiscan.
+
 GMX minimum amounts
 -------------------
 
@@ -72,25 +135,16 @@ GMX V2 has the following minimum requirements (per gmx-synthetics config):
 - **Minimum position size**: $1 USD
 
 This script uses a $5 deposit and $5 position size with 1.1x leverage,
-providing ~$4.55 collateral (above the $2 minimum). The Safe also needs ETH for execution
-fees (~0.0001-0.001 ETH per order, paid to GMX keepers). The script
-sends 0.001 ETH to the Safe before trading and recovers it afterwards.
+providing ~$4.55 collateral (above the $2 minimum).  GMX orders also
+require ETH execution fees (~0.0001-0.001 ETH per order, paid to keepers).
 
-Note: ``TradingStrategyModuleV0.performCall()`` is not ``payable``, so
-execution fee ETH must come from the Safe's own balance — not from the
-hot wallet's ``msg.value``.
+The script uses ``forward_eth=True`` on ``LagoonGMXTradingWallet`` so
+the asset manager's hot wallet pays keeper fees directly with each order.
+The module forwards ``msg.value`` to the Safe, which then sends it to
+the GMX ExchangeRouter.  The Safe does not need to hold ETH.
 
 Source: https://github.com/gmx-io/gmx-synthetics/blob/main/config/general.ts
 
-Prerequisites
--------------
-
-You need:
-- An Arbitrum wallet funded with at least 0.01 ETH for gas + execution fees
-- Some USDC on Arbitrum for trading collateral (~$10 recommended)
-- JSON_RPC_ARBITRUM environment variable pointing to an Arbitrum RPC
-- GMX_PRIVATE_KEY environment variable with your wallet private key
-- ETHERSCAN_API_KEY for contract verification (optional but recommended)
 
 API documentation
 -----------------
@@ -101,60 +155,173 @@ API documentation
 - Guard contract: contracts/guard/src/GuardV0Base.sol
 """
 
+import dataclasses
 import logging
 import os
 import time
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Optional
 
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 
-from safe_eth.safe.safe import Safe
-
 from eth_defi.chain import get_chain_name
 from eth_defi.confirmation import broadcast_and_wait_transactions_to_complete
-from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.lagoon.config_event_scanner import build_multichain_guard_config, fetch_guard_config_events, format_guard_config_report
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.lagoon.testing import fund_lagoon_vault, redeem_vault_shares
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.ccxt import GMX
-from eth_defi.gmx.contracts import get_contract_addresses
+from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
+from eth_defi.gmx.lagoon.approvals import UNLIMITED, approve_gmx_collateral_via_vault
 from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
-from eth_defi.gmx.whitelist import GMX_POPULAR_MARKETS, GMXDeployment
+from eth_defi.gmx.whitelist import GMX_POPULAR_MARKETS, GMXDeployment, fetch_all_gmx_markets, resolve_gmx_market_labels
 from eth_defi.hotwallet import HotWallet, SignedTransactionWithNonce
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.safe.execute import execute_safe_tx
-from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, WRAPPED_NATIVE_TOKEN, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.utils import setup_console_logging
 
 # ============================================================================
-# Configuration constants
+# Network configuration
 # ============================================================================
 
-# Arbitrum chain ID
-ARBITRUM_CHAIN_ID = 42161
 
-# Token addresses on Arbitrum mainnet (from eth_defi.token)
-USDC_ARBITRUM = USDC_NATIVE_TOKEN[ARBITRUM_CHAIN_ID]
-WETH_ARBITRUM = WRAPPED_NATIVE_TOKEN[ARBITRUM_CHAIN_ID]
+@dataclass(slots=True)
+class NetworkConfig:
+    """Network-specific configuration resolved at runtime.
 
-# GMX contract addresses - fetched dynamically from eth_defi.gmx.contracts
-# These include ExchangeRouter, SyntheticsRouter, OrderVault, etc.
-_GMX_ADDRESSES = get_contract_addresses("arbitrum")
-GMX_EXCHANGE_ROUTER = _GMX_ADDRESSES.exchangerouter
-GMX_SYNTHETICS_ROUTER = _GMX_ADDRESSES.syntheticsrouter
-GMX_ORDER_VAULT = _GMX_ADDRESSES.ordervault
+    Created once in :func:`main` based on the ``NETWORK`` environment variable
+    and threaded through all helper functions.
+    """
 
-# GMX ETH/USD market on Arbitrum (from eth_defi.gmx.whitelist)
-GMX_ETH_USDC_MARKET = GMX_POPULAR_MARKETS["ETH/USD"]
+    #: Chain identifier (e.g. 42161 for Arbitrum, 421614 for Arbitrum Sepolia)
+    chain_id: int
 
-# Whale address for simulation mode (from eth_defi.token)
-USDC_WHALE_ARBITRUM = USDC_WHALE[ARBITRUM_CHAIN_ID]
+    #: GMX chain name for API calls (e.g. ``"arbitrum"`` or ``"arbitrum_sepolia"``)
+    gmx_chain_name: str
+
+    #: Name of the RPC environment variable to read
+    rpc_env_var: str
+
+    #: USDC token address (vault underlying and GMX collateral).
+    #: On testnet this is USDC.SG — the stablecoin used by GMX markets.
+    usdc_address: HexAddress
+
+    #: GMX collateral symbol for CCXT order parameters.
+    #: ``"USDC"`` on mainnet, ``"USDC.SG"`` on testnet (matches market tokens).
+    gmx_collateral_symbol: str
+
+    #: WETH token address
+    weth_address: HexAddress
+
+    #: GMX ExchangeRouter address
+    gmx_exchange_router: HexAddress
+
+    #: GMX SyntheticsRouter address
+    gmx_synthetics_router: HexAddress
+
+    #: GMX OrderVault address
+    gmx_order_vault: HexAddress
+
+    #: GMX ETH/USD market address.
+    #: ``None`` on testnet — resolved dynamically after connecting to the chain.
+    gmx_eth_usd_market: HexAddress | None
+
+    #: USDC whale for simulation mode.
+    #: ``None`` on testnet (simulation not supported).
+    usdc_whale: HexAddress | None
+
+    #: Chainlink ETH/USD aggregator address.
+    #: ``None`` on testnet (no Chainlink feeds on Sepolia).
+    chainlink_eth_usd: HexAddress | None
+
+    #: Whether ``SIMULATE=true`` is supported on this network
+    simulate_supported: bool
+
+    #: Whether deployment must create contracts from scratch (no factory)
+    from_the_scratch: bool
+
+    #: Block explorer base URL (e.g. ``https://arbiscan.io``)
+    explorer_url: str
+
+
+def _create_mainnet_config() -> NetworkConfig:
+    """Create configuration for Arbitrum mainnet."""
+    chain_id = 42161
+    addresses = get_contract_addresses("arbitrum")
+    return NetworkConfig(
+        chain_id=chain_id,
+        gmx_chain_name="arbitrum",
+        rpc_env_var="JSON_RPC_ARBITRUM",
+        usdc_address=USDC_NATIVE_TOKEN[chain_id],
+        gmx_collateral_symbol="USDC",
+        weth_address=WRAPPED_NATIVE_TOKEN[chain_id],
+        gmx_exchange_router=addresses.exchangerouter,
+        gmx_synthetics_router=addresses.syntheticsrouter,
+        gmx_order_vault=addresses.ordervault,
+        gmx_eth_usd_market=GMX_POPULAR_MARKETS["ETH/USD"],
+        usdc_whale=USDC_WHALE[chain_id],
+        chainlink_eth_usd="0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612",
+        simulate_supported=True,
+        from_the_scratch=False,
+        explorer_url="https://arbiscan.io",
+    )
+
+
+def _create_testnet_config() -> NetworkConfig:
+    """Create configuration for Arbitrum Sepolia testnet.
+
+    GMX testnet uses its own test tokens (different from Circle faucet USDC).
+    Test tokens are ``MintableToken`` contracts — call ``mint()`` directly on Arbiscan.
+
+    .. note::
+
+        GMX markets on Arbitrum Sepolia use **USDC.SG** (``0x3253...``) as
+        their stablecoin, not the regular USDC (``0x3321...``).  The vault
+        denomination must match the market collateral token, so we use
+        USDC.SG everywhere on testnet.
+    """
+    addresses = get_contract_addresses("arbitrum_sepolia")
+    gmx_tokens = NETWORK_TOKENS["arbitrum_sepolia"]
+    return NetworkConfig(
+        chain_id=421614,
+        gmx_chain_name="arbitrum_sepolia",
+        rpc_env_var="JSON_RPC_ARBITRUM_SEPOLIA",
+        usdc_address=gmx_tokens["USDC.SG"],
+        gmx_collateral_symbol="USDC.SG",
+        weth_address=gmx_tokens["WETH"],
+        gmx_exchange_router=addresses.exchangerouter,
+        gmx_synthetics_router=addresses.syntheticsrouter,
+        gmx_order_vault=addresses.ordervault,
+        gmx_eth_usd_market=None,  # Resolved dynamically after connecting
+        usdc_whale=None,
+        chainlink_eth_usd=None,
+        simulate_supported=False,
+        from_the_scratch=True,
+        explorer_url="https://sepolia.arbiscan.io",
+    )
+
+
+def _fetch_eth_usd_market(web3: Web3) -> HexAddress:
+    """Dynamically fetch the ETH/USD market address from on-chain data.
+
+    Used on testnet where :data:`GMX_POPULAR_MARKETS` (mainnet only) is
+    not available.
+
+    :param web3: Web3 instance connected to the target chain
+    :return: ETH/USD market address
+    :raises ValueError: If no ETH/USD market found
+    """
+    markets = fetch_all_gmx_markets(web3)
+    for address, info in markets.items():
+        if info.market_symbol == "ETH":
+            return address
+    available = ", ".join(str(info.market_symbol) for info in markets.values())
+    raise ValueError(f"Could not find ETH/USD market on this chain. Available markets: {available}")
 
 
 # ============================================================================
@@ -171,7 +338,7 @@ class TransactionRecord:
     gas_used: int
     gas_price_gwei: float
     cost_eth: Decimal
-    cost_usd: Optional[Decimal] = None
+    cost_usd: Decimal | None = None
     block_number: int = 0
 
 
@@ -238,25 +405,28 @@ _tx_count = 0
 _summary = TradingSummary()
 
 
-def get_eth_price_usd(web3: Web3) -> Decimal:
-    """Fetch current ETH/USD price from Chainlink on Arbitrum.
+def get_eth_price_usd(web3: Web3, chainlink_eth_usd: HexAddress | None) -> Decimal:
+    """Fetch current ETH/USD price from Chainlink.
 
-    Uses the Chainlink ETH/USD price feed on Arbitrum.
+    Uses the Chainlink ETH/USD price feed.
     See: https://docs.chain.link/data-feeds/price-feeds/addresses
 
-    :param web3: Web3 instance connected to Arbitrum
+    :param web3: Web3 instance
+    :param chainlink_eth_usd:
+        Chainlink aggregator address, or ``None`` if unavailable (testnet).
     :return: ETH price in USD
+    :raises ValueError: If no Chainlink feed is available on this network
     """
+    if chainlink_eth_usd is None:
+        raise ValueError("No Chainlink ETH/USD feed available on this network")
+
     from eth_defi.abi import get_deployed_contract
     from eth_defi.chainlink.round_data import ChainLinkLatestRoundData
-
-    # Chainlink ETH/USD feed on Arbitrum
-    aggregator_address = "0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612"
 
     aggregator = get_deployed_contract(
         web3,
         "ChainlinkAggregatorV2V3Interface.json",
-        aggregator_address,
+        chainlink_eth_usd,
     )
     data = aggregator.functions.latestRoundData().call()
     round_data = ChainLinkLatestRoundData(aggregator, *data)
@@ -268,6 +438,7 @@ def broadcast_tx(
     hot_wallet: HotWallet,
     bound_func: ContractFunction,
     description: str,
+    config: NetworkConfig,
     value: int | None = None,
     tx_params: dict | None = None,
     default_gas_limit: int = 1_000_000,
@@ -284,6 +455,7 @@ def broadcast_tx(
     :param hot_wallet: Wallet to sign with
     :param bound_func: Contract function to call
     :param description: Human-readable description for the summary
+    :param config: Network configuration (for Chainlink price feed)
     :param value: ETH value to send (in wei)
     :param tx_params: Additional transaction parameters
     :param default_gas_limit: Default gas limit if not specified
@@ -316,7 +488,7 @@ def broadcast_tx(
 
     # Try to get USD cost
     try:
-        eth_price = get_eth_price_usd(web3)
+        eth_price = get_eth_price_usd(web3, config.chainlink_eth_usd)
         cost_usd = cost_eth * eth_price
     except Exception:
         cost_usd = None
@@ -345,8 +517,9 @@ def broadcast_tx(
 def deploy_lagoon_vault(
     web3: Web3,
     hot_wallet: HotWallet,
+    config: NetworkConfig,
     etherscan_api_key: str | None,
-) -> LagoonVault:
+) -> LagoonAutomatedDeployment:
     """Deploy a Lagoon vault configured for GMX trading.
 
     The vault is deployed with:
@@ -359,24 +532,25 @@ def deploy_lagoon_vault(
     For deployment details, see:
     :py:func:`eth_defi.erc_4626.vault_protocol.lagoon.deployment.deploy_automated_lagoon_vault`
 
-    :param web3: Web3 instance connected to Arbitrum
+    :param web3: Web3 instance connected to the target chain
     :param hot_wallet: Deployer wallet (will become asset manager)
+    :param config: Network configuration
     :param etherscan_api_key: API key for contract verification
-    :return: Deployed LagoonVault instance
+    :return: Deployment result containing vault, Safe address, and block number
     """
 
     # Configure vault parameters
     # Using USDC as the base asset for the vault
     parameters = LagoonDeploymentParameters(
-        underlying=USDC_ARBITRUM,
+        underlying=config.usdc_address,
         name="GMX Trading Vault Tutorial",
         symbol="GMX-VAULT",
     )
 
     # Whitelist assets that can be held/traded
     assets = [
-        USDC_ARBITRUM,  # Quote currency for positions
-        WETH_ARBITRUM,  # Can be used as collateral for longs
+        config.usdc_address,  # Quote currency for positions
+        config.weth_address,  # Can be used as collateral for longs
     ]
 
     # Single-owner Safe for simplicity (in production, use multiple owners)
@@ -385,23 +559,23 @@ def deploy_lagoon_vault(
     # Configure GMX integration using GMXDeployment
     # This whitelists the GMX routers, order vault, and specified markets
     gmx_deployment = GMXDeployment(
-        exchange_router=GMX_EXCHANGE_ROUTER,
-        synthetics_router=GMX_SYNTHETICS_ROUTER,
-        order_vault=GMX_ORDER_VAULT,
+        exchange_router=config.gmx_exchange_router,
+        synthetics_router=config.gmx_synthetics_router,
+        order_vault=config.gmx_order_vault,
         markets=[
-            GMX_ETH_USDC_MARKET,  # ETH/USD perpetuals market
+            config.gmx_eth_usd_market,  # ETH/USD perpetuals market
         ],
         tokens=[
-            USDC_ARBITRUM,  # Collateral token for GMX orders
-            WETH_ARBITRUM,  # Alternative collateral
+            config.usdc_address,  # Collateral token for GMX orders
+            config.weth_address,  # Alternative collateral
         ],
     )
 
     print("\nDeploying Lagoon vault with GMX integration...")
     print(f"  Deployer/Asset Manager: {hot_wallet.address}")
-    print(f"  Base asset: USDC ({USDC_ARBITRUM})")
-    print(f"  GMX ExchangeRouter: {GMX_EXCHANGE_ROUTER}")
-    print(f"  GMX Market: {GMX_ETH_USDC_MARKET}")
+    print(f"  Base asset: USDC ({config.usdc_address})")
+    print(f"  GMX ExchangeRouter: {config.gmx_exchange_router}")
+    print(f"  GMX Market: {config.gmx_eth_usd_market}")
 
     # Deploy the vault with all integrations
     # The gmx_deployment parameter handles all GMX whitelisting automatically
@@ -416,11 +590,11 @@ def deploy_lagoon_vault(
         uniswap_v3=None,
         any_asset=False,  # Only whitelisted assets allowed
         gmx_deployment=gmx_deployment,  # GMX integration configuration
-        from_the_scratch=False,  # Use pre-deployed factory if available
-        use_forge=True,  # Use forge for contract compilation
+        from_the_scratch=config.from_the_scratch,
+        use_forge=True,
         assets=assets,
         etherscan_api_key=etherscan_api_key,
-        between_contracts_delay_seconds=15.0,  # Wait between deployments
+        between_contracts_delay_seconds=15.0,
     )
 
     vault = deploy_info.vault
@@ -431,7 +605,7 @@ def deploy_lagoon_vault(
 
     print("GMX integration configured!")
 
-    return vault
+    return deploy_info
 
 
 # ============================================================================
@@ -447,212 +621,32 @@ def deposit_to_vault(
 ) -> None:
     """Deposit USDC into the Lagoon vault.
 
-    The deposit flow for Lagoon vaults:
-    1. Approve vault to spend USDC
-    2. Call requestDeposit() to queue the deposit
-    3. Call settle() to process pending deposits (requires valuation)
-
-    After settlement, the USDC is held in the Safe and can be used
-    for GMX trading.
+    Uses :func:`~eth_defi.erc_4626.vault_protocol.lagoon.testing.fund_lagoon_vault`
+    to handle the full ERC-7540 async deposit flow (request → settle → finalise).
 
     :param web3: Web3 instance
     :param hot_wallet: Depositor wallet
     :param vault: LagoonVault to deposit into
     :param usdc_amount: Amount of USDC to deposit (human-readable)
     """
-    usdc = fetch_erc20_details(web3, USDC_ARBITRUM)
-    raw_amount = usdc.convert_to_raw(usdc_amount)
-
     print(f"\nDepositing {usdc_amount} USDC to vault...")
 
-    # Step 1: Approve USDC transfer
-    broadcast_tx(
+    fund_lagoon_vault(
         web3,
-        hot_wallet,
-        usdc.approve(vault.address, usdc_amount),
-        "Approve USDC for vault deposit",
+        vault_address=vault.address,
+        asset_manager=hot_wallet.address,
+        test_account_with_balance=hot_wallet.address,
+        trading_strategy_module_address=vault.trading_strategy_module_address,
+        amount=usdc_amount,
+        hot_wallet=hot_wallet,
     )
 
-    # Step 2: Request deposit
-    broadcast_tx(
-        web3,
-        hot_wallet,
-        vault.request_deposit(hot_wallet.address, raw_amount),
-        "Request USDC deposit to vault",
-    )
-
-    # Step 3: Settle the vault
-    # For initial deposit, valuation is 0 (NAV before this deposit)
-    # For subsequent deposits, use current Safe balance
-    safe_usdc_balance = usdc.fetch_balance_of(vault.safe_address)
-    valuation = safe_usdc_balance  # Current balance BEFORE settlement
-
-    broadcast_tx(
-        web3,
-        hot_wallet,
-        vault.post_new_valuation(valuation),
-        "Post vault valuation",
-    )
-
-    broadcast_tx(
-        web3,
-        hot_wallet,
-        vault.settle_via_trading_strategy_module(valuation),
-        "Settle vault deposits",
-    )
-
-    # Step 4: Finalise deposit (transfer shares to depositor's wallet)
-    # ERC-7540 vaults hold shares in a silo until finalised
-    broadcast_tx(
-        web3,
-        hot_wallet,
-        vault.finalise_deposit(hot_wallet.address),
-        "Finalise deposit (claim shares)",
-    )
-
-    # Verify deposit
+    usdc = fetch_erc20_details(web3, vault.underlying_token.address)
     final_balance = usdc.fetch_balance_of(vault.safe_address)
     share_balance = vault.share_token.fetch_balance_of(hot_wallet.address)
     print(f"\nDeposit complete!")
     print(f"  Safe USDC balance: {final_balance}")
     print(f"  Depositor share balance: {share_balance}")
-
-
-# ============================================================================
-# Step 2b: Fund Safe with ETH for GMX execution fees
-# ============================================================================
-
-
-def fund_safe_with_eth(
-    web3: Web3,
-    hot_wallet: HotWallet,
-    vault: LagoonVault,
-    eth_amount: Decimal,
-) -> None:
-    """Send ETH from the hot wallet to the vault's Safe.
-
-    GMX orders require ETH execution fees paid to keepers. The Safe must hold
-    ETH because ``TradingStrategyModuleV0.performCall()`` sends the ``value``
-    parameter from the Safe's own balance (the function is not ``payable``).
-
-    The Safe has a ``receive()`` function so it accepts plain ETH transfers.
-
-    :param web3: Web3 instance
-    :param hot_wallet: Wallet that holds ETH
-    :param vault: LagoonVault whose Safe needs funding
-    :param eth_amount: Amount of ETH to send (human-readable)
-    """
-    global _tx_count, _summary
-    _tx_count += 1
-
-    wei_amount = int(eth_amount * Decimal(10**18))
-
-    print(f"\nFunding Safe with {eth_amount} ETH for GMX execution fees...")
-    print(f"  Safe address: {vault.safe_address}")
-
-    gas_price_suggestion = estimate_gas_price(web3)
-    tx_params = apply_gas({}, gas_price_suggestion)
-    tx_params["chainId"] = web3.eth.chain_id
-    tx_params["from"] = hot_wallet.address
-    tx_params["to"] = vault.safe_address
-    tx_params["value"] = wei_amount
-    tx_params["gas"] = 50_000  # ETH transfer (extra buffer for Anvil fork)
-
-    tx = hot_wallet.sign_transaction_with_new_nonce(tx_params)
-    broadcast_and_wait_transactions_to_complete(web3, [tx])
-
-    receipt = web3.eth.get_transaction_receipt(tx.hash)
-    gas_used = receipt["gasUsed"]
-    gas_price = receipt.get("effectiveGasPrice", web3.eth.gas_price)
-    cost_eth = Decimal(gas_used * gas_price) / Decimal(10**18)
-
-    try:
-        eth_price = get_eth_price_usd(web3)
-        cost_usd = cost_eth * eth_price
-    except Exception:
-        cost_usd = None
-
-    record = TransactionRecord(
-        description="Fund Safe with ETH for GMX execution fees",
-        tx_hash=tx.hash.hex(),
-        gas_used=gas_used,
-        gas_price_gwei=gas_price / 1e9,
-        cost_eth=cost_eth,
-        cost_usd=cost_usd,
-        block_number=receipt["blockNumber"],
-    )
-    _summary.add_transaction(record)
-
-    safe_eth = web3.eth.get_balance(vault.safe_address)
-    print(f"  Safe ETH balance: {web3.from_wei(safe_eth, 'ether')} ETH")
-
-
-def recover_eth_from_safe(
-    web3: Web3,
-    hot_wallet: HotWallet,
-    vault: LagoonVault,
-) -> None:
-    """Recover remaining ETH from the Safe back to the hot wallet.
-
-    Uses a Safe owner-signed transaction (``execTransaction``) to send ETH
-    directly from the Safe. This bypasses the Guard because it goes through
-    the Safe's own execution path, not through the TradingStrategyModuleV0.
-
-    :param web3: Web3 instance
-    :param hot_wallet: Destination wallet (must be a Safe owner)
-    :param vault: LagoonVault whose Safe holds the ETH
-    """
-    global _tx_count, _summary
-
-    safe_eth_wei = web3.eth.get_balance(vault.safe_address)
-    if safe_eth_wei == 0:
-        print("\n  No ETH in Safe to recover")
-        return
-
-    safe_eth = Decimal(safe_eth_wei) / Decimal(10**18)
-    print(f"\nRecovering {safe_eth:.6f} ETH from Safe to hot wallet...")
-
-    ethereum_client = create_safe_ethereum_client(web3)
-    safe = Safe(vault.safe_address, ethereum_client)
-
-    # Build Safe owner transaction to send ETH to hot wallet
-    safe_tx = safe.build_multisig_tx(hot_wallet.address, safe_eth_wei, b"")
-    safe_tx.sign(hot_wallet.private_key.hex())
-
-    gas_estimate = estimate_gas_price(web3)
-    _tx_count += 1
-    hot_wallet.sync_nonce(web3)
-    tx_hash, tx = execute_safe_tx(
-        safe_tx,
-        tx_sender_private_key=hot_wallet.private_key.hex(),
-        tx_gas=100_000,
-        tx_nonce=hot_wallet.allocate_nonce(),
-        gas_fee=gas_estimate,
-    )
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    receipt = web3.eth.get_transaction_receipt(tx_hash)
-    gas_used = receipt["gasUsed"]
-    gas_price = receipt.get("effectiveGasPrice", web3.eth.gas_price)
-    cost_eth = Decimal(gas_used * gas_price) / Decimal(10**18)
-
-    try:
-        eth_price = get_eth_price_usd(web3)
-        cost_usd = cost_eth * eth_price
-    except Exception:
-        cost_usd = None
-
-    record = TransactionRecord(
-        description="Recover ETH from Safe to hot wallet",
-        tx_hash=tx_hash.hex(),
-        gas_used=gas_used,
-        gas_price_gwei=gas_price / 1e9,
-        cost_eth=cost_eth,
-        cost_usd=cost_usd,
-        block_number=receipt["blockNumber"],
-    )
-    _summary.add_transaction(record)
-    print(f"  Recovered {safe_eth:.6f} ETH")
 
 
 # ============================================================================
@@ -664,6 +658,7 @@ def setup_gmx_trading(
     web3: Web3,
     vault: LagoonVault,
     asset_manager: HotWallet,
+    config: NetworkConfig,
     json_rpc_url: str,
 ) -> GMX:
     """Set up GMX trading through the Lagoon vault.
@@ -674,6 +669,8 @@ def setup_gmx_trading(
     :param web3: Web3 instance
     :param vault: LagoonVault holding the collateral
     :param asset_manager: Hot wallet of the asset manager
+    :param config: Network configuration
+    :param json_rpc_url: JSON-RPC URL for the GMX adapter
     :return: Configured GMX CCXT adapter instance
     """
     print("\nSetting up GMX trading...")
@@ -684,21 +681,18 @@ def setup_gmx_trading(
         vault=vault,
         asset_manager=asset_manager,
         gas_buffer=500_000,  # Extra gas for performCall overhead
+        forward_eth=True,  # Asset manager pays GMX keeper fees directly
     )
     lagoon_wallet.sync_nonce(web3)
 
     # Approve USDC for GMX SyntheticsRouter (one-time approval)
-    # This approval comes FROM the Safe, so we wrap it through performCall
-    usdc = fetch_erc20_details(web3, USDC_ARBITRUM)
-    approve_call = usdc.contract.functions.approve(GMX_SYNTHETICS_ROUTER, 2**256 - 1)
-    wrapped_approve = vault.transact_via_trading_strategy_module(approve_call)
-
-    broadcast_tx(
-        web3,
-        asset_manager,
-        wrapped_approve,
-        "Approve USDC for GMX SyntheticsRouter",
-        default_gas_limit=500_000,
+    # This approval comes FROM the Safe, so it's wrapped through performCall
+    usdc = fetch_erc20_details(web3, config.usdc_address)
+    approve_gmx_collateral_via_vault(
+        vault=vault,
+        asset_manager=asset_manager,
+        collateral_token=usdc,
+        amount=UNLIMITED,
     )
 
     # Create GMX CCXT adapter with the vault wallet
@@ -723,6 +717,7 @@ def setup_gmx_trading(
 
 def open_gmx_position(
     gmx: GMX,
+    config: NetworkConfig,
     size_usd: Decimal,
     leverage: float,
     is_long: bool = True,
@@ -730,26 +725,29 @@ def open_gmx_position(
     """Open a leveraged GMX position through the Lagoon vault.
 
     :param gmx: Configured GMX CCXT adapter instance
+    :param config: Network configuration
     :param size_usd: Position size in USD
     :param leverage: Leverage multiplier (e.g., 2.0 for 2x)
     :param is_long: True for long, False for short
     :return: CCXT-style order result dict
     """
+    collateral = config.gmx_collateral_symbol
     print(f"\nOpening {'LONG' if is_long else 'SHORT'} ETH position...")
     print(f"  Size: ${size_usd}")
     print(f"  Leverage: {leverage}x")
-    print(f"  Collateral: ${float(size_usd) / leverage:.2f} USDC")
+    print(f"  Collateral: ${float(size_usd) / leverage:.2f} {collateral}")
 
     # Create the order using CCXT-style interface
+    symbol = f"ETH/{collateral}:{collateral}"
     order = gmx.create_order(
-        symbol="ETH/USDC:USDC",
+        symbol=symbol,
         type="market",
         side="buy" if is_long else "sell",
         amount=0,  # Ignored when size_usd is provided
         params={
             "size_usd": float(size_usd),
             "leverage": leverage,
-            "collateral_symbol": "USDC",
+            "collateral_symbol": collateral,
             "wait_for_execution": False,
         },
     )
@@ -778,28 +776,32 @@ def open_gmx_position(
 
 def close_gmx_position(
     gmx: GMX,
+    config: NetworkConfig,
     size_usd: Decimal,
     is_long: bool = True,
 ) -> dict:
     """Close an existing GMX position through the Lagoon vault.
 
     :param gmx: Configured GMX CCXT adapter instance
+    :param config: Network configuration
     :param size_usd: Position size to close (in USD)
     :param is_long: True if closing a long, False if closing a short
     :return: CCXT-style order result dict
     """
+    collateral = config.gmx_collateral_symbol
     print(f"\nClosing {'LONG' if is_long else 'SHORT'} ETH position...")
 
     # Close the position (reduceOnly=True)
+    symbol = f"ETH/{collateral}:{collateral}"
     order = gmx.create_order(
-        symbol="ETH/USDC:USDC",
+        symbol=symbol,
         type="market",
         side="sell" if is_long else "buy",
         amount=0,
         params={
             "size_usd": float(size_usd),
             "leverage": 1.0,  # Not relevant for closes
-            "collateral_symbol": "USDC",
+            "collateral_symbol": collateral,
             "reduceOnly": True,
             "wait_for_execution": False,
         },
@@ -830,22 +832,21 @@ def withdraw_from_vault(
     web3: Web3,
     hot_wallet: HotWallet,
     vault: LagoonVault,
+    config: NetworkConfig,
 ) -> Decimal:
     """Withdraw all USDC from the Lagoon vault.
 
-    The withdrawal flow:
-    1. Request redemption of all vault shares
-    2. Settle the vault to process redemptions
-    3. USDC is transferred to the withdrawer
+    Uses :func:`~eth_defi.erc_4626.vault_protocol.lagoon.testing.redeem_vault_shares`
+    for the request phase, then settles and finalises manually.
 
     :param web3: Web3 instance
     :param hot_wallet: Wallet to receive the USDC
     :param vault: LagoonVault to withdraw from
+    :param config: Network configuration
     :return: Amount of USDC withdrawn
     """
-    usdc = fetch_erc20_details(web3, USDC_ARBITRUM)
+    usdc = fetch_erc20_details(web3, config.usdc_address)
 
-    # Get vault share balance using vault's share token
     share_token = vault.share_token
     shares = share_token.fetch_balance_of(hot_wallet.address)
 
@@ -856,17 +857,15 @@ def withdraw_from_vault(
         print("  No shares to redeem")
         return Decimal("0")
 
-    raw_shares = share_token.convert_to_raw(shares)
-
-    # Request redemption
-    broadcast_tx(
+    # Phase 1: Request redemption (approve + requestRedeem)
+    redeem_vault_shares(
         web3,
-        hot_wallet,
-        vault.request_redeem(hot_wallet.address, raw_shares),
-        "Request vault redemption",
+        vault_address=vault.address,
+        redeemer=hot_wallet.address,
+        hot_wallet=hot_wallet,
     )
 
-    # Settle the vault
+    # Phase 2: Settle the vault
     safe_usdc_balance = usdc.fetch_balance_of(vault.safe_address)
 
     broadcast_tx(
@@ -874,6 +873,7 @@ def withdraw_from_vault(
         hot_wallet,
         vault.post_new_valuation(safe_usdc_balance),
         "Post vault valuation for withdrawal",
+        config,
     )
 
     broadcast_tx(
@@ -881,15 +881,16 @@ def withdraw_from_vault(
         hot_wallet,
         vault.settle_via_trading_strategy_module(safe_usdc_balance),
         "Settle vault for withdrawal",
+        config,
     )
 
-    # Finalise redemption (transfer USDC from silo to user)
-    # ERC-7540 vaults hold redeemed assets in a silo until finalised
+    # Phase 3: Finalise redemption (transfer USDC from silo to user)
     broadcast_tx(
         web3,
         hot_wallet,
         vault.finalise_redeem(hot_wallet.address),
         "Finalise redemption (claim USDC)",
+        config,
     )
 
     # Check final balance
@@ -904,7 +905,10 @@ def withdraw_from_vault(
 # ============================================================================
 
 
-def setup_simulation_environment(json_rpc_url: str) -> tuple[Web3, HotWallet, "AnvilLaunch"]:
+def setup_simulation_environment(
+    json_rpc_url: str,
+    config: NetworkConfig,
+) -> tuple[Web3, HotWallet, "AnvilLaunch"]:
     """Set up an Anvil fork environment for simulation.
 
     Creates:
@@ -912,6 +916,7 @@ def setup_simulation_environment(json_rpc_url: str) -> tuple[Web3, HotWallet, "A
     - A test wallet funded with ETH and USDC
 
     :param json_rpc_url: Arbitrum RPC URL to fork from
+    :param config: Network configuration
     :return: Tuple of (web3, hot_wallet, anvil_launch)
     """
     print("\nStarting Anvil fork of Arbitrum...")
@@ -920,7 +925,7 @@ def setup_simulation_environment(json_rpc_url: str) -> tuple[Web3, HotWallet, "A
     # launch_anvil handles mev+ prefixed URLs automatically
     anvil_launch = fork_network_anvil(
         json_rpc_url,
-        unlocked_addresses=[USDC_WHALE_ARBITRUM],
+        unlocked_addresses=[config.usdc_whale],
     )
 
     web3 = create_multi_provider_web3(
@@ -939,11 +944,11 @@ def setup_simulation_environment(json_rpc_url: str) -> tuple[Web3, HotWallet, "A
     web3.provider.make_request("anvil_setBalance", [hot_wallet.address, hex(10 * 10**18)])
 
     # Fund with USDC from whale (100 USDC for testing)
-    usdc = fetch_erc20_details(web3, USDC_ARBITRUM)
+    usdc = fetch_erc20_details(web3, config.usdc_address)
     tx_hash = usdc.contract.functions.transfer(
         hot_wallet.address,
         100 * 10**6,  # 100 USDC
-    ).transact({"from": USDC_WHALE_ARBITRUM, "gas": 100_000})
+    ).transact({"from": config.usdc_whale, "gas": 100_000})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     print(f"\nSimulation wallet created: {hot_wallet.address}")
@@ -965,13 +970,27 @@ def main():
     # Setup logging
     logger = setup_console_logging()
 
-    # Check for simulation mode
+    # Parse network and mode
+    network = os.environ.get("NETWORK", "mainnet").lower()
+    if network not in ("mainnet", "testnet"):
+        raise ValueError(f"NETWORK must be 'mainnet' or 'testnet', got '{network}'")
+
     simulate = os.environ.get("SIMULATE", "").lower() in ("true", "1", "yes")
 
+    # Create network-specific configuration
+    if network == "testnet":
+        config = _create_testnet_config()
+    else:
+        config = _create_mainnet_config()
+
+    # Validate testnet + simulate combination
+    if simulate and not config.simulate_supported:
+        raise ValueError("Testnet simulation (NETWORK=testnet SIMULATE=true) is not supported because Lagoon factory contracts are not deployed on Sepolia chains. Use mainnet simulation (SIMULATE=true) for local testing.")
+
     # Load configuration from environment
-    json_rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
+    json_rpc_url = os.environ.get(config.rpc_env_var)
     if not json_rpc_url:
-        raise ValueError("JSON_RPC_ARBITRUM environment variable required. Set it to an Arbitrum RPC endpoint.")
+        raise ValueError(f"{config.rpc_env_var} environment variable required. Set it to an RPC endpoint.")
 
     etherscan_api_key = os.environ.get("ETHERSCAN_API_KEY")
     anvil_launch = None
@@ -993,28 +1012,36 @@ def main():
             print("\nRunning in SIMULATION mode using Anvil fork.")
             print("Trading steps will be skipped (GMX keepers cannot be simulated).")
 
-            web3, hot_wallet, anvil_launch = setup_simulation_environment(json_rpc_url)
+            web3, hot_wallet, anvil_launch = setup_simulation_environment(json_rpc_url, config)
             # Don't verify contracts in simulation mode
             etherscan_api_key = None
         else:
-            # Production mode: use real wallet and RPC
+            # Production / testnet mode: use real wallet and RPC
             private_key = os.environ.get("GMX_PRIVATE_KEY")
             if not private_key:
-                raise ValueError("GMX_PRIVATE_KEY environment variable required. Set it to the private key of a funded Arbitrum wallet.")
+                raise ValueError("GMX_PRIVATE_KEY environment variable required. Set it to the private key of a funded wallet.")
 
-            # Connect to Arbitrum
             web3 = create_multi_provider_web3(json_rpc_url)
 
+            mode_label = "TESTNET" if network == "testnet" else ""
             print("=" * 80)
-            print("LAGOON-GMX TRADING TUTORIAL")
+            print(f"LAGOON-GMX TRADING TUTORIAL {mode_label}".strip())
             print("=" * 80)
 
-            # Setup wallet
             hot_wallet = HotWallet.from_private_key(private_key)
             hot_wallet.sync_nonce(web3)
 
         chain_id = web3.eth.chain_id
         chain_name = get_chain_name(chain_id)
+
+        # Resolve GMX ETH/USD market dynamically on testnet
+        if config.gmx_eth_usd_market is None:
+            print("\nFetching ETH/USD market address from on-chain data...")
+            config = dataclasses.replace(
+                config,
+                gmx_eth_usd_market=_fetch_eth_usd_market(web3),
+            )
+            print(f"  ETH/USD market: {config.gmx_eth_usd_market}")
 
         print(f"\nConnected to {chain_name} (chain ID: {chain_id})")
         print(f"Latest block: {web3.eth.block_number:,}")
@@ -1024,16 +1051,22 @@ def main():
         print(f"ETH balance: {web3.from_wei(eth_balance, 'ether')} ETH")
 
         # Check USDC balance
-        usdc = fetch_erc20_details(web3, USDC_ARBITRUM)
+        usdc = fetch_erc20_details(web3, config.usdc_address)
         usdc_balance = usdc.fetch_balance_of(hot_wallet.address)
         print(f"USDC balance: {usdc_balance}")
 
         if usdc_balance < deposit_amount:
-            raise ValueError(f"Insufficient USDC. Need {deposit_amount}, have {usdc_balance}. Fund your wallet with USDC on Arbitrum.")
+            raise ValueError(f"Insufficient USDC. Need {deposit_amount}, have {usdc_balance}.")
 
-        # Get current ETH price for cost calculations
-        eth_price = get_eth_price_usd(web3)
-        print(f"\nCurrent ETH price: ${eth_price:.2f}")
+        # Get current ETH price for cost calculations (not available on testnet)
+        if config.chainlink_eth_usd is not None:
+            try:
+                eth_price = get_eth_price_usd(web3, config.chainlink_eth_usd)
+                print(f"\nCurrent ETH price: ${eth_price:.2f}")
+            except Exception:
+                print("\nCould not fetch ETH price from Chainlink")
+        else:
+            print("\nETH price: N/A (no Chainlink feed on testnet)")
 
         # =========================================================================
         # Step 1: Deploy vault
@@ -1043,7 +1076,9 @@ def main():
         print("=" * 80)
 
         logger.setLevel(logging.WARNING)  # Reduce noise during deployment
-        vault = deploy_lagoon_vault(web3, hot_wallet, etherscan_api_key)
+        deploy_from_block = web3.eth.block_number
+        deploy_info = deploy_lagoon_vault(web3, hot_wallet, config, etherscan_api_key)
+        vault = deploy_info.vault
         logger.setLevel(logging.INFO)
 
         # Re-sync nonce after deployment
@@ -1057,17 +1092,6 @@ def main():
         print("=" * 80)
 
         deposit_to_vault(web3, hot_wallet, vault, deposit_amount)
-
-        # =========================================================================
-        # Step 2b: Fund Safe with ETH for GMX execution fees
-        # =========================================================================
-        # The Safe needs ETH because performCall() sends the value parameter
-        # from the Safe's own balance (the function is not payable).
-        eth_for_safe = Decimal("0.001")
-        print("\n" + "-" * 80)
-        print("STEP 2b: Fund Safe with ETH for GMX execution fees")
-        print("-" * 80)
-        fund_safe_with_eth(web3, hot_wallet, vault, eth_for_safe)
 
         if simulate:
             # In simulation mode, skip trading steps
@@ -1085,7 +1109,7 @@ def main():
             print("STEP 3: Setup GMX trading")
             print("=" * 80)
 
-            gmx = setup_gmx_trading(web3, vault, hot_wallet, json_rpc_url)
+            gmx = setup_gmx_trading(web3, vault, hot_wallet, config, json_rpc_url)
 
             # =========================================================================
             # Step 4: Open position
@@ -1096,6 +1120,7 @@ def main():
 
             open_order = open_gmx_position(
                 gmx,
+                config,
                 size_usd=position_size,
                 leverage=leverage,
                 is_long=True,
@@ -1114,6 +1139,7 @@ def main():
 
             close_order = close_gmx_position(
                 gmx,
+                config,
                 size_usd=position_size,
                 is_long=True,
             )
@@ -1123,18 +1149,6 @@ def main():
             time.sleep(30)
 
         # =========================================================================
-        # Step 5b: Recover ETH from Safe
-        # =========================================================================
-        # Recover remaining ETH before withdrawing USDC.
-        # Uses a Safe owner-signed transaction (bypasses the Guard).
-        print("\n" + "-" * 80)
-        print("STEP 5b: Recover ETH from Safe")
-        print("-" * 80)
-
-        hot_wallet.sync_nonce(web3)
-        recover_eth_from_safe(web3, hot_wallet, vault)
-
-        # =========================================================================
         # Step 6: Withdraw
         # =========================================================================
         print("\n" + "=" * 80)
@@ -1142,7 +1156,7 @@ def main():
         print("=" * 80)
 
         hot_wallet.sync_nonce(web3)
-        final_usdc = withdraw_from_vault(web3, hot_wallet, vault)
+        final_usdc = withdraw_from_vault(web3, hot_wallet, vault, config)
 
         # Calculate realised PnL
         _summary.realised_pnl = final_usdc - deposit_amount
@@ -1156,10 +1170,39 @@ def main():
 
         _summary.print_summary()
 
+        # =========================================================================
+        # Step 8: Print guard configuration report
+        # =========================================================================
+        print("\n" + "=" * 80)
+        print("STEP 8: Guard configuration report")
+        print("=" * 80)
+
+        readback_chain_web3 = {chain_id: web3}
+
+        events, module_addresses = fetch_guard_config_events(
+            safe_address=vault.safe_address,
+            web3=web3,
+            chain_web3=readback_chain_web3,
+            follow_cctp=False,
+            from_block=deploy_from_block,
+        )
+
+        # Resolve GMX market names dynamically from chain
+        gmx_market_labels = resolve_gmx_market_labels(web3)
+
+        guard_config = build_multichain_guard_config(events, vault.safe_address, module_addresses)
+        report = format_guard_config_report(
+            config=guard_config,
+            events=events,
+            chain_web3=readback_chain_web3,
+            known_labels=gmx_market_labels,
+        )
+        print(report)
+
         print("\nTutorial complete!")
         print(f"\nVault address: {vault.address}")
         if not simulate:
-            print(f"View on Arbiscan: https://arbiscan.io/address/{vault.address}")
+            print(f"View on explorer: {config.explorer_url}/address/{vault.address}")
         else:
             print("(Simulation mode - vault exists only in Anvil fork)")
 

@@ -96,6 +96,7 @@ class LagoonGMXTradingWallet(BaseWallet):
         vault,
         asset_manager: HotWallet,
         gas_buffer: int = PERFORM_CALL_GAS_BUFFER,
+        forward_eth: bool = False,
     ):
         """Initialise the Lagoon wallet.
 
@@ -110,6 +111,16 @@ class LagoonGMXTradingWallet(BaseWallet):
         :param gas_buffer:
             Additional gas to add for performCall overhead.
             Default is 200,000 gas.
+
+        :param forward_eth:
+            Whether the asset manager's hot wallet forwards ETH for
+            execution fees (e.g. GMX keeper fees).
+
+            - ``False`` (default): Safe pays execution fees from its own ETH balance.
+              The Safe must be pre-funded with ETH.
+            - ``True``: The asset manager sends ETH with the ``performCall``
+              transaction, and the module forwards it to the Safe.
+              Requires TradingStrategyModuleV0 v0.4+.
         """
         # Duck typing for testability
         if not hasattr(vault, "trading_strategy_module"):
@@ -123,11 +134,13 @@ class LagoonGMXTradingWallet(BaseWallet):
         self.asset_manager = asset_manager
         self.web3 = vault.web3
         self.gas_buffer = gas_buffer
+        self.forward_eth = forward_eth
 
         logger.info(
-            "LagoonGMXTradingWallet initialised: safe=%s, asset_manager=%s",
+            "LagoonGMXTradingWallet initialised: safe=%s, asset_manager=%s, forward_eth=%s",
             vault.safe_address,
             asset_manager.address,
+            forward_eth,
         )
 
     @property
@@ -196,12 +209,16 @@ class LagoonGMXTradingWallet(BaseWallet):
         # Add gas buffer for performCall overhead
         gas_with_buffer = original_gas + self.gas_buffer
 
-        # Sign with asset manager
+        # Sign with asset manager.
+        # If forward_eth is enabled, include ETH value in the outer transaction
+        # so the module forwards it to the Safe for execution fees.
+        outer_value = value if (self.forward_eth and value > 0) else None
         return self.asset_manager.sign_bound_call_with_new_nonce(
             wrapped_func,
             tx_params={"gas": gas_with_buffer},
             web3=self.web3,
             fill_gas_price=True,
+            value=outer_value,
         )
 
     def sign_bound_call_with_new_nonce(
@@ -258,13 +275,16 @@ class LagoonGMXTradingWallet(BaseWallet):
         if "gas" in wrapped_params:
             wrapped_params["gas"] = wrapped_params["gas"] + self.gas_buffer
 
-        # Sign with asset manager
+        # Sign with asset manager.
+        # If forward_eth is enabled, include ETH value in the outer transaction
+        # so the module forwards it to the Safe for execution fees.
+        outer_value = tx_value if (self.forward_eth and tx_value > 0) else None
         return self.asset_manager.sign_bound_call_with_new_nonce(
             wrapped_func,
             tx_params=wrapped_params,
             web3=web3 or self.web3,
             fill_gas_price=fill_gas_price,
-            value=None,  # Value is already in performCall
+            value=outer_value,
         )
 
     def get_native_currency_balance(self, web3: Web3) -> Decimal:

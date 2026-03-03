@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 #: Type alias for broadcast callback functions
 BroadcastCallback = Callable[[Web3, HotWallet, ContractFunction, int], HexBytes]
 
+#: Pass as ``amount`` to approve the maximum possible amount (``2**256 - 1``).
+UNLIMITED = Decimal(-1)
+
 
 def _default_approval_broadcast(
     web3: Web3,
@@ -65,7 +68,8 @@ def approve_gmx_collateral_via_vault(
         Token to approve (e.g., USDC)
 
     :param amount:
-        Amount to approve (human-readable decimals)
+        Amount to approve (human-readable decimals).
+        Pass :data:`UNLIMITED` for max uint256 approval.
 
     :param broadcast_callback:
         Optional custom callback for broadcasting.
@@ -76,13 +80,13 @@ def approve_gmx_collateral_via_vault(
 
     Example::
 
-        from eth_defi.gmx.lagoon.approvals import approve_gmx_collateral_via_vault
+        from eth_defi.gmx.lagoon.approvals import approve_gmx_collateral_via_vault, UNLIMITED
 
         tx_hash = approve_gmx_collateral_via_vault(
             vault=vault,
             asset_manager=asset_manager,
             collateral_token=usdc,
-            amount=Decimal("10000"),
+            amount=UNLIMITED,
         )
     """
     # Duck typing for testability
@@ -112,8 +116,11 @@ def approve_gmx_collateral_via_vault(
     addresses = get_contract_addresses(chain)
     spender = addresses.syntheticsrouter
 
-    # Convert amount to raw
-    amount_raw = collateral_token.convert_to_raw(amount)
+    # Convert amount to raw (UNLIMITED → max uint256)
+    if amount == UNLIMITED:
+        amount_raw = 2**256 - 1
+    else:
+        amount_raw = collateral_token.convert_to_raw(amount)
 
     logger.info(
         "Approving %s for GMX SyntheticsRouter via vault: token=%s, spender=%s, amount=%s",
@@ -167,7 +174,8 @@ def approve_gmx_execution_fee_via_vault(
         WETH token details
 
     :param amount:
-        Amount of WETH to approve (human-readable)
+        Amount of WETH to approve (human-readable).
+        Pass :data:`UNLIMITED` for max uint256 approval.
 
     :param broadcast_callback:
         Optional custom callback for broadcasting
@@ -199,7 +207,11 @@ def approve_gmx_execution_fee_via_vault(
     addresses = get_contract_addresses(chain)
     spender = addresses.exchangerouter
 
-    amount_raw = weth_token.convert_to_raw(amount)
+    # Convert amount to raw (UNLIMITED → max uint256)
+    if amount == UNLIMITED:
+        amount_raw = 2**256 - 1
+    else:
+        amount_raw = weth_token.convert_to_raw(amount)
 
     logger.info(
         "Approving WETH for GMX ExchangeRouter via vault: spender=%s, amount=%s",

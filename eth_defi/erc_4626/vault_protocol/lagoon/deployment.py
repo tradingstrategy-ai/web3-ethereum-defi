@@ -43,7 +43,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy import deploy_beacon_p
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonSatelliteVault, LagoonVault
 from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.gas import apply_gas, estimate_gas_price
-from eth_defi.gmx.whitelist import GMXDeployment
+from eth_defi.gmx.whitelist import GMXDeployment, resolve_gmx_market_labels
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.deployment import add_new_safe_owners, deploy_safe, deploy_safe_with_deterministic_address, fetch_safe_deployment
@@ -1283,12 +1283,15 @@ def setup_guard(
         assert_transaction_success_with_explanation(web3, tx_hash)
         entries.append(WhitelistEntry("GMX", "ExchangeRouter", gmx_deployment.exchange_router))
 
-        # Whitelist GMX markets
+        # Whitelist GMX markets with resolved names
+        market_labels = resolve_gmx_market_labels(web3)
         for idx, market in enumerate(gmx_deployment.markets, start=1):
-            logger.info("Whitelisting GMX market #%d: %s", idx, market)
-            tx_hash = _broadcast(module.functions.whitelistGMXMarket(market, f"GMX market #{idx}"))
+            checksum = Web3.to_checksum_address(market)
+            market_name = market_labels.get(checksum, f"GMX market #{idx}")
+            logger.info("Whitelisting %s: %s", market_name, market)
+            tx_hash = _broadcast(module.functions.whitelistGMXMarket(market, market_name))
             assert_transaction_success_with_explanation(web3, tx_hash)
-            entries.append(WhitelistEntry("GMX market", f"market #{idx}", market))
+            entries.append(WhitelistEntry("GMX market", market_name, market))
 
         # Whitelist GMX collateral tokens if specified
         if gmx_deployment.tokens:

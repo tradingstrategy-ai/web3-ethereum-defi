@@ -4,6 +4,7 @@
 
 # 1.1
 
+- **Add: GMX Lagoon tutorial with testnet support, dynamic market resolution, and forward_eth keeper fee funding (2026-03-03)**
 - **Add: GMX order cancellation for all order types**
 - **Add: GMX fee and rebate data in CCXT**
 - **Add: Lagoon guard configuration reading (2026-03-02)**
