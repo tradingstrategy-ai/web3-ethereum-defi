@@ -259,6 +259,77 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 
 Claude responds to `@claude` mentions in GitHub PR comments, issues, and reviews. Reviews are **never** triggered automatically — always wait for an explicit `@claude` mention.
 
+### Review workflow
+
+When reviewing a PR, follow these seven phases in order:
+
+#### Phase 1: Establish scope baseline
+
+Determine what the PR is supposed to do **before** reading any code:
+
+1. Read the PR title — verify it follows conventional commits format (must start with `feat:`, `fix:`, `perf:`, `chore:`, `refactor:`, `docs:`, or `test:`). Flag as **BLOCKING** if missing.
+2. Read the PR description in full
+3. Read any linked issues (`Fixes #N`, `Closes #N`)
+4. Search the branch for `plan.md` or `spec.md` — use as primary scope reference if found
+5. Fall back to commit messages if no other scope source exists
+6. Summarise the intended scope as a numbered checklist of requirements — this checklist drives all subsequent phases
+
+#### Phase 2: Gather changes
+
+1. Run `gh pr diff` to read the full diff
+2. Run `gh pr view` to get metadata (author, labels, reviewers, CI status)
+3. List all modified files and categorise them (source, tests, config, docs)
+4. Identify the blast radius — which modules/packages are affected
+5. Note any files that were deleted or renamed
+
+#### Phase 3: Requirements validation
+
+Map each requirement from the Phase 1 checklist to the implementation:
+
+1. For each requirement, identify which files and changes implement it
+2. Flag requirements with **no** corresponding implementation as **IN-SCOPE**
+3. Flag changes that do **not** map to any stated requirement — classify as **SUGGESTION** (if useful) or **IGNORE** (if unnecessary)
+4. Update the scope checklist with pass/fail status for each requirement
+
+#### Phase 4: Code review
+
+Review **only lines modified in this PR** — do not review unchanged code:
+
+1. Check for bugs, off-by-one errors, and incorrect logic
+2. Check for security issues (injection, hardcoded secrets, unsafe deserialisation)
+3. Verify CLAUDE.md compliance (type hints, naming conventions, import style, docstrings)
+4. If `pyproject.toml` or `__version__` changed, run version validation (see below)
+5. Check that code comments explain **why**, not what
+6. Classify each finding using the scope classification table below
+
+#### Phase 5: Backlog triage
+
+For any finding classified as **BACKLOG**:
+
+1. Note it in the review summary with enough context for a future issue
+2. Do not block the PR on backlog items — they are explicitly out of scope
+3. If the backlog item is significant enough, suggest the author creates a GitHub issue to track it
+
+#### Phase 6: Generate report
+
+1. Drop anything classified as **IGNORE**
+2. Post the review using the report structure below
+3. Include the scope checklist from Phase 3 as the "Scope compliance" section
+4. Group remaining findings by classification: BLOCKING first, then IN-SCOPE, then SUGGESTION
+5. End with a clear recommendation: APPROVE / APPROVE WITH CHANGES / REQUEST CHANGES
+
+**Quality gates for approval:** all requirements implemented, zero BLOCKING findings, all IN-SCOPE issues resolved or acknowledged, backlog items noted.
+
+#### Phase 7: Knowledge capture
+
+After posting the review, check if any findings are worth preserving:
+
+1. If a finding exposes a **missing convention** (e.g. a type hint pattern, naming rule, or import style that should be standardised), flag it as **BACKLOG** and suggest a CLAUDE.md update
+2. If a finding reveals a **recurring mistake** across multiple files, note it in the review summary so the author can check other files too
+3. If a finding involves an **architectural decision** with non-obvious rationale, suggest the author add a code comment or docstring explaining the decision
+
+Do not attempt to modify CLAUDE.md directly during a review — suggest it and let the maintainer decide.
+
 ### Scope classification
 
 Every finding in a review must be classified:
@@ -279,6 +350,10 @@ A PR review validates scope compliance, not code perfection. Improvements beyond
 - Do not block on style preferences — use ruff/linters for style
 - Do not suggest "while you're here" refactors — those are BACKLOG items
 - Do not demand perfection when requirements are met
+- Do not expand scope beyond stated requirements — improvements belong in future PRs
+- Do not duplicate what linters and type checkers catch — assume CI runs ruff and mypy
+- Do not flag intentional behaviour changes that are directly related to the PR's purpose
+- Do not re-review lines that were not modified in the diff
 
 ### Review report structure
 
@@ -286,7 +361,7 @@ A PR review validates scope compliance, not code perfection. Improvements beyond
 ## PR review: #<number> <title>
 
 ### Scope compliance
-Requirements from PR description / plan:
+Requirements from PR description / plan.md / linked issues:
 - [x] Requirement A — implemented
 - [ ] Requirement B — **missing**
 
@@ -303,38 +378,6 @@ Requirements from PR description / plan:
 APPROVE / APPROVE WITH CHANGES / REQUEST CHANGES
 ```
 
-### Posting inline comments
-
-Use the GitHub reviews API (not individual comments endpoint) to post inline comments on specific diff lines:
-
-```bash
-# Single inline comment
-gh api repos/{owner}/{repo}/pulls/{pr}/reviews \
-  --method POST \
-  -f event="COMMENT" \
-  -f body="Review summary here." \
-  -f 'comments[][path]=eth_defi/some_module.py' \
-  -F 'comments[][line]=42' \
-  -f 'comments[][side]=RIGHT' \
-  -f 'comments[][body]=**[BLOCKING]** Missing input validation here.'
-
-# Multiple inline comments — use JSON input
-gh api repos/{owner}/{repo}/pulls/{pr}/reviews \
-  --method POST \
-  --input - <<'EOF'
-{
-  "event": "COMMENT",
-  "body": "Review with inline comments.",
-  "comments": [
-    {"path": "eth_defi/module.py", "line": 10, "side": "RIGHT", "body": "**[IN-SCOPE]** ..."},
-    {"path": "eth_defi/other.py", "line": 25, "side": "RIGHT", "body": "**[SUGGESTION]** ..."}
-  ]
-}
-EOF
-```
-
-**Important:** Use `-F` (not `-f`) for integer values like line numbers. If a line is not in the PR diff, fall back to `gh pr comment` with a `file:line` reference in the body.
-
 ### Version validation
 
 When a PR changes `pyproject.toml` or `__version__`, verify:
@@ -349,3 +392,21 @@ When reviewing code comments, check:
 - No commented-out dead code (delete instead — git preserves history)
 - No stale TODOs without issue references
 - Public functions/classes have Sphinx docstrings
+
+Comments are warranted for:
+- Non-obvious behaviour and edge cases
+- Business logic decisions grounded in domain knowledge
+- Performance optimisation rationale
+- Workarounds that require context to understand
+- External constraints or limitations (e.g. API quirks, protocol-specific behaviour)
+
+Comments are **not** needed for:
+- Self-explanatory code with clear naming
+- Standard patterns (CRUD, boilerplate, well-known idioms)
+- Code that is already documented by its type hints and function signature
+
+When suggesting comment changes in a review:
+- Flag stale comments that contradict the current code as **IN-SCOPE**
+- Flag missing context on complex logic as **SUGGESTION**, not **BLOCKING**
+- Never demand comments on straightforward code
+
