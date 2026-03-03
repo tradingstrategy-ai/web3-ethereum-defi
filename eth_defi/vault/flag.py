@@ -384,6 +384,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "lighter-pool-281474976710654": (None, LIGHTER_LLP_STAKING),
     # Morpho Yearn Morpho Vault 1 Compounder (Base)
     "0xf115c134c23c7a05fbd489a8be3116ebf54b0d9f": (VaultFlag.subvault, SUBVAULT),
+    # YieldNest USDC Flex Strategy - ynRWAx - SPV1
+    "0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b": (VaultFlag.subvault, SUBVAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
