@@ -301,6 +301,34 @@ def get_gmx_market_addresses(web3: Web3) -> Iterator[HexAddress]:
     return iter(markets.keys())
 
 
+def resolve_gmx_market_labels(web3: Web3) -> dict[HexAddress, str]:
+    """Build address-to-label mapping for GMX markets by querying on-chain data.
+
+    Fetches all available GMX markets and builds a dictionary mapping
+    each market address to a human-readable label like ``"GMX ETH/USD"``.
+
+    This is useful for display purposes, e.g. passing the result as
+    ``known_labels`` to :func:`format_guard_config_report`.
+
+    Example::
+
+        from eth_defi.gmx.whitelist import resolve_gmx_market_labels
+
+        labels = resolve_gmx_market_labels(web3)
+        # {"0x70d95587d40A2caf56bd97485aB3Eec10Bee6336": "GMX ETH/USD", ...}
+
+    :param web3:
+        Web3 instance connected to Arbitrum or another GMX-supported chain.
+
+    :return:
+        Dictionary mapping checksummed market addresses to labels.
+    """
+    labels: dict[HexAddress, str] = {}
+    for addr, info in fetch_all_gmx_markets(web3).items():
+        labels[Web3.to_checksum_address(addr)] = f"GMX {info.market_symbol}/USD"
+    return labels
+
+
 def whitelist_gmx_markets(
     guard: Contract,
     markets: list[HexAddress],

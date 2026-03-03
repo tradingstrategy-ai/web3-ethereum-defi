@@ -68,6 +68,42 @@ guard.whitelistToken(usdc, "USDC collateral");
 
 All whitelist operations require `onlyGuardOwner`.
 
+## Execution fee (keeper fee) funding
+
+GMX orders require native ETH execution fees paid to keepers via `sendWnt()`. There are two ways to fund these fees:
+
+### Safe-funded (default)
+
+The Safe holds ETH and pays execution fees from its own balance. The asset manager calls `performCall(target, data, value)` where `value` tells the Safe how much ETH to send, but the asset manager's transaction itself carries no ETH (`msg.value == 0`).
+
+```
+Asset Manager ──(gas only)──▶ TradingStrategyModule.performCall(target, data, value)
+                                        │
+                                        ▼
+                                Gnosis Safe ──(value ETH)──▶ GMX ExchangeRouter
+```
+
+Simple, but requires someone to top up the Safe with ETH periodically.
+
+### Asset-manager-funded (opt-in, v0.4+)
+
+The asset manager sends ETH with the `performCall` transaction. The module forwards `msg.value` to the Safe via its `receive()` fallback, then the Safe sends `value` ETH to the target as usual. No manual Safe top-up needed.
+
+```
+Asset Manager ──(gas + ETH)──▶ TradingStrategyModule.performCall{value: fee}(target, data, value)
+                                        │ forwards msg.value to Safe
+                                        ▼
+                                Gnosis Safe ──(value ETH)──▶ GMX ExchangeRouter
+```
+
+Enable this in Python with `forward_eth=True`:
+
+```python
+wallet = LagoonGMXTradingWallet(vault, asset_manager, forward_eth=True)
+```
+
+The guard does not validate ETH amounts — all targets are governance-approved contracts and ETH only flows to those trusted targets. If `msg.value > value`, the excess stays in the Safe.
+
 ## Attack vectors (mitigated)
 
 | Attack | Mitigation |
@@ -89,6 +125,49 @@ All whitelist operations require `onlyGuardOwner`.
 3. Monitor GMX contract upgrades that might change the `CreateOrderParams` struct layout (structs in [IGmxV2.sol](../../contracts/guard/src/lib/IGmxV2.sol) must match)
 4. Test on fork before mainnet
 
+## Testnet (Arbitrum Sepolia)
+
+GMX V2 is deployed on Arbitrum Sepolia (chain ID 421614) with full keeper support, so the complete trading flow (open/close positions, keeper execution) works on testnet.
+
+### Deployment differences
+
+- **No Lagoon factory on Sepolia** — both Gnosis Safe and all Lagoon contracts are deployed from scratch (`from_the_scratch=True, use_forge=True`)
+- **No Chainlink price feeds** — USD cost estimates are unavailable on testnet
+- **Testnet + simulation is not supported** — Anvil fork mode only works with mainnet
+
+### Getting test tokens
+
+GMX testnet uses its own `MintableToken` contracts — anyone can call `mint(account, amount)` directly.
+
+| Token | Address | Arbiscan |
+|-------|---------|----------|
+| USDC.SG | `0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773` | [Write Contract](https://sepolia.arbiscan.io/address/0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773#writeContract) |
+| USDC | `0x3321Fd36aEaB0d5CdfD26f4A3A93E2D2aAcCB99f` | [Write Contract](https://sepolia.arbiscan.io/address/0x3321Fd36aEaB0d5CdfD26f4A3A93E2D2aAcCB99f#writeContract) |
+| WETH | `0x980B62Da83eFf3D4576C647993b0c1D7faf17c73` | [Write Contract](https://sepolia.arbiscan.io/address/0x980B62Da83eFf3D4576C647993b0c1D7faf17c73#writeContract) |
+| BTC | `0xF79cE1Cf38A09D572b021B4C5548b75A14082F12` | [Write Contract](https://sepolia.arbiscan.io/address/0xF79cE1Cf38A09D572b021B4C5548b75A14082F12#writeContract) |
+
+To mint 999 USDC.SG: call `mint(your_address, 999000000)` (6 decimals).
+
+For testnet ETH: use the [LearnWeb3 faucet](https://learnweb3.io/faucets/arbitrum_sepolia/).
+
+### USDC vs USDC.SG gotcha
+
+There are two USDC variants on Arbitrum Sepolia. GMX markets use **USDC.SG** (`0x3253a335...`) as their stablecoin — not the regular USDC (`0x3321Fd36...`). The vault denomination and collateral symbol must match what the market accepts:
+
+- Vault underlying: USDC.SG
+- GMX order collateral symbol: `USDC.SG`
+- GMX order symbol: `ETH/USDC.SG:USDC.SG`
+
+Using the wrong USDC variant causes `"Not a valid collateral for selected market!"` because the `OrderArgumentParser` validates the resolved token address against the market's `long_token_address` / `short_token_address`.
+
+### Dynamic market resolution
+
+`GMX_POPULAR_MARKETS` only contains mainnet addresses. On testnet, market addresses are fetched dynamically using `fetch_all_gmx_markets(web3)` and matching by `market_symbol == "ETH"`.
+
+### GMX contract addresses
+
+Testnet contract addresses are fetched via `get_contract_addresses("arbitrum_sepolia")` from the hardcoded registry in `eth_defi/gmx/contracts.py` (not fetched from the GMX API like mainnet).
+
 ## Test coverage
 
 | Validation | Unit test | Integration test |
@@ -107,6 +186,7 @@ All whitelist operations require `onlyGuardOwner`.
 
 | File | Description |
 |------|-------------|
+| [TradingStrategyModuleV0.sol](../../contracts/safe-integration/src/TradingStrategyModuleV0.sol) | Safe module with performCall (payable in v0.4+) |
 | [GuardV0Base.sol](../../contracts/guard/src/GuardV0Base.sol) | Guard contract with GMX validation |
 | [IGmxV2.sol](../../contracts/guard/src/lib/IGmxV2.sol) | GMX struct definitions for `abi.decode()` |
 | [base_order.py](order/base_order.py) | GMX order building with multicall patterns |

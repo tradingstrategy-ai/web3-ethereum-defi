@@ -424,6 +424,225 @@ def test_lagoon_wallet_open_short_position(lagoon_gmx_fork_env: LagoonGMXForkEnv
     logger.info("Short position opened: %s", position["market_symbol"])
 
 
+def _create_lagoon_gmx_fork_env_forward_eth(rpc_url: str) -> LagoonGMXForkEnv:
+    """Create a fork environment where the asset manager forwards ETH for keeper fees.
+
+    Similar to _create_lagoon_gmx_fork_env but:
+    - Safe gets NO native ETH (only tokens)
+    - LagoonGMXTradingWallet uses forward_eth=True
+    """
+    launch = fork_network_anvil(
+        rpc_url,
+        unlocked_addresses=[USDC_WHALE, WETH_WHALE],
+    )
+
+    web3 = create_multi_provider_web3(
+        launch.json_rpc_url,
+        default_http_timeout=(3.0, 180.0),
+    )
+
+    logger.info("Forked Arbitrum at block %s (forward_eth test)", web3.eth.block_number)
+
+    setup_mock_oracle(web3)
+
+    deployer_key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+    deployer_account = Account.from_key(deployer_key)
+    deployer_wallet = HotWallet(deployer_account)
+    deployer_wallet.sync_nonce(web3)
+    deployer_address = deployer_wallet.get_main_address()
+    web3.provider.make_request("anvil_setBalance", [deployer_address, hex(100 * 10**18)])
+
+    asset_manager_key = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+    asset_manager_account = Account.from_key(asset_manager_key)
+    asset_manager_wallet = HotWallet(asset_manager_account)
+    asset_manager_wallet.sync_nonce(web3)
+    asset_manager_address = asset_manager_wallet.get_main_address()
+
+    # Fund asset manager with plenty of ETH (they will forward keeper fees)
+    web3.provider.make_request("anvil_setBalance", [asset_manager_address, hex(100 * 10**18)])
+
+    safe_owners = [web3.eth.accounts[2], web3.eth.accounts[3], web3.eth.accounts[4]]
+
+    parameters = LagoonDeploymentParameters(
+        underlying=USDC_ARBITRUM,
+        name="Test GMX Vault (Forward ETH)",
+        symbol="TGMXF",
+    )
+
+    GMX_ETH_USDC_MARKET = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
+
+    gmx_deployment = GMXDeployment(
+        exchange_router=GMX_EXCHANGE_ROUTER,
+        synthetics_router=GMX_SYNTHETICS_ROUTER,
+        order_vault=GMX_ORDER_VAULT,
+        markets=[GMX_ETH_USDC_MARKET],
+        tokens=[WETH_ARBITRUM, USDC_ARBITRUM],
+    )
+
+    deploy_info = deploy_automated_lagoon_vault(
+        web3=web3,
+        deployer=deployer_wallet,
+        asset_manager=asset_manager_address,
+        parameters=parameters,
+        safe_owners=safe_owners,
+        safe_threshold=2,
+        uniswap_v2=None,
+        uniswap_v3=None,
+        any_asset=True,
+        cowswap=False,
+        use_forge=True,
+        from_the_scratch=False,
+        gmx_deployment=gmx_deployment,
+    )
+
+    vault = deploy_info.vault
+    safe_address = vault.safe_address
+
+    # Fund whales with gas
+    web3.provider.make_request("anvil_setBalance", [USDC_WHALE, hex(10 * 10**18)])
+    web3.provider.make_request("anvil_setBalance", [WETH_WHALE, hex(10 * 10**18)])
+
+    # Fund Safe with tokens but NOT native ETH
+    usdc = fetch_erc20_details(web3, USDC_ARBITRUM)
+    usdc_amount = 100_000 * 10**6
+    usdc.contract.functions.transfer(safe_address, usdc_amount).transact({"from": USDC_WHALE})
+
+    weth = fetch_erc20_details(web3, WETH_ARBITRUM)
+    weth_amount = 50 * 10**18
+    weth.contract.functions.transfer(safe_address, weth_amount).transact({"from": WETH_WHALE})
+
+    # Explicitly set Safe ETH balance to 0 — the asset manager must forward fees
+    web3.provider.make_request("anvil_setBalance", [safe_address, hex(0)])
+
+    logger.info("Safe funded with tokens only (0 ETH): %s USDC, %s WETH", usdc_amount / 10**6, weth_amount / 10**18)
+
+    # Create wallet with forward_eth=True
+    lagoon_wallet = LagoonGMXTradingWallet(
+        vault=vault,
+        asset_manager=asset_manager_wallet,
+        gas_buffer=500_000,
+        forward_eth=True,
+    )
+
+    asset_manager_wallet.sync_nonce(web3)
+
+    gmx_config = GMXConfig(web3, user_wallet_address=safe_address)
+
+    # Approve tokens via performCall (these don't require ETH value)
+    usdc_approve_call = usdc.contract.functions.approve(GMX_SYNTHETICS_ROUTER, 2**256 - 1)
+    wrapped_usdc_approve = vault.transact_via_trading_strategy_module(usdc_approve_call)
+    tx_hash = wrapped_usdc_approve.transact({"from": asset_manager_address, "gas": 500_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    weth_approve_call = weth.contract.functions.approve(GMX_SYNTHETICS_ROUTER, 2**256 - 1)
+    wrapped_weth_approve = vault.transact_via_trading_strategy_module(weth_approve_call)
+    tx_hash = wrapped_weth_approve.transact({"from": asset_manager_address, "gas": 500_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    asset_manager_wallet.sync_nonce(web3)
+
+    trading = GMXTrading(gmx_config)
+    positions = GetOpenPositions(gmx_config)
+
+    return LagoonGMXForkEnv(
+        web3=web3,
+        vault=vault,
+        lagoon_wallet=lagoon_wallet,
+        asset_manager_wallet=asset_manager_wallet,
+        gmx_config=gmx_config,
+        trading=trading,
+        positions=positions,
+        anvil_launch=launch,
+        deploy_info=deploy_info,
+    )
+
+
+@pytest.fixture()
+def lagoon_gmx_forward_eth_env() -> Generator[LagoonGMXForkEnv, None, None]:
+    """Fork environment where the asset manager forwards ETH for keeper fees.
+
+    The Safe starts with 0 ETH — the asset manager's hot wallet funds
+    execution fees via forward_eth=True on LagoonGMXTradingWallet.
+    """
+    rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
+    if not rpc_url:
+        pytest.skip("JSON_RPC_ARBITRUM environment variable not set")
+
+    env = _create_lagoon_gmx_fork_env_forward_eth(rpc_url)
+
+    try:
+        yield env
+    finally:
+        env.anvil_launch.close(log_level=logging.ERROR)
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_lagoon_wallet_forward_eth_open_short(lagoon_gmx_forward_eth_env: LagoonGMXForkEnv):
+    """Test that the asset manager can forward ETH for keeper fees.
+
+    The Safe starts with 0 ETH. The asset manager sends ETH with
+    the performCall transaction, which the module forwards to the Safe.
+    Verifies that a GMX short position (ERC-20 collateral) succeeds
+    despite the Safe having no pre-funded ETH.
+    """
+    env = lagoon_gmx_forward_eth_env
+    safe_address = env.vault.safe_address
+
+    # Verify Safe starts with 0 ETH
+    safe_eth_before = env.web3.eth.get_balance(safe_address)
+    assert safe_eth_before == 0, f"Safe should start with 0 ETH, got {safe_eth_before}"
+
+    env.lagoon_wallet.sync_nonce(env.web3)
+
+    # Open a short position (ERC-20 collateral — USDC)
+    order_result = env.trading.open_position(
+        market_symbol="ETH",
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
+        is_long=False,
+        size_delta_usd=10,
+        leverage=2.5,
+        slippage_percent=0.005,
+        execution_buffer=30,
+    )
+
+    assert isinstance(order_result, OrderResult)
+    assert order_result.execution_fee > 0
+
+    # Sign with forward_eth wallet — asset manager's ETH pays the keeper fee
+    transaction = order_result.transaction.copy()
+    if "nonce" in transaction:
+        del transaction["nonce"]
+
+    signed_tx = env.lagoon_wallet.sign_transaction_with_new_nonce(transaction)
+
+    # Submit transaction
+    tx_hash = env.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    assert_transaction_success_with_explanation(env.web3, tx_hash)
+    receipt = env.web3.eth.wait_for_transaction_receipt(tx_hash)
+
+    # Safe should now have ETH (forwarded from asset manager, minus what GMX took)
+    safe_eth_after = env.web3.eth.get_balance(safe_address)
+    logger.info("Safe ETH after order submission: %s wei", safe_eth_after)
+
+    # Extract and execute the order
+    order_key = extract_order_key_from_receipt(receipt)
+    assert order_key is not None, "Should extract order key from receipt"
+
+    exec_receipt, keeper_address = execute_order_as_keeper(env.web3, order_key)
+    assert exec_receipt["status"] == 1, "Order execution should succeed"
+
+    # Verify position was created
+    final_positions = env.positions.get_data(safe_address)
+    assert len(final_positions) >= 1, "Should have at least 1 position"
+
+    position_key, position = list(final_positions.items())[0]
+    assert position["market_symbol"] == "ETH"
+    assert position["is_long"] is False
+
+    logger.info("Forward-ETH test: short position opened successfully with 0 Safe ETH pre-funding")
+
+
 @flaky(max_runs=3, min_passes=1)
 def test_lagoon_wallet_address_is_safe(lagoon_gmx_fork_env: LagoonGMXForkEnv):
     """Verify LagoonGMXTradingWallet reports Safe address, not asset manager address."""
