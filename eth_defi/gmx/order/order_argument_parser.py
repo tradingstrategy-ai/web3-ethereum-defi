@@ -229,12 +229,36 @@ class OrderArgumentParser:
         """Resolve market key from index token address."""
         index_token_address = self.parameters_dict["index_token_address"]
 
-        # Special handling for WBTC on arbitrum
-        if index_token_address == "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f":
+        # Normalise to checksum address before any comparison
+        if index_token_address:
+            index_token_address = Web3.to_checksum_address(index_token_address)
+
+        # Special handling for WBTC on arbitrum — compare with normalised form
+        if index_token_address == Web3.to_checksum_address("0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"):
             index_token_address = "0x47904963fc8b2340414262125aF798B9655E58Cd"
 
+        logger.info(
+            "_handle_missing_market_key: resolving market_key for index_token_address=%s",
+            index_token_address,
+        )
+
         # Find market key from markets dict
-        self.parameters_dict["market_key"] = self.find_market_key_by_index_address(self.markets, index_token_address)
+        market_key = self.find_market_key_by_index_address(self.markets, index_token_address)
+
+        if market_key is None:
+            available = [v.get("index_token_address") for v in self.markets.values()]
+            logger.info(
+                "_handle_missing_market_key: NOT FOUND for index_token_address=%s — available=%s",
+                index_token_address,
+                available,
+            )
+            msg = (
+                f"No GMX market found for index_token_address={index_token_address!r}. "
+                f"Available index_token_addresses: {available}"
+            )
+            raise ValueError(msg)
+
+        self.parameters_dict["market_key"] = market_key
 
     def _handle_missing_start_token_address(self):
         """Resolve start token address from symbol."""
@@ -382,10 +406,23 @@ class OrderArgumentParser:
 
     @staticmethod
     def find_market_key_by_index_address(input_dict: dict, index_token_address: str):
-        """Find market key by index token address."""
+        """Find market key by index token address.
+
+        Normalises ``index_token_address`` to EIP-55 checksum form before comparing
+        against stored market entries (which are already checksummed by :class:`Markets`).
+        """
+        checksum_address = Web3.to_checksum_address(index_token_address) if index_token_address else None
+        logger.info("find_market_key_by_index_address: searching for checksummed address=%s", checksum_address)
         for key, value in input_dict.items():
-            if value.get("index_token_address") == index_token_address:
+            if value.get("index_token_address") == checksum_address:
+                logger.info("find_market_key_by_index_address: FOUND market_key=%s", key)
                 return key
+        available = [v.get("index_token_address") for v in input_dict.values()]
+        logger.info(
+            "find_market_key_by_index_address: NOT FOUND for %s — available index_token_addresses: %s",
+            checksum_address,
+            available,
+        )
         return None
 
     def calculate_missing_position_size_info_keys(self):
