@@ -1093,26 +1093,30 @@ def get_open_positions(gmx_config):
 
 
 @pytest.fixture
-def gmx_open_positions(chain_rpc_url) -> GetOpenPositions:
-    # Fork at latest block (no fork_block_number specified)
-    # This ensures RPC has all state data available
+def gmx_open_positions(chain_rpc_url) -> Generator[GetOpenPositions, None, None]:
+    """Anvil-backed GetOpenPositions instance.
+
+    Uses a generator fixture so the Anvil process is always terminated in the
+    finally block — even when the test crashes or is interrupted.
+    """
     launch = fork_network_anvil(
         chain_rpc_url,
         test_request_timeout=100,
         launch_wait_seconds=60,
+        fork_block_number=FORK_BLOCK_ARBITRUM,
     )
-    anvil_chain_fork = launch.json_rpc_url
 
-    web3 = Web3(
-        HTTPProvider(
-            anvil_chain_fork,
-            request_kwargs={"timeout": 100},
+    try:
+        web3 = Web3(
+            HTTPProvider(
+                launch.json_rpc_url,
+                request_kwargs={"timeout": 100},
+            )
         )
-    )
-    gmx_config = GMXConfig(web3)
-    get_open_positions = GetOpenPositions(gmx_config)
-
-    return get_open_positions
+        gmx_config = GMXConfig(web3)
+        yield GetOpenPositions(gmx_config)
+    finally:
+        launch.close(log_level=logging.ERROR)
 
 
 @pytest.fixture
