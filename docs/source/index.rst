@@ -74,7 +74,7 @@ Supported protocols, chains and integrations
      - `Tutorial <tutorials/pancakeswap-live-minimal.html>`__
    * - GMX
      - Leveraged trading, spot trading
-     - `Tutorial <tutorials/gmx-swap.html>`__
+     - `API <api/gmx/index.html>`__ `Tutorial <https://github.com/tradingstrategy-ai/gmx-ccxt-freqtrade>`__
    * - Derive
      - Perpetuals, options trading
      - `API <api/derive/index.html>`__
