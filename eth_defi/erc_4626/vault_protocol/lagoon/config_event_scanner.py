@@ -523,6 +523,7 @@ def format_chain_config_detailed(
     all_chain_configs: dict[int, ChainGuardConfig] | None = None,
     all_chain_web3: dict[int, Web3] | None = None,
     all_chain_events: dict[int, list[DecodedGuardEvent]] | None = None,
+    rendered_chains: set[int] | None = None,
 ) -> str:
     """Format a single chain's guard configuration as a Unicode tree.
 
@@ -570,9 +571,18 @@ def format_chain_config_detailed(
         ``{chain_id: events}`` for all chains, used for event-based
         labels on CCTP destination chains.
 
+    :param rendered_chains:
+        Chain IDs already rendered in the tree.  Used to prevent
+        circular nesting in bidirectional CCTP deployments.
+
     :return:
         Multi-line tree string ready for logging or printing.
     """
+    # Track already-rendered chains to avoid circular nesting
+    if rendered_chains is None:
+        rendered_chains = set()
+    rendered_chains = rendered_chains | {cfg.chain_id}
+
     # Build known labels: Safe as <our multisig> + Hypercore vaults + user overrides
     labels: dict[str, str] = {}
     safe_checksum = Web3.to_checksum_address(cfg.safe_address)
@@ -632,10 +642,13 @@ def format_chain_config_detailed(
         sections.append(("CCTP messengers", [_label(addr) for addr in cfg.cctp_messengers]))
 
     # CCTP bridges — render destination chains as nested subtrees
+    # Skip chains already rendered to prevent circular nesting
     if cfg.cctp_destinations and all_chain_configs:
         cctp_items: list[tuple] = []
         for domain in cfg.cctp_destinations:
             dest_chain_id = CCTP_DOMAIN_TO_CHAIN_ID.get(domain) or TESTNET_CCTP_DOMAIN_TO_CHAIN_ID.get(domain)
+            if dest_chain_id and dest_chain_id in rendered_chains:
+                continue  # Already rendered — skip to avoid circular nesting
             if dest_chain_id and dest_chain_id in all_chain_configs:
                 dest_cfg = all_chain_configs[dest_chain_id]
                 dest_name = CCTP_DOMAIN_NAMES.get(domain, f"domain {domain}")
@@ -728,6 +741,7 @@ def format_chain_config_detailed(
                     all_chain_configs=all_chain_configs,
                     all_chain_web3=all_chain_web3,
                     all_chain_events=all_chain_events,
+                    rendered_chains=rendered_chains,
                 )
                 lines.append(subtree)
         elif not items:
@@ -801,14 +815,20 @@ def format_guard_config_report(
     lines.append(f"Guard configuration for Safe {config.safe_address}")
     lines.append("\u2502")
 
-    # Find root chains (not reachable as CCTP destinations from another chain)
-    cctp_dest_chain_ids: set[int] = set()
-    for cfg in config.chains.values():
-        for domain in cfg.cctp_destinations:
+    # Find root chains — chains with a Lagoon vault are always roots (source
+    # chains).  In bidirectional CCTP deployments both chains point at each
+    # other, so we cannot simply exclude "all CCTP destinations".  Instead,
+    # treat Lagoon-vault chains as roots and nest their CCTP destinations
+    # under them.  Chains without Lagoon vaults that are also not CCTP
+    # destinations of any root chain remain top-level too (standalone).
+    lagoon_chains = {cid for cid, cfg in config.chains.items() if cfg.lagoon_vaults}
+    root_cctp_dests: set[int] = set()
+    for cid in lagoon_chains:
+        for domain in config.chains[cid].cctp_destinations:
             dest = CCTP_DOMAIN_TO_CHAIN_ID.get(domain) or TESTNET_CCTP_DOMAIN_TO_CHAIN_ID.get(domain)
             if dest:
-                cctp_dest_chain_ids.add(dest)
-    root_chains = [cid for cid in sorted(config.chains) if cid not in cctp_dest_chain_ids]
+                root_cctp_dests.add(dest)
+    root_chains = [cid for cid in sorted(config.chains) if cid not in root_cctp_dests or cid in lagoon_chains]
 
     for i, cid in enumerate(root_chains):
         is_last = (i == len(root_chains) - 1)

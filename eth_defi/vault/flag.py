@@ -390,6 +390,9 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xf115c134c23c7a05fbd489a8be3116ebf54b0d9f": (VaultFlag.subvault, SUBVAULT),
     # Tulipa Capital USDT0
     "0xaf293898269ac7f366d0e05052b5fdfee8c8052c": (VaultFlag.irregular_reporting, IRREGULAR_REPORTING),
+    # Hashfire launch fund.
+    # No source code.
+    "0xfb7cef5cfdba99bd1f7c0350575980470dad3e6f": (VaultFlag.broken, BROKEN_VAULT),
 
 }
 

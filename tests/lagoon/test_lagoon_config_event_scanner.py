@@ -356,12 +356,26 @@ def test_build_multichain_guard_config(
     # Base has Uniswap V3 whitelisted (approval destinations)
     assert len(base_cfg.approval_destinations) > 0
 
-    # --- Verify human-readable output ---
+    # --- Verify human-readable output (legacy) ---
     human_output = config.format_human_readable()
     assert "Arbitrum" in human_output
     assert "Base" in human_output
     assert safe_address in human_output
     assert "CCTP destinations:" in human_output
+
+    # --- Verify tree report ---
+    tree_report = format_guard_config_report(
+        config=config,
+        events=events,
+        chain_web3={42161: web3_arbitrum, 8453: web3_base},
+    )
+    logger.info("Tree report:\n%s", tree_report)
+
+    # Arbitrum (with Lagoon vault) should be at root level
+    assert "Arbitrum (chain 42161)" in tree_report
+    # Base should appear nested under CCTP bridges, not at root level
+    assert "CCTP bridges" in tree_report
+    assert "Base (chain 8453) via CCTP domain 6" in tree_report
 
 
 # ---------------------------------------------------------------------------
