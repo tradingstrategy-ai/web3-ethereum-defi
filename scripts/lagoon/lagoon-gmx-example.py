@@ -161,7 +161,6 @@ import os
 import time
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Optional
 
 from eth_typing import HexAddress
 from web3 import Web3
@@ -176,6 +175,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.ccxt import GMX
 from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
+from eth_defi.gmx.lagoon.approvals import UNLIMITED, approve_gmx_collateral_via_vault
 from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 from eth_defi.gmx.whitelist import GMX_POPULAR_MARKETS, GMXDeployment, fetch_all_gmx_markets, resolve_gmx_market_labels
 from eth_defi.hotwallet import HotWallet, SignedTransactionWithNonce
@@ -338,7 +338,7 @@ class TransactionRecord:
     gas_used: int
     gas_price_gwei: float
     cost_eth: Decimal
-    cost_usd: Optional[Decimal] = None
+    cost_usd: Decimal | None = None
     block_number: int = 0
 
 
@@ -686,18 +686,13 @@ def setup_gmx_trading(
     lagoon_wallet.sync_nonce(web3)
 
     # Approve USDC for GMX SyntheticsRouter (one-time approval)
-    # This approval comes FROM the Safe, so we wrap it through performCall
+    # This approval comes FROM the Safe, so it's wrapped through performCall
     usdc = fetch_erc20_details(web3, config.usdc_address)
-    approve_call = usdc.contract.functions.approve(config.gmx_synthetics_router, 2**256 - 1)
-    wrapped_approve = vault.transact_via_trading_strategy_module(approve_call)
-
-    broadcast_tx(
-        web3,
-        asset_manager,
-        wrapped_approve,
-        "Approve USDC for GMX SyntheticsRouter",
-        config,
-        default_gas_limit=500_000,
+    approve_gmx_collateral_via_vault(
+        vault=vault,
+        asset_manager=asset_manager,
+        collateral_token=usdc,
+        amount=UNLIMITED,
     )
 
     # Create GMX CCXT adapter with the vault wallet
