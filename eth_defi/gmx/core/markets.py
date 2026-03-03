@@ -231,9 +231,10 @@ class Markets:
         :return: Dictionary of processed markets
         :rtype: dict
         """
-        # Return cached data if available (class-level cache shared across all instances)
+        # Return cached data if available — only use a non-empty cache entry so that a
+        # previous transient API failure cannot poison this call.
         chain_key = self.config.chain
-        if chain_key in _CLASS_MARKETS_CACHE:
+        if chain_key in _CLASS_MARKETS_CACHE and _CLASS_MARKETS_CACHE[chain_key]:
             logger.debug("Returning cached markets data for chain %s", chain_key)
             return _CLASS_MARKETS_CACHE[chain_key]
 
@@ -339,6 +340,12 @@ class Markets:
                 continue
 
         logger.debug("Processed %s markets successfully for chain %s", len(processed_markets), chain_key)
+
+        # Guard: never cache an empty result — an empty dict means the GMX API or
+        # token-metadata endpoint returned nothing (transient saturation during parallel
+        # tests).  Caching it would poison every subsequent call on this worker.
+        if not processed_markets:
+            raise ValueError(f"Markets resolved to empty dict for chain {chain_key!r}. raw_markets count: {len(raw_markets)}, token_metadata_dict count: {len(token_metadata_dict)}. Likely a transient GMX API timeout or saturation — do not cache.")
 
         # Cache the results for future calls (class-level cache shared across all instances)
         _CLASS_MARKETS_CACHE[chain_key] = processed_markets

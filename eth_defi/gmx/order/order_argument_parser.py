@@ -12,6 +12,7 @@ from web3 import Web3
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
+from eth_defi.gmx.precision import is_raw_usd_amount
 from eth_defi.gmx.utils import determine_swap_route
 from eth_defi.gmx.contracts import get_tokens_metadata_dict
 
@@ -109,8 +110,11 @@ class OrderArgumentParser:
             # GMXConfigManager has get_chain() method
             chain = config.get_chain()
 
-        # Check if markets are cached
-        if chain not in _MARKETS_CACHE:
+        # Check if markets are cached — skip an empty cache entry so a previous transient
+        # API failure cannot poison this call (Markets.get_available_markets() now raises
+        # ValueError on empty rather than returning {}, so this guard handles any legacy
+        # empty entry that may exist in the cache from a prior run).
+        if chain not in _MARKETS_CACHE or not _MARKETS_CACHE[chain]:
             # Get user wallet address - handle both types
             user_wallet_address = getattr(config, "user_wallet_address", None) or getattr(config, "_user_wallet_address", None)
 
@@ -228,12 +232,33 @@ class OrderArgumentParser:
         """Resolve market key from index token address."""
         index_token_address = self.parameters_dict["index_token_address"]
 
-        # Special handling for WBTC on arbitrum
-        if index_token_address == "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f":
+        # Normalise to checksum address before any comparison
+        if index_token_address:
+            index_token_address = Web3.to_checksum_address(index_token_address)
+
+        # Special handling for WBTC on arbitrum — compare with normalised form
+        if index_token_address == Web3.to_checksum_address("0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"):
             index_token_address = "0x47904963fc8b2340414262125aF798B9655E58Cd"
 
+        logger.info(
+            "_handle_missing_market_key: resolving market_key for index_token_address=%s",
+            index_token_address,
+        )
+
         # Find market key from markets dict
-        self.parameters_dict["market_key"] = self.find_market_key_by_index_address(self.markets, index_token_address)
+        market_key = self.find_market_key_by_index_address(self.markets, index_token_address)
+
+        if market_key is None:
+            available = [v.get("index_token_address") for v in self.markets.values()]
+            logger.info(
+                "_handle_missing_market_key: NOT FOUND for index_token_address=%s — available=%s",
+                index_token_address,
+                available,
+            )
+            msg = f"No GMX market found for index_token_address={index_token_address!r}. Available index_token_addresses: {available}"
+            raise ValueError(msg)
+
+        self.parameters_dict["market_key"] = market_key
 
     def _handle_missing_start_token_address(self):
         """Resolve start token address from symbol."""
@@ -381,10 +406,23 @@ class OrderArgumentParser:
 
     @staticmethod
     def find_market_key_by_index_address(input_dict: dict, index_token_address: str):
-        """Find market key by index token address."""
+        """Find market key by index token address.
+
+        Normalises ``index_token_address`` to EIP-55 checksum form before comparing
+        against stored market entries (which are already checksummed by :class:`Markets`).
+        """
+        checksum_address = Web3.to_checksum_address(index_token_address) if index_token_address else None
+        logger.info("find_market_key_by_index_address: searching for checksummed address=%s", checksum_address)
         for key, value in input_dict.items():
-            if value.get("index_token_address") == index_token_address:
+            if value.get("index_token_address") == checksum_address:
+                logger.info("find_market_key_by_index_address: FOUND market_key=%s", key)
                 return key
+        available = [v.get("index_token_address") for v in input_dict.values()]
+        logger.info(
+            "find_market_key_by_index_address: NOT FOUND for %s — available index_token_addresses: %s",
+            checksum_address,
+            available,
+        )
         return None
 
     def calculate_missing_position_size_info_keys(self):
@@ -480,9 +518,13 @@ class OrderArgumentParser:
             # If size_delta_usd is already a large int (> 10^20), it's in raw format (30 decimals)
             # This happens when closing positions using the exact on-chain position size
             size_delta_value = self.parameters_dict["size_delta_usd"]
-            if isinstance(size_delta_value, int) and size_delta_value > 10**20:
-                # Already in raw format with 30 decimals, use as-is
+            if is_raw_usd_amount(size_delta_value):
+                # Already in raw format with 30 decimals, use as-is.
                 self.parameters_dict["size_delta"] = size_delta_value
+                logger.debug(
+                    "PRECISION: size_delta_usd is raw int (%s), using as-is",
+                    size_delta_value,
+                )
             else:
                 # Human-readable format, multiply by 10^30
                 self.parameters_dict["size_delta"] = int(size_delta_value * 10**30)

@@ -178,7 +178,7 @@ class GetGMPrices(GetData):
 
             if not available_markets:
                 logger.debug("No markets available after filtering")
-                return {"gm_prices": {}, "parameter": "gm_prices", "timestamp": int(time.time())}
+                return {"gm_prices": {}, "parameter": "gm_prices", "timestamp": int(time.time()), "chain": self.config.chain}
 
             # Prepare for concurrent processing
             market_queries = []
@@ -230,7 +230,7 @@ class GetGMPrices(GetData):
 
             if not market_queries:
                 logger.debug("No valid market queries prepared")
-                return {"gm_prices": {}, "parameter": "gm_prices", "timestamp": int(time.time())}
+                return {"gm_prices": {}, "parameter": "gm_prices", "timestamp": int(time.time()), "chain": self.config.chain}
 
             # Execute queries concurrently using threading
             logger.debug("Executing %s market price queries concurrently", len(market_queries))
@@ -267,7 +267,7 @@ class GetGMPrices(GetData):
 
         except Exception as e:
             logger.error("Failed to process GM prices data: %s", e)
-            return {"gm_prices": {}, "parameter": "gm_prices", "error": str(e), "timestamp": int(time.time())}
+            return {"gm_prices": {}, "parameter": "gm_prices", "error": str(e), "timestamp": int(time.time()), "chain": self.config.chain}
 
     def _make_market_token_price_query(
         self,

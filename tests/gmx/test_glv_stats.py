@@ -6,6 +6,9 @@ import logging
 
 from collections import defaultdict
 
+import pytest
+from flaky import flaky
+
 from eth_defi.gmx.core.glv_stats import GlvStats
 
 
@@ -304,10 +307,29 @@ def test_empty_glv_handling(gmx_config):
         pytest.fail(f"Empty GLV data caused exception: {e}")
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_glv_market_consistency(get_glv_stats):
-    """Test consistency between GLV markets and overall GMX markets."""
+    """Test consistency between GLV markets and overall GMX markets.
+
+    Flaky: ``get_available_markets()`` calls the GMX API over the network.
+    Under transient outages — or when parallel pytest workers saturate the
+    shared GMX API endpoint — it can return an empty dict.  When that happens
+    every GLV market appears in ``missing_markets``, causing the final assertion
+    ``len(missing_markets) < len(all_glv_markets)`` to evaluate as
+    ``N < N → False`` even though the test logic is correct.
+
+    ``@flaky`` retries up to 3 times; ``pytest.skip()`` is used for the
+    known-bad empty-response sentinel so the retry budget is not consumed by
+    a deterministically-failing assertion on bad input data.
+    """
     results = get_glv_stats.get_glv_stats_multicall()
     available_markets = get_glv_stats.markets.get_available_markets()
+
+    # Empty available_markets is a known-bad transient condition (RPC/API outage or
+    # parallel-test API saturation).  Every GLV market would appear missing, making the
+    # final assertion fail despite correct test logic.  Skip so @flaky can retry.
+    if not available_markets:
+        pytest.skip("get_available_markets() returned an empty dict — transient GMX API / RPC outage or parallel-test API saturation.  @flaky will retry up to 3 times.")
 
     # Verify that all GLV markets are in the available markets list
     all_glv_markets = set()

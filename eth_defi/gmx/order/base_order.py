@@ -144,7 +144,7 @@ class OrderParams:
 
     # Position parameters
     is_long: bool
-    size_delta: float  # Position size in USD
+    size_delta: int | float  # Position size in USD (int = raw 30-decimal, float = human-readable)
     initial_collateral_delta_amount: str  # Collateral in token's smallest unit (wei/satoshi)
 
     # Execution parameters

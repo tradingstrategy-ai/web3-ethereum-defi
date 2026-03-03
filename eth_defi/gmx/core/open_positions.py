@@ -389,7 +389,8 @@ class GetOpenPositions(GetData):
 
         # Get market information
         available_markets = self.markets.get_available_markets()
-        market_info = available_markets[raw_position[0][1]]
+        market_key = raw_position[0][1]
+        market_info = available_markets[market_key]
 
         # Use enhanced token dictionary with NETWORK_TOKENS fallbacks
         chain_tokens = self._get_tokens_address_dict()
