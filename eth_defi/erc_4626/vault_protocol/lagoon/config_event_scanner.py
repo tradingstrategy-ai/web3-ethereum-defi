@@ -50,9 +50,14 @@ from web3 import Web3
 from web3.exceptions import ContractLogicError
 
 from eth_defi.abi import get_abi_by_filename
-from eth_defi.cctp.constants import CCTP_DOMAIN_NAMES, CCTP_DOMAIN_TO_CHAIN_ID
+from eth_defi.cctp.constants import (CCTP_DOMAIN_NAMES,
+                                     CCTP_DOMAIN_TO_CHAIN_ID,
+                                     TESTNET_CCTP_DOMAIN_TO_CHAIN_ID,
+                                     TESTNET_CHAIN_IDS)
 from eth_defi.chain import get_chain_name
+from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.multicall_batcher import EncodedCall
+from eth_defi.event_reader.reader import read_events
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
@@ -126,6 +131,31 @@ GUARD_CONFIG_EVENT_NAMES: frozenset[str] = frozenset(
         "HypercoreVaultRemoved",
     }
 )
+
+#: Mapping from event name → list of (arg_name, fallback_label) pairs.
+#: Used by :func:`build_event_based_labels` to extract address→label
+#: mappings from decoded guard events when the ``notes`` field is empty.
+_EVENT_ADDRESS_PARAMS: dict[str, list[tuple[str, str]]] = {
+    "SenderApproved": [("sender", "Trade executor")],
+    "ReceiverApproved": [("receiver", "Receiver")],
+    "ApprovalDestinationApproved": [("destination", "Approval destination")],
+    "WithdrawDestinationApproved": [("destination", "Withdraw destination")],
+    "DelegationApprovalDestinationApproved": [("destination", "Delegation destination")],
+    "AssetApproved": [("asset", "Asset")],
+    "LagoonVaultApproved": [("vault", "Lagoon vault")],
+    "ERC4626Approved": [("vault", "ERC-4626 vault")],
+    "CCTPMessengerApproved": [("tokenMessenger", "CCTP TokenMessenger")],
+    "CowSwapApproved": [("settlementContract", "CowSwap settlement")],
+    "VeloraSwapperApproved": [("augustusSwapper", "Velora swapper")],
+    "GMXRouterApproved": [
+        ("exchangeRouter", "GMX ExchangeRouter"),
+        ("syntheticsRouter", "GMX SyntheticsRouter"),
+    ],
+    "GMXMarketApproved": [("market", "GMX market")],
+    "CoreWriterApproved": [("coreWriter", "Hypercore CoreWriter")],
+    "CoreDepositWalletApproved": [("wallet", "Hypercore deposit wallet")],
+    "HypercoreVaultApproved": [("vault", "Hypercore vault")],
+}
 
 
 # ---------------------------------------------------------------------------
@@ -340,24 +370,32 @@ def resolve_address_label(
     web3: Web3 | None,
     address: HexAddress,
     known_labels: dict[str, str] | None = None,
+    fallback_labels: dict[str, str] | None = None,
 ) -> str:
     """Resolve a contract address to a human-readable label.
 
-    Checks pre-known labels first, then tries calling ``name()``
-    on the contract (works for ERC-20 tokens, ERC-4626 vaults, and
-    many DEX routers). Falls back to ``<unknown> (address)`` if
-    nothing can be resolved.
+    Resolution priority:
+
+    1. **known_labels** — explicit overrides (e.g. Safe → ``<our multisig>``)
+    2. **name()** call — works for ERC-20 tokens, ERC-4626 vaults, etc.
+    3. **fallback_labels** — event-derived labels for contracts without ``name()``
+    4. ``<unknown>`` — last resort
 
     :param web3:
         Web3 connection for on-chain lookups.  If ``None``, only
-        pre-known labels are checked.
+        label dicts are checked.
 
     :param address:
         Contract address to resolve.
 
     :param known_labels:
         Optional ``{checksummed_address: label}`` mapping for addresses
-        with pre-assigned labels (e.g. the Safe multisig).
+        with pre-assigned labels (e.g. the Safe multisig).  Highest priority.
+
+    :param fallback_labels:
+        Optional ``{checksummed_address: label}`` mapping tried after
+        ``name()`` fails.  Typically built from guard event ``notes`` fields
+        via :func:`build_event_based_labels`.
 
     :return:
         Human-readable label like ``Morpho Gauntlet USDC (0x...)``,
@@ -365,13 +403,13 @@ def resolve_address_label(
     """
     checksum = Web3.to_checksum_address(address)
 
-    # Check pre-known labels first
+    # 1. Check pre-known labels (highest priority)
     if known_labels:
         label = known_labels.get(checksum)
         if label:
             return f"{label} ({checksum})"
 
-    # Try calling name() on the contract
+    # 2. Try calling name() on the contract
     if web3 is not None:
         try:
             result = web3.eth.call(
@@ -387,7 +425,92 @@ def resolve_address_label(
         except Exception:
             pass
 
+    # 3. Check fallback labels (event-derived, lower priority than name())
+    if fallback_labels:
+        label = fallback_labels.get(checksum)
+        if label:
+            return f"{label} ({checksum})"
+
     return f"<unknown> ({checksum})"
+
+
+def build_event_based_labels(events: list[DecodedGuardEvent]) -> dict[str, str]:
+    """Build address → label mapping from decoded guard configuration events.
+
+    Extracts human-readable labels for contract addresses from the ``notes``
+    field included in every guard configuration event.  When ``notes`` is
+    empty, falls back to a role-based label derived from the event type
+    (e.g. ``CowSwapApproved`` → ``"CowSwap settlement"``).
+
+    This is particularly useful for contracts that do not implement a
+    ``name()`` function (protocol routers, settlement contracts, relayers,
+    etc.) where :func:`resolve_address_label` would otherwise return
+    ``<unknown>``.
+
+    :param events:
+        Decoded guard events for a single chain.
+
+    :return:
+        ``{checksummed_address: label}`` mapping.
+    """
+    labels: dict[str, str] = {}
+
+    for event in events:
+        params = _EVENT_ADDRESS_PARAMS.get(event.event_name)
+        if params is None:
+            continue
+
+        notes = event.args.get("notes", "")
+
+        for arg_name, fallback_label in params:
+            addr = event.args.get(arg_name)
+            if not addr:
+                continue
+            checksum = Web3.to_checksum_address(addr)
+            if checksum in labels:
+                continue  # Keep the first label seen (chronological)
+            label = notes if notes else fallback_label
+            labels[checksum] = label
+
+    return labels
+
+
+def resolve_hypercore_vault_labels(
+    vault_addresses: tuple[HexAddress, ...] | list[HexAddress],
+) -> dict[str, str]:
+    """Resolve Hypercore vault addresses to human-readable names via the Hyperliquid API.
+
+    Hypercore vaults do not implement ``name()`` on-chain; their names
+    are stored off-chain in the Hyperliquid API (``vaultDetails`` endpoint).
+
+    :param vault_addresses:
+        Hypercore vault addresses to resolve.
+
+    :return:
+        ``{checksummed_address: vault_name}`` mapping.  Addresses that
+        cannot be resolved are omitted from the result.
+    """
+    if not vault_addresses:
+        return {}
+
+    from eth_defi.hyperliquid.session import create_hyperliquid_session
+    from eth_defi.hyperliquid.vault import HyperliquidVault
+
+    labels: dict[str, str] = {}
+    session = create_hyperliquid_session()
+
+    for addr in vault_addresses:
+        checksum = Web3.to_checksum_address(addr)
+        try:
+            vault = HyperliquidVault(session=session, vault_address=checksum)
+            info = vault.fetch_info()
+            if info.name:
+                labels[checksum] = info.name
+                logger.info("Resolved Hypercore vault %s → %s", checksum, info.name)
+        except Exception as e:
+            logger.debug("Cannot resolve Hypercore vault %s: %s", checksum, e)
+
+    return labels
 
 
 def format_chain_config_detailed(
@@ -395,14 +518,25 @@ def format_chain_config_detailed(
     web3: Web3 | None = None,
     token_cache: TokenDiskCache | None = None,
     known_labels: dict[str, str] | None = None,
+    events: list[DecodedGuardEvent] | None = None,
+    prefix: str = "",
+    all_chain_configs: dict[int, ChainGuardConfig] | None = None,
+    all_chain_web3: dict[int, Web3] | None = None,
+    all_chain_events: dict[int, list[DecodedGuardEvent]] | None = None,
 ) -> str:
-    """Format a single chain's guard configuration as a detailed string.
+    """Format a single chain's guard configuration as a Unicode tree.
 
-    Uses :mod:`tabulate` for clean tabular output.  When *web3* is provided,
-    ERC-20 addresses in the ``assets`` list are resolved to human-readable
+    Renders the chain's sections (senders, assets, vaults, etc.) using
+    Unicode box-drawing characters (``\u251c\u2500\u2500``, ``\u2514\u2500\u2500``, ``\u2502``).  CCTP destination
+    chains are rendered as nested subtrees under a "CCTP bridges" section,
+    each showing their own Safe, module, and full guard configuration.
+
+    When *web3* is provided, ERC-20 addresses are resolved to
     ``SYMBOL (address)`` labels via :func:`resolve_token_label`, and
-    contract addresses (approval destinations, vaults, etc.) are resolved
-    via :func:`resolve_address_label`.
+    contract addresses are resolved via :func:`resolve_address_label`.
+
+    When *events* is provided, :func:`build_event_based_labels` derives
+    labels from event ``notes`` fields for contracts lacking ``name()``.
 
     :param cfg:
         Per-chain guard configuration.
@@ -414,138 +548,198 @@ def format_chain_config_detailed(
         Optional disk cache for token metadata.
 
     :param known_labels:
-        Optional ``{checksummed_address: label}`` mapping for addresses
-        with pre-assigned human-readable labels.  The Safe address is
-        automatically labelled as ``<our multisig>`` if not overridden.
+        Optional ``{checksummed_address: label}`` mapping.  The Safe
+        address is automatically labelled ``<our multisig>``.
+
+    :param events:
+        Optional decoded guard events for event-based label resolution.
+
+    :param prefix:
+        Indentation prefix prepended to every output line (used for
+        recursive CCTP nesting).
+
+    :param all_chain_configs:
+        Full ``{chain_id: ChainGuardConfig}`` dict for rendering CCTP
+        destination chains inline.
+
+    :param all_chain_web3:
+        ``{chain_id: Web3}`` for all chains, used for label resolution
+        on CCTP destination chains.
+
+    :param all_chain_events:
+        ``{chain_id: events}`` for all chains, used for event-based
+        labels on CCTP destination chains.
 
     :return:
-        Multi-line string ready for logging or printing.
+        Multi-line tree string ready for logging or printing.
     """
-    # Build labels dict, automatically adding the Safe as <our multisig>
-    labels = dict(known_labels) if known_labels else {}
+    # Build known labels: Safe as <our multisig> + Hypercore vaults + user overrides
+    labels: dict[str, str] = {}
     safe_checksum = Web3.to_checksum_address(cfg.safe_address)
-    labels.setdefault(safe_checksum, "<our multisig>")
+    labels[safe_checksum] = "<our multisig>"
+    # Resolve Hypercore vault names via Hyperliquid API (they lack on-chain name())
+    if cfg.hypercore_vaults:
+        try:
+            labels.update(resolve_hypercore_vault_labels(cfg.hypercore_vaults))
+        except Exception as e:
+            logger.debug("Hypercore vault label resolution failed: %s", e)
+    if known_labels:
+        labels.update(known_labels)
+
+    # Event-based labels serve as fallback (after name() call)
+    event_labels = build_event_based_labels(events) if events else None
 
     def _label(addr: HexAddress) -> str:
-        return resolve_address_label(web3, addr, known_labels=labels)
+        return resolve_address_label(web3, addr, known_labels=labels, fallback_labels=event_labels)
 
-    lines: list[str] = []
-
-    lines.append(f"=== {cfg.chain_name} (chain {cfg.chain_id}) ===")
-    lines.append(f"  Safe:   {cfg.safe_address}")
-    lines.append(f"  Module: {cfg.module_address}")
-    lines.append("")
+    # Collect non-empty sections as (title, items) tuples.
+    # "items" is a list of display strings for simple sections.
+    # For CCTP bridges, items is a list of (title, subtree_lines, dest_cfg) tuples.
+    sections: list[tuple[str, list]] = []
 
     if cfg.senders:
-        lines.append("  Senders (trade executors):")
-        lines.append(tabulate([[addr] for addr in cfg.senders], tablefmt="plain", colalign=("left",)))
-        lines.append("")
+        sections.append(("Senders (trade executors)", list(cfg.senders)))
 
     if cfg.receivers:
-        lines.append("  Receivers:")
-        rows = [[_label(addr)] for addr in cfg.receivers]
-        lines.append(tabulate(rows, tablefmt="plain", colalign=("left",)))
-        lines.append("")
+        sections.append(("Receivers", [_label(addr) for addr in cfg.receivers]))
 
     if cfg.any_asset:
-        lines.append("  Any asset: ENABLED")
-        lines.append("")
+        sections.append(("Any asset", ["ENABLED"]))
 
     if cfg.assets:
         if web3 is not None:
-            rows = [[resolve_token_label(web3, addr, token_cache)] for addr in cfg.assets]
+            items = [resolve_token_label(web3, addr, token_cache) for addr in cfg.assets]
         else:
-            rows = [[addr] for addr in cfg.assets]
-        lines.append("  Whitelisted assets:")
-        lines.append(tabulate(rows, tablefmt="plain", colalign=("left",)))
-        lines.append("")
+            items = list(cfg.assets)
+        sections.append(("Whitelisted assets", items))
 
     if cfg.approval_destinations:
-        lines.append("  Approval destinations (routers):")
-        rows = [[_label(addr)] for addr in cfg.approval_destinations]
-        lines.append(tabulate(rows, tablefmt="plain", colalign=("left",)))
-        lines.append("")
+        sections.append(("Approval destinations (routers)", [_label(addr) for addr in cfg.approval_destinations]))
 
     if cfg.withdraw_destinations:
-        lines.append("  Withdraw destinations:")
-        rows = [[_label(addr)] for addr in cfg.withdraw_destinations]
-        lines.append(tabulate(rows, tablefmt="plain", colalign=("left",)))
-        lines.append("")
+        sections.append(("Withdraw destinations", [_label(addr) for addr in cfg.withdraw_destinations]))
 
     if cfg.delegation_approval_destinations:
-        lines.append("  Delegation approval destinations:")
-        rows = [[_label(addr)] for addr in cfg.delegation_approval_destinations]
-        lines.append(tabulate(rows, tablefmt="plain", colalign=("left",)))
-        lines.append("")
+        sections.append(("Delegation approval destinations", [_label(addr) for addr in cfg.delegation_approval_destinations]))
 
     if cfg.lagoon_vaults:
-        lines.append("  Lagoon vaults (settlement):")
-        rows = [[_label(addr)] for addr in cfg.lagoon_vaults]
-        lines.append(tabulate(rows, tablefmt="plain", colalign=("left",)))
-        lines.append("")
+        sections.append(("Lagoon vaults (settlement)", [_label(addr) for addr in cfg.lagoon_vaults]))
 
     if cfg.erc4626_vaults:
-        lines.append("  ERC-4626 vaults:")
-        rows = [[_label(addr)] for addr in cfg.erc4626_vaults]
-        lines.append(tabulate(rows, tablefmt="plain", colalign=("left",)))
-        lines.append("")
+        sections.append(("ERC-4626 vaults", [_label(addr) for addr in cfg.erc4626_vaults]))
 
     if cfg.cctp_messengers:
-        lines.append("  CCTP messengers:")
-        lines.append(tabulate([[addr] for addr in cfg.cctp_messengers], tablefmt="plain", colalign=("left",)))
-        lines.append("")
+        sections.append(("CCTP messengers", [_label(addr) for addr in cfg.cctp_messengers]))
 
-    if cfg.cctp_destinations:
-        rows = []
+    # CCTP bridges — render destination chains as nested subtrees
+    if cfg.cctp_destinations and all_chain_configs:
+        cctp_items: list[tuple] = []
         for domain in cfg.cctp_destinations:
-            name = CCTP_DOMAIN_NAMES.get(domain, f"domain {domain}")
-            dest_chain = CCTP_DOMAIN_TO_CHAIN_ID.get(domain)
+            dest_chain_id = CCTP_DOMAIN_TO_CHAIN_ID.get(domain) or TESTNET_CCTP_DOMAIN_TO_CHAIN_ID.get(domain)
+            if dest_chain_id and dest_chain_id in all_chain_configs:
+                dest_cfg = all_chain_configs[dest_chain_id]
+                dest_name = CCTP_DOMAIN_NAMES.get(domain, f"domain {domain}")
+                title = f"{dest_name} (chain {dest_chain_id}) via CCTP domain {domain}"
+                cctp_items.append((title, dest_cfg))
+            else:
+                dest_name = CCTP_DOMAIN_NAMES.get(domain, f"domain {domain}")
+                cctp_items.append((f"{dest_name} via CCTP domain {domain} (no config available)", None))
+        if cctp_items:
+            sections.append(("CCTP bridges", cctp_items))
+    elif cfg.cctp_destinations:
+        # No all_chain_configs — fall back to simple domain listing
+        items = []
+        for domain in cfg.cctp_destinations:
+            dest_name = CCTP_DOMAIN_NAMES.get(domain, f"domain {domain}")
+            dest_chain = CCTP_DOMAIN_TO_CHAIN_ID.get(domain) or TESTNET_CCTP_DOMAIN_TO_CHAIN_ID.get(domain)
             chain_info = f"chain {dest_chain}" if dest_chain else "?"
-            rows.append([f"Domain {domain}", name, chain_info])
-        lines.append("  CCTP destinations:")
-        lines.append(tabulate(rows, headers=["Domain", "Chain name", "Chain ID"], tablefmt="plain"))
-        lines.append("")
+            items.append(f"Domain {domain} \u2192 {dest_name} ({chain_info})")
+        sections.append(("CCTP destinations", items))
 
     if cfg.cowswap_settlements:
-        lines.append("  CowSwap settlements:")
-        lines.append(tabulate([[addr] for addr in cfg.cowswap_settlements], tablefmt="plain", colalign=("left",)))
-        lines.append("")
+        sections.append(("CowSwap settlements", [_label(addr) for addr in cfg.cowswap_settlements]))
 
     if cfg.velora_swappers:
-        lines.append("  Velora (ParaSwap) swappers:")
-        lines.append(tabulate([[addr] for addr in cfg.velora_swappers], tablefmt="plain", colalign=("left",)))
-        lines.append("")
+        sections.append(("Velora (ParaSwap) swappers", [_label(addr) for addr in cfg.velora_swappers]))
 
     if cfg.gmx_routers:
-        rows = [[ex, syn] for ex, syn in cfg.gmx_routers]
-        lines.append("  GMX routers:")
-        lines.append(tabulate(rows, headers=["Exchange router", "Synthetics router"], tablefmt="plain"))
-        lines.append("")
+        items = [f"exchange: {_label(ex)}, synthetics: {_label(syn)}" for ex, syn in cfg.gmx_routers]
+        sections.append(("GMX routers", items))
 
     if cfg.gmx_markets:
-        lines.append("  GMX markets:")
-        lines.append(tabulate([[addr] for addr in cfg.gmx_markets], tablefmt="plain", colalign=("left",)))
-        lines.append("")
+        sections.append(("GMX markets", [_label(addr) for addr in cfg.gmx_markets]))
 
     if cfg.hypercore_core_writers:
-        lines.append("  Hypercore core writers:")
-        lines.append(tabulate([[addr] for addr in cfg.hypercore_core_writers], tablefmt="plain", colalign=("left",)))
-        lines.append("")
+        sections.append(("Hypercore core writers", [_label(addr) for addr in cfg.hypercore_core_writers]))
 
     if cfg.hypercore_deposit_wallets:
-        lines.append("  Hypercore deposit wallets:")
-        lines.append(tabulate([[addr] for addr in cfg.hypercore_deposit_wallets], tablefmt="plain", colalign=("left",)))
-        lines.append("")
+        sections.append(("Hypercore deposit wallets", [_label(addr) for addr in cfg.hypercore_deposit_wallets]))
 
     if cfg.hypercore_vaults:
-        lines.append("  Hypercore vaults:")
-        rows = [[_label(addr)] for addr in cfg.hypercore_vaults]
-        lines.append(tabulate(rows, tablefmt="plain", colalign=("left",)))
-        lines.append("")
+        sections.append(("Hypercore vaults", [_label(addr) for addr in cfg.hypercore_vaults]))
 
     if cfg.call_sites:
-        lines.append(f"  Call sites: {len(cfg.call_sites)} whitelisted")
-        lines.append("")
+        sections.append((f"Call sites: {len(cfg.call_sites)} whitelisted", []))
+
+    # Render sections as a Unicode tree
+    lines: list[str] = []
+    is_cctp_bridge_section = False
+
+    for i, (title, items) in enumerate(sections):
+        is_last = (i == len(sections) - 1)
+        branch = "\u2514\u2500\u2500 " if is_last else "\u251c\u2500\u2500 "
+        cont = "    " if is_last else "\u2502   "
+
+        # Detect CCTP bridges section (items are tuples not strings)
+        is_cctp_bridge_section = (
+            title == "CCTP bridges"
+            and items
+            and isinstance(items[0], tuple)
+        )
+
+        if is_cctp_bridge_section:
+            lines.append(f"{prefix}{branch}{title}")
+            for j, cctp_item in enumerate(items):
+                is_last_dest = (j == len(items) - 1)
+                db = "\u2514\u2500\u2500 " if is_last_dest else "\u251c\u2500\u2500 "
+                dc = "    " if is_last_dest else "\u2502   "
+                dest_title = cctp_item[0]
+                dest_cfg = cctp_item[1]
+
+                if dest_cfg is None:
+                    # No config available — just show the title
+                    lines.append(f"{prefix}{cont}{db}{dest_title}")
+                    continue
+
+                lines.append(f"{prefix}{cont}{db}{dest_title}")
+                dest_prefix = f"{prefix}{cont}{dc}"
+                lines.append(f"{dest_prefix}Safe:   {dest_cfg.safe_address}")
+                lines.append(f"{dest_prefix}Module: {dest_cfg.module_address}")
+                lines.append(f"{dest_prefix}\u2502")
+                dest_web3 = all_chain_web3.get(dest_cfg.chain_id) if all_chain_web3 else None
+                dest_events = all_chain_events.get(dest_cfg.chain_id, []) if all_chain_events else []
+                subtree = format_chain_config_detailed(
+                    dest_cfg,
+                    web3=dest_web3,
+                    token_cache=token_cache,
+                    known_labels=known_labels,
+                    events=dest_events,
+                    prefix=dest_prefix,
+                    all_chain_configs=all_chain_configs,
+                    all_chain_web3=all_chain_web3,
+                    all_chain_events=all_chain_events,
+                )
+                lines.append(subtree)
+        elif not items:
+            # Leaf section with no children (e.g. "Call sites: N whitelisted")
+            lines.append(f"{prefix}{branch}{title}")
+        else:
+            # Simple section with item list
+            lines.append(f"{prefix}{branch}{title}")
+            for j, item in enumerate(items):
+                is_last_item = (j == len(items) - 1)
+                ib = "\u2514\u2500\u2500 " if is_last_item else "\u251c\u2500\u2500 "
+                lines.append(f"{prefix}{cont}{ib}{item}")
 
     return "\n".join(lines)
 
@@ -577,19 +771,19 @@ def format_guard_config_report(
     token_cache: TokenDiskCache | None = None,
     known_labels: dict[str, str] | None = None,
 ) -> str:
-    """Format a full multichain guard config report as a string.
+    """Format a full multichain guard config report as a Unicode tree.
 
-    Combines :func:`format_chain_config_detailed` for each chain
-    with :func:`format_event_summary` at the end.
-
-    The Safe address is automatically labelled as ``<our multisig>``
-    in the output.  Additional labels can be supplied via *known_labels*.
+    Renders the configuration as a hierarchical tree with Unicode
+    box-drawing characters.  Root chains (those not reachable as CCTP
+    destinations from other chains) appear at the top level.  CCTP
+    destination chains are rendered as nested subtrees under their
+    source chain's "CCTP bridges" section.
 
     :param config:
         Structured multichain guard configuration.
 
     :param events:
-        Raw events per chain (for the event summary table).
+        Raw events per chain (for event-based address label resolution).
 
     :param chain_web3:
         Optional ``{chain_id: Web3}`` for token/contract name resolution.
@@ -601,27 +795,49 @@ def format_guard_config_report(
         Optional ``{checksummed_address: label}`` for pre-known addresses.
 
     :return:
-        Complete multi-line report string.
+        Complete multi-line tree report string.
     """
     lines: list[str] = []
-    lines.append(f"Safe: {config.safe_address}")
-    lines.append(f"Chains: {len(config.chains)}")
-    lines.append("")
+    lines.append(f"Guard configuration for Safe {config.safe_address}")
+    lines.append("\u2502")
 
-    for cid in sorted(config.chains):
+    # Find root chains (not reachable as CCTP destinations from another chain)
+    cctp_dest_chain_ids: set[int] = set()
+    for cfg in config.chains.values():
+        for domain in cfg.cctp_destinations:
+            dest = CCTP_DOMAIN_TO_CHAIN_ID.get(domain) or TESTNET_CCTP_DOMAIN_TO_CHAIN_ID.get(domain)
+            if dest:
+                cctp_dest_chain_ids.add(dest)
+    root_chains = [cid for cid in sorted(config.chains) if cid not in cctp_dest_chain_ids]
+
+    for i, cid in enumerate(root_chains):
+        is_last = (i == len(root_chains) - 1)
+        branch = "\u2514\u2500\u2500 " if is_last else "\u251c\u2500\u2500 "
+        cont = "    " if is_last else "\u2502   "
+
         cfg = config.chains[cid]
         web3 = chain_web3.get(cid) if chain_web3 else None
+        chain_events = events.get(cid, [])
+
+        lines.append(f"{branch}{cfg.chain_name} (chain {cfg.chain_id})")
+        lines.append(f"{cont}Safe:   {cfg.safe_address}")
+        lines.append(f"{cont}Module: {cfg.module_address}")
+        lines.append(f"{cont}\u2502")
         lines.append(
             format_chain_config_detailed(
                 cfg,
                 web3=web3,
                 token_cache=token_cache,
                 known_labels=known_labels,
+                events=chain_events,
+                prefix=cont,
+                all_chain_configs=config.chains,
+                all_chain_web3=chain_web3 or {},
+                all_chain_events=events,
             )
         )
-
-    lines.append("--- Event summary ---")
-    lines.append(format_event_summary(events))
+        if not is_last:
+            lines.append("\u2502")
 
     return "\n".join(lines)
 
@@ -946,8 +1162,10 @@ def _fetch_guard_events_web3(
     topic_map: dict[str, dict],
     from_block: int = 0,
 ) -> list[DecodedGuardEvent]:
-    """Read guard config events using web3 ``eth_getLogs``.
+    """Read guard config events using :func:`~eth_defi.event_reader.reader.read_events`.
 
+    Uses the project's standard event reading API with chunked
+    ``eth_getLogs`` calls, retry logic, and proper error handling.
     Fallback for Anvil forks where Hypersync indexing is unavailable.
 
     :param web3:
@@ -966,20 +1184,30 @@ def _fetch_guard_events_web3(
     :return:
         List of decoded guard events sorted by (block_number, log_index).
     """
-    topic0_list = list(topic_map.keys())
+    end_block = web3.eth.block_number
 
-    logs = web3.eth.get_logs(
-        {
-            "address": Web3.to_checksum_address(module_address),
-            "fromBlock": from_block,
-            "toBlock": "latest",
-            "topics": [topic0_list],
-        }
+    if from_block > end_block:
+        return []
+
+    # Build a Filter for read_events().
+    # Filter.topics normally maps topic0 → ContractEvent, but we use
+    # topic0 → ABI entry dict for our own decoding.
+    event_filter = Filter(
+        topics=topic_map,
+        bloom=None,
+        contract_address=Web3.to_checksum_address(module_address),
     )
 
     events: list[DecodedGuardEvent] = []
-    for log in logs:
-        event = _decode_event_from_log(dict(log), topic_map)
+    for log in read_events(
+        web3,
+        start_block=from_block,
+        end_block=end_block,
+        filter=event_filter,
+        extract_timestamps=None,
+        chunk_size=10_000,
+    ):
+        event = _decode_event_from_log(log, topic_map)
         if event is not None:
             events.append(event)
 
@@ -1082,8 +1310,11 @@ def fetch_guard_config_events(
         if cctp_domains:
             logger.info("Discovered CCTP destinations: %s", cctp_domains)
 
+        # Use testnet domain→chain mapping when source chain is a Sepolia testnet
+        domain_to_chain = TESTNET_CCTP_DOMAIN_TO_CHAIN_ID if chain_id in TESTNET_CHAIN_IDS else CCTP_DOMAIN_TO_CHAIN_ID
+
         for domain in sorted(cctp_domains):
-            dest_chain_id = CCTP_DOMAIN_TO_CHAIN_ID.get(domain)
+            dest_chain_id = domain_to_chain.get(domain)
             if dest_chain_id is None:
                 logger.warning("Unknown CCTP domain %d, skipping", domain)
                 continue
@@ -1335,9 +1566,7 @@ def _get_hypersync_client_for_chain(chain_id: int) -> hypersync.HypersyncClient 
 
     try:
         from eth_defi.hypersync.server import (  # Conditional import: hypersync extras may not be installed
-            get_hypersync_server,
-            is_hypersync_supported_chain,
-        )
+            get_hypersync_server, is_hypersync_supported_chain)
 
         if not is_hypersync_supported_chain(chain_id):
             return None

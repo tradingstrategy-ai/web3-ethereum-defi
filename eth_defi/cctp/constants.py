@@ -122,3 +122,6 @@ TESTNET_CHAIN_ID_TO_CCTP_DOMAIN: dict[int, int] = {
     421614: CCTP_DOMAIN_ARBITRUM,
     84532: CCTP_DOMAIN_BASE,
 }
+
+#: Reverse mapping from CCTP domain to Sepolia testnet chain ID.
+TESTNET_CCTP_DOMAIN_TO_CHAIN_ID: dict[int, int] = {v: k for k, v in TESTNET_CHAIN_ID_TO_CCTP_DOMAIN.items()}

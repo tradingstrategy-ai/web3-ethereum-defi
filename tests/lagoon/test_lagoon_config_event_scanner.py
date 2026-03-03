@@ -22,6 +22,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.config_event_scanner import (
     ChainGuardConfig,
     DecodedGuardEvent,
     MultichainGuardConfig,
+    build_event_based_labels,
     build_multichain_guard_config,
     fetch_guard_config_events,
     format_chain_config_detailed,
@@ -539,9 +540,24 @@ def test_symbolic_address_resolution(
     # Receiver should include the Safe
     assert Web3.to_checksum_address(safe_address) in arb_cfg.receivers
 
-    # --- Verify symbolic address resolution ---
+    # --- Verify event-based label resolution ---
 
-    # resolve_address_label should resolve the Safe as <our multisig>
+    arb_events = events[42161]
+    event_labels = build_event_based_labels(arb_events)
+
+    # Protocol-specific events should produce labels from their notes
+    cowswap_settlement = Web3.to_checksum_address(COWSWAP_SETTLEMENT)
+    assert cowswap_settlement in event_labels, f"CowSwap settlement should be labelled, got labels: {list(event_labels.keys())}"
+    assert "CowSwap" in event_labels[cowswap_settlement] or "Allow" in event_labels[cowswap_settlement]
+
+    # GMX routers should be labelled
+    gmx_exchange = Web3.to_checksum_address(GMX_ARBITRUM_ADDRESSES["exchange_router"])
+    gmx_synthetics = Web3.to_checksum_address(GMX_ARBITRUM_ADDRESSES["synthetics_router"])
+    assert gmx_exchange in event_labels, "GMX ExchangeRouter should be labelled"
+    assert gmx_synthetics in event_labels, "GMX SyntheticsRouter should be labelled"
+
+    # --- Verify resolve_address_label with known labels ---
+
     safe_label = resolve_address_label(
         web3_arbitrum,
         safe_address,
@@ -550,7 +566,7 @@ def test_symbolic_address_resolution(
     assert "<our multisig>" in safe_label
     assert safe_address in safe_label
 
-    # resolve_address_label should resolve ERC-4626 vaults by name()
+    # ERC-4626 vaults resolve via name() even without event labels
     umami_label = resolve_address_label(web3_arbitrum, umami)
     assert "<unknown>" not in umami_label, f"Umami vault should resolve to a name, got: {umami_label}"
     assert umami in umami_label
@@ -559,32 +575,34 @@ def test_symbolic_address_resolution(
     assert "<unknown>" not in d2_label, f"D2 vault should resolve to a name, got: {d2_label}"
     assert d2 in d2_label
 
-    # --- Verify formatted output resolves addresses ---
+    # --- Verify formatted output with event-based labels ---
 
-    report = format_chain_config_detailed(arb_cfg, web3=web3_arbitrum)
+    # Pass events so that contracts without name() get labelled from event notes
+    report = format_chain_config_detailed(arb_cfg, web3=web3_arbitrum, events=arb_events)
 
     # Safe address in receivers should be labelled as <our multisig>
     assert "<our multisig>" in report
 
     # ERC-4626 vaults in approval destinations should have their names resolved
-    # (Umami and D2 vaults have name(), but protocol routers like Uniswap V3,
-    # Velora TokenTransferProxy, CowSwap Settlement don't — those are <unknown>)
-    assert "gmUSDC" in report, "Umami gmUSDC vault should be resolved in approval destinations"
+    assert "gmUSDC" in report or "Umami" in report, "Umami gmUSDC vault should be resolved"
 
-    # Full report should contain all protocol sections
-    assert "Senders (trade executors):" in report
-    assert "Receivers:" in report
-    assert "Approval destinations (routers):" in report
-    assert "CowSwap settlements:" in report
-    assert "Velora (ParaSwap) swappers:" in report
-    assert "GMX routers:" in report
-    assert "GMX markets:" in report
-    assert "Whitelisted assets:" in report
+    # Protocol routers should no longer be <unknown> — resolved from event notes
+    assert "<unknown>" not in report, f"No addresses should be <unknown> when events are provided:\n{report}"
+
+    # Full report should contain all protocol sections (tree node labels, no trailing colon)
+    assert "Senders (trade executors)" in report
+    assert "Receivers" in report
+    assert "Approval destinations (routers)" in report
+    assert "CowSwap settlements" in report
+    assert "Velora (ParaSwap) swappers" in report
+    assert "GMX routers" in report
+    assert "GMX markets" in report
+    assert "Whitelisted assets" in report
 
     # Lagoon vault should have its name resolved
     assert "Full Protocol Test Vault" in report
 
-    # Full multichain report should also work
+    # Full multichain report should also resolve event-based labels
     full_report = format_guard_config_report(
         config=config,
         events=events,
@@ -592,3 +610,4 @@ def test_symbolic_address_resolution(
     )
     assert "Arbitrum" in full_report
     assert "<our multisig>" in full_report
+    assert "<unknown>" not in full_report
