@@ -1,5 +1,11 @@
 # Current
 
+- TODO
+
+# 1.1
+
+- **Add: GMX order cancellation for all order types**
+- **Add: GMX fee and rebate data in CCXT**
 - **Add: Lagoon guard configuration reading (2026-03-02)**
 - **Add: Lighter vaults (2026-03-01, [#781](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/781))**
 - Add Lagoon vault share claiming to `fund_lagoon_vault` and new `redeem_vault_shares()` testing helper for ERC-7540 async redemption flow (2026-03-01, [#780](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/780))
