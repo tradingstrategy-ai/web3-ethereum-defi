@@ -1,34 +1,21 @@
 # Current
 
-- **Add: Guard configuration event scanner for reading back multichain Lagoon deployment whitelisting from on-chain events, with symbolic address resolution and human-readable reporting (2026-03-02)**
-- Fix Lighter vault historical TVL tracking to use PnL endpoint shares history instead of constant current snapshot (2026-03-01, [#782](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/782))
-- **Add: Lighter DEX native pool metrics pipeline with public API discovery, DuckDB storage, incremental scanning, and unified ERC-4626 pipeline export (2026-03-01, [#781](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/781))**
+- **Add: Lagoon guard configuration reading (2026-03-02)**
+- **Add: Lighter vaults (2026-03-01, [#781](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/781))**
 - Add Lagoon vault share claiming to `fund_lagoon_vault` and new `redeem_vault_shares()` testing helper for ERC-7540 async redemption flow (2026-03-01, [#780](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/780))
-- **Guard security hardening round 2: ERC-4626/7540 deposit receiver validation, SwapRouter02 recipient validation, Velora balance-envelope check with dual-balance verification and minAmountOut > 0 enforcement, exactOutput dispatcher fix (2026-02-26, [#772](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/772))**
-- Fix test suite: skip TokenSniffer (expired API key) and Orderly (no archive RPC) tests, fix guard Umami regex assertions, refactor GMX retry from module constants to configurable `GMXRetryConfig` dataclass with fast-fail test defaults (2026-02-25)
-- **Guard security hardening: Aave onBehalfOf validation, Velora receiver check, Hypercore vault withdraw check, VeloraLib extraction, isDeployed() library guards, CowSwap/Velora validation consolidation, Orderly removal (2026-02-25, [#769](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/769))**
-- Add testnet mode (Arbitrum Sepolia + Base Sepolia) to multichain Lagoon deployment with CCTP bridging, testnet contract address resolution (2026-02-23)
-- **Add: Parallel CCTP bridging with Iris V2 transfer monitoring module and phased burn/attest/receive flow (2026-02-23)**
-- **Add: Per-chain LagoonConfig for multichain deployment, CCTP bridge helper, Monad/HyperEVM CCTP support, and tutorial script (2026-02-23)**
-- **Add: Hypercore native vault guard support with CoreWriter whitelisting, Forge library linking, and chain-conditional deployment for HyperEVM Safe multisig deposits (2026-02-22)**
-- Update GRVT vault protocol logo to high-quality brand icon (2026-02-23)
-- Add comma-separated VAULT_ID support to scan-prices.py with vault-aware parquet deletion and START_BLOCK env var (2026-02-22)
-- Fix GRVT vault address case mismatch and VaultSpec 0x assertion that prevented GRVT data from reaching the cleaned pipeline output (2026-02-21)
-- Auto-blacklist HyperCore HLP child sub-vaults and vaults with abnormal share price > $1M (2026-02-21)
-- **Add: GRVT (Gravity Markets) native vault metrics pipeline with dynamic vault discovery via public endpoints, DuckDB storage, and unified ERC-4626 pipeline export (2026-02-20)**
-- **Fix: Route Hypercore vaults through the standard ERC-4626 cleaning pipeline to fix abnormal profit metrics (2026-02-20)**
-- **Add: Ember protocol vault integration with custom VaultDeposit/RequestRedeemed event support, offchain metadata, and disk cache consolidation (2026-02-20, [#755](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/755))**
-- **Add: Hyperliquid native vault daily metrics pipeline with DuckDB storage, share price computation, and unified ERC-4626 pipeline export (2026-02-19)**
-- Update HyperSync supported networks list with 21 new chains and simplified server mapping (2026-02-19, [#751](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/751))
-- Fix: Auto-heal gaps in HyperSync timestamp collection on fast chains like Monad (2026-02-19, [#750](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/750))
-- Add check-vault-history.py script for historical single-vault data verification using scan-prices pipeline (2026-02-19)
-- Fix sparkline export hanging on vault filtering and parallelise rendering with multiprocessing (2026-02-18, [#748](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/748))
-- Fix block timestamp scan range clipping to prevent querying blocks beyond HyperSync database range (2026-02-18)
-- Switch from ujson to orjson for faster JSON-RPC response decoding (2026-02-18)
-- Add Accountable Capital offchain metadata for vault descriptions, company info, and performance fees (2026-02-18)
-- Fix Accountable vault NAV calculation to use convertToAssets(totalSupply()) instead of totalAssets() which only returns idle liquidity (2026-02-18)
-- **Add: Multichain Lagoon vault deployment with shared deterministic Safe and CCTP bridging (2026-02-18, [#741](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/741))**
+- **Fix: Refactor Safe guard to multiple separate contracts, harden security(https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/769))**
+- **Add**: testnet mode (Arbitrum Sepolia + Base Sepolia) to multichain Lagoon deployment with CCTP bridging, testnet contract address resolution (2026-02-23)
+- **Add: Parallel CCTP bridging (2026-02-23)**
+- **Add: Per-chain LagoonConfig for multichain deployment(2026-02-23)**
+- **Add: Hypercore native vault guard support with CoreWriter whitelisting (2026-02-23)
+- **Add: GRVT (Gravity Markets) vaults (2026-02-20)**
+- **Add: Ember protocol (2026-02-20, [#755](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/755))**
+- **Add: Hyperliquid native vaults (2026-02-19)**
 - **Add: Circle CCTP V2 cross-chain USDC transfer support with guard whitelisting and Lagoon vault integration (2026-02-15)**
+- Fix: Auto-heal gaps in HyperSync timestamp collection on fast chains like Monad (2026-02-19, [#750](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/750))
+- Fix: from ujson to orjson for faster JSON-RPC response decoding (2026-02-18)
+- Add: Add Accountable Capital offchain metadata for vault descriptions, company info, and performance fees (2026-02-18)
+- Fix: Accountable vault NAV calculation to use convertToAssets(totalSupply()) instead of totalAssets() which only returns idle liquidity (2026-02-18)
 - Add: Deterministic cross-chain Safe deployment using CREATE2 via canonical SafeProxyFactory (2026-02-16)
 
 # 1.0.2
