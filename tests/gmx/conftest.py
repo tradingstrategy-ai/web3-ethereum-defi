@@ -1598,12 +1598,9 @@ def _create_isolated_fork_env(
     large_weth_holder = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
 
     # === Step 1: Spawn fresh Anvil fork ===
-    # Pin to a known-good block so CI does not hit "Unknown block" when the RPC
-    # provider cannot serve the latest block under load.
     launch = fork_network_anvil(
         rpc_url,
         unlocked_addresses=[large_usdc_holder, large_weth_holder],
-        fork_block_number=FORK_BLOCK_ARBITRUM,
     )
 
     web3 = create_multi_provider_web3(
