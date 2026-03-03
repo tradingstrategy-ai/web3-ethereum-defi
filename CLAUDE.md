@@ -376,6 +376,15 @@ Requirements from PR description / plan.md / linked issues:
 
 ### Recommendation
 APPROVE / APPROVE WITH CHANGES / REQUEST CHANGES
+
+When referencing findings in the recommendation, use descriptive text
+(e.g. "Address the broad gh api permissions issue") instead of numbered
+references like #1 or #2, which GitHub auto-links to issues/PRs.
+
+**Never fabricate issue or PR references.** Before linking any `#N`
+reference, verify it exists by running `gh issue view N` or
+`gh pr view N`. If you cannot verify a reference, omit it entirely.
+Do not guess PR or issue numbers.
 ```
 
 ### Version validation
