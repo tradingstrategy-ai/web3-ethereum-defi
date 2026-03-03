@@ -144,32 +144,22 @@ from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from web3 import Web3
 
-from eth_defi.cctp.bridge import (CCTPBridgeDestination,
-                                  bridge_usdc_cctp_parallel)
-from eth_defi.cctp.constants import (CHAIN_ID_TO_CCTP_DOMAIN,
-                                     TESTNET_CHAIN_ID_TO_CCTP_DOMAIN)
+from eth_defi.cctp.bridge import CCTPBridgeDestination, bridge_usdc_cctp_parallel
+from eth_defi.cctp.constants import CHAIN_ID_TO_CCTP_DOMAIN, TESTNET_CHAIN_ID_TO_CCTP_DOMAIN
 from eth_defi.cctp.testing import replace_attester_on_fork
 from eth_defi.cctp.whitelist import CCTPDeployment
-from eth_defi.erc_4626.classification import (create_vault_instance,
-                                              detect_vault_features)
+from eth_defi.erc_4626.classification import create_vault_instance, detect_vault_features
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.lagoon.config_event_scanner import (
-    build_multichain_guard_config, fetch_guard_config_events,
-    format_guard_config_report)
-from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
-    LagoonConfig, LagoonDeploymentParameters, LagoonMultichainDeployment,
-    deploy_multichain_lagoon_vault)
+from eth_defi.erc_4626.vault_protocol.lagoon.config_event_scanner import build_multichain_guard_config, fetch_guard_config_events, format_guard_config_report
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonConfig, LagoonDeploymentParameters, LagoonMultichainDeployment, deploy_multichain_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.testing import fund_lagoon_vault
 from eth_defi.hotwallet import HotWallet
-from eth_defi.provider.anvil import (AnvilLaunch, fork_network_anvil,
-                                     fund_erc20_on_anvil)
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, fund_erc20_on_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import (USDC_NATIVE_TOKEN, USDC_WHALE,
-                            WRAPPED_NATIVE_TOKEN, fetch_erc20_details)
+from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, WRAPPED_NATIVE_TOKEN, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
-from eth_defi.uniswap_v3.deployment import \
-    fetch_deployment as fetch_deployment_uni_v3
+from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3
 from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
 from eth_defi.utils import setup_console_logging
 

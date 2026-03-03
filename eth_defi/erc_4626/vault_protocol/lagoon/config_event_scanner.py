@@ -50,10 +50,7 @@ from web3 import Web3
 from web3.exceptions import ContractLogicError
 
 from eth_defi.abi import get_abi_by_filename
-from eth_defi.cctp.constants import (CCTP_DOMAIN_NAMES,
-                                     CCTP_DOMAIN_TO_CHAIN_ID,
-                                     TESTNET_CCTP_DOMAIN_TO_CHAIN_ID,
-                                     TESTNET_CHAIN_IDS)
+from eth_defi.cctp.constants import CCTP_DOMAIN_NAMES, CCTP_DOMAIN_TO_CHAIN_ID, TESTNET_CCTP_DOMAIN_TO_CHAIN_ID, TESTNET_CHAIN_IDS
 from eth_defi.chain import get_chain_name
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.multicall_batcher import EncodedCall
@@ -703,21 +700,17 @@ def format_chain_config_detailed(
     is_cctp_bridge_section = False
 
     for i, (title, items) in enumerate(sections):
-        is_last = (i == len(sections) - 1)
+        is_last = i == len(sections) - 1
         branch = "\u2514\u2500\u2500 " if is_last else "\u251c\u2500\u2500 "
         cont = "    " if is_last else "\u2502   "
 
         # Detect CCTP bridges section (items are tuples not strings)
-        is_cctp_bridge_section = (
-            title == "CCTP bridges"
-            and items
-            and isinstance(items[0], tuple)
-        )
+        is_cctp_bridge_section = title == "CCTP bridges" and items and isinstance(items[0], tuple)
 
         if is_cctp_bridge_section:
             lines.append(f"{prefix}{branch}{title}")
             for j, cctp_item in enumerate(items):
-                is_last_dest = (j == len(items) - 1)
+                is_last_dest = j == len(items) - 1
                 db = "\u2514\u2500\u2500 " if is_last_dest else "\u251c\u2500\u2500 "
                 dc = "    " if is_last_dest else "\u2502   "
                 dest_title = cctp_item[0]
@@ -755,7 +748,7 @@ def format_chain_config_detailed(
             # Simple section with item list
             lines.append(f"{prefix}{branch}{title}")
             for j, item in enumerate(items):
-                is_last_item = (j == len(items) - 1)
+                is_last_item = j == len(items) - 1
                 ib = "\u2514\u2500\u2500 " if is_last_item else "\u251c\u2500\u2500 "
                 lines.append(f"{prefix}{cont}{ib}{item}")
 
@@ -837,7 +830,7 @@ def format_guard_config_report(
     root_chains = [cid for cid in sorted(config.chains) if cid not in root_cctp_dests or cid in lagoon_chains]
 
     for i, cid in enumerate(root_chains):
-        is_last = (i == len(root_chains) - 1)
+        is_last = i == len(root_chains) - 1
         branch = "\u2514\u2500\u2500 " if is_last else "\u251c\u2500\u2500 "
         cont = "    " if is_last else "\u2502   "
 
@@ -1592,7 +1585,9 @@ def _get_hypersync_client_for_chain(chain_id: int) -> hypersync.HypersyncClient 
 
     try:
         from eth_defi.hypersync.server import (  # Conditional import: hypersync extras may not be installed
-            get_hypersync_server, is_hypersync_supported_chain)
+            get_hypersync_server,
+            is_hypersync_supported_chain,
+        )
 
         if not is_hypersync_supported_chain(chain_id):
             return None
