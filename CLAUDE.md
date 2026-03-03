@@ -215,4 +215,41 @@ Browser tools are automatically available when the Chrome extension is connected
 
 When using browser tools, Claude may ask for permission to visit specific domains. **Approve these prompts** to allow browser automation. You can also pre-approve domains in the Chrome extension settings.
 
+## README files in the repository
 
+Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vaults/original_logos/*/README.md` document logo source URLs per protocol.
+
+| Path | Description |
+|------|-------------|
+| `README.md` | Web3-Ethereum-Defi project overview |
+| `contracts/guard/README.md` | GuardV0 — on-chain trade validation for asset management |
+| `contracts/in-house/README.md` | Web3-Eth-Defi integration contracts |
+| `contracts/safe-integration/README.md` | Trading Strategy Zodiac-module for Safe multisig wallets |
+| `docs/README-Hypercore-guard.md` | Hypercore native vault guard integration |
+| `docs/README-contract-size.md` | Contract sizes and compiler optimisation |
+| `docs/derive-onboarding/README-derive-trader.md` | Derive session key for vault traders |
+| `docs/protocol-research/README.md` | AI-assisted vault protocol discovery notes |
+| `docs/source/api/derive/README.md` | Derive.xyz integration — implementation summary |
+| `eth_defi/aave_v3/README.md` | About Aave v3 integration |
+| `eth_defi/abi/ipor/README.md` | IPOR ABI source links |
+| `eth_defi/abi/lagoon/README.md` | Lagoon ABI source links |
+| `eth_defi/abi/uniswap-swap-contracts/README.md` | SwapRouter02 deployment on Base |
+| `eth_defi/cctp/README-cctp.md` | Circle CCTP V2 integration |
+| `eth_defi/data/vaults/README.md` | Vault protocol metadata and logo system |
+| `eth_defi/erc_4626/vault_protocol/README-reader-states.md` | Vault reader states and warmup system |
+| `eth_defi/erc_4626/vault_protocol/README-utilisation.md` | Utilisation and available liquidity metrics for lending vaults |
+| `eth_defi/gmx/README-GMX-Lagoon.md` | GMX Lagoon integration security analysis |
+| `eth_defi/gmx/README.md` | GMX CCXT adapter for eth_defi |
+| `eth_defi/gmx/ccxt/README.md` | GMX CCXT adapter implementation |
+| `eth_defi/gmx/graphql/README.md` | GMX Subsquid GraphQL integration |
+| `scripts/base/README.md` | Base chain related manual test scripts |
+| `scripts/debian-bullseye-compatibility/README.md` | Running on Debian Bullseye |
+| `scripts/erc-4626/README-vault-scripts.md` | ERC-4626 vault scripts |
+| `scripts/grvt/README-grvt-vaults.md` | GRVT native vault metrics pipeline |
+| `scripts/hyperliquid/README-hyperliquid-vaults.md` | Hyperliquid native vault metrics pipeline |
+| `scripts/lighter/README-lighter-vaults.md` | Lighter native pool metrics pipeline |
+| `tests/erc_4626/vault_protocol/README.md` | Vault protocol detection tests (mainnet-fork) |
+| `tests/gmx/README.md` | Testing for GMX |
+| `tests/guard/README.md` | Integration tests for GuardV0 and TradingStrategyModuleV0 |
+| `tests/provider/README.md` | Service provider integration tests |
+| `tests/rpc/README.md` | JSON-RPC scenario tests |

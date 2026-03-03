@@ -65,6 +65,9 @@ class VaultFlag(str, enum.Enum):
     #: Tnis vault is a perp dex trading vault on Hyperliquid, Orderly, Lighter, etc.
     perp_dex_trading_vault = "perp_dex_trading_vault"
 
+    #: The vault does not do daily NAV. It's share price has confusing equity curve, making users misjudge the vault.
+    irregular_reporting = "irregular_reporting"
+
 
 #: Don't touch vaults with these flags
 BAD_FLAGS = {
@@ -122,6 +125,8 @@ def is_flagged_vault(address: HexAddress | str) -> bool:
     address = address.lower()
     return VAULT_FLAGS_AND_NOTES.get(address) is not None
 
+
+IRREGULAR_REPORTING = "The share price of this vault is updated too irregularly onchain. This makes it difficult to compare it against other vaults. Having no onchain transparency to the value of the vault poses a risk to users."
 
 XUSD_MESSAGE = "Vault likely illiquid due to Stream xUSD exposure issues. You may lose all of your deposits."
 
@@ -384,6 +389,13 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "lighter-pool-281474976710654": (None, LIGHTER_LLP_STAKING),
     # Morpho Yearn Morpho Vault 1 Compounder (Base)
     "0xf115c134c23c7a05fbd489a8be3116ebf54b0d9f": (VaultFlag.subvault, SUBVAULT),
+    # Tulipa Capital USDT0
+    "0xaf293898269ac7f366d0e05052b5fdfee8c8052c": (VaultFlag.irregular_reporting, IRREGULAR_REPORTING),
+    # Hashfire launch fund.
+    # No source code.
+    "0xfb7cef5cfdba99bd1f7c0350575980470dad3e6f": (VaultFlag.broken, BROKEN_VAULT),
+    # YieldNest USDC Flex Strategy - ynRWAx - SPV1
+    "0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b": (VaultFlag.subvault, SUBVAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
