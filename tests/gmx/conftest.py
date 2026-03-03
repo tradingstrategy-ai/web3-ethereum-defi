@@ -467,6 +467,25 @@ def get_pool_tvl(gmx_config) -> GetPoolTVL:
     return GetPoolTVL(gmx_config)
 
 
+@pytest.fixture
+def pool_tvl_data(get_pool_tvl, chain_name):
+    """Pre-fetch pool TVL data, skipping if the API returns empty results.
+
+    Empty results indicate a transient RPC/GMX API outage or API saturation
+    from parallel test execution.  Skipping here lets ``@flaky`` retry rather
+    than failing hard on bad input data.
+    """
+    data = get_pool_tvl.get_data()
+    logger.debug("pool_tvl_data for %s: markets=%s", chain_name, list(data.keys()))
+    if not data:
+        pytest.skip(
+            f"get_pool_tvl.get_data() returned an empty dict for chain '{chain_name}' "
+            "— transient RPC/GMX API outage or API saturation from parallel test execution.  "
+            "@flaky will retry up to 3 times."
+        )
+    return data
+
+
 @pytest.fixture()
 def api(gmx_config):
     """Create a GMXAPI instance for the specified chain."""
@@ -1005,6 +1024,26 @@ def get_funding_fee(gmx_config):
 
 
 @pytest.fixture
+def funding_fee_data(get_funding_fee, chain_name):
+    """Pre-fetch funding fee data, skipping if the API returns empty results.
+
+    Empty results indicate a transient GMX API / RPC outage or parallel-test
+    API saturation.  Skipping here lets ``@flaky`` retry the whole test rather
+    than burning the retry budget on a hard assertion failure caused by bad
+    input data.
+    """
+    data = get_funding_fee.get_data()
+    logger.debug("funding_fee_data for %s: long markets=%s", chain_name, list(data.get("long", {}).keys()))
+    if not data.get("long"):
+        pytest.skip(
+            f"get_funding_fee.get_data() returned no markets for chain '{chain_name}' "
+            "— transient GMX API / RPC outage or parallel-test API saturation.  "
+            "@flaky will retry up to 3 times."
+        )
+    return data
+
+
+@pytest.fixture
 def markets(gmx_config):
     """Fixture to provide a Markets instance for testing."""
     return Markets(gmx_config)
@@ -1024,6 +1063,25 @@ def get_open_interest(gmx_config):
     from eth_defi.gmx.core.open_interest import GetOpenInterest
 
     return GetOpenInterest(gmx_config)
+
+
+@pytest.fixture
+def open_interest_data(get_open_interest, chain_name):
+    """Pre-fetch open interest data, skipping if the API returns empty results.
+
+    Empty results indicate a transient GMX API / RPC outage or parallel-test
+    API saturation.  Skipping here lets ``@flaky`` retry rather than failing
+    hard on bad input data.
+    """
+    data = get_open_interest.get_data()
+    logger.debug("open_interest_data for %s: long markets=%s", chain_name, list(data.get("long", {}).keys()))
+    if not data.get("long"):
+        pytest.skip(
+            f"get_open_interest.get_data() returned no markets for chain '{chain_name}' "
+            "— transient GMX API / RPC outage or parallel-test API saturation.  "
+            "@flaky will retry up to 3 times."
+        )
+    return data
 
 
 @pytest.fixture

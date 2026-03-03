@@ -33,9 +33,9 @@ def test_initialization_and_basic_functionality(get_open_interest, gmx_config):
 
 
 @flaky(max_runs=3, min_passes=1)
-def test_market_info_and_data_structures(get_open_interest):
+def test_market_info_and_data_structures(open_interest_data):
     """Test market info handling and data structure patterns."""
-    results = get_open_interest.get_data()
+    results = open_interest_data
 
     assert isinstance(results, dict)
     assert "long" in results

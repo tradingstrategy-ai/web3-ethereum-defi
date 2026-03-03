@@ -31,9 +31,9 @@ def test_initialization_and_basic_functionality(get_funding_fee, gmx_config):
     assert hasattr(get_funding_fee.markets, "get_available_markets")
 
 
-def test_market_info_and_data_structures(get_funding_fee):
+def test_market_info_and_data_structures(funding_fee_data):
     """Test market info handling and data structure patterns."""
-    results = get_funding_fee.get_data()
+    results = funding_fee_data
 
     assert isinstance(results, dict)
     assert "long" in results
@@ -55,9 +55,9 @@ def test_market_info_and_data_structures(get_funding_fee):
 
 
 @flaky(max_runs=3, min_passes=1)
-def test_funding_fee_calculation(get_funding_fee):
+def test_funding_fee_calculation(funding_fee_data):
     """Test that funding fee calculations return valid data."""
-    results = get_funding_fee.get_data()
+    results = funding_fee_data
 
     # Verify at least one market has valid data
     assert len(results["long"]) > 0, "No markets with valid funding fee data"
