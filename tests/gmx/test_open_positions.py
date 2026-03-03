@@ -3,6 +3,7 @@ Tests for GMX Open Positions functionality based on real API structure.
 """
 
 import pytest
+from flaky import flaky
 
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from tests.gmx.conftest import get_open_positions
@@ -27,6 +28,7 @@ def test_initialization_and_basic_functionality(get_open_positions, gmx_config):
     assert hasattr(get_open_positions.config, "chain")
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_open_positions_1(gmx_open_positions, account_with_positions):
     """Test data processing structure and method availability."""
 

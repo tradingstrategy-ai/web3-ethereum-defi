@@ -110,8 +110,11 @@ class OrderArgumentParser:
             # GMXConfigManager has get_chain() method
             chain = config.get_chain()
 
-        # Check if markets are cached
-        if chain not in _MARKETS_CACHE:
+        # Check if markets are cached — skip an empty cache entry so a previous transient
+        # API failure cannot poison this call (Markets.get_available_markets() now raises
+        # ValueError on empty rather than returning {}, so this guard handles any legacy
+        # empty entry that may exist in the cache from a prior run).
+        if chain not in _MARKETS_CACHE or not _MARKETS_CACHE[chain]:
             # Get user wallet address - handle both types
             user_wallet_address = getattr(config, "user_wallet_address", None) or getattr(config, "_user_wallet_address", None)
 
