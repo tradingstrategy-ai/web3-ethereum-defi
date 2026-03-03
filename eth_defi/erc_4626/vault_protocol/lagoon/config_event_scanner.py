@@ -300,7 +300,8 @@ class MultichainGuardConfig:
                 lines.append("  CCTP destinations:")
                 for domain in cfg.cctp_destinations:
                     name = CCTP_DOMAIN_NAMES.get(domain, f"domain {domain}")
-                    dest_chain_id = CCTP_DOMAIN_TO_CHAIN_ID.get(domain)
+                    _dtc = TESTNET_CCTP_DOMAIN_TO_CHAIN_ID if cfg.chain_id in TESTNET_CHAIN_IDS else CCTP_DOMAIN_TO_CHAIN_ID
+                    dest_chain_id = _dtc.get(domain)
                     chain_info = f" (chain {dest_chain_id})" if dest_chain_id else ""
                     lines.append(f"    Domain {domain} -> {name}{chain_info}")
 
@@ -644,9 +645,11 @@ def format_chain_config_detailed(
     # CCTP bridges — render destination chains as nested subtrees
     # Skip chains already rendered to prevent circular nesting
     if cfg.cctp_destinations and all_chain_configs:
+        # Use testnet mapping when the source chain is a testnet chain
+        domain_to_chain = TESTNET_CCTP_DOMAIN_TO_CHAIN_ID if cfg.chain_id in TESTNET_CHAIN_IDS else CCTP_DOMAIN_TO_CHAIN_ID
         cctp_items: list[tuple] = []
         for domain in cfg.cctp_destinations:
-            dest_chain_id = CCTP_DOMAIN_TO_CHAIN_ID.get(domain) or TESTNET_CCTP_DOMAIN_TO_CHAIN_ID.get(domain)
+            dest_chain_id = domain_to_chain.get(domain)
             if dest_chain_id and dest_chain_id in rendered_chains:
                 continue  # Already rendered — skip to avoid circular nesting
             if dest_chain_id and dest_chain_id in all_chain_configs:
@@ -661,10 +664,11 @@ def format_chain_config_detailed(
             sections.append(("CCTP bridges", cctp_items))
     elif cfg.cctp_destinations:
         # No all_chain_configs — fall back to simple domain listing
+        domain_to_chain_fallback = TESTNET_CCTP_DOMAIN_TO_CHAIN_ID if cfg.chain_id in TESTNET_CHAIN_IDS else CCTP_DOMAIN_TO_CHAIN_ID
         items = []
         for domain in cfg.cctp_destinations:
             dest_name = CCTP_DOMAIN_NAMES.get(domain, f"domain {domain}")
-            dest_chain = CCTP_DOMAIN_TO_CHAIN_ID.get(domain) or TESTNET_CCTP_DOMAIN_TO_CHAIN_ID.get(domain)
+            dest_chain = domain_to_chain_fallback.get(domain)
             chain_info = f"chain {dest_chain}" if dest_chain else "?"
             items.append(f"Domain {domain} \u2192 {dest_name} ({chain_info})")
         sections.append(("CCTP destinations", items))
@@ -824,8 +828,10 @@ def format_guard_config_report(
     lagoon_chains = {cid for cid, cfg in config.chains.items() if cfg.lagoon_vaults}
     root_cctp_dests: set[int] = set()
     for cid in lagoon_chains:
+        # Use testnet mapping when the source chain is a testnet chain
+        domain_to_chain = TESTNET_CCTP_DOMAIN_TO_CHAIN_ID if cid in TESTNET_CHAIN_IDS else CCTP_DOMAIN_TO_CHAIN_ID
         for domain in config.chains[cid].cctp_destinations:
-            dest = CCTP_DOMAIN_TO_CHAIN_ID.get(domain) or TESTNET_CCTP_DOMAIN_TO_CHAIN_ID.get(domain)
+            dest = domain_to_chain.get(domain)
             if dest:
                 root_cctp_dests.add(dest)
     root_chains = [cid for cid in sorted(config.chains) if cid not in root_cctp_dests or cid in lagoon_chains]
