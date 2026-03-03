@@ -255,10 +255,7 @@ class OrderArgumentParser:
                 index_token_address,
                 available,
             )
-            msg = (
-                f"No GMX market found for index_token_address={index_token_address!r}. "
-                f"Available index_token_addresses: {available}"
-            )
+            msg = f"No GMX market found for index_token_address={index_token_address!r}. Available index_token_addresses: {available}"
             raise ValueError(msg)
 
         self.parameters_dict["market_key"] = market_key

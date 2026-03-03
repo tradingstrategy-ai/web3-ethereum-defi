@@ -345,12 +345,7 @@ class Markets:
         # token-metadata endpoint returned nothing (transient saturation during parallel
         # tests).  Caching it would poison every subsequent call on this worker.
         if not processed_markets:
-            raise ValueError(
-                f"Markets resolved to empty dict for chain {chain_key!r}. "
-                f"raw_markets count: {len(raw_markets)}, "
-                f"token_metadata_dict count: {len(token_metadata_dict)}. "
-                "Likely a transient GMX API timeout or saturation — do not cache."
-            )
+            raise ValueError(f"Markets resolved to empty dict for chain {chain_key!r}. raw_markets count: {len(raw_markets)}, token_metadata_dict count: {len(token_metadata_dict)}. Likely a transient GMX API timeout or saturation — do not cache.")
 
         # Cache the results for future calls (class-level cache shared across all instances)
         _CLASS_MARKETS_CACHE[chain_key] = processed_markets

@@ -215,11 +215,7 @@ def test_bundled_short_with_sl_tp(isolated_fork_env_short, execution_buffer):
         )
     except KeyError as exc:
         if exc.args and exc.args[0] is None:
-            pytest.skip(
-                "KeyError(None): get_available_markets() returned an empty dict — "
-                "transient GMX API / RPC outage or parallel-test API saturation. "
-                "@flaky will retry up to 3 times."
-            )
+            pytest.skip("KeyError(None): get_available_markets() returned an empty dict — transient GMX API / RPC outage or parallel-test API saturation. @flaky will retry up to 3 times.")
         raise
 
     assert isinstance(order_result, SLTPOrderResult), "Expected SLTPOrderResult instance"
@@ -317,11 +313,7 @@ def test_standalone_long_with_stop_loss(isolated_fork_env, execution_buffer):
         )
     except KeyError as exc:
         if exc.args and exc.args[0] is None:
-            pytest.skip(
-                "KeyError(None): get_available_markets() returned an empty dict — "
-                "transient GMX API / RPC outage or parallel-test API saturation. "
-                "@flaky will retry up to 3 times."
-            )
+            pytest.skip("KeyError(None): get_available_markets() returned an empty dict — transient GMX API / RPC outage or parallel-test API saturation. @flaky will retry up to 3 times.")
         raise
 
     transaction = order_result.transaction.copy()
@@ -399,11 +391,7 @@ def test_standalone_long_with_take_profit(isolated_fork_env, execution_buffer):
         )
     except KeyError as exc:
         if exc.args and exc.args[0] is None:
-            pytest.skip(
-                "KeyError(None): get_available_markets() returned an empty dict — "
-                "transient GMX API / RPC outage or parallel-test API saturation. "
-                "@flaky will retry up to 3 times."
-            )
+            pytest.skip("KeyError(None): get_available_markets() returned an empty dict — transient GMX API / RPC outage or parallel-test API saturation. @flaky will retry up to 3 times.")
         raise
 
     transaction = order_result.transaction.copy()
@@ -481,11 +469,7 @@ def test_standalone_short_with_sl_and_tp(isolated_fork_env_short, execution_buff
         )
     except KeyError as exc:
         if exc.args and exc.args[0] is None:
-            pytest.skip(
-                "KeyError(None): get_available_markets() returned an empty dict — "
-                "transient GMX API / RPC outage or parallel-test API saturation. "
-                "@flaky will retry up to 3 times."
-            )
+            pytest.skip("KeyError(None): get_available_markets() returned an empty dict — transient GMX API / RPC outage or parallel-test API saturation. @flaky will retry up to 3 times.")
         raise
 
     transaction = order_result.transaction.copy()
@@ -594,11 +578,7 @@ def test_full_lifecycle_open_and_close_with_sl_tp(isolated_fork_env, execution_b
         )
     except KeyError as exc:
         if exc.args and exc.args[0] is None:
-            pytest.skip(
-                "KeyError(None): get_available_markets() returned an empty dict — "
-                "transient GMX API / RPC outage or parallel-test API saturation. "
-                "@flaky will retry up to 3 times."
-            )
+            pytest.skip("KeyError(None): get_available_markets() returned an empty dict — transient GMX API / RPC outage or parallel-test API saturation. @flaky will retry up to 3 times.")
         raise
 
     transaction = order_result.transaction.copy()
@@ -694,11 +674,7 @@ def test_absolute_trigger_price_stop_loss(isolated_fork_env, execution_buffer):
         )
     except KeyError as exc:
         if exc.args and exc.args[0] is None:
-            pytest.skip(
-                "KeyError(None): get_available_markets() returned an empty dict — "
-                "transient GMX API / RPC outage or parallel-test API saturation. "
-                "@flaky will retry up to 3 times."
-            )
+            pytest.skip("KeyError(None): get_available_markets() returned an empty dict — transient GMX API / RPC outage or parallel-test API saturation. @flaky will retry up to 3 times.")
         raise
 
     assert isinstance(order_result, SLTPOrderResult), "Expected SLTPOrderResult instance"

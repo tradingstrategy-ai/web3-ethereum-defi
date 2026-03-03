@@ -329,10 +329,7 @@ def test_glv_market_consistency(get_glv_stats):
     # parallel-test API saturation).  Every GLV market would appear missing, making the
     # final assertion fail despite correct test logic.  Skip so @flaky can retry.
     if not available_markets:
-        pytest.skip(
-            "get_available_markets() returned an empty dict — transient GMX API / RPC "
-            "outage or parallel-test API saturation.  @flaky will retry up to 3 times."
-        )
+        pytest.skip("get_available_markets() returned an empty dict — transient GMX API / RPC outage or parallel-test API saturation.  @flaky will retry up to 3 times.")
 
     # Verify that all GLV markets are in the available markets list
     all_glv_markets = set()

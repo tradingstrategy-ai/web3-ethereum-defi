@@ -114,8 +114,6 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import GMX_MIN_LIQUIDATION_COLLATERAL_USD, TOKEN_ADDRESS_MAPPINGS
 from eth_defi.gmx.contracts import get_tokens_address_dict, NETWORK_TOKENS, TESTNET_TO_MAINNET_ORACLE_TOKENS
 
-logger = logging.getLogger(__name__)
-
 
 # GMX uses 30-decimal precision for all price values
 GMX_PRICE_PRECISION = 30
@@ -693,13 +691,6 @@ def determine_swap_route(markets: dict, in_token: str, out_token: str, chain: st
     usdc_address = NETWORK_TOKENS.get(chain, {}).get("USDC")
     if not usdc_address:
         raise ValueError(f"USDC address not configured for chain: {chain}")
-
-    available_index_tokens = [m.get("index_token_address") for m in markets.values()]
-    logger.info(
-        "determine_swap_route: chain=%s, in_token=%s, out_token=%s, usdc=%s",
-        chain, in_token, out_token, usdc_address,
-    )
-    logger.info("determine_swap_route: available index_token_addresses: %s", available_index_tokens)
 
     if in_token == usdc_address:
         gmx_market_data = find_dictionary_by_key_value(markets, "index_token_address", out_token)

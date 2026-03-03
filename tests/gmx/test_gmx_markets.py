@@ -396,10 +396,7 @@ def test_get_available_markets(markets):
     # Empty response is a known-bad transient condition (RPC/API outage or parallel-test
     # saturation).  Skip rather than hard-fail so @flaky can attempt the next retry.
     if not available_markets:
-        pytest.skip(
-            "get_available_markets() returned an empty dict — transient GMX API / RPC "
-            "outage or parallel-test API saturation.  @flaky will retry up to 3 times."
-        )
+        pytest.skip("get_available_markets() returned an empty dict — transient GMX API / RPC outage or parallel-test API saturation.  @flaky will retry up to 3 times.")
 
     # Check first market structure
     first_market_key = next(iter(available_markets.keys()))

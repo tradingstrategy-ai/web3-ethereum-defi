@@ -292,11 +292,10 @@ def test_price_sanity_action_raise_exception(gmx_config):
     ticker_price_usd = get_ticker_price_usd(ticker, 18)
     actual_deviation = abs(ticker_price_usd - oracle_price_usd) / abs(oracle_price_usd) if oracle_price_usd else 0.0
     import logging as _logging
+
     _log = _logging.getLogger(__name__)
     _log.info(
-        "test_price_sanity_action_raise_exception [CI DEBUG]: "
-        "oracle=$%.6f, ticker=$%.6f, deviation=%.8f%% — "
-        "need deviation > 0.000001%% (0.0001%%) to trigger PriceSanityException",
+        "test_price_sanity_action_raise_exception [CI DEBUG]: oracle=$%.6f, ticker=$%.6f, deviation=%.8f%% — need deviation > 0.000001%% (0.0001%%) to trigger PriceSanityException",
         oracle_price_usd,
         ticker_price_usd,
         actual_deviation * 100,
@@ -304,16 +303,10 @@ def test_price_sanity_action_raise_exception(gmx_config):
 
     if actual_deviation == 0.0:
         _log.info(
-            "test_price_sanity_action_raise_exception [CI DEBUG]: SKIPPING — "
-            "oracle and ticker prices are identical ($%.6f). "
-            "Both APIs returned identical price data; cannot detect threshold violation.",
+            "test_price_sanity_action_raise_exception [CI DEBUG]: SKIPPING — oracle and ticker prices are identical ($%.6f). Both APIs returned identical price data; cannot detect threshold violation.",
             oracle_price_usd,
         )
-        pytest.skip(
-            f"Oracle and ticker prices are identical (oracle=${oracle_price_usd:.6f}, "
-            f"ticker=${ticker_price_usd:.6f}) — both APIs returned identical price data, "
-            "so no deviation can be detected.  This is a transient condition; @flaky will retry."
-        )
+        pytest.skip(f"Oracle and ticker prices are identical (oracle=${oracle_price_usd:.6f}, ticker=${ticker_price_usd:.6f}) — both APIs returned identical price data, so no deviation can be detected.  This is a transient condition; @flaky will retry.")
 
     # Use extremely strict threshold (0.0001% = 0.000001) to force failure
     config = PriceSanityCheckConfig(

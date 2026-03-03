@@ -478,11 +478,7 @@ def pool_tvl_data(get_pool_tvl, chain_name):
     data = get_pool_tvl.get_data()
     logger.debug("pool_tvl_data for %s: markets=%s", chain_name, list(data.keys()))
     if not data:
-        pytest.skip(
-            f"get_pool_tvl.get_data() returned an empty dict for chain '{chain_name}' "
-            "— transient RPC/GMX API outage or API saturation from parallel test execution.  "
-            "@flaky will retry up to 3 times."
-        )
+        pytest.skip(f"get_pool_tvl.get_data() returned an empty dict for chain '{chain_name}' — transient RPC/GMX API outage or API saturation from parallel test execution.  @flaky will retry up to 3 times.")
     return data
 
 
@@ -1035,11 +1031,7 @@ def funding_fee_data(get_funding_fee, chain_name):
     data = get_funding_fee.get_data()
     logger.debug("funding_fee_data for %s: long markets=%s", chain_name, list(data.get("long", {}).keys()))
     if not data.get("long"):
-        pytest.skip(
-            f"get_funding_fee.get_data() returned no markets for chain '{chain_name}' "
-            "— transient GMX API / RPC outage or parallel-test API saturation.  "
-            "@flaky will retry up to 3 times."
-        )
+        pytest.skip(f"get_funding_fee.get_data() returned no markets for chain '{chain_name}' — transient GMX API / RPC outage or parallel-test API saturation.  @flaky will retry up to 3 times.")
     return data
 
 
@@ -1076,11 +1068,7 @@ def open_interest_data(get_open_interest, chain_name):
     data = get_open_interest.get_data()
     logger.debug("open_interest_data for %s: long markets=%s", chain_name, list(data.get("long", {}).keys()))
     if not data.get("long"):
-        pytest.skip(
-            f"get_open_interest.get_data() returned no markets for chain '{chain_name}' "
-            "— transient GMX API / RPC outage or parallel-test API saturation.  "
-            "@flaky will retry up to 3 times."
-        )
+        pytest.skip(f"get_open_interest.get_data() returned no markets for chain '{chain_name}' — transient GMX API / RPC outage or parallel-test API saturation.  @flaky will retry up to 3 times.")
     return data
 
 

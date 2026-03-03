@@ -438,11 +438,7 @@ def test_ccxt_sltp_bundled_orders_count(
         )
     except ValueError as exc:
         if "load_markets" in str(exc):
-            pytest.skip(
-                f"CCXT ValueError: {exc} — exchange market cache is empty or stale, "
-                f"likely a parallel-test race condition on load_markets().  "
-                f"@flaky will retry up to 3 times."
-            )
+            pytest.skip(f"CCXT ValueError: {exc} — exchange market cache is empty or stale, likely a parallel-test race condition on load_markets().  @flaky will retry up to 3 times.")
         raise
 
     assert order is not None
@@ -528,11 +524,7 @@ def test_ccxt_create_limit_buy_order(
         # "Market X not found. Call load_markets() first." is a known-transient CCXT
         # race condition when parallel workers share an uninitialised exchange instance.
         if "load_markets" in str(exc):
-            pytest.skip(
-                f"CCXT ValueError: {exc} — exchange market cache is empty or stale, "
-                f"likely a parallel-test race condition on load_markets().  "
-                f"@flaky will retry up to 3 times."
-            )
+            pytest.skip(f"CCXT ValueError: {exc} — exchange market cache is empty or stale, likely a parallel-test race condition on load_markets().  @flaky will retry up to 3 times.")
         raise
 
     assert order is not None

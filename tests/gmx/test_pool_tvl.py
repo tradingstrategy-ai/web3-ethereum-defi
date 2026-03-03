@@ -43,11 +43,7 @@ def test_get_pool_tvl_direct_call(chain_name, get_pool_tvl):
     # Empty response is a known-bad transient condition (RPC outage or parallel-test
     # API saturation).  Skip rather than hard-fail so @flaky can attempt the next retry.
     if not pool_tvl_data:
-        pytest.skip(
-            f"get_pool_tvl.get_data() returned an empty dict for chain '{chain_name}' "
-            f"— transient RPC/GMX API outage or API saturation from parallel test "
-            f"execution.  @flaky will retry up to 3 times."
-        )
+        pytest.skip(f"get_pool_tvl.get_data() returned an empty dict for chain '{chain_name}' — transient RPC/GMX API outage or API saturation from parallel test execution.  @flaky will retry up to 3 times.")
 
     # Verify basic structure
     assert pool_tvl_data is not None
@@ -123,11 +119,7 @@ def test_get_pool_tvl_specific_markets(chain_name, get_pool_tvl):
     # Empty response is a known-bad transient condition — skip instead of hard-failing
     # so that @flaky can try again on the next retry attempt.
     if not pool_tvl_data:
-        pytest.skip(
-            f"get_pool_tvl.get_data() returned an empty dict for chain '{chain_name}' "
-            f"— transient RPC/GMX API outage or parallel-test API saturation. "
-            f"@flaky will retry up to 3 times."
-        )
+        pytest.skip(f"get_pool_tvl.get_data() returned an empty dict for chain '{chain_name}' — transient RPC/GMX API outage or parallel-test API saturation. @flaky will retry up to 3 times.")
 
     # Define expected markets per chain
     if chain_name.lower() == "arbitrum":

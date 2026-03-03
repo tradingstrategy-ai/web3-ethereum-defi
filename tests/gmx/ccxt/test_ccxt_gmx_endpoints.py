@@ -16,10 +16,7 @@ def test_fetch_markets(gmx_arbitrum):
     assert isinstance(markets, list)
 
     if not markets:
-        pytest.skip(
-            "gmx_arbitrum.fetch_markets() returned an empty list — transient GMX API / RPC outage "
-            "or parallel-test API saturation. @flaky will retry up to 3 times."
-        )
+        pytest.skip("gmx_arbitrum.fetch_markets() returned an empty list — transient GMX API / RPC outage or parallel-test API saturation. @flaky will retry up to 3 times.")
 
     assert len(markets) > 0
 

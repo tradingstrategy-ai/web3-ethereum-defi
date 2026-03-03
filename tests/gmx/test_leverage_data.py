@@ -87,10 +87,7 @@ def test_ccxt_markets_include_leverage_limits(gmx_config):
     markets = gmx.fetch_markets()
 
     if not markets:
-        pytest.skip(
-            "gmx.fetch_markets() returned an empty list — transient GMX API / RPC outage "
-            "or parallel-test API saturation.  @flaky will retry up to 3 times."
-        )
+        pytest.skip("gmx.fetch_markets() returned an empty list — transient GMX API / RPC outage or parallel-test API saturation.  @flaky will retry up to 3 times.")
 
     assert len(markets) > 0
 

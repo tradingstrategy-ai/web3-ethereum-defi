@@ -75,10 +75,7 @@ def test_open_interest_calculation(get_open_interest):
     # Empty markets dict is a known-bad transient condition (RPC/API outage or
     # parallel-test saturation).  Skip rather than hard-fail so @flaky can retry.
     if not results["long"]:
-        pytest.skip(
-            "get_open_interest.get_data() returned no markets — transient GMX API / "
-            "RPC outage or parallel-test API saturation.  @flaky will retry up to 3 times."
-        )
+        pytest.skip("get_open_interest.get_data() returned no markets — transient GMX API / RPC outage or parallel-test API saturation.  @flaky will retry up to 3 times.")
 
     # Check a few specific markets if they exist
     for market_symbol in ["ETH", "BTC", "ARB"]:
