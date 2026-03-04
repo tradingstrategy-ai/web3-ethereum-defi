@@ -3363,7 +3363,7 @@ class GMX(Exchange):
             "filled": filled_amount,
             "remaining": remaining_amount,
             "status": status,
-            "fee": self._build_trading_fee(symbol, amount),
+            "fee": self._build_trading_fee(symbol, amount * mark_price if mark_price else 0.0),
             "trades": None,
             "info": info,
         }
