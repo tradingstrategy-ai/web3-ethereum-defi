@@ -23,7 +23,6 @@ from eth_defi.gmx.testing import (  # noqa: F401
     stop_impersonating_account,
 )
 from eth_defi.gmx.testing.constants import (  # noqa: F401
-    _arbitrum_token,
-    _resolve_contract_address,
-    _resolve_token_address,
+    resolve_contract_address,
+    resolve_token_address,
 )

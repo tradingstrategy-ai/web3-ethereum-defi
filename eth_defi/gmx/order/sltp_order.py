@@ -474,7 +474,7 @@ class SLTPOrder(BaseOrder):
             self.is_long,  # isLong
             True,  # shouldUnwrapNativeToken
             auto_cancel,  # autoCancel
-            ZERO_REFERRAL_CODE,  # referralCode
+            self.config.referral_code or ZERO_REFERRAL_CODE,  # referralCode
             [],  # dataList
         )
 
