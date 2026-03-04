@@ -1,0 +1,69 @@
+name: Integration request
+description: Request support for a new blockchain, protocol, or exchange
+labels: ["integration-request"]
+title: "[Integration]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Request integration of a new blockchain, DeFi protocol, DEX, or exchange.
+
+        **Note:** For discussion before opening a formal request, use [Discord](https://tradingstrategy.ai/community).
+
+  - type: dropdown
+    id: integration-type
+    attributes:
+      label: Integration type
+      options:
+        - New blockchain / EVM chain
+        - New DEX (Uniswap fork or other)
+        - New lending protocol
+        - New vault / yield protocol (ERC-4626)
+        - New oracle provider
+        - New bridge / cross-chain protocol
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: protocol-name
+    attributes:
+      label: Protocol / chain name
+      placeholder: "e.g., Morpho Blue, Scroll, Balancer v3"
+    validations:
+      required: true
+
+  - type: input
+    id: protocol-url
+    attributes:
+      label: Protocol website
+      placeholder: "https://..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What would you use this integration for? (trading, data research, portfolio management, etc.)
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical-details
+    attributes:
+      label: Technical details
+      description: |
+        Include relevant links: documentation, GitHub repos, contract addresses, ABIs,
+        subgraph URLs, chain IDs, or RPC endpoints.
+    validations:
+      required: false
+
+  - type: input
+    id: tvl
+    attributes:
+      label: Protocol TVL (approximate)
+      description: Approximate total value locked, to help with prioritisation.
+      placeholder: "e.g., $500M"
+    validations:
+      required: false

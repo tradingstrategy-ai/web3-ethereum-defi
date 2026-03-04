@@ -1,0 +1,71 @@
+name: Feature request
+description: Suggest a new feature or enhancement
+labels: ["enhancement"]
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement. Please provide as much detail as possible.
+
+        **Note:** For discussion and feedback, consider using [Discord](https://tradingstrategy.ai/community) first.
+
+  - type: checkboxes
+    id: pre-checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I have searched existing issues and feature requests for duplicates
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or motivation
+      description: |
+        Describe the problem this feature would solve, or the use case it enables.
+        For example: "I need to read historical liquidity data from Uniswap v3 pools..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: |
+        Describe how you would like this to work. Include example API usage if possible.
+      placeholder: |
+        # Example of how the new API might look
+        from eth_defi.new_module import new_function
+
+        result = new_function(web3, ...)
+      render: python
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you considered alternative approaches or workarounds?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature category
+      multiple: true
+      options:
+        - New protocol integration
+        - New chain support
+        - Data research / analytics
+        - Trading / swap functionality
+        - Portfolio management
+        - AI agent tooling
+        - Documentation
+        - Testing / developer experience
+        - Performance improvement
+        - Other
+    validations:
+      required: true

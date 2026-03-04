@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Usage questions and support
+    url: https://tradingstrategy.ai/community
+    about: For usage questions and support, please use our Discord community — you will get a much faster response.
+  - name: Report a security vulnerability
+    url: https://github.com/tradingstrategy-ai/web3-ethereum-defi/security/advisories/new
+    about: Report security vulnerabilities privately through GitHub Security Advisories.
+  - name: Trading Strategy platform
+    url: https://tradingstrategy.ai
+    about: For questions about the Trading Strategy platform (not the open source library).
