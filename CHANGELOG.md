@@ -1,6 +1,6 @@
 # Current
 
-- Add GMX referral code support for fee discounts on Lagoon vault trades (2026-03-04)
+- Add GMX referral code support for fee discounts on Lagoon vault trades (2026-03-04, [#792](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/792))
 
 # 1.1
 
