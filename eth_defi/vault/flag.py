@@ -80,6 +80,7 @@ BAD_FLAGS = {
     VaultFlag.abnormal_share_price,
     VaultFlag.abnormal_volatility,
     VaultFlag.subvault,
+    VaultFlag.irregular_reporting,
 }
 
 
