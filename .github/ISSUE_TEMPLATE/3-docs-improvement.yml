@@ -1,0 +1,50 @@
+name: Documentation improvement
+description: Report missing, incorrect, or unclear documentation
+labels: ["documentation"]
+title: "[Docs]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help us improve the documentation at
+        [web3-ethereum-defi.tradingstrategy.ai](https://web3-ethereum-defi.tradingstrategy.ai/).
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation type
+      options:
+        - API reference
+        - Tutorial / how-to guide
+        - Code examples
+        - Installation instructions
+        - Missing documentation for existing feature
+        - Incorrect / outdated documentation
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: doc-url
+    attributes:
+      label: Documentation page URL
+      description: Link to the relevant documentation page, if applicable.
+      placeholder: "https://web3-ethereum-defi.tradingstrategy.ai/..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What is missing, incorrect, or unclear? What improvement would you like to see?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-content
+    attributes:
+      label: Suggested content
+      description: If you have a suggestion for the improved content, include it here.
+    validations:
+      required: false

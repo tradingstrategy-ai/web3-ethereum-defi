@@ -1,0 +1,131 @@
+name: Bug report
+description: Report a bug or unexpected behaviour in web3-ethereum-defi
+labels: ["bug", "triage"]
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this issue. Please fill in the details below.
+
+        **Note:** For usage questions and faster support, please use [Discord](https://tradingstrategy.ai/community) instead of GitHub Issues.
+
+  - type: checkboxes
+    id: pre-checks
+    attributes:
+      label: Pre-submission checks
+      description: Please confirm the following before submitting.
+      options:
+        - label: I have searched existing issues and this is not a duplicate
+          required: true
+        - label: I have tested with the latest version of the library
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug description
+      description: A clear description of what the bug is and what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Code to reproduce
+      description: |
+        A minimal, self-contained code example that reproduces the issue.
+        If the issue involves a specific on-chain transaction, include the chain, block number, and transaction hash.
+      placeholder: |
+        from eth_defi.provider.multi_provider import create_multi_provider_web3
+
+        web3 = create_multi_provider_web3(...)
+        ...
+      render: python
+    validations:
+      required: false
+
+  - type: textarea
+    id: error-output
+    attributes:
+      label: Error output / traceback
+      description: Full error output or traceback if applicable.
+      render: shell
+    validations:
+      required: false
+
+  - type: dropdown
+    id: chain
+    attributes:
+      label: Blockchain network
+      description: Which chain(s) does this affect?
+      multiple: true
+      options:
+        - Ethereum mainnet
+        - Arbitrum One
+        - Base
+        - Polygon
+        - BNB Chain
+        - HyperEVM
+        - Anvil (local fork)
+        - Other / not chain-specific
+    validations:
+      required: true
+
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Protocol
+      description: Which DeFi protocol is involved? (optional)
+      multiple: true
+      options:
+        - Uniswap (v2 or v3)
+        - Aave v3
+        - 1delta
+        - Lagoon
+        - GMX
+        - Derive
+        - PancakeSwap
+        - ChainLink
+        - Circle USDC / CCTP
+        - Gnosis Safe
+        - ERC-4626 vaults
+        - Other / not protocol-specific
+    validations:
+      required: false
+
+  - type: input
+    id: lib-version
+    attributes:
+      label: web3-ethereum-defi version
+      description: Run `pip show web3-ethereum-defi` and provide the version.
+      placeholder: "0.x.x"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      description: Run `python --version` and provide the output.
+      placeholder: "3.x.x"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "macOS / Linux / Windows"
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: |
+        Any additional context, RPC provider details, or on-chain references
+        (block numbers, transaction hashes, contract addresses).
+    validations:
+      required: false
