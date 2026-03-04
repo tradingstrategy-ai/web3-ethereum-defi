@@ -104,6 +104,88 @@ wallet = LagoonGMXTradingWallet(vault, asset_manager, forward_eth=True)
 
 The guard does not validate ETH amounts — all targets are governance-approved contracts and ETH only flows to those trusted targets. If `msg.value > value`, the excess stays in the Safe.
 
+## GmxLib validation details
+
+The actual validation logic lives in [GmxLib.sol](../../contracts/guard/src/lib/GmxLib.sol), a library called by `GuardV0Base` when the guard encounters a `multicall()` selector targeting a whitelisted GMX router.
+
+### What GmxLib validates
+
+`GmxLib.validateMulticall()` iterates over every inner call in the multicall payload and dispatches by selector:
+
+| Inner call | Checks |
+|------------|--------|
+| `sendWnt(receiver, amount)` | `receiver == orderVault` (hardcoded per router during whitelisting) |
+| `sendTokens(token, receiver, amount)` | `receiver == orderVault`; token must pass `isAllowedAsset()` (unless `anyAsset`) |
+| `createOrder(params)` | See below |
+| Unknown selector | **Reverts** — no unrecognised calls allowed |
+
+For `createOrder`, the params struct is ABI-decoded and the following fields are checked:
+
+| Field | Always checked | Bypassed by `anyAsset`? |
+|-------|---------------|------------------------|
+| `params.addresses.receiver` | Yes | No |
+| `params.addresses.cancellationReceiver` | Yes | No |
+| `params.addresses.market` | Yes (unless `anyAsset`) | Yes |
+| `params.addresses.initialCollateralToken` | Yes (unless `anyAsset`) | Yes |
+| `params.addresses.swapPath[*]` (each entry) | Yes (unless `anyAsset`) | Yes |
+
+### What GmxLib does NOT validate
+
+The guard does not check order economics — these are trusted to the asset manager:
+
+- **Order size** (`sizeDeltaUsd`) — no leverage limits enforced
+- **Acceptable price** (`acceptablePrice`) — no slippage bounds enforced
+- **Execution fee amount** — only the destination (orderVault) is checked
+- **Order type and direction** — long/short, market/limit, increase/decrease all allowed
+- **Trigger price** (`triggerPrice`) — not checked
+- **Callback contract** (`callbackContract`) and **UI fee receiver** — decoded but not validated
+
+### Market whitelisting
+
+Markets are stored in `GmxStorage.allowedMarkets` mapping using diamond storage (slot `keccak256("eth_defi.gmx.v1")`). Functions:
+
+- `whitelistMarket(address, notes)` — sets `allowedMarkets[market] = true`, emits `GMXMarketApproved`
+- `removeMarket(address, notes)` — sets to `false`, emits `GMXMarketRemoved`
+- `isAllowedMarket(address, anyAsset)` — returns `anyAsset || allowedMarkets[market]`
+
+All called via `GuardV0Base.whitelistGMXMarket()` which requires `onlyGuardOwner`.
+
+## The `anyAsset` flag
+
+`anyAsset` is a boolean on `GuardV0Base` (set via `setAnyAssetAllowed(bool, notes)`, `onlyGuardOwner` only). When enabled, it relaxes asset and market checks across the guard — not just for GMX.
+
+### What `anyAsset = true` bypasses
+
+- **GMX market whitelisting** — `createOrder` accepts any market address, and any swapPath entry
+- **GMX collateral token check** — `sendTokens` accepts any ERC-20 token
+- **Asset whitelisting** — `isAllowedAsset()` returns `true` for all tokens
+- **Uniswap V3 token path validation** — SwapRouter02 accepts any token path
+
+### What `anyAsset = true` does NOT bypass
+
+These checks are **always enforced** regardless of `anyAsset`:
+
+- **Receiver validation** — `createOrder` receiver and cancellationReceiver must be whitelisted
+- **OrderVault destination** — `sendWnt` and `sendTokens` can only send to the pre-configured orderVault
+- **Router whitelisting** — only whitelisted GMX routers are accepted
+- **Sender validation** — only whitelisted asset managers can call `performCall`
+
+### Security implications of `anyAsset = true`
+
+Enabling `anyAsset` is a significant security relaxation. It means the asset manager can:
+
+1. **Trade any GMX market** — not just whitelisted ones (e.g. exotic or low-liquidity markets)
+2. **Use any token as collateral** — not just explicitly approved tokens
+3. **Route through any swapPath** — intermediate markets are not checked
+
+However, the asset manager **cannot steal funds** because:
+
+- Order proceeds always go to a whitelisted receiver (the Safe)
+- Tokens and ETH can only be sent to the pre-configured orderVault
+- The asset manager cannot call arbitrary contracts — only whitelisted routers
+
+**Recommendation**: Use explicit market and asset whitelisting (`anyAsset = false`) for production vaults. Only enable `anyAsset` when the vault strategy requires dynamic market access (e.g. multi-market strategies where new markets may be added by GMX governance).
+
 ## Attack vectors (mitigated)
 
 | Attack | Mitigation |
