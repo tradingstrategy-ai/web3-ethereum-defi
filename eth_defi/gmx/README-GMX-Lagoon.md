@@ -264,6 +264,71 @@ Testnet contract addresses are fetched via `get_contract_addresses("arbitrum_sep
 | createOrder swapPath whitelisted | `test_security_attack_scenario_non_whitelisted_swap_path` | via real GMX |
 | swapPath with anyAsset | `test_any_asset_allows_non_whitelisted_swap_path_market` | - |
 
+## Referral codes
+
+GMX offers a [referral programme](https://docs.gmx.io/docs/referrals/) that discounts position opening and closing fees. The programme has three tiers:
+
+| Tier | Trader discount | Affiliate rebate | Requirements |
+|------|----------------|-------------------|--------------|
+| 1 | 5% | 5% | Anyone can create |
+| 2 | 10% | 10% | 15+ weekly users, $5M+ volume |
+| 3 | 10% | 15% ETH/AVAX + 5% esGMX | 30+ weekly users, $25M+ volume |
+
+### How it works on-chain
+
+Referral codes are stored in the [ReferralStorage](https://arbiscan.io/address/0xe6fab3F0c7199b0d34d7FbE83394fc0e0D06e99d) contract (shared between GMX V1 and V2). When `ExchangeRouter.createOrder()` receives a non-zero `referralCode` bytes32 parameter, it calls [ReferralUtils.setTraderReferralCode()](https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/referral/ReferralUtils.sol) which persists the code for the trader account. Once set, the discount applies automatically to all subsequent orders from that account.
+
+Source contracts:
+- [ReferralStorage.sol](https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/mock/ReferralStorage.sol) — stores code ownership and trader-code associations
+- [ReferralUtils.sol](https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/referral/ReferralUtils.sol) — called by ExchangeRouter during order creation
+
+### Encoding
+
+Referral codes are `bytes32` values: the string is UTF-8 encoded, left-aligned, and right-padded with zeros to 32 bytes. For example, `"tano"` becomes `0x74616e6f000...000` (4 bytes + 28 zero bytes). This matches Solidity's `bytes32("tano")` and ethers.js `formatBytes32String("tano")`.
+
+Use `convert_string_to_bytes32()` from `eth_defi.event_reader.conversion`:
+
+```python
+from eth_defi.event_reader.conversion import convert_string_to_bytes32
+
+code = convert_string_to_bytes32("tano")
+# b'tano\x00\x00\x00...\x00' (32 bytes)
+```
+
+### Usage with Lagoon vault
+
+Pass `referral_code` when creating the `GMXConfig`. All orders (open, close, SL/TP) created through this config will include the referral code:
+
+```python
+from eth_defi.gmx.config import GMXConfig
+from eth_defi.event_reader.conversion import convert_string_to_bytes32
+
+config = GMXConfig(
+    web3=web3,
+    user_wallet_address=vault_address,
+    referral_code=convert_string_to_bytes32("tano"),
+)
+wallet = LagoonGMXTradingWallet(vault, asset_manager, forward_eth=True)
+```
+
+### Verifying a code on-chain
+
+To check that a referral code is registered and that the encoding is correct, query `ReferralStorage.codeOwners()`:
+
+```python
+from eth_defi.event_reader.conversion import convert_string_to_bytes32
+
+referral_storage = web3.eth.contract(
+    address="0xe6fab3F0c7199b0d34d7FbE83394fc0e0D06e99d",
+    abi=...,  # eth_defi/abi/gmx/ReferralStorage.json
+)
+code = convert_string_to_bytes32("tano")
+owner = referral_storage.functions.codeOwners(code).call()
+assert owner != "0x" + "0" * 40  # Code is registered
+```
+
+See `tests/gmx/test_referral_code.py` for a complete working example.
+
 ## Files
 
 | File | Description |

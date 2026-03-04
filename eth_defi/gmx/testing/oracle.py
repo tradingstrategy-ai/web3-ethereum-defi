@@ -9,7 +9,7 @@ from web3 import Web3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.core import OraclePrices
-from eth_defi.gmx.testing.constants import ARBITRUM_DEFAULTS, _resolve_contract_address, _resolve_token_address
+from eth_defi.gmx.testing.constants import ARBITRUM_DEFAULTS, resolve_contract_address, resolve_token_address
 from eth_defi.gmx.testing.fork_provider import deal_eth, detect_provider_type, set_code
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -34,8 +34,8 @@ def fetch_on_chain_oracle_prices(web3: Web3) -> tuple[int, int]:
         oracle = OraclePrices(chain)
         prices = oracle.get_recent_prices()
 
-        weth_address = _resolve_token_address(chain, "WETH", ARBITRUM_DEFAULTS["weth"])
-        usdc_address = _resolve_token_address(chain, "USDC", ARBITRUM_DEFAULTS["usdc"])
+        weth_address = resolve_token_address(chain, "WETH", ARBITRUM_DEFAULTS["weth"])
+        usdc_address = resolve_token_address(chain, "USDC", ARBITRUM_DEFAULTS["usdc"])
 
         if weth_address in prices:
             weth_price_formatted = int(prices[weth_address]["maxPriceFull"])
@@ -74,7 +74,7 @@ def get_mock_oracle_price(web3: Web3, token_symbol: str = "WETH") -> float:
     """
     chain = get_chain_name(web3.eth.chain_id).lower()
 
-    production_provider_address = _resolve_contract_address(
+    production_provider_address = resolve_contract_address(
         chain,
         ("chainlinkdatastreamprovider", "gmoracleprovider"),
         ARBITRUM_DEFAULTS["chainlink_provider"],
@@ -87,10 +87,10 @@ def get_mock_oracle_price(web3: Web3, token_symbol: str = "WETH") -> float:
     mock = web3.eth.contract(address=production_provider_address, abi=contract_data["abi"])
 
     if token_symbol == "WETH":
-        token_address = _resolve_token_address(chain, "WETH", ARBITRUM_DEFAULTS["weth"])
+        token_address = resolve_token_address(chain, "WETH", ARBITRUM_DEFAULTS["weth"])
         decimals_factor = 10**12
     else:
-        token_address = _resolve_token_address(chain, "USDC", ARBITRUM_DEFAULTS["usdc"])
+        token_address = resolve_token_address(chain, "USDC", ARBITRUM_DEFAULTS["usdc"])
         decimals_factor = 10**24
 
     min_price, max_price = mock.functions.tokenPrices(token_address).call()
@@ -131,7 +131,7 @@ def setup_mock_oracle(
 
     logger.info("Using prices: ETH=$%d, USDC=$%d", eth_price_usd, usdc_price_usd)
 
-    production_provider_address = _resolve_contract_address(
+    production_provider_address = resolve_contract_address(
         chain,
         ("chainlinkdatastreamprovider", "gmoracleprovider"),
         ARBITRUM_DEFAULTS["chainlink_provider"],
@@ -218,7 +218,7 @@ def setup_mock_oracle(
     deal_eth(web3, account, 100_000_000 * 10**18)
 
     # WETH: 18 decimals -> price * 10^12
-    weth_address = _resolve_token_address(chain, "WETH", ARBITRUM_DEFAULTS["weth"])
+    weth_address = resolve_token_address(chain, "WETH", ARBITRUM_DEFAULTS["weth"])
     weth_price = int(eth_price_usd * (10**12))
     logger.info("Setting WETH price to %d...", weth_price)
 
@@ -233,7 +233,7 @@ def setup_mock_oracle(
     assert_transaction_success_with_explanation(web3, weth_tx_hash, "Set WETH price on mock oracle")
 
     # USDC: 6 decimals -> price * 10^24
-    usdc_address = _resolve_token_address(chain, "USDC", ARBITRUM_DEFAULTS["usdc"])
+    usdc_address = resolve_token_address(chain, "USDC", ARBITRUM_DEFAULTS["usdc"])
     usdc_price = int(usdc_price_usd * (10**24))
     logger.info("Setting USDC price to %d...", usdc_price)
 

@@ -667,7 +667,7 @@ class BaseOrder:
 
         # Use module-level constants
         eth_zero_address = ETH_ZERO_ADDRESS
-        referral_code = ZERO_REFERRAL_CODE
+        referral_code = self.config.referral_code or ZERO_REFERRAL_CODE
 
         user_checksum = to_checksum_address(user_wallet_address)
         collateral_checksum = to_checksum_address(params.collateral_address)

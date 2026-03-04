@@ -8,7 +8,7 @@ from web3 import Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.chain import get_chain_name
-from eth_defi.gmx.testing.constants import ARBITRUM_DEFAULTS, _resolve_contract_address, _resolve_token_address
+from eth_defi.gmx.testing.constants import ARBITRUM_DEFAULTS, resolve_contract_address, resolve_token_address
 from eth_defi.gmx.testing.fork_provider import detect_provider_type, impersonate_account, set_balance, stop_impersonating_account
 
 logger = logging.getLogger(__name__)
@@ -79,13 +79,13 @@ def execute_order_as_keeper(web3: Web3, order_key: bytes):
 
     set_balance(web3, keeper, hex(web3.to_wei(500, "ether")))
 
-    order_handler_address = _resolve_contract_address(chain, "orderhandler", ARBITRUM_DEFAULTS["order_handler"])
+    order_handler_address = resolve_contract_address(chain, "orderhandler", ARBITRUM_DEFAULTS["order_handler"])
     OrderHandler = get_contract(web3, "gmx/OrderHandler.json")
     order_handler = OrderHandler(address=order_handler_address)
 
-    weth_address = _resolve_token_address(chain, "WETH", ARBITRUM_DEFAULTS["weth"])
-    usdc_address = _resolve_token_address(chain, "USDC", ARBITRUM_DEFAULTS["usdc"])
-    oracle_provider = _resolve_contract_address(
+    weth_address = resolve_token_address(chain, "WETH", ARBITRUM_DEFAULTS["weth"])
+    usdc_address = resolve_token_address(chain, "USDC", ARBITRUM_DEFAULTS["usdc"])
+    oracle_provider = resolve_contract_address(
         chain,
         ("chainlinkdatastreamprovider", "gmoracleprovider"),
         ARBITRUM_DEFAULTS["chainlink_provider"],

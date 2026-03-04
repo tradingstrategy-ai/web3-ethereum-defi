@@ -449,6 +449,15 @@ EXECUTION_BUFFER_RECOMMENDED_MIN: float = 1.8
 #: Equals :data:`DEFAULT_EXECUTION_BUFFER`.
 EXECUTION_BUFFER_RECOMMENDED_MAX: float = 2.2
 
+#: Execution-fee buffer multiplier for testnet (Arbitrum Sepolia).
+#:
+#: Testnet gas estimation is less reliable than mainnet, requiring a
+#: higher buffer to avoid reverts.  The standard
+#: :data:`DEFAULT_EXECUTION_BUFFER` (2.2×) is insufficient — observed
+#: reverts on Arbitrum Sepolia.  5× ensures reliable execution; GMX
+#: refunds any excess.
+EXECUTION_BUFFER_TESTNET: float = 5.0
+
 # ---------------------------------------------------------------------------
 # RPC / blockchain query limits
 # ---------------------------------------------------------------------------

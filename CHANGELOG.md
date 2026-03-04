@@ -1,6 +1,6 @@
 # Current
 
-- TODO
+- Add GMX referral code support for fee discounts on Lagoon vault trades (2026-03-04)
 
 # 1.1
 
