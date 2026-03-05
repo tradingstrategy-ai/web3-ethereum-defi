@@ -70,6 +70,8 @@ If the skill needs you to make decisions how to use it, like need to choose from
 
 For whatever software we installed or are going to use, save `.claude/projects/{protocol_slug}/{skill_repo_name}/requirements.md` with the software name, version and how did we install it.
 
+If you need MCP server with Slither and Aderyn integration (TypeScript, npm install), and cannot install it, stop now and tell how to install them.
+
 ### Step 3: Run each skill-based auditing pipeline
 
 The get list of different skill repos from `docs/claude-plans/smart-contract-audit/skills.md`.
