@@ -21,8 +21,9 @@ Data collected: 2026-03-05
 | [auditmos/skills](https://github.com/auditmos/skills) | 0 | 14 | 12,981 | Solidity | [tkowalczyk](https://github.com/tkowalczyk) | [@tomkowalczyk](https://x.com/tomkowalczyk) |
 | [Frankcastleauditor/safe-solana-builder](https://github.com/Frankcastleauditor/safe-solana-builder) | 47 | 1 | 1,607 | Rust (Solana Anchor + Native) | [Frankcastleauditor](https://github.com/Frankcastleauditor), [Arrowana](https://github.com/Arrowana) | [@0xcastle_chain](https://x.com/0xcastle_chain) |
 | [The-Membrane/membrane-core](https://github.com/The-Membrane/membrane-core/tree/new-age-cdp/.claude/skills/contract-audit) | 10 | 1 | 3,267 | CosmWasm (Rust) | [triccs](https://github.com/triccs) | — |
+| [pantheraudits/move-auditor](https://github.com/pantheraudits/move-auditor) | 0 | 1 | 2,926 | Move (Sui + Aptos) | [pantheraudits](https://github.com/pantheraudits) | [@thepantherplus](https://x.com/thepantherplus) |
 
-**Total: ~93 skills across 11 repos, ~121,000 lines of skill content.**
+**Total: ~94 skills across 12 repos, ~124,000 lines of skill content.**
 
 ## Detailed evaluations
 
@@ -170,6 +171,20 @@ Data collected: 2026-03-05
 
 ---
 
+### 12. pantheraudits/move-auditor
+
+- **GitHub:** https://github.com/pantheraudits/move-auditor
+- **Stars:** 0 | **Forks:** 0 | **Created:** 2026-03-04
+- **Licence:** MIT
+- **Skills:** 1 (`move-auditor`)
+- **Lines:** 2,926
+
+**Description:** A Claude Code skill purpose-built for security auditing Move smart contracts on both Sui and Aptos -- the first Move-specific auditing skill in this collection. Uses a 5-phase audit pipeline: codebase assessment with automatic chain detection, multi-perspective threat modelling, chain-specific vulnerability scanning, DeFi attack vector analysis, and structured report generation with severity rankings, PoC scenarios, and fix recommendations. The skill auto-activates on `.move` files and loads chain-specific reference files on demand to keep context lean. Covers 10 Sui-specific checks (object ownership confusion, shared object reentrancy, witness pattern abuse, dynamic field injection, capability object theft, hot potato misuse, etc.), 21 Aptos-specific checks (resource account escalation, coin type confusion, signer capability abuse, ConstructorRef leaks, `mem::swap` attacks, Move 2.2 reentrancy, randomness bias, etc.), and 10 DeFi attack vectors (oracle manipulation, flash loans, liquidity pool attacks, liquidation abuse, governance bypass). Includes dedicated audit prompt templates for deep-dive analysis and a sample finding demonstrating expected output format.
+
+**Contributors (1):** Panther / Black Panther ([@thepantherplus](https://x.com/thepantherplus)), an independent security researcher who has audited 50+ protocols securing $10B+ TVL across Move, Solidity, Rust, and Cairo ecosystems. Extensive Move-specific audit track record includes Aave on Aptos (Cantina, 1 High + 1 Medium), Deepbook on Sui (Three Sigma), Elixir on Move (Pashov Audit Group, 5 Medium + 10 Low), Matrixdock RWA on Sui (Cyfrin), Layerbank lending on Aptos (Sherlock), Decibel perpetuals on Aptos (Sherlock), and Abyss yield aggregator on Sui (Three Sigma). 6x top-3 contest finisher across Code4rena, Sherlock, and Cantina. Trusted by leading audit firms including Three Sigma, Sherlock, Cyfrin, Cantina, and Pashov Audit Group. The skill draws directly from patterns encountered across these real Move protocol audits.
+
+---
+
 ## Observations
 
 - **Trail of Bits dominates** in breadth and quality -- 58 skills, 73k lines, 3.2k stars, and real bug discoveries
@@ -178,4 +193,4 @@ Data collected: 2026-03-05
 - **Most novel architecture:** pashov's parallelised 4-agent scanning pipeline; Archethect's MCP server with real tool integration
 - **Pure knowledge vs tooling split:** Most repos are pure Markdown knowledge bases. Only Archethect/sc-auditor integrates real static analysis tools (Slither, Aderyn) via MCP
 - **All repos are very new** -- the oldest is auditmos/skills (Dec 2025), most are from Feb 2026
-- **Solidity focus is near-universal** -- forefy/.context covers Anchor (Solana) and Vyper, safe-solana-builder targets Solana/Rust, and membrane-core's skill covers CosmWasm
+- **Solidity focus is near-universal** -- forefy/.context covers Anchor (Solana) and Vyper, safe-solana-builder targets Solana/Rust, membrane-core's skill covers CosmWasm, and pantheraudits/move-auditor is the first to target Move (Sui + Aptos)
