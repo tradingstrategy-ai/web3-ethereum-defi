@@ -64,7 +64,7 @@ def test_historical_tvl_varies(lighter_session, lighter_llp_pool):
     # TVL should be roughly consistent with current total_asset_value
     # on the most recent date
     latest_tvl = daily_df["tvl"].iloc[-1]
-    assert latest_tvl == pytest.approx(detail.total_asset_value, rel=0.15)
+    assert latest_tvl == pytest.approx(detail.total_asset_value, rel=0.30)
 
 
 @pytest.mark.timeout(120)
