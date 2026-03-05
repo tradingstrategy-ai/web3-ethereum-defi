@@ -2,7 +2,7 @@
 
 Evaluation of Claude Code skill repositories for smart contract security auditing.
 
-Source: https://x.com/moo9000/status/2029241982657139165 (2026-03-04)
+Source: https://x.com/moo9000/status/2029241982657139165 (2026-03-04), https://x.com/0xcastle_chain/status/2029540253514469859 (2026-03-05)
 
 Data collected: 2026-03-05
 
@@ -19,8 +19,10 @@ Data collected: 2026-03-05
 | [Archethect/sc-auditor](https://github.com/Archethect/sc-auditor) | 47 | 1 + 4 MCP tools | 1,285 | Solidity | [Archethect](https://github.com/Archethect) | [@archethect](https://x.com/archethect) |
 | [hackenproof-public/skills](https://github.com/hackenproof-public/skills) | 7 | 1 | 300 | Solidity, general web/mobile | [dorsky](https://github.com/dorsky) | [@d0rsky](https://x.com/d0rsky) |
 | [auditmos/skills](https://github.com/auditmos/skills) | 0 | 14 | 12,981 | Solidity | [tkowalczyk](https://github.com/tkowalczyk) | [@tomkowalczyk](https://x.com/tomkowalczyk) |
+| [Frankcastleauditor/safe-solana-builder](https://github.com/Frankcastleauditor/safe-solana-builder) | 47 | 1 | 1,607 | Rust (Solana Anchor + Native) | [Frankcastleauditor](https://github.com/Frankcastleauditor), [Arrowana](https://github.com/Arrowana) | [@0xcastle_chain](https://x.com/0xcastle_chain) |
+| [The-Membrane/membrane-core](https://github.com/The-Membrane/membrane-core/tree/new-age-cdp/.claude/skills/contract-audit) | 10 | 1 | 3,267 | CosmWasm (Rust) | [triccs](https://github.com/triccs) | — |
 
-**Total: ~91 skills across 9 repos, ~116,000 lines of skill content.**
+**Total: ~93 skills across 11 repos, ~121,000 lines of skill content.**
 
 ## Detailed evaluations
 
@@ -140,6 +142,34 @@ Data collected: 2026-03-05
 
 **Contributors (1):** Tomasz Kowalczyk / tkowalczyk (83 followers), based in Poland. Background in Xamarin/mobile development, pivoted to blockchain security through the Auditmos organisation. The repo has had zero community engagement since creation.
 
+### 10. Frankcastleauditor/safe-solana-builder
+
+- **GitHub:** https://github.com/Frankcastleauditor/safe-solana-builder
+- **Stars:** 47 | **Forks:** 5 | **Created:** 2026-03-01
+- **Licence:** MIT
+- **Skills:** 1 (`safe-solana-builder`)
+- **Lines:** 1,607
+
+**Description:** A single Claude Code skill for writing production-grade, security-first Solana programs, supporting both Anchor and Native Rust frameworks. It assesses risk levels and applies security rules derived from 70+ real audit findings covering CPIs, PDAs, account validation, arithmetic, and Token-2022 compatibility. The skill generates full project scaffolds with inline security documentation, test skeletons with edge cases pre-mapped, and a security checklist documenting every applied rule. Includes a SKILL.md orchestrator, 3 reference rulesets (shared-base, anchor, native-rust), and an example NFT whitelist mint with a 31-rule security checklist.
+
+**Contributors (2):** Led by 0xFrankCastle (3,557 followers), a Rust/Solana auditor with 70+ Rust audits, 50+ Solana audits, and 250+ critical/high severity findings across protocols including Lido, Pump.fun, LayerZero, and Synthetix. Placed 2nd in the HydraDX Omnipool contest on Code4rena. Second contributor is Pierre / Arrowana (163 followers), a Solana developer.
+
+---
+
+### 11. The-Membrane/membrane-core (contract-audit skill)
+
+- **GitHub:** https://github.com/The-Membrane/membrane-core/tree/new-age-cdp/.claude/skills/contract-audit
+- **Stars:** 10 (parent repo) | **Forks:** 2 | **Created:** 2022-05-13 (parent repo)
+- **Licence:** GPL-3.0
+- **Skills:** 1 (`contract-audit`)
+- **Lines:** 3,267
+
+**Description:** A Claude Code skill for systematic security auditing of CosmWasm smart contracts, built from patterns extracted from 61 real Oak Security audit reports (2021--2025). Uses a four-phase pipeline: classify protocol type (lending/CDP, DEX/AMM, perpetuals, etc.), rapid scan across access control/unbounded iterations/state-after-external-calls, read-and-trace flagged code with execution flow analysis, and classify severity. Includes a substantial 2,724-line DeFi audit guide plus four specialised reference files covering access control, liquidation, oracle, and common pitfall patterns. The skill lives inside the Membrane Finance protocol repo rather than a standalone skills repository.
+
+**Contributors (1):** triccs (1 follower), the primary developer of Membrane Finance -- a CosmWasm-based CDP stablecoin protocol deployed on Osmosis, audited by Oak Security. The skill draws directly from their protocol development and audit experience.
+
+---
+
 ## Observations
 
 - **Trail of Bits dominates** in breadth and quality -- 58 skills, 73k lines, 3.2k stars, and real bug discoveries
@@ -148,4 +178,4 @@ Data collected: 2026-03-05
 - **Most novel architecture:** pashov's parallelised 4-agent scanning pipeline; Archethect's MCP server with real tool integration
 - **Pure knowledge vs tooling split:** Most repos are pure Markdown knowledge bases. Only Archethect/sc-auditor integrates real static analysis tools (Slither, Aderyn) via MCP
 - **All repos are very new** -- the oldest is auditmos/skills (Dec 2025), most are from Feb 2026
-- **Solidity focus is near-universal** -- only forefy/.context covers Anchor (Solana) and Vyper as well
+- **Solidity focus is near-universal** -- forefy/.context covers Anchor (Solana) and Vyper, safe-solana-builder targets Solana/Rust, and membrane-core's skill covers CosmWasm

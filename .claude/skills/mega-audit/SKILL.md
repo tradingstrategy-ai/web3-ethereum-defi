@@ -89,9 +89,11 @@ Run 4 parallel agents, and as many sequential batches as needed with these agent
 Generate a summary report for all tools.
 
 - Write a table output with columns like skill repo used, severity, short name, description, source file, relevant addresses - add more columns if needed
+- Sort order deployment issues first, then critical, high, medium
 - Deduplicate findings across tools
 - If the finding is INFO or LOW level, do not add it to the summary
 - If the finding is documented, do not add it to the summary
+- Include deployment and address specific issues here as well
 
 Write the summary as `.claude/projects/{protocol_slug}/reports/ai-audit-summary.md`
 
