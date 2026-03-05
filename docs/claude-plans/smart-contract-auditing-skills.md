@@ -2,7 +2,7 @@
 
 Evaluation of Claude Code skill repositories for smart contract security auditing.
 
-Source: https://x.com/moo9000/status/2029241982657139165 (2026-03-04), https://x.com/0xcastle_chain/status/2029540253514469859 (2026-03-05)
+[Read the announcement post here](https://x.com/moo9000/status/2029511848525971928).
 
 Data collected: 2026-03-05
 
