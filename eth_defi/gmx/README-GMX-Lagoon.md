@@ -29,6 +29,149 @@ GMX V2 batches order operations via `ExchangeRouter.multicall()`. The Guard vali
 
 **Close position**: `[sendWnt(orderVault, fee), createOrder(...)]`
 
+## Opening and closing long and short positions
+
+Detailed Ethereum transaction breakdown for trading with USDC collateral from a Lagoon vault on Arbitrum.
+
+### Pre-requisite: USDC approval (one-time)
+
+Before any trade, the Safe must approve the GMX SyntheticsRouter to spend USDC.
+
+```
+Outer transaction:
+  from:   asset_manager
+  to:     TradingStrategyModuleV0
+  call:   performCall(USDC_address, approve(SyntheticsRouter, 2^256-1), 0)
+  value:  0
+```
+
+Inner effect: Safe calls `USDC.approve(SyntheticsRouter, 2^256-1)`.
+
+See [approvals.py](lagoon/approvals.py) `approve_gmx_collateral_via_vault()`.
+
+### Opening a short (e.g. short ETH/USD with USDC collateral)
+
+One Ethereum transaction wrapping a multicall with **3 inner calls**.
+
+**Outer transaction:**
+
+```
+from:   asset_manager
+to:     TradingStrategyModuleV0
+call:   performCall(ExchangeRouter, <multicall_calldata>, execution_fee)
+value:  execution_fee    (if forward_eth=True, else 0 and Safe pays from its own ETH)
+```
+
+**Inner multicall** — `ExchangeRouter.multicall(bytes[])` contains:
+
+| # | Call | Selector | Arguments |
+|---|------|----------|-----------|
+| 1 | `sendWnt` | `0x7d39aaf1` | `(OrderVault, execution_fee_wei)` |
+| 2 | `sendTokens` | `0xe6d66ac8` | `(USDC_address, OrderVault, collateral_amount_raw)` |
+| 3 | `createOrder` | `0xf59c48eb` | `(CreateOrderParams)` — see below |
+
+Where `collateral_amount_raw = (size_delta_usd / leverage) * 10^6` (USDC has 6 decimals).
+
+**CreateOrderParams for short:**
+
+```
+CreateOrderParams {
+    addresses: {
+        receiver:               Safe_address,
+        cancellationReceiver:   Safe_address,
+        callbackContract:       0x0,
+        uiFeeReceiver:          0x0,
+        market:                 ETH_USD_market_address,
+        initialCollateralToken: USDC_address,
+        swapPath:               [],
+    },
+    numbers: {
+        sizeDeltaUsd:                 size * 10^30,       // e.g. 1000 USD = 1000e30
+        initialCollateralDeltaAmount: collateral_raw,     // USDC in 6 decimals
+        triggerPrice:                 0,                   // 0 for market orders
+        acceptablePrice:              oracle * (1 - slip), // maximise entry price
+        executionFee:                 execution_fee_wei,
+        callbackGasLimit:             0,
+        minOutputAmount:              0,
+        validFromTime:                0,
+    },
+    orderType:               2,      // MarketIncrease
+    decreasePositionSwapType: 0,     // NoSwap
+    isLong:                  false,  // SHORT
+    shouldUnwrapNativeToken: true,
+    autoCancel:              false,
+    referralCode:            0x0,
+    dataList:                [],
+}
+```
+
+**Token flow:**
+
+```
+Safe USDC  ──sendTokens──▶  OrderVault  ──keeper executes──▶  GMX short position (owned by Safe)
+Safe ETH   ──sendWnt────▶  OrderVault  ──keeper fee
+```
+
+### Opening a long (e.g. long ETH/USD with USDC collateral)
+
+Identical structure — same 3 inner calls. The differences from a short are:
+
+| Field | Short | Long |
+|-------|-------|------|
+| `isLong` | `false` | `true` |
+| `swapPath` | `[]` | `[ETH_USD_market_address]` |
+| `acceptablePrice` | `oracle * (1 - slippage)` | `oracle * (1 + slippage)` |
+
+When going long with USDC, GMX needs a `swapPath` to swap USDC → WETH at the market, because the native long collateral is WETH. The swap happens atomically during keeper execution.
+
+**Token flow (long with USDC):**
+
+```
+Safe USDC  ──sendTokens──▶  OrderVault  ──keeper: swap USDC→WETH──▶  GMX long position (WETH collateral)
+Safe ETH   ──sendWnt────▶  OrderVault  ──keeper fee
+```
+
+### Closing a position
+
+One Ethereum transaction with **2 inner calls** (no `sendTokens` — collateral flows back, not in).
+
+**Inner multicall:**
+
+| # | Call | Selector | Arguments |
+|---|------|----------|-----------|
+| 1 | `sendWnt` | `0x7d39aaf1` | `(OrderVault, execution_fee_wei)` |
+| 2 | `createOrder` | `0xf59c48eb` | `(CreateOrderParams)` — see below |
+
+**CreateOrderParams for close:**
+
+```
+CreateOrderParams {
+    addresses: {
+        receiver:               Safe_address,     // collateral + PnL sent here
+        cancellationReceiver:   Safe_address,
+        market:                 ETH_USD_market_address,
+        initialCollateralToken: USDC_address,     // (or WETH for longs)
+        swapPath:               [],               // (or [market] for long→USDC)
+        ...
+    },
+    numbers: {
+        sizeDeltaUsd:                 position_size * 10^30,   // full close = full position size
+        initialCollateralDeltaAmount: collateral_to_withdraw,  // in token decimals
+        ...
+    },
+    orderType:               4,          // MarketDecrease
+    isLong:                  true/false,  // matches the position being closed
+    ...
+}
+```
+
+**Token flow (close):**
+
+```
+GMX position  ──keeper executes──▶  collateral + PnL returned to Safe (receiver)
+Safe ETH      ──sendWnt──────────▶  OrderVault (keeper fee)
+```
+
 ## Guard validation
 
 The Guard ([GuardV0Base.sol](../../contracts/guard/src/GuardV0Base.sol)) iterates through every call in the multicall and validates each one. Unknown selectors revert the entire transaction.
