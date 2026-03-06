@@ -1,6 +1,6 @@
 # Current
 
-- Fix: Hyperliquid vaults with `allowDeposits=false` now correctly flagged as deposit-closed (2026-03-06)
+- Fix: Hyperliquid vaults with `allowDeposits=false` now correctly flagged as deposit-closed (2026-03-06, [#804](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/804))
 - Fix: Auto-approve GMX collateral tokens for SyntheticsRouter during Lagoon vault deployment (2026-03-06, [#803](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/803))
 - Add YieldNest ynRWAx mega-audit results (2026-03-06, [#802](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/802))
 - **Add: Mega-audit skill for running multiple AI auditing pipelines on smart contracts in parallel (2026-03-05)**
