@@ -19,29 +19,24 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
-    LagoonAutomatedDeployment,
-    LagoonDeploymentParameters,
-    deploy_automated_lagoon_vault,
-)
+    LagoonAutomatedDeployment, LagoonDeploymentParameters,
+    deploy_automated_lagoon_vault)
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses
+from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 from eth_defi.gmx.order import OrderResult
-from eth_defi.gmx.whitelist import GMXDeployment
-from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.trading import GMXTrading
+from eth_defi.gmx.whitelist import GMXDeployment
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-
-from tests.gmx.fork_helpers import (
-    execute_order_as_keeper,
-    extract_order_key_from_receipt,
-    setup_mock_oracle,
-)
+from tests.gmx.fork_helpers import (execute_order_as_keeper,
+                                    extract_order_key_from_receipt,
+                                    setup_mock_oracle)
 
 logger = logging.getLogger(__name__)
 
@@ -223,25 +218,10 @@ def _create_lagoon_gmx_fork_env(rpc_url: str) -> LagoonGMXForkEnv:
     # === Step 6: Create GMXConfig pointing to Safe address ===
     gmx_config = GMXConfig(web3, user_wallet_address=safe_address)
 
-    # === Step 7: Approve tokens for GMX SyntheticsRouter ===
-    # These approvals must come from the Safe, so we use performCall
-    logger.info("Approving tokens for GMX...")
+    # GMX collateral token approvals are now handled automatically by
+    # deploy_automated_lagoon_vault() — no manual approval needed here.
 
-    # Approve USDC
-    usdc_approve_call = usdc.contract.functions.approve(GMX_SYNTHETICS_ROUTER, 2**256 - 1)
-    wrapped_usdc_approve = vault.transact_via_trading_strategy_module(usdc_approve_call)
-    tx_hash = wrapped_usdc_approve.transact({"from": asset_manager_address, "gas": 500_000})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    # Approve WETH
-    weth_approve_call = weth.contract.functions.approve(GMX_SYNTHETICS_ROUTER, 2**256 - 1)
-    wrapped_weth_approve = vault.transact_via_trading_strategy_module(weth_approve_call)
-    tx_hash = wrapped_weth_approve.transact({"from": asset_manager_address, "gas": 500_000})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    logger.info("Token approvals complete")
-
-    # Sync nonce after approvals
+    # Sync nonce after deployment
     asset_manager_wallet.sync_nonce(web3)
 
     # Create trading and position instances
@@ -528,16 +508,8 @@ def _create_lagoon_gmx_fork_env_forward_eth(rpc_url: str) -> LagoonGMXForkEnv:
 
     gmx_config = GMXConfig(web3, user_wallet_address=safe_address)
 
-    # Approve tokens via performCall (these don't require ETH value)
-    usdc_approve_call = usdc.contract.functions.approve(GMX_SYNTHETICS_ROUTER, 2**256 - 1)
-    wrapped_usdc_approve = vault.transact_via_trading_strategy_module(usdc_approve_call)
-    tx_hash = wrapped_usdc_approve.transact({"from": asset_manager_address, "gas": 500_000})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    weth_approve_call = weth.contract.functions.approve(GMX_SYNTHETICS_ROUTER, 2**256 - 1)
-    wrapped_weth_approve = vault.transact_via_trading_strategy_module(weth_approve_call)
-    tx_hash = wrapped_weth_approve.transact({"from": asset_manager_address, "gas": 500_000})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    # GMX collateral token approvals are now handled automatically by
+    # deploy_automated_lagoon_vault() — no manual approval needed here.
 
     asset_manager_wallet.sync_nonce(web3)
 
@@ -665,3 +637,28 @@ def test_lagoon_wallet_native_balance(lagoon_gmx_fork_env: LagoonGMXForkEnv):
     expected_balance = Decimal(safe_balance_wei) / Decimal(10**18)
     assert balance == expected_balance
     assert balance > 0, "Safe should have ETH balance"
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_gmx_collateral_auto_approved_during_deployment(lagoon_gmx_fork_env: LagoonGMXForkEnv):
+    """Verify deploy_automated_lagoon_vault() auto-approves GMX collateral tokens.
+
+    Regression test: production deployment failed with "Approve address not allowed"
+    because the Guard didn't have SyntheticsRouter as an allowed approval destination.
+    The deployment now automatically approves the underlying token and any extra
+    tokens from gmx_deployment.tokens for the SyntheticsRouter.
+    """
+    env = lagoon_gmx_fork_env
+    web3 = env.web3
+    safe_address = env.vault.safe_address
+
+    usdc = fetch_erc20_details(web3, USDC_ARBITRUM)
+    weth = fetch_erc20_details(web3, WETH_ARBITRUM)
+
+    # Both USDC (underlying) and WETH (extra token) should already be approved
+    # for SyntheticsRouter by deploy_automated_lagoon_vault()
+    usdc_allowance = usdc.contract.functions.allowance(safe_address, GMX_SYNTHETICS_ROUTER).call()
+    assert usdc_allowance == 2**256 - 1, f"USDC not auto-approved: allowance={usdc_allowance}"
+
+    weth_allowance = weth.contract.functions.allowance(safe_address, GMX_SYNTHETICS_ROUTER).call()
+    assert weth_allowance == 2**256 - 1, f"WETH not auto-approved: allowance={weth_allowance}"
