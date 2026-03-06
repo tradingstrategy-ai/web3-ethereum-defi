@@ -290,6 +290,20 @@ def test_deposit_closed_vault_pipeline(tmp_path):
         assert vault_meta.iloc[0]["allow_deposits"] == False, "Expected allow_deposits=False from Hyperliquid API"
         assert vault_meta.iloc[0]["is_closed"] == False, "Expected is_closed=False"
 
+        # Step 2b: Verify daily prices track deposit status on the latest row only
+        prices_df_raw = db.get_vault_daily_prices(vault_address)
+        assert len(prices_df_raw) > 1, "Expected multiple daily price rows"
+
+        # Latest row should have deposit status from the API
+        latest_row = prices_df_raw.iloc[-1]
+        assert latest_row["is_closed"] == False, "Latest row should have is_closed=False"
+        assert latest_row["allow_deposits"] == False, "Latest row should have allow_deposits=False"
+
+        # Historical rows should have NULL deposit status
+        historical_rows = prices_df_raw.iloc[:-1]
+        assert historical_rows["is_closed"].isna().all(), "Historical rows should have is_closed=NULL"
+        assert historical_rows["allow_deposits"].isna().all(), "Historical rows should have allow_deposits=NULL"
+
         # Step 3: Merge into VaultDatabase and verify _deposit_closed_reason
         merge_into_vault_database(db, vault_db_path)
         merge_into_uncleaned_parquet(db, uncleaned_path)
