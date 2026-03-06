@@ -860,11 +860,11 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // GMX uses multicall() on ExchangeRouter to batch: sendWnt, sendTokens, createOrder.
     // SyntheticsRouter must be approved for collateral token spending.
     // OrderVault is where tokens are sent before order execution.
+    // Collateral tokens are whitelisted for approve() and transfer() automatically.
     //
     // IMPORTANT: After calling this function, you must also:
     // 1. Call allowReceiver(safeAddress, "notes") to whitelist the Safe as order receiver
     // 2. Call whitelistGMXMarket(market, "notes") for each allowed market (or setAnyAssetAllowed)
-    // 3. Call whitelistToken(collateralToken, "notes") for each collateral token (or setAnyAssetAllowed)
     //
     // See: https://docs.gmx.io
     //
@@ -872,6 +872,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
         address exchangeRouter,
         address syntheticsRouter,
         address orderVault,
+        address[] calldata collateralTokens,
         string calldata notes
     ) external onlyGuardOwner {
         allowCallSite(exchangeRouter, SEL_GMX_MULTICALL, notes);
@@ -882,6 +883,9 @@ abstract contract GuardV0Base is IGuard, Multicall {
             orderVault,
             notes
         );
+        for (uint256 i = 0; i < collateralTokens.length; i++) {
+            _whitelistToken(collateralTokens[i], notes);
+        }
     }
 
     function isAllowedGMXRouter(address router) public view returns (bool) {

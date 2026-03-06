@@ -1272,16 +1272,20 @@ def setup_guard(
             gmx_deployment.synthetics_router,
             gmx_deployment.order_vault,
         )
+        collateral_tokens = gmx_deployment.tokens or []
         tx_hash = _broadcast(
             module.functions.whitelistGMX(
                 gmx_deployment.exchange_router,
                 gmx_deployment.synthetics_router,
                 gmx_deployment.order_vault,
+                collateral_tokens,
                 "Allow GMX perpetuals",
             )
         )
         assert_transaction_success_with_explanation(web3, tx_hash)
         entries.append(WhitelistEntry("GMX", "ExchangeRouter", gmx_deployment.exchange_router))
+        for token in collateral_tokens:
+            entries.append(WhitelistEntry("GMX token", "collateral", token))
 
         # Whitelist GMX markets with resolved names
         market_labels = resolve_gmx_market_labels(web3)
@@ -1292,14 +1296,6 @@ def setup_guard(
             tx_hash = _broadcast(module.functions.whitelistGMXMarket(market, market_name))
             assert_transaction_success_with_explanation(web3, tx_hash)
             entries.append(WhitelistEntry("GMX market", market_name, market))
-
-        # Whitelist GMX collateral tokens if specified
-        if gmx_deployment.tokens:
-            for idx, token in enumerate(gmx_deployment.tokens, start=1):
-                logger.info("Whitelisting GMX collateral token #%d: %s", idx, token)
-                tx_hash = _broadcast(module.functions.whitelistToken(token, f"GMX collateral #{idx}"))
-                assert_transaction_success_with_explanation(web3, tx_hash)
-                entries.append(WhitelistEntry("GMX token", f"collateral #{idx}", token))
 
         logger.info("GMX whitelisting complete: %d markets", len(gmx_deployment.markets))
     else:

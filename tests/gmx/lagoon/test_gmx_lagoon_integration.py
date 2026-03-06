@@ -18,9 +18,7 @@ from flaky import flaky
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
-    LagoonAutomatedDeployment, LagoonDeploymentParameters,
-    deploy_automated_lagoon_vault)
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses
@@ -34,9 +32,7 @@ from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from tests.gmx.fork_helpers import (execute_order_as_keeper,
-                                    extract_order_key_from_receipt,
-                                    setup_mock_oracle)
+from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, setup_mock_oracle
 
 logger = logging.getLogger(__name__)
 
@@ -651,6 +647,11 @@ def test_gmx_collateral_auto_approved_during_deployment(lagoon_gmx_fork_env: Lag
     env = lagoon_gmx_fork_env
     web3 = env.web3
     safe_address = env.vault.safe_address
+    module = env.deploy_info.trading_strategy_module
+
+    # Verify guard-level whitelisting from whitelistGMX()
+    assert module.functions.isAllowedApprovalDestination(GMX_SYNTHETICS_ROUTER).call(), "SyntheticsRouter not whitelisted as approval destination"
+    assert module.functions.isAllowedTarget(GMX_EXCHANGE_ROUTER).call(), "ExchangeRouter not whitelisted as call target"
 
     usdc = fetch_erc20_details(web3, USDC_ARBITRUM)
     weth = fetch_erc20_details(web3, WETH_ARBITRUM)

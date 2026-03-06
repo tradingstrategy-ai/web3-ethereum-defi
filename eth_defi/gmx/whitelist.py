@@ -490,13 +490,16 @@ def setup_gmx_whitelisting(
         gmx_deployment.synthetics_router,
         gmx_deployment.order_vault,
     )
+    collateral_tokens = gmx_deployment.tokens or []
     tx_hash = guard.functions.whitelistGMX(
         gmx_deployment.exchange_router,
         gmx_deployment.synthetics_router,
         gmx_deployment.order_vault,
+        collateral_tokens,
         "GMX router whitelisting",
     ).transact({"from": owner})
     result["router"].append(tx_hash)
+    result["tokens"] = collateral_tokens
 
     # 2. Whitelist Safe as receiver
     logger.info("Whitelisting Safe as receiver: %s", safe_address)
@@ -514,16 +517,5 @@ def setup_gmx_whitelisting(
             owner=owner,
         )
         result["markets"].extend(market_tx_hashes)
-
-    # 4. Whitelist tokens if specified
-    if gmx_deployment.tokens:
-        for idx, token in enumerate(gmx_deployment.tokens, start=1):
-            token = Web3.to_checksum_address(token)
-            logger.info("Whitelisting GMX collateral token #%d: %s", idx, token)
-            tx_hash = guard.functions.whitelistToken(
-                token,
-                f"GMX collateral token #{idx}",
-            ).transact({"from": owner})
-            result["tokens"].append(tx_hash)
 
     return result
