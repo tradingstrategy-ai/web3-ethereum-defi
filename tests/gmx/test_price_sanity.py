@@ -244,90 +244,48 @@ def test_price_sanity_action_use_oracle_warn(gmx_config):
     assert result.action_taken == PriceSanityAction.use_oracle_warn
 
 
-@flaky(max_runs=3, min_passes=1)
-def test_price_sanity_action_raise_exception(gmx_config):
-    """Test raise_exception action with artificially high threshold.
+def test_price_sanity_action_raise_exception():
+    """Test raise_exception action with synthetic price data.
 
-    Makes real API calls but uses extreme threshold to force failure.
+    Uses constructed oracle and ticker data with a known 5% deviation
+    to deterministically trigger PriceSanityException, without depending
+    on live market conditions.
     """
-    oracle_prices_client = OraclePrices(gmx_config.get_chain())
-    oracle_prices = oracle_prices_client.get_recent_prices()
+    token_address = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
+    token_decimals = 18
 
-    api = GMXAPI(gmx_config, retry_config=GMX_TEST_RETRY_CONFIG)
-    tickers = api.get_tickers()
+    # Construct synthetic oracle data: $2000 ETH
+    base_price = 2000 * 10 ** (30 - token_decimals)
+    oracle_price = {
+        "maxPriceFull": str(int(base_price * 1.001)),
+        "minPriceFull": str(int(base_price * 0.999)),
+    }
 
-    # Find ETH token (should exist on all chains)
-    ticker = None
-    ticker_address = None
+    # Construct synthetic ticker data: 5% higher than oracle
+    deviated_price = base_price * 1.05
+    ticker_price = {
+        "maxPrice": str(int(deviated_price * 1.001)),
+        "minPrice": str(int(deviated_price * 0.999)),
+    }
 
-    for t in tickers:
-        if t.get("tokenSymbol") == "ETH":
-            ticker = t
-            ticker_address = t.get("tokenAddress", "").lower()
-            break
-
-    if ticker is None or ticker_address is None:
-        pytest.skip("ETH not found")
-
-    # Map testnet to mainnet if needed
-    oracle_address = ticker_address
-    if gmx_config.get_chain() in ["arbitrum_sepolia", "avalanche_fuji"]:
-        from eth_defi.gmx.core.oracle import _TESTNET_TO_MAINNET_ADDRESSES
-
-        testnet_mappings = _TESTNET_TO_MAINNET_ADDRESSES.get(gmx_config.get_chain(), {})
-        oracle_address = testnet_mappings.get(oracle_address, oracle_address)
-
-    # Oracle prices may use checksummed addresses, so do case-insensitive lookup
-    oracle_price = None
-    for addr, price in oracle_prices.items():
-        if addr.lower() == oracle_address.lower():
-            oracle_price = price
-            break
-
-    if oracle_price is None:
-        pytest.skip(f"Oracle price not available for {oracle_address}")
-
-    # Debug: log and print the actual prices so CI logs show what happened
-    oracle_price_usd = get_oracle_price_usd(oracle_price, 18)
-    ticker_price_usd = get_ticker_price_usd(ticker, 18)
-    actual_deviation = abs(ticker_price_usd - oracle_price_usd) / abs(oracle_price_usd) if oracle_price_usd else 0.0
-    import logging as _logging
-
-    _log = _logging.getLogger(__name__)
-    _log.info(
-        "test_price_sanity_action_raise_exception [CI DEBUG]: oracle=$%.6f, ticker=$%.6f, deviation=%.8f%% — need deviation > 0.000001%% (0.0001%%) to trigger PriceSanityException",
-        oracle_price_usd,
-        ticker_price_usd,
-        actual_deviation * 100,
-    )
-
-    if actual_deviation == 0.0:
-        _log.info(
-            "test_price_sanity_action_raise_exception [CI DEBUG]: SKIPPING — oracle and ticker prices are identical ($%.6f). Both APIs returned identical price data; cannot detect threshold violation.",
-            oracle_price_usd,
-        )
-        pytest.skip(f"Oracle and ticker prices are identical (oracle=${oracle_price_usd:.6f}, ticker=${ticker_price_usd:.6f}) — both APIs returned identical price data, so no deviation can be detected.  This is a transient condition; @flaky will retry.")
-
-    # Use extremely strict threshold (0.0001% = 0.000001) to force failure
     config = PriceSanityCheckConfig(
         enabled=True,
-        threshold_percent=0.000001,
+        threshold_percent=0.03,  # 3% threshold, 5% deviation should trigger
         action=PriceSanityAction.raise_exception,
     )
 
-    # This should raise exception due to tiny threshold
     with pytest.raises(PriceSanityException) as exc_info:
         check_price_sanity(
             oracle_price=oracle_price,
-            ticker_price=ticker,
-            token_address=oracle_address,
-            token_decimals=18,
+            ticker_price=ticker_price,
+            token_address=token_address,
+            token_decimals=token_decimals,
             config=config,
         )
 
-    # Verify exception has result attached
     assert exc_info.value.result is not None
     assert not exc_info.value.result.passed
+    assert exc_info.value.result.deviation_percent == pytest.approx(0.05, abs=0.001)
 
 
 def test_price_sanity_disabled(gmx_config):
