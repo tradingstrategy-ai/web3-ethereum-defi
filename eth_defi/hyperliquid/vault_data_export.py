@@ -45,6 +45,21 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 logger = logging.getLogger(__name__)
 
 
+def _get_deposit_closed_reason(is_closed: bool, allow_deposits: bool) -> str | None:
+    """Return a descriptive reason why deposits are closed, or ``None`` if open.
+
+    :param is_closed:
+        Whether the vault is permanently closed.
+    :param allow_deposits:
+        Whether the vault currently accepts deposits.
+    """
+    if is_closed:
+        return "Vault is permanently closed"
+    if not allow_deposits:
+        return "Vault deposits disabled by leader"
+    return None
+
+
 def create_hyperliquid_vault_row(
     vault_address: HexAddress,
     name: str,
@@ -156,7 +171,7 @@ def create_hyperliquid_vault_row(
         "_short_description": description,
         "_available_liquidity": None,
         "_utilisation": None,
-        "_deposit_closed_reason": "Vault deposits closed" if (is_closed or not allow_deposits) else None,
+        "_deposit_closed_reason": _get_deposit_closed_reason(is_closed, allow_deposits),
         "_deposit_next_open": None,
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,

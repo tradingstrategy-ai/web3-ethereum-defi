@@ -314,8 +314,7 @@ def test_deposit_closed_vault_pipeline(tmp_path):
     spec = VaultSpec(chain_id=HYPERCORE_CHAIN_ID, vault_address=vault_address.lower())
     assert spec in vault_db.rows, f"Vault {vault_address} not in VaultDatabase"
     vault_row = vault_db.rows[spec]
-    assert vault_row["_deposit_closed_reason"] is not None, "Expected _deposit_closed_reason to be set for vault with allow_deposits=False"
-    assert isinstance(vault_row["_deposit_closed_reason"], str)
+    assert vault_row["_deposit_closed_reason"] == "Vault deposits disabled by leader", f"Expected specific reason for allow_deposits=False, got: {vault_row['_deposit_closed_reason']}"
 
     # Step 4: Run cleaning pipeline
     generate_cleaned_vault_datasets(
@@ -338,10 +337,8 @@ def test_deposit_closed_vault_pipeline(tmp_path):
     # Step 6: Verify deposit_closed_reason in lifetime metrics
     assert len(lifetime_data_df) == 1
     vault_record = lifetime_data_df.iloc[0]
-    assert vault_record["deposit_closed_reason"] is not None, "deposit_closed_reason should be set in lifetime metrics"
-    assert isinstance(vault_record["deposit_closed_reason"], str)
+    assert vault_record["deposit_closed_reason"] == "Vault deposits disabled by leader", f"Expected specific reason in lifetime metrics, got: {vault_record['deposit_closed_reason']}"
 
     # Step 7: Verify in JSON export
     exported = export_lifetime_row(vault_record)
-    assert exported["deposit_closed_reason"] is not None, "deposit_closed_reason should be set in JSON export"
-    assert isinstance(exported["deposit_closed_reason"], str)
+    assert exported["deposit_closed_reason"] == "Vault deposits disabled by leader", f"Expected specific reason in JSON export, got: {exported['deposit_closed_reason']}"
