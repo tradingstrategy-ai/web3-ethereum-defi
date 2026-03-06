@@ -139,12 +139,8 @@ def guard(
     """Get guard contract and whitelist GMX."""
     guard = get_deployed_contract(web3, "guard/GuardV0.json", vault.functions.guard().call())
 
-    # Whitelist GMX router
-    guard.functions.whitelistGMX(exchange_router, synthetics_router, order_vault, "Allow GMX").transact({"from": owner})
-
-    # Whitelist assets
-    guard.functions.whitelistToken(usdc.address, "Allow USDC").transact({"from": owner})
-    guard.functions.whitelistToken(weth.address, "Allow WETH").transact({"from": owner})
+    # Whitelist GMX router and collateral tokens in a single call
+    guard.functions.whitelistGMX(exchange_router, synthetics_router, order_vault, [usdc.address, weth.address], "Allow GMX").transact({"from": owner})
 
     # Whitelist market
     guard.functions.whitelistGMXMarket(eth_usd_market, "Allow ETH/USD").transact({"from": owner})
@@ -315,6 +311,7 @@ def test_security_only_owner_can_whitelist_gmx(
             fake_router,
             fake_synthetics,
             fake_vault,
+            [],
             "Attacker trying to whitelist",
         ).transact({"from": attacker})
 
@@ -404,10 +401,11 @@ def test_complete_gmx_whitelist_workflow(
     safe_address = web3.eth.accounts[3]
     usdc_address = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
 
-    # 1. Whitelist GMX router
-    guard.functions.whitelistGMX(exchange_router, synthetics_router, order_vault, "GMX").transact({"from": owner})
+    # 1. Whitelist GMX router with collateral token
+    guard.functions.whitelistGMX(exchange_router, synthetics_router, order_vault, [usdc_address], "GMX").transact({"from": owner})
     assert guard.functions.isAllowedGMXRouter(exchange_router).call() is True
     assert guard.functions.gmxOrderVaults(exchange_router).call() == order_vault
+    assert guard.functions.isAllowedAsset(usdc_address).call() is True
 
     # 2. Whitelist receiver (Safe)
     guard.functions.allowReceiver(safe_address, "Safe").transact({"from": owner})
@@ -416,10 +414,6 @@ def test_complete_gmx_whitelist_workflow(
     # 3. Whitelist market
     guard.functions.whitelistGMXMarket(eth_usd_market, "ETH/USD").transact({"from": owner})
     assert guard.functions.isAllowedGMXMarket(eth_usd_market).call() is True
-
-    # 4. Verify collateral token whitelisting through whitelistToken
-    guard.functions.whitelistToken(usdc_address, "USDC").transact({"from": owner})
-    assert guard.functions.isAllowedAsset(usdc_address).call() is True
 
 
 def test_gmx_selector_constant():

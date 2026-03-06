@@ -1,5 +1,6 @@
 # Current
 
+- Fix: Auto-approve GMX collateral tokens for SyntheticsRouter during Lagoon vault deployment (2026-03-06, [#803](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/803))
 - Add YieldNest ynRWAx mega-audit results (2026-03-06, [#802](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/802))
 - **Add: Mega-audit skill for running multiple AI auditing pipelines on smart contracts in parallel (2026-03-05)**
 - Add GMX referral code support for fee discounts on Lagoon vault trades (2026-03-04, [#792](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/792))

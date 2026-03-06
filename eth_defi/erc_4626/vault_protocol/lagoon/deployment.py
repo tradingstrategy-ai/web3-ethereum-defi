@@ -34,7 +34,7 @@ from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
 from eth_defi.aave_v3.deployment import AaveV3Deployment
-from eth_defi.abi import ZERO_ADDRESS, ZERO_ADDRESS_STR, encode_multicalls, get_deployed_contract
+from eth_defi.abi import ZERO_ADDRESS, ZERO_ADDRESS_STR, encode_function_call, encode_multicalls, get_deployed_contract
 from eth_defi.cctp.whitelist import CCTPDeployment
 from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
 from eth_defi.deploy import build_guard_forge_libraries, deploy_contract
@@ -1272,16 +1272,20 @@ def setup_guard(
             gmx_deployment.synthetics_router,
             gmx_deployment.order_vault,
         )
+        collateral_tokens = gmx_deployment.tokens or []
         tx_hash = _broadcast(
             module.functions.whitelistGMX(
                 gmx_deployment.exchange_router,
                 gmx_deployment.synthetics_router,
                 gmx_deployment.order_vault,
+                collateral_tokens,
                 "Allow GMX perpetuals",
             )
         )
         assert_transaction_success_with_explanation(web3, tx_hash)
         entries.append(WhitelistEntry("GMX", "ExchangeRouter", gmx_deployment.exchange_router))
+        for token in collateral_tokens:
+            entries.append(WhitelistEntry("GMX token", "collateral", token))
 
         # Whitelist GMX markets with resolved names
         market_labels = resolve_gmx_market_labels(web3)
@@ -1292,14 +1296,6 @@ def setup_guard(
             tx_hash = _broadcast(module.functions.whitelistGMXMarket(market, market_name))
             assert_transaction_success_with_explanation(web3, tx_hash)
             entries.append(WhitelistEntry("GMX market", market_name, market))
-
-        # Whitelist GMX collateral tokens if specified
-        if gmx_deployment.tokens:
-            for idx, token in enumerate(gmx_deployment.tokens, start=1):
-                logger.info("Whitelisting GMX collateral token #%d: %s", idx, token)
-                tx_hash = _broadcast(module.functions.whitelistToken(token, f"GMX collateral #{idx}"))
-                assert_transaction_success_with_explanation(web3, tx_hash)
-                entries.append(WhitelistEntry("GMX token", f"collateral #{idx}", token))
 
         logger.info("GMX whitelisting complete: %d markets", len(gmx_deployment.markets))
     else:
@@ -1768,6 +1764,25 @@ def deploy_automated_lagoon_vault(
         assets=assets,
         underlying_token_address=parameters.underlying if satellite_chain else None,
     )
+
+    # Approve GMX collateral tokens for SyntheticsRouter via performCall.
+    # The underlying token (e.g. USDC) is always approved; extra tokens from
+    # gmx_deployment.tokens are approved too (deduplicated).
+    if gmx_deployment and not guard_only:
+        tokens_to_approve = {Web3.to_checksum_address(parameters.underlying)}
+        if gmx_deployment.tokens:
+            tokens_to_approve.update(Web3.to_checksum_address(t) for t in gmx_deployment.tokens)
+
+        synthetics_router = Web3.to_checksum_address(gmx_deployment.synthetics_router)
+
+        for token_address in sorted(tokens_to_approve):
+            token = fetch_erc20_details(web3, token_address, chain_id=chain_id)
+            approve_func = token.contract.functions.approve(synthetics_router, 2**256 - 1)
+            approve_data = encode_function_call(approve_func, approve_func.arguments)
+            wrapped = module.functions.performCall(token_address, approve_data, 0)
+            tx_hash = _broadcast(wrapped)
+            assert_transaction_success_with_explanation(web3, tx_hash)
+            logger.info("GMX collateral approved: %s (%s) for SyntheticsRouter", token.symbol, token_address)
 
     # After everything is deployed, fix ownership
     # 1. Transfer TradingStrategyModuleV0 module ownership to Gnosis
