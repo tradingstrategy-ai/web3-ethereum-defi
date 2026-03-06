@@ -126,9 +126,20 @@ class VaultInfo:
     max_distributable: Decimal
     #: Maximum withdrawable amount (USD)
     max_withdrawable: Decimal
-    #: Whether vault is closed for deposits
+    #: Whether the vault has been permanently closed and is no longer operational.
+    #:
+    #: From the Hyperliquid ``vaultDetails`` API ``isClosed`` field.
+    #:
+    #: See https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
     is_closed: bool
-    #: Whether vault allows deposits
+    #: Whether the vault is currently accepting new deposits from followers.
+    #:
+    #: A vault can be operational (``is_closed=False``) but still have deposits
+    #: disabled (``allow_deposits=False``) — the leader controls this independently.
+    #:
+    #: From the Hyperliquid ``vaultDetails`` API ``allowDeposits`` field.
+    #:
+    #: See https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
     allow_deposits: bool
     #: Vault relationship type (normal, child, parent)
     relationship_type: str

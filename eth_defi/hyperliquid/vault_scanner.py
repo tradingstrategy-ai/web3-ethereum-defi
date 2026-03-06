@@ -83,6 +83,9 @@ class VaultSnapshot:
     #: Whether vault is closed for deposits
     is_closed: bool
 
+    #: Whether vault allows deposits (from vaultDetails API)
+    allow_deposits: bool
+
     #: Vault relationship type (normal, child, parent)
     relationship_type: str
 
@@ -185,6 +188,7 @@ class VaultSnapshotDatabase:
                 name VARCHAR NOT NULL,
                 leader VARCHAR NOT NULL,
                 is_closed BOOLEAN NOT NULL,
+                allow_deposits BOOLEAN NOT NULL DEFAULT TRUE,
                 relationship_type VARCHAR NOT NULL,
                 create_time TIMESTAMP,
 
@@ -211,6 +215,15 @@ class VaultSnapshotDatabase:
             # Column already exists
             pass
 
+        # Add allow_deposits column if it doesn't exist (migration for existing databases)
+        try:
+            self.con.execute("""
+                ALTER TABLE vault_snapshots ADD COLUMN allow_deposits BOOLEAN NOT NULL DEFAULT TRUE
+            """)
+        except Exception:
+            # Column already exists
+            pass
+
     def insert_snapshot(self, snapshot: VaultSnapshot):
         """Insert a single vault snapshot into the database.
 
@@ -221,14 +234,15 @@ class VaultSnapshotDatabase:
             """
             INSERT INTO vault_snapshots (
                 snapshot_timestamp, vault_address, name, leader, is_closed,
-                relationship_type, create_time, tvl, apr, total_pnl, follower_count,
-                scan_disabled_reason
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                allow_deposits, relationship_type, create_time, tvl, apr,
+                total_pnl, follower_count, scan_disabled_reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (snapshot_timestamp, vault_address)
             DO UPDATE SET
                 name = EXCLUDED.name,
                 leader = EXCLUDED.leader,
                 is_closed = EXCLUDED.is_closed,
+                allow_deposits = EXCLUDED.allow_deposits,
                 relationship_type = EXCLUDED.relationship_type,
                 create_time = EXCLUDED.create_time,
                 tvl = EXCLUDED.tvl,
@@ -243,6 +257,7 @@ class VaultSnapshotDatabase:
                 snapshot.name,
                 snapshot.leader,
                 snapshot.is_closed,
+                snapshot.allow_deposits,
                 snapshot.relationship_type,
                 snapshot.create_time,
                 float(snapshot.tvl),
@@ -269,6 +284,7 @@ class VaultSnapshotDatabase:
                     snapshot.name,
                     snapshot.leader,
                     snapshot.is_closed,
+                    snapshot.allow_deposits,
                     snapshot.relationship_type,
                     snapshot.create_time,
                     float(snapshot.tvl),
@@ -287,14 +303,15 @@ class VaultSnapshotDatabase:
             """
             INSERT INTO vault_snapshots (
                 snapshot_timestamp, vault_address, name, leader, is_closed,
-                relationship_type, create_time, tvl, apr, total_pnl, follower_count,
-                scan_disabled_reason
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                allow_deposits, relationship_type, create_time, tvl, apr,
+                total_pnl, follower_count, scan_disabled_reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (snapshot_timestamp, vault_address)
             DO UPDATE SET
                 name = EXCLUDED.name,
                 leader = EXCLUDED.leader,
                 is_closed = EXCLUDED.is_closed,
+                allow_deposits = EXCLUDED.allow_deposits,
                 relationship_type = EXCLUDED.relationship_type,
                 create_time = EXCLUDED.create_time,
                 tvl = EXCLUDED.tvl,
@@ -520,8 +537,9 @@ def scan_vaults(
 
     def process_vault_summary(summary: VaultSummary) -> VaultSnapshot:
         """Process a single vault summary into a snapshot."""
-        # Fetch follower count if requested
+        # Fetch follower count and allow_deposits if requested
         follower_count = None
+        allow_deposits = True
         if fetch_follower_counts:
             vault = HyperliquidVault(
                 session=session,
@@ -530,6 +548,7 @@ def scan_vaults(
             )
             info = vault.fetch_info()
             follower_count = len(info.followers)
+            allow_deposits = info.allow_deposits
 
         # Automatically disable vaults with TVL below threshold AND older than age threshold
         scan_disabled_reason = None
@@ -546,6 +565,7 @@ def scan_vaults(
             name=summary.name,
             leader=summary.leader,
             is_closed=summary.is_closed,
+            allow_deposits=allow_deposits,
             relationship_type=summary.relationship_type,
             create_time=summary.create_time,
             tvl=summary.tvl,

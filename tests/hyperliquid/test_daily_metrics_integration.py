@@ -23,7 +23,7 @@ from eth_defi.hyperliquid.daily_metrics import (
     fetch_and_store_vault,
 )
 from eth_defi.hyperliquid.session import create_hyperliquid_session
-from eth_defi.hyperliquid.vault import HyperliquidVault, fetch_all_vaults
+from eth_defi.hyperliquid.vault import HyperliquidVault, VaultSummary, fetch_all_vaults
 from eth_defi.hyperliquid.vault_data_export import (
     merge_into_uncleaned_parquet,
     merge_into_vault_database,
@@ -245,3 +245,89 @@ def test_unified_vault_metrics_json(tmp_path):
         # Lifetime period should always exist
         lifetime = [p for p in periods if p["period"] == "lifetime"]
         assert len(lifetime) == 1, f"Missing lifetime period for vault {vault.get('name')}"
+
+
+@pytest.mark.timeout(120)
+def test_deposit_closed_vault_pipeline(tmp_path):
+    """Verify deposit_closed_reason propagates through the full pipeline for a vault with allow_deposits=False.
+
+    Uses vault "[A] Downside" (0x4af52283ea6de9236c47b28e5dbf156453df8efb)
+    which has is_closed=False but allow_deposits=False on Hyperliquid.
+    """
+
+    vault_address = "0x4af52283ea6de9236c47b28e5dbf156453df8efb"
+
+    duckdb_path = tmp_path / "daily-metrics.duckdb"
+    vault_db_path = tmp_path / "vault-metadata-db.pickle"
+    uncleaned_path = tmp_path / "vault-prices-1h.parquet"
+    cleaned_path = tmp_path / "cleaned-vault-prices-1h.parquet"
+
+    # Construct a minimal VaultSummary directly — avoids fetching all 8000+ vaults.
+    # fetch_and_store_vault() only uses vault_address, create_time, tvl, and apr
+    # from the summary; the rest comes from the vaultDetails API call.
+    target_summary = VaultSummary(
+        name="[A] Downside",
+        vault_address=vault_address,
+        leader="0x0000000000000000000000000000000000000000",
+        tvl=Decimal("0"),
+        is_closed=False,
+        relationship_type="normal",
+    )
+
+    session = create_hyperliquid_session()
+
+    # Step 1: Fetch vault data and store in DuckDB
+    db = HyperliquidDailyMetricsDatabase(duckdb_path)
+    try:
+        result = fetch_and_store_vault(session, db, target_summary)
+        assert result, f"Failed to fetch vault {vault_address}"
+        db.save()
+
+        # Step 2: Verify DuckDB metadata has allow_deposits=False
+        metadata_df = db.get_all_vault_metadata()
+        vault_meta = metadata_df[metadata_df["vault_address"] == vault_address.lower()]
+        assert len(vault_meta) == 1
+        assert vault_meta.iloc[0]["allow_deposits"] == False, "Expected allow_deposits=False from Hyperliquid API"
+        assert vault_meta.iloc[0]["is_closed"] == False, "Expected is_closed=False"
+
+        # Step 3: Merge into VaultDatabase and verify _deposit_closed_reason
+        merge_into_vault_database(db, vault_db_path)
+        merge_into_uncleaned_parquet(db, uncleaned_path)
+    finally:
+        db.close()
+
+    vault_db = VaultDatabase.read(vault_db_path)
+    spec = VaultSpec(chain_id=HYPERCORE_CHAIN_ID, vault_address=vault_address.lower())
+    assert spec in vault_db.rows, f"Vault {vault_address} not in VaultDatabase"
+    vault_row = vault_db.rows[spec]
+    assert vault_row["_deposit_closed_reason"] is not None, "Expected _deposit_closed_reason to be set for vault with allow_deposits=False"
+    assert isinstance(vault_row["_deposit_closed_reason"], str)
+
+    # Step 4: Run cleaning pipeline
+    generate_cleaned_vault_datasets(
+        vault_db_path=vault_db_path,
+        price_df_path=uncleaned_path,
+        cleaned_price_df_path=cleaned_path,
+    )
+
+    # Step 5: Run analysis pipeline
+    prices_df = pd.read_parquet(cleaned_path)
+    if not isinstance(prices_df.index, pd.DatetimeIndex):
+        if "timestamp" in prices_df.columns:
+            prices_df = prices_df.set_index("timestamp")
+
+    returns_df = calculate_hourly_returns_for_all_vaults(prices_df)
+    lifetime_data_df = calculate_lifetime_metrics(returns_df, vault_db)
+
+    assert len(lifetime_data_df) >= 1, f"Expected at least 1 vault record, got {len(lifetime_data_df)}"
+
+    # Step 6: Verify deposit_closed_reason in lifetime metrics
+    assert len(lifetime_data_df) == 1
+    vault_record = lifetime_data_df.iloc[0]
+    assert vault_record["deposit_closed_reason"] is not None, "deposit_closed_reason should be set in lifetime metrics"
+    assert isinstance(vault_record["deposit_closed_reason"], str)
+
+    # Step 7: Verify in JSON export
+    exported = export_lifetime_row(vault_record)
+    assert exported["deposit_closed_reason"] is not None, "deposit_closed_reason should be set in JSON export"
+    assert isinstance(exported["deposit_closed_reason"], str)

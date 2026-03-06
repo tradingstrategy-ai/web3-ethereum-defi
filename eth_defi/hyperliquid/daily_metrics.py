@@ -202,6 +202,7 @@ class HyperliquidDailyMetricsDatabase:
                 leader VARCHAR NOT NULL,
                 description VARCHAR,
                 is_closed BOOLEAN NOT NULL,
+                allow_deposits BOOLEAN NOT NULL DEFAULT TRUE,
                 relationship_type VARCHAR NOT NULL,
                 create_time TIMESTAMP,
                 commission_rate DOUBLE,
@@ -227,6 +228,15 @@ class HyperliquidDailyMetricsDatabase:
             )
         """)
 
+        # Migration for existing databases: add allow_deposits column
+        try:
+            self.con.execute("""
+                ALTER TABLE vault_metadata ADD COLUMN allow_deposits BOOLEAN NOT NULL DEFAULT TRUE
+            """)
+        except Exception:
+            # Column already exists
+            pass
+
     def upsert_vault_metadata(
         self,
         vault_address: HexAddress,
@@ -240,6 +250,7 @@ class HyperliquidDailyMetricsDatabase:
         follower_count: int | None,
         tvl: float | None,
         apr: float | None,
+        allow_deposits: bool = True,
     ):
         """Insert or update a vault's metadata.
 
@@ -250,15 +261,16 @@ class HyperliquidDailyMetricsDatabase:
             """
             INSERT INTO vault_metadata (
                 vault_address, name, leader, description, is_closed,
-                relationship_type, create_time, commission_rate,
+                allow_deposits, relationship_type, create_time, commission_rate,
                 follower_count, tvl, apr, last_updated
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (vault_address)
             DO UPDATE SET
                 name = EXCLUDED.name,
                 leader = EXCLUDED.leader,
                 description = EXCLUDED.description,
                 is_closed = EXCLUDED.is_closed,
+                allow_deposits = EXCLUDED.allow_deposits,
                 relationship_type = EXCLUDED.relationship_type,
                 create_time = EXCLUDED.create_time,
                 commission_rate = EXCLUDED.commission_rate,
@@ -273,6 +285,7 @@ class HyperliquidDailyMetricsDatabase:
                 leader.lower(),
                 description,
                 is_closed,
+                allow_deposits,
                 relationship_type,
                 create_time,
                 commission_rate,
@@ -464,6 +477,7 @@ def fetch_and_store_vault(
         follower_count=follower_count,
         tvl=float(summary.tvl),
         apr=apr_val,
+        allow_deposits=info.allow_deposits,
     )
 
     # Build daily price rows

@@ -53,6 +53,7 @@ def create_hyperliquid_vault_row(
     create_time: datetime.datetime | None,
     follower_count: int | None = None,
     is_closed: bool = False,
+    allow_deposits: bool = True,
     relationship_type: str = "normal",
 ) -> tuple[VaultSpec, VaultRow]:
     """Create a synthetic VaultRow for a Hyperliquid native vault.
@@ -81,6 +82,9 @@ def create_hyperliquid_vault_row(
         Number of vault depositors.
     :param is_closed:
         Whether the vault is closed for new deposits.
+    :param allow_deposits:
+        Whether the vault allows deposits.
+        A vault can have ``is_closed=False`` but ``allow_deposits=False``.
     :param relationship_type:
         Vault relationship type from the API: ``"normal"`` for user-created
         vaults, ``"parent"`` for HLP, ``"child"`` for HLP sub-vaults.
@@ -152,7 +156,7 @@ def create_hyperliquid_vault_row(
         "_short_description": description,
         "_available_liquidity": None,
         "_utilisation": None,
-        "_deposit_closed_reason": "Vault deposits closed" if is_closed else None,
+        "_deposit_closed_reason": "Vault deposits closed" if (is_closed or not allow_deposits) else None,
         "_deposit_next_open": None,
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,
@@ -250,6 +254,7 @@ def merge_into_vault_database(
             create_time=row.get("create_time"),
             follower_count=row.get("follower_count"),
             is_closed=bool(row.get("is_closed", False)),
+            allow_deposits=bool(row.get("allow_deposits", True)),
             relationship_type=row.get("relationship_type", "normal") or "normal",
         )
 
