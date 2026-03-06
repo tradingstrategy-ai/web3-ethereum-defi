@@ -240,6 +240,9 @@ EVENT_SIGNATURES = {
 # GMX Protocol Constants
 PRECISION = 30
 
+#: Wei per ETH — used to convert raw Wei balances to ETH floats.
+WEI_PER_ETH: int = 10**18
+
 #: Ethereum zero address - used as a placeholder for native token (ETH/AVAX) in GMX protocol
 ETH_ZERO_ADDRESS = "0x" + "0" * 40
 

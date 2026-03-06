@@ -23,24 +23,25 @@ from eth_utils import to_checksum_address
 from web3 import AsyncWeb3
 
 from eth_defi.chain import get_chain_name
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gmx.cache import GMXMarketCache
 from eth_defi.gmx.ccxt.async_support.async_graphql import AsyncGMXSubsquidClient
 from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_request
+from eth_defi.gmx.ccxt.cancel_helpers import build_cancel_order_response, resolve_order_id
+from eth_defi.gmx.ccxt.exchange import _derive_side_from_trade_action
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import (
+    _MIN_LOG_CHUNK_BLOCKS,
     GMX_MIN_COST_USD,
     PRECISION,
-    _MIN_LOG_CHUNK_BLOCKS,
 )
 from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.core import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.ccxt.cancel_helpers import build_cancel_order_response, resolve_order_id
-from eth_defi.gmx.ccxt.exchange import _derive_side_from_trade_action
-from eth_defi.gmx.events import decode_gmx_event, extract_order_execution_result, extract_order_key_from_receipt, GMX_USD_PRECISION
+from eth_defi.gmx.events import GMX_USD_PRECISION, decode_gmx_event, extract_order_execution_result, extract_order_key_from_receipt
 from eth_defi.gmx.order.cancel_order import CancelOrder
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
@@ -51,6 +52,7 @@ from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.log_block_range import get_logs_max_block_range
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
+from eth_defi.vault.base import VaultSpec
 
 logger = logging.getLogger(__name__)
 
@@ -646,6 +648,26 @@ class GMX(Exchange):
             self.wallet = HotWallet.from_private_key(self._private_key)
             # Note: Wallet nonce sync needs to be done separately in async
             self.wallet_address = self.wallet.address
+
+        # Lagoon mode: when vaultAddress is set the Safe is the GMX trading account,
+        # not the asset manager EOA.  Resolve the Safe address so that fetch_positions()
+        # and fetch_balance() query the correct on-chain account.
+        vault_address = self.options.get("vaultAddress")
+        if vault_address and self.wallet:
+            try:
+                vault = LagoonVault(self.sync_web3, VaultSpec(chain_id, vault_address))
+                self.wallet_address = vault.safe_address
+                logger.info(
+                    "Async GMX: Lagoon mode — using Safe %s as wallet_address (vault: %s)",
+                    self.wallet_address,
+                    vault_address,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Async GMX: could not resolve Lagoon Safe address for vault %s: %s. fetch_positions() will use the asset manager address.",
+                    vault_address,
+                    e,
+                )
 
         # Create GMX config
         # Note: GMXConfig expects sync Web3, we'll need to handle this
