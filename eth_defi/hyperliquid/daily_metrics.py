@@ -202,6 +202,7 @@ class HyperliquidDailyMetricsDatabase:
                 leader VARCHAR NOT NULL,
                 description VARCHAR,
                 is_closed BOOLEAN NOT NULL,
+                allow_deposits BOOLEAN NOT NULL DEFAULT TRUE,
                 relationship_type VARCHAR NOT NULL,
                 create_time TIMESTAMP,
                 commission_rate DOUBLE,
@@ -223,9 +224,30 @@ class HyperliquidDailyMetricsDatabase:
                 daily_return DOUBLE,
                 follower_count INTEGER,
                 apr DOUBLE,
+                is_closed BOOLEAN,
+                allow_deposits BOOLEAN,
                 PRIMARY KEY (vault_address, date)
             )
         """)
+
+        # Migration for existing databases: add allow_deposits column
+        try:
+            self.con.execute("""
+                ALTER TABLE vault_metadata ADD COLUMN allow_deposits BOOLEAN NOT NULL DEFAULT TRUE
+            """)
+        except Exception:
+            # Column already exists
+            pass
+
+        # Migration for existing databases: add deposit status columns to daily prices
+        try:
+            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN is_closed BOOLEAN")
+        except Exception:
+            pass
+        try:
+            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN allow_deposits BOOLEAN")
+        except Exception:
+            pass
 
     def upsert_vault_metadata(
         self,
@@ -240,6 +262,7 @@ class HyperliquidDailyMetricsDatabase:
         follower_count: int | None,
         tvl: float | None,
         apr: float | None,
+        allow_deposits: bool = True,
     ):
         """Insert or update a vault's metadata.
 
@@ -250,15 +273,16 @@ class HyperliquidDailyMetricsDatabase:
             """
             INSERT INTO vault_metadata (
                 vault_address, name, leader, description, is_closed,
-                relationship_type, create_time, commission_rate,
+                allow_deposits, relationship_type, create_time, commission_rate,
                 follower_count, tvl, apr, last_updated
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (vault_address)
             DO UPDATE SET
                 name = EXCLUDED.name,
                 leader = EXCLUDED.leader,
                 description = EXCLUDED.description,
                 is_closed = EXCLUDED.is_closed,
+                allow_deposits = EXCLUDED.allow_deposits,
                 relationship_type = EXCLUDED.relationship_type,
                 create_time = EXCLUDED.create_time,
                 commission_rate = EXCLUDED.commission_rate,
@@ -273,6 +297,7 @@ class HyperliquidDailyMetricsDatabase:
                 leader.lower(),
                 description,
                 is_closed,
+                allow_deposits,
                 relationship_type,
                 create_time,
                 commission_rate,
@@ -291,7 +316,12 @@ class HyperliquidDailyMetricsDatabase:
         """Bulk upsert daily price rows for a vault.
 
         :param rows:
-            List of tuples: (vault_address, date, share_price, tvl, cumulative_pnl, daily_pnl, daily_return, follower_count, apr)
+            List of tuples: (vault_address, date, share_price, tvl,
+            cumulative_pnl, daily_pnl, daily_return, follower_count, apr,
+            is_closed, allow_deposits).
+            The ``is_closed`` and ``allow_deposits`` fields should be ``None``
+            for historical rows and only set for the latest (today's) row,
+            so that we track how deposit status evolves over time.
         :param cutoff_date:
             If provided, only store rows up to this date (inclusive).
             Used for incremental scanning / testing.
@@ -306,8 +336,9 @@ class HyperliquidDailyMetricsDatabase:
             """
             INSERT INTO vault_daily_prices (
                 vault_address, date, share_price, tvl, cumulative_pnl,
-                daily_pnl, daily_return, follower_count, apr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                daily_pnl, daily_return, follower_count, apr,
+                is_closed, allow_deposits
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (vault_address, date)
             DO UPDATE SET
                 share_price = EXCLUDED.share_price,
@@ -316,7 +347,9 @@ class HyperliquidDailyMetricsDatabase:
                 daily_pnl = EXCLUDED.daily_pnl,
                 daily_return = EXCLUDED.daily_return,
                 follower_count = EXCLUDED.follower_count,
-                apr = EXCLUDED.apr
+                apr = EXCLUDED.apr,
+                is_closed = COALESCE(EXCLUDED.is_closed, vault_daily_prices.is_closed),
+                allow_deposits = COALESCE(EXCLUDED.allow_deposits, vault_daily_prices.allow_deposits)
             """,
             rows,
         )
@@ -464,9 +497,13 @@ def fetch_and_store_vault(
         follower_count=follower_count,
         tvl=float(summary.tvl),
         apr=apr_val,
+        allow_deposits=info.allow_deposits,
     )
 
-    # Build daily price rows
+    # Build daily price rows.
+    # Only the latest row gets the current deposit status from the API;
+    # historical rows get None so we track how status evolves over time.
+    last_idx = len(combined_df) - 1
     rows = []
     prev_share_price = None
     for i, (ts, row_data) in enumerate(zip(combined_df.index, combined_df.itertuples())):
@@ -484,6 +521,13 @@ def fetch_and_store_vault(
 
         prev_share_price = share_price
 
+        if i == last_idx:
+            row_is_closed = info.is_closed
+            row_allow_deposits = info.allow_deposits
+        else:
+            row_is_closed = None
+            row_allow_deposits = None
+
         rows.append(
             (
                 vault_address,
@@ -495,6 +539,8 @@ def fetch_and_store_vault(
                 daily_return,
                 follower_count,
                 apr_val,
+                row_is_closed,
+                row_allow_deposits,
             )
         )
 
