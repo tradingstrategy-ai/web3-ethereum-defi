@@ -50,6 +50,7 @@ from eth_defi.gmx.constants import (
     DEFAULT_GAS_RAISE_ON_CRITICAL,
     DEFAULT_GAS_WARNING_THRESHOLD_USD,
     GMX_MIN_COST_USD,
+    GMX_SUPPORTED_CHAINS,
     PRECISION,
     _MIN_LOG_CHUNK_BLOCKS,
 )
@@ -495,10 +496,9 @@ class GMX(ExchangeCompatible):
         chain_name = get_chain_name(chain_id).lower()
 
         # Validate that GMX is supported on this chain
-        supported_chains = ["arbitrum", "arbitrum_sepolia", "avalanche"]
-        if chain_name not in supported_chains:
+        if chain_name not in GMX_SUPPORTED_CHAINS:
             raise ValueError(
-                f"GMX not supported on chain {chain_name} (chain_id: {chain_id}). Supported chains: {supported_chains}",
+                f"GMX not supported on chain {chain_name} (chain_id: {chain_id}). Supported chains: {list(GMX_SUPPORTED_CHAINS)}",
             )
 
         # Create wallet if private key provided

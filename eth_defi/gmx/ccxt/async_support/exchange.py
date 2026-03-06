@@ -33,9 +33,10 @@ from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import (
-    _MIN_LOG_CHUNK_BLOCKS,
     GMX_MIN_COST_USD,
+    GMX_SUPPORTED_CHAINS,
     PRECISION,
+    _MIN_LOG_CHUNK_BLOCKS,
 )
 from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.core import Markets
@@ -639,8 +640,7 @@ class GMX(Exchange):
         self.chain = get_chain_name(chain_id).lower()
 
         # Validate GMX support
-        supported_chains = ["arbitrum", "arbitrum_sepolia", "avalanche"]
-        if self.chain not in supported_chains:
+        if self.chain not in GMX_SUPPORTED_CHAINS:
             raise ValueError(f"GMX not supported on chain {self.chain} (chain_id: {chain_id})")
 
         # Create wallet if private key provided
