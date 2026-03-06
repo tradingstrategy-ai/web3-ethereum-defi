@@ -25,6 +25,7 @@ Example::
 import logging
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 from requests import Session
 from tqdm_loggable.auto import tqdm
@@ -105,11 +106,11 @@ class GRVTDailyMetricsDatabase:
         # Migrate existing databases that lack fee columns
         try:
             self.con.execute("ALTER TABLE vault_metadata ADD COLUMN management_fee DOUBLE")
-        except Exception:
+        except duckdb.CatalogException:
             pass  # Column already exists
         try:
             self.con.execute("ALTER TABLE vault_metadata ADD COLUMN performance_fee DOUBLE")
-        except Exception:
+        except duckdb.CatalogException:
             pass  # Column already exists
 
         self.con.execute("""

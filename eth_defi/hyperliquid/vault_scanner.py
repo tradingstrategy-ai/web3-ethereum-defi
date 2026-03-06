@@ -22,6 +22,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Iterator
 
+import duckdb
 import pandas as pd
 import requests
 from eth_typing import HexAddress
@@ -211,16 +212,17 @@ class VaultSnapshotDatabase:
             self.con.execute("""
                 ALTER TABLE vault_snapshots ADD COLUMN scan_disabled_reason VARCHAR
             """)
-        except Exception:
+        except duckdb.CatalogException:
             # Column already exists
             pass
 
-        # Add allow_deposits column if it doesn't exist (migration for existing databases)
+        # Add allow_deposits column if it doesn't exist (migration for existing databases).
+        # DuckDB does not support ADD COLUMN with NOT NULL DEFAULT, so we
+        # add a nullable column and backfill existing rows with TRUE.
         try:
-            self.con.execute("""
-                ALTER TABLE vault_snapshots ADD COLUMN allow_deposits BOOLEAN NOT NULL DEFAULT TRUE
-            """)
-        except Exception:
+            self.con.execute("ALTER TABLE vault_snapshots ADD COLUMN allow_deposits BOOLEAN")
+            self.con.execute("UPDATE vault_snapshots SET allow_deposits = TRUE WHERE allow_deposits IS NULL")
+        except duckdb.CatalogException:
             # Column already exists
             pass
 

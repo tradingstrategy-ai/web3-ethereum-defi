@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
@@ -236,18 +237,18 @@ class HyperliquidDailyMetricsDatabase:
         try:
             self.con.execute("ALTER TABLE vault_metadata ADD COLUMN allow_deposits BOOLEAN")
             self.con.execute("UPDATE vault_metadata SET allow_deposits = TRUE WHERE allow_deposits IS NULL")
-        except Exception:
+        except duckdb.CatalogException:
             # Column already exists
             pass
 
         # Migration for existing databases: add deposit status columns to daily prices
         try:
             self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN is_closed BOOLEAN")
-        except Exception:
+        except duckdb.CatalogException:
             pass
         try:
             self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN allow_deposits BOOLEAN")
-        except Exception:
+        except duckdb.CatalogException:
             pass
 
     def upsert_vault_metadata(
