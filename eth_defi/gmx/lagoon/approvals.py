@@ -159,10 +159,20 @@ def approve_gmx_execution_fee_via_vault(
     amount: Decimal,
     broadcast_callback: BroadcastCallback | None = None,
 ) -> HexBytes:
-    """Approve GMX ExchangeRouter to spend WETH for execution fees from the vault's Safe.
+    """Approve GMX ExchangeRouter to spend WETH from the vault's Safe.
 
-    GMX orders require execution fees paid in ETH/WETH. This approves the
-    ExchangeRouter to spend WETH from the Safe for these fees.
+    .. note::
+
+        GMX execution fees are normally paid as **native ETH** via the
+        ``sendWnt()`` payable function, which does not require any ERC-20
+        approval. When using :py:class:`~eth_defi.gmx.lagoon.wallet.LagoonGMXTradingWallet`
+        with ``forward_eth=True``, native ETH is forwarded through
+        ``performCall`` and this WETH approval is **not used**.
+
+        This approval is only relevant if the Safe holds WETH and
+        the ExchangeRouter needs to pull it via ``transferFrom``
+        (e.g. a non-standard fee payment path). In most setups
+        this function can be skipped.
 
     :param vault:
         Lagoon vault instance
