@@ -27,7 +27,7 @@ from eth_defi.gas import estimate_gas_price, apply_gas
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.execute import execute_safe_tx
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
-from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.trace import TransactionAssertionError, assert_transaction_success_with_explanation
 
 
 logger = logging.getLogger(__name__)
@@ -336,7 +336,11 @@ def add_new_safe_owners(
 
     gas_estimate = estimate_gas_price(web3)
 
-    # Add all owners
+    # Add all owners.
+    # Each addition is retried because Arbitrum (and other L2s) can have
+    # RPC state propagation delays — the Safe's internal nonce or owner
+    # linked-list may not be visible to the next read, causing GS026 reverts.
+    max_retries = 3
     for owner in owners:
         assert isinstance(owner, str), f"Owner must be hex addresses, got {type(owner)}"
         assert owner.startswith("0x"), f"Owner must be hex addresses, got {type(owner)}"
@@ -345,41 +349,71 @@ def add_new_safe_owners(
             logger.info("Deployer: already exist on Safe cosigner")
             continue
 
-        logger.info("Adding owner %s", owner)
-        tx = safe.contract.functions.addOwnerWithThreshold(owner, 1).build_transaction(
-            {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0},
-        )
+        for attempt in range(1, max_retries + 1):
+            logger.info("Adding owner %s (attempt %d/%d)", owner, attempt, max_retries)
+            try:
+                tx = safe.contract.functions.addOwnerWithThreshold(owner, 1).build_transaction(
+                    {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0},
+                )
 
-        safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
-        safe_tx.sign(deployer._private_key.hex())
-        tx_hash, tx = execute_safe_tx(
-            safe_tx,
-            tx_sender_private_key=deployer._private_key.hex(),
-            tx_gas=1_000_000,
-            gas_fee=gas_estimate,
-        )
-        assert_transaction_success_with_explanation(web3, tx_hash)
+                safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
+                safe_tx.sign(deployer._private_key.hex())
+                tx_hash, tx = execute_safe_tx(
+                    safe_tx,
+                    tx_sender_private_key=deployer._private_key.hex(),
+                    tx_gas=1_000_000,
+                    gas_fee=gas_estimate,
+                )
+                assert_transaction_success_with_explanation(web3, tx_hash)
+                break  # Success
+            except (TransactionAssertionError, Exception) as e:
+                if "GS026" not in str(e) and "invalid nonce" not in str(e).lower():
+                    raise  # Not a Safe state sync issue — propagate immediately
+                if attempt == max_retries:
+                    raise  # Exhausted retries
+                retry_sleep = gnosis_safe_state_safety_sleep * 2
+                logger.warning(
+                    "Safe state sync issue (GS026/nonce) adding owner %s, "
+                    "retrying in %d seconds (attempt %d/%d): %s",
+                    owner, retry_sleep, attempt, max_retries, e,
+                )
+                time.sleep(retry_sleep)
 
         if not is_anvil(web3):
-            # Don't do transactions two fast or we might get
+            # Don't do transactions too fast or we might get
             # require(currentOwner > lastOwner && owners[currentOwner] != address(0) && currentOwner != SENTINEL_OWNERS, "GS026");
             logger.info("Sleeping for %d seconds to avoid Safe state safety issues", gnosis_safe_state_safety_sleep)
             time.sleep(gnosis_safe_state_safety_sleep)
 
-    # Change the threshold
-    logger.info("Changing signing threshold to: %d", threshold)
-    tx = safe.contract.functions.changeThreshold(threshold).build_transaction(
-        {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0},
-    )
-    safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
-    safe_tx.sign(deployer._private_key.hex())
-    tx_hash, tx = execute_safe_tx(
-        safe_tx,
-        tx_sender_private_key=deployer._private_key.hex(),
-        tx_gas=1_000_000,
-        gas_fee=gas_estimate,
-    )
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    # Change the threshold (also retried for the same Safe state sync reasons)
+    for attempt in range(1, max_retries + 1):
+        logger.info("Changing signing threshold to: %d (attempt %d/%d)", threshold, attempt, max_retries)
+        try:
+            tx = safe.contract.functions.changeThreshold(threshold).build_transaction(
+                {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0},
+            )
+            safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
+            safe_tx.sign(deployer._private_key.hex())
+            tx_hash, tx = execute_safe_tx(
+                safe_tx,
+                tx_sender_private_key=deployer._private_key.hex(),
+                tx_gas=1_000_000,
+                gas_fee=gas_estimate,
+            )
+            assert_transaction_success_with_explanation(web3, tx_hash)
+            break
+        except (TransactionAssertionError, Exception) as e:
+            if "GS026" not in str(e) and "invalid nonce" not in str(e).lower():
+                raise
+            if attempt == max_retries:
+                raise
+            retry_sleep = gnosis_safe_state_safety_sleep * 2
+            logger.warning(
+                "Safe state sync issue changing threshold, "
+                "retrying in %d seconds (attempt %d/%d): %s",
+                retry_sleep, attempt, max_retries, e,
+            )
+            time.sleep(retry_sleep)
     logger.info("Owners updated")
 
 
