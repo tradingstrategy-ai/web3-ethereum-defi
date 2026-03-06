@@ -373,9 +373,12 @@ def add_new_safe_owners(
                     raise  # Exhausted retries
                 retry_sleep = gnosis_safe_state_safety_sleep * 2
                 logger.warning(
-                    "Safe state sync issue (GS026/nonce) adding owner %s, "
-                    "retrying in %d seconds (attempt %d/%d): %s",
-                    owner, retry_sleep, attempt, max_retries, e,
+                    "Safe state sync issue (GS026/nonce) adding owner %s, retrying in %d seconds (attempt %d/%d): %s",
+                    owner,
+                    retry_sleep,
+                    attempt,
+                    max_retries,
+                    e,
                 )
                 time.sleep(retry_sleep)
 
@@ -409,9 +412,11 @@ def add_new_safe_owners(
                 raise
             retry_sleep = gnosis_safe_state_safety_sleep * 2
             logger.warning(
-                "Safe state sync issue changing threshold, "
-                "retrying in %d seconds (attempt %d/%d): %s",
-                retry_sleep, attempt, max_retries, e,
+                "Safe state sync issue changing threshold, retrying in %d seconds (attempt %d/%d): %s",
+                retry_sleep,
+                attempt,
+                max_retries,
+                e,
             )
             time.sleep(retry_sleep)
     logger.info("Owners updated")
