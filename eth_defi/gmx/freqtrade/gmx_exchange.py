@@ -27,7 +27,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from eth_defi.gmx.api import GMXAPI
+from eth_typing import HexAddress
 import pandas as pd
+from web3 import Web3
 from freqtrade.enums import MarginMode, TradingMode
 from freqtrade.exceptions import InsufficientFundsError, OperationalException, TemporaryError
 from freqtrade.exchange import Exchange
@@ -39,6 +42,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import (
+    GMX_SUPPORTED_CHAINS,
     _GAS_CRITICAL_MAX_RETRIES,
     _GAS_CRITICAL_PAUSE_SECS,
     _GAS_CRITICAL_WINDOW_SECS,
@@ -263,9 +267,11 @@ class Gmx(Exchange):
 
         No-op when ``ccxt_config.options.vaultAddress`` is absent.
         """
-        exchange_config = self._config.get("exchange", {})
-        ccxt_options = exchange_config.get("ccxt_config", {}).get("options", {})
-        vault_address = ccxt_options.get("vaultAddress")
+        exchange_config: dict = self._config.get("exchange", {})
+        ccxt_options: dict = exchange_config.get("ccxt_config", {}).get("options", {})
+        vault_address: HexAddress | None = Web3.to_checksum_address(
+            ccxt_options.get("vaultAddress"),
+        )
 
         if not vault_address:
             return
@@ -274,15 +280,15 @@ class Gmx(Exchange):
         gas_buffer: int = exchange_config.get("lagoon_gas_buffer", 500_000)
         auto_approve: bool = exchange_config.get("lagoon_auto_approve", True)
 
-        gmx_api = self._api
-        web3 = gmx_api.web3
+        gmx_api: GMXAPI = self._api
+        web3: Web3 = gmx_api.web3
         hot_wallet: HotWallet = gmx_api.wallet
 
         if hot_wallet is None:
             msg = "privateKey must be provided in ccxt_config when using a Lagoon vault. The private key is the asset manager's signing key."
             raise OperationalException(msg)
 
-        # Preserve the original HotWallet for gas balance checks.
+        # Preserve the original HotWallet i.e. the asset manager's wallet for gas balance checks.
         # The Safe holds GMX positions; the asset manager pays gas.
         self._asset_manager_wallet = hot_wallet
 
@@ -323,8 +329,15 @@ class Gmx(Exchange):
         gmx_api.wallet_address = safe_address
 
         # Rebuild GMXConfig and GMXTrading to target the Safe address.
-        gmx_api.config = GMXConfig(web3, user_wallet_address=safe_address, wallet=lagoon_wallet)
-        gmx_api.trader = GMXTrading(gmx_api.config, gas_monitor_config=gmx_api._gas_monitor_config)
+        gmx_api.config = GMXConfig(
+            web3,
+            user_wallet_address=safe_address,
+            wallet=lagoon_wallet,
+        )
+        gmx_api.trader = GMXTrading(
+            gmx_api.config,
+            gas_monitor_config=gmx_api._gas_monitor_config,
+        )
 
         logger.info(
             "Lagoon vault mode enabled: vault=%s safe=%s module=%s",
@@ -336,7 +349,11 @@ class Gmx(Exchange):
         if auto_approve:
             self._approve_lagoon_collateral(vault, hot_wallet)
 
-    def _approve_lagoon_collateral(self, vault: "LagoonVault", asset_manager: HotWallet) -> None:
+    def _approve_lagoon_collateral(
+        self,
+        vault: "LagoonVault",
+        asset_manager: HotWallet,
+    ) -> None:
         """Approve common GMX collateral tokens for the Safe via the vault module.
 
         Checks existing allowances and calls
@@ -353,8 +370,7 @@ class Gmx(Exchange):
         chain_id = web3.eth.chain_id
         chain = get_chain_name(chain_id).lower()
 
-        gmx_supported_chains = ("arbitrum", "arbitrum_sepolia", "avalanche")
-        if chain not in gmx_supported_chains:
+        if chain not in GMX_SUPPORTED_CHAINS:
             logger.warning(
                 "Cannot auto-approve collateral: unsupported chain %s (id %d). Approve tokens manually via approve_gmx_collateral_via_vault().",
                 chain,
@@ -383,7 +399,10 @@ class Gmx(Exchange):
                         allowance,
                     )
                     continue
-                logger.info("Auto-approving %s for GMX SyntheticsRouter via vault...", token.symbol)
+                logger.info(
+                    "Auto-approving %s for GMX SyntheticsRouter via vault...",
+                    token.symbol,
+                )
                 approve_gmx_collateral_via_vault(
                     vault=vault,
                     asset_manager=asset_manager,
@@ -506,7 +525,7 @@ class Gmx(Exchange):
 
         # Margin mode must be set
         if not self.margin_mode:
-            msg = "GMX requires margin_mode to be set (isolated or cross)"
+            msg = "GMX requires margin_mode to be set (isolated as of 07-03-2026), got: None"
             raise OperationalException(msg)
 
         # Validate Lagoon vault config when present in ccxt_config.options.
