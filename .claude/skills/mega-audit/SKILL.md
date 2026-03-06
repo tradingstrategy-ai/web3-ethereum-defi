@@ -101,6 +101,7 @@ Generate a summary report for all tools.
 - Deduplicate findings across tools
 - If the finding is INFO or LOW level, ignore them - let's not make the output too noisy
 - If the finding is documented, do not add it to the summary
+- Include deployment and address specific issues here as well
 
 Write the summary as `.claude/projects/{protocol_slug}/reports/ai-audit-summary.md`
 
