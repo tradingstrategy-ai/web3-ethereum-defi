@@ -1,4 +1,25 @@
-"""Get JSON-RPC URL from environment varbless."""
+"""Get JSON-RPC URL from environment variables.
+
+To support multiple blockchains, we use a naming convention for chains:
+
+- `JSON_RPC_ETHEREUM` for Ethereum Mainnet
+- `JSON_RPC_ARBITRUM` for Arbitrum
+- `JSON_RPC_OPTIMISM` for Optimism
+- `JSON_RPC_ARBITRUM_SEPOLIA` for Arbitrum Sepolia
+- `JSON_RPC_BASE_SEPOLIA` for Base Sepolia
+
+All environment variables support multiple RPC providers per chain using a space-separated round robin mechanism.
+See :ref:`multi rpc` for more details.
+
+Example:
+
+.. code-block:: bash
+    
+    export JSON_RPC_BINANCE="https://bsc-dataseed.bnbchain.org https://bsc-dataseed.ninicoin.io https://bnb.rpc.subquery.network/public"
+
+
+For the chain names and more information see :py:mod:`eth_defi.chain`.
+"""
 
 import os
 
