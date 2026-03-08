@@ -5,9 +5,16 @@ short_description: |
 long_description: |
   Secured Finance is a fixed-rate lending protocol whose vault products package lender positions into ERC-4626 vaults. The public vault frontend currently exposes lender vaults such as the JPYC market on Ethereum.
 
-  The hardcoded integration in this repository recognises the Ethereum JPYC lender vault at ``0x6f6046e59501e484152d46045ba5eecf1cab8935`` and routes it to a protocol-specific wrapper.
 fee_description: |
-  The fee model for Secured Finance vaults is not yet mapped in this repository.
+  Secured Finance documents protocol trading fees for its fixed-rate lending markets rather than explicit vault management or withdrawal fees.
+
+  According to the fixed-rate lending fee documentation:
+
+  - Market takers pay 0.25% for a 3-month duration, scaling linearly to 1.00% annualised
+  - Limit orders are fee-free
+  - Auto-roll uses the same fee schedule as market taking
+
+  In this repository, these are treated as internalised protocol costs because they are incurred during the vault's underlying lending actions, not as explicit ERC-4626 deposit or redemption fees charged to the end user.
 links:
   homepage: https://secured.finance/
   app: https://vaults.secured.finance/
