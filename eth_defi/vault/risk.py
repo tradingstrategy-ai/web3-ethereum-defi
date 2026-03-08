@@ -115,7 +115,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Brink": None,
     "Accountable": VaultTechnicalRisk.severe,
     "YieldNest": VaultTechnicalRisk.low,
-    "Secured Finance": None,
+    "Secured Finance": VaultTechnicalRisk.low,
     "Dolomite": None,
     # No public GitHub repository for the contract development
     "HypurrFi": VaultTechnicalRisk.severe,
