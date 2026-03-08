@@ -13,9 +13,10 @@ Links
 - `Homepage <https://secured.finance/>`__
 - `App <https://vaults.secured.finance/>`__
 - `Documentation <https://docs.secured.finance/>`__
-- `GitHub <https://github.com/secured-finance>`__
+- `GitHub contracts repo <https://github.com/Secured-Finance/contracts>`__
 - `X <https://x.com/Secured_Fi>`__
 - `DefiLlama <https://defillama.com/protocol/secured-finance>`__
+- `Audit - Quantstamp (March 2024) <https://github.com/Secured-Finance/contracts/blob/develop/audits/2024-03-Quantstamp.pdf>`__
 - `Contract on Etherscan <https://etherscan.io/address/0x6f6046e59501e484152d46045ba5eecf1cab8935>`__
 
 .. autosummary::

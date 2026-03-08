@@ -12,10 +12,10 @@ links:
   homepage: https://secured.finance/
   app: https://vaults.secured.finance/
   twitter: https://x.com/Secured_Fi
-  github: https://github.com/secured-finance
+  github: https://github.com/Secured-Finance/contracts
   documentation: https://docs.secured.finance/
   defillama: https://defillama.com/protocol/secured-finance
-  audits:
+  audits: https://github.com/Secured-Finance/contracts/blob/develop/audits/2024-03-Quantstamp.pdf
   fees:
   trading_strategy:
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/secured_finance/index.html
