@@ -1,0 +1,26 @@
+Secured Finance API
+-------------------
+
+`Secured Finance <https://secured.finance/>`__ integration.
+
+Secured Finance is a fixed-rate lending protocol whose vault products package lender positions into ERC-4626 vaults. This repository currently identifies the Ethereum JPYC lender vault by hardcoded address and exposes it through a dedicated protocol wrapper.
+
+Secured Finance documents protocol trading fees on the underlying fixed-rate markets rather than explicit vault deposit or withdrawal fees. Market takers pay 0.25% for a 3-month duration, scaling linearly with duration at a 1.00% annualised rate, while limit orders and Itayose opening fills are fee-free. In this repository, that is treated as an internalised fee model because the cost is incurred in the underlying lending action instead of being charged directly on ERC-4626 redemption.
+
+Links
+~~~~~
+
+- `Homepage <https://secured.finance/>`__
+- `App <https://vaults.secured.finance/>`__
+- `Documentation <https://docs.secured.finance/>`__
+- `GitHub contracts repo <https://github.com/Secured-Finance/contracts>`__
+- `X <https://x.com/Secured_Fi>`__
+- `DefiLlama <https://defillama.com/protocol/secured-finance>`__
+- `Audit - Quantstamp (March 2024) <https://github.com/Secured-Finance/contracts/blob/develop/audits/2024-03-Quantstamp.pdf>`__
+- `Contract on Etherscan <https://etherscan.io/address/0x6f6046e59501e484152d46045ba5eecf1cab8935>`__
+
+.. autosummary::
+   :toctree: _autosummary_secured_finance
+   :recursive:
+
+   eth_defi.erc_4626.vault_protocol.secured_finance.vault

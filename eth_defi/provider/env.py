@@ -14,7 +14,7 @@ See :ref:`multi rpc` for more details.
 Example:
 
 .. code-block:: bash
-    
+
     export JSON_RPC_BINANCE="https://bsc-dataseed.bnbchain.org https://bsc-dataseed.ninicoin.io https://bnb.rpc.subquery.network/public"
 
 
