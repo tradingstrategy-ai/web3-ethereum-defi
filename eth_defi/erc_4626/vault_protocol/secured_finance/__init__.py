@@ -1,0 +1,1 @@
+"""Secured Finance protocol integration."""

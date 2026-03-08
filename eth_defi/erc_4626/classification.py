@@ -1519,6 +1519,11 @@ def create_vault_instance(
 
         return YieldNestVault(web3, spec, **kwargs)
 
+    elif ERC4626Feature.secured_finance_like in features:
+        from eth_defi.erc_4626.vault_protocol.secured_finance.vault import SecuredFinanceVault
+
+        return SecuredFinanceVault(web3, spec, **kwargs)
+
     elif ERC4626Feature.dolomite_like in features:
         from eth_defi.erc_4626.vault_protocol.dolomite.vault import DolomiteVault
 
@@ -1751,6 +1756,9 @@ HARDCODED_PROTOCOLS = {
     # YieldNest - ynRWAx vault on Ethereum
     # https://etherscan.io/address/0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b
     "0x01ba69727e2860b37bc1a2bd56999c1afb4c15d8": {ERC4626Feature.yieldnest_like},
+    # Secured Finance - JPYC lender vault on Ethereum
+    # https://etherscan.io/address/0x6f6046e59501e484152d46045ba5eecf1cab8935
+    "0x6f6046e59501e484152d46045ba5eecf1cab8935": {ERC4626Feature.secured_finance_like},
     # infiniFi - siUSD (Staked iUSD) vault on Ethereum
     # https://etherscan.io/address/0xdbdc1ef57537e34680b898e1febd3d68c7389bcb
     "0xdbdc1ef57537e34680b898e1febd3d68c7389bcb": {ERC4626Feature.infinifi_like},

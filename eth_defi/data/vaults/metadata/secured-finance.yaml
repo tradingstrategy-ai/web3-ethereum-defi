@@ -1,0 +1,23 @@
+name: Secured Finance
+slug: secured-finance
+short_description: |
+  Fixed-rate lending protocol with ERC-4626 lender vaults.
+long_description: |
+  Secured Finance is a fixed-rate lending protocol whose vault products package lender positions into ERC-4626 vaults. The public vault frontend currently exposes lender vaults such as the JPYC market on Ethereum.
+
+  The hardcoded integration in this repository recognises the Ethereum JPYC lender vault at ``0x6f6046e59501e484152d46045ba5eecf1cab8935`` and routes it to a protocol-specific wrapper.
+fee_description: |
+  The fee model for Secured Finance vaults is not yet mapped in this repository.
+links:
+  homepage: https://secured.finance/
+  app: https://vaults.secured.finance/
+  twitter: https://x.com/Secured_Fi
+  github: https://github.com/secured-finance
+  documentation: https://docs.secured.finance/
+  defillama: https://defillama.com/protocol/secured-finance
+  audits:
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/secured_finance/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x6f6046e59501e484152d46045ba5eecf1cab8935

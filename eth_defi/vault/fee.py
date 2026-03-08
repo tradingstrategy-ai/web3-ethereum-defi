@@ -96,6 +96,7 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Accountable fees are internalised in the share price
     "Accountable": VaultFeeMode.internalised_skimming,
     "YieldNest": None,
+    "Secured Finance": None,
     # Dolomite fees are internalised through interest rate spreads
     "Dolomite": VaultFeeMode.internalised_skimming,
     # HypurrFi fees are internalised in the share price

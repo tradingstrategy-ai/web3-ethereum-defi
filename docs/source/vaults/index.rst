@@ -75,6 +75,7 @@ Supported protocols
    resolv/index
    royco/index
    sbold/index
+   secured_finance/index
    sentiment/index
    silo/index
    singularity/index
