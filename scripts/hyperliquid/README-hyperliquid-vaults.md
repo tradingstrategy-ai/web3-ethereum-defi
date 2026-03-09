@@ -213,11 +213,13 @@ SCAN_HYPERCORE=true LOG_LEVEL=info \
 
 ### Docker: scan only Hypercore
 
+Start `./vault-shell.sh` and then
+
 ```shell
 SCAN_HYPERCORE=true \
   DISABLE_CHAINS=Ethereum,Arbitrum,Base,Polygon,Avalanche,Optimism,Binance,Sonic,Berachain,Unichain,Mantle,Mode,Abstract,Celo,Soneium,zkSync,Gnosis,Blast,Zora,Ink,Hemi,Linea,TAC,Plasma,Katana,Monad,HyperEVM \
   LOG_LEVEL=info \
-  docker compose run vault-scanner
+  python scripts/erc-4626/scan-vaults-all-chains.py
 ```
 
 ## Manual testing commands

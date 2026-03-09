@@ -372,6 +372,74 @@ def build_hypercore_deposit_multicall(
     return module.functions.multicall(calls)
 
 
+def build_activate_account_multicall(
+    lagoon_vault: LagoonVault,
+    activation_amount: int | None = None,
+) -> ContractFunction:
+    """Build a multicall to activate a Safe's HyperCore account.
+
+    Smart contracts (like Safe multisigs) must be activated on HyperCore
+    before ``CoreDepositWallet.deposit()`` bridge actions will clear the
+    EVM escrow.  This multicall performs the activation in a single
+    transaction via the Safe's trading strategy module:
+
+    1. ``approve(CoreDepositWallet, activation_amount)``
+    2. ``CoreDepositWallet.depositFor(safe, activation_amount, SPOT_DEX)``
+
+    .. note::
+
+        New HyperCore accounts incur a **1 USDC account creation fee**.
+        The default ``activation_amount`` of 2 USDC exceeds the fee.
+
+    :param lagoon_vault:
+        Lagoon vault instance with ``trading_strategy_module_address`` configured.
+
+    :param activation_amount:
+        USDC amount in raw units (6 decimals) for activation.
+        Defaults to :py:data:`~eth_defi.hyperliquid.evm_escrow.DEFAULT_ACTIVATION_AMOUNT` (2 USDC).
+
+    :return:
+        Bound ``module.functions.multicall(data)`` ready to ``.transact()``.
+    """
+    from eth_defi.hyperliquid.evm_escrow import DEFAULT_ACTIVATION_AMOUNT
+
+    if activation_amount is None:
+        activation_amount = DEFAULT_ACTIVATION_AMOUNT
+
+    web3 = lagoon_vault.web3
+    module = lagoon_vault.trading_strategy_module
+    chain_id = lagoon_vault.spec.chain_id
+    safe_address = lagoon_vault.safe_address
+
+    asset_address = lagoon_vault.vault_contract.functions.asset().call()
+    usdc_contract = get_deployed_contract(web3, "centre/ERC20.json", asset_address)
+    cdw_address = CORE_DEPOSIT_WALLET[chain_id]
+    core_deposit_wallet = get_core_deposit_wallet_contract(web3, cdw_address)
+
+    calls = [
+        # 1. Approve USDC to CoreDepositWallet
+        _encode_perform_call(
+            module,
+            usdc_contract.address,
+            usdc_contract.functions.approve(
+                Web3.to_checksum_address(core_deposit_wallet.address),
+                activation_amount,
+            ),
+        ),
+        # 2. CoreDepositWallet.depositFor(safe, amount, SPOT_DEX)
+        _encode_perform_call(
+            module,
+            core_deposit_wallet.address,
+            core_deposit_wallet.functions.depositFor(
+                Web3.to_checksum_address(safe_address),
+                activation_amount,
+                SPOT_DEX,
+            ),
+        ),
+    ]
+    return module.functions.multicall(calls)
+
+
 def build_hypercore_deposit_phase1(
     lagoon_vault: LagoonVault,
     evm_usdc_amount: int,

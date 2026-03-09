@@ -90,6 +90,14 @@ Expected latencies
 
 The :py:func:`wait_for_evm_escrow_clear` helper uses conservative defaults
 (60 s timeout, 2 s poll interval) to handle worst-case scenarios.
+
+Known issues
+------------
+
+- ``depositFor`` on HyperEVM **testnet** does not create HyperCore accounts
+  for contract addresses (e.g. Safe multisigs). The EVM transaction succeeds
+  but the account is never created and USDC is lost.
+  See `hyperliquid-dex/node#138 <https://github.com/hyperliquid-dex/node/issues/138>`_.
 """
 
 from __future__ import annotations
