@@ -95,5 +95,9 @@ def test_daily_metrics_resume(tmp_path):
         for i in range(1, len(dates)):
             assert dates[i] > dates[i - 1], f"Date not ascending: {dates[i - 1]} >= {dates[i]}"
 
+        # Verify leader metrics columns are present after both runs
+        assert "leader_fraction" in second_run_df.columns, "leader_fraction column missing from daily prices"
+        assert "leader_commission" in second_run_df.columns, "leader_commission column missing from daily prices"
+
     finally:
         db.close()

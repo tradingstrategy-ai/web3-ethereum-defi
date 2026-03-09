@@ -227,6 +227,8 @@ class HyperliquidDailyMetricsDatabase:
                 apr DOUBLE,
                 is_closed BOOLEAN,
                 allow_deposits BOOLEAN,
+                leader_fraction DOUBLE,
+                leader_commission DOUBLE,
                 PRIMARY KEY (vault_address, date)
             )
         """)
@@ -248,6 +250,16 @@ class HyperliquidDailyMetricsDatabase:
             pass
         try:
             self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN allow_deposits BOOLEAN")
+        except duckdb.CatalogException:
+            pass
+
+        # Migration for existing databases: add leader metrics to daily prices
+        try:
+            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN leader_fraction DOUBLE")
+        except duckdb.CatalogException:
+            pass
+        try:
+            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN leader_commission DOUBLE")
         except duckdb.CatalogException:
             pass
 
@@ -320,10 +332,11 @@ class HyperliquidDailyMetricsDatabase:
         :param rows:
             List of tuples: (vault_address, date, share_price, tvl,
             cumulative_pnl, daily_pnl, daily_return, follower_count, apr,
-            is_closed, allow_deposits).
-            The ``is_closed`` and ``allow_deposits`` fields should be ``None``
-            for historical rows and only set for the latest (today's) row,
-            so that we track how deposit status evolves over time.
+            is_closed, allow_deposits, leader_fraction, leader_commission).
+            The ``is_closed``, ``allow_deposits``, ``leader_fraction``, and
+            ``leader_commission`` fields should be ``None`` for historical rows
+            and only set for the latest (today's) row, so that we track how
+            these values evolve over time.
         :param cutoff_date:
             If provided, only store rows up to this date (inclusive).
             Used for incremental scanning / testing.
@@ -339,8 +352,8 @@ class HyperliquidDailyMetricsDatabase:
             INSERT INTO vault_daily_prices (
                 vault_address, date, share_price, tvl, cumulative_pnl,
                 daily_pnl, daily_return, follower_count, apr,
-                is_closed, allow_deposits
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                is_closed, allow_deposits, leader_fraction, leader_commission
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (vault_address, date)
             DO UPDATE SET
                 share_price = EXCLUDED.share_price,
@@ -351,7 +364,9 @@ class HyperliquidDailyMetricsDatabase:
                 follower_count = EXCLUDED.follower_count,
                 apr = EXCLUDED.apr,
                 is_closed = COALESCE(EXCLUDED.is_closed, vault_daily_prices.is_closed),
-                allow_deposits = COALESCE(EXCLUDED.allow_deposits, vault_daily_prices.allow_deposits)
+                allow_deposits = COALESCE(EXCLUDED.allow_deposits, vault_daily_prices.allow_deposits),
+                leader_fraction = COALESCE(EXCLUDED.leader_fraction, vault_daily_prices.leader_fraction),
+                leader_commission = COALESCE(EXCLUDED.leader_commission, vault_daily_prices.leader_commission)
             """,
             rows,
         )
@@ -503,6 +518,8 @@ def fetch_and_store_vault(
     # Store metadata
     follower_count = len(info.followers)
     commission_rate = float(info.commission_rate) if info.commission_rate is not None else None
+    leader_fraction = float(info.leader_fraction) if info.leader_fraction is not None else None
+    leader_commission = float(info.leader_commission) if info.leader_commission is not None else None
     apr_val = float(summary.apr) if summary.apr is not None else None
 
     db.upsert_vault_metadata(
@@ -544,9 +561,13 @@ def fetch_and_store_vault(
         if i == last_idx:
             row_is_closed = info.is_closed
             row_allow_deposits = info.allow_deposits
+            row_leader_fraction = leader_fraction
+            row_leader_commission = leader_commission
         else:
             row_is_closed = None
             row_allow_deposits = None
+            row_leader_fraction = None
+            row_leader_commission = None
 
         rows.append(
             (
@@ -561,6 +582,8 @@ def fetch_and_store_vault(
                 apr_val,
                 row_is_closed,
                 row_allow_deposits,
+                row_leader_fraction,
+                row_leader_commission,
             )
         )
 

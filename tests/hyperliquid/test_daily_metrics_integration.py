@@ -304,6 +304,14 @@ def test_deposit_closed_vault_pipeline(tmp_path):
         assert historical_rows["is_closed"].isna().all(), "Historical rows should have is_closed=NULL"
         assert historical_rows["allow_deposits"].isna().all(), "Historical rows should have allow_deposits=NULL"
 
+        # Leader metrics — latest row should have values, historical rows NULL
+        assert latest_row["leader_fraction"] is not None, "Latest row should have leader_fraction"
+        assert 0 < latest_row["leader_fraction"] <= 1.0, f"leader_fraction should be between 0 and 1, got {latest_row['leader_fraction']}"
+        assert historical_rows["leader_fraction"].isna().all(), "Historical rows should have leader_fraction=NULL"
+
+        assert latest_row["leader_commission"] is not None, "Latest row should have leader_commission"
+        assert historical_rows["leader_commission"].isna().all(), "Historical rows should have leader_commission=NULL"
+
         # Step 3: Merge into VaultDatabase and verify _deposit_closed_reason
         merge_into_vault_database(db, vault_db_path)
         merge_into_uncleaned_parquet(db, uncleaned_path)
