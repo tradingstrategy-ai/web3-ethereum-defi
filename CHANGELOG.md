@@ -1,5 +1,6 @@
 # Current
 
+- Add: `fetch_user_vault_equity()` convenience function with 15-minute TTL cache for looking up a single Hypercore vault position (2026-03-09)
 - Fix: Hyperliquid vault share prices getting permanently stuck at 10,000 cap after total_supply wipeout cycles, causing 0% returns for all periods (2026-03-09)
 - Add: New protocol: Secured Finance - fixed-rate lending vault support with hardcoded Ethereum JPYC vault detection, metadata, docs, tests, and logos (2026-03-08, [#806](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/806))
 - Fix: Hyperliquid vaults with `allowDeposits=false` now correctly flagged as deposit-closed (2026-03-06, [#804](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/804))
