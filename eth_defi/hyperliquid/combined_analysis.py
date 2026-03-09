@@ -16,6 +16,11 @@ The share price mechanism works as follows:
 - When a deposit occurs, new shares are minted: ``shares_minted = deposit_amount / share_price``
 - When a withdrawal occurs, shares are burned: ``shares_burned = withdrawal_amount / share_price``
 - Share price starts at 1.00 at vault inception
+- When all shares are redeemed (total_supply reaches 0) but total_assets > 0
+  (e.g. vault leader's equity remains), the epoch resets: total_supply is set
+  to total_assets and share_price resets to 1.0, absorbing the residual equity
+  into a fresh share base. This also triggers when the computed share price
+  would exceed :py:data:`SHARE_PRICE_RESET_THRESHOLD`.
 
 Example::
 
@@ -48,6 +53,19 @@ Example::
 """
 
 import pandas as pd
+
+#: When the computed share price exceeds this threshold, the epoch
+#: resets (total_supply absorbs total_assets, share_price → 1.0).
+#: This prevents share price corruption when total_supply approaches
+#: zero while total_assets remains nonzero (e.g. after all followers
+#: withdrew from a vault but the leader's equity persists).
+SHARE_PRICE_RESET_THRESHOLD: float = 10_000.0
+
+#: Minimum total_assets value to trigger an epoch reset when total_supply
+#: drops to zero. Sub-threshold residual amounts are ignored (treated
+#: as zero) to avoid creating phantom shares from negligible dust that
+#: can then produce negative share prices on subsequent losses.
+EPOCH_RESET_MIN_ASSETS: float = 10.0
 
 
 def analyse_positions_and_deposits(
@@ -241,6 +259,12 @@ def _calculate_share_price(
     - Deposits mint new shares at current share price
     - Withdrawals burn shares at current share price
     - PnL changes affect total_assets but not total_supply
+    - When total_supply drops to zero (or becomes negligibly small relative
+      to total_assets so that share price would exceed
+      :py:data:`SHARE_PRICE_RESET_THRESHOLD`), the epoch resets:
+      total_supply is set to total_assets and share_price resets to 1.0.
+      This handles Hyperliquid vaults where the leader retains equity
+      after all followers withdraw.
 
     :param combined:
         DataFrame with cumulative_account_value and netflow_update columns
@@ -283,19 +307,27 @@ def _calculate_share_price(
         # Ensure total_supply doesn't go negative
         current_total_supply = max(0.0, current_total_supply)
 
-        total_supply_values.append(current_total_supply)
-
         # Calculate share price: total_assets / total_supply.
-        # When total_supply is very small but total_assets is nonzero
-        # (e.g. after most depositors withdrew from a leveraged trading vault),
-        # the share price can overflow to absurd values (trillions+).
-        # Cap at 10,000 to keep downstream metrics sane.
+        # Handle total_supply wipeout: when total_supply is zero or negligibly
+        # small relative to total_assets (share price would exceed the reset
+        # threshold), absorb residual assets into a fresh share base.
+        # This prevents permanent share price corruption when all followers
+        # withdraw from a Hyperliquid vault but the leader's equity persists.
         if current_total_supply > 0:
-            current_share_price = total_assets / current_total_supply
-            current_share_price = min(current_share_price, 10_000.0)
+            candidate_share_price = total_assets / current_total_supply
         else:
-            current_share_price = 1.0  # Default to 1.0 if no shares
+            candidate_share_price = 0.0
 
+        if total_assets > EPOCH_RESET_MIN_ASSETS and (current_total_supply == 0 or candidate_share_price > SHARE_PRICE_RESET_THRESHOLD):
+            # Epoch reset: treat remaining assets as if freshly deposited
+            current_total_supply = total_assets
+            current_share_price = 1.0
+        elif current_total_supply > 0:
+            current_share_price = candidate_share_price
+        else:
+            current_share_price = 1.0  # Both zero
+
+        total_supply_values.append(current_total_supply)
         share_price_values.append(current_share_price)
 
     combined["total_supply"] = total_supply_values
