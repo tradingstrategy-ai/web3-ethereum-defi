@@ -1118,6 +1118,18 @@ def calculate_vault_record(
     if utilisation is None and utilisation_metadata is not None:
         utilisation = float(utilisation_metadata)
 
+    # Leader metrics from Hypercore daily prices (latest value)
+    leader_fraction = None
+    leader_commission = None
+    if "leader_fraction" in prices_df.columns:
+        last_val = prices_df["leader_fraction"].iloc[-1]
+        if pd.notna(last_val):
+            leader_fraction = float(last_val)
+    if "leader_commission" in prices_df.columns:
+        last_val = prices_df["leader_commission"].iloc[-1]
+        if pd.notna(last_val):
+            leader_commission = float(last_val)
+
     # Vault descriptions from offchain metadata (Euler, Lagoon, etc.)
     description = vault_metadata.get("_description")
     short_description = vault_metadata.get("_short_description")
@@ -1326,6 +1338,9 @@ def calculate_vault_record(
             # Lending protocol statistics
             "available_liquidity": available_liquidity,
             "utilisation": utilisation,
+            # Hypercore leader metrics
+            "leader_fraction": leader_fraction,
+            "leader_commission": leader_commission,
             # Offchain vault descriptions (Euler, Lagoon, etc.)
             "description": description,
             "short_description": short_description,

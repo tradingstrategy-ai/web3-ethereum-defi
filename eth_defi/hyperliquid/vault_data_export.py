@@ -220,6 +220,8 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
             "performance_fee": 0.0,
             "management_fee": 0.0,
             "errors": "",
+            "leader_fraction": prices_df["leader_fraction"].values if "leader_fraction" in prices_df.columns else float("nan"),
+            "leader_commission": prices_df["leader_commission"].values if "leader_commission" in prices_df.columns else float("nan"),
         },
     )
 

@@ -347,6 +347,13 @@ def test_deposit_closed_vault_pipeline(tmp_path):
     vault_record = lifetime_data_df.iloc[0]
     assert vault_record["deposit_closed_reason"] == "Vault deposits disabled by leader", f"Expected specific reason in lifetime metrics, got: {vault_record['deposit_closed_reason']}"
 
-    # Step 7: Verify in JSON export
+    # Step 7: Verify leader metrics flow through to lifetime data
+    assert vault_record["leader_fraction"] is not None, "leader_fraction should be in lifetime metrics"
+    assert 0 < vault_record["leader_fraction"] <= 1.0, f"leader_fraction out of range: {vault_record['leader_fraction']}"
+    assert vault_record["leader_commission"] is not None, "leader_commission should be in lifetime metrics"
+
+    # Step 8: Verify in JSON export
     exported = export_lifetime_row(vault_record)
     assert exported["deposit_closed_reason"] == "Vault deposits disabled by leader", f"Expected specific reason in JSON export, got: {exported['deposit_closed_reason']}"
+    assert exported["leader_fraction"] is not None, "leader_fraction should be in JSON export"
+    assert exported["leader_commission"] is not None, "leader_commission should be in JSON export"
