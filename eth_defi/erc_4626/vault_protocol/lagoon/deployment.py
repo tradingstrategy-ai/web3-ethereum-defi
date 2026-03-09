@@ -928,11 +928,16 @@ def deploy_safe_trading_strategy_module(
         # https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture
         from eth_defi.hyperliquid.block import HYPEREVM_BIG_BLOCK_GAS_LIMIT, is_hyperevm
 
+        actual_block_gas_limit = web3.eth.get_block("latest")["gasLimit"]
         if is_hyperevm(chain_id):
-            block_gas_limit = HYPEREVM_BIG_BLOCK_GAS_LIMIT
+            # Big block gas limit for deployments wrapped in big_blocks_for_deployment()
+            big_block_gas_limit = HYPEREVM_BIG_BLOCK_GAS_LIMIT
         else:
-            block_gas_limit = web3.eth.get_block("latest")["gasLimit"]
-        guard_gas = min(10_000_000, block_gas_limit - 100_000)
+            big_block_gas_limit = actual_block_gas_limit
+        # Gas for library deployments that run in small blocks
+        guard_gas = min(10_000_000, actual_block_gas_limit - 100_000)
+        # Gas for TradingStrategyModuleV0 which runs inside big_blocks_for_deployment()
+        module_gas = min(10_000_000, big_block_gas_limit - 100_000)
 
         # TradingStrategyModuleV0 uses external Forge libraries via DELEGATECALL:
         # - UniswapLib: Uniswap V2/V3 swap validation (always deployed)
@@ -991,7 +996,7 @@ def deploy_safe_trading_strategy_module(
                         web3,
                         "guard/HypercoreVaultLib.json",
                         deployer,
-                        gas=guard_gas,
+                        gas=module_gas,
                     )
                 library_addresses["HypercoreVaultLib"] = hypercore_lib.address
                 logger.info("Deployed HypercoreVaultLib at %s for HyperEVM", hypercore_lib.address)
@@ -1017,14 +1022,14 @@ def deploy_safe_trading_strategy_module(
         from eth_defi.hyperliquid.block import big_blocks_for_deployment
 
         with big_blocks_for_deployment(web3, _deployer_account._private_key.hex()):
-            logger.info("Deploying TradingStrategyModuleV0 with libraries %s and gas %d", library_addresses, guard_gas)
+            logger.info("Deploying TradingStrategyModuleV0 with libraries %s and gas %d", library_addresses, module_gas)
             module = deploy_contract(
                 web3,
                 "safe-integration/TradingStrategyModuleV0.json",
                 deployer,
                 owner,
                 safe.address,
-                gas=guard_gas,
+                gas=module_gas,
                 libraries=library_addresses,
             )
 
@@ -1595,6 +1600,17 @@ def deploy_automated_lagoon_vault(
             return bound_func.transact({"from": deployer.address})
         else:
             raise NotImplementedError(f"No idea about: {deployer}")
+
+    # Auto-detect from_the_scratch when no beacon proxy factory exists for the chain.
+    # Must happen before _need_big_blocks_for_proxy is set, since from-scratch
+    # deployment requires big blocks for both Safe and vault contract deployment.
+    if not from_the_scratch and chain_id not in LAGOON_BEACON_PROXY_FACTORIES:
+        logger.info(
+            "No beacon proxy factory for chain %d, auto-enabling from_the_scratch deployment",
+            chain_id,
+        )
+        from_the_scratch = True
+        use_forge = True
 
     # When a pre-deployed factory exists, Safe proxy deployment fits in small blocks.
     # From-scratch deployment needs big blocks for the full Safe contract.
