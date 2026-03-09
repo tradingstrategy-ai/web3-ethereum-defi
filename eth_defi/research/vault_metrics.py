@@ -1890,6 +1890,8 @@ def format_lifetime_table(
             "redemption_next_open": "Redemption next open",
             "available_liquidity": "Available liquidity",
             "utilisation": "Utilisation",
+            "leader_fraction": "Leader fraction",
+            "leader_commission": "Leader commission",
         }
     )
 
