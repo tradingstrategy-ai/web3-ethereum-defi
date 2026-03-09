@@ -145,6 +145,19 @@ class VaultInfo:
     relationship_type: str
     #: Commission rate for the vault leader (as decimal, e.g., 0.1 = 10%)
     commission_rate: Percent | None = None
+    #: Fraction of vault capital owned by the leader (e.g. 0.05 = 5%).
+    #:
+    #: Hyperliquid requires vault leaders to maintain at least 5% of total
+    #: vault capital (verified 2026-03-09). From the ``vaultDetails`` API
+    #: ``leaderFraction`` field.
+    #:
+    #: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy
+    leader_fraction: Percent | None = None
+    #: Leader commission value from the ``vaultDetails`` API ``leaderCommission`` field.
+    #:
+    #: The exact semantics of this field are not yet fully understood — it may
+    #: represent accumulated commission in USD or an alternative commission metric.
+    leader_commission: float | None = None
     #: Parent vault address if this is a child vault
     parent: HexAddress | None = None
 
@@ -348,6 +361,8 @@ class HyperliquidVault:
             allow_deposits=data.get("allowDeposits", True),
             relationship_type=relationship_type,
             commission_rate=data.get("commissionRate"),
+            leader_fraction=data.get("leaderFraction"),
+            leader_commission=data.get("leaderCommission"),
             parent=parent,
         )
 

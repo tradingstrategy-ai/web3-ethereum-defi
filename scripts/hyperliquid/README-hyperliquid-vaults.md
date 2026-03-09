@@ -78,17 +78,19 @@ See `constants.py` for storage.
 ```
 vault_metadata                     vault_daily_prices
 ==============                     ==================
-vault_address  VARCHAR PK          vault_address  VARCHAR  \
-name           VARCHAR             date           DATE      > composite PK
-leader         VARCHAR             share_price    DOUBLE
-description    VARCHAR             tvl            DOUBLE
-is_closed      BOOLEAN             cumulative_pnl DOUBLE
-commission_rate DOUBLE             daily_pnl      DOUBLE
-follower_count INTEGER             daily_return   DOUBLE
-tvl            DOUBLE              follower_count INTEGER
-apr            DOUBLE              apr            DOUBLE
-create_time    TIMESTAMP
-last_updated   TIMESTAMP
+vault_address    VARCHAR PK        vault_address      VARCHAR  \
+name             VARCHAR           date               DATE      > composite PK
+leader           VARCHAR           share_price        DOUBLE
+description      VARCHAR           tvl                DOUBLE
+is_closed        BOOLEAN           cumulative_pnl     DOUBLE
+allow_deposits   BOOLEAN           daily_pnl          DOUBLE
+commission_rate  DOUBLE            daily_return       DOUBLE
+follower_count   INTEGER           follower_count     INTEGER
+tvl              DOUBLE            apr                DOUBLE
+apr              DOUBLE            is_closed          BOOLEAN
+create_time      TIMESTAMP         allow_deposits     BOOLEAN
+last_updated     TIMESTAMP         leader_fraction    DOUBLE
+                                   leader_commission  DOUBLE
 ```
 
 ### Fees
@@ -114,6 +116,24 @@ Defined in `constants.py`:
 - **Protocol vaults** (HLP + children): 4-day lockup (`HYPERLIQUID_PROTOCOL_VAULT_LOCKUP`)
 
 Source: [Depositor docs](https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-depositors)
+
+### Leader share
+
+Hyperliquid requires vault leaders to maintain a minimum ownership stake of 5%
+of total vault capital (verified 2026-03-09). The `vaultDetails` API returns a
+`leaderFraction` field representing the leader's current capital share (e.g.
+`0.05` = 5% of vault capital is owned by the leader).
+
+We track this as `leader_fraction` in `vault_daily_prices` to monitor how the
+leader's skin-in-the-game evolves over time. Only the latest daily row carries
+the value; historical rows have `NULL` (we only know the current snapshot).
+
+The API also returns a `leaderCommission` field which we store as
+`leader_commission`. The exact semantics of this field are not yet fully
+understood — it may represent accumulated commission in USD or an alternative
+commission metric distinct from `commissionRate` (the profit-share percentage).
+
+Source: [Vault leader docs (legacy)](https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy)
 
 ### Vault flags
 
@@ -149,6 +169,8 @@ The cleaned Parquet gains these extra columns. For EVM vaults they are `NA`:
 - `apr` -- Hyperliquid's pre-computed annual percentage rate
 - `cumulative_pnl` -- cumulative total PnL in USD
 - `daily_pnl` -- daily PnL in USD
+- `leader_fraction` -- leader's capital share of the vault (e.g. 0.10 = 10%), latest row only
+- `leader_commission` -- leader commission value from the API (semantics unclear), latest row only
 
 ## Quick start example
 

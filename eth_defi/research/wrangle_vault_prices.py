@@ -53,6 +53,8 @@ VAULT_STATE_COLUMNS = {
     "trading": "",
     "available_liquidity": float("nan"),
     "utilisation": float("nan"),
+    "leader_fraction": float("nan"),
+    "leader_commission": float("nan"),
 }
 
 

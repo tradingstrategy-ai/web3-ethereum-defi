@@ -45,18 +45,40 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 logger = logging.getLogger(__name__)
 
 
-def _get_deposit_closed_reason(is_closed: bool, allow_deposits: bool) -> str | None:
+#: If the leader's share of vault capital drops below this threshold,
+#: we warn that new deposits may not be accepted because the leader
+#: must maintain at least 5% of total vault capital.
+#:
+#: The threshold is set 0.5% above the Hyperliquid minimum (5%) to
+#: give an early warning before deposits are actually blocked.
+#:
+#: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy
+#: Verified: 2026-03-09
+LEADER_FRACTION_WARNING_THRESHOLD: float = 0.055
+
+
+def _get_deposit_closed_reason(
+    is_closed: bool,
+    allow_deposits: bool,
+    leader_fraction: float | None = None,
+) -> str | None:
     """Return a descriptive reason why deposits are closed, or ``None`` if open.
 
     :param is_closed:
         Whether the vault is permanently closed.
     :param allow_deposits:
         Whether the vault currently accepts deposits.
+    :param leader_fraction:
+        Leader's fraction of total vault capital (e.g. 0.10 = 10%).
+        If below :py:data:`LEADER_FRACTION_WARNING_THRESHOLD`, a warning
+        is returned even when the vault nominally accepts deposits.
     """
     if is_closed:
         return "Vault is permanently closed"
     if not allow_deposits:
         return "Vault deposits disabled by leader"
+    if leader_fraction is not None and leader_fraction < LEADER_FRACTION_WARNING_THRESHOLD:
+        return "Leader share of the vault capital near allowed Hyperliquid minimum and new capital may not be accepted"
     return None
 
 
@@ -70,6 +92,7 @@ def create_hyperliquid_vault_row(
     is_closed: bool = False,
     allow_deposits: bool = True,
     relationship_type: str = "normal",
+    leader_fraction: float | None = None,
 ) -> tuple[VaultSpec, VaultRow]:
     """Create a synthetic VaultRow for a Hyperliquid native vault.
 
@@ -103,6 +126,10 @@ def create_hyperliquid_vault_row(
     :param relationship_type:
         Vault relationship type from the API: ``"normal"`` for user-created
         vaults, ``"parent"`` for HLP, ``"child"`` for HLP sub-vaults.
+    :param leader_fraction:
+        Leader's fraction of total vault capital (e.g. 0.10 = 10%).
+        Used for :py:func:`_get_deposit_closed_reason` to warn when
+        close to the Hyperliquid 5% minimum.
     :return:
         Tuple of (VaultSpec, VaultRow).
     """
@@ -171,7 +198,7 @@ def create_hyperliquid_vault_row(
         "_short_description": description,
         "_available_liquidity": None,
         "_utilisation": None,
-        "_deposit_closed_reason": _get_deposit_closed_reason(is_closed, allow_deposits),
+        "_deposit_closed_reason": _get_deposit_closed_reason(is_closed, allow_deposits, leader_fraction),
         "_deposit_next_open": None,
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,
@@ -220,6 +247,8 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
             "performance_fee": 0.0,
             "management_fee": 0.0,
             "errors": "",
+            "leader_fraction": prices_df["leader_fraction"].values if "leader_fraction" in prices_df.columns else float("nan"),
+            "leader_commission": prices_df["leader_commission"].values if "leader_commission" in prices_df.columns else float("nan"),
         },
     )
 
@@ -257,10 +286,12 @@ def merge_into_vault_database(
         vault_db = VaultDatabase()
 
     metadata_df = db.get_all_vault_metadata()
+    leader_fractions = db.get_latest_leader_fractions()
 
     added = 0
     updated = 0
     for _, row in metadata_df.iterrows():
+        address = row["vault_address"].lower()
         spec, vault_row = create_hyperliquid_vault_row(
             vault_address=row["vault_address"],
             name=row["name"],
@@ -271,6 +302,7 @@ def merge_into_vault_database(
             is_closed=bool(row.get("is_closed", False)),
             allow_deposits=bool(row.get("allow_deposits", True)),
             relationship_type=row.get("relationship_type", "normal") or "normal",
+            leader_fraction=leader_fractions.get(address),
         )
 
         if spec in vault_db.rows:
