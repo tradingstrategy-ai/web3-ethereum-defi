@@ -217,28 +217,50 @@ def main():
     stuck_vaults = {addr: info for addr, info in diagnosis.items() if info["stuck"]}
     healthy_vaults = total_vaults - len(stuck_vaults)
 
+    # When specific vault addresses are explicitly requested, heal all of them
+    # regardless of stuck detection. This handles cases where a partial heal
+    # made recent rows look healthy but older rows still have corrupted values.
+    force_heal = vault_addresses_filter is not None
+    if force_heal:
+        vaults_to_heal = diagnosis
+    else:
+        vaults_to_heal = stuck_vaults
+
     print(f"Total vaults examined: {total_vaults}")
-    print(f"Stuck at cap (need healing): {len(stuck_vaults)}")
+    print(f"Stuck at cap (auto-detected): {len(stuck_vaults)}")
     print(f"Already healthy: {healthy_vaults}")
+    if force_heal and len(vaults_to_heal) > len(stuck_vaults):
+        print(f"Force healing all {len(vaults_to_heal)} requested vaults (VAULT_ADDRESSES set)")
     print()
 
-    if stuck_vaults:
-        print("Affected vaults:")
-        for addr, info in stuck_vaults.items():
-            print(f"  {info['name']:30s}  {addr}  SP range: {info['recent_min']:.0f}-{info['recent_max']:.0f}  rows: {info['rows']}")
+    if vaults_to_heal:
+        print("Vaults to heal:")
+        for addr, info in vaults_to_heal.items():
+            status = "STUCK" if info["stuck"] else "force"
+            print(f"  {info['name']:30s}  {addr}  SP range: {info['recent_min']:.0f}-{info['recent_max']:.0f}  rows: {info['rows']}  [{status}]")
         print()
 
     if dry_run:
         print("DRY_RUN=true — no changes made.")
         return
 
-    if not stuck_vaults:
+    if not vaults_to_heal:
         print("No vaults need healing.")
         return
 
-    # Step 2: Re-scan affected vaults with fixed code
-    addresses_to_heal = list(stuck_vaults.keys())
-    print(f"Step 2: Re-scanning {len(addresses_to_heal)} affected vaults...")
+    # Step 2: Delete old corrupted prices, then re-scan with fixed code.
+    # The old daily prices may include rows from previous scans at different
+    # granularities (day/week snapshots) that won't be overwritten by the
+    # allTime re-scan. Deleting first ensures a clean slate.
+    addresses_to_heal = list(vaults_to_heal.keys())
+    print(f"Step 2: Deleting old prices and re-scanning {len(addresses_to_heal)} vaults...")
+
+    db = HyperliquidDailyMetricsDatabase(db_path)
+    for addr in addresses_to_heal:
+        deleted = db.delete_vault_daily_prices(addr)
+        print(f"  Deleted {deleted} old rows for {vaults_to_heal[addr]['name']}")
+    db.save()
+    db.close()
 
     session = create_hyperliquid_session(requests_per_second=2.75)
     db = run_daily_scan(
@@ -253,7 +275,7 @@ def main():
     healed_count = 0
     still_stuck_count = 0
     try:
-        for addr, before_info in stuck_vaults.items():
+        for addr, before_info in vaults_to_heal.items():
             prices = db.get_vault_daily_prices(addr)
             if prices.empty or len(prices) < STUCK_CHECK_ROWS:
                 still_stuck_count += 1
@@ -291,7 +313,7 @@ def main():
         else:
             db.close()
 
-    print(f"\nHealed {healed_count} of {len(stuck_vaults)} vaults ({healthy_vaults} already healthy)")
+    print(f"\nHealed {healed_count} of {len(vaults_to_heal)} vaults ({healthy_vaults} already healthy)")
     if still_stuck_count > 0:
         print(f"WARNING: {still_stuck_count} vaults are still stuck — may need manual investigation")
 

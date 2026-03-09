@@ -423,6 +423,24 @@ class HyperliquidDailyMetricsDatabase:
         ).fetchone()[0]
         return result
 
+    def delete_vault_daily_prices(self, vault_address: HexAddress) -> int:
+        """Delete all daily price records for a vault.
+
+        Used by the healing script to clear corrupted share prices
+        before re-computing from fresh API data.
+
+        :param vault_address:
+            Vault address to delete.
+        :return:
+            Number of rows deleted.
+        """
+        count = self.get_vault_daily_price_count(vault_address)
+        self.con.execute(
+            "DELETE FROM vault_daily_prices WHERE vault_address = ?",
+            [vault_address.lower()],
+        )
+        return count
+
     def save(self):
         """Force a checkpoint to ensure data is written to disk."""
         self.con.commit()
