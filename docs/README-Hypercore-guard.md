@@ -234,6 +234,7 @@ Any precompile read (e.g., vault equity at `0x802`) in the same block as a CoreW
   - The default activation amount is **2 USDC** (`DEFAULT_ACTIVATION_AMOUNT = 2_000_000` raw). Deposits ≤1 USDC to new accounts fail silently.
   - Activation uses `CoreDepositWallet.depositFor(safe, amount, SPOT_DEX)` which bridges USDC and creates the account in one step.
   - Use `is_account_activated()` to check and `activate_account()` to perform activation.
+  - **Testnet bug**: `depositFor` called through a contract (e.g. Safe multisig) does not create HyperCore accounts on testnet. This affects the recipient regardless of caller — even deployer-EOA-sponsored calls fail. Mainnet works correctly. See [hyperliquid-dex/node#138](https://github.com/hyperliquid-dex/node/issues/138) and [#813](https://github.com/tradingstrategy-ai/web3-ethereum-defi/issues/813) for details. Use `activate_account_sponsored()` as a workaround on mainnet.
 - **Minimum vault deposit**: **5 USDC** (`MINIMUM_VAULT_DEPOSIT = 5_000_000` raw). Hyperliquid silently rejects `vaultTransfer` deposits below this threshold.
 - **Bridging fees (Core -> EVM)**: requires HYPE or USDC on HyperCore spot for fees. HYPE is consumed first.
 - **Bridging fees (EVM -> Core)**: requires HYPE on HyperEVM for gas.
@@ -381,6 +382,52 @@ Lagoon protocol from scratch using `forge create`.
 | Guard deployment (`TradingStrategyModuleV0`) | **Large blocks required** | ~5.4M gas, always needs big blocks |
 | Multicall deposit/withdrawal | Small blocks | Individual calls are <100k gas each |
 | Anvil fork (SIMULATE mode) | N/A | Anvil overrides gas limit to 30M |
+
+## Anvil mock system
+
+The real CoreWriter (`0x3333...3333`) and CoreDepositWallet are HyperCore system precompiles that do not work in Anvil forks. Mock Solidity contracts are injected at the system addresses via `anvil_setCode` so that guard integration tests can exercise the full deposit/withdrawal flows locally.
+
+### Mock contracts
+
+| Contract | Source | Injected at | Purpose |
+|----------|--------|-------------|---------|
+| `MockCoreWriter` | [`contracts/guard/src/mocks/MockCoreWriter.sol`](../contracts/guard/src/mocks/MockCoreWriter.sol) | `0x3333333333333333333333333333333333333333` | Records `sendRawAction()` calls (action ID, params, sender) |
+| `MockCoreDepositWallet` | [`contracts/guard/src/mocks/MockCoreDepositWallet.sol`](../contracts/guard/src/mocks/MockCoreDepositWallet.sol) | Chain-specific CDW address | Records `deposit()` and `depositFor()` calls |
+
+Both mocks store calls in arrays and expose `getActionCount()`/`getAction(index)` (or `getDepositCount()`/`getDeposit(index)`) for test assertions. They emit events (`RawAction`, `Deposit`, `DepositFor`) for log-based verification.
+
+### Setup helpers
+
+The module [`eth_defi.hyperliquid.testing`](../eth_defi/hyperliquid/testing.py) provides:
+
+- **`setup_anvil_hypercore_mocks(web3, deployer_address, hype_balance)`** — convenience function that deploys both mocks and optionally funds the deployer with HYPE for gas. Returns `(mock_core_writer, mock_core_deposit_wallet)`.
+- **`deploy_mock_core_writer(web3)`** — injects `MockCoreWriter` bytecode at `CORE_WRITER_ADDRESS` and clears storage slot 0.
+- **`deploy_mock_core_deposit_wallet(web3)`** — injects `MockCoreDepositWallet` bytecode at the chain-specific `CORE_DEPOSIT_WALLET` address.
+
+Usage:
+
+```python
+from eth_defi.hyperliquid.testing import setup_anvil_hypercore_mocks
+
+mock_cw, mock_cdw = setup_anvil_hypercore_mocks(web3, deployer.address)
+
+# After running deposit flow, verify mock recorded the calls
+assert mock_cw.functions.getActionCount().call() == 2  # transferUsdClass + vaultTransfer
+assert mock_cdw.functions.getDepositCount().call() == 1  # CDW.deposit
+```
+
+### Test files
+
+| Test file | Fork chain | What it tests |
+|-----------|-----------|---------------|
+| [`tests/guard/test_guard_simple_vault_hypercore.py`](../tests/guard/test_guard_simple_vault_hypercore.py) | Base (JSON_RPC_BASE) | SimpleVaultV0 guard: deposit (4-step), withdrawal (3-step), depositFor activation, and negative tests for disallowed vaults/actions/receivers |
+| [`tests/guard/test_guard_hypercore_vault_lagoon.py`](../tests/guard/test_guard_hypercore_vault_lagoon.py) | HyperEVM mainnet (JSON_RPC_HYPERLIQUID) | Full Lagoon vault with TradingStrategyModuleV0 multicall: deposit and depositFor activation through the module |
+
+The SimpleVault test suite covers the guard whitelist enforcement (8 test functions including negative cases). The Lagoon test suite covers the full production deployment path with multicall batching through the trading strategy module.
+
+### SIMULATE mode in the deployment script
+
+The deployment script (`deploy-lagoon-hyperliquid-vault.py`) supports `SIMULATE=true` which forks HyperEVM via Anvil with a 30M gas limit, calls `setup_anvil_hypercore_mocks()` to inject the mocks, and funds the Safe with USDC via `fund_erc20_on_anvil()`. In simulate mode, a batched single-transaction deposit is used instead of the two-phase live deposit, since there is no real HyperCore escrow to wait for.
 
 ## Manual testing
 
