@@ -19,6 +19,7 @@ Example::
 
 import datetime
 import logging
+import time
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -28,6 +29,12 @@ from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.utils import from_unix_timestamp
 
 logger = logging.getLogger(__name__)
+
+#: Default cache timeout for :py:func:`fetch_user_vault_equity` in seconds (15 minutes).
+DEFAULT_VAULT_EQUITY_CACHE_TIMEOUT = 15 * 60
+
+#: Module-level cache: ``(api_url, user) -> (timestamp, list[UserVaultEquity])``
+_vault_equity_cache: dict[tuple, tuple[float, list["UserVaultEquity"]]] = {}
 
 
 @dataclass(slots=True)
@@ -239,6 +246,74 @@ def fetch_user_vault_equities(
     )
 
     return results
+
+
+def fetch_user_vault_equity(
+    session: HyperliquidSession,
+    user: HexAddress | str,
+    vault_address: HexAddress | str,
+    cache_timeout: float = DEFAULT_VAULT_EQUITY_CACHE_TIMEOUT,
+    timeout: float = 10.0,
+) -> UserVaultEquity | None:
+    """Fetch a user's equity in a single Hypercore vault, with caching.
+
+    Convenience wrapper around :py:func:`fetch_user_vault_equities` that
+    fetches all vault positions, caches the result, and returns the one
+    matching *vault_address*.
+
+    The cache is keyed by ``(api_url, user)`` and entries expire after
+    *cache_timeout* seconds (default 15 minutes).
+
+    Example::
+
+        from eth_defi.hyperliquid.api import fetch_user_vault_equity
+        from eth_defi.hyperliquid.session import create_hyperliquid_session
+
+        session = create_hyperliquid_session()
+        eq = fetch_user_vault_equity(session, user="0xAbc...", vault_address="0xDef...")
+        if eq is not None:
+            print(f"Equity: {eq.equity} USDC")
+
+    :param session:
+        Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
+
+    :param user:
+        On-chain address (the Safe address for Lagoon vaults).
+
+    :param vault_address:
+        Hypercore vault address to look up.
+
+    :param cache_timeout:
+        How long cached results stay valid, in seconds.
+        Defaults to :py:data:`DEFAULT_VAULT_EQUITY_CACHE_TIMEOUT` (15 minutes).
+
+    :param timeout:
+        HTTP request timeout in seconds (passed to the underlying API call).
+
+    :return:
+        The user's equity in the vault, or ``None`` if the user has no
+        position in the given vault.
+    """
+    cache_key = (session.api_url, user.lower())
+    now = time.time()
+
+    cached = _vault_equity_cache.get(cache_key)
+    if cached is not None:
+        cached_at, equities = cached
+        if now - cached_at < cache_timeout:
+            logger.debug("Using cached vault equities for %s (age %.0fs)", user, now - cached_at)
+        else:
+            cached = None
+
+    if cached is None:
+        equities = fetch_user_vault_equities(session, user, timeout=timeout)
+        _vault_equity_cache[cache_key] = (now, equities)
+
+    needle = vault_address.lower()
+    for eq in equities:
+        if eq.vault_address.lower() == needle:
+            return eq
+    return None
 
 
 def fetch_spot_clearinghouse_state(
