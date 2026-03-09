@@ -254,6 +254,7 @@ def fetch_user_vault_equity(
     vault_address: HexAddress | str,
     cache_timeout: float = DEFAULT_VAULT_EQUITY_CACHE_TIMEOUT,
     timeout: float = 10.0,
+    bypass_cache: bool = False,
 ) -> UserVaultEquity | None:
     """Fetch a user's equity in a single Hypercore vault, with caching.
 
@@ -290,6 +291,10 @@ def fetch_user_vault_equity(
     :param timeout:
         HTTP request timeout in seconds (passed to the underlying API call).
 
+    :param bypass_cache:
+        If ``True``, skip the cache and always fetch fresh data from the API.
+        The fresh result is still stored in the cache for subsequent calls.
+
     :return:
         The user's equity in the vault, or ``None`` if the user has no
         position in the given vault.
@@ -297,13 +302,15 @@ def fetch_user_vault_equity(
     cache_key = (session.api_url, user.lower())
     now = time.time()
 
-    cached = _vault_equity_cache.get(cache_key)
-    if cached is not None:
-        cached_at, equities = cached
-        if now - cached_at < cache_timeout:
-            logger.debug("Using cached vault equities for %s (age %.0fs)", user, now - cached_at)
-        else:
-            cached = None
+    cached = None
+    if not bypass_cache:
+        cached = _vault_equity_cache.get(cache_key)
+        if cached is not None:
+            cached_at, equities = cached
+            if now - cached_at < cache_timeout:
+                logger.debug("Using cached vault equities for %s (age %.0fs)", user, now - cached_at)
+            else:
+                cached = None
 
     if cached is None:
         equities = fetch_user_vault_equities(session, user, timeout=timeout)
