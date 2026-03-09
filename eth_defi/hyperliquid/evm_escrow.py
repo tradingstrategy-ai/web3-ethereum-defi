@@ -316,6 +316,139 @@ def activate_account(
             raise TimeoutError(f"Account {safe_address} was not activated within {timeout}s after depositFor transaction {tx_hash.hex()}")
 
 
+def activate_account_sponsored(
+    web3: Web3,
+    target_address: HexAddress | str,
+    deployer: HotWallet,
+    usdc_address: HexAddress | str,
+    session: HyperliquidSession | None = None,
+    activation_amount: int = DEFAULT_ACTIVATION_AMOUNT,
+    timeout: float = 60.0,
+    poll_interval: float = 2.0,
+) -> None:
+    """Activate a HyperCore account via deployer-sponsored ``depositFor``.
+
+    Unlike :py:func:`activate_account` which routes through the Safe's
+    trading strategy module, this function has the **deployer EOA** call
+    ``CoreDepositWallet.depositFor(target, amount, SPOT_DEX)`` directly.
+    The USDC comes from the deployer's own EVM balance, not the Safe's.
+
+    This is a workaround for the testnet issue where ``depositFor`` called
+    through a Smart contract (Safe multisig) does not create HyperCore
+    accounts. See `hyperliquid-dex/node#138
+    <https://github.com/hyperliquid-dex/node/issues/138>`_.
+
+    .. note::
+
+        New HyperCore accounts incur a **1 USDC account creation fee**.
+        Deposits ≤1 USDC to new accounts fail silently. The default
+        ``activation_amount`` of 2 USDC comfortably exceeds the fee.
+
+    Example::
+
+        from eth_defi.hyperliquid.evm_escrow import activate_account_sponsored
+
+        activate_account_sponsored(
+            web3=web3,
+            target_address="0xAbc...",
+            deployer=deployer_wallet,
+            usdc_address="0xDef...",
+        )
+
+    :param web3:
+        Web3 connection to HyperEVM.
+
+    :param target_address:
+        The address to activate on HyperCore (e.g. a Safe multisig).
+
+    :param deployer:
+        Hot wallet for the deployer EOA that will pay for the activation.
+        Must hold sufficient EVM USDC.
+
+    :param usdc_address:
+        USDC token contract address on HyperEVM.
+
+    :param session:
+        Optional Hyperliquid API session. If provided, checks that the
+        target has no existing EVM escrow entries before attempting
+        activation.
+
+    :param activation_amount:
+        USDC amount in raw units (6 decimals) to deposit for activation.
+        Defaults to 2 USDC (:py:data:`DEFAULT_ACTIVATION_AMOUNT`).
+
+    :param timeout:
+        Maximum seconds to wait for activation verification.
+        Defaults to 60 seconds.
+
+    :param poll_interval:
+        Seconds between precompile polls. Defaults to 2 seconds.
+
+    :raises TimeoutError:
+        If the activation does not complete within the timeout period.
+    """
+    target_address = Web3.to_checksum_address(target_address)
+
+    # Already activated?
+    if is_account_activated(web3, target_address):
+        logger.info("Account %s is already activated on HyperCore", target_address)
+        return
+
+    # Check for stuck EVM escrow entries from prior failed deposits.
+    if session is not None:
+        state = fetch_spot_clearinghouse_state(session, user=target_address)
+        if state.evm_escrows:
+            logger.warning(
+                "Account %s has existing EVM escrow entries: %s",
+                target_address,
+                ", ".join(f"{e.coin}={e.total}" for e in state.evm_escrows),
+            )
+
+    logger.info(
+        "Sponsored activation: depositing %d raw USDC from deployer %s to target %s",
+        activation_amount,
+        deployer.address,
+        target_address,
+    )
+
+    chain_id = web3.eth.chain_id
+
+    # Get contract instances
+    usdc_contract = get_deployed_contract(web3, "centre/ERC20.json", Web3.to_checksum_address(usdc_address))
+    cdw_address = CORE_DEPOSIT_WALLET[chain_id]
+    core_deposit_wallet = get_core_deposit_wallet_contract(web3, cdw_address)
+
+    # Step 1: Deployer approves its own USDC to CoreDepositWallet
+    approve_fn = usdc_contract.functions.approve(
+        Web3.to_checksum_address(cdw_address),
+        activation_amount,
+    )
+    tx_hash = deployer.transact_and_broadcast_with_contract(approve_fn, gas_limit=200_000)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    logger.info("Sponsored activation: approve tx %s", tx_hash.hex())
+
+    # Step 2: Deployer calls depositFor(target, amount, SPOT_DEX) directly
+    deployer.sync_nonce(web3)
+    deposit_for_fn = core_deposit_wallet.functions.depositFor(
+        target_address,
+        activation_amount,
+        SPOT_DEX,
+    )
+    tx_hash = deployer.transact_and_broadcast_with_contract(deposit_for_fn, gas_limit=200_000)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    logger.info("Sponsored activation: depositFor tx %s", tx_hash.hex())
+
+    # Poll coreUserExists precompile to verify activation
+    deadline = time.time() + timeout
+    while True:
+        time.sleep(poll_interval)
+        if is_account_activated(web3, target_address):
+            logger.info("Account %s successfully activated on HyperCore via sponsored depositFor", target_address)
+            return
+        if time.time() >= deadline:
+            raise TimeoutError(f"Account {target_address} was not activated within {timeout}s after sponsored depositFor transaction {tx_hash.hex()}")
+
+
 def wait_for_evm_escrow_clear(
     session: HyperliquidSession,
     user: str,
