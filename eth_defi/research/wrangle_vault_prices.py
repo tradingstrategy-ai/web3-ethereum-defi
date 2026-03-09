@@ -532,7 +532,7 @@ def remove_inactive_lead_time(
 def cap_hypercore_share_prices(
     prices_df: pd.DataFrame,
     logger=print,
-    max_share_price: float = 10_000.0,
+    max_share_price: float = 1_000_000.0,
 ) -> pd.DataFrame:
     """Cap share prices for Hypercore (Hyperliquid native) vaults.
 
