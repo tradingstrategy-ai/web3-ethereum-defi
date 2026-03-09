@@ -25,6 +25,8 @@ from eth_defi.hyperliquid.daily_metrics import (
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault import HyperliquidVault, VaultSummary, fetch_all_vaults
 from eth_defi.hyperliquid.vault_data_export import (
+    LEADER_FRACTION_WARNING_THRESHOLD,
+    _get_deposit_closed_reason,
     merge_into_uncleaned_parquet,
     merge_into_vault_database,
 )
@@ -357,3 +359,29 @@ def test_deposit_closed_vault_pipeline(tmp_path):
     assert exported["deposit_closed_reason"] == "Vault deposits disabled by leader", f"Expected specific reason in JSON export, got: {exported['deposit_closed_reason']}"
     assert exported["leader_fraction"] is not None, "leader_fraction should be in JSON export"
     assert exported["leader_commission"] is not None, "leader_commission should be in JSON export"
+
+
+def test_deposit_closed_reason_leader_fraction():
+    """Verify _get_deposit_closed_reason returns correct reasons based on leader_fraction threshold."""
+
+    # Open vault with healthy leader fraction — no reason
+    assert _get_deposit_closed_reason(is_closed=False, allow_deposits=True, leader_fraction=0.20) is None
+
+    # Open vault with no leader_fraction data — no reason
+    assert _get_deposit_closed_reason(is_closed=False, allow_deposits=True, leader_fraction=None) is None
+
+    # Leader fraction just above threshold — no reason
+    assert _get_deposit_closed_reason(is_closed=False, allow_deposits=True, leader_fraction=LEADER_FRACTION_WARNING_THRESHOLD + 0.001) is None
+
+    # Leader fraction below threshold — warning
+    reason = _get_deposit_closed_reason(is_closed=False, allow_deposits=True, leader_fraction=0.050)
+    assert reason is not None
+    assert "Leader share" in reason
+
+    # Closed vault takes priority over leader_fraction
+    reason = _get_deposit_closed_reason(is_closed=True, allow_deposits=True, leader_fraction=0.03)
+    assert reason == "Vault is permanently closed"
+
+    # Deposits disabled takes priority over leader_fraction
+    reason = _get_deposit_closed_reason(is_closed=False, allow_deposits=False, leader_fraction=0.03)
+    assert reason == "Vault deposits disabled by leader"

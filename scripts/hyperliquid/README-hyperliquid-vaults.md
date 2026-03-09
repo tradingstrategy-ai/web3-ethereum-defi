@@ -119,10 +119,10 @@ Source: [Depositor docs](https://hyperliquid.gitbook.io/hyperliquid-docs/hyperco
 
 ### Leader share
 
-Hyperliquid requires vault leaders to maintain a minimum ownership stake of 10%
-of total vault capital. The `vaultDetails` API returns a `leaderFraction` field
-representing the leader's current capital share (e.g. `0.15` = 15% of vault
-capital is owned by the leader).
+Hyperliquid requires vault leaders to maintain a minimum ownership stake of 5%
+of total vault capital (verified 2026-03-09). The `vaultDetails` API returns a
+`leaderFraction` field representing the leader's current capital share (e.g.
+`0.05` = 5% of vault capital is owned by the leader).
 
 We track this as `leader_fraction` in `vault_daily_prices` to monitor how the
 leader's skin-in-the-game evolves over time. Only the latest daily row carries
@@ -133,7 +133,7 @@ The API also returns a `leaderCommission` field which we store as
 understood — it may represent accumulated commission in USD or an alternative
 commission metric distinct from `commissionRate` (the profit-share percentage).
 
-Source: [Vault leader docs](https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders)
+Source: [Vault leader docs (legacy)](https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy)
 
 ### Vault flags
 

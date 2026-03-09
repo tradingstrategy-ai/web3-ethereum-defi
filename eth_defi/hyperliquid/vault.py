@@ -145,10 +145,13 @@ class VaultInfo:
     relationship_type: str
     #: Commission rate for the vault leader (as decimal, e.g., 0.1 = 10%)
     commission_rate: Percent | None = None
-    #: Fraction of vault capital owned by the leader (e.g. 0.10 = 10%).
+    #: Fraction of vault capital owned by the leader (e.g. 0.05 = 5%).
     #:
-    #: Hyperliquid requires vault leaders to maintain at least 10% of total
-    #: vault capital. From the ``vaultDetails`` API ``leaderFraction`` field.
+    #: Hyperliquid requires vault leaders to maintain at least 5% of total
+    #: vault capital (verified 2026-03-09). From the ``vaultDetails`` API
+    #: ``leaderFraction`` field.
+    #:
+    #: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy
     leader_fraction: Percent | None = None
     #: Leader commission value from the ``vaultDetails`` API ``leaderCommission`` field.
     #:

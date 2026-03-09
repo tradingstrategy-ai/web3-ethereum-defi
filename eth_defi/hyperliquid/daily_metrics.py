@@ -438,6 +438,28 @@ class HyperliquidDailyMetricsDatabase:
         ).fetchone()[0]
         return result
 
+    def get_latest_leader_fractions(self) -> dict[str, float]:
+        """Get the latest leader_fraction for each vault.
+
+        Queries the most recent row per vault that has a non-NULL
+        ``leader_fraction`` value.
+
+        :return:
+            Dict mapping lowercased vault address to leader_fraction.
+        """
+        rows = self.con.execute("""
+            SELECT vault_address, leader_fraction
+            FROM vault_daily_prices
+            WHERE leader_fraction IS NOT NULL
+              AND (vault_address, date) IN (
+                  SELECT vault_address, MAX(date)
+                  FROM vault_daily_prices
+                  WHERE leader_fraction IS NOT NULL
+                  GROUP BY vault_address
+              )
+        """).fetchall()
+        return {row[0]: row[1] for row in rows}
+
     def delete_vault_daily_prices(self, vault_address: HexAddress) -> int:
         """Delete all daily price records for a vault.
 
