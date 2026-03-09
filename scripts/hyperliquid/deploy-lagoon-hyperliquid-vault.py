@@ -58,8 +58,12 @@ Environment variables
   (testnet: ``0xa15099a30bbf2e68942d6f4c43d70d04faeab0a0``,
   mainnet: ``0xdfc24b077bc1425ad1dea75bcb6f8158e10df303``).
 - ``USDC_AMOUNT``: USDC amount in human units for the vault deposit (default: ``2``).
-  On live networks, an additional 2 USDC is automatically added for
-  HyperCore account activation (1 USDC creation fee + 1 USDC reaches spot).
+  On live networks, an additional activation USDC is automatically added for
+  HyperCore account activation (1 USDC creation fee + remainder reaches spot).
+- ``ACTIVATION_AMOUNT``: USDC amount in human units for HyperCore account
+  activation (default: ``2``). Increase to 5 if activation fails on testnet.
+- ``ACTIVATION_TIMEOUT``: Seconds to wait for activation verification
+  (default: ``60``). Increase to 180 on testnet.
 - ``DEPOSIT_MODE``: ``two_phase`` (default) or ``batched``.
   ``two_phase`` splits bridge and vault deposit with an escrow wait;
   ``batched`` uses a single multicall but can silently fail under load.
@@ -81,7 +85,7 @@ Usage::
     SIMULATE=true NETWORK=testnet python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
 
     # Testnet deposit only (deploy + deposit, wait 1 day before withdrawal)
-    NETWORK=testnet ACTION=deposit USDC_AMOUNT=1 python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
+    NETWORK=testnet USDC_AMOUNT=1 python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
 
     # Mainnet deposit only
     NETWORK=mainnet ACTION=deposit USDC_AMOUNT=1 python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
@@ -104,6 +108,10 @@ If deposit lands on EVM but the vault position is missing, use
 
 Common issues:
 
+- **Account activation fails on testnet**: ``depositFor`` to contract
+  addresses (Safe multisigs) does not create HyperCore accounts on testnet.
+  The EVM transaction succeeds but USDC is lost. Use mainnet instead.
+  See https://github.com/hyperliquid-dex/node/issues/138
 - **USDC stuck in EVM escrow**: the bridge step succeeded but HyperCore
   has not yet processed the deposit. Wait and re-check.
 - **USDC in spot but no vault position**: ``transferUsdClass`` or
@@ -196,6 +204,8 @@ def _do_deposit(
     network: str,
     simulate: bool,
     deposit_mode: str = "batched",
+    activation_amount: int = DEFAULT_ACTIVATION_AMOUNT,
+    activation_timeout: float = 60.0,
 ):
     """Execute deposit into a Hypercore vault via Lagoon.
 
@@ -223,6 +233,8 @@ def _do_deposit(
                 lagoon_vault=lagoon_vault,
                 deployer=deployer,
                 session=session,
+                activation_amount=activation_amount,
+                timeout=activation_timeout,
             )
             deployer.sync_nonce(web3)
 
@@ -435,6 +447,10 @@ def main():
     deposit_mode = os.environ.get("DEPOSIT_MODE", "two_phase").lower()
     assert deposit_mode in ("batched", "two_phase"), f"DEPOSIT_MODE must be 'batched' or 'two_phase', got '{deposit_mode}'"
 
+    # Activation parameters (configurable for testnet troubleshooting)
+    activation_human = int(os.environ.get("ACTIVATION_AMOUNT", "2"))
+    activation_timeout = float(os.environ.get("ACTIVATION_TIMEOUT", "60"))
+
     # Existing deployment addresses (skip deploy + whitelist when set)
     existing_lagoon_vault = os.environ.get("LAGOON_VAULT")
     existing_module = os.environ.get("TRADING_STRATEGY_MODULE")
@@ -469,12 +485,11 @@ def main():
     hypercore_amount = usdc_amount  # Hypercore uses same decimals as EVM USDC
 
     # On live networks doing deposits, the Safe needs extra USDC for
-    # HyperCore account activation (2 USDC: 1 USDC fee + 1 USDC reaches spot).
+    # HyperCore account activation (1 USDC fee + remainder reaches spot).
     # In simulate mode, activation is skipped (no real HyperCore state).
-    activation_raw = DEFAULT_ACTIVATION_AMOUNT if (not simulate and action in ("deposit", "both")) else 0
-    activation_human = activation_raw / 10**6
+    activation_raw = int(activation_human * 10**6) if (not simulate and action in ("deposit", "both")) else 0
     total_safe_funding_raw = usdc_amount + activation_raw
-    total_safe_funding_human = usdc_human + activation_human
+    total_safe_funding_human = usdc_human + (activation_raw / 10**6)
 
     # Check deployer has enough HYPE (gas) and USDC before doing anything expensive
     if not simulate:
@@ -574,7 +589,7 @@ def main():
                     transfer_amount,
                     safe_address,
                     usdc_human,
-                    int(activation_human),
+                    activation_raw // 10**6,
                 )
                 tx_hash = deployer.transact_and_broadcast_with_contract(
                     usdc.transfer(safe_address, transfer_amount),
@@ -604,6 +619,8 @@ def main():
             network=network,
             simulate=bool(simulate),
             deposit_mode=deposit_mode,
+            activation_amount=activation_raw,
+            activation_timeout=activation_timeout,
         )
 
     if action in ("withdraw", "both"):
