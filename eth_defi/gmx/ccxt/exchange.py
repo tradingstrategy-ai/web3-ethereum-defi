@@ -5158,9 +5158,10 @@ class GMX(ExchangeCompatible):
         native_price_usd = None
         if gas_config and gas_config.enabled and monitor:
             try:
+                gas_from_addr = getattr(self.wallet, "gas_address", self.wallet.address)
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=sltp_result.transaction,
-                    from_addr=self.wallet.address,
+                    from_addr=gas_from_addr,
                 )
                 monitor.log_gas_estimate(gas_estimate, "GMX SL/TP order")
                 native_price_usd = gas_estimate.native_price_usd
@@ -5412,9 +5413,10 @@ class GMX(ExchangeCompatible):
         native_price_usd = None
         if gas_config and gas_config.enabled and monitor:
             try:
+                gas_from_addr = getattr(self.wallet, "gas_address", self.wallet.address)
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=result.transaction,
-                    from_addr=self.wallet.address,
+                    from_addr=gas_from_addr,
                 )
                 monitor.log_gas_estimate(gas_estimate, f"GMX {type} order")
                 native_price_usd = gas_estimate.native_price_usd
@@ -5864,7 +5866,8 @@ class GMX(ExchangeCompatible):
         gas_config = getattr(self, "_gas_monitor_config", None)
         monitor = self.gas_monitor
         if gas_config and gas_config.enabled and monitor:
-            gas_check = monitor.check_gas_balance(self.wallet.address)
+            gas_addr = getattr(self.wallet, "gas_address", self.wallet.address)
+            gas_check = monitor.check_gas_balance(gas_addr)
             if gas_check.status == "critical":
                 monitor.log_gas_check_warning(gas_check)
                 if gas_config.raise_on_critical:
@@ -6397,9 +6400,10 @@ class GMX(ExchangeCompatible):
         native_price_usd = None
         if gas_config and gas_config.enabled and monitor:
             try:
+                gas_from_addr = getattr(self.wallet, "gas_address", self.wallet.address)
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=order_result.transaction,
-                    from_addr=self.wallet.address,
+                    from_addr=gas_from_addr,
                 )
                 monitor.log_gas_estimate(gas_estimate, "GMX order")
                 native_price_usd = gas_estimate.native_price_usd
