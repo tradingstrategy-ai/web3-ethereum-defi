@@ -49,6 +49,7 @@ from web3 import Web3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.confirmation import broadcast_and_wait_transactions_to_complete
+from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lifi.api import fetch_lifi_native_token_prices, fetch_lifi_token_price_usd
 from eth_defi.lifi.constants import (
@@ -434,19 +435,16 @@ def execute_crosschain_swaps(
             "chainId": swap.source_chain_id,
         }
 
-        # Gas limit
+        # Gas limit from the quote
         if "gasLimit" in tx_request:
             tx["gas"] = _parse_int(tx_request["gasLimit"])
 
-        # Gas pricing — EIP-1559 or legacy
-        if "maxFeePerGas" in tx_request:
-            tx["maxFeePerGas"] = _parse_int(tx_request["maxFeePerGas"])
-            tx["maxPriorityFeePerGas"] = _parse_int(tx_request.get("maxPriorityFeePerGas", 0))
-        elif "gasPrice" in tx_request:
-            tx["gasPrice"] = _parse_int(tx_request["gasPrice"])
-        else:
-            # Fallback: fetch current gas price from the node
-            tx["gasPrice"] = source_web3.eth.gas_price
+        # Always use fresh gas pricing from the node instead of the
+        # quote values, which may be stale by the time we broadcast
+        # (e.g. maxFeePerGas < baseFee). estimate_gas_price() includes
+        # a safety buffer for base fee fluctuations.
+        gas_price = estimate_gas_price(source_web3)
+        apply_gas(tx, gas_price)
 
         signed_tx = wallet.sign_transaction_with_new_nonce(tx)
 
