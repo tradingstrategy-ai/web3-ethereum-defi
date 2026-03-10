@@ -397,6 +397,10 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xfb7cef5cfdba99bd1f7c0350575980470dad3e6f": (VaultFlag.broken, BROKEN_VAULT),
     # YieldNest USDC Flex Strategy - ynRWAx - SPV1
     "0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b": (VaultFlag.subvault, SUBVAULT),
+    # Morpho Yearn OG USDC Compounder 2
+    "0x0e297de4005883c757c9f09fdf7cf1363c20e626": (VaultFlag.subvault, SUBVAULT),
+    # Morpho Gauntlet USDT Prime Compounder
+    "0x6d2981ff9b8d7edbb7604de7a65bac8694ac849f": (VaultFlag.subvault, SUBVAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():

@@ -10,6 +10,7 @@ from web3.contract import Contract
 
 from eth_typing import BlockIdentifier
 
+from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
@@ -39,6 +40,10 @@ class SiloVault(ERC4626Vault):
         """Truncate protocol repeat in the name."""
         orig_name = super().name
         return orig_name.replace("Silo Finance ", "")
+
+    def get_link(self, referral: str | None = None) -> str:
+        chain_name = get_chain_name(self.chain_id).lower()
+        return f"https://app.silo.finance/vaults/{chain_name}/{self.vault_address}?action=deposit"
 
     def get_risk(self) -> VaultTechnicalRisk | None:
         return VaultTechnicalRisk.low
