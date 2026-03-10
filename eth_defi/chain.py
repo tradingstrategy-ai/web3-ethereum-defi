@@ -110,7 +110,7 @@ CHAIN_NAMES = {
     43114: "Avalanche",
     80094: "Berachain",
     130: "Unichain",
-    645749: "Hyperliquid",  # Legacy chain ID, see also 999 (HyperEVM)
+    645749: "Hyperliquid_Legacy",  # Legacy chain ID, see also 999 (HyperEVM)
     8453: "Base",
     146: "Sonic",
     34443: "Mode",
