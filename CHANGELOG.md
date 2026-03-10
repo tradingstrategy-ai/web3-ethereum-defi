@@ -1,5 +1,6 @@
 # Current
 
+- **Add: LI.FI cross-chain gas feeding module for keeping hot wallets funded across EVM chains, with native token and USDC source support (2026-03-10)**
 - Add: `activate_account_sponsored()` for deployer-EOA-funded HyperCore account activation, bypassing Safe routing (2026-03-09)
 - Add: Track Hyperliquid vault `leader_fraction` and `leader_commission` in daily metrics pipeline (2026-03-09)
 - Add: `fetch_user_vault_equity()` convenience function with 15-minute TTL cache for looking up a single Hypercore vault position (2026-03-09, [#809](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/809))

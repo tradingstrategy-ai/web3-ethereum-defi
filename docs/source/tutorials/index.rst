@@ -68,6 +68,7 @@ Tutorials and examples
    lagoon-velora
    lagoon-hyperliquid
    lagoon-multichain
+   lifi-feed-crosschain
    erc-4626-read-apy
    erc-4626-historical-apy
    erc-4626-scan-prices
