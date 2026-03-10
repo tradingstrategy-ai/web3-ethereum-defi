@@ -11,7 +11,7 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
-from eth_defi.hyperliquid.deposit import VaultDepositEvent, create_deposit_dataframe, fetch_vault_deposits, get_deposit_summary
+from eth_defi.hyperliquid.deposit import VaultDepositEvent, VaultEventType, aggregate_daily_flows, create_deposit_dataframe, fetch_vault_deposits, get_deposit_summary
 
 
 @pytest.fixture(scope="module")
@@ -102,3 +102,83 @@ def test_summary_values(vault_events: list[VaultDepositEvent]):
     assert summary["deposits"] == 8, f"Expected 8 deposits, got {summary['deposits']}"
     assert summary["total_deposited"] == pytest.approx(3650.0), f"Expected 3650 USDC deposited"
     assert summary["net_flow"] == pytest.approx(3650.0), "Net flow should equal total deposited when no withdrawals"
+
+
+def test_aggregate_daily_flows(vault_events: list[VaultDepositEvent]):
+    """Test daily flow aggregation from vault events."""
+    flows = aggregate_daily_flows(vault_events)
+
+    assert isinstance(flows, dict)
+
+    # The test vault has 8 deposits in the 2025-12-01 to 2025-12-28 period
+    total_dep_count = sum(f[0] for f in flows.values())
+    total_wd_count = sum(f[1] for f in flows.values())
+    total_dep_usd = sum(f[2] for f in flows.values())
+    total_wd_usd = sum(f[3] for f in flows.values())
+
+    assert total_dep_count == 8
+    assert total_wd_count == 0
+    assert total_dep_usd == pytest.approx(3650.0)
+    assert total_wd_usd == pytest.approx(0.0)
+
+    # Each date key should be a datetime.date
+    for date_key in flows.keys():
+        assert hasattr(date_key, "year")
+
+    # Each value is a 4-tuple: (dep_count, wd_count, dep_usd, wd_usd)
+    for val in flows.values():
+        assert len(val) == 4
+        assert val[0] >= 0  # deposit count
+        assert val[1] >= 0  # withdrawal count
+        assert val[2] >= 0.0  # deposit usd
+        assert val[3] >= 0.0  # withdrawal usd
+
+
+def test_aggregate_daily_flows_synthetic():
+    """Test daily flow aggregation with synthetic events including withdrawals."""
+    from decimal import Decimal
+
+    events = [
+        VaultDepositEvent(
+            event_type=VaultEventType.vault_deposit,
+            vault_address="0xabc",
+            user_address="0x123",
+            usdc=Decimal("1000"),
+            timestamp=datetime(2025, 12, 15, 10, 0, 0),
+        ),
+        VaultDepositEvent(
+            event_type=VaultEventType.vault_deposit,
+            vault_address="0xabc",
+            user_address="0x456",
+            usdc=Decimal("500"),
+            timestamp=datetime(2025, 12, 15, 14, 0, 0),
+        ),
+        VaultDepositEvent(
+            event_type=VaultEventType.vault_withdraw,
+            vault_address="0xabc",
+            user_address="0x789",
+            usdc=Decimal("-200"),
+            timestamp=datetime(2025, 12, 16, 9, 0, 0),
+        ),
+        # Distribution event — should be ignored by aggregate_daily_flows
+        VaultDepositEvent(
+            event_type=VaultEventType.vault_distribution,
+            vault_address="0xabc",
+            user_address=None,
+            usdc=Decimal("50"),
+            timestamp=datetime(2025, 12, 16, 12, 0, 0),
+        ),
+    ]
+
+    flows = aggregate_daily_flows(events)
+
+    from datetime import date
+
+    assert date(2025, 12, 15) in flows
+    assert flows[date(2025, 12, 15)] == (2, 0, 1500.0, 0.0)
+
+    assert date(2025, 12, 16) in flows
+    assert flows[date(2025, 12, 16)] == (0, 1, 0.0, 200.0)
+
+    # Distribution event should not create an entry on its own
+    assert len(flows) == 2

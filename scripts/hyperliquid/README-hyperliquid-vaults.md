@@ -76,21 +76,25 @@ in the Hyperliquid docs.
 See `constants.py` for storage.
 
 ```
-vault_metadata                     vault_daily_prices
-==============                     ==================
-vault_address    VARCHAR PK        vault_address      VARCHAR  \
-name             VARCHAR           date               DATE      > composite PK
-leader           VARCHAR           share_price        DOUBLE
-description      VARCHAR           tvl                DOUBLE
-is_closed        BOOLEAN           cumulative_pnl     DOUBLE
-allow_deposits   BOOLEAN           daily_pnl          DOUBLE
-commission_rate  DOUBLE            daily_return       DOUBLE
-follower_count   INTEGER           follower_count     INTEGER
-tvl              DOUBLE            apr                DOUBLE
-apr              DOUBLE            is_closed          BOOLEAN
-create_time      TIMESTAMP         allow_deposits     BOOLEAN
-last_updated     TIMESTAMP         leader_fraction    DOUBLE
-                                   leader_commission  DOUBLE
+vault_metadata                        vault_daily_prices
+==============                        ==================
+vault_address           VARCHAR PK    vault_address            VARCHAR  \
+name                    VARCHAR       date                     DATE      > composite PK
+leader                  VARCHAR       share_price              DOUBLE
+description             VARCHAR       tvl                      DOUBLE
+is_closed               BOOLEAN       cumulative_pnl           DOUBLE
+allow_deposits          BOOLEAN       daily_pnl                DOUBLE
+commission_rate         DOUBLE        daily_return             DOUBLE
+follower_count          INTEGER       follower_count           INTEGER
+tvl                     DOUBLE        apr                      DOUBLE
+apr                     DOUBLE        is_closed                BOOLEAN
+create_time             TIMESTAMP     allow_deposits           BOOLEAN
+last_updated            TIMESTAMP     leader_fraction          DOUBLE
+flow_data_earliest_date DATE          leader_commission        DOUBLE
+                                      daily_deposit_count      INTEGER
+                                      daily_withdrawal_count   INTEGER
+                                      daily_deposit_usd        DOUBLE
+                                      daily_withdrawal_usd     DOUBLE
 ```
 
 ### Fees
@@ -171,6 +175,55 @@ The cleaned Parquet gains these extra columns. For EVM vaults they are `NA`:
 - `daily_pnl` -- daily PnL in USD
 - `leader_fraction` -- leader's capital share of the vault (e.g. 0.10 = 10%), latest row only
 - `leader_commission` -- leader commission value from the API (semantics unclear), latest row only
+- `daily_deposit_count` -- number of deposit events on that day
+- `daily_withdrawal_count` -- number of withdrawal events on that day
+- `daily_deposit_usd` -- total USD deposited on that day
+- `daily_withdrawal_usd` -- total USD withdrawn on that day (positive value)
+
+### Deposit/withdrawal netflow metrics
+
+The pipeline tracks daily deposit and withdrawal flows per vault using the
+Hyperliquid `userNonFundingLedgerUpdates` API. These are aggregated into
+`NetflowMetrics` dataclasses with 1d, 7d, and 30d periods in the JSON output.
+
+Flow data is only fetched for **complete days** (up to yesterday 23:59:59 UTC)
+to avoid partial-day artefacts. The backfill window is controlled by the
+`FLOW_BACKFILL_DAYS` environment variable (default 7). Each scan fills the
+most recent N complete days and uses `COALESCE` upserts so older data is never
+overwritten with NULL.
+
+The `flow_data_earliest_date` column in `vault_metadata` tracks how far back
+flow data has been backfilled per vault.
+
+Chains that do not support netflow (all EVM chains) will have `null` for the
+`netflow` field in the JSON output.
+
+## Backfilling netflow data for existing vaults
+
+If you have an existing DuckDB database and want to backfill deposit/withdrawal
+flow data further back than the default 7 days, use `FLOW_BACKFILL_DAYS`:
+
+```shell
+# Backfill 90 days of deposit/withdrawal flow data
+LOG_LEVEL=info FLOW_BACKFILL_DAYS=90 \
+  poetry run python scripts/hyperliquid/daily-vault-metrics.py
+```
+
+For a specific set of vaults:
+
+```shell
+LOG_LEVEL=info FLOW_BACKFILL_DAYS=90 \
+  VAULT_ADDRESSES=0xdfc24b077bc1425ad1dea75bcb6f8158e10df303,0x1e37a337ed460039d1b15bd3bc489de789768d5e \
+  poetry run python scripts/hyperliquid/daily-vault-metrics.py
+```
+
+The backfill is idempotent — running it multiple times will not produce
+duplicates, and existing flow data is preserved via `COALESCE` upserts.
+There is no known API retention limit for `userNonFundingLedgerUpdates`,
+so you can backfill as far as the vault has existed.
+
+After a one-time backfill, set `FLOW_BACKFILL_DAYS` back to 7 (or omit it)
+for regular daily runs to avoid unnecessary API calls.
 
 ## Quick start example
 
@@ -327,6 +380,7 @@ for v in data['vaults'][:5]:
 | `MIN_TVL` | `5000` | Minimum TVL in USD to include a vault |
 | `MAX_VAULTS` | `500` | Maximum number of vaults to process |
 | `MAX_WORKERS` | `16` | Parallel worker threads for API calls |
+| `FLOW_BACKFILL_DAYS` | `7` | Number of complete days to backfill deposit/withdrawal flow data |
 | `VAULT_DB_PATH` | `~/.tradingstrategy/vaults/vault-metadata-db.pickle` | ERC-4626 VaultDatabase pickle to merge into |
 | `PARQUET_PATH` | `~/.tradingstrategy/vaults/cleaned-vault-prices-1h.parquet` | Cleaned Parquet to merge into |
 
@@ -335,6 +389,7 @@ for v in data['vaults'][:5]:
 | Module | Role |
 |--------|------|
 | `eth_defi/hyperliquid/daily_metrics.py` | DuckDB storage, share price computation, parallel scanning |
+| `eth_defi/hyperliquid/deposit.py` | Deposit/withdrawal event fetching and daily flow aggregation |
 | `eth_defi/hyperliquid/vault_data_export.py` | Bridge to ERC-4626 pipeline (VaultRow builder, Parquet/pickle merge) |
 | `eth_defi/hyperliquid/combined_analysis.py` | `_calculate_share_price()` -- time-weighted return logic |
 | `eth_defi/hyperliquid/vault.py` | API client (`fetch_all_vaults`, `HyperliquidVault`, `VaultInfo`) |

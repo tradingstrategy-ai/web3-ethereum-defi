@@ -249,6 +249,10 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
             "errors": "",
             "leader_fraction": prices_df["leader_fraction"].values if "leader_fraction" in prices_df.columns else float("nan"),
             "leader_commission": prices_df["leader_commission"].values if "leader_commission" in prices_df.columns else float("nan"),
+            "daily_deposit_count": prices_df["daily_deposit_count"].values if "daily_deposit_count" in prices_df.columns else float("nan"),
+            "daily_withdrawal_count": prices_df["daily_withdrawal_count"].values if "daily_withdrawal_count" in prices_df.columns else float("nan"),
+            "daily_deposit_usd": prices_df["daily_deposit_usd"].values if "daily_deposit_usd" in prices_df.columns else float("nan"),
+            "daily_withdrawal_usd": prices_df["daily_withdrawal_usd"].values if "daily_withdrawal_usd" in prices_df.columns else float("nan"),
         },
     )
 

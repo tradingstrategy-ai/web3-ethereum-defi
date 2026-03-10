@@ -99,5 +99,16 @@ def test_daily_metrics_resume(tmp_path):
         assert "leader_fraction" in second_run_df.columns, "leader_fraction column missing from daily prices"
         assert "leader_commission" in second_run_df.columns, "leader_commission column missing from daily prices"
 
+        # Verify flow columns are present after both runs
+        for col in ["daily_deposit_count", "daily_withdrawal_count", "daily_deposit_usd", "daily_withdrawal_usd"]:
+            assert col in second_run_df.columns, f"{col} column missing from daily prices after resume"
+
+        # Verify that flow data from first run is preserved after resume (COALESCE behaviour).
+        # The backfill window for both runs covers the same dates, so values should
+        # be consistent — not overwritten with NULL.
+        first_run_flow = first_run_df[first_run_df["daily_deposit_count"].notna()]
+        second_run_flow = second_run_df[second_run_df["daily_deposit_count"].notna()]
+        assert len(second_run_flow) >= len(first_run_flow), "Resume should not lose flow data rows"
+
     finally:
         db.close()
