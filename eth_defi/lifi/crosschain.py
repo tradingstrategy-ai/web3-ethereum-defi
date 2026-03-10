@@ -419,19 +419,34 @@ def execute_crosschain_swaps(
 
         tx_request = swap.transaction_request.copy()
 
+        def _parse_int(val) -> int:
+            """Parse a hex string or int from LI.FI response."""
+            if isinstance(val, str):
+                return int(val, 16) if val.startswith("0x") else int(val)
+            return int(val)
+
         # Convert hex strings from LI.FI response to int where needed
         tx = {
             "from": wallet.address,
             "to": Web3.to_checksum_address(tx_request["to"]),
             "data": tx_request["data"],
-            "value": int(tx_request.get("value", "0"), 16) if isinstance(tx_request.get("value"), str) else int(tx_request.get("value", 0)),
+            "value": _parse_int(tx_request.get("value", 0)),
             "chainId": swap.source_chain_id,
         }
 
-        # Use gas limit from the quote if provided
-        gas_limit = tx_request.get("gasLimit")
-        if gas_limit:
-            tx["gas"] = int(gas_limit, 16) if isinstance(gas_limit, str) else int(gas_limit)
+        # Gas limit
+        if "gasLimit" in tx_request:
+            tx["gas"] = _parse_int(tx_request["gasLimit"])
+
+        # Gas pricing — EIP-1559 or legacy
+        if "maxFeePerGas" in tx_request:
+            tx["maxFeePerGas"] = _parse_int(tx_request["maxFeePerGas"])
+            tx["maxPriorityFeePerGas"] = _parse_int(tx_request.get("maxPriorityFeePerGas", 0))
+        elif "gasPrice" in tx_request:
+            tx["gasPrice"] = _parse_int(tx_request["gasPrice"])
+        else:
+            # Fallback: fetch current gas price from the node
+            tx["gasPrice"] = source_web3.eth.gas_price
 
         signed_tx = wallet.sign_transaction_with_new_nonce(tx)
 
