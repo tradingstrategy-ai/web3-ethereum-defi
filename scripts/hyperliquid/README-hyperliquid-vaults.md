@@ -205,8 +205,7 @@ flow data further back than the default 7 days, use `FLOW_BACKFILL_DAYS`:
 
 ```shell
 # Backfill 90 days of deposit/withdrawal flow data
-LOG_LEVEL=info FLOW_BACKFILL_DAYS=90 \
-  poetry run python scripts/hyperliquid/daily-vault-metrics.py
+LOG_LEVEL=info FLOW_BACKFILL_DAYS=90 python scripts/hyperliquid/daily-vault-metrics.py
 ```
 
 For a specific set of vaults:

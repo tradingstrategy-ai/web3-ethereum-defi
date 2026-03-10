@@ -1,36 +1,50 @@
 {
-    "[python]": {
-        "editor.defaultFormatter": "charliermarsh.ruff",
-        "editor.formatOnSave": true,
-        "editor.formatOnPaste": false,
-        "editor.codeActionsOnSave": {
-            "source.organizeImports": "explicit"
-        }
-    },
-    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-    "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true,
-    "search.exclude": {
-        "**/contracts": true,
-        "**/node_modules": true,
-        "**/dist": true,
-        "**/.git": true,
-        "**/docs/build": true    
-    },
-    "python.analysis.exclude": [
-        "**/.venv"
-    ],
-    "python.analysis.include": [
-        "**/eth_defi",
-        "**/tests",
-        "**scripts"
-    ],
-    "python.analysis.diagnosticMode": "workspace",
-    "[markdown]": {
-        "editor.defaultFormatter": null,
-         "editor.formatOnSave": false
-    },
-    "chat.tools.terminal.autoApprove": {
-        "poetry": true
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": false,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
     }
+  },
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "search.exclude": {
+    "**/contracts": true,
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.git": true,
+    "**/docs/build": true
+  },
+  "python.analysis.exclude": ["**/.venv"],
+  "python.analysis.include": ["**/eth_defi", "**/tests", "**scripts"],
+  "python.analysis.diagnosticMode": "workspace",
+  "[markdown]": {
+    "editor.defaultFormatter": null,
+    "editor.formatOnSave": false
+  },
+  "chat.tools.terminal.autoApprove": {
+    "poetry": true
+  },
+  "workbench.colorCustomizations": {
+    "activityBar.activeBackground": "#00bb00",
+    "activityBar.background": "#00bb00",
+    "activityBar.foreground": "#e7e7e7",
+    "activityBar.inactiveForeground": "#e7e7e799",
+    "activityBarBadge.background": "#4040ff",
+    "activityBarBadge.foreground": "#e7e7e7",
+    "commandCenter.border": "#e7e7e799",
+    "sash.hoverBorder": "#00bb00",
+    "statusBar.background": "#008800",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#00bb00",
+    "statusBarItem.remoteBackground": "#008800",
+    "statusBarItem.remoteForeground": "#e7e7e7",
+    "titleBar.activeBackground": "#008800",
+    "titleBar.activeForeground": "#e7e7e7",
+    "titleBar.inactiveBackground": "#00880099",
+    "titleBar.inactiveForeground": "#e7e7e799"
+  },
+  "peacock.color": "008800"
 }
