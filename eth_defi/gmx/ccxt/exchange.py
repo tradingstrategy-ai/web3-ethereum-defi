@@ -363,6 +363,14 @@ class GMX(ExchangeCompatible):
         "APE_DEPRECATED",
     }
 
+    @property
+    def _gas_payer_address(self) -> str:
+        """Return the address that pays gas fees.
+
+        In Lagoon mode this is the asset manager, not the Safe.
+        """
+        return getattr(self.wallet, "gas_address", self.wallet.address)
+
     def __init__(
         self,
         config: GMXConfig | None = None,
@@ -4922,7 +4930,9 @@ class GMX(ExchangeCompatible):
             if amount and amount > 0:
                 from ccxt.base.errors import InvalidOrder
 
-                raise InvalidOrder(f"Cannot use both 'size_usd' ({params['size_usd']}) and non-zero 'amount' ({amount}) together. Use either: (1) 'size_usd' in params for direct USD sizing (recommended), or (2) 'amount' for base currency sizing (will be multiplied by price). Recommendation: Use 'size_usd' with amount=0 for precise USD-denominated positions.")
+                raise InvalidOrder(
+                    f"Cannot use both 'size_usd' ({params['size_usd']}) and non-zero 'amount' ({amount}) together. Use either: (1) 'size_usd' in params for direct USD sizing (recommended), or (2) 'amount' for base currency sizing (will be multiplied by price). Recommendation: Use 'size_usd' with amount=0 for precise USD-denominated positions."
+                )
             size_delta_usd = params["size_usd"]
             logger.debug("ORDER_TRACE: Using size_usd=%s from params", size_delta_usd)
 
@@ -5158,10 +5168,9 @@ class GMX(ExchangeCompatible):
         native_price_usd = None
         if gas_config and gas_config.enabled and monitor:
             try:
-                gas_from_addr = getattr(self.wallet, "gas_address", self.wallet.address)
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=sltp_result.transaction,
-                    from_addr=gas_from_addr,
+                    from_addr=self._gas_payer_address,
                 )
                 monitor.log_gas_estimate(gas_estimate, "GMX SL/TP order")
                 native_price_usd = gas_estimate.native_price_usd
@@ -5413,10 +5422,9 @@ class GMX(ExchangeCompatible):
         native_price_usd = None
         if gas_config and gas_config.enabled and monitor:
             try:
-                gas_from_addr = getattr(self.wallet, "gas_address", self.wallet.address)
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=result.transaction,
-                    from_addr=gas_from_addr,
+                    from_addr=self._gas_payer_address,
                 )
                 monitor.log_gas_estimate(gas_estimate, f"GMX {type} order")
                 native_price_usd = gas_estimate.native_price_usd
@@ -5866,8 +5874,7 @@ class GMX(ExchangeCompatible):
         gas_config = getattr(self, "_gas_monitor_config", None)
         monitor = self.gas_monitor
         if gas_config and gas_config.enabled and monitor:
-            gas_addr = getattr(self.wallet, "gas_address", self.wallet.address)
-            gas_check = monitor.check_gas_balance(gas_addr)
+            gas_check = monitor.check_gas_balance(self._gas_payer_address)
             if gas_check.status == "critical":
                 monitor.log_gas_check_warning(gas_check)
                 if gas_config.raise_on_critical:
@@ -6400,10 +6407,9 @@ class GMX(ExchangeCompatible):
         native_price_usd = None
         if gas_config and gas_config.enabled and monitor:
             try:
-                gas_from_addr = getattr(self.wallet, "gas_address", self.wallet.address)
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=order_result.transaction,
-                    from_addr=gas_from_addr,
+                    from_addr=self._gas_payer_address,
                 )
                 monitor.log_gas_estimate(gas_estimate, "GMX order")
                 native_price_usd = gas_estimate.native_price_usd
