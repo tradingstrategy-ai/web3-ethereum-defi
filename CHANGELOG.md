@@ -1,5 +1,6 @@
 # Current
 
+- Add: Hyperliquid vault daily deposit/withdrawal netflow metrics with configurable backfill, exported as NetflowMetrics with 1d/7d/30d periods in JSON (2026-03-10)
 - **Add: LI.FI cross-chain gas feeding module for keeping hot wallets funded across EVM chains, with native token and USDC source support (2026-03-10)**
 - Add: `activate_account_sponsored()` for deployer-EOA-funded HyperCore account activation, bypassing Safe routing (2026-03-09)
 - Add: Track Hyperliquid vault `leader_fraction` and `leader_commission` in daily metrics pipeline (2026-03-09)

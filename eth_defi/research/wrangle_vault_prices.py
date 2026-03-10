@@ -55,6 +55,10 @@ VAULT_STATE_COLUMNS = {
     "utilisation": float("nan"),
     "leader_fraction": float("nan"),
     "leader_commission": float("nan"),
+    "daily_deposit_count": float("nan"),
+    "daily_withdrawal_count": float("nan"),
+    "daily_deposit_usd": float("nan"),
+    "daily_withdrawal_usd": float("nan"),
 }
 
 

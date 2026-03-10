@@ -131,6 +131,37 @@ class PeriodMetrics:
     ranking_protocol: int | None = None
 
 
+@dataclass(slots=True)
+class NetflowMetrics:
+    """Deposit and withdrawal flow metrics for a time period.
+
+    Aggregates daily deposit/withdrawal event counts and USD values
+    over a given period (e.g. ``"1d"``, ``"7d"``, ``"30d"``).
+
+    Only available for chains that support vault flow tracking
+    (currently Hyperliquid). For other chains this will be ``None``
+    in the vault record.
+    """
+
+    #: Period label (e.g. ``"1d"``, ``"7d"``, ``"30d"``)
+    period: str
+
+    #: Number of deposit events in the period
+    deposit_count: int = 0
+
+    #: Number of withdrawal events in the period
+    withdrawal_count: int = 0
+
+    #: Total USD deposited in the period
+    deposit_usd: float = 0.0
+
+    #: Total USD withdrawn in the period (positive value)
+    withdrawal_usd: float = 0.0
+
+    #: Net flow (deposit_usd - withdrawal_usd)
+    net_flow_usd: float = 0.0
+
+
 #: Period -> Perioud duration, max sparse sample mismatch
 LOOKBACK_AND_TOLERANCES: dict[Period, tuple[pd.DateOffset, pd.Timedelta]] = {
     "1W": (pd.DateOffset(days=7), pd.Timedelta(days=7 + 5)),
@@ -676,6 +707,68 @@ def _unnullify(x: str | None, default: str = "<unknown>") -> str:
     return x
 
 
+def _calculate_netflow_metrics(
+    prices_df: pd.DataFrame,
+    now_: pd.Timestamp | None = None,
+) -> list[NetflowMetrics] | None:
+    """Aggregate daily deposit/withdrawal flow data into period summaries.
+
+    Computes :py:class:`NetflowMetrics` for 1d, 7d, and 30d periods by
+    summing the daily flow columns in ``prices_df``.
+
+    Only complete days are considered. If the required flow columns are
+    missing or contain no non-null data, returns ``None``.
+
+    :param prices_df:
+        Cleaned price DataFrame with a DatetimeIndex and optional columns
+        ``daily_deposit_count``, ``daily_withdrawal_count``,
+        ``daily_deposit_usd``, ``daily_withdrawal_usd``.
+    :param now_:
+        Reference timestamp for period lookback. Defaults to the last
+        timestamp in the DataFrame.
+    :return:
+        List of :py:class:`NetflowMetrics` for periods 1d, 7d, 30d,
+        or ``None`` if flow data is unavailable.
+    """
+    flow_cols = ["daily_deposit_count", "daily_withdrawal_count", "daily_deposit_usd", "daily_withdrawal_usd"]
+
+    if not all(col in prices_df.columns for col in flow_cols):
+        return None
+
+    # Check if there is any non-null flow data at all
+    has_data = any(prices_df[col].notna().any() for col in flow_cols)
+    if not has_data:
+        return None
+
+    if now_ is None:
+        now_ = prices_df.index.max()
+
+    results = []
+    for period_label, days in [("1d", 1), ("7d", 7), ("30d", 30)]:
+        cutoff = now_ - pd.Timedelta(days=days)
+        mask = prices_df.index > cutoff
+
+        subset = prices_df.loc[mask, flow_cols].dropna(how="all")
+
+        dep_count = int(subset["daily_deposit_count"].sum()) if not subset.empty else 0
+        wd_count = int(subset["daily_withdrawal_count"].sum()) if not subset.empty else 0
+        dep_usd = float(subset["daily_deposit_usd"].sum()) if not subset.empty else 0.0
+        wd_usd = float(subset["daily_withdrawal_usd"].sum()) if not subset.empty else 0.0
+
+        results.append(
+            NetflowMetrics(
+                period=period_label,
+                deposit_count=dep_count,
+                withdrawal_count=wd_count,
+                deposit_usd=dep_usd,
+                withdrawal_usd=wd_usd,
+                net_flow_usd=dep_usd - wd_usd,
+            )
+        )
+
+    return results
+
+
 def calculate_period_metrics(
     period: Period,
     gross_fee_data: FeeData,
@@ -1130,6 +1223,14 @@ def calculate_vault_record(
         if pd.notna(last_val):
             leader_commission = float(last_val)
 
+    # Reference timestamp for period lookback — used by both netflow and
+    # period metric calculations below.
+    now_ = prices_df.index.max()
+
+    # Deposit/withdrawal flow metrics aggregated over 1d, 7d, 30d periods.
+    # Only available for chains with daily flow data (currently Hyperliquid).
+    netflow = _calculate_netflow_metrics(prices_df, now_=now_)
+
     # Vault descriptions from offchain metadata (Euler, Lagoon, etc.)
     description = vault_metadata.get("_description")
     short_description = vault_metadata.get("_short_description")
@@ -1162,7 +1263,6 @@ def calculate_vault_record(
     share_price_hourly = prices_df["share_price"]
     share_price_daily = share_price_hourly.resample("D").last()
     tvl_series = prices_df["total_assets"]
-    now_ = prices_df.index.max()
 
     period_results = []
     for period in LOOKBACK_AND_TOLERANCES.keys():
@@ -1341,6 +1441,8 @@ def calculate_vault_record(
             # Hypercore leader metrics
             "leader_fraction": leader_fraction,
             "leader_commission": leader_commission,
+            # Deposit/withdrawal flow metrics (1d, 7d, 30d)
+            "netflow": netflow,
             # Offchain vault descriptions (Euler, Lagoon, etc.)
             "description": description,
             "short_description": short_description,
@@ -1892,6 +1994,7 @@ def format_lifetime_table(
             "utilisation": "Utilisation",
             "leader_fraction": "Leader fraction",
             "leader_commission": "Leader commission",
+            "netflow": "Netflow",
         }
     )
 

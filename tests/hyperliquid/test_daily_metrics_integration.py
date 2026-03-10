@@ -248,6 +248,28 @@ def test_unified_vault_metrics_json(tmp_path):
         lifetime = [p for p in periods if p["period"] == "lifetime"]
         assert len(lifetime) == 1, f"Missing lifetime period for vault {vault.get('name')}"
 
+    # Hyperliquid vault should have netflow metrics with 1d, 7d, 30d periods
+    assert "netflow" in hl_vault, f"Missing netflow field for Hyperliquid vault"
+    hl_netflow = hl_vault["netflow"]
+    assert hl_netflow is not None, "Hyperliquid vault should have netflow data"
+    assert isinstance(hl_netflow, list), f"Expected netflow to be a list, got {type(hl_netflow)}"
+    assert len(hl_netflow) == 3, f"Expected 3 netflow periods (1d, 7d, 30d), got {len(hl_netflow)}"
+
+    netflow_periods = {nf["period"] for nf in hl_netflow}
+    assert netflow_periods == {"1d", "7d", "30d"}, f"Unexpected netflow periods: {netflow_periods}"
+
+    for nf in hl_netflow:
+        assert "deposit_count" in nf
+        assert "withdrawal_count" in nf
+        assert "deposit_usd" in nf
+        assert "withdrawal_usd" in nf
+        assert "net_flow_usd" in nf
+        assert nf["deposit_count"] >= 0
+        assert nf["withdrawal_count"] >= 0
+
+    # Arbitrum vault has no flow data — netflow should be null
+    assert arb_vault.get("netflow") is None, f"Arbitrum vault should have null netflow, got: {arb_vault.get('netflow')}"
+
 
 @pytest.mark.timeout(120)
 def test_deposit_closed_vault_pipeline(tmp_path):
@@ -313,6 +335,18 @@ def test_deposit_closed_vault_pipeline(tmp_path):
 
         assert latest_row["leader_commission"] is not None, "Latest row should have leader_commission"
         assert historical_rows["leader_commission"].isna().all(), "Historical rows should have leader_commission=NULL"
+
+        # Verify flow columns are present in DuckDB after scan
+        assert "daily_deposit_count" in prices_df_raw.columns, "daily_deposit_count column missing"
+        assert "daily_withdrawal_count" in prices_df_raw.columns, "daily_withdrawal_count column missing"
+        assert "daily_deposit_usd" in prices_df_raw.columns, "daily_deposit_usd column missing"
+        assert "daily_withdrawal_usd" in prices_df_raw.columns, "daily_withdrawal_usd column missing"
+
+        # Verify flow_data_earliest_date is tracked in metadata
+        metadata_df = db.get_all_vault_metadata()
+        vault_meta = metadata_df[metadata_df["vault_address"] == vault_address.lower()]
+        flow_earliest = vault_meta.iloc[0].get("flow_data_earliest_date")
+        assert flow_earliest is not None, "flow_data_earliest_date should be set after scan"
 
         # Step 3: Merge into VaultDatabase and verify _deposit_closed_reason
         merge_into_vault_database(db, vault_db_path)

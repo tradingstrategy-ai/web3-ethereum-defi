@@ -40,6 +40,7 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.hyperliquid.combined_analysis import _calculate_share_price
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE
+from eth_defi.hyperliquid.deposit import aggregate_daily_flows, fetch_vault_deposits
 from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.hyperliquid.vault import (
     HyperliquidVault,
@@ -263,6 +264,24 @@ class HyperliquidDailyMetricsDatabase:
         except duckdb.CatalogException:
             pass
 
+        # Migration for existing databases: add daily deposit/withdrawal flow columns
+        for col, col_type in [
+            ("daily_deposit_count", "INTEGER"),
+            ("daily_withdrawal_count", "INTEGER"),
+            ("daily_deposit_usd", "DOUBLE"),
+            ("daily_withdrawal_usd", "DOUBLE"),
+        ]:
+            try:
+                self.con.execute(f"ALTER TABLE vault_daily_prices ADD COLUMN {col} {col_type}")
+            except duckdb.CatalogException:
+                pass
+
+        # Migration for existing databases: track how far back flow data has been backfilled
+        try:
+            self.con.execute("ALTER TABLE vault_metadata ADD COLUMN flow_data_earliest_date DATE")
+        except duckdb.CatalogException:
+            pass
+
     def upsert_vault_metadata(
         self,
         vault_address: HexAddress,
@@ -277,19 +296,23 @@ class HyperliquidDailyMetricsDatabase:
         tvl: float | None,
         apr: float | None,
         allow_deposits: bool = True,
+        flow_data_earliest_date: datetime.date | None = None,
     ):
         """Insert or update a vault's metadata.
 
         :param vault_address:
             Vault address (will be lowercased).
+        :param flow_data_earliest_date:
+            Earliest date for which daily deposit/withdrawal flow data
+            has been backfilled. ``None`` means no flow data yet.
         """
         self.con.execute(
             """
             INSERT INTO vault_metadata (
                 vault_address, name, leader, description, is_closed,
                 allow_deposits, relationship_type, create_time, commission_rate,
-                follower_count, tvl, apr, last_updated
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                follower_count, tvl, apr, last_updated, flow_data_earliest_date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (vault_address)
             DO UPDATE SET
                 name = EXCLUDED.name,
@@ -303,7 +326,8 @@ class HyperliquidDailyMetricsDatabase:
                 follower_count = EXCLUDED.follower_count,
                 tvl = EXCLUDED.tvl,
                 apr = EXCLUDED.apr,
-                last_updated = EXCLUDED.last_updated
+                last_updated = EXCLUDED.last_updated,
+                flow_data_earliest_date = COALESCE(EXCLUDED.flow_data_earliest_date, vault_metadata.flow_data_earliest_date)
             """,
             [
                 vault_address.lower(),
@@ -319,6 +343,7 @@ class HyperliquidDailyMetricsDatabase:
                 tvl,
                 apr,
                 native_datetime_utc_now(),
+                flow_data_earliest_date,
             ],
         )
 
@@ -330,13 +355,21 @@ class HyperliquidDailyMetricsDatabase:
         """Bulk upsert daily price rows for a vault.
 
         :param rows:
-            List of tuples: (vault_address, date, share_price, tvl,
+            List of tuples: ``(vault_address, date, share_price, tvl,
             cumulative_pnl, daily_pnl, daily_return, follower_count, apr,
-            is_closed, allow_deposits, leader_fraction, leader_commission).
+            is_closed, allow_deposits, leader_fraction, leader_commission,
+            daily_deposit_count, daily_withdrawal_count,
+            daily_deposit_usd, daily_withdrawal_usd)``.
+
             The ``is_closed``, ``allow_deposits``, ``leader_fraction``, and
             ``leader_commission`` fields should be ``None`` for historical rows
             and only set for the latest (today's) row, so that we track how
             these values evolve over time.
+
+            The flow columns (``daily_deposit_count`` etc.) should be ``None``
+            for dates outside the backfill window and ``0`` for dates with
+            no activity within the backfill window. ``COALESCE`` preserves
+            existing values when ``None`` is passed.
         :param cutoff_date:
             If provided, only store rows up to this date (inclusive).
             Used for incremental scanning / testing.
@@ -352,8 +385,10 @@ class HyperliquidDailyMetricsDatabase:
             INSERT INTO vault_daily_prices (
                 vault_address, date, share_price, tvl, cumulative_pnl,
                 daily_pnl, daily_return, follower_count, apr,
-                is_closed, allow_deposits, leader_fraction, leader_commission
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                is_closed, allow_deposits, leader_fraction, leader_commission,
+                daily_deposit_count, daily_withdrawal_count,
+                daily_deposit_usd, daily_withdrawal_usd
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (vault_address, date)
             DO UPDATE SET
                 share_price = EXCLUDED.share_price,
@@ -366,7 +401,11 @@ class HyperliquidDailyMetricsDatabase:
                 is_closed = COALESCE(EXCLUDED.is_closed, vault_daily_prices.is_closed),
                 allow_deposits = COALESCE(EXCLUDED.allow_deposits, vault_daily_prices.allow_deposits),
                 leader_fraction = COALESCE(EXCLUDED.leader_fraction, vault_daily_prices.leader_fraction),
-                leader_commission = COALESCE(EXCLUDED.leader_commission, vault_daily_prices.leader_commission)
+                leader_commission = COALESCE(EXCLUDED.leader_commission, vault_daily_prices.leader_commission),
+                daily_deposit_count = COALESCE(EXCLUDED.daily_deposit_count, vault_daily_prices.daily_deposit_count),
+                daily_withdrawal_count = COALESCE(EXCLUDED.daily_withdrawal_count, vault_daily_prices.daily_withdrawal_count),
+                daily_deposit_usd = COALESCE(EXCLUDED.daily_deposit_usd, vault_daily_prices.daily_deposit_usd),
+                daily_withdrawal_usd = COALESCE(EXCLUDED.daily_withdrawal_usd, vault_daily_prices.daily_withdrawal_usd)
             """,
             rows,
         )
@@ -496,6 +535,7 @@ def fetch_and_store_vault(
     summary: VaultSummary,
     cutoff_date: datetime.date | None = None,
     timeout: float = 30.0,
+    flow_backfill_days: int = 7,
 ) -> bool:
     """Fetch a single vault's details and store metrics in the database.
 
@@ -509,6 +549,10 @@ def fetch_and_store_vault(
         If provided, only store price data up to this date.
     :param timeout:
         HTTP request timeout.
+    :param flow_backfill_days:
+        Number of complete days to backfill deposit/withdrawal flow data.
+        Only complete days are fetched (up to yesterday). Set to ``0``
+        to disable flow fetching.
     :return:
         True if the vault was successfully processed.
     """
@@ -537,12 +581,50 @@ def fetch_and_store_vault(
         logger.debug("Skipping vault %s (%s): empty combined DataFrame", summary.name, vault_address)
         return False
 
+    # Fetch deposit/withdrawal events for flow metrics.
+    # Only fetch complete days (up to yesterday 23:59:59 UTC).
+    daily_flows: dict[datetime.date, tuple[int, int, float, float]] = {}
+    flow_start_date: datetime.date | None = None
+
+    if flow_backfill_days > 0:
+        today = datetime.date.today()
+        yesterday = today - datetime.timedelta(days=1)
+        flow_start_date = today - datetime.timedelta(days=flow_backfill_days)
+        flow_start_dt = datetime.datetime(flow_start_date.year, flow_start_date.month, flow_start_date.day)
+        flow_end_dt = datetime.datetime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59)
+
+        try:
+            events = list(
+                fetch_vault_deposits(
+                    session,
+                    vault_address,
+                    start_time=flow_start_dt,
+                    end_time=flow_end_dt,
+                    timeout=timeout,
+                )
+            )
+            daily_flows = aggregate_daily_flows(events)
+            logger.debug(
+                "Fetched %d deposit events for %s (%s), %d days with activity",
+                len(events),
+                summary.name,
+                vault_address,
+                len(daily_flows),
+            )
+        except Exception as e:
+            logger.warning("Failed to fetch deposit events for %s (%s): %s", summary.name, vault_address, e)
+
     # Store metadata
     follower_count = len(info.followers)
     commission_rate = float(info.commission_rate) if info.commission_rate is not None else None
     leader_fraction = float(info.leader_fraction) if info.leader_fraction is not None else None
     leader_commission = float(info.leader_commission) if info.leader_commission is not None else None
     apr_val = float(summary.apr) if summary.apr is not None else None
+
+    # Determine earliest flow data date for this vault.
+    # Use the backfill start date, or if we already have earlier data,
+    # keep the existing earliest date (handled by COALESCE in upsert).
+    flow_data_earliest_date = flow_start_date
 
     db.upsert_vault_metadata(
         vault_address=vault_address,
@@ -557,11 +639,17 @@ def fetch_and_store_vault(
         tvl=float(summary.tvl),
         apr=apr_val,
         allow_deposits=info.allow_deposits,
+        flow_data_earliest_date=flow_data_earliest_date,
     )
 
     # Build daily price rows.
     # Only the latest row gets the current deposit status from the API;
     # historical rows get None so we track how status evolves over time.
+    #
+    # Flow columns: for dates within the backfill window, store 0 for
+    # days with no events (confirmed zero activity). For dates outside
+    # the backfill window, store None (preserves existing values via
+    # COALESCE in upsert).
     last_idx = len(combined_df) - 1
     rows = []
     prev_share_price = None
@@ -591,6 +679,16 @@ def fetch_and_store_vault(
             row_leader_fraction = None
             row_leader_commission = None
 
+        # Flow data: only populate for dates within the backfill window
+        if flow_start_date is not None and flow_start_date <= date_val <= (datetime.date.today() - datetime.timedelta(days=1)):
+            flow = daily_flows.get(date_val, (0, 0, 0.0, 0.0))
+            dep_count, wd_count, dep_usd, wd_usd = flow
+        else:
+            dep_count = None
+            wd_count = None
+            dep_usd = None
+            wd_usd = None
+
         rows.append(
             (
                 vault_address,
@@ -606,6 +704,10 @@ def fetch_and_store_vault(
                 row_allow_deposits,
                 row_leader_fraction,
                 row_leader_commission,
+                dep_count,
+                wd_count,
+                dep_usd,
+                wd_usd,
             )
         )
 
@@ -621,9 +723,17 @@ def _process_vault_worker(
     summary: VaultSummary,
     cutoff_date: datetime.date | None,
     timeout: float,
+    flow_backfill_days: int,
 ) -> bool:
     """Worker function for parallel vault processing."""
-    return fetch_and_store_vault(session, db, summary, cutoff_date=cutoff_date, timeout=timeout)
+    return fetch_and_store_vault(
+        session,
+        db,
+        summary,
+        cutoff_date=cutoff_date,
+        timeout=timeout,
+        flow_backfill_days=flow_backfill_days,
+    )
 
 
 def run_daily_scan(
@@ -635,13 +745,15 @@ def run_daily_scan(
     cutoff_date: datetime.date | None = None,
     timeout: float = 30.0,
     vault_addresses: list[str] | None = None,
+    flow_backfill_days: int = 7,
 ) -> HyperliquidDailyMetricsDatabase:
     """Run the daily Hyperliquid vault metrics scan.
 
     1. Bulk-fetches all vaults from stats-data API
     2. Filters by TVL and vault limit (or by explicit address list)
     3. Fetches per-vault details and computes share prices
-    4. Stores everything in DuckDB
+    4. Fetches deposit/withdrawal events for flow metrics
+    5. Stores everything in DuckDB
 
     :param session:
         HTTP session with rate limiting.
@@ -664,10 +776,15 @@ def run_daily_scan(
     :param vault_addresses:
         If provided, only scan these specific vault addresses.
         Overrides ``min_tvl`` and ``max_vaults`` filters.
+    :param flow_backfill_days:
+        Number of complete days to backfill deposit/withdrawal flow data.
+        Only complete days are fetched (up to yesterday). Set to ``0``
+        to disable flow fetching. Use a large value (e.g. ``365``) for
+        initial deep backfill.
     :return:
         The metrics database instance.
     """
-    logger.info("Starting daily Hyperliquid vault scan")
+    logger.info("Starting daily Hyperliquid vault scan (flow_backfill_days=%d)", flow_backfill_days)
 
     db = HyperliquidDailyMetricsDatabase(db_path)
 
@@ -708,7 +825,7 @@ def run_daily_scan(
 
     # Fetch details and compute prices in parallel
     desc = "Fetching Hyperliquid vault details"
-    results = Parallel(n_jobs=max_workers, backend="threading")(delayed(_process_vault_worker)(session, db, summary, cutoff_date, timeout) for summary in tqdm(filtered, desc=desc))
+    results = Parallel(n_jobs=max_workers, backend="threading")(delayed(_process_vault_worker)(session, db, summary, cutoff_date, timeout, flow_backfill_days) for summary in tqdm(filtered, desc=desc))
 
     success_count = sum(1 for r in results if r)
     fail_count = sum(1 for r in results if not r)

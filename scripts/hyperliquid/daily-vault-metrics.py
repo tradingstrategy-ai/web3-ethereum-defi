@@ -79,6 +79,8 @@ def main():
     max_vaults = int(os.environ.get("MAX_VAULTS", "20000"))
     max_workers = int(os.environ.get("MAX_WORKERS", "16"))
 
+    flow_backfill_days = int(os.environ.get("FLOW_BACKFILL_DAYS", "7"))
+
     vault_db_path_str = os.environ.get("VAULT_DB_PATH")
     vault_db_path = Path(vault_db_path_str).expanduser() if vault_db_path_str else DEFAULT_VAULT_DATABASE
 
@@ -93,6 +95,7 @@ def main():
         print(f"Min TVL: ${min_tvl:,.0f}")
         print(f"Max vaults: {max_vaults}")
     print(f"Max workers: {max_workers}")
+    print(f"Flow backfill days: {flow_backfill_days}")
     print(f"VaultDB path: {vault_db_path}")
     print(f"Uncleaned parquet path: {uncleaned_path}")
 
@@ -108,6 +111,7 @@ def main():
         max_vaults=max_vaults,
         max_workers=max_workers,
         vault_addresses=vault_addresses,
+        flow_backfill_days=flow_backfill_days,
     )
 
     try:
