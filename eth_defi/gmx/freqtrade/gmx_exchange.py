@@ -269,20 +269,44 @@ class Gmx(Exchange):
         """
         exchange_config: dict = self._config.get("exchange", {})
         ccxt_options: dict = exchange_config.get("ccxt_config", {}).get("options", {})
-        vault_address: HexAddress | None = Web3.to_checksum_address(
+
+        logger.info(
+            "Lagoon init: ccxt_options keys=%s, vaultAddress raw=%r",
+            list(ccxt_options.keys()),
             ccxt_options.get("vaultAddress"),
         )
 
+        raw_vault = ccxt_options.get("vaultAddress")
+        if not raw_vault:
+            logger.info("Lagoon init: no vaultAddress in ccxt_options, skipping lagoon mode")
+            return
+
+        try:
+            vault_address: HexAddress | None = Web3.to_checksum_address(raw_vault)
+        except Exception as e:
+            logger.error("Lagoon init: Web3.to_checksum_address(%r) failed: %s", raw_vault, e)
+            return
+
+        logger.info("Lagoon init: vault_address=%s", vault_address)
+
         if not vault_address:
+            logger.info("Lagoon init: vault_address is falsy after checksum, skipping")
             return
 
         forward_eth: bool = exchange_config.get("lagoon_forward_eth", True)
         gas_buffer: int = exchange_config.get("lagoon_gas_buffer", 500_000)
         auto_approve: bool = exchange_config.get("lagoon_auto_approve", True)
 
+        logger.info(
+            "Lagoon init: forward_eth=%s, gas_buffer=%s, auto_approve=%s",
+            forward_eth, gas_buffer, auto_approve,
+        )
+
         gmx_api: GMXAPI = self._api
         web3: Web3 = gmx_api.web3
         hot_wallet: HotWallet = gmx_api.wallet
+
+        logger.info("Lagoon init: hot_wallet=%s", hot_wallet)
 
         if hot_wallet is None:
             msg = "privateKey must be provided in ccxt_config when using a Lagoon vault. The private key is the asset manager's signing key."
@@ -294,12 +318,21 @@ class Gmx(Exchange):
 
         # Build LagoonVault — module address is discovered from the Safe below.
         chain_id = web3.eth.chain_id
+        logger.info("Lagoon init: chain_id=%s, creating VaultSpec and LagoonVault", chain_id)
         vault_spec = VaultSpec(chain_id, vault_address)
         vault = LagoonVault(web3, vault_spec)
 
         # Auto-discover TradingStrategyModuleV0 from the Safe's enabled Zodiac modules.
-        vault_info = vault.fetch_info()
+        logger.info("Lagoon init: calling vault.fetch_info()...")
+        try:
+            vault_info = vault.fetch_info()
+        except Exception as e:
+            logger.error("Lagoon init: vault.fetch_info() FAILED: %s", e, exc_info=True)
+            raise
+
+        logger.info("Lagoon init: vault_info keys=%s", list(vault_info.keys()))
         modules = vault_info.get("modules", [])
+        logger.info("Lagoon init: modules=%s", modules)
         if not modules:
             msg = f"Lagoon vault {vault_address}: Safe has no Zodiac modules enabled. Deploy and enable TradingStrategyModuleV0 first."
             raise OperationalException(msg)
@@ -322,11 +355,13 @@ class Gmx(Exchange):
 
         # The Safe address is the GMX trading account (holds collateral and positions).
         safe_address = vault.safe_address
+        logger.info("Lagoon init: safe_address=%s", safe_address)
 
         # Replace wallet on the CCXT adapter.
         gmx_api.wallet = lagoon_wallet
         gmx_api._wallet = lagoon_wallet
         gmx_api.wallet_address = safe_address
+        logger.info("Lagoon init: wallet replaced, rebuilding GMXConfig and GMXTrading")
 
         # Rebuild GMXConfig and GMXTrading to target the Safe address.
         gmx_api.config = GMXConfig(

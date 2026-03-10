@@ -152,6 +152,14 @@ class LagoonGMXTradingWallet(BaseWallet):
         """
         return self.vault.safe_address
 
+    @property
+    def gas_address(self) -> HexAddress:
+        """Get the address that pays gas for transactions.
+
+        In lagoon mode, the asset manager pays gas, not the Safe.
+        """
+        return self.asset_manager.address
+
     def get_main_address(self) -> HexAddress:
         """Get the main Ethereum address for this wallet.
 
