@@ -30,7 +30,6 @@ from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.vault import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details
 from eth_defi.utils import setup_console_logging
 
 
@@ -44,12 +43,14 @@ def find_shareholders(
     web3: Web3,
     vault: LagoonVault,
     from_block: int | None = None,
+    verbose: bool = False,
 ) -> dict[HexAddress, Decimal]:
     """Find all share token holders by scanning Transfer events.
 
     :param web3: Web3 instance.
     :param vault: LagoonVault instance.
     :param from_block: Block to start scanning from. Defaults to recent 500k blocks.
+    :param verbose: Print each Transfer event as it is found.
     :return: Dictionary of address -> share balance (only non-zero).
     """
     share_token = vault.share_token
@@ -87,7 +88,8 @@ def find_shareholders(
                 addresses.add(Web3.to_checksum_address(from_addr))
             if to_addr != ZERO_ADDRESS:
                 addresses.add(Web3.to_checksum_address(to_addr))
-            print(f"    Transfer: {from_addr[:10]}... -> {to_addr[:10]}... | {value} | block {block_num}")
+            if verbose:
+                print(f"    Transfer: {from_addr[:10]}... -> {to_addr[:10]}... | {value} | block {block_num}")
 
         block = end_block + 1
 
@@ -122,6 +124,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=None,
         help="Block to start scanning from. Default: last 500k blocks.",
+    )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Print each Transfer event as it is found.",
     )
     parser.add_argument(
         "--rpc-env",
@@ -169,7 +177,7 @@ def main():
     print(f"\nSafe {usdc.symbol} balance: {safe_usdc}")
 
     # Find shareholders
-    holders = find_shareholders(web3, vault, from_block=args.from_block)
+    holders = find_shareholders(web3, vault, from_block=args.from_block, verbose=args.verbose)
 
     if not holders:
         print("\nNo shareholders found. All shares have been redeemed or never minted.")

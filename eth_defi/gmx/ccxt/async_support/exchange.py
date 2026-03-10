@@ -2922,7 +2922,8 @@ class GMX(Exchange):
             # Get current wallet balance for detailed error message
             try:
                 loop = asyncio.get_running_loop()
-                eth_balance = await loop.run_in_executor(None, self.web3.eth.get_balance, self.wallet.address)
+                gas_addr = getattr(self.wallet, "gas_address", self.wallet.address)
+                eth_balance = await loop.run_in_executor(None, self.web3.eth.get_balance, gas_addr)
                 eth_balance_eth = eth_balance / 1e18
                 # Estimate USD value (using $2000/ETH as approximation)
                 eth_balance_usd = eth_balance_eth * 2000

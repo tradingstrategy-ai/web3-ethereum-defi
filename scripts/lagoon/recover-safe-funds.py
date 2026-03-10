@@ -45,7 +45,6 @@ import os
 import sys
 from decimal import Decimal
 
-from eth_account import Account
 from eth_typing import HexAddress
 from web3 import Web3
 
@@ -57,7 +56,6 @@ from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details
 from eth_defi.utils import setup_console_logging
 
 from safe_eth.eth import EthereumClient
@@ -109,6 +107,7 @@ def execute_safe_transaction(
     web3: Web3,
     hot_wallet: HotWallet,
     safe_address: HexAddress,
+    ethereum_client: EthereumClient,
     to: HexAddress,
     data: bytes,
     description: str,
@@ -123,6 +122,7 @@ def execute_safe_transaction(
     :param web3: Web3 instance.
     :param hot_wallet: Safe owner wallet.
     :param safe_address: Gnosis Safe address.
+    :param ethereum_client: Reusable EthereumClient instance.
     :param to: Target contract address.
     :param data: Calldata for the target.
     :param description: Human-readable description.
@@ -134,7 +134,6 @@ def execute_safe_transaction(
     safe_nonce = safe_contract.functions.nonce().call()
 
     # Build SafeTx with zero gas price (we pay gas externally, not from Safe)
-    ethereum_client = EthereumClient(web3.provider.endpoint_uri)
     safe_tx = SafeTx(
         ethereum_client,
         safe_address,
@@ -145,8 +144,8 @@ def execute_safe_transaction(
         safe_tx_gas=0,
         base_gas=0,
         gas_price=0,
-        gas_token=None,
-        refund_receiver=None,
+        gas_token="0x0000000000000000000000000000000000000000",
+        refund_receiver="0x0000000000000000000000000000000000000000",
         safe_nonce=safe_nonce,
     )
 
@@ -155,16 +154,16 @@ def execute_safe_transaction(
 
     # Build the execTransaction call
     bound_func = safe_contract.functions.execTransaction(
-        to,                     # to
-        value,                  # value
-        data,                   # data
-        0,                      # operation (Call)
-        0,                      # safeTxGas
-        0,                      # baseGas
-        0,                      # gasPrice
+        to,  # to
+        value,  # value
+        data,  # data
+        0,  # operation (Call)
+        0,  # safeTxGas
+        0,  # baseGas
+        0,  # gasPrice
         "0x0000000000000000000000000000000000000000",  # gasToken
         "0x0000000000000000000000000000000000000000",  # refundReceiver
-        safe_tx.signatures,     # signatures
+        safe_tx.signatures,  # signatures
     )
 
     gas_price_suggestion = estimate_gas_price(web3)
@@ -229,6 +228,12 @@ Examples:
         help="Only show balances, do not recover.",
     )
     parser.add_argument(
+        "--eth-amount",
+        type=float,
+        default=None,
+        help="ETH amount to recover. Default: all ETH in Safe.",
+    )
+    parser.add_argument(
         "--no-cleanup",
         action="store_true",
         help="Skip removing asset manager from withdraw destinations after transfer.",
@@ -258,6 +263,7 @@ def main():
         sys.exit(1)
 
     web3 = create_multi_provider_web3(json_rpc_url)
+    ethereum_client = EthereumClient(web3.provider.endpoint_uri)
     chain_id = web3.eth.chain_id
     print(f"Connected to chain {chain_id}, block {web3.eth.block_number:,}")
 
@@ -344,8 +350,14 @@ def main():
         raw_recover = usdc.convert_to_raw(recover_amount)
 
     recover_eth = has_eth
-    recover_eth_wei = safe_eth_balance
-    recover_eth_display = web3.from_wei(safe_eth_balance, "ether")
+    if has_eth and args.eth_amount is not None:
+        recover_eth_wei = web3.to_wei(args.eth_amount, "ether")
+        if recover_eth_wei > safe_eth_balance:
+            print(f"\nError: requested {args.eth_amount} ETH but Safe only has {web3.from_wei(safe_eth_balance, 'ether')} ETH.", file=sys.stderr)
+            sys.exit(1)
+    else:
+        recover_eth_wei = safe_eth_balance
+    recover_eth_display = web3.from_wei(recover_eth_wei, "ether")
 
     print(f"\nWill recover:")
     if has_usdc:
@@ -393,6 +405,7 @@ def main():
                 web3=web3,
                 hot_wallet=hot_wallet,
                 safe_address=safe_address,
+                ethereum_client=ethereum_client,
                 to=module_address,
                 data=whitelist_calldata,
                 description=f"allowWithdrawDestination({hot_wallet.address})",
@@ -434,6 +447,7 @@ def main():
             web3=web3,
             hot_wallet=hot_wallet,
             safe_address=safe_address,
+            ethereum_client=ethereum_client,
             to=hot_wallet.address,
             data=b"",
             value=recover_eth_wei,
@@ -454,6 +468,7 @@ def main():
             web3=web3,
             hot_wallet=hot_wallet,
             safe_address=safe_address,
+            ethereum_client=ethereum_client,
             to=module_address,
             data=remove_calldata,
             description=f"removeWithdrawDestination({hot_wallet.address})",

@@ -59,8 +59,6 @@ from eth_defi.erc_4626.vault import ERC4626Feature
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details
-from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.utils import setup_console_logging
 
 
@@ -94,6 +92,10 @@ def broadcast_tx(
     broadcast_and_wait_transactions_to_complete(web3, [tx])
 
     receipt = web3.eth.get_transaction_receipt(tx.hash)
+    if receipt["status"] != 1:
+        print(f"    FAILED! Check tx on explorer.")
+        sys.exit(1)
+
     gas_used = receipt["gasUsed"]
     print(f"    Gas used: {gas_used:,}")
 
