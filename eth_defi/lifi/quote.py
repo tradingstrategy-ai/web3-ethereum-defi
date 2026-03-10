@@ -4,6 +4,7 @@ See `LI.FI API documentation <https://docs.li.fi>`__ for more details.
 """
 
 import logging
+import time
 from dataclasses import dataclass
 from decimal import Decimal
 from pprint import pformat
@@ -11,7 +12,6 @@ from pprint import pformat
 import requests
 
 from eth_defi.lifi.api import LifiAPIError, get_lifi_api_url, get_lifi_headers
-
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,9 @@ class LifiQuote:
     #: Estimated execution duration in seconds
     execution_duration: int | None
 
+    #: Unix timestamp (seconds) when this quote was fetched
+    fetched_at: float
+
     #: Full API response data for reference
     data: dict
 
@@ -64,6 +67,30 @@ class LifiQuote:
             Transaction request dict from LI.FI API
         """
         return self.data.get("transactionRequest", {})
+
+    def get_age_seconds(self) -> float:
+        """Seconds elapsed since this quote was fetched.
+
+        :return:
+            Age of the quote in seconds.
+        """
+        return time.time() - self.fetched_at
+
+    def is_valid(self, max_age_seconds: float = 120) -> bool:
+        """Check if this quote is still fresh enough to execute.
+
+        The LI.FI ``/v1/quote`` endpoint does not return an explicit
+        expiry timestamp. This method uses a time-based heuristic:
+        quotes older than ``max_age_seconds`` are considered stale
+        because gas prices and bridge liquidity change rapidly.
+
+        :param max_age_seconds:
+            Maximum acceptable age in seconds (default 120s)
+
+        :return:
+            True if the quote is younger than ``max_age_seconds``.
+        """
+        return self.get_age_seconds() < max_age_seconds
 
     def __str__(self) -> str:
         return f"LifiQuote(chain {self.source_chain_id} -> {self.target_chain_id}, from_amount={self.from_amount}, est_to_amount={self.estimate_to_amount}, gas_cost=${self.gas_cost_usd})"
@@ -194,5 +221,6 @@ def fetch_lifi_quote(
         estimate_to_amount_min=int(estimate.get("toAmountMin", "0")),
         gas_cost_usd=total_gas_usd,
         execution_duration=estimate.get("executionDuration"),
+        fetched_at=time.time(),
         data=data,
     )

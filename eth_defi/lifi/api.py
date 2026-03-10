@@ -105,6 +105,65 @@ def fetch_lifi_token_price_usd(
     return Decimal(price_usd)
 
 
+def fetch_lifi_status(
+    tx_hash: str,
+    from_chain_id: int | None = None,
+    to_chain_id: int | None = None,
+    api_timeout: float = 30,
+) -> dict:
+    """Fetch the status of a cross-chain transfer from the LI.FI API.
+
+    Uses ``GET /v1/status`` to check whether a bridge transaction has
+    been delivered on the destination chain.
+
+    The response contains a ``status`` field with one of:
+
+    - ``PENDING`` — transfer in progress
+    - ``DONE`` — transfer completed successfully
+    - ``FAILED`` — transfer unsuccessful
+    - ``NOT_FOUND`` — transaction hash not recognised yet
+    - ``INVALID`` — hash not tied to a known bridge
+
+    :param tx_hash:
+        Transaction hash on the source chain (hex string)
+
+    :param from_chain_id:
+        Source chain ID (speeds up lookup)
+
+    :param to_chain_id:
+        Destination chain ID (speeds up lookup)
+
+    :param api_timeout:
+        API request timeout in seconds
+
+    :return:
+        Full status response dict from LI.FI API
+
+    :raise LifiAPIError:
+        If the HTTP request fails
+    """
+    base_url = get_lifi_api_url()
+    url = f"{base_url}/status"
+    headers = get_lifi_headers()
+
+    params = {"txHash": tx_hash}
+    if from_chain_id is not None:
+        params["fromChain"] = str(from_chain_id)
+    if to_chain_id is not None:
+        params["toChain"] = str(to_chain_id)
+
+    logger.debug("Fetching LI.FI status: tx_hash=%s", tx_hash)
+
+    response = requests.get(url, params=params, headers=headers, timeout=api_timeout)
+
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as e:
+        raise LifiAPIError(f"Error fetching LI.FI status for tx {tx_hash}: {response.status_code} {response.text}") from e
+
+    return response.json()
+
+
 def fetch_lifi_native_token_prices(
     chain_ids: list[int],
     api_timeout: float = 30,

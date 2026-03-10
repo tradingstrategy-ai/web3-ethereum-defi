@@ -40,6 +40,7 @@ Example:
 """
 
 import logging
+import time
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -51,7 +52,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.confirmation import broadcast_and_wait_transactions_to_complete
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.hotwallet import HotWallet
-from eth_defi.lifi.api import fetch_lifi_native_token_prices, fetch_lifi_token_price_usd
+from eth_defi.lifi.api import fetch_lifi_native_token_prices, fetch_lifi_status, fetch_lifi_token_price_usd
 from eth_defi.lifi.constants import (
     DEFAULT_MIN_GAS_USD,
     DEFAULT_TOP_UP_GAS_USD,
@@ -119,6 +120,16 @@ class CrossChainSwap:
 
     #: The LI.FI quote used to build this swap
     quote: LifiQuote
+
+    def is_valid(self, max_age_seconds: float = 120) -> bool:
+        """Check if the underlying quote is still fresh enough to execute.
+
+        Delegates to :py:meth:`~eth_defi.lifi.quote.LifiQuote.is_valid`.
+
+        :param max_age_seconds:
+            Maximum acceptable age in seconds (default 120s)
+        """
+        return self.quote.is_valid(max_age_seconds)
 
     def __str__(self) -> str:
         source_name = get_chain_name(self.source_chain_id)
@@ -376,15 +387,28 @@ def prepare_crosschain_swaps(
     return swaps
 
 
+def _parse_int(val) -> int:
+    """Parse a hex string or int from LI.FI response."""
+    if isinstance(val, str):
+        return int(val, 16) if val.startswith("0x") else int(val)
+    return int(val)
+
+
 def execute_crosschain_swaps(
     wallet: HotWallet,
     source_web3: Web3,
     swaps: list[CrossChainSwap],
+    progress: bool = True,
+    max_quote_age_seconds: float = 120,
 ) -> list[CrossChainSwapResult]:
     """Execute prepared cross-chain gas top-up swaps sequentially.
 
     Signs and broadcasts each swap transaction on the source chain.
     Waits for each transaction to confirm before proceeding to the next.
+
+    If a quote is older than ``max_quote_age_seconds`` (checked via
+    :py:meth:`~CrossChainSwap.is_valid`), it is automatically re-fetched
+    before execution.
 
     :param wallet:
         Hot wallet to sign transactions with
@@ -394,6 +418,13 @@ def execute_crosschain_swaps(
 
     :param swaps:
         List of prepared swaps from :py:func:`prepare_crosschain_swaps`
+
+    :param progress:
+        Show a ``tqdm`` progress bar during execution (default ``True``)
+
+    :param max_quote_age_seconds:
+        Maximum acceptable quote age in seconds before re-fetching
+        (default 120s)
 
     :return:
         List of results with transaction hashes
@@ -408,8 +439,18 @@ def execute_crosschain_swaps(
     wallet.sync_nonce(source_web3)
     results = []
 
-    for i, swap in enumerate(swaps):
+    items = enumerate(swaps)
+    if progress:
+        pbar = tqdm(total=len(swaps), desc="Executing cross-chain swaps", unit="swap")
+    else:
+        pbar = None
+
+    for i, swap in items:
         target_name = get_chain_name(swap.target_chain_id)
+
+        if pbar is not None:
+            pbar.set_postfix_str(target_name)
+
         logger.info(
             "Executing swap %d/%d: -> %s ($%.2f)",
             i + 1,
@@ -418,13 +459,41 @@ def execute_crosschain_swaps(
             swap.from_amount_usd,
         )
 
-        tx_request = swap.transaction_request.copy()
+        # Re-fetch quote if it is too old
+        if not swap.is_valid(max_quote_age_seconds):
+            logger.warning(
+                "Quote too old (%.0fs) for chain %s (%s), re-fetching...",
+                swap.quote.get_age_seconds(),
+                swap.target_chain_id,
+                target_name,
+            )
+            quote = fetch_lifi_quote(
+                from_chain_id=swap.source_chain_id,
+                to_chain_id=swap.target_chain_id,
+                from_token=swap.quote.from_token,
+                to_token=swap.quote.to_token,
+                from_amount=swap.from_amount_raw,
+                from_address=wallet.address,
+            )
+            tx_request_new = quote.get_transaction_request()
+            if not tx_request_new:
+                logger.warning("No transaction request in re-fetched quote for chain %s, skipping", swap.target_chain_id)
+                if pbar is not None:
+                    pbar.update(1)
+                continue
+            swap = CrossChainSwap(
+                source_chain_id=swap.source_chain_id,
+                target_chain_id=swap.target_chain_id,
+                from_amount_raw=swap.from_amount_raw,
+                from_amount_usd=swap.from_amount_usd,
+                target_balance_usd=swap.target_balance_usd,
+                min_gas_usd=swap.min_gas_usd,
+                top_up_usd=swap.top_up_usd,
+                transaction_request=tx_request_new,
+                quote=quote,
+            )
 
-        def _parse_int(val) -> int:
-            """Parse a hex string or int from LI.FI response."""
-            if isinstance(val, str):
-                return int(val, 16) if val.startswith("0x") else int(val)
-            return int(val)
+        tx_request = swap.transaction_request.copy()
 
         # Convert hex strings from LI.FI response to int where needed
         tx = {
@@ -460,4 +529,120 @@ def execute_crosschain_swaps(
 
         logger.info("Swap %d/%d confirmed: %s", i + 1, len(swaps), result)
 
+        if pbar is not None:
+            pbar.update(1)
+
+    if pbar is not None:
+        pbar.close()
+
     return results
+
+
+#: LI.FI transfer statuses that indicate the transfer is complete (no more polling needed)
+LIFI_TERMINAL_STATUSES = {"DONE", "FAILED"}
+
+
+def wait_crosschain_swaps(
+    results: list[CrossChainSwapResult],
+    max_wait_seconds: float | None = None,
+    poll_interval: float = 10,
+    progress: bool = True,
+) -> dict[HexBytes, dict]:
+    """Wait for cross-chain bridge transfers to complete on destination chains.
+
+    Polls the LI.FI ``GET /v1/status`` endpoint for each executed swap
+    until all transfers reach a terminal status (``DONE`` or ``FAILED``)
+    or the timeout is reached.
+
+    :param results:
+        List of executed swap results from :py:func:`execute_crosschain_swaps`
+
+    :param max_wait_seconds:
+        Maximum time to wait in seconds. If None, uses 1.5x the maximum
+        ``execution_duration`` across all swaps, with a minimum of 300s.
+
+    :param poll_interval:
+        Seconds between status polls (default 10s)
+
+    :param progress:
+        Show a ``tqdm`` progress bar during waiting (default ``True``)
+
+    :return:
+        Dict mapping tx_hash → final LI.FI status response dict.
+        Each response contains a ``status`` field (``DONE``, ``FAILED``,
+        ``PENDING``, etc.) and optionally a ``receiving`` dict with the
+        destination transaction hash.
+    """
+    if not results:
+        return {}
+
+    # Determine timeout
+    if max_wait_seconds is None:
+        durations = [r.swap.quote.execution_duration for r in results if r.swap.quote.execution_duration]
+        if durations:
+            max_wait_seconds = max(durations) * 1.5
+        else:
+            max_wait_seconds = 300
+        max_wait_seconds = max(max_wait_seconds, 300)
+
+    logger.info("Waiting up to %.0fs for %d cross-chain transfer(s) to complete", max_wait_seconds, len(results))
+
+    # Track which results are still pending
+    pending = {r.tx_hash: r for r in results}
+    statuses: dict[HexBytes, dict] = {}
+
+    if progress:
+        pbar = tqdm(total=len(results), desc="Waiting for bridge transfers", unit="transfer")
+    else:
+        pbar = None
+
+    start_time = time.time()
+
+    while pending and (time.time() - start_time) < max_wait_seconds:
+        for tx_hash, result in list(pending.items()):
+            target_name = get_chain_name(result.swap.target_chain_id)
+
+            if pbar is not None:
+                pbar.set_postfix_str(target_name)
+
+            status_response = fetch_lifi_status(
+                tx_hash=tx_hash.hex(),
+                from_chain_id=result.swap.source_chain_id,
+                to_chain_id=result.swap.target_chain_id,
+            )
+
+            status = status_response.get("status", "NOT_FOUND")
+            statuses[tx_hash] = status_response
+
+            if status in LIFI_TERMINAL_STATUSES:
+                logger.info(
+                    "Transfer to %s: %s (tx: %s)",
+                    target_name,
+                    status,
+                    tx_hash.hex(),
+                )
+                del pending[tx_hash]
+                if pbar is not None:
+                    pbar.update(1)
+            else:
+                logger.debug(
+                    "Transfer to %s: %s (tx: %s)",
+                    target_name,
+                    status,
+                    tx_hash.hex(),
+                )
+
+        if pending:
+            time.sleep(poll_interval)
+
+    # Mark remaining as timed out
+    for tx_hash in pending:
+        if tx_hash not in statuses:
+            statuses[tx_hash] = {"status": "PENDING"}
+        logger.warning("Transfer timed out: %s", tx_hash.hex())
+
+    if pbar is not None:
+        pbar.update(len(pending))
+        pbar.close()
+
+    return statuses

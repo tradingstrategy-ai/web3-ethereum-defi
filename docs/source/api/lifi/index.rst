@@ -42,3 +42,5 @@ Links:
    eth_defi.lifi.constants
    eth_defi.lifi.quote
    eth_defi.lifi.crosschain
+   eth_defi.lifi.top_up
+   eth_defi.lifi.intents
