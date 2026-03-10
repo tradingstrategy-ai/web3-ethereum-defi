@@ -247,6 +247,8 @@ def build_hypercore_deposit_multicall(
     hypercore_usdc_amount: int,
     vault_address: HexAddress | str,
     check_activation: bool = False,
+    chain_id: int | None = None,
+    asset_address: HexAddress | str | None = None,
 ) -> ContractFunction:
     """Build a single multicall transaction for the full Hypercore deposit flow.
 
@@ -312,6 +314,20 @@ def build_hypercore_deposit_multicall(
         Set to ``False`` (default) in simulate/Anvil mode where the
         precompile is not available.
 
+    :param chain_id:
+        Override the chain ID used to look up the ``CoreDepositWallet``
+        address.  When ``None`` (default), derived from
+        ``lagoon_vault.spec.chain_id``.  Pass explicitly when using a
+        :py:class:`~eth_defi.erc_4626.vault_protocol.lagoon.vault.LagoonSatelliteVault`
+        which has no ``.spec`` attribute.
+
+    :param asset_address:
+        Override the USDC token address used for the ``approve`` call.
+        When ``None`` (default), derived from the vault's underlying
+        asset (``lagoon_vault.vault_contract.functions.asset()``).
+        Pass explicitly when using a satellite vault which has no
+        ``.vault_contract`` attribute.
+
     :return:
         Bound ``module.functions.multicall(data)`` ready to ``.transact()``.
 
@@ -327,10 +343,13 @@ def build_hypercore_deposit_multicall(
 
     web3 = lagoon_vault.web3
     module = lagoon_vault.trading_strategy_module
-    chain_id = lagoon_vault.spec.chain_id
 
-    # Derive contract instances from the vault
-    asset_address = lagoon_vault.vault_contract.functions.asset().call()
+    # Allow overriding chain_id and asset_address for satellite vaults
+    # (LagoonSatelliteVault has no .spec or .vault_contract)
+    if chain_id is None:
+        chain_id = lagoon_vault.spec.chain_id
+    if asset_address is None:
+        asset_address = lagoon_vault.vault_contract.functions.asset().call()
     usdc_contract = get_deployed_contract(web3, "centre/ERC20.json", asset_address)
     cdw_address = CORE_DEPOSIT_WALLET[chain_id]
     core_deposit_wallet = get_core_deposit_wallet_contract(web3, cdw_address)
