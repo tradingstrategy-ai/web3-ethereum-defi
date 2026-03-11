@@ -10,9 +10,11 @@ All tests use synthetic data — no AWS or Hyperliquid API access required.
 import datetime
 import io
 
-import lz4.frame
 import pandas as pd
 import pytest
+
+lz4_frame = pytest.importorskip("lz4.frame", reason="lz4 not installed (optional dep)")
+
 
 from eth_defi.hyperliquid.backfill import (
     HyperliquidS3StagingDatabase,
@@ -33,7 +35,7 @@ NON_VAULT = "0xcccccccccccccccccccccccccccccccccccccccc"
 def _make_lz4_csv(rows: list[str], header: str = "time,user,is_vault,account_value,cum_vlm,cum_ledger") -> bytes:
     """Create an LZ4-compressed CSV from rows."""
     csv_text = header + "\n" + "\n".join(rows) + "\n"
-    return lz4.frame.compress(csv_text.encode("utf-8"))
+    return lz4_frame.compress(csv_text.encode("utf-8"))
 
 
 def _write_lz4_file(tmp_path, date: datetime.date, rows: list[str]) -> None:
