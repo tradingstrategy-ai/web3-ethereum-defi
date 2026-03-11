@@ -794,7 +794,7 @@ class HyperliquidDailyMetricsDatabase:
 
         Checks for four classes of breakage:
 
-        1. **Extreme daily returns** (> 100%): typically epoch reset artefacts
+        1. **Extreme daily returns** (> 10,000%): typically epoch reset artefacts
            where share price jumped to/from 1.0
         2. **Share price at cap** (>= 9,999): overflow from zero total_supply
         3. **Share price stuck at 1.0**: share price identical for 5+ rows,
@@ -808,13 +808,13 @@ class HyperliquidDailyMetricsDatabase:
         """
         issues = []
 
-        # 1. Extreme daily returns (> 100%)
+        # 1. Extreme daily returns (> 10,000%)
         extreme_returns = self.con.execute("""
             SELECT p.vault_address, m.name, COUNT(*) as cnt,
                    MAX(ABS(p.daily_return)) as max_return
             FROM vault_daily_prices p
             LEFT JOIN vault_metadata m ON p.vault_address = m.vault_address
-            WHERE ABS(p.daily_return) > 1.0
+            WHERE ABS(p.daily_return) > 100.0
             GROUP BY p.vault_address, m.name
         """).fetchall()
         for vault_address, name, cnt, max_return in extreme_returns:

@@ -224,6 +224,63 @@ so you can backfill as far as the vault has existed.
 After a one-time backfill, set `FLOW_BACKFILL_DAYS` back to 7 (or omit it)
 for regular daily runs to avoid unnecessary API calls.
 
+## Healing share price data
+
+The share price computation has evolved over time. If the production DuckDB
+contains data computed with older logic, run the combined healer to fix it
+**with minimal destruction of historical rows**.
+
+```shell
+# Dry run: detect issues without modifying data
+DRY_RUN=true poetry run python scripts/hyperliquid/heal-all-share-prices.py
+
+# Heal all vaults (offline recomputation + API re-fetch for stuck ones)
+poetry run python scripts/hyperliquid/heal-all-share-prices.py
+
+# Heal and run downstream cleaning pipeline
+RUN_PIPELINE=true poetry run python scripts/hyperliquid/heal-all-share-prices.py
+
+# Heal specific vaults only
+VAULT_ADDRESSES=0x4dec0a851849056e259128464ef28ce78afa27f6 \
+  poetry run python scripts/hyperliquid/heal-all-share-prices.py
+
+# Offline recomputation only (skip API re-fetch)
+SKIP_REFETCH=true poetry run python scripts/hyperliquid/heal-all-share-prices.py
+```
+
+The script runs these steps automatically:
+
+1. **Detect** — scan for broken vaults (epoch resets, stuck prices, etc.)
+2. **Offline recomputation** — recompute share prices from stored
+   `tvl` / `daily_pnl` / `cumulative_pnl` without any API calls or data
+   deletion. Fixes epoch reset artefacts and populates the `epoch_reset`
+   column.
+3. **API re-fetch** — for vaults still stuck at share price 1.0 after
+   the offline fix, delete and re-fetch from the Hyperliquid API with
+   multi-period merge. Only the stuck vaults are re-fetched; all other
+   vaults keep their existing data.
+4. **Verify** — re-run detection and report remaining issues.
+5. **Pipeline** (optional, `RUN_PIPELINE=true`) — push healed data
+   through the downstream cleaning pipeline.
+
+### What each step fixes
+
+| Issue | Step 2 (offline) | Step 3 (API re-fetch) |
+|-------|------------------|-----------------------|
+| Share price jumps to 1.0 at epoch boundaries | Yes | Yes |
+| `epoch_reset` column is NULL | Yes | Yes |
+| Share price at cap (>= 9,999) | Yes | Yes |
+| Share price stuck at 1.0 (daily granularity loss) | No | Yes |
+| Missing data points (multi-period merge) | No | Yes |
+
+### Individual scripts
+
+The combined script replaces the individual scripts, which are still
+available for targeted use:
+
+- `heal-share-prices-offline.py` — offline recomputation only
+- `heal-share-prices.py` — API re-fetch only (for specific vaults)
+
 ## Quick start example
 
 Scan HLP and Growi HF vaults, compute metrics, and display the JSON output:
