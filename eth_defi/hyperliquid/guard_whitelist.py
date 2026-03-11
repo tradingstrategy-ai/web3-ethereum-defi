@@ -29,6 +29,7 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
 
+from eth_defi.abi import encode_multicalls
 from eth_defi.hyperliquid.core_writer import (
     CORE_DEPOSIT_WALLET,
     CORE_WRITER_ADDRESS,
@@ -58,17 +59,19 @@ def setup_hypercore_whitelisting(
     core_writer: HexAddress | str = CORE_WRITER_ADDRESS,
     core_deposit_wallet: HexAddress | str | None = None,
     notes: str = "Hypercore vault trading",
-) -> list[HexBytes]:
+) -> HexBytes:
     """Whitelist CoreWriter and Hypercore vaults in a guard contract.
 
-    Calls the guard's ``whitelistCoreWriter()`` and
-    ``whitelistHypercoreVault()`` functions.
+    Batches all whitelisting calls (``whitelistCoreWriter()`` and
+    ``whitelistHypercoreVault()`` for each vault) into a single
+    multicall transaction for gas efficiency.
 
     :param web3:
         Web3 connection.
 
     :param guard:
         Guard contract (GuardV0, TradingStrategyModuleV0, or similar).
+        Must expose a ``multicall()`` function.
 
     :param owner:
         Address of the guard owner (typically the Safe).
@@ -86,41 +89,43 @@ def setup_hypercore_whitelisting(
         Annotation for the whitelisting event logs.
 
     :return:
-        List of transaction hashes.
+        Transaction hash of the batched multicall.
     """
-    tx_hashes = []
 
     if core_deposit_wallet is None:
         chain_id = web3.eth.chain_id
         core_deposit_wallet = get_core_deposit_wallet(chain_id)
 
-    # Whitelist CoreWriter + CoreDepositWallet
     logger.info(
         "Whitelisting CoreWriter %s and CoreDepositWallet %s",
         core_writer,
         core_deposit_wallet,
     )
-    tx_hash = guard.functions.whitelistCoreWriter(
-        Web3.to_checksum_address(core_writer),
-        Web3.to_checksum_address(core_deposit_wallet),
-        notes,
-    ).transact({"from": owner})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-    tx_hashes.append(tx_hash)
 
-    # Whitelist each vault
+    multicalls = [
+        guard.functions.whitelistCoreWriter(
+            Web3.to_checksum_address(core_writer),
+            Web3.to_checksum_address(core_deposit_wallet),
+            notes,
+        ),
+    ]
+
     if vault_addresses:
         for vault in vault_addresses:
             logger.info("Whitelisting Hypercore vault: %s", vault)
-            tx_hash = guard.functions.whitelistHypercoreVault(
-                Web3.to_checksum_address(vault),
-                f"Hypercore vault: {vault}",
-            ).transact({"from": owner})
-            assert_transaction_success_with_explanation(web3, tx_hash)
-            tx_hashes.append(tx_hash)
+            multicalls.append(
+                guard.functions.whitelistHypercoreVault(
+                    Web3.to_checksum_address(vault),
+                    f"Hypercore vault: {vault}",
+                )
+            )
+
+    call = guard.functions.multicall(encode_multicalls(multicalls))
+    tx_hash = call.transact({"from": owner})
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
     logger.info(
-        "Hypercore whitelisting complete: %d vault(s)",
+        "Hypercore whitelisting complete: %d vault(s) in 1 multicall transaction",
         len(vault_addresses) if vault_addresses else 0,
     )
-    return tx_hashes
+    return tx_hash
