@@ -240,8 +240,25 @@ EVENT_SIGNATURES = {
 # GMX Protocol Constants
 PRECISION = 30
 
+#: Wei per ETH — used to convert raw Wei balances to ETH floats.
+WEI_PER_ETH: int = 10**18
+
 #: Ethereum zero address - used as a placeholder for native token (ETH/AVAX) in GMX protocol
 ETH_ZERO_ADDRESS = "0x" + "0" * 40
+
+#: Production (mainnet) chain names supported by the GMX protocol integration.
+GMX_MAINNET_CHAINS: tuple[str, ...] = ("arbitrum", "avalanche")
+
+#: Testnet chain names supported by the GMX protocol integration.
+#:
+#: These chains use elevated execution-fee buffers and alternative API endpoints.
+GMX_TESTNET_CHAINS: tuple[str, ...] = ("arbitrum_sepolia", "avalanche_fuji")
+
+#: All chain names supported by the GMX protocol integration (mainnet + testnet).
+#:
+#: Used for validation in the CCXT adapter, Freqtrade exchange class, and other
+#: entry points that accept a chain name string.
+GMX_SUPPORTED_CHAINS: tuple[str, ...] = GMX_MAINNET_CHAINS + GMX_TESTNET_CHAINS
 
 # GMX Contracts JSON URL for dynamic contract address fetching
 # Try updates branch first (has latest addresses), fall back to main if 404

@@ -50,6 +50,7 @@ from eth_defi.gmx.constants import (
     DEFAULT_GAS_RAISE_ON_CRITICAL,
     DEFAULT_GAS_WARNING_THRESHOLD_USD,
     GMX_MIN_COST_USD,
+    GMX_SUPPORTED_CHAINS,
     PRECISION,
     _MIN_LOG_CHUNK_BLOCKS,
 )
@@ -362,6 +363,14 @@ class GMX(ExchangeCompatible):
         "APE_DEPRECATED",
     }
 
+    @property
+    def _gas_payer_address(self) -> str:
+        """Return the address that pays gas fees.
+
+        In Lagoon mode this is the asset manager, not the Safe.
+        """
+        return getattr(self.wallet, "gas_address", self.wallet.address)
+
     def __init__(
         self,
         config: GMXConfig | None = None,
@@ -495,10 +504,9 @@ class GMX(ExchangeCompatible):
         chain_name = get_chain_name(chain_id).lower()
 
         # Validate that GMX is supported on this chain
-        supported_chains = ["arbitrum", "arbitrum_sepolia", "avalanche"]
-        if chain_name not in supported_chains:
+        if chain_name not in GMX_SUPPORTED_CHAINS:
             raise ValueError(
-                f"GMX not supported on chain {chain_name} (chain_id: {chain_id}). Supported chains: {supported_chains}",
+                f"GMX not supported on chain {chain_name} (chain_id: {chain_id}). Supported chains: {list(GMX_SUPPORTED_CHAINS)}",
             )
 
         # Create wallet if private key provided
@@ -5160,7 +5168,7 @@ class GMX(ExchangeCompatible):
             try:
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=sltp_result.transaction,
-                    from_addr=self.wallet.address,
+                    from_addr=self._gas_payer_address,
                 )
                 monitor.log_gas_estimate(gas_estimate, "GMX SL/TP order")
                 native_price_usd = gas_estimate.native_price_usd
@@ -5414,7 +5422,7 @@ class GMX(ExchangeCompatible):
             try:
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=result.transaction,
-                    from_addr=self.wallet.address,
+                    from_addr=self._gas_payer_address,
                 )
                 monitor.log_gas_estimate(gas_estimate, f"GMX {type} order")
                 native_price_usd = gas_estimate.native_price_usd
@@ -5864,7 +5872,7 @@ class GMX(ExchangeCompatible):
         gas_config = getattr(self, "_gas_monitor_config", None)
         monitor = self.gas_monitor
         if gas_config and gas_config.enabled and monitor:
-            gas_check = monitor.check_gas_balance(self.wallet.address)
+            gas_check = monitor.check_gas_balance(self._gas_payer_address)
             if gas_check.status == "critical":
                 monitor.log_gas_check_warning(gas_check)
                 if gas_config.raise_on_critical:
@@ -6399,7 +6407,7 @@ class GMX(ExchangeCompatible):
             try:
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=order_result.transaction,
-                    from_addr=self.wallet.address,
+                    from_addr=self._gas_payer_address,
                 )
                 monitor.log_gas_estimate(gas_estimate, "GMX order")
                 native_price_usd = gas_estimate.native_price_usd
