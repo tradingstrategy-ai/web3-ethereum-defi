@@ -570,6 +570,93 @@ exchange = ExchangeResolver.load_exchange(config)
 | Keeper execution | Orders execute via [keeper network](https://docs.gmx.io/docs/api/contracts), not instantly | [API Contracts](https://docs.gmx.io/docs/api/contracts) |
 | 24h stats calculated | Ticker 24h high/low/open are calculated from OHLCV candles, not provided natively by GMX API (unlike centralised exchanges that track these in real-time) | - |
 
+## Market depth and position sizing
+
+The `market_depth` module provides utilities for inspecting GMX v2 market depth,
+estimating the effect on open interest, and sizing positions to avoid whale risk.
+
+### Why position sizing matters on GMX
+
+On GMX, opening a position increases open interest (OI) on one side of the market.
+If your position is too large relative to the pool's OI, several problems arise:
+
+- **OI effect**: your trade moves the OI imbalance against you, increasing price impact cost.
+- **Exit difficulty**: closing a large position later will also move OI, worsening your exit.
+- **Funding drag**: a skewed OI balance increases the funding rate paid by the dominant side.
+- **Pool capacity**: each market has a reserve cap — once hit, no new positions can be opened.
+
+This is analogous to being too large in a Uniswap pool: you can get in, but you can't get out
+without moving the price against yourself.
+
+### Whale-risk sizing
+
+For a portfolio of **$100,000** with a 2.5% max OI share, the maximum position on each side is:
+
+```
+max_position = min(portfolio_usd, 2.5% × side_oi, available_cap)
+```
+
+In practice this means a $100k portfolio **cannot hold 10 equally weighted positions** across
+all GMX markets — smaller markets will cap the position size well below $10k per side.
+Use `calculate_max_position_whale_risk()` to check which markets can absorb your target size.
+
+### Using in strategies
+
+```python
+from eth_defi.gmx.api import GMXAPI
+from eth_defi.gmx.market_depth import (
+    calculate_max_position_whale_risk,
+    estimate_position_price_impact,
+    find_max_position_size,
+)
+
+api = GMXAPI(chain="arbitrum")
+markets = api.get_market_depth()
+
+for m in markets:
+    # Check if we can take a $10k long without whale risk
+    sizing = calculate_max_position_whale_risk(
+        market=m,
+        portfolio_usd=100_000,
+        max_oi_pct=0.025,  # 2.5% of side OI
+        is_long=True,
+    )
+    if sizing.max_position_usd < 10_000:
+        print(f"SKIP {m.market_symbol}: max long ${sizing.max_position_usd:,.0f}"
+              f" (constraint: {sizing.binding_constraint})")
+        continue
+
+    print(f"OK   {m.market_symbol}: max long ${sizing.max_position_usd:,.0f}"
+          f" ({sizing.pct_of_total_oi:.2f}% of total OI)")
+```
+
+### Available utilities
+
+| Function | Description |
+|----------|-------------|
+| `GMXAPI.get_market_depth()` | Fetch OI, capacity, and rates for all markets (REST, no RPC) |
+| `estimate_position_price_impact()` | Estimate OI effect in USD for a given position size |
+| `find_max_position_size()` | Binary search for the largest position within a bps threshold |
+| `calculate_max_position_whale_risk()` | Cap position by portfolio, OI share, and pool capacity |
+| `fetch_price_impact_params()` | Read per-market impact parameters from the DataStore contract |
+
+### Diagnostic script
+
+Run `scripts/gmx/gmx_market_depth.py` for a full overview with three tables:
+
+1. **Market depth** — OI, available capacity, cap utilisation
+2. **Effect on open interest** — price impact in USD and bps for a given position size
+3. **Position sizing (whale risk)** — max position per side, % of total OI, funding/borrowing rates
+
+```bash
+# Quick REST-only overview (no RPC needed)
+poetry run python scripts/gmx/gmx_market_depth.py
+
+# With on-chain price impact params and custom portfolio
+JSON_RPC_ARBITRUM=<url> FETCH_ONCHAIN_PARAMS=1 PORTFOLIO_USD=100000 MAX_OI_PCT=0.025 \
+    poetry run python scripts/gmx/gmx_market_depth.py
+```
+
 ## Example scripts
 
 Example scripts are available in [`scripts/gmx/`](../../scripts/gmx/):
@@ -605,6 +692,7 @@ Example scripts are available in [`scripts/gmx/`](../../scripts/gmx/):
 
 | Script | Description |
 |--------|-------------|
+| [`gmx_market_depth.py`](../../scripts/gmx/gmx_market_depth.py) | Market depth, OI effect, and whale-risk position sizing |
 | [`gmx_fetch_markets.py`](../../scripts/gmx/gmx_fetch_markets.py) | Fetch available markets |
 | [`gmx_get_open_positions.py`](../../scripts/gmx/gmx_get_open_positions.py) | Query open positions |
 | [`gmx_graphql_positions.py`](../../scripts/gmx/gmx_graphql_positions.py) | GraphQL position queries |

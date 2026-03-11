@@ -250,6 +250,10 @@ PRECISION = 30
 #: Wei per ETH — used to convert raw Wei balances to ETH floats.
 WEI_PER_ETH: int = 10**18
 
+#: Default upper bound for the binary-search in :func:`find_max_position_size`.
+#: Covers typical GMX market sizes; overridden by ``max_oi_available_usd`` when provided.
+GMX_DEFAULT_SEARCH_MAX_USD: float = 100_000_000.0  # $100 M
+
 #: Ethereum zero address - used as a placeholder for native token (ETH/AVAX) in GMX protocol
 ETH_ZERO_ADDRESS = "0x" + "0" * 40
 

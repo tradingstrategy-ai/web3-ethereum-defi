@@ -50,6 +50,7 @@ More info
    eth_defi.gmx.base
    eth_defi.gmx.config
    eth_defi.gmx.constants
+   eth_defi.gmx.market_depth
    eth_defi.gmx.contracts
    eth_defi.gmx.data
    eth_defi.gmx.events

@@ -102,6 +102,7 @@ from eth_defi.gmx.keys import (
     position_impact_factor_key,
 )
 from eth_defi.gmx.types import USDAmount
+from eth_defi.types import Percent
 
 logger = logging.getLogger(__name__)
 
@@ -154,13 +155,19 @@ class MarketDepthInfo:
     long_pool_amount: float
     #: Short pool token amount (raw token units as returned by the API)
     short_pool_amount: float
-    #: Long funding rate (30-decimal fixed point divided, dimensionless per time unit as reported by GMX)
+    #: Long funding rate, annualised (REST ``fundingRateLong / 10^30``).
+    #: Positive means longs receive funding; negative means longs pay.
+    #: Multiply by 100 for annual percentage.
     long_funding_rate: float
-    #: Short funding rate (30-decimal fixed point divided, dimensionless per time unit as reported by GMX)
+    #: Short funding rate, annualised (REST ``fundingRateShort / 10^30``).
+    #: Positive means shorts receive funding; negative means shorts pay.
+    #: Multiply by 100 for annual percentage.
     short_funding_rate: float
-    #: Long borrowing rate (30-decimal fixed point divided, dimensionless per time unit as reported by GMX)
+    #: Long borrowing rate, annualised (REST ``borrowingRateLong / 10^30``).
+    #: Always non-negative. Multiply by 100 for annual percentage.
     long_borrowing_rate: float
-    #: Short borrowing rate (30-decimal fixed point divided, dimensionless per time unit as reported by GMX)
+    #: Short borrowing rate, annualised (REST ``borrowingRateShort / 10^30``).
+    #: Always non-negative. Multiply by 100 for annual percentage.
     short_borrowing_rate: float
     #: Whether this market is currently listed for trading
     is_listed: bool
@@ -455,3 +462,112 @@ def find_max_position_size(
             upper = mid
 
     return lower
+
+
+@dataclass(slots=True)
+class PositionSizingResult:
+    """Result of whale-risk position sizing for one side of a market.
+
+    Computed by :func:`calculate_max_position_whale_risk`.  The maximum
+    position is the tightest of three constraints:
+
+    1. **Portfolio**: the total capital available (``portfolio_usd``).
+    2. **Whale risk**: a fraction of the side's open interest
+       (``max_oi_pct * side_oi``), so the position doesn't move the
+       market disproportionately.
+    3. **Pool capacity**: the remaining OI capacity before the reserve cap.
+    """
+
+    #: Maximum position size in USD after applying all constraints
+    max_position_usd: USDAmount
+    #: The maximum position as a percentage of total (both-side) OI
+    pct_of_total_oi: Percent
+    #: ``True`` if the full portfolio fits within the whale-risk threshold
+    whale_ok: bool
+    #: ``True`` if the full portfolio fits within pool capacity
+    cap_ok: bool
+    #: The constraint that limits the position: ``"none"``, ``"whale"``, or ``"cap"``
+    binding_constraint: str
+
+
+def calculate_max_position_whale_risk(
+    market: MarketDepthInfo,
+    portfolio_usd: USDAmount,
+    max_oi_pct: Percent,
+    is_long: bool,
+) -> PositionSizingResult:
+    """Calculate the maximum position size subject to whale-risk constraints.
+
+    Analogous to sizing a position in a Uniswap pool so as not to become
+    too large relative to the pool's liquidity.  On GMX, we don't want to
+    represent more than ``max_oi_pct`` of one side's open interest, because:
+
+    - Exiting a large position will move OI against us.
+    - Other traders may push OI further, increasing funding/borrowing drag.
+    - In extreme cases the pool capacity cap prevents new positions entirely.
+
+    The maximum position is::
+
+        max_position = min(portfolio_usd, max_oi_pct * side_oi, available_cap)
+
+    For a **$100 000 portfolio** with ``max_oi_pct = 0.025`` (2.5 %), a market
+    with $1 M long OI allows at most ``$25 000`` on the long side — meaning
+    10 equally weighted positions would already be constrained.
+
+    Example:
+
+    .. code-block:: python
+
+        from eth_defi.gmx.api import GMXAPI
+        from eth_defi.gmx.market_depth import calculate_max_position_whale_risk
+
+        api = GMXAPI(chain="arbitrum")
+        markets = api.get_market_depth()
+
+        for m in markets:
+            result = calculate_max_position_whale_risk(
+                market=m,
+                portfolio_usd=100_000,
+                max_oi_pct=0.025,
+                is_long=True,
+            )
+            print(f"{m.market_symbol}: max ${result.max_position_usd:,.0f}  ({result.pct_of_total_oi:.2f}% of OI)  {'OK' if result.whale_ok and result.cap_ok else result.binding_constraint}")
+
+    :param market: Market depth snapshot
+    :param portfolio_usd: Total portfolio value in USD
+    :param max_oi_pct:
+        Maximum share of one side's OI the position may represent.
+        E.g. ``0.025`` means 2.5 %.
+    :param is_long: ``True`` for long side, ``False`` for short side
+    :return: :class:`PositionSizingResult` with the capped position and diagnostics
+    """
+    if is_long:
+        side_oi = market.long_open_interest_usd
+        avail_cap = market.available_long_oi_usd
+    else:
+        side_oi = market.short_open_interest_usd
+        avail_cap = market.available_short_oi_usd
+
+    oi_limit = max_oi_pct * side_oi if side_oi > 0 else 0.0
+    max_position = max(0.0, min(portfolio_usd, oi_limit, avail_cap))
+
+    total_oi = market.long_open_interest_usd + market.short_open_interest_usd
+    pct_of_total = max_position / total_oi * 100 if total_oi > 0 else 0.0
+
+    whale_ok = portfolio_usd <= oi_limit
+    cap_ok = portfolio_usd <= avail_cap
+
+    if whale_ok and cap_ok:
+        binding = "none"
+    elif not cap_ok:
+        binding = "cap"
+    else:
+        binding = "whale"
+
+    return PositionSizingResult(
+        max_position_usd=max_position,
+        pct_of_total_oi=pct_of_total,
+        whale_ok=whale_ok,
+        cap_ok=cap_ok,
+        binding_constraint=binding,
+    )
