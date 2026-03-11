@@ -155,6 +155,8 @@ PENDLE_LOOPING = "Abnormal high yield due to Pendle looping - more info here htt
 
 ZEROLEND_SUPERFORM_WITHDRAW_ONLY = "All ZeroLend vaults on Superform are in withdraw-only mode. Support could not give an answer on why."
 
+HLT_IRREGULAR_SHARE_PRICE = "This vault has experienced irregular share price resets (epoch resets) that distort the performance metrics and make the equity curve misleading."
+
 LOW_TVL_ABNORMAL_PRICE = "Low-TVL vault with abnormal price behaviour"
 
 MISSING_IN_PROTOCOL_FRONTEND = "This vault is missing in the protocol's primary website and cannot be verified."
@@ -401,6 +403,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x0e297de4005883c757c9f09fdf7cf1363c20e626": (VaultFlag.subvault, SUBVAULT),
     # Morpho Gauntlet USDT Prime Compounder
     "0x6d2981ff9b8d7edbb7604de7a65bac8694ac849f": (VaultFlag.subvault, SUBVAULT),
+    # Hyperliquidity Trader (HLT) - irregular share price action due to epoch resets
+    "0x5a733b25a17dc0f26b862ca9e32b439801b1a8c7": (VaultFlag.abnormal_share_price, HLT_IRREGULAR_SHARE_PRICE),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
