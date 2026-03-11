@@ -649,42 +649,6 @@ class GMXSubsquidClient:
         result = self._query(query)
         return result.get("markets", [])
 
-    def fetch_daily_volumes(self) -> dict[str, Decimal]:
-        """Fetch 24-hour trading volume per market from Subsquid.
-
-        Mirrors the ``getDailyVolumes()`` method in the GMX TypeScript SDK.
-        Queries the ``positionsVolume`` entity filtered to the ``"1d"`` period
-        and returns a mapping of checksummed market addresses to USD volumes.
-
-        :return: Dictionary mapping market address to daily volume in USD.
-
-        Example::
-
-            client = GMXSubsquidClient(chain="arbitrum")
-            volumes = client.fetch_daily_volumes()
-            for market, vol in sorted(volumes.items(), key=lambda x: x[1], reverse=True):
-                print(f"{market}: ${vol:,.2f}")
-        """
-        query = """
-        {
-          positionsVolume(where: {period: "1d"}) {
-            market
-            volume
-          }
-        }
-        """
-        data = self._query_with_retry(
-            query,
-            timeout=60,
-            max_retries=3,
-            method_name="fetch_daily_volumes",
-        )
-        volumes: dict[str, Decimal] = {}
-        for entry in data.get("positionsVolume", []):
-            market = to_checksum_address(entry["market"])
-            volumes[market] = self.from_fixed_point(entry["volume"], decimals=30)
-        return volumes
-
     def is_large_account(self, account: str) -> bool:
         """Determine if an account qualifies as a "large" account.
 

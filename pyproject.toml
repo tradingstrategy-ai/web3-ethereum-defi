@@ -265,10 +265,6 @@ ignore = [
   "EM102", # Exception must not use f-string literal
 ]
 
-[tool.ruff.lint.per-file-ignores]
-# CLI scripts legitimately use print() for console output
-"scripts/**/*.py" = ["T201"]
-
 [tool.ruff.lint.isort]
 # Configure import sorting
 known-first-party = ["eth_defi"]
