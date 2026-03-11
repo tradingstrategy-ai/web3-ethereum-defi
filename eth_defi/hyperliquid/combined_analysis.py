@@ -17,10 +17,10 @@ The share price mechanism works as follows:
 - When a withdrawal occurs, shares are burned: ``shares_burned = withdrawal_amount / share_price``
 - Share price starts at 1.00 at vault inception
 - When all shares are redeemed (total_supply reaches 0) but total_assets > 0
-  (e.g. vault leader's equity remains), the epoch resets: total_supply is set
-  to total_assets and share_price resets to 1.0, absorbing the residual equity
-  into a fresh share base. This also triggers when the computed share price
-  would exceed :py:data:`SHARE_PRICE_RESET_THRESHOLD`.
+  (e.g. vault leader's equity remains), the epoch resets using chain-linked
+  pricing: the last epoch's share price is carried forward and new shares are
+  minted at that price, keeping the price series continuous. This also triggers
+  when the computed share price would exceed :py:data:`SHARE_PRICE_RESET_THRESHOLD`.
 
 Example::
 
@@ -261,10 +261,11 @@ def _calculate_share_price(
     - PnL changes affect total_assets but not total_supply
     - When total_supply drops to zero (or becomes negligibly small relative
       to total_assets so that share price would exceed
-      :py:data:`SHARE_PRICE_RESET_THRESHOLD`), the epoch resets:
-      total_supply is set to total_assets and share_price resets to 1.0.
-      This handles Hyperliquid vaults where the leader retains equity
-      after all followers withdraw.
+      :py:data:`SHARE_PRICE_RESET_THRESHOLD`), a chain-linked epoch reset
+      occurs: the last share price is carried forward and new shares are
+      minted at that price, keeping the series continuous. This handles
+      Hyperliquid vaults where the leader retains equity after all
+      followers withdraw.
 
     :param combined:
         DataFrame with cumulative_account_value and netflow_update columns
@@ -280,6 +281,7 @@ def _calculate_share_price(
     # We need to iterate through rows to properly calculate shares at each step
     total_supply_values = []
     share_price_values = []
+    epoch_reset_values = []
 
     current_total_supply = 0.0
     current_share_price = 1.0  # Share price starts at 1.00
@@ -287,6 +289,7 @@ def _calculate_share_price(
     for _idx, row in combined.iterrows():
         netflow = row["netflow_update"]
         total_assets = row["total_assets"]
+        epoch_reset = False
 
         if netflow != 0:
             # Deposit or withdrawal event
@@ -313,15 +316,22 @@ def _calculate_share_price(
         # threshold), absorb residual assets into a fresh share base.
         # This prevents permanent share price corruption when all followers
         # withdraw from a Hyperliquid vault but the leader's equity persists.
+        #
+        # Chain-linked reset: instead of resetting share_price to 1.0 (which
+        # creates a discontinuity in the price series), carry forward the
+        # last epoch's share price. This ensures lifetime returns remain
+        # meaningful across epoch boundaries.
         if current_total_supply > 0:
             candidate_share_price = total_assets / current_total_supply
         else:
             candidate_share_price = 0.0
 
         if total_assets > EPOCH_RESET_MIN_ASSETS and (current_total_supply == 0 or candidate_share_price > SHARE_PRICE_RESET_THRESHOLD):
-            # Epoch reset: treat remaining assets as if freshly deposited
-            current_total_supply = total_assets
-            current_share_price = 1.0
+            # Epoch reset: carry forward the last share price for continuity
+            epoch_anchor = current_share_price if current_share_price > 0 else 1.0
+            current_total_supply = total_assets / epoch_anchor
+            current_share_price = epoch_anchor
+            epoch_reset = True
         elif current_total_supply > 0:
             current_share_price = candidate_share_price
         else:
@@ -329,9 +339,11 @@ def _calculate_share_price(
 
         total_supply_values.append(current_total_supply)
         share_price_values.append(current_share_price)
+        epoch_reset_values.append(epoch_reset)
 
     combined["total_supply"] = total_supply_values
     combined["share_price"] = share_price_values
+    combined["epoch_reset"] = epoch_reset_values
 
     return combined
 

@@ -74,6 +74,7 @@ def test_combined_analysis_structure_and_values(combined_df: pd.DataFrame):
         "total_assets",
         "total_supply",
         "share_price",
+        "epoch_reset",
     ]
     for col in expected_columns:
         assert col in combined_df.columns, f"Expected column {col} in DataFrame"
@@ -291,13 +292,13 @@ def test_share_price_with_loss():
 
 
 def test_share_price_total_supply_wipeout():
-    """Test share price epoch reset when total_supply drops to zero.
+    """Test chain-linked share price epoch reset when total_supply drops to zero.
 
     Models the "pmalt" vault (0x4dec0a851849056e259128464ef28ce78afa27f6) bug
     where all followers withdraw, total_supply goes to zero, but leader equity
-    persists (total_assets > 0). Without the epoch reset, the share price gets
-    permanently stuck at the 10,000 cap, causing all return calculations to
-    show 0%.
+    persists (total_assets > 0). The epoch reset carries forward the last
+    share price (chain-linked) instead of resetting to 1.0, keeping the
+    price series continuous.
 
     Scenario:
 
@@ -310,8 +311,9 @@ def test_share_price_total_supply_wipeout():
 
     Verifies:
 
-    - Share price resets to 1.0 after wipeout (epoch reset)
-    - New deposits mint shares at the reset price
+    - Share price carries forward after wipeout (chain-linked epoch reset)
+    - epoch_reset column is True at the reset row
+    - New deposits mint shares at the carried-forward price
     - PnL after re-entry correctly moves share price
     - Share price never hits the 10,000 cap
     """
@@ -361,29 +363,35 @@ def test_share_price_total_supply_wipeout():
     # T0: 1000 deposit at SP=1.0 → 1000 shares
     assert combined.iloc[0]["share_price"] == pytest.approx(1.0)
     assert combined.iloc[0]["total_supply"] == pytest.approx(1000.0)
+    assert combined.iloc[0]["epoch_reset"] == False
 
     # T1: +100 PnL, AV=1100, supply=1000, SP=1.1
     assert combined.iloc[1]["share_price"] == pytest.approx(1.1)
     assert combined.iloc[1]["total_supply"] == pytest.approx(1000.0)
+    assert combined.iloc[1]["epoch_reset"] == False
 
     # T2: Withdraw 1100 at SP=1.1 → burn 1100/1.1 = 1000 shares → supply=0
-    # AV=50 (leader equity), total_supply=0 → epoch reset:
-    # total_supply=50, SP=1.0
+    # AV=50 (leader equity), total_supply=0 → chain-linked epoch reset:
+    # epoch_anchor=1.1, total_supply=50/1.1≈45.45, SP=1.1 (carried forward)
+    epoch_anchor = 1.1
+    expected_supply_after_reset = 50.0 / epoch_anchor
     assert combined.iloc[2]["total_assets"] == pytest.approx(50.0)
-    assert combined.iloc[2]["share_price"] == pytest.approx(1.0)
-    assert combined.iloc[2]["total_supply"] == pytest.approx(50.0)
+    assert combined.iloc[2]["share_price"] == pytest.approx(epoch_anchor)
+    assert combined.iloc[2]["total_supply"] == pytest.approx(expected_supply_after_reset)
+    assert combined.iloc[2]["epoch_reset"] == True
 
-    # T3: Leader PnL +10, AV=60, supply=50, SP=60/50=1.2
-    assert combined.iloc[3]["share_price"] == pytest.approx(1.2)
-    assert combined.iloc[3]["total_supply"] == pytest.approx(50.0)
+    # T3: Leader PnL +10, AV=60, supply≈45.45, SP=60/45.45≈1.32
+    expected_sp_t3 = 60.0 / expected_supply_after_reset
+    assert combined.iloc[3]["share_price"] == pytest.approx(expected_sp_t3)
+    assert combined.iloc[3]["total_supply"] == pytest.approx(expected_supply_after_reset)
+    assert combined.iloc[3]["epoch_reset"] == False
 
-    # T4: New deposit $5000 at SP=1.2 → mint 5000/1.2 ≈ 4166.67 shares
-    # total_supply = 50 + 4166.67 ≈ 4216.67
-    # AV=5060, SP=5060/4216.67 ≈ 1.2 (unchanged, deposit at current price)
-    expected_new_shares = 5000.0 / 1.2
-    expected_total_supply = 50.0 + expected_new_shares
+    # T4: New deposit $5000 at SP≈1.32 → mint 5000/1.32≈3787.88 shares
+    # total_supply≈45.45+3787.88≈3833.33, AV=5060, SP=5060/3833.33≈1.32
+    expected_new_shares = 5000.0 / expected_sp_t3
+    expected_total_supply = expected_supply_after_reset + expected_new_shares
     assert combined.iloc[4]["total_supply"] == pytest.approx(expected_total_supply)
-    assert combined.iloc[4]["share_price"] == pytest.approx(1.2, rel=0.01)
+    assert combined.iloc[4]["share_price"] == pytest.approx(expected_sp_t3, rel=0.01)
 
     # T5: PnL +200, AV=5260, supply unchanged, SP rises
     assert combined.iloc[5]["total_assets"] == pytest.approx(5260.0)
@@ -393,3 +401,134 @@ def test_share_price_total_supply_wipeout():
     assert combined["share_price"].max() < SHARE_PRICE_RESET_THRESHOLD
     assert (combined["share_price"] > 0).all()
     assert (combined["share_price"] < 10.0).all()
+
+    # epoch_reset column should exist and only be True at T2
+    assert "epoch_reset" in combined.columns
+    assert combined["epoch_reset"].sum() == 1
+
+
+def test_offline_share_price_recomputation(tmp_path):
+    """Test offline share price recomputation from stored DuckDB data.
+
+    Simulates the scenario where a DuckDB was built with the old reset-to-1.0
+    logic, then recomputed offline with the new chain-linked logic.
+
+    Creates a DuckDB with known broken data (share_price resets to 1.0 at epoch
+    boundary), runs ``recompute_vault_share_prices()``, and verifies that:
+
+    - Share prices are now chain-linked (no jumps to 1.0)
+    - ``epoch_reset`` column is correctly set
+    - ``daily_return`` is recalculated from new share prices
+    - ``detect_broken_vaults()`` finds the issues before healing
+
+    The test data is carefully constructed so that the reconstructed netflow
+    from stored tvl + daily_pnl exactly burns all shares at day 3, triggering
+    an epoch reset in the recomputation.
+
+    Netflow reconstruction formula:
+    - ``netflow[0] = tvl[0] - cumulative_pnl[0]``
+    - ``netflow[i] = (tvl[i] - tvl[i-1]) - daily_pnl[i]``
+
+    Day-by-day reconstruction:
+    - Day 1: netflow = 1000 - 0 = 1000 → mint 1000 shares at SP=1.0
+    - Day 2: netflow = (1200-1000) - 200 = 0 → SP = 1200/1000 = 1.2
+    - Day 3: netflow = (50-1200) - 50 = -1200 → burn 1200/1.2 = 1000 shares
+      → supply=0, AV=50 > 10 → epoch reset, SP carries forward at 1.2
+    - Day 4: netflow = (60-50) - 10 = 0 → SP = 60/41.67 ≈ 1.44
+    - Day 5: netflow = (5060-60) - 0 = 5000 → mint at ~1.44
+    - Day 6: netflow = (5260-5060) - 200 = 0 → SP rises
+    """
+    import datetime
+
+    from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
+
+    db_path = tmp_path / "test-heal.duckdb"
+    db = HyperliquidDailyMetricsDatabase(db_path)
+
+    try:
+        vault_address = "0xdeadbeef00000000000000000000000000000001"
+
+        # Insert vault metadata
+        db.upsert_vault_metadata(
+            vault_address=vault_address,
+            name="Test Broken Vault",
+            leader="0x0000000000000000000000000000000000000001",
+            description=None,
+            is_closed=False,
+            relationship_type="normal",
+            create_time=datetime.datetime(2024, 1, 1),
+            commission_rate=0.1,
+            follower_count=5,
+            tvl=10000.0,
+            apr=50.0,
+        )
+
+        # Insert "broken" daily prices simulating old reset-to-1.0 behaviour.
+        #
+        # The data is crafted so that offline netflow reconstruction produces
+        # exactly -1200 at day 3, which burns all 1000 shares (at SP=1.2),
+        # triggering an epoch reset.
+        #
+        # Old code: SP reset to 1.0 at day 3 (BROKEN).
+        # New code: SP carries forward at 1.2 (chain-linked).
+        rows = [
+            # (vault_address, date, share_price, tvl, cumulative_pnl, daily_pnl,
+            #  daily_return, follower_count, apr, is_closed, allow_deposits,
+            #  leader_fraction, leader_commission, dep_count, wd_count, dep_usd, wd_usd, epoch_reset)
+            (vault_address, datetime.date(2024, 1, 1), 1.0, 1000.0, 0.0, 0.0, 0.0, 5, 50.0, None, None, None, None, None, None, None, None, None),
+            (vault_address, datetime.date(2024, 1, 2), 1.2, 1200.0, 200.0, 200.0, 0.2, 5, 50.0, None, None, None, None, None, None, None, None, None),
+            (vault_address, datetime.date(2024, 1, 3), 1.0, 50.0, 250.0, 50.0, -0.1667, 5, 50.0, None, None, None, None, None, None, None, None, None),
+            (vault_address, datetime.date(2024, 1, 4), 1.2, 60.0, 260.0, 10.0, 0.2, 5, 50.0, None, None, None, None, None, None, None, None, None),
+            (vault_address, datetime.date(2024, 1, 5), 1.2, 5060.0, 260.0, 0.0, 0.0, 5, 50.0, None, None, None, None, None, None, None, None, None),
+            (vault_address, datetime.date(2024, 1, 6), 1.2474, 5260.0, 460.0, 200.0, 0.0395, 5, 50.0, True, True, 0.5, 10.0, None, None, None, None, None),
+        ]
+        db.upsert_daily_prices(rows)
+        db.save()
+
+        # Verify detection finds issues: epoch_reset is NULL for all rows
+        issues = db.detect_broken_vaults()
+        assert len(issues) > 0, "Should detect at least one issue"
+        null_epoch_issues = issues[issues["issue_type"] == "missing_epoch_reset"]
+        assert len(null_epoch_issues) == 1, "Should detect missing epoch_reset"
+        assert null_epoch_issues.iloc[0]["vault_address"] == vault_address
+
+        # Recompute share prices
+        result = db.recompute_vault_share_prices(vault_address)
+        db.save()
+
+        assert result["rows"] == 6
+        assert result["changed_rows"] > 0, "At least some rows should change"
+        assert result["epoch_resets"] >= 1, "Should detect epoch reset at day 3"
+
+        # Verify the healed data
+        healed = db.get_vault_daily_prices(vault_address)
+
+        # Day 1: SP should still be 1.0 (initial deposit)
+        assert healed.iloc[0]["share_price"] == pytest.approx(1.0, abs=0.01)
+
+        # Day 2: SP should be 1.2 (PnL +200, AV=1200, supply=1000)
+        assert healed.iloc[1]["share_price"] == pytest.approx(1.2, abs=0.01)
+
+        # Day 3: Chain-linked reset — SP should carry forward at 1.2, NOT reset to 1.0
+        assert healed.iloc[2]["share_price"] == pytest.approx(1.2, abs=0.05)
+        assert healed.iloc[2]["share_price"] != pytest.approx(1.0, abs=0.01), "Share price should NOT be 1.0 (chain-linked reset should carry forward)"
+        assert healed.iloc[2]["epoch_reset"] == True
+
+        # Day 4: SP should reflect PnL on the carried-forward basis (~1.44)
+        assert healed.iloc[3]["share_price"] > healed.iloc[2]["share_price"]
+        assert healed.iloc[3]["epoch_reset"] == False
+
+        # Key invariant: no share price jumps to exactly 1.0 after the first row
+        for i in range(1, len(healed)):
+            if healed.iloc[i]["epoch_reset"]:
+                continue
+            assert healed.iloc[i]["share_price"] != pytest.approx(1.0, abs=0.001)
+
+        # Verify detection no longer finds missing_epoch_reset
+        post_issues = db.detect_broken_vaults()
+        post_null_epoch = post_issues[post_issues["issue_type"] == "missing_epoch_reset"]
+        null_for_this_vault = post_null_epoch[post_null_epoch["vault_address"] == vault_address]
+        assert len(null_for_this_vault) == 0, "epoch_reset should now be populated"
+
+    finally:
+        db.close()

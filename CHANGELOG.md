@@ -1,5 +1,6 @@
 # Current
 
+- Fix: Hyperliquid vault share price epoch resets now chain-linked (carry forward last price instead of resetting to 1.0), with offline recomputation from stored DuckDB data, multi-period merge for higher resolution, and spike smoother bypass for Hypercore vaults (2026-03-11)
 - Add: Hyperliquid vault daily deposit/withdrawal netflow metrics with configurable backfill, exported as NetflowMetrics with 1d/7d/30d periods in JSON (2026-03-10, [#818](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/818))
 - **Add: LI.FI cross-chain gas feeding module for keeping hot wallets funded across EVM chains, with native token and USDC source support (2026-03-10)**
 - Add: `activate_account_sponsored()` for deployer-EOA-funded HyperCore account activation, bypassing Safe routing (2026-03-09)
