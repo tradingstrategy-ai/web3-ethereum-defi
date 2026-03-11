@@ -25,23 +25,38 @@ import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
+from eth_defi.gmx.api import GMXAPI
+from eth_typing import HexAddress
 import pandas as pd
-
+from web3 import Web3
 from freqtrade.enums import MarginMode, TradingMode
 from freqtrade.exceptions import InsufficientFundsError, OperationalException, TemporaryError
 from freqtrade.exchange import Exchange
 from freqtrade.exchange.common import retrier
 from freqtrade.exchange.exchange_types import CcxtOrder, FtHas
 
+from eth_defi.chain import get_chain_name
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
+from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import (
+    GMX_SUPPORTED_CHAINS,
     _GAS_CRITICAL_MAX_RETRIES,
     _GAS_CRITICAL_PAUSE_SECS,
     _GAS_CRITICAL_WINDOW_SECS,
+    WEI_PER_ETH,
 )
+from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.freqtrade.telegram_utils import send_freqtrade_telegram_message
+from eth_defi.gmx.lagoon.approvals import UNLIMITED, approve_gmx_collateral_via_vault
+from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
+from eth_defi.gmx.trading import GMXTrading
+from eth_defi.hotwallet import HotWallet
+from eth_defi.token import fetch_erc20_details
+from eth_defi.vault.base import VaultSpec
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +113,7 @@ class Gmx(Exchange):
                     takeProfit={"triggerPercent": 0.10},  # 10% TP
                 )
 
-    Configuration Example
+    Configuration example
     ---------------------
 
     Basic configuration::
@@ -122,6 +137,49 @@ class Gmx(Exchange):
                 "stoploss_on_exchange": True,  # Enable SL on exchange
             },
         }
+
+    Lagoon vault configuration
+    --------------------------
+
+    To trade through a Lagoon vault, set ``ccxt_config.options.vaultAddress`` to the
+    Lagoon ERC-4626 vault contract address.  Presence of this key enables Lagoon mode —
+    all other config is inferred automatically.
+
+    The ``privateKey`` is the asset manager's signing key.  All GMX positions are held
+    by the vault's Gnosis Safe multisig.  The ``TradingStrategyModuleV0`` address is
+    auto-discovered from the Safe's enabled Zodiac modules — no manual config needed::
+
+        {
+            "exchange": {
+                "name": "gmx",
+                "ccxt_config": {
+                    "rpcUrl": "https://arb1.arbitrum.io/rpc",
+                    "privateKey": "0x...",  # Asset manager private key
+                    "options": {
+                        "vaultAddress": "0x...",  # Lagoon vault contract (enables Lagoon mode)
+                    },
+                },
+                "lagoon_forward_eth": true,  # Forward ETH for keeper fees (default: true)
+                "lagoon_gas_buffer": 500000,  # Extra gas for performCall (default: 500000)
+                "lagoon_auto_approve": true,  # Auto-approve collateral on startup (default: true)
+            }
+        }
+
+    ``ccxt_config.options.vaultAddress`` (required for Lagoon mode)
+        Address of the Lagoon ERC-4626 vault contract (not the Safe address).
+        Presence of this key enables Lagoon vault mode.  The ``TradingStrategyModuleV0``
+        address is discovered automatically from the Safe's enabled Zodiac modules.
+
+    ``lagoon_forward_eth`` (default: ``true``)
+        When ``true``, the asset manager forwards ETH with each ``performCall``
+        transaction so the Safe receives keeper execution fees automatically.
+
+    ``lagoon_gas_buffer`` (default: ``500000``)
+        Additional gas added to each order transaction to cover ``performCall`` overhead.
+
+    ``lagoon_auto_approve`` (default: ``true``)
+        When ``true``, common collateral tokens (USDC, WETH) are automatically
+        approved for the GMX SyntheticsRouter on startup.
     """
 
     # Feature flags for GMX futures
@@ -161,17 +219,255 @@ class Gmx(Exchange):
     ]
 
     def __init__(self, *args, **kwargs):
-        """Initialize GMX exchange.
+        """Initialise GMX exchange.
 
-        :param *args: Positional arguments passed to parent Exchange
-        :param **kwargs: Keyword arguments passed to parent Exchange
+        When ``ccxt_config.options.vaultAddress`` is present the exchange is
+        initialised in Lagoon vault mode.  All GMX transactions are routed
+        through the vault's ``TradingStrategyModuleV0.performCall()`` with the
+        ``privateKey`` used as the asset manager's signing key.
+
+        :param args: Positional arguments passed to parent Exchange.
+        :param kwargs: Keyword arguments passed to parent Exchange.
         """
         super().__init__(*args, **kwargs)
+
         # Tracks consecutive gas-critical order failures per pair.
         # Value: (attempt_count, window_start_timestamp, paused_until_timestamp)
         # paused_until=0.0 means not yet paused.  When paused_until > now, create_order
         # raises InsufficientFundsError immediately (no GMX call, no extra Telegram).
         self._gas_critical_attempts: dict[str, tuple[int, float, float]] = {}
+
+        #: When in Lagoon mode, stores the asset manager's HotWallet for gas checks.
+        #: The Safe holds positions but the asset manager pays gas.
+        self._asset_manager_wallet: Optional[HotWallet] = None
+
+        # Initialise Lagoon vault wallet when ccxt_config.options.vaultAddress is set.
+        self._init_lagoon_wallet()
+
+    # ------------------------------------------------------------------
+    # Lagoon vault support
+    # ------------------------------------------------------------------
+
+    def _init_lagoon_wallet(self) -> None:
+        """Initialise Lagoon vault wallet when ``ccxt_config.options.vaultAddress`` is configured.
+
+        Called from ``__init__()`` after the parent Exchange class has constructed
+        the GMX CCXT adapter (``self._api``) with a :class:`~eth_defi.hotwallet.HotWallet`.
+
+        Only ``ccxt_config.options.vaultAddress`` and ``ccxt_config.privateKey`` are
+        required.  The ``TradingStrategyModuleV0`` address is discovered automatically
+        from the Safe's enabled Zodiac modules via :meth:`LagoonVault.fetch_info`.
+
+        When Lagoon config is present, this method:
+
+        1. Wraps the existing HotWallet in a :class:`~eth_defi.gmx.lagoon.wallet.LagoonGMXTradingWallet`.
+        2. Replaces ``self._api.wallet`` and ``self._api.wallet_address`` so the Safe is the trading account.
+        3. Rebuilds ``self._api.config`` and ``self._api.trader`` to target the Safe address.
+        4. Optionally approves collateral tokens for the GMX SyntheticsRouter.
+
+        No-op when ``ccxt_config.options.vaultAddress`` is absent.
+        """
+        exchange_config: dict = self._config.get("exchange", {})
+        ccxt_options: dict = exchange_config.get("ccxt_config", {}).get("options", {})
+
+        logger.debug(
+            "Lagoon init: ccxt_options keys=%s, vaultAddress raw=%r",
+            list(ccxt_options.keys()),
+            ccxt_options.get("vaultAddress"),
+        )
+
+        raw_vault = ccxt_options.get("vaultAddress")
+        if not raw_vault:
+            logger.debug("Lagoon init: no vaultAddress in ccxt_options, skipping lagoon mode")
+            return
+
+        try:
+            vault_address: HexAddress | None = Web3.to_checksum_address(raw_vault)
+        except Exception as e:
+            logger.error("Lagoon init: Web3.to_checksum_address(%r) failed: %s", raw_vault, e)
+            return
+
+        logger.debug("Lagoon init: vault_address=%s", vault_address)
+
+        if not vault_address:
+            logger.debug("Lagoon init: vault_address is falsy after checksum, skipping")
+            return
+
+        forward_eth: bool = exchange_config.get("lagoon_forward_eth", True)
+        gas_buffer: int = exchange_config.get("lagoon_gas_buffer", 500_000)
+        auto_approve: bool = exchange_config.get("lagoon_auto_approve", True)
+
+        logger.debug(
+            "Lagoon init: forward_eth=%s, gas_buffer=%s, auto_approve=%s",
+            forward_eth, gas_buffer, auto_approve,
+        )
+
+        gmx_api: GMXAPI = self._api
+        web3: Web3 = gmx_api.web3
+        hot_wallet: HotWallet = gmx_api.wallet
+
+        logger.debug("Lagoon init: hot_wallet=%s", hot_wallet)
+
+        if hot_wallet is None:
+            msg = "privateKey must be provided in ccxt_config when using a Lagoon vault. The private key is the asset manager's signing key."
+            raise OperationalException(msg)
+
+        # Preserve the original HotWallet i.e. the asset manager's wallet for gas balance checks.
+        # The Safe holds GMX positions; the asset manager pays gas.
+        self._asset_manager_wallet = hot_wallet
+
+        # Build LagoonVault — module address is discovered from the Safe below.
+        chain_id = web3.eth.chain_id
+        logger.debug("Lagoon init: chain_id=%s, creating VaultSpec and LagoonVault", chain_id)
+        vault_spec = VaultSpec(chain_id, vault_address)
+        vault = LagoonVault(web3, vault_spec)
+
+        # Auto-discover TradingStrategyModuleV0 from the Safe's enabled Zodiac modules.
+        logger.debug("Lagoon init: calling vault.fetch_info()...")
+        try:
+            vault_info = vault.fetch_info()
+        except Exception as e:
+            logger.error("Lagoon init: vault.fetch_info() FAILED: %s", e, exc_info=True)
+            raise
+
+        logger.debug("Lagoon init: vault_info keys=%s", list(vault_info.keys()))
+        modules = vault_info.get("modules", [])
+        logger.debug("Lagoon init: modules=%s", modules)
+        if not modules:
+            msg = f"Lagoon vault {vault_address}: Safe has no Zodiac modules enabled. Deploy and enable TradingStrategyModuleV0 first."
+            raise OperationalException(msg)
+        if len(modules) > 1:
+            logger.warning(
+                "Lagoon vault Safe has %d enabled modules; using first (%s). Set tradingModuleAddress explicitly if this is wrong.",
+                len(modules),
+                modules[0],
+            )
+        trading_module_address = modules[0]
+        vault.trading_strategy_module_address = trading_module_address
+
+        # Wrap all GMX transactions through TradingStrategyModuleV0.performCall().
+        lagoon_wallet = LagoonGMXTradingWallet(
+            vault=vault,
+            asset_manager=hot_wallet,
+            gas_buffer=gas_buffer,
+            forward_eth=forward_eth,
+        )
+
+        # The Safe address is the GMX trading account (holds collateral and positions).
+        safe_address = vault.safe_address
+        logger.debug("Lagoon init: safe_address=%s", safe_address)
+
+        # Replace wallet on the CCXT adapter.
+        gmx_api.wallet = lagoon_wallet
+        gmx_api._wallet = lagoon_wallet
+        gmx_api.wallet_address = safe_address
+        logger.debug("Lagoon init: wallet replaced, rebuilding GMXConfig and GMXTrading")
+
+        # Rebuild GMXConfig and GMXTrading to target the Safe address.
+        gmx_api.config = GMXConfig(
+            web3,
+            user_wallet_address=safe_address,
+            wallet=lagoon_wallet,
+        )
+        gmx_api.trader = GMXTrading(
+            gmx_api.config,
+            gas_monitor_config=gmx_api._gas_monitor_config,
+        )
+
+        logger.info(
+            "Lagoon vault mode enabled: vault=%s safe=%s module=%s",
+            vault_address,
+            safe_address,
+            trading_module_address,
+        )
+
+        if auto_approve:
+            self._approve_lagoon_collateral(vault, hot_wallet)
+
+    def _approve_lagoon_collateral(
+        self,
+        vault: "LagoonVault",
+        asset_manager: HotWallet,
+    ) -> None:
+        """Approve common GMX collateral tokens for the Safe via the vault module.
+
+        Checks existing allowances and calls
+        :func:`~eth_defi.gmx.lagoon.approvals.approve_gmx_collateral_via_vault`
+        for any token that does not yet have an unlimited approval.
+
+        :param vault:
+            Lagoon vault whose Safe needs token approvals.
+
+        :param asset_manager:
+            HotWallet that signs the approval transactions via ``performCall``.
+        """
+        web3 = vault.web3
+        chain_id = web3.eth.chain_id
+        chain = get_chain_name(chain_id).lower()
+
+        if chain not in GMX_SUPPORTED_CHAINS:
+            logger.warning(
+                "Cannot auto-approve collateral: unsupported chain %s (id %d). Approve tokens manually via approve_gmx_collateral_via_vault().",
+                chain,
+                chain_id,
+            )
+            return
+
+        safe_address = vault.safe_address
+        spender = get_contract_addresses(chain).syntheticsrouter
+
+        exchange_config = self._config.get("exchange", {})
+        collateral_addresses = exchange_config.get("lagoon_collateral_tokens")
+
+        if collateral_addresses is None:
+            chain_tokens = NETWORK_TOKENS.get(chain, {})
+            collateral_addresses = [v for k, v in chain_tokens.items() if k in ("USDC", "WETH", "USDC.e")]
+
+        for token_address in collateral_addresses:
+            try:
+                token = fetch_erc20_details(web3, token_address)
+                allowance = token.contract.functions.allowance(safe_address, spender).call()
+                if allowance > 0:
+                    logger.debug(
+                        "Collateral %s already approved for GMX router (allowance=%d). Skipping.",
+                        token.symbol,
+                        allowance,
+                    )
+                    continue
+                logger.info(
+                    "Auto-approving %s for GMX SyntheticsRouter via vault...",
+                    token.symbol,
+                )
+                approve_gmx_collateral_via_vault(
+                    vault=vault,
+                    asset_manager=asset_manager,
+                    collateral_token=token,
+                    amount=UNLIMITED,
+                )
+                logger.info("Approved %s for GMX SyntheticsRouter.", token.symbol)
+            except Exception as e:
+                logger.warning("Failed to auto-approve collateral %s: %s", token_address, e)
+
+    @property
+    def is_lagoon_mode(self) -> bool:
+        """Return ``True`` when the exchange is operating through a Lagoon vault.
+
+        :return:
+            ``True`` when ``ccxt_config.options.vaultAddress`` was configured and
+            the Lagoon wallet has been successfully initialised.
+        """
+        return self._asset_manager_wallet is not None
+
+    @property
+    def lagoon_vault(self) -> Optional["LagoonVault"]:
+        """Return the :class:`~eth_defi.erc_4626.vault_protocol.lagoon.vault.LagoonVault` instance.
+
+        :return:
+            ``LagoonVault`` when in Lagoon mode, ``None`` otherwise.
+        """
+        if isinstance(getattr(self._api, "wallet", None), LagoonGMXTradingWallet):
+            return self._api.wallet.vault
+        return None
 
     def fetch_order(self, order_id: str, pair: str, params: dict | None = None) -> CcxtOrder:
         """Fetch order with GMX-specific zombie detection and cancel reason logging.
@@ -255,9 +551,8 @@ class Gmx(Exchange):
 
         # GMX requires RPC URL
         if "rpc_url" not in exchange_config and "rpcUrl" not in exchange_config.get("ccxt_config", {}):
-            raise OperationalException(
-                "GMX exchange requires 'rpc_url' in exchange config or 'rpcUrl' in ccxt_config",
-            )
+            msg = "GMX exchange requires 'rpc_url' in exchange config or 'rpcUrl' in ccxt_config"
+            raise OperationalException(msg)
 
         # Trading mode must be futures
         if self.trading_mode != TradingMode.FUTURES:
@@ -265,7 +560,20 @@ class Gmx(Exchange):
 
         # Margin mode must be set
         if not self.margin_mode:
-            raise OperationalException("GMX requires margin_mode to be set (isolated or cross)")
+            msg = "GMX requires margin_mode to be set (isolated), got: None"
+            raise OperationalException(msg)
+
+        # Validate Lagoon vault config when present in ccxt_config.options.
+        ccxt_options = exchange_config.get("ccxt_config", {}).get("options", {})
+        vault_address = ccxt_options.get("vaultAddress")
+        if vault_address:
+            if not isinstance(vault_address, str) or not vault_address.startswith("0x"):
+                msg = "ccxt_config.options.vaultAddress must be a valid Ethereum address starting with '0x'."
+                raise OperationalException(msg)
+            has_private_key = exchange_config.get("ccxt_config", {}).get("privateKey") or exchange_config.get("private_key")
+            if not has_private_key:
+                msg = "privateKey must be provided in ccxt_config when using a Lagoon vault. The private key is the asset manager's signing key."
+                raise OperationalException(msg)
 
         # Validate timerange for backtesting
         if config.get("runmode") in ["backtest", "hyperopt"]:
@@ -493,9 +801,11 @@ class Gmx(Exchange):
         wallet = getattr(gmx, "wallet_address", None)
 
         if not gmx or not getattr(gmx, "config", None):
-            raise OperationalException("GMX CCXT client is not initialized")
+            msg = "GMX CCXT client is not initialized"
+            raise OperationalException(msg)
         if not wallet:
-            raise OperationalException("GMX wallet_address is missing; cannot fetch on-chain positions")
+            msg = "GMX wallet_address is missing; cannot fetch on-chain positions"
+            raise OperationalException(msg)
 
         positions = GetOpenPositions(gmx.config, use_graphql=use_graphql).get_data(wallet)
         logger.info("Fetched %s on-chain GMX positions for wallet %s", len(positions), wallet)
@@ -666,7 +976,10 @@ class Gmx(Exchange):
         """
         wallet_address = ""
         try:
-            if hasattr(self._api, "wallet") and self._api.wallet:
+            # In Lagoon mode the asset manager pays gas — use their address.
+            if self._asset_manager_wallet is not None:
+                wallet_address = self._asset_manager_wallet.address
+            elif hasattr(self._api, "wallet") and self._api.wallet:
                 wallet_address = self._api.wallet.address
         except Exception:
             pass
@@ -830,15 +1143,17 @@ class Gmx(Exchange):
                 )
                 self._gas_critical_attempts.pop(pair)
 
-        # Check wallet ETH balance and warn if low (before creating order)
+        # Check wallet ETH balance and warn if low (before creating order).
+        # In Lagoon mode the asset manager pays gas, not the Safe.
         try:
             if hasattr(self._api, "web3") and hasattr(self._api, "wallet"):
-                balance_wei = self._api.web3.eth.get_balance(self._api.wallet.address)
-                balance_eth = balance_wei / 1e18
+                gas_payer = self._asset_manager_wallet if self._asset_manager_wallet is not None else self._api.wallet
+                balance_wei = self._api.web3.eth.get_balance(gas_payer.address)
+                balance_eth = balance_wei / WEI_PER_ETH
 
                 # Warn if balance is low (< 0.01 ETH)
                 if balance_eth < 0.01:
-                    _gas_warn_msg = f"💰 GMX GAS WARNING: Low ETH balance {balance_eth:.6f} ETH. Minimum recommended: 0.01 ETH. Top up wallet {self._api.wallet.address} to avoid order failures."
+                    _gas_warn_msg = f"💰 GMX GAS WARNING: Low ETH balance {balance_eth:.6f} ETH. Minimum recommended: 0.01 ETH. Top up wallet {gas_payer.address} to avoid order failures."
                     logger.warning(_gas_warn_msg)
                     send_freqtrade_telegram_message(self._config, _gas_warn_msg)
         except Exception:
@@ -944,9 +1259,8 @@ class Gmx(Exchange):
                     pair,
                     _GAS_CRITICAL_MAX_RETRIES,
                 )
-        else:
-            # Successful order — reset the gas failure counter for this pair
-            if pair in self._gas_critical_attempts:
-                self._gas_critical_attempts.pop(pair)
+        # Successful order — reset the gas failure counter for this pair
+        elif pair in self._gas_critical_attempts:
+            self._gas_critical_attempts.pop(pair)
 
         return order
