@@ -1,0 +1,397 @@
+# Hyperliquid vault data backfill from S3 archive
+
+Research conducted 2026-03-11.
+
+## Problem
+
+The Hyperliquid API's `allTime` period provides only **weekly snapshots** for data older
+than 30 days. Vaults created before our daily scan pipeline started have gaps of 5–7 days
+between data points, creating jigsaw share price curves (e.g. NEET vault has 60 rows
+but should have 112).
+
+## Solution: `hyperliquid-archive` S3 bucket
+
+The `s3://hyperliquid-archive/account_values/` prefix contains **daily snapshots** for every
+address on Hyperliquid, including vaults. This provides the exact fields needed for share
+price calculation at daily resolution, going back to the archive's start date.
+
+### Schema of `account_values/{YYYYMMDD}.csv.lz4`
+
+```
+time, user, is_vault, account_value, cum_vlm, cum_ledger
+```
+
+| Field | Maps to our column | Description |
+|-------|-------------------|-------------|
+| `account_value` | `tvl` | Total vault NAV (= `cumulative_account_value`) |
+| `cum_ledger` | — | Cumulative net deposits from inception |
+| `account_value - cum_ledger` | `cumulative_pnl` | Derivable: cumulative trading PnL |
+| `is_vault` | — | Boolean filter (`true` for vault addresses) |
+| `cum_vlm` | — | Cumulative trading volume (bonus data) |
+
+Also available: `ledger_updates/{YYYYMMDD}.csv.lz4` with per-address deposit/withdrawal
+deltas (`time, user, delta_usd`) for exact flow event timing.
+
+## Data size estimates
+
+### `account_values` file sizes
+
+| Period | Est. active addresses/day | Compressed (LZ4) | Uncompressed |
+|--------|--------------------------|-------------------|--------------|
+| Early 2023 | ~50,000 | ~1.5–2 MB | ~6 MB |
+| Late 2024 | ~300,000 | ~9–12 MB | ~36 MB |
+| Now (2026) | ~1,200,000 | ~36–48 MB | ~144 MB |
+
+**Total archive (all days, ~800–900 files): ~8–15 GB compressed, ~30–60 GB uncompressed.**
+
+### Vault-only subset
+
+After filtering `is_vault=true`:
+- ~1,500–5,000 vault rows per day (growing from ~100 early on to ~5,000 now)
+- **Total vault-only data: ~40–150 MB uncompressed** — tiny
+
+## Cost analysis
+
+The bucket is **requester-pays** — requires AWS credentials.
+
+### Processing options
+
+| Option | Viable? | Cost | Notes |
+|--------|---------|------|-------|
+| **A: Download locally** | Yes | **~$0** | 8–15 GB fits within 100 GB/month free egress tier. Simplest approach |
+| B: AWS Athena | No | — | LZ4 framing format incompatible with Athena. Would need format conversion first |
+| **C: EC2 same-region** | Yes | **~$0.02** | Free intra-region S3 transfer. Process on t3.small, download vault-only results (~150 MB) |
+| D: S3 Select | No | — | S3 Select does not support LZ4 compression (only GZIP/BZIP2) |
+
+### Cost breakdown for Option A (download locally)
+
+| Item | Cost |
+|------|------|
+| S3 GET requests (~900 files) | $0.00036 |
+| Data transfer OUT (8–15 GB) | $0.00 (free tier) |
+| **Total** | **~$0** |
+
+Download time: ~10–25 minutes at typical broadband (50–100 Mbps).
+LZ4 decompresses at ~800 MB/s — processing is I/O bound, not CPU bound.
+
+### Cost breakdown for Option C (EC2 same-region)
+
+| Item | Cost |
+|------|------|
+| EC2 t3.small (2 vCPU, 2 GB RAM, ~1 hour) | $0.02 |
+| S3 transfer (same-region) | $0.00 |
+| Download results (~150 MB) | $0.00 (free tier) |
+| **Total** | **~$0.02** |
+
+### Ongoing incremental cost
+
+One new file per day (~30–50 MB compressed) — effectively free.
+
+## Bucket access details
+
+- **Bucket**: `s3://hyperliquid-archive/`
+- **Region**: Not documented. Likely `us-east-1` or `us-west-2`. Determine with:
+  ```shell
+  aws s3api get-bucket-location --bucket hyperliquid-archive --request-payer requester
+  ```
+- **Access**: Requester-pays. Requires AWS credentials + `--request-payer requester`
+- **Format**: LZ4-compressed CSV (`{type}/{YYYYMMDD}.csv.lz4`)
+- **Update frequency**: Approximately monthly
+
+## Implementation
+
+The backfill is implemented as a two-stage pipeline in `eth_defi.hyperliquid.backfill`:
+
+### Stage 1: Extract (S3 → staging DuckDB)
+
+Downloads LZ4 files, extracts vault-only rows (`is_vault=true`), stores in a staging
+DuckDB (`s3-vault-backfill.duckdb`), deletes the LZ4 file. **Resumable** — on restart,
+skips dates already in the staging DB.
+
+**Script**: `scripts/hyperliquid/extract-s3-vault-data.py`
+
+### Stage 2: Apply (staging DuckDB → main DuckDB)
+
+Reads from staging DB, inserts missing dates into the main `daily-metrics.duckdb`,
+recomputes share prices. Only fills gaps — never overwrites API data. Each row is tagged
+with `data_source='s3_backfill'` to distinguish from API data.
+
+**Script**: `scripts/hyperliquid/backfill-vault-data.py`
+
+### What the backfill provides
+
+From S3 data we derive:
+- `tvl = account_value`
+- `cumulative_pnl = account_value - cum_ledger`
+- `daily_pnl = cumulative_pnl[i] - cumulative_pnl[i-1]`
+- `share_price`, `daily_return`, `epoch_reset` via `recompute_vault_share_prices()`
+
+Columns that will be NULL for backfilled rows (no downstream impact):
+`follower_count`, `apr`, `is_closed`, `allow_deposits`, `leader_fraction`,
+`leader_commission`, `daily_deposit/withdrawal_*`
+
+## AWS setup
+
+The `hyperliquid-archive` bucket is **requester-pays**, meaning you need your own
+AWS account and credentials to download files. The bucket owner pays nothing for
+your requests — all S3 GET and data transfer costs are billed to your account
+(effectively $0 for this workload, see cost analysis above).
+
+### 1. Create an AWS account
+
+If you don't have one already, sign up at https://aws.amazon.com/.
+The AWS Free Tier includes 100 GB/month of data transfer out, which covers
+the full archive download (~8–15 GB).
+
+### 2. Create an IAM user with S3 read access
+
+In the AWS Console → IAM → Users → Create user:
+
+- **User name**: e.g. `hyperliquid-archive-reader`
+- **Permissions**: Attach the managed policy `AmazonS3ReadOnlyAccess`,
+  or create a minimal inline policy:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::hyperliquid-archive",
+                "arn:aws:s3:::hyperliquid-archive/*"
+            ]
+        }
+    ]
+}
+```
+
+### 3. Create access keys
+
+IAM → Users → your user → Security credentials → Create access key.
+Choose "Command Line Interface (CLI)" as the use case. Save the
+**Access Key ID** and **Secret Access Key**.
+
+### 4. Install and configure the AWS CLI
+
+```shell
+# macOS
+brew install awscli
+
+# Linux (pip)
+pip install awscli
+
+# Verify installation
+aws --version
+```
+
+Configure credentials:
+
+```shell
+aws configure
+# AWS Access Key ID: <paste your access key>
+# AWS Secret Access Key: <paste your secret key>
+# Default region name: us-east-1
+# Default output format: json
+```
+
+Alternatively, set environment variables (useful for CI/scripts):
+
+```shell
+export AWS_ACCESS_KEY_ID=AKIA...
+export AWS_SECRET_ACCESS_KEY=...
+export AWS_DEFAULT_REGION=us-east-1
+```
+
+### 5. Verify access
+
+```shell
+# Check credentials work
+aws sts get-caller-identity
+
+# List a few files from the archive
+aws s3 ls s3://hyperliquid-archive/account_values/ --request-payer requester | head -5
+
+# Check bucket region
+aws s3api get-bucket-location --bucket hyperliquid-archive --request-payer requester
+```
+
+### 6. Python access (boto3)
+
+The extract script uses `boto3` indirectly (through pre-downloaded files),
+but if you want to download programmatically:
+
+```shell
+poetry install -E hyperliquid_backfill
+```
+
+```python
+import boto3
+
+s3 = boto3.client("s3")
+s3.download_file(
+    Bucket="hyperliquid-archive",
+    Key="account_values/20260301.csv.lz4",
+    Filename="20260301.csv.lz4",
+    ExtraArgs={"RequestPayer": "requester"},
+)
+```
+
+## How to run
+
+### Step 1: Download S3 files
+
+```shell
+mkdir -p ~/hl-archive/account_values
+aws s3 sync s3://hyperliquid-archive/account_values/ ~/hl-archive/account_values/ \
+    --request-payer requester
+```
+
+To download a single day for testing:
+
+```shell
+aws s3 cp s3://hyperliquid-archive/account_values/20260301.csv.lz4 \
+    ~/hl-archive/account_values/ --request-payer requester
+```
+
+### Step 2: Extract vault data
+
+```shell
+S3_DATA_DIR=~/hl-archive/account_values/ LOG_LEVEL=info \
+    poetry run python scripts/hyperliquid/extract-s3-vault-data.py
+```
+
+Environment variables:
+- `S3_DATA_DIR` — directory with `.csv.lz4` files (required)
+- `STAGING_DB_PATH` — staging DB path (default: `~/.tradingstrategy/hyperliquid/s3-vault-backfill.duckdb`)
+- `START_DATE`, `END_DATE` — optional date range filter (YYYY-MM-DD)
+- `DELETE_LZ4` — delete LZ4 files after extraction (default: `true`)
+
+### Step 3: Apply backfill
+
+```shell
+LOG_LEVEL=info poetry run python scripts/hyperliquid/backfill-vault-data.py
+```
+
+Environment variables:
+- `STAGING_DB_PATH` — staging DB path
+- `DB_PATH` — main metrics DB path (default: standard location)
+- `VAULT_ADDRESSES` — optional comma-separated filter
+- `RUN_PIPELINE` — if `true`, run downstream cleaning pipeline
+
+### Step 4: Optionally run downstream pipeline
+
+```shell
+RUN_PIPELINE=true poetry run python scripts/hyperliquid/backfill-vault-data.py
+```
+
+## What this fixes
+
+| Before backfill | After backfill |
+|-----------------|----------------|
+| Weekly gaps (5–7 days) in early history | Daily data points for all vaults |
+| 60 rows for NEET vault | ~112 rows (one per day) |
+| Jigsaw share price curves | Smooth daily equity curves |
+| ~52 missing days for vaults created before daily scan | All days filled from S3 archive |
+
+## Limitations
+
+- Archive is updated ~monthly, so the most recent ~0–30 days may not be in S3 yet.
+  These are already covered by the daily scan pipeline's `month` period from the API.
+- `account_values` provides one snapshot per day per address. We cannot get sub-daily
+  resolution from this source (but `month`/`week`/`day` API periods cover recent data).
+- The archive start date is uncertain — may not go back to the very earliest vaults
+  (late 2023). Need to verify by listing the bucket.
+- `cum_ledger` may count leader equity differently from the API's `pnl_history` — need to
+  verify that `account_value - cum_ledger` matches our `cumulative_pnl` for known vaults.
+
+## Local testing
+
+### Unit tests (no AWS needed)
+
+```shell
+source .local-test.env && poetry run pytest tests/hyperliquid/test_backfill.py -v
+```
+
+Tests use synthetic LZ4 files and verify:
+- LZ4 parsing and vault filtering
+- Stage 1 extraction and resumability
+- Stage 2 gap-filling and share price recomputation
+- API data preservation (backfill never overwrites existing rows)
+
+### Manual test with real S3 data
+
+```shell
+# Download a single day
+aws s3 cp s3://hyperliquid-archive/account_values/20260301.csv.lz4 ./test-data/ \
+    --request-payer requester
+
+# Stage 1: Extract into test staging DB
+S3_DATA_DIR=./test-data/ STAGING_DB_PATH=/tmp/staging.duckdb DELETE_LZ4=false \
+    poetry run python scripts/hyperliquid/extract-s3-vault-data.py
+
+# Stage 2: Apply to test metrics DB
+STAGING_DB_PATH=/tmp/staging.duckdb DB_PATH=/tmp/test-metrics.duckdb \
+VAULT_ADDRESSES=0x4cb5f4d145cd16460932bbb9b871bb6fd5db97e3 \
+    poetry run python scripts/hyperliquid/backfill-vault-data.py
+
+# Inspect results
+poetry run python -c "
+from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
+from pathlib import Path
+db = HyperliquidDailyMetricsDatabase(Path('/tmp/test-metrics.duckdb'))
+df = db.get_vault_daily_prices('0x4cb5f4d145cd16460932bbb9b871bb6fd5db97e3')
+print(f'Rows: {len(df)}')
+print(df[['date', 'tvl', 'cumulative_pnl', 'share_price', 'data_source']].to_string())
+db.close()
+"
+```
+
+## Production data migration
+
+```shell
+# 1. Download full S3 archive (~8-15 GB compressed, ~10-25 min)
+aws s3 sync s3://hyperliquid-archive/account_values/ ~/hl-archive/account_values/ \
+    --request-payer requester
+
+# 2. Extract vault data (resumable — safe to interrupt and restart)
+S3_DATA_DIR=~/hl-archive/account_values/ LOG_LEVEL=info \
+    poetry run python scripts/hyperliquid/extract-s3-vault-data.py
+
+# 3. Back up production database
+cp ~/.tradingstrategy/hyperliquid/daily-metrics.duckdb \
+   ~/.tradingstrategy/hyperliquid/daily-metrics.duckdb.bak
+
+# 4. Apply backfill (inserts only missing dates, never overwrites API data)
+LOG_LEVEL=info poetry run python scripts/hyperliquid/backfill-vault-data.py
+
+# 5. Run downstream pipeline to regenerate cleaned output
+RUN_PIPELINE=true poetry run python scripts/hyperliquid/backfill-vault-data.py
+
+# 6. Verify a known vault improved
+poetry run python -c "
+from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
+from pathlib import Path
+db = HyperliquidDailyMetricsDatabase(
+    Path.home() / '.tradingstrategy/hyperliquid/daily-metrics.duckdb')
+neet = '0x4cb5f4d145cd16460932bbb9b871bb6fd5db97e3'
+df = db.get_vault_daily_prices(neet)
+print(f'NEET vault: {len(df)} rows (was 60, expected ~112)')
+sources = df['data_source'].value_counts().to_dict()
+print(f'Data sources: {sources}')
+db.close()
+"
+```
+
+## Verification plan
+
+1. Download one recent day's `account_values` file
+2. Extract vault rows for 3–5 known vaults (NEET, HLP, pmalt)
+3. Compare `account_value` against our stored `tvl` for the same date
+4. Compare `account_value - cum_ledger` against our stored `cumulative_pnl`
+5. If values match: proceed with full backfill
+6. If values differ: investigate the mapping before full backfill
