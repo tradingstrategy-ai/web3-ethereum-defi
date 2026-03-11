@@ -4930,9 +4930,7 @@ class GMX(ExchangeCompatible):
             if amount and amount > 0:
                 from ccxt.base.errors import InvalidOrder
 
-                raise InvalidOrder(
-                    f"Cannot use both 'size_usd' ({params['size_usd']}) and non-zero 'amount' ({amount}) together. Use either: (1) 'size_usd' in params for direct USD sizing (recommended), or (2) 'amount' for base currency sizing (will be multiplied by price). Recommendation: Use 'size_usd' with amount=0 for precise USD-denominated positions."
-                )
+                raise InvalidOrder(f"Cannot use both 'size_usd' ({params['size_usd']}) and non-zero 'amount' ({amount}) together. Use either: (1) 'size_usd' in params for direct USD sizing (recommended), or (2) 'amount' for base currency sizing (will be multiplied by price). Recommendation: Use 'size_usd' with amount=0 for precise USD-denominated positions.")
             size_delta_usd = params["size_usd"]
             logger.debug("ORDER_TRACE: Using size_usd=%s from params", size_delta_usd)
 

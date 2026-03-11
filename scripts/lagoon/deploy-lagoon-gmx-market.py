@@ -241,10 +241,7 @@ def resolve_market_address(
     # Fallback: fetch all markets on-chain
     if web3 is None:
         available = ", ".join(k.split("/")[0] for k in GMX_POPULAR_MARKETS)
-        raise ValueError(
-            f"Token '{symbol_upper}' not found in popular markets ({available}). "
-            f"Connect to a chain to search all available markets."
-        )
+        raise ValueError(f"Token '{symbol_upper}' not found in popular markets ({available}). Connect to a chain to search all available markets.")
 
     print(f"Token '{symbol_upper}' not in popular markets, fetching all markets on-chain...")
     all_markets = fetch_all_gmx_markets(web3)
@@ -253,10 +250,7 @@ def resolve_market_address(
             return address, symbol_upper
 
     available = ", ".join(str(info.market_symbol) for info in all_markets.values())
-    raise ValueError(
-        f"No GMX market found for '{symbol_upper}'. "
-        f"Available markets: {available}"
-    )
+    raise ValueError(f"No GMX market found for '{symbol_upper}'. Available markets: {available}")
 
 
 def list_all_markets(web3: Web3) -> None:
@@ -533,7 +527,8 @@ Popular tokens: ETH, BTC, SOL, LINK, ARB, DOGE, AVAX, NEAR, AAVE
 """,
     )
     parser.add_argument(
-        "-t", "--token",
+        "-t",
+        "--token",
         type=str,
         nargs="+",
         help="Token symbol(s) to trade (e.g. SOL, BTC, ETH). Multiple tokens create a multi-market vault.",

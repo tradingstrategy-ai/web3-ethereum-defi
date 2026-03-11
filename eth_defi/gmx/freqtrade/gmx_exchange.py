@@ -299,7 +299,9 @@ class Gmx(Exchange):
 
         logger.debug(
             "Lagoon init: forward_eth=%s, gas_buffer=%s, auto_approve=%s",
-            forward_eth, gas_buffer, auto_approve,
+            forward_eth,
+            gas_buffer,
+            auto_approve,
         )
 
         gmx_api: GMXAPI = self._api
