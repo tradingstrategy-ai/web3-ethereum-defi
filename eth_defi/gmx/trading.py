@@ -312,8 +312,7 @@ class GMXTrading:
 
         # Step 1: Check gas balance if enabled
         if check_gas and self.gas_monitor.config.enabled:
-            gas_addr = getattr(wallet, "gas_address", wallet.address)
-            gas_check = self.gas_monitor.check_gas_balance(gas_addr)
+            gas_check = self.gas_monitor.check_gas_balance(wallet.address)
 
             if gas_check.status == "critical":
                 self.gas_monitor.log_gas_check_warning(gas_check)
@@ -490,16 +489,9 @@ class GMXTrading:
         if not gas_config.enabled:
             return
 
-        # Get wallet address for gas checks.
-        # In lagoon mode the Safe owns positions but the asset manager pays gas,
-        # so prefer the wallet's gas_address (if available) over the config's
-        # user_wallet_address which points to the Safe.
+        # Get wallet address
         if wallet_address is None:
-            wallet = self.config.wallet
-            if wallet is not None:
-                wallet_address = getattr(wallet, "gas_address", wallet.address)
-            else:
-                wallet_address = self.config.get_wallet_address()
+            wallet_address = self.config.get_wallet_address()
         if wallet_address is None:
             logger.debug("No wallet address available for gas monitoring")
             return

@@ -14,7 +14,6 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import (
     GMX_API_URLS,
     GMX_API_URLS_BACKUP,
-    GMX_SUPPORTED_CHAINS,
     _APY_CACHE_TTL_SECONDS,
     _MARKETS_CACHE_TTL_SECONDS,
     _MARKETS_INFO_CACHE_TTL_SECONDS,
@@ -138,8 +137,9 @@ class GMXAPI:
         self.retry_config = retry_config
 
         # Validate chain is supported
-        if self.chain.lower() not in GMX_SUPPORTED_CHAINS:
-            raise ValueError(f"Unsupported chain: {self.chain}. Supported: {', '.join(GMX_SUPPORTED_CHAINS)}")
+        supported_chains = ["arbitrum", "arbitrum_sepolia", "avalanche", "avalanche_fuji"]
+        if self.chain.lower() not in supported_chains:
+            raise ValueError(f"Unsupported chain: {self.chain}. Supported: {', '.join(supported_chains)}")
 
     @property
     def base_url(self) -> str:
