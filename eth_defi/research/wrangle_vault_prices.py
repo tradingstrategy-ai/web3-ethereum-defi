@@ -821,7 +821,25 @@ def process_raw_vault_scan_data(
     # this prevents the smoothing algorithm from being confused by absurd values.
     prices_df = cap_hypercore_share_prices(prices_df, logger)
 
-    prices_df = fix_outlier_share_prices(prices_df, logger)
+    # fix_outlier_share_prices() uses row-based shift(look_back=24) designed for
+    # hourly ERC-4626 data (24 rows = 24 hours). For Hypercore vaults with weekly
+    # spacing, 24 rows spans ~6 months, making the comparison meaningless and
+    # incorrectly smoothing legitimate price movements. Hypercore share prices are
+    # synthetic and already cleaned by cap_hypercore_share_prices(), so skip them.
+    from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+
+    hypercore_mask = prices_df["chain"] == HYPERCORE_CHAIN_ID
+    if hypercore_mask.any() and (~hypercore_mask).any():
+        evm_df = prices_df[~hypercore_mask].copy()
+        hypercore_df = prices_df[hypercore_mask].copy()
+        hypercore_df["raw_share_price"] = hypercore_df["share_price"]
+        evm_df = fix_outlier_share_prices(evm_df, logger)
+        prices_df = pd.concat([evm_df, hypercore_df]).sort_index()
+    elif (~hypercore_mask).any():
+        prices_df = fix_outlier_share_prices(prices_df, logger)
+    else:
+        prices_df["raw_share_price"] = prices_df["share_price"]
+        logger("Skipping fix_outlier_share_prices() for Hypercore-only dataset")
 
     if diagnose_vault_id:
         vault_prices_df = prices_df[prices_df["id"] == diagnose_vault_id]

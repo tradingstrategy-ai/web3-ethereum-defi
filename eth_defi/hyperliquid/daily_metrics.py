@@ -53,13 +53,119 @@ from eth_defi.hyperliquid.vault import (
 logger = logging.getLogger(__name__)
 
 
-def portfolio_to_combined_dataframe(portfolio_all_time: PortfolioHistory) -> pd.DataFrame:
+def _merge_portfolio_periods(
+    portfolio: dict[str, PortfolioHistory],
+    dedup_window_hours: float = 6.0,
+) -> PortfolioHistory:
+    """Merge multiple portfolio periods into a single high-resolution PortfolioHistory.
+
+    The Hyperliquid ``vaultDetails`` API returns four portfolio periods:
+    ``day``, ``week``, ``month``, ``allTime``. Each covers its window
+    with varying temporal resolution:
+
+    - ``allTime``: ~weekly snapshots for the full vault lifetime
+    - ``month``: higher resolution for the last 30 days
+    - ``week``: higher resolution for the last 7 days
+    - ``day``: highest resolution for the last 24 hours
+
+    Strategy: start with ``allTime`` as the base, then overlay each
+    higher-resolution period. For any timestamp in the overlay period,
+    if a timestamp from the base is within ``dedup_window_hours`` of a
+    higher-resolution timestamp, drop the lower-resolution base point.
+
+    :param portfolio:
+        The ``portfolio`` dict from :py:class:`~eth_defi.hyperliquid.vault.VaultInfo`.
+    :param dedup_window_hours:
+        Minimum distance (in hours) between merged data points.
+        Base points closer than this to an overlay point are dropped.
+    :return:
+        Merged :py:class:`~eth_defi.hyperliquid.vault.PortfolioHistory`
+        with ``period="merged"``.
+    """
+    import bisect
+
+    all_time = portfolio.get("allTime")
+    if all_time is None:
+        raise ValueError("allTime period is required for merge")
+
+    # Start with allTime as the base
+    base_avh = list(all_time.account_value_history)
+    base_pnl = list(all_time.pnl_history)
+    base_avh.sort(key=lambda x: x[0])
+    base_pnl.sort(key=lambda x: x[0])
+
+    # Build the authoritative PnL lookup from allTime (for later reconstruction)
+    alltime_pnl_times = [ts for ts, _ in base_pnl]
+    alltime_pnl_values = [float(val) for _, val in base_pnl]
+
+    dedup_seconds = dedup_window_hours * 3600
+
+    # Overlay periods in order of increasing resolution
+    for period_name in ("month", "week", "day"):
+        period = portfolio.get(period_name)
+        if period is None or len(period.account_value_history) < 2:
+            continue
+
+        overlay_avh = sorted(period.account_value_history, key=lambda x: x[0])
+        overlay_timestamps = [ts for ts, _ in overlay_avh]
+
+        # Remove base points too close to any overlay point
+        filtered_base = []
+        for ts, av in base_avh:
+            too_close = False
+            for ots in overlay_timestamps:
+                if abs((ts - ots).total_seconds()) < dedup_seconds:
+                    too_close = True
+                    break
+            if not too_close:
+                filtered_base.append((ts, av))
+
+        base_avh = filtered_base
+        base_avh.extend(overlay_avh)
+        base_avh.sort(key=lambda x: x[0])
+
+    def _nearest_pnl(ts: datetime.datetime) -> float:
+        """Look up the nearest allTime PnL value for a given timestamp."""
+        if not alltime_pnl_times:
+            return 0.0
+        pos = bisect.bisect_left(alltime_pnl_times, ts)
+        if pos == 0:
+            return alltime_pnl_values[0]
+        if pos >= len(alltime_pnl_times):
+            return alltime_pnl_values[-1]
+        before = alltime_pnl_times[pos - 1]
+        after = alltime_pnl_times[pos]
+        if abs((ts - before).total_seconds()) <= abs((ts - after).total_seconds()):
+            return alltime_pnl_values[pos - 1]
+        return alltime_pnl_values[pos]
+
+    # Rebuild pnl_history using nearest allTime PnL values
+    merged_pnl = [(ts, _nearest_pnl(ts)) for ts, _ in base_avh]
+
+    return PortfolioHistory(
+        period="merged",
+        account_value_history=base_avh,
+        pnl_history=merged_pnl,
+        volume=all_time.volume,
+    )
+
+
+def portfolio_to_combined_dataframe(
+    portfolio_all_time: PortfolioHistory | None = None,
+    *,
+    portfolio: dict[str, PortfolioHistory] | None = None,
+) -> pd.DataFrame:
     """Convert vaultDetails portfolio history into a combined DataFrame with share prices.
 
     Derives ``pnl_update`` and ``netflow_update`` from the portfolio history,
     then feeds them through
     :py:func:`~eth_defi.hyperliquid.combined_analysis._calculate_share_price`
     to compute ERC-4626-style share prices.
+
+    When ``portfolio`` (the full period dict) is provided, all available
+    periods (``day``, ``week``, ``month``, ``allTime``) are merged to
+    produce a higher-resolution time series. This yields more data points
+    for recent history compared to using ``allTime`` alone.
 
     The derivation:
 
@@ -69,14 +175,23 @@ def portfolio_to_combined_dataframe(portfolio_all_time: PortfolioHistory) -> pd.
 
     :param portfolio_all_time:
         The ``allTime`` :py:class:`~eth_defi.hyperliquid.vault.PortfolioHistory`
-        from ``vaultDetails`` endpoint.
+        from ``vaultDetails`` endpoint. Kept for backward compatibility.
+    :param portfolio:
+        Full portfolio period dict from :py:attr:`VaultInfo.portfolio`.
+        When provided, all periods are merged for higher resolution.
+        Takes precedence over ``portfolio_all_time``.
 
     :return:
         DataFrame with timestamp index and columns:
         ``pnl_update``, ``netflow_update``, ``cumulative_pnl``,
         ``cumulative_netflow``, ``cumulative_account_value``,
-        ``total_assets``, ``total_supply``, ``share_price``
+        ``total_assets``, ``total_supply``, ``share_price``, ``epoch_reset``
     """
+
+    if portfolio is not None:
+        portfolio_all_time = _merge_portfolio_periods(portfolio)
+    elif portfolio_all_time is None:
+        raise ValueError("Either portfolio_all_time or portfolio must be provided")
 
     avh = portfolio_all_time.account_value_history
     pnl = portfolio_all_time.pnl_history
@@ -92,6 +207,7 @@ def portfolio_to_combined_dataframe(portfolio_all_time: PortfolioHistory) -> pd.
                 "total_assets",
                 "total_supply",
                 "share_price",
+                "epoch_reset",
             ]
         )
 
@@ -230,6 +346,7 @@ class HyperliquidDailyMetricsDatabase:
                 allow_deposits BOOLEAN,
                 leader_fraction DOUBLE,
                 leader_commission DOUBLE,
+                epoch_reset BOOLEAN,
                 PRIMARY KEY (vault_address, date)
             )
         """)
@@ -279,6 +396,12 @@ class HyperliquidDailyMetricsDatabase:
         # Migration for existing databases: track how far back flow data has been backfilled
         try:
             self.con.execute("ALTER TABLE vault_metadata ADD COLUMN flow_data_earliest_date DATE")
+        except duckdb.CatalogException:
+            pass
+
+        # Migration for existing databases: add epoch_reset column
+        try:
+            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN epoch_reset BOOLEAN")
         except duckdb.CatalogException:
             pass
 
@@ -359,7 +482,7 @@ class HyperliquidDailyMetricsDatabase:
             cumulative_pnl, daily_pnl, daily_return, follower_count, apr,
             is_closed, allow_deposits, leader_fraction, leader_commission,
             daily_deposit_count, daily_withdrawal_count,
-            daily_deposit_usd, daily_withdrawal_usd)``.
+            daily_deposit_usd, daily_withdrawal_usd, epoch_reset)``.
 
             The ``is_closed``, ``allow_deposits``, ``leader_fraction``, and
             ``leader_commission`` fields should be ``None`` for historical rows
@@ -387,8 +510,8 @@ class HyperliquidDailyMetricsDatabase:
                 daily_pnl, daily_return, follower_count, apr,
                 is_closed, allow_deposits, leader_fraction, leader_commission,
                 daily_deposit_count, daily_withdrawal_count,
-                daily_deposit_usd, daily_withdrawal_usd
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                daily_deposit_usd, daily_withdrawal_usd, epoch_reset
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (vault_address, date)
             DO UPDATE SET
                 share_price = EXCLUDED.share_price,
@@ -405,7 +528,8 @@ class HyperliquidDailyMetricsDatabase:
                 daily_deposit_count = COALESCE(EXCLUDED.daily_deposit_count, vault_daily_prices.daily_deposit_count),
                 daily_withdrawal_count = COALESCE(EXCLUDED.daily_withdrawal_count, vault_daily_prices.daily_withdrawal_count),
                 daily_deposit_usd = COALESCE(EXCLUDED.daily_deposit_usd, vault_daily_prices.daily_deposit_usd),
-                daily_withdrawal_usd = COALESCE(EXCLUDED.daily_withdrawal_usd, vault_daily_prices.daily_withdrawal_usd)
+                daily_withdrawal_usd = COALESCE(EXCLUDED.daily_withdrawal_usd, vault_daily_prices.daily_withdrawal_usd),
+                epoch_reset = COALESCE(EXCLUDED.epoch_reset, vault_daily_prices.epoch_reset)
             """,
             rows,
         )
@@ -517,6 +641,269 @@ class HyperliquidDailyMetricsDatabase:
         )
         return count
 
+    def recompute_vault_share_prices(self, vault_address: HexAddress) -> dict:
+        """Recompute share prices for a vault from stored tvl/pnl data.
+
+        Uses the stored ``tvl`` (total_assets), ``daily_pnl`` (pnl_update),
+        and ``cumulative_pnl`` columns to reconstruct ``netflow_update``,
+        then feeds the data through
+        :py:func:`~eth_defi.hyperliquid.combined_analysis._calculate_share_price`
+        with the current chain-linked epoch reset logic.
+
+        This allows healing of share price data without re-fetching from
+        the Hyperliquid API.
+
+        :param vault_address:
+            Vault address to recompute.
+        :return:
+            Dict with before/after statistics:
+            ``{"rows": int, "old_sp_min": float, "old_sp_max": float,
+            "new_sp_min": float, "new_sp_max": float,
+            "epoch_resets": int, "changed_rows": int}``
+        """
+        vault_address = vault_address.lower()
+        prices_df = self.get_vault_daily_prices(vault_address)
+
+        if prices_df.empty or len(prices_df) < 2:
+            return {
+                "rows": len(prices_df),
+                "old_sp_min": 0.0,
+                "old_sp_max": 0.0,
+                "new_sp_min": 0.0,
+                "new_sp_max": 0.0,
+                "epoch_resets": 0,
+                "changed_rows": 0,
+            }
+
+        old_sp_min = float(prices_df["share_price"].min())
+        old_sp_max = float(prices_df["share_price"].max())
+
+        # Reconstruct netflow_update from stored tvl and daily_pnl
+        tvl = prices_df["tvl"].values
+        daily_pnl = prices_df["daily_pnl"].fillna(0.0).values
+        cumulative_pnl = prices_df["cumulative_pnl"].fillna(0.0).values
+
+        netflow_updates = []
+        for i in range(len(tvl)):
+            if i == 0:
+                # First row: initial deposit = account_value - cumulative_pnl
+                netflow = tvl[i] - cumulative_pnl[i]
+            else:
+                # Subsequent rows: netflow = change in account value - pnl change
+                netflow = (tvl[i] - tvl[i - 1]) - daily_pnl[i]
+            netflow_updates.append(netflow)
+
+        # Build DataFrame matching _calculate_share_price() input requirements
+        combined = pd.DataFrame(
+            {
+                "netflow_update": netflow_updates,
+                "cumulative_account_value": tvl,
+                "cumulative_pnl": cumulative_pnl,
+            },
+            index=pd.DatetimeIndex(prices_df["date"], name="timestamp"),
+        )
+        combined["total_assets"] = combined["cumulative_account_value"]
+
+        # Recompute share prices with current (fixed) logic
+        combined = _calculate_share_price(combined, initial_balance=0.0)
+
+        new_sp_min = float(combined["share_price"].min())
+        new_sp_max = float(combined["share_price"].max())
+        epoch_resets = int(combined["epoch_reset"].sum())
+
+        # Compute daily returns from new share prices
+        new_share_prices = combined["share_price"].values
+        new_epoch_resets = combined["epoch_reset"].values
+
+        # Count how many rows actually changed
+        old_share_prices = prices_df["share_price"].values
+        changed_rows = int(sum(abs(old_share_prices[i] - new_share_prices[i]) > 1e-6 for i in range(len(old_share_prices))))
+
+        # Update DuckDB rows with new share_price, daily_return, epoch_reset
+        dates = prices_df["date"].values
+        for i in range(len(dates)):
+            sp = float(new_share_prices[i])
+            if i > 0 and new_share_prices[i - 1] > 0:
+                dr = (sp - float(new_share_prices[i - 1])) / float(new_share_prices[i - 1])
+            else:
+                dr = 0.0
+            er = bool(new_epoch_resets[i])
+
+            self.con.execute(
+                """
+                UPDATE vault_daily_prices
+                SET share_price = ?, daily_return = ?, epoch_reset = ?
+                WHERE vault_address = ? AND date = ?
+                """,
+                [sp, dr, er, vault_address, dates[i]],
+            )
+
+        return {
+            "rows": len(prices_df),
+            "old_sp_min": old_sp_min,
+            "old_sp_max": old_sp_max,
+            "new_sp_min": new_sp_min,
+            "new_sp_max": new_sp_max,
+            "epoch_resets": epoch_resets,
+            "changed_rows": changed_rows,
+        }
+
+    def recompute_all_share_prices(self) -> dict:
+        """Recompute share prices for all vaults in the database.
+
+        Iterates over every vault and calls
+        :py:meth:`recompute_vault_share_prices` for each.
+
+        :return:
+            Summary dict:
+            ``{"total_vaults": int, "vaults_with_changes": int,
+            "vaults_with_epoch_resets": int, "total_changed_rows": int,
+            "per_vault": dict[str, dict]}``
+        """
+        metadata = self.get_all_vault_metadata()
+        per_vault = {}
+        vaults_with_changes = 0
+        vaults_with_epoch_resets = 0
+        total_changed_rows = 0
+
+        for _, row in metadata.iterrows():
+            vault_address = row["vault_address"]
+            result = self.recompute_vault_share_prices(vault_address)
+            per_vault[vault_address] = {
+                "name": row["name"],
+                **result,
+            }
+            if result["changed_rows"] > 0:
+                vaults_with_changes += 1
+                total_changed_rows += result["changed_rows"]
+            if result["epoch_resets"] > 0:
+                vaults_with_epoch_resets += 1
+
+        self.save()
+
+        return {
+            "total_vaults": len(metadata),
+            "vaults_with_changes": vaults_with_changes,
+            "vaults_with_epoch_resets": vaults_with_epoch_resets,
+            "total_changed_rows": total_changed_rows,
+            "per_vault": per_vault,
+        }
+
+    def detect_broken_vaults(self) -> pd.DataFrame:
+        """Detect vaults with anomalous share price data.
+
+        Checks for four classes of breakage:
+
+        1. **Extreme daily returns** (> 100%): typically epoch reset artefacts
+           where share price jumped to/from 1.0
+        2. **Share price at cap** (>= 9,999): overflow from zero total_supply
+        3. **Share price stuck at 1.0**: share price identical for 5+ rows,
+           suggesting failed epoch reset logic
+        4. **Missing epoch_reset column**: rows computed with old code that
+           lacked the ``epoch_reset`` column (all NULL)
+
+        :return:
+            DataFrame with columns: ``vault_address``, ``name``,
+            ``issue_type``, ``affected_rows``, ``example_value``
+        """
+        issues = []
+
+        # 1. Extreme daily returns (> 100%)
+        extreme_returns = self.con.execute("""
+            SELECT p.vault_address, m.name, COUNT(*) as cnt,
+                   MAX(ABS(p.daily_return)) as max_return
+            FROM vault_daily_prices p
+            LEFT JOIN vault_metadata m ON p.vault_address = m.vault_address
+            WHERE ABS(p.daily_return) > 1.0
+            GROUP BY p.vault_address, m.name
+        """).fetchall()
+        for vault_address, name, cnt, max_return in extreme_returns:
+            issues.append(
+                {
+                    "vault_address": vault_address,
+                    "name": name or "<unknown>",
+                    "issue_type": "extreme_daily_return",
+                    "affected_rows": cnt,
+                    "example_value": max_return,
+                }
+            )
+
+        # 2. Share price at cap (>= 9,999)
+        capped = self.con.execute("""
+            SELECT p.vault_address, m.name, COUNT(*) as cnt,
+                   MAX(p.share_price) as max_sp
+            FROM vault_daily_prices p
+            LEFT JOIN vault_metadata m ON p.vault_address = m.vault_address
+            WHERE p.share_price >= 9999.0
+            GROUP BY p.vault_address, m.name
+        """).fetchall()
+        for vault_address, name, cnt, max_sp in capped:
+            issues.append(
+                {
+                    "vault_address": vault_address,
+                    "name": name or "<unknown>",
+                    "issue_type": "share_price_at_cap",
+                    "affected_rows": cnt,
+                    "example_value": max_sp,
+                }
+            )
+
+        # 3. Share price stuck at exactly 1.0 for 5+ consecutive rows
+        # Use window function to detect runs
+        stuck_at_one = self.con.execute("""
+            WITH runs AS (
+                SELECT vault_address,
+                       share_price,
+                       date,
+                       ROW_NUMBER() OVER (PARTITION BY vault_address ORDER BY date) -
+                       ROW_NUMBER() OVER (PARTITION BY vault_address, (share_price = 1.0)::INT ORDER BY date) as grp
+                FROM vault_daily_prices
+                WHERE share_price = 1.0
+            ),
+            run_lengths AS (
+                SELECT vault_address, COUNT(*) as run_len
+                FROM runs
+                GROUP BY vault_address, grp
+                HAVING COUNT(*) >= 5
+            )
+            SELECT r.vault_address, m.name, MAX(r.run_len) as max_run
+            FROM run_lengths r
+            LEFT JOIN vault_metadata m ON r.vault_address = m.vault_address
+            GROUP BY r.vault_address, m.name
+        """).fetchall()
+        for vault_address, name, max_run in stuck_at_one:
+            issues.append(
+                {
+                    "vault_address": vault_address,
+                    "name": name or "<unknown>",
+                    "issue_type": "share_price_stuck_at_1",
+                    "affected_rows": max_run,
+                    "example_value": 1.0,
+                }
+            )
+
+        # 4. Vaults where all epoch_reset values are NULL (old code)
+        null_epoch = self.con.execute("""
+            SELECT p.vault_address, m.name, COUNT(*) as total_rows
+            FROM vault_daily_prices p
+            LEFT JOIN vault_metadata m ON p.vault_address = m.vault_address
+            GROUP BY p.vault_address, m.name
+            HAVING COUNT(*) > 0
+               AND SUM(CASE WHEN p.epoch_reset IS NOT NULL THEN 1 ELSE 0 END) = 0
+        """).fetchall()
+        for vault_address, name, total_rows in null_epoch:
+            issues.append(
+                {
+                    "vault_address": vault_address,
+                    "name": name or "<unknown>",
+                    "issue_type": "missing_epoch_reset",
+                    "affected_rows": total_rows,
+                    "example_value": None,
+                }
+            )
+
+        return pd.DataFrame(issues, columns=["vault_address", "name", "issue_type", "affected_rows", "example_value"])
+
     def save(self):
         """Force a checkpoint to ensure data is written to disk."""
         self.con.commit()
@@ -569,14 +956,15 @@ def fetch_and_store_vault(
         logger.warning("Failed to fetch vault details for %s (%s): %s", summary.name, vault_address, e)
         return False
 
-    # Get portfolio history
-    portfolio = info.portfolio.get("allTime")
-    if portfolio is None or len(portfolio.account_value_history) < 2:
+    # Get portfolio history — merge all available periods for higher resolution
+    portfolio_dict = info.portfolio
+    all_time = portfolio_dict.get("allTime") if portfolio_dict else None
+    if all_time is None or len(all_time.account_value_history) < 2:
         logger.debug("Skipping vault %s (%s): insufficient portfolio history", summary.name, vault_address)
         return False
 
     # Compute share prices using existing combined_analysis logic
-    combined_df = portfolio_to_combined_dataframe(portfolio)
+    combined_df = portfolio_to_combined_dataframe(portfolio=portfolio_dict)
     if combined_df.empty:
         logger.debug("Skipping vault %s (%s): empty combined DataFrame", summary.name, vault_address)
         return False
@@ -660,6 +1048,7 @@ def fetch_and_store_vault(
         tvl = row_data.total_assets
         cumulative_pnl = row_data.cumulative_pnl
         daily_pnl = row_data.pnl_update
+        epoch_reset_val = bool(row_data.epoch_reset) if hasattr(row_data, "epoch_reset") else False
 
         if prev_share_price is not None and prev_share_price > 0:
             daily_return = (share_price - prev_share_price) / prev_share_price
@@ -708,6 +1097,7 @@ def fetch_and_store_vault(
                 wd_count,
                 dep_usd,
                 wd_usd,
+                epoch_reset_val,
             )
         )
 
