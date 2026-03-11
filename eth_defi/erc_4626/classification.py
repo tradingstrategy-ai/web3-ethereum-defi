@@ -809,9 +809,13 @@ def identify_vault_features(
         features.add(ERC4626Feature.kiln_metavault_like)
 
     if calls["MAX_MANAGEMENT_RATE"].success:
-        features.add(ERC4626Feature.lagoon_like)
-        # All Lagoon should be ERC-7575
-        assert ERC4626Feature.erc_7540_like in features, f"Lagoon vault did not pass ERC-7540 check: {debug_text}"
+        if ERC4626Feature.erc_7540_like in features:
+            features.add(ERC4626Feature.lagoon_like)
+        else:
+            # False positive: contract has MAX_MANAGEMENT_RATE() but lacks ERC-7540 isOperator(),
+            # so it is not a real Lagoon vault.
+            # E.g. 0x7be599a641c6b99a5d7c8beb062fc3915ff9dd4f on Base.
+            logger.warning("Vault has MAX_MANAGEMENT_RATE but lacks ERC-7540 isOperator, skipping Lagoon classification: %s", debug_text)
 
     if calls["GOV"].success:
         features.add(ERC4626Feature.yearn_compounder_like)
