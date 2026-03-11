@@ -176,73 +176,100 @@ IAM → Users → your user → Security credentials → Create access key.
 Choose "Command Line Interface (CLI)" as the use case. Save the
 **Access Key ID** and **Secret Access Key**.
 
-### 4. Set environment variables
+### 4. Install and configure the AWS CLI
 
-The scripts use the standard AWS environment variables:
+```shell
+# macOS
+brew install awscli
+
+# Linux (pip)
+pip install awscli
+
+# Verify installation
+aws --version
+```
+
+Configure credentials:
+
+```shell
+aws configure
+# AWS Access Key ID: <paste your access key>
+# AWS Secret Access Key: <paste your secret key>
+# Default region name: us-east-1
+# Default output format: json
+```
+
+Alternatively, set environment variables (useful for CI/scripts):
 
 ```shell
 export AWS_ACCESS_KEY_ID=AKIA...
 export AWS_SECRET_ACCESS_KEY=...
+export AWS_DEFAULT_REGION=us-east-1
 ```
 
-Add these to your `.local-test.env` or shell profile for persistence.
-
-### 5. Verify access (optional)
-
-If you also have the AWS CLI installed, you can verify:
+### 5. Verify access
 
 ```shell
-# macOS: brew install awscli
-# Linux: pip install awscli
+# Check credentials work
+aws sts get-caller-identity
 
+# List a few files from the archive
 aws s3 ls s3://hyperliquid-archive/account_values/ --request-payer requester | head -5
+
+# Check bucket region
+aws s3api get-bucket-location --bucket hyperliquid-archive --request-payer requester
 ```
 
-### 6. Install Python dependencies
+### 6. Python access (boto3)
+
+The extract script uses `boto3` indirectly (through pre-downloaded files),
+but if you want to download programmatically:
 
 ```shell
 poetry install -E hyperliquid_backfill
 ```
 
+```python
+import boto3
+
+s3 = boto3.client("s3")
+s3.download_file(
+    Bucket="hyperliquid-archive",
+    Key="account_values/20260301.csv.lz4",
+    Filename="20260301.csv.lz4",
+    ExtraArgs={"RequestPayer": "requester"},
+)
+```
+
 ## How to run
 
-### Step 1: Extract vault data (download + extract)
-
-The extract script downloads files from S3 and extracts vault data in one step:
+### Step 1: Download S3 files
 
 ```shell
-AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... LOG_LEVEL=info \
-    poetry run python scripts/hyperliquid/extract-s3-vault-data.py
+mkdir -p ~/hl-archive/account_values
+aws s3 sync s3://hyperliquid-archive/account_values/ ~/hl-archive/account_values/ \
+    --request-payer requester
 ```
 
-Files are cached in `~/hl-archive/account_values/` by default. On re-run, only
-new files are downloaded and already-extracted dates are skipped.
-
-To extract a specific date range:
+To download a single day for testing:
 
 ```shell
-AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... \
-START_DATE=2025-11-01 END_DATE=2026-01-31 DELETE_LZ4=false LOG_LEVEL=info \
-    poetry run python scripts/hyperliquid/extract-s3-vault-data.py
+aws s3 cp s3://hyperliquid-archive/account_values/20260301.csv.lz4 \
+    ~/hl-archive/account_values/ --request-payer requester
 ```
 
-Environment variables:
-- `AWS_ACCESS_KEY_ID` — AWS access key ID for S3 download
-- `AWS_SECRET_ACCESS_KEY` — AWS secret access key for S3 download
-- `S3_DATA_DIR` — directory with pre-downloaded `.csv.lz4` files (skips S3 download if set)
-- `S3_DOWNLOAD_DIR` — where to cache downloaded files (default: `~/hl-archive/account_values/`)
-- `STAGING_DB_PATH` — staging DB path (default: `~/.tradingstrategy/hyperliquid/s3-vault-backfill.duckdb`)
-- `START_DATE`, `END_DATE` — optional date range filter (YYYY-MM-DD)
-- `DELETE_LZ4` — delete LZ4 files after extraction (default: `true`)
-
-#### Alternative: use pre-downloaded files
-
-If you already downloaded the files with `aws s3 sync`:
+### Step 2: Extract vault data
 
 ```shell
 S3_DATA_DIR=~/hl-archive/account_values/ LOG_LEVEL=info \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 ```
+
+Environment variables:
+- `S3_DATA_DIR` — directory with `.csv.lz4` files (required)
+- `STAGING_DB_PATH` — staging DB path (default: `~/.tradingstrategy/hyperliquid/s3-vault-backfill.duckdb`)
+- `START_DATE`, `END_DATE` — optional date range filter (YYYY-MM-DD)
+- `DELETE_LZ4` — delete LZ4 files after extraction (default: `true`)
 
 ### Step 3: Apply backfill
 
@@ -299,10 +326,12 @@ Tests use synthetic LZ4 files and verify:
 ### Manual test with real S3 data
 
 ```shell
-# Stage 1: Download + extract a single day into test staging DB
-AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... \
-START_DATE=2026-03-01 END_DATE=2026-03-01 \
-STAGING_DB_PATH=/tmp/staging.duckdb DELETE_LZ4=false \
+# Download a single day
+aws s3 cp s3://hyperliquid-archive/account_values/20260301.csv.lz4 ./test-data/ \
+    --request-payer requester
+
+# Stage 1: Extract into test staging DB
+S3_DATA_DIR=./test-data/ STAGING_DB_PATH=/tmp/staging.duckdb DELETE_LZ4=false \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 
 # Stage 2: Apply to test metrics DB
@@ -325,22 +354,25 @@ db.close()
 ## Production data migration
 
 ```shell
-# 1. Download + extract full S3 archive (~8-15 GB compressed, ~10-25 min download)
-# Resumable — safe to interrupt and restart. Only downloads new files on re-run.
-AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... LOG_LEVEL=info \
+# 1. Download full S3 archive (~8-15 GB compressed, ~10-25 min)
+aws s3 sync s3://hyperliquid-archive/account_values/ ~/hl-archive/account_values/ \
+    --request-payer requester
+
+# 2. Extract vault data (resumable — safe to interrupt and restart)
+S3_DATA_DIR=~/hl-archive/account_values/ LOG_LEVEL=info \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 
-# 2. Back up production database
+# 3. Back up production database
 cp ~/.tradingstrategy/hyperliquid/daily-metrics.duckdb \
    ~/.tradingstrategy/hyperliquid/daily-metrics.duckdb.bak
 
-# 3. Apply backfill (inserts only missing dates, never overwrites API data)
+# 4. Apply backfill (inserts only missing dates, never overwrites API data)
 LOG_LEVEL=info poetry run python scripts/hyperliquid/backfill-vault-data.py
 
-# 4. Run downstream pipeline to regenerate cleaned output
+# 5. Run downstream pipeline to regenerate cleaned output
 RUN_PIPELINE=true poetry run python scripts/hyperliquid/backfill-vault-data.py
 
-# 5. Verify a known vault improved
+# 6. Verify a known vault improved
 poetry run python -c "
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from pathlib import Path
