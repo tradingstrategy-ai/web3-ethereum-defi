@@ -263,6 +263,7 @@ STABLECOIN_LIKE = set(
         "RAI",
         "RLUSD",
         "RUSD",
+        "rUSD",
         "SAI",
         "SDAI",
         "SEUR",
