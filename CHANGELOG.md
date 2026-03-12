@@ -1,5 +1,6 @@
 # Current
 
+- Add: Hyperliquid S3 archive backfill pipeline for filling daily data gaps in vault history, with two-stage extract/apply workflow, resumable LZ4 processing, and `data_source` provenance tracking (2026-03-11)
 - Fix: Lagoon vault false positive in vault scanner crashing Base chain scan when a non-Lagoon contract matches MAX_MANAGEMENT_RATE() selector (2026-03-11, [#823](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/823))
 - Fix: Hyperliquid vault share price epoch resets now chain-linked (carry forward last price instead of resetting to 1.0), with offline recomputation from stored DuckDB data, multi-period merge for higher resolution, and spike smoother bypass for Hypercore vaults (2026-03-11)
 - Add: Hyperliquid vault daily deposit/withdrawal netflow metrics with configurable backfill, exported as NetflowMetrics with 1d/7d/30d periods in JSON (2026-03-10, [#818](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/818))

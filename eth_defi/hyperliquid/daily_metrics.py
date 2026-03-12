@@ -405,6 +405,13 @@ class HyperliquidDailyMetricsDatabase:
         except duckdb.CatalogException:
             pass
 
+        # Migration for existing databases: add data_source column to track provenance
+        try:
+            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN data_source VARCHAR")
+            self.con.execute("UPDATE vault_daily_prices SET data_source = 'api' WHERE data_source IS NULL")
+        except duckdb.CatalogException:
+            pass
+
     def upsert_vault_metadata(
         self,
         vault_address: HexAddress,
@@ -503,6 +510,14 @@ class HyperliquidDailyMetricsDatabase:
         if not rows:
             return
 
+        # Pad rows to 19 elements if data_source not provided (backwards compat)
+        padded_rows = []
+        for r in rows:
+            if len(r) == 18:
+                padded_rows.append((*r, "api"))
+            else:
+                padded_rows.append(r)
+
         self.con.executemany(
             """
             INSERT INTO vault_daily_prices (
@@ -510,8 +525,9 @@ class HyperliquidDailyMetricsDatabase:
                 daily_pnl, daily_return, follower_count, apr,
                 is_closed, allow_deposits, leader_fraction, leader_commission,
                 daily_deposit_count, daily_withdrawal_count,
-                daily_deposit_usd, daily_withdrawal_usd, epoch_reset
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                daily_deposit_usd, daily_withdrawal_usd, epoch_reset,
+                data_source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (vault_address, date)
             DO UPDATE SET
                 share_price = EXCLUDED.share_price,
@@ -529,9 +545,10 @@ class HyperliquidDailyMetricsDatabase:
                 daily_withdrawal_count = COALESCE(EXCLUDED.daily_withdrawal_count, vault_daily_prices.daily_withdrawal_count),
                 daily_deposit_usd = COALESCE(EXCLUDED.daily_deposit_usd, vault_daily_prices.daily_deposit_usd),
                 daily_withdrawal_usd = COALESCE(EXCLUDED.daily_withdrawal_usd, vault_daily_prices.daily_withdrawal_usd),
-                epoch_reset = COALESCE(EXCLUDED.epoch_reset, vault_daily_prices.epoch_reset)
+                epoch_reset = COALESCE(EXCLUDED.epoch_reset, vault_daily_prices.epoch_reset),
+                data_source = COALESCE(EXCLUDED.data_source, vault_daily_prices.data_source)
             """,
-            rows,
+            padded_rows,
         )
 
     def get_all_daily_prices(self) -> pd.DataFrame:
@@ -561,6 +578,20 @@ class HyperliquidDailyMetricsDatabase:
             """,
             [vault_address.lower()],
         ).df()
+
+    def get_existing_dates(self, vault_address: HexAddress) -> set[datetime.date]:
+        """Get all dates with existing data for a vault.
+
+        :param vault_address:
+            Vault address to query.
+        :return:
+            Set of dates that already have data in the database.
+        """
+        rows = self.con.execute(
+            "SELECT date FROM vault_daily_prices WHERE vault_address = ?",
+            [vault_address.lower()],
+        ).fetchall()
+        return {r[0] for r in rows}
 
     def get_all_vault_metadata(self) -> pd.DataFrame:
         """Get metadata for all vaults.
