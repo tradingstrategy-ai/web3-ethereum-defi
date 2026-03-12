@@ -61,6 +61,7 @@ def _get_deposit_closed_reason(
     is_closed: bool,
     allow_deposits: bool,
     leader_fraction: float | None = None,
+    relationship_type: str = "normal",
 ) -> str | None:
     """Return a descriptive reason why deposits are closed, or ``None`` if open.
 
@@ -72,9 +73,17 @@ def _get_deposit_closed_reason(
         Leader's fraction of total vault capital (e.g. 0.10 = 10%).
         If below :py:data:`LEADER_FRACTION_WARNING_THRESHOLD`, a warning
         is returned even when the vault nominally accepts deposits.
+    :param relationship_type:
+        Vault relationship type: ``"normal"``, ``"parent"`` (HLP), or ``"child"``.
+        HLP parent vault always accepts deposits (with a 4-day lock-up),
+        so ``allow_deposits`` from the API is ignored for it.
     """
     if is_closed:
         return "Vault is permanently closed"
+    # HLP parent vault always accepts deposits — the API may report
+    # allowDeposits=False but deposits are never actually closed.
+    if relationship_type == "parent":
+        return None
     if not allow_deposits:
         return "Vault deposits disabled by leader"
     if leader_fraction is not None and leader_fraction < LEADER_FRACTION_WARNING_THRESHOLD:
@@ -198,7 +207,7 @@ def create_hyperliquid_vault_row(
         "_short_description": description,
         "_available_liquidity": None,
         "_utilisation": None,
-        "_deposit_closed_reason": _get_deposit_closed_reason(is_closed, allow_deposits, leader_fraction),
+        "_deposit_closed_reason": _get_deposit_closed_reason(is_closed, allow_deposits, leader_fraction, relationship_type),
         "_deposit_next_open": None,
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,

@@ -12,11 +12,11 @@ Schema
 
 Five tables:
 
-- ``accounts`` — whitelisted addresses to track
-- ``fills`` — individual trade fills from ``userFillsByTime``
-- ``funding`` — funding payments from ``userFunding``
-- ``ledger`` — deposit/withdrawal events from ``userNonFundingLedgerUpdates``
-- ``sync_state`` — per-account watermarks for incremental sync
+- ``accounts`` -- whitelisted addresses to track
+- ``fills`` -- individual trade fills from ``userFillsByTime``
+- ``funding`` -- funding payments from ``userFunding``
+- ``ledger`` -- deposit/withdrawal events from ``userNonFundingLedgerUpdates``
+- ``sync_state`` -- per-account watermarks for incremental sync
 
 Storage location
 ----------------
@@ -43,6 +43,8 @@ Example::
 
 import datetime
 import logging
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import duckdb
@@ -66,6 +68,21 @@ MAX_PER_REQUEST = 2000
 MAX_FUNDING_PER_REQUEST = 500
 
 
+def _format_count(n: int) -> str:
+    """Format an event count with k/M suffix for compact display.
+
+    :param n:
+        Event count.
+    :return:
+        Formatted string, e.g. ``"42"``, ``"1.5k"``, ``"2.3M"``.
+    """
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n / 1_000:.1f}k"
+    return str(n)
+
+
 class HyperliquidTradeHistoryDatabase:
     """DuckDB database for storing Hyperliquid account trading data.
 
@@ -75,6 +92,10 @@ class HyperliquidTradeHistoryDatabase:
 
     The database is crash-resumeable: interrupted syncs can be safely
     re-run without data loss or duplicates.
+
+    Thread safety: all database operations are protected by an internal
+    lock. Multiple threads can call sync methods concurrently -- the
+    API calls run in parallel while database writes are serialised.
     """
 
     def __init__(self, path: Path):
@@ -90,6 +111,7 @@ class HyperliquidTradeHistoryDatabase:
 
         self.path = path
         self.con = duckdb.connect(str(path))
+        self._db_lock = threading.Lock()
         self._init_schema()
 
     def __del__(self):
@@ -105,7 +127,8 @@ class HyperliquidTradeHistoryDatabase:
 
     def save(self):
         """Force a checkpoint to ensure data is persisted to disk."""
-        self.con.execute("CHECKPOINT")
+        with self._db_lock:
+            self.con.execute("CHECKPOINT")
 
     def _init_schema(self):
         """Create tables if they don't exist."""
@@ -182,7 +205,7 @@ class HyperliquidTradeHistoryDatabase:
     ) -> None:
         """Add an account to the whitelist.
 
-        Idempotent — re-adding an existing account updates the label.
+        Idempotent -- re-adding an existing account updates the label.
 
         :param address:
             Hyperliquid account address.
@@ -192,14 +215,15 @@ class HyperliquidTradeHistoryDatabase:
             Whether this is a vault account.
         """
         now_ms = int(native_datetime_utc_now().timestamp() * 1000)
-        self.con.execute(
-            """
-            INSERT INTO accounts (address, label, is_vault, added_at)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT (address) DO UPDATE SET label = EXCLUDED.label, is_vault = EXCLUDED.is_vault
-            """,
-            [address.lower(), label, is_vault, now_ms],
-        )
+        with self._db_lock:
+            self.con.execute(
+                """
+                INSERT INTO accounts (address, label, is_vault, added_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT (address) DO UPDATE SET label = EXCLUDED.label, is_vault = EXCLUDED.is_vault
+                """,
+                [address.lower(), label, is_vault, now_ms],
+            )
         logger.info("Added account %s (%s) to whitelist", address, label or "unlabelled")
 
     def remove_account(self, address: HexAddress, purge_data: bool = False) -> None:
@@ -211,10 +235,12 @@ class HyperliquidTradeHistoryDatabase:
             If True, also delete all stored data for this account.
         """
         addr = address.lower()
-        self.con.execute("DELETE FROM accounts WHERE address = ?", [addr])
+        with self._db_lock:
+            self.con.execute("DELETE FROM accounts WHERE address = ?", [addr])
+            if purge_data:
+                for table in ("fills", "funding", "ledger", "sync_state"):
+                    self.con.execute(f"DELETE FROM {table} WHERE address = ?", [addr])
         if purge_data:
-            for table in ("fills", "funding", "ledger", "sync_state"):
-                self.con.execute(f"DELETE FROM {table} WHERE address = ?", [addr])
             logger.info("Purged all data for account %s", address)
         else:
             logger.info("Removed account %s from whitelist (data preserved)", address)
@@ -225,7 +251,8 @@ class HyperliquidTradeHistoryDatabase:
         :return:
             List of account dicts with address, label, is_vault, added_at.
         """
-        result = self.con.execute("SELECT address, label, is_vault, added_at FROM accounts ORDER BY added_at").fetchall()
+        with self._db_lock:
+            result = self.con.execute("SELECT address, label, is_vault, added_at FROM accounts ORDER BY added_at").fetchall()
         return [{"address": r[0], "label": r[1], "is_vault": r[2], "added_at": r[3]} for r in result]
 
     # ──────────────────────────────────────────────
@@ -239,6 +266,7 @@ class HyperliquidTradeHistoryDatabase:
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
         timeout: float = 30.0,
+        tqdm_position: int | None = None,
     ) -> int:
         """Fetch new fills since last sync and store them.
 
@@ -255,6 +283,8 @@ class HyperliquidTradeHistoryDatabase:
             Override end time (default: now).
         :param timeout:
             HTTP request timeout.
+        :param tqdm_position:
+            Position for nested progress bars (None for auto).
         :return:
             Number of new fills inserted.
         """
@@ -287,6 +317,7 @@ class HyperliquidTradeHistoryDatabase:
             desc=f"Fills {addr[:10]}",
             unit="fill",
             leave=False,
+            position=tqdm_position,
         )
 
         try:
@@ -340,7 +371,7 @@ class HyperliquidTradeHistoryDatabase:
                         newest_batch_ts = ts
 
                 if rows:
-                    inserted = self._insert_fills_batch(rows)
+                    inserted = self._insert_fills_batch(addr, rows)
                     total_inserted += inserted
 
                 # Update sync state after each batch
@@ -348,7 +379,7 @@ class HyperliquidTradeHistoryDatabase:
 
                 progress.update(len(raw_fills))
                 progress.set_postfix_str(
-                    f"batch={batch_num}, fetched={total_fetched:,}, inserted={total_inserted:,}"
+                    f"batch={batch_num}, fetched={_format_count(total_fetched)}, inserted={_format_count(total_inserted)}"
                 )
 
                 # Paginate forward: API returns oldest first
@@ -363,20 +394,26 @@ class HyperliquidTradeHistoryDatabase:
         logger.info("Synced %d new fills for %s (fetched %d)", total_inserted, addr, total_fetched)
         return total_inserted
 
-    def _insert_fills_batch(self, rows: list[tuple]) -> int:
+    def _insert_fills_batch(self, address: str, rows: list[tuple]) -> int:
         """Insert a batch of fill rows, ignoring duplicates.
 
-        :return: Number of rows actually inserted.
+        :param address:
+            Account address for per-address counting.
+        :param rows:
+            Tuples of fill data.
+        :return:
+            Number of rows actually inserted.
         """
-        before = self.con.execute("SELECT COUNT(*) FROM fills").fetchone()[0]
-        self.con.executemany(
-            """
-            INSERT OR IGNORE INTO fills (address, trade_id, ts, coin, side, sz, px, closed_pnl, start_position, fee, oid)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            rows,
-        )
-        after = self.con.execute("SELECT COUNT(*) FROM fills").fetchone()[0]
+        with self._db_lock:
+            before = self.con.execute("SELECT COUNT(*) FROM fills WHERE address = ?", [address]).fetchone()[0]
+            self.con.executemany(
+                """
+                INSERT OR IGNORE INTO fills (address, trade_id, ts, coin, side, sz, px, closed_pnl, start_position, fee, oid)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+            after = self.con.execute("SELECT COUNT(*) FROM fills WHERE address = ?", [address]).fetchone()[0]
         return after - before
 
     # ──────────────────────────────────────────────
@@ -390,6 +427,7 @@ class HyperliquidTradeHistoryDatabase:
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
         timeout: float = 30.0,
+        tqdm_position: int | None = None,
     ) -> int:
         """Fetch new funding payments since last sync and store them.
 
@@ -403,6 +441,8 @@ class HyperliquidTradeHistoryDatabase:
             Override end time.
         :param timeout:
             HTTP request timeout.
+        :param tqdm_position:
+            Position for nested progress bars (None for auto).
         :return:
             Number of new funding payments inserted.
         """
@@ -432,6 +472,7 @@ class HyperliquidTradeHistoryDatabase:
             desc=f"Funding {addr[:10]}",
             unit="payment",
             leave=False,
+            position=tqdm_position,
         )
 
         try:
@@ -477,14 +518,14 @@ class HyperliquidTradeHistoryDatabase:
                         newest_batch_ts = ts
 
                 if rows:
-                    inserted = self._insert_funding_batch(rows)
+                    inserted = self._insert_funding_batch(addr, rows)
                     total_inserted += inserted
 
                 self._update_sync_state_funding(addr)
 
                 progress.update(len(raw_funding))
                 progress.set_postfix_str(
-                    f"batch={batch_num}, fetched={total_fetched:,}, inserted={total_inserted:,}"
+                    f"batch={batch_num}, fetched={_format_count(total_fetched)}, inserted={_format_count(total_inserted)}"
                 )
 
                 # Paginate forward: API returns oldest first
@@ -499,17 +540,26 @@ class HyperliquidTradeHistoryDatabase:
         logger.info("Synced %d new funding payments for %s (fetched %d)", total_inserted, addr, total_fetched)
         return total_inserted
 
-    def _insert_funding_batch(self, rows: list[tuple]) -> int:
-        """Insert a batch of funding rows, ignoring duplicates."""
-        before = self.con.execute("SELECT COUNT(*) FROM funding").fetchone()[0]
-        self.con.executemany(
-            """
-            INSERT OR IGNORE INTO funding (address, ts, coin, usdc, sz, rate)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            rows,
-        )
-        after = self.con.execute("SELECT COUNT(*) FROM funding").fetchone()[0]
+    def _insert_funding_batch(self, address: str, rows: list[tuple]) -> int:
+        """Insert a batch of funding rows, ignoring duplicates.
+
+        :param address:
+            Account address for per-address counting.
+        :param rows:
+            Tuples of funding data.
+        :return:
+            Number of rows actually inserted.
+        """
+        with self._db_lock:
+            before = self.con.execute("SELECT COUNT(*) FROM funding WHERE address = ?", [address]).fetchone()[0]
+            self.con.executemany(
+                """
+                INSERT OR IGNORE INTO funding (address, ts, coin, usdc, sz, rate)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+            after = self.con.execute("SELECT COUNT(*) FROM funding WHERE address = ?", [address]).fetchone()[0]
         return after - before
 
     # ──────────────────────────────────────────────
@@ -523,6 +573,7 @@ class HyperliquidTradeHistoryDatabase:
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
         timeout: float = 30.0,
+        tqdm_position: int | None = None,
     ) -> int:
         """Fetch new ledger events since last sync and store them.
 
@@ -536,6 +587,8 @@ class HyperliquidTradeHistoryDatabase:
             Override end time.
         :param timeout:
             HTTP request timeout.
+        :param tqdm_position:
+            Position for nested progress bars (None for auto).
         :return:
             Number of new ledger events inserted.
         """
@@ -565,6 +618,7 @@ class HyperliquidTradeHistoryDatabase:
             desc=f"Ledger {addr[:10]}",
             unit="event",
             leave=False,
+            position=tqdm_position,
         )
 
         try:
@@ -605,14 +659,14 @@ class HyperliquidTradeHistoryDatabase:
                         newest_batch_ts = ts
 
                 if rows:
-                    inserted = self._insert_ledger_batch(rows)
+                    inserted = self._insert_ledger_batch(addr, rows)
                     total_inserted += inserted
 
                 self._update_sync_state_ledger(addr)
 
                 progress.update(len(raw_updates))
                 progress.set_postfix_str(
-                    f"batch={batch_num}, fetched={total_fetched:,}, inserted={total_inserted:,}"
+                    f"batch={batch_num}, fetched={_format_count(total_fetched)}, inserted={_format_count(total_inserted)}"
                 )
 
                 # Paginate forward: API returns oldest first
@@ -627,17 +681,26 @@ class HyperliquidTradeHistoryDatabase:
         logger.info("Synced %d new ledger events for %s (fetched %d)", total_inserted, addr, total_fetched)
         return total_inserted
 
-    def _insert_ledger_batch(self, rows: list[tuple]) -> int:
-        """Insert a batch of ledger rows, ignoring duplicates."""
-        before = self.con.execute("SELECT COUNT(*) FROM ledger").fetchone()[0]
-        self.con.executemany(
-            """
-            INSERT OR IGNORE INTO ledger (address, ts, event_type, usdc, vault)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            rows,
-        )
-        after = self.con.execute("SELECT COUNT(*) FROM ledger").fetchone()[0]
+    def _insert_ledger_batch(self, address: str, rows: list[tuple]) -> int:
+        """Insert a batch of ledger rows, ignoring duplicates.
+
+        :param address:
+            Account address for per-address counting.
+        :param rows:
+            Tuples of ledger data.
+        :return:
+            Number of rows actually inserted.
+        """
+        with self._db_lock:
+            before = self.con.execute("SELECT COUNT(*) FROM ledger WHERE address = ?", [address]).fetchone()[0]
+            self.con.executemany(
+                """
+                INSERT OR IGNORE INTO ledger (address, ts, event_type, usdc, vault)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+            after = self.con.execute("SELECT COUNT(*) FROM ledger WHERE address = ?", [address]).fetchone()[0]
         return after - before
 
     # ──────────────────────────────────────────────
@@ -651,11 +714,13 @@ class HyperliquidTradeHistoryDatabase:
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
         timeout: float = 30.0,
+        tqdm_position: int | None = None,
     ) -> dict[str, int]:
         """Sync all data types for a single account.
 
-        Wraps fills, funding, and ledger syncs in a single transaction
-        for crash safety.
+        Each data type (fills, funding, ledger) is synced independently
+        with its own sync_state watermark. Individual batch inserts use
+        ``INSERT OR IGNORE`` for idempotent crash recovery.
 
         :param session:
             Hyperliquid API session.
@@ -667,21 +732,17 @@ class HyperliquidTradeHistoryDatabase:
             Override end time.
         :param timeout:
             HTTP request timeout.
+        :param tqdm_position:
+            Position for nested progress bars (None for auto).
         :return:
             Dict with counts: ``{"fills": N, "funding": N, "ledger": N}``.
         """
         addr = address.lower()
         logger.info("Syncing all data for account %s", addr)
 
-        self.con.execute("BEGIN TRANSACTION")
-        try:
-            fills_count = self.sync_account_fills(session, addr, start_time=start_time, end_time=end_time, timeout=timeout)
-            funding_count = self.sync_account_funding(session, addr, start_time=start_time, end_time=end_time, timeout=timeout)
-            ledger_count = self.sync_account_ledger(session, addr, start_time=start_time, end_time=end_time, timeout=timeout)
-            self.con.execute("COMMIT")
-        except Exception:
-            self.con.execute("ROLLBACK")
-            raise
+        fills_count = self.sync_account_fills(session, addr, start_time=start_time, end_time=end_time, timeout=timeout, tqdm_position=tqdm_position)
+        funding_count = self.sync_account_funding(session, addr, start_time=start_time, end_time=end_time, timeout=timeout, tqdm_position=tqdm_position)
+        ledger_count = self.sync_account_ledger(session, addr, start_time=start_time, end_time=end_time, timeout=timeout, tqdm_position=tqdm_position)
 
         result = {"fills": fills_count, "funding": funding_count, "ledger": ledger_count}
         logger.info("Sync complete for %s: %s", addr, result)
@@ -695,36 +756,94 @@ class HyperliquidTradeHistoryDatabase:
     ) -> dict[str, dict[str, int]]:
         """Sync all whitelisted accounts.
 
+        When ``max_workers > 1``, accounts are synced in parallel using a
+        thread pool. The HTTP session's rate limiter is shared across
+        threads. Database writes are serialised via an internal lock.
+
         :param session:
-            Hyperliquid API session.
+            Hyperliquid API session (thread-safe rate limiter).
         :param max_workers:
-            Number of parallel workers. Currently only sequential (1) is
-            supported since DuckDB doesn't support concurrent writes.
+            Number of parallel workers for concurrent API calls.
         :param timeout:
             HTTP request timeout.
         :return:
             Dict mapping address to sync counts.
         """
         accounts = self.get_accounts()
+        if not accounts:
+            return {}
+
         results = {}
         total_events = 0
-        progress = tqdm(
-            accounts,
+
+        if max_workers <= 1:
+            # Sequential path
+            overall = tqdm(
+                accounts,
+                desc="Syncing accounts",
+                unit="account",
+            )
+            for account in overall:
+                addr = account["address"]
+                label = account.get("label", addr[:10])
+                overall.set_postfix_str(f"account={label}, total={_format_count(total_events)}")
+                try:
+                    result = self.sync_account(session, addr, timeout=timeout)
+                    results[addr] = result
+                    total_events += result.get("fills", 0) + result.get("funding", 0) + result.get("ledger", 0)
+                    overall.set_postfix_str(f"account={label}, total={_format_count(total_events)}")
+                except Exception:
+                    logger.exception("Failed to sync account %s", addr)
+                    results[addr] = {"fills": 0, "funding": 0, "ledger": 0, "error": True}
+            return results
+
+        # Threaded path with nested progress bars
+        overall = tqdm(
+            total=len(accounts),
             desc="Syncing accounts",
             unit="account",
+            position=0,
         )
-        for account in progress:
+        # Track which tqdm positions are available for worker threads
+        _position_lock = threading.Lock()
+        _available_positions = list(range(1, max_workers + 1))
+
+        def _acquire_position() -> int:
+            with _position_lock:
+                return _available_positions.pop(0)
+
+        def _release_position(pos: int) -> None:
+            with _position_lock:
+                _available_positions.append(pos)
+
+        def _sync_worker(account: dict) -> tuple[str, dict[str, int]]:
             addr = account["address"]
-            label = account.get("label", addr[:10])
-            progress.set_postfix(account=label, total_events=f"{total_events:,}")
+            pos = _acquire_position()
             try:
-                result = self.sync_account(session, addr, timeout=timeout)
-                results[addr] = result
-                total_events += result.get("fills", 0) + result.get("funding", 0) + result.get("ledger", 0)
-                progress.set_postfix(account=label, total_events=f"{total_events:,}")
+                result = self.sync_account(session, addr, timeout=timeout, tqdm_position=pos)
+                return addr, result
             except Exception:
                 logger.exception("Failed to sync account %s", addr)
-                results[addr] = {"fills": 0, "funding": 0, "ledger": 0, "error": True}
+                return addr, {"fills": 0, "funding": 0, "ledger": 0, "error": True}
+            finally:
+                _release_position(pos)
+
+        try:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(_sync_worker, account): account for account in accounts}
+
+                for future in as_completed(futures):
+                    addr, result = future.result()
+                    results[addr] = result
+                    total_events += result.get("fills", 0) + result.get("funding", 0) + result.get("ledger", 0)
+                    overall.update(1)
+                    overall.set_postfix_str(f"total={_format_count(total_events)}")
+        finally:
+            overall.close()
+            # Clear any leftover tqdm lines from worker positions
+            for _ in range(max_workers):
+                tqdm.write("")
+
         return results
 
     # ──────────────────────────────────────────────
@@ -760,7 +879,9 @@ class HyperliquidTradeHistoryDatabase:
             params.append(int(end_time.timestamp() * 1000))
 
         query += " ORDER BY ts ASC"
-        rows = self.con.execute(query, params).fetchall()
+
+        with self._db_lock:
+            rows = self.con.execute(query, params).fetchall()
 
         from decimal import Decimal
 
@@ -814,7 +935,9 @@ class HyperliquidTradeHistoryDatabase:
             params.append(int(end_time.timestamp() * 1000))
 
         query += " ORDER BY ts ASC"
-        rows = self.con.execute(query, params).fetchall()
+
+        with self._db_lock:
+            rows = self.con.execute(query, params).fetchall()
 
         from decimal import Decimal
 
@@ -832,26 +955,29 @@ class HyperliquidTradeHistoryDatabase:
 
     def get_fill_count(self, address: HexAddress) -> int:
         """Get the number of stored fills for an account."""
-        result = self.con.execute(
-            "SELECT COUNT(*) FROM fills WHERE address = ?",
-            [address.lower()],
-        ).fetchone()
+        with self._db_lock:
+            result = self.con.execute(
+                "SELECT COUNT(*) FROM fills WHERE address = ?",
+                [address.lower()],
+            ).fetchone()
         return result[0] if result else 0
 
     def get_funding_count(self, address: HexAddress) -> int:
         """Get the number of stored funding payments for an account."""
-        result = self.con.execute(
-            "SELECT COUNT(*) FROM funding WHERE address = ?",
-            [address.lower()],
-        ).fetchone()
+        with self._db_lock:
+            result = self.con.execute(
+                "SELECT COUNT(*) FROM funding WHERE address = ?",
+                [address.lower()],
+            ).fetchone()
         return result[0] if result else 0
 
     def get_ledger_count(self, address: HexAddress) -> int:
         """Get the number of stored ledger events for an account."""
-        result = self.con.execute(
-            "SELECT COUNT(*) FROM ledger WHERE address = ?",
-            [address.lower()],
-        ).fetchone()
+        with self._db_lock:
+            result = self.con.execute(
+                "SELECT COUNT(*) FROM ledger WHERE address = ?",
+                [address.lower()],
+            ).fetchone()
         return result[0] if result else 0
 
     # ──────────────────────────────────────────────
@@ -867,10 +993,11 @@ class HyperliquidTradeHistoryDatabase:
             Dict mapping data_type to state dict with oldest_ts, newest_ts, row_count, last_synced.
         """
         addr = address.lower()
-        rows = self.con.execute(
-            "SELECT data_type, oldest_ts, newest_ts, row_count, last_synced FROM sync_state WHERE address = ?",
-            [addr],
-        ).fetchall()
+        with self._db_lock:
+            rows = self.con.execute(
+                "SELECT data_type, oldest_ts, newest_ts, row_count, last_synced FROM sync_state WHERE address = ?",
+                [addr],
+            ).fetchall()
         return {
             r[0]: {
                 "oldest_ts": r[1],
@@ -883,10 +1010,11 @@ class HyperliquidTradeHistoryDatabase:
 
     def _get_sync_state_row(self, address: str, data_type: str) -> dict | None:
         """Get sync state for a specific data type."""
-        row = self.con.execute(
-            "SELECT oldest_ts, newest_ts, row_count, last_synced FROM sync_state WHERE address = ? AND data_type = ?",
-            [address, data_type],
-        ).fetchone()
+        with self._db_lock:
+            row = self.con.execute(
+                "SELECT oldest_ts, newest_ts, row_count, last_synced FROM sync_state WHERE address = ? AND data_type = ?",
+                [address, data_type],
+            ).fetchone()
         if row is None:
             return None
         return {
@@ -898,60 +1026,63 @@ class HyperliquidTradeHistoryDatabase:
 
     def _update_sync_state_fills(self, address: str) -> None:
         """Recompute and store sync state for fills."""
-        row = self.con.execute(
-            "SELECT MIN(ts), MAX(ts), COUNT(*) FROM fills WHERE address = ?",
-            [address],
-        ).fetchone()
-        now_ms = int(native_datetime_utc_now().timestamp() * 1000)
-        self.con.execute(
-            """
-            INSERT INTO sync_state (address, data_type, oldest_ts, newest_ts, row_count, last_synced)
-            VALUES (?, 'fills', ?, ?, ?, ?)
-            ON CONFLICT (address, data_type) DO UPDATE SET
-                oldest_ts = EXCLUDED.oldest_ts,
-                newest_ts = EXCLUDED.newest_ts,
-                row_count = EXCLUDED.row_count,
-                last_synced = EXCLUDED.last_synced
-            """,
-            [address, row[0], row[1], row[2], now_ms],
-        )
+        with self._db_lock:
+            row = self.con.execute(
+                "SELECT MIN(ts), MAX(ts), COUNT(*) FROM fills WHERE address = ?",
+                [address],
+            ).fetchone()
+            now_ms = int(native_datetime_utc_now().timestamp() * 1000)
+            self.con.execute(
+                """
+                INSERT INTO sync_state (address, data_type, oldest_ts, newest_ts, row_count, last_synced)
+                VALUES (?, 'fills', ?, ?, ?, ?)
+                ON CONFLICT (address, data_type) DO UPDATE SET
+                    oldest_ts = EXCLUDED.oldest_ts,
+                    newest_ts = EXCLUDED.newest_ts,
+                    row_count = EXCLUDED.row_count,
+                    last_synced = EXCLUDED.last_synced
+                """,
+                [address, row[0], row[1], row[2], now_ms],
+            )
 
     def _update_sync_state_funding(self, address: str) -> None:
         """Recompute and store sync state for funding."""
-        row = self.con.execute(
-            "SELECT MIN(ts), MAX(ts), COUNT(*) FROM funding WHERE address = ?",
-            [address],
-        ).fetchone()
-        now_ms = int(native_datetime_utc_now().timestamp() * 1000)
-        self.con.execute(
-            """
-            INSERT INTO sync_state (address, data_type, oldest_ts, newest_ts, row_count, last_synced)
-            VALUES (?, 'funding', ?, ?, ?, ?)
-            ON CONFLICT (address, data_type) DO UPDATE SET
-                oldest_ts = EXCLUDED.oldest_ts,
-                newest_ts = EXCLUDED.newest_ts,
-                row_count = EXCLUDED.row_count,
-                last_synced = EXCLUDED.last_synced
-            """,
-            [address, row[0], row[1], row[2], now_ms],
-        )
+        with self._db_lock:
+            row = self.con.execute(
+                "SELECT MIN(ts), MAX(ts), COUNT(*) FROM funding WHERE address = ?",
+                [address],
+            ).fetchone()
+            now_ms = int(native_datetime_utc_now().timestamp() * 1000)
+            self.con.execute(
+                """
+                INSERT INTO sync_state (address, data_type, oldest_ts, newest_ts, row_count, last_synced)
+                VALUES (?, 'funding', ?, ?, ?, ?)
+                ON CONFLICT (address, data_type) DO UPDATE SET
+                    oldest_ts = EXCLUDED.oldest_ts,
+                    newest_ts = EXCLUDED.newest_ts,
+                    row_count = EXCLUDED.row_count,
+                    last_synced = EXCLUDED.last_synced
+                """,
+                [address, row[0], row[1], row[2], now_ms],
+            )
 
     def _update_sync_state_ledger(self, address: str) -> None:
         """Recompute and store sync state for ledger."""
-        row = self.con.execute(
-            "SELECT MIN(ts), MAX(ts), COUNT(*) FROM ledger WHERE address = ?",
-            [address],
-        ).fetchone()
-        now_ms = int(native_datetime_utc_now().timestamp() * 1000)
-        self.con.execute(
-            """
-            INSERT INTO sync_state (address, data_type, oldest_ts, newest_ts, row_count, last_synced)
-            VALUES (?, 'ledger', ?, ?, ?, ?)
-            ON CONFLICT (address, data_type) DO UPDATE SET
-                oldest_ts = EXCLUDED.oldest_ts,
-                newest_ts = EXCLUDED.newest_ts,
-                row_count = EXCLUDED.row_count,
-                last_synced = EXCLUDED.last_synced
-            """,
-            [address, row[0], row[1], row[2], now_ms],
-        )
+        with self._db_lock:
+            row = self.con.execute(
+                "SELECT MIN(ts), MAX(ts), COUNT(*) FROM ledger WHERE address = ?",
+                [address],
+            ).fetchone()
+            now_ms = int(native_datetime_utc_now().timestamp() * 1000)
+            self.con.execute(
+                """
+                INSERT INTO sync_state (address, data_type, oldest_ts, newest_ts, row_count, last_synced)
+                VALUES (?, 'ledger', ?, ?, ?, ?)
+                ON CONFLICT (address, data_type) DO UPDATE SET
+                    oldest_ts = EXCLUDED.oldest_ts,
+                    newest_ts = EXCLUDED.newest_ts,
+                    row_count = EXCLUDED.row_count,
+                    last_synced = EXCLUDED.last_synced
+                """,
+                [address, row[0], row[1], row[2], now_ms],
+            )
