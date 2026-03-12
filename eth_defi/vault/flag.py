@@ -405,6 +405,10 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x6d2981ff9b8d7edbb7604de7a65bac8694ac849f": (VaultFlag.subvault, SUBVAULT),
     # Hyperliquidity Trader (HLT) - irregular share price action due to epoch resets
     "0x5a733b25a17dc0f26b862ca9e32b439801b1a8c7": (VaultFlag.abnormal_share_price, HLT_IRREGULAR_SHARE_PRICE),
+    # Secured Finance JPYC Lender
+    "0x6f6046e59501e484152d46045ba5eecf1cab8935": (VaultFlag.irregular_reporting, IRREGULAR_REPORTING),
+    # JPYC (Yearn)
+    "0x7a6e3635694952dc00f6ba4d4ad1a7b892028789": (VaultFlag.irregular_reporting, IRREGULAR_REPORTING),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
