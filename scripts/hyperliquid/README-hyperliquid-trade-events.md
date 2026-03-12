@@ -188,7 +188,7 @@ MIN_VAULT_PEAK_TVL=1000000 \
   poetry run python scripts/hyperliquid/sync-trade-history.py
 
 # Non-interactive (for CI/cron)
-MIN_VAULT_PEAK_TVL=1000000 INTERACTIVE=false MAX_WORKERS=4 \
+MIN_VAULT_PEAK_TVL=1000000 INTERACTIVE=false MAX_WORKERS=8 \
   poetry run python scripts/hyperliquid/sync-trade-history.py
 
 # With parallel workers and logging
