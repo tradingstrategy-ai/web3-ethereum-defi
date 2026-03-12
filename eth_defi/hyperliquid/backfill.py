@@ -202,21 +202,25 @@ def parse_s3_filename_date(filename: str) -> datetime.date | None:
 def configure_aws_credentials():
     """Validate that AWS credentials are available for S3 access.
 
-    Checks that ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` are set.
-    Also sets the default region to ``us-east-1`` if not already configured.
+    Accepts either explicit environment variables or a named profile:
 
-    These are standard AWS environment variables used by boto3 and the AWS CLI.
+    - ``AWS_ACCESS_KEY_ID`` + ``AWS_SECRET_ACCESS_KEY`` (+ ``AWS_SESSION_TOKEN`` for MFA)
+    - ``AWS_PROFILE`` — named profile from ``~/.aws/credentials``
+
+    Also sets the default region to ``eu-west-1`` if not already configured
+    (the ``hyperliquid-archive`` S3 bucket is in ``eu-west-1``).
 
     :raises ValueError:
-        If ``AWS_ACCESS_KEY_ID`` is not set.
+        If neither ``AWS_ACCESS_KEY_ID`` nor ``AWS_PROFILE`` is set.
     """
-    # Default region — the archive bucket is likely in us-east-1
-    os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
+    # Default region — the hyperliquid-archive bucket is in eu-west-1
+    os.environ.setdefault("AWS_DEFAULT_REGION", "eu-west-1")
 
-    if not os.environ.get("AWS_ACCESS_KEY_ID"):
+    if not os.environ.get("AWS_ACCESS_KEY_ID") and not os.environ.get("AWS_PROFILE"):
         raise ValueError(
             "AWS credentials not found. Set AWS_ACCESS_KEY_ID and "
-            "AWS_SECRET_ACCESS_KEY environment variables."
+            "AWS_SECRET_ACCESS_KEY environment variables, or set "
+            "AWS_PROFILE to use a named profile from ~/.aws/credentials."
         )
 
 

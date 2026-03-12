@@ -122,14 +122,12 @@ fi
 # Obtain temporary session credentials
 echo "Requesting session token (duration: ${DURATION}s = $(( DURATION / 3600 ))h)..." >&2
 
-RESULT=$(aws sts get-session-token \
+if ! RESULT=$(aws sts get-session-token \
     --profile "$PROFILE" \
     --serial-number "$SERIAL" \
     --token-code "$OTP" \
     --duration-seconds "$DURATION" \
-    --output json 2>&1)
-
-if ! echo "$RESULT" | python3 -c "import sys, json; json.load(sys.stdin)" &> /dev/null; then
+    --output json 2>&1); then
     echo "Error: Failed to obtain session token:" >&2
     echo "$RESULT" >&2
     exit 1

@@ -5,9 +5,9 @@ rows (``is_vault=true``), and stores them in a staging DuckDB for later backfill
 
 Supports two modes:
 
-1. **Direct S3 download** (recommended): Set ``AWS_ACCESS_KEY_ID`` and
-   ``AWS_SECRET_ACCESS_KEY`` and the script downloads files directly from S3
-   to a local cache, then extracts.
+1. **Direct S3 download** (recommended): Set ``AWS_PROFILE`` or
+   ``AWS_ACCESS_KEY_ID`` / ``AWS_SECRET_ACCESS_KEY`` / ``AWS_SESSION_TOKEN``
+   and the script downloads files directly from S3 to a local cache, then extracts.
 
 2. **Pre-downloaded files**: Set ``S3_DATA_DIR`` to point to a directory with
    previously downloaded ``.csv.lz4`` files.
@@ -19,8 +19,12 @@ Usage:
 
 .. code-block:: shell
 
-    # Direct S3 download (recommended)
-    AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... \\
+    # Direct S3 download using named profile (recommended)
+    AWS_PROFILE=hyperliquid \\
+        poetry run python scripts/hyperliquid/extract-s3-vault-data.py
+
+    # Or using explicit environment variables
+    AWS_ACCESS_KEY_ID=ASIA... AWS_SECRET_ACCESS_KEY=... AWS_SESSION_TOKEN=... \\
         poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 
     # With pre-downloaded files
@@ -28,14 +32,16 @@ Usage:
         poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 
     # Extract specific date range without deleting files
-    AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... \\
+    AWS_PROFILE=hyperliquid \\
     START_DATE=2025-11-01 END_DATE=2026-01-31 DELETE_LZ4=false \\
         poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 
 Environment variables:
 
-- ``AWS_ACCESS_KEY_ID``: AWS access key ID for S3 download
+- ``AWS_PROFILE``: Named profile from ``~/.aws/credentials`` (recommended)
+- ``AWS_ACCESS_KEY_ID``: AWS access key ID for S3 download (alternative to ``AWS_PROFILE``)
 - ``AWS_SECRET_ACCESS_KEY``: AWS secret access key for S3 download
+- ``AWS_SESSION_TOKEN``: AWS session token for MFA-authenticated access
 - ``S3_DATA_DIR``: Directory with ``.csv.lz4`` files (skips S3 download if set)
 - ``S3_DOWNLOAD_DIR``: Where to cache downloaded LZ4 files.
   Default: ``~/hl-archive/account_values/``
