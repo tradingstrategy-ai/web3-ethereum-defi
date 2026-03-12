@@ -27,6 +27,7 @@ import csv
 import datetime
 import io
 import logging
+import os
 import re
 from collections.abc import Iterator
 from pathlib import Path
@@ -40,6 +41,12 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 
 logger = logging.getLogger(__name__)
+
+#: S3 bucket for the Hyperliquid archive
+HYPERLIQUID_S3_BUCKET = "hyperliquid-archive"
+
+#: S3 prefix for account_values files
+HYPERLIQUID_S3_PREFIX = "account_values/"
 
 #: Default path for the S3 vault backfill staging database
 HYPERLIQUID_S3_STAGING_DATABASE = Path("~/.tradingstrategy/hyperliquid/s3-vault-backfill.duckdb").expanduser()
@@ -190,6 +197,123 @@ def parse_s3_filename_date(filename: str) -> datetime.date | None:
         return None
     date_str = match.group(1)
     return datetime.date(int(date_str[:4]), int(date_str[4:6]), int(date_str[6:8]))
+
+
+def configure_aws_credentials():
+    """Configure AWS credentials from project-specific environment variables.
+
+    Maps our ``AWS_API_KEY`` and ``AWS_SECRET_KEY`` environment variables to
+    the standard ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` that
+    boto3 and the AWS CLI expect. Also sets the default region if not
+    already configured.
+
+    This allows using a single pair of env vars across our scripts without
+    requiring ``aws configure`` or the AWS CLI to be installed.
+
+    :raises ValueError:
+        If neither ``AWS_API_KEY`` nor ``AWS_ACCESS_KEY_ID`` is set.
+    """
+    api_key = os.environ.get("AWS_API_KEY")
+    secret_key = os.environ.get("AWS_SECRET_KEY")
+
+    if api_key:
+        os.environ.setdefault("AWS_ACCESS_KEY_ID", api_key)
+    if secret_key:
+        os.environ.setdefault("AWS_SECRET_ACCESS_KEY", secret_key)
+
+    # Default region — the archive bucket is likely in us-east-1
+    os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
+
+    if not os.environ.get("AWS_ACCESS_KEY_ID") and not api_key:
+        raise ValueError("AWS credentials not found. Set AWS_API_KEY and AWS_SECRET_KEY environment variables, or configure AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY directly.")
+
+
+def download_s3_files(
+    output_dir: Path,
+    start_date: datetime.date | None = None,
+    end_date: datetime.date | None = None,
+) -> int:
+    """Download account_values LZ4 files from the Hyperliquid S3 archive.
+
+    Downloads files from ``s3://hyperliquid-archive/account_values/`` to the
+    specified output directory. Skips files that already exist locally.
+    Requires AWS credentials to be configured (via :func:`configure_aws_credentials`
+    or standard AWS environment variables).
+
+    :param output_dir:
+        Local directory to download files into.
+    :param start_date:
+        Only download files from this date onwards.
+    :param end_date:
+        Only download files up to this date.
+    :return:
+        Number of files downloaded.
+    """
+    import boto3
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    s3 = boto3.client("s3")
+
+    # List all objects in the prefix
+    paginator = s3.get_paginator("list_objects_v2")
+    pages = paginator.paginate(
+        Bucket=HYPERLIQUID_S3_BUCKET,
+        Prefix=HYPERLIQUID_S3_PREFIX,
+        RequestPayer="requester",
+    )
+
+    files_to_download = []
+    for page in pages:
+        for obj in page.get("Contents", []):
+            key = obj["Key"]
+            filename = key.split("/")[-1]
+            if not filename.endswith(".csv.lz4"):
+                continue
+
+            file_date = parse_s3_filename_date(filename)
+            if file_date is None:
+                continue
+            if start_date and file_date < start_date:
+                continue
+            if end_date and file_date > end_date:
+                continue
+
+            local_path = output_dir / filename
+            if local_path.exists():
+                logger.debug("Skipping already downloaded: %s", filename)
+                continue
+
+            files_to_download.append((key, local_path, obj["Size"]))
+
+    if not files_to_download:
+        logger.info("No new files to download")
+        return 0
+
+    downloaded = 0
+    progress = tqdm(
+        files_to_download,
+        desc="Downloading S3 files",
+        unit="file",
+    )
+
+    total_bytes = 0
+    for key, local_path, size in progress:
+        s3.download_file(
+            Bucket=HYPERLIQUID_S3_BUCKET,
+            Key=key,
+            Filename=str(local_path),
+            ExtraArgs={"RequestPayer": "requester"},
+        )
+        total_bytes += size
+        downloaded += 1
+        progress.set_postfix(
+            downloaded=downloaded,
+            size=f"{total_bytes / 1024 / 1024:.1f}MB",
+        )
+
+    logger.info("Downloaded %d files (%.1f MB)", downloaded, total_bytes / 1024 / 1024)
+    return downloaded
 
 
 def parse_account_values_lz4(file_path: Path) -> Iterator[tuple]:
