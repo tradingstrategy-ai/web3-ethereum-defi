@@ -347,10 +347,8 @@ class HyperliquidTradeHistoryDatabase:
                 self._update_sync_state_fills(addr)
 
                 progress.update(len(raw_fills))
-                progress.set_postfix(
-                    batch=batch_num,
-                    fetched=total_fetched,
-                    inserted=total_inserted,
+                progress.set_postfix_str(
+                    f"batch={batch_num}, fetched={total_fetched:,}, inserted={total_inserted:,}"
                 )
 
                 # Paginate forward: API returns oldest first
@@ -485,10 +483,8 @@ class HyperliquidTradeHistoryDatabase:
                 self._update_sync_state_funding(addr)
 
                 progress.update(len(raw_funding))
-                progress.set_postfix(
-                    batch=batch_num,
-                    fetched=total_fetched,
-                    inserted=total_inserted,
+                progress.set_postfix_str(
+                    f"batch={batch_num}, fetched={total_fetched:,}, inserted={total_inserted:,}"
                 )
 
                 # Paginate forward: API returns oldest first
@@ -615,10 +611,8 @@ class HyperliquidTradeHistoryDatabase:
                 self._update_sync_state_ledger(addr)
 
                 progress.update(len(raw_updates))
-                progress.set_postfix(
-                    batch=batch_num,
-                    fetched=total_fetched,
-                    inserted=total_inserted,
+                progress.set_postfix_str(
+                    f"batch={batch_num}, fetched={total_fetched:,}, inserted={total_inserted:,}"
                 )
 
                 # Paginate forward: API returns oldest first
