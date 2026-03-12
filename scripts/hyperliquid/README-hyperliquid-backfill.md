@@ -187,6 +187,51 @@ export AWS_SECRET_ACCESS_KEY=...
 
 Add these to your `.local-test.env` or shell profile for persistence.
 
+### 4a. If MFA is enabled on your account
+
+Some AWS accounts enforce MFA authentication via an identity-based policy (e.g.
+`Manage_credentials_and_MFA_settings`). In this case, long-term access keys alone
+are not sufficient — all S3 requests return `AccessDenied` even with valid credentials
+and `--request-payer requester`.
+
+**Signs that MFA is required:**
+
+- `aws s3 ls s3://hyperliquid-archive/...` returns `AccessDenied`
+- `aws iam list-attached-user-policies` returns an error mentioning
+  `explicit deny in an identity-based policy`
+
+You must obtain **temporary session credentials** via `sts:GetSessionToken` before
+accessing the bucket. Use the helper script:
+
+```shell
+# Update ~/.aws/credentials for a named profile (recommended)
+scripts/hyperliquid/refresh-mfa-session.sh --otp 123456 --profile YOUR_PROFILE
+
+# Environment variable mode — injects credentials into the current shell
+eval $(scripts/hyperliquid/refresh-mfa-session.sh --otp 123456 --profile YOUR_PROFILE --export)
+```
+
+The script auto-detects your MFA device ARN. You can also provide it explicitly:
+
+```shell
+scripts/hyperliquid/refresh-mfa-session.sh \
+  --otp 123456 \
+  --profile YOUR_PROFILE \
+  --serial arn:aws:iam::123456789012:mfa/my-device \
+  --duration 43200
+```
+
+When using environment variables, add `AWS_SESSION_TOKEN` alongside the other two:
+
+```shell
+export AWS_ACCESS_KEY_ID=ASIA...    # Note: starts with ASIA, not AKIA
+export AWS_SECRET_ACCESS_KEY=...
+export AWS_SESSION_TOKEN=...
+```
+
+Session tokens expire after 12 hours by default (`--duration 43200`). Re-run the
+script with a fresh OTP code to renew.
+
 ### 5. Verify access (optional)
 
 If you also have the AWS CLI installed, you can verify:
@@ -195,7 +240,12 @@ If you also have the AWS CLI installed, you can verify:
 # macOS: brew install awscli
 # Linux: pip install awscli
 
+# Without MFA (long-term credentials via environment variables)
 aws s3 ls s3://hyperliquid-archive/account_values/ --request-payer requester | head -5
+
+# With MFA (session credentials via named profile)
+aws s3 ls s3://hyperliquid-archive/account_values/ --request-payer requester \
+    --profile YOUR_PROFILE | head -5
 ```
 
 ### 6. Install Python dependencies
@@ -208,10 +258,27 @@ poetry install -E hyperliquid_backfill
 
 ### Step 1: Extract vault data (download + extract)
 
-The extract script downloads files from S3 and extracts vault data in one step:
+The extract script downloads files from S3 and extracts vault data in one step.
+
+**Without MFA** (long-term credentials):
 
 ```shell
 AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... LOG_LEVEL=info \
+    poetry run python scripts/hyperliquid/extract-s3-vault-data.py
+```
+
+**With MFA** (session credentials — see [section 4a](#4a-if-mfa-is-enabled-on-your-account)):
+
+```shell
+# First, refresh session token (required once per 12 hours)
+scripts/hyperliquid/refresh-mfa-session.sh --otp 123456 --profile YOUR_PROFILE
+
+# Option A: profile mode (credentials file updated by refresh-mfa-session.sh)
+AWS_PROFILE=YOUR_PROFILE LOG_LEVEL=info \
+    poetry run python scripts/hyperliquid/extract-s3-vault-data.py
+
+# Option B: environment variable mode
+AWS_ACCESS_KEY_ID=ASIA... AWS_SECRET_ACCESS_KEY=... AWS_SESSION_TOKEN=... LOG_LEVEL=info \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 ```
 
@@ -221,14 +288,22 @@ new files are downloaded and already-extracted dates are skipped.
 To extract a specific date range:
 
 ```shell
+# Without MFA
 AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... \
+START_DATE=2025-11-01 END_DATE=2026-01-31 DELETE_LZ4=false LOG_LEVEL=info \
+    poetry run python scripts/hyperliquid/extract-s3-vault-data.py
+
+# With MFA (profile mode)
+AWS_PROFILE=YOUR_PROFILE \
 START_DATE=2025-11-01 END_DATE=2026-01-31 DELETE_LZ4=false LOG_LEVEL=info \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 ```
 
 Environment variables:
-- `AWS_ACCESS_KEY_ID` — AWS access key ID for S3 download
+- `AWS_ACCESS_KEY_ID` — AWS access key ID for S3 download (long-term: starts `AKIA`, session: starts `ASIA`)
 - `AWS_SECRET_ACCESS_KEY` — AWS secret access key for S3 download
+- `AWS_SESSION_TOKEN` — temporary session token (required when MFA is enforced on the account)
+- `AWS_PROFILE` — named profile from `~/.aws/credentials` (alternative to the three variables above)
 - `S3_DATA_DIR` — directory with pre-downloaded `.csv.lz4` files (skips S3 download if set)
 - `S3_DOWNLOAD_DIR` — where to cache downloaded files (default: `~/hl-archive/account_values/`)
 - `STAGING_DB_PATH` — staging DB path (default: `~/.tradingstrategy/hyperliquid/s3-vault-backfill.duckdb`)
@@ -300,7 +375,16 @@ Tests use synthetic LZ4 files and verify:
 
 ```shell
 # Stage 1: Download + extract a single day into test staging DB
+
+# Without MFA
 AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... \
+START_DATE=2026-03-01 END_DATE=2026-03-01 \
+STAGING_DB_PATH=/tmp/staging.duckdb DELETE_LZ4=false \
+    poetry run python scripts/hyperliquid/extract-s3-vault-data.py
+
+# With MFA — refresh session first, then use profile or env vars
+scripts/hyperliquid/refresh-mfa-session.sh --otp 123456 --profile YOUR_PROFILE
+AWS_PROFILE=YOUR_PROFILE \
 START_DATE=2026-03-01 END_DATE=2026-03-01 \
 STAGING_DB_PATH=/tmp/staging.duckdb DELETE_LZ4=false \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
@@ -327,7 +411,14 @@ db.close()
 ```shell
 # 1. Download + extract full S3 archive (~8-15 GB compressed, ~10-25 min download)
 # Resumable — safe to interrupt and restart. Only downloads new files on re-run.
+
+# Without MFA
 AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... LOG_LEVEL=info \
+    poetry run python scripts/hyperliquid/extract-s3-vault-data.py
+
+# With MFA — refresh session first (tokens last 12 hours), then run
+scripts/hyperliquid/refresh-mfa-session.sh --otp 123456 --profile YOUR_PROFILE
+AWS_PROFILE=YOUR_PROFILE LOG_LEVEL=info \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 
 # 2. Back up production database
