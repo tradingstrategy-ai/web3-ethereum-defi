@@ -19,7 +19,6 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-from eth_typing import HexAddress
 
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE

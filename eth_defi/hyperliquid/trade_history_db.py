@@ -895,7 +895,7 @@ class HyperliquidTradeHistoryDatabase:
             "(SELECT COUNT(*) FROM funding), "
             "(SELECT COUNT(*) FROM ledger)"
         ).fetchone()
-        print(
+        print(  # noqa: T201
             f"Database: {_format_count(existing[0])} fills, "
             f"{_format_count(existing[1])} funding, "
             f"{_format_count(existing[2])} ledger entries "
@@ -1106,7 +1106,7 @@ class HyperliquidTradeHistoryDatabase:
                 funding_rate=Decimal(str(r[4])) if r[4] is not None else Decimal("0"),
                 usdc=Decimal(str(r[2])),
                 position_size=Decimal(str(r[3])) if r[3] is not None else Decimal("0"),
-                timestamp=datetime.datetime.fromtimestamp(r[0] / 1000),
+                timestamp=datetime.datetime.fromtimestamp(r[0] / 1000, tz=datetime.timezone.utc).replace(tzinfo=None),
                 timestamp_ms=r[0],
             )
             for r in rows

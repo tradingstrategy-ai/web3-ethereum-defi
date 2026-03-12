@@ -72,7 +72,8 @@ class ProxyStateManager:
     #: Failed proxies indexed by proxy identifier
     _failed_proxies: dict[str, FailedProxyEntry] = field(default_factory=dict, init=False)
 
-    def get_proxy_id(self, proxy: WebshareProxy) -> str:
+    @staticmethod
+    def get_proxy_id(proxy: WebshareProxy) -> str:
         """Generate a consistent identifier for a proxy.
 
         For direct proxies, uses address:port format.
@@ -335,7 +336,7 @@ class ProxyRotator:
             )
             return proxy
 
-    def clone_for_worker(self, start_index: int = 0) -> "ProxyRotator":
+    def clone_for_worker(self, start_index: int = 0) -> ProxyRotator:
         """Create a worker-specific clone with its own rotation state.
 
         The clone shares the same proxy list and
@@ -482,7 +483,7 @@ def load_proxy_rotator() -> ProxyRotator | None:
         return None
 
     mode = os.environ.get("WEBSHARE_PROXY_MODE", "backbone").strip().lower()
-    if mode not in ("direct", "backbone"):
+    if mode not in {"direct", "backbone"}:
         logger.warning("Invalid WEBSHARE_PROXY_MODE=%s, defaulting to direct", mode)
         mode = "backbone"
 
@@ -547,7 +548,7 @@ def load_proxy_urls(api_key: str | None = None) -> list[str]:
         return []
 
     mode = os.environ.get("WEBSHARE_PROXY_MODE", "backbone").strip().lower()
-    if mode not in ("direct", "backbone"):
+    if mode not in {"direct", "backbone"}:
         logger.warning("Invalid WEBSHARE_PROXY_MODE=%s, defaulting to direct", mode)
         mode = "backbone"
 
@@ -586,28 +587,28 @@ def print_proxy_dashboard(rotator: ProxyRotator | None) -> None:
     Displays total proxies from API, active (available) proxies, and
     blocked proxies due to recent failures.
     """
-    print()
-    print("=" * 40)
-    print("PROXY DASHBOARD")
-    print("=" * 40)
+    print()  # noqa: T201
+    print("=" * 40)  # noqa: T201
+    print("PROXY DASHBOARD")  # noqa: T201
+    print("=" * 40)  # noqa: T201
 
     if rotator is None:
-        print("Status: DISABLED (no API key or no proxies)")
-        print("=" * 40)
-        print()
+        print("Status: DISABLED (no API key or no proxies)")  # noqa: T201
+        print("=" * 40)  # noqa: T201
+        print()  # noqa: T201
         return
 
     total = rotator.total_from_api
     active = len(rotator.proxies)
     blocked = rotator.blocked_count
 
-    print(f"Total from API:     {total:>4}")
-    print(f"Active (available): {active:>4}")
-    print(f"Blocked (grace):    {blocked:>4}")
-    print("-" * 40)
-    print(f"Grace period:       {GRACE_PERIOD_DAYS} days")
-    print("=" * 40)
-    print()
+    print(f"Total from API:     {total:>4}")  # noqa: T201
+    print(f"Active (available): {active:>4}")  # noqa: T201
+    print(f"Blocked (grace):    {blocked:>4}")  # noqa: T201
+    print("-" * 40)  # noqa: T201
+    print(f"Grace period:       {GRACE_PERIOD_DAYS} days")  # noqa: T201
+    print("=" * 40)  # noqa: T201
+    print()  # noqa: T201
 
     logger.info(
         "Proxy dashboard: total=%d, active=%d, blocked=%d",

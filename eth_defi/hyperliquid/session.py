@@ -283,7 +283,7 @@ class HyperliquidSession(Session):
                     timeout=timeout,
                     proxies=req_proxies,
                 )
-                if response.status_code in (429, 502, 503) and self.proxy_enabled and rotations < self.max_proxy_rotations:
+                if response.status_code in {429, 502, 503} and self.proxy_enabled and rotations < self.max_proxy_rotations:
                     rotations += 1
                     self._rotation_count += 1
                     self._rotate_proxy(reason=f"HTTP {response.status_code}")
