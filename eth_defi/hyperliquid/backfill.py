@@ -200,32 +200,24 @@ def parse_s3_filename_date(filename: str) -> datetime.date | None:
 
 
 def configure_aws_credentials():
-    """Configure AWS credentials from project-specific environment variables.
+    """Validate that AWS credentials are available for S3 access.
 
-    Maps our ``AWS_API_KEY`` and ``AWS_SECRET_KEY`` environment variables to
-    the standard ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` that
-    boto3 and the AWS CLI expect. Also sets the default region if not
-    already configured.
+    Checks that ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` are set.
+    Also sets the default region to ``us-east-1`` if not already configured.
 
-    This allows using a single pair of env vars across our scripts without
-    requiring ``aws configure`` or the AWS CLI to be installed.
+    These are standard AWS environment variables used by boto3 and the AWS CLI.
 
     :raises ValueError:
-        If neither ``AWS_API_KEY`` nor ``AWS_ACCESS_KEY_ID`` is set.
+        If ``AWS_ACCESS_KEY_ID`` is not set.
     """
-    api_key = os.environ.get("AWS_API_KEY")
-    secret_key = os.environ.get("AWS_SECRET_KEY")
-
-    if api_key:
-        os.environ.setdefault("AWS_ACCESS_KEY_ID", api_key)
-    if secret_key:
-        os.environ.setdefault("AWS_SECRET_ACCESS_KEY", secret_key)
-
     # Default region — the archive bucket is likely in us-east-1
     os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
 
-    if not os.environ.get("AWS_ACCESS_KEY_ID") and not api_key:
-        raise ValueError("AWS credentials not found. Set AWS_API_KEY and AWS_SECRET_KEY environment variables, or configure AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY directly.")
+    if not os.environ.get("AWS_ACCESS_KEY_ID"):
+        raise ValueError(
+            "AWS credentials not found. Set AWS_ACCESS_KEY_ID and "
+            "AWS_SECRET_ACCESS_KEY environment variables."
+        )
 
 
 def download_s3_files(

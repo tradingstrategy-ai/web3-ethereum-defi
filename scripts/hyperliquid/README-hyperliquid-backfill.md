@@ -178,16 +178,12 @@ Choose "Command Line Interface (CLI)" as the use case. Save the
 
 ### 4. Set environment variables
 
-The scripts use two environment variables for authentication:
+The scripts use the standard AWS environment variables:
 
 ```shell
-export AWS_API_KEY=AKIA...         # Your AWS access key ID
-export AWS_SECRET_KEY=...          # Your AWS secret access key
+export AWS_ACCESS_KEY_ID=AKIA...
+export AWS_SECRET_ACCESS_KEY=...
 ```
-
-These are mapped to the standard `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
-by `configure_aws_credentials()` in the backfill module. You can also use the
-standard AWS variable names directly if you prefer.
 
 Add these to your `.local-test.env` or shell profile for persistence.
 
@@ -198,9 +194,6 @@ If you also have the AWS CLI installed, you can verify:
 ```shell
 # macOS: brew install awscli
 # Linux: pip install awscli
-
-export AWS_ACCESS_KEY_ID=$AWS_API_KEY
-export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_KEY
 
 aws s3 ls s3://hyperliquid-archive/account_values/ --request-payer requester | head -5
 ```
@@ -218,7 +211,7 @@ poetry install -E hyperliquid_backfill
 The extract script downloads files from S3 and extracts vault data in one step:
 
 ```shell
-AWS_API_KEY=AKIA... AWS_SECRET_KEY=... LOG_LEVEL=info \
+AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... LOG_LEVEL=info \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 ```
 
@@ -228,14 +221,14 @@ new files are downloaded and already-extracted dates are skipped.
 To extract a specific date range:
 
 ```shell
-AWS_API_KEY=AKIA... AWS_SECRET_KEY=... \
+AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... \
 START_DATE=2025-11-01 END_DATE=2026-01-31 DELETE_LZ4=false LOG_LEVEL=info \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 ```
 
 Environment variables:
-- `AWS_API_KEY` — AWS access key ID for S3 download
-- `AWS_SECRET_KEY` — AWS secret access key for S3 download
+- `AWS_ACCESS_KEY_ID` — AWS access key ID for S3 download
+- `AWS_SECRET_ACCESS_KEY` — AWS secret access key for S3 download
 - `S3_DATA_DIR` — directory with pre-downloaded `.csv.lz4` files (skips S3 download if set)
 - `S3_DOWNLOAD_DIR` — where to cache downloaded files (default: `~/hl-archive/account_values/`)
 - `STAGING_DB_PATH` — staging DB path (default: `~/.tradingstrategy/hyperliquid/s3-vault-backfill.duckdb`)
@@ -307,7 +300,7 @@ Tests use synthetic LZ4 files and verify:
 
 ```shell
 # Stage 1: Download + extract a single day into test staging DB
-AWS_API_KEY=AKIA... AWS_SECRET_KEY=... \
+AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... \
 START_DATE=2026-03-01 END_DATE=2026-03-01 \
 STAGING_DB_PATH=/tmp/staging.duckdb DELETE_LZ4=false \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
@@ -334,7 +327,7 @@ db.close()
 ```shell
 # 1. Download + extract full S3 archive (~8-15 GB compressed, ~10-25 min download)
 # Resumable — safe to interrupt and restart. Only downloads new files on re-run.
-AWS_API_KEY=AKIA... AWS_SECRET_KEY=... LOG_LEVEL=info \
+AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... LOG_LEVEL=info \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 
 # 2. Back up production database

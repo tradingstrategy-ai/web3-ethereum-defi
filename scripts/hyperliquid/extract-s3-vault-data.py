@@ -5,8 +5,9 @@ rows (``is_vault=true``), and stores them in a staging DuckDB for later backfill
 
 Supports two modes:
 
-1. **Direct S3 download** (recommended): Set ``AWS_API_KEY`` and ``AWS_SECRET_KEY``
-   and the script downloads files directly from S3 to a local cache, then extracts.
+1. **Direct S3 download** (recommended): Set ``AWS_ACCESS_KEY_ID`` and
+   ``AWS_SECRET_ACCESS_KEY`` and the script downloads files directly from S3
+   to a local cache, then extracts.
 
 2. **Pre-downloaded files**: Set ``S3_DATA_DIR`` to point to a directory with
    previously downloaded ``.csv.lz4`` files.
@@ -19,7 +20,7 @@ Usage:
 .. code-block:: shell
 
     # Direct S3 download (recommended)
-    AWS_API_KEY=AKIA... AWS_SECRET_KEY=... \\
+    AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... \\
         poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 
     # With pre-downloaded files
@@ -27,14 +28,14 @@ Usage:
         poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 
     # Extract specific date range without deleting files
-    AWS_API_KEY=AKIA... AWS_SECRET_KEY=... \\
+    AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... \\
     START_DATE=2025-11-01 END_DATE=2026-01-31 DELETE_LZ4=false \\
         poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 
 Environment variables:
 
-- ``AWS_API_KEY``: AWS access key ID for S3 download
-- ``AWS_SECRET_KEY``: AWS secret access key for S3 download
+- ``AWS_ACCESS_KEY_ID``: AWS access key ID for S3 download
+- ``AWS_SECRET_ACCESS_KEY``: AWS secret access key for S3 download
 - ``S3_DATA_DIR``: Directory with ``.csv.lz4`` files (skips S3 download if set)
 - ``S3_DOWNLOAD_DIR``: Where to cache downloaded LZ4 files.
   Default: ``~/hl-archive/account_values/``
@@ -86,7 +87,7 @@ def main():
             raise ValueError(f"S3_DATA_DIR does not exist or is not a directory: {s3_data_dir}")
         print(f"Using pre-downloaded files from: {s3_data_dir}")
     else:
-        # Mode 2: Download from S3 using AWS_API_KEY / AWS_SECRET_KEY
+        # Mode 2: Download from S3 using AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
         from eth_defi.hyperliquid.backfill import configure_aws_credentials, download_s3_files
 
         configure_aws_credentials()
