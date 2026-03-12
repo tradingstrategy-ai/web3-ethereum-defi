@@ -477,6 +477,73 @@ class HyperliquidDailyMetricsDatabase:
             ],
         )
 
+    def update_vault_tvl_bulk(
+        self,
+        updates: list[tuple[float, bool, float | None, str]],
+    ):
+        """Bulk-update TVL, is_closed, and APR for existing vaults.
+
+        Only updates rows that already exist in ``vault_metadata``.
+        Does not insert new rows.  Used to refresh TVL for vaults
+        that fell below the processing threshold but still appear
+        in the bulk stats-data API.
+
+        :param updates:
+            List of tuples ``(tvl, is_closed, apr, vault_address)``.
+            The ``vault_address`` must be lowercased.
+        """
+        if not updates:
+            return
+
+        self.con.executemany(
+            """
+            UPDATE vault_metadata
+            SET tvl = ?,
+                is_closed = ?,
+                apr = ?,
+                last_updated = CURRENT_TIMESTAMP
+            WHERE vault_address = ?
+            """,
+            updates,
+        )
+
+    def mark_vaults_disappeared(
+        self,
+        known_addresses: set[str],
+    ):
+        """Set TVL to zero for vaults that have disappeared from the API.
+
+        For any vault in ``vault_metadata`` whose address is NOT in
+        ``known_addresses``, sets ``tvl=0``.  Does not change
+        ``is_closed`` — disappearing from the bulk listing does not
+        necessarily mean the vault is permanently closed.
+
+        :param known_addresses:
+            Set of lowercased vault addresses currently present in the
+            bulk stats-data API response.
+        """
+        existing = self.con.execute("SELECT vault_address FROM vault_metadata").fetchall()
+
+        disappeared = [(0.0, addr[0]) for addr in existing if addr[0] not in known_addresses]
+
+        if not disappeared:
+            return
+
+        self.con.executemany(
+            """
+            UPDATE vault_metadata
+            SET tvl = ?,
+                last_updated = CURRENT_TIMESTAMP
+            WHERE vault_address = ?
+            """,
+            disappeared,
+        )
+
+        logger.info(
+            "Marked %d vaults as disappeared (TVL=0)",
+            len(disappeared),
+        )
+
     def upsert_daily_prices(
         self,
         rows: list[tuple],
@@ -600,6 +667,25 @@ class HyperliquidDailyMetricsDatabase:
             DataFrame with one row per vault.
         """
         return self.con.execute("SELECT * FROM vault_metadata ORDER BY tvl DESC NULLS LAST").df()
+
+    def get_recently_tracked_addresses(self, within_days: int = 4) -> set[str]:
+        """Return vault addresses that have price data recorded within the last *within_days* days.
+
+        Used to identify vaults that recently dropped below the TVL
+        processing threshold but still need a few more daily bars
+        to capture the closing share price at near-zero TVL.
+
+        :param within_days:
+            Number of days to look back from today.
+        :return:
+            Set of lowercased vault addresses.
+        """
+        cutoff = datetime.date.today() - datetime.timedelta(days=within_days)
+        rows = self.con.execute(
+            "SELECT DISTINCT vault_address FROM vault_daily_prices WHERE date >= ?",
+            [cutoff],
+        ).fetchall()
+        return {r[0] for r in rows}
 
     def get_vault_count(self) -> int:
         """Get the number of unique vaults with price data."""
@@ -1238,6 +1324,15 @@ def run_daily_scan(
         filtered = [s for s in vault_summaries if float(s.tvl) >= min_tvl]
         logger.info("After filtering (min_tvl=$%s): %d vaults", f"{min_tvl:,.0f}", len(filtered))
 
+        # Include recently-tracked vaults that dropped below the threshold
+        # so we record a few more daily bars capturing the decline to zero.
+        filtered_addresses = {s.vault_address.lower() for s in filtered}
+        recently_tracked = db.get_recently_tracked_addresses(within_days=4)
+        wind_down = [s for s in vault_summaries if s.vault_address.lower() not in filtered_addresses and s.vault_address.lower() in recently_tracked]
+        if wind_down:
+            filtered.extend(wind_down)
+            logger.info("Added %d recently-tracked vaults below TVL threshold for wind-down bars", len(wind_down))
+
         # Sort by TVL descending and limit
         filtered.sort(key=lambda s: float(s.tvl), reverse=True)
         filtered = filtered[:max_vaults]
@@ -1250,6 +1345,31 @@ def run_daily_scan(
 
     success_count = sum(1 for r in results if r)
     fail_count = sum(1 for r in results if not r)
+
+    # Update TVL for existing metadata entries that were not fully processed.
+    # This prevents stale TVL values for vaults that dropped below min_tvl.
+    if vault_addresses is None:
+        processed_addresses = {s.vault_address.lower() for s in filtered}
+        all_api_addresses = {s.vault_address.lower() for s in vault_summaries}
+
+        stale_updates = []
+        for summary in vault_summaries:
+            addr = summary.vault_address.lower()
+            if addr not in processed_addresses:
+                stale_updates.append(
+                    (
+                        float(summary.tvl),
+                        summary.is_closed,
+                        float(summary.apr) if summary.apr is not None else None,
+                        addr,
+                    )
+                )
+
+        if stale_updates:
+            db.update_vault_tvl_bulk(stale_updates)
+            logger.info("Updated TVL for %d unprocessed vaults from bulk API data", len(stale_updates))
+
+        db.mark_vaults_disappeared(all_api_addresses)
 
     db.save()
 

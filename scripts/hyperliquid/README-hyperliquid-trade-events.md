@@ -183,6 +183,14 @@ ADDRESSES=0x1e37a337ed460039d1b15bd3bc489de789768d5e,0x3df9769bbbb335340872f01d8
   LABELS="Growi HF,IchiV3 LS" \
   poetry run python scripts/hyperliquid/sync-trade-history.py
 
+# Auto-discover vaults with peak TVL >= $1M (interactive confirmation)
+MIN_VAULT_PEAK_TVL=1000000 \
+  poetry run python scripts/hyperliquid/sync-trade-history.py
+
+# Non-interactive (for CI/cron)
+MIN_VAULT_PEAK_TVL=1000000 INTERACTIVE=false MAX_WORKERS=4 \
+  poetry run python scripts/hyperliquid/sync-trade-history.py
+
 # With parallel workers and logging
 ADDRESSES=0x1e37a337ed460039d1b15bd3bc489de789768d5e \
   MAX_WORKERS=4 LOG_LEVEL=info \
@@ -213,12 +221,25 @@ db.close()
 "
 ```
 
+### List vaults by peak TVL
+
+```shell
+poetry run python -c "
+from eth_defi.hyperliquid.vault_filter import fetch_vaults_by_peak_tvl
+for v in fetch_vaults_by_peak_tvl(min_peak_tvl=1_000_000):
+    print(f\"{v['name']:50s}  \${v['peak_tvl']:>14,.0f}\")
+"
+```
+
 ## Environment variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ADDRESSES` | *(none)* | Comma-separated addresses to add and sync |
 | `LABELS` | *(none)* | Comma-separated labels matching `ADDRESSES` |
+| `MIN_VAULT_PEAK_TVL` | *(none)* | Auto-discover vaults with peak TVL >= this USD value |
+| `PARQUET_PATH` | `~/.tradingstrategy/vaults/cleaned-vault-prices-1h.parquet` | Cleaned prices Parquet (for `MIN_VAULT_PEAK_TVL`) |
+| `INTERACTIVE` | `true` | Set to `false` to skip confirmation prompts |
 | `TRADE_HISTORY_DB_PATH` | `~/.tradingstrategy/hyperliquid/trade-history.duckdb` | DuckDB path |
 | `MAX_WORKERS` | `1` | Parallel workers for concurrent API calls |
 | `LOG_LEVEL` | `warning` | Logging level |
@@ -229,6 +250,7 @@ db.close()
 |--------|------|
 | `eth_defi/hyperliquid/trade_history_db.py` | DuckDB persistence, incremental sync, thread-safe writes |
 | `eth_defi/hyperliquid/trade_history.py` | Trade history reconstruction, round-trip trades, funding |
+| `eth_defi/hyperliquid/vault_filter.py` | Filter vaults by peak TVL from cleaned price data |
 | `eth_defi/hyperliquid/position.py` | Fill dataclass, position event reconstruction |
 | `eth_defi/hyperliquid/session.py` | Rate-limited HTTP session (thread-safe) |
 

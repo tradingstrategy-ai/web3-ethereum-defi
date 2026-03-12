@@ -471,14 +471,24 @@ ADDRESSES=0x1e37a337ed460039d1b15bd3bc489de789768d5e \
 ADDRESSES=0x1e37a337ed460039d1b15bd3bc489de789768d5e \
   LOG_LEVEL=info \
   poetry run python scripts/hyperliquid/sync-trade-history.py
+
+# Auto-discover vaults with peak TVL >= $1M (interactive confirmation)
+MIN_VAULT_PEAK_TVL=1000000 \
+  poetry run python scripts/hyperliquid/sync-trade-history.py
+
+# Non-interactive (for CI/cron)
+MIN_VAULT_PEAK_TVL=1000000 INTERACTIVE=false MAX_WORKERS=4 \
+  poetry run python scripts/hyperliquid/sync-trade-history.py
 ```
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ADDRESSES` | *(none)* | Comma-separated addresses to add and sync |
 | `LABELS` | *(none)* | Comma-separated labels matching `ADDRESSES` |
+| `MIN_VAULT_PEAK_TVL` | *(none)* | Auto-discover vaults with peak TVL >= this USD value |
+| `INTERACTIVE` | `true` | Set to `false` to skip confirmation prompts |
 | `TRADE_HISTORY_DB_PATH` | `~/.tradingstrategy/hyperliquid/trade-history.duckdb` | DuckDB path |
-| `MAX_WORKERS` | `1` | Parallel workers (DuckDB single-writer) |
+| `MAX_WORKERS` | `1` | Parallel workers for concurrent API calls |
 | `LOG_LEVEL` | `warning` | Logging level |
 
 ### Display trade history for a single account

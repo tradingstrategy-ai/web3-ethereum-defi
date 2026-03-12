@@ -45,10 +45,12 @@ import datetime
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from decimal import Decimal
 from pathlib import Path
 
 import duckdb
 from eth_typing import HexAddress
+from tqdm import tqdm as tqdm_std
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
@@ -81,6 +83,31 @@ def _format_count(n: int) -> str:
     if n >= 1_000:
         return f"{n / 1_000:.1f}k"
     return str(n)
+
+
+# ANSI colour codes for progress bar readability
+_CYAN = "\033[36m"
+_GREEN = "\033[32m"
+_DIM = "\033[2m"
+_RESET = "\033[0m"
+_BOLD = "\033[1m"
+
+
+def _colour_desc(data_type: str, label: str) -> str:
+    """Build a coloured progress bar description.
+
+    Data type in cyan, account label in bold white.
+    """
+    return f"{_CYAN}{data_type}{_RESET} {_BOLD}{label}{_RESET}"
+
+
+def _colour_postfix(**kwargs: str) -> str:
+    """Build a coloured postfix string.
+
+    Keys are dim, values are green, separated by dim commas.
+    """
+    parts = [f"{_DIM}{k}={_RESET}{_GREEN}{v}{_RESET}" for k, v in kwargs.items()]
+    return f"{_DIM},{_RESET} ".join(parts)
 
 
 class HyperliquidTradeHistoryDatabase:
@@ -266,15 +293,18 @@ class HyperliquidTradeHistoryDatabase:
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
         timeout: float = 30.0,
-        tqdm_position: int | None = None,
+        progress: tqdm | None = None,
     ) -> int:
         """Fetch new fills since last sync and store them.
 
         Incremental: only fetches fills newer than the last stored timestamp.
         Uses ``INSERT OR IGNORE`` to handle overlapping batches safely.
 
+        Proxy support is handled by the session's built-in proxy rotation
+        via :py:meth:`~eth_defi.hyperliquid.session.HyperliquidSession.post_info`.
+
         :param session:
-            Hyperliquid API session.
+            Hyperliquid API session (with optional proxy configuration).
         :param address:
             Account address.
         :param start_time:
@@ -283,8 +313,8 @@ class HyperliquidTradeHistoryDatabase:
             Override end time (default: now).
         :param timeout:
             HTTP request timeout.
-        :param tqdm_position:
-            Position for nested progress bars (None for auto).
+        :param progress:
+            External tqdm bar to reuse. If None, creates and manages its own.
         :return:
             Number of new fills inserted.
         """
@@ -313,12 +343,24 @@ class HyperliquidTradeHistoryDatabase:
         batch_num = 0
         current_start_ms = start_ms
 
-        progress = tqdm(
-            desc=f"Fills {addr[:10]}",
-            unit="fill",
-            leave=False,
-            position=tqdm_position,
-        )
+        if progress is False:
+            progress = None
+            own_bar = False
+        elif progress is None:
+            own_bar = True
+            progress = tqdm(
+                desc=_colour_desc("Fills", addr[:10]),
+                unit="fill",
+                leave=False,
+                colour="cyan",
+            )
+        else:
+            own_bar = False
+            progress.n = 0
+            progress.last_print_n = 0
+            progress.unit = "fill"
+            progress.set_postfix_str("")
+            progress.set_description_str(_colour_desc("Fills", addr[:10]))
 
         try:
             while current_start_ms < end_ms:
@@ -329,12 +371,7 @@ class HyperliquidTradeHistoryDatabase:
                     "endTime": end_ms,
                 }
 
-                response = session.post(
-                    f"{session.api_url}/info",
-                    json=payload,
-                    headers={"Content-Type": "application/json"},
-                    timeout=timeout,
-                )
+                response = session.post_info(payload, timeout=timeout)
                 response.raise_for_status()
                 raw_fills = response.json()
 
@@ -377,10 +414,9 @@ class HyperliquidTradeHistoryDatabase:
                 # Update sync state after each batch
                 self._update_sync_state_fills(addr)
 
-                progress.update(len(raw_fills))
-                progress.set_postfix_str(
-                    f"batch={batch_num}, fetched={_format_count(total_fetched)}, inserted={_format_count(total_inserted)}"
-                )
+                if progress is not None:
+                    progress.update(len(raw_fills))
+                    progress.set_postfix_str(_colour_postfix(batch=str(batch_num), fetched=_format_count(total_fetched), inserted=_format_count(total_inserted)))
 
                 # Paginate forward: API returns oldest first
                 if newest_batch_ts is not None:
@@ -389,7 +425,8 @@ class HyperliquidTradeHistoryDatabase:
                 if len(raw_fills) < MAX_PER_REQUEST:
                     break
         finally:
-            progress.close()
+            if own_bar and progress is not None:
+                progress.close()
 
         logger.info("Synced %d new fills for %s (fetched %d)", total_inserted, addr, total_fetched)
         return total_inserted
@@ -427,12 +464,15 @@ class HyperliquidTradeHistoryDatabase:
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
         timeout: float = 30.0,
-        tqdm_position: int | None = None,
+        progress: tqdm | None = None,
     ) -> int:
         """Fetch new funding payments since last sync and store them.
 
+        Proxy support is handled by the session's built-in proxy rotation
+        via :py:meth:`~eth_defi.hyperliquid.session.HyperliquidSession.post_info`.
+
         :param session:
-            Hyperliquid API session.
+            Hyperliquid API session (with optional proxy configuration).
         :param address:
             Account address.
         :param start_time:
@@ -441,8 +481,8 @@ class HyperliquidTradeHistoryDatabase:
             Override end time.
         :param timeout:
             HTTP request timeout.
-        :param tqdm_position:
-            Position for nested progress bars (None for auto).
+        :param progress:
+            External tqdm bar to reuse. If None, creates and manages its own.
         :return:
             Number of new funding payments inserted.
         """
@@ -468,12 +508,24 @@ class HyperliquidTradeHistoryDatabase:
         batch_num = 0
         current_start_ms = start_ms
 
-        progress = tqdm(
-            desc=f"Funding {addr[:10]}",
-            unit="payment",
-            leave=False,
-            position=tqdm_position,
-        )
+        if progress is False:
+            progress = None
+            own_bar = False
+        elif progress is None:
+            own_bar = True
+            progress = tqdm(
+                desc=_colour_desc("Funding", addr[:10]),
+                unit="payment",
+                leave=False,
+                colour="cyan",
+            )
+        else:
+            own_bar = False
+            progress.n = 0
+            progress.last_print_n = 0
+            progress.unit = "payment"
+            progress.set_postfix_str("")
+            progress.set_description_str(_colour_desc("Funding", addr[:10]))
 
         try:
             while current_start_ms < end_ms:
@@ -484,12 +536,7 @@ class HyperliquidTradeHistoryDatabase:
                     "endTime": end_ms,
                 }
 
-                response = session.post(
-                    f"{session.api_url}/info",
-                    json=payload,
-                    headers={"Content-Type": "application/json"},
-                    timeout=timeout,
-                )
+                response = session.post_info(payload, timeout=timeout)
                 response.raise_for_status()
                 raw_funding = response.json()
 
@@ -523,10 +570,9 @@ class HyperliquidTradeHistoryDatabase:
 
                 self._update_sync_state_funding(addr)
 
-                progress.update(len(raw_funding))
-                progress.set_postfix_str(
-                    f"batch={batch_num}, fetched={_format_count(total_fetched)}, inserted={_format_count(total_inserted)}"
-                )
+                if progress is not None:
+                    progress.update(len(raw_funding))
+                    progress.set_postfix_str(_colour_postfix(batch=str(batch_num), fetched=_format_count(total_fetched), inserted=_format_count(total_inserted)))
 
                 # Paginate forward: API returns oldest first
                 if newest_batch_ts is not None:
@@ -535,7 +581,8 @@ class HyperliquidTradeHistoryDatabase:
                 if len(raw_funding) < MAX_FUNDING_PER_REQUEST:
                     break
         finally:
-            progress.close()
+            if own_bar and progress is not None:
+                progress.close()
 
         logger.info("Synced %d new funding payments for %s (fetched %d)", total_inserted, addr, total_fetched)
         return total_inserted
@@ -573,12 +620,15 @@ class HyperliquidTradeHistoryDatabase:
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
         timeout: float = 30.0,
-        tqdm_position: int | None = None,
+        progress: tqdm | None = None,
     ) -> int:
         """Fetch new ledger events since last sync and store them.
 
+        Proxy support is handled by the session's built-in proxy rotation
+        via :py:meth:`~eth_defi.hyperliquid.session.HyperliquidSession.post_info`.
+
         :param session:
-            Hyperliquid API session.
+            Hyperliquid API session (with optional proxy configuration).
         :param address:
             Account address.
         :param start_time:
@@ -587,8 +637,8 @@ class HyperliquidTradeHistoryDatabase:
             Override end time.
         :param timeout:
             HTTP request timeout.
-        :param tqdm_position:
-            Position for nested progress bars (None for auto).
+        :param progress:
+            External tqdm bar to reuse. If None, creates and manages its own.
         :return:
             Number of new ledger events inserted.
         """
@@ -614,12 +664,24 @@ class HyperliquidTradeHistoryDatabase:
         batch_num = 0
         current_start_ms = start_ms
 
-        progress = tqdm(
-            desc=f"Ledger {addr[:10]}",
-            unit="event",
-            leave=False,
-            position=tqdm_position,
-        )
+        if progress is False:
+            progress = None
+            own_bar = False
+        elif progress is None:
+            own_bar = True
+            progress = tqdm(
+                desc=_colour_desc("Ledger", addr[:10]),
+                unit="event",
+                leave=False,
+                colour="cyan",
+            )
+        else:
+            own_bar = False
+            progress.n = 0
+            progress.last_print_n = 0
+            progress.unit = "event"
+            progress.set_postfix_str("")
+            progress.set_description_str(_colour_desc("Ledger", addr[:10]))
 
         try:
             while current_start_ms < end_ms:
@@ -630,12 +692,7 @@ class HyperliquidTradeHistoryDatabase:
                     "endTime": end_ms,
                 }
 
-                response = session.post(
-                    f"{session.api_url}/info",
-                    json=payload,
-                    headers={"Content-Type": "application/json"},
-                    timeout=timeout,
-                )
+                response = session.post_info(payload, timeout=timeout)
                 response.raise_for_status()
                 raw_updates = response.json()
 
@@ -664,10 +721,9 @@ class HyperliquidTradeHistoryDatabase:
 
                 self._update_sync_state_ledger(addr)
 
-                progress.update(len(raw_updates))
-                progress.set_postfix_str(
-                    f"batch={batch_num}, fetched={_format_count(total_fetched)}, inserted={_format_count(total_inserted)}"
-                )
+                if progress is not None:
+                    progress.update(len(raw_updates))
+                    progress.set_postfix_str(_colour_postfix(batch=str(batch_num), fetched=_format_count(total_fetched), inserted=_format_count(total_inserted)))
 
                 # Paginate forward: API returns oldest first
                 if newest_batch_ts is not None:
@@ -676,7 +732,8 @@ class HyperliquidTradeHistoryDatabase:
                 if len(raw_updates) < MAX_PER_REQUEST:
                     break
         finally:
-            progress.close()
+            if own_bar and progress is not None:
+                progress.close()
 
         logger.info("Synced %d new ledger events for %s (fetched %d)", total_inserted, addr, total_fetched)
         return total_inserted
@@ -714,7 +771,8 @@ class HyperliquidTradeHistoryDatabase:
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
         timeout: float = 30.0,
-        tqdm_position: int | None = None,
+        progress: tqdm | None = None,
+        label: str | None = None,
     ) -> dict[str, int]:
         """Sync all data types for a single account.
 
@@ -722,8 +780,16 @@ class HyperliquidTradeHistoryDatabase:
         with its own sync_state watermark. Individual batch inserts use
         ``INSERT OR IGNORE`` for idempotent crash recovery.
 
+        When ``progress`` is provided, it is reused across all three data
+        types. The bar description updates as it moves through fills,
+        funding, and ledger.
+
+        Proxy support is handled by the session's built-in proxy rotation.
+        In threaded mode, each worker should receive its own session clone
+        via :py:meth:`~eth_defi.hyperliquid.session.HyperliquidSession.clone_for_worker`.
+
         :param session:
-            Hyperliquid API session.
+            Hyperliquid API session (with optional proxy configuration).
         :param address:
             Account address.
         :param start_time:
@@ -732,17 +798,53 @@ class HyperliquidTradeHistoryDatabase:
             Override end time.
         :param timeout:
             HTTP request timeout.
-        :param tqdm_position:
-            Position for nested progress bars (None for auto).
+        :param progress:
+            External tqdm bar to reuse across data types (None for auto).
+        :param label:
+            Short display name for progress bars (falls back to address prefix).
         :return:
             Dict with counts: ``{"fills": N, "funding": N, "ledger": N}``.
         """
         addr = address.lower()
+        short = label or addr[:10]
         logger.info("Syncing all data for account %s", addr)
 
-        fills_count = self.sync_account_fills(session, addr, start_time=start_time, end_time=end_time, timeout=timeout, tqdm_position=tqdm_position)
-        funding_count = self.sync_account_funding(session, addr, start_time=start_time, end_time=end_time, timeout=timeout, tqdm_position=tqdm_position)
-        ledger_count = self.sync_account_ledger(session, addr, start_time=start_time, end_time=end_time, timeout=timeout, tqdm_position=tqdm_position)
+        # When an external progress bar is provided (threaded mode), use it
+        # as a 3-step tracker (fills → funding → ledger) with a visible
+        # progress bar and ETA.  Sub-methods run without their own bars.
+        if progress is not None:
+            progress.n = 0
+            progress.last_print_n = 0
+            progress.total = 3
+            progress.unit = "step"
+            progress.set_postfix_str("")
+            progress.set_description_str(_colour_desc("Fills", short))
+
+        # Pass progress=False to suppress sub-method bar creation in threaded mode
+        sub_progress = False if progress is not None else None
+
+        fills_count = self.sync_account_fills(session, addr, start_time=start_time, end_time=end_time, timeout=timeout, progress=sub_progress)
+        self.save()
+
+        if progress is not None:
+            progress.update(1)
+            progress.set_description_str(_colour_desc("Funding", short))
+            progress.set_postfix_str(_colour_postfix(fills=_format_count(fills_count)))
+
+        funding_count = self.sync_account_funding(session, addr, start_time=start_time, end_time=end_time, timeout=timeout, progress=sub_progress)
+        self.save()
+
+        if progress is not None:
+            progress.update(1)
+            progress.set_description_str(_colour_desc("Ledger", short))
+            progress.set_postfix_str(_colour_postfix(fills=_format_count(fills_count), funding=_format_count(funding_count)))
+
+        ledger_count = self.sync_account_ledger(session, addr, start_time=start_time, end_time=end_time, timeout=timeout, progress=sub_progress)
+        self.save()
+
+        if progress is not None:
+            progress.update(1)
+            progress.set_postfix_str(_colour_postfix(fills=_format_count(fills_count), funding=_format_count(funding_count), ledger=_format_count(ledger_count)))
 
         result = {"fills": fills_count, "funding": funding_count, "ledger": ledger_count}
         logger.info("Sync complete for %s: %s", addr, result)
@@ -757,11 +859,24 @@ class HyperliquidTradeHistoryDatabase:
         """Sync all whitelisted accounts.
 
         When ``max_workers > 1``, accounts are synced in parallel using a
-        thread pool. The HTTP session's rate limiter is shared across
-        threads. Database writes are serialised via an internal lock.
+        thread pool. Each worker gets its own session clone via
+        :py:meth:`~eth_defi.hyperliquid.session.HyperliquidSession.clone_for_worker`,
+        which shares rate-limiter adapters and
+        :py:class:`~eth_defi.event_reader.webshare.ProxyStateManager` but
+        starts on a different proxy for load distribution across IPs.
+
+        Proxy support is configured on the session itself via
+        :py:meth:`~eth_defi.hyperliquid.session.HyperliquidSession.configure_rotator`
+        or the ``rotator`` / ``proxy_urls`` parameter of
+        :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
+
+        Progress display:
+
+        - Position 0: overall account progress
+        - Positions 1..N: one bar per worker showing current data type
 
         :param session:
-            Hyperliquid API session (thread-safe rate limiter).
+            Hyperliquid API session (with optional proxy configuration).
         :param max_workers:
             Number of parallel workers for concurrent API calls.
         :param timeout:
@@ -777,56 +892,80 @@ class HyperliquidTradeHistoryDatabase:
         total_events = 0
 
         if max_workers <= 1:
-            # Sequential path
+            # Sequential path: use the session directly (proxy rotation is built in)
             overall = tqdm(
                 accounts,
                 desc="Syncing accounts",
                 unit="account",
+                colour="green",
             )
             for account in overall:
                 addr = account["address"]
                 label = account.get("label", addr[:10])
-                overall.set_postfix_str(f"account={label}, total={_format_count(total_events)}")
+                overall.set_postfix_str(_colour_postfix(account=label, total=_format_count(total_events)))
                 try:
                     result = self.sync_account(session, addr, timeout=timeout)
                     results[addr] = result
                     total_events += result.get("fills", 0) + result.get("funding", 0) + result.get("ledger", 0)
-                    overall.set_postfix_str(f"account={label}, total={_format_count(total_events)}")
+                    overall.set_postfix_str(_colour_postfix(account=label, total=_format_count(total_events)))
                 except Exception:
                     logger.exception("Failed to sync account %s", addr)
                     results[addr] = {"fills": 0, "funding": 0, "ledger": 0, "error": True}
             return results
 
-        # Threaded path with nested progress bars
-        overall = tqdm(
+        # Threaded path with nested progress bars.
+        # Pre-create all bars in the main thread using standard tqdm
+        # (not tqdm_loggable) for reliable cursor positioning.
+        n_bars = min(max_workers, len(accounts))
+        overall = tqdm_std(
             total=len(accounts),
             desc="Syncing accounts",
             unit="account",
             position=0,
+            colour="green",
         )
-        # Track which tqdm positions are available for worker threads
-        _position_lock = threading.Lock()
-        _available_positions = list(range(1, max_workers + 1))
+        worker_bars = [
+            tqdm_std(
+                total=3,
+                desc=f"{_DIM}Worker {i + 1} idle{_RESET}",
+                unit="step",
+                leave=False,
+                position=i + 1,
+                colour="cyan",
+            )
+            for i in range(n_bars)
+        ]
 
-        def _acquire_position() -> int:
-            with _position_lock:
-                return _available_positions.pop(0)
+        # Thread-safe pool of pre-created bars and session clones
+        bar_pool: list[tqdm_std] = list(worker_bars)
+        bar_lock = threading.Lock()
 
-        def _release_position(pos: int) -> None:
-            with _position_lock:
-                _available_positions.append(pos)
+        # Pre-create per-worker session clones. Each clone shares the same
+        # rate-limiter adapters and ProxyStateManager but starts on a
+        # different proxy for load distribution across IPs.
+        session_pool: list[HyperliquidSession] = [session.clone_for_worker(proxy_start_index=i) for i in range(n_bars)]
+        session_lock = threading.Lock()
 
         def _sync_worker(account: dict) -> tuple[str, dict[str, int]]:
             addr = account["address"]
-            pos = _acquire_position()
+            short_label = account.get("label") or addr[:10]
+            with bar_lock:
+                bar = bar_pool.pop()
+            with session_lock:
+                worker_session = session_pool.pop()
             try:
-                result = self.sync_account(session, addr, timeout=timeout, tqdm_position=pos)
+                result = self.sync_account(worker_session, addr, timeout=timeout, progress=bar, label=short_label)
                 return addr, result
             except Exception:
                 logger.exception("Failed to sync account %s", addr)
                 return addr, {"fills": 0, "funding": 0, "ledger": 0, "error": True}
             finally:
-                _release_position(pos)
+                bar.set_description_str(f"{_DIM}Worker idle{_RESET}")
+                bar.set_postfix_str("")
+                with bar_lock:
+                    bar_pool.append(bar)
+                with session_lock:
+                    session_pool.append(worker_session)
 
         try:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -837,12 +976,11 @@ class HyperliquidTradeHistoryDatabase:
                     results[addr] = result
                     total_events += result.get("fills", 0) + result.get("funding", 0) + result.get("ledger", 0)
                     overall.update(1)
-                    overall.set_postfix_str(f"total={_format_count(total_events)}")
+                    overall.set_postfix_str(_colour_postfix(total=_format_count(total_events)))
         finally:
+            for bar in worker_bars:
+                bar.close()
             overall.close()
-            # Clear any leftover tqdm lines from worker positions
-            for _ in range(max_workers):
-                tqdm.write("")
 
         return results
 
@@ -882,8 +1020,6 @@ class HyperliquidTradeHistoryDatabase:
 
         with self._db_lock:
             rows = self.con.execute(query, params).fetchall()
-
-        from decimal import Decimal
 
         fills = []
         for r in rows:
@@ -939,8 +1075,6 @@ class HyperliquidTradeHistoryDatabase:
         with self._db_lock:
             rows = self.con.execute(query, params).fetchall()
 
-        from decimal import Decimal
-
         return [
             FundingPayment(
                 coin=r[1],
@@ -979,6 +1113,18 @@ class HyperliquidTradeHistoryDatabase:
                 [address.lower()],
             ).fetchone()
         return result[0] if result else 0
+
+    def get_total_row_counts(self) -> dict[str, int]:
+        """Get total row counts across all accounts for each table.
+
+        :return:
+            Dict with keys ``fills``, ``funding``, ``ledger`` and integer counts.
+        """
+        with self._db_lock:
+            fills = self.con.execute("SELECT COUNT(*) FROM fills").fetchone()[0]
+            funding = self.con.execute("SELECT COUNT(*) FROM funding").fetchone()[0]
+            ledger = self.con.execute("SELECT COUNT(*) FROM ledger").fetchone()[0]
+        return {"fills": fills, "funding": funding, "ledger": ledger}
 
     # ──────────────────────────────────────────────
     # Sync state
