@@ -888,11 +888,33 @@ class HyperliquidTradeHistoryDatabase:
         if not accounts:
             return {}
 
+        # Print existing database entry counts before syncing
+        existing = self.con.execute(
+            "SELECT "
+            "(SELECT COUNT(*) FROM fills), "
+            "(SELECT COUNT(*) FROM funding), "
+            "(SELECT COUNT(*) FROM ledger)"
+        ).fetchone()
+        print(
+            f"Database: {_format_count(existing[0])} fills, "
+            f"{_format_count(existing[1])} funding, "
+            f"{_format_count(existing[2])} ledger entries "
+            f"for {len(accounts)} accounts"
+        )
+
         results = {}
         total_events = 0
 
+        def _proxy_postfix(sessions: list[HyperliquidSession], **kwargs) -> str:
+            """Build postfix string including proxy rotation stats if proxies are used."""
+            total_rotations = sum(s.rotation_count for s in sessions)
+            if total_rotations > 0:
+                kwargs["rotations"] = str(total_rotations)
+            return _colour_postfix(**kwargs)
+
         if max_workers <= 1:
             # Sequential path: use the session directly (proxy rotation is built in)
+            all_sessions = [session]
             overall = tqdm(
                 accounts,
                 desc="Syncing accounts",
@@ -902,12 +924,12 @@ class HyperliquidTradeHistoryDatabase:
             for account in overall:
                 addr = account["address"]
                 label = account.get("label", addr[:10])
-                overall.set_postfix_str(_colour_postfix(account=label, total=_format_count(total_events)))
+                overall.set_postfix_str(_proxy_postfix(all_sessions, workers="1", account=label, total=_format_count(total_events)))
                 try:
                     result = self.sync_account(session, addr, timeout=timeout)
                     results[addr] = result
                     total_events += result.get("fills", 0) + result.get("funding", 0) + result.get("ledger", 0)
-                    overall.set_postfix_str(_colour_postfix(account=label, total=_format_count(total_events)))
+                    overall.set_postfix_str(_proxy_postfix(all_sessions, workers="1", account=label, total=_format_count(total_events)))
                 except Exception:
                     logger.exception("Failed to sync account %s", addr)
                     results[addr] = {"fills": 0, "funding": 0, "ledger": 0, "error": True}
@@ -917,6 +939,14 @@ class HyperliquidTradeHistoryDatabase:
         # Pre-create all bars in the main thread using standard tqdm
         # (not tqdm_loggable) for reliable cursor positioning.
         n_bars = min(max_workers, len(accounts))
+
+        # Pre-create per-worker session clones. Each clone shares the same
+        # rate-limiter adapters and ProxyStateManager but starts on a
+        # different proxy for load distribution across IPs.
+        all_sessions: list[HyperliquidSession] = [session.clone_for_worker(proxy_start_index=i) for i in range(n_bars)]
+        session_pool: list[HyperliquidSession] = list(all_sessions)
+        session_lock = threading.Lock()
+
         overall = tqdm_std(
             total=len(accounts),
             desc="Syncing accounts",
@@ -924,6 +954,7 @@ class HyperliquidTradeHistoryDatabase:
             position=0,
             colour="green",
         )
+        overall.set_postfix_str(_proxy_postfix(all_sessions, workers=str(n_bars), total="0"))
         worker_bars = [
             tqdm_std(
                 total=3,
@@ -936,15 +967,9 @@ class HyperliquidTradeHistoryDatabase:
             for i in range(n_bars)
         ]
 
-        # Thread-safe pool of pre-created bars and session clones
+        # Thread-safe pool of pre-created bars
         bar_pool: list[tqdm_std] = list(worker_bars)
         bar_lock = threading.Lock()
-
-        # Pre-create per-worker session clones. Each clone shares the same
-        # rate-limiter adapters and ProxyStateManager but starts on a
-        # different proxy for load distribution across IPs.
-        session_pool: list[HyperliquidSession] = [session.clone_for_worker(proxy_start_index=i) for i in range(n_bars)]
-        session_lock = threading.Lock()
 
         def _sync_worker(account: dict) -> tuple[str, dict[str, int]]:
             addr = account["address"]
@@ -976,7 +1001,7 @@ class HyperliquidTradeHistoryDatabase:
                     results[addr] = result
                     total_events += result.get("fills", 0) + result.get("funding", 0) + result.get("ledger", 0)
                     overall.update(1)
-                    overall.set_postfix_str(_colour_postfix(total=_format_count(total_events)))
+                    overall.set_postfix_str(_proxy_postfix(all_sessions, workers=str(n_bars), total=_format_count(total_events)))
         finally:
             for bar in worker_bars:
                 bar.close()

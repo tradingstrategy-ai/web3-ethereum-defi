@@ -143,6 +143,12 @@ class HyperliquidSession(Session):
         self._rotator: ProxyRotator | None = None
         # Store adapter config so clone_for_worker can create independent rate limiters
         self._adapter_config: dict | None = None
+        #: Maximum proxy rotations per post_info() call before giving up
+        self.max_proxy_rotations: int = MAX_PROXY_ROTATIONS
+        #: Total HTTP requests made via post_info()
+        self._request_count: int = 0
+        #: Total proxy rotations triggered by failures
+        self._rotation_count: int = 0
 
     def __repr__(self) -> str:
         proxy_info = f", proxy={self.active_proxy_url[:30]}..." if self.active_proxy_url else ""
@@ -203,6 +209,16 @@ class HyperliquidSession(Session):
             return 0
         return self._rotator.generation
 
+    @property
+    def request_count(self) -> int:
+        """Total HTTP requests made via :meth:`post_info`."""
+        return self._request_count
+
+    @property
+    def rotation_count(self) -> int:
+        """Total proxy rotations triggered by failures in :meth:`post_info`."""
+        return self._rotation_count
+
     def _build_proxy_dict(self) -> dict[str, str] | None:
         """Build a ``requests``-compatible proxies dict for the active proxy."""
         url = self.active_proxy_url
@@ -258,6 +274,7 @@ class HyperliquidSession(Session):
         rotations = 0
         while True:
             req_proxies = self._build_proxy_dict()
+            self._request_count += 1
             try:
                 response = self.post(
                     f"{self.api_url}/info",
@@ -266,14 +283,16 @@ class HyperliquidSession(Session):
                     timeout=timeout,
                     proxies=req_proxies,
                 )
-                if response.status_code in (429, 502, 503) and self.proxy_enabled and rotations < MAX_PROXY_ROTATIONS:
+                if response.status_code in (429, 502, 503) and self.proxy_enabled and rotations < self.max_proxy_rotations:
                     rotations += 1
+                    self._rotation_count += 1
                     self._rotate_proxy(reason=f"HTTP {response.status_code}")
                     continue
                 return response
             except (requests_lib.ConnectionError, requests_lib.Timeout, OSError) as exc:
-                if self.proxy_enabled and rotations < MAX_PROXY_ROTATIONS:
+                if self.proxy_enabled and rotations < self.max_proxy_rotations:
                     rotations += 1
+                    self._rotation_count += 1
                     self._rotate_proxy(reason=str(exc)[:80])
                     continue
                 raise
@@ -327,6 +346,9 @@ class HyperliquidSession(Session):
         else:
             # No adapter config stored — share the parent's adapters (fallback)
             clone.adapters = self.adapters.copy()
+
+        # Propagate proxy rotation budget
+        clone.max_proxy_rotations = self.max_proxy_rotations
 
         # Each worker gets its own rotator clone starting at a different proxy,
         # but sharing the same ProxyStateManager for persistent failure tracking
@@ -418,9 +440,14 @@ def create_hyperliquid_session(
     """
     session = HyperliquidSession(api_url=api_url)
 
+    # When proxies are enabled, disable urllib3-level retries so that
+    # connection failures go straight to post_info() for proxy rotation
+    # instead of retrying 5 times through the same broken proxy.
+    effective_retries = 0 if rotator is not None else retries
+
     adapter = _create_adapter(
         requests_per_second=requests_per_second,
-        retries=retries,
+        retries=effective_retries,
         backoff_factor=backoff_factor,
         pool_maxsize=pool_maxsize,
         rate_limit_db_path=rate_limit_db_path,
@@ -431,7 +458,7 @@ def create_hyperliquid_session(
     # Store config so clone_for_worker can create independent rate limiters
     session._adapter_config = {
         "requests_per_second": requests_per_second,
-        "retries": retries,
+        "retries": effective_retries,
         "backoff_factor": backoff_factor,
         "pool_maxsize": pool_maxsize,
         "rate_limit_db_path": rate_limit_db_path,
@@ -439,6 +466,8 @@ def create_hyperliquid_session(
 
     if rotator is not None:
         session.configure_rotator(rotator)
+        # Compensate for disabled adapter retries by allowing more proxy rotations
+        session.max_proxy_rotations = min(len(rotator), 10)
 
     # Resolve verbose_throttling: None → off with proxies, on without
     if verbose_throttling is None:
