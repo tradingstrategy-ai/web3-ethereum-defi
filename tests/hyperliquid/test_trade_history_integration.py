@@ -64,7 +64,10 @@ def test_reconstruct_vault_trade_history(session, tmp_path):
         db.sync_account(session, VAULT_ADDRESS, start_time=TEST_START, end_time=TEST_END)
 
         history = fetch_account_trade_history(
-            session, VAULT_ADDRESS, start_time=TEST_START, end_time=TEST_END,
+            session,
+            VAULT_ADDRESS,
+            start_time=TEST_START,
+            end_time=TEST_END,
         )
 
         assert len(history.fills) > 0
@@ -96,7 +99,10 @@ def test_reconstruct_normal_account_trade_history(session, tmp_path):
         db.sync_account(session, account_address, start_time=TEST_START, end_time=TEST_END)
 
         history = fetch_account_trade_history(
-            session, account_address, start_time=TEST_START, end_time=TEST_END,
+            session,
+            account_address,
+            start_time=TEST_START,
+            end_time=TEST_END,
         )
 
         assert len(history.fills) > 0
@@ -123,7 +129,10 @@ def test_sync_idempotent(session, tmp_path):
 
         # First sync: fetches real data
         first_result = db.sync_account(
-            session, VAULT_ADDRESS, start_time=TEST_START, end_time=TEST_END,
+            session,
+            VAULT_ADDRESS,
+            start_time=TEST_START,
+            end_time=TEST_END,
         )
         db.save()
 
@@ -132,7 +141,10 @@ def test_sync_idempotent(session, tmp_path):
 
         # Second sync: same time range — should produce zero new records
         second_result = db.sync_account(
-            session, VAULT_ADDRESS, start_time=TEST_START, end_time=TEST_END,
+            session,
+            VAULT_ADDRESS,
+            start_time=TEST_START,
+            end_time=TEST_END,
         )
         db.save()
 
@@ -163,7 +175,8 @@ def test_trade_history_sync_resume(session, tmp_path):
 
         # First sync: narrow window (simulates partial/interrupted sync)
         db.sync_account_fills(
-            session, VAULT_ADDRESS,
+            session,
+            VAULT_ADDRESS,
             start_time=TEST_START,
             end_time=datetime.datetime(2025, 12, 7),
         )
