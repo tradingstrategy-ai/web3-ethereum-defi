@@ -459,7 +459,6 @@ data beyond the 10K fill API limit by fetching only new records on each run.
 # Sync two specific addresses
 ADDRESSES=0x1e37a337ed460039d1b15bd3bc489de789768d5e,0x3df9769bbbb335340872f01d8157c779d73c6ed0 \
   LABELS="Growi HF,IchiV3 LS" \
-  LOG_LEVEL=info \
   poetry run python scripts/hyperliquid/sync-trade-history.py
 
 # With custom DuckDB path

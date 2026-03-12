@@ -64,7 +64,7 @@ from eth_defi.hyperliquid.session import HyperliquidSession
 logger = logging.getLogger(__name__)
 
 #: Maximum funding payments returned per API request
-MAX_FUNDING_PER_REQUEST = 2000
+MAX_FUNDING_PER_REQUEST = 500
 
 
 @dataclass(slots=True)
@@ -222,7 +222,7 @@ def fetch_account_funding(
     """Fetch all funding payments for an account with automatic pagination.
 
     Fetches funding payment history from the Hyperliquid API using the
-    ``userFunding`` endpoint with automatic backwards pagination.
+    ``userFunding`` endpoint with automatic forward pagination.
 
     Payments are yielded in chronological order (oldest first).
 
@@ -266,8 +266,8 @@ def fetch_account_funding(
         start_time = end_time - datetime.timedelta(days=30)
 
     all_payments: list[FundingPayment] = []
-    current_end_ms = int(end_time.timestamp() * 1000)
-    start_ms = int(start_time.timestamp() * 1000)
+    end_ms = int(end_time.timestamp() * 1000)
+    current_start_ms = int(start_time.timestamp() * 1000)
     batch_num = 0
 
     logger.info(
@@ -284,15 +284,15 @@ def fetch_account_funding(
     )
 
     try:
-        while current_end_ms > start_ms:
+        while current_start_ms < end_ms:
             payload = {
                 "type": "userFunding",
                 "user": address,
-                "startTime": start_ms,
-                "endTime": current_end_ms,
+                "startTime": current_start_ms,
+                "endTime": end_ms,
             }
 
-            logger.debug("Fetching funding: startTime=%s, endTime=%s", start_ms, current_end_ms)
+            logger.debug("Fetching funding: startTime=%s, endTime=%s", current_start_ms, end_ms)
 
             response = session.post(
                 f"{session.api_url}/info",
@@ -317,9 +317,9 @@ def fetch_account_funding(
                 total=len(all_payments),
             )
 
-            # Find oldest timestamp for next iteration
-            oldest_timestamp_ms = min(p.timestamp_ms for p in batch)
-            current_end_ms = oldest_timestamp_ms - 1
+            # Paginate forward: API returns oldest first
+            newest_timestamp_ms = max(p.timestamp_ms for p in batch)
+            current_start_ms = newest_timestamp_ms + 1
 
             # If we got fewer than max per request, we've exhausted the range
             if len(raw_payments) < MAX_FUNDING_PER_REQUEST:

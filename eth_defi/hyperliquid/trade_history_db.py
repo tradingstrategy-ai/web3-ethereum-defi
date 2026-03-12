@@ -59,8 +59,11 @@ logger = logging.getLogger(__name__)
 #: Default DuckDB path for trade history
 DEFAULT_TRADE_HISTORY_DB_PATH = Path("~/.tradingstrategy/hyperliquid/trade-history.duckdb").expanduser()
 
-#: Maximum records per API request (fills, funding, ledger)
+#: Maximum records per API request for fills and ledger
 MAX_PER_REQUEST = 2000
+
+#: Maximum records per API request for funding
+MAX_FUNDING_PER_REQUEST = 500
 
 
 class HyperliquidTradeHistoryDatabase:
@@ -278,7 +281,7 @@ class HyperliquidTradeHistoryDatabase:
         total_inserted = 0
         total_fetched = 0
         batch_num = 0
-        current_end_ms = end_ms
+        current_start_ms = start_ms
 
         progress = tqdm(
             desc=f"Fills {addr[:10]}",
@@ -287,12 +290,12 @@ class HyperliquidTradeHistoryDatabase:
         )
 
         try:
-            while current_end_ms > start_ms:
+            while current_start_ms < end_ms:
                 payload = {
                     "type": "userFillsByTime",
                     "user": addr,
-                    "startTime": start_ms,
-                    "endTime": current_end_ms,
+                    "startTime": current_start_ms,
+                    "endTime": end_ms,
                 }
 
                 response = session.post(
@@ -312,7 +315,7 @@ class HyperliquidTradeHistoryDatabase:
 
                 # Batch insert
                 rows = []
-                oldest_ts = None
+                newest_batch_ts = None
                 for raw in raw_fills:
                     ts = raw["time"]
                     tid = raw.get("tid")
@@ -333,8 +336,8 @@ class HyperliquidTradeHistoryDatabase:
                             raw.get("oid"),
                         )
                     )
-                    if oldest_ts is None or ts < oldest_ts:
-                        oldest_ts = ts
+                    if newest_batch_ts is None or ts > newest_batch_ts:
+                        newest_batch_ts = ts
 
                 if rows:
                     inserted = self._insert_fills_batch(rows)
@@ -350,9 +353,9 @@ class HyperliquidTradeHistoryDatabase:
                     inserted=total_inserted,
                 )
 
-                # Paginate backwards
-                if oldest_ts is not None:
-                    current_end_ms = oldest_ts - 1
+                # Paginate forward: API returns oldest first
+                if newest_batch_ts is not None:
+                    current_start_ms = newest_batch_ts + 1
 
                 if len(raw_fills) < MAX_PER_REQUEST:
                     break
@@ -425,7 +428,7 @@ class HyperliquidTradeHistoryDatabase:
         total_inserted = 0
         total_fetched = 0
         batch_num = 0
-        current_end_ms = end_ms
+        current_start_ms = start_ms
 
         progress = tqdm(
             desc=f"Funding {addr[:10]}",
@@ -434,12 +437,12 @@ class HyperliquidTradeHistoryDatabase:
         )
 
         try:
-            while current_end_ms > start_ms:
+            while current_start_ms < end_ms:
                 payload = {
                     "type": "userFunding",
                     "user": addr,
-                    "startTime": start_ms,
-                    "endTime": current_end_ms,
+                    "startTime": current_start_ms,
+                    "endTime": end_ms,
                 }
 
                 response = session.post(
@@ -458,7 +461,7 @@ class HyperliquidTradeHistoryDatabase:
                 total_fetched += len(raw_funding)
 
                 rows = []
-                oldest_ts = None
+                newest_batch_ts = None
                 for raw in raw_funding:
                     ts = raw["time"]
                     delta = raw.get("delta", raw)
@@ -472,8 +475,8 @@ class HyperliquidTradeHistoryDatabase:
                             float(delta.get("fundingRate", 0)),
                         )
                     )
-                    if oldest_ts is None or ts < oldest_ts:
-                        oldest_ts = ts
+                    if newest_batch_ts is None or ts > newest_batch_ts:
+                        newest_batch_ts = ts
 
                 if rows:
                     inserted = self._insert_funding_batch(rows)
@@ -488,10 +491,11 @@ class HyperliquidTradeHistoryDatabase:
                     inserted=total_inserted,
                 )
 
-                if oldest_ts is not None:
-                    current_end_ms = oldest_ts - 1
+                # Paginate forward: API returns oldest first
+                if newest_batch_ts is not None:
+                    current_start_ms = newest_batch_ts + 1
 
-                if len(raw_funding) < MAX_PER_REQUEST:
+                if len(raw_funding) < MAX_FUNDING_PER_REQUEST:
                     break
         finally:
             progress.close()
@@ -559,7 +563,7 @@ class HyperliquidTradeHistoryDatabase:
         total_inserted = 0
         total_fetched = 0
         batch_num = 0
-        current_end_ms = end_ms
+        current_start_ms = start_ms
 
         progress = tqdm(
             desc=f"Ledger {addr[:10]}",
@@ -568,12 +572,12 @@ class HyperliquidTradeHistoryDatabase:
         )
 
         try:
-            while current_end_ms > start_ms:
+            while current_start_ms < end_ms:
                 payload = {
                     "type": "userNonFundingLedgerUpdates",
                     "user": addr,
-                    "startTime": start_ms,
-                    "endTime": current_end_ms,
+                    "startTime": current_start_ms,
+                    "endTime": end_ms,
                 }
 
                 response = session.post(
@@ -592,7 +596,7 @@ class HyperliquidTradeHistoryDatabase:
                 total_fetched += len(raw_updates)
 
                 rows = []
-                oldest_ts = None
+                newest_batch_ts = None
                 for raw in raw_updates:
                     ts = raw["time"]
                     delta = raw.get("delta", {})
@@ -601,8 +605,8 @@ class HyperliquidTradeHistoryDatabase:
                     vault = delta.get("vault")
 
                     rows.append((addr, ts, event_type, usdc, vault))
-                    if oldest_ts is None or ts < oldest_ts:
-                        oldest_ts = ts
+                    if newest_batch_ts is None or ts > newest_batch_ts:
+                        newest_batch_ts = ts
 
                 if rows:
                     inserted = self._insert_ledger_batch(rows)
@@ -617,8 +621,9 @@ class HyperliquidTradeHistoryDatabase:
                     inserted=total_inserted,
                 )
 
-                if oldest_ts is not None:
-                    current_end_ms = oldest_ts - 1
+                # Paginate forward: API returns oldest first
+                if newest_batch_ts is not None:
+                    current_start_ms = newest_batch_ts + 1
 
                 if len(raw_updates) < MAX_PER_REQUEST:
                     break
@@ -708,6 +713,7 @@ class HyperliquidTradeHistoryDatabase:
         """
         accounts = self.get_accounts()
         results = {}
+        total_events = 0
         progress = tqdm(
             accounts,
             desc="Syncing accounts",
@@ -716,9 +722,12 @@ class HyperliquidTradeHistoryDatabase:
         for account in progress:
             addr = account["address"]
             label = account.get("label", addr[:10])
-            progress.set_postfix(account=label)
+            progress.set_postfix(account=label, total_events=f"{total_events:,}")
             try:
-                results[addr] = self.sync_account(session, addr, timeout=timeout)
+                result = self.sync_account(session, addr, timeout=timeout)
+                results[addr] = result
+                total_events += result.get("fills", 0) + result.get("funding", 0) + result.get("ledger", 0)
+                progress.set_postfix(account=label, total_events=f"{total_events:,}")
             except Exception:
                 logger.exception("Failed to sync account %s", addr)
                 results[addr] = {"fills": 0, "funding": 0, "ledger": 0, "error": True}

@@ -22,11 +22,11 @@ The ``userFillsByTime`` endpoint has these constraints:
 - Only 10,000 most recent fills accessible
 - Time-based pagination using ``startTime`` and ``endTime`` (milliseconds)
 
-To paginate backwards through history:
+To paginate forward through history (API returns oldest first):
 
 1. Query with desired ``startTime`` and ``endTime``
-2. Use the oldest fill's timestamp - 1ms as the next ``endTime``
-3. Repeat until no more fills or ``startTime`` reached
+2. Use the newest fill's timestamp + 1ms as the next ``startTime``
+3. Repeat until no more fills or ``endTime`` reached
 
 Example::
 
@@ -253,8 +253,8 @@ def fetch_vault_fills(
         start_time = end_time - datetime.timedelta(days=30)
 
     all_fills: list[Fill] = []
-    current_end_ms = int(end_time.timestamp() * 1000)
-    start_ms = int(start_time.timestamp() * 1000)
+    end_ms = int(end_time.timestamp() * 1000)
+    current_start_ms = int(start_time.timestamp() * 1000)
     total_fetched = 0
 
     logger.info(
@@ -264,17 +264,17 @@ def fetch_vault_fills(
         end_time.isoformat(),
     )
 
-    while current_end_ms > start_ms:
+    while current_start_ms < end_ms:
         payload = {
             "type": "userFillsByTime",
             "user": vault_address,
-            "startTime": start_ms,
-            "endTime": current_end_ms,
+            "startTime": current_start_ms,
+            "endTime": end_ms,
         }
         if aggregate_by_time:
             payload["aggregateByTime"] = True
 
-        logger.debug(f"Fetching fills: startTime={start_ms}, endTime={current_end_ms}")
+        logger.debug("Fetching fills: startTime=%s, endTime=%s", current_start_ms, end_ms)
 
         response = session.post(
             f"{session.api_url}/info",
@@ -294,18 +294,15 @@ def fetch_vault_fills(
         all_fills.extend(batch_fills)
         total_fetched += len(batch_fills)
 
-        logger.debug(f"Fetched {len(batch_fills)} fills, total: {total_fetched}")
+        logger.debug("Fetched %d fills, total: %d", len(batch_fills), total_fetched)
 
-        # Find oldest timestamp for next iteration
-        # API returns newest first, so we need to go backwards
-        oldest_timestamp_ms = min(f.timestamp_ms for f in batch_fills)
-
-        # Move end time before oldest fill to avoid duplicates
-        current_end_ms = oldest_timestamp_ms - 1
+        # Paginate forward: API returns oldest first
+        newest_timestamp_ms = max(f.timestamp_ms for f in batch_fills)
+        current_start_ms = newest_timestamp_ms + 1
 
         # Check if we've hit the API limit
         if total_fetched >= MAX_TOTAL_FILLS:
-            logger.warning(f"Hit API limit of {MAX_TOTAL_FILLS} fills. Older history may be unavailable.")
+            logger.warning("Hit API limit of %d fills. Older history may be unavailable.", MAX_TOTAL_FILLS)
             break
 
         # If we got fewer than max per request, we've likely exhausted the range
