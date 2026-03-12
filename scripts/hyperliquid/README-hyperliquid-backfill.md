@@ -1,6 +1,18 @@
 # Hyperliquid vault data backfill from S3 archive
 
+> **This pipeline does not work.** The `account_values/` prefix does not exist in the
+> public `hyperliquid-archive` S3 bucket. It lives in a separate private bucket used
+> internally by Hyperliquid for [stats.hyperliquid.xyz](https://stats.hyperliquid.xyz).
+> The [hyperliquid-dex/hyperliquid-stats](https://github.com/hyperliquid-dex/hyperliquid-stats)
+> repo references `account_values` as a data type, but reads from a private `bucket_name`
+> configured in `config.json` — not from `hyperliquid-archive`. The public bucket only
+> contains `asset_ctxs/` and `market_data/` prefixes, as confirmed by the
+> [official documentation](https://hyperliquid.gitbook.io/hyperliquid-docs/historical-data).
+>
+> Discovered 2026-03-12.
+
 Research conducted 2026-03-11.
+
 
 ## Problem
 
@@ -90,10 +102,7 @@ One new file per day (~30–50 MB compressed) — effectively free.
 ## Bucket access details
 
 - **Bucket**: `s3://hyperliquid-archive/`
-- **Region**: Not documented. Likely `us-east-1` or `us-west-2`. Determine with:
-  ```shell
-  aws s3api get-bucket-location --bucket hyperliquid-archive --request-payer requester
-  ```
+- **Region**: `eu-west-1`
 - **Access**: Requester-pays. Requires AWS credentials + `--request-payer requester`
 - **Format**: LZ4-compressed CSV (`{type}/{YYYYMMDD}.csv.lz4`)
 - **Update frequency**: Approximately monthly
@@ -176,13 +185,75 @@ IAM → Users → your user → Security credentials → Create access key.
 Choose "Command Line Interface (CLI)" as the use case. Save the
 **Access Key ID** and **Secret Access Key**.
 
-### 4. Set environment variables
+### 4. Configure AWS credentials
 
-The scripts use the standard AWS environment variables:
+First, install the AWS CLI and create a named profile with your long-term access keys:
 
 ```shell
-export AWS_ACCESS_KEY_ID=AKIA...
+# macOS: brew install awscli
+# Linux: pip install awscli
+
+aws configure --profile hyperliquid
+# Enter your Access Key ID (AKIA...) and Secret Access Key when prompted
+# Set region to eu-west-1 (where the hyperliquid-archive bucket is located)
+```
+
+This creates `~/.aws/credentials` with a `[hyperliquid]` section containing your keys.
+
+### 4a. If MFA is enabled on your account
+
+Some AWS accounts enforce MFA authentication via an identity-based policy (e.g.
+`Manage_credentials_and_MFA_settings`). In this case, long-term access keys alone
+are not sufficient — all S3 requests return `AccessDenied` even with valid credentials
+and `--request-payer requester`.
+
+**Signs that MFA is required:**
+
+- `aws s3 ls s3://hyperliquid-archive/...` returns `AccessDenied`
+- `aws iam list-attached-user-policies` returns an error mentioning
+  `explicit deny in an identity-based policy`
+
+You must obtain **temporary session credentials** via `sts:GetSessionToken` before
+accessing the bucket. The `--otp` argument is the 6-digit one-time password from your
+MFA authenticator app (e.g. Google Authenticator, Authy, 1Password — the same app
+you used when enabling MFA on your AWS IAM user). Use the helper script:
+
+```shell
+scripts/hyperliquid/refresh-mfa-session.sh --otp 123456 --profile hyperliquid
+
+# Or inject credentials into the current shell as environment variables
+eval $(scripts/hyperliquid/refresh-mfa-session.sh --otp 123456 --profile hyperliquid --export)
+```
+
+The script auto-detects your MFA device ARN. You can also provide it explicitly:
+
+```shell
+scripts/hyperliquid/refresh-mfa-session.sh \
+  --otp 123456 \
+  --profile hyperliquid \
+  --serial arn:aws:iam::123456789012:mfa/my-device \
+  --duration 43200
+```
+
+Session tokens expire after 12 hours by default (`--duration 43200`). Re-run the
+script with a fresh OTP code to renew.
+
+### 4b. Set environment variables
+
+After configuring credentials, set the environment variables for the scripts.
+
+**Option A: use a named profile** (recommended with MFA):
+
+```shell
+export AWS_PROFILE=hyperliquid
+```
+
+**Option B: use explicit environment variables** (e.g. from `--export` mode above):
+
+```shell
+export AWS_ACCESS_KEY_ID=ASIA...    # Note: starts with ASIA, not AKIA
 export AWS_SECRET_ACCESS_KEY=...
+export AWS_SESSION_TOKEN=...
 ```
 
 Add these to your `.local-test.env` or shell profile for persistence.
@@ -211,7 +282,12 @@ poetry install -E hyperliquid_backfill
 The extract script downloads files from S3 and extracts vault data in one step:
 
 ```shell
-AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... LOG_LEVEL=info \
+# Using a named profile (recommended)
+AWS_PROFILE=hyperliquid LOG_LEVEL=info \
+    poetry run python scripts/hyperliquid/extract-s3-vault-data.py
+
+# Or using explicit environment variables
+AWS_ACCESS_KEY_ID=ASIA... AWS_SECRET_ACCESS_KEY=... AWS_SESSION_TOKEN=... LOG_LEVEL=info \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 ```
 
@@ -221,14 +297,16 @@ new files are downloaded and already-extracted dates are skipped.
 To extract a specific date range:
 
 ```shell
-AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... \
+AWS_PROFILE=hyperliquid \
 START_DATE=2025-11-01 END_DATE=2026-01-31 DELETE_LZ4=false LOG_LEVEL=info \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 ```
 
 Environment variables:
-- `AWS_ACCESS_KEY_ID` — AWS access key ID for S3 download
+- `AWS_PROFILE` — named profile from `~/.aws/credentials` (recommended)
+- `AWS_ACCESS_KEY_ID` — AWS access key ID for S3 download (alternative to `AWS_PROFILE`)
 - `AWS_SECRET_ACCESS_KEY` — AWS secret access key for S3 download
+- `AWS_SESSION_TOKEN` — AWS session token for MFA-authenticated access
 - `S3_DATA_DIR` — directory with pre-downloaded `.csv.lz4` files (skips S3 download if set)
 - `S3_DOWNLOAD_DIR` — where to cache downloaded files (default: `~/hl-archive/account_values/`)
 - `STAGING_DB_PATH` — staging DB path (default: `~/.tradingstrategy/hyperliquid/s3-vault-backfill.duckdb`)
@@ -300,7 +378,7 @@ Tests use synthetic LZ4 files and verify:
 
 ```shell
 # Stage 1: Download + extract a single day into test staging DB
-AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... \
+AWS_PROFILE=hyperliquid \
 START_DATE=2026-03-01 END_DATE=2026-03-01 \
 STAGING_DB_PATH=/tmp/staging.duckdb DELETE_LZ4=false \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
@@ -327,7 +405,7 @@ db.close()
 ```shell
 # 1. Download + extract full S3 archive (~8-15 GB compressed, ~10-25 min download)
 # Resumable — safe to interrupt and restart. Only downloads new files on re-run.
-AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... LOG_LEVEL=info \
+AWS_PROFILE=hyperliquid LOG_LEVEL=info \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 
 # 2. Back up production database
