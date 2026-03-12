@@ -31,6 +31,8 @@ Tutorials
    eth_defi.hyperliquid.daily_metrics
    eth_defi.hyperliquid.vault_data_export
    eth_defi.hyperliquid.api
+   eth_defi.hyperliquid.trade_history
+   eth_defi.hyperliquid.trade_history_db
    eth_defi.hyperliquid.core_writer
    eth_defi.hyperliquid.evm_escrow
    eth_defi.hyperliquid.block

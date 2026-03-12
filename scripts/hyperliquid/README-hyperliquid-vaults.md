@@ -440,6 +440,128 @@ for v in data['vaults'][:5]:
 | `VAULT_DB_PATH` | `~/.tradingstrategy/vaults/vault-metadata-db.pickle` | ERC-4626 VaultDatabase pickle to merge into |
 | `PARQUET_PATH` | `~/.tradingstrategy/vaults/cleaned-vault-prices-1h.parquet` | Cleaned Parquet to merge into |
 
+## Trade history reconstruction
+
+Separate from the daily metrics pipeline, we can reconstruct per-account
+trade history (fills, funding payments, ledger events) and compute
+event-accurate share prices.
+
+This uses the `userFillsByTime`, `userFunding`, `userNonFundingLedgerUpdates`,
+and `clearinghouseState` API endpoints directly.
+
+### Sync trade history to DuckDB
+
+The `sync-trade-history.py` script fetches fills, funding, and ledger events
+for whitelisted accounts into a DuckDB database. Incremental sync accumulates
+data beyond the 10K fill API limit by fetching only new records on each run.
+
+```shell
+# Sync two specific addresses
+ADDRESSES=0x1e37a337ed460039d1b15bd3bc489de789768d5e,0x3df9769bbbb335340872f01d8157c779d73c6ed0 \
+  LABELS="Growi HF,IchiV3 LS" \
+  LOG_LEVEL=info \
+  poetry run python scripts/hyperliquid/sync-trade-history.py
+
+# With custom DuckDB path
+ADDRESSES=0x1e37a337ed460039d1b15bd3bc489de789768d5e \
+  TRADE_HISTORY_DB_PATH=/tmp/trade-history.duckdb \
+  LOG_LEVEL=info \
+  poetry run python scripts/hyperliquid/sync-trade-history.py
+
+# Re-run to sync only new data (incremental)
+ADDRESSES=0x1e37a337ed460039d1b15bd3bc489de789768d5e \
+  LOG_LEVEL=info \
+  poetry run python scripts/hyperliquid/sync-trade-history.py
+```
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ADDRESSES` | *(none)* | Comma-separated addresses to add and sync |
+| `LABELS` | *(none)* | Comma-separated labels matching `ADDRESSES` |
+| `TRADE_HISTORY_DB_PATH` | `~/.tradingstrategy/hyperliquid/trade-history.duckdb` | DuckDB path |
+| `MAX_WORKERS` | `1` | Parallel workers (DuckDB single-writer) |
+| `LOG_LEVEL` | `warning` | Logging level |
+
+### Display trade history for a single account
+
+The `vault-trade-history.py` script reconstructs and displays:
+
+1. Account overview (value, margin, raw USD)
+2. Current open positions from clearinghouse state
+3. Open round-trip trades with funding costs
+4. Closed round-trip trades with PnL breakdown
+5. Summary totals (realised, funding, fees, net, unrealised)
+6. Event-accurate share price history (using actual deposit/withdrawal
+   events instead of resolution-dependent portfolio history)
+
+```shell
+# Basic usage
+ADDRESS=0x3df9769bbbb335340872f01d8157c779d73c6ed0 \
+  poetry run python scripts/hyperliquid/vault-trade-history.py
+
+# With longer history and logging
+ADDRESS=0x1e37a337ed460039d1b15bd3bc489de789768d5e \
+  DAYS=60 LOG_LEVEL=info \
+  poetry run python scripts/hyperliquid/vault-trade-history.py
+
+# With DuckDB persistence (sync first, then display)
+ADDRESS=0x1e37a337ed460039d1b15bd3bc489de789768d5e \
+  TRADE_HISTORY_DB_PATH=/tmp/trade-history.duckdb \
+  LOG_LEVEL=info \
+  poetry run python scripts/hyperliquid/vault-trade-history.py
+```
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ADDRESS` | *(required)* | Account address |
+| `DAYS` | `30` | Days of history to fetch |
+| `TRADE_HISTORY_DB_PATH` | *(none)* | Optional DuckDB path for persistent storage |
+| `LOG_LEVEL` | `warning` | Logging level |
+
+### Trade history DuckDB schema
+
+Stored in a separate database from daily metrics (default:
+`~/.tradingstrategy/hyperliquid/trade-history.duckdb`).
+
+```
+accounts                              fills
+========                              =====
+address            VARCHAR PK         address         VARCHAR  \
+label              VARCHAR            trade_id        BIGINT    > composite PK
+is_vault           BOOLEAN            ts              BIGINT
+added_at           BIGINT             coin            VARCHAR
+                                      side            TINYINT (0=buy, 1=sell)
+funding                               sz              FLOAT
+=======                               px              FLOAT
+address            VARCHAR  \         closed_pnl      FLOAT
+ts                 BIGINT    > PK     start_position  FLOAT
+coin               VARCHAR  /         fee             FLOAT
+usdc               FLOAT              oid             BIGINT
+sz                 FLOAT
+rate               FLOAT           ledger
+                                   ======
+sync_state                         address         VARCHAR  \
+==========                         ts              BIGINT    > PK
+address            VARCHAR  \      event_type      VARCHAR  /
+data_type          VARCHAR  > PK   usdc            FLOAT
+oldest_ts          BIGINT          vault           VARCHAR
+newest_ts          BIGINT
+row_count          INTEGER
+last_synced        BIGINT
+```
+
+### Trade history tests
+
+```shell
+# Unit tests (no network)
+poetry run pytest tests/hyperliquid/test_trade_history.py -x --timeout=300
+
+# Integration tests (requires network)
+source .local-test.env && poetry run pytest \
+  tests/hyperliquid/test_trade_history_integration.py \
+  -x --timeout=300 --log-cli-level=info
+```
+
 ## Key modules
 
 | Module | Role |
@@ -450,3 +572,5 @@ for v in data['vaults'][:5]:
 | `eth_defi/hyperliquid/combined_analysis.py` | `_calculate_share_price()` -- time-weighted return logic |
 | `eth_defi/hyperliquid/vault.py` | API client (`fetch_all_vaults`, `HyperliquidVault`, `VaultInfo`) |
 | `eth_defi/hyperliquid/session.py` | Rate-limited HTTP session (`create_hyperliquid_session`) |
+| `eth_defi/hyperliquid/trade_history.py` | Trade history reconstruction, round-trip trades, event-accurate share prices |
+| `eth_defi/hyperliquid/trade_history_db.py` | DuckDB persistence for fills, funding, ledger with incremental sync |
