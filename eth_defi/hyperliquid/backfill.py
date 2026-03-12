@@ -217,11 +217,7 @@ def configure_aws_credentials():
     os.environ.setdefault("AWS_DEFAULT_REGION", "eu-west-1")
 
     if not os.environ.get("AWS_ACCESS_KEY_ID") and not os.environ.get("AWS_PROFILE"):
-        raise ValueError(
-            "AWS credentials not found. Set AWS_ACCESS_KEY_ID and "
-            "AWS_SECRET_ACCESS_KEY environment variables, or set "
-            "AWS_PROFILE to use a named profile from ~/.aws/credentials."
-        )
+        raise ValueError("AWS credentials not found. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables, or set AWS_PROFILE to use a named profile from ~/.aws/credentials.")
 
 
 def download_s3_files(
