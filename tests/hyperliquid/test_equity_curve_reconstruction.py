@@ -134,7 +134,11 @@ def test_reconstruct_account_value_curve_trader(db):
 
 
 def test_reconstruct_equity_curve_trader(db):
-    """Full pipeline for trader returns EquityCurveData with no share price curve."""
+    """Full pipeline for trader returns EquityCurveData with no share price curve.
+
+    Ledger events are clipped to the first fill timestamp. In this fixture
+    all 45 ledger events predate the first fill, so ledger_count is 0.
+    """
     data = reconstruct_equity_curve(db, TRADER_ADDRESS)
 
     assert data is not None
@@ -144,7 +148,9 @@ def test_reconstruct_equity_curve_trader(db):
     assert data.share_price_curve is None
     assert data.fill_count == 200
     assert data.funding_count > 0
-    assert data.ledger_count == 45
+    # All 45 ledger events predate the first fill and are clipped
+    assert data.ledger_count == 0
+    assert data.data_start_at is not None
     assert not data.pnl_curve.empty
 
 
@@ -199,7 +205,11 @@ def test_reconstruct_vault_share_price(db):
 
 
 def test_reconstruct_equity_curve_vault(db):
-    """Full pipeline for vault returns EquityCurveData with share price curve."""
+    """Full pipeline for vault returns EquityCurveData with share price curve.
+
+    Ledger events are clipped to the first fill timestamp. The vault has
+    481 total ledger events but only 26 are after the first fill.
+    """
     data = reconstruct_equity_curve(db, VAULT_ADDRESS)
 
     assert data is not None
@@ -209,7 +219,9 @@ def test_reconstruct_equity_curve_vault(db):
     assert data.share_price_curve is not None
     assert not data.share_price_curve.empty
     assert data.fill_count == 200
-    assert data.ledger_count == 481
+    # Ledger clipped from 481 to 26 (only events after first fill)
+    assert data.ledger_count == 26
+    assert data.data_start_at is not None
 
 
 def test_create_figure_vault(db):

@@ -34,6 +34,37 @@ Environment variables:
 - ``LOG_LEVEL``: Logging level. Default: warning.
 - ``NO_BROWSER``: Set to ``true`` to generate the HTML chart without
   opening the browser. Useful for testing.
+
+Migrating stale is_vault flags
+-------------------------------
+
+If your trade history database was populated before the ``is_vault``
+auto-detection fix, some vault accounts may have ``is_vault=FALSE``
+in the ``accounts`` table. The equity curve reconstruction handles
+this transparently via :py:meth:`~eth_defi.hyperliquid.trade_history_db.HyperliquidTradeHistoryDatabase.is_vault_address`,
+which detects vaults from ledger events at read time.
+
+To proactively fix stale flags, run this one-off SQL against your
+DuckDB:
+
+.. code-block:: sql
+
+    UPDATE accounts SET is_vault = TRUE
+    WHERE address IN (
+        SELECT DISTINCT address FROM ledger
+        WHERE event_type IN (
+            'vaultCreate', 'vaultDeposit', 'vaultWithdraw',
+            'vaultDistribution', 'vaultLeaderCommission'
+        )
+    );
+
+You can execute this via the DuckDB CLI::
+
+    duckdb ~/.tradingstrategy/vaults/hyperliquid/trade-history.duckdb < migrate.sql
+
+Or inline::
+
+    duckdb ~/.tradingstrategy/vaults/hyperliquid/trade-history.duckdb -c "UPDATE accounts SET is_vault = TRUE WHERE address IN (SELECT DISTINCT address FROM ledger WHERE event_type IN ('vaultCreate','vaultDeposit','vaultWithdraw','vaultDistribution','vaultLeaderCommission'))"
 """
 
 import logging
@@ -48,6 +79,7 @@ from eth_defi.hyperliquid.equity_curve_reconstruction import (
     create_equity_curve_figure,
     reconstruct_equity_curve,
 )
+from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.trade_history_db import (
     DEFAULT_TRADE_HISTORY_DB_PATH,
     HyperliquidTradeHistoryDatabase,
@@ -81,9 +113,10 @@ def main():
     print(f"Database: {db_path}")
 
     db = HyperliquidTradeHistoryDatabase(db_path)
+    session = create_hyperliquid_session()
 
     try:
-        data = reconstruct_equity_curve(db, address)
+        data = reconstruct_equity_curve(db, address, session=session)
 
         if data is None:
             print(f"\nAddress {address} not found in trade history database.")
@@ -104,6 +137,9 @@ def main():
             ["Funding payments", f"{data.funding_count:,}"],
             ["Ledger events", f"{data.ledger_count:,}"],
         ]
+
+        if data.data_start_at is not None:
+            summary_rows.append(["Data starts from", str(data.data_start_at)])
 
         if not data.pnl_curve.empty:
             first_ts = data.pnl_curve.index[0]

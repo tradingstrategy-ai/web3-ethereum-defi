@@ -433,6 +433,72 @@ db.close()
 "
 ```
 
+## Equity curve reconstruction (separate pipeline)
+
+The equity curve reconstruction script
+(`scripts/hyperliquid/reconstruct-equity-curve.py`) builds PnL, account value,
+and share price curves from the local trade history DuckDB
+(`trade-history.duckdb`), which stores per-fill and per-funding-payment data
+synced via `sync-trade-history.py`. This is separate from the daily metrics
+pipeline and the S3 backfill described above.
+
+### How it works
+
+1. **Fills** (from `userFillsByTime` API) provide per-trade `closedPnl` and `fee`
+2. **Funding payments** (from `userFunding` API) provide per-hour funding deltas
+3. **Ledger events** (from `userNonFundingLedgerUpdates` API) provide deposits,
+   withdrawals, vault creates, and vault distributions
+
+The reconstruction:
+- Merges fills and funding into a cumulative **PnL curve** via `pd.concat` + `.cumsum()`
+- Computes **account value** = cumulative net deposits + cumulative net PnL
+- For vaults, computes an event-accurate **share price** using ERC-4626-style
+  mint/burn mechanics from `compute_event_share_prices()`
+
+### Fill data limitation
+
+The Hyperliquid `userFillsByTime` API only returns the **10,000 most recent
+fills** per account. For active vaults this may cover only a few weeks of
+history, even though funding and ledger data go back to the vault's creation.
+
+To avoid misleading curves, the reconstruction **clips all data to start from
+the first available fill**. Earlier funding and ledger events are excluded from
+the PnL and account value curves. The chart heading and CLI output show the
+actual data start date and the reason for the limitation.
+
+The vault share price computation is an exception: it uses the **full unclipped
+ledger** (all deposits/withdrawals from inception) for accurate total supply
+tracking, combined with fills and funding only from the fill data window.
+
+### Running
+
+```shell
+# Vault example
+ADDRESS=0x15be61aef0ea4e4dc93c79b668f26b3f1be75a66 \
+  poetry run python scripts/hyperliquid/reconstruct-equity-curve.py
+
+# Trader example
+ADDRESS=0x162cc7c861ebd0c06b3d72319201150482518185 \
+  poetry run python scripts/hyperliquid/reconstruct-equity-curve.py
+
+# Without opening browser
+ADDRESS=0x15be61aef0ea4e4dc93c79b668f26b3f1be75a66 \
+  NO_BROWSER=true \
+  poetry run python scripts/hyperliquid/reconstruct-equity-curve.py
+```
+
+### Relationship to S3 backfill
+
+The S3 backfill (described above) fills gaps in the **daily metrics** database
+which provides daily-resolution share prices. The equity curve reconstruction
+reads from the **trade history** database which provides event-level resolution
+but is limited by the 10K fill API cap. These are complementary:
+
+| Pipeline | Database | Resolution | History |
+|----------|----------|------------|---------|
+| Daily metrics + S3 backfill | `daily-metrics.duckdb` | Daily | Full (via S3) |
+| Equity curve reconstruction | `trade-history.duckdb` | Per-event | Limited by 10K fill cap |
+
 ## Verification plan
 
 1. Download one recent day's `account_values` file

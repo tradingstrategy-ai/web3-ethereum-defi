@@ -36,6 +36,7 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 from eth_defi.hyperliquid.position import Fill
+from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.hyperliquid.trade_history import (
     FundingPayment,
     compute_event_share_prices,
@@ -108,6 +109,15 @@ class EquityCurveData:
 
     #: Number of ledger events used
     ledger_count: int
+
+    #: Earliest timestamp with real fill data.
+    #:
+    #: All curves are clipped to start from this date because
+    #: the Hyperliquid ``userFillsByTime`` API only returns the
+    #: 10,000 most recent fills per account. Funding and ledger
+    #: data before this date is excluded to avoid misleading
+    #: curves.
+    data_start_at: datetime.datetime | None
 
 
 def reconstruct_pnl_curve(
@@ -339,12 +349,15 @@ def reconstruct_vault_share_price(
 def reconstruct_equity_curve(
     trade_history_db: HyperliquidTradeHistoryDatabase,
     address: HexAddress,
+    session: HyperliquidSession | None = None,
 ) -> EquityCurveData | None:
     """Reconstruct complete equity curve data for a Hyperliquid account.
 
-    Reads all data from the local trade history DuckDB. No API calls
-    are made. For vault addresses, additionally computes event-accurate
-    share prices.
+    Reads all data from the local trade history DuckDB. For vault addresses,
+    additionally computes event-accurate share prices.
+
+    If a ``session`` is provided and the account has no label stored,
+    the vault name is fetched from the Hyperliquid ``vaultDetails`` API.
 
     The vault status is auto-detected from ledger event types rather
     than relying solely on the ``is_vault`` flag in the accounts table,
@@ -354,6 +367,9 @@ def reconstruct_equity_curve(
         Trade history database with fills, funding, and ledger data.
     :param address:
         Hyperliquid address (vault or trader).
+    :param session:
+        Optional Hyperliquid session for fetching vault names when
+        the label is missing from the DB.
     :return:
         Reconstructed equity curve data, or ``None`` if the address
         is not found in the database.
@@ -376,16 +392,52 @@ def reconstruct_equity_curve(
     # Auto-detect vault status from ledger events (more reliable than DB flag)
     is_vault = trade_history_db.is_vault_address(address)
 
+    # Fetch vault name from API if label is missing
+    if label is None and is_vault and session is not None:
+        from eth_defi.hyperliquid.api import fetch_vault_name
+
+        label = fetch_vault_name(session, address)
+        if label:
+            logger.info("Fetched vault name from API: %s", label)
+
+    # Clip funding and ledger to start from the first fill timestamp.
+    # The Hyperliquid userFillsByTime API only returns the 10K most recent
+    # fills, so funding/ledger data before the first fill would produce
+    # misleading PnL and account value curves.
+    # The full (unclipped) ledger is kept for vault share price computation
+    # which needs the complete deposit/withdrawal history for accurate
+    # total_supply tracking.
+    data_start_at = None
+    full_ledger = ledger  # Keep full copy for share price
+    if fills:
+        data_start_at = fills[0].timestamp
+        original_funding_count = len(funding)
+        original_ledger_count = len(ledger)
+        funding = [f for f in funding if f.timestamp >= data_start_at]
+        ledger = [e for e in ledger if e.timestamp >= data_start_at]
+        if len(funding) < original_funding_count or len(ledger) < original_ledger_count:
+            logger.info(
+                "Clipped data to first fill at %s: funding %d->%d, ledger %d->%d",
+                data_start_at,
+                original_funding_count,
+                len(funding),
+                original_ledger_count,
+                len(ledger),
+            )
+
     logger.info("Reconstructing equity curve for %s (%s, vault=%s)", address, label or "unlabelled", is_vault)
     logger.info("Data: %d fills, %d funding, %d ledger", len(fills), len(funding), len(ledger))
 
-    # Reconstruct curves
+    # Reconstruct curves (using clipped data)
     pnl_curve = reconstruct_pnl_curve(fills, funding)
     account_value_curve = reconstruct_account_value_curve(ledger, pnl_curve)
 
+    # Vault share price uses the FULL ledger (all deposits/withdrawals from
+    # inception) for accurate total_supply, but only fills/funding from the
+    # fill data window for PnL tracking.
     share_price_curve = None
     if is_vault:
-        share_price_curve = reconstruct_vault_share_price(fills, funding, ledger)
+        share_price_curve = reconstruct_vault_share_price(fills, funding, full_ledger)
         if share_price_curve.empty:
             share_price_curve = None
 
@@ -399,6 +451,7 @@ def reconstruct_equity_curve(
         fill_count=len(fills),
         funding_count=len(funding),
         ledger_count=len(ledger),
+        data_start_at=data_start_at,
     )
 
 
@@ -482,8 +535,16 @@ def create_equity_curve_figure(data: EquityCurveData) -> go.Figure:
     :return:
         Plotly figure ready for display.
     """
-    title_label = f" ({data.label})" if data.label else ""
-    title = f"Equity curve: {data.address[:10]}...{title_label}"
+    account_type = "Vault" if data.is_vault else "Trader"
+    if data.label:
+        title = f"Equity curve: {data.label} ({account_type} {data.address})"
+    else:
+        title = f"Equity curve: {account_type} {data.address}"
+
+    # Add data coverage subtitle
+    if data.data_start_at is not None:
+        start_str = data.data_start_at.strftime("%Y-%m-%d")
+        title += f"<br><sup>Data from {start_str} — older fills unavailable (Hyperliquid API returns only the 10,000 most recent fills per account)</sup>"
 
     has_vault_data = data.is_vault and data.share_price_curve is not None
     heatmap_data = _build_monthly_pnl_heatmap_data(data.pnl_curve)
