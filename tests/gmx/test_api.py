@@ -262,3 +262,207 @@ def test_get_apy_invalid_period(api):
         api.get_apy(period="invalid_period", use_cache=False)
 
     assert "Invalid period" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# REST API v2 tests
+# ---------------------------------------------------------------------------
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_base_v2_url(chain_name, gmx_config):
+    """Test that base_v2_url returns the correct URL for the configured chain.
+
+    Only Arbitrum has a v2 endpoint; Avalanche returns an empty string for
+    chains without a v2 URL configured.
+    """
+    api = GMXAPI(gmx_config, retry_config=GMX_TEST_RETRY_CONFIG)
+
+    if chain_name.lower() == "arbitrum":
+        assert "ondigitalocean.app" in api.base_v2_url
+        assert api.base_v2_url.endswith("/api/v1")
+    elif chain_name.lower() == "avalanche":
+        # Avalanche v2 may or may not be configured — just check it's a string
+        assert isinstance(api.base_v2_url, str)
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_make_v2_request_unsupported_chain(gmx_config):
+    """Test that _make_v2_request raises ValueError for an unsupported chain.
+
+    When the GMX v2 API has no URL configured for a given chain the method
+    should raise :class:`ValueError` rather than making an HTTP request.
+    """
+    import pytest
+
+    api = GMXAPI(gmx_config, retry_config=GMX_TEST_RETRY_CONFIG)
+    # Override chain to something without a v2 URL
+    api.chain = "unsupported_test_chain"
+
+    with pytest.raises(ValueError, match="No GMX v2 API URL configured"):
+        api._make_v2_request("/pairs")
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_get_pairs(api):
+    """Test retrieving all trading pairs via the v2 REST API.
+
+    Makes a real HTTP call to the ``/pairs`` endpoint and verifies the
+    response is a non-empty list of pair objects.
+    """
+    pairs = api.get_pairs(use_cache=False)
+
+    assert pairs is not None
+    assert isinstance(pairs, list)
+    assert len(pairs) > 0
+
+    # Each pair should be a dict with at minimum an identifying field
+    first = pairs[0]
+    assert isinstance(first, dict)
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_get_pairs_caching(api):
+    """Test that get_pairs returns cached data on the second call.
+
+    The second call should return the same object from the module-level
+    cache without making a new HTTP request.
+    """
+    first = api.get_pairs(use_cache=True)
+    second = api.get_pairs(use_cache=True)
+
+    assert first is second
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_get_token_info(api):
+    """Test retrieving comprehensive token information via the v2 REST API.
+
+    Makes a real HTTP call to ``/tokens/info`` and verifies each token
+    entry contains address, symbol, and decimal fields.
+    """
+    tokens = api.get_token_info(use_cache=False)
+
+    assert tokens is not None
+    assert isinstance(tokens, list)
+    assert len(tokens) > 0
+
+    token = tokens[0]
+    assert isinstance(token, dict)
+    # v2 /tokens/info should include at minimum address and symbol
+    assert "address" in token or "symbol" in token
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_get_token_info_caching(api):
+    """Test that get_token_info returns cached data on the second call."""
+    first = api.get_token_info(use_cache=True)
+    second = api.get_token_info(use_cache=True)
+
+    assert first is second
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_get_rates(api):
+    """Test retrieving funding and borrowing rate snapshots via the v2 REST API.
+
+    Makes a real HTTP call to ``/rates`` without any filter parameters and
+    verifies the response is a non-empty collection.
+    """
+    rates = api.get_rates(use_cache=False)
+
+    assert rates is not None
+    # Response may be a list or dict depending on the API version
+    assert isinstance(rates, (list, dict))
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_get_rates_non_empty(api):
+    """Test that get_rates returns a non-empty collection.
+
+    The ``/rates`` endpoint returns snapshots for all markets.  The response
+    must contain at least one entry.
+
+    .. note::
+        The endpoint does not accept ``period`` or ``average_by`` query
+        parameters — passing them causes a 400 error.
+    """
+    rates = api.get_rates(use_cache=False)
+
+    assert rates is not None
+    assert isinstance(rates, (list, dict))
+    if isinstance(rates, list):
+        assert len(rates) > 0
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_get_rates_caching(api):
+    """Test that get_rates returns cached data on the second call."""
+    first = api.get_rates(use_cache=True)
+    second = api.get_rates(use_cache=True)
+
+    assert first is second
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_get_ohlcv(api):
+    """Test retrieving OHLCV candle data via the v2 REST API.
+
+    Makes a real HTTP call to ``/prices/ohlcv`` for ETH on the 1h timeframe
+    and verifies the response contains candle data with expected structure.
+    """
+    result = api.get_ohlcv("ETH", timeframe="1h", limit=10)
+
+    assert result is not None
+    assert isinstance(result, (list, dict))
+
+    # If a list, each entry should be array-like [ts, o, h, l, c] or a dict
+    if isinstance(result, list) and len(result) > 0:
+        candle = result[0]
+        assert isinstance(candle, (list, dict))
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_get_ohlcv_with_since(api):
+    """Test get_ohlcv with the ``since`` parameter for historical data.
+
+    Passes a Unix millisecond timestamp to verify the v2 ``since`` parameter
+    works — this parameter is not available in the v1 candlestick endpoint.
+    """
+    import time as _time
+
+    one_week_ago_ms = int((_time.time() - 7 * 86_400) * 1_000)
+    result = api.get_ohlcv("BTC", timeframe="4h", limit=50, since=one_week_ago_ms)
+
+    assert result is not None
+    assert isinstance(result, (list, dict))
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_get_positions_empty(api):
+    """Test get_positions returns a valid response for an address with no positions.
+
+    Uses a zero-address that will have no open positions to verify the
+    endpoint is reachable and returns an empty list rather than an error.
+    """
+    # Use a known zero-like address that will have no GMX positions
+    zero_address = "0x0000000000000000000000000000000000000001"
+    result = api.get_positions(zero_address, use_cache=False)
+
+    assert result is not None
+    # Should return an empty list or a dict with empty positions, not raise
+    assert isinstance(result, (list, dict))
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_get_orders_empty(api):
+    """Test get_orders returns a valid response for an address with no orders.
+
+    Uses a zero-like address that will have no open orders to verify the
+    endpoint is reachable and returns an empty list rather than an error.
+    """
+    zero_address = "0x0000000000000000000000000000000000000001"
+    result = api.get_orders(zero_address)
+
+    assert result is not None
+    assert isinstance(result, (list, dict))

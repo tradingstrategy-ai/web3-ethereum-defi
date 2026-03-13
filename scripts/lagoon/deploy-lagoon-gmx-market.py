@@ -287,6 +287,7 @@ def deploy_market_vault(
     etherscan_api_key: str | None,
     vault_name: str | None = None,
     vault_symbol: str | None = None,
+    any_asset: bool = False,
 ) -> LagoonAutomatedDeployment:
     """Deploy a Lagoon vault configured for one or more GMX markets.
 
@@ -298,6 +299,7 @@ def deploy_market_vault(
     :param etherscan_api_key: API key for contract verification.
     :param vault_name: Custom vault name. Defaults to "{TOKEN1}-{TOKEN2}-... GMX Vault".
     :param vault_symbol: Custom vault symbol. Defaults to "{TOKEN1}-{TOKEN2}-...-GMX".
+    :param any_asset: Allow any ERC-20 asset instead of explicit token whitelist.
     :return: Deployment result.
     """
     symbols = [s for s, _ in resolved_markets]
@@ -313,11 +315,15 @@ def deploy_market_vault(
         symbol=symbol,
     )
 
-    # Whitelist USDC and WETH as tradeable assets
-    assets = [
-        config.usdc_address,
-        config.weth_address,
-    ]
+    # Whitelist USDC and WETH as tradeable assets (skipped when any_asset=True)
+    assets = (
+        [
+            config.usdc_address,
+            config.weth_address,
+        ]
+        if not any_asset
+        else None
+    )
 
     # Single-owner Safe
     multisig_owners = [hot_wallet.address]
@@ -341,6 +347,7 @@ def deploy_market_vault(
     print(f"  Deployer:       {hot_wallet.address}")
     print(f"  Base asset:     {config.gmx_collateral_symbol} ({config.usdc_address})")
     print(f"  GMX Markets:    {markets_str}")
+    print(f"  Any asset:      {any_asset}")
     print(f"  ExchangeRouter: {config.gmx_exchange_router}")
 
     deploy_info = deploy_automated_lagoon_vault(
@@ -352,7 +359,7 @@ def deploy_market_vault(
         safe_threshold=1,
         uniswap_v2=None,
         uniswap_v3=None,
-        any_asset=False,
+        any_asset=any_asset,
         gmx_deployment=gmx_deployment,
         from_the_scratch=config.from_the_scratch,
         use_forge=True,
@@ -561,6 +568,11 @@ Popular tokens: ETH, BTC, SOL, LINK, ARB, DOGE, AVAX, NEAR, AAVE
         action="store_true",
         help="Skip depositing USDC into the vault.",
     )
+    parser.add_argument(
+        "--any-asset",
+        action="store_true",
+        help="Allow any ERC-20 asset instead of explicit token whitelist.",
+    )
     return parser.parse_args()
 
 
@@ -575,10 +587,24 @@ def main():
 
     args = parse_args()
 
-    # Validate: must have either --token or --list-markets
-    if not args.token and not args.list_markets:
-        print("Error: specify -t/--token or --list-markets", file=sys.stderr)
+    # Validate: must have either --token, --list-markets, or --any-asset
+    if not args.token and not args.list_markets and not args.any_asset:
+        print("Error: specify -t/--token, --list-markets, or --any-asset", file=sys.stderr)
         sys.exit(1)
+
+    if args.any_asset:
+        print(
+            "\nWARNING: --any-asset is enabled.\n  The guard will NOT enforce an explicit token whitelist — any ERC-20 can be\n  used as collateral or received by the Safe.  This weakens the security model\n  of the vault guard.  Only use this flag if you fully understand the risks.\n  For production vaults, omit --any-asset and specify markets with -t instead.\n",
+            file=sys.stderr,
+        )
+        try:
+            answer = input("Type 'yes' to confirm and continue, or press Ctrl+C to abort: ").strip().lower()
+        except KeyboardInterrupt:
+            print("\nAborted.", file=sys.stderr)
+            sys.exit(1)
+        if answer != "yes":
+            print("Aborted.", file=sys.stderr)
+            sys.exit(1)
 
     # Parse network and mode
     network = os.environ.get("NETWORK", "mainnet").lower()
@@ -636,12 +662,12 @@ def main():
 
         # Resolve markets
         resolved_markets: list[tuple[str, HexAddress]] = []
-        for token in args.token:
+        for token in args.token or []:
             market_address, canonical_symbol = resolve_market_address(token, web3)
             resolved_markets.append((canonical_symbol, market_address))
             print(f"  Resolved: {canonical_symbol}/USD -> {market_address}")
 
-        symbols_label = "-".join(s for s, _ in resolved_markets)
+        symbols_label = "-".join(s for s, _ in resolved_markets) or "ANY"
 
         # Show wallet info
         eth_balance = web3.eth.get_balance(hot_wallet.address)
@@ -659,7 +685,7 @@ def main():
         # =====================================================================
         # Step 1: Deploy vault
         # =====================================================================
-        markets_display = ", ".join(f"{s}/USD" for s, _ in resolved_markets)
+        markets_display = ", ".join(f"{s}/USD" for s, _ in resolved_markets) or "ANY ASSET"
         mode_label = "SIMULATION" if simulate else ("TESTNET" if network == "testnet" else "MAINNET")
         print("\n" + "=" * 80)
         print(f"DEPLOYING {markets_display} VAULT ({mode_label})")
@@ -678,6 +704,7 @@ def main():
             etherscan_api_key=etherscan_api_key,
             vault_name=args.vault_name,
             vault_symbol=args.vault_symbol,
+            any_asset=args.any_asset,
         )
         vault = deploy_info.vault
 
@@ -738,13 +765,17 @@ def main():
         print("\n" + "=" * 80)
         print("DEPLOYMENT COMPLETE")
         print("=" * 80)
-        print(f"\n  Markets:")
-        for sym, addr in resolved_markets:
-            print(f"    {sym}/USD  {addr}")
+        if resolved_markets:
+            print(f"\n  Markets:")
+            for sym, addr in resolved_markets:
+                print(f"    {sym}/USD  {addr}")
+        else:
+            print(f"\n  Markets:          any asset (no specific whitelist)")
         print(f"  Vault address:    {vault.address}")
         print(f"  Safe address:     {vault.safe_address}")
         print(f"  Trading module:   {vault.trading_strategy_module_address}")
         print(f"  Asset manager:    {hot_wallet.address}")
+        print(f"  Any asset:        {args.any_asset}")
         print(f"  Forward ETH:      {forward_eth}")
 
         if not simulate:

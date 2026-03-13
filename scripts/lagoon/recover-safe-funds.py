@@ -1,32 +1,51 @@
-"""Recover USDC from a Lagoon vault's Safe.
+"""Recover tokens from a Lagoon vault's Safe.
 
-This script transfers USDC from the Safe to the asset manager's wallet.
+This script transfers any ERC-20 token (or native ETH) from the Safe to the
+asset manager's wallet.  By default it recovers the vault's denomination token
+(USDC).  Pass ``--token`` to recover a different ERC-20 such as WBTC or ARB.
+
 The guard owner is the Safe itself, so guard admin calls (whitelist/unwhitelist)
 must be routed through the Safe's ``execTransaction`` signed by the Safe owner.
 
-Steps:
+Steps for ERC-20 recovery
+--------------------------
 
 1. Whitelist asset manager as a withdraw destination — via Safe ``execTransaction``
-   calling ``allowWithdrawDestination`` on the module
-2. Transfer USDC from Safe to asset manager — via ``performCall`` on the module
-3. Remove asset manager from withdraw destinations (cleanup) — via Safe ``execTransaction``
+   calling ``allowWithdrawDestination`` on the module.
+2. Transfer tokens from Safe to asset manager — via ``performCall`` on the module.
+3. Remove asset manager from withdraw destinations (cleanup) — via Safe
+   ``execTransaction``.
 
-The asset manager must be a Safe owner with sufficient signing threshold.
+Steps for native ETH recovery
+------------------------------
 
-Example:
+ETH is transferred directly via Safe ``execTransaction`` (no whitelist step needed).
+
+The asset manager must be a Safe owner with a signing threshold of 1.
+
+Examples
+--------
 
 .. code-block:: shell
 
     export JSON_RPC_ARBITRUM=$ARBITRUM_CHAIN_JSON_RPC
+
+    # Recover all USDC (denomination token)
     GMX_PRIVATE_KEY="0x..." \\
         python scripts/lagoon/recover-safe-funds.py \\
             --vault 0x05Ec266b7b85F8a28A271041c9b40a15941Bf81F \\
             --module 0xa53e31Da109fb47a5430EdB70d1AAA855fE1E58F
 
-    # Dry-run to check balances
+    # Recover WBTC by token address
+    ... --token 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f
+
+    # Recover ETH only
+    ... --eth-only
+
+    # Dry-run to check balances without sending any transactions
     ... --dry-run
 
-    # Recover a specific amount (default: all USDC)
+    # Recover a specific amount
     ... --amount 5.0
 
 Environment variables
@@ -56,6 +75,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.token import fetch_erc20_details
 from eth_defi.utils import setup_console_logging
 
 from safe_eth.eth import EthereumClient
@@ -189,13 +209,19 @@ def execute_safe_transaction(
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Recover USDC from a Lagoon vault's Safe.",
+        description="Recover tokens from a Lagoon vault's Safe.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 Examples:
-  # Recover all USDC from Safe
+  # Recover all USDC (denomination token) from Safe
   JSON_RPC_ARBITRUM="..." GMX_PRIVATE_KEY="0x..." \\
       python %(prog)s --vault 0x05Ec... --module 0xa53e...
+
+  # Recover WBTC by contract address
+  ... --vault 0x05Ec... --module 0xa53e... --token 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f
+
+  # Recover ETH only (skip ERC-20 recovery)
+  ... --vault 0x05Ec... --module 0xa53e... --eth-only
 
   # Check balances without recovering
   ... --vault 0x05Ec... --module 0xa53e... --dry-run
@@ -217,21 +243,32 @@ Examples:
         help="TradingStrategyModuleV0 contract address.",
     )
     parser.add_argument(
+        "--token",
+        type=str,
+        default=None,
+        help=("ERC-20 token contract address to recover. Defaults to the vault's denomination token (USDC). Pass a checksummed contract address, e.g. 0x2f2a...5B0f for WBTC."),
+    )
+    parser.add_argument(
         "--amount",
         type=float,
         default=None,
-        help="USDC amount to recover. Default: all USDC in Safe.",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Only show balances, do not recover.",
+        help="Token amount to recover (human units). Default: full Safe balance.",
     )
     parser.add_argument(
         "--eth-amount",
         type=float,
         default=None,
         help="ETH amount to recover. Default: all ETH in Safe.",
+    )
+    parser.add_argument(
+        "--eth-only",
+        action="store_true",
+        help="Skip ERC-20 recovery and only recover native ETH.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Only show balances, do not send any transactions.",
     )
     parser.add_argument(
         "--no-cleanup",
@@ -284,7 +321,17 @@ def main():
     assert isinstance(vault, LagoonVault), f"Address {vault_address} is not a Lagoon vault"
 
     safe_address = vault.safe_address
-    usdc = vault.underlying_token
+
+    # Resolve token to recover — default to vault denomination token (USDC)
+    if args.eth_only:
+        token = None
+    elif args.token:
+        token_address = Web3.to_checksum_address(args.token)
+        token = fetch_erc20_details(web3, token_address)
+        print(f"Recovering token: {token.symbol} ({token_address})")
+    else:
+        token = vault.underlying_token
+        print(f"Recovering denomination token: {token.symbol} ({token.address})")
 
     # Get module contract
     module_contract = get_deployed_contract(
@@ -299,13 +346,13 @@ def main():
     safe_owners = safe_contract.functions.getOwners().call()
     safe_threshold = safe_contract.functions.getThreshold().call()
 
-    print(f"\nVault:         {vault_address}")
-    print(f"Safe:          {safe_address}")
-    print(f"Module:        {module_address}")
-    print(f"Guard owner:   {guard_owner}")
-    print(f"Safe owners:   {safe_owners}")
+    print(f"\nVault:          {vault_address}")
+    print(f"Safe:           {safe_address}")
+    print(f"Module:         {module_address}")
+    print(f"Guard owner:    {guard_owner}")
+    print(f"Safe owners:    {safe_owners}")
     print(f"Safe threshold: {safe_threshold}")
-    print(f"Asset manager: {hot_wallet.address}")
+    print(f"Asset manager:  {hot_wallet.address}")
 
     # Verify asset manager is a Safe owner
     am_checksummed = Web3.to_checksum_address(hot_wallet.address)
@@ -319,36 +366,42 @@ def main():
         sys.exit(1)
 
     # Check balances
-    safe_usdc_balance = usdc.fetch_balance_of(safe_address)
     safe_eth_balance = web3.eth.get_balance(safe_address)
-    am_usdc_balance = usdc.fetch_balance_of(hot_wallet.address)
     am_eth_balance = web3.eth.get_balance(hot_wallet.address)
 
     print(f"\nSafe balances:")
-    print(f"  USDC: {safe_usdc_balance}")
     print(f"  ETH:  {web3.from_wei(safe_eth_balance, 'ether')}")
-    print(f"\nAsset manager balances:")
-    print(f"  USDC: {am_usdc_balance}")
-    print(f"  ETH:  {web3.from_wei(am_eth_balance, 'ether')}")
 
-    has_usdc = safe_usdc_balance > 0
+    if token is not None:
+        safe_token_balance = token.fetch_balance_of(safe_address)
+        am_token_balance = token.fetch_balance_of(hot_wallet.address)
+        print(f"  {token.symbol}: {safe_token_balance}")
+        print(f"\nAsset manager balances:")
+        print(f"  ETH:  {web3.from_wei(am_eth_balance, 'ether')}")
+        print(f"  {token.symbol}: {am_token_balance}")
+    else:
+        print(f"\nAsset manager balances:")
+        print(f"  ETH:  {web3.from_wei(am_eth_balance, 'ether')}")
+
+    has_token = token is not None and safe_token_balance > 0 if token else False
     has_eth = safe_eth_balance > 0
 
-    if not has_usdc and not has_eth:
-        print("\nNo USDC or ETH in Safe. Nothing to recover.")
+    if not has_token and not has_eth:
+        print("\nNo tokens or ETH in Safe. Nothing to recover.")
         sys.exit(0)
 
-    # Determine USDC amount to recover
-    if has_usdc:
+    # Determine token amount to recover
+    if has_token:
         if args.amount is not None:
             recover_amount = Decimal(str(args.amount))
-            if recover_amount > safe_usdc_balance:
-                print(f"\nError: requested {recover_amount} but Safe only has {safe_usdc_balance} USDC.", file=sys.stderr)
+            if recover_amount > safe_token_balance:
+                print(f"\nError: requested {recover_amount} but Safe only has {safe_token_balance} {token.symbol}.", file=sys.stderr)
                 sys.exit(1)
         else:
-            recover_amount = safe_usdc_balance
-        raw_recover = usdc.convert_to_raw(recover_amount)
+            recover_amount = safe_token_balance
+        raw_recover = token.convert_to_raw(recover_amount)
 
+    # Determine ETH amount to recover
     recover_eth = has_eth
     if has_eth and args.eth_amount is not None:
         recover_eth_wei = web3.to_wei(args.eth_amount, "ether")
@@ -360,8 +413,8 @@ def main():
     recover_eth_display = web3.from_wei(recover_eth_wei, "ether")
 
     print(f"\nWill recover:")
-    if has_usdc:
-        print(f"  USDC: {recover_amount}")
+    if has_token:
+        print(f"  {token.symbol}: {recover_amount}")
     if recover_eth:
         print(f"  ETH:  {recover_eth_display}")
 
@@ -371,8 +424,8 @@ def main():
 
     # Confirm
     parts = []
-    if has_usdc:
-        parts.append(f"{recover_amount} USDC")
+    if has_token:
+        parts.append(f"{recover_amount} {token.symbol}")
     if recover_eth:
         parts.append(f"{recover_eth_display} ETH")
     response = input(f"\nRecover {' + '.join(parts)} from Safe to {hot_wallet.address}? [y/N] ").strip().lower()
@@ -386,19 +439,18 @@ def main():
 
     step = 0
 
-    # Step: Whitelist asset manager as withdraw destination (only needed for USDC)
+    # Step: Whitelist asset manager as withdraw destination (ERC-20 only)
     already_whitelisted = False
-    if has_usdc:
+    if has_token:
         already_whitelisted = module_contract.functions.allowedWithdrawDestinations(hot_wallet.address).call()
 
-        # Guard owner = Safe, so we route through Safe's execTransaction
         if not already_whitelisted:
             step += 1
             print(f"\nStep {step}: Whitelist asset manager as withdraw destination (via Safe)")
 
             whitelist_calldata = module_contract.encode_abi(
                 "allowWithdrawDestination",
-                args=[hot_wallet.address, "Temporary: recover Safe funds"],
+                args=[hot_wallet.address, f"Temporary: recover Safe {token.symbol}"],
             )
 
             execute_safe_transaction(
@@ -411,7 +463,6 @@ def main():
                 description=f"allowWithdrawDestination({hot_wallet.address})",
             )
 
-            # Verify it worked
             is_whitelisted = module_contract.functions.allowedWithdrawDestinations(hot_wallet.address).call()
             assert is_whitelisted, "Failed to whitelist asset manager"
             print("    Verified: asset manager is now whitelisted")
@@ -419,22 +470,22 @@ def main():
             step += 1
             print(f"\nStep {step}: Asset manager already whitelisted (skipping)")
 
-    # Step: Transfer USDC from Safe via performCall
-    if has_usdc:
+    # Step: Transfer token from Safe via performCall
+    if has_token:
         step += 1
-        print(f"\nStep {step}: Transfer {recover_amount} USDC from Safe to asset manager (via performCall)")
+        print(f"\nStep {step}: Transfer {recover_amount} {token.symbol} from Safe to asset manager (via performCall)")
 
-        transfer_calldata = usdc.contract.encode_abi("transfer", args=[hot_wallet.address, raw_recover])
+        transfer_calldata = token.contract.encode_abi("transfer", args=[hot_wallet.address, raw_recover])
 
         broadcast_tx(
             web3,
             hot_wallet,
             module_contract.functions.performCall(
-                usdc.address,
+                token.address,
                 transfer_calldata,
                 0,
             ),
-            f"performCall: transfer({hot_wallet.address}, {recover_amount} USDC)",
+            f"performCall: transfer({hot_wallet.address}, {recover_amount} {token.symbol})",
             gas_limit=800_000,
         )
 
@@ -455,13 +506,13 @@ def main():
         )
 
     # Step: Remove whitelist (cleanup)
-    if has_usdc and not args.no_cleanup and not already_whitelisted:
+    if has_token and not args.no_cleanup and not already_whitelisted:
         step += 1
         print(f"\nStep {step}: Remove asset manager from withdraw destinations (via Safe)")
 
         remove_calldata = module_contract.encode_abi(
             "removeWithdrawDestination",
-            args=[hot_wallet.address, "Cleanup: recover Safe funds complete"],
+            args=[hot_wallet.address, f"Cleanup: recover Safe {token.symbol} complete"],
         )
 
         execute_safe_transaction(
@@ -475,22 +526,22 @@ def main():
         )
 
     # Final balances
-    final_safe_usdc = usdc.fetch_balance_of(safe_address)
     final_safe_eth = web3.eth.get_balance(safe_address)
-    final_am_usdc = usdc.fetch_balance_of(hot_wallet.address)
     final_am_eth = web3.eth.get_balance(hot_wallet.address)
 
     print("\n" + "=" * 60)
     print("RECOVERY COMPLETE")
     print("=" * 60)
-    if has_usdc:
-        print(f"\n  USDC recovered:      {recover_amount}")
+    if has_token:
+        final_safe_token = token.fetch_balance_of(safe_address)
+        final_am_token = token.fetch_balance_of(hot_wallet.address)
+        print(f"\n  {token.symbol} recovered:       {recover_amount}")
+        print(f"  Safe {token.symbol}:            {final_safe_token}")
+        print(f"  Asset manager {token.symbol}:   {final_am_token}")
     if recover_eth:
-        print(f"  ETH recovered:       {recover_eth_display}")
-    print(f"\n  Safe USDC:           {final_safe_usdc}")
-    print(f"  Safe ETH:            {web3.from_wei(final_safe_eth, 'ether')}")
-    print(f"  Asset manager USDC:  {final_am_usdc}")
-    print(f"  Asset manager ETH:   {web3.from_wei(final_am_eth, 'ether')}")
+        print(f"\n  ETH recovered:         {recover_eth_display}")
+    print(f"  Safe ETH:              {web3.from_wei(final_safe_eth, 'ether')}")
+    print(f"  Asset manager ETH:     {web3.from_wei(final_am_eth, 'ether')}")
 
 
 if __name__ == "__main__":

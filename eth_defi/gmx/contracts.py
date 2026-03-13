@@ -34,11 +34,14 @@ GMX_SUBSQUID_ENDPOINTS = {
     "arbitrum_sepolia": "https://gmx.squids.live/gmx-synthetics-arb-sepolia:prod/api/graphql",
 }
 
-# Subsquid GraphQL backup endpoints by chain (versioned deployments)
-# @5acc9d is the active Arbitrum versioned hash as of 2026-02-26; see gmx-interface/src/config/indexers.ts
+# Subsquid GraphQL backup endpoints by chain.
+# Versioned hashes (e.g. @5acc9d, @cc00ce) have been removed — they return 404
+# once Subsquid rotates its deployments.  The :prod alias is stable and is used
+# for both primary and backup to benefit from automatic fail-over without
+# hard-coding a hash that will eventually go stale.
 GMX_SUBSQUID_ENDPOINTS_BACKUP = {
-    "arbitrum": "https://gmx.squids.live/gmx-synthetics-arbitrum@5acc9d/api/graphql",
-    "avalanche": "https://gmx.squids.live/gmx-synthetics-avalanche@cc00ce/api/graphql",
+    "arbitrum": "https://gmx.squids.live/gmx-synthetics-arbitrum:prod/api/graphql",
+    "avalanche": "https://gmx.squids.live/gmx-synthetics-avalanche:prod/api/graphql",
     "arbitrum_sepolia": "https://gmx.squids.live/gmx-synthetics-arb-sepolia:prod/api/graphql",
 }
 

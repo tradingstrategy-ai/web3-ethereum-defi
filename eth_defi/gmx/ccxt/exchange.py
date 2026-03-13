@@ -371,6 +371,22 @@ class GMX(ExchangeCompatible):
         """
         return getattr(self.wallet, "gas_address", self.wallet.address)
 
+    @property
+    def _gas_simulation_address(self) -> str:
+        """Return the address to use as ``from`` in gas estimation simulations.
+
+        Gas estimation runs ``eth_estimateGas`` which simulates the full call
+        including ERC-20 token transfers.  In Lagoon mode the inner call is
+        executed *from the Safe* (via ``performCall``), so the Safe must be used
+        as the simulated sender — otherwise the simulation sees the asset manager
+        address (which holds no USDC collateral) and fails with
+        ``ERC20: transfer amount exceeds balance``.
+
+        For non-Lagoon wallets the gas payer and the simulation address are the
+        same, so we fall back to :attr:`_gas_payer_address`.
+        """
+        return self.wallet.address
+
     def __init__(
         self,
         config: GMXConfig | None = None,
@@ -396,6 +412,7 @@ class GMX(ExchangeCompatible):
                     "wallet": wallet_object,  # Optional - alternative to privateKey
                     "verbose": True,  # Optional - enable debug logging
                     "requireMultipleProviders": True,  # Optional - enforce fallback support
+                    "referralCode": "tano",  # Optional - GMX referral code for fee discounts
                 }
             )
 
@@ -473,6 +490,17 @@ class GMX(ExchangeCompatible):
         self._require_multiple_providers = parameters.get("requireMultipleProviders", False)
         self._oracle_prices_instance = None
 
+        # Referral code — human-readable string up to 32 chars (e.g. "tano").
+        # Stored as bytes32 and embedded in every on-chain order for fee discounts.
+        referral_code_str = parameters.get("referralCode")
+        if referral_code_str:
+            from eth_defi.event_reader.conversion import convert_string_to_bytes32
+
+            self._referral_code: bytes | None = convert_string_to_bytes32(referral_code_str)
+            logger.info("GMX referral code configured: %s", referral_code_str)
+        else:
+            self._referral_code = None
+
         # Configure verbose logging if requested
         if self._verbose:
             self._configure_verbose_logging()
@@ -525,7 +553,7 @@ class GMX(ExchangeCompatible):
 
         # Create GMX config from web3 and wallet
         # Pass wallet to config so BaseOrder can access it for auto-approval
-        self.config = GMXConfig(self.web3, user_wallet_address=wallet_address, wallet=self.wallet)
+        self.config = GMXConfig(self.web3, user_wallet_address=wallet_address, wallet=self.wallet, referral_code=self._referral_code)
 
         # Parse gas monitoring config from CCXT options
         options = parameters.get("options", {})
@@ -1016,10 +1044,15 @@ class GMX(ExchangeCompatible):
         self._trading_paused = False  # Flag to indicate if trading is paused
         self._trading_paused_reason = None  # Store reason for pause
 
-        #: Per-symbol keeper cancellation tracking (close orders only).
+        #: Per-symbol keeper cancellation tracking for both open and close orders.
         #: Prevents infinite retry loops when structurally doomed orders are retried every cycle.
-        #: Format: ``{symbol: {"count": int, "cooldown_until": float, "last_reason": str}}``
+        #: Close orders are keyed by ``symbol``; open orders by ``open:{symbol}``.
+        #: Format: ``{key: {"count": int, "cooldown_until": float, "last_reason": str}}``
         self._keeper_cancel_tracker: dict = {}
+        #: Non-fatal warnings accumulated during the last create_order() call.
+        #: Drained by gmx_exchange.py after super().create_order() returns so they
+        #: can be forwarded to Telegram without breaking the CCXT layer's separation of concerns.
+        self._order_warnings: list[str] = []
         #: Max consecutive keeper cancellations before cooldown is applied.
         self._max_keeper_cancels: int = 3
         #: Cooldown duration after hitting the cancel limit (seconds).
@@ -2137,13 +2170,17 @@ class GMX(ExchangeCompatible):
 
         gmx_period = self.timeframes[timeframe]
 
-        # Fetch candlestick data from GMX API
+        # --- Data source: GMX REST API v1 (production) ---
+        # Endpoint: /prices/candles  (gmxinfra.io)
+        # Response: {"candles": [[ts_sec, o, h, l, c], ...]}
+        #
+        # The v2 /prices/ohlcv endpoint (DigitalOcean-hosted) is available via
+        # api.get_ohlcv() for ad-hoc use but is NOT used here in the live trading
+        # path — it returns 400 for some symbols (e.g. wstETH) and times out
+        # intermittently, adding 3×retry latency on every bot loop.  Keep v1 as
+        # the sole production source until the v2 endpoint is proven stable.
         response = self.api.get_candlesticks(token_symbol, gmx_period)
-
-        # Parse the response
         candles_data = response.get("candles", [])
-
-        # Parse OHLCV data
         ohlcv = self.parse_ohlcvs(candles_data, market_info, timeframe, since, limit)
 
         # Validate data sufficiency for backtesting
@@ -2559,8 +2596,8 @@ class GMX(ExchangeCompatible):
         short_oi_usd_raw = interest.get("shortOpenInterestUsd", 0)
 
         # Convert from 30 decimals to float
-        long_oi_usd = float(long_oi_usd_raw) / 1e30 if long_oi_usd_raw else 0.0
-        short_oi_usd = float(short_oi_usd_raw) / 1e30 if short_oi_usd_raw else 0.0
+        long_oi_usd = float(long_oi_usd_raw) / 10**PRECISION if long_oi_usd_raw else 0.0
+        short_oi_usd = float(short_oi_usd_raw) / 10**PRECISION if short_oi_usd_raw else 0.0
         total_oi_usd = long_oi_usd + short_oi_usd
 
         # Parse token amounts (if available)
@@ -2690,7 +2727,7 @@ class GMX(ExchangeCompatible):
         info = market_infos[0]
 
         # Parse 30-decimal funding rate values
-        funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 1e30
+        funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 10**PRECISION
         longs_pay_shorts = info.get("longsPayShorts", True)
 
         # Determine direction based on longsPayShorts flag
@@ -2772,7 +2809,7 @@ class GMX(ExchangeCompatible):
 
         result = []
         for info in market_infos:
-            funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 1e30
+            funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 10**PRECISION
             longs_pay_shorts = info.get("longsPayShorts", True)
 
             # Try to extract timestamp from ID or use current time
@@ -3660,10 +3697,18 @@ class GMX(ExchangeCompatible):
                 if error:
                     result["info"][code] = {"error": error}
                 else:
-                    # Calculate used (locked in positions) and free amounts
+                    # Collateral sent to GMX is already removed from the Safe's ERC-20 balance.
+                    # free  = wallet ERC-20 balance (what is available for new positions)
+                    # used  = collateral locked inside open GMX positions
+                    # total = free + used  (true value managed by the vault)
+                    # Previously total=balance_float and free=max(0,balance-used) caused a
+                    # double-subtraction: the collateral was already gone from balance_float,
+                    # so subtracting it again made free shrink to 0 and total exclude the GMX
+                    # collateral, causing freqtrade to re-base starting_capital downward on
+                    # every loop iteration as positions were opened.
                     used_amount = collateral_locked.get(code, 0.0)
-                    free_amount = max(0.0, balance_float - used_amount)  # Ensure non-negative
-                    total_amount = balance_float
+                    free_amount = balance_float
+                    total_amount = balance_float + used_amount
 
                     result[code] = {"free": free_amount, "used": used_amount, "total": total_amount}
 
@@ -5168,7 +5213,7 @@ class GMX(ExchangeCompatible):
             try:
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=sltp_result.transaction,
-                    from_addr=self._gas_payer_address,
+                    from_addr=self._gas_simulation_address,
                 )
                 monitor.log_gas_estimate(gas_estimate, "GMX SL/TP order")
                 native_price_usd = gas_estimate.native_price_usd
@@ -5422,7 +5467,7 @@ class GMX(ExchangeCompatible):
             try:
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=result.transaction,
-                    from_addr=self._gas_payer_address,
+                    from_addr=self._gas_simulation_address,
                 )
                 monitor.log_gas_estimate(gas_estimate, f"GMX {type} order")
                 native_price_usd = gas_estimate.native_price_usd
@@ -5916,6 +5961,9 @@ class GMX(ExchangeCompatible):
             elif gas_check.status == "warning":
                 monitor.log_gas_check_warning(gas_check)
 
+        # Clear warnings from any previous call before this order starts
+        self._order_warnings.clear()
+
         logger.info("=" * 80)
         logger.info(
             "ORDER_TRACE: create_order() CALLED - symbol=%s, type=%s, side=%s, amount=%.8f",
@@ -6093,6 +6141,19 @@ class GMX(ExchangeCompatible):
             # ============================================
             # OPENING POSITIONS (buy=LONG, sell=SHORT)
             # ============================================
+
+            # Circuit breaker: refuse open orders for symbols with too many consecutive
+            # keeper cancellations.  This prevents burning gas + keeper fees on orders
+            # that are structurally rejected (e.g., low-liquidity markets, bad price feed).
+            _open_key = f"open:{symbol}"
+            _open_cb_entry = self._keeper_cancel_tracker.get(_open_key, {})
+            _open_cooldown_until = _open_cb_entry.get("cooldown_until", 0.0)
+            if time.monotonic() < _open_cooldown_until:
+                _open_remaining = int(_open_cooldown_until - time.monotonic())
+                _open_last_reason = _open_cb_entry.get("last_reason", "unknown")
+                _open_count = _open_cb_entry.get("count", 0)
+                raise InvalidOrder(f"OPEN_CIRCUIT_BREAKER: skipping open for {symbol} — {_open_count} consecutive keeper cancellations (last reason: {_open_last_reason}). Cooldown: {_open_remaining}s remaining. Call reset_keeper_cancel_count('{symbol}') to resume.")
+
             # Remove internal key used only in the close path
             gmx_params.pop("_gmx_position", None)
             if type == "limit":
@@ -6407,12 +6468,14 @@ class GMX(ExchangeCompatible):
             try:
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=order_result.transaction,
-                    from_addr=self._gas_payer_address,
+                    from_addr=self._gas_simulation_address,
                 )
                 monitor.log_gas_estimate(gas_estimate, "GMX order")
                 native_price_usd = gas_estimate.native_price_usd
             except Exception as e:
                 logger.warning("Gas estimation failed: %s - using order gas_limit", e)
+                # Accumulate for gmx_exchange.py to forward to Telegram (non-fatal)
+                self._order_warnings.append(f"Gas estimation failed: {e}")
 
         # Sign transaction (remove nonce if present, wallet will manage it)
         transaction = dict(order_result.transaction)
@@ -6770,30 +6833,33 @@ class GMX(ExchangeCompatible):
                     order_key.hex()[:18] if order_key else "N/A",
                 )
 
-                # Circuit breaker: track consecutive keeper cancellations for close orders.
-                # Only close orders (reduceOnly=True) are tracked — open-order failures are
-                # already handled by _consecutive_failures.
-                if reduceOnly:
-                    _cb_entry = self._keeper_cancel_tracker.setdefault(symbol, {"count": 0, "cooldown_until": 0.0, "last_reason": ""})
-                    _cb_entry["count"] += 1
-                    _cb_entry["last_reason"] = error_reason
-                    if _cb_entry["count"] >= self._max_keeper_cancels:
-                        _cb_entry["cooldown_until"] = time.monotonic() + self._keeper_cancel_cooldown_secs
-                        logger.error(
-                            "CIRCUIT_BREAKER: %d consecutive keeper cancellations for %s close orders. Setting %ds cooldown. Last reason: %s",
-                            _cb_entry["count"],
-                            symbol,
-                            self._keeper_cancel_cooldown_secs,
-                            error_reason,
-                        )
-                    else:
-                        logger.warning(
-                            "CIRCUIT_BREAKER: keeper cancel %d/%d for %s close. Reason: %s",
-                            _cb_entry["count"],
-                            self._max_keeper_cancels,
-                            symbol,
-                            error_reason,
-                        )
+                # Circuit breaker: track consecutive keeper cancellations for both open
+                # and close orders to prevent burning gas + keeper fees on doomed orders.
+                # Close orders are keyed by symbol; open orders by "open:{symbol}".
+                _cb_key = symbol if reduceOnly else f"open:{symbol}"
+                _cb_order_type = "close" if reduceOnly else "open"
+                _cb_entry = self._keeper_cancel_tracker.setdefault(_cb_key, {"count": 0, "cooldown_until": 0.0, "last_reason": ""})
+                _cb_entry["count"] += 1
+                _cb_entry["last_reason"] = error_reason
+                if _cb_entry["count"] >= self._max_keeper_cancels:
+                    _cb_entry["cooldown_until"] = time.monotonic() + self._keeper_cancel_cooldown_secs
+                    logger.error(
+                        "CIRCUIT_BREAKER: %d consecutive keeper cancellations for %s %s orders. Setting %ds cooldown. Last reason: %s",
+                        _cb_entry["count"],
+                        symbol,
+                        _cb_order_type,
+                        self._keeper_cancel_cooldown_secs,
+                        error_reason,
+                    )
+                else:
+                    logger.warning(
+                        "CIRCUIT_BREAKER: keeper cancel %d/%d for %s %s. Reason: %s",
+                        _cb_entry["count"],
+                        self._max_keeper_cancels,
+                        symbol,
+                        _cb_order_type,
+                        error_reason,
+                    )
 
                 # Raise InvalidOrder so freqtrade does NOT set exit_reason on the trade.
                 # Freqtrade's exchange wrapper converts ccxt.InvalidOrder to
@@ -6802,12 +6868,16 @@ class GMX(ExchangeCompatible):
                 raise InvalidOrder(f"GMX order {event_name} by keeper for {symbol}: {error_reason} (tx={tx_hash[:18]}..., order_key={order_key.hex()[:18] if order_key else 'N/A'}...)")
 
             # Order executed successfully — reset keeper cancel counter for this symbol.
-            if reduceOnly and symbol in self._keeper_cancel_tracker:
+            # Reset keeper cancel counter for this symbol after a successful execution.
+            _success_key = symbol if reduceOnly else f"open:{symbol}"
+            _success_order_type = "close" if reduceOnly else "open"
+            if _success_key in self._keeper_cancel_tracker:
                 logger.info(
-                    "CIRCUIT_BREAKER: resetting keeper cancel counter for %s after successful close",
+                    "CIRCUIT_BREAKER: resetting keeper cancel counter for %s after successful %s",
                     symbol,
+                    _success_order_type,
                 )
-                self._keeper_cancel_tracker.pop(symbol, None)
+                self._keeper_cancel_tracker.pop(_success_key, None)
 
             # Parse execution price from Subsquid (30 decimals) or event
             # Convert using token-specific decimals (30 - token_decimals)
@@ -6821,7 +6891,7 @@ class GMX(ExchangeCompatible):
 
             execution_tx_hash = trade_action.get("transaction", {}).get("hash")
             is_long = trade_action.get("isLong")
-            size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0.0
+            size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / 10**PRECISION if trade_action.get("sizeDeltaUsd") else 0.0
 
             logger.info(
                 "ORDER_TRACE: create_order() - Order EXECUTED successfully - price=%s, size_usd=%s",
@@ -6874,9 +6944,9 @@ class GMX(ExchangeCompatible):
                     "execution_fee_eth": order_result.execution_fee / 1e18,
                     "is_long": is_long,
                     "event_name": event_name,
-                    "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 1e30 if trade_action.get("pnlUsd") else None,
+                    "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 10**PRECISION if trade_action.get("pnlUsd") else None,
                     "size_delta_usd": size_delta_usd,
-                    "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 1e30 if trade_action.get("priceImpactUsd") else None,
+                    "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 10**PRECISION if trade_action.get("priceImpactUsd") else None,
                 },
             }
 
@@ -7797,7 +7867,7 @@ class GMX(ExchangeCompatible):
 
                 # Gas cost stored separately in info
                 gas_cost_eth = float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18
-                size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0.0
+                size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / 10**PRECISION if trade_action.get("sizeDeltaUsd") else 0.0
 
                 # Extract actual trading fee from trade_action
                 fee_dict = self._extract_fee_from_trade_action(
@@ -7851,9 +7921,9 @@ class GMX(ExchangeCompatible):
                         "is_long": is_long,
                         "event_name": event_name,
                         "execution_fee_eth": gas_cost_eth,
-                        "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 1e30 if trade_action.get("pnlUsd") else None,
+                        "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 10**PRECISION if trade_action.get("pnlUsd") else None,
                         "size_delta_usd": size_delta_usd if size_delta_usd else None,
-                        "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 1e30 if trade_action.get("priceImpactUsd") else None,
+                        "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 10**PRECISION if trade_action.get("priceImpactUsd") else None,
                     },
                 }
                 return order
@@ -7935,26 +8005,145 @@ class GMX(ExchangeCompatible):
         limit: int | None = None,
         params: dict | None = None,
     ) -> list[dict]:
-        """Fetch pending DataStore limit orders (stop loss, take profit, limit increase).
+        """Fetch orders including pending, executed, and cancelled.
 
-        Delegates to :meth:`fetch_open_orders` with ``pending_orders_only=True``,
-        returning only orders that are currently waiting in the GMX DataStore
-        for their trigger price conditions to be met.
+        Returns a merged list of:
+
+        1. Pending DataStore limit orders (SL, TP, limit increase) — still
+           waiting for keeper execution.
+        2. Recently executed/cancelled orders from the in-memory order cache —
+           orders the bot created that were later executed or cancelled by
+           GMX keepers.
+        3. Recent position decrease/close events from Subsquid — catches
+           keeper-executed closes, liquidations, and other on-chain events
+           that the bot did not initiate.
+
+        This is critical for Freqtrade's ``handle_onexchange_order()`` recovery
+        flow, which calls ``fetch_orders()`` to discover orders it doesn't know
+        about.  Without the cache and Subsquid results, keeper-executed closes
+        are invisible and trades stay "open" in the database forever.
 
         :param symbol:
             Filter by market symbol (optional).
         :param since:
-            Not used.
+            Timestamp in milliseconds; filters cache and Subsquid results.
         :param limit:
             Maximum number of results.
         :param params:
             Forwarded to :meth:`fetch_open_orders`. ``wallet_address`` override supported.
         :return:
-            List of CCXT-formatted pending limit orders.
+            List of CCXT-formatted orders (pending + executed + cancelled).
         """
         merged = dict(params or {})
+        result = []
+        seen_ids: set[str] = set()
+
+        # 1. Pending DataStore orders (existing behaviour)
         merged["pending_orders_only"] = True
-        return self.fetch_open_orders(symbol=symbol, since=since, limit=limit, params=merged)
+        pending = self.fetch_open_orders(symbol=symbol, since=since, limit=limit, params=merged)
+        for order in pending:
+            order_id = order.get("id")
+            if order_id:
+                seen_ids.add(order_id)
+            result.append(order)
+
+        # 2. Executed/cancelled orders from in-memory cache
+        normalized_symbol = self._normalize_symbol(symbol) if symbol else None
+        for order_id, order in self._orders.items():
+            if order.get("status") not in ("closed", "cancelled", "expired"):
+                continue
+            if normalized_symbol and order.get("symbol") != normalized_symbol:
+                continue
+            if since and order.get("timestamp", 0) < since:
+                continue
+            if order_id not in seen_ids:
+                seen_ids.add(order_id)
+                result.append(order.copy())
+
+        # 3. Recent position changes from Subsquid (catches liquidations and
+        #    keeper-executed closes that the bot didn't initiate)
+        wallet = merged.get("wallet_address", self.wallet_address)
+        if wallet:
+            try:
+                position_changes = self.subsquid.get_position_changes(
+                    account=wallet,
+                    limit=limit or 50,
+                )
+                for change in position_changes:
+                    try:
+                        change_id = change.get("id")
+                        if change_id and change_id in seen_ids:
+                            continue
+
+                        # Parse timestamp (Subsquid returns seconds or ms)
+                        change_ts = change.get("timestamp", 0) or 0
+                        if isinstance(change_ts, str):
+                            change_ts = int(change_ts) if change_ts.isdigit() else 0
+                        change_ts_ms = int(change_ts * 1000) if change_ts < 1e12 else int(change_ts)
+
+                        # Filter by timestamp if specified
+                        if since and change_ts_ms < since:
+                            continue
+
+                        # Find matching market
+                        market_address = change.get("market", "")
+                        market_symbol = self._market_address_to_symbol(market_address)
+                        if not market_symbol:
+                            continue
+                        if normalized_symbol and market_symbol != normalized_symbol:
+                            continue
+
+                        # Only include position decreases/closes (not increases)
+                        size_delta = change.get("sizeDeltaUsd")
+                        change_type = str(change.get("type", "")).lower()
+                        if "increase" in change_type:
+                            continue
+
+                        # Convert position change to CCXT order format
+                        # Subsquid returns values in 30-decimal raw format
+                        is_long = change.get("isLong", True)
+                        execution_price = change.get("executionPrice")
+                        size_usd = abs(float(size_delta)) / 10**PRECISION if size_delta else None
+                        price_float = float(execution_price) / 10**PRECISION if execution_price else None
+                        amount = size_usd / price_float if size_usd and price_float and price_float > 0 else size_usd
+
+                        ts = change_ts_ms or self.milliseconds()
+                        order = {
+                            "id": change_id,
+                            "clientOrderId": None,
+                            "timestamp": ts,
+                            "datetime": self.iso8601(ts),
+                            "lastTradeTimestamp": ts,
+                            "status": "closed",
+                            "symbol": market_symbol,
+                            "type": "market",
+                            "side": "sell" if is_long else "buy",
+                            "price": price_float,
+                            "amount": amount,
+                            "filled": amount,
+                            "remaining": 0.0,
+                            "cost": size_usd,
+                            "average": price_float,
+                            "trades": [],
+                            "fee": None,
+                            "fees": [],
+                            "info": {
+                                "source": "subsquid_position_change",
+                                "change_type": change_type,
+                                "order_key": change.get("orderKey"),
+                            },
+                        }
+                        if change_id:
+                            seen_ids.add(change_id)
+                        result.append(order)
+                    except Exception as exc:
+                        logger.debug("Skipping unparseable position change: %s", exc)
+            except Exception as exc:
+                logger.warning("fetch_orders: Subsquid position changes query failed: %s", exc)
+
+        if limit:
+            result = result[:limit]
+        return result
 
     async def close(self) -> None:
         """Close exchange connection and clean up resources.
