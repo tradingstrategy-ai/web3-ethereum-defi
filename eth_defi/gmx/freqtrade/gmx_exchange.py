@@ -426,10 +426,10 @@ class Gmx(Exchange):
                     side = "LONG" if pos.get("is_long") else "SHORT"
                     market = pos.get("market_symbol", "?")
                     size = pos.get("position_size", 0)
-                    collateral = pos.get("initial_collateral_amount", 0)
+                    collateral = pos.get("initial_collateral_amount_usd", 0)
                     token = pos.get("collateral_token", "?")
                     logger.info(
-                        "  position=%s  market=%s  side=%s  size_usd=%.4f  collateral=%.4f %s",
+                        "  position=%s  market=%s  side=%s  size_usd=%.4f  collateral_usd=%.4f %s",
                         key,
                         market,
                         side,
@@ -437,7 +437,7 @@ class Gmx(Exchange):
                         collateral,
                         token,
                     )
-                    position_lines.append(f"  • `{market}` {side}  size=${size:.2f}  col=${collateral:.2f} {token}")
+                    position_lines.append(f"  • `{market}` {side}  size=${size:.2f}  col=${collateral:.2f}")
             else:
                 logger.info("Lagoon open GMX positions at startup: none")
                 position_lines.append("  _none_")
