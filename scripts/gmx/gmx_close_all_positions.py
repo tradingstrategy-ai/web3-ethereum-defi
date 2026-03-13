@@ -166,10 +166,10 @@ def close_position(
         size_usd = position_data["position_size"]
 
         # Define reverse mapping: positions store tokens with their actual contract names
-        # but the trading API expects these symbols
+        # but the trading API expects these symbols.
+        # BTC markets use "BTC" in both the positions endpoint and the trading API — no mapping needed.
         reverse_symbol_mapping = {
             "WETH": "ETH",
-            "BTC": "WBTC",
         }
 
         # Apply reverse mapping to market symbol if needed

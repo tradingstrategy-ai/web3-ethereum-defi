@@ -151,9 +151,10 @@ def close_position(
 
         # Map internal token names used by the positions endpoint back to the
         # symbols expected by the trading API.
+        # GMX v2 positions return "WETH" for ETH markets; the trading API expects "ETH".
+        # BTC markets use "BTC" in both the positions endpoint and the trading API — no mapping needed.
         reverse_symbol_mapping = {
             "WETH": "ETH",
-            "BTC": "WBTC",
         }
 
         if market_symbol in reverse_symbol_mapping:
