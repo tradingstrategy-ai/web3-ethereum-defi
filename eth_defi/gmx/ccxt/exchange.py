@@ -371,6 +371,22 @@ class GMX(ExchangeCompatible):
         """
         return getattr(self.wallet, "gas_address", self.wallet.address)
 
+    @property
+    def _gas_simulation_address(self) -> str:
+        """Return the address to use as ``from`` in gas estimation simulations.
+
+        Gas estimation runs ``eth_estimateGas`` which simulates the full call
+        including ERC-20 token transfers.  In Lagoon mode the inner call is
+        executed *from the Safe* (via ``performCall``), so the Safe must be used
+        as the simulated sender — otherwise the simulation sees the asset manager
+        address (which holds no USDC collateral) and fails with
+        ``ERC20: transfer amount exceeds balance``.
+
+        For non-Lagoon wallets the gas payer and the simulation address are the
+        same, so we fall back to :attr:`_gas_payer_address`.
+        """
+        return self.wallet.address
+
     def __init__(
         self,
         config: GMXConfig | None = None,
@@ -5184,7 +5200,7 @@ class GMX(ExchangeCompatible):
             try:
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=sltp_result.transaction,
-                    from_addr=self._gas_payer_address,
+                    from_addr=self._gas_simulation_address,
                 )
                 monitor.log_gas_estimate(gas_estimate, "GMX SL/TP order")
                 native_price_usd = gas_estimate.native_price_usd
@@ -5438,7 +5454,7 @@ class GMX(ExchangeCompatible):
             try:
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=result.transaction,
-                    from_addr=self._gas_payer_address,
+                    from_addr=self._gas_simulation_address,
                 )
                 monitor.log_gas_estimate(gas_estimate, f"GMX {type} order")
                 native_price_usd = gas_estimate.native_price_usd
@@ -6426,7 +6442,7 @@ class GMX(ExchangeCompatible):
             try:
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=order_result.transaction,
-                    from_addr=self._gas_payer_address,
+                    from_addr=self._gas_simulation_address,
                 )
                 monitor.log_gas_estimate(gas_estimate, "GMX order")
                 native_price_usd = gas_estimate.native_price_usd
