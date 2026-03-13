@@ -2596,8 +2596,8 @@ class GMX(ExchangeCompatible):
         short_oi_usd_raw = interest.get("shortOpenInterestUsd", 0)
 
         # Convert from 30 decimals to float
-        long_oi_usd = float(long_oi_usd_raw) / 1e30 if long_oi_usd_raw else 0.0
-        short_oi_usd = float(short_oi_usd_raw) / 1e30 if short_oi_usd_raw else 0.0
+        long_oi_usd = float(long_oi_usd_raw) / 10**PRECISION if long_oi_usd_raw else 0.0
+        short_oi_usd = float(short_oi_usd_raw) / 10**PRECISION if short_oi_usd_raw else 0.0
         total_oi_usd = long_oi_usd + short_oi_usd
 
         # Parse token amounts (if available)
@@ -2727,7 +2727,7 @@ class GMX(ExchangeCompatible):
         info = market_infos[0]
 
         # Parse 30-decimal funding rate values
-        funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 1e30
+        funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 10**PRECISION
         longs_pay_shorts = info.get("longsPayShorts", True)
 
         # Determine direction based on longsPayShorts flag
@@ -2809,7 +2809,7 @@ class GMX(ExchangeCompatible):
 
         result = []
         for info in market_infos:
-            funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 1e30
+            funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 10**PRECISION
             longs_pay_shorts = info.get("longsPayShorts", True)
 
             # Try to extract timestamp from ID or use current time
@@ -6891,7 +6891,7 @@ class GMX(ExchangeCompatible):
 
             execution_tx_hash = trade_action.get("transaction", {}).get("hash")
             is_long = trade_action.get("isLong")
-            size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0.0
+            size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / 10**PRECISION if trade_action.get("sizeDeltaUsd") else 0.0
 
             logger.info(
                 "ORDER_TRACE: create_order() - Order EXECUTED successfully - price=%s, size_usd=%s",
@@ -6944,9 +6944,9 @@ class GMX(ExchangeCompatible):
                     "execution_fee_eth": order_result.execution_fee / 1e18,
                     "is_long": is_long,
                     "event_name": event_name,
-                    "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 1e30 if trade_action.get("pnlUsd") else None,
+                    "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 10**PRECISION if trade_action.get("pnlUsd") else None,
                     "size_delta_usd": size_delta_usd,
-                    "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 1e30 if trade_action.get("priceImpactUsd") else None,
+                    "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 10**PRECISION if trade_action.get("priceImpactUsd") else None,
                 },
             }
 
@@ -7867,7 +7867,7 @@ class GMX(ExchangeCompatible):
 
                 # Gas cost stored separately in info
                 gas_cost_eth = float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18
-                size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0.0
+                size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / 10**PRECISION if trade_action.get("sizeDeltaUsd") else 0.0
 
                 # Extract actual trading fee from trade_action
                 fee_dict = self._extract_fee_from_trade_action(
@@ -7921,9 +7921,9 @@ class GMX(ExchangeCompatible):
                         "is_long": is_long,
                         "event_name": event_name,
                         "execution_fee_eth": gas_cost_eth,
-                        "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 1e30 if trade_action.get("pnlUsd") else None,
+                        "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 10**PRECISION if trade_action.get("pnlUsd") else None,
                         "size_delta_usd": size_delta_usd if size_delta_usd else None,
-                        "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 1e30 if trade_action.get("priceImpactUsd") else None,
+                        "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 10**PRECISION if trade_action.get("priceImpactUsd") else None,
                     },
                 }
                 return order
@@ -8103,8 +8103,8 @@ class GMX(ExchangeCompatible):
                         # Subsquid returns values in 30-decimal raw format
                         is_long = change.get("isLong", True)
                         execution_price = change.get("executionPrice")
-                        size_usd = abs(float(size_delta)) / 1e30 if size_delta else None
-                        price_float = float(execution_price) / 1e30 if execution_price else None
+                        size_usd = abs(float(size_delta)) / 10**PRECISION if size_delta else None
+                        price_float = float(execution_price) / 10**PRECISION if execution_price else None
                         amount = size_usd / price_float if size_usd and price_float and price_float > 0 else size_usd
 
                         ts = change_ts_ms or self.milliseconds()
