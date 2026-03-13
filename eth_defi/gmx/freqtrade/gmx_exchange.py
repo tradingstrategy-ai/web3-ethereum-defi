@@ -366,10 +366,12 @@ class Gmx(Exchange):
         logger.debug("Lagoon init: wallet replaced, rebuilding GMXConfig and GMXTrading")
 
         # Rebuild GMXConfig and GMXTrading to target the Safe address.
+        # Forward referral_code so fee discounts are preserved in Lagoon mode.
         gmx_api.config = GMXConfig(
             web3,
             user_wallet_address=safe_address,
             wallet=lagoon_wallet,
+            referral_code=gmx_api.config.referral_code,
         )
         gmx_api.trader = GMXTrading(
             gmx_api.config,
@@ -1105,7 +1107,7 @@ class Gmx(Exchange):
             # "Tried to buy amount 0" truncation artefact from CCXT's prefix.
             msg_idx = exc_msg.find("Message: ")
             if msg_idx != -1:
-                gmx_reason = exc_msg[msg_idx + len("Message: "):]
+                gmx_reason = exc_msg[msg_idx + len("Message: ") :]
             else:
                 gmx_reason = exc_msg
             # Strip verbose tx/order_key suffixes to keep it readable

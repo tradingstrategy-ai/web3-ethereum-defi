@@ -412,6 +412,7 @@ class GMX(ExchangeCompatible):
                     "wallet": wallet_object,  # Optional - alternative to privateKey
                     "verbose": True,  # Optional - enable debug logging
                     "requireMultipleProviders": True,  # Optional - enforce fallback support
+                    "referralCode": "tano",  # Optional - GMX referral code for fee discounts
                 }
             )
 
@@ -489,6 +490,16 @@ class GMX(ExchangeCompatible):
         self._require_multiple_providers = parameters.get("requireMultipleProviders", False)
         self._oracle_prices_instance = None
 
+        # Referral code — human-readable string up to 32 chars (e.g. "tano").
+        # Stored as bytes32 and embedded in every on-chain order for fee discounts.
+        referral_code_str = parameters.get("referralCode")
+        if referral_code_str:
+            from eth_defi.event_reader.conversion import convert_string_to_bytes32
+            self._referral_code: bytes | None = convert_string_to_bytes32(referral_code_str)
+            logger.info("GMX referral code configured: %s", referral_code_str)
+        else:
+            self._referral_code = None
+
         # Configure verbose logging if requested
         if self._verbose:
             self._configure_verbose_logging()
@@ -541,7 +552,7 @@ class GMX(ExchangeCompatible):
 
         # Create GMX config from web3 and wallet
         # Pass wallet to config so BaseOrder can access it for auto-approval
-        self.config = GMXConfig(self.web3, user_wallet_address=wallet_address, wallet=self.wallet)
+        self.config = GMXConfig(self.web3, user_wallet_address=wallet_address, wallet=self.wallet, referral_code=self._referral_code)
 
         # Parse gas monitoring config from CCXT options
         options = parameters.get("options", {})
@@ -7972,26 +7983,145 @@ class GMX(ExchangeCompatible):
         limit: int | None = None,
         params: dict | None = None,
     ) -> list[dict]:
-        """Fetch pending DataStore limit orders (stop loss, take profit, limit increase).
+        """Fetch orders including pending, executed, and cancelled.
 
-        Delegates to :meth:`fetch_open_orders` with ``pending_orders_only=True``,
-        returning only orders that are currently waiting in the GMX DataStore
-        for their trigger price conditions to be met.
+        Returns a merged list of:
+
+        1. Pending DataStore limit orders (SL, TP, limit increase) — still
+           waiting for keeper execution.
+        2. Recently executed/cancelled orders from the in-memory order cache —
+           orders the bot created that were later executed or cancelled by
+           GMX keepers.
+        3. Recent position decrease/close events from Subsquid — catches
+           keeper-executed closes, liquidations, and other on-chain events
+           that the bot did not initiate.
+
+        This is critical for Freqtrade's ``handle_onexchange_order()`` recovery
+        flow, which calls ``fetch_orders()`` to discover orders it doesn't know
+        about.  Without the cache and Subsquid results, keeper-executed closes
+        are invisible and trades stay "open" in the database forever.
 
         :param symbol:
             Filter by market symbol (optional).
         :param since:
-            Not used.
+            Timestamp in milliseconds; filters cache and Subsquid results.
         :param limit:
             Maximum number of results.
         :param params:
             Forwarded to :meth:`fetch_open_orders`. ``wallet_address`` override supported.
         :return:
-            List of CCXT-formatted pending limit orders.
+            List of CCXT-formatted orders (pending + executed + cancelled).
         """
         merged = dict(params or {})
+        result = []
+        seen_ids: set[str] = set()
+
+        # 1. Pending DataStore orders (existing behaviour)
         merged["pending_orders_only"] = True
-        return self.fetch_open_orders(symbol=symbol, since=since, limit=limit, params=merged)
+        pending = self.fetch_open_orders(symbol=symbol, since=since, limit=limit, params=merged)
+        for order in pending:
+            order_id = order.get("id")
+            if order_id:
+                seen_ids.add(order_id)
+            result.append(order)
+
+        # 2. Executed/cancelled orders from in-memory cache
+        normalized_symbol = self._normalize_symbol(symbol) if symbol else None
+        for order_id, order in self._orders.items():
+            if order.get("status") not in ("closed", "cancelled", "expired"):
+                continue
+            if normalized_symbol and order.get("symbol") != normalized_symbol:
+                continue
+            if since and order.get("timestamp", 0) < since:
+                continue
+            if order_id not in seen_ids:
+                seen_ids.add(order_id)
+                result.append(order.copy())
+
+        # 3. Recent position changes from Subsquid (catches liquidations and
+        #    keeper-executed closes that the bot didn't initiate)
+        wallet = merged.get("wallet_address", self.wallet_address)
+        if wallet:
+            try:
+                position_changes = self.subsquid.get_position_changes(
+                    account=wallet,
+                    limit=limit or 50,
+                )
+                for change in position_changes:
+                    try:
+                        change_id = change.get("id")
+                        if change_id and change_id in seen_ids:
+                            continue
+
+                        # Parse timestamp (Subsquid returns seconds or ms)
+                        change_ts = change.get("timestamp", 0) or 0
+                        if isinstance(change_ts, str):
+                            change_ts = int(change_ts) if change_ts.isdigit() else 0
+                        change_ts_ms = int(change_ts * 1000) if change_ts < 1e12 else int(change_ts)
+
+                        # Filter by timestamp if specified
+                        if since and change_ts_ms < since:
+                            continue
+
+                        # Find matching market
+                        market_address = change.get("market", "")
+                        market_symbol = self._market_address_to_symbol(market_address)
+                        if not market_symbol:
+                            continue
+                        if normalized_symbol and market_symbol != normalized_symbol:
+                            continue
+
+                        # Only include position decreases/closes (not increases)
+                        size_delta = change.get("sizeDeltaUsd")
+                        change_type = str(change.get("type", "")).lower()
+                        if "increase" in change_type:
+                            continue
+
+                        # Convert position change to CCXT order format
+                        # Subsquid returns values in 30-decimal raw format
+                        is_long = change.get("isLong", True)
+                        execution_price = change.get("executionPrice")
+                        size_usd = abs(float(size_delta)) / 1e30 if size_delta else None
+                        price_float = float(execution_price) / 1e30 if execution_price else None
+                        amount = size_usd / price_float if size_usd and price_float and price_float > 0 else size_usd
+
+                        ts = change_ts_ms or self.milliseconds()
+                        order = {
+                            "id": change_id,
+                            "clientOrderId": None,
+                            "timestamp": ts,
+                            "datetime": self.iso8601(ts),
+                            "lastTradeTimestamp": ts,
+                            "status": "closed",
+                            "symbol": market_symbol,
+                            "type": "market",
+                            "side": "sell" if is_long else "buy",
+                            "price": price_float,
+                            "amount": amount,
+                            "filled": amount,
+                            "remaining": 0.0,
+                            "cost": size_usd,
+                            "average": price_float,
+                            "trades": [],
+                            "fee": None,
+                            "fees": [],
+                            "info": {
+                                "source": "subsquid_position_change",
+                                "change_type": change_type,
+                                "order_key": change.get("orderKey"),
+                            },
+                        }
+                        if change_id:
+                            seen_ids.add(change_id)
+                        result.append(order)
+                    except Exception as exc:
+                        logger.debug("Skipping unparseable position change: %s", exc)
+            except Exception as exc:
+                logger.warning("fetch_orders: Subsquid position changes query failed: %s", exc)
+
+        if limit:
+            result = result[:limit]
+        return result
 
     async def close(self) -> None:
         """Close exchange connection and clean up resources.
