@@ -1330,6 +1330,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.liquidity_royalty.vault import LiquidityRoyalyJuniorVault
 
         return LiquidityRoyalyJuniorVault(web3, spec, **kwargs)
+    elif ERC4626Feature.liquid_royalty_like in features:
+        from eth_defi.erc_4626.vault_protocol.liquid_royalty.vault import LiquidRoyaltyVault
+
+        return LiquidRoyaltyVault(web3, spec, **kwargs)
     elif ERC4626Feature.csigma_like in features:
         from eth_defi.erc_4626.vault_protocol.csigma.vault import CsigmaVault
 
@@ -1645,6 +1649,12 @@ HARDCODED_PROTOCOLS = {
     "0x3ccff8c929b497c1ff96592b8ff592b45963e732": {ERC4626Feature.foxify_like},
     # Liquidity Royalty Tranching - Junior Vault on Berachain
     "0x3a0a97dca5e6cacc258490d5ece453412f8e1883": {ERC4626Feature.liquidity_royalty_like},
+    # Liquid Royalty - ALAR SailOut Royalty vault on Berachain
+    # https://berascan.com/address/0x09cea16a2563c2d7d807c86f5b8da760389b5915
+    "0x09cea16a2563c2d7d807c86f5b8da760389b5915": {ERC4626Feature.liquid_royalty_like},
+    # Liquid Royalty - Senior Vault Master on Berachain
+    # https://berascan.com/address/0xc38421e5577250eba177bc5bc832e747bea13ee0
+    "0xc38421e5577250eba177bc5bc832e747bea13ee0": {ERC4626Feature.liquid_royalty_like},
     # cSigma Finance - csUSD vault on Ethereum
     # https://etherscan.io/address/0xd5d097f278a735d0a3c609deee71234cac14b47e
     "0xd5d097f278a735d0a3c609deee71234cac14b47e": {ERC4626Feature.csigma_like},

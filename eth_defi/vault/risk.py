@@ -85,6 +85,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Llama Lend": VaultTechnicalRisk.low,
     "Foxify": VaultTechnicalRisk.dangerous,
     "Liquidity Royalty Tranching": None,
+    "Liquid Royalty": VaultTechnicalRisk.severe,
     "cSigma Finance": VaultTechnicalRisk.severe,
     "Spark": VaultTechnicalRisk.negligible,
     "Teller": VaultTechnicalRisk.severe,

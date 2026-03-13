@@ -1,5 +1,6 @@
 # Current
 
+- Add: New protocol: Liquid Royalty - ALAR SailOut Royalty vault on Berachain with hardcoded detection (2026-03-13)
 - Add: Top traders by trade count script with ASXN Hyperscreener integration, portfolio/leaderboard API functions in `eth_defi.hyperliquid.api` (2026-03-13)
 - Add: Hyperliquid copy trading platforms and HFT account identification research documentation (2026-03-13)
 - Add: Configurable `proxy_failure_log_level` on `create_hyperliquid_session()` to suppress noisy proxy rotation/failure warnings in scan mode (2026-03-13)
