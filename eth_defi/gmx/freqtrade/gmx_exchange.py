@@ -389,52 +389,67 @@ class Gmx(Exchange):
         self._log_lagoon_initial_balance(safe_address)
 
     def _log_lagoon_initial_balance(self, safe_address: str) -> None:
-        """Log the Safe's USDC wallet balance and any open GMX positions at startup.
+        """Log the Safe's USDC wallet balance and open GMX positions at startup.
 
         Called once at the end of :meth:`_init_lagoon_wallet` so we have a clear
         on-chain snapshot before freqtrade records its ``starting_capital``.
-
-        Logs at INFO level so the values always appear in ``freqtrade.logs``.
+        Also sends the snapshot to Telegram so the operator can confirm the
+        starting state without tailing logs.
         """
+        bot_name = self._config.get("bot_name", "freqtrade")
+        free_usdc = used_usdc = total_usdc = 0.0
+
         try:
             balance = self._api.fetch_balance()
             usdc = balance.get("USDC", {})
-            wallet_usdc = usdc.get("total", 0.0)
+            total_usdc = usdc.get("total", 0.0)
             used_usdc = usdc.get("used", 0.0)
             free_usdc = usdc.get("free", 0.0)
             logger.info(
-                "Lagoon initial balance (safe=%s): wallet_USDC=%.6f  used_in_GMX=%.6f  free=%.6f",
+                "Lagoon initial balance (safe=%s): total_USDC=%.6f  in_GMX=%.6f  free=%.6f",
                 safe_address,
-                wallet_usdc,
+                total_usdc,
                 used_usdc,
                 free_usdc,
             )
         except Exception as e:
             logger.warning("Lagoon initial balance fetch failed (non-fatal): %s", e)
 
+        position_lines: list[str] = []
         try:
             from eth_defi.gmx.core.open_positions import GetOpenPositions
 
             positions = GetOpenPositions(self._api.config).get_data(safe_address)
             if positions:
-                logger.info(
-                    "Lagoon open GMX positions at startup (%d total):",
-                    len(positions),
-                )
+                logger.info("Lagoon open GMX positions at startup (%d total):", len(positions))
                 for key, pos in positions.items():
+                    side = "LONG" if pos.get("is_long") else "SHORT"
+                    market = pos.get("market_symbol", "?")
+                    size = pos.get("position_size", 0)
+                    collateral = pos.get("initial_collateral_amount", 0)
+                    token = pos.get("collateral_token", "?")
                     logger.info(
                         "  position=%s  market=%s  side=%s  size_usd=%.4f  collateral=%.4f %s",
                         key,
-                        pos.get("market_symbol", "?"),
-                        "LONG" if pos.get("is_long") else "SHORT",
-                        pos.get("position_size", 0),
-                        pos.get("initial_collateral_amount", 0),
-                        pos.get("collateral_token", "?"),
+                        market,
+                        side,
+                        size,
+                        collateral,
+                        token,
                     )
+                    position_lines.append(f"  • `{market}` {side}  size=${size:.2f}  col=${collateral:.2f} {token}")
             else:
                 logger.info("Lagoon open GMX positions at startup: none")
+                position_lines.append("  _none_")
         except Exception as e:
             logger.warning("Lagoon open positions fetch at startup failed (non-fatal): %s", e)
+            position_lines.append("  _could not fetch_")
+
+        # --- Telegram startup snapshot ---
+        safe_short = f"{safe_address[:6]}…{safe_address[-4:]}"
+        positions_block = "\n".join(position_lines)
+        msg = f"🟢 *{bot_name} — Bot Started*\n\nSafe: `{safe_short}`\n\n*Balance (USDC)*\n  Free:    `${free_usdc:.4f}`\n  In GMX:  `${used_usdc:.4f}`\n  Total:   `${total_usdc:.4f}`\n\n*Open positions*\n{positions_block}"
+        send_freqtrade_telegram_message(self._config, msg)
 
     def _approve_lagoon_collateral(
         self,
@@ -1073,6 +1088,10 @@ class Gmx(Exchange):
         exc_type = type(exc).__name__
         order_dir = "close" if reduce_only else "open"
 
+        # Truncate long error strings — Telegram messages must stay readable at a glance.
+        # Full detail is always available in the log file via logger.error() below.
+        snippet = exc_msg[:120] + ("…" if len(exc_msg) > 120 else "")
+
         # --- Keeper cancellation / circuit breaker ---
         if "OrderCancelled" in exc_msg or "OrderFrozen" in exc_msg:
             ccxt_exchange = getattr(self, "_api", None)
@@ -1080,24 +1099,24 @@ class Gmx(Exchange):
             cb_entry = tracker.get(pair, {})
             cancel_count = cb_entry.get("count", 1)
             max_cancels = getattr(ccxt_exchange, "_max_keeper_cancels", 3) if ccxt_exchange else 3
-            reason = cb_entry.get("last_reason", exc_msg)
+            reason = cb_entry.get("last_reason", snippet)
             is_cb = cancel_count >= max_cancels
             if is_cb:
-                msg = f"🚨 *{bot_name} — Circuit Breaker Active*\n\nKeeper cancelled `{pair}` {order_dir} order *{cancel_count}/{max_cancels}* times.\nExit orders for this pair are now *paused* (cooldown active).\n\nReason: `{reason}`"
+                msg = f"🚨 *{bot_name}*\nCircuit breaker — `{pair}` {order_dir}\nCancelled *{cancel_count}/{max_cancels}×* · cooldown active\n`{reason[:80]}`"
             else:
-                msg = f"⚠️ *{bot_name} — Keeper Cancellation {cancel_count}/{max_cancels}*\n\nKeeper cancelled `{pair}` {order_dir} order.\n\nReason: `{reason}`"
+                msg = f"⚠️ *{bot_name}*\nKeeper cancel *{cancel_count}/{max_cancels}* — `{pair}` {order_dir}\n`{reason[:80]}`"
 
         # --- Insufficient funds ---
         elif "insufficient" in exc_msg.lower() or "InsufficientFunds" in exc_type:
-            msg = f"💸 *{bot_name} — Insufficient Funds*\n\nCould not create {order_dir} order for `{pair}`.\n\nError: `{exc_msg}`"
+            msg = f"💸 *{bot_name}*\nInsufficient funds — `{pair}` {order_dir}\n`{snippet}`"
 
         # --- Invalid order (bad params, size, etc.) ---
         elif "InvalidOrder" in exc_type or "invalid order" in exc_msg.lower():
-            msg = f"❌ *{bot_name} — Invalid Order*\n\nCould not create {order_dir} order for `{pair}`.\n\nError: `{exc_msg}`"
+            msg = f"❌ *{bot_name}*\nInvalid order — `{pair}` {order_dir}\n`{snippet}`"
 
         # --- Generic fallback for all other errors ---
         else:
-            msg = f"🔴 *{bot_name} — Order Error ({exc_type})*\n\nFailed to create {order_dir} order for `{pair}`.\n\nError: `{exc_msg}`"
+            msg = f"🔴 *{bot_name}* `{exc_type}`\n`{pair}` {order_dir} failed\n`{snippet}`"
 
         logger.error("ORDER_ERROR: %s %s order failed — %s: %s", pair, order_dir, exc_type, exc_msg)
         sent = send_freqtrade_telegram_message(self._config, msg)
