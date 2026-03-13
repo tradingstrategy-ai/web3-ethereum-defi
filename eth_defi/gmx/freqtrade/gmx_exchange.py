@@ -1099,12 +1099,27 @@ class Gmx(Exchange):
             cb_entry = tracker.get(pair, {})
             cancel_count = cb_entry.get("count", 1)
             max_cancels = getattr(ccxt_exchange, "_max_keeper_cancels", 3) if ccxt_exchange else 3
-            reason = cb_entry.get("last_reason", snippet)
+
+            # Extract the GMX-specific reason after "Message: " if present;
+            # otherwise fall back to the full snippet.  This avoids the
+            # "Tried to buy amount 0" truncation artefact from CCXT's prefix.
+            msg_idx = exc_msg.find("Message: ")
+            if msg_idx != -1:
+                gmx_reason = exc_msg[msg_idx + len("Message: "):]
+            else:
+                gmx_reason = exc_msg
+            # Strip verbose tx/order_key suffixes to keep it readable
+            for _suffix in (" (tx=", " tx="):
+                tx_idx = gmx_reason.find(_suffix)
+                if tx_idx != -1:
+                    gmx_reason = gmx_reason[:tx_idx]
+            gmx_reason = gmx_reason.strip()
+
             is_cb = cancel_count >= max_cancels
             if is_cb:
-                msg = f"🚨 *{bot_name}*\nCircuit breaker — `{pair}` {order_dir}\nCancelled *{cancel_count}/{max_cancels}×* · cooldown active\n`{reason[:80]}`"
+                msg = f"🚨 *{bot_name}*\nCircuit breaker — `{pair}` {order_dir}\nCancelled *{cancel_count}/{max_cancels}×* · cooldown active\n`{gmx_reason[:120]}`"
             else:
-                msg = f"⚠️ *{bot_name}*\nKeeper cancel *{cancel_count}/{max_cancels}* — `{pair}` {order_dir}\n`{reason[:80]}`"
+                msg = f"⚠️ *{bot_name}*\nKeeper cancel *{cancel_count}/{max_cancels}* — `{pair}` {order_dir}\n`{gmx_reason[:120]}`"
 
         # --- Insufficient funds ---
         elif "insufficient" in exc_msg.lower() or "InsufficientFunds" in exc_type:
