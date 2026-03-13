@@ -1,0 +1,25 @@
+name: Liquid Royalty
+slug: liquid-royalty
+short_description: |
+  Vault product on Berachain using USDe as the underlying asset.
+long_description: |
+  Liquid Royalty is a vault product on Berachain that uses USDe as the underlying asset.
+  It is part of the Liquidity Royalty protocol family, which implements tiered vault
+  architecture with profit spillover and cascading backstop mechanisms.
+
+  The ALAR SailOut Royalty vault is an ERC-4626 compliant vault deployed on Berachain.
+fee_description: |
+  No management or performance fees.
+  Early withdrawal within 7-day cooldown incurs a 20% liquidation penalty on the unstaked amount.
+  Wait 7 days after initiating cooldown to withdraw without penalty.
+links:
+  homepage: https://www.liquidroyalty.com
+  app: https://www.liquidroyalty.com/vaults
+  twitter: https://x.com/liquidroyaltyX
+  github: https://github.com/stratosphere-network/LiquidRoyaltyContracts
+  documentation: https://docs.liquidroyalty.com
+  defillama:  # Not listed on DeFiLlama as of 2026-03-13
+  audits:  # Docs claim independent audits but no public reports linked
+  fees: https://docs.liquidroyalty.com/token/staking-product-farm
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/liquid-royalty
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/liquid_royalty/index.html

@@ -1,0 +1,1 @@
+"""Liquid Royalty protocol integration."""

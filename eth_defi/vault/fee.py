@@ -146,6 +146,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # already reflected in share prices (internalised skimming).
     # Per-pool operator fees range from 0% (LLP) to variable amounts for user pools.
     "Lighter": VaultFeeMode.internalised_skimming,
+    # Liquid Royalty has no management/performance fees, but 20% early withdrawal penalty within 7-day cooldown
+    "Liquid Royalty": VaultFeeMode.feeless,
 }
 
 

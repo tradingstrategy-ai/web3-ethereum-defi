@@ -64,6 +64,7 @@ Supported protocols
    infinifi/index
    ipor/index
    lagoon/index
+   liquid_royalty/index
    liquidity_royalty/index
    llama-lend/index
    mainstreet/index

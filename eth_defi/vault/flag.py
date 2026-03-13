@@ -179,6 +179,8 @@ ETH_STRATEGY_ESPN = """ESPN (ETH Strategy Perpetual Note) lends USDS to ETH Stra
 [Discussion about the ESPN vault](https://x.com/TradingProtocol/status/2011043276283900198).
 """
 
+LIQUID_ROYALTY_NOTE = "Early withdrawal within 7-day cooldown incurs a 20% liquidation penalty on the unstaked amount. Initiate cooldown and wait 7 days to withdraw without penalty."
+
 LIGHTER_LLP_STAKING = """LLP (Lighter Liquidity Provider) is the protocol's community-owned market-making pool providing liquidity and handling liquidations on Lighter DEX.
 
 Depositing into LLP requires staking LIT tokens at a 1:10 ratio (1 LIT staked per 10 USDC deposited). Staking ≥100 LIT waives withdrawal and transfer fees. If staked LIT does not fully cover the deposit, up to 3% or 100 USDC of the uncovered amount is returned daily to the user's balance.
@@ -409,6 +411,10 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x6f6046e59501e484152d46045ba5eecf1cab8935": (VaultFlag.irregular_reporting, IRREGULAR_REPORTING),
     # JPYC (Yearn)
     "0x7a6e3635694952dc00f6ba4d4ad1a7b892028789": (VaultFlag.irregular_reporting, IRREGULAR_REPORTING),
+    # Liquid Royalty - ALAR SailOut Royalty vault on Berachain
+    "0x09cea16a2563c2d7d807c86f5b8da760389b5915": (None, LIQUID_ROYALTY_NOTE),
+    # Liquid Royalty - Senior Vault Master on Berachain
+    "0xc38421e5577250eba177bc5bc832e747bea13ee0": (None, LIQUID_ROYALTY_NOTE),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
