@@ -592,6 +592,24 @@ def main():
         print("Error: specify -t/--token, --list-markets, or --any-asset", file=sys.stderr)
         sys.exit(1)
 
+    if args.any_asset:
+        print(
+            "\nWARNING: --any-asset is enabled.\n"
+            "  The guard will NOT enforce an explicit token whitelist — any ERC-20 can be\n"
+            "  used as collateral or received by the Safe.  This weakens the security model\n"
+            "  of the vault guard.  Only use this flag if you fully understand the risks.\n"
+            "  For production vaults, omit --any-asset and specify markets with -t instead.\n",
+            file=sys.stderr,
+        )
+        try:
+            answer = input("Type 'yes' to confirm and continue, or press Ctrl+C to abort: ").strip().lower()
+        except KeyboardInterrupt:
+            print("\nAborted.", file=sys.stderr)
+            sys.exit(1)
+        if answer != "yes":
+            print("Aborted.", file=sys.stderr)
+            sys.exit(1)
+
     # Parse network and mode
     network = os.environ.get("NETWORK", "mainnet").lower()
     if network not in ("mainnet", "testnet"):
