@@ -167,6 +167,13 @@ def main():
             print("\n\nInterrupted — saving checkpoint...")
             db.save()
 
+        def _human(n):
+            if n >= 1_000_000:
+                return f"{n / 1_000_000:.1f}M"
+            if n >= 1_000:
+                return f"{n / 1_000:.0f}k"
+            return str(n)
+
         # Per-account summary table (only when we have results from a full run)
         if results:
             rows = []
@@ -181,9 +188,9 @@ def main():
                         r.get("fills", 0),
                         r.get("funding", 0),
                         r.get("ledger", 0),
-                        state.get("fills", {}).get("row_count", 0),
-                        state.get("funding", {}).get("row_count", 0),
-                        state.get("ledger", {}).get("row_count", 0),
+                        _human(state.get("fills", {}).get("row_count", 0)),
+                        _human(state.get("funding", {}).get("row_count", 0)),
+                        _human(state.get("ledger", {}).get("row_count", 0)),
                         "ERR" if r.get("error") else "OK",
                     ]
                 )
@@ -199,7 +206,7 @@ def main():
 
         # Always print grand totals (even on Ctrl+C)
         totals = db.get_total_row_counts()
-        print(f"\nDatabase totals: {totals['fills']} fills, {totals['funding']} funding, {totals['ledger']} ledger")
+        print(f"\nDatabase totals: {_human(totals['fills'])} fills, {_human(totals['funding'])} funding, {_human(totals['ledger'])} ledger")
         print(f"Database path: {db_path}")
 
         if interrupted:

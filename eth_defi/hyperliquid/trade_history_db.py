@@ -889,17 +889,9 @@ class HyperliquidTradeHistoryDatabase:
             return {}
 
         # Print existing database entry counts before syncing
-        existing = self.con.execute(
-            "SELECT "
-            "(SELECT COUNT(*) FROM fills), "
-            "(SELECT COUNT(*) FROM funding), "
-            "(SELECT COUNT(*) FROM ledger)"
-        ).fetchone()
+        existing = self.con.execute("SELECT (SELECT COUNT(*) FROM fills), (SELECT COUNT(*) FROM funding), (SELECT COUNT(*) FROM ledger)").fetchone()
         print(  # noqa: T201
-            f"Database: {_format_count(existing[0])} fills, "
-            f"{_format_count(existing[1])} funding, "
-            f"{_format_count(existing[2])} ledger entries "
-            f"for {len(accounts)} accounts"
+            f"Database: {_format_count(existing[0])} fills, {_format_count(existing[1])} funding, {_format_count(existing[2])} ledger entries for {len(accounts)} accounts"
         )
 
         results = {}

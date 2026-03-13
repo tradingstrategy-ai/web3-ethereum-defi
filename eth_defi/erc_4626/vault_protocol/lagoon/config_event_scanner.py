@@ -52,6 +52,7 @@ from web3.exceptions import ContractLogicError
 from eth_defi.abi import get_abi_by_filename
 from eth_defi.cctp.constants import CCTP_DOMAIN_NAMES, CCTP_DOMAIN_TO_CHAIN_ID, TESTNET_CCTP_DOMAIN_TO_CHAIN_ID, TESTNET_CHAIN_IDS
 from eth_defi.chain import get_chain_name
+from eth_defi.etherscan.config import get_etherscan_url
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.event_reader.reader import read_events
@@ -857,6 +858,334 @@ def format_guard_config_report(
         )
         if not is_last:
             lines.append("\u2502")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Markdown formatting
+# ---------------------------------------------------------------------------
+
+
+def _md_address(addr: HexAddress, chain_id: int, label: str | None = None) -> str:
+    """Format an address as a Markdown link to the block explorer.
+
+    Falls back to a plain code span when no explorer URL is available
+    for the chain.
+
+    :param addr:
+        Checksummed contract address.
+
+    :param chain_id:
+        EVM chain ID used to look up the explorer URL.
+
+    :param label:
+        Optional human-readable label.  When provided the link text
+        is ``label`` instead of the raw address.
+    """
+    display = label or addr
+    explorer_url = get_etherscan_url(chain_id)
+    if explorer_url:
+        return f"[{display}]({explorer_url}/address/{addr})"
+    return f"`{display}`"
+
+
+def _format_chain_config_markdown(
+    cfg: ChainGuardConfig,
+    indent: int = 0,
+    web3: Web3 | None = None,
+    token_cache: TokenDiskCache | None = None,
+    known_labels: dict[str, str] | None = None,
+    events: list[DecodedGuardEvent] | None = None,
+    all_chain_configs: dict[int, ChainGuardConfig] | None = None,
+    all_chain_web3: dict[int, Web3] | None = None,
+    all_chain_events: dict[int, list[DecodedGuardEvent]] | None = None,
+    rendered_chains: set[int] | None = None,
+) -> str:
+    """Format a single chain's guard configuration as a Markdown bullet-list tree.
+
+    Mirrors the section logic of :func:`format_chain_config_detailed` but
+    outputs nested Markdown lists with block-explorer links instead of
+    Unicode box-drawing characters.
+
+    :param cfg:
+        Per-chain guard configuration.
+
+    :param indent:
+        Current nesting depth (each level adds two-space indentation).
+
+    :param web3:
+        Optional Web3 connection for token/contract name resolution.
+
+    :param token_cache:
+        Optional disk cache for token metadata.
+
+    :param known_labels:
+        Optional ``{checksummed_address: label}`` mapping.
+
+    :param events:
+        Optional decoded guard events for event-based label resolution.
+
+    :param all_chain_configs:
+        Full ``{chain_id: ChainGuardConfig}`` dict for rendering CCTP
+        destination chains inline.
+
+    :param all_chain_web3:
+        ``{chain_id: Web3}`` for all chains.
+
+    :param all_chain_events:
+        ``{chain_id: events}`` for all chains.
+
+    :param rendered_chains:
+        Chain IDs already rendered.  Prevents circular CCTP nesting.
+
+    :return:
+        Multi-line Markdown string.
+    """
+    if rendered_chains is None:
+        rendered_chains = set()
+    rendered_chains = rendered_chains | {cfg.chain_id}
+
+    # Build known labels: Safe as <our multisig> + Hypercore vaults + user overrides
+    labels: dict[str, str] = {}
+    safe_checksum = Web3.to_checksum_address(cfg.safe_address)
+    labels[safe_checksum] = "<our multisig>"
+    if cfg.hypercore_vaults:
+        try:
+            labels.update(resolve_hypercore_vault_labels(cfg.hypercore_vaults))
+        except Exception as e:
+            logger.debug("Hypercore vault label resolution failed: %s", e)
+    if known_labels:
+        labels.update(known_labels)
+
+    event_labels = build_event_based_labels(events) if events else None
+
+    def _label(addr: HexAddress) -> str:
+        return resolve_address_label(web3, addr, known_labels=labels, fallback_labels=event_labels)
+
+    def _addr(addr: HexAddress, label: str | None = None) -> str:
+        return _md_address(addr, cfg.chain_id, label=label)
+
+    def _addr_labelled(addr: HexAddress) -> str:
+        """Resolve label and wrap in explorer link."""
+        lbl = _label(addr)
+        return _addr(addr, label=lbl)
+
+    def _token(addr: HexAddress) -> str:
+        if web3 is not None:
+            lbl = resolve_token_label(web3, addr, token_cache)
+        else:
+            lbl = addr
+        return _addr(addr, label=lbl)
+
+    pfx = "  " * indent
+
+    # Collect non-empty sections as (title, items) tuples.
+    sections: list[tuple[str, list]] = []
+
+    if cfg.senders:
+        sections.append(("Senders (trade executors)", [_addr(a) for a in cfg.senders]))
+
+    if cfg.receivers:
+        sections.append(("Receivers", [_addr_labelled(a) for a in cfg.receivers]))
+
+    if cfg.any_asset:
+        sections.append(("Any asset", ["ENABLED"]))
+
+    if cfg.assets:
+        sections.append(("Whitelisted assets", [_token(a) for a in cfg.assets]))
+
+    if cfg.approval_destinations:
+        sections.append(("Approval destinations (routers)", [_addr_labelled(a) for a in cfg.approval_destinations]))
+
+    if cfg.withdraw_destinations:
+        sections.append(("Withdraw destinations", [_addr_labelled(a) for a in cfg.withdraw_destinations]))
+
+    if cfg.delegation_approval_destinations:
+        sections.append(("Delegation approval destinations", [_addr_labelled(a) for a in cfg.delegation_approval_destinations]))
+
+    if cfg.lagoon_vaults:
+        sections.append(("Lagoon vaults (settlement)", [_addr_labelled(a) for a in cfg.lagoon_vaults]))
+
+    if cfg.erc4626_vaults:
+        sections.append(("ERC-4626 vaults", [_addr_labelled(a) for a in cfg.erc4626_vaults]))
+
+    if cfg.cctp_messengers:
+        sections.append(("CCTP messengers", [_addr_labelled(a) for a in cfg.cctp_messengers]))
+
+    # CCTP bridges — render destination chains as nested subtrees
+    if cfg.cctp_destinations and all_chain_configs:
+        domain_to_chain = TESTNET_CCTP_DOMAIN_TO_CHAIN_ID if cfg.chain_id in TESTNET_CHAIN_IDS else CCTP_DOMAIN_TO_CHAIN_ID
+        cctp_items: list[tuple] = []
+        for domain in cfg.cctp_destinations:
+            dest_chain_id = domain_to_chain.get(domain)
+            if dest_chain_id and dest_chain_id in rendered_chains:
+                continue
+            if dest_chain_id and dest_chain_id in all_chain_configs:
+                dest_cfg = all_chain_configs[dest_chain_id]
+                dest_name = CCTP_DOMAIN_NAMES.get(domain, f"domain {domain}")
+                title = f"{dest_name} (chain {dest_chain_id}) via CCTP domain {domain}"
+                cctp_items.append((title, dest_cfg))
+            else:
+                dest_name = CCTP_DOMAIN_NAMES.get(domain, f"domain {domain}")
+                cctp_items.append((f"{dest_name} via CCTP domain {domain} (no config available)", None))
+        if cctp_items:
+            sections.append(("CCTP bridges", cctp_items))
+    elif cfg.cctp_destinations:
+        domain_to_chain_fallback = TESTNET_CCTP_DOMAIN_TO_CHAIN_ID if cfg.chain_id in TESTNET_CHAIN_IDS else CCTP_DOMAIN_TO_CHAIN_ID
+        items = []
+        for domain in cfg.cctp_destinations:
+            dest_name = CCTP_DOMAIN_NAMES.get(domain, f"domain {domain}")
+            dest_chain = domain_to_chain_fallback.get(domain)
+            chain_info = f"chain {dest_chain}" if dest_chain else "?"
+            items.append(f"Domain {domain} \u2192 {dest_name} ({chain_info})")
+        sections.append(("CCTP destinations", items))
+
+    if cfg.cowswap_settlements:
+        sections.append(("CowSwap settlements", [_addr_labelled(a) for a in cfg.cowswap_settlements]))
+
+    if cfg.velora_swappers:
+        sections.append(("Velora (ParaSwap) swappers", [_addr_labelled(a) for a in cfg.velora_swappers]))
+
+    if cfg.gmx_routers:
+        items = [f"exchange: {_addr_labelled(ex)}, synthetics: {_addr_labelled(syn)}" for ex, syn in cfg.gmx_routers]
+        sections.append(("GMX routers", items))
+
+    if cfg.gmx_markets:
+        sections.append(("GMX markets", [_addr_labelled(a) for a in cfg.gmx_markets]))
+
+    if cfg.hypercore_core_writers:
+        sections.append(("Hypercore core writers", [_addr_labelled(a) for a in cfg.hypercore_core_writers]))
+
+    if cfg.hypercore_deposit_wallets:
+        sections.append(("Hypercore deposit wallets", [_addr_labelled(a) for a in cfg.hypercore_deposit_wallets]))
+
+    if cfg.hypercore_vaults:
+        sections.append(("Hypercore vaults", [_addr_labelled(a) for a in cfg.hypercore_vaults]))
+
+    if cfg.call_sites:
+        sections.append((f"Call sites: {len(cfg.call_sites)} whitelisted", []))
+
+    # Render as nested Markdown bullet list
+    lines: list[str] = []
+    is_cctp_bridge_section = False
+
+    for title, items in sections:
+        is_cctp_bridge_section = title == "CCTP bridges" and items and isinstance(items[0], tuple)
+
+        if is_cctp_bridge_section:
+            lines.append(f"{pfx}- **{title}**")
+            for dest_title, dest_cfg in items:
+                if dest_cfg is None:
+                    lines.append(f"{pfx}  - {dest_title}")
+                    continue
+                lines.append(f"{pfx}  - **{dest_title}**")
+                dest_pfx_inner = indent + 2
+                lines.append(f"{'  ' * dest_pfx_inner}- **Safe**: {_md_address(dest_cfg.safe_address, dest_cfg.chain_id)}")
+                lines.append(f"{'  ' * dest_pfx_inner}- **Module**: {_md_address(dest_cfg.module_address, dest_cfg.chain_id)}")
+                dest_web3 = all_chain_web3.get(dest_cfg.chain_id) if all_chain_web3 else None
+                dest_events = all_chain_events.get(dest_cfg.chain_id, []) if all_chain_events else []
+                subtree = _format_chain_config_markdown(
+                    dest_cfg,
+                    indent=dest_pfx_inner,
+                    web3=dest_web3,
+                    token_cache=token_cache,
+                    known_labels=known_labels,
+                    events=dest_events,
+                    all_chain_configs=all_chain_configs,
+                    all_chain_web3=all_chain_web3,
+                    all_chain_events=all_chain_events,
+                    rendered_chains=rendered_chains,
+                )
+                lines.append(subtree)
+        elif not items:
+            lines.append(f"{pfx}- **{title}**")
+        else:
+            lines.append(f"{pfx}- **{title}**")
+            for item in items:
+                lines.append(f"{pfx}  - {item}")
+
+    return "\n".join(lines)
+
+
+def format_guard_config_markdown(
+    config: MultichainGuardConfig,
+    events: dict[int, list[DecodedGuardEvent]],
+    chain_web3: dict[int, Web3] | None = None,
+    token_cache: TokenDiskCache | None = None,
+    known_labels: dict[str, str] | None = None,
+) -> str:
+    """Format a full multichain guard config report as a Markdown document.
+
+    Produces nested bullet lists with block-explorer links for all
+    contract addresses.  Works for both single-chain and multichain
+    deployments.
+
+    Root chains (those with a Lagoon vault, or standalone) appear as
+    ``##`` headings.  CCTP destination chains are nested under their
+    source chain's "CCTP bridges" section.
+
+    :param config:
+        Structured multichain guard configuration.
+
+    :param events:
+        Raw events per chain (for event-based address label resolution).
+
+    :param chain_web3:
+        Optional ``{chain_id: Web3}`` for token/contract name resolution.
+
+    :param token_cache:
+        Optional disk cache for token metadata.
+
+    :param known_labels:
+        Optional ``{checksummed_address: label}`` for pre-known addresses.
+
+    :return:
+        Complete Markdown document string.
+    """
+    lines: list[str] = []
+    lines.append("# Guard configuration report")
+    lines.append("")
+
+    # Pick any chain for the Safe explorer link — use the first root chain
+    first_chain_id = next(iter(sorted(config.chains)))
+    lines.append(f"**Safe**: {_md_address(config.safe_address, first_chain_id)}")
+    lines.append("")
+
+    # Find root chains — same logic as format_guard_config_report()
+    lagoon_chains = {cid for cid, cfg in config.chains.items() if cfg.lagoon_vaults}
+    root_cctp_dests: set[int] = set()
+    for cid in lagoon_chains:
+        domain_to_chain = TESTNET_CCTP_DOMAIN_TO_CHAIN_ID if cid in TESTNET_CHAIN_IDS else CCTP_DOMAIN_TO_CHAIN_ID
+        for domain in config.chains[cid].cctp_destinations:
+            dest = domain_to_chain.get(domain)
+            if dest:
+                root_cctp_dests.add(dest)
+    root_chains = [cid for cid in sorted(config.chains) if cid not in root_cctp_dests or cid in lagoon_chains]
+
+    for cid in root_chains:
+        cfg = config.chains[cid]
+        web3 = chain_web3.get(cid) if chain_web3 else None
+        chain_events = events.get(cid, [])
+
+        lines.append(f"## {cfg.chain_name} (chain {cfg.chain_id})")
+        lines.append("")
+        lines.append(f"- **Safe**: {_md_address(cfg.safe_address, cid)}")
+        lines.append(f"- **Module**: {_md_address(cfg.module_address, cid)}")
+
+        tree = _format_chain_config_markdown(
+            cfg,
+            indent=0,
+            web3=web3,
+            token_cache=token_cache,
+            known_labels=known_labels,
+            events=chain_events,
+            all_chain_configs=config.chains,
+            all_chain_web3=chain_web3 or {},
+            all_chain_events=events,
+        )
+        lines.append(tree)
+        lines.append("")
 
     return "\n".join(lines)
 

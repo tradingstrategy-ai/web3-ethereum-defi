@@ -66,11 +66,7 @@ def main():
     for cid in sorted(stale_chain_ids):
         count = chain_ids_in_db[cid]
         # Show sample vault names
-        samples = [
-            v.get("Name") or "<unnamed>"
-            for k, v in vault_db.rows.items()
-            if k.chain_id == cid
-        ][:5]
+        samples = [v.get("Name") or "<unnamed>" for k, v in vault_db.rows.items() if k.chain_id == cid][:5]
         print(f"  Chain {cid}: {count} vaults (e.g. {', '.join(samples)})")
 
     total_stale = sum(chain_ids_in_db[cid] for cid in stale_chain_ids)
@@ -112,16 +108,8 @@ def main():
         return
 
     # Purge vault database rows and leads
-    vault_db.rows = {
-        spec: row
-        for spec, row in vault_db.rows.items()
-        if spec.chain_id not in stale_chain_ids
-    }
-    vault_db.leads = {
-        spec: lead
-        for spec, lead in vault_db.leads.items()
-        if spec.chain_id not in stale_chain_ids
-    }
+    vault_db.rows = {spec: row for spec, row in vault_db.rows.items() if spec.chain_id not in stale_chain_ids}
+    vault_db.leads = {spec: lead for spec, lead in vault_db.leads.items() if spec.chain_id not in stale_chain_ids}
     for cid in stale_chain_ids:
         vault_db.last_scanned_block.pop(cid, None)
 
@@ -131,11 +119,7 @@ def main():
     # Purge reader states
     if DEFAULT_READER_STATE_DATABASE.exists() and reader_states_removed > 0:
         reader_states = pickle.load(DEFAULT_READER_STATE_DATABASE.open("rb"))
-        new_reader_states = {
-            spec: state
-            for spec, state in reader_states.items()
-            if spec.chain_id not in stale_chain_ids
-        }
+        new_reader_states = {spec: state for spec, state in reader_states.items() if spec.chain_id not in stale_chain_ids}
         pickle.dump(new_reader_states, DEFAULT_READER_STATE_DATABASE.open("wb"))
         print(f"Wrote {DEFAULT_READER_STATE_DATABASE} ({len(new_reader_states)} states)")
 
