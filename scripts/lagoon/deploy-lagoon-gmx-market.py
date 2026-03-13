@@ -594,11 +594,7 @@ def main():
 
     if args.any_asset:
         print(
-            "\nWARNING: --any-asset is enabled.\n"
-            "  The guard will NOT enforce an explicit token whitelist — any ERC-20 can be\n"
-            "  used as collateral or received by the Safe.  This weakens the security model\n"
-            "  of the vault guard.  Only use this flag if you fully understand the risks.\n"
-            "  For production vaults, omit --any-asset and specify markets with -t instead.\n",
+            "\nWARNING: --any-asset is enabled.\n  The guard will NOT enforce an explicit token whitelist — any ERC-20 can be\n  used as collateral or received by the Safe.  This weakens the security model\n  of the vault guard.  Only use this flag if you fully understand the risks.\n  For production vaults, omit --any-asset and specify markets with -t instead.\n",
             file=sys.stderr,
         )
         try:

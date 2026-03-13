@@ -63,7 +63,14 @@ class GetOpenPositions(GetData):
 
         Tries data sources in order: REST API v2 → Subsquid GraphQL → RPC
         Reader contract.  Each fallback is attempted only when the previous
-        source fails.
+        source fails **or returns an empty result**.
+
+        Non-empty results from REST API or GraphQL are returned immediately
+        (fast path).  An empty response from those tiers is treated as
+        inconclusive — the REST API and Subsquid index live-chain state only,
+        so they are blind to Anvil fork positions and may lag by a few blocks
+        on mainnet.  The on-chain RPC Reader is always the authoritative final
+        word when earlier tiers return no positions.
 
         :param address: User wallet address to query positions for
         :returns: A dictionary containing the open positions, where asset and direction are the keys
@@ -71,19 +78,29 @@ class GetOpenPositions(GetData):
         """
         checksum_address = to_checksum_address(address)
 
-        # 1. Try REST API v2 (fastest — pre-computed values, no oracle calls)
+        # 1. Try REST API v2 (fastest — pre-computed values, no oracle calls).
+        #    Only trust non-empty results; empty means "inconclusive" here
+        #    because the API indexes live-chain state and is blind to fork
+        #    positions or very recent blocks.
         try:
-            return self._get_data_via_rest_api(checksum_address)
+            positions = self._get_data_via_rest_api(checksum_address)
+            if positions:
+                return positions
+            logger.debug("REST API returned empty positions for %s; falling through to RPC for confirmation", checksum_address)
         except Exception as e:
             logger.warning("REST API v2 positions query failed, trying GraphQL: %s", e)
 
-        # 2. Try Subsquid GraphQL
+        # 2. Try Subsquid GraphQL (same caveat — only trust non-empty results).
         try:
-            return self._get_data_via_graphql(checksum_address)
+            positions = self._get_data_via_graphql(checksum_address)
+            if positions:
+                return positions
+            logger.debug("GraphQL returned empty positions for %s; falling through to RPC for confirmation", checksum_address)
         except Exception as e:
             logger.warning("GraphQL positions query failed, falling back to RPC: %s", e)
 
-        # 3. RPC Reader contract (last resort)
+        # 3. RPC Reader contract — authoritative on-chain source, works on
+        #    both mainnet and Anvil forks.
         return self._get_data_via_rpc(checksum_address)
 
     # ------------------------------------------------------------------
