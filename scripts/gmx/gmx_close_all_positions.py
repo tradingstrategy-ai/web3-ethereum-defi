@@ -163,7 +163,10 @@ def close_position(
         market_symbol = position_data["market_symbol"]
         collateral_symbol = position_data["collateral_token"]
         is_long = position_data["is_long"]
-        size_usd = position_data["position_size"]
+        # Use the raw 30-decimal int so the precision safety cap in trading.py
+        # fires and prevents InvalidDecreaseOrderSize.  Float conversion
+        # (position_size / 10^30 * 10^30) can round up and exceed sizeInUsd.
+        size_usd = position_data.get("position_size_usd_raw") or int(position_data["position_size"] * 10**30)
 
         # Define reverse mapping: positions store tokens with their actual contract names
         # but the trading API expects these symbols.
@@ -178,15 +181,16 @@ def close_position(
             market_symbol = reverse_symbol_mapping[market_symbol]
 
         # Calculate collateral delta from position size and leverage
+        size_usd_float = position_data["position_size"]
         leverage = position_data.get("leverage", 1.0)
         if leverage > 100 or leverage < 0.1:
             console.print(f"  [yellow]Warning: Abnormal leverage {leverage:.2f}x, using size/10[/yellow]")
-            initial_collateral_delta = size_usd / 10
+            initial_collateral_delta = size_usd_float / 10
         else:
-            initial_collateral_delta = size_usd / leverage
+            initial_collateral_delta = size_usd_float / leverage
 
         if initial_collateral_delta < 0.1:
-            initial_collateral_delta = size_usd
+            initial_collateral_delta = size_usd_float
 
         # Use collateral token as start token for simplicity
         start_token_symbol = collateral_symbol
