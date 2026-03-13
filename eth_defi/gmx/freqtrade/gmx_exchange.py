@@ -1312,6 +1312,20 @@ class Gmx(Exchange):
             self._send_order_error_telegram_alert(pair, reduceOnly, exc)
             raise
 
+        # Drain non-fatal warnings accumulated by the CCXT exchange (e.g. gas estimation
+        # failures that are swallowed internally but still worth surfacing to the operator).
+        ccxt_exchange = getattr(self, "_api", None)
+        pending_warnings = getattr(ccxt_exchange, "_order_warnings", [])
+        if pending_warnings:
+            bot_name = self._config.get("bot_name", "freqtrade")
+            order_dir = "close" if reduceOnly else "open"
+            for warn in pending_warnings:
+                snippet = warn[:120] + ("…" if len(warn) > 120 else "")
+                msg = f"⚠️ *{bot_name}* — Non-fatal warning\n`{pair}` {order_dir}\n`{snippet}`"
+                logger.warning("ORDER_WARNING: %s %s — %s", pair, order_dir, warn)
+                send_freqtrade_telegram_message(self._config, msg)
+            pending_warnings.clear()
+
         # Detect "position already closed" synthetic orders from the CCXT adapter.
         # This happens when the bot tries to exit a position that no longer exists
         # on-chain. The CCXT adapter returns a synthetic closed order with

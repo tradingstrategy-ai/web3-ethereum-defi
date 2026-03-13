@@ -1020,6 +1020,10 @@ class GMX(ExchangeCompatible):
         #: Prevents infinite retry loops when structurally doomed orders are retried every cycle.
         #: Format: ``{symbol: {"count": int, "cooldown_until": float, "last_reason": str}}``
         self._keeper_cancel_tracker: dict = {}
+        #: Non-fatal warnings accumulated during the last create_order() call.
+        #: Drained by gmx_exchange.py after super().create_order() returns so they
+        #: can be forwarded to Telegram without breaking the CCXT layer's separation of concerns.
+        self._order_warnings: list[str] = []
         #: Max consecutive keeper cancellations before cooldown is applied.
         self._max_keeper_cancels: int = 3
         #: Cooldown duration after hitting the cancel limit (seconds).
@@ -5996,6 +6000,9 @@ class GMX(ExchangeCompatible):
             elif gas_check.status == "warning":
                 monitor.log_gas_check_warning(gas_check)
 
+        # Clear warnings from any previous call before this order starts
+        self._order_warnings.clear()
+
         logger.info("=" * 80)
         logger.info(
             "ORDER_TRACE: create_order() CALLED - symbol=%s, type=%s, side=%s, amount=%.8f",
@@ -6493,6 +6500,8 @@ class GMX(ExchangeCompatible):
                 native_price_usd = gas_estimate.native_price_usd
             except Exception as e:
                 logger.warning("Gas estimation failed: %s - using order gas_limit", e)
+                # Accumulate for gmx_exchange.py to forward to Telegram (non-fatal)
+                self._order_warnings.append(f"Gas estimation failed: {e}")
 
         # Sign transaction (remove nonce if present, wallet will manage it)
         transaction = dict(order_result.transaction)
