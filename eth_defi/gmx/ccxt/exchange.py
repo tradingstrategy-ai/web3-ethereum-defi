@@ -2137,9 +2137,31 @@ class GMX(ExchangeCompatible):
 
         gmx_period = self.timeframes[timeframe]
 
-        # --- v2 REST API (preferred) → v1 REST API fallback ---
-        # v2 returns a list of dicts: {"timestamp": ms, "open": "...", ...}
-        # v1 returns {"candles": [[ts_sec, o, h, l, c], ...]}
+        # --- Data source priority for OHLCV ---
+        #
+        # 1. GMX REST API v2  (default / preferred)
+        #    Endpoint: /prices/ohlcv  (DigitalOcean-hosted, e.g. gmx-api-arbitrum-*.ondigitalocean.app/api/v1)
+        #    Response: list of dicts — {"timestamp": <ms>, "open": "<str>", "high": "<str>", "low": "<str>", "close": "<str>"}
+        #    Advantage: server-side ``since`` and ``limit`` filtering, so only the requested
+        #    candles are transferred.  The v1 endpoint returns the full history and
+        #    we discard everything before ``since`` client-side, which is wasteful.
+        #
+        # 2. GMX REST API v1  (fallback)
+        #    Endpoint: /prices/candles  (gmxinfra.io)
+        #    Response: {"candles": [[ts_sec, o, h, l, c], ...]}  — timestamps in seconds,
+        #    prices as floats.  Client-side ``since`` / ``limit`` filtering applied by
+        #    parse_ohlcvs().  Used when the v2 endpoint is unreachable or returns empty.
+        #
+        # NOTE — why other methods do NOT use v2 as default:
+        #   fetch_ticker() / fetch_tickers() : v2 has no tickers endpoint.
+        #   fetch_apy()                       : v2 has no APY endpoint.
+        #   load_markets()                    : v2 /pairs lacks funding rates, borrowing
+        #                                       rates, open interest, and pool liquidity —
+        #                                       all required for market loading.
+        #   fetch_balance() collateral        : v2 /positions is missing real-time funding
+        #                                       and borrowing fee accrual; only the on-chain
+        #                                       Reader contract gives exact numbers needed
+        #                                       for free/used/total calculation.
         ohlcv = None
 
         try:
@@ -2185,7 +2207,7 @@ class GMX(ExchangeCompatible):
             )
 
         if ohlcv is None:
-            # v1 fallback — original code path
+            # v1 fallback — original code path, preserved unchanged
             response = self.api.get_candlesticks(token_symbol, gmx_period)
             candles_data = response.get("candles", [])
             ohlcv = self.parse_ohlcvs(candles_data, market_info, timeframe, since, limit)
