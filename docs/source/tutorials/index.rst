@@ -63,6 +63,7 @@ Tutorials and examples
    gmx-swap
    gmx-v2-price-analysis
    gmx-ccxt-freqtrade
+   gmx-freqtrade-lagoon
    lagoon-cowswap
    lagoon-gmx
    lagoon-velora
