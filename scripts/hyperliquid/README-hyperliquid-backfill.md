@@ -438,9 +438,11 @@ db.close()
 The equity curve reconstruction script
 (`scripts/hyperliquid/reconstruct-equity-curve.py`) builds PnL, account value,
 and share price curves from the local trade history DuckDB
-(`trade-history.duckdb`), which stores per-fill and per-funding-payment data
 synced via `sync-trade-history.py`. This is separate from the daily metrics
 pipeline and the S3 backfill described above.
+
+**Database**: `~/.tradingstrategy/vaults/hyperliquid/trade-history.duckdb`
+— 1.9M fills, 2.2M funding, 82.6k ledger entries for 610 accounts.
 
 ### How it works
 

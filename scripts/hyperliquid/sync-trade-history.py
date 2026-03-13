@@ -417,7 +417,11 @@ def main():
                 db.add_account(addr, label=label, is_vault=is_vault)
             print(f"Added {len(addresses)} addresses to whitelist")  # noqa: T201
 
-        accounts = db.get_accounts()
+        # When discovering vaults by TVL, only sync vault accounts
+        # (skip traders that may have been added by previous SCAN=top_traders runs)
+        sync_vault_filter = True if min_peak_tvl_str else None
+
+        accounts = db.get_accounts(is_vault=sync_vault_filter)
         if not accounts:
             print("No whitelisted accounts. Set ADDRESSES, SCAN=top_traders, or MIN_VAULT_PEAK_TVL to add accounts.")  # noqa: T201
             return
@@ -427,7 +431,7 @@ def main():
         interrupted = False
         results = {}
         try:
-            results = db.sync_all(session, max_workers=max_workers)
+            results = db.sync_all(session, max_workers=max_workers, is_vault=sync_vault_filter)
             db.save()
         except KeyboardInterrupt:
             interrupted = True

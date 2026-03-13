@@ -343,14 +343,21 @@ class HyperliquidTradeHistoryDatabase:
         else:
             logger.info("Removed account %s from whitelist (data preserved)", address)
 
-    def get_accounts(self) -> list[dict]:
-        """Get all whitelisted accounts.
+    def get_accounts(self, is_vault: bool | None = None) -> list[dict]:
+        """Get whitelisted accounts, optionally filtered by vault status.
 
+        :param is_vault:
+            If ``True``, return only vault accounts.
+            If ``False``, return only trader accounts.
+            If ``None`` (default), return all accounts.
         :return:
             List of account dicts with address, label, is_vault, added_at.
         """
         with self._db_lock:
-            result = self.con.execute("SELECT address, label, is_vault, added_at FROM accounts ORDER BY added_at").fetchall()
+            if is_vault is None:
+                result = self.con.execute("SELECT address, label, is_vault, added_at FROM accounts ORDER BY added_at").fetchall()
+            else:
+                result = self.con.execute("SELECT address, label, is_vault, added_at FROM accounts WHERE is_vault = ? ORDER BY added_at", [is_vault]).fetchall()
         return [{"address": r[0], "label": r[1], "is_vault": r[2], "added_at": r[3]} for r in result]
 
     # ──────────────────────────────────────────────
@@ -926,8 +933,9 @@ class HyperliquidTradeHistoryDatabase:
         session: HyperliquidSession,
         max_workers: int = 1,
         timeout: float = 30.0,
+        is_vault: bool | None = None,
     ) -> dict[str, dict[str, int]]:
-        """Sync all whitelisted accounts.
+        """Sync whitelisted accounts, optionally filtered by vault status.
 
         When ``max_workers > 1``, accounts are synced in parallel using a
         thread pool. Each worker gets its own session clone via
@@ -952,10 +960,14 @@ class HyperliquidTradeHistoryDatabase:
             Number of parallel workers for concurrent API calls.
         :param timeout:
             HTTP request timeout.
+        :param is_vault:
+            If ``True``, sync only vault accounts.
+            If ``False``, sync only trader accounts.
+            If ``None`` (default), sync all accounts.
         :return:
             Dict mapping address to sync counts.
         """
-        accounts = self.get_accounts()
+        accounts = self.get_accounts(is_vault=is_vault)
         if not accounts:
             return {}
 
