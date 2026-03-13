@@ -14,7 +14,10 @@ Links
 
 - `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/liquid-royalty>`__
 - `Homepage <https://www.liquidroyalty.com>`__
+- `Documentation <https://docs.liquidroyalty.com>`__
 - `Github <https://github.com/stratosphere-network/LiquidRoyaltyContracts>`__
+- `Twitter <https://x.com/liquidroyaltyX>`__
+- `Fees <https://docs.liquidroyalty.com/token/staking-product-farm>`__
 
 .. autosummary::
    :toctree: _autosummary_liquid_royalty

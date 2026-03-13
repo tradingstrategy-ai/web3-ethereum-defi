@@ -15,11 +15,11 @@ fee_description: |
 links:
   homepage: https://www.liquidroyalty.com
   app: https://www.liquidroyalty.com/vaults
-  twitter:
+  twitter: https://x.com/liquidroyaltyX
   github: https://github.com/stratosphere-network/LiquidRoyaltyContracts
-  documentation:
-  defillama:
-  audits:
-  fees:
+  documentation: https://docs.liquidroyalty.com
+  defillama:  # Not listed on DeFiLlama as of 2026-03-13
+  audits:  # Docs claim independent audits but no public reports linked
+  fees: https://docs.liquidroyalty.com/token/staking-product-farm
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/liquid-royalty
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/liquid_royalty/index.html
