@@ -249,6 +249,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `scripts/debian-bullseye-compatibility/README.md` | Running on Debian Bullseye |
 | `scripts/erc-4626/README-vault-scripts.md` | ERC-4626 vault scripts |
 | `scripts/grvt/README-grvt-vaults.md` | GRVT native vault metrics pipeline |
+| `scripts/hyperliquid/README-hyperliquid-copy-trading.md` | Hyperliquid copy trading platforms and HFT account identification |
 | `scripts/hyperliquid/README-hyperliquid-vaults.md` | Hyperliquid native vault metrics pipeline |
 | `scripts/lighter/README-lighter-vaults.md` | Lighter native pool metrics pipeline |
 | `tests/erc_4626/vault_protocol/README.md` | Vault protocol detection tests (mainnet-fork) |
