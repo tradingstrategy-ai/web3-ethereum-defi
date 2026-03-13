@@ -82,6 +82,7 @@ def _create_adapter(
     backoff_factor: float,
     pool_maxsize: int,
     rate_limit_db_path: Path,
+    retry_log_level: int = logging.WARNING,
 ) -> LimiterAdapter:
     """Create a :class:`LimiterAdapter` with rate limiting and retry logic.
 
@@ -106,6 +107,7 @@ def _create_adapter(
         status_forcelist=[429, 500, 502, 503, 504],
         respect_retry_after_header=True,
         logger=logger,
+        log_level=retry_log_level,
         allowed_methods=LoggingRetry.DEFAULT_ALLOWED_METHODS | frozenset(["POST"]),
     )
 
@@ -339,6 +341,7 @@ class HyperliquidSession(Session):
                 backoff_factor=self._adapter_config["backoff_factor"],
                 pool_maxsize=self._adapter_config["pool_maxsize"],
                 rate_limit_db_path=worker_db,
+                retry_log_level=self._adapter_config.get("retry_log_level", logging.WARNING),
             )
             clone.mount("http://", adapter)
             clone.mount("https://", adapter)
@@ -367,6 +370,7 @@ def create_hyperliquid_session(
     rate_limit_db_path: Path = HYPERLIQUID_RATE_LIMIT_SQLITE_DATABASE,
     rotator: ProxyRotator | None = None,
     verbose_throttling: bool | None = None,
+    proxy_failure_log_level: int | None = None,
 ) -> HyperliquidSession:
     """Create a :py:class:`HyperliquidSession` configured for Hyperliquid API.
 
@@ -435,6 +439,16 @@ def create_hyperliquid_session(
           and the resulting log spam is not useful.
         - ``True``: always log throttling messages.
         - ``False``: always suppress throttling messages.
+    :param proxy_failure_log_level:
+        Log level for proxy failure/rotation messages (from
+        :class:`~eth_defi.event_reader.webshare.ProxyRotator`,
+        :class:`~eth_defi.event_reader.webshare.ProxyStateManager`,
+        and :class:`~eth_defi.velvet.logging_retry.LoggingRetry`).
+
+        - ``None`` (default): ``logging.DEBUG`` when proxies are used,
+          ``logging.WARNING`` otherwise.
+        - Pass e.g. ``logging.DEBUG`` to suppress or ``logging.WARNING``
+          to always show.
     :return:
         Configured :py:class:`HyperliquidSession` with rate limiting and retry logic
     """
@@ -445,12 +459,17 @@ def create_hyperliquid_session(
     # instead of retrying 5 times through the same broken proxy.
     effective_retries = 0 if rotator is not None else retries
 
+    # Resolve proxy_failure_log_level: None → DEBUG with proxies, WARNING without
+    if proxy_failure_log_level is None:
+        proxy_failure_log_level = logging.DEBUG if rotator is not None else logging.WARNING
+
     adapter = _create_adapter(
         requests_per_second=requests_per_second,
         retries=effective_retries,
         backoff_factor=backoff_factor,
         pool_maxsize=pool_maxsize,
         rate_limit_db_path=rate_limit_db_path,
+        retry_log_level=proxy_failure_log_level,
     )
     session.mount("http://", adapter)
     session.mount("https://", adapter)
@@ -462,12 +481,17 @@ def create_hyperliquid_session(
         "backoff_factor": backoff_factor,
         "pool_maxsize": pool_maxsize,
         "rate_limit_db_path": rate_limit_db_path,
+        "retry_log_level": proxy_failure_log_level,
     }
 
     if rotator is not None:
         session.configure_rotator(rotator)
         # Compensate for disabled adapter retries by allowing more proxy rotations
         session.max_proxy_rotations = min(len(rotator), 10)
+        # Apply log level to rotator and its state manager
+        rotator.log_level = proxy_failure_log_level
+        if rotator.state_manager is not None:
+            rotator.state_manager.log_level = proxy_failure_log_level
 
     # Resolve verbose_throttling: None → off with proxies, on without
     if verbose_throttling is None:
