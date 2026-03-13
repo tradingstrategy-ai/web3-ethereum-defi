@@ -69,6 +69,8 @@ class ProxyStateManager:
 
     #: Path to the JSON state file
     state_path: Path = field(default_factory=lambda: DEFAULT_PROXY_STATE_PATH)
+    #: Log level for proxy failure messages (e.g. ``logging.DEBUG`` to suppress)
+    log_level: int = logging.WARNING
     #: Failed proxies indexed by proxy identifier
     _failed_proxies: dict[str, FailedProxyEntry] = field(default_factory=dict, init=False)
 
@@ -173,7 +175,8 @@ class ProxyStateManager:
                 failure_count=1,
             )
 
-        logger.warning(
+        logger.log(
+            self.log_level,
             "Recorded failure for proxy %s: %s (count: %d)",
             proxy_id,
             reason,
@@ -277,6 +280,8 @@ class ProxyRotator:
     total_from_api: int = 0
     #: Number of proxies blocked due to recent failures
     blocked_count: int = 0
+    #: Log level for proxy rotation messages (e.g. ``logging.DEBUG`` to suppress)
+    log_level: int = logging.WARNING
     #: Index of the currently active proxy
     _current_index: int = field(default=0, init=False, repr=False)
     #: Monotonically increasing generation; bumped on each rotation
@@ -326,7 +331,8 @@ class ProxyRotator:
             self._current_index = (self._current_index + 1) % len(self.proxies)
             self._generation += 1
             proxy = self.current()
-            logger.warning(
+            logger.log(
+                self.log_level,
                 "Rotated to proxy %s:%d (%s/%s) [gen %d]",
                 proxy.proxy_address,
                 proxy.port,
@@ -356,6 +362,7 @@ class ProxyRotator:
             state_manager=self.state_manager,
             total_from_api=self.total_from_api,
             blocked_count=self.blocked_count,
+            log_level=self.log_level,
         )
         clone._current_index = start_index % len(self.proxies) if self.proxies else 0
         return clone
@@ -420,7 +427,7 @@ _HEALTH_CHECK_URL = "http://httpbin.org/ip"
 _HEALTH_CHECK_MAX_ROTATIONS = 3
 
 
-def check_proxy_health(rotator: ProxyRotator) -> bool:
+def check_proxy_health(rotator: ProxyRotator, log_level: int = logging.WARNING) -> bool:
     """Verify that the current proxy can reach the internet.
 
     Makes a GET request to :data:`_HEALTH_CHECK_URL` via the proxy and
@@ -440,7 +447,8 @@ def check_proxy_health(rotator: ProxyRotator) -> bool:
             )
             resp.raise_for_status()
             origin_ip = resp.json().get("origin", "unknown")
-            logger.warning(
+            logger.log(
+                log_level,
                 "Proxy health check OK — external IP: %s (attempt %d/%d)",
                 origin_ip,
                 attempt,
@@ -448,7 +456,8 @@ def check_proxy_health(rotator: ProxyRotator) -> bool:
             )
             return True
         except Exception as exc:
-            logger.warning(
+            logger.log(
+                log_level,
                 "Proxy health check FAILED (attempt %d/%d): %s",
                 attempt,
                 _HEALTH_CHECK_MAX_ROTATIONS,

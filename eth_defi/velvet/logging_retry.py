@@ -28,6 +28,7 @@ class LoggingRetry(Retry):
 
     def __init__(self, *args, **kwargs):
         self.logger = kwargs.pop("logger", logging.getLogger(__name__))
+        self.log_level = kwargs.pop("log_level", logging.WARNING)
         super().__init__(*args, **kwargs)
 
     def increment(self, method=None, url=None, response=None, error=None, _pool=None, _stacktrace=None):
@@ -40,5 +41,5 @@ class LoggingRetry(Retry):
 
         url_shortened = url[0:96]
 
-        self.logger.warning(f"Retrying: {method} {url_shortened} (status: {status}, reason: {reason})")
+        self.logger.log(self.log_level, f"Retrying: {method} {url_shortened} (status: {status}, reason: {reason})")
         return super().increment(method, url, response, error, _pool, _stacktrace)
