@@ -1,5 +1,6 @@
 # Current
 
+- Add: Configurable `proxy_failure_log_level` on `create_hyperliquid_session()` to suppress noisy proxy rotation/failure warnings in scan mode (2026-03-13)
 - **Add: Hyperliquid trade history reconstruction with round-trip trade grouping, funding payment tracking, DuckDB persistence for whitelisted accounts, and event-accurate share price computation (2026-03-12)**
 - Add: Hyperliquid S3 archive backfill pipeline for filling daily data gaps in vault history, with two-stage extract/apply workflow, resumable LZ4 processing, and `data_source` provenance tracking (2026-03-11)
 - Fix: Lagoon vault false positive in vault scanner crashing Base chain scan when a non-Lagoon contract matches MAX_MANAGEMENT_RATE() selector (2026-03-11, [#823](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/823))
