@@ -583,6 +583,53 @@ def fetch_portfolio(
         return None
 
 
+def fetch_vault_name(
+    session: HyperliquidSession,
+    vault_address: HexAddress | str,
+    timeout: float = 10.0,
+) -> str | None:
+    """Fetch the display name of a Hyperliquid vault.
+
+    Makes a lightweight ``vaultDetails`` API call and extracts only the
+    vault name. Returns ``None`` if the vault is not found or the request
+    fails.
+
+    Example::
+
+        from eth_defi.hyperliquid.api import fetch_vault_name
+        from eth_defi.hyperliquid.session import create_hyperliquid_session
+
+        session = create_hyperliquid_session()
+        name = fetch_vault_name(session, "0x15be61aef0ea4e4dc93c79b668f26b3f1be75a66")
+        print(name)  # e.g. "Growi HF"
+
+    :param session:
+        Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
+    :param vault_address:
+        Vault address to look up.
+    :param timeout:
+        HTTP request timeout in seconds.
+    :return:
+        Vault display name, or ``None`` if not found.
+    """
+    url = f"{session.api_url}/info"
+    payload = {"type": "vaultDetails", "vaultAddress": vault_address}
+
+    try:
+        response = session.post(
+            url,
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data.get("name") or None
+    except requests.RequestException:
+        logger.warning("Failed to fetch vault name for %s", vault_address, exc_info=True)
+        return None
+
+
 def fetch_leaderboard(
     timeout: float = 60.0,
 ) -> dict[str, LeaderboardEntry]:

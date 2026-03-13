@@ -433,6 +433,141 @@ db.close()
 "
 ```
 
+## Equity curve reconstruction (separate pipeline)
+
+The equity curve reconstruction script
+(`scripts/hyperliquid/reconstruct-equity-curve.py`) builds PnL, account value,
+and share price curves from the local trade history DuckDB
+(`trade-history.duckdb`), which stores per-fill and per-funding-payment data
+synced via `sync-trade-history.py`. This is separate from the daily metrics
+pipeline and the S3 backfill described above.
+
+### How it works
+
+1. **Fills** (from `userFillsByTime` API) provide per-trade `closedPnl` and `fee`
+2. **Funding payments** (from `userFunding` API) provide per-hour funding deltas
+3. **Ledger events** (from `userNonFundingLedgerUpdates` API) provide deposits,
+   withdrawals, vault creates, and vault distributions
+
+The reconstruction:
+- Merges fills and funding into a cumulative **PnL curve** via `pd.concat` + `.cumsum()`
+- Computes **account value** = cumulative net deposits + cumulative net PnL
+- For vaults, computes an event-accurate **share price** using ERC-4626-style
+  mint/burn mechanics from `compute_event_share_prices()`
+
+### Fill data limitation
+
+The Hyperliquid `userFillsByTime` API only returns the **10,000 most recent
+fills** per account. For active vaults this may cover only a few weeks of
+history, even though funding and ledger data go back to the vault's creation.
+
+To avoid misleading curves, the reconstruction **clips all data to start from
+the first available fill**. Earlier funding and ledger events are excluded from
+the PnL and account value curves. The chart heading and CLI output show the
+actual data start date and the reason for the limitation.
+
+The vault share price computation is an exception: it uses the **full unclipped
+ledger** (all deposits/withdrawals from inception) for accurate total supply
+tracking, combined with fills and funding only from the fill data window.
+
+#### Example: Growi HF vault (too many fills)
+
+The Growi HF vault (`0x15be61...`) was created on 2025-07-01 but the
+`userFillsByTime` API returns only 12,668 fills starting from 2026-02-05 —
+a **219-day gap** where ~90,000 fills are missing. At ~352 fills/day, the
+API covers only ~14% of the vault's actual fill history.
+
+Without clipping, the equity curve would show 7+ months of funding and
+ledger data with no corresponding fill PnL, producing misleading near-zero
+PnL despite the vault holding $1.4M.
+
+With clipping, the reconstruction starts from 2026-02-05 and accurately
+shows $5,941 net PnL over the 5-week data window. The chart subtitle and
+CLI output explain the data start date and reason.
+
+#### Example: IKAGI vault (complete fill data)
+
+The IKAGI vault (`0xe44bed760c2f1a03a03bd1b8911f025d96e6eb04`) was created
+on 2024-08-27 and has 6,214 total fills — well within the 10K API limit.
+The equity curve covers the vault's full lifetime with no data gaps.
+Share price tracks from 1.0 to ~1.075 with no epoch resets.
+
+```shell
+# Vault with complete fill data (no clipping needed)
+ADDRESS=0xe44bed760c2f1a03a03bd1b8911f025d96e6eb04 \
+  poetry run python scripts/hyperliquid/reconstruct-equity-curve.py
+```
+
+#### Sync lookback window
+
+The `sync-trade-history.py` script defaults to fetching the last **365 days**
+of fills, funding, and ledger events on first sync. For vaults older than
+1 year, pass a `start_time` to capture the full history including the
+`vaultCreate` event (required for share price reconstruction):
+
+```shell
+# First sync for an old vault — extend lookback to cover creation date
+ADDRESSES=0xe44bed760c2f1a03a03bd1b8911f025d96e6eb04 \
+  LABELS=IKAGI \
+  TRADE_HISTORY_DB_PATH=/tmp/test-history.duckdb \
+  INTERACTIVE=false \
+  poetry run python scripts/hyperliquid/sync-trade-history.py
+```
+
+Or programmatically:
+
+```python
+db.sync_account(session, addr, start_time=datetime.datetime(2024, 8, 1))
+```
+
+Without the `vaultCreate` event, the share price computation starts with
+zero total supply and produces nonsensical values.
+
+#### How to tell if a vault has complete data
+
+If `data_start_at` in the CLI output is close to the vault's creation date
+(visible from the first `vaultCreate` ledger event), then fill data is
+complete. If there is a gap of days or months between vault creation and
+`data_start_at`, fills are truncated by the API limit.
+
+| Vault | Created | First fill | Gap | Fills | Status |
+|-------|---------|------------|-----|-------|--------|
+| Growi HF | 2025-07-01 | 2026-02-05 | 219 days | 12,668 | Truncated (~14% coverage) |
+| IKAGI | 2024-08-27 | 2024-08-27 | 0 days | 6,214 | Complete (100% coverage) |
+
+### Running
+
+```shell
+# Vault with complete fill data (IKAGI, <10K fills)
+ADDRESS=0xe44bed760c2f1a03a03bd1b8911f025d96e6eb04 \
+  poetry run python scripts/hyperliquid/reconstruct-equity-curve.py
+
+# Vault with truncated fill data (Growi HF, >10K fills)
+ADDRESS=0x15be61aef0ea4e4dc93c79b668f26b3f1be75a66 \
+  poetry run python scripts/hyperliquid/reconstruct-equity-curve.py
+
+# Trader example
+ADDRESS=0x162cc7c861ebd0c06b3d72319201150482518185 \
+  poetry run python scripts/hyperliquid/reconstruct-equity-curve.py
+
+# Without opening browser
+ADDRESS=0x15be61aef0ea4e4dc93c79b668f26b3f1be75a66 \
+  NO_BROWSER=true \
+  poetry run python scripts/hyperliquid/reconstruct-equity-curve.py
+```
+
+### Relationship to S3 backfill
+
+The S3 backfill (described above) fills gaps in the **daily metrics** database
+which provides daily-resolution share prices. The equity curve reconstruction
+reads from the **trade history** database which provides event-level resolution
+but is limited by the 10K fill API cap. These are complementary:
+
+| Pipeline | Database | Resolution | History |
+|----------|----------|------------|---------|
+| Daily metrics + S3 backfill | `daily-metrics.duckdb` | Daily | Full (via S3) |
+| Equity curve reconstruction | `trade-history.duckdb` | Per-event | Limited by 10K fill cap |
+
 ## Verification plan
 
 1. Download one recent day's `account_values` file

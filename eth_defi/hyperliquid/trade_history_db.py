@@ -45,6 +45,7 @@ import datetime
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 
@@ -59,6 +60,28 @@ from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.hyperliquid.trade_history import FundingPayment
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class LedgerEvent:
+    """A deposit, withdrawal, or other non-funding ledger event from DuckDB storage.
+
+    Represents a row from the ``ledger`` table. The ``event_type`` field
+    contains the raw API type string (e.g. ``"vaultDeposit"``,
+    ``"vaultWithdraw"``, ``"deposit"``, ``"withdraw"``).
+    """
+
+    #: Event timestamp
+    timestamp: datetime.datetime
+    #: Timestamp in milliseconds (for storage and sorting)
+    timestamp_ms: int
+    #: Raw API event type (e.g. "vaultDeposit", "withdraw", "deposit")
+    event_type: str
+    #: USDC amount
+    usdc: float
+    #: Associated vault address (if any)
+    vault: str | None
+
 
 #: Default DuckDB path for trade history
 DEFAULT_TRADE_HISTORY_DB_PATH = Path("~/.tradingstrategy/vaults/hyperliquid/trade-history.duckdb").expanduser()
@@ -232,7 +255,10 @@ class HyperliquidTradeHistoryDatabase:
     ) -> None:
         """Add an account to the whitelist.
 
-        Idempotent -- re-adding an existing account updates the label.
+        Idempotent — re-adding an existing account updates the label.
+        The ``is_vault`` flag can only be upgraded from ``False`` to ``True``,
+        never downgraded, to prevent ``SCAN=top_traders`` runs from
+        incorrectly clearing the vault flag on known vaults.
 
         :param address:
             Hyperliquid account address.
@@ -247,11 +273,56 @@ class HyperliquidTradeHistoryDatabase:
                 """
                 INSERT INTO accounts (address, label, is_vault, added_at)
                 VALUES (?, ?, ?, ?)
-                ON CONFLICT (address) DO UPDATE SET label = EXCLUDED.label, is_vault = EXCLUDED.is_vault
+                ON CONFLICT (address) DO UPDATE SET
+                    label = COALESCE(EXCLUDED.label, accounts.label),
+                    is_vault = accounts.is_vault OR EXCLUDED.is_vault
                 """,
                 [address.lower(), label, is_vault, now_ms],
             )
         logger.info("Added account %s (%s) to whitelist", address, label or "unlabelled")
+
+    #: Ledger event types that only appear for vault accounts
+    VAULT_LEDGER_EVENT_TYPES: set[str] = {"vaultCreate", "vaultDeposit", "vaultWithdraw", "vaultDistribution", "vaultLeaderCommission"}
+
+    def is_vault_address(self, address: HexAddress) -> bool:
+        """Detect whether an account is a vault from its stored ledger events.
+
+        Scans for vault-specific event types (``vaultCreate``,
+        ``vaultDeposit``, ``vaultWithdraw``, etc.) which only appear
+        for vault accounts. This is more reliable than the ``is_vault``
+        flag in the accounts table, which can be incorrectly set when
+        accounts are added via trader scanning modes.
+
+        Falls back to the ``is_vault`` flag if no ledger events exist yet.
+
+        :param address:
+            Account address.
+        :return:
+            ``True`` if vault-specific ledger events are found, or if
+            the ``is_vault`` flag is ``True`` in the accounts table.
+        """
+        addr = address.lower()
+        with self._db_lock:
+            vault_event = self.con.execute(
+                """
+                SELECT 1 FROM ledger
+                WHERE address = ? AND event_type IN ('vaultCreate', 'vaultDeposit', 'vaultWithdraw', 'vaultDistribution', 'vaultLeaderCommission')
+                LIMIT 1
+                """,
+                [addr],
+            ).fetchone()
+
+        if vault_event is not None:
+            return True
+
+        # Fall back to DB flag
+        with self._db_lock:
+            row = self.con.execute(
+                "SELECT is_vault FROM accounts WHERE address = ?",
+                [addr],
+            ).fetchone()
+
+        return bool(row[0]) if row else False
 
     def remove_account(self, address: HexAddress, purge_data: bool = False) -> None:
         """Remove an account from the whitelist.
@@ -1121,6 +1192,50 @@ class HyperliquidTradeHistoryDatabase:
                 [address.lower()],
             ).fetchone()
         return result[0] if result else 0
+
+    def get_ledger(
+        self,
+        address: HexAddress,
+        start_time: datetime.datetime | None = None,
+        end_time: datetime.datetime | None = None,
+    ) -> list[LedgerEvent]:
+        """Get stored ledger events for an account.
+
+        :param address:
+            Account address.
+        :param start_time:
+            Optional start time filter.
+        :param end_time:
+            Optional end time filter.
+        :return:
+            List of LedgerEvent objects sorted by timestamp ascending.
+        """
+        addr = address.lower()
+        query = "SELECT ts, event_type, usdc, vault FROM ledger WHERE address = ?"
+        params: list = [addr]
+
+        if start_time is not None:
+            query += " AND ts >= ?"
+            params.append(int(start_time.timestamp() * 1000))
+        if end_time is not None:
+            query += " AND ts <= ?"
+            params.append(int(end_time.timestamp() * 1000))
+
+        query += " ORDER BY ts ASC"
+
+        with self._db_lock:
+            rows = self.con.execute(query, params).fetchall()
+
+        return [
+            LedgerEvent(
+                timestamp=datetime.datetime.fromtimestamp(r[0] / 1000, tz=datetime.timezone.utc).replace(tzinfo=None),
+                timestamp_ms=r[0],
+                event_type=r[1],
+                usdc=r[2],
+                vault=r[3],
+            )
+            for r in rows
+        ]
 
     def get_ledger_count(self, address: HexAddress) -> int:
         """Get the number of stored ledger events for an account."""
