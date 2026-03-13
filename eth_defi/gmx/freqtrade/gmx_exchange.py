@@ -386,6 +386,56 @@ class Gmx(Exchange):
         if auto_approve:
             self._approve_lagoon_collateral(vault, hot_wallet)
 
+        self._log_lagoon_initial_balance(safe_address)
+
+    def _log_lagoon_initial_balance(self, safe_address: str) -> None:
+        """Log the Safe's USDC wallet balance and any open GMX positions at startup.
+
+        Called once at the end of :meth:`_init_lagoon_wallet` so we have a clear
+        on-chain snapshot before freqtrade records its ``starting_capital``.
+
+        Logs at INFO level so the values always appear in ``freqtrade.logs``.
+        """
+        try:
+            balance = self._api.fetch_balance()
+            usdc = balance.get("USDC", {})
+            wallet_usdc = usdc.get("total", 0.0)
+            used_usdc = usdc.get("used", 0.0)
+            free_usdc = usdc.get("free", 0.0)
+            logger.info(
+                "Lagoon initial balance (safe=%s): wallet_USDC=%.6f  used_in_GMX=%.6f  free=%.6f",
+                safe_address,
+                wallet_usdc,
+                used_usdc,
+                free_usdc,
+            )
+        except Exception as e:
+            logger.warning("Lagoon initial balance fetch failed (non-fatal): %s", e)
+
+        try:
+            from eth_defi.gmx.core.open_positions import GetOpenPositions
+
+            positions = GetOpenPositions(self._api.config).get_data(safe_address)
+            if positions:
+                logger.info(
+                    "Lagoon open GMX positions at startup (%d total):",
+                    len(positions),
+                )
+                for key, pos in positions.items():
+                    logger.info(
+                        "  position=%s  market=%s  side=%s  size_usd=%.4f  collateral=%.4f %s",
+                        key,
+                        pos.get("market_symbol", "?"),
+                        "LONG" if pos.get("is_long") else "SHORT",
+                        pos.get("position_size", 0),
+                        pos.get("initial_collateral_amount", 0),
+                        pos.get("collateral_token", "?"),
+                    )
+            else:
+                logger.info("Lagoon open GMX positions at startup: none")
+        except Exception as e:
+            logger.warning("Lagoon open positions fetch at startup failed (non-fatal): %s", e)
+
     def _approve_lagoon_collateral(
         self,
         vault: "LagoonVault",

@@ -3660,10 +3660,18 @@ class GMX(ExchangeCompatible):
                 if error:
                     result["info"][code] = {"error": error}
                 else:
-                    # Calculate used (locked in positions) and free amounts
+                    # Collateral sent to GMX is already removed from the Safe's ERC-20 balance.
+                    # free  = wallet ERC-20 balance (what is available for new positions)
+                    # used  = collateral locked inside open GMX positions
+                    # total = free + used  (true value managed by the vault)
+                    # Previously total=balance_float and free=max(0,balance-used) caused a
+                    # double-subtraction: the collateral was already gone from balance_float,
+                    # so subtracting it again made free shrink to 0 and total exclude the GMX
+                    # collateral, causing freqtrade to re-base starting_capital downward on
+                    # every loop iteration as positions were opened.
                     used_amount = collateral_locked.get(code, 0.0)
-                    free_amount = max(0.0, balance_float - used_amount)  # Ensure non-negative
-                    total_amount = balance_float
+                    free_amount = balance_float
+                    total_amount = balance_float + used_amount
 
                     result[code] = {"free": free_amount, "used": used_amount, "total": total_amount}
 

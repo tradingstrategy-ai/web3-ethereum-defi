@@ -126,6 +126,24 @@ GMX_API_URLS_FALLBACK_2: dict = {
     "arbitrum_sepolia": "https://dolphin-app-a2dup.ondigitalocean.app",
 }
 
+#: REST API v2 endpoint URLs for GMX protocol services by blockchain network.
+#:
+#: These endpoints provide access to newer GMX REST API v2 services hosted on
+#: DigitalOcean, including positions, orders, funding/borrowing rates, OHLCV
+#: candles with flexible ``since`` parameter, token info, and trading pairs.
+#:
+#: The v2 base URL path includes ``/api/v1`` as part of the base — endpoint
+#: paths are appended directly (e.g. ``/positions``, ``/orders``).
+#:
+#: .. note::
+#:     v1 endpoints (:data:`GMX_API_URLS`) remain the primary source for
+#:     tickers, signed prices, markets, and APY data.  v2 endpoints expose
+#:     **additional** surfaces not available in v1.
+GMX_API_V2_URLS: dict[str, str] = {
+    "arbitrum": "https://gmx-api-arbitrum-2nlbk.ondigitalocean.app/api/v1",
+    "avalanche": "https://gmx-api-avalanche-vxjas.ondigitalocean.app/api/v1",
+}
+
 # TODO: get rid of the rest bcz they will be migrated soon.
 # Contract addresses by chain
 GMX_EVENT_EMITTER_ADDRESS = {
@@ -409,6 +427,18 @@ DISK_CACHE_MARKETS_TTL_SECONDS = 3600  # 1 hour
 
 #: Disk cache TTL for APY data - moderate freshness
 DISK_CACHE_APY_TTL_SECONDS = 300  # 5 minutes
+
+#: v2 API cache TTL for position data
+_POSITIONS_CACHE_TTL_SECONDS = 15
+
+#: v2 API cache TTL for funding/borrowing rate snapshots
+_RATES_CACHE_TTL_SECONDS = 60
+
+#: v2 API cache TTL for trading pairs metadata
+_PAIRS_CACHE_TTL_SECONDS = 600
+
+#: v2 API cache TTL for token pricing and supply info
+_TOKEN_INFO_CACHE_TTL_SECONDS = 60
 
 #: Default cache directory for market data
 DEFAULT_MARKET_CACHE_DIR = "~/.tradingstrategy/cache/gmx"

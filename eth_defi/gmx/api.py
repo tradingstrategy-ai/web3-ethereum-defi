@@ -9,17 +9,24 @@ import time
 from typing import Any, Optional
 
 import pandas as pd
+import requests
+from eth_typing import HexAddress
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.market_depth import MarketDepthInfo, parse_market_depth
 from eth_defi.gmx.constants import (
     GMX_API_URLS,
     GMX_API_URLS_BACKUP,
+    GMX_API_V2_URLS,
     GMX_SUPPORTED_CHAINS,
     _APY_CACHE_TTL_SECONDS,
     _MARKETS_CACHE_TTL_SECONDS,
     _MARKETS_INFO_CACHE_TTL_SECONDS,
+    _PAIRS_CACHE_TTL_SECONDS,
+    _POSITIONS_CACHE_TTL_SECONDS,
+    _RATES_CACHE_TTL_SECONDS,
     _TICKER_CACHE_TTL_SECONDS,
+    _TOKEN_INFO_CACHE_TTL_SECONDS,
 )
 from eth_defi.gmx.retry import GMXRetryConfig, make_gmx_api_request
 
@@ -37,6 +44,18 @@ _MARKETS_INFO_CACHE: dict[str, tuple[dict, float]] = {}
 
 # Module-level cache for APY data (includes period in key)
 _APY_CACHE: dict[str, tuple[dict, float]] = {}
+
+# Module-level cache for v2 positions data
+_POSITIONS_CACHE: dict[str, tuple[Any, float]] = {}
+
+# Module-level cache for v2 rates data (includes period in key)
+_RATES_CACHE: dict[str, tuple[Any, float]] = {}
+
+# Module-level cache for v2 pairs data
+_PAIRS_CACHE: dict[str, tuple[Any, float]] = {}
+
+# Module-level cache for v2 token info data
+_TOKEN_INFO_CACHE: dict[str, tuple[Any, float]] = {}
 
 
 def clear_ticker_prices_cache() -> None:
@@ -161,6 +180,69 @@ class GMXAPI:
         :rtype: str
         """
         return GMX_API_URLS_BACKUP.get(self.chain.lower(), "")
+
+    @property
+    def base_v2_url(self) -> str:
+        """Get the REST API v2 URL for the configured chain.
+
+        :return:
+            GMX REST API v2 base URL for the current chain, or empty string
+            if no v2 endpoint is configured for this chain.
+        """
+        return GMX_API_V2_URLS.get(self.chain.lower(), "")
+
+    def _make_v2_request(
+        self,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        timeout: float = 10.0,
+    ) -> Any:
+        """Make a request to the GMX REST API v2 with basic retry logic.
+
+        The v2 API uses different base URLs hosted on DigitalOcean and does
+        not have the multi-tier failover of v1.  This method retries up to
+        3 times with exponential backoff on transient failures.
+
+        :param endpoint:
+            API endpoint path (e.g. ``"/positions"``, ``"/orders"``).
+        :param params:
+            Optional query parameters dict.
+        :param timeout:
+            HTTP request timeout in seconds.
+        :return:
+            API response parsed as a dict or list.
+        :raises ValueError:
+            When no v2 API URL is configured for the current chain.
+        :raises RuntimeError:
+            When all retry attempts fail.
+        """
+        base = self.base_v2_url
+        if not base:
+            raise ValueError(f"No GMX v2 API URL configured for chain: {self.chain!r}")
+
+        url = f"{base}{endpoint}"
+        last_error: Exception | None = None
+        delay = 1.0
+
+        for attempt in range(3):
+            try:
+                response = requests.get(url, params=params, timeout=timeout)
+                response.raise_for_status()
+                return response.json()
+            except requests.RequestException as exc:
+                last_error = exc
+                if attempt < 2:
+                    logger.warning(
+                        "GMX v2 API attempt %d/3 failed for %s: %s — retrying in %.1fs",
+                        attempt + 1,
+                        endpoint,
+                        exc,
+                        delay,
+                    )
+                    time.sleep(delay)
+                    delay = min(delay * 2.0, 10.0)
+
+        raise RuntimeError(f"GMX v2 API request failed after 3 attempts: {endpoint}") from last_error
 
     def _make_request(
         self,
@@ -597,3 +679,259 @@ class GMXAPI:
             self.chain,
         )
         return result
+
+    # ------------------------------------------------------------------
+    # REST API v2 methods
+    # ------------------------------------------------------------------
+
+    def get_positions(
+        self,
+        address: HexAddress,
+        include_related_orders: bool = False,
+        use_cache: bool = True,
+    ) -> Any:
+        """Fetch open positions for a wallet address via the v2 API.
+
+        Returns position data including unrealised PnL, fees, leverage,
+        collateral amount, and liquidation price.  This endpoint is only
+        available on the v2 REST API and is not present in v1.
+
+        Example::
+
+            api = GMXAPI(chain="arbitrum")
+            positions = api.get_positions("0xAbC...")
+            for pos in positions:
+                print(pos["market"], pos["leverage"])
+
+        :param address:
+            Wallet address to query positions for (checksummed hex).
+        :param include_related_orders:
+            Include related SL/TP orders attached to each position.
+        :param use_cache:
+            Use the module-level 15-second cache.
+        :return:
+            Parsed API response — typically a list of position objects.
+        :raises ValueError:
+            When no v2 API URL is configured for the current chain.
+        :raises RuntimeError:
+            When all retry attempts fail.
+        """
+        cache_key = f"positions_{self.chain}_{address}"
+        if use_cache and cache_key in _POSITIONS_CACHE:
+            cached_data, cached_time = _POSITIONS_CACHE[cache_key]
+            if time.time() - cached_time < _POSITIONS_CACHE_TTL_SECONDS:
+                return cached_data
+
+        params: dict[str, Any] = {"address": address}
+        if include_related_orders:
+            params["includeRelatedOrders"] = "true"
+
+        data = self._make_v2_request("/positions", params=params)
+
+        if use_cache:
+            _POSITIONS_CACHE[cache_key] = (data, time.time())
+
+        return data
+
+    def get_orders(
+        self,
+        address: HexAddress,
+    ) -> Any:
+        """Fetch open orders for a wallet address via the v2 API.
+
+        Returns all pending/open orders including limit orders, stop-loss,
+        and take-profit orders.  Not available in v1.
+
+        Example::
+
+            api = GMXAPI(chain="arbitrum")
+            orders = api.get_orders("0xAbC...")
+
+        :param address:
+            Wallet address to query orders for (checksummed hex).
+        :return:
+            Parsed API response — typically a list of order objects.
+        :raises ValueError:
+            When no v2 API URL is configured for the current chain.
+        :raises RuntimeError:
+            When all retry attempts fail.
+        """
+        return self._make_v2_request("/orders", params={"address": address})
+
+    def get_rates(
+        self,
+        period: str | None = None,
+        average_by: str | None = None,
+        address: str | None = None,
+        use_cache: bool = True,
+    ) -> Any:
+        """Fetch funding and borrowing rate snapshots via the v2 API.
+
+        Returns historical rate data filtered by period, averaging window,
+        and optionally a specific market address.  Not available in v1.
+
+        Example::
+
+            api = GMXAPI(chain="arbitrum")
+            rates = api.get_rates(period="1h", average_by="1d")
+
+        :param period:
+            Rate snapshot period (e.g. ``"1h"``, ``"4h"``, ``"1d"``).
+            ``None`` uses the API default.
+        :param average_by:
+            Averaging window for rate smoothing (e.g. ``"1d"``).
+            ``None`` returns raw snapshots.
+        :param address:
+            Optional market address to filter rates for a single market.
+        :param use_cache:
+            Use the module-level 60-second cache.
+        :return:
+            Parsed API response containing rate snapshots per market.
+        :raises ValueError:
+            When no v2 API URL is configured for the current chain.
+        :raises RuntimeError:
+            When all retry attempts fail.
+        """
+        cache_key = f"rates_{self.chain}_{period}_{average_by}_{address}"
+        if use_cache and cache_key in _RATES_CACHE:
+            cached_data, cached_time = _RATES_CACHE[cache_key]
+            if time.time() - cached_time < _RATES_CACHE_TTL_SECONDS:
+                return cached_data
+
+        params: dict[str, Any] = {}
+        if period is not None:
+            params["period"] = period
+        if average_by is not None:
+            params["averageBy"] = average_by
+        if address is not None:
+            params["address"] = address
+
+        data = self._make_v2_request("/rates", params=params)
+
+        if use_cache:
+            _RATES_CACHE[cache_key] = (data, time.time())
+
+        return data
+
+    def get_ohlcv(
+        self,
+        symbol: str,
+        timeframe: str = "1h",
+        limit: int = 100,
+        since: int | None = None,
+    ) -> Any:
+        """Fetch OHLCV candle data via the v2 API.
+
+        Similar to :meth:`get_candlesticks` but uses the v2 endpoint which
+        supports a ``since`` parameter (Unix milliseconds) for flexible
+        historical data retrieval and pagination.
+
+        Example::
+
+            api = GMXAPI(chain="arbitrum")
+            candles = api.get_ohlcv("ETH", timeframe="4h", limit=500)
+
+            # With since parameter for historical data
+            import time
+
+            one_week_ago_ms = int((time.time() - 7 * 86400) * 1000)
+            candles = api.get_ohlcv("BTC", timeframe="1h", since=one_week_ago_ms)
+
+        :param symbol:
+            Trading symbol (e.g. ``"ETH"``, ``"BTC"``).
+        :param timeframe:
+            Candle timeframe: ``"1m"``, ``"5m"``, ``"15m"``, ``"1h"``,
+            ``"4h"``, ``"1d"``.  Default ``"1h"``.
+        :param limit:
+            Maximum number of candles to return.  Default ``100``.
+        :param since:
+            Unix timestamp in **milliseconds** for the earliest candle.
+            ``None`` returns the most recent candles.
+        :return:
+            Parsed API response containing OHLCV candle data.
+        :raises ValueError:
+            When no v2 API URL is configured for the current chain.
+        :raises RuntimeError:
+            When all retry attempts fail.
+        """
+        params: dict[str, Any] = {
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "limit": limit,
+        }
+        if since is not None:
+            params["since"] = since
+
+        return self._make_v2_request("/prices/ohlcv", params=params)
+
+    def get_token_info(
+        self,
+        use_cache: bool = True,
+    ) -> Any:
+        """Fetch comprehensive token information via the v2 API.
+
+        Returns token metadata including current pricing and supply data.
+        Richer than the v1 :meth:`get_tokens` endpoint.
+
+        Example::
+
+            api = GMXAPI(chain="arbitrum")
+            tokens = api.get_token_info()
+
+        :param use_cache:
+            Use the module-level 60-second cache.
+        :return:
+            Parsed API response containing token info objects.
+        :raises ValueError:
+            When no v2 API URL is configured for the current chain.
+        :raises RuntimeError:
+            When all retry attempts fail.
+        """
+        cache_key = f"token_info_{self.chain}"
+        if use_cache and cache_key in _TOKEN_INFO_CACHE:
+            cached_data, cached_time = _TOKEN_INFO_CACHE[cache_key]
+            if time.time() - cached_time < _TOKEN_INFO_CACHE_TTL_SECONDS:
+                return cached_data
+
+        data = self._make_v2_request("/tokens/info")
+
+        if use_cache:
+            _TOKEN_INFO_CACHE[cache_key] = (data, time.time())
+
+        return data
+
+    def get_pairs(
+        self,
+        use_cache: bool = True,
+    ) -> Any:
+        """Fetch all trading pairs via the v2 API.
+
+        Returns the complete list of trading pairs available on the GMX
+        protocol for the configured chain.  Not available in v1.
+
+        Example::
+
+            api = GMXAPI(chain="arbitrum")
+            pairs = api.get_pairs()
+
+        :param use_cache:
+            Use the module-level 10-minute cache.
+        :return:
+            Parsed API response containing trading pair objects.
+        :raises ValueError:
+            When no v2 API URL is configured for the current chain.
+        :raises RuntimeError:
+            When all retry attempts fail.
+        """
+        cache_key = f"pairs_{self.chain}"
+        if use_cache and cache_key in _PAIRS_CACHE:
+            cached_data, cached_time = _PAIRS_CACHE[cache_key]
+            if time.time() - cached_time < _PAIRS_CACHE_TTL_SECONDS:
+                return cached_data
+
+        data = self._make_v2_request("/pairs")
+
+        if use_cache:
+            _PAIRS_CACHE[cache_key] = (data, time.time())
+
+        return data
