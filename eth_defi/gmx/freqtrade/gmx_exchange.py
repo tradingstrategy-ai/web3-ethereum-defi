@@ -448,7 +448,7 @@ class Gmx(Exchange):
         # --- Telegram startup snapshot ---
         safe_short = f"{safe_address[:6]}…{safe_address[-4:]}"
         positions_block = "\n".join(position_lines)
-        msg = f"🟢 *{bot_name} — Bot Started*\n\nSafe: `{safe_short}`\n\n*Balance (USDC)*\n  Free:    `${free_usdc:.4f}`\n  In GMX:  `${used_usdc:.4f}`\n  Total:   `${total_usdc:.4f}`\n\n*Open positions*\n{positions_block}"
+        msg = f"🟢 *{bot_name} — Bot Started*\n\nSafe: `{safe_short}`\n\n*Balance (USDC)*\n  Free:    `${free_usdc:.4f}`\n  On GMX:  `${used_usdc:.4f}`\n  Total:   `${total_usdc:.4f}`\n\n*Open positions*\n{positions_block}"
         send_freqtrade_telegram_message(self._config, msg)
 
     def _approve_lagoon_collateral(
