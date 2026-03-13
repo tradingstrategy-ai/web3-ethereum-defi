@@ -246,11 +246,7 @@ Examples:
         "--token",
         type=str,
         default=None,
-        help=(
-            "ERC-20 token contract address to recover. "
-            "Defaults to the vault's denomination token (USDC). "
-            "Pass a checksummed contract address, e.g. 0x2f2a...5B0f for WBTC."
-        ),
+        help=("ERC-20 token contract address to recover. Defaults to the vault's denomination token (USDC). Pass a checksummed contract address, e.g. 0x2f2a...5B0f for WBTC."),
     )
     parser.add_argument(
         "--amount",

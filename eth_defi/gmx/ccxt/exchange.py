@@ -495,6 +495,7 @@ class GMX(ExchangeCompatible):
         referral_code_str = parameters.get("referralCode")
         if referral_code_str:
             from eth_defi.event_reader.conversion import convert_string_to_bytes32
+
             self._referral_code: bytes | None = convert_string_to_bytes32(referral_code_str)
             logger.info("GMX referral code configured: %s", referral_code_str)
         else:
@@ -6151,13 +6152,7 @@ class GMX(ExchangeCompatible):
                 _open_remaining = int(_open_cooldown_until - time.monotonic())
                 _open_last_reason = _open_cb_entry.get("last_reason", "unknown")
                 _open_count = _open_cb_entry.get("count", 0)
-                raise InvalidOrder(
-                    f"OPEN_CIRCUIT_BREAKER: skipping open for {symbol} — "
-                    f"{_open_count} consecutive keeper cancellations "
-                    f"(last reason: {_open_last_reason}). "
-                    f"Cooldown: {_open_remaining}s remaining. "
-                    f"Call reset_keeper_cancel_count('{symbol}') to resume."
-                )
+                raise InvalidOrder(f"OPEN_CIRCUIT_BREAKER: skipping open for {symbol} — {_open_count} consecutive keeper cancellations (last reason: {_open_last_reason}). Cooldown: {_open_remaining}s remaining. Call reset_keeper_cancel_count('{symbol}') to resume.")
 
             # Remove internal key used only in the close path
             gmx_params.pop("_gmx_position", None)

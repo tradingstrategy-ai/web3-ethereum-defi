@@ -2,6 +2,16 @@
 GMX Open Positions Data Module.
 
 This module provides access to open positions data for user addresses.
+
+Uses a tiered data fetching strategy:
+
+1. **REST API v2** (primary) — fastest, returns pre-computed mark price,
+   leverage, PnL, liquidation price, and optionally related orders.  No
+   oracle calls required.
+2. **Subsquid GraphQL** (fallback) — fast but needs separate oracle price
+   fetch for mark price.
+3. **RPC Reader contract** (last resort) — on-chain call, slowest, needs
+   oracle prices, capped at 100 positions per call.
 """
 
 import logging
@@ -11,9 +21,11 @@ import numpy as np
 import requests
 from eth_utils import to_checksum_address
 
+from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.core.oracle import OraclePrices
+from eth_defi.gmx.constants import PRECISION
 from eth_defi.gmx.contracts import (
     get_contract_addresses,
     get_tokens_metadata_dict,
@@ -49,75 +61,178 @@ class GetOpenPositions(GetData):
     def get_data(self, address: str) -> MarketData:
         """Get all open positions for a given address on the configured chain.
 
-        Uses GraphQL (fast) by default, falls back to RPC if GraphQL fails or is disabled.
+        Tries data sources in order: REST API v2 → Subsquid GraphQL → RPC
+        Reader contract.  Each fallback is attempted only when the previous
+        source fails.
 
         :param address: User wallet address to query positions for
         :returns: A dictionary containing the open positions, where asset and direction are the keys
         :rtype: dict
         """
-        # Convert address to checksum format
         checksum_address = to_checksum_address(address)
 
-        # Try GraphQL first if enabled
-        if self.use_graphql:
-            try:
-                return self._get_data_via_graphql(checksum_address)
-            except Exception as e:
-                logger.warning("GraphQL query failed, falling back to RPC: %s", e)
-                # Fall through to RPC method
-
-        # RPC method (original implementation)
-        # Normalize chain name to lowercase string
-        chain_name = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
-
+        # 1. Try REST API v2 (fastest — pre-computed values, no oracle calls)
         try:
-            contract_addresses = get_contract_addresses(chain_name)
-            datastore_address = contract_addresses.datastore
-
-            # Get raw positions from reader contract
-            try:
-                raw_positions = self.reader_contract.functions.getAccountPositions(datastore_address, checksum_address, 0, 10).call()
-            except Exception as decode_error:
-                # Handle decoding errors - could be due to:
-                # 1. Contract ABI mismatch
-                # 2. No positions for this address
-                # 3. Network/RPC issues
-                error_msg = str(decode_error)
-                logger.error("Could not decode positions for address %s: %s", checksum_address, error_msg)
-                # Return empty dict for addresses with no valid positions
-                raise decode_error
-
-            if len(raw_positions) == 0:
-                logger.info('No positions open for address: "%s" on %s.', checksum_address, chain_name.title())
-                return {}
-
-            processed_positions = {}
-
-            for raw_position in raw_positions:
-                try:
-                    processed_position = self._get_data_processing(raw_position)
-
-                    # Build a better key using market symbol and direction
-                    if processed_position["is_long"]:
-                        direction = "long"
-                    else:
-                        direction = "short"
-
-                    key = "{}_{}".format(processed_position["market_symbol"], direction)
-                    processed_positions[key] = processed_position
-                except KeyError as e:
-                    logging.error("Incompatible market: %s", e)
-                    # Continue processing other positions instead of failing completely
-                    continue
-                except Exception as e:
-                    logging.error("Error processing position: %s", e)
-                    continue
-
-            return processed_positions
-
+            return self._get_data_via_rest_api(checksum_address)
         except Exception as e:
-            logger.error("Failed to fetch open positions data: %s", e)
-            raise e
+            logger.warning("REST API v2 positions query failed, trying GraphQL: %s", e)
+
+        # 2. Try Subsquid GraphQL
+        try:
+            return self._get_data_via_graphql(checksum_address)
+        except Exception as e:
+            logger.warning("GraphQL positions query failed, falling back to RPC: %s", e)
+
+        # 3. RPC Reader contract (last resort)
+        return self._get_data_via_rpc(checksum_address)
+
+    # ------------------------------------------------------------------
+    # REST API v2
+    # ------------------------------------------------------------------
+
+    def _get_data_via_rest_api(self, address: str) -> MarketData:
+        """Fetch open positions from GMX REST API v2.
+
+        This is the fastest method — the API returns pre-computed mark
+        price, leverage, PnL, liquidation price, and collateral USD so no
+        oracle calls are needed.
+
+        :param address: Checksum wallet address
+        :returns: Dictionary of positions in internal format
+        :rtype: dict
+        """
+        chain_name = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
+        api = GMXAPI(chain=chain_name)
+        raw_positions = api.get_positions(address, use_cache=False)
+
+        if not raw_positions:
+            logger.info('No positions found via REST API for address: "%s" on %s', address, chain_name.title())
+            return {}
+
+        processed_positions: dict[str, Any] = {}
+        for pos in raw_positions:
+            try:
+                processed = self._process_rest_api_position(pos)
+                direction = "long" if processed["is_long"] else "short"
+                key = f"{processed['market_symbol']}_{direction}"
+                processed_positions[key] = processed
+            except Exception as e:
+                logger.warning("Failed to process REST API position %s: %s", pos.get("indexName", "?"), e)
+                continue
+
+        logger.info(
+            "Fetched %d position(s) via REST API for %s on %s",
+            len(processed_positions),
+            address,
+            chain_name.title(),
+        )
+        return processed_positions
+
+    def _process_rest_api_position(self, pos: dict) -> dict[str, Any]:
+        """Convert a REST API v2 position to the internal format.
+
+        The REST API returns all values as strings in 30-decimal raw
+        format (same as on-chain).  Leverage is ``int(leverage) / 10_000``
+        and ``pnlPercentage`` is ``int(pnl) / 100``.
+
+        :param pos: Single position dict from the REST API
+        :returns: Processed position matching internal format
+        :rtype: dict
+        """
+        # Parse indexName → market_symbol  ("SOL/USD" → "SOL", "kPEPE/USD" → "PEPE")
+        index_name = pos.get("indexName", "")
+        market_symbol = index_name.split("/")[0] if "/" in index_name else index_name
+        # Strip kilo prefix used by GMX for some tokens (kPEPE → PEPE, kSHIB → SHIB)
+        if market_symbol.startswith("k") and len(market_symbol) > 1 and market_symbol[1:].isupper():
+            market_symbol = market_symbol[1:]
+
+        is_long = pos.get("isLong", True)
+
+        # All numeric values from the REST API are strings in 30-decimal format
+        position_size_usd = int(pos.get("sizeInUsd", 0)) / 10**PRECISION
+        entry_price_raw = int(pos.get("entryPrice", 0))
+        mark_price_raw = int(pos.get("markPrice", 0))
+        collateral_usd_raw = int(pos.get("collateralUsd", 0))
+        collateral_amount_raw = int(pos.get("collateralAmount", 0))
+
+        # Leverage is stored as int * 10_000 (e.g., 10168 = 1.0168x)
+        leverage = int(pos.get("leverage", 0)) / 10_000
+
+        # PnL percentage is stored as int * 100 (e.g., -159 = -1.59%)
+        percent_profit = int(pos.get("pnlPercentage", 0)) / 100
+
+        # Entry/mark prices need token-decimal adjustment.
+        # The REST API stores prices in the same 30-decimal format as on-chain.
+        # For price conversion we need index token decimals — derive from sizeInTokens
+        size_in_tokens = int(pos.get("sizeInTokens", 0))
+        size_in_usd_raw = int(pos.get("sizeInUsd", 0))
+
+        # Compute entry price: sizeInUsd / sizeInTokens gives price in
+        # (10^30 / 10^token_decimals) units.  We can back-derive token
+        # decimals from entryPrice and this ratio, but it is simpler to
+        # just compute price directly from sizeInUsd / sizeInTokens when
+        # both are available.
+        if size_in_tokens > 0 and size_in_usd_raw > 0:
+            # entry_price = sizeInUsd / sizeInTokens (both raw), giving
+            # price with (30 - token_decimals) decimals.  We don't know
+            # token_decimals here, so use the API's pre-computed entry price.
+            # Derive token_decimals from the ratio:
+            #   entryPrice_raw = (sizeInUsd / sizeInTokens) * 10^token_decimals  (approximately)
+            # Actually, the REST API gives us entryPrice in 30-decimal
+            # format regardless of token decimals, same as markPrice.
+            # So simply: price_float = raw / 10^30
+            entry_price = entry_price_raw / 10**PRECISION
+            mark_price = mark_price_raw / 10**PRECISION
+        else:
+            entry_price = entry_price_raw / 10**PRECISION
+            mark_price = mark_price_raw / 10**PRECISION
+
+        collateral_amount_usd = collateral_usd_raw / 10**PRECISION
+
+        logger.debug(
+            "POSITION_TRACE: _process_rest_api_position() market=%s, is_long=%s, size_usd=%.2f, entry=%.6f, mark=%.6f, leverage=%.2f, pnl=%.2f%%",
+            market_symbol,
+            is_long,
+            position_size_usd,
+            entry_price,
+            mark_price,
+            leverage,
+            percent_profit,
+        )
+
+        return {
+            "account": pos.get("account", ""),
+            "market": pos.get("marketAddress", ""),
+            "market_symbol": market_symbol,
+            "collateral_token": "USDC",  # GMX v2 uses USDC as collateral
+            "position_size": position_size_usd,
+            "position_size_usd_raw": size_in_usd_raw,
+            "size_in_tokens": size_in_tokens,
+            "entry_price": entry_price,
+            "initial_collateral_amount": collateral_amount_raw,
+            "initial_collateral_amount_usd": collateral_amount_usd,
+            "leverage": leverage,
+            "pending_impact_amount": int(pos.get("pendingImpactAmount", 0)),
+            "borrowing_factor": 0,  # Not directly in REST API response
+            "funding_fee_amount_per_size": 0,
+            "long_token_claimable_funding_amount_per_size": 0,
+            "short_token_claimable_funding_amount_per_size": 0,
+            "increased_at_time": int(pos.get("increasedAtTime", 0)),
+            "decreased_at_time": int(pos.get("decreasedAtTime", 0)),
+            "position_modified_at": "",
+            "is_long": is_long,
+            "percent_profit": percent_profit,
+            "mark_price": mark_price,
+            # Extra fields only available from REST API
+            "liquidation_price": int(pos.get("liquidationPrice", 0)) / 10**PRECISION,
+            "pnl_after_fees": int(pos.get("pnlAfterFees", 0)) / 10**PRECISION,
+            "net_value": int(pos.get("netValue", 0)) / 10**PRECISION,
+            "related_orders": pos.get("relatedOrders", []),
+        }
+
+    # ------------------------------------------------------------------
+    # Subsquid GraphQL
+    # ------------------------------------------------------------------
 
     def _get_data_via_graphql(self, address: str) -> MarketData:
         """Fetch open positions using GraphQL (faster than RPC).
@@ -255,13 +370,13 @@ class GetOpenPositions(GetData):
             raise ValueError(f"Token info not found for index={index_token} or collateral={collateral_token}")
 
         # Parse values from GraphQL
-        position_size_usd = int(pos["sizeInUsd"]) / 10**30
+        position_size_usd = int(pos["sizeInUsd"]) / 10**PRECISION
         size_in_tokens = int(pos["sizeInTokens"])
         collateral_amount = int(pos["collateralAmount"])
         is_long = pos["isLong"]
 
         # GraphQL provides entry price and leverage directly (different decimal format than RPC)
-        entry_price = int(pos["entryPrice"]) / 10 ** (30 - index_token_info["decimals"])
+        entry_price = int(pos["entryPrice"]) / 10 ** (PRECISION - index_token_info["decimals"])
         leverage = int(pos["leverage"]) / 10**4
 
         # Calculate collateral value in USD
@@ -274,13 +389,13 @@ class GetOpenPositions(GetData):
         mark_price = entry_price  # Default fallback
         if oracle_address in prices:
             price_data = prices[oracle_address]
-            mark_price = np.median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])]) / 10 ** (30 - index_decimals)
+            mark_price = np.median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])]) / 10 ** (PRECISION - index_decimals)
 
         # Get collateral price for USD value calculation
         collateral_oracle = get_oracle_address(chain_name, collateral_token)
         if collateral_oracle in prices:
             collateral_price_data = prices[collateral_oracle]
-            collateral_price = np.median([float(collateral_price_data["maxPriceFull"]), float(collateral_price_data["minPriceFull"])]) / 10 ** (30 - collateral_decimals)
+            collateral_price = np.median([float(collateral_price_data["maxPriceFull"]), float(collateral_price_data["minPriceFull"])]) / 10 ** (PRECISION - collateral_decimals)
         else:
             collateral_price = 1.0  # Assume $1 for stablecoins
 
@@ -342,6 +457,70 @@ class GetOpenPositions(GetData):
             "percent_profit": percent_profit,
             "mark_price": mark_price,
         }
+
+    # ------------------------------------------------------------------
+    # RPC Reader contract (last resort)
+    # ------------------------------------------------------------------
+
+    def _get_data_via_rpc(self, address: str) -> MarketData:
+        """Fetch open positions via the on-chain Reader contract.
+
+        This is the slowest method — it makes an RPC call to the Reader
+        contract and then fetches oracle prices for each position.  Use
+        only as a last resort when both REST API and GraphQL are down.
+
+        :param address: Checksum wallet address
+        :returns: Dictionary of positions in internal format
+        :rtype: dict
+        """
+        chain_name = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
+
+        try:
+            contract_addresses = get_contract_addresses(chain_name)
+            datastore_address = contract_addresses.datastore
+
+            # Get raw positions from reader contract
+            try:
+                raw_positions = self.reader_contract.functions.getAccountPositions(datastore_address, address, 0, 100).call()
+            except Exception as decode_error:
+                error_msg = str(decode_error)
+                logger.error("Could not decode positions for address %s: %s", address, error_msg)
+                raise decode_error
+
+            if len(raw_positions) == 0:
+                logger.info('No positions open for address: "%s" on %s.', address, chain_name.title())
+                return {}
+
+            processed_positions = {}
+
+            for raw_position in raw_positions:
+                try:
+                    processed_position = self._get_data_processing(raw_position)
+
+                    # Build a better key using market symbol and direction
+                    if processed_position["is_long"]:
+                        direction = "long"
+                    else:
+                        direction = "short"
+
+                    key = "{}_{}".format(processed_position["market_symbol"], direction)
+                    processed_positions[key] = processed_position
+                except KeyError as e:
+                    logging.error("Incompatible market: %s", e)
+                    continue
+                except Exception as e:
+                    logging.error("Error processing position: %s", e)
+                    continue
+
+            return processed_positions
+
+        except Exception as e:
+            logger.error("Failed to fetch open positions data: %s", e)
+            raise e
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
 
     def _get_tokens_address_dict(self) -> dict[str, Any]:
         """Get token metadata from GMX API.
@@ -408,7 +587,7 @@ class GetOpenPositions(GetData):
 
         # Calculate entry price - this was line causing KeyError
         index_token_decimals = chain_tokens[index_token_address]["decimals"]
-        entry_price = (raw_position[1][0] / raw_position[1][1]) / 10 ** (30 - index_token_decimals)
+        entry_price = (raw_position[1][0] / raw_position[1][1]) / 10 ** (PRECISION - index_token_decimals)
 
         # Get token decimals
         collateral_token_decimals = chain_tokens[collateral_token_address]["decimals"]
@@ -452,7 +631,7 @@ class GetOpenPositions(GetData):
                         float(index_price_data["maxPriceFull"]),
                         float(index_price_data["minPriceFull"]),
                     ]
-                ) / 10 ** (30 - index_token_decimals)
+                ) / 10 ** (PRECISION - index_token_decimals)
                 logging.debug("Got oracle price for index token %s: $%.4f,", index_token_address, mark_price)
             else:
                 # Price not found in oracle, use entry price
@@ -469,7 +648,7 @@ class GetOpenPositions(GetData):
                         float(collateral_price_data["maxPriceFull"]),
                         float(collateral_price_data["minPriceFull"]),
                     ]
-                ) / 10 ** (30 - collateral_token_decimals)
+                ) / 10 ** (PRECISION - collateral_token_decimals)
                 logging.debug("Got oracle price for collateral token %s: $%.4f,", collateral_token_address, collateral_price)
             else:
                 # Collateral price not found, assume $1 (for stablecoins) or use mark price (for same-asset collateral)
@@ -491,7 +670,7 @@ class GetOpenPositions(GetData):
 
         # Calculate leverage with correct formula: leverage = position_size_usd / collateral_usd
         # where collateral_usd = collateral_amount * collateral_price
-        position_size_usd = raw_position[1][0] / 10**30
+        position_size_usd = raw_position[1][0] / 10**PRECISION
         collateral_amount_tokens = raw_position[1][2] / 10**collateral_token_decimals
         collateral_amount_usd = collateral_amount_tokens * collateral_price
 
@@ -550,7 +729,7 @@ class GetOpenPositions(GetData):
             "market": raw_position[0][1],
             "market_symbol": market_info["market_symbol"],
             "collateral_token": chain_tokens[collateral_token_address]["symbol"],
-            "position_size": raw_position[1][0] / 10**30,
+            "position_size": raw_position[1][0] / 10**PRECISION,
             "position_size_usd_raw": raw_position[1][0],  # Raw value with 30 decimals - needed for exact position closing
             "size_in_tokens": raw_position[1][1],
             "entry_price": entry_price,

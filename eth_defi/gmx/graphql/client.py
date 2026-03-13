@@ -423,6 +423,7 @@ class GMXSubsquidClient:
         query GetPositionChanges($limit: Int!{", $account: String!" if account else ""}{", $positionKey: String!" if position_key else ""}) {{
           positionChanges(
             limit: $limit
+            orderBy: [timestamp_DESC]
             {f"where: {{ {where_clause} }}" if where_clause else ""}
           ) {{
             id
@@ -431,7 +432,12 @@ class GMXSubsquidClient:
             collateralToken
             isLong
             sizeInUsd
+            sizeDeltaUsd
             collateralAmount
+            executionPrice
+            orderKey
+            type
+            timestamp
           }}
         }}
         """
