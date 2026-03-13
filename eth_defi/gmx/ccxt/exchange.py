@@ -2141,86 +2141,18 @@ class GMX(ExchangeCompatible):
 
         gmx_period = self.timeframes[timeframe]
 
-        # --- Data source priority for OHLCV ---
+        # --- Data source: GMX REST API v1 (production) ---
+        # Endpoint: /prices/candles  (gmxinfra.io)
+        # Response: {"candles": [[ts_sec, o, h, l, c], ...]}
         #
-        # 1. GMX REST API v2  (default / preferred)
-        #    Endpoint: /prices/ohlcv  (DigitalOcean-hosted, e.g. gmx-api-arbitrum-*.ondigitalocean.app/api/v1)
-        #    Response: list of dicts — {"timestamp": <ms>, "open": "<str>", "high": "<str>", "low": "<str>", "close": "<str>"}
-        #    Advantage: server-side ``since`` and ``limit`` filtering, so only the requested
-        #    candles are transferred.  The v1 endpoint returns the full history and
-        #    we discard everything before ``since`` client-side, which is wasteful.
-        #
-        # 2. GMX REST API v1  (fallback)
-        #    Endpoint: /prices/candles  (gmxinfra.io)
-        #    Response: {"candles": [[ts_sec, o, h, l, c], ...]}  — timestamps in seconds,
-        #    prices as floats.  Client-side ``since`` / ``limit`` filtering applied by
-        #    parse_ohlcvs().  Used when the v2 endpoint is unreachable or returns empty.
-        #
-        # NOTE — why other methods do NOT use v2 as default:
-        #   fetch_ticker() / fetch_tickers() : v2 has no tickers endpoint.
-        #   fetch_apy()                       : v2 has no APY endpoint.
-        #   load_markets()                    : v2 /pairs lacks funding rates, borrowing
-        #                                       rates, open interest, and pool liquidity —
-        #                                       all required for market loading.
-        #   fetch_balance() collateral        : v2 /positions is missing real-time funding
-        #                                       and borrowing fee accrual; only the on-chain
-        #                                       Reader contract gives exact numbers needed
-        #                                       for free/used/total calculation.
-        ohlcv = None
-
-        try:
-            v2_candles = self.api.get_ohlcv(
-                token_symbol,
-                timeframe=timeframe,
-                limit=limit,
-                since=since,
-            )
-            if isinstance(v2_candles, list) and len(v2_candles) > 0:
-                # Convert v2 dict candles → [[ts_ms, o, h, l, c, vol], ...]
-                raw = [
-                    [
-                        int(c["timestamp"]),  # already in ms
-                        float(c["open"]),
-                        float(c["high"]),
-                        float(c["low"]),
-                        float(c["close"]),
-                        1.0,  # GMX provides no volume; use dummy 1.0 to avoid freqtrade filtering
-                    ]
-                    for c in v2_candles
-                    if isinstance(c, dict) and "timestamp" in c
-                ]
-                if raw:
-                    raw.sort(key=lambda x: x[0])
-                    if since is not None:
-                        raw = [c for c in raw if c[0] >= since]
-                    if limit is not None:
-                        raw = raw[-limit:]
-                    ohlcv = raw
-                    logger.debug(
-                        "fetch_ohlcv: v2 API returned %d candles for %s %s",
-                        len(ohlcv),
-                        symbol,
-                        timeframe,
-                    )
-        except Exception as exc:
-            logger.warning(
-                "fetch_ohlcv: v2 API failed for %s %s, falling back to v1: %s",
-                symbol,
-                timeframe,
-                exc,
-            )
-
-        if ohlcv is None:
-            # v1 fallback — original code path, preserved unchanged
-            response = self.api.get_candlesticks(token_symbol, gmx_period)
-            candles_data = response.get("candles", [])
-            ohlcv = self.parse_ohlcvs(candles_data, market_info, timeframe, since, limit)
-            logger.debug(
-                "fetch_ohlcv: v1 API returned %d candles for %s %s",
-                len(ohlcv),
-                symbol,
-                timeframe,
-            )
+        # The v2 /prices/ohlcv endpoint (DigitalOcean-hosted) is available via
+        # api.get_ohlcv() for ad-hoc use but is NOT used here in the live trading
+        # path — it returns 400 for some symbols (e.g. wstETH) and times out
+        # intermittently, adding 3×retry latency on every bot loop.  Keep v1 as
+        # the sole production source until the v2 endpoint is proven stable.
+        response = self.api.get_candlesticks(token_symbol, gmx_period)
+        candles_data = response.get("candles", [])
+        ohlcv = self.parse_ohlcvs(candles_data, market_info, timeframe, since, limit)
 
         # Validate data sufficiency for backtesting
         _validate_ohlcv_data_sufficiency(
