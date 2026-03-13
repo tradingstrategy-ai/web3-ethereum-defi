@@ -316,10 +316,14 @@ def deploy_market_vault(
     )
 
     # Whitelist USDC and WETH as tradeable assets (skipped when any_asset=True)
-    assets = [
-        config.usdc_address,
-        config.weth_address,
-    ] if not any_asset else None
+    assets = (
+        [
+            config.usdc_address,
+            config.weth_address,
+        ]
+        if not any_asset
+        else None
+    )
 
     # Single-owner Safe
     multisig_owners = [hot_wallet.address]
@@ -644,7 +648,7 @@ def main():
 
         # Resolve markets
         resolved_markets: list[tuple[str, HexAddress]] = []
-        for token in (args.token or []):
+        for token in args.token or []:
             market_address, canonical_symbol = resolve_market_address(token, web3)
             resolved_markets.append((canonical_symbol, market_address))
             print(f"  Resolved: {canonical_symbol}/USD -> {market_address}")
