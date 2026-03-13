@@ -54,6 +54,7 @@ DEPOSIT_EVENT_TYPES = {"deposit", "vaultDeposit", "vaultCreate"}
 #: Ledger event types that represent outflows (withdrawals)
 WITHDRAW_EVENT_TYPES = {"withdraw", "vaultWithdraw"}
 
+
 #: Map raw DB event_type strings to the values expected by compute_event_share_prices
 _VAULT_EVENT_TYPE_MAP = {
     "vaultDeposit": "vault_deposit",
@@ -345,6 +346,10 @@ def reconstruct_equity_curve(
     are made. For vault addresses, additionally computes event-accurate
     share prices.
 
+    The vault status is auto-detected from ledger event types rather
+    than relying solely on the ``is_vault`` flag in the accounts table,
+    which can be incorrect when accounts are added via trader scanning.
+
     :param trade_history_db:
         Trade history database with fills, funding, and ledger data.
     :param address:
@@ -361,16 +366,17 @@ def reconstruct_equity_curve(
     if account is None:
         return None
 
-    is_vault = account["is_vault"]
     label = account["label"]
-
-    logger.info("Reconstructing equity curve for %s (%s, vault=%s)", address, label or "unlabelled", is_vault)
 
     # Fetch data
     fills = trade_history_db.get_fills(address)
     funding = trade_history_db.get_funding(address)
     ledger = trade_history_db.get_ledger(address)
 
+    # Auto-detect vault status from ledger events (more reliable than DB flag)
+    is_vault = trade_history_db.is_vault_address(address)
+
+    logger.info("Reconstructing equity curve for %s (%s, vault=%s)", address, label or "unlabelled", is_vault)
     logger.info("Data: %d fills, %d funding, %d ledger", len(fills), len(funding), len(ledger))
 
     # Reconstruct curves
