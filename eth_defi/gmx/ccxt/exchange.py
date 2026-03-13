@@ -2137,14 +2137,64 @@ class GMX(ExchangeCompatible):
 
         gmx_period = self.timeframes[timeframe]
 
-        # Fetch candlestick data from GMX API
-        response = self.api.get_candlesticks(token_symbol, gmx_period)
+        # --- v2 REST API (preferred) → v1 REST API fallback ---
+        # v2 returns a list of dicts: {"timestamp": ms, "open": "...", ...}
+        # v1 returns {"candles": [[ts_sec, o, h, l, c], ...]}
+        ohlcv = None
 
-        # Parse the response
-        candles_data = response.get("candles", [])
+        try:
+            v2_candles = self.api.get_ohlcv(
+                token_symbol,
+                timeframe=timeframe,
+                limit=limit,
+                since=since,
+            )
+            if isinstance(v2_candles, list) and len(v2_candles) > 0:
+                # Convert v2 dict candles → [[ts_ms, o, h, l, c, vol], ...]
+                raw = [
+                    [
+                        int(c["timestamp"]),  # already in ms
+                        float(c["open"]),
+                        float(c["high"]),
+                        float(c["low"]),
+                        float(c["close"]),
+                        1.0,  # GMX provides no volume; use dummy 1.0 to avoid freqtrade filtering
+                    ]
+                    for c in v2_candles
+                    if isinstance(c, dict) and "timestamp" in c
+                ]
+                if raw:
+                    raw.sort(key=lambda x: x[0])
+                    if since is not None:
+                        raw = [c for c in raw if c[0] >= since]
+                    if limit is not None:
+                        raw = raw[-limit:]
+                    ohlcv = raw
+                    logger.debug(
+                        "fetch_ohlcv: v2 API returned %d candles for %s %s",
+                        len(ohlcv),
+                        symbol,
+                        timeframe,
+                    )
+        except Exception as exc:
+            logger.warning(
+                "fetch_ohlcv: v2 API failed for %s %s, falling back to v1: %s",
+                symbol,
+                timeframe,
+                exc,
+            )
 
-        # Parse OHLCV data
-        ohlcv = self.parse_ohlcvs(candles_data, market_info, timeframe, since, limit)
+        if ohlcv is None:
+            # v1 fallback — original code path
+            response = self.api.get_candlesticks(token_symbol, gmx_period)
+            candles_data = response.get("candles", [])
+            ohlcv = self.parse_ohlcvs(candles_data, market_info, timeframe, since, limit)
+            logger.debug(
+                "fetch_ohlcv: v1 API returned %d candles for %s %s",
+                len(ohlcv),
+                symbol,
+                timeframe,
+            )
 
         # Validate data sufficiency for backtesting
         _validate_ohlcv_data_sufficiency(
