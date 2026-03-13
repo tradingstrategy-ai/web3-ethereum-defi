@@ -23,7 +23,7 @@ Limitations:
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -33,6 +33,7 @@ import pandas as pd
 from web3 import Web3
 from freqtrade.enums import MarginMode, TradingMode
 from freqtrade.exceptions import InsufficientFundsError, OperationalException, TemporaryError
+from freqtrade.persistence import PairLocks
 from freqtrade.exchange import Exchange
 from freqtrade.exchange.common import retrier
 from freqtrade.exchange.exchange_types import CcxtOrder, FtHas
@@ -1094,8 +1095,23 @@ class Gmx(Exchange):
         # Full detail is always available in the log file via logger.error() below.
         snippet = exc_msg[:120] + ("…" if len(exc_msg) > 120 else "")
 
-        # --- Keeper cancellation / circuit breaker ---
-        if "OrderCancelled" in exc_msg or "OrderFrozen" in exc_msg:
+        # --- Open-order circuit breaker (pair locked after N consecutive cancels) ---
+        if "OPEN_CIRCUIT_BREAKER:" in exc_msg:
+            ccxt_exchange = getattr(self, "_api", None)
+            max_cancels = getattr(ccxt_exchange, "_max_keeper_cancels", 3) if ccxt_exchange else 3
+            cooldown_secs = getattr(ccxt_exchange, "_keeper_cancel_cooldown_secs", 3600) if ccxt_exchange else 3600
+            cooldown_mins = cooldown_secs // 60
+            # Lock the pair in freqtrade so no new entries are attempted until cooldown expires
+            try:
+                lock_until = datetime.now(timezone.utc) + timedelta(seconds=cooldown_secs)
+                PairLocks.lock_pair(pair, lock_until, reason=f"GMX keeper cancelled {max_cancels}× consecutive open orders")
+                logger.warning("CIRCUIT_BREAKER: pair %s locked for %dm after %d consecutive open-order keeper cancellations", pair, cooldown_mins, max_cancels)
+            except Exception as _lock_err:
+                logger.warning("CIRCUIT_BREAKER: could not lock pair %s: %s", pair, _lock_err)
+            msg = f"🚨 *{bot_name}*\nCircuit breaker — `{pair}` open\nKeeper cancelled *{max_cancels}×* consecutive · pair locked *{cooldown_mins}m*"
+
+        # --- Keeper cancellation (below threshold) / circuit breaker (close orders) ---
+        elif "OrderCancelled" in exc_msg or "OrderFrozen" in exc_msg:
             ccxt_exchange = getattr(self, "_api", None)
             tracker = getattr(ccxt_exchange, "_keeper_cancel_tracker", {}) if ccxt_exchange else {}
             cb_entry = tracker.get(pair, {})

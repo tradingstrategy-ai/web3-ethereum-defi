@@ -1043,9 +1043,10 @@ class GMX(ExchangeCompatible):
         self._trading_paused = False  # Flag to indicate if trading is paused
         self._trading_paused_reason = None  # Store reason for pause
 
-        #: Per-symbol keeper cancellation tracking (close orders only).
+        #: Per-symbol keeper cancellation tracking for both open and close orders.
         #: Prevents infinite retry loops when structurally doomed orders are retried every cycle.
-        #: Format: ``{symbol: {"count": int, "cooldown_until": float, "last_reason": str}}``
+        #: Close orders are keyed by ``symbol``; open orders by ``open:{symbol}``.
+        #: Format: ``{key: {"count": int, "cooldown_until": float, "last_reason": str}}``
         self._keeper_cancel_tracker: dict = {}
         #: Non-fatal warnings accumulated during the last create_order() call.
         #: Drained by gmx_exchange.py after super().create_order() returns so they
@@ -6139,6 +6140,25 @@ class GMX(ExchangeCompatible):
             # ============================================
             # OPENING POSITIONS (buy=LONG, sell=SHORT)
             # ============================================
+
+            # Circuit breaker: refuse open orders for symbols with too many consecutive
+            # keeper cancellations.  This prevents burning gas + keeper fees on orders
+            # that are structurally rejected (e.g., low-liquidity markets, bad price feed).
+            _open_key = f"open:{symbol}"
+            _open_cb_entry = self._keeper_cancel_tracker.get(_open_key, {})
+            _open_cooldown_until = _open_cb_entry.get("cooldown_until", 0.0)
+            if time.monotonic() < _open_cooldown_until:
+                _open_remaining = int(_open_cooldown_until - time.monotonic())
+                _open_last_reason = _open_cb_entry.get("last_reason", "unknown")
+                _open_count = _open_cb_entry.get("count", 0)
+                raise InvalidOrder(
+                    f"OPEN_CIRCUIT_BREAKER: skipping open for {symbol} — "
+                    f"{_open_count} consecutive keeper cancellations "
+                    f"(last reason: {_open_last_reason}). "
+                    f"Cooldown: {_open_remaining}s remaining. "
+                    f"Call reset_keeper_cancel_count('{symbol}') to resume."
+                )
+
             # Remove internal key used only in the close path
             gmx_params.pop("_gmx_position", None)
             if type == "limit":
@@ -6818,30 +6838,33 @@ class GMX(ExchangeCompatible):
                     order_key.hex()[:18] if order_key else "N/A",
                 )
 
-                # Circuit breaker: track consecutive keeper cancellations for close orders.
-                # Only close orders (reduceOnly=True) are tracked — open-order failures are
-                # already handled by _consecutive_failures.
-                if reduceOnly:
-                    _cb_entry = self._keeper_cancel_tracker.setdefault(symbol, {"count": 0, "cooldown_until": 0.0, "last_reason": ""})
-                    _cb_entry["count"] += 1
-                    _cb_entry["last_reason"] = error_reason
-                    if _cb_entry["count"] >= self._max_keeper_cancels:
-                        _cb_entry["cooldown_until"] = time.monotonic() + self._keeper_cancel_cooldown_secs
-                        logger.error(
-                            "CIRCUIT_BREAKER: %d consecutive keeper cancellations for %s close orders. Setting %ds cooldown. Last reason: %s",
-                            _cb_entry["count"],
-                            symbol,
-                            self._keeper_cancel_cooldown_secs,
-                            error_reason,
-                        )
-                    else:
-                        logger.warning(
-                            "CIRCUIT_BREAKER: keeper cancel %d/%d for %s close. Reason: %s",
-                            _cb_entry["count"],
-                            self._max_keeper_cancels,
-                            symbol,
-                            error_reason,
-                        )
+                # Circuit breaker: track consecutive keeper cancellations for both open
+                # and close orders to prevent burning gas + keeper fees on doomed orders.
+                # Close orders are keyed by symbol; open orders by "open:{symbol}".
+                _cb_key = symbol if reduceOnly else f"open:{symbol}"
+                _cb_order_type = "close" if reduceOnly else "open"
+                _cb_entry = self._keeper_cancel_tracker.setdefault(_cb_key, {"count": 0, "cooldown_until": 0.0, "last_reason": ""})
+                _cb_entry["count"] += 1
+                _cb_entry["last_reason"] = error_reason
+                if _cb_entry["count"] >= self._max_keeper_cancels:
+                    _cb_entry["cooldown_until"] = time.monotonic() + self._keeper_cancel_cooldown_secs
+                    logger.error(
+                        "CIRCUIT_BREAKER: %d consecutive keeper cancellations for %s %s orders. Setting %ds cooldown. Last reason: %s",
+                        _cb_entry["count"],
+                        symbol,
+                        _cb_order_type,
+                        self._keeper_cancel_cooldown_secs,
+                        error_reason,
+                    )
+                else:
+                    logger.warning(
+                        "CIRCUIT_BREAKER: keeper cancel %d/%d for %s %s. Reason: %s",
+                        _cb_entry["count"],
+                        self._max_keeper_cancels,
+                        symbol,
+                        _cb_order_type,
+                        error_reason,
+                    )
 
                 # Raise InvalidOrder so freqtrade does NOT set exit_reason on the trade.
                 # Freqtrade's exchange wrapper converts ccxt.InvalidOrder to
@@ -6850,12 +6873,16 @@ class GMX(ExchangeCompatible):
                 raise InvalidOrder(f"GMX order {event_name} by keeper for {symbol}: {error_reason} (tx={tx_hash[:18]}..., order_key={order_key.hex()[:18] if order_key else 'N/A'}...)")
 
             # Order executed successfully — reset keeper cancel counter for this symbol.
-            if reduceOnly and symbol in self._keeper_cancel_tracker:
+            # Reset keeper cancel counter for this symbol after a successful execution.
+            _success_key = symbol if reduceOnly else f"open:{symbol}"
+            _success_order_type = "close" if reduceOnly else "open"
+            if _success_key in self._keeper_cancel_tracker:
                 logger.info(
-                    "CIRCUIT_BREAKER: resetting keeper cancel counter for %s after successful close",
+                    "CIRCUIT_BREAKER: resetting keeper cancel counter for %s after successful %s",
                     symbol,
+                    _success_order_type,
                 )
-                self._keeper_cancel_tracker.pop(symbol, None)
+                self._keeper_cancel_tracker.pop(_success_key, None)
 
             # Parse execution price from Subsquid (30 decimals) or event
             # Convert using token-specific decimals (30 - token_decimals)
