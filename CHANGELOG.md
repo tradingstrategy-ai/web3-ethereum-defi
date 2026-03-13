@@ -1,5 +1,7 @@
 # Current
 
+- Add: Equity curve reconstruction from DuckDB trade history with PnL, account value, and vault share price curves using Plotly visualisation (2026-03-13)
+- Add: HLP system vault addresses documented in `eth_defi.hyperliquid.constants` with auto-inclusion in trade history sync (2026-03-13)
 - Add: New protocol: Liquid Royalty - ALAR SailOut Royalty vault on Berachain with hardcoded detection (2026-03-13, [#837](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/837))
 - Add: Top traders by trade count script with ASXN Hyperscreener integration, portfolio/leaderboard API functions in `eth_defi.hyperliquid.api` (2026-03-13)
 - Add: Hyperliquid copy trading platforms and HFT account identification research documentation (2026-03-13)

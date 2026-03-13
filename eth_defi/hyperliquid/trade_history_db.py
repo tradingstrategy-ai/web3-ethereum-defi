@@ -45,6 +45,7 @@ import datetime
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 
@@ -59,6 +60,28 @@ from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.hyperliquid.trade_history import FundingPayment
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class LedgerEvent:
+    """A deposit, withdrawal, or other non-funding ledger event from DuckDB storage.
+
+    Represents a row from the ``ledger`` table. The ``event_type`` field
+    contains the raw API type string (e.g. ``"vaultDeposit"``,
+    ``"vaultWithdraw"``, ``"deposit"``, ``"withdraw"``).
+    """
+
+    #: Event timestamp
+    timestamp: datetime.datetime
+    #: Timestamp in milliseconds (for storage and sorting)
+    timestamp_ms: int
+    #: Raw API event type (e.g. "vaultDeposit", "withdraw", "deposit")
+    event_type: str
+    #: USDC amount
+    usdc: float
+    #: Associated vault address (if any)
+    vault: str | None
+
 
 #: Default DuckDB path for trade history
 DEFAULT_TRADE_HISTORY_DB_PATH = Path("~/.tradingstrategy/vaults/hyperliquid/trade-history.duckdb").expanduser()
@@ -1121,6 +1144,50 @@ class HyperliquidTradeHistoryDatabase:
                 [address.lower()],
             ).fetchone()
         return result[0] if result else 0
+
+    def get_ledger(
+        self,
+        address: HexAddress,
+        start_time: datetime.datetime | None = None,
+        end_time: datetime.datetime | None = None,
+    ) -> list[LedgerEvent]:
+        """Get stored ledger events for an account.
+
+        :param address:
+            Account address.
+        :param start_time:
+            Optional start time filter.
+        :param end_time:
+            Optional end time filter.
+        :return:
+            List of LedgerEvent objects sorted by timestamp ascending.
+        """
+        addr = address.lower()
+        query = "SELECT ts, event_type, usdc, vault FROM ledger WHERE address = ?"
+        params: list = [addr]
+
+        if start_time is not None:
+            query += " AND ts >= ?"
+            params.append(int(start_time.timestamp() * 1000))
+        if end_time is not None:
+            query += " AND ts <= ?"
+            params.append(int(end_time.timestamp() * 1000))
+
+        query += " ORDER BY ts ASC"
+
+        with self._db_lock:
+            rows = self.con.execute(query, params).fetchall()
+
+        return [
+            LedgerEvent(
+                timestamp=datetime.datetime.fromtimestamp(r[0] / 1000, tz=datetime.timezone.utc).replace(tzinfo=None),
+                timestamp_ms=r[0],
+                event_type=r[1],
+                usdc=r[2],
+                vault=r[3],
+            )
+            for r in rows
+        ]
 
     def get_ledger_count(self, address: HexAddress) -> int:
         """Get the number of stored ledger events for an account."""

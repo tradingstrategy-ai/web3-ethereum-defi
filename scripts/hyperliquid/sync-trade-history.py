@@ -56,6 +56,7 @@ from pathlib import Path
 from tabulate import tabulate
 
 from eth_defi.event_reader.webshare import load_proxy_rotator, print_proxy_dashboard
+from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault_filter import fetch_vaults_by_peak_tvl
 from eth_defi.hyperliquid.trade_history_db import (
@@ -382,6 +383,17 @@ def main():
         # Convert to addresses + labels for the sync
         addresses = [v["address"] for v in vaults]
         labels = [v["name"] for v in vaults if v["name"]]
+
+    # Always include HLP system vault addresses when syncing vaults
+    if scan_mode != "top_traders":
+        existing_set = set(addresses)
+        hlp_added = []
+        for addr in sorted(HYPERLIQUID_SYSTEM_VAULT_ADDRESSES):
+            if addr not in existing_set:
+                addresses.append(addr)
+                hlp_added.append(addr)
+        if hlp_added:
+            print(f"Auto-added {len(hlp_added)} HLP system vault addresses")  # noqa: T201
 
     # Load proxies if WEBSHARE_API_KEY is set
     rotator = load_proxy_rotator()
