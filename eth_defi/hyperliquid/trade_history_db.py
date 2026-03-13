@@ -170,14 +170,21 @@ class HyperliquidTradeHistoryDatabase:
             self.con = None
 
     def close(self):
-        """Close the database connection."""
-        if self.con is not None:
-            self.con.close()
-            self.con = None
+        """Close the database connection.
+
+        Uses ``_db_lock`` so any in-flight database operation completes
+        before the connection is torn down.
+        """
+        with self._db_lock:
+            if self.con is not None:
+                self.con.close()
+                self.con = None
 
     def save(self):
         """Force a checkpoint to ensure data is persisted to disk."""
         with self._db_lock:
+            if self.con is None:
+                return
             self.con.execute("CHECKPOINT")
 
     def _init_schema(self):
@@ -978,7 +985,9 @@ class HyperliquidTradeHistoryDatabase:
         )
 
         results = {}
-        total_events = 0
+        total_fills = 0
+        total_funding = 0
+        total_ledger = 0
 
         def _proxy_postfix(sessions: list[HyperliquidSession], **kwargs) -> str:
             """Build postfix string including proxy rotation stats if proxies are used."""
@@ -986,6 +995,15 @@ class HyperliquidTradeHistoryDatabase:
             if total_rotations > 0:
                 kwargs["rotations"] = str(total_rotations)
             return _colour_postfix(**kwargs)
+
+        def _totals_postfix(sessions, **extra):
+            return _proxy_postfix(
+                sessions,
+                fills=_format_count(total_fills),
+                funding=_format_count(total_funding),
+                ledger=_format_count(total_ledger),
+                **extra,
+            )
 
         if max_workers <= 1:
             # Sequential path: use the session directly (proxy rotation is built in)
@@ -999,12 +1017,14 @@ class HyperliquidTradeHistoryDatabase:
             for account in overall:
                 addr = account["address"]
                 label = account.get("label", addr[:10])
-                overall.set_postfix_str(_proxy_postfix(all_sessions, workers="1", account=label, total=_format_count(total_events)))
+                overall.set_postfix_str(_totals_postfix(all_sessions, account=label))
                 try:
                     result = self.sync_account(session, addr, timeout=timeout)
                     results[addr] = result
-                    total_events += result.get("fills", 0) + result.get("funding", 0) + result.get("ledger", 0)
-                    overall.set_postfix_str(_proxy_postfix(all_sessions, workers="1", account=label, total=_format_count(total_events)))
+                    total_fills += result.get("fills", 0)
+                    total_funding += result.get("funding", 0)
+                    total_ledger += result.get("ledger", 0)
+                    overall.set_postfix_str(_totals_postfix(all_sessions, account=label))
                 except Exception:
                     logger.exception("Failed to sync account %s", addr)
                     results[addr] = {"fills": 0, "funding": 0, "ledger": 0, "error": True}
@@ -1029,7 +1049,7 @@ class HyperliquidTradeHistoryDatabase:
             position=0,
             colour="green",
         )
-        overall.set_postfix_str(_proxy_postfix(all_sessions, workers=str(n_bars), total="0"))
+        overall.set_postfix_str(_totals_postfix(all_sessions, workers=str(n_bars)))
         worker_bars = [
             tqdm_std(
                 total=3,
@@ -1071,12 +1091,27 @@ class HyperliquidTradeHistoryDatabase:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = {executor.submit(_sync_worker, account): account for account in accounts}
 
-                for future in as_completed(futures):
-                    addr, result = future.result()
-                    results[addr] = result
-                    total_events += result.get("fills", 0) + result.get("funding", 0) + result.get("ledger", 0)
-                    overall.update(1)
-                    overall.set_postfix_str(_proxy_postfix(all_sessions, workers=str(n_bars), total=_format_count(total_events)))
+                try:
+                    for future in as_completed(futures):
+                        addr, result = future.result()
+                        results[addr] = result
+                        total_fills += result.get("fills", 0)
+                        total_funding += result.get("funding", 0)
+                        total_ledger += result.get("ledger", 0)
+                        overall.update(1)
+                        overall.set_postfix_str(_totals_postfix(all_sessions, workers=str(n_bars)))
+                except KeyboardInterrupt:
+                    # Cancel pending futures and wait for running workers to
+                    # finish their current database operations.  Without this,
+                    # db.close() in the caller sets self.con = None while
+                    # workers still hold references to the connection.
+                    for f in futures:
+                        f.cancel()
+                    try:
+                        executor.shutdown(wait=True, cancel_futures=True)
+                    except KeyboardInterrupt:
+                        pass  # Second Ctrl+C — stop waiting
+                    raise
         finally:
             for bar in worker_bars:
                 bar.close()
