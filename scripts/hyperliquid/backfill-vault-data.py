@@ -79,6 +79,11 @@ def main():
     staging_db = HyperliquidS3StagingDatabase(staging_db_path)
     metrics_db = HyperliquidDailyMetricsDatabase(db_path)
     try:
+        staging_db_size_mb = staging_db_path.stat().st_size / (1024 * 1024) if staging_db_path.exists() else 0
+        metrics_db_size_mb = db_path.stat().st_size / (1024 * 1024) if db_path.exists() else 0
+        print(f"Staging DB size: {staging_db_size_mb:.1f} MB")
+        print(f"Metrics DB size: {metrics_db_size_mb:.1f} MB")
+
         staging_vault_count = staging_db.get_vault_count()
         staging_row_count = staging_db.get_total_rows()
         print(f"Staging DB: {staging_vault_count:,} vaults, {staging_row_count:,} data points")
@@ -98,6 +103,9 @@ def main():
         print(f"  Vaults with new data: {result['vaults_with_new_data']:,}")
         print(f"  Dates inserted: {result['total_inserted']:,}")
         print(f"  Dates skipped (already existed): {result['total_skipped']:,}")
+
+        metrics_db_size_mb = db_path.stat().st_size / (1024 * 1024) if db_path.exists() else 0
+        print(f"  Metrics DB size: {metrics_db_size_mb:.1f} MB")
 
     finally:
         staging_db.close()
