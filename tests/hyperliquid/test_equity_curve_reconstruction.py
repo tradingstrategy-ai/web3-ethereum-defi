@@ -149,17 +149,17 @@ def test_reconstruct_equity_curve_trader(db):
 
 
 def test_create_figure_trader(db):
-    """Plotly figure for trader has 2 subplot rows."""
+    """Plotly figure for trader has 3 subplot rows (account value, PnL, heatmap)."""
     data = reconstruct_equity_curve(db, TRADER_ADDRESS)
     assert data is not None
 
     fig = create_equity_curve_figure(data)
 
-    # Should have traces for account value and PnL
+    # Should have traces for account value, PnL, and heatmap
     assert len(fig.data) > 0
-    # Check layout has 2 y-axes (one per subplot row)
+    # Check layout has 3 y-axes (account value + PnL + heatmap)
     yaxis_keys = [k for k in fig.layout.to_plotly_json() if k.startswith("yaxis")]
-    assert len(yaxis_keys) == 2
+    assert len(yaxis_keys) == 3
 
 
 # ──────────────────────────────────────────────
@@ -213,16 +213,16 @@ def test_reconstruct_equity_curve_vault(db):
 
 
 def test_create_figure_vault(db):
-    """Plotly figure for vault has 4 subplot rows."""
+    """Plotly figure for vault has 5 subplot rows (account value, PnL, share price, supply, heatmap)."""
     data = reconstruct_equity_curve(db, VAULT_ADDRESS)
     assert data is not None
 
     fig = create_equity_curve_figure(data)
 
     assert len(fig.data) > 0
-    # Check layout has 4 y-axes (one per subplot row)
+    # Check layout has 5 y-axes (account value + PnL + share price + supply + heatmap)
     yaxis_keys = [k for k in fig.layout.to_plotly_json() if k.startswith("yaxis")]
-    assert len(yaxis_keys) == 4
+    assert len(yaxis_keys) == 5
 
 
 # ──────────────────────────────────────────────

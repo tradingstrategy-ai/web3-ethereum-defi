@@ -396,6 +396,66 @@ def reconstruct_equity_curve(
     )
 
 
+def _build_monthly_pnl_heatmap_data(pnl_curve: pd.DataFrame) -> pd.DataFrame | None:
+    """Aggregate PnL curve into monthly buckets for heatmap display.
+
+    Groups the per-event PnL data by calendar month and computes:
+
+    - ``trades``: number of fill/funding events in the month
+    - ``net_pnl``: sum of ``closed_pnl + funding_pnl - fee`` for the month
+
+    Returns a pivoted DataFrame with years as rows, month names as columns,
+    and net PnL as values — ready for ``go.Heatmap``.
+
+    :param pnl_curve:
+        PnL curve from :py:func:`reconstruct_pnl_curve`.
+    :return:
+        Tuple of (pnl_pivot, trades_pivot) DataFrames, or ``None`` if
+        the PnL curve is empty.
+    """
+    if pnl_curve.empty:
+        return None
+
+    monthly = pnl_curve.copy()
+    monthly["net_pnl"] = monthly["closed_pnl"] + monthly["funding_pnl"] - monthly["fee"]
+    monthly["year"] = monthly.index.year
+    monthly["month"] = monthly.index.month
+
+    agg = (
+        monthly.groupby(["year", "month"])
+        .agg(
+            trades=("net_pnl", "count"),
+            net_pnl=("net_pnl", "sum"),
+        )
+        .reset_index()
+    )
+
+    month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    # Build full year x month grid with NaN for missing months
+    years = sorted(agg["year"].unique())
+    pnl_grid = []
+    trades_grid = []
+    for year in years:
+        pnl_row = []
+        trades_row = []
+        for m in range(1, 13):
+            match = agg[(agg["year"] == year) & (agg["month"] == m)]
+            if len(match) == 1:
+                pnl_row.append(match.iloc[0]["net_pnl"])
+                trades_row.append(int(match.iloc[0]["trades"]))
+            else:
+                pnl_row.append(None)
+                trades_row.append(None)
+        pnl_grid.append(pnl_row)
+        trades_grid.append(trades_row)
+
+    pnl_pivot = pd.DataFrame(pnl_grid, index=[str(y) for y in years], columns=month_names)
+    trades_pivot = pd.DataFrame(trades_grid, index=[str(y) for y in years], columns=month_names)
+
+    return pnl_pivot, trades_pivot
+
+
 def create_equity_curve_figure(data: EquityCurveData) -> go.Figure:
     """Create a Plotly figure with equity curve subplots.
 
@@ -404,6 +464,7 @@ def create_equity_curve_figure(data: EquityCurveData) -> go.Figure:
     - Account value over time (from ledger deposits/withdrawals + PnL)
     - Cumulative PnL over time with separate traces for closed PnL,
       funding PnL, fees, and net PnL
+    - Monthly PnL heatmap (year x month grid, coloured by profit)
 
     For vaults, additionally shows:
 
@@ -419,18 +480,38 @@ def create_equity_curve_figure(data: EquityCurveData) -> go.Figure:
     title = f"Equity curve: {data.address[:10]}...{title_label}"
 
     has_vault_data = data.is_vault and data.share_price_curve is not None
-    n_rows = 4 if has_vault_data else 2
+    heatmap_data = _build_monthly_pnl_heatmap_data(data.pnl_curve)
+    has_heatmap = heatmap_data is not None
+
+    # Calculate row count and heights
+    n_rows = 2  # account value + cumulative PnL
+    if has_vault_data:
+        n_rows += 2  # share price + total supply
+    if has_heatmap:
+        n_rows += 1  # monthly heatmap
 
     subplot_titles = ["Account value", "Cumulative PnL"]
     if has_vault_data:
         subplot_titles.extend(["Share price", "Total supply"])
+    if has_heatmap:
+        subplot_titles.append("Monthly PnL heatmap")
+
+    # Use different row heights: heatmap is shorter than line charts
+    row_heights = [300] * (n_rows - (1 if has_heatmap else 0))
+    if has_heatmap:
+        pnl_pivot, _ = heatmap_data
+        heatmap_height = max(120, 40 * len(pnl_pivot))
+        row_heights.append(heatmap_height)
+
+    total_height = sum(row_heights)
 
     fig = make_subplots(
         rows=n_rows,
         cols=1,
-        shared_xaxes=True,
+        shared_xaxes=False,
         subplot_titles=subplot_titles,
         vertical_spacing=0.06,
+        row_heights=row_heights,
     )
 
     # Row 1: Account value
@@ -504,11 +585,13 @@ def create_equity_curve_figure(data: EquityCurveData) -> go.Figure:
         )
         fig.update_yaxes(title_text="USD", row=2, col=1)
 
+    current_row = 3
+
     # Vault-specific rows
     if has_vault_data:
         sp = data.share_price_curve
 
-        # Row 3: Share price
+        # Share price
         fig.add_trace(
             go.Scatter(
                 x=sp.index,
@@ -516,12 +599,13 @@ def create_equity_curve_figure(data: EquityCurveData) -> go.Figure:
                 name="Share price",
                 line=dict(color="purple"),
             ),
-            row=3,
+            row=current_row,
             col=1,
         )
-        fig.update_yaxes(title_text="Price", row=3, col=1)
+        fig.update_yaxes(title_text="Price", row=current_row, col=1)
+        current_row += 1
 
-        # Row 4: Total supply
+        # Total supply
         fig.add_trace(
             go.Scatter(
                 x=sp.index,
@@ -530,15 +614,64 @@ def create_equity_curve_figure(data: EquityCurveData) -> go.Figure:
                 line=dict(color="teal"),
                 fill="tozeroy",
             ),
-            row=4,
+            row=current_row,
             col=1,
         )
-        fig.update_yaxes(title_text="Shares", row=4, col=1)
+        fig.update_yaxes(title_text="Shares", row=current_row, col=1)
+        current_row += 1
 
-    height = 300 * n_rows
+    # Monthly PnL heatmap
+    if has_heatmap:
+        pnl_pivot, trades_pivot = heatmap_data
+
+        # Build hover and annotation text: "N trades\n$X,XXX.XX"
+        hover_text = []
+        annotation_text = []
+        for i in range(len(pnl_pivot)):
+            hover_row = []
+            anno_row = []
+            for j in range(len(pnl_pivot.columns)):
+                pnl_val = pnl_pivot.iloc[i, j]
+                trades_val = trades_pivot.iloc[i, j]
+                if pd.notna(pnl_val) and pd.notna(trades_val):
+                    cell = f"{int(trades_val):,} trades<br>${pnl_val:,.0f}"
+                    hover_row.append(cell)
+                    anno_row.append(cell)
+                else:
+                    hover_row.append("")
+                    anno_row.append("")
+            hover_text.append(hover_row)
+            annotation_text.append(anno_row)
+
+        # Find abs max for symmetric colour scale
+        flat_vals = [v for row in pnl_pivot.values for v in row if v is not None]
+        abs_max = max(abs(v) for v in flat_vals) if flat_vals else 1.0
+
+        fig.add_trace(
+            go.Heatmap(
+                z=pnl_pivot.values,
+                x=pnl_pivot.columns.tolist(),
+                y=pnl_pivot.index.tolist(),
+                text=annotation_text,
+                texttemplate="%{text}",
+                hovertext=hover_text,
+                hovertemplate="%{y} %{x}<br>%{hovertext}<extra></extra>",
+                colorscale="RdYlGn",
+                zmid=0,
+                zmin=-abs_max,
+                zmax=abs_max,
+                colorbar=dict(title="Net PnL ($)", len=0.3, y=0.0, yanchor="bottom"),
+                showscale=True,
+            ),
+            row=current_row,
+            col=1,
+        )
+        fig.update_yaxes(autorange="reversed", row=current_row, col=1)
+        fig.update_xaxes(side="bottom", row=current_row, col=1)
+
     fig.update_layout(
         title=title,
-        height=height,
+        height=total_height,
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
