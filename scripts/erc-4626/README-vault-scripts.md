@@ -228,6 +228,25 @@ VAULT_ID="1-0x..." poetry run python scripts/erc-4626/examine-vault-state.py
 
 Scripts for fixing data issues in the pipeline.
 
+### purge-stale-chain-ids.py
+
+Purge stale vault entries with obsolete chain IDs from the vault database.
+When a synthetic chain ID is changed (e.g. Hypercore from -999 to 9999),
+old entries remain in the pickle and cause slug collisions.
+
+```shell
+# Dry-run (just report)
+DRY_RUN=true poetry run python scripts/erc-4626/purge-stale-chain-ids.py
+
+# Actually purge
+poetry run python scripts/erc-4626/purge-stale-chain-ids.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `DRY_RUN` | Optional. Report only, no changes. |
+| `LOG_LEVEL` | Optional. Default: info. |
+
 ### heal-timestamps.py
 
 Heal gaps in the block timestamp DuckDB cache populated by HyperSync.
