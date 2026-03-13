@@ -487,7 +487,7 @@ MIN_VAULT_PEAK_TVL=1000000 INTERACTIVE=false MAX_WORKERS=4 \
 | `LABELS` | *(none)* | Comma-separated labels matching `ADDRESSES` |
 | `MIN_VAULT_PEAK_TVL` | *(none)* | Auto-discover vaults with peak TVL >= this USD value |
 | `INTERACTIVE` | `true` | Set to `false` to skip confirmation prompts |
-| `TRADE_HISTORY_DB_PATH` | `~/.tradingstrategy/hyperliquid/trade-history.duckdb` | DuckDB path |
+| `TRADE_HISTORY_DB_PATH` | `~/.tradingstrategy/vaults/hyperliquid/trade-history.duckdb` | DuckDB path |
 | `MAX_WORKERS` | `1` | Parallel workers for concurrent API calls |
 | `LOG_LEVEL` | `warning` | Logging level |
 
@@ -530,7 +530,7 @@ ADDRESS=0x1e37a337ed460039d1b15bd3bc489de789768d5e \
 ### Trade history DuckDB schema
 
 Stored in a separate database from daily metrics (default:
-`~/.tradingstrategy/hyperliquid/trade-history.duckdb`).
+`~/.tradingstrategy/vaults/hyperliquid/trade-history.duckdb`).
 
 ```
 accounts                              fills

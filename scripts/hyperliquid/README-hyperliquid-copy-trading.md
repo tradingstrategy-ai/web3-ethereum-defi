@@ -184,7 +184,7 @@ OUTPUT=/tmp/traders.json MAX_WORKERS=8 poetry run python scripts/hyperliquid/top
 |----------|---------|-------------|
 | `TOP_N` | `100` | Number of top traders to output |
 | `MIN_TRADES` | `0` | Minimum trade count filter |
-| `OUTPUT` | `~/.tradingstrategy/hyperliquid/top-traders-by-trade-count.json` | Output JSON path |
+| `OUTPUT` | `~/.tradingstrategy/vaults/hyperliquid/top-traders-by-trade-count.json` | Output JSON path |
 | `MAX_WORKERS` | `4` | Parallel threads for `clearinghouseState` calls |
 | `LOG_LEVEL` | `warning` | Logging level |
 

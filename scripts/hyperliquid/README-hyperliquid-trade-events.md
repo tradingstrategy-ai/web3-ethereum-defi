@@ -13,7 +13,7 @@ data for trade history reconstruction.
 
 ## Storage location
 
-Default: `~/.tradingstrategy/hyperliquid/trade-history.duckdb`
+Default: `~/.tradingstrategy/vaults/hyperliquid/trade-history.duckdb`
 
 Override with the `TRADE_HISTORY_DB_PATH` environment variable.
 
@@ -239,7 +239,7 @@ for v in fetch_vaults_by_peak_tvl(min_peak_tvl=1_000_000):
 | `MIN_VAULT_PEAK_TVL` | *(none)* | Auto-discover vaults with peak TVL >= this USD value |
 | `PARQUET_PATH` | `~/.tradingstrategy/vaults/cleaned-vault-prices-1h.parquet` | Cleaned prices Parquet (for `MIN_VAULT_PEAK_TVL`) |
 | `INTERACTIVE` | `true` | Set to `false` to skip confirmation prompts |
-| `TRADE_HISTORY_DB_PATH` | `~/.tradingstrategy/hyperliquid/trade-history.duckdb` | DuckDB path |
+| `TRADE_HISTORY_DB_PATH` | `~/.tradingstrategy/vaults/hyperliquid/trade-history.duckdb` | DuckDB path |
 | `MAX_WORKERS` | `1` | Parallel workers for concurrent API calls |
 | `LOG_LEVEL` | `warning` | Logging level |
 

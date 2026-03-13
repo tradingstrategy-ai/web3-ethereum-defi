@@ -33,7 +33,7 @@ Environment variables:
 
 - ``TOP_N``: Number of top traders to output. Default: 100
 - ``MIN_TRADES``: Minimum trade count filter. Default: 0
-- ``OUTPUT``: Output JSON path. Default: ~/.tradingstrategy/hyperliquid/top-traders-by-trade-count.json
+- ``OUTPUT``: Output JSON path. Default: ~/.tradingstrategy/vaults/hyperliquid/top-traders-by-trade-count.json
 - ``MAX_WORKERS``: Parallel threads for clearinghouseState. Default: 4
 - ``LOG_LEVEL``: Logging level. Default: warning
 """
@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 TRADE_COUNT_URL = "https://d2v1fiwobg9w6.cloudfront.net/largest_user_trade_count"
 
 #: Default output path for top traders JSON
-DEFAULT_OUTPUT_PATH = Path("~/.tradingstrategy/hyperliquid/top-traders-by-trade-count.json").expanduser()
+DEFAULT_OUTPUT_PATH = Path("~/.tradingstrategy/vaults/hyperliquid/top-traders-by-trade-count.json").expanduser()
 
 
 class TraderRecord(TypedDict):
@@ -85,6 +85,8 @@ class TraderRecord(TypedDict):
     total_notional_position: float | None
     total_margin_used: float | None
     open_position_count: int | None
+    # Computed
+    pnl_to_account_value: float | None
 
 
 def _human(n: float | None) -> str:
@@ -211,6 +213,15 @@ def main():
             display_name = None
             leaderboard_account_value = None
 
+        live_account_value = float(live.margin_summary.account_value) if live else None
+
+        # PnL / account value ratio — how much profit relative to current capital
+        # Only meaningful when account has substantial value (> $25k)
+        if all_time_pnl is not None and live_account_value and live_account_value > 25_000:
+            pnl_to_account_value = all_time_pnl / live_account_value
+        else:
+            pnl_to_account_value = None
+
         record: TraderRecord = {
             "rank": i + 1,
             "address": t["name"],
@@ -220,10 +231,11 @@ def main():
             "all_time_roi": all_time_roi,
             "all_time_volume": all_time_volume,
             "leaderboard_account_value": leaderboard_account_value,
-            "live_account_value": float(live.margin_summary.account_value) if live else None,
+            "live_account_value": live_account_value,
             "total_notional_position": float(live.margin_summary.total_ntl_pos) if live else None,
             "total_margin_used": float(live.margin_summary.total_margin_used) if live else None,
             "open_position_count": len(live.asset_positions) if live else None,
+            "pnl_to_account_value": pnl_to_account_value,
         }
         records.append(record)
 
@@ -237,25 +249,27 @@ def main():
 
     # Table 1: Top traders by trade count
     print("\n\n=== Top traders by trade count ===\n")  # noqa: T201
-    rows_by_count = []
-    for r in records:
-        rows_by_count.append(
-            [
-                r["rank"],
-                r["display_name"] or r["address"][:16] + "...",
-                _trade_count_human(r["trade_count"]),
-                _human(r["all_time_pnl"]),
-                _pct(r["all_time_roi"]),
-                _human(r["all_time_volume"]),
-                _human(r["live_account_value"]),
-                _human(r["total_margin_used"]),
-                r["open_position_count"] if r["open_position_count"] is not None else "-",
-            ]
-        )
+    table_headers = ["#", "Name", "Trades", "PnL", "ROI", "PnL/AV", "Volume", "Acct Value", "Margin Used", "Positions"]
+
+    def _table_row(rank: int, r: TraderRecord) -> list:
+        return [
+            rank,
+            r["display_name"] or r["address"][:16] + "...",
+            _trade_count_human(r["trade_count"]),
+            _human(r["all_time_pnl"]),
+            _pct(r["all_time_roi"]),
+            _pct(r["pnl_to_account_value"]),
+            _human(r["all_time_volume"]),
+            _human(r["live_account_value"]),
+            _human(r["total_margin_used"]),
+            r["open_position_count"] if r["open_position_count"] is not None else "-",
+        ]
+
+    rows_by_count = [_table_row(r["rank"], r) for r in records]
     print(
         tabulate(  # noqa: T201
             rows_by_count,
-            headers=["#", "Name", "Trades", "PnL", "ROI", "Volume", "Acct Value", "Margin Used", "Positions"],
+            headers=table_headers,
             tablefmt="simple",
         )
     )
@@ -263,25 +277,23 @@ def main():
     # Table 2: Top traders by PnL (re-sort)
     print("\n\n=== Top traders by all-time PnL ===\n")  # noqa: T201
     by_pnl = sorted(records, key=lambda r: r["all_time_pnl"] or 0, reverse=True)
-    rows_by_pnl = []
-    for i, r in enumerate(by_pnl):
-        rows_by_pnl.append(
-            [
-                i + 1,
-                r["display_name"] or r["address"][:16] + "...",
-                _trade_count_human(r["trade_count"]),
-                _human(r["all_time_pnl"]),
-                _pct(r["all_time_roi"]),
-                _human(r["all_time_volume"]),
-                _human(r["live_account_value"]),
-                _human(r["total_margin_used"]),
-                r["open_position_count"] if r["open_position_count"] is not None else "-",
-            ]
-        )
+    rows_by_pnl = [_table_row(i + 1, r) for i, r in enumerate(by_pnl)]
     print(
         tabulate(  # noqa: T201
             rows_by_pnl,
-            headers=["#", "Name", "Trades", "PnL", "ROI", "Volume", "Acct Value", "Margin Used", "Positions"],
+            headers=table_headers,
+            tablefmt="simple",
+        )
+    )
+
+    # Table 3: Top traders by PnL / account value ratio
+    print("\n\n=== Top traders by PnL / account value ===\n")  # noqa: T201
+    by_pnl_av = sorted(records, key=lambda r: r["pnl_to_account_value"] or float("-inf"), reverse=True)
+    rows_by_pnl_av = [_table_row(i + 1, r) for i, r in enumerate(by_pnl_av)]
+    print(
+        tabulate(  # noqa: T201
+            rows_by_pnl_av,
+            headers=table_headers,
             tablefmt="simple",
         )
     )

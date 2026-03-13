@@ -21,7 +21,7 @@ Five tables:
 Storage location
 ----------------
 
-Default: ``~/.tradingstrategy/hyperliquid/trade-history.duckdb``
+Default: ``~/.tradingstrategy/vaults/hyperliquid/trade-history.duckdb``
 
 Example::
 
@@ -61,7 +61,7 @@ from eth_defi.hyperliquid.trade_history import FundingPayment
 logger = logging.getLogger(__name__)
 
 #: Default DuckDB path for trade history
-DEFAULT_TRADE_HISTORY_DB_PATH = Path("~/.tradingstrategy/hyperliquid/trade-history.duckdb").expanduser()
+DEFAULT_TRADE_HISTORY_DB_PATH = Path("~/.tradingstrategy/vaults/hyperliquid/trade-history.duckdb").expanduser()
 
 #: Maximum records per API request for fills and ledger
 MAX_PER_REQUEST = 2000
