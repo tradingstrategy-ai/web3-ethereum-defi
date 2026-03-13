@@ -760,27 +760,23 @@ class GMXAPI:
 
     def get_rates(
         self,
-        period: str | None = None,
-        average_by: str | None = None,
         address: str | None = None,
         use_cache: bool = True,
     ) -> Any:
         """Fetch funding and borrowing rate snapshots via the v2 API.
 
-        Returns historical rate data filtered by period, averaging window,
-        and optionally a specific market address.  Not available in v1.
+        Returns the latest rate snapshots for all markets (or a single market
+        when ``address`` is supplied).  Not available in v1.
+
+        .. note::
+            The ``/rates`` endpoint does not accept a ``period`` or
+            ``average_by`` parameter — passing them results in a 400 error.
 
         Example::
 
             api = GMXAPI(chain="arbitrum")
-            rates = api.get_rates(period="1h", average_by="1d")
+            rates = api.get_rates()
 
-        :param period:
-            Rate snapshot period (e.g. ``"1h"``, ``"4h"``, ``"1d"``).
-            ``None`` uses the API default.
-        :param average_by:
-            Averaging window for rate smoothing (e.g. ``"1d"``).
-            ``None`` returns raw snapshots.
         :param address:
             Optional market address to filter rates for a single market.
         :param use_cache:
@@ -792,17 +788,13 @@ class GMXAPI:
         :raises RuntimeError:
             When all retry attempts fail.
         """
-        cache_key = f"rates_{self.chain}_{period}_{average_by}_{address}"
+        cache_key = f"rates_{self.chain}_{address}"
         if use_cache and cache_key in _RATES_CACHE:
             cached_data, cached_time = _RATES_CACHE[cache_key]
             if time.time() - cached_time < _RATES_CACHE_TTL_SECONDS:
                 return cached_data
 
         params: dict[str, Any] = {}
-        if period is not None:
-            params["period"] = period
-        if average_by is not None:
-            params["averageBy"] = average_by
         if address is not None:
             params["address"] = address
 

@@ -377,23 +377,29 @@ def test_get_rates(api):
 
 
 @flaky(max_runs=3, min_passes=1)
-def test_get_rates_with_period(api):
-    """Test get_rates with an explicit period parameter.
+def test_get_rates_non_empty(api):
+    """Test that get_rates returns a non-empty collection.
 
-    Verifies the ``period`` query parameter is forwarded correctly and the
-    API returns a valid response.
+    The ``/rates`` endpoint returns snapshots for all markets.  The response
+    must contain at least one entry.
+
+    .. note::
+        The endpoint does not accept ``period`` or ``average_by`` query
+        parameters — passing them causes a 400 error.
     """
-    rates = api.get_rates(period="1h", use_cache=False)
+    rates = api.get_rates(use_cache=False)
 
     assert rates is not None
     assert isinstance(rates, (list, dict))
+    if isinstance(rates, list):
+        assert len(rates) > 0
 
 
 @flaky(max_runs=3, min_passes=1)
 def test_get_rates_caching(api):
-    """Test that get_rates returns cached data on the second call for the same parameters."""
-    first = api.get_rates(period="1h", use_cache=True)
-    second = api.get_rates(period="1h", use_cache=True)
+    """Test that get_rates returns cached data on the second call."""
+    first = api.get_rates(use_cache=True)
+    second = api.get_rates(use_cache=True)
 
     assert first is second
 

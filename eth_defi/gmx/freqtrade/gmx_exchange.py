@@ -1044,6 +1044,66 @@ class Gmx(Exchange):
         if sent:
             logger.info("Gas critical Telegram alert sent for %s", pair)
 
+    def _send_order_error_telegram_alert(self, pair: str, reduce_only: bool, exc: Exception) -> None:
+        """Send a Telegram alert for any order creation error.
+
+        Classifies the exception into known categories and formats a targeted
+        message.  Unknown errors fall through to a generic alert.  All failures
+        to deliver the Telegram message are non-fatal — the original exception
+        is always re-raised by the caller.
+
+        Categories handled:
+
+        - **Keeper cancellation / circuit breaker** — GMX keeper cancelled or
+          froze the order (``OrderCancelled`` / ``OrderFrozen`` in the message).
+          Shows the current N/max cancel count and whether the circuit breaker
+          cooldown has activated.
+        - **Insufficient funds** — order rejected due to ``InsufficientFundsError``
+          or ``"insufficient_funds"`` in the message.
+        - **Invalid order** — any other ``InvalidOrder`` variant (e.g. bad size,
+          conflicting parameters).
+        - **Generic exchange error** — all other exceptions.
+
+        :param pair: Trading pair for which the order was being created.
+        :param reduce_only: ``True`` when this was a close/exit order.
+        :param exc: The exception raised by the CCXT adapter.
+        """
+        bot_name = self._config.get("bot_name", "freqtrade")
+        exc_msg = str(exc)
+        exc_type = type(exc).__name__
+        order_dir = "close" if reduce_only else "open"
+
+        # --- Keeper cancellation / circuit breaker ---
+        if "OrderCancelled" in exc_msg or "OrderFrozen" in exc_msg:
+            ccxt_exchange = getattr(self, "_api", None)
+            tracker = getattr(ccxt_exchange, "_keeper_cancel_tracker", {}) if ccxt_exchange else {}
+            cb_entry = tracker.get(pair, {})
+            cancel_count = cb_entry.get("count", 1)
+            max_cancels = getattr(ccxt_exchange, "_max_keeper_cancels", 3) if ccxt_exchange else 3
+            reason = cb_entry.get("last_reason", exc_msg)
+            is_cb = cancel_count >= max_cancels
+            if is_cb:
+                msg = f"🚨 *{bot_name} — Circuit Breaker Active*\n\nKeeper cancelled `{pair}` {order_dir} order *{cancel_count}/{max_cancels}* times.\nExit orders for this pair are now *paused* (cooldown active).\n\nReason: `{reason}`"
+            else:
+                msg = f"⚠️ *{bot_name} — Keeper Cancellation {cancel_count}/{max_cancels}*\n\nKeeper cancelled `{pair}` {order_dir} order.\n\nReason: `{reason}`"
+
+        # --- Insufficient funds ---
+        elif "insufficient" in exc_msg.lower() or "InsufficientFunds" in exc_type:
+            msg = f"💸 *{bot_name} — Insufficient Funds*\n\nCould not create {order_dir} order for `{pair}`.\n\nError: `{exc_msg}`"
+
+        # --- Invalid order (bad params, size, etc.) ---
+        elif "InvalidOrder" in exc_type or "invalid order" in exc_msg.lower():
+            msg = f"❌ *{bot_name} — Invalid Order*\n\nCould not create {order_dir} order for `{pair}`.\n\nError: `{exc_msg}`"
+
+        # --- Generic fallback for all other errors ---
+        else:
+            msg = f"🔴 *{bot_name} — Order Error ({exc_type})*\n\nFailed to create {order_dir} order for `{pair}`.\n\nError: `{exc_msg}`"
+
+        logger.error("ORDER_ERROR: %s %s order failed — %s: %s", pair, order_dir, exc_type, exc_msg)
+        sent = send_freqtrade_telegram_message(self._config, msg)
+        if sent:
+            logger.info("Order error Telegram alert sent for %s (%s: %s)", pair, exc_type, exc_msg[:80])
+
     @retrier
     def create_order(
         self,
@@ -1215,17 +1275,23 @@ class Gmx(Exchange):
         # Call parent create_order which uses CCXT underneath
         # Note: initial_order is GMX-specific, don't pass to parent Exchange
         logger.debug(">>> Delegating to parent Exchange.create_order() -> GMX CCXT adapter")
-        order = super().create_order(
-            pair=pair,
-            ordertype=ordertype,
-            side=side,
-            amount=amount,
-            rate=rate,
-            leverage=leverage,
-            reduceOnly=reduceOnly,
-            time_in_force=time_in_force,
-            **kwargs,
-        )
+        try:
+            order = super().create_order(
+                pair=pair,
+                ordertype=ordertype,
+                side=side,
+                amount=amount,
+                rate=rate,
+                leverage=leverage,
+                reduceOnly=reduceOnly,
+                time_in_force=time_in_force,
+                **kwargs,
+            )
+        except Exception as exc:
+            # Forward all order errors to Telegram so the operator is notified immediately.
+            # Specific known patterns get a structured message; unknown errors get a generic one.
+            self._send_order_error_telegram_alert(pair, reduceOnly, exc)
+            raise
 
         # Detect "position already closed" synthetic orders from the CCXT adapter.
         # This happens when the bot tries to exit a position that no longer exists
