@@ -23,12 +23,16 @@ import time
 from dataclasses import dataclass
 from decimal import Decimal
 
+import requests
 from eth_typing import HexAddress
 
 from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.utils import from_unix_timestamp
 
 logger = logging.getLogger(__name__)
+
+#: Hyperliquid stats-data leaderboard endpoint (public GET, no auth, 32K+ entries)
+LEADERBOARD_URL = "https://stats-data.hyperliquid.xyz/Mainnet/leaderboard"
 
 #: Default cache timeout for :py:func:`fetch_user_vault_equity` in seconds (15 minutes).
 DEFAULT_VAULT_EQUITY_CACHE_TIMEOUT = 15 * 60
@@ -175,6 +179,50 @@ class PerpClearinghouseState:
 
     #: Active perpetual positions
     asset_positions: list[AssetPosition]
+
+
+@dataclass(slots=True)
+class PortfolioAllTimeData:
+    """All-time PnL and trading volume for a Hyperliquid address.
+
+    Fetched from the ``portfolio`` info endpoint, which works for **any**
+    address — not just leaderboard participants.
+
+    Returned by :py:func:`fetch_portfolio`.
+    """
+
+    #: Latest cumulative PnL in USD (from the last entry in ``pnlHistory``)
+    all_time_pnl: Decimal | None
+
+    #: All-time trading volume in USD
+    all_time_volume: Decimal | None
+
+
+@dataclass(slots=True)
+class LeaderboardEntry:
+    """A single trader from the Hyperliquid public leaderboard.
+
+    The leaderboard contains 32K+ traders who have opted in.
+    Fetched in bulk by :py:func:`fetch_leaderboard`.
+    """
+
+    #: Ethereum address (lowercased)
+    address: HexAddress
+
+    #: Display name chosen by the trader (``None`` if not set)
+    display_name: str | None
+
+    #: Account value in USD at time of leaderboard snapshot
+    account_value: Decimal
+
+    #: All-time PnL in USD
+    all_time_pnl: Decimal
+
+    #: All-time ROI as a ratio (e.g. ``0.25`` = 25%)
+    all_time_roi: Decimal
+
+    #: All-time trading volume in USD
+    all_time_volume: Decimal
 
 
 def fetch_user_vault_equities(
@@ -461,3 +509,134 @@ def fetch_perp_clearinghouse_state(
         withdrawable=Decimal(data.get("withdrawable", "0")),
         asset_positions=positions,
     )
+
+
+def fetch_portfolio(
+    session: HyperliquidSession,
+    address: HexAddress | str,
+    timeout: float = 15.0,
+) -> PortfolioAllTimeData | None:
+    """Fetch all-time PnL and volume for any Hyperliquid address.
+
+    Calls the ``portfolio`` info endpoint which returns account value history,
+    PnL history, and volume across multiple time windows (day, week, month, allTime).
+
+    Unlike the leaderboard, this works for **any** address — including those
+    that have not opted in to the public leaderboard.
+
+    Example::
+
+        from eth_defi.hyperliquid.api import fetch_portfolio
+        from eth_defi.hyperliquid.session import create_hyperliquid_session
+
+        session = create_hyperliquid_session()
+        portfolio = fetch_portfolio(session, "0x1234...")
+        if portfolio is not None:
+            print(f"All-time PnL: {portfolio.all_time_pnl}")
+            print(f"All-time volume: {portfolio.all_time_volume}")
+            # Example output:
+            # All-time PnL: -58459.412942
+            # All-time volume: 1893425014.9738
+
+    The raw API response is an array of ``[period, data]`` pairs::
+
+        [["day", {"accountValueHistory": [...], "pnlHistory": [...], "vlm": "..."}], ["allTime", {"accountValueHistory": [...], "pnlHistory": [[ts, pnl], ...], "vlm": "1893425014.9738"}]]
+
+    :param session:
+        Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
+
+    :param address:
+        Hyperliquid user address.
+
+    :param timeout:
+        HTTP request timeout in seconds.
+
+    :return:
+        All-time PnL and volume, or ``None`` on network/API error.
+    """
+    try:
+        url = f"{session.api_url}/info"
+        resp = session.post(
+            url,
+            json={"type": "portfolio", "user": address},
+            headers={"Content-Type": "application/json"},
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        # Response is array of [period, {accountValueHistory, pnlHistory, vlm}]
+        periods = dict(data)
+        all_time = periods.get("allTime", {})
+        pnl_history = all_time.get("pnlHistory", [])
+        latest_pnl = Decimal(str(pnl_history[-1][1])) if pnl_history else None
+        vlm = all_time.get("vlm")
+        volume = Decimal(str(vlm)) if vlm else None
+
+        logger.info("Portfolio for %s: pnl=%s, volume=%s", address, latest_pnl, volume)
+
+        return PortfolioAllTimeData(
+            all_time_pnl=latest_pnl,
+            all_time_volume=volume,
+        )
+    except Exception:
+        logger.warning("Failed to fetch portfolio for %s", address, exc_info=True)
+        return None
+
+
+def fetch_leaderboard(
+    timeout: float = 60.0,
+) -> dict[str, LeaderboardEntry]:
+    """Fetch the full Hyperliquid trader leaderboard.
+
+    Calls the public ``stats-data.hyperliquid.xyz/Mainnet/leaderboard``
+    endpoint which returns 32K+ traders who have opted in, indexed by
+    lowercased address for easy lookup.
+
+    Does **not** require a :py:class:`HyperliquidSession` — this is a
+    plain GET to a stats endpoint with no rate limiting.
+
+    Example::
+
+        from eth_defi.hyperliquid.api import fetch_leaderboard
+
+        leaderboard = fetch_leaderboard()
+        print(f"Leaderboard has {len(leaderboard)} traders")
+
+        # Look up a specific address
+        entry = leaderboard.get("0x1234abcd...")
+        if entry:
+            print(f"{entry.display_name}: PnL={entry.all_time_pnl}, ROI={entry.all_time_roi}")
+            # Example output:
+            # HyperTrader42: PnL=1234567.89, ROI=0.4523
+
+    The raw API response::
+
+        {"leaderboardRows": [{"ethAddress": "0x...", "accountValue": "123456.78", "displayName": "HyperTrader42", "windowPerformances": [["allTime", {"pnl": "1234567.89", "roi": "0.4523", "vlm": "98765432.10"}], ...]}, ...]}
+
+    :param timeout:
+        HTTP request timeout in seconds.
+
+    :return:
+        Dict mapping lowercased address to :py:class:`LeaderboardEntry`.
+    """
+    logger.info("Fetching leaderboard from %s", LEADERBOARD_URL)
+    resp = requests.get(LEADERBOARD_URL, timeout=timeout)
+    resp.raise_for_status()
+    data = resp.json()
+    rows = data["leaderboardRows"]
+    logger.info("Got %d leaderboard entries", len(rows))
+
+    index: dict[str, LeaderboardEntry] = {}
+    for row in rows:
+        addr = row["ethAddress"].lower()
+        windows = dict(row.get("windowPerformances", []))
+        all_time = windows.get("allTime", {})
+        index[addr] = LeaderboardEntry(
+            address=addr,
+            display_name=row.get("displayName") or None,
+            account_value=Decimal(str(row.get("accountValue", 0))),
+            all_time_pnl=Decimal(str(all_time.get("pnl", 0))),
+            all_time_roi=Decimal(str(all_time.get("roi", 0))),
+            all_time_volume=Decimal(str(all_time.get("vlm", 0))),
+        )
+    return index

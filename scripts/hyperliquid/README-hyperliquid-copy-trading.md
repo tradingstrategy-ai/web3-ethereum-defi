@@ -156,6 +156,44 @@ The repository already has substantial Hyperliquid infrastructure that can be re
 | `scripts/hyperliquid/sync-trade-history.py` | Incremental trade history sync for whitelisted accounts |
 | `scripts/hyperliquid/vault-trade-history.py` | Display trade history + share prices for a single account |
 
+## Scripts
+
+### Top traders by trade count
+
+`scripts/hyperliquid/top-traders-by-trade-count.py` fetches the top traders by trade count
+from the ASXN Hyperscreener (reverse-engineered CloudFront endpoint), enriches with PnL/volume
+from the Hyperliquid leaderboard, and fetches live margin data via `clearinghouseState`.
+
+Outputs a JSON file and prints two summary tables: top by trade count and top by PnL.
+
+```shell
+# Default: top 100 traders, output to top-traders-by-trade-count.json
+poetry run python scripts/hyperliquid/top-traders-by-trade-count.py
+
+# Quick test: top 10 only
+TOP_N=10 poetry run python scripts/hyperliquid/top-traders-by-trade-count.py
+
+# Filter by minimum trade count (e.g. 100M+)
+MIN_TRADES=100000000 TOP_N=20 poetry run python scripts/hyperliquid/top-traders-by-trade-count.py
+
+# Custom output path and parallel workers
+OUTPUT=/tmp/traders.json MAX_WORKERS=8 poetry run python scripts/hyperliquid/top-traders-by-trade-count.py
+```
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TOP_N` | `100` | Number of top traders to output |
+| `MIN_TRADES` | `0` | Minimum trade count filter |
+| `OUTPUT` | `~/.tradingstrategy/hyperliquid/top-traders-by-trade-count.json` | Output JSON path |
+| `MAX_WORKERS` | `4` | Parallel threads for `clearinghouseState` calls |
+| `LOG_LEVEL` | `warning` | Logging level |
+
+Data sources (all public, no auth required):
+
+- `d2v1fiwobg9w6.cloudfront.net/largest_user_trade_count` — top 1000 by trade count
+- `stats-data.hyperliquid.xyz/Mainnet/leaderboard` — 32K+ traders with PnL/ROI/volume
+- `api.hyperliquid.xyz/info` clearinghouseState — live margin per address
+
 ## Key SDKs
 
 - **Python**: [hyperliquid-python-sdk](https://github.com/hyperliquid-dex/hyperliquid-python-sdk) (1,459 stars) — `Info` class with `user_state()`, fill history, etc.
