@@ -1,5 +1,6 @@
 # Current
 
+- Add: Top traders by trade count script with ASXN Hyperscreener integration, portfolio/leaderboard API functions in `eth_defi.hyperliquid.api` (2026-03-13)
 - Add: Hyperliquid copy trading platforms and HFT account identification research documentation (2026-03-13)
 - Add: Configurable `proxy_failure_log_level` on `create_hyperliquid_session()` to suppress noisy proxy rotation/failure warnings in scan mode (2026-03-13)
 - **Add: Hyperliquid trade history reconstruction with round-trip trade grouping, funding payment tracking, DuckDB persistence for whitelisted accounts, and event-accurate share price computation (2026-03-12)**
