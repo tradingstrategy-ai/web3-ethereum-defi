@@ -84,7 +84,6 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Summer.fi": VaultTechnicalRisk.low,
     "Llama Lend": VaultTechnicalRisk.low,
     "Foxify": VaultTechnicalRisk.dangerous,
-    "Liquidity Royalty Tranching": None,
     "Liquid Royalty": VaultTechnicalRisk.severe,
     "cSigma Finance": VaultTechnicalRisk.severe,
     "Spark": VaultTechnicalRisk.negligible,
@@ -96,7 +95,6 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Centrifuge": VaultTechnicalRisk.negligible,
     "Ethena": VaultTechnicalRisk.negligible,
     "Decentralized USD": VaultTechnicalRisk.severe,
-    "Liquidity Royalty Tranching": VaultTechnicalRisk.severe,
     "Term Finance": VaultTechnicalRisk.low,
     # The vault does not give any indication what kind of underlying activity and positions
     # the vault has. Users cannot assess what they are investing in.

@@ -72,7 +72,7 @@ Each documentation page should have:
 
 ### Group 5: Already complete (no changes needed)
 
-- gearbox, altura, maple, sky, ethena, term_finance, teller, yuzu_money, royco, usdd, liquidity_royalty, csigma, spectra, zerolend, eth_strategy, foxify, spark
+- gearbox, altura, maple, sky, ethena, term_finance, teller, yuzu_money, royco, usdd, liquid_royalty, csigma, spectra, zerolend, eth_strategy, foxify, spark
 
 ## Implementation approach
 

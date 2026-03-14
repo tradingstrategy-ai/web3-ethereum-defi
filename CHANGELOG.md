@@ -149,7 +149,7 @@
 - Add: New chain: Monad
 - Add: New protocol: [CAP](https://tradingstrategy.ai/trading-view/vaults/protocols/cap) (Covered Agent Protocol)
 - Add: New protocol: [Foxify](https://tradingstrategy.ai/trading-view/vaults/protocols/foxify) (Sonic chain)
-- Add: New protocol: [Liquidity Royalty Tranching](https://tradingstrategy.ai/trading-view/vaults/protocols/liquidity-royalty-tranching) (Berachain)
+- Add: New protocol: [Liquid Royalty](https://tradingstrategy.ai/trading-view/vaults/protocols/liquid-royalty) (Berachain)
 - Add: New protocol: [cSigma Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/csigma-finance) (Ethereum)
 - Add: New protocol: [Spark](https://tradingstrategy.ai/trading-view/vaults/protocols/spark) (Ethereum)
 - Add: New vault type: [Yearn](https://tradingstrategy.ai/trading-view/vaults/protocols/yearn) Morpho Compounder strategy

@@ -85,3 +85,31 @@ def test_liquid_royalty_senior_vault(
     assert vault.get_management_fee("latest") is None
     assert vault.get_performance_fee("latest") is None
     assert vault.get_estimated_lock_up() == datetime.timedelta(days=7)
+
+
+@flaky.flaky
+def test_liquid_royalty_junior_vault(
+    web3: Web3,
+    tmp_path: Path,
+):
+    """Read Liquid Royalty Junior vault metadata.
+
+    Previously tracked as "Liquidity Royalty Tranching", now merged into Liquid Royalty.
+
+    https://berascan.com/address/0x3a0A97DcA5e6CaCC258490d5ece453412f8E1883
+    """
+
+    vault = create_vault_instance_autodetect(
+        web3,
+        vault_address="0x3a0A97DcA5e6CaCC258490d5ece453412f8E1883",
+    )
+
+    assert isinstance(vault, LiquidRoyaltyVault)
+    assert vault.get_protocol_name() == "Liquid Royalty"
+    assert vault.features == {ERC4626Feature.liquid_royalty_like}
+
+    assert vault.has_custom_fees() is True
+    assert vault.get_management_fee("latest") is None
+    assert vault.get_performance_fee("latest") is None
+    assert vault.get_estimated_lock_up() == datetime.timedelta(days=7)
+    assert vault.get_link() == "https://www.liquidroyalty.com/vaults"
