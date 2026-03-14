@@ -69,7 +69,7 @@ def find_trading_strategy_url(protocol_name: str, metadata_map: Dict[str, Dict[s
         "Untangle Finance": "Untangle",
         "D2 Finance": "D2",
         "Term Finance": "Term",
-        "Liquidity Royalty": "Liquidity Royalty Tranching",
+        "Liquid Royalty": "Liquid Royalty",
         "Lagoon": "Lagoon Finance",
         "Morpho": "Morpho Blue",
         "Silo": "Silo Finance",

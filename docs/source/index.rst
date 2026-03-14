@@ -168,9 +168,9 @@ Supported protocols, chains and integrations
    * - Foxify
      - Read vault data
      - `API <vaults/foxify/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/foxify>`__
-   * - Liquidity Royalty
+   * - Liquid Royalty
      - Read vault data
-     - `API <vaults/liquidity_royalty/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/liquidity-royalty-tranching>`__
+     - `API <vaults/liquid_royalty/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/liquid-royalty>`__
    * - LLamma
      - Read vault data
      - `API <vaults/llamma/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/llamma>`__

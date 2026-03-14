@@ -13,9 +13,14 @@ logger = logging.getLogger(__name__)
 class LiquidRoyaltyVault(ERC4626Vault):
     """Liquid Royalty vault.
 
-    Liquid Royalty (ALAR SailOut Royalty) is a vault product on Berachain
-    that uses USDe as the underlying asset. Part of the Liquidity Royalty
-    protocol family with tiered vault architecture and profit spillover mechanisms.
+    Liquid Royalty is a vault protocol on Berachain implementing a tiered vault
+    architecture with profit spillover and cascading backstop mechanisms.
+
+    Vault types include:
+
+    - Senior vault: primary yield-generating vault
+    - Junior vault: receives 80% of Senior's excess profits (spillover) and provides secondary backstop
+    - ALAR SailOut Royalty vault: uses USDe as the underlying asset
 
     - Website: https://www.liquidroyalty.com/vaults
     - Smart contracts: https://github.com/stratosphere-network/LiquidRoyaltyContracts

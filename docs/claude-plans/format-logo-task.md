@@ -54,4 +54,4 @@ Generated: 2026-01-06
 These protocols exist in metadata but have no original logo yet:
 
 - deltr
-- liquidity-royalty-tranching
+- liquid-royalty
