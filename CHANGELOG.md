@@ -1,5 +1,6 @@
 # Current
 
+- Add: Trading time classification for HFT traders — detects 24/7 bots, weekday-only, and session-based traders from fill timestamp distributions (2026-03-14)
 - Add: HFT trader performance analysis with cached DuckDB metrics (CAGR, Sharpe, Sortino, Calmar, max drawdown, trades/day), account age from portfolio pnlHistory, vault lockup status helpers, and reusable perf_metrics module (2026-03-14)
 - Add: Equity curve reconstruction from DuckDB trade history with PnL, account value, and vault share price curves using Plotly visualisation (2026-03-13)
 - Add: HLP system vault addresses documented in `eth_defi.hyperliquid.constants` with auto-inclusion in trade history sync (2026-03-13)

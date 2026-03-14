@@ -146,6 +146,14 @@ def is_account_activated(
     ``CoreDepositWallet.deposit()`` bridge actions will clear the
     EVM escrow. See :py:func:`activate_account`.
 
+    .. note::
+
+        P12: Precompile reads return stale data within the same block as a
+        CoreWriter action.  This should not affect activation checks in
+        practice because activation (``depositFor``) and deposit
+        (``CDW.deposit``) are in separate transactions, and the trade
+        executor waits for activation receipt before proceeding.
+
     Example::
 
         from eth_defi.hyperliquid.evm_escrow import is_account_activated

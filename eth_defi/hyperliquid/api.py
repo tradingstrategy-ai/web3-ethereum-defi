@@ -42,6 +42,16 @@ DEFAULT_VAULT_EQUITY_CACHE_TIMEOUT = 15 * 60
 _vault_equity_cache: dict[tuple, tuple[float, list["UserVaultEquity"]]] = {}
 
 
+class HypercoreDepositVerificationError(Exception):
+    """Raised when a Hypercore vault deposit cannot be verified on HyperCore.
+
+    CoreWriter actions (``transferUsdClass`` + ``vaultTransfer``) can succeed
+    on HyperEVM but be silently rejected by HyperCore.  This exception is
+    raised by :py:func:`wait_for_vault_deposit_confirmation` when the
+    expected vault equity never appears within the timeout.
+    """
+
+
 @dataclass(slots=True)
 class UserVaultEquity:
     """A user's equity position in a single Hypercore vault.
@@ -474,6 +484,136 @@ def fetch_vault_lockup_status(
         cache_timeout=cache_timeout,
         timeout=timeout,
     )
+
+
+def wait_for_vault_deposit_confirmation(
+    session: HyperliquidSession,
+    user: HexAddress | str,
+    vault_address: HexAddress | str,
+    expected_deposit: Decimal,
+    existing_equity: Decimal | None = None,
+    timeout: float = 60.0,
+    poll_interval: float = 2.0,
+    tolerance: Decimal = Decimal("0.01"),
+) -> UserVaultEquity:
+    """Wait for a vault deposit to be confirmed on HyperCore.
+
+    After a CoreWriter ``vaultTransfer`` action succeeds on HyperEVM,
+    HyperCore may take several seconds to process the deposit.  This
+    function polls ``userVaultEquities`` until the expected equity
+    appears or increases.
+
+    Handles two cases:
+
+    - **New position**: *existing_equity* is ``None``.
+      Waits for any equity > 0 to appear for the vault.
+    - **Existing position**: *existing_equity* is provided.
+      Waits for equity to increase by at least
+      ``expected_deposit - tolerance``.
+
+    :param session:
+        Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
+
+    :param user:
+        On-chain address (the Safe address for Lagoon vaults).
+
+    :param vault_address:
+        Hypercore vault address.
+
+    :param expected_deposit:
+        Expected deposit amount in USDC (human-readable, not raw).
+
+    :param existing_equity:
+        User's vault equity before the deposit, or ``None`` if this
+        is the first deposit (no existing position).
+
+    :param timeout:
+        Maximum seconds to wait before raising
+        :py:class:`HypercoreDepositVerificationError`.
+
+    :param poll_interval:
+        Seconds between API polls.
+
+    :param tolerance:
+        Acceptable difference between expected and actual equity
+        increase (to account for rounding, fees, vault PnL during
+        the wait).  Defaults to 0.01 USDC.
+
+    :return:
+        The confirmed :py:class:`UserVaultEquity` after the deposit.
+
+    :raises HypercoreDepositVerificationError:
+        If the deposit cannot be verified within the timeout.
+    """
+    deadline = time.time() + timeout
+    attempt = 0
+    baseline = existing_equity or Decimal(0)
+
+    # Initial delay: give HyperCore time to process the deposit
+    # before first poll (API can lag behind HyperCore state).
+    time.sleep(poll_interval)
+
+    last_eq: UserVaultEquity | None = None
+
+    while True:
+        attempt += 1
+        eq = fetch_user_vault_equity(
+            session,
+            user=user,
+            vault_address=vault_address,
+            bypass_cache=True,
+        )
+        last_eq = eq
+
+        if eq is not None:
+            increase = eq.equity - baseline
+            if existing_equity is None:
+                # New position: any equity > 0 confirms deposit
+                if eq.equity > 0:
+                    logger.info(
+                        "Vault deposit confirmed for %s in vault %s: equity %s after %d poll(s)",
+                        user,
+                        vault_address,
+                        eq.equity,
+                        attempt,
+                    )
+                    return eq
+            else:
+                # Existing position: equity must increase by ~expected amount
+                if increase >= expected_deposit - tolerance:
+                    logger.info(
+                        "Vault deposit confirmed for %s in vault %s: equity %s (increase %s, expected %s) after %d poll(s)",
+                        user,
+                        vault_address,
+                        eq.equity,
+                        increase,
+                        expected_deposit,
+                        attempt,
+                    )
+                    return eq
+
+            logger.info(
+                "Vault deposit pending for %s in vault %s: equity %s (increase %s, expected %s, poll #%d)",
+                user,
+                vault_address,
+                eq.equity if eq else None,
+                increase,
+                expected_deposit,
+                attempt,
+            )
+        else:
+            logger.info(
+                "Vault deposit pending for %s in vault %s: no position yet (poll #%d)",
+                user,
+                vault_address,
+                attempt,
+            )
+
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            raise HypercoreDepositVerificationError(f"Vault deposit for {user} in vault {vault_address} could not be verified within {timeout}s. Expected deposit: {expected_deposit} USDC, existing equity: {existing_equity}, last queried equity: {last_eq.equity if last_eq else None}. The deposit may have been silently rejected by HyperCore. Check HyperCore spot/perp for stranded USDC.")
+
+        time.sleep(min(poll_interval, remaining))
 
 
 def fetch_spot_clearinghouse_state(
