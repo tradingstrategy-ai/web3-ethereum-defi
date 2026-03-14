@@ -26,6 +26,7 @@ from decimal import Decimal
 import requests
 from eth_typing import HexAddress
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.utils import from_unix_timestamp
 
@@ -46,6 +47,19 @@ class UserVaultEquity:
     """A user's equity position in a single Hypercore vault.
 
     Returned by :py:func:`fetch_user_vault_equities`.
+
+    Example — check whether a vault deposit can be withdrawn::
+
+        from eth_defi.hyperliquid.api import fetch_user_vault_equity
+        from eth_defi.hyperliquid.session import create_hyperliquid_session
+
+        session = create_hyperliquid_session()
+        eq = fetch_user_vault_equity(session, user="0xAbc...", vault_address="0xDef...")
+        if eq is not None:
+            if eq.is_lockup_expired:
+                print(f"Withdrawal ready — {eq.equity} USDC available")
+            else:
+                print(f"Locked for another {eq.lockup_remaining}")
     """
 
     #: Hypercore vault address
@@ -58,6 +72,29 @@ class UserVaultEquity:
     #:
     #: User-created vaults have a 1 day lock-up, protocol vaults (HLP) have 4 days.
     locked_until: datetime.datetime
+
+    @property
+    def is_lockup_expired(self) -> bool:
+        """Whether the lock-up period has passed and withdrawal is allowed.
+
+        Compares :py:attr:`locked_until` against the current UTC time.
+
+        :return:
+            ``True`` if the current time is at or past the lock-up deadline.
+        """
+        return native_datetime_utc_now() >= self.locked_until
+
+    @property
+    def lockup_remaining(self) -> datetime.timedelta:
+        """Time remaining until the lock-up expires.
+
+        Returns ``timedelta(0)`` if the lock-up has already expired.
+
+        :return:
+            Remaining lock-up duration (never negative).
+        """
+        remaining = self.locked_until - native_datetime_utc_now()
+        return max(remaining, datetime.timedelta(0))
 
 
 @dataclass(slots=True)
@@ -188,6 +225,11 @@ class PortfolioAllTimeData:
     Fetched from the ``portfolio`` info endpoint, which works for **any**
     address — not just leaderboard participants.
 
+    The ``pnlHistory`` array in the API response is aggregated data that
+    covers the account's full lifetime, unlike fills which are capped at
+    ~10K entries per account. The first entry's timestamp therefore gives
+    a reliable account creation / first activity date.
+
     Returned by :py:func:`fetch_portfolio`.
     """
 
@@ -196,6 +238,11 @@ class PortfolioAllTimeData:
 
     #: All-time trading volume in USD
     all_time_volume: Decimal | None
+
+    #: Timestamp of the first ``pnlHistory`` entry — the account's first
+    #: recorded activity. Derived from aggregated data that covers the full
+    #: account lifetime (not subject to the ~10K fill API cap).
+    first_activity_at: datetime.datetime | None
 
 
 @dataclass(slots=True)
@@ -369,6 +416,64 @@ def fetch_user_vault_equity(
         if eq.vault_address.lower() == needle:
             return eq
     return None
+
+
+def fetch_vault_lockup_status(
+    session: HyperliquidSession,
+    user: HexAddress | str,
+    vault_address: HexAddress | str,
+    cache_timeout: float = DEFAULT_VAULT_EQUITY_CACHE_TIMEOUT,
+    timeout: float = 10.0,
+) -> UserVaultEquity | None:
+    """Fetch a user's vault position and check whether the lock-up has expired.
+
+    Convenience wrapper around :py:func:`fetch_user_vault_equity` that
+    fetches the position (with caching) and returns it with lock-up
+    status available via :py:attr:`UserVaultEquity.is_lockup_expired`
+    and :py:attr:`UserVaultEquity.lockup_remaining`.
+
+    Returns ``None`` if the user has no position in the vault.
+
+    Example::
+
+        from eth_defi.hyperliquid.api import fetch_vault_lockup_status
+        from eth_defi.hyperliquid.session import create_hyperliquid_session
+
+        session = create_hyperliquid_session()
+        eq = fetch_vault_lockup_status(session, user="0xAbc...", vault_address="0xDef...")
+        if eq is not None:
+            if eq.is_lockup_expired:
+                print("Withdrawal ready")
+            else:
+                print(f"Locked for another {eq.lockup_remaining}")
+        else:
+            print("No position in this vault")
+
+    :param session:
+        Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
+
+    :param user:
+        On-chain address (the Safe address for Lagoon vaults).
+
+    :param vault_address:
+        Hypercore vault address.
+
+    :param cache_timeout:
+        Cache timeout in seconds.
+
+    :param timeout:
+        HTTP request timeout in seconds.
+
+    :return:
+        The user's vault equity with lock-up properties, or ``None`` if no position.
+    """
+    return fetch_user_vault_equity(
+        session,
+        user=user,
+        vault_address=vault_address,
+        cache_timeout=cache_timeout,
+        timeout=timeout,
+    )
 
 
 def fetch_spot_clearinghouse_state(
@@ -552,7 +657,8 @@ def fetch_portfolio(
         HTTP request timeout in seconds.
 
     :return:
-        All-time PnL and volume, or ``None`` on network/API error.
+        All-time PnL, volume, and first activity timestamp,
+        or ``None`` on network/API error.
     """
     try:
         url = f"{session.api_url}/info"
@@ -572,11 +678,26 @@ def fetch_portfolio(
         vlm = all_time.get("vlm")
         volume = Decimal(str(vlm)) if vlm else None
 
-        logger.info("Portfolio for %s: pnl=%s, volume=%s", address, latest_pnl, volume)
+        # First pnlHistory entry timestamp = account first activity.
+        # pnlHistory is aggregated data covering the full account lifetime,
+        # not subject to the ~10K fill API cap.
+        first_activity_at = None
+        if pnl_history:
+            first_ts_ms = pnl_history[0][0]
+            first_activity_at = datetime.datetime.fromtimestamp(first_ts_ms / 1000)
+
+        logger.info(
+            "Portfolio for %s: pnl=%s, volume=%s, first_activity=%s",
+            address,
+            latest_pnl,
+            volume,
+            first_activity_at,
+        )
 
         return PortfolioAllTimeData(
             all_time_pnl=latest_pnl,
             all_time_volume=volume,
+            first_activity_at=first_activity_at,
         )
     except Exception:
         logger.warning("Failed to fetch portfolio for %s", address, exc_info=True)

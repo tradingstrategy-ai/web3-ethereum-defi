@@ -24,7 +24,6 @@ import os
 import tempfile
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from eth_defi.grvt.session import create_grvt_session
 from tabulate import tabulate
@@ -37,43 +36,10 @@ from eth_defi.grvt.vault import (
     fetch_vault_risk_metrics,
     fetch_vault_summary_history,
 )
+from eth_defi.research.perf_metrics import compute_cagr, compute_max_drawdown, compute_sharpe
 from eth_defi.utils import setup_console_logging
 
 logger = logging.getLogger(__name__)
-
-
-def compute_cagr(start_price: float, end_price: float, days: int) -> float | None:
-    """Compute annualised CAGR from start/end prices over a number of days."""
-    if days <= 0 or start_price <= 0 or end_price <= 0:
-        return None
-    years = days / 365.0
-    if years < 0.001:
-        return None
-    base = end_price / start_price
-    # Cap at 100x to prevent astronomical extrapolations
-    cagr = min(base ** (1.0 / years) - 1.0, 100.0)
-    return cagr
-
-
-def compute_sharpe(daily_returns: pd.Series) -> float | None:
-    """Compute annualised Sharpe ratio from daily returns."""
-    clean = daily_returns.dropna()
-    if len(clean) < 7:
-        return None
-    mean_r = clean.mean()
-    std_r = clean.std()
-    if std_r < 1e-12:
-        return None
-    return (mean_r / std_r) * np.sqrt(365)
-
-
-def compute_max_drawdown(prices: pd.Series) -> float | None:
-    """Compute max drawdown from a price series."""
-    if len(prices) < 2:
-        return None
-    running_max = prices.cummax()
-    drawdown = (prices - running_max) / running_max
-    return float(drawdown.min())
 
 
 def main():

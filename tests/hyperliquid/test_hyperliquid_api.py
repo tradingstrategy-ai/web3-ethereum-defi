@@ -10,7 +10,7 @@ from decimal import Decimal
 
 import pytest
 
-from eth_defi.hyperliquid.api import UserVaultEquity, fetch_user_vault_equities
+from eth_defi.hyperliquid.api import UserVaultEquity, fetch_user_vault_equities, fetch_vault_lockup_status
 
 
 @pytest.fixture(scope="module")
@@ -45,3 +45,47 @@ def test_fetch_user_vault_equities_empty(session):
         user="0x0000000000000000000000000000000000000001",
     )
     assert equities == []
+
+
+def test_user_vault_equity_lockup_properties():
+    """Unit test for is_lockup_expired and lockup_remaining properties."""
+    from eth_defi.compat import native_datetime_utc_now
+
+    now = native_datetime_utc_now()
+
+    # Expired lock-up (in the past)
+    expired = UserVaultEquity(
+        vault_address="0x0000000000000000000000000000000000000001",
+        equity=Decimal("100.0"),
+        locked_until=now - datetime.timedelta(hours=1),
+    )
+    assert expired.is_lockup_expired is True
+    assert expired.lockup_remaining == datetime.timedelta(0)
+
+    # Active lock-up (in the future)
+    active = UserVaultEquity(
+        vault_address="0x0000000000000000000000000000000000000002",
+        equity=Decimal("200.0"),
+        locked_until=now + datetime.timedelta(hours=12),
+    )
+    assert active.is_lockup_expired is False
+    assert active.lockup_remaining > datetime.timedelta(0)
+    assert active.lockup_remaining <= datetime.timedelta(hours=12)
+
+
+def test_fetch_vault_lockup_status(session, known_vault_depositor):
+    """Fetch lock-up status for a known depositor via the live API."""
+    # First get all positions to find a vault address
+    equities = fetch_user_vault_equities(session, user=known_vault_depositor)
+    assert len(equities) > 0
+
+    # Check lock-up status for the first vault
+    vault_addr = equities[0].vault_address
+    eq = fetch_vault_lockup_status(session, user=known_vault_depositor, vault_address=vault_addr)
+    assert eq is not None
+    assert isinstance(eq.is_lockup_expired, bool)
+    assert isinstance(eq.lockup_remaining, datetime.timedelta)
+    assert eq.lockup_remaining >= datetime.timedelta(0)
+
+    # HLP leader deposits are old, lock-up should be expired
+    assert eq.is_lockup_expired is True
