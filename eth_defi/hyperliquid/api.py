@@ -571,46 +571,47 @@ def wait_for_vault_deposit_confirmation(
                 # New position: any equity > 0 confirms deposit
                 if eq.equity > 0:
                     logger.info(
-                        "Vault deposit confirmed for %s in vault %s: "
-                        "equity %s after %d poll(s)",
-                        user, vault_address, eq.equity, attempt,
+                        "Vault deposit confirmed for %s in vault %s: equity %s after %d poll(s)",
+                        user,
+                        vault_address,
+                        eq.equity,
+                        attempt,
                     )
                     return eq
             else:
                 # Existing position: equity must increase by ~expected amount
                 if increase >= expected_deposit - tolerance:
                     logger.info(
-                        "Vault deposit confirmed for %s in vault %s: "
-                        "equity %s (increase %s, expected %s) after %d poll(s)",
-                        user, vault_address, eq.equity, increase,
-                        expected_deposit, attempt,
+                        "Vault deposit confirmed for %s in vault %s: equity %s (increase %s, expected %s) after %d poll(s)",
+                        user,
+                        vault_address,
+                        eq.equity,
+                        increase,
+                        expected_deposit,
+                        attempt,
                     )
                     return eq
 
             logger.info(
-                "Vault deposit pending for %s in vault %s: "
-                "equity %s (increase %s, expected %s, poll #%d)",
-                user, vault_address, eq.equity if eq else None, increase,
-                expected_deposit, attempt,
+                "Vault deposit pending for %s in vault %s: equity %s (increase %s, expected %s, poll #%d)",
+                user,
+                vault_address,
+                eq.equity if eq else None,
+                increase,
+                expected_deposit,
+                attempt,
             )
         else:
             logger.info(
-                "Vault deposit pending for %s in vault %s: "
-                "no position yet (poll #%d)",
-                user, vault_address, attempt,
+                "Vault deposit pending for %s in vault %s: no position yet (poll #%d)",
+                user,
+                vault_address,
+                attempt,
             )
 
         remaining = deadline - time.time()
         if remaining <= 0:
-            raise HypercoreDepositVerificationError(
-                f"Vault deposit for {user} in vault {vault_address} "
-                f"could not be verified within {timeout}s. "
-                f"Expected deposit: {expected_deposit} USDC, "
-                f"existing equity: {existing_equity}, "
-                f"last queried equity: {last_eq.equity if last_eq else None}. "
-                f"The deposit may have been silently rejected by HyperCore. "
-                f"Check HyperCore spot/perp for stranded USDC."
-            )
+            raise HypercoreDepositVerificationError(f"Vault deposit for {user} in vault {vault_address} could not be verified within {timeout}s. Expected deposit: {expected_deposit} USDC, existing equity: {existing_equity}, last queried equity: {last_eq.equity if last_eq else None}. The deposit may have been silently rejected by HyperCore. Check HyperCore spot/perp for stranded USDC.")
 
         time.sleep(min(poll_interval, remaining))
 
