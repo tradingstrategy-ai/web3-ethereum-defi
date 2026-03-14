@@ -466,6 +466,7 @@ def _get_usdc_spot_balance(state: "SpotClearinghouseState") -> Decimal:
         USDC balance, or ``Decimal(0)`` if no USDC balance found.
     """
     from decimal import Decimal as D
+
     for b in state.balances:
         if b.coin == "USDC":
             return b.total
@@ -538,11 +539,14 @@ def wait_for_evm_escrow_clear(
             baseline_usdc = _get_usdc_spot_balance(baseline_state)
             logger.info(
                 "P15: Baseline USDC spot balance for %s: %s (expecting +%s)",
-                user, baseline_usdc, expected_usdc,
+                user,
+                baseline_usdc,
+                expected_usdc,
             )
         except Exception as e:
             logger.warning(
-                "P15: Could not capture baseline USDC spot balance: %s", e,
+                "P15: Could not capture baseline USDC spot balance: %s",
+                e,
             )
 
     # Initial delay: the HyperCore API needs time to register the
@@ -565,18 +569,19 @@ def wait_for_evm_escrow_clear(
                 tolerance = expected_usdc * D("0.01")
                 if increase < expected_usdc - tolerance:
                     logger.warning(
-                        "P15: Escrow cleared but USDC spot balance increase "
-                        "(%s) is less than expected (%s) for %s. "
-                        "Baseline: %s, current: %s. "
-                        "Possible silent bridge failure.",
-                        increase, expected_usdc, user,
-                        baseline_usdc, current_usdc,
+                        "P15: Escrow cleared but USDC spot balance increase (%s) is less than expected (%s) for %s. Baseline: %s, current: %s. Possible silent bridge failure.",
+                        increase,
+                        expected_usdc,
+                        user,
+                        baseline_usdc,
+                        current_usdc,
                     )
                 else:
                     logger.info(
-                        "P15: Escrow cleared AND spot USDC verified: "
-                        "+%s USDC (expected +%s) for %s",
-                        increase, expected_usdc, user,
+                        "P15: Escrow cleared AND spot USDC verified: +%s USDC (expected +%s) for %s",
+                        increase,
+                        expected_usdc,
+                        user,
                     )
 
             logger.info(
