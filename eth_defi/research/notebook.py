@@ -9,6 +9,53 @@ import pandas as pd
 import plotly.io as pio
 
 
+def display_dataframe_with_html(df: pd.DataFrame):
+    """Display a DataFrame in a notebook with clickable HTML links.
+
+    Use instead of ``display(df)`` when the DataFrame contains
+    HTML content such as ``<a>`` links that should be rendered.
+
+    Example:
+
+    .. code-block:: python
+
+        from eth_defi.research.notebook import display_dataframe_with_html
+
+        display_dataframe_with_html(stats)
+    """
+    from IPython.display import HTML, display
+
+    html_table = df.to_html(escape=False, classes="table table-striped")
+    display(HTML(html_table))
+
+
+def format_large_number(n: float | int | None) -> str:
+    """Format a large number with k/M/B suffixes.
+
+    Example:
+
+    .. code-block:: python
+
+        >>> format_large_number(1_234_567)
+        '1.2M'
+        >>> format_large_number(45_678)
+        '45.7k'
+        >>> format_large_number(999)
+        '999'
+    """
+    if n is None or pd.isna(n):
+        return "-"
+    n = float(n)
+    abs_n = abs(n)
+    if abs_n >= 1_000_000_000:
+        return f"{n / 1_000_000_000:.1f}B"
+    if abs_n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if abs_n >= 1_000:
+        return f"{n / 1_000:.1f}k"
+    return f"{n:,.0f}"
+
+
 class OutputMode(enum.Enum):
     """What is the output mode for the notebook visualisations.
 

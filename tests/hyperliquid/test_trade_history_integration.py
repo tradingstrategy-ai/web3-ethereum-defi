@@ -10,6 +10,7 @@ import datetime
 
 import pytest
 
+from eth_defi.hyperliquid.api import fetch_portfolio
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.trade_history import (
     fetch_account_funding,
@@ -213,3 +214,29 @@ def test_trade_history_sync_resume(session, tmp_path):
         assert second_count == len(second_trade_ids), "Duplicate fills detected after resume"
     finally:
         db.close()
+
+
+@pytest.mark.timeout(60)
+def test_fetch_portfolio_first_activity(session):
+    """Verify that the portfolio endpoint returns account first activity date.
+
+    Uses the HLP vault (Hyperliquidity Provider) which is one of the
+    earliest accounts on Hyperliquid, active since late 2023.
+
+    The ``pnlHistory`` array in the portfolio response is aggregated
+    data covering the full account lifetime — unlike fills which are
+    capped at ~10K entries. The first entry's timestamp gives a
+    reliable account creation / first activity date.
+    """
+    # HLP vault — one of the earliest Hyperliquid accounts
+    hlp_address = "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303"
+
+    portfolio = fetch_portfolio(session, hlp_address)
+
+    assert portfolio is not None, "Portfolio fetch failed"
+    assert portfolio.first_activity_at is not None, "Expected first_activity_at from pnlHistory"
+    assert portfolio.all_time_pnl is not None
+    assert portfolio.all_time_volume is not None
+
+    # HLP has been active since late 2023
+    assert portfolio.first_activity_at < datetime.datetime(2024, 1, 1), f"HLP first activity {portfolio.first_activity_at} should be before 2024-01-01"
