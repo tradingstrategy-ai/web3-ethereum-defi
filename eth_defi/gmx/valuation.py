@@ -106,10 +106,9 @@ def fetch_gmx_total_equity(
 
     :param reserve_tokens:
         List of ``TokenDetails`` whose ``balanceOf(account)`` should be
-        included in the reserve total.  Should only contain USD-pegged
-        stablecoins (e.g. USDC) — non-stablecoin tokens will produce
-        mixed-unit totals.  A warning is logged if a non-6-decimal token
-        is included as a heuristic guard.
+        included in the reserve total.  Must be USD-pegged stablecoins
+        (e.g. USDC) — an assertion fires if a non-stablecoin token is
+        passed (checked via :meth:`~eth_defi.token.TokenDetails.is_stablecoin_like`).
 
     :param block_identifier:
         Block number (or ``"latest"``) at which to read on-chain state.
@@ -125,7 +124,7 @@ def fetch_gmx_total_equity(
     # 1. Reserve balances
     reserves_total = Decimal(0)
     for token in reserve_tokens:
-        assert token.decimals == 6, f"Reserve token {token.symbol} has {token.decimals} decimals, expected 6 for a USD stablecoin. Non-stablecoin reserves would produce mixed-unit totals."
+        assert token.is_stablecoin_like(), f"Reserve token {token.symbol} does not look like a stablecoin. Non-stablecoin reserves would produce mixed-unit totals."
         balance = token.fetch_balance_of(account, block_identifier=block_identifier)
         reserves_total += balance
         logger.info(

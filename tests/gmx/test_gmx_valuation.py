@@ -243,7 +243,7 @@ def test_non_stablecoin_reserve_rejected(web3):
     """Verify that passing a non-6-decimal token as reserve triggers an assertion."""
     weth = fetch_erc20_details(web3, "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
 
-    with pytest.raises(AssertionError, match="expected 6 for a USD stablecoin"):
+    with pytest.raises(AssertionError, match="does not look like a stablecoin"):
         fetch_gmx_total_equity(
             web3=web3,
             account="0xdead000000000000000000000000000000000042",
