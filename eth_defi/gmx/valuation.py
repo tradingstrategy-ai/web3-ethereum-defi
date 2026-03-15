@@ -106,7 +106,10 @@ def fetch_gmx_total_equity(
 
     :param reserve_tokens:
         List of ``TokenDetails`` whose ``balanceOf(account)`` should be
-        included in the reserve total.
+        included in the reserve total.  Should only contain USD-pegged
+        stablecoins (e.g. USDC) — non-stablecoin tokens will produce
+        mixed-unit totals.  A warning is logged if a non-6-decimal token
+        is included as a heuristic guard.
 
     :param block_identifier:
         Block number (or ``"latest"``) at which to read on-chain state.
@@ -122,6 +125,7 @@ def fetch_gmx_total_equity(
     # 1. Reserve balances
     reserves_total = Decimal(0)
     for token in reserve_tokens:
+        assert token.decimals == 6, f"Reserve token {token.symbol} has {token.decimals} decimals, expected 6 for a USD stablecoin. Non-stablecoin reserves would produce mixed-unit totals."
         balance = token.fetch_balance_of(account, block_identifier=block_identifier)
         reserves_total += balance
         logger.info(
@@ -149,6 +153,14 @@ def fetch_gmx_total_equity(
     return GMXEquity(reserves=reserves_total, positions=positions_total)
 
 
+#: wstETH GMX market uses a zero index-token address on-chain;
+#: the real wstETH token must be substituted.
+#: See :class:`~eth_defi.gmx.core.markets.Markets` for the canonical handling.
+_WSTETH_MARKET = to_checksum_address("0x0Cf1fb4d1FF67A3D8Ca92c9d6643F8F9be8e03E5")
+_WSTETH_TOKEN = to_checksum_address("0x5979D7b546E38E414F7E9822514be443A4800529")
+_ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+
+
 def _fetch_market_index_tokens(
     reader,
     datastore_address: str,
@@ -160,6 +172,9 @@ def _fetch_market_index_tokens(
     :class:`~eth_defi.gmx.core.markets.Markets` uses internally, but
     without requiring a ``GMXConfig`` object.
 
+    Handles the wstETH special case where the on-chain index token is
+    the zero address and must be replaced with the real wstETH token.
+
     :return:
         Dict mapping checksummed market address to checksummed index token address.
     """
@@ -169,6 +184,14 @@ def _fetch_market_index_tokens(
     for raw_market in raw_markets:
         market_addr = to_checksum_address(raw_market[0])
         index_token = to_checksum_address(raw_market[1])
+
+        # wstETH market has zero index token on-chain — substitute real address
+        if index_token == _ZERO_ADDRESS:
+            if market_addr == _WSTETH_MARKET:
+                index_token = _WSTETH_TOKEN
+            else:
+                continue
+
         market_to_index[market_addr] = index_token
 
     return market_to_index

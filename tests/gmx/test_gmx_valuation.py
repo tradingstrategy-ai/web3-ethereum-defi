@@ -67,7 +67,8 @@ from web3 import HTTPProvider, Web3
 
 from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
-from eth_defi.gmx.valuation import GMXEquity, fetch_gmx_total_equity
+from eth_defi.gmx.contracts import get_reader_contract, get_contract_addresses
+from eth_defi.gmx.valuation import GMXEquity, fetch_gmx_total_equity, _fetch_market_index_tokens
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.token import fetch_erc20_details
 
@@ -78,9 +79,6 @@ pytestmark = pytest.mark.skipif(
 
 #: Arbitrum USDC (native) address
 USDC_ADDRESS = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
-
-#: Arbitrum WETH address
-WETH_ADDRESS = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
 
 #: A known account that holds USDC on Arbitrum at the fork block but has no GMX positions
 KNOWN_USDC_HOLDER = "0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055"
@@ -123,11 +121,6 @@ def web3(anvil_arbitrum):
 @pytest.fixture()
 def usdc(web3):
     return fetch_erc20_details(web3, USDC_ADDRESS)
-
-
-@pytest.fixture()
-def weth(web3):
-    return fetch_erc20_details(web3, WETH_ADDRESS)
 
 
 def test_fetch_gmx_total_equity_no_positions(web3, usdc):
@@ -178,11 +171,11 @@ def test_fetch_gmx_total_equity_usdc_collateral_mixed_directions(web3, usdc):
     assert result.get_total() > Decimal("1_100_000")
 
 
-def test_fetch_gmx_total_equity_eth_collateral_short(web3, usdc, weth):
+def test_fetch_gmx_total_equity_eth_collateral_short(web3, usdc):
     """Test equity for an account with an ETH-collateralised short position.
 
     This account has:
-    - 0 USDC and 0 WETH wallet reserves
+    - 0 USDC wallet reserves
     - 1 short ETH position with ~588 ETH collateral, ~$2.7M notional
     - Entry price ~$3,425 (position opened when ETH was much higher)
 
@@ -194,11 +187,11 @@ def test_fetch_gmx_total_equity_eth_collateral_short(web3, usdc, weth):
     result = fetch_gmx_total_equity(
         web3=web3,
         account=ACCOUNT_ETH_SHORT,
-        reserve_tokens=[usdc, weth],
+        reserve_tokens=[usdc],
     )
     assert isinstance(result, GMXEquity)
 
-    # No wallet reserves (both USDC and WETH are 0)
+    # No USDC wallet reserves
     assert result.reserves == Decimal(0)
 
     # Position should have a large value (collateral ~588 ETH + big PnL from short)
@@ -221,6 +214,41 @@ def test_fetch_gmx_total_equity_empty_account(web3, usdc):
     assert result.reserves == Decimal(0)
     assert result.positions == Decimal(0)
     assert result.get_total() == Decimal(0)
+
+
+def test_zero_index_markets_excluded(web3):
+    """Verify that markets with zero index tokens are excluded or resolved.
+
+    Some GMX markets (swap-only pools) have a zero address as their on-chain
+    index token.  The wstETH market is special-cased to use the real wstETH
+    token address; all other zero-index markets are skipped.
+
+    After mapping, no market should have a zero address as index token.
+    """
+    reader = get_reader_contract(web3, "arbitrum")
+    addresses = get_contract_addresses("arbitrum")
+
+    market_map = _fetch_market_index_tokens(reader, addresses.datastore, block_identifier=FORK_BLOCK)
+
+    # Must have resolved some markets
+    assert len(market_map) > 30
+
+    # No market should have a zero address as index token
+    zero = "0x0000000000000000000000000000000000000000"
+    for market, index in market_map.items():
+        assert index != zero, f"Market {market} has zero index token"
+
+
+def test_non_stablecoin_reserve_rejected(web3):
+    """Verify that passing a non-6-decimal token as reserve triggers an assertion."""
+    weth = fetch_erc20_details(web3, "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
+
+    with pytest.raises(AssertionError, match="expected 6 for a USD stablecoin"):
+        fetch_gmx_total_equity(
+            web3=web3,
+            account="0xdead000000000000000000000000000000000042",
+            reserve_tokens=[weth],
+        )
 
 
 def test_gmx_equity_dataclass():
