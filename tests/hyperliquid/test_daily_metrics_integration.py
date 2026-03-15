@@ -336,6 +336,11 @@ def test_deposit_closed_vault_pipeline(tmp_path):
         assert latest_row["leader_commission"] is not None, "Latest row should have leader_commission"
         assert historical_rows["leader_commission"].isna().all(), "Historical rows should have leader_commission=NULL"
 
+        # Leader fraction history should have exactly 1 row (single scan of a fresh DB)
+        lf_history = db.get_leader_fraction_history(vault_address)
+        assert len(lf_history) == 1, f"Expected exactly 1 leader_fraction snapshot, got {len(lf_history)}"
+        assert 0 < lf_history.iloc[0]["leader_fraction"] <= 1.0
+
         # Verify flow columns are present in DuckDB after scan
         assert "daily_deposit_count" in prices_df_raw.columns, "daily_deposit_count column missing"
         assert "daily_withdrawal_count" in prices_df_raw.columns, "daily_withdrawal_count column missing"
