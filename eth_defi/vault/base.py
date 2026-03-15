@@ -338,6 +338,10 @@ class VaultHistoricalRead:
             "vault_poll_frequency": self.vault_poll_frequency if self.vault_poll_frequency else "",
             "max_deposit": float(self.max_deposit) if self.max_deposit is not None else _nan,
             "max_redeem": float(self.max_redeem) if self.max_redeem is not None else _nan,
+            # TODO: deposits_open is stored as string ("true"/"false"/"") for historical reasons.
+            # Should be migrated to pa.bool_() with a proper Parquet schema migration.
+            # The canonical deposit state column is now deposit_closed_reason (string | None)
+            # in the cleaned DataFrame, derived by wrangle_vault_prices.derive_deposit_closed_reason().
             "deposits_open": str(self.deposits_open).lower() if self.deposits_open is not None else "",
             "redemption_open": str(self.redemption_open).lower() if self.redemption_open is not None else "",
             "trading": str(self.trading).lower() if self.trading is not None else "",
@@ -369,7 +373,7 @@ class VaultHistoricalRead:
                 ("vault_poll_frequency", pa.string()),
                 ("max_deposit", pa.float64()),
                 ("max_redeem", pa.float64()),
-                ("deposits_open", pa.string()),
+                ("deposits_open", pa.string()),  # TODO: migrate to pa.bool_(); see export() comment
                 ("redemption_open", pa.string()),
                 ("trading", pa.string()),
                 ("available_liquidity", pa.float64()),

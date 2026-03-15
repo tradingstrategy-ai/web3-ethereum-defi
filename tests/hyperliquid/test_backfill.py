@@ -706,3 +706,149 @@ def test_mark_vaults_disappeared_preserves_state(tmp_path):
 
     finally:
         db.close()
+
+
+# ──────────────────────────────────────────────────────────────────────
+# deposit_closed_reason tests: verify build_raw_prices_dataframe()
+# produces correct per-row deposit state from DuckDB state columns.
+# ──────────────────────────────────────────────────────────────────────
+
+
+def test_build_raw_prices_deposits_open_healthy(tmp_path):
+    """Healthy vault with deposits open has deposit_closed_reason=None and deposits_open='true'."""
+    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
+
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        rows = [_make_daily_price_row(VAULT_A, datetime.date(2024, 1, d)) for d in range(1, 5)] + [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 5), is_closed=False, allow_deposits=True, leader_fraction=0.15),
+        ]
+        db.upsert_daily_prices(rows)
+        db.save()
+
+        result = build_raw_prices_dataframe(db)
+        assert len(result) == 5
+        assert "deposit_closed_reason" in result.columns
+        assert "deposits_open" in result.columns
+
+        # Latest row (Jan 5) has state — deposits are open
+        latest = result.iloc[-1]
+        assert latest["deposit_closed_reason"] is None
+        assert latest["deposits_open"] == "true"
+
+    finally:
+        db.close()
+
+
+def test_build_raw_prices_deposit_closed_leader_fraction(tmp_path):
+    """Leader fraction below threshold produces deposit_closed_reason with 'Leader share' message."""
+    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
+
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        rows = [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), is_closed=False, allow_deposits=True, leader_fraction=0.04),
+        ]
+        db.upsert_daily_prices(rows)
+        db.save()
+
+        result = build_raw_prices_dataframe(db)
+        assert len(result) == 1
+
+        row = result.iloc[0]
+        assert row["deposit_closed_reason"] is not None
+        assert "Leader share" in row["deposit_closed_reason"]
+        assert row["deposits_open"] == "false"
+
+    finally:
+        db.close()
+
+
+def test_build_raw_prices_deposit_closed_allow_deposits(tmp_path):
+    """allow_deposits=False produces correct deposit_closed_reason."""
+    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
+
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        rows = [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), is_closed=False, allow_deposits=False, leader_fraction=0.15),
+        ]
+        db.upsert_daily_prices(rows)
+        db.save()
+
+        result = build_raw_prices_dataframe(db)
+        row = result.iloc[0]
+        assert row["deposit_closed_reason"] == "Vault deposits disabled by leader"
+        assert row["deposits_open"] == "false"
+
+    finally:
+        db.close()
+
+
+def test_build_raw_prices_unknown_state_rows(tmp_path):
+    """Rows before first state observation have deposit_closed_reason=None (not misclassified)."""
+    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
+
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        # 5 rows, only the last has state
+        rows = [_make_daily_price_row(VAULT_A, datetime.date(2024, 1, d)) for d in range(1, 5)] + [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 5), is_closed=False, allow_deposits=True, leader_fraction=0.15),
+        ]
+        db.upsert_daily_prices(rows)
+        db.save()
+
+        result = build_raw_prices_dataframe(db)
+        assert len(result) == 5
+
+        # Rows before state (Jan 1-4): no forward-fill source → unknown
+        early = result.iloc[:4]
+        assert early["deposit_closed_reason"].isna().all(), "Early rows with no state should have None deposit_closed_reason"
+        assert (early["deposits_open"].isna()).all(), "Early rows with no state should have None deposits_open"
+
+        # Last row (Jan 5) has state
+        latest = result.iloc[-1]
+        assert latest["deposit_closed_reason"] is None
+        assert latest["deposits_open"] == "true"
+
+    finally:
+        db.close()
+
+
+def test_deposit_closed_reason_in_cleaned_data():
+    """derive_deposit_closed_reason fills in reason for ERC-4626 rows with deposits_open='false'."""
+    from eth_defi.research.wrangle_vault_prices import derive_deposit_closed_reason, ensure_vault_state_columns
+
+    # Build a synthetic DataFrame resembling ERC-4626 cleaned data
+    df = pd.DataFrame(
+        {
+            "deposits_open": ["true", "false", "true", "false", ""],
+        }
+    )
+    df = ensure_vault_state_columns(df)
+    df = derive_deposit_closed_reason(df)
+
+    assert "deposit_closed_reason" in df.columns
+
+    # "true" → None (deposits open)
+    assert df.iloc[0]["deposit_closed_reason"] is None
+    # "false" → reason filled in
+    assert df.iloc[1]["deposit_closed_reason"] == "Vault deposits disabled"
+    # "true" → None
+    assert df.iloc[2]["deposit_closed_reason"] is None
+    # "false" → reason filled in
+    assert df.iloc[3]["deposit_closed_reason"] == "Vault deposits disabled"
+    # "" (unknown) → None
+    assert df.iloc[4]["deposit_closed_reason"] is None
