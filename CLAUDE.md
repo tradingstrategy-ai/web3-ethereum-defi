@@ -1,5 +1,19 @@
 # Instructions to work with the code base
 
+## Skills
+
+Repo-local skills live as folders under `.claude/skills`.
+
+When a task matches one of the folder names, open the corresponding `SKILL.md` first and follow it before doing ad hoc exploration.
+
+Skill discovery rules:
+
+- If the user mentions a skill by name, use it.
+- If the task clearly matches one of the skill directory names above, use that skill even if the user did not mention it explicitly.
+- Start by reading only `.claude/skills/<skill-name>/SKILL.md`.
+- If the skill references extra files, open only the files needed for the current task.
+- Prefer scripts, templates and checklists referenced by the skill over re-creating the workflow manually.
+
 ## English
 
 - Use UK/British English instead of US English
@@ -89,7 +103,7 @@ poetry run ruff format
 - For visualusations, use Plotly. For chart titles, use heading case as explained above.
 - Use module level imports, not function level lazy imports, whenever possible
 - Never write generic `Exception e:` catch but always catch a specific exception if we can
-- Never silently swallow exceptions
+- Never silently swallow exceptions and th
 
 ### Code comments
 

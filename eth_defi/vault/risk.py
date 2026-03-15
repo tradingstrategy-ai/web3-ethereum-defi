@@ -241,11 +241,9 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x9a2d163aB40F88C625Fd475e807Bbc3556566f80",  # Age old mainnet contract
     "0x249CAccaE4b8A4BC9E0F8e468d7Cc9EbFc7e0811",  # Age old mainnet contract
     "0x055ac8b974F075B86fB963e940407168E677585A",  # Age old mainnet contract
-    "0x2A0077eD1dF4BE3963b60191011c76DFE0dD4D9b3",  # Age old mainnet contract
     "0x5AF90c9F0f51e918B19A0bE1A0DcD8238bf414A1",  # Age old mainnet contract
     "0xF7709f447AeBC89b31F42BdDb7C4A6caAED6f566",  # Age old mainnet contract
     "0x1DBFCE32a70787002D48B775e774C17B5673Aa4A",  # Age old mainnet contract
-    "0xBa74368AA52AD58d08309f1F549aA63bAB0C7e2A",  # Age old mainnet contract
     "0xBa74368AA52AD58d08309f1F549aA63bAB0C7e2A",  # Age old mainnet contract
     "0x8AF4dfc5c55eF2D3BCE511E4C14d631253533540",  # Age old mainnet contract
     "0xEA5E5B5af68C4D03482A79573222400b905b37F9",  # Age old mainnet contract
@@ -256,7 +254,7 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x7A164dB771CF55Cc45b0CC9AbF5dbFB8c28860d7",  # Age old mainnet contract
     "0x2A0077eD1dF4BE3963b60191011c76DFE0dD4D9b",  # Age old mainnet contract
     "0x46CF29Dc3472F2EADC17f01152adEa1f068eF20f",  # Age old mainnet contract
-    "0x21f01A22c417864b20fc9CCbB9b709ad38a9ea8dE",  # Age old mainnet contract
+    "0x21f01A22c417864b20fc9CCbB9b709ad38a9ea8d",  # Age old mainnet contract
     "0xacF999bFA9347e8EbE6816eD30bf44b127233177",  # Age old mainnet contract
     "0x0138C6f526546A0DF647e36D42abcEFb868f412a",  # Age old mainnet contract
     "0x88D371D1FD137c272cEA1E871f801456BF8918dF",  # Age old mainnet contract
@@ -265,8 +263,6 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x6323A8711180820b834c0295808c188E7F8cD9e7",  # Age old mainnet contract
     "0xCCDaBEaa4C1C54EfAb58484c791428B22083b432",  # Age old mainnet contract
     "0x811C80a9A4782274F036f06834F9bcA2870FfA67",  # Age old mainnet contract
-    "0x3Cb822f51283fE165caBD5b9808BF2D8CBb29b9c1",  # Age old mainnet contract
-    "0x6323A8711180820b834c0295808c188E7F8cD9e7",  # Age old mainnet contract
     "0x7b183E4De8912f04d9dC94E1F109578d62D4a9f9",  # Age old mainnet contract
     "0x5B63655e93E1d805F770Aa0f98a99d20c091A9fC",  # Age old mainnet contract
     "0x64EFb9BE474C2d69eCAc0A051f2df664e453A0dD",  # Age old mainnet contract]
@@ -283,7 +279,6 @@ _BROKEN_VAULT_CONTRACTS = {
     "0xbA24bfBaF250DC602318b53d2A8C9723aCdd79A4",  # Age old mainnet contract
     "0x964fA8E14FE5e2d48D9ea3dd851f5a8d6102Bd7b",  # Age old mainnet contract
     "0x00c315AC9Ff89bb6aFa7524CD159f0a9766e8c89",  # Age old mainnet contract
-    "0x964fA8E14FE5e2d48D9ea3dd851f5a8d6102Bd7b",  # Age old mainnet contract
     "0x263e7D0802D425dDdC71BDc6192c91Ee5B958BD7",  # Age old mainnet contract
     "0xBca13CbEBFF557143E8Ad089192380E9C9A58c70",  # Age old mainnet contract
     "0x122707749C644DF7526F20f6611b0873F3092E5E",  # Age old mainnet contract
@@ -297,8 +292,8 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x63091244180Ae240C87D1F528f5F269134cB07B3",  # Age old mainnet contract
     "0x7e3B5c1Af059c29bA14E07C1179C219230FBb736",  # Age old mainnet contract
     "0xfbf8ECb34aCbC2C4D2d4Cdc645c9a76EFcbE2cFf",  # Age old mainnet contract
-    "0x8d12A197cB00D4747a1fe03395095ce2A5CC6819",  # Age old mainnet contract
-    "0x63091244180Ae240C87D1F528f5F269134cB07B3",  # Age old mainnet contract
+    '0x8b908b11c510f4564aed24d766191723BF1967e6',  # Age old mainnet contract
+    '0x25066B77Ae6174D372a9fE2B1d7886A2Be150E9b',  # Age old mainnet contract
     "0x6a6E4ad4a5ca14B940Cd6949b1A90f947AE21c19",  # Broken Gains vault on Berachain - its open PnL feed contract (0x5705554B) causes multicall failures
     "0x5705554BAa86Da01fF4A82d29a1598c5B3A8B476",  # Open PnL feed helper contract for broken Gains vault on Berachain
     "0x8fF6aDBC653405245B6b686E31b14A7da7000281",  # BNB broken contract
