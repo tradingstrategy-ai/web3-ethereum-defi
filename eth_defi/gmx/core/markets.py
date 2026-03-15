@@ -221,7 +221,7 @@ class Markets:
         return reader_contract.functions.getMarkets(
             data_store_contract_address,
             0,
-            115,
+            500,
         ).call()
 
     def _process_markets(self) -> dict:

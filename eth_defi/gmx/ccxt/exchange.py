@@ -3380,8 +3380,15 @@ class GMX(ExchangeCompatible):
         side = ACTION_TO_SIDE.get(action, "buy" if "Increase" in str(action) else "sell")
 
         # Get price and amount
-        price = self.safe_number(trade, "executionPrice")
-        size_delta = self.safe_number(trade, "sizeDeltaUsd")
+        # Subsquid returns raw values: sizeDeltaUsd and feeUsd in 30-decimal format,
+        # executionPrice in token-specific format (10^(30 - token_decimals))
+        raw_exec_price = self.safe_number(trade, "executionPrice")
+        raw_size_delta = self.safe_number(trade, "sizeDeltaUsd")
+
+        # Convert executionPrice using token-decimal-aware conversion
+        price = self._convert_price_to_usd(raw_exec_price, market) if raw_exec_price else None
+        # Convert sizeDeltaUsd from 30-decimal format to USD
+        size_delta = raw_size_delta / 10**PRECISION if raw_size_delta else None
 
         # Calculate amount in base currency
         amount = None
@@ -3391,10 +3398,11 @@ class GMX(ExchangeCompatible):
             amount = cost / price if price > 0 else None
 
         # Parse fee if available
+        # feeUsd from Subsquid is in 30-decimal raw format
         fee = None
-        fee_amount = self.safe_number(trade, "feeUsd")
-        if fee_amount:
-            fee_cost = abs(fee_amount)
+        raw_fee = self.safe_number(trade, "feeUsd")
+        if raw_fee:
+            fee_cost = abs(raw_fee) / 10**PRECISION
             # Calculate rate if we have the cost
             fee_rate = fee_cost / cost if cost and cost > 0 else 0.0006
             fee = {"cost": fee_cost, "currency": "USD", "rate": fee_rate}
@@ -3639,16 +3647,18 @@ class GMX(ExchangeCompatible):
             positions = positions_manager.get_data(wallet)
 
             for position_key, position_data in positions.items():
-                # Get collateral token and amount
+                # Get collateral token and USD-denominated collateral amount.
+                # Use initial_collateral_amount_usd which is already properly
+                # scaled in all data sources (REST API, GraphQL, RPC).
+                # The raw initial_collateral_amount field has inconsistent
+                # decimal formats across sources (30-decimal from REST API vs
+                # token-native from RPC/GraphQL), so dividing by token_decimals
+                # produces wildly wrong results for REST API data.
                 collateral_token = position_data.get("collateral_token", "")
-                collateral_amount_raw = position_data.get("initial_collateral_amount", 0)
+                collateral_amount_usd = position_data.get("initial_collateral_amount_usd", 0)
 
-                if collateral_token and collateral_amount_raw:
-                    # Get token decimals
-                    token_decimals = currencies.get(collateral_token, {}).get("precision", 18)
-
-                    # Convert to float
-                    collateral_amount_float = float(collateral_amount_raw) / (10**token_decimals)
+                if collateral_token and collateral_amount_usd:
+                    collateral_amount_float = float(collateral_amount_usd)
 
                     # Add to locked amounts
                     if collateral_token not in collateral_locked:
@@ -8100,11 +8110,15 @@ class GMX(ExchangeCompatible):
                             continue
 
                         # Convert position change to CCXT order format
-                        # Subsquid returns values in 30-decimal raw format
+                        # Subsquid returns sizeDeltaUsd in 30-decimal raw format
+                        # but executionPrice uses token-specific decimals: 10^(30 - token_decimals)
                         is_long = change.get("isLong", True)
-                        execution_price = change.get("executionPrice")
+                        raw_exec_price = change.get("executionPrice")
                         size_usd = abs(float(size_delta)) / 10**PRECISION if size_delta else None
-                        price_float = float(execution_price) / 10**PRECISION if execution_price else None
+
+                        # Use _convert_price_to_usd for proper token-decimal-aware conversion
+                        market_obj = self.markets.get(market_symbol) if market_symbol else None
+                        price_float = self._convert_price_to_usd(float(raw_exec_price), market_obj) if raw_exec_price and market_obj else None
                         amount = size_usd / price_float if size_usd and price_float and price_float > 0 else size_usd
 
                         ts = change_ts_ms or self.milliseconds()

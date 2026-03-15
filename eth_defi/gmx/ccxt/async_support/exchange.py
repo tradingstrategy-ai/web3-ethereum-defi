@@ -1286,8 +1286,8 @@ class GMX(Exchange):
             raise ExchangeError(f"Ticker data not found for {symbol}")
 
         # Parse to CCXT format
-        min_price = float(ticker_data.get("minPrice", 0)) / 1e30
-        max_price = float(ticker_data.get("maxPrice", 0)) / 1e30
+        min_price = float(ticker_data.get("minPrice", 0)) / 10**PRECISION
+        max_price = float(ticker_data.get("maxPrice", 0)) / 10**PRECISION
         last = (min_price + max_price) / 2
 
         return {
@@ -2233,7 +2233,7 @@ class GMX(Exchange):
                 is_long = trade_action.get("isLong")
 
                 gas_cost_eth = float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18
-                size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0.0
+                size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / 10**PRECISION if trade_action.get("sizeDeltaUsd") else 0.0
 
                 fee_dict = self._extract_fee_from_trade_action(
                     trade_action,
@@ -2287,9 +2287,9 @@ class GMX(Exchange):
                         "is_long": is_long,
                         "event_name": event_name,
                         "execution_fee_eth": gas_cost_eth,
-                        "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 1e30 if trade_action.get("pnlUsd") else None,
+                        "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 10**PRECISION if trade_action.get("pnlUsd") else None,
                         "size_delta_usd": size_delta_usd if size_delta_usd else None,
-                        "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 1e30 if trade_action.get("priceImpactUsd") else None,
+                        "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 10**PRECISION if trade_action.get("priceImpactUsd") else None,
                     },
                 }
                 return order
@@ -2501,8 +2501,8 @@ class GMX(Exchange):
         long_oi_usd_raw = raw_info.get("longOpenInterestUsd", 0)
         short_oi_usd_raw = raw_info.get("shortOpenInterestUsd", 0)
 
-        long_oi_usd = float(long_oi_usd_raw) / 1e30 if long_oi_usd_raw else 0.0
-        short_oi_usd = float(short_oi_usd_raw) / 1e30 if short_oi_usd_raw else 0.0
+        long_oi_usd = float(long_oi_usd_raw) / 10**PRECISION if long_oi_usd_raw else 0.0
+        short_oi_usd = float(short_oi_usd_raw) / 10**PRECISION if short_oi_usd_raw else 0.0
         total_oi_usd = long_oi_usd + short_oi_usd
 
         long_oi_tokens_raw = raw_info.get("longOpenInterestInTokens", 0)
@@ -2586,8 +2586,8 @@ class GMX(Exchange):
         result = []
         for info in market_infos:
             # Parse each info using similar logic to fetch_open_interest
-            long_oi_usd = float(info.get("longOpenInterestUsd", 0)) / 1e30
-            short_oi_usd = float(info.get("shortOpenInterestUsd", 0)) / 1e30
+            long_oi_usd = float(info.get("longOpenInterestUsd", 0)) / 10**PRECISION
+            short_oi_usd = float(info.get("shortOpenInterestUsd", 0)) / 10**PRECISION
             total_oi_usd = long_oi_usd + short_oi_usd
 
             timestamp = self.milliseconds()
@@ -2671,7 +2671,7 @@ class GMX(Exchange):
         info = market_infos[0]
 
         # Parse funding rate
-        funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 1e30
+        funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 10**PRECISION
         longs_pay_shorts = info.get("longsPayShorts", True)
 
         if longs_pay_shorts:
@@ -2736,7 +2736,7 @@ class GMX(Exchange):
 
         result = []
         for info in market_infos:
-            funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 1e30
+            funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 10**PRECISION
             longs_pay_shorts = info.get("longsPayShorts", True)
 
             timestamp = self.milliseconds()
