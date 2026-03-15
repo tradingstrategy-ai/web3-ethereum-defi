@@ -1,5 +1,6 @@
 # Current
 
+- Add: HypercoreVaultLib guard `anyAsset` support — bypasses per-vault whitelisting when the governed flag is enabled (2026-03-15)
 - Add: Unified `deposit_closed_reason` column across ERC-4626 and Hyperliquid price DataFrames, with forward-filled vault state and NaN-safe reason derivation (2026-03-15)
 - Add: `get_leader_fraction_history()` query method and tests verifying COALESCE preservation of vault state (is_closed, allow_deposits, leader_fraction) across daily re-scans (2026-03-15)
 - Add: Trading time classification for HFT traders — detects 24/7 bots, weekday-only, and session-based traders from fill timestamp distributions (2026-03-14)
