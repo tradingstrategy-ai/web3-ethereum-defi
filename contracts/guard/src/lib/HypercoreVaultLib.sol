@@ -110,15 +110,20 @@ library HypercoreVaultLib {
     function validateCall(
         bytes4 selector,
         address target,
-        bytes calldata callData
+        bytes calldata callData,
+        bool anyAsset
     ) external view {
         if (selector == SEL_SEND_RAW_ACTION) {
             (uint24 actionId, address dest) = _validateAction(target, callData);
             if (actionId == VAULT_TRANSFER_ACTION) {
-                require(
-                    _storage().allowedHypercoreVaults[dest],
-                    "Hypercore vault not allowed"
-                );
+                // anyAsset: skip per-vault whitelisting — governed but dangerous,
+                // allows deposit/withdraw to ANY Hypercore vault address.
+                if (!anyAsset) {
+                    require(
+                        _storage().allowedHypercoreVaults[dest],
+                        "Hypercore vault not allowed"
+                    );
+                }
             } else if (actionId == SPOT_SEND_ACTION) {
                 require(
                     IGuardChecks(address(this)).isAllowedReceiver(dest),
@@ -212,8 +217,8 @@ library HypercoreVaultLib {
         return _storage().allowedCoreDepositWallet;
     }
 
-    function isAllowedHypercoreVault(address vault) external view returns (bool) {
-        return _storage().allowedHypercoreVaults[vault];
+    function isAllowedHypercoreVault(address vault, bool anyAsset) external view returns (bool) {
+        return anyAsset || _storage().allowedHypercoreVaults[vault];
     }
 
     function isAllowedCoreWriterAction(uint24 actionId) external view returns (bool) {

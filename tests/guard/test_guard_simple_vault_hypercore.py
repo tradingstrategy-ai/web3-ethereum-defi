@@ -538,3 +538,140 @@ def test_guard_hypercore_disallowed_vault_withdraw(
     tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
     with pytest.raises(TransactionAssertionError):
         assert_transaction_success_with_explanation(web3, tx_hash)
+
+
+@pytest.fixture()
+def vault_any_asset(
+    web3: Web3,
+    usdc: TokenDetails,
+    deployer: str,
+    owner: str,
+    asset_manager: str,
+    mock_core_writer: Contract,
+    mock_core_deposit_wallet: Contract,
+    hypercore_vault_lib: Contract,
+    cowswap_lib: Contract,
+) -> Contract:
+    """Create SimpleVaultV0 with anyAsset enabled and zero Hypercore vaults whitelisted.
+
+    - Whitelists CoreWriter + CoreDepositWallet
+    - Whitelists USDC token for approve calls
+    - Enables anyAsset (governed but dangerous — bypasses vault whitelisting)
+    - Does NOT whitelist any Hypercore vault addresses
+    """
+    vault = deploy_contract(
+        web3,
+        "guard/SimpleVaultV0.json",
+        deployer,
+        asset_manager,
+        libraries={
+            "HypercoreVaultLib": hypercore_vault_lib.address,
+            "CowSwapLib": cowswap_lib.address,
+            "GmxLib": ZERO_ADDRESS,
+            "UniswapLib": ZERO_ADDRESS,
+            "VeloraLib": ZERO_ADDRESS,
+        },
+    )
+
+    tx_hash = vault.functions.initialiseOwnership(owner).transact({"from": deployer})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    guard = get_deployed_contract(web3, "guard/GuardV0.json", vault.functions.guard().call())
+
+    # Whitelist CoreWriter + CoreDepositWallet (always required)
+    tx_hash = guard.functions.whitelistCoreWriter(
+        Web3.to_checksum_address(CORE_WRITER_ADDRESS),
+        Web3.to_checksum_address(CORE_DEPOSIT_WALLET[999]),
+        "Hypercore vault trading",
+    ).transact({"from": owner})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Whitelist USDC token (needed for approve calls through the guard)
+    tx_hash = guard.functions.whitelistToken(
+        usdc.address,
+        "USDC for Hypercore bridging",
+    ).transact({"from": owner})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Enable anyAsset — governed but dangerous, bypasses vault whitelisting
+    tx_hash = guard.functions.setAnyAssetAllowed(
+        True,
+        "Allow any Hypercore vault",
+    ).transact({"from": owner})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Deliberately do NOT whitelist any Hypercore vault addresses
+
+    return vault
+
+
+@pytest.fixture()
+def vault_any_asset_with_balance(web3, vault_any_asset, usdc: TokenDetails, large_usdc_holder) -> Contract:
+    """SimpleVaultV0 with anyAsset enabled and some USDC balance."""
+    tx_hash = usdc.contract.functions.transfer(
+        vault_any_asset.address,
+        500_000 * 10**6,
+    ).transact({"from": large_usdc_holder})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    return vault_any_asset
+
+
+@pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
+def test_guard_hypercore_any_asset_deposit(
+    web3: Web3,
+    asset_manager: str,
+    vault_any_asset_with_balance: Contract,
+    mock_core_writer: Contract,
+    mock_core_deposit_wallet: Contract,
+    usdc: TokenDetails,
+):
+    """With anyAsset enabled and zero vaults whitelisted, deposit to any vault succeeds.
+
+    anyAsset is a governed but dangerous flag that bypasses per-vault whitelisting.
+    CoreWriter, CoreDepositWallet, and receiver checks are still enforced.
+    """
+    vault = vault_any_asset_with_balance
+    usdc_amount = 10_000 * 10**6
+
+    # Step 1: Approve USDC to CoreDepositWallet
+    fn_call = usdc.contract.functions.approve(
+        Web3.to_checksum_address(CORE_DEPOSIT_WALLET[999]),
+        usdc_amount,
+    )
+    target, call_data = encode_simple_vault_transaction(fn_call)
+    tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Step 2: CoreDepositWallet.deposit(amount, SPOT_DEX)
+    fn_call = mock_core_deposit_wallet.functions.deposit(usdc_amount, SPOT_DEX)
+    target, call_data = encode_simple_vault_transaction(fn_call)
+    tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Step 3: CoreWriter.sendRawAction(transferUsdClass(amount, true))
+    hypercore_amount = 10_000 * 10**6
+    raw_action = encode_transfer_usd_class(hypercore_amount, to_perp=True)
+    fn_call = mock_core_writer.functions.sendRawAction(raw_action)
+    target, call_data = encode_simple_vault_transaction(fn_call)
+    tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Step 4: CoreWriter.sendRawAction(vaultTransfer(vault, true, amount))
+    # Use TEST_HYPERCORE_VAULT which is NOT whitelisted — should succeed with anyAsset
+    raw_action = encode_vault_deposit(TEST_HYPERCORE_VAULT, hypercore_amount)
+    fn_call = mock_core_writer.functions.sendRawAction(raw_action)
+    target, call_data = encode_simple_vault_transaction(fn_call)
+    tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Verify mock recorded both CoreWriter actions
+    assert mock_core_writer.functions.getActionCount().call() == 2
+    sender, version, action_id, params = mock_core_writer.functions.getAction(0).call()
+    assert sender == vault.address
+    assert version == 1
+    assert action_id == 7  # transferUsdClass
+
+    sender, version, action_id, params = mock_core_writer.functions.getAction(1).call()
+    assert sender == vault.address
+    assert version == 1
+    assert action_id == 2  # vaultTransfer

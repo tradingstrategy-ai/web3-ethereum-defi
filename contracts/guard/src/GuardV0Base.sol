@@ -691,7 +691,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
                    selector == SEL_CORE_DEPOSIT ||
                    selector == SEL_CORE_DEPOSIT_FOR) {
             require(HypercoreVaultLib.isDeployed(), "HypercoreVaultLib not linked");
-            HypercoreVaultLib.validateCall(selector, target, callData);
+            HypercoreVaultLib.validateCall(selector, target, callData, anyAsset);
         } else {
             revert("Unknown function selector");
         }
