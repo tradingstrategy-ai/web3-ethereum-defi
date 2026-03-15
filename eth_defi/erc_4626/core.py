@@ -271,6 +271,10 @@ class ERC4626Feature(enum.Enum):
     #: https://www.liquidroyalty.com/vaults
     liquid_royalty_like = "liquid_royalty_like"
 
+    #: Deprecated: renamed to liquid_royalty_like.
+    #: Kept for backwards compatibility with pickled databases.
+    liquidity_royalty_like = "liquidity_royalty_like"
+
     #: cSigma Finance
     #:
     #: https://csigma.finance
