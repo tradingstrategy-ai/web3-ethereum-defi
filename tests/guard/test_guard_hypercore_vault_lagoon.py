@@ -355,23 +355,26 @@ def test_lagoon_hypercore_deposit_for_wrong_recipient(
 
 
 @pytest.mark.timeout(600)
-def test_lagoon_hypercore_disallowed_vault(
+def test_lagoon_hypercore_any_asset_allows_non_whitelisted_vault(
     web3: Web3,
     deployer: LocalAccount,
     lagoon_deployment: LagoonAutomatedDeployment,
     mock_core_writer: Contract,
 ):
-    """Deposit to a non-whitelisted vault through TradingStrategyModuleV0 should revert."""
+    """With anyAsset enabled, deposit to a non-whitelisted vault succeeds.
+
+    The Lagoon deployment uses any_asset=True, so per-vault whitelisting
+    is bypassed. CoreWriter and receiver checks are still enforced.
+    """
     module = lagoon_deployment.trading_strategy_module
     asset_manager = deployer.address
     hypercore_amount = 1_000 * 10**6
 
-    malicious_vault = "0x2222222222222222222222222222222222222222"
-    raw_action = encode_vault_deposit(malicious_vault, hypercore_amount)
+    non_whitelisted_vault = "0x2222222222222222222222222222222222222222"
+    raw_action = encode_vault_deposit(non_whitelisted_vault, hypercore_amount)
     fn_call = mock_core_writer.functions.sendRawAction(raw_action)
     tx_hash = _perform_call(module, fn_call, asset_manager)
-    with pytest.raises(TransactionAssertionError):
-        assert_transaction_success_with_explanation(web3, tx_hash)
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
 
 @pytest.mark.timeout(600)
