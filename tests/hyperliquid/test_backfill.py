@@ -24,7 +24,7 @@ from eth_defi.hyperliquid.backfill import (
     parse_s3_filename_date,
     run_s3_extract,
 )
-from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
+from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase, HyperliquidDailyPriceRow
 
 
 VAULT_A = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -206,12 +206,9 @@ def test_stage2_apply_single_vault(tmp_path):
         # Insert 3 existing API rows (days 0, 4, 9) — these should NOT be overwritten.
         # Values are consistent with S3 data: cumulative_pnl = account_value - cum_ledger
         api_rows = [
-            # (vault_address, date, share_price, tvl, cumulative_pnl, cumulative_volume,
-            #  daily_pnl, daily_return, follower_count, apr, is_closed, allow_deposits,
-            #  leader_fraction, leader_commission, dep_count, wd_count, dep_usd, wd_usd, epoch_reset)
-            (VAULT_A, datetime.date(2024, 1, 1), 1.0, 100000.0, 0.0, 10000.0, 0.0, 0.0, 100, 50.0, None, None, None, None, None, None, None, None, None),
-            (VAULT_A, datetime.date(2024, 1, 5), 1.04, 104000.0, 4000.0, 50000.0, 1000.0, 0.01, 105, 52.0, None, None, None, None, None, None, None, None, None),
-            (VAULT_A, datetime.date(2024, 1, 10), 1.09, 109000.0, 9000.0, 100000.0, 1000.0, 0.01, 110, 55.0, None, None, None, None, None, None, None, None, None),
+            HyperliquidDailyPriceRow(VAULT_A, datetime.date(2024, 1, 1), 1.0, 100000.0, 0.0, 10000.0, 0.0, 0.0, 100, 50.0),
+            HyperliquidDailyPriceRow(VAULT_A, datetime.date(2024, 1, 5), 1.04, 104000.0, 4000.0, 50000.0, 1000.0, 0.01, 105, 52.0),
+            HyperliquidDailyPriceRow(VAULT_A, datetime.date(2024, 1, 10), 1.09, 109000.0, 9000.0, 100000.0, 1000.0, 0.01, 110, 55.0),
         ]
         metrics_db.upsert_daily_prices(api_rows)
         metrics_db.save()
@@ -283,25 +280,24 @@ def test_backfill_preserves_api_data(tmp_path):
 
         # Main DB already has day 1 with rich API data
         api_rows = [
-            (
-                VAULT_A,
-                datetime.date(2024, 1, 1),
-                1.0,
-                100000.0,
-                10000.0,
-                10000.0,
-                0.0,
-                100,
-                50.0,
-                False,
-                True,
-                0.1,
-                500.0,
-                5,
-                2,
-                50000.0,
-                20000.0,
-                None,
+            HyperliquidDailyPriceRow(
+                vault_address=VAULT_A,
+                date=datetime.date(2024, 1, 1),
+                share_price=1.0,
+                tvl=100000.0,
+                cumulative_pnl=10000.0,
+                daily_pnl=10000.0,
+                daily_return=0.0,
+                follower_count=100,
+                apr=50.0,
+                is_closed=False,
+                allow_deposits=True,
+                leader_fraction=0.1,
+                leader_commission=500.0,
+                daily_deposit_count=5,
+                daily_withdrawal_count=2,
+                daily_deposit_usd=50000.0,
+                daily_withdrawal_usd=20000.0,
             )
         ]
         metrics_db.upsert_daily_prices(api_rows)
@@ -357,8 +353,8 @@ def test_apply_backfill_multiple_vaults(tmp_path):
 
         # Vault A has 2 existing rows, Vault B has none
         api_rows = [
-            (VAULT_A, datetime.date(2024, 1, 1), 1.0, 100000.0, 10000.0, 10000.0, 0.0, 100, 50.0, None, None, None, None, None, None, None, None, None),
-            (VAULT_A, datetime.date(2024, 1, 3), 1.02, 102000.0, 12000.0, 1000.0, 0.01, 102, 51.0, None, None, None, None, None, None, None, None, None),
+            HyperliquidDailyPriceRow(VAULT_A, datetime.date(2024, 1, 1), 1.0, 100000.0, 10000.0, daily_pnl=10000.0, daily_return=0.0, follower_count=100, apr=50.0),
+            HyperliquidDailyPriceRow(VAULT_A, datetime.date(2024, 1, 3), 1.02, 102000.0, 12000.0, daily_pnl=1000.0, daily_return=0.01, follower_count=102, apr=51.0),
         ]
         metrics_db.upsert_daily_prices(api_rows)
         metrics_db.save()
@@ -476,32 +472,28 @@ def _make_daily_price_row(
     cumulative_volume: float | None = None,
     daily_pnl: float = 0.0,
     follower_count: int = 10,
+    apr: float | None = 50.0,
     is_closed: bool | None = None,
     allow_deposits: bool | None = None,
     leader_fraction: float | None = None,
     leader_commission: float | None = None,
-) -> tuple:
-    """Build a daily price tuple matching the upsert_daily_prices schema."""
-    return (
-        vault_address,
-        date,
-        share_price,
-        tvl,
-        cumulative_pnl,
-        cumulative_volume,
-        daily_pnl,
-        0.0,  # daily_return
-        follower_count,
-        50.0,  # apr
-        is_closed,
-        allow_deposits,
-        leader_fraction,
-        leader_commission,
-        None,  # daily_deposit_count
-        None,  # daily_withdrawal_count
-        None,  # daily_deposit_usd
-        None,  # daily_withdrawal_usd
-        None,  # epoch_reset
+) -> HyperliquidDailyPriceRow:
+    """Build a daily price row matching the Hyperliquid upsert schema."""
+    return HyperliquidDailyPriceRow(
+        vault_address=vault_address,
+        date=date,
+        share_price=share_price,
+        tvl=tvl,
+        cumulative_pnl=cumulative_pnl,
+        cumulative_volume=cumulative_volume,
+        daily_pnl=daily_pnl,
+        daily_return=0.0,
+        follower_count=follower_count,
+        apr=apr,
+        is_closed=is_closed,
+        allow_deposits=allow_deposits,
+        leader_fraction=leader_fraction,
+        leader_commission=leader_commission,
     )
 
 
@@ -581,6 +573,44 @@ def test_cumulative_volume_preserved_across_rescans(tmp_path):
 
         early = prices_df[prices_df["date"] < pd.Timestamp("2024-01-05")]
         assert early["cumulative_volume"].isna().all()
+
+    finally:
+        db.close()
+
+
+def test_follower_count_and_apr_preserved_across_rescans(tmp_path):
+    """COALESCE preserves follower_count and APR snapshots from earlier scans."""
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        day1_rows = [_make_daily_price_row(VAULT_A, datetime.date(2024, 1, d), follower_count=None, apr=None) for d in range(1, 5)] + [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 5), follower_count=100, apr=50.0),
+        ]
+        db.upsert_daily_prices(day1_rows)
+        db.save()
+
+        day2_rows = [_make_daily_price_row(VAULT_A, datetime.date(2024, 1, d), follower_count=None, apr=None) for d in range(1, 6)] + [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 6), follower_count=120, apr=55.0),
+        ]
+        db.upsert_daily_prices(day2_rows)
+        db.save()
+
+        prices_df = db.get_vault_daily_prices(VAULT_A)
+        assert len(prices_df) == 6
+
+        jan5 = prices_df[prices_df["date"] == pd.Timestamp("2024-01-05")].iloc[0]
+        assert jan5["follower_count"] == 100
+        assert jan5["apr"] == pytest.approx(50.0)
+
+        jan6 = prices_df[prices_df["date"] == pd.Timestamp("2024-01-06")].iloc[0]
+        assert jan6["follower_count"] == 120
+        assert jan6["apr"] == pytest.approx(55.0)
+
+        early = prices_df[prices_df["date"] < pd.Timestamp("2024-01-05")]
+        assert early["follower_count"].isna().all()
+        assert early["apr"].isna().all()
 
     finally:
         db.close()

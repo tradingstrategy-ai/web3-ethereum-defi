@@ -29,6 +29,7 @@ import logging
 from decimal import Decimal
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from eth_typing import HexAddress
 
@@ -326,21 +327,21 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
             "timestamp": pd.to_datetime(prices_df["date"]).values,
             "share_price": prices_df["share_price"].values,
             "total_assets": prices_df["tvl"].values,
-            "account_pnl": prices_df["cumulative_pnl"].values if "cumulative_pnl" in prices_df.columns else float("nan"),
-            "follower_count": prices_df["follower_count"].values if "follower_count" in prices_df.columns else float("nan"),
-            "cumulative_volume": prices_df["cumulative_volume"].values if "cumulative_volume" in prices_df.columns else float("nan"),
+            "account_pnl": prices_df["cumulative_pnl"].values if "cumulative_pnl" in prices_df.columns else np.nan,
+            "follower_count": prices_df["follower_count"].values if "follower_count" in prices_df.columns else np.nan,
+            "cumulative_volume": prices_df["cumulative_volume"].values if "cumulative_volume" in prices_df.columns else np.nan,
             "total_supply": 0.0,
             "performance_fee": 0.0,
             "management_fee": 0.0,
             "errors": "",
             "deposits_open": deposits_open.values,
             "deposit_closed_reason": deposit_reasons.values,
-            "leader_fraction": prices_df["leader_fraction"].values if "leader_fraction" in prices_df.columns else float("nan"),
-            "leader_commission": prices_df["leader_commission"].values if "leader_commission" in prices_df.columns else float("nan"),
-            "daily_deposit_count": prices_df["daily_deposit_count"].values if "daily_deposit_count" in prices_df.columns else float("nan"),
-            "daily_withdrawal_count": prices_df["daily_withdrawal_count"].values if "daily_withdrawal_count" in prices_df.columns else float("nan"),
-            "daily_deposit_usd": prices_df["daily_deposit_usd"].values if "daily_deposit_usd" in prices_df.columns else float("nan"),
-            "daily_withdrawal_usd": prices_df["daily_withdrawal_usd"].values if "daily_withdrawal_usd" in prices_df.columns else float("nan"),
+            "leader_fraction": prices_df["leader_fraction"].values if "leader_fraction" in prices_df.columns else np.nan,
+            "leader_commission": prices_df["leader_commission"].values if "leader_commission" in prices_df.columns else np.nan,
+            "daily_deposit_count": prices_df["daily_deposit_count"].values if "daily_deposit_count" in prices_df.columns else np.nan,
+            "daily_withdrawal_count": prices_df["daily_withdrawal_count"].values if "daily_withdrawal_count" in prices_df.columns else np.nan,
+            "daily_deposit_usd": prices_df["daily_deposit_usd"].values if "daily_deposit_usd" in prices_df.columns else np.nan,
+            "daily_withdrawal_usd": prices_df["daily_withdrawal_usd"].values if "daily_withdrawal_usd" in prices_df.columns else np.nan,
             "epoch_reset": prices_df["epoch_reset"].values if "epoch_reset" in prices_df.columns else False,
         },
     )

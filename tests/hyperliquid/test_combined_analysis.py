@@ -15,6 +15,7 @@ from eth_defi.hyperliquid.combined_analysis import (
     analyse_positions_and_deposits,
     get_combined_summary,
 )
+from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyPriceRow
 from eth_defi.hyperliquid.deposit import create_deposit_dataframe, fetch_vault_deposits
 from eth_defi.hyperliquid.position import fetch_vault_fills, reconstruct_position_history
 from eth_defi.hyperliquid.position_analysis import create_account_dataframe
@@ -472,15 +473,12 @@ def test_offline_share_price_recomputation(tmp_path):
         # Old code: SP reset to 1.0 at day 3 (BROKEN).
         # New code: SP carries forward at 1.2 (chain-linked).
         rows = [
-            # (vault_address, date, share_price, tvl, cumulative_pnl, daily_pnl,
-            #  daily_return, follower_count, apr, is_closed, allow_deposits,
-            #  leader_fraction, leader_commission, dep_count, wd_count, dep_usd, wd_usd, epoch_reset)
-            (vault_address, datetime.date(2024, 1, 1), 1.0, 1000.0, 0.0, 0.0, 0.0, 5, 50.0, None, None, None, None, None, None, None, None, None),
-            (vault_address, datetime.date(2024, 1, 2), 1.2, 1200.0, 200.0, 200.0, 0.2, 5, 50.0, None, None, None, None, None, None, None, None, None),
-            (vault_address, datetime.date(2024, 1, 3), 1.0, 50.0, 250.0, 50.0, -0.1667, 5, 50.0, None, None, None, None, None, None, None, None, None),
-            (vault_address, datetime.date(2024, 1, 4), 1.2, 60.0, 260.0, 10.0, 0.2, 5, 50.0, None, None, None, None, None, None, None, None, None),
-            (vault_address, datetime.date(2024, 1, 5), 1.2, 5060.0, 260.0, 0.0, 0.0, 5, 50.0, None, None, None, None, None, None, None, None, None),
-            (vault_address, datetime.date(2024, 1, 6), 1.2474, 5260.0, 460.0, 200.0, 0.0395, 5, 50.0, True, True, 0.5, 10.0, None, None, None, None, None),
+            HyperliquidDailyPriceRow(vault_address, datetime.date(2024, 1, 1), 1.0, 1000.0, 0.0, daily_pnl=0.0, daily_return=0.0, follower_count=5, apr=50.0),
+            HyperliquidDailyPriceRow(vault_address, datetime.date(2024, 1, 2), 1.2, 1200.0, 200.0, daily_pnl=200.0, daily_return=0.2, follower_count=5, apr=50.0),
+            HyperliquidDailyPriceRow(vault_address, datetime.date(2024, 1, 3), 1.0, 50.0, 250.0, daily_pnl=50.0, daily_return=-0.1667, follower_count=5, apr=50.0),
+            HyperliquidDailyPriceRow(vault_address, datetime.date(2024, 1, 4), 1.2, 60.0, 260.0, daily_pnl=10.0, daily_return=0.2, follower_count=5, apr=50.0),
+            HyperliquidDailyPriceRow(vault_address, datetime.date(2024, 1, 5), 1.2, 5060.0, 260.0, daily_pnl=0.0, daily_return=0.0, follower_count=5, apr=50.0),
+            HyperliquidDailyPriceRow(vault_address, datetime.date(2024, 1, 6), 1.2474, 5260.0, 460.0, daily_pnl=200.0, daily_return=0.0395, follower_count=5, apr=50.0, is_closed=True, allow_deposits=True, leader_fraction=0.5, leader_commission=10.0),
         ]
         db.upsert_daily_prices(rows)
         db.save()
