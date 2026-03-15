@@ -53,6 +53,61 @@ from eth_defi.hyperliquid.vault import (
 logger = logging.getLogger(__name__)
 
 
+@dataclass(slots=True)
+class HyperliquidDailyPriceRow:
+    """A single Hyperliquid daily price row ready for DuckDB upsert."""
+
+    vault_address: HexAddress
+    date: datetime.date
+    share_price: float
+    tvl: float
+    cumulative_pnl: float
+    cumulative_volume: float | None = None
+    daily_pnl: float = 0.0
+    daily_return: float = 0.0
+    follower_count: int | None = None
+    apr: float | None = None
+    is_closed: bool | None = None
+    allow_deposits: bool | None = None
+    leader_fraction: float | None = None
+    leader_commission: float | None = None
+    daily_deposit_count: int | None = None
+    daily_withdrawal_count: int | None = None
+    daily_deposit_usd: float | None = None
+    daily_withdrawal_usd: float | None = None
+    epoch_reset: bool | None = None
+    data_source: str = "api"
+
+    def __post_init__(self) -> None:
+        """Normalise vault address casing for database writes."""
+        self.vault_address = self.vault_address.lower()
+
+    def as_db_tuple(self) -> tuple[object, ...]:
+        """Convert the row to the current 20-column DuckDB layout."""
+        return (
+            self.vault_address,
+            self.date,
+            self.share_price,
+            self.tvl,
+            self.cumulative_pnl,
+            self.cumulative_volume,
+            self.daily_pnl,
+            self.daily_return,
+            self.follower_count,
+            self.apr,
+            self.is_closed,
+            self.allow_deposits,
+            self.leader_fraction,
+            self.leader_commission,
+            self.daily_deposit_count,
+            self.daily_withdrawal_count,
+            self.daily_deposit_usd,
+            self.daily_withdrawal_usd,
+            self.epoch_reset,
+            self.data_source,
+        )
+
+
 def _merge_portfolio_periods(
     portfolio: dict[str, PortfolioHistory],
     dedup_window_hours: float = 6.0,
@@ -338,6 +393,7 @@ class HyperliquidDailyMetricsDatabase:
                 share_price DOUBLE NOT NULL,
                 tvl DOUBLE NOT NULL,
                 cumulative_pnl DOUBLE,
+                cumulative_volume DOUBLE,
                 daily_pnl DOUBLE,
                 daily_return DOUBLE,
                 follower_count INTEGER,
@@ -378,6 +434,12 @@ class HyperliquidDailyMetricsDatabase:
             pass
         try:
             self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN leader_commission DOUBLE")
+        except duckdb.CatalogException:
+            pass
+
+        # Migration for existing databases: add cumulative volume tracking
+        try:
+            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN cumulative_volume DOUBLE")
         except duckdb.CatalogException:
             pass
 
@@ -546,17 +608,13 @@ class HyperliquidDailyMetricsDatabase:
 
     def upsert_daily_prices(
         self,
-        rows: list[tuple],
+        rows: list[HyperliquidDailyPriceRow],
         cutoff_date: datetime.date | None = None,
     ):
         """Bulk upsert daily price rows for a vault.
 
         :param rows:
-            List of tuples: ``(vault_address, date, share_price, tvl,
-            cumulative_pnl, daily_pnl, daily_return, follower_count, apr,
-            is_closed, allow_deposits, leader_fraction, leader_commission,
-            daily_deposit_count, daily_withdrawal_count,
-            daily_deposit_usd, daily_withdrawal_usd, epoch_reset)``.
+            List of :py:class:`HyperliquidDailyPriceRow` items.
 
             The ``is_closed``, ``allow_deposits``, ``leader_fraction``, and
             ``leader_commission`` fields should be ``None`` for historical rows
@@ -572,38 +630,33 @@ class HyperliquidDailyMetricsDatabase:
             Used for incremental scanning / testing.
         """
         if cutoff_date is not None:
-            rows = [r for r in rows if r[1] <= cutoff_date]
+            rows = [r for r in rows if r.date <= cutoff_date]
 
         if not rows:
             return
 
-        # Pad rows to 19 elements if data_source not provided (backwards compat)
-        padded_rows = []
-        for r in rows:
-            if len(r) == 18:
-                padded_rows.append((*r, "api"))
-            else:
-                padded_rows.append(r)
+        db_rows = [r.as_db_tuple() for r in rows]
 
         self.con.executemany(
             """
             INSERT INTO vault_daily_prices (
                 vault_address, date, share_price, tvl, cumulative_pnl,
-                daily_pnl, daily_return, follower_count, apr,
+                cumulative_volume, daily_pnl, daily_return, follower_count, apr,
                 is_closed, allow_deposits, leader_fraction, leader_commission,
                 daily_deposit_count, daily_withdrawal_count,
                 daily_deposit_usd, daily_withdrawal_usd, epoch_reset,
                 data_source
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (vault_address, date)
             DO UPDATE SET
                 share_price = EXCLUDED.share_price,
                 tvl = EXCLUDED.tvl,
                 cumulative_pnl = EXCLUDED.cumulative_pnl,
+                cumulative_volume = COALESCE(EXCLUDED.cumulative_volume, vault_daily_prices.cumulative_volume),
                 daily_pnl = EXCLUDED.daily_pnl,
                 daily_return = EXCLUDED.daily_return,
-                follower_count = EXCLUDED.follower_count,
-                apr = EXCLUDED.apr,
+                follower_count = COALESCE(EXCLUDED.follower_count, vault_daily_prices.follower_count),
+                apr = COALESCE(EXCLUDED.apr, vault_daily_prices.apr),
                 is_closed = COALESCE(EXCLUDED.is_closed, vault_daily_prices.is_closed),
                 allow_deposits = COALESCE(EXCLUDED.allow_deposits, vault_daily_prices.allow_deposits),
                 leader_fraction = COALESCE(EXCLUDED.leader_fraction, vault_daily_prices.leader_fraction),
@@ -615,7 +668,7 @@ class HyperliquidDailyMetricsDatabase:
                 epoch_reset = COALESCE(EXCLUDED.epoch_reset, vault_daily_prices.epoch_reset),
                 data_source = COALESCE(EXCLUDED.data_source, vault_daily_prices.data_source)
             """,
-            padded_rows,
+            db_rows,
         )
 
     def get_all_daily_prices(self) -> pd.DataFrame:
@@ -1150,6 +1203,7 @@ def fetch_and_store_vault(
     leader_fraction = float(info.leader_fraction) if info.leader_fraction is not None else None
     leader_commission = float(info.leader_commission) if info.leader_commission is not None else None
     apr_val = float(summary.apr) if summary.apr is not None else None
+    cumulative_volume = float(all_time.volume) if all_time.volume is not None else None
 
     # Determine earliest flow data date for this vault.
     # Use the backfill start date, or if we already have earlier data,
@@ -1173,15 +1227,15 @@ def fetch_and_store_vault(
     )
 
     # Build daily price rows.
-    # Only the latest row gets the current deposit status from the API;
-    # historical rows get None so we track how status evolves over time.
+    # Only the latest row gets the current API snapshot fields;
+    # historical rows get None so we track how these values evolve over time.
     #
     # Flow columns: for dates within the backfill window, store 0 for
     # days with no events (confirmed zero activity). For dates outside
     # the backfill window, store None (preserves existing values via
     # COALESCE in upsert).
     last_idx = len(combined_df) - 1
-    rows = []
+    rows: list[HyperliquidDailyPriceRow] = []
     prev_share_price = None
     for i, (ts, row_data) in enumerate(zip(combined_df.index, combined_df.itertuples())):
         date_val = ts.date() if hasattr(ts, "date") else ts
@@ -1200,15 +1254,21 @@ def fetch_and_store_vault(
         prev_share_price = share_price
 
         if i == last_idx:
+            row_follower_count = follower_count
+            row_apr = apr_val
             row_is_closed = info.is_closed
             row_allow_deposits = info.allow_deposits
             row_leader_fraction = leader_fraction
             row_leader_commission = leader_commission
+            row_cumulative_volume = cumulative_volume
         else:
+            row_follower_count = None
+            row_apr = None
             row_is_closed = None
             row_allow_deposits = None
             row_leader_fraction = None
             row_leader_commission = None
+            row_cumulative_volume = None
 
         # Flow data: only populate for dates within the backfill window
         if flow_start_date is not None and flow_start_date <= date_val <= (datetime.date.today() - datetime.timedelta(days=1)):
@@ -1221,25 +1281,27 @@ def fetch_and_store_vault(
             wd_usd = None
 
         rows.append(
-            (
-                vault_address,
-                date_val,
-                share_price,
-                tvl,
-                cumulative_pnl,
-                daily_pnl,
-                daily_return,
-                follower_count,
-                apr_val,
-                row_is_closed,
-                row_allow_deposits,
-                row_leader_fraction,
-                row_leader_commission,
-                dep_count,
-                wd_count,
-                dep_usd,
-                wd_usd,
-                epoch_reset_val,
+            HyperliquidDailyPriceRow(
+                vault_address=vault_address,
+                date=date_val,
+                share_price=share_price,
+                tvl=tvl,
+                cumulative_pnl=cumulative_pnl,
+                cumulative_volume=row_cumulative_volume,
+                daily_pnl=daily_pnl,
+                daily_return=daily_return,
+                follower_count=row_follower_count,
+                apr=row_apr,
+                is_closed=row_is_closed,
+                allow_deposits=row_allow_deposits,
+                leader_fraction=row_leader_fraction,
+                leader_commission=row_leader_commission,
+                daily_deposit_count=dep_count,
+                daily_withdrawal_count=wd_count,
+                daily_deposit_usd=dep_usd,
+                daily_withdrawal_usd=wd_usd,
+                epoch_reset=epoch_reset_val,
+                data_source="api",
             )
         )
 

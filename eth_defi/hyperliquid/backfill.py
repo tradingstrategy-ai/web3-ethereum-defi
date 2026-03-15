@@ -38,7 +38,7 @@ import pandas as pd
 from eth_typing import HexAddress
 from tqdm_loggable.auto import tqdm
 
-from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
+from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase, HyperliquidDailyPriceRow
 
 logger = logging.getLogger(__name__)
 
@@ -522,7 +522,7 @@ def apply_backfill_single_vault(
     # Build rows to insert: compute cumulative_pnl and daily_pnl from S3 data
     staged_df = staged_df.sort_values("date").reset_index(drop=True)
 
-    rows_to_insert = []
+    rows_to_insert: list[HyperliquidDailyPriceRow] = []
     prev_cumulative_pnl = None
 
     for i, row in staged_df.iterrows():
@@ -547,32 +547,17 @@ def apply_backfill_single_vault(
 
         prev_cumulative_pnl = cumulative_pnl
 
-        # Row format: 19 elements matching upsert_daily_prices with data_source
-        # (vault_address, date, share_price, tvl, cumulative_pnl, daily_pnl,
-        #  daily_return, follower_count, apr, is_closed, allow_deposits,
-        #  leader_fraction, leader_commission, dep_count, wd_count,
-        #  dep_usd, wd_usd, epoch_reset, data_source)
         rows_to_insert.append(
-            (
-                vault_address,
-                row_date,
-                1.0,  # placeholder share_price — will be recomputed
-                account_value,  # tvl
-                cumulative_pnl,
-                daily_pnl,
-                0.0,  # daily_return placeholder
-                None,  # follower_count
-                None,  # apr
-                None,  # is_closed
-                None,  # allow_deposits
-                None,  # leader_fraction
-                None,  # leader_commission
-                None,  # daily_deposit_count
-                None,  # daily_withdrawal_count
-                None,  # daily_deposit_usd
-                None,  # daily_withdrawal_usd
-                None,  # epoch_reset
-                "s3_backfill",  # data_source
+            HyperliquidDailyPriceRow(
+                vault_address=vault_address,
+                date=row_date,
+                share_price=1.0,
+                tvl=account_value,
+                cumulative_pnl=cumulative_pnl,
+                cumulative_volume=row["cum_vlm"],
+                daily_pnl=daily_pnl,
+                daily_return=0.0,
+                data_source="s3_backfill",
             )
         )
 

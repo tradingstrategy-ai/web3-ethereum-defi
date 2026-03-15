@@ -1,5 +1,6 @@
 # Current
 
+- Add: Hyperliquid raw metric passthrough for `account_pnl`, `follower_count`, and `cumulative_volume` from DuckDB price data to cleaned prices and lifetime metrics export (2026-03-15, [#852](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/852))
 - Add: `fetch_gmx_total_equity()` — on-chain GMX account valuation combining wallet reserves and open position PnL at any block number (2026-03-15, [#850](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/850))
 - Add: Mean and max position duration metrics for HFT trader analysis (2026-03-15)
 - Add: HypercoreVaultLib guard `anyAsset` support — bypasses per-vault whitelisting when the governed flag is enabled (2026-03-15)

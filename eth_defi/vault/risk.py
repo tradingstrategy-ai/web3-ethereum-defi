@@ -292,10 +292,10 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x63091244180Ae240C87D1F528f5F269134cB07B3",  # Age old mainnet contract
     "0x7e3B5c1Af059c29bA14E07C1179C219230FBb736",  # Age old mainnet contract
     "0xfbf8ECb34aCbC2C4D2d4Cdc645c9a76EFcbE2cFf",  # Age old mainnet contract
-    '0x8b908b11c510f4564aed24d766191723BF1967e6',  # Age old mainnet contract
-    '0x25066B77Ae6174D372a9fE2B1d7886A2Be150E9b',  # Age old mainnet contract
-    '0xD307C5686441Fe6677e9251d1C1C469e0785E331',  # Age old mainnet contract
-    '0x36d302F0847a1245dF13218d923151D8d2365107',  # Age old mainnet contract
+    "0x8b908b11c510f4564aed24d766191723BF1967e6",  # Age old mainnet contract
+    "0x25066B77Ae6174D372a9fE2B1d7886A2Be150E9b",  # Age old mainnet contract
+    "0xD307C5686441Fe6677e9251d1C1C469e0785E331",  # Age old mainnet contract
+    "0x36d302F0847a1245dF13218d923151D8d2365107",  # Age old mainnet contract
     "0x7a8C0a8ea623456320E508cb2816D5097A126c01",  # Age old mainnet contract
     "0x0Ad3082f61a3d035605eD429449F7E95f781aFD0",  # Age old mainnet contract
     "0x6a6E4ad4a5ca14B940Cd6949b1A90f947AE21c19",  # Broken Gains vault on Berachain - its open PnL feed contract (0x5705554B) causes multicall failures

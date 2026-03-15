@@ -42,7 +42,7 @@ def get_vaults_by_id(rows: dict[VaultSpec, VaultRow]) -> dict[str, VaultRow]:
     return vaults_by_id
 
 
-#: Vault state columns added by the historical scanner.
+#: Vault state and pass-through columns added by the historical scanner.
 #: Ensure these are always present in cleaned data,
 #: even when processing old scan data that lacks them.
 VAULT_STATE_COLUMNS = {
@@ -59,6 +59,9 @@ VAULT_STATE_COLUMNS = {
     "daily_withdrawal_count": float("nan"),
     "daily_deposit_usd": float("nan"),
     "daily_withdrawal_usd": float("nan"),
+    "follower_count": float("nan"),
+    "account_pnl": float("nan"),
+    "cumulative_volume": float("nan"),
     "deposit_closed_reason": None,
 }
 
