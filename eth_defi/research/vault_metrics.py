@@ -1215,6 +1215,8 @@ def calculate_vault_record(
     leader_fraction = None
     leader_commission = None
     account_pnl = None
+    follower_count = None
+    cumulative_volume = None
     if "leader_fraction" in prices_df.columns:
         last_val = prices_df["leader_fraction"].iloc[-1]
         if pd.notna(last_val):
@@ -1227,6 +1229,14 @@ def calculate_vault_record(
         last_val = prices_df["account_pnl"].iloc[-1]
         if pd.notna(last_val):
             account_pnl = float(last_val)
+    if "follower_count" in prices_df.columns:
+        last_val = prices_df["follower_count"].iloc[-1]
+        if pd.notna(last_val):
+            follower_count = int(last_val)
+    if "cumulative_volume" in prices_df.columns:
+        last_val = prices_df["cumulative_volume"].iloc[-1]
+        if pd.notna(last_val):
+            cumulative_volume = float(last_val)
 
     # Reference timestamp for period lookback — used by both netflow and
     # period metric calculations below.
@@ -1446,7 +1456,9 @@ def calculate_vault_record(
             # Hypercore leader metrics
             "leader_fraction": leader_fraction,
             "leader_commission": leader_commission,
+            "follower_count": follower_count,
             "account_pnl": account_pnl,
+            "cumulative_volume": cumulative_volume,
             # Deposit/withdrawal flow metrics (1d, 7d, 30d)
             "netflow": netflow,
             # Offchain vault descriptions (Euler, Lagoon, etc.)

@@ -338,6 +338,7 @@ class HyperliquidDailyMetricsDatabase:
                 share_price DOUBLE NOT NULL,
                 tvl DOUBLE NOT NULL,
                 cumulative_pnl DOUBLE,
+                cumulative_volume DOUBLE,
                 daily_pnl DOUBLE,
                 daily_return DOUBLE,
                 follower_count INTEGER,
@@ -378,6 +379,12 @@ class HyperliquidDailyMetricsDatabase:
             pass
         try:
             self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN leader_commission DOUBLE")
+        except duckdb.CatalogException:
+            pass
+
+        # Migration for existing databases: add cumulative volume tracking
+        try:
+            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN cumulative_volume DOUBLE")
         except duckdb.CatalogException:
             pass
 
@@ -553,7 +560,7 @@ class HyperliquidDailyMetricsDatabase:
 
         :param rows:
             List of tuples: ``(vault_address, date, share_price, tvl,
-            cumulative_pnl, daily_pnl, daily_return, follower_count, apr,
+            cumulative_pnl, cumulative_volume, daily_pnl, daily_return, follower_count, apr,
             is_closed, allow_deposits, leader_fraction, leader_commission,
             daily_deposit_count, daily_withdrawal_count,
             daily_deposit_usd, daily_withdrawal_usd, epoch_reset)``.
@@ -577,11 +584,16 @@ class HyperliquidDailyMetricsDatabase:
         if not rows:
             return
 
-        # Pad rows to 19 elements if data_source not provided (backwards compat)
+        # Pad rows to 20 elements if data_source not provided (backwards compat)
         padded_rows = []
         for r in rows:
             if len(r) == 18:
-                padded_rows.append((*r, "api"))
+                padded_rows.append((r[0], r[1], r[2], r[3], r[4], None, r[5], r[6], r[7], r[8], r[9], r[10], r[11], r[12], r[13], r[14], r[15], r[16], r[17], "api"))
+            elif len(r) == 19:
+                if isinstance(r[-1], str):
+                    padded_rows.append((r[0], r[1], r[2], r[3], r[4], None, r[5], r[6], r[7], r[8], r[9], r[10], r[11], r[12], r[13], r[14], r[15], r[16], r[17], r[18]))
+                else:
+                    padded_rows.append((*r, "api"))
             else:
                 padded_rows.append(r)
 
@@ -589,17 +601,18 @@ class HyperliquidDailyMetricsDatabase:
             """
             INSERT INTO vault_daily_prices (
                 vault_address, date, share_price, tvl, cumulative_pnl,
-                daily_pnl, daily_return, follower_count, apr,
+                cumulative_volume, daily_pnl, daily_return, follower_count, apr,
                 is_closed, allow_deposits, leader_fraction, leader_commission,
                 daily_deposit_count, daily_withdrawal_count,
                 daily_deposit_usd, daily_withdrawal_usd, epoch_reset,
                 data_source
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (vault_address, date)
             DO UPDATE SET
                 share_price = EXCLUDED.share_price,
                 tvl = EXCLUDED.tvl,
                 cumulative_pnl = EXCLUDED.cumulative_pnl,
+                cumulative_volume = COALESCE(EXCLUDED.cumulative_volume, vault_daily_prices.cumulative_volume),
                 daily_pnl = EXCLUDED.daily_pnl,
                 daily_return = EXCLUDED.daily_return,
                 follower_count = EXCLUDED.follower_count,
@@ -1150,6 +1163,7 @@ def fetch_and_store_vault(
     leader_fraction = float(info.leader_fraction) if info.leader_fraction is not None else None
     leader_commission = float(info.leader_commission) if info.leader_commission is not None else None
     apr_val = float(summary.apr) if summary.apr is not None else None
+    cumulative_volume = float(all_time.volume) if all_time.volume is not None else None
 
     # Determine earliest flow data date for this vault.
     # Use the backfill start date, or if we already have earlier data,
@@ -1200,15 +1214,19 @@ def fetch_and_store_vault(
         prev_share_price = share_price
 
         if i == last_idx:
+            row_follower_count = follower_count
             row_is_closed = info.is_closed
             row_allow_deposits = info.allow_deposits
             row_leader_fraction = leader_fraction
             row_leader_commission = leader_commission
+            row_cumulative_volume = cumulative_volume
         else:
+            row_follower_count = None
             row_is_closed = None
             row_allow_deposits = None
             row_leader_fraction = None
             row_leader_commission = None
+            row_cumulative_volume = None
 
         # Flow data: only populate for dates within the backfill window
         if flow_start_date is not None and flow_start_date <= date_val <= (datetime.date.today() - datetime.timedelta(days=1)):
@@ -1227,9 +1245,10 @@ def fetch_and_store_vault(
                 share_price,
                 tvl,
                 cumulative_pnl,
+                row_cumulative_volume,
                 daily_pnl,
                 daily_return,
-                follower_count,
+                row_follower_count,
                 apr_val,
                 row_is_closed,
                 row_allow_deposits,

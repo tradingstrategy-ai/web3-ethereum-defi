@@ -280,6 +280,8 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
     Also exposes Hyperliquid's raw cumulative account PnL as
     ``account_pnl`` so downstream consumers can compare the website-style
     account PnL against the cleaned share-price based return series.
+    ``follower_count`` and ``cumulative_volume`` are exported as scalar
+    historical fields when available.
 
     :param db:
         The Hyperliquid daily metrics database.
@@ -325,6 +327,8 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
             "share_price": prices_df["share_price"].values,
             "total_assets": prices_df["tvl"].values,
             "account_pnl": prices_df["cumulative_pnl"].values if "cumulative_pnl" in prices_df.columns else float("nan"),
+            "follower_count": prices_df["follower_count"].values if "follower_count" in prices_df.columns else float("nan"),
+            "cumulative_volume": prices_df["cumulative_volume"].values if "cumulative_volume" in prices_df.columns else float("nan"),
             "total_supply": 0.0,
             "performance_fee": 0.0,
             "management_fee": 0.0,

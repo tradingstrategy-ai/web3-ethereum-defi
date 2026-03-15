@@ -547,9 +547,9 @@ def apply_backfill_single_vault(
 
         prev_cumulative_pnl = cumulative_pnl
 
-        # Row format: 19 elements matching upsert_daily_prices with data_source
-        # (vault_address, date, share_price, tvl, cumulative_pnl, daily_pnl,
-        #  daily_return, follower_count, apr, is_closed, allow_deposits,
+        # Row format: 20 elements matching upsert_daily_prices with data_source
+        # (vault_address, date, share_price, tvl, cumulative_pnl, cumulative_volume,
+        #  daily_pnl, daily_return, follower_count, apr, is_closed, allow_deposits,
         #  leader_fraction, leader_commission, dep_count, wd_count,
         #  dep_usd, wd_usd, epoch_reset, data_source)
         rows_to_insert.append(
@@ -559,6 +559,7 @@ def apply_backfill_single_vault(
                 1.0,  # placeholder share_price — will be recomputed
                 account_value,  # tvl
                 cumulative_pnl,
+                row["cum_vlm"],
                 daily_pnl,
                 0.0,  # daily_return placeholder
                 None,  # follower_count

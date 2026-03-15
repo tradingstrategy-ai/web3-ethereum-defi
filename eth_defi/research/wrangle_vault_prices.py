@@ -59,7 +59,9 @@ VAULT_STATE_COLUMNS = {
     "daily_withdrawal_count": float("nan"),
     "daily_deposit_usd": float("nan"),
     "daily_withdrawal_usd": float("nan"),
+    "follower_count": float("nan"),
     "account_pnl": float("nan"),
+    "cumulative_volume": float("nan"),
     "deposit_closed_reason": None,
 }
 

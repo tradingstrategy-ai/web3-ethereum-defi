@@ -206,12 +206,12 @@ def test_stage2_apply_single_vault(tmp_path):
         # Insert 3 existing API rows (days 0, 4, 9) — these should NOT be overwritten.
         # Values are consistent with S3 data: cumulative_pnl = account_value - cum_ledger
         api_rows = [
-            # (vault_address, date, share_price, tvl, cumulative_pnl, daily_pnl,
-            #  daily_return, follower_count, apr, is_closed, allow_deposits,
+            # (vault_address, date, share_price, tvl, cumulative_pnl, cumulative_volume,
+            #  daily_pnl, daily_return, follower_count, apr, is_closed, allow_deposits,
             #  leader_fraction, leader_commission, dep_count, wd_count, dep_usd, wd_usd, epoch_reset)
-            (VAULT_A, datetime.date(2024, 1, 1), 1.0, 100000.0, 0.0, 0.0, 0.0, 100, 50.0, None, None, None, None, None, None, None, None, None),
-            (VAULT_A, datetime.date(2024, 1, 5), 1.04, 104000.0, 4000.0, 1000.0, 0.01, 105, 52.0, None, None, None, None, None, None, None, None, None),
-            (VAULT_A, datetime.date(2024, 1, 10), 1.09, 109000.0, 9000.0, 1000.0, 0.01, 110, 55.0, None, None, None, None, None, None, None, None, None),
+            (VAULT_A, datetime.date(2024, 1, 1), 1.0, 100000.0, 0.0, 10000.0, 0.0, 0.0, 100, 50.0, None, None, None, None, None, None, None, None, None),
+            (VAULT_A, datetime.date(2024, 1, 5), 1.04, 104000.0, 4000.0, 50000.0, 1000.0, 0.01, 105, 52.0, None, None, None, None, None, None, None, None, None),
+            (VAULT_A, datetime.date(2024, 1, 10), 1.09, 109000.0, 9000.0, 100000.0, 1000.0, 0.01, 110, 55.0, None, None, None, None, None, None, None, None, None),
         ]
         metrics_db.upsert_daily_prices(api_rows)
         metrics_db.save()
@@ -234,6 +234,7 @@ def test_stage2_apply_single_vault(tmp_path):
         # Verify API rows preserved their follower_count and apr
         api_day0 = prices_df[prices_df["date"] == pd.Timestamp("2024-01-01")].iloc[0]
         assert api_day0["follower_count"] == 100
+        assert api_day0["cumulative_volume"] == pytest.approx(10000.0)
         assert api_day0["apr"] == pytest.approx(50.0)
         assert api_day0["data_source"] == "api"
 
@@ -247,6 +248,7 @@ def test_stage2_apply_single_vault(tmp_path):
         assert backfill_day1["tvl"] == pytest.approx(101000.0)
         # cumulative_pnl = account_value - cum_ledger = 101000 - 100000 = 1000
         assert backfill_day1["cumulative_pnl"] == pytest.approx(1000.0)
+        assert backfill_day1["cumulative_volume"] == pytest.approx(0.0)
 
         # Verify share prices were recomputed (not all 1.0 placeholders)
         # Day 0: 100k TVL, 100k cum_ledger, 0 PnL → SP = 1.0
@@ -471,7 +473,9 @@ def _make_daily_price_row(
     share_price: float = 1.0,
     tvl: float = 100000.0,
     cumulative_pnl: float = 0.0,
+    cumulative_volume: float | None = None,
     daily_pnl: float = 0.0,
+    follower_count: int = 10,
     is_closed: bool | None = None,
     allow_deposits: bool | None = None,
     leader_fraction: float | None = None,
@@ -484,9 +488,10 @@ def _make_daily_price_row(
         share_price,
         tvl,
         cumulative_pnl,
+        cumulative_volume,
         daily_pnl,
         0.0,  # daily_return
-        10,  # follower_count
+        follower_count,
         50.0,  # apr
         is_closed,
         allow_deposits,
@@ -541,6 +546,41 @@ def test_leader_fraction_preserved_across_rescans(tmp_path):
         assert len(history) == 2
         assert history.iloc[0]["leader_fraction"] == pytest.approx(0.15)
         assert history.iloc[1]["leader_fraction"] == pytest.approx(0.12)
+
+    finally:
+        db.close()
+
+
+def test_cumulative_volume_preserved_across_rescans(tmp_path):
+    """COALESCE preserves cumulative_volume snapshots from earlier scans."""
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        day1_rows = [_make_daily_price_row(VAULT_A, datetime.date(2024, 1, d)) for d in range(1, 5)] + [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 5), cumulative_volume=10000.0),
+        ]
+        db.upsert_daily_prices(day1_rows)
+        db.save()
+
+        day2_rows = [_make_daily_price_row(VAULT_A, datetime.date(2024, 1, d)) for d in range(1, 6)] + [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 6), cumulative_volume=12000.0),
+        ]
+        db.upsert_daily_prices(day2_rows)
+        db.save()
+
+        prices_df = db.get_vault_daily_prices(VAULT_A)
+        assert len(prices_df) == 6
+
+        jan5 = prices_df[prices_df["date"] == pd.Timestamp("2024-01-05")].iloc[0]
+        assert jan5["cumulative_volume"] == pytest.approx(10000.0)
+
+        jan6 = prices_df[prices_df["date"] == pd.Timestamp("2024-01-06")].iloc[0]
+        assert jan6["cumulative_volume"] == pytest.approx(12000.0)
+
+        early = prices_df[prices_df["date"] < pd.Timestamp("2024-01-05")]
+        assert early["cumulative_volume"].isna().all()
 
     finally:
         db.close()
@@ -746,7 +786,7 @@ def test_build_raw_prices_deposits_open_healthy(tmp_path):
 
 
 def test_build_raw_prices_includes_account_pnl(tmp_path):
-    """Raw Hyperliquid export exposes cumulative account PnL as ``account_pnl``."""
+    """Raw Hyperliquid export exposes scalar passthrough metrics."""
     from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
 
     metrics_db_path = tmp_path / "metrics.duckdb"
@@ -755,15 +795,19 @@ def test_build_raw_prices_includes_account_pnl(tmp_path):
         _setup_metrics_db_with_metadata(db, VAULT_A)
 
         rows = [
-            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), cumulative_pnl=0.0),
-            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 2), share_price=1.02, tvl=102000.0, cumulative_pnl=2000.0, daily_pnl=2000.0),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), cumulative_pnl=0.0, cumulative_volume=10000.0, follower_count=7),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 2), share_price=1.02, tvl=102000.0, cumulative_pnl=2000.0, cumulative_volume=15000.0, daily_pnl=2000.0, follower_count=8),
         ]
         db.upsert_daily_prices(rows)
         db.save()
 
         result = build_raw_prices_dataframe(db)
         assert "account_pnl" in result.columns
+        assert "follower_count" in result.columns
+        assert "cumulative_volume" in result.columns
         assert result["account_pnl"].tolist() == pytest.approx([0.0, 2000.0])
+        assert result["follower_count"].tolist() == pytest.approx([7.0, 8.0])
+        assert result["cumulative_volume"].tolist() == pytest.approx([10000.0, 15000.0])
 
     finally:
         db.close()
@@ -880,8 +924,8 @@ def test_deposit_closed_reason_in_cleaned_data():
     assert df.iloc[4]["deposit_closed_reason"] is None
 
 
-def test_process_raw_vault_scan_data_preserves_account_pnl(tmp_path):
-    """Cleaned price data keeps Hyperliquid ``account_pnl`` intact."""
+def test_process_raw_vault_scan_data_preserves_hyperliquid_scalars(tmp_path):
+    """Cleaned price data keeps Hyperliquid scalar passthrough columns intact."""
     from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe, create_hyperliquid_vault_row
     from eth_defi.research.wrangle_vault_prices import process_raw_vault_scan_data
 
@@ -891,9 +935,9 @@ def test_process_raw_vault_scan_data_preserves_account_pnl(tmp_path):
         _setup_metrics_db_with_metadata(db, VAULT_A)
 
         rows = [
-            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), cumulative_pnl=0.0),
-            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 2), share_price=1.01, tvl=101000.0, cumulative_pnl=1000.0, daily_pnl=1000.0),
-            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 3), share_price=1.03, tvl=103000.0, cumulative_pnl=3000.0, daily_pnl=2000.0),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), cumulative_pnl=0.0, cumulative_volume=10000.0, follower_count=7),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 2), share_price=1.01, tvl=101000.0, cumulative_pnl=1000.0, cumulative_volume=12000.0, daily_pnl=1000.0, follower_count=8),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 3), share_price=1.03, tvl=103000.0, cumulative_pnl=3000.0, cumulative_volume=15000.0, daily_pnl=2000.0, follower_count=9),
         ]
         db.upsert_daily_prices(rows)
         db.save()
@@ -915,14 +959,18 @@ def test_process_raw_vault_scan_data_preserves_account_pnl(tmp_path):
         )
 
         assert "account_pnl" in cleaned_df.columns
+        assert "follower_count" in cleaned_df.columns
+        assert "cumulative_volume" in cleaned_df.columns
         assert cleaned_df["account_pnl"].tolist() == pytest.approx([0.0, 1000.0, 3000.0])
+        assert cleaned_df["follower_count"].tolist() == pytest.approx([7.0, 8.0, 9.0])
+        assert cleaned_df["cumulative_volume"].tolist() == pytest.approx([10000.0, 12000.0, 15000.0])
 
     finally:
         db.close()
 
 
-def test_account_pnl_reaches_lifetime_metrics_export(tmp_path):
-    """Hyperliquid ``account_pnl`` reaches lifetime metrics and JSON export."""
+def test_hyperliquid_scalars_reach_lifetime_metrics_export(tmp_path):
+    """Hyperliquid scalar passthrough fields reach lifetime metrics and JSON export."""
     from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe, create_hyperliquid_vault_row
     from eth_defi.research.vault_metrics import calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics, export_lifetime_row
     from eth_defi.research.wrangle_vault_prices import process_raw_vault_scan_data
@@ -933,9 +981,9 @@ def test_account_pnl_reaches_lifetime_metrics_export(tmp_path):
         _setup_metrics_db_with_metadata(db, VAULT_A)
 
         rows = [
-            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), cumulative_pnl=0.0),
-            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 2), share_price=1.01, tvl=101000.0, cumulative_pnl=1000.0, daily_pnl=1000.0),
-            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 3), share_price=1.03, tvl=103000.0, cumulative_pnl=3000.0, daily_pnl=2000.0),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), cumulative_pnl=0.0, cumulative_volume=10000.0, follower_count=7),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 2), share_price=1.01, tvl=101000.0, cumulative_pnl=1000.0, cumulative_volume=12000.0, daily_pnl=1000.0, follower_count=8),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 3), share_price=1.03, tvl=103000.0, cumulative_pnl=3000.0, cumulative_volume=15000.0, daily_pnl=2000.0, follower_count=9),
         ]
         db.upsert_daily_prices(rows)
         db.save()
@@ -961,9 +1009,13 @@ def test_account_pnl_reaches_lifetime_metrics_export(tmp_path):
         assert len(lifetime_df) == 1
         row = lifetime_df.iloc[0]
         assert row["account_pnl"] == pytest.approx(3000.0)
+        assert row["follower_count"] == 9
+        assert row["cumulative_volume"] == pytest.approx(15000.0)
 
         exported = export_lifetime_row(row)
         assert exported["account_pnl"] == pytest.approx(3000.0)
+        assert exported["follower_count"] == 9
+        assert exported["cumulative_volume"] == pytest.approx(15000.0)
 
     finally:
         db.close()
