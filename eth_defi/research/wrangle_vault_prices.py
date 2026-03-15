@@ -59,6 +59,7 @@ VAULT_STATE_COLUMNS = {
     "daily_withdrawal_count": float("nan"),
     "daily_deposit_usd": float("nan"),
     "daily_withdrawal_usd": float("nan"),
+    "deposit_closed_reason": None,
 }
 
 
@@ -71,6 +72,35 @@ def ensure_vault_state_columns(prices_df: pd.DataFrame) -> pd.DataFrame:
     for col, default in VAULT_STATE_COLUMNS.items():
         if col not in prices_df.columns:
             prices_df[col] = default
+    return prices_df
+
+
+def derive_deposit_closed_reason(prices_df: pd.DataFrame) -> pd.DataFrame:
+    """Derive unified ``deposit_closed_reason`` from protocol-specific columns.
+
+    For Hyperliquid vaults, ``deposit_closed_reason`` is already set by
+    :py:func:`~eth_defi.hyperliquid.vault_data_export.build_raw_prices_dataframe`
+    with specific reason strings.
+
+    For ERC-4626 vaults, the ``deposits_open`` string column ("true"/"false"/"")
+    is converted to a generic reason.
+
+    :param prices_df:
+        DataFrame with ``deposit_closed_reason`` and ``deposits_open`` columns.
+    :return:
+        DataFrame with ``deposit_closed_reason`` filled in for both vault types.
+    """
+    if "deposit_closed_reason" not in prices_df.columns:
+        prices_df["deposit_closed_reason"] = None
+
+    if "deposits_open" not in prices_df.columns:
+        return prices_df
+
+    # Fill in reason for ERC-4626 rows where deposits_open == "false"
+    # but deposit_closed_reason is not yet set (Hyperliquid rows already have it).
+    mask = (prices_df["deposit_closed_reason"].isna()) & (prices_df["deposits_open"] == "false")
+    prices_df.loc[mask, "deposit_closed_reason"] = "Vault deposits disabled"
+
     return prices_df
 
 
@@ -786,6 +816,7 @@ def process_raw_vault_scan_data(
     """
 
     prices_df = ensure_vault_state_columns(prices_df)
+    prices_df = derive_deposit_closed_reason(prices_df)
 
     assign_unique_names(rows, prices_df, logger)
 

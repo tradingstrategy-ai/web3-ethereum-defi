@@ -457,3 +457,398 @@ def test_backfill_share_price_continuity(tmp_path):
     finally:
         staging_db.close()
         metrics_db.close()
+
+
+# ──────────────────────────────────────────────────────────────────────
+# State recording tests: verify COALESCE preserves is_closed,
+# allow_deposits, and leader_fraction across daily re-scans.
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _make_daily_price_row(
+    vault_address: str,
+    date: datetime.date,
+    share_price: float = 1.0,
+    tvl: float = 100000.0,
+    is_closed: bool | None = None,
+    allow_deposits: bool | None = None,
+    leader_fraction: float | None = None,
+    leader_commission: float | None = None,
+) -> tuple:
+    """Build a daily price tuple matching the upsert_daily_prices schema."""
+    return (
+        vault_address,
+        date,
+        share_price,
+        tvl,
+        0.0,  # cumulative_pnl
+        0.0,  # daily_pnl
+        0.0,  # daily_return
+        10,  # follower_count
+        50.0,  # apr
+        is_closed,
+        allow_deposits,
+        leader_fraction,
+        leader_commission,
+        None,  # daily_deposit_count
+        None,  # daily_withdrawal_count
+        None,  # daily_deposit_usd
+        None,  # daily_withdrawal_usd
+        None,  # epoch_reset
+    )
+
+
+def test_leader_fraction_preserved_across_rescans(tmp_path):
+    """COALESCE preserves leader_fraction from earlier scans when later scans write NULL."""
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        # Day 1 scan: rows for Jan 1-5, leader_fraction only on Jan 5 (latest)
+        day1_rows = [_make_daily_price_row(VAULT_A, datetime.date(2024, 1, d)) for d in range(1, 5)] + [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 5), leader_fraction=0.15),
+        ]
+        db.upsert_daily_prices(day1_rows)
+        db.save()
+
+        # Day 2 scan: rows for Jan 1-6, leader_fraction only on Jan 6 (new latest)
+        day2_rows = [_make_daily_price_row(VAULT_A, datetime.date(2024, 1, d)) for d in range(1, 6)] + [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 6), leader_fraction=0.12),
+        ]
+        db.upsert_daily_prices(day2_rows)
+        db.save()
+
+        prices_df = db.get_vault_daily_prices(VAULT_A)
+        assert len(prices_df) == 6
+
+        # Jan 5 should still have leader_fraction=0.15 (preserved by COALESCE)
+        jan5 = prices_df[prices_df["date"] == pd.Timestamp("2024-01-05")].iloc[0]
+        assert jan5["leader_fraction"] == pytest.approx(0.15)
+
+        # Jan 6 has new value
+        jan6 = prices_df[prices_df["date"] == pd.Timestamp("2024-01-06")].iloc[0]
+        assert jan6["leader_fraction"] == pytest.approx(0.12)
+
+        # Jan 1-4 have NULL
+        early = prices_df[prices_df["date"] < pd.Timestamp("2024-01-05")]
+        assert early["leader_fraction"].isna().all()
+
+        # get_leader_fraction_history returns exactly 2 rows
+        history = db.get_leader_fraction_history(VAULT_A)
+        assert len(history) == 2
+        assert history.iloc[0]["leader_fraction"] == pytest.approx(0.15)
+        assert history.iloc[1]["leader_fraction"] == pytest.approx(0.12)
+
+    finally:
+        db.close()
+
+
+def test_is_closed_allow_deposits_preserved_across_rescans(tmp_path):
+    """COALESCE preserves is_closed and allow_deposits from earlier scans."""
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        # Day 1 scan: Jan 1-3, last row has is_closed=False, allow_deposits=True
+        day1_rows = [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1)),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 2)),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 3), is_closed=False, allow_deposits=True),
+        ]
+        db.upsert_daily_prices(day1_rows)
+        db.save()
+
+        # Day 2 scan: Jan 1-4, all historical rows NULL, Jan 4 has allow_deposits=False
+        day2_rows = [_make_daily_price_row(VAULT_A, datetime.date(2024, 1, d)) for d in range(1, 4)] + [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 4), is_closed=False, allow_deposits=False),
+        ]
+        db.upsert_daily_prices(day2_rows)
+        db.save()
+
+        prices_df = db.get_vault_daily_prices(VAULT_A)
+
+        # Jan 3 should still have allow_deposits=True (preserved by COALESCE)
+        jan3 = prices_df[prices_df["date"] == pd.Timestamp("2024-01-03")].iloc[0]
+        assert jan3["allow_deposits"] == True
+        assert jan3["is_closed"] == False
+
+        # Jan 4 has the new state
+        jan4 = prices_df[prices_df["date"] == pd.Timestamp("2024-01-04")].iloc[0]
+        assert jan4["allow_deposits"] == False
+        assert jan4["is_closed"] == False
+
+        # Jan 1-2 have NULL
+        early = prices_df[prices_df["date"] < pd.Timestamp("2024-01-03")]
+        assert early["allow_deposits"].isna().all()
+        assert early["is_closed"].isna().all()
+
+    finally:
+        db.close()
+
+
+def test_backfill_rows_have_null_leader_fraction(tmp_path):
+    """Rows created by the real backfill pipeline have NULL state fields."""
+    staging_db_path = tmp_path / "staging.duckdb"
+    metrics_db_path = tmp_path / "metrics.duckdb"
+
+    staging_db = HyperliquidS3StagingDatabase(staging_db_path)
+    metrics_db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        # 5 days of staging data
+        for i in range(5):
+            date = datetime.date(2024, 1, 1) + datetime.timedelta(days=i)
+            staging_db.insert_vault_rows([(date, VAULT_A, 100000.0 + i * 1000, 100000.0, 0.0)])
+        staging_db.save()
+
+        _setup_metrics_db_with_metadata(metrics_db, VAULT_A)
+
+        apply_backfill_single_vault(
+            staging_db=staging_db,
+            metrics_db=metrics_db,
+            vault_address=VAULT_A,
+        )
+
+        prices_df = metrics_db.get_vault_daily_prices(VAULT_A)
+        assert len(prices_df) == 5
+
+        # All backfilled rows should have NULL for state fields
+        assert prices_df["leader_fraction"].isna().all()
+        assert prices_df["is_closed"].isna().all()
+        assert prices_df["allow_deposits"].isna().all()
+        assert prices_df["leader_commission"].isna().all()
+
+        # get_leader_fraction_history returns empty
+        history = metrics_db.get_leader_fraction_history(VAULT_A)
+        assert len(history) == 0
+
+    finally:
+        staging_db.close()
+        metrics_db.close()
+
+
+def test_leader_fraction_history_ordering(tmp_path):
+    """get_leader_fraction_history returns rows in date order and values can be checked against threshold."""
+    from eth_defi.hyperliquid.vault_data_export import LEADER_FRACTION_WARNING_THRESHOLD
+
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        # Simulate 3 scan days with declining leader fraction
+        fractions = [0.10, 0.06, 0.04]
+        for i, frac in enumerate(fractions):
+            date = datetime.date(2024, 1, 1) + datetime.timedelta(days=i)
+            rows = [_make_daily_price_row(VAULT_A, date, leader_fraction=frac)]
+            db.upsert_daily_prices(rows)
+        db.save()
+
+        history = db.get_leader_fraction_history(VAULT_A)
+        assert len(history) == 3
+
+        # Verify date ordering
+        dates = history["date"].tolist()
+        assert dates == sorted(dates)
+
+        # Verify values
+        values = history["leader_fraction"].tolist()
+        assert values[0] == pytest.approx(0.10)
+        assert values[1] == pytest.approx(0.06)
+        assert values[2] == pytest.approx(0.04)
+
+        # Can identify which values are below the warning threshold (0.055)
+        below_threshold = history[history["leader_fraction"] < LEADER_FRACTION_WARNING_THRESHOLD]
+        assert len(below_threshold) == 1  # only 0.04 is below 0.055
+
+    finally:
+        db.close()
+
+
+def test_mark_vaults_disappeared_preserves_state(tmp_path):
+    """mark_vaults_disappeared sets TVL=0 in metadata but does not modify daily price state."""
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+        _setup_metrics_db_with_metadata(db, VAULT_B)
+
+        # Insert daily price rows with state on latest row for both vaults
+        for addr in [VAULT_A, VAULT_B]:
+            rows = [
+                _make_daily_price_row(addr, datetime.date(2024, 1, 1)),
+                _make_daily_price_row(addr, datetime.date(2024, 1, 2), is_closed=False, allow_deposits=True, leader_fraction=0.10),
+            ]
+            db.upsert_daily_prices(rows)
+        db.save()
+
+        # Vault A is still present in the API, vault B has disappeared
+        db.mark_vaults_disappeared({VAULT_A.lower()})
+        db.save()
+
+        # Vault B metadata should have TVL=0 but is_closed unchanged
+        metadata = db.get_all_vault_metadata()
+        vault_b_meta = metadata[metadata["vault_address"] == VAULT_B.lower()].iloc[0]
+        assert vault_b_meta["tvl"] == pytest.approx(0.0)
+        assert vault_b_meta["is_closed"] == False  # not changed by mark_vaults_disappeared
+
+        # Vault B daily price state values should be untouched
+        prices_b = db.get_vault_daily_prices(VAULT_B)
+        jan2_b = prices_b[prices_b["date"] == pd.Timestamp("2024-01-02")].iloc[0]
+        assert jan2_b["is_closed"] == False
+        assert jan2_b["allow_deposits"] == True
+        assert jan2_b["leader_fraction"] == pytest.approx(0.10)
+
+        # Vault A should be completely unaffected
+        metadata_a = metadata[metadata["vault_address"] == VAULT_A.lower()].iloc[0]
+        assert metadata_a["tvl"] == pytest.approx(10000.0)  # original value from _setup_metrics_db_with_metadata
+
+    finally:
+        db.close()
+
+
+# ──────────────────────────────────────────────────────────────────────
+# deposit_closed_reason tests: verify build_raw_prices_dataframe()
+# produces correct per-row deposit state from DuckDB state columns.
+# ──────────────────────────────────────────────────────────────────────
+
+
+def test_build_raw_prices_deposits_open_healthy(tmp_path):
+    """Healthy vault with deposits open has deposit_closed_reason=None and deposits_open='true'."""
+    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
+
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        rows = [_make_daily_price_row(VAULT_A, datetime.date(2024, 1, d)) for d in range(1, 5)] + [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 5), is_closed=False, allow_deposits=True, leader_fraction=0.15),
+        ]
+        db.upsert_daily_prices(rows)
+        db.save()
+
+        result = build_raw_prices_dataframe(db)
+        assert len(result) == 5
+        assert "deposit_closed_reason" in result.columns
+        assert "deposits_open" in result.columns
+
+        # Latest row (Jan 5) has state — deposits are open
+        latest = result.iloc[-1]
+        assert latest["deposit_closed_reason"] is None
+        assert latest["deposits_open"] == "true"
+
+    finally:
+        db.close()
+
+
+def test_build_raw_prices_deposit_closed_leader_fraction(tmp_path):
+    """Leader fraction below threshold produces deposit_closed_reason with 'Leader share' message."""
+    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
+
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        rows = [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), is_closed=False, allow_deposits=True, leader_fraction=0.04),
+        ]
+        db.upsert_daily_prices(rows)
+        db.save()
+
+        result = build_raw_prices_dataframe(db)
+        assert len(result) == 1
+
+        row = result.iloc[0]
+        assert row["deposit_closed_reason"] is not None
+        assert "Leader share" in row["deposit_closed_reason"]
+        assert row["deposits_open"] == "false"
+
+    finally:
+        db.close()
+
+
+def test_build_raw_prices_deposit_closed_allow_deposits(tmp_path):
+    """allow_deposits=False produces correct deposit_closed_reason."""
+    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
+
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        rows = [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), is_closed=False, allow_deposits=False, leader_fraction=0.15),
+        ]
+        db.upsert_daily_prices(rows)
+        db.save()
+
+        result = build_raw_prices_dataframe(db)
+        row = result.iloc[0]
+        assert row["deposit_closed_reason"] == "Vault deposits disabled by leader"
+        assert row["deposits_open"] == "false"
+
+    finally:
+        db.close()
+
+
+def test_build_raw_prices_unknown_state_rows(tmp_path):
+    """Rows before first state observation have deposit_closed_reason=None (not misclassified)."""
+    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
+
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        # 5 rows, only the last has state
+        rows = [_make_daily_price_row(VAULT_A, datetime.date(2024, 1, d)) for d in range(1, 5)] + [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 5), is_closed=False, allow_deposits=True, leader_fraction=0.15),
+        ]
+        db.upsert_daily_prices(rows)
+        db.save()
+
+        result = build_raw_prices_dataframe(db)
+        assert len(result) == 5
+
+        # Rows before state (Jan 1-4): no forward-fill source → unknown
+        early = result.iloc[:4]
+        assert early["deposit_closed_reason"].isna().all(), "Early rows with no state should have None deposit_closed_reason"
+        assert (early["deposits_open"].isna()).all(), "Early rows with no state should have None deposits_open"
+
+        # Last row (Jan 5) has state
+        latest = result.iloc[-1]
+        assert latest["deposit_closed_reason"] is None
+        assert latest["deposits_open"] == "true"
+
+    finally:
+        db.close()
+
+
+def test_deposit_closed_reason_in_cleaned_data():
+    """derive_deposit_closed_reason fills in reason for ERC-4626 rows with deposits_open='false'."""
+    from eth_defi.research.wrangle_vault_prices import derive_deposit_closed_reason, ensure_vault_state_columns
+
+    # Build a synthetic DataFrame resembling ERC-4626 cleaned data
+    df = pd.DataFrame(
+        {
+            "deposits_open": ["true", "false", "true", "false", ""],
+        }
+    )
+    df = ensure_vault_state_columns(df)
+    df = derive_deposit_closed_reason(df)
+
+    assert "deposit_closed_reason" in df.columns
+
+    # "true" → None (deposits open)
+    assert df.iloc[0]["deposit_closed_reason"] is None
+    # "false" → reason filled in
+    assert df.iloc[1]["deposit_closed_reason"] == "Vault deposits disabled"
+    # "true" → None
+    assert df.iloc[2]["deposit_closed_reason"] is None
+    # "false" → reason filled in
+    assert df.iloc[3]["deposit_closed_reason"] == "Vault deposits disabled"
+    # "" (unknown) → None
+    assert df.iloc[4]["deposit_closed_reason"] is None

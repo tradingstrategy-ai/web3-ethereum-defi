@@ -740,6 +740,31 @@ class HyperliquidDailyMetricsDatabase:
         """).fetchall()
         return {row[0]: row[1] for row in rows}
 
+    def get_leader_fraction_history(self, vault_address: str) -> pd.DataFrame:
+        """Get the recorded leader_fraction snapshots for a vault.
+
+        Returns only rows where ``leader_fraction`` was recorded (non-NULL).
+        Each row represents a day when the scanner ran and observed the value.
+        Over time, daily scans build up a sparse history of leader capital
+        ownership that can be used to detect threshold crossings.
+
+        :param vault_address:
+            Vault address to query (will be lowercased).
+        :return:
+            DataFrame with columns ``date`` and ``leader_fraction``,
+            ordered by date ascending. Empty if no snapshots recorded.
+        """
+        return self.con.execute(
+            """
+            SELECT date, leader_fraction
+            FROM vault_daily_prices
+            WHERE vault_address = ?
+              AND leader_fraction IS NOT NULL
+            ORDER BY date
+            """,
+            [vault_address.lower()],
+        ).df()
+
     def delete_vault_daily_prices(self, vault_address: HexAddress) -> int:
         """Delete all daily price records for a vault.
 

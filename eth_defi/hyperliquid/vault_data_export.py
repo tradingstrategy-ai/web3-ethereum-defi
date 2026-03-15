@@ -218,6 +218,48 @@ def create_hyperliquid_vault_row(
     return spec, row
 
 
+def _compute_deposit_closed_reason_column(prices_df: pd.DataFrame) -> pd.Series:
+    """Compute per-row deposit_closed_reason from forward-filled vault state columns.
+
+    Uses :py:func:`_get_deposit_closed_reason` with an explicit NaN guard:
+    rows where ``is_closed`` or ``allow_deposits`` are still missing after
+    forward-fill get ``None`` (unknown state) instead of being misclassified.
+
+    :param prices_df:
+        DataFrame with ``is_closed``, ``allow_deposits``, ``leader_fraction``
+        columns (forward-filled within each vault group).
+    :return:
+        Series of ``str | None`` — reason string when deposits are closed,
+        ``None`` when deposits are open or state is unknown.
+    """
+    has_is_closed = "is_closed" in prices_df.columns
+    has_allow_deposits = "allow_deposits" in prices_df.columns
+
+    if not has_is_closed or not has_allow_deposits:
+        return pd.Series([None] * len(prices_df), index=prices_df.index)
+
+    reasons = []
+    for _, row in prices_df.iterrows():
+        is_closed = row.get("is_closed")
+        allow_deposits = row.get("allow_deposits")
+
+        # NaN is truthy in bool context — guard against missing state
+        if pd.isna(is_closed) or pd.isna(allow_deposits):
+            reasons.append(None)
+            continue
+
+        lf = row.get("leader_fraction")
+        reasons.append(
+            _get_deposit_closed_reason(
+                is_closed=bool(is_closed),
+                allow_deposits=bool(allow_deposits),
+                leader_fraction=float(lf) if pd.notna(lf) else None,
+            )
+        )
+
+    return pd.Series(reasons, index=prices_df.index)
+
+
 def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFrame:
     """Build a raw prices DataFrame from the Hyperliquid DuckDB.
 
@@ -230,6 +272,11 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
     The output has ``timestamp`` as a column (not index), matching
     the raw uncleaned Parquet format.
 
+    Includes per-row ``deposit_closed_reason`` (str or None) and
+    ``deposits_open`` (str "true"/"false" or None) columns derived
+    from forward-filled ``is_closed``, ``allow_deposits``, and
+    ``leader_fraction`` state columns in the DuckDB.
+
     :param db:
         The Hyperliquid daily metrics database.
     :return:
@@ -240,10 +287,31 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
     if prices_df.empty:
         return pd.DataFrame()
 
+    # Forward-fill sparse state columns within each vault so that the
+    # latest known is_closed / allow_deposits / leader_fraction propagates
+    # to subsequent rows.  Early rows before first observation stay NaN.
+    state_cols = ["is_closed", "allow_deposits", "leader_fraction"]
+    existing_state_cols = [c for c in state_cols if c in prices_df.columns]
+    if existing_state_cols:
+        prices_df = prices_df.sort_values(["vault_address", "date"])
+        prices_df[existing_state_cols] = prices_df.groupby("vault_address")[existing_state_cols].ffill()
+
+    # Compute deposit_closed_reason per row from forward-filled state.
+    deposit_reasons = _compute_deposit_closed_reason_column(prices_df)
+
+    # Derive deposits_open string for backwards compatibility with ERC-4626 column.
+    has_state = prices_df["is_closed"].notna() if "is_closed" in prices_df.columns else pd.Series(False, index=prices_df.index)
+    deposits_open = pd.Series([None] * len(prices_df), index=prices_df.index, dtype=object)
+    deposits_open[has_state & deposit_reasons.isna()] = "true"
+    deposits_open[has_state & deposit_reasons.notna()] = "false"
+
     chain_id = HYPERCORE_CHAIN_ID
 
     # Use .values to strip the DuckDB RangeIndex — otherwise pandas
     # tries to align it with the new index and fills everything with NaN.
+    #
+    # leader_fraction values are 0-1 matching the Percent type alias
+    # (e.g. 0.05 = 5%).
     result = pd.DataFrame(
         {
             "chain": chain_id,
@@ -256,6 +324,8 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
             "performance_fee": 0.0,
             "management_fee": 0.0,
             "errors": "",
+            "deposits_open": deposits_open.values,
+            "deposit_closed_reason": deposit_reasons.values,
             "leader_fraction": prices_df["leader_fraction"].values if "leader_fraction" in prices_df.columns else float("nan"),
             "leader_commission": prices_df["leader_commission"].values if "leader_commission" in prices_df.columns else float("nan"),
             "daily_deposit_count": prices_df["daily_deposit_count"].values if "daily_deposit_count" in prices_df.columns else float("nan"),
