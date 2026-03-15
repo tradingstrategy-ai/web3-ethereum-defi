@@ -227,17 +227,13 @@ def _fetch_gmx_positions_value(
     positions_total = Decimal(0)
 
     for raw_position in raw_positions:
-        try:
-            value = _calculate_position_value(
-                raw_position=raw_position,
-                chain_tokens=chain_tokens,
-                oracle_prices=oracle_prices,
-                market_to_index=market_to_index,
-            )
-            positions_total += value
-        except Exception as e:
-            logger.warning("Failed to value position: %s", e)
-            continue
+        value = _calculate_position_value(
+            raw_position=raw_position,
+            chain_tokens=chain_tokens,
+            oracle_prices=oracle_prices,
+            market_to_index=market_to_index,
+        )
+        positions_total += value
 
     return positions_total
 
