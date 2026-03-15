@@ -51,7 +51,7 @@ from eth_defi.gmx.contracts import (
     get_tokens_metadata_dict,
 )
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.token import TokenDetails
+from eth_defi.token import TokenDetails, is_stablecoin_like
 
 logger = logging.getLogger(__name__)
 
@@ -282,11 +282,9 @@ def _calculate_position_value(
         logger.warning("Market %s not found in on-chain markets, returning collateral only", market_address)
         return collateral_amount
 
-    if index_token_address in chain_tokens:
-        index_token_decimals = chain_tokens[index_token_address]["decimals"]
-    else:
-        # Fallback: assume 18 decimals (ETH, most tokens)
-        index_token_decimals = 18
+    if index_token_address not in chain_tokens:
+        raise KeyError(f"Index token {index_token_address} not found in token metadata for market {market_address}")
+    index_token_decimals = chain_tokens[index_token_address]["decimals"]
 
     # Calculate entry price (both values at 30-decimal precision)
     entry_price = (Decimal(size_in_usd) / Decimal(size_in_tokens)) / Decimal(10 ** (PRECISION - index_token_decimals))
@@ -299,8 +297,7 @@ def _calculate_position_value(
     )
 
     if mark_price is None:
-        logger.warning("No oracle price for index token %s, returning collateral only", index_token_address)
-        return collateral_amount
+        raise ValueError(f"No oracle price for index token {index_token_address} in market {market_address}")
 
     # Calculate unrealised PnL in USD
     size_in_tokens_decimal = Decimal(size_in_tokens) / Decimal(10**index_token_decimals)
@@ -310,13 +307,22 @@ def _calculate_position_value(
     else:
         pnl_usd = (entry_price - mark_price) * size_in_tokens_decimal
 
-    position_value = collateral_amount + pnl_usd
+    # Convert collateral to USD if it's not already a stablecoin
+    collateral_usd = _collateral_to_usd(
+        collateral_amount=collateral_amount,
+        collateral_token_address=collateral_token_address,
+        chain_tokens=chain_tokens,
+        oracle_prices=oracle_prices,
+    )
+
+    position_value = collateral_usd + pnl_usd
 
     logger.info(
-        "Position market=%s is_long=%s collateral=%s entry=%s mark=%s pnl=%s value=%s",
+        "Position market=%s is_long=%s collateral=%s collateral_usd=%s entry=%s mark=%s pnl=%s value=%s",
         market_address,
         is_long,
         collateral_amount,
+        collateral_usd,
         entry_price,
         mark_price,
         pnl_usd,
@@ -324,6 +330,45 @@ def _calculate_position_value(
     )
 
     return position_value
+
+
+def _collateral_to_usd(
+    collateral_amount: Decimal,
+    collateral_token_address: str,
+    chain_tokens: dict,
+    oracle_prices: dict,
+) -> Decimal:
+    """Convert a collateral amount to USD.
+
+    For stablecoins (USDC, USDT, DAI, etc.) the amount is returned as-is.
+    For non-stablecoin collateral (e.g. ETH, BTC) the oracle price is used
+    to convert to USD.
+
+    :raises ValueError:
+        If the collateral token is non-stablecoin and no oracle price is available.
+    """
+    token_info = chain_tokens.get(collateral_token_address, {})
+    symbol = token_info.get("symbol", "")
+
+    # For this use case a simple symbol-based stablecoin check is enough:
+    # GMX collateral tokens are well-known assets (USDC, USDT, ETH, BTC)
+    # and we only need to distinguish "worth ~$1 per token" from "needs
+    # oracle conversion".
+    if is_stablecoin_like(symbol):
+        return collateral_amount
+
+    # Non-stablecoin collateral: convert using oracle price
+    decimals = token_info.get("decimals", 18)
+    mark_price = _get_mark_price(
+        oracle_prices=oracle_prices,
+        index_token_address=collateral_token_address,
+        index_token_decimals=decimals,
+    )
+
+    if mark_price is None:
+        raise ValueError(f"Cannot convert collateral {symbol} ({collateral_token_address}) to USD: no oracle price available")
+
+    return collateral_amount * mark_price
 
 
 def _get_mark_price(

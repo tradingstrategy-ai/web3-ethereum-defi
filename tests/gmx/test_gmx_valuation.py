@@ -179,10 +179,13 @@ def test_fetch_gmx_total_equity_eth_collateral_short(web3, usdc):
     - 1 short ETH position with ~588 ETH collateral, ~$2.7M notional
     - Entry price ~$3,425 (position opened when ETH was much higher)
 
-    The collateral amount is in raw ETH units while PnL is in USD.
-    For USDC-denomination this gives collateral_tokens + pnl_usd which
-    is a mixed-unit approximation — acceptable when the function is used
-    for relative comparisons over time with the same denomination.
+    The collateral (588 ETH) is converted to USD using the live oracle price,
+    then combined with the unrealised PnL (also in USD).  Both components
+    are in the same unit so get_total() is numerically sound.
+
+    At the fork block, the short is deeply in profit so total position
+    value should be well above the ~$1.2M collateral-in-USD value
+    (588 ETH * ~$2,098 mark price).
     """
     result = fetch_gmx_total_equity(
         web3=web3,
@@ -194,10 +197,10 @@ def test_fetch_gmx_total_equity_eth_collateral_short(web3, usdc):
     # No USDC wallet reserves
     assert result.reserves == Decimal(0)
 
-    # Position should have a large value (collateral ~588 ETH + big PnL from short)
-    # Collateral alone is 587.8 ETH tokens, and the short is deeply in profit
-    # (entry ~$3425, current mark much lower)
-    assert result.positions > Decimal("500_000")
+    # Position value = collateral_usd + PnL_usd
+    # Collateral ~588 ETH at ~$2,098 ≈ $1.23M, plus ~$1.06M short PnL ≈ $2.29M total
+    # (PnL is oracle-price dependent so we check a broad range)
+    assert result.positions > Decimal("1_500_000")
 
     assert result.get_total() == result.positions
 
