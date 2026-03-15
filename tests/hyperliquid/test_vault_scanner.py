@@ -192,6 +192,7 @@ def test_vault_scan_disabled(tmp_path: Path):
             name=str(latest_snapshot["name"]),
             leader=str(latest_snapshot["leader"]),
             is_closed=bool(latest_snapshot["is_closed"]),
+            allow_deposits=bool(latest_snapshot.get("allow_deposits", True)),
             relationship_type=str(latest_snapshot["relationship_type"]),
             create_time=latest_snapshot["create_time"].to_pydatetime() if pd.notna(latest_snapshot["create_time"]) else None,
             tvl=latest_snapshot["tvl"],
