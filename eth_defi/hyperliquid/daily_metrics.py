@@ -1227,8 +1227,8 @@ def fetch_and_store_vault(
     )
 
     # Build daily price rows.
-    # Only the latest row gets the current deposit status from the API;
-    # historical rows get None so we track how status evolves over time.
+    # Only the latest row gets the current API snapshot fields;
+    # historical rows get None so we track how these values evolve over time.
     #
     # Flow columns: for dates within the backfill window, store 0 for
     # days with no events (confirmed zero activity). For dates outside
@@ -1255,6 +1255,7 @@ def fetch_and_store_vault(
 
         if i == last_idx:
             row_follower_count = follower_count
+            row_apr = apr_val
             row_is_closed = info.is_closed
             row_allow_deposits = info.allow_deposits
             row_leader_fraction = leader_fraction
@@ -1262,6 +1263,7 @@ def fetch_and_store_vault(
             row_cumulative_volume = cumulative_volume
         else:
             row_follower_count = None
+            row_apr = None
             row_is_closed = None
             row_allow_deposits = None
             row_leader_fraction = None
@@ -1289,7 +1291,7 @@ def fetch_and_store_vault(
                 daily_pnl=daily_pnl,
                 daily_return=daily_return,
                 follower_count=row_follower_count,
-                apr=apr_val,
+                apr=row_apr,
                 is_closed=row_is_closed,
                 allow_deposits=row_allow_deposits,
                 leader_fraction=row_leader_fraction,

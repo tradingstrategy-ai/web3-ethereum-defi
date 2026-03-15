@@ -9,6 +9,7 @@ All tests use synthetic data — no AWS or Hyperliquid API access required.
 
 import datetime
 import io
+from decimal import Decimal
 
 import pandas as pd
 import pytest
@@ -24,7 +25,8 @@ from eth_defi.hyperliquid.backfill import (
     parse_s3_filename_date,
     run_s3_extract,
 )
-from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase, HyperliquidDailyPriceRow
+from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase, HyperliquidDailyPriceRow, fetch_and_store_vault
+from eth_defi.hyperliquid.vault import PortfolioHistory, VaultInfo, VaultSummary
 
 
 VAULT_A = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -611,6 +613,117 @@ def test_follower_count_and_apr_preserved_across_rescans(tmp_path):
         early = prices_df[prices_df["date"] < pd.Timestamp("2024-01-05")]
         assert early["follower_count"].isna().all()
         assert early["apr"].isna().all()
+
+    finally:
+        db.close()
+
+
+def test_fetch_and_store_vault_preserves_historical_apr_on_resume(tmp_path, monkeypatch):
+    """Resume scans should only write APR to the latest row."""
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        first_vault_info = VaultInfo(
+            name="Test Vault",
+            vault_address=VAULT_A,
+            leader="0x0000000000000000000000000000000000000001",
+            description="",
+            followers=[],
+            portfolio={
+                "allTime": PortfolioHistory(
+                    period="allTime",
+                    account_value_history=[
+                        (datetime.datetime(2024, 1, 1), Decimal("100000")),
+                        (datetime.datetime(2024, 1, 2), Decimal("101000")),
+                    ],
+                    pnl_history=[
+                        (datetime.datetime(2024, 1, 1), Decimal("0")),
+                        (datetime.datetime(2024, 1, 2), Decimal("1000")),
+                    ],
+                    volume=Decimal("12000"),
+                ),
+            },
+            max_distributable=Decimal("0"),
+            max_withdrawable=Decimal("0"),
+            is_closed=False,
+            allow_deposits=True,
+            relationship_type="normal",
+            commission_rate=Decimal("0.1"),
+            leader_fraction=Decimal("0.15"),
+            leader_commission=10.0,
+        )
+        second_vault_info = VaultInfo(
+            name="Test Vault",
+            vault_address=VAULT_A,
+            leader="0x0000000000000000000000000000000000000001",
+            description="",
+            followers=[],
+            portfolio={
+                "allTime": PortfolioHistory(
+                    period="allTime",
+                    account_value_history=[
+                        (datetime.datetime(2024, 1, 1), Decimal("100000")),
+                        (datetime.datetime(2024, 1, 2), Decimal("101000")),
+                        (datetime.datetime(2024, 1, 3), Decimal("103000")),
+                    ],
+                    pnl_history=[
+                        (datetime.datetime(2024, 1, 1), Decimal("0")),
+                        (datetime.datetime(2024, 1, 2), Decimal("1000")),
+                        (datetime.datetime(2024, 1, 3), Decimal("3000")),
+                    ],
+                    volume=Decimal("15000"),
+                ),
+            },
+            max_distributable=Decimal("0"),
+            max_withdrawable=Decimal("0"),
+            is_closed=False,
+            allow_deposits=True,
+            relationship_type="normal",
+            commission_rate=Decimal("0.1"),
+            leader_fraction=Decimal("0.15"),
+            leader_commission=10.0,
+        )
+
+        fetches = iter([first_vault_info, second_vault_info])
+        monkeypatch.setattr("eth_defi.hyperliquid.daily_metrics.HyperliquidVault.fetch_info", lambda self: next(fetches))
+
+        first_summary = VaultSummary(
+            name="Test Vault",
+            vault_address=VAULT_A,
+            leader="0x0000000000000000000000000000000000000001",
+            tvl=Decimal("103000"),
+            is_closed=False,
+            relationship_type="normal",
+            create_time=datetime.datetime(2024, 1, 1),
+            apr=Decimal("50"),
+        )
+        second_summary = VaultSummary(
+            name="Test Vault",
+            vault_address=VAULT_A,
+            leader="0x0000000000000000000000000000000000000001",
+            tvl=Decimal("103000"),
+            is_closed=False,
+            relationship_type="normal",
+            create_time=datetime.datetime(2024, 1, 1),
+            apr=Decimal("55"),
+        )
+
+        assert fetch_and_store_vault(None, db, first_summary, cutoff_date=None, flow_backfill_days=0)
+        db.save()
+
+        assert fetch_and_store_vault(None, db, second_summary, cutoff_date=None, flow_backfill_days=0)
+        db.save()
+
+        prices_df = db.get_vault_daily_prices(VAULT_A)
+        assert len(prices_df) == 3
+
+        jan1 = prices_df[prices_df["date"] == pd.Timestamp("2024-01-01")].iloc[0]
+        jan2 = prices_df[prices_df["date"] == pd.Timestamp("2024-01-02")].iloc[0]
+        jan3 = prices_df[prices_df["date"] == pd.Timestamp("2024-01-03")].iloc[0]
+
+        assert pd.isna(jan1["apr"])
+        assert jan2["apr"] == pytest.approx(50.0)
+        assert jan3["apr"] == pytest.approx(55.0)
 
     finally:
         db.close()
