@@ -139,6 +139,10 @@ class TraderStatsDatabase:
             )
         """)
 
+        # Migrate existing tables: add columns introduced after initial schema
+        self.cache_con.execute("ALTER TABLE trader_metrics ADD COLUMN IF NOT EXISTS account_created_at BIGINT")
+        self.cache_con.execute("ALTER TABLE trader_metrics ADD COLUMN IF NOT EXISTS trading_time VARCHAR")
+
     def refresh_daily_pnl(self) -> int:
         """Refresh the daily PnL cache for stale traders.
 
@@ -357,6 +361,19 @@ class TraderStatsDatabase:
             ORDER BY address, trade_date
         """).df()
 
+        # Bulk hour/day-of-week distribution for trading time classification
+        hour_dow_df = self.source_con.execute("""
+            SELECT
+                f.address,
+                EXTRACT(HOUR FROM epoch_ms(f.ts))::INTEGER as hr,
+                EXTRACT(ISODOW FROM epoch_ms(f.ts))::INTEGER as dow,
+                COUNT(*) as fill_count
+            FROM fills f
+            INNER JOIN accounts a ON f.address = a.address
+            WHERE a.is_vault = FALSE
+            GROUP BY f.address, hr, dow
+        """).df()
+
         # Fetch account ages from portfolio API if session is provided
         account_ages: dict[str, int] = {}
         if session is not None:
@@ -366,14 +383,15 @@ class TraderStatsDatabase:
         metrics_rows = []
 
         for address, group in tqdm(all_daily_pnl.groupby("address"), desc="Computing metrics"):
-            row = self._compute_trader_metrics(address, group, fill_agg, deposits, account_ages)
+            row = self._compute_trader_metrics(address, group, fill_agg, deposits, account_ages, hour_dow_df)
             if row is not None:
                 metrics_rows.append(row)
 
         if metrics_rows:
             self.cache_con.execute("DELETE FROM trader_metrics")
             metrics_df = pd.DataFrame(metrics_rows)
-            self.cache_con.execute("INSERT INTO trader_metrics SELECT * FROM metrics_df")
+            cols = ", ".join(metrics_df.columns)
+            self.cache_con.execute(f"INSERT INTO trader_metrics ({cols}) SELECT {cols} FROM metrics_df")
 
         logger.info(
             "Computed metrics for %d traders (%d with CAGR, %d with Sharpe)",
@@ -390,6 +408,7 @@ class TraderStatsDatabase:
         fill_agg: pd.DataFrame,
         deposits: pd.DataFrame,
         account_ages: dict[str, int] | None = None,
+        hour_dow_df: pd.DataFrame | None = None,
     ) -> dict | None:
         """Compute metrics for a single trader from daily PnL."""
         group = daily_pnl_group.sort_values("trade_date").reset_index(drop=True)
@@ -442,6 +461,7 @@ class TraderStatsDatabase:
 
         now_ms = int(pd.Timestamp.now().timestamp() * 1000)
         created_at = account_ages.get(address) if account_ages else None
+        trading_time = self._classify_trading_time(address, hour_dow_df) if hour_dow_df is not None else None
         return {
             "address": address,
             "label": fa["label"],
@@ -460,8 +480,64 @@ class TraderStatsDatabase:
             "max_drawdown": max_dd_val,
             "calmar": calmar_val,
             "account_created_at": created_at,
+            "trading_time": trading_time,
             "computed_at": now_ms,
         }
+
+    @staticmethod
+    def _classify_trading_time(address: str, hour_dow_df: pd.DataFrame) -> str:
+        """Classify a trader's active trading schedule from fill timestamps.
+
+        Analyses the distribution of fills across hours (UTC) and days
+        of week to produce a human-readable label like ``"24/7"``,
+        ``"08-16 UTC"``, or ``"24h weekdays"``.
+
+        :param address:
+            Trader address to classify.
+        :param hour_dow_df:
+            Pre-computed DataFrame with columns ``address``, ``hr``
+            (0-23), ``dow`` (1=Mon..7=Sun), ``fill_count``.
+        :return:
+            Trading time label string.
+        """
+        trader_data = hour_dow_df.loc[hour_dow_df["address"] == address]
+        if trader_data.empty:
+            return "unknown"
+
+        total = trader_data["fill_count"].sum()
+
+        # Hour distribution: an hour is "active" if ≥1% of fills land there
+        hour_counts = trader_data.groupby("hr")["fill_count"].sum()
+        active_hours = sorted(hour_counts[hour_counts >= total * 0.01].index.tolist())
+        # Treat as "all hours" if ≥20 active or if active hours span ≥16 of 24
+        hour_span = (max(active_hours) - min(active_hours) + 1) if active_hours else 0
+        all_hours = len(active_hours) >= 20 or hour_span >= 20
+
+        # Day distribution: a day is "active" if ≥5% of fills land there
+        dow_counts = trader_data.groupby("dow")["fill_count"].sum()
+        active_days = sorted(dow_counts[dow_counts >= total * 0.05].index.tolist())
+        all_days = len(active_days) >= 7
+        weekdays_only = set(active_days) <= {1, 2, 3, 4, 5} and len(active_days) >= 4
+
+        # Build label
+        if all_hours and all_days:
+            return "24/7"
+
+        if all_hours:
+            hour_part = "24h"
+        elif active_hours:
+            hour_part = f"{min(active_hours):02d}-{(max(active_hours) + 1) % 24:02d} UTC"
+        else:
+            return "unknown"
+
+        if all_days:
+            day_part = ""
+        elif weekdays_only:
+            day_part = " weekdays"
+        else:
+            day_part = ""
+
+        return f"{hour_part}{day_part}".strip()
 
     def get_metrics(self, order_by: str = "cagr DESC NULLS LAST") -> pd.DataFrame:
         """Read computed trader metrics from cache.

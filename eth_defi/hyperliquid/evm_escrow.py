@@ -146,6 +146,14 @@ def is_account_activated(
     ``CoreDepositWallet.deposit()`` bridge actions will clear the
     EVM escrow. See :py:func:`activate_account`.
 
+    .. note::
+
+        P12: Precompile reads return stale data within the same block as a
+        CoreWriter action.  This should not affect activation checks in
+        practice because activation (``depositFor``) and deposit
+        (``CDW.deposit``) are in separate transactions, and the trade
+        executor waits for activation receipt before proceeding.
+
     Example::
 
         from eth_defi.hyperliquid.evm_escrow import is_account_activated
@@ -449,11 +457,28 @@ def activate_account_sponsored(
             raise TimeoutError(f"Account {target_address} was not activated within {timeout}s after sponsored depositFor transaction {tx_hash.hex()}")
 
 
+def _get_usdc_spot_balance(state: "SpotClearinghouseState") -> Decimal:
+    """Extract USDC spot balance from a clearinghouse state.
+
+    :param state:
+        Spot clearinghouse state from the Hyperliquid API.
+    :return:
+        USDC balance, or ``Decimal(0)`` if no USDC balance found.
+    """
+    from decimal import Decimal as D
+
+    for b in state.balances:
+        if b.coin == "USDC":
+            return b.total
+    return D(0)
+
+
 def wait_for_evm_escrow_clear(
     session: HyperliquidSession,
     user: str,
     timeout: float = 60.0,
     poll_interval: float = 2.0,
+    expected_usdc: Decimal | None = None,
 ) -> None:
     """Wait until the user's EVM escrow is empty (all bridged funds have cleared).
 
@@ -463,13 +488,19 @@ def wait_for_evm_escrow_clear(
     indicating that all ``CoreDepositWallet.deposit()`` actions have been
     processed and funds are available in the user's spot account.
 
+    P15: When ``expected_usdc`` is provided, also verifies that the user's
+    HyperCore spot USDC balance increased by at least the expected amount.
+    This provides a dual check: escrow empty **and** USDC arrived in spot.
+    Without this, a race condition where the escrow entry disappears but
+    USDC is lost (e.g. burned by a failed bridge action) would go undetected.
+
     Example::
 
         from eth_defi.hyperliquid.evm_escrow import wait_for_evm_escrow_clear
         from eth_defi.hyperliquid.session import create_hyperliquid_session
 
         session = create_hyperliquid_session()
-        wait_for_evm_escrow_clear(session, user="0xAbc...")
+        wait_for_evm_escrow_clear(session, user="0xAbc...", expected_usdc=Decimal("100"))
         # Now safe to proceed with CoreWriter actions that need spot balance
 
     :param session:
@@ -486,11 +517,37 @@ def wait_for_evm_escrow_clear(
     :param poll_interval:
         Seconds between API polls. Defaults to 2 seconds.
 
+    :param expected_usdc:
+        Optional expected USDC increase in the spot balance (human units,
+        e.g. ``Decimal("50")`` for 50 USDC). When provided, the function
+        captures the pre-existing USDC spot balance and verifies that the
+        balance increased by at least this amount after escrows clear.
+
     :raises TimeoutError:
         If the escrow does not clear within the timeout period.
     """
+    from decimal import Decimal as D
+
     deadline = time.time() + timeout
     attempt = 0
+
+    # P15: Capture baseline spot USDC balance before waiting.
+    baseline_usdc: Decimal | None = None
+    if expected_usdc is not None:
+        try:
+            baseline_state = fetch_spot_clearinghouse_state(session, user=user)
+            baseline_usdc = _get_usdc_spot_balance(baseline_state)
+            logger.info(
+                "P15: Baseline USDC spot balance for %s: %s (expecting +%s)",
+                user,
+                baseline_usdc,
+                expected_usdc,
+            )
+        except Exception as e:
+            logger.warning(
+                "P15: Could not capture baseline USDC spot balance: %s",
+                e,
+            )
 
     # Initial delay: the HyperCore API needs time to register the
     # escrow entry after the EVM transaction lands. Without this,
@@ -504,6 +561,29 @@ def wait_for_evm_escrow_clear(
         state = fetch_spot_clearinghouse_state(session, user=user)
 
         if not state.evm_escrows:
+            # P15: Additional verification — check spot balance increased.
+            if expected_usdc is not None and baseline_usdc is not None:
+                current_usdc = _get_usdc_spot_balance(state)
+                increase = current_usdc - baseline_usdc
+                # Use 1% tolerance for rounding/fee differences
+                tolerance = expected_usdc * D("0.01")
+                if increase < expected_usdc - tolerance:
+                    logger.warning(
+                        "P15: Escrow cleared but USDC spot balance increase (%s) is less than expected (%s) for %s. Baseline: %s, current: %s. Possible silent bridge failure.",
+                        increase,
+                        expected_usdc,
+                        user,
+                        baseline_usdc,
+                        current_usdc,
+                    )
+                else:
+                    logger.info(
+                        "P15: Escrow cleared AND spot USDC verified: +%s USDC (expected +%s) for %s",
+                        increase,
+                        expected_usdc,
+                        user,
+                    )
+
             logger.info(
                 "EVM escrow cleared for %s after %d poll(s)",
                 user,
