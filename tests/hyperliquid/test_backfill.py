@@ -470,6 +470,8 @@ def _make_daily_price_row(
     date: datetime.date,
     share_price: float = 1.0,
     tvl: float = 100000.0,
+    cumulative_pnl: float = 0.0,
+    daily_pnl: float = 0.0,
     is_closed: bool | None = None,
     allow_deposits: bool | None = None,
     leader_fraction: float | None = None,
@@ -481,8 +483,8 @@ def _make_daily_price_row(
         date,
         share_price,
         tvl,
-        0.0,  # cumulative_pnl
-        0.0,  # daily_pnl
+        cumulative_pnl,
+        daily_pnl,
         0.0,  # daily_return
         10,  # follower_count
         50.0,  # apr
@@ -743,6 +745,30 @@ def test_build_raw_prices_deposits_open_healthy(tmp_path):
         db.close()
 
 
+def test_build_raw_prices_includes_account_pnl(tmp_path):
+    """Raw Hyperliquid export exposes cumulative account PnL as ``account_pnl``."""
+    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
+
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        rows = [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), cumulative_pnl=0.0),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 2), share_price=1.02, tvl=102000.0, cumulative_pnl=2000.0, daily_pnl=2000.0),
+        ]
+        db.upsert_daily_prices(rows)
+        db.save()
+
+        result = build_raw_prices_dataframe(db)
+        assert "account_pnl" in result.columns
+        assert result["account_pnl"].tolist() == pytest.approx([0.0, 2000.0])
+
+    finally:
+        db.close()
+
+
 def test_build_raw_prices_deposit_closed_leader_fraction(tmp_path):
     """Leader fraction below threshold produces deposit_closed_reason with 'Leader share' message."""
     from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
@@ -852,3 +878,92 @@ def test_deposit_closed_reason_in_cleaned_data():
     assert df.iloc[3]["deposit_closed_reason"] == "Vault deposits disabled"
     # "" (unknown) → None
     assert df.iloc[4]["deposit_closed_reason"] is None
+
+
+def test_process_raw_vault_scan_data_preserves_account_pnl(tmp_path):
+    """Cleaned price data keeps Hyperliquid ``account_pnl`` intact."""
+    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe, create_hyperliquid_vault_row
+    from eth_defi.research.wrangle_vault_prices import process_raw_vault_scan_data
+
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        rows = [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), cumulative_pnl=0.0),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 2), share_price=1.01, tvl=101000.0, cumulative_pnl=1000.0, daily_pnl=1000.0),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 3), share_price=1.03, tvl=103000.0, cumulative_pnl=3000.0, daily_pnl=2000.0),
+        ]
+        db.upsert_daily_prices(rows)
+        db.save()
+
+        raw_df = build_raw_prices_dataframe(db)
+        spec, vault_row = create_hyperliquid_vault_row(
+            vault_address=VAULT_A,
+            name="Test Vault",
+            description=None,
+            tvl=103000.0,
+            create_time=datetime.datetime(2024, 1, 1),
+        )
+
+        cleaned_df = process_raw_vault_scan_data(
+            {spec: vault_row},
+            raw_df,
+            logger=lambda msg: None,
+            display=lambda _: None,
+        )
+
+        assert "account_pnl" in cleaned_df.columns
+        assert cleaned_df["account_pnl"].tolist() == pytest.approx([0.0, 1000.0, 3000.0])
+
+    finally:
+        db.close()
+
+
+def test_account_pnl_reaches_lifetime_metrics_export(tmp_path):
+    """Hyperliquid ``account_pnl`` reaches lifetime metrics and JSON export."""
+    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe, create_hyperliquid_vault_row
+    from eth_defi.research.vault_metrics import calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics, export_lifetime_row
+    from eth_defi.research.wrangle_vault_prices import process_raw_vault_scan_data
+
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+
+        rows = [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), cumulative_pnl=0.0),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 2), share_price=1.01, tvl=101000.0, cumulative_pnl=1000.0, daily_pnl=1000.0),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 3), share_price=1.03, tvl=103000.0, cumulative_pnl=3000.0, daily_pnl=2000.0),
+        ]
+        db.upsert_daily_prices(rows)
+        db.save()
+
+        raw_df = build_raw_prices_dataframe(db)
+        spec, vault_row = create_hyperliquid_vault_row(
+            vault_address=VAULT_A,
+            name="Test Vault",
+            description=None,
+            tvl=103000.0,
+            create_time=datetime.datetime(2024, 1, 1),
+        )
+
+        cleaned_df = process_raw_vault_scan_data(
+            {spec: vault_row},
+            raw_df,
+            logger=lambda msg: None,
+            display=lambda _: None,
+        )
+        returns_df = calculate_hourly_returns_for_all_vaults(cleaned_df)
+        lifetime_df = calculate_lifetime_metrics(returns_df, {spec: vault_row})
+
+        assert len(lifetime_df) == 1
+        row = lifetime_df.iloc[0]
+        assert row["account_pnl"] == pytest.approx(3000.0)
+
+        exported = export_lifetime_row(row)
+        assert exported["account_pnl"] == pytest.approx(3000.0)
+
+    finally:
+        db.close()

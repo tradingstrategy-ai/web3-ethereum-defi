@@ -277,6 +277,10 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
     from forward-filled ``is_closed``, ``allow_deposits``, and
     ``leader_fraction`` state columns in the DuckDB.
 
+    Also exposes Hyperliquid's raw cumulative account PnL as
+    ``account_pnl`` so downstream consumers can compare the website-style
+    account PnL against the cleaned share-price based return series.
+
     :param db:
         The Hyperliquid daily metrics database.
     :return:
@@ -320,6 +324,7 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
             "timestamp": pd.to_datetime(prices_df["date"]).values,
             "share_price": prices_df["share_price"].values,
             "total_assets": prices_df["tvl"].values,
+            "account_pnl": prices_df["cumulative_pnl"].values if "cumulative_pnl" in prices_df.columns else float("nan"),
             "total_supply": 0.0,
             "performance_fee": 0.0,
             "management_fee": 0.0,
