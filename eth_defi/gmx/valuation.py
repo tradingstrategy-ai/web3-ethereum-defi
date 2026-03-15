@@ -46,6 +46,7 @@ from web3 import Web3
 
 from eth_defi.gmx.constants import PRECISION
 from eth_defi.gmx.contracts import (
+    NETWORK_TOKENS_METADATA,
     get_contract_addresses,
     get_reader_contract,
     get_tokens_metadata_dict,
@@ -221,6 +222,13 @@ def _fetch_gmx_positions_value(
     # Fetch market→index token mapping, token metadata, and oracle prices once
     market_to_index = _fetch_market_index_tokens(reader, addresses.datastore, block_identifier)
     chain_tokens = get_tokens_metadata_dict(chain)
+
+    # Merge NETWORK_TOKENS_METADATA fallback for tokens missing from the GMX API
+    # (same pattern as GetOpenPositions._get_tokens_address_dict)
+    if chain in NETWORK_TOKENS_METADATA:
+        for address, metadata in NETWORK_TOKENS_METADATA[chain].items():
+            if address not in chain_tokens:
+                chain_tokens[address] = metadata
     oracle = OraclePrices(chain=chain)
     oracle_prices = oracle.get_recent_prices()
 
