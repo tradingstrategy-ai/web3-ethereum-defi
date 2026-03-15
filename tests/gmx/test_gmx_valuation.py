@@ -15,7 +15,7 @@ from web3 import HTTPProvider, Web3
 
 from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
-from eth_defi.gmx.valuation import fetch_gmx_total_equity
+from eth_defi.gmx.valuation import GMXEquity, fetch_gmx_total_equity
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.token import fetch_erc20_details
 
@@ -27,8 +27,12 @@ pytestmark = pytest.mark.skipif(
 #: Arbitrum USDC (native) address
 USDC_ADDRESS = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
 
-#: A known account that holds USDC on Arbitrum at the fork block
+#: A known account that holds USDC on Arbitrum at the fork block but has no GMX positions
 KNOWN_USDC_HOLDER = "0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055"
+
+#: A known account with open GMX positions and USDC reserves at the fork block.
+#: Has 9 USDC-collateralised positions across multiple markets.
+ACCOUNT_WITH_POSITIONS = "0x1640e916e10610Ba39aAC5Cd8a08acF3cCae1A4c"
 
 #: Fixed fork block for deterministic tests
 FORK_BLOCK = 401_729_535
@@ -67,39 +71,57 @@ def usdc(web3):
 def test_fetch_gmx_total_equity_no_positions(web3, usdc):
     """Test equity for an account with USDC reserves and no GMX positions.
 
-    At block 401_729_535, the known USDC holder has a deterministic balance.
+    At block 401_729_535, the USDC whale has ~$294M USDC and zero GMX positions.
+    Positions subtotal should be zero; total equals reserves.
     """
-    equity = fetch_gmx_total_equity(
+    result = fetch_gmx_total_equity(
         web3=web3,
         account=KNOWN_USDC_HOLDER,
-        denomination_token=usdc,
         reserve_tokens=[usdc],
     )
-    assert isinstance(equity, Decimal)
-    assert equity == pytest.approx(Decimal("294_462_201.855947"), rel=Decimal("0.001"))
+    assert isinstance(result, GMXEquity)
+    assert result.reserves == pytest.approx(Decimal("294_462_201.855947"), rel=Decimal("0.001"))
+    assert result.positions == Decimal(0)
+    assert result.get_total() == result.reserves
 
 
-def test_fetch_gmx_total_equity_at_block(web3, usdc):
-    """Test equity at the fork block explicitly passed as block_identifier."""
-    equity = fetch_gmx_total_equity(
+def test_fetch_gmx_total_equity_with_positions(web3, usdc):
+    """Test equity for an account with USDC reserves AND open GMX positions.
+
+    At block 401_729_535, this account has ~$978K USDC in wallet and
+    9 USDC-collateralised perpetual positions with ~$272K total collateral.
+    Position values include unrealised PnL so positions > collateral alone.
+
+    Note: PnL uses live oracle prices, so positions value is approximate
+    while reserves are deterministic.
+    """
+    result = fetch_gmx_total_equity(
         web3=web3,
-        account=KNOWN_USDC_HOLDER,
-        denomination_token=usdc,
+        account=ACCOUNT_WITH_POSITIONS,
         reserve_tokens=[usdc],
-        block_identifier=FORK_BLOCK,
     )
-    assert isinstance(equity, Decimal)
-    assert equity == pytest.approx(Decimal("294_462_201.855947"), rel=Decimal("0.001"))
+    assert isinstance(result, GMXEquity)
+
+    # Reserves are deterministic at the fork block
+    assert result.reserves == pytest.approx(Decimal("978_163.293624"), rel=Decimal("0.001"))
+
+    # Positions must be positive (collateral alone is ~$272K)
+    assert result.positions > Decimal("200_000")
+
+    # Total = reserves + positions
+    assert result.get_total() == result.reserves + result.positions
+    assert result.get_total() > Decimal("1_100_000")
 
 
 def test_fetch_gmx_total_equity_empty_account(web3, usdc):
     """Test equity for an account with no reserves and no positions returns zero."""
     empty_account = "0xdead000000000000000000000000000000000042"
 
-    equity = fetch_gmx_total_equity(
+    result = fetch_gmx_total_equity(
         web3=web3,
         account=empty_account,
-        denomination_token=usdc,
         reserve_tokens=[usdc],
     )
-    assert equity == Decimal(0)
+    assert result.reserves == Decimal(0)
+    assert result.positions == Decimal(0)
+    assert result.get_total() == Decimal(0)

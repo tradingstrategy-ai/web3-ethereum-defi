@@ -8,6 +8,8 @@ positions.
 - Position data (collateral, size) is read on-chain at the requested
   ``block_identifier``
 - Oracle prices use the live GMX signed-prices API (not historical)
+- Designed for USDC-collateralised accounts — collateral and PnL are
+  both in USD terms
 
 Example:
 
@@ -20,20 +22,22 @@ Example:
     web3 = create_multi_provider_web3(os.environ["JSON_RPC_ARBITRUM"])
     usdc = fetch_erc20_details(web3, "0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
 
-    equity = fetch_gmx_total_equity(
+    result = fetch_gmx_total_equity(
         web3=web3,
         account="0x...",
-        denomination_token=usdc,
         reserve_tokens=[usdc],
         block_identifier=280_000_000,
     )
+    print(f"Reserves: {result.reserves}, Positions: {result.positions}")
+    print(f"Total: {result.get_total()}")
 """
 
 import logging
+from dataclasses import dataclass
 from decimal import Decimal
 
-import numpy as np
 from eth_typing import BlockIdentifier, HexAddress
+from eth_utils import to_checksum_address
 from web3 import Web3
 
 from eth_defi.gmx.constants import PRECISION
@@ -48,18 +52,40 @@ from eth_defi.token import TokenDetails
 logger = logging.getLogger(__name__)
 
 
+@dataclass(slots=True)
+class GMXEquity:
+    """Equity breakdown for a GMX trading account.
+
+    See :py:func:`fetch_gmx_total_equity`.
+    """
+
+    #: Sum of ERC-20 reserve token balances (e.g. USDC in the wallet)
+    reserves: Decimal
+
+    #: Sum of open GMX position values (collateral + unrealised PnL)
+    positions: Decimal
+
+    def get_total(self) -> Decimal:
+        """Total equity = reserves + positions."""
+        return self.reserves + self.positions
+
+
 def fetch_gmx_total_equity(
     web3: Web3,
     account: HexAddress | str,
-    denomination_token: TokenDetails,
     reserve_tokens: list[TokenDetails],
     block_identifier: BlockIdentifier = "latest",
     chain: str = "arbitrum",
-) -> Decimal:
+) -> GMXEquity:
     """Calculate the total equity of a GMX trading account.
 
-    Total equity = wallet reserve balances + GMX position values
-    (collateral + unrealised PnL).
+    Returns a :class:`GMXEquity` dataclass with separate ``reserves``
+    and ``positions`` subtotals.  Call :meth:`GMXEquity.get_total` for
+    the combined figure.
+
+    Designed for USDC-collateralised accounts where both collateral
+    amounts and PnL are in USD terms.  Reserve token balances are
+    summed directly — the caller controls which tokens to include.
 
     - Reserve balances and position data are read on-chain at the given
       ``block_identifier`` (requires an archive node for historical blocks).
@@ -74,10 +100,6 @@ def fetch_gmx_total_equity(
     :param account:
         Wallet address that holds the reserves and GMX positions.
 
-    :param denomination_token:
-        The token in which equity is denominated (e.g. USDC).
-        Used to convert collateral amounts to a common unit.
-
     :param reserve_tokens:
         List of ``TokenDetails`` whose ``balanceOf(account)`` should be
         included in the reserve total.
@@ -89,8 +111,7 @@ def fetch_gmx_total_equity(
         GMX chain name (``"arbitrum"``, ``"avalanche"``).
 
     :return:
-        Total equity as a :class:`~decimal.Decimal` in denomination-token
-        units (e.g. ``Decimal("15234.56")`` for $15 234.56 USDC).
+        :class:`GMXEquity` with reserves and positions subtotals.
     """
     account = Web3.to_checksum_address(account)
 
@@ -110,35 +131,57 @@ def fetch_gmx_total_equity(
     positions_total = _fetch_gmx_positions_value(
         web3=web3,
         account=account,
-        denomination_token=denomination_token,
         block_identifier=block_identifier,
         chain=chain,
     )
 
-    total_equity = reserves_total + positions_total
     logger.info(
         "Total equity for %s: reserves=%s, positions=%s, total=%s",
         account,
         reserves_total,
         positions_total,
-        total_equity,
+        reserves_total + positions_total,
     )
-    return total_equity
+    return GMXEquity(reserves=reserves_total, positions=positions_total)
+
+
+def _fetch_market_index_tokens(
+    reader,
+    datastore_address: str,
+    block_identifier: BlockIdentifier,
+) -> dict[str, str]:
+    """Build a market_address → index_token_address mapping from on-chain data.
+
+    Calls ``Reader.getMarkets()`` directly — the same RPC call that
+    :class:`~eth_defi.gmx.core.markets.Markets` uses internally, but
+    without requiring a ``GMXConfig`` object.
+
+    :return:
+        Dict mapping checksummed market address to checksummed index token address.
+    """
+    raw_markets = reader.functions.getMarkets(datastore_address, 0, 115).call(block_identifier=block_identifier)
+
+    market_to_index: dict[str, str] = {}
+    for raw_market in raw_markets:
+        market_addr = to_checksum_address(raw_market[0])
+        index_token = to_checksum_address(raw_market[1])
+        market_to_index[market_addr] = index_token
+
+    return market_to_index
 
 
 def _fetch_gmx_positions_value(
     web3: Web3,
     account: HexAddress,
-    denomination_token: TokenDetails,
     block_identifier: BlockIdentifier,
     chain: str,
 ) -> Decimal:
     """Read all open GMX positions and calculate their total value.
 
-    Value per position = collateral (in denomination token) + unrealised PnL.
+    Value per position = collateral + unrealised PnL (both in USD terms).
 
     :return:
-        Sum of all position values in denomination-token units.
+        Sum of all position values.
     """
     reader = get_reader_contract(web3, chain)
     addresses = get_contract_addresses(chain)
@@ -149,7 +192,8 @@ def _fetch_gmx_positions_value(
         logger.info("No open GMX positions for %s", account)
         return Decimal(0)
 
-    # Fetch token metadata and oracle prices once for all positions
+    # Fetch market→index token mapping, token metadata, and oracle prices once
+    market_to_index = _fetch_market_index_tokens(reader, addresses.datastore, block_identifier)
     chain_tokens = get_tokens_metadata_dict(chain)
     oracle = OraclePrices(chain=chain)
     oracle_prices = oracle.get_recent_prices()
@@ -160,9 +204,9 @@ def _fetch_gmx_positions_value(
         try:
             value = _calculate_position_value(
                 raw_position=raw_position,
-                denomination_token=denomination_token,
                 chain_tokens=chain_tokens,
                 oracle_prices=oracle_prices,
+                market_to_index=market_to_index,
             )
             positions_total += value
         except Exception as e:
@@ -174,30 +218,30 @@ def _fetch_gmx_positions_value(
 
 def _calculate_position_value(
     raw_position: tuple,
-    denomination_token: TokenDetails,
     chain_tokens: dict,
     oracle_prices: dict,
+    market_to_index: dict[str, str],
 ) -> Decimal:
     """Calculate the value of a single GMX position.
 
     :return:
-        Position value (collateral + unrealised PnL) in denomination-token units.
+        Position value (collateral + unrealised PnL) in USD terms.
     """
     # Unpack raw position structure:
     # raw_position[0] = Addresses (account, market, collateralToken)
     # raw_position[1] = Numbers (sizeInUsd, sizeInTokens, collateralAmount, ...)
     # raw_position[2] = Flags (isLong,)
-    collateral_token_address = raw_position[0][2]
+    market_address = to_checksum_address(raw_position[0][1])
+    collateral_token_address = to_checksum_address(raw_position[0][2])
     size_in_usd = raw_position[1][0]  # 30-decimal precision
     size_in_tokens = raw_position[1][1]
     collateral_amount_raw = raw_position[1][2]
     is_long = raw_position[2][0]
 
     # Get collateral token decimals
-    collateral_token_address_cs = Web3.to_checksum_address(collateral_token_address)
-    if collateral_token_address_cs not in chain_tokens:
-        raise KeyError(f"Collateral token {collateral_token_address_cs} not found in token metadata")
-    collateral_decimals = chain_tokens[collateral_token_address_cs]["decimals"]
+    if collateral_token_address not in chain_tokens:
+        raise KeyError(f"Collateral token {collateral_token_address} not found in token metadata")
+    collateral_decimals = chain_tokens[collateral_token_address]["decimals"]
 
     # Convert collateral to decimal
     collateral_amount = Decimal(collateral_amount_raw) / Decimal(10**collateral_decimals)
@@ -206,22 +250,19 @@ def _calculate_position_value(
     if size_in_usd == 0 or size_in_tokens == 0:
         return collateral_amount
 
-    # Calculate entry price from position data (both at 30-decimal precision)
-    # entry_price = sizeInUsd / sizeInTokens, then adjust for token decimals
-    # Get index token info from the market
-    # For the index token, we need to find it from the market info
-    # The market address is raw_position[0][1]
-    market_address = Web3.to_checksum_address(raw_position[0][1])
+    # Resolve index token from on-chain market data
+    index_token_address = market_to_index.get(market_address)
+    if index_token_address is None:
+        logger.warning("Market %s not found in on-chain markets, returning collateral only", market_address)
+        return collateral_amount
 
-    # Find index token for this market from GMX markets API
-    index_token_address = _find_index_token_for_market(market_address, chain_tokens, oracle_prices)
-
-    if index_token_address and index_token_address in chain_tokens:
+    if index_token_address in chain_tokens:
         index_token_decimals = chain_tokens[index_token_address]["decimals"]
     else:
         # Fallback: assume 18 decimals (ETH, most tokens)
         index_token_decimals = 18
 
+    # Calculate entry price (both values at 30-decimal precision)
     entry_price = (Decimal(size_in_usd) / Decimal(size_in_tokens)) / Decimal(10 ** (PRECISION - index_token_decimals))
 
     # Get mark price from oracle
@@ -232,7 +273,6 @@ def _calculate_position_value(
     )
 
     if mark_price is None:
-        # Cannot determine mark price — return just collateral
         logger.warning("No oracle price for index token %s, returning collateral only", index_token_address)
         return collateral_amount
 
@@ -244,12 +284,10 @@ def _calculate_position_value(
     else:
         pnl_usd = (entry_price - mark_price) * size_in_tokens_decimal
 
-    # Position value = collateral + PnL
-    # Both collateral and PnL are in USD terms when collateral is USDC
     position_value = collateral_amount + pnl_usd
 
     logger.info(
-        "Position market=%s is_long=%s collateral=%s entry_price=%s mark_price=%s pnl=%s value=%s",
+        "Position market=%s is_long=%s collateral=%s entry=%s mark=%s pnl=%s value=%s",
         market_address,
         is_long,
         collateral_amount,
@@ -262,35 +300,9 @@ def _calculate_position_value(
     return position_value
 
 
-def _find_index_token_for_market(
-    market_address: str,
-    chain_tokens: dict,
-    oracle_prices: dict,
-) -> str | None:
-    """Try to find the index token address for a GMX market.
-
-    Uses the GMX markets API to resolve market → index token mapping.
-
-    :return:
-        Index token address (checksummed) or ``None`` if not found.
-    """
-    try:
-        from eth_defi.gmx.core.markets import Markets
-
-        markets = Markets(chain="arbitrum")
-        available = markets.get_available_markets()
-
-        if market_address in available:
-            return available[market_address].get("index_token_address")
-    except Exception as e:
-        logger.warning("Failed to resolve index token for market %s: %s", market_address, e)
-
-    return None
-
-
 def _get_mark_price(
     oracle_prices: dict,
-    index_token_address: str | None,
+    index_token_address: str,
     index_token_decimals: int,
 ) -> Decimal | None:
     """Get the current mark price for a token from GMX oracle data.
@@ -298,9 +310,6 @@ def _get_mark_price(
     :return:
         Mark price as :class:`~decimal.Decimal`, or ``None`` if unavailable.
     """
-    if index_token_address is None:
-        return None
-
     # Case-insensitive lookup
     price_data = None
     for addr, data in oracle_prices.items():
