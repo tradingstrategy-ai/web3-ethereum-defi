@@ -2,8 +2,8 @@
 
 Reads from the trade history database (fills, funding, ledger) and
 maintains a cache of daily PnL and computed performance metrics
-(CAGR, Sharpe, Sortino, Calmar, max drawdown, trades/day, etc.)
-in a separate DuckDB file.
+(CAGR, Sharpe, Sortino, Calmar, max drawdown, trades/day,
+mean/max position duration, etc.) in a separate DuckDB file.
 
 Incremental: only recomputes traders whose source data has changed
 since the last run, making repeated analysis fast.
@@ -142,6 +142,8 @@ class TraderStatsDatabase:
         # Migrate existing tables: add columns introduced after initial schema
         self.cache_con.execute("ALTER TABLE trader_metrics ADD COLUMN IF NOT EXISTS account_created_at BIGINT")
         self.cache_con.execute("ALTER TABLE trader_metrics ADD COLUMN IF NOT EXISTS trading_time VARCHAR")
+        self.cache_con.execute("ALTER TABLE trader_metrics ADD COLUMN IF NOT EXISTS mean_position_duration_hours DOUBLE")
+        self.cache_con.execute("ALTER TABLE trader_metrics ADD COLUMN IF NOT EXISTS max_position_duration_hours DOUBLE")
 
     def refresh_daily_pnl(self) -> int:
         """Refresh the daily PnL cache for stale traders.
@@ -374,6 +376,35 @@ class TraderStatsDatabase:
             GROUP BY f.address, hr, dow
         """).df()
 
+        # Position duration: group fills into position periods per coin,
+        # starting a new period each time start_position ≈ 0.
+        position_durations = self.source_con.execute("""
+            WITH position_groups AS (
+                SELECT
+                    f.address, f.coin, f.ts,
+                    SUM(CASE WHEN ABS(f.start_position) < 1e-8 THEN 1 ELSE 0 END)
+                        OVER (PARTITION BY f.address, f.coin ORDER BY f.ts, f.trade_id) as pos_group
+                FROM fills f
+                INNER JOIN accounts a ON f.address = a.address
+                WHERE a.is_vault = FALSE
+            ),
+            per_position AS (
+                SELECT
+                    address,
+                    (MAX(ts) - MIN(ts)) / (1000.0 * 3600) as duration_hours
+                FROM position_groups
+                GROUP BY address, coin, pos_group
+                HAVING COUNT(*) > 1
+            )
+            SELECT
+                address,
+                AVG(duration_hours) as mean_position_duration_hours,
+                MAX(duration_hours) as max_position_duration_hours
+            FROM per_position
+            WHERE duration_hours > 0
+            GROUP BY address
+        """).df()
+
         # Fetch account ages from portfolio API if session is provided
         account_ages: dict[str, int] = {}
         if session is not None:
@@ -383,7 +414,7 @@ class TraderStatsDatabase:
         metrics_rows = []
 
         for address, group in tqdm(all_daily_pnl.groupby("address"), desc="Computing metrics"):
-            row = self._compute_trader_metrics(address, group, fill_agg, deposits, account_ages, hour_dow_df)
+            row = self._compute_trader_metrics(address, group, fill_agg, deposits, account_ages, hour_dow_df, position_durations)
             if row is not None:
                 metrics_rows.append(row)
 
@@ -409,6 +440,7 @@ class TraderStatsDatabase:
         deposits: pd.DataFrame,
         account_ages: dict[str, int] | None = None,
         hour_dow_df: pd.DataFrame | None = None,
+        position_durations: pd.DataFrame | None = None,
     ) -> dict | None:
         """Compute metrics for a single trader from daily PnL."""
         group = daily_pnl_group.sort_values("trade_date").reset_index(drop=True)
@@ -462,6 +494,15 @@ class TraderStatsDatabase:
         now_ms = int(pd.Timestamp.now().timestamp() * 1000)
         created_at = account_ages.get(address) if account_ages else None
         trading_time = self._classify_trading_time(address, hour_dow_df) if hour_dow_df is not None else None
+
+        mean_pos_dur = None
+        max_pos_dur = None
+        if position_durations is not None:
+            dur_row = position_durations.loc[position_durations["address"] == address]
+            if not dur_row.empty:
+                mean_pos_dur = float(dur_row.iloc[0]["mean_position_duration_hours"])
+                max_pos_dur = float(dur_row.iloc[0]["max_position_duration_hours"])
+
         return {
             "address": address,
             "label": fa["label"],
@@ -481,6 +522,8 @@ class TraderStatsDatabase:
             "calmar": calmar_val,
             "account_created_at": created_at,
             "trading_time": trading_time,
+            "mean_position_duration_hours": mean_pos_dur,
+            "max_position_duration_hours": max_pos_dur,
             "computed_at": now_ms,
         }
 
