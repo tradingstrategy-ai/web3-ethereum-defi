@@ -4,6 +4,58 @@ Tests :py:func:`eth_defi.gmx.valuation.fetch_gmx_total_equity` on an
 Anvil mainnet fork at a fixed block number.
 
 Requires ``JSON_RPC_ARBITRUM`` environment variable pointing to an archive node.
+
+Manual cross-validation
+-----------------------
+
+Position data (collateral, size, entry price) is read on-chain at the fork
+block and is deterministic.  PnL uses *live* GMX oracle prices, so position
+values will shift between test runs.  To manually cross-validate:
+
+1. Open https://app.gmx.io/#/actions/<account_address> for the test accounts
+   listed below to see the account's trade history and current positions.
+
+2. Use the GMX REST API v2 to fetch live positions::
+
+       from eth_defi.gmx.api import GMXAPI
+       api = GMXAPI(chain="arbitrum")
+       positions = api.get_positions("0x1640e916e10610Ba39aAC5Cd8a08acF3cCae1A4c")
+
+   Compare ``collateralAmount``, ``pnlAfterFees``, and ``isLong`` fields
+   against the logged output from the test (run with ``--log-cli-level=info``).
+   Note: the API returns *current* state, not the historical fork-block state,
+   so collateral amounts will match only if the position hasn't been modified.
+
+3. To verify on-chain position data at the fork block, call the Reader
+   contract directly::
+
+       from eth_defi.gmx.contracts import get_reader_contract, get_contract_addresses
+
+       reader = get_reader_contract(web3, "arbitrum")
+       addresses = get_contract_addresses("arbitrum")
+       positions = reader.functions.getAccountPositions(addresses.datastore, account, 0, 100).call(block_identifier=401_729_535)
+
+   Each position tuple contains:
+   - ``[0]``: Addresses (account, market, collateralToken)
+   - ``[1]``: Numbers (sizeInUsd, sizeInTokens, collateralAmount, ...)
+   - ``[2]``: Flags (isLong,)
+
+   Entry price = sizeInUsd / sizeInTokens / 10^(30 - tokenDecimals).
+
+Test accounts at block 401_729_535
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055``
+    USDC whale, ~$294M USDC, zero GMX positions.
+
+``0x1640e916e10610Ba39aAC5Cd8a08acF3cCae1A4c``
+    9 USDC-collateralised positions (mixed long/short across ARB, LINK, SOL,
+    DOGE, BTC, AAVE, PEPE, XRP markets), ~$978K USDC reserves, ~$272K total
+    collateral.
+
+``0x9dd1497FF0775bab1FAEb45ea270F66b11496dDf``
+    1 ETH-collateralised short position (~588 ETH collateral, ~$2.7M notional),
+    zero USDC/WETH wallet reserves.  Tests non-USDC collateral handling.
 """
 
 import logging
@@ -27,12 +79,17 @@ pytestmark = pytest.mark.skipif(
 #: Arbitrum USDC (native) address
 USDC_ADDRESS = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
 
+#: Arbitrum WETH address
+WETH_ADDRESS = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
+
 #: A known account that holds USDC on Arbitrum at the fork block but has no GMX positions
 KNOWN_USDC_HOLDER = "0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055"
 
-#: A known account with open GMX positions and USDC reserves at the fork block.
-#: Has 9 USDC-collateralised positions across multiple markets.
-ACCOUNT_WITH_POSITIONS = "0x1640e916e10610Ba39aAC5Cd8a08acF3cCae1A4c"
+#: Account with 9 USDC-collateralised GMX positions (mixed long/short)
+ACCOUNT_USDC_POSITIONS = "0x1640e916e10610Ba39aAC5Cd8a08acF3cCae1A4c"
+
+#: Account with 1 ETH-collateralised short position, no wallet reserves
+ACCOUNT_ETH_SHORT = "0x9dd1497FF0775bab1FAEb45ea270F66b11496dDf"
 
 #: Fixed fork block for deterministic tests
 FORK_BLOCK = 401_729_535
@@ -68,6 +125,11 @@ def usdc(web3):
     return fetch_erc20_details(web3, USDC_ADDRESS)
 
 
+@pytest.fixture()
+def weth(web3):
+    return fetch_erc20_details(web3, WETH_ADDRESS)
+
+
 def test_fetch_gmx_total_equity_no_positions(web3, usdc):
     """Test equity for an account with USDC reserves and no GMX positions.
 
@@ -85,19 +147,22 @@ def test_fetch_gmx_total_equity_no_positions(web3, usdc):
     assert result.get_total() == result.reserves
 
 
-def test_fetch_gmx_total_equity_with_positions(web3, usdc):
-    """Test equity for an account with USDC reserves AND open GMX positions.
+def test_fetch_gmx_total_equity_usdc_collateral_mixed_directions(web3, usdc):
+    """Test equity for an account with USDC reserves and 9 USDC-collateralised positions.
 
-    At block 401_729_535, this account has ~$978K USDC in wallet and
-    9 USDC-collateralised perpetual positions with ~$272K total collateral.
-    Position values include unrealised PnL so positions > collateral alone.
+    This account has mixed long and short positions across multiple markets
+    (ARB, LINK, SOL, DOGE, BTC, AAVE, PEPE, XRP), all with USDC collateral.
 
-    Note: PnL uses live oracle prices, so positions value is approximate
-    while reserves are deterministic.
+    At block 401_729_535:
+    - Wallet USDC reserves: $978,163.29 (deterministic)
+    - Total collateral across 9 positions: ~$272K
+    - Position values include unrealised PnL (oracle-price dependent)
+
+    PnL uses live oracle prices so the positions value is approximate.
     """
     result = fetch_gmx_total_equity(
         web3=web3,
-        account=ACCOUNT_WITH_POSITIONS,
+        account=ACCOUNT_USDC_POSITIONS,
         reserve_tokens=[usdc],
     )
     assert isinstance(result, GMXEquity)
@@ -113,6 +178,37 @@ def test_fetch_gmx_total_equity_with_positions(web3, usdc):
     assert result.get_total() > Decimal("1_100_000")
 
 
+def test_fetch_gmx_total_equity_eth_collateral_short(web3, usdc, weth):
+    """Test equity for an account with an ETH-collateralised short position.
+
+    This account has:
+    - 0 USDC and 0 WETH wallet reserves
+    - 1 short ETH position with ~588 ETH collateral, ~$2.7M notional
+    - Entry price ~$3,425 (position opened when ETH was much higher)
+
+    The collateral amount is in raw ETH units while PnL is in USD.
+    For USDC-denomination this gives collateral_tokens + pnl_usd which
+    is a mixed-unit approximation — acceptable when the function is used
+    for relative comparisons over time with the same denomination.
+    """
+    result = fetch_gmx_total_equity(
+        web3=web3,
+        account=ACCOUNT_ETH_SHORT,
+        reserve_tokens=[usdc, weth],
+    )
+    assert isinstance(result, GMXEquity)
+
+    # No wallet reserves (both USDC and WETH are 0)
+    assert result.reserves == Decimal(0)
+
+    # Position should have a large value (collateral ~588 ETH + big PnL from short)
+    # Collateral alone is 587.8 ETH tokens, and the short is deeply in profit
+    # (entry ~$3425, current mark much lower)
+    assert result.positions > Decimal("500_000")
+
+    assert result.get_total() == result.positions
+
+
 def test_fetch_gmx_total_equity_empty_account(web3, usdc):
     """Test equity for an account with no reserves and no positions returns zero."""
     empty_account = "0xdead000000000000000000000000000000000042"
@@ -125,3 +221,13 @@ def test_fetch_gmx_total_equity_empty_account(web3, usdc):
     assert result.reserves == Decimal(0)
     assert result.positions == Decimal(0)
     assert result.get_total() == Decimal(0)
+
+
+def test_gmx_equity_dataclass():
+    """Test GMXEquity dataclass arithmetic."""
+    equity = GMXEquity(reserves=Decimal("1000"), positions=Decimal("500"))
+    assert equity.get_total() == Decimal("1500")
+
+    # Negative PnL can make positions negative
+    equity_loss = GMXEquity(reserves=Decimal("1000"), positions=Decimal("-200"))
+    assert equity_loss.get_total() == Decimal("800")

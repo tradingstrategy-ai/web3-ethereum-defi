@@ -15,6 +15,7 @@ Example:
 
 .. code-block:: python
 
+    import os
     from eth_defi.provider.multi_provider import create_multi_provider_web3
     from eth_defi.token import fetch_erc20_details
     from eth_defi.gmx.valuation import fetch_gmx_total_equity
@@ -22,14 +23,17 @@ Example:
     web3 = create_multi_provider_web3(os.environ["JSON_RPC_ARBITRUM"])
     usdc = fetch_erc20_details(web3, "0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
 
+    # Account 0x1640... has 9 USDC-collateralised GMX positions (mixed long/short)
+    # and ~$978K USDC wallet reserves at block 401_729_535.
     result = fetch_gmx_total_equity(
         web3=web3,
-        account="0x...",
+        account="0x1640e916e10610Ba39aAC5Cd8a08acF3cCae1A4c",
         reserve_tokens=[usdc],
-        block_identifier=280_000_000,
+        block_identifier=401_729_535,
     )
-    print(f"Reserves: {result.reserves}, Positions: {result.positions}")
-    print(f"Total: {result.get_total()}")
+    # result.reserves ≈ Decimal("978163.29")  (deterministic at this block)
+    # result.positions ≈ Decimal("600000")    (collateral ~$272K + PnL, oracle-price dependent)
+    # result.get_total() ≈ Decimal("1578000") (reserves + positions)
 """
 
 import logging
