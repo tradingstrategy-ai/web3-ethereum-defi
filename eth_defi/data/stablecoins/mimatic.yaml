@@ -1,7 +1,8 @@
 symbol: MIMATIC
 name: MAI (QiDAO)
-description: MAI (MIMATIC) is a decentralised stablecoin issued by QiDAO on multiple chains. It is overcollateralised by various crypto assets with interest-free borrowing. MAI is one of the most widely
+short_description: MAI (MIMATIC) is a decentralised stablecoin issued by QiDAO on multiple chains. It is overcollateralised by various crypto assets with interest-free borrowing. MAI is one of the most widely
   deployed multi-chain stablecoins.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://www.mai.finance/

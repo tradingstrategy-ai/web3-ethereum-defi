@@ -1,7 +1,8 @@
 symbol: USD₮0
 name: Tether USD₮0
-description: USD₮0 is a variant of Tether's USDT stablecoin with a Unicode symbol representation. It is functionally equivalent to USDT and backed by Tether's reserves. The symbol variant appears on certain
+short_description: USD₮0 is a variant of Tether's USDT stablecoin with a Unicode symbol representation. It is functionally equivalent to USDT and backed by Tether's reserves. The symbol variant appears on certain
   chains and exchanges.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://tether.to/

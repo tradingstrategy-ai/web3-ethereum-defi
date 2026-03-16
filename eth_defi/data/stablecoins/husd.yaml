@@ -1,7 +1,8 @@
 symbol: HUSD
 name: HUSD (Stable Universal)
-description: HUSD was a USD-backed stablecoin issued by Stable Universal and associated with the Huobi exchange. It was fully backed by US dollar reserves. HUSD has been deprecated and is no longer actively
+short_description: HUSD was a USD-backed stablecoin issued by Stable Universal and associated with the Huobi exchange. It was fully backed by US dollar reserves. HUSD has been deprecated and is no longer actively
   maintained.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://www.stableuniversal.com/

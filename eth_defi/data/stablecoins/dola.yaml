@@ -1,9 +1,10 @@
 symbol: DOLA
 name: DOLA (Inverse Finance)
-description: |
+short_description: |
   DOLA is a decentralised stablecoin issued by Inverse Finance on Ethereum. It is backed by
   various crypto collateral through the FiRM fixed-rate lending market. DOLA uses a Fed-style
   monetary policy with protocol-controlled supply expansion and contraction.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://www.inverse.finance/

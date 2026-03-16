@@ -1,7 +1,13 @@
 symbol: vbUSDC
 name: Vault Bridge Bridged USDC (Katana)
-description: vbUSDC is a bridged version of USDC on the Katana (Ronin) network via Vault Bridge. It represents USDC locked on Ethereum and bridged to Ronin. vbUSDC is used within the Ronin ecosystem for
+short_description: vbUSDC is a bridged version of USDC on the Katana (Ronin) network via Vault Bridge. It represents USDC locked on Ethereum and bridged to Ronin. vbUSDC is used within the Ronin ecosystem for
   DeFi and gaming.
+long_description: |
+  vbUSDC is a bridged version of USDC on the [Katana](https://katana.network/) network via Vault Bridge,
+  which is managed by Katana using [AggLayer's](https://agglayer.dev/) bridge infrastructure.
+  It represents USDC locked on Ethereum and bridged to Katana.
+
+  For more information, see the [Katana chain page](https://tradingstrategy.ai/trading-view/vaults/chains/katana).
 category: stablecoin
 links:
   homepage: ''

@@ -1,7 +1,8 @@
 symbol: sUSG
 name: Staked Tangent USD
-description: sUSG is the yield-bearing savings version of Tangent Finance's USG stablecoin, built on the Yearn v3 vault standard. It auto-compounds protocol revenues — 25% of Tangent's revenue is distributed
+short_description: sUSG is the yield-bearing savings version of Tangent Finance's USG stablecoin, built on the Yearn v3 vault standard. It auto-compounds protocol revenues — 25% of Tangent's revenue is distributed
   as sUSG yield. Minting and redemption for USG occur without fees or delays.
+long_description: ''
 category: yield_bearing
 links:
   homepage: https://www.tangent.finance/

@@ -1,6 +1,7 @@
 symbol: BYUSD
 name: Bybit USD
-description: BYUSD is a stablecoin associated with the Bybit cryptocurrency exchange. Details about its backing mechanism are limited. It may be related to Bybit's internal settlement or trading systems.
+short_description: BYUSD is a stablecoin associated with the Bybit cryptocurrency exchange. Details about its backing mechanism are limited. It may be related to Bybit's internal settlement or trading systems.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://www.bybit.com/

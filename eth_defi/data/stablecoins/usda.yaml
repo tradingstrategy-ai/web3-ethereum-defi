@@ -1,7 +1,8 @@
 symbol: USDA
 name: Angle USDA
-description: USDA is a USD-pegged stablecoin issued by Angle Protocol. It is backed by a diversified set of reserves including US Treasuries and other yield-generating assets. USDA is part of the Angle
+short_description: USDA is a USD-pegged stablecoin issued by Angle Protocol. It is backed by a diversified set of reserves including US Treasuries and other yield-generating assets. USDA is part of the Angle
   Protocol ecosystem alongside EURA.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://www.angle.money/

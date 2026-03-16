@@ -1,7 +1,8 @@
 symbol: GYEN
 name: GMO JPY (GMO Trust)
-description: GYEN is a Japanese Yen-backed stablecoin issued by GMO-Z.com Trust Company. It is fully backed by JPY reserves and regulated in the United States. GYEN enables digital transactions denominated
+short_description: GYEN is a Japanese Yen-backed stablecoin issued by GMO-Z.com Trust Company. It is fully backed by JPY reserves and regulated in the United States. GYEN enables digital transactions denominated
   in Japanese Yen on Ethereum.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://www.gmo-trust.com/

@@ -1,7 +1,8 @@
 symbol: USDf
 name: Falcon USD (Falcon Finance)
-description: USDf is a stablecoin issued by Falcon Finance, focused on delta-neutral yield strategies. It provides stable value backed by hedged crypto positions. Falcon Finance is designed for both institutional
+short_description: USDf is a stablecoin issued by Falcon Finance, focused on delta-neutral yield strategies. It provides stable value backed by hedged crypto positions. Falcon Finance is designed for both institutional
   and DeFi use.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://falcon.finance/

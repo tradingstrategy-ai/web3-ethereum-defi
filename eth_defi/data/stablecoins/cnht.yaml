@@ -1,7 +1,8 @@
 symbol: CNHT
 name: CNH Tether
-description: CNH Tether (CNHT) is an offshore Chinese Yuan-pegged stablecoin issued by Tether. Each CNHT token is backed 1:1 by CNH reserves held by Tether. It enables digital trading and settlement denominated
+short_description: CNH Tether (CNHT) is an offshore Chinese Yuan-pegged stablecoin issued by Tether. Each CNHT token is backed 1:1 by CNH reserves held by Tether. It enables digital trading and settlement denominated
   in offshore Chinese Yuan.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://tether.to/

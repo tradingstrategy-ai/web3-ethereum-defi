@@ -1,7 +1,8 @@
 symbol: USD0
 name: Usual USD
-description: USD0 is a USD-backed stablecoin issued by Usual, backed by real-world assets including US Treasury Bills. It is designed to redistribute value to users through the USUAL governance token. USD0
+short_description: USD0 is a USD-backed stablecoin issued by Usual, backed by real-world assets including US Treasury Bills. It is designed to redistribute value to users through the USUAL governance token. USD0
   can be staked as USD0++ for additional yield.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://usual.money/

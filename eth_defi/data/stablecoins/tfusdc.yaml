@@ -1,6 +1,7 @@
 symbol: tfUSDC
 name: TrueFi USDC
-description: tfUSDC represents USDC deposited into TrueFi lending pools. TrueFi provides uncollateralised lending to institutional borrowers. tfUSDC earns yield from interest paid by vetted borrowers.
+short_description: tfUSDC represents USDC deposited into TrueFi lending pools. TrueFi provides uncollateralised lending to institutional borrowers. tfUSDC earns yield from interest paid by vetted borrowers.
+long_description: ''
 category: wrapped
 links:
   homepage: https://truefi.io/

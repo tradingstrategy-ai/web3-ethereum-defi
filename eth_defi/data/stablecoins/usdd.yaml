@@ -1,7 +1,8 @@
 symbol: USDD
 name: USDD (TRON)
-description: USDD is a decentralised stablecoin on the TRON network backed by the TRON DAO Reserve. It is overcollateralised by TRX, BTC, USDT, and other assets. USDD uses a hybrid algorithmic and reserve-backed
+short_description: USDD is a decentralised stablecoin on the TRON network backed by the TRON DAO Reserve. It is overcollateralised by TRX, BTC, USDT, and other assets. USDD uses a hybrid algorithmic and reserve-backed
   mechanism.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://usdd.io/

@@ -1,7 +1,8 @@
 symbol: cUSDC
 name: Compound USDC
-description: cUSDC is the Compound protocol's interest-bearing token representing USDC supplied to Compound V2. It accrues interest automatically as borrowers pay interest on USDC loans. cUSDC was one of
+short_description: cUSDC is the Compound protocol's interest-bearing token representing USDC supplied to Compound V2. It accrues interest automatically as borrowers pay interest on USDC loans. cUSDC was one of
   the first yield-bearing stablecoin tokens in DeFi.
+long_description: ''
 category: wrapped
 links:
   homepage: https://compound.finance/

@@ -1,7 +1,8 @@
 symbol: cUSDT
 name: Compound USDT
-description: cUSDT is the Compound protocol's interest-bearing token representing USDT supplied to Compound V2. It accrues interest automatically as borrowers pay interest on USDT loans. cUSDT enables passive
+short_description: cUSDT is the Compound protocol's interest-bearing token representing USDT supplied to Compound V2. It accrues interest automatically as borrowers pay interest on USDT loans. cUSDT enables passive
   yield on Tether holdings.
+long_description: ''
 category: wrapped
 links:
   homepage: https://compound.finance/

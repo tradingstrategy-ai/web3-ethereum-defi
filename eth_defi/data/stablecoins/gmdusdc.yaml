@@ -1,7 +1,8 @@
 symbol: gmdUSDC
 name: GMD Protocol USDC Vault
-description: gmdUSDC represents USDC deposited in GMD Protocol's single-sided yield vaults. GMD aggregates yield from GMX's GLP token for stablecoin depositors. gmdUSDC provides delta-neutral exposure to
+short_description: gmdUSDC represents USDC deposited in GMD Protocol's single-sided yield vaults. GMD aggregates yield from GMX's GLP token for stablecoin depositors. gmdUSDC provides delta-neutral exposure to
   GLP yield.
+long_description: ''
 category: wrapped
 links:
   homepage: https://gmdprotocol.com/

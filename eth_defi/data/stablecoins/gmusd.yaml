@@ -1,6 +1,7 @@
 symbol: gmUSD
 name: GND Protocol gmUSD
-description: gmUSD is a stablecoin from the GND Protocol designed around GMX's GLP and GM tokens. It uses delta-neutral strategies on GMX positions. gmUSD is available on Arbitrum.
+short_description: gmUSD is a stablecoin from the GND Protocol designed around GMX's GLP and GM tokens. It uses delta-neutral strategies on GMX positions. gmUSD is available on Arbitrum.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://gndprotocol.com/

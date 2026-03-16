@@ -1,7 +1,8 @@
 symbol: RAI
 name: Rai (Reflexer)
-description: RAI is a non-pegged stablecoin issued by Reflexer Labs on Ethereum. It uses a redemption rate mechanism to dampen price volatility rather than targeting a fixed dollar peg. RAI is backed solely
+short_description: RAI is a non-pegged stablecoin issued by Reflexer Labs on Ethereum. It uses a redemption rate mechanism to dampen price volatility rather than targeting a fixed dollar peg. RAI is backed solely
   by ETH and is governance-minimised.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://reflexer.finance/

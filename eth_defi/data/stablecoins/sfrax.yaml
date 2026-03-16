@@ -1,7 +1,8 @@
 symbol: SFRAX
 name: Staked FRAX
-description: Staked FRAX (sFRAX) is a yield-bearing version of FRAX that earns interest from T-bill and repo agreements. It represents FRAX deposited in the Frax staking vault. sFRAX is part of the Frax
+short_description: Staked FRAX (sFRAX) is a yield-bearing version of FRAX that earns interest from T-bill and repo agreements. It represents FRAX deposited in the Frax staking vault. sFRAX is part of the Frax
   Finance ecosystem.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://frax.finance/

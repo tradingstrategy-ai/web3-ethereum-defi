@@ -1,7 +1,8 @@
 symbol: cDAI
 name: Compound DAI
-description: cDAI is the Compound protocol's interest-bearing token representing DAI supplied to Compound V2. It accrues interest automatically as borrowers pay interest on DAI loans. cDAI was one of the
+short_description: cDAI is the Compound protocol's interest-bearing token representing DAI supplied to Compound V2. It accrues interest automatically as borrowers pay interest on DAI loans. cDAI was one of the
   earliest DeFi yield-bearing tokens.
+long_description: ''
 category: wrapped
 links:
   homepage: https://compound.finance/

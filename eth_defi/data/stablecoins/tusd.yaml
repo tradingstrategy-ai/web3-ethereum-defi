@@ -1,7 +1,8 @@
 symbol: TUSD
 name: TrueUSD
-description: TrueUSD (TUSD) is a USD-backed stablecoin with real-time on-chain attestations of its reserves. It was one of the early regulated stablecoins with third-party attestation. TUSD has faced depegging
+short_description: TrueUSD (TUSD) is a USD-backed stablecoin with real-time on-chain attestations of its reserves. It was one of the early regulated stablecoins with third-party attestation. TUSD has faced depegging
   issues and reduced adoption since 2023.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://trueusd.com/

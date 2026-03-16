@@ -1,7 +1,8 @@
 symbol: EURS
 name: STASIS Euro
-description: STASIS Euro (EURS) is a Euro-backed stablecoin issued by STASIS, a European fintech company. Each EURS is fully backed by Euros held in reserve accounts. EURS is designed for institutional
+short_description: STASIS Euro (EURS) is a Euro-backed stablecoin issued by STASIS, a European fintech company. Each EURS is fully backed by Euros held in reserve accounts. EURS is designed for institutional
   and retail use in the European digital asset ecosystem.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://stasis.net/

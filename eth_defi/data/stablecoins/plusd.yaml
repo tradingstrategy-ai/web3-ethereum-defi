@@ -1,7 +1,8 @@
 symbol: plUSD
 name: PolyLiquity USD
-description: PolyLiquity USD (plUSD) is a stablecoin forked from the Liquity protocol deployed on Polygon. It uses the same overcollateralised ETH-backed model as Liquity. plUSD is specific to the Polygon
+short_description: PolyLiquity USD (plUSD) is a stablecoin forked from the Liquity protocol deployed on Polygon. It uses the same overcollateralised ETH-backed model as Liquity. plUSD is specific to the Polygon
   ecosystem.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://polyliquity.finance/

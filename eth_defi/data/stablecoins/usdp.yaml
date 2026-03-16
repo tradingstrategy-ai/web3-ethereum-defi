@@ -1,7 +1,8 @@
 symbol: USDP
 name: Pax Dollar (Paxos)
-description: Pax Dollar (USDP) is a USD-backed stablecoin issued by Paxos Trust Company. It is fully backed by cash and cash equivalents and regulated by the New York State Department of Financial Services.
+short_description: Pax Dollar (USDP) is a USD-backed stablecoin issued by Paxos Trust Company. It is fully backed by cash and cash equivalents and regulated by the New York State Department of Financial Services.
   USDP was formerly known as Paxos Standard (PAX).
+long_description: ''
 category: stablecoin
 links:
   homepage: https://paxos.com/

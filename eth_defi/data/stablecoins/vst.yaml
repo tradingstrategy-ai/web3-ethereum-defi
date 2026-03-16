@@ -1,6 +1,7 @@
 symbol: VST
 name: Vesta Stable
-description: Vesta Stable (VST) was a decentralised stablecoin issued by Vesta Finance on Arbitrum. It was overcollateralised by ETH, GLP, and other assets. Vesta Finance has been deprecated.
+short_description: Vesta Stable (VST) was a decentralised stablecoin issued by Vesta Finance on Arbitrum. It was overcollateralised by ETH, GLP, and other assets. Vesta Finance has been deprecated.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://vestafinance.xyz/

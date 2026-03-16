@@ -1,7 +1,8 @@
 symbol: USDE
 name: Ethena USDe
-description: USDe is a synthetic dollar protocol by Ethena Labs that uses delta-hedging staked ETH positions. It generates yield through staking rewards and futures funding rates. USDe is one of the fastest-growing
+short_description: USDe is a synthetic dollar protocol by Ethena Labs that uses delta-hedging staked ETH positions. It generates yield through staking rewards and futures funding rates. USDe is one of the fastest-growing
   stablecoins by market capitalisation.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://ethena.fi/

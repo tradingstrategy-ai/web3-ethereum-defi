@@ -1,7 +1,8 @@
 symbol: USD1
 name: World Liberty Financial USD
-description: USD1 is a USD-backed stablecoin issued by World Liberty Financial (WLFI). It is fully backed by US Treasuries, US dollar deposits, and other cash equivalents. USD1 is associated with the Trump-linked
+short_description: USD1 is a USD-backed stablecoin issued by World Liberty Financial (WLFI). It is fully backed by US Treasuries, US dollar deposits, and other cash equivalents. USD1 is associated with the Trump-linked
   DeFi project.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://worldlibertyfinancial.com/

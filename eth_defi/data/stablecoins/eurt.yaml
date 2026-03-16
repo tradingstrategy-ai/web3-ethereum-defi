@@ -1,7 +1,8 @@
 symbol: EURT
 name: Tether Euro
-description: Tether EURt is a Euro-pegged stablecoin issued by Tether, the company behind USDT. Each EURt is backed by Tether's reserves denominated in Euros. It provides Euro-denominated digital transactions
+short_description: Tether EURt is a Euro-pegged stablecoin issued by Tether, the company behind USDT. Each EURt is backed by Tether's reserves denominated in Euros. It provides Euro-denominated digital transactions
   on blockchain networks.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://tether.to/

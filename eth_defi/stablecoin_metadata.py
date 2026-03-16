@@ -334,7 +334,13 @@ class StablecoinMetadata(TypedDict):
     #: Human-readable name
     name: str
 
-    #: Description of the stablecoin
+    #: Short description of the stablecoin (same as ``description`` for backwards compatibility)
+    short_description: str | None
+
+    #: Long description of the stablecoin (may be empty)
+    long_description: str | None
+
+    #: Short description (kept for backwards compatibility, same value as ``short_description``)
     description: str | None
 
     #: Category: ``stablecoin``, ``yield_bearing``, or ``wrapped``
@@ -398,7 +404,7 @@ def load_all_stablecoin_metadata() -> dict[str, list[StablecoinInfo]]:
                     StablecoinInfo(
                         name=entry.get("name", ""),
                         homepage=links.get("homepage", ""),
-                        description=entry.get("description", ""),
+                        description=entry.get("short_description", ""),
                         coingecko=links.get("coingecko", ""),
                         defillama=links.get("defillama", ""),
                         twitter=links.get("twitter", ""),
@@ -410,7 +416,7 @@ def load_all_stablecoin_metadata() -> dict[str, list[StablecoinInfo]]:
                 StablecoinInfo(
                     name=data.get("name", ""),
                     homepage=links.get("homepage", ""),
-                    description=data.get("description", ""),
+                    description=data.get("short_description", ""),
                     coingecko=links.get("coingecko", ""),
                     defillama=links.get("defillama", ""),
                     twitter=links.get("twitter", ""),
@@ -548,12 +554,16 @@ def build_stablecoin_metadata_json(yaml_path: Path, public_url: str = "") -> lis
         for entry in data["entries"]:
             links_data = entry.get("links", {})
             links: StablecoinLinks = {field: normalise(links_data.get(field)) for field in STABLECOIN_LINK_FIELDS}
+            short_desc = normalise(entry.get("short_description"))
+            long_desc = normalise(entry.get("long_description"))
             result.append(
                 StablecoinMetadata(
                     symbol=symbol,
                     slug=slug,
                     name=entry.get("name", ""),
-                    description=normalise(entry.get("description")),
+                    short_description=short_desc,
+                    long_description=long_desc,
+                    description=short_desc,
                     category=category,
                     links=links,
                     logos=logos,
@@ -563,12 +573,16 @@ def build_stablecoin_metadata_json(yaml_path: Path, public_url: str = "") -> lis
     else:
         links_data = data.get("links", {})
         links: StablecoinLinks = {field: normalise(links_data.get(field)) for field in STABLECOIN_LINK_FIELDS}
+        short_desc = normalise(data.get("short_description"))
+        long_desc = normalise(data.get("long_description"))
         return [
             StablecoinMetadata(
                 symbol=symbol,
                 slug=slug,
                 name=data.get("name", ""),
-                description=normalise(data.get("description")),
+                short_description=short_desc,
+                long_description=long_desc,
+                description=short_desc,
                 category=category,
                 links=links,
                 logos=logos,

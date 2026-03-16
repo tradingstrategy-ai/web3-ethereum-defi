@@ -1,7 +1,8 @@
 symbol: USDs
 name: Sperax USD
-description: Sperax USD (USDs) is a yield-generating stablecoin on Arbitrum. It auto-compounds yield from DeFi strategies while maintaining a dollar peg. USDs is designed to earn passive income for holders
+short_description: Sperax USD (USDs) is a yield-generating stablecoin on Arbitrum. It auto-compounds yield from DeFi strategies while maintaining a dollar peg. USDs is designed to earn passive income for holders
   without staking.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://sperax.io/

@@ -1,6 +1,7 @@
 symbol: mtUSDT
 name: Mutuum Finance USDT
-description: mtUSDT represents USDT deposited in the Mutuum Finance lending protocol. It is a receipt token that accrues interest from borrowers. Mutuum Finance provides decentralised lending and borrowing.
+short_description: mtUSDT represents USDT deposited in the Mutuum Finance lending protocol. It is a receipt token that accrues interest from borrowers. Mutuum Finance provides decentralised lending and borrowing.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://www.mutuum.finance/

@@ -1,7 +1,8 @@
 symbol: USDV
 name: Verified USD
-description: Verified USD (USDV) is a stablecoin backed by STBT (Short-Term Treasury Bill Token). It is designed for multi-chain deployment with built-in yield from US Treasury exposure. USDV uses LayerZero
+short_description: Verified USD (USDV) is a stablecoin backed by STBT (Short-Term Treasury Bill Token). It is designed for multi-chain deployment with built-in yield from US Treasury exposure. USDV uses LayerZero
   for cross-chain transfers.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://usdv.money/

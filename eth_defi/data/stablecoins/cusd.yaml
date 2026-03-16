@@ -1,7 +1,8 @@
 symbol: CUSD
 name: Celo Dollar
-description: Celo Dollar (cUSD) is a USD-pegged stablecoin native to the Celo blockchain. It is overcollateralised by a diversified reserve of crypto assets managed by the Celo Reserve. cUSD is designed
+short_description: Celo Dollar (cUSD) is a USD-pegged stablecoin native to the Celo blockchain. It is overcollateralised by a diversified reserve of crypto assets managed by the Celo Reserve. cUSD is designed
   for mobile-first payments and accessible financial services.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://celo.org/

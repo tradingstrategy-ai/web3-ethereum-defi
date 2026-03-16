@@ -1,7 +1,8 @@
 symbol: BOLD
 name: Liquity BOLD
-description: BOLD is the USD-pegged stablecoin issued by Liquity V2, fully decentralised and overcollateralised. It is backed exclusively by WETH, wstETH, and rETH with a minimum collateral ratio of 110%.
+short_description: BOLD is the USD-pegged stablecoin issued by Liquity V2, fully decentralised and overcollateralised. It is backed exclusively by WETH, wstETH, and rETH with a minimum collateral ratio of 110%.
   BOLD is redeemable for $1 worth of underlying collateral and is immutable with no governance.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://www.liquity.org/

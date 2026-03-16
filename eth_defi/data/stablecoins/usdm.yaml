@@ -1,7 +1,8 @@
 symbol: USDM
 name: Mountain Protocol USD
-description: USDM is a yield-bearing stablecoin by Mountain Protocol, backed by US Treasury Bills. It is a regulated token that accrues yield daily through rebasing. USDM is designed for both DeFi and institutional
+short_description: USDM is a yield-bearing stablecoin by Mountain Protocol, backed by US Treasury Bills. It is a regulated token that accrues yield daily through rebasing. USDM is designed for both DeFi and institutional
   use.
+long_description: ''
 category: stablecoin
 links:
   homepage: https://mountainprotocol.com/

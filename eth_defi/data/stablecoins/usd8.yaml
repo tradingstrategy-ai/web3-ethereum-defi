@@ -1,6 +1,7 @@
 symbol: USD8
 name: Unknown
-description: ''
+short_description: ''
+long_description: ''
 category: stablecoin
 links:
   homepage: ''
