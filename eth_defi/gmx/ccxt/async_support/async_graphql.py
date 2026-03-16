@@ -65,7 +65,9 @@ class AsyncGMXSubsquidClient:
         :return: GraphQL response data
         """
         if not self.session:
-            raise RuntimeError("Session not initialized. Use 'async with' context manager.")
+            raise RuntimeError(
+                "Session not initialized. Use 'async with' context manager."
+            )
 
         endpoints_to_try = [self.endpoint]
         if self.endpoint_backup:
@@ -78,12 +80,27 @@ class AsyncGMXSubsquidClient:
         last_error = None
         for endpoint in endpoints_to_try:
             try:
+                logger.info(
+                    "Subsquid POST %s | variables=%s | query=%s",
+                    endpoint.split("/")[2],
+                    str(variables)[:120] if variables else "{}",
+                    query.strip()[:200],
+                )
                 async with self.session.post(
                     endpoint,
                     json=payload,
                     timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
-                    response.raise_for_status()
+                    if not response.ok:
+                        body = await response.text()
+                        logger.warning(
+                            "Subsquid %s returned HTTP %s | variables=%s | response_body=%s",
+                            endpoint.split("/")[2],
+                            response.status,
+                            str(variables)[:120] if variables else "{}",
+                            body[:500],
+                        )
+                        response.raise_for_status()
                     result = await response.json()
 
                     if "errors" in result:
@@ -95,7 +112,7 @@ class AsyncGMXSubsquidClient:
 
                     return result.get("data", {})
 
-            except (aiohttp.ClientError, TimeoutError) as e:
+            except (aiohttp.ClientError, TimeoutError, RuntimeError) as e:
                 last_error = e
                 logger.warning(
                     "Async Subsquid query failed on %s: %s",
@@ -125,7 +142,11 @@ class AsyncGMXSubsquidClient:
             where_clause = f'where: {{ marketTokenAddress_eq: "{market_address}" }}'
 
         # Debug logging
-        logger.debug("Querying marketInfos with market_address=%s, limit=%s", market_address, limit)
+        logger.debug(
+            "Querying marketInfos with market_address=%s, limit=%s",
+            market_address,
+            limit,
+        )
         logger.debug("Where clause: %s", where_clause)
 
         query = f"""

@@ -27,7 +27,10 @@ from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gmx.cache import GMXMarketCache
 from eth_defi.gmx.ccxt.async_support.async_graphql import AsyncGMXSubsquidClient
 from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_request
-from eth_defi.gmx.ccxt.cancel_helpers import build_cancel_order_response, resolve_order_id
+from eth_defi.gmx.ccxt.cancel_helpers import (
+    build_cancel_order_response,
+    resolve_order_id,
+)
 from eth_defi.gmx.ccxt.exchange import _derive_side_from_trade_action
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
@@ -42,7 +45,12 @@ from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.core import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.events import GMX_USD_PRECISION, decode_gmx_event, extract_order_execution_result, extract_order_key_from_receipt
+from eth_defi.gmx.events import (
+    GMX_USD_PRECISION,
+    decode_gmx_event,
+    extract_order_execution_result,
+    extract_order_key_from_receipt,
+)
 from eth_defi.gmx.order.cancel_order import CancelOrder
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
@@ -86,7 +94,11 @@ async def _get_logs_adaptive_async(
     except ExtraValueError as exc:
         payload = exc.args[0] if exc.args else {}
         msg = payload.get("message", "") if isinstance(payload, dict) else str(payload)
-        if "exceeds limit" in msg and to_block > from_block and (to_block - from_block) >= _MIN_LOG_CHUNK_BLOCKS:
+        if (
+            "exceeds limit" in msg
+            and to_block > from_block
+            and (to_block - from_block) >= _MIN_LOG_CHUNK_BLOCKS
+        ):
             mid = (from_block + to_block) // 2
             logger.debug(
                 "Log count exceeded for blocks %d-%d, bisecting at block %d",
@@ -95,7 +107,9 @@ async def _get_logs_adaptive_async(
                 mid,
             )
             left = await _get_logs_adaptive_async(async_web3, address, from_block, mid)
-            right = await _get_logs_adaptive_async(async_web3, address, mid + 1, to_block)
+            right = await _get_logs_adaptive_async(
+                async_web3, address, mid + 1, to_block
+            )
             return left + right
         raise
 
@@ -156,7 +170,9 @@ async def _async_scan_logs_chunked_for_trade_action(
         )
 
         try:
-            logs = await _get_logs_adaptive_async(async_web3, event_emitter, chunk_start, chunk_end)
+            logs = await _get_logs_adaptive_async(
+                async_web3, event_emitter, chunk_start, chunk_end
+            )
 
             for log in logs:
                 try:
@@ -168,7 +184,11 @@ async def _async_scan_logs_chunked_for_trade_action(
                     if not event:
                         continue
 
-                    if event.event_name not in ("OrderExecuted", "OrderCancelled", "OrderFrozen"):
+                    if event.event_name not in (
+                        "OrderExecuted",
+                        "OrderCancelled",
+                        "OrderFrozen",
+                    ):
                         continue
 
                     # Check if this event matches our order_key
@@ -189,9 +209,13 @@ async def _async_scan_logs_chunked_for_trade_action(
                         "eventName": event.event_name,
                         "orderKey": order_key_hex,
                         "isLong": event.get_bool("isLong"),
-                        "reason": event.get_string("reasonBytes") if event.event_name == "OrderCancelled" else None,
+                        "reason": event.get_string("reasonBytes")
+                        if event.event_name == "OrderCancelled"
+                        else None,
                         "transaction": {
-                            "hash": log["transactionHash"].hex() if isinstance(log["transactionHash"], bytes) else log["transactionHash"],
+                            "hash": log["transactionHash"].hex()
+                            if isinstance(log["transactionHash"], bytes)
+                            else log["transactionHash"],
                         },
                     }
 
@@ -300,6 +324,10 @@ class GMX(Exchange):
 
         # Order cache - cleared on fresh runs to avoid stale data
         self._orders = {}
+
+        #: Bulk market-infos cache shared by fetch_open_interest / fetch_funding_rate.
+        self._bulk_market_infos_by_addr: dict = {}
+        self._bulk_market_infos_ts: float = 0.0
 
         # Consecutive failure tracking for auto-pause
         self._consecutive_failures = 0
@@ -431,7 +459,9 @@ class GMX(Exchange):
 
         # Get collateral token address - prefer event data, fall back to market assumption
         if not collateral_token:
-            collateral_token = self.safe_string(market.get("info", {}), "long_token" if is_long else "short_token")
+            collateral_token = self.safe_string(
+                market.get("info", {}), "long_token" if is_long else "short_token"
+            )
 
         if not collateral_token:
             return 0.0
@@ -444,7 +474,10 @@ class GMX(Exchange):
 
         token_meta = self._token_metadata.get(collateral_token.lower())
         if not token_meta:
-            logger.warning("Token metadata not found for collateral %s, cannot convert fee", collateral_token)
+            logger.warning(
+                "Token metadata not found for collateral %s, cannot convert fee",
+                collateral_token,
+            )
             return 0.0
 
         token_decimals = token_meta.get("decimals")
@@ -459,7 +492,9 @@ class GMX(Exchange):
         # Check if collateral is a stablecoin (USDC, USDT, DAI - 6 decimals typical)
         # If we have a collateral token price from events, use it for accurate conversion
         if collateral_token_price is not None:
-            collateral_price_usd = convert_raw_price_to_usd(collateral_token_price, int(token_decimals))
+            collateral_price_usd = convert_raw_price_to_usd(
+                collateral_token_price, int(token_decimals)
+            )
             if collateral_price_usd and collateral_price_usd > 0:
                 fee_usd = fee_in_tokens * collateral_price_usd
                 logger.info(
@@ -476,7 +511,16 @@ class GMX(Exchange):
         # For stablecoins, token amount ≈ USD amount. For non-stablecoins, we
         # cannot accurately convert without a price, so return 0 to avoid
         # reporting misleadingly wrong values (e.g. 0.001 WETH as $0.001)
-        stablecoin_symbols = {"USDC", "USDC.e", "USDT", "DAI", "FRAX", "BUSD", "TUSD", "LUSD"}
+        stablecoin_symbols = {
+            "USDC",
+            "USDC.e",
+            "USDT",
+            "DAI",
+            "FRAX",
+            "BUSD",
+            "TUSD",
+            "LUSD",
+        }
         if token_symbol.upper() in stablecoin_symbols:
             logger.info(
                 "Fee conversion (stablecoin fallback): %s raw -> %s %s ≈ $%s USD",
@@ -496,7 +540,9 @@ class GMX(Exchange):
         )
         return 0.0
 
-    def _extract_actual_fee(self, verification, market: dict, is_long: bool, size_delta_usd: float) -> dict:
+    def _extract_actual_fee(
+        self, verification, market: dict, is_long: bool, size_delta_usd: float
+    ) -> dict:
         """Extract actual fees from order verification.
 
         Calculates total trading fee (position + borrowing + funding) from
@@ -523,7 +569,12 @@ class GMX(Exchange):
             return fallback
 
         # Sum all fee components (in collateral token amounts)
-        total_fee_tokens = verification.fees.position_fee + verification.fees.borrowing_fee + verification.fees.funding_fee + verification.fees.liquidation_fee
+        total_fee_tokens = (
+            verification.fees.position_fee
+            + verification.fees.borrowing_fee
+            + verification.fees.funding_fee
+            + verification.fees.liquidation_fee
+        )
 
         logger.info(
             "Fee extract: position_fee=%s, borrowing_fee=%s, funding_fee=%s, liquidation_fee=%s, total_tokens=%s, is_long=%s",
@@ -541,7 +592,9 @@ class GMX(Exchange):
             market,
             is_long,
             collateral_token=getattr(verification, "collateral_token", None),
-            collateral_token_price=getattr(verification, "collateral_token_price", None),
+            collateral_token_price=getattr(
+                verification, "collateral_token_price", None
+            ),
         )
 
         # Calculate actual rate
@@ -562,7 +615,9 @@ class GMX(Exchange):
         # Return CCXT-compliant structure
         return fee_result
 
-    def _build_fee_breakdown(self, verification, market: dict, is_long: bool, execution_fee_eth: float) -> dict:
+    def _build_fee_breakdown(
+        self, verification, market: dict, is_long: bool, execution_fee_eth: float
+    ) -> dict:
         """Build comprehensive fee breakdown for order info.
 
         Creates detailed breakdown of all fee components.
@@ -584,12 +639,45 @@ class GMX(Exchange):
             coll_token = getattr(verification, "collateral_token", None)
             coll_price = getattr(verification, "collateral_token_price", None)
             # Convert each fee component to USD using actual collateral data
-            position_fee_usd = self._convert_token_fee_to_usd(verification.fees.position_fee, market, is_long, collateral_token=coll_token, collateral_token_price=coll_price)
-            borrowing_fee_usd = self._convert_token_fee_to_usd(verification.fees.borrowing_fee, market, is_long, collateral_token=coll_token, collateral_token_price=coll_price)
-            funding_fee_usd = self._convert_token_fee_to_usd(verification.fees.funding_fee, market, is_long, collateral_token=coll_token, collateral_token_price=coll_price)
-            liquidation_fee_usd = self._convert_token_fee_to_usd(verification.fees.liquidation_fee, market, is_long, collateral_token=coll_token, collateral_token_price=coll_price) if verification.fees.liquidation_fee else 0.0
+            position_fee_usd = self._convert_token_fee_to_usd(
+                verification.fees.position_fee,
+                market,
+                is_long,
+                collateral_token=coll_token,
+                collateral_token_price=coll_price,
+            )
+            borrowing_fee_usd = self._convert_token_fee_to_usd(
+                verification.fees.borrowing_fee,
+                market,
+                is_long,
+                collateral_token=coll_token,
+                collateral_token_price=coll_price,
+            )
+            funding_fee_usd = self._convert_token_fee_to_usd(
+                verification.fees.funding_fee,
+                market,
+                is_long,
+                collateral_token=coll_token,
+                collateral_token_price=coll_price,
+            )
+            liquidation_fee_usd = (
+                self._convert_token_fee_to_usd(
+                    verification.fees.liquidation_fee,
+                    market,
+                    is_long,
+                    collateral_token=coll_token,
+                    collateral_token_price=coll_price,
+                )
+                if verification.fees.liquidation_fee
+                else 0.0
+            )
 
-            total_trading_fee_usd = position_fee_usd + borrowing_fee_usd + funding_fee_usd + liquidation_fee_usd
+            total_trading_fee_usd = (
+                position_fee_usd
+                + borrowing_fee_usd
+                + funding_fee_usd
+                + liquidation_fee_usd
+            )
 
             breakdown["trading_fees"] = {
                 "position_fee_usd": position_fee_usd,
@@ -641,7 +729,9 @@ class GMX(Exchange):
 
         # Validate GMX support
         if self.chain not in GMX_SUPPORTED_CHAINS:
-            raise ValueError(f"GMX not supported on chain {self.chain} (chain_id: {chain_id})")
+            raise ValueError(
+                f"GMX not supported on chain {self.chain} (chain_id: {chain_id})"
+            )
 
         # Create wallet if private key provided
         if self._private_key:
@@ -681,7 +771,10 @@ class GMX(Exchange):
         await self.subsquid.__aenter__()
 
         # Initialise disk cache for markets
-        cache_disabled = self.options.get("disable_market_cache") is True or os.environ.get("GMX_DISABLE_MARKET_CACHE", "").lower() == "true"
+        cache_disabled = (
+            self.options.get("disable_market_cache") is True
+            or os.environ.get("GMX_DISABLE_MARKET_CACHE", "").lower() == "true"
+        )
 
         cache_dir = self.options.get("market_cache_dir")
         if cache_dir:
@@ -729,12 +822,17 @@ class GMX(Exchange):
         :rtype: dict
         """
         try:
-            market_infos = await self.subsquid.get_market_infos(limit=200)
+            # Fetch Subsquid market infos and GMX token metadata in parallel
+            market_infos, tokens_data = await asyncio.gather(
+                self.subsquid.get_market_infos(limit=200),
+                self._fetch_tokens_async(),
+            )
             logger.info("Fetched %s markets from GraphQL", len(market_infos))
-
-            # Fetch token data from GMX API using async HTTP
-            tokens_data = await self._fetch_tokens_async()
-            logger.debug("Fetched tokens from GMX API, type: %s, length: %s", type(tokens_data), len(tokens_data) if isinstance(tokens_data, (list, dict)) else "N/A")
+            logger.debug(
+                "Fetched tokens from GMX API, type: %s, length: %s",
+                type(tokens_data),
+                len(tokens_data) if isinstance(tokens_data, (list, dict)) else "N/A",
+            )
 
             # Build address->symbol mapping (lowercase addresses for matching)
             address_to_symbol = {}
@@ -757,7 +855,9 @@ class GMX(Exchange):
                 decimals = token.get("decimals")
                 if address and symbol:
                     if decimals is None:
-                        raise ValueError(f"GMX API did not return decimals for token {symbol} ({address}). Cannot safely convert prices.")
+                        raise ValueError(
+                            f"GMX API did not return decimals for token {symbol} ({address}). Cannot safely convert prices."
+                        )
                     address_to_symbol[address] = symbol
                     # Store full token metadata including decimals for price conversion
                     self._token_metadata[address] = {
@@ -766,7 +866,11 @@ class GMX(Exchange):
                         "symbol": symbol,
                     }
 
-            logger.debug("Built address mapping for %s tokens, metadata for %s tokens", len(address_to_symbol), len(self._token_metadata))
+            logger.debug(
+                "Built address mapping for %s tokens, metadata for %s tokens",
+                len(address_to_symbol),
+                len(self._token_metadata),
+            )
 
             markets_dict = {}
             for market_info in market_infos:
@@ -778,7 +882,10 @@ class GMX(Exchange):
                     symbol_name = address_to_symbol.get(index_token_addr)
 
                     if not symbol_name:
-                        logger.debug("Skipping market with unknown index token: %s", index_token_addr)
+                        logger.debug(
+                            "Skipping market with unknown index token: %s",
+                            index_token_addr,
+                        )
                         continue  # Skip unknown tokens
 
                     # Skip excluded symbols
@@ -792,9 +899,16 @@ class GMX(Exchange):
                     min_collateral_factor = market_info.get("minCollateralFactor")
                     max_leverage = 50.0  # Default
                     if min_collateral_factor:
-                        max_leverage = AsyncGMXSubsquidClient.calculate_max_leverage(min_collateral_factor) or 50.0
+                        max_leverage = (
+                            AsyncGMXSubsquidClient.calculate_max_leverage(
+                                min_collateral_factor
+                            )
+                            or 50.0
+                        )
 
-                    maintenance_margin_rate = 1.0 / max_leverage if max_leverage > 0 else 0.02
+                    maintenance_margin_rate = (
+                        1.0 / max_leverage if max_leverage > 0 else 0.02
+                    )
 
                     markets_dict[unified_symbol] = {
                         "id": symbol_name,
@@ -836,7 +950,11 @@ class GMX(Exchange):
                         },
                     }
                 except Exception as e:
-                    logger.debug("Failed to process market %s: %s", market_info.get("marketTokenAddress"), e)
+                    logger.debug(
+                        "Failed to process market %s: %s",
+                        market_info.get("marketTokenAddress"),
+                        e,
+                    )
                     continue
 
             self.markets = markets_dict
@@ -889,7 +1007,9 @@ class GMX(Exchange):
                     check_expiry=True,
                 )
                 if cached_markets:
-                    logger.info("Loaded %s markets from disk cache", len(cached_markets))
+                    logger.info(
+                        "Loaded %s markets from disk cache", len(cached_markets)
+                    )
                     self.markets = cached_markets
                     self.symbols = list(self.markets.keys())
                     return self.markets
@@ -897,18 +1017,38 @@ class GMX(Exchange):
                 logger.warning("Failed to load from disk cache: %s", e)
 
         try:
-            # Fetch markets from /markets/info endpoint
-            logger.debug("Fetching markets from REST API /markets/info endpoint")
-            markets_info = await async_make_gmx_api_request(
-                chain=self.chain,
-                endpoint="/markets/info",
-                params={"marketTokensData": "true"},
-                session=self.session,
-                timeout=10.0,
+            # Fire all three independent API calls in parallel
+            logger.debug("Fetching markets/tokens/subsquid in parallel")
+
+            async def _fetch_subsquid_infos() -> list:
+                if not self.subsquid:
+                    return []
+                return await self.subsquid.get_market_infos(limit=200)
+
+            markets_info, tokens_data, subsquid_results = await asyncio.gather(
+                async_make_gmx_api_request(
+                    chain=self.chain,
+                    endpoint="/markets/info",
+                    params={"marketTokensData": "true"},
+                    session=self.session,
+                    timeout=10.0,
+                ),
+                self._fetch_tokens_async(),
+                _fetch_subsquid_infos(),
+                return_exceptions=True,
             )
 
-            # Fetch token metadata for symbol mapping
-            tokens_data = await self._fetch_tokens_async()
+            # Handle any gather errors gracefully
+            if isinstance(markets_info, BaseException):
+                raise markets_info
+            if isinstance(tokens_data, BaseException):
+                logger.warning("Failed to fetch tokens async: %s", tokens_data)
+                tokens_data = {}
+            if isinstance(subsquid_results, BaseException):
+                logger.warning(
+                    "Failed to pre-fetch Subsquid market infos: %s", subsquid_results
+                )
+                subsquid_results = []
 
             # Build address->token mapping (lowercase for matching)
             self._token_metadata = {}
@@ -934,7 +1074,25 @@ class GMX(Exchange):
 
             # Process markets from /markets/info
             markets_dict = {}
-            markets_list = markets_info.get("markets", []) if isinstance(markets_info, dict) else []
+            markets_list = (
+                markets_info.get("markets", [])
+                if isinstance(markets_info, dict)
+                else []
+            )
+
+            # Build Subsquid lookup dict (pre-fetched in parallel above)
+            subsquid_market_info_by_addr: dict = {}
+            try:
+                for mi in subsquid_results:
+                    addr = mi.get("marketTokenAddress", "").lower()
+                    if addr:
+                        subsquid_market_info_by_addr[addr] = mi
+                logger.debug(
+                    "Pre-fetched %d market infos from Subsquid",
+                    len(subsquid_market_info_by_addr),
+                )
+            except Exception as e:
+                logger.warning("Failed to pre-fetch market infos from Subsquid: %s", e)
 
             for market in markets_list:
                 try:
@@ -951,14 +1109,19 @@ class GMX(Exchange):
                         continue
 
                     # Special case: wstETH market
-                    is_wsteth_market = market_token.lower() == "0x0Cf1fb4d1FF67A3D8Ca92c9d6643F8F9be8e03E5".lower()
+                    is_wsteth_market = (
+                        market_token.lower()
+                        == "0x0Cf1fb4d1FF67A3D8Ca92c9d6643F8F9be8e03E5".lower()
+                    )
 
                     # Get index token metadata
                     index_meta = self._token_metadata.get(index_token, {})
                     symbol_name = index_meta.get("symbol")
 
                     if not symbol_name:
-                        logger.debug("Skipping market with unknown index token: %s", index_token)
+                        logger.debug(
+                            "Skipping market with unknown index token: %s", index_token
+                        )
                         continue
 
                     # Skip excluded symbols
@@ -975,24 +1138,23 @@ class GMX(Exchange):
                     else:
                         unified_symbol = f"{symbol_name}/USDC:USDC"
 
-                    # Get leverage info from subsquid if available
+                    # Get leverage info from pre-fetched subsquid data
                     max_leverage = 50.0  # Default
                     min_collateral_factor = None
 
-                    if self.subsquid:
-                        try:
-                            market_infos = await self.subsquid.get_market_infos(limit=200)
-                            for mi in market_infos:
-                                if mi.get("marketTokenAddress", "").lower() == market_token.lower():
-                                    mcf = mi.get("minCollateralFactor")
-                                    if mcf:
-                                        min_collateral_factor = mcf
-                                        max_leverage = AsyncGMXSubsquidClient.calculate_max_leverage(mcf) or 50.0
-                                        break
-                        except Exception as e:
-                            logger.debug("Failed to fetch leverage for %s: %s", market_token, e)
+                    mi = subsquid_market_info_by_addr.get(market_token.lower())
+                    if mi:
+                        mcf = mi.get("minCollateralFactor")
+                        if mcf:
+                            min_collateral_factor = mcf
+                            max_leverage = (
+                                AsyncGMXSubsquidClient.calculate_max_leverage(mcf)
+                                or 50.0
+                            )
 
-                    maintenance_margin_rate = 1.0 / max_leverage if max_leverage > 0 else 0.02
+                    maintenance_margin_rate = (
+                        1.0 / max_leverage if max_leverage > 0 else 0.02
+                    )
 
                     # Build CCXT-compatible market structure
                     markets_dict[unified_symbol] = {
@@ -1042,7 +1204,9 @@ class GMX(Exchange):
                     }
 
                 except Exception as e:
-                    logger.debug("Failed to process market %s: %s", market.get("marketToken"), e)
+                    logger.debug(
+                        "Failed to process market %s: %s", market.get("marketToken"), e
+                    )
                     continue
 
             self.markets = markets_dict
@@ -1069,7 +1233,9 @@ class GMX(Exchange):
             self.symbols = []
             return self.markets
 
-    async def load_markets(self, reload: bool = False, params: dict | None = None) -> dict:
+    async def load_markets(
+        self, reload: bool = False, params: dict | None = None
+    ) -> dict:
         """Load markets asynchronously.
 
         Loading modes (in priority order):
@@ -1095,9 +1261,13 @@ class GMX(Exchange):
         await self._ensure_session()
 
         # Determine loading mode based on configuration
-        rest_api_disabled = (params and params.get("rest_api_mode") is False) or self.options.get("rest_api_mode") is False
+        rest_api_disabled = (
+            params and params.get("rest_api_mode") is False
+        ) or self.options.get("rest_api_mode") is False
 
-        use_graphql_only = (params and params.get("graphql_only") is True) or self.options.get("graphql_only") is True
+        use_graphql_only = (
+            params and params.get("graphql_only") is True
+        ) or self.options.get("graphql_only") is True
 
         # Loading mode selection:
         # 1. If REST API not disabled and not forcing GraphQL -> REST API (NEW DEFAULT)
@@ -1120,7 +1290,9 @@ class GMX(Exchange):
         loop = asyncio.get_running_loop()
 
         markets_instance = Markets(self.config)
-        available_markets = await loop.run_in_executor(None, markets_instance.get_available_markets)
+        available_markets = await loop.run_in_executor(
+            None, markets_instance.get_available_markets
+        )
 
         # Fetch leverage data from subsquid if available
         leverage_by_market = {}
@@ -1133,10 +1305,14 @@ class GMX(Exchange):
                     min_collateral_factor = market_info.get("minCollateralFactor")
                     if market_addr and min_collateral_factor:
                         market_addr = to_checksum_address(market_addr)
-                        max_leverage = AsyncGMXSubsquidClient.calculate_max_leverage(min_collateral_factor)
+                        max_leverage = AsyncGMXSubsquidClient.calculate_max_leverage(
+                            min_collateral_factor
+                        )
                         if max_leverage is not None:
                             leverage_by_market[market_addr] = max_leverage
-                            min_collateral_by_market[market_addr] = min_collateral_factor
+                            min_collateral_by_market[market_addr] = (
+                                min_collateral_factor
+                            )
             except Exception as e:
                 logger.warning("Failed to fetch leverage data from subsquid: %s", e)
 
@@ -1244,10 +1420,14 @@ class GMX(Exchange):
             ValueError: If markets not loaded or symbol not found
         """
         if not self.markets:
-            raise ValueError(f"Markets not loaded for {symbol}. Call 'await exchange.load_markets()' first.")
+            raise ValueError(
+                f"Markets not loaded for {symbol}. Call 'await exchange.load_markets()' first."
+            )
 
         if symbol not in self.markets:
-            raise ValueError(f"Market {symbol} not found. Available: {list(self.markets.keys())}")
+            raise ValueError(
+                f"Market {symbol} not found. Available: {list(self.markets.keys())}"
+            )
 
         return self.markets[symbol]
 
@@ -1305,7 +1485,9 @@ class GMX(Exchange):
             "info": ticker_data,
         }
 
-    async def fetch_tickers(self, symbols: list[str] | None = None, params: dict | None = None) -> dict:
+    async def fetch_tickers(
+        self, symbols: list[str] | None = None, params: dict | None = None
+    ) -> dict:
         """Fetch tickers for multiple markets concurrently.
 
         Args:
@@ -1380,7 +1562,9 @@ class GMX(Exchange):
         cached_apy = None
         if self._market_cache:
             try:
-                cached_apy = self._market_cache.get_apy(period=period, check_expiry=True)
+                cached_apy = self._market_cache.get_apy(
+                    period=period, check_expiry=True
+                )
                 if cached_apy:
                     logger.debug("Using cached APY data for period %s", period)
             except Exception as e:
@@ -1396,7 +1580,11 @@ class GMX(Exchange):
                     session=self.session,
                     timeout=10.0,
                 )
-                cached_apy = apy_response.get("markets", {}) if isinstance(apy_response, dict) else {}
+                cached_apy = (
+                    apy_response.get("markets", {})
+                    if isinstance(apy_response, dict)
+                    else {}
+                )
 
                 # Save to disk cache
                 if self._market_cache and cached_apy:
@@ -1406,7 +1594,9 @@ class GMX(Exchange):
                             period=period,
                             ttl=None,  # Use default TTL from constants
                         )
-                        logger.debug("Saved APY data to disk cache for period %s", period)
+                        logger.debug(
+                            "Saved APY data to disk cache for period %s", period
+                        )
                     except Exception as e:
                         logger.warning("Failed to save APY to disk cache: %s", e)
 
@@ -1434,7 +1624,9 @@ class GMX(Exchange):
                     return apy_data.get("apy", 0.0)
 
             # Market not found in APY data
-            logger.warning("No APY data found for %s (market token: %s)", symbol, market_token)
+            logger.warning(
+                "No APY data found for %s (market token: %s)", symbol, market_token
+            )
             return None
 
         # Return APY for all markets (map from market token addresses to CCXT symbols)
@@ -1536,9 +1728,13 @@ class GMX(Exchange):
         return ohlcv
 
     # Unsupported methods (GMX protocol limitations)
-    async def fetch_order_book(self, symbol: str, limit: int | None = None, params: dict | None = None):
+    async def fetch_order_book(
+        self, symbol: str, limit: int | None = None, params: dict | None = None
+    ):
         """Not supported - GMX uses liquidity pools."""
-        raise NotSupported(f"{self.id} fetch_order_book() not supported - GMX uses liquidity pools")
+        raise NotSupported(
+            f"{self.id} fetch_order_book() not supported - GMX uses liquidity pools"
+        )
 
     def clear_order_cache(self):
         """Clear the in-memory order cache.
@@ -1549,7 +1745,9 @@ class GMX(Exchange):
         self._orders = {}
         logger.info("Cleared order cache")
 
-    async def cancel_order(self, id: str, symbol: str | None = None, params: dict | None = None) -> dict:
+    async def cancel_order(
+        self, id: str, symbol: str | None = None, params: dict | None = None
+    ) -> dict:
         """Cancel a pending limit order (stop loss, take profit, or limit increase).
 
         Only pending limit orders stored in the GMX DataStore can be cancelled.
@@ -1594,7 +1792,11 @@ class GMX(Exchange):
                 f"{self.id} order {id} not found in DataStore (may have already been executed or cancelled).",
             )
 
-        logger.info("Cancelling limit order %s with execution_buffer=%.1fx", id[:18], execution_buffer)
+        logger.info(
+            "Cancelling limit order %s with execution_buffer=%.1fx",
+            id[:18],
+            execution_buffer,
+        )
 
         # Build unsigned cancel transaction (uses sync_web3 internally)
         canceller = CancelOrder(self.config)
@@ -1610,9 +1812,13 @@ class GMX(Exchange):
         # get_running_loop() is the correct call inside an async function (get_event_loop()
         # is deprecated since Python 3.10).
         loop = asyncio.get_running_loop()
-        tx_hash_bytes = await loop.run_in_executor(None, self.sync_web3.eth.send_raw_transaction, signed_tx.rawTransaction)
+        tx_hash_bytes = await loop.run_in_executor(
+            None, self.sync_web3.eth.send_raw_transaction, signed_tx.rawTransaction
+        )
         tx_hash = self.sync_web3.to_hex(tx_hash_bytes)
-        receipt = await loop.run_in_executor(None, self.sync_web3.eth.wait_for_transaction_receipt, tx_hash_bytes)
+        receipt = await loop.run_in_executor(
+            None, self.sync_web3.eth.wait_for_transaction_receipt, tx_hash_bytes
+        )
 
         if receipt.get("status") == 0:
             raise ExchangeError(
@@ -1706,9 +1912,13 @@ class GMX(Exchange):
         signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
 
         loop = asyncio.get_running_loop()
-        tx_hash_bytes = await loop.run_in_executor(None, self.sync_web3.eth.send_raw_transaction, signed_tx.rawTransaction)
+        tx_hash_bytes = await loop.run_in_executor(
+            None, self.sync_web3.eth.send_raw_transaction, signed_tx.rawTransaction
+        )
         tx_hash = self.sync_web3.to_hex(tx_hash_bytes)
-        receipt = await loop.run_in_executor(None, self.sync_web3.eth.wait_for_transaction_receipt, tx_hash_bytes)
+        receipt = await loop.run_in_executor(
+            None, self.sync_web3.eth.wait_for_transaction_receipt, tx_hash_bytes
+        )
 
         if receipt.get("status") == 0:
             raise ExchangeError(
@@ -1749,24 +1959,36 @@ class GMX(Exchange):
 
         # Token metadata is populated during load_markets from GMX API
         if not getattr(self, "_token_metadata", None):
-            raise ValueError("Token metadata not loaded. Ensure load_markets() was called first.")
+            raise ValueError(
+                "Token metadata not loaded. Ensure load_markets() was called first."
+            )
 
         info = market.get("info", {}) or {}
-        index_addr = (info.get("index_token") or info.get("indexTokenAddress") or "").lower()
+        index_addr = (
+            info.get("index_token") or info.get("indexTokenAddress") or ""
+        ).lower()
         if not index_addr:
-            raise ValueError(f"Market {market.get('symbol', 'unknown')} has no index_token address. Cannot determine decimals.")
+            raise ValueError(
+                f"Market {market.get('symbol', 'unknown')} has no index_token address. Cannot determine decimals."
+            )
 
         token_meta = self._token_metadata.get(index_addr)
         if not token_meta:
-            raise ValueError(f"Token metadata not found for index token {index_addr}. Ensure load_markets() was called.")
+            raise ValueError(
+                f"Token metadata not found for index token {index_addr}. Ensure load_markets() was called."
+            )
 
         decimals = token_meta.get("decimals")
         if decimals is None:
-            raise ValueError(f"Decimals not found for token {index_addr}. GMX API response is missing decimals.")
+            raise ValueError(
+                f"Decimals not found for token {index_addr}. GMX API response is missing decimals."
+            )
 
         return int(decimals)
 
-    def _convert_price_to_usd(self, raw_price: float | int | None, market: dict | None) -> float | None:
+    def _convert_price_to_usd(
+        self, raw_price: float | int | None, market: dict | None
+    ) -> float | None:
         """Convert GMX raw price to USD using the standard formula.
 
         Uses the same conversion as open_positions.py:
@@ -1798,7 +2020,9 @@ class GMX(Exchange):
 
         return convert_raw_price_to_usd(v, token_decimals)
 
-    async def fetch_order(self, id: str, symbol: str | None = None, params: dict | None = None):
+    async def fetch_order(
+        self, id: str, symbol: str | None = None, params: dict | None = None
+    ):
         """Fetch order by ID (transaction hash).
 
         Returns the order that was created with the given transaction hash.
@@ -1847,19 +2071,28 @@ class GMX(Exchange):
                 if "price" in order:
                     order["price"] = self._convert_price_to_usd(order.get("price"), mkt)
                 if "average" in order:
-                    order["average"] = self._convert_price_to_usd(order.get("average"), mkt)
+                    order["average"] = self._convert_price_to_usd(
+                        order.get("average"), mkt
+                    )
             except Exception:
                 pass
 
             # If already closed/cancelled/failed, return cached status
             if order.get("status") in ("closed", "cancelled", "failed"):
-                logger.debug("fetch_order(%s): returning cached status=%s", id, order.get("status"))
+                logger.debug(
+                    "fetch_order(%s): returning cached status=%s",
+                    id,
+                    order.get("status"),
+                )
                 return order
 
             # Order is "open" - check if keeper has executed
             order_key_hex = order.get("info", {}).get("order_key")
             if not order_key_hex:
-                logger.warning("fetch_order(%s): no order_key stored, cannot check execution status", id)
+                logger.warning(
+                    "fetch_order(%s): no order_key stored, cannot check execution status",
+                    id,
+                )
                 return order
 
             order_key = bytes.fromhex(order_key_hex)
@@ -1867,14 +2100,20 @@ class GMX(Exchange):
             # Check if order still pending in DataStore (using sync call via asyncio)
             try:
                 # Run sync function in thread pool
-                status_result = await asyncio.get_running_loop().run_in_executor(None, lambda: check_order_status(self.web3, order_key, self.chain))
+                status_result = await asyncio.get_running_loop().run_in_executor(
+                    None, lambda: check_order_status(self.web3, order_key, self.chain)
+                )
             except Exception as e:
-                logger.warning("fetch_order(%s): error checking order status: %s", id, e)
+                logger.warning(
+                    "fetch_order(%s): error checking order status: %s", id, e
+                )
                 return order
 
             if status_result.is_pending:
                 # Still waiting for keeper execution
-                logger.debug("fetch_order(%s): order still pending (waiting for keeper)", id)
+                logger.debug(
+                    "fetch_order(%s): order still pending (waiting for keeper)", id
+                )
                 return order
 
             # Order no longer pending - verify execution result
@@ -1896,7 +2135,9 @@ class GMX(Exchange):
                     symbol = order.get("symbol")
                     if symbol and verification.execution_price:
                         market = self.markets[symbol]
-                        order["average"] = self._convert_price_to_usd(verification.execution_price, market)
+                        order["average"] = self._convert_price_to_usd(
+                            verification.execution_price, market
+                        )
                     else:
                         # Fallback: keep raw value if symbol not available (shouldn't happen)
                         order["average"] = verification.execution_price
@@ -1914,15 +2155,27 @@ class GMX(Exchange):
 
                     # Get market and position direction for fee calculation
                     symbol = order.get("symbol", "")
-                    market = self.markets.get(symbol) if symbol and hasattr(self, "markets") and self.markets else None
-                    is_long = verification.is_long if verification.is_long is not None else True
+                    market = (
+                        self.markets.get(symbol)
+                        if symbol and hasattr(self, "markets") and self.markets
+                        else None
+                    )
+                    is_long = (
+                        verification.is_long
+                        if verification.is_long is not None
+                        else True
+                    )
 
                     # Extract actual fees from verification events
-                    order["fee"] = self._extract_actual_fee(verification, market, is_long, verification.size_delta_usd)
+                    order["fee"] = self._extract_actual_fee(
+                        verification, market, is_long, verification.size_delta_usd
+                    )
 
                     # Add detailed fee breakdown
                     execution_fee_eth = order["info"].get("execution_fee_eth", 0.0)
-                    order["info"]["fees_breakdown"] = self._build_fee_breakdown(verification, market, is_long, execution_fee_eth)
+                    order["info"]["fees_breakdown"] = self._build_fee_breakdown(
+                        verification, market, is_long, execution_fee_eth
+                    )
 
                     # Update info with verification data
                     order["info"]["execution_tx_hash"] = status_result.execution_tx_hash
@@ -1967,7 +2220,9 @@ class GMX(Exchange):
                     order["info"]["execution_tx_hash"] = status_result.execution_tx_hash
                     order["info"]["execution_receipt"] = status_result.execution_receipt
                     order["info"]["execution_block"] = status_result.execution_block
-                    order["info"]["cancellation_reason"] = verification.decoded_error or verification.reason
+                    order["info"]["cancellation_reason"] = (
+                        verification.decoded_error or verification.reason
+                    )
                     order["info"]["event_names"] = verification.event_names
                     order["info"]["gmx_status"] = "frozen" if is_frozen else "cancelled"
 
@@ -2013,8 +2268,12 @@ class GMX(Exchange):
                     order = {
                         "id": id,
                         "clientOrderId": None,
-                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
-                        "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
+                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000)
+                        if tx.get("blockNumber")
+                        else None,
+                        "timestamp": tx.get("blockNumber", 0) * 1000
+                        if tx.get("blockNumber")
+                        else None,
                         "lastTradeTimestamp": None,
                         "status": "failed",
                         "symbol": symbol if symbol else None,
@@ -2028,7 +2287,9 @@ class GMX(Exchange):
                         "trades": [],
                         "fee": {
                             "currency": "ETH",
-                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                            "cost": float(receipt.get("gasUsed", 0))
+                            * float(tx.get("gasPrice", 0))
+                            / 1e18,
                             "rate": None,
                         },
                         "info": {
@@ -2049,17 +2310,25 @@ class GMX(Exchange):
                         lambda: extract_order_key_from_receipt(self.sync_web3, receipt),
                     )
                 except ValueError as e:
-                    logger.warning("fetch_order(%s): could not extract order_key: %s", id, e)
+                    logger.warning(
+                        "fetch_order(%s): could not extract order_key: %s", id, e
+                    )
                     order_key = None
 
                 if not order_key:
                     # No order_key - can't verify execution, assume still pending
-                    logger.warning("fetch_order(%s): no order_key, returning status=open", id)
+                    logger.warning(
+                        "fetch_order(%s): no order_key, returning status=open", id
+                    )
                     order = {
                         "id": id,
                         "clientOrderId": None,
-                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
-                        "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
+                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000)
+                        if tx.get("blockNumber")
+                        else None,
+                        "timestamp": tx.get("blockNumber", 0) * 1000
+                        if tx.get("blockNumber")
+                        else None,
                         "lastTradeTimestamp": None,
                         "status": "open",
                         "symbol": symbol if symbol else None,
@@ -2073,7 +2342,9 @@ class GMX(Exchange):
                         "trades": [],
                         "fee": {
                             "currency": "ETH",
-                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                            "cost": float(receipt.get("gasUsed", 0))
+                            * float(tx.get("gasPrice", 0))
+                            / 1e18,
                             "rate": None,
                         },
                         "info": {
@@ -2102,7 +2373,9 @@ class GMX(Exchange):
 
                 # Fallback: Query EventEmitter logs if Subsquid failed
                 if trade_action is None:
-                    logger.debug("fetch_order(%s): Falling back to EventEmitter logs", id)
+                    logger.debug(
+                        "fetch_order(%s): Falling back to EventEmitter logs", id
+                    )
 
                     try:
                         addresses = get_contract_addresses(self.config.get_chain())
@@ -2122,7 +2395,9 @@ class GMX(Exchange):
                         )
 
                     except Exception as e:
-                        logger.debug("fetch_order(%s): EventEmitter query failed: %s", id, e)
+                        logger.debug(
+                            "fetch_order(%s): EventEmitter query failed: %s", id, e
+                        )
 
                 # Process the trade action result
                 if trade_action is None:
@@ -2134,8 +2409,12 @@ class GMX(Exchange):
                     order = {
                         "id": id,
                         "clientOrderId": None,
-                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
-                        "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
+                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000)
+                        if tx.get("blockNumber")
+                        else None,
+                        "timestamp": tx.get("blockNumber", 0) * 1000
+                        if tx.get("blockNumber")
+                        else None,
                         "lastTradeTimestamp": None,
                         "status": "open",
                         "symbol": symbol if symbol else None,
@@ -2149,7 +2428,9 @@ class GMX(Exchange):
                         "trades": [],
                         "fee": {
                             "currency": "ETH",
-                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                            "cost": float(receipt.get("gasUsed", 0))
+                            * float(tx.get("gasPrice", 0))
+                            / 1e18,
                             "rate": None,
                         },
                         "info": {
@@ -2163,7 +2444,9 @@ class GMX(Exchange):
                     return order
 
                 # Log trade_action fields for diagnostics (exclude bulky transaction data)
-                trade_action_fields = {k: v for k, v in trade_action.items() if k != "transaction"}
+                trade_action_fields = {
+                    k: v for k, v in trade_action.items() if k != "transaction"
+                }
                 logger.info(
                     "fetch_order(%s): trade_action fields: %s",
                     id[:16],
@@ -2179,7 +2462,9 @@ class GMX(Exchange):
                 if event_name in ("OrderCancelled", "OrderFrozen"):
                     # Order cancelled/frozen
                     is_frozen = event_name == "OrderFrozen"
-                    error_reason = trade_action.get("reason") or f"Order {event_name.lower()}"
+                    error_reason = (
+                        trade_action.get("reason") or f"Order {event_name.lower()}"
+                    )
                     logger.info(
                         "ORDER_TRACE: fetch_order(%s) - Order %s (async) - reason=%s - RETURNING status=%s",
                         id,
@@ -2207,7 +2492,9 @@ class GMX(Exchange):
                         "status": "expired" if is_frozen else "cancelled",
                         "fee": {
                             "currency": "ETH",
-                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                            "cost": float(receipt.get("gasUsed", 0))
+                            * float(tx.get("gasPrice", 0))
+                            / 1e18,
                             "rate": None,
                         },
                         "trades": [],
@@ -2227,13 +2514,23 @@ class GMX(Exchange):
                 execution_price = None
                 market = self.markets.get(symbol) if symbol else None
                 if raw_exec_price and market:
-                    execution_price = self._convert_price_to_usd(float(raw_exec_price), market)
+                    execution_price = self._convert_price_to_usd(
+                        float(raw_exec_price), market
+                    )
 
                 execution_tx_hash = trade_action.get("transaction", {}).get("hash")
                 is_long = trade_action.get("isLong")
 
-                gas_cost_eth = float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18
-                size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / 10**PRECISION if trade_action.get("sizeDeltaUsd") else 0.0
+                gas_cost_eth = (
+                    float(receipt.get("gasUsed", 0))
+                    * float(tx.get("gasPrice", 0))
+                    / 1e18
+                )
+                size_delta_usd = (
+                    float(trade_action.get("sizeDeltaUsd", 0)) / 10**PRECISION
+                    if trade_action.get("sizeDeltaUsd")
+                    else 0.0
+                )
 
                 fee_dict = self._extract_fee_from_trade_action(
                     trade_action,
@@ -2287,21 +2584,36 @@ class GMX(Exchange):
                         "is_long": is_long,
                         "event_name": event_name,
                         "execution_fee_eth": gas_cost_eth,
-                        "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 10**PRECISION if trade_action.get("pnlUsd") else None,
+                        "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 10**PRECISION
+                        if trade_action.get("pnlUsd")
+                        else None,
                         "size_delta_usd": size_delta_usd if size_delta_usd else None,
-                        "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 10**PRECISION if trade_action.get("priceImpactUsd") else None,
+                        "price_impact_usd": float(trade_action.get("priceImpactUsd", 0))
+                        / 10**PRECISION
+                        if trade_action.get("priceImpactUsd")
+                        else None,
                     },
                 }
                 return order
 
             except Exception as e:
-                logger.warning("Could not fetch transaction %s from blockchain: %s", id, e)
+                logger.warning(
+                    "Could not fetch transaction %s from blockchain: %s", id, e
+                )
                 # Fall through to raise OrderNotFound
 
         # Order not found anywhere
-        raise OrderNotFound(f"{self.id} order {id} not found in stored orders or on blockchain")
+        raise OrderNotFound(
+            f"{self.id} order {id} not found in stored orders or on blockchain"
+        )
 
-    async def fetch_open_orders(self, symbol: str | None = None, since: int | None = None, limit: int | None = None, params: dict | None = None):
+    async def fetch_open_orders(
+        self,
+        symbol: str | None = None,
+        since: int | None = None,
+        limit: int | None = None,
+        params: dict | None = None,
+    ):
         """Fetch open orders (returns positions as orders).
 
         GMX doesn't have traditional pending orders. We mirror the sync adapter
@@ -2310,7 +2622,9 @@ class GMX(Exchange):
         with actual on-chain positions and avoids silent desyncs when a close
         transaction partially/fully fails.
         """
-        positions = await self.fetch_positions(symbols=[symbol] if symbol else None, params=params)
+        positions = await self.fetch_positions(
+            symbols=[symbol] if symbol else None, params=params
+        )
 
         orders: list[dict] = []
         for pos in positions:
@@ -2341,7 +2655,13 @@ class GMX(Exchange):
 
         return orders
 
-    async def fetch_my_trades(self, symbol: str | None = None, since: int | None = None, limit: int | None = None, params: dict | None = None):
+    async def fetch_my_trades(
+        self,
+        symbol: str | None = None,
+        since: int | None = None,
+        limit: int | None = None,
+        params: dict | None = None,
+    ):
         """Fetch user trade history from Subsquid."""
         await self._ensure_session()
         await self.load_markets()
@@ -2350,7 +2670,13 @@ class GMX(Exchange):
         # For now, return empty list
         return []
 
-    async def fetch_trades(self, symbol: str, since: int | None = None, limit: int | None = None, params: dict | None = None):
+    async def fetch_trades(
+        self,
+        symbol: str,
+        since: int | None = None,
+        limit: int | None = None,
+        params: dict | None = None,
+    ):
         """Fetch public trades from Subsquid."""
         await self._ensure_session()
         await self.load_markets()
@@ -2359,9 +2685,13 @@ class GMX(Exchange):
         # For now, return empty list
         return []
 
-    async def fetch_positions(self, symbols: list[str] | None = None, params: dict | None = None) -> list[dict]:
+    async def fetch_positions(
+        self, symbols: list[str] | None = None, params: dict | None = None
+    ) -> list[dict]:
         """Fetch all open positions for the account (contract-based)."""
-        logger.debug("ORDER_TRACE: fetch_positions() CALLED (async) - symbols=%s", symbols)
+        logger.debug(
+            "ORDER_TRACE: fetch_positions() CALLED (async) - symbols=%s", symbols
+        )
         await self._ensure_session()
         await self.load_markets()
 
@@ -2469,7 +2799,46 @@ class GMX(Exchange):
         # This is a placeholder that raises NotSupported
         raise NotSupported(f"{self.id} fetch_balance() async implementation pending")
 
-    async def fetch_open_interest(self, symbol: str, params: dict | None = None) -> dict:
+    async def _get_bulk_market_infos(self, ttl: int = 60) -> dict:
+        """Return a cached addr→market-info dict, refreshed at most once per ``ttl`` seconds.
+
+        One ``get_market_infos(limit=200)`` query is shared across all
+        ``fetch_open_interest`` / ``fetch_funding_rate`` calls within the TTL.
+
+        :param ttl: Cache lifetime in seconds (default 60).
+        :return: Dict mapping lowercase market-token address to the latest market-info record.
+        """
+        import time as _time
+
+        now = _time.monotonic()
+        if now - self._bulk_market_infos_ts < ttl and self._bulk_market_infos_by_addr:
+            return self._bulk_market_infos_by_addr
+
+        if not self.subsquid:
+            return {}
+
+        try:
+            all_infos = await self.subsquid.get_market_infos(limit=200)
+            by_addr: dict = {}
+            for mi in all_infos:
+                addr = mi.get("marketTokenAddress", "").lower()
+                if addr:
+                    by_addr[addr] = mi
+            self._bulk_market_infos_by_addr = by_addr
+            self._bulk_market_infos_ts = now
+            logger.debug(
+                "_get_bulk_market_infos: refreshed cache with %d markets", len(by_addr)
+            )
+        except Exception as e:
+            logger.warning(
+                "_get_bulk_market_infos: bulk fetch failed, using stale cache: %s", e
+            )
+
+        return self._bulk_market_infos_by_addr
+
+    async def fetch_open_interest(
+        self, symbol: str, params: dict | None = None
+    ) -> dict:
         """Fetch current open interest for a symbol.
 
         Args:
@@ -2483,26 +2852,27 @@ class GMX(Exchange):
         await self.load_markets()
 
         market = self.market(symbol)
-        market_address = params.get("market_address", market["info"]["market_token"]) if params else market["info"]["market_token"]
-
-        # Fetch from Subsquid
-        market_infos = await self.subsquid.get_market_infos(
-            market_address=market_address,
-            limit=1,
-            order_by="id_DESC",
+        market_address = (
+            params.get("market_address", market["info"]["market_token"])
+            if params
+            else market["info"]["market_token"]
         )
 
-        if not market_infos:
-            raise ValueError(f"No market info found for {symbol}")
+        # Use bulk cache — one Subsquid query per minute shared across all symbols
+        bulk = await self._get_bulk_market_infos()
+        raw_info = bulk.get(market_address.lower())
 
-        raw_info = market_infos[0]
+        if raw_info is None:
+            raise ValueError(f"No market info found for {symbol}")
 
         # Parse open interest
         long_oi_usd_raw = raw_info.get("longOpenInterestUsd", 0)
         short_oi_usd_raw = raw_info.get("shortOpenInterestUsd", 0)
 
         long_oi_usd = float(long_oi_usd_raw) / 10**PRECISION if long_oi_usd_raw else 0.0
-        short_oi_usd = float(short_oi_usd_raw) / 10**PRECISION if short_oi_usd_raw else 0.0
+        short_oi_usd = (
+            float(short_oi_usd_raw) / 10**PRECISION if short_oi_usd_raw else 0.0
+        )
         total_oi_usd = long_oi_usd + short_oi_usd
 
         long_oi_tokens_raw = raw_info.get("longOpenInterestInTokens", 0)
@@ -2517,8 +2887,16 @@ class GMX(Exchange):
                 index_token_address = market["info"]["index_token"]
                 decimals = self.subsquid.get_token_decimals(index_token_address)
 
-                long_oi_tokens = float(long_oi_tokens_raw) / (10**decimals) if long_oi_tokens_raw else 0.0
-                short_oi_tokens = float(short_oi_tokens_raw) / (10**decimals) if short_oi_tokens_raw else 0.0
+                long_oi_tokens = (
+                    float(long_oi_tokens_raw) / (10**decimals)
+                    if long_oi_tokens_raw
+                    else 0.0
+                )
+                short_oi_tokens = (
+                    float(short_oi_tokens_raw) / (10**decimals)
+                    if short_oi_tokens_raw
+                    else 0.0
+                )
                 total_oi_tokens = long_oi_tokens + short_oi_tokens
             except (KeyError, TypeError, ValueError):
                 pass
@@ -2605,7 +2983,9 @@ class GMX(Exchange):
 
         return result
 
-    async def fetch_open_interests(self, symbols: list[str] | None = None, params: dict | None = None) -> dict:
+    async def fetch_open_interests(
+        self, symbols: list[str] | None = None, params: dict | None = None
+    ) -> dict:
         """Fetch open interest for multiple symbols.
 
         Args:
@@ -2620,22 +3000,85 @@ class GMX(Exchange):
         if symbols is None:
             symbols = list(self.markets.keys())
 
-        result = {}
-        tasks = []
-        valid_symbols = []
+        # Fetch all market infos in one Subsquid call, then look up per-symbol
+        # Avoids N concurrent per-market queries from the old asyncio.gather approach
+        all_infos_by_addr: dict = {}
+        try:
+            all_minfos = await self.subsquid.get_market_infos(limit=200)
+            for mi in all_minfos:
+                addr = mi.get("marketTokenAddress", "").lower()
+                if addr:
+                    all_infos_by_addr[addr] = mi
+        except Exception as e:
+            logger.warning(
+                "fetch_open_interests: failed to pre-fetch market infos: %s", e
+            )
 
+        result = {}
+        timestamp = self.milliseconds()
         for symbol in symbols:
             try:
-                tasks.append(self.fetch_open_interest(symbol, params))
-                valid_symbols.append(symbol)
+                market = self.market(symbol)
+                market_address = market["info"]["market_token"]
+                raw_info = all_infos_by_addr.get(market_address.lower())
+                if raw_info is None:
+                    continue
+
+                long_oi_usd_raw = raw_info.get("longOpenInterestUsd", 0)
+                short_oi_usd_raw = raw_info.get("shortOpenInterestUsd", 0)
+                long_oi_usd = (
+                    float(long_oi_usd_raw) / 10**PRECISION if long_oi_usd_raw else 0.0
+                )
+                short_oi_usd = (
+                    float(short_oi_usd_raw) / 10**PRECISION if short_oi_usd_raw else 0.0
+                )
+                total_oi_usd = long_oi_usd + short_oi_usd
+
+                long_oi_tokens_raw = raw_info.get("longOpenInterestInTokens", 0)
+                short_oi_tokens_raw = raw_info.get("shortOpenInterestInTokens", 0)
+                long_oi_tokens = 0.0
+                short_oi_tokens = 0.0
+                total_oi_tokens = None
+                if long_oi_tokens_raw or short_oi_tokens_raw:
+                    try:
+                        index_token_address = market["info"]["index_token"]
+                        decimals = self.subsquid.get_token_decimals(index_token_address)
+                        long_oi_tokens = (
+                            float(long_oi_tokens_raw) / (10**decimals)
+                            if long_oi_tokens_raw
+                            else 0.0
+                        )
+                        short_oi_tokens = (
+                            float(short_oi_tokens_raw) / (10**decimals)
+                            if short_oi_tokens_raw
+                            else 0.0
+                        )
+                        total_oi_tokens = long_oi_tokens + short_oi_tokens
+                    except (KeyError, TypeError, ValueError):
+                        pass
+
+                result[symbol] = {
+                    "symbol": symbol,
+                    "baseVolume": None,
+                    "quoteVolume": None,
+                    "openInterestAmount": total_oi_tokens,
+                    "openInterestValue": total_oi_usd,
+                    "timestamp": timestamp,
+                    "datetime": self.iso8601(timestamp),
+                    "info": {
+                        "longOpenInterest": long_oi_usd,
+                        "shortOpenInterest": short_oi_usd,
+                        "longOpenInterestUsd": long_oi_usd_raw,
+                        "shortOpenInterestUsd": short_oi_usd_raw,
+                        "longOpenInterestTokens": long_oi_tokens,
+                        "shortOpenInterestTokens": short_oi_tokens,
+                        "longOpenInterestInTokens": long_oi_tokens_raw,
+                        "shortOpenInterestInTokens": short_oi_tokens_raw,
+                        **raw_info,
+                    },
+                }
             except Exception:
                 continue
-
-        if tasks:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for symbol, oi_result in zip(valid_symbols, results):
-                if not isinstance(oi_result, Exception):
-                    result[symbol] = oi_result
 
         return result
 
@@ -2658,20 +3101,17 @@ class GMX(Exchange):
         market = self.market(symbol)
         market_address = params.get("market_address", market["info"]["market_token"])
 
-        # Fetch from Subsquid
-        market_infos = await self.subsquid.get_market_infos(
-            market_address=market_address,
-            limit=1,
-            order_by="id_DESC",
-        )
+        # Use bulk cache — one Subsquid query per minute shared across all symbols
+        bulk = await self._get_bulk_market_infos()
+        info = bulk.get(market_address.lower())
 
-        if not market_infos:
+        if info is None:
             raise ValueError(f"No market info found for {symbol}")
 
-        info = market_infos[0]
-
         # Parse funding rate
-        funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 10**PRECISION
+        funding_per_second = (
+            float(info.get("fundingFactorPerSecond", 0)) / 10**PRECISION
+        )
         longs_pay_shorts = info.get("longsPayShorts", True)
 
         if longs_pay_shorts:
@@ -2689,7 +3129,8 @@ class GMX(Exchange):
             "longFundingRate": long_funding,
             "shortFundingRate": short_funding,
             "fundingTimestamp": timestamp,
-            "fundingDatetime": datetime.fromtimestamp(timestamp / 1000).isoformat() + "Z",
+            "fundingDatetime": datetime.fromtimestamp(timestamp / 1000).isoformat()
+            + "Z",
             "timestamp": timestamp,
             "datetime": datetime.fromtimestamp(timestamp / 1000).isoformat() + "Z",
             "info": info,
@@ -2736,7 +3177,9 @@ class GMX(Exchange):
 
         result = []
         for info in market_infos:
-            funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 10**PRECISION
+            funding_per_second = (
+                float(info.get("fundingFactorPerSecond", 0)) / 10**PRECISION
+            )
             longs_pay_shorts = info.get("longsPayShorts", True)
 
             timestamp = self.milliseconds()
@@ -2745,12 +3188,20 @@ class GMX(Exchange):
                 {
                     "symbol": symbol,
                     "fundingRate": funding_per_second,
-                    "longFundingRate": funding_per_second if longs_pay_shorts else -funding_per_second,
-                    "shortFundingRate": -funding_per_second if longs_pay_shorts else funding_per_second,
+                    "longFundingRate": funding_per_second
+                    if longs_pay_shorts
+                    else -funding_per_second,
+                    "shortFundingRate": -funding_per_second
+                    if longs_pay_shorts
+                    else funding_per_second,
                     "fundingTimestamp": timestamp,
-                    "fundingDatetime": datetime.fromtimestamp(timestamp / 1000).isoformat() + "Z",
+                    "fundingDatetime": datetime.fromtimestamp(
+                        timestamp / 1000
+                    ).isoformat()
+                    + "Z",
                     "timestamp": timestamp,
-                    "datetime": datetime.fromtimestamp(timestamp / 1000).isoformat() + "Z",
+                    "datetime": datetime.fromtimestamp(timestamp / 1000).isoformat()
+                    + "Z",
                     "info": info,
                 }
             )
@@ -2790,10 +3241,14 @@ class GMX(Exchange):
             If you need funding rate history (not payment history), use
             fetch_funding_rate_history() instead.
         """
-        logger.warning("fetch_funding_history() called but GMX V2 does not track historical funding fee payments. Returning empty list (funding fees will be calculated as 0.0).")
+        logger.warning(
+            "fetch_funding_history() called but GMX V2 does not track historical funding fee payments. Returning empty list (funding fees will be calculated as 0.0)."
+        )
         return []
 
-    async def fetch_funding_rates(self, symbols: list[str] | None = None, params: dict | None = None) -> dict:
+    async def fetch_funding_rates(
+        self, symbols: list[str] | None = None, params: dict | None = None
+    ) -> dict:
         """Fetch funding rates for multiple symbols.
 
         Args:
@@ -2808,22 +3263,55 @@ class GMX(Exchange):
         if symbols is None:
             symbols = list(self.markets.keys())
 
-        result = {}
-        tasks = []
-        valid_symbols = []
+        # Fetch all market infos in one Subsquid call, then look up per-symbol
+        # Avoids N concurrent per-market queries from the old asyncio.gather approach
+        all_infos_by_addr: dict = {}
+        try:
+            all_minfos = await self.subsquid.get_market_infos(limit=200)
+            for mi in all_minfos:
+                addr = mi.get("marketTokenAddress", "").lower()
+                if addr:
+                    all_infos_by_addr[addr] = mi
+        except Exception as e:
+            logger.warning(
+                "fetch_funding_rates: failed to pre-fetch market infos: %s", e
+            )
 
+        result = {}
+        timestamp = self.milliseconds()
+        datetime_str = datetime.fromtimestamp(timestamp / 1000).isoformat() + "Z"
         for symbol in symbols:
             try:
-                tasks.append(self.fetch_funding_rate(symbol, params))
-                valid_symbols.append(symbol)
+                market = self.market(symbol)
+                market_address = market["info"]["market_token"]
+                info = all_infos_by_addr.get(market_address.lower())
+                if info is None:
+                    continue
+
+                funding_per_second = (
+                    float(info.get("fundingFactorPerSecond", 0)) / 10**PRECISION
+                )
+                longs_pay_shorts = info.get("longsPayShorts", True)
+                long_funding = (
+                    funding_per_second if longs_pay_shorts else -funding_per_second
+                )
+                short_funding = (
+                    -funding_per_second if longs_pay_shorts else funding_per_second
+                )
+
+                result[symbol] = {
+                    "symbol": symbol,
+                    "fundingRate": funding_per_second,
+                    "longFundingRate": long_funding,
+                    "shortFundingRate": short_funding,
+                    "fundingTimestamp": timestamp,
+                    "fundingDatetime": datetime_str,
+                    "timestamp": timestamp,
+                    "datetime": datetime_str,
+                    "info": info,
+                }
             except Exception:
                 continue
-
-        if tasks:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for symbol, fr_result in zip(valid_symbols, results):
-                if not isinstance(fr_result, Exception):
-                    result[symbol] = fr_result
 
         return result
 
@@ -2923,7 +3411,9 @@ class GMX(Exchange):
             try:
                 loop = asyncio.get_running_loop()
                 gas_addr = getattr(self.wallet, "gas_address", self.wallet.address)
-                eth_balance = await loop.run_in_executor(None, self.web3.eth.get_balance, gas_addr)
+                eth_balance = await loop.run_in_executor(
+                    None, self.web3.eth.get_balance, gas_addr
+                )
                 eth_balance_eth = eth_balance / 1e18
                 # Estimate USD value (using $2000/ETH as approximation)
                 eth_balance_usd = eth_balance_eth * 2000
@@ -2933,7 +3423,9 @@ class GMX(Exchange):
 
             # Get the last failed transaction hash if available
             last_tx_hash = getattr(self, "_last_failed_tx_hash", None)
-            tx_link = f"TX: https://arbiscan.io/tx/{last_tx_hash}" if last_tx_hash else ""
+            tx_link = (
+                f"TX: https://arbiscan.io/tx/{last_tx_hash}" if last_tx_hash else ""
+            )
 
             # Build detailed error message
             error_msg = f"🛑 GMX BOT PAUSED: {self._consecutive_failures} order failures detected.\n\n{self._trading_paused_reason}\n\nWallet balance: {balance_str}\n{tx_link}\n\nACTION REQUIRED: Increase executionBuffer in config (try 2.0x or higher), top up wallet if needed, then restart bot."
@@ -2995,7 +3487,9 @@ class GMX(Exchange):
             )
 
         # Standard order creation (no SLTP)
-        raise NotSupported(f"{self.id} async create_order() for standard orders not yet implemented")
+        raise NotSupported(
+            f"{self.id} async create_order() for standard orders not yet implemented"
+        )
 
     async def _create_order_with_sltp(
         self,
@@ -3024,10 +3518,14 @@ class GMX(Exchange):
         """
         # Only support bundled SL/TP for opening positions (buy side)
         if side != "buy":
-            raise ValueError("Bundled SL/TP only supported for opening positions (side='buy'). Use standalone SL/TP for existing positions.")
+            raise ValueError(
+                "Bundled SL/TP only supported for opening positions (side='buy'). Use standalone SL/TP for existing positions."
+            )
 
         # Convert CCXT params to GMX params
-        gmx_params = await self._convert_ccxt_to_gmx_params_async(symbol, type, side, amount, price, params)
+        gmx_params = await self._convert_ccxt_to_gmx_params_async(
+            symbol, type, side, amount, price, params
+        )
 
         # Get market and token info
         normalized_symbol = self._normalize_symbol(symbol)
@@ -3067,11 +3565,17 @@ class GMX(Exchange):
 
         # Get collateral token price
         if collateral_address not in oracle_prices:
-            raise ValueError(f"No oracle price available for collateral token {collateral_address}")
+            raise ValueError(
+                f"No oracle price available for collateral token {collateral_address}"
+            )
 
         price_data = oracle_prices[collateral_address]
-        raw_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
-        collateral_token_price = raw_price / (10 ** (PRECISION - token_details.decimals))
+        raw_price = median(
+            [float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])]
+        )
+        collateral_token_price = raw_price / (
+            10 ** (PRECISION - token_details.decimals)
+        )
 
         # Calculate collateral amount in token units
         collateral_tokens = collateral_usd / collateral_token_price
@@ -3116,7 +3620,12 @@ class GMX(Exchange):
             None,  # data_list
         )
 
-        logger.info("SL/TP result created: entry_price=%s, sl_trigger=%s, tp_trigger=%s", sltp_result.entry_price, sltp_result.stop_loss_trigger_price, sltp_result.take_profit_trigger_price)
+        logger.info(
+            "SL/TP result created: entry_price=%s, sl_trigger=%s, tp_trigger=%s",
+            sltp_result.entry_price,
+            sltp_result.stop_loss_trigger_price,
+            sltp_result.take_profit_trigger_price,
+        )
 
         # Sign transaction
         transaction = sltp_result.transaction
@@ -3130,7 +3639,9 @@ class GMX(Exchange):
         )
 
         # Submit to blockchain
-        tx_hash_bytes = await self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash_bytes = await self.web3.eth.send_raw_transaction(
+            signed_tx.rawTransaction
+        )
         tx_hash = self.web3.to_hex(tx_hash_bytes)
 
         # Wait for confirmation
@@ -3268,7 +3779,9 @@ class GMX(Exchange):
             raise ValueError(f"No oracle price available for {collateral_address}")
 
         price_data = oracle_prices[collateral_address]
-        raw_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
+        raw_price = median(
+            [float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])]
+        )
         token_price = raw_price / (10 ** (PRECISION - token_details.decimals))
 
         required_tokens = required_collateral_usd / token_price
@@ -3282,12 +3795,18 @@ class GMX(Exchange):
         # Approve large amount
         approve_amount = 1_000_000_000 * (10**token_details.decimals)
 
-        logger.info("Approving %.0f %s...", approve_amount / (10**token_details.decimals), actual_symbol)
+        logger.info(
+            "Approving %.0f %s...",
+            approve_amount / (10**token_details.decimals),
+            actual_symbol,
+        )
 
         # Build and send approval transaction
         approve_tx = await loop.run_in_executor(
             None,
-            token_contract.functions.approve(spender_address, approve_amount).build_transaction,
+            token_contract.functions.approve(
+                spender_address, approve_amount
+            ).build_transaction,
             {
                 "from": to_checksum_address(wallet_address),
                 "gas": 100_000,
@@ -3310,8 +3829,12 @@ class GMX(Exchange):
             approve_tx,
         )
 
-        approve_tx_hash = await self.web3.eth.send_raw_transaction(signed_approve_tx.rawTransaction)
-        approve_receipt = await self.web3.eth.wait_for_transaction_receipt(approve_tx_hash, timeout=120)
+        approve_tx_hash = await self.web3.eth.send_raw_transaction(
+            signed_approve_tx.rawTransaction
+        )
+        approve_receipt = await self.web3.eth.wait_for_transaction_receipt(
+            approve_tx_hash, timeout=120
+        )
 
         if approve_receipt["status"] != 1:
             raise Exception(f"Token approval failed: {approve_tx_hash.hex()}")
@@ -3381,12 +3904,16 @@ class GMX(Exchange):
             "side": side,
             "price": mark_price,
             "amount": amount,
-            "cost": amount * mark_price if tx_success and mark_price else None,  # Cost in stake currency = amount * price
+            "cost": amount * mark_price
+            if tx_success and mark_price
+            else None,  # Cost in stake currency = amount * price
             "average": mark_price if tx_success else None,
             "filled": filled_amount,
             "remaining": remaining_amount,
             "status": status,
-            "fee": self._build_trading_fee(symbol, amount * mark_price if mark_price else 0.0),
+            "fee": self._build_trading_fee(
+                symbol, amount * mark_price if mark_price else 0.0
+            ),
             "trades": None,
             "info": info,
         }
@@ -3425,7 +3952,9 @@ class GMX(Exchange):
         :raises InvalidOrder: If required parameters are missing
         """
         # Async implementation would require async GMXTrading methods
-        raise NotSupported(f"{self.id} async standalone SLTP orders not yet implemented. Use sync GMX exchange class for standalone SL/TP orders in Freqtrade.")
+        raise NotSupported(
+            f"{self.id} async standalone SLTP orders not yet implemented. Use sync GMX exchange class for standalone SL/TP orders in Freqtrade."
+        )
 
     async def create_market_buy_order(
         self,
