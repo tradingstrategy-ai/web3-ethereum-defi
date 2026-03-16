@@ -460,10 +460,7 @@ def test_load_markets_rest_api_excludes_datastore_disabled(gmx_live):
             continue
         key = is_market_disabled_key(market_token)
         is_disabled = datastore.functions.getBool(key).call()
-        assert not is_disabled, (
-            f"Market {symbol} ({market_token}) is in loaded markets "
-            f"but DataStore says IS_MARKET_DISABLED=True"
-        )
+        assert not is_disabled, f"Market {symbol} ({market_token}) is in loaded markets but DataStore says IS_MARKET_DISABLED=True"
         checked += 1
 
     logger.info("Spot-checked %d markets — all confirmed enabled on-chain", checked)
@@ -496,8 +493,5 @@ def test_om_usdc_excluded_from_live_markets_if_disabled(gmx_live):
             continue
         key = is_market_disabled_key(market_token)
         is_disabled = datastore.functions.getBool(key).call()
-        assert not is_disabled, (
-            f"{symbol} is in loaded markets but IS_MARKET_DISABLED=True on-chain. "
-            "The DataStore filter should have removed it."
-        )
+        assert not is_disabled, f"{symbol} is in loaded markets but IS_MARKET_DISABLED=True on-chain. The DataStore filter should have removed it."
         logger.info("%s is enabled on-chain (IS_MARKET_DISABLED=False)", symbol)

@@ -8195,11 +8195,7 @@ class GMX(ExchangeCompatible):
             s = k.lower()
             return s[2:] if s.startswith("0x") else s
 
-        cached_order_keys: set[str] = {
-            _normalise_key(str(o.get("info", {}).get("order_key")))
-            for o in self._orders.values()
-            if o.get("info", {}).get("order_key")
-        }
+        cached_order_keys: set[str] = {_normalise_key(str(o.get("info", {}).get("order_key"))) for o in self._orders.values() if o.get("info", {}).get("order_key")}
 
         # 3. Recent position changes from Subsquid (catches liquidations and
         #    keeper-executed closes that the bot didn't initiate)

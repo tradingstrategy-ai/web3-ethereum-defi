@@ -1154,7 +1154,7 @@ class Gmx(Exchange):
             for prefix in ("tx reverted for", ":"):
                 idx = reason.find(prefix)
                 if idx != -1:
-                    reason = reason[idx + len(prefix):]
+                    reason = reason[idx + len(prefix) :]
             # Strip tx hash suffix
             for suffix in (" (tx=", " tx="):
                 idx = reason.find(suffix)

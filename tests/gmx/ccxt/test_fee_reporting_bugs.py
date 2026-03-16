@@ -163,11 +163,7 @@ def test_parse_order_result_fee_reflects_usd_notional(gmx_exchange):
 
     logger.info("_parse_order_result_to_ccxt fee: %s (expected ~$%.4f)", fee, expected_cost)
 
-    assert fee["cost"] == pytest.approx(expected_cost, rel=0.01), (
-        f"Fee should be ~${expected_cost:.4f} (0.5 ETH × $2 500 × 0.06 %%), "
-        f"but got ${fee['cost']:.6f}.  "
-        "Bug: amount is in ETH units, not USD."
-    )
+    assert fee["cost"] == pytest.approx(expected_cost, rel=0.01), f"Fee should be ~${expected_cost:.4f} (0.5 ETH × $2 500 × 0.06 %%), but got ${fee['cost']:.6f}.  Bug: amount is in ETH units, not USD."
     assert fee["rate"] == pytest.approx(0.0006)
 
 
@@ -196,11 +192,7 @@ def test_parse_sltp_result_fee_reflects_usd_notional(gmx_exchange):
 
     logger.info("_parse_sltp_result_to_ccxt fee: %s (expected ~$%.4f)", fee, expected_cost)
 
-    assert fee["cost"] == pytest.approx(expected_cost, rel=0.01), (
-        f"Fee should be ~${expected_cost:.4f} (0.5 ETH × $2 500 × 0.06 %%), "
-        f"but got ${fee['cost']:.6f}.  "
-        "Bug: amount is in ETH units, not USD."
-    )
+    assert fee["cost"] == pytest.approx(expected_cost, rel=0.01), f"Fee should be ~${expected_cost:.4f} (0.5 ETH × $2 500 × 0.06 %%), but got ${fee['cost']:.6f}.  Bug: amount is in ETH units, not USD."
     assert fee["rate"] == pytest.approx(0.0006)
 
 
@@ -256,9 +248,7 @@ def test_convert_fee_stablecoin_without_price_approximates_usd(gmx_exchange):
     finally:
         gmx_exchange._token_metadata = original_meta
 
-    assert result == pytest.approx(1.8, rel=0.01), (
-        f"Stablecoin fallback should return fee_in_tokens as USD, got {result}"
-    )
+    assert result == pytest.approx(1.8, rel=0.01), f"Stablecoin fallback should return fee_in_tokens as USD, got {result}"
 
 
 def test_convert_fee_nonstable_without_price_returns_zero(gmx_exchange):
@@ -289,6 +279,4 @@ def test_convert_fee_nonstable_without_price_returns_zero(gmx_exchange):
     finally:
         gmx_exchange._token_metadata = original_meta
 
-    assert result == 0.0, (
-        f"Non-stablecoin without price should return 0 defensively, got {result}"
-    )
+    assert result == 0.0, f"Non-stablecoin without price should return 0 defensively, got {result}"
