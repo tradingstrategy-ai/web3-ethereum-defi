@@ -1,0 +1,25 @@
+symbol: VUSD
+name: VUSD (Hemi)
+short_description: VUSD on Hemi is a crypto-backed stablecoin on the Hemi network, a Bitcoin-Ethereum Layer 2. It has negligible market presence and minimal information available.
+long_description: |
+  VUSD on the [Hemi](https://hemi.xyz/) network is a crypto-backed stablecoin
+  with very limited public information.
+
+  ## Status
+
+  Barely alive — ~$57K market cap, virtually no trading volume (~$59/day).
+  Trades on SushiSwap V3.
+
+  ## Sources
+
+  - [CoinGecko — VUSD (Hemi)](https://www.coingecko.com/en/coins/vusd-hemi)
+category: stablecoin
+links:
+  homepage: ''
+  coingecko: https://www.coingecko.com/en/coins/vusd-hemi
+  defillama: ''
+  twitter: ''
+contract_addresses:
+  - chain: hemi
+    address: '0x7a06c4aef988e7925575c50261297a946ad204a8'
+slug: vusd-hemi

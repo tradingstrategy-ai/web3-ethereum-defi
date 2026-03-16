@@ -1,12 +1,32 @@
 symbol: plUSD
-name: PolyLiquity USD
-short_description: PolyLiquity USD (plUSD) is a stablecoin forked from the Liquity protocol deployed on Polygon. It uses the same overcollateralised ETH-backed model as Liquity. plUSD is specific to the Polygon
-  ecosystem.
-long_description: ''
+name: Trevee Plasma USD
+short_description: Trevee Plasma USD (plUSD) is a meta-stablecoin backed 1:1 by USDT on the Plasma L1 chain. Deposits are deployed into Aave and Fluid for yield. Previously known as Rings Protocol.
+long_description: |
+  plUSD is issued by [Trevee](https://trevee.com/) (previously known as Rings Protocol)
+  on the [Plasma](https://plasma.network/) L1 blockchain, a chain purpose-built for stablecoins.
+
+  ## Mechanism
+
+  - Backed 1:1 by USDT — users deposit USDT to mint plUSD
+  - Deposits are deployed into [Aave](https://aave.com/) and [Fluid](https://fluid.instadapp.io/) for yield
+  - splUSD (Staked Plasma USD) is the yield-bearing version that auto-compounds returns
+  - [Midas RWA](https://midas.app/) provides the vault infrastructure
+
+  **This is NOT a Liquity fork** — it is a USDT-backed meta-stablecoin.
+
+  ## Status
+
+  Effectively dead — CoinGecko shows ~$8.4M market cap but trading stopped ~2 months ago.
+  DeFiLlama shows Trevee Earn TVL collapsed from ~$54M peak (Sept 2024) to ~$950.
+
+  ## Sources
+
+  - [CoinGecko — Trevee Plasma USD](https://www.coingecko.com/en/coins/trevee-plasma-usd)
+  - [DeFiLlama — Trevee Earn](https://defillama.com/protocol/trevee-earn)
 category: stablecoin
 links:
-  homepage: https://polyliquity.finance/
-  coingecko: ''
-  defillama: ''
+  homepage: https://trevee.com/
+  coingecko: https://www.coingecko.com/en/coins/trevee-plasma-usd
+  defillama: https://defillama.com/protocol/trevee-earn
   twitter: ''
 slug: plusd

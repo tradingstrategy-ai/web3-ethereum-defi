@@ -1,0 +1,27 @@
+symbol: VUSD
+name: Vesper V-Dollar
+short_description: Vesper V-Dollar (VUSD) is a stablecoin by Vesper Finance on Ethereum, backed by interest-generating collateral. It is part of Vesper's DeFi yield platform.
+long_description: |
+  VUSD is issued by [Vesper Finance](https://vesper.finance/) on Ethereum mainnet.
+  It is pegged to the US Dollar and backed by interest-generating collateral within the Vesper ecosystem.
+
+  ## Status
+
+  Effectively dead — ~$113K market cap, negligible volume (~$3K/day).
+  Vesper Finance overall TVL collapsed from ~$10.9M peak (2022) to ~$88K.
+  Vesper is working on a V2 but VUSD appears abandoned.
+
+  ## Sources
+
+  - [Vesper Finance](https://vesper.finance/)
+  - [Etherscan — VUSD](https://etherscan.io/token/0x677ddbd918637e5f2c79e164d402454de7da8619)
+category: stablecoin
+links:
+  homepage: https://vesper.finance/
+  coingecko: ''
+  defillama: ''
+  twitter: ''
+contract_addresses:
+  - chain: ethereum
+    address: '0x677ddbd918637e5f2c79e164d402454de7da8619'
+slug: vusd-vesper

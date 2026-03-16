@@ -1,0 +1,28 @@
+symbol: PUSD
+name: PolyQuity PUSD
+short_description: PolyQuity PUSD is a Liquity V1 fork on Polygon. Users deposit MATIC as collateral (110% minimum ratio) and borrow PUSD at 0% interest.
+long_description: |
+  PUSD is issued by [PolyQuity](https://docs.polyquity.org/) on Polygon.
+  It is a direct [Liquity V1](https://www.liquity.org/) fork where users deposit MATIC as
+  collateral with a 110% minimum collateral ratio and borrow PUSD at 0% interest.
+  Governance token is PYQ.
+
+  **Note:** The ticker is PUSD, not plUSD. The `polyliquity.finance` domain appears to be
+  a separate entity whose relationship to the real PolyQuity is unclear.
+
+  ## Status
+
+  Effectively dead — DeFiLlama marks it with `deadUrl: true`.
+  Peak TVL was ~$47M in June 2021; current TVL is ~$94K.
+
+  ## Sources
+
+  - [PolyQuity docs](https://docs.polyquity.org/)
+  - [DeFiLlama — PolyQuity](https://defillama.com/protocol/polyquity)
+category: stablecoin
+links:
+  homepage: https://docs.polyquity.org/
+  coingecko: ''
+  defillama: https://defillama.com/protocol/polyquity
+  twitter: ''
+slug: plusd-polyquity

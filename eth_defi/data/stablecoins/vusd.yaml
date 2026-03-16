@@ -1,20 +1,26 @@
 symbol: VUSD
+name: Veno USD
+short_description: Veno USD (VUSD) is a stablecoin issued by Veno Finance on Cronos zkEVM. It is part of the Veno liquid staking ecosystem known for LCRO, LATOM, and LETH tokens.
+long_description: |
+  VUSD is issued by [Veno Finance](https://veno.finance/) on [Cronos zkEVM](https://cronos.org/).
+  Veno is primarily a liquid staking protocol (LCRO, LATOM, LETH), with VUSD as a secondary stablecoin product.
+
+  ## Status
+
+  Active but small — ~$3.2M market cap, ~570 active holders.
+  Trading near the $1 peg.
+
+  ## Sources
+
+  - [CoinGecko — Veno USD](https://www.coingecko.com/en/coins/veno-usd)
+  - [Veno Finance](https://veno.finance/)
 category: stablecoin
-entries:
-- name: Virtual USD
-  short_description: Virtual USD (VUSD) is a stablecoin with limited public information available. Details about its backing and mechanism are unclear. It appears to have minimal market presence.
-  long_description: ''
-  links:
-    homepage: https://vusd.com/
-    coingecko: ''
-    defillama: ''
-    twitter: ''
-- name: Virtue USD
-  short_description: Virtue USD is a stablecoin from the Virtue protocol. Details about its mechanism and backing are limited. It appears to target DeFi use cases.
-  long_description: ''
-  links:
-    homepage: https://virtue.money/
-    coingecko: ''
-    defillama: ''
-    twitter: ''
+links:
+  homepage: https://veno.finance/
+  coingecko: https://www.coingecko.com/en/coins/veno-usd
+  defillama: ''
+  twitter: ''
+contract_addresses:
+  - chain: cronos-zkevm
+    address: '0x5b91e29Ae5A71d9052620Acb813d5aC25eC7a4A2'
 slug: vusd

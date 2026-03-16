@@ -1,11 +1,31 @@
 symbol: USDXL
-name: Last USD
-short_description: Last USD (USDXL) is an obscure stablecoin with limited public information. Details about its backing, mechanism, and team are not readily available. It appears to have minimal market presence.
-long_description: ''
+name: Last USD (HypurrFi)
+short_description: Last USD (USDXL) is an overcollateralised CDP stablecoin issued by HypurrFi on HyperEVM (Hyperliquid). Collateral includes HYPE, stHYPE, USDC, and USDT.
+long_description: |
+  USDXL is issued by [HypurrFi](https://hypurr.fi/), a lending and borrowing protocol
+  on [HyperEVM](https://hyperliquid.xyz/) that leverages the Euler technology stack.
+
+  ## Mechanism
+
+  - Overcollateralised CDP model — users deposit collateral and borrow USDXL
+  - Collateral types: HYPE, stHYPE, USDC, USDT, and other approved assets
+  - Always redeemable at $1 for debt repayment on HypurrFi (not redeemable for fiat)
+  - Planned hybrid backing via tokenised US Treasuries purchased with protocol revenue
+
+  ## Status
+
+  Active but small — ~$3.14M market cap, ~$4K–$25K daily volume.
+  Trading slightly below peg (~$0.98). Launched March 2025.
+
+  ## Sources
+
+  - [CoinGecko — Last USD](https://www.coingecko.com/en/coins/last-usd)
+  - [HypurrFi — On USDXL Stability and Pegs](https://hypurrfi.beehiiv.com/p/on-usdxl-stability-and-pegs)
+  - [DeFiLlama — HypurrFi](https://defillama.com/protocol/hypurrfi)
 category: stablecoin
 links:
-  homepage: ''
-  coingecko: ''
-  defillama: ''
+  homepage: https://hypurr.fi/
+  coingecko: https://www.coingecko.com/en/coins/last-usd
+  defillama: https://defillama.com/protocol/hypurrfi
   twitter: ''
 slug: usdxl

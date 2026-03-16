@@ -1,10 +1,36 @@
 symbol: bvUSD
 name: BitVault USD
-short_description: BitVault USD (bvUSD) is a stablecoin with limited public information. Details about its backing and mechanism are not readily available. It appears to have minimal market presence.
-long_description: ''
+short_description: BitVault USD (bvUSD) is an overcollateralised CDP stablecoin by BitVault, a Liquity V2 fork on the Katana chain. It is backed by WBTC and WETH collateral with institutional-only bulk minting.
+long_description: |
+  bvUSD is issued by [BitVault](https://bitvault.finance/), a [Liquity V2](https://www.liquity.org/) fork
+  deployed primarily on [Katana](https://katana.network/), a DeFi-focused chain incubated by Polygon Labs and GSR.
+
+  ## Mechanism
+
+  - Overcollateralised CDP model backed by WBTC and WETH
+  - Initial LTV of 40%, up to 75% thereafter
+  - Only whitelisted institutional borrowers can mint bvUSD in bulk; retail users mint via other stablecoins
+  - Stability Pool absorbs liquidations (same architecture as Liquity)
+  - Contracts are immutable once deployed
+
+  ## Yield
+
+  sbvUSD is the staked/yield-bearing version of bvUSD, where yield comes from delta-neutral
+  institutional trading strategies (arbitrage, market-making) executed by [GSR](https://www.gsr.io/).
+
+  ## Status
+
+  Early-stage, launched on Katana on 19 June 2025. Raised $2M pre-seed from GSR, Gemini, and Auros.
+  Not independently tracked on DeFiLlama or CoinGecko.
+
+  ## Sources
+
+  - [BitVault docs — bvUSD explained](https://docs.bitvault.finance/welcome-to-bitvault/bvusd-explained)
+  - [CoinTelegraph — BitVault raises $2M](https://cointelegraph.com/press-releases/bitvault-raises-2m-from-gsr-gemini-and-auros-to-launch-btc-backed-money)
+  - [Code4rena audit](https://github.com/code-423n4/2025-04-bitvault)
 category: stablecoin
 links:
-  homepage: ''
+  homepage: https://bitvault.finance/
   coingecko: ''
   defillama: ''
   twitter: ''

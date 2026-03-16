@@ -1,8 +1,39 @@
 symbol: USD+
 name: USD+ (Overnight Finance)
 short_description: USD+ is a yield-bearing stablecoin by Overnight Finance that automatically generates yield from conservative DeFi strategies. It is collateralised by USDC and maintains its peg through daily
-  rebasing. USD+ is available on multiple chains including Ethereum, Arbitrum, and Base.
-long_description: ''
+  rebasing. USD+ is primarily active on Base and Arbitrum.
+long_description: |
+  USD+ is issued by [Overnight Finance](https://overnight.fi/), a protocol that deploys
+  underlying stablecoins (USDC, DAI, USDT) into neutral-risk DeFi strategies
+  (lending protocols, stable-to-stable LPs) to generate yield.
+
+  ## Mechanism
+
+  - **Daily rebasing** — the USD+ token balance in wallets increases as yield accumulates
+  - Rebase is triggered once daily by the protocol (not at a fixed time)
+  - Earned fees and rewards are converted back to stablecoins and distributed via supply expansion
+  - Internally uses `WadRayMath` (RAY format) with a liquidity index tracking issued tokens vs strategy assets
+
+  ## xUSD on Arbitrum
+
+  On Arbitrum, USD+ was rebranded to **xUSD**, which uses a **share-price appreciation** model
+  (non-rebasing wrapper) for compatibility with DeFi protocols that do not support rebasing tokens.
+
+  ## Chains
+
+  - **Base** — primary chain (~$7M, ~83% of supply)
+  - **Arbitrum** — as xUSD (~$1.4M)
+  - Phased out on Polygon, BNB Smart Chain, Optimism, Linea, Blast
+
+  ## Status
+
+  Active but diminished — total circulating supply ~$8.5M, down significantly from peak.
+
+  ## Sources
+
+  - [Overnight Finance docs](https://docs.overnight.fi/)
+  - [DeFiLlama — USD+](https://defillama.com/stablecoin/usd+)
+  - [CoinGecko — USD+](https://www.coingecko.com/en/coins/usd)
 category: stablecoin
 links:
   homepage: https://overnight.fi/
