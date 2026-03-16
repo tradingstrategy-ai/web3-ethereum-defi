@@ -1353,9 +1353,14 @@ class Gmx(Exchange):
             bot_name = self._config.get("bot_name", "freqtrade")
             order_dir = "close" if reduceOnly else "open"
             for warn in pending_warnings:
+                logger.warning("ORDER_WARNING: %s %s — %s", pair, order_dir, warn)
+                # Gas estimation failures are expected when the vault has insufficient ETH
+                # for gas; they are recoverable (fallback gas_limit is used) so there is
+                # no value in spamming Telegram.  Keep the log entry above for diagnostics.
+                if warn.startswith("Gas estimation failed"):
+                    continue
                 snippet = warn[:120] + ("…" if len(warn) > 120 else "")
                 msg = f"⚠️ *{bot_name}* — Non-fatal warning\n`{pair}` {order_dir}\n`{snippet}`"
-                logger.warning("ORDER_WARNING: %s %s — %s", pair, order_dir, warn)
                 send_freqtrade_telegram_message(self._config, msg)
             pending_warnings.clear()
 

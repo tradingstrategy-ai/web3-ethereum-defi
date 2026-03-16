@@ -6383,7 +6383,10 @@ class GMX(ExchangeCompatible):
                             logger.warning("Subsquid lookup failed for %s: %s", symbol, sq_err)
 
                     if close_info:
-                        exec_price = close_info["execution_price"]
+                        # execution_price_raw is in 10^(30-token_decimals) format —
+                        # apply token-decimal-aware conversion via _convert_price_to_usd.
+                        market_obj = self.markets.get(symbol)
+                        exec_price = self._convert_price_to_usd(close_info["execution_price_raw"], market_obj)
                         fees_usd = close_info["fees_usd"]
                         order_key = close_info["order_key"]
                         order_type = close_info["order_type"]
@@ -6394,7 +6397,7 @@ class GMX(ExchangeCompatible):
                             "Position for %s closed by %s at %.6f — returning verified order id=%s",
                             symbol,
                             order_type,
-                            exec_price,
+                            exec_price or 0,
                             order_id,
                         )
                         verified_order = {
@@ -8070,6 +8073,24 @@ class GMX(ExchangeCompatible):
                 seen_ids.add(order_id)
                 result.append(order.copy())
 
+        # Build a set of orderKeys already covered by the in-memory cache so
+        # that Subsquid position-change events for the same execution are not
+        # re-injected as phantom orders.  Subsquid uses its own event IDs
+        # (not tx-hashes), so simple `change_id in seen_ids` dedup is not
+        # sufficient — we must also check the underlying GMX orderKey.
+        #
+        # Normalise to lowercase without '0x' prefix because different code
+        # paths store the key with and without the prefix (see lines 5567, 5760).
+        def _normalise_key(k: str) -> str:
+            s = k.lower()
+            return s[2:] if s.startswith("0x") else s
+
+        cached_order_keys: set[str] = {
+            _normalise_key(str(o.get("info", {}).get("order_key")))
+            for o in self._orders.values()
+            if o.get("info", {}).get("order_key")
+        }
+
         # 3. Recent position changes from Subsquid (catches liquidations and
         #    keeper-executed closes that the bot didn't initiate)
         wallet = merged.get("wallet_address", self.wallet_address)
@@ -8083,6 +8104,20 @@ class GMX(ExchangeCompatible):
                     try:
                         change_id = change.get("id")
                         if change_id and change_id in seen_ids:
+                            continue
+
+                        # Skip if the underlying GMX orderKey is already
+                        # represented by a cached in-memory order — this
+                        # prevents Subsquid events from being added as
+                        # duplicate phantom exit orders alongside the real
+                        # cached order.
+                        change_order_key = change.get("orderKey")
+                        if change_order_key and _normalise_key(str(change_order_key)) in cached_order_keys:
+                            logger.debug(
+                                "fetch_orders: skipping Subsquid change %s — orderKey %s already in order cache",
+                                change_id,
+                                change_order_key,
+                            )
                             continue
 
                         # Parse timestamp (Subsquid returns seconds or ms)

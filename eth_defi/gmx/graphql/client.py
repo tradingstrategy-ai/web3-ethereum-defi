@@ -1109,8 +1109,13 @@ class GMXSubsquidClient:
 
                     order_key = change.get("orderKey") or ""
 
-                    # Subsquid stores all monetary values with 30 decimal places.
-                    execution_price = float(self.from_fixed_point(str(change.get("executionPrice") or "0")))
+                    # Subsquid monetary conventions:
+                    #   - sizeDeltaUsd, basePnlUsd, feesAmount: 30-decimal fixed-point (divide by 10^30)
+                    #   - executionPrice: uses 10^(30 - token_decimals) format — NOT plain 10^30.
+                    #     Return it as a raw integer so the caller can apply the correct
+                    #     token-decimal-aware conversion (e.g. via _convert_price_to_usd).
+                    raw_execution_price = change.get("executionPrice")
+                    execution_price_raw = int(raw_execution_price) if raw_execution_price else 0
                     size_delta_usd = float(self.from_fixed_point(str(change.get("sizeDeltaUsd") or "0")))
                     pnl_usd = float(self.from_fixed_point(str(change.get("basePnlUsd") or "0"))) if change.get("basePnlUsd") else None
                     fees_usd = float(self.from_fixed_point(str(change.get("feesAmount") or "0")))
@@ -1129,10 +1134,10 @@ class GMXSubsquidClient:
 
                     order_type_name = self._GMX_ORDER_TYPE_NAMES.get(order_type_int, "unknown")
                     logger.info(
-                        "get_latest_position_close: found %s close for %s at price %.6f (order_type=%s, tx=%s)",
+                        "get_latest_position_close: found %s close for %s (raw_price=%s, order_type=%s, tx=%s)",
                         "long" if is_long else "short",
                         market_address,
-                        execution_price,
+                        execution_price_raw,
                         order_type_name,
                         tx_hash,
                     )
@@ -1141,7 +1146,7 @@ class GMXSubsquidClient:
                         "order_type_int": order_type_int,
                         "order_type": order_type_name,
                         "is_long": change.get("isLong"),
-                        "execution_price": execution_price,
+                        "execution_price_raw": execution_price_raw,
                         "size_delta_usd": size_delta_usd,
                         "pnl_usd": pnl_usd,
                         "fees_usd": fees_usd,
