@@ -2103,12 +2103,19 @@ def deploy_multichain_lagoon_vault(
     assert len(chain_web3) >= 1, "Must deploy to at least one chain"
     assert set(chain_configs.keys()) == set(chain_web3.keys()), f"chain_configs and chain_web3 must have the same keys: configs={set(chain_configs.keys())}, web3={set(chain_web3.keys())}"
 
-    # Validate all configs share the same safe_salt_nonce
+    # Validate all configs share the same safe_salt_nonce.
+    # Guard-only redeploys that reuse an existing Safe do not need a nonce.
     salt_nonces = {name: c.safe_salt_nonce for name, c in chain_configs.items()}
     unique_nonces = set(salt_nonces.values())
     assert len(unique_nonces) == 1, f"All configs must share the same safe_salt_nonce: {salt_nonces}"
     safe_salt_nonce = next(iter(unique_nonces))
-    assert safe_salt_nonce is not None, "safe_salt_nonce must be set for multichain deployment"
+    if safe_salt_nonce is None:
+        existing_safes = {name: c.existing_safe_address for name, c in chain_configs.items()}
+        unique_existing_safes = set(existing_safes.values())
+        assert len(unique_existing_safes) == 1, f"All configs must share the same existing_safe_address: {existing_safes}"
+        existing_safe_address = next(iter(unique_existing_safes))
+        assert existing_safe_address is not None, "safe_salt_nonce may only be omitted when reusing an existing Safe"
+        assert all(c.guard_only for c in chain_configs.values()), "safe_salt_nonce may only be omitted for guard-only multichain redeploys"
 
     if max_workers is None:
         max_workers = len(chain_web3)
