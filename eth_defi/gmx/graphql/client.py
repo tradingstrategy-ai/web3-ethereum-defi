@@ -866,11 +866,7 @@ class GMXSubsquidClient:
 
         # Extract relevant fields
         base_min_collateral = Decimal(market_info.get("minCollateralFactor", "0"))
-        multiplier_key = (
-            "minCollateralFactorForOpenInterestLong"
-            if is_long
-            else "minCollateralFactorForOpenInterestShort"
-        )
+        multiplier_key = "minCollateralFactorForOpenInterestLong" if is_long else "minCollateralFactorForOpenInterestShort"
         oi_multiplier = Decimal(market_info.get(multiplier_key, "0"))
 
         max_oi_key = "maxOpenInterestLong" if is_long else "maxOpenInterestShort"
@@ -890,9 +886,7 @@ class GMXSubsquidClient:
         for i in range(num_tiers):
             # Calculate OI range for this tier
             tier_start_oi = tier_size * i
-            tier_end_oi = (
-                tier_size * (i + 1) if i < num_tiers - 1 else max_open_interest
-            )
+            tier_end_oi = tier_size * (i + 1) if i < num_tiers - 1 else max_open_interest
 
             # Calculate min collateral factor at the END of this tier (most restrictive)
             oi_based_collateral = (tier_end_oi * oi_multiplier) / PRECISION
@@ -932,9 +926,7 @@ class GMXSubsquidClient:
             last_tier = tiers[-1]
             max_leverage_value = last_tier.get("maxLeverage")
             if max_leverage_value:
-                min_required_notional = (
-                    GMXSubsquidClient.MIN_DISPLAY_STAKE * max_leverage_value
-                )
+                min_required_notional = GMXSubsquidClient.MIN_DISPLAY_STAKE * max_leverage_value
                 if last_tier["maxNotional"] < min_required_notional:
                     last_tier["maxNotional"] = min_required_notional
                     info = last_tier.get("info") or {}
@@ -1046,18 +1038,10 @@ class GMXSubsquidClient:
             "market": position["market"],
             "collateral_token": position["collateralToken"],
             "is_long": position["isLong"],
-            "collateral_amount": float(
-                self.from_fixed_point(
-                    position["collateralAmount"], decimals=collateral_decimals
-                )
-            ),
+            "collateral_amount": float(self.from_fixed_point(position["collateralAmount"], decimals=collateral_decimals)),
             "size_usd": float(self.from_fixed_point(position["sizeInUsd"])),
-            "size_tokens": float(
-                self.from_fixed_point(position["sizeInTokens"], decimals=index_decimals)
-            ),
-            "entry_price": float(
-                self.from_fixed_point(position["entryPrice"], decimals=price_decimals)
-            ),
+            "size_tokens": float(self.from_fixed_point(position["sizeInTokens"], decimals=index_decimals)),
+            "entry_price": float(self.from_fixed_point(position["entryPrice"], decimals=price_decimals)),
             "realized_pnl": float(self.from_fixed_point(position["realizedPnl"])),
             "unrealized_pnl": float(self.from_fixed_point(position["unrealizedPnl"])),
             "realized_fees": float(self.from_fixed_point(position["realizedFees"])),
@@ -1144,9 +1128,7 @@ class GMXSubsquidClient:
 
         while time.time() - start < max_wait_seconds:
             try:
-                data = self._query(
-                    query, variables={"account": account, "market": market_lower}
-                )
+                data = self._query(query, variables={"account": account, "market": market_lower})
                 changes = data.get("positionChanges", [])
 
                 if changes:
@@ -1165,28 +1147,12 @@ class GMXSubsquidClient:
                     #     Return it as a raw integer so the caller can apply the correct
                     #     token-decimal-aware conversion (e.g. via _convert_price_to_usd).
                     raw_execution_price = change.get("executionPrice")
-                    execution_price_raw = (
-                        int(raw_execution_price) if raw_execution_price else 0
-                    )
-                    size_delta_usd = float(
-                        self.from_fixed_point(str(change.get("sizeDeltaUsd") or "0"))
-                    )
-                    pnl_usd = (
-                        float(
-                            self.from_fixed_point(str(change.get("basePnlUsd") or "0"))
-                        )
-                        if change.get("basePnlUsd")
-                        else None
-                    )
-                    fees_usd = float(
-                        self.from_fixed_point(str(change.get("feesAmount") or "0"))
-                    )
+                    execution_price_raw = int(raw_execution_price) if raw_execution_price else 0
+                    size_delta_usd = float(self.from_fixed_point(str(change.get("sizeDeltaUsd") or "0")))
+                    pnl_usd = float(self.from_fixed_point(str(change.get("basePnlUsd") or "0"))) if change.get("basePnlUsd") else None
+                    fees_usd = float(self.from_fixed_point(str(change.get("feesAmount") or "0")))
                     timestamp_s = change.get("timestamp") or 0
-                    timestamp_ms = (
-                        int(timestamp_s) * 1000
-                        if timestamp_s
-                        else int(time.time() * 1000)
-                    )
+                    timestamp_ms = int(timestamp_s) * 1000 if timestamp_s else int(time.time() * 1000)
                     # The id field in positionChanges is the transaction hash.
                     tx_hash = change.get("id", "")
 
@@ -1194,15 +1160,11 @@ class GMXSubsquidClient:
                     # via the orderById Subsquid query.
                     order_type_int = None
                     if order_key:
-                        action = self.get_trade_action_by_order_key(
-                            order_key, timeout_seconds=5
-                        )
+                        action = self.get_trade_action_by_order_key(order_key, timeout_seconds=5)
                         if action:
                             order_type_int = action.get("orderType")
 
-                    order_type_name = self._GMX_ORDER_TYPE_NAMES.get(
-                        order_type_int, "unknown"
-                    )
+                    order_type_name = self._GMX_ORDER_TYPE_NAMES.get(order_type_int, "unknown")
                     logger.info(
                         "get_latest_position_close: found %s close for %s (raw_price=%s, order_type=%s, tx=%s)",
                         "long" if is_long else "short",
@@ -1383,36 +1345,16 @@ class GMXSubsquidClient:
                                 "orderKey": action["orderKey"],
                                 "orderType": action.get("orderType"),
                                 "isLong": action.get("isLong"),
-                                "executionPrice": str(
-                                    action.get("executionPrice") or 0
-                                ),
+                                "executionPrice": str(action.get("executionPrice") or 0),
                                 "sizeDeltaUsd": str(action.get("sizeDeltaUsd") or 0),
-                                "priceImpactUsd": str(
-                                    action.get("priceImpactUsd") or 0
-                                ),
-                                "pendingPriceImpactUsd": str(
-                                    action.get("proportionalPendingImpactUsd") or 0
-                                ),
-                                "pnlUsd": str(action.get("basePnlUsd") or 0)
-                                if action.get("basePnlUsd")
-                                else None,
-                                "positionFeeAmount": str(
-                                    action.get("positionFeeAmount") or 0
-                                ),
-                                "borrowingFeeAmount": str(
-                                    action.get("borrowingFeeAmount") or 0
-                                ),
-                                "fundingFeeAmount": str(
-                                    action.get("fundingFeeAmount") or 0
-                                ),
-                                "collateralToken": action.get(
-                                    "initialCollateralTokenAddress"
-                                ),
-                                "collateralTokenPriceMax": str(
-                                    action.get("collateralTokenPriceMax") or 0
-                                )
-                                if action.get("collateralTokenPriceMax")
-                                else None,
+                                "priceImpactUsd": str(action.get("priceImpactUsd") or 0),
+                                "pendingPriceImpactUsd": str(action.get("proportionalPendingImpactUsd") or 0),
+                                "pnlUsd": str(action.get("basePnlUsd") or 0) if action.get("basePnlUsd") else None,
+                                "positionFeeAmount": str(action.get("positionFeeAmount") or 0),
+                                "borrowingFeeAmount": str(action.get("borrowingFeeAmount") or 0),
+                                "fundingFeeAmount": str(action.get("fundingFeeAmount") or 0),
+                                "collateralToken": action.get("initialCollateralTokenAddress"),
+                                "collateralTokenPriceMax": str(action.get("collateralTokenPriceMax") or 0) if action.get("collateralTokenPriceMax") else None,
                                 "timestamp": action.get("timestamp"),
                                 "transaction": {"hash": action.get("transactionHash")},
                             }
@@ -1424,9 +1366,7 @@ class GMXSubsquidClient:
                                 result["fundingFeeAmount"],
                                 result["collateralToken"],
                                 result["collateralTokenPriceMax"],
-                                order_key[:16] + "..."
-                                if len(order_key) > 16
-                                else order_key,
+                                order_key[:16] + "..." if len(order_key) > 16 else order_key,
                             )
                             return result
                     except Exception as e:
@@ -1461,23 +1401,15 @@ class GMXSubsquidClient:
                     # Convert positionChange to tradeAction format
                     # The id field IS the transaction hash!
                     result = {
-                        "eventName": "OrderExecuted"
-                        if change["type"] == "increase" or change["type"] == "decrease"
-                        else "OrderCancelled",
+                        "eventName": "OrderExecuted" if change["type"] == "increase" or change["type"] == "decrease" else "OrderCancelled",
                         "orderKey": change["orderKey"],
-                        "orderType": 2
-                        if change["type"] == "increase"
-                        else 3,  # MarketIncrease/MarketDecrease
+                        "orderType": 2 if change["type"] == "increase" else 3,  # MarketIncrease/MarketDecrease
                         "isLong": change.get("isLong"),
                         "executionPrice": str(change.get("executionPrice") or 0),
                         "sizeDeltaUsd": str(change.get("sizeDeltaUsd") or 0),
                         "priceImpactUsd": str(change.get("priceImpactUsd") or 0),
-                        "pendingPriceImpactUsd": str(
-                            change.get("proportionalPendingImpactUsd") or 0
-                        ),
-                        "pnlUsd": str(change.get("basePnlUsd") or 0)
-                        if change.get("basePnlUsd")
-                        else None,
+                        "pendingPriceImpactUsd": str(change.get("proportionalPendingImpactUsd") or 0),
+                        "pnlUsd": str(change.get("basePnlUsd") or 0) if change.get("basePnlUsd") else None,
                         "positionFeeAmount": str(change.get("feesAmount") or 0),
                         "borrowingFeeAmount": "0",
                         "fundingFeeAmount": "0",
@@ -1507,9 +1439,7 @@ class GMXSubsquidClient:
                 logger.debug("=" * 70)
 
                 try:
-                    data = self._query(
-                        query_order_by_id, variables={"id": order_key}, timeout=30
-                    )
+                    data = self._query(query_order_by_id, variables={"id": order_key}, timeout=30)
                     order = data.get("orderById")
 
                     logger.debug(
@@ -1533,9 +1463,7 @@ class GMXSubsquidClient:
                             txn_hash = order.get("createdTxnHash")
                         elif status == "created":
                             # Order still pending - don't return yet
-                            logger.debug(
-                                "Order is still in Created status, continuing to poll"
-                            )
+                            logger.debug("Order is still in Created status, continuing to poll")
                             time.sleep(poll_interval)
                             continue
                         else:
@@ -1543,16 +1471,8 @@ class GMXSubsquidClient:
                             txn_hash = order.get("createdTxnHash")
 
                         # cancelledReason is always "" in Subsquid — decode the bytes instead
-                        reason = (
-                            order.get("cancelledReason")
-                            or order.get("frozenReason")
-                            or ""
-                        )
-                        reason_bytes_hex = (
-                            order.get("cancelledReasonBytes")
-                            or order.get("frozenReasonBytes")
-                            or ""
-                        )
+                        reason = order.get("cancelledReason") or order.get("frozenReason") or ""
+                        reason_bytes_hex = order.get("cancelledReasonBytes") or order.get("frozenReasonBytes") or ""
                         if not reason and reason_bytes_hex:
                             try:
                                 from eth_defi.gmx.events import decode_error_reason

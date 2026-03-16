@@ -65,9 +65,7 @@ class AsyncGMXSubsquidClient:
         :return: GraphQL response data
         """
         if not self.session:
-            raise RuntimeError(
-                "Session not initialized. Use 'async with' context manager."
-            )
+            raise RuntimeError("Session not initialized. Use 'async with' context manager.")
 
         endpoints_to_try = [self.endpoint]
         if self.endpoint_backup:

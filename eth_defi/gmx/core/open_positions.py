@@ -129,11 +129,7 @@ class GetOpenPositions(GetData):
         :returns: Dictionary of positions in internal format
         :rtype: dict
         """
-        chain_name = (
-            self.config.chain.lower()
-            if isinstance(self.config.chain, str)
-            else str(self.config.chain).lower()
-        )
+        chain_name = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
         api = GMXAPI(chain=chain_name)
         raw_positions = api.get_positions(address, use_cache=False)
 
@@ -183,11 +179,7 @@ class GetOpenPositions(GetData):
         index_name = pos.get("indexName", "")
         market_symbol = index_name.split("/")[0] if "/" in index_name else index_name
         # Strip kilo prefix used by GMX for some tokens (kPEPE → PEPE, kSHIB → SHIB)
-        if (
-            market_symbol.startswith("k")
-            and len(market_symbol) > 1
-            and market_symbol[1:].isupper()
-        ):
+        if market_symbol.startswith("k") and len(market_symbol) > 1 and market_symbol[1:].isupper():
             market_symbol = market_symbol[1:]
 
         is_long = pos.get("isLong", True)
@@ -289,11 +281,7 @@ class GetOpenPositions(GetData):
         :rtype: dict
         """
         # Get Subsquid GraphQL URL for current chain (normalize to lowercase)
-        chain_name = (
-            self.config.chain.lower()
-            if isinstance(self.config.chain, str)
-            else str(self.config.chain).lower()
-        )
+        chain_name = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
         subgraph_url = GMX_SUBSQUID_ENDPOINTS.get(chain_name)
         if not subgraph_url:
             raise ValueError(f"No GraphQL endpoint configured for chain: {chain_name}")
@@ -378,9 +366,7 @@ class GetOpenPositions(GetData):
             for pos in positions_data:
                 try:
                     # Convert GraphQL position to internal format
-                    processed_position = self._process_graphql_position(
-                        pos, chain_tokens, prices
-                    )
+                    processed_position = self._process_graphql_position(pos, chain_tokens, prices)
 
                     # Build key using market symbol and direction
                     direction = "long" if processed_position["is_long"] else "short"
@@ -388,9 +374,7 @@ class GetOpenPositions(GetData):
                     processed_positions[key] = processed_position
 
                 except Exception as e:
-                    logger.warning(
-                        "Failed to process GraphQL position %s: %s", pos.get("id"), e
-                    )
+                    logger.warning("Failed to process GraphQL position %s: %s", pos.get("id"), e)
                     continue
 
             return processed_positions
@@ -398,9 +382,7 @@ class GetOpenPositions(GetData):
         except requests.RequestException as e:
             raise ValueError(f"GraphQL request failed: {e}")
 
-    def _process_graphql_position(
-        self, pos: dict, chain_tokens: dict, prices: dict
-    ) -> dict[str, Any]:
+    def _process_graphql_position(self, pos: dict, chain_tokens: dict, prices: dict) -> dict[str, Any]:
         """Convert GraphQL position data to internal format matching RPC response.
 
         .. warning::
@@ -422,11 +404,7 @@ class GetOpenPositions(GetData):
         :rtype: dict
         """
         # Normalize chain name to lowercase string
-        chain_name = (
-            self.config.chain.lower()
-            if isinstance(self.config.chain, str)
-            else str(self.config.chain).lower()
-        )
+        chain_name = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
 
         # Get market info
         markets = self.markets.get_available_markets()
@@ -448,9 +426,7 @@ class GetOpenPositions(GetData):
         collateral_token_info = chain_tokens.get(collateral_token)
 
         if not index_token_info or not collateral_token_info:
-            raise ValueError(
-                f"Token info not found for index={index_token} or collateral={collateral_token}"
-            )
+            raise ValueError(f"Token info not found for index={index_token} or collateral={collateral_token}")
 
         # Parse values from GraphQL
         position_size_usd = int(pos["sizeInUsd"]) / 10**PRECISION
@@ -459,9 +435,7 @@ class GetOpenPositions(GetData):
         is_long = pos["isLong"]
 
         # GraphQL provides entry price and leverage directly (different decimal format than RPC)
-        entry_price = int(pos["entryPrice"]) / 10 ** (
-            PRECISION - index_token_info["decimals"]
-        )
+        entry_price = int(pos["entryPrice"]) / 10 ** (PRECISION - index_token_info["decimals"])
         leverage = int(pos["leverage"]) / 10**4
 
         # Calculate collateral value in USD
@@ -474,9 +448,7 @@ class GetOpenPositions(GetData):
         mark_price = entry_price  # Default fallback
         if oracle_address in prices:
             price_data = prices[oracle_address]
-            mark_price = np.median(
-                [float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])]
-            ) / 10 ** (PRECISION - index_decimals)
+            mark_price = np.median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])]) / 10 ** (PRECISION - index_decimals)
 
         # Get collateral price for USD value calculation
         collateral_oracle = get_oracle_address(chain_name, collateral_token)
@@ -565,11 +537,7 @@ class GetOpenPositions(GetData):
         :returns: Dictionary of positions in internal format
         :rtype: dict
         """
-        chain_name = (
-            self.config.chain.lower()
-            if isinstance(self.config.chain, str)
-            else str(self.config.chain).lower()
-        )
+        chain_name = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
 
         try:
             contract_addresses = get_contract_addresses(chain_name)
@@ -577,14 +545,10 @@ class GetOpenPositions(GetData):
 
             # Get raw positions from reader contract
             try:
-                raw_positions = self.reader_contract.functions.getAccountPositions(
-                    datastore_address, address, 0, 100
-                ).call()
+                raw_positions = self.reader_contract.functions.getAccountPositions(datastore_address, address, 0, 100).call()
             except Exception as decode_error:
                 error_msg = str(decode_error)
-                logger.error(
-                    "Could not decode positions for address %s: %s", address, error_msg
-                )
+                logger.error("Could not decode positions for address %s: %s", address, error_msg)
                 raise decode_error
 
             if len(raw_positions) == 0:
@@ -638,18 +602,12 @@ class GetOpenPositions(GetData):
         :rtype: dict
         """
         # Normalize chain name to lowercase string
-        chain = (
-            self.config.chain.lower()
-            if isinstance(self.config.chain, str)
-            else str(self.config.chain).lower()
-        )
+        chain = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
 
         try:
             # Get tokens metadata from GMX API (includes decimals - no contract calls needed!)
             chain_tokens = get_tokens_metadata_dict(chain)
-            logging.debug(
-                "Fetched %s tokens from GMX API for %s", len(chain_tokens), chain
-            )
+            logging.debug("Fetched %s tokens from GMX API for %s", len(chain_tokens), chain)
 
             # Add missing tokens from NETWORK_TOKENS_METADATA if needed
             if chain in NETWORK_TOKENS_METADATA:
@@ -678,11 +636,7 @@ class GetOpenPositions(GetData):
         :rtype: dict
         """
         # Normalize chain name to lowercase string
-        chain_name = (
-            self.config.chain.lower()
-            if isinstance(self.config.chain, str)
-            else str(self.config.chain).lower()
-        )
+        chain_name = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
 
         # Get market information
         available_markets = self.markets.get_available_markets()
@@ -701,15 +655,11 @@ class GetOpenPositions(GetData):
             raise KeyError(f"Index token {index_token_address} not found in token data")
 
         if collateral_token_address not in chain_tokens:
-            raise KeyError(
-                f"Collateral token {collateral_token_address} not found in token data"
-            )
+            raise KeyError(f"Collateral token {collateral_token_address} not found in token data")
 
         # Calculate entry price - this was line causing KeyError
         index_token_decimals = chain_tokens[index_token_address]["decimals"]
-        entry_price = (raw_position[1][0] / raw_position[1][1]) / 10 ** (
-            PRECISION - index_token_decimals
-        )
+        entry_price = (raw_position[1][0] / raw_position[1][1]) / 10 ** (PRECISION - index_token_decimals)
 
         # Get token decimals
         collateral_token_decimals = chain_tokens[collateral_token_address]["decimals"]
@@ -746,11 +696,7 @@ class GetOpenPositions(GetData):
             # Get index token price (mark price)
             index_price_data = find_price_data(oracle_index_token_address)
 
-            if (
-                index_price_data
-                and "maxPriceFull" in index_price_data
-                and "minPriceFull" in index_price_data
-            ):
+            if index_price_data and "maxPriceFull" in index_price_data and "minPriceFull" in index_price_data:
                 # Calculate mark price from oracle data
                 mark_price = np.median(
                     [
@@ -775,11 +721,7 @@ class GetOpenPositions(GetData):
             # Get collateral token price for leverage calculation
             collateral_price_data = find_price_data(oracle_collateral_token_address)
 
-            if (
-                collateral_price_data
-                and "maxPriceFull" in collateral_price_data
-                and "minPriceFull" in collateral_price_data
-            ):
+            if collateral_price_data and "maxPriceFull" in collateral_price_data and "minPriceFull" in collateral_price_data:
                 # Calculate collateral price from oracle data
                 collateral_price = np.median(
                     [
@@ -878,9 +820,7 @@ class GetOpenPositions(GetData):
             "market_symbol": market_info["market_symbol"],
             "collateral_token": chain_tokens[collateral_token_address]["symbol"],
             "position_size": raw_position[1][0] / 10**PRECISION,
-            "position_size_usd_raw": raw_position[1][
-                0
-            ],  # Raw value with 30 decimals - needed for exact position closing
+            "position_size_usd_raw": raw_position[1][0],  # Raw value with 30 decimals - needed for exact position closing
             "size_in_tokens": raw_position[1][1],
             "entry_price": entry_price,
             "initial_collateral_amount": raw_position[1][2],

@@ -167,9 +167,7 @@ class GMXEventData:
     #: Array string values keyed by name
     string_array_items: dict[str, list[str]] = field(default_factory=dict)
 
-    def get_address(
-        self, key: str, default: HexAddress | None = None
-    ) -> HexAddress | None:
+    def get_address(self, key: str, default: HexAddress | None = None) -> HexAddress | None:
         """Get an address item by key."""
         return self.address_items.get(key, default)
 
@@ -447,9 +445,7 @@ def _parse_event_log_data(event_data) -> dict:
         if items:
             parsed[f"{py_name}_items"] = _parse_event_data_items(items, is_array=False)
         if array_items:
-            parsed[f"{py_name}_array_items"] = _parse_event_data_items(
-                array_items, is_array=True
-            )
+            parsed[f"{py_name}_array_items"] = _parse_event_data_items(array_items, is_array=True)
 
     return parsed
 
@@ -535,9 +531,7 @@ def decode_gmx_event(
             if isinstance(topic1, bytes):
                 pass  # Already bytes
             elif isinstance(topic1, str):
-                topic1 = bytes.fromhex(
-                    topic1[2:] if topic1.startswith("0x") else topic1
-                )
+                topic1 = bytes.fromhex(topic1[2:] if topic1.startswith("0x") else topic1)
             elif isinstance(topic1, int):
                 topic1 = topic1.to_bytes(32, "big")
 
@@ -546,9 +540,7 @@ def decode_gmx_event(
             if isinstance(topic2, bytes):
                 pass
             elif isinstance(topic2, str):
-                topic2 = bytes.fromhex(
-                    topic2[2:] if topic2.startswith("0x") else topic2
-                )
+                topic2 = bytes.fromhex(topic2[2:] if topic2.startswith("0x") else topic2)
             elif isinstance(topic2, int):
                 topic2 = topic2.to_bytes(32, "big")
 
@@ -824,9 +816,7 @@ def decode_error_reason(reason_bytes: bytes) -> str | None:
                         else:
                             formatted = str(value)
 
-                        param_strs.append(
-                            f"{label}: {formatted}" if label else formatted
-                        )
+                        param_strs.append(f"{label}: {formatted}" if label else formatted)
 
                     return f"{error_name}({', '.join(param_strs)})"
             except Exception as e:
@@ -879,11 +869,7 @@ def _decode_error_params(data: bytes, param_types: list[str]) -> list | None:
             if str_offset + 32 <= len(data):
                 str_len = int.from_bytes(data[str_offset : str_offset + 32], "big")
                 if str_offset + 32 + str_len <= len(data):
-                    values.append(
-                        data[str_offset + 32 : str_offset + 32 + str_len].decode(
-                            "utf-8", errors="replace"
-                        )
-                    )
+                    values.append(data[str_offset + 32 : str_offset + 32 + str_len].decode("utf-8", errors="replace"))
                 else:
                     values.append("<truncated>")
             else:
