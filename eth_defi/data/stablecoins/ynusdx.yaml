@@ -1,0 +1,10 @@
+symbol: ynUSDx
+name: YieldNest USD
+description: ynUSDx is a yield-bearing USD token from YieldNest Finance. It aggregates stablecoin yield from diversified DeFi strategies. YieldNest provides optimised yield across multiple protocols.
+category: yield_bearing
+links:
+  homepage: https://app.yieldnest.finance/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/yaborieldnest
+slug: ynusdx

@@ -1,0 +1,11 @@
+symbol: BEAN
+name: Bean
+description: Bean is the USD-pegged stablecoin issued by the Beanstalk protocol on Ethereum. It uses a credit-based model rather than collateral to maintain its peg through protocol-native financial incentives.
+  Beanstalk was exploited in April 2022 but has since relaunched.
+category: stablecoin
+links:
+  homepage: https://bean.money/
+  coingecko: https://www.coingecko.com/en/coins/bean
+  defillama: https://defillama.com/stablecoin/bean
+  twitter: https://x.com/BeanstalkFarms
+slug: bean

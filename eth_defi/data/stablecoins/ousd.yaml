@@ -1,0 +1,11 @@
+symbol: OUSD
+name: Origin Dollar
+description: Origin Dollar (OUSD) is a yield-bearing stablecoin issued by Origin Protocol on Ethereum. It automatically earns yield from DeFi strategies while sitting in holders' wallets with no staking
+  required. OUSD is backed by USDC, DAI, and USDT.
+category: stablecoin
+links:
+  homepage: https://ousd.com/
+  coingecko: https://www.coingecko.com/en/coins/origin-dollar
+  defillama: https://defillama.com/stablecoin/origin-dollar
+  twitter: https://x.com/OriginProtocol
+slug: ousd

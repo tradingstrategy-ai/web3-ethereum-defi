@@ -1,0 +1,11 @@
+symbol: GUSD
+name: Gemini Dollar
+description: Gemini Dollar (GUSD) is a USD-backed stablecoin issued by the Gemini exchange. It is fully backed by US dollars held at a State Street Bank and regulated by the New York State Department of
+  Financial Services. GUSD was one of the first regulated stablecoins in the US.
+category: stablecoin
+links:
+  homepage: https://gemini.com/dollar
+  coingecko: https://www.coingecko.com/en/coins/gemini-dollar
+  defillama: https://defillama.com/stablecoin/gemini-dollar
+  twitter: https://x.com/Gemini
+slug: gusd

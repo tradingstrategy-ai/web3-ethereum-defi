@@ -1,0 +1,10 @@
+symbol: bvUSD
+name: BitVault USD
+description: BitVault USD (bvUSD) is a stablecoin with limited public information. Details about its backing and mechanism are not readily available. It appears to have minimal market presence.
+category: stablecoin
+links:
+  homepage: ''
+  coingecko: ''
+  defillama: ''
+  twitter: ''
+slug: bvusd

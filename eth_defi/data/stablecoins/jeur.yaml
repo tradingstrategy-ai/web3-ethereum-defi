@@ -1,0 +1,11 @@
+symbol: jEUR
+name: Jarvis Synthetic Euro
+description: jEUR is a synthetic Euro stablecoin issued by Jarvis Network. It is overcollateralised by USDC and uses Chainlink oracles for EUR/USD price feeds. jEUR enables on-chain Euro exposure across
+  multiple chains.
+category: stablecoin
+links:
+  homepage: https://www.jarvis.network/
+  coingecko: https://www.coingecko.com/en/coins/jarvis-synthetic-euro
+  defillama: ''
+  twitter: https://x.com/Jarvis_Network
+slug: jeur

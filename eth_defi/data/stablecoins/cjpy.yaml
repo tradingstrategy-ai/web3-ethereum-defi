@@ -1,0 +1,11 @@
+symbol: CJPY
+name: Convertible JPY Token (Yamato Protocol)
+description: CJPY is a Japanese Yen-pegged stablecoin issued by the Yamato Protocol on Ethereum. It is overcollateralised by ETH deposits and designed for the Japanese DeFi ecosystem. Users can mint CJPY
+  by depositing ETH as collateral with a minimum collateral ratio.
+category: stablecoin
+links:
+  homepage: https://yamato.fi/
+  coingecko: https://www.coingecko.com/en/coins/convertible-jpy-token
+  defillama: ''
+  twitter: https://x.com/YamatoProtocol
+slug: cjpy

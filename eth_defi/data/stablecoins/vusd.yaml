@@ -1,0 +1,18 @@
+symbol: VUSD
+category: stablecoin
+entries:
+- name: Virtual USD
+  description: Virtual USD (VUSD) is a stablecoin with limited public information available. Details about its backing and mechanism are unclear. It appears to have minimal market presence.
+  links:
+    homepage: https://vusd.com/
+    coingecko: ''
+    defillama: ''
+    twitter: ''
+- name: Virtue USD
+  description: Virtue USD is a stablecoin from the Virtue protocol. Details about its mechanism and backing are limited. It appears to target DeFi use cases.
+  links:
+    homepage: https://virtue.money/
+    coingecko: ''
+    defillama: ''
+    twitter: ''
+slug: vusd

@@ -1,0 +1,11 @@
+symbol: ZUSD
+name: Z.com USD (GMO)
+description: ZUSD is a USD-backed stablecoin issued by GMO-Z.com Trust Company. It is fully backed by US dollars and regulated by the New York State Department of Financial Services. ZUSD is part of GMO
+  Internet Group's digital assets offering.
+category: stablecoin
+links:
+  homepage: https://stablecoin.z.com/zusd/
+  coingecko: https://www.coingecko.com/en/coins/zusd
+  defillama: ''
+  twitter: ''
+slug: zusd

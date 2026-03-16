@@ -1,0 +1,11 @@
+symbol: HAI
+name: HAI (Let's Get HAI)
+description: HAI is a multi-collateral stablecoin built on Optimism, forked from the RAI model. It uses a redemption rate mechanism rather than a hard peg to maintain stability. HAI is governed by the Let's
+  Get HAI community.
+category: stablecoin
+links:
+  homepage: https://www.letsgethai.com/
+  coingecko: https://www.coingecko.com/en/coins/hai
+  defillama: https://defillama.com/stablecoin/hai
+  twitter: https://x.com/laboretsgethai
+slug: hai

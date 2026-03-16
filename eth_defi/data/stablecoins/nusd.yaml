@@ -1,0 +1,10 @@
+symbol: NUSD
+name: Neutrl NUSD
+description: NUSD is a delta-neutral stablecoin by Neutrl that maintains its peg through hedged positions. It is designed for DeFi stability through market-neutral strategies. NUSD is available on Ethereum.
+category: stablecoin
+links:
+  homepage: https://www.neutrl.com/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/neutaborrl
+slug: nusd

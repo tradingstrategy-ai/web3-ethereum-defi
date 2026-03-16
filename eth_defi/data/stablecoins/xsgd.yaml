@@ -1,0 +1,11 @@
+symbol: XSGD
+name: StraitsX SGD
+description: XSGD is a Singapore Dollar-backed stablecoin issued by StraitsX, a licensed payment institution in Singapore. Each XSGD is backed 1:1 by SGD reserves held in regulated financial institutions.
+  XSGD is available on Ethereum, Polygon, and other networks.
+category: stablecoin
+links:
+  homepage: https://www.straitsx.com/
+  coingecko: https://www.coingecko.com/en/coins/xsgd
+  defillama: ''
+  twitter: https://x.com/StraitsX
+slug: xsgd

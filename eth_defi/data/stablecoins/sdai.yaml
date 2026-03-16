@@ -1,0 +1,11 @@
+symbol: SDAI
+name: Savings DAI (Sky/MakerDAO)
+description: Savings DAI (sDAI) is a yield-bearing token representing DAI deposited in the Dai Savings Rate (DSR) module. It automatically accrues interest from MakerDAO's stability fees. sDAI is part of
+  the Sky (formerly MakerDAO) ecosystem.
+category: stablecoin
+links:
+  homepage: https://sky.money/
+  coingecko: https://www.coingecko.com/en/coins/savings-dai
+  defillama: https://defillama.com/stablecoin/savings-dai
+  twitter: https://x.com/SkyEcosystem
+slug: sdai

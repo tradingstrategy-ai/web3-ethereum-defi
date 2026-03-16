@@ -1,0 +1,11 @@
+symbol: XIDR
+name: StraitsX IDR
+description: XIDR is an Indonesian Rupiah-backed stablecoin issued by StraitsX, a licensed payment institution in Singapore. Each XIDR is backed 1:1 by IDR reserves. It enables digital transactions denominated
+  in Indonesian Rupiah.
+category: stablecoin
+links:
+  homepage: https://www.straitsx.com/
+  coingecko: https://www.coingecko.com/en/coins/straitsx-indonesia-rupiah
+  defillama: ''
+  twitter: https://x.com/StraitsX
+slug: xidr

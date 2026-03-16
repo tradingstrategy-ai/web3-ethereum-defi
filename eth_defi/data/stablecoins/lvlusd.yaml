@@ -1,0 +1,11 @@
+symbol: lvlUSD
+name: Level USD
+description: Level USD (lvlUSD) is a stablecoin by Level Money designed for yield generation. It is backed by diversified reserves and DeFi strategies. Level Money focuses on providing accessible stable
+  yield to users.
+category: stablecoin
+links:
+  homepage: https://www.level.money/
+  coingecko: https://www.coingecko.com/en/coins/level-usd
+  defillama: ''
+  twitter: https://x.com/leveldotmoney
+slug: lvlusd

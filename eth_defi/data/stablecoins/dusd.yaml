@@ -1,0 +1,19 @@
+symbol: dUSD
+category: stablecoin
+entries:
+- name: StandX DUSD
+  description: DUSD by StandX is a stablecoin designed for decentralised payments. It aims to provide stable digital currency for everyday transactions. Details about its collateral mechanism are limited.
+  links:
+    homepage: https://www.dusd.com/
+    coingecko: ''
+    defillama: ''
+    twitter: ''
+- name: DefiDollar
+  description: DefiDollar (DUSD) was a meta-stablecoin that indexed multiple stablecoins to reduce risk. It combined USDC, DAI, USDT, and sUSD into a single index token. The project is no longer actively
+    maintained.
+  links:
+    homepage: https://dusd.finance/
+    coingecko: https://www.coingecko.com/en/coins/defidollar
+    defillama: ''
+    twitter: ''
+slug: dusd

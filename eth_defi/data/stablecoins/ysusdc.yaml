@@ -1,0 +1,11 @@
+symbol: ysUSDC
+name: Yearn V3 USDC Vault Token
+description: ysUSDC is the vault token from Yearn Finance V3 representing USDC deposited in a Yearn yield strategy. It automatically earns yield from optimised DeFi lending and farming strategies. Yearn
+  V3 uses a modular vault architecture.
+category: stablecoin
+links:
+  homepage: https://yearn.fi/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/yearnfi
+slug: ysusdc

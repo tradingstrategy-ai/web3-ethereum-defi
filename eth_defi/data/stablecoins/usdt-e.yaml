@@ -1,0 +1,11 @@
+symbol: USDT.e
+name: Bridged USDT
+description: USDT.e is a bridged version of USDT on various L2 and alt-L1 chains. It represents USDT locked on Ethereum and bridged to another network via a canonical bridge. USDT.e is being replaced by
+  native USDT deployments on more chains.
+category: stablecoin
+links:
+  homepage: https://tether.to/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/Tether_to
+slug: usdt-e

@@ -1,0 +1,11 @@
+symbol: IRON
+name: Iron (Iron Finance)
+description: Iron was a partially algorithmic stablecoin by Iron Finance on Polygon. It suffered a bank-run-style collapse in June 2021 when its TITAN collateral token lost nearly all value. The project
+  is now defunct and serves as a cautionary example of algorithmic stablecoin design.
+category: stablecoin
+links:
+  homepage: https://iron.finance/
+  coingecko: https://www.coingecko.com/en/coins/iron-finance
+  defillama: ''
+  twitter: ''
+slug: iron

@@ -1,0 +1,11 @@
+symbol: feUSD
+name: Felix feUSD
+description: feUSD is a stablecoin issued by the Felix protocol for decentralised lending and borrowing. It is designed to be used within the Felix DeFi ecosystem. Details about its collateral backing and
+  mechanism are limited.
+category: stablecoin
+links:
+  homepage: https://www.usefelix.xyz/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/usefelix
+slug: feusd

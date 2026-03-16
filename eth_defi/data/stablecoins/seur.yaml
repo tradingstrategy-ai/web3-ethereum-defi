@@ -1,0 +1,10 @@
+symbol: SEUR
+name: Synthetix EUR
+description: sEUR is a synthetic Euro token issued by the Synthetix protocol. It tracks the price of the Euro through Chainlink oracle price feeds. sEUR is backed by SNX tokens staked in the Synthetix system.
+category: stablecoin
+links:
+  homepage: https://synthetix.io/
+  coingecko: https://www.coingecko.com/en/coins/seur
+  defillama: ''
+  twitter: https://x.com/synthetix_io
+slug: seur

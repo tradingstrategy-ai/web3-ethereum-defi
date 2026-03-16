@@ -1,0 +1,11 @@
+symbol: sUSDC
+name: Spark Savings USDC
+description: sUSDC is Spark Protocol's savings version of USDC that earns yield from the Sky (MakerDAO) ecosystem. It represents USDC deposited into the Spark lending market. Spark is the front end for
+  the Sky Protocol's DeFi offerings.
+category: stablecoin
+links:
+  homepage: https://spark.fi/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/sparkdotfi
+slug: susdc

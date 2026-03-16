@@ -1,0 +1,11 @@
+symbol: GHO
+name: GHO (Aave)
+description: GHO is a decentralised multi-collateral stablecoin native to the Aave Protocol. It is overcollateralised by assets deposited in Aave V3 markets. GHO introduces facilitators that can trustlessly
+  mint and burn the stablecoin within approved parameters.
+category: stablecoin
+links:
+  homepage: https://aave.com/
+  coingecko: https://www.coingecko.com/en/coins/gho
+  defillama: https://defillama.com/stablecoin/gho
+  twitter: https://x.com/aave
+slug: gho

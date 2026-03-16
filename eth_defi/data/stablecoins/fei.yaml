@@ -1,0 +1,11 @@
+symbol: FEI
+name: Fei USD
+description: Fei USD was a decentralised stablecoin that used protocol-controlled value (PCV) to maintain its peg. It was governed by the Tribe DAO and backed by ETH and other assets in the protocol's treasury.
+  The project shut down in 2023 and returned funds to holders.
+category: stablecoin
+links:
+  homepage: https://fei.money/
+  coingecko: https://www.coingecko.com/en/coins/fei-usd
+  defillama: https://defillama.com/stablecoin/fei-usd
+  twitter: ''
+slug: fei

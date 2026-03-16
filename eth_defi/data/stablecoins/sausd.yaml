@@ -1,0 +1,10 @@
+symbol: sAUSD
+name: Unknown (possibly staked Acala USD)
+description: sAUSD appears to be a staked version of Acala Dollar (aUSD) on the Polkadot ecosystem. Details about its specific implementation are limited. It may be a yield-bearing wrapper for aUSD.
+category: yield_bearing
+links:
+  homepage: https://acala.network/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/AcalaNetwork
+slug: sausd

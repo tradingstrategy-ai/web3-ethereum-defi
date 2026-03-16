@@ -1,0 +1,10 @@
+symbol: USC
+name: USC (Orby Network)
+description: USC is a stablecoin issued by Orby Network. It is designed for decentralised finance applications. Details about its specific mechanism and backing are limited.
+category: stablecoin
+links:
+  homepage: https://orby.network/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/OrbyNetwork
+slug: usc

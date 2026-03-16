@@ -1,0 +1,11 @@
+symbol: wM
+name: Wrapped M (M^0 Protocol)
+description: Wrapped M (wM) is the wrapped version of the M token from M^0 Protocol. M^0 is a decentralised stablecoin infrastructure that allows approved minters to issue M against eligible collateral.
+  wM enables M to be used across DeFi protocols.
+category: stablecoin
+links:
+  homepage: https://www.m0.org/
+  coingecko: https://www.coingecko.com/en/coins/wrapped-m
+  defillama: https://defillama.com/stablecoin/wrapped-m
+  twitter: https://x.com/m0foundation
+slug: wm

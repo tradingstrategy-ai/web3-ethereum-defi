@@ -1,0 +1,11 @@
+symbol: GHST
+name: Aavegotchi GHST
+description: GHST is the governance and utility token of Aavegotchi, a DeFi-staked NFT gaming platform built on Aave. It is not a stablecoin but is included in the stablecoin-like set for tracking purposes.
+  Aavegotchi combines DeFi yield farming with NFT gaming mechanics.
+category: stablecoin
+links:
+  homepage: https://aavegotchi.com/
+  coingecko: https://www.coingecko.com/en/coins/aavegotchi
+  defillama: ''
+  twitter: https://x.com/aavegotchi
+slug: ghst

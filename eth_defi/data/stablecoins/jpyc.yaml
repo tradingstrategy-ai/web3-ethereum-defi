@@ -1,0 +1,11 @@
+symbol: JPYC
+name: JPY Coin
+description: JPYC is a Japanese Yen-pegged stablecoin issued by JPYC Inc. It is designed for payments and remittances within the Japanese crypto ecosystem. JPYC is available on Ethereum, Polygon, and other
+  networks.
+category: stablecoin
+links:
+  homepage: https://jpyc.jp/
+  coingecko: https://www.coingecko.com/en/coins/jpyc
+  defillama: ''
+  twitter: https://x.com/jaborpyc
+slug: jpyc

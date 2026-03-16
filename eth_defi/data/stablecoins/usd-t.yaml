@@ -1,0 +1,10 @@
+symbol: USD₮
+name: Tether USD
+description: USD₮ is the Unicode variant of the USDT ticker symbol used by Tether. It represents the same Tether USD stablecoin. USD₮ appears on some blockchain explorers and exchanges as an alternate representation.
+category: stablecoin
+links:
+  homepage: https://tether.to/
+  coingecko: https://www.coingecko.com/en/coins/tether
+  defillama: https://defillama.com/stablecoin/tether
+  twitter: https://x.com/Tether_to
+slug: usd-t

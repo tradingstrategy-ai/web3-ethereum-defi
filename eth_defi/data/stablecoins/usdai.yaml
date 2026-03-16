@@ -1,0 +1,11 @@
+symbol: USDai
+name: USDai (Permian Labs / USD.AI)
+description: USDai is a stablecoin by USD.AI (Permian Labs) that leverages AI for risk management. It is designed to maintain its peg through algorithmic and reserve-backed mechanisms. USDai is focused
+  on providing stable, yield-generating digital dollars.
+category: stablecoin
+links:
+  homepage: https://usd.ai/
+  coingecko: https://www.coingecko.com/en/coins/usdai
+  defillama: https://defillama.com/stablecoin/usdai
+  twitter: https://x.com/usd_ai
+slug: usdai

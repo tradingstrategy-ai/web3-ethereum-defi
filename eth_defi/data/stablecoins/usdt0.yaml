@@ -1,0 +1,11 @@
+symbol: USDT0
+name: USDT0 (Tether + LayerZero)
+description: USDT0 is an omnichain version of USDT powered by LayerZero's OFT standard. It enables native USDT transfers across multiple blockchains without traditional bridging. USDT0 is backed 1:1 by
+  locked USDT.
+category: stablecoin
+links:
+  homepage: https://usdt0.to/
+  coingecko: https://www.coingecko.com/en/coins/usdt0
+  defillama: ''
+  twitter: https://x.com/usdt0_to
+slug: usdt0

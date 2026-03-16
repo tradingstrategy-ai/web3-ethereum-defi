@@ -1,0 +1,10 @@
+symbol: avUSD
+name: Avant USD
+description: Avant USD (avUSD) is a stablecoin from the Avant Protocol. It uses delta-neutral strategies to maintain its dollar peg. Avant is designed for yield generation through hedged positions.
+category: stablecoin
+links:
+  homepage: https://www.avantprotocol.com/
+  coingecko: https://www.coingecko.com/en/coins/avant-usd
+  defillama: ''
+  twitter: https://x.com/avantprotocol
+slug: avusd

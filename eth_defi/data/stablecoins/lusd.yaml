@@ -1,0 +1,11 @@
+symbol: LUSD
+name: Liquity USD
+description: Liquity USD (LUSD) is a decentralised stablecoin issued by the Liquity Protocol on Ethereum. It is overcollateralised by ETH with a minimum collateral ratio of 110% and is fully redeemable
+  for ETH. LUSD is governance-free and immutable, with no admin keys.
+category: stablecoin
+links:
+  homepage: https://www.liquity.org/
+  coingecko: https://www.coingecko.com/en/coins/liquity-usd
+  defillama: https://defillama.com/stablecoin/liquity-usd
+  twitter: https://x.com/LiquityProtocol
+slug: lusd

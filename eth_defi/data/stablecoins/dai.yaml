@@ -1,0 +1,11 @@
+symbol: DAI
+name: Dai
+description: Dai is a decentralised USD-pegged stablecoin issued by the MakerDAO protocol on Ethereum. It is overcollateralised by various crypto assets deposited into Maker Vaults. Dai is one of the most
+  widely used decentralised stablecoins in DeFi.
+category: stablecoin
+links:
+  homepage: https://makerdao.com/
+  coingecko: https://www.coingecko.com/en/coins/dai
+  defillama: https://defillama.com/stablecoin/dai
+  twitter: https://x.com/MakerDAO
+slug: dai

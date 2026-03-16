@@ -1,0 +1,11 @@
+symbol: rUSD
+name: IPOR rUSD
+description: rUSD is a stablecoin from the IPOR protocol ecosystem. It is designed for yield optimisation in DeFi interest rate markets. rUSD is part of IPOR's suite of interest rate derivatives and lending
+  products.
+category: stablecoin
+links:
+  homepage: https://ipor.io/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/ipaboror_io
+slug: rusd-ipor

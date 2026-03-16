@@ -1,0 +1,10 @@
+symbol: mtUSDC
+name: Mutuum Finance USDC
+description: mtUSDC represents USDC deposited in the Mutuum Finance lending protocol. It is a receipt token that accrues interest from borrowers. Mutuum Finance provides decentralised lending and borrowing.
+category: stablecoin
+links:
+  homepage: https://www.mutuum.finance/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/MutuumFinance
+slug: mtusdc

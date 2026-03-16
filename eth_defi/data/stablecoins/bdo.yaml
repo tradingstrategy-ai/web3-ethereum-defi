@@ -1,0 +1,11 @@
+symbol: BDO
+name: bDollar
+description: bDollar (BDO) was an algorithmic stablecoin on Binance Smart Chain inspired by Basis Cash. It used a seigniorage model with boardroom and bond mechanisms to maintain its peg. The project is
+  now defunct.
+category: stablecoin
+links:
+  homepage: https://bdollar.fi/
+  coingecko: https://www.coingecko.com/en/coins/bdollar
+  defillama: ''
+  twitter: ''
+slug: bdo

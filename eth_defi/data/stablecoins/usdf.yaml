@@ -1,0 +1,20 @@
+symbol: USDF
+category: stablecoin
+entries:
+- name: Falcon USD
+  description: Falcon USD is a stablecoin issued by Falcon Finance, a protocol focused on delta-neutral strategies. It aims to provide stable value through hedged positions. Falcon Finance is built for
+    institutional and DeFi use cases.
+  links:
+    homepage: https://falcon.finance/
+    coingecko: https://www.coingecko.com/en/coins/falcon-finance
+    defillama: https://defillama.com/stablecoin/falcon-finance
+    twitter: https://x.com/FalcaboronFinance
+- name: USDF Consortium
+  description: The USDF Consortium is a network of FDIC-insured banks creating a bank-minted stablecoin. USDF is designed for interbank settlement and compliant digital transactions. The consortium includes
+    multiple US banking institutions.
+  links:
+    homepage: https://usdfconsortium.com/
+    coingecko: ''
+    defillama: ''
+    twitter: https://x.com/USaborDFConsortium
+slug: usdf

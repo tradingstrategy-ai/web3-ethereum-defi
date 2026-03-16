@@ -1,0 +1,11 @@
+symbol: ZCHF
+name: Frankencoin
+description: Frankencoin (ZCHF) is a Swiss Franc-pegged decentralised stablecoin on Ethereum. It uses an auction-based collateral mechanism rather than traditional CDP models. Frankencoin is designed for
+  the Swiss and European DeFi market.
+category: stablecoin
+links:
+  homepage: https://www.frankencoin.com/
+  coingecko: https://www.coingecko.com/en/coins/frankencoin
+  defillama: ''
+  twitter: https://x.com/frankaborcencoin
+slug: zchf

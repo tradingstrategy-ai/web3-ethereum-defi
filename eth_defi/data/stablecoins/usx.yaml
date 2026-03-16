@@ -1,0 +1,11 @@
+symbol: USX
+name: dForce USD
+description: USX is a decentralised stablecoin issued by dForce on Ethereum and other chains. It is overcollateralised by various crypto assets through the dForce lending protocol. USX is designed for multi-chain
+  DeFi activities.
+category: stablecoin
+links:
+  homepage: https://dforce.network/
+  coingecko: https://www.coingecko.com/en/coins/dforce-usd
+  defillama: https://defillama.com/stablecoin/dforce-usd
+  twitter: https://x.com/dForcenet
+slug: usx

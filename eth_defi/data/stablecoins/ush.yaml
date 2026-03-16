@@ -1,0 +1,11 @@
+symbol: USH
+name: unshETH
+description: USH is the governance token of unshETH, a protocol for diversified ETH staking. It is not a stablecoin but is included in the stablecoin-like set for tracking purposes. unshETH provides a basket
+  of liquid staking derivatives.
+category: stablecoin
+links:
+  homepage: https://unsheth.xyz/
+  coingecko: https://www.coingecko.com/en/coins/unsheth
+  defillama: ''
+  twitter: https://x.com/unshETHbor_xyz
+slug: ush

@@ -1,0 +1,11 @@
+symbol: AUDT
+name: Australian Dollar Token
+description: AUDT is a fully regulated Australian Dollar-backed stablecoin pegged 1:1 to AUD. Each token is backed by Australian dollars held in regulated custody. It enables digital transactions denominated
+  in AUD on blockchain networks.
+category: stablecoin
+links:
+  homepage: https://audt.to/
+  coingecko: https://www.coingecko.com/en/coins/audt
+  defillama: ''
+  twitter: https://x.com/AUDTofficial
+slug: audt

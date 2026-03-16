@@ -1,0 +1,11 @@
+symbol: vbUSDT
+name: Vault Bridge Bridged USDT (Katana)
+description: vbUSDT is a bridged version of USDT on the Katana (Ronin) network via Vault Bridge. It represents USDT locked on Ethereum and bridged to Ronin. vbUSDT is used within the Ronin ecosystem for
+  DeFi and gaming.
+category: stablecoin
+links:
+  homepage: ''
+  coingecko: ''
+  defillama: ''
+  twitter: ''
+slug: vbusdt

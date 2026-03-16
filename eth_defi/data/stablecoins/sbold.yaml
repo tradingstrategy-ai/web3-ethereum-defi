@@ -1,0 +1,10 @@
+symbol: sBOLD
+name: sBOLD (K3 Capital / Liquity V2)
+description: sBOLD is a staked version of Liquity V2's BOLD stablecoin. It earns yield from Liquity V2's stability pool and protocol revenues. sBOLD is part of the Liquity V2 ecosystem.
+category: yield_bearing
+links:
+  homepage: https://www.liquity.org/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/LiquityProtocol
+slug: sbold

@@ -1,0 +1,10 @@
+symbol: USDB
+name: USDB (Blast)
+description: USDB is the native rebasing stablecoin of the Blast L2 network. It automatically earns yield from T-bill rates through MakerDAO's DSR. USDB is the default stablecoin within the Blast ecosystem.
+category: stablecoin
+links:
+  homepage: https://blast.io/
+  coingecko: https://www.coingecko.com/en/coins/usdb
+  defillama: https://defillama.com/stablecoin/usdb
+  twitter: https://x.com/Blast_L2
+slug: usdb

@@ -1,0 +1,11 @@
+symbol: STUSD
+name: stUSD (Angle Protocol)
+description: stUSD is a yield-bearing USD stablecoin from Angle Protocol. It earns yield from T-bills and other real-world assets through the Angle Savings mechanism. stUSD is part of the Angle Protocol
+  ecosystem alongside USDA and EURA.
+category: stablecoin
+links:
+  homepage: https://www.angle.money/
+  coingecko: https://www.coingecko.com/en/coins/staked-usda
+  defillama: ''
+  twitter: https://x.com/AngleProtocol
+slug: stusd

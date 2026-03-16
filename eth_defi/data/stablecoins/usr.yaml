@@ -1,0 +1,11 @@
+symbol: USR
+name: Resolv USR
+description: USR is a stablecoin issued by Resolv, a delta-neutral stablecoin protocol. It is backed by ETH and hedged with short perpetual futures positions to maintain its peg. USR generates yield from
+  funding rates and staking rewards.
+category: stablecoin
+links:
+  homepage: https://resolv.xyz/
+  coingecko: https://www.coingecko.com/en/coins/resolv-usr
+  defillama: https://defillama.com/stablecoin/resolv-usr
+  twitter: https://x.com/ResolvLabs
+slug: usr

@@ -1,0 +1,11 @@
+symbol: ftUSD
+name: Flying Tulip USD
+description: ftUSD is a stablecoin from Flying Tulip, an AMM and lending protocol by Andre Cronje. It is designed for capital-efficient DeFi operations. Flying Tulip uses adaptive curve mechanisms for improved
+  trading.
+category: stablecoin
+links:
+  homepage: https://flyingtulip.com/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/flyingtulaborip
+slug: ftusd

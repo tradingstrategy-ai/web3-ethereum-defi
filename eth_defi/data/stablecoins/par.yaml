@@ -1,0 +1,11 @@
+symbol: PAR
+name: Parallel (MIMO Protocol)
+description: PAR is a Euro-pegged stablecoin issued by MIMO Protocol (Parallel). It is overcollateralised by crypto assets deposited in MIMO vaults. PAR enables Euro-denominated DeFi activities on Ethereum
+  and Polygon.
+category: stablecoin
+links:
+  homepage: https://par.mimo.capital/
+  coingecko: https://www.coingecko.com/en/coins/par-stablecoin
+  defillama: ''
+  twitter: https://x.com/mimodefi
+slug: par

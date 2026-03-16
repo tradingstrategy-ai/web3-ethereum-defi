@@ -1,0 +1,11 @@
+symbol: GBPT
+name: poundtoken
+description: Poundtoken (GBPT) is a British Pound-backed stablecoin pegged 1:1 to GBP. It is fully backed by Sterling reserves held in UK bank accounts. GBPT enables digital transactions denominated in
+  British Pounds on Ethereum.
+category: stablecoin
+links:
+  homepage: https://poundtoken.io/
+  coingecko: https://www.coingecko.com/en/coins/poundtoken
+  defillama: ''
+  twitter: https://x.com/poundtoken
+slug: gbpt

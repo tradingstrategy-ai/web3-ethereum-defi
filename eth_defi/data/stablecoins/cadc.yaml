@@ -1,0 +1,11 @@
+symbol: CADC
+name: Canadian Dollar Coin
+description: Canadian Dollar Coin (CADC) is a Canadian Dollar-backed stablecoin pegged 1:1 to CAD. It is fully collateralised with Canadian dollars held in regulated Canadian financial institutions. CADC
+  enables digital transactions denominated in Canadian dollars on Ethereum.
+category: stablecoin
+links:
+  homepage: https://www.cadcoin.ca/
+  coingecko: https://www.coingecko.com/en/coins/cad-coin
+  defillama: ''
+  twitter: ''
+slug: cadc

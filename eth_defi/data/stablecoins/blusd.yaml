@@ -1,0 +1,11 @@
+symbol: blUSD
+name: Boosted LUSD (Chicken Bonds / Liquity)
+description: bLUSD (Boosted LUSD) is a yield-amplified version of LUSD from the Chicken Bonds mechanism by Liquity. It earns enhanced yield from Liquity's stability pool and other DeFi strategies. Chicken
+  Bonds uses a novel bonding mechanism for yield amplification.
+category: wrapped
+links:
+  homepage: https://www.chickenbonds.org/
+  coingecko: https://www.coingecko.com/en/coins/boosted-lusd
+  defillama: ''
+  twitter: https://x.com/chickaborenbonds
+slug: blusd

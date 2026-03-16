@@ -1,0 +1,11 @@
+symbol: LISUSD
+name: lisUSD (Lista DAO)
+description: lisUSD is a decentralised stablecoin issued by Lista DAO on BNB Chain. It is overcollateralised by liquid staking tokens and other crypto assets. lisUSD is designed for borrowing and DeFi activities
+  within the Lista ecosystem.
+category: stablecoin
+links:
+  homepage: https://lista.org/
+  coingecko: https://www.coingecko.com/en/coins/lista-usd
+  defillama: https://defillama.com/stablecoin/lista-usd
+  twitter: https://x.com/lista_dao
+slug: lisusd

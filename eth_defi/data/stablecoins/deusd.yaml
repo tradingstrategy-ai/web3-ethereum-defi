@@ -1,0 +1,11 @@
+symbol: deUSD
+name: Elixir deUSD
+description: deUSD is a decentralised synthetic dollar by Elixir Protocol. It uses institutional-grade market making and delta-neutral strategies. Elixir focuses on providing deep liquidity across orderbook
+  exchanges.
+category: stablecoin
+links:
+  homepage: https://www.elixir.xyz/
+  coingecko: https://www.coingecko.com/en/coins/elixir-deusd
+  defillama: https://defillama.com/stablecoin/elixir-deusd
+  twitter: https://x.com/ElixirProtocol
+slug: deusd

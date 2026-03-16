@@ -1,0 +1,10 @@
+symbol: ONC
+name: One Cash
+description: One Cash (ONC) was an algorithmic stablecoin inspired by Basis Cash. It used a seigniorage model to maintain its dollar peg. The project is now defunct.
+category: stablecoin
+links:
+  homepage: ''
+  coingecko: https://www.coingecko.com/en/coins/one-cash
+  defillama: ''
+  twitter: ''
+slug: onc

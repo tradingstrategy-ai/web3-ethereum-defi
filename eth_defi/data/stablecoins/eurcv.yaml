@@ -1,0 +1,11 @@
+symbol: EURCV
+name: EUR CoinVertible (SG-FORGE)
+description: EUR CoinVertible (EURCV) is a Euro-denominated security token issued by SG-FORGE, a subsidiary of Societe Generale. It is a regulated digital asset backed by Euro reserves for institutional
+  use. EURCV bridges traditional finance and DeFi.
+category: stablecoin
+links:
+  homepage: https://www.sgforge.com/
+  coingecko: https://www.coingecko.com/en/coins/coinvertible
+  defillama: ''
+  twitter: https://x.com/SG_FORGE
+slug: eurcv

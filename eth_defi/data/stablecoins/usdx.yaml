@@ -1,0 +1,19 @@
+symbol: USDX
+category: stablecoin
+entries:
+- name: USDX (Stables Labs)
+  description: USDX is a stablecoin by Stables Labs designed as a synthetic dollar. It uses delta-neutral strategies similar to Ethena to maintain its peg. USDX is focused on providing stable value with
+    yield opportunities.
+  links:
+    homepage: https://usdx.money/
+    coingecko: https://www.coingecko.com/en/coins/usdx-money
+    defillama: https://defillama.com/stablecoin/usdx-money
+    twitter: https://x.com/USDaborx_Money
+- name: USDX (Kava)
+  description: USDX was the native stablecoin of the Kava blockchain. It was overcollateralised by multiple crypto assets deposited on the Kava platform. The Kava ecosystem has shifted focus away from USDX.
+  links:
+    homepage: https://www.kava.io/
+    coingecko: https://www.coingecko.com/en/coins/kava-lend
+    defillama: ''
+    twitter: https://x.com/KABORAVA_CHAIN
+slug: usdx

@@ -1,0 +1,11 @@
+symbol: PYUSD
+name: PayPal USD
+description: PayPal USD (PYUSD) is a USD-backed stablecoin issued by PayPal in partnership with Paxos Trust Company. It is fully backed by US dollar deposits, US Treasuries, and similar cash equivalents.
+  PYUSD is available on Ethereum and Solana.
+category: stablecoin
+links:
+  homepage: https://www.paypal.com/pyusd
+  coingecko: https://www.coingecko.com/en/coins/paypal-usd
+  defillama: https://defillama.com/stablecoin/paypal-usd
+  twitter: https://x.com/PayPal
+slug: pyusd

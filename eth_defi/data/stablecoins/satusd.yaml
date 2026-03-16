@@ -1,0 +1,18 @@
+symbol: satUSD
+category: stablecoin
+entries:
+- name: Satoshi Stablecoin
+  description: Satoshi Stablecoin (satUSD) is a BTC-backed stablecoin from Satoshi Protocol. It allows users to borrow satUSD against Bitcoin collateral. The protocol is designed for the Bitcoin DeFi ecosystem.
+  links:
+    homepage: https://www.satoshiprotocol.org/
+    coingecko: https://www.coingecko.com/en/coins/satoshi-stablecoin
+    defillama: ''
+    twitter: https://x.com/SaboratoshiProtocol
+- name: River Protocol satUSD
+  description: River Protocol's satUSD is a stablecoin designed for the Bitcoin ecosystem. It provides stable value within Bitcoin-native DeFi applications. Details about its specific mechanism are limited.
+  links:
+    homepage: https://river.money/
+    coingecko: ''
+    defillama: ''
+    twitter: ''
+slug: satusd

@@ -1,0 +1,14 @@
+symbol: SUSD
+name: Synthetix sUSD
+description: sUSD is the native stablecoin of the Synthetix protocol, pegged to the US Dollar. It is backed by SNX tokens staked by participants in the Synthetix system. sUSD is used as the base trading
+  asset for Synthetix's synthetic assets.
+category: stablecoin
+links:
+  homepage: https://synthetix.io/
+  coingecko: https://www.coingecko.com/en/coins/susd
+  defillama: https://defillama.com/stablecoin/susd
+  twitter: https://x.com/synthetix_io
+slug: susd
+token_symbols:
+- SUSD
+- sUSD

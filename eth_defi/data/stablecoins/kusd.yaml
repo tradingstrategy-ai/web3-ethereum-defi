@@ -1,0 +1,11 @@
+symbol: kUSD
+name: Kolibri USD
+description: Kolibri USD (kUSD) is a decentralised stablecoin on the Tezos blockchain. It is overcollateralised by XTZ deposits using a CDP model. kUSD is the primary decentralised stablecoin in the Tezos
+  ecosystem.
+category: stablecoin
+links:
+  homepage: https://kolibri.finance/
+  coingecko: https://www.coingecko.com/en/coins/kolibri-usd
+  defillama: ''
+  twitter: https://x.com/haboroverengineered
+slug: kusd

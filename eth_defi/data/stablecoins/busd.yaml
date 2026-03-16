@@ -1,0 +1,11 @@
+symbol: BUSD
+name: Binance USD
+description: Binance USD (BUSD) was a USD-pegged stablecoin issued by Paxos in partnership with Binance. It was fully backed by US dollar reserves and regulated by the New York State Department of Financial
+  Services. Paxos ceased minting new BUSD in February 2023.
+category: stablecoin
+links:
+  homepage: https://www.binance.com/
+  coingecko: https://www.coingecko.com/en/coins/binance-usd
+  defillama: https://defillama.com/stablecoin/binance-usd
+  twitter: https://x.com/binance
+slug: busd

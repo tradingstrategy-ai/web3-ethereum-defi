@@ -1,0 +1,11 @@
+symbol: TCNH
+name: TrueUSD CNH
+description: TCNH is an offshore Chinese Yuan-pegged stablecoin associated with the TrueUSD ecosystem. It is pegged 1:1 to the CNH (offshore Chinese Yuan). TCNH enables digital transactions in CNH on blockchain
+  networks.
+category: stablecoin
+links:
+  homepage: https://trueusd.com/
+  coingecko: https://www.coingecko.com/en/coins/truecnh
+  defillama: ''
+  twitter: https://x.com/TrueUSD
+slug: tcnh

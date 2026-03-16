@@ -1,0 +1,11 @@
+symbol: sUSDe
+name: Ethena Staked USDe
+description: sUSDe is the staked version of Ethena's USDe that earns yield from funding rates and staking rewards. It represents USDe deposited in the Ethena staking contract. sUSDe is one of the highest-yielding
+  stablecoin products in DeFi.
+category: yield_bearing
+links:
+  homepage: https://ethena.fi/
+  coingecko: https://www.coingecko.com/en/coins/ethena-staked-usde
+  defillama: ''
+  twitter: https://x.com/ethena_labs
+slug: susde

@@ -1,0 +1,18 @@
+symbol: YUSD
+category: stablecoin
+entries:
+- name: YUSD (Yeti Finance)
+  description: YUSD was a decentralised stablecoin issued by Yeti Finance on Avalanche. It was overcollateralised by yield-bearing assets including LP tokens and staked AVAX. Yeti Finance has been deprecated.
+  links:
+    homepage: https://yeti.finance/
+    coingecko: https://www.coingecko.com/en/coins/yeti-finance
+    defillama: ''
+    twitter: ''
+- name: yUSD (YieldFi)
+  description: yUSD is a stablecoin associated with the YieldFi protocol. It is designed for yield generation in DeFi. Details about its specific mechanism are limited.
+  links:
+    homepage: https://yield.fi/
+    coingecko: ''
+    defillama: ''
+    twitter: ''
+slug: yusd

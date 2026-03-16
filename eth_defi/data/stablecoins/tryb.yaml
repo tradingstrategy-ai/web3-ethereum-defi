@@ -1,0 +1,11 @@
+symbol: TRYB
+name: BiLira Turkish Lira
+description: BiLira (TRYB) is a Turkish Lira-backed stablecoin pegged 1:1 to TRY. It is fully collateralised with Turkish Lira reserves held in regulated Turkish banks. TRYB enables digital transactions
+  denominated in Turkish Lira.
+category: stablecoin
+links:
+  homepage: https://www.bilira.co/
+  coingecko: https://www.coingecko.com/en/coins/bilira
+  defillama: ''
+  twitter: https://x.com/AboriBiLira
+slug: tryb

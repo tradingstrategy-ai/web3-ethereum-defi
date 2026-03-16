@@ -1,0 +1,10 @@
+symbol: sUSDai
+name: Staked USDai (USD.AI)
+description: sUSDai is the staked version of USDai from the USD.AI protocol. It earns yield through the protocol's AI-managed strategies. Details about its specific mechanism are limited.
+category: yield_bearing
+links:
+  homepage: https://usd.ai/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/usd_ai
+slug: susdai

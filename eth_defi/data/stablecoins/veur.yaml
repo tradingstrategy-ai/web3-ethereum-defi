@@ -1,0 +1,10 @@
+symbol: VEUR
+name: VNX Euro
+description: VNX Euro (VEUR) is a Euro-backed stablecoin issued by VNX, a Liechtenstein-regulated fintech. Each VEUR is backed 1:1 by Euro reserves. VEUR enables regulated Euro-denominated digital transactions.
+category: stablecoin
+links:
+  homepage: https://vnx.li/
+  coingecko: https://www.coingecko.com/en/coins/vnx-euro
+  defillama: ''
+  twitter: https://x.com/VNX_fi
+slug: veur

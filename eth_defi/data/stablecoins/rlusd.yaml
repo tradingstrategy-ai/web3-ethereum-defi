@@ -1,0 +1,11 @@
+symbol: RLUSD
+name: Ripple USD
+description: Ripple USD (RLUSD) is a USD-backed stablecoin issued by Ripple. It is fully backed by US dollar deposits, US government bonds, and cash equivalents. RLUSD is available on Ethereum and the XRP
+  Ledger.
+category: stablecoin
+links:
+  homepage: https://ripple.com/solutions/stablecoin/
+  coingecko: https://www.coingecko.com/en/coins/ripple-usd
+  defillama: https://defillama.com/stablecoin/ripple-usd
+  twitter: https://x.com/Ripple
+slug: rlusd

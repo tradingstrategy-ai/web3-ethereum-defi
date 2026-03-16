@@ -1,0 +1,10 @@
+symbol: VAI
+name: Vai (Venus Protocol)
+description: VAI is a decentralised stablecoin issued by the Venus Protocol on BNB Chain. It is minted by depositing crypto assets as collateral in Venus markets. VAI has historically experienced peg instability.
+category: stablecoin
+links:
+  homepage: https://venus.io/
+  coingecko: https://www.coingecko.com/en/coins/vai
+  defillama: https://defillama.com/stablecoin/vai
+  twitter: https://x.com/VenusProtocol
+slug: vai

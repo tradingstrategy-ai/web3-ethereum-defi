@@ -1,0 +1,10 @@
+symbol: XSTUSD
+name: SORA Synthetic USD
+description: XSTUSD is a synthetic USD stablecoin on the SORA network. It is designed for the SORA decentralised economic system. XSTUSD uses a token bonding curve mechanism for price stability.
+category: stablecoin
+links:
+  homepage: https://sora.org/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/saborora_xor
+slug: xstusd

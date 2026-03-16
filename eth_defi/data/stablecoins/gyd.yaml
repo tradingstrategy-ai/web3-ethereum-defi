@@ -1,0 +1,11 @@
+symbol: GYD
+name: Gyroscope Dollar
+description: Gyroscope Dollar (GYD) is a decentralised stablecoin designed with an all-weather reserve structure. It uses concentrated liquidity pools and a novel redemption mechanism to maintain its peg.
+  GYD aims to be resilient against black swan events through diversified backing.
+category: stablecoin
+links:
+  homepage: https://www.gyro.finance/
+  coingecko: https://www.coingecko.com/en/coins/gyroscope-gyd
+  defillama: ''
+  twitter: https://x.com/GyroscopeFi
+slug: gyd

@@ -1,0 +1,11 @@
+symbol: aDAI
+name: Aave DAI
+description: aDAI is the Aave protocol's interest-bearing token representing DAI supplied to Aave lending pools. It accrues interest in real-time as borrowers pay interest on DAI loans. aDAI was a foundational
+  DeFi yield-bearing token.
+category: wrapped
+links:
+  homepage: https://aave.com/
+  coingecko: https://www.coingecko.com/en/coins/aave-dai
+  defillama: ''
+  twitter: https://x.com/aaborave
+slug: adai

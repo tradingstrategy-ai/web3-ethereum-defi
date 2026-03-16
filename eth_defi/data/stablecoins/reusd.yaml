@@ -1,0 +1,11 @@
+symbol: reUSD
+name: Resupply USD
+description: Resupply USD (reUSD) is a stablecoin by Resupply, a protocol built by the teams behind Convex and Yearn Finance. It aggregates lending positions from Fraxlend and Curve to provide yield. reUSD
+  is designed for capital-efficient stablecoin borrowing.
+category: stablecoin
+links:
+  homepage: https://resupply.fi/
+  coingecko: https://www.coingecko.com/en/coins/resupply-reusd
+  defillama: ''
+  twitter: https://x.com/ResaborupplyFi
+slug: reusd

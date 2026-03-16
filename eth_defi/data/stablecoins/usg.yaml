@@ -1,0 +1,11 @@
+symbol: USG
+name: Tangent USD
+description: USG is a decentralised over-collateralised USD stablecoin by Tangent Finance, backed by productive LPs and yield-bearing assets from Curve, Convex, and Pendle. Users can borrow with zero interest
+  in dedicated High Emissions Collateral markets. A dynamic interest rate model activates only when USG trades below its price threshold.
+category: stablecoin
+links:
+  homepage: https://www.tangent.finance/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/Tangent_fi
+slug: usg

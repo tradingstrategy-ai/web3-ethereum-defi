@@ -1,0 +1,13 @@
+symbol: USDG
+name: Global Dollar
+description: |
+  Global Dollar (USDG) is a USD-backed stablecoin issued by Paxos, regulated by the Monetary Authority of Singapore.
+  It is fully backed by cash and US Treasury bills with monthly attestation reports. USDG shares up to 100% of
+  reserve yield with network partners including Kraken, Robinhood, Galaxy Digital, and Mastercard.
+category: stablecoin
+links:
+  homepage: https://globaldollar.com/
+  coingecko: https://www.coingecko.com/en/coins/global-dollar
+  defillama: https://defillama.com/stablecoin/global-dollar
+  twitter: https://x.com/GlobalDollar
+slug: usdg

@@ -1,0 +1,11 @@
+symbol: CEUR
+name: Celo Euro
+description: Celo Euro (cEUR) is a Euro-pegged stablecoin native to the Celo blockchain. It is overcollateralised by a diversified reserve of crypto assets managed by the Celo Reserve. cEUR is designed
+  for mobile-first payments and cross-border transactions.
+category: stablecoin
+links:
+  homepage: https://celo.org/
+  coingecko: https://www.coingecko.com/en/coins/celo-euro
+  defillama: https://defillama.com/stablecoin/celo-euro
+  twitter: https://x.com/Celo
+slug: ceur

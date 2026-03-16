@@ -1,0 +1,11 @@
+symbol: UST
+name: TerraUSD
+description: TerraUSD (UST) was an algorithmic stablecoin on the Terra blockchain pegged to USD via LUNA burns and mints. It suffered a catastrophic collapse in May 2022, losing its peg entirely. The UST/LUNA
+  collapse wiped out approximately $40 billion in value.
+category: stablecoin
+links:
+  homepage: https://terra.money/
+  coingecko: https://www.coingecko.com/en/coins/terrausd
+  defillama: https://defillama.com/stablecoin/terrausd
+  twitter: ''
+slug: ust

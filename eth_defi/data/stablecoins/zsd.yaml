@@ -1,0 +1,11 @@
+symbol: ZSD
+name: Zephyr Stable Dollar
+description: Zephyr Stable Dollar (ZSD) is a private stablecoin on the Zephyr Protocol, a Monero-forked privacy blockchain. It uses an overcollateralised djed-style mechanism with ZEPH as the reserve asset.
+  ZSD offers privacy-preserving stable transactions.
+category: stablecoin
+links:
+  homepage: https://www.zephyrprotocol.com/
+  coingecko: https://www.coingecko.com/en/coins/zephyr-protocol
+  defillama: ''
+  twitter: https://x.com/zaborephyrprotocol
+slug: zsd

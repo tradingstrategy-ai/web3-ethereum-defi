@@ -1,0 +1,11 @@
+symbol: USDO
+name: OpenDollar (OpenEden)
+description: USDO is a stablecoin associated with OpenEden, a protocol providing tokenised access to US Treasuries. It is backed by short-term US government securities. USDO is designed for institutional
+  DeFi participants.
+category: stablecoin
+links:
+  homepage: https://openeden.com/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/OpenEdenLabs
+slug: usdo

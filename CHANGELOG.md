@@ -1,5 +1,6 @@
 # Current
 
+- **Add: Stablecoin metadata migrated from inline Python to 180 individual YAML files under `eth_defi/data/stablecoins/` with name, homepage, description, CoinGecko, DeFiLlama, and Twitter links; new `eth_defi/stablecoin_metadata` module with YAML loader and R2 upload; 154 stablecoin logos; add USG, USDG, FRAX, DOLA, GRAI (2026-03-16, [#857](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/857))**
 - Add: Ember vault offchain metadata expanded with all official API fields (long name, status, tags, depositor counts, APY breakdown, rewards, supported coins) and risk level lowered to low (2026-03-16, [#856](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/856))
 - Add: Multi-key Lagoon asset manager deployment support with shared Guard permissions, valuation-manager reporting, and simulated dual-key deployment coverage (2026-03-16, [#855](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/855))
 - Add: Hyperliquid raw metric passthrough for `account_pnl`, `follower_count`, and `cumulative_volume` from DuckDB price data to cleaned prices and lifetime metrics export (2026-03-15, [#852](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/852))

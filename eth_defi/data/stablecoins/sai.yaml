@@ -1,0 +1,11 @@
+symbol: SAI
+name: Single Collateral Dai (MakerDAO legacy)
+description: SAI (Single Collateral Dai) was the original Dai stablecoin backed solely by ETH. It was replaced by Multi-Collateral Dai (DAI) in November 2019. SAI is now deprecated and holders were encouraged
+  to migrate to DAI.
+category: stablecoin
+links:
+  homepage: https://makerdao.com/
+  coingecko: https://www.coingecko.com/en/coins/sai
+  defillama: ''
+  twitter: https://x.com/MakerDAO
+slug: sai

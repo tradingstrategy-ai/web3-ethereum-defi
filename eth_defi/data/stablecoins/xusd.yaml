@@ -1,0 +1,22 @@
+symbol: XUSD
+category: stablecoin
+entries:
+- name: StraitsX USD
+  description: XUSD is a USD-backed stablecoin issued by StraitsX, a licensed payment institution in Singapore. Each XUSD is backed 1:1 by USD reserves. It enables digital transactions denominated in US
+    dollars on blockchain.
+  links:
+    homepage: https://www.straitsx.com/
+    coingecko: ''
+    defillama: ''
+    twitter: https://x.com/StraitsX
+- name: xDollar
+  description: xDollar was a multi-chain stablecoin protocol inspired by MakerDAO. It allowed minting xUSD stablecoins against various collateral types. The project has limited current activity.
+  links:
+    homepage: https://xdollar.fi/
+    coingecko: ''
+    defillama: ''
+    twitter: ''
+slug: xusd
+token_symbols:
+- XUSD
+- xUSD

@@ -1,0 +1,11 @@
+symbol: USDC.e
+name: Bridged USDC
+description: USDC.e is a bridged version of USDC on various L2 and alt-L1 chains. It represents USDC locked on Ethereum and bridged to another network via a canonical bridge. USDC.e is being phased out
+  as Circle deploys native USDC on more chains.
+category: stablecoin
+links:
+  homepage: https://www.circle.com/usdc
+  coingecko: https://www.coingecko.com/en/coins/bridged-usdc
+  defillama: ''
+  twitter: https://x.com/circle
+slug: usdc-e

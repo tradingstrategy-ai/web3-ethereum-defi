@@ -1,0 +1,11 @@
+symbol: USTC
+name: TerraUSD Classic
+description: TerraUSD Classic (USTC) is the renamed version of UST after the Terra blockchain forked. It trades at a deep discount to $1 following the May 2022 collapse. USTC remains on Terra Classic (LUNC)
+  chain.
+category: stablecoin
+links:
+  homepage: https://terra.money/
+  coingecko: https://www.coingecko.com/en/coins/terrausd
+  defillama: ''
+  twitter: ''
+slug: ustc

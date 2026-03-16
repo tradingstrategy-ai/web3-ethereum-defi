@@ -1,0 +1,11 @@
+symbol: sfrxUSD
+name: Staked Frax USD
+description: sfrxUSD is the staked version of frxUSD that earns yield from Frax Finance's strategies. It represents frxUSD deposited in the Frax staking vault. sfrxUSD accrues yield from T-bill and DeFi
+  revenue.
+category: yield_bearing
+links:
+  homepage: https://frax.finance/
+  coingecko: https://www.coingecko.com/en/coins/staked-frax-usd
+  defillama: ''
+  twitter: https://x.com/fraboraxfinance
+slug: sfrxusd

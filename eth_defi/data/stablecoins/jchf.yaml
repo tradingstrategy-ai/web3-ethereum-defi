@@ -1,0 +1,11 @@
+symbol: JCHF
+name: Jarvis Synthetic Swiss Franc
+description: jCHF is a synthetic Swiss Franc stablecoin issued by Jarvis Network. It is overcollateralised by USDC and uses Chainlink oracles for price feeds. jCHF enables on-chain exposure to CHF without
+  needing a Swiss bank account.
+category: stablecoin
+links:
+  homepage: https://www.jarvis.network/
+  coingecko: https://www.coingecko.com/en/coins/jarvis-synthetic-swiss-franc
+  defillama: ''
+  twitter: https://x.com/Jarvis_Network
+slug: jchf

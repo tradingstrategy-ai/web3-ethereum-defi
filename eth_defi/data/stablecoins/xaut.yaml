@@ -1,0 +1,11 @@
+symbol: XAUT
+name: Tether Gold
+description: Tether Gold (XAUT) is a gold-backed token issued by TG Commodities Limited, associated with Tether. Each XAUT token represents ownership of one fine troy ounce of physical gold stored in a
+  Swiss vault. XAUT enables fractional ownership of physical gold on blockchain.
+category: stablecoin
+links:
+  homepage: https://gold.tether.to/
+  coingecko: https://www.coingecko.com/en/coins/tether-gold
+  defillama: ''
+  twitter: https://x.com/Tether_to
+slug: xaut

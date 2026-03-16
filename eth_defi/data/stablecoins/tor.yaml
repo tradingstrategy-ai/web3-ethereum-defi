@@ -1,0 +1,10 @@
+symbol: TOR
+name: TOR (Hector Finance)
+description: TOR was a stablecoin issued by Hector Finance on Fantom. It was designed for use within the Hector ecosystem for lending and staking. The Hector project has been wound down.
+category: stablecoin
+links:
+  homepage: https://hector.network/
+  coingecko: https://www.coingecko.com/en/coins/tor
+  defillama: ''
+  twitter: ''
+slug: tor

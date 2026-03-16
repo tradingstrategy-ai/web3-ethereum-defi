@@ -1,0 +1,11 @@
+symbol: BAC
+name: Basis Cash
+description: 'Basis Cash was an algorithmic stablecoin protocol inspired by the original Basis project. It used a seigniorage shares model with three tokens: BAC (stablecoin), BAS (shares), and BAB (bonds).
+  The project is now defunct after failing to maintain its dollar peg.'
+category: stablecoin
+links:
+  homepage: https://basis.cash/
+  coingecko: https://www.coingecko.com/en/coins/basis-cash
+  defillama: ''
+  twitter: ''
+slug: bac

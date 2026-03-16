@@ -1,0 +1,11 @@
+symbol: MKUSD
+name: Prisma mkUSD
+description: mkUSD is a decentralised stablecoin issued by Prisma Finance on Ethereum. It is backed by liquid staking tokens (wstETH, rETH, cbETH, sfrxETH) as collateral. mkUSD allows users to earn yield
+  while borrowing against their staked ETH.
+category: stablecoin
+links:
+  homepage: https://prismafinance.com/
+  coingecko: https://www.coingecko.com/en/coins/prisma-mkusd
+  defillama: https://defillama.com/stablecoin/prisma-mkusd
+  twitter: https://x.com/PrismaFi
+slug: mkusd

@@ -1,0 +1,18 @@
+symbol: RUSD
+category: stablecoin
+entries:
+- name: Reservoir rUSD
+  description: Reservoir rUSD is a stablecoin associated with the Reservoir protocol. It is designed for DeFi lending and liquidity provision. Details about its specific mechanism are limited.
+  links:
+    homepage: https://www.reservoir.xyz/
+    coingecko: ''
+    defillama: ''
+    twitter: ''
+- name: f(x) rUSD
+  description: f(x) rUSD is a stablecoin issued by the f(x) Protocol built on Aladdin DAO. It uses a leveraged-yield mechanism similar to fxUSD. rUSD is backed by liquid staking derivatives.
+  links:
+    homepage: https://fx.aladdin.club/
+    coingecko: ''
+    defillama: ''
+    twitter: https://x.com/protocol_fx
+slug: rusd

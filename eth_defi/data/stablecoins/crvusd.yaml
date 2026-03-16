@@ -1,0 +1,14 @@
+symbol: CRVUSD
+name: Curve USD
+description: crvUSD is the native stablecoin of Curve Finance, a leading decentralised exchange for stablecoin trading. It uses a novel LLAMMA (Lending-Liquidating AMM Algorithm) mechanism for soft liquidations.
+  crvUSD is overcollateralised and can be minted against various crypto assets.
+category: stablecoin
+links:
+  homepage: https://curve.fi/
+  coingecko: https://www.coingecko.com/en/coins/crvusd
+  defillama: https://defillama.com/stablecoin/crvusd
+  twitter: https://x.com/CurveFinance
+slug: crvusd
+token_symbols:
+- CRVUSD
+- crvUSD

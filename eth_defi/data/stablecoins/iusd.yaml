@@ -1,0 +1,11 @@
+symbol: iUSD
+name: Indigo Protocol iUSD
+description: iUSD is a synthetic USD stablecoin on the Cardano blockchain issued by Indigo Protocol. It is overcollateralised by ADA and uses a CDP model inspired by MakerDAO. iUSD is the primary stablecoin
+  in the Cardano DeFi ecosystem.
+category: stablecoin
+links:
+  homepage: https://indigoprotocol.io/
+  coingecko: https://www.coingecko.com/en/coins/indigo-protocol-iusd
+  defillama: ''
+  twitter: https://x.com/IndigoProtocol1
+slug: iusd

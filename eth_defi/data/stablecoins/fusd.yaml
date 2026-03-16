@@ -1,0 +1,11 @@
+symbol: FUSD
+name: Fantom USD
+description: Fantom USD (fUSD) was a stablecoin native to the Fantom blockchain. It could be minted by depositing FTM and other assets as collateral in the Fantom DeFi suite. The stablecoin was part of
+  Fantom's native DeFi ecosystem.
+category: stablecoin
+links:
+  homepage: https://fantom.foundation/
+  coingecko: https://www.coingecko.com/en/coins/fantom-usd
+  defillama: https://defillama.com/stablecoin/fantom-usd
+  twitter: https://x.com/FantomFDN
+slug: fusd

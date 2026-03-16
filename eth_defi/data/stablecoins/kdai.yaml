@@ -1,0 +1,11 @@
+symbol: KDAI
+name: Klaytn DAI
+description: KDAI is a version of Dai bridged to the Klaytn blockchain. It maintains a 1:1 peg with DAI on Ethereum through a cross-chain bridge. KDAI enables DAI-denominated transactions within the Klaytn
+  ecosystem.
+category: stablecoin
+links:
+  homepage: https://klaytn.foundation/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/klaboraytn_official
+slug: kdai

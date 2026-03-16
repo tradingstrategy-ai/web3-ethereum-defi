@@ -1,0 +1,11 @@
+symbol: DJED
+name: Djed
+description: Djed is an overcollateralised stablecoin protocol on the Cardano blockchain. It uses a reserve coin (SHEN) to maintain its USD peg through an algorithmic mechanism. Djed was developed by IOG
+  (Input Output Global) and deployed by COTI.
+category: stablecoin
+links:
+  homepage: https://djed.xyz/
+  coingecko: https://www.coingecko.com/en/coins/djed
+  defillama: https://defillama.com/stablecoin/djed
+  twitter: https://x.com/DjedStablecoin
+slug: djed

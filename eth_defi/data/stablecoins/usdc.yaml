@@ -1,0 +1,11 @@
+symbol: USDC
+name: USD Coin (Circle)
+description: USD Coin (USDC) is a fully-reserved USD stablecoin issued by Circle. It is backed by cash and short-dated US government obligations held at regulated financial institutions. USDC is one of
+  the most widely used stablecoins across DeFi and CeFi.
+category: stablecoin
+links:
+  homepage: https://www.circle.com/usdc
+  coingecko: https://www.coingecko.com/en/coins/usd-coin
+  defillama: https://defillama.com/stablecoin/usd-coin
+  twitter: https://x.com/circle
+slug: usdc

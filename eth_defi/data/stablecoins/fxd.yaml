@@ -1,0 +1,11 @@
+symbol: FXD
+name: Fathom Dollar
+description: Fathom Dollar (FXD) is a decentralised stablecoin on the XDC Network. It is overcollateralised by XDC and other assets deposited into the Fathom protocol. FXD is designed for enterprise and
+  DeFi use cases on the XDC ecosystem.
+category: stablecoin
+links:
+  homepage: https://fathom.fi/
+  coingecko: https://www.coingecko.com/en/coins/fathom-dollar
+  defillama: https://defillama.com/stablecoin/fathom-dollar
+  twitter: https://x.com/FathomProtocol
+slug: fxd

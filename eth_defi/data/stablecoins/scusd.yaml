@@ -1,0 +1,11 @@
+symbol: scUSD
+name: Rings scUSD (Sonic)
+description: scUSD is a stablecoin from Rings Protocol on the Sonic (formerly Fantom) network. It is designed for stable value transfer within the Sonic ecosystem. scUSD provides DeFi utility on the high-performance
+  Sonic chain.
+category: stablecoin
+links:
+  homepage: https://rings.money/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/RingsProtocol
+slug: scusd

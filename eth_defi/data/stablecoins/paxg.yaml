@@ -1,0 +1,11 @@
+symbol: PAXG
+name: Pax Gold
+description: Pax Gold (PAXG) is a gold-backed token issued by Paxos, where each token represents one fine troy ounce of gold. The gold is stored in LBMA-accredited London vaults and is regulated by the
+  New York State Department of Financial Services. PAXG enables fractional ownership of physical gold on blockchain.
+category: stablecoin
+links:
+  homepage: https://paxos.com/paxgold/
+  coingecko: https://www.coingecko.com/en/coins/pax-gold
+  defillama: ''
+  twitter: https://x.com/PaxosGlobal
+slug: paxg

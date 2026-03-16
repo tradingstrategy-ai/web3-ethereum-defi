@@ -1,0 +1,10 @@
+symbol: msUSD
+name: Main Street USD
+description: Main Street USD (msUSD) is a stablecoin from Main Street Finance. Details about its backing mechanism and design are limited. It appears to be a smaller DeFi protocol stablecoin.
+category: stablecoin
+links:
+  homepage: https://mainstreet.finance/
+  coingecko: ''
+  defillama: ''
+  twitter: ''
+slug: msusd

@@ -1,0 +1,19 @@
+symbol: USDN
+category: stablecoin
+entries:
+- name: Noble Dollar
+  description: Noble Dollar (USDN) is a stablecoin native to the Noble blockchain in the Cosmos ecosystem. It is backed by US dollar reserves and designed for cross-chain IBC transfers. USDN is used across
+    Cosmos-based chains.
+  links:
+    homepage: https://noble.xyz/
+    coingecko: https://www.coingecko.com/en/coins/noble-dollar
+    defillama: https://defillama.com/stablecoin/noble-dollar
+    twitter: https://x.com/noble_xyz
+- name: Neutrino USD
+  description: Neutrino USD (USDN) was an algorithmic stablecoin on the Waves blockchain backed by WAVES. It depegged significantly in 2022 and was rebranded to XTN. The protocol is now largely inactive.
+  links:
+    homepage: https://neutrino.at/
+    coingecko: https://www.coingecko.com/en/coins/neutrino
+    defillama: https://defillama.com/stablecoin/neutrino
+    twitter: ''
+slug: usdn

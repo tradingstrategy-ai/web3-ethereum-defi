@@ -1,0 +1,11 @@
+symbol: FXUSD
+name: f(x) Protocol fxUSD
+description: fxUSD is a stablecoin issued by the f(x) Protocol built on Aladdin DAO. It uses a leveraged-yield-bearing mechanism to maintain its peg. fxUSD is backed by liquid staking derivatives with built-in
+  leverage and yield.
+category: stablecoin
+links:
+  homepage: https://fx.aladdin.club/
+  coingecko: https://www.coingecko.com/en/coins/f-x-protocol-fxusd
+  defillama: ''
+  twitter: https://x.com/protocol_fx
+slug: fxusd

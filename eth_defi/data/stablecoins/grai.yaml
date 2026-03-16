@@ -1,0 +1,13 @@
+symbol: GRAI
+name: GRAI (Gravita Protocol)
+description: |
+  GRAI is a USD-pegged stablecoin issued by Gravita Protocol, a Liquity fork on Ethereum. It is
+  overcollateralised by liquid staking tokens (wstETH, rETH, cbETH) with interest-free borrowing
+  at up to 90% LTV. Borrowers pay a one-time fee amortised over six months.
+category: stablecoin
+links:
+  homepage: https://www.gravitaprotocol.com/
+  coingecko: https://www.coingecko.com/en/coins/grai
+  defillama: https://defillama.com/stablecoin/grai
+  twitter: https://x.com/gravitaprotocol
+slug: grai

@@ -1,0 +1,20 @@
+symbol: AUSD
+category: stablecoin
+entries:
+- name: Agora Dollar
+  description: Agora Dollar (AUSD) is a digital dollar stablecoin minted 1:1 with USD fiat. It uses institutional-grade custodians, a Big Four auditor, and a top-tier fund manager to safeguard reserves.
+    AUSD is gas-optimised, making it cost-efficient for trading and payments.
+  links:
+    homepage: https://www.agora.finance/
+    coingecko: https://www.coingecko.com/en/coins/agora-dollar
+    defillama: https://defillama.com/stablecoin/agora-dollar
+    twitter: https://x.com/AgoraCurrency
+- name: Acala Dollar
+  description: Acala Dollar (aUSD) is the native decentralised stablecoin of the Acala network on Polkadot. It is overcollateralised and multi-collateral-backed, designed for cross-chain DeFi. aUSD can
+    be minted by depositing various crypto assets as collateral.
+  links:
+    homepage: https://acala.network/
+    coingecko: https://www.coingecko.com/en/coins/acala-dollar
+    defillama: https://defillama.com/stablecoin/acala-dollar
+    twitter: https://x.com/AcalaNetwork
+slug: ausd
