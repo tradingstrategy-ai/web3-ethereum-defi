@@ -1718,9 +1718,7 @@ def deploy_automated_lagoon_vault(
                 return module
 
         vault_label = f" with vault {vault_contract.address}" if vault_contract is not None else ""
-        raise AssertionError(
-            f"Cannot find TradingStrategyModuleV0 on Safe {safe.address}{vault_label}, modules {modules}"
-        )
+        raise AssertionError(f"Cannot find TradingStrategyModuleV0 on Safe {safe.address}{vault_label}, modules {modules}")
 
     if not existing_safe_address:
         # Deploy a Safe multisig that forms the core of Lagoon vault
