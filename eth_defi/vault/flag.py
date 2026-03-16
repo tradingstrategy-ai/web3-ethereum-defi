@@ -415,6 +415,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x09cea16a2563c2d7d807c86f5b8da760389b5915": (None, LIQUID_ROYALTY_NOTE),
     # Liquid Royalty - Senior Vault Master on Berachain
     "0xc38421e5577250eba177bc5bc832e747bea13ee0": (None, LIQUID_ROYALTY_NOTE),
+    # sUSDS Lender (Yearn on Ethereum)
+    "0x3f2de801629116a83b9734bb72012a554e01cfc1": (VaultFlag.subvault, SUBVAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
