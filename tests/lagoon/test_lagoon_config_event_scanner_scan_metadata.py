@@ -156,7 +156,7 @@ def test_guard_report_includes_backend_and_block_range():
                 approval_destinations=(),
                 withdraw_destinations=(),
                 delegation_approval_destinations=(),
-                lagoon_vaults=(),
+                lagoon_vaults=("0x4000000000000000000000000000000000000004",),
                 erc4626_vaults=(),
                 cctp_messengers=(),
                 cctp_destinations=(),
@@ -192,6 +192,9 @@ def test_guard_report_includes_backend_and_block_range():
     )
 
     assert "Backend: rpc" in report
+    assert "Vault:  0x4000000000000000000000000000000000000004" in report
     assert "120,000 -> 123,456" in report
     assert "**Backend**: `rpc`" in markdown
+    assert "**Vault**:" in markdown
+    assert "0x4000000000000000000000000000000000000004" in markdown
     assert "**Block range**: `120,000 -> 123,456`" in markdown

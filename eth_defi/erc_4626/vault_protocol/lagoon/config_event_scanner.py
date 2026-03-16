@@ -868,6 +868,9 @@ def format_guard_config_report(
         lines.append(f"{branch}{cfg.chain_name} (chain {cfg.chain_id})")
         lines.append(f"{cont}Safe:   {cfg.safe_address}")
         lines.append(f"{cont}Module: {cfg.module_address}")
+        if cfg.lagoon_vaults:
+            vault_label = "Vault" if len(cfg.lagoon_vaults) == 1 else "Vaults"
+            lines.append(f"{cont}{vault_label}:  {', '.join(cfg.lagoon_vaults)}")
         if chain_scan_info is not None:
             backend_label = chain_scan_info.backend
             if chain_scan_info.fallback_reason:
@@ -1210,6 +1213,10 @@ def format_guard_config_markdown(
         lines.append("")
         lines.append(f"- **Safe**: {_md_address(cfg.safe_address, cid)}")
         lines.append(f"- **Module**: {_md_address(cfg.module_address, cid)}")
+        if cfg.lagoon_vaults:
+            vault_label = "Vault" if len(cfg.lagoon_vaults) == 1 else "Vaults"
+            vault_value = ", ".join(_md_address(addr, cid) for addr in cfg.lagoon_vaults)
+            lines.append(f"- **{vault_label}**: {vault_value}")
         if chain_scan_info is not None:
             backend_label = chain_scan_info.backend
             if chain_scan_info.fallback_reason:
