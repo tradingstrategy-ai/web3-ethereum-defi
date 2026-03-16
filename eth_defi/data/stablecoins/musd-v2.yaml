@@ -1,0 +1,10 @@
+symbol: mUSD
+name: mStable USD
+description: mStable USD (mUSD) was a meta-stablecoin combining multiple USD stablecoins into one token. It aggregated USDC, DAI, and USDT to reduce individual stablecoin risk. The mStable protocol has
+  been deprecated.
+category: stablecoin
+links:
+  homepage: https://www.mstable.com/
+  coingecko: https://www.coingecko.com/en/coins/musd
+  defillama: https://defillama.com/stablecoin/musd
+  twitter: ''

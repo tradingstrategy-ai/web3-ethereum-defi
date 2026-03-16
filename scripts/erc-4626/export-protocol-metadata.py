@@ -27,6 +27,7 @@ from joblib import Parallel, delayed
 from tabulate import tabulate
 from tqdm_loggable.auto import tqdm
 
+from eth_defi.stablecoin_metadata import STABLECOINS_DATA_DIR, process_and_upload_stablecoin_metadata
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.protocol_metadata import METADATA_DIR, get_available_logos, process_and_upload_protocol_metadata
 
@@ -145,6 +146,24 @@ def main():
             tablefmt="simple",
         )
     )
+
+    # Upload stablecoin metadata
+    stablecoin_files = list(STABLECOINS_DATA_DIR.glob("*.yaml"))
+    logger.info("Found %d stablecoin metadata files", len(stablecoin_files))
+
+    def _process_stablecoin(yaml_path: Path):
+        process_and_upload_stablecoin_metadata(
+            yaml_path=yaml_path,
+            bucket_name=bucket_name,
+            endpoint_url=endpoint_url,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+        )
+
+    stablecoin_tasks = (delayed(_process_stablecoin)(f) for f in stablecoin_files)
+    Parallel(n_jobs=max_workers, prefer="threads")(tqdm(stablecoin_tasks, total=len(stablecoin_files), desc="Uploading stablecoin metadata"))
+
+    print(f"\nStablecoin metadata export complete: {len(stablecoin_files)} stablecoins\n")
 
     # Put database files on R2 as well.
     # These can be read by the backtester.

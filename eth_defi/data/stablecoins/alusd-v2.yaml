@@ -1,0 +1,10 @@
+symbol: alUSD
+name: Alchemix USD
+description: alUSD is a synthetic stablecoin issued by the Alchemix protocol on Ethereum. It enables self-repaying loans backed by yield-bearing deposits. The Alchemix protocol automatically repays debt
+  using generated yield.
+category: wrapped
+links:
+  homepage: https://alchemix.fi/
+  coingecko: https://www.coingecko.com/en/coins/alchemix-usd
+  defillama: https://defillama.com/stablecoin/alchemix-usd
+  twitter: https://x.com/AlchemixFi
