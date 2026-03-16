@@ -182,6 +182,26 @@ class DecodedGuardEvent:
 
 
 @dataclass(slots=True, frozen=True)
+class GuardEventScanInfo:
+    """Describe how guard configuration events were scanned for one chain."""
+
+    #: EVM chain ID
+    chain_id: int
+
+    #: Backend that produced the final event set: ``rpc`` or ``hypersync``
+    backend: str
+
+    #: Inclusive start block used for the scan
+    from_block: int
+
+    #: Inclusive end block used for the scan
+    to_block: int
+
+    #: Optional note when we had to switch backends mid-scan
+    fallback_reason: str | None = None
+
+
+@dataclass(slots=True, frozen=True)
 class ChainGuardConfig:
     """Structured guard configuration for a single chain.
 
@@ -782,6 +802,7 @@ def format_guard_config_report(
     chain_web3: dict[int, Web3] | None = None,
     token_cache: TokenDiskCache | None = None,
     known_labels: dict[str, str] | None = None,
+    scan_info: dict[int, GuardEventScanInfo] | None = None,
 ) -> str:
     """Format a full multichain guard config report as a Unicode tree.
 
@@ -805,6 +826,10 @@ def format_guard_config_report(
 
     :param known_labels:
         Optional ``{checksummed_address: label}`` for pre-known addresses.
+
+    :param scan_info:
+        Optional ``{chain_id: GuardEventScanInfo}`` describing the backend
+        and block range used to build the report.
 
     :return:
         Complete multi-line tree report string.
@@ -838,10 +863,17 @@ def format_guard_config_report(
         cfg = config.chains[cid]
         web3 = chain_web3.get(cid) if chain_web3 else None
         chain_events = events.get(cid, [])
+        chain_scan_info = scan_info.get(cid) if scan_info else None
 
         lines.append(f"{branch}{cfg.chain_name} (chain {cfg.chain_id})")
         lines.append(f"{cont}Safe:   {cfg.safe_address}")
         lines.append(f"{cont}Module: {cfg.module_address}")
+        if chain_scan_info is not None:
+            backend_label = chain_scan_info.backend
+            if chain_scan_info.fallback_reason:
+                backend_label = f"{backend_label} ({chain_scan_info.fallback_reason})"
+            lines.append(f"{cont}Backend: {backend_label}")
+            lines.append(f"{cont}Blocks:  {chain_scan_info.from_block:,} -> {chain_scan_info.to_block:,}")
         lines.append(f"{cont}\u2502")
         lines.append(
             format_chain_config_detailed(
@@ -1114,6 +1146,7 @@ def format_guard_config_markdown(
     chain_web3: dict[int, Web3] | None = None,
     token_cache: TokenDiskCache | None = None,
     known_labels: dict[str, str] | None = None,
+    scan_info: dict[int, GuardEventScanInfo] | None = None,
 ) -> str:
     """Format a full multichain guard config report as a Markdown document.
 
@@ -1139,6 +1172,10 @@ def format_guard_config_markdown(
 
     :param known_labels:
         Optional ``{checksummed_address: label}`` for pre-known addresses.
+
+    :param scan_info:
+        Optional ``{chain_id: GuardEventScanInfo}`` describing the backend
+        and block range used to build the report.
 
     :return:
         Complete Markdown document string.
@@ -1167,11 +1204,18 @@ def format_guard_config_markdown(
         cfg = config.chains[cid]
         web3 = chain_web3.get(cid) if chain_web3 else None
         chain_events = events.get(cid, [])
+        chain_scan_info = scan_info.get(cid) if scan_info else None
 
         lines.append(f"## {cfg.chain_name} (chain {cfg.chain_id})")
         lines.append("")
         lines.append(f"- **Safe**: {_md_address(cfg.safe_address, cid)}")
         lines.append(f"- **Module**: {_md_address(cfg.module_address, cid)}")
+        if chain_scan_info is not None:
+            backend_label = chain_scan_info.backend
+            if chain_scan_info.fallback_reason:
+                backend_label = f"{backend_label} ({chain_scan_info.fallback_reason})"
+            lines.append(f"- **Backend**: `{backend_label}`")
+            lines.append(f"- **Block range**: `{chain_scan_info.from_block:,} -> {chain_scan_info.to_block:,}`")
 
         tree = _format_chain_config_markdown(
             cfg,
@@ -1416,6 +1460,8 @@ async def _fetch_guard_events_hypersync_async(
     client: hypersync.HypersyncClient,
     module_address: HexAddress,
     topic_map: dict[str, dict],
+    from_block: int = 0,
+    to_block: int | None = None,
     recv_timeout: float = 90.0,
 ) -> list[DecodedGuardEvent]:
     """Read guard config events using Hypersync streaming.
@@ -1438,9 +1484,17 @@ async def _fetch_guard_events_hypersync_async(
     assert hypersync is not None, "hypersync package is required"
 
     topic0_list = list(topic_map.keys())
+    logger.info(
+        "HyperSync guard event scan: module %s, blocks %d-%s, topics %d",
+        module_address,
+        from_block,
+        to_block if to_block is not None else "latest",
+        len(topic0_list),
+    )
 
     query = hypersync.Query(
-        from_block=0,
+        from_block=from_block,
+        to_block=to_block,
         logs=[
             hypersync.LogSelection(
                 address=[module_address.lower()],
@@ -1465,13 +1519,18 @@ async def _fetch_guard_events_hypersync_async(
 
     receiver = await client.stream(query, hypersync.StreamConfig())
     events: list[DecodedGuardEvent] = []
+    chunk_count = 0
+    raw_log_count = 0
 
     while True:
         res = await asyncio.wait_for(receiver.recv(), timeout=recv_timeout)
         if res is None:
             break
 
+        chunk_count += 1
+
         if res.data.logs:
+            raw_log_count += len(res.data.logs)
             for log in res.data.logs:
                 # Convert Hypersync log format to web3-style dict
                 web3_log = {
@@ -1487,6 +1546,15 @@ async def _fetch_guard_events_hypersync_async(
                     events.append(event)
 
     events.sort(key=lambda e: (e.block_number, e.log_index))
+    logger.info(
+        "HyperSync guard event scan complete: module %s, blocks %d-%s, chunks %d, raw logs %d, decoded events %d",
+        module_address,
+        from_block,
+        to_block if to_block is not None else "latest",
+        chunk_count,
+        raw_log_count,
+        len(events),
+    )
     return events
 
 
@@ -1494,9 +1562,19 @@ def _fetch_guard_events_hypersync(
     client: hypersync.HypersyncClient,
     module_address: HexAddress,
     topic_map: dict[str, dict],
+    from_block: int = 0,
+    to_block: int | None = None,
 ) -> list[DecodedGuardEvent]:
     """Synchronous wrapper around the async Hypersync event reader."""
-    return asyncio.run(_fetch_guard_events_hypersync_async(client, module_address, topic_map))
+    return asyncio.run(
+        _fetch_guard_events_hypersync_async(
+            client,
+            module_address,
+            topic_map,
+            from_block=from_block,
+            to_block=to_block,
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1532,10 +1610,27 @@ def _fetch_guard_events_web3(
     :return:
         List of decoded guard events sorted by (block_number, log_index).
     """
+    chain_id = web3.eth.chain_id
     end_block = web3.eth.block_number
 
     if from_block > end_block:
+        logger.warning(
+            "Skipping RPC guard event scan on chain %d because from_block %d is above current block %d for module %s",
+            chain_id,
+            from_block,
+            end_block,
+            module_address,
+        )
         return []
+
+    logger.info(
+        "RPC guard event scan on chain %d (%s): module %s, blocks %d-%d",
+        chain_id,
+        get_chain_name(chain_id),
+        module_address,
+        from_block,
+        end_block,
+    )
 
     # Build a Filter for read_events().
     # Filter.topics normally maps topic0 → ContractEvent, but we use
@@ -1560,6 +1655,15 @@ def _fetch_guard_events_web3(
             events.append(event)
 
     events.sort(key=lambda e: (e.block_number, e.log_index))
+    logger.info(
+        "RPC guard event scan complete on chain %d (%s): module %s, blocks %d-%d, events %d",
+        chain_id,
+        get_chain_name(chain_id),
+        module_address,
+        from_block,
+        end_block,
+        len(events),
+    )
     return events
 
 
@@ -1575,7 +1679,9 @@ def fetch_guard_config_events(
     chain_web3: dict[int, Web3] | None = None,
     follow_cctp: bool = True,
     from_block: int | dict[int, int] = 0,
-) -> tuple[dict[int, list[DecodedGuardEvent]], dict[int, HexAddress]]:
+    include_scan_metadata: bool = False,
+    module_addresses_override: dict[int, HexAddress] | None = None,
+) -> tuple[dict[int, list[DecodedGuardEvent]], dict[int, HexAddress]] | tuple[dict[int, list[DecodedGuardEvent]], dict[int, HexAddress], dict[int, GuardEventScanInfo]]:
     """Read all guard configuration events for a multichain Lagoon deployment.
 
     Starting from a Safe address on a single chain, resolves the
@@ -1605,14 +1711,34 @@ def fetch_guard_config_events(
         per-chain starting blocks.  On Anvil forks pass recent blocks to
         avoid scanning the full forked chain history.
 
+    :param include_scan_metadata:
+        When ``True``, also return per-chain metadata describing the backend
+        and block range used for the scan.
+
+    :param module_addresses_override:
+        Optional ``{chain_id: module_address}`` mapping. When provided, scan
+        these module addresses directly instead of resolving the currently
+        enabled module from the Safe. This is needed for guard-only redeploys
+        before the Safe migration transaction enables the new module.
+
     :return:
         Tuple of ``(events_per_chain, module_addresses_per_chain)`` where
         ``events_per_chain`` is ``{chain_id: [DecodedGuardEvent, ...]}``
         and ``module_addresses_per_chain`` is ``{chain_id: module_address}``.
+        When ``include_scan_metadata`` is ``True``, a third item is returned:
+        ``scan_metadata_per_chain``.
     """
     safe_address = Web3.to_checksum_address(safe_address)
     chain_id = web3.eth.chain_id
     topic_map = _build_event_topic_map()
+    logger.info(
+        "Starting guard config scan for Safe %s on chain %d (%s), follow_cctp=%s, hypersync=%s",
+        safe_address,
+        chain_id,
+        get_chain_name(chain_id),
+        follow_cctp,
+        hypersync_client is not None,
+    )
 
     # Normalise from_block to a dict keyed by chain_id
     if isinstance(from_block, int):
@@ -1623,7 +1749,26 @@ def fetch_guard_config_events(
         _default_from_block = 0
 
     # Resolve module on the starting chain
-    module_address = resolve_trading_strategy_module(web3, safe_address)
+    module_addresses_override = module_addresses_override or {}
+    module_address = module_addresses_override.get(chain_id)
+    if module_address is not None:
+        module_address = Web3.to_checksum_address(module_address)
+        logger.info(
+            "Using explicit module override for Safe %s on chain %d (%s): %s",
+            safe_address,
+            chain_id,
+            get_chain_name(chain_id),
+            module_address,
+        )
+    else:
+        module_address = resolve_trading_strategy_module(web3, safe_address)
+        logger.info(
+            "Resolved module from Safe %s on chain %d (%s): %s",
+            safe_address,
+            chain_id,
+            get_chain_name(chain_id),
+            module_address,
+        )
     if module_address is None:
         raise ValueError(f"No TradingStrategyModuleV0 found on Safe {safe_address} on chain {chain_id} ({get_chain_name(chain_id)})")
 
@@ -1636,12 +1781,70 @@ def fetch_guard_config_events(
 
     # Read events from the starting chain
     start_block = _from_blocks.get(chain_id, _default_from_block)
+    end_block = web3.eth.block_number
+    scan_metadata: dict[int, GuardEventScanInfo] = {}
+    logger.info(
+        "Scanning guard config events for Safe %s on chain %d (%s): module %s, block range %d-%d",
+        safe_address,
+        chain_id,
+        get_chain_name(chain_id),
+        module_address,
+        start_block,
+        end_block,
+    )
     if hypersync_client is not None:
-        events = _fetch_guard_events_hypersync(hypersync_client, module_address, topic_map)
+        events = _fetch_guard_events_hypersync(
+            hypersync_client,
+            module_address,
+            topic_map,
+            from_block=start_block,
+            to_block=end_block,
+        )
+        backend = "hypersync"
+        fallback_reason = None
+        if len(events) == 0 and start_block > 0:
+            logger.warning(
+                "HyperSync returned 0 guard config events on chain %d from blocks %d-%d, falling back to RPC scan",
+                chain_id,
+                start_block,
+                end_block,
+            )
+            events = _fetch_guard_events_web3(web3, module_address, topic_map, from_block=start_block)
+            backend = "rpc"
+            fallback_reason = "fallback after hypersync returned 0 events"
     else:
         events = _fetch_guard_events_web3(web3, module_address, topic_map, from_block=start_block)
+        backend = "rpc"
+        fallback_reason = None
 
     logger.info("Found %d guard config events on chain %d", len(events), chain_id)
+    if events:
+        logger.info(
+            "Guard config events span blocks %d-%d on chain %d (%s) for module %s",
+            events[0].block_number,
+            events[-1].block_number,
+            chain_id,
+            get_chain_name(chain_id),
+            module_address,
+        )
+    else:
+        logger.warning(
+            "No guard config events found on chain %d (%s) for Safe %s, module %s, backend %s, blocks %d-%d",
+            chain_id,
+            get_chain_name(chain_id),
+            safe_address,
+            module_address,
+            backend,
+            start_block,
+            end_block,
+        )
+    scan_metadata[chain_id] = GuardEventScanInfo(
+        chain_id=chain_id,
+        backend=backend,
+        from_block=start_block,
+        to_block=end_block,
+        fallback_reason=fallback_reason,
+    )
 
     all_events: dict[int, list[DecodedGuardEvent]] = {chain_id: events}
     module_addresses: dict[int, HexAddress] = {chain_id: module_address}
@@ -1657,6 +1860,12 @@ def fetch_guard_config_events(
 
         if cctp_domains:
             logger.info("Discovered CCTP destinations: %s", cctp_domains)
+        else:
+            logger.info(
+                "No CCTP destinations discovered from guard config events on chain %d (%s)",
+                chain_id,
+                get_chain_name(chain_id),
+            )
 
         # Use testnet domain→chain mapping when source chain is a Sepolia testnet
         domain_to_chain = TESTNET_CCTP_DOMAIN_TO_CHAIN_ID if chain_id in TESTNET_CHAIN_IDS else CCTP_DOMAIN_TO_CHAIN_ID
@@ -1679,7 +1888,25 @@ def fetch_guard_config_events(
                 )
                 continue
 
-            dest_module = resolve_trading_strategy_module(dest_web3, safe_address)
+            dest_module = module_addresses_override.get(dest_chain_id)
+            if dest_module is not None:
+                dest_module = Web3.to_checksum_address(dest_module)
+                logger.info(
+                    "Using explicit module override for Safe %s on chain %d (%s): %s",
+                    safe_address,
+                    dest_chain_id,
+                    get_chain_name(dest_chain_id),
+                    dest_module,
+                )
+            else:
+                dest_module = resolve_trading_strategy_module(dest_web3, safe_address)
+                logger.info(
+                    "Resolved module from Safe %s on chain %d (%s): %s",
+                    safe_address,
+                    dest_chain_id,
+                    get_chain_name(dest_chain_id),
+                    dest_module,
+                )
             if dest_module is None:
                 logger.warning(
                     "No TradingStrategyModuleV0 on chain %d (%s) for Safe %s",
@@ -1698,15 +1925,75 @@ def fetch_guard_config_events(
 
             # Use Hypersync for destination chains if available
             dest_start_block = _from_blocks.get(dest_chain_id, _default_from_block)
+            dest_end_block = dest_web3.eth.block_number
+            logger.info(
+                "Scanning guard config events for Safe %s on chain %d (%s): module %s, block range %d-%d",
+                safe_address,
+                dest_chain_id,
+                get_chain_name(dest_chain_id),
+                dest_module,
+                dest_start_block,
+                dest_end_block,
+            )
             dest_hypersync = _get_hypersync_client_for_chain(dest_chain_id) if hypersync_client is not None else None
             if dest_hypersync is not None:
-                dest_events = _fetch_guard_events_hypersync(dest_hypersync, dest_module, topic_map)
+                dest_events = _fetch_guard_events_hypersync(
+                    dest_hypersync,
+                    dest_module,
+                    topic_map,
+                    from_block=dest_start_block,
+                    to_block=dest_end_block,
+                )
+                dest_backend = "hypersync"
+                dest_fallback_reason = None
+                if len(dest_events) == 0 and dest_start_block > 0:
+                    logger.warning(
+                        "HyperSync returned 0 guard config events on chain %d from blocks %d-%d, falling back to RPC scan",
+                        dest_chain_id,
+                        dest_start_block,
+                        dest_end_block,
+                    )
+                    dest_events = _fetch_guard_events_web3(dest_web3, dest_module, topic_map, from_block=dest_start_block)
+                    dest_backend = "rpc"
+                    dest_fallback_reason = "fallback after hypersync returned 0 events"
             else:
                 dest_events = _fetch_guard_events_web3(dest_web3, dest_module, topic_map, from_block=dest_start_block)
+                dest_backend = "rpc"
+                dest_fallback_reason = None
 
             logger.info("Found %d guard config events on chain %d", len(dest_events), dest_chain_id)
+            if dest_events:
+                logger.info(
+                    "Guard config events span blocks %d-%d on chain %d (%s) for module %s",
+                    dest_events[0].block_number,
+                    dest_events[-1].block_number,
+                    dest_chain_id,
+                    get_chain_name(dest_chain_id),
+                    dest_module,
+                )
+            else:
+                logger.warning(
+                    "No guard config events found on chain %d (%s) for Safe %s, module %s, backend %s, blocks %d-%d",
+                    dest_chain_id,
+                    get_chain_name(dest_chain_id),
+                    safe_address,
+                    dest_module,
+                    dest_backend,
+                    dest_start_block,
+                    dest_end_block,
+                )
             all_events[dest_chain_id] = dest_events
             module_addresses[dest_chain_id] = dest_module
+            scan_metadata[dest_chain_id] = GuardEventScanInfo(
+                chain_id=dest_chain_id,
+                backend=dest_backend,
+                from_block=dest_start_block,
+                to_block=dest_end_block,
+                fallback_reason=dest_fallback_reason,
+            )
+
+    if include_scan_metadata:
+        return all_events, module_addresses, scan_metadata
 
     return all_events, module_addresses
 
