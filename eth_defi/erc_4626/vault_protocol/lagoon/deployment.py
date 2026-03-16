@@ -1627,14 +1627,17 @@ def deploy_automated_lagoon_vault(
 
     if existing_vault_address:
         assert guard_only, "You cannot pass existing vault address without guard_only=True"
-    else:
+    elif not existing_safe_address:
         assert len(safe_owners) >= 1, "Multisig owners emptty"
 
     if guard_only:
-        assert existing_vault_address, "You must pass existing vault address if guard_only=True"
+        assert existing_safe_address, "You must pass existing safe address if guard_only=True"
+        if not satellite_chain:
+            assert existing_vault_address, "You must pass existing vault address on the source chain if guard_only=True"
+    elif existing_safe_address:
+        raise AssertionError("existing_safe_address is only supported when guard_only=True")
 
     if satellite_chain:
-        assert not guard_only, "satellite_chain and guard_only are mutually exclusive"
         assert not existing_vault_address, "satellite_chain does not use existing_vault_address"
 
     chain_id = web3.eth.chain_id
@@ -1701,7 +1704,25 @@ def deploy_automated_lagoon_vault(
     # From-scratch deployment needs big blocks for the full Safe contract.
     _need_big_blocks_for_proxy = from_the_scratch
 
-    if not existing_vault_address:
+    def _resolve_existing_guard_module(safe: Safe, vault_contract: Contract | None = None) -> Contract:
+        modules = safe.retrieve_modules()
+        for module_addr in modules:
+            module = get_deployed_contract(web3, "safe-integration/TradingStrategyModuleV0.json", module_addr)
+
+            try:
+                governance_address = module.functions.getGovernanceAddress().call()
+            except Exception:
+                continue
+
+            if governance_address == safe.address:
+                return module
+
+        vault_label = f" with vault {vault_contract.address}" if vault_contract is not None else ""
+        raise AssertionError(
+            f"Cannot find TradingStrategyModuleV0 on Safe {safe.address}{vault_label}, modules {modules}"
+        )
+
+    if not existing_safe_address:
         # Deploy a Safe multisig that forms the core of Lagoon vault
         with big_blocks_for_deployment(web3, _private_key_hex) if _need_big_blocks_for_proxy else nullcontext():
             if safe_salt_nonce is not None:
@@ -1730,13 +1751,6 @@ def deploy_automated_lagoon_vault(
         if isinstance(deployer, HotWallet):
             deployer.sync_nonce(web3)
     else:
-        assert existing_safe_address, "You must pass existing Safe address if existing_vault_address is set"
-
-        vault_contract = get_deployed_contract(
-            web3,
-            vault_abi,
-            existing_vault_address,
-        )
         safe = fetch_safe_deployment(
             web3,
             existing_safe_address,
@@ -1746,23 +1760,19 @@ def deploy_automated_lagoon_vault(
         logger.info("Using existing Safe: %s", safe.address)
         parameters.safe = safe.address
 
-        try:
-            vault_contract.functions.totalAssets().call()
-        except Exception as e:
-            raise RuntimeError(f"Does not look like Lagoon vault: {existing_vault_address}") from e
-
-        # Look up the old module
-        modules = safe.retrieve_modules()
-        for module_addr in modules:
-            module = get_deployed_contract(web3, "safe-integration/TradingStrategyModuleV0.json", module_addr)
+        if existing_vault_address:
+            vault_contract = get_deployed_contract(
+                web3,
+                vault_abi,
+                existing_vault_address,
+            )
 
             try:
-                module.functions.getGovernanceAddress()
-                existing_guard_module = module
-            except ValueError:
-                continue
+                vault_contract.functions.totalAssets().call()
+            except Exception as e:
+                raise RuntimeError(f"Does not look like Lagoon vault: {existing_vault_address}") from e
 
-        assert existing_guard_module is not None, f"Cannot find TradingStrategyModuleV0 on Safe {safe.address} with vault {vault_contract.address}, modules {modules}"
+        existing_guard_module = _resolve_existing_guard_module(safe, vault_contract)
 
     if not is_anvil(web3):
         logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
