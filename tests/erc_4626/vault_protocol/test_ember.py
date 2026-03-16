@@ -55,8 +55,8 @@ def test_ember(
     assert vault.get_protocol_name() == "Ember"
     assert vault.features == {ERC4626Feature.ember_like}
 
-    # Check risk level
-    assert vault.get_risk() == VaultTechnicalRisk.severe
+    # Check risk level (open-source contracts on GitHub)
+    assert vault.get_risk() == VaultTechnicalRisk.low
 
     # Offchain metadata from Ember's Bluefin API
     assert vault.ember_metadata is not None
@@ -64,6 +64,15 @@ def test_ember(
     assert vault.description is not None
     assert len(vault.description) > 10
     assert vault.short_description is not None
+
+    # New metadata fields
+    assert vault.ember_metadata["status"] is not None
+    assert vault.ember_metadata["long_name"] is not None
+    assert isinstance(vault.ember_metadata["tags"], list)
+    assert vault.ember_metadata["total_depositors_count"] is not None
+    assert vault.ember_metadata["total_depositors_count"] >= 0
+    assert isinstance(vault.ember_metadata["supported_coins"], list)
+    assert isinstance(vault.ember_metadata["rewards"], list)
 
     # Fees from offchain API (management fee is 0% for this vault)
     assert vault.get_management_fee("latest") == 0.0
@@ -98,6 +107,16 @@ def test_ember_offchain_fetch(tmp_path: Path):
     assert crosschain_vault["withdrawal_period_days"] is not None
     assert crosschain_vault["reported_apy"] is not None
     assert crosschain_vault["manager_name"] is not None
+
+    # New fields
+    assert crosschain_vault["long_name"] is not None
+    assert crosschain_vault["status"] is not None
+    assert isinstance(crosschain_vault["tags"], list)
+    assert crosschain_vault["total_depositors_count"] is not None
+    assert crosschain_vault["total_depositors_count"] >= 0
+    assert crosschain_vault["created_at"] is not None
+    assert isinstance(crosschain_vault["rewards"], list)
+    assert isinstance(crosschain_vault["supported_coins"], list)
 
     # Verify cache file was written
     cache_file = tmp_path / "ember_vaults.json"

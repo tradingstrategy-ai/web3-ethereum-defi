@@ -1,10 +1,10 @@
 """Ember vault offchain metadata.
 
 - Ember stores vault descriptions, fees, and manager info in their web app, not on-chain
-- We reverse-engineered the Vite+React SPA at ``ember.so/earn`` and discovered
-  API endpoints served by Bluefin's infrastructure
+- `Official API spec <https://app.swaggerhub.com/apis/emberprotocol/vaults/1.0.5>`__
+- `Open-source contracts <https://github.com/ember-protocol/Ember-Vaults-EVM>`__
 - The vault listing endpoint ``/api/v2/vaults?chain=ethereum`` returns all EVM vaults
-  with metadata including descriptions, fee parameters, APY, and manager info
+  with metadata including descriptions, fee parameters, APY, tags, and manager info
 - We fetch and cache this data locally to avoid repeated API calls
 - Two-level caching: disk (2-day TTL) + in-process dictionary
 
@@ -43,11 +43,27 @@ DEFAULT_API_BASE_URL = "https://vaults.api.sui-prod.bluefin.io/api/v2"
 logger = logging.getLogger(__name__)
 
 
+class EmberRewardToken(TypedDict):
+    """A reward token distributed by an Ember vault."""
+
+    #: Token symbol, e.g. ``BLUE``
+    symbol: str
+
+    #: Token name, e.g. ``Bluefin Token``
+    name: str
+
+    #: Token contract address
+    address: str
+
+    #: Token logo URL
+    logo_url: str | None
+
+
 class EmberVaultMetadata(TypedDict):
     """Metadata about an Ember vault from offchain source.
 
     Fetched from the Bluefin vaults API at ``vaults.api.sui-prod.bluefin.io``.
-    Discovered by reverse-engineering the Vite+React SPA at ``ember.so/earn``.
+    Official API spec at `SwaggerHub <https://app.swaggerhub.com/apis/emberprotocol/vaults/1.0.5>`__.
 
     - Listing endpoint: ``GET /api/v2/vaults?chain=ethereum``
     """
@@ -55,11 +71,20 @@ class EmberVaultMetadata(TypedDict):
     #: Vault name, e.g. ``Crosschain USD Vault``
     name: str
 
+    #: Full vault name from API ``longName`` field
+    long_name: str | None
+
     #: Full vault strategy description
     description: str | None
 
     #: Strategy type, e.g. ``Stablecoin Strategy``
     strategy: str | None
+
+    #: Vault status: ``active``, ``paused``, ``deprecated``, ``beta``
+    status: str | None
+
+    #: Public classification, e.g. ``Defi Yield``
+    public_type: str | None
 
     #: Vault logo URL
     logo_url: str | None
@@ -76,6 +101,15 @@ class EmberVaultMetadata(TypedDict):
     #: Current reported APY as fraction (e.g. 0.08 = 8%)
     reported_apy: float | None
 
+    #: Target APY as fraction, from ``reportedApy.targetApyE9``
+    target_apy: float | None
+
+    #: Lending APY component as fraction, from ``reportedApy.lendingApyE9``
+    lending_apy: float | None
+
+    #: Reward APY component as fraction, from ``reportedApy.rewardApyE9``
+    reward_apy: float | None
+
     #: Total vault TVL in USD
     tvl_usd: float | None
 
@@ -84,6 +118,27 @@ class EmberVaultMetadata(TypedDict):
 
     #: Curator/manager website URL
     manager_url: str | None
+
+    #: Curator/manager logo URL
+    manager_logo_url: str | None
+
+    #: Category tag names
+    tags: list[str]
+
+    #: Total number of depositors (all-time)
+    total_depositors_count: int | None
+
+    #: Currently active depositor count
+    active_depositors_count: int | None
+
+    #: Vault creation timestamp (Unix seconds)
+    created_at: int | None
+
+    #: Reward tokens distributed by the vault
+    rewards: list[EmberRewardToken]
+
+    #: Deposit asset symbols from chain-specific details
+    supported_coins: list[str]
 
 
 def _fetch_ember_vaults(
@@ -131,7 +186,20 @@ def _parse_e_value(value: str | None, divisor: float) -> float | None:
     return int(value) / divisor
 
 
-def _parse_vault_metadata(item: dict) -> EmberVaultMetadata:
+def _parse_int_or_none(value: str | int | None) -> int | None:
+    """Parse an integer from a string or int value.
+
+    The API returns some counts as strings.
+    """
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return None
+
+
+def _parse_vault_metadata(item: dict, chain_details: dict | None = None) -> EmberVaultMetadata:
     """Parse vault metadata from API response.
 
     Numeric encoding:
@@ -144,6 +212,9 @@ def _parse_vault_metadata(item: dict) -> EmberVaultMetadata:
 
     :param item:
         Raw dict from the API listing endpoint
+
+    :param chain_details:
+        Chain-specific ``detailsByChain[chain]`` dict for extracting supported coins
     """
     # Management fee
     management_fee = _parse_e_value(item.get("managementFeePercentE18"), 1e18)
@@ -155,9 +226,12 @@ def _parse_vault_metadata(item: dict) -> EmberVaultMetadata:
     # Withdrawal period
     withdrawal_period_days = item.get("withdrawalPeriodDays")
 
-    # Reported APY
+    # Reported APY (with breakdown)
     reported_apy_obj = item.get("reportedApy", {}) or {}
     reported_apy = _parse_e_value(reported_apy_obj.get("reportedApyE9"), 1e9)
+    target_apy = _parse_e_value(reported_apy_obj.get("targetApyE9"), 1e9)
+    lending_apy = _parse_e_value(reported_apy_obj.get("lendingApyE9"), 1e9)
+    reward_apy = _parse_e_value(reported_apy_obj.get("rewardApyE9"), 1e9)
 
     # TVL in USD
     tvl_usd = _parse_e_value(item.get("totalDepositsInUsdE9"), 1e9)
@@ -166,19 +240,56 @@ def _parse_vault_metadata(item: dict) -> EmberVaultMetadata:
     managers = item.get("managers", []) or []
     manager_name = managers[0].get("name") if managers else None
     manager_url = managers[0].get("websiteUrl") if managers else None
+    manager_logo_url = managers[0].get("logoUrl") if managers else None
+
+    # Tags (simplified to list of names)
+    tags = [t.get("name", "") for t in (item.get("tags") or []) if t.get("name")]
+
+    # Reward tokens
+    rewards = []
+    for r in item.get("rewards") or []:
+        rewards.append(
+            EmberRewardToken(
+                symbol=r.get("symbol", ""),
+                name=r.get("name", ""),
+                address=r.get("address", ""),
+                logo_url=r.get("imgUrl"),
+            )
+        )
+
+    # Supported deposit coins from chain-specific details
+    supported_coins = []
+    if chain_details:
+        for coin in chain_details.get("supportedCoins") or []:
+            symbol = coin.get("symbol") if isinstance(coin, dict) else str(coin)
+            if symbol:
+                supported_coins.append(symbol)
 
     return EmberVaultMetadata(
         name=item.get("name", ""),
+        long_name=item.get("longName"),
         description=item.get("description"),
         strategy=item.get("strategy"),
+        status=item.get("status"),
+        public_type=item.get("publicType"),
         logo_url=item.get("logoUrl"),
         management_fee=management_fee,
         weekly_performance_fee=weekly_performance_fee,
         withdrawal_period_days=withdrawal_period_days,
         reported_apy=reported_apy,
+        target_apy=target_apy,
+        lending_apy=lending_apy,
+        reward_apy=reward_apy,
         tvl_usd=tvl_usd,
         manager_name=manager_name,
         manager_url=manager_url,
+        manager_logo_url=manager_logo_url,
+        tags=tags,
+        total_depositors_count=_parse_int_or_none(item.get("totalDepositorsCount")),
+        active_depositors_count=_parse_int_or_none(item.get("activeDepositorsCount")),
+        created_at=_parse_int_or_none(item.get("createdAt")),
+        rewards=rewards,
+        supported_coins=supported_coins,
     )
 
 
@@ -243,7 +354,7 @@ def fetch_ember_vaults(
                     continue
 
                 checksummed = Web3.to_checksum_address(address)
-                result[checksummed] = _parse_vault_metadata(item)
+                result[checksummed] = _parse_vault_metadata(item, chain_details=chain_details)
 
             logger.info("Fetched metadata for %d Ember EVM vaults", len(result))
 

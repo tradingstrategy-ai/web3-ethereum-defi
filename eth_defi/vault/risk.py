@@ -144,8 +144,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Hyperliquid": VaultTechnicalRisk.severe,
     # GRVT - centralised perp DEX on ZKsync-based chain, closed-source
     "GRVT": VaultTechnicalRisk.severe,
-    # Ember - investment platform, audited but limited on-chain transparency
-    "Ember": VaultTechnicalRisk.severe,
+    # Ember - audited, open-source contracts at https://github.com/ember-protocol/Ember-Vaults-EVM
+    "Ember": VaultTechnicalRisk.low,
     # Lighter - centralised perp DEX on ZK-rollup, closed-source
     "Lighter": VaultTechnicalRisk.severe,
 }
