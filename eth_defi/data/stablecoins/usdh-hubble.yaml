@@ -1,0 +1,12 @@
+symbol: USDH
+name: Hubble USDH
+description: |
+  USDH was a stablecoin issued by Hubble Protocol on Solana. It was overcollateralised by various
+  crypto assets including SOL, BTC, and ETH. The project has been deprecated.
+category: stablecoin
+links:
+  homepage: https://hubbleprotocol.io/
+  coingecko: https://www.coingecko.com/en/coins/hubble
+  defillama: ''
+  twitter: ''
+slug: usdh-hubble
