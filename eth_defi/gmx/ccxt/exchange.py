@@ -33,7 +33,7 @@ from typing import Any
 
 from ccxt.base.errors import BaseError, ExchangeError, InvalidOrder, NotSupported, OrderNotFound
 from eth_utils import to_checksum_address
-from web3.exceptions import Web3RPCError
+from web3.exceptions import ContractLogicError, Web3RPCError
 
 from eth_defi.ccxt.exchange_compatible import ExchangeCompatible
 from eth_defi.chain import get_chain_name
@@ -54,7 +54,9 @@ from eth_defi.gmx.constants import (
     PRECISION,
     _MIN_LOG_CHUNK_BLOCKS,
 )
-from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
+from eth_defi.gmx.contracts import get_contract_addresses, get_datastore_contract, get_token_address_normalized
+from eth_defi.gmx.keys import is_market_disabled_key
+from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
@@ -789,6 +791,8 @@ class GMX(ExchangeCompatible):
             self.markets_loaded = True
             self.symbols = list(self.markets.keys())
 
+            self.markets = self._filter_datastore_disabled_markets(self.markets)
+            self.symbols = list(self.markets.keys())
             logger.info("Loaded %s markets from GraphQL", len(self.markets))
             logger.debug("Market symbols: %s", self.symbols)
             return self.markets
@@ -1014,6 +1018,8 @@ class GMX(ExchangeCompatible):
                 except Exception as e:
                     logger.warning("Failed to save markets to cache: %s", e)
 
+            self.markets = self._filter_datastore_disabled_markets(self.markets)
+            self.symbols = list(self.markets.keys())
             logger.info(
                 "Loaded %d markets from REST API (%d excluded)",
                 len(self.markets),
@@ -1030,6 +1036,104 @@ class GMX(ExchangeCompatible):
             self.markets_loaded = True
             self.symbols = []
             return self.markets
+
+    def _filter_datastore_disabled_markets(self, markets: dict) -> dict:
+        """Cross-check loaded markets against ``DataStore.getBool(IS_MARKET_DISABLED)``.
+
+        REST API ``isListed`` is unreliable — a market can appear listed but be
+        disabled on-chain (e.g. OM/USDC).  This method queries the GMX DataStore
+        contract for each market and removes any that return ``True`` for the
+        ``IS_MARKET_DISABLED`` flag, preventing the bot from attempting to trade them.
+
+        :param markets: CCXT markets dict keyed by symbol.
+        :return: Filtered markets dict with on-chain-disabled markets removed.
+        """
+        try:
+            chain = self.config.get_chain()
+            datastore = get_datastore_contract(self.web3, chain)
+            filtered = {}
+            for symbol, market in markets.items():
+                market_token = market.get("info", {}).get("market_token") or market.get("info", {}).get("marketToken") or ""
+                if not market_token:
+                    filtered[symbol] = market
+                    continue
+                try:
+                    key = is_market_disabled_key(market_token)
+                    disabled = datastore.functions.getBool(key).call()
+                    if disabled:
+                        logger.warning(
+                            "Market %s (%s) is disabled in DataStore — excluding from active markets",
+                            symbol,
+                            market_token,
+                        )
+                        continue
+                except Exception as check_err:
+                    logger.warning("DataStore disabled check failed for %s: %s", symbol, check_err)
+                filtered[symbol] = market
+            removed = len(markets) - len(filtered)
+            if removed:
+                logger.info("DataStore disabled-market filter removed %d market(s)", removed)
+            return filtered
+        except Exception as e:
+            logger.warning("_filter_datastore_disabled_markets failed, returning unfiltered markets: %s", e)
+            return markets
+
+    def _try_decode_gmx_custom_error(self, tx_hash_bytes) -> str | None:
+        """Replay a reverted transaction via ``eth_call`` and decode the revert reason.
+
+        Tries multiple decoding strategies in order so the result is not tied to
+        any specific revert encoding:
+
+        1. **Raw data bytes** — ``ContractLogicError.data`` carries the 4-byte ABI
+           selector.  ``decode_error_reason()`` handles all of: ``Error(string)``
+           (0x08c379a0), ``Panic(uint256)`` (0x4e487b71), and 50+ GMX-specific
+           custom errors (``DisabledMarket``, ``InsufficientCollateralUsd``, etc.).
+        2. **String message** — ``ContractLogicError.args[0]`` / ``e.message``
+           contains a readable string on some nodes (e.g. Alchemy, Infura).
+        3. ``fetch_transaction_revert_reason()`` is the outer fallback called by
+           the caller when this method returns ``None``.
+
+        :param tx_hash_bytes: Transaction hash (bytes or str).
+        :return: Decoded error string or ``None`` if not decodable.
+        """
+        try:
+            tx = self.web3.eth.get_transaction(tx_hash_bytes)
+            replay_tx = {
+                "to": tx["to"],
+                "from": tx["from"],
+                "value": tx["value"],
+                "data": tx.get("input") or tx.get("data", b""),
+                "gas": tx["gas"],
+            }
+            try:
+                self.web3.eth.call(replay_tx)
+            except ContractLogicError as e:
+                # Strategy 1: decode raw ABI-encoded revert data (4-byte selector)
+                raw_data = getattr(e, "data", None)
+                if raw_data:
+                    try:
+                        raw_bytes = bytes.fromhex(str(raw_data).replace("0x", ""))
+                        decoded = decode_error_reason(raw_bytes)
+                        if decoded:
+                            logger.debug("_try_decode_gmx_custom_error: decoded from data bytes: %s", decoded)
+                            return decoded
+                    except Exception:
+                        pass
+
+                # Strategy 2: use string message returned directly by the node
+                for attr in ("message", "args"):
+                    candidate = getattr(e, attr, None)
+                    if attr == "args" and candidate:
+                        candidate = candidate[0] if candidate else None
+                    if candidate and isinstance(candidate, str):
+                        msg = candidate.strip()
+                        # Filter out uninformative generic strings
+                        if msg and msg.lower() not in ("execution reverted", "revert", ""):
+                            logger.debug("_try_decode_gmx_custom_error: decoded from node message: %s", msg)
+                            return msg
+        except Exception as err:
+            logger.debug("_try_decode_gmx_custom_error failed: %s", err)
+        return None
 
     def _init_common(self):
         """Initialize common attributes regardless of init method."""
@@ -5345,7 +5449,7 @@ class GMX(ExchangeCompatible):
             "filled": filled_amount,
             "remaining": remaining_amount,
             "status": status,
-            "fee": self._build_trading_fee(symbol, amount),
+            "fee": self._build_trading_fee(symbol, amount * mark_price if mark_price else 0.0),
             "trades": None,
             "info": info,
         }
@@ -5788,7 +5892,7 @@ class GMX(ExchangeCompatible):
             "filled": filled_amount,
             "remaining": remaining_amount,
             "status": status,
-            "fee": self._build_trading_fee(symbol, amount),
+            "fee": self._build_trading_fee(symbol, amount * mark_price if mark_price else 0.0),
             "trades": [],
             "info": info,
         }
@@ -6538,10 +6642,16 @@ class GMX(ExchangeCompatible):
             # If that fails, use gas usage patterns for diagnostics
             revert_reason = "Transaction reverted on-chain"
 
-            try:
-                from eth_defi.revert_reason import fetch_transaction_revert_reason
+            # First attempt: decode GMX-specific custom errors (DisabledMarket, etc.)
+            # These use 4-byte selectors that fetch_transaction_revert_reason() ignores.
+            gmx_custom_error = self._try_decode_gmx_custom_error(tx_hash_bytes)
+            if gmx_custom_error:
+                revert_reason = gmx_custom_error
+                logger.error("Transaction revert reason (GMX custom error): %s", revert_reason)
 
-                revert_reason = fetch_transaction_revert_reason(self.web3, tx_hash_bytes, unknown_error_message="<revert reason not available>")
+            try:
+                if not gmx_custom_error:
+                    revert_reason = fetch_transaction_revert_reason(self.web3, tx_hash_bytes, unknown_error_message="<revert reason not available>")
 
                 # Check if extraction failed - use gas diagnostics
                 if "<revert reason not available>" in revert_reason:

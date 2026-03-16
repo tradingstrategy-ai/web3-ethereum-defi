@@ -1143,6 +1143,26 @@ class Gmx(Exchange):
         elif "insufficient" in exc_msg.lower() or "InsufficientFunds" in exc_type:
             msg = f"💸 *{bot_name}*\nInsufficient funds — `{pair}` {order_dir}\n`{snippet}`"
 
+        # --- On-chain transaction revert with a decoded reason ---
+        # This is more specific than the generic InvalidOrder branch below.
+        # After Task 2 (custom error decoding), exc_msg looks like:
+        #   "GMX order creation tx reverted for OM/USDC:USDC: DisabledMarket(0x...) (tx=0x...)"
+        # We strip the verbose prefix/suffix to surface just the error name.
+        elif "tx reverted" in exc_msg.lower() and "InvalidOrder" in exc_type:
+            reason = exc_msg
+            # Strip everything before the first ": " after "reverted for ..."
+            for prefix in ("tx reverted for", ":"):
+                idx = reason.find(prefix)
+                if idx != -1:
+                    reason = reason[idx + len(prefix):]
+            # Strip tx hash suffix
+            for suffix in (" (tx=", " tx="):
+                idx = reason.find(suffix)
+                if idx != -1:
+                    reason = reason[:idx]
+            reason = reason.strip()[:120]
+            msg = f"❌ *{bot_name}*\nTx reverted — `{pair}` {order_dir}\n`{reason}`"
+
         # --- Invalid order (bad params, size, etc.) ---
         elif "InvalidOrder" in exc_type or "invalid order" in exc_msg.lower():
             msg = f"❌ *{bot_name}*\nInvalid order — `{pair}` {order_dir}\n`{snippet}`"
