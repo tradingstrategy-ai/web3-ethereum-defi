@@ -8,3 +8,7 @@ links:
   coingecko: https://www.coingecko.com/en/coins/alchemix-usd
   defillama: https://defillama.com/stablecoin/alchemix-usd
   twitter: https://x.com/AlchemixFi
+slug: alusd
+token_symbols:
+- ALUSD
+- alUSD

@@ -8,3 +8,7 @@ links:
   coingecko: https://www.coingecko.com/en/coins/susd
   defillama: https://defillama.com/stablecoin/susd
   twitter: https://x.com/synthetix_io
+slug: susd
+token_symbols:
+- SUSD
+- sUSD

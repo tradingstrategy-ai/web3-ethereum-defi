@@ -8,3 +8,7 @@ links:
   coingecko: https://www.coingecko.com/en/coins/crvusd
   defillama: https://defillama.com/stablecoin/crvusd
   twitter: https://x.com/CurveFinance
+slug: crvusd
+token_symbols:
+- CRVUSD
+- crvUSD

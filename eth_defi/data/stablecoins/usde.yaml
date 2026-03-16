@@ -8,3 +8,7 @@ links:
   coingecko: https://www.coingecko.com/en/coins/ethena-usde
   defillama: https://defillama.com/stablecoin/ethena-usde
   twitter: https://x.com/ethena_labs
+slug: usde
+token_symbols:
+- USDE
+- USDe

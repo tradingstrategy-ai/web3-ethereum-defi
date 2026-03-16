@@ -16,3 +16,7 @@ entries:
     coingecko: ''
     defillama: ''
     twitter: ''
+slug: xusd
+token_symbols:
+- XUSD
+- xUSD

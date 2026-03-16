@@ -8,3 +8,7 @@ links:
   coingecko: https://www.coingecko.com/en/coins/musd
   defillama: https://defillama.com/stablecoin/musd
   twitter: https://x.com/maborstable
+slug: musd
+token_symbols:
+- MUSD
+- mUSD

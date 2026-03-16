@@ -348,6 +348,9 @@ def load_all_stablecoin_metadata() -> dict[str, list[StablecoinInfo]]:
     Returns a dict mapping symbol to list of StablecoinInfo entries.
     Cached in-process after first call.
 
+    Files with a ``token_symbols`` list register the same metadata
+    under each variant symbol (e.g. ``USDT`` and ``USDt``).
+
     :return:
         Dictionary mapping token symbol to list of :py:class:`StablecoinInfo` entries
     """
@@ -362,12 +365,13 @@ def load_all_stablecoin_metadata() -> dict[str, list[StablecoinInfo]]:
         data = read_stablecoin_metadata(yaml_path)
         symbol = data["symbol"]
 
+        # Build the StablecoinInfo list for this file
         if "entries" in data:
             # Multi-project symbol
-            entries = []
+            info_list = []
             for entry in data["entries"]:
                 links = entry.get("links", {})
-                entries.append(
+                info_list.append(
                     StablecoinInfo(
                         name=entry.get("name", ""),
                         homepage=links.get("homepage", ""),
@@ -377,10 +381,9 @@ def load_all_stablecoin_metadata() -> dict[str, list[StablecoinInfo]]:
                         twitter=links.get("twitter", ""),
                     )
                 )
-            result[symbol] = entries
         else:
             links = data.get("links", {})
-            result[symbol] = [
+            info_list = [
                 StablecoinInfo(
                     name=data.get("name", ""),
                     homepage=links.get("homepage", ""),
@@ -390,6 +393,14 @@ def load_all_stablecoin_metadata() -> dict[str, list[StablecoinInfo]]:
                     twitter=links.get("twitter", ""),
                 )
             ]
+
+        # Register under primary symbol
+        result[symbol] = info_list
+
+        # Also register under all token_symbols variants
+        for variant in data.get("token_symbols", []):
+            if variant != symbol:
+                result[variant] = info_list
 
     _cached_metadata = result
     return result
