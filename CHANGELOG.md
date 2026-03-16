@@ -1,5 +1,6 @@
 # Current
 
+- Add: Multi-key Lagoon asset manager deployment support with shared Guard permissions, valuation-manager reporting, and simulated dual-key deployment coverage (2026-03-16, [#855](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/855))
 - Add: Hyperliquid raw metric passthrough for `account_pnl`, `follower_count`, and `cumulative_volume` from DuckDB price data to cleaned prices and lifetime metrics export (2026-03-15, [#852](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/852))
 - Add: `fetch_gmx_total_equity()` — on-chain GMX account valuation combining wallet reserves and open position PnL at any block number (2026-03-15, [#850](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/850))
 - Add: Mean and max position duration metrics for HFT trader analysis (2026-03-15)
