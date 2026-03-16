@@ -1,12 +1,34 @@
 symbol: MKUSD
 name: Prisma mkUSD
-short_description: mkUSD is a decentralised stablecoin issued by Prisma Finance on Ethereum. It is backed by liquid staking tokens (wstETH, rETH, cbETH, sfrxETH) as collateral. mkUSD allows users to earn yield
-  while borrowing against their staked ETH.
-long_description: ''
+short_description: mkUSD is a decentralised stablecoin issued by Prisma Finance on Ethereum. It is backed by liquid staking tokens (wstETH, rETH, cbETH, sfrxETH) as collateral. The Prisma Finance website domain has since been hijacked; the protocol is effectively abandoned.
+long_description: |
+  mkUSD was issued by [Prisma Finance](https://prismafinance.com/), an Ethereum-based
+  decentralised borrowing protocol focused on liquid staking tokens (LSTs) as collateral.
+
+  ## Mechanism
+
+  - Overcollateralised CDPs backed by LSTs: wstETH, rETH, cbETH, sfrxETH
+  - Allows users to earn staking rewards while borrowing mkUSD
+  - Implements the OFT (Omnichain Fungible Token) standard via LayerZero for cross-chain transfers
+  - Governance token: PRISMA
+
+  ## Status
+
+  The Prisma Finance website domain (`prismafinance.com`) has been redirected to an unrelated site,
+  indicating the project has been abandoned. The on-chain contract remains at approximately
+  245,000 mkUSD supply with 1,187 holders as of early 2025, but no active protocol governance
+  or development is occurring.
+
+  ## Sources
+
+  - [Etherscan — mkUSD](https://etherscan.io/token/0x4591DBfF62656E7859Afe5e45f6f47D3669fBB28)
 category: stablecoin
 links:
   homepage: https://prismafinance.com/
   coingecko: https://www.coingecko.com/en/coins/prisma-mkusd
   defillama: https://defillama.com/stablecoin/prisma-mkusd
   twitter: https://x.com/PrismaFi
+contract_addresses:
+  - chain: ethereum
+    address: '0x4591DBfF62656E7859Afe5e45f6f47D3669fBB28'
 slug: mkusd

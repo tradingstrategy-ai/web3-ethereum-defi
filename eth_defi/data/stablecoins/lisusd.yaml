@@ -2,11 +2,19 @@ symbol: LISUSD
 name: lisUSD (Lista DAO)
 short_description: lisUSD is a decentralised stablecoin issued by Lista DAO on BNB Chain. It is overcollateralised by liquid staking tokens and other crypto assets. lisUSD is designed for borrowing and DeFi activities
   within the Lista ecosystem.
-long_description: ''
+long_description: |
+  lisUSD is the native stablecoin of [Lista DAO](https://lista.org/), a decentralised money market and
+  liquidity protocol on BNB Chain. It was formerly known as HAY, issued by Helio Protocol before
+  Helio Protocol rebranded as Lista DAO. The stablecoin is overcollateralised by BNB liquid staking tokens
+  and other supported assets, with users minting lisUSD by depositing collateral. lisUSD can be used for
+  staking in Lista's stability pools and as liquidity across BNB Chain DeFi.
 category: stablecoin
 links:
   homepage: https://lista.org/
   coingecko: https://www.coingecko.com/en/coins/lista-usd
   defillama: https://defillama.com/stablecoin/lista-usd
   twitter: https://x.com/lista_dao
+contract_addresses:
+  - chain: binance
+    address: '0x0782b6d8c4551B9760e74c0545a9bCD90bdc41E5'
 slug: lisusd

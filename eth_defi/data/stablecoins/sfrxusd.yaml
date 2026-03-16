@@ -1,12 +1,19 @@
 symbol: sfrxUSD
 name: Staked Frax USD
-short_description: sfrxUSD is the staked version of frxUSD that earns yield from Frax Finance's strategies. It represents frxUSD deposited in the Frax staking vault. sfrxUSD accrues yield from T-bill and DeFi
-  revenue.
-long_description: ''
+short_description: sfrxUSD is an ERC-4626 yield-bearing token representing frxUSD deposited in the Frax staking vault. It targets a benchmark-rate strategy alternating between carry-trade, AMO, and T-bill strategies. sfrxUSD is redeemable for frxUSD at any time with no fees.
+long_description: |
+  sfrxUSD is issued by [Frax Finance](https://frax.finance/) as the yielding stablecoin for frxUSD. frxUSD is a fiat-redeemable, fully collateralised stablecoin backed 1:1 by permitted cash-equivalent reserves such as tokenised US Treasury funds.
+
+  The Benchmark Yield Strategy (BYS) allocates all frxUSD staked in sfrxUSD to the top yield venue under current market conditions — carry-trade strategies, DeFi AMO strategies, or RWA strategies holding short-dated US Treasury bills. The strategy rotates automatically to maximise yield.
+
+  sfrxUSD does not rebase; it increases in value relative to frxUSD over time. It can be redeemed for frxUSD at any time with no unstaking fee or price impact. sfrxUSD is listed on [CoinGecko](https://www.coingecko.com/en/coins/staked-frax-usd).
 category: yield_bearing
 links:
   homepage: https://frax.finance/
   coingecko: https://www.coingecko.com/en/coins/staked-frax-usd
   defillama: ''
-  twitter: https://x.com/fraboraxfinance
+  twitter: https://x.com/fraxfinance
+contract_addresses:
+  - chain: ethereum
+    address: '0xcf62f905562626cfcdd2261162a51fd02fc9c5b6'
 slug: sfrxusd

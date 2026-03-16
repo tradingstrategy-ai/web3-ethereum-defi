@@ -1,12 +1,36 @@
 symbol: AUDT
-name: Australian Dollar Token
-short_description: AUDT is a fully regulated Australian Dollar-backed stablecoin pegged 1:1 to AUD. Each token is backed by Australian dollars held in regulated custody. It enables digital transactions denominated
-  in AUD on blockchain networks.
-long_description: ''
+name: AUD Token (Australian Dollar Token)
+short_description: AUDT is an Australian Dollar-backed stablecoin on Ethereum, pegged 1:1 to AUD. Each token is backed by Australian dollars held in a licensed Australian bank account managed by AUDT Pty Ltd,
+  part of the Chrono.tech ecosystem. It enables blockchain-based transactions denominated in Australian dollars.
+long_description: |
+  AUDT (AUD Token) is an ERC-20 stablecoin pegged 1:1 to the Australian dollar, issued by AUDT Pty Ltd (ACN: 627 827 383),
+  an Australian company within the [Chrono.tech](https://chrono.tech/) ecosystem. Reserves are held in
+  a licensed Australian bank account and subject to regular audits.
+
+  ## Mechanism
+
+  - Fiat-backed: 1 AUDT = 1 AUD, redeemable at any time
+  - Regulated under AUSTRAC (Australia's financial intelligence agency)
+  - ERC-20 token on Ethereum with 6 decimal places
+  - Originally launched March 2020
+
+  ## Status
+
+  Low circulating supply (~248,000 AUDT as of early 2026) and limited adoption. The original project website
+  (audt.to) is no longer active.
+
+  ## Sources
+
+  - [Chrono.tech — AUDT](https://chrono.tech/)
+  - [Etherscan: AUDT on Ethereum](https://etherscan.io/token/0xd7e0f80fb28233bdde0006c50568606a8feb964c)
+  - [CoinMarketCap: Australian Dollar Token](https://coinmarketcap.com/currencies/australian-dollar-token/)
 category: stablecoin
 links:
-  homepage: https://audt.to/
-  coingecko: https://www.coingecko.com/en/coins/audt
+  homepage: https://chrono.tech/
+  coingecko: ''
   defillama: ''
-  twitter: https://x.com/AUDTofficial
+  twitter: ''
 slug: audt
+contract_addresses:
+  - chain: ethereum
+    address: '0xd7e0f80fb28233bdde0006c50568606a8feb964c'

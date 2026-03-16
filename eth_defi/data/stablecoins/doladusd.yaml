@@ -2,7 +2,11 @@ symbol: DOLADUSD
 name: DOLA (Inverse Finance)
 short_description: DOLA is a decentralised stablecoin issued by Inverse Finance on Ethereum. It is backed by various crypto collateral through the FiRM lending market. DOLADUSD appears to be a data artefact or
   trading pair label combining DOLA and USD.
-long_description: ''
+long_description: |
+  DOLADUSD is not a distinct token but rather a trading pair or data label that appears in some price feeds and aggregators combining DOLA with a USD price denomination.
+  The underlying asset is [DOLA](https://www.inverse.finance/), a decentralised USD-pegged stablecoin issued by [Inverse Finance](https://www.inverse.finance/).
+
+  See the [dola.yaml](dola.yaml) entry for full details about the DOLA stablecoin.
 category: stablecoin
 links:
   homepage: https://www.inverse.finance/

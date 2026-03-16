@@ -9,4 +9,7 @@ links:
   coingecko: https://www.coingecko.com/en/coins/gains-network-dai
   defillama: ''
   twitter: https://x.com/GainsNetwork_io
+contract_addresses:
+  - chain: arbitrum
+    address: '0xd85E038593d7A098614721EaE955EC2022B9B91B'
 slug: gdai

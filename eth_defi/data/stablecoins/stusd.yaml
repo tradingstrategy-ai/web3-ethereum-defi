@@ -1,12 +1,21 @@
 symbol: STUSD
 name: stUSD (Angle Protocol)
-short_description: stUSD is a yield-bearing USD stablecoin from Angle Protocol. It earns yield from T-bills and other real-world assets through the Angle Savings mechanism. stUSD is part of the Angle Protocol
-  ecosystem alongside USDA and EURA.
-long_description: ''
-category: stablecoin
+short_description: stUSD is the yield-bearing savings token for Angle Protocol's USDA stablecoin. Users deposit USDA to receive stUSD, which accrues yield continuously from Angle's borrowing module and reserve assets. stUSD is redeemable for an ever-growing amount of USDA at any time.
+long_description: |
+  stUSD (also called Angle Staked USDA) is issued by [Angle Protocol](https://www.angle.money/) as the savings layer for USDA, Angle's USD-pegged stablecoin. Yield comes from interest paid by USDA borrowers and from yield-bearing reserve assets.
+
+  The value of 1 stUSD is not $1 — it increases over time as yield accrues. There are no deposit or withdrawal fees and no lock-up period. stUSD is available on Ethereum, Arbitrum, Optimism, and Base.
+
+  **Important note:** In 2025, Angle Protocol tokenholder governance voted unanimously to wind down both USDA and EURA. Both remain fully collateralised and redeemable 1:1 until 1 March 2027. New minting was halted and the protocol is in wind-down mode.
+
+  stUSD is listed on [CoinGecko](https://www.coingecko.com/en/coins/angle-staked-usda).
+category: yield_bearing
 links:
   homepage: https://www.angle.money/
-  coingecko: https://www.coingecko.com/en/coins/staked-usda
+  coingecko: https://www.coingecko.com/en/coins/angle-staked-usda
   defillama: ''
   twitter: https://x.com/AngleProtocol
+contract_addresses:
+  - chain: ethereum
+    address: '0x0022228a2cc5e7ef0274a7baa600d44da5ab5776'
 slug: stusd

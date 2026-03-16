@@ -8,5 +8,8 @@ links:
   homepage: https://jpyc.jp/
   coingecko: https://www.coingecko.com/en/coins/jpyc
   defillama: ''
-  twitter: https://x.com/jaborpyc
+  twitter: https://x.com/jpy_coin
+contract_addresses:
+  - chain: ethereum
+    address: '0x431D5dfF03120AFA4bDF332c61A6e1766eF37BDB'
 slug: jpyc

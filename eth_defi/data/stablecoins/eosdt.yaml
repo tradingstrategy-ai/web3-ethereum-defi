@@ -1,7 +1,13 @@
 symbol: EOSDT
 name: EOSDT (Equilibrium)
 short_description: EOSDT was a USD-pegged stablecoin on the EOS blockchain created by Equilibrium. It was overcollateralised by EOS tokens deposited as collateral. The project has largely become inactive.
-long_description: ''
+long_description: |
+  [EOSDT](https://eosdt.com/) was a decentralised, overcollateralised stablecoin issued on the [EOS](https://eosnetwork.com/) blockchain by [Equilibrium](https://equilibrium.io/).
+  Users would lock EOS as collateral in a smart contract position to mint EOSDT at a minimum collateralisation ratio.
+  The system used a liquidation mechanism to protect solvency when collateral values dropped.
+
+  Equilibrium later pivoted to build a parachain on Polkadot and the EOS-based EOSDT system is no longer actively maintained.
+  The project is considered defunct; liquidity and activity on the token are minimal.
 category: stablecoin
 links:
   homepage: https://eosdt.com/

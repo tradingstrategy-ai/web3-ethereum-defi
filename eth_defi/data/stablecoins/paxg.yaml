@@ -1,12 +1,38 @@
 symbol: PAXG
 name: Pax Gold
-short_description: Pax Gold (PAXG) is a gold-backed token issued by Paxos, where each token represents one fine troy ounce of gold. The gold is stored in LBMA-accredited London vaults and is regulated by the
-  New York State Department of Financial Services. PAXG enables fractional ownership of physical gold on blockchain.
-long_description: ''
-category: stablecoin
+short_description: Pax Gold (PAXG) is a gold-backed token issued by Paxos, where each token represents one fine troy ounce of LBMA-certified physical gold stored in Brink's vaults in London. PAXG is regulated by the New York State Department of Financial Services and enables fractional ownership of physical gold on blockchain.
+long_description: |
+  PAXG is issued by [Paxos](https://paxos.com/paxgold/) on Ethereum. Each token is backed
+  1:1 by one fine troy ounce of physical gold bar held in LBMA-accredited vaults in London,
+  operated by Brink's.
+
+  ## Key properties
+
+  - 1 PAXG = 1 fine troy ounce of LBMA-certified London Good Delivery gold bar
+  - Regulated by the New York State Department of Financial Services (NYDFS)
+  - Gold is audited and verifiable on-chain
+  - Redeemable for allocated gold bars or cash at Paxos
+  - Proxy contract with upgradeable implementation
+
+  ## Status
+
+  Active on Ethereum with approximately $2.5 billion market cap and 83,000+ holders as of early 2025.
+  PAXG is listed on major centralised and decentralised exchanges.
+
+  Note: PAXG is a commodity-backed token, not a fiat-pegged stablecoin, though it is widely
+  used in DeFi as a stable-value asset.
+
+  ## Sources
+
+  - [Paxos — PAX Gold](https://paxos.com/paxgold/)
+  - [Etherscan — PAXG](https://etherscan.io/token/0x45804880De22913dAFE09f4980848ECE6EcbAf78)
+category: wrapped
 links:
   homepage: https://paxos.com/paxgold/
   coingecko: https://www.coingecko.com/en/coins/pax-gold
   defillama: ''
   twitter: https://x.com/PaxosGlobal
+contract_addresses:
+  - chain: ethereum
+    address: '0x45804880De22913dAFE09f4980848ECE6EcbAf78'
 slug: paxg

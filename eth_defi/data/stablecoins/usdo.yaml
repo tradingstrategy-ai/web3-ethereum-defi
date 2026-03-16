@@ -1,12 +1,33 @@
 symbol: USDO
 name: OpenDollar (OpenEden)
-short_description: USDO is a stablecoin associated with OpenEden, a protocol providing tokenised access to US Treasuries. It is backed by short-term US government securities. USDO is designed for institutional
-  DeFi participants.
-long_description: ''
-category: stablecoin
+short_description: USDO (OpenDollar) is a regulated, yield-bearing stablecoin issued by OpenEden Digital and backed 1:1 by tokenised US Treasury Bills. It automatically accrues T-Bill yield in holders' wallets without staking or lockups. USDO is available on Ethereum and Base.
+long_description: |
+  USDO (OpenDollar) is issued by [OpenEden Digital](https://openeden.com/), a Bermuda Monetary Authority (BMA)-licensed digital asset issuer.
+  It is the world's first regulated yield-bearing stablecoin pegged 1:1 to the US dollar and fully collateralised by tokenised US Treasury Bills.
+
+  ## Mechanism
+
+  - Rebasing token: yield from underlying T-Bills accrues automatically in holders' wallets
+  - Reserves held via OpenEden's TBILL Vault, managed by BNY Mellon, State Street, VanEck, and BlackRock
+  - Bankruptcy-remote structure via a Segregated Account Company (SAC)
+  - Cross-chain interoperability powered by Chainlink CCIP and Proof of Reserve
+
+  ## Status
+
+  Launched 20 February 2025. USDO crossed $100 million TVL within two months of launch.
+
+  ## Sources
+
+  - [OpenEden — Launch of OpenDollar](https://openeden.com/news/openeden-launches-usdo-new-regulated-stablecoin/)
+  - [OpenEden — USDO crosses $100M TVL](https://openeden.com/news/openeden-stablecoin-usdo-cross-100-million-tvl/)
+  - [RWA.xyz — USDO](https://app.rwa.xyz/assets/USDO)
+category: yield_bearing
 links:
   homepage: https://openeden.com/
-  coingecko: ''
-  defillama: ''
+  coingecko: https://www.coingecko.com/en/coins/openeden-open-dollar
+  defillama: https://defillama.com/protocol/openeden-usdo
   twitter: https://x.com/OpenEdenLabs
+contract_addresses:
+  - chain: ethereum
+    address: '0x8238884Ec9668Ef77B90C6dfF4D1a9F4F4823BFe'
 slug: usdo

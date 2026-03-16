@@ -2,11 +2,21 @@ symbol: EUROe
 name: EUROe (Membrane Finance)
 short_description: EUROe is a Euro-backed stablecoin issued by Membrane Finance, a Finnish fintech company. It is fully regulated under EU law and backed 1:1 by Euro reserves. EUROe is available on Ethereum,
   Polygon, Arbitrum, and other networks.
-long_description: ''
+long_description: |
+  [EUROe](https://www.euroe.com/) is a Euro-backed stablecoin issued by [Membrane Finance](https://www.membrane.fi/), a Finnish fintech company licensed as an electronic money institution (EMI) under EU regulation.
+  It was one of the first EU-regulated Euro stablecoins, launched in February 2023.
+
+  EUROe is fully backed 1:1 by Euro deposits held in European bank accounts and is supervised by the Finnish Financial Supervisory Authority (Finanssivalvonta).
+  It is collateralised at 102% as a buffer.
+  EUROe is available on Ethereum, Polygon, Arbitrum, and Avalanche.
+  Membrane Finance also introduced bridged EUROe to improve cross-chain liquidity.
 category: stablecoin
 links:
   homepage: https://www.euroe.com/
   coingecko: https://www.coingecko.com/en/coins/euroe-stablecoin
   defillama: https://defillama.com/stablecoin/euroe-stablecoin
   twitter: https://x.com/membrane_fi
+contract_addresses:
+  - chain: ethereum
+    address: '0x820802fa8a99901f52e39acd21177b0be6ee2974'
 slug: euroe

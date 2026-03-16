@@ -1,7 +1,6 @@
 symbol: USDA
 name: Angle USDA
-short_description: USDA is a USD-pegged stablecoin issued by Angle Protocol. It is backed by a diversified set of reserves including US Treasuries and other yield-generating assets. USDA is part of the Angle
-  Protocol ecosystem alongside EURA.
+short_description: USDA is a USD-pegged stablecoin issued by Angle Protocol. It is backed by a diversified set of reserves including US Treasuries and other yield-generating assets. USDA is part of the Angle Protocol ecosystem alongside EURA and can be staked as stUSD to earn native USD yield.
 long_description: ''
 category: stablecoin
 links:
@@ -10,3 +9,12 @@ links:
   defillama: https://defillama.com/stablecoin/angle-usd
   twitter: https://x.com/AngleProtocol
 slug: usda
+contract_addresses:
+  - chain: ethereum
+    address: '0x0000206329b97DB379d5E1Bf586BbDB969C63274'
+  - chain: arbitrum
+    address: '0x0000206329b97DB379d5E1Bf586BbDB969C63274'
+  - chain: polygon
+    address: '0x0000206329b97DB379d5E1Bf586BbDB969C63274'
+  - chain: optimism
+    address: '0x0000206329b97DB379d5E1Bf586BbDB969C63274'

@@ -1,11 +1,19 @@
 symbol: sAUSD
-name: Unknown (possibly staked Acala USD)
-short_description: sAUSD appears to be a staked version of Acala Dollar (aUSD) on the Polkadot ecosystem. Details about its specific implementation are limited. It may be a yield-bearing wrapper for aUSD.
-long_description: ''
+name: Savings AUSD (Agora)
+short_description: sAUSD is the yield-bearing savings token for AUSD, the digital dollar stablecoin issued by Agora Finance. Users deposit AUSD and receive sAUSD, which accrues yield from AUSD's underlying T-bill backing. sAUSD can be redeemed instantly at any time.
+long_description: |
+  [Agora Finance](https://www.agora.finance/) issues AUSD as a 1:1 USD-backed digital dollar, with reserves composed of cash, overnight repurchase agreements, and short-term US Treasury securities managed by a major custodian bank and audited by a Big 4 firm.
+
+  sAUSD (Savings AUSD) is the first savings product built on AUSD, powered by [Upshift](https://app.upshift.finance/) infrastructure. Users deposit AUSD into a savings vault and receive sAUSD tokens, which accumulate yield from AUSD's T-bill backing. Redemption is instant with no lock-up period.
+
+  AUSD and sAUSD are available on Ethereum, Avalanche, Sui, and Monad. sAUSD is tracked on [CoinMarketCap](https://coinmarketcap.com/currencies/earn-ausd/).
 category: yield_bearing
 links:
-  homepage: https://acala.network/
+  homepage: https://www.agora.finance/
   coingecko: ''
   defillama: ''
-  twitter: https://x.com/AcalaNetwork
+  twitter: https://x.com/withAUSD
+contract_addresses:
+  - chain: monad
+    address: '0xD793c04B87386A6bb84ee61D98e0065FdE7fdA5E'
 slug: sausd

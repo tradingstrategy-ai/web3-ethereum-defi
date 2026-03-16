@@ -1,11 +1,38 @@
 symbol: csUSD
-name: Unknown
-short_description: ''
-long_description: ''
-category: stablecoin
+name: cSigma USD
+short_description: csUSD is a yield-bearing stablecoin from cSigma Finance that dynamically allocates deposits across RWA credit markets and on-chain DeFi yield strategies. It accepts multiple stablecoins as deposits via an ERC-7575 multi-asset vault. cSigma Finance connects global borrowers and lenders through tokenised real-world assets.
+long_description: |
+  csUSD is issued by [cSigma Finance](https://www.csigma.finance/), a blockchain-based
+  protocol that tokenises private credit and connects institutional borrowers with DeFi lenders.
+  The stablecoin uses an ERC-7575 multi-asset vault architecture, allowing users to deposit
+  USDC, USDT, DAI, or other stablecoins and receive csUSD in return.
+
+  ## Mechanism
+
+  csUSD dynamically allocates capital between two yield sources:
+  - **RWA credit markets**: Tokenised business loans to mid-market companies across the US, EU, and Asia
+  - **On-chain DeFi strategies**: Risk-adjusted DeFi yield strategies
+
+  The protocol autonomously rebalances between these sources based on market conditions to
+  optimise yield performance.
+
+  ## Scale
+
+  As of Q1 2025, cSigma Finance has tokenised over $80 million in business loans,
+  accessible on 11 major blockchain networks including Ethereum, Arbitrum, and BNB.
+
+  ## Sources
+
+  - [cSigma Finance](https://www.csigma.finance/)
+  - [cSigma Protocol Documentation](https://csigma-edge.gitbook.io/csigma-protocol/)
+  - [DefiLlama — cSigma Finance](https://defillama.com/protocol/csigma-finance)
+category: yield_bearing
 links:
-  homepage: ''
+  homepage: https://www.csigma.finance/
   coingecko: ''
-  defillama: ''
-  twitter: ''
+  defillama: https://defillama.com/protocol/csigma-finance
+  twitter: https://x.com/csigmafinance
+contract_addresses:
+  - chain: ethereum
+    address: '0xd5d097f278a735d0a3c609deee71234cac14b47e'
 slug: csusd

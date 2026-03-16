@@ -20,7 +20,7 @@ links:
   homepage: https://vesper.finance/
   coingecko: ''
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/VesperFi
 contract_addresses:
   - chain: ethereum
     address: '0x677ddbd918637e5f2c79e164d402454de7da8619'

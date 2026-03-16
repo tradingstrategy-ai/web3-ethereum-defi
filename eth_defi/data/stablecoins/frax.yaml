@@ -4,11 +4,23 @@ short_description: |
   Frax is a fractional-algorithmic stablecoin protocol on Ethereum. It was originally partially
   collateralised by USDC and partially stabilised algorithmically, but has since moved to full
   collateralisation. Frax Finance also offers frxETH liquid staking and the frxUSD stablecoin.
-long_description: ''
+long_description: |
+  [FRAX](https://frax.finance/) is a USD-pegged stablecoin issued by [Frax Finance](https://frax.finance/).
+  Launched in December 2020, it was the first fractional-algorithmic stablecoin: partially backed by USDC and partially stabilised by the algorithmic burning and minting of the Frax Shares (FXS) governance token.
+  The collateral ratio was adjusted dynamically based on market conditions.
+
+  Over time, Frax Finance moved towards full collateralisation.
+  In 2024, Frax Finance launched [frxUSD](https://frax.finance/) as a fully reserve-backed replacement, backed by US Treasuries and BlackRock's BUIDL fund.
+  FRAX itself remains in circulation but the protocol's primary focus has shifted to frxUSD.
+
+  Frax Finance also operates Fraxtal (an L2), frxETH (liquid staking ETH), sFRAX (yield-bearing FRAX), and the FXS governance token.
 category: stablecoin
 links:
   homepage: https://frax.finance/
   coingecko: https://www.coingecko.com/en/coins/frax
   defillama: https://defillama.com/stablecoin/frax
-  twitter: https://x.com/fraboraxfinance
+  twitter: https://x.com/fraxfinance
+contract_addresses:
+  - chain: ethereum
+    address: '0x853d955acef822db058eb8505911ed77f175b99e'
 slug: frax

@@ -1,12 +1,18 @@
 symbol: ftUSD
 name: Flying Tulip USD
-short_description: ftUSD is a stablecoin from Flying Tulip, an AMM and lending protocol by Andre Cronje. It is designed for capital-efficient DeFi operations. Flying Tulip uses adaptive curve mechanisms for improved
-  trading.
-long_description: ''
+short_description: ftUSD is the native stablecoin of Flying Tulip, a unified on-chain financial system built on the Sonic blockchain by Andre Cronje. It is a delta-neutral synthetic dollar pegged to USD. Flying Tulip
+  raised $200 million in a seed round in 2025.
+long_description: |
+  [ftUSD](https://flyingtulip.com/ftusd/) is the native stablecoin of [Flying Tulip](https://flyingtulip.com/), a unified on-chain financial platform built on the [Sonic](https://soniclabs.com/) blockchain, created by [Andre Cronje](https://x.com/AndreCronjeTech).
+  It is designed as a delta-neutral synthetic dollar that serves as the settlement currency across Flying Tulip's integrated suite of products: spot trading (AMM + CLOB), lending, perpetual futures, and insurance.
+
+  ftUSD is non-yielding by default; users can stake it to sftUSD to earn yield from the protocol's delta-neutral strategies.
+  Flying Tulip raised $200 million in a private seed round at a $1 billion fully diluted valuation in early 2025, and subsequently raised additional funds.
+  The project held a public token sale on CoinList in February 2026.
 category: stablecoin
 links:
   homepage: https://flyingtulip.com/
   coingecko: ''
   defillama: ''
-  twitter: https://x.com/flyingtulaborip
+  twitter: https://x.com/flyingtulip_
 slug: ftusd

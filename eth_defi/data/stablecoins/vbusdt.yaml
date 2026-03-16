@@ -1,16 +1,18 @@
 symbol: vbUSDT
 name: Vault Bridge Bridged USDT (Katana)
-short_description: vbUSDT is a bridged version of USDT on the Katana (Ronin) network via Vault Bridge. It represents USDT locked on Ethereum and bridged to Ronin. vbUSDT is used within the Ronin ecosystem for
-  DeFi and gaming.
+short_description: vbUSDT is a bridged version of USDT on the Katana DeFi L2 via Vault Bridge. Katana is a DeFi-focused ZK-rollup incubated by Polygon Labs and GSR. Bridged assets are deployed into yield-generating strategies on Ethereum while in transit.
 long_description: |
-  vbUSDT is a bridged version of USDT on the [Katana](https://katana.network/) network via Vault Bridge,
-  which is managed by Katana using [AggLayer's](https://agglayer.dev/) bridge infrastructure.
-  It represents USDT locked on Ethereum and bridged to Katana.
+  vbUSDT is the VaultBridge representation of USDT on the [Katana](https://katana.network/)
+  DeFi L2, which uses [AggLayer](https://agglayer.dev/) as its canonical bridge.
+
+  When USDT is bridged to Katana via VaultBridge, the underlying USDT on Ethereum is
+  deployed into low-risk yield-generating Morpho vaults, creating "productive TVL" that
+  generates revenue for the network. Katana went live on public mainnet in June 2025.
 
   For more information, see the [Katana chain page](https://tradingstrategy.ai/trading-view/vaults/chains/katana).
 category: stablecoin
 links:
-  homepage: ''
+  homepage: https://katana.network/
   coingecko: ''
   defillama: ''
   twitter: ''

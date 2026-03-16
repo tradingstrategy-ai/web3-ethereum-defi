@@ -1,12 +1,35 @@
 symbol: reUSD
 name: Resupply USD
-short_description: Resupply USD (reUSD) is a stablecoin by Resupply, a protocol built by the teams behind Convex and Yearn Finance. It aggregates lending positions from Fraxlend and Curve to provide yield. reUSD
-  is designed for capital-efficient stablecoin borrowing.
-long_description: ''
+short_description: Resupply USD (reUSD) is a stablecoin by Resupply, a protocol built by the Convex and Yearn Finance teams. Users supply crvUSD or frxUSD to Curve Lend or Fraxlend and borrow reUSD against those lending positions. reUSD is designed for capital-efficient yield amplification.
+long_description: |
+  reUSD is issued by [Resupply](https://resupply.fi/), a DeFi stablecoin protocol built
+  collaboratively by the teams behind [Convex Finance](https://convexfinance.com/) and
+  [Yearn Finance](https://yearn.fi/). Security audits were provided by y-audit and ChainSecurity.
+
+  ## Mechanism
+
+  - Users supply crvUSD to Curve Lend or frxUSD to Fraxlend, then borrow reUSD against those positions
+  - Borrowing rate is designed to be attractive: `max(lending_rate / 2, sfrxUSD_rate / 2, 2%)`
+  - Allows up to ~20x yield amplification on stablecoin holdings
+  - An Insurance Pool liquidates overleveraged positions and protects against collateral risks
+  - RSUP is the governance token; users earn both lending yields and RSUP emissions
+
+  ## Status
+
+  Active on Ethereum with approximately 36 million reUSD in supply and 312 holders
+  as of early 2025. Protocol launched in 2024.
+
+  ## Sources
+
+  - [Resupply](https://resupply.fi/)
+  - [Etherscan — reUSD](https://etherscan.io/token/0x57ab1e0003f623289cd798b1824be09a793e4bec)
 category: stablecoin
 links:
   homepage: https://resupply.fi/
   coingecko: https://www.coingecko.com/en/coins/resupply-reusd
   defillama: ''
-  twitter: https://x.com/ResaborupplyFi
+  twitter: https://x.com/ResupplyFi
+contract_addresses:
+  - chain: ethereum
+    address: '0x57ab1e0003f623289cd798b1824be09a793e4bec'
 slug: reusd

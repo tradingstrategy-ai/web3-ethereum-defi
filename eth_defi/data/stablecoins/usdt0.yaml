@@ -2,11 +2,31 @@ symbol: USDT0
 name: USDT0 (Tether + LayerZero)
 short_description: USDT0 is an omnichain version of USDT powered by LayerZero's OFT standard. It enables native USDT transfers across multiple blockchains without traditional bridging. USDT0 is backed 1:1 by
   locked USDT.
-long_description: ''
+long_description: |
+  USDT0 is an omnichain version of Tether's USDT launched in January 2025, developed by Everdawn Labs in partnership with
+  [LayerZero](https://layerzero.network/). It uses LayerZero's OFT (Omnichain Fungible Token) standard to enable
+  native USDT transfers across blockchains without traditional bridging.
+
+  ## Mechanism
+
+  - USDT is locked on Ethereum; an equivalent amount of USDT0 is minted on the destination chain
+  - 1 USDT0 = 1 USDT at all times
+  - Supported chains include Arbitrum, Optimism, Base, and others
+
+  ## Growth
+
+  USDT0 surpassed $50 billion in cumulative transfers within 10 months of launch (by November 2025),
+  with approximately $4.5 billion TVL on DeFiLlama.
+
+  ## Sources
+
+  - [USDT0 — Official site](https://usdt0.to/)
+  - [DeFiLlama — USDT0](https://defillama.com/protocol/usdt0)
+  - [The Block — USDT0 passes $50B in cumulative transfers](https://www.theblock.co/post/380434/tether-pegged-usdt0-omnichain-stablecoin-passes-50-billion-in-cumulative-transfers)
 category: stablecoin
 links:
   homepage: https://usdt0.to/
   coingecko: https://www.coingecko.com/en/coins/usdt0
-  defillama: ''
+  defillama: https://defillama.com/protocol/usdt0
   twitter: https://x.com/usdt0_to
 slug: usdt0

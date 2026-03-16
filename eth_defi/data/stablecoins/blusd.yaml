@@ -1,12 +1,36 @@
 symbol: blUSD
 name: Boosted LUSD (Chicken Bonds / Liquity)
-short_description: bLUSD (Boosted LUSD) is a yield-amplified version of LUSD from the Chicken Bonds mechanism by Liquity. It earns enhanced yield from Liquity's stability pool and other DeFi strategies. Chicken
-  Bonds uses a novel bonding mechanism for yield amplification.
-long_description: ''
-category: wrapped
+short_description: bLUSD (Boosted LUSD) is a yield-amplified version of LUSD from the Chicken Bonds mechanism by Liquity. It earns enhanced yield from Liquity's stability pool. Users bond LUSD to receive bLUSD
+  at a discount, with the protocol holding a permanent liquidity reserve.
+long_description: |
+  bLUSD is issued through [Chicken Bonds](https://www.chickenbonds.org/), a novel bonding mechanism
+  developed by [Liquity](https://www.liquity.org/) and applied to LUSD. It provides a yield-boosted
+  version of LUSD by concentrating the yield earned by the protocol's liquidity reserve into the bLUSD
+  supply.
+
+  ## Mechanism
+
+  - Users deposit LUSD to start a bond; after a waiting period they can "chicken in" (receive bLUSD) or "chicken out" (recover their LUSD)
+  - Chickening in locks a permanent portion of LUSD in the protocol's reserve
+  - The reserve earns yield from Liquity's stability pool, B.Protocol, and Curve
+  - bLUSD tracks a floor price that rises over time as the reserve accrues yield
+
+  ## Status
+
+  Active but low usage (~$1.4 million market cap as of early 2026). The protocol is immutable and continues
+  operating. Note: with Liquity V2 launching BOLD, bLUSD/Chicken Bonds is considered a V1-era product.
+
+  ## Sources
+
+  - [Chicken Bonds documentation](https://docs.chickenbonds.org/)
+  - [Etherscan: bLUSD on Ethereum](https://etherscan.io/token/0xb9d7dddca9a4ac480991865efef82e01273f79c3)
+category: yield_bearing
 links:
   homepage: https://www.chickenbonds.org/
   coingecko: https://www.coingecko.com/en/coins/boosted-lusd
   defillama: ''
-  twitter: https://x.com/chickaborenbonds
+  twitter: https://x.com/LiquityProtocol
 slug: blusd
+contract_addresses:
+  - chain: ethereum
+    address: '0xb9d7dddca9a4ac480991865efef82e01273f79c3'

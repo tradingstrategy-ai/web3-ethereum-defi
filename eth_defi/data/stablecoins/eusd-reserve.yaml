@@ -1,0 +1,23 @@
+symbol: EUSD
+name: Electronic USD (Reserve Protocol)
+short_description: Electronic USD (eUSD) is a decentralised, asset-backed stablecoin built on Reserve Protocol. It is backed by a diversified basket of yield-bearing stablecoins and is fully collateralised. eUSD is available on Ethereum.
+long_description: |
+  [Electronic USD](https://app.reserve.org/ethereum/token/0xa0d69e286b938e21cbf7e51d71f6a4c8918f482f/overview) is an RToken issued on the [Reserve Protocol](https://reserve.org/), a permissionless framework for creating asset-backed stablecoins.
+  It is backed 1:1 by a basket of yield-bearing stablecoin derivatives including aUSDC (Aave USDC), cUSDC (Compound USDC), aUSDT, and cUSDT.
+  An over-collateralisation buffer of RSR (Reserve Rights) tokens provides additional protection.
+
+  Reserve Protocol's RTokens are governed by their respective token holder communities.
+  Yield from the underlying basket assets accrues to RSR stakers who insure the RToken.
+  Electronic USD is one of the original RTokens deployed on the Reserve Protocol.
+
+  **Note:** The symbol EUSD is also used by [Lybra Finance's eUSD](https://lybra.finance/) — see `eusd.yaml`.
+category: stablecoin
+links:
+  homepage: https://app.reserve.org/ethereum/token/0xa0d69e286b938e21cbf7e51d71f6a4c8918f482f/overview
+  coingecko: https://www.coingecko.com/en/coins/electronic-usd
+  defillama: https://defillama.com/stablecoin/electronic-usd
+  twitter: https://x.com/reserveprotocol
+contract_addresses:
+  - chain: ethereum
+    address: '0xa0d69e286b938e21cbf7e51d71f6a4c8918f482f'
+slug: eusd-reserve

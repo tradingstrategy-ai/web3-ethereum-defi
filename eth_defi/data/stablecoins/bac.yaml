@@ -1,8 +1,28 @@
 symbol: BAC
 name: Basis Cash
-short_description: 'Basis Cash was an algorithmic stablecoin protocol inspired by the original Basis project. It used a seigniorage shares model with three tokens: BAC (stablecoin), BAS (shares), and BAB (bonds).
+short_description: 'Basis Cash was an algorithmic stablecoin protocol on Ethereum inspired by the original Basis project. It used a seigniorage shares model with three tokens: BAC (stablecoin), BAS (shares), and BAB (bonds).
   The project is now defunct after failing to maintain its dollar peg.'
-long_description: ''
+long_description: |
+  Basis Cash was an anonymous, community-run implementation of the [Basis](https://basis.io/) algorithmic
+  stablecoin protocol, launched in late 2020 on Ethereum. It was inspired by the fractional reserve banking
+  model and Robert Sams' seigniorage shares whitepaper.
+
+  ## Mechanism
+
+  Three-token seigniorage model:
+  - **BAC** — the stablecoin targeting $1.00
+  - **BAS** (Basis Share) — governance and seigniorage token; new BAC is minted and distributed to BAS stakers when BAC > $1
+  - **BAB** (Basis Bond) — purchased at a discount when BAC < $1 and redeemed at $1 when BAC recovers
+
+  ## Status
+
+  **Defunct.** BAC lost its peg and never recovered. The protocol stalled in 2021 and is no longer maintained.
+  BAC trades at effectively $0 (~$133,000 market cap across 54.5 million tokens as of early 2026).
+
+  ## Sources
+
+  - [Etherscan: BAC on Ethereum](https://etherscan.io/token/0x3449fc1cd036255ba1eb19d65ff4ba2b8903a69a)
+  - [CoinGecko: Basis Cash](https://www.coingecko.com/en/coins/basis-cash)
 category: stablecoin
 links:
   homepage: https://basis.cash/
@@ -10,3 +30,6 @@ links:
   defillama: ''
   twitter: ''
 slug: bac
+contract_addresses:
+  - chain: ethereum
+    address: '0x3449fc1cd036255ba1eb19d65ff4ba2b8903a69a'

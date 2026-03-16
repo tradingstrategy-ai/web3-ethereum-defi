@@ -8,5 +8,10 @@ links:
   homepage: https://worldlibertyfinancial.com/
   coingecko: https://www.coingecko.com/en/coins/usd1-wlfi
   defillama: https://defillama.com/stablecoin/usd1
-  twitter: https://x.com/worldlaboribertyfi
+  twitter: https://x.com/worldlibertyfi
 slug: usd1
+contract_addresses:
+  - chain: ethereum
+    address: '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d'
+  - chain: binance
+    address: '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d'

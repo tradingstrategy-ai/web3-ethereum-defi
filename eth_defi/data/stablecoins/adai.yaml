@@ -1,12 +1,35 @@
 symbol: aDAI
 name: Aave DAI
-short_description: aDAI is the Aave protocol's interest-bearing token representing DAI supplied to Aave lending pools. It accrues interest in real-time as borrowers pay interest on DAI loans. aDAI was a foundational
-  DeFi yield-bearing token.
-long_description: ''
-category: wrapped
+short_description: aDAI is the Aave protocol's interest-bearing token representing DAI supplied to Aave V2 lending pools. It accrues interest in real-time as borrowers pay interest on DAI loans. aDAI was one of
+  the foundational yield-bearing tokens in DeFi.
+long_description: |
+  aDAI is issued by [Aave](https://aave.com/), a decentralised non-custodial liquidity protocol on Ethereum.
+  When users deposit [DAI](https://makerdao.com/) into Aave V2, they receive aDAI tokens that automatically accrue interest
+  in real time — the balance increases continuously as borrowers pay interest.
+
+  ## Mechanism
+
+  - 1:1 backed by DAI held in the Aave V2 lending pool
+  - Interest accrues directly in the aDAI balance (rebasing token)
+  - Can be redeemed for underlying DAI at any time
+  - Aave V3 uses a different token (aDAI is the V2 variant)
+
+  ## Status
+
+  Aave V2 remains live but V3 is the primary deployment. aDAI on V2 continues to be held by
+  many users and represents significant TVL.
+
+  ## Sources
+
+  - [Aave V2 documentation](https://docs.aave.com/developers/v/2.0/)
+  - [Etherscan: aDAI on Ethereum](https://etherscan.io/token/0x028171bca77440897b824ca71d1c56cac55b68a3)
+category: yield_bearing
 links:
   homepage: https://aave.com/
   coingecko: https://www.coingecko.com/en/coins/aave-dai
   defillama: ''
-  twitter: https://x.com/aaborave
+  twitter: https://x.com/aave
 slug: adai
+contract_addresses:
+  - chain: ethereum
+    address: '0x028171bca77440897b824ca71d1c56cac55b68a3'

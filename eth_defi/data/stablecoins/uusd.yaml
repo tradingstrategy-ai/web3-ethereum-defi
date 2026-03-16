@@ -1,12 +1,22 @@
 symbol: UUSD
 name: Utopia USD
-short_description: Utopia USD (UUSD) is a stablecoin from the Utopia ecosystem, a privacy-focused platform. It is designed for anonymous transactions within the Utopia network. UUSD maintains a USD peg within
-  the privacy-preserving Utopia ecosystem.
-long_description: ''
+short_description: Utopia USD (UUSD) is a privacy-focused stablecoin within the Utopia P2P ecosystem, pegged 1:1 to the US Dollar and backed by DAI collateral. It is designed for anonymous, decentralised transactions and has largely ceased active trading.
+long_description: |
+  Utopia USD (UUSD) is a stablecoin issued by the [Utopia](https://u.is/) P2P ecosystem, a privacy-oriented
+  communications and payments network. It is backed by DAI collateral and targets a 1:1 USD peg.
+
+  ## Status
+
+  UUSD trading has become largely inactive — as of early 2026, tokens had stopped trading on all listed exchanges
+  for extended periods. The stablecoin may be considered dormant.
+
+  ## Sources
+
+  - [CoinGecko — Utopia USD](https://www.coingecko.com/en/coins/utopia-usd)
 category: stablecoin
 links:
   homepage: https://u.is/
-  coingecko: ''
+  coingecko: https://www.coingecko.com/en/coins/utopia-usd
   defillama: ''
   twitter: ''
 slug: uusd

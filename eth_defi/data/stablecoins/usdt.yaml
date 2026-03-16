@@ -2,13 +2,31 @@ symbol: USDT
 name: Tether USD
 short_description: Tether (USDT) is the largest stablecoin by market capitalisation, pegged 1:1 to the US Dollar. It is issued by Tether Limited and backed by reserves including cash, cash equivalents, and other
   assets. USDT is the most widely traded cryptocurrency by volume.
-long_description: ''
+long_description: |
+  Tether (USDT) is the largest stablecoin and the most traded cryptocurrency by volume.
+  It is issued by [Tether Limited](https://tether.to/) and backed by reserves including US Treasury Bills,
+  cash, cash equivalents, and other short-term assets.
+
+  ## Key deployments
+
+  USDT is deployed natively on many chains. The most significant contract addresses are:
+
+  - Ethereum (ERC-20): `0xdAC17F958D2ee523a2206206994597C13D831ec7`
+  - Tron (TRC-20): `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`
+
+  ## Sources
+
+  - [Tether.to](https://tether.to/)
+  - [DeFiLlama — Tether](https://defillama.com/stablecoin/tether)
 category: stablecoin
 links:
   homepage: https://tether.to/
   coingecko: https://www.coingecko.com/en/coins/tether
   defillama: https://defillama.com/stablecoin/tether
   twitter: https://x.com/Tether_to
+contract_addresses:
+  - chain: ethereum
+    address: '0xdAC17F958D2ee523a2206206994597C13D831ec7'
 slug: usdt
 token_symbols:
 - USDT

@@ -2,19 +2,46 @@ symbol: RUSD
 category: stablecoin
 entries:
 - name: Reservoir rUSD
-  short_description: Reservoir rUSD is a stablecoin associated with the Reservoir protocol. It is designed for DeFi lending and liquidity provision. Details about its specific mechanism are limited.
-  long_description: ''
+  short_description: Reservoir rUSD is a decentralised, scalable, yield-bearing stablecoin by Reservoir Protocol on Ethereum. The protocol also offers srUSD (liquid yielding) and trUSD (term-based yielding) variants backed by multiple digital and real-world assets.
+  long_description: |
+    [Reservoir Protocol](https://www.reservoir.xyz/) issues rUSD as "the next-gen stablecoin"
+    backed by multiple digital and real-world assets. The protocol provides a full ecosystem
+    including rUSD (base stablecoin), srUSD (liquid yielding), and trUSD (term-based yielding),
+    plus a decentralised lending marketplace.
+
+    Contract address on Ethereum: `0x09D4214C03D01F49544C0448DBE3A27f768F2b34`
+    (365,983 rUSD, 1,201 holders as of early 2025)
   links:
     homepage: https://www.reservoir.xyz/
     coingecko: ''
     defillama: ''
     twitter: ''
 - name: f(x) rUSD
-  short_description: f(x) rUSD is a stablecoin issued by the f(x) Protocol built on Aladdin DAO. It uses a leveraged-yield mechanism similar to fxUSD. rUSD is backed by liquid staking derivatives.
-  long_description: ''
+  short_description: f(x) rUSD is a stablecoin issued by f(x) Protocol on Ethereum, built on Aladdin DAO. It uses the f(x) mechanism where LST-backed collateral is split into a low-volatility stable token (rUSD) and a leveraged long position.
+  long_description: |
+    [f(x) Protocol](https://fx.aladdin.club/) issues rUSD as a low-volatility synthetic dollar
+    backed by liquid staking derivatives. The protocol uses a mathematical invariant to split
+    collateral (wstETH, WBTC) into a stable token (rUSD/fxUSD) and a leveraged perpetual
+    (xPOSITION). The protocol has completed 16 security audits including OpenZeppelin.
+
+    Contract address on Ethereum: `0x65d72aa8da931f047169112fcf34f52dbaae7d18`
+    (103,956 rUSD, 142 holders as of early 2025)
   links:
     homepage: https://fx.aladdin.club/
     coingecko: ''
     defillama: ''
     twitter: https://x.com/protocol_fx
+- name: Realio Network rUSD
+  short_description: Realio Network rUSD is a multichain stablecoin by Realio Network, providing a fiat on/off ramp for trading on the Realio Platform. It is a smaller real-world asset (RWA) project.
+  long_description: |
+    [Realio Network](https://realio.fund/) issues rUSD as "a Realio multichain stablecoin asset"
+    providing users of the Realio Platform a fiat on/off ramp for trading.
+
+    Contract address on Ethereum: `0xF9A2D7E60a3297e513317ad1d7ce101cc4c6c8f6`
+    (100M max supply, 89 holders, minimal activity as of early 2025)
+  links:
+    homepage: https://realio.fund/
+    coingecko: ''
+    defillama: ''
+    twitter: ''
 slug: rusd

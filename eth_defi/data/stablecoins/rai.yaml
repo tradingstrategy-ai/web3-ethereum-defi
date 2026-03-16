@@ -1,12 +1,38 @@
 symbol: RAI
 name: Rai (Reflexer)
-short_description: RAI is a non-pegged stablecoin issued by Reflexer Labs on Ethereum. It uses a redemption rate mechanism to dampen price volatility rather than targeting a fixed dollar peg. RAI is backed solely
-  by ETH and is governance-minimised.
-long_description: ''
+short_description: RAI is a non-pegged, ETH-backed stable asset issued by Reflexer Labs on Ethereum. It uses a PID controller (redemption rate mechanism) to dampen price volatility rather than targeting a fixed dollar peg. RAI is backed solely by ETH and is governance-minimised.
+long_description: |
+  RAI is issued by [Reflexer Finance](https://reflexer.finance/) on Ethereum. Unlike most
+  stablecoins, RAI does not target a fixed $1 peg. Instead, it uses an on-chain PID controller
+  called the "Rate Setter" (or "Money God") that adjusts the redemption rate to push the market
+  price towards the redemption price over time.
+
+  ## Mechanism
+
+  - Backed solely by ETH — no other collateral types
+  - Users open SAFEs (analogous to Maker Vaults) to mint RAI
+  - The redemption rate can be positive or negative, creating incentives to mint or burn RAI
+  - Starting redemption price was ~$3.14 (pi), not $1.00
+  - Governance-minimised: Reflexer aims for "ungovernance" with minimal human intervention
+
+  ## Status
+
+  Active on Ethereum with approximately 560,000 RAI in circulation and 3,660 holders.
+  The current market price is approximately $3.38. While the protocol is operational, Reflexer
+  has shifted focus to future iterations; RAI V1 activity has declined significantly.
+
+  ## Sources
+
+  - [Reflexer Finance](https://reflexer.finance/)
+  - [DeFiLlama — RAI](https://defillama.com/stablecoin/rai)
+  - [Etherscan — RAI](https://etherscan.io/token/0x03ab458634910AaD20eF5f1C8ee96F1D6ac54919)
 category: stablecoin
 links:
   homepage: https://reflexer.finance/
   coingecko: https://www.coingecko.com/en/coins/rai
   defillama: https://defillama.com/stablecoin/rai
-  twitter: https://x.com/reflexaborerfinance
+  twitter: https://x.com/reflexerfinance
+contract_addresses:
+  - chain: ethereum
+    address: '0x03ab458634910AaD20eF5f1C8ee96F1D6ac54919'
 slug: rai

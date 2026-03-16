@@ -8,5 +8,12 @@ links:
   homepage: https://usdd.io/
   coingecko: https://www.coingecko.com/en/coins/usdd
   defillama: https://defillama.com/stablecoin/usdd
-  twitter: https://x.com/usaboreddio
+  twitter: https://x.com/usddio
 slug: usdd
+contract_addresses:
+  - chain: ethereum
+    address: '0x4f8e5de400de08b164e7421b3ee387f461becd1a'
+  - chain: binance
+    address: '0x392004bee213f1ff580c867359c246924f21e6ad'
+  - chain: arbitrum
+    address: '0x680447595e8b7b3aa1b43beb9f6098c79ac2ab3f'

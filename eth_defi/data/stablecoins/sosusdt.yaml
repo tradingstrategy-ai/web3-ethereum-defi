@@ -1,6 +1,6 @@
 symbol: sosUSDT
 name: Unknown
-short_description: ''
+short_description: sosUSDT is an unidentified token. The symbol pattern resembles a lending receipt token (e.g. soUSDT from Sonne Finance on Optimism), but no verified project with this exact symbol was found. Further research required.
 long_description: ''
 category: stablecoin
 links:

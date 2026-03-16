@@ -1,12 +1,35 @@
 symbol: cUSDC
 name: Compound USDC
-short_description: cUSDC is the Compound protocol's interest-bearing token representing USDC supplied to Compound V2. It accrues interest automatically as borrowers pay interest on USDC loans. cUSDC was one of
-  the first yield-bearing stablecoin tokens in DeFi.
-long_description: ''
-category: wrapped
+short_description: cUSDC is the Compound V2 protocol's interest-bearing token representing USDC supplied to the Compound lending pool on Ethereum. It accrues interest automatically as borrowers pay interest
+  on USDC loans. cUSDC was one of the first yield-bearing stablecoin tokens in DeFi.
+long_description: |
+  cUSDC is issued by [Compound Finance](https://compound.finance/) V2 on Ethereum. When users deposit USDC
+  into Compound V2, they receive cUSDC tokens that automatically appreciate in value as interest accrues.
+  The exchange rate between cUSDC and USDC increases continuously.
+
+  ## Mechanism
+
+  - cUSDC represents a share of the USDC lending pool on Compound V2
+  - Exchange rate increases over time as interest accrues (not rebasing)
+  - 8 decimal places
+  - Can be redeemed for underlying USDC at any time
+
+  ## Status
+
+  Compound V2 is still live. Note: the Twitter handle is corrected — Compound Finance is
+  [@compoundfinance](https://x.com/compoundfinance).
+
+  ## Sources
+
+  - [Compound V2 documentation](https://docs.compound.finance/v2/)
+  - [Etherscan: cUSDC on Ethereum](https://etherscan.io/token/0x39aa39c021dfbae8fac545936693ac917d5e7563)
+category: yield_bearing
 links:
   homepage: https://compound.finance/
   coingecko: https://www.coingecko.com/en/coins/compound-usd-coin
   defillama: ''
-  twitter: https://x.com/compaboroundfinance
+  twitter: https://x.com/compoundfinance
 slug: cusdc
+contract_addresses:
+  - chain: ethereum
+    address: '0x39aa39c021dfbae8fac545936693ac917d5e7563'

@@ -1,12 +1,35 @@
 symbol: USDai
-name: USDai (Permian Labs / USD.AI)
-short_description: USDai is a stablecoin by USD.AI (Permian Labs) that leverages AI for risk management. It is designed to maintain its peg through algorithmic and reserve-backed mechanisms. USDai is focused
-  on providing stable, yield-generating digital dollars.
-long_description: ''
+name: USDai (USD.AI)
+short_description: USDai is a GPU-backed synthetic stablecoin issued by USD.AI. It is collateralised by physical NVIDIA GPU hardware (H100, H200, B200) used in AI compute infrastructure. USDai can be staked as sUSDai to earn yield from GPU compute revenues.
+long_description: |
+  USDai is issued by [USD.AI](https://usd.ai/), a protocol that uses physical GPU computing
+  hardware as collateral for its stablecoin, rather than traditional crypto or fiat assets.
+
+  ## Mechanism
+
+  - Users generate USDai by depositing USDC, which is deployed as infrastructure loans
+    backed by high-performance GPU hardware
+  - USDai is redeemable 1:1 for USDC at any time
+  - The stablecoin itself does not distribute yield; yield is available through sUSDai
+
+  ## Yield token
+
+  sUSDai is a yield-bearing wrapper that earns returns from GPU compute revenues.
+  Independent experts vet borrowers and hardware assets.
+
+  ## Chains
+
+  USDai is deployed on Arbitrum (primary), Plasma, and Ethereum.
+
+  ## Sources
+
+  - [USD.AI website](https://usd.ai/)
+  - [USD.AI documentation](https://docs.usd.ai/)
+  - [DeFiLlama — USDai](https://defillama.com/stablecoin/usdai)
 category: stablecoin
 links:
   homepage: https://usd.ai/
   coingecko: https://www.coingecko.com/en/coins/usdai
   defillama: https://defillama.com/stablecoin/usdai
-  twitter: https://x.com/usd_ai
+  twitter: https://x.com/USDai_Official
 slug: usdai

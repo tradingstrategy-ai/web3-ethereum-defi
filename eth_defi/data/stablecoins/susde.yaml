@@ -1,12 +1,19 @@
 symbol: sUSDe
 name: Ethena Staked USDe
-short_description: sUSDe is the staked version of Ethena's USDe that earns yield from funding rates and staking rewards. It represents USDe deposited in the Ethena staking contract. sUSDe is one of the highest-yielding
-  stablecoin products in DeFi.
-long_description: ''
+short_description: sUSDe is the yield-bearing staking token for Ethena's USDe synthetic dollar. Users stake USDe to receive sUSDe, which accrues yield from delta-neutral basis trading (short perpetual futures against spot collateral). sUSDe had a $3.6B+ market cap in 2026.
+long_description: |
+  sUSDe is issued by [Ethena](https://ethena.fi/) as the staking layer for USDe, a synthetic dollar backed by crypto assets with hedged perpetual futures positions. The delta-neutral strategy generates yield primarily from funding rates paid by long traders.
+
+  The StakedUSDe contract implements ERC-4626. When staking, users transfer USDe into the contract and receive sUSDe tokens that accumulate protocol revenue without any manual reinvestment. sUSDe has a 7-day unstaking period.
+
+  Since launch in early 2024, sUSDe has averaged approximately 17.5% APY, peaking at 55.9% in March 2024. USDe surpassed DAI to become the third-largest stablecoin by market cap. sUSDe is listed on [CoinGecko](https://www.coingecko.com/en/coins/ethena-staked-usde) and USDe is tracked on [DefiLlama](https://defillama.com/stablecoin/ethena-usde).
 category: yield_bearing
 links:
   homepage: https://ethena.fi/
   coingecko: https://www.coingecko.com/en/coins/ethena-staked-usde
-  defillama: ''
+  defillama: https://defillama.com/stablecoin/ethena-usde
   twitter: https://x.com/ethena_labs
+contract_addresses:
+  - chain: ethereum
+    address: '0x9D39A5DE30e57443BfF2A8307A4256c8797A3497'
 slug: susde

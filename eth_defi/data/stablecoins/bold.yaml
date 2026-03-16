@@ -1,8 +1,26 @@
 symbol: BOLD
 name: Liquity BOLD
-short_description: BOLD is the USD-pegged stablecoin issued by Liquity V2, fully decentralised and overcollateralised. It is backed exclusively by WETH, wstETH, and rETH with a minimum collateral ratio of 110%.
-  BOLD is redeemable for $1 worth of underlying collateral and is immutable with no governance.
-long_description: ''
+short_description: BOLD is the USD-pegged stablecoin issued by Liquity V2, fully decentralised and overcollateralised by ETH and liquid staking tokens. It has a minimum collateral ratio of 110%, is always
+  redeemable for $1 of collateral, and is immutable with no governance.
+long_description: |
+  BOLD is the native stablecoin of [Liquity V2](https://www.liquity.org/), launched in 2024. It is the
+  successor to LUSD and maintains the same core principles of full decentralisation and immutability.
+  BOLD is rated A- by Bluechip, making it one of the highest-rated decentralised stablecoins.
+
+  ## Mechanism
+
+  - Overcollateralised CDP model: backed exclusively by WETH, wstETH, and rETH
+  - Minimum collateral ratio: 110% (no stability fee; instead users set their own interest rate)
+  - Always redeemable at face value: 1 BOLD = $1 of collateral
+  - No governance: protocol is immutable and fully on-chain
+  - 100% of protocol revenue distributed to BOLD stakers and liquidity providers
+  - Stability Pool absorbs liquidations
+
+  ## Sources
+
+  - [Liquity V2 documentation](https://docs.liquity.org/)
+  - [Etherscan: BOLD on Ethereum](https://etherscan.io/token/0x6440f144b7e50d6a8439336510312d2f54beb01d)
+  - [DeFiLlama: Liquity BOLD](https://defillama.com/stablecoin/liquity-bold)
 category: stablecoin
 links:
   homepage: https://www.liquity.org/
@@ -10,3 +28,6 @@ links:
   defillama: https://defillama.com/stablecoin/liquity-bold
   twitter: https://x.com/LiquityProtocol
 slug: bold
+contract_addresses:
+  - chain: ethereum
+    address: '0x6440f144b7e50d6a8439336510312d2f54beb01d'

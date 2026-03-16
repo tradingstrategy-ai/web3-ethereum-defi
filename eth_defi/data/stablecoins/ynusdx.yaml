@@ -1,11 +1,31 @@
 symbol: ynUSDx
 name: YieldNest USD
 short_description: ynUSDx is a yield-bearing USD token from YieldNest Finance. It aggregates stablecoin yield from diversified DeFi strategies. YieldNest provides optimised yield across multiple protocols.
-long_description: ''
+long_description: |
+  ynUSDx (ynUSD Max) is a yield-bearing ERC-4626 stablecoin vault from
+  [YieldNest Finance](https://www.yieldnest.finance/). It is their "MAX" vault product,
+  designed to deliver optimised, risk-adjusted yield from stablecoins by aggregating
+  top-tier DeFi and RWA strategies — including lending markets, liquidity provision,
+  and yield farming.
+
+  ## Mechanism
+
+  ynUSDx is built on Ethereum L1 and targets APYs of 4–15%+ with automatic compounding
+  and dynamic capital allocation across strategies. It follows the ERC-4626 tokenised
+  vault standard.
+
+  ## Sources
+
+  - [CoinGecko — ynUSD Max](https://www.coingecko.com/en/coins/ynusd-max)
+  - [YieldNest Docs — ynUSDx](https://docs.yieldnest.finance/protocol-design/max-vaults/ynusd-max-ynusdx)
+  - [DefiLlama — YieldNest](https://defillama.com/protocol/yieldnest)
 category: yield_bearing
 links:
-  homepage: https://app.yieldnest.finance/
-  coingecko: ''
-  defillama: ''
-  twitter: https://x.com/yaborieldnest
+  homepage: https://app.yieldnest.finance/token/ynUSDx
+  coingecko: https://www.coingecko.com/en/coins/ynusd-max
+  defillama: https://defillama.com/protocol/yieldnest
+  twitter: https://x.com/YieldNestFi
+contract_addresses:
+  - chain: ethereum
+    address: '0x3db228fe836d99ccb25ec4dfdc80ed6d2cddcb4b'
 slug: ynusdx

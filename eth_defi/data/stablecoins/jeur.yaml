@@ -9,4 +9,7 @@ links:
   coingecko: https://www.coingecko.com/en/coins/jarvis-synthetic-euro
   defillama: ''
   twitter: https://x.com/Jarvis_Network
+contract_addresses:
+  - chain: ethereum
+    address: '0x0f17BC9a994b87b5225cFb6a2CD4D667ADB4F20B'
 slug: jeur

@@ -8,5 +8,8 @@ links:
   homepage: https://usual.money/
   coingecko: https://www.coingecko.com/en/coins/usual-usd
   defillama: https://defillama.com/stablecoin/usual-usd
-  twitter: https://x.com/usaborualprotocol
+  twitter: https://x.com/usualmoney
 slug: usd0
+contract_addresses:
+  - chain: ethereum
+    address: '0x73A15FeD60Bf67631dC6cd7Bc5B6e8da8190aCF5'

@@ -1,7 +1,23 @@
 symbol: avUSD
 name: Avant USD
-short_description: Avant USD (avUSD) is a stablecoin from the Avant Protocol. It uses delta-neutral strategies to maintain its dollar peg. Avant is designed for yield generation through hedged positions.
-long_description: ''
+short_description: Avant USD (avUSD) is the primary stablecoin of Avant Protocol, fully backed 1:1 by USDC. It is natively deployed on Avalanche with bridged versions on Ethereum and Linea via Chainlink CCIP.
+  Users can stake avUSD to earn yield from the protocol's DeFi strategies.
+long_description: |
+  avUSD is issued by [Avant Protocol](https://www.avantprotocol.com/), a yield-generating DeFi platform
+  built natively on [Avalanche](https://avax.network/). The token acts as a liquid receipt for deposited
+  USDC and is the entry point for USD-denominated yield within the Avant ecosystem.
+
+  ## Mechanism
+
+  - 1:1 backed by USDC deposits
+  - avUSD itself does not generate yield; users must stake it to earn returns
+  - Staked avUSD (savUSD) earns yield from the protocol's on-chain DeFi strategies
+  - Available natively on Avalanche; bridged to Ethereum and Linea via Chainlink CCIP
+
+  ## Sources
+
+  - [Avant Protocol documentation — core tokens](https://docs.avantprotocol.com/overview/core-tokens)
+  - [CoinGecko: Avant USD](https://www.coingecko.com/en/coins/avant-usd)
 category: stablecoin
 links:
   homepage: https://www.avantprotocol.com/
@@ -9,3 +25,8 @@ links:
   defillama: ''
   twitter: https://x.com/avantprotocol
 slug: avusd
+contract_addresses:
+  - chain: avalanche
+    address: '0x24de8771bc5ddb3362db529fc3358f2df3a0e346'
+  - chain: ethereum
+    address: '0xf4c13D631450De6B12a19829E37c8e2826891dC4'

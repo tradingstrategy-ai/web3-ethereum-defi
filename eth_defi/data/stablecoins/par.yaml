@@ -1,12 +1,35 @@
 symbol: PAR
-name: Parallel (MIMO Protocol)
-short_description: PAR is a Euro-pegged stablecoin issued by MIMO Protocol (Parallel). It is overcollateralised by crypto assets deposited in MIMO vaults. PAR enables Euro-denominated DeFi activities on Ethereum
-  and Polygon.
-long_description: ''
+name: PAR (MIMO Protocol)
+short_description: PAR is a Euro-pegged stablecoin issued by MIMO Protocol on Ethereum and Polygon. It is overcollateralised by crypto assets (WETH, WBTC, USDC) deposited in MIMO vaults. PAR enables Euro-denominated DeFi activities.
+long_description: |
+  PAR is issued by [MIMO Protocol](https://par.mimo.capital/) (previously known as Parallel),
+  an overcollateralised stablecoin protocol. Users deposit accepted collateral into MIMO vaults
+  and receive PAR loans denominated in Euro.
+
+  ## Mechanism
+
+  - Overcollateralised vaults backed by WETH, WBTC, USDC, and other approved collateral
+  - Pegged to the Euro (EUR), not USD
+  - Available on Ethereum and Polygon
+  - MIMO is the governance token
+
+  ## Status
+
+  Active on Ethereum with approximately 2.24 million PAR in circulation and a current market price
+  of approximately $1.30 USD per PAR (reflecting EUR/USD exchange rate).
+
+  ## Sources
+
+  - [MIMO Protocol](https://mimo.capital/)
+  - [CoinGecko — PAR](https://www.coingecko.com/en/coins/par-stablecoin)
+  - [Etherscan — PAR](https://etherscan.io/token/0x68037790A0229e9Ce6EaA8A99ea92964106C4703)
 category: stablecoin
 links:
   homepage: https://par.mimo.capital/
   coingecko: https://www.coingecko.com/en/coins/par-stablecoin
   defillama: ''
   twitter: https://x.com/mimodefi
+contract_addresses:
+  - chain: ethereum
+    address: '0x68037790A0229e9Ce6EaA8A99ea92964106C4703'
 slug: par

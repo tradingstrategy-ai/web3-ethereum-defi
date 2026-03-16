@@ -2,11 +2,21 @@ symbol: FDUSD
 name: First Digital USD
 short_description: First Digital USD (FDUSD) is a USD-backed stablecoin issued by First Digital Labs, based in Hong Kong. It is fully backed by US dollars and US Treasury bills held in segregated accounts. FDUSD
   is widely traded on Binance and other major exchanges.
-long_description: ''
+long_description: |
+  [First Digital USD (FDUSD)](https://firstdigitallabs.com/) is a fiat-backed stablecoin issued by [First Digital Labs](https://firstdigitallabs.com/), a Hong Kong-based digital asset infrastructure company.
+  Each FDUSD is fully backed by US dollars and short-term US Treasury bills held in segregated custodian accounts, with monthly attestations published.
+
+  FDUSD was launched in 2023 and rapidly grew to become one of the most traded stablecoins, primarily through [Binance](https://www.binance.com/), which offers zero-fee trading pairs denominated in FDUSD.
+  It is available on Ethereum and BNB Smart Chain (same contract address on both networks), as well as Sui, Solana, and Arbitrum.
 category: stablecoin
 links:
   homepage: https://firstdigitallabs.com/
   coingecko: https://www.coingecko.com/en/coins/first-digital-usd
   defillama: https://defillama.com/stablecoin/first-digital-usd
   twitter: https://x.com/FDLabsHQ
+contract_addresses:
+  - chain: ethereum
+    address: '0xc5f0f7b66764f6ec8c8dff7ba683102295e16409'
+  - chain: binance
+    address: '0xc5f0f7b66764f6ec8c8dff7ba683102295e16409'
 slug: fdusd

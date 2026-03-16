@@ -2,7 +2,22 @@ symbol: USDtb
 name: Ethena USDtb
 short_description: USDtb is a stablecoin by Ethena Labs backed primarily by BlackRock's BUIDL tokenised treasury fund. It provides a more conservatively backed alternative to USDe. USDtb is designed for institutional
   use with traditional asset backing.
-long_description: ''
+long_description: |
+  USDtb is a stablecoin issued by [Ethena Labs](https://ethena.fi/) as a conservatively backed complement to USDe.
+  Its primary reserve asset is BlackRock's BUIDL fund (tokenised US Treasuries), with additional backing from
+  other tokenised money-market instruments.
+
+  ## Purpose
+
+  USDtb is designed for institutional participants who prefer traditional asset backing over synthetic/delta-neutral
+  backing. It provides Ethena's broader ecosystem with a stable, low-risk alternative that can serve as collateral
+  or backing when USDe's delta-neutral funding strategy is less attractive.
+
+  ## Sources
+
+  - [USDtb.money](https://usdtb.money/)
+  - [CoinGecko — USDtb](https://www.coingecko.com/en/coins/usdtb)
+  - [DeFiLlama — USDtb](https://defillama.com/stablecoin/usdtb)
 category: stablecoin
 links:
   homepage: https://usdtb.money/

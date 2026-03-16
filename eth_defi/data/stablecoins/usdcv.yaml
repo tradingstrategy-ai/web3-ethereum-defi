@@ -10,3 +10,6 @@ links:
   defillama: ''
   twitter: https://x.com/SG_FORGE
 slug: usdcv
+contract_addresses:
+  - chain: ethereum
+    address: '0x5422374B27757da72d5265cC745ea906E0446634'

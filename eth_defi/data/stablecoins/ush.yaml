@@ -1,12 +1,29 @@
 symbol: USH
 name: unshETH
-short_description: USH is the governance token of unshETH, a protocol for diversified ETH staking. It is not a stablecoin but is included in the stablecoin-like set for tracking purposes. unshETH provides a basket
-  of liquid staking derivatives.
-long_description: ''
+short_description: USH is the governance and incentive token of unshETH, a protocol for diversified Ethereum liquid staking. unshETH allows users to hold a basket of LSDs (liquid staking derivatives) in a single vault, promoting validator decentralisation across Ethereum.
+long_description: |
+  USH is the native token of [unshETH](https://unsheth.xyz/), an on-chain movement to incentivise Ethereum
+  validator diversity. The protocol issues unshETH tokens backed by a diversified basket of liquid staking
+  derivatives (LSDs) from providers such as Lido, Rocket Pool, and others.
+
+  ## Purpose
+
+  USH is used for governance and as an incentive mechanism (validator decentralisation mining / vdMining) to
+  encourage liquidity providers. It is not itself a stablecoin.
+
+  ## Note
+
+  USH trading volume is low as of early 2026, but the protocol documentation remains active.
+
+  ## Sources
+
+  - [unshETH](https://unsheth.xyz/)
+  - [CoinGecko — unshETHing Token](https://www.coingecko.com/en/coins/unshething-token)
+  - [DeFiLlama — unshETH](https://defillama.com/protocol/unsheth)
 category: stablecoin
 links:
   homepage: https://unsheth.xyz/
-  coingecko: https://www.coingecko.com/en/coins/unsheth
-  defillama: ''
-  twitter: https://x.com/unshETHbor_xyz
+  coingecko: https://www.coingecko.com/en/coins/unshething-token
+  defillama: https://defillama.com/protocol/unsheth
+  twitter: https://x.com/unshETH_xyz
 slug: ush

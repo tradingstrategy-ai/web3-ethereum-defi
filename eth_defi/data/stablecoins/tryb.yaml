@@ -1,12 +1,19 @@
 symbol: TRYB
 name: BiLira Turkish Lira
-short_description: BiLira (TRYB) is a Turkish Lira-backed stablecoin pegged 1:1 to TRY. It is fully collateralised with Turkish Lira reserves held in regulated Turkish banks. TRYB enables digital transactions
-  denominated in Turkish Lira.
-long_description: ''
+short_description: BiLira (TRYB) is a Turkish Lira-backed stablecoin pegged 1:1 to TRY. It is fully collateralised with Turkish Lira reserves held in regulated Turkish banks. TRYB enables digital transactions denominated in Turkish Lira across multiple blockchains.
+long_description: |
+  BiLira (TRYB) is a Turkish Lira stablecoin issued by [BiLira](https://www.bilira.co/), a fintech company founded in Turkey in 2019. TRYB is backed 1:1 by Turkish Lira held in regulated Turkish bank accounts, with regular audit reports to ensure transparency.
+
+  TRYB is available on Ethereum, Avalanche, Solana, Binance Smart Chain, and Polygon. It became the world's second-largest non-dollar-pegged stablecoin by market cap in September 2023, following significant growth driven by demand for lira-denominated digital assets.
+
+  TRYB is listed on [CoinGecko](https://www.coingecko.com/en/coins/bilira).
 category: stablecoin
 links:
   homepage: https://www.bilira.co/
   coingecko: https://www.coingecko.com/en/coins/bilira
   defillama: ''
-  twitter: https://x.com/AboriBiLira
+  twitter: https://x.com/BiLira_Official
+contract_addresses:
+  - chain: ethereum
+    address: '0x2c537E5624e4af88A7ae4060C022609376C8D0EB'
 slug: tryb

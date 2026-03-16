@@ -9,4 +9,7 @@ links:
   coingecko: https://www.coingecko.com/en/coins/zusd
   defillama: ''
   twitter: ''
+contract_addresses:
+  - chain: ethereum
+    address: '0xc56c2b7e71B54d38Aab6d52E94a04Cbfa8F604fA'
 slug: zusd

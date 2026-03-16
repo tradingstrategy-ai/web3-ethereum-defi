@@ -1,12 +1,18 @@
 symbol: feUSD
 name: Felix feUSD
-short_description: feUSD is a stablecoin issued by the Felix protocol for decentralised lending and borrowing. It is designed to be used within the Felix DeFi ecosystem. Details about its collateral backing and
-  mechanism are limited.
-long_description: ''
+short_description: feUSD is a CDP stablecoin issued by the Felix Protocol, a Liquity V2 fork on HyperEVM (Hyperliquid Layer 1). Users mint feUSD by depositing crypto assets as collateral. feUSD is the leading
+  native stablecoin on HyperEVM.
+long_description: |
+  [feUSD](https://www.usefelix.xyz/) is a collateralised debt position (CDP) stablecoin issued by [Felix Protocol](https://www.usefelix.xyz/), the first major lending protocol on [HyperEVM](https://hyperliquid.xyz/) (Hyperliquid's EVM-compatible layer).
+  Felix is a friendly fork of Liquity V2, enabling users to borrow feUSD against crypto collateral at interest rates determined by governance.
+
+  Felix launched in early 2025 and quickly became the dominant native stablecoin protocol on HyperEVM, with over $150 million in TVL.
+  It has integrations with Morpho and Ethena, and feUSD is used for yield strategies across the Hyperliquid ecosystem.
+  Felix announced plans to evolve feUSD towards a broader stablecoin called HUSD.
 category: stablecoin
 links:
   homepage: https://www.usefelix.xyz/
-  coingecko: ''
+  coingecko: https://www.coingecko.com/en/coins/felix-feusd
   defillama: ''
-  twitter: https://x.com/usefelix
+  twitter: https://x.com/felixprotocol
 slug: feusd

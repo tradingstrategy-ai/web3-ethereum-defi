@@ -1,12 +1,21 @@
 symbol: sUSDC
 name: Spark Savings USDC
-short_description: sUSDC is Spark Protocol's savings version of USDC that earns yield from the Sky (MakerDAO) ecosystem. It represents USDC deposited into the Spark lending market. Spark is the front end for
-  the Sky Protocol's DeFi offerings.
-long_description: ''
-category: stablecoin
+short_description: sUSDC is Spark Protocol's savings vault for USDC that earns yield from the Sky Savings Rate (SSR). It represents USDC deposited into the Sky (formerly MakerDAO) savings mechanism via Spark. sUSDC is an accumulating token that increases in USDC value over time.
+long_description: |
+  sUSDC is issued by [Spark Protocol](https://spark.fi/), a lending and savings front end for [Sky Protocol](https://sky.money/) (formerly MakerDAO). The Savings USDC vault deposits user USDC into the Sky Savings Rate (SSR) and distributes the yield as an increasing sUSDC-to-USDC exchange rate.
+
+  sUSDC is an accumulating (non-rebasing) ERC-4626 vault token available on Ethereum, Base, and Arbitrum. Spark has also launched V2 Savings Vaults (spUSDC, spUSDT) with enhanced features and point rewards; users are encouraged to migrate to V2 for maximum benefits, but sUSDC V1 remains supported.
+
+  The Ethereum contract address for sUSDC is `0xBc65ad17c5C0a2A4D159fa5a503f4992c7B545FE`.
+category: yield_bearing
 links:
   homepage: https://spark.fi/
   coingecko: ''
   defillama: ''
   twitter: https://x.com/sparkdotfi
+contract_addresses:
+  - chain: ethereum
+    address: '0xBc65ad17c5C0a2A4D159fa5a503f4992c7B545FE'
+  - chain: arbitrum
+    address: '0x940098b108fb7d0a7e374f6eded7760787464609'
 slug: susdc

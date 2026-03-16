@@ -2,11 +2,21 @@ symbol: frxUSD
 name: Frax USD
 short_description: frxUSD is the latest stablecoin from Frax Finance, fully backed by US dollar reserves and BlackRock's BUIDL fund. It replaces the partially algorithmic FRAX model with full reserve backing.
   frxUSD is designed for use across the Frax ecosystem.
-long_description: ''
+long_description: |
+  [frxUSD](https://frax.finance/) is a fully reserve-backed USD stablecoin issued by [Frax Finance](https://frax.finance/).
+  It was launched in 2024 as the successor to the original partially-algorithmic FRAX stablecoin.
+  frxUSD is backed by US dollar reserves and tokenised Treasury products, including [BlackRock's BUIDL fund](https://www.blackrock.com/us/individual/products/buidl/).
+
+  frxUSD can be staked as sfrxUSD to earn yield from the underlying reserve assets.
+  It is deployed on Ethereum and can be transferred to Fraxtal and other chains.
+  The stablecoin is minted and redeemed via Frax Finance's mint and redeem mechanisms using USDC.
 category: stablecoin
 links:
   homepage: https://frax.finance/
   coingecko: https://www.coingecko.com/en/coins/frax-usd
   defillama: https://defillama.com/stablecoin/frax-usd
-  twitter: https://x.com/fraboraxfinance
+  twitter: https://x.com/fraxfinance
+contract_addresses:
+  - chain: ethereum
+    address: '0xcacd6fd266af91b8aed52accc382b4e165586e29'
 slug: frxusd

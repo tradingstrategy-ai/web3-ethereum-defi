@@ -1,12 +1,35 @@
 symbol: CADC
-name: Canadian Dollar Coin
-short_description: Canadian Dollar Coin (CADC) is a Canadian Dollar-backed stablecoin pegged 1:1 to CAD. It is fully collateralised with Canadian dollars held in regulated Canadian financial institutions. CADC
-  enables digital transactions denominated in Canadian dollars on Ethereum.
-long_description: ''
+name: CADC (CAD Coin)
+short_description: CADC is a Canadian Dollar-backed stablecoin on Ethereum, pegged 1:1 to CAD. It is fully collateralised with Canadian dollars held in a bank account in Canada, issued by PayTrie AB Inc.
+  CADC enables digital transactions denominated in Canadian dollars on multiple EVM chains.
+long_description: |
+  CADC (CAD Coin) is issued by [PayTrie AB Inc.](https://paytrie.com/), a Canadian fintech company. Each token
+  is fully backed by Canadian dollars held in a regulated Canadian bank account. The token uses a proxy/upgradeable
+  contract architecture.
+
+  ## Mechanism
+
+  - Fiat-backed: 1 CADC = 1 CAD, redeemable via the PayTrie platform
+  - Deployed on Ethereum (primary), Linea, Base, Arbitrum, and Polygon
+  - Proxy contract for upgradeability
+
+  ## Sources
+
+  - [Etherscan: CADC on Ethereum](https://etherscan.io/token/0xcadc0acd4b445166f12d2c07eac6e2544fbe2eef)
+  - [CoinGecko: CAD Coin](https://www.coingecko.com/en/coins/cad-coin)
 category: stablecoin
 links:
-  homepage: https://www.cadcoin.ca/
+  homepage: https://paytrie.com/
   coingecko: https://www.coingecko.com/en/coins/cad-coin
   defillama: ''
   twitter: ''
 slug: cadc
+contract_addresses:
+  - chain: ethereum
+    address: '0xcadc0acd4b445166f12d2c07eac6e2544fbe2eef'
+  - chain: base
+    address: '0x043eb4b75d0805c43d7c834902e335621983cf03'
+  - chain: arbitrum
+    address: '0x2b28e826b55e399f4d4699b85f68666ac51e6f70'
+  - chain: polygon
+    address: '0x9de41aff9f55219d5bf4359f167d1d0c772a396d'

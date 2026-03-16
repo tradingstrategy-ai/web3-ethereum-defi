@@ -4,14 +4,27 @@ entries:
 - name: StraitsX USD
   short_description: XUSD is a USD-backed stablecoin issued by StraitsX, a licensed payment institution in Singapore. Each XUSD is backed 1:1 by USD reserves. It enables digital transactions denominated in US
     dollars on blockchain.
-  long_description: ''
+  long_description: |
+    StraitsX XUSD is issued by [StraitsX](https://www.straitsx.com/), a regulated payment
+    institution in Singapore. The stablecoin contract was first deployed on Ethereum in
+    February 2024, leveraging the same security architecture as StraitsX's XSGD product
+    (previously audited by Quantstamp). XUSD is fully backed by USD reserves with monthly
+    attestation reports published.
+
+    XUSD is available on Ethereum and BNB Smart Chain, with Solana deployment planned for 2026.
+    It trades on major centralised exchanges (Binance, Bybit, MEXC) and DEXs (Uniswap, PancakeSwap).
   links:
-    homepage: https://www.straitsx.com/
+    homepage: https://www.straitsx.com/xusd
     coingecko: ''
     defillama: ''
     twitter: https://x.com/StraitsX
+  contract_addresses:
+    - chain: ethereum
+      address: '0xC08e7E23C235073C6807C2EFE7021304cb7c2815'
+    - chain: bsc
+      address: '0xF81aC2E1A0373ddE1BCE01E2Fe694a9b7E3bfcB9'
 - name: xDollar
-  short_description: xDollar was a multi-chain stablecoin protocol inspired by MakerDAO. It allowed minting xUSD stablecoins against various collateral types. The project has limited current activity.
+  short_description: xDollar (xUSD) was a multi-chain overcollateralised stablecoin protocol inspired by MakerDAO. It allowed minting xUSD stablecoins against various collateral types. The project has been largely abandoned.
   long_description: ''
   links:
     homepage: https://xdollar.fi/

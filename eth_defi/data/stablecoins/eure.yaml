@@ -2,11 +2,21 @@ symbol: EURe
 name: Monerium EUR emoney
 short_description: EURe is a Euro-backed electronic money token issued by Monerium, a licensed e-money institution in Europe. Each EURe is fully backed by Euros held in European bank accounts. It is available
   on Ethereum, Polygon, and Gnosis Chain.
-long_description: ''
+long_description: |
+  [EURe](https://monerium.com/) is an electronic money token (EMT) issued by [Monerium](https://monerium.com/), an Icelandic company licensed as an electronic money institution (EMI) under EU regulation.
+  Each EURe is fully backed 1:1 by Euro deposits held in segregated European bank accounts.
+
+  Unlike most stablecoins, EURe is directly redeemable for Euros via SEPA transfer.
+  Users can send Euros from their bank account to a Monerium IBAN and receive EURe on-chain, or burn EURe to receive Euros back in their bank account.
+  EURe is available on Ethereum, Gnosis Chain, Polygon, and Arbitrum.
+  The token was upgraded to V2 on Ethereum in December 2024; V1 continues to work.
 category: stablecoin
 links:
   homepage: https://monerium.com/
   coingecko: https://www.coingecko.com/en/coins/monerium-eur-money
   defillama: https://defillama.com/stablecoin/monerium-eur-money
-  twitter: https://x.com/maboronerium
+  twitter: https://x.com/monerium
+contract_addresses:
+  - chain: ethereum
+    address: '0x39b8b6385416f4ca36a20319f70d28621895279d'
 slug: eure

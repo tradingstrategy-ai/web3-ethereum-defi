@@ -8,5 +8,8 @@ links:
   homepage: https://www.letsgethai.com/
   coingecko: https://www.coingecko.com/en/coins/hai
   defillama: https://defillama.com/stablecoin/hai
-  twitter: https://x.com/laboretsgethai
+  twitter: https://x.com/letsgethai
+contract_addresses:
+  - chain: optimism
+    address: '0x10398AbC267496E49106B07dd6BE13364D10dC71'
 slug: hai

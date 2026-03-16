@@ -1,12 +1,19 @@
 symbol: rUSD
-name: IPOR rUSD
-short_description: rUSD is a stablecoin from the IPOR protocol ecosystem. It is designed for yield optimisation in DeFi interest rate markets. rUSD is part of IPOR's suite of interest rate derivatives and lending
-  products.
-long_description: ''
+name: Reservoir rUSD
+short_description: rUSD is an ERC-20 stablecoin issued by Reservoir Protocol, backed by a mix of real-world and digital assets. It can be minted and redeemed 1:1 for USDC or USDT. rUSD is integrated with IPOR Fusion for automated yield optimisation strategies.
+long_description: |
+  [Reservoir Protocol](https://reservoir.xyz) issues rUSD as a scalable, capital-efficient stablecoin backed by diversified real-world and digital assets. rUSD is available to non-US users and users in non-sanctioned countries.
+
+  rUSD is tightly integrated with [IPOR Fusion](https://www.ipor.io/ipor-fusion), a DeFi yield aggregation engine. Reservoir deployments powered by IPOR Fusion use automated srUSD looping vaults to optimise yield. In early 2025, the IPOR Fusion-powered Reservoir deployment grew from $200k to $2.4M TVL.
+
+  rUSD is tracked on [DefiLlama](https://defillama.com/stablecoin/reservoir-stablecoin) and [CoinGecko](https://www.coingecko.com/en/coins/reservoir-rusd).
 category: stablecoin
 links:
-  homepage: https://ipor.io/
-  coingecko: ''
-  defillama: ''
-  twitter: https://x.com/ipaboror_io
+  homepage: https://reservoir.xyz/
+  coingecko: https://www.coingecko.com/en/coins/reservoir-rusd
+  defillama: https://defillama.com/stablecoin/reservoir-stablecoin
+  twitter: https://x.com/__reservoir
+contract_addresses:
+  - chain: ethereum
+    address: '0x09d4214c03d01f49544c0448dbe3a27f768f2b34'
 slug: rusd-ipor

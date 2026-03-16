@@ -10,3 +10,6 @@ links:
   defillama: ''
   twitter: https://x.com/circle
 slug: usdbc
+contract_addresses:
+  - chain: base
+    address: '0xd9aAEc86b65D86f6A7B5B1b0c42FFA531710b6CA'

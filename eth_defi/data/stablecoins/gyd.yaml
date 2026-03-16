@@ -9,4 +9,9 @@ links:
   coingecko: https://www.coingecko.com/en/coins/gyroscope-gyd
   defillama: ''
   twitter: https://x.com/GyroscopeFi
+contract_addresses:
+  - chain: ethereum
+    address: '0xe07F9D810A48ab5c3C914BA3cA53AF14E4491e8A'
+  - chain: arbitrum
+    address: '0xCA5d8F8A8d49439357d3CF46Ca2e720702F132b8'
 slug: gyd

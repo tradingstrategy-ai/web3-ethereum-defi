@@ -2,17 +2,24 @@ symbol: dUSD
 category: stablecoin
 entries:
 - name: StandX DUSD
-  short_description: DUSD by StandX is a stablecoin designed for decentralised payments. It aims to provide stable digital currency for everyday transactions. Details about its collateral mechanism are limited.
-  long_description: ''
+  short_description: DUSD by StandX is a yield-bearing stablecoin backed by market-neutral, delta-hedged assets. It earns yield from staking rewards and futures funding fees. DUSD is primarily deployed on BNB Smart Chain.
+  long_description: |
+    [StandX DUSD](https://standx.com/) is a yield-bearing synthetic dollar issued by [StandX](https://standx.com/), a perpetual futures DEX.
+    It is backed by market-neutral assets (e.g., ETH, SOL) that are delta-hedged with short perpetual positions to eliminate directional risk.
+    Yield from staking rewards and futures funding fees is distributed to DUSD holders automatically without staking.
+    DUSD is primarily deployed on BNB Smart Chain and tracked on [DefiLlama](https://defillama.com/stablecoin/standx-dusd).
   links:
-    homepage: https://www.dusd.com/
-    coingecko: ''
-    defillama: ''
+    homepage: https://standx.com/
+    coingecko: https://www.coingecko.com/en/coins/standx-dusd
+    defillama: https://defillama.com/stablecoin/standx-dusd
     twitter: ''
 - name: DefiDollar
   short_description: DefiDollar (DUSD) was a meta-stablecoin that indexed multiple stablecoins to reduce risk. It combined USDC, DAI, USDT, and sUSD into a single index token. The project is no longer actively
     maintained.
-  long_description: ''
+  long_description: |
+    [DefiDollar](https://dusd.finance/) was a meta-stablecoin protocol that pooled multiple USD-pegged stablecoins (USDC, DAI, USDT, sUSD) to create a single index token with diversified stablecoin risk.
+    By holding DUSD, users gained exposure to a basket of stablecoins without concentrating risk in any single issuer.
+    The protocol is no longer actively maintained and is considered defunct.
   links:
     homepage: https://dusd.finance/
     coingecko: https://www.coingecko.com/en/coins/defidollar

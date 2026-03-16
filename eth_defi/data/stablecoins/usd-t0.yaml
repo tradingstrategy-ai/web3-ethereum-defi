@@ -1,11 +1,31 @@
 symbol: USD₮0
-name: Tether USD₮0
-short_description: USD₮0 is a variant of Tether's USDT stablecoin with a Unicode symbol representation. It is functionally equivalent to USDT and backed by Tether's reserves. The symbol variant appears on certain
-  chains and exchanges.
-long_description: ''
+name: Tether USD₮0 (USDT0)
+short_description: USD₮0 (USDT0) is an omnichain deployment of Tether's USDT stablecoin built on LayerZero's OFT (Omnichain Fungible Token) standard. Original USDT is locked on Ethereum and equivalent USD₮0 tokens are minted on 15+ destination chains. It eliminates fragmented liquidity and wrapped token complexity across chains.
+long_description: |
+  USD₮0 (also written USDT0) is an omnichain stablecoin infrastructure project by
+  [Tether](https://tether.to/) and [LayerZero](https://layerzero.network/), accessible at
+  [usdt0.to](https://usdt0.to/).
+
+  ## Mechanism
+
+  USD₮0 uses a lock-and-mint bridge model:
+  1. Original USDT is locked in smart contracts on Ethereum mainnet
+  2. Equivalent USD₮0 is minted on the destination chain, backed 1:1 by locked assets
+  3. Cross-chain transfers use LayerZero's omnichain messaging layer (OFT standard)
+  4. Redemption burns USD₮0 on any chain and unlocks original USDT on Ethereum
+
+  ## Chains
+
+  USD₮0 is deployed on 15+ blockchains. This approach provides unified liquidity
+  without fragmentation or wrapped token overhead.
+
+  ## Sources
+
+  - [USDT0 documentation](https://docs.usdt0.to/)
+  - [USDT0 website](https://usdt0.to/)
 category: stablecoin
 links:
-  homepage: https://tether.to/
+  homepage: https://usdt0.to/
   coingecko: ''
   defillama: ''
   twitter: https://x.com/Tether_to

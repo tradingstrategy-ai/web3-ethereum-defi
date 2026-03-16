@@ -1,12 +1,39 @@
 symbol: MIMATIC
 name: MAI (QiDAO)
-short_description: MAI (MIMATIC) is a decentralised stablecoin issued by QiDAO on multiple chains. It is overcollateralised by various crypto assets with interest-free borrowing. MAI is one of the most widely
-  deployed multi-chain stablecoins.
-long_description: ''
+short_description: MAI (also known as miMATIC on Polygon) is a decentralised stablecoin issued by QiDAO across multiple chains. It is overcollateralised by various crypto assets with interest-free borrowing at a 0.5% repayment fee. MAI is one of the most widely deployed multi-chain stablecoins.
+long_description: |
+  MAI is issued by [QiDAO](https://www.mai.finance/) (pronounced "chee-dao"), a decentralised
+  stablecoin protocol deployed across more than 15 blockchain networks.
+
+  ## Mechanism
+
+  - Overcollateralised CDPs — users deposit crypto assets into vaults and borrow MAI
+  - No interest rate; a 0.5% repayment fee is charged when the loan is closed
+  - Supported collateral includes WMATIC, WETH, WBTC, and many other assets depending on chain
+  - Minimum collateral ratios vary by collateral type (typically 130–150%)
+
+  ## Multi-chain deployment
+
+  Originally launched on Polygon as `miMATIC`, the token uses the symbol `MAI` on most chains.
+  Deployed on Polygon, Ethereum, Arbitrum, Optimism, Fantom, Avalanche, BNB Chain, Gnosis,
+  Metis, Moonbeam, and others.
+
+  ## Status
+
+  Active across multiple chains. The primary Polygon deployment at
+  `0xa3Fa99A148fA48D14Ed51d610c367C61876997F1` remains the canonical contract.
+
+  ## Sources
+
+  - [QiDAO / mai.finance](https://www.mai.finance/)
+  - [DeFiLlama — MAI](https://defillama.com/stablecoin/mai)
 category: stablecoin
 links:
   homepage: https://www.mai.finance/
   coingecko: https://www.coingecko.com/en/coins/mai
   defillama: https://defillama.com/stablecoin/mai
   twitter: https://x.com/QiDaoProtocol
+contract_addresses:
+  - chain: polygon
+    address: '0xa3Fa99A148fA48D14Ed51d610c367C61876997F1'
 slug: mimatic

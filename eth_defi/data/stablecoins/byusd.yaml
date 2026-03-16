@@ -1,11 +1,15 @@
 symbol: BYUSD
 name: Bybit USD
-short_description: BYUSD is a stablecoin associated with the Bybit cryptocurrency exchange. Details about its backing mechanism are limited. It may be related to Bybit's internal settlement or trading systems.
+short_description: BYUSD is a stablecoin issued by Bybit, the cryptocurrency exchange. It is currently deployed on Berachain and is part of Bybit's Web3 stablecoin initiative. Details about reserves and redemption
+  mechanisms are limited to exchange disclosures.
 long_description: ''
 category: stablecoin
 links:
   homepage: https://www.bybit.com/
-  coingecko: ''
+  coingecko: https://www.coingecko.com/en/coins/byusd
   defillama: ''
   twitter: https://x.com/Bybit_Official
 slug: byusd
+contract_addresses:
+  - chain: berachain
+    address: '0x688e72142674041f8f6af4c808a4045ca1d6ac82'

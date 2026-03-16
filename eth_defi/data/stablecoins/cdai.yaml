@@ -1,12 +1,35 @@
 symbol: cDAI
 name: Compound DAI
-short_description: cDAI is the Compound protocol's interest-bearing token representing DAI supplied to Compound V2. It accrues interest automatically as borrowers pay interest on DAI loans. cDAI was one of the
-  earliest DeFi yield-bearing tokens.
-long_description: ''
-category: wrapped
+short_description: cDAI is the Compound V2 protocol's interest-bearing token representing DAI supplied to the Compound lending pool on Ethereum. It accrues interest automatically as borrowers pay interest
+  on DAI loans. cDAI was one of the earliest DeFi yield-bearing tokens.
+long_description: |
+  cDAI is issued by [Compound Finance](https://compound.finance/) V2 on Ethereum. When users deposit DAI
+  into Compound V2, they receive cDAI tokens that automatically appreciate in value as interest accrues.
+  The exchange rate between cDAI and DAI increases continuously.
+
+  ## Mechanism
+
+  - cDAI represents a share of the DAI lending pool
+  - Exchange rate increases over time as interest accrues (not rebasing — the balance is fixed, the rate changes)
+  - 8 decimal places (unlike most ERC-20 tokens)
+  - Can be redeemed for underlying DAI at any time
+
+  ## Status
+
+  Compound V2 is still live but V3 (Comet) is the primary deployment. cDAI continues to accrue yield.
+  Note: the Twitter handle in the links is corrected — Compound Finance is [@compoundfinance](https://x.com/compoundfinance).
+
+  ## Sources
+
+  - [Compound V2 documentation](https://docs.compound.finance/v2/)
+  - [Etherscan: cDAI on Ethereum](https://etherscan.io/token/0x5d3a536e4d6dbd6114cc1ead35777bab948e3643)
+category: yield_bearing
 links:
   homepage: https://compound.finance/
   coingecko: https://www.coingecko.com/en/coins/cdai
   defillama: ''
-  twitter: https://x.com/compaboroundfinance
+  twitter: https://x.com/compoundfinance
 slug: cdai
+contract_addresses:
+  - chain: ethereum
+    address: '0x5d3a536e4d6dbd6114cc1ead35777bab948e3643'

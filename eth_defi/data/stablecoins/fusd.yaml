@@ -1,12 +1,21 @@
 symbol: FUSD
 name: Fantom USD
 short_description: Fantom USD (fUSD) was a stablecoin native to the Fantom blockchain. It could be minted by depositing FTM and other assets as collateral in the Fantom DeFi suite. The stablecoin was part of
-  Fantom's native DeFi ecosystem.
-long_description: ''
+  Fantom's native DeFi ecosystem and is now considered defunct.
+long_description: |
+  Fantom USD (FUSD) was a native decentralised stablecoin on the [Fantom](https://fantom.foundation/) blockchain,
+  minted by depositing FTM as collateral into the Fantom DeFi suite. It was pegged to the US dollar through an
+  overcollateralisation mechanism. The project is now defunct following the broader wind-down of the original
+  Fantom DeFi ecosystem. The Fantom blockchain itself later rebranded and upgraded to [Sonic](https://soniclabs.com/).
+  The token contract on Fantom at address `0xAD84341756Bf337f5a0164515b1f6F993D194E1f` is no longer actively
+  supported.
 category: stablecoin
 links:
   homepage: https://fantom.foundation/
   coingecko: https://www.coingecko.com/en/coins/fantom-usd
   defillama: https://defillama.com/stablecoin/fantom-usd
   twitter: https://x.com/FantomFDN
+contract_addresses:
+  - chain: fantom
+    address: '0xAD84341756Bf337f5a0164515b1f6F993D194E1f'
 slug: fusd

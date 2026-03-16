@@ -1,7 +1,12 @@
 symbol: TOR
 name: TOR (Hector Finance)
-short_description: TOR was a stablecoin issued by Hector Finance on Fantom. It was designed for use within the Hector ecosystem for lending and staking. The Hector project has been wound down.
-long_description: ''
+short_description: TOR was a stablecoin issued by Hector Finance (Hector Network) on the Fantom blockchain. The Hector project collapsed in 2023 following losses from the Multichain bridge exploit, and tokenholders voted to liquidate the $16M treasury. TOR is now defunct and trades far below its peg.
+long_description: |
+  TOR (Tyche Owned Reserve) was launched by Hector Finance as a stablecoin for use within the Hector ecosystem on Fantom. Hector was an OHM-fork (Olympus DAO) that later pivoted toward a broader DeFi ecosystem.
+
+  In July 2023, Hector Network lost approximately $8M from exposure to the Multichain bridge exploit. Following this, the HEC native token was down 99% from its peak and TOR slipped its USD peg, trading at approximately $0.13. Tokenholders voted overwhelmingly to liquidate the project and distribute the remaining $16M treasury to HEC holders.
+
+  The Hector team was subsequently accused of "rage quitting" and draining the treasury before the liquidation could be completed. TOR is now a defunct stablecoin with no active protocol support.
 category: stablecoin
 links:
   homepage: https://hector.network/

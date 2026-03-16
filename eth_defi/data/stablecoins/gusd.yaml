@@ -9,4 +9,7 @@ links:
   coingecko: https://www.coingecko.com/en/coins/gemini-dollar
   defillama: https://defillama.com/stablecoin/gemini-dollar
   twitter: https://x.com/Gemini
+contract_addresses:
+  - chain: ethereum
+    address: '0x056Fd409E1d7A124Bd7017459dFEa2F387b6d5Cd'
 slug: gusd

@@ -1,11 +1,32 @@
 symbol: msUSD
 name: Main Street USD
-short_description: Main Street USD (msUSD) is a stablecoin from Main Street Finance. Details about its backing mechanism and design are limited. It appears to be a smaller DeFi protocol stablecoin.
-long_description: ''
+short_description: Main Street USD (msUSD) is a stablecoin issued by Main Street Finance on Ethereum. It is generated through delta-neutral options box-spread strategies to produce yield. The protocol operates a multi-token system for on-chain yield generation.
+long_description: |
+  msUSD is issued by [Main Street Finance](https://mainstreet.finance/), a DeFi yield protocol
+  on Ethereum.
+
+  ## Mechanism
+
+  According to the protocol, Main Street "revolutionises yield generation on-chain by harnessing
+  delta-neutral options box spread strategies." The protocol deploys a multi-token system
+  where msUSD serves as the stablecoin component.
+
+  ## Status
+
+  The Ethereum contract shows approximately 36.5 million msUSD in supply with 170 holders
+  as of early 2025. The project is active but small.
+
+  ## Sources
+
+  - [Main Street Finance](https://mainstreet.finance/)
+  - [Etherscan — msUSD](https://etherscan.io/token/0x4ba01f22827018b4772cd326c7627fb4956a7c00)
 category: stablecoin
 links:
   homepage: https://mainstreet.finance/
   coingecko: ''
   defillama: ''
   twitter: ''
+contract_addresses:
+  - chain: ethereum
+    address: '0x4ba01f22827018b4772cd326c7627fb4956a7c00'
 slug: msusd

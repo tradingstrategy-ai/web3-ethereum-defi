@@ -1,12 +1,35 @@
 symbol: lvlUSD
 name: Level USD
-short_description: Level USD (lvlUSD) is a stablecoin by Level Money designed for yield generation. It is backed by diversified reserves and DeFi strategies. Level Money focuses on providing accessible stable
-  yield to users.
-long_description: ''
+short_description: Level USD (lvlUSD) is a yield-bearing stablecoin by Level Money backed by USDC and USDT deposited into DeFi lending protocols such as Aave and Morpho. Level Money has announced it is sunsetting the product after joining another DeFi protocol.
+long_description: |
+  lvlUSD was issued by [Level Money](https://www.level.money/), a DeFi stablecoin protocol backed
+  by investors including Polychain Capital and Dragonfly Capital.
+
+  ## Mechanism
+
+  - Backed 1:1 by USDC and USDT held in leading DeFi lending protocols
+  - Deposits are deployed into [Aave](https://aave.com/) and [Morpho](https://morpho.org/) for yield
+  - slvlUSD (Staked lvlUSD) is the yield-bearing variant that auto-compounds returns
+  - Integrated with [Pendle](https://pendle.finance/) and [LayerZero](https://layerzero.network/)
+  - Not available to US persons
+
+  ## Status
+
+  Level Money announced they are joining another leading DeFi protocol and sunsetting the product.
+  Users were directed to documentation for transition details. The Ethereum contract shows approximately
+  688,000 lvlUSD in supply as of early 2025.
+
+  ## Sources
+
+  - [Level Money](https://www.level.money/)
+  - [Etherscan — lvlUSD](https://etherscan.io/token/0x7C1156E515aA1A2E851674120074968C905aAF37)
 category: stablecoin
 links:
   homepage: https://www.level.money/
   coingecko: https://www.coingecko.com/en/coins/level-usd
   defillama: ''
   twitter: https://x.com/leveldotmoney
+contract_addresses:
+  - chain: ethereum
+    address: '0x7C1156E515aA1A2E851674120074968C905aAF37'
 slug: lvlusd

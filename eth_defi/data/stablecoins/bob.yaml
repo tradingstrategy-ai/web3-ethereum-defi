@@ -1,8 +1,30 @@
 symbol: BOB
 name: BOB (zkBob)
-short_description: BOB is a privacy-focused stablecoin created by zkBob, built using zero-knowledge proofs. It enables private transactions on Ethereum and Polygon while maintaining compliance. BOB is backed
-  by DAI and can be minted through the zkBob application.
-long_description: ''
+short_description: BOB is a privacy-focused stablecoin created by zkBob, built using zero-knowledge proofs. It enables private transactions on Ethereum and Polygon while maintaining compliance features. BOB is
+  fully collateralised by USDC and deployed across multiple EVM chains at the same address.
+long_description: |
+  BOB is issued by [zkBob](https://bob.zkbob.com/), a privacy-preserving transfer protocol that uses
+  zero-knowledge proofs (based on Zcash's Sapling circuit adapted for EVM). The stablecoin is designed
+  to allow users to make shielded transactions while retaining optional compliance capabilities such as
+  account linking and KYC flags.
+
+  ## Mechanism
+
+  - Fully collateralised by USDC (1:1 backing)
+  - Privacy via zk-SNARKs: shielded pool hides sender, receiver, and amount on-chain
+  - Same contract address deployed across Ethereum, Polygon, Optimism, Arbitrum, and BNB Chain
+  - Optional compliance: pool operators can require KYC or compliance checks
+
+  ## Status
+
+  Active but niche. Low circulating supply (~20,000 BOB on Ethereum as of early 2026) suggesting the
+  product is used primarily within the zkBob application's shielded pool.
+
+  ## Sources
+
+  - [zkBob documentation](https://docs.zkbob.com/)
+  - [Etherscan: BOB on Ethereum](https://etherscan.io/token/0xb0b195aefa3650a6908f15cdac7d92f8a5791b0b)
+  - [DeFiLlama: BOB](https://defillama.com/stablecoin/bob)
 category: stablecoin
 links:
   homepage: https://bob.zkbob.com/
@@ -10,3 +32,8 @@ links:
   defillama: https://defillama.com/stablecoin/bob
   twitter: https://x.com/zkbob_
 slug: bob
+contract_addresses:
+  - chain: ethereum
+    address: '0xb0b195aefa3650a6908f15cdac7d92f8a5791b0b'
+  - chain: polygon
+    address: '0xb0b195aefa3650a6908f15cdac7d92f8a5791b0b'

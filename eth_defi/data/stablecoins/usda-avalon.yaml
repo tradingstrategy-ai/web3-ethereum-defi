@@ -1,0 +1,39 @@
+symbol: USDA
+name: Avalon USDa
+short_description: Avalon USDa is a Bitcoin-backed stablecoin issued by Avalon Finance, a CeDeFi (Centralised-Decentralised Finance) lending platform. Users mint USDa by depositing BTC or USDT as collateral through a CDP mechanism. USDa operates across multiple chains including Ethereum, Mantle, and BNB Smart Chain.
+long_description: |
+  Avalon USDa is the flagship stablecoin of [Avalon Finance](https://avalonfinance.xyz/) (Avalon Labs),
+  a CeDeFi platform that combines centralised and decentralised finance for Bitcoin-backed lending.
+
+  ## Mechanism
+
+  USDa is minted through a collateralised debt position (CDP) system:
+  - Users deposit Bitcoin (BTC) or USDT as collateral
+  - USDT deposits are accepted 1:1
+  - Loan repayment or USDT conversion is required for redemption
+
+  ## Yield
+
+  USDa can be used within the Avalon ecosystem through USDaLend, a lending protocol that
+  allows users to lend and borrow using Bitcoin-backed stablecoins.
+
+  ## Sources
+
+  - [Avalon Finance website](https://avalonfinance.xyz/)
+  - [Avalon Finance documentation](https://docs.avalonfinance.xyz/)
+  - [DeFiLlama — Avalon USDa](https://defillama.com/stablecoin/avalon-usda)
+  - [CoinGecko — Avalon USDa](https://www.coingecko.com/en/coins/usda-2)
+category: stablecoin
+links:
+  homepage: https://avalonfinance.xyz/
+  coingecko: https://www.coingecko.com/en/coins/usda-2
+  defillama: https://defillama.com/stablecoin/avalon-usda
+  twitter: https://x.com/avalonfinance_
+slug: usda-avalon
+contract_addresses:
+  - chain: ethereum
+    address: '0x8a60e489004ca22d775c5f2c657598278d17d9c2'
+  - chain: mantle
+    address: '0x075df695b8e7f4361fa7f8c1426c63f11b06e326'
+  - chain: binance
+    address: '0x9356086146be5158e98ad827e21b5cf944699894'

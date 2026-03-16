@@ -1,11 +1,34 @@
 symbol: XSTUSD
 name: SORA Synthetic USD
 short_description: XSTUSD is a synthetic USD stablecoin on the SORA network. It is designed for the SORA decentralised economic system. XSTUSD uses a token bonding curve mechanism for price stability.
-long_description: ''
+long_description: |
+  XSTUSD is a synthetic USD stablecoin native to the [SORA](https://sora.org/) blockchain,
+  a Substrate-based decentralised economic system. It is backed by XST (the SORA Synthetic
+  base asset), which is itself backed by a variable amount of XOR (the SORA native token).
+
+  ## Mechanism
+
+  XSTUSD uses a token bonding curve (TBC) model rather than an oracle-based price feed.
+  The TBC provides price stability by algorithmically managing buy and sell prices.
+  XSTUSD exists natively on the SORA network and also has a bridged representation on
+  Ethereum (ERC-20).
+
+  ## Status
+
+  Largely inactive. The Ethereum-bridged token trades at well below $1 with virtually
+  zero volume (~$5/day). Proceeds with caution.
+
+  ## Sources
+
+  - [CoinGecko — SORA Synthetic USD](https://www.coingecko.com/en/coins/sora-synthetic-usd)
+  - [SORA Wiki — XSTUSD](https://wiki.sora.org/sora-academy/xstusd)
 category: stablecoin
 links:
   homepage: https://sora.org/
-  coingecko: ''
+  coingecko: https://www.coingecko.com/en/coins/sora-synthetic-usd
   defillama: ''
-  twitter: https://x.com/saborora_xor
+  twitter: https://x.com/sora_xor
+contract_addresses:
+  - chain: ethereum
+    address: '0xc7d9c108d4e1dd1484d3e2568d7f74bfd763d356'
 slug: xstusd

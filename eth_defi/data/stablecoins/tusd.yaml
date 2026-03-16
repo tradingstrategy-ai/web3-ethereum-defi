@@ -1,12 +1,19 @@
 symbol: TUSD
 name: TrueUSD
-short_description: TrueUSD (TUSD) is a USD-backed stablecoin with real-time on-chain attestations of its reserves. It was one of the early regulated stablecoins with third-party attestation. TUSD has faced depegging
-  issues and reduced adoption since 2023.
-long_description: ''
+short_description: TrueUSD (TUSD) is a USD-backed stablecoin with real-time on-chain reserve attestations. It was one of the first regulated stablecoins with third-party verification. TUSD has faced depegging issues and reduced adoption since 2023.
+long_description: |
+  TrueUSD (TUSD) is issued by [TrueUSD](https://trueusd.com/), one of the earliest regulated stablecoins launched in 2018. It offers real-time on-chain attestations of USD reserves held in escrow at regulated banks, providing transparency for holders.
+
+  In 2023, TUSD experienced significant challenges: the issuer paused minting and TUSD briefly lost its dollar peg multiple times. Concerns were raised about the safety of backing reserves and the opacity of reserve management changes. Adoption declined substantially.
+
+  TUSD is available on Ethereum, BNB Chain, Avalanche, and other networks. It is listed on [CoinGecko](https://www.coingecko.com/en/coins/true-usd) and [DefiLlama](https://defillama.com/stablecoin/trueusd).
 category: stablecoin
 links:
   homepage: https://trueusd.com/
   coingecko: https://www.coingecko.com/en/coins/true-usd
-  defillama: https://defillama.com/stablecoin/true-usd
+  defillama: https://defillama.com/stablecoin/trueusd
   twitter: https://x.com/TrueUSD
+contract_addresses:
+  - chain: ethereum
+    address: '0x0000000000085d4780B73119b644AE5ecd22b376'
 slug: tusd

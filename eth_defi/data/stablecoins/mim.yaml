@@ -1,12 +1,40 @@
 symbol: MIM
 name: Magic Internet Money (Abracadabra)
-short_description: Magic Internet Money (MIM) is a USD-pegged stablecoin issued by Abracadabra.money. It is minted by depositing interest-bearing tokens (like yvTokens) as collateral. MIM is available on multiple
-  chains and widely used in DeFi lending.
-long_description: ''
+short_description: Magic Internet Money (MIM) is a USD-pegged stablecoin issued by Abracadabra.money. It is minted by depositing interest-bearing tokens (such as yvTokens or sfrxETH) as collateral. MIM is an omnichain stablecoin available across multiple EVM networks.
+long_description: |
+  MIM is issued by [Abracadabra.money](https://abracadabra.money/), a DeFi lending platform
+  that uses interest-bearing tokens as collateral. Users deposit yield-generating assets
+  (such as Yearn vault tokens, wrapped staked ETH, or other LSTs) and borrow MIM against them.
+
+  ## Mechanism
+
+  - Collateralised debt positions (CDPs) backed by interest-bearing tokens
+  - No fixed minimum collateral ratio — each collateral type has its own risk parameters
+  - Borrowers pay a one-time opening fee plus ongoing interest
+  - MIM is an OFT (Omnichain Fungible Token) via LayerZero, enabling cross-chain transfers
+
+  ## Multi-chain deployment
+
+  MIM is deployed on Ethereum, Arbitrum, Avalanche, Fantom, BNB Chain, and other EVM-compatible
+  chains. The Ethereum contract is the canonical deployment.
+
+  ## Status
+
+  Active with approximately 175 million MIM circulating on Ethereum mainnet as of 2025.
+  The protocol has undergone several market stress events and security incidents over the years
+  but remains operational.
+
+  ## Sources
+
+  - [Abracadabra.money](https://abracadabra.money/)
+  - [Etherscan — MIM (Ethereum)](https://etherscan.io/token/0x99D8a9C45b2ecA8864373A26D1459e3Dff1e17F3)
 category: stablecoin
 links:
   homepage: https://abracadabra.money/
   coingecko: https://www.coingecko.com/en/coins/magic-internet-money
   defillama: https://defillama.com/stablecoin/magic-internet-money
   twitter: https://x.com/MIM_Spell
+contract_addresses:
+  - chain: ethereum
+    address: '0x99D8a9C45b2ecA8864373A26D1459e3Dff1e17F3'
 slug: mim

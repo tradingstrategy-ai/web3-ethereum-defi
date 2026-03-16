@@ -1,11 +1,30 @@
 symbol: VEUR
 name: VNX Euro
 short_description: VNX Euro (VEUR) is a Euro-backed stablecoin issued by VNX, a Liechtenstein-regulated fintech. Each VEUR is backed 1:1 by Euro reserves. VEUR enables regulated Euro-denominated digital transactions.
-long_description: ''
+long_description: |
+  VNX Euro is issued by [VNX](https://vnx.li/), a token generator licensed under
+  Liechtenstein's Blockchain Act and registered with the FMA. Each VEUR is backed 1:1
+  by Euro reserves, with monthly attestation reports published for transparency.
+
+  ## Chains
+
+  VEUR is deployed on Ethereum, Arbitrum, Base, Solana, and other networks. It is the
+  #1 Euro stablecoin by supply on the Solana network (as of 2025).
+
+  ## Sources
+
+  - [VNX Euro page](https://vnx.li/)
+  - [DefiLlama — VNX EURO](https://defillama.com/stablecoin/vnx-euro)
+  - [CoinGecko — VNX Euro](https://www.coingecko.com/en/coins/vnx-euro)
 category: stablecoin
 links:
   homepage: https://vnx.li/
   coingecko: https://www.coingecko.com/en/coins/vnx-euro
-  defillama: ''
+  defillama: https://defillama.com/stablecoin/vnx-euro
   twitter: https://x.com/VNX_fi
+contract_addresses:
+  - chain: ethereum
+    address: '0x6bA75D640bEbfe5dA1197bb5A2aff3327789b5d3'
+  - chain: arbitrum
+    address: '0x4883c8f0529f37e40ebea870f3c13cdfad5d01f8'
 slug: veur

@@ -2,11 +2,21 @@ symbol: EURS
 name: STASIS Euro
 short_description: STASIS Euro (EURS) is a Euro-backed stablecoin issued by STASIS, a European fintech company. Each EURS is fully backed by Euros held in reserve accounts. EURS is designed for institutional
   and retail use in the European digital asset ecosystem.
-long_description: ''
+long_description: |
+  [EURS](https://stasis.net/) is a Euro-backed stablecoin issued by [STASIS](https://stasis.net/), a Malta-based digital asset company (STSS Malta Limited).
+  It is one of the oldest and largest Euro stablecoins, having launched in 2018.
+  Each EURS is fully backed by Euros held in reserve and attested by regular third-party audits.
+
+  EURS is an ERC-20 token on Ethereum and is also available on other EVM-compatible networks.
+  It is targeted at institutional and retail users seeking Euro-denominated digital asset exposure.
+  STASIS provides transparency reports and redemption services directly to verified users.
 category: stablecoin
 links:
   homepage: https://stasis.net/
   coingecko: https://www.coingecko.com/en/coins/stasis-eurs
   defillama: https://defillama.com/stablecoin/stasis-eurs
-  twitter: https://x.com/staborasisnet
+  twitter: https://x.com/stasisnet
+contract_addresses:
+  - chain: ethereum
+    address: '0xdb25f211ab05b1c97d595516f45794528a807ad8'
 slug: eurs

@@ -1,11 +1,19 @@
 symbol: sBOLD
 name: sBOLD (K3 Capital / Liquity V2)
-short_description: sBOLD is a staked version of Liquity V2's BOLD stablecoin. It earns yield from Liquity V2's stability pool and protocol revenues. sBOLD is part of the Liquity V2 ecosystem.
-long_description: ''
+short_description: sBOLD is a yield-bearing ERC-4626 token built by K3 Capital that automates and compounds deposits across Liquity V2 stability pools. It allocates BOLD across the wstETH, rETH, and WETH stability pools in fixed proportions. sBOLD captures liquidation penalties with minimal collateral price exposure.
+long_description: |
+  [sBOLD](https://k3-capital.gitbook.io/sbold) is built by [K3 Capital](https://www.k3.capital/) on top of [Liquity V2](https://www.liquity.org/). Users deposit BOLD stablecoin and receive sBOLD, an ERC-4626 receipt token that accrues a pro-rata share of stability pool interest.
+
+  The vault allocates deposits as follows: 60% to the wstETH stability pool, 30% to the rETH stability pool, and 10% to the WETH pool. Rewards are automatically compounded. sBOLD can also be used as collateral across DeFi platforms including Euler, Pendle, and Spectra.
+
+  sBOLD launched on 9 June 2025 and captured approximately 46% of all BOLD deposited into Liquity V2 stability pools. It is listed on [CoinGecko](https://www.coingecko.com/en/coins/sbold-by-k3-capital) and tracked on [DefiLlama](https://defillama.com/protocol/k3-capital).
 category: yield_bearing
 links:
-  homepage: https://www.liquity.org/
-  coingecko: ''
-  defillama: ''
-  twitter: https://x.com/LiquityProtocol
+  homepage: https://www.k3.capital/
+  coingecko: https://www.coingecko.com/en/coins/sbold-by-k3-capital
+  defillama: https://defillama.com/protocol/k3-capital
+  twitter: https://x.com/k3_capital
+contract_addresses:
+  - chain: ethereum
+    address: '0x50bd66d59911f5e086ec87ae43c811e0d059dd11'
 slug: sbold

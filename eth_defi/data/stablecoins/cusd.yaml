@@ -1,12 +1,31 @@
 symbol: CUSD
-name: Celo Dollar
-short_description: Celo Dollar (cUSD) is a USD-pegged stablecoin native to the Celo blockchain. It is overcollateralised by a diversified reserve of crypto assets managed by the Celo Reserve. cUSD is designed
-  for mobile-first payments and accessible financial services.
-long_description: ''
+name: Mento Dollar (formerly Celo Dollar)
+short_description: cUSD (now Mento Dollar) is a USD-pegged stablecoin native to the Celo blockchain, issued by the Mento Protocol (formerly the Celo Reserve). It is backed by an on-chain reserve of diversified
+  crypto assets and designed for mobile-first payments and financial inclusion in emerging markets.
+long_description: |
+  cUSD was originally the dollar stablecoin of the [Celo](https://celo.org/) blockchain, issued and managed
+  by the Celo Reserve. Following the separation of Mento Protocol from Celo in 2023, the stablecoin is now
+  maintained by [Mento](https://mento.org/) as part of its multi-currency on-chain FX platform. CoinGecko
+  now lists it as "Mento Dollar."
+
+  ## Mechanism
+
+  - Overcollateralised by an on-chain reserve managed by Mento Protocol
+  - Reserve contains CELO, BTC, ETH, USDC, and other assets
+  - Minted and burned through Mento's on-chain exchange at oracle-determined rates
+  - Natively issued on Celo; also available on Near Protocol
+
+  ## Sources
+
+  - [Mento Protocol documentation](https://docs.mento.org/)
+  - [DeFiLlama: Celo Dollar](https://defillama.com/stablecoin/celo-dollar)
 category: stablecoin
 links:
-  homepage: https://celo.org/
+  homepage: https://mento.org/
   coingecko: https://www.coingecko.com/en/coins/celo-dollar
   defillama: https://defillama.com/stablecoin/celo-dollar
-  twitter: https://x.com/Celo
+  twitter: https://x.com/MentoProtocol
 slug: cusd
+contract_addresses:
+  - chain: celo
+    address: '0x765de816845861e75a25fca122bb6898b8b1282a'

@@ -8,5 +8,8 @@ links:
   homepage: https://www.gnosis.io/
   coingecko: https://www.coingecko.com/en/coins/wrapped-xdai
   defillama: ''
-  twitter: https://x.com/gabornosischain
+  twitter: https://x.com/gnosischain
+contract_addresses:
+  - chain: gnosis
+    address: '0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d'
 slug: wxdai

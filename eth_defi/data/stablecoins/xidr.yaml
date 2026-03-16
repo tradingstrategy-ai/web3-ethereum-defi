@@ -5,8 +5,11 @@ short_description: XIDR is an Indonesian Rupiah-backed stablecoin issued by Stra
 long_description: ''
 category: stablecoin
 links:
-  homepage: https://www.straitsx.com/
+  homepage: https://www.straitsx.com/xidr
   coingecko: https://www.coingecko.com/en/coins/straitsx-indonesia-rupiah
   defillama: ''
   twitter: https://x.com/StraitsX
+contract_addresses:
+  - chain: ethereum
+    address: '0xebF2096E01455108bAdCbAF86cE30b6e5A72aa52'
 slug: xidr

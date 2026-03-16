@@ -9,7 +9,7 @@ entries:
     homepage: https://falcon.finance/
     coingecko: https://www.coingecko.com/en/coins/falcon-finance
     defillama: https://defillama.com/stablecoin/falcon-finance
-    twitter: https://x.com/FalcaboronFinance
+    twitter: https://x.com/FalconStable
 - name: USDF Consortium
   short_description: The USDF Consortium is a network of FDIC-insured banks creating a bank-minted stablecoin. USDF is designed for interbank settlement and compliant digital transactions. The consortium includes
     multiple US banking institutions.
@@ -18,5 +18,5 @@ entries:
     homepage: https://usdfconsortium.com/
     coingecko: ''
     defillama: ''
-    twitter: https://x.com/USaborDFConsortium
+    twitter: https://x.com/USDFConsortium
 slug: usdf

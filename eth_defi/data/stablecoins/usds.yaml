@@ -2,11 +2,34 @@ symbol: USDS
 name: USDS (Sky)
 short_description: USDS (Sky Dollar) is the upgraded version of DAI, part of the Sky (formerly MakerDAO) ecosystem rebrand. It maintains a 1:1 USD peg backed by diversified crypto and real-world assets. USDS
   can be converted from DAI through the Sky protocol.
-long_description: ''
+long_description: |
+  USDS (Sky Dollar) is the successor to [DAI](https://makerdao.com/), issued by the [Sky](https://sky.money/) protocol
+  (formerly MakerDAO) following a major rebrand in 2024. It is backed by diversified crypto collateral and real-world assets,
+  and maintains a 1:1 USD peg.
+
+  ## Conversion
+
+  Existing DAI can be upgraded 1:1 to USDS via the Sky upgrade module. The conversion is reversible.
+
+  ## Yield
+
+  Holders can deposit USDS into the Sky Savings Rate (sUSDS) to earn yield.
+
+  ## Contract addresses
+
+  - Ethereum: `0xdC035D45d973E3EC169d2276DDab16f1e407384F`
+
+  ## Sources
+
+  - [Sky.money](https://sky.money/)
+  - [DeFiLlama — USDS](https://defillama.com/stablecoin/usds)
 category: stablecoin
 links:
   homepage: https://sky.money/
   coingecko: https://www.coingecko.com/en/coins/usds
   defillama: https://defillama.com/stablecoin/usds
   twitter: https://x.com/SkyEcosystem
+contract_addresses:
+  - chain: ethereum
+    address: '0xdC035D45d973E3EC169d2276DDab16f1e407384F'
 slug: usds

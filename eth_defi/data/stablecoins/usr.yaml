@@ -2,11 +2,37 @@ symbol: USR
 name: Resolv USR
 short_description: USR is a stablecoin issued by Resolv, a delta-neutral stablecoin protocol. It is backed by ETH and hedged with short perpetual futures positions to maintain its peg. USR generates yield from
   funding rates and staking rewards.
-long_description: ''
-category: stablecoin
+long_description: |
+  USR is a yield-bearing stablecoin issued by [Resolv Labs](https://resolv.xyz/), backed 1:1 by ETH.
+  Resolv maintains the peg using a delta-neutral strategy: for every USR in circulation, Resolv holds
+  long ETH collateral hedged by an equivalent short perpetual futures position.
+
+  ## Yield
+
+  The yield from ETH staking rewards and perpetual funding rates is passed on to holders.
+  USR can be wrapped into rlUSR to receive the yield directly.
+
+  ## Insurance pool
+
+  Resolv operates an insurance pool (RLP — Resolv Liquidity Pool) that absorbs collateral shortfalls
+  caused by adverse funding rates, protecting USR holders.
+
+  ## Contract address
+
+  - Ethereum: `0x66a1E37c9b0Eaddca17d3662D6c05F4DECf3e110`
+
+  ## Sources
+
+  - [Resolv.xyz](https://resolv.xyz/)
+  - [DeFiLlama — Resolv USR](https://defillama.com/stablecoin/resolv-usr)
+  - [Messari — USR](https://messari.io/copilot/share/understanding-resolv-labs-usr-stablecoin-d5313b18-07c4-45a5-8597-54b70359b32f)
+category: yield_bearing
 links:
   homepage: https://resolv.xyz/
   coingecko: https://www.coingecko.com/en/coins/resolv-usr
   defillama: https://defillama.com/stablecoin/resolv-usr
   twitter: https://x.com/ResolvLabs
+contract_addresses:
+  - chain: ethereum
+    address: '0x66a1E37c9b0Eaddca17d3662D6c05F4DECf3e110'
 slug: usr

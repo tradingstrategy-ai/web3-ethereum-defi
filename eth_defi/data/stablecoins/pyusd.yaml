@@ -1,12 +1,35 @@
 symbol: PYUSD
 name: PayPal USD
-short_description: PayPal USD (PYUSD) is a USD-backed stablecoin issued by PayPal in partnership with Paxos Trust Company. It is fully backed by US dollar deposits, US Treasuries, and similar cash equivalents.
-  PYUSD is available on Ethereum and Solana.
-long_description: ''
+short_description: PayPal USD (PYUSD) is a USD-backed stablecoin issued by PayPal in partnership with Paxos Trust Company. It is fully backed by US dollar deposits, US Treasuries, and similar cash equivalents. PYUSD is available on Ethereum and Solana.
+long_description: |
+  PYUSD is issued by [PayPal](https://www.paypal.com/pyusd) in partnership with
+  [Paxos Trust Company](https://paxos.com/) on Ethereum (launched August 2023) and Solana
+  (launched May 2024).
+
+  ## Mechanism
+
+  - 100% backed by US dollar deposits, short-term US Treasuries, and cash equivalents
+  - Custodied and issued by Paxos Trust Company on behalf of PayPal
+  - 1:1 redeemable for USD via PayPal
+  - ERC-20 on Ethereum with 6 decimal places; uses an upgradeable proxy pattern
+
+  ## Status
+
+  Active with approximately $4.1 billion market cap and 66,000+ holders on Ethereum as of
+  early 2025. One of the largest fiat-backed stablecoins.
+
+  ## Sources
+
+  - [PayPal USD](https://www.paypal.com/pyusd)
+  - [DeFiLlama — PayPal USD](https://defillama.com/stablecoin/paypal-usd)
+  - [Etherscan — PYUSD](https://etherscan.io/token/0x6c3ea9036406852006290770BEdFcAbA0e23A0e8)
 category: stablecoin
 links:
   homepage: https://www.paypal.com/pyusd
   coingecko: https://www.coingecko.com/en/coins/paypal-usd
   defillama: https://defillama.com/stablecoin/paypal-usd
   twitter: https://x.com/PayPal
+contract_addresses:
+  - chain: ethereum
+    address: '0x6c3ea9036406852006290770BEdFcAbA0e23A0e8'
 slug: pyusd

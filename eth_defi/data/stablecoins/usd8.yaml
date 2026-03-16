@@ -1,10 +1,10 @@
 symbol: USD8
-name: Unknown
-short_description: ''
+name: USD8
+short_description: USD8 is a stablecoin project with a website at usd8.io. It does not appear in major stablecoin trackers (CoinGecko, DeFiLlama) as of early 2026, suggesting it is either very early-stage or inactive.
 long_description: ''
 category: stablecoin
 links:
-  homepage: ''
+  homepage: https://usd8.io/
   coingecko: ''
   defillama: ''
   twitter: ''

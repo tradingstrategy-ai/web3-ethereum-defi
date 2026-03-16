@@ -1,11 +1,35 @@
 symbol: ONC
 name: One Cash
-short_description: One Cash (ONC) was an algorithmic stablecoin inspired by Basis Cash. It used a seigniorage model to maintain its dollar peg. The project is now defunct.
-long_description: ''
+short_description: One Cash (ONC) was an algorithmic stablecoin and Basis Cash fork on Ethereum, using a seigniorage model (ONC bonds and ONS shares) to maintain its dollar peg. The project is now effectively defunct with ONC trading at approximately $0.01.
+long_description: |
+  One Cash is described on its contract page as "an experimental project for the Basis protocol —
+  a fork of BasisCash." It used a three-token seigniorage model (ONC stablecoin, ONB bonds,
+  ONS shares) inspired by the algorithmic stablecoin designs of 2020–2021.
+
+  ## Mechanism
+
+  - Algorithmic seigniorage — supply expands and contracts to target $1 peg
+  - When ONC > $1: new ONC minted and distributed to ONS share stakers
+  - When ONC < $1: ONB bonds sold to contract supply
+  - No collateral backing
+
+  ## Status
+
+  Effectively defunct. ONC trades at approximately $0.01, far below its intended $1 peg.
+  The project has 586 holders and ~1.5 million ONC in supply. The official website
+  (`onecash.finance`) appears to have been repurposed by an unrelated project.
+
+  ## Sources
+
+  - [CoinGecko — One Cash](https://www.coingecko.com/en/coins/one-cash)
+  - [Etherscan — ONC](https://etherscan.io/token/0xD90E69f67203EBE02c917B5128629E77B4cd92dc)
 category: stablecoin
 links:
   homepage: ''
   coingecko: https://www.coingecko.com/en/coins/one-cash
   defillama: ''
   twitter: ''
+contract_addresses:
+  - chain: ethereum
+    address: '0xD90E69f67203EBE02c917B5128629E77B4cd92dc'
 slug: onc

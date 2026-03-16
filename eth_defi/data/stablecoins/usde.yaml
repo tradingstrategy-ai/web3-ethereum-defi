@@ -13,3 +13,10 @@ slug: usde
 token_symbols:
 - USDE
 - USDe
+contract_addresses:
+  - chain: ethereum
+    address: '0x4c9EDD5852cd905f086C759E8383e09bff1E68B3'
+  - chain: arbitrum
+    address: '0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34'
+  - chain: base
+    address: '0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34'

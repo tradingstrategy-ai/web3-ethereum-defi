@@ -8,5 +8,8 @@ links:
   homepage: https://gmdprotocol.com/
   coingecko: ''
   defillama: ''
-  twitter: https://x.com/gabormdprotocol
+  twitter: ''
+contract_addresses:
+  - chain: arbitrum
+    address: '0x3DB4B7DA67dd5aF61Cb9b3C70501B1BdB24B2C22'
 slug: gmdusdc

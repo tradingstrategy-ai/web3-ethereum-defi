@@ -1,11 +1,33 @@
 symbol: UTY
 name: Unity (XSY.fi)
-short_description: Unity (UTY) is a token from the XSY.fi protocol. It is designed for use within the XSY ecosystem. Details about its stablecoin mechanism are limited.
-long_description: ''
+short_description: Unity (UTY) is a delta-neutral synthetic dollar launched by XSY.fi on the Avalanche blockchain. It maintains a USD peg by pairing long AVAX spot positions with short perpetual futures, generating yield for holders while preserving AVAX exposure.
+long_description: |
+  Unity (UTY) is the flagship product of [XSY.fi](https://xsy.fi/), a capital management platform on Avalanche.
+  It is a composable, delta-neutral synthetic dollar: users gain USD-stable exposure while retaining AVAX collateral exposure.
+
+  ## Mechanism
+
+  - Long AVAX spot + short AVAX perpetual futures — delta-neutral position
+  - Yield from funding rates and basis accrues to holders
+  - Two vault derivatives: yUTY (auto-compounding yield) and xUTY (governance points)
+
+  ## Funding
+
+  XSY raised $5 million in a Pre-Series A round led by Protagonist and Borderless Capital, with participation from
+  Blizzard the Avalanche Fund and other investors.
+
+  ## Sources
+
+  - [XSY.fi](https://xsy.fi/)
+  - [CoinGecko — Unity](https://www.coingecko.com/en/coins/unity-2)
+  - [The Defiant — XSY launches Unity on Avalanche](https://thedefiant.io/news/defi/xsy-launches-synthetic-usd-stablecoin-on-avalanche)
 category: stablecoin
 links:
   homepage: https://xsy.fi/
-  coingecko: ''
+  coingecko: https://www.coingecko.com/en/coins/unity-2
   defillama: ''
   twitter: https://x.com/xsy_fi
+contract_addresses:
+  - chain: avalanche
+    address: '0xdbc5192a6b6ffee7451301bb4ec312f844f02b4a'
 slug: uty

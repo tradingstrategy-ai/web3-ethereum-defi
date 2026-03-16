@@ -2,7 +2,26 @@ symbol: UST
 name: TerraUSD
 short_description: TerraUSD (UST) was an algorithmic stablecoin on the Terra blockchain pegged to USD via LUNA burns and mints. It suffered a catastrophic collapse in May 2022, losing its peg entirely. The UST/LUNA
   collapse wiped out approximately $40 billion in value.
-long_description: ''
+long_description: |
+  TerraUSD (UST) was an algorithmic stablecoin on the [Terra](https://terra.money/) blockchain,
+  maintaining its peg through a mint-and-burn mechanism with LUNA:
+  minting UST required burning LUNA, and vice versa.
+
+  ## Collapse (May 2022)
+
+  In May 2022, a large-scale sell-off of UST triggered a death spiral. As UST depegged, the LUNA supply inflated
+  hyperbolically as the protocol attempted to restore the peg, ultimately collapsing both assets.
+  Approximately $40 billion in value was wiped out within days.
+
+  ## Aftermath
+
+  The original Terra blockchain was renamed Terra Classic (LUNC). UST was renamed to USTC (TerraClassicUSD).
+  A new Terra blockchain was launched, without UST. The collapse triggered global regulatory scrutiny of algorithmic stablecoins.
+
+  ## Sources
+
+  - [DeFiLlama — TerraUSD](https://defillama.com/stablecoin/terrausd)
+  - [CoinGecko — TerraUSD](https://www.coingecko.com/en/coins/terrausd)
 category: stablecoin
 links:
   homepage: https://terra.money/

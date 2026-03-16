@@ -2,11 +2,23 @@ symbol: DAI
 name: Dai
 short_description: Dai is a decentralised USD-pegged stablecoin issued by the MakerDAO protocol on Ethereum. It is overcollateralised by various crypto assets deposited into Maker Vaults. Dai is one of the most
   widely used decentralised stablecoins in DeFi.
-long_description: ''
+long_description: |
+  [Dai](https://makerdao.com/) is a decentralised, soft-pegged stablecoin maintained by [MakerDAO](https://makerdao.com/) and the Sky protocol (formerly MakerDAO).
+  Users generate Dai by depositing collateral (ETH, WBTC, stablecoins, and other approved assets) into Maker Vaults and borrowing against it.
+  A stability fee (interest rate) accrues on all Dai positions, and positions that fall below the minimum collateralisation ratio are liquidated.
+
+  Dai has been live on Ethereum since December 2017 (initially as Single-Collateral Dai backed only by ETH, later upgraded to Multi-Collateral Dai in November 2019).
+  It is one of the longest-running and most battle-tested decentralised stablecoins in existence.
+  Holders of Dai can deposit it into the [Dai Savings Rate (DSR)](https://app.sky.money/) contract to earn yield from protocol stability fees.
+
+  MakerDAO rebranded to [Sky Protocol](https://sky.money/) in 2024, and a new stablecoin USDS was introduced as the successor to Dai, though Dai continues to circulate.
 category: stablecoin
 links:
   homepage: https://makerdao.com/
   coingecko: https://www.coingecko.com/en/coins/dai
   defillama: https://defillama.com/stablecoin/dai
   twitter: https://x.com/MakerDAO
+contract_addresses:
+  - chain: ethereum
+    address: '0x6b175474e89094c44da98b954eedeac495271d0f'
 slug: dai

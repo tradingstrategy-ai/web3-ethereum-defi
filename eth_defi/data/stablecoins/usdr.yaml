@@ -2,11 +2,31 @@ symbol: USDR
 name: Real USD (Tangible / re.al)
 short_description: Real USD (USDR) was a stablecoin by Tangible backed by tokenised real estate and DAI. It lost its peg in October 2023 due to liquidity issues. The project rebranded to re.al and USDR is being
   wound down.
-long_description: ''
+long_description: |
+  Real USD (USDR) was a stablecoin issued by [Tangible](https://tangible.store/) on Polygon, backed by tokenised
+  real estate (TNFTs) and DAI. It was designed to generate yield for holders from real-estate rental income.
+
+  ## Collapse
+
+  In October 2023, USDR suffered a catastrophic depeg when all liquid DAI reserves were rapidly redeemed,
+  leaving only illiquid real-estate collateral. The stablecoin fell to roughly $0.17 and has not recovered.
+
+  ## Aftermath
+
+  Tangible rebranded to [re.al](https://www.re.al/), a Layer-2 network for real-world assets, and pledged to make
+  USDR holders whole by distributing the liquidated real-estate proceeds. USDR is considered defunct.
+
+  ## Sources
+
+  - [CoinDesk — USDR issuer plans to make users whole](https://www.coindesk.com/business/2023/10/12/usdr-issuer-to-salvage-failed-property-backed-stablecoins-assets-make-users-whole)
+  - [CoinDesk — Tangible rebrands to re.al](https://www.coindesk.com/business/2024/03/04/usdr-issuer-tangible-plans-to-redeem-itself-as-a-layer-2-for-real-world-assets)
 category: stablecoin
 links:
   homepage: https://www.re.al/
   coingecko: https://www.coingecko.com/en/coins/real-usd
   defillama: https://defillama.com/stablecoin/real-usd
-  twitter: https://x.com/re_aboralRWA
+  twitter: https://x.com/tangibleDAO
+contract_addresses:
+  - chain: polygon
+    address: '0x40379a439D4F6795B6fc9aa5687dB461677A2dBa'
 slug: usdr

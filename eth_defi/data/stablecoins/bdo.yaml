@@ -1,8 +1,27 @@
 symbol: BDO
 name: bDollar
 short_description: bDollar (BDO) was an algorithmic stablecoin on Binance Smart Chain inspired by Basis Cash. It used a seigniorage model with boardroom and bond mechanisms to maintain its peg. The project is
-  now defunct.
-long_description: ''
+  now defunct and the token has no value.
+long_description: |
+  bDollar was an early algorithmic stablecoin on [BNB Smart Chain](https://www.bnbchain.org/),
+  inspired by [Basis Cash](https://basis.cash/). It launched in late 2020 as part of a wave of
+  seigniorage-model forks attempting to build collateral-free, algorithmically stabilised dollar pegs.
+
+  ## Mechanism
+
+  Three-token seigniorage model (mirroring Basis Cash):
+  - **BDO** — the stablecoin targeting $1.00
+  - **sBDO** (bDollar Share) — seigniorage and governance token
+  - **bBDO** (bDollar Bond) — bond token for peg recovery
+
+  ## Status
+
+  **Defunct.** BDO lost its peg and the protocol has been abandoned. The website bdollar.fi is no longer
+  maintained.
+
+  ## Sources
+
+  - [CoinGecko: bDollar](https://www.coingecko.com/en/coins/bdollar)
 category: stablecoin
 links:
   homepage: https://bdollar.fi/
@@ -10,3 +29,6 @@ links:
   defillama: ''
   twitter: ''
 slug: bdo
+contract_addresses:
+  - chain: bnb
+    address: '0x190b589cf9fb8ddeabbfeae36a813ffb2a702454'

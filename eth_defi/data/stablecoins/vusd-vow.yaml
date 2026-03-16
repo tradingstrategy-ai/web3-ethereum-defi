@@ -7,15 +7,16 @@ long_description: |
 
   ## Status
 
-  Likely dead or pre-launch. Unranked on CoinGecko with negligible market presence.
+  Largely dead. Trades at a fraction of $1 (around $0.01) with negligible volume.
 
   ## Sources
 
+  - [CoinGecko — Vow USD](https://www.coingecko.com/en/coins/vow-usd)
   - [Vow Foundation](https://vow.foundation/)
 category: stablecoin
 links:
   homepage: https://vow.foundation/
-  coingecko: ''
+  coingecko: https://www.coingecko.com/en/coins/vow-usd
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/Vowcurrency
 slug: vusd-vow

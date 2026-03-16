@@ -9,4 +9,7 @@ links:
   coingecko: https://www.coingecko.com/en/coins/f-x-protocol-fxusd
   defillama: ''
   twitter: https://x.com/protocol_fx
+contract_addresses:
+  - chain: ethereum
+    address: '0x085780639CC2cACd35E474e71f4d000e2405d8f6'
 slug: fxusd

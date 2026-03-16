@@ -1,8 +1,30 @@
 symbol: BEAN
 name: Bean
-short_description: Bean is the USD-pegged stablecoin issued by the Beanstalk protocol on Ethereum. It uses a credit-based model rather than collateral to maintain its peg through protocol-native financial incentives.
-  Beanstalk was exploited in April 2022 but has since relaunched.
-long_description: ''
+short_description: Bean is the USD-pegged stablecoin issued by the Beanstalk protocol. It uses a credit-based model rather than collateral to maintain its peg through protocol-native financial incentives.
+  Beanstalk was exploited for $182 million in April 2022 but relaunched in August 2022, with the protocol migrating to Arbitrum in 2024.
+long_description: |
+  Bean is the stablecoin of [Beanstalk](https://bean.money/), a credit-based algorithmic stablecoin protocol.
+  Unlike collateral-backed stablecoins, Bean uses a system of economic incentives — via the Silo (deposit),
+  Field (soil/bond), and Market mechanisms — to maintain its dollar peg without collateral.
+
+  ## Mechanism
+
+  - No collateral required to mint Bean
+  - Peg maintained through seasons (hourly rebalancing): when Bean > $1 the protocol mints new Bean; when < $1 it issues Soil (debt)
+  - Silo: users deposit assets to earn Bean and Stalk governance tokens
+  - Field: users lend Bean to the protocol in exchange for Pods (future Bean), providing peg-recovery incentive
+
+  ## History
+
+  - April 2022: Governance exploit drained $182 million from the protocol
+  - August 2022: Protocol relaunched without ability to repay pre-exploit holders immediately (Barn Raise mechanism)
+  - 2024: Migrated from Ethereum to Arbitrum One
+
+  ## Sources
+
+  - [Beanstalk documentation](https://docs.bean.money/)
+  - [Arbiscan: Bean on Arbitrum](https://arbiscan.io/token/0xbea0005b8599265d41256905a9b3073d397812e4)
+  - [DeFiLlama: Bean stablecoin](https://defillama.com/stablecoin/bean)
 category: stablecoin
 links:
   homepage: https://bean.money/
@@ -10,3 +32,6 @@ links:
   defillama: https://defillama.com/stablecoin/bean
   twitter: https://x.com/BeanstalkFarms
 slug: bean
+contract_addresses:
+  - chain: arbitrum
+    address: '0xbea0005b8599265d41256905a9b3073d397812e4'

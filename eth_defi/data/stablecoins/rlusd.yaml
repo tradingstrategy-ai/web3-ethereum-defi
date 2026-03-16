@@ -1,12 +1,37 @@
 symbol: RLUSD
 name: Ripple USD
-short_description: Ripple USD (RLUSD) is a USD-backed stablecoin issued by Ripple. It is fully backed by US dollar deposits, US government bonds, and cash equivalents. RLUSD is available on Ethereum and the XRP
-  Ledger.
-long_description: ''
+short_description: Ripple USD (RLUSD) is a USD-backed stablecoin issued by Standard Custody & Trust Company, a wholly owned Ripple subsidiary. It is fully backed by US dollar deposits, US government bonds, and cash equivalents. RLUSD is available on Ethereum and the XRP Ledger.
+long_description: |
+  RLUSD is issued by [Standard Custody & Trust Company, LLC](https://ripple.com/solutions/stablecoin/),
+  a wholly owned subsidiary of Ripple. The stablecoin was launched in December 2024 and is
+  positioned as a compliance-first, institutional-grade stablecoin.
+
+  ## Mechanism
+
+  - 100% backed by USD deposits, US government bonds, and cash equivalents
+  - Issued on both Ethereum (ERC-20) and the XRP Ledger
+  - Regulated and audited reserve backing
+  - Trust and compliance are core design principles
+
+  ## Status
+
+  Active with approximately $1.54 billion market cap and 7,865 holders on Ethereum as of
+  early 2025. RLUSD launched in August 2024 on Ethereum mainnet and has seen rapid growth
+  in circulation.
+
+  ## Sources
+
+  - [Ripple — RLUSD](https://ripple.com/solutions/stablecoin/)
+  - [GitHub — RLUSD Implementation](https://github.com/ripple/RLUSD-Implementation)
+  - [DeFiLlama — Ripple USD](https://defillama.com/stablecoin/ripple-usd)
+  - [Etherscan — RLUSD](https://etherscan.io/token/0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD)
 category: stablecoin
 links:
   homepage: https://ripple.com/solutions/stablecoin/
   coingecko: https://www.coingecko.com/en/coins/ripple-usd
   defillama: https://defillama.com/stablecoin/ripple-usd
   twitter: https://x.com/Ripple
+contract_addresses:
+  - chain: ethereum
+    address: '0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD'
 slug: rlusd

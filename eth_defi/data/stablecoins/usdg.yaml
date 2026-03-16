@@ -10,5 +10,8 @@ links:
   homepage: https://globaldollar.com/
   coingecko: https://www.coingecko.com/en/coins/global-dollar
   defillama: https://defillama.com/stablecoin/global-dollar
-  twitter: https://x.com/GlobalDollar
+  twitter: https://x.com/global_dollar
 slug: usdg
+contract_addresses:
+  - chain: ethereum
+    address: '0xe343167631d89B6Ffc58B88d6b7fB0228795491D'

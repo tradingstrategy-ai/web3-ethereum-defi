@@ -5,8 +5,11 @@ short_description: GYEN is a Japanese Yen-backed stablecoin issued by GMO-Z.com 
 long_description: ''
 category: stablecoin
 links:
-  homepage: https://www.gmo-trust.com/
+  homepage: https://stablecoin.z.com/gyen
   coingecko: https://www.coingecko.com/en/coins/gyen
   defillama: ''
-  twitter: https://x.com/gabormo_trust
+  twitter: https://x.com/GMOTrust
+contract_addresses:
+  - chain: ethereum
+    address: '0xC08512927D12348F6620a698105e1BaAc6EcD911'
 slug: gyen

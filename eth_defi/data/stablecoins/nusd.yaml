@@ -1,11 +1,46 @@
 symbol: NUSD
-name: Neutrl NUSD
-short_description: NUSD is a delta-neutral stablecoin by Neutrl that maintains its peg through hedged positions. It is designed for DeFi stability through market-neutral strategies. NUSD is available on Ethereum.
-long_description: ''
+name: Neutrl USD
+short_description: Neutrl USD (NUSD) is a market-neutral synthetic dollar on Ethereum designed to unlock yield from OTC arbitrage, funding rate inefficiencies, and DeFi-native market-neutral strategies. It is issued by Neutrl at neutrl.fi.
+long_description: |
+  NUSD is issued by [Neutrl](https://neutrl.fi/), a DeFi protocol on Ethereum.
+  According to their documentation, NUSD is "a market-neutral synthetic dollar designed to
+  unlock untapped yield opportunities in OTC and altcoin markets."
+
+  ## Mechanism
+
+  - Delta-neutral design — the protocol hedges price exposure to maintain the dollar peg
+  - Yield comes from OTC arbitrage, funding rate inefficiencies, and DeFi-native strategies
+  - sNUSD (Staked NUSD) is the yield-bearing variant
+  - Note: the original `neutrl.com` domain has expired; the active domain is `neutrl.fi`
+
+  ## Key contracts (Ethereum)
+
+  - NUSD: `0xE556ABa6fe6036275ec1f87eda296be72c811bce`
+  - sNUSD: `0x08EFCC2F3e61185d0ea7f8830b3fec9bfa2ee313`
+
+  ## Note on NUSD duplicates
+
+  There is also a separate legacy token, **Neutral Dollar (NUSD)** by Neutral Project
+  (`0x0C6144c16af288948c8fdb37fd8fec94bff3d1d9`), a stablecoin basket project from 2018–2019
+  that is now defunct (22,096 tokens, 97 holders, no activity).
+
+  ## Status
+
+  Active on Ethereum with approximately 210 million NUSD in circulation and 534 holders
+  as of early 2025. The `neutrl.fi` domain is operational; `neutrl.com` has expired.
+
+  ## Sources
+
+  - [Neutrl](https://neutrl.fi/)
+  - [Neutrl docs — contract addresses](https://docs.neutrl.fi/resources-and-ecosystem/addresses)
+  - [Etherscan — NUSD](https://etherscan.io/token/0xE556ABa6fe6036275ec1f87eda296be72c811bce)
 category: stablecoin
 links:
-  homepage: https://www.neutrl.com/
+  homepage: https://neutrl.fi/
   coingecko: ''
   defillama: ''
-  twitter: https://x.com/neutaborrl
+  twitter: ''
+contract_addresses:
+  - chain: ethereum
+    address: '0xE556ABa6fe6036275ec1f87eda296be72c811bce'
 slug: nusd

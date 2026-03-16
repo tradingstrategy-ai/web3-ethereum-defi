@@ -1,8 +1,18 @@
 symbol: FEI
 name: Fei USD
 short_description: Fei USD was a decentralised stablecoin that used protocol-controlled value (PCV) to maintain its peg. It was governed by the Tribe DAO and backed by ETH and other assets in the protocol's treasury.
-  The project shut down in 2023 and returned funds to holders.
-long_description: ''
+  The project shut down in 2022 and returned funds to holders.
+long_description: |
+  [Fei USD](https://fei.money/) was a decentralised stablecoin issued by [Fei Labs](https://fei.money/), which used a novel Protocol-Controlled Value (PCV) mechanism.
+  Instead of relying solely on user-deposited collateral, the protocol itself accumulated assets (primarily ETH) in its treasury to backstop the USD peg.
+
+  Fei launched in April 2021 and raised approximately $1.3 billion in ETH during its genesis phase.
+  In late 2021, Fei Protocol merged with Rari Capital to form Tribe DAO.
+  In April 2022, the Fuse (Rari Capital) money market was exploited for approximately $80 million, severely damaging the combined protocol.
+  After protracted governance disputes over repayment of hack victims, Tribe DAO voted to wind down in August 2022.
+  FEI and TRIBE tokens were redeemable for protocol assets as part of the shutdown process.
+
+  The project is defunct. No further development or redemptions are active.
 category: stablecoin
 links:
   homepage: https://fei.money/

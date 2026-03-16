@@ -2,11 +2,24 @@ symbol: GHO
 name: GHO (Aave)
 short_description: GHO is a decentralised multi-collateral stablecoin native to the Aave Protocol. It is overcollateralised by assets deposited in Aave V3 markets. GHO introduces facilitators that can trustlessly
   mint and burn the stablecoin within approved parameters.
-long_description: ''
+long_description: |
+  GHO is a native decentralised stablecoin of the [Aave Protocol](https://aave.com/), launched on Ethereum mainnet in July 2023.
+  Unlike traditional stablecoins, GHO is minted by facilitators — entities approved by Aave governance that can mint and burn
+  GHO within defined capacity limits. The primary facilitator is the Aave V3 Ethereum market, where users borrow GHO against
+  their supplied collateral. Interest accrued on GHO borrows is directed to the Aave DAO treasury.
+
+  GHO has since been bridged to Arbitrum and Base, expanding its utility across multiple chains.
 category: stablecoin
 links:
   homepage: https://aave.com/
   coingecko: https://www.coingecko.com/en/coins/gho
   defillama: https://defillama.com/stablecoin/gho
   twitter: https://x.com/aave
+contract_addresses:
+  - chain: ethereum
+    address: '0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f'
+  - chain: arbitrum
+    address: '0x7dfF72693f6A4149b17e7C6314655f6A9F7c8B33'
+  - chain: base
+    address: '0x6Bb7a212910682DCFdbd5BCBb3e28FB4E8da10Ee'
 slug: gho

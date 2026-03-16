@@ -2,7 +2,13 @@ symbol: FLEXUSD
 name: flexUSD (CoinFLEX)
 short_description: flexUSD was a yield-bearing stablecoin issued by CoinFLEX exchange. It earned interest from lending markets while maintaining a USD peg. CoinFLEX filed for restructuring in 2022 and flexUSD
   is no longer actively maintained.
-long_description: ''
+long_description: |
+  [flexUSD](https://flexusd.com/) was a yield-bearing stablecoin issued by [CoinFLEX](https://coinflex.com/), a centralised cryptocurrency exchange.
+  It was designed to accrue interest daily from CoinFLEX's repo lending markets, allowing holders to earn yield passively.
+
+  CoinFLEX encountered severe financial difficulties in mid-2022, halting withdrawals and filing for restructuring under the laws of the Seychelles in August 2022.
+  Following the exchange's collapse, flexUSD lost its peg and is no longer redeemable at par.
+  The project and the CoinFLEX exchange are considered defunct.
 category: stablecoin
 links:
   homepage: https://flexusd.com/

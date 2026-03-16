@@ -1,14 +1,40 @@
 symbol: MUSD
 name: mStable USD
-short_description: mStable USD (mUSD) was a meta-stablecoin that combined multiple USD stablecoins into a single token. It aggregated USDC, DAI, and USDT to reduce single-stablecoin risk. The mStable protocol
-  has been deprecated.
-long_description: ''
+short_description: mStable USD (mUSD) was a meta-stablecoin that combined USDC, DAI, and USDT into a single token to reduce single-stablecoin risk. The mStable protocol has been deprecated and the website now hosts an entirely different project.
+long_description: |
+  mUSD was issued by the original [mStable Protocol](https://mstable.org/), a stablecoin
+  aggregation protocol on Ethereum. Users could deposit any of the constituent stablecoins
+  (USDC, DAI, USDT) and receive mUSD at a 1:1 rate, then redeem back.
+
+  ## Mechanism
+
+  - Basket of USDC, DAI, and USDT held in equal proportions
+  - Any constituent could be swapped for another via the mStable AMM at low fees
+  - Save (imUSD) was the yield-bearing variant deployed into Aave and Compound
+  - Also available on Polygon
+
+  ## Status
+
+  The original mStable protocol has been deprecated. The mstable.com domain now redirects
+  to a completely different protocol (a Pendle-based yield product that reused the brand name).
+  The original mUSD contract on Ethereum (`0xe2f2a5C287993345a840Db3B0845fbC70f5935a5`)
+  still exists with approximately 2.9 million mUSD in circulation and 8,770 holders.
+
+  The DeFiLlama page `defillama.com/stablecoin/musd` refers to the original mStable mUSD.
+
+  ## Sources
+
+  - [DeFiLlama — mUSD](https://defillama.com/stablecoin/musd)
+  - [Etherscan — mUSD](https://etherscan.io/token/0xe2f2a5C287993345a840Db3B0845fbC70f5935a5)
 category: stablecoin
 links:
   homepage: https://www.mstable.com/
   coingecko: https://www.coingecko.com/en/coins/musd
   defillama: https://defillama.com/stablecoin/musd
-  twitter: https://x.com/maborstable
+  twitter: https://x.com/mstable_
+contract_addresses:
+  - chain: ethereum
+    address: '0xe2f2a5C287993345a840Db3B0845fbC70f5935a5'
 slug: musd
 token_symbols:
 - MUSD

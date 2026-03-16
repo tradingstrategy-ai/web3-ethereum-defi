@@ -19,7 +19,7 @@ links:
   homepage: https://veno.finance/
   coingecko: https://www.coingecko.com/en/coins/veno-usd
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/VenoFinance
 contract_addresses:
   - chain: cronos-zkevm
     address: '0x5b91e29Ae5A71d9052620Acb813d5aC25eC7a4A2'

@@ -1,11 +1,17 @@
 symbol: tfUSDC
 name: TrueFi USDC
-short_description: tfUSDC represents USDC deposited into TrueFi lending pools. TrueFi provides uncollateralised lending to institutional borrowers. tfUSDC earns yield from interest paid by vetted borrowers.
-long_description: ''
-category: wrapped
+short_description: tfUSDC represents USDC deposited into TrueFi's uncollateralised lending pools. TrueFi provides on-chain institutional lending to vetted borrowers, and tfUSDC earns yield from interest payments. It is a proportional ownership token for the TrueFi USDC pool.
+long_description: |
+  tfUSDC is issued by [TrueFi](https://truefi.io/), a protocol for on-chain uncollateralised lending to institutional borrowers. Users deposit USDC into TrueFi's lending pool and receive tfUSDC tokens representing their pro-rata share.
+
+  TrueFi vets borrowers through a credit assessment process and disburses unsecured loans. Interest from borrowers accrues to tfUSDC holders. tfUSDC can be redeemed for the underlying USDC plus accrued interest, subject to pool liquidity.
+category: yield_bearing
 links:
   homepage: https://truefi.io/
   coingecko: ''
   defillama: ''
   twitter: https://x.com/TrueFi_DAO
+contract_addresses:
+  - chain: ethereum
+    address: '0xa991356d261fbaF194463aF6DF8f0464F8f1c742'
 slug: tfusdc

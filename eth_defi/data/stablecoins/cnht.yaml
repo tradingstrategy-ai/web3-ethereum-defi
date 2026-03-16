@@ -1,12 +1,32 @@
 symbol: CNHT
 name: CNH Tether
-short_description: CNH Tether (CNHT) is an offshore Chinese Yuan-pegged stablecoin issued by Tether. Each CNHT token is backed 1:1 by CNH reserves held by Tether. It enables digital trading and settlement denominated
-  in offshore Chinese Yuan.
-long_description: ''
+short_description: CNH Tether (CNHT) is an offshore Chinese Yuan-pegged stablecoin issued by Tether on Ethereum. Each CNHT token is backed 1:1 by CNH (offshore renminbi) reserves held by Tether. It enables
+  digital trading and settlement denominated in offshore Chinese Yuan.
+long_description: |
+  CNHT (CNH₮) is issued by [Tether](https://tether.to/), the company behind USDT, as part of its range of
+  non-USD fiat stablecoins. CNH refers to the offshore Chinese renminbi (yuan) traded outside mainland China.
+
+  ## Mechanism
+
+  - Fiat-backed: 1 CNHT = 1 CNH, backed by Tether's reserves
+  - ERC-20 token on Ethereum with 6 decimal places
+  - Includes compliance features: pause and blacklist functionality (standard for Tether tokens)
+
+  ## Status
+
+  Low adoption relative to USDT. Circulating supply is approximately 20.5 million CNHT (~$319,000 at CNH/USD
+  rates as of early 2026). Note: CoinGecko no longer lists a separate page for CNHT.
+
+  ## Sources
+
+  - [Etherscan: CNHT on Ethereum](https://etherscan.io/token/0x6e109e9dd7fa1a58bc3eff667e8e41fc3cc07aef)
 category: stablecoin
 links:
   homepage: https://tether.to/
-  coingecko: https://www.coingecko.com/en/coins/cnh-tether
+  coingecko: ''
   defillama: ''
   twitter: https://x.com/Tether_to
 slug: cnht
+contract_addresses:
+  - chain: ethereum
+    address: '0x6e109e9dd7fa1a58bc3eff667e8e41fc3cc07aef'

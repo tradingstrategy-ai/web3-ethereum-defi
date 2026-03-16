@@ -1,12 +1,19 @@
 symbol: TCNH
-name: TrueUSD CNH
-short_description: TCNH is an offshore Chinese Yuan-pegged stablecoin associated with the TrueUSD ecosystem. It is pegged 1:1 to the CNH (offshore Chinese Yuan). TCNH enables digital transactions in CNH on blockchain
-  networks.
-long_description: ''
+name: TrueCNH
+short_description: TCNH (TrueCNH) is an offshore Chinese Yuan-pegged stablecoin issued by the TrueUSD team, pegged 1:1 to the CNH (offshore Chinese Yuan). It is deployed on the TRON network. TCNH is a sister product of TUSD.
+long_description: |
+  TrueCNH (TCNH) is issued by the [TrueUSD](https://trueusd.com/) team as a TRON-based stablecoin pegged 1:1 to the offshore Chinese Yuan (CNH). It enables digital transactions denominated in CNH on the TRON blockchain.
+
+  TCNH is a sister product of TrueUSD (TUSD) and was launched to provide Chinese Yuan exposure on-chain. Unlike many other stablecoins, TCNH is deployed exclusively on TRON (not Ethereum).
+
+  Note: Tether issued a separate offshore CNY stablecoin (CNH₮) on Ethereum and other networks. TCNH and CNH₮ are distinct products from different issuers.
 category: stablecoin
 links:
   homepage: https://trueusd.com/
   coingecko: https://www.coingecko.com/en/coins/truecnh
   defillama: ''
   twitter: https://x.com/TrueUSD
+contract_addresses:
+  - chain: tron
+    address: 'TBqsNXUtqaLptVK8AYvdPPctpqd8oBYWUC'
 slug: tcnh

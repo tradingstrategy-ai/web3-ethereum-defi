@@ -1,11 +1,19 @@
 symbol: SEUR
-name: Synthetix EUR
-short_description: sEUR is a synthetic Euro token issued by the Synthetix protocol. It tracks the price of the Euro through Chainlink oracle price feeds. sEUR is backed by SNX tokens staked in the Synthetix system.
-long_description: ''
+name: Synthetix sEUR
+short_description: sEUR is a synthetic Euro token issued by the Synthetix protocol. It tracks the price of the Euro through Chainlink oracle price feeds. sEUR is backed by SNX tokens staked in the Synthetix system. All Synthetix synths on Optimism were deprecated in early 2026.
+long_description: |
+  sEUR is a [Synthetix](https://synthetix.io/) synth that tracks the price of the Euro (EUR) via Chainlink price feeds. It is part of Synthetix's suite of synthetic assets (synths) backed by overcollateralised SNX staking.
+
+  Synthetix deprecated all synths on Optimism in early 2026 — synth swaps on Optimism were enabled until 31 January 2026. Holders were encouraged to swap into sUSD before the deadline. From 1 February 2026, the redemption price was frozen until 30 April 2026.
+
+  The Ethereum mainnet version of sEUR remains on-chain but with greatly reduced activity as Synthetix transitions away from legacy synth infrastructure.
 category: stablecoin
 links:
   homepage: https://synthetix.io/
   coingecko: https://www.coingecko.com/en/coins/seur
   defillama: ''
   twitter: https://x.com/synthetix_io
+contract_addresses:
+  - chain: ethereum
+    address: '0xD71eCFF9342A5Ced620049e616c5035F1dB98620'
 slug: seur

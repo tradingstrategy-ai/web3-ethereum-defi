@@ -2,11 +2,21 @@ symbol: EUSD
 name: eUSD (Lybra Finance)
 short_description: eUSD is a USD-pegged stablecoin issued by Lybra Finance, backed by liquid staking derivatives. It generates yield for holders through the staking rewards of its ETH-based collateral. eUSD is
   designed to be a stable, interest-bearing asset in DeFi.
-long_description: ''
+long_description: |
+  [eUSD](https://lybra.finance/) is a rebasing, interest-bearing USD stablecoin issued by [Lybra Finance](https://lybra.finance/).
+  Users deposit ETH or liquid staking tokens (stETH, rETH) as collateral at a minimum 150% collateralisation ratio to mint eUSD.
+  The yield from the underlying LST collateral is automatically distributed to eUSD holders as a balance rebase — holders see their eUSD balance increase over time.
+
+  Lybra Finance launched on Ethereum in April 2023 and introduced Lybra V2 in mid-2023, adding peUSD (peg-eUSD), a non-rebasing omnichain version of eUSD compatible with LayerZero.
+
+  **Note:** The symbol EUSD is also used by the [Electronic USD](https://app.reserve.org/) from Reserve Protocol — see `eusd-reserve.yaml`.
 category: stablecoin
 links:
   homepage: https://lybra.finance/
   coingecko: https://www.coingecko.com/en/coins/lybra-finance-eusd
   defillama: https://defillama.com/stablecoin/eusd
   twitter: https://x.com/LybraFinance
+contract_addresses:
+  - chain: ethereum
+    address: '0x97de57ec338ab5d51557da3434828c5dbfada371'
 slug: eusd

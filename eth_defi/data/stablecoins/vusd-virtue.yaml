@@ -14,7 +14,7 @@ long_description: |
 
   ## Status
 
-  Active but very small — ~$1.7M market cap. Launched around January 2026.
+  Active but small. Launched in July 2025 on IOTA Rebased Mainnet.
   Trades on Pools Finance DEX.
 
   ## Sources
@@ -26,5 +26,5 @@ links:
   homepage: https://virtue.money/
   coingecko: https://www.coingecko.com/en/coins/virtue-usd
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/Virtue_Money
 slug: vusd-virtue

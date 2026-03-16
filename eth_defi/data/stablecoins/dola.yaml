@@ -4,11 +4,21 @@ short_description: |
   DOLA is a decentralised stablecoin issued by Inverse Finance on Ethereum. It is backed by
   various crypto collateral through the FiRM fixed-rate lending market. DOLA uses a Fed-style
   monetary policy with protocol-controlled supply expansion and contraction.
-long_description: ''
+long_description: |
+  [DOLA](https://www.inverse.finance/) is a decentralised USD-pegged stablecoin issued by [Inverse Finance](https://www.inverse.finance/).
+  It is minted through [FiRM](https://www.inverse.finance/firm), Inverse Finance's fixed-rate lending market, where users deposit collateral to borrow DOLA at a fixed interest rate.
+
+  Supply is managed via a Fed mechanism: the Inverse Finance DAO can expand or contract DOLA supply across whitelisted AMM pools and lending markets, analogous to a central bank's open market operations.
+  DOLA can also be staked as sDOLA to earn yield from the protocol's revenues.
+
+  Inverse Finance suffered two governance exploits in 2022 resulting in losses, but continued operating and compensating affected users over time.
 category: stablecoin
 links:
   homepage: https://www.inverse.finance/
   coingecko: https://www.coingecko.com/en/coins/dola-usd
   defillama: https://defillama.com/stablecoin/dola
   twitter: https://x.com/InverseFinance
+contract_addresses:
+  - chain: ethereum
+    address: '0x865377367054516e17014ccded1e7d814edc9ce4'
 slug: dola

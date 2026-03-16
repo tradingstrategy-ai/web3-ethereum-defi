@@ -1,12 +1,20 @@
 symbol: GBPT
-name: poundtoken
-short_description: Poundtoken (GBPT) is a British Pound-backed stablecoin pegged 1:1 to GBP. It is fully backed by Sterling reserves held in UK bank accounts. GBPT enables digital transactions denominated in
-  British Pounds on Ethereum.
-long_description: ''
+name: poundtoken (rebranded to 1GBP)
+short_description: Poundtoken (GBPT) was a British Pound-backed stablecoin pegged 1:1 to GBP. It is fully backed by Sterling reserves held in UK bank accounts. The issuer is regulated by the Isle of Man Financial
+  Services Authority. In 2024, GBPT was rebranded to 1GBP.
+long_description: |
+  Poundtoken was the first regulated GBP stablecoin issuer in the British Isles, holding a Money Transmission Services
+  Licence from the Isle of Man Financial Services Authority. The token is fully backed by Sterling reserves and audited
+  by KPMG. In 2024, the project was rebranded from GBPT to [1GBP](https://poundtoken.io/).
+
+  The original GBPT token was deployed on Ethereum. The rebrand introduced a new 1GBP token contract.
 category: stablecoin
 links:
   homepage: https://poundtoken.io/
   coingecko: https://www.coingecko.com/en/coins/poundtoken
   defillama: ''
   twitter: https://x.com/poundtoken
+contract_addresses:
+  - chain: ethereum
+    address: '0x86B4dBE5D203e634a12364C0e428fa242A3FbA98'
 slug: gbpt

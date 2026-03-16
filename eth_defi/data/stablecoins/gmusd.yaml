@@ -7,5 +7,8 @@ links:
   homepage: https://gndprotocol.com/
   coingecko: ''
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/GNDProtocol
+contract_addresses:
+  - chain: arbitrum
+    address: '0xeC13336BBD50790a00CDc0FEDdF11287eAf92529'
 slug: gmusd
