@@ -14,7 +14,7 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVersion
 from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN
-from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
@@ -270,6 +270,136 @@ def test_lagoon_deploy_base_guarded_any_token(
     tx_hash = bound_func.transact({"from": depositor, "gas": 1_000_000})
     assert_transaction_success_with_explanation(web3, tx_hash)
     assert usdc.fetch_balance_of(depositor) > 994
+
+
+@flaky.flaky
+def test_lagoon_deploy_base_guarded_multiple_asset_managers(
+    web3: Web3,
+    uniswap_v2,
+    base_weth: TokenDetails,
+    base_usdc: TokenDetails,
+    topped_up_asset_managers: list[HexAddress],
+    depositor: HexAddress,
+    deployer_hot_wallet: HotWallet,
+    multisig_owners: list[str],
+):
+    """Deploy a guarded Lagoon vault with two trade-executor keys.
+
+    Both keys must be able to execute guarded module calls, while only the
+    primary key remains the Lagoon valuation manager.
+    """
+
+    chain_id = web3.eth.chain_id
+    primary_asset_manager, secondary_asset_manager = topped_up_asset_managers
+    usdc = base_usdc
+
+    parameters = LagoonDeploymentParameters(
+        underlying=USDC_NATIVE_TOKEN[chain_id],
+        name="Example",
+        symbol="EXA",
+    )
+
+    deploy_info = deploy_automated_lagoon_vault(
+        web3=web3,
+        deployer=deployer_hot_wallet,
+        asset_managers=topped_up_asset_managers,
+        parameters=parameters,
+        safe_owners=multisig_owners,
+        safe_threshold=2,
+        uniswap_v2=uniswap_v2,
+        uniswap_v3=None,
+        any_asset=True,
+    )
+
+    vault = deploy_info.vault
+    module = deploy_info.trading_strategy_module
+
+    assert deploy_info.asset_manager == primary_asset_manager
+    assert deploy_info.asset_managers == tuple(topped_up_asset_managers)
+    assert deploy_info.valuation_manager == primary_asset_manager
+    assert vault.valuation_manager == primary_asset_manager
+    assert module.functions.isAllowedSender(primary_asset_manager).call() is True
+    assert module.functions.isAllowedSender(secondary_asset_manager).call() is True
+
+    sender_entries = [entry for entry in deploy_info.whitelisted_items if entry.kind == "Sender"]
+    assert len(sender_entries) == 2
+    assert {entry.address for entry in sender_entries} == {primary_asset_manager, secondary_asset_manager}
+
+    deployment_data = deploy_info.get_deployment_data()
+    assert deployment_data["Asset managers"] == ", ".join(topped_up_asset_managers)
+    assert deployment_data["Valuation manager"] == primary_asset_manager
+
+    pretty = deploy_info.pformat()
+    assert "Asset managers" in pretty
+    assert "Valuation manager" in pretty
+    assert primary_asset_manager in pretty
+    assert secondary_asset_manager in pretty
+
+    tx_hash = vault.post_new_valuation(Decimal(0)).transact({"from": primary_asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    usdc_amount = 9 * 10**6
+    tx_hash = usdc.contract.functions.approve(vault.address, usdc_amount).transact({"from": depositor})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    tx_hash = vault.request_deposit(depositor, usdc_amount).transact({"from": depositor})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    tx_hash = vault.post_new_valuation(Decimal(0)).transact({"from": primary_asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    tx_hash = vault.settle_via_trading_strategy_module(Decimal(0)).transact(
+        {
+            "from": primary_asset_manager,
+            "gas": 1_000_000,
+        }
+    )
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    swap_amount = usdc_amount // 2
+    approve_call = usdc.contract.functions.approve(uniswap_v2.router.address, swap_amount)
+
+    tx_hash = vault.transact_via_trading_strategy_module(approve_call).transact(
+        {
+            "from": primary_asset_manager,
+            "gas": 1_000_000,
+        }
+    )
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    tx_hash = vault.transact_via_trading_strategy_module(approve_call).transact(
+        {
+            "from": secondary_asset_manager,
+            "gas": 1_000_000,
+        }
+    )
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    swap_call = swap_with_slippage_protection(
+        uniswap_v2,
+        recipient_address=vault.safe_address,
+        base_token=base_weth.contract,
+        quote_token=base_usdc.contract,
+        amount_in=swap_amount,
+    )
+    tx_hash = vault.transact_via_trading_strategy_module(swap_call).transact(
+        {
+            "from": secondary_asset_manager,
+            "gas": 1_000_000,
+        }
+    )
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    with pytest.raises(TransactionAssertionError) as exc_info:
+        tx_hash = vault.post_new_valuation(Decimal(0)).transact(
+            {
+                "from": secondary_asset_manager,
+                "gas": 1_000_000,
+            }
+        )
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    assert primary_asset_manager.lower()[2:] in str(exc_info.value).lower()
 
 
 # AssertionError: assert Decimal('0') > 1

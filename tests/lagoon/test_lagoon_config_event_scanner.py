@@ -163,7 +163,8 @@ def multichain_deployment(
     arb_cctp = CCTPDeployment.create_for_chain(chain_id=42161, allowed_destinations=[8453])
     arb_config = LagoonConfig(
         parameters=LagoonDeploymentParameters(underlying=None, name="Scanner Test Vault", symbol="SCAN"),
-        asset_manager=deployer.address,
+        asset_manager=None,
+        asset_managers=[deployer.address],
         safe_owners=[deployer.address],
         safe_threshold=1,
         any_asset=True,
@@ -175,7 +176,8 @@ def multichain_deployment(
     base_cctp = CCTPDeployment.create_for_chain(chain_id=8453, allowed_destinations=[42161])
     base_config = LagoonConfig(
         parameters=LagoonDeploymentParameters(underlying=None, name="Scanner Satellite", symbol="SAT"),
-        asset_manager=deployer.address,
+        asset_manager=None,
+        asset_managers=[deployer.address],
         safe_owners=[deployer.address],
         safe_threshold=1,
         any_asset=True,
@@ -444,7 +446,8 @@ def full_protocol_deployment(
             name="Full Protocol Test Vault",
             symbol="FPTV",
         ),
-        asset_manager=deployer.address,
+        asset_manager=None,
+        asset_managers=[deployer.address],
         safe_owners=[deployer.address],
         safe_threshold=1,
         any_asset=False,

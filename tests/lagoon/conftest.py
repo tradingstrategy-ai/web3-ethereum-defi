@@ -78,6 +78,7 @@ def anvil_base_fork(
     vault_owner,
     usdc_holder,
     asset_manager,
+    second_asset_manager,
     valuation_manager,
     test_block_number,
 ) -> AnvilLaunch:
@@ -88,7 +89,7 @@ def anvil_base_fork(
     assert JSON_RPC_BASE, "JSON_RPC_BASE not set"
     launch = fork_network_anvil(
         JSON_RPC_BASE,
-        unlocked_addresses=[vault_owner, usdc_holder, asset_manager, valuation_manager],
+        unlocked_addresses=[vault_owner, usdc_holder, asset_manager, second_asset_manager, valuation_manager],
         fork_block_number=test_block_number,
     )
     try:
@@ -238,6 +239,18 @@ def asset_manager() -> HexAddress:
 
 
 @pytest.fixture()
+def second_asset_manager() -> HexAddress:
+    """The secondary asset manager role used in multi-key tests."""
+    return Web3.to_checksum_address("0x4b3346d9b7d4f6b7a90a4d2f0d2f5f6d5b9c8a17")
+
+
+@pytest.fixture()
+def asset_managers(asset_manager, second_asset_manager) -> list[HexAddress]:
+    """Asset manager keys in deployment order."""
+    return [asset_manager, second_asset_manager]
+
+
+@pytest.fixture()
 def topped_up_asset_manager(web3, asset_manager) -> HexAddress:
     # Topped up with some ETH
     tx_hash = web3.eth.send_transaction(
@@ -249,6 +262,26 @@ def topped_up_asset_manager(web3, asset_manager) -> HexAddress:
     )
     assert_transaction_success_with_explanation(web3, tx_hash)
     return asset_manager
+
+
+@pytest.fixture()
+def topped_up_second_asset_manager(web3, second_asset_manager) -> HexAddress:
+    # Topped up with some ETH
+    tx_hash = web3.eth.send_transaction(
+        {
+            "to": second_asset_manager,
+            "from": web3.eth.accounts[0],
+            "value": 9 * 10**18,
+        }
+    )
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    return second_asset_manager
+
+
+@pytest.fixture()
+def topped_up_asset_managers(topped_up_asset_manager, topped_up_second_asset_manager) -> list[HexAddress]:
+    """Fund all asset manager keys used by the multi-key deployment tests."""
+    return [topped_up_asset_manager, topped_up_second_asset_manager]
 
 
 @pytest.fixture()

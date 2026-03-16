@@ -375,7 +375,8 @@ def create_multichain_whitelisting_configuration(
         is_satellite = source_chain is not None and chain_name != source_chain
         configs[chain_name] = LagoonConfig(
             parameters=deepcopy(base_params),
-            asset_manager=asset_manager,
+            asset_manager=None,
+            asset_managers=[asset_manager],
             safe_owners=list(safe_owners),
             safe_threshold=safe_threshold,
             safe_salt_nonce=safe_salt_nonce,
@@ -454,7 +455,8 @@ def create_testnet_whitelisting_configuration(
             # Satellite chains: Safe + guard only, no Lagoon protocol
             configs[chain_name] = LagoonConfig(
                 parameters=deepcopy(base_params),
-                asset_manager=asset_manager,
+                asset_manager=None,
+                asset_managers=[asset_manager],
                 safe_owners=list(safe_owners),
                 safe_threshold=safe_threshold,
                 safe_salt_nonce=safe_salt_nonce,
@@ -465,7 +467,8 @@ def create_testnet_whitelisting_configuration(
             # Source chain: full Lagoon protocol from scratch
             configs[chain_name] = LagoonConfig(
                 parameters=deepcopy(base_params),
-                asset_manager=asset_manager,
+                asset_manager=None,
+                asset_managers=[asset_manager],
                 safe_owners=list(safe_owners),
                 safe_threshold=safe_threshold,
                 safe_salt_nonce=safe_salt_nonce,
