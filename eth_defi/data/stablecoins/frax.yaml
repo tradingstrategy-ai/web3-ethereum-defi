@@ -1,0 +1,13 @@
+symbol: FRAX
+name: Frax
+description: |
+  Frax is a fractional-algorithmic stablecoin protocol on Ethereum. It was originally partially
+  collateralised by USDC and partially stabilised algorithmically, but has since moved to full
+  collateralisation. Frax Finance also offers frxETH liquid staking and the frxUSD stablecoin.
+category: stablecoin
+links:
+  homepage: https://frax.finance/
+  coingecko: https://www.coingecko.com/en/coins/frax
+  defillama: https://defillama.com/stablecoin/frax
+  twitter: https://x.com/fraboraxfinance
+slug: frax
