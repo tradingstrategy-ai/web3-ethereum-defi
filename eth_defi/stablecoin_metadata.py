@@ -1,8 +1,59 @@
 """Stablecoin metadata handling.
 
-Read and export stablecoin metadata from YAML files to JSON format
-for upload to R2 storage. Follows the same pattern as
-:py:mod:`eth_defi.vault.protocol_metadata`.
+Manages stablecoin classification (symbol sets, stablecoin-like detection)
+and rich metadata (name, homepage, description, external links) for ~183 stablecoins.
+
+Metadata is stored as individual YAML files under ``eth_defi/data/stablecoins/``
+and loaded on demand with in-process caching. The module follows the same pattern
+as vault protocol metadata in :py:mod:`eth_defi.vault.protocol_metadata`.
+
+Stablecoin classification
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Three disjoint symbol sets classify tokens:
+
+- :py:data:`STABLECOIN_LIKE` — primary stablecoins (USDC, DAI, GHO, …)
+- :py:data:`YIELD_BEARING_STABLES` — rebasing/yield stables (sUSDe, sUSG, …)
+- :py:data:`WRAPPED_STABLECOIN_LIKE` — interest-bearing wrappers (cUSDC, aDAI, …)
+
+Their union :py:data:`ALL_STABLECOIN_LIKE` is used by :py:func:`is_stablecoin_like`
+for quick symbol-based stablecoin detection.
+
+Loading metadata
+~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    from eth_defi.stablecoin_metadata import load_all_stablecoin_metadata
+
+    meta = load_all_stablecoin_metadata()
+    usdc = meta["USDC"][0]
+    print(usdc["name"], usdc["homepage"])
+
+R2 upload
+~~~~~~~~~
+
+The export script ``scripts/erc-4626/export-protocol-metadata.py`` uploads
+stablecoin metadata to the same R2 bucket as vault protocol metadata,
+under the ``stablecoin-metadata/`` prefix:
+
+.. code-block:: text
+
+    stablecoin-metadata/{slug}/metadata.json
+
+Run the export with:
+
+.. code-block:: shell
+
+    source .local-test.env && poetry run python scripts/erc-4626/export-protocol-metadata.py
+
+Required environment variables (shared with vault protocol metadata):
+
+- ``R2_VAULT_METADATA_BUCKET_NAME``
+- ``R2_VAULT_METADATA_ACCESS_KEY_ID``
+- ``R2_VAULT_METADATA_SECRET_ACCESS_KEY``
+- ``R2_VAULT_METADATA_ENDPOINT_URL``
+- ``R2_VAULT_METADATA_PUBLIC_URL``
 """
 
 import json
