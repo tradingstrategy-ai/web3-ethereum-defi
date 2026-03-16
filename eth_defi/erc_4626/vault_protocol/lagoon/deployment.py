@@ -210,23 +210,27 @@ class LagoonConfig:
     #: Vault parameters (name, symbol, underlying token, fees)
     parameters: LagoonDeploymentParameters
 
-    #: Primary asset manager kept for backwards compatibility.
-    #:
-    #: Deprecated in favour of ``asset_managers``. When both are provided,
-    #: ``asset_managers`` wins.
-    asset_manager: HexAddress | None
-
     #: Addresses of Safe multisig owners
     safe_owners: list[HexAddress | str]
 
     #: Number of owner signatures required for Safe transactions
     safe_threshold: int
 
+    #: Primary asset manager kept for backwards compatibility.
+    #:
+    #: Deprecated in favour of ``asset_managers``. When both are provided,
+    #: ``asset_managers`` wins.
+    asset_manager: HexAddress | None = None
+
     #: Addresses that manage vault assets and execute trades.
     #:
     #: All entries are whitelisted as guard senders. The first entry becomes
     #: the primary asset manager and is used as the Lagoon valuation manager
     #: unless ``parameters.valuationManager`` was explicitly set.
+    #:
+    #: The main use case today is splitting permissions between FreqTrade and
+    #: GMX trading keys while keeping the same Guard rights. Future automated
+    #: trading or operational workflows may reuse the same mechanism.
     asset_managers: list[HexAddress | str] | None = None
 
     #: Uniswap V2 deployment for router whitelisting
@@ -316,6 +320,11 @@ class LagoonConfig:
     #: Used for satellite chains in multichain deployments where only the
     #: source chain needs a vault contract.
     satellite_chain: bool = False
+
+    def __post_init__(self) -> None:
+        """Populate multi-key config from the legacy single-key field."""
+        if self.asset_managers is None and self.asset_manager is not None:
+            self.asset_managers = [self.asset_manager]
 
 
 @dataclass(slots=True, frozen=True)
@@ -407,6 +416,7 @@ class LagoonAutomatedDeployment:
             "Safe": self.safe_address,
             "Beacon proxy factory": self.beacon_proxy_factory,
             "Trading strategy module": self.trading_strategy_module.address,
+            "Asset manager": self.asset_manager,
             "Asset managers": ", ".join(self.asset_managers),
             "Valuation manager": self.valuation_manager,
             "Multisig owners": ", ".join(self.multisig_owners),
@@ -480,6 +490,13 @@ def _normalise_asset_managers(
 
     ``asset_managers`` is the preferred input. ``asset_manager`` is kept as a
     backwards-compatible fallback for older call sites.
+
+    The primary use case today is allowing separate FreqTrade and GMX trading
+    keys to share the same Guard permissions while keeping a single Lagoon
+    valuation manager. Other multi-key workflows may be added later.
+
+    An explicitly passed empty ``asset_managers`` list is treated the same as
+    ``None`` and will fail with the validation assert below.
     """
     raw_addresses: list[HexAddress | str]
 
@@ -1166,6 +1183,10 @@ def setup_guard(
     logger.info("Setting up TradingStrategyModuleV0 guard: %s", module.address)
 
     # Enable all configured asset manager keys as whitelisted trade executors.
+    #
+    # Today this is mainly used to support separate FreqTrade and GMX trading
+    # keys with identical Guard permissions. Future deployment setups may use
+    # the same path for other multi-key trading workflows.
     for asset_manager in asset_managers:
         logger.info("Whitelisting trade-executor as sender: %s", asset_manager)
         tx_hash = _broadcast(module.functions.allowSender(asset_manager, "Whitelist trade-executor"))
@@ -1511,6 +1532,9 @@ def deploy_automated_lagoon_vault(
 
     For roles
     - The primary asset manager and Valuation Manager (Lagoon) are the same role
+    - Multiple asset-manager keys may share the same Guard rights; today this
+      mainly supports separate FreqTrade and GMX trading keys, but other
+      workflows may use the same pattern in the future
     - Any Safe must be deployed as 1-of-1 deployer address multisig and multisig holders changed after the deployment.
 
     .. warning::
