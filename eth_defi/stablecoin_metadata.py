@@ -322,6 +322,16 @@ class StablecoinLogos(TypedDict):
     light: str | None
 
 
+class StablecoinContractAddress(TypedDict):
+    """A contract address entry for a stablecoin on a specific chain."""
+
+    #: Chain name (e.g. ``ethereum``, ``arbitrum``, ``base``)
+    chain: str
+
+    #: Contract address (checksummed hex, may be ``None`` if unknown)
+    address: str | None
+
+
 class StablecoinMetadata(TypedDict):
     """Complete stablecoin metadata as exported to JSON."""
 
@@ -351,6 +361,9 @@ class StablecoinMetadata(TypedDict):
 
     #: Logo URLs
     logos: StablecoinLogos
+
+    #: Known contract addresses across chains (may be empty list if unknown)
+    contract_addresses: list[StablecoinContractAddress]
 
 
 def read_stablecoin_metadata(yaml_path: Path) -> dict:
@@ -549,6 +562,16 @@ def build_stablecoin_metadata_json(yaml_path: Path, public_url: str = "") -> lis
         "light": f"{public_url}/stablecoin-metadata/{slug}/light.png" if available["light"] and public_url else None,
     }
 
+    def parse_contract_addresses(source: dict) -> list[StablecoinContractAddress]:
+        raw = source.get("contract_addresses") or []
+        return [
+            StablecoinContractAddress(
+                chain=entry.get("chain", ""),
+                address=entry.get("address") or None,
+            )
+            for entry in raw
+        ]
+
     if "entries" in data:
         result = []
         for entry in data["entries"]:
@@ -567,6 +590,7 @@ def build_stablecoin_metadata_json(yaml_path: Path, public_url: str = "") -> lis
                     category=category,
                     links=links,
                     logos=logos,
+                    contract_addresses=parse_contract_addresses(entry),
                 )
             )
         return result
@@ -586,6 +610,7 @@ def build_stablecoin_metadata_json(yaml_path: Path, public_url: str = "") -> lis
                 category=category,
                 links=links,
                 logos=logos,
+                contract_addresses=parse_contract_addresses(data),
             )
         ]
 
