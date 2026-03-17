@@ -408,6 +408,17 @@ class GMX(ExchangeCompatible):
     }
 
     @property
+    def _is_lagoon_mode(self) -> bool:
+        """Return ``True`` when the exchange operates through a Lagoon vault.
+
+        Detected by checking if the wallet is a
+        :class:`~eth_defi.gmx.lagoon.wallet.LagoonGMXTradingWallet`.
+        """
+        from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
+
+        return isinstance(getattr(self, "wallet", None), LagoonGMXTradingWallet)
+
+    @property
     def _gas_payer_address(self) -> str:
         """Return the address that pays gas fees.
 
@@ -5848,7 +5859,7 @@ class GMX(ExchangeCompatible):
         monitor = self.gas_monitor
         gas_estimate = None
         native_price_usd = None
-        if gas_config and gas_config.enabled and monitor:
+        if gas_config and gas_config.enabled and monitor and not self._is_lagoon_mode:
             try:
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=sltp_result.transaction,
@@ -6116,7 +6127,7 @@ class GMX(ExchangeCompatible):
 
         gas_estimate = None
         native_price_usd = None
-        if gas_config and gas_config.enabled and monitor:
+        if gas_config and gas_config.enabled and monitor and not self._is_lagoon_mode:
             try:
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=result.transaction,
@@ -7250,7 +7261,10 @@ class GMX(ExchangeCompatible):
         # Gas estimation and logging (if gas monitoring enabled)
         gas_estimate = None
         native_price_usd = None
-        if gas_config and gas_config.enabled and monitor:
+        # Skip gas estimation in Lagoon mode — eth_estimateGas replays the inner
+        # GMX call from the asset manager address which doesn't hold collateral
+        # tokens, so it always reverts with "ERC20: transfer amount exceeds balance".
+        if gas_config and gas_config.enabled and monitor and not self._is_lagoon_mode:
             try:
                 gas_estimate = monitor.estimate_transaction_gas(
                     tx=order_result.transaction,
