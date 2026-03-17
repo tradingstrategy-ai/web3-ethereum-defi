@@ -1,5 +1,5 @@
 symbol: USD₮0
-name: Tether USD₮0 (USDT0)
+name: Tether USD₮0
 short_description: USD₮0 (USDT0) is an omnichain deployment of Tether's USDT stablecoin built on LayerZero's OFT (Omnichain Fungible Token) standard. Original USDT is locked on Ethereum and equivalent USD₮0 tokens are minted on 15+ destination chains. It eliminates fragmented liquidity and wrapped token complexity across chains.
 long_description: |
   USD₮0 (also written USDT0) is an omnichain stablecoin infrastructure project by

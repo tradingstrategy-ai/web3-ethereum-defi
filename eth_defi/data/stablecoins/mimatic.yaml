@@ -1,5 +1,5 @@
 symbol: MIMATIC
-name: MAI (QiDAO)
+name: QiDAO MAI
 short_description: MAI (also known as miMATIC on Polygon) is a decentralised stablecoin issued by QiDAO across multiple chains. It is overcollateralised by various crypto assets with interest-free borrowing at a 0.5% repayment fee. MAI is one of the most widely deployed multi-chain stablecoins.
 long_description: |
   MAI is issued by [QiDAO](https://www.mai.finance/) (pronounced "chee-dao"), a decentralised

@@ -1,5 +1,5 @@
 symbol: vbUSDT
-name: Vault Bridge Bridged USDT (Katana)
+name: Katana Bridged USDT
 short_description: vbUSDT is a bridged version of USDT on the Katana DeFi L2 via Vault Bridge. Katana is a DeFi-focused ZK-rollup incubated by Polygon Labs and GSR. Bridged assets are deployed into yield-generating strategies on Ethereum while in transit.
 long_description: |
   vbUSDT is the VaultBridge representation of USDT on the [Katana](https://katana.network/)

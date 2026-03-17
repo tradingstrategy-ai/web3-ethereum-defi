@@ -1,5 +1,5 @@
 symbol: EUROC
-name: Euro Coin (Circle)
+name: Circle Euro
 short_description: Euro Coin (EUROC, now EURC) is a Euro-backed stablecoin issued by Circle, the company behind USDC. Each EUROC is fully backed by Euro reserves held in regulated financial institutions. It is
   available on Ethereum, Avalanche, and other major blockchains.
 long_description: |

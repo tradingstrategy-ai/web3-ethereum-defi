@@ -1,5 +1,5 @@
 symbol: XDAI
-name: xDAI (Gnosis Chain)
+name: Gnosis Chain xDAI
 short_description: xDAI is the native gas token of Gnosis Chain (formerly xDai Chain), backed 1:1 by DAI. It is bridged from Ethereum DAI to serve as the native currency of Gnosis Chain. xDAI enables low-cost,
   stable-value transactions on Gnosis Chain.
 long_description: |

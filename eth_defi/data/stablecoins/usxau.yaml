@@ -1,5 +1,5 @@
 symbol: USXAU
-name: USXAU (unidentified)
+name: USXAU
 short_description: USXAU is an unidentified token with no known CoinGecko, CoinMarketCap, or DeFiLlama listing. It may be a gold-backed stablecoin given the XAU (gold) suffix, but no reliable sources were found to confirm this.
 long_description: |
   USXAU is a token whose issuer and protocol could not be identified from publicly available sources at the time of writing (March 2026). The ticker name combines "USD" and "XAU" — the ISO 4217 code for gold — suggesting it may be a gold-backed or gold-pegged stablecoin, but no verified homepage, CoinGecko listing, CoinMarketCap entry, or DeFiLlama page was found for this specific token.

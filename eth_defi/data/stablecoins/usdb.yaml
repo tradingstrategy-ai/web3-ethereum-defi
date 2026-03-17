@@ -1,5 +1,5 @@
 symbol: USDB
-name: USDB (Blast)
+name: Blast USDB
 short_description: USDB is the native rebasing stablecoin of the Blast L2 network. It automatically earns yield from T-bill rates through MakerDAO's DSR. USDB is redeemable 1:1 for DAI on Ethereum mainnet and is the default stablecoin within the Blast ecosystem.
 long_description: |
   USDB is the native rebasing stablecoin of the [Blast](https://blast.io/) Layer 2 network, an

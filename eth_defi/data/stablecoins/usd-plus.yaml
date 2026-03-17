@@ -1,5 +1,5 @@
 symbol: USD+
-name: USD+ (Overnight Finance)
+name: Overnight Finance USD+
 short_description: USD+ is a yield-bearing stablecoin by Overnight Finance that automatically generates yield from conservative DeFi strategies. It is collateralised by USDC and maintains its peg through daily
   rebasing. USD+ is primarily active on Base and Arbitrum.
 long_description: |

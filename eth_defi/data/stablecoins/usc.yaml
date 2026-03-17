@@ -1,5 +1,5 @@
 symbol: USC
-name: USC (Orby Network)
+name: Orby Network USC
 short_description: USC is a decentralised, overcollateralised stablecoin soft-pegged to the US dollar, issued by Orby Protocol on the Cronos blockchain. Users deposit collateral (CRO, CDC-ETH, CDC-BTC, LCRO) to borrow USC interest-free. It is Cronos's first native overcollateralised stablecoin.
 long_description: |
   USC is the native stablecoin of [Orby Protocol](https://orby.network/), a decentralised lending

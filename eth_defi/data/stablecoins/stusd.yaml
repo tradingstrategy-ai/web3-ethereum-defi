@@ -1,5 +1,5 @@
 symbol: STUSD
-name: stUSD (Angle Protocol)
+name: Angle stUSD
 short_description: stUSD is the yield-bearing savings token for Angle Protocol's USDA stablecoin. Users deposit USDA to receive stUSD, which accrues yield continuously from Angle's borrowing module and reserve assets. stUSD is redeemable for an ever-growing amount of USDA at any time.
 long_description: |
   stUSD (also called Angle Staked USDA) is issued by [Angle Protocol](https://www.angle.money/) as the savings layer for USDA, Angle's USD-pegged stablecoin. Yield comes from interest paid by USDA borrowers and from yield-bearing reserve assets.

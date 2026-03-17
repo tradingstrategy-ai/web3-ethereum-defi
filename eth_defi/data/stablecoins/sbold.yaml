@@ -1,5 +1,5 @@
 symbol: sBOLD
-name: sBOLD (K3 Capital / Liquity V2)
+name: Liquity V2 sBOLD
 short_description: sBOLD is a yield-bearing ERC-4626 token built by K3 Capital that automates and compounds deposits across Liquity V2 stability pools. It allocates BOLD across the wstETH, rETH, and WETH stability pools in fixed proportions. sBOLD captures liquidation penalties with minimal collateral price exposure.
 long_description: |
   [sBOLD](https://k3-capital.gitbook.io/sbold) is built by [K3 Capital](https://www.k3.capital/) on top of [Liquity V2](https://www.liquity.org/). Users deposit BOLD stablecoin and receive sBOLD, an ERC-4626 receipt token that accrues a pro-rata share of stability pool interest.

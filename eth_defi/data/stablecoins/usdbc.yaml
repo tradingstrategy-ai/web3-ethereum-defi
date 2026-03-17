@@ -1,5 +1,5 @@
 symbol: USDbC
-name: USD Base Coin (bridged USDC on Base)
+name: Bridged USDC on Base
 short_description: USDbC is the bridged version of USDC on the Base network via the Ethereum canonical bridge. It was the primary USDC representation on Base before Circle deployed native USDC. USDbC is being
   phased out in favour of native USDC on Base.
 long_description: |

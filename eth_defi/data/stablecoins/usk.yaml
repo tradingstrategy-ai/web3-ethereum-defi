@@ -1,5 +1,5 @@
 symbol: USK
-name: USK (Kujira)
+name: Kujira USK
 short_description: USK is a decentralised stablecoin native to the Kujira blockchain in the Cosmos ecosystem. It is overcollateralised by ATOM, wETH, wBTC and other assets. USK is minted through the ORCA liquidation
   platform.
 long_description: |

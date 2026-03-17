@@ -1,5 +1,5 @@
 symbol: vbUSDC
-name: Vault Bridge Bridged USDC (Katana)
+name: Katana Bridged USDC
 short_description: vbUSDC is a bridged version of USDC on the Katana DeFi L2 via Vault Bridge. Katana is a DeFi-focused ZK-rollup incubated by Polygon Labs and GSR. Bridged assets are deployed into yield-generating strategies on Ethereum while in transit.
 long_description: |
   vbUSDC is the VaultBridge representation of USDC on the [Katana](https://katana.network/)

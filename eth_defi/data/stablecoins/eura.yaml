@@ -1,5 +1,5 @@
 symbol: EURA
-name: EURA (Angle Protocol)
+name: Angle EURA
 short_description: EURA (formerly agEUR) is a Euro-pegged stablecoin issued by Angle Protocol. It is backed by a combination of overcollateralised loans and yield-bearing reserves. EURA is available on multiple
   chains including Ethereum, Polygon, and Arbitrum.
 long_description: |

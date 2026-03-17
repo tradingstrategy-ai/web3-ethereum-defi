@@ -1,5 +1,5 @@
 symbol: CADC
-name: CADC (CAD Coin)
+name: PayTrie CADC
 short_description: CADC is a Canadian Dollar-backed stablecoin on Ethereum, pegged 1:1 to CAD. It is fully collateralised with Canadian dollars held in a bank account in Canada, issued by PayTrie AB Inc.
   CADC enables digital transactions denominated in Canadian dollars on multiple EVM chains.
 long_description: |

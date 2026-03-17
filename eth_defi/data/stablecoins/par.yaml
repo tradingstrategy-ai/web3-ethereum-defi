@@ -1,5 +1,5 @@
 symbol: PAR
-name: PAR (MIMO Protocol)
+name: MIMO Protocol PAR
 short_description: PAR is a Euro-pegged stablecoin issued by MIMO Protocol on Ethereum and Polygon. It is overcollateralised by crypto assets (WETH, WBTC, USDC) deposited in MIMO vaults. PAR enables Euro-denominated DeFi activities.
 long_description: |
   PAR is issued by [MIMO Protocol](https://par.mimo.capital/) (previously known as Parallel),

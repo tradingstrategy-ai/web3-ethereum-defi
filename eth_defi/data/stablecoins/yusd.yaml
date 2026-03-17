@@ -1,7 +1,7 @@
 symbol: YUSD
 category: stablecoin
 entries:
-- name: YUSD (Yeti Finance)
+- name: Yeti Finance YUSD
   short_description: YUSD was a decentralised stablecoin issued by Yeti Finance on Avalanche. It was overcollateralised by yield-bearing assets including LP tokens and staked AVAX. Yeti Finance wound down in early 2024.
   long_description: |
     YUSD was issued by [Yeti Finance](https://yeti.finance/) on Avalanche. Users could
@@ -18,7 +18,7 @@ entries:
     domain_up_at: ''
     marked_dead_at: '2026-03-17'
     information_found_missing_at: ''
-- name: yUSD (YieldFi)
+- name: YieldFi yUSD
   short_description: yUSD is a yield-bearing stablecoin from YieldFi, a DeFi yield aggregator. It allocates USDC deposits across blue-chip DeFi protocols including Pendle, Aave, Morpho, and Ethena to generate optimised yield. yUSD is deployed on Ethereum, Arbitrum, and Base.
   long_description: |
     yUSD is issued by [YieldFi](https://yield.fi/), a multi-chain yield aggregator.

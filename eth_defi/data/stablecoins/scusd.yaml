@@ -1,5 +1,5 @@
 symbol: scUSD
-name: Rings scUSD (Sonic)
+name: Rings scUSD
 short_description: scUSD is a yield-bearing stablecoin from Rings Protocol (rebranded as Trevee Earn) on the Sonic network. It is backed by Ethereum mainnet stablecoins bridged to Sonic and earns yield via Veda BoringVaults. scUSD reached over $111M TVL in early 2025.
 long_description: |
   [Rings Protocol](https://app.rings.money/) is the meta-stable protocol of the [Sonic](https://www.soniclabs.com/) chain, built on Veda BoringVault infrastructure and drawing inspiration from Blast's native yield concept. It bridges Ethereum mainnet stablecoin holders to Sonic to earn yield.

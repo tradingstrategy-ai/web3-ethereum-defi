@@ -1,5 +1,5 @@
 symbol: SILK
-name: Silk (Shade Protocol)
+name: Shade Protocol Silk
 short_description: Silk is a privacy-preserving stablecoin on Secret Network issued by Shade Protocol. It is pegged to a basket of global currencies and commodities rather than a single fiat currency. Silk leverages Secret Network's on-chain encryption for transaction privacy.
 long_description: |
   Silk is issued by [Shade Protocol](https://shadeprotocol.io/) on [Secret Network](https://scrt.network/), the first blockchain with programmable privacy. Silk is a collateralised stablecoin backed by various assets deposited into vaults, using the traditional overcollateralised CDP model similar to MakerDAO.

@@ -1,5 +1,5 @@
 symbol: AUDT
-name: AUD Token (Australian Dollar Token)
+name: AUD Token
 short_description: AUDT is an Australian Dollar-backed stablecoin on Ethereum, pegged 1:1 to AUD. Each token is backed by Australian dollars held in a licensed Australian bank account managed by AUDT Pty Ltd,
   part of the Chrono.tech ecosystem. It enables blockchain-based transactions denominated in Australian dollars.
 long_description: |

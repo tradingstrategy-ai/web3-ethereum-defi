@@ -1,5 +1,5 @@
 symbol: WXDAI
-name: Wrapped xDAI (Gnosis)
+name: Gnosis Wrapped xDAI
 short_description: Wrapped xDAI (WXDAI) is the ERC-20 wrapped version of xDAI, the native gas token of Gnosis Chain. xDAI is a DAI-backed stablecoin bridged from Ethereum to Gnosis Chain. WXDAI enables xDAI to
   be used in DeFi protocols that require ERC-20 tokens.
 long_description: |

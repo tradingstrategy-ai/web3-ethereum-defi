@@ -1,5 +1,5 @@
 symbol: USDH
-name: USDH (Hyperliquid / Native Markets)
+name: Native Markets USDH
 short_description: |
   USDH is Hyperliquid's native stablecoin, issued by Native Markets after winning a competitive validator vote in September 2025.
   It is fully backed by cash and US Treasury equivalents with reserves managed by BlackRock and onchain by Superstate through Bridge.

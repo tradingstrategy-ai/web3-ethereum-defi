@@ -1,5 +1,5 @@
 symbol: BOB
-name: BOB (zkBob)
+name: zkBob BOB
 short_description: BOB is a privacy-focused stablecoin created by zkBob, built using zero-knowledge proofs. It enables private transactions on Ethereum and Polygon while maintaining compliance features. BOB is
   fully collateralised by USDC and deployed across multiple EVM chains at the same address.
 long_description: |

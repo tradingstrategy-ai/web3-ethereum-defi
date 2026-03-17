@@ -1,5 +1,5 @@
 symbol: USDO
-name: OpenDollar (OpenEden)
+name: OpenEden Dollar
 short_description: USDO (OpenDollar) is a regulated, yield-bearing stablecoin issued by OpenEden Digital and backed 1:1 by tokenised US Treasury Bills. It automatically accrues T-Bill yield in holders' wallets without staking or lockups. USDO is available on Ethereum and Base.
 long_description: |
   USDO (OpenDollar) is issued by [OpenEden Digital](https://openeden.com/), a Bermuda Monetary Authority (BMA)-licensed digital asset issuer.

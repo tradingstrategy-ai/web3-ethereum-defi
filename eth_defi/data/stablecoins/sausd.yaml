@@ -1,5 +1,5 @@
 symbol: sAUSD
-name: Savings AUSD (Agora)
+name: Agora Savings AUSD
 short_description: sAUSD is the yield-bearing savings token for AUSD, the digital dollar stablecoin issued by Agora Finance. Users deposit AUSD and receive sAUSD, which accrues yield from AUSD's underlying T-bill backing. sAUSD can be redeemed instantly at any time.
 long_description: |
   [Agora Finance](https://www.agora.finance/) issues AUSD as a 1:1 USD-backed digital dollar, with reserves composed of cash, overnight repurchase agreements, and short-term US Treasury securities managed by a major custodian bank and audited by a Big 4 firm.

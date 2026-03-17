@@ -1,5 +1,5 @@
 symbol: sUSDai
-name: Staked USDai (USD.AI)
+name: USD.AI Staked USDai
 short_description: sUSDai is the yield-bearing ERC-4626 staking token for USDai, a synthetic dollar backed by GPU compute infrastructure. Users stake USDai to receive sUSDai, which accrues yield from repayments on GPU-backed loans. The USD.AI protocol had over $600M TVL in early 2026.
 long_description: |
   sUSDai is issued by [USD.AI](https://usd.ai/) (also known as Permian Labs) as the staking layer for USDai. USDai is an over-collateralised synthetic dollar backed by tokenised GPU compute power — users provide capital collateralised by GPU hardware loans to AI infrastructure companies.

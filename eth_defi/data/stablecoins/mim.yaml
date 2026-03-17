@@ -1,5 +1,5 @@
 symbol: MIM
-name: Magic Internet Money (Abracadabra)
+name: Abracadabra MIM
 short_description: Magic Internet Money (MIM) is a USD-pegged stablecoin issued by Abracadabra.money. It is minted by depositing interest-bearing tokens (such as yvTokens or sfrxETH) as collateral. MIM is an omnichain stablecoin available across multiple EVM networks.
 long_description: |
   MIM is issued by [Abracadabra.money](https://abracadabra.money/), a DeFi lending platform

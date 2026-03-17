@@ -1,5 +1,5 @@
 symbol: SDAI
-name: Savings DAI (Sky/MakerDAO)
+name: Sky Savings DAI
 short_description: Savings DAI (sDAI) is an ERC-4626 yield-bearing token representing DAI deposited in the Dai Savings Rate (DSR) module. It automatically accrues interest from MakerDAO's stability fees. sDAI is part of the Sky (formerly MakerDAO) ecosystem.
 long_description: |
   sDAI is issued by [Sky Protocol](https://sky.money/) (formerly MakerDAO) as a tokenised representation of DAI deposited in the Dai Savings Rate (DSR) module. The DSR distributes a portion of the Maker Protocol's revenue to DAI holders.

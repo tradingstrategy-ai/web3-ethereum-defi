@@ -1,7 +1,7 @@
 symbol: USDX
 category: stablecoin
 entries:
-- name: USDX (Stables Labs)
+- name: Stables Labs USDX
   short_description: USDX is a delta-neutral synthetic dollar by Stables Labs. It uses hedged positions across DeFi, CeFi, and TradFi venues to maintain its USD peg. Stables Labs raised $45M at a $275M valuation in 2024.
   long_description: |
     ## Status
@@ -20,7 +20,7 @@ entries:
     domain_up_at: ''
     marked_dead_at: '2026-03-17'
     information_found_missing_at: ''
-- name: USDX (Kava)
+- name: Kava USDX
   short_description: USDX was the native stablecoin of the Kava blockchain. It was overcollateralised by multiple crypto assets deposited on the Kava platform. The Kava ecosystem has shifted focus away from USDX.
   long_description: |
     USDX is the native decentralised stablecoin of the [Kava](https://www.kava.io/) blockchain,

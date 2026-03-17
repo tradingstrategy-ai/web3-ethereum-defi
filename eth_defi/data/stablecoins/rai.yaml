@@ -1,5 +1,5 @@
 symbol: RAI
-name: Rai (Reflexer)
+name: Reflexer RAI
 short_description: RAI is a non-pegged, ETH-backed stable asset issued by Reflexer Labs on Ethereum. It uses a PID controller (redemption rate mechanism) to dampen price volatility rather than targeting a fixed dollar peg. RAI is backed solely by ETH and is governance-minimised.
 long_description: |
   RAI is issued by [Reflexer Finance](https://reflexer.finance/) on Ethereum. Unlike most

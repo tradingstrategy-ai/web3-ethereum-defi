@@ -1,5 +1,5 @@
 symbol: HAI
-name: HAI (Let's Get HAI)
+name: Let's Get HAI
 short_description: HAI is a multi-collateral stablecoin built on Optimism, forked from the RAI model. It uses a redemption rate mechanism rather than a hard peg to maintain stability. HAI is governed by the Let's
   Get HAI community.
 long_description: |

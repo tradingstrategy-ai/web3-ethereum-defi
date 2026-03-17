@@ -1,5 +1,5 @@
 symbol: SAI
-name: Single Collateral Dai (MakerDAO legacy)
+name: MakerDAO SAI
 short_description: SAI (Single Collateral Dai) was the original Dai stablecoin backed solely by ETH. It was replaced by Multi-Collateral Dai (DAI) in November 2019. SAI is now deprecated and holders were encouraged to migrate to DAI.
 long_description: |
   SAI was the first iteration of MakerDAO's decentralised stablecoin, launched in December 2017 on Ethereum. It was backed exclusively by ETH as collateral, minted via Collateralised Debt Positions (CDPs).

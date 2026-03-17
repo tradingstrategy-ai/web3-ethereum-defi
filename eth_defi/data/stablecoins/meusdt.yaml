@@ -1,5 +1,5 @@
 symbol: meUSDT
-name: Rome Finance USDT (meUSDT)
+name: Rome Finance meUSDT
 short_description: meUSDT is a Curve LP token representing a position in the Rome/USDT liquidity pool on Curve Finance. It is a liquidity provision receipt token, not a standalone stablecoin project.
 long_description: |
   meUSDT appears in stablecoin databases as the Curve `ROMEUSDT` pool LP token on Ethereum.

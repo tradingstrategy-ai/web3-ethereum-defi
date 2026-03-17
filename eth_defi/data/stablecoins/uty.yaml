@@ -1,5 +1,5 @@
 symbol: UTY
-name: Unity (XSY.fi)
+name: XSY.fi Unity
 short_description: Unity (UTY) is a delta-neutral synthetic dollar launched by XSY.fi on the Avalanche blockchain. It maintains a USD peg by pairing long AVAX spot positions with short perpetual futures, generating yield for holders while preserving AVAX exposure.
 long_description: |
   Unity (UTY) is the flagship product of [XSY.fi](https://xsy.fi/), a capital management platform on Avalanche.

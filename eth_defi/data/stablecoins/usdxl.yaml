@@ -1,5 +1,5 @@
 symbol: USDXL
-name: Last USD (HypurrFi)
+name: HypurrFi Last USD
 short_description: Last USD (USDXL) is an overcollateralised CDP stablecoin issued by HypurrFi on HyperEVM (Hyperliquid). Collateral includes HYPE, stHYPE, USDC, and USDT.
 long_description: |
   USDXL is issued by [HypurrFi](https://hypurr.fi/), a lending and borrowing protocol
