@@ -1,0 +1,31 @@
+name: Dependency review
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "pyproject.toml"
+      - "poetry.lock"
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+
+    # Only run the action for the latest pull request update
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: low
+          fail-on-scopes: runtime,development
+          license-check: false
+          show-openssf-scorecard: false

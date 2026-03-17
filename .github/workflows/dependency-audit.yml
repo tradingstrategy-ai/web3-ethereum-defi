@@ -1,0 +1,131 @@
+name: Dependency audit
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    runs-on:
+      group: Beefy runners
+
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      # Poetry must be installed before setup-python for cache to work
+      # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md
+      - name: Install poetry
+        run: pipx install "poetry>=2.3"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "poetry"
+          cache-dependency-path: |
+            **/pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb
+
+      - name: Install pip-audit
+        run: |
+          poetry run python -m pip install "pip-audit<3"
+
+      - name: Run pip-audit
+        id: pip_audit
+        run: |
+          mkdir -p build/pip-audit
+
+          set +e
+          overall_exit_code=0
+
+          poetry run pip-audit --local --skip-editable --progress-spinner off --format markdown --output build/pip-audit/pip-audit.md
+          markdown_exit_code=$?
+          if [ "$markdown_exit_code" -gt "$overall_exit_code" ]; then
+            overall_exit_code=$markdown_exit_code
+          fi
+
+          poetry run pip-audit --local --skip-editable --progress-spinner off --format json --output build/pip-audit/pip-audit.json
+          json_exit_code=$?
+          if [ "$json_exit_code" -gt "$overall_exit_code" ]; then
+            overall_exit_code=$json_exit_code
+          fi
+
+          poetry run pip-audit --local --skip-editable --progress-spinner off --format cyclonedx-json --output build/pip-audit/pip-audit.cyclonedx.json
+          cyclonedx_exit_code=$?
+          if [ "$cyclonedx_exit_code" -gt "$overall_exit_code" ]; then
+            overall_exit_code=$cyclonedx_exit_code
+          fi
+
+          echo "markdown_exit_code=$markdown_exit_code" >> "$GITHUB_OUTPUT"
+          echo "json_exit_code=$json_exit_code" >> "$GITHUB_OUTPUT"
+          echo "cyclonedx_exit_code=$cyclonedx_exit_code" >> "$GITHUB_OUTPUT"
+          echo "overall_exit_code=$overall_exit_code" >> "$GITHUB_OUTPUT"
+
+      - name: Publish audit summary
+        if: always()
+        run: |
+          {
+            echo "## Dependency audit"
+            echo
+            echo "The full audit artefacts are attached to this workflow run."
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f build/pip-audit/pip-audit.md ]; then
+            cat build/pip-audit/pip-audit.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "pip-audit did not produce a Markdown report."
+              echo
+              echo "Exit codes:"
+              echo "- Markdown: ${{ steps.pip_audit.outputs.markdown_exit_code }}"
+              echo "- JSON: ${{ steps.pip_audit.outputs.json_exit_code }}"
+              echo "- CycloneDX JSON: ${{ steps.pip_audit.outputs.cyclonedx_exit_code }}"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload dependency audit artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit
+          path: |
+            build/pip-audit/pip-audit.md
+            build/pip-audit/pip-audit.json
+            build/pip-audit/pip-audit.cyclonedx.json
+          if-no-files-found: warn
+
+      - name: Fail if vulnerabilities were found
+        if: always()
+        run: |
+          overall_exit_code="${{ steps.pip_audit.outputs.overall_exit_code }}"
+
+          if [ -z "$overall_exit_code" ]; then
+            echo "pip-audit did not report an exit code"
+            exit 1
+          fi
+
+          if [ "$overall_exit_code" -eq 0 ]; then
+            exit 0
+          fi
+
+          if [ "$overall_exit_code" -eq 1 ]; then
+            echo "pip-audit found one or more known vulnerabilities"
+            exit 1
+          fi
+
+          echo "pip-audit failed with exit code $overall_exit_code"
+          exit "$overall_exit_code"
