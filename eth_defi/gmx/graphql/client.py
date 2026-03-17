@@ -105,6 +105,10 @@ class GMXSubsquidClient:
         self._tokens_metadata: Optional[dict[str, dict]] = None
         # Cache markets data (market_address -> {indexToken, longToken, shortToken})
         self._markets_cache: Optional[dict[str, dict]] = None
+        #: Cached total market count from marketsConnection.totalCount.
+        #: Refreshed once per hour — market listings change rarely.
+        self._market_count: Optional[int] = None
+        self._market_count_ts: float = 0.0
 
         # HTTP session with connection pooling and retry for transient errors
         # (ConnectionResetError, SSLEOFError, etc. from Subsquid)
@@ -538,6 +542,33 @@ class GMXSubsquidClient:
         stats = data.get("accountStats", [])
 
         return stats[0] if stats else None
+
+    def get_market_count(self, ttl: int = 3600) -> int:
+        """Return the total number of listed GMX markets, cached for ``ttl`` seconds.
+
+        Uses ``marketsConnection { totalCount }`` — a single lightweight query.
+        The result is used as the ``limit`` for :meth:`get_market_infos` so we
+        never over- or under-fetch when the number of markets changes.
+
+        :param ttl: Cache lifetime in seconds (default 3600 — listings change rarely).
+        :return: Total market count.
+        """
+        now = time.monotonic()
+        if self._market_count is not None and now - self._market_count_ts < ttl:
+            return self._market_count
+
+        query = "{ marketsConnection(orderBy: id_ASC) { totalCount } }"
+        try:
+            data = self._query(query)
+            count = data.get("marketsConnection", {}).get("totalCount", 0)
+            if count > 0:
+                self._market_count = count
+                self._market_count_ts = now
+                logger.debug("get_market_count: %d markets (cached for %ds)", count, ttl)
+        except Exception as e:
+            logger.warning("get_market_count failed, using previous value: %s", e)
+
+        return self._market_count or 200  # fall back to 200 if never succeeded
 
     def get_market_infos(
         self,
@@ -1107,7 +1138,7 @@ class GMXSubsquidClient:
             where: {
               account_eq: $account
               market_eq: $market
-              type_eq: "decrease"
+              type_eq: decrease
             }
           ) {
             id

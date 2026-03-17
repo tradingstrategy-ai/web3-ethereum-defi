@@ -12,9 +12,11 @@ from eth_typing import HexAddress
 from eth_utils import to_checksum_address
 
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.contracts import get_contract_addresses, get_reader_contract, get_tokens_metadata_dict
+from eth_defi.gmx.contracts import get_contract_addresses, get_datastore_contract, get_reader_contract, get_tokens_metadata_dict
+from eth_defi.gmx.keys import MARKET_LIST
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.types import MarketData, MarketSymbol
+from eth_defi.gmx.symbols import SYMBOL_NORMALISE
 
 logger = logging.getLogger(__name__)
 
@@ -218,10 +220,15 @@ class Markets:
         contract_addresses = get_contract_addresses(self.config.chain)
         data_store_contract_address = contract_addresses.datastore
 
+        # Query the actual market count from the DataStore rather than
+        # using a hardcoded limit that silently breaks when GMX adds markets.
+        datastore_contract = get_datastore_contract(self.config.web3, self.config.chain)
+        market_count = datastore_contract.functions.getAddressCount(MARKET_LIST).call()
+
         return reader_contract.functions.getMarkets(
             data_store_contract_address,
             0,
-            500,
+            market_count + 1,
         ).call()
 
     def _process_markets(self) -> dict:
@@ -305,6 +312,9 @@ class Markets:
                 market_symbol = index_token_meta["symbol"]
                 if long_token_address == short_token_address:
                     market_symbol = f"{market_symbol}2"
+
+                # Normalise versioned symbols to canonical names (e.g. "XAUT.v2" -> "XAUT").
+                market_symbol = SYMBOL_NORMALISE.get(market_symbol, market_symbol)
 
                 # Set synthetic flag for BTC2/ETH2 markets
                 index_token_meta["synthetic"] = long_token_address == short_token_address

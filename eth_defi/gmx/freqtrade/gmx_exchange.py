@@ -1095,6 +1095,65 @@ class Gmx(Exchange):
         # Full detail is always available in the log file via logger.error() below.
         snippet = exc_msg[:120] + ("…" if len(exc_msg) > 120 else "")
 
+        # --- Pair-level pause: N consecutive on-chain tx reverts for this pair ---
+        # exchange.py raises InvalidOrder("PAIR_PAUSED:{symbol}: ...") instead of
+        # BaseError so the bot does not stop. We lock the pair in Freqtrade (preventing
+        # new entries and exits until unlocked) and reset the global failure counter so
+        # other pairs can continue trading normally.
+        if "PAIR_PAUSED:" in exc_msg:
+            ccxt_exchange = getattr(self, "_api", None)
+            failures = getattr(ccxt_exchange, "_consecutive_failures", 3) if ccxt_exchange else 3
+            lock_hours = 1
+            # Reset global pause so other pairs are unblocked
+            if ccxt_exchange and hasattr(ccxt_exchange, "reset_failure_counter"):
+                try:
+                    ccxt_exchange.reset_failure_counter()
+                except Exception as _reset_err:
+                    logger.warning("PAIR_PAUSED: reset_failure_counter failed: %s", _reset_err)
+            try:
+                lock_until = datetime.now(timezone.utc) + timedelta(hours=lock_hours)
+                PairLocks.lock_pair(pair, lock_until, reason=f"GMX: {failures} consecutive on-chain tx reverts")
+                logger.error("PAIR_PAUSED: locked pair %s for %dh after %d consecutive on-chain tx reverts", pair, lock_hours, failures)
+            except Exception as _lock_err:
+                logger.warning("PAIR_PAUSED: could not lock pair %s: %s", pair, _lock_err)
+            # Add to Freqtrade's pair_blacklist so PairListManager excludes it on next
+            # refresh — this mirrors what the /blacklist RPC command does in-process.
+            try:
+                bl = self._config.setdefault("exchange", {}).setdefault("pair_blacklist", [])
+                if pair not in bl:
+                    bl.append(pair)
+                    logger.warning("PAIR_PAUSED: added %s to Freqtrade pair_blacklist", pair)
+            except Exception as _bl_err:
+                logger.warning("PAIR_PAUSED: could not update pair_blacklist config: %s", _bl_err)
+            # Also add the base token to EXCLUDED_SYMBOLS on both sync and async exchange
+            # instances so the market is not reloaded after the lock expires.
+            base_token = pair.split("/")[0] if "/" in pair else pair
+            for _exch in [ccxt_exchange, getattr(ccxt_exchange, "_async_ccxt_exchange", None)]:
+                if _exch is not None:
+                    try:
+                        # Create instance-level copy if still pointing at class variable
+                        if "EXCLUDED_SYMBOLS" not in _exch.__dict__:
+                            _exch.EXCLUDED_SYMBOLS = set(type(_exch).EXCLUDED_SYMBOLS)
+                        _exch.EXCLUDED_SYMBOLS.add(base_token)
+                        logger.warning("PAIR_PAUSED: added %s to EXCLUDED_SYMBOLS on %s", base_token, type(_exch).__name__)
+                    except Exception as _excl_err:
+                        logger.warning("PAIR_PAUSED: could not update EXCLUDED_SYMBOLS: %s", _excl_err)
+            msg = f"🔒 *{bot_name}*\nPair blacklisted — `{pair}` {order_dir}\n*{failures}×* consecutive tx reverts · locked *{lock_hours}h*"
+            logger.error("ORDER_ERROR: %s %s order paused — %s: %s", pair, order_dir, exc_type, exc_msg[:160])
+            sent = send_freqtrade_telegram_message(self._config, msg)
+            if sent:
+                logger.info("Pair-paused Telegram alert sent for %s", pair)
+            return
+
+        # --- Close-order circuit breaker cooldown (suppress repeat Telegram spam) ---
+        # When the close circuit breaker is in cooldown it raises InvalidOrder with
+        # "CIRCUIT_BREAKER: skipping close for ..." on every retry cycle (~15 s).
+        # The initial activation alert was already sent via the OrderCancelled branch
+        # below, so we only log here and return early to avoid Telegram flooding.
+        if "CIRCUIT_BREAKER:" in exc_msg and "OPEN_CIRCUIT_BREAKER:" not in exc_msg and "OrderCancelled" not in exc_msg and "OrderFrozen" not in exc_msg:
+            logger.warning("CIRCUIT_BREAKER cooldown active for %s %s — suppressing repeat Telegram alert: %s", pair, order_dir, exc_msg[:160])
+            return
+
         # --- Open-order circuit breaker (pair locked after N consecutive cancels) ---
         if "OPEN_CIRCUIT_BREAKER:" in exc_msg:
             ccxt_exchange = getattr(self, "_api", None)

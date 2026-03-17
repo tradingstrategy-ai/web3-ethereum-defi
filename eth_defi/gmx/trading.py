@@ -543,6 +543,8 @@ class GMXTrading:
         size_delta_usd: float,
         leverage: float,
         slippage_percent: Optional[float] = 0.003,
+        market_key: str | None = None,
+        index_token_address: str | None = None,
         **kwargs,
     ) -> OrderResult:
         """
@@ -677,6 +679,14 @@ class GMXTrading:
             "slippage_percent": slippage_percent,
         }
 
+        # Pre-resolved addresses from CCXT self.markets bypass
+        # OrderArgumentParser's _MARKETS_CACHE lookup — required for versioned
+        # markets like XAUT.v2 where the cache returns the deprecated pool.
+        if market_key:
+            parameters["market_key"] = market_key
+        if index_token_address:
+            parameters["index_token_address"] = index_token_address
+
         # Debug logging for collateral token flow
         logger.info(
             "COLLATERAL_TRACE: Parameter dictionary created:\n  chain=%s\n  index_token_symbol=%s\n  collateral_token_symbol=%s\n  start_token_symbol=%s",
@@ -785,6 +795,8 @@ class GMXTrading:
         size_delta_usd: int | float,
         initial_collateral_delta: float,
         slippage_percent: Optional[float] = 0.003,
+        market_key: str | None = None,
+        index_token_address: str | None = None,
         **kwargs,
     ) -> OrderResult:
         """
@@ -901,6 +913,14 @@ class GMXTrading:
             "initial_collateral_delta": initial_collateral_delta,
             "slippage_percent": slippage_percent,
         }
+
+        # Pre-resolved addresses from CCXT self.markets bypass
+        # OrderArgumentParser's _MARKETS_CACHE lookup — required for versioned
+        # markets like XAUT.v2 where the cache returns the deprecated pool.
+        if market_key:
+            parameters["market_key"] = market_key
+        if index_token_address:
+            parameters["index_token_address"] = index_token_address
 
         # SAFETY CAP: For MarketDecrease, sizeDeltaUsd must NEVER exceed sizeInUsd
         # or GMX reverts with InvalidDecreaseOrderSize.  Mirrors exchange.py behaviour.
@@ -1157,6 +1177,8 @@ class GMXTrading:
         trigger_price: float,
         slippage_percent: Optional[float] = 0.003,
         auto_cancel: bool = True,
+        market_key: str | None = None,
+        index_token_address: str | None = None,
         **kwargs,
     ) -> OrderResult:
         """
@@ -1262,6 +1284,14 @@ class GMXTrading:
             "slippage_percent": slippage_percent,
         }
 
+        # Pre-resolved addresses from CCXT self.markets bypass
+        # OrderArgumentParser's _MARKETS_CACHE lookup — required for versioned
+        # markets like XAUT.v2 where the cache returns the deprecated pool.
+        if market_key:
+            parameters["market_key"] = market_key
+        if index_token_address:
+            parameters["index_token_address"] = index_token_address
+
         # Process parameters
         order_parameters = OrderArgumentParser(config, is_increase=True).process_parameters_dictionary(parameters)
 
@@ -1304,6 +1334,8 @@ class GMXTrading:
         take_profit_price: float | None = None,
         slippage_percent: float = 0.003,
         execution_buffer: float = 2.5,
+        market_key: str | None = None,
+        index_token_address: str | None = None,
         **kwargs,
     ) -> SLTPOrderResult:
         """
@@ -1369,6 +1401,14 @@ class GMXTrading:
             "slippage_percent": slippage_percent,
         }
 
+        # Pre-resolved addresses from CCXT self.markets bypass
+        # OrderArgumentParser's _MARKETS_CACHE lookup — required for versioned
+        # markets like XAUT.v2 where the cache returns the deprecated pool.
+        if market_key:
+            parameters["market_key"] = market_key
+        if index_token_address:
+            parameters["index_token_address"] = index_token_address
+
         order_parameters = OrderArgumentParser(
             config,
             is_increase=True,
@@ -1430,6 +1470,8 @@ class GMXTrading:
         close_percent: float = 1.0,
         slippage_percent: float = 0.003,
         execution_buffer: float = 2.5,
+        market_key: str | None = None,
+        index_token_address: str | None = None,
         **kwargs,
     ) -> OrderResult:
         """
@@ -1490,6 +1532,14 @@ class GMXTrading:
             "slippage_percent": slippage_percent,
         }
 
+        # Pre-resolved addresses from CCXT self.markets bypass
+        # OrderArgumentParser's _MARKETS_CACHE lookup — required for versioned
+        # markets like XAUT.v2 where the cache returns the deprecated pool.
+        if market_key:
+            parameters["market_key"] = market_key
+        if index_token_address:
+            parameters["index_token_address"] = index_token_address
+
         order_parameters = OrderArgumentParser(config, is_decrease=True).process_parameters_dictionary(parameters)
 
         sltp = SLTPOrder(
@@ -1531,6 +1581,8 @@ class GMXTrading:
         close_percent: float = 1.0,
         slippage_percent: float = 0.003,
         execution_buffer: float = 2.5,
+        market_key: str | None = None,
+        index_token_address: str | None = None,
         **kwargs,
     ) -> OrderResult:
         """
@@ -1591,6 +1643,14 @@ class GMXTrading:
             "initial_collateral_delta": 0,  # 0 means withdraw all remaining collateral
             "slippage_percent": slippage_percent,
         }
+
+        # Pre-resolved addresses from CCXT self.markets bypass
+        # OrderArgumentParser's _MARKETS_CACHE lookup — required for versioned
+        # markets like XAUT.v2 where the cache returns the deprecated pool.
+        if market_key:
+            parameters["market_key"] = market_key
+        if index_token_address:
+            parameters["index_token_address"] = index_token_address
 
         order_parameters = OrderArgumentParser(config, is_decrease=True).process_parameters_dictionary(parameters)
 

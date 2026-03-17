@@ -31,6 +31,9 @@ class AsyncGMXSubsquidClient:
         self.chain = chain.lower()
         self.custom_endpoint = custom_endpoint
         self.session: aiohttp.ClientSession | None = None
+        #: Cached total market count — refreshed once per hour.
+        self._market_count: int | None = None
+        self._market_count_ts: float = 0.0
 
         # Get endpoint URLs (primary and backup)
         if custom_endpoint:
@@ -121,6 +124,31 @@ class AsyncGMXSubsquidClient:
 
         # All endpoints failed
         raise last_error
+
+    async def get_market_count(self, ttl: int = 3600) -> int:
+        """Return total listed GMX markets, cached for ``ttl`` seconds.
+
+        :param ttl: Cache lifetime in seconds (default 3600).
+        :return: Total market count.
+        """
+        import time as _time
+
+        now = _time.monotonic()
+        if self._market_count is not None and now - self._market_count_ts < ttl:
+            return self._market_count
+
+        query = "{ marketsConnection(orderBy: id_ASC) { totalCount } }"
+        try:
+            data = await self._query(query)
+            count = data.get("marketsConnection", {}).get("totalCount", 0)
+            if count > 0:
+                self._market_count = count
+                self._market_count_ts = now
+                logger.debug("get_market_count: %d markets", count)
+        except Exception as e:
+            logger.warning("get_market_count failed, using previous value: %s", e)
+
+        return self._market_count or 200
 
     async def get_market_infos(
         self,

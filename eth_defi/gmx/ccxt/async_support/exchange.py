@@ -35,6 +35,7 @@ from eth_defi.gmx.ccxt.exchange import _derive_side_from_trade_action
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.symbols import DEPRECATED_MARKET_TOKENS, SYMBOL_NORMALISE
 from eth_defi.gmx.constants import (
     GMX_MIN_COST_USD,
     GMX_SUPPORTED_CHAINS,
@@ -251,7 +252,6 @@ class GMX(Exchange):
 
     # GMX markets that should be skipped due to deprecated or unsupported feeds
     EXCLUDED_SYMBOLS: set[str] = {
-        "AI16Z",
         "BTC2",
         "ETH2",
         "GMX2",
@@ -838,16 +838,29 @@ class GMX(Exchange):
                 try:
                     index_token_addr = market_info.get("indexTokenAddress", "").lower()
                     market_token_addr = market_info.get("marketTokenAddress", "")
+                    market_token_addr_lower = market_token_addr.lower()
+
+                    # Skip known-deprecated market tokens (address-based filter).
+                    if market_token_addr_lower in DEPRECATED_MARKET_TOKENS:
+                        logger.debug(
+                            "GraphQL: skipping deprecated market token %s",
+                            market_token_addr,
+                        )
+                        continue
 
                     # Look up symbol from GMX API tokens data
-                    symbol_name = address_to_symbol.get(index_token_addr)
+                    raw_symbol = address_to_symbol.get(index_token_addr)
 
-                    if not symbol_name:
+                    if not raw_symbol:
                         logger.debug(
                             "Skipping market with unknown index token: %s",
                             index_token_addr,
                         )
                         continue  # Skip unknown tokens
+
+                    # Normalise versioned symbols to canonical names (e.g. "XAUT.v2" -> "XAUT").
+                    symbol_name = SYMBOL_NORMALISE.get(raw_symbol, raw_symbol)
+                    was_remapped = raw_symbol != symbol_name
 
                     # Skip excluded symbols
                     if symbol_name in self.EXCLUDED_SYMBOLS:
@@ -855,6 +868,20 @@ class GMX(Exchange):
 
                     # Use Freqtrade futures format (consistent with regular load_markets)
                     unified_symbol = f"{symbol_name}/USDC:USDC"
+
+                    # When multiple markets share the same canonical symbol (e.g. deprecated
+                    # XAUT and the active XAUT.v2 both map to XAUT/USDC:USDC), always keep
+                    # the remapped/versioned market — it is the active replacement.
+                    # Skip the un-remapped entry if a remapped entry already exists or will
+                    # arrive later (DataStore will remove the disabled one anyway, but this
+                    # prevents the deprecated market_token from overwriting the active one).
+                    if unified_symbol in markets_dict and not was_remapped:
+                        logger.debug(
+                            "Skipping duplicate market %s (%s) — keeping remapped entry",
+                            unified_symbol,
+                            market_token_addr,
+                        )
+                        continue
 
                     # Calculate max leverage from minCollateralFactor
                     min_collateral_factor = market_info.get("minCollateralFactor")
@@ -912,6 +939,7 @@ class GMX(Exchange):
                     continue
 
             self.markets = markets_dict
+            self.markets = self._filter_datastore_disabled_markets(self.markets)
             self.symbols = list(self.markets.keys())
 
             logger.info("Loaded %s markets from GraphQL", len(self.markets))
@@ -961,8 +989,35 @@ class GMX(Exchange):
                     check_expiry=True,
                 )
                 if cached_markets:
-                    logger.info("Loaded %s markets from disk cache", len(cached_markets))
-                    self.markets = cached_markets
+                    # Re-apply SYMBOL_REMAP so stale cache entries (e.g. "XAUT.v2/USDC:USDC"
+                    # written before the remap was added) are normalised on load.
+                    remapped: dict = {}
+                    for sym, mkt in cached_markets.items():
+                        # Drop deprecated market token addresses from cache.
+                        _cached_token = mkt.get("info", {}).get("market_token", "")
+                        if _cached_token and _cached_token.lower() in DEPRECATED_MARKET_TOKENS:
+                            logger.info(
+                                "Disk cache: dropping deprecated market token %s (%s)",
+                                _cached_token,
+                                sym,
+                            )
+                            continue
+                        base = sym.split("/")[0] if "/" in sym else sym
+                        canonical_base = SYMBOL_NORMALISE.get(base, base)
+                        if canonical_base != base:
+                            canonical_sym = sym.replace(base + "/", canonical_base + "/", 1)
+                            logger.info("Disk cache: remapping %s -> %s", sym, canonical_sym)
+                            mkt = dict(mkt)
+                            mkt["symbol"] = canonical_sym
+                            remapped[canonical_sym] = mkt
+                        else:
+                            remapped[sym] = mkt
+                    logger.info("Loaded %s markets from disk cache", len(remapped))
+                    for _sym in ("XAUT/USDC:USDC", "OM/USDC:USDC"):
+                        if _sym in remapped:
+                            _tok = remapped[_sym].get("info", {}).get("market_token", "?")
+                            logger.info("Disk cache market_token for %s = %s", _sym, _tok)
+                    self.markets = self._filter_datastore_disabled_markets(remapped)
                     self.symbols = list(self.markets.keys())
                     return self.markets
             except Exception as e:
@@ -1044,9 +1099,15 @@ class GMX(Exchange):
                 try:
                     # Get market addresses
                     market_token = market.get("marketToken", "")
+                    market_token_lower = market_token.lower()
                     index_token = market.get("indexToken", "").lower()
                     long_token = market.get("longToken", "").lower()
                     short_token = market.get("shortToken", "").lower()
+
+                    # Skip known-deprecated market tokens (address-based filter).
+                    if market_token_lower in DEPRECATED_MARKET_TOKENS:
+                        logger.debug("REST API: skipping deprecated market token %s", market_token)
+                        continue
 
                     # Check if market is listed
                     is_listed = market.get("isListed", True)
@@ -1064,6 +1125,9 @@ class GMX(Exchange):
                     if not symbol_name:
                         logger.debug("Skipping market with unknown index token: %s", index_token)
                         continue
+
+                    # Normalise versioned symbols to canonical names (e.g. "XAUT.v2" -> "XAUT").
+                    symbol_name = SYMBOL_NORMALISE.get(symbol_name, symbol_name)
 
                     # Skip excluded symbols
                     if symbol_name in self.EXCLUDED_SYMBOLS:
@@ -1144,6 +1208,7 @@ class GMX(Exchange):
                     continue
 
             self.markets = markets_dict
+            self.markets = self._filter_datastore_disabled_markets(self.markets)
             self.symbols = list(self.markets.keys())
 
             # Save to disk cache
@@ -1197,24 +1262,26 @@ class GMX(Exchange):
 
         use_graphql_only = (params and params.get("graphql_only") is True) or self.options.get("graphql_only") is True
 
-        # Loading mode selection:
-        # 1. If REST API not disabled and not forcing GraphQL -> REST API (NEW DEFAULT)
-        # 2. If GraphQL explicitly requested -> GraphQL
-        # 3. Otherwise -> RPC (fallback)
+        is_testnet = self.chain in ("arbitrum_sepolia", "avalanche_fuji")
 
-        if not rest_api_disabled and not use_graphql_only:
-            logger.info("Loading markets from REST API (default mode)")
-            return await self._load_markets_from_rest_api()
+        # Priority 1: GraphQL (when subsquid is configured and not testnet)
+        if self.subsquid and not is_testnet:
+            logger.info("Loading markets from GraphQL (primary)")
+            markets = await self._load_markets_from_graphql()
+            if markets:
+                return markets
+            logger.warning("GraphQL returned empty markets, falling back to REST API")
 
-        if use_graphql_only and self.subsquid:
-            logger.info("Loading markets from GraphQL (graphql_only=True)")
-            return await self._load_markets_from_graphql()
+        # Priority 2: REST API (fallback when GraphQL unavailable or failed)
+        if not rest_api_disabled and not is_testnet:
+            logger.info("Loading markets from REST API (fallback)")
+            markets = await self._load_markets_from_rest_api()
+            if markets:
+                return markets
+            logger.warning("REST API returned empty markets, falling back to RPC")
 
-        # RPC mode (fallback)
-        # Fetch markets list (this will need async version of Markets class)
-        # For now, we'll call the sync method in executor as a bridge
-        # TODO: Create fully async Markets implementation
-        logger.info("Loading markets from RPC (Core Markets module)")
+        # Priority 3: RPC last resort (on-chain, slow)
+        logger.info("Loading markets from RPC (last resort)")
         loop = asyncio.get_running_loop()
 
         markets_instance = Markets(self.config)
@@ -1243,6 +1310,14 @@ class GMX(Exchange):
             symbol_name = market_data.get("market_symbol", "")
             if not symbol_name or symbol_name == "UNKNOWN":
                 continue
+
+            # Skip known-deprecated market tokens.
+            if market_address.lower() in DEPRECATED_MARKET_TOKENS:
+                logger.debug("RPC: skipping deprecated market token %s (%s)", market_address, symbol_name)
+                continue
+
+            # Normalise versioned symbols to canonical names (e.g. "XAUT.v2" -> "XAUT").
+            symbol_name = SYMBOL_NORMALISE.get(symbol_name, symbol_name)
 
             if symbol_name in self.EXCLUDED_SYMBOLS:
                 logger.debug(
@@ -1310,9 +1385,103 @@ class GMX(Exchange):
             }
 
         # Update symbols list (CCXT compatibility)
+        self.markets = self._filter_datastore_disabled_markets(self.markets)
         self.symbols = list(self.markets.keys())
 
         return self.markets
+
+    def _filter_datastore_disabled_markets(self, markets: dict) -> dict:
+        """Cross-check loaded markets against ``DataStore.getBool(IS_MARKET_DISABLED)``.
+
+        REST API ``isListed`` is unreliable — a market can appear listed but be
+        disabled on-chain (e.g. OM/USDC).  All ``getBool`` calls are batched into a
+        single Multicall3 ``tryAggregate`` round-trip instead of N individual calls.
+
+        :param markets: CCXT markets dict keyed by symbol.
+        :return: Filtered markets dict with on-chain-disabled markets removed.
+        """
+        from eth_defi.event_reader.multicall_batcher import get_multicall_contract
+        from eth_defi.gmx.contracts import get_datastore_contract
+        from eth_defi.gmx.keys import is_market_disabled_key
+
+        try:
+            # Use sync_web3 — self.web3 is AsyncWeb3 and cannot be used with
+            # synchronous contract calls (get_datastore_contract / Multicall3).
+            w3 = self.sync_web3
+            if w3 is None:
+                logger.warning("_filter_datastore_disabled_markets: sync_web3 not available, skipping")
+                return markets
+            chain = self.config.get_chain()
+            datastore = get_datastore_contract(w3, chain)
+            multicall = get_multicall_contract(w3)
+
+            batch: list[tuple[str, dict, bytes]] = []
+            no_token: dict[str, dict] = {}
+            for symbol, market in markets.items():
+                market_token = market.get("info", {}).get("market_token") or market.get("info", {}).get("marketToken") or ""
+                if not market_token:
+                    no_token[symbol] = market
+                    continue
+                key = is_market_disabled_key(market_token)
+                calldata = bytes.fromhex(datastore.encode_abi(abi_element_identifier="getBool", args=[key])[2:])
+                batch.append((symbol, market, calldata))
+
+            if not batch:
+                return markets
+
+            datastore_addr = datastore.address
+            filtered: dict[str, dict] = dict(no_token)
+
+            pending = batch
+            for attempt in range(1, 3):
+                mc_calls = [(datastore_addr, True, data) for (_sym, _mkt, data) in pending]
+                results = multicall.functions.aggregate3(mc_calls).call()
+
+                retry: list[tuple[str, dict, bytes]] = []
+                for (symbol, market, calldata), (success, return_data) in zip(pending, results):
+                    if not success or not return_data:
+                        if attempt < 2:
+                            retry.append((symbol, market, calldata))
+                        else:
+                            logger.warning(
+                                "DataStore check failed for %s after 2 attempts — including conservatively",
+                                symbol,
+                            )
+                            filtered[symbol] = market
+                        continue
+                    disabled = bool(int(return_data.hex(), 16))
+                    if disabled:
+                        market_token = market.get("info", {}).get("market_token") or market.get("info", {}).get("marketToken") or ""
+                        logger.warning(
+                            "Market %s (%s) is disabled in DataStore — excluding from active markets",
+                            symbol,
+                            market_token,
+                        )
+                    else:
+                        filtered[symbol] = market
+
+                if not retry:
+                    break
+                logger.warning(
+                    "DataStore Multicall3 attempt %d: %d calls failed, retrying",
+                    attempt,
+                    len(retry),
+                )
+                pending = retry
+
+            removed = len(markets) - len(filtered)
+            logger.info(
+                "DataStore disabled-market filter checked %d markets via Multicall3, removed %d",
+                len(batch),
+                removed,
+            )
+            return filtered
+        except Exception as e:
+            logger.warning(
+                "_filter_datastore_disabled_markets failed, returning unfiltered markets: %s",
+                e,
+            )
+            return markets
 
     async def fetch_markets(self, params: dict | None = None) -> list[dict]:
         """Fetch all available markets.
@@ -2615,7 +2784,8 @@ class GMX(Exchange):
             return {}
 
         try:
-            all_infos = await self.subsquid.get_market_infos(limit=200)
+            count = await self.subsquid.get_market_count()
+            all_infos = await self.subsquid.get_market_infos(limit=count + 1)
             by_addr: dict = {}
             for mi in all_infos:
                 addr = mi.get("marketTokenAddress", "").lower()
@@ -2623,7 +2793,7 @@ class GMX(Exchange):
                     by_addr[addr] = mi
             self._bulk_market_infos_by_addr = by_addr
             self._bulk_market_infos_ts = now
-            logger.debug("_get_bulk_market_infos: refreshed cache with %d markets", len(by_addr))
+            logger.debug("_get_bulk_market_infos: refreshed cache with %d markets (limit=%d)", len(by_addr), count)
         except Exception as e:
             logger.warning("_get_bulk_market_infos: bulk fetch failed, using stale cache: %s", e)
 
