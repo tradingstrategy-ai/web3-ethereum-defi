@@ -54,6 +54,123 @@ Required environment variables (shared with vault protocol metadata):
 - ``R2_VAULT_METADATA_SECRET_ACCESS_KEY``
 - ``R2_VAULT_METADATA_ENDPOINT_URL``
 - ``R2_VAULT_METADATA_PUBLIC_URL``
+
+YAML file format
+~~~~~~~~~~~~~~~~
+
+Each file in ``eth_defi/data/stablecoins/`` describes one token symbol.
+Files come in two shapes: *standard* (one project per symbol) and *entries*
+(multiple competing projects that share the same symbol).
+
+**Standard file** — all fields at the top level:
+
+.. code-block:: yaml
+
+    symbol: USDC                          # token ticker as used on-chain
+    name: USD Coin (Circle)               # full human-readable name
+    slug: usdc                            # lowercase identifier, matches filename stem
+    category: stablecoin                  # stablecoin | yield_bearing | wrapped
+    short_description: |                  # 1–3 sentence summary
+      USD Coin is...
+    long_description: |                   # multi-paragraph Markdown (empty string = not yet written)
+      [USD Coin](https://circle.com/) is...
+    token_symbols:                        # optional: additional ticker variants
+      - USDC
+      - USDC.e
+    links:
+      homepage: https://circle.com/usdc  # project website (empty string if unknown)
+      coingecko: https://...             # CoinGecko listing URL (empty string if not listed)
+      defillama: https://...             # DeFiLlama stablecoin page URL (empty string if none)
+      twitter: https://x.com/circle     # official X/Twitter account URL (empty string if unknown)
+    contract_addresses:                   # known on-chain deployments
+      - chain: ethereum                   # chain slug (ethereum, arbitrum, base, …)
+        address: '0xA0b8...'             # checksummed ERC-20 address
+    checks:                               # automated liveness checks (omitted if checks not run yet)
+      twitter_last_post_at: '2026-03-17' # YYYY-MM-DD of most recent post, or empty string
+      domain_up_at: '2026-03-17'         # YYYY-MM-DD when homepage last responded, or empty string
+      marked_dead_at: ''                  # YYYY-MM-DD when confirmed dead, or empty string
+      information_found_missing_at: ''    # YYYY-MM-DD when no info was findable, or empty string
+
+**Entries file** — used when multiple unrelated projects share the same symbol.
+The top level holds only ``symbol``, ``slug``, ``category``, and optionally
+``token_symbols``; each entry under ``entries:`` carries the remaining fields:
+
+.. code-block:: yaml
+
+    symbol: RUSD
+    slug: rusd
+    category: stablecoin
+    entries:
+      - name: Reservoir rUSD
+        short_description: ...
+        long_description: |
+          ...
+        links:
+          homepage: https://reservoir.xyz/
+          coingecko: ''
+          defillama: ''
+          twitter: https://x.com/reservoir_xyz
+        contract_addresses:
+          - chain: ethereum
+            address: '0x09D4...'
+        checks:
+          twitter_last_post_at: ''
+          domain_up_at: '2026-03-17'
+          marked_dead_at: ''
+          information_found_missing_at: ''
+      - name: Another rUSD
+        ...
+
+**Empty-string convention** — all optional string fields use ``''`` (empty string)
+as the *not yet known* marker. The JSON export normalises these to ``null``.
+
+Maintaining stablecoin files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Several Claude Code skills automate common maintenance tasks.  Invoke them
+with the ``/skill-name`` command in the chat prompt.
+
+**Adding or updating descriptions**
+
+The ``long_description`` and ``links.twitter`` fields are filled manually or
+with AI assistance.  Use an AI agent (spawning 8 parallel sub-agents is a good
+batch size) and point it at ``eth_defi/data/stablecoins/``.  The agent should
+use ``WebSearch`` to research each stablecoin and write a 2–4 paragraph
+Markdown description in the ``long_description`` field.  Empty string ``''``
+is the marker for "not yet written".
+
+**Checking liveness** — ``/check-stablecoins``
+
+The ``check-stablecoins`` skill audits all YAML files for liveness:
+
+- Checks whether ``links.twitter`` accounts are still active and records the
+  date of the most recent post in ``checks.twitter_last_post_at``.
+- Checks whether ``links.homepage`` domains are reachable and records the
+  date in ``checks.domain_up_at``.
+- Sets ``checks.marked_dead_at`` when strong evidence of shutdown is found
+  (domain down *and* last tweet more than 6 months ago).
+- Sets ``checks.information_found_missing_at`` when no links exist at all.
+- Appends a ``## Status`` section to ``long_description`` if wind-down news
+  is found.
+
+Run it periodically (e.g. monthly) to keep the ``checks`` block current.
+
+**Logos** — ``/extract-project-logo`` and ``/post-process-logo``
+
+Logo files live in ``eth_defi/data/stablecoins/formatted_logos/{slug}/``.
+The only supported variant is ``light.png`` (256 × 256 PNG, suitable for
+display on light backgrounds).
+
+Workflow to add a logo for a new stablecoin:
+
+1. Run ``/extract-project-logo`` — point it at the project website.
+   It searches the brand kit, GitHub, meta tags, and CoinGecko in order of
+   preference and saves the raw source file.
+2. Run ``/post-process-logo`` — pass the raw source folder and the output
+   path ``eth_defi/data/stablecoins/formatted_logos/{slug}/``.
+   It converts to PNG, adds transparent padding to make the image square,
+   and scales to 256 × 256.
+3. Re-run the export script to upload the new logo to R2.
 """
 
 import json
