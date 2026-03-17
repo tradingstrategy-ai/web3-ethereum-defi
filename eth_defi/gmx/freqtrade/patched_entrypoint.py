@@ -16,10 +16,47 @@ Usage:
     import eth_defi.gmx.freqtrade.patched_entrypoint  # Just importing applies the patch
 """
 
+import logging
+import re
 import sys
 
+logger = logging.getLogger(__name__)
 
 _patched_at_module_level = False
+
+
+def _patch_status_table_profit_format() -> None:
+    """Patch freqtrade's ``_rpc_status_table`` to display profit with 3 decimal places.
+
+    Freqtrade hardcodes ``:.5g`` (5 significant digits) for the per-trade profit
+    column, which produces values like ``-0.0039503`` for small USD amounts.
+    This patch replaces the format with ``:.3f`` (3 fixed decimal places) so the
+    same value displays as ``-0.004``.
+    """
+    try:
+        from freqtrade.rpc.rpc import RPC
+
+        _original = RPC._rpc_status_table
+
+        def _patched(self, stake_currency: str, fiat_display_currency: str):
+            trades_list, columns, fiat_profit_sum, fiat_total_profit_sum = _original(
+                self, stake_currency, fiat_display_currency
+            )
+            # Profit string is the last element of each row: e.g. "0.60% (-0.0039503)"
+            # Replace the parenthesised number with a :.3f formatted version.
+            _pat = re.compile(r"\((-?[\d.]+(?:e[+-]?\d+)?)\)")
+            for row in trades_list:
+                if row and isinstance(row[-1], str):
+                    row[-1] = _pat.sub(
+                        lambda m: f"({float(m.group(1)):.3f})",
+                        row[-1],
+                    )
+            return trades_list, columns, fiat_profit_sum, fiat_total_profit_sum
+
+        RPC._rpc_status_table = _patched
+        logger.debug("Patched freqtrade _rpc_status_table: profit display → :.3f")
+    except Exception as exc:
+        logger.debug("Could not patch _rpc_status_table: %s", exc)
 
 
 def apply_patch():
@@ -36,6 +73,7 @@ def apply_patch():
 
     patch_freqtrade()
     patch_logging()  # Add sensitive data filtering to all log handlers
+    _patch_status_table_profit_format()  # Show profit with 3 decimal places instead of 5 sig figs
 
     # Verify the patch worked correctly
     print("Verifying GMX monkeypatch...", flush=True)
@@ -51,7 +89,9 @@ def apply_patch():
 
     # Check if load_markets is async
     if not inspect.iscoroutinefunction(gmx_class.load_markets):
-        raise RuntimeError(f"GMX monkeypatch failed: load_markets is not async! Class: {gmx_class}")
+        raise RuntimeError(
+            f"GMX monkeypatch failed: load_markets is not async! Class: {gmx_class}"
+        )
 
     print("  ✓ load_markets is async", flush=True)
     print("GMX support enabled successfully!", flush=True)
@@ -77,7 +117,9 @@ def main():
         sys.exit(freqtrade_main())
     else:
         print("\nNo command provided. Patch applied successfully.")
-        print("Usage: python -m eth_defi.gmx.freqtrade.patched_entrypoint <freqtrade-command>")
+        print(
+            "Usage: python -m eth_defi.gmx.freqtrade.patched_entrypoint <freqtrade-command>"
+        )
 
 
 # Apply patch when module is imported
