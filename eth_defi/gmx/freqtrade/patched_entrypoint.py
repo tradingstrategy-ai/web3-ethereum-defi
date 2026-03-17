@@ -39,9 +39,7 @@ def _patch_status_table_profit_format() -> None:
         _original = RPC._rpc_status_table
 
         def _patched(self, stake_currency: str, fiat_display_currency: str):
-            trades_list, columns, fiat_profit_sum, fiat_total_profit_sum = _original(
-                self, stake_currency, fiat_display_currency
-            )
+            trades_list, columns, fiat_profit_sum, fiat_total_profit_sum = _original(self, stake_currency, fiat_display_currency)
             # Profit string is the last element of each row: e.g. "0.60% (-0.0039503)"
             # Replace the parenthesised number with a :.3f formatted version.
             _pat = re.compile(r"\((-?[\d.]+(?:e[+-]?\d+)?)\)")
@@ -89,9 +87,7 @@ def apply_patch():
 
     # Check if load_markets is async
     if not inspect.iscoroutinefunction(gmx_class.load_markets):
-        raise RuntimeError(
-            f"GMX monkeypatch failed: load_markets is not async! Class: {gmx_class}"
-        )
+        raise RuntimeError(f"GMX monkeypatch failed: load_markets is not async! Class: {gmx_class}")
 
     print("  ✓ load_markets is async", flush=True)
     print("GMX support enabled successfully!", flush=True)
@@ -117,9 +113,7 @@ def main():
         sys.exit(freqtrade_main())
     else:
         print("\nNo command provided. Patch applied successfully.")
-        print(
-            "Usage: python -m eth_defi.gmx.freqtrade.patched_entrypoint <freqtrade-command>"
-        )
+        print("Usage: python -m eth_defi.gmx.freqtrade.patched_entrypoint <freqtrade-command>")
 
 
 # Apply patch when module is imported
