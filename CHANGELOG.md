@@ -1,5 +1,6 @@
 # Current
 
+- Fix: Harmonise stablecoin names — remove brackets, use issuer-first format for consistent frontend display (2026-03-17)
 - Add: Split stablecoin YAML `description` into `short_description` and `long_description` fields with markdown support; JSON export includes both plus backwards-compatible `description` key (2026-03-16)
 - **Add: Stablecoin metadata migrated from inline Python to 180 individual YAML files under `eth_defi/data/stablecoins/` with name, homepage, description, CoinGecko, DeFiLlama, and Twitter links; new `eth_defi/stablecoin_metadata` module with YAML loader and R2 upload; 154 stablecoin logos; add USG, USDG, FRAX, DOLA, GRAI (2026-03-16, [#857](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/857))**
 - Add: Ember vault offchain metadata expanded with all official API fields (long name, status, tags, depositor counts, APY breakdown, rewards, supported coins) and risk level lowered to low (2026-03-16, [#856](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/856))
