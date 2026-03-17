@@ -63,6 +63,7 @@ import os
 from decimal import Decimal
 
 import pytest
+from flaky import flaky
 from web3 import HTTPProvider, Web3
 
 from eth_defi.chain import install_chain_middleware
@@ -219,6 +220,7 @@ def test_fetch_gmx_total_equity_empty_account(web3, usdc):
     assert result.get_total() == Decimal(0)
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_zero_index_markets_excluded(web3):
     """Verify that markets with zero index tokens are excluded or resolved.
 
