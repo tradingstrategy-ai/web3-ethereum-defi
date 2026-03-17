@@ -21,6 +21,8 @@ Key components:
 - :py:mod:`eth_defi.derive.onboarding` - Session key registration and wallet resolution
 - :py:mod:`eth_defi.derive.authentication` - API client with session key auth
 - :py:mod:`eth_defi.derive.account` - Balance and collateral functions
+- :py:mod:`eth_defi.derive.api` - Public API functions (funding rates, instrument discovery)
+- :py:mod:`eth_defi.derive.historical` - DuckDB-backed historical data storage
 - :py:mod:`eth_defi.derive.session` - HTTP session management
 - :py:mod:`eth_defi.derive.constants` - API URLs, contract addresses, and enums
 

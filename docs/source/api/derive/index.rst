@@ -247,7 +247,9 @@ Links
 - `Derive.xyz Platform <https://www.derive.xyz/>`__
 - `Testnet Interface <https://testnet.derive.xyz/>`__
 - `API Documentation <https://docs.derive.xyz/>`__
-- `API Reference <https://docs.derive.xyz/reference/overview>`__
+- `API Reference <https://docs.derive.xyz/reference/>`__
+- `Funding rate history endpoint <https://docs.derive.xyz/reference/post_public-get-funding-rate-history>`__
+- `All instruments endpoint <https://docs.derive.xyz/reference/post_public-get-all-instruments>`__
 - `Manual Onboarding Guide <https://docs.derive.xyz/reference/onboard-manually>`__
 - `Python Signing SDK <https://github.com/derivexyz/v2-action-signing-python>`__
 - `Derive Chain Explorer <https://explorer.derive.xyz/>`__
@@ -260,6 +262,8 @@ API modules
    :toctree: _autosummary_derive
    :recursive:
 
+   eth_defi.derive.api
+   eth_defi.derive.historical
    eth_defi.derive.onboarding
    eth_defi.derive.session
    eth_defi.derive.authentication
