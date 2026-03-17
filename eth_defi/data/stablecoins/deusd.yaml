@@ -18,3 +18,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x15700b564ca08d9439c58ca5053166e8317aa138'
 slug: deusd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

@@ -12,8 +12,13 @@ links:
   homepage: https://www.stableuniversal.com/
   coingecko: https://www.coingecko.com/en/coins/husd
   defillama: https://defillama.com/stablecoin/husd
-  twitter: ''
+  twitter: https://x.com/Stablecoin_HUSD
 contract_addresses:
   - chain: ethereum
     address: '0xdF574c24545E5FfEcb9a659C229253D4111d87e1'
 slug: husd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: '2026-03-17'
+  information_found_missing_at: ''

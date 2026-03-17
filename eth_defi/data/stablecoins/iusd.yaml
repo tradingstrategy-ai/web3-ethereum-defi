@@ -2,7 +2,20 @@ symbol: iUSD
 name: infiniFi USD
 short_description: iUSD is a yield-bearing stablecoin issued by infiniFi on Ethereum. It is pegged to the US dollar and earns yield for holders through the infiniFi protocol's liquidity management strategies.
   iUSD has approximately $170M in circulating supply as of early 2026.
-long_description: ''
+long_description: |
+  [infiniFi](https://app.infinifi.org/) is an Ethereum-based DeFi protocol that replicates the structure of fractional reserve banking on-chain. Users deposit USDC to receive iUSD, a 1:1 USD-pegged receipt stablecoin. The protocol then deploys those reserves into yield strategies — principally money-market protocols such as Aave and Fluid, as well as Pendle fixed-income markets — and distributes the resulting yield back to token holders.
+
+  iUSD holders can choose between two yield-bearing derivatives with different liquidity and risk profiles. Staking iUSD produces siUSD (liquid, lower yield), while locking iUSD produces liUSD (illiquid for a fixed term, higher yield). Capital in the siUSD tranche is deployed conservatively into low-risk money markets, while the liUSD tranche can access higher-risk, higher-return strategies. In the event of a loss, liUSD holders absorb losses first, then siUSD stakers, before plain iUSD holders are affected.
+
+  ## Reserve transparency
+
+  All reserve deployments are visible on-chain, giving users full visibility into the asset–liability composition of the protocol at any time, without relying on quarterly attestations. infiniFi had approximately $170M in circulating iUSD as of early 2026.
+
+  ## Sources
+
+  - [Yield protocol infiniFi replicates fractional reserve banking onchain — Blockworks](https://blockworks.com/news/yield-protocol-infinifi-banking-onchain)
+  - [Understanding infiniFi — Nansen Research](https://research.nansen.ai/articles/understanding-infini-fi-the-on-chain-fractional-reserve-banking-protocol)
+  - [infiniFi app](https://app.infinifi.org/)
 category: yield_bearing
 links:
   homepage: https://www.infinifi.xyz/
@@ -13,3 +26,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x48f9e38f3070ad8945dfeae3fa70987722e3d89c'
 slug: iusd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

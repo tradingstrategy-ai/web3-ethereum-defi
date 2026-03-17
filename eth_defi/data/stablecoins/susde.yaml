@@ -17,3 +17,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x9D39A5DE30e57443BfF2A8307A4256c8797A3497'
 slug: susde
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

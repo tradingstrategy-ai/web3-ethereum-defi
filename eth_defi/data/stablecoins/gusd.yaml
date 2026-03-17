@@ -2,7 +2,27 @@ symbol: GUSD
 name: Gemini Dollar
 short_description: Gemini Dollar (GUSD) is a USD-backed stablecoin issued by the Gemini exchange. It is fully backed by US dollars held at a State Street Bank and regulated by the New York State Department of
   Financial Services. GUSD was one of the first regulated stablecoins in the US.
-long_description: ''
+long_description: |
+  [Gemini Dollar (GUSD)](https://www.gemini.com/dollar) is a regulated, USD-backed stablecoin issued by [Gemini Trust Company, LLC](https://www.gemini.com/), a limited-purpose trust company chartered by the New York State Department of Financial Services (NYDFS). First minted in September 2018, GUSD was among the world's first regulated stablecoins and remains one of the few issued directly by a licensed, regulated entity.
+
+  ## Mechanism
+
+  GUSD is an ERC-20 token on Ethereum that maintains a strict 1:1 peg to the US dollar. New tokens are minted only when customers purchase GUSD through Gemini, and tokens are burned upon redemption for USD. Dollar reserves backing GUSD are held as FDIC-insured bank deposits, US Treasury obligations, or money-market funds investing solely in US Treasury obligations. Monthly attestations are published by independent accounting firm BPM LLP, confirming full backing.
+
+  ## Key properties
+
+  - Regulated by the New York State Department of Financial Services (NYDFS)
+  - Fully backed 1:1 by USD reserves (bank deposits, Treasuries, money-market funds)
+  - Monthly independent reserve attestations by BPM LLP
+  - Redeemable at par on Gemini at any time
+  - Subject to annual financial and security audits and NYDFS bank examinations
+
+  ## Sources
+
+  - [Gemini Dollar overview](https://www.gemini.com/dollar)
+  - [Gemini cryptopedia: GUSD](https://www.gemini.com/cryptopedia/gusd-stablecoin-gemini-dollar)
+  - [CoinGecko: Gemini Dollar](https://www.coingecko.com/en/coins/gemini-dollar)
+  - [Etherscan: GUSD token](https://etherscan.io/token/0x056Fd409E1d7A124Bd7017459dFEa2F387b6d5Cd)
 category: stablecoin
 links:
   homepage: https://gemini.com/dollar
@@ -13,3 +33,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x056Fd409E1d7A124Bd7017459dFEa2F387b6d5Cd'
 slug: gusd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

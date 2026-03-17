@@ -22,7 +22,7 @@ links:
   homepage: https://paytrie.com/
   coingecko: https://www.coingecko.com/en/coins/cad-coin
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/Paytrie
 slug: cadc
 contract_addresses:
   - chain: ethereum
@@ -33,3 +33,8 @@ contract_addresses:
     address: '0x2b28e826b55e399f4d4699b85f68666ac51e6f70'
   - chain: polygon
     address: '0x9de41aff9f55219d5bf4359f167d1d0c772a396d'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

@@ -30,3 +30,8 @@ contract_addresses:
   - chain: polygon
     address: '0x40379a439D4F6795B6fc9aa5687dB461677A2dBa'
 slug: usdr
+checks:
+  twitter_last_post_at: '2024-10-31'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: '2026-03-17'
+  information_found_missing_at: ''

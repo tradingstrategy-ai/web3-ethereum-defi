@@ -24,5 +24,10 @@ links:
   homepage: https://docs.polyquity.org/
   coingecko: ''
   defillama: https://defillama.com/protocol/polyquity
-  twitter: ''
+  twitter: https://x.com/polyquity_org
 slug: plusd-polyquity
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: '2026-03-17'
+  information_found_missing_at: ''

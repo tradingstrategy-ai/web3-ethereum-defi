@@ -27,7 +27,7 @@ long_description: |
   - [DeFiLlama: BOB](https://defillama.com/stablecoin/bob)
 category: stablecoin
 links:
-  homepage: https://bob.zkbob.com/
+  homepage: https://www.zkbob.com/
   coingecko: https://www.coingecko.com/en/coins/bob
   defillama: https://defillama.com/stablecoin/bob
   twitter: https://x.com/zkbob_
@@ -37,3 +37,8 @@ contract_addresses:
     address: '0xb0b195aefa3650a6908f15cdac7d92f8a5791b0b'
   - chain: polygon
     address: '0xb0b195aefa3650a6908f15cdac7d92f8a5791b0b'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

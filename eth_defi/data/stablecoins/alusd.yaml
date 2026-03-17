@@ -37,3 +37,8 @@ contract_addresses:
     address: '0xcb8fa9a76b8e203d8c3797bf438d8fb81ea3326a'
   - chain: optimism
     address: '0xcb8fa9a76b8e203d8c3797bf438d8fb81ea3326a'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

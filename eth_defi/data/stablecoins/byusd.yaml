@@ -2,7 +2,34 @@ symbol: BYUSD
 name: Bybit USD
 short_description: BYUSD is a stablecoin issued by Bybit, the cryptocurrency exchange. It is currently deployed on Berachain and is part of Bybit's Web3 stablecoin initiative. Details about reserves and redemption
   mechanisms are limited to exchange disclosures.
-long_description: ''
+long_description: |
+  BYUSD is a fiat-backed stablecoin issued by [Bybit](https://www.bybit.com/), one of the world's
+  largest centralised cryptocurrency exchanges. Each BYUSD token is pegged 1:1 to the US dollar and
+  backed by Bybit's fiat reserves. The token is currently deployed on [Berachain](https://berachain.com/),
+  where it serves as a liquidity asset within the ecosystem.
+
+  ## Mechanism
+
+  BYUSD is a centralised, fiat-collateralised stablecoin in the same category as USDT and USDC.
+  Bybit maintains reserves verified through its ongoing [Proof of Reserves](https://www.bybit.com/app/user/proof-of-reserve)
+  programme, audited by Hacken, with reported reserve ratios consistently above 100%.
+
+  On Berachain, BYUSD can be used as accepted collateral to mint HONEY (Berachain's native stablecoin)
+  through the HoneySwap dApp. Deep BYUSD liquidity pools also help anchor HONEY's peg by providing
+  low-slippage redemption routes.
+
+  ## Key properties
+
+  - Centralised issuance by Bybit exchange
+  - 1:1 USD backing with fiat reserves
+  - Monthly/regular Proof of Reserves audits via Hacken
+  - Currently deployed on Berachain; usable as collateral for HONEY minting
+
+  ## Sources
+
+  - [Bybit official website](https://www.bybit.com/)
+  - [Stablecoins on Berachain — Berachain Blog](https://blog.berachain.com/blog/stablecoins-on-berachain)
+  - [CoinGecko — BYUSD](https://www.coingecko.com/en/coins/byusd)
 category: stablecoin
 links:
   homepage: https://www.bybit.com/
@@ -13,3 +40,8 @@ slug: byusd
 contract_addresses:
   - chain: berachain
     address: '0x688e72142674041f8f6af4c808a4045ca1d6ac82'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

@@ -42,4 +42,6 @@ logs/
 # Claude Code local settings
 .claude/settings.local.json
 
+# Created by agents running their tools
+node_modules/
 node_modules/.cache

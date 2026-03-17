@@ -1,7 +1,10 @@
 symbol: MTUSD
 name: Unknown
 short_description: No verified project using the symbol MTUSD with significant activity was found. Etherscan search returns several unrelated test tokens and low-activity contracts bearing this name. This entry is a placeholder pending identification.
-long_description: ''
+long_description: |
+  MTUSD is an unidentified token. No contract address is recorded for this entry, and web searches for "MTUSD stablecoin" return only unrelated results (Mountain Protocol's USDM, Mutuum Finance, and various test tokens on Ethereum). No verified project using the symbol MTUSD with significant on-chain activity or public documentation has been found.
+
+  This entry is a placeholder. If the token is later identified, the short_description, long_description, links, and contract_addresses fields should be updated accordingly.
 category: stablecoin
 links:
   homepage: ''
@@ -9,3 +12,8 @@ links:
   defillama: ''
   twitter: ''
 slug: mtusd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: '2026-03-17'

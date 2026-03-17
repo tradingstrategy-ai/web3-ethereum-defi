@@ -141,6 +141,15 @@ Pull requests
 
 For new feature requests, make sure your pull request satisfies the checklist below and enjoy merge party.
 
+Dependency audits
+-----------------
+
+Dependency changes are checked in two ways in GitHub Actions:
+
+- Pull requests that change ``pyproject.toml`` or ``poetry.lock`` run a dependency review check. This blocks pull requests that introduce known vulnerable dependencies without re-running a full audit for every change.
+- A separate ``Dependency audit`` workflow runs weekly on ``master`` and can also be started manually from the Actions tab. It installs the same Poetry environment used in CI and runs ``pip-audit`` against the local environment.
+- The weekly/manual audit writes a Markdown summary to the workflow summary page and uploads machine-readable artefacts named ``pip-audit.json`` and ``pip-audit.cyclonedx.json`` for follow-up work.
+
 Documentation dependencies
 --------------------------
 

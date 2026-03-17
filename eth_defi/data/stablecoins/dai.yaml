@@ -22,3 +22,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x6b175474e89094c44da98b954eedeac495271d0f'
 slug: dai
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

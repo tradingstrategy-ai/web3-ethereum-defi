@@ -2,7 +2,27 @@ symbol: JCHF
 name: Jarvis Synthetic Swiss Franc
 short_description: jCHF is a synthetic Swiss Franc stablecoin issued by Jarvis Network. It is overcollateralised by USDC and uses Chainlink oracles for price feeds. jCHF enables on-chain exposure to CHF without
   needing a Swiss bank account.
-long_description: ''
+long_description: |
+  [jCHF](https://www.jarvis.network/) is a synthetic Swiss Franc stablecoin issued by [Jarvis Network](https://www.jarvis.network/) as part of its jFIAT series. jFIATs are on-chain representations of fiat currencies minted through the Synthereum protocol and are primarily deployed on Ethereum and Polygon. The series covers major currencies including EUR (jEUR), GBP (jGBP), and CHF (jCHF), enabling on-chain exposure to foreign exchange without a traditional bank account.
+
+  ## Mechanism
+
+  jCHF is over-collateralised at 125% by USDC, with a liquidation threshold of 105%. Users can mint jCHF by depositing USDC collateral into Jarvis's smart contracts, or obtain it from liquidity pools. The CHF/USD exchange rate is provided in real time by Chainlink price feeds, allowing transactions to occur without slippage at the oracle price. A network of incentivised liquidators ensures the protocol remains solvent at all times.
+
+  ## Key properties
+
+  - Over-collateralised by USDC (125% collateral ratio, 105% liquidation threshold)
+  - Price stability via Chainlink CHF/USD oracle feeds
+  - Slippage-free minting and redemption at the oracle price
+  - Available on Ethereum and Polygon; integrated with liquidity partners including Mt Pelerin
+  - Governed by Jarvis Network's JRT token
+
+  ## Sources
+
+  - [Jarvis Network](https://www.jarvis.network/)
+  - [Jarvis Network: jFIAT minting overview](https://learn.jarvis.network/protocol-overview/minting)
+  - [CoinGecko: Jarvis Synthetic Swiss Franc](https://www.coingecko.com/en/coins/jarvis-synthetic-swiss-franc)
+  - [Etherscan: jCHF token](https://etherscan.io/token/0x53dFEa0a8CC2A2a2e425E1C174Bc162999723ea0)
 category: stablecoin
 links:
   homepage: https://www.jarvis.network/
@@ -13,3 +33,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x53dFEa0a8CC2A2a2e425E1C174Bc162999723ea0'
 slug: jchf
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

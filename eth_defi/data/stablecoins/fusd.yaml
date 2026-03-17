@@ -19,3 +19,8 @@ contract_addresses:
   - chain: fantom
     address: '0xAD84341756Bf337f5a0164515b1f6F993D194E1f'
 slug: fusd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

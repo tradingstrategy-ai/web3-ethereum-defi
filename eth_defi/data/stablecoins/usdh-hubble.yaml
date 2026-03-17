@@ -3,11 +3,32 @@ name: Hubble USDH
 short_description: |
   USDH was a stablecoin issued by Hubble Protocol on Solana. It was overcollateralised by various
   crypto assets including SOL, BTC, and ETH. The project has been deprecated.
-long_description: ''
+long_description: |
+  [USDH](https://hubbleprotocol.io/) was a censorship-resistant, crypto-backed stablecoin issued by [Hubble Protocol](https://hubbleprotocol.io/) on the Solana blockchain. It was soft-pegged to the US dollar and fully collateralised by a basket of Solana ecosystem assets — including SOL, mSOL, stSOL, ETH, and RAY — deposited into Hubble's smart contracts. Hubble raised $5 million in September 2022 to expand the protocol.
+
+  ## Mechanism
+
+  Users borrowed USDH by depositing accepted collateral into Hubble's vaults above the minimum collateral ratio. Each USDH in circulation was backed by more than $1 of collateral. Liquidations were handled automatically to maintain solvency. The protocol also supported kTokens (Kamino liquidity positions) as collateral.
+
+  ## Status
+
+  Hubble Protocol has been deprecated and USDH is no longer in production use. The original DefiDollar team, which had also worked on Solana-based products, separately pivoted to build Hubble Exchange, a Solana perpetuals DEX.
+
+  ## Sources
+
+  - [Hubble Protocol](https://hubbleprotocol.io/)
+  - [Hubble Protocol documentation: USDH](https://docs.hubbleprotocol.io/faq/usdh-stablecoin)
+  - [CoinDesk: Hubble Protocol raises $5M](https://www.coindesk.com/business/2022/09/08/hubble-protocol-raises-5m-to-expand-solana-based-defi-protocol)
+  - [Solana ecosystem listing](https://solana.com/ecosystem/hubbleprotocol)
 category: stablecoin
 links:
   homepage: https://hubbleprotocol.io/
   coingecko: ''
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/HubbleProtocol
 slug: usdh-hubble
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: '2026-03-17'

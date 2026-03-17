@@ -29,3 +29,8 @@ slug: cusd
 contract_addresses:
   - chain: celo
     address: '0x765de816845861e75a25fca122bb6898b8b1282a'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

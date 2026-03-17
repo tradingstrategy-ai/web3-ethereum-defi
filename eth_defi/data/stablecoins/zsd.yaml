@@ -2,7 +2,42 @@ symbol: ZSD
 name: Zephyr Stable Dollar
 short_description: Zephyr Stable Dollar (ZSD) is a private stablecoin on the Zephyr Protocol, a Monero-forked privacy blockchain. It uses an overcollateralised djed-style mechanism with ZEPH as the reserve asset.
   ZSD offers privacy-preserving stable transactions.
-long_description: ''
+long_description: |
+  [Zephyr Protocol](https://www.zephyrprotocol.com/) is an independent privacy-focused blockchain
+  forked from Monero. It implements the academically peer-reviewed
+  [Djed](https://iohk.io/en/research/library/papers/djed-a-formally-verified-crypto-backed-pegged-algorithmic-stablecoin/)
+  stablecoin algorithm on top of Monero's privacy primitives, yielding a fully untraceable
+  stablecoin system.
+
+  ## Mechanism
+
+  Zephyr Protocol has three native assets:
+
+  - **ZEPH** — the base reserve coin (mined via proof-of-work)
+  - **ZSD (Zephyr Stable Dollar)** — the USD-pegged stablecoin
+  - **ZRS (Zephyr Reserve Share)** — reserve shares that absorb collateral volatility
+
+  Users mint ZSD by depositing ZEPH into the protocol's reserve at oracle-reported prices.
+  ZSD requires a minimum 400% collateralisation ratio (i.e. $4 of ZEPH backs every $1 of ZSD),
+  substantially above comparable CDP systems. ZRS holders earn from reserve appreciation when
+  ZEPH rises, and absorb losses when it falls, protecting ZSD's peg.
+
+  ## Privacy properties
+
+  Because Zephyr inherits Monero's RingCT and stealth address technology, all transactions —
+  including ZSD transfers — are confidential and untraceable by default. This distinguishes ZSD
+  from every other stablecoin: the sender, receiver, and amount are all hidden on-chain.
+
+  ## Status
+
+  Zephyr Protocol launched on 29 May 2023. The project remains active with ongoing PoW mining
+  and community governance. Twitter activity was last observed in August 2025.
+
+  ## Sources
+
+  - [Zephyr Protocol official site](https://www.zephyrprotocol.com/)
+  - [CoinGecko — Zephyr Protocol Stable Dollar](https://www.coingecko.com/en/coins/zephyr-protocol-stable-dollar)
+  - [Medium — Zephyr Protocol: how Djed and Monero joined forces](https://medium.com/@Crypto_Proselyte/zephyr-protocol-or-how-djed-and-monero-joined-forces-to-create-a-private-and-stable-crypto-system-f59a66ea25d7)
 category: stablecoin
 links:
   homepage: https://www.zephyrprotocol.com/
@@ -10,3 +45,8 @@ links:
   defillama: ''
   twitter: https://x.com/zephyr_org
 slug: zsd
+checks:
+  twitter_last_post_at: '2025-08-06'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

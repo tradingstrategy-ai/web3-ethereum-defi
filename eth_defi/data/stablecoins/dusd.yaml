@@ -12,17 +12,37 @@ entries:
     homepage: https://standx.com/
     coingecko: https://www.coingecko.com/en/coins/standx-dusd
     defillama: https://defillama.com/stablecoin/standx-dusd
-    twitter: ''
+    twitter: 'https://x.com/StandX_Official'
+  checks:
+    twitter_last_post_at: '2025-12-02'
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: ''
 - name: DefiDollar
   short_description: DefiDollar (DUSD) was a meta-stablecoin that indexed multiple stablecoins to reduce risk. It combined USDC, DAI, USDT, and sUSD into a single index token. The project is no longer actively
     maintained.
   long_description: |
-    [DefiDollar](https://dusd.finance/) was a meta-stablecoin protocol that pooled multiple USD-pegged stablecoins (USDC, DAI, USDT, sUSD) to create a single index token with diversified stablecoin risk.
-    By holding DUSD, users gained exposure to a basket of stablecoins without concentrating risk in any single issuer.
-    The protocol is no longer actively maintained and is considered defunct.
+    [DefiDollar](https://dusd.finance/) was a meta-stablecoin protocol that pooled multiple USD-pegged stablecoins (USDC, DAI, USDT, sUSD) to create a single index token with diversified stablecoin risk. By holding DUSD, users gained exposure to a basket of stablecoins without concentrating risk in any single issuer. The project was funded with $1.2 million from investors including Standard Crypto and Accomplice, and was built by the team at Yield Studio. It originated from the ETHGlobal HackMoney hackathon.
+
+    The protocol used Curve Finance LP tokens as collateral to maintain the DUSD peg. Arbitrage mechanics kept the price near $1: minting DUSD when trading above $1 and burning it when below $1. The protocol also supported a BSC deployment backed by Nerve Finance.
+
+    The DefiDollar team halted active development around 2021–2022 and pivoted to building Hubble Exchange on Solana. DUSD reached its all-time high of $1.59 in June 2021, and has traded well below its peg since the project was abandoned. The DUSD token has been marked as inactive by major data providers.
+
+    ## Sources
+
+    - [DefiDollar](https://dusd.finance/)
+    - [The Block: DefiDollar raises $1.2M](https://www.theblock.co/post/82682/defidollar-stablecoin-usd-funding-round)
+    - [Medium: A Curvy DefiDollar](https://medium.com/defidollar/a-curvy-defidollar-c249438c154a)
+    - [CoinGecko: DefiDollar](https://www.coingecko.com/en/coins/defidollar)
+    - [Etherscan: DFD governance token](https://etherscan.io/token/0x20c36f062a31865bed8a5b1e512d9a1a20aa333a)
   links:
     homepage: https://dusd.finance/
     coingecko: https://www.coingecko.com/en/coins/defidollar
     defillama: ''
-    twitter: ''
+    twitter: https://x.com/defidollar
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: '2026-03-17'
 slug: dusd

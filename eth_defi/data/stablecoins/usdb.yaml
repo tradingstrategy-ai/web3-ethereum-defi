@@ -1,7 +1,38 @@
 symbol: USDB
 name: USDB (Blast)
 short_description: USDB is the native rebasing stablecoin of the Blast L2 network. It automatically earns yield from T-bill rates through MakerDAO's DSR. USDB is redeemable 1:1 for DAI on Ethereum mainnet and is the default stablecoin within the Blast ecosystem.
-long_description: ''
+long_description: |
+  USDB is the native rebasing stablecoin of the [Blast](https://blast.io/) Layer 2 network, an
+  Ethereum L2 backed by [Paradigm](https://www.paradigm.xyz/). When users bridge stablecoins
+  (USDC, USDT, DAI) to Blast, they receive USDB — an auto-rebasing token that automatically
+  accumulates yield without any manual action by the holder.
+
+  ## Mechanism
+
+  USDB yield originates from [MakerDAO's Dai Savings Rate (DSR)](https://makerdao.com/) contract,
+  which itself invests in on-chain T-Bill protocols. Deposited stablecoins are routed into the DSR,
+  and the generated yield is automatically distributed to USDB holders by rebasing the token's
+  balance upward over time. This mirrors the interest-on-maturity mechanism of traditional Treasury
+  Bills but delivered on-chain in real time.
+
+  USDB is redeemable 1:1 for DAI on Ethereum mainnet when bridging back. The Blast community retains
+  governance rights to supplement or replace MakerDAO with alternative yield sources in the future,
+  such as Blast-native protocols.
+
+  ## Key properties
+
+  - Auto-rebasing: balance increases automatically as yield accrues
+  - Yield sourced from MakerDAO DSR (T-bill rates)
+  - Redeemable 1:1 for DAI on Ethereum mainnet
+  - Native stablecoin of Blast L2; contract address is a precompile (`0x4300...0003`)
+  - Community governance over future yield-source upgrades
+
+  ## Sources
+
+  - [Blast developer docs](https://docs.blast.io/about-blast)
+  - [DeFiLlama — USDB](https://defillama.com/stablecoin/usdb)
+  - [CoinGecko — USDB](https://www.coingecko.com/en/coins/usdb)
+  - [QuickNode — Introducing Blast](https://blog.quicknode.com/blast-quicknode-partnership/)
 category: stablecoin
 links:
   homepage: https://blast.io/
@@ -12,3 +43,8 @@ slug: usdb
 contract_addresses:
   - chain: blast
     address: '0x4300000000000000000000000000000000000003'
+checks:
+  twitter_last_post_at: '2026-03-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

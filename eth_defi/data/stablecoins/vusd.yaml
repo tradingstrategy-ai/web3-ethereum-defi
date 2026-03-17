@@ -24,3 +24,8 @@ contract_addresses:
   - chain: cronos-zkevm
     address: '0x5b91e29Ae5A71d9052620Acb813d5aC25eC7a4A2'
 slug: vusd
+checks:
+  twitter_last_post_at: '2025-08-22'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

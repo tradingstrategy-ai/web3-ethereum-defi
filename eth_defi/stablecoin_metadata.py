@@ -332,6 +332,22 @@ class StablecoinContractAddress(TypedDict):
     address: str | None
 
 
+class StablecoinChecks(TypedDict):
+    """Automated liveness checks for a stablecoin project."""
+
+    #: Date (YYYY-MM-DD) of the most recent Twitter/X post, or empty string if unknown/missing
+    twitter_last_post_at: str
+
+    #: Date (YYYY-MM-DD) when the homepage was last confirmed reachable, or empty string
+    domain_up_at: str
+
+    #: Date (YYYY-MM-DD) when the project was confirmed dead, or empty string if alive/unknown
+    marked_dead_at: str
+
+    #: Date (YYYY-MM-DD) when liveness could not be determined (no links found), or empty string
+    information_found_missing_at: str
+
+
 class StablecoinMetadata(TypedDict):
     """Complete stablecoin metadata as exported to JSON."""
 
@@ -364,6 +380,9 @@ class StablecoinMetadata(TypedDict):
 
     #: Known contract addresses across chains (may be empty list if unknown)
     contract_addresses: list[StablecoinContractAddress]
+
+    #: Automated liveness checks (``None`` if checks have not been run yet)
+    checks: StablecoinChecks | None
 
 
 def read_stablecoin_metadata(yaml_path: Path) -> dict:
@@ -572,6 +591,17 @@ def build_stablecoin_metadata_json(yaml_path: Path, public_url: str = "") -> lis
             for entry in raw
         ]
 
+    def parse_checks(source: dict) -> StablecoinChecks | None:
+        raw = source.get("checks")
+        if raw is None:
+            return None
+        return StablecoinChecks(
+            twitter_last_post_at=raw.get("twitter_last_post_at") or "",
+            domain_up_at=raw.get("domain_up_at") or "",
+            marked_dead_at=raw.get("marked_dead_at") or "",
+            information_found_missing_at=raw.get("information_found_missing_at") or "",
+        )
+
     if "entries" in data:
         result = []
         for entry in data["entries"]:
@@ -591,6 +621,7 @@ def build_stablecoin_metadata_json(yaml_path: Path, public_url: str = "") -> lis
                     links=links,
                     logos=logos,
                     contract_addresses=parse_contract_addresses(entry),
+                    checks=parse_checks(entry),
                 )
             )
         return result
@@ -611,6 +642,7 @@ def build_stablecoin_metadata_json(yaml_path: Path, public_url: str = "") -> lis
                 links=links,
                 logos=logos,
                 contract_addresses=parse_contract_addresses(data),
+                checks=parse_checks(data),
             )
         ]
 

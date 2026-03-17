@@ -2,7 +2,37 @@ symbol: USDCV
 name: USD CoinVertible (SG-FORGE)
 short_description: USD CoinVertible (USDCV) is a USD-denominated security token issued by SG-FORGE, a subsidiary of Societe Generale. It is a regulated digital asset backed by USD reserves for institutional use.
   USDCV is designed to bridge traditional finance and DeFi.
-long_description: ''
+long_description: |
+  [USD CoinVertible (USDCV)](https://www.sgforge.com/) is a USD-denominated electronic money
+  token issued by [SG-FORGE](https://www.sgforge.com/), a regulated subsidiary of Societe
+  Generale — one of the largest banks in Europe. SG-FORGE markets CoinVertible as "the only
+  stablecoin supported by a major European bank," combining blockchain efficiency with
+  institutional-grade compliance.
+
+  ## Mechanism
+
+  USDCV maintains a strict 1:1 peg to the US Dollar and is fully backed by 100% segregated
+  collateral assets held at BNY Mellon. The collateral composition and valuation are publicly
+  disclosed on a daily basis, and funds are held in bankruptcy-remote accounts. Smart contracts
+  have been audited by HACKEN. Institutional investors must complete KYC/AML onboarding with
+  SG-FORGE before subscribing; the token is restricted from US persons.
+
+  SG-FORGE also issues EUR CoinVertible (EURCV), the EUR-denominated counterpart, which was
+  launched first and serves as the flagship product. USDCV is deployed on Ethereum; EURCV is
+  additionally available on the XRP Ledger and Stellar. Both tokens are fully compliant with
+  EU MiCA regulation since June 2025.
+
+  ## Key properties
+
+  - Issued by a regulated European bank subsidiary (SG-FORGE / Societe Generale)
+  - 100% fiat-backed, collateral held at BNY Mellon with daily public disclosure
+  - MiCA-compliant electronic money token
+  - Targeted at institutional counterparties (exchanges, payment processors, financial firms)
+
+  ## Sources
+
+  - [SG-FORGE official site](https://www.sgforge.com/)
+  - [Etherscan — USDCV](https://etherscan.io/token/0x5422374B27757da72d5265cC745ea906E0446634)
 category: stablecoin
 links:
   homepage: https://www.sgforge.com/
@@ -13,3 +43,8 @@ slug: usdcv
 contract_addresses:
   - chain: ethereum
     address: '0x5422374B27757da72d5265cC745ea906E0446634'
+checks:
+  twitter_last_post_at: '2026-03-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

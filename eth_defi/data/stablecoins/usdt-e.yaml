@@ -2,7 +2,40 @@ symbol: USDT.e
 name: Bridged USDT
 short_description: USDT.e is a bridged version of USDT on various L2 and alt-L1 chains. It represents USDT locked on Ethereum and bridged to another network via a canonical bridge. USDT.e is being replaced by
   native USDT deployments on more chains.
-long_description: ''
+long_description: |
+  USDT.e is a bridged representation of [Tether (USDT)](https://tether.to/) on L2 and alt-L1
+  blockchains where Tether has not yet deployed a natively minted contract. The ".e" suffix
+  (sometimes also written as "USDT.e" or displayed as "Bridged USDT") indicates the token was
+  brought to the target chain via that chain's canonical bridge.
+
+  ## Mechanism
+
+  The bridging process works as follows:
+
+  1. USDT on Ethereum is locked in the canonical bridge smart contract
+  2. An equivalent amount of USDT.e is minted on the destination chain by the bridge
+  3. To exit, the user burns USDT.e and the bridge releases the locked USDT on Ethereum
+
+  This means USDT.e is always backed 1:1 by real USDT held in the bridge contract — it inherits
+  both Tether's USD reserves backing and the security model of the canonical bridge.
+
+  ## Deployment context
+
+  USDT.e has appeared on several chains including Avalanche (via Avalanche Bridge),
+  Arbitrum (via Arbitrum Bridge before native USDT launched), Optimism, and others. As Tether
+  expands its native deployments, USDT.e versions are gradually superseded by native USDT,
+  and liquidity migrates over time.
+
+  ## Key properties
+
+  - Backed 1:1 by USDT locked on Ethereum in the canonical bridge
+  - Bridge risk: the security of USDT.e depends on the bridge contract in addition to Tether's reserves
+  - Being phased out on chains where Tether now issues native USDT directly
+
+  ## Sources
+
+  - [Tether official site](https://tether.to/)
+  - [Avalanche Bridge documentation](https://core.app/help/bridge)
 category: stablecoin
 links:
   homepage: https://tether.to/
@@ -10,3 +43,8 @@ links:
   defillama: ''
   twitter: https://x.com/Tether_to
 slug: usdt-e
+checks:
+  twitter_last_post_at: '2026-03-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

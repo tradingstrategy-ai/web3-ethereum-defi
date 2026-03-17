@@ -18,14 +18,27 @@ long_description: |
   The original Terra blockchain was renamed Terra Classic (LUNC). UST was renamed to USTC (TerraClassicUSD).
   A new Terra blockchain was launched, without UST. The collapse triggered global regulatory scrutiny of algorithmic stablecoins.
 
+  ## Terraform Labs wind-down
+
+  Terraform Labs (TFL) agreed to pay $4.5 billion to the SEC and received bankruptcy court approval to
+  wind down its operations. TFL shut down its products on October 30, 2024, with the terra.money
+  homepage now displaying a formal wind-down notice. The Terra blockchain was transitioned to
+  community management.
+
   ## Sources
 
   - [DeFiLlama — TerraUSD](https://defillama.com/stablecoin/terrausd)
   - [CoinGecko — TerraUSD](https://www.coingecko.com/en/coins/terrausd)
+  - [The Block — Terraform Labs winding down](https://www.theblock.co/post/317414/terraform-labs-gets-sign-off-from-us-bankruptcy-judge-to-begin-winding-down-reuters)
 category: stablecoin
 links:
   homepage: https://terra.money/
   coingecko: https://www.coingecko.com/en/coins/terrausd
   defillama: https://defillama.com/stablecoin/terrausd
-  twitter: ''
+  twitter: https://x.com/terra_money
 slug: ust
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

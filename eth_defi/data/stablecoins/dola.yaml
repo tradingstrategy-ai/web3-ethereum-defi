@@ -22,3 +22,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x865377367054516e17014ccded1e7d814edc9ce4'
 slug: dola
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

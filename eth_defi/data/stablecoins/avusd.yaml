@@ -30,3 +30,8 @@ contract_addresses:
     address: '0x24de8771bc5ddb3362db529fc3358f2df3a0e346'
   - chain: ethereum
     address: '0xf4c13D631450De6B12a19829E37c8e2826891dC4'
+checks:
+  twitter_last_post_at: '2026-02-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

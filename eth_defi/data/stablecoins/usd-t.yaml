@@ -1,7 +1,33 @@
 symbol: USD₮
 name: Tether USD
 short_description: USD₮ is the Unicode variant of the USDT ticker symbol used by Tether. It represents the same Tether USD stablecoin. USD₮ appears on some blockchain explorers and exchanges as an alternate representation.
-long_description: ''
+long_description: |
+  USD₮ (also written USDT) is the stablecoin issued by [Tether](https://tether.to/), the largest
+  stablecoin by market capitalisation. The USD₮ symbol is the Unicode variant of the USDT ticker —
+  using the ₮ (T with stroke) character — and represents exactly the same asset as USDT on the
+  relevant chain. Some blockchain explorers, bridges, and exchanges display the token with the ₮
+  symbol rather than a plain "T".
+
+  ## Mechanism
+
+  Each Tether USD token is intended to be backed 1:1 by reserves held by Tether Limited, including
+  cash, cash equivalents, short-term deposits, and US Treasury bills. Tether publishes periodic
+  attestation reports from independent accountants. USDT is minted on demand by authorised
+  counterparties and redeemable directly through Tether's platform for verified users, with the
+  secondary market providing liquidity for retail users.
+
+  ## Key properties
+
+  - Fiat-collateralised: backed by cash and cash-equivalent reserves including US T-bills
+  - Issued natively on Ethereum (ERC-20), Tron, Solana, Arbitrum, Avalanche, Polygon, and many other chains
+  - Largest stablecoin by total supply and daily trading volume
+  - USD₮ symbol is a display variant; the underlying asset is the standard Tether USD (USDT) token
+
+  ## Sources
+
+  - [Tether official site](https://tether.to/)
+  - [CoinGecko — Tether](https://www.coingecko.com/en/coins/tether)
+  - [DefiLlama — Tether stablecoin](https://defillama.com/stablecoin/tether)
 category: stablecoin
 links:
   homepage: https://tether.to/
@@ -9,3 +35,8 @@ links:
   defillama: https://defillama.com/stablecoin/tether
   twitter: https://x.com/Tether_to
 slug: usd-t
+checks:
+  twitter_last_post_at: '2026-03-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

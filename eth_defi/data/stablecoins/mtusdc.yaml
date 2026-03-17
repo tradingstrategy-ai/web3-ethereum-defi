@@ -1,11 +1,36 @@
 symbol: mtUSDC
 name: Mutuum Finance USDC
 short_description: mtUSDC represents USDC deposited in the Mutuum Finance lending protocol. It is a yield-bearing receipt token that accrues interest from borrowers. Mutuum Finance provides decentralised lending and borrowing on Ethereum.
-long_description: ''
+long_description: |
+  [mtUSDC](https://docs.mutuum.com/introduction/concepts/mttokens) is a yield-bearing receipt token issued by [Mutuum Finance](https://www.mutuum.com/), an Ethereum-based decentralised, non-custodial lending and borrowing protocol. When a user deposits USDC into a Mutuum liquidity pool, they receive an equivalent amount of mtUSDC representing their share of the pool and the interest it accumulates.
+
+  ## Mechanism
+
+  mtUSDC accrues value continuously as borrowers repay loans with interest. Rather than distributing additional tokens, each mtUSDC becomes redeemable for a growing amount of the underlying USDC over time. When a user redeems, they return mtUSDC to Mutuum's contracts and receive their original USDC principal plus all accrued interest, subject to available pool liquidity. Because mtUSDC is a standard ERC-20 token, it is transferable and can be integrated with other DeFi protocols.
+
+  ## Key properties
+
+  - Fully ERC-20 compliant and transferable
+  - Value accrues automatically — no manual claiming or compounding required
+  - Backed by USDC deposited in Mutuum's peer-to-contract lending pools
+  - Mutuum Finance raised over $20 million in its pre-launch phase (as of March 2026)
+  - V1 Protocol launched on Sepolia testnet prior to Ethereum mainnet deployment
+
+  ## Sources
+
+  - [Mutuum Finance](https://www.mutuum.com/)
+  - [Mutuum docs: mtTokens](https://docs.mutuum.com/introduction/concepts/mttokens)
+  - [Mutuum docs: overview](https://docs.mutuum.com/)
+  - [X: @MutuumFinance](https://x.com/MutuumFinance)
 category: yield_bearing
 links:
-  homepage: https://www.mutuum.finance/
+  homepage: https://www.mutuum.com/
   coingecko: ''
   defillama: ''
   twitter: https://x.com/MutuumFinance
 slug: mtusdc
+checks:
+  twitter_last_post_at: '2026-02-10'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

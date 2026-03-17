@@ -33,3 +33,8 @@ links:
   defillama: https://defillama.com/stablecoin/usdai
   twitter: https://x.com/USDai_Official
 slug: usdai
+checks:
+  twitter_last_post_at: '2026-03-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

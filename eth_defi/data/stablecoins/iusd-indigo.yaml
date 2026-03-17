@@ -2,7 +2,41 @@ symbol: iUSD
 name: Indigo Protocol iUSD
 short_description: iUSD is a synthetic USD stablecoin on the Cardano blockchain issued by Indigo Protocol. It is overcollateralised by ADA and uses a CDP model inspired by MakerDAO. iUSD is the primary decentralised
   stablecoin in the Cardano DeFi ecosystem.
-long_description: ''
+long_description: |
+  iUSD is the primary decentralised stablecoin on the [Cardano](https://cardano.org/) blockchain,
+  issued by [Indigo Protocol](https://indigoprotocol.io/) — a Cardano-native CDP (Collateralised
+  Debt Position) protocol. Launched in November 2022, iUSD was Cardano's first fault-tolerant and
+  fully collateralised native stablecoin.
+
+  ## Mechanism
+
+  Users mint iUSD by depositing ADA as collateral into a CDP, subject to a Minimum Collateralisation
+  Ratio (MCR). The protocol requires overcollateralisation to ensure solvency. If the ADA collateral
+  value falls towards the MCR threshold, the Indigo Stability Pool provides automatic liquidation:
+  Stability Pool iUSD is exchanged for the higher-value ADA collateral, keeping iUSD fully backed
+  at all times.
+
+  Rather than pegging iUSD directly to any single fiat-backed stablecoin, the peg target is the
+  median value of USDC, TUSD, and USDT — a fault-tolerant design that maintains stability even if
+  one of the reference stablecoins depegs.
+
+  A notable innovation is CDP Liquid Staking: ADA deposited as collateral continues to earn native
+  Cardano staking rewards throughout the life of the CDP, improving capital efficiency for borrowers.
+
+  ## Key properties
+
+  - Overcollateralised by ADA; Cardano-native
+  - Peg anchored to the median of USDC, TUSD, and USDT
+  - Stability Pool backstop prevents undercollateralisation
+  - CDP Liquid Staking: collateral ADA still earns staking rewards
+  - Governed by INDY token holders
+
+  ## Sources
+
+  - [Indigo Protocol](https://indigoprotocol.io/)
+  - [Indigo Protocol docs](https://docs.indigoprotocol.io/readme/about-indigo)
+  - [CoinGecko — iUSD](https://www.coingecko.com/en/coins/indigo-protocol-iusd)
+  - [Altcoin Buzz — Indigo Protocol introduction](https://www.altcoinbuzz.io/defi/indigo-protocol-an-introduction/)
 category: stablecoin
 links:
   homepage: https://indigoprotocol.io/
@@ -10,3 +44,8 @@ links:
   defillama: ''
   twitter: https://x.com/IndigoProtocol1
 slug: iusd-indigo
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

@@ -19,6 +19,11 @@ contract_addresses:
   - chain: optimism
     address: '0x8c6f28f2F1A3C87F0f938b96d27520d9751ec8d9'
 slug: susd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''
 token_symbols:
 - SUSD
 - sUSD

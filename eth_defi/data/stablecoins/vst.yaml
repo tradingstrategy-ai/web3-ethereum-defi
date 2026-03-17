@@ -15,6 +15,8 @@ long_description: |
 
   - [DefiLlama — Vesta Stable](https://defillama.com/stablecoin/vesta-stable)
   - [CoinGecko — Vesta Stable](https://www.coingecko.com/en/coins/vesta-stable)
+
+  The original domain vestafinance.xyz has been taken over by an unrelated gambling site as of 2026.
 category: stablecoin
 links:
   homepage: https://vestafinance.xyz/
@@ -25,3 +27,8 @@ contract_addresses:
   - chain: arbitrum
     address: '0x64343594ab9b56e99087bfa6f2335db24c2d1f17'
 slug: vst
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: '2026-03-17'
+  information_found_missing_at: ''

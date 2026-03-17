@@ -34,3 +34,8 @@ slug: blusd
 contract_addresses:
   - chain: ethereum
     address: '0xb9d7dddca9a4ac480991865efef82e01273f79c3'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

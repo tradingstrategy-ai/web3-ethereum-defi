@@ -2,7 +2,40 @@ symbol: USDE
 name: Ethena USDe
 short_description: USDe is a synthetic dollar protocol by Ethena Labs that uses delta-hedging staked ETH positions. It generates yield through staking rewards and futures funding rates. USDe is one of the fastest-growing
   stablecoins by market capitalisation.
-long_description: ''
+long_description: |
+  [Ethena](https://ethena.fi/) is a synthetic dollar protocol on Ethereum. USDe achieves its
+  dollar peg through a delta-neutral strategy rather than fiat reserves or overcollateralisation.
+
+  ## Mechanism
+
+  Users or whitelisted minting partners deposit collateral (ETH, stETH, BTC, USDT, or USDC).
+  Ethena simultaneously opens an equivalent-sized short perpetual futures position on centralised
+  derivatives exchanges. Because the short exactly offsets the long collateral exposure, the
+  combined position is delta-neutral — its USD value is stable regardless of asset price movements.
+
+  Yield is generated from two sources:
+
+  1. **Staking rewards** — stETH (and other liquid staking tokens) earn Ethereum consensus and
+     execution layer rewards
+  2. **Funding rates** — perpetual futures traders who are long typically pay a positive funding
+     rate to short-holders; Ethena captures this as revenue
+
+  The yield-bearing version, [sUSDe](https://ethena.fi/susde), auto-compounds these returns for
+  stakers. Ethena describes sUSDe as the "Internet Bond".
+
+  ## Key properties
+
+  - No fiat bank accounts — fully on-chain and crypto-native collateral
+  - Custodied off-exchange via institutional OES (off-exchange settlement) providers
+  - Negative funding rate risk: if perpetual funding turns persistently negative, the protocol
+    draws from an insurance fund to maintain the peg
+  - One of the fastest-growing stablecoins by market cap, reaching $6B+ in 2024
+
+  ## Sources
+
+  - [Ethena USDe overview docs](https://docs.ethena.fi/solution-overview/usde-overview)
+  - [CoinGecko — Ethena USDe](https://www.coingecko.com/en/coins/ethena-usde)
+  - [DeFiLlama — Ethena USDe](https://defillama.com/stablecoin/ethena-usde)
 category: stablecoin
 links:
   homepage: https://ethena.fi/
@@ -20,3 +53,8 @@ contract_addresses:
     address: '0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34'
   - chain: base
     address: '0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34'
+checks:
+  twitter_last_post_at: '2026-03-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

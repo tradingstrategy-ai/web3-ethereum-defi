@@ -28,3 +28,8 @@ contract_addresses:
   - chain: arbitrum
     address: '0x4883c8f0529f37e40ebea870f3c13cdfad5d01f8'
 slug: veur
+checks:
+  twitter_last_post_at: '2026-03-01'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

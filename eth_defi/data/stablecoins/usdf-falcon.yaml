@@ -2,7 +2,40 @@ symbol: USDf
 name: Falcon USD (Falcon Finance)
 short_description: USDf is a stablecoin issued by Falcon Finance, focused on delta-neutral yield strategies. It provides stable value backed by hedged crypto positions. Falcon Finance is designed for both institutional
   and DeFi use.
-long_description: ''
+long_description: |
+  [Falcon Finance](https://falcon.finance/) issues USDf as a synthetic dollar backed by
+  hedged crypto positions. Users deposit eligible assets — stablecoins such as USDC/USDT
+  at a 1:1 ratio, or non-stablecoin crypto assets — which are overcollateralised and
+  delta-hedged by Falcon's proprietary trading strategies. The protocol targets institutional
+  and DeFi participants seeking stable yield.
+
+  ## Mechanism
+
+  Falcon maintains the USD peg through a delta-neutral strategy: spot crypto positions are
+  offset by short perpetual futures positions, eliminating directional price exposure. The
+  protocol captures yield from positive funding rates (holding spot, shorting perps) and
+  can also generate returns in negative funding rate environments by inverting the position.
+  An on-chain Insurance Fund provides a backstop against extreme market stress.
+
+  Reserve attestations are published weekly by HT Digital, with quarterly ISAE 3000
+  assurance reports, providing verifiable proof of backing.
+
+  sUSDf is the staked, yield-bearing version of USDf: holders deposit USDf to receive sUSDf,
+  which appreciates in value as yield accrues. USDf surpassed $2 billion in supply by October 2025.
+
+  ## Key properties
+
+  - Delta-neutral synthetic dollar — no directional crypto exposure
+  - Accepts stablecoins (1:1 mint) and crypto collateral (overcollateralised)
+  - Weekly reserve attestations and quarterly ISAE 3000 reports
+  - Insurance Fund as on-chain last-resort backstop
+
+  ## Sources
+
+  - [Falcon Finance whitepaper](https://falcon.finance/whitepaper-en.pdf)
+  - [Messari — Understanding Falcon Finance](https://messari.io/report/understanding-falcon-finance-a-comprehensive-overview)
+  - [CoinGecko — Falcon Finance](https://www.coingecko.com/en/coins/falcon-finance)
+  - [DeFiLlama — Falcon Finance](https://defillama.com/stablecoin/falcon-finance)
 category: stablecoin
 links:
   homepage: https://falcon.finance/
@@ -13,3 +46,8 @@ slug: usdf-falcon
 contract_addresses:
   - chain: ethereum
     address: '0xFa2B947eEc368f42195f24F36d2aF29f7c24CeC2'
+checks:
+  twitter_last_post_at: '2026-03-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

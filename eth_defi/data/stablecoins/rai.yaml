@@ -17,9 +17,11 @@ long_description: |
 
   ## Status
 
-  Active on Ethereum with approximately 560,000 RAI in circulation and 3,660 holders.
-  The current market price is approximately $3.38. While the protocol is operational, Reflexer
-  has shifted focus to future iterations; RAI V1 activity has declined significantly.
+  Reflexer Finance entered Global Settlement in Q1 2025. RAI became redeemable at
+  approximately 0.0011267 ETH per RAI as of June 2025. The protocol's Twitter account
+  last posted in June 2025 confirming redemption details. Reflexer V2 was announced
+  as a future project. RAI V1 is effectively wound down — new minting is not expected
+  and the on-chain settlement mechanism is active.
 
   ## Sources
 
@@ -36,3 +38,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x03ab458634910AaD20eF5f1C8ee96F1D6ac54919'
 slug: rai
+checks:
+  twitter_last_post_at: '2025-06-13'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: '2026-03-17'
+  information_found_missing_at: ''

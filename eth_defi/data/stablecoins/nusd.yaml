@@ -39,8 +39,13 @@ links:
   homepage: https://neutrl.fi/
   coingecko: ''
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/Neutrl
 contract_addresses:
   - chain: ethereum
     address: '0xE556ABa6fe6036275ec1f87eda296be72c811bce'
 slug: nusd
+checks:
+  twitter_last_post_at: '2026-02-08'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

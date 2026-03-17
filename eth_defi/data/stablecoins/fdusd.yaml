@@ -20,3 +20,8 @@ contract_addresses:
   - chain: binance
     address: '0xc5f0f7b66764f6ec8c8dff7ba683102295e16409'
 slug: fdusd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

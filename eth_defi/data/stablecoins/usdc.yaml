@@ -2,7 +2,51 @@ symbol: USDC
 name: USD Coin (Circle)
 short_description: USD Coin (USDC) is a fully-reserved USD stablecoin issued by Circle. It is backed by cash and short-dated US government obligations held at regulated financial institutions. USDC is one of
   the most widely used stablecoins across DeFi and CeFi.
-long_description: ''
+long_description: |
+  [USD Coin (USDC)](https://www.circle.com/usdc) is a fully-reserved, fiat-backed stablecoin issued
+  by [Circle](https://www.circle.com/). Each USDC token is backed 1:1 by cash and short-dated US
+  government obligations held at regulated US financial institutions. Circle publishes monthly
+  attestation reports from independent accountants confirming that reserves always equal or exceed
+  the outstanding USDC supply. USDC is one of the two largest stablecoins by market capitalisation
+  and a cornerstone of on-chain liquidity across DeFi and CeFi.
+
+  ## Issuance and reserves
+
+  USDC was originally launched in 2018 as a joint venture between Circle and Coinbase under the
+  Centre Consortium; Circle became the sole issuer after acquiring the Centre infrastructure in 2023.
+  Reserves are held in segregated accounts at US banks and in the BlackRock USD Institutional Digital
+  Liquidity Fund (BUIDL), providing transparency and liquidity. USDC can be minted or redeemed
+  directly by verified institutional and business accounts at a 1:1 rate.
+
+  ## Cross-chain and native issuance
+
+  Unlike bridged representations, Circle issues USDC natively on more than 20 blockchains, including
+  Ethereum, Solana, Arbitrum, Base, Avalanche, Polygon, and others. Cross-chain transfers use
+  Circle's Cross-Chain Transfer Protocol (CCTP), which burns USDC on the source chain and mints
+  fresh native USDC on the destination chain, preserving fungibility and eliminating bridge custodial
+  risk.
+
+  ## Regulatory standing
+
+  Circle holds money transmitter licences in 47 US states and Electronic Money Institution (EMI)
+  status in several European jurisdictions. In 2025 the US Congress passed the GENIUS Act, which
+  established a federal framework for payment stablecoin issuers; USDC's reserve structure was
+  already substantively aligned with those requirements. The SEC confirmed in 2025 that "Covered
+  Stablecoins" such as USDC do not constitute securities.
+
+  ## Key properties
+
+  - Fully reserved: cash and short-dated US Treasuries, attested monthly
+  - Natively issued on 20+ blockchains; cross-chain transfers via CCTP (burn-and-mint)
+  - Regulated US issuer with state money transmitter licences and European EMI status
+  - Widely integrated in DeFi protocols (Aave, Compound, Uniswap, Curve, etc.) and CeFi exchanges
+
+  ## Sources
+
+  - [Circle — USDC](https://www.circle.com/usdc)
+  - [CoinGecko — USD Coin](https://www.coingecko.com/en/coins/usd-coin)
+  - [DefiLlama — USDC stablecoin](https://defillama.com/stablecoin/usd-coin)
+  - [Etherscan — USDC token](https://etherscan.io/token/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48)
 category: stablecoin
 links:
   homepage: https://www.circle.com/usdc
@@ -13,3 +57,8 @@ slug: usdc
 contract_addresses:
   - chain: ethereum
     address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
+checks:
+  twitter_last_post_at: '2026-03-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

@@ -29,3 +29,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x3db228fe836d99ccb25ec4dfdc80ed6d2cddcb4b'
 slug: ynusdx
+checks:
+  twitter_last_post_at: '2026-01-22'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

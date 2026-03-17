@@ -37,3 +37,8 @@ contract_addresses:
   - chain: polygon
     address: '0xa3Fa99A148fA48D14Ed51d610c367C61876997F1'
 slug: mimatic
+checks:
+  twitter_last_post_at: '2026-02-24'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

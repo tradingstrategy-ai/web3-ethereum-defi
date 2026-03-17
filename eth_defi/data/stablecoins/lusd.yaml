@@ -34,3 +34,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x5f98805A4E8be255a32880FDeC7F6728C6568bA0'
 slug: lusd
+checks:
+  twitter_last_post_at: '2026-02-19'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

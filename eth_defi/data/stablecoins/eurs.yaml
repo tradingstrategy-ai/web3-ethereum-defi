@@ -20,3 +20,8 @@ contract_addresses:
   - chain: ethereum
     address: '0xdb25f211ab05b1c97d595516f45794528a807ad8'
 slug: eurs
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

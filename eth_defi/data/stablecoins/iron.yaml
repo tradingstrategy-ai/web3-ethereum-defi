@@ -2,11 +2,45 @@ symbol: IRON
 name: Iron (Iron Finance)
 short_description: Iron was a partially algorithmic stablecoin by Iron Finance on Polygon. It suffered a bank-run-style collapse in June 2021 when its TITAN collateral token lost nearly all value. The project
   is now defunct and serves as a cautionary example of algorithmic stablecoin design.
-long_description: ''
+long_description: |
+  [Iron Finance](https://iron.finance/) issued IRON as a partially algorithmic stablecoin on the
+  Polygon network. IRON was backed by a combination of 75% USDC and 25% TITAN (Iron Finance's
+  native governance token), with the Target Collateral Ratio (TCR) determining the exact split
+  at any given time.
+
+  ## Mechanism
+
+  To mint $1 of IRON, users deposited USDC and TITAN in the required ratio. The TITAN portion
+  was burned on mint and newly minted on redemption, creating reflexive supply dynamics. A 10-minute
+  TWAP oracle was used to price TITAN for redemption purposes.
+
+  ## Collapse (June 2021)
+
+  On 16 June 2021, large holders began removing liquidity from the IRON/USDC pool and selling TITAN,
+  causing IRON to depeg. Because the TWAP oracle lagged the spot price, redemptions minted more TITAN
+  than the spot price implied, flooding the market with new TITAN supply. This triggered a
+  hyperinflationary death spiral — TITAN fell from ~$65 to effectively $0 within hours, taking IRON
+  well below its $1 peg. The event is widely cited as crypto's first large-scale DeFi bank run,
+  with estimated losses of approximately $2 billion. Notable investors including Mark Cuban were
+  affected.
+
+  Iron Finance published a post-mortem on 17 June 2021 attributing the collapse to design flaws in
+  the arbitrage mechanism and oracle latency. The project is now defunct.
+
+  ## Sources
+
+  - [Iron Finance Post-Mortem (Medium)](https://ironfinance.medium.com/iron-finance-post-mortem-17-june-2021-6a4e9ccf23f5)
+  - [Federal Reserve FEDS Notes — Runs on Algorithmic Stablecoins](https://www.federalreserve.gov/econres/notes/feds-notes/runs-on-algorithmic-stablecoins-evidence-from-iron-titan-and-steel-20220602.html)
+  - [Wikipedia — Iron Finance](https://en.wikipedia.org/wiki/Iron_Finance)
 category: stablecoin
 links:
   homepage: https://iron.finance/
   coingecko: https://www.coingecko.com/en/coins/iron-finance
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/ironfinance
 slug: iron
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: '2026-03-17'
+  information_found_missing_at: ''

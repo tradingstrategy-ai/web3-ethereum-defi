@@ -6,9 +6,11 @@ long_description: |
 
   The value of 1 stUSD is not $1 — it increases over time as yield accrues. There are no deposit or withdrawal fees and no lock-up period. stUSD is available on Ethereum, Arbitrum, Optimism, and Base.
 
-  **Important note:** In 2025, Angle Protocol tokenholder governance voted unanimously to wind down both USDA and EURA. Both remain fully collateralised and redeemable 1:1 until 1 March 2027. New minting was halted and the protocol is in wind-down mode.
-
   stUSD is listed on [CoinGecko](https://www.coingecko.com/en/coins/angle-staked-usda).
+
+  ## Status
+
+  In early 2026, Angle Protocol tokenholder governance voted unanimously to wind down both USDA and EURA. The official announcement was made on 4 March 2026. Both stablecoins remain fully collateralised and redeemable 1:1 (USDA → USDC, EURA → EURC) on Ethereum until 1 March 2027. After that date, remaining reserves will be airdropped pro-rata to unredeemed holders. New minting is halted and the protocol is in wind-down mode. The team is now focused on developing the [Merkl](https://merkl.xyz/) DeFi incentives platform.
 category: yield_bearing
 links:
   homepage: https://www.angle.money/
@@ -19,3 +21,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x0022228a2cc5e7ef0274a7baa600d44da5ab5776'
 slug: stusd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

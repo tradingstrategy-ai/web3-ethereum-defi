@@ -2,7 +2,43 @@ symbol: XSGD
 name: StraitsX SGD
 short_description: XSGD is a Singapore Dollar-backed stablecoin issued by StraitsX, a licensed payment institution in Singapore. Each XSGD is backed 1:1 by SGD reserves held in regulated financial institutions.
   XSGD is available on Ethereum, Polygon, and other networks.
-long_description: ''
+long_description: |
+  [XSGD](https://www.straitsx.com/xsgd) is a Singapore Dollar-backed stablecoin issued by
+  [StraitsX](https://www.straitsx.com/), a payment infrastructure provider incorporated in
+  Singapore. Each XSGD token is backed 1:1 by Singapore Dollar reserves held in regulated financial
+  institutions in Singapore.
+
+  ## Issuer and regulation
+
+  StraitsX (via its subsidiary StraitsX SGD Issuance Pte. Ltd.) holds a Major Payment Institution
+  (MPI) licence from the Monetary Authority of Singapore (MAS) under the Payment Services Act 2019,
+  covering digital payment token services. In 2024 MAS granted StraitsX In-Principle Approval (IPA)
+  as a single-currency stablecoin issuer under MAS's forthcoming stablecoin regulatory framework.
+  Reserves must be maintained at no less than 100% of the outstanding XSGD supply in cash or MAS- or
+  US Treasury-issued debt securities.
+
+  ## Deployment and payments use case
+
+  XSGD was launched in 2020 and is available natively on Ethereum, Polygon, and the XRP Ledger, with
+  further deployment on Solana announced for 2026. It was the first Singapore Dollar stablecoin listed
+  on Coinbase. StraitsX positions XSGD as infrastructure for real-world payments in Southeast Asia,
+  enabling businesses and individuals to settle cross-border transactions in SGD on-chain without
+  relying on correspondent banking rails.
+
+  ## Key properties
+
+  - 1:1 backed by SGD reserves; attested by independent accountants
+  - Issued by a MAS-licensed Major Payment Institution
+  - Travel Rule compliant
+  - Available on Ethereum, Polygon, XRP Ledger; Solana launch planned for 2026
+  - First SGD stablecoin listed on Coinbase
+
+  ## Sources
+
+  - [StraitsX — XSGD](https://www.straitsx.com/xsgd)
+  - [StraitsX — MAS IPA announcement](https://www.straitsx.com/blog-post/straitsx-receives-in-principle-approval-from-mas-to-issue-scs)
+  - [CoinGecko — XSGD](https://www.coingecko.com/en/coins/xsgd)
+  - [Etherscan — XSGD token](https://etherscan.io/token/0x70e8de73ce538da2beed35d14187f6959a8eca96)
 category: stablecoin
 links:
   homepage: https://www.straitsx.com/xsgd
@@ -15,3 +51,8 @@ contract_addresses:
   - chain: polygon
     address: '0xDC3326e71D45186F113a2F448984CA0e8D201995'
 slug: xsgd
+checks:
+  twitter_last_post_at: '2025-12-16'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

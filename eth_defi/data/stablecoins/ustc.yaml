@@ -9,14 +9,27 @@ long_description: |
 
   It is considered defunct as a stablecoin and has no functional peg mechanism.
 
+  ## Terraform Labs wind-down
+
+  Terraform Labs (TFL) agreed to pay $4.5 billion to the SEC and received bankruptcy court approval to
+  wind down its operations, with products shut down on October 30, 2024. The terra.money homepage
+  now displays a formal wind-down notice. USTC remains on the Terra Classic chain but has no
+  functioning peg mechanism and is considered defunct as a stablecoin.
+
   ## Sources
 
   - [CoinGecko — TerraClassicUSD](https://www.coingecko.com/en/coins/terraclassicusd)
   - [DeFiLlama — TerraClassicUSD](https://defillama.com/stablecoin/terraclassicusd)
+  - [The Block — Terraform Labs winding down](https://www.theblock.co/post/317414/terraform-labs-gets-sign-off-from-us-bankruptcy-judge-to-begin-winding-down-reuters)
 category: stablecoin
 links:
   homepage: https://terra.money/
   coingecko: https://www.coingecko.com/en/coins/terraclassicusd
   defillama: https://defillama.com/stablecoin/terraclassicusd
-  twitter: ''
+  twitter: https://x.com/terra_money
 slug: ustc
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

@@ -2,7 +2,28 @@ symbol: XIDR
 name: StraitsX IDR
 short_description: XIDR is an Indonesian Rupiah-backed stablecoin issued by StraitsX, a licensed payment institution in Singapore. Each XIDR is backed 1:1 by IDR reserves. It enables digital transactions denominated
   in Indonesian Rupiah.
-long_description: ''
+long_description: |
+  [XIDR](https://www.straitsx.com/xidr) is an Indonesian Rupiah-backed stablecoin issued by [StraitsX](https://www.straitsx.com/), a payments infrastructure company operating under the Fazz Financial Group. StraitsX is a Major Payment Institution licensed by the Monetary Authority of Singapore (MAS), and its Indonesian entity (PT Xfers StraitsX Indonesia) holds e-money issuance and fund transfer licences from Bank Indonesia. XIDR was launched in November 2021 and is the only Indonesian Rupiah stablecoin not issued by a cryptocurrency exchange.
+
+  ## Mechanism
+
+  Each XIDR token is backed 1:1 by Indonesian Rupiah held in a regulated financial institution in Indonesia. Verified users can obtain XIDR by depositing IDR through bank transfer, QRIS, or retail payment channels via the StraitsX platform. Redemption is always at a 1:1 rate. XIDR is deployed natively on Ethereum (ERC-20), Polygon, and Zilliqa, enabling fast cross-border transfers denominated in IDR.
+
+  ## Key properties
+
+  - Fully backed 1:1 by IDR reserves held in regulated Indonesian financial institutions
+  - Issued under MAS licence (Singapore) and Bank Indonesia licences (Indonesia)
+  - Natively supported on Ethereum, Polygon, and Zilliqa
+  - Issued by the same group as XSGD (Singapore Dollar stablecoin)
+  - Free bank transfers in/out; transfer-out network fee capped at 50,000 XIDR
+
+  ## Sources
+
+  - [StraitsX XIDR page](https://www.straitsx.com/xidr)
+  - [StraitsX blog: Introducing XIDR](https://www.straitsx.com/blog-post/xidr)
+  - [StraitsX blog: XSGD/XIDR stability mechanism](https://www.straitsx.com/blog-post/understanding-xsgd-xidr-stability)
+  - [CoinGecko: StraitsX Indonesian Rupiah](https://www.coingecko.com/en/coins/straitsx-indonesia-rupiah)
+  - [Etherscan: XIDR token](https://etherscan.io/token/0xebF2096E01455108bAdCbAF86cE30b6e5A72aa52)
 category: stablecoin
 links:
   homepage: https://www.straitsx.com/xidr
@@ -13,3 +34,8 @@ contract_addresses:
   - chain: ethereum
     address: '0xebF2096E01455108bAdCbAF86cE30b6e5A72aa52'
 slug: xidr
+checks:
+  twitter_last_post_at: '2025-12-16'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

@@ -2,7 +2,45 @@ symbol: XAUT
 name: Tether Gold
 short_description: Tether Gold (XAUT) is a gold-backed token issued by TG Commodities Limited, associated with Tether. Each XAUT token represents ownership of one fine troy ounce of physical gold stored in a
   Swiss vault. XAUT enables fractional ownership of physical gold on blockchain.
-long_description: ''
+long_description: |
+  Tether Gold (XAU₮, ticker XAUT) is a gold-backed digital token issued by
+  [TG Commodities Limited](https://gold.tether.to/), a company associated with Tether. Each XAUT token
+  represents ownership of one fine troy ounce of physical gold stored in a dedicated Swiss vault,
+  allowing investors to hold tokenised gold on-chain without a traditional custodian intermediary.
+
+  ## Mechanism
+
+  Each XAUT token is linked to a specific, individually numbered LBMA-certified (London Good Delivery)
+  gold bar held in a Swiss vault controlled by TG Commodities Limited. New XAUT tokens are minted when
+  physical gold enters storage, and tokens are burned when gold exits through redemption — maintaining
+  the strict 1:1 backing ratio. Holders can verify their allocation against numbered gold bars.
+
+  Full physical redemption is available to holders owning at least one LBMA Good Delivery bar
+  (approximately 430 troy ounces), with delivery arranged directly from the Swiss vaults. Smaller
+  holders can redeem for cash.
+
+  ## Transparency and audits
+
+  TG Commodities Limited publishes quarterly limited-assurance attestation reports audited by
+  [BDO Italia](https://www.bdo.it/), verifying 1:1 backing, physical existence, gold bar allocation,
+  and insurance coverage. As of Q1 2025, more than 7.7 tonnes of physical gold backed XAUT tokens
+  in circulation. Tether also integrates [Chainlink Proof of Reserve](https://chain.link/proof-of-reserve)
+  oracles for real-time on-chain reserve verification.
+
+  ## Key properties
+
+  - 1 XAUT = 1 fine troy ounce of LBMA Good Delivery gold
+  - Physical gold stored in Swiss vaults; no fractional reserve
+  - Quarterly BDO attestations; Chainlink PoR on-chain verification
+  - Available on Ethereum and Tron
+  - No management fees charged by TG Commodities
+
+  ## Sources
+
+  - [Tether Gold](https://gold.tether.to/)
+  - [Tether Gold FAQ](https://gold.tether.to/faq)
+  - [Tether Gold reports and attestations](https://gold.tether.to/reports)
+  - [CoinGecko — Tether Gold](https://www.coingecko.com/en/coins/tether-gold)
 category: stablecoin
 links:
   homepage: https://gold.tether.to/
@@ -13,3 +51,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x68749665ff8d2d112fa859aa293f07a622782f38'
 slug: xaut
+checks:
+  twitter_last_post_at: '2026-03-01'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

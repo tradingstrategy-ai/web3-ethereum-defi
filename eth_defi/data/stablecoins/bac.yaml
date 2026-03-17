@@ -28,8 +28,13 @@ links:
   homepage: https://basis.cash/
   coingecko: https://www.coingecko.com/en/coins/basis-cash
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/BasisCash
 slug: bac
 contract_addresses:
   - chain: ethereum
     address: '0x3449fc1cd036255ba1eb19d65ff4ba2b8903a69a'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

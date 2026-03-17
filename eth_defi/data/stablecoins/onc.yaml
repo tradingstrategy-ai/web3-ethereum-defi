@@ -33,3 +33,8 @@ contract_addresses:
   - chain: ethereum
     address: '0xD90E69f67203EBE02c917B5128629E77B4cd92dc'
 slug: onc
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: '2026-03-17'

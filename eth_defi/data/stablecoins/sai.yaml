@@ -17,3 +17,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x89d24A6b4CcB1B6fAA2625fE562bDD9a23260359'
 slug: sai
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

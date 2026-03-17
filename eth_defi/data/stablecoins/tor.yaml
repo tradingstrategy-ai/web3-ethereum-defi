@@ -12,5 +12,10 @@ links:
   homepage: https://hector.network/
   coingecko: https://www.coingecko.com/en/coins/tor
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/Hector_Network
 slug: tor
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: '2026-03-17'
+  information_found_missing_at: ''

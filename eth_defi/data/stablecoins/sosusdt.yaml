@@ -1,7 +1,17 @@
 symbol: sosUSDT
 name: Unknown
 short_description: sosUSDT is an unidentified token. The symbol pattern resembles a lending receipt token (e.g. soUSDT from Sonne Finance on Optimism), but no verified project with this exact symbol was found. Further research required.
-long_description: ''
+long_description: |
+  sosUSDT is an unidentified token. The symbol pattern is consistent with a Sonne Finance (soUSDT) lending receipt token on Optimism — Sonne Finance is a Compound V2 fork on Optimism and Base that issues "so" prefixed receipt tokens when users deposit assets into its lending pools. However, no verified contract or documentation for a token using the exact symbol "sosUSDT" has been found.
+
+  Sonne Finance was exploited for approximately $20 million in May 2024 via a known Compound V2 donation-attack vulnerability. Following the exploit, Sonne paused all markets on Optimism. The protocol's Base markets remained operational, but its Optimism deployment was effectively shut down.
+
+  This entry is a placeholder pending definitive identification of the contract and issuer. If the token is later confirmed as a Sonne Finance or other protocol receipt token, the metadata should be updated accordingly.
+
+  ## Sources
+
+  - [Explained: The Sonne Finance Hack (May 2024) — Halborn](https://www.halborn.com/blog/post/explained-the-sonne-finance-hack-may-2024)
+  - [Lending protocol Sonne Finance faces $20 million exploit — The Block](https://www.theblock.co/post/294508/lending-protocol-sonne-finance-faces-20-million-exploit-pauses-markets-on-optimism)
 category: stablecoin
 links:
   homepage: ''
@@ -9,3 +19,8 @@ links:
   defillama: ''
   twitter: ''
 slug: sosusdt
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: '2026-03-17'

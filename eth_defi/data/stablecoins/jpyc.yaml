@@ -2,7 +2,32 @@ symbol: JPYC
 name: JPY Coin
 short_description: JPYC is a Japanese Yen-pegged stablecoin issued by JPYC Inc. It is designed for payments and remittances within the Japanese crypto ecosystem. JPYC is available on Ethereum, Polygon, and other
   networks.
-long_description: ''
+long_description: |
+  [JPYC](https://jpyc.jp/) is a Japanese Yen-pegged stablecoin issued by
+  [JPYC Inc.](https://jpyc.jp/), a Japanese company. It is designed to bring the
+  Japanese Yen on-chain, enabling payments, remittances, and DeFi use cases within
+  the Japanese crypto ecosystem and beyond.
+
+  ## Mechanism
+
+  JPYC is issued as a prepaid payment instrument under Japan's Funds Settlement Act,
+  which provides a regulatory framework for its operation. Each JPYC represents one
+  Japanese Yen and is redeemable for prepaid services or exchangeable through authorised
+  channels. The token is available on multiple blockchains including Ethereum, Polygon,
+  Avalanche, Gnosis Chain, and Shiden Network.
+
+  ## Key properties
+
+  - Fiat-backed 1:1 with JPY
+  - Regulated as prepaid payment instrument in Japan
+  - Multi-chain deployment (Ethereum, Polygon, Avalanche, Gnosis Chain)
+  - Targeted at Japanese retail and institutional users for digital payments
+
+  ## Sources
+
+  - [JPYC official site](https://jpyc.jp/)
+  - [CoinGecko — JPYC](https://www.coingecko.com/en/coins/jpyc)
+  - [Etherscan — JPYC](https://etherscan.io/token/0x431D5dfF03120AFA4bDF332c61A6e1766eF37BDB)
 category: stablecoin
 links:
   homepage: https://jpyc.jp/
@@ -13,3 +38,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x431D5dfF03120AFA4bDF332c61A6e1766eF37BDB'
 slug: jpyc
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

@@ -1,7 +1,20 @@
 symbol: gmUSD
 name: GND Protocol gmUSD
 short_description: gmUSD is a stablecoin from the GND Protocol designed around GMX's GLP and GM tokens. It uses delta-neutral strategies on GMX positions. gmUSD is available on Arbitrum.
-long_description: ''
+long_description: |
+  [GND Protocol](https://gndprotocol.com/) is a DeFi protocol on Arbitrum that issues gmUSD, a yield-bearing stablecoin backed by delta-neutral positions on GMX and Gains Network. The protocol combines the GLP/GM ecosystem of GMX with yield-bearing collateral from GMD Protocol and Gains Network to produce a stablecoin that earns real yield for its holders.
+
+  gmUSD is fully collateralised by two underlying assets: gmdUSDC (the USDC vault within GMD Protocol, which acts as a delta-neutral counterpart to GLP on GMX) and gDAI (a delta-neutral liquidity provider token on Gains Network that earns protocol fees by acting as a counterparty to perpetual trades). Because both collateral assets generate real yield from trading fees, gmUSD itself is yield-bearing at an expected annualised rate of approximately 15–25%.
+
+  ## Peg mechanism
+
+  The peg is maintained via a Protocol Smart Arbitrage Leverage Mechanism (PSALM). GND Protocol is the sole entity authorised to mint and redeem gmUSD, using gDAI and gmdUSDC as collateral at a $1 reference price. If gmUSD trades above $1, the protocol mints new tokens at $1 and sells them to capture the premium; if it trades below $1, the protocol buys and redeems them. This closed arbitrage loop ensures the protocol itself always captures the arbitrage profit before any third party can.
+
+  ## Sources
+
+  - [GND Protocol GitBook — gmUSD working mechanism](https://gmd-protocol.gitbook.io/gnd-protocol/gmusd-working-mechanism/incentivization)
+  - [All You Need To Know About GND Protocol — Chain Debrief](https://chaindebrief.com/all-you-need-to-know-about-gnd-protocol/)
+  - [GND Protocol — Earning Real-Yield on Arbitrum (Medium / Arbitrum Apex)](https://medium.com/arbitrum-apex/gnd-protocol-earning-real-yield-on-arbitrum-2a987b473964)
 category: stablecoin
 links:
   homepage: https://gndprotocol.com/
@@ -12,3 +25,8 @@ contract_addresses:
   - chain: arbitrum
     address: '0xeC13336BBD50790a00CDc0FEDdF11287eAf92529'
 slug: gmusd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

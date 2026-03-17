@@ -2,7 +2,20 @@ symbol: XDAI
 name: xDAI (Gnosis Chain)
 short_description: xDAI is the native gas token of Gnosis Chain (formerly xDai Chain), backed 1:1 by DAI. It is bridged from Ethereum DAI to serve as the native currency of Gnosis Chain. xDAI enables low-cost,
   stable-value transactions on Gnosis Chain.
-long_description: ''
+long_description: |
+  xDAI is the native gas token of [Gnosis Chain](https://www.gnosis.io/) (formerly xDai Chain), a proof-of-stake EVM-compatible sidechain. It is pegged 1:1 to DAI and is used to pay all transaction fees on Gnosis Chain, making it one of the earliest live examples of a blockchain that uses a stablecoin — rather than a volatile asset — as its native currency.
+
+  The xDai Chain was launched in October 2018 by POA Network. When a user bridges DAI from Ethereum, the DAI is locked in a smart contract on Ethereum and an equivalent amount of xDAI is minted on Gnosis Chain. To return to Ethereum the process is reversed: xDAI is burned and DAI is released. GnosisDAO deploys a portion of the bridged DAI into lending protocols such as Aave and Compound to generate yield, which accrues to the GnosisDAO treasury rather than to xDAI holders.
+
+  ## History and rebranding
+
+  The chain was originally called xDai Chain and was built by POA Network. It adopted proof-of-stake validator consensus (POSDAO) in April 2020. In December 2021 the chain merged with Gnosis and was rebranded to Gnosis Chain, with the STAKE governance token replaced by GNO. xDAI itself retained its name and 1:1 DAI peg and remains the native gas token of Gnosis Chain.
+
+  ## Sources
+
+  - [xDai Token — Gnosis Chain docs](https://docs.gnosischain.com/about/tokens/xdai)
+  - [xDai Bridge — Gnosis Chain docs](https://docs.gnosischain.com/bridges/About%20Token%20Bridges/xdai-bridge)
+  - [What Is xDai On The Gnosis Chain? — UTORG](https://utorg.pro/blogs/what-is-xdai-on-the-gnosis-chain/)
 category: stablecoin
 links:
   homepage: https://www.gnosis.io/
@@ -10,3 +23,8 @@ links:
   defillama: ''
   twitter: https://x.com/gnosischain
 slug: xdai
+checks:
+  twitter_last_post_at: '2026-02-26'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

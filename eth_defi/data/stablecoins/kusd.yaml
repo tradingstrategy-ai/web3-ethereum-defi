@@ -2,11 +2,44 @@ symbol: kUSD
 name: Kolibri USD
 short_description: Kolibri USD (kUSD) is a decentralised stablecoin on the Tezos blockchain. It is overcollateralised by XTZ deposits using a CDP model. kUSD is the primary decentralised stablecoin in the Tezos
   ecosystem.
-long_description: ''
+long_description: |
+  [Kolibri](https://kolibri.finance/) is a decentralised stablecoin protocol on the
+  [Tezos](https://tezos.com/) blockchain, built by Hover Labs. kUSD was the first
+  crypto-backed stablecoin issued on Tezos.
+
+  ## Mechanism
+
+  kUSD uses a collateralised debt position (CDP) model. Users deposit XTZ into smart contracts
+  called "Ovens" and mint kUSD against that collateral at a minimum collateralisation ratio of 200%
+  (i.e. every $1 of kUSD requires at least $2 worth of XTZ backing). If an Oven falls below the
+  minimum ratio, other participants can liquidate it to restore system health. A stability fee
+  accrues on outstanding kUSD, partially funding a Liquidation Engine of last resort.
+
+  ## Governance
+
+  Kolibri migrated to a DAO model (KolibriDAO) allowing kDAO governance token holders to vote on
+  protocol parameters such as stability fees, collateralisation ratios, and oracle configurations.
+
+  ## Key properties
+
+  - Native Tezos (FA2 token standard), not EVM-based
+  - Purely algorithmic and over-collateralised — no fiat backing
+  - Soft-pegged to USD via XTZ collateral and arbitrage incentives
+
+  ## Sources
+
+  - [Kolibri official site](https://kolibri.finance/)
+  - [CoinGecko — Kolibri USD](https://www.coingecko.com/en/coins/kolibri-usd)
+  - [Madfish — Kolibri the algorithmic stablecoin on Tezos](https://story.madfish.solutions/kolibri-the-algorithmic-stablecoin-on-the-tezos-blockchain/)
 category: stablecoin
 links:
   homepage: https://kolibri.finance/
   coingecko: https://www.coingecko.com/en/coins/kolibri-usd
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/KolibriDAO
 slug: kusd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

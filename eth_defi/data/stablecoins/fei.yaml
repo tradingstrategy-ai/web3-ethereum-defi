@@ -18,5 +18,10 @@ links:
   homepage: https://fei.money/
   coingecko: https://www.coingecko.com/en/coins/fei-usd
   defillama: https://defillama.com/stablecoin/fei-usd
-  twitter: ''
+  twitter: https://x.com/feiprotocol
 slug: fei
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: '2026-03-17'
+  information_found_missing_at: ''

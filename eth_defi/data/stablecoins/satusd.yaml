@@ -3,18 +3,87 @@ category: stablecoin
 entries:
 - name: Satoshi Stablecoin
   short_description: Satoshi Stablecoin (satUSD) is a BTC-backed stablecoin from Satoshi Protocol (River). It allows users to borrow satUSD against Bitcoin collateral via an Omni-CDP supporting BTCB and wBTC. The protocol operates across Bitcoin, EVM, and Solana ecosystems.
-  long_description: ''
+  long_description: |
+    satUSD is an overcollateralised stablecoin issued by [Satoshi Protocol](https://www.satoshiprotocol.org/)
+    (now operating under the [River](https://river.inc/) brand). It is the first Bitcoin Finance (BTCFi)
+    stablecoin built around an Omni-CDP model, enabling users to collateralise BTC-denominated assets on
+    one chain and mint satUSD natively on another — without wrapping or bridging.
+
+    ## Mechanism
+
+    Users deposit collateral — including BTCB, wBTC, tBTC, solvBTC, ETH, BNB, and various liquid staking
+    tokens — and mint satUSD subject to a minimum collateralisation ratio of 110–150% depending on the
+    asset. A one-time minting fee applies (0.5%–5%). Cross-chain minting is powered by
+    [LayerZero's OFT standard](https://layerzero.network/), allowing satUSD to circulate across EVM
+    networks and Solana without a traditional bridge.
+
+    The peg is maintained through real-time liquidations, on-chain arbitrage, and five layers of risk
+    control. Users can stake satUSD to receive satUSD+, a yield-bearing token that shares protocol revenue.
+
+    With the rebrand to River, the protocol expanded its chain-abstraction approach: users can collateralise
+    assets on Ethereum, Base, BSC, Hemi, or BOB, and mint satUSD on any supported destination chain.
+
+    ## Key properties
+
+    - BTC-native and EVM multi-chain; powered by LayerZero OFT
+    - Overcollateralised CDP; minimum ratio 110–150% depending on asset
+    - Integrated with Chainlink Price Feeds for oracle security
+    - Yield-bearing satUSD+ staking token
+
+    ## Sources
+
+    - [Satoshi Protocol](https://www.satoshiprotocol.org/)
+    - [River — Satoshi V2 announcement](https://blog.river.inc/introducing-satoshi-v2/)
+    - [CoinGecko — Satoshi Stablecoin](https://www.coingecko.com/en/coins/satoshi-stablecoin)
   links:
     homepage: https://www.satoshiprotocol.org/
     coingecko: https://www.coingecko.com/en/coins/satoshi-stablecoin
     defillama: ''
     twitter: https://x.com/Satoshi_BTCFi
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: ''
 - name: River Protocol satUSD
   short_description: River Protocol's satUSD is a stablecoin designed for the Bitcoin ecosystem. It provides stable value within Bitcoin-native DeFi applications.
-  long_description: ''
+  long_description: |
+    River Protocol's satUSD is the cross-chain stablecoin at the heart of the [River](https://river.inc/)
+    chain-abstraction system. River evolved from Satoshi Protocol v2 into a full chain-abstraction
+    stablecoin infrastructure, with satUSD as its core liquidity primitive.
+
+    ## Mechanism
+
+    River's Omni-CDP model allows users to collateralise assets on a source chain and mint satUSD
+    natively on any destination chain supported by LayerZero OFT — no bridges or wrapped assets are
+    required. Supported collateral includes BTC, ETH, BNB, and various liquid staking tokens (LSTs).
+    satUSD supply was approximately $293 million as of September 2025, deployed across Hemi, BSC,
+    Ethereum, Base, and BOB.
+
+    Users can stake satUSD to receive satUSD+, a yield-bearing token that accrues protocol revenue.
+    River also offers a Prime Vault product for institutional depositors, integrated with leading
+    custodians for operational simplicity.
+
+    ## Key properties
+
+    - Chain-abstraction: collateralise on Chain A, mint on Chain B
+    - Powered by LayerZero OFT across 8+ chains
+    - satUSD+ yield staking token
+    - Institutional Prime Vault product
+
+    ## Sources
+
+    - [River](https://river.inc/)
+    - [River docs](https://docs.river.inc/)
+    - [BingX — What is River](https://bingx.com/en/learn/article/what-is-river-stablecoin-protocol-and-how-does-it-work)
   links:
-    homepage: https://river.money/
+    homepage: https://river.inc/
     coingecko: ''
     defillama: ''
-    twitter: ''
+    twitter: https://x.com/RiverdotInc
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: '2026-03-17'
 slug: satusd

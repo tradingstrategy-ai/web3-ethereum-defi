@@ -10,6 +10,10 @@ long_description: |
   Lybra Finance launched on Ethereum in April 2023 and introduced Lybra V2 in mid-2023, adding peUSD (peg-eUSD), a non-rebasing omnichain version of eUSD compatible with LayerZero.
 
   **Note:** The symbol EUSD is also used by the [Electronic USD](https://app.reserve.org/) from Reserve Protocol — see `eusd-reserve.yaml`.
+
+  ## Status
+
+  As of early 2026, Lybra Finance appears largely inactive. GitHub development stalled in late 2023, LBR mining incentives ended in mid-2024, and the official website (lybra.finance) is no longer responding as of March 2026.
 category: stablecoin
 links:
   homepage: https://lybra.finance/
@@ -20,3 +24,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x97de57ec338ab5d51557da3434828c5dbfada371'
 slug: eusd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: '2026-03-17'
+  information_found_missing_at: ''

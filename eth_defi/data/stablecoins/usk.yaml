@@ -27,3 +27,8 @@ links:
   defillama: https://defillama.com/stablecoin/usk
   twitter: https://x.com/TeamKujira
 slug: usk
+checks:
+  twitter_last_post_at: '2026-03-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

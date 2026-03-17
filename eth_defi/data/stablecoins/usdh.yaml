@@ -4,7 +4,44 @@ short_description: |
   USDH is Hyperliquid's native stablecoin, issued by Native Markets after winning a competitive validator vote in September 2025.
   It is fully backed by cash and US Treasury equivalents with reserves managed by BlackRock and onchain by Superstate through Bridge.
   Half of USDH's reserve yield funds HYPE buybacks and the other half supports ecosystem growth.
-long_description: ''
+long_description: |
+  [USDH](https://nativemarkets.xyz/) is the native stablecoin of the
+  [Hyperliquid](https://hyperliquid.xyz/) L1 blockchain, issued by
+  [Native Markets](https://nativemarkets.xyz/). The issuer was selected through a competitive
+  validator vote concluded in September 2025, in which Native Markets — co-founded by the former
+  president and COO of Uniswap Labs, MC Lader — won the right to issue USDH on the Hyperliquid
+  perpetuals exchange.
+
+  ## Mechanism
+
+  USDH is fully backed by cash and US Treasury equivalents. Off-chain reserves are managed by
+  BlackRock while on-chain reserves are held through [Superstate](https://superstate.co/) via
+  [Bridge](https://www.bridge.xyz/) (a Stripe-owned on-chain settlement layer). This dual-reserve
+  structure provides real-world asset backing with on-chain transparency and liquidity.
+
+  Native Markets committed to a symmetric yield distribution: half of all reserve earnings funds
+  HYPE token buybacks through Hyperliquid's Assistance Fund, and the other half supports ecosystem
+  growth programmes.
+
+  ## Rollout
+
+  USDH launched with a cautious phase-in: initial mint and redeem transactions were capped at $800
+  per transfer while the team monitored activity. The cap was later removed as a USDH/USDC spot
+  pair opened on the Hyperliquid exchange.
+
+  ## Key properties
+
+  - Fully reserved: cash and US Treasury equivalents, backed by BlackRock and Superstate/Bridge
+  - Native to Hyperliquid L1; first stablecoin issued through a competitive validator vote
+  - Reserve yield split: 50% to HYPE buybacks, 50% to ecosystem growth
+  - Issued by Native Markets (co-founded by former Uniswap Labs president MC Lader)
+
+  ## Sources
+
+  - [Native Markets](https://nativemarkets.xyz/)
+  - [The Block — Native Markets wins USDH bid](https://www.theblock.co/post/370570/native-markets-team-wins-hyperliquid-usdh-stablecoin-bid-eyes-test-phase-within-days)
+  - [CoinGecko — What is USDH?](https://www.coingecko.com/learn/what-is-usdh-hyperliquid-native-stablecoin)
+  - [Brave New Coin — USDH launch](https://bravenewcoin.com/insights/hyperliquid-launches-usdh-stablecoin-after-native-markets-wins-competitive-bid)
 category: stablecoin
 links:
   homepage: https://nativemarkets.xyz/
@@ -12,3 +49,8 @@ links:
   defillama: ''
   twitter: https://x.com/native_markets
 slug: usdh
+checks:
+  twitter_last_post_at: '2026-03-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

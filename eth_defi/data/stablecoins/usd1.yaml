@@ -2,7 +2,35 @@ symbol: USD1
 name: World Liberty Financial USD
 short_description: USD1 is a USD-backed stablecoin issued by World Liberty Financial (WLFI). It is fully backed by US Treasuries, US dollar deposits, and other cash equivalents. USD1 is associated with the Trump-linked
   DeFi project.
-long_description: ''
+long_description: |
+  [USD1](https://worldlibertyfinancial.com/usd1) is a fiat-backed stablecoin issued by
+  [World Liberty Financial (WLFI)](https://worldlibertyfinancial.com/), a DeFi project
+  associated with the Trump family. USD1 was announced in March 2025 and rapidly grew to
+  over $3 billion in circulating supply by the end of 2025, placing it among the largest
+  dollar-backed stablecoins behind USDT, USDC, and PYUSD.
+
+  ## Mechanism
+
+  USD1 maintains a 1:1 peg with the US dollar through full reserve backing. Each token is
+  collateralised by a combination of short-term US Treasury bills, US government money
+  market funds, and other cash equivalents held by custodians. Users can mint and redeem
+  USD1 at $1, with arbitrage enforcing the peg. BitGo provides custody and
+  attestation services. USD1 is deployed on Ethereum and BNB Smart Chain.
+
+  ## Key properties
+
+  - 100% reserve-backed by US Treasuries and cash equivalents
+  - Custodied and attested by BitGo
+  - Governance token: WLFI (100 billion max supply)
+  - Deployed on Ethereum and BNB Smart Chain
+  - World Liberty Financial has applied for a bank charter to evolve USD1's regulatory status
+
+  ## Sources
+
+  - [World Liberty Financial — USD1 page](https://worldlibertyfinancial.com/usd1)
+  - [CNBC — Trump's WLFI jumps into stablecoin game](https://www.cnbc.com/2025/03/25/trumps-world-liberty-financial-jumps-into-stablecoin-game-with-usd1-reveal.html)
+  - [Business Wire — USD1 crosses $3B market cap](https://www.businesswire.com/news/home/20251225249806/en/World-Liberty-Financials-Stablecoin-$USD1-Crosses-$3-Billion-in-Market-Capitalization)
+  - [CoinGecko — USD1 WLFI](https://www.coingecko.com/en/coins/usd1-wlfi)
 category: stablecoin
 links:
   homepage: https://worldlibertyfinancial.com/
@@ -15,3 +43,8 @@ contract_addresses:
     address: '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d'
   - chain: binance
     address: '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d'
+checks:
+  twitter_last_post_at: '2026-03-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

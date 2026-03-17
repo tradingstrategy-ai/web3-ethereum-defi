@@ -2,7 +2,34 @@ symbol: FXUSD
 name: f(x) Protocol fxUSD
 short_description: fxUSD is a stablecoin issued by the f(x) Protocol built on Aladdin DAO. It uses a leveraged-yield-bearing mechanism to maintain its peg. fxUSD is backed by liquid staking derivatives with built-in
   leverage and yield.
-long_description: ''
+long_description: |
+  [fxUSD](https://fx.aladdin.club/) is a USD-pegged stablecoin issued by the
+  [f(x) Protocol](https://docs.aladdin.club/f-x-protocol), a DeFi primitive built by
+  [Aladdin DAO](https://aladdin.club/) on Ethereum. Unlike conventional stablecoins, fxUSD
+  is backed entirely by liquid staking tokens (LSTs) — primarily stETH and wBTC — using a
+  split-tranche design where one tranche absorbs volatility and the other remains stable.
+
+  ## Mechanism
+
+  The protocol pairs each LST into two derivative tokens: a stable token (fxUSD, targeting
+  $1) and a leveraged token (xPOSITION/sPOSITION in v2.1) that absorbs all price
+  fluctuations of the underlying collateral. This invariant ensures fxUSD remains 100%
+  backed while the leveraged counterpart provides capital efficiency. A decentralised
+  stability pool (fxUSD + USDC) defends the peg, and yield from stETH staking, opening
+  fees, and FXN token emissions is distributed to liquidity providers.
+
+  ## Key properties
+
+  - Backed by stETH and wBTC; no fiat or centralised custodians
+  - 100% collateralisation maintained by the f(x) invariant
+  - Yield distributed via the fxSAVE module for flexible savings
+  - Deployed on Ethereum mainnet; governance by FXN token holders
+
+  ## Sources
+
+  - [f(x) Protocol docs — fxUSD introduction](https://docs.aladdin.club/f-x-protocol/introduction-of-fxusd)
+  - [fxUSD: This ain't your bank's stablecoin (Medium)](https://medium.com/@protocol_fx_667/fxusd-this-aint-your-bank-s-stablecoin-7d6a717af488)
+  - [CoinGecko — f(x) Protocol fxUSD](https://www.coingecko.com/en/coins/f-x-protocol-fxusd)
 category: stablecoin
 links:
   homepage: https://fx.aladdin.club/
@@ -13,3 +40,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x085780639CC2cACd35E474e71f4d000e2405d8f6'
 slug: fxusd
+checks:
+  twitter_last_post_at: '2026-01-02'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

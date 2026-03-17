@@ -39,3 +39,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x2A8e1E676Ec238d8A992307B495b45B3feAA5e86'
 slug: ousd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

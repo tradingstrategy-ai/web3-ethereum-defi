@@ -17,3 +17,8 @@ contract_addresses:
   - chain: arbitrum
     address: '0x0b2b2b2076d95dda7817e785989fe353fe955ef9'
 slug: susdai
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

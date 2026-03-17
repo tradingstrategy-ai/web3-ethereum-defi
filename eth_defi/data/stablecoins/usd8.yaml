@@ -1,11 +1,40 @@
 symbol: USD8
 name: USD8
 short_description: USD8 is a stablecoin project with a website at usd8.io. It does not appear in major stablecoin trackers (CoinGecko, DeFiLlama) as of early 2026, suggesting it is either very early-stage or inactive.
-long_description: ''
+long_description: |
+  [USD8](https://usd8.fi/) is a stablecoin with built-in hack-loss coverage. It is backed by a
+  basket of stablecoins (multi-collateral) and allows users to mint and redeem USD8 against the
+  underlying collateral at a 1:1 rate, with dynamic mint/burn fees.
+
+  ## Mechanism
+
+  USD8 introduces a Coverage system funded from protocol revenue:
+
+  - **Protected Savings** — Depositors earn yield (estimated 3–5% APY) and accumulate
+    non-transferrable Cover Credits proportional to their usage history
+  - **Cover Pool** — Separate depositors supply liquidity and earn higher returns (estimated 15–30%);
+    this pool pays out verified hack-loss claims
+  - Cover Credits can be used to claim up to 80% of losses from hacks in supported DeFi protocols,
+    across any position type
+
+  ## Status
+
+  USD8 is a very early-stage project with minimal public information. It does not appear on major
+  stablecoin trackers (CoinGecko, DeFiLlama) as of early 2026. The documentation domain redirects
+  from docs.usd8.finance to usd8.fi.
+
+  ## Sources
+
+  - [USD8 official site](https://usd8.fi/)
 category: stablecoin
 links:
   homepage: https://usd8.io/
   coingecko: ''
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/usd8_fi
 slug: usd8
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: '2026-03-17'

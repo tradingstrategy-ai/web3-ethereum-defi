@@ -36,3 +36,8 @@ contract_addresses:
   - chain: ethereum
     address: '0xd5d097f278a735d0a3c609deee71234cac14b47e'
 slug: csusd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

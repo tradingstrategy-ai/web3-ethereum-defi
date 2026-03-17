@@ -1,7 +1,35 @@
 symbol: USDA
 name: Angle USDA
 short_description: USDA is a USD-pegged stablecoin issued by Angle Protocol. It is backed by a diversified set of reserves including US Treasuries and other yield-generating assets. USDA is part of the Angle Protocol ecosystem alongside EURA and can be staked as stUSD to earn native USD yield.
-long_description: ''
+long_description: |
+  [Angle Protocol](https://www.angle.money/) issued USDA as a USD-pegged stablecoin fully
+  collateralised by a basket of yield-generating real-world assets (RWAs) and DeFi assets.
+  USDA is part of the Angle ecosystem alongside EURA, Angle's euro stablecoin.
+
+  ## Mechanism
+
+  USDA's stability relies on Angle's proprietary Price Stability Module, called the Transmuter,
+  which manages a diversified reserve of US Treasury bills, tokenised T-bills, and DeFi
+  yield-bearing assets. The Transmuter allows holders to redeem USDA for any of the protocol's
+  collateral assets at any time. Yield from the reserve is passed through to stUSD holders —
+  a non-rebasing ERC-20 token whose exchange rate against USDA increases over time.
+
+  USDA was designed to boost on-chain forex efficiency by functioning as the primary liquidity
+  layer in Angle's cross-currency stablecoin ecosystem, connecting USD and EUR on-chain liquidity.
+
+  ## Status
+
+  Angle Protocol is winding down USDA (and EURA). Following a community governance vote (AIP-112),
+  holders can redeem USDA for USDC at a 1:1 ratio via the Angle App on Ethereum until 1 March 2027.
+  After the redemption period, remaining reserves will be airdropped proportionally to unredeemed
+  holders via Merkl. Angle is pivoting to focus on its DeFi incentives platform, Merkl.
+  The wind-down was announced on 4 March 2026.
+
+  ## Sources
+
+  - [Angle — Introducing USDA](https://blog.angle.money/introducing-usda-angles-usd-stablecoin-for-boosting-onchain-forex-efficiency)
+  - [Angle — stUSD yield-bearing stablecoin](https://www.angle.money/stusd)
+  - [DeFiLlama — Angle USD](https://defillama.com/stablecoin/angle-usd)
 category: stablecoin
 links:
   homepage: https://www.angle.money/
@@ -18,3 +46,8 @@ contract_addresses:
     address: '0x0000206329b97DB379d5E1Bf586BbDB969C63274'
   - chain: optimism
     address: '0x0000206329b97DB379d5E1Bf586BbDB969C63274'
+checks:
+  twitter_last_post_at: '2026-03-04'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

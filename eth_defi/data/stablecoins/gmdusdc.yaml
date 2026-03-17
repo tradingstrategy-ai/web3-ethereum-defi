@@ -2,14 +2,50 @@ symbol: gmdUSDC
 name: GMD Protocol USDC Vault
 short_description: gmdUSDC represents USDC deposited in GMD Protocol's single-sided yield vaults. GMD aggregates yield from GMX's GLP token for stablecoin depositors. gmdUSDC provides delta-neutral exposure to
   GLP yield.
-long_description: ''
+long_description: |
+  gmdUSDC is a receipt token issued by [GMD Protocol](https://gmdprotocol.com/), a yield aggregation
+  protocol on Arbitrum. When a user deposits USDC into GMD's single-sided vault, they receive gmdUSDC
+  representing their share of the position. The token auto-compounds, appreciating continuously in
+  value at the vault's current APY rate — holders do not need to manually claim rewards.
+
+  ## Mechanism
+
+  GMD Protocol is built on top of [GMX](https://gmx.io/) and its GLP liquidity provider token.
+  The protocol maintains a pseudo-delta-neutral strategy: GMD's BTC, ETH, and USDC vaults hold
+  assets in proportions mirroring GLP's composition, which is periodically rebalanced. This structure
+  allows stablecoin depositors to capture GLP trading fee revenue while maintaining delta-neutral
+  exposure — they earn a share of traders' losses and fees without direct price exposure to ETH/BTC.
+
+  A protocol reserve offsets impermanent losses arising from GLP's asset-composition imbalances.
+  The USDC vault historically offered APYs ranging from 7% to 30%+ depending on GLP trading volumes.
+
+  gmdUSDC holders can additionally provide liquidity in Uniswap v3 paired with raw USDC, earning
+  extra trading fees with minimal impermanent loss whilst retaining vault yield.
+
+  ## Key properties
+
+  - Single-sided USDC deposit; no directional crypto exposure
+  - Yield sourced from GMX GLP trading fees and traders' losses
+  - Auto-compounding receipt token (value appreciates, no manual claims)
+  - Deployed on Arbitrum
+
+  ## Sources
+
+  - [GMD Protocol docs — working mechanism](https://gmd-protocol.gitbook.io/gmd-protocol/delta-neutral-vaults/working-mechanism)
+  - [IQ.wiki — GMD Protocol](https://iq.wiki/wiki/gmd-protocol)
+  - [GMD Vaults Performance and Analysis — Medium](https://medium.com/@gmdprotocol/gmd-vaults-performance-and-analysis-73b1799c103b)
 category: wrapped
 links:
   homepage: https://gmdprotocol.com/
   coingecko: ''
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/GMDprotocol
 contract_addresses:
   - chain: arbitrum
     address: '0x3DB4B7DA67dd5aF61Cb9b3C70501B1BdB24B2C22'
 slug: gmdusdc
+checks:
+  twitter_last_post_at: '2024-01-24'
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

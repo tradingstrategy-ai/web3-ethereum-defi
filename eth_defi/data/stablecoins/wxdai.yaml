@@ -2,7 +2,35 @@ symbol: WXDAI
 name: Wrapped xDAI (Gnosis)
 short_description: Wrapped xDAI (WXDAI) is the ERC-20 wrapped version of xDAI, the native gas token of Gnosis Chain. xDAI is a DAI-backed stablecoin bridged from Ethereum to Gnosis Chain. WXDAI enables xDAI to
   be used in DeFi protocols that require ERC-20 tokens.
-long_description: ''
+long_description: |
+  [Gnosis Chain](https://www.gnosis.io/) (formerly xDai Chain) uses xDAI as its native gas token.
+  xDAI is a 1:1 representation of [DAI](https://makerdao.com/) bridged from Ethereum via the
+  xDai Bridge: DAI is locked in a smart contract on Ethereum and an equivalent amount of xDAI is
+  minted on Gnosis Chain; burning xDAI unlocks the corresponding DAI on Ethereum.
+
+  ## Mechanism
+
+  Because xDAI is the native coin of Gnosis Chain (analogous to ETH on Ethereum), it does not
+  conform to the ERC-20 token standard. Wrapped xDAI (WXDAI) is an ERC-20 wrapper that allows
+  xDAI to be used seamlessly within DeFi protocols, decentralised exchanges, and liquidity pools
+  that require standard ERC-20 tokens.
+
+  The wrapping contract is a standard WETH-style contract deployed on Gnosis Chain at
+  `0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d`. Users deposit xDAI and receive WXDAI 1:1;
+  unwrapping burns WXDAI and returns xDAI.
+
+  ## Key properties
+
+  - Soft-pegged to USD via DAI → xDAI bridge
+  - Used for gas fees on Gnosis Chain (as xDAI) and DeFi interactions (as WXDAI)
+  - Trustless bridge with smart contracts on both Ethereum and Gnosis Chain
+  - Low-cost transactions make Gnosis Chain a popular venue for micro-payments and prediction markets
+
+  ## Sources
+
+  - [Gnosis Chain docs — xDai token](https://docs.gnosischain.com/about/tokens/xdai)
+  - [Gnosis Chain docs — xDai Bridge](https://docs.gnosischain.com/bridges/About%20Token%20Bridges/xdai-bridge)
+  - [CoinGecko — Wrapped xDAI](https://www.coingecko.com/en/coins/wrapped-xdai)
 category: stablecoin
 links:
   homepage: https://www.gnosis.io/
@@ -13,3 +41,8 @@ contract_addresses:
   - chain: gnosis
     address: '0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d'
 slug: wxdai
+checks:
+  twitter_last_post_at: '2026-02-26'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

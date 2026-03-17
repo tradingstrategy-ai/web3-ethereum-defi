@@ -15,7 +15,12 @@ entries:
     homepage: https://www.reservoir.xyz/
     coingecko: ''
     defillama: ''
-    twitter: ''
+    twitter: https://x.com/reservoir_xyz
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: ''
 - name: f(x) rUSD
   short_description: f(x) rUSD is a stablecoin issued by f(x) Protocol on Ethereum, built on Aladdin DAO. It uses the f(x) mechanism where LST-backed collateral is split into a low-volatility stable token (rUSD) and a leveraged long position.
   long_description: |
@@ -31,6 +36,11 @@ entries:
     coingecko: ''
     defillama: ''
     twitter: https://x.com/protocol_fx
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: ''
 - name: Realio Network rUSD
   short_description: Realio Network rUSD is a multichain stablecoin by Realio Network, providing a fiat on/off ramp for trading on the Realio Platform. It is a smaller real-world asset (RWA) project.
   long_description: |
@@ -43,5 +53,10 @@ entries:
     homepage: https://realio.fund/
     coingecko: ''
     defillama: ''
-    twitter: ''
+    twitter: https://x.com/realio_network
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: ''
 slug: rusd

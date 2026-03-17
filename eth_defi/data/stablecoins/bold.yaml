@@ -31,3 +31,8 @@ slug: bold
 contract_addresses:
   - chain: ethereum
     address: '0x6440f144b7e50d6a8439336510312d2f54beb01d'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

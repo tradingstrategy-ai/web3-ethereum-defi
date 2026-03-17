@@ -25,3 +25,8 @@ links:
   defillama: https://defillama.com/stablecoin/sperax-usd
   twitter: https://x.com/SperaxUSD
 slug: usds-sperax
+checks:
+  twitter_last_post_at: '2025-01-29'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

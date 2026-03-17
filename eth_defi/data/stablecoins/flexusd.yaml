@@ -14,5 +14,10 @@ links:
   homepage: https://flexusd.com/
   coingecko: https://www.coingecko.com/en/coins/flex-usd
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/CoinFLEX_COM
 slug: flexusd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: '2026-03-17'
+  information_found_missing_at: ''

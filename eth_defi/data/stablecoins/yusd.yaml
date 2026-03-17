@@ -12,7 +12,12 @@ entries:
     homepage: https://yeti.finance/
     coingecko: https://www.coingecko.com/en/coins/yusd-stablecoin
     defillama: https://defillama.com/protocol/yeti-finance
-    twitter: ''
+    twitter: https://x.com/yetifinance
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: ''
+    marked_dead_at: '2026-03-17'
+    information_found_missing_at: ''
 - name: yUSD (YieldFi)
   short_description: yUSD is a yield-bearing stablecoin from YieldFi, a DeFi yield aggregator. It allocates USDC deposits across blue-chip DeFi protocols including Pendle, Aave, Morpho, and Ethena to generate optimised yield. yUSD is deployed on Ethereum, Arbitrum, and Base.
   long_description: |
@@ -27,10 +32,15 @@ entries:
     homepage: https://yield.fi/
     coingecko: https://www.coingecko.com/en/coins/yieldfi-ytoken
     defillama: https://defillama.com/protocol/yieldfi
-    twitter: ''
+    twitter: https://x.com/GetYieldFi
   contract_addresses:
     - chain: arbitrum
       address: '0x4772d2e014f9fc3a820c444e3313968e9a5c8121'
     - chain: base
       address: '0x895e15020c3f52ddd4d8e9514eb83c39f53b1579'
+  checks:
+    twitter_last_post_at: '2025-10-28'
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: ''
 slug: yusd

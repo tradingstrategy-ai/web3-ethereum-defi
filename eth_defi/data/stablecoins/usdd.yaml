@@ -2,7 +2,43 @@ symbol: USDD
 name: USDD (TRON)
 short_description: USDD is a decentralised stablecoin on the TRON network backed by the TRON DAO Reserve. It is overcollateralised by TRX, BTC, USDT, and other assets. USDD uses a hybrid algorithmic and reserve-backed
   mechanism.
-long_description: ''
+long_description: |
+  [USDD](https://usdd.io/) (Decentralised USD) is a stablecoin issued by the
+  [TRON DAO Reserve](https://tdr.org/) and launched in April 2022 by TRON founder
+  Justin Sun. It was initially designed as an algorithmic stablecoin inspired by
+  Terra's UST, but was restructured into a fully overcollateralised model following the
+  Terra/LUNA collapse in May 2022. The "USDD 2.0" upgrade in January 2025 formalised
+  this overcollateralised structure.
+
+  ## Mechanism
+
+  USDD maintains its peg through a combination of over-collateralisation and a TRX
+  mint-and-burn mechanism. The TRON DAO Reserve holds a basket of assets — including TRX,
+  BTC, USDT, and USDC — with a minimum collateral ratio of 130%. When USDD trades below
+  $1, arbitrageurs can burn USDD to mint TRX at a profit; when USDD trades above $1, TRX
+  can be burned to mint USDD. The reserve is publicly verifiable on-chain. USDD launched
+  natively on Ethereum in September 2025 and on BNB Chain in October 2025.
+
+  ## Key properties
+
+  - Overcollateralised by a diversified reserve (TRX, BTC, USDC, USDT)
+  - Minimum 130% collateral ratio maintained by TRON DAO Reserve
+  - TRX mint-and-burn arbitrage mechanism for peg maintenance
+  - Available on TRON, Ethereum, BNB Smart Chain, and Arbitrum
+  - CertiK AA security rating (November 2025)
+
+  ## Status
+
+  As of early 2026, USDD has approximately $750 million in circulating supply. Despite
+  multiple brief depegging events in 2022 and 2023, it has largely maintained its $1 peg
+  under the overcollateralised model.
+
+  ## Sources
+
+  - [USDD official site](https://usdd.io/)
+  - [TRON DAO Reserve](https://tdr.org/)
+  - [The Block — USDD launches natively on Ethereum](https://www.theblock.co/post/369855/usdd-the-justin-sun-backed-stablecoin-launches-natively-on-ethereum)
+  - [CoinGecko — USDD](https://www.coingecko.com/en/coins/usdd)
 category: stablecoin
 links:
   homepage: https://usdd.io/
@@ -17,3 +53,8 @@ contract_addresses:
     address: '0x392004bee213f1ff580c867359c246924f21e6ad'
   - chain: arbitrum
     address: '0x680447595e8b7b3aa1b43beb9f6098c79ac2ab3f'
+checks:
+  twitter_last_post_at: '2026-02-06'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

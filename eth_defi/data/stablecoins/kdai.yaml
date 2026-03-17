@@ -2,7 +2,34 @@ symbol: KDAI
 name: Klaytn DAI
 short_description: KDAI is a version of Dai bridged to the Klaytn blockchain (now rebranded as Kaia). It maintains a 1:1 peg with DAI on Ethereum through a cross-chain bridge. KDAI enables DAI-denominated transactions
   within the Klaytn/Kaia ecosystem.
-long_description: ''
+long_description: |
+  KDAI is a bridged representation of [MakerDAO's DAI](https://makerdao.com/) on the
+  [Klaytn](https://klaytn.foundation/) blockchain, which was rebranded as
+  [Kaia](https://kaia.io/) following the merger of Klaytn (Kakao) and Finschia (LINE)
+  in 2024. KDAI was introduced in August 2020 via [Orbit Chain](https://orbitchain.io/),
+  a cross-chain bridge platform, enabling users to move DAI from Ethereum to Klaytn
+  where it is represented as a KCT (Klaytn Compatible Token).
+
+  ## Mechanism
+
+  KDAI is a lock-and-mint bridged token: DAI is locked in an Orbit Chain bridge contract
+  on Ethereum and an equivalent amount of KDAI is minted on Klaytn. The 1:1 peg with DAI
+  is maintained entirely by the bridge's custody and redemption mechanism, not by any
+  on-chain monetary policy. Users can redeem KDAI to unlock DAI on Ethereum via the same
+  bridge.
+
+  ## Status
+
+  KDAI circulating supply is approximately 8.2 million tokens as of 2024. Activity is
+  minimal relative to native stablecoins on Kaia. There is no dedicated CoinGecko or
+  DeFiLlama page for KDAI; the parent chain is tracked under
+  [Kaia](https://kaia.io/ecosystem).
+
+  ## Sources
+
+  - [Kaia (formerly Klaytn) announcement of KDAI (X/Twitter)](https://x.com/KaiaChain/status/1295880387143458816)
+  - [Kaia ecosystem](https://kaia.io/)
+  - [Orbit Chain cross-chain bridge](https://orbitchain.io/)
 category: stablecoin
 links:
   homepage: https://kaia.io/
@@ -10,3 +37,8 @@ links:
   defillama: ''
   twitter: https://x.com/kaiachain
 slug: kdai
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

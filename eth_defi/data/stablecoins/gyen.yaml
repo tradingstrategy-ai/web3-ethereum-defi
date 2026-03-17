@@ -2,7 +2,32 @@ symbol: GYEN
 name: GMO JPY (GMO Trust)
 short_description: GYEN is a Japanese Yen-backed stablecoin issued by GMO-Z.com Trust Company. It is fully backed by JPY reserves and regulated in the United States. GYEN enables digital transactions denominated
   in Japanese Yen on Ethereum.
-long_description: ''
+long_description: |
+  [GYEN](https://stablecoin.z.com/gyen/) is a Japanese Yen-pegged stablecoin issued by
+  [GMO-Z.com Trust Company](https://stablecoin.z.com/), a limited-purpose trust company
+  chartered by the New York State Department of Financial Services (NYDFS). It is marketed
+  as "The First Regulated Digital JPY" and maintains a strict 1:1 peg to the Japanese Yen.
+
+  ## Mechanism
+
+  Every GYEN in circulation is 100% fiat-backed and always redeemable 1:1 for JPY directly
+  with GMO Trust, eliminating intermediaries. Reserves are held in segregated accounts and
+  independently attested monthly by a third-party accounting firm, with reports published
+  publicly. GYEN is classified as an e-money token under EU MiCA regulation (Regulation
+  2023/1114), which restricts its availability in the EU.
+
+  ## Key properties
+
+  - Issued on Ethereum and Stellar
+  - Supported by major custody providers including Anchorage Digital, Fireblocks, and BitGo
+  - Integrated with Uniswap, SushiSwap, Curve.fi, and Paraswap for on-chain trading
+  - ISO 27001 certified issuer
+
+  ## Sources
+
+  - [GYEN official site](https://stablecoin.z.com/gyen/)
+  - [CoinGecko — GYEN](https://www.coingecko.com/en/coins/gyen)
+  - [Etherscan — GYEN](https://etherscan.io/token/0xC08512927D12348F6620a698105e1BaAc6EcD911)
 category: stablecoin
 links:
   homepage: https://stablecoin.z.com/gyen
@@ -13,3 +38,8 @@ contract_addresses:
   - chain: ethereum
     address: '0xC08512927D12348F6620a698105e1BaAc6EcD911'
 slug: gyen
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

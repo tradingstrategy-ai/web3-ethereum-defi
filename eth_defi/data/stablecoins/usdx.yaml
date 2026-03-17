@@ -3,18 +3,63 @@ category: stablecoin
 entries:
 - name: USDX (Stables Labs)
   short_description: USDX is a delta-neutral synthetic dollar by Stables Labs. It uses hedged positions across DeFi, CeFi, and TradFi venues to maintain its USD peg. Stables Labs raised $45M at a $275M valuation in 2024.
-  long_description: ''
+  long_description: |
+    ## Status
+
+    On November 7, 2025, USDX suffered a 64% depeg to approximately $0.35 following a security exploit
+    in a Balancer V2 pool that drained $1 million from the USDX/sUSDX liquidity pool. Stables Labs
+    published a recovery plan, but the token continued to decline, reaching an all-time low of $0.009
+    on March 13, 2026. The homepage (usdx.money) was unreachable as of March 2026. USDX is considered defunct.
   links:
     homepage: https://usdx.money/
     coingecko: https://www.coingecko.com/en/coins/stables-labs-usdx
     defillama: https://defillama.com/stablecoin/usdx-money
     twitter: https://x.com/usdx_money
+  checks:
+    twitter_last_post_at: '2025-01-14'
+    domain_up_at: ''
+    marked_dead_at: '2026-03-17'
+    information_found_missing_at: ''
 - name: USDX (Kava)
   short_description: USDX was the native stablecoin of the Kava blockchain. It was overcollateralised by multiple crypto assets deposited on the Kava platform. The Kava ecosystem has shifted focus away from USDX.
-  long_description: ''
+  long_description: |
+    USDX is the native decentralised stablecoin of the [Kava](https://www.kava.io/) blockchain,
+    minted via Collateralised Debt Positions (CDPs) against a range of crypto assets including
+    KAVA, BTC, BNB, BUSD, and XRP. USDX maintains its USD peg through overcollateralisation:
+    borrowers must deposit collateral worth more than the USDX they mint, typically at a
+    minimum 150% collateralisation ratio.
+
+    ## Mechanism
+
+    When a user deposits collateral on Kava's CDP platform, they receive newly minted USDX up
+    to two-thirds of the collateral value. If a position's collateral ratio falls below the
+    liquidation threshold, the position is automatically liquidated. KAVA token serves as the
+    protocol's reserve currency of last resort: if the system becomes undercollateralised as
+    a whole, new KAVA is minted and used to buy back USDX until the system is restored to
+    health.
+
+    Minted USDX can be deposited into Kava's money market (HARD Protocol) to earn a variable
+    APY, providing an additional yield incentive for minters.
+
+    ## Status
+
+    The Kava ecosystem has evolved significantly since USDX's launch in 2019. Kava merged its
+    Cosmos-based and EVM chains in 2022–2023, and the project has shifted its primary focus
+    towards its lending and EVM DeFi ecosystem. USDX remains technically functional but has
+    seen declining usage as Kava pivots toward broader DeFi infrastructure.
+
+    ## Sources
+
+    - [Kava documentation — basics](https://docs.kava.io/docs/faq/basics/)
+    - [CoinGecko — Kava Lend](https://www.coingecko.com/en/coins/kava-lend)
   links:
     homepage: https://www.kava.io/
     coingecko: https://www.coingecko.com/en/coins/kava-lend
     defillama: ''
     twitter: https://x.com/KAVA_CHAIN
+  checks:
+    twitter_last_post_at: '2026-03-17'
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: ''
 slug: usdx

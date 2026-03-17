@@ -2,7 +2,36 @@ symbol: USDbC
 name: USD Base Coin (bridged USDC on Base)
 short_description: USDbC is the bridged version of USDC on the Base network via the Ethereum canonical bridge. It was the primary USDC representation on Base before Circle deployed native USDC. USDbC is being
   phased out in favour of native USDC on Base.
-long_description: ''
+long_description: |
+  [USD Base Coin (USDbC)](https://www.circle.com/usdc) is the bridged form of USDC on the
+  [Base](https://base.org/) network, created when Coinbase launched Base mainnet in 2023.
+  Before Circle deployed a natively issued USDC on Base, USDbC served as the primary
+  dollar-denominated stablecoin on the chain and underpinned the majority of early Base DeFi
+  liquidity.
+
+  ## Bridge mechanism
+
+  USDbC is produced by the [Base canonical bridge](https://bridge.base.org/), which uses a
+  lock-and-mint model: USDC is locked in an Ethereum smart contract and an equivalent amount
+  of USDbC is minted on Base at a 1:1 ratio. Unwinding the position burns USDbC on Base and
+  releases the original USDC on Ethereum. Because it is a bridged representation rather than
+  a Circle-issued token, USDbC is not directly redeemable for fiat through Circle's APIs and
+  is not compatible with Circle Account services.
+
+  ## Migration to native USDC
+
+  Circle launched natively issued USDC on Base in September 2023. Native USDC is minted
+  directly by Circle on Base and is fully redeemable 1:1 for US dollars through Circle's
+  standard redemption channels. The Base ecosystem has since encouraged a gradual migration
+  of liquidity from USDbC to native USDC. Both tokens continue to coexist on-chain, but
+  native USDC has become the canonical stablecoin for new integrations, and USDbC is
+  considered a legacy asset.
+
+  ## Sources
+
+  - [Circle: USDC now available natively on Base](https://www.circle.com/blog/usdc-now-available-natively-on-base)
+  - [Circle: What you need to know — native USDC on Base](https://www.circle.com/blog/need-to-know-native-usdc-on-base)
+  - [Coinbase Help: USD Base Coin (USDbC)](https://help.coinbase.com/en/coinbase/getting-started/crypto-education/usd-base-coin)
 category: stablecoin
 links:
   homepage: https://www.circle.com/usdc
@@ -13,3 +42,8 @@ slug: usdbc
 contract_addresses:
   - chain: base
     address: '0xd9aAEc86b65D86f6A7B5B1b0c42FFA531710b6CA'
+checks:
+  twitter_last_post_at: '2026-03-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

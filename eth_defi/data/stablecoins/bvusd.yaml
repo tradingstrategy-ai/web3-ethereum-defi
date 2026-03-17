@@ -33,5 +33,10 @@ links:
   homepage: https://bitvault.finance/
   coingecko: ''
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/BitVaultFinance
 slug: bvusd
+checks:
+  twitter_last_post_at: '2026-02-17'
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

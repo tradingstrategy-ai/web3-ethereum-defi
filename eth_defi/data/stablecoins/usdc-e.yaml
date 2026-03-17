@@ -2,7 +2,30 @@ symbol: USDC.e
 name: Bridged USDC
 short_description: USDC.e is a bridged version of USDC on various L2 and alt-L1 chains. It represents USDC locked on Ethereum and bridged to another network via a canonical bridge. USDC.e is being phased out
   as Circle deploys native USDC on more chains.
-long_description: ''
+long_description: |
+  USDC.e (also written as USDCe or "bridged USDC") is a form of USDC that has been transferred from Ethereum to another blockchain via a canonical bridge. When USDC is bridged, the original tokens are locked in a smart contract on Ethereum and an equivalent amount of USDC.e is minted on the destination chain. The ".e" suffix indicates the token's Ethereum origin. USDC.e is **not** issued directly by [Circle](https://www.circle.com/usdc); rather it is a wrapped representation of Circle-issued USDC.
+
+  ## Mechanism
+
+  Bridging works by locking USDC on Ethereum and minting a corresponding USDC.e token on the destination network (e.g. Arbitrum One, Avalanche C-Chain, Polygon PoS, Optimism). The bridge operator is typically the canonical bridge for that network. Redemption reverses the process: burning USDC.e on the destination chain releases the locked USDC on Ethereum.
+
+  ## Migration to native USDC
+
+  As Circle began deploying native USDC directly on Layer-2 networks in mid-2023 (Arbitrum, Optimism, Polygon, Base, and others via the Cross-Chain Transfer Protocol, CCTP), USDC.e began to be phased out on chains where native USDC exists. Users holding USDC.e can swap it for native USDC on decentralised exchanges, or bridge it back to Ethereum. Major DeFi protocols have progressively migrated liquidity from USDC.e to native USDC as Circle's multi-chain rollout has expanded.
+
+  ## Key properties
+
+  - Backed by USDC locked on Ethereum via a canonical bridge
+  - Not issued by Circle; counterparty risk depends on the bridge operator
+  - Accepted across DeFi on Arbitrum, Avalanche, Polygon, Optimism, and other chains
+  - Being gradually phased out where Circle now issues native USDC directly
+
+  ## Sources
+
+  - [Circle: USDC multi-chain](https://www.circle.com/usdc)
+  - [Arbitrum: USDC comes natively to Arbitrum](https://arbitrumfoundation.medium.com/usdc-to-come-natively-to-arbitrum-f751a30e3d83)
+  - [Request Finance: native USDC vs USDC.e](https://help.request.finance/en/articles/8793285-what-is-the-difference-between-native-usdc-and-bridged-usdc-e-on-polygon-optimism-arbitrum-and-zksync-era)
+  - [CoinGecko: Bridged USDC](https://www.coingecko.com/en/coins/bridged-usdc)
 category: stablecoin
 links:
   homepage: https://www.circle.com/usdc
@@ -10,3 +33,8 @@ links:
   defillama: ''
   twitter: https://x.com/circle
 slug: usdc-e
+checks:
+  twitter_last_post_at: '2026-03-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

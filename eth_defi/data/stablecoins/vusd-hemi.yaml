@@ -18,8 +18,13 @@ links:
   homepage: ''
   coingecko: https://www.coingecko.com/en/coins/vusd-hemi
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/hemi_xyz
 contract_addresses:
   - chain: hemi
     address: '0x7a06c4aef988e7925575c50261297a946ad204a8'
 slug: vusd-hemi
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: '2026-03-17'

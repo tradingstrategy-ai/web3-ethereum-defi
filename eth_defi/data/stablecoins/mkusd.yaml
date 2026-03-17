@@ -32,3 +32,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x4591DBfF62656E7859Afe5e45f6f47D3669fBB28'
 slug: mkusd
+checks:
+  twitter_last_post_at: '2024-04-06'
+  domain_up_at: ''
+  marked_dead_at: '2026-03-17'
+  information_found_missing_at: ''

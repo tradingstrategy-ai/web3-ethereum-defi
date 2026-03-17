@@ -20,3 +20,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x1abaea1f7c830bd89acc67ec4af516284b1bc33c'
 slug: euroc
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

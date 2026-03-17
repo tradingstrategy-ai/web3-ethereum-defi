@@ -30,3 +30,8 @@ slug: cnht
 contract_addresses:
   - chain: ethereum
     address: '0x6e109e9dd7fa1a58bc3eff667e8e41fc3cc07aef'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

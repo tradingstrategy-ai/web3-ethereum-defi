@@ -2,14 +2,46 @@ symbol: ZUSD
 name: Z.com USD (GMO)
 short_description: ZUSD is a USD-backed stablecoin issued by GMO-Z.com Trust Company. It is fully backed by US dollars and regulated by the New York State Department of Financial Services. ZUSD is part of GMO
   Internet Group's digital assets offering.
-long_description: ''
+long_description: |
+  ZUSD is a USD-backed stablecoin issued by [GMO-Z.com Trust Company](https://stablecoin.z.com/),
+  a wholly-owned subsidiary of GMO Internet Group, Japan's largest internet conglomerate.
+  GMO Trust was established in 2020 and holds a Limited Purpose Trust Charter from the
+  New York State Department of Financial Services (NYDFS).
+
+  ## Mechanism
+
+  ZUSD is fully reserved: each token is backed 1:1 by US dollars held at FDIC-insured banks.
+  Issuance and redemption are handled directly by GMO Trust, targeting institutional clients
+  and regulated exchange integrations. ZUSD is consistently maintained on the NYDFS Greenlist —
+  the list of pre-approved virtual currencies for custody and trading by NYDFS-licensed entities.
+
+  ZUSD is issued alongside GYEN (GMO's JPY stablecoin) on Ethereum and has been listed on
+  exchanges including Bitstamp. Institutional custody is available through Komainu.
+
+  ## Key properties
+
+  - Fully USD-backed, 1:1 reserve
+  - NYDFS-regulated via Limited Purpose Trust Charter
+  - On NYDFS Greenlist for custody and trading
+  - Issued by a subsidiary of GMO Internet Group (Tokyo Stock Exchange listed)
+
+  ## Sources
+
+  - [GMO-Z.com Trust Company](https://stablecoin.z.com/)
+  - [CoinGecko — ZUSD](https://www.coingecko.com/en/coins/zusd)
+  - [NYDFS Greenlist announcement (Medium)](https://medium.com/gmo-z-com-trust-company/gyen-and-zusd-consistently-on-nydfs-greenlist-35ad8bec5772)
 category: stablecoin
 links:
   homepage: https://stablecoin.z.com/zusd/
   coingecko: https://www.coingecko.com/en/coins/zusd
   defillama: ''
-  twitter: ''
+  twitter: https://x.com/GMOTrust
 contract_addresses:
   - chain: ethereum
     address: '0xc56c2b7e71B54d38Aab6d52E94a04Cbfa8F604fA'
 slug: zusd
+checks:
+  twitter_last_post_at: '2025-08-28'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

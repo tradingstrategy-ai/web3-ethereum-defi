@@ -4,18 +4,84 @@ entries:
 - name: Noble Dollar
   short_description: Noble Dollar (USDN) is a stablecoin native to the Noble blockchain in the Cosmos ecosystem. It is backed by US dollar reserves and designed for cross-chain IBC transfers. USDN is used across
     Cosmos-based chains.
-  long_description: ''
+  long_description: |
+    [Noble Dollar (USDN)](https://noble.xyz/) is a yield-bearing stablecoin issued on the
+    [Noble](https://noble.xyz/) appchain, a purpose-built stablecoin issuance chain in the
+    Cosmos ecosystem. Noble Dollar is built on top of [M^0](https://www.m0.org/), a
+    decentralised stablecoin infrastructure protocol on Ethereum that uses short-duration
+    US Treasury Bills as collateral. Noble was the first chain to deploy a custom stablecoin
+    using the M^0 "stablecoin extension engine."
+
+    ## Mechanism
+
+    Noble Dollar is backed 1:1 by short-duration US Treasury Bills held by M^0. Yield from
+    the T-bill collateral is distributed to USDN holders, making it a native yield-bearing
+    stablecoin. Noble leverages [IBC](https://www.ibcprotocol.dev/) packet-forwarding to
+    route USDN seamlessly across all IBC-connected Cosmos chains. The underlying $M token
+    from M^0 serves as the core building block, with Noble customising distribution and
+    yield mechanics.
+
+    ## Key properties
+
+    - Yield-bearing: backed by short-duration US Treasury Bills
+    - Fully IBC-native and transferable across Cosmos chains
+    - Built on M^0 decentralised stablecoin infrastructure
+    - Operates on the Noble appchain (not Ethereum)
+
+    ## Sources
+
+    - [Noble — official site](https://noble.xyz/)
+    - [M^0 press release — USDN for Cosmos](https://www.m0.org/press-releases/m-0-strengthens-stablecoin-tools-partners-with-noble-to-introduce-usdn-for-cosmos-ecosystem)
+    - [The Block — Noble first to launch via M^0](https://www.theblock.co/post/329332/cosmos-based-noble-first-to-launch-custom-stablecoin-using-cryptodollar-infrastructure-startup-m0)
   links:
     homepage: https://noble.xyz/
     coingecko: https://www.coingecko.com/en/coins/noble-dollar
     defillama: https://defillama.com/stablecoin/noble-dollar
     twitter: https://x.com/noble_xyz
+  checks:
+    twitter_last_post_at: '2026-03-17'
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: ''
 - name: Neutrino USD
   short_description: Neutrino USD (USDN) was an algorithmic stablecoin on the Waves blockchain backed by WAVES. It depegged significantly in 2022 and was rebranded to XTN. The protocol is now largely inactive.
-  long_description: ''
+  long_description: |
+    [Neutrino USD (USDN)](https://neutrino.at/) was an algorithmic stablecoin built on the
+    [Waves](https://waves.tech/) blockchain, issued by the Neutrino Protocol. USDN was
+    collateralised solely by WAVES tokens, using a mint-and-burn mechanism similar in
+    design to Terra's UST. The protocol launched in 2019 and was operational until its
+    effective collapse in 2022–2023.
+
+    ## Collapse and rebranding
+
+    USDN lost its peg four separate times in 2022 alone. The first major depeg occurred in
+    April 2022 following bearish sentiment about WAVES, and a second crisis struck in May
+    2022 as contagion from the Terra/LUNA collapse spread to algorithmic stablecoins.
+    The token traded as low as $0.72 during these events. In February 2023, USDN was
+    officially rebranded to **XTN (Neutrino Index Token)** following a community governance
+    vote. XTN transitioned away from attempting a $1 peg to become a non-pegged index
+    token backed by a diversified basket of assets.
+
+    ## Status
+
+    USDN/XTN is essentially defunct as a stablecoin. The market cap of the legacy USDN
+    token had fallen to approximately $1.9 million by late 2025. The Neutrino Protocol
+    site remains online but activity is negligible.
+
+    ## Sources
+
+    - [Neutrino Protocol — official site](https://neutrino.at/)
+    - [CoinDesk — crisis in USDN spreads from Terra](https://www.coindesk.com/markets/2022/05/11/crisis-in-terras-ust-stablecoin-spreads-to-neutrino-usd-on-waves-protocol)
+    - [X/Twitter — USDN → XTN rebranding announcement](https://x.com/neutrino_proto/status/1620374348057174017)
+    - [CoinGecko — Neutrino Index Token (XTN)](https://www.coingecko.com/en/coins/neutrino-index-token)
   links:
     homepage: https://neutrino.at/
     coingecko: https://www.coingecko.com/en/coins/neutrino
     defillama: https://defillama.com/stablecoin/neutrino
-    twitter: ''
+    twitter: https://x.com/neutrino_proto
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: '2026-03-17'
 slug: usdn

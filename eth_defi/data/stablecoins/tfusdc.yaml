@@ -5,6 +5,10 @@ long_description: |
   tfUSDC is issued by [TrueFi](https://truefi.io/), a protocol for on-chain uncollateralised lending to institutional borrowers. Users deposit USDC into TrueFi's lending pool and receive tfUSDC tokens representing their pro-rata share.
 
   TrueFi vets borrowers through a credit assessment process and disburses unsecured loans. Interest from borrowers accrues to tfUSDC holders. tfUSDC can be redeemed for the underlying USDC plus accrued interest, subject to pool liquidity.
+
+  ## Status
+
+  The tfUSDC pool is a legacy DAO pool that stopped active lending at the end of 2022 / start of 2023. It carries defaulted loans (including exposure to the Alameda bankruptcy). TrueFi has proposed transitioning the DAO to a new entity called Brila Finance (TFIP-41), and truefi.io now redirects to brila.finance. The tfUSDC pool remains on-chain but is not accepting new deposits.
 category: yield_bearing
 links:
   homepage: https://truefi.io/
@@ -15,3 +19,8 @@ contract_addresses:
   - chain: ethereum
     address: '0xa991356d261fbaF194463aF6DF8f0464F8f1c742'
 slug: tfusdc
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

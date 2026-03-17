@@ -1,7 +1,15 @@
 symbol: USDM
 name: Mountain Protocol USD
 short_description: USDM is a yield-bearing stablecoin by Mountain Protocol, backed by US Treasury Bills. It rebases daily to distribute T-bill yield to holders. Mountain Protocol announced an orderly wind-down, with primary market redemptions closing on 22 August 2025; USDM may still trade on secondary markets after that date.
-long_description: ''
+long_description: |
+  ## Status
+
+  Mountain Protocol announced an orderly wind-down in May 2025.
+  The primary market (direct redemptions at $1) closed on 22 August 2025.
+  After that date, USDM is no longer backed by US Treasury products held in Mountain Protocol's reserves;
+  instead, reserves were deposited into a Uniswap liquidity pool against USDC (Phase 3).
+  Mountain Protocol no longer operates a redemption platform. Holders may still exchange USDM
+  through decentralised protocols such as Uniswap.
 category: stablecoin
 links:
   homepage: https://mountainprotocol.com/
@@ -9,3 +17,8 @@ links:
   defillama: https://defillama.com/stablecoin/mountain-protocol-usdm
   twitter: https://x.com/MountainPrtcl
 slug: usdm
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

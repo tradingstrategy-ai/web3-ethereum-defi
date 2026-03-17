@@ -31,3 +31,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x8238884Ec9668Ef77B90C6dfF4D1a9F4F4823BFe'
 slug: usdo
+checks:
+  twitter_last_post_at: '2026-03-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

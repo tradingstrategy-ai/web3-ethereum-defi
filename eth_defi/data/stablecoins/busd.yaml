@@ -28,3 +28,8 @@ slug: busd
 contract_addresses:
   - chain: ethereum
     address: '0x4fabb145d64652a948d72533023f6e7a623c7c53'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

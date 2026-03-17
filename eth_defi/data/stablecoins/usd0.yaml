@@ -2,7 +2,40 @@ symbol: USD0
 name: Usual USD
 short_description: USD0 is a USD-backed stablecoin issued by Usual, backed by real-world assets including US Treasury Bills. It is designed to redistribute value to users through the USUAL governance token. USD0
   can be staked as USD0++ for additional yield.
-long_description: ''
+long_description: |
+  [USD0](https://usual.money/) is the core stablecoin of the [Usual](https://usual.money/)
+  protocol, a decentralised stablecoin issuer that aims to redistribute the value generated
+  by reserve assets back to token holders rather than retaining it centrally. USD0 is fully
+  backed by tokenised real-world assets (RWAs), primarily short-dated US Treasury Bills
+  sourced from institutional providers including Hashnote, M0, and Superstate.
+
+  ## Mechanism
+
+  Users deposit capital into the Usual protocol, which aggregates RWA collateral on-chain
+  and issues USD0 at a 1:1 ratio. Collateral is fully on-chain and verifiable in real time,
+  removing reliance on off-chain attestors. This design limits banking counterparty exposure
+  — a risk highlighted by the 2023 USDC depeg — by favouring short-dated Treasuries and
+  secured repo structures over commercial bank deposits.
+
+  USD0 can be staked to receive USD0++, a yield-bearing variant, and holders can also earn
+  USUAL governance tokens. USUAL represents ownership of 100% of protocol revenue rights,
+  distributed daily to active participants; staked USUAL (USUALx) earns a share of emissions
+  and weekly protocol revenue.
+
+  ## Key properties
+
+  - Backed by tokenised US Treasury Bills, verifiable on-chain in real time
+  - Deployed on Ethereum, Arbitrum, Base, and BNB Chain
+  - Revenue redistributed to community via USUAL governance token
+  - Audited smart contracts; governance-controlled collateral acceptance
+
+  ## Sources
+
+  - [Usual official site](https://usual.money/)
+  - [Usual documentation](https://docs.usual.money/)
+  - [CoinGecko — USD0](https://www.coingecko.com/en/coins/usual-usd)
+  - [DefiLlama — USD0](https://defillama.com/stablecoin/usual-usd)
+  - [Etherscan — USD0](https://etherscan.io/token/0x73A15FeD60Bf67631dC6cd7Bc5B6e8da8190aCF5)
 category: stablecoin
 links:
   homepage: https://usual.money/
@@ -13,3 +46,8 @@ slug: usd0
 contract_addresses:
   - chain: ethereum
     address: '0x73A15FeD60Bf67631dC6cd7Bc5B6e8da8190aCF5'
+checks:
+  twitter_last_post_at: '2026-03-17'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

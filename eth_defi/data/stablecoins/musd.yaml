@@ -39,3 +39,8 @@ slug: musd
 token_symbols:
 - MUSD
 - mUSD
+checks:
+  twitter_last_post_at: '2024-10-24'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: '2026-03-17'
+  information_found_missing_at: ''

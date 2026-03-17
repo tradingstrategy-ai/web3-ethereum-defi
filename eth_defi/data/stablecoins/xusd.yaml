@@ -23,14 +23,45 @@ entries:
       address: '0xC08e7E23C235073C6807C2EFE7021304cb7c2815'
     - chain: bsc
       address: '0xF81aC2E1A0373ddE1BCE01E2Fe694a9b7E3bfcB9'
+  checks:
+    twitter_last_post_at: '2025-12-16'
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: ''
 - name: xDollar
   short_description: xDollar (xUSD) was a multi-chain overcollateralised stablecoin protocol inspired by MakerDAO. It allowed minting xUSD stablecoins against various collateral types. The project has been largely abandoned.
-  long_description: ''
+  long_description: |
+    xDollar was a multi-chain overcollateralised stablecoin protocol inspired by MakerDAO,
+    primarily deployed on the [XDC Network](https://xdc.org/) and Polygon.
+    Users could deposit XDC tokens as collateral to mint xUSD stablecoins, targeting a
+    1:1 peg to the US Dollar. The protocol was governed by Fathom DAO.
+
+    ## Mechanism
+
+    - Overcollateralised model: users lock XDC (and other accepted collateral) to mint xUSD
+    - Collateral ratio enforced on-chain; positions subject to liquidation below minimum ratio
+    - Inspired by MakerDAO's CDP (Collateralised Debt Position) architecture
+    - Deployed on XDC Network (primary) and Polygon
+
+    ## Status
+
+    The project has been largely abandoned. Circulating supply fell to effectively zero and
+    the official website (`xdollar.fi`) returns a certificate error as of 2026. On-chain
+    contract data on Polygonscan shows ~3.55 million xUSD total supply with no active market.
+
+    ## Sources
+
+    - [CoinMarketCap — xUSD](https://coinmarketcap.com/currencies/xdollar-stablecoin/)
   links:
     homepage: https://xdollar.fi/
     coingecko: ''
     defillama: ''
-    twitter: ''
+    twitter: https://x.com/xdollarfi
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: ''
+    marked_dead_at: ''
+    information_found_missing_at: '2026-03-17'
 slug: xusd
 token_symbols:
 - XUSD

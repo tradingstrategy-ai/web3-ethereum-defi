@@ -4,19 +4,99 @@ entries:
 - name: Falcon USD
   short_description: Falcon USD is a stablecoin issued by Falcon Finance, a protocol focused on delta-neutral strategies. It aims to provide stable value through hedged positions. Falcon Finance is built for
     institutional and DeFi use cases.
-  long_description: ''
+  long_description: |
+    USDf is an overcollateralised synthetic dollar issued by [Falcon Finance](https://falcon.finance/),
+    a Universal Collateral Infrastructure protocol designed for both institutional and DeFi users.
+    USDf is minted by depositing collateral assets and is maintained at a $1 peg through a combination
+    of delta-neutral and market-neutral strategies.
+
+    ## Mechanism
+
+    Stablecoin deposits mint USDf at a 1:1 ratio. Non-stablecoin and real-world asset (RWA) deposits
+    use a dynamic Overcollateralisation Ratio (OCR) calibrated to the asset's volatility, liquidity,
+    and historical behaviour — ensuring the total collateral value always exceeds USDf in circulation.
+
+    Deposited collateral is actively managed to achieve delta neutrality: Falcon neutralises directional
+    price exposure by holding spot assets while shorting perpetual futures (funding-rate arbitrage), or
+    by selling spot and going long futures in negative-rate environments. This means USDf holders are
+    insulated from collateral price movements.
+
+    Yield is distributed to holders who stake USDf into sUSDf, a yield-bearing token that compounds
+    returns from the delta-neutral strategies and RWA income. Falcon also maintains a $10 million
+    insurance fund and audits its segregated reserves weekly.
+
+    ## Key properties
+
+    - Overcollateralised synthetic dollar; dynamic OCR for volatile assets
+    - Delta-neutral collateral management via funding-rate arbitrage
+    - sUSDf: yield-bearing staking token backed by protocol strategies
+    - $10M insurance fund; weekly reserve audits
+    - Institutional focus with DeFi accessibility
+
+    ## Sources
+
+    - [Falcon Finance](https://falcon.finance/)
+    - [Falcon Finance docs — USDf](https://docs.falcon.finance/mechanism/usdf-synthetic-dollar)
+    - [Messari — Understanding Falcon Finance](https://messari.io/report/understanding-falcon-finance-a-comprehensive-overview)
+    - [DeFiLlama — Falcon Finance](https://defillama.com/stablecoin/falcon-finance)
   links:
     homepage: https://falcon.finance/
     coingecko: https://www.coingecko.com/en/coins/falcon-finance
     defillama: https://defillama.com/stablecoin/falcon-finance
     twitter: https://x.com/FalconStable
+  checks:
+    twitter_last_post_at: '2026-03-17'
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: ''
 - name: USDF Consortium
   short_description: The USDF Consortium is a network of FDIC-insured banks creating a bank-minted stablecoin. USDF is designed for interbank settlement and compliant digital transactions. The consortium includes
     multiple US banking institutions.
-  long_description: ''
+  long_description: |
+    The [USDF Consortium](https://usdfconsortium.com/) is an association of FDIC-insured US financial
+    institutions that launched in January 2022 with the goal of developing and promoting a bank-minted
+    tokenised deposit stablecoin. Unlike privately issued stablecoins, USDF is minted exclusively by
+    regulated member banks and is redeemable 1:1 for cash from any Consortium member bank.
+
+    ## Mechanism
+
+    USDF operates on a permissioned blockchain based on the [Provenance Blockchain](https://provenance.io/)
+    codebase. Although the Consortium initially used the public Provenance chain, it subsequently migrated
+    to a private, permissioned fork ("USDF Private Chain") following regulatory feedback from US bank
+    supervisors that participation in public, permissionless chains posed elevated risk.
+
+    Each member bank mints USDF directly when a customer wishes to transact on-chain; the corresponding
+    cash is held as a deposit at that bank. Redemptions are honoured at par by any Consortium member.
+    Use cases under development include interbank settlement, loan securitisation, and cross-border payments.
+
+    ## Status
+
+    As of early 2024, the technology infrastructure was built and members were awaiting full regulatory
+    approval before going live at scale. The Consortium had grown to nine bank members, including New York
+    Community Bank, FirstBank, NBH Bank, Synovus, Webster Bank, ConnectOne Bank, Amerant Bank, Primis Bank,
+    and Atlantic Union Bank.
+
+    ## Key properties
+
+    - Bank-minted tokenised deposit; only FDIC-insured banks may issue
+    - Redeemable 1:1 for cash at any member bank
+    - Private permissioned Provenance-based blockchain
+    - Regulatory compliance focus; no public issuance
+
+    ## Sources
+
+    - [USDF Consortium](https://usdfconsortium.com/)
+    - [CoinDesk — US Banks Form Group to Offer USDF](https://www.coindesk.com/business/2022/01/12/us-banks-form-group-to-offer-usdf-stablecoin)
+    - [S&P Global — USDF Consortium switching to private blockchain](https://www.spglobal.com/market-intelligence/en/news-insights/articles/2023/2/usdf-consortium-switching-to-private-permission-based-blockchain-74421079)
+    - [Provenance Blockchain — What is USDF?](https://medium.com/provenanceblockchain/what-is-usdf-cf08a4629c27)
   links:
     homepage: https://usdfconsortium.com/
     coingecko: ''
     defillama: ''
     twitter: https://x.com/USDFConsortium
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: ''
+    marked_dead_at: '2026-03-17'
+    information_found_missing_at: ''
 slug: usdf

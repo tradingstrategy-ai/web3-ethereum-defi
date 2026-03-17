@@ -4,7 +4,32 @@ entries:
 - name: Agora Dollar
   short_description: Agora Dollar (AUSD) is a digital dollar stablecoin minted 1:1 with USD fiat. It uses institutional-grade custodians, a Big Four auditor, and a top-tier fund manager to safeguard reserves.
     AUSD is gas-optimised and deployed across Ethereum, Base, Arbitrum, Solana, and many other chains using a single contract address.
-  long_description: ''
+  long_description: |
+    [Agora](https://www.agora.finance/) issues AUSD, a fully reserved digital dollar backed 1:1 by cash,
+    overnight repurchase and reverse repurchase agreements, and short-term US Treasury securities.
+    The reserve fund is administered by [State Street](https://www.statestreet.com/) as custodian and managed
+    by [VanEck](https://www.vaneck.com/), with assets held in a bankruptcy-remote trust.
+
+    ## Mechanism
+
+    - Users mint AUSD by depositing USD; the funds are placed into the Agora Reserve Fund
+    - Monthly management reports and real-time [Chaos Labs](https://chaoslabs.xyz/) proof-of-reserves data
+      provide on-chain verifiable backing
+    - Unlike USDT and USDC, Agora shares reserve yield with ecosystem partners (liquidity providers, integrators,
+      payment processors) rather than retaining it entirely
+
+    ## Key properties
+
+    - Single contract address reused across all supported chains via LayerZero OFT interoperability
+    - Deployed on 12+ chains including Ethereum, Base, Arbitrum, Solana, and Injective
+    - Raised $12M seed (2024) and $50M Series A (July 2025) from Paradigm and VanEck
+
+    ## Sources
+
+    - [Agora AUSD product page](https://www.agora.finance/product/ausd)
+    - [CoinGecko — Agora Dollar](https://www.coingecko.com/en/coins/agora-dollar)
+    - [Chaos Labs proof-of-reserves integration](https://chaoslabs.xyz/posts/agora-integrates-proof-of-reserves)
+    - [LayerZero x Agora announcement](https://layerzero.network/blog/agora-and-layerzero-bring-ausd-to-5-blockchains)
   links:
     homepage: https://www.agora.finance/
     coingecko: https://www.coingecko.com/en/coins/agora-dollar
@@ -17,13 +42,46 @@ entries:
       address: '0x00000000efe302beaa2b3e6e1b18d08d69a9012a'
     - chain: arbitrum
       address: '0x00000000efe302beaa2b3e6e1b18d08d69a9012a'
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: ''
 - name: Acala Dollar
   short_description: Acala Dollar (aUSD) is the native decentralised stablecoin of the Acala network on Polkadot. It is overcollateralised and multi-collateral-backed, designed for cross-chain DeFi. aUSD suffered
     a depeg exploit in August 2022 and has very limited usage today.
-  long_description: ''
+  long_description: |
+    [Acala](https://acala.network/) is a DeFi hub on the [Polkadot](https://polkadot.network/) parachain.
+    aUSD was its native decentralised stablecoin, issued via the Honzon protocol using an overcollateralised
+    CDP (collateralised debt position) model backed by multiple cross-chain assets including DOT, LDOT, and iBTC.
+
+    ## The August 2022 exploit
+
+    On 14 August 2022, a misconfiguration in the newly deployed iBTC/aUSD liquidity pool allowed 16 addresses
+    to erroneously mint approximately 3.022 billion aUSD from thin air. The price of aUSD collapsed from ~$1.03
+    to $0.009 within minutes — a 99% depeg. Acala entered error mode, pausing most network operations.
+    Following emergency governance votes, approximately 2.97 billion of the erroneously minted tokens were
+    traced and 1.29 billion were burnt, allowing the peg to partially recover to ~$0.93 before further burns
+    restored near-parity.
+
+    ## Status
+
+    aUSD never fully recovered market confidence after the exploit. Circulating supply and on-chain usage
+    remain negligible. The token is still listed on CoinGecko but has very low volume and liquidity.
+
+    ## Sources
+
+    - [CoinDesk — Acala's stablecoin falls 99%](https://www.coindesk.com/tech/2022/08/15/acalas-stablecoin-falls-99-percent-after-hackers-issue-13-billion-tokens)
+    - [CoinDesk — Inside the $3B DeFi exploit](https://www.coindesk.com/tech/2022/08/22/inside-the-3b-defi-exploit-of-acalas-crypto-platform)
+    - [CoinGecko — Acala Dollar](https://www.coingecko.com/en/coins/acala-dollar)
   links:
     homepage: https://acala.network/
     coingecko: https://www.coingecko.com/en/coins/acala-dollar
     defillama: https://defillama.com/stablecoin/acala-dollar
     twitter: https://x.com/AcalaNetwork
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: ''
 slug: ausd

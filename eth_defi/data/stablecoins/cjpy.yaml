@@ -28,3 +28,8 @@ slug: cjpy
 contract_addresses:
   - chain: ethereum
     address: '0x1cfa5641c01406ab8ac350ded7d735ec41298372'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

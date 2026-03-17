@@ -2,7 +2,37 @@ symbol: jEUR
 name: Jarvis Synthetic Euro
 short_description: jEUR is a synthetic Euro stablecoin issued by Jarvis Network. It is overcollateralised by USDC and uses Chainlink oracles for EUR/USD price feeds. jEUR enables on-chain Euro exposure across
   multiple chains.
-long_description: ''
+long_description: |
+  [jEUR](https://www.jarvis.network/) is a synthetic Euro stablecoin issued by
+  [Jarvis Network](https://www.jarvis.network/) through its Synthereum protocol. It belongs to the
+  jFIAT family of on-chain synthetic fiat currencies — a suite that also includes jGBP, jCHF, jCAD,
+  jSGD, and jPHP — designed to bring real-world currency exposure to DeFi without traditional banking
+  intermediaries.
+
+  ## Mechanism
+
+  jEUR is over-collateralised by USDC at a 125% collateralisation ratio, with a liquidation threshold
+  of 105%. Users can mint jEUR by depositing USDC into a Synthereum pool and borrowing jFIAT at zero
+  interest, or they can trade directly with liquidity providers at the [Chainlink](https://chain.link/)
+  EUR/USD price feed rate with zero slippage. This direct-swap model means Synthereum pools hold only
+  a single asset (USDC) rather than requiring paired liquidity.
+
+  A network of incentivised liquidators monitors positions and enforces the collateralisation floor,
+  keeping jEUR solvent even in adverse market conditions.
+
+  ## Key properties
+
+  - Over-collateralised by USDC (125% minimum ratio)
+  - Zero-slippage on-chain EUR/USD swaps at Chainlink oracle price
+  - Zero-interest minting against USDC collateral
+  - Available on Ethereum, Polygon, Arbitrum, Avalanche, BNB Chain, Gnosis Chain, Optimism, and Base
+  - Integrates with Aave, Superfluid streaming payments, and other DeFi protocols
+
+  ## Sources
+
+  - [Jarvis Network — Synthereum docs](https://learn.jarvis.network/)
+  - [Etherscan — jEUR token](https://etherscan.io/token/0x0f17BC9a994b87b5225cFb6a2CD4D667ADB4F20B)
+  - [CoinTelegraph — Jarvis jFIAT stablecoins](https://cointelegraph.com/press-releases/jarvis-network-launches-liquid-cad-sgd-and-php-stablecoins-on-polygon)
 category: stablecoin
 links:
   homepage: https://www.jarvis.network/
@@ -13,3 +43,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x0f17BC9a994b87b5225cFb6a2CD4D667ADB4F20B'
 slug: jeur
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

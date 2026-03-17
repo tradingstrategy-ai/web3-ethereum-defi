@@ -1,11 +1,47 @@
 symbol: mtUSDT
 name: Mutuum Finance USDT
 short_description: mtUSDT represents USDT deposited in the Mutuum Finance lending protocol. It is a yield-bearing receipt token that accrues interest from borrowers. Mutuum Finance provides decentralised lending and borrowing on Ethereum.
-long_description: ''
+long_description: |
+  [mtUSDT](https://www.mutuum.com/) is a yield-bearing receipt token issued by
+  [Mutuum Finance](https://www.mutuum.com/), a decentralised, non-custodial liquidity protocol on
+  Ethereum. When a lender deposits USDT into the Mutuum Finance lending pool, they receive an
+  equivalent amount of mtUSDT that automatically accrues interest over time as borrowers pay back
+  loans with interest.
+
+  ## Mechanism
+
+  Mutuum Finance uses a Peer-to-Contract (P2C) model: lenders deposit assets such as USDT or ETH
+  into shared liquidity reserves, and borrowers draw from these pools by providing over-collateralised
+  assets. The interest rate adjusts dynamically based on pool utilisation. mtUSDT tokens serve as
+  1:1 proof of deposit and appreciate in value relative to USDT as the pool earns interest — similar
+  to Aave's aToken model.
+
+  The protocol's V1 was deployed to the Sepolia testnet in early 2026 after a fundraising round that
+  exceeded $20 million from over 19,000 participants. Mainnet launch was targeted to follow the
+  testnet phase. A planned Phase 2 also includes a native over-collateralised stablecoin backed by
+  on-chain collateral.
+
+  ## Key properties
+
+  - 1:1 receipt token: 1 mtUSDT = 1 USDT deposited, appreciating as interest accrues
+  - Yield sourced from over-collateralised borrowers on the same pool
+  - Non-custodial: users retain control; the smart contract holds reserves
+  - Initial supported assets: USDT and ETH
+
+  ## Sources
+
+  - [Mutuum Finance docs](https://docs.mutuum.com/)
+  - [The Block — V1 protocol progress](https://www.theblock.co/press-releases/391599/mutuum-finance-mutm-confirms-v1-protocol-progress-amid-surpassing-20m-raised-milestone)
+  - [GlobeNewswire — V1 goes live](https://www.globenewswire.com/news-release/2026/02/16/3238688/0/en/New-Crypto-Protocol-Mutuum-Finance-MUTM-Confirms-Roadmap-Progress-as-V1-Protocol-Went-Live.html)
 category: yield_bearing
 links:
-  homepage: https://www.mutuum.finance/
+  homepage: https://www.mutuum.com/
   coingecko: ''
   defillama: ''
   twitter: https://x.com/MutuumFinance
 slug: mtusdt
+checks:
+  twitter_last_post_at: '2026-02-10'
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''

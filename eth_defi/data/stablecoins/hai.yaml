@@ -2,7 +2,35 @@ symbol: HAI
 name: HAI (Let's Get HAI)
 short_description: HAI is a multi-collateral stablecoin built on Optimism, forked from the RAI model. It uses a redemption rate mechanism rather than a hard peg to maintain stability. HAI is governed by the Let's
   Get HAI community.
-long_description: ''
+long_description: |
+  [HAI](https://www.letsgethai.com/) is a multi-collateral decentralised stablecoin
+  deployed on Optimism, built as a fork of [Reflexer's RAI](https://reflexer.finance/).
+  The project was initiated by the Reflexer community and developed by
+  [DeFi Wonderland](https://defi.sucks/) with support from SpankChain and Number Group.
+  HAI launched on Optimism mainnet in early 2024 with an airdrop for early participants.
+
+  ## Mechanism
+
+  Like RAI, HAI uses a PID (proportional–integral–derivative) controller to adjust a
+  redemption rate rather than hard-pegging to $1. However, HAI's initial price was set
+  to $1 for accessibility. Users open over-collateralised debt positions (CDPs, called
+  "safes") to mint HAI; supported collateral includes ETH, wstETH, rETH, OP, and RAI.
+  The PID controller raises or lowers the redemption rate to incentivise HAI holders and
+  minters to push the market price back toward the redemption price.
+
+  ## Key properties
+
+  - Multi-collateral CDP stablecoin on Optimism L2
+  - Soft peg via PID-controller redemption rate (not a fixed $1 peg)
+  - Governance token: KITE
+  - Expands on RAI by supporting multiple collateral types including LSDs and OP
+
+  ## Sources
+
+  - [Let's Get HAI — official site](https://www.letsgethai.com/)
+  - [Announcing HAI — Reflexer community post](https://community.reflexer.finance/t/announcing-hai-a-multi-collateral-rai-fork-on-optimism/461)
+  - [HAI Protocol: A Simple Overview (Medium)](https://medium.com/hai-finance/hai-protocol-a-simple-overview-319fe53a8a0e)
+  - [CoinGecko — HAI](https://www.coingecko.com/en/coins/hai)
 category: stablecoin
 links:
   homepage: https://www.letsgethai.com/
@@ -13,3 +41,8 @@ contract_addresses:
   - chain: optimism
     address: '0x10398AbC267496E49106B07dd6BE13364D10dC71'
 slug: hai
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-03-17'
+  marked_dead_at: ''
+  information_found_missing_at: ''
