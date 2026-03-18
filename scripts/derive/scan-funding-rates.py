@@ -4,14 +4,15 @@ Fetches hourly funding rate snapshots for all (or selected) Derive
 perpetual instruments and stores them in a local DuckDB database.
 
 The scan is resumeable — running it again fetches only new data
-since the last sync.
+since the last sync.  On first run it fetches the full available
+history (up to ~2 years back).
 
 Usage::
 
+    # Full sync (all available history, resumable)
     poetry run python scripts/derive/scan-funding-rates.py
 
-Quick test run (1 day, single instrument)::
-
+    # Quick test run (1 day, single instrument)
     LIMIT_DAYS=1 INSTRUMENTS=ETH-PERP poetry run python scripts/derive/scan-funding-rates.py
 
 Environment variables:
@@ -19,7 +20,7 @@ Environment variables:
 - ``LOG_LEVEL``: Logging level (debug, info, warning, error). Default: warning
 - ``DB_PATH``: DuckDB path. Default: ~/.tradingstrategy/derive/funding-rates.duckdb
 - ``INSTRUMENTS``: Comma-separated instrument names. Default: all active perps (auto-discovered)
-- ``LIMIT_DAYS``: Limit history to N days (for quick test runs). Default: 30
+- ``LIMIT_DAYS``: Limit history to N days (for quick test runs). Default: not set (full history / resume)
 """
 
 import datetime
@@ -42,7 +43,7 @@ def main():
     default_log_level = os.environ.get("LOG_LEVEL", "warning")
     db_path_str = os.environ.get("DB_PATH")
     instruments_str = os.environ.get("INSTRUMENTS", "").strip()
-    limit_days = int(os.environ.get("LIMIT_DAYS", "30"))
+    limit_days_str = os.environ.get("LIMIT_DAYS", "").strip()
 
     # Setup logging
     setup_console_logging(
@@ -65,13 +66,21 @@ def main():
         instruments = fetch_perpetual_instruments(session)
         logger.info("Discovered %d active perpetual instruments", len(instruments))
 
-    # Compute start time from LIMIT_DAYS
-    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-    start_time = now - datetime.timedelta(days=limit_days)
+    # When LIMIT_DAYS is set, use it as the start time.
+    # When not set, start_time=None lets sync_instrument auto-discover
+    # the inception date and fetch the full history.
+    if limit_days_str:
+        limit_days = int(limit_days_str)
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        start_time = now - datetime.timedelta(days=limit_days)
+        mode_label = f"Window: {limit_days} days (from {start_time.strftime('%Y-%m-%d %H:%M')} UTC)"
+    else:
+        start_time = None
+        mode_label = "Window: full history (auto-detect inception, resumable)"
 
     print(f"Database: {db_path}")
     print(f"Instruments: {len(instruments)}")
-    print(f"Limit: {limit_days} days (from {start_time.strftime('%Y-%m-%d %H:%M')} UTC)")
+    print(mode_label)
     print()
 
     # Sync

@@ -110,3 +110,34 @@ def test_funding_rate_db_dataframe(session, tmp_path):
         assert "instrument" in df.columns
     finally:
         db.close()
+
+
+@pytest.mark.timeout(60)
+def test_fetch_early_history(session):
+    """Verify that the API returns funding rates from well before the 30-day window.
+
+    The Derive API uses ``start_timestamp`` / ``end_timestamp`` params
+    (not ``start_time`` / ``end_time``) to query arbitrary historical
+    windows.  This test fetches one month of data from ~6 months ago
+    to confirm we can reach beyond the default 30-day window.
+
+    1. Pick a 30-day window starting 6 months ago (clean day boundaries).
+    2. Fetch funding rate history for ETH-PERP in that window.
+    3. Assert we get hourly data and timestamps fall within the window.
+    """
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
+    # 1. Pick a window 6 months ago, truncated to day boundaries
+    start = (now - datetime.timedelta(days=180 + 30)).replace(hour=0, minute=0, second=0, microsecond=0)
+    end = (now - datetime.timedelta(days=180)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # 2. Fetch
+    rates = fetch_funding_rate_history(session, "ETH-PERP", start_time=start, end_time=end)
+
+    # 3. Assert we got data and it falls within the window
+    assert len(rates) >= 24 * 28, f"Expected at least 28 days of hourly data, got {len(rates)} entries"
+
+    for r in rates:
+        assert r.timestamp >= start, f"Entry {r.timestamp} is before start {start}"
+        assert r.timestamp <= end, f"Entry {r.timestamp} is after end {end}"
+        assert isinstance(r.funding_rate, Decimal)

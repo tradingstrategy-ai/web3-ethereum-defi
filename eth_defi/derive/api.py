@@ -167,13 +167,20 @@ def fetch_funding_rate_history(
     Calls the public ``get_funding_rate_history`` endpoint.
     No authentication required.
 
-    The API restricts ``start_time`` to at most 30 days in the past.
-    For accumulating historical data beyond 30 days, see
-    :py:class:`~eth_defi.derive.historical.DeriveFundingRateDatabase`
-    which handles resumable syncs.
-
     Data is returned at hourly resolution — the native funding rate
-    interval on Derive.
+    interval on Derive.  The full history is available back to
+    instrument inception (ETH-PERP since 2024-01-05).
+
+    For best results, keep the query window to one day at a time
+    and use :py:class:`~eth_defi.derive.historical.DeriveFundingRateDatabase`
+    for bulk historical fetches.
+
+    .. note::
+
+       The Derive API requires the parameter names ``start_timestamp``
+       and ``end_timestamp`` (not ``start_time`` / ``end_time``).
+       Using the wrong names silently falls back to the most recent
+       30 days.
 
     Example::
 
@@ -191,7 +198,6 @@ def fetch_funding_rate_history(
         Perpetual instrument name (e.g. ``"ETH-PERP"``).
     :param start_time:
         Start of the query window (naive UTC). Defaults to 30 days ago.
-        API rejects values older than 30 days from now.
     :param end_time:
         End of the query window (naive UTC). Defaults to now.
     :param base_url:
@@ -208,10 +214,10 @@ def fetch_funding_rate_history(
     params: dict = {"instrument_name": instrument_name}
 
     if start_time is not None:
-        params["start_time"] = int(start_time.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
+        params["start_timestamp"] = int(start_time.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
 
     if end_time is not None:
-        params["end_time"] = int(end_time.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
+        params["end_timestamp"] = int(end_time.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
 
     response = session.post(
         url,
@@ -238,5 +244,5 @@ def fetch_funding_rate_history(
         )
 
     entries.sort(key=lambda e: e.timestamp_ms)
-    logger.info("Fetched %d funding rate entries for %s", len(entries), instrument_name)
+    logger.debug("Fetched %d funding rate entries for %s", len(entries), instrument_name)
     return entries

@@ -1,5 +1,6 @@
 # Current
 
+- Add: Derive funding rate full history fetch — fix API parameter names (`start_timestamp`/`end_timestamp`), auto-detect instrument inception dates, 28-day chunked fetch with progress bar (2026-03-18)
 - Add: Derive funding rate history — public API wrapper, DuckDB storage with resumable sync, scan script for all perpetual instruments (2026-03-17, [#867](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/867))
 - Fix: Harmonise stablecoin names — remove brackets, use issuer-first format for consistent frontend display (2026-03-17)
 - Add: Split stablecoin YAML `description` into `short_description` and `long_description` fields with markdown support; JSON export includes both plus backwards-compatible `description` key (2026-03-16)
