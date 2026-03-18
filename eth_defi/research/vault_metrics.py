@@ -1979,6 +1979,9 @@ def format_lifetime_table(
     _del("description")
     _del("short_description")
 
+    # Metadata timestamp, not relevant for human-readable table
+    _del("generated_at")
+
     if not add_share_token:
         _del("share_token")
     else:
