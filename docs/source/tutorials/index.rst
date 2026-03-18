@@ -60,6 +60,7 @@ Tutorials and examples
    pancakeswap-live-minimal
    aave-v3-interest-analysis
    aave-v3-liquidations
+   aave-v3-funding-rates
    gmx-swap
    gmx-v2-price-analysis
    gmx-ccxt-freqtrade
