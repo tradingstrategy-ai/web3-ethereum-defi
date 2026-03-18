@@ -1528,6 +1528,8 @@ def calculate_lifetime_metrics(
     # Add ranking columns
     results_df = calculate_vault_rankings(results_df)
 
+    results_df["generated_at"] = native_datetime_utc_now().isoformat()
+
     return results_df
 
 
