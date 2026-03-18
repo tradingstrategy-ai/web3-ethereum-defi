@@ -201,8 +201,8 @@ def analyse_vault_flow_in_settlement(
     total_supply = vault.fetch_total_supply(block_number)
     total_assets = vault.fetch_total_assets(block_number)
 
-    if total_assets:
-        share_price = total_supply / total_assets
+    if total_supply:
+        share_price = total_assets / total_supply
     else:
         share_price = Decimal(0)
 
