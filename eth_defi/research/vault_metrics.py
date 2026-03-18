@@ -817,9 +817,12 @@ def calculate_period_metrics(
     samples_start_at = share_price_hourly.index.asof(period_start_at)
 
     # Handle case where no sample exists at or before period_start_at
+    # (i.e. vault is younger than the requested period)
     if pd.isna(samples_start_at):
-        # Fall back to the first available sample
+        # Fall back to the first available sample and clamp period_start_at
+        # so it does not appear to precede the vault's actual inception
         samples_start_at = share_price_hourly.index[0]
+        period_start_at = samples_start_at
 
     period_samples_hourly = share_price_hourly.loc[samples_start_at:]
 
