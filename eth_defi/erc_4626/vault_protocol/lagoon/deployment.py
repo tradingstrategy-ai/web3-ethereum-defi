@@ -1657,9 +1657,15 @@ def deploy_automated_lagoon_vault(
     # Configuration transactions (guard setup, ownership, approvals) always
     # use small blocks for fast ~1 second confirmation.
     # https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture
-    from eth_defi.hyperliquid.block import big_blocks_for_deployment
+    from eth_defi.hyperliquid.block import big_blocks_for_deployment, preflight_check_big_blocks
 
     _private_key_hex = deployer_local_account._private_key.hex()
+
+    # Fail early if HyperEVM big blocks cannot be toggled for the deployer.
+    # Without this check, the deployment would proceed through several
+    # contract deploys in small blocks and only fail later with an opaque
+    # "exceeds block gas limit" error when big blocks are actually needed.
+    preflight_check_big_blocks(web3, _private_key_hex)
 
     existing_guard_module = None
     beacon_proxy_factory_address = None

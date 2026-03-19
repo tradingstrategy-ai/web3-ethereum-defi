@@ -41,6 +41,16 @@ from web3 import Web3
 
 logger = logging.getLogger(__name__)
 
+
+class HyperEVMBigBlocksError(Exception):
+    """Raised when big blocks cannot be enabled/disabled on HyperEVM.
+
+    Typically happens when the deployer address has never performed
+    an action on Hyperliquid L1 (e.g. a spot transfer), so the
+    exchange API does not recognise the account.
+    """
+
+
 #: HyperEVM chain IDs where dual-block architecture applies.
 HYPEREVM_CHAIN_IDS: set[int] = {998, 999}
 
@@ -233,6 +243,33 @@ def set_big_blocks(
     response.raise_for_status()
     result = response.json()
     logger.info("Big blocks API response: %s", result)
+
+    if result.get("status") != "ok":
+        error_detail = result.get("response", str(result))
+        raise HyperEVMBigBlocksError(
+            f"Failed to {'enable' if enable else 'disable'} big blocks for {wallet.address}: {error_detail}.\n"
+            f"\n"
+            f"The deployer address must be activated as a HyperCore user before it can\n"
+            f"toggle big blocks. To activate the address, do ONE of the following:\n"
+            f"\n"
+            f"  1. Transfer HYPE from HyperEVM to Spot: connect the deployer wallet at\n"
+            f"     https://app.hyperliquid.xyz, go to Portfolio > Balances and transfer\n"
+            f"     your HyperEVM HYPE balance to Hyperliquid Spot HYPE balance.\n"
+            f"\n"
+            f"  2. Bridge USDC from Arbitrum: connect the deployer wallet at\n"
+            f"     https://app.hyperliquid.xyz and deposit at least 5 USDC via the bridge.\n"
+            f"\n"
+            f"  3. Send USDC from an existing Hyperliquid account: use the usdSend\n"
+            f"     exchange action to send at least 2 USDC to {wallet.address}.\n"
+            f"     (1 USDC is consumed by the one-time activation fee.)\n"
+            f"\n"
+            f"After the address holds a Core asset, it becomes a recognised\n"
+            f"HyperCore user and the evmUserModify action will succeed.\n"
+            f"\n"
+            f"Docs: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture\n"
+            f"Activation fee: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/activation-gas-fee"
+        )
+
     return result
 
 
@@ -397,3 +434,50 @@ def big_blocks_for_deployment(
         yield
     finally:
         set_big_blocks(private_key, enable=False, is_mainnet=is_mainnet)
+
+
+def preflight_check_big_blocks(
+    web3: Web3,
+    private_key: str,
+) -> None:
+    """Verify big blocks can be toggled before starting a deployment on HyperEVM.
+
+    Performs a quick enable/disable round-trip against the Hyperliquid
+    exchange API. If the deployer address has never performed an L1 action
+    (e.g. a spot transfer), the API will reject the request and this
+    function raises :class:`HyperEVMBigBlocksError` with a clear message,
+    rather than letting the deployment fail mid-way with an opaque
+    "exceeds block gas limit" error.
+
+    No-op on non-HyperEVM chains and Anvil forks.
+
+    :param web3:
+        Web3 connection.
+
+    :param private_key:
+        Hex-encoded deployer private key.
+
+    :raises HyperEVMBigBlocksError:
+        If the Hyperliquid exchange API rejects the big blocks toggle.
+    """
+    from eth_defi.provider.anvil import is_anvil
+
+    chain_id = web3.eth.chain_id
+    if not is_hyperevm(chain_id) or is_anvil(web3):
+        return
+
+    is_mainnet = chain_id == 999
+    wallet = Account.from_key(private_key)
+
+    logger.info(
+        "Pre-flight check: verifying big blocks can be enabled for %s on %s",
+        wallet.address,
+        "mainnet" if is_mainnet else "testnet",
+    )
+
+    # Enable and immediately disable — validates the account exists on L1.
+    # set_big_blocks() raises HyperEVMBigBlocksError if the API rejects.
+    set_big_blocks(private_key, enable=True, is_mainnet=is_mainnet)
+    set_big_blocks(private_key, enable=False, is_mainnet=is_mainnet)
+
+    logger.info("Pre-flight check passed: big blocks can be toggled for %s", wallet.address)
