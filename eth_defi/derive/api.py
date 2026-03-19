@@ -280,29 +280,29 @@ def fetch_funding_rate_history(
 def fetch_open_interest(
     session: Session,
     instrument_name: str,
-    end_time: datetime.datetime | None = None,
     base_url: str = DERIVE_MAINNET_API_URL,
     timeout: float = 30.0,
 ) -> OpenInterestEntry | None:
-    """Fetch an open interest snapshot for a Derive perpetual instrument.
+    """Fetch the **current** open interest for a Derive perpetual instrument.
 
-    Calls the public ``/public/statistics`` endpoint with an optional
-    ``end_time`` to retrieve a historical or current open interest value.
-    No authentication required.
+    Calls the public ``/public/statistics`` endpoint.  No authentication
+    required.
 
-    Data is returned at whatever resolution you query — a daily snapshot
-    per instrument is the recommended usage pattern for building history.
+    .. warning::
+
+       This endpoint **always returns the current live OI** regardless of
+       any timestamp parameter.  It does **not** support historical queries.
+       For historical open interest data, use
+       :py:func:`fetch_open_interest_onchain` which reads on-chain state
+       from the Derive Chain archive node at any historical block.
 
     Example::
 
         from eth_defi.derive.api import fetch_open_interest
         from eth_defi.derive.session import create_derive_session
-        import datetime
 
         session = create_derive_session()
-
-        yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=1)
-        entry = fetch_open_interest(session, "ETH-PERP", end_time=yesterday)
+        entry = fetch_open_interest(session, "ETH-PERP")
         if entry:
             print(f"{entry.timestamp}: {entry.open_interest}")
 
@@ -311,14 +311,12 @@ def fetch_open_interest(
     :param instrument_name:
         Perpetual instrument name (e.g. ``"ETH-PERP"``) or aggregate
         type (``"PERP"``, ``"ALL"``, ``"OPTION"``, ``"SPOT"``).
-    :param end_time:
-        Snapshot timestamp (naive UTC). Defaults to current time.
     :param base_url:
         Derive API base URL.
     :param timeout:
         HTTP request timeout in seconds.
     :return:
-        :py:class:`OpenInterestEntry` for the given snapshot time,
+        :py:class:`OpenInterestEntry` timestamped at the current moment,
         or ``None`` if open interest is zero (instrument not yet listed).
     :raises ValueError:
         If the API returns an error response.
@@ -326,9 +324,6 @@ def fetch_open_interest(
     url = f"{base_url}/public/statistics"
 
     params: dict = {"instrument_name": instrument_name}
-
-    if end_time is not None:
-        params["end_time"] = int(end_time.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
 
     response = session.post(
         url,
@@ -348,13 +343,8 @@ def fetch_open_interest(
     if oi == 0:
         return None
 
-    # Use the queried end_time as the snapshot timestamp; fall back to now
-    if end_time is not None:
-        ts_dt = end_time
-        ts_ms = int(end_time.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
-    else:
-        ts_dt = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-        ts_ms = int(ts_dt.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
+    ts_dt = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    ts_ms = int(ts_dt.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
 
     logger.debug("Fetched open interest for %s at %s: %s", instrument_name, ts_dt, oi)
     return OpenInterestEntry(
@@ -428,12 +418,22 @@ def fetch_open_interest_onchain(
     :return:
         Open interest in the base currency as a :py:class:`Decimal`,
         or ``None`` if zero (instrument not yet active at that block).
+    :raises Exception:
+        Transient RPC errors (connection failures, timeouts, rate
+        limits) propagate to the caller so the sync loop can abort
+        before advancing the watermark past a hole.  Only
+        ``ContractLogicError`` (contract revert — meaning the block
+        predates contract deployment) is caught and treated as
+        zero OI.
     """
+    from web3.exceptions import ContractLogicError
+
     calldata = "0x" + PERP_OPEN_INTEREST_SELECTOR + f"{sub_id:064x}"
     try:
         raw = w3.eth.call({"to": contract_address, "data": calldata}, block_number)
-    except Exception as exc:
-        logger.debug("openInterest call failed at block %d: %s", block_number, exc)
+    except ContractLogicError:
+        # Contract not yet deployed or reverts at this block — treat as zero
+        logger.debug("openInterest reverted at block %d (pre-deployment?)", block_number)
         return None
 
     if len(raw) < 32:
