@@ -972,6 +972,9 @@ class DeriveFundingRateDatabase:
         total_new = 0
         since_checkpoint = 0
 
+        def _progress_suffix() -> dict:
+            return {"written": _format_count(total_new)}
+
         for combined in read_multicall_historical(
             chain_id=DERIVE_CHAIN_ID,
             web3factory=web3factory,
@@ -981,6 +984,7 @@ class DeriveFundingRateDatabase:
             step=OI_BLOCK_STEP,
             max_workers=max_workers,
             display_progress="Fetching perp snapshots (parallel multicall)",
+            progress_suffix=_progress_suffix,
         ):
             # Parse the combined result into per-instrument entries.
             # Results are in the same order as the calls list.

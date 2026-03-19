@@ -87,6 +87,18 @@ def main():
 
     db = DeriveFundingRateDatabase(db_path)
     try:
+        # Print current DB stats before starting
+        db_file_size = db_path.stat().st_size if db_path.exists() else 0
+        if db_file_size >= 1_000_000:
+            size_str = f"{db_file_size / 1_000_000:.1f} MB"
+        elif db_file_size >= 1_000:
+            size_str = f"{db_file_size / 1_000:.1f} kB"
+        else:
+            size_str = f"{db_file_size} bytes"
+        existing_rows = db.conn.execute("SELECT COUNT(*) FROM open_interest").fetchone()[0]
+        print(f"Current DB size: {size_str}, existing entries: {existing_rows:,}")
+        print()
+
         results = db.sync_open_interest_instruments(
             session,
             instruments,
