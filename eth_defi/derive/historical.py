@@ -134,6 +134,13 @@ DERIVE_MULTICALL3_DEPLOYMENT_TS = datetime.datetime(2023, 12, 30, 0, 0, 0)
 #: Multicall3 deployment block number on Derive Chain.
 DERIVE_MULTICALL3_DEPLOYMENT_BLOCK = 1_935_198
 
+#: Multicall3 deployment block on Derive Chain.
+#:
+#: Deployed at block 1,935,198 (2023-12-29 23:20 UTC).
+#: OI history starts from this date — the ~22 days between ETH-PERP
+#: activation and Multicall3 deployment are skipped.
+DERIVE_MULTICALL3_DEPLOYMENT_TS = datetime.datetime(2023, 12, 30, 0, 0, 0)
+
 
 def estimate_block_at_timestamp(
     w3: Web3,
