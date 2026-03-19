@@ -73,6 +73,13 @@ def apply_patch():
     patch_logging()  # Add sensitive data filtering to all log handlers
     _patch_status_table_profit_format()  # Show profit with 3 decimal places instead of 5 sig figs
 
+    # Register custom pairlist plugins so schema validation accepts them.
+    # Must happen before freqtrade.config_schema is imported.
+    from freqtrade.constants import AVAILABLE_PAIRLISTS
+    for name in ("HistoricalVolumePairList", "GMXLiquidityFilter"):
+        if name not in AVAILABLE_PAIRLISTS:
+            AVAILABLE_PAIRLISTS.append(name)
+
     # Verify the patch worked correctly
     print("Verifying GMX monkeypatch...", flush=True)
     import ccxt.async_support
