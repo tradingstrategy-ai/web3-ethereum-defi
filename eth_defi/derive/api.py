@@ -37,6 +37,7 @@ from requests import Session
 from web3 import Web3
 
 from eth_defi.derive.constants import DERIVE_MAINNET_API_URL, DERIVE_MAINNET_RPC_URL
+from eth_defi.event_reader.multicall_batcher import get_multicall_contract
 
 logger = logging.getLogger(__name__)
 
@@ -445,6 +446,65 @@ def fetch_open_interest_onchain(
 
     # 18-decimal fixed-point
     return Decimal(val) / Decimal(10**18)
+
+
+def fetch_open_interest_onchain_multicall(
+    w3: Web3,
+    contract_addresses: list[str],
+    block_number: int,
+    sub_id: int = 0,
+) -> list[Decimal | None]:
+    """Fetch open interest for multiple Derive perps in a single RPC call.
+
+    Uses Multicall3 ``aggregate3`` to batch ``openInterest(uint256)`` calls
+    across all provided perp contracts.  This reduces the number of RPC
+    round-trips from N (one per instrument) to 1 per block/day, giving
+    roughly a 12× speed-up for a full 12-instrument historical backfill.
+
+    Each call uses ``allowFailure=True`` so a single contract reverting
+    (e.g. not yet deployed at that block) does not fail the whole batch.
+    Failed calls return ``None`` in the result list.
+
+    :param w3:
+        Web3 instance connected to Derive Chain.
+    :param contract_addresses:
+        List of perp contract addresses (``base_asset_address`` from
+        the instruments API).
+    :param block_number:
+        Block number at which to read state.
+    :param sub_id:
+        Sub-asset identifier. Always ``0`` for perpetuals.
+    :return:
+        List of ``Decimal | None`` in the same order as
+        ``contract_addresses``.  ``None`` means zero OI or the call
+        reverted (contract not yet deployed).
+    :raises Exception:
+        Transient RPC errors propagate to the caller.
+    """
+    if not contract_addresses:
+        return []
+
+    multicall = get_multicall_contract(w3)
+    oi_calldata = bytes.fromhex(PERP_OPEN_INTEREST_SELECTOR + f"{sub_id:064x}")
+
+    calls = [(w3.to_checksum_address(addr), True, oi_calldata) for addr in contract_addresses]
+
+    raw_results = multicall.functions.aggregate3(calls).call(
+        block_identifier=block_number,
+    )
+
+    results: list[Decimal | None] = []
+    for success, return_data in raw_results:
+        if not success or len(return_data) < 32:
+            results.append(None)
+            continue
+        val = int.from_bytes(return_data[:32], "big")
+        if val == 0:
+            results.append(None)
+        else:
+            results.append(Decimal(val) / Decimal(10**18))
+
+    return results
 
 
 def fetch_instrument_details(

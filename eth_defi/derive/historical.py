@@ -65,6 +65,7 @@ from eth_defi.derive.api import (
     OpenInterestEntry,
     fetch_funding_rate_history,
     fetch_open_interest_onchain,
+    fetch_open_interest_onchain_multicall,
     fetch_instrument_details,
 )
 from eth_defi.derive.constants import DERIVE_MAINNET_API_URL, DERIVE_MAINNET_RPC_URL
@@ -104,6 +105,13 @@ DATA_TYPE_OPEN_INTEREST = "open_interest"
 
 #: Step size in days for on-chain OI historical backfill.
 OI_STEP_DAYS = 1
+
+#: Multicall3 deployment block on Derive Chain.
+#:
+#: Deployed at block 1,935,198 (2023-12-29 23:20 UTC).
+#: OI history starts from this date — the ~22 days between ETH-PERP
+#: activation and Multicall3 deployment are skipped.
+DERIVE_MULTICALL3_DEPLOYMENT_TS = datetime.datetime(2023, 12, 30, 0, 0, 0)
 
 
 def estimate_block_at_timestamp(
@@ -711,6 +719,10 @@ class DeriveFundingRateDatabase:
                 # First run: start from activation date (aligned to midnight)
                 start_time = activation_dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
+        # Clamp to Multicall3 deployment — no OI data before this
+        if start_time < DERIVE_MULTICALL3_DEPLOYMENT_TS:
+            start_time = DERIVE_MULTICALL3_DEPLOYMENT_TS
+
         # Cache latest block so we only fetch it once per call
         latest_blk = w3.eth.get_block("latest")
         latest_block = latest_blk.number
@@ -805,7 +817,7 @@ class DeriveFundingRateDatabase:
         latest_block = latest_blk.number
         latest_ts_unix = latest_blk.timestamp
 
-        # Determine effective start for each instrument and total day count
+        # Determine effective start for each instrument
         ranges: dict[str, datetime.datetime] = {}
         for name in instrument_names:
             inst_info = details.get(name)
@@ -829,56 +841,73 @@ class DeriveFundingRateDatabase:
                 activation_dt = datetime.datetime.fromtimestamp(activation_ts, tz=datetime.timezone.utc).replace(tzinfo=None)
                 ranges[name] = activation_dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
+        # Clamp all start times to Multicall3 deployment
+        ranges = {name: max(dt, DERIVE_MULTICALL3_DEPLOYMENT_TS) for name, dt in ranges.items()}
+
         if not ranges:
             return {}
 
-        total_days = sum(max(int((end_time - inst_start).days), 0) + 1 for inst_start in ranges.values())
+        # Walk day-by-day from the global earliest start to end_time.
+        # Each day batches all active instruments into one Multicall3 call.
+        global_start = min(ranges.values())
+        total_days = max(int((end_time - global_start).days), 0) + 1
 
-        results: dict[str, int] = {}
+        results: dict[str, int] = {name: 0 for name in ranges}
         total_new = 0
-        bar = tqdm(total=total_days, desc="Fetching OI on-chain", unit="day")
+        step = datetime.timedelta(days=OI_STEP_DAYS)
+        bar = tqdm(total=total_days, desc="Fetching OI on-chain (multicall)", unit="day")
 
-        for name, inst_start in ranges.items():
-            inst_info = details[name]
-            contract_address = inst_info["base_asset_address"]
-            bar.set_postfix(instrument=name, rows=_format_count(total_new))
-
-            current = inst_start
-            step = datetime.timedelta(days=OI_STEP_DAYS)
-            inserted = 0
-
-            while current <= end_time:
-                target_ts_unix = int(current.replace(tzinfo=datetime.timezone.utc).timestamp())
-                block = estimate_block_at_timestamp(
-                    w3,
-                    target_ts_unix,
-                    latest_block=latest_block,
-                    latest_ts=latest_ts_unix,
-                )
-
-                oi = fetch_open_interest_onchain(w3, contract_address, block)
-
-                if oi is not None:
-                    ts_ms = int(current.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
-                    entry = OpenInterestEntry(
-                        instrument=name,
-                        timestamp=current,
-                        timestamp_ms=ts_ms,
-                        open_interest=oi,
-                    )
-                    inserted += self._insert_open_interest_batch([entry])
-
+        current = global_start
+        while current <= end_time:
+            # Determine which instruments are active on this day
+            active_names = [name for name, inst_start in ranges.items() if inst_start <= current]
+            if not active_names:
                 current += step
                 bar.update(1)
+                continue
 
-            if inserted > 0:
-                self._update_sync_state(name, DATA_TYPE_OPEN_INTEREST, "open_interest")
+            active_addrs = [details[name]["base_asset_address"] for name in active_names]
 
-            results[name] = inserted
-            total_new += inserted
+            target_ts_unix = int(current.replace(tzinfo=datetime.timezone.utc).timestamp())
+            block = estimate_block_at_timestamp(
+                w3,
+                target_ts_unix,
+                latest_block=latest_block,
+                latest_ts=latest_ts_unix,
+            )
+
+            oi_values = fetch_open_interest_onchain_multicall(w3, active_addrs, block)
+
+            ts_ms = int(current.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
+            entries: list[OpenInterestEntry] = []
+            for name, oi in zip(active_names, oi_values):
+                if oi is not None:
+                    entries.append(
+                        OpenInterestEntry(
+                            instrument=name,
+                            timestamp=current,
+                            timestamp_ms=ts_ms,
+                            open_interest=oi,
+                        )
+                    )
+
+            # Insert per-instrument (so _insert_open_interest_batch counts correctly)
+            for entry in entries:
+                inserted = self._insert_open_interest_batch([entry])
+                results[entry.instrument] += inserted
+                total_new += inserted
+
+            current += step
+            bar.set_postfix(day=current.strftime("%Y-%m-%d"), rows=_format_count(total_new))
+            bar.update(1)
 
         bar.set_postfix(rows=_format_count(total_new))
         bar.close()
+
+        # Update sync state for instruments that got new rows
+        for name, count in results.items():
+            if count > 0:
+                self._update_sync_state(name, DATA_TYPE_OPEN_INTEREST, "open_interest")
 
         return results
 
