@@ -1,10 +1,9 @@
-"""Scan Derive open interest history and store it in DuckDB.
+"""Scan Derive perp snapshots (OI + prices) and store in DuckDB.
 
-Fetches daily open interest snapshots for Derive perpetual instruments by
-reading on-chain state from the Derive Chain archive node.  The
-``openInterest(uint256)`` view function on each perp contract is called at
-the block closest to midnight UTC for each day since the instrument's
-activation date.
+Fetches hourly snapshots for Derive perpetual instruments by reading
+on-chain state from the Derive Chain archive node.  Three view functions
+are batched via Multicall3 per hour per instrument: ``openInterest(uint256)``,
+``getPerpPrice()``, ``getIndexPrice()``.
 
 On first run, fetches the full available history from the instrument's
 ``scheduled_activation`` date.  Subsequent runs resume incrementally from
@@ -50,6 +49,7 @@ def main():
     db_path_str = os.environ.get("DB_PATH")
     instruments_str = os.environ.get("INSTRUMENTS", "").strip()
     rpc_url = os.environ.get("DERIVE_RPC_URL", DERIVE_MAINNET_RPC_URL)
+    max_workers = int(os.environ.get("MAX_WORKERS", "2"))
 
     # Setup logging
     setup_console_logging(
@@ -60,7 +60,7 @@ def main():
     # Resolve database path
     db_path = Path(db_path_str).expanduser() if db_path_str else DEFAULT_FUNDING_RATE_DB_PATH
 
-    # Create HTTP session and Web3 connection
+    # Create HTTP session and verify RPC connection
     session = create_derive_session()
     w3 = Web3(Web3.HTTPProvider(rpc_url))
 
@@ -81,12 +81,18 @@ def main():
     print(f"Database: {db_path}")
     print(f"Instruments: {len(instruments)}")
     print(f"Derive Chain RPC: {rpc_url} (block {latest:,})")
+    print(f"Workers: {max_workers}")
     print(f"Scan end: {now.strftime('%Y-%m-%d %H:%M')} UTC")
     print()
 
     db = DeriveFundingRateDatabase(db_path)
     try:
-        results = db.sync_open_interest_instruments(session, instruments, w3=w3)
+        results = db.sync_open_interest_instruments(
+            session,
+            instruments,
+            rpc_url=rpc_url,
+            max_workers=max_workers,
+        )
         db.save()
 
         # Build summary table
@@ -95,8 +101,8 @@ def main():
             state = db.get_open_interest_sync_state(name)
             row_count = db.get_open_interest_row_count(name)
             if state and state["oldest_ts"] and state["newest_ts"]:
-                oldest = datetime.datetime.fromtimestamp(state["oldest_ts"] / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%d")
-                newest = datetime.datetime.fromtimestamp(state["newest_ts"] / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%d")
+                oldest = datetime.datetime.fromtimestamp(state["oldest_ts"] / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M")
+                newest = datetime.datetime.fromtimestamp(state["newest_ts"] / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M")
             else:
                 oldest = "-"
                 newest = "-"

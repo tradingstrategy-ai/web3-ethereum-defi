@@ -88,6 +88,7 @@ Tutorials and examples
    hyperliquid-vault-benchmark
    hyperliquid-vault-analysis
    lighter-vault-benchmark
+   derive-open-interest-funding-rate
    enzyme-read-vaults
    enzyme-deploy
    verify-node-integrity

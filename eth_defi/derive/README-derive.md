@@ -66,20 +66,45 @@ source .local-test.env && poetry run pytest tests/derive/test_funding_rate_histo
 
 Tests use the public API (no credentials needed). The `test_fetch_early_history` test verifies that data from 6 months ago is accessible.
 
-## Open interest history
+## Perp daily snapshots (open interest + prices)
 
-The `scan-open-interest.py` script fetches daily open interest snapshots for Derive perpetual instruments by reading on-chain state from the Derive Chain archive node and stores them in the same DuckDB database as funding rates. On first run it fetches the full available history from each instrument's activation date. Subsequent runs resume from the last stored timestamp.
+The `scan-open-interest.py` script fetches daily snapshots for Derive perpetual instruments by reading on-chain state from the Derive Chain archive node. Each daily snapshot collects three data points per instrument in a single Multicall3 call:
+
+| Data point | Contract function | Description |
+|---|---|---|
+| `open_interest` | `openInterest(uint256 subId)` (selector `0x88e53ec8`) | OI in base currency (e.g. ETH for ETH-PERP) |
+| `perp_price` | `getPerpPrice()` (selector `0x90f76b18`) | Mark/perp price in USD |
+| `index_price` | `getIndexPrice()` (selector `0x58c0994a`) | Spot/index price in USD |
+
+All values are 18-decimal fixed-point on-chain. Stored in the `open_interest` DuckDB table alongside the funding rates database.
+
+On first run it fetches the full available history from each instrument's activation date. Subsequent runs resume from the last stored timestamp.
 
 ### Data source: on-chain via Derive Chain archive node
 
-The `POST /public/statistics` REST endpoint ignores `end_time` for `open_interest` — it always returns the current live value. Historical OI data is read directly from the on-chain perp contracts instead:
+The `POST /public/statistics` REST endpoint ignores `end_time` for `open_interest` — it always returns the current live value. Historical data is read directly from the on-chain perp contracts instead:
 
-- **Contract function**: `openInterest(uint256 subId)` (sub-ID 0 for all perps)
+- **Contract functions**: `openInterest(uint256)`, `getPerpPrice()`, `getIndexPrice()`
 - **Contract address**: `base_asset_address` from `GET /public/get_all_instruments`
 - **RPC endpoint**: `https://rpc.derive.xyz` (Derive Chain, chain ID 957)
 - **Archive support**: full history from chain genesis (~December 2023 for ETH/BTC-PERP)
-- **Resolution**: daily (one on-chain call per day per instrument)
+- **Resolution**: daily (one multicall per day across all instruments, 3 subcalls per instrument)
 - **Block estimation**: linear interpolation at 2s/block — accurate to within seconds
+- **Multicall3**: all instruments batched into a single `aggregate3` call per day via Multicall3 at `0xcA11bde05977b3631167028862bE2a173976CA11` (deployed at block 1,935,198 on 2023-12-29)
+- **History start**: clamped to Multicall3 deployment (2023-12-30) — the ~22 days between earliest instrument activation and Multicall3 deployment are skipped
+
+### API quirks (discovered 2026-03-19)
+
+- **Statistics endpoint ignores timestamps**: The `POST /public/statistics` endpoint accepts `end_time` and `end_timestamp` parameters but always returns the current live open interest. Tested with millisecond timestamps, second timestamps, and both parameter names — all return identical current values. This is why on-chain reads are used instead.
+- **Function selectors**: The correct selector for `openInterest(uint256)` is `0x88e53ec8` (the parameterless `openInterest()` selector `0xfa5a2e62` reverts). `getPerpPrice()` is `0x90f76b18` and `getIndexPrice()` is `0x58c0994a` — both return `(uint256 price, uint256 confidence)` tuples.
+- **Error handling**: Only `ContractLogicError` (contract revert at pre-deployment blocks) is caught. Transient RPC errors (timeouts, rate limits) propagate to prevent silent holes in history — the sync loop aborts rather than advancing the watermark past missing data.
+
+### Performance (benchmarked 2026-03-19)
+
+- **Full 2-instrument backfill** (ETH-PERP + BTC-PERP, ~811 days each): 1,615 rows in 19m42s
+- **Bottleneck**: RPC latency (~1.4s per multicall round-trip), not compute
+- **Multicall benefit**: 1 RPC call per day regardless of instrument count (vs N calls without batching)
+- **Incremental runs**: only fetch new days since last sync, typically completing in seconds
 
 ### Full historical sync (all instruments, from inception)
 
@@ -87,7 +112,7 @@ The `POST /public/statistics` REST endpoint ignores `end_time` for `open_interes
 poetry run python scripts/derive/scan-open-interest.py
 ```
 
-On first run, fetches ~800+ days of history for each instrument (one `eth_call` per day). Subsequent runs add only the new days since the last stored snapshot.
+On first run, fetches ~800+ days of history for each instrument via daily Multicall3 batches (3 subcalls per instrument per day: OI, perp price, index price). Subsequent runs add only the new days since the last stored snapshot.
 
 ### Sync specific instruments
 
@@ -114,6 +139,8 @@ Tests use the public Derive Chain RPC and REST API (no credentials needed).
 
 ## Samples
 
+### Funding rate history
+
 ```
 Instrument      New rows    Total rows  Oldest            Newest
 ------------  ----------  ------------  ----------------  ----------------
@@ -129,4 +156,13 @@ OP-PERP            11139         11139  2024-11-02 18:00  2026-03-16 10:00
 SOL-PERP           14433         14433  2024-07-21 22:00  2026-03-18 12:00
 SUI-PERP           11377         11377  2024-11-03 01:00  2026-03-16 10:00
 XRP-PERP            2714          2714  2025-11-03 10:00  2026-03-18 03:00
+```
+
+### Open interest history
+
+```
+Instrument      New rows    Total rows  Oldest      Newest
+------------  ----------  ------------  ----------  ----------
+BTC-PERP             811           811  2023-12-30  2026-03-19
+ETH-PERP             804           804  2024-01-06  2026-03-19
 ```

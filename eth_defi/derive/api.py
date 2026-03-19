@@ -44,24 +44,34 @@ logger = logging.getLogger(__name__)
 
 @dataclass(slots=True)
 class OpenInterestEntry:
-    """A single open interest snapshot from Derive.
+    """A daily on-chain snapshot for a Derive perpetual instrument.
 
-    Represents the open interest for a perpetual instrument at a
-    specific point in time, as returned by the ``/public/statistics``
-    endpoint.
+    Contains open interest, mark price (perp price), and index price
+    read from on-chain view functions via Multicall3 at daily intervals.
     """
 
     #: Instrument name (e.g. ``"ETH-PERP"``)
     instrument: str
 
-    #: Snapshot timestamp (naive UTC) — the ``end_time`` queried
+    #: Snapshot timestamp (naive UTC, aligned to midnight)
     timestamp: datetime.datetime
 
     #: Timestamp in milliseconds since epoch
     timestamp_ms: int
 
-    #: Open interest in the instrument's base currency, as a decimal
+    #: Open interest in the instrument's base currency
+    #: (e.g. ETH for ETH-PERP). From ``openInterest(uint256)``.
     open_interest: Decimal
+
+    #: Mark/perp price in USD (18 decimals on-chain).
+    #: From ``getPerpPrice()`` — the first return value (price).
+    #: ``None`` if the call reverted (contract not yet deployed).
+    perp_price: Decimal | None = None
+
+    #: Spot/index price in USD (18 decimals on-chain).
+    #: From ``getIndexPrice()`` — the first return value (price).
+    #: ``None`` if the call reverted (contract not yet deployed).
+    index_price: Decimal | None = None
 
 
 @dataclass(slots=True)
@@ -365,8 +375,31 @@ PERP_OPEN_INTEREST_SELECTOR = "88e53ec8"
 #: ABI-encoded ``uint256(0)`` for sub-ID 0 (all perps use sub-ID 0).
 _PERP_SUB_ID_ZERO = "0000000000000000000000000000000000000000000000000000000000000000"
 
+#: ABI selector for ``getPerpPrice()`` on Derive perp contracts.
+#:
+#: Returns ``(uint256 price, uint256 confidence)`` — both 18-decimal.
+PERP_GET_PERP_PRICE_SELECTOR = "90f76b18"
+
+#: ABI selector for ``getIndexPrice()`` on Derive perp contracts.
+#:
+#: Returns ``(uint256 price, uint256 confidence)`` — both 18-decimal.
+PERP_GET_INDEX_PRICE_SELECTOR = "58c0994a"
+
 #: Derive Chain block time in seconds (OP Stack L2, 2s blocks).
 DERIVE_BLOCK_TIME_SECONDS = 2
+
+
+def _decode_uint256(raw: bytes) -> Decimal | None:
+    """Decode a uint256 return value (18-decimal fixed-point) to Decimal.
+
+    Returns ``None`` for zero or insufficient data.
+    """
+    if len(raw) < 32:
+        return None
+    val = int.from_bytes(raw[:32], "big")
+    if val == 0:
+        return None
+    return Decimal(val) / Decimal(10**18)
 
 
 def fetch_open_interest_onchain(
@@ -437,33 +470,45 @@ def fetch_open_interest_onchain(
         logger.debug("openInterest reverted at block %d (pre-deployment?)", block_number)
         return None
 
-    if len(raw) < 32:
-        return None
-
-    val = int.from_bytes(raw[:32], "big")
-    if val == 0:
-        return None
-
-    # 18-decimal fixed-point
-    return Decimal(val) / Decimal(10**18)
+    return _decode_uint256(raw)
 
 
-def fetch_open_interest_onchain_multicall(
+@dataclass(slots=True)
+class PerpSnapshotMulticallResult:
+    """Result of a single instrument from :py:func:`fetch_perp_snapshots_multicall`.
+
+    Groups the three on-chain reads (OI, perp price, index price) for
+    one instrument at one block.
+    """
+
+    #: Open interest in base currency. ``None`` if reverted or zero.
+    open_interest: Decimal | None
+
+    #: Mark/perp price in USD. ``None`` if reverted.
+    perp_price: Decimal | None
+
+    #: Spot/index price in USD. ``None`` if reverted.
+    index_price: Decimal | None
+
+
+def fetch_perp_snapshots_multicall(
     w3: Web3,
     contract_addresses: list[str],
     block_number: int,
     sub_id: int = 0,
-) -> list[Decimal | None]:
-    """Fetch open interest for multiple Derive perps in a single RPC call.
+) -> list[PerpSnapshotMulticallResult]:
+    """Fetch open interest, perp price, and index price for multiple instruments in one RPC call.
 
-    Uses Multicall3 ``aggregate3`` to batch ``openInterest(uint256)`` calls
-    across all provided perp contracts.  This reduces the number of RPC
-    round-trips from N (one per instrument) to 1 per block/day, giving
-    roughly a 12× speed-up for a full 12-instrument historical backfill.
+    Uses Multicall3 ``aggregate3`` to batch three view function calls per
+    instrument:
 
+    - ``openInterest(uint256 subId)`` — OI in base currency
+    - ``getPerpPrice()`` — mark/perp price in USD
+    - ``getIndexPrice()`` — spot/index price in USD
+
+    For N instruments this sends 3×N subcalls in a single RPC round-trip.
     Each call uses ``allowFailure=True`` so a single contract reverting
     (e.g. not yet deployed at that block) does not fail the whole batch.
-    Failed calls return ``None`` in the result list.
 
     :param w3:
         Web3 instance connected to Derive Chain.
@@ -475,9 +520,8 @@ def fetch_open_interest_onchain_multicall(
     :param sub_id:
         Sub-asset identifier. Always ``0`` for perpetuals.
     :return:
-        List of ``Decimal | None`` in the same order as
-        ``contract_addresses``.  ``None`` means zero OI or the call
-        reverted (contract not yet deployed).
+        List of :py:class:`PerpSnapshotMulticallResult` in the same
+        order as ``contract_addresses``.
     :raises Exception:
         Transient RPC errors propagate to the caller.
     """
@@ -485,24 +529,45 @@ def fetch_open_interest_onchain_multicall(
         return []
 
     multicall = get_multicall_contract(w3)
-    oi_calldata = bytes.fromhex(PERP_OPEN_INTEREST_SELECTOR + f"{sub_id:064x}")
 
-    calls = [(w3.to_checksum_address(addr), True, oi_calldata) for addr in contract_addresses]
+    oi_calldata = bytes.fromhex(PERP_OPEN_INTEREST_SELECTOR + f"{sub_id:064x}")
+    perp_price_calldata = bytes.fromhex(PERP_GET_PERP_PRICE_SELECTOR)
+    index_price_calldata = bytes.fromhex(PERP_GET_INDEX_PRICE_SELECTOR)
+
+    # Build calls: 3 per instrument (OI, perp price, index price)
+    calls = []
+    for addr in contract_addresses:
+        checksum = w3.to_checksum_address(addr)
+        calls.append((checksum, True, oi_calldata))
+        calls.append((checksum, True, perp_price_calldata))
+        calls.append((checksum, True, index_price_calldata))
 
     raw_results = multicall.functions.aggregate3(calls).call(
         block_identifier=block_number,
     )
 
-    results: list[Decimal | None] = []
-    for success, return_data in raw_results:
-        if not success or len(return_data) < 32:
-            results.append(None)
-            continue
-        val = int.from_bytes(return_data[:32], "big")
-        if val == 0:
-            results.append(None)
-        else:
-            results.append(Decimal(val) / Decimal(10**18))
+    # Parse results in groups of 3
+    results: list[PerpSnapshotMulticallResult] = []
+    for i in range(len(contract_addresses)):
+        base = i * 3
+
+        # openInterest(uint256) → uint256
+        oi_success, oi_data = raw_results[base]
+        oi = _decode_uint256(oi_data) if oi_success else None
+
+        # getPerpPrice() → (uint256 price, uint256 confidence)
+        pp_success, pp_data = raw_results[base + 1]
+        perp_price = _decode_uint256(pp_data) if pp_success else None
+
+        # getIndexPrice() → (uint256 price, uint256 confidence)
+        ip_success, ip_data = raw_results[base + 2]
+        index_price = _decode_uint256(ip_data) if ip_success else None
+
+        results.append(PerpSnapshotMulticallResult(
+            open_interest=oi,
+            perp_price=perp_price,
+            index_price=index_price,
+        ))
 
     return results
 

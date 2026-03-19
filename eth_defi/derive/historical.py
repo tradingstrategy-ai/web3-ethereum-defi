@@ -1,6 +1,6 @@
 """DuckDB persistence for Derive funding rate and open interest history.
 
-Stores hourly funding rate snapshots and daily open interest snapshots
+Stores hourly funding rate snapshots and hourly open interest snapshots
 for perpetual instruments. Incremental sync fetches the full available
 history (back to instrument inception) and is crash-resumeable.
 
@@ -13,7 +13,7 @@ Schema
 Three tables:
 
 - ``funding_rates`` -- hourly funding rate snapshots
-- ``open_interest`` -- daily open interest snapshots
+- ``open_interest`` -- hourly perp snapshots (OI, perp price, index price)
 - ``sync_state`` -- per-instrument watermarks for incremental sync
 
 Storage location
@@ -61,14 +61,23 @@ from web3 import Web3
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.derive.api import (
     DERIVE_BLOCK_TIME_SECONDS,
+    PERP_GET_INDEX_PRICE_SELECTOR,
+    PERP_GET_PERP_PRICE_SELECTOR,
+    PERP_OPEN_INTEREST_SELECTOR,
     FundingRateEntry,
     OpenInterestEntry,
+    _decode_uint256,
     fetch_funding_rate_history,
-    fetch_open_interest_onchain,
-    fetch_open_interest_onchain_multicall,
     fetch_instrument_details,
+    fetch_perp_snapshots_multicall,
 )
-from eth_defi.derive.constants import DERIVE_MAINNET_API_URL, DERIVE_MAINNET_RPC_URL
+from eth_defi.derive.constants import DERIVE_CHAIN_ID, DERIVE_MAINNET_API_URL, DERIVE_MAINNET_RPC_URL
+from eth_defi.event_reader.multicall_batcher import (
+    CombinedEncodedCallResult,
+    EncodedCall,
+    read_multicall_historical,
+)
+from eth_defi.event_reader.web3factory import TunedWeb3Factory
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +112,17 @@ DATA_TYPE_FUNDING_RATES = "funding_rates"
 #: Data type name for open interest sync state tracking
 DATA_TYPE_OPEN_INTEREST = "open_interest"
 
-#: Step size in days for on-chain OI historical backfill.
-OI_STEP_DAYS = 1
+#: Step size for on-chain perp snapshot backfill.
+OI_STEP = datetime.timedelta(hours=1)
+
+#: Block step for hourly reads on Derive Chain (3600s / 2s per block = 1800 blocks).
+OI_BLOCK_STEP = 3600 // DERIVE_BLOCK_TIME_SECONDS
+
+#: Checkpoint interval: flush sync state and DuckDB WAL every N hours of data.
+#:
+#: This ensures the scan can resume close to where it left off after a crash
+#: rather than restarting from the beginning.
+OI_CHECKPOINT_INTERVAL = 500
 
 #: Multicall3 deployment block on Derive Chain.
 #:
@@ -112,6 +130,9 @@ OI_STEP_DAYS = 1
 #: OI history starts from this date — the ~22 days between ETH-PERP
 #: activation and Multicall3 deployment are skipped.
 DERIVE_MULTICALL3_DEPLOYMENT_TS = datetime.datetime(2023, 12, 30, 0, 0, 0)
+
+#: Multicall3 deployment block number on Derive Chain.
+DERIVE_MULTICALL3_DEPLOYMENT_BLOCK = 1_935_198
 
 
 def estimate_block_at_timestamp(
@@ -125,7 +146,7 @@ def estimate_block_at_timestamp(
     Uses linear interpolation from the current block.  Derive Chain has a
     stable 2-second block time so the estimate is accurate to within a
     handful of blocks (a few seconds), which is more than adequate for
-    daily open interest snapshots.
+    hourly perp snapshots (OI, perp price, index price).
 
     :param w3:
         Web3 instance connected to Derive Chain.
@@ -214,9 +235,20 @@ class DeriveFundingRateDatabase:
                     instrument VARCHAR NOT NULL,
                     ts BIGINT NOT NULL,
                     open_interest DOUBLE NOT NULL,
+                    perp_price DOUBLE,
+                    index_price DOUBLE,
                     PRIMARY KEY (instrument, ts)
                 )
             """)
+            # Migration: add columns if upgrading from older schema
+            try:
+                self.conn.execute("ALTER TABLE open_interest ADD COLUMN perp_price DOUBLE")
+            except duckdb.CatalogException:
+                pass
+            try:
+                self.conn.execute("ALTER TABLE open_interest ADD COLUMN index_price DOUBLE")
+            except duckdb.CatalogException:
+                pass
             self.conn.execute("""
                 CREATE TABLE IF NOT EXISTS sync_state (
                     instrument VARCHAR NOT NULL,
@@ -655,10 +687,10 @@ class DeriveFundingRateDatabase:
         """Fetch open interest history and store it in DuckDB.
 
         Queries the ``openInterest(uint256)`` view function on the Derive
-        Chain perp contract at daily intervals.  Derive Chain is an archive
+        Chain perp contract at hourly intervals.  Derive Chain is an archive
         node so historical state from chain genesis is available.
 
-        On the first run, fetches daily snapshots from the instrument's
+        On the first run, fetches hourly snapshots from the instrument's
         ``scheduled_activation`` date to now.  On subsequent runs, resumes
         from the last stored timestamp.  Uses ``INSERT OR IGNORE`` so the
         sync is crash-resumeable.
@@ -714,7 +746,7 @@ class DeriveFundingRateDatabase:
                     tz=datetime.timezone.utc,
                 ).replace(tzinfo=None)
                 # Advance by one day so we don't re-insert the last known point
-                start_time += datetime.timedelta(days=OI_STEP_DAYS)
+                start_time += OI_STEP
             else:
                 # First run: start from activation date (aligned to midnight)
                 start_time = activation_dt.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -730,7 +762,7 @@ class DeriveFundingRateDatabase:
 
         total_inserted = 0
         current = start_time
-        step = datetime.timedelta(days=OI_STEP_DAYS)
+        step = OI_STEP
 
         while current <= end_time:
             target_ts_unix = int(current.replace(tzinfo=datetime.timezone.utc).timestamp())
@@ -741,15 +773,18 @@ class DeriveFundingRateDatabase:
                 latest_ts=latest_ts_unix,
             )
 
-            oi = fetch_open_interest_onchain(w3, contract_address, block)
+            snapshots = fetch_perp_snapshots_multicall(w3, [contract_address], block)
+            snap = snapshots[0]
 
-            if oi is not None:
+            if snap.open_interest is not None:
                 ts_ms = int(current.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
                 entry = OpenInterestEntry(
                     instrument=instrument_name,
                     timestamp=current,
                     timestamp_ms=ts_ms,
-                    open_interest=oi,
+                    open_interest=snap.open_interest,
+                    perp_price=snap.perp_price,
+                    index_price=snap.index_price,
                 )
                 total_inserted += self._insert_open_interest_batch([entry])
 
@@ -771,24 +806,32 @@ class DeriveFundingRateDatabase:
         self,
         session: Session,
         instrument_names: list[str],
-        w3: Web3 | None = None,
+        rpc_url: str = DERIVE_MAINNET_RPC_URL,
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
         base_url: str = DERIVE_MAINNET_API_URL,
         timeout: float = 30.0,
+        max_workers: int = 8,
     ) -> dict[str, int]:
-        """Fetch open interest history for multiple instruments.
+        """Fetch perp snapshot history for multiple instruments using parallel reads.
 
-        Walks each instrument day-by-day from inception (or last stored
-        timestamp) to now, reading on-chain state at daily intervals.
+        Uses :py:func:`~eth_defi.event_reader.multicall_batcher.read_multicall_historical`
+        to read on-chain state at hourly intervals across all instruments in
+        parallel.  Each worker process runs its own Web3 connection via
+        :py:class:`~eth_defi.event_reader.web3factory.TunedWeb3Factory`.
+
+        For N instruments, 3×N subcalls (OI, perp price, index price) are
+        batched into one Multicall3 ``tryBlockAndAggregate`` call per hour.
+        With ``max_workers=8``, eight hours are read concurrently, giving
+        roughly 8× throughput over sequential reads.
 
         :param session:
             HTTP session.
         :param instrument_names:
             List of instrument names (e.g. ``["ETH-PERP", "BTC-PERP"]``).
-        :param w3:
-            Web3 instance connected to Derive Chain.  Created automatically
-            if not provided.
+        :param rpc_url:
+            Derive Chain JSON-RPC URL.  A :py:class:`TunedWeb3Factory` is
+            created from this URL for parallel worker processes.
         :param start_time:
             Override start time for all instruments.
         :param end_time:
@@ -797,13 +840,12 @@ class DeriveFundingRateDatabase:
             Derive API base URL.
         :param timeout:
             HTTP request timeout.
+        :param max_workers:
+            Number of parallel worker processes for RPC reads.
         :return:
             Dict mapping instrument name to number of new entries inserted.
         """
-        if w3 is None:
-            w3 = Web3(Web3.HTTPProvider(DERIVE_MAINNET_RPC_URL))
-
-        tqdm_logging.set_level(logging.INFO)
+        w3 = Web3(Web3.HTTPProvider(rpc_url))
 
         now = native_datetime_utc_now()
         if end_time is None:
@@ -812,7 +854,7 @@ class DeriveFundingRateDatabase:
         # Fetch instrument details once for all instruments
         details = fetch_instrument_details(session, base_url=base_url, timeout=timeout)
 
-        # Cache latest block for all instruments
+        # Cache latest block for block estimation
         latest_blk = w3.eth.get_block("latest")
         latest_block = latest_blk.number
         latest_ts_unix = latest_blk.timestamp
@@ -835,7 +877,7 @@ class DeriveFundingRateDatabase:
                     state["newest_ts"] / 1000,
                     tz=datetime.timezone.utc,
                 ).replace(tzinfo=None)
-                ranges[name] = resume + datetime.timedelta(days=OI_STEP_DAYS)
+                ranges[name] = resume + OI_STEP
             else:
                 activation_ts = inst_info["scheduled_activation"]
                 activation_dt = datetime.datetime.fromtimestamp(activation_ts, tz=datetime.timezone.utc).replace(tzinfo=None)
@@ -847,67 +889,158 @@ class DeriveFundingRateDatabase:
         if not ranges:
             return {}
 
-        # Walk day-by-day from the global earliest start to end_time.
-        # Each day batches all active instruments into one Multicall3 call.
         global_start = min(ranges.values())
-        total_days = max(int((end_time - global_start).days), 0) + 1
+
+        # Convert timestamps to block numbers for read_multicall_historical
+        start_block = max(
+            estimate_block_at_timestamp(
+                w3,
+                int(global_start.replace(tzinfo=datetime.timezone.utc).timestamp()),
+                latest_block=latest_block,
+                latest_ts=latest_ts_unix,
+            ),
+            DERIVE_MULTICALL3_DEPLOYMENT_BLOCK,
+        )
+        end_block = latest_block
+
+        if start_block >= end_block:
+            return {name: 0 for name in ranges}
+
+        # Build EncodedCall objects: 3 per instrument (OI, perp price, index price).
+        # Each call uses first_block_number to skip blocks before the
+        # instrument's activation or resume point.
+        oi_selector = bytes.fromhex(PERP_OPEN_INTEREST_SELECTOR)
+        oi_data = bytes(32)  # uint256(0) for sub-ID 0
+        perp_price_selector = bytes.fromhex(PERP_GET_PERP_PRICE_SELECTOR)
+        index_price_selector = bytes.fromhex(PERP_GET_INDEX_PRICE_SELECTOR)
+
+        calls: list[EncodedCall] = []
+        # Track the order: calls come in groups of 3 per instrument
+        call_instrument_names: list[str] = []
+
+        for name in sorted(ranges.keys()):
+            addr = details[name]["base_asset_address"]
+            inst_start_ts = int(ranges[name].replace(tzinfo=datetime.timezone.utc).timestamp())
+            first_block = max(
+                estimate_block_at_timestamp(
+                    w3,
+                    inst_start_ts,
+                    latest_block=latest_block,
+                    latest_ts=latest_ts_unix,
+                ),
+                DERIVE_MULTICALL3_DEPLOYMENT_BLOCK,
+            )
+
+            calls.append(EncodedCall.from_keccak_signature(
+                address=addr,
+                function=f"{name}/openInterest",
+                signature=oi_selector,
+                data=oi_data,
+                extra_data={"instrument": name, "field": "open_interest"},
+                first_block_number=first_block,
+            ))
+            calls.append(EncodedCall.from_keccak_signature(
+                address=addr,
+                function=f"{name}/getPerpPrice",
+                signature=perp_price_selector,
+                data=b"",
+                extra_data={"instrument": name, "field": "perp_price"},
+                first_block_number=first_block,
+            ))
+            calls.append(EncodedCall.from_keccak_signature(
+                address=addr,
+                function=f"{name}/getIndexPrice",
+                signature=index_price_selector,
+                data=b"",
+                extra_data={"instrument": name, "field": "index_price"},
+                first_block_number=first_block,
+            ))
+            call_instrument_names.append(name)
+
+        logger.info(
+            "Starting parallel perp snapshot read: %d instruments, blocks %d–%d, step %d, %d workers",
+            len(call_instrument_names),
+            start_block,
+            end_block,
+            OI_BLOCK_STEP,
+            max_workers,
+        )
+
+        web3factory = TunedWeb3Factory(rpc_url)
 
         results: dict[str, int] = {name: 0 for name in ranges}
         total_new = 0
-        step = datetime.timedelta(days=OI_STEP_DAYS)
-        bar = tqdm(total=total_days, desc="Fetching OI on-chain (multicall)", unit="day")
+        since_checkpoint = 0
 
-        current = global_start
-        while current <= end_time:
-            # Determine which instruments are active on this day
-            active_names = [name for name, inst_start in ranges.items() if inst_start <= current]
-            if not active_names:
-                current += step
-                bar.update(1)
+        for combined in read_multicall_historical(
+            chain_id=DERIVE_CHAIN_ID,
+            web3factory=web3factory,
+            calls=calls,
+            start_block=start_block,
+            end_block=end_block,
+            step=OI_BLOCK_STEP,
+            max_workers=max_workers,
+            display_progress="Fetching perp snapshots (parallel multicall)",
+        ):
+            # Parse the combined result into per-instrument entries.
+            # Results are in the same order as the calls list.
+            # Group by instrument: 3 results per instrument (OI, perp_price, index_price).
+            ts_dt = combined.timestamp
+            if ts_dt is None:
                 continue
+            # Normalise to naive UTC
+            if ts_dt.tzinfo is not None:
+                ts_dt = ts_dt.replace(tzinfo=None)
+            ts_ms = int(ts_dt.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
 
-            active_addrs = [details[name]["base_asset_address"] for name in active_names]
+            # Collect results grouped by instrument
+            instrument_data: dict[str, dict] = {}
+            for call_result in combined.results:
+                name = call_result.call.extra_data["instrument"]
+                field = call_result.call.extra_data["field"]
+                if name not in instrument_data:
+                    instrument_data[name] = {}
+                if call_result.success:
+                    instrument_data[name][field] = _decode_uint256(call_result.result)
+                else:
+                    instrument_data[name][field] = None
 
-            target_ts_unix = int(current.replace(tzinfo=datetime.timezone.utc).timestamp())
-            block = estimate_block_at_timestamp(
-                w3,
-                target_ts_unix,
-                latest_block=latest_block,
-                latest_ts=latest_ts_unix,
-            )
-
-            oi_values = fetch_open_interest_onchain_multicall(w3, active_addrs, block)
-
-            ts_ms = int(current.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
             entries: list[OpenInterestEntry] = []
-            for name, oi in zip(active_names, oi_values):
+            for name, data in instrument_data.items():
+                oi = data.get("open_interest")
                 if oi is not None:
                     entries.append(
                         OpenInterestEntry(
                             instrument=name,
-                            timestamp=current,
+                            timestamp=ts_dt,
                             timestamp_ms=ts_ms,
                             open_interest=oi,
+                            perp_price=data.get("perp_price"),
+                            index_price=data.get("index_price"),
                         )
                     )
 
-            # Insert per-instrument (so _insert_open_interest_batch counts correctly)
             for entry in entries:
                 inserted = self._insert_open_interest_batch([entry])
                 results[entry.instrument] += inserted
                 total_new += inserted
 
-            current += step
-            bar.set_postfix(day=current.strftime("%Y-%m-%d"), rows=_format_count(total_new))
-            bar.update(1)
+            # Periodic checkpoint: flush sync state + WAL so a crash
+            # resumes close to where we left off instead of from the start.
+            since_checkpoint += 1
+            if since_checkpoint >= OI_CHECKPOINT_INTERVAL:
+                for name, count in results.items():
+                    if count > 0:
+                        self._update_sync_state(name, DATA_TYPE_OPEN_INTEREST, "open_interest")
+                self.save()
+                logger.info("Checkpoint: %s rows saved", _format_count(total_new))
+                since_checkpoint = 0
 
-        bar.set_postfix(rows=_format_count(total_new))
-        bar.close()
-
-        # Update sync state for instruments that got new rows
+        # Final sync state update + checkpoint
         for name, count in results.items():
             if count > 0:
                 self._update_sync_state(name, DATA_TYPE_OPEN_INTEREST, "open_interest")
+        self.save()
 
         return results
 
@@ -931,7 +1064,7 @@ class DeriveFundingRateDatabase:
         """
         from decimal import Decimal
 
-        query = "SELECT instrument, ts, open_interest FROM open_interest WHERE instrument = ?"
+        query = "SELECT instrument, ts, open_interest, perp_price, index_price FROM open_interest WHERE instrument = ?"
         params: list = [instrument_name]
 
         if start_time is not None:
@@ -955,6 +1088,8 @@ class DeriveFundingRateDatabase:
                 timestamp=datetime.datetime.fromtimestamp(row[1] / 1000, tz=datetime.timezone.utc).replace(tzinfo=None),
                 timestamp_ms=row[1],
                 open_interest=Decimal(str(row[2])),
+                perp_price=Decimal(str(row[3])) if row[3] is not None else None,
+                index_price=Decimal(str(row[4])) if row[4] is not None else None,
             )
             for row in rows
         ]
@@ -967,7 +1102,8 @@ class DeriveFundingRateDatabase:
     ) -> pandas.DataFrame:
         """Get stored open interest as a Pandas DataFrame.
 
-        Columns: ``timestamp``, ``instrument``, ``open_interest``.
+        Columns: ``timestamp``, ``instrument``, ``open_interest``,
+        ``perp_price``, ``index_price``.
 
         :param instrument_name:
             Perpetual instrument name.
@@ -976,9 +1112,9 @@ class DeriveFundingRateDatabase:
         :param end_time:
             Optional end time filter (naive UTC).
         :return:
-            DataFrame with open interest data.
+            DataFrame with open interest and price data.
         """
-        query = "SELECT instrument, ts, open_interest FROM open_interest WHERE instrument = ?"
+        query = "SELECT instrument, ts, open_interest, perp_price, index_price FROM open_interest WHERE instrument = ?"
         params: list = [instrument_name]
 
         if start_time is not None:
@@ -1000,7 +1136,7 @@ class DeriveFundingRateDatabase:
             df["timestamp"] = pandas.to_datetime(df["ts"], unit="ms", utc=False)
             df = df.drop(columns=["ts"])
         else:
-            df = pandas.DataFrame(columns=["instrument", "open_interest", "timestamp"])
+            df = pandas.DataFrame(columns=["instrument", "open_interest", "perp_price", "index_price", "timestamp"])
 
         return df
 
@@ -1041,7 +1177,16 @@ class DeriveFundingRateDatabase:
         if not entries:
             return 0
 
-        rows = [(e.instrument, e.timestamp_ms, float(e.open_interest)) for e in entries]
+        rows = [
+            (
+                e.instrument,
+                e.timestamp_ms,
+                float(e.open_interest),
+                float(e.perp_price) if e.perp_price is not None else None,
+                float(e.index_price) if e.index_price is not None else None,
+            )
+            for e in entries
+        ]
 
         with self._lock:
             count_before = self.conn.execute(
@@ -1050,7 +1195,7 @@ class DeriveFundingRateDatabase:
             ).fetchone()[0]
 
             self.conn.executemany(
-                "INSERT OR IGNORE INTO open_interest (instrument, ts, open_interest) VALUES (?, ?, ?)",
+                "INSERT OR IGNORE INTO open_interest (instrument, ts, open_interest, perp_price, index_price) VALUES (?, ?, ?, ?, ?)",
                 rows,
             )
 
