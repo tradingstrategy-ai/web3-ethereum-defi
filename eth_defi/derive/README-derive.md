@@ -1,9 +1,12 @@
 # Derive.xyz integration
 
+
+
 [Derive.xyz](https://derive.xyz/) (formerly Lyra) is a decentralised perpetuals and options exchange built on Derive Chain (OP Stack L2).
 
 - [Derive API reference](https://docs.derive.xyz/reference/)
 - [Funding rate history endpoint](https://docs.derive.xyz/reference/post_public-get-funding-rate-history)
+- [Statistics endpoint](https://docs.derive.xyz/reference/post_public-statistics) (open interest)
 - [All instruments endpoint](https://docs.derive.xyz/reference/post_public-get-all-instruments)
 
 ## Funding rate history
@@ -62,6 +65,52 @@ source .local-test.env && poetry run pytest tests/derive/test_funding_rate_histo
 ```
 
 Tests use the public API (no credentials needed). The `test_fetch_early_history` test verifies that data from 6 months ago is accessible.
+
+## Open interest history
+
+The `scan-open-interest.py` script fetches daily open interest snapshots for Derive perpetual instruments by reading on-chain state from the Derive Chain archive node and stores them in the same DuckDB database as funding rates. On first run it fetches the full available history from each instrument's activation date. Subsequent runs resume from the last stored timestamp.
+
+### Data source: on-chain via Derive Chain archive node
+
+The `POST /public/statistics` REST endpoint ignores `end_time` for `open_interest` — it always returns the current live value. Historical OI data is read directly from the on-chain perp contracts instead:
+
+- **Contract function**: `openInterest(uint256 subId)` (sub-ID 0 for all perps)
+- **Contract address**: `base_asset_address` from `GET /public/get_all_instruments`
+- **RPC endpoint**: `https://rpc.derive.xyz` (Derive Chain, chain ID 957)
+- **Archive support**: full history from chain genesis (~December 2023 for ETH/BTC-PERP)
+- **Resolution**: daily (one on-chain call per day per instrument)
+- **Block estimation**: linear interpolation at 2s/block — accurate to within seconds
+
+### Full historical sync (all instruments, from inception)
+
+```shell
+poetry run python scripts/derive/scan-open-interest.py
+```
+
+On first run, fetches ~800+ days of history for each instrument (one `eth_call` per day). Subsequent runs add only the new days since the last stored snapshot.
+
+### Sync specific instruments
+
+```shell
+INSTRUMENTS=ETH-PERP,BTC-PERP poetry run python scripts/derive/scan-open-interest.py
+```
+
+### Environment variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `INSTRUMENTS` | Comma-separated instrument names | All active perps (auto-discovered) |
+| `DB_PATH` | DuckDB file path | `~/.tradingstrategy/derive/funding-rates.duckdb` |
+| `LOG_LEVEL` | Logging level (debug, info, warning, error) | warning |
+| `DERIVE_RPC_URL` | Derive Chain JSON-RPC URL | `https://rpc.derive.xyz` |
+
+### Running tests
+
+```shell
+source .local-test.env && poetry run pytest tests/derive/test_open_interest_history.py -v --timeout=180
+```
+
+Tests use the public Derive Chain RPC and REST API (no credentials needed).
 
 ## Samples
 

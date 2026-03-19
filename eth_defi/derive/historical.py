@@ -1,8 +1,8 @@
-"""DuckDB persistence for Derive funding rate history.
+"""DuckDB persistence for Derive funding rate and open interest history.
 
-Stores hourly funding rate snapshots for perpetual instruments.
-Incremental sync fetches the full available history (back to
-instrument inception) by walking the time range in 1-day chunks.
+Stores hourly funding rate snapshots and daily open interest snapshots
+for perpetual instruments. Incremental sync fetches the full available
+history (back to instrument inception) and is crash-resumeable.
 
 The sync is crash-resumeable: partial batches are safely re-inserted
 on restart via ``INSERT OR IGNORE`` on natural primary keys.
@@ -10,9 +10,10 @@ on restart via ``INSERT OR IGNORE`` on natural primary keys.
 Schema
 ------
 
-Two tables:
+Three tables:
 
 - ``funding_rates`` -- hourly funding rate snapshots
+- ``open_interest`` -- daily open interest snapshots
 - ``sync_state`` -- per-instrument watermarks for incremental sync
 
 Storage location
@@ -35,6 +36,12 @@ Example::
     df = db.get_funding_rates_dataframe("ETH-PERP")
     print(df.tail())
 
+    oi_inserted = db.sync_open_interest_instrument(session, "ETH-PERP")
+    print(f"Stored {oi_inserted} new open interest entries")
+
+    oi_df = db.get_open_interest_dataframe("ETH-PERP")
+    print(oi_df.tail())
+
     db.close()
 """
 
@@ -49,9 +56,18 @@ from requests import Session
 from tqdm_loggable.auto import tqdm
 from tqdm_loggable.tqdm_logging import tqdm_logging
 
+from web3 import Web3
+
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.derive.api import FundingRateEntry, fetch_funding_rate_history
-from eth_defi.derive.constants import DERIVE_MAINNET_API_URL
+from eth_defi.derive.api import (
+    DERIVE_BLOCK_TIME_SECONDS,
+    FundingRateEntry,
+    OpenInterestEntry,
+    fetch_funding_rate_history,
+    fetch_open_interest_onchain,
+    fetch_instrument_details,
+)
+from eth_defi.derive.constants import DERIVE_MAINNET_API_URL, DERIVE_MAINNET_RPC_URL
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +98,47 @@ MAX_INCEPTION_PROBE_DAYS = 1100
 
 #: Data type name for sync state tracking
 DATA_TYPE_FUNDING_RATES = "funding_rates"
+
+#: Data type name for open interest sync state tracking
+DATA_TYPE_OPEN_INTEREST = "open_interest"
+
+#: Step size in days for on-chain OI historical backfill.
+OI_STEP_DAYS = 1
+
+
+def estimate_block_at_timestamp(
+    w3: Web3,
+    target_ts: int,
+    latest_block: int | None = None,
+    latest_ts: int | None = None,
+) -> int:
+    """Estimate the Derive Chain block number closest to a Unix timestamp.
+
+    Uses linear interpolation from the current block.  Derive Chain has a
+    stable 2-second block time so the estimate is accurate to within a
+    handful of blocks (a few seconds), which is more than adequate for
+    daily open interest snapshots.
+
+    :param w3:
+        Web3 instance connected to Derive Chain.
+    :param target_ts:
+        Target Unix timestamp (seconds, UTC).
+    :param latest_block:
+        Current block number. Fetched automatically if not provided.
+    :param latest_ts:
+        Timestamp of the current block. Fetched automatically if not provided.
+    :return:
+        Estimated block number (always >= 1).
+    """
+    if latest_block is None or latest_ts is None:
+        blk = w3.eth.get_block("latest")
+        latest_block = blk.number
+        latest_ts = blk.timestamp
+
+    seconds_diff = latest_ts - target_ts
+    block_diff = int(seconds_diff / DERIVE_BLOCK_TIME_SECONDS)
+    estimated = latest_block - block_diff
+    return max(1, estimated)
 
 
 class DeriveFundingRateDatabase:
@@ -141,6 +198,14 @@ class DeriveFundingRateDatabase:
                     instrument VARCHAR NOT NULL,
                     ts BIGINT NOT NULL,
                     funding_rate DOUBLE NOT NULL,
+                    PRIMARY KEY (instrument, ts)
+                )
+            """)
+            self.conn.execute("""
+                CREATE TABLE IF NOT EXISTS open_interest (
+                    instrument VARCHAR NOT NULL,
+                    ts BIGINT NOT NULL,
+                    open_interest DOUBLE NOT NULL,
                     PRIMARY KEY (instrument, ts)
                 )
             """)
@@ -555,8 +620,378 @@ class DeriveFundingRateDatabase:
             ).fetchone()
         return result[0] if result else 0
 
-    def get_sync_state(self, instrument_name: str) -> dict | None:
+    def get_sync_state(self, instrument_name: str, data_type: str = DATA_TYPE_FUNDING_RATES) -> dict | None:
         """Get sync state for an instrument.
+
+        :param instrument_name:
+            Perpetual instrument name.
+        :param data_type:
+            Sync state data type key. Defaults to ``DATA_TYPE_FUNDING_RATES``.
+        :return:
+            Dict with ``oldest_ts``, ``newest_ts``, ``row_count``,
+            ``last_synced``, or ``None`` if no sync has occurred.
+        """
+        return self._get_sync_state_row(instrument_name, data_type)
+
+    def sync_open_interest_instrument(
+        self,
+        session: Session,
+        instrument_name: str,
+        w3: Web3 | None = None,
+        start_time: datetime.datetime | None = None,
+        end_time: datetime.datetime | None = None,
+        base_url: str = DERIVE_MAINNET_API_URL,
+        timeout: float = 30.0,
+        progress: tqdm | None = None,
+    ) -> int:
+        """Fetch open interest history and store it in DuckDB.
+
+        Queries the ``openInterest(uint256)`` view function on the Derive
+        Chain perp contract at daily intervals.  Derive Chain is an archive
+        node so historical state from chain genesis is available.
+
+        On the first run, fetches daily snapshots from the instrument's
+        ``scheduled_activation`` date to now.  On subsequent runs, resumes
+        from the last stored timestamp.  Uses ``INSERT OR IGNORE`` so the
+        sync is crash-resumeable.
+
+        :param session:
+            HTTP session from :py:func:`~eth_defi.derive.session.create_derive_session`.
+            Used to look up the instrument's on-chain contract address.
+        :param instrument_name:
+            Perpetual instrument name (e.g. ``"ETH-PERP"``).
+        :param w3:
+            Web3 instance connected to Derive Chain
+            (``https://rpc.derive.xyz``).  Created automatically if
+            not provided.
+        :param start_time:
+            Override start time (naive UTC). Defaults to last synced
+            timestamp or instrument activation date.
+        :param end_time:
+            Override end time (naive UTC). Defaults to now.
+        :param base_url:
+            Derive API base URL.
+        :param timeout:
+            HTTP request timeout for instrument detail lookup.
+        :param progress:
+            Optional external :py:class:`tqdm` progress bar to update
+            per day.
+        :return:
+            Number of new open interest entries inserted.
+        """
+        if w3 is None:
+            w3 = Web3(Web3.HTTPProvider(DERIVE_MAINNET_RPC_URL))
+
+        now = native_datetime_utc_now()
+        if end_time is None:
+            end_time = now
+
+        # Look up contract address for this instrument
+        details = fetch_instrument_details(session, base_url=base_url, timeout=timeout)
+        inst_info = details.get(instrument_name)
+        if inst_info is None:
+            logger.warning("Instrument %s not found in active instruments list", instrument_name)
+            return 0
+
+        contract_address = inst_info["base_asset_address"]
+        activation_ts = inst_info["scheduled_activation"]  # Unix seconds
+        activation_dt = datetime.datetime.fromtimestamp(activation_ts, tz=datetime.timezone.utc).replace(tzinfo=None)
+
+        # Determine effective start
+        if start_time is None:
+            state = self._get_sync_state_row(instrument_name, DATA_TYPE_OPEN_INTEREST)
+            if state is not None and state["newest_ts"] is not None:
+                start_time = datetime.datetime.fromtimestamp(
+                    state["newest_ts"] / 1000,
+                    tz=datetime.timezone.utc,
+                ).replace(tzinfo=None)
+                # Advance by one day so we don't re-insert the last known point
+                start_time += datetime.timedelta(days=OI_STEP_DAYS)
+            else:
+                # First run: start from activation date (aligned to midnight)
+                start_time = activation_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Cache latest block so we only fetch it once per call
+        latest_blk = w3.eth.get_block("latest")
+        latest_block = latest_blk.number
+        latest_ts_unix = latest_blk.timestamp
+
+        total_inserted = 0
+        current = start_time
+        step = datetime.timedelta(days=OI_STEP_DAYS)
+
+        while current <= end_time:
+            target_ts_unix = int(current.replace(tzinfo=datetime.timezone.utc).timestamp())
+            block = estimate_block_at_timestamp(
+                w3,
+                target_ts_unix,
+                latest_block=latest_block,
+                latest_ts=latest_ts_unix,
+            )
+
+            oi = fetch_open_interest_onchain(w3, contract_address, block)
+
+            if oi is not None:
+                ts_ms = int(current.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
+                entry = OpenInterestEntry(
+                    instrument=instrument_name,
+                    timestamp=current,
+                    timestamp_ms=ts_ms,
+                    open_interest=oi,
+                )
+                total_inserted += self._insert_open_interest_batch([entry])
+
+            current += step
+            if progress is not None:
+                progress.update(1)
+
+        if total_inserted > 0:
+            self._update_sync_state(instrument_name, DATA_TYPE_OPEN_INTEREST, "open_interest")
+
+        logger.info(
+            "Inserted %d new open interest entries for %s",
+            total_inserted,
+            instrument_name,
+        )
+        return total_inserted
+
+    def sync_open_interest_instruments(
+        self,
+        session: Session,
+        instrument_names: list[str],
+        w3: Web3 | None = None,
+        start_time: datetime.datetime | None = None,
+        end_time: datetime.datetime | None = None,
+        base_url: str = DERIVE_MAINNET_API_URL,
+        timeout: float = 30.0,
+    ) -> dict[str, int]:
+        """Fetch open interest history for multiple instruments.
+
+        Walks each instrument day-by-day from inception (or last stored
+        timestamp) to now, reading on-chain state at daily intervals.
+
+        :param session:
+            HTTP session.
+        :param instrument_names:
+            List of instrument names (e.g. ``["ETH-PERP", "BTC-PERP"]``).
+        :param w3:
+            Web3 instance connected to Derive Chain.  Created automatically
+            if not provided.
+        :param start_time:
+            Override start time for all instruments.
+        :param end_time:
+            Override end time for all instruments.
+        :param base_url:
+            Derive API base URL.
+        :param timeout:
+            HTTP request timeout.
+        :return:
+            Dict mapping instrument name to number of new entries inserted.
+        """
+        if w3 is None:
+            w3 = Web3(Web3.HTTPProvider(DERIVE_MAINNET_RPC_URL))
+
+        tqdm_logging.set_level(logging.INFO)
+
+        now = native_datetime_utc_now()
+        if end_time is None:
+            end_time = now
+
+        # Fetch instrument details once for all instruments
+        details = fetch_instrument_details(session, base_url=base_url, timeout=timeout)
+
+        # Cache latest block for all instruments
+        latest_blk = w3.eth.get_block("latest")
+        latest_block = latest_blk.number
+        latest_ts_unix = latest_blk.timestamp
+
+        # Determine effective start for each instrument and total day count
+        ranges: dict[str, datetime.datetime] = {}
+        for name in instrument_names:
+            inst_info = details.get(name)
+            if inst_info is None:
+                logger.warning("Instrument %s not found, skipping", name)
+                continue
+
+            if start_time is not None:
+                ranges[name] = start_time
+                continue
+
+            state = self._get_sync_state_row(name, DATA_TYPE_OPEN_INTEREST)
+            if state is not None and state["newest_ts"] is not None:
+                resume = datetime.datetime.fromtimestamp(
+                    state["newest_ts"] / 1000,
+                    tz=datetime.timezone.utc,
+                ).replace(tzinfo=None)
+                ranges[name] = resume + datetime.timedelta(days=OI_STEP_DAYS)
+            else:
+                activation_ts = inst_info["scheduled_activation"]
+                activation_dt = datetime.datetime.fromtimestamp(activation_ts, tz=datetime.timezone.utc).replace(tzinfo=None)
+                ranges[name] = activation_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        if not ranges:
+            return {}
+
+        total_days = sum(max(int((end_time - inst_start).days), 0) + 1 for inst_start in ranges.values())
+
+        results: dict[str, int] = {}
+        total_new = 0
+        bar = tqdm(total=total_days, desc="Fetching OI on-chain", unit="day")
+
+        for name, inst_start in ranges.items():
+            inst_info = details[name]
+            contract_address = inst_info["base_asset_address"]
+            bar.set_postfix(instrument=name, rows=_format_count(total_new))
+
+            current = inst_start
+            step = datetime.timedelta(days=OI_STEP_DAYS)
+            inserted = 0
+
+            while current <= end_time:
+                target_ts_unix = int(current.replace(tzinfo=datetime.timezone.utc).timestamp())
+                block = estimate_block_at_timestamp(
+                    w3,
+                    target_ts_unix,
+                    latest_block=latest_block,
+                    latest_ts=latest_ts_unix,
+                )
+
+                oi = fetch_open_interest_onchain(w3, contract_address, block)
+
+                if oi is not None:
+                    ts_ms = int(current.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
+                    entry = OpenInterestEntry(
+                        instrument=name,
+                        timestamp=current,
+                        timestamp_ms=ts_ms,
+                        open_interest=oi,
+                    )
+                    inserted += self._insert_open_interest_batch([entry])
+
+                current += step
+                bar.update(1)
+
+            if inserted > 0:
+                self._update_sync_state(name, DATA_TYPE_OPEN_INTEREST, "open_interest")
+
+            results[name] = inserted
+            total_new += inserted
+
+        bar.set_postfix(rows=_format_count(total_new))
+        bar.close()
+
+        return results
+
+    def get_open_interest(
+        self,
+        instrument_name: str,
+        start_time: datetime.datetime | None = None,
+        end_time: datetime.datetime | None = None,
+    ) -> list[OpenInterestEntry]:
+        """Get stored open interest entries for an instrument.
+
+        :param instrument_name:
+            Perpetual instrument name.
+        :param start_time:
+            Optional start time filter (naive UTC).
+        :param end_time:
+            Optional end time filter (naive UTC).
+        :return:
+            List of :py:class:`~eth_defi.derive.api.OpenInterestEntry`
+            objects sorted by timestamp ascending.
+        """
+        from decimal import Decimal
+
+        query = "SELECT instrument, ts, open_interest FROM open_interest WHERE instrument = ?"
+        params: list = [instrument_name]
+
+        if start_time is not None:
+            ts_ms = int(start_time.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
+            query += " AND ts >= ?"
+            params.append(ts_ms)
+
+        if end_time is not None:
+            ts_ms = int(end_time.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
+            query += " AND ts <= ?"
+            params.append(ts_ms)
+
+        query += " ORDER BY ts ASC"
+
+        with self._lock:
+            rows = self.conn.execute(query, params).fetchall()
+
+        return [
+            OpenInterestEntry(
+                instrument=row[0],
+                timestamp=datetime.datetime.fromtimestamp(row[1] / 1000, tz=datetime.timezone.utc).replace(tzinfo=None),
+                timestamp_ms=row[1],
+                open_interest=Decimal(str(row[2])),
+            )
+            for row in rows
+        ]
+
+    def get_open_interest_dataframe(
+        self,
+        instrument_name: str,
+        start_time: datetime.datetime | None = None,
+        end_time: datetime.datetime | None = None,
+    ) -> pandas.DataFrame:
+        """Get stored open interest as a Pandas DataFrame.
+
+        Columns: ``timestamp``, ``instrument``, ``open_interest``.
+
+        :param instrument_name:
+            Perpetual instrument name.
+        :param start_time:
+            Optional start time filter (naive UTC).
+        :param end_time:
+            Optional end time filter (naive UTC).
+        :return:
+            DataFrame with open interest data.
+        """
+        query = "SELECT instrument, ts, open_interest FROM open_interest WHERE instrument = ?"
+        params: list = [instrument_name]
+
+        if start_time is not None:
+            ts_ms = int(start_time.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
+            query += " AND ts >= ?"
+            params.append(ts_ms)
+
+        if end_time is not None:
+            ts_ms = int(end_time.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
+            query += " AND ts <= ?"
+            params.append(ts_ms)
+
+        query += " ORDER BY ts ASC"
+
+        with self._lock:
+            df = self.conn.execute(query, params).df()
+
+        if len(df) > 0:
+            df["timestamp"] = pandas.to_datetime(df["ts"], unit="ms", utc=False)
+            df = df.drop(columns=["ts"])
+        else:
+            df = pandas.DataFrame(columns=["instrument", "open_interest", "timestamp"])
+
+        return df
+
+    def get_open_interest_row_count(self, instrument_name: str) -> int:
+        """Get the number of stored open interest entries for an instrument.
+
+        :param instrument_name:
+            Perpetual instrument name.
+        :return:
+            Number of stored open interest entries.
+        """
+        with self._lock:
+            result = self.conn.execute(
+                "SELECT COUNT(*) FROM open_interest WHERE instrument = ?",
+                [instrument_name],
+            ).fetchone()
+        return result[0] if result else 0
+
+    def get_open_interest_sync_state(self, instrument_name: str) -> dict | None:
+        """Get open interest sync state for an instrument.
 
         :param instrument_name:
             Perpetual instrument name.
@@ -564,7 +999,38 @@ class DeriveFundingRateDatabase:
             Dict with ``oldest_ts``, ``newest_ts``, ``row_count``,
             ``last_synced``, or ``None`` if no sync has occurred.
         """
-        return self._get_sync_state_row(instrument_name)
+        return self._get_sync_state_row(instrument_name, DATA_TYPE_OPEN_INTEREST)
+
+    def _insert_open_interest_batch(self, entries: list[OpenInterestEntry]) -> int:
+        """Insert a batch of open interest rows, ignoring duplicates.
+
+        :param entries:
+            List of :py:class:`~eth_defi.derive.api.OpenInterestEntry` objects to insert.
+        :return:
+            Number of new rows actually inserted.
+        """
+        if not entries:
+            return 0
+
+        rows = [(e.instrument, e.timestamp_ms, float(e.open_interest)) for e in entries]
+
+        with self._lock:
+            count_before = self.conn.execute(
+                "SELECT COUNT(*) FROM open_interest WHERE instrument = ?",
+                [entries[0].instrument],
+            ).fetchone()[0]
+
+            self.conn.executemany(
+                "INSERT OR IGNORE INTO open_interest (instrument, ts, open_interest) VALUES (?, ?, ?)",
+                rows,
+            )
+
+            count_after = self.conn.execute(
+                "SELECT COUNT(*) FROM open_interest WHERE instrument = ?",
+                [entries[0].instrument],
+            ).fetchone()[0]
+
+        return count_after - count_before
 
     def _insert_batch(self, entries: list[FundingRateEntry]) -> int:
         """Insert a batch of funding rate rows, ignoring duplicates.
@@ -597,13 +1063,21 @@ class DeriveFundingRateDatabase:
 
         return count_after - count_before
 
-    def _update_sync_state(self, instrument_name: str):
-        """Recompute and store sync state for an instrument."""
+    def _update_sync_state(self, instrument_name: str, data_type: str = DATA_TYPE_FUNDING_RATES, table_name: str = "funding_rates"):
+        """Recompute and store sync state for an instrument.
+
+        :param instrument_name:
+            Perpetual instrument name.
+        :param data_type:
+            Sync state data type key (e.g. ``DATA_TYPE_FUNDING_RATES``).
+        :param table_name:
+            DuckDB table to aggregate stats from.
+        """
         now_ms = int(native_datetime_utc_now().replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
 
         with self._lock:
             stats = self.conn.execute(
-                "SELECT MIN(ts), MAX(ts), COUNT(*) FROM funding_rates WHERE instrument = ?",
+                f"SELECT MIN(ts), MAX(ts), COUNT(*) FROM {table_name} WHERE instrument = ?",
                 [instrument_name],
             ).fetchone()
 
@@ -619,19 +1093,23 @@ class DeriveFundingRateDatabase:
                     row_count = excluded.row_count,
                     last_synced = excluded.last_synced
                 """,
-                [instrument_name, DATA_TYPE_FUNDING_RATES, oldest_ts, newest_ts, row_count, now_ms],
+                [instrument_name, data_type, oldest_ts, newest_ts, row_count, now_ms],
             )
 
-    def _get_sync_state_row(self, instrument_name: str) -> dict | None:
+    def _get_sync_state_row(self, instrument_name: str, data_type: str = DATA_TYPE_FUNDING_RATES) -> dict | None:
         """Get sync state row for an instrument.
 
+        :param instrument_name:
+            Perpetual instrument name.
+        :param data_type:
+            Sync state data type key (e.g. ``DATA_TYPE_FUNDING_RATES``).
         :return:
             Dict with state fields, or ``None`` if no sync has occurred.
         """
         with self._lock:
             row = self.conn.execute(
                 "SELECT oldest_ts, newest_ts, row_count, last_synced FROM sync_state WHERE instrument = ? AND data_type = ?",
-                [instrument_name, DATA_TYPE_FUNDING_RATES],
+                [instrument_name, data_type],
             ).fetchone()
 
         if row is None:
