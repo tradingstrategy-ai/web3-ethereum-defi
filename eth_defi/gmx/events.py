@@ -653,7 +653,7 @@ GMX_ERROR_SELECTORS: dict[str, tuple[str, list[str]]] = {
     "29ff3fc8": ("MaxPoolAmountExceeded", ["uint256", "uint256"]),
     "a942ab62": ("MaxCollateralSumExceeded", ["uint256", "uint256"]),
     "169f0412": ("MaxPoolUsdForDepositExceeded", ["uint256", "uint256"]),
-    "8c617982": ("InsufficientReserveForOpenInterest", ["uint256", "uint256"]),
+    "b98c6179": ("InsufficientReserveForOpenInterest", ["uint256", "uint256"]),
     "f8c937db": ("DisabledMarket", ["address"]),
     # Output/swap errors
     "d28d3eb5": ("InsufficientOutputAmount", ["uint256", "uint256"]),
