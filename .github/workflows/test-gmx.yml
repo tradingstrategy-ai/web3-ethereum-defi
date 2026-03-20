@@ -36,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12"]
+        python-version: ["3.14"]
 
     name: GMX Tests - Python ${{ matrix.python-version }}
 
@@ -216,4 +216,3 @@ jobs:
 
       # NOTE: We don't run linting here as it's already done in the main workflow
       # Ruff lint check is only needed once per PR, not per test suite
-

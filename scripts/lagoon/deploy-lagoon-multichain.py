@@ -1065,7 +1065,7 @@ def main():
                 from eth_defi.hypersync.server import get_hypersync_server
 
                 hs_url = get_hypersync_server(source_chain_id_for_scan)
-                hs_client = _hypersync.HypersyncClient(_hypersync.ClientConfig(url=hs_url, bearer_token=hypersync_api_key))
+                hs_client = _hypersync.HypersyncClient(_hypersync.ClientConfig(url=hs_url, api_token=hypersync_api_key))
 
                 # Build chain_id -> Web3 map for CCTP chain following
                 readback_chain_web3 = {w.eth.chain_id: w for w in chain_web3.values()}

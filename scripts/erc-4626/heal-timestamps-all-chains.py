@@ -140,7 +140,7 @@ def heal_chain(chain_id: int, dry_run: bool) -> dict:
         hypersync_client = hypersync.HypersyncClient(
             hypersync.ClientConfig(
                 url=hypersync_server,
-                bearer_token=hypersync_api_key,
+                api_token=hypersync_api_key,
             )
         )
 

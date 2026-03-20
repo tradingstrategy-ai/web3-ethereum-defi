@@ -2219,7 +2219,7 @@ def _get_hypersync_client_for_chain(chain_id: int) -> hypersync.HypersyncClient 
         api_key = os.environ.get("HYPERSYNC_API_KEY")
         config = hypersync.ClientConfig(url=url)
         if api_key:
-            config = hypersync.ClientConfig(url=url, bearer_token=api_key)
+            config = hypersync.ClientConfig(url=url, api_token=api_key)
         return hypersync.HypersyncClient(config)
     except Exception as e:
         logger.debug("Cannot create Hypersync client for chain %d: %s", chain_id, e)

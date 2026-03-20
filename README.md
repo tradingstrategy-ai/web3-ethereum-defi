@@ -162,7 +162,7 @@ This is a MIT-licensed open source project. Those who sponsor and contribute get
 
 To use this package you need to
 
-* Have Python 3.12 or older (Python 3.13+ is not yet supported because [Hypersync does not publish wheels for newer versions](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/715))
+* Have Python 3.10 or newer. Python 3.14 is supported when installing the HyperSync extra through the temporary upstream package `hypersync-temp`.
 * macOS, Linux or Windows Subsystem for Linux (WSL) needed, Microsoft Windows is not officially supported
   * For WSL, [make sure you have gcc and other tools installed](https://stackoverflow.com/questions/62215963/how-to-install-gcc-and-gdb-for-wslwindows-subsytem-for-linux/63548362#63548362)
 * [Be proficient in Python programming](https://wiki.python.org/moin/BeginnersGuide)

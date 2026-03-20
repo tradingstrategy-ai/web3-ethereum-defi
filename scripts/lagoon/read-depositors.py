@@ -156,7 +156,7 @@ def main():
 
     # Configure Hypersync - auto-detect server based on chain ID
     hypersync_url = get_hypersync_server(web3)
-    client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=hypersync_api_key))
+    client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, api_token=hypersync_api_key))
 
     # Scan from block 0 to latest
     start_block = 0

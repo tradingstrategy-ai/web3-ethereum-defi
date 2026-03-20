@@ -135,7 +135,7 @@ def main():
     hypersync_client = hypersync.HypersyncClient(
         hypersync.ClientConfig(
             url=hypersync_server,
-            bearer_token=hypersync_api_key,
+            api_token=hypersync_api_key,
         )
     )
 

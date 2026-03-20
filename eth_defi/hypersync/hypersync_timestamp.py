@@ -100,7 +100,7 @@ async def get_block_timestamps_using_hypersync_async(
     query = hypersync.Query(
         from_block=start_block,
         to_block=end_block + 1,  # Inclusive
-        logs=[{}],  # Empty log selection to ensure we get block data
+        logs=[hypersync.LogSelection()],  # Empty log selection to ensure we get block data
         include_all_blocks=True,
         field_selection=hypersync.FieldSelection(
             block=[

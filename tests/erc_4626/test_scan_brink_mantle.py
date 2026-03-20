@@ -48,7 +48,7 @@ def test_4626_scan_brink_mantle():
     web3factory = MultiProviderWeb3Factory(JSON_RPC_MANTLE)
 
     hypersync_url = get_hypersync_server(web3)
-    client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY))
+    client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, api_token=HYPERSYNC_API_KEY))
 
     # Use wider block range to ensure we capture both deposit and withdrawal events
     # (scanner requires both to classify a vault as candidate)

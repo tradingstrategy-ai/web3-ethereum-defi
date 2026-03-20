@@ -67,7 +67,7 @@ def create_and_populate_hypersync_timestamp_db_for_rpc(rpc_name: str):
         hypersync_client = hypersync.HypersyncClient(
             hypersync.ClientConfig(
                 url=hypersync_server,
-                bearer_token=hypersync_api_key,
+                api_token=hypersync_api_key,
             )
         )
         last_block = get_hypersync_block_height(hypersync_client)

@@ -32,7 +32,7 @@ def test_aave_liquidation_data():
     # Create connections inside test so flaky can retry on connection failures
     web3 = create_multi_provider_web3(JSON_RPC_ETHEREUM)
     hypersync_url = get_hypersync_server(1)  # Mainnet
-    hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY))
+    hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, api_token=HYPERSYNC_API_KEY))
 
     reader = AaveLiquidationReader(
         client=hypersync_client,

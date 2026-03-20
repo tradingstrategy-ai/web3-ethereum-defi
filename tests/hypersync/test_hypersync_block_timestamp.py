@@ -25,14 +25,14 @@ pytestmark = pytest.mark.skipif(not HYPERSYNC_API_KEY, reason="Set HYPERSYNC_API
 @pytest.fixture()
 def hypersync_client() -> HypersyncClient:
     hypersync_url = get_hypersync_server(1)  # Mainnet
-    client = HypersyncClient(ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY))
+    client = HypersyncClient(ClientConfig(url=hypersync_url, api_token=HYPERSYNC_API_KEY))
     return client
 
 
 @pytest.fixture()
 def hypersync_polygon_client() -> HypersyncClient:
     hypersync_url = get_hypersync_server(137)
-    client = HypersyncClient(ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY))
+    client = HypersyncClient(ClientConfig(url=hypersync_url, api_token=HYPERSYNC_API_KEY))
     return client
 
 
