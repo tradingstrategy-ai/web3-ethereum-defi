@@ -36,8 +36,8 @@ def encode_path(
         assert fee in DEFAULT_FEES
 
     if trade_type == TradeType.EXACT_OUTPUT:
-        path.reverse()
-        fees.reverse()
+        path = path[::-1]
+        fees = fees[::-1]
 
     match operation:
         case TradeOperation.OPEN:

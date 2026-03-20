@@ -47,8 +47,8 @@ def encode_path(
     assert len(fees) == len(path) - 1
 
     if exact_output:
-        path.reverse()
-        fees.reverse()
+        path = path[::-1]
+        fees = fees[::-1]
 
     encoded = b""
     for index, token in enumerate(path):
@@ -69,7 +69,7 @@ def decode_path(full_path_encoded: bytes) -> list:
         Fully decoded path array including addresses and fees
     """
 
-    assert type(full_path_encoded == bytes), "encoded path must be provided as bytes"
+    assert isinstance(full_path_encoded, bytes), "encoded path must be provided as bytes"
 
     path_pos = 0
     full_path_decoded = []
