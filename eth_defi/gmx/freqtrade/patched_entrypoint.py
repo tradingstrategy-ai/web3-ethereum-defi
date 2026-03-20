@@ -76,6 +76,7 @@ def apply_patch():
     # Register custom pairlist plugins so schema validation accepts them.
     # Must happen before freqtrade.config_schema is imported.
     from freqtrade.constants import AVAILABLE_PAIRLISTS
+
     for name in ("HistoricalVolumePairList", "GMXLiquidityFilter"):
         if name not in AVAILABLE_PAIRLISTS:
             AVAILABLE_PAIRLISTS.append(name)

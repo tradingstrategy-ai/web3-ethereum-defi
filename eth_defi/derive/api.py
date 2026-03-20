@@ -563,11 +563,13 @@ def fetch_perp_snapshots_multicall(
         ip_success, ip_data = raw_results[base + 2]
         index_price = _decode_uint256(ip_data) if ip_success else None
 
-        results.append(PerpSnapshotMulticallResult(
-            open_interest=oi,
-            perp_price=perp_price,
-            index_price=index_price,
-        ))
+        results.append(
+            PerpSnapshotMulticallResult(
+                open_interest=oi,
+                perp_price=perp_price,
+                index_price=index_price,
+            )
+        )
 
     return results
 
