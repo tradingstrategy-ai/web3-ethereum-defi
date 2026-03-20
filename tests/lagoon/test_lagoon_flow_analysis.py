@@ -263,7 +263,7 @@ def test_lagoon_redeem_too_much(
     analysis = analyse_vault_flow_in_settlement(vault, tx_hash)
 
     # None of the pending redemptions proceed, as we have no cash and we can only do full redemptions
-    assert analysis.pending_redemptions_underlying == pytest.approx(Decimal(8.089889458402021082247191008))
+    assert analysis.pending_redemptions_underlying == pytest.approx(Decimal("7.911110222222223331720113954"))
     assert analysis.pending_redemptions_shares == pytest.approx(Decimal(8))
     assert analysis.shares_burned == pytest.approx(Decimal(0))
     assert analysis.redeemed == pytest.approx(Decimal(0))

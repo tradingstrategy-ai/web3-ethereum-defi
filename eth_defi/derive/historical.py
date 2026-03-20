@@ -641,7 +641,7 @@ class DeriveFundingRateDatabase:
             df["timestamp"] = pandas.to_datetime(df["ts"], unit="ms", utc=False)
             df = df.drop(columns=["ts"])
         else:
-            df = pandas.DataFrame(columns=["instrument", "funding_rate", "timestamp"])
+            df = pandas.DataFrame({"instrument": pandas.Series(dtype="str"), "funding_rate": pandas.Series(dtype="float64"), "timestamp": pandas.Series(dtype="datetime64[ns]")})
 
         return df
 
@@ -1147,7 +1147,7 @@ class DeriveFundingRateDatabase:
             df["timestamp"] = pandas.to_datetime(df["ts"], unit="ms", utc=False)
             df = df.drop(columns=["ts"])
         else:
-            df = pandas.DataFrame(columns=["instrument", "open_interest", "perp_price", "index_price", "timestamp"])
+            df = pandas.DataFrame({"instrument": pandas.Series(dtype="str"), "open_interest": pandas.Series(dtype="float64"), "perp_price": pandas.Series(dtype="float64"), "index_price": pandas.Series(dtype="float64"), "timestamp": pandas.Series(dtype="datetime64[ns]")})
 
         return df
 
