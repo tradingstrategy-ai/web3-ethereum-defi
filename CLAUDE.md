@@ -78,10 +78,9 @@ poetry run ruff format
 
 ## Pull requests
 
-- When opening a pull request, include why this PR was made, only only what was changed - use ask user tool for more information if needed
+- Pull request description must have sections Why (the rational of change), Lessons learnt (memory for future agents) and Summary (what was changed). No test plan or verification section.
 - Only push changes to remote when asked, never update pull requess automatically.
 - Never push directly to a master if not told explicitly
-- Do not include test or verification plan in a pull request description
 - If the user ask to open a pull request as feature then start the PR title with "feat:" prefix and also add one line about the feature into `CHANGELOG.md`
 - Each changelog entry should follow the date of the PR in YYYY-MM-DD format. Example: Something was updated (2026-01-01).
 - Before opening or updating a pull request, format the code
