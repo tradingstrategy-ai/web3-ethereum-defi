@@ -51,6 +51,7 @@ from eth_defi.provider.anvil import (
     fork_network_anvil,
     fund_erc20_on_anvil,
 )
+from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, fetch_erc20_details, TokenDetails
 from eth_defi.trace import (
@@ -94,10 +95,23 @@ def deployer() -> LocalAccount:
 
 @pytest.fixture()
 def anvil_hyperliquid() -> AnvilLaunch:
-    """Fork HyperEVM mainnet with large block gas limit."""
+    """Fork HyperEVM mainnet with large block gas limit.
+
+    Uses an explicit fork block a few blocks behind the tip to avoid
+    transient "Unknown block" errors from the HyperEVM RPC.
+    """
+    # HyperEVM RPC sporadically returns "Unknown block" for the chain tip.
+    # Pin the fork to a slightly older block to work around this.
+    rpc_url = JSON_RPC_HYPERLIQUID.split()[0] if " " in JSON_RPC_HYPERLIQUID else JSON_RPC_HYPERLIQUID
+    w3 = Web3(Web3.HTTPProvider(rpc_url))
+    w3.block_tip_latency = 4
+    fork_block = get_almost_latest_block_number(w3)
+
     launch = fork_network_anvil(
         JSON_RPC_HYPERLIQUID,
         gas_limit=30_000_000,
+        fork_block_number=fork_block,
+        archive=False,
     )
     try:
         yield launch
