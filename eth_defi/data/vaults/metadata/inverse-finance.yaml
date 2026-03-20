@@ -1,0 +1,37 @@
+name: Inverse Finance
+slug: inverse-finance
+short_description: |
+  Decentralised lending protocol with sDOLA yield-bearing savings vault.
+long_description: |
+  Inverse Finance is a decentralised lending protocol built around the DOLA stablecoin
+  and the FiRM fixed-rate lending market. The protocol allows users to borrow DOLA at a
+  fixed rate using the DOLA Borrowing Right (DBR) token.
+
+  The sDOLA vault is an ERC-4626 compliant savings vault where users stake DOLA and earn
+  yield derived from FiRM lending revenues. Yield is generated through an automated xy=k
+  auction mechanism: the vault accumulates DBR rewards from the DolaSavings contract, and
+  anyone can purchase the accrued DBR for DOLA via the `buyDBR()` function. Revenue from
+  these purchases flows back into the vault, increasing the share price.
+
+  Key features:
+
+  - No explicit management or performance fees
+  - Yield accrues through DBR auction mechanism (auto-compounding)
+  - Instant deposits and withdrawals
+  - DOLA staked is never rehypothecated or lent to third parties
+fee_description: |
+  No explicit management or performance fees. Yield is generated through
+  the DBR auction mechanism built into the vault contract.
+links:
+  homepage: https://www.inverse.finance/
+  app: https://www.inverse.finance/firm
+  twitter: https://x.com/InverseFinance
+  github: https://github.com/InverseFinance/dola-savings
+  documentation: https://docs.inverse.finance/
+  defillama: https://defillama.com/protocol/inverse-finance
+  audits: https://www.inverse.finance/audits
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/inverse-finance
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/inverse_finance/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xb45ad160634c528Cc3D2926d9807104FA3157305

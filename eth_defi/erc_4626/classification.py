@@ -1608,6 +1608,11 @@ def create_vault_instance(
 
         return EmberVault(web3, spec, **kwargs)
 
+    elif ERC4626Feature.inverse_finance_like in features:
+        from eth_defi.erc_4626.vault_protocol.inverse_finance.vault import InverseFinanceVault
+
+        return InverseFinanceVault(web3, spec, **kwargs)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1854,6 +1859,9 @@ HARDCODED_PROTOCOLS = {
     # Ember Protocol - Ember Apollo ACRED (eACRED) on Ethereum
     # https://etherscan.io/address/0x2b13311fd553e74b421d4ccc96e348f71e179dcf
     "0x2b13311fd553e74b421d4ccc96e348f71e179dcf": {ERC4626Feature.ember_like},
+    # Inverse Finance - sDOLA vault on Ethereum
+    # https://etherscan.io/address/0xb45ad160634c528Cc3D2926d9807104FA3157305
+    "0xb45ad160634c528cc3d2926d9807104fa3157305": {ERC4626Feature.inverse_finance_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

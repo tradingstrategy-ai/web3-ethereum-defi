@@ -62,6 +62,7 @@ Supported protocols
    hyperliquid/index
    hypurrfi/index
    infinifi/index
+   inverse_finance/index
    ipor/index
    lagoon/index
    liquid_royalty/index

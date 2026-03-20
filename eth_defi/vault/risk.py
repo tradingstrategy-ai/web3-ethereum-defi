@@ -148,6 +148,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Ember": VaultTechnicalRisk.low,
     # Lighter - centralised perp DEX on ZK-rollup, closed-source
     "Lighter": VaultTechnicalRisk.severe,
+    # Inverse Finance - sDOLA savings vault, open source but limited audits
+    "Inverse Finance": VaultTechnicalRisk.severe,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

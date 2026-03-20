@@ -181,6 +181,8 @@ ETH_STRATEGY_ESPN = """ESPN (ETH Strategy Perpetual Note) lends USDS to ETH Stra
 
 LIQUID_ROYALTY_NOTE = "Early withdrawal within 7-day cooldown incurs a 20% liquidation penalty on the unstaked amount. Initiate cooldown and wait 7 days to withdraw without penalty."
 
+INVERSE_SDOLA_FLASH_LOAN_EXPLOIT = "An attacker used ~$30M in flash loans to inflate the sDOLA exchange rate (from ~1.188 to ~1.358 per DOLA) by donating assets directly into the vault. This triggered faulty oracle pricing on LlamaLend, force-liquidating ~27 user positions (DOLA-backed leveraged longs) and letting the attacker profit ~$240K in liquidation rewards."
+
 LIGHTER_LLP_STAKING = """LLP (Lighter Liquidity Provider) is the protocol's community-owned market-making pool providing liquidity and handling liquidations on Lighter DEX.
 
 Depositing into LLP requires staking LIT tokens at a 1:10 ratio (1 LIT staked per 10 USDC deposited). Staking ≥100 LIT waives withdrawal and transfer fees. If staked LIT does not fully cover the deposit, up to 3% or 100 USDC of the uncovered amount is returned daily to the user's balance.
@@ -417,6 +419,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xc38421e5577250eba177bc5bc832e747bea13ee0": (None, LIQUID_ROYALTY_NOTE),
     # sUSDS Lender (Yearn on Ethereum)
     "0x3f2de801629116a83b9734bb72012a554e01cfc1": (VaultFlag.subvault, SUBVAULT),
+    # Inverse Finance sDOLA vault on Ethereum
+    "0xb45ad160634c528cc3d2926d9807104fa3157305": (None, INVERSE_SDOLA_FLASH_LOAN_EXPLOIT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():

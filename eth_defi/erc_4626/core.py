@@ -573,6 +573,13 @@ class ERC4626Feature(enum.Enum):
     #: https://ember.so/
     ember_like = "ember_like"
 
+    #: Inverse Finance
+    #:
+    #: sDOLA savings vault — yield-bearing ERC-4626 vault for DOLA staking.
+    #: Yield from FiRM lending revenues via DBR auction mechanism.
+    #: https://www.inverse.finance/
+    inverse_finance_like = "inverse_finance_like"
+
 
 #: Features that identify lending protocol vaults.
 #:
@@ -859,6 +866,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.ember_like in features:
         return "Ember"
+
+    elif ERC4626Feature.inverse_finance_like in features:
+        return "Inverse Finance"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

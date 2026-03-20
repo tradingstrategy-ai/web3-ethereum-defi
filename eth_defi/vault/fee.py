@@ -148,6 +148,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Lighter": VaultFeeMode.internalised_skimming,
     # Liquid Royalty has no management/performance fees, but 20% early withdrawal penalty within 7-day cooldown
     "Liquid Royalty": VaultFeeMode.feeless,
+    # Inverse Finance sDOLA - no explicit fees, yield via DBR auction mechanism
+    "Inverse Finance": VaultFeeMode.feeless,
 }
 
 

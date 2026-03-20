@@ -1,5 +1,6 @@
 # Current
 
+- Add: New vault protocol: Inverse Finance — sDOLA savings vault with ERC-4626 support, hardcoded detection (2026-03-20)
 - Add: `calculate_lifetime_metrics()` now includes a `generated_at` field per row — a naive UTC ISO 8601 timestamp indicating when the metrics were computed (2026-03-18, [#870](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/870))
 - Fix: Clamp `period_start_at` to vault inception when vault is younger than the requested period, preventing period start dates from appearing before the vault existed (2026-03-18, [#869](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/869))
 - Add: Derive funding rate full history fetch — fix API parameter names (`start_timestamp`/`end_timestamp`), auto-detect instrument inception dates, 28-day chunked fetch with progress bar (2026-03-18, [#868](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/868))
