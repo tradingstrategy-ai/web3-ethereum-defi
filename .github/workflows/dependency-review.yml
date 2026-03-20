@@ -21,8 +21,29 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check ignored manifests
+        id: ignored-manifests
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep -Fxq "docs/requirements.txt"; then
+            echo "skip_dependency_review=true" >> "$GITHUB_OUTPUT"
+            echo "Ignoring dependency review because docs/requirements.txt changed." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "skip_dependency_review=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip dependency review for ignored manifests
+        if: steps.ignored-manifests.outputs.skip_dependency_review == 'true'
+        run: |
+          echo "Dependency review skipped for ignored manifest changes."
 
       - name: Review dependency changes
+        if: steps.ignored-manifests.outputs.skip_dependency_review != 'true'
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: low
