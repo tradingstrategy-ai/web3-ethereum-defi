@@ -28,7 +28,7 @@ Usage:
 Environment variables:
 
 - ``LOG_LEVEL``: Logging level (debug, info, warning, error). Default: warning
-- ``DB_PATH``: Path to DuckDB database file. Default: ~/.tradingstrategy/hyperliquid/daily-metrics.duckdb
+- ``DB_PATH``: Path to DuckDB database file. Default: ~/.tradingstrategy/vaults/hyperliquid-vaults.duckdb
 - ``VAULT_ADDRESSES``: Comma-separated list of vault addresses to scan.
   When set, overrides ``MIN_TVL`` and ``MAX_VAULTS`` filters.
 - ``MIN_TVL``: Minimum TVL in USD to include a vault. Default: 5000

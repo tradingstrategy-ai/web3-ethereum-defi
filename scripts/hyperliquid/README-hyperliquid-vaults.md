@@ -431,7 +431,7 @@ for v in data['vaults'][:5]:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LOG_LEVEL` | `warning` | Logging level (debug, info, warning, error) |
-| `DB_PATH` | `~/.tradingstrategy/hyperliquid/daily-metrics.duckdb` | DuckDB database path |
+| `DB_PATH` | `~/.tradingstrategy/vaults/hyperliquid-vaults.duckdb` | DuckDB database path |
 | `VAULT_ADDRESSES` | *(all)* | Comma-separated vault addresses to scan (overrides `MIN_TVL`/`MAX_VAULTS`) |
 | `MIN_TVL` | `5000` | Minimum TVL in USD to include a vault |
 | `MAX_VAULTS` | `500` | Maximum number of vaults to process |

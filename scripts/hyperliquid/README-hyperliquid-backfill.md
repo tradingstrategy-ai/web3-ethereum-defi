@@ -409,8 +409,8 @@ AWS_PROFILE=hyperliquid LOG_LEVEL=info \
     poetry run python scripts/hyperliquid/extract-s3-vault-data.py
 
 # 2. Back up production database
-cp ~/.tradingstrategy/hyperliquid/daily-metrics.duckdb \
-   ~/.tradingstrategy/hyperliquid/daily-metrics.duckdb.bak
+cp ~/.tradingstrategy/vaults/hyperliquid-vaults.duckdb \
+   ~/.tradingstrategy/vaults/hyperliquid-vaults.duckdb.bak
 
 # 3. Apply backfill (inserts only missing dates, never overwrites API data)
 LOG_LEVEL=info poetry run python scripts/hyperliquid/backfill-vault-data.py
@@ -423,7 +423,7 @@ poetry run python -c "
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from pathlib import Path
 db = HyperliquidDailyMetricsDatabase(
-    Path.home() / '.tradingstrategy/hyperliquid/daily-metrics.duckdb')
+    Path.home() / '.tradingstrategy/vaults/hyperliquid-vaults.duckdb')
 neet = '0x4cb5f4d145cd16460932bbb9b871bb6fd5db97e3'
 df = db.get_vault_daily_prices(neet)
 print(f'NEET vault: {len(df)} rows (was 60, expected ~112)')

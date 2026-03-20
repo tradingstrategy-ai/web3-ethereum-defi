@@ -25,7 +25,7 @@ Environment variables:
 - ``STAGING_DB_PATH``: Staging DuckDB path.
   Default: ``~/.tradingstrategy/hyperliquid/s3-vault-backfill.duckdb``
 - ``DB_PATH``: Main metrics DuckDB path.
-  Default: ``~/.tradingstrategy/hyperliquid/daily-metrics.duckdb``
+  Default: ``~/.tradingstrategy/vaults/hyperliquid-vaults.duckdb``
 - ``VAULT_ADDRESSES``: Comma-separated list of vault addresses to backfill.
   Default: all vaults in staging DB.
 - ``RUN_PIPELINE``: If ``true``, run downstream cleaning pipeline after backfill.
