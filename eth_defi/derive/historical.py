@@ -931,30 +931,36 @@ class DeriveFundingRateDatabase:
                 DERIVE_MULTICALL3_DEPLOYMENT_BLOCK,
             )
 
-            calls.append(EncodedCall.from_keccak_signature(
-                address=addr,
-                function=f"{name}/openInterest",
-                signature=oi_selector,
-                data=oi_data,
-                extra_data={"instrument": name, "field": "open_interest"},
-                first_block_number=first_block,
-            ))
-            calls.append(EncodedCall.from_keccak_signature(
-                address=addr,
-                function=f"{name}/getPerpPrice",
-                signature=perp_price_selector,
-                data=b"",
-                extra_data={"instrument": name, "field": "perp_price"},
-                first_block_number=first_block,
-            ))
-            calls.append(EncodedCall.from_keccak_signature(
-                address=addr,
-                function=f"{name}/getIndexPrice",
-                signature=index_price_selector,
-                data=b"",
-                extra_data={"instrument": name, "field": "index_price"},
-                first_block_number=first_block,
-            ))
+            calls.append(
+                EncodedCall.from_keccak_signature(
+                    address=addr,
+                    function=f"{name}/openInterest",
+                    signature=oi_selector,
+                    data=oi_data,
+                    extra_data={"instrument": name, "field": "open_interest"},
+                    first_block_number=first_block,
+                )
+            )
+            calls.append(
+                EncodedCall.from_keccak_signature(
+                    address=addr,
+                    function=f"{name}/getPerpPrice",
+                    signature=perp_price_selector,
+                    data=b"",
+                    extra_data={"instrument": name, "field": "perp_price"},
+                    first_block_number=first_block,
+                )
+            )
+            calls.append(
+                EncodedCall.from_keccak_signature(
+                    address=addr,
+                    function=f"{name}/getIndexPrice",
+                    signature=index_price_selector,
+                    data=b"",
+                    extra_data={"instrument": name, "field": "index_price"},
+                    first_block_number=first_block,
+                )
+            )
             call_instrument_names.append(name)
 
         logger.info(
@@ -965,6 +971,7 @@ class DeriveFundingRateDatabase:
             OI_BLOCK_STEP,
             max_workers,
         )
+        print(f"Scan start: {global_start.strftime('%Y-%m-%d %H:%M')} UTC")
 
         web3factory = TunedWeb3Factory(rpc_url)
 
