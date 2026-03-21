@@ -10,6 +10,7 @@ import pytest
 import requests
 from requests import Response, HTTPError
 from web3 import HTTPProvider, Web3, EthereumTesterProvider
+from web3.exceptions import Web3RPCError
 
 from eth_defi.chain import install_chain_middleware, install_retry_middleware, install_api_call_counter_middleware
 from eth_defi.middleware import is_retryable_http_exception
@@ -50,6 +51,24 @@ def test_pokt_network_broken():
     """Test for Internal server error from Pokt relay."""
     exc = ValueError({"message": "Internal JSON-RPC error.", "code": -32603})
     assert is_retryable_http_exception(exc)
+
+
+def test_web3_rpc_error_retryable():
+    """Check Web3RPCError uses JSON-RPC codes for retry decisions."""
+    exc = Web3RPCError(
+        "{'message': 'Internal JSON-RPC error.', 'code': -32603}",
+        rpc_response={"jsonrpc": "2.0", "id": 1, "error": {"message": "Internal JSON-RPC error.", "code": -32603}},
+    )
+    assert is_retryable_http_exception(exc)
+
+
+def test_web3_rpc_error_not_retryable():
+    """Check Web3RPCError does not retry genuine execution reverts."""
+    exc = Web3RPCError(
+        "{'message': 'execution reverted', 'code': 3}",
+        rpc_response={"jsonrpc": "2.0", "id": 1, "error": {"message": "execution reverted", "code": 3}},
+    )
+    assert not is_retryable_http_exception(exc)
 
 
 def test_api_counter():

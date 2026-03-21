@@ -21,7 +21,7 @@ from eth_utils.toolz import assoc
 from requests.exceptions import ChunkedEncodingError, ConnectionError, ContentDecodingError, HTTPError, Timeout, TooManyRedirects
 from web3 import Web3
 from web3._utils.transactions import get_buffered_gas_estimate
-from web3.exceptions import BlockNotFound
+from web3.exceptions import BlockNotFound, Web3RPCError
 from web3.middleware import Middleware
 from web3.types import RPCEndpoint, RPCResponse
 
@@ -246,31 +246,37 @@ def is_retryable_http_exception(
         if len(params) >= 1:
             return False
 
+    rpc_error = None
     if isinstance(exc, ValueError):
         # raise ValueError(response["error"])
         # ValueError: {'message': 'Internal JSON-RPC error.', 'code': -32603}
-        if len(exc.args) > 0:
-            arg = exc.args[0]
-            if type(arg) == dict:
-                code = arg.get("code")
-                message = arg.get("message", "")
+        if len(exc.args) > 0 and type(exc.args[0]) == dict:
+            rpc_error = exc.args[0]
+    elif isinstance(exc, Web3RPCError):
+        rpc_response = getattr(exc, "rpc_response", None)
+        if isinstance(rpc_response, dict):
+            rpc_error = rpc_response.get("error")
 
-                if code is None or type(code) != int:
-                    raise RuntimeError(f"Bad ValueError: {arg} - {exc}")
+    if rpc_error is not None:
+        code = rpc_error.get("code")
+        message = rpc_error.get("message", "")
 
-                if code in retryable_rpc_error_codes:
-                    return True
+        if code is None or type(code) != int:
+            raise RuntimeError(f"Bad RPC error payload: {rpc_error} - {exc}")
 
-                if message in retryable_rpc_error_messages:
-                    return True
+        if code in retryable_rpc_error_codes:
+            return True
 
-                for string_check in retryable_rpc_error_messages:
-                    if string_check in message:
-                        # Some RPCs add their own crap to the error messages, so exact error
-                        # message matching does not seem to work
-                        return True
+        if message in retryable_rpc_error_messages:
+            return True
 
-                return False
+        for string_check in retryable_rpc_error_messages:
+            if string_check in message:
+                # Some RPCs add their own crap to the error messages, so exact error
+                # message matching does not seem to work
+                return True
+
+        return False
 
     if isinstance(exc, ProbablyNodeHasNoBlock):
         return True
