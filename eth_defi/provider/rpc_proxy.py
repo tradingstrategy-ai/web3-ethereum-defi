@@ -757,8 +757,21 @@ def start_rpc_proxy(
         At least one URL is required.
 
     :param port:
-        Local port to bind. If ``None``, a free port is allocated
-        automatically via :py:func:`eth_defi.utils.find_free_port`.
+        Local port to bind on ``127.0.0.1``.
+
+        If ``None`` (the default), the server binds to port ``0`` which
+        tells the operating system to assign a free ephemeral port
+        atomically. The actual port is read back from the socket after
+        binding and stored in :py:attr:`RPCProxy.port`. This avoids the
+        TOCTOU race condition that occurs with
+        :py:func:`~eth_defi.utils.find_free_port`: that function checks
+        availability via ``connect()``, but under heavy parallel test
+        execution (``pytest -n auto``) another process can grab the same
+        port between the check and the ``bind()`` call, resulting in
+        ``OSError: [Errno 98] Address already in use``.
+
+        Pass an explicit port number only when you need a deterministic
+        address (e.g. for debugging or firewall rules).
 
     :param config:
         Proxy configuration. If ``None``, a default :py:class:`RPCProxyConfig`
@@ -785,8 +798,8 @@ def start_rpc_proxy(
 
         config = dataclasses.replace(config, **kwargs)
 
-    if port is None:
-        port = find_free_port()
+    # Port allocation is deferred to the OS bind() call below when port
+    # is None, to avoid TOCTOU races under parallel test execution.
 
     # Create HTTP session with connection pooling
     session = requests.Session()
@@ -809,11 +822,18 @@ def start_rpc_proxy(
         provider_keys[provider_keys.index(key)] = display_key
         provider_stats[display_key] = UpstreamRPCProviderStatistics(url=display_key)
 
-    # Resolve proxy name
-    proxy_name = config.name or f"rpc-proxy-{port}"
+    # Create and configure the server.
+    # When no explicit port is given, bind to port 0 so the OS assigns an
+    # available port atomically. This avoids a TOCTOU race condition when
+    # multiple tests run in parallel (pytest -n auto): find_free_port()
+    # checks availability via connect(), but another process can grab the
+    # port between the check and the bind() call.
+    bind_port = port if port is not None else 0
+    server = _ThreadingHTTPServer(("127.0.0.1", bind_port), _ProxyRequestHandler)
+    # Read back the actual port assigned by the OS
+    port = server.server_address[1]
 
-    # Create and configure the server
-    server = _ThreadingHTTPServer(("127.0.0.1", port), _ProxyRequestHandler)
+    proxy_name = config.name or f"rpc-proxy-{port}"
     server.config = config
     server.proxy_name = proxy_name
     server.rpc_urls = rpc_urls
