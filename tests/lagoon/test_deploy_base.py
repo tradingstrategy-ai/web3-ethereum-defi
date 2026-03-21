@@ -10,6 +10,8 @@ from web3 import Web3
 
 import flaky
 
+pytestmark = pytest.mark.usefixtures("restore_lagoon_base_state")
+
 from eth_defi.hotwallet import HotWallet
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVersion

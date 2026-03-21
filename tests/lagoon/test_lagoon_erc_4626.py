@@ -7,6 +7,8 @@ import pytest
 from eth_typing import HexAddress
 from web3 import Web3
 
+pytestmark = pytest.mark.usefixtures("restore_lagoon_base_state")
+
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.flow import approve_and_deposit_4626, approve_and_redeem_4626

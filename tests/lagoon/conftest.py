@@ -128,9 +128,15 @@ def lagoon_base_state(web3: Web3) -> AnvilSnapshotState:
     return create_anvil_snapshot_state(web3)
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture()
 def restore_lagoon_base_state(web3: Web3, lagoon_base_state: AnvilSnapshotState) -> None:
-    """Restore the shared Base fork back to the saved checkpoint before each test."""
+    """Restore the shared Base fork back to the saved checkpoint before each test.
+
+    Not autouse because test modules that override ``web3`` with a
+    different chain would hit a ScopeMismatch.  Modules that use the
+    shared conftest ``web3`` opt in via
+    ``pytest.mark.usefixtures("restore_lagoon_base_state")``.
+    """
 
     reset_anvil_snapshot(web3, lagoon_base_state)
 
