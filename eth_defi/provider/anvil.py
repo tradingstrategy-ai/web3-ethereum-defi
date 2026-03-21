@@ -69,6 +69,33 @@ logger = logging.getLogger(__name__)
 #: a flaky endpoint across multiple test fixtures.
 _anvil_rpc_state = threading.local()
 
+#: HyperEVM mainnet/testnet chain ids.
+#:
+#: HyperEVM RPCs are special when forking with Anvil: asking Anvil to fork the
+#: chain tip without an explicit ``--fork-block-number`` can fail even after
+#: ``eth_blockNumber`` succeeded against the upstream RPC.
+#:
+#: The failure mode we have seen in production is:
+#:
+#: - Anvil launches with ``--fork-url <HyperEVM RPC>`` and no
+#:   ``--fork-block-number``
+#: - during genesis creation, Anvil asks the upstream RPC for the default Anvil
+#:   deployer account state at ``latest``
+#: - HyperEVM sometimes responds with HTTP 400 and JSON-RPC error
+#:   ``{"message":"Unknown block","code":26}``
+#: - Anvil aborts with ``Error: failed to create genesis``
+#:
+#: Because of this, HyperEVM forks must be pinned slightly behind the tip unless
+#: the caller already supplied an explicit, known-good block number.
+HYPEREVM_CHAIN_IDS: set[int] = {998, 999}
+
+#: How many blocks behind the tip we pin HyperEVM Anvil forks by default.
+#:
+#: Four blocks matches the manual workaround already used by HyperEVM test
+#: fixtures in this repository and keeps us away from the unstable chain tip
+#: that can return ``Unknown block`` during Anvil genesis creation.
+HYPEREVM_ANVIL_FORK_TIP_LATENCY = 4
+
 
 class InvalidArgumentWarning(Warning):
     """Lifted from Brownie."""
@@ -401,6 +428,65 @@ def _verify_archive_node_access(
     logger.debug("Archive node access verified for %s at block %d", rpc_url, fork_block_number)
 
 
+def _select_safe_fork_block_number(
+    web3: Web3,
+    current_block: int,
+    fork_block_number: int | None,
+) -> int | None:
+    """Choose a safer Anvil fork block for problematic chain tips.
+
+    HyperEVM (chain ids 998 and 999) has a recurring failure mode when Anvil is
+    asked to fork ``latest`` without an explicit ``--fork-block-number``.
+
+    The upstream RPC can happily answer ``eth_blockNumber`` first, but a moment
+    later Anvil's genesis creation may fail while reading account state from the
+    same chain tip. The observed error chain looks like this:
+
+    .. code-block:: text
+
+        Error: failed to create genesis
+        Context:
+        - failed to get account for 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266:
+          HTTP error 400 with body:
+          {"id":9,"jsonrpc":"2.0","error":{"message":"Unknown block","code":26}}
+
+    This is not a historical archive-data problem. It is a chain-tip stability
+    problem specific to HyperEVM RPCs. The most reliable mitigation is to pin
+    the fork a few blocks behind the tip.
+
+    If the caller already supplied ``fork_block_number``, we always respect it.
+    Otherwise, HyperEVM forks are automatically pinned
+    ``HYPEREVM_ANVIL_FORK_TIP_LATENCY`` blocks behind the reported tip.
+
+    :param web3:
+        Upstream RPC connection used for the smoke test.
+
+    :param current_block:
+        Latest block returned by ``eth_blockNumber`` from the upstream RPC.
+
+    :param fork_block_number:
+        Caller-supplied explicit fork block, if any.
+
+    :return:
+        Effective fork block number, or ``None`` if forking at ``latest`` is
+        still safe for this chain.
+    """
+    if fork_block_number is not None:
+        return fork_block_number
+
+    chain_id = web3.eth.chain_id
+    if chain_id in HYPEREVM_CHAIN_IDS:
+        safe_fork_block = max(1, current_block - HYPEREVM_ANVIL_FORK_TIP_LATENCY)
+        logger.info(
+            "HyperEVM fork requested without explicit fork_block_number, pinning Anvil to block %d instead of chain tip %d to avoid upstream 'Unknown block' errors during genesis creation",
+            safe_fork_block,
+            current_block,
+        )
+        return safe_fork_block
+
+    return None
+
+
 # Anvil launch may or may not need a lock, I am still unsure
 # Leaving out lock now because it seems to cause more harm than good
 def launch_anvil(
@@ -589,6 +675,13 @@ def launch_anvil(
         If not given, fork at the latest block.
         Needs an archive node to work.
 
+        HyperEVM is a special case: if the caller does not supply an explicit
+        fork block, :py:func:`launch_anvil` automatically pins the fork a few
+        blocks behind the tip. This avoids the recurring HyperEVM failure where
+        Anvil aborts with ``Error: failed to create genesis`` because the
+        upstream RPC responds with ``{"message":"Unknown block","code":26}``
+        while resolving ``latest`` during genesis creation.
+
     :parma code_size_limit:
         Max smart contract size
 
@@ -669,6 +762,12 @@ def launch_anvil(
             current_rpc_block = web3.eth.block_number
         except Exception as e:
             raise ValueError(f"RPC smoke test failed for {cleaned_fork_url}: {e}") from e
+
+        fork_block_number = _select_safe_fork_block_number(
+            web3=web3,
+            current_block=current_rpc_block,
+            fork_block_number=fork_block_number,
+        )
 
         # If archive mode and fork_block_number specified, verify RPC can access historical blocks
         if archive and fork_block_number is not None:
@@ -755,6 +854,19 @@ def launch_anvil(
                 "missing trie node",
                 "header not found",
             ]
+            # HyperEVM has a separate failure mode from missing archive state.
+            # When Anvil forks HyperEVM at the chain tip, the upstream RPC may
+            # answer HTTP 400 with JSON-RPC error {"message":"Unknown block","code":26}
+            # while Anvil is creating genesis and requesting account state for
+            # the default deployer address 0xf39F...92266. Anvil then exits with:
+            #
+            # - Error: failed to create genesis
+            # - failed to get account for 0xf39F...92266: HTTP error 400 with body:
+            #   {"id":9,"jsonrpc":"2.0","error":{"message":"Unknown block","code":26}}
+            #
+            # We avoid this pre-emptively by auto-pinning HyperEVM forks slightly
+            # behind the tip, but keep this comment here because this stderr is
+            # otherwise very confusing when seen in logs or CI output.
             if fork_block_number and any(p in stderr_str for p in archive_error_patterns):
                 raise ArchiveNodeRequired(
                     f"Anvil failed to fork {cleaned_fork_url} at block {fork_block_number:,}: the RPC does not provide full archive state access. Anvil stderr: {stderr_str[:500]}",
