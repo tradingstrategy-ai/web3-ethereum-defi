@@ -48,6 +48,8 @@ from eth_defi.provider.anvil import (
     ANVIL_OWNER_1,
     ANVIL_OWNER_2,
     AnvilLaunch,
+    create_anvil_snapshot_reset_fixture,
+    create_anvil_snapshot_state_fixture,
     fork_network_anvil,
     fund_erc20_on_anvil,
 )
@@ -88,12 +90,12 @@ def _perform_call(module: Contract, fn_call, asset_manager: str):
     ).transact({"from": asset_manager})
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def deployer() -> LocalAccount:
     return Account.from_key(DEPLOYER_PRIVATE_KEY)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def anvil_hyperliquid() -> AnvilLaunch:
     """Fork HyperEVM mainnet with large block gas limit.
 
@@ -119,7 +121,7 @@ def anvil_hyperliquid() -> AnvilLaunch:
         launch.close(log_level=logging.ERROR)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def web3(anvil_hyperliquid):
     web3 = create_multi_provider_web3(
         anvil_hyperliquid.json_rpc_url,
@@ -129,24 +131,24 @@ def web3(anvil_hyperliquid):
     return web3
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def usdc(web3) -> TokenDetails:
     return fetch_erc20_details(web3, USDC_ADDRESS)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def mock_core_writer(web3) -> Contract:
     """Deploy MockCoreWriter at the system address via anvil_setCode."""
     return deploy_mock_core_writer(web3)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def mock_core_deposit_wallet(web3) -> Contract:
     """Deploy MockCoreDepositWallet at the mainnet address via anvil_setCode."""
     return deploy_mock_core_deposit_wallet(web3)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def lagoon_deployment(
     web3,
     deployer,
@@ -215,6 +217,16 @@ def lagoon_deployment(
     web3.provider.make_request("anvil_stopImpersonatingAccount", [safe_address])
 
     return deploy_info
+
+
+hypercore_lagoon_state = create_anvil_snapshot_state_fixture(
+    fixture_name="hypercore_lagoon_state",
+    dependency_fixture_names=("lagoon_deployment",),
+)
+
+restore_hypercore_lagoon_state = create_anvil_snapshot_reset_fixture(
+    state_fixture_name="hypercore_lagoon_state",
+)
 
 
 @pytest.mark.timeout(600)

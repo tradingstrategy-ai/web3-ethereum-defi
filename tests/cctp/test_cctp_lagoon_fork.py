@@ -35,7 +35,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
     deploy_automated_lagoon_vault,
     LagoonAutomatedDeployment,
 )
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.provider.anvil import AnvilLaunch, create_anvil_snapshot_reset_fixture, create_anvil_snapshot_state_fixture, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details, USDC_NATIVE_TOKEN, USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -53,18 +53,18 @@ pytestmark = pytest.mark.skipif(
 USDC_ETHEREUM = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def asset_manager() -> HexAddress:
     return "0x0b2582E9Bf6AcE4E7f42883d4E91240551cf0947"
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def usdc_holder() -> HexAddress:
     return USDC_WHALE[8453]
 
 
-@pytest.fixture()
-def anvil_base_fork(request, usdc_holder, asset_manager) -> AnvilLaunch:
+@pytest.fixture(scope="module")
+def anvil_base_fork(usdc_holder, asset_manager) -> AnvilLaunch:
     launch = fork_network_anvil(
         JSON_RPC_BASE,
         unlocked_addresses=[usdc_holder, asset_manager],
@@ -75,7 +75,7 @@ def anvil_base_fork(request, usdc_holder, asset_manager) -> AnvilLaunch:
         launch.close(log_level=logging.ERROR)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def web3(anvil_base_fork) -> Web3:
     web3 = create_multi_provider_web3(
         anvil_base_fork.json_rpc_url,
@@ -85,22 +85,22 @@ def web3(anvil_base_fork) -> Web3:
     return web3
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def base_usdc(web3) -> TokenDetails:
     return fetch_erc20_details(web3, USDC_NATIVE_TOKEN[8453])
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def deployer_hot_wallet(web3) -> HotWallet:
     return HotWallet.create_for_testing(web3, eth_amount=1)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def multisig_owners(web3) -> list[HexAddress]:
     return [web3.eth.accounts[2], web3.eth.accounts[3], web3.eth.accounts[4]]
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def topped_up_asset_manager(web3, asset_manager) -> HexAddress:
     tx_hash = web3.eth.send_transaction(
         {
@@ -124,7 +124,7 @@ def depositor(web3, base_usdc, usdc_holder) -> HexAddress:
     return address
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def deploy_info(
     web3,
     deployer_hot_wallet,
@@ -159,6 +159,16 @@ def deploy_info(
     )
 
     return deploy_info
+
+
+cctp_lagoon_state = create_anvil_snapshot_state_fixture(
+    fixture_name="cctp_lagoon_state",
+    dependency_fixture_names=("deploy_info",),
+)
+
+restore_cctp_lagoon_state = create_anvil_snapshot_reset_fixture(
+    state_fixture_name="cctp_lagoon_state",
+)
 
 
 def _fund_vault(web3, vault, base_usdc, depositor, asset_manager, amount_usdc=100):

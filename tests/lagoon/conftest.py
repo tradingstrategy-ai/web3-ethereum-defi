@@ -20,7 +20,7 @@ from web3 import Web3
 from eth_defi.hotwallet import HotWallet
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault, LagoonAutomatedDeployment
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.provider.anvil import AnvilLaunch, create_anvil_snapshot_reset_fixture, create_anvil_snapshot_state_fixture, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details, USDC_NATIVE_TOKEN, USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -36,7 +36,7 @@ CI = os.environ.get("CI", None) is not None
 pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE environment variable")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def vault_owner() -> HexAddress:
     # Vaut owner
     return addr("0x0c9db006f1c7bfaa0716d70f012ec470587a8d4f")
@@ -48,13 +48,13 @@ def depositor() -> HexAddress:
     return addr("0x20415f3Ec0FEA974548184bdD6e67575D128953F")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def usdc_holder() -> HexAddress:
     # https://basescan.org/token/0x833589fcd6edb6e08f4c7c32d4f71b54bda02913#balances
     return USDC_WHALE[8453]
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def valuation_manager() -> HexAddress:
     """Unlockable account set as the vault valuation manager."""
     return addr("0x8358bBFb4Afc9B1eBe4e8C93Db8bF0586BD8331a")
@@ -66,15 +66,14 @@ def safe_address() -> HexAddress:
     return addr("0x20415f3Ec0FEA974548184bdD6e67575D128953F")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def test_block_number() -> int:
     """Fork height for our tests."""
     return 30_659_990
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def anvil_base_fork(
-    request,
     vault_owner,
     usdc_holder,
     asset_manager,
@@ -99,7 +98,7 @@ def anvil_base_fork(
         launch.close()
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def web3(anvil_base_fork) -> Web3:
     """Create a web3 connector.
 
@@ -120,6 +119,15 @@ def web3(anvil_base_fork) -> Web3:
         )
     assert web3.eth.chain_id == 8453
     return web3
+
+
+lagoon_base_state = create_anvil_snapshot_state_fixture(
+    fixture_name="lagoon_base_state",
+)
+
+restore_lagoon_base_state = create_anvil_snapshot_reset_fixture(
+    state_fixture_name="lagoon_base_state",
+)
 
 
 @pytest.fixture()
@@ -232,13 +240,13 @@ def automated_lagoon_vault(
     return deploy_info
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def asset_manager() -> HexAddress:
     """The asset manager role."""
     return "0x0b2582E9Bf6AcE4E7f42883d4E91240551cf0947"
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def second_asset_manager() -> HexAddress:
     """The secondary asset manager role used in multi-key tests."""
     return Web3.to_checksum_address("0x4b3346d9b7d4f6b7a90a4d2f0d2f5f6d5b9c8a17")

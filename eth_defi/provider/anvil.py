@@ -630,10 +630,24 @@ def launch_anvil(
 
     - :py:func:`eth_defi.trace.print_symbolic_trace`
 
+    - :py:func:`create_anvil_snapshot_state`
+
+    - :py:func:`reset_anvil_snapshot`
+
+    - :py:func:`create_anvil_snapshot_state_fixture`
+
+    - :py:func:`create_anvil_snapshot_reset_fixture`
+
     .. note ::
 
         Looks like we have some issues Anvil instance lingering around even
         after `AnvilLaunch.close()` if scoped pytest fixtures are used.
+
+        If you intentionally keep a fork alive across multiple tests, pair a
+        module-scoped ``launch_anvil()`` / ``fork_network_anvil()`` fixture
+        with :py:func:`create_anvil_snapshot_state`,
+        :py:func:`reset_anvil_snapshot`, or the pytest fixture factories above
+        so you can reset state cheaply between tests.
 
     :param cmd:
         Override `anvil` command. If not given we look up from `PATH`.
@@ -1068,6 +1082,42 @@ def snapshot(web3: Web3) -> int:
     return int(make_anvil_custom_rpc_request(web3, "evm_snapshot", []), 16)
 
 
+@dataclass(slots=True)
+class AnvilSnapshotState:
+    """Mutable reset point for a shared Anvil backend.
+
+    This helper is designed for pytest suites that keep one Anvil process alive
+    across multiple tests and reset it cheaply using ``evm_snapshot`` /
+    ``evm_revert`` instead of relaunching the fork each time.
+
+    Use :py:func:`create_anvil_snapshot_state` to take the initial snapshot and
+    :py:func:`reset_anvil_snapshot` to restore it between tests.
+
+    Example:
+
+    .. code-block:: python
+
+        import pytest
+
+        from eth_defi.provider.anvil import AnvilSnapshotState, create_anvil_snapshot_state, reset_anvil_snapshot
+
+
+        @pytest.fixture(scope="module")
+        def deployed_state(web3, deploy_info) -> AnvilSnapshotState:
+            # deploy_info is resolved first so the snapshot captures the
+            # expensive post-deployment baseline
+            return create_anvil_snapshot_state(web3)
+
+
+        @pytest.fixture(autouse=True)
+        def restore_deployed_state(web3, deployed_state) -> None:
+            reset_anvil_snapshot(web3, deployed_state)
+    """
+
+    #: Latest reusable Anvil snapshot id.
+    snapshot_id: int
+
+
 def revert(web3: Web3, snapshot_id: int) -> bool:
     """Call evm_revert on Anvil
 
@@ -1078,6 +1128,181 @@ def revert(web3: Web3, snapshot_id: int) -> bool:
     """
     ret_val = make_anvil_custom_rpc_request(web3, "evm_revert", [snapshot_id])
     return ret_val
+
+
+def create_anvil_snapshot_state(web3: Web3) -> AnvilSnapshotState:
+    """Capture the current Anvil state for later reuse.
+
+    This is the manual building block for snapshot-based fixtures. Call this
+    once after the expensive setup you want to reuse, such as a mainnet fork or
+    a full protocol deployment.
+
+    Example:
+
+    .. code-block:: python
+
+        import pytest
+
+        from eth_defi.provider.anvil import AnvilSnapshotState, create_anvil_snapshot_state
+
+
+        @pytest.fixture(scope="module")
+        def fork_state(web3) -> AnvilSnapshotState:
+            # Save a clean fork baseline after the module-scoped Anvil launch
+            return create_anvil_snapshot_state(web3)
+
+    See also :py:func:`create_anvil_snapshot_state_fixture` for a pytest
+    fixture factory version.
+    """
+
+    return AnvilSnapshotState(snapshot_id=snapshot(web3))
+
+
+def reset_anvil_snapshot(web3: Web3, state: AnvilSnapshotState) -> None:
+    """Revert a shared Anvil backend to a stored snapshot and resave it.
+
+    ``evm_revert`` consumes the snapshot it restores. Because of this, the
+    helper immediately creates a new snapshot after each reset so the same
+    :py:class:`AnvilSnapshotState` instance can be reused by the next test.
+
+    Example:
+
+    .. code-block:: python
+
+        import pytest
+
+        from eth_defi.provider.anvil import AnvilSnapshotState, create_anvil_snapshot_state, reset_anvil_snapshot
+
+
+        @pytest.fixture(scope="module")
+        def fork_state(web3) -> AnvilSnapshotState:
+            return create_anvil_snapshot_state(web3)
+
+
+        @pytest.fixture(autouse=True)
+        def restore_fork_state(web3, fork_state) -> None:
+            reset_anvil_snapshot(web3, fork_state)
+    """
+
+    reverted = revert(web3, state.snapshot_id)
+    assert reverted, f"Snapshot revert failed {state.snapshot_id}"
+    state.snapshot_id = snapshot(web3)
+
+
+def create_anvil_snapshot_state_fixture(
+    fixture_name: str,
+    *,
+    web3_fixture_name: str = "web3",
+    scope: str = "module",
+    dependency_fixture_names: tuple[str, ...] = (),
+) -> Any:
+    """Create a pytest fixture that stores a reusable Anvil snapshot.
+
+    This helper is useful when you want a module-scoped checkpoint without
+    rewriting the same fixture boilerplate in each test module.
+
+    :param fixture_name:
+        Name of the generated fixture.
+
+    :param web3_fixture_name:
+        Fixture name that yields the shared Web3 instance connected to Anvil.
+
+    :param scope:
+        Scope of the generated snapshot fixture. Usually ``"module"``.
+
+    :param dependency_fixture_names:
+        Fixtures that must be resolved before the snapshot is taken. Use this
+        to capture a post-deployment baseline by listing expensive deployment
+        fixtures here.
+
+    Example:
+
+    .. code-block:: python
+
+        from eth_defi.provider.anvil import create_anvil_snapshot_reset_fixture, create_anvil_snapshot_state_fixture
+
+
+        deployed_state = create_anvil_snapshot_state_fixture(
+            fixture_name="deployed_state",
+            dependency_fixture_names=("deploy_info",),
+        )
+
+        restore_deployed_state = create_anvil_snapshot_reset_fixture(
+            state_fixture_name="deployed_state",
+        )
+    """
+
+    import pytest
+
+    dependency_fixture_names = tuple(dependency_fixture_names)
+
+    @pytest.fixture(name=fixture_name, scope=scope)
+    def _anvil_snapshot_state(request) -> AnvilSnapshotState:
+        web3 = request.getfixturevalue(web3_fixture_name)
+        for dependency_fixture_name in dependency_fixture_names:
+            request.getfixturevalue(dependency_fixture_name)
+        return create_anvil_snapshot_state(web3)
+
+    return _anvil_snapshot_state
+
+
+def create_anvil_snapshot_reset_fixture(
+    *,
+    state_fixture_name: str,
+    web3_fixture_name: str = "web3",
+    fixture_name: str | None = None,
+    autouse: bool = True,
+    scope: str = "function",
+) -> Any:
+    """Create a pytest fixture that resets a shared Anvil backend per test.
+
+    The generated fixture resolves the named Web3 and snapshot fixtures through
+    ``request.getfixturevalue()`` and then calls
+    :py:func:`reset_anvil_snapshot`.
+
+    :param state_fixture_name:
+        Fixture holding :py:class:`AnvilSnapshotState`.
+
+    :param web3_fixture_name:
+        Fixture name that yields the Anvil-connected Web3 instance.
+
+    :param fixture_name:
+        Optional explicit fixture name. Defaults to
+        ``restore_<state_fixture_name>``.
+
+    :param autouse:
+        When ``True`` the reset happens automatically before each test.
+
+    :param scope:
+        Scope of the generated reset fixture. Usually ``"function"``.
+
+    Example:
+
+    .. code-block:: python
+
+        from eth_defi.provider.anvil import create_anvil_snapshot_reset_fixture, create_anvil_snapshot_state_fixture
+
+
+        fork_state = create_anvil_snapshot_state_fixture(
+            fixture_name="fork_state",
+        )
+
+        restore_fork_state = create_anvil_snapshot_reset_fixture(
+            state_fixture_name="fork_state",
+        )
+    """
+
+    import pytest
+
+    fixture_name = fixture_name or f"restore_{state_fixture_name}"
+
+    @pytest.fixture(name=fixture_name, autouse=autouse, scope=scope)
+    def _anvil_snapshot_reset(request) -> None:
+        web3 = request.getfixturevalue(web3_fixture_name)
+        state = request.getfixturevalue(state_fixture_name)
+        reset_anvil_snapshot(web3, state)
+
+    return _anvil_snapshot_reset
 
 
 def dump_state(web3: Web3) -> int:
