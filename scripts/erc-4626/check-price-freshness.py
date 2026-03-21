@@ -27,6 +27,7 @@ Environment variables:
 - ``MAX_AGE_HOURS``: Maximum allowed age in hours (default: 24)
 - ``TVL_THRESHOLD``: TVL boundary between low and high in USD (default: 20000)
 - ``SHOW_LOW_TVL``: Set to ``true`` to also show low TVL vault table (default: false)
+- ``SHOW_UNCLEANED``: Set to ``true`` to also show uncleaned price data freshness (default: false)
 """
 
 import io
@@ -38,7 +39,7 @@ import requests
 from tabulate import tabulate
 
 from eth_defi.chain import get_chain_name
-from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE
+from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE
 
 
 def _ensure_utc(ts: pd.Timestamp) -> pd.Timestamp:
@@ -103,6 +104,7 @@ def main():
     max_age_hours = int(os.environ.get("MAX_AGE_HOURS", "24"))
     tvl_threshold = float(os.environ.get("TVL_THRESHOLD", "20000"))
     show_low_tvl = os.environ.get("SHOW_LOW_TVL", "false").lower() == "true"
+    show_uncleaned = os.environ.get("SHOW_UNCLEANED", "false").lower() == "true"
     parquet_url = os.environ.get("PARQUET_URL", "")
 
     if parquet_url:
@@ -159,6 +161,21 @@ def main():
         print(tabulate(_build_chain_table(low_latest, now), headers=headers, tablefmt="fancy_grid"))
     else:
         print(f"\nLow TVL vaults (< ${tvl_threshold:,.0f}): {len(low_latest)} (set SHOW_LOW_TVL=true to display)")
+
+    # Uncleaned price data (optional)
+    if show_uncleaned:
+        if DEFAULT_UNCLEANED_PRICE_DATABASE.exists():
+            uncleaned_df = pd.read_parquet(DEFAULT_UNCLEANED_PRICE_DATABASE)
+            if "timestamp" not in uncleaned_df.columns and uncleaned_df.index.name == "timestamp":
+                uncleaned_df = uncleaned_df.reset_index()
+            uncleaned_latest = uncleaned_df.groupby(["chain", "address"])["timestamp"].max()
+            unc_abs, unc_median, unc_abs_age, unc_median_age = _compute_freshness(uncleaned_latest, now)
+            print(f"\nUncleaned price data ({DEFAULT_UNCLEANED_PRICE_DATABASE.name}): {len(uncleaned_latest)} vaults")
+            print(f"  Absolute last: {unc_abs} (age: {_format_age(unc_abs_age)})")
+            print(f"  Median last:   {unc_median} (age: {_format_age(unc_median_age)})")
+            print(tabulate(_build_chain_table(uncleaned_latest, now), headers=headers, tablefmt="fancy_grid"))
+        else:
+            print(f"\nUncleaned price file not found: {DEFAULT_UNCLEANED_PRICE_DATABASE}")
 
     # Exit code based on high TVL freshness only
     max_age = pd.Timedelta(hours=max_age_hours)
