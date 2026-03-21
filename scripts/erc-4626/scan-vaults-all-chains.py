@@ -191,6 +191,7 @@ def build_chain_configs() -> list[ChainConfig]:
     Returns chains in the same order as scan-vaults-all-chains.sh
     """
     return [
+        ChainConfig("Megaeth", "JSON_RPC_MEGAETH", True),
         ChainConfig("Sonic", "JSON_RPC_SONIC", True),
         ChainConfig("Monad", "JSON_RPC_MONAD", True),
         ChainConfig("Hyperliquid", "JSON_RPC_HYPERLIQUID", True),
