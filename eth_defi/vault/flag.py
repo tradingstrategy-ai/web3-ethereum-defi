@@ -422,6 +422,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # Inverse Finance sDOLA vault on Ethereum
     "0xb45ad160634c528cc3d2926d9807104fa3157305": (None, INVERSE_SDOLA_FLASH_LOAN_EXPLOIT),
     # Vault Shares (vUSDC) on Ethereum - unidentified protocol
+    # The deployer of this contract was interacting with suspicious token on Ethereum
     "0xaf68a0f0d2d4f82e671578ae6dd6a99de0e84cc6": (VaultFlag.malicious, MALICIOUS_VAULT),
 }
 
