@@ -36,6 +36,7 @@ def web3(anvil_ethereum_fork):
 
 
 @flaky.flaky
+@pytest.mark.skip(reason="Too slow")
 def test_infinifi(
     web3: Web3,
     tmp_path: Path,

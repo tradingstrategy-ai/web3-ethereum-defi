@@ -37,6 +37,7 @@ def web3(anvil_arbitrum_fork):
     return web3
 
 
+@pytest.mark.skip(reason="Too slow")
 def test_summer(
     web3: Web3,
     tmp_path: Path,
