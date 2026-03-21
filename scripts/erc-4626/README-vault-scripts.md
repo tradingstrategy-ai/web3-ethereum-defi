@@ -136,6 +136,25 @@ poetry run python scripts/erc-4626/export-protocol-metadata.py
 
 Scripts for checking individual vault data and diagnosing issues.
 
+### check-price-freshness.py
+
+Check how fresh the cleaned vault price data is. Prints absolute and median latest timestamps
+(with IQR outlier removal) and exits with code 1 if the median age exceeds the threshold.
+
+```shell
+# Check local file (default)
+poetry run python scripts/erc-4626/check-price-freshness.py
+
+# Check production data
+PARQUET_URL=https://vault-protocol-metadata.tradingstrategy.ai/cleaned-vault-prices-1h.parquet \
+  poetry run python scripts/erc-4626/check-price-freshness.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `PARQUET_URL` | Optional. URL to load parquet from. Default: local file. |
+| `MAX_AGE_HOURS` | Optional. Maximum allowed age in hours. Default: 24. |
+
 ### check-vault-onchain.py
 
 Check a vault's current on-chain data: name, TVL, share price, descriptions, flags, deposit/redemption status.
