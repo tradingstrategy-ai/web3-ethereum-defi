@@ -373,22 +373,69 @@ def test_lagoon_hypercore_deposit_for_wrong_recipient(
 def test_lagoon_hypercore_any_asset_allows_non_whitelisted_vault(
     web3: Web3,
     deployer: LocalAccount,
-    lagoon_deployment: LagoonAutomatedDeployment,
     mock_core_writer: Contract,
 ):
-    """With anyAsset enabled, deposit to a non-whitelisted vault succeeds.
+    """With anyAsset enabled, Lagoon keeps HypercoreWriter but skips per-vault whitelisting.
 
-    The Lagoon deployment uses any_asset=True, so per-vault whitelisting
-    is bypassed. CoreWriter and receiver checks are still enforced.
+    1. Deploy Lagoon with ``any_asset=True`` and an explicit Hypercore vault list.
+    2. Verify HypercoreWriter/CoreDepositWallet permissions are installed.
+    3. Verify the listed Hypercore vault was not individually whitelisted.
+    4. Verify deposit to a different Hypercore vault still succeeds.
     """
-    module = lagoon_deployment.trading_strategy_module
-    asset_manager = deployer.address
-    hypercore_amount = 1_000 * 10**6
+    web3.provider.make_request("anvil_setBalance", [deployer.address, hex(100 * 10**18)])
 
+    wallet = HotWallet(deployer)
+    wallet.sync_nonce(web3)
+
+    listed_vault = Web3.to_checksum_address(TEST_HYPERCORE_VAULT)
+    hypercore_amount = 1_000 * 10**6
     non_whitelisted_vault = "0x2222222222222222222222222222222222222222"
+
+    config = LagoonConfig(
+        parameters=LagoonDeploymentParameters(
+            underlying=USDC_ADDRESS,
+            name="HyperEVM Hypercore AnyAsset Vault",
+            symbol="HHAV",
+        ),
+        asset_manager=None,
+        asset_managers=[deployer.address],
+        safe_owners=[ANVIL_OWNER_1, ANVIL_OWNER_2],
+        safe_threshold=2,
+        any_asset=True,
+        hypercore_vaults=[listed_vault],
+        safe_salt_nonce=43,
+    )
+
+    # 1. Deploy Lagoon with any_asset=True and an explicit Hypercore vault list.
+    start_block = web3.eth.block_number
+    deploy_info = deploy_automated_lagoon_vault(
+        web3=web3,
+        deployer=wallet,
+        config=config,
+    )
+    module = deploy_info.trading_strategy_module
+    end_block = web3.eth.block_number
+
+    # 2. Verify HypercoreWriter/CoreDepositWallet permissions are installed.
+    assert module.functions.isAllowedApprovalDestination(
+        Web3.to_checksum_address(CORE_DEPOSIT_WALLET[999]),
+    ).call()
+
+    # 3. Verify the listed Hypercore vault was not individually whitelisted.
+    hypercore_vault_approved_logs = web3.eth.get_logs(
+        {
+            "fromBlock": start_block + 1,
+            "toBlock": end_block,
+            "address": module.address,
+            "topics": [Web3.keccak(text="HypercoreVaultApproved(address,string)").hex()],
+        }
+    )
+    assert hypercore_vault_approved_logs == []
+
+    # 4. Verify deposit to a different Hypercore vault still succeeds.
     raw_action = encode_vault_deposit(non_whitelisted_vault, hypercore_amount)
     fn_call = mock_core_writer.functions.sendRawAction(raw_action)
-    tx_hash = _perform_call(module, fn_call, asset_manager)
+    tx_hash = _perform_call(module, fn_call, deployer.address)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
 

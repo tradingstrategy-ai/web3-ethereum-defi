@@ -1474,7 +1474,8 @@ def setup_guard(
             )
         )
 
-        if hypercore_vaults:
+        explicit_hypercore_vaults = hypercore_vaults or []
+        if explicit_hypercore_vaults and not any_asset:
             for idx, hv_address in enumerate(hypercore_vaults, start=1):
                 logger.info("Whitelisting Hypercore vault #%d: %s", idx, hv_address)
                 multicalls.append(
@@ -1483,6 +1484,11 @@ def setup_guard(
                         f"Hypercore vault: {hv_address}",
                     )
                 )
+        elif explicit_hypercore_vaults:
+            logger.info(
+                "Skipping %d explicit Hypercore vault whitelist entries because any_asset=True",
+                len(explicit_hypercore_vaults),
+            )
         else:
             logger.info("No explicit Hypercore vault list supplied; any_asset mode will allow any Hypercore vault address")
 
@@ -1492,10 +1498,13 @@ def setup_guard(
 
         entries.append(WhitelistEntry("Hypercore", "CoreWriter", CORE_WRITER_ADDRESS))
         entries.append(WhitelistEntry("Hypercore", "CoreDepositWallet", cdw_address))
-        for hv_address in hypercore_vaults or []:
+        for hv_address in explicit_hypercore_vaults if not any_asset else []:
             entries.append(WhitelistEntry("Hypercore vault", str(hv_address), hv_address))
 
-        logger.info("Hypercore whitelisting complete: %d vault(s)", len(hypercore_vaults or []))
+        logger.info(
+            "Hypercore whitelisting complete: %d explicit vault(s)",
+            len(explicit_hypercore_vaults if not any_asset else []),
+        )
     else:
         logger.info("Not whitelisted: Hypercore")
 
