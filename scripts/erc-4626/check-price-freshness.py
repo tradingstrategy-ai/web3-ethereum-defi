@@ -31,7 +31,9 @@ import sys
 
 import pandas as pd
 import requests
+from tabulate import tabulate
 
+from eth_defi.chain import get_chain_name
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE
 
 
@@ -87,6 +89,32 @@ def main():
     print(f"Vaults total: {len(latest_per_vault)}, after outlier removal: {len(filtered)}")
     print(f"Absolute last timestamp: {abs_last} (age: {abs_age})")
     print(f"Median last timestamp:   {median_last} (age: {median_age})")
+
+    # Per-chain breakdown
+    rows = []
+    for chain_id, group in sorted(latest_per_vault.groupby(level="chain")):
+        chain_name = get_chain_name(chain_id)
+        vault_count = len(group)
+        chain_abs_last = group.max()
+        chain_median = group.median()
+        if chain_abs_last.tzinfo is None:
+            chain_abs_last = chain_abs_last.tz_localize("UTC")
+        if chain_median.tzinfo is None:
+            chain_median = chain_median.tz_localize("UTC")
+        rows.append(
+            [
+                chain_name,
+                chain_id,
+                vault_count,
+                str(chain_abs_last),
+                str(now - chain_abs_last),
+                str(chain_median),
+                str(now - chain_median),
+            ]
+        )
+
+    headers = ["Chain", "ID", "Vaults", "Last timestamp", "Age", "Median timestamp", "Median age"]
+    print(f"\n{tabulate(rows, headers=headers, tablefmt='grid')}")
 
     max_age = pd.Timedelta(hours=max_age_hours)
     if median_age > max_age:
