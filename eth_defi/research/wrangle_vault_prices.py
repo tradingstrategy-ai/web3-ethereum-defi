@@ -245,7 +245,6 @@ def calculate_vault_returns(prices_df: pd.DataFrame, logger=print):
         prices_df = prices_df[~missing_share_price_mask]
 
     assert prices_df["share_price"].isna().sum() == 0, "share_price column must not contain NaN values"
-    prices_df = prices_df.copy()
     prices_df["returns_1h"] = prices_df.groupby("id")["share_price"].pct_change()
     return prices_df
 
@@ -605,7 +604,6 @@ def cap_hypercore_share_prices(
 
     if overflow_count > 0:
         logger(f"Capping {overflow_count:,} Hypercore share prices above {max_share_price:,.0f}")
-        prices_df = prices_df.copy()
         prices_df.loc[overflow_mask, "share_price"] = max_share_price
 
     return prices_df
@@ -766,9 +764,9 @@ def fix_outlier_share_prices(
 
     logger(f"Share prices fix count {share_prices_fixed}, updated {change_count:,} / {len(filtered_all_df):,} rows with abnormal share_price spikes (> {max_diff:.2%})")
 
-    # groupby() added id as an MultiIndex(id, timestamp), but unwind this change back,
-    # as other functions do not expect it
-    filtered_all_df = filtered_all_df.reset_index().set_index("timestamp")
+    # groupby() added id as a MultiIndex level (id, timestamp), unwind back
+    if isinstance(filtered_all_df.index, pd.MultiIndex):
+        filtered_all_df.reset_index(level="id", inplace=True)
 
     return filtered_all_df
 
@@ -786,11 +784,15 @@ def sort_and_index_vault_prices(
     assert isinstance(prices_df.index, pd.DatetimeIndex), f"Got: {type(prices_df.index)}"
 
     # Create a priority column for sorting
-    prices_df["sort_priority"] = prices_df["id"].apply(lambda x: 0 if x in priority_ids else 1)
+    priority_set = set(priority_ids)
+    prices_df["sort_priority"] = prices_df["id"].isin(priority_set).map({True: 0, False: 1})
 
     # Sort by priority first, then by id and timestamp
+    # Use sort_index name to avoid reset_index overhead
     prices_df = prices_df.reset_index()
-    prices_df = prices_df.sort_values(by=["sort_priority", "id", "timestamp"]).drop("sort_priority", axis=1).set_index("timestamp")
+    prices_df.sort_values(by=["sort_priority", "id", "timestamp"], inplace=True)
+    prices_df.drop("sort_priority", axis=1, inplace=True)
+    prices_df.set_index("timestamp", inplace=True)
     return prices_df
 
 
@@ -863,13 +865,17 @@ def process_raw_vault_scan_data(
     from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 
     hypercore_mask = prices_df["chain"] == HYPERCORE_CHAIN_ID
-    if hypercore_mask.any() and (~hypercore_mask).any():
-        evm_df = prices_df[~hypercore_mask].copy()
-        hypercore_df = prices_df[hypercore_mask].copy()
-        hypercore_df["raw_share_price"] = hypercore_df["share_price"]
-        evm_df = fix_outlier_share_prices(evm_df, logger)
-        prices_df = pd.concat([evm_df, hypercore_df]).sort_index()
-    elif (~hypercore_mask).any():
+    has_hypercore = hypercore_mask.any()
+    has_evm = (~hypercore_mask).any()
+
+    if has_hypercore and has_evm:
+        # Set raw_share_price for Hypercore rows (they skip outlier fixing)
+        prices_df.loc[hypercore_mask, "raw_share_price"] = prices_df.loc[hypercore_mask, "share_price"]
+        # Fix outlier share prices only for EVM rows, operating in-place
+        evm_df = prices_df.loc[~hypercore_mask]
+        fixed_evm = fix_outlier_share_prices(evm_df, logger)
+        prices_df.loc[~hypercore_mask] = fixed_evm
+    elif has_evm:
         prices_df = fix_outlier_share_prices(prices_df, logger)
     else:
         prices_df["raw_share_price"] = prices_df["share_price"]
@@ -999,8 +1005,11 @@ def generate_cleaned_vault_datasets(
         diagnose_vault_id=diagnose_vault_id,
     )
 
+    # Free the original uncleaned DataFrame to reduce peak memory
+    del prices_df
+
     # Sort for better compression
-    enhanced_prices_df = enhanced_prices_df.sort_values(by=["id", "timestamp"])
+    enhanced_prices_df.sort_values(by=["id", "timestamp"], inplace=True)
 
     enhanced_prices_df.to_parquet(
         cleaned_price_df_path,
