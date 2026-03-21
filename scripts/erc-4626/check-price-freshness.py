@@ -112,6 +112,7 @@ def main():
         print(f"Downloading {parquet_url}...")
         resp = requests.get(parquet_url, timeout=120)
         resp.raise_for_status()
+        file_size = len(resp.content)
         df = pd.read_parquet(io.BytesIO(resp.content))
     else:
         # Default: use local file
@@ -119,6 +120,7 @@ def main():
             print(f"Cleaned price file not found: {DEFAULT_RAW_PRICE_DATABASE}")
             sys.exit(1)
         source = str(DEFAULT_RAW_PRICE_DATABASE)
+        file_size = DEFAULT_RAW_PRICE_DATABASE.stat().st_size
         df = pd.read_parquet(DEFAULT_RAW_PRICE_DATABASE)
 
     # Ensure timestamp is a column
@@ -142,7 +144,8 @@ def main():
     high_latest = latest_per_vault[latest_per_vault.index.isin(high_tvl_vaults)]
     low_latest = latest_per_vault[latest_per_vault.index.isin(low_tvl_vaults)]
 
-    print(f"Source: {source}")
+    file_size_mb = file_size / (1024 * 1024)
+    print(f"Source: {source} ({file_size_mb:.1f} MB)")
     print(f"TVL threshold: ${tvl_threshold:,.0f}")
 
     # High TVL vaults

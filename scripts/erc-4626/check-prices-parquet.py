@@ -3,7 +3,8 @@
 import pandas as pd
 
 from eth_defi.chain import get_chain_name
-from eth_defi.vault.vaultdb import read_default_vault_prices, DEFAULT_UNCLEANED_PRICE_DATABASE
+from eth_defi.vault.vaultdb import (DEFAULT_UNCLEANED_PRICE_DATABASE,
+                                    read_default_vault_prices)
 
 
 def main():
