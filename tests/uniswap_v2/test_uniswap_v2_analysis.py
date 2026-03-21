@@ -8,13 +8,8 @@ from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
 
 from eth_defi.token import create_token
-from eth_defi.uniswap_v2.analysis import (TradeFail, TradeSuccess,
-                                          analyse_trade_by_hash,
-                                          analyse_trade_by_receipt)
-from eth_defi.uniswap_v2.deployment import (FOREVER_DEADLINE,
-                                            UniswapV2Deployment,
-                                            deploy_trading_pair,
-                                            deploy_uniswap_v2_like)
+from eth_defi.uniswap_v2.analysis import TradeFail, TradeSuccess, analyse_trade_by_hash, analyse_trade_by_receipt
+from eth_defi.uniswap_v2.deployment import FOREVER_DEADLINE, UniswapV2Deployment, deploy_trading_pair, deploy_uniswap_v2_like
 
 
 @pytest.fixture
