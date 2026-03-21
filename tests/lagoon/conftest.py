@@ -20,7 +20,7 @@ from web3 import Web3
 from eth_defi.hotwallet import HotWallet
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault, LagoonAutomatedDeployment
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
-from eth_defi.provider.anvil import AnvilLaunch, create_anvil_snapshot_reset_fixture, create_anvil_snapshot_state_fixture, fork_network_anvil
+from eth_defi.provider.anvil import AnvilLaunch, AnvilSnapshotState, create_anvil_snapshot_state, fork_network_anvil, reset_anvil_snapshot
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details, USDC_NATIVE_TOKEN, USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -121,15 +121,18 @@ def web3(anvil_base_fork) -> Web3:
     return web3
 
 
-#: Save a clean Base fork checkpoint once per module.
-lagoon_base_state = create_anvil_snapshot_state_fixture(
-    fixture_name="lagoon_base_state",
-)
+@pytest.fixture(scope="module")
+def lagoon_base_state(web3: Web3) -> AnvilSnapshotState:
+    """Save a clean Base fork checkpoint once per module."""
 
-#: Restore the shared Base fork back to the saved checkpoint before each test.
-restore_lagoon_base_state = create_anvil_snapshot_reset_fixture(
-    state_fixture_name="lagoon_base_state",
-)
+    return create_anvil_snapshot_state(web3)
+
+
+@pytest.fixture(autouse=True)
+def restore_lagoon_base_state(web3: Web3, lagoon_base_state: AnvilSnapshotState) -> None:
+    """Restore the shared Base fork back to the saved checkpoint before each test."""
+
+    reset_anvil_snapshot(web3, lagoon_base_state)
 
 
 @pytest.fixture()

@@ -191,16 +191,11 @@ jobs:
         run: |
           # WARNING: Running GMX tests in parallel may cause issues documented above.
           # If you see intermittent failures related to fork state, price validation,
-          # or order execution timing, consider running serially by removing -n auto
-          # 
-          # Enable verbose output if debugging is enabled
-          if [ "$ENABLE_VERBOSE_LOGGING" = "true" ]; then
-            poetry run pytest tests/gmx/ --timeout-method=thread --tb=native -n auto -v -s --capture=no
-          else
-            # Run in parallel with verbose output to see which tests fail
-            # Using -n auto for parallel execution, -v for verbose, --tb=short for cleaner output
-            poetry run pytest tests/gmx/ --timeout-method=thread --tb=short -n auto
-          fi
+          # or order execution timing, consider running serially by removing -n auto.
+          #
+          # Always use verbose pytest output so stalled CI runs show the latest
+          # test names in the Actions log.
+          poetry run pytest tests/gmx/ --timeout-method=thread --tb=native -n auto -v -s --capture=no
         env:
           # Arbitrum mainnet RPC is required for GMX tests (GMX is on Arbitrum)
           # Used for mainnet fork testing in conftest.py
@@ -211,8 +206,5 @@ jobs:
           # Private key for GMX test transactions on Arbitrum Sepolia testnet
           # Required for testnet tests that need to submit transactions
           ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: ${{ secrets.ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY }}
-          # Enable verbose logging for debugging (set to "true" to enable)
-          ENABLE_VERBOSE_LOGGING: "false"
-
       # NOTE: We don't run linting here as it's already done in the main workflow
       # Ruff lint check is only needed once per PR, not per test suite

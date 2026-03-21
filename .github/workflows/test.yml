@@ -144,13 +144,10 @@ jobs:
           # NOTE: GMX tests are excluded here and run separately in test-gmx.yml workflow
           # GMX tests cannot run in parallel due to mainnet fork state conflicts
           # See .github/workflows/test-gmx.yml for details on why parallel execution fails
-          # 
-          # Enable verbose output if debugging is enabled
-          if [ "$ENABLE_VERBOSE_LOGGING" = "true" ]; then
-            poetry run pytest --timeout-method=thread --tb=native -n auto -v -s --capture=no --ignore=tests/gmx
-          else
-            poetry run pytest --timeout-method=thread --tb=native -n auto --ignore=tests/gmx
-          fi
+          #
+          # Always use verbose pytest output so stalled CI runs show the latest
+          # test names in the Actions log.
+          poetry run pytest --timeout-method=thread --tb=native -n auto -v -s --capture=no --ignore=tests/gmx
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}

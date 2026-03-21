@@ -8,7 +8,7 @@ from eth_typing import HexAddress, HexStr
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.provider.anvil import AnvilLaunch, create_anvil_snapshot_reset_fixture, create_anvil_snapshot_state_fixture, fork_network_anvil
+from eth_defi.provider.anvil import AnvilLaunch, AnvilSnapshotState, create_anvil_snapshot_state, fork_network_anvil, reset_anvil_snapshot
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, fetch_erc20_details
 
@@ -48,15 +48,18 @@ def web3(anvil_ethereum_fork) -> Web3:
     return web3
 
 
-#: Save a clean Ethereum fork checkpoint once per module.
-ethereum_fork_state = create_anvil_snapshot_state_fixture(
-    fixture_name="ethereum_fork_state",
-)
+@pytest.fixture(scope="module")
+def ethereum_fork_state(web3: Web3) -> AnvilSnapshotState:
+    """Save a clean Ethereum fork checkpoint once per module."""
 
-#: Restore the shared Ethereum fork back to the saved checkpoint before each test.
-restore_ethereum_fork_state = create_anvil_snapshot_reset_fixture(
-    state_fixture_name="ethereum_fork_state",
-)
+    return create_anvil_snapshot_state(web3)
+
+
+@pytest.fixture(autouse=True)
+def restore_ethereum_fork_state(web3: Web3, ethereum_fork_state: AnvilSnapshotState) -> None:
+    """Restore the shared Ethereum fork back to the saved checkpoint before each test."""
+
+    reset_anvil_snapshot(web3, ethereum_fork_state)
 
 
 @pytest.fixture()

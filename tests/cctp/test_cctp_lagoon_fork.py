@@ -35,7 +35,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
     deploy_automated_lagoon_vault,
     LagoonAutomatedDeployment,
 )
-from eth_defi.provider.anvil import AnvilLaunch, create_anvil_snapshot_reset_fixture, create_anvil_snapshot_state_fixture, fork_network_anvil
+from eth_defi.provider.anvil import AnvilLaunch, AnvilSnapshotState, create_anvil_snapshot_state, fork_network_anvil, reset_anvil_snapshot
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details, USDC_NATIVE_TOKEN, USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -161,16 +161,24 @@ def deploy_info(
     return deploy_info
 
 
-#: Save a post-deployment checkpoint so later tests can reuse the Lagoon+CCTP setup.
-cctp_lagoon_state = create_anvil_snapshot_state_fixture(
-    fixture_name="cctp_lagoon_state",
-    dependency_fixture_names=("deploy_info",),
-)
+@pytest.fixture(scope="module")
+def cctp_lagoon_state(
+    web3: Web3,
+    deploy_info: LagoonAutomatedDeployment,
+) -> AnvilSnapshotState:
+    """Save a post-deployment checkpoint so later tests can reuse the Lagoon+CCTP setup."""
 
-#: Restore the shared Base fork back to the deployed Lagoon+CCTP baseline before each test.
-restore_cctp_lagoon_state = create_anvil_snapshot_reset_fixture(
-    state_fixture_name="cctp_lagoon_state",
-)
+    return create_anvil_snapshot_state(web3)
+
+
+@pytest.fixture(autouse=True)
+def restore_cctp_lagoon_state(
+    web3: Web3,
+    cctp_lagoon_state: AnvilSnapshotState,
+) -> None:
+    """Restore the shared Base fork back to the deployed Lagoon+CCTP baseline before each test."""
+
+    reset_anvil_snapshot(web3, cctp_lagoon_state)
 
 
 def _fund_vault(web3, vault, base_usdc, depositor, asset_manager, amount_usdc=100):

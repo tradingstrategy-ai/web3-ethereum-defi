@@ -48,10 +48,11 @@ from eth_defi.provider.anvil import (
     ANVIL_OWNER_1,
     ANVIL_OWNER_2,
     AnvilLaunch,
-    create_anvil_snapshot_reset_fixture,
-    create_anvil_snapshot_state_fixture,
+    AnvilSnapshotState,
+    create_anvil_snapshot_state,
     fork_network_anvil,
     fund_erc20_on_anvil,
+    reset_anvil_snapshot,
 )
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -219,16 +220,24 @@ def lagoon_deployment(
     return deploy_info
 
 
-#: Save a post-deployment checkpoint so later tests can reuse the Hypercore Lagoon setup.
-hypercore_lagoon_state = create_anvil_snapshot_state_fixture(
-    fixture_name="hypercore_lagoon_state",
-    dependency_fixture_names=("lagoon_deployment",),
-)
+@pytest.fixture(scope="module")
+def hypercore_lagoon_state(
+    web3: Web3,
+    lagoon_deployment: LagoonAutomatedDeployment,
+) -> AnvilSnapshotState:
+    """Save a post-deployment checkpoint so later tests can reuse the Hypercore Lagoon setup."""
 
-#: Restore the shared HyperEVM fork back to the deployed Hypercore Lagoon baseline before each test.
-restore_hypercore_lagoon_state = create_anvil_snapshot_reset_fixture(
-    state_fixture_name="hypercore_lagoon_state",
-)
+    return create_anvil_snapshot_state(web3)
+
+
+@pytest.fixture(autouse=True)
+def restore_hypercore_lagoon_state(
+    web3: Web3,
+    hypercore_lagoon_state: AnvilSnapshotState,
+) -> None:
+    """Restore the shared HyperEVM fork back to the deployed Hypercore Lagoon baseline before each test."""
+
+    reset_anvil_snapshot(web3, hypercore_lagoon_state)
 
 
 @pytest.mark.timeout(600)
