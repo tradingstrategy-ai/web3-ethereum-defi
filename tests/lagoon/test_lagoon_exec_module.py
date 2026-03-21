@@ -12,7 +12,6 @@ from eth_typing import HexAddress
 from web3 import Web3
 import os
 
-pytestmark = pytest.mark.usefixtures("restore_lagoon_base_state")
 
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.token import TokenDetails

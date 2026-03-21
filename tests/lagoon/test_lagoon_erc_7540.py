@@ -8,8 +8,6 @@ import pytest
 from eth_typing import HexAddress
 from web3 import Web3
 
-pytestmark = pytest.mark.usefixtures("restore_lagoon_base_state")
-
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.flow import approve_and_deposit_4626, approve_and_redeem_4626
@@ -25,19 +23,20 @@ from eth_defi.trace import assert_transaction_success_with_explanation, Transact
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def target_vault_asset_manager():
     """722 capital vault manager"""
     return "0x3B95C7cD4075B72ecbC4559AF99211C2B6591b2E"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def test_block_number():
     return 41_950_000
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def anvil_base_fork(
+    request,
     vault_owner,
     usdc_holder,
     asset_manager,

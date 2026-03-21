@@ -7,8 +7,6 @@ from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from web3 import Web3
 
-pytestmark = pytest.mark.usefixtures("restore_lagoon_base_state")
-
 from eth_defi.abi import get_function_selector
 from eth_defi.hotwallet import HotWallet
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
