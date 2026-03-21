@@ -101,7 +101,7 @@ def derive_deposit_closed_reason(prices_df: pd.DataFrame) -> pd.DataFrame:
     else:
         # Ensure compatible dtype: convert None/NaN to empty string
         # because PyArrow string columns do not accept null assignment via .loc
-        prices_df["deposit_closed_reason"] = prices_df["deposit_closed_reason"].fillna("").astype(str)
+        prices_df["deposit_closed_reason"] = prices_df["deposit_closed_reason"].astype(object).fillna("").astype(str)
 
     if "deposits_open" not in prices_df.columns:
         return prices_df
