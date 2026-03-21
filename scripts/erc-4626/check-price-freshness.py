@@ -4,8 +4,8 @@ Reads cleaned-vault-prices-1h.parquet and checks how recent the data is.
 By default reads from the local file. Set ``PARQUET_URL`` to a URL to
 load from a remote source (e.g. the production R2 bucket).
 
-Splits output into high TVL (>= 20k) and low TVL (< 20k) vaults.
-Only high TVL vault freshness is used for the exit code check.
+By default only shows high TVL (>= 20k) vaults. Set ``SHOW_LOW_TVL=true``
+to also show low TVL vaults. Only high TVL freshness affects the exit code.
 
 Computes the absolute last timestamp and the median last timestamp
 (excluding outliers via IQR). Exits with code 1 if the high TVL median
@@ -19,14 +19,14 @@ Usage:
     poetry run python scripts/erc-4626/check-price-freshness.py
 
     # Check production data
-    PARQUET_URL=https://vault-protocol-metadata.tradingstrategy.ai/cleaned-vault-prices-1h.parquet \\
-      poetry run python scripts/erc-4626/check-price-freshness.py
+    PARQUET_URL=https://vault-protocol-metadata.tradingstrategy.ai/cleaned-vault-prices-1h.parquet poetry run python scripts/erc-4626/check-price-freshness.py
 
 Environment variables:
 
 - ``PARQUET_URL``: URL to load parquet from. Default: local file.
 - ``MAX_AGE_HOURS``: Maximum allowed age in hours (default: 24)
 - ``TVL_THRESHOLD``: TVL boundary between low and high in USD (default: 20000)
+- ``SHOW_LOW_TVL``: Set to ``true`` to also show low TVL vault table (default: false)
 """
 
 import io
@@ -102,6 +102,7 @@ def _build_chain_table(latest_per_vault: pd.Series, now: pd.Timestamp) -> list[l
 def main():
     max_age_hours = int(os.environ.get("MAX_AGE_HOURS", "24"))
     tvl_threshold = float(os.environ.get("TVL_THRESHOLD", "20000"))
+    show_low_tvl = os.environ.get("SHOW_LOW_TVL", "false").lower() == "true"
     parquet_url = os.environ.get("PARQUET_URL", "")
 
     if parquet_url:
@@ -149,12 +150,15 @@ def main():
     print(f"  Median last:   {high_median} (age: {_format_age(high_median_age)})")
     print(tabulate(_build_chain_table(high_latest, now), headers=headers, tablefmt="fancy_grid"))
 
-    # Low TVL vaults
-    low_abs, low_median, low_abs_age, low_median_age = _compute_freshness(low_latest, now)
-    print(f"\nLow TVL vaults (< ${tvl_threshold:,.0f}): {len(low_latest)}")
-    print(f"  Absolute last: {low_abs} (age: {_format_age(low_abs_age)})")
-    print(f"  Median last:   {low_median} (age: {_format_age(low_median_age)})")
-    print(tabulate(_build_chain_table(low_latest, now), headers=headers, tablefmt="fancy_grid"))
+    # Low TVL vaults (optional)
+    if show_low_tvl:
+        low_abs, low_median, low_abs_age, low_median_age = _compute_freshness(low_latest, now)
+        print(f"\nLow TVL vaults (< ${tvl_threshold:,.0f}): {len(low_latest)}")
+        print(f"  Absolute last: {low_abs} (age: {_format_age(low_abs_age)})")
+        print(f"  Median last:   {low_median} (age: {_format_age(low_median_age)})")
+        print(tabulate(_build_chain_table(low_latest, now), headers=headers, tablefmt="fancy_grid"))
+    else:
+        print(f"\nLow TVL vaults (< ${tvl_threshold:,.0f}): {len(low_latest)} (set SHOW_LOW_TVL=true to display)")
 
     # Exit code based on high TVL freshness only
     max_age = pd.Timedelta(hours=max_age_hours)
