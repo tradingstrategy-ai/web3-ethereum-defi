@@ -121,10 +121,12 @@ def web3(anvil_base_fork) -> Web3:
     return web3
 
 
+#: Save a clean Base fork checkpoint once per module.
 lagoon_base_state = create_anvil_snapshot_state_fixture(
     fixture_name="lagoon_base_state",
 )
 
+#: Restore the shared Base fork back to the saved checkpoint before each test.
 restore_lagoon_base_state = create_anvil_snapshot_reset_fixture(
     state_fixture_name="lagoon_base_state",
 )

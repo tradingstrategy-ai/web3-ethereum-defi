@@ -48,10 +48,12 @@ def web3(anvil_ethereum_fork) -> Web3:
     return web3
 
 
+#: Save a clean Ethereum fork checkpoint once per module.
 ethereum_fork_state = create_anvil_snapshot_state_fixture(
     fixture_name="ethereum_fork_state",
 )
 
+#: Restore the shared Ethereum fork back to the saved checkpoint before each test.
 restore_ethereum_fork_state = create_anvil_snapshot_reset_fixture(
     state_fixture_name="ethereum_fork_state",
 )

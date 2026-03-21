@@ -219,11 +219,13 @@ def lagoon_deployment(
     return deploy_info
 
 
+#: Save a post-deployment checkpoint so later tests can reuse the Hypercore Lagoon setup.
 hypercore_lagoon_state = create_anvil_snapshot_state_fixture(
     fixture_name="hypercore_lagoon_state",
     dependency_fixture_names=("lagoon_deployment",),
 )
 
+#: Restore the shared HyperEVM fork back to the deployed Hypercore Lagoon baseline before each test.
 restore_hypercore_lagoon_state = create_anvil_snapshot_reset_fixture(
     state_fixture_name="hypercore_lagoon_state",
 )

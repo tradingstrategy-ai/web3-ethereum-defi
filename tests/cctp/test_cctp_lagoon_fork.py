@@ -161,11 +161,13 @@ def deploy_info(
     return deploy_info
 
 
+#: Save a post-deployment checkpoint so later tests can reuse the Lagoon+CCTP setup.
 cctp_lagoon_state = create_anvil_snapshot_state_fixture(
     fixture_name="cctp_lagoon_state",
     dependency_fixture_names=("deploy_info",),
 )
 
+#: Restore the shared Base fork back to the deployed Lagoon+CCTP baseline before each test.
 restore_cctp_lagoon_state = create_anvil_snapshot_reset_fixture(
     state_fixture_name="cctp_lagoon_state",
 )
