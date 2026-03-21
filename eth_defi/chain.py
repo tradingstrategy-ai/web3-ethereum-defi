@@ -180,7 +180,7 @@ CHAIN_HOMEPAGES = {
     747474: {"name": "Katana", "homepage": "https://katana.network/"},
     143: {"name": "Monad", "homepage": "https://monad.xyz"},
     957: {"name": "Derive", "homepage": "https://derive.xyz"},
-    4326: {"name": "MegaETH", "homepage": "https://megaeth.com"},
+    4326: {"name": "MegaETH", "homepage": "https://www.megaeth.com"},
 }
 
 #: Chain shortest block times in seconds.
@@ -229,7 +229,7 @@ EVM_BLOCK_TIMES = {
     747474: 1,  # Katana, ~1s block time avg
     143: 0.4,  # Monad, target ~1s block times on mainnet
     957: 2,  # Derive (Lyra L2), ~2s block time
-    4326: 0.001,  # MegaETH, real-time blockchain with ~1ms block time
+    4326: 1,  # MegaETH, dual-block: mini blocks (10ms) + EVM blocks (~1s). Using EVM block time.
 }
 
 
