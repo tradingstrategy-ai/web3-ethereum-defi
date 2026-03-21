@@ -28,6 +28,7 @@ This submodule offers functionality to connect and enhance robustness of various
    eth_defi.provider.env
    eth_defi.provider.log_block_range
    eth_defi.provider.quicknode
+   eth_defi.provider.rpc_proxy
    eth_defi.provider.rpc_monitoring_adapter
    eth_defi.provider.tenderly
 
