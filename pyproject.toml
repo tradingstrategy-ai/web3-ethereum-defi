@@ -202,6 +202,11 @@ asyncio_mode = "auto"
 filterwarnings = [
   "ignore::DeprecationWarning:pkg_resources.*:",
   "ignore::DeprecationWarning:eth_tester.*:",
+  # asyncio.iscoroutinefunction deprecated in Python 3.14, fixed in pytest-asyncio >=0.25
+  # but that requires pytest >=8.2 (we are on pytest 7.x)
+  "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning:pytest_asyncio.*:",
+  "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning:eth_retry.*:",
+  "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning:cached_property.*:",
 ]
 
 [tool.ruff]

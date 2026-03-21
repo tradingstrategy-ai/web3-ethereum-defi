@@ -123,10 +123,10 @@ jobs:
           echo ""
           echo "=== Installed Packages (Web3-related) ==="
           poetry run python -c "
-          import pkg_resources
-          web3_packages = [pkg for pkg in pkg_resources.working_set if 'web3' in pkg.project_name.lower() or 'eth' in pkg.project_name.lower()]
-          for pkg in sorted(web3_packages, key=lambda x: x.project_name):
-              print(f'{pkg.project_name}: {pkg.version}')
+          from importlib.metadata import distributions
+          web3_packages = [d for d in distributions() if 'web3' in d.metadata['Name'].lower() or 'eth' in d.metadata['Name'].lower()]
+          for d in sorted(web3_packages, key=lambda x: x.metadata['Name']):
+              print(f'{d.metadata[\"Name\"]}: {d.metadata[\"Version\"]}')
           "
 
       # Setup Debug Session before tests - Enable this when you need to debug test issues

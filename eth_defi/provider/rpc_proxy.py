@@ -47,6 +47,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError, Timeout
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.middleware import (
     DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
     DEFAULT_RETRYABLE_RPC_ERROR_CODES,
@@ -325,7 +326,7 @@ class UpstreamRPCProviderStatistics:
 
     def record_failure(self, method: str, error_summary: str, http_status: int | None = None, max_error_replies: int = 100) -> None:
         """Record a failed request to this provider."""
-        now = datetime.datetime.utcnow()
+        now = native_datetime_utc_now()
         with self._lock:
             self.failure_count += 1
             self.last_failure = now
