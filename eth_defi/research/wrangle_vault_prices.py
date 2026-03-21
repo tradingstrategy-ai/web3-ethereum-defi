@@ -991,7 +991,7 @@ def generate_cleaned_vault_datasets(
     vault_db: VaultDatabase = pickle.load(vault_db_path.open("rb"))
 
     logger(f"Loading prices {price_df_path}")
-    prices_df = pd.read_parquet(price_df_path)
+    prices_df = pd.read_parquet(price_df_path, dtype_backend="pyarrow")
 
     logger(f"We have {vault_db.get_lead_count():,} vault leads in the vault database and {len(prices_df):,} price rows in the raw prices DataFrame")
 
