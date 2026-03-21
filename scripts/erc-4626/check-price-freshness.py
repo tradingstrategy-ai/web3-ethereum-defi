@@ -1,6 +1,9 @@
 """Check freshness of cleaned vault price data.
 
 Reads cleaned-vault-prices-1h.parquet and checks how recent the data is.
+By default loads from the production URL; set ``PARQUET_URL=local`` to
+read from the local file instead.
+
 Computes the absolute last timestamp and the median last timestamp
 (excluding outliers via IQR). Exits with code 1 if the median age
 exceeds 24 hours (configurable via MAX_AGE_HOURS).
@@ -9,29 +12,49 @@ Usage:
 
 .. code-block:: shell
 
+    # Check production data (default)
     poetry run python scripts/erc-4626/check-price-freshness.py
+
+    # Check local file
+    PARQUET_URL=local poetry run python scripts/erc-4626/check-price-freshness.py
 
 Environment variables:
 
+- ``PARQUET_URL``: URL to load parquet from (default: production R2 URL).
+  Set to ``local`` to read from the local file path.
 - ``MAX_AGE_HOURS``: Maximum allowed age in hours (default: 24)
 """
 
+import io
 import os
 import sys
 
 import pandas as pd
+import requests
 
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE
+
+#: Production URL for the cleaned vault price parquet
+DEFAULT_PARQUET_URL = "https://vault-protocol-metadata.tradingstrategy.ai/cleaned-vault-prices-1h.parquet"
 
 
 def main():
     max_age_hours = int(os.environ.get("MAX_AGE_HOURS", "24"))
+    parquet_url = os.environ.get("PARQUET_URL", DEFAULT_PARQUET_URL)
 
-    if not DEFAULT_RAW_PRICE_DATABASE.exists():
-        print(f"Cleaned price file not found: {DEFAULT_RAW_PRICE_DATABASE}")
-        sys.exit(1)
-
-    df = pd.read_parquet(DEFAULT_RAW_PRICE_DATABASE)
+    if parquet_url == "local":
+        # Use local file
+        if not DEFAULT_RAW_PRICE_DATABASE.exists():
+            print(f"Cleaned price file not found: {DEFAULT_RAW_PRICE_DATABASE}")
+            sys.exit(1)
+        source = str(DEFAULT_RAW_PRICE_DATABASE)
+        df = pd.read_parquet(DEFAULT_RAW_PRICE_DATABASE)
+    else:
+        source = parquet_url
+        print(f"Downloading {parquet_url}...")
+        resp = requests.get(parquet_url, timeout=120)
+        resp.raise_for_status()
+        df = pd.read_parquet(io.BytesIO(resp.content))
 
     # Ensure timestamp is a column
     if "timestamp" not in df.columns and df.index.name == "timestamp":
@@ -63,7 +86,7 @@ def main():
     abs_age = now - abs_last
     median_age = now - median_last
 
-    print(f"File: {DEFAULT_RAW_PRICE_DATABASE}")
+    print(f"Source: {source}")
     print(f"Vaults total: {len(latest_per_vault)}, after outlier removal: {len(filtered)}")
     print(f"Absolute last timestamp: {abs_last} (age: {abs_age})")
     print(f"Median last timestamp:   {median_last} (age: {median_age})")
