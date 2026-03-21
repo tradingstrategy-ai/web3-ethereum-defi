@@ -91,6 +91,7 @@ Example CHAIN_ORDER for all chains:
 import datetime
 import importlib.util
 import logging
+import logging.handlers
 import os
 import pickle
 import sys
@@ -744,12 +745,29 @@ def run_post_processing(scan_hypercore: bool = False, scan_grvt: bool = False, s
 
 def main():
     """Main execution function"""
-    # Setup logging
+    # Setup logging with daily log rotation
+    log_dir = Path("logs")
+    log_dir.mkdir(parents=True, exist_ok=True)
     setup_console_logging(
         default_log_level=os.environ.get("LOG_LEVEL", "warning"),
-        log_file=Path("logs/scan-all-chains.log"),
-        clear_log_file=True,
     )
+
+    # Add a daily rotating file handler (keeps 30 days of logs)
+    log_file = log_dir / "scan-all-chains.log"
+    rotating_handler = logging.handlers.TimedRotatingFileHandler(
+        log_file,
+        when="midnight",
+        backupCount=30,
+        encoding="utf-8",
+    )
+    rotating_handler.setLevel(logging.INFO)
+    rotating_handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s %(name)-44s [%(threadName)s] %(message)s",
+            "%Y-%m-%d %H:%M:%S",
+        )
+    )
+    logging.getLogger().addHandler(rotating_handler)
 
     # Read configuration from environment
     retry_count = int(os.environ.get("RETRY_COUNT", "1"))
