@@ -89,7 +89,6 @@ Example CHAIN_ORDER for all chains:
 """
 
 import datetime
-import importlib.util
 import logging
 import logging.handlers
 import os
@@ -105,27 +104,24 @@ from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
 from eth_defi.grvt.daily_metrics import run_daily_scan as grvt_run_daily_scan
-from eth_defi.grvt.vault_data_export import merge_into_uncleaned_parquet as grvt_merge_parquet
 from eth_defi.grvt.vault_data_export import merge_into_vault_database as grvt_merge_vault_db
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.hyperliquid.daily_metrics import run_daily_scan as hyperliquid_run_daily_scan
 from eth_defi.hyperliquid.session import create_hyperliquid_session
-from eth_defi.hyperliquid.vault_data_export import merge_into_uncleaned_parquet as hyperliquid_merge_parquet
 from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database as hyperliquid_merge_vault_db
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_DAILY_METRICS_DATABASE
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.lighter.daily_metrics import run_daily_scan as lighter_run_daily_scan
 from eth_defi.lighter.session import create_lighter_session
-from eth_defi.lighter.vault_data_export import merge_into_uncleaned_parquet as lighter_merge_parquet
 from eth_defi.lighter.vault_data_export import merge_into_vault_database as lighter_merge_vault_db
 from eth_defi.provider.broken_provider import verify_archive_node
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
-from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
+from eth_defi.vault.post_processing import run_post_processing
 from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE
 
 logger = logging.getLogger(__name__)
@@ -628,119 +624,6 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
     failed_results = [r for r in ordered_results if r.status == "failed" and r.error]
     for r in failed_results:
         logger.error("%s: %s", r.name, r.error)
-
-
-def run_post_processing(scan_hypercore: bool = False, scan_grvt: bool = False, scan_lighter: bool = False) -> dict[str, bool]:
-    """Run post-processing steps after all chain scans complete.
-
-    :param scan_hypercore:
-        Whether to merge Hypercore (Hyperliquid native) price data
-        into the uncleaned Parquet before the cleaning step, so
-        Hypercore data goes through the same cleaning pipeline.
-    :param scan_grvt:
-        Whether to merge GRVT native vault price data into the
-        uncleaned Parquet before the cleaning step.
-    :param scan_lighter:
-        Whether to merge Lighter native pool price data into the
-        uncleaned Parquet before the cleaning step.
-    :return: Dictionary mapping step name to success boolean
-    """
-    steps = {}
-
-    # Step 1: Merge Hypercore prices into the uncleaned Parquet
-    # Must run BEFORE clean-prices so Hypercore data goes through the
-    # same cleaning pipeline as EVM vaults.
-    if scan_hypercore:
-        try:
-            logger.info("Merging Hypercore prices into uncleaned Parquet")
-            db = HyperliquidDailyMetricsDatabase(HYPERLIQUID_DAILY_METRICS_DATABASE)
-            try:
-                combined_df = hyperliquid_merge_parquet(db, DEFAULT_UNCLEANED_PRICE_DATABASE)
-                hl_rows = len(combined_df[combined_df["chain"] == HYPERCORE_CHAIN_ID]) if len(combined_df) > 0 else 0
-                logger.info("Hypercore price merge: %d Hyperliquid price entries in uncleaned Parquet", hl_rows)
-            finally:
-                db.close()
-            steps["hypercore-price-merge"] = True
-            logger.info("Hypercore price merge complete")
-        except Exception as e:
-            logger.exception("Hypercore price merge failed")
-            steps["hypercore-price-merge"] = False
-
-    # Step 1b: Merge GRVT prices into the uncleaned Parquet
-    # Must run BEFORE clean-prices so GRVT data goes through the
-    # same cleaning pipeline as EVM vaults.
-    if scan_grvt:
-        try:
-            logger.info("Merging GRVT prices into uncleaned Parquet")
-            db = GRVTDailyMetricsDatabase(GRVT_DAILY_METRICS_DATABASE)
-            try:
-                combined_df = grvt_merge_parquet(db, DEFAULT_UNCLEANED_PRICE_DATABASE)
-                grvt_rows = len(combined_df[combined_df["chain"] == GRVT_CHAIN_ID]) if len(combined_df) > 0 else 0
-                logger.info("GRVT price merge: %d GRVT price entries in uncleaned Parquet", grvt_rows)
-            finally:
-                db.close()
-            steps["grvt-price-merge"] = True
-            logger.info("GRVT price merge complete")
-        except Exception as e:
-            logger.exception("GRVT price merge failed")
-            steps["grvt-price-merge"] = False
-
-    # Step 1c: Merge Lighter prices into the uncleaned Parquet
-    # Must run BEFORE clean-prices so Lighter data goes through the
-    # same cleaning pipeline as EVM vaults.
-    if scan_lighter:
-        try:
-            logger.info("Merging Lighter prices into uncleaned Parquet")
-            db = LighterDailyMetricsDatabase(LIGHTER_DAILY_METRICS_DATABASE)
-            try:
-                combined_df = lighter_merge_parquet(db, DEFAULT_UNCLEANED_PRICE_DATABASE)
-                lighter_rows = len(combined_df[combined_df["chain"] == LIGHTER_CHAIN_ID]) if len(combined_df) > 0 else 0
-                logger.info("Lighter price merge: %d Lighter price entries in uncleaned Parquet", lighter_rows)
-            finally:
-                db.close()
-            steps["lighter-price-merge"] = True
-            logger.info("Lighter price merge complete")
-        except Exception as e:
-            logger.exception("Lighter price merge failed")
-            steps["lighter-price-merge"] = False
-
-    # Step 2: Clean prices (all vaults — reads raw parquet including Hypercore + GRVT + Lighter, writes cleaned)
-    try:
-        logger.info("Cleaning vault prices data")
-        generate_cleaned_vault_datasets()
-        steps["clean-prices"] = True
-        logger.info("Price cleaning complete")
-    except Exception as e:
-        logger.exception("Clean prices failed")
-        steps["clean-prices"] = False
-
-    # Step 3: Export sparklines
-    try:
-        logger.info("Creating sparkline images")
-        spec = importlib.util.spec_from_file_location("export_sparklines", "scripts/erc-4626/export-sparklines.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        module.main()
-        steps["export-sparklines"] = True
-        logger.info("Sparkline export complete")
-    except Exception as e:
-        logger.exception("Export sparklines failed")
-        steps["export-sparklines"] = False
-
-    # Step 3: Export protocol metadata
-    try:
-        logger.info("Exporting protocol metadata files")
-        spec = importlib.util.spec_from_file_location("export_protocol_metadata", "scripts/erc-4626/export-protocol-metadata.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        module.main()
-        steps["export-protocol-metadata"] = True
-        logger.info("Protocol metadata export complete")
-    except Exception as e:
-        logger.exception("Export protocol metadata failed")
-        steps["export-protocol-metadata"] = False
-
-    return steps
 
 
 def main():

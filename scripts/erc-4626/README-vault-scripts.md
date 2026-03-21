@@ -91,6 +91,32 @@ START_BLOCK=1 \
 poetry run python scripts/erc-4626/scan-prices.py
 ```
 
+### post-process-prices.py
+
+Standalone post-processing pipeline: merges native protocol data, cleans prices,
+and uploads to R2. Each step reports success/failure and exits with code 1 if any step fails.
+Use to debug post-processing independently of the full chain scan.
+
+```shell
+# Full pipeline (merge + clean + export to R2)
+source .local-test.env && poetry run python scripts/erc-4626/post-process-prices.py
+
+# Only clean, skip R2 upload
+SKIP_EXPORT=true poetry run python scripts/erc-4626/post-process-prices.py
+
+# Include native protocol merges
+MERGE_HYPERCORE=true MERGE_GRVT=true MERGE_LIGHTER=true \
+  source .local-test.env && poetry run python scripts/erc-4626/post-process-prices.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `MERGE_HYPERCORE` | Optional. Merge Hyperliquid native vault data. Default: false. |
+| `MERGE_GRVT` | Optional. Merge GRVT native vault data. Default: false. |
+| `MERGE_LIGHTER` | Optional. Merge Lighter native pool data. Default: false. |
+| `SKIP_EXPORT` | Optional. Skip sparkline and metadata export to R2. Default: false. |
+| `LOG_LEVEL` | Optional. Default: info. |
+
 ### clean-prices.py
 
 Clean raw scanned vault data. Reads `vault-prices-1h.parquet` and generates `vault-prices-1h-cleaned.parquet`.

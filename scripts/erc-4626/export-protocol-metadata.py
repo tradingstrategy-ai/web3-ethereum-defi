@@ -16,6 +16,7 @@ Environment variables:
     - R2_VAULT_METADATA_ENDPOINT_URL: R2 API endpoint URL (required)
     - R2_VAULT_METADATA_PUBLIC_URL: Public base URL for logo URLs in metadata (required)
     - MAX_WORKERS: Number of parallel upload workers (default: 20)
+    - UPLOAD_PREFIX: Prefix for uploaded data file keys, e.g. "test-" (default: "")
 """
 
 import logging
@@ -41,6 +42,7 @@ def upload_files_to_r2(
     access_key_id: str,
     secret_access_key: str,
     folder="vault-protocol-metadata",
+    key_prefix: str = "",
 ) -> int:
     """Upload a list of files to R2 bucket, excluding tmp* files.
 
@@ -50,16 +52,24 @@ def upload_files_to_r2(
     :param access_key_id: R2 access key ID
     :param secret_access_key: R2 secret access key
     :param folder: Folder name in R2 bucket to upload files to
+    :param key_prefix: Prefix for S3 keys (e.g. ``test-`` for test uploads)
     :return: Number of files uploaded
     """
-    # Filter out tmp* files
-    files_to_upload = [f for f in file_paths if not f.name.startswith("tmp")]
+    # Filter out tmp* files and files that don't exist
+    files_to_upload = []
+    for f in file_paths:
+        if f.name.startswith("tmp"):
+            continue
+        if not f.exists():
+            logger.warning("File does not exist, skipping: %s", f)
+            continue
+        files_to_upload.append(f)
 
     if not files_to_upload:
         logger.info("No files to upload after filtering")
         return 0
 
-    logger.info("Uploading %d files to R2 bucket %s (excluded %d tmp* files)", len(files_to_upload), bucket_name, len(file_paths) - len(files_to_upload))
+    logger.info("Uploading %d files to R2 bucket %s (excluded %d files)", len(files_to_upload), bucket_name, len(file_paths) - len(files_to_upload))
 
     s3_client = boto3.client(
         "s3",
@@ -69,15 +79,13 @@ def upload_files_to_r2(
     )
 
     for file_path in files_to_upload:
-        # Determine S3 key based on base_path
-        s3_key = file_path.name
+        s3_key = f"{key_prefix}{file_path.name}"
         file_size = file_path.stat().st_size
 
         logger.info("Uploading %s to s3://%s/%s", file_path, bucket_name, s3_key)
 
-        # Upload with progress bar for each file
         with open(file_path, "rb") as f:
-            with tqdm(total=file_size, unit="B", unit_scale=True, desc=f"Uploading {file_path.name}") as pbar:
+            with tqdm(total=file_size, unit="B", unit_scale=True, desc=f"Uploading {s3_key}") as pbar:
 
                 def upload_callback(bytes_amount):
                     pbar.update(bytes_amount)
@@ -105,9 +113,13 @@ def main():
     endpoint_url = os.environ.get("R2_VAULT_METADATA_ENDPOINT_URL")
     public_url = os.environ.get("R2_VAULT_METADATA_PUBLIC_URL")
     max_workers = int(os.environ.get("MAX_WORKERS", "20"))
+    upload_prefix = os.environ.get("UPLOAD_PREFIX", "")
 
     assert bucket_name, "R2_VAULT_METADATA_BUCKET_NAME environment variable is required"
     assert public_url, "R2_VAULT_METADATA_PUBLIC_URL environment variable is required"
+
+    if upload_prefix:
+        logger.info("Using upload prefix: %s", upload_prefix)
 
     yaml_files = list(METADATA_DIR.glob("*.yaml"))
     slugs = [f.stem for f in yaml_files]
@@ -191,6 +203,7 @@ def main():
         endpoint_url=endpoint_url,
         access_key_id=access_key_id,
         secret_access_key=secret_access_key,
+        key_prefix=upload_prefix,
     )
 
 
