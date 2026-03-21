@@ -13,6 +13,7 @@ from eth_defi.event_reader.conversion import convert_uint256_string_to_int, conv
 from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.hotwallet import HotWallet
+from eth_defi.token import TokenDiskCache
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ def fund_lagoon_vault(
     amount=Decimal(500),
     nav=Decimal(0),
     hot_wallet: HotWallet | None = None,
+    token_cache: TokenDiskCache | None = None,
 ):
     """Deposit tokens into a Lagoon vault so the Safe holds funds.
 
@@ -102,6 +104,7 @@ def fund_lagoon_vault(
         features={ERC4626Feature.lagoon_like},
         default_block_identifier="latest",
         require_denomination_token=True,
+        token_cache=token_cache,
     )
     assert isinstance(vault, LagoonVault), f"Vault is not a Lagoon vault: {vault}"
 
@@ -159,6 +162,7 @@ def redeem_vault_shares(
     vault_address: HexAddress,
     redeemer: HexAddress,
     hot_wallet: HotWallet | None = None,
+    token_cache: TokenDiskCache | None = None,
 ) -> LagoonVault:
     """Request a full redemption of vault shares for a given depositor.
 
@@ -220,6 +224,7 @@ def redeem_vault_shares(
         features={ERC4626Feature.lagoon_like},
         default_block_identifier="latest",
         require_denomination_token=True,
+        token_cache=token_cache,
     )
     assert isinstance(vault, LagoonVault), f"Vault is not a Lagoon vault: {vault}"
 
