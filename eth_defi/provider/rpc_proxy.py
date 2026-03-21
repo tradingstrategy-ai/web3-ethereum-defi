@@ -410,17 +410,19 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
                 # Connection-level failure — always retry
                 error_msg = f"{e.__class__.__name__}: {e}"
                 stats.record_failure(method, error_msg, http_status=None, max_error_replies=self.server.config.max_error_replies)
+                total_requests = sum(s.request_count for s in self.server.provider_stats.values())
                 logger.log(
                     self.server.config.switchover_log_level,
-                    "RPC proxy %r: upstream %s connection error for %s: %s (attempt %d/%d)",
+                    "RPC proxy %r: upstream %s connection error for %s: %s (attempt %d/%d, %d total requests)",
                     self.server.proxy_name,
                     provider_key,
                     method,
-                    error_msg,
+                    e.__class__.__name__,
                     attempt + 1,
                     self.server.config.retries,
+                    total_requests,
                 )
-                last_error = error_msg
+                last_error = f"{e.__class__.__name__} on {provider_key}"
                 self._switch_provider()
                 if attempt < self.server.config.retries - 1:
                     time.sleep(current_sleep)
@@ -443,17 +445,19 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
             if self.server.config.failure_handler(status_code, parsed_response):
                 error_summary = _summarise_error(status_code, parsed_response)
                 stats.record_failure(method, error_summary, http_status=status_code, max_error_replies=self.server.config.max_error_replies)
+                total_requests = sum(s.request_count for s in self.server.provider_stats.values())
                 logger.log(
                     self.server.config.switchover_log_level,
-                    "RPC proxy %r: upstream %s returned retryable error for %s: %s (attempt %d/%d)",
+                    "RPC proxy %r: upstream %s returned retryable error for %s: %s (attempt %d/%d, %d total requests)",
                     self.server.proxy_name,
                     provider_key,
                     method,
                     error_summary,
                     attempt + 1,
                     self.server.config.retries,
+                    total_requests,
                 )
-                last_error = error_summary
+                last_error = f"{error_summary} from {provider_key}"
                 last_status = status_code
                 last_response_body = response_body
                 self._switch_provider()
@@ -480,13 +484,15 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(last_response_body)
         else:
-            # Connection-level failures — synthesise a JSON-RPC error
+            # Connection-level failures — synthesise a JSON-RPC error.
+            # Use provider_keys (API-key-stripped domains) not raw URLs.
+            providers_str = ", ".join(self.server.provider_keys)
             error_body = orjson.dumps(
                 {
                     "jsonrpc": "2.0",
                     "error": {
                         "code": -32603,
-                        "message": f"All upstream providers failed: {last_error}",
+                        "message": f"All upstream providers failed ({providers_str}): {last_error}",
                     },
                     "id": request_id,
                 }
