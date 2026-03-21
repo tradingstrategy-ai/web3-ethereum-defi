@@ -2148,21 +2148,6 @@ pydantic = ">=2.5.2,<3"
 typing_extensions = ">=4.8.0,<5"
 
 [[package]]
-name = "eth-retry"
-version = "0.3.7"
-description = "Provides a decorator that automatically catches known transient exceptions that are common in the Ethereum/EVM ecosystem and reattempts to evaluate your decorated function"
-optional = false
-python-versions = "<4,>=3.10"
-groups = ["main"]
-files = [
-    {file = "eth_retry-0.3.7-py3-none-any.whl", hash = "sha256:3155584bf6a178b95aa959d344dd077851295ceecba263b97a733cc9c1b1629c"},
-    {file = "eth_retry-0.3.7.tar.gz", hash = "sha256:0a0d7efbdd2f986e965e5bc8f6698d4efc001387b74d509b16216fc165d5aa5f"},
-]
-
-[package.dependencies]
-typing_extensions = ">=4.0.1"
-
-[[package]]
 name = "eth-rlp"
 version = "2.2.0"
 description = "eth-rlp: RLP definitions for common Ethereum objects in Python"
@@ -4938,23 +4923,6 @@ files = [
 [package.extras]
 toml = ["tomli ; python_version < \"3.11\"", "tomli_w"]
 yaml = ["pyyaml"]
-
-[[package]]
-name = "multicall"
-version = "0.12.3"
-description = "aggregate results from multiple ethereum contract calls"
-optional = false
-python-versions = "<4,>=3.8"
-groups = ["main"]
-files = [
-    {file = "multicall-0.12.3-py3-none-any.whl", hash = "sha256:573fa5411ca1c3ae618ec1150d840c30e622be60c36a34bad4ef49ce6d8dc29b"},
-    {file = "multicall-0.12.3.tar.gz", hash = "sha256:9bd0229639e39dbb29fc6e7ee4e1af30a5b3bb390110a3584cdd99a8f77d8385"},
-]
-
-[package.dependencies]
-cchecksum = ">=0.0.3,<1"
-eth_retry = ">=0.1.8"
-web3 = ">=5.27,<5.29.dev0 || >5.31.0,<5.31.1 || >5.31.1,<5.31.2 || >5.31.2"
 
 [[package]]
 name = "multidict"
@@ -9954,4 +9922,4 @@ test = ["pytest-xdist"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "087d25198c7ffd775d3bea9b669cb22ee588caeaed12b5d2ccaa353aeca9b562"
+content-hash = "c05ee2bdfde7cf971ae82634eea329be2b7635d224561e86fb48d6daa39a496c"

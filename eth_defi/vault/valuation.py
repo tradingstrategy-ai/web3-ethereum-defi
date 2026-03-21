@@ -19,12 +19,11 @@ from typing import Iterable, Any, TypeAlias, Hashable
 import pandas as pd
 from eth_typing import HexAddress, BlockIdentifier
 from matplotlib._api import classproperty
-from multicall import Call, Multicall
 from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import decode_function_output
-from eth_defi.event_reader.multicall_batcher import get_multicall_contract, call_multicall_batched_single_thread, MulticallWrapper, call_multicall_debug_single_thread
+from eth_defi.event_reader.multicall_batcher import get_multicall_contract, call_multicall_batched_single_thread, MulticallWrapper
 from eth_defi.provider.anvil import is_mainnet_fork
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, fetch_erc20_details, TokenAddress
@@ -141,10 +140,6 @@ class Route:
         return None
 
     @property
-    def function_signature_string(self) -> str:
-        return self.signature[0]
-
-    @property
     def token(self) -> TokenDetails:
         return self.source_token
 
@@ -163,12 +158,7 @@ class Route:
 
 @dataclass(slots=True, frozen=True)
 class ValuationMulticallWrapper(MulticallWrapper):
-    """Wrap the undertlying Multicall with diagnostics data.
-
-    - Because the underlying Multicall lib is not powerful enough.
-
-    - And we do not have time to fix it
-    """
+    """Wrap a valuation quoter call with diagnostics data for multicall batching."""
 
     quoter: "ValuationQuoter"
     route: Route
@@ -182,11 +172,6 @@ class ValuationMulticallWrapper(MulticallWrapper):
 
     def get_human_id(self) -> str:
         return str(self.get_key())
-
-    def create_multicall(self) -> Call:
-        """Create underlying call about."""
-        call = Call(self.contract_address, self.signature, [(self.route, self)])
-        return call
 
     def handle(self, success, raw_return_value: bytes) -> TokenAmount | None:
         if not success:
@@ -589,7 +574,6 @@ class NetAssetValueCalculator:
         multicall_gas_limit=10_000_000,
         debug=False,
         batch_size=15,
-        legacy_multicall=False,
     ):
         """Create a new NAV calculator.
 
@@ -639,7 +623,6 @@ class NetAssetValueCalculator:
         self.multicall_gas_limit = multicall_gas_limit
         self.debug = debug
         self.batch_size = batch_size
-        self.legacy_multicall = legacy_multicall
 
         if block_identifier is None:
             block_identifier = get_almost_latest_block_number(web3)
@@ -775,37 +758,17 @@ class NetAssetValueCalculator:
         self,
         calls: list[MulticallWrapper],
     ):
-        """Multicall mess untangling."""
-        if self.legacy_multicall:
-            # Old bantg path.
-            # Do not use.
-            # Only headche.
-            multicall = Multicall(
-                calls=[c.create_multicall() for c in calls],
-                block_id=self.block_identifier,
-                _w3=self.web3,
-                require_success=False,
-                gas_limit=self.multicall_gas_limit,
-            )
-            batched_result = multicall()
-            return batched_result
-        else:
-            multicall_contract = get_multicall_contract(
-                self.web3,
-                block_identifier=self.block_identifier,
-            )
-            # return call_multicall_debug_single_thread(
-            #     multicall_contract,
-            #     calls=calls,
-            #     block_identifier=self.block_identifier,
-            # )
-
-            return call_multicall_batched_single_thread(
-                multicall_contract,
-                calls=calls,
-                block_identifier=self.block_identifier,
-                batch_size=self.batch_size,
-            )
+        """Execute batched multicall using internal Multicall3 contract wrapper."""
+        multicall_contract = get_multicall_contract(
+            self.web3,
+            block_identifier=self.block_identifier,
+        )
+        return call_multicall_batched_single_thread(
+            multicall_contract,
+            calls=calls,
+            block_identifier=self.block_identifier,
+            batch_size=self.batch_size,
+        )
 
     def fetch_onchain_valuations(
         self,
