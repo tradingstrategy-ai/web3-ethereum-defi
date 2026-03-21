@@ -62,7 +62,9 @@ VAULT_STATE_COLUMNS = {
     "follower_count": float("nan"),
     "account_pnl": float("nan"),
     "cumulative_volume": float("nan"),
-    "deposit_closed_reason": pd.NA,
+    # PyArrow does not accept None for string columns,
+    # use empty string as the default for deposit_closed_reason
+    "deposit_closed_reason": "",
 }
 
 
@@ -74,10 +76,7 @@ def ensure_vault_state_columns(prices_df: pd.DataFrame) -> pd.DataFrame:
     """
     for col, default in VAULT_STATE_COLUMNS.items():
         if col not in prices_df.columns:
-            if default is pd.NA:
-                prices_df[col] = pd.array([pd.NA] * len(prices_df), dtype="string")
-            else:
-                prices_df[col] = default
+            prices_df[col] = default
     return prices_df
 
 
@@ -97,14 +96,19 @@ def derive_deposit_closed_reason(prices_df: pd.DataFrame) -> pd.DataFrame:
         DataFrame with ``deposit_closed_reason`` filled in for both vault types.
     """
     if "deposit_closed_reason" not in prices_df.columns:
-        prices_df["deposit_closed_reason"] = pd.array([None] * len(prices_df), dtype="string")
+        # PyArrow does not accept None for string columns, use empty string
+        prices_df["deposit_closed_reason"] = ""
+    else:
+        # Ensure compatible dtype: convert None/NaN to empty string
+        # because PyArrow string columns do not accept null assignment via .loc
+        prices_df["deposit_closed_reason"] = prices_df["deposit_closed_reason"].fillna("").astype(str)
 
     if "deposits_open" not in prices_df.columns:
         return prices_df
 
     # Fill in reason for ERC-4626 rows where deposits_open == "false"
     # but deposit_closed_reason is not yet set (Hyperliquid rows already have it).
-    mask = (prices_df["deposit_closed_reason"].isna()) & (prices_df["deposits_open"] == "false")
+    mask = (prices_df["deposit_closed_reason"] == "") & (prices_df["deposits_open"] == "false")
     prices_df.loc[mask, "deposit_closed_reason"] = "Vault deposits disabled"
 
     return prices_df

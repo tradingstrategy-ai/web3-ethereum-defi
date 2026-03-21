@@ -1192,7 +1192,10 @@ def calculate_vault_record(
         # Clean up some legacy data
         lockup = None
 
-    # Deposit/redemption status from vault scan
+    # Deposit/redemption status from vault scan.
+    # Note: deposit_closed_reason uses empty string "" instead of None
+    # because PyArrow does not accept None for string columns in the
+    # cleaned parquet DataFrame.
     deposit_closed_reason = vault_metadata.get("_deposit_closed_reason")
     redemption_closed_reason = vault_metadata.get("_redemption_closed_reason")
     deposit_next_open = vault_metadata.get("_deposit_next_open")
