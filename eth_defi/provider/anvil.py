@@ -806,6 +806,7 @@ def launch_anvil(
     url = f"http://localhost:{port}"
 
     proxy = None
+    available_rpcs = []
     # Track whether we manage the proxy lifecycle (True) or the caller does (False)
     proxy_managed = True
 
@@ -857,14 +858,22 @@ def launch_anvil(
     else:
         cleaned_fork_url = fork_url if not fork_url or not fork_url.startswith("mev+") else fork_url.replace("mev+", "", 1)
 
-    # Check given RPC works
+    # Check given RPC works.
+    # When a proxy is active, smoke-test one of the upstream URLs directly
+    # rather than through the proxy. The proxy has its own (longer) timeout
+    # budget for failover; testing it with the short smoke-test timeout
+    # would defeat the purpose and raise false positives.
     if fork_url and rpc_smoke_test:
-        web3 = Web3(HTTPProvider(cleaned_fork_url, request_kwargs={"timeout": test_request_timeout}))
+        smoke_test_url = available_rpcs[0] if (proxy is not None and available_rpcs) else cleaned_fork_url
+        web3 = Web3(HTTPProvider(smoke_test_url, request_kwargs={"timeout": test_request_timeout}))
         # Will raise an exception if not working
         try:
             current_rpc_block = web3.eth.block_number
         except Exception as e:
-            raise ValueError(f"RPC smoke test failed for {cleaned_fork_url}: {e}") from e
+            # Clean up the proxy if we started one
+            if proxy is not None and proxy_managed:
+                proxy.close()
+            raise ValueError(f"RPC smoke test failed for {smoke_test_url}: {e}") from e
 
         fork_block_number = _select_safe_fork_block_number(
             web3=web3,
@@ -874,13 +883,18 @@ def launch_anvil(
 
         # If archive mode and fork_block_number specified, verify RPC can access historical blocks
         if archive and fork_block_number is not None:
-            _verify_archive_node_access(
-                web3=web3,
-                rpc_url=cleaned_fork_url,
-                fork_block_number=fork_block_number,
-                current_block=current_rpc_block,
-                timeout=test_request_timeout,
-            )
+            try:
+                _verify_archive_node_access(
+                    web3=web3,
+                    rpc_url=smoke_test_url,
+                    fork_block_number=fork_block_number,
+                    current_block=current_rpc_block,
+                    timeout=test_request_timeout,
+                )
+            except Exception:
+                if proxy is not None and proxy_managed:
+                    proxy.close()
+                raise
 
     # https://book.getfoundry.sh/reference/anvil/
     args = dict(
@@ -971,6 +985,8 @@ def launch_anvil(
             # behind the tip, but keep this comment here because this stderr is
             # otherwise very confusing when seen in logs or CI output.
             if fork_block_number and any(p in stderr_str for p in archive_error_patterns):
+                if proxy is not None and proxy_managed:
+                    proxy.close()
                 raise ArchiveNodeRequired(
                     f"Anvil failed to fork {cleaned_fork_url} at block {fork_block_number:,}: the RPC does not provide full archive state access. Anvil stderr: {stderr_str[:500]}",
                     rpc_url=cleaned_fork_url,
@@ -985,6 +1001,8 @@ def launch_anvil(
                     logger.info("anvil did not start properly, try again, attempts left %d", attempts_left)
                     continue
 
+            if proxy is not None and proxy_managed:
+                proxy.close()
             raise AssertionError(f"Could not read block number from Anvil after the launch with command '{cmd}': at {url}, stdout is {len(stdout)} bytes, stderr is {len(stderr)} bytes")
         else:
             # We have a successful launch
