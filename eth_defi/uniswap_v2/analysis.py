@@ -11,7 +11,7 @@ from web3 import Web3
 from web3.logs import DISCARD
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.token import fetch_erc20_details
+from eth_defi.token import DEFAULT_TOKEN_CACHE, fetch_erc20_details
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.trade import TradeFail, TradeSuccess
 
@@ -19,7 +19,12 @@ from eth_defi.trade import TradeFail, TradeSuccess
 logger = logging.getLogger(__name__)
 
 
-def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str | HexBytes) -> Union[TradeSuccess, TradeFail]:
+def analyse_trade_by_hash(
+    web3: Web3,
+    uniswap: UniswapV2Deployment,
+    tx_hash: str | HexBytes,
+    token_cache: dict | None = DEFAULT_TOKEN_CACHE,
+) -> Union[TradeSuccess, TradeFail]:
     """Analyse details of a Uniswap trade based on a transaction id.
 
     Analyses trade fees, etc. based on the event signatures in the transaction.
@@ -52,6 +57,8 @@ def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str
         Uniswap deployment description
     :param tx_hash:
         Transaction hash as a string
+    :param token_cache:
+        Token detail cache. Set to ``None`` to disable caching.
     :return:
         :py:class:`TradeSuccess` or :py:class:`TradeFail` instance
     """
@@ -61,7 +68,7 @@ def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str
 
     tx = web3.eth.get_transaction(tx_hash)
     tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
-    return analyse_trade_by_receipt(web3, uniswap, tx, tx_hash, tx_receipt)
+    return analyse_trade_by_receipt(web3, uniswap, tx, tx_hash, tx_receipt, token_cache=token_cache)
 
 
 def analyse_trade_by_receipt(
@@ -72,6 +79,7 @@ def analyse_trade_by_receipt(
     tx_receipt: dict | None,
     pair_fee: float = None,
     sender_address: str | None = None,
+    token_cache: dict | None = DEFAULT_TOKEN_CACHE,
 ) -> Union[TradeSuccess, TradeFail]:
     """Analyse details of a Uniswap trade based on already received receipt.
 
@@ -114,6 +122,8 @@ def analyse_trade_by_receipt(
         Transaction receipt to analyse
     :param pair_fee:
         The lp fee for this pair.
+    :param token_cache:
+        Token detail cache. Set to ``None`` to disable caching.
     :return:
         :py:class:`TradeSuccess` or :py:class:`TradeFail` instance
     """
@@ -189,7 +199,7 @@ def analyse_trade_by_receipt(
         in_token_address = first_pair.functions.token1().call()
         amount_in = amount1_in
 
-    in_token_details = fetch_erc20_details(web3, in_token_address)
+    in_token_details = fetch_erc20_details(web3, in_token_address, cache=token_cache)
 
     # (AttributeDict({'args': AttributeDict({'sender': '0xDe09E74d4888Bc4e65F589e8c13Bce9F71DdF4c7', 'to': '0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF', 'amount0In': 0, 'amount1In': 500000000000000000000, 'amount0Out': 284881561276680858, 'amount1Out': 0}), 'event': 'Swap', 'logIndex': 4, 'transactionIndex': 0, 'transactionHash': HexBytes('0x58312ff98147ca16c3a81019c8bca390cd78963175e4c0a30643d45d274df947'), 'address': '0x68931307eDCB44c3389C507dAb8D5D64D242e58f', 'blockHash': HexBytes('0x1222012923c7024b1d49e1a3e58552b89e230f8317ac1b031f070c4845d55db1'), 'blockNumber': 12}),)
     amount0_out = events[-1]["args"]["amount0Out"]
@@ -207,7 +217,7 @@ def analyse_trade_by_receipt(
         out_token_address = last_pair.functions.token1().call()
         amount_out = amount1_out
 
-    out_token_details = fetch_erc20_details(web3, out_token_address)
+    out_token_details = fetch_erc20_details(web3, out_token_address, cache=token_cache)
     path.append(out_token_address)
 
     amount_out_cleaned = Decimal(amount_out) / Decimal(10**out_token_details.decimals)
