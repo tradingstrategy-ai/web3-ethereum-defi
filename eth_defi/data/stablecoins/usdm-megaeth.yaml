@@ -1,0 +1,26 @@
+symbol: USDm
+name: MegaUSD
+short_description: USDm (MegaUSD) is the native stablecoin of the MegaETH blockchain, designed for high-throughput DeFi applications on the MegaETH real-time EVM chain.
+long_description: |
+  [USDm (MegaUSD)](https://www.megaeth.com/) is the native stablecoin of the
+  [MegaETH](https://www.megaeth.com/) blockchain. MegaETH is a high-performance
+  EVM-compatible chain targeting real-time block production (~1 second blocks).
+
+  USDm uses 18 decimals and serves as the primary denomination token for DeFi
+  vaults and lending protocols deployed on MegaETH, including Morpho and
+  Gains Network.
+category: stablecoin
+links:
+  homepage: https://www.megaeth.com/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/megaborealeth
+slug: usdm-megaeth
+contract_addresses:
+  - chain: megaeth
+    address: '0xFAfDdbb3FC7688494971a79cc65DCa3EF82079E7'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

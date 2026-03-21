@@ -371,6 +371,7 @@ STABLECOIN_LIKE = set(
         "ysUSDC",
         "mtUSDC",
         "mtUSDT",
+        "USDm",
     ]
 )
 

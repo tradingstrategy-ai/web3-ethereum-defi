@@ -44,14 +44,14 @@ def configure_hypersync_from_env(
             hypersync_url = get_hypersync_server(web3, allow_missing=True)
             assert hypersync_api_key, "HYPERSYNC_API_KEY must be set to use HyperSync backend"
             if hypersync_url:
-                hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, api_token=hypersync_api_key))
+                hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=hypersync_api_key))
             else:
                 hypersync_client = None
         case "hypersync":
             hypersync_url = get_hypersync_server(web3)
             assert hypersync_url, f"No HyperSync server available for chain {web3.eth.chain_id}"
             assert hypersync_api_key, "HYPERSYNC_API_KEY must be set to use HyperSync backend"
-            hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, api_token=hypersync_api_key))
+            hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=hypersync_api_key))
         case "rpc":
             hypersync_client = None
             hypersync_url = None

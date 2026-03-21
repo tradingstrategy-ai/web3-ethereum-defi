@@ -229,7 +229,9 @@ EVM_BLOCK_TIMES = {
     747474: 1,  # Katana, ~1s block time avg
     143: 0.4,  # Monad, target ~1s block times on mainnet
     957: 2,  # Derive (Lyra L2), ~2s block time
-    4326: 1,  # MegaETH, dual-block: mini blocks (10ms) + EVM blocks (~1s). Using EVM block time.
+    # MegaETH block time calculated from block 1 (ts 1762797012) to block 11,330,898 (ts 1774127909):
+    # 11,330,897s / 11,330,897 blocks = 1.0000s avg
+    4326: 1,  # MegaETH, ~1s avg block time
 }
 
 
