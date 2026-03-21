@@ -23,20 +23,19 @@ from eth_defi.trace import assert_transaction_success_with_explanation, Transact
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def target_vault_asset_manager():
     """722 capital vault manager"""
     return "0x3B95C7cD4075B72ecbC4559AF99211C2B6591b2E"
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def test_block_number():
     return 41_950_000
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def anvil_base_fork(
-    request,
     vault_owner,
     usdc_holder,
     asset_manager,

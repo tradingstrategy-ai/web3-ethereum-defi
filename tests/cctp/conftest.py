@@ -8,7 +8,7 @@ from eth_typing import HexAddress, HexStr
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.provider.anvil import AnvilLaunch, AnvilSnapshotState, create_anvil_snapshot_state, fork_network_anvil, reset_anvil_snapshot
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, fetch_erc20_details
 
@@ -21,14 +21,14 @@ JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 ETHEREUM_USDC_WHALE = HexAddress(HexStr("0x37305B1cD40574E4C5Ce33f8e8306Be057fD7341"))
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def ethereum_usdc_whale() -> HexAddress:
     """A large USDC holder on Ethereum mainnet."""
     return ETHEREUM_USDC_WHALE
 
 
-@pytest.fixture()
-def anvil_ethereum_fork(request, ethereum_usdc_whale) -> AnvilLaunch:  # noqa: ARG001
+@pytest.fixture(scope="module")
+def anvil_ethereum_fork(ethereum_usdc_whale) -> AnvilLaunch:
     """Create a testable fork of live Ethereum mainnet."""
     launch = fork_network_anvil(
         JSON_RPC_ETHEREUM,
@@ -40,12 +40,26 @@ def anvil_ethereum_fork(request, ethereum_usdc_whale) -> AnvilLaunch:  # noqa: A
         launch.close(log_level=logging.ERROR)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def web3(anvil_ethereum_fork) -> Web3:
     """Web3 connected to Ethereum mainnet Anvil fork."""
     web3 = create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url)
     assert web3.eth.chain_id == 1
     return web3
+
+
+@pytest.fixture(scope="module")
+def ethereum_fork_state(web3: Web3) -> AnvilSnapshotState:
+    """Save a clean Ethereum fork checkpoint once per module."""
+
+    return create_anvil_snapshot_state(web3)
+
+
+@pytest.fixture(autouse=True)
+def restore_ethereum_fork_state(web3: Web3, ethereum_fork_state: AnvilSnapshotState) -> None:
+    """Restore the shared Ethereum fork back to the saved checkpoint before each test."""
+
+    reset_anvil_snapshot(web3, ethereum_fork_state)
 
 
 @pytest.fixture()

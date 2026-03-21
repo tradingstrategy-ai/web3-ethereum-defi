@@ -48,8 +48,11 @@ from eth_defi.provider.anvil import (
     ANVIL_OWNER_1,
     ANVIL_OWNER_2,
     AnvilLaunch,
+    AnvilSnapshotState,
+    create_anvil_snapshot_state,
     fork_network_anvil,
     fund_erc20_on_anvil,
+    reset_anvil_snapshot,
 )
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -88,12 +91,12 @@ def _perform_call(module: Contract, fn_call, asset_manager: str):
     ).transact({"from": asset_manager})
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def deployer() -> LocalAccount:
     return Account.from_key(DEPLOYER_PRIVATE_KEY)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def anvil_hyperliquid() -> AnvilLaunch:
     """Fork HyperEVM mainnet with large block gas limit.
 
@@ -119,7 +122,7 @@ def anvil_hyperliquid() -> AnvilLaunch:
         launch.close(log_level=logging.ERROR)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def web3(anvil_hyperliquid):
     web3 = create_multi_provider_web3(
         anvil_hyperliquid.json_rpc_url,
@@ -129,24 +132,24 @@ def web3(anvil_hyperliquid):
     return web3
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def usdc(web3) -> TokenDetails:
     return fetch_erc20_details(web3, USDC_ADDRESS)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def mock_core_writer(web3) -> Contract:
     """Deploy MockCoreWriter at the system address via anvil_setCode."""
     return deploy_mock_core_writer(web3)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def mock_core_deposit_wallet(web3) -> Contract:
     """Deploy MockCoreDepositWallet at the mainnet address via anvil_setCode."""
     return deploy_mock_core_deposit_wallet(web3)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def lagoon_deployment(
     web3,
     deployer,
@@ -215,6 +218,26 @@ def lagoon_deployment(
     web3.provider.make_request("anvil_stopImpersonatingAccount", [safe_address])
 
     return deploy_info
+
+
+@pytest.fixture(scope="module")
+def hypercore_lagoon_state(
+    web3: Web3,
+    lagoon_deployment: LagoonAutomatedDeployment,
+) -> AnvilSnapshotState:
+    """Save a post-deployment checkpoint so later tests can reuse the Hypercore Lagoon setup."""
+
+    return create_anvil_snapshot_state(web3)
+
+
+@pytest.fixture(autouse=True)
+def restore_hypercore_lagoon_state(
+    web3: Web3,
+    hypercore_lagoon_state: AnvilSnapshotState,
+) -> None:
+    """Restore the shared HyperEVM fork back to the deployed Hypercore Lagoon baseline before each test."""
+
+    reset_anvil_snapshot(web3, hypercore_lagoon_state)
 
 
 @pytest.mark.timeout(600)
