@@ -1090,6 +1090,18 @@ class AnvilSnapshotState:
     Use :py:func:`create_anvil_snapshot_state` to take the initial snapshot
     and :py:func:`reset_anvil_snapshot` to restore it between tests.
 
+    .. note::
+
+        Only use this pattern in **self-contained** test modules or conftest
+        files where the ``web3`` fixture is not overridden by sibling modules.
+        Placing an ``autouse=True`` restore fixture in a shared ``conftest.py``
+        causes ``ScopeMismatch`` errors when other test modules in the same
+        directory override ``web3`` with function scope (e.g. for a different
+        chain). Additionally, module-scoped Anvil forks combined with repeated
+        snapshot/revert cycles can hang on CI runners under ``pytest-xdist``
+        parallel execution, likely due to Anvil process responsiveness
+        degradation after many revert cycles.
+
     Example:
 
     .. code-block:: python
