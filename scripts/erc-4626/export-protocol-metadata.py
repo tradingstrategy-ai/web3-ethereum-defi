@@ -43,6 +43,7 @@ def upload_files_to_r2(
     secret_access_key: str,
     folder="vault-protocol-metadata",
     key_prefix: str = "",
+    public_url: str = "",
 ) -> int:
     """Upload a list of files to R2 bucket, excluding tmp* files.
 
@@ -53,6 +54,7 @@ def upload_files_to_r2(
     :param secret_access_key: R2 secret access key
     :param folder: Folder name in R2 bucket to upload files to
     :param key_prefix: Prefix for S3 keys (e.g. ``test-`` for test uploads)
+    :param public_url: Public base URL for logging final download URLs
     :return: Number of files uploaded
     """
     # Filter out tmp* files and files that don't exist
@@ -96,6 +98,10 @@ def upload_files_to_r2(
                     s3_key,
                     Callback=upload_callback,
                 )
+
+        if public_url:
+            final_url = f"{public_url.rstrip('/')}/{s3_key}"
+            logger.info("Uploaded: %s", final_url)
 
     return len(files_to_upload)
 
@@ -204,6 +210,7 @@ def main():
         access_key_id=access_key_id,
         secret_access_key=secret_access_key,
         key_prefix=upload_prefix,
+        public_url=public_url,
     )
 
 
