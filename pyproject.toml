@@ -144,12 +144,12 @@ strictyaml = "^1.7.3"
 [tool.poetry.group.dev.dependencies]
 flaky = "^3.7.0"
 ipdb = "^0.13.9"
-pytest = "^7.4.3"
+pytest = "^8.2"
 pytest-mock = "^3.7.0"
 ruff = "^0.11.13"
 # See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
 anyio = "^4.11.0"
-pytest-asyncio = ">=0.21,<0.23"
+pytest-asyncio = ">=0.25,<2"
 # Logo processing dependencies for vault protocol logos
 # See .claude/skills/post-process-logo/SKILL.md
 google-generativeai = ">=0.8.0"
@@ -202,9 +202,8 @@ asyncio_mode = "auto"
 filterwarnings = [
   "ignore::DeprecationWarning:pkg_resources.*:",
   "ignore::DeprecationWarning:eth_tester.*:",
-  # asyncio.iscoroutinefunction deprecated in Python 3.14, fixed in pytest-asyncio >=0.25
-  # but that requires pytest >=8.2 (we are on pytest 7.x)
-  "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning:pytest_asyncio.*:",
+  # asyncio.iscoroutinefunction deprecated in Python 3.14, not yet fixed in
+  # eth-retry 0.3.7 and cached-property 2.0.1 (both at latest versions)
   "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning:eth_retry.*:",
   "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning:cached_property.*:",
 ]
