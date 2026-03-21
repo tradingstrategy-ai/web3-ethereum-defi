@@ -62,7 +62,7 @@ VAULT_STATE_COLUMNS = {
     "follower_count": float("nan"),
     "account_pnl": float("nan"),
     "cumulative_volume": float("nan"),
-    "deposit_closed_reason": None,
+    "deposit_closed_reason": pd.NA,
 }
 
 
@@ -74,7 +74,10 @@ def ensure_vault_state_columns(prices_df: pd.DataFrame) -> pd.DataFrame:
     """
     for col, default in VAULT_STATE_COLUMNS.items():
         if col not in prices_df.columns:
-            prices_df[col] = default
+            if default is pd.NA:
+                prices_df[col] = pd.array([pd.NA] * len(prices_df), dtype="string")
+            else:
+                prices_df[col] = default
     return prices_df
 
 
@@ -94,7 +97,7 @@ def derive_deposit_closed_reason(prices_df: pd.DataFrame) -> pd.DataFrame:
         DataFrame with ``deposit_closed_reason`` filled in for both vault types.
     """
     if "deposit_closed_reason" not in prices_df.columns:
-        prices_df["deposit_closed_reason"] = None
+        prices_df["deposit_closed_reason"] = pd.array([None] * len(prices_df), dtype="string")
 
     if "deposits_open" not in prices_df.columns:
         return prices_df
@@ -781,7 +784,7 @@ def sort_and_index_vault_prices(
       as the pipeline takes several minutes to run
     """
 
-    assert isinstance(prices_df.index, pd.DatetimeIndex), f"Got: {type(prices_df.index)}"
+    assert isinstance(prices_df.index, pd.DatetimeIndex) or pd.api.types.is_datetime64_any_dtype(prices_df.index), f"Expected datetime index, got: {type(prices_df.index)}, dtype: {prices_df.index.dtype}"
 
     # Create a priority column for sorting
     priority_set = set(priority_ids)
