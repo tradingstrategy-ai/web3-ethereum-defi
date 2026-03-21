@@ -147,14 +147,14 @@ def main():
     print(f"\nHigh TVL vaults (>= ${tvl_threshold:,.0f}): {len(high_latest)}")
     print(f"  Absolute last: {high_abs} (age: {_format_age(high_abs_age)})")
     print(f"  Median last:   {high_median} (age: {_format_age(high_median_age)})")
-    print(tabulate(_build_chain_table(high_latest, now), headers=headers, tablefmt="grid"))
+    print(tabulate(_build_chain_table(high_latest, now), headers=headers, tablefmt="fancy_grid"))
 
     # Low TVL vaults
     low_abs, low_median, low_abs_age, low_median_age = _compute_freshness(low_latest, now)
     print(f"\nLow TVL vaults (< ${tvl_threshold:,.0f}): {len(low_latest)}")
     print(f"  Absolute last: {low_abs} (age: {_format_age(low_abs_age)})")
     print(f"  Median last:   {low_median} (age: {_format_age(low_median_age)})")
-    print(tabulate(_build_chain_table(low_latest, now), headers=headers, tablefmt="grid"))
+    print(tabulate(_build_chain_table(low_latest, now), headers=headers, tablefmt="fancy_grid"))
 
     # Exit code based on high TVL freshness only
     max_age = pd.Timedelta(hours=max_age_hours)
