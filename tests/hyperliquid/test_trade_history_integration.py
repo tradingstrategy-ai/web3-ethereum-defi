@@ -23,7 +23,7 @@ from eth_defi.hyperliquid.trade_history_db import HyperliquidTradeHistoryDatabas
 VAULT_ADDRESS = "0x1e37a337ed460039d1b15bd3bc489de789768d5e"
 
 #: Short time range for faster tests
-TEST_START = datetime.datetime(2025, 12, 1)
+TEST_START = datetime.datetime(2025, 12, 7)
 TEST_END = datetime.datetime(2025, 12, 14)
 
 
@@ -62,7 +62,7 @@ def test_reconstruct_vault_trade_history(session, tmp_path):
     db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
     try:
         db.add_account(VAULT_ADDRESS, label="Growi HF", is_vault=True)
-        db.sync_account(session, VAULT_ADDRESS, start_time=TEST_START, end_time=TEST_END)
+        db.sync_account_fills(session, VAULT_ADDRESS, start_time=TEST_START, end_time=TEST_END)
 
         history = fetch_account_trade_history(
             session,
@@ -97,7 +97,7 @@ def test_reconstruct_normal_account_trade_history(session, tmp_path):
     db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
     try:
         db.add_account(account_address, label="Test account", is_vault=False)
-        db.sync_account(session, account_address, start_time=TEST_START, end_time=TEST_END)
+        db.sync_account_fills(session, account_address, start_time=TEST_START, end_time=TEST_END)
 
         history = fetch_account_trade_history(
             session,
@@ -179,7 +179,7 @@ def test_trade_history_sync_resume(session, tmp_path):
             session,
             VAULT_ADDRESS,
             start_time=TEST_START,
-            end_time=datetime.datetime(2025, 12, 7),
+            end_time=datetime.datetime(2025, 12, 10),
         )
         db.save()
 

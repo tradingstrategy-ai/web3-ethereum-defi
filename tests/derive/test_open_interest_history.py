@@ -156,12 +156,12 @@ def test_fetch_perp_snapshots_multicall_historical(w3: Web3):
 
 @pytest.mark.timeout(120)
 def test_open_interest_db_backfill_and_resume(session, w3: Web3, tmp_path):
-    """Backfill 3 days of ETH-PERP snapshots into DuckDB and verify all data points.
+    """Backfill a short hourly window of ETH-PERP snapshots into DuckDB and verify all data points.
 
     Tests the full on-chain backfill pipeline: historical fetch with
     Multicall3 batching, storage of OI + prices, idempotent resume.
 
-    1. Sync last 3 days of snapshots for ETH-PERP.
+    1. Sync a short hourly window of snapshots for ETH-PERP.
     2. Assert rows were inserted.
     3. Re-sync the same window — assert 0 new rows (idempotent).
     4. Assert DataFrame has correct columns including perp_price and index_price.
@@ -170,11 +170,11 @@ def test_open_interest_db_backfill_and_resume(session, w3: Web3, tmp_path):
     """
     db = DeriveFundingRateDatabase(tmp_path / "funding-rates.duckdb")
     try:
-        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-        start = (now - datetime.timedelta(days=3)).replace(hour=0, minute=0, second=0, microsecond=0)
-        end = (now - datetime.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None, minute=0, second=0, microsecond=0)
+        end = now - datetime.timedelta(hours=1)
+        start = end - datetime.timedelta(hours=6)
 
-        # 1. First sync: 3 days
+        # 1. First sync: 6 hours
         inserted = db.sync_open_interest_instrument(
             session,
             "ETH-PERP",
@@ -183,8 +183,8 @@ def test_open_interest_db_backfill_and_resume(session, w3: Web3, tmp_path):
             end_time=end,
         )
 
-        # 2. Should have inserted rows (3 days = 3 rows if all have non-zero OI)
-        assert inserted >= 2, f"Expected at least 2 new rows, got {inserted}"
+        # 2. Should have inserted rows
+        assert inserted >= 4, f"Expected at least 4 new rows, got {inserted}"
         count = db.get_open_interest_row_count("ETH-PERP")
         assert count == inserted
 
