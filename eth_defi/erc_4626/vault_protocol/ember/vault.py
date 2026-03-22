@@ -126,5 +126,16 @@ class EmberVault(ERC4626Vault):
                 return datetime.timedelta(days=days)
         return datetime.timedelta(days=4)
 
+    def get_notes(self) -> str | None:
+        """Get notes for this vault.
+
+        - Returns manual notes from the vault flags if set
+        - Otherwise falls back to the full description from Ember's offchain metadata
+        """
+        manual_notes = super().get_notes()
+        if manual_notes:
+            return manual_notes
+        return self.description
+
     def get_link(self, referral: str | None = None) -> str:
         return "https://ember.so/earn"
