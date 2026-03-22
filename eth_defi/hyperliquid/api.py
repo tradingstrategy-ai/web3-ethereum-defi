@@ -22,6 +22,7 @@ import logging
 import time
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Any
 
 import requests
 from eth_typing import HexAddress
@@ -210,6 +211,30 @@ class AssetPosition:
     #: Liquidation price (``None`` if no position)
     liquidation_price: Decimal | None
 
+    #: Position mode (e.g. ``"oneWay"``)
+    position_type: str | None = None
+
+    #: Leverage mode (e.g. ``"cross"``)
+    leverage_type: str | None = None
+
+    #: Configured leverage value
+    leverage_value: int | None = None
+
+    #: Maximum allowed leverage
+    max_leverage: int | None = None
+
+    #: Return on equity ratio
+    return_on_equity: Decimal | None = None
+
+    #: Cumulative funding across the full lifetime
+    cumulative_funding_all_time: Decimal | None = None
+
+    #: Cumulative funding since the position was opened
+    cumulative_funding_since_open: Decimal | None = None
+
+    #: Cumulative funding since the last position size change
+    cumulative_funding_since_change: Decimal | None = None
+
 
 @dataclass(slots=True)
 class PerpClearinghouseState:
@@ -280,6 +305,90 @@ class LeaderboardEntry:
 
     #: All-time trading volume in USD
     all_time_volume: Decimal
+
+
+def _post_info_json(
+    session: HyperliquidSession,
+    payload: dict[str, Any],
+    timeout: float,
+) -> Any:
+    """POST to the Hyperliquid ``/info`` endpoint and decode JSON."""
+    response = session.post_info(payload, timeout=timeout)
+    response.raise_for_status()
+    return response.json()
+
+
+def fetch_open_orders_raw(
+    session: HyperliquidSession,
+    user: HexAddress | str,
+    timeout: float = 10.0,
+) -> list[dict]:
+    """Fetch raw ``openOrders`` payload for a user."""
+    payload = {"type": "openOrders", "user": user}
+    data = _post_info_json(session, payload, timeout=timeout)
+    assert isinstance(data, list), f"Expected list response, got {type(data)}"
+    return data
+
+
+def fetch_frontend_open_orders_raw(
+    session: HyperliquidSession,
+    user: HexAddress | str,
+    timeout: float = 10.0,
+) -> list[dict]:
+    """Fetch raw ``frontendOpenOrders`` payload for a user."""
+    payload = {"type": "frontendOpenOrders", "user": user}
+    data = _post_info_json(session, payload, timeout=timeout)
+    assert isinstance(data, list), f"Expected list response, got {type(data)}"
+    return data
+
+
+def fetch_historical_orders_raw(
+    session: HyperliquidSession,
+    user: HexAddress | str,
+    timeout: float = 10.0,
+) -> list[dict]:
+    """Fetch raw ``historicalOrders`` payload for a user."""
+    payload = {"type": "historicalOrders", "user": user}
+    data = _post_info_json(session, payload, timeout=timeout)
+    assert isinstance(data, list), f"Expected list response, got {type(data)}"
+    return data
+
+
+def fetch_user_twap_slice_fills_raw(
+    session: HyperliquidSession,
+    user: HexAddress | str,
+    timeout: float = 10.0,
+) -> list[dict]:
+    """Fetch raw ``userTwapSliceFills`` payload for a user."""
+    payload = {"type": "userTwapSliceFills", "user": user}
+    data = _post_info_json(session, payload, timeout=timeout)
+    assert isinstance(data, list), f"Expected list response, got {type(data)}"
+    return data
+
+
+def fetch_active_asset_data_raw(
+    session: HyperliquidSession,
+    user: HexAddress | str,
+    coin: str,
+    timeout: float = 10.0,
+) -> dict:
+    """Fetch raw ``activeAssetData`` payload for a user and coin."""
+    payload = {"type": "activeAssetData", "user": user, "coin": coin}
+    data = _post_info_json(session, payload, timeout=timeout)
+    assert isinstance(data, dict), f"Expected dict response, got {type(data)}"
+    return data
+
+
+def fetch_perp_clearinghouse_state_raw(
+    session: HyperliquidSession,
+    user: HexAddress | str,
+    timeout: float = 10.0,
+) -> dict:
+    """Fetch raw ``clearinghouseState`` payload for a user."""
+    payload = {"type": "clearinghouseState", "user": user}
+    data = _post_info_json(session, payload, timeout=timeout)
+    assert isinstance(data, dict), f"Expected dict response, got {type(data)}"
+    return data
 
 
 def fetch_user_vault_equities(
@@ -703,19 +812,8 @@ def fetch_perp_clearinghouse_state(
     :return:
         Perpetual clearinghouse state with margin info and positions.
     """
-    url = f"{session.api_url}/info"
-    payload = {"type": "clearinghouseState", "user": user}
-
-    logger.debug("Fetching clearinghouseState for %s from %s", user, url)
-
-    response = session.post(
-        url,
-        json=payload,
-        headers={"Content-Type": "application/json"},
-        timeout=timeout,
-    )
-    response.raise_for_status()
-    data = response.json()
+    logger.debug("Fetching clearinghouseState for %s", user)
+    data = fetch_perp_clearinghouse_state_raw(session, user, timeout=timeout)
 
     ms = data["crossMarginSummary"]
     margin_summary = MarginSummary(
@@ -730,6 +828,10 @@ def fetch_perp_clearinghouse_state(
         pos = ap.get("position", ap)
         liq_px = pos.get("liquidationPx")
         entry_px = pos.get("entryPx")
+        leverage = pos.get("leverage", {})
+        cumulative_funding = pos.get("cumFunding", {})
+        max_leverage = pos.get("maxLeverage")
+        return_on_equity = pos.get("returnOnEquity")
         positions.append(
             AssetPosition(
                 coin=pos["coin"],
@@ -739,6 +841,14 @@ def fetch_perp_clearinghouse_state(
                 margin_used=Decimal(pos.get("marginUsed", "0")),
                 position_value=Decimal(pos.get("positionValue", "0")),
                 liquidation_price=Decimal(liq_px) if liq_px else None,
+                position_type=ap.get("type"),
+                leverage_type=leverage.get("type"),
+                leverage_value=int(leverage["value"]) if leverage.get("value") is not None else None,
+                max_leverage=int(max_leverage) if max_leverage is not None else None,
+                return_on_equity=Decimal(return_on_equity) if return_on_equity is not None else None,
+                cumulative_funding_all_time=Decimal(cumulative_funding["allTime"]) if cumulative_funding.get("allTime") is not None else None,
+                cumulative_funding_since_open=Decimal(cumulative_funding["sinceOpen"]) if cumulative_funding.get("sinceOpen") is not None else None,
+                cumulative_funding_since_change=Decimal(cumulative_funding["sinceChange"]) if cumulative_funding.get("sinceChange") is not None else None,
             )
         )
 

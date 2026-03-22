@@ -237,6 +237,97 @@ def test_fetch_portfolio_first_activity(session):
     assert portfolio.first_activity_at is not None, "Expected first_activity_at from pnlHistory"
     assert portfolio.all_time_pnl is not None
     assert portfolio.all_time_volume is not None
-
     # HLP has been active since late 2023
     assert portfolio.first_activity_at < datetime.datetime(2024, 1, 1), f"HLP first activity {portfolio.first_activity_at} should be before 2024-01-01"
+
+
+@pytest.mark.timeout(120)
+def test_sync_account_writes_snapshot_rows(session, tmp_path):
+    """sync_account stores snapshot runs and raw source payloads."""
+    db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
+    try:
+        db.add_account(VAULT_ADDRESS, label="Growi HF", is_vault=True)
+
+        result = db.sync_account(
+            session,
+            VAULT_ADDRESS,
+            start_time=TEST_START,
+            end_time=TEST_END,
+        )
+        db.save()
+
+        runs = db.get_snapshot_runs(VAULT_ADDRESS)
+        assert len(runs) == 1
+        run = runs[0]
+
+        assert run["open_position_count"] == result["open_positions"]
+        assert run["open_trade_count"] == result["open_trades"]
+        assert run["open_order_count"] == result["open_orders"]
+
+        for source_name in (
+            "clearinghouseState",
+            "openOrders",
+            "frontendOpenOrders",
+            "historicalOrders",
+            "userTwapSliceFills",
+        ):
+            source = db.get_snapshot_source(VAULT_ADDRESS, source_name)
+            assert source is not None, f"Missing snapshot source {source_name}"
+            assert source["status"] in {"ok", "error"}
+
+        if run["open_position_count"] > 0:
+            positions = db.get_open_position_snapshots(VAULT_ADDRESS)
+            assert len(positions) == run["open_position_count"]
+
+        if run["open_order_count"] > 0:
+            orders = db.get_open_order_snapshots(VAULT_ADDRESS)
+            assert len(orders) == run["open_order_count"]
+
+        if run["open_trade_count"] > 0:
+            trades = db.get_open_trade_snapshots(VAULT_ADDRESS)
+            assert len(trades) == run["open_trade_count"]
+    finally:
+        db.close()
+
+
+@pytest.mark.timeout(180)
+def test_sync_account_adds_second_snapshot_run_without_duplicating_event_rows(session, tmp_path):
+    """A second sync writes a new snapshot run while event-row counts stay stable."""
+    db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
+    try:
+        db.add_account(VAULT_ADDRESS, label="Growi HF", is_vault=True)
+
+        first_result = db.sync_account(
+            session,
+            VAULT_ADDRESS,
+            start_time=TEST_START,
+            end_time=TEST_END,
+        )
+        db.save()
+        first_state = db.get_sync_state(VAULT_ADDRESS)
+        first_runs = db.get_snapshot_runs(VAULT_ADDRESS)
+
+        second_result = db.sync_account(
+            session,
+            VAULT_ADDRESS,
+            start_time=TEST_START,
+            end_time=TEST_END,
+        )
+        db.save()
+        second_state = db.get_sync_state(VAULT_ADDRESS)
+        second_runs = db.get_snapshot_runs(VAULT_ADDRESS)
+
+        assert first_result["fills"] > 0
+        assert second_result["fills"] == 0
+        assert second_result["funding"] == 0
+        assert second_result["ledger"] == 0
+
+        assert second_state["fills"]["row_count"] == first_state["fills"]["row_count"]
+        assert second_state["funding"]["row_count"] == first_state["funding"]["row_count"]
+        assert second_state["ledger"]["row_count"] == first_state["ledger"]["row_count"]
+
+        assert len(first_runs) == 1
+        assert len(second_runs) == 2
+        assert second_runs[-1]["ts"] >= first_runs[-1]["ts"]
+    finally:
+        db.close()
