@@ -343,6 +343,7 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
             "daily_deposit_usd": prices_df["daily_deposit_usd"].values if "daily_deposit_usd" in prices_df.columns else np.nan,
             "daily_withdrawal_usd": prices_df["daily_withdrawal_usd"].values if "daily_withdrawal_usd" in prices_df.columns else np.nan,
             "epoch_reset": prices_df["epoch_reset"].values if "epoch_reset" in prices_df.columns else False,
+            "written_at": prices_df["written_at"].values if "written_at" in prices_df.columns else pd.NaT,
         },
     )
 

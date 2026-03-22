@@ -171,6 +171,11 @@ def test_unified_vault_metrics_json(tmp_path):
         assert db.get_vault_count() == 1
         assert db.get_vault_daily_price_count(vault_address) > 0
 
+        # Verify written_at is filled in DuckDB
+        daily_df = db.get_vault_daily_prices(vault_address)
+        assert "written_at" in daily_df.columns, "written_at column missing from DuckDB daily prices"
+        assert daily_df["written_at"].notna().all(), "written_at should be filled for all newly inserted rows"
+
         # Step 3: Merge Hyperliquid data into existing pipeline files
         merge_into_vault_database(db, vault_db_path)
         merge_into_uncleaned_parquet(db, uncleaned_path)
@@ -197,6 +202,12 @@ def test_unified_vault_metrics_json(tmp_path):
     chains = prices_df["chain"].unique()
     assert HYPERCORE_CHAIN_ID in chains, f"Hypercore chain not in price data, got chains: {chains}"
     assert 42161 in chains, f"Arbitrum chain not in price data, got chains: {chains}"
+
+    # Verify written_at survives the cleaning pipeline
+    assert "written_at" in prices_df.columns, "written_at column missing from cleaned data"
+    # Hyperliquid rows should have written_at filled; synthetic Arbitrum rows will have NaT
+    hl_prices = prices_df[prices_df["chain"] == HYPERCORE_CHAIN_ID]
+    assert hl_prices["written_at"].notna().all(), "Hyperliquid rows should have written_at filled after cleaning"
 
     returns_df = calculate_hourly_returns_for_all_vaults(prices_df)
     lifetime_data_df = calculate_lifetime_metrics(returns_df, vault_db)

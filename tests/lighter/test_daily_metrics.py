@@ -36,6 +36,10 @@ def test_fetch_and_store_single_pool(tmp_path):
         assert not daily_df.empty
         assert (daily_df["share_price"] > 0).all()
 
+        # Verify written_at is filled for all rows
+        assert "written_at" in daily_df.columns, "written_at column missing from daily prices"
+        assert daily_df["written_at"].notna().all(), "written_at should be filled for all rows"
+
         # Verify metadata was stored
         metadata_df = db.get_all_pool_metadata()
         assert len(metadata_df) == 1

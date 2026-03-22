@@ -77,13 +77,15 @@ class HyperliquidDailyPriceRow:
     daily_withdrawal_usd: float | None = None
     epoch_reset: bool | None = None
     data_source: str = "api"
+    #: When this row was actually written/fetched (naive UTC)
+    written_at: datetime.datetime | None = None
 
     def __post_init__(self) -> None:
         """Normalise vault address casing for database writes."""
         self.vault_address = self.vault_address.lower()
 
     def as_db_tuple(self) -> tuple[object, ...]:
-        """Convert the row to the current 20-column DuckDB layout."""
+        """Convert the row to the current 21-column DuckDB layout."""
         return (
             self.vault_address,
             self.date,
@@ -105,6 +107,7 @@ class HyperliquidDailyPriceRow:
             self.daily_withdrawal_usd,
             self.epoch_reset,
             self.data_source,
+            self.written_at,
         )
 
 
@@ -403,6 +406,7 @@ class HyperliquidDailyMetricsDatabase:
                 leader_fraction DOUBLE,
                 leader_commission DOUBLE,
                 epoch_reset BOOLEAN,
+                written_at TIMESTAMP,
                 PRIMARY KEY (vault_address, date)
             )
         """)
@@ -471,6 +475,12 @@ class HyperliquidDailyMetricsDatabase:
         try:
             self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN data_source VARCHAR")
             self.con.execute("UPDATE vault_daily_prices SET data_source = 'api' WHERE data_source IS NULL")
+        except duckdb.CatalogException:
+            pass
+
+        # Migration for existing databases: add written_at column for data auditability
+        try:
+            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN written_at TIMESTAMP")
         except duckdb.CatalogException:
             pass
 
@@ -645,8 +655,8 @@ class HyperliquidDailyMetricsDatabase:
                 is_closed, allow_deposits, leader_fraction, leader_commission,
                 daily_deposit_count, daily_withdrawal_count,
                 daily_deposit_usd, daily_withdrawal_usd, epoch_reset,
-                data_source
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                data_source, written_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (vault_address, date)
             DO UPDATE SET
                 share_price = EXCLUDED.share_price,
@@ -666,7 +676,8 @@ class HyperliquidDailyMetricsDatabase:
                 daily_deposit_usd = COALESCE(EXCLUDED.daily_deposit_usd, vault_daily_prices.daily_deposit_usd),
                 daily_withdrawal_usd = COALESCE(EXCLUDED.daily_withdrawal_usd, vault_daily_prices.daily_withdrawal_usd),
                 epoch_reset = COALESCE(EXCLUDED.epoch_reset, vault_daily_prices.epoch_reset),
-                data_source = COALESCE(EXCLUDED.data_source, vault_daily_prices.data_source)
+                data_source = COALESCE(EXCLUDED.data_source, vault_daily_prices.data_source),
+                written_at = EXCLUDED.written_at
             """,
             db_rows,
         )
@@ -1302,6 +1313,7 @@ def fetch_and_store_vault(
                 daily_withdrawal_usd=wd_usd,
                 epoch_reset=epoch_reset_val,
                 data_source="api",
+                written_at=native_datetime_utc_now(),
             )
         )
 

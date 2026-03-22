@@ -95,9 +95,16 @@ class LighterDailyMetricsDatabase:
                 tvl DOUBLE,
                 daily_return DOUBLE,
                 annual_percentage_yield DOUBLE,
+                written_at TIMESTAMP,
                 PRIMARY KEY (account_index, date)
             )
         """)
+
+        # Migration for existing databases: add written_at column for data auditability
+        try:
+            self.con.execute("ALTER TABLE pool_daily_prices ADD COLUMN written_at TIMESTAMP")
+        except duckdb.CatalogException:
+            pass
 
     def upsert_pool_metadata(
         self,
@@ -182,7 +189,7 @@ class LighterDailyMetricsDatabase:
         """Bulk upsert daily price rows for a pool.
 
         :param rows:
-            List of tuples: ``(account_index, date, share_price, tvl, daily_return, annual_percentage_yield)``.
+            List of tuples: ``(account_index, date, share_price, tvl, daily_return, annual_percentage_yield, written_at)``.
         :param cutoff_date:
             If provided, only store rows up to this date (inclusive).
             Used for incremental scanning / testing.
@@ -197,13 +204,14 @@ class LighterDailyMetricsDatabase:
             """
             INSERT INTO pool_daily_prices (
                 account_index, date, share_price, tvl,
-                daily_return, annual_percentage_yield
-            ) VALUES (?, ?, ?, ?, ?, ?)
+                daily_return, annual_percentage_yield, written_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (account_index, date) DO UPDATE SET
                 share_price = excluded.share_price,
                 tvl = excluded.tvl,
                 daily_return = excluded.daily_return,
-                annual_percentage_yield = excluded.annual_percentage_yield
+                annual_percentage_yield = excluded.annual_percentage_yield,
+                written_at = excluded.written_at
             """,
             rows,
         )
@@ -377,6 +385,7 @@ def fetch_and_store_pool(
     )
 
     # Build daily price rows
+    written_at = native_datetime_utc_now()
     rows = []
     for date_val, row_data in daily_df.iterrows():
         rows.append(
@@ -387,6 +396,7 @@ def fetch_and_store_pool(
                 row_data["tvl"],
                 row_data["daily_return"],
                 summary.annual_percentage_yield,
+                written_at,
             )
         )
 

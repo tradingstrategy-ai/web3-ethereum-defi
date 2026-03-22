@@ -65,6 +65,9 @@ VAULT_STATE_COLUMNS = {
     # PyArrow does not accept None for string columns,
     # use empty string as the default for deposit_closed_reason
     "deposit_closed_reason": "",
+    # When this price row was actually written/fetched (naive UTC).
+    # NaT for old data that predates this column.
+    "written_at": pd.NaT,
 }
 
 

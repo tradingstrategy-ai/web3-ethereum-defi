@@ -38,6 +38,7 @@ import pandas as pd
 from eth_typing import HexAddress
 from tqdm_loggable.auto import tqdm
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase, HyperliquidDailyPriceRow
 
 logger = logging.getLogger(__name__)
@@ -558,6 +559,7 @@ def apply_backfill_single_vault(
                 daily_pnl=daily_pnl,
                 daily_return=0.0,
                 data_source="s3_backfill",
+                written_at=native_datetime_utc_now(),
             )
         )
 

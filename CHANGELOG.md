@@ -1,5 +1,6 @@
 # Current
 
+- Add: `written_at` naive UTC timestamp column across all price data pipelines (ERC-4626, Hyperliquid, GRVT, Lighter) for data auditability and diagnostics (2026-03-22)
 - Add: MegaETH chain support (chain ID 4326) — chain config, vault scanner, docker-compose, HyperSync already supported (2026-03-21)
 - Add: JSON-RPC failover proxy (`eth_defi.provider.rpc_proxy`) — lightweight threaded proxy that sits between Anvil and multiple upstream RPCs, providing automatic failover, retry, per-provider statistics, and configurable failure detection (2026-03-21)
 - Add: New vault protocol: Inverse Finance — sDOLA savings vault with ERC-4626 support, hardcoded detection (2026-03-20)

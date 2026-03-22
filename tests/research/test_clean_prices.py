@@ -80,6 +80,10 @@ def test_clean_vault_price_data(
     assert "available_liquidity" in df.columns
     assert "utilisation" in df.columns
 
+    # written_at column should always be present in cleaned output
+    # (NaT for old data that predates the column)
+    assert "written_at" in df.columns
+
 
 def test_remove_inactive_lead_time():
     """Test removal of initial rows where total_supply hasn't changed."""

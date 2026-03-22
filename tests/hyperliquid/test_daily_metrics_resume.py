@@ -99,6 +99,10 @@ def test_daily_metrics_resume(tmp_path):
         assert "leader_fraction" in second_run_df.columns, "leader_fraction column missing from daily prices"
         assert "leader_commission" in second_run_df.columns, "leader_commission column missing from daily prices"
 
+        # Verify written_at is filled for all rows
+        assert "written_at" in second_run_df.columns, "written_at column missing from daily prices"
+        assert second_run_df["written_at"].notna().all(), "written_at should be filled for all rows"
+
         # Verify flow columns are present after both runs
         for col in ["daily_deposit_count", "daily_withdrawal_count", "daily_deposit_usd", "daily_withdrawal_usd"]:
             assert col in second_run_df.columns, f"{col} column missing from daily prices after resume"

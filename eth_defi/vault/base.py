@@ -347,6 +347,7 @@ class VaultHistoricalRead:
             "trading": str(self.trading).lower() if self.trading is not None else "",
             "available_liquidity": float(self.available_liquidity) if self.available_liquidity is not None else _nan,
             "utilisation": float(self.utilisation) if self.utilisation is not None else _nan,
+            "written_at": None,  # Stamped in batch at Parquet write time
         }
         return data
 
@@ -378,6 +379,7 @@ class VaultHistoricalRead:
                 ("trading", pa.string()),
                 ("available_liquidity", pa.float64()),
                 ("utilisation", pa.float32()),
+                ("written_at", pa.timestamp("ms")),  # When this row was actually written/fetched (naive UTC)
             ]
         )
         return schema

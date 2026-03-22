@@ -120,9 +120,16 @@ class GRVTDailyMetricsDatabase:
                 share_price DOUBLE NOT NULL,
                 tvl DOUBLE,
                 daily_return DOUBLE,
+                written_at TIMESTAMP,
                 PRIMARY KEY (vault_id, date)
             )
         """)
+
+        # Migration for existing databases: add written_at column for data auditability
+        try:
+            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN written_at TIMESTAMP")
+        except duckdb.CatalogException:
+            pass
 
     def upsert_vault_metadata(
         self,
@@ -190,7 +197,7 @@ class GRVTDailyMetricsDatabase:
         """Bulk upsert daily price rows for a vault.
 
         :param rows:
-            List of tuples: ``(vault_id, date, share_price, tvl, daily_return)``.
+            List of tuples: ``(vault_id, date, share_price, tvl, daily_return, written_at)``.
         """
         if not rows:
             return
@@ -198,13 +205,14 @@ class GRVTDailyMetricsDatabase:
         self.con.executemany(
             """
             INSERT INTO vault_daily_prices (
-                vault_id, date, share_price, tvl, daily_return
-            ) VALUES (?, ?, ?, ?, ?)
+                vault_id, date, share_price, tvl, daily_return, written_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT (vault_id, date)
             DO UPDATE SET
                 share_price = EXCLUDED.share_price,
                 tvl = EXCLUDED.tvl,
-                daily_return = EXCLUDED.daily_return
+                daily_return = EXCLUDED.daily_return,
+                written_at = EXCLUDED.written_at
             """,
             rows,
         )
@@ -310,6 +318,7 @@ def fetch_and_store_vault(
     )
 
     # Build daily price rows
+    written_at = native_datetime_utc_now()
     rows = []
     for ts, row_data in daily_df.iterrows():
         date_val = ts.date() if hasattr(ts, "date") else ts
@@ -320,6 +329,7 @@ def fetch_and_store_vault(
                 row_data["share_price"],
                 summary.tvl,
                 row_data["daily_return"],
+                written_at,
             )
         )
 

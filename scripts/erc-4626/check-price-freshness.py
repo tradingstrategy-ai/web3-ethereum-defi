@@ -78,7 +78,7 @@ def _compute_freshness(latest_per_vault: pd.Series, now: pd.Timestamp) -> tuple[
     return abs_last, median_last, now - abs_last, now - median_last
 
 
-def _build_chain_table(latest_per_vault: pd.Series, now: pd.Timestamp) -> list[list]:
+def _build_chain_table(latest_per_vault: pd.Series, now: pd.Timestamp, written_at_per_vault: pd.Series | None = None) -> list[list]:
     """Build per-chain freshness rows for tabulate."""
     rows = []
     for chain_id, group in sorted(latest_per_vault.groupby(level="chain")):
@@ -86,6 +86,19 @@ def _build_chain_table(latest_per_vault: pd.Series, now: pd.Timestamp) -> list[l
         vault_count = len(group)
         chain_abs_last = _ensure_utc(group.max())
         chain_median = _ensure_utc(group.median())
+
+        # Latest written_at for this chain (when data was last fetched)
+        if written_at_per_vault is not None:
+            chain_written = written_at_per_vault.loc[written_at_per_vault.index.isin(group.index)]
+            chain_written = chain_written.dropna()
+            if len(chain_written) > 0:
+                last_written = _ensure_utc(chain_written.max())
+                written_str = f"{last_written} ({_format_age(now - last_written)})"
+            else:
+                written_str = "n/a"
+        else:
+            written_str = "n/a"
+
         rows.append(
             [
                 chain_name,
@@ -93,6 +106,7 @@ def _build_chain_table(latest_per_vault: pd.Series, now: pd.Timestamp) -> list[l
                 vault_count,
                 str(chain_abs_last),
                 _format_age(now - chain_abs_last),
+                written_str,
                 str(chain_median),
                 _format_age(now - chain_median),
             ]
@@ -128,11 +142,17 @@ def main():
         df = df.reset_index()
 
     now = pd.Timestamp.now("UTC")
-    headers = ["Chain", "ID", "Vaults", "Last timestamp", "Age", "Median timestamp", "Median age"]
+    headers = ["Chain", "ID", "Vaults", "Last timestamp", "Age", "Written at", "Median timestamp", "Median age"]
 
     # Get latest TVL per vault (last row's total_assets)
     latest_idx = df.groupby(["chain", "address"])["timestamp"].idxmax()
     latest_tvl = df.loc[latest_idx].set_index(["chain", "address"])["total_assets"]
+
+    # Get latest written_at per vault (when data was last fetched/written)
+    if "written_at" in df.columns:
+        written_at_per_vault = df.groupby(["chain", "address"])["written_at"].max()
+    else:
+        written_at_per_vault = None
 
     # Split vaults into high/low TVL
     high_tvl_vaults = latest_tvl[latest_tvl >= tvl_threshold].index
@@ -153,7 +173,7 @@ def main():
     print(f"\nHigh TVL vaults (>= ${tvl_threshold:,.0f}): {len(high_latest)}")
     print(f"  Absolute last: {high_abs} (age: {_format_age(high_abs_age)})")
     print(f"  Median last:   {high_median} (age: {_format_age(high_median_age)})")
-    print(tabulate(_build_chain_table(high_latest, now), headers=headers, tablefmt="fancy_grid"))
+    print(tabulate(_build_chain_table(high_latest, now, written_at_per_vault), headers=headers, tablefmt="fancy_grid"))
 
     # Low TVL vaults (optional)
     if show_low_tvl:
@@ -161,7 +181,7 @@ def main():
         print(f"\nLow TVL vaults (< ${tvl_threshold:,.0f}): {len(low_latest)}")
         print(f"  Absolute last: {low_abs} (age: {_format_age(low_abs_age)})")
         print(f"  Median last:   {low_median} (age: {_format_age(low_median_age)})")
-        print(tabulate(_build_chain_table(low_latest, now), headers=headers, tablefmt="fancy_grid"))
+        print(tabulate(_build_chain_table(low_latest, now, written_at_per_vault), headers=headers, tablefmt="fancy_grid"))
     else:
         print(f"\nLow TVL vaults (< ${tvl_threshold:,.0f}): {len(low_latest)} (set SHOW_LOW_TVL=true to display)")
 
@@ -172,11 +192,15 @@ def main():
             if "timestamp" not in uncleaned_df.columns and uncleaned_df.index.name == "timestamp":
                 uncleaned_df = uncleaned_df.reset_index()
             uncleaned_latest = uncleaned_df.groupby(["chain", "address"])["timestamp"].max()
+            if "written_at" in uncleaned_df.columns:
+                unc_written_at = uncleaned_df.groupby(["chain", "address"])["written_at"].max()
+            else:
+                unc_written_at = None
             unc_abs, unc_median, unc_abs_age, unc_median_age = _compute_freshness(uncleaned_latest, now)
             print(f"\nUncleaned price data ({DEFAULT_UNCLEANED_PRICE_DATABASE.name}): {len(uncleaned_latest)} vaults")
             print(f"  Absolute last: {unc_abs} (age: {_format_age(unc_abs_age)})")
             print(f"  Median last:   {unc_median} (age: {_format_age(unc_median_age)})")
-            print(tabulate(_build_chain_table(uncleaned_latest, now), headers=headers, tablefmt="fancy_grid"))
+            print(tabulate(_build_chain_table(uncleaned_latest, now, unc_written_at), headers=headers, tablefmt="fancy_grid"))
         else:
             print(f"\nUncleaned price file not found: {DEFAULT_UNCLEANED_PRICE_DATABASE}")
 

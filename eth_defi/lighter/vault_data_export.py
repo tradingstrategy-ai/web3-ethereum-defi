@@ -188,6 +188,7 @@ def build_raw_prices_dataframe(db: LighterDailyMetricsDatabase) -> pd.DataFrame:
             "performance_fee": 0.0,
             "management_fee": 0.0,
             "errors": "",
+            "written_at": prices_df["written_at"].values if "written_at" in prices_df.columns else pd.NaT,
         },
     )
 

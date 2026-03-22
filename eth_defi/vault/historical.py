@@ -24,6 +24,7 @@ from web3 import Web3
 
 from eth_defi import hypersync
 from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_name
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.erc_4626.warmup import warmup_vault_reader
 from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult, read_multicall_historical, read_multicall_historical_stateful
@@ -788,9 +789,16 @@ def scan_historical_prices_to_parquet(
         assert end_block >= start_block, f"End block {end_block} must be greater than or equal to start block {start_block}"
 
         chunks_done = 0
+        written_at = native_datetime_utc_now()
         for chunk in chunked(converted_iter, chunk_size):
             logger.debug(f"Processing Parquet chunk {chunks_done:,}, rows written so far {rows_written:,}")
             table = pa.Table.from_pylist(chunk, schema=schema)
+            # Stamp all rows in this batch with the same write timestamp
+            table = table.set_column(
+                table.schema.get_field_index("written_at"),
+                "written_at",
+                pa.array([written_at] * len(table), type=pa.timestamp("ms")),
+            )
             writer.write_table(table)
             rows_written += len(chunk)
             chunks_done += 1
