@@ -7,10 +7,18 @@ Requires network access to the Hyperliquid API.
 """
 
 import datetime
+import json
 
 import pytest
+import requests
 
-from eth_defi.hyperliquid.api import fetch_portfolio
+from eth_defi.hyperliquid.api import (
+    LEADERBOARD_URL,
+    fetch_frontend_open_orders_raw,
+    fetch_open_orders_raw,
+    fetch_perp_clearinghouse_state_raw,
+    fetch_portfolio,
+)
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.trade_history import (
     fetch_account_funding,
@@ -26,11 +34,55 @@ VAULT_ADDRESS = "0x1e37a337ed460039d1b15bd3bc489de789768d5e"
 TEST_START = datetime.datetime(2025, 12, 7)
 TEST_END = datetime.datetime(2025, 12, 14)
 
+#: Public top traders that currently have substantial live open state.
+#:
+#: These are used as preferred live candidates before falling back to
+#: the current public leaderboard rows.
+LIVE_OPEN_STATE_CANDIDATES = (
+    ("ABC", "0x162cc7c861ebd0c06b3d72319201150482518185"),
+    ("Leaderboard rank 8", "0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00"),
+    ("Leaderboard rank 5", "0xc926ddba8b7617dbc65712f20cf8e1b58b8598d3"),
+)
+
 
 @pytest.fixture(scope="module")
 def session():
     """Create a shared HTTP session for all tests in this module."""
     return create_hyperliquid_session()
+
+
+def _iter_live_snapshot_candidates() -> list[tuple[str | None, str]]:
+    """Return public trader addresses ordered by likelihood of live open state."""
+    candidates: list[tuple[str | None, str]] = list(LIVE_OPEN_STATE_CANDIDATES)
+    seen_addresses = {address.lower() for _, address in candidates}
+
+    response = requests.get(LEADERBOARD_URL, timeout=30)
+    response.raise_for_status()
+    leaderboard_rows = response.json()["leaderboardRows"]
+
+    for row in leaderboard_rows[:20]:
+        address = row["ethAddress"].lower()
+        if address in seen_addresses:
+            continue
+        candidates.append((row.get("displayName") or None, address))
+        seen_addresses.add(address)
+
+    return candidates
+
+
+def _select_live_snapshot_account(session) -> tuple[str | None, str, dict, list[dict], list[dict]]:
+    """Pick a public leaderboard trader with live positions or live orders."""
+    for display_name, address in _iter_live_snapshot_candidates():
+        clearinghouse_state = fetch_perp_clearinghouse_state_raw(session, address)
+        open_orders = fetch_open_orders_raw(session, address)
+        frontend_open_orders = fetch_frontend_open_orders_raw(session, address)
+
+        position_count = len(clearinghouse_state.get("assetPositions", []))
+        materialised_order_count = len(frontend_open_orders)
+        if position_count > 0 or materialised_order_count > 0:
+            return display_name, address, clearinghouse_state, open_orders, frontend_open_orders
+
+    pytest.skip("Could not find a public Hyperliquid leaderboard trader with live open state")
 
 
 @pytest.mark.timeout(60)
@@ -329,5 +381,68 @@ def test_sync_account_adds_second_snapshot_run_without_duplicating_event_rows(se
         assert len(first_runs) == 1
         assert len(second_runs) == 2
         assert second_runs[-1]["ts"] >= first_runs[-1]["ts"]
+    finally:
+        db.close()
+
+
+@pytest.mark.timeout(180)
+def test_capture_account_snapshots_materialises_live_open_state_for_public_trader(session, tmp_path):
+    """capture_account_snapshots stores live open positions and orders for a public trader."""
+    display_name, address, _, _, _ = _select_live_snapshot_account(session)
+
+    db = HyperliquidTradeHistoryDatabase(tmp_path / "live-open-state.duckdb")
+    try:
+        db.add_account(address, label=display_name or "Live trader", is_vault=False)
+
+        result = db.capture_account_snapshots(
+            session,
+            address,
+            is_vault=False,
+            label=display_name,
+        )
+        db.save()
+
+        runs = db.get_snapshot_runs(address)
+        assert len(runs) == 1
+
+        run = runs[0]
+        assert run["open_position_count"] > 0 or run["open_order_count"] > 0
+
+        clearinghouse_source = db.get_snapshot_source(address, "clearinghouseState")
+        assert clearinghouse_source is not None
+        assert clearinghouse_source["status"] == "ok"
+        stored_clearinghouse_state = json.loads(clearinghouse_source["payload_json"])
+        expected_position_count = len(stored_clearinghouse_state["assetPositions"])
+        assert clearinghouse_source["item_count"] == expected_position_count
+        assert run["open_position_count"] == expected_position_count
+        assert result["open_positions"] == expected_position_count
+
+        open_orders_source = db.get_snapshot_source(address, "openOrders")
+        assert open_orders_source is not None
+        assert open_orders_source["status"] == "ok"
+        stored_open_orders = json.loads(open_orders_source["payload_json"])
+        assert open_orders_source["item_count"] == len(stored_open_orders)
+
+        frontend_orders_source = db.get_snapshot_source(address, "frontendOpenOrders")
+        assert frontend_orders_source is not None
+        assert frontend_orders_source["status"] == "ok"
+        stored_frontend_open_orders = json.loads(frontend_orders_source["payload_json"])
+        expected_order_count = len(stored_frontend_open_orders)
+        assert frontend_orders_source["item_count"] == expected_order_count
+        assert run["open_order_count"] == expected_order_count
+        assert result["open_orders"] == expected_order_count
+
+        positions = db.get_open_position_snapshots(address)
+        assert len(positions) == expected_position_count
+        if positions:
+            expected_coins = {item.get("position", item)["coin"] for item in stored_clearinghouse_state["assetPositions"]}
+            stored_coins = {position["coin"] for position in positions}
+            assert stored_coins == expected_coins
+            assert all(position["active_asset_data_json"] is not None for position in positions)
+
+        orders = db.get_open_order_snapshots(address)
+        assert len(orders) == expected_order_count
+        if orders:
+            assert all(order["source"] == "frontendOpenOrders" for order in orders)
     finally:
         db.close()
