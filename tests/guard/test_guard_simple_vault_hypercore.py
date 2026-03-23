@@ -375,9 +375,7 @@ def test_guard_hypercore_vault_withdraw(
     # Check sendAsset (action ID 13)
     _, _, action_id, params = mock_core_writer.functions.getAction(2).call()
     assert action_id == 13
-    destination, sub_account, source_dex, destination_dex, token_id, amount_wei = decode(
-        ["address", "address", "uint32", "uint32", "uint64", "uint64"], params
-    )
+    destination, sub_account, source_dex, destination_dex, token_id, amount_wei = decode(["address", "address", "uint32", "uint32", "uint64", "uint64"], params)
     assert destination == USDC_SYSTEM_ADDRESS
     assert sub_account == ZERO_ADDRESS
     assert source_dex == SPOT_DEX

@@ -597,9 +597,7 @@ def test_lagoon_hypercore_granular_roundtrip_calls(
     assert sender == safe_address
     assert version == 1
     assert action_id == 13
-    decoded_destination, sub_account, source_dex, destination_dex, token_id, amount_wei = decode(
-        ["address", "address", "uint32", "uint32", "uint64", "uint64"], params
-    )
+    decoded_destination, sub_account, source_dex, destination_dex, token_id, amount_wei = decode(["address", "address", "uint32", "uint32", "uint64", "uint64"], params)
     assert decoded_destination == USDC_SYSTEM_ADDRESS
     assert sub_account == "0x0000000000000000000000000000000000000000"
     assert source_dex == SPOT_DEX

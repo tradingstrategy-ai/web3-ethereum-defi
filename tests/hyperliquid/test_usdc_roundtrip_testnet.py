@@ -180,11 +180,7 @@ def test_hyperliquid_testnet_usdc_roundtrip_hot_wallet(
     assert baseline_evm_usdc >= ROUNDTRIP_AMOUNT, f"Hot wallet {hot_wallet.address} needs at least {ROUNDTRIP_AMOUNT} USDC on HyperEVM testnet, has {baseline_evm_usdc}"
     abstraction_mode = fetch_user_abstraction_mode(session, hot_wallet.address)
     if abstraction_mode != "standard":
-        pytest.skip(
-            f"Hot wallet {hot_wallet.address} is in Hyperliquid mode {abstraction_mode}. "
-            "This legacy hot-wallet round-trip test only covers standard accounts; "
-            "unified-account behaviour is covered by the manual Lagoon Safe flow."
-        )
+        pytest.skip(f"Hot wallet {hot_wallet.address} is in Hyperliquid mode {abstraction_mode}. This legacy hot-wallet round-trip test only covers standard accounts; unified-account behaviour is covered by the manual Lagoon Safe flow.")
     assert not baseline_perp_state.asset_positions, f"Hot wallet {hot_wallet.address} has open HyperCore perp positions; the round-trip test requires an idle perp account."
     assert not baseline_spot_state.evm_escrows, f"Hot wallet {hot_wallet.address} has pending HyperCore EVM escrow entries; the round-trip test requires a clean spot account."
 
