@@ -965,7 +965,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     }
 
     // Whitelist Hypercore CoreWriter and CoreDepositWallet.
-    // Enables action IDs 2 (vaultTransfer), 6 (spotSend), 7 (transferUsdClass).
+    // Enables action IDs 2 (vaultTransfer), 7 (transferUsdClass), 13 (sendAsset).
     // CoreWriter/CoreDepositWallet call sites are handled by dedicated validation
     // branches (bypassing the general allowCallSite check) to save bytecode.
     // See README-Hypercore-guard.md for full documentation.

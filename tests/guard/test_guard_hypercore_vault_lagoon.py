@@ -34,12 +34,14 @@ from eth_defi.hyperliquid.core_writer import (
     CORE_WRITER_ADDRESS,
     SPOT_DEX,
     USDC_TOKEN_INDEX,
+    USDC_SYSTEM_ADDRESS,
     build_hypercore_approve_deposit_wallet_call,
     build_hypercore_deposit_for_spot_call,
     build_hypercore_deposit_multicall,
     build_hypercore_deposit_to_spot_call,
-    build_hypercore_spot_send_call,
+    build_hypercore_send_asset_to_evm_call,
     build_hypercore_transfer_usd_class_call,
+    convert_evm_raw_amount_to_linked_token_wei,
     encode_transfer_usd_class,
     encode_vault_deposit,
 )
@@ -538,8 +540,8 @@ def test_lagoon_hypercore_granular_roundtrip_calls(
     vault = lagoon_deployment.vault
     safe_address = lagoon_deployment.safe.address
     asset_manager = deployer.address
-    destination = safe_address
     usdc_amount = 10_000 * 10**6
+    linked_token_amount = convert_evm_raw_amount_to_linked_token_wei(USDC_TOKEN_INDEX, usdc_amount)
 
     web3.provider.make_request("anvil_setBalance", [safe_address, hex(10 * 10**18)])
     fund_erc20_on_anvil(web3, USDC_ADDRESS, safe_address, usdc_amount)
@@ -569,8 +571,8 @@ def test_lagoon_hypercore_granular_roundtrip_calls(
     tx_hash = move_to_spot_fn.transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    spot_send_fn = build_hypercore_spot_send_call(vault, destination, usdc_amount)
-    tx_hash = spot_send_fn.transact({"from": asset_manager})
+    send_asset_fn = build_hypercore_send_asset_to_evm_call(vault, usdc_amount)
+    tx_hash = send_asset_fn.transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     assert mock_core_writer.functions.getActionCount().call() == 3
@@ -594,11 +596,16 @@ def test_lagoon_hypercore_granular_roundtrip_calls(
     sender, version, action_id, params = mock_core_writer.functions.getAction(2).call()
     assert sender == safe_address
     assert version == 1
-    assert action_id == 6
-    decoded_destination, token_id, amount_wei = decode(["address", "uint64", "uint64"], params)
-    assert decoded_destination.lower() == destination.lower()
+    assert action_id == 13
+    decoded_destination, sub_account, source_dex, destination_dex, token_id, amount_wei = decode(
+        ["address", "address", "uint32", "uint32", "uint64", "uint64"], params
+    )
+    assert decoded_destination == USDC_SYSTEM_ADDRESS
+    assert sub_account == "0x0000000000000000000000000000000000000000"
+    assert source_dex == SPOT_DEX
+    assert destination_dex == SPOT_DEX
     assert token_id == USDC_TOKEN_INDEX
-    assert amount_wei == usdc_amount
+    assert amount_wei == linked_token_amount
 
 
 @pytest.mark.timeout(600)

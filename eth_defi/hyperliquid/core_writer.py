@@ -11,6 +11,20 @@ The raw action format is:
 
 See :doc:`/README-Hypercore-guard` for the full deposit/withdrawal flow.
 
+Bridge fee note
+----------------
+
+Core -> HyperEVM linked-token withdrawals are not fee-free. Hyperliquid
+charges the bridge fee on HyperCore spot before the linked token settles
+back to HyperEVM. In manual mainnet verification, bridging 9 USDC in
+transaction `0x82c7ca18fed4952dfdfdffb4e7565cc768c2ab14fe7533bb42a0734cfdf36b16
+<https://hyperevmscan.io/tx/0x82c7ca18fed4952dfdfdffb4e7565cc768c2ab14fe7533bb42a0734cfdf36b16>`__
+returned 9 USDC to HyperEVM while reducing HyperCore spot by about
+9.000783 USDC, implying an observed bridge fee of about 0.000783 USDC.
+Callers should therefore not assume that ``spot_before - amount ==
+spot_after`` or that the bridged EVM amount will exactly match the full
+spot debit.
+
 Example::
 
     from eth_defi.hyperliquid.core_writer import (
@@ -61,6 +75,21 @@ USDC_TOKEN_INDEX = 0
 #: Spot dex constant (type(uint32).max)
 SPOT_DEX = 0xFFFFFFFF
 
+#: Zero address used when ``sendAsset`` targets the sender's main account.
+ZERO_ADDRESS = HexAddress("0x0000000000000000000000000000000000000000")
+
+#: USDC linked-token system address on HyperCore / HyperEVM.
+USDC_SYSTEM_ADDRESS = HexAddress("0x2000000000000000000000000000000000000000")
+
+#: Linked-token extra wei decimals relative to the EVM contract.
+#:
+#: Hyperliquid USDC uses 8 token wei decimals on HyperCore while the
+#: linked HyperEVM ERC-20 uses 6 decimals. ``sendAsset`` therefore expects
+#: USDC amounts scaled by ``10**2`` compared to raw EVM USDC amounts.
+LINKED_TOKEN_EVM_EXTRA_WEI_DECIMALS: dict[int, int] = {
+    USDC_TOKEN_INDEX: 2,
+}
+
 #: Minimum USDC deposit into a Hypercore vault (raw, 6 decimals).
 #: Hyperliquid silently rejects vaultTransfer deposits below this amount.
 #: Determined by reverse-engineering the Hyperliquid web UI.
@@ -70,6 +99,7 @@ MINIMUM_VAULT_DEPOSIT = 5_000_000
 ACTION_VAULT_TRANSFER = 2
 ACTION_SPOT_SEND = 6
 ACTION_USD_CLASS_TRANSFER = 7
+ACTION_SEND_ASSET = 13
 
 
 def _encode_raw_action(action_id: int, params: bytes) -> bytes:
@@ -160,8 +190,13 @@ def encode_spot_send(
 ) -> bytes:
     """Encode a CoreWriter spotSend action (action ID 6).
 
-    Sends tokens from HyperCore spot to an address. Used to bridge
-    tokens from Core back to EVM (destination = EVM address).
+    Sends tokens between HyperCore spot accounts.
+
+    .. note::
+
+        This does **not** bridge linked tokens back to HyperEVM. For
+        Core -> HyperEVM USDC withdrawals use :py:func:`encode_send_asset`
+        with the token's system address as the destination.
 
     :param destination:
         Recipient address (typically the Safe address for bridging back).
@@ -180,6 +215,69 @@ def encode_spot_send(
         [destination, token_id, amount_wei],
     )
     return _encode_raw_action(ACTION_SPOT_SEND, params)
+
+
+def fetch_token_system_address(token_id: int) -> HexAddress:
+    """Get the HyperCore system address for a linked token index."""
+    assert token_id >= 0, f"Token id must be non-negative, got {token_id}"
+    return HexAddress(Web3.to_checksum_address(f"0x20{token_id:038x}"))
+
+
+def convert_evm_raw_amount_to_linked_token_wei(token_id: int, evm_amount_raw: int) -> int:
+    """Convert a linked-token EVM raw amount to the CoreWriter ``sendAsset`` amount."""
+    extra_wei_decimals = LINKED_TOKEN_EVM_EXTRA_WEI_DECIMALS.get(token_id)
+    assert extra_wei_decimals is not None, f"No linked-token EVM/Core conversion configured for token {token_id}"
+    return evm_amount_raw * (10**extra_wei_decimals)
+
+
+def encode_send_asset(
+    destination: HexAddress | str,
+    sub_account: HexAddress | str,
+    source_dex: int,
+    destination_dex: int,
+    token_id: int,
+    amount_wei: int,
+) -> bytes:
+    """Encode a CoreWriter sendAsset action (action ID 13).
+
+    ``sendAsset`` is the documented CoreWriter path for linked-token
+    transfers between HyperCore spot and HyperEVM spot. To bridge USDC
+    from HyperCore back to HyperEVM, pass the USDC system address as
+    ``destination`` and ``SPOT_DEX`` for both dex fields.
+    """
+    params = encode(
+        ["address", "address", "uint32", "uint32", "uint64", "uint64"],
+        [destination, sub_account, source_dex, destination_dex, token_id, amount_wei],
+    )
+    return _encode_raw_action(ACTION_SEND_ASSET, params)
+
+
+def encode_send_asset_to_evm(
+    token_id: int,
+    evm_amount_raw: int,
+    sub_account: HexAddress | str = ZERO_ADDRESS,
+) -> bytes:
+    """Encode a linked-token transfer from HyperCore spot back to HyperEVM.
+
+    :param evm_amount_raw:
+        Amount in the linked EVM token's raw decimals, e.g. 6 decimals for USDC.
+
+    .. note::
+
+        Hyperliquid charges the Core -> HyperEVM bridge fee on spot before
+        settlement. In manual mainnet verification, a 9 USDC withdrawal in
+        `0x82c7ca18fed4952dfdfdffb4e7565cc768c2ab14fe7533bb42a0734cfdf36b16
+        <https://hyperevmscan.io/tx/0x82c7ca18fed4952dfdfdffb4e7565cc768c2ab14fe7533bb42a0734cfdf36b16>`__
+        consumed about 0.000783 USDC in bridge fees on spot.
+    """
+    return encode_send_asset(
+        destination=fetch_token_system_address(token_id),
+        sub_account=sub_account,
+        source_dex=SPOT_DEX,
+        destination_dex=SPOT_DEX,
+        token_id=token_id,
+        amount_wei=convert_evm_raw_amount_to_linked_token_wei(token_id, evm_amount_raw),
+    )
 
 
 def get_core_deposit_wallet_contract(web3: Web3, address: HexAddress | str) -> Contract:
@@ -318,11 +416,37 @@ def build_hypercore_spot_send_call(
     destination: HexAddress | str,
     hypercore_usdc_amount: int,
 ) -> ContractFunction:
-    """Build a single Safe transaction that sends USDC from HyperCore spot back to EVM."""
+    """Build a single Safe transaction that sends USDC to another HyperCore spot account."""
     _usdc_contract, _core_deposit_wallet, core_writer = _get_hypercore_contracts(lagoon_vault)
     return lagoon_vault.transact_via_trading_strategy_module(
         core_writer.functions.sendRawAction(
             encode_spot_send(destination, USDC_TOKEN_INDEX, hypercore_usdc_amount),
+        )
+    )
+
+
+def build_hypercore_send_asset_to_evm_call(
+    lagoon_vault: LagoonVault,
+    evm_usdc_amount: int,
+) -> ContractFunction:
+    """Build a single Safe transaction that bridges USDC from HyperCore spot back to HyperEVM.
+
+    :param evm_usdc_amount:
+        Amount in raw HyperEVM USDC decimals (6 decimals).
+
+    .. note::
+
+        The bridged amount is subject to Hyperliquid Core -> HyperEVM bridge
+        fees paid from the Safe's spot balance. In manual mainnet verification,
+        transaction `0x82c7ca18fed4952dfdfdffb4e7565cc768c2ab14fe7533bb42a0734cfdf36b16
+        <https://hyperevmscan.io/tx/0x82c7ca18fed4952dfdfdffb4e7565cc768c2ab14fe7533bb42a0734cfdf36b16>`__
+        returned 9 USDC to HyperEVM and consumed about 0.000783 USDC in spot
+        bridge fees.
+    """
+    _usdc_contract, _core_deposit_wallet, core_writer = _get_hypercore_contracts(lagoon_vault)
+    return lagoon_vault.transact_via_trading_strategy_module(
+        core_writer.functions.sendRawAction(
+            encode_send_asset_to_evm(USDC_TOKEN_INDEX, evm_usdc_amount),
         )
     )
 
@@ -669,7 +793,7 @@ def build_hypercore_deposit_phase2(
 
 def build_hypercore_withdraw_multicall(
     lagoon_vault: LagoonVault,
-    hypercore_usdc_amount: int,
+    evm_usdc_amount: int,
     vault_address: HexAddress | str,
 ) -> ContractFunction:
     """Build a single multicall transaction for the full Hypercore withdrawal flow.
@@ -678,7 +802,16 @@ def build_hypercore_withdraw_multicall(
 
     1. ``CoreWriter.sendRawAction(vaultTransfer)`` — withdraw from vault
     2. ``CoreWriter.sendRawAction(transferUsdClass)`` — move USDC from perp to spot
-    3. ``CoreWriter.sendRawAction(spotSend)`` — bridge USDC back to EVM Safe
+    3. ``CoreWriter.sendRawAction(sendAsset)`` — bridge USDC back to HyperEVM
+
+    The final bridge leg is subject to Hyperliquid Core -> HyperEVM bridge
+    fees paid from spot. A successful withdrawal can therefore leave a small
+    residual reduction on HyperCore spot in addition to the requested EVM
+    transfer amount. In manual mainnet verification, transaction
+    `0x82c7ca18fed4952dfdfdffb4e7565cc768c2ab14fe7533bb42a0734cfdf36b16
+    <https://hyperevmscan.io/tx/0x82c7ca18fed4952dfdfdffb4e7565cc768c2ab14fe7533bb42a0734cfdf36b16>`__
+    consumed about 0.000783 USDC in bridge fees on spot while returning
+    9 USDC to HyperEVM.
 
     When the EVM block finishes execution, all queued CoreWriter actions
     are processed sequentially on HyperCore (~47k gas per action).
@@ -687,13 +820,12 @@ def build_hypercore_withdraw_multicall(
 
     - ``module`` from :py:attr:`LagoonVault.trading_strategy_module`
     - ``core_writer`` at the system address :py:data:`CORE_WRITER_ADDRESS`
-    - ``safe_address`` from :py:attr:`LagoonVault.safe_address`
-
     :param lagoon_vault:
         Lagoon vault instance with ``trading_strategy_module_address`` configured.
 
-    :param hypercore_usdc_amount:
-        USDC amount in HyperCore wei (uint64) for all CoreWriter actions.
+    :param evm_usdc_amount:
+        USDC amount in raw HyperEVM decimals (6 decimals). The final
+        ``sendAsset`` leg is converted to linked-token wei internally.
 
     :param vault_address:
         Hypercore native vault address (not the Lagoon vault address).
@@ -702,7 +834,6 @@ def build_hypercore_withdraw_multicall(
         Bound ``module.functions.multicall(data)`` ready to ``.transact()``.
     """
     module = lagoon_vault.trading_strategy_module
-    safe_address = lagoon_vault.safe_address
     core_writer = get_core_writer_contract(lagoon_vault.web3)
 
     calls = [
@@ -711,7 +842,7 @@ def build_hypercore_withdraw_multicall(
             module,
             core_writer.address,
             core_writer.functions.sendRawAction(
-                encode_vault_withdraw(vault_address, hypercore_usdc_amount),
+                encode_vault_withdraw(vault_address, evm_usdc_amount),
             ),
         ),
         # 2. CoreWriter.sendRawAction(transferUsdClass(amount, false))
@@ -719,15 +850,15 @@ def build_hypercore_withdraw_multicall(
             module,
             core_writer.address,
             core_writer.functions.sendRawAction(
-                encode_transfer_usd_class(hypercore_usdc_amount, to_perp=False),
+                encode_transfer_usd_class(evm_usdc_amount, to_perp=False),
             ),
         ),
-        # 3. CoreWriter.sendRawAction(spotSend(safe, USDC, amount))
+        # 3. CoreWriter.sendRawAction(sendAsset(USDC system address, ...))
         _encode_perform_call(
             module,
             core_writer.address,
             core_writer.functions.sendRawAction(
-                encode_spot_send(safe_address, USDC_TOKEN_INDEX, hypercore_usdc_amount),
+                encode_send_asset_to_evm(USDC_TOKEN_INDEX, evm_usdc_amount),
             ),
         ),
     ]

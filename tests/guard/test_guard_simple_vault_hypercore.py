@@ -4,13 +4,13 @@
 - Uses MockCoreWriter and MockCoreDepositWallet deployed via anvil_setCode
   at the system contract addresses
 - Validates vault deposit flow, withdrawal flow, disallowed vault, disallowed
-  action, and disallowed spotSend receiver
+  action, and disallowed linked-token EVM bridge parameters
 """
 
 import os
 
 import pytest
-from eth_abi import encode
+from eth_abi import decode, encode
 from eth_typing import HexAddress, HexStr
 from web3 import Web3
 from web3.contract import Contract
@@ -22,7 +22,10 @@ from eth_defi.hyperliquid.core_writer import (
     CORE_WRITER_ADDRESS,
     SPOT_DEX,
     USDC_TOKEN_INDEX,
-    encode_spot_send,
+    USDC_SYSTEM_ADDRESS,
+    convert_evm_raw_amount_to_linked_token_wei,
+    encode_send_asset,
+    encode_send_asset_to_evm,
     encode_transfer_usd_class,
     encode_vault_deposit,
     encode_vault_withdraw,
@@ -329,27 +332,28 @@ def test_guard_hypercore_vault_withdraw(
 
     1. CoreWriter.sendRawAction(vaultTransfer(vault, false, amount))
     2. CoreWriter.sendRawAction(transferUsdClass(amount, false))
-    3. CoreWriter.sendRawAction(spotSend(safe, USDC_TOKEN, amount))
+    3. CoreWriter.sendRawAction(sendAsset(USDC system address, ...))
     """
     vault = vault_with_balance
-    hypercore_amount = 5_000 * 10**6
+    usdc_amount = 5_000 * 10**6
+    linked_token_amount = convert_evm_raw_amount_to_linked_token_wei(USDC_TOKEN_INDEX, usdc_amount)
 
     # Step 1: Withdraw from vault
-    raw_action = encode_vault_withdraw(TEST_HYPERCORE_VAULT, hypercore_amount)
+    raw_action = encode_vault_withdraw(TEST_HYPERCORE_VAULT, usdc_amount)
     fn_call = mock_core_writer.functions.sendRawAction(raw_action)
     target, call_data = encode_simple_vault_transaction(fn_call)
     tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Step 2: Move USDC perp -> spot
-    raw_action = encode_transfer_usd_class(hypercore_amount, to_perp=False)
+    raw_action = encode_transfer_usd_class(usdc_amount, to_perp=False)
     fn_call = mock_core_writer.functions.sendRawAction(raw_action)
     target, call_data = encode_simple_vault_transaction(fn_call)
     tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # Step 3: Bridge USDC back to EVM (spotSend to vault/Safe address)
-    raw_action = encode_spot_send(vault.address, USDC_TOKEN_INDEX, hypercore_amount)
+    # Step 3: Bridge USDC back to EVM via the linked USDC system address
+    raw_action = encode_send_asset_to_evm(USDC_TOKEN_INDEX, usdc_amount)
     fn_call = mock_core_writer.functions.sendRawAction(raw_action)
     target, call_data = encode_simple_vault_transaction(fn_call)
     tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
@@ -368,9 +372,18 @@ def test_guard_hypercore_vault_withdraw(
     _, _, action_id, _ = mock_core_writer.functions.getAction(1).call()
     assert action_id == 7
 
-    # Check spotSend (action ID 6)
-    _, _, action_id, _ = mock_core_writer.functions.getAction(2).call()
-    assert action_id == 6
+    # Check sendAsset (action ID 13)
+    _, _, action_id, params = mock_core_writer.functions.getAction(2).call()
+    assert action_id == 13
+    destination, sub_account, source_dex, destination_dex, token_id, amount_wei = decode(
+        ["address", "address", "uint32", "uint32", "uint64", "uint64"], params
+    )
+    assert destination == USDC_SYSTEM_ADDRESS
+    assert sub_account == ZERO_ADDRESS
+    assert source_dex == SPOT_DEX
+    assert destination_dex == SPOT_DEX
+    assert token_id == USDC_TOKEN_INDEX
+    assert amount_wei == linked_token_amount
 
 
 @pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
@@ -492,23 +505,25 @@ def test_guard_hypercore_disallowed_action(
 
 
 @pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
-def test_guard_hypercore_disallowed_spot_send_receiver(
+def test_guard_hypercore_disallowed_send_asset_destination(
     web3: Web3,
     asset_manager: str,
     vault_with_balance: Contract,
     mock_core_writer: Contract,
     third_party: str,
 ):
-    """spotSend to a non-allowed receiver should revert.
-
-    The vault (Safe) address is an allowed receiver by default,
-    but a random third party address should be rejected.
-    """
+    """sendAsset to a non-system destination should revert."""
     vault = vault_with_balance
-    hypercore_amount = 1_000 * 10**6
+    usdc_amount = 1_000 * 10**6
 
-    # spotSend to third_party (not in allowedReceivers)
-    raw_action = encode_spot_send(third_party, USDC_TOKEN_INDEX, hypercore_amount)
+    raw_action = encode_send_asset(
+        destination=third_party,
+        sub_account=ZERO_ADDRESS,
+        source_dex=SPOT_DEX,
+        destination_dex=SPOT_DEX,
+        token_id=USDC_TOKEN_INDEX,
+        amount_wei=convert_evm_raw_amount_to_linked_token_wei(USDC_TOKEN_INDEX, usdc_amount),
+    )
     fn_call = mock_core_writer.functions.sendRawAction(raw_action)
     target, call_data = encode_simple_vault_transaction(fn_call)
     tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})

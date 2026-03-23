@@ -21,11 +21,17 @@ Environment variables
 
 - ``NETWORK``: ``mainnet`` (default) or ``testnet``
 - ``HYPERCORE_WRITER_TEST_PRIVATE_KEY``: Operator private key
-- ``USDC_AMOUNT``: Round-trip amount in human units (default: ``1``)
+- ``USDC_AMOUNT``: Round-trip deposit amount in human units (default: ``1``)
+- ``WITHDRAW_USDC_AMOUNT``: Final spot-to-EVM withdrawal amount in human units
+  (default: same as ``USDC_AMOUNT``)
 - ``ACTIVATION_AMOUNT``: HyperCore activation amount in human units
   (default: ``2`` on mainnet, ``5`` on testnet)
 - ``ACTIVATION_TIMEOUT``: Activation wait timeout in seconds
   (default: ``60`` on mainnet, ``180`` on testnet)
+- ``EXISTING_VAULT_ADDRESS``: Optional existing Lagoon vault to reuse; when set,
+  the script skips deployment
+- ``EXISTING_MODULE_ADDRESS``: Optional TradingStrategyModuleV0 for the reused
+  vault Safe; when omitted, the script auto-detects it from enabled Safe modules
 - ``LOG_LEVEL``: Logging level (default: ``info``)
 - ``JSON_RPC_HYPERLIQUID``: HyperEVM mainnet RPC URL
 - ``JSON_RPC_HYPERLIQUID_TESTNET``: HyperEVM testnet RPC URL
@@ -51,8 +57,12 @@ from safe_eth.safe.safe import Safe
 from tabulate import tabulate
 from web3 import Web3
 from web3.contract.contract import ContractFunction
+from web3.contract.contract import Contract
 from web3.exceptions import ContractLogicError
 
+from eth_defi.erc_4626.classification import create_vault_instance
+from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.lagoon.config_event_scanner import resolve_trading_strategy_module
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
     LAGOON_BEACON_PROXY_FACTORIES,
     LagoonConfig,
@@ -79,7 +89,7 @@ from eth_defi.hyperliquid.core_writer import (
     build_hypercore_approve_deposit_wallet_call,
     build_hypercore_deposit_for_spot_call,
     build_hypercore_deposit_to_spot_call,
-    build_hypercore_spot_send_call,
+    build_hypercore_send_asset_to_evm_call,
     build_hypercore_transfer_usd_class_call,
 )
 from eth_defi.hyperliquid.evm_escrow import is_account_activated, wait_for_evm_escrow_clear
@@ -459,6 +469,30 @@ def _sweep_safe_usdc_to_operator(
     return tx_hash.hex()
 
 
+def _load_existing_lagoon_vault(
+    web3: Web3,
+    vault_address: HexAddress,
+    module_address: HexAddress | None,
+) -> tuple[LagoonVault, Contract]:
+    """Load an existing Lagoon vault and its enabled TradingStrategyModuleV0."""
+    vault = create_vault_instance(
+        web3,
+        vault_address,
+        features={ERC4626Feature.lagoon_like},
+        default_block_identifier="latest",
+        require_denomination_token=True,
+    )
+    if not isinstance(vault, LagoonVault):
+        raise RuntimeError(f"Existing vault is not a Lagoon vault: {vault_address}")
+
+    resolved_module_address = module_address or resolve_trading_strategy_module(web3, vault.safe_address)
+    if resolved_module_address is None:
+        raise RuntimeError(f"Could not resolve TradingStrategyModuleV0 for Safe {vault.safe_address}")
+
+    vault.trading_strategy_module_address = resolved_module_address
+    return vault, vault.trading_strategy_module
+
+
 def main() -> None:
     """Run the manual Lagoon / Hyperliquid account-mode round-trip."""
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
@@ -482,7 +516,10 @@ def main() -> None:
     assert private_key, "HYPERCORE_WRITER_TEST_PRIVATE_KEY environment variable required"
 
     roundtrip_amount_human = Decimal(os.environ.get("USDC_AMOUNT", "1"))
-    total_safe_funding_human = roundtrip_amount_human + activation_amount_human
+    withdraw_amount_human = Decimal(os.environ.get("WITHDRAW_USDC_AMOUNT", str(roundtrip_amount_human)))
+    existing_vault_address = os.environ.get("EXISTING_VAULT_ADDRESS")
+    existing_module_address = os.environ.get("EXISTING_MODULE_ADDRESS")
+    total_safe_funding_human = roundtrip_amount_human if existing_vault_address else roundtrip_amount_human + activation_amount_human
     tx_rows: list[list[str | int]] = []
     issues: list[str] = []
 
@@ -495,49 +532,64 @@ def main() -> None:
 
     usdc = fetch_erc20_details(web3, USDC_NATIVE_TOKEN[web3.eth.chain_id])
     roundtrip_amount_raw = usdc.convert_to_raw(roundtrip_amount_human)
+    withdraw_amount_raw = usdc.convert_to_raw(withdraw_amount_human)
     activation_amount_raw = usdc.convert_to_raw(activation_amount_human)
 
     operator_hype_balance = Decimal(web3.eth.get_balance(deployer.address)) / Decimal(10**18)
     operator_usdc_balance = usdc.fetch_balance_of(deployer.address)
     assert operator_hype_balance >= Decimal("0.1"), f"Operator {deployer.address} needs at least 0.1 HYPE for deployment and diagnostics, has {operator_hype_balance}"
     assert operator_usdc_balance >= total_safe_funding_human, f"Operator {deployer.address} needs at least {total_safe_funding_human} USDC, has {operator_usdc_balance}"
+    assert roundtrip_amount_human > 0, "USDC_AMOUNT must be positive"
+    assert withdraw_amount_human > 0, "WITHDRAW_USDC_AMOUNT must be positive"
+    assert withdraw_amount_human <= roundtrip_amount_human, f"WITHDRAW_USDC_AMOUNT {withdraw_amount_human} exceeds USDC_AMOUNT {roundtrip_amount_human}"
 
     logger.info("Connected to chain %d, block %d", web3.eth.chain_id, web3.eth.block_number)
     logger.info("Operator: %s", deployer.address)
-    logger.info("Round-trip amount: %s USDC", roundtrip_amount_human)
+    logger.info("Round-trip deposit amount: %s USDC", roundtrip_amount_human)
+    logger.info("Round-trip withdraw amount: %s USDC", withdraw_amount_human)
     logger.info("Activation amount: %s USDC", activation_amount_human)
 
-    from_the_scratch = web3.eth.chain_id not in LAGOON_BEACON_PROXY_FACTORIES
-    assert not (from_the_scratch and network == "mainnet"), "Mainnet HyperEVM should use the deployed Lagoon factory"
+    if existing_vault_address:
+        lagoon_vault, module = _load_existing_lagoon_vault(
+            web3=web3,
+            vault_address=Web3.to_checksum_address(existing_vault_address),
+            module_address=Web3.to_checksum_address(existing_module_address) if existing_module_address else None,
+        )
+        share_token = lagoon_vault.share_token
+        deployment_label = "Reused deployment"
+    else:
+        from_the_scratch = web3.eth.chain_id not in LAGOON_BEACON_PROXY_FACTORIES
+        assert not (from_the_scratch and network == "mainnet"), "Mainnet HyperEVM should use the deployed Lagoon factory"
 
-    config = LagoonConfig(
-        parameters=LagoonDeploymentParameters(
-            underlying=usdc.address,
-            name="Hyperliquid account mode manual test",
-            symbol="HLMODE",
-        ),
-        asset_manager=None,
-        asset_managers=[deployer.address],
-        safe_owners=[deployer.address],
-        safe_threshold=1,
-        any_asset=False,
-        hypercore_vaults=[DEFAULT_HYPERCORE_VAULTS[network]],
-        safe_salt_nonce=secrets.randbelow(1001) if not from_the_scratch else None,
-        from_the_scratch=from_the_scratch,
-        use_forge=from_the_scratch,
-        between_contracts_delay_seconds=8.0,
-    )
+        config = LagoonConfig(
+            parameters=LagoonDeploymentParameters(
+                underlying=usdc.address,
+                name="Hyperliquid account mode manual test",
+                symbol="HLMODE",
+            ),
+            asset_manager=None,
+            asset_managers=[deployer.address],
+            safe_owners=[deployer.address],
+            safe_threshold=1,
+            any_asset=False,
+            hypercore_vaults=[DEFAULT_HYPERCORE_VAULTS[network]],
+            safe_salt_nonce=secrets.randbelow(1001) if not from_the_scratch else None,
+            from_the_scratch=from_the_scratch,
+            use_forge=from_the_scratch,
+            between_contracts_delay_seconds=8.0,
+        )
 
-    deploy_info = deploy_automated_lagoon_vault(
-        web3=web3,
-        deployer=deployer,
-        config=config,
-    )
-    lagoon_vault = deploy_info.vault
-    module = deploy_info.trading_strategy_module
-    share_token = lagoon_vault.share_token
+        deploy_info = deploy_automated_lagoon_vault(
+            web3=web3,
+            deployer=deployer,
+            config=config,
+        )
+        lagoon_vault = deploy_info.vault
+        module = deploy_info.trading_strategy_module
+        share_token = lagoon_vault.share_token
+        deployment_label = "Deployment"
 
-    print("\nDeployment")
+    print(f"\n{deployment_label}")
     print(
         tabulate(
             [
@@ -768,11 +820,7 @@ def main() -> None:
         phase4_tx = _broadcast_step(
             web3,
             deployer,
-            build_hypercore_spot_send_call(
-                lagoon_vault,
-                lagoon_vault.safe_address,
-                roundtrip_amount_raw,
-            ),
+            build_hypercore_send_asset_to_evm_call(lagoon_vault, withdraw_amount_raw),
             "Phase 4: spot -> EVM",
             tx_rows,
         )
@@ -781,12 +829,12 @@ def main() -> None:
                 _wait_for_evm_usdc_balance(
                     usdc,
                     lagoon_vault.safe_address,
-                    roundtrip_baseline.evm_usdc_balance,
+                    roundtrip_baseline.evm_usdc_balance - roundtrip_amount_human + withdraw_amount_human,
                 )
                 _wait_for_spot_free_balance(
                     session,
                     lagoon_vault.safe_address,
-                    roundtrip_baseline.spot_free_usdc,
+                    roundtrip_baseline.spot_free_usdc + roundtrip_amount_human - withdraw_amount_human,
                 )
                 _wait_for_perp_withdrawable_balance(
                     session,
@@ -810,13 +858,50 @@ def main() -> None:
                     roundtrip_baseline,
                     current_safe_snapshot,
                     "Phase 4",
-                    expected_evm_delta=Decimal(0),
-                    expected_spot_free_delta=Decimal(0),
+                    expected_evm_delta=withdraw_amount_human - roundtrip_amount_human,
+                    expected_spot_free_delta=roundtrip_amount_human - withdraw_amount_human,
                     expected_perp_delta=Decimal(0),
                 )
             )
     else:
         issues.append("Skipping phase 4 because the Safe does not appear to hold the round-trip amount in spot")
+
+    if existing_vault_address or withdraw_amount_human != roundtrip_amount_human:
+        if existing_vault_address:
+            issues.append("Skipping redeem and sweep because an existing vault was reused")
+        else:
+            issues.append("Skipping redeem and sweep because deposit and withdraw amounts differ")
+
+        safe_snapshot = current_safe_snapshot
+        print("\nTransactions")
+        print(tabulate(tx_rows, headers=["Step", "TX hash", "Gas used", "Status"], tablefmt="simple"))
+
+        print("\nSummary")
+        print(
+            tabulate(
+                [
+                    ["Operator", deployer.address],
+                    ["Vault", lagoon_vault.vault_address],
+                    ["Safe", lagoon_vault.safe_address],
+                    ["Module", module.address],
+                    ["Round-trip deposit amount", f"{roundtrip_amount_human:,.6f} USDC"],
+                    ["Round-trip withdraw amount", f"{withdraw_amount_human:,.6f} USDC"],
+                    ["Activation amount", f"{activation_amount_human:,.6f} USDC"],
+                    ["Final operator USDC", f"{operator_snapshot.evm_usdc_balance:,.6f}"],
+                    ["Final Safe USDC", f"{safe_snapshot.evm_usdc_balance:,.6f}"],
+                    ["Final operator shares", f"{operator_snapshot.lagoon_share_balance:,.6f}"],
+                    ["Final Safe spot", f"{safe_snapshot.spot_total_usdc:,.6f}"],
+                    ["Final Safe perp", f"{safe_snapshot.perp_withdrawable:,.6f}"],
+                ],
+                tablefmt="simple",
+            )
+        )
+
+        if issues:
+            print("\nObserved issues")
+            for issue in issues:
+                print(f"- {issue}")
+        return
 
     share_balance_before_redeem = share_token.fetch_balance_of(deployer.address)
     if share_balance_before_redeem <= 0:

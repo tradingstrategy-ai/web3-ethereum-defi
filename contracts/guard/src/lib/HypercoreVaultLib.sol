@@ -54,6 +54,11 @@ library HypercoreVaultLib {
     uint24 constant VAULT_TRANSFER_ACTION = 2;
     uint24 constant SPOT_SEND_ACTION = 6;
     uint24 constant USD_CLASS_TRANSFER_ACTION = 7;
+    uint24 constant SEND_ASSET_ACTION = 13;
+
+    uint32 constant SPOT_DEX = type(uint32).max;
+    uint64 constant USDC_TOKEN_INDEX = 0;
+    address constant USDC_SYSTEM_ADDRESS = 0x2000000000000000000000000000000000000000;
 
     // ----- Events -----
 
@@ -73,8 +78,8 @@ library HypercoreVaultLib {
         s.allowedCoreWriter = coreWriter;
         s.allowedCoreDepositWallet = coreDepositWallet;
         s.allowedCoreWriterActions[VAULT_TRANSFER_ACTION] = true;
-        s.allowedCoreWriterActions[SPOT_SEND_ACTION] = true;
         s.allowedCoreWriterActions[USD_CLASS_TRANSFER_ACTION] = true;
+        s.allowedCoreWriterActions[SEND_ASSET_ACTION] = true;
         emit CoreWriterApproved(coreWriter, notes);
         emit CoreDepositWalletApproved(coreDepositWallet, notes);
     }
@@ -100,7 +105,7 @@ library HypercoreVaultLib {
     /// Validate a Hypercore call with full permission checks.
     ///
     /// Handles all three Hypercore selectors:
-    ///   - SEL_SEND_RAW_ACTION: validates CoreWriter action, checks vault/receiver
+    ///   - SEL_SEND_RAW_ACTION: validates CoreWriter action, checks vault / bridge target
     ///   - SEL_CORE_DEPOSIT: validates CoreDepositWallet target
     ///   - SEL_CORE_DEPOSIT_FOR: validates target + recipient via IGuardChecks
     ///
@@ -127,14 +132,13 @@ library HypercoreVaultLib {
                         "Hypercore vault not allowed"
                     );
                 }
-            } else if (actionId == SPOT_SEND_ACTION) {
-                require(
-                    IGuardChecks(address(this)).isAllowedReceiver(dest),
-                    "CoreWriter spotSend receiver not allowed"
-                );
             }
             // Action 7 (USD_CLASS_TRANSFER_ACTION): no external address.
             // Funds move between spot and perp within the same Hypercore account.
+            //
+            // Action 13 (SEND_ASSET_ACTION): destination is validated in the
+            // parser because linked-token Core -> HyperEVM transfers use the
+            // token system address instead of the final EVM receiver address.
         } else if (selector == SEL_CORE_DEPOSIT) {
             _validateDeposit(target);
         } else if (selector == SEL_CORE_DEPOSIT_FOR) {
@@ -156,6 +160,8 @@ library HypercoreVaultLib {
     /// - Action 2 (vaultTransfer): returns the vault address as destination
     /// - Action 6 (spotSend): returns the send destination
     /// - Action 7 (usdClassTransfer): no external address — destination stays address(0)
+    /// - Action 13 (sendAsset): validates the USDC spot-to-EVM bridge parameters
+    ///   and returns the linked-token system address
     function _validateAction(
         address target,
         bytes calldata callData
@@ -200,6 +206,24 @@ library HypercoreVaultLib {
                 (destination, , ) = abi.decode(actionParams, (address, bool, uint64));
             } else if (actionId == SPOT_SEND_ACTION) {
                 (destination, , ) = abi.decode(actionParams, (address, uint64, uint64));
+            } else if (actionId == SEND_ASSET_ACTION) {
+                address subAccount;
+                uint32 sourceDex;
+                uint32 destinationDex;
+                uint64 token;
+                (
+                    destination,
+                    subAccount,
+                    sourceDex,
+                    destinationDex,
+                    token,
+
+                ) = abi.decode(actionParams, (address, address, uint32, uint32, uint64, uint64));
+                require(destination == USDC_SYSTEM_ADDRESS, "CoreWriter sendAsset destination not allowed");
+                require(subAccount == address(0), "CoreWriter sendAsset subAccount not allowed");
+                require(sourceDex == SPOT_DEX, "CoreWriter sendAsset source_dex not allowed");
+                require(destinationDex == SPOT_DEX, "CoreWriter sendAsset destination_dex not allowed");
+                require(token == USDC_TOKEN_INDEX, "CoreWriter sendAsset token not allowed");
             }
             // Action 7: params are (uint64 amount, bool toPerp). No external address.
         }
