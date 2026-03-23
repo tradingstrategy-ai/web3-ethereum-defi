@@ -36,11 +36,13 @@ from eth_defi.hyperliquid.core_writer import (
     USDC_TOKEN_INDEX,
     USDC_SYSTEM_ADDRESS,
     build_hypercore_approve_deposit_wallet_call,
+    build_hypercore_deposit_to_vault_call,
     build_hypercore_deposit_for_spot_call,
     build_hypercore_deposit_multicall,
     build_hypercore_deposit_to_spot_call,
     build_hypercore_send_asset_to_evm_call,
     build_hypercore_transfer_usd_class_call,
+    build_hypercore_withdraw_from_vault_call,
     convert_evm_raw_amount_to_linked_token_wei,
     encode_transfer_usd_class,
     encode_vault_deposit,
@@ -604,6 +606,55 @@ def test_lagoon_hypercore_granular_roundtrip_calls(
     assert destination_dex == SPOT_DEX
     assert token_id == USDC_TOKEN_INDEX
     assert amount_wei == linked_token_amount
+
+
+@pytest.mark.timeout(600)
+def test_lagoon_hypercore_granular_vault_transfer_calls(
+    web3: Web3,
+    deployer: LocalAccount,
+    lagoon_deployment: LagoonAutomatedDeployment,
+    mock_core_writer: Contract,
+):
+    """Execute standalone HyperCore vault transfer legs through TradingStrategyModuleV0.
+
+    1. Build and execute a standalone vault deposit leg.
+    2. Build and execute a standalone vault withdraw leg.
+    3. Verify the mock CoreWriter recorded the expected ``vaultTransfer`` actions.
+    """
+    vault = lagoon_deployment.vault
+    asset_manager = deployer.address
+    usdc_amount = 10_000 * 10**6
+
+    # 1. Build and execute a standalone vault deposit leg.
+    deposit_fn = build_hypercore_deposit_to_vault_call(vault, TEST_HYPERCORE_VAULT, usdc_amount)
+    tx_hash = deposit_fn.transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # 2. Build and execute a standalone vault withdraw leg.
+    withdraw_fn = build_hypercore_withdraw_from_vault_call(vault, TEST_HYPERCORE_VAULT, usdc_amount)
+    tx_hash = withdraw_fn.transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # 3. Verify the mock CoreWriter recorded the expected ``vaultTransfer`` actions.
+    assert mock_core_writer.functions.getActionCount().call() == 2
+
+    sender, version, action_id, params = mock_core_writer.functions.getAction(0).call()
+    assert sender == lagoon_deployment.safe.address
+    assert version == 1
+    assert action_id == 2
+    vault_address, to_vault, amount_wei = decode(["address", "bool", "uint64"], params)
+    assert vault_address == TEST_HYPERCORE_VAULT
+    assert to_vault is True
+    assert amount_wei == usdc_amount
+
+    sender, version, action_id, params = mock_core_writer.functions.getAction(1).call()
+    assert sender == lagoon_deployment.safe.address
+    assert version == 1
+    assert action_id == 2
+    vault_address, to_vault, amount_wei = decode(["address", "bool", "uint64"], params)
+    assert vault_address == TEST_HYPERCORE_VAULT
+    assert to_vault is False
+    assert amount_wei == usdc_amount
 
 
 @pytest.mark.timeout(600)

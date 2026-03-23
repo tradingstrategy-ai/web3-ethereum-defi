@@ -397,17 +397,90 @@ def build_hypercore_deposit_for_spot_call(
     )
 
 
+def _build_hypercore_send_raw_action_call(
+    lagoon_vault: LagoonVault,
+    raw_action: bytes,
+) -> ContractFunction:
+    """Build a single Safe transaction that forwards one CoreWriter raw action."""
+    _usdc_contract, _core_deposit_wallet, core_writer = _get_hypercore_contracts(lagoon_vault)
+    return lagoon_vault.transact_via_trading_strategy_module(
+        core_writer.functions.sendRawAction(raw_action)
+    )
+
+
+def build_hypercore_vault_transfer_call(
+    lagoon_vault: LagoonVault,
+    vault_address: HexAddress | str,
+    hypercore_usdc_amount: int,
+    to_vault: bool,
+) -> ContractFunction:
+    """Build a single Safe transaction for one HyperCore ``vaultTransfer`` leg.
+
+    This standalone builder is intended for composable multi-phase flows where
+    the caller wants to execute and verify the vault leg separately from the
+    later ``transferUsdClass`` or ``sendAsset`` actions.
+
+    :param lagoon_vault:
+        Lagoon vault instance with ``trading_strategy_module_address`` configured.
+
+    :param vault_address:
+        Hypercore native vault address.
+
+    :param hypercore_usdc_amount:
+        USDC amount in raw HyperCore / HyperEVM decimals (6 decimals).
+
+    :param to_vault:
+        ``True`` to deposit from perp to vault, ``False`` to withdraw from
+        vault to perp.
+    """
+    raw_action = (
+        encode_vault_deposit(vault_address, hypercore_usdc_amount)
+        if to_vault
+        else encode_vault_withdraw(vault_address, hypercore_usdc_amount)
+    )
+    return _build_hypercore_send_raw_action_call(
+        lagoon_vault,
+        raw_action,
+    )
+
+
+def build_hypercore_deposit_to_vault_call(
+    lagoon_vault: LagoonVault,
+    vault_address: HexAddress | str,
+    hypercore_usdc_amount: int,
+) -> ContractFunction:
+    """Build a single Safe transaction that deposits USDC from perp into a HyperCore vault."""
+    return build_hypercore_vault_transfer_call(
+        lagoon_vault,
+        vault_address=vault_address,
+        hypercore_usdc_amount=hypercore_usdc_amount,
+        to_vault=True,
+    )
+
+
+def build_hypercore_withdraw_from_vault_call(
+    lagoon_vault: LagoonVault,
+    vault_address: HexAddress | str,
+    hypercore_usdc_amount: int,
+) -> ContractFunction:
+    """Build a single Safe transaction that withdraws USDC from a HyperCore vault into perp."""
+    return build_hypercore_vault_transfer_call(
+        lagoon_vault,
+        vault_address=vault_address,
+        hypercore_usdc_amount=hypercore_usdc_amount,
+        to_vault=False,
+    )
+
+
 def build_hypercore_transfer_usd_class_call(
     lagoon_vault: LagoonVault,
     hypercore_usdc_amount: int,
     to_perp: bool,
 ) -> ContractFunction:
     """Build a single Safe transaction that moves USDC between spot and perp."""
-    _usdc_contract, _core_deposit_wallet, core_writer = _get_hypercore_contracts(lagoon_vault)
-    return lagoon_vault.transact_via_trading_strategy_module(
-        core_writer.functions.sendRawAction(
-            encode_transfer_usd_class(hypercore_usdc_amount, to_perp=to_perp),
-        )
+    return _build_hypercore_send_raw_action_call(
+        lagoon_vault,
+        encode_transfer_usd_class(hypercore_usdc_amount, to_perp=to_perp),
     )
 
 
@@ -417,11 +490,9 @@ def build_hypercore_spot_send_call(
     hypercore_usdc_amount: int,
 ) -> ContractFunction:
     """Build a single Safe transaction that sends USDC to another HyperCore spot account."""
-    _usdc_contract, _core_deposit_wallet, core_writer = _get_hypercore_contracts(lagoon_vault)
-    return lagoon_vault.transact_via_trading_strategy_module(
-        core_writer.functions.sendRawAction(
-            encode_spot_send(destination, USDC_TOKEN_INDEX, hypercore_usdc_amount),
-        )
+    return _build_hypercore_send_raw_action_call(
+        lagoon_vault,
+        encode_spot_send(destination, USDC_TOKEN_INDEX, hypercore_usdc_amount),
     )
 
 
@@ -443,11 +514,9 @@ def build_hypercore_send_asset_to_evm_call(
         returned 9 USDC to HyperEVM and consumed about 0.000783 USDC in spot
         bridge fees.
     """
-    _usdc_contract, _core_deposit_wallet, core_writer = _get_hypercore_contracts(lagoon_vault)
-    return lagoon_vault.transact_via_trading_strategy_module(
-        core_writer.functions.sendRawAction(
-            encode_send_asset_to_evm(USDC_TOKEN_INDEX, evm_usdc_amount),
-        )
+    return _build_hypercore_send_raw_action_call(
+        lagoon_vault,
+        encode_send_asset_to_evm(USDC_TOKEN_INDEX, evm_usdc_amount),
     )
 
 
