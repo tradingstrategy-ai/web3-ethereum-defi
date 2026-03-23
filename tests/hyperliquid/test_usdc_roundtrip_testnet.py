@@ -3,8 +3,8 @@
 1. Connect to HyperEVM testnet with a funded hot wallet.
 2. Move the configured test USDC amount from HyperEVM to HyperCore spot and assert the spot balance increases.
 3. Move the same USDC from spot to perp and back to spot with direct CoreWriter actions.
-4. Bridge the USDC back from HyperCore spot to HyperEVM and assert balances return to baseline.
-5. Verify the account ends with the same EVM, spot, and perp USDC balances it started with.
+4. Bridge the USDC back from HyperCore spot to HyperEVM with ``sendAsset`` and assert the EVM balance returns.
+5. Verify the account ends with the same EVM and perp balances, with spot returning to baseline within bridge-fee tolerance.
 """
 
 import os
@@ -16,7 +16,7 @@ from web3 import Web3
 
 from eth_defi.hotwallet import HotWallet
 from eth_defi.hyperliquid.api import HyperliquidSession, PerpClearinghouseState, SpotClearinghouseState, fetch_perp_clearinghouse_state, fetch_spot_clearinghouse_state, fetch_user_abstraction_mode
-from eth_defi.hyperliquid.core_writer import CORE_DEPOSIT_WALLET, SPOT_DEX, USDC_TOKEN_INDEX, encode_spot_send, encode_transfer_usd_class, get_core_deposit_wallet_contract, get_core_writer_contract
+from eth_defi.hyperliquid.core_writer import CORE_DEPOSIT_WALLET, SPOT_DEX, USDC_TOKEN_INDEX, encode_send_asset_to_evm, encode_transfer_usd_class, get_core_deposit_wallet_contract, get_core_writer_contract
 from eth_defi.hyperliquid.evm_escrow import wait_for_evm_escrow_clear
 from eth_defi.hyperliquid.session import HYPERLIQUID_TESTNET_API_URL, create_hyperliquid_session
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -158,8 +158,8 @@ def test_hyperliquid_testnet_usdc_roundtrip_hot_wallet(
     1. Read baseline HyperEVM, HyperCore spot, and HyperCore perp balances for the funded test wallet.
     2. Deposit the configured test USDC amount from HyperEVM to HyperCore spot and verify the spot balance increases.
     3. Move the configured test USDC amount from HyperCore spot to perp and back to spot and verify each balance change.
-    4. Bridge the configured test USDC amount from HyperCore spot back to HyperEVM and verify the EVM balance returns to baseline.
-    5. Assert the final EVM, spot, and perp balances match the initial baseline values.
+    4. Bridge the configured test USDC amount from HyperCore spot back to HyperEVM with ``sendAsset`` and verify the EVM balance returns to baseline.
+    5. Assert the final EVM and perp balances match the initial baseline values and the spot balance stays within bridge-fee tolerance.
     """
     core_deposit_wallet = get_core_deposit_wallet_contract(
         web3,
@@ -178,7 +178,13 @@ def test_hyperliquid_testnet_usdc_roundtrip_hot_wallet(
 
     assert evm_hype_balance >= MIN_HYPE_BALANCE, f"Hot wallet {hot_wallet.address} needs at least {MIN_HYPE_BALANCE} HYPE on HyperEVM testnet, has {evm_hype_balance}"
     assert baseline_evm_usdc >= ROUNDTRIP_AMOUNT, f"Hot wallet {hot_wallet.address} needs at least {ROUNDTRIP_AMOUNT} USDC on HyperEVM testnet, has {baseline_evm_usdc}"
-    assert fetch_user_abstraction_mode(session, hot_wallet.address) == "standard", f"Hot wallet {hot_wallet.address} must be in Hyperliquid standard mode for a spot/perp round-trip test. Unified account and portfolio margin expose balances through spot state instead, so transferUsdClass() does not produce meaningful perp-state assertions."
+    abstraction_mode = fetch_user_abstraction_mode(session, hot_wallet.address)
+    if abstraction_mode != "standard":
+        pytest.skip(
+            f"Hot wallet {hot_wallet.address} is in Hyperliquid mode {abstraction_mode}. "
+            "This legacy hot-wallet round-trip test only covers standard accounts; "
+            "unified-account behaviour is covered by the manual Lagoon Safe flow."
+        )
     assert not baseline_perp_state.asset_positions, f"Hot wallet {hot_wallet.address} has open HyperCore perp positions; the round-trip test requires an idle perp account."
     assert not baseline_spot_state.evm_escrows, f"Hot wallet {hot_wallet.address} has pending HyperCore EVM escrow entries; the round-trip test requires a clean spot account."
 
@@ -264,13 +270,13 @@ def test_hyperliquid_testnet_usdc_roundtrip_hot_wallet(
     assert float(free_spot_after_perp_to_spot - baseline_free_spot) == pytest.approx(float(ROUNDTRIP_AMOUNT), abs=BALANCE_TOLERANCE)
 
     # 4. Bridge the configured test USDC amount from HyperCore spot back to HyperEVM and verify the EVM balance returns to baseline.
-    spot_send_tx_hash = hot_wallet.transact_and_broadcast_with_contract(
+    send_asset_tx_hash = hot_wallet.transact_and_broadcast_with_contract(
         core_writer.functions.sendRawAction(
-            encode_spot_send(hot_wallet.address, USDC_TOKEN_INDEX, amount_raw),
+            encode_send_asset_to_evm(USDC_TOKEN_INDEX, amount_raw),
         ),
         gas_limit=200_000,
     )
-    assert_transaction_success_with_explanation(web3, spot_send_tx_hash)
+    assert_transaction_success_with_explanation(web3, send_asset_tx_hash)
     final_evm_usdc = _wait_for_evm_usdc_balance(
         usdc,
         hot_wallet.address,

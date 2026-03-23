@@ -11,7 +11,7 @@ The guard enables three CoreWriter action IDs through `sendRawAction(bytes)`:
 | Action ID | Name | Parameters | Purpose |
 |-----------|------|-----------|---------|
 | 2 | `vaultTransfer` | `(address vault, bool isDeposit, uint64 usd)` | Deposit/withdraw from a Hypercore native vault |
-| 6 | `spotSend` | `(address destination, uint64 token, uint64 wei)` | Bridge tokens from Core to EVM (withdrawal step) |
+| 13 | `sendAsset` | `(address destination, address subAccount, uint32 sourceDex, uint32 destinationDex, uint64 token, uint64 wei)` | Bridge linked USDC from Core spot back to HyperEVM |
 | 7 | `transferUsdClass` | `(uint64 ntl, bool toPerp)` | Move USDC between spot and perp accounts |
 
 Additionally, the CoreDepositWallet is whitelisted for:
@@ -156,7 +156,7 @@ Hyperliquid silently rejects `vaultTransfer` deposits below **5 USDC** (`MINIMUM
                     │    │                        │            │                              │
                     │    ├─ transferUsdClass ─────────────────>│  perp ──> spot               │
                     │    │                        │            │                              │
-                    │    └─ spotSend        ──────────────────>│  spot ──> EVM bridge         │
+                    │    └─ sendAsset      ──────────────────>│  spot ──> EVM bridge         │
                     │                             │            │    │                          │
                     │  Safe (USDC on EVM) <────────────────────────┘                          │
                     │                             │   bridge   │                              │
@@ -177,8 +177,8 @@ Three `performCall` transactions batched in a single multicall:
 
 3. **Bridge USDC to EVM**
    - Target: CoreWriter
-   - Function: `sendRawAction(spotSend(safe_address, USDC_TOKEN, amount))`
-   - Guard: validates action ID 6, destination is an allowed receiver
+   - Function: `sendRawAction(sendAsset(USDC_SYSTEM_ADDRESS, 0x0, SPOT_DEX, SPOT_DEX, USDC_TOKEN, amount))`
+   - Guard: validates action ID 13 and enforces the linked-token system-address route back to the Safe's own HyperEVM address
 
 ## Multicall batching
 
@@ -197,7 +197,7 @@ The guard prevents:
 
 - **Unauthorised vaults**: only explicitly whitelisted vault addresses can receive deposits
 - **Forbidden action IDs**: limit orders (1), staking (3-5), cancel (10-11), and all other actions are blocked
-- **Wrong receivers**: `spotSend` destination must be in `allowedReceivers` (typically the Safe itself)
+- **Wrong linked-token routing**: `sendAsset` must target the USDC system address with zero sub-account and `SPOT_DEX` on both sides
 - **Wrong CoreWriter**: only the whitelisted CoreWriter address is accepted
 - **Wrong CoreDepositWallet**: only the whitelisted CoreDepositWallet address is accepted
 
@@ -224,7 +224,7 @@ Any precompile read (e.g., vault equity at `0x802`) in the same block as a CoreW
 ### USDC bridge quirks
 
 - **`dexForwarding` can be disabled**: Circle can disable `dexForwarding` at any time, breaking direct EVM-to-perp bridging. The guard uses the spot-first flow (bridge to spot, then transfer to perp) which is more resilient.
-- **Bridge not backed 1:1**: more USDC exists on HyperCore than in the HyperEVM bridge contract. The bridge can **run dry**, causing Core-to-EVM transfers (`spotSend`) to fail with no remediation other than waiting for the bridge to be replenished.
+- **Bridge not backed 1:1**: more USDC exists on HyperCore than in the HyperEVM bridge contract. The bridge can **run dry**, causing Core-to-EVM transfers (`sendAsset`) to fail with no remediation other than waiting for the bridge to be replenished.
 - For vault withdrawals, this means funds could be stuck on HyperCore if the bridge is depleted.
 
 ### Fees and activation
@@ -236,7 +236,7 @@ Any precompile read (e.g., vault equity at `0x802`) in the same block as a CoreW
   - Use `is_account_activated()` to check and `activate_account()` to perform activation.
   - **Testnet bug**: `depositFor` called through a contract (e.g. Safe multisig) does not create HyperCore accounts on testnet. This affects the recipient regardless of caller — even deployer-EOA-sponsored calls fail. Mainnet works correctly. See [hyperliquid-dex/node#138](https://github.com/hyperliquid-dex/node/issues/138) and [#813](https://github.com/tradingstrategy-ai/web3-ethereum-defi/issues/813) for details. Use `activate_account_sponsored()` as a workaround on mainnet.
 - **Minimum vault deposit**: **5 USDC** (`MINIMUM_VAULT_DEPOSIT = 5_000_000` raw). Hyperliquid silently rejects `vaultTransfer` deposits below this threshold.
-- **Bridging fees (Core -> EVM)**: requires HYPE or USDC on HyperCore spot for fees. HYPE is consumed first.
+- **Bridging fees (Core -> EVM)**: `sendAsset` charges a fee on HyperCore spot. HYPE is consumed first if available, otherwise the fee is taken in USDC. In manual mainnet verification, bridging 9 USDC in [tx `0x82c7ca18fed4952dfdfdffb4e7565cc768c2ab14fe7533bb42a0734cfdf36b16`](https://hyperevmscan.io/tx/0x82c7ca18fed4952dfdfdffb4e7565cc768c2ab14fe7533bb42a0734cfdf36b16) reduced spot by about 9.000783 USDC while returning 9 USDC to HyperEVM.
 - **Bridging fees (EVM -> Core)**: requires HYPE on HyperEVM for gas.
 - The Safe needs its HYPE balance managed to ensure bridging operations can pay fees.
 
@@ -420,7 +420,7 @@ assert mock_cdw.functions.getDepositCount().call() == 1  # CDW.deposit
 
 | Test file | Fork chain | What it tests |
 |-----------|-----------|---------------|
-| [`tests/guard/test_guard_simple_vault_hypercore.py`](../tests/guard/test_guard_simple_vault_hypercore.py) | Base (JSON_RPC_BASE) | SimpleVaultV0 guard: deposit (4-step), withdrawal (3-step), depositFor activation, and negative tests for disallowed vaults/actions/receivers |
+| [`tests/guard/test_guard_simple_vault_hypercore.py`](../tests/guard/test_guard_simple_vault_hypercore.py) | Base (JSON_RPC_BASE) | SimpleVaultV0 guard: deposit (4-step), withdrawal (3-step via `sendAsset`), depositFor activation, and negative tests for disallowed vaults/actions/routing |
 | [`tests/guard/test_guard_hypercore_vault_lagoon.py`](../tests/guard/test_guard_hypercore_vault_lagoon.py) | HyperEVM mainnet (JSON_RPC_HYPERLIQUID) | Full Lagoon vault with TradingStrategyModuleV0 multicall: deposit and depositFor activation through the module |
 
 The SimpleVault test suite covers the guard whitelist enforcement (8 test functions including negative cases). The Lagoon test suite covers the full production deployment path with multicall batching through the trading strategy module.
@@ -431,14 +431,18 @@ The deployment script (`deploy-lagoon-hyperliquid-vault.py`) supports `SIMULATE=
 
 ## Manual testing
 
-A manual test script deploys a Lagoon vault on a HyperEVM Anvil fork and exercises
-the full deposit/withdrawal flow:
+A manual deployment script sets up a Lagoon vault and module, and a separate manual
+round-trip script exercises the live deposit/withdrawal flow:
 
 ```shell
 source .local-test.env && poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
+source .local-test.env && NETWORK=mainnet poetry run python scripts/hyperliquid/manual-test-lagoon-account-mode-roundtrip.py
 ```
 
-See the script's docstring for environment variables and account funding instructions.
+Use the deploy script when you need a fresh vault and module. Use the manual
+round-trip script to investigate account-mode and bridge behaviour against an
+existing or freshly deployed Safe. See each script's docstring for environment
+variables and account funding instructions.
 
 ## Troubleshooting
 
