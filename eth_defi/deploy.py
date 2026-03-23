@@ -15,6 +15,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import ZERO_ADDRESS, get_contract, get_contract_with_forge_libraries
+from eth_defi.chain import CONTRACT_DEPLOYMENT_TIMEOUT
 from eth_defi.hotwallet import HotWallet
 from eth_defi.tx import get_tx_broadcast_data
 
@@ -100,6 +101,7 @@ def deploy_contract(
     gas: int = None,
     confirm=True,
     libraries: dict[str, str] | None = None,
+    confirmation_timeout: int | None = None,
 ) -> Contract | HexBytes:
     """Deploys a new contract from ABI file.
 
@@ -226,7 +228,10 @@ def deploy_contract(
     if not confirm:
         return tx_hash
 
-    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    if confirmation_timeout is None:
+        confirmation_timeout = CONTRACT_DEPLOYMENT_TIMEOUT.get(web3.eth.chain_id, 120)
+
+    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=confirmation_timeout)
     if tx_receipt["status"] != 1:
         raise ContractDeploymentFailed(tx_hash, f"Contract {contract_name} deployment failed with args {constructor_args}, tx hash is {tx_hash.hex()}")
 

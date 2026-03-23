@@ -14,6 +14,7 @@ import logging
 import os
 
 import pytest
+from eth_abi import decode
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress, HexStr
@@ -33,12 +34,14 @@ from eth_defi.hyperliquid.core_writer import (
     CORE_WRITER_ADDRESS,
     SPOT_DEX,
     USDC_TOKEN_INDEX,
+    build_hypercore_approve_deposit_wallet_call,
+    build_hypercore_deposit_for_spot_call,
     build_hypercore_deposit_multicall,
-    build_hypercore_withdraw_multicall,
-    encode_spot_send,
+    build_hypercore_deposit_to_spot_call,
+    build_hypercore_spot_send_call,
+    build_hypercore_transfer_usd_class_call,
     encode_transfer_usd_class,
     encode_vault_deposit,
-    encode_vault_withdraw,
 )
 from eth_defi.hyperliquid.testing import (
     deploy_mock_core_deposit_wallet,
@@ -520,3 +523,113 @@ def test_lagoon_hypercore_deposit_multicall(
     assert sender == safe_address
     assert version == 1
     assert action_id == 2
+
+
+@pytest.mark.timeout(600)
+def test_lagoon_hypercore_granular_roundtrip_calls(
+    web3: Web3,
+    deployer: LocalAccount,
+    lagoon_deployment: LagoonAutomatedDeployment,
+    mock_core_writer: Contract,
+    mock_core_deposit_wallet: Contract,
+    usdc: TokenDetails,
+):
+    """Execute the granular single-leg Hypercore calls through TradingStrategyModuleV0."""
+    vault = lagoon_deployment.vault
+    safe_address = lagoon_deployment.safe.address
+    asset_manager = deployer.address
+    destination = safe_address
+    usdc_amount = 10_000 * 10**6
+
+    web3.provider.make_request("anvil_setBalance", [safe_address, hex(10 * 10**18)])
+    fund_erc20_on_anvil(web3, USDC_ADDRESS, safe_address, usdc_amount)
+    balance = usdc.contract.functions.balanceOf(safe_address).call()
+    assert balance >= usdc_amount
+
+    approve_fn = build_hypercore_approve_deposit_wallet_call(vault, usdc_amount)
+    tx_hash = approve_fn.transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert usdc.contract.functions.allowance(safe_address, CORE_DEPOSIT_WALLET[999]).call() == usdc_amount
+
+    deposit_fn = build_hypercore_deposit_to_spot_call(vault, usdc_amount)
+    tx_hash = deposit_fn.transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    assert mock_core_deposit_wallet.functions.getDepositCount().call() == 1
+    sender, amount, dex = mock_core_deposit_wallet.functions.getDeposit(0).call()
+    assert sender == safe_address
+    assert amount == usdc_amount
+    assert dex == SPOT_DEX
+
+    move_to_perp_fn = build_hypercore_transfer_usd_class_call(vault, usdc_amount, to_perp=True)
+    tx_hash = move_to_perp_fn.transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    move_to_spot_fn = build_hypercore_transfer_usd_class_call(vault, usdc_amount, to_perp=False)
+    tx_hash = move_to_spot_fn.transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    spot_send_fn = build_hypercore_spot_send_call(vault, destination, usdc_amount)
+    tx_hash = spot_send_fn.transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    assert mock_core_writer.functions.getActionCount().call() == 3
+
+    sender, version, action_id, params = mock_core_writer.functions.getAction(0).call()
+    assert sender == safe_address
+    assert version == 1
+    assert action_id == 7
+    amount_wei, to_perp = decode(["uint64", "bool"], params)
+    assert amount_wei == usdc_amount
+    assert to_perp is True
+
+    sender, version, action_id, params = mock_core_writer.functions.getAction(1).call()
+    assert sender == safe_address
+    assert version == 1
+    assert action_id == 7
+    amount_wei, to_perp = decode(["uint64", "bool"], params)
+    assert amount_wei == usdc_amount
+    assert to_perp is False
+
+    sender, version, action_id, params = mock_core_writer.functions.getAction(2).call()
+    assert sender == safe_address
+    assert version == 1
+    assert action_id == 6
+    decoded_destination, token_id, amount_wei = decode(["address", "uint64", "uint64"], params)
+    assert decoded_destination.lower() == destination.lower()
+    assert token_id == USDC_TOKEN_INDEX
+    assert amount_wei == usdc_amount
+
+
+@pytest.mark.timeout(600)
+def test_lagoon_hypercore_granular_activation_call(
+    web3: Web3,
+    deployer: LocalAccount,
+    lagoon_deployment: LagoonAutomatedDeployment,
+    mock_core_deposit_wallet: Contract,
+    usdc: TokenDetails,
+):
+    """Execute granular approve + depositFor activation calls for the Safe."""
+    vault = lagoon_deployment.vault
+    safe_address = lagoon_deployment.safe.address
+    asset_manager = deployer.address
+    activation_amount = 5 * 10**6
+
+    web3.provider.make_request("anvil_setBalance", [safe_address, hex(10 * 10**18)])
+    fund_erc20_on_anvil(web3, USDC_ADDRESS, safe_address, activation_amount)
+    balance = usdc.contract.functions.balanceOf(safe_address).call()
+    assert balance >= activation_amount
+
+    approve_fn = build_hypercore_approve_deposit_wallet_call(vault, activation_amount)
+    tx_hash = approve_fn.transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    deposit_for_fn = build_hypercore_deposit_for_spot_call(vault, activation_amount, destination=safe_address)
+    tx_hash = deposit_for_fn.transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    assert mock_core_deposit_wallet.functions.getDepositCount().call() == 1
+    sender, amount, dex = mock_core_deposit_wallet.functions.getDeposit(0).call()
+    assert sender == safe_address
+    assert amount == activation_amount
+    assert dex == SPOT_DEX

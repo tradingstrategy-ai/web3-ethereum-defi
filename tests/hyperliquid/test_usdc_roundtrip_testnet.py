@@ -15,12 +15,12 @@ import pytest
 from web3 import Web3
 
 from eth_defi.hotwallet import HotWallet
-from eth_defi.hyperliquid.api import HyperliquidSession, PerpClearinghouseState, SpotClearinghouseState, fetch_perp_clearinghouse_state, fetch_spot_clearinghouse_state
+from eth_defi.hyperliquid.api import HyperliquidSession, PerpClearinghouseState, SpotClearinghouseState, fetch_perp_clearinghouse_state, fetch_spot_clearinghouse_state, fetch_user_abstraction_mode
 from eth_defi.hyperliquid.core_writer import CORE_DEPOSIT_WALLET, SPOT_DEX, USDC_TOKEN_INDEX, encode_spot_send, encode_transfer_usd_class, get_core_deposit_wallet_contract, get_core_writer_contract
 from eth_defi.hyperliquid.evm_escrow import wait_for_evm_escrow_clear
 from eth_defi.hyperliquid.session import HYPERLIQUID_TESTNET_API_URL, create_hyperliquid_session
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN, fetch_erc20_details
+from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 HYPERCORE_WRITER_TEST_PRIVATE_KEY = os.environ.get("HYPERCORE_WRITER_TEST_PRIVATE_KEY")
@@ -53,20 +53,6 @@ def _fetch_evm_usdc_balance(usdc: TokenDetails, address: str) -> Decimal:
     return usdc.fetch_balance_of(address)
 
 
-def _fetch_user_abstraction_mode(session: HyperliquidSession, user: str) -> str:
-    """Read the Hyperliquid account abstraction mode for the test wallet."""
-    response = session.post(
-        f"{session.api_url}/info",
-        json={"type": "userAbstraction", "user": user},
-        headers={"Content-Type": "application/json"},
-        timeout=10,
-    )
-    response.raise_for_status()
-    mode = response.json()
-    assert isinstance(mode, str), f"Unexpected userAbstraction response for {user}: {mode!r}"
-    return mode
-
-
 def _wait_for_spot_free_delta(
     session: HyperliquidSession,
     user: str,
@@ -86,10 +72,7 @@ def _wait_for_spot_free_delta(
             return last_state
 
         if time.time() >= deadline:
-            raise AssertionError(
-                f"Timed out waiting for free spot USDC delta {expected_delta} for {user}. "
-                f"Last free spot delta was {delta}."
-            )
+            raise AssertionError(f"Timed out waiting for free spot USDC delta {expected_delta} for {user}. Last free spot delta was {delta}.")
 
         time.sleep(poll_interval)
 
@@ -112,12 +95,7 @@ def _wait_for_perp_withdrawable_delta(
             return last_state
 
         if time.time() >= deadline:
-            raise AssertionError(
-                f"Timed out waiting for perp withdrawable delta {expected_delta} for {user}. "
-                f"Last perp withdrawable delta was {delta}, "
-                f"account value was {last_state.margin_summary.account_value}, "
-                f"and raw USD was {last_state.margin_summary.total_raw_usd}."
-            )
+            raise AssertionError(f"Timed out waiting for perp withdrawable delta {expected_delta} for {user}. Last perp withdrawable delta was {delta}, account value was {last_state.margin_summary.account_value}, and raw USD was {last_state.margin_summary.total_raw_usd}.")
 
         time.sleep(poll_interval)
 
@@ -138,10 +116,7 @@ def _wait_for_evm_usdc_balance(
             return last_balance
 
         if time.time() >= deadline:
-            raise AssertionError(
-                f"Timed out waiting for EVM USDC balance {expected_balance} for {address}. "
-                f"Last EVM USDC balance was {last_balance}."
-            )
+            raise AssertionError(f"Timed out waiting for EVM USDC balance {expected_balance} for {address}. Last EVM USDC balance was {last_balance}.")
 
         time.sleep(poll_interval)
 
@@ -201,27 +176,11 @@ def test_hyperliquid_testnet_usdc_roundtrip_hot_wallet(
     baseline_perp_state = fetch_perp_clearinghouse_state(session, user=hot_wallet.address)
     baseline_spot_total, baseline_free_spot = _get_spot_usdc_balances(baseline_spot_state)
 
-    assert evm_hype_balance >= MIN_HYPE_BALANCE, (
-        f"Hot wallet {hot_wallet.address} needs at least {MIN_HYPE_BALANCE} HYPE on HyperEVM testnet, "
-        f"has {evm_hype_balance}"
-    )
-    assert baseline_evm_usdc >= ROUNDTRIP_AMOUNT, (
-        f"Hot wallet {hot_wallet.address} needs at least {ROUNDTRIP_AMOUNT} USDC on HyperEVM testnet, "
-        f"has {baseline_evm_usdc}"
-    )
-    assert _fetch_user_abstraction_mode(session, hot_wallet.address) == "standard", (
-        f"Hot wallet {hot_wallet.address} must be in Hyperliquid standard mode for a spot/perp round-trip test. "
-        "Unified account and portfolio margin expose balances through spot state instead, "
-        "so transferUsdClass() does not produce meaningful perp-state assertions."
-    )
-    assert not baseline_perp_state.asset_positions, (
-        f"Hot wallet {hot_wallet.address} has open HyperCore perp positions; "
-        "the round-trip test requires an idle perp account."
-    )
-    assert not baseline_spot_state.evm_escrows, (
-        f"Hot wallet {hot_wallet.address} has pending HyperCore EVM escrow entries; "
-        "the round-trip test requires a clean spot account."
-    )
+    assert evm_hype_balance >= MIN_HYPE_BALANCE, f"Hot wallet {hot_wallet.address} needs at least {MIN_HYPE_BALANCE} HYPE on HyperEVM testnet, has {evm_hype_balance}"
+    assert baseline_evm_usdc >= ROUNDTRIP_AMOUNT, f"Hot wallet {hot_wallet.address} needs at least {ROUNDTRIP_AMOUNT} USDC on HyperEVM testnet, has {baseline_evm_usdc}"
+    assert fetch_user_abstraction_mode(session, hot_wallet.address) == "standard", f"Hot wallet {hot_wallet.address} must be in Hyperliquid standard mode for a spot/perp round-trip test. Unified account and portfolio margin expose balances through spot state instead, so transferUsdClass() does not produce meaningful perp-state assertions."
+    assert not baseline_perp_state.asset_positions, f"Hot wallet {hot_wallet.address} has open HyperCore perp positions; the round-trip test requires an idle perp account."
+    assert not baseline_spot_state.evm_escrows, f"Hot wallet {hot_wallet.address} has pending HyperCore EVM escrow entries; the round-trip test requires a clean spot account."
 
     # 2. Deposit the configured test USDC amount from HyperEVM to HyperCore spot and verify the spot balance increases.
     approve_tx_hash = hot_wallet.transact_and_broadcast_with_contract(

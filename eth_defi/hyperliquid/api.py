@@ -353,6 +353,47 @@ def fetch_user_vault_equities(
     return results
 
 
+def fetch_user_abstraction_mode(
+    session: HyperliquidSession,
+    user: HexAddress | str,
+    timeout: float = 10.0,
+) -> str:
+    """Read the Hyperliquid account abstraction mode for a user.
+
+    Example::
+
+        from eth_defi.hyperliquid.api import fetch_user_abstraction_mode
+        from eth_defi.hyperliquid.session import create_hyperliquid_session
+
+        session = create_hyperliquid_session()
+        mode = fetch_user_abstraction_mode(session, user="0xAbc...")
+        print(f"Account mode: {mode}")
+
+    :param session:
+        Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
+
+    :param user:
+        On-chain address to query.
+
+    :param timeout:
+        HTTP request timeout in seconds.
+
+    :return:
+        Hyperliquid account abstraction mode such as ``"standard"`` or
+        ``"unifiedAccount"``.
+    """
+    response = session.post(
+        f"{session.api_url}/info",
+        json={"type": "userAbstraction", "user": user},
+        headers={"Content-Type": "application/json"},
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    mode = response.json()
+    assert isinstance(mode, str), f"Unexpected userAbstraction response for {user}: {mode!r}"
+    return mode
+
+
 def fetch_user_vault_equity(
     session: HyperliquidSession,
     user: HexAddress | str,

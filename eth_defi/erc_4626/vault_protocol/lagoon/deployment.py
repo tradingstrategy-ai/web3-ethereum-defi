@@ -559,6 +559,7 @@ def deploy_lagoon_protocol_registry(
     logger.info("Deploying ProtocolRegistry for Lagoon")
 
     _broadcast = broadcast_func
+    use_big_blocks = web3.eth.chain_id in (998, 999)
 
     lagoon_folder = CONTRACTS_ROOT / "lagoon-v0"
     full_path = CONTRACTS_ROOT / "lagoon-v0/src/protocol-v2/ProtocolRegistry.sol"
@@ -566,21 +567,29 @@ def deploy_lagoon_protocol_registry(
 
     assert full_path.exists(), f"Does not exist: {full_path}"
 
-    contract, tx_hash = deploy_contract_with_forge(
-        web3,
-        lagoon_folder,
-        "protocol-v2/ProtocolRegistry.sol",
-        "ProtocolRegistry",
-        deployer=deployer,
-        constructor_args=["false"],
-        etherscan_api_key=etherscan_api_key,
-        verifier=verifier,
-        verifier_url=verifier_url,
-        contract_file_out="ProtocolRegistry.sol",
-        verbose=True,
-        cache_dir=cache_dir,
-        deploy_retries=deploy_retries,
-    )
+    if use_big_blocks:
+        from eth_defi.hyperliquid.block import big_blocks_for_deployment
+
+        big_block_context = big_blocks_for_deployment(web3, deployer.private_key.hex())
+    else:
+        big_block_context = nullcontext()
+
+    with big_block_context:
+        contract, tx_hash = deploy_contract_with_forge(
+            web3,
+            lagoon_folder,
+            "protocol-v2/ProtocolRegistry.sol",
+            "ProtocolRegistry",
+            deployer=deployer,
+            constructor_args=["false"],
+            etherscan_api_key=etherscan_api_key,
+            verifier=verifier,
+            verifier_url=verifier_url,
+            contract_file_out="ProtocolRegistry.sol",
+            verbose=True,
+            cache_dir=cache_dir,
+            deploy_retries=deploy_retries,
+        )
 
     time.sleep(4)
     assert_transaction_success_with_explanation(web3, tx_hash)
@@ -627,6 +636,7 @@ def deploy_fresh_lagoon_protocol(
     assert isinstance(deployer, HotWallet), f"Can be only deployed with HotWallet deployer. got: {type(deployer)}: {deployer}"
 
     _broadcast = broadcast_func
+    use_big_blocks = web3.eth.chain_id in (998, 999)
 
     wrapped_native_token_address = WRAPPED_NATIVE_TOKEN[web3.eth.chain_id]
 
@@ -645,21 +655,33 @@ def deploy_fresh_lagoon_protocol(
 
     lagoon_folder = CONTRACTS_ROOT / "lagoon-v0"
 
-    implementation_contract, tx_hash = deploy_contract_with_forge(
-        web3,
-        project_folder=lagoon_folder,
-        contract_file=DEFAULT_LAGOON_VAULT_ABI,
-        contract_name="Vault",
-        deployer=deployer,
-        etherscan_api_key=etherscan_api_key,
-        verifier=verifier,
-        verifier_url=verifier_url,
-        constructor_args=["true"],
-        contract_file_out="Vault.sol",
-        verbose=True,
-        cache_dir=cache_dir,
-        deploy_retries=deploy_retries,
-    )
+    if use_big_blocks:
+        from eth_defi.hyperliquid.block import big_blocks_for_deployment
+
+        big_block_context = big_blocks_for_deployment(web3, deployer.private_key.hex())
+    else:
+        big_block_context = nullcontext()
+
+    with big_block_context:
+        if web3.eth.chain_id == 998:
+            from eth_defi.hyperliquid.block import wait_for_using_big_blocks
+
+            wait_for_using_big_blocks(web3, deployer.address, enabled=True)
+        implementation_contract, tx_hash = deploy_contract_with_forge(
+            web3,
+            project_folder=lagoon_folder,
+            contract_file=DEFAULT_LAGOON_VAULT_ABI,
+            contract_name="Vault",
+            deployer=deployer,
+            etherscan_api_key=etherscan_api_key,
+            verifier=verifier,
+            verifier_url=verifier_url,
+            constructor_args=["true"],
+            contract_file_out="Vault.sol",
+            verbose=True,
+            cache_dir=cache_dir,
+            deploy_retries=deploy_retries,
+        )
     time.sleep(forge_sync_delay)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -673,26 +695,34 @@ def deploy_fresh_lagoon_protocol(
     #         WRAPPED_NATIVE = _wrappedNativeToken;
     #     }
 
-    beacon_proxy_factory_contract, tx_hash = deploy_contract_with_forge(
-        web3,
-        project_folder=lagoon_folder,
-        contract_file="protocol-v1/BeaconProxyFactory.sol",
-        contract_name="BeaconProxyFactory",
-        deployer=deployer,
-        etherscan_api_key=etherscan_api_key,
-        verifier=verifier,
-        verifier_url=verifier_url,
-        constructor_args=[
-            fee_registry.address,
-            implementation_contract.address,
-            safe.address,
-            wrapped_native_token_address,
-        ],
-        contract_file_out="BeaconProxyFactory.sol",
-        verbose=True,
-        cache_dir=cache_dir,
-        deploy_retries=deploy_retries,
-    )
+    if use_big_blocks:
+        from eth_defi.hyperliquid.block import big_blocks_for_deployment
+
+        big_block_context = big_blocks_for_deployment(web3, deployer.private_key.hex())
+    else:
+        big_block_context = nullcontext()
+
+    with big_block_context:
+        beacon_proxy_factory_contract, tx_hash = deploy_contract_with_forge(
+            web3,
+            project_folder=lagoon_folder,
+            contract_file="protocol-v1/BeaconProxyFactory.sol",
+            contract_name="BeaconProxyFactory",
+            deployer=deployer,
+            etherscan_api_key=etherscan_api_key,
+            verifier=verifier,
+            verifier_url=verifier_url,
+            constructor_args=[
+                fee_registry.address,
+                implementation_contract.address,
+                safe.address,
+                wrapped_native_token_address,
+            ],
+            contract_file_out="BeaconProxyFactory.sol",
+            verbose=True,
+            cache_dir=cache_dir,
+            deploy_retries=deploy_retries,
+        )
     time.sleep(forge_sync_delay)
     assert_transaction_success_with_explanation(web3, tx_hash)
 

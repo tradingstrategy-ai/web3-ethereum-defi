@@ -39,6 +39,8 @@ from eth_typing import HexAddress
 from eth_utils import keccak, to_hex
 from web3 import Web3
 
+from eth_defi.provider.fallback import ExtraValueError
+
 logger = logging.getLogger(__name__)
 
 
@@ -107,6 +109,10 @@ def fetch_using_big_blocks(web3: Web3, address: HexAddress | str) -> bool:
 
     Calls the HyperEVM-specific ``eth_usingBigBlocks`` JSON-RPC method.
 
+    This readback is not supported by dRPC and some other third-party
+    HyperEVM RPC providers. For explicit big-block activation checks, use
+    Hyperliquid's own RPC endpoint.
+
     :param web3:
         Web3 connected to a HyperEVM node.
 
@@ -116,11 +122,81 @@ def fetch_using_big_blocks(web3: Web3, address: HexAddress | str) -> bool:
     :return:
         ``True`` if the address is flagged for large blocks.
     """
-    result = web3.provider.make_request(
-        "eth_usingBigBlocks",
-        [Web3.to_checksum_address(address)],
-    )
+    unsupported_rpc_message = "RPC provider does not implement eth_usingBigBlocks. This explicit big-block activation check is not supported by dRPC or other third-party RPC providers; use Hyperliquid's own RPC endpoint."
+
+    checksum_address = Web3.to_checksum_address(address)
+
+    try:
+        result = web3.provider.make_request(
+            "eth_usingBigBlocks",
+            [checksum_address],
+        )
+    except (ExtraValueError, requests.HTTPError, ValueError) as exc:
+        error_message = str(exc)
+        response_text = ""
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            response_text = exc.response.text
+
+        combined_error = f"{error_message}\n{response_text}"
+        if ("eth_usingBigBlocks" in combined_error and ("does not exist" in combined_error or "not available" in combined_error or "-32601" in combined_error)) or ("does not exist" in combined_error and "not available" in combined_error and "-32601" in combined_error):
+            raise AssertionError(unsupported_rpc_message) from exc
+        raise
+
+    error_payload = result.get("error")
+    if error_payload:
+        error_message = str(error_payload)
+        assert not ("does not exist" in error_message or "not available" in error_message or "-32601" in error_message), unsupported_rpc_message
+
     return bool(result.get("result", False))
+
+
+def wait_for_using_big_blocks(
+    web3: Web3,
+    address: HexAddress | str,
+    enabled: bool,
+    timeout: float = 15.0,
+    poll_interval: float = 1.0,
+) -> None:
+    """Wait until the EVM RPC reports the expected large-block flag state.
+
+    This is useful on HyperEVM testnet where the exchange API toggle may
+    take a moment to become visible through the ``eth_usingBigBlocks``
+    RPC method.
+
+    :param web3:
+        Web3 connected to a HyperEVM node.
+
+    :param address:
+        Address to check.
+
+    :param enabled:
+        Expected ``usingBigBlocks`` state.
+
+    :param timeout:
+        Maximum wait time in seconds.
+
+    :param poll_interval:
+        Delay between polling attempts in seconds.
+
+    :raises HyperEVMBigBlocksError:
+        If the expected state is not observed before the timeout.
+    """
+    checksum_address = Web3.to_checksum_address(address)
+    deadline = time.time() + timeout
+    while True:
+        current_state = fetch_using_big_blocks(web3, checksum_address)
+        if current_state == enabled:
+            logger.info(
+                "Confirmed usingBigBlocks=%s for %s via EVM RPC",
+                enabled,
+                checksum_address,
+            )
+            return
+
+        if time.time() >= deadline:
+            raise HyperEVMBigBlocksError(f"Timed out waiting for usingBigBlocks={enabled} for {checksum_address}. Last observed state was {current_state}.")
+
+        time.sleep(poll_interval)
 
 
 def _action_hash(

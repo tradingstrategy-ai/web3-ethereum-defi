@@ -38,6 +38,16 @@ TESTNET_CHAIN_IDS: set[int] = {
     84532,  # Base Sepolia
 }
 
+#: Chain-specific contract deployment receipt timeouts in seconds.
+#:
+#: HyperEVM large-block deployments can take materially longer than a normal
+#: EVM receipt wait, and public RPCs may lag before they surface the receipt
+#: even when the deployment transaction itself succeeded on-chain.
+CONTRACT_DEPLOYMENT_TIMEOUT: dict[int, int] = {
+    998: 200,  # HyperEVM testnet large-block deploys and receipt visibility are slow
+    999: 200,  # HyperEVM mainnet large-block deploys and receipt visibility are slow
+}
+
 #: L2 sequencer and official public RPC endpoints.
 #:
 #: Many L2 chains have a centralised sequencer that processes transactions.

@@ -216,6 +216,19 @@ def get_core_writer_contract(web3: Web3) -> Contract:
     return get_deployed_contract(web3, "guard/MockCoreWriter.json", CORE_WRITER_ADDRESS)
 
 
+def _get_hypercore_contracts(
+    lagoon_vault: LagoonVault,
+) -> tuple[Contract, Contract, Contract]:
+    """Resolve the Safe's USDC, CoreDepositWallet, and CoreWriter contracts."""
+    web3 = lagoon_vault.web3
+    chain_id = lagoon_vault.spec.chain_id
+    asset_address = lagoon_vault.vault_contract.functions.asset().call()
+    usdc_contract = get_deployed_contract(web3, "centre/ERC20.json", asset_address)
+    core_deposit_wallet = get_core_deposit_wallet_contract(web3, CORE_DEPOSIT_WALLET[chain_id])
+    core_writer = get_core_writer_contract(web3)
+    return usdc_contract, core_deposit_wallet, core_writer
+
+
 def _encode_perform_call(
     module: Contract,
     target: HexAddress | str,
@@ -238,6 +251,79 @@ def _encode_perform_call(
     data_payload = encode_function_call(fn_call, fn_call.arguments)
     return encode_function_call(
         module.functions.performCall(target, data_payload),
+    )
+
+
+def build_hypercore_approve_deposit_wallet_call(
+    lagoon_vault: LagoonVault,
+    evm_usdc_amount: int,
+) -> ContractFunction:
+    """Build a single Safe transaction that approves USDC to CoreDepositWallet."""
+    usdc_contract, core_deposit_wallet, _core_writer = _get_hypercore_contracts(lagoon_vault)
+    return lagoon_vault.transact_via_trading_strategy_module(
+        usdc_contract.functions.approve(
+            Web3.to_checksum_address(core_deposit_wallet.address),
+            evm_usdc_amount,
+        )
+    )
+
+
+def build_hypercore_deposit_to_spot_call(
+    lagoon_vault: LagoonVault,
+    evm_usdc_amount: int,
+) -> ContractFunction:
+    """Build a single Safe transaction that bridges USDC from HyperEVM to HyperCore spot."""
+    _usdc_contract, core_deposit_wallet, _core_writer = _get_hypercore_contracts(lagoon_vault)
+    return lagoon_vault.transact_via_trading_strategy_module(
+        core_deposit_wallet.functions.deposit(
+            evm_usdc_amount,
+            SPOT_DEX,
+        )
+    )
+
+
+def build_hypercore_deposit_for_spot_call(
+    lagoon_vault: LagoonVault,
+    evm_usdc_amount: int,
+    destination: HexAddress | str | None = None,
+) -> ContractFunction:
+    """Build a single Safe transaction that bridges USDC to a specific HyperCore spot account."""
+    _usdc_contract, core_deposit_wallet, _core_writer = _get_hypercore_contracts(lagoon_vault)
+    destination = destination or lagoon_vault.safe_address
+    return lagoon_vault.transact_via_trading_strategy_module(
+        core_deposit_wallet.functions.depositFor(
+            Web3.to_checksum_address(destination),
+            evm_usdc_amount,
+            SPOT_DEX,
+        )
+    )
+
+
+def build_hypercore_transfer_usd_class_call(
+    lagoon_vault: LagoonVault,
+    hypercore_usdc_amount: int,
+    to_perp: bool,
+) -> ContractFunction:
+    """Build a single Safe transaction that moves USDC between spot and perp."""
+    _usdc_contract, _core_deposit_wallet, core_writer = _get_hypercore_contracts(lagoon_vault)
+    return lagoon_vault.transact_via_trading_strategy_module(
+        core_writer.functions.sendRawAction(
+            encode_transfer_usd_class(hypercore_usdc_amount, to_perp=to_perp),
+        )
+    )
+
+
+def build_hypercore_spot_send_call(
+    lagoon_vault: LagoonVault,
+    destination: HexAddress | str,
+    hypercore_usdc_amount: int,
+) -> ContractFunction:
+    """Build a single Safe transaction that sends USDC from HyperCore spot back to EVM."""
+    _usdc_contract, _core_deposit_wallet, core_writer = _get_hypercore_contracts(lagoon_vault)
+    return lagoon_vault.transact_via_trading_strategy_module(
+        core_writer.functions.sendRawAction(
+            encode_spot_send(destination, USDC_TOKEN_INDEX, hypercore_usdc_amount),
+        )
     )
 
 
@@ -425,15 +511,9 @@ def build_activate_account_multicall(
     if activation_amount is None:
         activation_amount = DEFAULT_ACTIVATION_AMOUNT
 
-    web3 = lagoon_vault.web3
     module = lagoon_vault.trading_strategy_module
-    chain_id = lagoon_vault.spec.chain_id
     safe_address = lagoon_vault.safe_address
-
-    asset_address = lagoon_vault.vault_contract.functions.asset().call()
-    usdc_contract = get_deployed_contract(web3, "centre/ERC20.json", asset_address)
-    cdw_address = CORE_DEPOSIT_WALLET[chain_id]
-    core_deposit_wallet = get_core_deposit_wallet_contract(web3, cdw_address)
+    usdc_contract, core_deposit_wallet, _core_writer = _get_hypercore_contracts(lagoon_vault)
 
     calls = [
         # 1. Approve USDC to CoreDepositWallet
@@ -507,14 +587,8 @@ def build_hypercore_deposit_phase1(
     :return:
         Bound ``module.functions.multicall(data)`` ready to ``.transact()``.
     """
-    web3 = lagoon_vault.web3
     module = lagoon_vault.trading_strategy_module
-    chain_id = lagoon_vault.spec.chain_id
-
-    asset_address = lagoon_vault.vault_contract.functions.asset().call()
-    usdc_contract = get_deployed_contract(web3, "centre/ERC20.json", asset_address)
-    cdw_address = CORE_DEPOSIT_WALLET[chain_id]
-    core_deposit_wallet = get_core_deposit_wallet_contract(web3, cdw_address)
+    usdc_contract, core_deposit_wallet, _core_writer = _get_hypercore_contracts(lagoon_vault)
 
     calls = [
         # 1. Approve USDC to CoreDepositWallet
