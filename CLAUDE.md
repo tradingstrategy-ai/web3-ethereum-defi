@@ -76,6 +76,12 @@ Run ruff to format code using Poetry:
 poetry run ruff format
 ```
 
+## Git worktrees
+
+- For git worktrees, copy `.local-test.env` from the repo root.
+- For worktrees, unless you are changing package dependencies, use `poetry run` from the parent repo virtualenv
+
+
 ## Pull requests
 
 - Pull request description must have sections Why (the rational of change), Lessons learnt (memory) and Summary (what was changed). No test plan or verification section. Use Markdown formatting, headings.
