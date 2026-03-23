@@ -403,9 +403,7 @@ def _build_hypercore_send_raw_action_call(
 ) -> ContractFunction:
     """Build a single Safe transaction that forwards one CoreWriter raw action."""
     _usdc_contract, _core_deposit_wallet, core_writer = _get_hypercore_contracts(lagoon_vault)
-    return lagoon_vault.transact_via_trading_strategy_module(
-        core_writer.functions.sendRawAction(raw_action)
-    )
+    return lagoon_vault.transact_via_trading_strategy_module(core_writer.functions.sendRawAction(raw_action))
 
 
 def build_hypercore_vault_transfer_call(
@@ -433,11 +431,7 @@ def build_hypercore_vault_transfer_call(
         ``True`` to deposit from perp to vault, ``False`` to withdraw from
         vault to perp.
     """
-    raw_action = (
-        encode_vault_deposit(vault_address, hypercore_usdc_amount)
-        if to_vault
-        else encode_vault_withdraw(vault_address, hypercore_usdc_amount)
-    )
+    raw_action = encode_vault_deposit(vault_address, hypercore_usdc_amount) if to_vault else encode_vault_withdraw(vault_address, hypercore_usdc_amount)
     return _build_hypercore_send_raw_action_call(
         lagoon_vault,
         raw_action,
