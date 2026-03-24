@@ -384,6 +384,10 @@ class VaultHistoricalRead:
         )
         return schema
 
+    #: Legacy columns that should be dropped during migration.
+    #: ``__index_level_0__`` is a pandas artefact from old parquet writes.
+    _LEGACY_COLUMNS = {"__index_level_0__"}
+
     @staticmethod
     def migrate_parquet_schema(existing_table: "pyarrow.Table") -> "pyarrow.Table":
         """Migrate an existing Parquet table to the current schema.
@@ -393,34 +397,51 @@ class VaultHistoricalRead:
         adds missing columns as null arrays so incremental scans can
         write new data without losing columns.
 
+        Non-canonical columns (e.g. ``account_pnl``, ``leader_fraction``
+        added by native protocol merges) are preserved so that the EVM
+        scanner does not destroy data written by Hyperliquid/GRVT/Lighter.
+
         :param existing_table:
             Table read from an older parquet file.
 
         :return:
-            Table with all current schema columns, missing ones filled with nulls.
+            Table with all canonical columns present (missing ones filled
+            with nulls), legacy columns removed, extra columns preserved.
         """
         import pyarrow as pa
 
         target_schema = VaultHistoricalRead.to_pyarrow_schema()
         existing_names = set(existing_table.schema.names)
 
+        # Add missing canonical columns as null arrays
         for field in target_schema:
             if field.name not in existing_names:
                 null_array = pa.nulls(len(existing_table), type=field.type)
                 existing_table = existing_table.append_column(field, null_array)
 
-        # Drop any legacy columns not in the current schema (e.g. __index_level_0__)
-        target_names = set(target_schema.names)
-        for name in existing_table.schema.names:
-            if name not in target_names:
+        # Drop only known legacy columns, preserve native protocol columns
+        for name in VaultHistoricalRead._LEGACY_COLUMNS:
+            if name in existing_table.schema.names:
                 existing_table = existing_table.drop(name)
 
-        # Reorder to match target schema
-        existing_table = existing_table.select(target_schema.names)
+        # Reorder: canonical columns first (in canonical order), then extras
+        target_names = list(target_schema.names)
+        extra_names = [n for n in existing_table.schema.names if n not in set(target_names)]
+        existing_table = existing_table.select(target_names + extra_names)
 
-        # Cast columns whose type changed (e.g. block_number uint32 -> uint64)
-        # and strip any file-level metadata (e.g. pandas metadata)
-        existing_table = existing_table.cast(target_schema)
+        # Cast canonical columns to their correct types
+        for field in target_schema:
+            col_idx = existing_table.schema.get_field_index(field.name)
+            col = existing_table.column(col_idx)
+            if col.type != field.type:
+                existing_table = existing_table.set_column(
+                    col_idx,
+                    field,
+                    col.cast(field.type, safe=False),
+                )
+
+        # Strip pandas metadata to avoid stale schema info
+        existing_table = existing_table.replace_schema_metadata(None)
 
         return existing_table
 
