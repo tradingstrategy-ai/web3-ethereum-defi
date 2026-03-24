@@ -162,10 +162,7 @@ _EVENT_ADDRESS_PARAMS: dict[str, list[tuple[str, str]]] = {
 #: in guard configuration reports.
 SPECIAL_ADDRESS_LABELS: dict[str, str] = {
     Web3.to_checksum_address(CORE_WRITER_ADDRESS): "Hypercore CoreWriter",
-    **{
-        Web3.to_checksum_address(address): "Hypercore deposit wallet"
-        for address in CORE_DEPOSIT_WALLET.values()
-    },
+    **{Web3.to_checksum_address(address): "Hypercore deposit wallet" for address in CORE_DEPOSIT_WALLET.values()},
 }
 
 

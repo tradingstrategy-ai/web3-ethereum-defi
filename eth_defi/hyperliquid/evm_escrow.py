@@ -226,12 +226,7 @@ def is_account_activated(
             provider_name,
             rpc_headers,
         )
-        raise HypercorePrecompileReadError(
-            f"HyperCore coreUserExists precompile returned an empty reply for {user}. "
-            f"RPC provider: {provider_name}. "
-            "This usually indicates a faulty HyperEVM RPC response, not a valid activation status. "
-            f"Last RPC headers: {rpc_headers}"
-        )
+        raise HypercorePrecompileReadError(f"HyperCore coreUserExists precompile returned an empty reply for {user}. RPC provider: {provider_name}. This usually indicates a faulty HyperEVM RPC response, not a valid activation status. Last RPC headers: {rpc_headers}")
 
     try:
         exists = decode(["bool"], result)[0]
@@ -243,12 +238,7 @@ def is_account_activated(
             provider_name,
             rpc_headers,
         )
-        raise HypercorePrecompileReadError(
-            f"HyperCore coreUserExists precompile returned malformed data for {user}. "
-            f"Reply length: {len(result)} bytes. "
-            f"RPC provider: {provider_name}. "
-            f"Last RPC headers: {rpc_headers}"
-        ) from e
+        raise HypercorePrecompileReadError(f"HyperCore coreUserExists precompile returned malformed data for {user}. Reply length: {len(result)} bytes. RPC provider: {provider_name}. Last RPC headers: {rpc_headers}") from e
 
     logger.info("Account %s coreUserExists on HyperCore: %s", user, exists)
     return exists
