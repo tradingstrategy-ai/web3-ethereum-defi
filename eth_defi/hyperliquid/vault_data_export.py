@@ -37,7 +37,7 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_PROTOCOL_VAULT_LOCKUP, HYPERLIQUID_USER_VAULT_LOCKUP, HYPERLIQUID_VAULT_FEE_MODE, HYPERLIQUID_VAULT_PERFORMANCE_FEE
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -467,7 +467,10 @@ def merge_into_uncleaned_parquet(
     # Sort for compression efficiency
     combined = combined.sort_values(["chain", "address", "timestamp"])
 
-    combined.to_parquet(parquet_path, compression="zstd")
+    # Use PyArrow writer to preserve canonical schema types.
+    # pandas.to_parquet() promotes types (e.g. timestamp[ms] -> timestamp[us])
+    # which breaks migrate_parquet_schema() on the next EVM scan run.
+    VaultHistoricalRead.write_uncleaned_parquet(combined, parquet_path)
 
     hl_vault_count = hl_df["address"].nunique()
     logger.info(

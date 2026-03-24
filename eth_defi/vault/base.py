@@ -424,6 +424,50 @@ class VaultHistoricalRead:
 
         return existing_table
 
+    @staticmethod
+    def write_uncleaned_parquet(
+        df: "pandas.DataFrame",
+        path: "pathlib.Path",
+        compression: str = "zstd",
+    ):
+        """Write a DataFrame to the uncleaned parquet using proper PyArrow types.
+
+        Native protocol merge functions (Hyperliquid, GRVT, Lighter) must use
+        this instead of ``pandas.DataFrame.to_parquet()`` to avoid type
+        promotion (e.g. ``timestamp[ms]`` → ``timestamp[us]``) that breaks
+        :py:meth:`migrate_parquet_schema` on the next EVM scan run.
+
+        Columns present in the canonical schema are cast to their canonical
+        types. Extra columns (from native protocols) are kept with their
+        pandas-inferred types. No pandas index is written.
+
+        :param df:
+            Combined DataFrame to write.
+        :param path:
+            Output parquet file path.
+        :param compression:
+            Parquet compression codec.
+        """
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        table = pa.Table.from_pandas(df, preserve_index=False)
+
+        # Cast canonical columns to the correct types
+        canonical = VaultHistoricalRead.to_pyarrow_schema()
+        canonical_by_name = {f.name: f for f in canonical}
+
+        for i, field in enumerate(table.schema):
+            target_field = canonical_by_name.get(field.name)
+            if target_field is not None and field.type != target_field.type:
+                table = table.set_column(
+                    i,
+                    target_field,
+                    table.column(i).cast(target_field.type, safe=False),
+                )
+
+        pq.write_table(table, path, compression=compression)
+
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class VaultReadCondition:

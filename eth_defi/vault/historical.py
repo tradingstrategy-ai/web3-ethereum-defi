@@ -709,17 +709,9 @@ def scan_historical_prices_to_parquet(
     schema = VaultHistoricalRead.to_pyarrow_schema()
 
     if output_fname.exists():
-        try:
-            logger.info("Reading existing Parquet file %s", output_fname)
-            existing_table = pq.read_table(output_fname)
-            existing_table = VaultHistoricalRead.migrate_parquet_schema(existing_table)
-        except pa.lib.ArrowInvalid as e:
-            logger.warning(
-                "Parquet file %s, write damaged %s, resetting",
-                output_fname,
-                str(e),
-            )
-            existing_table = None
+        logger.info("Reading existing Parquet file %s", output_fname)
+        existing_table = pq.read_table(output_fname)
+        existing_table = VaultHistoricalRead.migrate_parquet_schema(existing_table)
     else:
         logger.info("Creating Parquet from the scratch %s", output_fname)
         existing_table = None

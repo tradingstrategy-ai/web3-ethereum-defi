@@ -216,6 +216,17 @@ source .local-test.env && make build-docs
 
 Never directly edit auto-generated sphinx files in `_autosummary*` folders.
 
+## Parquet schema migrations
+
+The vault price pipeline accumulates months of historical data in `vault-prices-1h.parquet`. Losing this data requires days of re-scanning from archive nodes.
+
+- **Never silently discard existing data.** If a schema migration (`migrate_parquet_schema()`, `cast()`) fails, the pipeline must abort with a hard error — never fall back to `existing_table = None`. Silent data loss is worse than a crash.
+- **Never catch `ArrowInvalid` and reset to empty.** If the existing parquet cannot be read or migrated, raise the exception so the operator can restore from a backup.
+- **New columns must have null defaults.** Add them via `migrate_parquet_schema()` with `pa.nulls()`. Never require a value in existing rows.
+- **Type changes need explicit migration.** If changing a column's type (e.g. `uint32` → `uint64`), verify `cast()` works on production data before merging — test with a copy of the real parquet, not just synthetic test data.
+- **Always test schema changes against the production parquet.** Download the current file and verify the migration path locally before deploying.
+- **Reader state loss causes full data wipe.** The scanner deletes existing chain rows from `start_block` onwards. If `reader-state.pickle` is lost, `start_block` falls back to the earliest vault block, deleting all historical data for that chain. Treat reader state files as critical production state.
+
 ## ERC-20
 
 - Don't do hardcoded token decimal multiply, use `TokenDetails.convert_to_raw()`
