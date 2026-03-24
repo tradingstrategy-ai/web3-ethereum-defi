@@ -128,6 +128,20 @@ from eth_defi.vault.historical import scan_historical_prices_to_parquet
 from eth_defi.vault.post_processing import run_post_processing
 from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE
 
+#: Files to back up before each scan run.
+#: Loss of these files means days of re-scanning from archive nodes.
+BACKUP_FILES = [
+    DEFAULT_UNCLEANED_PRICE_DATABASE,
+    DEFAULT_READER_STATE_DATABASE,
+    DEFAULT_VAULT_DATABASE,
+]
+
+#: Where daily backups are stored
+BACKUP_DIR = Path("~/.tradingstrategy/backups").expanduser()
+
+#: How many days of backups to keep
+BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "7"))
+
 logger = logging.getLogger(__name__)
 
 
@@ -631,6 +645,51 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
         logger.error("%s: %s", r.name, r.error)
 
 
+def backup_pipeline_files():
+    """Back up critical pipeline files before scanning.
+
+    Creates daily backups of the uncleaned parquet, reader state, and vault
+    database in ``~/.tradingstrategy/backups/YYYY-MM-DD/``. Only one backup
+    per calendar day is kept (the first run of the day wins). Backups older
+    than :py:data:`BACKUP_RETENTION_DAYS` are purged.
+    """
+    import shutil
+
+    today = datetime.date.today().isoformat()
+    daily_dir = BACKUP_DIR / today
+
+    if daily_dir.exists():
+        logger.info("Backup already exists for today: %s", daily_dir)
+    else:
+        daily_dir.mkdir(parents=True, exist_ok=True)
+        copied = 0
+        for src in BACKUP_FILES:
+            if src.exists():
+                dst = daily_dir / src.name
+                shutil.copy2(src, dst)
+                size_mb = dst.stat().st_size / (1024 * 1024)
+                logger.info("Backed up %s (%.1f MB)", dst, size_mb)
+                copied += 1
+        if copied == 0:
+            logger.warning("No pipeline files found to back up")
+        else:
+            logger.info("Backed up %d files to %s", copied, daily_dir)
+
+    # Purge old backups
+    if BACKUP_DIR.exists():
+        cutoff = datetime.date.today() - datetime.timedelta(days=BACKUP_RETENTION_DAYS)
+        for entry in sorted(BACKUP_DIR.iterdir()):
+            if not entry.is_dir():
+                continue
+            try:
+                entry_date = datetime.date.fromisoformat(entry.name)
+            except ValueError:
+                continue
+            if entry_date < cutoff:
+                shutil.rmtree(entry)
+                logger.info("Purged old backup: %s", entry)
+
+
 def main():
     """Main execution function"""
     # Setup logging with daily log rotation
@@ -656,6 +715,9 @@ def main():
         )
     )
     logging.getLogger().addHandler(rotating_handler)
+
+    # Back up critical pipeline files before any scanning
+    backup_pipeline_files()
 
     # Read configuration from environment
     retry_count = int(os.environ.get("RETRY_COUNT", "1"))
