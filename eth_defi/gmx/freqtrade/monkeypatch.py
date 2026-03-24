@@ -25,6 +25,7 @@ Usage::
             "name": "gmx",
             "rpc_url": "https://arb1.arbitrum.io/rpc",
             "private_key": "0x...",
+            "wallet_address": "0xYourWalletAddress",
         },
         "stake_currency": "USD",
         "trading_mode": "futures",

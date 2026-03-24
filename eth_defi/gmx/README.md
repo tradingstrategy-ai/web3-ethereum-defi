@@ -65,9 +65,11 @@ ohlcv = gmx.fetch_ohlcv("ETH/USDC:USDC", "1h", limit=100)
 from eth_defi.gmx.ccxt import GMX
 
 # Initialise with wallet for trading
+# NOTE: Never hardcode private keys. Use an environment variable.
+import os
 gmx = GMX({
     "rpcUrl": "https://arb1.arbitrum.io/rpc",
-    "privateKey": "0x...",  # Your wallet private key
+    "privateKey": os.environ["GMX_PRIVATE_KEY"],
 })
 
 gmx.load_markets()

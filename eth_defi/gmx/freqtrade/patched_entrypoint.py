@@ -67,10 +67,11 @@ def apply_patch():
     global _patched_at_module_level
     print("Applying GMX monkeypatch to Freqtrade...", flush=True)
     from eth_defi.gmx.freqtrade.monkeypatch import patch_freqtrade
-    from eth_defi.gmx.freqtrade.sensitive_filter import patch_logging
+    from eth_defi.gmx.freqtrade.sensitive_filter import patch_logging, patch_notebook
 
     patch_freqtrade()
     patch_logging()  # Add sensitive data filtering to all log handlers
+    patch_notebook()  # Add sensitive data filtering to notebook output channels
     _patch_status_table_profit_format()  # Show profit with 3 decimal places instead of 5 sig figs
 
     # Register custom pairlist plugins so schema validation accepts them.
