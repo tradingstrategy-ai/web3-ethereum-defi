@@ -75,14 +75,12 @@ def test_ccxt_style_view_only_mode(arbitrum_fork_config):
     """
     rpc_url = arbitrum_fork_config.web3.provider.endpoint_uri
 
-    # Capture log messages
-    with pytest.warns(None) as warning_list:
-        # Initialize without wallet (view-only mode)
-        gmx = GMX(
-            {
-                "rpcUrl": rpc_url,
-            }
-        )
+    # Initialize without wallet (view-only mode)
+    gmx = GMX(
+        {
+            "rpcUrl": rpc_url,
+        }
+    )
 
     # Verify view-only mode
     assert gmx.wallet is None
