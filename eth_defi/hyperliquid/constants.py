@@ -6,6 +6,7 @@ Shared constants used across the Hyperliquid modules
 """
 
 import datetime
+from decimal import Decimal
 from pathlib import Path
 
 from eth_typing import HexAddress
@@ -56,6 +57,36 @@ HYPERLIQUID_USER_VAULT_LOCKUP: datetime.timedelta = datetime.timedelta(days=1)
 #:
 #: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-depositors
 HYPERLIQUID_PROTOCOL_VAULT_LOCKUP: datetime.timedelta = datetime.timedelta(days=4)
+
+
+# ──────────────────────────────────────────────
+# HyperCore <> HyperEVM bridge fees
+# ──────────────────────────────────────────────
+
+#: Fee margin reserved when bridging the full HyperCore spot balance
+#: back to HyperEVM via ``sendAsset`` (CoreWriter action ID 13).
+#:
+#: Hyperliquid charges a bridge fee on HyperCore spot **before** the
+#: linked token settles on HyperEVM.  The fee equals 200k gas at the
+#: base gas price of the next HyperEVM block.  HYPE is consumed first
+#: if available; otherwise the fee is taken in USDC.
+#:
+#: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/hypercore-less-than-greater-than-hyperevm-transfers
+#:
+#: In manual mainnet verification (2026-03-23), bridging 9 USDC in tx
+#: `0x82c7ca18fed4952dfdfdffb4e7565cc768c2ab14fe7533bb42a0734cfdf36b16
+#: <https://hyperevmscan.io/tx/0x82c7ca18fed4952dfdfdffb4e7565cc768c2ab14fe7533bb42a0734cfdf36b16>`__
+#: returned 9 USDC to HyperEVM while reducing spot by ~9.000783 USDC
+#: (fee ~0.000783 USDC at 0.1 Gwei base gas price).
+#:
+#: When withdrawing the **entire** spot balance, this margin must be
+#: subtracted from the withdrawal amount so enough USDC remains on spot
+#: to cover the fee.  Without it the withdrawal silently fails (no error,
+#: no event — USDC stays in spot).  The value (0.01 USDC) provides ~12×
+#: headroom over the observed fee.
+#:
+#: See :py:func:`~eth_defi.hyperliquid.core_writer.compute_spot_to_evm_withdrawal_amount`.
+HYPERCORE_BRIDGE_FEE_MARGIN: Decimal = Decimal("0.01")
 
 
 # ──────────────────────────────────────────────

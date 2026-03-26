@@ -46,6 +46,7 @@ Example::
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from eth_abi import encode
@@ -55,6 +56,7 @@ from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import encode_function_call, get_contract, get_deployed_contract
+from eth_defi.hyperliquid.constants import HYPERCORE_BRIDGE_FEE_MARGIN
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
@@ -507,11 +509,55 @@ def build_hypercore_send_asset_to_evm_call(
         <https://hyperevmscan.io/tx/0x82c7ca18fed4952dfdfdffb4e7565cc768c2ab14fe7533bb42a0734cfdf36b16>`__
         returned 9 USDC to HyperEVM and consumed about 0.000783 USDC in spot
         bridge fees.
+
+    .. warning::
+
+        When bridging the **entire** spot balance, the caller must reduce
+        ``evm_usdc_amount`` to leave room for the bridge fee.  Use
+        :py:func:`compute_spot_to_evm_withdrawal_amount` to compute the
+        adjusted amount.  Without this the withdrawal silently fails (no
+        error, no event — USDC stays in spot).
     """
     return _build_hypercore_send_raw_action_call(
         lagoon_vault,
         encode_send_asset_to_evm(USDC_TOKEN_INDEX, evm_usdc_amount),
     )
+
+
+def compute_spot_to_evm_withdrawal_amount(
+    spot_balance: Decimal,
+    desired_amount: Decimal,
+) -> Decimal:
+    """Compute the actual ``sendAsset`` amount after reserving bridge fee margin.
+
+    HyperCore charges a bridge fee on spot **before** the linked token
+    settles on HyperEVM.  When the caller intends to bridge the **entire**
+    spot balance, the requested amount must be reduced by
+    :py:data:`~eth_defi.hyperliquid.constants.HYPERCORE_BRIDGE_FEE_MARGIN`
+    so that enough USDC remains on spot to cover the fee.
+
+    If the desired amount already leaves sufficient margin
+    (``spot_balance - desired_amount >= HYPERCORE_BRIDGE_FEE_MARGIN``),
+    it is returned unchanged.
+
+    If the spot balance is too small (at or below the fee margin),
+    returns ``Decimal(0)`` — callers must check for this and skip the
+    withdrawal or raise an operator error.
+
+    :param spot_balance:
+        Current HyperCore spot free USDC balance (human-readable).
+    :param desired_amount:
+        Amount the caller wants to bridge to HyperEVM (human-readable).
+    :return:
+        Adjusted withdrawal amount (human-readable).  May be zero if
+        the spot balance cannot cover the fee margin.
+    """
+    headroom = spot_balance - desired_amount
+    if headroom >= HYPERCORE_BRIDGE_FEE_MARGIN:
+        return desired_amount
+    if spot_balance > HYPERCORE_BRIDGE_FEE_MARGIN:
+        return spot_balance - HYPERCORE_BRIDGE_FEE_MARGIN
+    return Decimal(0)
 
 
 def build_hypercore_deposit_multicall(
@@ -868,13 +914,13 @@ def build_hypercore_withdraw_multicall(
     3. ``CoreWriter.sendRawAction(sendAsset)`` — bridge USDC back to HyperEVM
 
     The final bridge leg is subject to Hyperliquid Core -> HyperEVM bridge
-    fees paid from spot. A successful withdrawal can therefore leave a small
-    residual reduction on HyperCore spot in addition to the requested EVM
-    transfer amount. In manual mainnet verification, transaction
-    `0x82c7ca18fed4952dfdfdffb4e7565cc768c2ab14fe7533bb42a0734cfdf36b16
-    <https://hyperevmscan.io/tx/0x82c7ca18fed4952dfdfdffb4e7565cc768c2ab14fe7533bb42a0734cfdf36b16>`__
-    consumed about 0.000783 USDC in bridge fees on spot while returning
-    9 USDC to HyperEVM.
+    fees paid from spot (see
+    :py:data:`~eth_defi.hyperliquid.constants.HYPERCORE_BRIDGE_FEE_MARGIN`).
+    The fee is an extra deduction from spot — the EVM side receives exactly
+    the requested amount — so the fee is absorbed by any pre-existing spot
+    surplus.  If the Safe has **no** pre-existing spot balance, the caller
+    should use :py:func:`compute_spot_to_evm_withdrawal_amount` to reduce
+    the amount before building the multicall.
 
     When the EVM block finishes execution, all queued CoreWriter actions
     are processed sequentially on HyperCore (~47k gas per action).
