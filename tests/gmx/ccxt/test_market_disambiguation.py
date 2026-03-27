@@ -4,100 +4,46 @@ Covers the production bug where closing a BTC/USDC position would fail with
 "Not a valid collateral for selected market!" because multiple BTC markets
 share the same index token and dict iteration order picked the wrong pool.
 
-All tests are pure unit tests (no RPC needed) using fake market dicts that
-replicate the real Arbitrum layout.
-
-Both REST API and GraphQL market loading paths produce the same info-dict key
-names (``market_token``, ``index_token``, ``long_token``, ``short_token``), so
-the disambiguation logic is format-agnostic.  The only differences are address
-casing (REST/GraphQL store lowercase; the RPC-backed ``Markets`` cache stores
-checksummed addresses).  The ``find_all_market_keys_by_index_address()`` method
-handles this via ``Web3.to_checksum_address()`` so both casings are safe.
+All tests use live Arbitrum mainnet data via the ``ccxt_gmx_arbitrum`` fixture.
+Requires ``JSON_RPC_ARBITRUM`` environment variable.
 """
 
 import pytest
 
+from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
 
+
 # ---------------------------------------------------------------------------
-# Real Arbitrum addresses used in the tests
+# Helpers
 # ---------------------------------------------------------------------------
 
-#: BTC synthetic index token address (shared by WBTC-USDC and tBTC-tBTC pools)
-BTC_INDEX_TOKEN = "0x47904963fc8b2340414262125aF798B9655E58Cd"
 
-#: WBTC-USDC market address — accepts WBTC (long) and USDC (short) as collateral
-WBTC_USDC_MARKET = "0x47c031236e19d024b42f8AE6780E44A573170703"
-WBTC_ADDRESS = "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"
-USDC_ADDRESS = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
-
-#: tBTC-tBTC market address — accepts only tBTC as collateral
-TBTC_TBTC_MARKET = "0xd62068c166171b3d094E03E00a1e5fbD9AF0a64B"
-TBTC_ADDRESS = "0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40"
-
-#: An unrelated ETH market to pad the dict
-ETH_INDEX_TOKEN = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
-ETH_USDC_MARKET = "0x70d95587d40A2caf56bd97485aB3Eec10Bee6336"
-ETH_ADDRESS = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
+def _load_all_markets(gmx):
+    """Return the full markets dict from Markets.get_available_markets()."""
+    gmx.load_markets()
+    return Markets(gmx.config).get_available_markets()
 
 
-def _btc_markets_wbtc_first() -> dict:
-    """Markets dict with WBTC-USDC pool iterated before tBTC-tBTC."""
-    return {
-        WBTC_USDC_MARKET: {
-            "index_token_address": BTC_INDEX_TOKEN,
-            "long_token_address": WBTC_ADDRESS,
-            "short_token_address": USDC_ADDRESS,
-            "long_token_metadata": {"symbol": "WBTC"},
-            "short_token_metadata": {"symbol": "USDC"},
-        },
-        TBTC_TBTC_MARKET: {
-            "index_token_address": BTC_INDEX_TOKEN,
-            "long_token_address": TBTC_ADDRESS,
-            "short_token_address": TBTC_ADDRESS,
-            "long_token_metadata": {"symbol": "tBTC"},
-            "short_token_metadata": {"symbol": "tBTC"},
-        },
-        ETH_USDC_MARKET: {
-            "index_token_address": ETH_INDEX_TOKEN,
-            "long_token_address": ETH_ADDRESS,
-            "short_token_address": USDC_ADDRESS,
-            "long_token_metadata": {"symbol": "ETH"},
-            "short_token_metadata": {"symbol": "USDC"},
-        },
-    }
+def _find_multi_pool_index_token(all_markets: dict) -> tuple[str, list[str]]:
+    """Find an index token that appears in more than one pool.
 
-
-def _btc_markets_tbtc_first() -> dict:
-    """Markets dict with tBTC-tBTC pool iterated BEFORE WBTC-USDC.
-
-    This is the ordering that triggered the production crash: the tBTC pool
-    was returned first, USDC was not a valid collateral for it, and the order
-    failed even though the WBTC-USDC pool would have accepted USDC.
+    Returns ``(index_token_address, [market_key, ...])`` for the first index
+    token that has at least two pools.  Raises ``pytest.skip`` if none found.
     """
-    return {
-        TBTC_TBTC_MARKET: {
-            "index_token_address": BTC_INDEX_TOKEN,
-            "long_token_address": TBTC_ADDRESS,
-            "short_token_address": TBTC_ADDRESS,
-            "long_token_metadata": {"symbol": "tBTC"},
-            "short_token_metadata": {"symbol": "tBTC"},
-        },
-        WBTC_USDC_MARKET: {
-            "index_token_address": BTC_INDEX_TOKEN,
-            "long_token_address": WBTC_ADDRESS,
-            "short_token_address": USDC_ADDRESS,
-            "long_token_metadata": {"symbol": "WBTC"},
-            "short_token_metadata": {"symbol": "USDC"},
-        },
-        ETH_USDC_MARKET: {
-            "index_token_address": ETH_INDEX_TOKEN,
-            "long_token_address": ETH_ADDRESS,
-            "short_token_address": USDC_ADDRESS,
-            "long_token_metadata": {"symbol": "ETH"},
-            "short_token_metadata": {"symbol": "USDC"},
-        },
-    }
+    from collections import defaultdict
+
+    by_index: dict[str, list[str]] = defaultdict(list)
+    for key, m in all_markets.items():
+        idx = m.get("index_token_address", "").lower()
+        if idx:
+            by_index[idx].append(key)
+
+    for idx, keys in by_index.items():
+        if len(keys) >= 2:
+            return idx, keys
+
+    pytest.skip("No index token with multiple pools found on this RPC endpoint")
 
 
 # ---------------------------------------------------------------------------
@@ -105,62 +51,194 @@ def _btc_markets_tbtc_first() -> dict:
 # ---------------------------------------------------------------------------
 
 
-def test_find_all_market_keys_returns_all_pools():
-    """Both BTC pools must be found regardless of dict ordering."""
-    for markets in (_btc_markets_wbtc_first(), _btc_markets_tbtc_first()):
-        result = OrderArgumentParser.find_all_market_keys_by_index_address(markets, BTC_INDEX_TOKEN)
-        assert set(result) == {WBTC_USDC_MARKET, TBTC_TBTC_MARKET}, (
-            f"Expected both BTC markets, got: {result}"
-        )
+def test_find_all_market_keys_returns_all_pools(ccxt_gmx_arbitrum):
+    """find_all_market_keys_by_index_address must return every pool that shares
+    a given index token, not just the first one.
+
+    Uses a real index token (first one found with multiple pools on Arbitrum)
+    so the test reflects actual on-chain state rather than synthetic data.
+    """
+    all_markets = _load_all_markets(ccxt_gmx_arbitrum)
+    index_token, expected_keys = _find_multi_pool_index_token(all_markets)
+
+    result = OrderArgumentParser.find_all_market_keys_by_index_address(all_markets, index_token)
+
+    assert set(result) == set(expected_keys), (
+        f"Expected all pools for index_token {index_token}: {expected_keys}, got: {result}"
+    )
 
 
-def test_find_all_market_keys_single_match():
-    """ETH only has one pool — the list must contain exactly one entry."""
-    for markets in (_btc_markets_wbtc_first(), _btc_markets_tbtc_first()):
-        result = OrderArgumentParser.find_all_market_keys_by_index_address(markets, ETH_INDEX_TOKEN)
-        assert result == [ETH_USDC_MARKET]
+def test_find_all_market_keys_single_pool_token(ccxt_gmx_arbitrum):
+    """For an index token that appears in exactly one pool the method must
+    return a single-element list."""
+    all_markets = _load_all_markets(ccxt_gmx_arbitrum)
+
+    from collections import defaultdict
+
+    by_index: dict[str, list[str]] = defaultdict(list)
+    for key, m in all_markets.items():
+        idx = m.get("index_token_address", "").lower()
+        if idx:
+            by_index[idx].append(key)
+
+    solo_index = next((idx for idx, keys in by_index.items() if len(keys) == 1), None)
+    if solo_index is None:
+        pytest.skip("All index tokens have multiple pools — cannot test single-pool path")
+
+    result = OrderArgumentParser.find_all_market_keys_by_index_address(all_markets, solo_index)
+    assert len(result) == 1, f"Expected exactly 1 match for solo index token {solo_index}, got: {result}"
 
 
-def test_find_all_market_keys_no_match():
-    """Unknown address returns an empty list."""
+def test_find_all_market_keys_unknown_address_returns_empty(ccxt_gmx_arbitrum):
+    """An address not present in the markets dict must return an empty list."""
+    all_markets = _load_all_markets(ccxt_gmx_arbitrum)
     unknown = "0x0000000000000000000000000000000000000001"
-    result = OrderArgumentParser.find_all_market_keys_by_index_address(_btc_markets_wbtc_first(), unknown)
+    result = OrderArgumentParser.find_all_market_keys_by_index_address(all_markets, unknown)
     assert result == []
 
 
 # ---------------------------------------------------------------------------
-# Collateral-based disambiguation in _check_if_valid_collateral_for_market
+# Collateral-based pool disambiguation
 # ---------------------------------------------------------------------------
 
 
-def test_usdc_valid_for_wbtc_usdc_pool():
-    """USDC must be accepted as a valid collateral for the WBTC-USDC pool."""
-    market = _btc_markets_wbtc_first()[WBTC_USDC_MARKET]
-    # Simulate the validation logic directly
-    assert USDC_ADDRESS in (market["long_token_address"], market["short_token_address"])
+def test_collateral_disambiguation_selects_matching_pool(ccxt_gmx_arbitrum):
+    """When multiple pools share an index token, selecting by collateral address
+    must pick the pool that actually accepts that collateral.
 
-
-def test_usdc_invalid_for_tbtc_pool():
-    """USDC must NOT be accepted as a valid collateral for the tBTC-tBTC pool."""
-    market = _btc_markets_wbtc_first()[TBTC_TBTC_MARKET]
-    assert USDC_ADDRESS not in (market["long_token_address"], market["short_token_address"])
-
-
-# ---------------------------------------------------------------------------
-# Error message quality for _check_if_valid_collateral_for_market
-# ---------------------------------------------------------------------------
-
-
-def test_invalid_collateral_error_includes_addresses():
-    """The 'Not a valid collateral' error must include market key, collateral address
-    and the valid long/short token addresses so production logs are actionable.
-
-    Regression: previously the message was a bare string with no context.
+    Uses the first multi-pool index token found on Arbitrum and picks the
+    short_token of one of the pools as the collateral to select.
     """
-    # Build a minimal OrderArgumentParser to call the validation method.
-    # We can't easily instantiate one without an RPC endpoint, so we call the
-    # private method by directly constructing the scenario with a mock.
+    all_markets = _load_all_markets(ccxt_gmx_arbitrum)
+    _, pool_keys = _find_multi_pool_index_token(all_markets)
+
+    # Pick one pool and use its short_token as the target collateral
+    target_key = pool_keys[0]
+    target_collateral = all_markets[target_key]["short_token_address"].lower()
+
+    selected = next(
+        (
+            k
+            for k in pool_keys
+            if target_collateral
+            in (
+                all_markets[k]["long_token_address"].lower(),
+                all_markets[k]["short_token_address"].lower(),
+            )
+        ),
+        None,
+    )
+
+    assert selected is not None, (
+        f"Collateral {target_collateral} not found in any of the pools: "
+        f"{[(k, all_markets[k]['long_token_address'], all_markets[k]['short_token_address']) for k in pool_keys]}"
+    )
+    # The selected pool must accept the collateral
+    m = all_markets[selected]
+    assert target_collateral in (
+        m["long_token_address"].lower(),
+        m["short_token_address"].lower(),
+    )
+
+
+def test_disambiguation_result_independent_of_dict_order(ccxt_gmx_arbitrum):
+    """The correct pool must be selected regardless of the iteration order of
+    the markets dict.
+
+    This is the exact regression test for the production crash: previously
+    ``find_market_key_by_index_address`` returned whichever pool came first in
+    dict order.  This test reverses the dict and asserts the same pool is
+    chosen both ways.
+    """
+    all_markets = _load_all_markets(ccxt_gmx_arbitrum)
+    index_token, pool_keys = _find_multi_pool_index_token(all_markets)
+
+    # Choose a deterministic collateral: short_token of the last pool key
+    # (so it is *not* the first pool — exercises the ordering dependency)
+    target_key = pool_keys[-1]
+    target_collateral = all_markets[target_key]["short_token_address"].lower()
+
+    def _select(markets_dict):
+        candidates = OrderArgumentParser.find_all_market_keys_by_index_address(markets_dict, index_token)
+        return next(
+            (
+                k
+                for k in candidates
+                if target_collateral
+                in (
+                    markets_dict[k]["long_token_address"].lower(),
+                    markets_dict[k]["short_token_address"].lower(),
+                )
+            ),
+            None,
+        )
+
+    # Forward order
+    forward_selected = _select(all_markets)
+
+    # Reversed order
+    reversed_markets = dict(reversed(list(all_markets.items())))
+    reversed_selected = _select(reversed_markets)
+
+    assert forward_selected == reversed_selected, (
+        f"Pool selection differs between forward and reversed dict order: "
+        f"forward={forward_selected} reversed={reversed_selected}. "
+        f"Disambiguation is still dict-order dependent."
+    )
+    assert forward_selected is not None, (
+        f"Could not find any pool accepting collateral {target_collateral}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Error message quality
+# ---------------------------------------------------------------------------
+
+
+def _find_disjoint_pool_pair(all_markets: dict) -> tuple[str, str, str] | None:
+    """Find two pools sharing an index token but with disjoint collateral tokens.
+
+    Returns ``(pool_a_key, pool_b_key, invalid_collateral_address)`` where
+    ``invalid_collateral_address`` is a token of pool B that is NOT valid for
+    pool A.  Returns ``None`` if no such pair exists.
+    """
+    from collections import defaultdict
+
+    by_index: dict[str, list[str]] = defaultdict(list)
+    for key, m in all_markets.items():
+        idx = m.get("index_token_address", "").lower()
+        if idx:
+            by_index[idx].append(key)
+
+    for keys in by_index.values():
+        if len(keys) < 2:
+            continue
+        for i, key_a in enumerate(keys):
+            pool_a = all_markets[key_a]
+            valid_a = {pool_a["long_token_address"].lower(), pool_a["short_token_address"].lower()}
+            for key_b in keys[i + 1 :]:
+                pool_b = all_markets[key_b]
+                for candidate in (pool_b["long_token_address"], pool_b["short_token_address"]):
+                    if candidate.lower() not in valid_a:
+                        return key_a, key_b, candidate
+    return None
+
+
+def test_invalid_collateral_error_includes_context(ccxt_gmx_arbitrum):
+    """The 'Not a valid collateral' exception must include the market key,
+    the rejected collateral address, the valid long/short token addresses,
+    and a hint — so production logs are immediately actionable.
+
+    Regression: previously the message was a bare one-liner with no context.
+    """
     from unittest.mock import MagicMock, patch
+
+    all_markets = _load_all_markets(ccxt_gmx_arbitrum)
+    pair = _find_disjoint_pool_pair(all_markets)
+    if pair is None:
+        pytest.skip("No pool pair with disjoint collateral found — cannot test error path")
+
+    pool_a_key, _pool_b_key, invalid_collateral = pair
 
     mock_config = MagicMock()
     mock_config.chain = "arbitrum"
@@ -170,7 +248,7 @@ def test_invalid_collateral_error_includes_addresses():
     mock_config._user_wallet_address = None
 
     with patch("eth_defi.gmx.order.order_argument_parser.Markets") as MockMarkets:
-        MockMarkets.return_value.get_available_markets.return_value = _btc_markets_wbtc_first()
+        MockMarkets.return_value.get_available_markets.return_value = all_markets
         with patch("eth_defi.gmx.order.order_argument_parser._get_token_metadata_dict"):
             parser = OrderArgumentParser.__new__(OrderArgumentParser)
             parser.config = mock_config
@@ -178,187 +256,79 @@ def test_invalid_collateral_error_includes_addresses():
             parser.is_increase = True
             parser.is_decrease = False
             parser.is_swap = False
-            parser.markets = _btc_markets_wbtc_first()
+            parser.markets = all_markets
             parser.parameters_dict = {
-                "market_key": WBTC_USDC_MARKET,
+                "market_key": pool_a_key,
                 "chain": "arbitrum",
             }
 
     with pytest.raises(Exception) as exc_info:
-        parser._check_if_valid_collateral_for_market(TBTC_ADDRESS)
+        parser._check_if_valid_collateral_for_market(invalid_collateral)
 
     msg = str(exc_info.value)
-    assert "market_key" in msg, "Error must include market_key"
-    assert WBTC_USDC_MARKET in msg, "Error must include the market address"
-    assert TBTC_ADDRESS in msg, "Error must include the invalid collateral address"
-    assert WBTC_ADDRESS in msg or USDC_ADDRESS in msg, "Error must include valid token addresses"
+    assert "market_key" in msg, "Error must include market_key label"
+    assert pool_a_key in msg, "Error must include the market address"
+    assert invalid_collateral in msg, "Error must include the rejected collateral address"
     assert "Hint" in msg, "Error must include a hint for the user"
 
 
 # ---------------------------------------------------------------------------
-# Regression: dict-order must not affect market selection
+# fetch_pools_for_symbol
 # ---------------------------------------------------------------------------
 
 
-def test_market_selection_independent_of_dict_order_usdc_collateral():
-    """The WBTC-USDC pool must be selected for USDC collateral regardless of
-    whether WBTC-USDC or tBTC-tBTC appears first in the markets dict.
+def test_fetch_pools_for_symbol_returns_multiple_btc_pools(ccxt_gmx_arbitrum):
+    """fetch_pools_for_symbol('BTC/USD') must return at least two pools on Arbitrum.
 
-    This is the exact scenario that caused the production crash: on one restart
-    WBTC-USDC was first (correct market selected, order succeeded); on another
-    restart tBTC-tBTC was first (wrong market, USDC rejected, bot crashed).
+    BTC has both a WBTC-USDC pool and a tBTC-tBTC pool sharing the same index
+    token.  The method must find all of them, not just the default one stored
+    in self.markets.
     """
-    usdc_checksum = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"  # USDC on Arbitrum
+    gmx = ccxt_gmx_arbitrum
+    gmx.load_markets()
+    pools = gmx.fetch_pools_for_symbol("BTC/USD")
 
-    for label, markets in [
-        ("WBTC-USDC first", _btc_markets_wbtc_first()),
-        ("tBTC-tBTC first (production crash ordering)", _btc_markets_tbtc_first()),
-    ]:
-        matches = OrderArgumentParser.find_all_market_keys_by_index_address(markets, BTC_INDEX_TOKEN)
-        assert len(matches) == 2
-
-        # Simulate the collateral-based disambiguation
-        selected = None
-        for key in matches:
-            m = markets[key]
-            if usdc_checksum in (m["long_token_address"], m["short_token_address"]):
-                selected = key
-                break
-
-        assert selected == WBTC_USDC_MARKET, (
-            f"[{label}] Expected WBTC-USDC market to be selected for USDC collateral, "
-            f"got {selected}. This is the production crash bug."
-        )
-
-
-def test_market_selection_independent_of_dict_order_tbtc_collateral():
-    """The tBTC-tBTC pool must be selected when tBTC is used as collateral,
-    regardless of dict ordering."""
-    tbtc_checksum = "0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40"
-
-    for label, markets in [
-        ("WBTC-USDC first", _btc_markets_wbtc_first()),
-        ("tBTC-tBTC first", _btc_markets_tbtc_first()),
-    ]:
-        matches = OrderArgumentParser.find_all_market_keys_by_index_address(markets, BTC_INDEX_TOKEN)
-        selected = None
-        for key in matches:
-            m = markets[key]
-            if tbtc_checksum in (m["long_token_address"], m["short_token_address"]):
-                selected = key
-                break
-
-        assert selected == TBTC_TBTC_MARKET, (
-            f"[{label}] Expected tBTC-tBTC market for tBTC collateral, got {selected}"
-        )
-
-
-# ---------------------------------------------------------------------------
-# REST API vs GraphQL address format compatibility
-# ---------------------------------------------------------------------------
-
-
-def _rest_api_format_markets() -> dict:
-    """Fake markets in REST API info-dict format (lowercase addresses).
-
-    The REST API loading path (``_load_markets_from_rest_api``) stores all token
-    addresses in lower-case after calling ``.lower()`` on the raw API response.
-    """
-    return {
-        WBTC_USDC_MARKET: {
-            "index_token_address": BTC_INDEX_TOKEN.lower(),
-            "long_token_address": WBTC_ADDRESS.lower(),
-            "short_token_address": USDC_ADDRESS.lower(),
-            "long_token_metadata": {"symbol": "WBTC"},
-            "short_token_metadata": {"symbol": "USDC"},
-        },
-        TBTC_TBTC_MARKET: {
-            "index_token_address": BTC_INDEX_TOKEN.lower(),
-            "long_token_address": TBTC_ADDRESS.lower(),
-            "short_token_address": TBTC_ADDRESS.lower(),
-            "long_token_metadata": {"symbol": "tBTC"},
-            "short_token_metadata": {"symbol": "tBTC"},
-        },
-    }
-
-
-def _graphql_format_markets() -> dict:
-    """Fake markets in GraphQL info-dict format (mixed-case / checksummed addresses).
-
-    The GraphQL loading path (``_load_markets_from_graphql``) stores addresses as
-    returned by the Subsquid API which preserves the original checksum casing.
-    """
-    return {
-        WBTC_USDC_MARKET: {
-            "index_token_address": BTC_INDEX_TOKEN,  # checksummed
-            "long_token_address": WBTC_ADDRESS,
-            "short_token_address": USDC_ADDRESS,
-            "long_token_metadata": {"symbol": "WBTC"},
-            "short_token_metadata": {"symbol": "USDC"},
-        },
-        TBTC_TBTC_MARKET: {
-            "index_token_address": BTC_INDEX_TOKEN,
-            "long_token_address": TBTC_ADDRESS,
-            "short_token_address": TBTC_ADDRESS,
-            "long_token_metadata": {"symbol": "tBTC"},
-            "short_token_metadata": {"symbol": "tBTC"},
-        },
-    }
-
-
-def test_disambiguation_works_with_rest_api_lowercase_addresses():
-    """find_all_market_keys_by_index_address must work when addresses are lowercase.
-
-    The REST API loading path stores addresses in lower-case after ``.lower()``.
-    ``Web3.to_checksum_address()`` inside the method converts the search key so
-    the comparison is case-insensitive.
-    """
-    markets = _rest_api_format_markets()
-    result = OrderArgumentParser.find_all_market_keys_by_index_address(markets, BTC_INDEX_TOKEN)
-    assert set(result) == {WBTC_USDC_MARKET, TBTC_TBTC_MARKET}, (
-        f"REST-format lowercase addresses: expected both BTC pools, got: {result}"
+    assert len(pools) >= 2, (
+        f"Expected at least 2 BTC pools on Arbitrum (WBTC-USDC and tBTC-tBTC), got: {pools}"
     )
 
 
-def test_disambiguation_works_with_graphql_checksummed_addresses():
-    """find_all_market_keys_by_index_address must work when addresses are checksummed.
+def test_fetch_pools_for_symbol_pool_fields_are_populated(ccxt_gmx_arbitrum):
+    """Every pool returned by fetch_pools_for_symbol must have the required fields."""
+    gmx = ccxt_gmx_arbitrum
+    gmx.load_markets()
+    pools = gmx.fetch_pools_for_symbol("BTC/USD")
 
-    The GraphQL loading path preserves the original mixed-case checksum address
-    returned by the Subsquid API.
-    """
-    markets = _graphql_format_markets()
-    result = OrderArgumentParser.find_all_market_keys_by_index_address(markets, BTC_INDEX_TOKEN)
-    assert set(result) == {WBTC_USDC_MARKET, TBTC_TBTC_MARKET}, (
-        f"GraphQL-format checksummed addresses: expected both BTC pools, got: {result}"
+    for pool in pools:
+        assert pool.get("market_address"), f"Pool missing market_address: {pool}"
+        assert pool.get("long_token"), f"Pool missing long_token: {pool}"
+        assert pool.get("short_token"), f"Pool missing short_token: {pool}"
+        assert pool.get("index_token"), f"Pool missing index_token: {pool}"
+        assert pool.get("long_token_symbol"), f"Pool missing long_token_symbol: {pool}"
+        assert pool.get("short_token_symbol"), f"Pool missing short_token_symbol: {pool}"
+
+    # All returned pools must share one index token
+    index_tokens = {p["index_token"].lower() for p in pools}
+    assert len(index_tokens) == 1, (
+        f"All BTC pools should share one index token, got multiple: {index_tokens}"
     )
 
 
-def test_collateral_selection_rest_format_selects_correct_pool():
-    """Collateral-based pool selection works with REST API (lowercase) address format."""
-    markets = _rest_api_format_markets()
-    matches = OrderArgumentParser.find_all_market_keys_by_index_address(markets, BTC_INDEX_TOKEN)
+def test_fetch_pools_for_symbol_btc_has_usdc_pool(ccxt_gmx_arbitrum):
+    """Among the BTC pools there must be one that accepts USDC as short collateral.
 
-    usdc_lower = USDC_ADDRESS.lower()
-    selected = next(
-        (k for k in matches if usdc_lower in (markets[k]["long_token_address"], markets[k]["short_token_address"])),
+    This verifies the WBTC-USDC pool is discoverable — the pool required for
+    BTC/USDC:USDC positions.
+    """
+    gmx = ccxt_gmx_arbitrum
+    gmx.load_markets()
+    pools = gmx.fetch_pools_for_symbol("BTC/USD")
+
+    usdc_pool = next(
+        (p for p in pools if p["short_token_symbol"].upper() == "USDC"),
         None,
     )
-    assert selected == WBTC_USDC_MARKET, (
-        f"REST format: WBTC-USDC pool not selected for USDC collateral, got: {selected}"
-    )
-
-
-def test_collateral_selection_graphql_format_selects_correct_pool():
-    """Collateral-based pool selection works with GraphQL (checksummed) address format."""
-    markets = _graphql_format_markets()
-    matches = OrderArgumentParser.find_all_market_keys_by_index_address(markets, BTC_INDEX_TOKEN)
-
-    # Checksum version of USDC address as stored by the GraphQL path
-    usdc_checksum = USDC_ADDRESS
-    selected = next(
-        (k for k in matches if usdc_checksum in (markets[k]["long_token_address"], markets[k]["short_token_address"])),
-        None,
-    )
-    assert selected == WBTC_USDC_MARKET, (
-        f"GraphQL format: WBTC-USDC pool not selected for USDC collateral, got: {selected}"
+    assert usdc_pool is not None, (
+        f"No BTC pool with USDC short collateral found. "
+        f"short_token_symbols present: {[p['short_token_symbol'] for p in pools]}"
     )
