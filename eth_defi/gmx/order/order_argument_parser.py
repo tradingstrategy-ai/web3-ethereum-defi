@@ -229,7 +229,15 @@ class OrderArgumentParser:
         self.parameters_dict["index_token_address"] = self.find_key_by_symbol(tokens, token_symbol)
 
     def _handle_missing_market_key(self):
-        """Resolve market key from index token address."""
+        """Resolve market key from index token address.
+
+        When multiple markets share the same index token (e.g. BTC has both
+        WBTC-USDC and tBTC-tBTC pools), the collateral symbol is used to
+        disambiguate: the market whose long_token or short_token matches the
+        requested collateral is preferred.  Without this, dict-order determines
+        which pool is selected — causing non-deterministic collateral validation
+        failures across restarts.
+        """
         index_token_address = self.parameters_dict["index_token_address"]
 
         # Normalise to checksum address before any comparison
@@ -245,10 +253,11 @@ class OrderArgumentParser:
             index_token_address,
         )
 
-        # Find market key from markets dict
-        market_key = self.find_market_key_by_index_address(self.markets, index_token_address)
+        # Collect ALL markets that match the index token — there may be several
+        # (e.g. BTC/USD has both WBTC-USDC and tBTC-tBTC pools on Arbitrum).
+        all_matches = self.find_all_market_keys_by_index_address(self.markets, index_token_address)
 
-        if market_key is None:
+        if not all_matches:
             available = [v.get("index_token_address") for v in self.markets.values()]
             logger.info(
                 "_handle_missing_market_key: NOT FOUND for index_token_address=%s — available=%s",
@@ -257,6 +266,48 @@ class OrderArgumentParser:
             )
             msg = f"No GMX market found for index_token_address={index_token_address!r}. Available index_token_addresses: {available}"
             raise ValueError(msg)
+
+        if len(all_matches) == 1:
+            market_key = all_matches[0]
+        else:
+            # Multiple pools share this index token.  Disambiguate by collateral.
+            collateral_symbol = self.parameters_dict.get("collateral_token_symbol") or self.parameters_dict.get("collateral_symbol")
+            market_key = None
+            if collateral_symbol:
+                tokens = _get_token_metadata_dict(self.web3, self.parameters_dict["chain"])
+                # Resolve collateral symbol to address
+                collateral_address = None
+                for addr, meta in tokens.items():
+                    if meta.get("symbol") == collateral_symbol:
+                        collateral_address = Web3.to_checksum_address(addr)
+                        break
+
+                if collateral_address:
+                    for candidate_key in all_matches:
+                        candidate = self.markets[candidate_key]
+                        if collateral_address in (
+                            candidate.get("long_token_address"),
+                            candidate.get("short_token_address"),
+                        ):
+                            market_key = candidate_key
+                            logger.info(
+                                "_handle_missing_market_key: selected market %s (collateral %s matches pool tokens)",
+                                market_key,
+                                collateral_symbol,
+                            )
+                            break
+
+            if market_key is None:
+                # No collateral hint or no match — fall back to first entry with a warning
+                market_key = all_matches[0]
+                logger.warning(
+                    "_handle_missing_market_key: %d markets share index_token %s, could not disambiguate by collateral (%s) — using first match %s. All candidates: %s",
+                    len(all_matches),
+                    index_token_address,
+                    collateral_symbol,
+                    market_key,
+                    all_matches,
+                )
 
         self.parameters_dict["market_key"] = market_key
 
@@ -385,7 +436,7 @@ class OrderArgumentParser:
         ):
             return True
         else:
-            msg = "Not a valid collateral for selected market!"
+            msg = f"Not a valid collateral for selected market!\n  market_key: {market_key}\n  collateral_address: {collateral_address}\n  valid long_token: {market['long_token_address']} ({market['long_token_metadata'].get('symbol', '?')})\n  valid short_token: {market['short_token_address']} ({market['short_token_metadata'].get('symbol', '?')})\n  Hint: set collateral_symbol to the long or short token symbol of this market."
             raise Exception(msg)
 
     @staticmethod
@@ -405,8 +456,42 @@ class OrderArgumentParser:
         raise Exception(msg)
 
     @staticmethod
+    def find_all_market_keys_by_index_address(input_dict: dict, index_token_address: str) -> list[str]:
+        """Return all market keys whose index token matches ``index_token_address``.
+
+        Multiple pools can share the same index token (e.g. BTC/USD has WBTC-USDC
+        and tBTC-tBTC on Arbitrum).  Unlike :meth:`find_market_key_by_index_address`,
+        this method returns every match so callers can apply secondary disambiguation
+        (e.g. by collateral token).
+
+        :param input_dict: Markets dict keyed by market address (from :class:`Markets`)
+        :param index_token_address: Index token address to search for
+        :return: List of matching market address keys (may be empty)
+        """
+        checksum_address = Web3.to_checksum_address(index_token_address) if index_token_address else None
+        lower_address = checksum_address.lower() if checksum_address else None
+        # Compare lowercase on both sides so the method works regardless of whether
+        # stored addresses are checksummed (RPC/GraphQL path) or lowercase (REST API path).
+        matches = [
+            key
+            for key, value in input_dict.items()
+            if value.get("index_token_address", "").lower() == lower_address
+        ]
+        logger.info(
+            "find_all_market_keys_by_index_address: address=%s found %d match(es): %s",
+            checksum_address,
+            len(matches),
+            matches,
+        )
+        return matches
+
+    @staticmethod
     def find_market_key_by_index_address(input_dict: dict, index_token_address: str):
         """Find market key by index token address.
+
+        Returns the first matching market key.  When multiple pools share the same
+        index token, use :meth:`find_all_market_keys_by_index_address` together with
+        collateral-based disambiguation instead.
 
         Normalises ``index_token_address`` to EIP-55 checksum form before comparing
         against stored market entries (which are already checksummed by :class:`Markets`).

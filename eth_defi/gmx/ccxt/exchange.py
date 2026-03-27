@@ -5438,6 +5438,103 @@ class GMX(ExchangeCompatible):
         return {k: v for k, v in dictionary.items() if k not in keys}
 
     # Order Creation Methods
+    def _resolve_market_info(self, symbol: str, params: dict) -> dict:
+        """Resolve market info for an order, honouring an optional ``market_address`` param.
+
+        When the caller supplies ``market_address`` in *params*, that specific pool is
+        looked up from ``Markets.get_available_markets()`` (cached via ``_CLASS_MARKETS_CACHE``)
+        instead of the default pool stored in ``self.markets`` for the unified symbol.
+        This allows trading on secondary pools such as BTC-BTC or tBTC-tBTC in addition
+        to the default BTC-USDC pool for a given index token.
+
+        When ``market_address`` is absent, the method returns the same info as
+        ``self.markets[normalized_symbol]["info"]``, preserving existing behaviour.
+
+        :param symbol: CCXT symbol, e.g. ``'BTC/USD'``
+        :param params: CCXT params dict — may contain optional ``market_address``
+        :return: dict with keys ``market_token``, ``index_token``, ``long_token``, ``short_token``
+        :raises ValueError: If the supplied ``market_address`` is not in the available markets
+        """
+        custom_address = params.get("market_address")
+        if custom_address:
+            checksum_addr = to_checksum_address(custom_address)
+            # Markets.get_available_markets() is backed by _CLASS_MARKETS_CACHE, so
+            # repeated calls within a session are essentially free (no extra RPC).
+            all_markets = Markets(self.config).get_available_markets()
+            if checksum_addr not in all_markets:
+                available = list(all_markets.keys())
+                raise ValueError(f"market_address {custom_address!r} not found in available GMX markets.\nAvailable market addresses: {available}")
+            m = all_markets[checksum_addr]
+            logger.info(
+                "Using custom market pool %s (long=%s, short=%s) for symbol %s",
+                checksum_addr,
+                m["long_token_address"],
+                m["short_token_address"],
+                symbol,
+            )
+            return {
+                "market_token": m["gmx_market_address"],
+                "index_token": m["index_token_address"],
+                "long_token": m["long_token_address"],
+                "short_token": m["short_token_address"],
+            }
+
+        # Default: use the pool already in self.markets for this symbol
+        normalized_symbol = self._normalize_symbol(symbol)
+        return self.markets[normalized_symbol].get("info", {})
+
+    def fetch_pools_for_symbol(self, symbol: str) -> list[dict]:
+        """Return all available GMX pools for a given market symbol.
+
+        GMX can have multiple pools for the same index token (e.g. BTC/USDC has
+        BTC-USDC, BTC-BTC and tBTC-tBTC pools).  This method exposes all of them so
+        callers can choose a specific pool via the ``market_address`` param.
+
+        :param symbol: CCXT symbol, e.g. ``'BTC/USD'`` or just ``'BTC'``
+        :return: List of pool dicts, each with keys:
+
+            - ``market_address`` — pool contract address
+            - ``long_token`` — long collateral token address
+            - ``long_token_symbol`` — long collateral token symbol
+            - ``short_token`` — short collateral token address
+            - ``short_token_symbol`` — short collateral token symbol
+            - ``index_token`` — index token address
+
+        :rtype: list[dict]
+        """
+        # Resolve the index token address for this symbol from the already-loaded
+        # self.markets (fast, no extra RPC).  Then return every pool from
+        # Markets.get_available_markets() that shares that index token — this
+        # catches pools like tBTC-tBTC which carry a "BTC2" market_symbol but
+        # the same underlying index token as the default WBTC-USDC pool.
+        normalized_symbol = self._normalize_symbol(symbol)
+        default_info = self.markets.get(normalized_symbol, {}).get("info", {})
+        index_token_addr = default_info.get("index_token") or default_info.get("indexToken")
+
+        all_markets = Markets(self.config).get_available_markets()
+        pools = []
+        for addr, m in all_markets.items():
+            match = False
+            if index_token_addr:
+                match = m.get("index_token_address", "").lower() == index_token_addr.lower()
+            else:
+                # Fallback: match by canonical symbol prefix (e.g. "BTC" matches "BTC" and "BTC2")
+                base = symbol.split("/")[0].upper()
+                market_sym = m.get("market_symbol", "").upper()
+                match = market_sym == base or market_sym.startswith(base)
+            if match:
+                pools.append(
+                    {
+                        "market_address": addr,
+                        "index_token": m["index_token_address"],
+                        "long_token": m["long_token_address"],
+                        "long_token_symbol": m["long_token_metadata"].get("symbol", "?"),
+                        "short_token": m["short_token_address"],
+                        "short_token_symbol": m["short_token_metadata"].get("symbol", "?"),
+                    }
+                )
+        return pools
+
     def _convert_ccxt_to_gmx_params(
         self,
         symbol: str,
@@ -5622,15 +5719,18 @@ class GMX(ExchangeCompatible):
                     size_delta_usd,
                 )
 
-        # Resolve market_key and index_token_address directly from self.markets so
-        # OrderArgumentParser never falls back to find_market_key_by_index_address().
-        # That fallback searches _MARKETS_CACHE (raw GMX SDK markets) by index token
-        # address and can return the deprecated pool address for normalised symbols
-        # (e.g. XAUT.v2 → XAUT) where both the deprecated and active pools share the
-        # same canonical base-currency symbol but have different pool addresses.
-        _market_info = market.get("info", {})
-        _market_key = _market_info.get("market_token") or _market_info.get("marketToken", "")
-        _index_token_addr = _market_info.get("index_token") or _market_info.get("indexToken", "")
+        # Resolve market info — honours optional ``market_address`` param so callers can
+        # select a non-default pool (e.g. BTC-BTC instead of the default BTC-USDC pool).
+        # When ``market_address`` is absent the resolved info is identical to what
+        # ``self.markets[normalized_symbol]["info"]`` would return, preserving current behaviour.
+        _resolved_info = self._resolve_market_info(symbol, params)
+        _market_key = _resolved_info.get("market_token") or _resolved_info.get("marketToken", "")
+        _index_token_addr = _resolved_info.get("index_token") or _resolved_info.get("indexToken", "")
+
+        # Track whether the caller explicitly chose a collateral token.
+        # The default value "USDC" is NOT treated as an explicit choice so that
+        # _create_order_with_sltp() can fall back to the market's natural long/short token.
+        _collateral_explicitly_set = "collateral_symbol" in params
 
         # Build GMX params dict with calculated/exact size
         gmx_params = {
@@ -5642,6 +5742,8 @@ class GMX(ExchangeCompatible):
             "leverage": leverage,
             "slippage_percent": slippage_percent,
             "_gmx_position": gmx_position,  # Pass through for reuse in close path (avoids duplicate RPC)
+            "_resolved_market_info": _resolved_info,  # Full resolved pool info for downstream use
+            "_collateral_explicitly_set": _collateral_explicitly_set,  # Whether user chose collateral
         }
 
         # Inject pre-resolved addresses so OrderArgumentParser skips its internal
@@ -5764,11 +5866,12 @@ class GMX(ExchangeCompatible):
         slippage_percent = gmx_params.get("slippage_percent", self.default_slippage)
         execution_buffer = gmx_params.get("execution_buffer", self.execution_buffer)
 
-        # Get token addresses from self.markets
-        # Note: self.markets is now correctly loaded (both GraphQL and RPC paths handle wstETH special case)
-        # This respects the user's loading preference (GraphQL vs RPC) and avoids unnecessary RPC calls
+        # Use the resolved market info from _convert_ccxt_to_gmx_params.
+        # When the caller supplied market_address in params, _resolved_market_info points to that
+        # specific pool; otherwise it mirrors self.markets[symbol]["info"] (no behaviour change).
         chain = self.config.get_chain()
-        market_address = market["info"]["market_token"]  # Market contract address
+        _resolved_info = gmx_params.get("_resolved_market_info", market.get("info", {}))
+        market_address = _resolved_info.get("market_token") or market["info"].get("market_token", "")
 
         # Sanity-check: log the exact market token being submitted so mismatches are
         # immediately visible in logs without needing to decode the raw transaction.
@@ -5776,22 +5879,52 @@ class GMX(ExchangeCompatible):
             "ORDER_TRACE: symbol=%s market_token=%s index_token=%s long_token=%s short_token=%s",
             symbol,
             market_address,
-            market["info"].get("index_token", "?"),
-            market["info"].get("long_token", "?"),
-            market["info"].get("short_token", "?"),
+            _resolved_info.get("index_token", "?"),
+            _resolved_info.get("long_token", "?"),
+            _resolved_info.get("short_token", "?"),
         )
 
         # Determine position direction from gmx_params (set by _convert_ccxt_to_gmx_params)
         is_long = gmx_params["is_long"]
 
-        # For GMX, we need to use the appropriate token based on position direction
-        # GMX markets have specific tokens for long/short positions
-        # Long positions use long_token, short positions use short_token (typically stablecoin)
-        if is_long:
-            collateral_address = market["info"]["long_token"]  # Use market's long token for long positions
+        # Resolve collateral address:
+        # - If the caller explicitly passed collateral_symbol, resolve it and validate it is a
+        #   valid long or short token for the resolved market.
+        # - Otherwise fall back to the market's natural token for the position direction
+        #   (long_token for longs, short_token for shorts), which is the original behaviour.
+        if gmx_params.get("_collateral_explicitly_set"):
+            collateral_symbol = gmx_params["collateral_symbol"]
+            # Resolve symbol → address via token metadata
+            from eth_defi.gmx.order.order_argument_parser import _get_token_metadata_dict
+
+            tokens = _get_token_metadata_dict(self.web3, chain)
+            resolved_long = to_checksum_address(_resolved_info.get("long_token", "")) if _resolved_info.get("long_token") else None
+            resolved_short = to_checksum_address(_resolved_info.get("short_token", "")) if _resolved_info.get("short_token") else None
+            # Find address for symbol
+            collateral_address = None
+            for addr, meta in tokens.items():
+                if meta.get("symbol") == collateral_symbol:
+                    collateral_address = addr
+                    break
+            if collateral_address is None:
+                raise ValueError(f"collateral_symbol {collateral_symbol!r} not found in GMX token list")
+            collateral_address = to_checksum_address(collateral_address)
+            if collateral_address not in (resolved_long, resolved_short):
+                raise ValueError(f"collateral_symbol {collateral_symbol!r} ({collateral_address}) is not a valid collateral for market {market_address}.\n  valid long_token:  {resolved_long}\n  valid short_token: {resolved_short}")
+            logger.info(
+                "Using explicit collateral %s (%s) for symbol %s",
+                collateral_symbol,
+                collateral_address,
+                symbol,
+            )
         else:
-            collateral_address = market["info"]["short_token"]  # Use market's short token for short positions
-        index_token_address = market["info"]["index_token"]  # Use market's index token
+            # Default: use the market's natural long/short token for the direction
+            if is_long:
+                collateral_address = _resolved_info.get("long_token") or market["info"].get("long_token")
+            else:
+                collateral_address = _resolved_info.get("short_token") or market["info"].get("short_token")
+
+        index_token_address = _resolved_info.get("index_token") or market["info"].get("index_token")
 
         if not collateral_address or not index_token_address:
             raise ValueError(f"Could not resolve token addresses for {symbol} market")
@@ -6876,8 +7009,10 @@ class GMX(ExchangeCompatible):
                 _open_count = _open_cb_entry.get("count", 0)
                 raise InvalidOrder(f"OPEN_CIRCUIT_BREAKER: skipping open for {symbol} — {_open_count} consecutive keeper cancellations (last reason: {_open_last_reason}). Cooldown: {_open_remaining}s remaining. Call reset_keeper_cancel_count('{symbol}') to resume.")
 
-            # Remove internal key used only in the close path
+            # Remove internal keys not consumed by GMXTrading / IncreaseOrder
             gmx_params.pop("_gmx_position", None)
+            gmx_params.pop("_resolved_market_info", None)
+            gmx_params.pop("_collateral_explicitly_set", None)
             if type == "limit":
                 # Limit order - triggers at specified price
                 if price is None:
