@@ -63,9 +63,7 @@ def test_find_all_market_keys_returns_all_pools(ccxt_gmx_arbitrum):
 
     result = OrderArgumentParser.find_all_market_keys_by_index_address(all_markets, index_token)
 
-    assert set(result) == set(expected_keys), (
-        f"Expected all pools for index_token {index_token}: {expected_keys}, got: {result}"
-    )
+    assert set(result) == set(expected_keys), f"Expected all pools for index_token {index_token}: {expected_keys}, got: {result}"
 
 
 def test_find_all_market_keys_single_pool_token(ccxt_gmx_arbitrum):
@@ -129,10 +127,7 @@ def test_collateral_disambiguation_selects_matching_pool(ccxt_gmx_arbitrum):
         None,
     )
 
-    assert selected is not None, (
-        f"Collateral {target_collateral} not found in any of the pools: "
-        f"{[(k, all_markets[k]['long_token_address'], all_markets[k]['short_token_address']) for k in pool_keys]}"
-    )
+    assert selected is not None, f"Collateral {target_collateral} not found in any of the pools: {[(k, all_markets[k]['long_token_address'], all_markets[k]['short_token_address']) for k in pool_keys]}"
     # The selected pool must accept the collateral
     m = all_markets[selected]
     assert target_collateral in (
@@ -180,14 +175,8 @@ def test_disambiguation_result_independent_of_dict_order(ccxt_gmx_arbitrum):
     reversed_markets = dict(reversed(list(all_markets.items())))
     reversed_selected = _select(reversed_markets)
 
-    assert forward_selected == reversed_selected, (
-        f"Pool selection differs between forward and reversed dict order: "
-        f"forward={forward_selected} reversed={reversed_selected}. "
-        f"Disambiguation is still dict-order dependent."
-    )
-    assert forward_selected is not None, (
-        f"Could not find any pool accepting collateral {target_collateral}"
-    )
+    assert forward_selected == reversed_selected, f"Pool selection differs between forward and reversed dict order: forward={forward_selected} reversed={reversed_selected}. Disambiguation is still dict-order dependent."
+    assert forward_selected is not None, f"Could not find any pool accepting collateral {target_collateral}"
 
 
 # ---------------------------------------------------------------------------
@@ -288,9 +277,7 @@ def test_fetch_pools_for_symbol_returns_multiple_btc_pools(ccxt_gmx_arbitrum):
     gmx.load_markets()
     pools = gmx.fetch_pools_for_symbol("BTC/USD")
 
-    assert len(pools) >= 2, (
-        f"Expected at least 2 BTC pools on Arbitrum (WBTC-USDC and tBTC-tBTC), got: {pools}"
-    )
+    assert len(pools) >= 2, f"Expected at least 2 BTC pools on Arbitrum (WBTC-USDC and tBTC-tBTC), got: {pools}"
 
 
 def test_fetch_pools_for_symbol_pool_fields_are_populated(ccxt_gmx_arbitrum):
@@ -309,9 +296,7 @@ def test_fetch_pools_for_symbol_pool_fields_are_populated(ccxt_gmx_arbitrum):
 
     # All returned pools must share one index token
     index_tokens = {p["index_token"].lower() for p in pools}
-    assert len(index_tokens) == 1, (
-        f"All BTC pools should share one index token, got multiple: {index_tokens}"
-    )
+    assert len(index_tokens) == 1, f"All BTC pools should share one index token, got multiple: {index_tokens}"
 
 
 def test_fetch_pools_for_symbol_btc_has_usdc_pool(ccxt_gmx_arbitrum):
@@ -328,7 +313,4 @@ def test_fetch_pools_for_symbol_btc_has_usdc_pool(ccxt_gmx_arbitrum):
         (p for p in pools if p["short_token_symbol"].upper() == "USDC"),
         None,
     )
-    assert usdc_pool is not None, (
-        f"No BTC pool with USDC short collateral found. "
-        f"short_token_symbols present: {[p['short_token_symbol'] for p in pools]}"
-    )
+    assert usdc_pool is not None, f"No BTC pool with USDC short collateral found. short_token_symbols present: {[p['short_token_symbol'] for p in pools]}"

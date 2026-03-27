@@ -472,11 +472,7 @@ class OrderArgumentParser:
         lower_address = checksum_address.lower() if checksum_address else None
         # Compare lowercase on both sides so the method works regardless of whether
         # stored addresses are checksummed (RPC/GraphQL path) or lowercase (REST API path).
-        matches = [
-            key
-            for key, value in input_dict.items()
-            if value.get("index_token_address", "").lower() == lower_address
-        ]
+        matches = [key for key, value in input_dict.items() if value.get("index_token_address", "").lower() == lower_address]
         logger.info(
             "find_all_market_keys_by_index_address: address=%s found %d match(es): %s",
             checksum_address,
