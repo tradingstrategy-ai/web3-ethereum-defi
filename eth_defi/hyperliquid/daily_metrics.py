@@ -926,6 +926,20 @@ class HyperliquidDailyMetricsDatabase:
         ).fetchall()
         return {r[0] for r in rows}
 
+    def get_all_tracked_addresses(self) -> set[str]:
+        """Return all vault addresses that have any price data in the database.
+
+        Used by the full-scan mode to identify every vault we have ever
+        tracked, so we can refresh their data regardless of current TVL.
+
+        :return:
+            Set of lowercased vault addresses.
+        """
+        rows = self.con.execute(
+            "SELECT DISTINCT vault_address FROM vault_daily_prices",
+        ).fetchall()
+        return {r[0] for r in rows}
+
     def get_vault_count(self) -> int:
         """Get the number of unique vaults with price data."""
         return self.con.execute("SELECT COUNT(DISTINCT vault_address) FROM vault_daily_prices").fetchone()[0]
@@ -1527,6 +1541,7 @@ def run_daily_scan(
     timeout: float = 30.0,
     vault_addresses: list[str] | None = None,
     flow_backfill_days: int = 7,
+    full_scan: bool = False,
 ) -> HyperliquidDailyMetricsDatabase:
     """Run the daily Hyperliquid vault metrics scan.
 
@@ -1562,10 +1577,19 @@ def run_daily_scan(
         Only complete days are fetched (up to yesterday). Set to ``0``
         to disable flow fetching. Use a large value (e.g. ``365``) for
         initial deep backfill.
+    :param full_scan:
+        When ``True``, bypass the ``min_tvl`` filter and process **all**
+        vaults that exist in the database and are still present in the
+        bulk API listing, regardless of their current TVL.  This is
+        intended to be run periodically (e.g. once a week) to refresh
+        data for vaults that have dropped below the daily TVL threshold
+        but still have historical data worth keeping current.  The
+        ``max_vaults`` limit still applies to cap total work.
+        Ignored when ``vault_addresses`` is provided.
     :return:
         The metrics database instance.
     """
-    logger.info("Starting daily Hyperliquid vault scan (flow_backfill_days=%d)", flow_backfill_days)
+    logger.info("Starting daily Hyperliquid vault scan (flow_backfill_days=%d, full_scan=%s)", flow_backfill_days, full_scan)
 
     db = HyperliquidDailyMetricsDatabase(db_path)
 
@@ -1593,6 +1617,20 @@ def run_daily_scan(
         if missing:
             logger.warning("Requested vaults not found in bulk listing: %s", missing)
         logger.info("Selected %d vaults by address", len(filtered))
+    elif full_scan:
+        # Full scan: process all vaults that we have tracked before AND
+        # are still present in the API, regardless of current TVL.
+        # This refreshes data for vaults that dropped below the daily
+        # threshold but still have historical data worth keeping current.
+        api_addresses = {s.vault_address.lower() for s in vault_summaries}
+        tracked = db.get_all_tracked_addresses()
+        tracked_in_api = tracked & api_addresses
+        filtered = [s for s in vault_summaries if s.vault_address.lower() in tracked_in_api]
+        logger.info("Full scan: %d tracked vaults still in API (of %d tracked total)", len(filtered), len(tracked))
+
+        # Sort by TVL descending and limit
+        filtered.sort(key=lambda s: float(s.tvl), reverse=True)
+        filtered = filtered[:max_vaults]
     else:
         # Filter: TVL threshold (includes both open and closed vaults)
         filtered = [s for s in vault_summaries if float(s.tvl) >= min_tvl]

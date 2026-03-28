@@ -34,6 +34,9 @@ Environment variables:
 - ``MIN_TVL``: Minimum TVL in USD to include a vault. Default: 5000
 - ``MAX_VAULTS``: Maximum number of vaults to process. Default: 20000
 - ``MAX_WORKERS``: Maximum number of parallel workers. Default: 16
+- ``FULL_SCAN``: Set to ``1`` to force a full scan of all tracked vaults regardless of TVL.
+- ``FULL_SCAN_WEEKDAY``: Day of the week to automatically trigger a full scan (0=Monday, 6=Sunday).
+  Default: 6 (Sunday). Ignored when ``FULL_SCAN=1``.
 - ``VAULT_DB_PATH``: Path to existing ERC-4626 VaultDatabase pickle to merge into.
   Default: ~/.tradingstrategy/vaults/vault-metadata-db.pickle
 - ``PARQUET_PATH``: Path to uncleaned Parquet to merge into (raw format).
@@ -43,6 +46,7 @@ Environment variables:
 
 """
 
+import datetime
 import logging
 import os
 from pathlib import Path
@@ -81,6 +85,16 @@ def main():
 
     flow_backfill_days = int(os.environ.get("FLOW_BACKFILL_DAYS", "7"))
 
+    # Full scan: refresh all tracked vaults regardless of TVL.
+    # Triggered by FULL_SCAN=1 env var, or automatically on the configured
+    # weekday (default: Sunday, i.e. FULL_SCAN_WEEKDAY=6).
+    full_scan_env = os.environ.get("FULL_SCAN", "").strip().lower()
+    if full_scan_env in ("1", "true", "yes"):
+        full_scan = True
+    else:
+        full_scan_weekday = int(os.environ.get("FULL_SCAN_WEEKDAY", "6"))  # 0=Mon, 6=Sun
+        full_scan = datetime.date.today().weekday() == full_scan_weekday
+
     vault_db_path_str = os.environ.get("VAULT_DB_PATH")
     vault_db_path = Path(vault_db_path_str).expanduser() if vault_db_path_str else DEFAULT_VAULT_DATABASE
 
@@ -94,6 +108,7 @@ def main():
     else:
         print(f"Min TVL: ${min_tvl:,.0f}")
         print(f"Max vaults: {max_vaults}")
+    print(f"Full scan: {full_scan}")
     print(f"Max workers: {max_workers}")
     print(f"Flow backfill days: {flow_backfill_days}")
     print(f"VaultDB path: {vault_db_path}")
@@ -112,6 +127,7 @@ def main():
         max_workers=max_workers,
         vault_addresses=vault_addresses,
         flow_backfill_days=flow_backfill_days,
+        full_scan=full_scan,
     )
 
     try:
