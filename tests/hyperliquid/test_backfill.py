@@ -17,6 +17,7 @@ import pytest
 lz4_frame = pytest.importorskip("lz4.frame", reason="lz4 not installed (optional dep)")
 
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.hyperliquid.backfill import (
     HyperliquidS3StagingDatabase,
     apply_backfill,
@@ -31,6 +32,7 @@ from eth_defi.hyperliquid.vault import PortfolioHistory, VaultInfo, VaultSummary
 
 VAULT_A = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 VAULT_B = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+VAULT_C = "0xcccccccccccccccccccccccccccccccccccccccc"
 NON_VAULT = "0xcccccccccccccccccccccccccccccccccccccccc"
 
 
@@ -894,14 +896,16 @@ def test_mark_vaults_disappeared_preserves_state(tmp_path):
         assert jan2_b["leader_fraction"] == pytest.approx(0.10)
 
         # 5. Vault B should have a tombstone row for today with TVL=0
-        today = datetime.date.today()
+        today = native_datetime_utc_now().date()
         tombstone_rows = prices_b[prices_b["date"] == pd.Timestamp(today)]
         assert len(tombstone_rows) == 1, f"Expected 1 tombstone row for today, got {len(tombstone_rows)}"
         tombstone = tombstone_rows.iloc[0]
         assert tombstone["tvl"] == pytest.approx(0.0)
         assert tombstone["share_price"] == pytest.approx(1.0)  # carried forward from last row
-        assert tombstone["is_closed"] == True
-        assert tombstone["allow_deposits"] == False
+        # is_closed and allow_deposits are None — tombstones do not assert
+        # closure status, they only zero the TVL
+        assert pd.isna(tombstone["is_closed"])
+        assert pd.isna(tombstone["allow_deposits"])
         assert tombstone["data_source"] == "tombstone"
         assert tombstone["written_at"] is not None
 
@@ -910,6 +914,79 @@ def test_mark_vaults_disappeared_preserves_state(tmp_path):
         assert metadata_a["tvl"] == pytest.approx(10000.0)  # original value from _setup_metrics_db_with_metadata
         prices_a = db.get_vault_daily_prices(VAULT_A)
         assert len(prices_a[prices_a["date"] == pd.Timestamp(today)]) == 0  # no tombstone for vault A
+
+    finally:
+        db.close()
+
+
+def test_tombstone_stale_vaults(tmp_path):
+    """tombstone_stale_vaults writes tombstone rows for vaults past the wind-down window.
+
+    1. Set up three vaults: A (recently processed), B (stale, 10 days old), C (stale, 10 days old)
+    2. Call tombstone_stale_vaults with A and C as processed addresses
+    3. Verify only vault B gets a tombstone (C was processed, A is recent)
+    4. Verify the tombstone row has TVL=0 and carries forward share_price
+    5. Verify calling again is idempotent (no duplicate tombstones)
+    """
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+        _setup_metrics_db_with_metadata(db, VAULT_B)
+        _setup_metrics_db_with_metadata(db, VAULT_C)
+
+        today = native_datetime_utc_now().date()
+        stale_date = today - datetime.timedelta(days=10)
+        recent_date = today - datetime.timedelta(days=1)
+
+        # 1. Vault A has recent data, vaults B and C have stale data
+        db.upsert_daily_prices(
+            [
+                _make_daily_price_row(VAULT_A, recent_date, share_price=2.0, tvl=50000.0),
+            ]
+        )
+        db.upsert_daily_prices(
+            [
+                _make_daily_price_row(VAULT_B, stale_date, share_price=1.5, tvl=20000.0, cumulative_pnl=500.0),
+            ]
+        )
+        db.upsert_daily_prices(
+            [
+                _make_daily_price_row(VAULT_C, stale_date, share_price=3.0, tvl=15000.0),
+            ]
+        )
+        db.save()
+
+        # 2. Call with A and C as processed (simulating they were in the current pipeline run)
+        processed = {VAULT_A.lower(), VAULT_C.lower()}
+        count = db.tombstone_stale_vaults(processed, wind_down_days=4)
+
+        # 3. Only vault B should be tombstoned (C was processed, A is recent)
+        assert count == 1
+
+        prices_b = db.get_vault_daily_prices(VAULT_B)
+        tombstone_rows = prices_b[prices_b["date"] == pd.Timestamp(today)]
+        assert len(tombstone_rows) == 1
+
+        # 4. Tombstone carries forward share_price and cumulative_pnl, sets TVL=0
+        #    is_closed and allow_deposits are None — tombstones preserve existing state
+        tombstone = tombstone_rows.iloc[0]
+        assert tombstone["tvl"] == pytest.approx(0.0)
+        assert tombstone["share_price"] == pytest.approx(1.5)
+        assert tombstone["cumulative_pnl"] == pytest.approx(500.0)
+        assert pd.isna(tombstone["is_closed"])
+        assert pd.isna(tombstone["allow_deposits"])
+        assert tombstone["data_source"] == "tombstone"
+
+        # Vault A and C should not have tombstones
+        prices_a = db.get_vault_daily_prices(VAULT_A)
+        assert len(prices_a[prices_a["data_source"] == "tombstone"]) == 0
+        prices_c = db.get_vault_daily_prices(VAULT_C)
+        assert len(prices_c[prices_c["data_source"] == "tombstone"]) == 0
+
+        # 5. Calling again should be idempotent (vault B already has tombstone)
+        count2 = db.tombstone_stale_vaults(processed, wind_down_days=4)
+        assert count2 == 0
 
     finally:
         db.close()

@@ -9,9 +9,14 @@ TVL processing threshold — the daily scan stopped fetching new data, but
 the last price row still carries the old (higher) TVL, which causes
 downstream staleness checks to flag them.
 
+Only vaults whose current API TVL is below ``SAFE_TVL`` are tombstoned.
+Vaults with significant current TVL are skipped — they are stale due to a
+transient pipeline issue and should be rescanned rather than tombstoned.
+
 For each confirmed stale vault, a tombstone daily price row is written for
-today with ``tvl=0``, ``is_closed=True``, ``allow_deposits=False``, and
-``data_source='tombstone'``.
+today with ``tvl=0`` and ``data_source='tombstone'``.  The ``is_closed``
+and ``allow_deposits`` fields are left as ``None`` so the existing
+forward-filled state is preserved.
 
 Usage:
 
@@ -24,6 +29,7 @@ Environment variables:
 - ``LOG_LEVEL``: Logging level (debug, info, warning, error). Default: info
 - ``DB_PATH``: Path to DuckDB. Default: ~/.tradingstrategy/vaults/hyperliquid-vaults.duckdb
 - ``STALENESS_DAYS``: Only consider vaults whose last data is older than this many days. Default: 7
+- ``SAFE_TVL``: Maximum current API TVL for a vault to be eligible for tombstoning. Default: 5000
 """
 
 import datetime
@@ -35,7 +41,7 @@ from tabulate import tabulate
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.hyperliquid.constants import HYPERLIQUID_DAILY_METRICS_DATABASE
-from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase, HyperliquidDailyPriceRow
+from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault import fetch_all_vaults
 from eth_defi.utils import setup_console_logging
@@ -48,6 +54,7 @@ def main():
 
     db_path = Path(os.environ.get("DB_PATH", str(HYPERLIQUID_DAILY_METRICS_DATABASE)))
     staleness_days = int(os.environ.get("STALENESS_DAYS", "7"))
+    safe_tvl = float(os.environ.get("SAFE_TVL", "5000"))
 
     # 1. Open the DuckDB and fetch the current bulk listing from the API
     logger.info("Opening database at %s", db_path)
@@ -71,13 +78,7 @@ def main():
                 MAX(vdp.date) AS last_date,
                 (SELECT vdp2.tvl FROM vault_daily_prices vdp2
                  WHERE vdp2.vault_address = vm.vault_address
-                 ORDER BY vdp2.date DESC LIMIT 1) AS last_written_tvl,
-                (SELECT vdp2.share_price FROM vault_daily_prices vdp2
-                 WHERE vdp2.vault_address = vm.vault_address
-                 ORDER BY vdp2.date DESC LIMIT 1) AS last_share_price,
-                (SELECT vdp2.cumulative_pnl FROM vault_daily_prices vdp2
-                 WHERE vdp2.vault_address = vm.vault_address
-                 ORDER BY vdp2.date DESC LIMIT 1) AS last_cumulative_pnl
+                 ORDER BY vdp2.date DESC LIMIT 1) AS last_written_tvl
             FROM vault_metadata vm
             JOIN vault_daily_prices vdp ON vm.vault_address = vdp.vault_address
             WHERE vdp.vault_address NOT IN (
@@ -94,18 +95,31 @@ def main():
             print(f"\nNo stale vaults found (threshold: {staleness_days} days).")
             return
 
-        # 3. Build and display the table
-        headers = ["Name", "Address", "Last date", "Age (days)", "Last written TVL", "Current TVL"]
+        # 3. Build table and filter by current TVL safety guard
+        headers = ["Name", "Address", "Last date", "Age (days)", "Last written TVL", "Current TVL", "Eligible"]
         today = native_datetime_utc_now().date()
         table_data = []
+        eligible_addresses = []
+        skipped_count = 0
+
         for row in stale_rows:
-            addr, name, last_date, last_written_tvl, _sp, _cpnl = row
+            addr, name, last_date, last_written_tvl = row
             age = (today - last_date).days
             api_vault = api_by_addr.get(addr)
             if api_vault is not None:
-                current_tvl = f"${api_vault.tvl:,.0f}"
+                current_tvl_value = float(api_vault.tvl)
+                current_tvl_str = f"${current_tvl_value:,.0f}"
             else:
-                current_tvl = "$0 (gone)"
+                current_tvl_value = 0.0
+                current_tvl_str = "$0 (gone)"
+
+            # Only tombstone vaults with low current TVL
+            eligible = current_tvl_value < safe_tvl
+            if eligible:
+                eligible_addresses.append(addr)
+            else:
+                skipped_count += 1
+
             table_data.append(
                 [
                     name,
@@ -113,47 +127,31 @@ def main():
                     str(last_date),
                     age,
                     f"${last_written_tvl:,.0f}",
-                    current_tvl,
+                    current_tvl_str,
+                    "yes" if eligible else f"NO (>{safe_tvl:,.0f})",
                 ]
             )
 
         print(f"\nStale vaults without tombstone (last data > {staleness_days} days):\n")
         print(tabulate(table_data, headers=headers, tablefmt="simple"))
-        print(f"\nTotal: {len(stale_rows)} vault(s)")
+        print(f"\nTotal: {len(stale_rows)} vault(s), {len(eligible_addresses)} eligible, {skipped_count} skipped (TVL > ${safe_tvl:,.0f})")
+
+        if not eligible_addresses:
+            print("\nNo eligible vaults to tombstone.")
+            return
 
         # 4. Ask for confirmation
-        answer = input("\nWrite tombstone rows for these vaults? [y/N] ").strip().lower()
+        answer = input(f"\nWrite tombstone rows for {len(eligible_addresses)} eligible vault(s)? [y/N] ").strip().lower()
         if answer != "y":
             print("Aborted.")
             return
 
-        # 5. Write tombstone rows
-        now = native_datetime_utc_now()
-        tombstone_rows = []
-        for row in stale_rows:
-            addr, name, _last_date, _last_tvl, share_price, cumulative_pnl = row
-            tombstone_rows.append(
-                HyperliquidDailyPriceRow(
-                    vault_address=addr,
-                    date=today,
-                    share_price=share_price,
-                    tvl=0.0,
-                    cumulative_pnl=cumulative_pnl,
-                    daily_pnl=0.0,
-                    daily_return=0.0,
-                    follower_count=0,
-                    is_closed=True,
-                    allow_deposits=False,
-                    data_source="tombstone",
-                    written_at=now,
-                )
-            )
-
-        db.upsert_daily_prices(tombstone_rows)
+        # 5. Write tombstone rows using the shared helper
+        count = db._write_tombstone_rows(eligible_addresses)
         db.save()
 
-        print(f"\nWrote {len(tombstone_rows)} tombstone row(s).")
-        logger.info("Tombstone rows written for %d vaults", len(tombstone_rows))
+        print(f"\nWrote {count} tombstone row(s).")
+        logger.info("Tombstone rows written for %d vaults", count)
 
     finally:
         db.close()
