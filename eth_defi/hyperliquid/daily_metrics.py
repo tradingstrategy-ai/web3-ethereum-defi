@@ -590,6 +590,11 @@ class HyperliquidDailyMetricsDatabase:
         ``is_closed`` — disappearing from the bulk listing does not
         necessarily mean the vault is permanently closed.
 
+        Also writes a tombstone daily price row for today with ``tvl=0``
+        so that downstream consumers (e.g. forward-fill pipelines and
+        staleness checks) see a fresh row reflecting the vault's removal
+        instead of stale data from the last successful fetch.
+
         :param known_addresses:
             Set of lowercased vault addresses currently present in the
             bulk stats-data API response.
@@ -610,6 +615,53 @@ class HyperliquidDailyMetricsDatabase:
             """,
             disappeared,
         )
+
+        # Write a tombstone daily price row for each disappeared vault.
+        # Carry forward the last known share_price and cumulative_pnl
+        # so that only TVL drops to zero, signalling the vault is gone.
+        today = native_datetime_utc_now().date()
+        now = native_datetime_utc_now()
+        tombstone_rows = []
+        for _tvl, addr in disappeared:
+            last_row = self.con.execute(
+                """
+                SELECT share_price, cumulative_pnl
+                FROM vault_daily_prices
+                WHERE vault_address = ?
+                ORDER BY date DESC
+                LIMIT 1
+                """,
+                [addr],
+            ).fetchone()
+
+            if last_row is None:
+                # No price history at all — nothing to tombstone
+                continue
+
+            share_price, cumulative_pnl = last_row
+            tombstone_rows.append(
+                HyperliquidDailyPriceRow(
+                    vault_address=addr,
+                    date=today,
+                    share_price=share_price,
+                    tvl=0.0,
+                    cumulative_pnl=cumulative_pnl,
+                    daily_pnl=0.0,
+                    daily_return=0.0,
+                    follower_count=0,
+                    is_closed=True,
+                    allow_deposits=False,
+                    data_source="tombstone",
+                    written_at=now,
+                )
+            )
+
+        if tombstone_rows:
+            self.upsert_daily_prices(tombstone_rows)
+            logger.info(
+                "Wrote %d tombstone price rows (TVL=0) for disappeared vaults",
+                len(tombstone_rows),
+            )
 
         logger.info(
             "Marked %d vaults as disappeared (TVL=0)",

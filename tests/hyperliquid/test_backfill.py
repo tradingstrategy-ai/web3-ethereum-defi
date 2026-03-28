@@ -852,14 +852,22 @@ def test_leader_fraction_history_ordering(tmp_path):
 
 
 def test_mark_vaults_disappeared_preserves_state(tmp_path):
-    """mark_vaults_disappeared sets TVL=0 in metadata but does not modify daily price state."""
+    """mark_vaults_disappeared sets TVL=0 in metadata, preserves existing daily rows, and writes a tombstone row.
+
+    1. Set up two vaults (A and B) with metadata and daily price rows
+    2. Mark vault B as disappeared (only vault A in known addresses)
+    3. Verify vault B metadata has TVL=0 but is_closed unchanged
+    4. Verify vault B's existing daily price rows are untouched
+    5. Verify vault B gets a new tombstone row for today with TVL=0
+    6. Verify vault A is completely unaffected
+    """
     metrics_db_path = tmp_path / "metrics.duckdb"
     db = HyperliquidDailyMetricsDatabase(metrics_db_path)
     try:
+        # 1. Set up two vaults with metadata and daily price rows
         _setup_metrics_db_with_metadata(db, VAULT_A)
         _setup_metrics_db_with_metadata(db, VAULT_B)
 
-        # Insert daily price rows with state on latest row for both vaults
         for addr in [VAULT_A, VAULT_B]:
             rows = [
                 _make_daily_price_row(addr, datetime.date(2024, 1, 1)),
@@ -868,26 +876,40 @@ def test_mark_vaults_disappeared_preserves_state(tmp_path):
             db.upsert_daily_prices(rows)
         db.save()
 
-        # Vault A is still present in the API, vault B has disappeared
+        # 2. Vault A is still present in the API, vault B has disappeared
         db.mark_vaults_disappeared({VAULT_A.lower()})
         db.save()
 
-        # Vault B metadata should have TVL=0 but is_closed unchanged
+        # 3. Vault B metadata should have TVL=0 but is_closed unchanged
         metadata = db.get_all_vault_metadata()
         vault_b_meta = metadata[metadata["vault_address"] == VAULT_B.lower()].iloc[0]
         assert vault_b_meta["tvl"] == pytest.approx(0.0)
         assert vault_b_meta["is_closed"] == False  # not changed by mark_vaults_disappeared
 
-        # Vault B daily price state values should be untouched
+        # 4. Vault B's existing daily price rows should be untouched
         prices_b = db.get_vault_daily_prices(VAULT_B)
         jan2_b = prices_b[prices_b["date"] == pd.Timestamp("2024-01-02")].iloc[0]
         assert jan2_b["is_closed"] == False
         assert jan2_b["allow_deposits"] == True
         assert jan2_b["leader_fraction"] == pytest.approx(0.10)
 
-        # Vault A should be completely unaffected
+        # 5. Vault B should have a tombstone row for today with TVL=0
+        today = datetime.date.today()
+        tombstone_rows = prices_b[prices_b["date"] == pd.Timestamp(today)]
+        assert len(tombstone_rows) == 1, f"Expected 1 tombstone row for today, got {len(tombstone_rows)}"
+        tombstone = tombstone_rows.iloc[0]
+        assert tombstone["tvl"] == pytest.approx(0.0)
+        assert tombstone["share_price"] == pytest.approx(1.0)  # carried forward from last row
+        assert tombstone["is_closed"] == True
+        assert tombstone["allow_deposits"] == False
+        assert tombstone["data_source"] == "tombstone"
+        assert tombstone["written_at"] is not None
+
+        # 6. Vault A should be completely unaffected
         metadata_a = metadata[metadata["vault_address"] == VAULT_A.lower()].iloc[0]
         assert metadata_a["tvl"] == pytest.approx(10000.0)  # original value from _setup_metrics_db_with_metadata
+        prices_a = db.get_vault_daily_prices(VAULT_A)
+        assert len(prices_a[prices_a["date"] == pd.Timestamp(today)]) == 0  # no tombstone for vault A
 
     finally:
         db.close()
