@@ -632,7 +632,7 @@ class HyperliquidDailyMetricsDatabase:
 
     def tombstone_stale_vaults(
         self,
-        processed_addresses: set[str],
+        known_api_addresses: set[str],
         wind_down_days: int = 4,
     ) -> int:
         """Write tombstone rows for vaults that have fallen out of the processing pipeline.
@@ -658,11 +658,14 @@ class HyperliquidDailyMetricsDatabase:
         for today on every vault that:
 
         1. Has existing price data in the database.
-        2. Was **not** processed in the current pipeline run (not in
-           ``processed_addresses``).
+        2. Is **not present** in the current bulk API listing
+           (``known_api_addresses``).  Any vault still returned by the API is
+           alive — it may have been skipped this run due to ``max_vaults``
+           truncation, a transient fetch failure, or any other non-permanent
+           reason — and must never be tombstoned.
         3. Has its most recent price row older than ``wind_down_days`` —
            meaning the wind-down window has expired and the pipeline will
-           never process it again unless its TVL recovers.
+           never process it again unless it reappears in the API.
         4. Does **not** already have a tombstone row.
 
         The tombstone row carries forward the last known ``share_price`` and
@@ -680,10 +683,11 @@ class HyperliquidDailyMetricsDatabase:
         - The vault is effectively retired from active monitoring without
           deleting any historical data or misrepresenting its deposit status.
 
-        :param processed_addresses:
-            Set of lowercased vault addresses that were fully processed
-            in the current pipeline run (i.e. passed TVL filtering and
-            had ``fetch_and_store_vault`` called on them).
+        :param known_api_addresses:
+            Set of lowercased vault addresses currently present in the
+            bulk stats-data API response.  Vaults in this set are
+            considered alive and will never be tombstoned, even if their
+            data is stale.
         :param wind_down_days:
             Number of days after the last price row before a vault is
             considered eligible for tombstoning.  Should match the
@@ -695,7 +699,7 @@ class HyperliquidDailyMetricsDatabase:
         """
         cutoff = native_datetime_utc_now().date() - datetime.timedelta(days=wind_down_days)
 
-        # Find vaults with stale data that were not processed and have no tombstone
+        # Find vaults with stale data that have no tombstone
         candidates = self.con.execute(
             """
             SELECT vdp.vault_address
@@ -709,7 +713,9 @@ class HyperliquidDailyMetricsDatabase:
             [cutoff],
         ).fetchall()
 
-        eligible = [addr for (addr,) in candidates if addr not in processed_addresses]
+        # Only tombstone vaults that are no longer in the API.
+        # A vault still in the API is alive and should not be zeroed out.
+        eligible = [addr for (addr,) in candidates if addr not in known_api_addresses]
 
         count = self._write_tombstone_rows(eligible)
         if count:
@@ -1639,9 +1645,11 @@ def run_daily_scan(
 
         db.mark_vaults_disappeared(all_api_addresses)
 
-        # Tombstone vaults whose wind-down window has expired.
-        # Uses the same within_days=4 as get_recently_tracked_addresses above.
-        tombstone_count = db.tombstone_stale_vaults(processed_addresses, wind_down_days=4)
+        # Tombstone vaults whose wind-down window has expired AND that are
+        # no longer in the bulk API listing.  Vaults still in the API are
+        # alive (possibly just below min_tvl or cut by max_vaults) and must
+        # not be tombstoned.
+        tombstone_count = db.tombstone_stale_vaults(all_api_addresses, wind_down_days=4)
         if tombstone_count:
             logger.info("Tombstoned %d vaults that fell out of the pipeline", tombstone_count)
 

@@ -920,11 +920,11 @@ def test_mark_vaults_disappeared_preserves_state(tmp_path):
 
 
 def test_tombstone_stale_vaults(tmp_path):
-    """tombstone_stale_vaults writes tombstone rows for vaults past the wind-down window.
+    """tombstone_stale_vaults only tombstones vaults absent from the API listing.
 
-    1. Set up three vaults: A (recently processed), B (stale, 10 days old), C (stale, 10 days old)
-    2. Call tombstone_stale_vaults with A and C as processed addresses
-    3. Verify only vault B gets a tombstone (C was processed, A is recent)
+    1. Set up three vaults: A (recent data), B (stale, not in API), C (stale, still in API)
+    2. Call tombstone_stale_vaults with A and C as known API addresses
+    3. Verify only vault B gets a tombstone (C is still in the API, A is recent)
     4. Verify the tombstone row has TVL=0 and carries forward share_price
     5. Verify calling again is idempotent (no duplicate tombstones)
     """
@@ -957,11 +957,11 @@ def test_tombstone_stale_vaults(tmp_path):
         )
         db.save()
 
-        # 2. Call with A and C as processed (simulating they were in the current pipeline run)
-        processed = {VAULT_A.lower(), VAULT_C.lower()}
-        count = db.tombstone_stale_vaults(processed, wind_down_days=4)
+        # 2. A and C are still in the API; B has disappeared
+        known_api = {VAULT_A.lower(), VAULT_C.lower()}
+        count = db.tombstone_stale_vaults(known_api, wind_down_days=4)
 
-        # 3. Only vault B should be tombstoned (C was processed, A is recent)
+        # 3. Only vault B should be tombstoned (C is in the API, A is recent)
         assert count == 1
 
         prices_b = db.get_vault_daily_prices(VAULT_B)
@@ -985,7 +985,7 @@ def test_tombstone_stale_vaults(tmp_path):
         assert len(prices_c[prices_c["data_source"] == "tombstone"]) == 0
 
         # 5. Calling again should be idempotent (vault B already has tombstone)
-        count2 = db.tombstone_stale_vaults(processed, wind_down_days=4)
+        count2 = db.tombstone_stale_vaults(known_api, wind_down_days=4)
         assert count2 == 0
 
     finally:
