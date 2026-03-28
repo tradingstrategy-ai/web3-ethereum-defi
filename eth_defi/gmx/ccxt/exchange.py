@@ -843,7 +843,6 @@ class GMX(ExchangeCompatible):
                         "active": True,
                         "type": "swap",
                         "spot": False,
-                        "margin": True,
                         "swap": True,
                         "future": True,
                         "option": False,
