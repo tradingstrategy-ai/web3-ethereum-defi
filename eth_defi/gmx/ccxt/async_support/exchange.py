@@ -913,6 +913,14 @@ class GMX(Exchange):
                         "contract": True,
                         "linear": True,
                         "inverse": False,
+                        # GMX position open/close fee — required by FreqTrade's
+                        # dry_run_liquidation_price() for isolated-futures short
+                        # position liquidation calculations.  The GraphQL market
+                        # loading path was missing these fields (present in the
+                        # REST API path), causing KeyError: 'taker' when backtesting
+                        # strategies with can_short=True.
+                        "maker": 0.0003,
+                        "taker": 0.0006,
                         "contractSize": self.parse_number("1"),
                         "precision": {
                             "amount": self.parse_number(self.parse_precision("8")),
