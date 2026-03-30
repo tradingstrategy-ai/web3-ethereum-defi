@@ -267,11 +267,7 @@ class FallbackProvider(BaseNamedProvider):
             if self.expected_chain_id is not None:
                 new_chain_id = self._fetch_chain_id_from_provider(new_provider)
                 if new_chain_id is not None and new_chain_id != self.expected_chain_id:
-                    raise ChainIdMismatch(
-                        f"Provider {new_provider_name} returned chain ID {new_chain_id}, "
-                        f"but expected {self.expected_chain_id} (from {old_provider_name}). "
-                        f"The RPC endpoint may be misconfigured or routing to the wrong chain."
-                    )
+                    raise ChainIdMismatch(f"Provider {new_provider_name} returned chain ID {new_chain_id}, but expected {self.expected_chain_id} (from {old_provider_name}). The RPC endpoint may be misconfigured or routing to the wrong chain.")
         else:
             logger.log(log_level, "Only 1 RPC provider configured: %s, cannot switch, sleeping and hoping the issue resolves itself", old_provider_name)
 

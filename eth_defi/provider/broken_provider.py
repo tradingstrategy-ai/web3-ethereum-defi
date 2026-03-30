@@ -197,11 +197,7 @@ def get_almost_latest_block_number(web3: Web3) -> int:
     if last_known is not None:
         regression = last_known - block_number
         if regression > MAX_BLOCK_REGRESSION:
-            raise BlockNumberOutOfRange(
-                f"eth_blockNumber returned {block_number}, but last known block was {last_known} "
-                f"(regression of {regression} blocks, max allowed {MAX_BLOCK_REGRESSION}). "
-                f"The RPC provider may have switched to the wrong chain after a failover."
-            )
+            raise BlockNumberOutOfRange(f"eth_blockNumber returned {block_number}, but last known block was {last_known} (regression of {regression} blocks, max allowed {MAX_BLOCK_REGRESSION}). The RPC provider may have switched to the wrong chain after a failover.")
 
     _last_known_block[key] = block_number
     return block_number
