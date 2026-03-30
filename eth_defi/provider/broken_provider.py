@@ -131,6 +131,25 @@ def get_fork_safe_latest_block(web3: Web3) -> BlockIdentifier:
     return "latest"
 
 
+class BlockNumberOutOfRange(Exception):
+    """Raised when the RPC returns a block number that is impossibly far from the last known block.
+
+    This typically happens when a fallback provider switches to a misconfigured
+    endpoint or the RPC backend routes the request to the wrong chain after
+    a transient error.
+    """
+
+
+#: Maximum allowed block number regression before we raise an error.
+#: If the new block number is more than this many blocks behind the
+#: previously observed value we assume the RPC is returning data for
+#: the wrong chain.
+MAX_BLOCK_REGRESSION = 10_000
+
+#: Tracks the last known good block number per Web3 instance (keyed by id).
+_last_known_block: dict[int, int] = {}
+
+
 def get_almost_latest_block_number(web3: Web3) -> int:
     """Get the latest block number with workarounds for low quality JSON-RPC service providers.
 
@@ -139,6 +158,12 @@ def get_almost_latest_block_number(web3: Web3) -> int:
     Because low quality providers may lose the block of this block number
     on the subsequent API calls, we add some number of delay
     or confirmations to the chain tip, specified by :py:func:`get_block_tip_latency`.
+
+    Includes a monotonicity safety check: if the block number drops by more
+    than :py:data:`MAX_BLOCK_REGRESSION` blocks compared to the last observed
+    value, raises :py:class:`BlockNumberOutOfRange`.  This catches scenarios
+    where the RPC provider silently starts returning data for the wrong chain
+    after a failover.
 
     Providers with known issues
 
@@ -162,8 +187,24 @@ def get_almost_latest_block_number(web3: Web3) -> int:
         token = fetch_erc20_details(web3, asset.address)
         amount = token.fetch_balance_of(address, block_identifier=block_number)
 
+    :raises BlockNumberOutOfRange:
+        If the block number regresses by more than :py:data:`MAX_BLOCK_REGRESSION`.
     """
-    return max(1, web3.eth.block_number - get_block_tip_latency(web3))
+    block_number = max(1, web3.eth.block_number - get_block_tip_latency(web3))
+
+    key = id(web3)
+    last_known = _last_known_block.get(key)
+    if last_known is not None:
+        regression = last_known - block_number
+        if regression > MAX_BLOCK_REGRESSION:
+            raise BlockNumberOutOfRange(
+                f"eth_blockNumber returned {block_number}, but last known block was {last_known} "
+                f"(regression of {regression} blocks, max allowed {MAX_BLOCK_REGRESSION}). "
+                f"The RPC provider may have switched to the wrong chain after a failover."
+            )
+
+    _last_known_block[key] = block_number
+    return block_number
 
 
 #: Chain id
