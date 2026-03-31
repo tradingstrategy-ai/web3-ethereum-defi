@@ -12,6 +12,7 @@ See also
 
 import logging
 import time
+import weakref
 from pprint import pformat
 
 from eth_typing import BlockIdentifier
@@ -146,8 +147,10 @@ class BlockNumberOutOfRange(Exception):
 #: the wrong chain.
 MAX_BLOCK_REGRESSION = 10_000
 
-#: Tracks the last known good block number per Web3 instance (keyed by id).
-_last_known_block: dict[int, int] = {}
+#: Tracks the last known good block number per Web3 instance.
+#: Uses WeakKeyDictionary so entries are automatically removed when the
+#: Web3 instance is garbage collected, preventing stale id() reuse.
+_last_known_block: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
 
 
 def get_almost_latest_block_number(web3: Web3) -> int:
@@ -192,14 +195,13 @@ def get_almost_latest_block_number(web3: Web3) -> int:
     """
     block_number = max(1, web3.eth.block_number - get_block_tip_latency(web3))
 
-    key = id(web3)
-    last_known = _last_known_block.get(key)
+    last_known = _last_known_block.get(web3)
     if last_known is not None:
         regression = last_known - block_number
         if regression > MAX_BLOCK_REGRESSION:
             raise BlockNumberOutOfRange(f"eth_blockNumber returned {block_number}, but last known block was {last_known} (regression of {regression} blocks, max allowed {MAX_BLOCK_REGRESSION}). The RPC provider may have switched to the wrong chain after a failover.")
 
-    _last_known_block[key] = block_number
+    _last_known_block[web3] = block_number
     return block_number
 
 

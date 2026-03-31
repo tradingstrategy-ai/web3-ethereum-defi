@@ -213,28 +213,29 @@ class FallbackProvider(BaseNamedProvider):
         if old_provider_name != new_provider_name:
             logger.log(self.switchover_noisiness, "Reset switch toggled for RPC providers %s -> %s\n", old_provider_name, new_provider_name)
 
-    def _fetch_chain_id_from_provider(self, provider: NamedProvider) -> int | None:
+    def _fetch_chain_id_from_provider(self, provider: NamedProvider) -> int:
         """Call ``eth_chainId`` directly on a provider, bypassing middleware caches.
 
         :return:
-            The chain ID as an integer, or ``None`` if the call fails.
+            The chain ID as an integer.
+
+        :raises Exception:
+            If the RPC call fails or returns an empty result.
         """
-        try:
-            resp = provider.make_request("eth_chainId", [])
-            result = resp.get("result")
-            if result:
-                return int(result, 16)
-        except Exception as e:
+        resp = provider.make_request("eth_chainId", [])
+        result = resp.get("result")
+        if not result:
             name = get_provider_name(provider)
-            logger.warning("Failed to fetch chain ID from provider %s: %s", name, e)
-        return None
+            raise ValueError(f"Provider {name} returned empty eth_chainId response: {resp}")
+        return int(result, 16)
 
     def switch_provider(self, log_level: int = None, randomise=False, cause: str = "<not specified>"):
         """Switch to next available provider.
 
         After switching, verifies that the new provider returns the same
         ``eth_chainId`` as the previously observed value.  If the chain ID
-        does not match, raises :py:class:`ChainIdMismatch`.
+        does not match or cannot be fetched, the provider index is rolled
+        back to the previous value and the exception is raised.
 
         :param log_level:
             Logging level to be verbose about the switch over
@@ -244,10 +245,14 @@ class FallbackProvider(BaseNamedProvider):
         """
         provider = self.get_active_provider()
         old_provider_name = get_provider_name(provider)
+        old_index = self.currently_active_provider
 
         # Capture expected chain ID from the current provider if not yet known
         if self.expected_chain_id is None:
-            self.expected_chain_id = self._fetch_chain_id_from_provider(provider)
+            try:
+                self.expected_chain_id = self._fetch_chain_id_from_provider(provider)
+            except Exception as e:
+                logger.warning("Could not capture initial chain ID from %s: %s", old_provider_name, e)
 
         if randomise:
             self.currently_active_provider = random.randint(0, len(self.providers) - 1)
@@ -265,8 +270,14 @@ class FallbackProvider(BaseNamedProvider):
 
             # Verify the new provider is on the same chain
             if self.expected_chain_id is not None:
-                new_chain_id = self._fetch_chain_id_from_provider(new_provider)
-                if new_chain_id is not None and new_chain_id != self.expected_chain_id:
+                try:
+                    new_chain_id = self._fetch_chain_id_from_provider(new_provider)
+                except Exception as e:
+                    self.currently_active_provider = old_index
+                    logger.warning("Rolling back to provider %s: new provider %s failed eth_chainId: %s", old_provider_name, new_provider_name, e)
+                    raise ChainIdMismatch(f"Provider {new_provider_name} could not be verified (eth_chainId failed: {e}). Rolled back to {old_provider_name}.") from e
+                if new_chain_id != self.expected_chain_id:
+                    self.currently_active_provider = old_index
                     raise ChainIdMismatch(f"Provider {new_provider_name} returned chain ID {new_chain_id}, but expected {self.expected_chain_id} (from {old_provider_name}). The RPC endpoint may be misconfigured or routing to the wrong chain.")
         else:
             logger.log(log_level, "Only 1 RPC provider configured: %s, cannot switch, sleeping and hoping the issue resolves itself", old_provider_name)
