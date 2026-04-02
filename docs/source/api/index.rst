@@ -33,6 +33,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    one_delta/index
    safe/index
    vault/index
+   feed/index
    erc_4626/index
    enzyme/index
    lagoon/index

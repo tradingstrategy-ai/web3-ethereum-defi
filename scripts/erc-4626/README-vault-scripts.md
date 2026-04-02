@@ -158,6 +158,32 @@ poetry run python scripts/erc-4626/export-protocol-metadata.py
 | `R2_VAULT_METADATA_PUBLIC_URL` | Required. R2 public URL. |
 | `MAX_WORKERS` | Optional. Default: 20. |
 
+### scan-vault-posts.py
+
+Collect tracked RSS, Twitter/X, and LinkedIn posts into the vault post DuckDB.
+Prints a summary table plus per-source loaded and failed dashboards.
+
+```shell
+poetry run python scripts/erc-4626/scan-vault-posts.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `DB_PATH` | Optional. DuckDB output path. Default: `~/.tradingstrategy/vaults/vault-post-database.duckdb`. |
+| `MAPPINGS_DIR` | Optional. Feeder YAML directory. Default: repo `eth_defi/data/feeds`. |
+| `MAX_WORKERS` | Optional. Worker threads for concurrent feed collection. Default: 8. |
+| `MAX_POSTS_PER_SOURCE` | Optional. Default: 20. |
+| `REQUEST_TIMEOUT` | Optional. Default: 20. |
+| `REQUEST_DELAY_SECONDS` | Optional. Default: 1. |
+| `TWITTER_RSS_BASE_URLS` | Optional. Comma-separated list of Nitter or xcancel-style RSS bridge base URLs. No default is shipped. |
+| `TWITTER_FEED_URL_TEMPLATES` | Optional. Comma-separated URL templates with `{handle}` for Twitter/X live feed bridges. |
+| `LINKEDIN_FEED_URL_TEMPLATES` | Optional. Comma-separated URL templates with `{company_id}` for LinkedIn company live feed bridges. |
+| `MAX_PROXY_ROTATIONS` | Optional. Default: 3. Maximum Webshare proxy rotations before direct fallback. |
+| `WEBSHARE_API_KEY` | Optional. Enables Webshare proxy-backed feed requests when set. |
+| `WEBSHARE_PROXY_MODE` | Optional. Webshare proxy mode if supported by the account. |
+| `MAX_POST_AGE_DAYS` | Optional. Default: 365. |
+| `LOG_LEVEL` | Optional. Default: warning. |
+
 ## Debugging and verification
 
 Scripts for checking individual vault data and diagnosing issues.

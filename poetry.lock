@@ -1926,7 +1926,7 @@ description = "DuckDB in-process database"
 optional = true
 python-versions = ">=3.10.0"
 groups = ["main"]
-markers = "extra == \"duckdb\" or extra == \"hyperliquid-backfill\""
+markers = "extra == \"duckdb\" or extra == \"posts\" or extra == \"hyperliquid-backfill\""
 files = [
     {file = "duckdb-1.5.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:47fbb1c053a627a91fa71ec883951561317f14a82df891c00dcace435e8fea78"},
     {file = "duckdb-1.5.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:2b546a30a6ac020165a86ab3abac553255a6e8244d5437d17859a6aa338611aa"},
@@ -2333,6 +2333,22 @@ files = [
 
 [package.extras]
 devel = ["colorama", "json-spec", "jsonschema", "pylint", "pytest", "pytest-benchmark", "pytest-cache", "validictory"]
+
+[[package]]
+name = "feedparser"
+version = "6.0.12"
+description = "Universal feed parser, handles RSS 0.9x, RSS 1.0, RSS 2.0, CDF, Atom 0.3, and Atom 1.0 feeds"
+optional = true
+python-versions = ">=3.6"
+groups = ["main"]
+markers = "extra == \"posts\""
+files = [
+    {file = "feedparser-6.0.12-py3-none-any.whl", hash = "sha256:6bbff10f5a52662c00a2e3f86a38928c37c48f77b3c511aedcd51de933549324"},
+    {file = "feedparser-6.0.12.tar.gz", hash = "sha256:64f76ce90ae3e8ef5d1ede0f8d3b50ce26bcce71dd8ae5e82b1cd2d4a5f94228"},
+]
+
+[package.dependencies]
+sgmllib3k = "*"
 
 [[package]]
 name = "ffn"
@@ -8446,6 +8462,18 @@ docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "pygments
 testing = ["build[virtualenv] (>=1.0.3)", "filelock (>=3.4.0)", "importlib-metadata", "ini2toml[lite] (>=0.14)", "jaraco.develop (>=7.21) ; python_version >= \"3.9\" and sys_platform != \"cygwin\"", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "mypy (==1.9)", "packaging (>=23.2)", "pip (>=19.1)", "pyproject-hooks (!=1.1)", "pytest (>=6,!=8.1.1)", "pytest-checkdocs (>=2.4)", "pytest-cov ; platform_python_implementation != \"PyPy\"", "pytest-enabler (>=2.2)", "pytest-home (>=0.5)", "pytest-mypy", "pytest-perf ; sys_platform != \"cygwin\"", "pytest-ruff (>=0.2.1) ; sys_platform != \"cygwin\"", "pytest-subprocess", "pytest-timeout", "pytest-xdist (>=3)", "tomli", "tomli-w (>=1.0.0)", "virtualenv (>=13.0.0)", "wheel"]
 
 [[package]]
+name = "sgmllib3k"
+version = "1.0.0"
+description = "Py3k port of sgmllib."
+optional = true
+python-versions = "*"
+groups = ["main"]
+markers = "extra == \"posts\""
+files = [
+    {file = "sgmllib3k-1.0.0.tar.gz", hash = "sha256:7868fb1c8bfa764c1ac563d3cf369c381d1325d36124933a726f29fcdaa812e9"},
+]
+
+[[package]]
 name = "shellingham"
 version = "1.5.4"
 description = "Tool to Detect Surrounding Shell"
@@ -9917,9 +9945,10 @@ docs = ["Sphinx", "furo", "nbsphinx", "sphinx-autodoc-typehints", "sphinx-rtd-th
 duckdb = ["duckdb"]
 hyperliquid-backfill = ["boto3", "duckdb", "lz4"]
 hypersync = ["hypersync-temp"]
+posts = ["duckdb", "feedparser"]
 test = ["pytest-xdist"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "c05ee2bdfde7cf971ae82634eea329be2b7635d224561e86fb48d6daa39a496c"
+content-hash = "f70bc848763c395826a23eb0e287781186a6bc362696e1b286fcffae1c65f327"
