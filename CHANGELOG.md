@@ -1,5 +1,6 @@
 # Current
 
+- Add: `eth_defi/data/curators.md` — curated list of DeFi vault managers and traders across Morpho, Euler, IPOR Fusion, Lagoon Finance, Hyperliquid, GRVT, and Lighter with website and Twitter links (2026-04-03)
 - Add: `written_at` naive UTC timestamp column across all price data pipelines (ERC-4626, Hyperliquid, GRVT, Lighter) for data auditability and diagnostics (2026-03-22)
 - Add: MegaETH chain support (chain ID 4326) — chain config, vault scanner, docker-compose, HyperSync already supported (2026-03-21)
 - Add: JSON-RPC failover proxy (`eth_defi.provider.rpc_proxy`) — lightweight threaded proxy that sits between Anvil and multiple upstream RPCs, providing automatic failover, retry, per-provider statistics, and configurable failure detection (2026-03-21)
