@@ -124,6 +124,7 @@ def uniswap(web3: Web3, pancakeswap_factory_v2: HexAddress, pancake_router: HexA
 
 
 # Flaky because uses live node
+@pytest.mark.skip(reason="No longer maintained")
 @flaky.flaky(max_runs=5)
 def test_token_tax(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, seller: HexAddress, elephant: HexAddress, busd: HexAddress):
     expected_elephant_tax_percent: float = 0.1
