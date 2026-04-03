@@ -16,8 +16,6 @@ Environment variables:
 - ``REQUEST_TIMEOUT``: Optional. Default: 20.
 - ``REQUEST_DELAY_SECONDS``: Optional. Default: 1.
 - ``TWITTER_RSS_BASE_URLS``: Optional. Comma-separated list of Nitter or xcancel-style RSS bridge base URLs.
-- ``TWITTER_FEED_URL_TEMPLATES``: Optional. Comma-separated list of URL templates with ``{handle}``.
-- ``LINKEDIN_FEED_URL_TEMPLATES``: Optional. Comma-separated list of URL templates with ``{company_id}``.
 - ``WEBSHARE_API_KEY``: Optional. Enable Webshare-backed proxy rotation for feed requests.
 - ``WEBSHARE_PROXY_MODE``: Optional. Select the Webshare proxy pool mode.
 - ``MAX_PROXY_ROTATIONS``: Optional. Default: 3.
@@ -37,14 +35,6 @@ from eth_defi.utils import setup_console_logging
 
 def _parse_twitter_rss_base_urls(raw_value: str | None) -> list[str]:
     """Parse bridge base URLs from an environment variable."""
-
-    if not raw_value:
-        return []
-    return [item.strip() for item in raw_value.split(",") if item.strip()]
-
-
-def _parse_url_templates(raw_value: str | None) -> list[str]:
-    """Parse comma-separated social feed URL templates."""
 
     if not raw_value:
         return []
@@ -84,7 +74,7 @@ def _print_source_dashboard(summary) -> None:
         tabulate(
             loaded_rows,
             headers=["Feeder", "Role", "Source", "Status", "Fetched", "Inserted", "Last post"],
-            tablefmt="simple",
+            tablefmt="fancy_grid",
         )
     )
 
@@ -104,7 +94,7 @@ def _print_source_dashboard(summary) -> None:
             tabulate(
                 failed_rows,
                 headers=["Failed feeder", "Role", "Source", "Error"],
-                tablefmt="simple",
+                tablefmt="fancy_grid",
             )
         )
 
@@ -131,8 +121,6 @@ def main() -> None:
     max_post_age_days = int(os.environ.get("MAX_POST_AGE_DAYS", "365"))
     max_proxy_rotations = int(os.environ.get("MAX_PROXY_ROTATIONS", "3"))
     twitter_rss_base_urls = _parse_twitter_rss_base_urls(os.environ.get("TWITTER_RSS_BASE_URLS"))
-    twitter_url_templates = _parse_url_templates(os.environ.get("TWITTER_FEED_URL_TEMPLATES"))
-    linkedin_url_templates = _parse_url_templates(os.environ.get("LINKEDIN_FEED_URL_TEMPLATES"))
 
     sources = load_post_sources(mappings_dir=mappings_dir)
     db = VaultPostDatabase(db_path)
@@ -147,8 +135,6 @@ def main() -> None:
             request_timeout=request_timeout,
             request_delay_seconds=request_delay_seconds,
             twitter_rss_base_urls=twitter_rss_base_urls,
-            twitter_url_templates=twitter_url_templates,
-            linkedin_url_templates=linkedin_url_templates,
             proxy_rotator=proxy_rotator,
             max_proxy_rotations=max_proxy_rotations,
         )
@@ -165,7 +151,7 @@ def main() -> None:
         ["Posts inserted", summary.posts_inserted],
         ["Posts pruned", pruned_count],
     ]
-    print(tabulate(rows, headers=["Metric", "Value"], tablefmt="simple"))
+    print(tabulate(rows, headers=["Metric", "Value"], tablefmt="fancy_grid"))
     _print_source_dashboard(summary)
 
 

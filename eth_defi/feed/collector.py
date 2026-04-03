@@ -28,6 +28,23 @@ logger = logging.getLogger(__name__)
 
 _RETRYABLE_STATUS_CODES = {403, 429, 502, 503, 504}
 
+#: Default Twitter/X RSS bridge URL templates used when no ``TWITTER_FEED_URL_TEMPLATES``
+#: environment variable is set.  Each template must contain a ``{handle}`` placeholder.
+#: Verified working as of 2026-04-03.
+DEFAULT_TWITTER_URL_TEMPLATES: list[str] = [
+    "https://xcancel.com/{handle}/rss",
+    "https://rss.xcancel.com/{handle}/rss",
+]
+
+#: Default LinkedIn RSS bridge URL templates used when no ``LINKEDIN_FEED_URL_TEMPLATES``
+#: environment variable is set.  Each template must contain a ``{company_id}`` placeholder.
+#: Verified working as of 2026-04-03.
+DEFAULT_LINKEDIN_URL_TEMPLATES: list[str] = [
+    "https://rsshub.pseudoyu.com/linkedin/company/{company_id}/posts",
+    "https://rss.owo.nz/linkedin/company/{company_id}/posts",
+    "https://rsshub.umzzz.com/linkedin/company/{company_id}/posts",
+]
+
 
 @dataclass(slots=True)
 class CollectorRunSummary:
@@ -522,8 +539,8 @@ def collect_posts(
     summary = CollectorRunSummary(sources_loaded=len(sources), source_results=[])
     source_ids = db.upsert_tracked_sources(sources)
     twitter_rss_base_urls = list(twitter_rss_base_urls or [])
-    twitter_url_templates = list(twitter_url_templates or [])
-    linkedin_url_templates = list(linkedin_url_templates or [])
+    twitter_url_templates = list(twitter_url_templates if twitter_url_templates is not None else DEFAULT_TWITTER_URL_TEMPLATES)
+    linkedin_url_templates = list(linkedin_url_templates if linkedin_url_templates is not None else DEFAULT_LINKEDIN_URL_TEMPLATES)
     worker_count = max(1, min(max_workers, len(sources) or 1))
     desc = f"Collecting {len(sources)} feed sources using {worker_count} workers"
     worker_processor = Parallel(n_jobs=worker_count, backend="threading")

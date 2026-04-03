@@ -172,13 +172,8 @@ In practice:
 5. the collector tries each candidate URL in order until one returns a valid
    RSS or Atom document
 
-There is intentionally **no hardcoded bridge default**. If neither
-`TWITTER_RSS_BASE_URLS` nor `TWITTER_FEED_URL_TEMPLATES` is configured,
-Twitter/X sources are skipped and marked as failed with a clear configuration
-error.
-
-For operators, `TWITTER_FEED_URL_TEMPLATES` is the more flexible option and is
-usually the best fit for xcancel-style bridges.
+When `TWITTER_RSS_BASE_URLS` is not set, the collector uses
+`DEFAULT_TWITTER_URL_TEMPLATES` (xcancel.com and rss.xcancel.com).
 
 Real live bridge examples that were verified during implementation on
 2026-04-03:
@@ -186,16 +181,10 @@ Real live bridge examples that were verified during implementation on
 - `https://xcancel.com/gauntlet_xyz/rss`
 - `https://rss.xcancel.com/gauntlet_xyz/rss`
 
-Example configuration:
-
-```shell
-export TWITTER_FEED_URL_TEMPLATES="https://xcancel.com/{handle}/rss,https://rss.xcancel.com/{handle}/rss"
-```
-
 ### LinkedIn sources
 
 LinkedIn company ids are normalised and then expanded to one or more live feed
-URLs using `LINKEDIN_FEED_URL_TEMPLATES`.
+URLs using the built-in `DEFAULT_LINKEDIN_URL_TEMPLATES` in `collector.py`.
 
 The LinkedIn path is slightly stricter than Twitter/X:
 
@@ -217,12 +206,6 @@ Real live bridge examples that were verified during implementation on
 - `https://rsshub.pseudoyu.com/linkedin/company/gauntlet-xyz/posts`
 - `https://rss.owo.nz/linkedin/company/gauntlet-xyz/posts`
 - `https://rsshub.umzzz.com/linkedin/company/gauntlet-xyz/posts`
-
-Example configuration:
-
-```shell
-export LINKEDIN_FEED_URL_TEMPLATES="https://rsshub.pseudoyu.com/linkedin/company/{company_id}/posts,https://rss.owo.nz/linkedin/company/{company_id}/posts"
-```
 
 ### Feed parsing
 
@@ -259,36 +242,169 @@ There is still some light resilience built into the HTTP path:
 - for Twitter/X and LinkedIn bridges, multiple candidate bridge URLs can be
   configured and are tried in order
 
-## Configuration
+## Running the scanner
 
 The main runner is
 [`scripts/erc-4626/scan-vault-posts.py`](../../scripts/erc-4626/scan-vault-posts.py).
 
-It uses environment variables instead of a command line parser:
+It uses environment variables instead of a command line parser.
+
+### Default run (RSS + Twitter/X + LinkedIn)
+
+Collects all sources.  Twitter/X and LinkedIn bridge URLs are built in as
+Python constants (`DEFAULT_TWITTER_URL_TEMPLATES` and
+`DEFAULT_LINKEDIN_URL_TEMPLATES` in `collector.py`) so no environment
+variables are required for a first run:
+
+```shell
+poetry run python scripts/erc-4626/scan-vault-posts.py
+```
+
+### Verbose run for debugging
+
+Set `LOG_LEVEL=info` to see per-source HTTP activity and `MAX_WORKERS=1` to
+serialise fetches for easier reading:
+
+```shell
+export LOG_LEVEL=info
+export MAX_WORKERS=1
+poetry run python scripts/erc-4626/scan-vault-posts.py
+```
+
+### Custom database path
+
+```shell
+# Use test database
+export DB_PATH=~/.tradingstrategy/vaults/vault-post-database-test.duckdb
+poetry run python scripts/erc-4626/scan-vault-posts.py
+```
+
+### Proxy-backed run (Webshare)
+
+When Twitter/X or LinkedIn bridges start rate-limiting, proxy rotation reduces
+the chance of 429 or 403 responses:
+
+```shell
+export WEBSHARE_API_KEY=your_webshare_api_key_here
+export MAX_PROXY_ROTATIONS=5
+poetry run python scripts/erc-4626/scan-vault-posts.py
+```
+
+## Dashboard output
+
+After each run the script prints a two-part dashboard to stdout.
+
+### Run summary
+
+The first table shows totals for the whole run:
+
+```
+╒══════════════════╤═════════╕
+│ Metric           │   Value │
+╞══════════════════╪═════════╡
+│ Sources loaded   │     312 │
+├──────────────────┼─────────┤
+│ Sources succeeded│     289 │
+├──────────────────┼─────────┤
+│ Sources failed   │      23 │
+├──────────────────┼─────────┤
+│ Posts fetched    │    3840 │
+├──────────────────┼─────────┤
+│ Posts inserted   │      47 │
+├──────────────────┼─────────┤
+│ Posts pruned     │       0 │
+╘══════════════════╧═════════╛
+```
+
+- **Sources loaded** — total tracked sources found in the YAML feeder files
+  (one feeder file can produce up to three sources: RSS, Twitter, LinkedIn)
+- **Sources succeeded** — sources that returned a valid feed this run
+- **Sources failed** — sources that returned an error or an empty/invalid feed
+- **Posts fetched** — total feed entries seen across all successful sources
+- **Posts inserted** — genuinely new posts written to the database this run
+  (idempotent: re-running inserts 0 if nothing changed)
+- **Posts pruned** — old posts removed by the retention window
+  (`MAX_POST_AGE_DAYS`, default 365)
+
+### Per-source breakdown
+
+The second table shows one row per tracked source:
+
+```
+╒═══════════════════╤════════════╤═══════════╤══════════╤═══════════╤══════════╤═════════════════════╕
+│ Feeder            │ Role       │ Source    │ Status   │   Fetched │ Inserted │ Last post           │
+╞═══════════════════╪════════════╪═══════════╪══════════╪═══════════╪══════════╪═════════════════════╡
+│ morpho            │ protocol   │ rss       │ ok       │        20 │        3 │ 2026-03-31 14:22:05 │
+├───────────────────┼────────────┼───────────┼──────────┼───────────┼──────────┼─────────────────────┤
+│ gauntlet          │ curator    │ rss       │ ok       │        20 │        0 │ 2026-03-28 09:11:44 │
+├───────────────────┼────────────┼───────────┼──────────┼───────────┼──────────┼─────────────────────┤
+│ gauntlet          │ curator    │ twitter   │ ok       │        15 │        1 │ 2026-04-02 17:05:31 │
+├───────────────────┼────────────┼───────────┼──────────┼───────────┼──────────┼─────────────────────┤
+│ gauntlet          │ curator    │ linkedin  │ failed   │         0 │        0 │ -                   │
+├───────────────────┼────────────┼───────────┼──────────┼───────────┼──────────┼─────────────────────┤
+│ ethena            │ protocol   │ rss       │ ok       │         8 │        8 │ 2026-04-03 06:00:00 │
+├───────────────────┼────────────┼───────────┼──────────┼───────────┼──────────┼─────────────────────┤
+│ usdc              │ stablecoin │ twitter   │ ok       │         5 │        0 │ 2026-03-25 12:00:00 │
+╘═══════════════════╧════════════╧═══════════╧══════════╧═══════════╧══════════╧═════════════════════╛
+```
+
+Columns:
+
+- **Feeder** — `feeder-id` from the YAML file (protocol / curator / stablecoin slug)
+- **Role** — `protocol`, `curator`, or `stablecoin`
+- **Source** — `rss`, `twitter`, or `linkedin`
+- **Status** — `ok` or `failed`
+- **Fetched** — number of entries seen in the feed this run
+- **Inserted** — number of **new** entries written to the database; 0 means
+  nothing new since the last run
+- **Last post** — publish timestamp of the most recent post in the database for
+  this source; `-` if no posts have ever been collected
+
+### Failed sources table
+
+If any sources failed, a separate table lists them with the error message:
+
+```
+╒═════════════════╤══════════╤══════════╤═══════════════════════════════════════════════╕
+│ Failed feeder   │ Role     │ Source   │ Error                                         │
+╞═════════════════╪══════════╪══════════╪═══════════════════════════════════════════════╡
+│ hyperliquid     │ protocol │ twitter  │ HTTP 429 after 3 proxy rotations              │
+├─────────────────┼──────────┼──────────┼───────────────────────────────────────────────┤
+│ lighter         │ protocol │ rss      │ Feed parse error: not well-formed             │
+╘═════════════════╧══════════╧══════════╧═══════════════════════════════════════════════╛
+```
+
+Common errors and their causes:
+
+- `HTTP 429` — bridge is rate-limiting; try more bridge URLs or enable proxy
+  rotation
+- `HTTP 403` — bridge or site is blocking the request; try a different bridge
+- `Feed parse error` — the URL returned something other than valid RSS/Atom;
+  the feed URL may have changed
+
+## Configuration reference
+
+Environment variables accepted by the runner:
 
 - `DB_PATH`: DuckDB path, default `~/.tradingstrategy/vaults/vault-post-database.duckdb`
 - `MAPPINGS_DIR`: optional override for the feeder directory root, default
   `eth_defi/data/feeds`
 - `LOG_LEVEL`: logging level, default `warning`
-- `MAX_WORKERS`: worker threads for concurrent feed reads
-- `MAX_POSTS_PER_SOURCE`: maximum number of latest entries to inspect per source
-- `REQUEST_TIMEOUT`: HTTP timeout in seconds
-- `REQUEST_DELAY_SECONDS`: delay between source fetches
-- `TWITTER_RSS_BASE_URLS`: comma-separated Nitter or xcancel-style bridge base URLs
-- `TWITTER_FEED_URL_TEMPLATES`: comma-separated URL templates with `{handle}`
-- `LINKEDIN_FEED_URL_TEMPLATES`: comma-separated URL templates with `{company_id}`
-- `MAX_PROXY_ROTATIONS`: maximum proxy rotations before falling back to direct reads
+- `MAX_WORKERS`: worker threads for concurrent feed reads, default `8`
+- `MAX_POSTS_PER_SOURCE`: maximum number of latest entries to inspect per source,
+  default `20`
+- `REQUEST_TIMEOUT`: HTTP timeout in seconds, default `20`
+- `REQUEST_DELAY_SECONDS`: delay between source fetches, default `1`
+- `TWITTER_RSS_BASE_URLS`: comma-separated Nitter or xcancel-style bridge base
+  URLs (conventional `/{handle}/rss` path); Twitter/X and LinkedIn bridge URLs
+  are otherwise built in as `DEFAULT_TWITTER_URL_TEMPLATES` and
+  `DEFAULT_LINKEDIN_URL_TEMPLATES` in `collector.py`
+- `MAX_PROXY_ROTATIONS`: maximum proxy rotations before falling back to a direct
+  request, default `3`
 - `WEBSHARE_API_KEY`: optional Webshare API token for proxy-backed feed fetches
-- `WEBSHARE_PROXY_MODE`: optional Webshare proxy mode if your account supports it
-- `MAX_POST_AGE_DAYS`: retention window for pruning old posts
-
-Example run:
-
-```shell
-export TWITTER_FEED_URL_TEMPLATES="https://xcancel.com/{handle}/rss,https://rss.xcancel.com/{handle}/rss"
-export LINKEDIN_FEED_URL_TEMPLATES="https://rsshub.pseudoyu.com/linkedin/company/{company_id}/posts,https://rss.owo.nz/linkedin/company/{company_id}/posts"
-poetry run python scripts/erc-4626/scan-vault-posts.py
-```
+- `WEBSHARE_PROXY_MODE`: optional Webshare proxy pool mode
+- `MAX_POST_AGE_DAYS`: retention window in days for pruning old posts, default
+  `365`
 
 ## Main files
 
