@@ -4,7 +4,8 @@
 
 This submodule collects vault-related posts from public RSS feeds, Twitter/X
 usernames, and LinkedIn company feeds, normalises them into a shared post
-format, and stores the results in DuckDB for later matching and analysis.
+format, and stores the results in DuckDB for later matching and analysis. Each
+feeder file can also carry the feeder company website as metadata.
 
 The current version is collection-only. It does not yet decide which collected
 posts belong to which vaults, and it does not generate AI summaries.
@@ -13,14 +14,16 @@ posts belong to which vaults, and it does not generate AI summaries.
 
 The feed collector is built around a few explicit design choices:
 
-- **Unified feeder schema**: protocols, curators, and vaults all use the same
-  YAML format
+- **Unified feeder schema**: protocols, curators, stablecoins, and vaults all
+  use the same YAML format
 - **Structured feeder folders**: source YAML files are grouped under
   `eth_defi/data/feeds/protocols/`, `eth_defi/data/feeds/curators/`, and
   `eth_defi/data/feeds/vaults/`
 - **Slug-based identity**: each feeder is identified by one canonical
   `feeder-id`, which is the same as the curator slug, protocol slug, or vault
   slug
+- **Website metadata**: feeder files may store one canonical company website
+  alongside the feed sources
 - **Idempotent collection**: repeated runs should only insert genuinely new
   posts
 - **Public-web compatibility**: Twitter/X and LinkedIn collection use
@@ -77,7 +80,8 @@ Each feeder file uses the same simplified schema:
 ```yaml
 feeder-id: { curator slug, protocol slug, or vault slug }
 name: { human-readable name }
-role: { curator | protocol | vault }
+role: { curator | protocol | stablecoin | vault }
+website: { optional company website URL }
 twitter: { optional Twitter/X username }
 linkedin: { optional LinkedIn company id }
 rss: { optional RSS or Atom feed URL }
@@ -86,7 +90,8 @@ rss: { optional RSS or Atom feed URL }
 Notes:
 
 - `feeder-id` is the canonical slug and acts as the feeder identity
-- `role` must be one of `curator`, `protocol`, or `vault`
+- `role` must be one of `curator`, `protocol`, `stablecoin`, or `vault`
+- `website` is optional company metadata and is stored alongside tracked sources
 - `twitter` is a username such as `gauntlet_xyz`, not a full profile URL
 - `linkedin` is collected through operator-supplied LinkedIn bridge templates
 - `linkedin` is a company id such as `gauntlet-xyz`, not a full LinkedIn URL
@@ -104,6 +109,7 @@ Morpho protocol feeder:
 feeder-id: morpho
 name: Morpho
 role: protocol
+website: https://morpho.org/
 twitter: morpholabs
 linkedin: morpho-association
 # Morpho does not currently expose an official public RSS feed
@@ -116,6 +122,7 @@ Gauntlet curator feeder:
 feeder-id: gauntlet
 name: Gauntlet
 role: curator
+website: https://www.gauntlet.xyz/
 twitter: gauntlet_xyz
 linkedin: gauntlet-xyz
 rss: https://medium.com/feed/gauntlet-networks
@@ -132,8 +139,9 @@ DuckDB stores two logical entities:
   `last_post_published_at`
 - `posts` stores normalised post content keyed by `(source_id, external_post_id)`
 
-The tracked source row tells us which feeder and source produced the data. The
-post row stores the collected content itself.
+The tracked source row tells us which feeder and source produced the data and
+also stores feeder metadata such as `website`. The post row stores the
+collected content itself.
 
 ## Collection behaviour
 

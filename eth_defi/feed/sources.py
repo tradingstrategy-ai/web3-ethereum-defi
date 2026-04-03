@@ -1,8 +1,8 @@
 """Feed source mappings.
 
-Load and validate YAML-defined mappings for RSS feeds, Twitter/X usernames, and
-LinkedIn company identifiers that should be tracked for vault-related post
-collection.
+Load and validate YAML-defined mappings for RSS feeds, Twitter/X usernames,
+LinkedIn company identifiers, and feeder websites that should be tracked for
+vault-related post collection.
 """
 
 import logging
@@ -28,6 +28,7 @@ POST_TRACKING_DATA_DIR = FEEDS_DATA_DIR
 KNOWN_FEEDER_ROLES = {
     "curator",
     "protocol",
+    "stablecoin",
     "vault",
 }
 
@@ -39,6 +40,7 @@ _MAPPING_SCHEMA = Map(
         "feeder-id": Str(),
         "name": Str(),
         "role": Str(),
+        Optional("website"): Str(),
         Optional("twitter"): Str(),
         Optional("linkedin"): Str(),
         Optional("rss"): Str(),
@@ -50,12 +52,14 @@ _MAPPING_SCHEMA = Map(
 class TrackedPostSource:
     """A single logical source mapping for feed collection."""
 
-    #: Canonical slug for the feeder, matching the curator, protocol, or vault slug.
+    #: Canonical slug for the feeder, matching the curator, protocol, stablecoin, or vault slug.
     feeder_id: str
     #: Human-readable feeder name shown in diagnostics and exports.
     name: str
-    #: Feeder role such as protocol, curator, or vault.
+    #: Feeder role such as protocol, curator, stablecoin, or vault.
     role: str
+    #: Company website for the feeder when configured in YAML.
+    website: str | None
     #: Source transport type, currently rss, twitter, or linkedin.
     source_type: str
     #: Source-specific stable key, such as feed URL, Twitter username, or LinkedIn company id.
@@ -151,6 +155,7 @@ def _build_tracked_source(
     feeder_id: str,
     name: str,
     role: str,
+    website: str | None,
     source_type: str,
     raw_value: str,
 ) -> TrackedPostSource:
@@ -170,6 +175,7 @@ def _build_tracked_source(
         feeder_id=feeder_id,
         name=name,
         role=role,
+        website=website,
         source_type=source_type,
         source_key=source_key,
         canonical_url=canonical_url,
@@ -187,9 +193,13 @@ def _load_mapping_file(mapping_file: Path) -> list[TrackedPostSource]:
         raise ValueError(f"name must be a non-empty string in {mapping_file}")
 
     role = _validate_role(parsed.get("role"), mapping_file)
+    website = parsed.get("website")
     twitter_username = parsed.get("twitter")
     linkedin_company_id = parsed.get("linkedin")
     rss_url = parsed.get("rss")
+
+    if website is not None:
+        website = _normalise_http_url(website, mapping_file)
 
     if not any((twitter_username, linkedin_company_id, rss_url)):
         raise ValueError(f"At least one of twitter, linkedin or rss must be set in {mapping_file}")
@@ -203,6 +213,7 @@ def _load_mapping_file(mapping_file: Path) -> list[TrackedPostSource]:
                 feeder_id=feeder_id,
                 name=name.strip(),
                 role=role,
+                website=website,
                 source_type="twitter",
                 raw_value=twitter_username,
             )
@@ -215,6 +226,7 @@ def _load_mapping_file(mapping_file: Path) -> list[TrackedPostSource]:
                 feeder_id=feeder_id,
                 name=name.strip(),
                 role=role,
+                website=website,
                 source_type="linkedin",
                 raw_value=linkedin_company_id,
             )
@@ -227,6 +239,7 @@ def _load_mapping_file(mapping_file: Path) -> list[TrackedPostSource]:
                 feeder_id=feeder_id,
                 name=name.strip(),
                 role=role,
+                website=website,
                 source_type="rss",
                 raw_value=rss_url,
             )

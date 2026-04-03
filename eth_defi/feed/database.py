@@ -76,6 +76,7 @@ class VaultPostDatabase:
                 feeder_id VARCHAR NOT NULL,
                 name VARCHAR NOT NULL,
                 role VARCHAR NOT NULL,
+                website VARCHAR,
                 source_type VARCHAR NOT NULL,
                 source_key VARCHAR NOT NULL,
                 canonical_url VARCHAR NOT NULL,
@@ -88,6 +89,7 @@ class VaultPostDatabase:
                 UNIQUE (feeder_id, role, source_type, source_key)
             )
         """)
+        self.con.execute("ALTER TABLE tracked_sources ADD COLUMN IF NOT EXISTS website VARCHAR")
 
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS posts (
@@ -145,12 +147,14 @@ class VaultPostDatabase:
                 """
                 UPDATE tracked_sources
                 SET name = ?,
+                    website = ?,
                     canonical_url = ?,
                     updated_at = ?
                 WHERE source_id = ?
                 """,
                 [
                     source.name,
+                    source.website,
                     source.canonical_url,
                     now_,
                     source_id,
@@ -166,18 +170,20 @@ class VaultPostDatabase:
                 feeder_id,
                 name,
                 role,
+                website,
                 source_type,
                 source_key,
                 canonical_url,
                 added_at,
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 source_id,
                 source.feeder_id,
                 source.name,
                 source.role,
+                source.website,
                 source.source_type,
                 source.source_key,
                 source.canonical_url,

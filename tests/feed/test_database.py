@@ -11,7 +11,7 @@ def test_real_gauntlet_feeder_sources_are_stored_in_database(tmp_path: Path) -> 
 
     1. Load the real Gauntlet feeder YAML from the repository feed folder.
     2. Upsert all resulting tracked sources into an empty DuckDB database.
-    3. Verify the database contains valid Twitter, LinkedIn, and RSS source rows.
+    3. Verify the database contains valid Twitter, LinkedIn, and RSS source rows plus feeder website metadata.
     """
 
     db = VaultPostDatabase(tmp_path / "posts.duckdb")
@@ -24,11 +24,12 @@ def test_real_gauntlet_feeder_sources_are_stored_in_database(tmp_path: Path) -> 
         db.upsert_tracked_sources(sources)
         tracked_df = db.get_tracked_sources_df()
 
-        # 3. Verify the database contains valid Twitter, LinkedIn, and RSS source rows.
+        # 3. Verify the database contains valid Twitter, LinkedIn, and RSS source rows plus feeder website metadata.
         assert len(sources) == 3
         assert len(tracked_df) == 3
         assert set(tracked_df["feeder_id"]) == {"gauntlet"}
         assert set(tracked_df["role"]) == {"curator"}
+        assert set(tracked_df["website"]) == {"https://www.gauntlet.xyz/"}
         assert set(tracked_df["source_type"]) == {"twitter", "linkedin", "rss"}
 
         twitter_row = tracked_df.loc[tracked_df["source_type"] == "twitter"].iloc[0]
