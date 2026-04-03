@@ -44,7 +44,7 @@ jobs:
       # Using a single installation command to avoid conflicts
       - name: Install dependencies
         run: |
-          poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb
+          poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb -E posts
 
       - name: Build documentation
         run: |
