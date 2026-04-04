@@ -86,7 +86,7 @@ def _print_source_dashboard(summary) -> None:
                 result.feeder_id,
                 result.role,
                 result.source_type,
-                result.error or "",
+                (result.error or "")[:60],
             ]
             for result in failed_results
         ]

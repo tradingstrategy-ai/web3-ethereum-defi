@@ -458,11 +458,14 @@ def collect_posts_for_source(
     errors: list[tuple[str, int | None]] = []
     for candidate_url in candidate_urls:
         try:
+            # Bridge URLs are third-party RSS bridge instances (xcancel, RSSHub).
+            # When a bridge returns 503 it means the upstream platform (LinkedIn/Twitter)
+            # is blocking the bridge's scraper — rotating our egress proxy to reach the
+            # same bridge won't change the upstream response.  Skip proxy rotation for
+            # bridge candidate URLs to avoid wasting time and polluting proxy failure stats.
             feed_content = _fetch_feed_content(
                 candidate_url,
                 timeout=request_timeout,
-                proxy_rotator=proxy_rotator,
-                max_proxy_rotations=max_proxy_rotations,
             )
             return _parse_feed_entries(source, feed_content, max_posts=max_posts_per_source)
         except requests.HTTPError as e:
