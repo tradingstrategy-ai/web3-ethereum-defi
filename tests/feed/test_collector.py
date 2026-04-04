@@ -260,14 +260,7 @@ def test_live_apostro_linkedin_auth_blocked_and_yaml_auto_disabled(tmp_path: Pat
     tmp_yaml = tmp_path / "apostro.yaml"
 
     # 1. Write a fresh apostro YAML without linkedin-rss-hub-disabled-at so the LinkedIn source is active.
-    tmp_yaml.write_text(
-        "feeder-id: apostro\n"
-        "name: Apostro\n"
-        "role: curator\n"
-        "website: https://apostro.xyz\n"
-        "twitter: apostroxyz\n"
-        "linkedin: apostro\n"
-    )
+    tmp_yaml.write_text("feeder-id: apostro\nname: Apostro\nrole: curator\nwebsite: https://apostro.xyz\ntwitter: apostroxyz\nlinkedin: apostro\n")
     sources = load_post_sources(tmp_path)
     linkedin_sources = [s for s in sources if s.source_type == "linkedin"]
     assert linkedin_sources, "apostro.yaml must have a linkedin entry without a disabled date"
