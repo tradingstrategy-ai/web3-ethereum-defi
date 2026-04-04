@@ -28,6 +28,38 @@ logger = logging.getLogger(__name__)
 
 _RETRYABLE_STATUS_CODES = {403, 429, 502, 503, 504}
 
+
+class AllBridgesFailedError(RuntimeError):
+    """Raised when every bridge URL for a social feed source fails.
+
+    :param source_label: Human-readable source type label for error messages.
+    :param canonical_url: Canonical source URL for diagnostics.
+    :param bridge_errors: List of ``(url, http_status_or_none)`` for each attempt.
+      ``None`` for the status code indicates a non-HTTP failure such as a timeout.
+    """
+
+    def __init__(
+        self,
+        source_label: str,
+        canonical_url: str,
+        bridge_errors: list[tuple[str, int | None]],
+    ):
+        self.bridge_errors = bridge_errors
+        error_parts = [f"{url}: HTTP {code}" if code is not None else f"{url}: connection error" for url, code in bridge_errors]
+        super().__init__(f"Could not fetch {source_label} feed for {canonical_url}: {'; '.join(error_parts)}")
+
+    @property
+    def indicates_auth_block(self) -> bool:
+        """Return True when at least one bridge returned HTTP 503 (LinkedIn auth barrier).
+
+        When all bridges fail and at least one specifically returns 503, LinkedIn is most
+        likely redirecting unauthenticated requests to the login page for this company.
+        Bridges that are simply down (502 or connection error) do not indicate anything
+        about LinkedIn's stance on the company page, so they are not required to return 503.
+        """
+        return bool(self.bridge_errors) and any(code == 503 for _, code in self.bridge_errors)
+
+
 #: Default Twitter/X RSS bridge URL templates used when no ``TWITTER_FEED_URL_TEMPLATES``
 #: environment variable is set.  Each template must contain a ``{handle}`` placeholder.
 #: Verified working as of 2026-04-03.
@@ -39,6 +71,15 @@ DEFAULT_TWITTER_URL_TEMPLATES: list[str] = [
 #: Default LinkedIn RSS bridge URL templates used when no ``LINKEDIN_FEED_URL_TEMPLATES``
 #: environment variable is set.  Each template must contain a ``{company_id}`` placeholder.
 #: Verified working as of 2026-04-03.
+#:
+#: .. note::
+#:
+#:     RSSHub bridges rely on unauthenticated LinkedIn access.  LinkedIn serves public
+#:     company post feeds only for large or verified organisations.  Smaller companies
+#:     redirect unauthenticated scrapers to the login page, causing every bridge to
+#:     return 503 regardless of which instance is used.  When the standard scan detects
+#:     this pattern it writes ``linkedin-rss-hub-disabled-at`` to the feeder YAML so
+#:     future runs skip the source without retrying.
 DEFAULT_LINKEDIN_URL_TEMPLATES: list[str] = [
     "https://rsshub.pseudoyu.com/linkedin/company/{company_id}/posts",
     "https://rss.owo.nz/linkedin/company/{company_id}/posts",
@@ -86,6 +127,8 @@ class CollectedSourceResult:
     last_post_published_at: datetime.datetime | None = None
     #: Error message when the source failed or was skipped.
     error: str | None = None
+    #: True when all bridge attempts failed and at least one returned HTTP 503 (LinkedIn auth barrier).
+    auth_blocked: bool = False
 
 
 def _deduplicate_urls(urls: Sequence[str]) -> list[str]:
@@ -412,7 +455,7 @@ def collect_posts_for_source(
     else:
         raise ValueError(f"Unsupported source type: {source.source_type}")
 
-    errors = []
+    errors: list[tuple[str, int | None]] = []
     for candidate_url in candidate_urls:
         try:
             feed_content = _fetch_feed_content(
@@ -422,11 +465,14 @@ def collect_posts_for_source(
                 max_proxy_rotations=max_proxy_rotations,
             )
             return _parse_feed_entries(source, feed_content, max_posts=max_posts_per_source)
-        except (requests.RequestException, ValueError) as e:
-            errors.append(f"{candidate_url}: {e}")
+        except requests.HTTPError as e:
+            status_code = e.response.status_code if e.response is not None else None
+            errors.append((candidate_url, status_code))
+        except (requests.RequestException, ValueError, OSError) as e:
+            errors.append((candidate_url, None))
 
     source_label = "Twitter bridge" if source.source_type == "twitter" else "LinkedIn bridge"
-    raise RuntimeError(f"Could not fetch {source_label} feed for {source.canonical_url}: {'; '.join(errors)}")
+    raise AllBridgesFailedError(source_label, source.canonical_url, errors)
 
 
 def _collect_posts_for_source_worker(
@@ -491,6 +537,7 @@ def _collect_posts_for_source_worker(
             max_proxy_rotations=max_proxy_rotations,
         )
     except (requests.RequestException, ValueError, RuntimeError) as e:
+        auth_blocked = isinstance(e, AllBridgesFailedError) and e.indicates_auth_block
         return (
             source,
             None,
@@ -501,6 +548,7 @@ def _collect_posts_for_source_worker(
                 source_type=source.source_type,
                 status="failed",
                 error=str(e),
+                auth_blocked=auth_blocked,
             ),
         )
 

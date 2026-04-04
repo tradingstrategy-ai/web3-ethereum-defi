@@ -3,11 +3,17 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
 import requests
 
-from eth_defi.feed.collector import collect_posts, collect_posts_for_source
+from eth_defi.feed.collector import AllBridgesFailedError, collect_posts, collect_posts_for_source
 from eth_defi.feed.database import VaultPostDatabase
-from eth_defi.feed.sources import load_post_sources
+from eth_defi.feed.sources import (
+    FEEDS_DATA_DIR,
+    auto_disable_failed_linkedin_sources,
+    load_post_sources,
+    mark_linkedin_source_disabled,
+)
 from eth_defi.feed.testing import make_test_tracked_source
 
 
@@ -64,10 +70,14 @@ class DummyResponse:
     status_code: int = 200
 
     def raise_for_status(self) -> None:
-        """Raise a ``requests`` error for failing status codes."""
+        """Raise a ``requests`` error for failing status codes.
+
+        Passes ``response=self`` so that ``e.response.status_code`` is accessible
+        in :class:`~eth_defi.feed.collector.AllBridgesFailedError`.
+        """
 
         if self.status_code >= 400:
-            raise requests.HTTPError(f"HTTP {self.status_code}")
+            raise requests.HTTPError(f"HTTP {self.status_code}", response=self)
 
 
 def test_end_to_end_collection_with_dedup(tmp_path: Path, monkeypatch) -> None:
@@ -208,3 +218,90 @@ def test_live_gauntlet_collection_and_source_registration(tmp_path: Path) -> Non
         assert posts_df.loc[posts_df["source_id"] == source_ids[linkedin_source.get_logical_key()]].shape[0] > 0
     finally:
         db.close()
+
+
+def test_linkedin_disabled_mapping_is_skipped(tmp_path: Path) -> None:
+    """Feeder YAML with linkedin-rss-hub-disabled-at skips LinkedIn source creation.
+
+    Verifies that loading a feeder with both linkedin and linkedin-rss-hub-disabled-at set
+    produces only non-LinkedIn sources, exercising the schema field and _load_mapping_file logic.
+
+    1. Write a minimal YAML with both linkedin and linkedin-rss-hub-disabled-at fields.
+    2. Load post sources from the tmp directory.
+    3. Assert only the twitter source is returned — LinkedIn source is not created.
+    """
+
+    # 1. Write a minimal YAML with both linkedin and linkedin-rss-hub-disabled-at fields.
+    (tmp_path / "apostro.yaml").write_text("feeder-id: apostro\nname: Apostro\nrole: curator\nwebsite: https://apostro.xyz\ntwitter: apostroxyz\nlinkedin: apostro\nlinkedin-rss-hub-disabled-at: 2026-04-04\n")
+
+    # 2. Load post sources from the tmp directory.
+    sources = load_post_sources(tmp_path)
+
+    # 3. Assert only the twitter source is returned — LinkedIn source is not created.
+    assert len(sources) == 1
+    assert sources[0].source_type == "twitter"
+    assert sources[0].feeder_id == "apostro"
+
+
+def test_live_apostro_linkedin_auth_blocked_and_yaml_auto_disabled(tmp_path: Path) -> None:
+    """Real Apostro LinkedIn bridges must fail with auth_blocked and auto-disable the YAML.
+
+    Apostro is a small company whose LinkedIn page requires authentication for unauthenticated
+    scrapers, so all public RSSHub bridges return 5xx errors.  This test verifies the full
+    detection and auto-disable pipeline end-to-end with real network calls.
+
+    We use a copy of apostro.yaml in tmp_path so the live repo YAML is not modified.
+
+    1. Copy the real apostro.yaml to tmp_path and load its LinkedIn source.
+    2. Collect posts — all bridges fail; verify AllBridgesFailedError with indicates_auth_block.
+    3. Run auto_disable_failed_linkedin_sources on the tmp copy and assert the date is appended.
+    4. Reload sources from tmp_path and verify LinkedIn source is now absent.
+    """
+    import shutil
+
+    real_yaml = FEEDS_DATA_DIR / "curators" / "apostro.yaml"
+    tmp_yaml = tmp_path / "apostro.yaml"
+
+    # 1. Copy the real apostro.yaml to tmp_path and load its LinkedIn source.
+    shutil.copy(real_yaml, tmp_yaml)
+    sources = load_post_sources(tmp_path)
+    linkedin_sources = [s for s in sources if s.source_type == "linkedin"]
+    assert linkedin_sources, "apostro.yaml must have a linkedin entry without a disabled date"
+    linkedin_source = linkedin_sources[0]
+    # Patch mapping_file so auto-disable writes to the tmp copy, not the real file.
+    from dataclasses import replace as dc_replace
+
+    linkedin_source = dc_replace(linkedin_source, mapping_file=tmp_yaml)
+
+    # 2. Collect posts — all bridges fail; verify AllBridgesFailedError with indicates_auth_block.
+    from eth_defi.feed.collector import CollectedSourceResult, CollectorRunSummary
+
+    with pytest.raises(AllBridgesFailedError) as exc_info:
+        collect_posts_for_source(
+            linkedin_source,
+            max_posts_per_source=5,
+            request_timeout=20,
+            twitter_rss_base_urls=[],
+            linkedin_url_templates=GAUNTLET_LINKEDIN_LIVE_TEMPLATES,
+        )
+    err = exc_info.value
+    assert err.indicates_auth_block, f"Expected auth block for apostro, got: {err.bridge_errors}"
+
+    # 3. Run auto_disable_failed_linkedin_sources on the tmp copy and assert the date is appended.
+    failed_result = CollectedSourceResult(
+        feeder_id=linkedin_source.feeder_id,
+        name=linkedin_source.name,
+        role=linkedin_source.role,
+        source_type="linkedin",
+        status="failed",
+        error=str(err),
+        auth_blocked=err.indicates_auth_block,
+    )
+    summary = CollectorRunSummary(sources_loaded=1, sources_failed=1, source_results=[failed_result])
+    disabled_count = auto_disable_failed_linkedin_sources(summary, [linkedin_source], "2026-04-04")
+    assert disabled_count == 1
+    assert "linkedin-rss-hub-disabled-at: 2026-04-04" in tmp_yaml.read_text()
+
+    # 4. Reload sources from tmp_path and verify LinkedIn source is now absent.
+    reloaded = load_post_sources(tmp_path)
+    assert not any(s.source_type == "linkedin" for s in reloaded)

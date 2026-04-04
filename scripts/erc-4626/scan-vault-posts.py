@@ -27,9 +27,10 @@ from pathlib import Path
 
 from tabulate import tabulate
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.feed.collector import collect_posts, fetch_feed_proxy_rotator
 from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE, VaultPostDatabase
-from eth_defi.feed.sources import FEEDS_DATA_DIR, load_post_sources
+from eth_defi.feed.sources import FEEDS_DATA_DIR, auto_disable_failed_linkedin_sources, load_post_sources
 from eth_defi.utils import setup_console_logging
 
 
@@ -143,6 +144,9 @@ def main() -> None:
     finally:
         db.close()
 
+    today_str = native_datetime_utc_now().strftime("%Y-%m-%d")
+    auto_disabled_count = auto_disable_failed_linkedin_sources(summary, sources, today_str)
+
     rows = [
         ["Sources loaded", summary.sources_loaded],
         ["Sources succeeded", summary.sources_succeeded],
@@ -150,6 +154,7 @@ def main() -> None:
         ["Posts fetched", summary.posts_fetched],
         ["Posts inserted", summary.posts_inserted],
         ["Posts pruned", pruned_count],
+        ["LinkedIn feeds auto-disabled", auto_disabled_count],
     ]
     print(tabulate(rows, headers=["Metric", "Value"], tablefmt="fancy_grid"))
     _print_source_dashboard(summary)

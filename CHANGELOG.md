@@ -1,5 +1,6 @@
 # Current
 
+- feat: LinkedIn feed auto-disable — `AllBridgesFailedError` with per-bridge HTTP status codes, `linkedin-rss-hub-disabled-at` YAML field, `auto_disable_failed_linkedin_sources()` stamps the feeder YAML when all bridges return 5xx (LinkedIn auth barrier for small companies), scan dashboard shows "LinkedIn feeds auto-disabled" count (2026-04-04)
 - Add: `eth_defi/data/curators.md` — curated list of DeFi vault managers and traders across Morpho, Euler, IPOR Fusion, Lagoon Finance, Hyperliquid, GRVT, and Lighter with website and Twitter links (2026-04-03)
 - Add: Vault post feed collection pipeline with YAML-defined feeder mappings, DuckDB storage, RSS/Twitter/LinkedIn collection, and standalone scan script (2026-04-03)
 - Add: `written_at` naive UTC timestamp column across all price data pipelines (ERC-4626, Hyperliquid, GRVT, Lighter) for data auditability and diagnostics (2026-03-22)

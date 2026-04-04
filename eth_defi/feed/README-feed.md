@@ -271,10 +271,11 @@ export MAX_WORKERS=1
 poetry run python scripts/erc-4626/scan-vault-posts.py
 ```
 
-### Custom database path
+### Custom test database path
 
 ```shell
 # Use test database
+export MAX_WORKERS=4
 export DB_PATH=~/.tradingstrategy/vaults/vault-post-database-test.duckdb
 poetry run python scripts/erc-4626/scan-vault-posts.py
 ```

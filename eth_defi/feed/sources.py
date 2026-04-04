@@ -9,8 +9,11 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable, Sequence
 from urllib.parse import urlparse, urlunparse
+
+if TYPE_CHECKING:
+    from eth_defi.feed.collector import CollectorRunSummary
 
 from strictyaml import Map, Optional, Str, load
 
@@ -43,6 +46,7 @@ _MAPPING_SCHEMA = Map(
         Optional("website"): Str(),
         Optional("twitter"): Str(),
         Optional("linkedin"): Str(),
+        Optional("linkedin-rss-hub-disabled-at"): Str(),
         Optional("rss"): Str(),
     }
 )
@@ -196,7 +200,16 @@ def _load_mapping_file(mapping_file: Path) -> list[TrackedPostSource]:
     website = parsed.get("website")
     twitter_username = parsed.get("twitter")
     linkedin_company_id = parsed.get("linkedin")
+    linkedin_disabled_at = parsed.get("linkedin-rss-hub-disabled-at")
     rss_url = parsed.get("rss")
+
+    if linkedin_company_id and linkedin_disabled_at:
+        logger.debug(
+            "LinkedIn source disabled for %s since %s (linkedin-rss-hub-disabled-at set in YAML)",
+            feeder_id,
+            linkedin_disabled_at,
+        )
+        linkedin_company_id = None
 
     if website is not None:
         website = _normalise_http_url(website, mapping_file)
@@ -246,6 +259,62 @@ def _load_mapping_file(mapping_file: Path) -> list[TrackedPostSource]:
         )
 
     return sources
+
+
+def mark_linkedin_source_disabled(yaml_path: Path, disabled_at: str) -> bool:
+    """Append ``linkedin-rss-hub-disabled-at`` to a feeder YAML without rewriting it.
+
+    Preserves existing file content including comments.  The new field is appended
+    as a trailing line so that YAML structure and indentation are not disturbed.
+
+    :param yaml_path: Path to the feeder YAML file.
+    :param disabled_at: ISO date string to stamp, e.g. ``2026-04-04``.
+    :return: ``True`` when the file was updated, ``False`` when the field was already present.
+    """
+    content = yaml_path.read_text()
+    if "linkedin-rss-hub-disabled-at" in content:
+        return False
+    if not content.endswith("\n"):
+        content += "\n"
+    content += f"linkedin-rss-hub-disabled-at: {disabled_at}\n"
+    yaml_path.write_text(content)
+    return True
+
+
+def auto_disable_failed_linkedin_sources(
+    summary: "CollectorRunSummary",
+    sources: Sequence[TrackedPostSource],
+    disabled_at: str,
+) -> int:
+    """Write ``linkedin-rss-hub-disabled-at`` to YAML for every all-503 LinkedIn failure.
+
+    When all configured RSSHub bridges return HTTP 503 for a LinkedIn source, LinkedIn is
+    gating that company page behind authentication.  This function stamps the feeder YAML
+    so future scan runs skip the source entirely rather than retrying.
+
+    :param summary: Collector run result from :func:`~eth_defi.feed.collector.collect_posts`.
+    :param sources: Source list passed to the same :func:`~eth_defi.feed.collector.collect_posts` call.
+    :param disabled_at: ISO date string to stamp in the YAML, e.g. ``2026-04-04``.
+    :return: Number of YAML files updated.
+    """
+    linkedin_yaml: dict[str, Path] = {s.feeder_id: s.mapping_file for s in sources if s.source_type == "linkedin"}
+    count = 0
+    for result in summary.source_results or []:
+        if result.source_type != "linkedin" or result.status != "failed":
+            continue
+        if not result.auth_blocked:
+            continue
+        yaml_path = linkedin_yaml.get(result.feeder_id)
+        if yaml_path is None:
+            continue
+        if mark_linkedin_source_disabled(yaml_path, disabled_at):
+            logger.info(
+                "Auto-disabled LinkedIn feed for %s in %s (all bridges returned 503)",
+                result.feeder_id,
+                yaml_path.name,
+            )
+            count += 1
+    return count
 
 
 def load_post_sources(mappings_dir: Path = FEEDS_DATA_DIR) -> list[TrackedPostSource]:
