@@ -257,13 +257,17 @@ def test_live_apostro_linkedin_auth_blocked_and_yaml_auto_disabled(tmp_path: Pat
     3. Run auto_disable_failed_linkedin_sources on the tmp copy and assert the date is appended.
     4. Reload sources from tmp_path and verify LinkedIn source is now absent.
     """
-    import shutil
-
-    real_yaml = FEEDS_DATA_DIR / "curators" / "apostro.yaml"
     tmp_yaml = tmp_path / "apostro.yaml"
 
-    # 1. Copy the real apostro.yaml to tmp_path and load its LinkedIn source.
-    shutil.copy(real_yaml, tmp_yaml)
+    # 1. Write a fresh apostro YAML without linkedin-rss-hub-disabled-at so the LinkedIn source is active.
+    tmp_yaml.write_text(
+        "feeder-id: apostro\n"
+        "name: Apostro\n"
+        "role: curator\n"
+        "website: https://apostro.xyz\n"
+        "twitter: apostroxyz\n"
+        "linkedin: apostro\n"
+    )
     sources = load_post_sources(tmp_path)
     linkedin_sources = [s for s in sources if s.source_type == "linkedin"]
     assert linkedin_sources, "apostro.yaml must have a linkedin entry without a disabled date"
