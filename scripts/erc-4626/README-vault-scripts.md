@@ -357,6 +357,18 @@ CHAIN_ID=8453 poetry run python scripts/erc-4626/purge-price-data.py
 
 Scripts for generating analysis reports and statistics.
 
+### identify-curators.py
+
+Identify vault curators and print a per-curator summary (vault count, total TVL).
+
+```shell
+poetry run python scripts/erc-4626/identify-curators.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `DATA_DIR` | Optional. Vault data directory. Default: `~/.tradingstrategy/vaults`. |
+
 ### vault-analysis-json.py
 
 Multi-chain vault analysis with JSON export and lifetime metric analysis.

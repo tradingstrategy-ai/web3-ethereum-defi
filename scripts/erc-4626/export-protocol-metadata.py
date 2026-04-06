@@ -1,4 +1,4 @@
-"""Export vault protocol metadata and logos to Cloudflare R2.
+"""Export vault protocol, stablecoin, and curator metadata to Cloudflare R2.
 
 Reads all vault protocol metadata YAML files, converts them to JSON
 with logo URLs, and uploads metadata JSON and formatted logo files to R2.
@@ -31,6 +31,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.stablecoin_metadata import STABLECOINS_DATA_DIR, process_and_upload_stablecoin_metadata, upload_stablecoin_index
 from eth_defi.utils import setup_console_logging
+from eth_defi.vault.curator import CURATORS_DATA_DIR, process_and_upload_curator_metadata, upload_curator_index, upload_protocol_curator_metadata
 from eth_defi.vault.protocol_metadata import METADATA_DIR, get_available_logos, process_and_upload_protocol_metadata
 
 logger = logging.getLogger(__name__)
@@ -132,6 +133,40 @@ def main():
     )
 
     print(f"\nStablecoin metadata export complete: {len(stablecoin_files)} stablecoins, {len(index)} index entries\n")
+
+    # Upload curator metadata
+    curator_files = list(CURATORS_DATA_DIR.glob("*.yaml"))
+    logger.info("Found %d curator metadata files", len(curator_files))
+
+    def _process_curator(yaml_path: Path):
+        process_and_upload_curator_metadata(
+            yaml_path=yaml_path,
+            bucket_name=bucket_name,
+            endpoint_url=endpoint_url,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+        )
+
+    curator_tasks = (delayed(_process_curator)(f) for f in curator_files)
+    Parallel(n_jobs=max_workers, prefer="threads")(tqdm(curator_tasks, total=len(curator_files), desc="Uploading curator metadata"))
+
+    # Upload protocol-curator entries (Ostium, gTrade, Hyperliquid, Lighter)
+    upload_protocol_curator_metadata(
+        bucket_name=bucket_name,
+        endpoint_url=endpoint_url,
+        access_key_id=access_key_id,
+        secret_access_key=secret_access_key,
+    )
+
+    # Upload aggregate curator index
+    curator_index = upload_curator_index(
+        bucket_name=bucket_name,
+        endpoint_url=endpoint_url,
+        access_key_id=access_key_id,
+        secret_access_key=secret_access_key,
+    )
+
+    print(f"\nCurator metadata export complete: {len(curator_files)} curators, {len(curator_index)} index entries\n")
 
 
 if __name__ == "__main__":
