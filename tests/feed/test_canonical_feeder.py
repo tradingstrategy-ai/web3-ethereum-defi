@@ -149,6 +149,9 @@ def test_real_yaml_files_load_without_errors():
     assert alias_map[("spark", "curator")] == "spark"
     assert alias_map[("ipor", "curator")] == "ipor-fusion"
 
+    # Cross-role protocol -> stablecoin (sbold dedup)
+    assert alias_map[("sbold", "protocol")] == "sbold"
+
 
 def test_metadata_inheritance_in_curator_export(tmp_path: Path):
     """Curator metadata export inherits fields from canonical stablecoin feeder.
@@ -157,10 +160,12 @@ def test_metadata_inheritance_in_curator_export(tmp_path: Path):
     2. Create curators/ethena.yaml as alias pointing to usde.
     3. Call build_curator_metadata_json().
     4. Assert website, twitter, linkedin are inherited (not None).
+    5. Create a second alias whose canonical has no linkedin — assert linkedin is None.
     """
 
     from eth_defi.vault.curator import build_curator_metadata_json
 
+    # Full metadata canonical
     _write_yaml(
         tmp_path / "stablecoins" / "usde.yaml",
         "feeder-id: usde\nname: Ethena USDe\nrole: stablecoin\nwebsite: https://ethena.fi/\ntwitter: ethena\nlinkedin: ethena-labs\n",
@@ -177,3 +182,17 @@ def test_metadata_inheritance_in_curator_export(tmp_path: Path):
     assert metadata["twitter"] == "https://x.com/ethena"
     assert metadata["linkedin"] == "https://www.linkedin.com/company/ethena-labs"
     assert metadata["canonical_feeder_id"] == "usde"
+
+    # 5. Partial metadata canonical — no linkedin field
+    _write_yaml(
+        tmp_path / "stablecoins" / "abc.yaml",
+        "feeder-id: abc\nname: ABC Token\nrole: stablecoin\nwebsite: https://abc.xyz/\ntwitter: abctoken\n",
+    )
+    _write_yaml(
+        tmp_path / "curators" / "abc-curator.yaml",
+        "feeder-id: abc-curator\nname: ABC Curator\nrole: curator\ncanonical-feeder-id: abc\n",
+    )
+
+    meta2 = build_curator_metadata_json(tmp_path / "curators" / "abc-curator.yaml")
+    assert meta2["twitter"] == "https://x.com/abctoken"
+    assert meta2["linkedin"] is None

@@ -1,8 +1,5 @@
+# sBOLD protocol — feeds provided by stablecoins/sbold.yaml
 feeder-id: sbold
 name: sBOLD
 role: protocol
-website: https://www.k3.capital/
-twitter: k3_capital
-linkedin: k3-capital-am
-rss: https://k3capital.substack.com/feed
-linkedin-rss-hub-disabled-at: 2026-04-04
+canonical-feeder-id: sbold
