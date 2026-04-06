@@ -42,3 +42,16 @@ LIGHTER_DENOMINATION: str = "USDC"
 #:
 #: From ``systemConfig.liquidity_pool_cooldown_period`` (300000ms = 5 minutes).
 LIGHTER_POOL_LOCKUP: datetime.timedelta = datetime.timedelta(minutes=5)
+
+
+#: Set of Lighter system pool addresses (protocol-curated).
+#:
+#: The LLP (Lighter Liquidity Pool) is the protocol's own liquidity pool.
+#: Uses the synthetic address format ``lighter-pool-{account_index}``.
+#:
+#: These are protocol-operated pools with special properties (no operator fee,
+#: not listed in ``publicPoolsMetadata``, fetched separately via ``systemConfig``).
+#: Useful for filtering protocol pools from user-created pools.
+LIGHTER_SYSTEM_POOL_ADDRESSES: set[str] = {
+    "lighter-pool-281474976710654",  # LLP (Lighter Liquidity Pool)
+}
