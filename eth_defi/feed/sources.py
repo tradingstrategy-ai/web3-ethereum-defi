@@ -482,3 +482,32 @@ def load_post_sources(mappings_dir: Path = FEEDS_DATA_DIR) -> tuple[list[Tracked
             entries.append(entry)
 
     return entries, feeders_skipped
+
+
+def load_feeder_metadata(yaml_path: Path) -> dict:
+    """Load a single feeder YAML file and return its metadata as a plain dict.
+
+    Uses the shared feeder schema for validation, including slug format
+    validation via :py:func:`_validate_slug` and role validation via
+    :py:func:`_validate_role`.  Asserts that ``feeder-id`` matches the
+    filename stem to catch slug/filename mismatches.
+
+    This function provides a public API for modules that need feeder
+    metadata (slug, name, website, twitter, linkedin, rss) without
+    pulling in the full feed-collection machinery of
+    :py:func:`load_post_sources`.
+
+    :param yaml_path:
+        Path to a feeder YAML file.
+
+    :return:
+        Dict with keys: ``feeder-id``, ``name``, ``role``, ``website``,
+        ``twitter``, ``linkedin``, ``rss``, etc.
+    """
+    parsed = load(yaml_path.read_text(), _MAPPING_SCHEMA).data
+    feeder_id = _validate_slug(parsed.get("feeder-id"), "feeder-id", yaml_path)
+    _validate_role(parsed.get("role"), yaml_path)
+    assert feeder_id == yaml_path.stem, (
+        f"feeder-id {feeder_id!r} does not match filename {yaml_path.stem!r} in {yaml_path}"
+    )
+    return parsed
