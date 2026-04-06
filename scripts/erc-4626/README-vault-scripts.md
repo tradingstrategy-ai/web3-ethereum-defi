@@ -156,6 +156,7 @@ poetry run python scripts/erc-4626/export-protocol-metadata.py
 | `R2_VAULT_METADATA_SECRET_ACCESS_KEY` | Required. R2 secret key. |
 | `R2_VAULT_METADATA_ENDPOINT_URL` | Required. R2 endpoint URL. |
 | `R2_VAULT_METADATA_PUBLIC_URL` | Required. R2 public URL. |
+| `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` | Optional. Alternative R2 bucket for the upcoming private commercial professional vault data bucket. Uses same credentials as primary. |
 | `MAX_WORKERS` | Optional. Default: 20. |
 
 ### scan-vault-posts.py

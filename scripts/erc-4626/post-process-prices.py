@@ -64,6 +64,11 @@ Protocol metadata R2 bucket (required unless ``SKIP_METADATA=true``):
 - ``R2_VAULT_METADATA_ENDPOINT_URL``: R2 endpoint URL for metadata bucket
 - ``R2_VAULT_METADATA_PUBLIC_URL``: Public base URL for logo URLs in metadata
 
+Alternative R2 bucket (optional, for the upcoming private commercial professional vault data bucket):
+
+- ``R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME``: When set, metadata and data files are uploaded
+  to both the primary and this alternative bucket using the same credentials
+
 Data files R2 bucket (falls back to ``R2_VAULT_METADATA_*`` if not set):
 
 - ``R2_DATA_BUCKET_NAME``: R2 bucket for parquet/pickle data files

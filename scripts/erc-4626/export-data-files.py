@@ -15,6 +15,8 @@ Environment variables:
     - R2_DATA_SECRET_ACCESS_KEY: R2 secret access key (falls back to R2_VAULT_METADATA_SECRET_ACCESS_KEY)
     - R2_DATA_ENDPOINT_URL: R2 endpoint URL (falls back to R2_VAULT_METADATA_ENDPOINT_URL)
     - R2_DATA_PUBLIC_URL: Public base URL for data files (falls back to R2_VAULT_METADATA_PUBLIC_URL)
+    - R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME: Alternative R2 bucket for the upcoming private
+      commercial professional vault data bucket (optional, uses same credentials as primary)
     - UPLOAD_PREFIX: Prefix for S3 keys, e.g. "test-" (default: "")
 """
 
@@ -116,6 +118,16 @@ def main():
 
     assert bucket_name, "R2_DATA_BUCKET_NAME (or R2_VAULT_METADATA_BUCKET_NAME) environment variable is required"
 
+    # Build list of target buckets.
+    # The alternative bucket is for the upcoming private commercial professional vault data bucket.
+    # When set, data files are uploaded to both the primary and alternative buckets
+    # using the same credentials.
+    bucket_names = [bucket_name]
+    alt_bucket_name = os.environ.get("R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME")
+    if alt_bucket_name:
+        bucket_names.append(alt_bucket_name)
+        logger.info("Alternative bucket configured: %s", alt_bucket_name)
+
     base_path = Path("~/.tradingstrategy/vaults/").expanduser()
     paths = [
         base_path / "vault-prices-1h.parquet",
@@ -126,6 +138,8 @@ def main():
 
     print(f"\nExporting data files to R2")
     print(f"  Bucket: {bucket_name}")
+    if alt_bucket_name:
+        print(f"  Alternative bucket: {alt_bucket_name}")
     print(f"  Endpoint: {endpoint_url}")
     print(f"  Public URL: {public_url}")
     print(f"  Key prefix: '{upload_prefix}'" if upload_prefix else "  Key prefix: (none)")
@@ -135,15 +149,19 @@ def main():
         size = f"{p.stat().st_size / 1024 / 1024:.1f} MB" if exists else "MISSING"
         print(f"    - {p.name}: {size}")
 
-    upload_files_to_r2(
-        file_paths=paths,
-        bucket_name=bucket_name,
-        endpoint_url=endpoint_url,
-        access_key_id=access_key_id,
-        secret_access_key=secret_access_key,
-        key_prefix=upload_prefix,
-        public_url=public_url,
-    )
+    for current_bucket in bucket_names:
+        if len(bucket_names) > 1:
+            logger.info("Uploading data files to bucket: %s", current_bucket)
+
+        upload_files_to_r2(
+            file_paths=paths,
+            bucket_name=current_bucket,
+            endpoint_url=endpoint_url,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            key_prefix=upload_prefix,
+            public_url=public_url,
+        )
 
 
 if __name__ == "__main__":
