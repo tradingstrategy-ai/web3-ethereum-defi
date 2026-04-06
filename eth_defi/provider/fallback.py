@@ -185,6 +185,46 @@ class FallbackProvider(BaseNamedProvider):
         names = [get_provider_name(p) for p in self.providers]
         return f"<Fallback provider {', '.join(names)}>"
 
+    def verify_providers(self):
+        """Check that all providers return the same chain ID.
+
+        Call this at startup to detect misconfigured RPC endpoints
+        before any trading logic runs.
+
+        :raises ChainIdMismatch:
+            If any provider returns a different chain ID, or if a
+            provider cannot be reached at all.
+        """
+        if len(self.providers) < 2:
+            return
+
+        results: dict[str, int] = {}
+        for provider in self.providers:
+            name = get_provider_name(provider)
+            if name in results:
+                # Same endpoint appears multiple times, skip duplicate
+                continue
+            try:
+                chain_id = self._fetch_chain_id_from_provider(provider)
+            except Exception as e:
+                raise ChainIdMismatch(
+                    f"Provider {name} did not respond to eth_chainId during startup verification: {e}"
+                ) from e
+            results[name] = chain_id
+
+        chain_ids = set(results.values())
+        if len(chain_ids) > 1:
+            detail = ", ".join(f"{name}={cid}" for name, cid in results.items())
+            raise ChainIdMismatch(
+                f"RPC providers are connected to different chains: {detail}. "
+                f"All providers must be on the same network."
+            )
+
+        # Pre-populate expected_chain_id for runtime switch checks
+        if chain_ids:
+            self.expected_chain_id = chain_ids.pop()
+            logger.info("All %d RPC providers verified on chain ID %d", len(results), self.expected_chain_id)
+
     @property
     def endpoint_uri(self):
         """Return the active node URI endpoint.

@@ -18,7 +18,7 @@ from eth_defi.event_reader.fast_json_rpc import patch_provider, patch_web3
 from eth_defi.middleware import static_call_cache_middleware
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.provider.broken_provider import set_block_tip_latency
-from eth_defi.provider.fallback import FallbackProvider
+from eth_defi.provider.fallback import ChainIdMismatch, FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import NamedProvider, get_provider_name
 from eth_defi.utils import get_url_domain
@@ -276,12 +276,40 @@ def create_multi_provider_web3(
         switchover_noisiness=switchover_noisiness,
         retries=retries,
     )
+
+    # Verify all call providers report the same chain ID before proceeding
+    fallback_provider.verify_providers()
+
     transact_provider = None
     if len(transact_endpoints) > 0:
         transact_endpoint = transact_endpoints[0]
         transact_provider = HTTPProvider(transact_endpoint, request_kwargs=request_kwargs, session=session)
 
         _fix_provider(transact_provider)
+
+        # Verify transact provider is on the same chain as call providers
+        if fallback_provider.expected_chain_id is not None:
+            try:
+                resp = transact_provider.make_request("eth_chainId", [])
+                result = resp.get("result")
+                if result:
+                    transact_chain_id = int(result, 16)
+                    if transact_chain_id != fallback_provider.expected_chain_id:
+                        transact_name = get_provider_name(transact_provider)
+                        raise ChainIdMismatch(
+                            f"Transact provider {transact_name} returned chain ID {transact_chain_id}, "
+                            f"but call providers are on chain {fallback_provider.expected_chain_id}. "
+                            f"All providers must be on the same network."
+                        )
+            except ChainIdMismatch:
+                raise
+            except Exception as e:
+                transact_name = get_provider_name(transact_provider)
+                raise ChainIdMismatch(
+                    f"Could not call eth_chainId on {transact_name} provider. "
+                    f"Is it a valid JSON-RPC provider? As this is often the first call, "
+                    f"you might be also out of API credits. Hint is {e}"
+                ) from e
 
         provider = MEVBlockerProvider(
             call_provider=fallback_provider,
