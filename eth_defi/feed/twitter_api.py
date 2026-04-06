@@ -394,14 +394,26 @@ def sync_x_list_members(
     )
 
     added = 0
+    failed = 0
     for user_id in to_add:
         try:
             client_write.add_list_member(list_id, user_id)
             added += 1
         except tweepy.TweepyException as e:
+            failed += 1
             logger.warning("Failed to add user %s to list %s: %s", user_id, list_id, e)
 
-    db.set_sync_state("twitter_handles_hash", current_hash)
+    # Only persist the hash when every add succeeded.  When some fail due to
+    # transient API errors the next cycle will detect the mismatch and retry.
+    if failed == 0:
+        db.set_sync_state("twitter_handles_hash", current_hash)
+    else:
+        logger.warning(
+            "Skipping hash update — %d/%d list member adds failed, will retry next cycle",
+            failed,
+            len(to_add),
+        )
+
     user_cache.save()
-    logger.info("Added %d members to X list %s (%d already present)", added, list_id, len(current_member_ids))
+    logger.info("Added %d members to X list %s (%d already present, %d failed)", added, list_id, len(current_member_ids), failed)
     return added

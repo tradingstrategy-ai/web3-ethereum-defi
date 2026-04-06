@@ -5,6 +5,7 @@ Provides :func:`run_post_scan_cycle` which runs a complete collection cycle
 without going through the script entry point.
 """
 
+import datetime
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -178,6 +179,12 @@ def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
             )
             _merge_summary(combined_summary, twitter_summary)
 
+        # Detect dead Twitter accounts
+        if config.death_detection_days > 0:
+            dead_count = _detect_dead_twitter_accounts(db, twitter_sources, config.death_detection_days)
+            if dead_count:
+                logger.info("Marked %d dead Twitter accounts", dead_count)
+
         # Prune old posts
         pruned = db.prune_posts(max_post_age_days=config.max_post_age_days)
         db.save()
@@ -187,6 +194,54 @@ def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
         db.close()
 
     return combined_summary
+
+
+def _detect_dead_twitter_accounts(
+    db: VaultPostDatabase,
+    twitter_sources: list,
+    death_detection_days: int,
+) -> int:
+    """Mark Twitter accounts with no recent posts as dead in their YAML files.
+
+    Checks ``last_post_published_at`` in the tracked_sources table.  When a
+    source has been checked at least once (``last_checked_at`` is set) and has
+    either never had a post or its most recent post is older than
+    ``death_detection_days``, the function stamps ``twitter-dead-at`` in the
+    feeder YAML so future loads skip it.
+    """
+
+    from eth_defi.feed.sources import mark_twitter_source_dead
+
+    cutoff = native_datetime_utc_now() - datetime.timedelta(days=death_detection_days)
+    today_str = native_datetime_utc_now().strftime("%Y-%m-%d")
+    dead_count = 0
+
+    tracked_df = db.get_tracked_sources_df()
+    if tracked_df.empty:
+        return 0
+
+    for source in twitter_sources:
+        matching = tracked_df[(tracked_df["feeder_id"] == source.feeder_id) & (tracked_df["source_type"] == "twitter") & (tracked_df["source_key"] == source.source_key)]
+        if matching.empty:
+            continue
+
+        row = matching.iloc[0]
+        # Only consider sources that have been checked at least once
+        if row["last_checked_at"] is None:
+            continue
+
+        last_post = row["last_post_published_at"]
+        if last_post is None or last_post < cutoff:
+            if mark_twitter_source_dead(source.mapping_file, today_str):
+                logger.info(
+                    "Marked @%s as dead (last post: %s, cutoff: %s)",
+                    source.source_key,
+                    last_post,
+                    cutoff,
+                )
+                dead_count += 1
+
+    return dead_count
 
 
 def _merge_summary(target: CollectorRunSummary, source: CollectorRunSummary) -> None:
