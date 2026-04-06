@@ -40,6 +40,8 @@ class CollectedPost:
     full_text: str
     #: Optional future AI-generated summary, null in the current version.
     ai_summary: str | None = None
+    #: JSON-serialised raw payload from the source API (e.g. full tweet object from X API).
+    raw_payload: str | None = None
 
 
 class VaultPostDatabase:
@@ -103,6 +105,15 @@ class VaultPostDatabase:
                 full_text VARCHAR NOT NULL,
                 ai_summary VARCHAR,
                 PRIMARY KEY (source_id, external_post_id)
+            )
+        """)
+        self.con.execute("ALTER TABLE posts ADD COLUMN IF NOT EXISTS raw_payload VARCHAR")
+
+        self.con.execute("""
+            CREATE TABLE IF NOT EXISTS feed_sync_state (
+                key VARCHAR PRIMARY KEY,
+                value VARCHAR NOT NULL,
+                updated_at TIMESTAMP NOT NULL
             )
         """)
 
@@ -277,8 +288,9 @@ class VaultPostDatabase:
                 fetched_at,
                 short_description,
                 full_text,
-                ai_summary
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ai_summary,
+                raw_payload
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (source_id, external_post_id) DO NOTHING
             """,
             [
@@ -292,6 +304,7 @@ class VaultPostDatabase:
                     post.short_description,
                     post.full_text,
                     post.ai_summary,
+                    post.raw_payload,
                 )
                 for post in rows
             ],
@@ -322,6 +335,40 @@ class VaultPostDatabase:
                 [cutoff],
             )
         return to_delete
+
+    def get_sync_state(self, key: str) -> str | None:
+        """Read a value from the feed_sync_state table."""
+
+        row = self.con.execute(
+            "SELECT value FROM feed_sync_state WHERE key = ?",
+            [key],
+        ).fetchone()
+        return row[0] if row else None
+
+    def set_sync_state(self, key: str, value: str) -> None:
+        """Write a value to the feed_sync_state table."""
+
+        now_ = native_datetime_utc_now()
+        self.con.execute(
+            """
+            INSERT INTO feed_sync_state (key, value, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT (key) DO UPDATE SET value = ?, updated_at = ?
+            """,
+            [key, value, now_, value, now_],
+        )
+
+    def get_known_post_ids(self, source_id: int | None = None) -> set[str]:
+        """Return all known external_post_id values, optionally filtered by source."""
+
+        if source_id is not None:
+            rows = self.con.execute(
+                "SELECT external_post_id FROM posts WHERE source_id = ?",
+                [source_id],
+            ).fetchall()
+        else:
+            rows = self.con.execute("SELECT external_post_id FROM posts").fetchall()
+        return {row[0] for row in rows}
 
     def get_tracked_sources_df(self) -> pd.DataFrame:
         """Return tracked source rows for diagnostics."""

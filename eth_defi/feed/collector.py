@@ -429,6 +429,8 @@ def collect_posts_for_source(
     linkedin_url_templates: Sequence[str] | None = None,
     proxy_rotator: ProxyRotator | None = None,
     max_proxy_rotations: int = 3,
+    twitter_bearer_token: str | None = None,
+    twitter_user_cache: "TwitterUserCache | None" = None,
 ) -> list[CollectedPost]:
     """Collect posts for one tracked source."""
 
@@ -442,6 +444,28 @@ def collect_posts_for_source(
         return _parse_feed_entries(source, feed_content, max_posts=max_posts_per_source)
 
     if source.source_type == "twitter":
+        # Try X API v2 first when bearer token is configured
+        if twitter_bearer_token and twitter_user_cache:
+            try:
+                from eth_defi.feed.twitter_api import XApiError, fetch_user_tweets
+
+                cached = twitter_user_cache.get(source.source_key)
+                if cached:
+                    posts = fetch_user_tweets(
+                        cached.user_id,
+                        twitter_bearer_token,
+                        source.source_key,
+                        max_tweets=max_posts_per_source,
+                    )
+                    if posts:
+                        return posts
+            except Exception as e:
+                logger.warning(
+                    "X API failed for @%s, falling back to RSS bridges: %s",
+                    source.source_key,
+                    e,
+                )
+
         candidate_urls = build_twitter_rss_feed_urls(
             source.source_key,
             twitter_rss_base_urls,
@@ -490,6 +514,8 @@ def _collect_posts_for_source_worker(
     linkedin_url_templates: Sequence[str],
     proxy_rotator: ProxyRotator | None,
     max_proxy_rotations: int,
+    twitter_bearer_token: str | None = None,
+    twitter_user_cache: "TwitterUserCache | None" = None,
 ) -> tuple[TrackedPostSource, list[CollectedPost] | None, CollectedSourceResult]:
     """Collect one source in a worker thread and return structured status."""
 
@@ -498,7 +524,7 @@ def _collect_posts_for_source_worker(
     if request_delay_seconds > 0:
         time.sleep(request_delay_seconds)
 
-    if source.source_type == "twitter" and not (twitter_rss_base_urls or twitter_url_templates):
+    if source.source_type == "twitter" and not (twitter_rss_base_urls or twitter_url_templates or twitter_bearer_token):
         error = f"Twitter live feed bridge not configured for {source.canonical_url}"
         return (
             source,
@@ -538,6 +564,8 @@ def _collect_posts_for_source_worker(
             linkedin_url_templates=linkedin_url_templates,
             proxy_rotator=checked_rotator,
             max_proxy_rotations=max_proxy_rotations,
+            twitter_bearer_token=twitter_bearer_token,
+            twitter_user_cache=twitter_user_cache,
         )
     except (requests.RequestException, ValueError, RuntimeError) as e:
         auth_blocked = isinstance(e, AllBridgesFailedError) and e.indicates_auth_block
@@ -584,6 +612,8 @@ def collect_posts(
     linkedin_url_templates: Sequence[str] | None = None,
     proxy_rotator: ProxyRotator | None = None,
     max_proxy_rotations: int = 3,
+    twitter_bearer_token: str | None = None,
+    twitter_user_cache: "TwitterUserCache | None" = None,
 ) -> CollectorRunSummary:
     """Collect posts for all configured sources and persist them in DuckDB."""
 
@@ -609,6 +639,8 @@ def collect_posts(
                 linkedin_url_templates=linkedin_url_templates,
                 proxy_rotator=proxy_rotator,
                 max_proxy_rotations=max_proxy_rotations,
+                twitter_bearer_token=twitter_bearer_token,
+                twitter_user_cache=twitter_user_cache,
             )
             for idx, source in enumerate(sources)
         )

@@ -83,3 +83,28 @@ services:
       - ./logs:/usr/src/web3-ethereum-defi/logs:rw
       # Expose token cache files and other cache files reused by the vault scanner
       - ${HOME}/.cache:/root/.cache:rw
+
+  # Continuously collect vault-related posts from RSS, LinkedIn, and X/Twitter
+  post-scanner:
+    image: vault-scanner:local
+    container_name: post-scanner
+    restart: unless-stopped
+    entrypoint: ["python", "scripts/erc-4626/scan-vault-posts.py"]
+    environment:
+      TWITTER_BEARER_TOKEN: ${TWITTER_BEARER_TOKEN:-}
+      TWITTER_CONSUMER_KEY: ${TWITTER_CONSUMER_KEY:-}
+      TWITTER_SECRET_KEY: ${TWITTER_SECRET_KEY:-}
+      TWITTER_ACCESS_TOKEN: ${TWITTER_ACCESS_TOKEN:-}
+      TWITTER_ACCESS_TOKEN_SECRET: ${TWITTER_ACCESS_TOKEN_SECRET:-}
+      X_LIST_ID: ${X_LIST_ID:-}
+      SYNC_X_LIST: ${SYNC_X_LIST:-true}
+      LOOP_INTERVAL_SECONDS: ${POST_SCAN_LOOP_INTERVAL:-28800}
+      LOG_LEVEL: ${LOG_LEVEL:-warning}
+      WEBSHARE_API_KEY: ${WEBSHARE_API_KEY:-}
+    mem_limit: 2g
+    mem_reservation: 512m
+    volumes:
+      - ${HOME}/.tradingstrategy:/root/.tradingstrategy:rw
+      - ./scripts:/usr/src/web3-ethereum-defi/scripts:ro
+      - ./eth_defi/data/feeds:/usr/src/web3-ethereum-defi/eth_defi/data/feeds:ro
+      - ./logs:/usr/src/web3-ethereum-defi/logs:rw

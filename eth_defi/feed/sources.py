@@ -47,6 +47,7 @@ _MAPPING_SCHEMA = Map(
         Optional("twitter"): Str(),
         Optional("linkedin"): Str(),
         Optional("linkedin-rss-hub-disabled-at"): Str(),
+        Optional("twitter-dead-at"): Str(),
         Optional("rss"): Str(),
     }
 )
@@ -201,6 +202,7 @@ def _load_mapping_file(mapping_file: Path) -> list[TrackedPostSource]:
     twitter_username = parsed.get("twitter")
     linkedin_company_id = parsed.get("linkedin")
     linkedin_disabled_at = parsed.get("linkedin-rss-hub-disabled-at")
+    twitter_dead_at = parsed.get("twitter-dead-at")
     rss_url = parsed.get("rss")
 
     if linkedin_company_id and linkedin_disabled_at:
@@ -210,6 +212,14 @@ def _load_mapping_file(mapping_file: Path) -> list[TrackedPostSource]:
             linkedin_disabled_at,
         )
         linkedin_company_id = None
+
+    if twitter_username and twitter_dead_at:
+        logger.debug(
+            "Twitter source disabled for %s since %s (twitter-dead-at set in YAML)",
+            feeder_id,
+            twitter_dead_at,
+        )
+        twitter_username = None
 
     if website is not None:
         website = _normalise_http_url(website, mapping_file)
@@ -277,6 +287,26 @@ def mark_linkedin_source_disabled(yaml_path: Path, disabled_at: str) -> bool:
     if not content.endswith("\n"):
         content += "\n"
     content += f"linkedin-rss-hub-disabled-at: {disabled_at}\n"
+    yaml_path.write_text(content)
+    return True
+
+
+def mark_twitter_source_dead(yaml_path: Path, dead_at: str) -> bool:
+    """Append ``twitter-dead-at`` to a feeder YAML without rewriting it.
+
+    Used when a Twitter account has not posted for the configured
+    death detection period.
+
+    :param yaml_path: Path to the feeder YAML file.
+    :param dead_at: ISO date string to stamp, e.g. ``2026-04-04``.
+    :return: ``True`` when the file was updated, ``False`` when the field was already present.
+    """
+    content = yaml_path.read_text()
+    if "twitter-dead-at" in content:
+        return False
+    if not content.endswith("\n"):
+        content += "\n"
+    content += f"twitter-dead-at: {dead_at}\n"
     yaml_path.write_text(content)
     return True
 

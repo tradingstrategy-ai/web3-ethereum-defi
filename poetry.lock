@@ -5555,6 +5555,24 @@ files = [
 ]
 
 [[package]]
+name = "oauthlib"
+version = "3.3.1"
+description = "A generic, spec-compliant, thorough implementation of the OAuth request-signing logic"
+optional = true
+python-versions = ">=3.8"
+groups = ["main"]
+markers = "extra == \"posts\""
+files = [
+    {file = "oauthlib-3.3.1-py3-none-any.whl", hash = "sha256:88119c938d2b8fb88561af5f6ee0eec8cc8d552b7bb1f712743136eb7523b7a1"},
+    {file = "oauthlib-3.3.1.tar.gz", hash = "sha256:0f0f8aa759826a193cf66c12ea1af1637f87b9b4622d46e866952bb022e538c9"},
+]
+
+[package.extras]
+rsa = ["cryptography (>=3.0.0)"]
+signals = ["blinker (>=1.4.0)"]
+signedtoken = ["cryptography (>=3.0.0)", "pyjwt (>=2.0.0,<3)"]
+
+[[package]]
 name = "onnxruntime"
 version = "1.24.3"
 description = "ONNX Runtime is a runtime accelerator for Machine Learning models"
@@ -7663,6 +7681,26 @@ socks = ["PySocks (>=1.5.6,!=1.5.7)"]
 use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
+name = "requests-oauthlib"
+version = "2.0.0"
+description = "OAuthlib authentication support for Requests."
+optional = true
+python-versions = ">=3.4"
+groups = ["main"]
+markers = "extra == \"posts\""
+files = [
+    {file = "requests-oauthlib-2.0.0.tar.gz", hash = "sha256:b3dffaebd884d8cd778494369603a9e7b58d29111bf6b41bdc2dcd87203af4e9"},
+    {file = "requests_oauthlib-2.0.0-py2.py3-none-any.whl", hash = "sha256:7dd8a5c40426b779b0868c404bdef9768deccf22749cde15852df527e6269b36"},
+]
+
+[package.dependencies]
+oauthlib = ">=3.0.0"
+requests = ">=2.0.0"
+
+[package.extras]
+rsa = ["oauthlib[signedtoken] (>=3.0.0)"]
+
+[[package]]
 name = "requests-ratelimiter"
 version = "0.7.0"
 description = "Rate-limiting for the requests library"
@@ -9305,6 +9343,29 @@ docs = ["towncrier (>=24,<25)"]
 test = ["hypothesis (>=6.56.4,<7)", "pycryptodome", "pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)"]
 
 [[package]]
+name = "tweepy"
+version = "4.16.0"
+description = "Library for accessing the X API (Twitter)"
+optional = true
+python-versions = ">=3.9"
+groups = ["main"]
+markers = "extra == \"posts\""
+files = [
+    {file = "tweepy-4.16.0-py3-none-any.whl", hash = "sha256:48d1a1eb311d2c4b8990abcfa6f9fa2b2ad61be05c723b1a9b4f242656badae2"},
+    {file = "tweepy-4.16.0.tar.gz", hash = "sha256:1d95cbdc50bf6353a387f881f2584eaf60d14e00dbbdd8872a73de79c66878e3"},
+]
+
+[package.dependencies]
+oauthlib = ">=3.2.0,<4"
+requests = ">=2.27.0,<3"
+requests-oauthlib = ">=1.2.0,<3"
+
+[package.extras]
+async = ["aiohttp (>=3.7.3,<4)", "async-lru (>=1.0.3,<3)"]
+dev = ["coverage (>=4.4.2)", "coveralls (>=2.1.0)", "tox (>=3.21.0)"]
+test = ["urllib3 (<2)", "vcrpy (>=1.10.3)"]
+
+[[package]]
 name = "typer"
 version = "0.24.1"
 description = "Typer, build great CLIs. Easy to code. Based on Python type hints."
@@ -9945,10 +10006,10 @@ docs = ["Sphinx", "furo", "nbsphinx", "sphinx-autodoc-typehints", "sphinx-rtd-th
 duckdb = ["duckdb"]
 hyperliquid-backfill = ["boto3", "duckdb", "lz4"]
 hypersync = ["hypersync-temp"]
-posts = ["duckdb", "feedparser"]
+posts = ["duckdb", "feedparser", "tweepy"]
 test = ["pytest-xdist"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "f70bc848763c395826a23eb0e287781186a6bc362696e1b286fcffae1c65f327"
+content-hash = "f5518d03675fba3dbb7c6958a79d633cdeaf6c4b51c0979519c7219fe94fe86c"
