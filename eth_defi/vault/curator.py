@@ -154,7 +154,7 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "clearstar-labs": ["Clearstar"],
     "insertive-capital": ["Insertive"],
     "varlamore-capital": ["Varlamore"],
-    "k3-capital": ["K3 Capital"],
+    "k3-capital": ["K3 Capital", "K3"],
     "edge-and-hedge": ["Edge & Hedge", "Edge and Hedge"],
     "damm-capital": ["DAMM Capital"],
     "august-digital": ["August Digital"],
@@ -171,6 +171,19 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "usdai": ["USD.AI", "USDai"],
     "agora-finance": ["Agora"],
     "tangent-finance": ["Tangent"],
+    "ipor": ["IPOR", "Autopilot"],
+    "reservoir": ["Reservoir"],
+    "tau": ["TAU"],
+    "yo": ["yoUSD", "yoETH", "yoBTC", "yoEUR", "yoGOLD", "yoUSDT", "yUSD", "YO Treasury"],
+    "harvest": ["Harvest"],
+    "strata": ["Strata-Money", "Strata"],
+    "pistachio": ["Pistachio"],
+    "xerberus": ["Xerberus"],
+    "tid-capital": ["TiD Capital", "TiD"],
+    "tanken": ["Tanken"],
+    "singularity": ["Singularity"],
+    "fija": ["Fija"],
+    "woo": ["Woo"],
 }
 
 

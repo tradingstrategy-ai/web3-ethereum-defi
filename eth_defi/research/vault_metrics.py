@@ -32,6 +32,7 @@ from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.curator import get_curator_name, identify_curator, is_protocol_curator
 from eth_defi.vault.flag import ABNORMAL_SHARE_PRICE, ABNORMAL_TVL, ABNORMAL_VOLATILITY, VaultFlag, get_notes
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
@@ -1186,6 +1187,15 @@ def calculate_vault_record(
     protocol_slug = vault_metadata["protocol_slug"]
     risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
 
+    curator_slug = identify_curator(
+        chain_id=chain_id,
+        vault_token_symbol=share_token,
+        vault_name=name,
+        vault_address=vault_address,
+        protocol_slug=protocol_slug,
+    )
+    curator_name = get_curator_name(curator_slug) if curator_slug else None
+
     trading_strategy_link = _get_trading_strategy_vault_link(
         chain_id=chain_id,
         chain_name=get_chain_name(chain_id),
@@ -1397,6 +1407,9 @@ def calculate_vault_record(
             "name": name,
             "vault_slug": vault_slug,
             "protocol_slug": protocol_slug,
+            "curator_slug": curator_slug,
+            "curator_name": curator_name,
+            "protocol_curator": is_protocol_curator(curator_slug) if curator_slug else None,
             "share_token_address": share_token_address,
             "denomination_token_address": denomination_token_address,
             "lifetime_return": lifetime_return,
@@ -1990,6 +2003,11 @@ def format_lifetime_table(
     _del("ranking_protocol_3m")
 
     # Lending protocol statistics are kept in the table (formatted above)
+
+    # Curator metadata exported via JSON API, not human-readable table
+    _del("curator_slug")
+    _del("curator_name")
+    _del("protocol_curator")
 
     # Offchain descriptions are exported via JSON API, not human-readable table
     _del("description")
