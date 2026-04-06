@@ -1,7 +1,10 @@
+# Tether official channels page: https://tether.to/en/channels/
+# Twitter/X handle changed from Tether_to to tether (confirmed 2026-04-06)
+# Blog RSS feed: WordPress-based at tether.io/feed/
 feeder-id: xaut
 name: Tether Gold
 role: stablecoin
 website: https://gold.tether.to/
-twitter: Tether_to
+twitter: tether
 linkedin: tether
-twitter-handle-resolved-unknown-at: 2026-04-06
+rss: https://tether.io/feed/

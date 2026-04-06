@@ -1,6 +1,8 @@
+# Indigo Protocol - Cardano-based synthetic assets protocol
+# Correct Twitter handle is @Indigo_protocol (not IndigoProtocol1)
+# IndigoProtocol1 is their Medium account username, not Twitter
 feeder-id: iusd-indigo
 name: Indigo Protocol iUSD
 role: stablecoin
 website: https://indigoprotocol.io/
-twitter: IndigoProtocol1
-twitter-handle-resolved-unknown-at: 2026-04-06
+twitter: Indigo_protocol

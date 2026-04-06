@@ -1,8 +1,10 @@
+# Fathom Protocol - DeFi platform on XDC Network
+# Correct Twitter handle is @fathom_fi (from website footer)
+# FathomProtocol was incorrect
 feeder-id: fxd
 name: Fathom Dollar
 role: stablecoin
 website: https://fathom.fi/
-twitter: FathomProtocol
+twitter: fathom_fi
 linkedin: fathom-protocol
 linkedin-rss-hub-disabled-at: 2026-04-04
-twitter-handle-resolved-unknown-at: 2026-04-06

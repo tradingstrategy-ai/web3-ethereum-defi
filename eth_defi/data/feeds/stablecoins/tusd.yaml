@@ -1,6 +1,8 @@
+# TrueUSD - SEC settled fraud charges against TrueCoin/TrustToken in Sep 2024.
+# $456M reserves were stuck in speculative offshore fund. Justin Sun bailed out TUSD.
+# Website trueusd.com now redirects to tusd.io. Twitter handle changed from @TrueUSD to @tusdio.
 feeder-id: tusd
 name: TrueUSD
 role: stablecoin
-website: https://trueusd.com/
-twitter: TrueUSD
-twitter-handle-resolved-unknown-at: 2026-04-06
+website: https://tusd.io/
+twitter: tusdio

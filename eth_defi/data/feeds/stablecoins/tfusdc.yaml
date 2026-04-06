@@ -1,9 +1,10 @@
+# TrueFi - DeFi lending protocol, rebranded in late 2025.
+# truefi.io redirects to forum.truefi.io. Twitter handle is @TrueFiDAO (confirmed active).
 feeder-id: tfusdc
 name: TrueFi USDC
 role: stablecoin
 website: https://truefi.io/
-twitter: TrueFi_DAO
+twitter: TrueFiDAO
 linkedin: trusttoken
 rss: https://blog.truefi.io/feed
 linkedin-rss-hub-disabled-at: 2026-04-04
-twitter-handle-resolved-unknown-at: 2026-04-06

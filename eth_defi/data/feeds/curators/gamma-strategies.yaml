@@ -1,9 +1,8 @@
+# Medium blog moved from publication (medium.com/gamma-strategies) to user profile
+# (gammastrategies.medium.com). Last post Jan 2024.
 feeder-id: gamma-strategies
 name: Gamma Strategies
 role: curator
 website: https://www.gamma.xyz
 twitter: GammaStrategies
-rss: https://medium.com/feed/gamma-strategies
-rss-failure-at: 2026-04-06
-rss-failure-status-code: 404
-rss-failure-exception-message: "404 Client Error: Not Found for url: https://medium.com/feed/gamma-strategies"
+rss: https://medium.com/feed/@gammastrategies

@@ -1,7 +1,9 @@
+# Tether USD₮0 - omnichain USDT via LayerZero
+# Twitter confirmed via tether.to/en/channels/ (2026-04)
 feeder-id: usd-t0
 name: Tether USD₮0
 role: stablecoin
 website: https://usdt0.to/
-twitter: Tether_to
+twitter: tether
 linkedin: tether
-twitter-handle-resolved-unknown-at: 2026-04-06
+rss: https://tether.io/feed/

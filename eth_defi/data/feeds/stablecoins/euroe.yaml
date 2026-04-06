@@ -1,8 +1,11 @@
+# Membrane Finance EUROe - EU-regulated euro stablecoin (Finnish EMI)
+# Paxos completed acquisition of Membrane Finance in February 2025
+# Product account @EUROemoney is more active than company account @membranefinance
+# membrane_fi was incorrect handle; correct company handle is @membranefinance
 feeder-id: euroe
 name: Membrane Finance EUROe
 role: stablecoin
 website: https://www.euroe.com/
-twitter: membrane_fi
+twitter: EUROemoney
 linkedin: membrane-finance
 linkedin-rss-hub-disabled-at: 2026-04-04
-twitter-handle-resolved-unknown-at: 2026-04-06

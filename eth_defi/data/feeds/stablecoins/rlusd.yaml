@@ -1,11 +1,11 @@
+# Ripple is active. Insights blog at ripple.com/insights/ has no RSS feed.
+# Tried /insights/feed/, /feed/, /rss.xml, /blog/feed/ - all 404 as of 2026-04.
+# Blog is a Next.js app with no feed autodiscovery.
 feeder-id: rlusd
 name: Ripple USD
 role: stablecoin
 website: https://ripple.com/
 twitter: Ripple
 linkedin: rippleofficial
-rss: https://ripple.com/insights/feed/
+# rss: https://ripple.com/insights/feed/  # 404 as of 2026-04, no alternative RSS found
 linkedin-rss-hub-disabled-at: 2026-04-04
-rss-failure-at: 2026-04-06
-rss-failure-status-code: 404
-rss-failure-exception-message: "404 Client Error: Not Found for url: https://ripple.com/insights/feed/"

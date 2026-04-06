@@ -1,10 +1,11 @@
+# NashPoint is an onchain asset management protocol on Arbitrum (RWA + DeFi).
+# Blog at blog.nashpoint.finance uses Next.js + Sanity CMS with no RSS support.
+# Tried /rss, /rss/, /feed, /feed.xml, /rss.xml on both .fi and .finance domains.
+# No Medium presence found. No working RSS feed as of 2026-04.
 feeder-id: nashpoint
 name: NashPoint
 role: protocol
 website: https://www.nashpoint.fi/
 twitter: NashPointFi
 linkedin: nashpoint
-rss: https://blog.nashpoint.fi/rss/
-rss-failure-at: 2026-04-06
-rss-failure-status-code: 404
-rss-failure-exception-message: "404 Client Error: Not Found for url: https://blog.nashpoint.fi/rss"
+# rss: https://blog.nashpoint.fi/rss/  # 404 as of 2026-04, Sanity CMS blog with no RSS support

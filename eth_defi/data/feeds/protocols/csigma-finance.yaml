@@ -1,11 +1,11 @@
+# cSigma Finance is an AI-driven DeFi platform for tokenised private credit.
+# Medium blog is at csigma.medium.com (user profile, not publication).
+# RSS feed works at medium.com/feed/@csigma (not /feed/csigma). Active as of 2026-04.
 feeder-id: csigma-finance
 name: cSigma Finance
 role: protocol
 website: https://csigma.finance/
 twitter: csigmafinance
 linkedin: csigma-finance-inc
-rss: https://medium.com/feed/csigma
+rss: https://medium.com/feed/@csigma
 linkedin-rss-hub-disabled-at: 2026-04-04
-rss-failure-at: 2026-04-06
-rss-failure-status-code: 404
-rss-failure-exception-message: "404 Client Error: Not Found for url: https://medium.com/feed/csigma"

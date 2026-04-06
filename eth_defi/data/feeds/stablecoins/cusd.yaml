@@ -1,9 +1,10 @@
+# Mento website links to x.com/MentoLabs (not MentoProtocol)
+# Paragraph RSS feed confirmed dead 2026-04-06
 feeder-id: cusd
 name: Mento Dollar
 role: stablecoin
 website: https://mento.org/
-twitter: MentoProtocol
+twitter: MentoLabs
 linkedin: mento-labs
 rss: https://api.paragraph.com/blogs/rss/@mentoprotocol
-twitter-handle-resolved-unknown-at: 2026-04-06
 rss-dead-at: 2026-04-06

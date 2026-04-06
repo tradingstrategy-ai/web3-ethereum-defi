@@ -1,6 +1,9 @@
+# DEFUNCT: CoinFLEX collapsed in mid-2022 after a large trader default.
+# Rebranded to OPNX in 2023, which also shut down in February 2024.
+# flexUSD is a dead stablecoin trading near $0.07, no longer redeemable.
+# CoinFLEX creditors are pursuing legal action against former CEO Mark Lamb.
 feeder-id: flexusd
 name: CoinFLEX flexUSD
 role: stablecoin
 website: https://flexusd.com/
-twitter: CoinFLEX_COM
-twitter-handle-resolved-unknown-at: 2026-04-06
+# twitter: CoinFLEXdotcom - account exists but project is defunct, exchange shut down

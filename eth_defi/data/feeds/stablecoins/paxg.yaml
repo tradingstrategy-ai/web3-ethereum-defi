@@ -1,11 +1,11 @@
+# Paxos is active. Blog at paxos.com/blog/ has no RSS feed.
+# Tried /blog/feed/, /feed/, /rss.xml, /blog/rss.xml - all 404 as of 2026-04.
+# Old blog URL /blog-news-stories/ no longer exists.
+# Twitter rebranded from @PaxosGlobal to @Paxos.
 feeder-id: paxg
 name: Pax Gold
 role: stablecoin
 website: https://paxos.com/paxgold/
-twitter: PaxosGlobal
+twitter: Paxos
 linkedin: paxos
-rss: https://paxos.com/blog-news-stories/feed/
-twitter-dead-at: 2026-04-06
-rss-failure-at: 2026-04-06
-rss-failure-status-code: 404
-rss-failure-exception-message: "404 Client Error: Not Found for url: https://www.paxos.com/blog-news-stories/feed/"
+# rss: https://paxos.com/blog-news-stories/feed/  # 404 as of 2026-04, blog moved to /blog/ with no RSS feed

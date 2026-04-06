@@ -1,10 +1,9 @@
+# Twitter handle changed from ethena_labs to ethena (website footer links to x.com/ethena)
+# Blog moved from ethena.fi/blog/feed (broken HTML, not RSS) to Mirror.xyz/Paragraph
 feeder-id: susde
 name: Ethena Staked USDe
 role: stablecoin
 website: https://ethena.fi/
-twitter: ethena_labs
+twitter: ethena
 linkedin: ethena-labs
-rss: https://ethena.fi/blog/feed
-twitter-handle-resolved-unknown-at: 2026-04-06
-rss-failure-at: 2026-04-06
-rss-failure-exception-message: "Feed parse failed for https://ethena.fi/blog/feed: <unknown>:2:50794: not well-formed (invalid token)"
+rss: https://mirror.xyz/0xF99d0E4E3435cc9C9868D1C6274DfaB3e2721341/feed/atom

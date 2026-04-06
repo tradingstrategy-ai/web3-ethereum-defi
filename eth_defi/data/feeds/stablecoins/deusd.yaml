@@ -1,7 +1,9 @@
+# Elixir rebranded from @ElixirProtocol to @elixir on X
+# Website sameAs schema confirms x.com/elixir as official account
+# GitHub still uses ElixirProtocol org name
 feeder-id: deusd
 name: Elixir deUSD
 role: stablecoin
 website: https://www.elixir.xyz/
-twitter: ElixirProtocol
+twitter: elixir
 linkedin: elixir-network
-twitter-handle-resolved-unknown-at: 2026-04-06

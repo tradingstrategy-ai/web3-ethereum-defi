@@ -1,6 +1,9 @@
+# TrueCNH - offshore Chinese Yuan stablecoin on TRON, sister product of TUSD.
+# Effectively dead: $0 market cap, $0 trading volume, not listed on any major exchange.
+# Shares parent project (TrustToken/Techteryx) with TUSD which had SEC fraud settlement.
+# Twitter uses same account as TUSD (@tusdio), no dedicated TrueCNH account exists.
 feeder-id: tcnh
 name: TrueCNH
 role: stablecoin
-website: https://trueusd.com/
-twitter: TrueUSD
-twitter-handle-resolved-unknown-at: 2026-04-06
+website: https://tusd.io/
+twitter: tusdio

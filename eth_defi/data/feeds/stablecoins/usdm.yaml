@@ -1,11 +1,8 @@
+# Mountain Protocol is winding down - acquired by Anchorage Digital (May 2025), new USDM minting disabled
 feeder-id: usdm
 name: Mountain Protocol USD
 role: stablecoin
 website: https://mountainprotocol.com/
-twitter: MountainPrtcl
+twitter: MountainUSDM
 linkedin: mountain-protocol
 rss: https://medium.com/feed/@MountainUSDM
-twitter-handle-resolved-unknown-at: 2026-04-06
-rss-failure-at: 2026-04-06
-rss-failure-status-code: 429
-rss-failure-exception-message: "429 Client Error: Too Many Requests for url: https://medium.com/feed/@MountainUSDM"

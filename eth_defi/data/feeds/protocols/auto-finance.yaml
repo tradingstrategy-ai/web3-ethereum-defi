@@ -1,10 +1,10 @@
+# Auto Finance is the rebrand of Tokemak (2025). Autopools are their core product.
+# Blog at blog.auto.finance is custom-built (no RSS). Medium at medium.com/tokemak
+# is archived (migrated Sept 2024). No working RSS feed found as of 2026-04.
 feeder-id: auto-finance
 name: AUTO Finance
 role: protocol
-website: https://www.tokemak.xyz/
+website: https://auto.finance/
 twitter: autopools
 linkedin: auto-finance
-rss: https://blog.auto.finance/rss
-rss-failure-at: 2026-04-06
-rss-failure-status-code: 404
-rss-failure-exception-message: "404 Client Error: Not Found for url: https://blog.auto.finance/rss"
+# rss: https://blog.auto.finance/rss  # 404 as of 2026-04, custom blog platform with no RSS support

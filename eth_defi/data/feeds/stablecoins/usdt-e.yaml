@@ -1,7 +1,9 @@
+# Bridged USDT - Tether USD on various L2 chains
+# Twitter confirmed via tether.to/en/channels/ (2026-04)
 feeder-id: usdt-e
 name: Bridged USDT
 role: stablecoin
 website: https://tether.to/
-twitter: Tether_to
+twitter: tether
 linkedin: tether
-twitter-handle-resolved-unknown-at: 2026-04-06
+rss: https://tether.io/feed/

@@ -1,10 +1,11 @@
+# blog.shadeprotocol.io domain is dead (DNS failure as of 2026-04).
+# Blog content now at shadeprotocol.io/blog but no RSS there.
+# Medium blog at @shadeprotocoldevs has working RSS. Last post Feb 2025.
 feeder-id: silk
 name: Shade Protocol Silk
 role: stablecoin
 website: https://shadeprotocol.io/
 twitter: Shade_Protocol
 linkedin: shade-protocol
-rss: https://blog.shadeprotocol.io/rss.xml
+rss: https://medium.com/feed/@shadeprotocoldevs
 linkedin-rss-hub-disabled-at: 2026-04-04
-rss-failure-at: 2026-04-06
-rss-failure-exception-message: "HTTPSConnectionPool(host='blog.shadeprotocol.io', port=443): Max retries exceeded with url: /rss.xml (Caused by NameResolutionError('HTTPSConnection(host='blog.shadeprotocol.io', port=443): Failed to "

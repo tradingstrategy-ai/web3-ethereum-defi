@@ -1,10 +1,11 @@
+# Centrifuge is a well-known RWA tokenisation protocol. Active blog at centrifuge.io/blog
+# but no RSS feed (tried /feed, /rss, /rss.xml, /feed.xml on centrifuge.io).
+# Medium (medium.com/centrifuge) archived since Aug 2023, migrated to Mirror then to centrifuge.io.
+# Mirror (centrifuge.mirror.xyz) also archived. No working RSS feed as of 2026-04.
 feeder-id: centrifuge
 name: Centrifuge
 role: protocol
 website: https://centrifuge.io/
 twitter: centrifuge
 linkedin: centrifugehq
-rss: https://centrifuge.io/blog/feed
-rss-failure-at: 2026-04-06
-rss-failure-status-code: 404
-rss-failure-exception-message: "404 Client Error: Not Found for url: https://centrifuge.io/blog/feed"
+# rss: https://centrifuge.io/blog/feed  # 404 as of 2026-04, centrifuge.io/blog has no RSS support
