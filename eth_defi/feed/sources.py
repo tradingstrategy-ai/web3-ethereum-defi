@@ -507,7 +507,5 @@ def load_feeder_metadata(yaml_path: Path) -> dict:
     parsed = load(yaml_path.read_text(), _MAPPING_SCHEMA).data
     feeder_id = _validate_slug(parsed.get("feeder-id"), "feeder-id", yaml_path)
     _validate_role(parsed.get("role"), yaml_path)
-    assert feeder_id == yaml_path.stem, (
-        f"feeder-id {feeder_id!r} does not match filename {yaml_path.stem!r} in {yaml_path}"
-    )
+    assert feeder_id == yaml_path.stem, f"feeder-id {feeder_id!r} does not match filename {yaml_path.stem!r} in {yaml_path}"
     return parsed

@@ -296,20 +296,12 @@ def create_multi_provider_web3(
                     transact_chain_id = int(result, 16)
                     if transact_chain_id != fallback_provider.expected_chain_id:
                         transact_name = get_provider_name(transact_provider)
-                        raise ChainIdMismatch(
-                            f"Transact provider {transact_name} returned chain ID {transact_chain_id}, "
-                            f"but call providers are on chain {fallback_provider.expected_chain_id}. "
-                            f"All providers must be on the same network."
-                        )
+                        raise ChainIdMismatch(f"Transact provider {transact_name} returned chain ID {transact_chain_id}, but call providers are on chain {fallback_provider.expected_chain_id}. All providers must be on the same network.")
             except ChainIdMismatch:
                 raise
             except Exception as e:
                 transact_name = get_provider_name(transact_provider)
-                raise ChainIdMismatch(
-                    f"Could not call eth_chainId on {transact_name} provider. "
-                    f"Is it a valid JSON-RPC provider? As this is often the first call, "
-                    f"you might be also out of API credits. Hint is {e}"
-                ) from e
+                raise ChainIdMismatch(f"Could not call eth_chainId on {transact_name} provider. Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits. Hint is {e}") from e
 
         provider = MEVBlockerProvider(
             call_provider=fallback_provider,

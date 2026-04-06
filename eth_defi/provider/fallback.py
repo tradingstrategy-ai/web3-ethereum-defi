@@ -207,18 +207,13 @@ class FallbackProvider(BaseNamedProvider):
             try:
                 chain_id = self._fetch_chain_id_from_provider(provider)
             except Exception as e:
-                raise ChainIdMismatch(
-                    f"Provider {name} did not respond to eth_chainId during startup verification: {e}"
-                ) from e
+                raise ChainIdMismatch(f"Provider {name} did not respond to eth_chainId during startup verification: {e}") from e
             results[name] = chain_id
 
         chain_ids = set(results.values())
         if len(chain_ids) > 1:
             detail = ", ".join(f"{name}={cid}" for name, cid in results.items())
-            raise ChainIdMismatch(
-                f"RPC providers are connected to different chains: {detail}. "
-                f"All providers must be on the same network."
-            )
+            raise ChainIdMismatch(f"RPC providers are connected to different chains: {detail}. All providers must be on the same network.")
 
         # Pre-populate expected_chain_id for runtime switch checks
         if chain_ids:

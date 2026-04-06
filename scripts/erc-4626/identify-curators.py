@@ -37,11 +37,7 @@ def main():
     prices_df = pd.read_parquet(PARQUET_FILE)
 
     # 2. Filter to stablecoin-denominated vaults
-    stablecoin_vaults = {
-        spec: row
-        for spec, row in vault_db.items()
-        if is_stablecoin_like(row["Denomination"])
-    }
+    stablecoin_vaults = {spec: row for spec, row in vault_db.items() if is_stablecoin_like(row["Denomination"])}
 
     if not stablecoin_vaults:
         print("No stablecoin-denominated vaults found")
@@ -62,11 +58,13 @@ def main():
     # 5. Print summary table
     table_data = []
     for curator_label, row in grouped.iterrows():
-        table_data.append([
-            curator_label,
-            int(row["vault_count"]),
-            f"${row['total_tvl']:,.0f}",
-        ])
+        table_data.append(
+            [
+                curator_label,
+                int(row["vault_count"]),
+                f"${row['total_tvl']:,.0f}",
+            ]
+        )
 
     print(f"\nCurator summary ({len(metrics)} vaults analysed)\n")
     print(
