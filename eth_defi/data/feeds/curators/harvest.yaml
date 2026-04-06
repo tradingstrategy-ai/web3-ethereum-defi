@@ -1,5 +1,5 @@
+# Harvest Finance curator — feeds provided by protocols/harvest-finance.yaml
 feeder-id: harvest
 name: Harvest Finance
 role: curator
-website: https://harvest.finance
-twitter: harvest_finance
+canonical-feeder-id: harvest-finance

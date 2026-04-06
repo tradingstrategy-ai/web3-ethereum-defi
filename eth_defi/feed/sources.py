@@ -43,6 +43,7 @@ _MAPPING_SCHEMA = Map(
         "feeder-id": Str(),
         "name": Str(),
         "role": Str(),
+        Optional("canonical-feeder-id"): Str(),
         Optional("website"): Str(),
         Optional("twitter"): Str(),
         Optional("linkedin"): Str(),
@@ -56,6 +57,22 @@ _MAPPING_SCHEMA = Map(
         Optional("rss-failure-exception-message"): Str(),
     }
 )
+
+#: Feed source fields that must NOT appear in alias YAML files.
+_FEED_SOURCE_KEYS = ("twitter", "linkedin", "rss")
+
+#: Role subdirectory names under the feeds data directory.
+ROLE_SUBDIRS = {
+    "stablecoin": "stablecoins",
+    "protocol": "protocols",
+    "curator": "curators",
+    "vault": "vaults",
+}
+
+#: Role priority order for canonical feeder resolution.
+#: When a canonical-feeder-id matches files in multiple roles,
+#: the role listed first wins.
+ROLE_PRIORITY = ("stablecoin", "protocol", "curator", "vault")
 
 
 @dataclass(slots=True, frozen=True)
@@ -88,6 +105,28 @@ class TrackedPostSource:
             self.source_type,
             self.source_key,
         )
+
+
+@dataclass(slots=True, frozen=True)
+class FeederAlias:
+    """A feeder YAML that delegates feed sources to another feeder.
+
+    Alias files contain only identity metadata (feeder-id, name, role)
+    and a ``canonical-feeder-id`` pointing to the feeder whose feed
+    sources should be collected.  They produce no
+    :py:class:`TrackedPostSource` entries.
+    """
+
+    #: Feeder-id of the alias file.
+    feeder_id: str
+    #: Feeder-id of the canonical source-bearing feeder.
+    canonical_feeder_id: str
+    #: Role declared in the alias file (may differ from the canonical feeder's role).
+    role: str
+    #: Human-readable name from the alias file.
+    name: str
+    #: Path to the alias YAML file.
+    mapping_file: Path
 
 
 def _validate_slug(value: object, field_name: str, mapping_file: Path) -> str:
@@ -193,8 +232,14 @@ def _build_tracked_source(
     )
 
 
-def _load_mapping_file(mapping_file: Path) -> list[TrackedPostSource]:
-    """Load one mapping YAML file."""
+def _load_mapping_file(mapping_file: Path) -> tuple[list[TrackedPostSource], FeederAlias | None]:
+    """Load one mapping YAML file.
+
+    :return:
+        Tuple of ``(sources, alias)``.  When the file has
+        ``canonical-feeder-id`` set, ``sources`` is empty and ``alias``
+        holds the alias metadata.  Otherwise ``alias`` is ``None``.
+    """
 
     parsed = load(mapping_file.read_text(), _MAPPING_SCHEMA).data
     feeder_id = _validate_slug(parsed.get("feeder-id"), "feeder-id", mapping_file)
@@ -203,6 +248,23 @@ def _load_mapping_file(mapping_file: Path) -> list[TrackedPostSource]:
         raise ValueError(f"name must be a non-empty string in {mapping_file}")
 
     role = _validate_role(parsed.get("role"), mapping_file)
+
+    # Handle alias files — canonical-feeder-id delegates feed sources
+    canonical_feeder_id = parsed.get("canonical-feeder-id")
+    if canonical_feeder_id is not None:
+        canonical_feeder_id = _validate_slug(canonical_feeder_id, "canonical-feeder-id", mapping_file)
+        for forbidden_key in _FEED_SOURCE_KEYS:
+            if parsed.get(forbidden_key):
+                raise ValueError(f"Alias YAML {mapping_file} has canonical-feeder-id set but also contains {forbidden_key!r} — remove feed sources from alias files")
+        alias = FeederAlias(
+            feeder_id=feeder_id,
+            canonical_feeder_id=canonical_feeder_id,
+            role=role,
+            name=name.strip(),
+            mapping_file=mapping_file,
+        )
+        return [], alias
+
     website = parsed.get("website")
     twitter_username = parsed.get("twitter")
     linkedin_company_id = parsed.get("linkedin")
@@ -250,7 +312,7 @@ def _load_mapping_file(mapping_file: Path) -> list[TrackedPostSource]:
     if not any((twitter_username, linkedin_company_id, rss_url)):
         # All sources have been disabled (dead/unknown/disabled flags set) — skip this feeder
         logger.debug("All sources disabled for %s in %s, skipping", feeder_id, mapping_file)
-        return []
+        return [], None
 
     sources = []
 
@@ -293,7 +355,7 @@ def _load_mapping_file(mapping_file: Path) -> list[TrackedPostSource]:
             )
         )
 
-    return sources
+    return sources, None
 
 
 def mark_linkedin_source_disabled(yaml_path: Path, disabled_at: str) -> bool:
@@ -447,11 +509,14 @@ def auto_disable_failed_linkedin_sources(
     return count
 
 
-def load_post_sources(mappings_dir: Path = FEEDS_DATA_DIR) -> tuple[list[TrackedPostSource], int]:
+def load_post_sources(mappings_dir: Path = FEEDS_DATA_DIR) -> tuple[list[TrackedPostSource], int, list[FeederAlias]]:
     """Load and validate all feed source mappings.
 
-    :return: Tuple of (sources, feeders_skipped) where feeders_skipped is the
-        number of YAML files where all sources were disabled.
+    :return:
+        Tuple of ``(sources, feeders_skipped, aliases)`` where
+        *feeders_skipped* counts YAML files with all sources disabled
+        (not aliases) and *aliases* lists feeders that delegate their
+        sources to a canonical feeder via ``canonical-feeder-id``.
     """
 
     mappings_dir = mappings_dir.expanduser().resolve()
@@ -460,17 +525,28 @@ def load_post_sources(mappings_dir: Path = FEEDS_DATA_DIR) -> tuple[list[Tracked
 
     entries: list[TrackedPostSource] = []
     seen: dict[tuple[str, str, str, str], Path] = {}
+    aliases: list[FeederAlias] = []
+    all_feeder_ids: set[str] = set()
     feeders_skipped = 0
 
     for mapping_file in _iter_mapping_files(mappings_dir):
         try:
-            file_entries = _load_mapping_file(mapping_file)
+            file_entries, alias = _load_mapping_file(mapping_file)
+        except ValueError:
+            raise  # Validation errors (mutual exclusion, bad slugs) are fatal
         except Exception as e:
             logger.error("Failed to parse feeder YAML %s: %s", mapping_file, e)
             feeders_skipped += 1
             continue
-        if not file_entries:
+
+        if alias:
+            aliases.append(alias)
+            all_feeder_ids.add(alias.feeder_id)
+        elif not file_entries:
             feeders_skipped += 1
+        else:
+            all_feeder_ids.add(file_entries[0].feeder_id)
+
         for entry in file_entries:
             logical_key = entry.get_logical_key()
             if logical_key in seen:
@@ -481,7 +557,62 @@ def load_post_sources(mappings_dir: Path = FEEDS_DATA_DIR) -> tuple[list[Tracked
             seen[logical_key] = mapping_file
             entries.append(entry)
 
-    return entries, feeders_skipped
+    # Validate alias targets
+    for alias in aliases:
+        if alias.canonical_feeder_id not in all_feeder_ids:
+            raise ValueError(f"canonical-feeder-id {alias.canonical_feeder_id!r} in {alias.mapping_file} does not match any known feeder-id")
+        # Ensure the resolved target is a source-bearing feeder, not another alias
+        target_yaml = resolve_canonical_feeder_yaml(alias.canonical_feeder_id, mappings_dir)
+        target_parsed = load(target_yaml.read_text(), _MAPPING_SCHEMA).data
+        if target_parsed.get("canonical-feeder-id") is not None:
+            raise ValueError(f"Alias {alias.feeder_id!r} in {alias.mapping_file} points to {alias.canonical_feeder_id!r} which resolves to {target_yaml} — but that file is itself an alias.  Alias chains are not allowed; point directly to the source-bearing feeder instead.")
+
+    return entries, feeders_skipped, aliases
+
+
+def resolve_canonical_feeder_yaml(canonical_feeder_id: str, mappings_dir: Path) -> Path:
+    """Find the YAML file for a canonical feeder, searching by role priority.
+
+    Searches subdirectories in priority order: stablecoins/, protocols/,
+    curators/, vaults/.  Returns the path to the first matching YAML file
+    whose filename stem equals *canonical_feeder_id*.
+
+    :param canonical_feeder_id:
+        The feeder-id slug to look up.
+
+    :param mappings_dir:
+        Root directory containing role subdirectories (e.g. ``eth_defi/data/feeds``).
+
+    :raises FileNotFoundError:
+        When no matching YAML file is found in any role subdirectory.
+    """
+
+    for role in ROLE_PRIORITY:
+        subdir = ROLE_SUBDIRS[role]
+        candidate = mappings_dir / subdir / f"{canonical_feeder_id}.yaml"
+        if candidate.exists():
+            return candidate
+
+    raise FileNotFoundError(f"No YAML file found for canonical feeder-id {canonical_feeder_id!r} in any role subdirectory of {mappings_dir}")
+
+
+def resolve_feeder_id(feeder_id: str, aliases: Sequence[FeederAlias]) -> str:
+    """Resolve a feeder_id through the alias mapping.
+
+    Returns the canonical feeder_id when the input is an alias,
+    or the input unchanged when it is not an alias.
+
+    :param feeder_id:
+        Feeder-id to resolve.
+
+    :param aliases:
+        Alias list returned by :py:func:`load_post_sources`.
+    """
+
+    for alias in aliases:
+        if alias.feeder_id == feeder_id:
+            return alias.canonical_feeder_id
+    return feeder_id
 
 
 def load_feeder_metadata(yaml_path: Path) -> dict:

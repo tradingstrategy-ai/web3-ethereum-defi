@@ -1,5 +1,5 @@
+# Yo curator — feeds provided by protocols/yo.yaml
 feeder-id: yo
 name: Yo
 role: curator
-website: https://www.yo.xyz
-twitter: yield
+canonical-feeder-id: yo

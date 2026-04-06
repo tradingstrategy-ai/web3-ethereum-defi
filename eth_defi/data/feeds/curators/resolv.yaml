@@ -1,6 +1,5 @@
+# Resolv curator — feeds provided by stablecoins/usr.yaml
 feeder-id: resolv
 name: Resolv
 role: curator
-website: https://resolv.xyz/
-twitter: ResolvLabs
-linkedin: resolvlabs
+canonical-feeder-id: usr

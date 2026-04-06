@@ -1,6 +1,5 @@
+# Spark curator — feeds provided by protocols/spark.yaml
 feeder-id: spark
 name: Spark
 role: curator
-website: https://spark.fi/
-twitter: sparkdotfi
-linkedin: spark-protocol
+canonical-feeder-id: spark

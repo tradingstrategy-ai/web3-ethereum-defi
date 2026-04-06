@@ -1,9 +1,5 @@
-# Twitter handle changed from ethena_labs to ethena (website footer links to x.com/ethena)
-# Blog moved from ethena.fi/blog/feed (broken HTML, not RSS) to Mirror.xyz/Paragraph
+# Ethena protocol — feeds provided by stablecoins/usde.yaml
 feeder-id: ethena
 name: Ethena
 role: protocol
-website: https://ethena.fi/
-twitter: ethena
-linkedin: ethena-labs
-rss: https://mirror.xyz/0xF99d0E4E3435cc9C9868D1C6274DfaB3e2721341/feed/atom
+canonical-feeder-id: usde

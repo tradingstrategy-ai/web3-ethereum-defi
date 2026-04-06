@@ -1,8 +1,5 @@
+# Staked Frax USD - same issuer as FRAX
 feeder-id: sfrxusd
 name: Staked Frax USD
 role: stablecoin
-website: https://frax.finance/
-twitter: fraxfinance
-linkedin: fraxfinance
-rss: https://news.frax.com/feed
-linkedin-rss-hub-disabled-at: 2026-04-04
+canonical-feeder-id: frax

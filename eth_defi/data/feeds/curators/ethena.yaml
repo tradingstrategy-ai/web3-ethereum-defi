@@ -1,6 +1,5 @@
+# Ethena curator — feeds provided by stablecoins/usde.yaml
 feeder-id: ethena
 name: Ethena
 role: curator
-website: https://ethena.fi/
-twitter: ethena
-linkedin: ethena-labs
+canonical-feeder-id: usde

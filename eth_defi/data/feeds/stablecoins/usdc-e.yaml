@@ -1,6 +1,5 @@
+# Bridged USDC - Circle USDC on various L2 chains
 feeder-id: usdc-e
 name: Bridged USDC
 role: stablecoin
-website: https://www.circle.com/usdc
-twitter: circle
-linkedin: circle-internet-financial
+canonical-feeder-id: usdc

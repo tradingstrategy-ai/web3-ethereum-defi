@@ -1,7 +1,5 @@
+# K3 Capital curator — feeds provided by stablecoins/sbold.yaml
 feeder-id: k3-capital
 name: K3 Capital
 role: curator
-website: https://k3.capital
-twitter: k3_capital
-linkedin: k3-capital-am
-linkedin-rss-hub-disabled-at: 2026-04-04
+canonical-feeder-id: sbold

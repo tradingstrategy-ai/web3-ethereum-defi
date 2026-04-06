@@ -1,5 +1,5 @@
+# USD.AI curator — feeds provided by stablecoins/usdai.yaml
 feeder-id: usdai
 name: USD.AI
 role: curator
-website: https://usd.ai/
-twitter: USDai_Official
+canonical-feeder-id: usdai

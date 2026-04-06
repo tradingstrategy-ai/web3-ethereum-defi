@@ -4,8 +4,4 @@ role: stablecoin
 website: https://resolv.xyz/
 twitter: ResolvLabs
 linkedin: resolvlabs
-rss: https://medium.com/feed/@ResolvLabs
-rss-failure-at: 2026-04-06
-rss-failure-status-code: 429
-rss-failure-exception-message: "429 Client Error: Too Many Requests for url: https://medium.com/feed/@ResolvLabs"
-rss-dead-at: 2026-04-06
+rss: https://resolvlabs.substack.com/feed

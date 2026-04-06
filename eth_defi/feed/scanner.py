@@ -85,7 +85,9 @@ def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
     7. Return summary.
     """
 
-    all_sources, feeders_skipped = load_post_sources(mappings_dir=config.mappings_dir)
+    all_sources, feeders_skipped, aliases = load_post_sources(mappings_dir=config.mappings_dir)
+    if aliases:
+        logger.info("Skipped %d alias feeders (canonical-feeder-id set)", len(aliases))
 
     # Split sources by type
     rss_sources = [s for s in all_sources if s.source_type == "rss"]

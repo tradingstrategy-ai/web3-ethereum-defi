@@ -36,6 +36,37 @@ Curator YAML files use the shared feeder schema defined in
     linkedin: gauntlet-xyz
     rss: https://medium.com/feed/gauntlet-networks
 
+Canonical feeder aliases
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+When the same organisation appears as both a curator and a stablecoin
+issuer or vault protocol, duplicate feed fetching is avoided by using
+``canonical-feeder-id``.  An alias YAML file contains only identity
+metadata — no feed source fields (twitter, linkedin, rss)::
+
+    feeder-id: ethena
+    name: Ethena
+    role: curator
+    canonical-feeder-id: usde
+
+The priority order determines which role keeps the feed sources:
+
+1. **Stablecoin** — highest priority, always keeps feeds
+2. **Protocol** — keeps feeds only when no stablecoin overlap exists
+3. **Curator** — lowest priority, defers to stablecoin or protocol
+
+Metadata inheritance happens at export time:
+:py:func:`build_curator_metadata_json` resolves the canonical feeder
+YAML by role priority and inherits website, twitter, linkedin and rss
+from it.
+
+Post resolution happens at consumption time — consumers use
+:py:func:`~eth_defi.feed.sources.resolve_feeder_id` to map an alias
+feeder_id to the canonical feeder_id, then look up posts under that
+canonical feeder's tracked sources.  The ``canonical_feeder_id`` field
+is included in the exported :py:class:`CuratorMetadata` JSON so that
+frontends can resolve without accessing YAML files.
+
 Identification approach
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -223,6 +254,13 @@ class CuratorInfo(TypedDict):
     #: ``False`` for third-party curators (Gauntlet, RE7 Labs, etc.).
     protocol_curator: bool
 
+    #: When set, this curator's feed sources are provided by another
+    #: feeder identified by this slug.  The canonical feeder may be in
+    #: a different role (e.g. a stablecoin feeder).  Posts for this
+    #: curator should be looked up under the canonical feeder's sources.
+    #: ``None`` for curators that have their own feed sources.
+    canonical_feeder_id: str | None
+
 
 class CuratorMetadata(TypedDict):
     """Curator metadata as exported to JSON for R2 upload.
@@ -259,6 +297,11 @@ class CuratorMetadata(TypedDict):
     #: ``False`` for third-party curators (e.g. Gauntlet, RE7 Labs).
     protocol_curator: bool
 
+    #: When this curator is an alias, the slug of the canonical feeder
+    #: whose posts should be used.  ``None`` for non-alias curators.
+    #: Consumers should look up posts under this feeder_id instead.
+    canonical_feeder_id: str | None
+
 
 #: In-process cache for :py:func:`load_curator_map`.
 _cached_curator_map: dict[str, CuratorInfo] | None = None
@@ -287,6 +330,7 @@ def _load_curator_yaml(yaml_path: Path) -> CuratorInfo:
         linkedin=parsed.get("linkedin"),
         rss=parsed.get("rss"),
         protocol_curator=False,  # YAML curators are always third-party
+        canonical_feeder_id=parsed.get("canonical-feeder-id"),
     )
 
 
@@ -472,22 +516,44 @@ def build_curator_metadata_json(yaml_path: Path) -> CuratorMetadata:
     """
     info = _load_curator_yaml(yaml_path)
 
+    # If alias, inherit metadata from the canonical feeder.
+    # Derive the feeds root from yaml_path: curators/foo.yaml -> parent.parent
+    if info["canonical_feeder_id"]:
+        from eth_defi.feed.sources import load_feeder_metadata, resolve_canonical_feeder_yaml
+
+        feeds_root = yaml_path.parent.parent
+        canonical_yaml = resolve_canonical_feeder_yaml(
+            info["canonical_feeder_id"],
+            mappings_dir=feeds_root,
+        )
+        canonical = load_feeder_metadata(canonical_yaml)
+        website = canonical.get("website")
+        twitter_handle = canonical.get("twitter")
+        linkedin_id = canonical.get("linkedin")
+        rss = canonical.get("rss")
+    else:
+        website = info["website"]
+        twitter_handle = info["twitter"]
+        linkedin_id = info["linkedin"]
+        rss = info["rss"]
+
     twitter_url: str | None = None
-    if info["twitter"]:
-        twitter_url = f"https://x.com/{info['twitter']}"
+    if twitter_handle:
+        twitter_url = f"https://x.com/{twitter_handle}"
 
     linkedin_url: str | None = None
-    if info["linkedin"]:
-        linkedin_url = f"https://www.linkedin.com/company/{info['linkedin']}"
+    if linkedin_id:
+        linkedin_url = f"https://www.linkedin.com/company/{linkedin_id}"
 
     return CuratorMetadata(
         slug=info["slug"],
         name=info["name"],
-        website=info["website"],
+        website=website,
         twitter=twitter_url,
         linkedin=linkedin_url,
-        rss=info["rss"],
+        rss=rss,
         protocol_curator=info["protocol_curator"],
+        canonical_feeder_id=info["canonical_feeder_id"],
     )
 
 
@@ -512,6 +578,7 @@ def _build_protocol_curator_entries() -> list[CuratorMetadata]:
                 linkedin=None,
                 rss=None,
                 protocol_curator=True,
+                canonical_feeder_id=None,
             )
         )
     return entries

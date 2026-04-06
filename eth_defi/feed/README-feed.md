@@ -96,10 +96,43 @@ Notes:
 - `linkedin` is collected through operator-supplied LinkedIn bridge templates
 - `linkedin` is a company id such as `gauntlet-xyz`, not a full LinkedIn URL
 - at least one of `twitter`, `linkedin`, or `rss` must be present for collection
+  — **unless** `canonical-feeder-id` is set (see below)
 - one YAML file currently produces one to three tracked sources internally:
   - one Twitter source
   - one LinkedIn source
   - one RSS source
+
+## Canonical feeder aliases
+
+When the same organisation's social accounts would be tracked by multiple
+YAML files (e.g. Tether's `@tether` Twitter from both `usdt.yaml` and
+`usdt-e.yaml`), an alias avoids duplicate fetching and storage:
+
+```yaml
+feeder-id: usdt-e
+name: Bridged USDT
+role: stablecoin
+canonical-feeder-id: usdt
+```
+
+Alias files must contain only `feeder-id`, `name`, `role`, and
+`canonical-feeder-id` — no feed source fields (`twitter`, `linkedin`,
+`rss`).  They produce no tracked sources and no posts are collected for
+them.
+
+`canonical-feeder-id` can cross roles.  When the same entity is a
+stablecoin, a protocol, and a curator, the priority order is:
+
+1. **Stablecoin** — keeps feeds (highest priority)
+2. **Protocol** — keeps feeds only when no stablecoin overlap
+3. **Curator** — always defers to stablecoin or protocol
+
+Alias chains are forbidden — the target of `canonical-feeder-id` must
+be a source-bearing feeder, not another alias.
+
+Metadata (website, twitter, linkedin, rss) is inherited from the
+canonical feeder at export time.  Post lookup must resolve the alias
+to the canonical feeder_id first (via `resolve_feeder_id()`).
 
 ## Example feeder files
 

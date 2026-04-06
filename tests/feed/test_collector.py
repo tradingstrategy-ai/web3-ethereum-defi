@@ -161,7 +161,7 @@ def test_live_gauntlet_collection_and_source_registration(tmp_path: Path) -> Non
     try:
         # 1. Load the real Gauntlet feeder YAML from the repository feed folder.
         data_dir = Path(__file__).resolve().parents[2] / "eth_defi" / "data" / "feeds"
-        all_sources, _ = load_post_sources(data_dir)
+        all_sources, _, _ = load_post_sources(data_dir)
         sources = [source for source in all_sources if source.feeder_id == "gauntlet"]
 
         # 2. Upsert available source rows into DuckDB.
@@ -238,7 +238,7 @@ def test_linkedin_disabled_mapping_is_skipped(tmp_path: Path) -> None:
     (tmp_path / "apostro.yaml").write_text("feeder-id: apostro\nname: Apostro\nrole: curator\nwebsite: https://apostro.xyz\ntwitter: apostroxyz\nlinkedin: apostro\nlinkedin-rss-hub-disabled-at: 2026-04-04\n")
 
     # 2. Load post sources from the tmp directory.
-    sources, _ = load_post_sources(tmp_path)
+    sources, _, _ = load_post_sources(tmp_path)
 
     # 3. Assert only the twitter source is returned — LinkedIn source is not created.
     assert len(sources) == 1
@@ -264,7 +264,7 @@ def test_live_apostro_linkedin_auth_blocked_and_yaml_auto_disabled(tmp_path: Pat
 
     # 1. Write a fresh apostro YAML without linkedin-rss-hub-disabled-at so the LinkedIn source is active.
     tmp_yaml.write_text("feeder-id: apostro\nname: Apostro\nrole: curator\nwebsite: https://apostro.xyz\ntwitter: apostroxyz\nlinkedin: apostro\n")
-    sources, _ = load_post_sources(tmp_path)
+    sources, _, _ = load_post_sources(tmp_path)
     linkedin_sources = [s for s in sources if s.source_type == "linkedin"]
     assert linkedin_sources, "apostro.yaml must have a linkedin entry without a disabled date"
     linkedin_source = linkedin_sources[0]
@@ -303,5 +303,5 @@ def test_live_apostro_linkedin_auth_blocked_and_yaml_auto_disabled(tmp_path: Pat
     assert "linkedin-rss-hub-disabled-at: 2026-04-04" in tmp_yaml.read_text()
 
     # 4. Reload sources from tmp_path and verify LinkedIn source is now absent.
-    reloaded, _ = load_post_sources(tmp_path)
+    reloaded, _, _ = load_post_sources(tmp_path)
     assert not any(s.source_type == "linkedin" for s in reloaded)

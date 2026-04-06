@@ -1,6 +1,5 @@
+# Frax USD - same issuer as FRAX
 feeder-id: frxusd
 name: Frax USD
 role: stablecoin
-website: https://frax.finance/
-twitter: fraxfinance
-rss: https://news.frax.com/feed
+canonical-feeder-id: frax

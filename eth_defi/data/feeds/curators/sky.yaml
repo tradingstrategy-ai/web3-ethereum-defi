@@ -1,6 +1,5 @@
+# Sky curator — feeds provided by stablecoins/usds.yaml
 feeder-id: sky
 name: Sky
 role: curator
-website: https://sky.money/
-twitter: SkyEcosystem
-linkedin: skyecosystem
+canonical-feeder-id: usds

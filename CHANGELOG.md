@@ -1,5 +1,6 @@
 # Current
 
+- feat: Canonical feeder aliases — `canonical-feeder-id` YAML field eliminates duplicate feed fetching across 21 alias files, with cross-role priority resolution (stablecoin > protocol > curator), metadata inheritance in curator exports, and alias chain validation (2026-04-06)
 - feat: Add 13 new IPOR Fusion vault curators — IPOR, Reservoir, TAU (628 Labs), Yo, Harvest Finance, Strata, Pistachio, Xerberus, TiD Capital, Tanken, Singularity Finance, Fija, Woo — improving IPOR curator coverage from 10.9% to 60.9% (2026-04-06)
 - feat: Feed data cleanup — fix 36 broken Twitter handles, 7 RSS 404 errors, 2 DNS failures across 45 YAML files; identify dead projects (CoinFLEX, bDollar) and winding-down projects (Mountain Protocol, Angle Protocol) (2026-04-06)
 - feat: X API v2 Twitter feed integration — official pay-per-use API replaces xcancel RSS bridges, `raw_payload` column stores full tweet JSON, `scanner.py` orchestration module with `PostScanConfig` for testable scan cycles, `LIMIT` env var for cost-safe test runs, `twitter-dead-at` YAML field for inactive accounts, Docker Compose `post-scanner` service with 8-hour loop (2026-04-06)

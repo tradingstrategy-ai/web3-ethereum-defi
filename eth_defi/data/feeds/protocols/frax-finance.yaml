@@ -1,8 +1,5 @@
+# Frax Finance protocol — feeds provided by stablecoins/frax.yaml
 feeder-id: frax-finance
 name: Frax Finance
 role: protocol
-website: https://frax.com/
-twitter: fraxfinance
-linkedin: fraxfinance
-rss: https://news.frax.com/feed
-linkedin-rss-hub-disabled-at: 2026-04-04
+canonical-feeder-id: frax

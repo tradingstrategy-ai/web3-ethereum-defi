@@ -1,8 +1,5 @@
+# Sky protocol — feeds provided by stablecoins/usds.yaml
 feeder-id: sky
 name: Sky
 role: protocol
-website: https://sky.money/
-twitter: SkyEcosystem
-linkedin: skyecosystem
-rss: https://makerdaoupdates.substack.com/feed
-rss-dead-at: 2026-04-06
+canonical-feeder-id: usds

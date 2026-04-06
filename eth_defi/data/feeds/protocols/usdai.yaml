@@ -1,5 +1,5 @@
+# USD.AI protocol — feeds provided by stablecoins/usdai.yaml
 feeder-id: usdai
 name: USDai
 role: protocol
-website: https://usd.ai/
-twitter: USDai_Official
+canonical-feeder-id: usdai

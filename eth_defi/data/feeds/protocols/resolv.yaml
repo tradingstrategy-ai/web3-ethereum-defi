@@ -1,7 +1,5 @@
+# Resolv protocol — feeds provided by stablecoins/usr.yaml
 feeder-id: resolv
 name: Resolv
 role: protocol
-website: https://resolv.xyz/
-twitter: ResolvLabs
-linkedin: resolvlabs
-rss: https://resolvlabs.substack.com/feed
+canonical-feeder-id: usr
