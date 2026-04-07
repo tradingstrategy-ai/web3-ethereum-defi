@@ -267,11 +267,12 @@ def test_fix_outlier_ipor_tau_yield_bond_spike():
     # 3. Run the outlier fixer
     result = fix_outlier_share_prices(df)
 
-    # 4. The spike at block 24700201 should be cleaned
+    # 4. The spike at block 24700201 should be cleaned to the average of its
+    #    time-based neighbours (shift=2 for this vault's ~10h median interval)
     spike_row = result[result["block_number"] == 24700201]
     assert len(spike_row) == 1, "Spike row not found"
     assert spike_row["raw_share_price"].iloc[0] == pytest.approx(1.455, abs=0.01), "Raw spike value should be preserved"
-    assert spike_row["share_price"].iloc[0] == pytest.approx(1.059, abs=0.005), "Spike should be fixed to average of neighbours"
+    assert spike_row["share_price"].iloc[0] == pytest.approx(1.0535, abs=0.005), "Spike should be fixed to average of neighbours"
 
     # 5. The last data point (block 24822001) must NOT be corrupted
     last_row = result[result["block_number"] == 24822001]

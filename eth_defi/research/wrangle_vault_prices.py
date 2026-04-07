@@ -623,8 +623,8 @@ def fix_outlier_share_prices(
     prices_df: pd.DataFrame,
     logger=print,
     max_diff=0.33,
-    look_back=24,
-    look_ahead=24,
+    look_back_hours=24,
+    look_ahead_hours=24,
 ) -> pd.DataFrame:
     """Fix out rows with share price that is too high.
 
@@ -632,6 +632,8 @@ def fix_outlier_share_prices(
     - This caused abnormal returns in returns calculations, messing all volatility numbers, sharpe,
       charts, etc.
     - The root cause is bad oracles, fat fingers, MEV trades, etc.
+    - The lookback window is time-based (hours), not row-based, so it works
+      correctly for vaults with non-hourly polling intervals
     - See ``check-share-price`` script for inspecting individual prices
 
     Case Fluegel DAO:
@@ -714,8 +716,23 @@ def fix_outlier_share_prices(
 
         group = group.ffill()
 
-        group["next_price_candidate"] = group["share_price"].shift(-look_ahead).ffill()
-        group["prev_price_candidate"] = group["share_price"].shift(look_back).bfill()
+        # Compute row-based shift from actual time spacing so that vaults
+        # with non-hourly polling (daily, weekly) get a sensible window.
+        if isinstance(group.index, pd.DatetimeIndex) and len(group) >= 2:
+            median_interval = group.index.to_series().diff().median()
+            if pd.notna(median_interval) and median_interval > pd.Timedelta(0):
+                rows_per_hour = pd.Timedelta(hours=1) / median_interval
+                effective_look_back = max(1, round(look_back_hours * rows_per_hour))
+                effective_look_ahead = max(1, round(look_ahead_hours * rows_per_hour))
+            else:
+                effective_look_back = look_back_hours
+                effective_look_ahead = look_ahead_hours
+        else:
+            effective_look_back = look_back_hours
+            effective_look_ahead = look_ahead_hours
+
+        group["next_price_candidate"] = group["share_price"].shift(-effective_look_ahead).ffill()
+        group["prev_price_candidate"] = group["share_price"].shift(effective_look_back).bfill()
 
         # Calculate forward and backward percentage change for each vault.
         # Use symmetric max(a/b, b/a) - 1 so that spikes are detected regardless
