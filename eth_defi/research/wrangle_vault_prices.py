@@ -717,9 +717,17 @@ def fix_outlier_share_prices(
         group["next_price_candidate"] = group["share_price"].shift(-look_ahead).ffill()
         group["prev_price_candidate"] = group["share_price"].shift(look_back).bfill()
 
-        # Calculate forward and backward percentage change for each vault
-        group["pct_change_prev"] = (group["prev_price_candidate"] / group["share_price"] - 1).abs()
-        group["pct_change_next"] = (group["next_price_candidate"] / group["share_price"] - 1).abs()
+        # Calculate forward and backward percentage change for each vault.
+        # Use symmetric max(a/b, b/a) - 1 so that spikes are detected regardless
+        # of which value sits in the denominator.
+        group["pct_change_prev"] = np.maximum(
+            (group["prev_price_candidate"] / group["share_price"] - 1).abs(),
+            (group["share_price"] / group["prev_price_candidate"] - 1).abs(),
+        )
+        group["pct_change_next"] = np.maximum(
+            (group["next_price_candidate"] / group["share_price"] - 1).abs(),
+            (group["share_price"] / group["next_price_candidate"] - 1).abs(),
+        )
 
         # 2025-10-24 05:01:27  42161  0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9     392792321     1.046227  144437.368503  138055.399019              NaN             NaN         42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9  USDn2           60  Untangle Finance         1.046227
         # 2025-10-24 06:01:21  42161  0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9     392806721     0.487429   67292.321607  138055.399019              NaN             NaN         42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9  USDn2           60  Untangle Finance         0.487429
@@ -742,7 +750,7 @@ def fix_outlier_share_prices(
 
             # The next 24h and prev 24h price are less than max diff apart from each other,
             # but the current price is an outlier, fix it
-            if prev_price != 0 and abs((next_price - prev_price) / prev_price) < max_diff:
+            if prev_price != 0 and next_price != 0 and max(abs(next_price / prev_price - 1), abs(prev_price / next_price - 1)) < max_diff:
                 fixed_price = (next_price + prev_price) / 2
                 share_prices_fixed += 1
             else:

@@ -13,7 +13,7 @@ import pytest
 
 import zstandard as zstd
 
-from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
+from eth_defi.research.wrangle_vault_prices import fix_outlier_share_prices, generate_cleaned_vault_datasets
 from eth_defi.vault.base import VaultHistoricalRead
 
 
@@ -231,3 +231,55 @@ def test_native_protocol_columns_survive_evm_scan_rewrite(tmp_path: Path):
     evm_rows = final.filter(pc.equal(final["chain"], 1))
     assert all(v is None for v in evm_rows.column("account_pnl").to_pylist())
     assert all(v is None for v in evm_rows.column("leader_fraction").to_pylist())
+
+
+def test_fix_outlier_ipor_tau_yield_bond_spike():
+    """Fix asymmetric spike detection for IPOR TAU Yield Bond ETF vault.
+
+    Reproduces two bugs in fix_outlier_share_prices():
+
+    1. A real on-chain spike at block 24700201 (share price 1.455 vs normal ~1.057)
+       was missed because the percentage formula |candidate/spike - 1| understated
+       the deviation when the spike sat in the denominator
+    2. The last data point (block 24822001, correct price 1.057) was corrupted to
+       1.256 by averaging with the uncleaned spike, because the row-based lookback
+       landed on the spike row and the alignment check had the same asymmetry
+
+    Steps:
+
+    1. Load the extracted uncleaned price fixture for this vault
+    2. Prepare the dataframe with id column and timestamp index
+    3. Run fix_outlier_share_prices on the data
+    4. Assert the spike is cleaned to the average of its neighbours (~1.059)
+    5. Assert the last data point is NOT corrupted (remains ~1.057)
+    6. Assert raw_share_price preserves original values
+    """
+
+    # 1. Load the extracted uncleaned price fixture
+    path = Path(os.path.dirname(__file__)) / "vault-ipor-tau-yield-bond-etf-prices-1h.parquet"
+    df = pd.read_parquet(path)
+
+    # 2. Prepare the dataframe
+    df["id"] = df["chain"].astype(str) + "-" + df["address"]
+    if "timestamp" in df.columns:
+        df = df.set_index("timestamp")
+
+    # 3. Run the outlier fixer
+    result = fix_outlier_share_prices(df)
+
+    # 4. The spike at block 24700201 should be cleaned
+    spike_row = result[result["block_number"] == 24700201]
+    assert len(spike_row) == 1, "Spike row not found"
+    assert spike_row["raw_share_price"].iloc[0] == pytest.approx(1.455, abs=0.01), "Raw spike value should be preserved"
+    assert spike_row["share_price"].iloc[0] == pytest.approx(1.059, abs=0.005), "Spike should be fixed to average of neighbours"
+
+    # 5. The last data point (block 24822001) must NOT be corrupted
+    last_row = result[result["block_number"] == 24822001]
+    assert len(last_row) == 1, "Last row not found"
+    assert last_row["share_price"].iloc[0] == pytest.approx(1.057, abs=0.005), "Last row must not be corrupted"
+    assert last_row["raw_share_price"].iloc[0] == pytest.approx(1.057, abs=0.005), "Last row raw value should match"
+
+    # 6. Normal rows should be unchanged
+    normal_rows = result[(result["block_number"] != 24700201)]
+    changed = normal_rows[normal_rows["share_price"] != normal_rows["raw_share_price"]]
+    assert len(changed) == 0, f"Expected no changes to normal rows, but {len(changed)} rows were modified"
