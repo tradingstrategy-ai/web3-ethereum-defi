@@ -37,6 +37,7 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_PROTOCOL_VAULT_LOCKUP, HYPERLIQUID_USER_VAULT_LOCKUP, HYPERLIQUID_VAULT_FEE_MODE, HYPERLIQUID_VAULT_PERFORMANCE_FEE
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
+from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag
@@ -475,6 +476,242 @@ def merge_into_uncleaned_parquet(
     hl_vault_count = hl_df["address"].nunique()
     logger.info(
         "Merged %d Hyperliquid vaults (%d rows) into uncleaned %s",
+        hl_vault_count,
+        len(hl_df),
+        parquet_path,
+    )
+
+    return combined
+
+
+# ──────────────────────────────────────────────
+# High-frequency export functions
+# ──────────────────────────────────────────────
+
+#: Columns that should be forward-filled between sparse HF observations
+#: when resampling to 1h.
+_FFILL_COLS = {
+    "share_price",
+    "total_assets",
+    "cumulative_pnl",
+    "cumulative_volume",
+    "account_pnl",
+    "follower_count",
+    "is_closed",
+    "allow_deposits",
+    "deposits_open",
+    "deposit_closed_reason",
+    "leader_fraction",
+    "leader_commission",
+}
+
+#: Columns that are observation-only and must NOT be forward-filled.
+#: They get NaN/NaT/False for synthetic fill-hours.
+_OBSERVATION_ONLY_COLS = {
+    "daily_deposit_count",
+    "daily_withdrawal_count",
+    "daily_deposit_usd",
+    "daily_withdrawal_usd",
+    "epoch_reset",
+    "written_at",
+}
+
+
+def build_raw_prices_dataframe_hf(db: HyperliquidHighFreqMetricsDatabase) -> pd.DataFrame:
+    """Build a raw prices DataFrame from the HF DuckDB.
+
+    Resamples sub-daily data to 1h frequency before export, using
+    per-column fill policy so downstream ``returns_1h`` computation
+    and ``forward_fill_vault()`` work correctly.
+
+    **Per-column resampling policy:**
+
+    - Price/state columns (share_price, tvl, cumulative fields, state
+      flags, follower_count): ``.last().ffill()``
+    - Flow metrics (deposit_count, withdrawal_count, deposit_usd,
+      withdrawal_usd): NaN for fill-hours, actual value only on
+      observation hours
+    - epoch_reset: False for fill-hours
+    - written_at: NaT for fill-hours
+
+    :param db:
+        The HF metrics database.
+    :return:
+        DataFrame matching the uncleaned Parquet schema with 1h
+        resampled timestamps.
+    """
+    prices_df = db.get_all_high_freq_prices()
+
+    if prices_df.empty:
+        return pd.DataFrame()
+
+    # Forward-fill sparse state columns within each vault
+    state_cols = ["is_closed", "allow_deposits", "leader_fraction"]
+    existing_state_cols = [c for c in state_cols if c in prices_df.columns]
+    if existing_state_cols:
+        prices_df = prices_df.sort_values(["vault_address", "timestamp"])
+        prices_df[existing_state_cols] = prices_df.groupby("vault_address")[existing_state_cols].ffill()
+
+    # Compute deposit_closed_reason per row
+    deposit_reasons = _compute_deposit_closed_reason_column(prices_df)
+
+    # Derive deposits_open string
+    has_state = prices_df["is_closed"].notna() if "is_closed" in prices_df.columns else pd.Series(False, index=prices_df.index)
+    deposits_open = pd.Series([None] * len(prices_df), index=prices_df.index, dtype=object)
+    deposits_open[has_state & deposit_reasons.isna()] = "true"
+    deposits_open[has_state & deposit_reasons.notna()] = "false"
+
+    chain_id = HYPERCORE_CHAIN_ID
+
+    # Map HF column names to daily-compatible names for downstream pipeline
+    result = pd.DataFrame(
+        {
+            "chain": chain_id,
+            "address": prices_df["vault_address"].values,
+            "block_number": 0,
+            "timestamp": prices_df["timestamp"].values,
+            "share_price": prices_df["share_price"].values,
+            "total_assets": prices_df["tvl"].values,
+            "account_pnl": prices_df["cumulative_pnl"].values if "cumulative_pnl" in prices_df.columns else np.nan,
+            "follower_count": prices_df["follower_count"].values if "follower_count" in prices_df.columns else np.nan,
+            "cumulative_volume": prices_df["cumulative_volume"].values if "cumulative_volume" in prices_df.columns else np.nan,
+            "total_supply": 0.0,
+            "performance_fee": 0.0,
+            "management_fee": 0.0,
+            "errors": "",
+            "deposits_open": deposits_open.values,
+            "deposit_closed_reason": deposit_reasons.values,
+            "leader_fraction": prices_df["leader_fraction"].values if "leader_fraction" in prices_df.columns else np.nan,
+            "leader_commission": prices_df["leader_commission"].values if "leader_commission" in prices_df.columns else np.nan,
+            # Map HF names back to daily_* names for downstream compatibility
+            "daily_deposit_count": prices_df["deposit_count"].values if "deposit_count" in prices_df.columns else np.nan,
+            "daily_withdrawal_count": prices_df["withdrawal_count"].values if "withdrawal_count" in prices_df.columns else np.nan,
+            "daily_deposit_usd": prices_df["deposit_usd"].values if "deposit_usd" in prices_df.columns else np.nan,
+            "daily_withdrawal_usd": prices_df["withdrawal_usd"].values if "withdrawal_usd" in prices_df.columns else np.nan,
+            "epoch_reset": prices_df["epoch_reset"].values if "epoch_reset" in prices_df.columns else False,
+            "written_at": prices_df["written_at"].values if "written_at" in prices_df.columns else pd.NaT,
+        },
+    )
+
+    result["chain"] = result["chain"].astype("int32")
+    result["block_number"] = result["block_number"].astype("int64")
+
+    # Resample to 1h per vault with per-column fill policy
+    result = _resample_to_1h(result)
+
+    return result
+
+
+def _resample_to_1h(df: pd.DataFrame) -> pd.DataFrame:
+    """Resample a multi-vault DataFrame to 1h frequency.
+
+    Groups by vault address, resamples each to hourly, and applies
+    per-column fill policy:
+
+    - Forward-fill columns: share_price, total_assets, cumulative fields,
+      state flags, follower_count
+    - Observation-only columns: flow metrics (NaN for fills),
+      epoch_reset (False for fills), written_at (NaT for fills)
+
+    :param df:
+        DataFrame with ``address`` and ``timestamp`` columns.
+    :return:
+        Resampled DataFrame with 1h frequency.
+    """
+    if df.empty:
+        return df
+
+    resampled_parts = []
+
+    for address, vault_df in df.groupby("address"):
+        vault_df = vault_df.copy()
+        vault_df["timestamp"] = pd.to_datetime(vault_df["timestamp"])
+        vault_df = vault_df.set_index("timestamp").sort_index()
+
+        # Determine which columns exist and categorise them
+        all_cols = set(vault_df.columns)
+        ffill_cols = sorted(all_cols & _FFILL_COLS)
+        obs_only_cols = sorted(all_cols & _OBSERVATION_ONLY_COLS)
+        # Columns that are constant per vault (chain, address, block_number, etc.)
+        static_cols = sorted(all_cols - _FFILL_COLS - _OBSERVATION_ONLY_COLS)
+
+        # Resample forward-fill columns
+        if ffill_cols:
+            ffill_resampled = vault_df[ffill_cols].resample("h").last().ffill()
+        else:
+            ffill_resampled = pd.DataFrame(index=vault_df.resample("h").last().index)
+
+        # Resample observation-only columns (NaN/False/NaT for fill-hours)
+        if obs_only_cols:
+            obs_resampled = vault_df[obs_only_cols].resample("h").last()
+            # epoch_reset: fill NaN with False
+            if "epoch_reset" in obs_resampled.columns:
+                obs_resampled["epoch_reset"] = obs_resampled["epoch_reset"].fillna(False)
+        else:
+            obs_resampled = pd.DataFrame(index=ffill_resampled.index)
+
+        # Static columns: forward-fill (they're the same for every row in the vault)
+        if static_cols:
+            static_resampled = vault_df[static_cols].resample("h").last().ffill()
+        else:
+            static_resampled = pd.DataFrame(index=ffill_resampled.index)
+
+        # Combine
+        combined = pd.concat([static_resampled, ffill_resampled, obs_resampled], axis=1)
+
+        # Drop leading NaN rows before first real data point
+        first_valid = vault_df.index[0]
+        combined = combined[combined.index >= first_valid]
+
+        combined = combined.reset_index().rename(columns={"timestamp": "timestamp"})
+        resampled_parts.append(combined)
+
+    if not resampled_parts:
+        return df.iloc[:0]
+
+    return pd.concat(resampled_parts, ignore_index=True)
+
+
+def merge_into_uncleaned_parquet_hf(
+    db: HyperliquidHighFreqMetricsDatabase,
+    parquet_path: Path,
+) -> pd.DataFrame:
+    """Merge HF Hyperliquid prices into the uncleaned Parquet file.
+
+    Same strategy as :py:func:`merge_into_uncleaned_parquet` but reads
+    from the HF database and includes 1h resampling.
+
+    :param db:
+        The HF metrics database.
+    :param parquet_path:
+        Path to the uncleaned Parquet file.
+    :return:
+        The combined DataFrame.
+    """
+    hl_df = build_raw_prices_dataframe_hf(db)
+
+    if hl_df.empty:
+        logger.warning("No HF Hyperliquid data to merge")
+        if parquet_path.exists():
+            return pd.read_parquet(parquet_path)
+        return pd.DataFrame()
+
+    if parquet_path.exists():
+        existing_df = pd.read_parquet(parquet_path)
+        # Remove any existing Hypercore rows
+        existing_df = existing_df[existing_df["chain"] != HYPERCORE_CHAIN_ID]
+        combined = pd.concat([existing_df, hl_df], ignore_index=True)
+    else:
+        parquet_path.parent.mkdir(parents=True, exist_ok=True)
+        combined = hl_df
+
+    combined = combined.sort_values(["chain", "address", "timestamp"])
+
+    VaultHistoricalRead.write_uncleaned_parquet(combined, parquet_path)
+
+    hl_vault_count = hl_df["address"].nunique()
+    logger.info(
+        "Merged %d HF Hyperliquid vaults (%d rows, 1h resampled) into uncleaned %s",
         hl_vault_count,
         len(hl_df),
         parquet_path,

@@ -1,5 +1,6 @@
 # Current
 
+- feat: High-frequency Hyperliquid vault data fetcher — configurable 1h-4h collection with Webshare proxy support, separate HF DuckDB with timestamp-precision rows, 1h resampled export, proxy-aware session pool, scan_all_chains integration via HYPERCORE_MODE=high_freq (2026-04-09)
 - feat: Looped vault scanner with per-chain cycle intervals — configurable 4h cycle for Hyperliquid/GRVT/Lighter, pipeline data isolation via `PIPELINE_DATA_DIR`, file locking, Docker Compose `vault-scanner-looped` service (2026-04-08)
 - feat: Canonical feeder aliases — `canonical-feeder-id` YAML field eliminates duplicate feed fetching across 21 alias files, with cross-role priority resolution (stablecoin > protocol > curator), metadata inheritance in curator exports, and alias chain validation (2026-04-06)
 - feat: Add 13 new IPOR Fusion vault curators — IPOR, Reservoir, TAU (628 Labs), Yo, Harvest Finance, Strata, Pistachio, Xerberus, TiD Capital, Tanken, Singularity Finance, Fija, Woo — improving IPOR curator coverage from 10.9% to 60.9% (2026-04-06)

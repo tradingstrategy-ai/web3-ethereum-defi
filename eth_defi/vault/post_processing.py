@@ -35,6 +35,7 @@ def merge_native_protocols(
     hyperliquid_db_path: Path | None = None,
     grvt_db_path: Path | None = None,
     lighter_db_path: Path | None = None,
+    hypercore_mode: str = "daily",
 ) -> dict[str, bool]:
     """Merge native protocol price data into the uncleaned parquet.
 
@@ -48,6 +49,8 @@ def merge_native_protocols(
     :param hyperliquid_db_path: Override for the Hyperliquid DuckDB path
     :param grvt_db_path: Override for the GRVT DuckDB path
     :param lighter_db_path: Override for the Lighter DuckDB path
+    :param hypercore_mode: ``"daily"`` for daily pipeline, ``"high_freq"``
+        for HF pipeline with 1h resampling.
     :return: Dictionary mapping step name to success boolean
     """
     parquet_path = uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE
@@ -55,15 +58,30 @@ def merge_native_protocols(
 
     if merge_hypercore:
         try:
-            logger.info("Merging Hypercore prices into uncleaned parquet")
-            hl_db_path = hyperliquid_db_path or HYPERLIQUID_DAILY_METRICS_DATABASE
-            db = HyperliquidDailyMetricsDatabase(hl_db_path)
-            try:
-                combined_df = hyperliquid_merge_parquet(db, parquet_path)
-                hl_rows = len(combined_df[combined_df["chain"] == HYPERCORE_CHAIN_ID]) if len(combined_df) > 0 else 0
-                logger.info("Hypercore price merge: %d Hyperliquid price entries in uncleaned parquet", hl_rows)
-            finally:
-                db.close()
+            if hypercore_mode == "high_freq":
+                from eth_defi.hyperliquid.constants import HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE
+                from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
+                from eth_defi.hyperliquid.vault_data_export import merge_into_uncleaned_parquet_hf
+
+                logger.info("Merging Hypercore HF prices into uncleaned parquet")
+                hl_db_path = hyperliquid_db_path or HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE
+                db = HyperliquidHighFreqMetricsDatabase(hl_db_path)
+                try:
+                    combined_df = merge_into_uncleaned_parquet_hf(db, parquet_path)
+                    hl_rows = len(combined_df[combined_df["chain"] == HYPERCORE_CHAIN_ID]) if len(combined_df) > 0 else 0
+                    logger.info("Hypercore HF price merge: %d Hyperliquid price entries in uncleaned parquet", hl_rows)
+                finally:
+                    db.close()
+            else:
+                logger.info("Merging Hypercore prices into uncleaned parquet")
+                hl_db_path = hyperliquid_db_path or HYPERLIQUID_DAILY_METRICS_DATABASE
+                db = HyperliquidDailyMetricsDatabase(hl_db_path)
+                try:
+                    combined_df = hyperliquid_merge_parquet(db, parquet_path)
+                    hl_rows = len(combined_df[combined_df["chain"] == HYPERCORE_CHAIN_ID]) if len(combined_df) > 0 else 0
+                    logger.info("Hypercore price merge: %d Hyperliquid price entries in uncleaned parquet", hl_rows)
+                finally:
+                    db.close()
             steps["hypercore-price-merge"] = True
         except Exception:
             logger.exception("Hypercore price merge failed")
@@ -203,6 +221,7 @@ def run_post_processing(
     lighter_db_path: Path | None = None,
     vault_db_path: Path | None = None,
     cleaned_path: Path | None = None,
+    hypercore_mode: str = "daily",
 ) -> dict[str, bool]:
     """Run full post-processing pipeline after chain scans complete.
 
@@ -239,6 +258,7 @@ def run_post_processing(
         hyperliquid_db_path=hyperliquid_db_path,
         grvt_db_path=grvt_db_path,
         lighter_db_path=lighter_db_path,
+        hypercore_mode=hypercore_mode,
     )
     steps.update(merge_results)
 

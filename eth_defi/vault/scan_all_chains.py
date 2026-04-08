@@ -575,6 +575,83 @@ def scan_hypercore_fn(
     return result
 
 
+def scan_hypercore_hf_fn(
+    max_workers: int,
+    db_path: Path | None = None,
+    vault_db_path: Path = DEFAULT_VAULT_DATABASE,
+    scan_interval: datetime.timedelta | None = None,
+) -> ChainResult:
+    """Scan Hyperliquid native vaults at high frequency with proxy support.
+
+    Uses the HF metrics pipeline with optional Webshare proxy rotation.
+
+    :param max_workers:
+        Number of parallel workers.
+    :param db_path:
+        Override for the HF DuckDB path.
+    :param vault_db_path:
+        Path to the VaultDatabase pickle.
+    :param scan_interval:
+        Override scan interval (default from constants).
+    """
+    from eth_defi.event_reader.webshare import load_proxy_rotator
+    from eth_defi.hyperliquid.constants import HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE
+    from eth_defi.hyperliquid.high_freq_metrics import run_high_freq_scan
+    from eth_defi.hyperliquid.session import create_hyperliquid_session
+    from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database
+
+    if db_path is None:
+        db_path = HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE
+
+    kwargs = {}
+    if scan_interval is not None:
+        kwargs["scan_interval"] = scan_interval
+
+    result = ChainResult(name="Hypercore", status="running")
+    start_time = time.time()
+
+    try:
+        rotator = None
+        try:
+            rotator = load_proxy_rotator()
+        except Exception:
+            logger.debug("Proxy rotator not available, proceeding without proxies")
+
+        session = create_hyperliquid_session(
+            requests_per_second=1.0,
+            rotator=rotator,
+        )
+
+        db = run_high_freq_scan(
+            session=session,
+            db_path=db_path,
+            max_workers=max_workers,
+            **kwargs,
+        )
+
+        try:
+            vault_count = db.get_vault_count()
+            result.vault_count = vault_count
+            result.vault_scan_ok = True
+
+            merge_into_vault_database(db, vault_db_path)
+            # Price merge happens in post-processing
+            result.price_scan_ok = True
+        finally:
+            db.close()
+
+        result.status = "success"
+
+    except Exception as e:
+        logger.exception("Hypercore HF scan failed")
+        result.status = "failed"
+        result.error = str(e)
+        result.traceback_str = traceback.format_exc()
+
+    result.duration = time.time() - start_time
+    return result
+
+
 def scan_grvt_fn(
     db_path: Path | None = None,
     vault_db_path: Path = DEFAULT_VAULT_DATABASE,
@@ -899,6 +976,7 @@ def run_scan_tick(
     bkp_dir: Path,
     cleaned_price_path: Path | None = None,
     excluded_chains: list[str] | None = None,
+    hypercore_mode: str = "daily",
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -917,7 +995,7 @@ def run_scan_tick(
         results[proto] = ChainResult(name=proto, status="pending")
 
     # Show excluded chains as "disabled" on the dashboard
-    for name in (excluded_chains or []):
+    for name in excluded_chains or []:
         results[name] = ChainResult(name=name, status="disabled")
 
     display_order = [c.name for c in chains] + active_protocols + (excluded_chains or [])
@@ -967,12 +1045,20 @@ def run_scan_tick(
 
     # Native protocol scans
     if scan_hypercore and "Hypercore" in active_protocols:
-        logger.info("Scanning Hypercore (Hyperliquid native vaults)")
-        try:
-            results["Hypercore"] = scan_hypercore_fn(max_workers, db_path=hyperliquid_db_path, vault_db_path=vault_db_path)
-        except Exception as e:
-            logger.exception("Hypercore scan crashed with unhandled exception")
-            results["Hypercore"] = ChainResult(name="Hypercore", status="failed", error=str(e), traceback_str=traceback.format_exc())
+        if hypercore_mode == "high_freq":
+            logger.info("Scanning Hypercore (Hyperliquid HF mode)")
+            try:
+                results["Hypercore"] = scan_hypercore_hf_fn(max_workers, db_path=hyperliquid_db_path, vault_db_path=vault_db_path)
+            except Exception as e:
+                logger.exception("Hypercore HF scan crashed with unhandled exception")
+                results["Hypercore"] = ChainResult(name="Hypercore", status="failed", error=str(e), traceback_str=traceback.format_exc())
+        else:
+            logger.info("Scanning Hypercore (Hyperliquid native vaults)")
+            try:
+                results["Hypercore"] = scan_hypercore_fn(max_workers, db_path=hyperliquid_db_path, vault_db_path=vault_db_path)
+            except Exception as e:
+                logger.exception("Hypercore scan crashed with unhandled exception")
+                results["Hypercore"] = ChainResult(name="Hypercore", status="failed", error=str(e), traceback_str=traceback.format_exc())
         r = results["Hypercore"]
         if r.status == "success":
             logger.info("Hypercore: SUCCESS - %d vaults", r.vault_count or 0)
@@ -1059,6 +1145,7 @@ def run_scan_tick(
             lighter_db_path=lighter_db_path,
             vault_db_path=vault_db_path,
             cleaned_path=cleaned_price_path,
+            hypercore_mode=hypercore_mode,
         )
         for step, success in post_results.items():
             logger.info("Post-processing %s: %s", step, "SUCCESS" if success else "FAILED")
@@ -1156,7 +1243,11 @@ def main():
     pipeline_lock_path = data_dir / "scan-pipeline"
     backup_dir = data_dir / "backups"
     lighter_db_path = data_dir / "lighter-pools.duckdb"
-    hyperliquid_db_path = data_dir / "hyperliquid-vaults.duckdb"
+    hypercore_mode = os.environ.get("HYPERCORE_MODE", "daily").strip().lower()
+    if hypercore_mode == "high_freq":
+        hyperliquid_db_path = data_dir / "hyperliquid-vaults-hf.duckdb"
+    else:
+        hyperliquid_db_path = data_dir / "hyperliquid-vaults.duckdb"
     grvt_db_path = data_dir / "grvt-vaults.duckdb"
 
     bkp_files = [uncleaned_price_path, reader_state_path, vault_db_path, hyperliquid_db_path, grvt_db_path, lighter_db_path]
@@ -1262,6 +1353,7 @@ def main():
         bkp_dir=backup_dir,
         cleaned_price_path=cleaned_price_path,
         excluded_chains=[c.name for c in skipped_by_order + disabled_chains],
+        hypercore_mode=hypercore_mode,
     )
 
     cycle = 0

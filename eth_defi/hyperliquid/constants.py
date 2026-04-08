@@ -21,6 +21,12 @@ HYPERCORE_CHAIN_ID: int = 9999
 #: Default path for Hyperliquid daily metrics DuckDB database.
 HYPERLIQUID_DAILY_METRICS_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "hyperliquid-vaults.duckdb"
 
+#: Default path for Hyperliquid high-frequency metrics DuckDB database.
+HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "hyperliquid-vaults-hf.duckdb"
+
+#: Default scan interval for high-frequency mode.
+HYPERLIQUID_HIGH_FREQ_DEFAULT_INTERVAL: datetime.timedelta = datetime.timedelta(hours=4)
+
 #: Fixed performance fee (profit share) for Hyperliquid native vault leaders.
 #:
 #: All Hyperliquid vaults use a fixed 10% profit share to the vault leader.

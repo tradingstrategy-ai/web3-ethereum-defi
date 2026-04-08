@@ -282,6 +282,61 @@ FULL_SCAN_WEEKDAY=3 LOG_LEVEL=info \
 | `FULL_SCAN` | *(unset)* | Set to `1` to force a full scan |
 | `FULL_SCAN_WEEKDAY` | `6` (Sunday) | Day of the week to auto-trigger full scan |
 
+## High-frequency pipeline
+
+An alternative pipeline collects vault data at sub-daily intervals (default 4h,
+configurable down to 1h) using Webshare rotating proxies for parallel throughput.
+
+### Architecture
+
+- **Separate DuckDB**: `hyperliquid-vaults-hf.duckdb` with `vault_high_freq_prices`
+  table keyed by `(vault_address, TIMESTAMP)` instead of `(vault_address, DATE)`
+- **Timestamp normalisation**: API timestamps are floored to the scan interval
+  boundary (analogous to daily `.date()` truncation)
+- **Proxy-aware parallelism**: pre-created session pool with per-worker rate
+  limiting via `session.clone_for_worker()`
+- **1h resampling on export**: HF data is resampled to 1h with per-column fill
+  policy before writing to `vault-prices-1h.parquet`, so the downstream
+  `returns_1h` computation works correctly
+
+### Usage
+
+```shell
+# Single run with defaults (4h interval, no proxies)
+poetry run python scripts/hyperliquid/high-freq-vault-metrics.py
+
+# With proxies and 1h interval
+WEBSHARE_API_KEY=$WEBSHARE_API_KEY SCAN_INTERVAL=1h \
+  poetry run python scripts/hyperliquid/high-freq-vault-metrics.py
+
+# Loop mode (repeats every scan interval)
+WEBSHARE_API_KEY=$WEBSHARE_API_KEY LOOP=1 \
+  poetry run python scripts/hyperliquid/high-freq-vault-metrics.py
+```
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DB_PATH` | `~/.tradingstrategy/vaults/hyperliquid-vaults-hf.duckdb` | HF DuckDB path |
+| `SCAN_INTERVAL` | `4h` | Scan interval (e.g. `1h`, `4h`, `6h`) |
+| `LOOP` | *(unset)* | Set to `1` for loop mode |
+| `WEBSHARE_API_KEY` | *(unset)* | Enables Webshare proxy rotation |
+| `REQUESTS_PER_SECOND` | `1.0` | Per-IP rate limit |
+| `MIN_TVL` | `5000` | Minimum TVL in USD |
+| `MAX_VAULTS` | `20000` | Maximum vaults to process |
+| `MAX_WORKERS` | `16` | Parallel workers |
+
+### Integration with scan-all-chains
+
+Set `HYPERCORE_MODE=high_freq` to use the HF pipeline instead of the daily
+pipeline when running `scan-vaults-all-chains.py`:
+
+```shell
+SCAN_HYPERCORE=true HYPERCORE_MODE=high_freq SCAN_CYCLES="Hypercore=4h" \
+  poetry run python scripts/erc-4626/scan-vaults-all-chains.py
+```
+
 ## Healing share price data
 
 The share price computation has evolved over time. If the production DuckDB

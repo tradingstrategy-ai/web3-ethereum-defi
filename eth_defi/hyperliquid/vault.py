@@ -267,19 +267,13 @@ class HyperliquidVault:
         :raises requests.Timeout:
             If the request times out
         """
-        url = f"{self.session.api_url}/info"
         payload = {"type": request_type}
         if params:
             payload.update(params)
 
-        logger.debug(f"Making request to {url} with payload: {payload}")
+        logger.debug("Making request with payload: %s", payload)
 
-        response = self.session.post(
-            url,
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=self.timeout,
-        )
+        response = self.session.post_info(payload, timeout=self.timeout)
         response.raise_for_status()
         return response.json()
 
