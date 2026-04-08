@@ -34,7 +34,7 @@ def get_pipeline_data_dir() -> Path:
     """
     custom = os.environ.get("PIPELINE_DATA_DIR")
     if custom:
-        return Path(custom)
+        return Path(custom).expanduser()
     return Path.home() / ".tradingstrategy" / "vaults"
 
 

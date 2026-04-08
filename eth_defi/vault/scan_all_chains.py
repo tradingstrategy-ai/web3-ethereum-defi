@@ -787,8 +787,12 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
     pending_count = sum(1 for r in results.values() if r.status == "pending")
     running_count = sum(1 for r in results.values() if r.status == "running")
     skipped_count = sum(1 for r in results.values() if r.status == "skipped")
+    disabled_count = sum(1 for r in results.values() if r.status == "disabled")
 
-    lines.append(f"Summary: {success_count} success, {failed_count} failed, {pending_count} pending, {running_count} running, {skipped_count} skipped")
+    summary = f"Summary: {success_count} success, {failed_count} failed, {pending_count} pending, {running_count} running, {skipped_count} skipped"
+    if disabled_count:
+        summary += f", {disabled_count} disabled"
+    lines.append(summary)
     lines.append("=" * 115)
 
     # Print to console and log at info level
@@ -894,6 +898,7 @@ def run_scan_tick(
     bkp_files: list[Path],
     bkp_dir: Path,
     cleaned_price_path: Path | None = None,
+    excluded_chains: list[str] | None = None,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -911,7 +916,11 @@ def run_scan_tick(
     for proto in active_protocols:
         results[proto] = ChainResult(name=proto, status="pending")
 
-    display_order = [c.name for c in chains] + active_protocols
+    # Show excluded chains as "disabled" on the dashboard
+    for name in (excluded_chains or []):
+        results[name] = ChainResult(name=name, status="disabled")
+
+    display_order = [c.name for c in chains] + active_protocols + (excluded_chains or [])
     print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
     # First pass - scan EVM chains
@@ -1145,7 +1154,7 @@ def main():
     reader_state_path = data_dir / "vault-reader-state-1h.pickle"
     cycle_state_path = data_dir / "scan-cycle-state.json"
     pipeline_lock_path = data_dir / "scan-pipeline"
-    backup_dir = data_dir.parent / "backups"
+    backup_dir = data_dir / "backups"
     lighter_db_path = data_dir / "lighter-pools.duckdb"
     hyperliquid_db_path = data_dir / "hyperliquid-vaults.duckdb"
     grvt_db_path = data_dir / "grvt-vaults.duckdb"
@@ -1214,6 +1223,12 @@ def main():
     else:
         chains = all_chains
 
+    # Log chains excluded by CHAIN_ORDER or DISABLE_CHAINS
+    if skipped_by_order:
+        logger.info("Skipped by CHAIN_ORDER: %s", ", ".join(c.name for c in skipped_by_order))
+    if disabled_chains:
+        logger.info("Disabled by DISABLE_CHAINS: %s", ", ".join(c.name for c in disabled_chains))
+
     # Build list of active native protocols
     all_protocols = []
     if scan_hypercore:
@@ -1246,6 +1261,7 @@ def main():
         bkp_files=bkp_files,
         bkp_dir=backup_dir,
         cleaned_price_path=cleaned_price_path,
+        excluded_chains=[c.name for c in skipped_by_order + disabled_chains],
     )
 
     cycle = 0
