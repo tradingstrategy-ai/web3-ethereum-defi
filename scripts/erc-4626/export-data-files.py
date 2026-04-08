@@ -29,6 +29,7 @@ from botocore.exceptions import ClientError
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.utils import setup_console_logging
+from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +133,7 @@ def main():
         bucket_names.append(alt_bucket_name)
         logger.info("Alternative bucket configured: %s", alt_bucket_name)
 
-    base_path = Path("~/.tradingstrategy/vaults/").expanduser()
+    base_path = get_pipeline_data_dir()
     paths = [
         base_path / "vault-prices-1h.parquet",
         base_path / "cleaned-vault-prices-1h.parquet",

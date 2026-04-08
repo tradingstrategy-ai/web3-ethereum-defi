@@ -1,6 +1,7 @@
 """Describe vault database pickle format."""
 
 import datetime
+import os
 import pickle
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -18,6 +19,24 @@ from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.risk import VaultTechnicalRisk
+
+
+def get_pipeline_data_dir() -> Path:
+    """Return the pipeline data directory, configurable via ``PIPELINE_DATA_DIR``.
+
+    When the environment variable ``PIPELINE_DATA_DIR`` is set, all pipeline
+    files (vault DB pickle, parquet, reader state, DuckDB, cycle state, lock)
+    are stored under that directory.  Otherwise falls back to the standard
+    ``~/.tradingstrategy/vaults`` location.
+
+    :return:
+        Absolute path to the pipeline data directory.
+    """
+    custom = os.environ.get("PIPELINE_DATA_DIR")
+    if custom:
+        return Path(custom)
+    return Path.home() / ".tradingstrategy" / "vaults"
+
 
 #: Where we store the vault metadata database by default
 DEFAULT_VAULT_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-metadata-db.pickle"

@@ -97,6 +97,87 @@ services:
       # Expose token cache files and other cache files reused by the vault scanner
       - ${HOME}/.cache:/root/.cache:rw
 
+  # Looped vault scanner: ticks every 1h, scans chains on configurable cycles.
+  # Hyperliquid/GRVT/Lighter default to 4h, EVM chains default to 24h.
+  # Uses a pipeline lock to prevent overlap with the single-run vault-scanner.
+  vault-scanner-looped:
+    image: vault-scanner:local
+    container_name: vault-scanner-looped
+    restart: unless-stopped
+    entrypoint: ["python", "scripts/erc-4626/scan-vaults-all-chains.py"]
+    environment:
+      LOOP_INTERVAL_SECONDS: ${LOOP_INTERVAL_SECONDS:-3600}
+      SCAN_CYCLES: ${SCAN_CYCLES:-Hypercore=4h,GRVT=4h,Lighter=4h}
+      DEFAULT_CYCLE: ${DEFAULT_CYCLE:-24h}
+
+      CHAIN_ORDER: ${CHAIN_ORDER:-}
+      HYPERSYNC_API_KEY: ${HYPERSYNC_API_KEY:-}
+      JSON_RPC_ETHEREUM: ${JSON_RPC_ETHEREUM:-}
+      JSON_RPC_BERACHAIN: ${JSON_RPC_BERACHAIN:-}
+      JSON_RPC_UNICHAIN: ${JSON_RPC_UNICHAIN:-}
+      JSON_RPC_SONIC: ${JSON_RPC_SONIC:-}
+      JSON_RPC_HYPERLIQUID: ${JSON_RPC_HYPERLIQUID:-}
+      JSON_RPC_AVALANCHE: ${JSON_RPC_AVALANCHE:-}
+      JSON_RPC_ARBITRUM: ${JSON_RPC_ARBITRUM:-}
+      JSON_RPC_MODE: ${JSON_RPC_MODE:-}
+      JSON_RPC_MANTLE: ${JSON_RPC_MANTLE:-}
+      JSON_RPC_MANTLE_2: ${JSON_RPC_MANTLE_2:-}
+      JSON_RPC_BINANCE: ${JSON_RPC_BINANCE:-}
+      JSON_RPC_OPTIMISM: ${JSON_RPC_OPTIMISM:-}
+      JSON_RPC_ABSTRACT: ${JSON_RPC_ABSTRACT:-}
+      JSON_RPC_CELO: ${JSON_RPC_CELO:-}
+      JSON_RPC_SONEIUM: ${JSON_RPC_SONEIUM:-}
+      JSON_RPC_ZKSYNC: ${JSON_RPC_ZKSYNC:-}
+      JSON_RPC_GNOSIS: ${JSON_RPC_GNOSIS:-}
+      JSON_RPC_BLAST: ${JSON_RPC_BLAST:-}
+      JSON_RPC_ZORA: ${JSON_RPC_ZORA:-}
+      JSON_RPC_INK: ${JSON_RPC_INK:-}
+      JSON_RPC_BASE: ${JSON_RPC_BASE:-}
+      JSON_RPC_POLYGON: ${JSON_RPC_POLYGON:-}
+      JSON_RPC_HEMI: ${JSON_RPC_HEMI:-}
+      JSON_RPC_LINEA: ${JSON_RPC_LINEA:-}
+      JSON_RPC_TAC: ${JSON_RPC_TAC:-}
+      JSON_RPC_PLASMA: ${JSON_RPC_PLASMA:-}
+      JSON_RPC_KATANA: ${JSON_RPC_KATANA:-}
+      JSON_RPC_MONAD: ${JSON_RPC_MONAD:-}
+      JSON_RPC_MEGAETH: ${JSON_RPC_MEGAETH:-}
+      SCAN_PRICES: ${SCAN_PRICES:-true}
+      SCAN_HYPERCORE: ${SCAN_HYPERCORE:-true}
+      SCAN_GRVT: ${SCAN_GRVT:-true}
+      SCAN_LIGHTER: ${SCAN_LIGHTER:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-warning}
+      MAX_WORKERS: ${MAX_WORKERS:-50}
+      WEBSHARE_API_KEY: ${WEBSHARE_API_KEY:-}
+
+      R2_SPARKLINE_BUCKET_NAME: ${R2_SPARKLINE_BUCKET_NAME:-}
+      R2_SPARKLINE_ENDPOINT_URL: ${R2_SPARKLINE_ENDPOINT_URL:-}
+      R2_SPARKLINE_ACCOUNT_ID: ${R2_SPARKLINE_ACCOUNT_ID:-}
+      R2_SPARKLINE_ACCESS_KEY_ID: ${R2_SPARKLINE_ACCESS_KEY_ID:-}
+      R2_SPARKLINE_SECRET_ACCESS_KEY: ${R2_SPARKLINE_SECRET_ACCESS_KEY:-}
+      R2_VAULT_METADATA_BUCKET_NAME: ${R2_VAULT_METADATA_BUCKET_NAME:-}
+      R2_VAULT_METADATA_ENDPOINT_URL: ${R2_VAULT_METADATA_ENDPOINT_URL:-}
+      R2_VAULT_METADATA_ACCOUNT_ID: ${R2_VAULT_METADATA_ACCOUNT_ID:-}
+      R2_VAULT_METADATA_ACCESS_KEY_ID: ${R2_VAULT_METADATA_ACCESS_KEY_ID:-}
+      R2_VAULT_METADATA_SECRET_ACCESS_KEY: ${R2_VAULT_METADATA_SECRET_ACCESS_KEY:-}
+      R2_VAULT_METADATA_PUBLIC_URL: ${R2_VAULT_METADATA_PUBLIC_URL:-}
+      R2_DATA_BUCKET_NAME: ${R2_VAULT_METADATA_BUCKET_NAME:-}
+      R2_DATA_ACCESS_KEY_ID: ${R2_VAULT_METADATA_ACCESS_KEY_ID:-}
+      R2_DATA_SECRET_ACCESS_KEY: ${R2_VAULT_METADATA_SECRET_ACCESS_KEY:-}
+      R2_DATA_ENDPOINT_URL: ${R2_VAULT_METADATA_ENDPOINT_URL:-}
+      R2_DATA_PUBLIC_URL: ${R2_VAULT_METADATA_PUBLIC_URL:-}
+      R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME: ${R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME:-}
+
+    mem_limit: ${MEM_LIMIT:-48g}
+    mem_reservation: ${MEM_RESERVATION:-8g}
+    memswap_limit: ${MEMSWAP_LIMIT:-64g}
+    shm_size: ${SHM_SIZE:-2g}
+    oom_kill_disable: ${OOM_KILL_DISABLE:-false}
+    volumes:
+      - ${HOME}/.tradingstrategy:/root/.tradingstrategy:rw
+      - ./scripts:/usr/src/web3-ethereum-defi/scripts:ro
+      - ./logs:/usr/src/web3-ethereum-defi/logs:rw
+      - ${HOME}/.cache:/root/.cache:rw
+
   # Continuously collect vault-related posts from RSS, LinkedIn, and X/Twitter
   post-scanner:
     image: vault-scanner:local
