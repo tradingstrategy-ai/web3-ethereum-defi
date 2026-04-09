@@ -212,12 +212,14 @@ def test_post_info_proxy_fix():
 
     with patch.object(session, "post_info", return_value=mock_response_deposits) as mock_post_info:
         try:
-            list(fetch_vault_deposits(
-                session,
-                "0x3df9769bbbb335340872f01d8157c779d73c6ed0",
-                start_time=datetime.datetime(2025, 1, 1),
-                end_time=datetime.datetime(2025, 1, 2),
-            ))
+            list(
+                fetch_vault_deposits(
+                    session,
+                    "0x3df9769bbbb335340872f01d8157c779d73c6ed0",
+                    start_time=datetime.datetime(2025, 1, 1),
+                    end_time=datetime.datetime(2025, 1, 2),
+                )
+            )
         except Exception:
             pass
         assert mock_post_info.called, "fetch_vault_deposits() should call session.post_info(), not session.post()"
