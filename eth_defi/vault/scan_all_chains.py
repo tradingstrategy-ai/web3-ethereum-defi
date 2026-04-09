@@ -1499,13 +1499,15 @@ def main():
             break
 
         tick_duration = time.monotonic() - tick_start
+        sleep_seconds = max(0, loop_interval - tick_duration)
         logger.info(
             "Cycle %d finished in %.1f min, next cycle in %.1f min",
             cycle,
             tick_duration / 60,
-            loop_interval / 60,
+            sleep_seconds / 60,
         )
-        time.sleep(loop_interval)
+        if sleep_seconds > 0:
+            time.sleep(sleep_seconds)
 
     # In single-run mode, exit with appropriate code
     if not looped_mode:
