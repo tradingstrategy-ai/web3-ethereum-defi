@@ -590,6 +590,24 @@ def merge_into_uncleaned_parquet_hf(
 
     if parquet_path.exists():
         existing_df = pd.read_parquet(parquet_path)
+
+        existing_hl_rows = len(existing_df[existing_df["chain"] == HYPERCORE_CHAIN_ID])
+        new_hl_rows = len(hl_df)
+
+        # Safety check: refuse to replace significantly more rows than
+        # we are adding.  This catches the dangerous mode-switch scenario
+        # where an operator switches from the daily DuckDB (months of
+        # history) to a fresh HF DuckDB (hours of data), which would
+        # silently destroy historical Hypercore data in the parquet.
+        if existing_hl_rows > 0 and new_hl_rows < existing_hl_rows * 0.5:
+            raise ValueError(
+                f"Refusing to replace {existing_hl_rows:,} existing Hypercore rows "
+                f"with only {new_hl_rows:,} new rows (< 50% of existing). "
+                f"This usually means you switched from the daily pipeline to HF mode "
+                f"with a fresh DuckDB. Back-fill the HF database first, or manually "
+                f"remove the safety check if this is intentional."
+            )
+
         # Remove any existing Hypercore rows
         existing_df = existing_df[existing_df["chain"] != HYPERCORE_CHAIN_ID]
         combined = pd.concat([existing_df, hl_df], ignore_index=True)

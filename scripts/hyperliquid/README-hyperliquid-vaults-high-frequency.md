@@ -217,14 +217,20 @@ Since flow data is aggregated by calendar date, multiple HF price rows on the
 same date will carry the same flow values (matched via `.date()`).  Consumers
 aggregating flows must deduplicate by date, not by row count.
 
-**3. Two DuckDB files for the same chain**
+**3. Mode switch can destroy historical data — safety check protects against this**
 
-The daily and HF pipelines use separate DuckDB files. They share the same
-`vault_metadata` schema but have different price tables. If both run against the
-same Parquet, the last writer's chain-9999 rows win (the merge function deletes
-all existing Hypercore rows before appending). Running both pipelines
-simultaneously against the same Parquet requires external coordination (the
-`scan-pipeline` file lock in `scan_all_chains.py` handles this).
+The daily and HF pipelines use separate DuckDB files. The merge function
+replaces *all* chain-9999 rows in the Parquet with the current DuckDB's data.
+If you switch from daily mode (DuckDB with months of history) to HF mode
+(fresh DuckDB with hours of data), the merge would delete months of Hypercore
+history from the Parquet.
+
+A safety check prevents this: `merge_into_uncleaned_parquet_hf()` refuses to
+replace existing rows if the new data is less than 50% of the existing count.
+Back-fill the HF DuckDB before switching modes.
+
+Running both pipelines simultaneously against the same Parquet requires the
+file lock in `scan_all_chains.py` (`scan-pipeline` lock file).
 
 **4. API portfolio resolution is the bottleneck**
 
