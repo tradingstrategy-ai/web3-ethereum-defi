@@ -1382,8 +1382,8 @@ def main():
             cycle_intervals[c.name] = format_duration(cycle_overrides.get(c.name, default_cycle))
         for proto in all_protocols:
             label = format_duration(cycle_overrides.get(proto, default_cycle))
-            if proto == "Hypercore":
-                label += " HF" if hypercore_mode == "high_freq" else " daily"
+            if proto == "Hypercore" and hypercore_mode == "high_freq":
+                label += " HF"
             cycle_intervals[proto] = label
     else:
         cycle_intervals = None
