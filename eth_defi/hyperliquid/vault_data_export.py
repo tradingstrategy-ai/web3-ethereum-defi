@@ -262,6 +262,86 @@ def _compute_deposit_closed_reason_column(prices_df: pd.DataFrame) -> pd.Series:
     return pd.Series(reasons, index=prices_df.index)
 
 
+def _prepare_hypercore_export(
+    prices_df: pd.DataFrame,
+    timestamp_values,
+    flow_col_map: dict[str, str],
+    sort_columns: list[str],
+) -> pd.DataFrame:
+    """Shared helper for building Hypercore export DataFrames.
+
+    Handles forward-filling state columns, computing deposit status,
+    and constructing the EVM-compatible output schema.
+
+    :param prices_df:
+        Raw price data from DuckDB (daily or HF).
+    :param timestamp_values:
+        Array of timestamp values for the output ``timestamp`` column.
+    :param flow_col_map:
+        Mapping from output column name to source column name in
+        ``prices_df`` (e.g. ``{"daily_deposit_count": "daily_deposit_count"}``
+        for daily, ``{"daily_deposit_count": "deposit_count"}`` for HF).
+    :param sort_columns:
+        Columns to sort by before forward-filling (e.g.
+        ``["vault_address", "date"]`` or ``["vault_address", "timestamp"]``).
+    :return:
+        DataFrame matching the uncleaned Parquet schema.
+    """
+    # Forward-fill sparse state columns within each vault
+    state_cols = ["is_closed", "allow_deposits", "leader_fraction"]
+    existing_state_cols = [c for c in state_cols if c in prices_df.columns]
+    if existing_state_cols:
+        prices_df = prices_df.sort_values(sort_columns)
+        prices_df[existing_state_cols] = prices_df.groupby("vault_address")[existing_state_cols].ffill()
+
+    # Compute deposit_closed_reason per row from forward-filled state.
+    deposit_reasons = _compute_deposit_closed_reason_column(prices_df)
+
+    # Derive deposits_open string for backwards compatibility with ERC-4626 column.
+    has_state = prices_df["is_closed"].notna() if "is_closed" in prices_df.columns else pd.Series(False, index=prices_df.index)
+    deposits_open = pd.Series([None] * len(prices_df), index=prices_df.index, dtype=object)
+    deposits_open[has_state & deposit_reasons.isna()] = "true"
+    deposits_open[has_state & deposit_reasons.notna()] = "false"
+
+    chain_id = HYPERCORE_CHAIN_ID
+
+    def _col(name: str, default=np.nan):
+        return prices_df[name].values if name in prices_df.columns else default
+
+    result = pd.DataFrame(
+        {
+            "chain": chain_id,
+            "address": prices_df["vault_address"].values,
+            "block_number": 0,
+            "timestamp": timestamp_values,
+            "share_price": prices_df["share_price"].values,
+            "total_assets": prices_df["tvl"].values,
+            "account_pnl": _col("cumulative_pnl"),
+            "follower_count": _col("follower_count"),
+            "cumulative_volume": _col("cumulative_volume"),
+            "total_supply": 0.0,
+            "performance_fee": 0.0,
+            "management_fee": 0.0,
+            "errors": "",
+            "deposits_open": deposits_open.values,
+            "deposit_closed_reason": deposit_reasons.values,
+            "leader_fraction": _col("leader_fraction"),
+            "leader_commission": _col("leader_commission"),
+            "daily_deposit_count": _col(flow_col_map.get("daily_deposit_count", "daily_deposit_count")),
+            "daily_withdrawal_count": _col(flow_col_map.get("daily_withdrawal_count", "daily_withdrawal_count")),
+            "daily_deposit_usd": _col(flow_col_map.get("daily_deposit_usd", "daily_deposit_usd")),
+            "daily_withdrawal_usd": _col(flow_col_map.get("daily_withdrawal_usd", "daily_withdrawal_usd")),
+            "epoch_reset": _col("epoch_reset", default=False),
+            "written_at": _col("written_at", default=pd.NaT),
+        },
+    )
+
+    result["chain"] = result["chain"].astype("int32")
+    result["block_number"] = result["block_number"].astype("int64")
+
+    return result
+
+
 def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFrame:
     """Build a raw prices DataFrame from the Hyperliquid DuckDB.
 
@@ -291,68 +371,15 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
         DataFrame with columns matching the uncleaned Parquet schema.
     """
     prices_df = db.get_all_daily_prices()
-
     if prices_df.empty:
         return pd.DataFrame()
 
-    # Forward-fill sparse state columns within each vault so that the
-    # latest known is_closed / allow_deposits / leader_fraction propagates
-    # to subsequent rows.  Early rows before first observation stay NaN.
-    state_cols = ["is_closed", "allow_deposits", "leader_fraction"]
-    existing_state_cols = [c for c in state_cols if c in prices_df.columns]
-    if existing_state_cols:
-        prices_df = prices_df.sort_values(["vault_address", "date"])
-        prices_df[existing_state_cols] = prices_df.groupby("vault_address")[existing_state_cols].ffill()
-
-    # Compute deposit_closed_reason per row from forward-filled state.
-    deposit_reasons = _compute_deposit_closed_reason_column(prices_df)
-
-    # Derive deposits_open string for backwards compatibility with ERC-4626 column.
-    has_state = prices_df["is_closed"].notna() if "is_closed" in prices_df.columns else pd.Series(False, index=prices_df.index)
-    deposits_open = pd.Series([None] * len(prices_df), index=prices_df.index, dtype=object)
-    deposits_open[has_state & deposit_reasons.isna()] = "true"
-    deposits_open[has_state & deposit_reasons.notna()] = "false"
-
-    chain_id = HYPERCORE_CHAIN_ID
-
-    # Use .values to strip the DuckDB RangeIndex — otherwise pandas
-    # tries to align it with the new index and fills everything with NaN.
-    #
-    # leader_fraction values are 0-1 matching the Percent type alias
-    # (e.g. 0.05 = 5%).
-    result = pd.DataFrame(
-        {
-            "chain": chain_id,
-            "address": prices_df["vault_address"].values,
-            "block_number": 0,
-            "timestamp": pd.to_datetime(prices_df["date"]).values,
-            "share_price": prices_df["share_price"].values,
-            "total_assets": prices_df["tvl"].values,
-            "account_pnl": prices_df["cumulative_pnl"].values if "cumulative_pnl" in prices_df.columns else np.nan,
-            "follower_count": prices_df["follower_count"].values if "follower_count" in prices_df.columns else np.nan,
-            "cumulative_volume": prices_df["cumulative_volume"].values if "cumulative_volume" in prices_df.columns else np.nan,
-            "total_supply": 0.0,
-            "performance_fee": 0.0,
-            "management_fee": 0.0,
-            "errors": "",
-            "deposits_open": deposits_open.values,
-            "deposit_closed_reason": deposit_reasons.values,
-            "leader_fraction": prices_df["leader_fraction"].values if "leader_fraction" in prices_df.columns else np.nan,
-            "leader_commission": prices_df["leader_commission"].values if "leader_commission" in prices_df.columns else np.nan,
-            "daily_deposit_count": prices_df["daily_deposit_count"].values if "daily_deposit_count" in prices_df.columns else np.nan,
-            "daily_withdrawal_count": prices_df["daily_withdrawal_count"].values if "daily_withdrawal_count" in prices_df.columns else np.nan,
-            "daily_deposit_usd": prices_df["daily_deposit_usd"].values if "daily_deposit_usd" in prices_df.columns else np.nan,
-            "daily_withdrawal_usd": prices_df["daily_withdrawal_usd"].values if "daily_withdrawal_usd" in prices_df.columns else np.nan,
-            "epoch_reset": prices_df["epoch_reset"].values if "epoch_reset" in prices_df.columns else False,
-            "written_at": prices_df["written_at"].values if "written_at" in prices_df.columns else pd.NaT,
-        },
+    return _prepare_hypercore_export(
+        prices_df,
+        timestamp_values=pd.to_datetime(prices_df["date"]).values,
+        flow_col_map={},  # Daily columns already named daily_*
+        sort_columns=["vault_address", "date"],
     )
-
-    # Ensure correct dtypes
-    result["chain"] = result["chain"].astype("int32")
-    result["block_number"] = result["block_number"].astype("int64")
-
-    return result
 
 
 def merge_into_vault_database(
@@ -506,62 +533,22 @@ def build_raw_prices_dataframe_hf(db: HyperliquidHighFreqMetricsDatabase) -> pd.
         timestamps.
     """
     prices_df = db.get_all_high_freq_prices()
-
     if prices_df.empty:
         return pd.DataFrame()
 
-    # Forward-fill sparse state columns within each vault
-    state_cols = ["is_closed", "allow_deposits", "leader_fraction"]
-    existing_state_cols = [c for c in state_cols if c in prices_df.columns]
-    if existing_state_cols:
-        prices_df = prices_df.sort_values(["vault_address", "timestamp"])
-        prices_df[existing_state_cols] = prices_df.groupby("vault_address")[existing_state_cols].ffill()
-
-    # Compute deposit_closed_reason per row
-    deposit_reasons = _compute_deposit_closed_reason_column(prices_df)
-
-    # Derive deposits_open string
-    has_state = prices_df["is_closed"].notna() if "is_closed" in prices_df.columns else pd.Series(False, index=prices_df.index)
-    deposits_open = pd.Series([None] * len(prices_df), index=prices_df.index, dtype=object)
-    deposits_open[has_state & deposit_reasons.isna()] = "true"
-    deposits_open[has_state & deposit_reasons.notna()] = "false"
-
-    chain_id = HYPERCORE_CHAIN_ID
-
-    # Map HF column names to daily-compatible names for downstream pipeline
-    result = pd.DataFrame(
-        {
-            "chain": chain_id,
-            "address": prices_df["vault_address"].values,
-            "block_number": 0,
-            "timestamp": prices_df["timestamp"].values,
-            "share_price": prices_df["share_price"].values,
-            "total_assets": prices_df["tvl"].values,
-            "account_pnl": prices_df["cumulative_pnl"].values if "cumulative_pnl" in prices_df.columns else np.nan,
-            "follower_count": prices_df["follower_count"].values if "follower_count" in prices_df.columns else np.nan,
-            "cumulative_volume": prices_df["cumulative_volume"].values if "cumulative_volume" in prices_df.columns else np.nan,
-            "total_supply": 0.0,
-            "performance_fee": 0.0,
-            "management_fee": 0.0,
-            "errors": "",
-            "deposits_open": deposits_open.values,
-            "deposit_closed_reason": deposit_reasons.values,
-            "leader_fraction": prices_df["leader_fraction"].values if "leader_fraction" in prices_df.columns else np.nan,
-            "leader_commission": prices_df["leader_commission"].values if "leader_commission" in prices_df.columns else np.nan,
-            # Map HF names back to daily_* names for downstream compatibility
-            "daily_deposit_count": prices_df["deposit_count"].values if "deposit_count" in prices_df.columns else np.nan,
-            "daily_withdrawal_count": prices_df["withdrawal_count"].values if "withdrawal_count" in prices_df.columns else np.nan,
-            "daily_deposit_usd": prices_df["deposit_usd"].values if "deposit_usd" in prices_df.columns else np.nan,
-            "daily_withdrawal_usd": prices_df["withdrawal_usd"].values if "withdrawal_usd" in prices_df.columns else np.nan,
-            "epoch_reset": prices_df["epoch_reset"].values if "epoch_reset" in prices_df.columns else False,
-            "written_at": prices_df["written_at"].values if "written_at" in prices_df.columns else pd.NaT,
+    # Map HF column names (deposit_count etc.) back to daily_* names
+    # for downstream compatibility.
+    return _prepare_hypercore_export(
+        prices_df,
+        timestamp_values=prices_df["timestamp"].values,
+        flow_col_map={
+            "daily_deposit_count": "deposit_count",
+            "daily_withdrawal_count": "withdrawal_count",
+            "daily_deposit_usd": "deposit_usd",
+            "daily_withdrawal_usd": "withdrawal_usd",
         },
+        sort_columns=["vault_address", "timestamp"],
     )
-
-    result["chain"] = result["chain"].astype("int32")
-    result["block_number"] = result["block_number"].astype("int64")
-
-    return result
 
 
 def merge_hypercore_prices_to_parquet(

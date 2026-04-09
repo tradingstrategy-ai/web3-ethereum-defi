@@ -27,7 +27,6 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
-import duckdb
 import pandas as pd
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
@@ -37,6 +36,7 @@ from eth_defi.hyperliquid.constants import (
     HYPERLIQUID_HIGH_FREQ_DEFAULT_INTERVAL,
     HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE,
 )
+from eth_defi.hyperliquid.vault_metrics_db import HyperliquidMetricsDatabaseBase
 from eth_defi.hyperliquid.daily_metrics import (
     portfolio_to_combined_dataframe,
 )
@@ -126,40 +126,22 @@ class HyperliquidHighFreqPriceRow:
 # ──────────────────────────────────────────────
 
 
-class HyperliquidHighFreqMetricsDatabase:
+class HyperliquidHighFreqMetricsDatabase(HyperliquidMetricsDatabaseBase):
     """DuckDB database for high-frequency Hyperliquid vault metrics.
 
-    Schema mirrors :py:class:`~eth_defi.hyperliquid.daily_metrics.HyperliquidDailyMetricsDatabase`
-    but uses ``TIMESTAMP`` primary key instead of ``DATE``.
+    Inherits shared metadata and lifecycle methods from
+    :py:class:`~eth_defi.hyperliquid.vault_metrics_db.HyperliquidMetricsDatabaseBase`.
+    Uses ``TIMESTAMP`` primary key instead of ``DATE``.
     """
 
+    price_table = "vault_high_freq_prices"
+    time_column = "timestamp"
+
     def __init__(self, db_path: Path):
-        self.db_path = db_path
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.con = duckdb.connect(str(db_path))
-        self._init_schema()
+        super().__init__(db_path)
 
-    def _init_schema(self):
-        """Create tables if they don't exist."""
-        self.con.execute("""
-            CREATE TABLE IF NOT EXISTS vault_metadata (
-                vault_address VARCHAR PRIMARY KEY,
-                name VARCHAR NOT NULL,
-                leader VARCHAR NOT NULL,
-                description VARCHAR,
-                is_closed BOOLEAN NOT NULL,
-                allow_deposits BOOLEAN NOT NULL DEFAULT TRUE,
-                relationship_type VARCHAR NOT NULL,
-                create_time TIMESTAMP,
-                commission_rate DOUBLE,
-                follower_count INTEGER,
-                tvl DOUBLE,
-                apr DOUBLE,
-                last_updated TIMESTAMP NOT NULL,
-                flow_data_earliest_date DATE
-            )
-        """)
-
+    def _init_price_schema(self):
+        """Create the HF price table."""
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS vault_high_freq_prices (
                 vault_address VARCHAR NOT NULL,
@@ -186,89 +168,6 @@ class HyperliquidHighFreqMetricsDatabase:
                 PRIMARY KEY (vault_address, timestamp)
             )
         """)
-
-    # ── Metadata methods (shared schema with daily pipeline) ──
-
-    def upsert_vault_metadata(
-        self,
-        vault_address: HexAddress,
-        name: str,
-        leader: HexAddress,
-        description: str | None,
-        is_closed: bool,
-        relationship_type: str,
-        create_time: datetime.datetime | None,
-        commission_rate: float | None,
-        follower_count: int | None,
-        tvl: float | None,
-        apr: float | None,
-        allow_deposits: bool = True,
-        flow_data_earliest_date: datetime.date | None = None,
-    ):
-        """Insert or update a vault's metadata."""
-        self.con.execute(
-            """
-            INSERT INTO vault_metadata (
-                vault_address, name, leader, description, is_closed,
-                allow_deposits, relationship_type, create_time, commission_rate,
-                follower_count, tvl, apr, last_updated, flow_data_earliest_date
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (vault_address)
-            DO UPDATE SET
-                name = EXCLUDED.name,
-                leader = EXCLUDED.leader,
-                description = EXCLUDED.description,
-                is_closed = EXCLUDED.is_closed,
-                allow_deposits = EXCLUDED.allow_deposits,
-                relationship_type = EXCLUDED.relationship_type,
-                create_time = EXCLUDED.create_time,
-                commission_rate = EXCLUDED.commission_rate,
-                follower_count = EXCLUDED.follower_count,
-                tvl = EXCLUDED.tvl,
-                apr = EXCLUDED.apr,
-                last_updated = EXCLUDED.last_updated,
-                flow_data_earliest_date = COALESCE(EXCLUDED.flow_data_earliest_date, vault_metadata.flow_data_earliest_date)
-            """,
-            [
-                vault_address.lower(),
-                name,
-                leader.lower(),
-                description,
-                is_closed,
-                allow_deposits,
-                relationship_type,
-                create_time,
-                commission_rate,
-                follower_count,
-                tvl,
-                apr,
-                native_datetime_utc_now(),
-                flow_data_earliest_date,
-            ],
-        )
-
-    def update_vault_tvl_bulk(
-        self,
-        updates: list[tuple[float, bool, float | None, str]],
-    ):
-        """Bulk-update TVL, is_closed, and APR for existing vaults.
-
-        :param updates:
-            List of tuples ``(tvl, is_closed, apr, vault_address)``.
-        """
-        if not updates:
-            return
-        self.con.executemany(
-            """
-            UPDATE vault_metadata
-            SET tvl = ?,
-                is_closed = ?,
-                apr = ?,
-                last_updated = CURRENT_TIMESTAMP
-            WHERE vault_address = ?
-            """,
-            updates,
-        )
 
     # ── Price data methods (HF-specific) ──
 
@@ -361,113 +260,8 @@ class HyperliquidHighFreqMetricsDatabase:
         ).fetchone()
         return row[0] if row and row[0] is not None else None
 
-    def get_vault_count(self) -> int:
-        """Get the number of unique vaults with price data."""
-        return self.con.execute("SELECT COUNT(DISTINCT vault_address) FROM vault_high_freq_prices").fetchone()[0]
-
-    def get_all_vault_metadata(self) -> pd.DataFrame:
-        """Get metadata for all vaults."""
-        return self.con.execute("SELECT * FROM vault_metadata ORDER BY tvl DESC NULLS LAST").df()
-
-    def get_recently_tracked_addresses(self, within_days: int = 4) -> set[str]:
-        """Return vault addresses with price data within the last *within_days* days."""
-        cutoff = native_datetime_utc_now() - datetime.timedelta(days=within_days)
-        rows = self.con.execute(
-            "SELECT DISTINCT vault_address FROM vault_high_freq_prices WHERE timestamp >= ?",
-            [cutoff],
-        ).fetchall()
-        return {r[0] for r in rows}
-
-    def get_all_tracked_addresses(self) -> set[str]:
-        """Return all vault addresses that have any price data."""
-        rows = self.con.execute(
-            "SELECT DISTINCT vault_address FROM vault_high_freq_prices",
-        ).fetchall()
-        return {r[0] for r in rows}
-
-    # ── Lifecycle methods (HF-specific implementations) ──
-
-    def mark_vaults_disappeared(self, known_addresses: set[str]):
-        """Set TVL to zero for vaults that disappeared from the API.
-
-        Also writes tombstone HF rows so downstream consumers see a
-        fresh row reflecting removal.
-
-        :param known_addresses:
-            Lowercased vault addresses currently present in the bulk API.
-        """
-        existing = self.con.execute("SELECT vault_address FROM vault_metadata").fetchall()
-
-        disappeared = [(0.0, addr[0]) for addr in existing if addr[0] not in known_addresses]
-
-        if not disappeared:
-            return
-
-        self.con.executemany(
-            """
-            UPDATE vault_metadata
-            SET tvl = ?,
-                last_updated = CURRENT_TIMESTAMP
-            WHERE vault_address = ?
-            """,
-            disappeared,
-        )
-
-        disappeared_addrs = [addr for _, addr in disappeared]
-        tombstone_count = self._write_tombstone_rows(disappeared_addrs)
-        if tombstone_count:
-            logger.info(
-                "Wrote %d tombstone HF price rows for disappeared vaults",
-                tombstone_count,
-            )
-
-    def tombstone_stale_vaults(
-        self,
-        known_api_addresses: set[str],
-        wind_down_days: int = 4,
-    ) -> int:
-        """Write tombstone rows for vaults whose wind-down window has expired.
-
-        :param known_api_addresses:
-            Vaults still in the API (never tombstoned).
-        :param wind_down_days:
-            Days after last price row before tombstoning.
-        :return:
-            Number of tombstone rows written.
-        """
-        cutoff = native_datetime_utc_now() - datetime.timedelta(days=wind_down_days)
-
-        candidates = self.con.execute(
-            """
-            SELECT vhfp.vault_address
-            FROM vault_high_freq_prices vhfp
-            WHERE vhfp.vault_address NOT IN (
-                SELECT DISTINCT vault_address
-                FROM vault_high_freq_prices
-                WHERE data_source = 'tombstone'
-            )
-            GROUP BY vhfp.vault_address
-            HAVING MAX(vhfp.timestamp) < ?
-            """,
-            [cutoff],
-        ).fetchall()
-
-        eligible = [addr for (addr,) in candidates if addr not in known_api_addresses]
-
-        count = self._write_tombstone_rows(eligible)
-        if count:
-            logger.info(
-                "Wrote %d tombstone HF price rows for vaults that fell out of the pipeline",
-                count,
-            )
-        return count
-
     def _write_tombstone_rows(self, vault_addresses: list[str]) -> int:
-        """Write tombstone HF price rows for the given vaults.
-
-        Carries forward the last known share_price and cumulative_pnl
-        so historical return calculations are not distorted.
-        """
+        """Write tombstone HF price rows for the given vaults."""
         if not vault_addresses:
             return 0
 
@@ -475,17 +269,7 @@ class HyperliquidHighFreqMetricsDatabase:
         tombstone_rows = []
 
         for addr in vault_addresses:
-            last_row = self.con.execute(
-                """
-                SELECT share_price, cumulative_pnl
-                FROM vault_high_freq_prices
-                WHERE vault_address = ?
-                ORDER BY timestamp DESC
-                LIMIT 1
-                """,
-                [addr],
-            ).fetchone()
-
+            last_row = self._get_last_price_row(addr)
             if last_row is None:
                 continue
 
@@ -509,19 +293,6 @@ class HyperliquidHighFreqMetricsDatabase:
             self.upsert_high_freq_prices(tombstone_rows)
 
         return len(tombstone_rows)
-
-    # ── Persistence ──
-
-    def save(self):
-        """Flush pending writes to disk."""
-        if self.con:
-            self.con.execute("CHECKPOINT")
-
-    def close(self):
-        """Close the database connection."""
-        if self.con:
-            self.con.close()
-            self.con = None
 
 
 # ──────────────────────────────────────────────

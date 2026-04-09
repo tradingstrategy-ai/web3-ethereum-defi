@@ -40,6 +40,7 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.hyperliquid.combined_analysis import _calculate_share_price
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE
+from eth_defi.hyperliquid.vault_metrics_db import HyperliquidMetricsDatabaseBase
 from eth_defi.hyperliquid.deposit import aggregate_daily_flows, fetch_vault_deposits
 from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.hyperliquid.vault import (
@@ -325,8 +326,11 @@ def portfolio_to_combined_dataframe(
     return combined
 
 
-class HyperliquidDailyMetricsDatabase:
+class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
     """DuckDB database for storing Hyperliquid vault daily metrics.
+
+    Inherits shared metadata and lifecycle methods from
+    :py:class:`~eth_defi.hyperliquid.vault_metrics_db.HyperliquidMetricsDatabaseBase`.
 
     Stores daily share price time series and vault metadata.
     The share prices are computed using time-weighted returns from
@@ -347,48 +351,14 @@ class HyperliquidDailyMetricsDatabase:
 
     """
 
+    price_table = "vault_daily_prices"
+    time_column = "date"
+
     def __init__(self, path: Path):
-        """Initialise the database connection.
+        super().__init__(path)
 
-        :param path:
-            Path to the DuckDB file. Parent directories will be created if needed.
-        """
-        assert isinstance(path, Path), f"Expected Path for path, got {type(path)}"
-        assert not path.is_dir(), f"Expected file path, got directory: {path}"
-
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        import duckdb
-
-        self.path = path
-        self.con = duckdb.connect(str(path))
-        self._init_schema()
-
-    def __del__(self):
-        if hasattr(self, "con") and self.con is not None:
-            self.con.close()
-            self.con = None
-
-    def _init_schema(self):
-        """Create tables if they don't exist."""
-        self.con.execute("""
-            CREATE TABLE IF NOT EXISTS vault_metadata (
-                vault_address VARCHAR PRIMARY KEY,
-                name VARCHAR NOT NULL,
-                leader VARCHAR NOT NULL,
-                description VARCHAR,
-                is_closed BOOLEAN NOT NULL,
-                allow_deposits BOOLEAN NOT NULL DEFAULT TRUE,
-                relationship_type VARCHAR NOT NULL,
-                create_time TIMESTAMP,
-                commission_rate DOUBLE,
-                follower_count INTEGER,
-                tvl DOUBLE,
-                apr DOUBLE,
-                last_updated TIMESTAMP NOT NULL
-            )
-        """)
-
+    def _init_price_schema(self):
+        """Create the daily price table and run schema migrations."""
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS vault_daily_prices (
                 vault_address VARCHAR NOT NULL,
@@ -484,247 +454,6 @@ class HyperliquidDailyMetricsDatabase:
         except duckdb.CatalogException:
             pass
 
-    def upsert_vault_metadata(
-        self,
-        vault_address: HexAddress,
-        name: str,
-        leader: HexAddress,
-        description: str | None,
-        is_closed: bool,
-        relationship_type: str,
-        create_time: datetime.datetime | None,
-        commission_rate: float | None,
-        follower_count: int | None,
-        tvl: float | None,
-        apr: float | None,
-        allow_deposits: bool = True,
-        flow_data_earliest_date: datetime.date | None = None,
-    ):
-        """Insert or update a vault's metadata.
-
-        :param vault_address:
-            Vault address (will be lowercased).
-        :param flow_data_earliest_date:
-            Earliest date for which daily deposit/withdrawal flow data
-            has been backfilled. ``None`` means no flow data yet.
-        """
-        self.con.execute(
-            """
-            INSERT INTO vault_metadata (
-                vault_address, name, leader, description, is_closed,
-                allow_deposits, relationship_type, create_time, commission_rate,
-                follower_count, tvl, apr, last_updated, flow_data_earliest_date
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (vault_address)
-            DO UPDATE SET
-                name = EXCLUDED.name,
-                leader = EXCLUDED.leader,
-                description = EXCLUDED.description,
-                is_closed = EXCLUDED.is_closed,
-                allow_deposits = EXCLUDED.allow_deposits,
-                relationship_type = EXCLUDED.relationship_type,
-                create_time = EXCLUDED.create_time,
-                commission_rate = EXCLUDED.commission_rate,
-                follower_count = EXCLUDED.follower_count,
-                tvl = EXCLUDED.tvl,
-                apr = EXCLUDED.apr,
-                last_updated = EXCLUDED.last_updated,
-                flow_data_earliest_date = COALESCE(EXCLUDED.flow_data_earliest_date, vault_metadata.flow_data_earliest_date)
-            """,
-            [
-                vault_address.lower(),
-                name,
-                leader.lower(),
-                description,
-                is_closed,
-                allow_deposits,
-                relationship_type,
-                create_time,
-                commission_rate,
-                follower_count,
-                tvl,
-                apr,
-                native_datetime_utc_now(),
-                flow_data_earliest_date,
-            ],
-        )
-
-    def update_vault_tvl_bulk(
-        self,
-        updates: list[tuple[float, bool, float | None, str]],
-    ):
-        """Bulk-update TVL, is_closed, and APR for existing vaults.
-
-        Only updates rows that already exist in ``vault_metadata``.
-        Does not insert new rows.  Used to refresh TVL for vaults
-        that fell below the processing threshold but still appear
-        in the bulk stats-data API.
-
-        :param updates:
-            List of tuples ``(tvl, is_closed, apr, vault_address)``.
-            The ``vault_address`` must be lowercased.
-        """
-        if not updates:
-            return
-
-        self.con.executemany(
-            """
-            UPDATE vault_metadata
-            SET tvl = ?,
-                is_closed = ?,
-                apr = ?,
-                last_updated = CURRENT_TIMESTAMP
-            WHERE vault_address = ?
-            """,
-            updates,
-        )
-
-    def mark_vaults_disappeared(
-        self,
-        known_addresses: set[str],
-    ):
-        """Set TVL to zero for vaults that have disappeared from the API.
-
-        For any vault in ``vault_metadata`` whose address is NOT in
-        ``known_addresses``, sets ``tvl=0``.  Does not change
-        ``is_closed`` — disappearing from the bulk listing does not
-        necessarily mean the vault is permanently closed.
-
-        Also writes a tombstone daily price row for today with ``tvl=0``
-        so that downstream consumers (e.g. forward-fill pipelines and
-        staleness checks) see a fresh row reflecting the vault's removal
-        instead of stale data from the last successful fetch.
-
-        :param known_addresses:
-            Set of lowercased vault addresses currently present in the
-            bulk stats-data API response.
-        """
-        existing = self.con.execute("SELECT vault_address FROM vault_metadata").fetchall()
-
-        disappeared = [(0.0, addr[0]) for addr in existing if addr[0] not in known_addresses]
-
-        if not disappeared:
-            return
-
-        self.con.executemany(
-            """
-            UPDATE vault_metadata
-            SET tvl = ?,
-                last_updated = CURRENT_TIMESTAMP
-            WHERE vault_address = ?
-            """,
-            disappeared,
-        )
-
-        # Write a tombstone daily price row for each disappeared vault.
-        disappeared_addrs = [addr for _, addr in disappeared]
-        tombstone_count = self._write_tombstone_rows(disappeared_addrs)
-        if tombstone_count:
-            logger.info(
-                "Wrote %d tombstone price rows (TVL=0) for disappeared vaults",
-                tombstone_count,
-            )
-
-        logger.info(
-            "Marked %d vaults as disappeared (TVL=0)",
-            len(disappeared),
-        )
-
-    def tombstone_stale_vaults(
-        self,
-        known_api_addresses: set[str],
-        wind_down_days: int = 4,
-    ) -> int:
-        """Write tombstone rows for vaults that have fallen out of the processing pipeline.
-
-        The daily scan pipeline applies a TVL threshold (``min_tvl``) to decide
-        which vaults to process on each run.  Vaults that drop below this
-        threshold enter a "wind-down" window (controlled by
-        :py:meth:`get_recently_tracked_addresses`) where they continue to
-        receive daily price rows for a few more days, capturing the decline
-        towards zero TVL.
-
-        Once a vault's last data falls outside the wind-down window it is no
-        longer selected for processing at all.  However, its most recent daily
-        price row still carries the TVL value from when it was last processed —
-        often thousands of dollars.  Downstream consumers such as the
-        trade-executor's ``StaleVaultData`` check compare each vault's last
-        *real* (non-forward-filled) candle timestamp against a staleness
-        tolerance.  Because the old row has a high TVL, the vault is not
-        filtered out by the ``min_tvl`` guard in the staleness check, and the
-        stale timestamp triggers an alert.
-
-        This method closes the gap by writing a **tombstone** daily price row
-        for today on every vault that:
-
-        1. Has existing price data in the database.
-        2. Is **not present** in the current bulk API listing
-           (``known_api_addresses``).  Any vault still returned by the API is
-           alive — it may have been skipped this run due to ``max_vaults``
-           truncation, a transient fetch failure, or any other non-permanent
-           reason — and must never be tombstoned.
-        3. Has its most recent price row older than ``wind_down_days`` —
-           meaning the wind-down window has expired and the pipeline will
-           never process it again unless it reappears in the API.
-        4. Does **not** already have a tombstone row.
-
-        The tombstone row carries forward the last known ``share_price`` and
-        ``cumulative_pnl`` so that historical return calculations are not
-        distorted.  It sets ``tvl=0`` and ``data_source='tombstone'`` but
-        leaves ``is_closed`` and ``allow_deposits`` as ``None`` so that
-        the existing forward-filled state from the vault's last real row
-        is preserved — a vault that dropped below the TVL threshold is not
-        necessarily closed.  This ensures that:
-
-        - Forward-fill pipelines propagate the zero TVL, so the vault drops
-          below the ``min_tvl`` guard in staleness checks.
-        - The tombstone counts as a "real" data row, so the last real timestamp
-          is today rather than weeks ago.
-        - The vault is effectively retired from active monitoring without
-          deleting any historical data or misrepresenting its deposit status.
-
-        :param known_api_addresses:
-            Set of lowercased vault addresses currently present in the
-            bulk stats-data API response.  Vaults in this set are
-            considered alive and will never be tombstoned, even if their
-            data is stale.
-        :param wind_down_days:
-            Number of days after the last price row before a vault is
-            considered eligible for tombstoning.  Should match the
-            ``within_days`` parameter used in
-            :py:meth:`get_recently_tracked_addresses` so that tombstoning
-            kicks in exactly when the wind-down window expires.
-        :return:
-            Number of tombstone rows written.
-        """
-        cutoff = native_datetime_utc_now().date() - datetime.timedelta(days=wind_down_days)
-
-        # Find vaults with stale data that have no tombstone
-        candidates = self.con.execute(
-            """
-            SELECT vdp.vault_address
-            FROM vault_daily_prices vdp
-            WHERE vdp.vault_address NOT IN (
-                SELECT DISTINCT vault_address FROM vault_daily_prices WHERE data_source = 'tombstone'
-            )
-            GROUP BY vdp.vault_address
-            HAVING MAX(vdp.date) < ?
-            """,
-            [cutoff],
-        ).fetchall()
-
-        # Only tombstone vaults that are no longer in the API.
-        # A vault still in the API is alive and should not be zeroed out.
-        eligible = [addr for (addr,) in candidates if addr not in known_api_addresses]
-
-        count = self._write_tombstone_rows(eligible)
-        if count:
-            logger.info(
-                "Wrote %d tombstone price rows for vaults that fell out of the pipeline",
-                count,
-            )
-        return count
-
     def _write_tombstone_rows(self, vault_addresses: list[str]) -> int:
         """Write tombstone daily price rows for the given vault addresses.
 
@@ -756,17 +485,7 @@ class HyperliquidDailyMetricsDatabase:
         tombstone_rows = []
 
         for addr in vault_addresses:
-            last_row = self.con.execute(
-                """
-                SELECT share_price, cumulative_pnl
-                FROM vault_daily_prices
-                WHERE vault_address = ?
-                ORDER BY date DESC
-                LIMIT 1
-                """,
-                [addr],
-            ).fetchone()
-
+            last_row = self._get_last_price_row(addr)
             if last_row is None:
                 continue
 
@@ -898,51 +617,6 @@ class HyperliquidDailyMetricsDatabase:
             [vault_address.lower()],
         ).fetchall()
         return {r[0] for r in rows}
-
-    def get_all_vault_metadata(self) -> pd.DataFrame:
-        """Get metadata for all vaults.
-
-        :return:
-            DataFrame with one row per vault.
-        """
-        return self.con.execute("SELECT * FROM vault_metadata ORDER BY tvl DESC NULLS LAST").df()
-
-    def get_recently_tracked_addresses(self, within_days: int = 4) -> set[str]:
-        """Return vault addresses that have price data recorded within the last *within_days* days.
-
-        Used to identify vaults that recently dropped below the TVL
-        processing threshold but still need a few more daily bars
-        to capture the closing share price at near-zero TVL.
-
-        :param within_days:
-            Number of days to look back from today.
-        :return:
-            Set of lowercased vault addresses.
-        """
-        cutoff = datetime.date.today() - datetime.timedelta(days=within_days)
-        rows = self.con.execute(
-            "SELECT DISTINCT vault_address FROM vault_daily_prices WHERE date >= ?",
-            [cutoff],
-        ).fetchall()
-        return {r[0] for r in rows}
-
-    def get_all_tracked_addresses(self) -> set[str]:
-        """Return all vault addresses that have any price data in the database.
-
-        Used by the full-scan mode to identify every vault we have ever
-        tracked, so we can refresh their data regardless of current TVL.
-
-        :return:
-            Set of lowercased vault addresses.
-        """
-        rows = self.con.execute(
-            "SELECT DISTINCT vault_address FROM vault_daily_prices",
-        ).fetchall()
-        return {r[0] for r in rows}
-
-    def get_vault_count(self) -> int:
-        """Get the number of unique vaults with price data."""
-        return self.con.execute("SELECT COUNT(DISTINCT vault_address) FROM vault_daily_prices").fetchone()[0]
 
     def get_vault_daily_price_count(self, vault_address: HexAddress) -> int:
         """Get the number of daily price records for a vault.

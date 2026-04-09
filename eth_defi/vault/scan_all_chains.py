@@ -514,6 +514,51 @@ def scan_chain(
     return result
 
 
+def _run_hypercore_scan(
+    name: str,
+    scan_fn,
+    scan_kwargs: dict,
+    vault_db_path: Path,
+) -> ChainResult:
+    """Shared orchestration for Hypercore scan functions.
+
+    :param name:
+        Label for logging (e.g. ``"Hypercore"`` or ``"Hypercore HF"``).
+    :param scan_fn:
+        The scan function to call (``run_daily_scan`` or ``run_high_freq_scan``).
+    :param scan_kwargs:
+        Keyword arguments passed to *scan_fn*.
+    :param vault_db_path:
+        Path to the VaultDatabase pickle.
+    :return:
+        Scan result with vault count and duration.
+    """
+    from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database
+
+    result = ChainResult(name="Hypercore", status="running")
+    start_time = time.time()
+
+    try:
+        db = scan_fn(**scan_kwargs)
+        try:
+            result.vault_count = db.get_vault_count()
+            result.vault_scan_ok = True
+            merge_into_vault_database(db, vault_db_path)
+            # Price merge happens in post-processing
+            result.price_scan_ok = True
+        finally:
+            db.close()
+        result.status = "success"
+    except Exception as e:
+        logger.exception("%s scan failed", name)
+        result.status = "failed"
+        result.error = str(e)
+        result.traceback_str = traceback.format_exc()
+
+    result.duration = time.time() - start_time
+    return result
+
+
 def scan_hypercore_fn(
     max_workers: int,
     db_path: Path | None = None,
@@ -521,58 +566,26 @@ def scan_hypercore_fn(
 ) -> ChainResult:
     """Scan Hyperliquid native (Hypercore) vaults via REST API.
 
-    Runs the Hyperliquid daily metrics pipeline: fetches vault data,
-    computes share prices, stores in DuckDB, and merges into the
-    shared ERC-4626 pipeline files (VaultDatabase pickle + cleaned Parquet).
-
     :param max_workers:
         Number of parallel workers for fetching vault details.
     :param db_path:
         Path to the Hyperliquid DuckDB file.  ``None`` uses the default.
     :param vault_db_path:
         Path to the vault database pickle.
-    :return:
-        Scan result with vault count and duration.
     """
     from eth_defi.hyperliquid.constants import HYPERLIQUID_DAILY_METRICS_DATABASE
 
-    if db_path is None:
-        db_path = HYPERLIQUID_DAILY_METRICS_DATABASE
-
-    result = ChainResult(name="Hypercore", status="running")
-    start_time = time.time()
-
-    try:
-        session = create_hyperliquid_session(requests_per_second=2.75)
-
-        db = hyperliquid_run_daily_scan(
+    session = create_hyperliquid_session(requests_per_second=2.75)
+    return _run_hypercore_scan(
+        name="Hypercore",
+        scan_fn=hyperliquid_run_daily_scan,
+        scan_kwargs=dict(
             session=session,
-            db_path=db_path,
+            db_path=db_path or HYPERLIQUID_DAILY_METRICS_DATABASE,
             max_workers=max_workers,
-        )
-
-        try:
-            vault_count = db.get_vault_count()
-            result.vault_count = vault_count
-            result.vault_scan_ok = True
-
-            hyperliquid_merge_vault_db(db, vault_db_path)
-            # Price merge happens in post-processing after generate_cleaned_vault_datasets()
-            # to avoid being overwritten by the EVM price cleaning step
-            result.price_scan_ok = True
-        finally:
-            db.close()
-
-        result.status = "success"
-
-    except Exception as e:
-        logger.exception("Hypercore scan failed")
-        result.status = "failed"
-        result.error = str(e)
-        result.traceback_str = traceback.format_exc()
-
-    result.duration = time.time() - start_time
-    return result
+        ),
+        vault_db_path=vault_db_path,
+    )
 
 
 def scan_hypercore_hf_fn(
@@ -582,8 +595,6 @@ def scan_hypercore_hf_fn(
     scan_interval: datetime.timedelta | None = None,
 ) -> ChainResult:
     """Scan Hyperliquid native vaults at high frequency with proxy support.
-
-    Uses the HF metrics pipeline with optional Webshare proxy rotation.
 
     :param max_workers:
         Number of parallel workers.
@@ -597,59 +608,32 @@ def scan_hypercore_hf_fn(
     from eth_defi.event_reader.webshare import load_proxy_rotator
     from eth_defi.hyperliquid.constants import HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE
     from eth_defi.hyperliquid.high_freq_metrics import run_high_freq_scan
-    from eth_defi.hyperliquid.session import create_hyperliquid_session
-    from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database
 
-    if db_path is None:
-        db_path = HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE
+    rotator = None
+    try:
+        rotator = load_proxy_rotator()
+    except Exception:
+        logger.debug("Proxy rotator not available, proceeding without proxies")
 
-    kwargs = {}
+    session = create_hyperliquid_session(
+        requests_per_second=1.0,
+        rotator=rotator,
+    )
+
+    kwargs = dict(
+        session=session,
+        db_path=db_path or HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE,
+        max_workers=max_workers,
+    )
     if scan_interval is not None:
         kwargs["scan_interval"] = scan_interval
 
-    result = ChainResult(name="Hypercore", status="running")
-    start_time = time.time()
-
-    try:
-        rotator = None
-        try:
-            rotator = load_proxy_rotator()
-        except Exception:
-            logger.debug("Proxy rotator not available, proceeding without proxies")
-
-        session = create_hyperliquid_session(
-            requests_per_second=1.0,
-            rotator=rotator,
-        )
-
-        db = run_high_freq_scan(
-            session=session,
-            db_path=db_path,
-            max_workers=max_workers,
-            **kwargs,
-        )
-
-        try:
-            vault_count = db.get_vault_count()
-            result.vault_count = vault_count
-            result.vault_scan_ok = True
-
-            merge_into_vault_database(db, vault_db_path)
-            # Price merge happens in post-processing
-            result.price_scan_ok = True
-        finally:
-            db.close()
-
-        result.status = "success"
-
-    except Exception as e:
-        logger.exception("Hypercore HF scan failed")
-        result.status = "failed"
-        result.error = str(e)
-        result.traceback_str = traceback.format_exc()
-
-    result.duration = time.time() - start_time
-    return result
+    return _run_hypercore_scan(
+        name="Hypercore HF",
+        scan_fn=run_high_freq_scan,
+        scan_kwargs=kwargs,
+        vault_db_path=vault_db_path,
+    )
 
 
 def scan_grvt_fn(
