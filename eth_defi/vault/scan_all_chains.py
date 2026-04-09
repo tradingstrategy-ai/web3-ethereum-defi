@@ -809,7 +809,8 @@ def _load_last_timestamps(uncleaned_price_path: Path | None = None) -> dict[str,
                 name = get_chain_name(int(chain_id))
             except Exception:
                 name = str(chain_id)
-            result[name] = ts.strftime("%Y-%m-%d %H:%M")
+            # Use lowercase keys so dashboard lookup is case-insensitive
+            result[name.lower()] = ts.strftime("%Y-%m-%d %H:%M")
         return result
     except Exception as e:
         logger.warning("Could not read last timestamps from parquet: %s", e)
@@ -856,7 +857,7 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
 
         duration = f"{result.duration:.1f}s" if result.duration is not None else "-"
         retry = str(result.retry_attempt)
-        last_data = last_timestamps.get(result.name, "-")
+        last_data = last_timestamps.get(result.name.lower(), "-")
 
         line = f"{result.name:<15} {status:<10} {cycle:<8} {vaults:<8} {new:<6} {blocks:<22} {duration:<10} {retry:<5} {last_data:<18}"
         if result.status == "not due" and result.next_due_in_hours is not None:
@@ -1380,7 +1381,10 @@ def main():
         for c in chains:
             cycle_intervals[c.name] = format_duration(cycle_overrides.get(c.name, default_cycle))
         for proto in all_protocols:
-            cycle_intervals[proto] = format_duration(cycle_overrides.get(proto, default_cycle))
+            label = format_duration(cycle_overrides.get(proto, default_cycle))
+            if proto == "Hypercore":
+                label += " HF" if hypercore_mode == "high_freq" else " daily"
+            cycle_intervals[proto] = label
     else:
         cycle_intervals = None
 
