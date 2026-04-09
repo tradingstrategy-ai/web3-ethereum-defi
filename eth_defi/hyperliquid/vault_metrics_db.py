@@ -176,6 +176,28 @@ class HyperliquidMetricsDatabaseBase:
         """
         return self.con.execute("SELECT * FROM vault_metadata ORDER BY tvl DESC NULLS LAST").df()
 
+    def get_latest_leader_fractions(self) -> dict[str, float]:
+        """Get the latest leader_fraction for each vault.
+
+        Queries the most recent row per vault that has a non-NULL
+        ``leader_fraction`` value.
+
+        :return:
+            Dict mapping lowercased vault address to leader_fraction.
+        """
+        rows = self.con.execute(f"""
+            SELECT vault_address, leader_fraction
+            FROM {self.price_table}
+            WHERE leader_fraction IS NOT NULL
+              AND (vault_address, {self.time_column}) IN (
+                  SELECT vault_address, MAX({self.time_column})
+                  FROM {self.price_table}
+                  WHERE leader_fraction IS NOT NULL
+                  GROUP BY vault_address
+              )
+        """).fetchall()
+        return {row[0]: row[1] for row in rows}
+
     # ── Price query methods (use price_table / time_column) ──
 
     def get_vault_count(self) -> int:
@@ -185,12 +207,16 @@ class HyperliquidMetricsDatabaseBase:
     def get_recently_tracked_addresses(self, within_days: int = 4) -> set[str]:
         """Return vault addresses with price data within the last *within_days* days.
 
+        Uses a pure date cutoff so that whole-day semantics are preserved
+        for the daily table (DATE column) and behave identically for the
+        HF table (TIMESTAMP column — DuckDB casts DATE to midnight).
+
         :param within_days:
             Number of days to look back from today.
         :return:
             Set of lowercased vault addresses.
         """
-        cutoff = native_datetime_utc_now() - datetime.timedelta(days=within_days)
+        cutoff = datetime.date.today() - datetime.timedelta(days=within_days)
         rows = self.con.execute(
             f"SELECT DISTINCT vault_address FROM {self.price_table} WHERE {self.time_column} >= ?",
             [cutoff],
@@ -268,7 +294,10 @@ class HyperliquidMetricsDatabaseBase:
         :return:
             Number of tombstone rows written.
         """
-        cutoff = native_datetime_utc_now() - datetime.timedelta(days=wind_down_days)
+        # Use pure date cutoff so whole-day semantics match the original
+        # daily pipeline.  DuckDB casts DATE to midnight for TIMESTAMP
+        # comparisons, so this works for both table types.
+        cutoff = datetime.date.today() - datetime.timedelta(days=wind_down_days)
 
         candidates = self.con.execute(
             f"""

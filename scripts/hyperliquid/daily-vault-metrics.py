@@ -51,12 +51,12 @@ import logging
 import os
 from pathlib import Path
 
-from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE, HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE
 from eth_defi.hyperliquid.daily_metrics import run_daily_scan
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault_data_export import (
-    merge_hypercore_prices_to_parquet,
     merge_into_vault_database,
+    open_and_merge_hypercore_prices,
 )
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.utils import setup_console_logging
@@ -143,21 +143,7 @@ def main():
         # Uses the combined merge that reads both daily and HF databases
         # to avoid losing data when switching between modes.
         print(f"\nStep 3: Merging into uncleaned Parquet at {uncleaned_path}...")
-        hf_db_path = HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE
-        from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
-
-        hf_db = None
-        if hf_db_path.exists():
-            hf_db = HyperliquidHighFreqMetricsDatabase(hf_db_path)
-        try:
-            combined_df = merge_hypercore_prices_to_parquet(
-                uncleaned_path,
-                daily_db=db,
-                hf_db=hf_db,
-            )
-        finally:
-            if hf_db is not None:
-                hf_db.close()
+        combined_df = open_and_merge_hypercore_prices(uncleaned_path, daily_db_path=db_path)
         hl_rows = combined_df[combined_df["chain"] == HYPERCORE_CHAIN_ID] if len(combined_df) > 0 else combined_df
         print(f"Uncleaned parquet now has {len(combined_df):,} total rows ({len(hl_rows):,} Hyperliquid)")
 

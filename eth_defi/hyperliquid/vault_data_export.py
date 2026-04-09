@@ -35,7 +35,7 @@ from eth_typing import HexAddress
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
-from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_PROTOCOL_VAULT_LOCKUP, HYPERLIQUID_USER_VAULT_LOCKUP, HYPERLIQUID_VAULT_FEE_MODE, HYPERLIQUID_VAULT_PERFORMANCE_FEE
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE, HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE, HYPERLIQUID_PROTOCOL_VAULT_LOCKUP, HYPERLIQUID_USER_VAULT_LOCKUP, HYPERLIQUID_VAULT_FEE_MODE, HYPERLIQUID_VAULT_PERFORMANCE_FEE
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
@@ -632,3 +632,56 @@ def merge_hypercore_prices_to_parquet(
     )
 
     return combined
+
+
+def open_and_merge_hypercore_prices(
+    parquet_path: Path,
+    daily_db_path: Path | None = None,
+    hf_db_path: Path | None = None,
+) -> pd.DataFrame:
+    """Open whichever Hyperliquid databases exist and merge into the parquet.
+
+    Convenience wrapper around :py:func:`merge_hypercore_prices_to_parquet`
+    that handles opening and closing both databases.  Used by standalone
+    scripts and post-processing to avoid duplicating the open/close pattern.
+
+    :param parquet_path:
+        Path to the uncleaned Parquet file.
+    :param daily_db_path:
+        Path to the daily DuckDB (``None`` uses default, skipped if not on disc).
+    :param hf_db_path:
+        Path to the HF DuckDB (``None`` uses default, skipped if not on disc).
+    :return:
+        The combined DataFrame (EVM + Hypercore rows).
+    """
+    daily_path = daily_db_path or HYPERLIQUID_DAILY_METRICS_DATABASE
+    hf_path = hf_db_path or HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE
+
+    daily_db = None
+    hf_db = None
+
+    if daily_path.exists():
+        daily_db = HyperliquidDailyMetricsDatabase(daily_path)
+        logger.info("Opened daily Hyperliquid DB: %s", daily_path)
+
+    if hf_path.exists():
+        hf_db = HyperliquidHighFreqMetricsDatabase(hf_path)
+        logger.info("Opened HF Hyperliquid DB: %s", hf_path)
+
+    if daily_db is None and hf_db is None:
+        logger.warning("No Hyperliquid DuckDB databases found")
+        if parquet_path.exists():
+            return pd.read_parquet(parquet_path)
+        return pd.DataFrame()
+
+    try:
+        return merge_hypercore_prices_to_parquet(
+            parquet_path,
+            daily_db=daily_db,
+            hf_db=hf_db,
+        )
+    finally:
+        if daily_db is not None:
+            daily_db.close()
+        if hf_db is not None:
+            hf_db.close()
