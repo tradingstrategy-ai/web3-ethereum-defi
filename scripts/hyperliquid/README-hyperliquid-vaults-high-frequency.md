@@ -37,16 +37,15 @@ Hyperliquid API
                 │
                 ▼
         hyperliquid-vaults-hf.duckdb
-        ├── vault_metadata (shared schema)
+        ├── vault_metadata (shared schema, from base class)
         └── vault_high_freq_prices (PK: vault_address, timestamp)
                 │
                 ▼
         merge_hypercore_prices_to_parquet()
         ├── reads BOTH daily + HF DuckDB databases
+        ├── _prepare_hypercore_export() — shared forward-fill + deposit status
         ├── deduplicates on (address, timestamp) — HF wins on collision
-        ├── forward-fill state columns per vault
-        ├── compute deposit_closed_reason
-        └── map flow column names (deposit_count → daily_deposit_count)
+        └── writes combined data to parquet
                 │
                 ▼
         vault-prices-1h.parquet (chain 9999 rows replaced with combined data)
@@ -60,12 +59,38 @@ Hyperliquid API
 
 | Module | Purpose |
 |--------|---------|
-| `eth_defi/hyperliquid/high_freq_metrics.py` | Core: database, per-vault fetcher, session pool orchestrator |
-| `eth_defi/hyperliquid/vault_data_export.py` | Export: `merge_hypercore_prices_to_parquet()` reads both DBs, deduplicates, writes parquet |
-| `eth_defi/hyperliquid/deposit.py` | `aggregate_daily_flows()` for deposit/withdrawal flow metrics |
+| `eth_defi/hyperliquid/vault_metrics_db.py` | Base class: shared `vault_metadata` table, metadata upsert, lifecycle (tombstone, disappeared), query helpers, save/close |
+| `eth_defi/hyperliquid/high_freq_metrics.py` | HF subclass: `vault_high_freq_prices` table, HF upsert with COALESCE, per-vault fetcher, proxy-aware session pool orchestrator |
+| `eth_defi/hyperliquid/daily_metrics.py` | Daily subclass: `vault_daily_prices` table, daily upsert, share price recomputation, schema migrations |
+| `eth_defi/hyperliquid/vault_data_export.py` | Export: `_prepare_hypercore_export()` shared helper, `merge_hypercore_prices_to_parquet()` combined merge |
+| `eth_defi/vault/scan_all_chains.py` | `_run_hypercore_scan()` shared orchestrator, `scan_hypercore_fn()` / `scan_hypercore_hf_fn()` thin wrappers |
 | `eth_defi/vault/post_processing.py` | Opens whichever Hyperliquid databases exist, passes both to combined merge |
-| `eth_defi/vault/scan_all_chains.py` | `scan_hypercore_hf_fn()`, `HYPERCORE_MODE` env var |
 | `scripts/hyperliquid/high-freq-vault-metrics.py` | Standalone script with optional loop mode |
+
+### Class hierarchy
+
+```
+HyperliquidMetricsDatabaseBase (vault_metrics_db.py)
+├── vault_metadata table (shared schema)
+├── upsert_vault_metadata(), update_vault_tvl_bulk()
+├── mark_vaults_disappeared(), tombstone_stale_vaults()
+├── get_vault_count(), get_recently_tracked_addresses(), get_all_tracked_addresses()
+├── _get_last_price_row() — used by subclass _write_tombstone_rows()
+└── save(), close()
+    │
+    ├── HyperliquidDailyMetricsDatabase (daily_metrics.py)
+    │   ├── price_table = "vault_daily_prices", time_column = "date"
+    │   ├── upsert_daily_prices() with COALESCE
+    │   ├── _write_tombstone_rows() → HyperliquidDailyPriceRow(date=today)
+    │   ├── get_all_daily_prices(), get_vault_daily_prices()
+    │   └── recompute_vault_share_prices(), detect_broken_vaults()
+    │
+    └── HyperliquidHighFreqMetricsDatabase (high_freq_metrics.py)
+        ├── price_table = "vault_high_freq_prices", time_column = "timestamp"
+        ├── upsert_high_freq_prices() with COALESCE
+        ├── _write_tombstone_rows() → HyperliquidHighFreqPriceRow(timestamp=now)
+        └── get_all_high_freq_prices(), get_vault_high_freq_prices()
+```
 
 ## How this differs from the native Hyperliquid API solution
 
@@ -106,8 +131,8 @@ The HF pipeline exploits the same API data more aggressively:
 
 4. **Daily flow aggregation**: deposit/withdrawal events are aggregated by
    calendar date (same as the daily pipeline) and matched to price rows via
-   `.date()` on the raw timestamp.  This is natural since flow events are
-   reported at daily granularity by the API.
+   `.date()` on the raw timestamp.  Flow values are only attached to the
+   **last row per calendar date** to avoid inflating downstream sums.
 
 ### Rate limiting and proxy architecture
 
@@ -141,19 +166,12 @@ but has its own rate-limiter adapter. Failed proxies are rotated within
 
 The central design principle is that **both DuckDB databases are always merged
 together** into the parquet.  The function `merge_hypercore_prices_to_parquet()`
-accepts both `daily_db` and `hf_db` as optional parameters:
+accepts both `daily_db` and `hf_db` as optional parameters.
 
-```python
-def merge_hypercore_prices_to_parquet(
-    parquet_path: Path,
-    daily_db: HyperliquidDailyMetricsDatabase | None = None,
-    hf_db: HyperliquidHighFreqMetricsDatabase | None = None,
-) -> pd.DataFrame:
-```
-
-It reads rows from whichever databases are provided, concatenates them,
-deduplicates on `(address, timestamp)` (HF row wins on collision), removes old
-chain-9999 rows from the parquet, and writes the combined result.
+Both export functions (`build_raw_prices_dataframe` and
+`build_raw_prices_dataframe_hf`) delegate to the shared
+`_prepare_hypercore_export()` helper for forward-filling state columns,
+computing deposit status, and building the EVM-compatible DataFrame.
 
 This means:
 
@@ -184,12 +202,8 @@ regardless of actual time delta.
 
 The HF row model uses bucket-neutral names (`deposit_count`, `withdrawal_count`),
 but the downstream Parquet/cleaning pipeline expects `daily_deposit_count`,
-`daily_withdrawal_count`, etc. The export function maps these back:
-
-```python
-"daily_deposit_count": prices_df["deposit_count"].values
-"daily_withdrawal_count": prices_df["withdrawal_count"].values
-```
+`daily_withdrawal_count`, etc. The `_prepare_hypercore_export()` helper handles
+this mapping via the `flow_col_map` parameter.
 
 ### COALESCE upsert semantics
 
@@ -205,14 +219,15 @@ for sparse columns. This means:
 
 `post_processing.py` opens whichever Hyperliquid databases exist on disc
 (daily and/or HF) and passes both to `merge_hypercore_prices_to_parquet()`.
-The `hypercore_mode` parameter is no longer used to select which database to
-read — both are always read.
+Both databases are always merged regardless of the `HYPERCORE_MODE` setting.
 
 ### Integration via scan_all_chains.py
 
 Set `HYPERCORE_MODE=high_freq` to switch the Hypercore **scan** function to the
-HF pipeline (proxy-aware, sub-daily).  Post-processing always merges both
-databases regardless of mode:
+HF pipeline (proxy-aware, sub-daily).  Both scan functions delegate to the shared
+`_run_hypercore_scan()` orchestrator for result tracking, error handling, and
+vault metadata merge.  Post-processing always merges both databases regardless
+of mode:
 
 ```shell
 SCAN_HYPERCORE=true HYPERCORE_MODE=high_freq SCAN_CYCLES="Hypercore=4h" \

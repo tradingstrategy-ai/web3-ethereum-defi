@@ -73,7 +73,13 @@ in the Hyperliquid docs.
 
 ### DuckDB schema
 
-See `constants.py` for storage.
+Both the daily and HF database classes inherit from
+`HyperliquidMetricsDatabaseBase` in `vault_metrics_db.py`, which manages the
+shared `vault_metadata` table and common lifecycle methods (tombstoning,
+disappeared vault tracking, TVL bulk updates).  Each subclass adds its own
+price table.
+
+See `constants.py` for storage paths.
 
 ```
 vault_metadata                        vault_daily_prices
@@ -289,12 +295,18 @@ configurable down to 1h) using Webshare rotating proxies for parallel throughput
 
 ### Architecture
 
+- **Shared base class**: `HyperliquidMetricsDatabaseBase` in `vault_metrics_db.py`
+  provides the `vault_metadata` table and common methods (lifecycle, queries,
+  persistence). Both daily and HF database classes inherit from it.
 - **Separate DuckDB**: `hyperliquid-vaults-hf.duckdb` with `vault_high_freq_prices`
   table keyed by `(vault_address, TIMESTAMP)` instead of `(vault_address, DATE)`
 - **Raw timestamps**: API timestamps are stored as-is (no flooring or
   normalisation). The downstream `forward_fill_vault()` resamples to 1h when needed.
-- **Combined merge**: both daily and HF databases are always merged together into
-  the parquet, so switching modes never loses historical data
+- **Combined merge**: `merge_hypercore_prices_to_parquet()` reads both daily and
+  HF databases together, deduplicates, and writes to parquet — switching modes
+  never loses historical data
+- **Shared export helper**: `_prepare_hypercore_export()` handles forward-filling,
+  deposit status, and DataFrame construction for both daily and HF exports
 - **Proxy-aware parallelism**: pre-created session pool with per-worker rate
   limiting via `session.clone_for_worker()`
 
