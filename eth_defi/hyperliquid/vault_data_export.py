@@ -564,51 +564,68 @@ def build_raw_prices_dataframe_hf(db: HyperliquidHighFreqMetricsDatabase) -> pd.
     return result
 
 
-def merge_into_uncleaned_parquet_hf(
-    db: HyperliquidHighFreqMetricsDatabase,
+def merge_hypercore_prices_to_parquet(
     parquet_path: Path,
+    daily_db: HyperliquidDailyMetricsDatabase | None = None,
+    hf_db: HyperliquidHighFreqMetricsDatabase | None = None,
 ) -> pd.DataFrame:
-    """Merge HF Hyperliquid prices into the uncleaned Parquet file.
+    """Merge Hypercore price data from one or both DuckDB databases into the Parquet.
 
-    Same strategy as :py:func:`merge_into_uncleaned_parquet` but reads
-    from the HF database with raw timestamps.
+    Reads data from whichever databases are provided, combines them
+    (deduplicating on ``(address, timestamp)``), removes old chain-9999
+    rows from the Parquet, and writes the combined result.
 
-    :param db:
-        The HF metrics database.
+    This is safe for mode switches: if only the HF database is provided
+    but the daily database also exists, pass both to preserve all
+    historical data.  When both databases contain a row for the same
+    vault at the same timestamp, the HF row wins (more recent data).
+
+    Daily rows have midnight timestamps (from ``pd.to_datetime(date)``),
+    HF rows have raw API timestamps — they rarely collide.
+
     :param parquet_path:
         Path to the uncleaned Parquet file.
+    :param daily_db:
+        Daily metrics database (optional).
+    :param hf_db:
+        High-frequency metrics database (optional).
     :return:
-        The combined DataFrame.
+        The combined DataFrame (EVM + Hypercore rows).
     """
-    hl_df = build_raw_prices_dataframe_hf(db)
+    parts: list[pd.DataFrame] = []
 
-    if hl_df.empty:
-        logger.warning("No HF Hyperliquid data to merge")
+    if daily_db is not None:
+        daily_df = build_raw_prices_dataframe(daily_db)
+        if not daily_df.empty:
+            daily_df["_source"] = "daily"
+            parts.append(daily_df)
+            logger.info("Daily DB contributed %d Hypercore rows", len(daily_df))
+
+    if hf_db is not None:
+        hf_df = build_raw_prices_dataframe_hf(hf_db)
+        if not hf_df.empty:
+            hf_df["_source"] = "hf"
+            parts.append(hf_df)
+            logger.info("HF DB contributed %d Hypercore rows", len(hf_df))
+
+    if not parts:
+        logger.warning("No Hyperliquid data to merge from either database")
         if parquet_path.exists():
             return pd.read_parquet(parquet_path)
         return pd.DataFrame()
 
+    hl_df = pd.concat(parts, ignore_index=True)
+
+    # Deduplicate: when both databases have a row for the same
+    # (address, timestamp), keep the HF row (more granular/recent).
+    # Sort so "hf" comes after "daily", then drop_duplicates keeps last.
+    hl_df = hl_df.sort_values(["address", "timestamp", "_source"])
+    hl_df = hl_df.drop_duplicates(subset=["address", "timestamp"], keep="last")
+    hl_df = hl_df.drop(columns=["_source"])
+
     if parquet_path.exists():
         existing_df = pd.read_parquet(parquet_path)
-
-        existing_hl_rows = len(existing_df[existing_df["chain"] == HYPERCORE_CHAIN_ID])
-        new_hl_rows = len(hl_df)
-
-        # Safety check: refuse to replace significantly more rows than
-        # we are adding.  This catches the dangerous mode-switch scenario
-        # where an operator switches from the daily DuckDB (months of
-        # history) to a fresh HF DuckDB (hours of data), which would
-        # silently destroy historical Hypercore data in the parquet.
-        if existing_hl_rows > 0 and new_hl_rows < existing_hl_rows * 0.5:
-            raise ValueError(
-                f"Refusing to replace {existing_hl_rows:,} existing Hypercore rows "
-                f"with only {new_hl_rows:,} new rows (< 50% of existing). "
-                f"This usually means you switched from the daily pipeline to HF mode "
-                f"with a fresh DuckDB. Back-fill the HF database first, or manually "
-                f"remove the safety check if this is intentional."
-            )
-
-        # Remove any existing Hypercore rows
+        # Remove any existing Hypercore rows — we replace them all
         existing_df = existing_df[existing_df["chain"] != HYPERCORE_CHAIN_ID]
         combined = pd.concat([existing_df, hl_df], ignore_index=True)
     else:
@@ -621,7 +638,7 @@ def merge_into_uncleaned_parquet_hf(
 
     hl_vault_count = hl_df["address"].nunique()
     logger.info(
-        "Merged %d HF Hyperliquid vaults (%d rows) into uncleaned %s",
+        "Merged %d Hyperliquid vaults (%d rows) into uncleaned %s",
         hl_vault_count,
         len(hl_df),
         parquet_path,

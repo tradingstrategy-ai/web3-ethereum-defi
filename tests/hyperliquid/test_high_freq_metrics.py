@@ -196,6 +196,7 @@ def test_post_info_proxy_fix():
         vault_address="0x3df9769bbbb335340872f01d8157c779d73c6ed0",
     )
 
+    # Test _make_request via vault.fetch_info()
     with patch.object(session, "post_info", return_value=mock_response) as mock_post_info:
         mock_post_info.return_value._content = b'{"name": "test", "portfolio": [], "followers": []}'
         try:
@@ -203,3 +204,20 @@ def test_post_info_proxy_fix():
         except Exception:
             pass  # Response parsing may fail, but we only care that post_info was called
         assert mock_post_info.called, "_make_request() should call session.post_info(), not session.post()"
+
+    # Test fetch_vault_deposits() also routes through post_info()
+    mock_response_deposits = requests.Response()
+    mock_response_deposits.status_code = 200
+    mock_response_deposits._content = b"[]"
+
+    with patch.object(session, "post_info", return_value=mock_response_deposits) as mock_post_info:
+        try:
+            list(fetch_vault_deposits(
+                session,
+                "0x3df9769bbbb335340872f01d8157c779d73c6ed0",
+                start_time=datetime.datetime(2025, 1, 1),
+                end_time=datetime.datetime(2025, 1, 2),
+            ))
+        except Exception:
+            pass
+        assert mock_post_info.called, "fetch_vault_deposits() should call session.post_info(), not session.post()"

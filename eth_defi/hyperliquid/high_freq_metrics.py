@@ -692,6 +692,14 @@ def fetch_and_store_vault_high_freq(
     # resolution from _merge_portfolio_periods().
     last_stored_ts = db.get_vault_last_timestamp(vault_address)
 
+    # Precompute the last row index per calendar date so that flow
+    # data is only attached once per day (avoiding duplication when
+    # multiple intraday rows share the same .date()).
+    last_row_per_date: dict[datetime.date, int] = {}
+    for i, ts in enumerate(combined_df.index):
+        raw_ts = ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts
+        last_row_per_date[raw_ts.date()] = i
+
     last_idx = len(combined_df) - 1
     rows: list[HyperliquidHighFreqPriceRow] = []
     now = native_datetime_utc_now()
@@ -741,12 +749,14 @@ def fetch_and_store_vault_high_freq(
             row_leader_commission = None
             row_cumulative_volume = None
 
-        # Flow data: matched by calendar date (flows are naturally daily).
-        # Confirmed-zero vs unknown semantics: dates within the backfill
-        # window get 0 when no events occurred; dates outside get None.
+        # Flow data: only attach to the LAST row per calendar date to
+        # avoid duplicating daily flow values across multiple intraday
+        # rows.  Downstream netflow code sums these columns across rows,
+        # so duplicates would overstate deposit/withdrawal counts and USD.
         date_val = raw_ts.date()
         yesterday = datetime.date.today() - datetime.timedelta(days=1)
-        if flow_start_date is not None and flow_start_date <= date_val <= yesterday:
+        is_last_row_for_date = last_row_per_date.get(date_val) == i
+        if is_last_row_for_date and flow_start_date is not None and flow_start_date <= date_val <= yesterday:
             flow = daily_flows.get(date_val, (0, 0, 0.0, 0.0))
             dep_count, wd_count, dep_usd, wd_usd = flow
         else:

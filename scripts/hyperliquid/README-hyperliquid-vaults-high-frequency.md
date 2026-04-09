@@ -41,13 +41,15 @@ Hyperliquid API
         └── vault_high_freq_prices (PK: vault_address, timestamp)
                 │
                 ▼
-        build_raw_prices_dataframe_hf()
+        merge_hypercore_prices_to_parquet()
+        ├── reads BOTH daily + HF DuckDB databases
+        ├── deduplicates on (address, timestamp) — HF wins on collision
         ├── forward-fill state columns per vault
         ├── compute deposit_closed_reason
         └── map flow column names (deposit_count → daily_deposit_count)
                 │
                 ▼
-        vault-prices-1h.parquet (chain 9999 rows replaced, raw timestamps)
+        vault-prices-1h.parquet (chain 9999 rows replaced with combined data)
                 │
                 ▼
         process_raw_vault_scan_data() → cleaned-vault-prices-1h.parquet
@@ -58,10 +60,10 @@ Hyperliquid API
 
 | Module | Purpose |
 |--------|---------|
-| `eth_defi/hyperliquid/high_freq_metrics.py` | Core: database, timestamp normalisation, per-vault fetcher, session pool orchestrator |
-| `eth_defi/hyperliquid/vault_data_export.py` | Export: DuckDB → 1h-resampled Parquet |
-| `eth_defi/hyperliquid/deposit.py` | `aggregate_flows()` with configurable bucket |
-| `eth_defi/vault/post_processing.py` | Dispatcher: daily vs HF merge based on `hypercore_mode` |
+| `eth_defi/hyperliquid/high_freq_metrics.py` | Core: database, per-vault fetcher, session pool orchestrator |
+| `eth_defi/hyperliquid/vault_data_export.py` | Export: `merge_hypercore_prices_to_parquet()` reads both DBs, deduplicates, writes parquet |
+| `eth_defi/hyperliquid/deposit.py` | `aggregate_daily_flows()` for deposit/withdrawal flow metrics |
+| `eth_defi/vault/post_processing.py` | Opens whichever Hyperliquid databases exist, passes both to combined merge |
 | `eth_defi/vault/scan_all_chains.py` | `scan_hypercore_hf_fn()`, `HYPERCORE_MODE` env var |
 | `scripts/hyperliquid/high-freq-vault-metrics.py` | Standalone script with optional loop mode |
 
@@ -91,11 +93,11 @@ The HF pipeline exploits the same API data more aggressively:
    resolution (~weekly for `allTime`, sub-daily for `day` period) — all
    points are preserved without flooring or deduplication.
 
-2. **Resumable with overlap**: each poll stores all rows with
-   floored timestamp `>=` the last stored timestamp. The `>=` (not `>`) ensures
-   the latest bucket is always re-upserted, refreshing corrected values or
-   sparse state fields. If the job misses one or more cycles, the API's
-   historical data fills in the gaps automatically on the next run.
+2. **Resumable with overlap**: each poll stores all rows with timestamp `>=`
+   the last stored timestamp.  The `>=` (not `>`) ensures the latest row is
+   always re-upserted, refreshing corrected values or sparse state fields.
+   If the job misses one or more cycles, the API's historical data fills in
+   the gaps automatically on the next run.
 
 3. **Proxy-aware parallelism**: Hyperliquid rate-limits at 1200 weight/min/IP,
    with `vaultDetails` costing 20 weight (= ~1 req/s per IP). With N Webshare
@@ -135,22 +137,48 @@ but has its own rate-limiter adapter. Failed proxies are rotated within
 
 ## Pipeline integration and potential issues
 
-### How HF data enters the existing pipeline
+### Combined merge: no data loss between modes
 
-The ERC-4626 cleaning pipeline expects all vaults (EVM + native protocols) in
-a single `vault-prices-1h.parquet`.  The HF pipeline integrates by:
+The central design principle is that **both DuckDB databases are always merged
+together** into the parquet.  The function `merge_hypercore_prices_to_parquet()`
+accepts both `daily_db` and `hf_db` as optional parameters:
 
-1. **Replacing chain 9999 rows**: the merge function removes all existing
-   Hypercore rows from the Parquet, then appends the fresh HF data.  This is
-   idempotent — running twice produces the same result.
+```python
+def merge_hypercore_prices_to_parquet(
+    parquet_path: Path,
+    daily_db: HyperliquidDailyMetricsDatabase | None = None,
+    hf_db: HyperliquidHighFreqMetricsDatabase | None = None,
+) -> pd.DataFrame:
+```
 
-2. **Raw timestamps, no resampling**: HF data is written with the original
-   API timestamps (irregular spacing).  The downstream cleaning pipeline
-   computes `returns_1h` via `pct_change()` on consecutive rows — this already
-   works for irregular timestamps.  The daily pipeline has always produced
-   ~24h returns labelled `returns_1h` for Hypercore, so irregular spacing is
-   not a new issue.  When consumers need a regular 1h grid, they call
-   `forward_fill_vault()` which does `.resample("h").last().ffill()`.
+It reads rows from whichever databases are provided, concatenates them,
+deduplicates on `(address, timestamp)` (HF row wins on collision), removes old
+chain-9999 rows from the parquet, and writes the combined result.
+
+This means:
+
+- Running the **daily script** also includes any existing HF data in the parquet
+- Running the **HF script** also includes any existing daily data in the parquet
+- **Switching between modes** never loses historical data from the other database
+- Running both pipelines against the same parquet is safe (file lock coordinates
+  concurrent access)
+
+Daily rows have midnight timestamps (from `pd.to_datetime(date)`), HF rows have
+raw API timestamps — they rarely collide.  When they do share the exact same
+timestamp for the same vault, the HF row is kept (more recent/granular data).
+
+### Raw timestamps, no resampling
+
+HF data is written with the original API timestamps (irregular spacing).  The
+downstream cleaning pipeline computes `returns_1h` via `pct_change()` on
+consecutive rows — this already works for irregular timestamps.  The daily
+pipeline has always produced ~24h returns labelled `returns_1h` for Hypercore,
+so irregular spacing is not a new issue.  When consumers need a regular 1h grid,
+they call `forward_fill_vault()` which does `.resample("h").last().ffill()`.
+
+Note: `returns_1h` is a misnomer — see the comment at
+`wrangle_vault_prices.py:260`.  It is `pct_change()` between consecutive rows
+regardless of actual time delta.
 
 ### Column name mapping
 
@@ -173,31 +201,27 @@ for sparse columns. This means:
   a `None` new value preserves the existing value, so tombstone rows and
   overlap re-upserts do not wipe state
 
-### Post-processing dispatch
+### Post-processing
 
-`post_processing.py` routes based on `hypercore_mode`:
-
-- `"daily"` (default): opens `HyperliquidDailyMetricsDatabase`, calls
-  `merge_into_uncleaned_parquet()` — no resampling needed
-- `"high_freq"`: opens `HyperliquidHighFreqMetricsDatabase`, calls
-  `merge_into_uncleaned_parquet_hf()` — includes 1h resampling
-
-Both paths feed into the same `clean_prices()` → `generate_cleaned_vault_datasets()`
-step. The cleaning pipeline does not know or care which mode produced the data.
+`post_processing.py` opens whichever Hyperliquid databases exist on disc
+(daily and/or HF) and passes both to `merge_hypercore_prices_to_parquet()`.
+The `hypercore_mode` parameter is no longer used to select which database to
+read — both are always read.
 
 ### Integration via scan_all_chains.py
 
-Set `HYPERCORE_MODE=high_freq` to switch the Hypercore scan and post-processing
-to HF mode:
+Set `HYPERCORE_MODE=high_freq` to switch the Hypercore **scan** function to the
+HF pipeline (proxy-aware, sub-daily).  Post-processing always merges both
+databases regardless of mode:
 
 ```shell
 SCAN_HYPERCORE=true HYPERCORE_MODE=high_freq SCAN_CYCLES="Hypercore=4h" \
   poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 ```
 
-The DuckDB path changes automatically:
-- `daily` → `hyperliquid-vaults.duckdb`
-- `high_freq` → `hyperliquid-vaults-hf.duckdb`
+Both DuckDB paths are always available:
+- `hyperliquid-vaults.duckdb` — daily pipeline
+- `hyperliquid-vaults-hf.duckdb` — HF pipeline
 
 ### Potential issues and caveats
 
@@ -211,28 +235,15 @@ where Hypercore `returns_1h` values are actually ~24h returns.  Downstream
 consumers that need uniform 1h returns should use `forward_fill_vault()` first,
 which resamples to a regular 1h grid.
 
-**2. Flow metrics share daily granularity across multiple price rows**
+**2. Flow metrics are attached to one row per calendar date only**
 
-Since flow data is aggregated by calendar date, multiple HF price rows on the
-same date will carry the same flow values (matched via `.date()`).  Consumers
-aggregating flows must deduplicate by date, not by row count.
+Flow data is aggregated by calendar date.  To avoid inflating downstream sums
+(e.g. `vault_metrics.py` sums `daily_deposit_count` across rows), flow values
+are only attached to the **last row per calendar date**.  All other intraday
+rows on the same date carry `None` for flow fields (preserved via COALESCE on
+upsert).  Consumers can safely sum the flow columns without deduplication.
 
-**3. Mode switch can destroy historical data — safety check protects against this**
-
-The daily and HF pipelines use separate DuckDB files. The merge function
-replaces *all* chain-9999 rows in the Parquet with the current DuckDB's data.
-If you switch from daily mode (DuckDB with months of history) to HF mode
-(fresh DuckDB with hours of data), the merge would delete months of Hypercore
-history from the Parquet.
-
-A safety check prevents this: `merge_into_uncleaned_parquet_hf()` refuses to
-replace existing rows if the new data is less than 50% of the existing count.
-Back-fill the HF DuckDB before switching modes.
-
-Running both pipelines simultaneously against the same Parquet requires the
-file lock in `scan_all_chains.py` (`scan-pipeline` lock file).
-
-**4. API portfolio resolution is the bottleneck**
+**3. API portfolio resolution is the bottleneck**
 
 The `allTime` period returns ~weekly snapshots regardless of poll frequency.
 Only the `day` period (last 24h) has sub-daily resolution. Polling every 1h does
@@ -240,7 +251,7 @@ not magically produce 1h-resolution data for the full vault history — it only
 captures the freshest data point sooner. Historical data remains as coarse as
 the API provides.
 
-**5. Proxy cost and monitoring**
+**4. Proxy cost and monitoring**
 
 Each Webshare backbone proxy adds cost. The `ProxyStateManager` tracks failures
 persistently (SQLite), so bad proxies are skipped in future runs. Monitor the

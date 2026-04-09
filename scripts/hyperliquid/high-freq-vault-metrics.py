@@ -49,12 +49,13 @@ from pathlib import Path
 
 from eth_defi.hyperliquid.constants import (
     HYPERCORE_CHAIN_ID,
+    HYPERLIQUID_DAILY_METRICS_DATABASE,
     HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE,
 )
 from eth_defi.hyperliquid.high_freq_metrics import run_high_freq_scan
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault_data_export import (
-    merge_into_uncleaned_parquet_hf,
+    merge_hypercore_prices_to_parquet,
     merge_into_vault_database,
 )
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
@@ -150,9 +151,25 @@ def main():
             vault_db = merge_into_vault_database(db, vault_db_path)
             print(f"VaultDatabase now has {len(vault_db)} total vaults")
 
-            # Step 3: Merge into uncleaned Parquet (with 1h resampling)
+            # Step 3: Merge into uncleaned Parquet.
+            # Uses the combined merge that reads both daily and HF databases
+            # to avoid losing data when switching between modes.
             print(f"\nStep 3: Merging into uncleaned Parquet at {uncleaned_path}...")
-            combined_df = merge_into_uncleaned_parquet_hf(db, uncleaned_path)
+            daily_db_path = HYPERLIQUID_DAILY_METRICS_DATABASE
+            from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
+
+            daily_db = None
+            if daily_db_path.exists():
+                daily_db = HyperliquidDailyMetricsDatabase(daily_db_path)
+            try:
+                combined_df = merge_hypercore_prices_to_parquet(
+                    uncleaned_path,
+                    daily_db=daily_db,
+                    hf_db=db,
+                )
+            finally:
+                if daily_db is not None:
+                    daily_db.close()
             hl_rows = combined_df[combined_df["chain"] == HYPERCORE_CHAIN_ID] if len(combined_df) > 0 else combined_df
             print(f"Uncleaned parquet now has {len(combined_df):,} total rows ({len(hl_rows):,} Hyperliquid)")
 

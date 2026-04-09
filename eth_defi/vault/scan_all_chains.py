@@ -970,6 +970,7 @@ def run_scan_tick(
     uncleaned_price_path: Path,
     reader_state_path: Path,
     hyperliquid_db_path: Path,
+    hyperliquid_hf_db_path: Path,
     grvt_db_path: Path,
     lighter_db_path: Path,
     bkp_files: list[Path],
@@ -1048,7 +1049,7 @@ def run_scan_tick(
         if hypercore_mode == "high_freq":
             logger.info("Scanning Hypercore (Hyperliquid HF mode)")
             try:
-                results["Hypercore"] = scan_hypercore_hf_fn(max_workers, db_path=hyperliquid_db_path, vault_db_path=vault_db_path)
+                results["Hypercore"] = scan_hypercore_hf_fn(max_workers, db_path=hyperliquid_hf_db_path, vault_db_path=vault_db_path)
             except Exception as e:
                 logger.exception("Hypercore HF scan crashed with unhandled exception")
                 results["Hypercore"] = ChainResult(name="Hypercore", status="failed", error=str(e), traceback_str=traceback.format_exc())
@@ -1141,6 +1142,7 @@ def run_scan_tick(
             skip_data=skip_data,
             uncleaned_parquet_path=uncleaned_price_path,
             hyperliquid_db_path=hyperliquid_db_path,
+            hyperliquid_hf_db_path=hyperliquid_hf_db_path,
             grvt_db_path=grvt_db_path,
             lighter_db_path=lighter_db_path,
             vault_db_path=vault_db_path,
@@ -1244,13 +1246,11 @@ def main():
     backup_dir = data_dir / "backups"
     lighter_db_path = data_dir / "lighter-pools.duckdb"
     hypercore_mode = os.environ.get("HYPERCORE_MODE", "daily").strip().lower()
-    if hypercore_mode == "high_freq":
-        hyperliquid_db_path = data_dir / "hyperliquid-vaults-hf.duckdb"
-    else:
-        hyperliquid_db_path = data_dir / "hyperliquid-vaults.duckdb"
+    hyperliquid_db_path = data_dir / "hyperliquid-vaults.duckdb"
+    hyperliquid_hf_db_path = data_dir / "hyperliquid-vaults-hf.duckdb"
     grvt_db_path = data_dir / "grvt-vaults.duckdb"
 
-    bkp_files = [uncleaned_price_path, reader_state_path, vault_db_path, hyperliquid_db_path, grvt_db_path, lighter_db_path]
+    bkp_files = [uncleaned_price_path, reader_state_path, vault_db_path, hyperliquid_db_path, hyperliquid_hf_db_path, grvt_db_path, lighter_db_path]
 
     # Test mode - filter chains if TEST_CHAINS is set
     disable_chains_str = os.environ.get("DISABLE_CHAINS")
@@ -1347,6 +1347,7 @@ def main():
         uncleaned_price_path=uncleaned_price_path,
         reader_state_path=reader_state_path,
         hyperliquid_db_path=hyperliquid_db_path,
+        hyperliquid_hf_db_path=hyperliquid_hf_db_path,
         grvt_db_path=grvt_db_path,
         lighter_db_path=lighter_db_path,
         bkp_files=bkp_files,
