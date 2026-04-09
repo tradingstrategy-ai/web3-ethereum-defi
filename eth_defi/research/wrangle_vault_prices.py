@@ -257,6 +257,13 @@ def calculate_vault_returns(prices_df: pd.DataFrame, logger=print):
         prices_df = prices_df[~missing_share_price_mask]
 
     assert prices_df["share_price"].isna().sum() == 0, "share_price column must not contain NaN values"
+    # NOTE: ``returns_1h`` is a misnomer.  The column is ``pct_change()``
+    # between consecutive rows regardless of their actual time delta.
+    # For EVM chains scanned at 1h frequency the name is accurate, but
+    # for native protocols (Hypercore, GRVT, Lighter) the rows may be
+    # spaced at daily or irregular intervals — producing ~24h or
+    # variable-interval returns labelled "1h".  Renaming would break
+    # every downstream consumer so the name is kept for compatibility.
     prices_df["returns_1h"] = prices_df.groupby("id")["share_price"].pct_change()
     return prices_df
 
