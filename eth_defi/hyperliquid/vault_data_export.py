@@ -488,57 +488,22 @@ def merge_into_uncleaned_parquet(
 # High-frequency export functions
 # ──────────────────────────────────────────────
 
-#: Columns that should be forward-filled between sparse HF observations
-#: when resampling to 1h.
-_FFILL_COLS = {
-    "share_price",
-    "total_assets",
-    "cumulative_pnl",
-    "cumulative_volume",
-    "account_pnl",
-    "follower_count",
-    "is_closed",
-    "allow_deposits",
-    "deposits_open",
-    "deposit_closed_reason",
-    "leader_fraction",
-    "leader_commission",
-}
-
-#: Columns that are observation-only and must NOT be forward-filled.
-#: They get NaN/NaT/False for synthetic fill-hours.
-_OBSERVATION_ONLY_COLS = {
-    "daily_deposit_count",
-    "daily_withdrawal_count",
-    "daily_deposit_usd",
-    "daily_withdrawal_usd",
-    "epoch_reset",
-    "written_at",
-}
-
 
 def build_raw_prices_dataframe_hf(db: HyperliquidHighFreqMetricsDatabase) -> pd.DataFrame:
     """Build a raw prices DataFrame from the HF DuckDB.
 
-    Resamples sub-daily data to 1h frequency before export, using
-    per-column fill policy so downstream ``returns_1h`` computation
-    and ``forward_fill_vault()`` work correctly.
-
-    **Per-column resampling policy:**
-
-    - Price/state columns (share_price, tvl, cumulative fields, state
-      flags, follower_count): ``.last().ffill()``
-    - Flow metrics (deposit_count, withdrawal_count, deposit_usd,
-      withdrawal_usd): NaN for fill-hours, actual value only on
-      observation hours
-    - epoch_reset: False for fill-hours
-    - written_at: NaT for fill-hours
+    Exports raw API timestamps without resampling.  The downstream
+    cleaning pipeline computes ``returns_1h`` via ``pct_change()`` on
+    consecutive rows — this already works for irregular timestamps
+    (the daily pipeline has always produced ~24h returns labelled
+    ``returns_1h`` for Hypercore).  The downstream
+    ``forward_fill_vault()`` resamples to 1h when needed.
 
     :param db:
         The HF metrics database.
     :return:
-        DataFrame matching the uncleaned Parquet schema with 1h
-        resampled timestamps.
+        DataFrame matching the uncleaned Parquet schema with raw
+        timestamps.
     """
     prices_df = db.get_all_high_freq_prices()
 
@@ -596,80 +561,7 @@ def build_raw_prices_dataframe_hf(db: HyperliquidHighFreqMetricsDatabase) -> pd.
     result["chain"] = result["chain"].astype("int32")
     result["block_number"] = result["block_number"].astype("int64")
 
-    # Resample to 1h per vault with per-column fill policy
-    result = _resample_to_1h(result)
-
     return result
-
-
-def _resample_to_1h(df: pd.DataFrame) -> pd.DataFrame:
-    """Resample a multi-vault DataFrame to 1h frequency.
-
-    Groups by vault address, resamples each to hourly, and applies
-    per-column fill policy:
-
-    - Forward-fill columns: share_price, total_assets, cumulative fields,
-      state flags, follower_count
-    - Observation-only columns: flow metrics (NaN for fills),
-      epoch_reset (False for fills), written_at (NaT for fills)
-
-    :param df:
-        DataFrame with ``address`` and ``timestamp`` columns.
-    :return:
-        Resampled DataFrame with 1h frequency.
-    """
-    if df.empty:
-        return df
-
-    resampled_parts = []
-
-    for address, vault_df in df.groupby("address"):
-        vault_df = vault_df.copy()
-        vault_df["timestamp"] = pd.to_datetime(vault_df["timestamp"])
-        vault_df = vault_df.set_index("timestamp").sort_index()
-
-        # Determine which columns exist and categorise them
-        all_cols = set(vault_df.columns)
-        ffill_cols = sorted(all_cols & _FFILL_COLS)
-        obs_only_cols = sorted(all_cols & _OBSERVATION_ONLY_COLS)
-        # Columns that are constant per vault (chain, address, block_number, etc.)
-        static_cols = sorted(all_cols - _FFILL_COLS - _OBSERVATION_ONLY_COLS)
-
-        # Resample forward-fill columns
-        if ffill_cols:
-            ffill_resampled = vault_df[ffill_cols].resample("h").last().ffill()
-        else:
-            ffill_resampled = pd.DataFrame(index=vault_df.resample("h").last().index)
-
-        # Resample observation-only columns (NaN/False/NaT for fill-hours)
-        if obs_only_cols:
-            obs_resampled = vault_df[obs_only_cols].resample("h").last()
-            # epoch_reset: fill NaN with False
-            if "epoch_reset" in obs_resampled.columns:
-                obs_resampled["epoch_reset"] = obs_resampled["epoch_reset"].fillna(False)
-        else:
-            obs_resampled = pd.DataFrame(index=ffill_resampled.index)
-
-        # Static columns: forward-fill (they're the same for every row in the vault)
-        if static_cols:
-            static_resampled = vault_df[static_cols].resample("h").last().ffill()
-        else:
-            static_resampled = pd.DataFrame(index=ffill_resampled.index)
-
-        # Combine
-        combined = pd.concat([static_resampled, ffill_resampled, obs_resampled], axis=1)
-
-        # Drop leading NaN rows before first real data point
-        first_valid = vault_df.index[0]
-        combined = combined[combined.index >= first_valid]
-
-        combined = combined.reset_index().rename(columns={"timestamp": "timestamp"})
-        resampled_parts.append(combined)
-
-    if not resampled_parts:
-        return df.iloc[:0]
-
-    return pd.concat(resampled_parts, ignore_index=True)
 
 
 def merge_into_uncleaned_parquet_hf(
@@ -679,7 +571,7 @@ def merge_into_uncleaned_parquet_hf(
     """Merge HF Hyperliquid prices into the uncleaned Parquet file.
 
     Same strategy as :py:func:`merge_into_uncleaned_parquet` but reads
-    from the HF database and includes 1h resampling.
+    from the HF database with raw timestamps.
 
     :param db:
         The HF metrics database.
@@ -711,7 +603,7 @@ def merge_into_uncleaned_parquet_hf(
 
     hl_vault_count = hl_df["address"].nunique()
     logger.info(
-        "Merged %d HF Hyperliquid vaults (%d rows, 1h resampled) into uncleaned %s",
+        "Merged %d HF Hyperliquid vaults (%d rows) into uncleaned %s",
         hl_vault_count,
         len(hl_df),
         parquet_path,

@@ -10,13 +10,14 @@ but stores rows keyed by ``(vault_address, timestamp)`` instead of
 
 Key differences from the daily pipeline:
 
-- **Timestamp precision**: rows use ``TIMESTAMP`` not ``DATE``.
-- **Timestamp normalisation**: API timestamps are floored to the
-  ``scan_interval`` boundary (analogous to daily ``.date()`` truncation).
+- **Raw timestamps**: rows preserve the API's original timestamps
+  (no ``.date()`` truncation or bucket flooring).  The API returns
+  data at varying resolution (~weekly for ``allTime``, sub-daily
+  for ``day`` period) — all points are stored as-is.
 - **Proxy-aware session pool**: workers get pre-cloned sessions for
   independent rate limiting per proxy IP.
 - **Resumable with overlap**: stores rows ``>=`` the last stored
-  timestamp so the latest bucket is always refreshed via idempotent
+  timestamp so the latest row is always refreshed via idempotent
   upsert.
 """
 
@@ -40,7 +41,7 @@ from eth_defi.hyperliquid.daily_metrics import (
     portfolio_to_combined_dataframe,
 )
 from eth_defi.hyperliquid.deposit import (
-    aggregate_flows,
+    aggregate_daily_flows,
     fetch_vault_deposits,
 )
 from eth_defi.hyperliquid.session import HyperliquidSession
@@ -118,33 +119,6 @@ class HyperliquidHighFreqPriceRow:
             self.data_source,
             self.written_at,
         )
-
-
-# ──────────────────────────────────────────────
-# Timestamp normalisation
-# ──────────────────────────────────────────────
-
-
-def floor_timestamp(
-    ts: datetime.datetime,
-    interval: datetime.timedelta,
-) -> datetime.datetime:
-    """Floor *ts* to the nearest *interval* boundary.
-
-    Analogous to the daily pipeline's ``.date()`` truncation
-    (``daily_metrics.py:1441``).
-
-    :param ts:
-        Timestamp to floor.
-    :param interval:
-        Bucket size (e.g. ``timedelta(hours=4)``).
-    :return:
-        Floored datetime (naive UTC).
-    """
-    interval_seconds = int(interval.total_seconds())
-    epoch = int(ts.timestamp())
-    floored_epoch = (epoch // interval_seconds) * interval_seconds
-    return datetime.datetime(1970, 1, 1) + datetime.timedelta(seconds=floored_epoch)
 
 
 # ──────────────────────────────────────────────
@@ -568,9 +542,16 @@ def fetch_and_store_vault_high_freq(
 
     1. Fetch vault info via ``vaultDetails`` API
     2. Compute share prices via ``portfolio_to_combined_dataframe()``
-    3. Floor timestamps to ``scan_interval`` boundary
-    4. Fetch deposit/withdrawal events and aggregate by bucket
+    3. Store raw API timestamps (no normalisation or flooring)
+    4. Fetch deposit/withdrawal events and aggregate by day
     5. Store rows ``>=`` last stored timestamp (resumable with overlap)
+
+    Unlike the daily pipeline which truncates to ``.date()``, the HF
+    pipeline preserves the raw timestamps from the merged portfolio
+    history.  The API returns data at varying resolution (weekly for
+    ``allTime``, sub-daily for ``day`` period) — all points are stored
+    as-is.  Flow data is naturally daily and matched via ``.date()``
+    on the raw timestamp.
 
     :param session:
         HTTP session (should be a worker clone with proxy).
@@ -579,9 +560,11 @@ def fetch_and_store_vault_high_freq(
     :param summary:
         Vault summary from bulk listing.
     :param scan_interval:
-        Bucket size for timestamp normalisation and flow aggregation.
+        Not used for timestamp normalisation (kept for API
+        compatibility).  May be used for future sub-daily flow
+        bucketing.
     :param cutoff_timestamp:
-        If set, discard rows with floored timestamp > cutoff.
+        If set, discard rows with timestamp > cutoff.
     :param flow_backfill_days:
         Days to backfill flow data. Set to 0 to disable.
     :param timeout:
@@ -628,8 +611,10 @@ def fetch_and_store_vault_high_freq(
         )
         return False
 
-    # Fetch deposit/withdrawal events for flow metrics
-    bucketed_flows: dict[datetime.datetime, tuple[int, int, float, float]] = {}
+    # Fetch deposit/withdrawal events for flow metrics.
+    # Flows are naturally daily and aggregated by calendar date,
+    # then matched to price rows via ts.date().
+    daily_flows: dict[datetime.date, tuple[int, int, float, float]] = {}
     flow_start_date: datetime.date | None = None
 
     if flow_backfill_days > 0:
@@ -660,13 +645,13 @@ def fetch_and_store_vault_high_freq(
                     timeout=timeout,
                 )
             )
-            bucketed_flows = aggregate_flows(events, bucket=scan_interval)
+            daily_flows = aggregate_daily_flows(events)
             logger.debug(
-                "Fetched %d deposit events for %s (%s), %d buckets with activity",
+                "Fetched %d deposit events for %s (%s), %d days with activity",
                 len(events),
                 summary.name,
                 vault_address,
-                len(bucketed_flows),
+                len(daily_flows),
             )
         except Exception as e:
             logger.warning(
@@ -702,16 +687,28 @@ def fetch_and_store_vault_high_freq(
         flow_data_earliest_date=flow_data_earliest_date,
     )
 
-    # Build HF price rows with floored timestamps.
-    # Deduplicate rows sharing the same floored timestamp (last wins).
+    # Build HF price rows using raw API timestamps (no normalisation).
+    # The merged portfolio history already has the highest available
+    # resolution from _merge_portfolio_periods().
     last_stored_ts = db.get_vault_last_timestamp(vault_address)
 
-    # Floor timestamps and deduplicate (keep last per bucket)
-    floored_data: dict[datetime.datetime, tuple] = {}
+    last_idx = len(combined_df) - 1
+    rows: list[HyperliquidHighFreqPriceRow] = []
+    now = native_datetime_utc_now()
     prev_share_price = None
 
-    for ts, row_data in zip(combined_df.index, combined_df.itertuples()):
-        floored_ts = floor_timestamp(ts, scan_interval)
+    for i, (ts, row_data) in enumerate(zip(combined_df.index, combined_df.itertuples())):
+        raw_ts = ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts
+
+        # Resumable: only store rows >= last stored timestamp
+        if last_stored_ts is not None and raw_ts < last_stored_ts:
+            # Still track prev_share_price for return calc
+            prev_share_price = row_data.share_price
+            continue
+
+        # Cutoff filtering
+        if cutoff_timestamp is not None and raw_ts > cutoff_timestamp:
+            continue
 
         share_price = row_data.share_price
         tvl = row_data.total_assets
@@ -725,39 +722,6 @@ def fetch_and_store_vault_high_freq(
             daily_return = 0.0
 
         prev_share_price = share_price
-
-        # Last value per bucket wins (overwrites earlier values in same bucket)
-        floored_data[floored_ts] = (
-            share_price,
-            tvl,
-            cumulative_pnl_val,
-            daily_pnl,
-            daily_return,
-            epoch_reset_val,
-        )
-
-    # Sort by timestamp and build rows
-    last_idx = len(floored_data) - 1
-    rows: list[HyperliquidHighFreqPriceRow] = []
-    now = native_datetime_utc_now()
-
-    flow_start_dt_for_check = datetime.datetime(flow_start_date.year, flow_start_date.month, flow_start_date.day) if flow_start_date is not None else None
-    yesterday_end = datetime.datetime(
-        datetime.date.today().year,
-        datetime.date.today().month,
-        datetime.date.today().day,
-    ) - datetime.timedelta(seconds=1)
-
-    for i, (floored_ts, data) in enumerate(sorted(floored_data.items())):
-        # Resumable: only store rows >= last stored timestamp
-        if last_stored_ts is not None and floored_ts < last_stored_ts:
-            continue
-
-        # Cutoff filtering
-        if cutoff_timestamp is not None and floored_ts > cutoff_timestamp:
-            continue
-
-        share_price, tvl, cumulative_pnl_val, daily_pnl, daily_return, epoch_reset_val = data
 
         # Only the latest row gets snapshot fields
         if i == last_idx:
@@ -777,9 +741,13 @@ def fetch_and_store_vault_high_freq(
             row_leader_commission = None
             row_cumulative_volume = None
 
-        # Flow data: confirmed-zero vs unknown semantics
-        if flow_start_dt_for_check is not None and flow_start_dt_for_check <= floored_ts <= yesterday_end:
-            flow = bucketed_flows.get(floored_ts, (0, 0, 0.0, 0.0))
+        # Flow data: matched by calendar date (flows are naturally daily).
+        # Confirmed-zero vs unknown semantics: dates within the backfill
+        # window get 0 when no events occurred; dates outside get None.
+        date_val = raw_ts.date()
+        yesterday = datetime.date.today() - datetime.timedelta(days=1)
+        if flow_start_date is not None and flow_start_date <= date_val <= yesterday:
+            flow = daily_flows.get(date_val, (0, 0, 0.0, 0.0))
             dep_count, wd_count, dep_usd, wd_usd = flow
         else:
             dep_count = None
@@ -790,7 +758,7 @@ def fetch_and_store_vault_high_freq(
         rows.append(
             HyperliquidHighFreqPriceRow(
                 vault_address=vault_address,
-                timestamp=floored_ts,
+                timestamp=raw_ts,
                 share_price=share_price,
                 tvl=tvl,
                 cumulative_pnl=cumulative_pnl_val,

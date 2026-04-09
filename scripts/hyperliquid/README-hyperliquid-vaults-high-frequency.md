@@ -27,10 +27,10 @@ Hyperliquid API
         │           └── _calculate_share_price() → share_price, total_assets, pnl
         │
         └── userNonFundingLedgerUpdates (deposit/withdrawal events)
-            └── aggregate_flows(events, bucket=scan_interval)
+            └── aggregate_daily_flows(events)
                 │
                 ▼
-        floor_timestamp() → deduplicate per bucket (last wins)
+        Raw API timestamps preserved (no flooring or normalisation)
                 │
                 ▼
         HyperliquidHighFreqPriceRow (timestamp, not date)
@@ -44,14 +44,14 @@ Hyperliquid API
         build_raw_prices_dataframe_hf()
         ├── forward-fill state columns per vault
         ├── compute deposit_closed_reason
-        ├── map flow column names (deposit_count → daily_deposit_count)
-        └── _resample_to_1h() with per-column fill policy
+        └── map flow column names (deposit_count → daily_deposit_count)
                 │
                 ▼
-        vault-prices-1h.parquet (chain 9999 rows replaced)
+        vault-prices-1h.parquet (chain 9999 rows replaced, raw timestamps)
                 │
                 ▼
         process_raw_vault_scan_data() → cleaned-vault-prices-1h.parquet
+        (forward_fill_vault() resamples to 1h when needed downstream)
 ```
 
 ### Key components
@@ -86,10 +86,10 @@ daily entry.
 
 The HF pipeline exploits the same API data more aggressively:
 
-1. **Timestamp normalisation instead of date truncation**: API timestamps are
-   floored to the `scan_interval` boundary (e.g. 4h: `12:37 → 12:00`,
-   `15:22 → 12:00`). This preserves sub-daily granularity while still
-   deduplicating overlapping data points within the same bucket.
+1. **Raw timestamps instead of date truncation**: API timestamps are stored
+   as-is from the merged portfolio history.  The API returns data at varying
+   resolution (~weekly for `allTime`, sub-daily for `day` period) — all
+   points are preserved without flooring or deduplication.
 
 2. **Resumable with overlap**: each poll stores all rows with
    floored timestamp `>=` the last stored timestamp. The `>=` (not `>`) ensures
@@ -102,10 +102,10 @@ The HF pipeline exploits the same API data more aggressively:
    proxies, the pipeline gets Nx throughput via a pre-created session pool
    where each worker gets its own cloned session with independent rate limiting.
 
-4. **Configurable flow aggregation**: deposit/withdrawal events are bucketed by
-   `scan_interval` (not forced to daily). The `aggregate_flows(events, bucket)`
-   function floors each event timestamp to the bucket boundary, matching the
-   price row keys.
+4. **Daily flow aggregation**: deposit/withdrawal events are aggregated by
+   calendar date (same as the daily pipeline) and matched to price rows via
+   `.date()` on the raw timestamp.  This is natural since flow events are
+   reported at daily granularity by the API.
 
 ### Rate limiting and proxy architecture
 
@@ -138,41 +138,19 @@ but has its own rate-limiter adapter. Failed proxies are rotated within
 ### How HF data enters the existing pipeline
 
 The ERC-4626 cleaning pipeline expects all vaults (EVM + native protocols) in
-a single `vault-prices-1h.parquet` with 1h-spaced timestamps. The HF pipeline
-integrates by:
+a single `vault-prices-1h.parquet`.  The HF pipeline integrates by:
 
 1. **Replacing chain 9999 rows**: the merge function removes all existing
-   Hypercore rows from the Parquet, then appends the fresh HF data. This is
+   Hypercore rows from the Parquet, then appends the fresh HF data.  This is
    idempotent — running twice produces the same result.
 
-2. **Resampling to 1h before export**: HF data (e.g. 4h intervals) is resampled
-   to 1h with a per-column fill policy before writing to Parquet. This ensures
-   the downstream `returns_1h = pct_change()` computation produces correct
-   values.
-
-### Per-column resampling policy
-
-Not all columns can be blindly forward-filled. The pipeline splits columns into
-two categories:
-
-**Forward-filled** (constant between observations):
-- `share_price`, `total_assets`, `cumulative_pnl`, `cumulative_volume`, `account_pnl`
-- `follower_count`, `leader_fraction`, `leader_commission`
-- `is_closed`, `allow_deposits`, `deposits_open`, `deposit_closed_reason`
-
-These use `.resample("h").last().ffill()`. A 4h data point at 00:00 fills
-hours 01:00, 02:00, 03:00 with the same value.
-
-**Observation-only** (must NOT be duplicated into synthetic hours):
-- `daily_deposit_count`, `daily_withdrawal_count`, `daily_deposit_usd`,
-  `daily_withdrawal_usd` — flow metrics are bucketed; duplicating them would
-  inflate aggregates
-- `epoch_reset` — flag specific to observation time; filled with `False`
-- `written_at` — stale write-times must not stamp synthetic hours; filled
-  with `NaT`
-
-These use `.resample("h").last()` with no forward-fill, producing `NaN` for
-synthetic hours.
+2. **Raw timestamps, no resampling**: HF data is written with the original
+   API timestamps (irregular spacing).  The downstream cleaning pipeline
+   computes `returns_1h` via `pct_change()` on consecutive rows — this already
+   works for irregular timestamps.  The daily pipeline has always produced
+   ~24h returns labelled `returns_1h` for Hypercore, so irregular spacing is
+   not a new issue.  When consumers need a regular 1h grid, they call
+   `forward_fill_vault()` which does `.resample("h").last().ffill()`.
 
 ### Column name mapping
 
@@ -223,21 +201,21 @@ The DuckDB path changes automatically:
 
 ### Potential issues and caveats
 
-**1. Resampled returns are zero between observations**
+**1. `returns_1h` is returns between consecutive rows, not true 1h returns**
 
-When a 4h data point at 00:00 is forward-filled to 01:00–03:00, those fill-hours
-have identical `share_price`. The downstream `pct_change()` produces `0.0` returns
-for fill-hours and the actual 4h return at the observation hour (04:00). This is
-mathematically correct — the return is attributed to the observation boundary, not
-spread across fill-hours — but consumers expecting uniform hourly returns will
-see a "lumpy" pattern.
+The cleaning pipeline computes `returns_1h = pct_change()` on consecutive rows
+regardless of actual time delta.  For HF data with raw timestamps, these are
+irregular-interval returns (sometimes minutes apart for `day` period data,
+sometimes a week for `allTime` data).  This is the same as the daily pipeline
+where Hypercore `returns_1h` values are actually ~24h returns.  Downstream
+consumers that need uniform 1h returns should use `forward_fill_vault()` first,
+which resamples to a regular 1h grid.
 
-**2. Flow metrics are sparse in the Parquet**
+**2. Flow metrics share daily granularity across multiple price rows**
 
-After resampling, only the actual observation hours carry flow values; all other
-hours are `NaN`. Consumers that aggregate flow metrics (e.g. "total deposits in
-the last 24h") must use `.sum(skipna=True)` or filter to non-NaN rows. A naive
-`.sum()` on a column with NaN will return NaN.
+Since flow data is aggregated by calendar date, multiple HF price rows on the
+same date will carry the same flow values (matched via `.date()`).  Consumers
+aggregating flows must deduplicate by date, not by row count.
 
 **3. Two DuckDB files for the same chain**
 
