@@ -66,7 +66,7 @@ class HyperliquidHighFreqPriceRow:
     """A single high-frequency price row ready for DuckDB upsert."""
 
     vault_address: HexAddress
-    #: Floored to the ``scan_interval`` boundary.
+    #: Raw API timestamp (naive UTC, no flooring or normalisation).
     timestamp: datetime.datetime
     share_price: float
     tvl: float

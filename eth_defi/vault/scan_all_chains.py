@@ -1147,7 +1147,6 @@ def run_scan_tick(
             lighter_db_path=lighter_db_path,
             vault_db_path=vault_db_path,
             cleaned_path=cleaned_price_path,
-            hypercore_mode=hypercore_mode,
         )
         for step, success in post_results.items():
             logger.info("Post-processing %s: %s", step, "SUCCESS" if success else "FAILED")

@@ -36,12 +36,15 @@ def merge_native_protocols(
     hyperliquid_hf_db_path: Path | None = None,
     grvt_db_path: Path | None = None,
     lighter_db_path: Path | None = None,
-    hypercore_mode: str = "daily",
 ) -> dict[str, bool]:
     """Merge native protocol price data into the uncleaned parquet.
 
     Must run before cleaning so that native protocol data goes through
     the same cleaning pipeline as EVM vaults.
+
+    For Hypercore, both the daily and HF DuckDB databases are always
+    merged together so that switching between modes never loses
+    historical data.
 
     :param merge_hypercore: Merge Hyperliquid native (Hypercore) vault data
     :param merge_grvt: Merge GRVT native vault data
@@ -51,9 +54,6 @@ def merge_native_protocols(
     :param hyperliquid_hf_db_path: Override for the HF Hyperliquid DuckDB path
     :param grvt_db_path: Override for the GRVT DuckDB path
     :param lighter_db_path: Override for the Lighter DuckDB path
-    :param hypercore_mode: ``"daily"`` or ``"high_freq"`` — controls which
-        database is the primary source, but both databases are always
-        merged to avoid data loss.
     :return: Dictionary mapping step name to success boolean
     """
     parquet_path = uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE
@@ -237,7 +237,6 @@ def run_post_processing(
     lighter_db_path: Path | None = None,
     vault_db_path: Path | None = None,
     cleaned_path: Path | None = None,
-    hypercore_mode: str = "daily",
 ) -> dict[str, bool]:
     """Run full post-processing pipeline after chain scans complete.
 
@@ -276,7 +275,6 @@ def run_post_processing(
         hyperliquid_hf_db_path=hyperliquid_hf_db_path,
         grvt_db_path=grvt_db_path,
         lighter_db_path=lighter_db_path,
-        hypercore_mode=hypercore_mode,
     )
     steps.update(merge_results)
 

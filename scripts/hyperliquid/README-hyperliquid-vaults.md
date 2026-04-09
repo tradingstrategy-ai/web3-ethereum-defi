@@ -291,13 +291,14 @@ configurable down to 1h) using Webshare rotating proxies for parallel throughput
 
 - **Separate DuckDB**: `hyperliquid-vaults-hf.duckdb` with `vault_high_freq_prices`
   table keyed by `(vault_address, TIMESTAMP)` instead of `(vault_address, DATE)`
-- **Timestamp normalisation**: API timestamps are floored to the scan interval
-  boundary (analogous to daily `.date()` truncation)
+- **Raw timestamps**: API timestamps are stored as-is (no flooring or
+  normalisation). The downstream `forward_fill_vault()` resamples to 1h when needed.
+- **Combined merge**: both daily and HF databases are always merged together into
+  the parquet, so switching modes never loses historical data
 - **Proxy-aware parallelism**: pre-created session pool with per-worker rate
   limiting via `session.clone_for_worker()`
-- **1h resampling on export**: HF data is resampled to 1h with per-column fill
-  policy before writing to `vault-prices-1h.parquet`, so the downstream
-  `returns_1h` computation works correctly
+
+See `README-hyperliquid-vaults-high-frequency.md` for the full architecture.
 
 ### Usage
 

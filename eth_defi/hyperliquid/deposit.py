@@ -431,52 +431,6 @@ def aggregate_daily_flows(
     return {k: (v[0], v[1], v[2], v[3]) for k, v in daily.items()}
 
 
-def aggregate_flows(
-    events: list[VaultDepositEvent],
-    bucket: datetime.timedelta = datetime.timedelta(days=1),
-) -> dict[datetime.datetime, tuple[int, int, float, float]]:
-    """Aggregate vault events into configurable time buckets.
-
-    Groups events by floored bucket boundary and computes:
-
-    - Number of deposit events
-    - Number of withdrawal events
-    - Total USD deposited (positive)
-    - Total USD withdrawn (positive, absolute value)
-
-    Only ``vault_deposit`` and ``vault_withdraw`` events are counted.
-    Other event types (``vault_create``, ``vault_distribution``,
-    ``vault_leader_commission``) are excluded.
-
-    :param events:
-        List of vault events from :py:func:`fetch_vault_deposits`.
-    :param bucket:
-        Time bucket size (e.g. ``timedelta(hours=1)``, ``timedelta(hours=4)``).
-    :return:
-        Dict mapping bucket start datetime to
-        ``(deposit_count, withdrawal_count, deposit_usd, withdrawal_usd)``.
-    """
-    bucket_seconds = int(bucket.total_seconds())
-    buckets: dict[datetime.datetime, list] = {}
-
-    for event in events:
-        ts_epoch = event.timestamp.timestamp()
-        floored_epoch = (int(ts_epoch) // bucket_seconds) * bucket_seconds
-        bucket_key = datetime.datetime(1970, 1, 1) + datetime.timedelta(seconds=floored_epoch)
-
-        if bucket_key not in buckets:
-            buckets[bucket_key] = [0, 0, 0.0, 0.0]
-
-        if event.event_type == VaultEventType.vault_deposit:
-            buckets[bucket_key][0] += 1
-            buckets[bucket_key][2] += float(event.usdc)
-        elif event.event_type == VaultEventType.vault_withdraw:
-            buckets[bucket_key][1] += 1
-            buckets[bucket_key][3] += float(abs(event.usdc))
-
-    return {k: (v[0], v[1], v[2], v[3]) for k, v in buckets.items()}
-
-
 def get_deposit_summary(events: list[VaultDepositEvent]) -> dict:
     """Generate a summary of vault deposit/withdrawal activity.
 

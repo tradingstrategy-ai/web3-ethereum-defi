@@ -293,6 +293,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `scripts/grvt/README-grvt-vaults.md` | GRVT native vault metrics pipeline |
 | `scripts/hyperliquid/README-hyperliquid-copy-trading.md` | Hyperliquid copy trading platforms and HFT account identification |
 | `scripts/hyperliquid/README-hyperliquid-vaults.md` | Hyperliquid native vault metrics pipeline |
+| `scripts/hyperliquid/README-hyperliquid-vaults-high-frequency.md` | High-frequency Hyperliquid vault data fetcher |
 | `scripts/lighter/README-lighter-vaults.md` | Lighter native pool metrics pipeline |
 | `tests/erc_4626/vault_protocol/README.md` | Vault protocol detection tests (mainnet-fork) |
 | `tests/gmx/README.md` | Testing for GMX |
