@@ -17,6 +17,7 @@ from decimal import Decimal
 from functools import cached_property
 from typing import Iterable, Tuple, TypedDict
 
+from atomicwrites import atomic_write
 from eth_typing import BlockIdentifier, BlockNumber, HexAddress
 from web3 import Web3
 
@@ -487,7 +488,8 @@ class VaultHistoricalRead:
                     table.column(i).cast(target_field.type, safe=False),
                 )
 
-        pq.write_table(table, path, compression=compression)
+        with atomic_write(str(path), mode="wb", overwrite=True) as f:
+            pq.write_table(table, f, compression=compression)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)

@@ -13,6 +13,11 @@ import datetime
 import logging
 import os
 import tempfile
+
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Callable, Iterable, Literal, TypedDict
@@ -512,6 +517,17 @@ class VaultHistoricalReadMulticaller:
         return {r.vault.get_spec(): r.reader_state.save() for r in self.readers.values() if r.reader_state}
 
 
+def _proper_fsync(fd: int) -> None:
+    """Fsync with ``F_FULLFSYNC`` on macOS for full durability.
+
+    Mirrors :py:func:`atomicwrites._proper_fsync`.
+    """
+    if fcntl is not None and hasattr(fcntl, "F_FULLFSYNC"):
+        fcntl.fcntl(fd, fcntl.F_FULLFSYNC)
+    else:
+        os.fsync(fd)
+
+
 def scan_historical_prices_to_parquet(
     output_fname: Path,
     web3: Web3,
@@ -812,9 +828,21 @@ def scan_historical_prices_to_parquet(
             rows_written += len(chunk)
             chunks_done += 1
 
-        # Close the writer to finalize the file
+        # Close the writer to finalise the file, then flush to disk
+        # and atomically replace the target.  We also sync the parent
+        # directory so the new filename is durable after power loss.
         writer.close()
+        fd = os.open(temp_fname, os.O_RDONLY)
+        try:
+            _proper_fsync(fd)
+        finally:
+            os.close(fd)
         os.replace(temp_fname, output_fname)
+        dir_fd = os.open(str(output_fname.parent), os.O_RDONLY)
+        try:
+            _proper_fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
 
     size = output_fname.stat().st_size
 

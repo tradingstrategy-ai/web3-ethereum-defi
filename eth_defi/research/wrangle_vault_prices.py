@@ -10,11 +10,11 @@
 
 import os
 import pickle
-import tempfile
 import warnings
 from pathlib import Path
 from typing import Callable
 
+from atomicwrites import atomic_write
 import numpy as np
 import pandas as pd
 from eth_typing import HexAddress
@@ -1055,15 +1055,9 @@ def generate_cleaned_vault_datasets(
     # Sort for better compression
     enhanced_prices_df.sort_values(by=["id", "timestamp"], inplace=True)
 
-    # Atomic write: write to temp file then replace, so concurrent
-    # readers never see a partially written parquet.
-    with tempfile.NamedTemporaryFile(
-        dir=cleaned_price_df_path.parent,
-        suffix=".parquet",
-        delete=False,
-    ) as tmp:
-        enhanced_prices_df.to_parquet(tmp.name, compression="zstd")
-        os.replace(tmp.name, cleaned_price_df_path)
+    # Atomic write with fsync + directory sync via atomicwrites
+    with atomic_write(str(cleaned_price_df_path), mode="wb", overwrite=True) as f:
+        enhanced_prices_df.to_parquet(f, compression="zstd")
 
     fsize = cleaned_price_df_path.stat().st_size
     logger(f"Saved cleaned vault prices to {cleaned_price_df_path}, total {len(enhanced_prices_df):,} rows, file size is {fsize / 1024 / 1024:.2f} MB")

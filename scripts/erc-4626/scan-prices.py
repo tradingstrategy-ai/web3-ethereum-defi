@@ -85,8 +85,9 @@ import os
 import pickle
 import sys
 from pathlib import Path
-
 from urllib.parse import urlparse
+
+from atomicwrites import atomic_write
 
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.named import get_provider_name
@@ -283,7 +284,8 @@ def main():
         print(f"Saving {len(states)} reader states to {reader_state_db}")
         # example_state = next(iter(states.values()))
         # print("Example state:\n", pformat(example_state))
-        pickle.dump(states, reader_state_db.open("wb"))
+        with atomic_write(str(reader_state_db), mode="wb", overwrite=True) as f:
+            pickle.dump(states, f)
 
         unique_chains = set(spec.chain_id for spec in states.keys())
         print(f"Reader states saved for {len(unique_chains)} chains")

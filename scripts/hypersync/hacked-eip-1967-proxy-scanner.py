@@ -14,10 +14,11 @@ import logging
 import asyncio
 import os
 import pickle
-import tempfile
 from dataclasses import dataclass, field
 import datetime
 from pathlib import Path
+
+from atomicwrites import atomic_write
 
 import tabulate
 from web3 import Web3
@@ -326,18 +327,9 @@ def scan_all_chains(
             logger.info(f"No potential breaches found on {chain_name} chain.")
 
         # Because this is long running op, sync the state file between chains.
-        # Do atomic replacement so CTRL+C does not mess the file.
-        # Allows us to continue scanning where our computer shut down.
-        with tempfile.NamedTemporaryFile(
-            mode="wb",
-            dir=state_file.parent,
-            suffix=".pickle",
-            delete=False,
-        ) as tmp:
-            temp_fname = tmp.name
-            with open(temp_fname, "wb") as f:
-                pickle.dump(world_state, f)
-            os.replace(temp_fname, state_file)
+        # Atomic write so CTRL+C does not corrupt the file.
+        with atomic_write(str(state_file), mode="wb", overwrite=True) as f:
+            pickle.dump(world_state, f)
 
 
 def main():

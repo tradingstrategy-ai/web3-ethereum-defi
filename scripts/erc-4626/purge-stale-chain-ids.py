@@ -29,6 +29,7 @@ import os
 import pickle
 from collections import Counter
 
+from atomicwrites import atomic_write
 import pandas as pd
 
 from eth_defi.chain import CHAIN_NAMES
@@ -120,7 +121,8 @@ def main():
     if DEFAULT_READER_STATE_DATABASE.exists() and reader_states_removed > 0:
         reader_states = pickle.load(DEFAULT_READER_STATE_DATABASE.open("rb"))
         new_reader_states = {spec: state for spec, state in reader_states.items() if spec.chain_id not in stale_chain_ids}
-        pickle.dump(new_reader_states, DEFAULT_READER_STATE_DATABASE.open("wb"))
+        with atomic_write(str(DEFAULT_READER_STATE_DATABASE), mode="wb", overwrite=True) as f:
+            pickle.dump(new_reader_states, f)
         print(f"Wrote {DEFAULT_READER_STATE_DATABASE} ({len(new_reader_states)} states)")
 
     # Purge price parquet files
@@ -133,7 +135,8 @@ def main():
             before = len(prices_df)
             prices_df = prices_df[~prices_df["chain"].isin(stale_chain_ids)]
             if len(prices_df) < before:
-                prices_df.to_parquet(parquet_path)
+                with atomic_write(str(parquet_path), mode="wb", overwrite=True) as f:
+                    prices_df.to_parquet(f)
                 print(f"Wrote {parquet_path.name} ({before - len(prices_df):,} rows removed)")
 
     print("Done.")

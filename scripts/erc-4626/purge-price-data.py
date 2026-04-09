@@ -22,6 +22,7 @@ import logging
 import os
 import pickle
 
+from atomicwrites import atomic_write
 import pandas as pd
 
 from eth_defi.chain import get_chain_name
@@ -70,10 +71,12 @@ def main():
     vault_db.write()
     print(f"Wrote {DEFAULT_VAULT_DATABASE}")
 
-    new_prices_df.to_parquet(price_parquet_fname)
+    with atomic_write(str(price_parquet_fname), mode="wb", overwrite=True) as f:
+        new_prices_df.to_parquet(f)
     print(f"Wrote {price_parquet_fname}")
 
-    pickle.dump(new_reader_states, DEFAULT_READER_STATE_DATABASE.open("wb"))
+    with atomic_write(str(DEFAULT_READER_STATE_DATABASE), mode="wb", overwrite=True) as f:
+        pickle.dump(new_reader_states, f)
     print(f"Wrote {DEFAULT_READER_STATE_DATABASE}")
 
     print("All ok")

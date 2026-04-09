@@ -14,13 +14,13 @@ import os
 import pickle
 import re
 import sys
-import tempfile
 import time
 import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from atomicwrites import atomic_write
 from filelock import Timeout as FileLockTimeout
 
 from eth_defi.compat import native_datetime_utc_now
@@ -138,8 +138,8 @@ def load_cycle_state(path: Path) -> dict[str, str]:
 def save_cycle_state(state: dict[str, str], path: Path) -> None:
     """Atomically write the cycle state JSON.
 
-    Uses ``tempfile`` + ``os.replace()`` so a crash mid-write
-    never corrupts the file.
+    Uses :py:func:`atomicwrites.atomic_write` for flush, fsync,
+    atomic rename, and directory sync.
 
     :param state:
         Mapping of item name to ISO-formatted last-completed timestamp.
@@ -147,17 +147,8 @@ def save_cycle_state(state: dict[str, str], path: Path) -> None:
         Destination JSON file.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        dir=path.parent,
-        suffix=".json",
-        delete=False,
-    ) as tmp:
-        json.dump(state, tmp, indent=2, sort_keys=True)
-        tmp.flush()
-        os.fsync(tmp.fileno())
-        tmp_name = tmp.name
-    os.replace(tmp_name, path)
+    with atomic_write(str(path), mode="w", overwrite=True) as f:
+        json.dump(state, f, indent=2, sort_keys=True)
 
 
 def get_due_items(
@@ -417,9 +408,10 @@ def scan_prices_for_chain(
             hypersync_client=hypersync_config.hypersync_client,
         )
 
-        # Save reader states
+        # Save reader states atomically to avoid corruption on interruption
         if result["reader_states"]:
-            pickle.dump(result["reader_states"], reader_state_path.open("wb"))
+            with atomic_write(str(reader_state_path), mode="wb", overwrite=True) as f:
+                pickle.dump(result["reader_states"], f)
 
         return True, {
             "rows_written": result["rows_written"],
