@@ -100,6 +100,22 @@ def parse_scan_cycles(cycles_str: str) -> dict[str, datetime.timedelta]:
     return result
 
 
+def format_duration(td: datetime.timedelta) -> str:
+    """Format a timedelta as a human-friendly duration string.
+
+    Inverse of :py:func:`parse_duration`.
+
+    :param td:
+        Timedelta to format.
+    :return:
+        E.g. ``"4h"``, ``"24h"``, ``"1d"``, ``"7d"``.
+    """
+    total_hours = td.total_seconds() / 3600
+    if total_hours >= 24 and total_hours % 24 == 0:
+        return f"{int(total_hours // 24)}d"
+    return f"{int(total_hours)}h"
+
+
 def load_cycle_state(path: Path) -> dict[str, str]:
     """Load the cycle state JSON from disc.
 
@@ -247,6 +263,12 @@ class ChainResult:
 
     #: Retry attempt number (0 for first attempt)
     retry_attempt: int = 0
+
+    #: Cycle interval for this item (e.g. "4h", "24h")
+    cycle_interval: str | None = None
+
+    #: Hours remaining until this item is next due (for "not due" items)
+    next_due_in_hours: float | None = None
 
 
 def build_chain_configs() -> list[ChainConfig]:
@@ -807,11 +829,11 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
     print("\n" * 3)
 
     lines = []
-    lines.append("=" * 115)
+    lines.append("=" * 123)
     lines.append(" " * 40 + "Chain Scan Progress")
-    lines.append("=" * 115)
-    lines.append(f"{'Chain':<15} {'Status':<10} {'Vaults':<8} {'New':<6} {'Blocks':<22} {'Duration':<10} {'Retry':<5} {'Last data':<18}")
-    lines.append("-" * 115)
+    lines.append("=" * 123)
+    lines.append(f"{'Chain':<15} {'Status':<10} {'Cycle':<8} {'Vaults':<8} {'New':<6} {'Blocks':<22} {'Duration':<10} {'Retry':<5} {'Last data':<18}")
+    lines.append("-" * 123)
 
     # Use display_order if provided, otherwise use dict order
     if display_order:
@@ -822,6 +844,7 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
     for result in ordered_results:
         # Format fields
         status = result.status
+        cycle = result.cycle_interval or "-"
         vaults = f"{result.vault_count:,}" if result.vault_count is not None else "-"
         new = f"{result.new_vaults}" if result.new_vaults is not None else "-"
 
@@ -834,27 +857,32 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
         retry = str(result.retry_attempt)
         last_data = last_timestamps.get(result.name, "-")
 
-        line = f"{result.name:<15} {status:<10} {vaults:<8} {new:<6} {blocks:<22} {duration:<10} {retry:<5} {last_data:<18}"
-        if result.status == "failed" and result.error:
+        line = f"{result.name:<15} {status:<10} {cycle:<8} {vaults:<8} {new:<6} {blocks:<22} {duration:<10} {retry:<5} {last_data:<18}"
+        if result.status == "not due" and result.next_due_in_hours is not None:
+            line += f"  due in {result.next_due_in_hours:.1f}h"
+        elif result.status == "failed" and result.error:
             # Truncate long error messages to fit the dashboard
             error_msg = result.error[:40]
             line += f"  {error_msg}"
         lines.append(line)
 
     # Summary
-    lines.append("-" * 115)
+    lines.append("-" * 123)
     success_count = sum(1 for r in results.values() if r.status == "success")
     failed_count = sum(1 for r in results.values() if r.status == "failed")
     pending_count = sum(1 for r in results.values() if r.status == "pending")
     running_count = sum(1 for r in results.values() if r.status == "running")
     skipped_count = sum(1 for r in results.values() if r.status == "skipped")
     disabled_count = sum(1 for r in results.values() if r.status == "disabled")
+    not_due_count = sum(1 for r in results.values() if r.status == "not due")
 
     summary = f"Summary: {success_count} success, {failed_count} failed, {pending_count} pending, {running_count} running, {skipped_count} skipped"
+    if not_due_count:
+        summary += f", {not_due_count} not due"
     if disabled_count:
         summary += f", {disabled_count} disabled"
     lines.append(summary)
-    lines.append("=" * 115)
+    lines.append("=" * 123)
 
     # Print to console and log at info level
     dashboard = "\n".join(lines)
@@ -962,6 +990,8 @@ def run_scan_tick(
     cleaned_price_path: Path | None = None,
     excluded_chains: list[str] | None = None,
     hypercore_mode: str = "daily",
+    not_due_items: dict[str, float] | None = None,
+    cycle_intervals: dict[str, str] | None = None,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -972,18 +1002,23 @@ def run_scan_tick(
     backup_pipeline_files(backup_files=bkp_files, backup_dir=bkp_dir)
 
     results: dict[str, ChainResult] = {}
+    _ci = cycle_intervals or {}
 
     # Initialise results for all items in this tick
     for c in chains:
-        results[c.name] = ChainResult(name=c.name, status="pending", retry_attempt=0)
+        results[c.name] = ChainResult(name=c.name, status="pending", retry_attempt=0, cycle_interval=_ci.get(c.name))
     for proto in active_protocols:
-        results[proto] = ChainResult(name=proto, status="pending")
+        results[proto] = ChainResult(name=proto, status="pending", cycle_interval=_ci.get(proto))
+
+    # Show items not due in this cycle (dict maps name -> hours remaining)
+    for name, hours_left in (not_due_items or {}).items():
+        results[name] = ChainResult(name=name, status="not due", cycle_interval=_ci.get(name), next_due_in_hours=hours_left)
 
     # Show excluded chains as "disabled" on the dashboard
     for name in excluded_chains or []:
-        results[name] = ChainResult(name=name, status="disabled")
+        results[name] = ChainResult(name=name, status="disabled", cycle_interval=_ci.get(name))
 
-    display_order = [c.name for c in chains] + active_protocols + (excluded_chains or [])
+    display_order = [c.name for c in chains] + active_protocols + list((not_due_items or {}).keys()) + (excluded_chains or [])
     print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
     # First pass - scan EVM chains
@@ -1312,6 +1347,16 @@ def main():
     if scan_lighter:
         all_protocols.append("Lighter")
 
+    # Pre-compute human-readable cycle intervals for all items
+    if looped_mode:
+        cycle_intervals = {}
+        for c in chains:
+            cycle_intervals[c.name] = format_duration(cycle_overrides.get(c.name, default_cycle))
+        for proto in all_protocols:
+            cycle_intervals[proto] = format_duration(cycle_overrides.get(proto, default_cycle))
+    else:
+        cycle_intervals = None
+
     # Shared kwargs for run_scan_tick
     tick_kwargs = dict(
         scan_prices=scan_prices,
@@ -1357,10 +1402,28 @@ def main():
                     )
 
                     if due_chains or due_protocols:
+                        # Compute items not due in this cycle with hours remaining
+                        now = native_datetime_utc_now()
+                        due_chain_names = {c.name for c in due_chains}
+                        due_protocol_set = set(due_protocols)
+                        not_due_names = [c.name for c in chains if c.name not in due_chain_names] + [p for p in all_protocols if p not in due_protocol_set]
+                        not_due_items = {}
+                        for name in not_due_names:
+                            cycle_td = cycle_overrides.get(name, default_cycle)
+                            last_str = state.get(name)
+                            if last_str is not None:
+                                elapsed = now - datetime.datetime.fromisoformat(last_str)
+                                remaining = (cycle_td - elapsed).total_seconds() / 3600
+                                not_due_items[name] = max(0.0, remaining)
+                            else:
+                                not_due_items[name] = 0.0
+
                         logger.info("Cycle %d: %d chains, %d protocols due", cycle, len(due_chains), len(due_protocols))
                         tick_results = run_scan_tick(
                             chains=due_chains,
                             active_protocols=due_protocols,
+                            not_due_items=not_due_items,
+                            cycle_intervals=cycle_intervals,
                             **tick_kwargs,
                         )
                         # Update state for successful items
