@@ -1,5 +1,6 @@
 # Current
 
+- feat: Incremental cycle state persistence — scan progress saved after each chain so interrupted scans skip completed items on restart, `FORCE_RESCAN` env var for one-off full rescans (2026-04-09)
 - feat: Scan dashboard shows cycle interval and hours remaining for not-due chains (2026-04-09)
 - feat: High-frequency Hyperliquid vault data fetcher — configurable 1h-4h collection with Webshare proxy support, separate HF DuckDB with timestamp-precision rows, 1h resampled export, proxy-aware session pool, scan_all_chains integration via HYPERCORE_MODE=high_freq (2026-04-09)
 - feat: Looped vault scanner with per-chain cycle intervals — configurable 4h cycle for Hyperliquid/GRVT/Lighter, pipeline data isolation via `PIPELINE_DATA_DIR`, file locking, Docker Compose `vault-scanner-looped` service (2026-04-08)

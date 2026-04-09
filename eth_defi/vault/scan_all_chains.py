@@ -17,6 +17,7 @@ import sys
 import tempfile
 import time
 import traceback
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -992,11 +993,19 @@ def run_scan_tick(
     hypercore_mode: str = "daily",
     not_due_items: dict[str, float] | None = None,
     cycle_intervals: dict[str, str] | None = None,
+    on_item_success: Callable[[str], None] | None = None,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
     Returns a tick-local results dict containing only the items scanned
     during this tick.
+
+    :param on_item_success:
+        Optional callback invoked after each successful chain or protocol
+        data fetch.  Used to persist cycle state incrementally so that
+        an interrupted scan does not re-fetch already-completed items on
+        restart.  Not related to post-processing — post-processing always
+        runs after all data fetches complete.
     """
     # Back up critical pipeline files before any scanning
     backup_pipeline_files(backup_files=bkp_files, backup_dir=bkp_dir)
@@ -1057,6 +1066,9 @@ def run_scan_tick(
                 r.new_vaults or 0,
                 r.price_rows or 0,
             )
+            # Save cycle state for data fetching progress — not related to post-processing
+            if on_item_success:
+                on_item_success(chain.name)
         elif r.status == "failed":
             logger.error("%s: FAILED - %s", chain.name, r.error)
         elif r.status == "skipped":
@@ -1082,6 +1094,9 @@ def run_scan_tick(
         r = results["Hypercore"]
         if r.status == "success":
             logger.info("Hypercore: SUCCESS - %d vaults", r.vault_count or 0)
+            # Save cycle state for data fetching progress — not related to post-processing
+            if on_item_success:
+                on_item_success("Hypercore")
         elif r.status == "failed":
             logger.error("Hypercore: FAILED - %s", r.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
@@ -1096,6 +1111,9 @@ def run_scan_tick(
         r = results["GRVT"]
         if r.status == "success":
             logger.info("GRVT: SUCCESS - %d vaults", r.vault_count or 0)
+            # Save cycle state for data fetching progress — not related to post-processing
+            if on_item_success:
+                on_item_success("GRVT")
         elif r.status == "failed":
             logger.error("GRVT: FAILED - %s", r.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
@@ -1110,6 +1128,9 @@ def run_scan_tick(
         r = results["Lighter"]
         if r.status == "success":
             logger.info("Lighter: SUCCESS - %d pools", r.vault_count or 0)
+            # Save cycle state for data fetching progress — not related to post-processing
+            if on_item_success:
+                on_item_success("Lighter")
         elif r.status == "failed":
             logger.error("Lighter: FAILED - %s", r.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
@@ -1142,6 +1163,9 @@ def run_scan_tick(
             results[chain.name] = result
             if result.status == "success":
                 logger.info("%s (retry %d): SUCCESS - blocks %s-%s, %d vaults (%d new)", chain.name, attempt, result.start_block or "?", result.end_block or "?", result.vault_count or 0, result.new_vaults or 0)
+                # Save cycle state for data fetching progress — not related to post-processing
+                if on_item_success:
+                    on_item_success(chain.name)
             else:
                 logger.error("%s (retry %d): FAILED - %s", chain.name, attempt, result.error)
             print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
@@ -1233,6 +1257,7 @@ def main():
     scan_hypercore = os.environ.get("SCAN_HYPERCORE", "false").lower() == "true"
     scan_grvt = os.environ.get("SCAN_GRVT", "false").lower() == "true"
     scan_lighter = os.environ.get("SCAN_LIGHTER", "false").lower() == "true"
+    force_rescan = os.environ.get("FORCE_RESCAN", "false").lower() == "true"
     max_workers = int(os.environ.get("MAX_WORKERS", "50"))
     frequency = os.environ.get("FREQUENCY", "1h")
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"
@@ -1289,6 +1314,8 @@ def main():
         logger.info("TEST_CHAINS: %s", ", ".join(sorted(test_chain_names)))
     if disable_chains_str:
         logger.info("DISABLE_CHAINS: %s", disable_chains_str)
+    if force_rescan:
+        logger.info("FORCE_RESCAN: true")
     logger.info("=" * 80)
 
     # Build chain configurations
@@ -1385,6 +1412,13 @@ def main():
         hypercore_mode=hypercore_mode,
     )
 
+    # Clear cycle state on disc so the first tick rescans everything.
+    # Subsequent cycles use normal cycle logic because incremental saves
+    # repopulate the state as each item succeeds.
+    if force_rescan:
+        logger.info("FORCE_RESCAN: true — clearing cycle state for first cycle")
+        save_cycle_state({}, cycle_state_path)
+
     cycle = 0
     while True:
         cycle += 1
@@ -1419,19 +1453,22 @@ def main():
                                 not_due_items[name] = 0.0
 
                         logger.info("Cycle %d: %d chains, %d protocols due", cycle, len(due_chains), len(due_protocols))
+
+                        # Persist cycle state after each successful data fetch so that
+                        # an interrupted scan skips already-completed items on restart.
+                        # This only tracks data fetching progress, not post-processing.
+                        def _save_item(name: str) -> None:
+                            state[name] = native_datetime_utc_now().isoformat()
+                            save_cycle_state(state, cycle_state_path)
+
                         tick_results = run_scan_tick(
                             chains=due_chains,
                             active_protocols=due_protocols,
                             not_due_items=not_due_items,
                             cycle_intervals=cycle_intervals,
+                            on_item_success=_save_item,
                             **tick_kwargs,
                         )
-                        # Update state for successful items
-                        now_str = native_datetime_utc_now().isoformat()
-                        for name, result in tick_results.items():
-                            if result.status == "success":
-                                state[name] = now_str
-                        save_cycle_state(state, cycle_state_path)
                     else:
                         logger.info("Cycle %d: nothing due, sleeping", cycle)
                 else:

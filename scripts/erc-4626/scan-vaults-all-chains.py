@@ -99,6 +99,7 @@ Environment variables:
     - SCAN_CYCLES: Per-chain/protocol cycle overrides, e.g. "Hypercore=4h,GRVT=4h,Lighter=4h"
     - DEFAULT_CYCLE: Default cycle interval for items not in SCAN_CYCLES (default: "24h")
     - MAX_CYCLES: Exit after N cycles in looped mode, for testing (default: "0" = unlimited)
+    - FORCE_RESCAN: "true" to ignore cycle state and rescan all items on the first cycle (default: "false")
     - PIPELINE_DATA_DIR: Override base directory for all pipeline files (default: ~/.tradingstrategy/vaults)
 
 Example CHAIN_ORDER for all chains:
