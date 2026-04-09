@@ -1427,6 +1427,8 @@ def main():
     while True:
         cycle += 1
 
+        tick_start = time.monotonic()
+
         try:
             with wait_other_writers(pipeline_lock_path, timeout=60):
                 if looped_mode:
@@ -1496,7 +1498,13 @@ def main():
             logger.info("Reached MAX_CYCLES=%d, exiting", max_cycles)
             break
 
-        logger.info("Sleeping %ds until next cycle", loop_interval)
+        tick_duration = time.monotonic() - tick_start
+        logger.info(
+            "Cycle %d finished in %.1f min, next cycle in %.1f min",
+            cycle,
+            tick_duration / 60,
+            loop_interval / 60,
+        )
         time.sleep(loop_interval)
 
     # In single-run mode, exit with appropriate code
