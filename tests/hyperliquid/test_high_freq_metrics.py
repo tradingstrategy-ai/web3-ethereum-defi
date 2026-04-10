@@ -7,14 +7,17 @@ Tests the HF pipeline end-to-end:
 3. Verify resume: scan twice with/without cutoff, confirm overlap upsert
 4. Verify lifecycle: tombstone and disappeared vault handling
 5. Verify Phase 1 proxy fix: _make_request() routes through post_info()
+6. Verify DuckDB cursor-per-call avoids the shared-connection thread race
 
-Requires network access to the Hyperliquid API.
+Requires network access to the Hyperliquid API for scans; the
+concurrency regression test is offline and uses synthetic rows only.
 """
 
 import datetime
 from unittest.mock import patch
 
 import pytest
+from joblib import Parallel, delayed
 
 from eth_defi.hyperliquid.deposit import fetch_vault_deposits
 from eth_defi.hyperliquid.high_freq_metrics import (
@@ -223,3 +226,88 @@ def test_post_info_proxy_fix():
         except Exception:
             pass
         assert mock_post_info.called, "fetch_vault_deposits() should call session.post_info(), not session.post()"
+
+
+@pytest.mark.timeout(60)
+def test_high_freq_concurrent_db_writes(tmp_path):
+    """Regression: HF database must survive many concurrent worker threads.
+
+    The HF scan orchestrator drives a shared ``HyperliquidHighFreqMetricsDatabase``
+    from ``joblib.Parallel(backend="threading")``.  Before the cursor-per-call
+    fix, multiple threads calling ``execute(...).fetchone()`` on the same
+    underlying DuckDB connection would clobber each other's result sets and
+    raise ``Invalid Input Error: No open result set``.
+
+    This test reproduces that workload offline with synthetic rows and
+    asserts that the full upsert + read cycle completes cleanly and the
+    data ends up on disc.
+
+    1. Open a fresh HF database in a temp dir
+    2. Fire many worker threads that each: upsert metadata, read
+       ``get_vault_last_timestamp``, upsert a batch of price rows, and
+       read ``get_vault_high_freq_prices``
+    3. Assert no exception was raised and the row counts match
+    """
+    duckdb_path = tmp_path / "hf-concurrent.duckdb"
+    db = HyperliquidHighFreqMetricsDatabase(duckdb_path)
+
+    num_vaults = 40
+    rows_per_vault = 20
+    base_time = datetime.datetime(2026, 1, 1, 0, 0, 0)
+
+    def _worker(vault_index: int) -> int:
+        # Distinct address per worker so upserts don't collide.
+        vault_address = f"0x{vault_index:040x}"
+
+        # Metadata write — uses self.con.cursor() under the fix.
+        db.upsert_vault_metadata(
+            vault_address=vault_address,
+            name=f"Vault {vault_index}",
+            leader="0x0000000000000000000000000000000000000001",
+            description=None,
+            is_closed=False,
+            relationship_type="normal",
+            create_time=None,
+            commission_rate=None,
+            follower_count=1,
+            tvl=1000.0,
+            apr=0.1,
+        )
+
+        # Read: this was the hot spot for the race.
+        last_ts = db.get_vault_last_timestamp(vault_address)
+        assert last_ts is None, f"Fresh vault {vault_index} should have no rows"
+
+        # Bulk upsert of synthetic HF rows.
+        rows = [
+            HyperliquidHighFreqPriceRow(
+                vault_address=vault_address,
+                timestamp=base_time + datetime.timedelta(hours=i),
+                share_price=1.0 + 0.001 * i,
+                tvl=1000.0 + i,
+                cumulative_pnl=float(i),
+                data_source="api",
+                written_at=base_time,
+            )
+            for i in range(rows_per_vault)
+        ]
+        db.upsert_high_freq_prices(rows)
+
+        # Another read that hits the same connection.
+        df = db.get_vault_high_freq_prices(vault_address)
+        return len(df)
+
+    try:
+        # Match the scan orchestrator: threading backend, many workers.
+        results = Parallel(n_jobs=16, backend="threading")(delayed(_worker)(i) for i in range(num_vaults))
+        db.save()
+
+        # Every worker must have seen its full batch.
+        assert all(n == rows_per_vault for n in results), f"Row counts per worker: {results}"
+
+        # And the aggregated totals on disc must match what we wrote.
+        all_prices = db.get_all_high_freq_prices()
+        assert len(all_prices) == num_vaults * rows_per_vault
+        assert all_prices["vault_address"].nunique() == num_vaults
+    finally:
+        db.close()

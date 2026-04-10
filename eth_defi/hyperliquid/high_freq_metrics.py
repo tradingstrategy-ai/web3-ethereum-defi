@@ -195,7 +195,10 @@ class HyperliquidHighFreqMetricsDatabase(HyperliquidMetricsDatabaseBase):
 
         db_rows = [r.as_db_tuple() for r in rows]
 
-        self.con.executemany(
+        # Thread safety: use a per-call cursor so concurrent worker
+        # threads do not clobber each other's result sets on the
+        # shared connection.  See ``HyperliquidMetricsDatabaseBase``.
+        self.con.cursor().executemany(
             """
             INSERT INTO vault_high_freq_prices (
                 vault_address, timestamp, share_price, tvl, cumulative_pnl,
@@ -232,21 +235,29 @@ class HyperliquidHighFreqMetricsDatabase(HyperliquidMetricsDatabaseBase):
 
     def get_all_high_freq_prices(self) -> pd.DataFrame:
         """Get all high-frequency price data across all vaults."""
-        return self.con.execute("""
+        return (
+            self.con.cursor()
+            .execute("""
             SELECT * FROM vault_high_freq_prices
             ORDER BY vault_address, timestamp
-        """).df()
+        """)
+            .df()
+        )
 
     def get_vault_high_freq_prices(self, vault_address: HexAddress) -> pd.DataFrame:
         """Get high-frequency price data for a specific vault."""
-        return self.con.execute(
-            """
+        return (
+            self.con.cursor()
+            .execute(
+                """
             SELECT * FROM vault_high_freq_prices
             WHERE vault_address = ?
             ORDER BY timestamp
             """,
-            [vault_address.lower()],
-        ).df()
+                [vault_address.lower()],
+            )
+            .df()
+        )
 
     def get_vault_last_timestamp(self, vault_address: HexAddress) -> datetime.datetime | None:
         """Get the latest stored timestamp for a vault.
@@ -254,10 +265,14 @@ class HyperliquidHighFreqMetricsDatabase(HyperliquidMetricsDatabaseBase):
         :return:
             The most recent timestamp, or ``None`` if no data exists.
         """
-        row = self.con.execute(
-            "SELECT MAX(timestamp) FROM vault_high_freq_prices WHERE vault_address = ?",
-            [vault_address.lower()],
-        ).fetchone()
+        row = (
+            self.con.cursor()
+            .execute(
+                "SELECT MAX(timestamp) FROM vault_high_freq_prices WHERE vault_address = ?",
+                [vault_address.lower()],
+            )
+            .fetchone()
+        )
         return row[0] if row and row[0] is not None else None
 
     def _write_tombstone_rows(self, vault_addresses: list[str]) -> int:

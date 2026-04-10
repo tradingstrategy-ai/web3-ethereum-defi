@@ -541,7 +541,10 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
 
         db_rows = [r.as_db_tuple() for r in rows]
 
-        self.con.executemany(
+        # Thread safety: use a per-call cursor so concurrent worker
+        # threads do not clobber each other's result sets on the
+        # shared connection.  See ``HyperliquidMetricsDatabaseBase``.
+        self.con.cursor().executemany(
             """
             INSERT INTO vault_daily_prices (
                 vault_address, date, share_price, tvl, cumulative_pnl,
@@ -582,10 +585,14 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
         :return:
             DataFrame with all daily price records, ordered by vault then date.
         """
-        return self.con.execute("""
+        return (
+            self.con.cursor()
+            .execute("""
             SELECT * FROM vault_daily_prices
             ORDER BY vault_address, date
-        """).df()
+        """)
+            .df()
+        )
 
     def get_vault_daily_prices(self, vault_address: HexAddress) -> pd.DataFrame:
         """Get daily price data for a specific vault.
@@ -595,14 +602,18 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
         :return:
             DataFrame with price records for this vault, ordered by date.
         """
-        return self.con.execute(
-            """
+        return (
+            self.con.cursor()
+            .execute(
+                """
             SELECT * FROM vault_daily_prices
             WHERE vault_address = ?
             ORDER BY date
             """,
-            [vault_address.lower()],
-        ).df()
+                [vault_address.lower()],
+            )
+            .df()
+        )
 
     def get_existing_dates(self, vault_address: HexAddress) -> set[datetime.date]:
         """Get all dates with existing data for a vault.
@@ -612,10 +623,14 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
         :return:
             Set of dates that already have data in the database.
         """
-        rows = self.con.execute(
-            "SELECT date FROM vault_daily_prices WHERE vault_address = ?",
-            [vault_address.lower()],
-        ).fetchall()
+        rows = (
+            self.con.cursor()
+            .execute(
+                "SELECT date FROM vault_daily_prices WHERE vault_address = ?",
+                [vault_address.lower()],
+            )
+            .fetchall()
+        )
         return {r[0] for r in rows}
 
     def get_vault_daily_price_count(self, vault_address: HexAddress) -> int:
@@ -626,10 +641,14 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
         :return:
             Number of daily price records.
         """
-        return self.con.execute(
-            "SELECT COUNT(*) FROM vault_daily_prices WHERE vault_address = ?",
-            [vault_address.lower()],
-        ).fetchone()[0]
+        return (
+            self.con.cursor()
+            .execute(
+                "SELECT COUNT(*) FROM vault_daily_prices WHERE vault_address = ?",
+                [vault_address.lower()],
+            )
+            .fetchone()[0]
+        )
 
     def get_vault_last_date(self, vault_address: HexAddress) -> datetime.date | None:
         """Get the last date with price data for a vault.
@@ -639,10 +658,14 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
         :return:
             The latest date, or None if no data.
         """
-        result = self.con.execute(
-            "SELECT MAX(date) FROM vault_daily_prices WHERE vault_address = ?",
-            [vault_address.lower()],
-        ).fetchone()[0]
+        result = (
+            self.con.cursor()
+            .execute(
+                "SELECT MAX(date) FROM vault_daily_prices WHERE vault_address = ?",
+                [vault_address.lower()],
+            )
+            .fetchone()[0]
+        )
         return result
 
     def get_leader_fraction_history(self, vault_address: str) -> pd.DataFrame:
@@ -659,16 +682,20 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
             DataFrame with columns ``date`` and ``leader_fraction``,
             ordered by date ascending. Empty if no snapshots recorded.
         """
-        return self.con.execute(
-            """
+        return (
+            self.con.cursor()
+            .execute(
+                """
             SELECT date, leader_fraction
             FROM vault_daily_prices
             WHERE vault_address = ?
               AND leader_fraction IS NOT NULL
             ORDER BY date
             """,
-            [vault_address.lower()],
-        ).df()
+                [vault_address.lower()],
+            )
+            .df()
+        )
 
     def delete_vault_daily_prices(self, vault_address: HexAddress) -> int:
         """Delete all daily price records for a vault.
@@ -682,7 +709,7 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
             Number of rows deleted.
         """
         count = self.get_vault_daily_price_count(vault_address)
-        self.con.execute(
+        self.con.cursor().execute(
             "DELETE FROM vault_daily_prices WHERE vault_address = ?",
             [vault_address.lower()],
         )

@@ -29,6 +29,24 @@ class HyperliquidMetricsDatabaseBase:
     Manages the shared ``vault_metadata`` table and provides common
     metadata methods.  Subclasses must set :py:attr:`price_table` and
     :py:attr:`time_column` and implement :py:meth:`_init_price_schema`.
+
+    Thread safety
+    ~~~~~~~~~~~~~
+
+    The scanners in :py:mod:`~eth_defi.hyperliquid.daily_metrics` and
+    :py:mod:`~eth_defi.hyperliquid.high_freq_metrics` call a shared
+    database instance from multiple worker threads via
+    ``joblib.Parallel(backend="threading")``.  DuckDB's Python binding
+    is only thread-safe when each thread uses its **own cursor** — a
+    shared ``self.con`` sees result sets clobbered by interleaved
+    ``execute()`` calls and raises ``Invalid Input Error: No open
+    result set``.
+
+    Every method reachable from worker threads therefore issues its
+    query through ``self.con.cursor()`` so that each call gets an
+    isolated result set.  Schema init (``_init_*_schema``) and
+    ``save()``/``close()`` stay on the base connection because they
+    run single-threaded.
     """
 
     #: Name of the price table (set by subclass).
@@ -102,7 +120,7 @@ class HyperliquidMetricsDatabaseBase:
             Earliest date for which daily deposit/withdrawal flow data
             has been backfilled.  ``None`` means no flow data yet.
         """
-        self.con.execute(
+        self.con.cursor().execute(
             """
             INSERT INTO vault_metadata (
                 vault_address, name, leader, description, is_closed,
@@ -156,7 +174,7 @@ class HyperliquidMetricsDatabaseBase:
         """
         if not updates:
             return
-        self.con.executemany(
+        self.con.cursor().executemany(
             """
             UPDATE vault_metadata
             SET tvl = ?,
@@ -174,7 +192,7 @@ class HyperliquidMetricsDatabaseBase:
         :return:
             DataFrame with one row per vault.
         """
-        return self.con.execute("SELECT * FROM vault_metadata ORDER BY tvl DESC NULLS LAST").df()
+        return self.con.cursor().execute("SELECT * FROM vault_metadata ORDER BY tvl DESC NULLS LAST").df()
 
     def get_latest_leader_fractions(self) -> dict[str, float]:
         """Get the latest leader_fraction for each vault.
@@ -185,7 +203,9 @@ class HyperliquidMetricsDatabaseBase:
         :return:
             Dict mapping lowercased vault address to leader_fraction.
         """
-        rows = self.con.execute(f"""
+        rows = (
+            self.con.cursor()
+            .execute(f"""
             SELECT vault_address, leader_fraction
             FROM {self.price_table}
             WHERE leader_fraction IS NOT NULL
@@ -195,14 +215,16 @@ class HyperliquidMetricsDatabaseBase:
                   WHERE leader_fraction IS NOT NULL
                   GROUP BY vault_address
               )
-        """).fetchall()
+        """)
+            .fetchall()
+        )
         return {row[0]: row[1] for row in rows}
 
     # ── Price query methods (use price_table / time_column) ──
 
     def get_vault_count(self) -> int:
         """Get the number of unique vaults with price data."""
-        return self.con.execute(f"SELECT COUNT(DISTINCT vault_address) FROM {self.price_table}").fetchone()[0]
+        return self.con.cursor().execute(f"SELECT COUNT(DISTINCT vault_address) FROM {self.price_table}").fetchone()[0]
 
     def get_recently_tracked_addresses(self, within_days: int = 4) -> set[str]:
         """Return vault addresses with price data within the last *within_days* days.
@@ -217,10 +239,14 @@ class HyperliquidMetricsDatabaseBase:
             Set of lowercased vault addresses.
         """
         cutoff = datetime.date.today() - datetime.timedelta(days=within_days)
-        rows = self.con.execute(
-            f"SELECT DISTINCT vault_address FROM {self.price_table} WHERE {self.time_column} >= ?",
-            [cutoff],
-        ).fetchall()
+        rows = (
+            self.con.cursor()
+            .execute(
+                f"SELECT DISTINCT vault_address FROM {self.price_table} WHERE {self.time_column} >= ?",
+                [cutoff],
+            )
+            .fetchall()
+        )
         return {r[0] for r in rows}
 
     def get_all_tracked_addresses(self) -> set[str]:
@@ -229,9 +255,13 @@ class HyperliquidMetricsDatabaseBase:
         :return:
             Set of lowercased vault addresses.
         """
-        rows = self.con.execute(
-            f"SELECT DISTINCT vault_address FROM {self.price_table}",
-        ).fetchall()
+        rows = (
+            self.con.cursor()
+            .execute(
+                f"SELECT DISTINCT vault_address FROM {self.price_table}",
+            )
+            .fetchall()
+        )
         return {r[0] for r in rows}
 
     # ── Lifecycle methods ──
@@ -245,14 +275,14 @@ class HyperliquidMetricsDatabaseBase:
         :param known_addresses:
             Lowercased vault addresses currently present in the bulk API.
         """
-        existing = self.con.execute("SELECT vault_address FROM vault_metadata").fetchall()
+        existing = self.con.cursor().execute("SELECT vault_address FROM vault_metadata").fetchall()
 
         disappeared = [(0.0, addr[0]) for addr in existing if addr[0] not in known_addresses]
 
         if not disappeared:
             return
 
-        self.con.executemany(
+        self.con.cursor().executemany(
             """
             UPDATE vault_metadata
             SET tvl = ?,
@@ -299,8 +329,10 @@ class HyperliquidMetricsDatabaseBase:
         # comparisons, so this works for both table types.
         cutoff = datetime.date.today() - datetime.timedelta(days=wind_down_days)
 
-        candidates = self.con.execute(
-            f"""
+        candidates = (
+            self.con.cursor()
+            .execute(
+                f"""
             SELECT vault_address
             FROM {self.price_table}
             WHERE vault_address NOT IN (
@@ -311,8 +343,10 @@ class HyperliquidMetricsDatabaseBase:
             GROUP BY vault_address
             HAVING MAX({self.time_column}) < ?
             """,
-            [cutoff],
-        ).fetchall()
+                [cutoff],
+            )
+            .fetchall()
+        )
 
         eligible = [addr for (addr,) in candidates if addr not in known_api_addresses]
 
@@ -343,16 +377,20 @@ class HyperliquidMetricsDatabaseBase:
 
         Used by subclass ``_write_tombstone_rows()`` implementations.
         """
-        return self.con.execute(
-            f"""
+        return (
+            self.con.cursor()
+            .execute(
+                f"""
             SELECT share_price, cumulative_pnl
             FROM {self.price_table}
             WHERE vault_address = ?
             ORDER BY {self.time_column} DESC
             LIMIT 1
             """,
-            [vault_address],
-        ).fetchone()
+                [vault_address],
+            )
+            .fetchone()
+        )
 
     # ── Persistence ──
 
