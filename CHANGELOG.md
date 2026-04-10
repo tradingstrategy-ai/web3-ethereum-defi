@@ -1,5 +1,6 @@
 # Current
 
+- feat: Hyperliquid market-data Info API primitives — `fetch_candle_snapshot`, `fetch_funding_history`, `fetch_perp_meta` in `eth_defi.hyperliquid.api` with typed `HyperliquidCandle` / `HyperliquidFundingRate` dataclasses, routed through `HyperliquidSession.post_info()` for automatic Webshare proxy rotation on rate-limit failures; `post_info()` now distinguishes rate-limit responses (429/5xx rotate without marking proxy dead) from connection errors (rotate and record as dead for the 14-day grace period), preserving the Webshare proxy pool across throttled runs (2026-04-10)
 - feat: IPOR Fusion fee mode classification — added `IPOR Fusion` to `VAULT_PROTOCOL_FEE_MATRIX` as `internalised_minting`, documented the share-minting mechanism (FeeManager / FeeAccount / PlasmaVault) with source-code line references in the `IPORVault` class docstring and `ipor-fusion.yaml` metadata (2026-04-10)
 - feat: Atomic parquet and pickle writes for vault price pipeline — prevents data corruption from interruptions using `atomicwrites` library with fsync + directory sync (2026-04-09)
 - feat: Incremental cycle state persistence — scan progress saved after each chain so interrupted scans skip completed items on restart, `FORCE_RESCAN` env var for one-off full rescans (2026-04-09)

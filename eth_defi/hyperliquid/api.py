@@ -652,7 +652,9 @@ def wait_for_vault_deposit_confirmation(
 
         remaining = deadline - time.time()
         if remaining <= 0:
-            raise HypercoreDepositVerificationError(f"Vault deposit for {user} in vault {vault_address} could not be verified within {timeout}s. Expected deposit: {expected_deposit} USDC, existing equity: {existing_equity}, last queried equity: {last_eq.equity if last_eq else None}. The deposit may have been silently rejected by HyperCore. Check HyperCore spot/perp for stranded USDC.")
+            raise HypercoreDepositVerificationError(
+                f"Vault deposit for {user} in vault {vault_address} could not be verified within {timeout}s. Expected deposit: {expected_deposit} USDC, existing equity: {existing_equity}, last queried equity: {last_eq.equity if last_eq else None}. The deposit may have been silently rejected by HyperCore. Check HyperCore spot/perp for stranded USDC."
+            )
 
         time.sleep(min(poll_interval, remaining))
 
@@ -989,3 +991,282 @@ def fetch_leaderboard(
             all_time_volume=Decimal(str(all_time.get("vlm", 0))),
         )
     return index
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Market-data primitives: candleSnapshot, fundingHistory, meta
+#
+# These wrap the perpetual market-data Info endpoints for bulk historical
+# downloads. Unlike the account-query helpers above (which call
+# ``session.post()`` directly), they route through
+# :py:meth:`HyperliquidSession.post_info` so they automatically benefit
+# from proxy rotation on rate-limit and connectivity failures. This matches
+# the architectural rule enforced by the
+# ``test_post_info_proxy_fix`` test in
+# ``tests/hyperliquid/test_high_freq_metrics.py``.
+#
+# Prices, volume and funding rates are stored as :class:`float` for
+# direct pandas/numpy compatibility in backtesting notebooks. Callers
+# needing arbitrage-level precision should consume the raw API response.
+#
+# Funding cadence: Hyperliquid pays funding **every hour** at 1/8 of
+# the computed 8-hour rate. Authoritative reference:
+# https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding
+# (This differs from Binance/Bybit/OKX which pay every 8 hours on the
+# clock — see ``HyperliquidFundingRate`` below.)
+# ─────────────────────────────────────────────────────────────────────
+
+#: Hard cap on candles returned by a single ``candleSnapshot`` request.
+#:
+#: The Hyperliquid Info API silently truncates responses to this many
+#: candles regardless of the requested window. Callers needing longer
+#: histories must paginate by advancing ``startTime`` past the last
+#: returned candle.
+HYPERLIQUID_CANDLE_SNAPSHOT_LIMIT: int = 5000
+
+#: Hard cap on records returned by a single ``fundingHistory`` request.
+#:
+#: Hyperliquid pays funding **every hour** (at 1/8 of the computed 8-hour
+#: rate), so 500 records ≈ 20 days per call. A 3-year pull per symbol
+#: needs ~55 paginated requests. Authoritative reference for the cadence:
+#: https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding
+HYPERLIQUID_FUNDING_HISTORY_LIMIT: int = 500
+
+
+@dataclass(slots=True)
+class HyperliquidCandle:
+    """A single OHLCV candle from the ``candleSnapshot`` Info endpoint.
+
+    Prices and volume are stored as :class:`float` for direct
+    pandas/numpy compatibility in backtesting notebooks. Callers
+    needing arbitrage-level precision should consume the raw API
+    response instead.
+    """
+
+    #: Open time, naive UTC datetime.
+    open_time: datetime.datetime
+    #: Close time, naive UTC datetime.
+    close_time: datetime.datetime
+    #: Base symbol, e.g. ``"BTC"``.
+    coin: str
+    #: Candle interval, one of ``"1m"``, ``"5m"``, ``"15m"``, ``"1h"``, ``"4h"``, ``"1d"`` …
+    interval: str
+    open: float
+    high: float
+    low: float
+    close: float
+    #: Base-asset volume. Zero for pre-launch (backfilled) candles.
+    volume: float
+    #: Number of trades that formed this candle.
+    trades: int
+
+
+@dataclass(slots=True)
+class HyperliquidFundingRate:
+    """A single funding-rate observation from the ``fundingHistory`` endpoint.
+
+    Hyperliquid pays funding **every hour** at 1/8 of the computed
+    8-hour funding rate, so one of these dataclasses represents the
+    funding charge/payment for a single 1-hour window. Authoritative
+    reference for the cadence and formula:
+    https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding
+
+    Funding rate and premium are stored as :class:`float` for direct
+    pandas/numpy compatibility.
+    """
+
+    #: Start of the 1-hour funding window, naive UTC datetime.
+    timestamp: datetime.datetime
+    #: Base symbol, e.g. ``"BTC"``.
+    coin: str
+    #: Per-hour funding rate as a fraction (= 1/8 of the 8-hour-window
+    #: rate).  For example, ``0.0000125`` = 1.25 bps charged over the
+    #: hour starting at :attr:`timestamp`.
+    funding_rate: float
+    #: Premium (index vs mark divergence) at the start of the interval.
+    premium: float
+
+
+def fetch_candle_snapshot(
+    session: HyperliquidSession,
+    *,
+    coin: str,
+    interval: str,
+    start_time: datetime.datetime,
+    end_time: datetime.datetime,
+    timeout: float = 30.0,
+) -> list[HyperliquidCandle]:
+    """Fetch up to 5,000 OHLCV candles for a single coin.
+
+    Calls the ``candleSnapshot`` Info endpoint. The response is capped at
+    :data:`HYPERLIQUID_CANDLE_SNAPSHOT_LIMIT` candles regardless of window
+    width, so callers needing longer histories must paginate.
+
+    Pre-launch candles (before ~April 2023) are returned but have zero
+    volume — these are backfilled price data, not authentic Hyperliquid
+    trades. Filter by ``volume > 0`` for real bars only.
+
+    Uses :py:meth:`HyperliquidSession.post_info` for automatic proxy
+    rotation on rate-limit or connectivity failures.
+
+    - `Info endpoint docs <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint#candle-snapshot>`__.
+
+    Example::
+
+        from datetime import datetime
+        from eth_defi.hyperliquid.api import fetch_candle_snapshot
+        from eth_defi.hyperliquid.session import create_hyperliquid_session
+
+        session = create_hyperliquid_session()
+        candles = fetch_candle_snapshot(
+            session,
+            coin="BTC",
+            interval="4h",
+            start_time=datetime(2023, 5, 1),
+            end_time=datetime(2023, 6, 1),
+        )
+        print(f"{len(candles)} candles, first close={candles[0].close}")
+
+    :param session:
+        Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
+    :param coin:
+        Base symbol only (e.g. ``"BTC"``), **not** a CCXT-style pair.
+    :param interval:
+        One of ``"1m"``, ``"3m"``, ``"5m"``, ``"15m"``, ``"30m"``,
+        ``"1h"``, ``"2h"``, ``"4h"``, ``"8h"``, ``"12h"``, ``"1d"``,
+        ``"3d"``, ``"1w"``, ``"1M"``.
+    :param start_time:
+        Earliest candle, naive UTC datetime.
+    :param end_time:
+        Latest candle, naive UTC datetime.
+    :param timeout:
+        HTTP request timeout in seconds.
+    :return:
+        Candles in ascending time order. Empty list if no data.
+    """
+    payload = {
+        "type": "candleSnapshot",
+        "req": {
+            "coin": coin,
+            "interval": interval,
+            "startTime": int(start_time.timestamp() * 1000),
+            "endTime": int(end_time.timestamp() * 1000),
+        },
+    }
+
+    logger.debug("Fetching candleSnapshot coin=%s interval=%s", coin, interval)
+
+    response = session.post_info(payload, timeout=timeout)
+    response.raise_for_status()
+    data = response.json() or []
+
+    results: list[HyperliquidCandle] = []
+    for entry in data:
+        results.append(
+            HyperliquidCandle(
+                open_time=from_unix_timestamp(int(entry["t"]) / 1000),
+                close_time=from_unix_timestamp(int(entry["T"]) / 1000),
+                coin=entry.get("s", coin),
+                interval=entry.get("i", interval),
+                open=float(entry["o"]),
+                high=float(entry["h"]),
+                low=float(entry["l"]),
+                close=float(entry["c"]),
+                volume=float(entry["v"]),
+                trades=int(entry.get("n", 0)),
+            )
+        )
+
+    logger.debug("coin=%s returned %d candles", coin, len(results))
+    return results
+
+
+def fetch_funding_history(
+    session: HyperliquidSession,
+    *,
+    coin: str,
+    start_time: datetime.datetime,
+    end_time: datetime.datetime | None = None,
+    timeout: float = 30.0,
+) -> list[HyperliquidFundingRate]:
+    """Fetch up to 500 funding-rate observations for a single coin.
+
+    Calls the ``fundingHistory`` Info endpoint. Hyperliquid pays funding
+    **every hour** at 1/8 of the computed 8-hour rate, so
+    :data:`HYPERLIQUID_FUNDING_HISTORY_LIMIT` records ≈ 20 days per
+    call. A 3-year history per symbol needs roughly 55 paginated
+    requests. Callers needing long histories should use the higher-level
+    :py:func:`strategycore.hyperliquid.fetch_funding_rate_history`
+    wrapper, which handles pagination and parquet caching.
+
+    Uses :py:meth:`HyperliquidSession.post_info` for automatic proxy
+    rotation on rate-limit or connectivity failures.
+
+    - Funding cadence and formula: `Hyperliquid Docs › Trading › Funding
+      <https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding>`__.
+    - API endpoint: `Info endpoint › fundingHistory
+      <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals#retrieve-historical-funding-rates>`__.
+
+    :param session:
+        Session from :py:func:`create_hyperliquid_session`.
+    :param coin:
+        Base symbol only, e.g. ``"BTC"``.
+    :param start_time:
+        Earliest funding observation, naive UTC datetime.
+    :param end_time:
+        Optional latest observation, naive UTC datetime. If ``None``,
+        the API returns up to 500 records starting at ``start_time``.
+    :param timeout:
+        HTTP request timeout in seconds.
+    :return:
+        Funding-rate observations in ascending time order.
+    """
+    payload: dict = {
+        "type": "fundingHistory",
+        "coin": coin,
+        "startTime": int(start_time.timestamp() * 1000),
+    }
+    if end_time is not None:
+        payload["endTime"] = int(end_time.timestamp() * 1000)
+
+    logger.debug("Fetching fundingHistory coin=%s", coin)
+
+    response = session.post_info(payload, timeout=timeout)
+    response.raise_for_status()
+    data = response.json() or []
+
+    results: list[HyperliquidFundingRate] = []
+    for entry in data:
+        results.append(
+            HyperliquidFundingRate(
+                timestamp=from_unix_timestamp(int(entry["time"]) / 1000),
+                coin=entry.get("coin", coin),
+                funding_rate=float(entry["fundingRate"]),
+                premium=float(entry.get("premium", "0")),
+            )
+        )
+    return results
+
+
+def fetch_perp_meta(
+    session: HyperliquidSession,
+    timeout: float = 10.0,
+) -> dict:
+    """Fetch the perpetual universe metadata (``{"type": "meta"}``).
+
+    Used primarily for symbol discovery. Returns the raw dict with
+    keys such as ``universe`` (list of per-coin metadata entries).
+
+    Uses :py:meth:`HyperliquidSession.post_info` for automatic proxy
+    rotation on rate-limit or connectivity failures.
+
+    :param session:
+        Session from :py:func:`create_hyperliquid_session`.
+    :param timeout:
+        HTTP request timeout in seconds.
+    :return:
+        Raw metadata dict.
+    """
+    response = session.post_info({"type": "meta"}, timeout=timeout)
+    response.raise_for_status()
+    return response.json() or {}

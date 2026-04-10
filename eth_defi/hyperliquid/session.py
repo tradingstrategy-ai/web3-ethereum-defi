@@ -250,17 +250,25 @@ class HyperliquidSession(Session):
     # ──────────────────────────────────────────────
 
     def post_info(self, payload: dict, timeout: float = 30.0) -> requests_lib.Response:
-        """POST to the Hyperliquid ``/info`` endpoint with proxy rotation.
+        """POST to the Hyperliquid ``/info`` endpoint with graceful proxy rotation.
 
-        Uses the session's configured proxy (if any). On connection errors
-        or HTTP 429/5xx responses, rotates to the next proxy and retries.
-        After :data:`MAX_PROXY_ROTATIONS` consecutive failures in a single
-        call, falls back to a direct (no-proxy) connection for the
-        remainder of this request.
+        Uses the session's configured proxy (if any). Rotation policy:
 
-        Failures are recorded via the rotator's
-        :py:class:`~eth_defi.event_reader.webshare.ProxyStateManager` so
-        that persistently bad proxies are skipped in future runs.
+        - **Rate-limit / backend overload responses** (HTTP 429, 500,
+          502, 503, 504): rotate to the next proxy but do NOT record
+          the current proxy as dead — it is only throttled, and will
+          recover within minutes. This avoids shrinking the working
+          pool across runs via the
+          :py:class:`~eth_defi.event_reader.webshare.ProxyStateManager`
+          14-day grace period.
+        - **Connection errors** (``requests.ConnectionError``,
+          ``requests.Timeout``, ``OSError``): rotate AND record the
+          current proxy as dead via the state manager, because the
+          proxy itself is unreachable.
+
+        After :data:`MAX_PROXY_ROTATIONS` consecutive rotations in a
+        single call, returns whatever response comes back (or re-raises
+        the last exception) rather than continuing to rotate.
 
         :param payload:
             JSON request body for the ``/info`` endpoint.
@@ -273,6 +281,10 @@ class HyperliquidSession(Session):
         :raises requests.Timeout:
             If the request times out and no proxy rotation is available.
         """
+        # HTTP statuses that signal "slow down / upstream is overloaded",
+        # but the proxy itself is fine. Rotate without marking dead.
+        throttle_statuses = {429, 500, 502, 503, 504}
+
         rotations = 0
         while True:
             req_proxies = self._build_proxy_dict()
@@ -285,16 +297,26 @@ class HyperliquidSession(Session):
                     timeout=timeout,
                     proxies=req_proxies,
                 )
-                if response.status_code in {429, 502, 503} and self.proxy_enabled and rotations < self.max_proxy_rotations:
+                if response.status_code in throttle_statuses and self.proxy_enabled and rotations < self.max_proxy_rotations:
                     rotations += 1
                     self._rotation_count += 1
-                    self._rotate_proxy(reason=f"HTTP {response.status_code}")
+                    # Rotate without failure_reason — the ProxyStateManager
+                    # must NOT mark this proxy as dead. It is only throttled
+                    # and will recover within minutes.
+                    self._rotator.rotate(failure_reason=None)
+                    logger.log(
+                        self._rotator.log_level,
+                        "Rotated on HTTP %d (throttled, proxy not marked dead)",
+                        response.status_code,
+                    )
                     continue
                 return response
             except (requests_lib.ConnectionError, requests_lib.Timeout, OSError) as exc:
                 if self.proxy_enabled and rotations < self.max_proxy_rotations:
                     rotations += 1
                     self._rotation_count += 1
+                    # Genuine connection failure — record via state manager
+                    # so the proxy is blocked for the grace period.
                     self._rotate_proxy(reason=str(exc)[:80])
                     continue
                 raise
