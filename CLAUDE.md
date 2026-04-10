@@ -127,6 +127,7 @@ No test plan or verification section. Use Markdown formatting, headings.
 - For code comments, Use Sphinx restructured text style
 - For documenting dataclass and Enum members, use Sphinx `#: comment here` line comment above variable, not `:param:`
 - If a. class function overloads a function inherited from the parent, and there is nothing to comment, do not repeat the code comment and leave it empty instead
+- Each function should *minimum* have 1) one liner summary description 2) one paragraph longer description 3) arguments and return values documented 4) for APIs and integrations, links to authoritative and canonical documentation 5) for dataframes and series expectations of columns and value types
 
 ### Type hinting
 
