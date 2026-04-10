@@ -1,7 +1,6 @@
 """Generic ECR-4626 vault reader implementation."""
 
 import datetime
-import inspect
 import logging
 from decimal import Decimal
 from functools import cached_property
@@ -25,9 +24,15 @@ from web3.types import BlockIdentifier
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.balances import fetch_erc20_balances_fallback, fetch_erc20_balances_multicall
 from eth_defi.erc_4626.core import ERC4626Feature, get_deployed_erc_4626_contract
+from eth_defi.erc_4626.vault_token import (
+    get_cached_vault_denomination_token_address,
+    get_cached_vault_share_token_address,
+    set_cached_vault_denomination_token_address,
+    set_cached_vault_share_token_address,
+)
 from eth_defi.event_reader.conversion import BadAddressError, convert_int256_bytes_to_int, convert_uint256_bytes_to_address
 from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult
-from eth_defi.token import TokenDetails, fetch_erc20_details, is_stablecoin_like
+from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details, is_stablecoin_like
 from eth_defi.vault.base import DEPOSIT_CLOSED_CAP_REACHED, DEPOSIT_CLOSED_PAUSED, REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY, REDEMPTION_CLOSED_PAUSED, TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalRead, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 
 logger = logging.getLogger(__name__)
@@ -905,6 +910,40 @@ class ERC4626Vault(VaultBase):
             return False
 
     def fetch_denomination_token_address(self) -> HexAddress | None:
+        """Get the ``asset()`` denomination token address of this vault.
+
+        Results are disk-cached per ``(chain_id, vault_address)`` via
+        :py:mod:`eth_defi.erc_4626.vault_token` when the vault was constructed
+        with a :py:class:`eth_defi.token.TokenDiskCache` and no pinned
+        ``default_block_identifier``. The denomination token is immutable
+        post-deployment, so the cached value is correct regardless of which
+        block the caller would have asked for.
+
+        Only a **definitive non-null answer** is persisted. The ``None`` path
+        taken on revert / broken contract is never cached, matching the
+        behaviour of :py:meth:`eth_defi.vault.base.VaultBase.denomination_token`
+        which explicitly avoids memoising ``None`` so transient failures can
+        be retried.
+
+        To disable the cache, pass ``token_cache=None`` (or any non-
+        :py:class:`TokenDiskCache` dict) when constructing the vault, or
+        construct with a pinned ``default_block_identifier``.
+
+        :return:
+            Denomination token address, or ``None`` if the vault contract is
+            broken and did not return a valid address.
+        """
+        cacheable = isinstance(self.token_cache, TokenDiskCache) and self.default_block_identifier is None
+
+        if cacheable:
+            cached_address = get_cached_vault_denomination_token_address(
+                self.token_cache,
+                self.chain_id,
+                self.vault_address,
+            )
+            if cached_address is not None:
+                return cached_address
+
         # Try to check if we are ERC-7575 first
         # https://eips.ethereum.org/EIPS/eip-7575
 
@@ -921,10 +960,19 @@ class ERC4626Vault(VaultBase):
                 ignore_error=True,
                 attempts=2,
             )
-            return convert_uint256_bytes_to_address(result)
+            denomination_token_address = convert_uint256_bytes_to_address(result)
         except (ValueError, BadFunctionCallOutput, BadAddressError, ProbablyNodeHasNoBlock):
-            pass
-        return None
+            return None
+
+        if cacheable and denomination_token_address is not None:
+            set_cached_vault_denomination_token_address(
+                self.token_cache,
+                self.chain_id,
+                self.vault_address,
+                denomination_token_address,
+            )
+
+        return denomination_token_address
 
     def fetch_denomination_token(self) -> TokenDetails | None:
         block_identifier = self._get_block_identifier()
@@ -959,12 +1007,56 @@ class ERC4626Vault(VaultBase):
         """Get share token of this vault.
 
         - Vault itself (ERC-4626)
-        - share() accessor (ERc-7575)
+        - ``share()`` accessor (ERC-7575)
+
+        Results are disk-cached per ``(chain_id, vault_address)`` via
+        :py:mod:`eth_defi.erc_4626.vault_token` when the vault was constructed
+        with a :py:class:`eth_defi.token.TokenDiskCache`. Under normal
+        circumstances the ``block_identifier`` argument is effectively ignored
+        on cache hits — ERC-4626 share tokens are immutable post-deployment,
+        so the cached value is correct regardless of which block the caller
+        asked for.
+
+        Only a **definitive answer from the chain** is ever persisted:
+        a successful call, or a revert matching
+        :py:data:`KNOWN_SHARE_TOKEN_ERROR_MESSAGES` (which positively classifies
+        the contract as non-ERC-7575). Transient RPC failures
+        (:py:class:`ProbablyNodeHasNoBlock`, HTTP 502) fall back to
+        ``self.vault_address`` but are **not** written to the cache, so a flaky
+        node cannot poison a real ERC-7575 vault's entry.
+
+        To disable the cache, pass ``token_cache=None`` (or any non-
+        :py:class:`TokenDiskCache` dict) when constructing the vault, or
+        construct with a pinned ``default_block_identifier`` to force the
+        uncached historical-read path on every call.
+
+        :param block_identifier:
+            Block to query. Cache is only consulted/written when the caller
+            passes the default ``"latest"`` **and** the vault instance has no
+            pinned ``default_block_identifier``.
         """
-        erc_7575 = False
+        initial_block_identifier = block_identifier
+
+        # Cache is only meaningful for live-latest reads on a non-historical-pinned
+        # vault instance. _get_block_identifier() resolves "latest" to
+        # self.default_block_identifier when set, so both conditions must hold.
+        cacheable = isinstance(self.token_cache, TokenDiskCache) and initial_block_identifier == "latest" and self.default_block_identifier is None
+
+        if cacheable:
+            cached_address = get_cached_vault_share_token_address(
+                self.token_cache,
+                self.chain_id,
+                self.vault_address,
+            )
+            if cached_address is not None:
+                return cached_address
 
         if block_identifier == "latest":
             block_identifier = self._get_block_identifier()
+
+        # True only when the chain gave a definitive answer (successful call or
+        # positively-classified revert). False for transient node/provider failures.
+        is_conclusive_classification = False
 
         try:
             # ERC-7575
@@ -988,57 +1080,62 @@ class ERC4626Vault(VaultBase):
                 attempts=2,  # Do not do extensive attempts here
             )
             if len(result) == 32:
-                erc_7575 = True
                 share_token_address = convert_uint256_bytes_to_address(result)
             else:
                 # Could not read ERC4626Vault 0x0271353E642708517A07985eA6276944A708dDd1 (set()):
                 share_token_address = self.vault_address
+            is_conclusive_classification = True
 
-        except (
-            ValueError,
-            BadFunctionCallOutput,
-            ExtraValueError,
-            ProbablyNodeHasNoBlock,
-        ) as e:
-            # ProbablyNodeHasNoBlock is a known exception type for node issues - always fall back gracefully
-            if isinstance(e, ProbablyNodeHasNoBlock):
-                logger.warning(f"fetch_share_token(): Node lacks block data for vault {self.vault_address}: {e}")
-            else:
-                parsed_error = str(e)
-                # Try to figure out broken ERC-4626 contract and have all conditions
-                # to gracefully handle failed erc_7575_call()
-                # Mantle
-                # Could not read ERC4626Vault 0x32F6D2c91FF3C3d2f1fC2cCAb4Afcf2b6ecF24Ef (set()): {'message': 'out of gas', 'code': -32000}
-                # Hyperliquid:
-                # ValueError: Call failed: 400 Client Error: Bad Request for url: https://lb.drpc.org/ogrpc?network=hyperliquid&dkey=AiWA4TvYpkijvapnvFlyx_WBfO5CICoR76hArr3WfgV4
-                # Hyperliquid:
-                #  {'code': -32603, 'message': 'Failed to call: InvalidTransaction(Revert(RevertError { output: None }))'}
-                if not any(msg in parsed_error for msg in KNOWN_SHARE_TOKEN_ERROR_MESSAGES):
-                    logger.error(f"fetch_share_token(): Not sure about exception %s", e)
-                    raise
-
-            if isinstance(e, HTTPError):
-                # eRPC brokeness trap.
-                # requests.exceptions.HTTPError: 502 Server Error: Bad Gateway for url: https://edge.goldsky.com/standard/base?secret=x
-                if e.response and e.response.status_code in (502,):
-                    logger.warning(f"fetch_share_token(): Ignoring HTTPError from RPC for vault {self.vault_address}: {e}")
-                    pass
-
+        except ProbablyNodeHasNoBlock as e:
+            # Transient node issue — fall back but do NOT cache.
+            logger.warning(f"fetch_share_token(): Node lacks block data for vault {self.vault_address}: {e}")
             share_token_address = self.vault_address
+
+        except HTTPError as e:
+            # eRPC brokeness trap.
+            # requests.exceptions.HTTPError: 502 Server Error: Bad Gateway for url: https://edge.goldsky.com/standard/base?secret=x
+            if e.response is not None and e.response.status_code == 502:
+                logger.warning(f"fetch_share_token(): Ignoring HTTPError from RPC for vault {self.vault_address}: {e}")
+                share_token_address = self.vault_address
+            else:
+                raise
+
+        except (ValueError, BadFunctionCallOutput, ExtraValueError) as e:
+            # Try to figure out broken ERC-4626 contract and have all conditions
+            # to gracefully handle failed erc_7575_call()
+            # Mantle
+            # Could not read ERC4626Vault 0x32F6D2c91FF3C3d2f1fC2cCAb4Afcf2b6ecF24Ef (set()): {'message': 'out of gas', 'code': -32000}
+            # Hyperliquid:
+            # ValueError: Call failed: 400 Client Error: Bad Request for url: https://lb.drpc.org/ogrpc?network=hyperliquid&dkey=AiWA4TvYpkijvapnvFlyx_WBfO5CICoR76hArr3WfgV4
+            # Hyperliquid:
+            #  {'code': -32603, 'message': 'Failed to call: InvalidTransaction(Revert(RevertError { output: None }))'}
+            parsed_error = str(e)
+            if not any(msg in parsed_error for msg in KNOWN_SHARE_TOKEN_ERROR_MESSAGES):
+                logger.error(f"fetch_share_token(): Not sure about exception %s", e)
+                raise
+            # Positively classified: contract is not ERC-7575. Cacheable.
+            share_token_address = self.vault_address
+            is_conclusive_classification = True
+
         except Exception as e:
             raise RuntimeError(f"Failed to poke vault: {self.vault_address}") from e
+
+        if cacheable and is_conclusive_classification and share_token_address is not None:
+            set_cached_vault_share_token_address(
+                self.token_cache,
+                self.chain_id,
+                self.vault_address,
+                share_token_address,
+            )
 
         return share_token_address
 
     def fetch_share_token(self) -> TokenDetails:
         # eth_defi.token.TokenDetailError: Token 0xDb7869Ffb1E46DD86746eA7403fa2Bb5Caf7FA46 missing symbol
         share_token_address = self.fetch_share_token_address()
-        stack = inspect.stack()
-        caller_info = " <- ".join(f"{f.filename}:{f.lineno} {f.function}" for f in stack[1:5])
-        logger.info("Attempting to fetch share token details: %s for vault %s, called from: %s", share_token_address, self.address, caller_info)
         return fetch_erc20_details(
             self.web3,
-            self.fetch_share_token_address(),
+            share_token_address,
             raise_on_error=False,
             chain_id=self.spec.chain_id,
             cache=self.token_cache,
