@@ -809,11 +809,9 @@ def process_and_upload_stablecoin_metadata(
     metadata = build_stablecoin_metadata_json(yaml_path, public_url=public_url)
     slug = yaml_path.stem
 
-    logger.info("Uploading stablecoin metadata for: %s", slug)
-
     # Upload metadata JSON
     json_bytes = json.dumps(metadata, indent=2).encode()
-    upload_to_r2_compressed(
+    metadata_uploaded = upload_to_r2_compressed(
         payload=json_bytes,
         bucket_name=bucket_name,
         object_name=f"stablecoin-metadata/{key_prefix}{slug}/metadata.json",
@@ -821,13 +819,14 @@ def process_and_upload_stablecoin_metadata(
         access_key_id=access_key_id,
         secret_access_key=secret_access_key,
         content_type="application/json",
+        skip_if_current=True,
     )
+    logger.info("%s stablecoin metadata for: %s", "Uploaded" if metadata_uploaded else "Skipped unchanged", slug)
 
     # Upload logo if available
     logo_path = STABLECOIN_FORMATTED_LOGOS_DIR / slug / "light.png"
     if logo_path.exists():
-        logger.info("Uploading light logo for stablecoin: %s", slug)
-        upload_to_r2_compressed(
+        logo_uploaded = upload_to_r2_compressed(
             payload=logo_path.read_bytes(),
             bucket_name=bucket_name,
             object_name=f"stablecoin-metadata/{key_prefix}{slug}/light.png",
@@ -835,7 +834,9 @@ def process_and_upload_stablecoin_metadata(
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
             content_type="image/png",
+            skip_if_current=True,
         )
+        logger.info("%s light logo for stablecoin: %s", "Uploaded" if logo_uploaded else "Skipped unchanged", slug)
 
     return metadata
 
@@ -878,10 +879,8 @@ def upload_stablecoin_index(
 
     index = build_stablecoin_index(public_url=public_url)
 
-    logger.info("Uploading stablecoin index with %d entries", len(index))
-
     json_bytes = json.dumps(index, indent=2).encode()
-    upload_to_r2_compressed(
+    index_uploaded = upload_to_r2_compressed(
         payload=json_bytes,
         bucket_name=bucket_name,
         object_name=f"stablecoin-metadata/{key_prefix}index.json",
@@ -889,6 +888,12 @@ def upload_stablecoin_index(
         access_key_id=access_key_id,
         secret_access_key=secret_access_key,
         content_type="application/json",
+        skip_if_current=True,
+    )
+    logger.info(
+        "%s stablecoin index with %d entries",
+        "Uploaded" if index_uploaded else "Skipped unchanged",
+        len(index),
     )
 
     return index

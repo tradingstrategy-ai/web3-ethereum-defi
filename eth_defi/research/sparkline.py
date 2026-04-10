@@ -8,14 +8,15 @@ import gzip
 import warnings
 from io import BytesIO
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from eth_defi.cloudflare_r2 import calculate_bytes_digest, create_r2_client, upload_bytes_to_r2
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.vault.base import VaultSpec
 
@@ -215,7 +216,7 @@ def export_sparkline_as_svg(
     return svg_bytes
 
 
-def upload_to_r2_compressed(
+def upload_to_r2_compressed(  # noqa: PLR0917, FBT001, FBT002
     payload: bytes,
     bucket_name: str,
     object_name: str,
@@ -223,6 +224,7 @@ def upload_to_r2_compressed(
     access_key_id: str,
     secret_access_key: str,
     content_type: str,
+    skip_if_current: bool = False,
 ):
     """Uploads a the vault sparklines payload to a Cloudflare R2 bucket.
 
@@ -236,26 +238,22 @@ def upload_to_r2_compressed(
     :param access_key_id: Your R2 access key ID.
     :param secret_access_key: Your R2 secret access key.
     :param content_type: The MIME type of the file.
+    :param skip_if_current: Skip upload if the remote object already matches the local source payload.
+    :return: ``True`` if uploaded, ``False`` if skipped as unchanged.
     """
-
-    import boto3
-    from botocore.exceptions import ClientError
-
-    s3_client = boto3.client(
-        "s3",
+    s3_client = create_r2_client(
         endpoint_url=endpoint_url,
-        aws_access_key_id=access_key_id,
-        aws_secret_access_key=secret_access_key,
-        region_name="auto",  # Must be "auto"
+        access_key_id=access_key_id,
+        secret_access_key=secret_access_key,
     )
 
-    try:
-        s3_client.put_object(
-            Bucket=bucket_name,
-            Key=object_name,
-            Body=gzip.compress(payload),
-            ContentType=content_type,
-            ContentEncoding="gzip",
-        )
-    except ClientError as e:
-        raise RuntimeError(f"Failed to upload {object_name} to bucket {bucket_name} (endpoint: {endpoint_url}, access_key_id: {access_key_id}): {e}") from e
+    return upload_bytes_to_r2(
+        s3_client=s3_client,
+        payload=gzip.compress(payload, mtime=0),
+        bucket_name=bucket_name,
+        object_name=object_name,
+        content_type=content_type,
+        content_encoding="gzip",
+        skip_if_current=skip_if_current,
+        source_digest=calculate_bytes_digest(payload),
+    )

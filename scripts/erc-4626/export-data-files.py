@@ -24,17 +24,16 @@ import logging
 import os
 from pathlib import Path
 
-import boto3
-from botocore.exceptions import ClientError
 from tqdm_loggable.auto import tqdm
 
+from eth_defi.cloudflare_r2 import create_r2_client, upload_file_to_r2
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
 logger = logging.getLogger(__name__)
 
 
-def upload_files_to_r2(
+def upload_files_to_r2(  # noqa: PLR0917
     file_paths: list[Path],
     bucket_name: str,
     endpoint_url: str,
@@ -68,42 +67,54 @@ def upload_files_to_r2(
         logger.info("No files to upload after filtering")
         return 0
 
-    logger.info("Uploading %d files to R2 bucket %s (excluded %d files)", len(files_to_upload), bucket_name, len(file_paths) - len(files_to_upload))
+    logger.info("Checking %d files for R2 upload to bucket %s (excluded %d files)", len(files_to_upload), bucket_name, len(file_paths) - len(files_to_upload))
 
-    s3_client = boto3.client(
-        "s3",
+    s3_client = create_r2_client(
         endpoint_url=endpoint_url,
-        aws_access_key_id=access_key_id,
-        aws_secret_access_key=secret_access_key,
+        access_key_id=access_key_id,
+        secret_access_key=secret_access_key,
     )
+
+    uploaded_count = 0
+    skipped_count = 0
 
     for file_path in files_to_upload:
         s3_key = f"{key_prefix}{file_path.name}"
         file_size = file_path.stat().st_size
 
-        logger.info("Uploading %s to s3://%s/%s", file_path, bucket_name, s3_key)
+        with tqdm(total=file_size, unit="B", unit_scale=True, desc=f"Uploading {s3_key}") as pbar:
 
-        with open(file_path, "rb") as f:
-            with tqdm(total=file_size, unit="B", unit_scale=True, desc=f"Uploading {s3_key}") as pbar:
+            def upload_callback(bytes_amount):
+                pbar.update(bytes_amount)
 
-                def upload_callback(bytes_amount):
-                    pbar.update(bytes_amount)
+            uploaded = upload_file_to_r2(
+                s3_client=s3_client,
+                file_path=file_path,
+                bucket_name=bucket_name,
+                object_name=s3_key,
+                skip_if_current=True,
+                callback=upload_callback,
+            )
 
-                try:
-                    s3_client.upload_fileobj(
-                        f,
-                        bucket_name,
-                        s3_key,
-                        Callback=upload_callback,
-                    )
-                except ClientError as e:
-                    raise RuntimeError(f"Failed to upload {s3_key} to bucket {bucket_name} (endpoint: {endpoint_url}, access_key_id: {access_key_id}): {e}") from e
+        if uploaded:
+            uploaded_count += 1
+            logger.info("Uploaded %s to s3://%s/%s", file_path, bucket_name, s3_key)
+        else:
+            skipped_count += 1
+            logger.info("Skipped unchanged file %s for s3://%s/%s", file_path, bucket_name, s3_key)
 
-        if public_url:
+        if public_url and uploaded:
             final_url = f"{public_url.rstrip('/')}/{s3_key}"
             print(f"  -> {final_url}")
 
-    return len(files_to_upload)
+    logger.info(
+        "Data file upload summary for bucket %s: %d uploaded, %d skipped unchanged",
+        bucket_name,
+        uploaded_count,
+        skipped_count,
+    )
+
+    return uploaded_count
 
 
 def main():
@@ -141,7 +152,7 @@ def main():
         base_path / "vault-reader-state-1h.pickle",
     ]
 
-    print(f"\nExporting data files to R2")
+    print("\nExporting data files to R2")
     print(f"  Bucket: {bucket_name}")
     if alt_bucket_name:
         print(f"  Alternative bucket: {alt_bucket_name}")

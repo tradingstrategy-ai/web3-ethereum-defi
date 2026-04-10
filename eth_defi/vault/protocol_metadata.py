@@ -254,12 +254,10 @@ def process_and_upload_protocol_metadata(
     # Build metadata with logo URLs
     metadata = build_metadata_json(yaml_path, public_url)
 
-    logger.info("Uploading metadata for protocol: %s", slug)
-
     # Upload metadata JSON
     # Object name format: vault-protocol-metadata/{key_prefix}{slug}/metadata.json
     json_bytes = json.dumps(metadata, indent=2).encode()
-    upload_to_r2_compressed(
+    metadata_uploaded = upload_to_r2_compressed(
         payload=json_bytes,
         bucket_name=bucket_name,
         object_name=f"vault-protocol-metadata/{key_prefix}{slug}/metadata.json",
@@ -267,15 +265,16 @@ def process_and_upload_protocol_metadata(
         access_key_id=access_key_id,
         secret_access_key=secret_access_key,
         content_type="application/json",
+        skip_if_current=True,
     )
+    logger.info("%s metadata for protocol: %s", "Uploaded" if metadata_uploaded else "Skipped unchanged", slug)
 
     # Upload available logos
     logo_dir = FORMATTED_LOGOS_DIR / slug
     for variant in ["dark", "light"]:
         logo_path = logo_dir / f"{variant}.png"
         if logo_path.exists():
-            logger.info("Uploading %s logo for protocol: %s", variant, slug)
-            upload_to_r2_compressed(
+            logo_uploaded = upload_to_r2_compressed(
                 payload=logo_path.read_bytes(),
                 bucket_name=bucket_name,
                 object_name=f"vault-protocol-metadata/{key_prefix}{slug}/{variant}.png",
@@ -283,6 +282,13 @@ def process_and_upload_protocol_metadata(
                 access_key_id=access_key_id,
                 secret_access_key=secret_access_key,
                 content_type="image/png",
+                skip_if_current=True,
+            )
+            logger.info(
+                "%s %s logo for protocol: %s",
+                "Uploaded" if logo_uploaded else "Skipped unchanged",
+                variant,
+                slug,
             )
 
     return metadata

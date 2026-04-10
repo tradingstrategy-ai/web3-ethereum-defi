@@ -622,10 +622,8 @@ def process_and_upload_curator_metadata(
     metadata = build_curator_metadata_json(yaml_path)
     slug = metadata["slug"]
 
-    logger.info("Uploading curator metadata for: %s", slug)
-
     json_bytes = json.dumps(metadata, indent=2).encode()
-    upload_to_r2_compressed(
+    metadata_uploaded = upload_to_r2_compressed(
         payload=json_bytes,
         bucket_name=bucket_name,
         object_name=f"curator-metadata/{key_prefix}{slug}/metadata.json",
@@ -633,7 +631,9 @@ def process_and_upload_curator_metadata(
         access_key_id=access_key_id,
         secret_access_key=secret_access_key,
         content_type="application/json",
+        skip_if_current=True,
     )
+    logger.info("%s curator metadata for: %s", "Uploaded" if metadata_uploaded else "Skipped unchanged", slug)
 
     return metadata
 
@@ -675,10 +675,9 @@ def upload_protocol_curator_metadata(
 
     for metadata in entries:
         slug = metadata["slug"]
-        logger.info("Uploading protocol-curator metadata for: %s", slug)
 
         json_bytes = json.dumps(metadata, indent=2).encode()
-        upload_to_r2_compressed(
+        metadata_uploaded = upload_to_r2_compressed(
             payload=json_bytes,
             bucket_name=bucket_name,
             object_name=f"curator-metadata/{key_prefix}{slug}/metadata.json",
@@ -686,6 +685,12 @@ def upload_protocol_curator_metadata(
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
             content_type="application/json",
+            skip_if_current=True,
+        )
+        logger.info(
+            "%s protocol-curator metadata for: %s",
+            "Uploaded" if metadata_uploaded else "Skipped unchanged",
+            slug,
         )
 
     return entries
@@ -744,10 +749,8 @@ def upload_curator_index(
 
     index = build_curator_index()
 
-    logger.info("Uploading curator index with %d entries", len(index))
-
     json_bytes = json.dumps(index, indent=2).encode()
-    upload_to_r2_compressed(
+    index_uploaded = upload_to_r2_compressed(
         payload=json_bytes,
         bucket_name=bucket_name,
         object_name=f"curator-metadata/{key_prefix}index.json",
@@ -755,6 +758,12 @@ def upload_curator_index(
         access_key_id=access_key_id,
         secret_access_key=secret_access_key,
         content_type="application/json",
+        skip_if_current=True,
+    )
+    logger.info(
+        "%s curator index with %d entries",
+        "Uploaded" if index_uploaded else "Skipped unchanged",
+        len(index),
     )
 
     return index

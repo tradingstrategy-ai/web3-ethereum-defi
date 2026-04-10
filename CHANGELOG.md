@@ -1,5 +1,6 @@
 # Current
 
+- feat: Skip unchanged static R2 uploads with `head_object()` checksum checks for protocol, stablecoin, curator, and exported data files; deterministic gzip payloads now avoid redundant metadata and logo uploads on repeat runs (2026-04-11)
 - fix: Hyperliquid vault metrics DuckDB thread race — every method reachable from `joblib.Parallel(backend="threading")` workers now uses `self.con.cursor()` so concurrent `execute().fetchone()` calls no longer clobber each other's result sets; the HF scan was crashing with `Invalid Input Error: No open result set` on startup, and the same latent race existed in the daily scanner (2026-04-10)
 - fix: Cache ERC-4626 vault share/asset token addresses to disk and remove `vault-scanner-looped` log flood — new `eth_defi.erc_4626.vault_token` module persists immutable per-vault address lookups via `TokenDiskCache`, eliminating redundant `share()`/`asset()` eth_calls on every scan iteration, with cache-poisoning protection for transient RPC failures and a historical-reader safety guard (2026-04-10)
 - feat: Upgrade vault scanner and vault analysis Docker images to Python 3.14.4 — hypersync-temp 0.10.0 now ships cp314 linux wheels, removing the blocker that kept these containers on 3.12 (2026-04-10)
