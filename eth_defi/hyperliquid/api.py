@@ -652,9 +652,7 @@ def wait_for_vault_deposit_confirmation(
 
         remaining = deadline - time.time()
         if remaining <= 0:
-            raise HypercoreDepositVerificationError(
-                f"Vault deposit for {user} in vault {vault_address} could not be verified within {timeout}s. Expected deposit: {expected_deposit} USDC, existing equity: {existing_equity}, last queried equity: {last_eq.equity if last_eq else None}. The deposit may have been silently rejected by HyperCore. Check HyperCore spot/perp for stranded USDC."
-            )
+            raise HypercoreDepositVerificationError(f"Vault deposit for {user} in vault {vault_address} could not be verified within {timeout}s. Expected deposit: {expected_deposit} USDC, existing equity: {existing_equity}, last queried equity: {last_eq.equity if last_eq else None}. The deposit may have been silently rejected by HyperCore. Check HyperCore spot/perp for stranded USDC.")
 
         time.sleep(min(poll_interval, remaining))
 
