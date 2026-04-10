@@ -6,9 +6,17 @@ import gzip
 import hashlib
 from pathlib import Path
 
-from botocore.exceptions import ClientError
+import pytest
 
 from eth_defi.cloudflare_r2 import calculate_bytes_digest, calculate_file_digest, upload_bytes_to_r2, upload_file_to_r2
+
+try:
+    from botocore.exceptions import ClientError
+except ModuleNotFoundError:  # pragma: no cover - exercised in CI dependency matrix
+    pytestmark = pytest.mark.skip(reason="Cloudflare R2 tests require optional boto3/botocore dependency")
+
+    class ClientError(Exception):
+        """Fallback exception for optional botocore-free environments."""
 
 
 class FakeS3Client:
