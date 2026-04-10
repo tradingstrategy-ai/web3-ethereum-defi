@@ -1,5 +1,6 @@
 # Current
 
+- feat: Upgrade vault scanner and vault analysis Docker images to Python 3.14.4 — hypersync-temp 0.10.0 now ships cp314 linux wheels, removing the blocker that kept these containers on 3.12 (2026-04-10)
 - feat: Hyperliquid market-data Info API primitives — `fetch_candle_snapshot`, `fetch_funding_history`, `fetch_perp_meta` in `eth_defi.hyperliquid.api` with typed `HyperliquidCandle` / `HyperliquidFundingRate` dataclasses, routed through `HyperliquidSession.post_info()` for automatic Webshare proxy rotation on rate-limit failures; `post_info()` now distinguishes rate-limit responses (429/5xx rotate without marking proxy dead) from connection errors (rotate and record as dead for the 14-day grace period), preserving the Webshare proxy pool across throttled runs (2026-04-10)
 - feat: IPOR Fusion fee mode classification — added `IPOR Fusion` to `VAULT_PROTOCOL_FEE_MATRIX` as `internalised_minting`, documented the share-minting mechanism (FeeManager / FeeAccount / PlasmaVault) with source-code line references in the `IPORVault` class docstring and `ipor-fusion.yaml` metadata (2026-04-10)
 - feat: Atomic parquet and pickle writes for vault price pipeline — prevents data corruption from interruptions using `atomicwrites` library with fsync + directory sync (2026-04-09)
