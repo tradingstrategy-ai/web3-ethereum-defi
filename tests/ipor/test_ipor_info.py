@@ -18,6 +18,7 @@ from eth_defi.vault.base import (
     DEPOSIT_CLOSED_UTILISATION,
     VaultSpec,
 )
+from eth_defi.vault.fee import VaultFeeMode
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
@@ -41,7 +42,9 @@ def test_block_number() -> int:
 def vault(web3) -> IPORVault:
     """TODO: Optimise test speed - fetch vault data only once per this module"""
     spec = VaultSpec(8545, "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216")
-    return IPORVault(web3, spec)
+    # Pass features so get_protocol_name() / get_fee_mode() resolve to "IPOR Fusion"
+    # without running detect_vault_features() in every test.
+    return IPORVault(web3, spec, features={ERC4626Feature.ipor_like})
 
 
 def test_ipor_fee(
@@ -49,10 +52,27 @@ def test_ipor_fee(
     vault: IPORVault,
     test_block_number,
 ):
-    """Read IPOR vault fees."""
+    """Read IPOR vault fees and verify fee mode classification.
+
+    IPOR Fusion realises both management and performance fees by minting new
+    shares to dedicated FeeAccount holding contracts, so the fee mode must be
+    :py:attr:`~eth_defi.vault.fee.VaultFeeMode.internalised_minting`.
+
+    1. Read management fee for the fixed fork block
+    2. Read performance fee for the fixed fork block
+    3. Assert the protocol-level fee mode is ``internalised_minting``
+    """
     block_number = test_block_number
+
+    # 1. Management fee at fork block
     assert vault.get_management_fee(block_number) == 0.01
+
+    # 2. Performance fee at fork block
     assert vault.get_performance_fee(block_number) == 0.10
+
+    # 3. IPOR Fusion collects both fees via share minting (dilution),
+    # which maps to internalised_minting in VAULT_PROTOCOL_FEE_MATRIX
+    assert vault.get_fee_mode() == VaultFeeMode.internalised_minting
 
 
 # 500 Server Error: Internal Server Error for url:

@@ -1,5 +1,6 @@
 # Current
 
+- feat: IPOR Fusion fee mode classification — added `IPOR Fusion` to `VAULT_PROTOCOL_FEE_MATRIX` as `internalised_minting`, documented the share-minting mechanism (FeeManager / FeeAccount / PlasmaVault) with source-code line references in the `IPORVault` class docstring and `ipor-fusion.yaml` metadata (2026-04-10)
 - feat: Atomic parquet and pickle writes for vault price pipeline — prevents data corruption from interruptions using `atomicwrites` library with fsync + directory sync (2026-04-09)
 - feat: Incremental cycle state persistence — scan progress saved after each chain so interrupted scans skip completed items on restart, `FORCE_RESCAN` env var for one-off full rescans (2026-04-09)
 - feat: Scan dashboard shows cycle interval and hours remaining for not-due chains (2026-04-09)

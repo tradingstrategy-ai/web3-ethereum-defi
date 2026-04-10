@@ -150,6 +150,12 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Liquid Royalty": VaultFeeMode.feeless,
     # Inverse Finance sDOLA - no explicit fees, yield via DBR auction mechanism
     "Inverse Finance": VaultFeeMode.feeless,
+    # IPOR Fusion - management fees (up to 5%/yr on AUM) and performance fees (up to 50%, high-water mark)
+    # are both collected by minting new vault shares to FeeAccount contracts, which the FeeManager then
+    # distributes between IPOR DAO and atomist-defined recipients. From an investor's perspective fees
+    # are internalised in the share price through dilution — there is no fee charged at redemption.
+    # https://deepwiki.com/IPOR-Labs/ipor-fusion/6.2-fee-distribution
+    "IPOR Fusion": VaultFeeMode.internalised_minting,
 }
 
 

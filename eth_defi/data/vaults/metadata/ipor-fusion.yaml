@@ -20,6 +20,88 @@ long_description: |
   - Siloed risk exposure between Fusion vaults (losses not socialised)
   - Built with battle-tested smart contracts and audited by top-tier firms
 fee_description: |
+  IPOR Fusion uses the **internalised minting** fee mode. Both the management
+  fee and the performance fee are realised by minting new vault shares to
+  dedicated technical holding accounts, so fees are paid by existing share
+  holders through dilution. Investors do not pay any explicit fee at deposit
+  or redemption, and the share price reported by the vault is already
+  fees-net.
+
+  Fee caps (from ``PlasmaVaultLib.sol``):
+
+  - **Management fee**: up to 5% per year on assets under management
+    (``MANAGEMENT_MAX_FEE_IN_PERCENTAGE = 500``, 2-decimal precision).
+  - **Performance fee**: up to 50% on gains above a high-water mark
+    (``PERFORMANCE_MAX_FEE_IN_PERCENTAGE = 5000``).
+
+  Share-minting mechanism (``contracts/vaults/PlasmaVault.sol``):
+
+  - Every vault operation (deposit, mint, withdraw, redeem, execute,
+    updateMarketsBalances) runs through fee hooks that call
+    ``_realizeManagementFee()`` and ``_addPerformanceFee()``.
+  - ``_realizeManagementFee()`` (line 1413) — NatSpec: *"Realizes management
+    fees by minting shares to fee recipient"*. Time-based accrual on
+    ``grossTotalAssets`` is converted to shares via ``convertToShares()``
+    and those shares are minted directly to ``MANAGEMENT_FEE_ACCOUNT``
+    (``_mint(recipient, unrealizedFeeInShares)`` at line 1437). The
+    management-fee timestamp is only updated after a successful mint
+    (IL-6959 fix) to prevent fee suppression by many small transactions.
+  - ``_addPerformanceFee()`` (line 1381) — uses a high-water mark model. If
+    ``totalAssetsAfter >= totalAssetsBefore``, the gain above the HWM is
+    multiplied by the performance-fee rate, converted to shares by
+    ``PlasmaVaultFeesLib.prepareForAddPerformanceFee()`` and minted
+    (``_mint(recipient, feeShares)`` at line 1402). The HWM is stored in
+    ``HighWaterMarkPerformanceFeeStorage`` and can be auto-lowered on a
+    configurable update interval.
+  - Both mint paths temporarily disable ``totalSupplyCap`` validation so
+    the fee mint cannot be blocked by the cap.
+
+  Downstream distribution (``contracts/managers/fee/FeeManager.sol``):
+
+  - ``harvestManagementFee()`` (line 194) and ``harvestPerformanceFee()``
+    (line 247) read the already-minted share balances via
+    ``IERC4626(PLASMA_VAULT).balanceOf(MANAGEMENT_FEE_ACCOUNT)`` and
+    ``balanceOf(PERFORMANCE_FEE_ACCOUNT)``.
+  - ``_transferDaoFee()`` (line 636) moves the IPOR DAO portion via
+    ``PLASMA_VAULT.transferFrom(feeAccount, daoRecipient, amount)``
+    (line 650). ``_transferRecipientFee()`` (line 682) distributes the
+    remainder to atomist-defined recipients using the same ``transferFrom``
+    pattern (line 705).
+  - ``FeeAccount`` (``contracts/managers/fee/FeeAccount.sol``) is a tiny
+    holding contract that only exposes ``approveMaxForFeeManager()`` so the
+    ``FeeManager`` can pull the pre-minted shares — it never mints or burns
+    anything itself.
+
+  Why this is internalised minting and not skimming or externalised:
+
+  - Skimming would transfer underlying assets out of the vault at the
+    moment of profit. IPOR never moves assets for fees — it mints shares.
+  - Externalised fees (e.g. Lagoon) would deduct from the investor at
+    redemption, so the vault share price is fees-gross. IPOR share price
+    is fees-net: the dilution has already happened on-chain by the time
+    ``totalAssets()`` / ``convertToAssets()`` are read.
+  - The ``FeeManager`` is a distribution layer on top of already-minted
+    fee shares, not a separate fee-collection mechanism.
+
+  Optional deposit fee (per-vault add-on, usually 0):
+
+  - ``FeeManager.setDepositFee()`` (line 508) allows an atomist to
+    configure an explicit deposit fee with 18-decimal precision. NatSpec
+    says the fee is *"deducted from the user's deposit amount before
+    minting shares"*, making it an externalised fee at deposit time. This
+    is orthogonal to the management/performance fee mode and most Plasma
+    Vaults leave it at 0.
+
+  Individual Plasma Vaults configure their own management and performance
+  percentages within the caps above.
+
+  References:
+
+  - `IPOR Fusion fee distribution (deepwiki) <https://deepwiki.com/IPOR-Labs/ipor-fusion/6.2-fee-distribution>`_
+  - `PlasmaVault.sol <https://github.com/IPOR-Labs/ipor-fusion/blob/main/contracts/vaults/PlasmaVault.sol>`_
+  - `PlasmaVaultLib.sol <https://github.com/IPOR-Labs/ipor-fusion/blob/main/contracts/libraries/PlasmaVaultLib.sol>`_
+  - `FeeManager.sol <https://github.com/IPOR-Labs/ipor-fusion/blob/main/contracts/managers/fee/FeeManager.sol>`_
+  - `FeeAccount.sol <https://github.com/IPOR-Labs/ipor-fusion/blob/main/contracts/managers/fee/FeeAccount.sol>`_
 links:
   homepage: https://www.ipor.io/
   app: https://app.ipor.io/
