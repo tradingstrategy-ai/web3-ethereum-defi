@@ -170,7 +170,7 @@ accepts both `daily_db` and `hf_db` as optional parameters.
 
 Both export functions (`build_raw_prices_dataframe` and
 `build_raw_prices_dataframe_hf`) delegate to the shared
-`_prepare_hypercore_export()` helper for forward-filling state columns,
+`_prepare_hypercore_export()` helper for forward-filling sparse metadata snapshots,
 computing deposit status, and building the EVM-compatible DataFrame.
 
 This means:
@@ -205,13 +205,39 @@ but the downstream Parquet/cleaning pipeline expects `daily_deposit_count`,
 `daily_withdrawal_count`, etc. The `_prepare_hypercore_export()` helper handles
 this mapping via the `flow_col_map` parameter.
 
+### Metadata snapshot handling
+
+The HF DuckDB keeps metadata snapshots sparse by design. Each fetch writes
+`apr`, `follower_count`, `is_closed`, `allow_deposits`, `leader_fraction`,
+`leader_commission`, and `cumulative_volume` only on the latest row observed
+for that vault during that fetch. Historical rows stay `NULL` unless a later
+overlap re-upsert touches the exact same timestamp.
+
+The downstream export path then forward-fills the non-critical snapshot fields
+within the observed history of each vault:
+
+- `is_closed`
+- `allow_deposits`
+- `leader_fraction`
+- `leader_commission`
+- `follower_count`
+- `cumulative_volume`
+
+Rows before the first observed snapshot still remain `NULL` — export does not
+invent earlier metadata. `apr` stays metadata-only in this version and is not
+exported to the parquet / cleaned datasets.
+
+Because the fix lives in export, existing HF DuckDB history does not need a
+schema or data migration. To heal existing downstream datasets, re-run the
+Hypercore parquet merge and the cleaning pipeline.
+
 ### COALESCE upsert semantics
 
 Both the daily and HF pipelines use `ON CONFLICT DO UPDATE SET` with `COALESCE`
 for sparse columns. This means:
 
 - `share_price`, `tvl`, `cumulative_pnl`: always overwrite (most recent wins)
-- `is_closed`, `allow_deposits`, `leader_fraction`, flow fields: `COALESCE(new, existing)` —
+- `is_closed`, `allow_deposits`, `leader_fraction`, `leader_commission`, `follower_count`, `cumulative_volume`, flow fields: `COALESCE(new, existing)` —
   a `None` new value preserves the existing value, so tombstone rows and
   overlap re-upserts do not wipe state
 

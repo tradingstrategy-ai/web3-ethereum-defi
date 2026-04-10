@@ -19,7 +19,9 @@ from eth_defi.hyperliquid.high_freq_metrics import (
     HyperliquidHighFreqMetricsDatabase,
     HyperliquidHighFreqPriceRow,
 )
-from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe_hf
+from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe_hf, create_hyperliquid_vault_row
+from eth_defi.research.vault_metrics import calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics, export_lifetime_row
+from eth_defi.research.wrangle_vault_prices import process_raw_vault_scan_data
 from eth_defi.compat import native_datetime_utc_now
 
 
@@ -144,6 +146,172 @@ def test_hf_export_raw_timestamps(tmp_path):
         assert returns.iloc[1] == pytest.approx(0.01, rel=1e-5)
         # Row 2 return: (1.020 - 1.010) / 1.010
         assert returns.iloc[2] == pytest.approx(0.0099, rel=1e-2)
+
+    finally:
+        db.close()
+
+
+@pytest.mark.timeout(30)
+def test_hf_export_forward_fills_sparse_metadata_snapshots(tmp_path):
+    """HF export should forward-fill sparse metadata snapshots within observed history."""
+    duckdb_path = tmp_path / "hf-export-forward-fill.duckdb"
+    db = HyperliquidHighFreqMetricsDatabase(duckdb_path)
+
+    try:
+        vault_addr = "0xbbbb0000000000000000000000000000bbbbbbbb"
+        base_ts = datetime.datetime(2025, 6, 1, 0, 0, 0)
+        now = native_datetime_utc_now()
+
+        rows = [
+            HyperliquidHighFreqPriceRow(
+                vault_address=vault_addr,
+                timestamp=base_ts,
+                share_price=1.000,
+                tvl=100000.0,
+                cumulative_pnl=0.0,
+                written_at=now,
+            ),
+            HyperliquidHighFreqPriceRow(
+                vault_address=vault_addr,
+                timestamp=base_ts + datetime.timedelta(hours=4),
+                share_price=1.010,
+                tvl=101000.0,
+                cumulative_pnl=1000.0,
+                follower_count=7,
+                is_closed=False,
+                allow_deposits=True,
+                leader_fraction=0.12,
+                leader_commission=3.0,
+                cumulative_volume=1000.0,
+                written_at=now,
+            ),
+            HyperliquidHighFreqPriceRow(
+                vault_address=vault_addr,
+                timestamp=base_ts + datetime.timedelta(hours=8),
+                share_price=1.020,
+                tvl=102000.0,
+                cumulative_pnl=2000.0,
+                written_at=now,
+            ),
+            HyperliquidHighFreqPriceRow(
+                vault_address=vault_addr,
+                timestamp=base_ts + datetime.timedelta(hours=12),
+                share_price=1.030,
+                tvl=103000.0,
+                cumulative_pnl=3000.0,
+                written_at=now,
+            ),
+        ]
+        db.upsert_high_freq_prices(rows)
+        db.save()
+
+        result_df = build_raw_prices_dataframe_hf(db).sort_values("timestamp").reset_index(drop=True)
+
+        assert "apr" not in result_df.columns
+
+        first_row = result_df.iloc[0]
+        assert pd.isna(first_row["follower_count"])
+        assert pd.isna(first_row["cumulative_volume"])
+        assert pd.isna(first_row["leader_commission"])
+        assert pd.isna(first_row["leader_fraction"])
+        assert pd.isna(first_row["deposits_open"])
+
+        for idx in range(1, 4):
+            row = result_df.iloc[idx]
+            assert row["follower_count"] == 7
+            assert row["cumulative_volume"] == pytest.approx(1000.0)
+            assert row["leader_commission"] == pytest.approx(3.0)
+            assert row["leader_fraction"] == pytest.approx(0.12)
+            assert row["deposits_open"] == "true"
+            assert row["deposit_closed_reason"] is None
+
+    finally:
+        db.close()
+
+
+@pytest.mark.timeout(30)
+def test_hf_forward_filled_metadata_reaches_cleaned_and_lifetime_outputs(tmp_path):
+    """HF metadata forward-fill should reach cleaned data and lifetime exports."""
+    duckdb_path = tmp_path / "hf-cleaned-forward-fill.duckdb"
+    db = HyperliquidHighFreqMetricsDatabase(duckdb_path)
+
+    try:
+        vault_addr = "0xcccc0000000000000000000000000000cccccccc"
+        base_ts = datetime.datetime(2025, 6, 1, 0, 0, 0)
+        now = native_datetime_utc_now()
+
+        rows = [
+            HyperliquidHighFreqPriceRow(
+                vault_address=vault_addr,
+                timestamp=base_ts,
+                share_price=1.000,
+                tvl=100000.0,
+                cumulative_pnl=0.0,
+                written_at=now,
+            ),
+            HyperliquidHighFreqPriceRow(
+                vault_address=vault_addr,
+                timestamp=base_ts + datetime.timedelta(hours=4),
+                share_price=1.010,
+                tvl=101000.0,
+                cumulative_pnl=1000.0,
+                follower_count=9,
+                is_closed=False,
+                allow_deposits=True,
+                leader_fraction=0.15,
+                leader_commission=5.0,
+                cumulative_volume=1500.0,
+                written_at=now,
+            ),
+            HyperliquidHighFreqPriceRow(
+                vault_address=vault_addr,
+                timestamp=base_ts + datetime.timedelta(hours=8),
+                share_price=1.020,
+                tvl=102000.0,
+                cumulative_pnl=2000.0,
+                written_at=now,
+            ),
+        ]
+        db.upsert_high_freq_prices(rows)
+        db.save()
+
+        raw_df = build_raw_prices_dataframe_hf(db)
+        spec, vault_row = create_hyperliquid_vault_row(
+            vault_address=vault_addr,
+            name="HF Forward Fill",
+            description=None,
+            tvl=102000.0,
+            create_time=base_ts,
+        )
+        cleaned_df = process_raw_vault_scan_data(
+            {spec: vault_row},
+            raw_df,
+            logger=lambda msg: None,
+            display=lambda _: None,
+        )
+        vault_df = cleaned_df[cleaned_df["id"] == spec.as_string_id()].sort_index()
+        latest_cleaned_row = vault_df.iloc[-1]
+
+        assert latest_cleaned_row["follower_count"] == 9
+        assert latest_cleaned_row["cumulative_volume"] == pytest.approx(1500.0)
+        assert latest_cleaned_row["leader_commission"] == pytest.approx(5.0)
+        assert latest_cleaned_row["leader_fraction"] == pytest.approx(0.15)
+
+        returns_df = calculate_hourly_returns_for_all_vaults(cleaned_df)
+        lifetime_df = calculate_lifetime_metrics(returns_df, {spec: vault_row})
+
+        assert len(lifetime_df) == 1
+        lifetime_row = lifetime_df.iloc[0]
+        assert lifetime_row["follower_count"] == 9
+        assert lifetime_row["cumulative_volume"] == pytest.approx(1500.0)
+        assert lifetime_row["leader_commission"] == pytest.approx(5.0)
+        assert lifetime_row["leader_fraction"] == pytest.approx(0.15)
+
+        exported = export_lifetime_row(lifetime_row)
+        assert exported["follower_count"] == 9
+        assert exported["cumulative_volume"] == pytest.approx(1500.0)
+        assert exported["leader_commission"] == pytest.approx(5.0)
+        assert exported["leader_fraction"] == pytest.approx(0.15)
 
     finally:
         db.close()

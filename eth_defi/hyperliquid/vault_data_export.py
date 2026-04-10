@@ -270,8 +270,8 @@ def _prepare_hypercore_export(
 ) -> pd.DataFrame:
     """Shared helper for building Hypercore export DataFrames.
 
-    Handles forward-filling state columns, computing deposit status,
-    and constructing the EVM-compatible output schema.
+    Handles forward-filling sparse snapshot columns, computing deposit
+    status, and constructing the EVM-compatible output schema.
 
     :param prices_df:
         Raw price data from DuckDB (daily or HF).
@@ -287,12 +287,25 @@ def _prepare_hypercore_export(
     :return:
         DataFrame matching the uncleaned Parquet schema.
     """
-    # Forward-fill sparse state columns within each vault
-    state_cols = ["is_closed", "allow_deposits", "leader_fraction"]
-    existing_state_cols = [c for c in state_cols if c in prices_df.columns]
-    if existing_state_cols:
+    # Forward-fill sparse snapshot columns within each vault.
+    #
+    # The HF scanner intentionally records metadata snapshots only on the
+    # latest row of each fetch. Export forwards these values within the
+    # observed history so raw and cleaned consumers do not need to
+    # reimplement "last non-null per vault" logic. Rows before the first
+    # observed snapshot remain NULL.
+    snapshot_cols = [
+        "is_closed",
+        "allow_deposits",
+        "leader_fraction",
+        "leader_commission",
+        "follower_count",
+        "cumulative_volume",
+    ]
+    existing_snapshot_cols = [c for c in snapshot_cols if c in prices_df.columns]
+    if existing_snapshot_cols:
         prices_df = prices_df.sort_values(sort_columns)
-        prices_df[existing_state_cols] = prices_df.groupby("vault_address")[existing_state_cols].ffill()
+        prices_df[existing_snapshot_cols] = prices_df.groupby("vault_address")[existing_snapshot_cols].ffill()
 
     # Compute deposit_closed_reason per row from forward-filled state.
     deposit_reasons = _compute_deposit_closed_reason_column(prices_df)
