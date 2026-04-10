@@ -192,7 +192,7 @@ class MorphoV1Vault(ERC4626Vault):
 
     def get_link(self, referral: str | None = None) -> str:
         chain_name = get_chain_name(self.chain_id).lower()
-        return f"https://app.morpho.org/{chain_name}/vault/{self.vault_address}/"
+        return f"https://app.morpho.org/{chain_name}/vault/{self.vault_address}"
 
     def fetch_available_liquidity(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
         """Get the amount of denomination token available for immediate withdrawal.

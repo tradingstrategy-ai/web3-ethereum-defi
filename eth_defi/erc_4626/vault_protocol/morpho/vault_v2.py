@@ -277,7 +277,7 @@ class MorphoV2Vault(ERC4626Vault):
             URL to the vault page on app.morpho.org
         """
         chain_name = get_chain_name(self.chain_id).lower()
-        return f"https://app.morpho.org/{chain_name}/vault/{self.vault_address}/"
+        return f"https://app.morpho.org/{chain_name}/vault/{self.vault_address}"
 
     def get_adapters_count(self, block_identifier: BlockIdentifier = "latest") -> int | None:
         """Get the number of adapters configured for this vault.
