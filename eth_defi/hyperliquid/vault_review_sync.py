@@ -38,6 +38,11 @@ from typing import Any
 from eth_typing import HexAddress
 
 #: Column order used in the review spreadsheet.
+#:
+#: ``Trading Strategy`` and ``Hyperliquid`` are derived link columns that
+#: the sync writes straight from the vault address. They let reviewers
+#: click through to the Trading Strategy vault page and the native
+#: Hyperliquid vault UI without leaving the spreadsheet.
 SHEET_HEADERS = (
     "Name",
     "address",
@@ -45,7 +50,34 @@ SHEET_HEADERS = (
     "TVL",
     "followers",
     "Review status",
+    "Trading Strategy",
+    "Hyperliquid",
 )
+
+#: Columns we require to be present when reading the sheet back.
+#:
+#: The two link columns are derived on write and are never consumed on
+#: read, so we don't require them: older sheets that predate the link
+#: columns can still be synced and will be upgraded to the new schema on
+#: the next write.
+REQUIRED_READ_HEADERS = (
+    "Name",
+    "address",
+    "APY 1M",
+    "TVL",
+    "followers",
+    "Review status",
+)
+
+#: Trading Strategy address-based vault redirector URL template.
+#:
+#: See: https://tradingstrategy.ai/trading-view/vaults/address/0x2431edfcb662e6ff6deab113cc91878a0b53fb0f
+TRADING_STRATEGY_VAULT_URL_TEMPLATE = "https://tradingstrategy.ai/trading-view/vaults/address/{address}"
+
+#: Hyperliquid native vault UI URL template.
+#:
+#: See: https://app.hyperliquid.xyz/vaults/0x3df9769bbbb335340872f01d8157c779d73c6ed0
+HYPERLIQUID_VAULT_URL_TEMPLATE = "https://app.hyperliquid.xyz/vaults/{address}"
 
 
 class ReviewStatus(str, Enum):
@@ -152,15 +184,22 @@ def _normalise_address(address: str) -> HexAddress:
 
 
 def _parse_review_status(raw_value: str | None) -> ReviewStatus | None:
-    """Parse a human-entered sheet status into an enum value."""
+    """Parse a human-entered sheet status into an enum value.
+
+    Comparison is case-insensitive so reviewers can type ``ok``, ``Ok``,
+    ``OK``, ``avoid``, ``Avoid``, or ``AVOID`` and have them all round-trip
+    through the sync. :py:func:`_format_review_status` always writes back
+    the canonical ``OK`` / ``Avoid`` form on the next sync.
+    """
     value = (raw_value or "").strip()
     if value == "":
         return None
-    if value == "OK":
+    normalised = value.upper()
+    if normalised == "OK":
         return ReviewStatus.ok
-    if value == "Avoid":
+    if normalised == "AVOID":
         return ReviewStatus.avoid
-    raise ValueError(f"Unknown review status {value!r}. Expected one of: OK, Avoid, empty")
+    raise ValueError(f"Unknown review status {value!r}. Expected one of: OK, Avoid, empty (case-insensitive)")
 
 
 def _format_review_status(review_status: ReviewStatus | None) -> str:
@@ -201,7 +240,13 @@ def _row_from_sheet_dict(row_dict: Mapping[str, str]) -> VaultReviewRow:
 
 
 def _row_to_sheet_values(row: VaultReviewRow) -> list[Any]:
-    """Serialise a typed review row to worksheet values."""
+    """Serialise a typed review row to worksheet values.
+
+    The ``Trading Strategy`` and ``Hyperliquid`` columns are derived from
+    the vault address on every sync — they are never read back — so they
+    always reflect the latest URL templates even if the reviewer opens
+    an old spreadsheet snapshot.
+    """
     return [
         row.name,
         row.address,
@@ -209,6 +254,8 @@ def _row_to_sheet_values(row: VaultReviewRow) -> list[Any]:
         "" if row.tvl is None else row.tvl,
         "" if row.followers is None else row.followers,
         _format_review_status(row.review_status),
+        TRADING_STRATEGY_VAULT_URL_TEMPLATE.format(address=row.address),
+        HYPERLIQUID_VAULT_URL_TEMPLATE.format(address=row.address),
     ]
 
 
@@ -232,7 +279,7 @@ def _extract_existing_rows(worksheet) -> tuple[list[HexAddress], dict[HexAddress
 
     rows = values[1:]
     column_index = {name: idx for idx, name in enumerate(header)}
-    for required in SHEET_HEADERS:
+    for required in REQUIRED_READ_HEADERS:
         if required not in column_index:
             raise ValueError(f"Worksheet is missing required column {required!r}")
 
@@ -240,7 +287,7 @@ def _extract_existing_rows(worksheet) -> tuple[list[HexAddress], dict[HexAddress
     rows_by_address: dict[HexAddress, VaultReviewRow] = {}
 
     for row in rows:
-        row_dict = {name: row[column_index[name]] if column_index[name] < len(row) else "" for name in SHEET_HEADERS}
+        row_dict = {name: row[column_index[name]] if column_index[name] < len(row) else "" for name in REQUIRED_READ_HEADERS}
         address = _normalise_address(row_dict["address"])
         if address in rows_by_address:
             raise ValueError(f"Duplicate address in worksheet: {address}")
