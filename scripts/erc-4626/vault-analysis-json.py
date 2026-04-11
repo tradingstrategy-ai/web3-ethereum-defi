@@ -59,8 +59,15 @@ TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "99999"))  # Top N vaults per cha
 # Path-typed arguments are accepted as explicit kwargs on :py:func:`main`
 # so in-process callers (notably :py:mod:`eth_defi.vault.post_processing`)
 # can route inputs and outputs through :py:func:`get_pipeline_data_dir`
-# without touching env vars. The env-var defaults below are only used by
-# the ``__main__`` entrypoint for manual invocations.
+# without touching env vars. :py:func:`main` itself is a pure function of
+# its kwargs — it does NOT read env vars. All env-var resolution happens
+# in :py:func:`_resolve_defaults_from_env` and only for the ``__main__``
+# entrypoint used by manual CLI runs.
+#: Default output filename when no ``OUTPUT_JSON`` override is supplied
+#: and no ``output_path`` is passed to :py:func:`main`.
+DEFAULT_OUTPUT_FILENAME = "stablecoin-vault-metrics.json"
+
+
 def _resolve_defaults_from_env() -> dict:
     """Read env-var defaults for manual invocation.
 
@@ -71,14 +78,16 @@ def _resolve_defaults_from_env() -> dict:
 
     :return:
         Dict with keys ``data_dir``, ``vault_db_path``, ``parquet_path``,
-        ``output_path`` — all :py:class:`pathlib.Path` instances.
+        ``output_path`` suitable for splatting into :py:func:`main`.
     """
     data_dir = Path(os.getenv("DATA_DIR", "~/.tradingstrategy/vaults")).expanduser()
+    env_output_json = os.getenv("OUTPUT_JSON")
+    output_path = Path(env_output_json).expanduser() if env_output_json else data_dir / DEFAULT_OUTPUT_FILENAME
     return {
         "data_dir": data_dir,
         "vault_db_path": None,  # None → let VaultDatabase.read() use its own default
         "parquet_path": data_dir / "cleaned-vault-prices-1h.parquet",
-        "output_path": Path(os.getenv("OUTPUT_JSON", "~/.tradingstrategy/vaults/stablecoin-vault-metrics.json")).expanduser(),
+        "output_path": output_path,
     }
 
 
@@ -133,11 +142,17 @@ def main(
 ):
     """Main execution function for vault analysis and JSON export.
 
+    All four arguments are independently overridable. When a path
+    argument is ``None``, it is derived from ``data_dir`` so that a
+    caller passing only ``data_dir`` reads *and* writes under that
+    directory consistently — never a mix of ``data_dir`` for reads and
+    ``~/.tradingstrategy/vaults`` for writes.
+
     :param data_dir:
         Pipeline data directory. When ``None``, falls back to the
         ``DATA_DIR`` env var (default ``~/.tradingstrategy/vaults``).
-        Only used to resolve ``parquet_path`` / ``output_path`` defaults
-        when those are also ``None``.
+        Acts as the anchor for both ``parquet_path`` and ``output_path``
+        defaults when those are also ``None``.
 
     :param vault_db_path:
         Path to the vault metadata pickle. When ``None``,
@@ -145,20 +160,23 @@ def main(
         :py:data:`eth_defi.vault.vaultdb.DEFAULT_VAULT_DATABASE`.
 
     :param parquet_path:
-        Path to the cleaned vault prices parquet. When ``None``, falls
-        back to ``data_dir / "cleaned-vault-prices-1h.parquet"``.
+        Path to the cleaned vault prices parquet. When ``None``,
+        defaults to ``data_dir / "cleaned-vault-prices-1h.parquet"``.
 
     :param output_path:
-        Destination JSON path. When ``None``, falls back to the
-        ``OUTPUT_JSON`` env var.
+        Destination JSON path. When ``None``, defaults to
+        ``data_dir / DEFAULT_OUTPUT_FILENAME``. The ``OUTPUT_JSON`` env
+        var is honoured by :py:func:`_resolve_defaults_from_env` in the
+        ``__main__`` entrypoint, not by :py:func:`main` itself, so
+        in-process callers get deterministic path anchoring with no env
+        var surprises.
     """
-    defaults = _resolve_defaults_from_env()
     if data_dir is None:
-        data_dir = defaults["data_dir"]
+        data_dir = Path(os.getenv("DATA_DIR", "~/.tradingstrategy/vaults")).expanduser()
     if parquet_path is None:
         parquet_path = data_dir / "cleaned-vault-prices-1h.parquet"
     if output_path is None:
-        output_path = defaults["output_path"]
+        output_path = data_dir / DEFAULT_OUTPUT_FILENAME
 
     # --------------------------------------------------------------------
     # Step 2: Load database and parquet price data
@@ -236,4 +254,8 @@ def main(
 
 
 if __name__ == "__main__":
-    main()
+    # Manual CLI runs: resolve all path defaults from env vars
+    # (DATA_DIR, OUTPUT_JSON) before invoking main(), so OUTPUT_JSON
+    # overrides still work for ad-hoc invocations without leaking env
+    # var reads into main() itself.
+    main(**_resolve_defaults_from_env())
