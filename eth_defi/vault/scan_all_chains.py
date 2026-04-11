@@ -46,7 +46,7 @@ from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_mu
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
-from eth_defi.vault.post_processing import run_post_processing
+from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
 from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, get_pipeline_data_dir
 
 #: How many days of backups to keep
@@ -984,6 +984,7 @@ def run_scan_tick(
     retry_count: int,
     skip_post_processing: bool,
     skip_cleaning: bool,
+    skip_top_vaults: bool,
     skip_sparklines: bool,
     skip_metadata: bool,
     skip_data: bool,
@@ -1188,6 +1189,7 @@ def run_scan_tick(
             scan_grvt=scan_grvt,
             scan_lighter=scan_lighter,
             skip_cleaning=skip_cleaning,
+            skip_top_vaults=skip_top_vaults,
             skip_sparklines=skip_sparklines,
             skip_metadata=skip_metadata,
             skip_data=skip_data,
@@ -1270,9 +1272,19 @@ def main():
     frequency = os.environ.get("FREQUENCY", "1h")
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"
     skip_cleaning = os.environ.get("SKIP_CLEANING", "false").lower() == "true"
+    skip_top_vaults = os.environ.get("SKIP_TOP_VAULTS", "false").lower() == "true"
     skip_sparklines = os.environ.get("SKIP_SPARKLINES", "false").lower() == "true"
     skip_metadata = os.environ.get("SKIP_METADATA", "false").lower() == "true"
     skip_data = os.environ.get("SKIP_DATA", "false").lower() == "true"
+
+    # Fail-fast: refuse to start the scan loop if the top-vaults R2 upload
+    # is not configured. Discovering at the end of a multi-hour scan that
+    # the final upload step cannot run is unacceptable ops risk — crash
+    # immediately with a clear error so the operator fixes the env file.
+    # The SKIP_TOP_VAULTS=true escape hatch covers the "I know what I'm
+    # doing" case (e.g. SKIP_POST_PROCESSING=true debug runs).
+    if not skip_post_processing:
+        validate_top_vaults_config(skip_top_vaults=skip_top_vaults)
 
     loop_interval = int(os.environ.get("LOOP_INTERVAL_SECONDS", "0"))
     max_cycles = int(os.environ.get("MAX_CYCLES", "0"))
@@ -1406,6 +1418,7 @@ def main():
         retry_count=retry_count,
         skip_post_processing=skip_post_processing,
         skip_cleaning=skip_cleaning,
+        skip_top_vaults=skip_top_vaults,
         skip_sparklines=skip_sparklines,
         skip_metadata=skip_metadata,
         skip_data=skip_data,

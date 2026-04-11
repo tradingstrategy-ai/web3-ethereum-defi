@@ -382,21 +382,39 @@ poetry run python scripts/erc-4626/identify-curators.py
 
 Multi-chain vault analysis with JSON export and lifetime metric analysis.
 
-In production, run with `OUTPUT_JSON` pointing to the upload path:
+In production, this script runs automatically as part of
+`run_post_processing()` (invoked by both `scan-vaults-all-chains.py`
+and `post-process-prices.py`), which generates
+`top_vaults_by_chain.json` into the active pipeline data directory and
+uploads it to the `R2_TOP_VAULTS_*` bucket. No separate `rclone` step
+is needed.
+
+For manual runs:
 
 ```shell
-OUTPUT_JSON=~/.tradingstrategy/top_vaults_by_chain.json poetry run python scripts/erc-4626/vault-analysis-json.py
+OUTPUT_JSON=/tmp/top-vaults.json poetry run python scripts/erc-4626/vault-analysis-json.py
 ```
 
 | Variable | Description |
 |----------|-------------|
 | `OUTPUT_JSON` | Optional. Output file path. Default: `~/.tradingstrategy/vaults/stablecoin-vault-metrics.json`. |
+| `DATA_DIR` | Optional. Vault data directory. Default: `~/.tradingstrategy/vaults`. |
 
-After generating, upload to R2 with rclone:
+Pipeline integration (set on the scanner host, not for manual runs):
 
-```shell
-rclone copy ~/.tradingstrategy/top_vaults_by_chain.json vaults-storage:top-defi-vaults/
-```
+| Variable | Description |
+|----------|-------------|
+| `SKIP_TOP_VAULTS` | Optional. Skip the top-vaults JSON generation and upload step. Default: `false`. |
+| `R2_TOP_VAULTS_BUCKET_NAME` | Required (unless `SKIP_TOP_VAULTS=true`). Primary (public) R2 bucket, e.g. `top-defi-vaults.tradingstrategy.ai`. |
+| `R2_TOP_VAULTS_ACCESS_KEY_ID` | Required. R2 access key ID. |
+| `R2_TOP_VAULTS_SECRET_ACCESS_KEY` | Required. R2 secret access key. |
+| `R2_TOP_VAULTS_ENDPOINT_URL` | Required. R2 endpoint URL. |
+| `R2_TOP_VAULTS_PUBLIC_URL` | Optional. Public base URL for logging upload URLs. |
+| `R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME` | Optional. Alternative (private) bucket. When set, the JSON is uploaded to both primary and alternative buckets using the same credentials. |
+
+The scanner refuses to start its first cycle if any of the required
+`R2_TOP_VAULTS_*` vars are missing — set `SKIP_TOP_VAULTS=true`
+explicitly if you want to disable the step for a debug run.
 
 ### vault-analysis-gsheet.py
 

@@ -47,16 +47,39 @@ from eth_defi.research.vault_metrics import (
 )
 
 # --------------------------------------------------------------------
-# Configuration via environment variables
+# Configuration via environment variables (scalar tunables)
 # --------------------------------------------------------------------
 MONTHS = int(os.getenv("MONTHS", "3"))  # Time window in months
 EVENT_THRESHOLD = int(os.getenv("EVENT_THRESHOLD", "5"))  # Min event count
 MAX_ANNUALISED_RETURN = float(os.getenv("MAX_ANNUALISED_RETURN", "4.0"))  # Cap annualized return at 400%
 THRESHOLD_TVL = float(os.getenv("MIN_TVL", "5000"))  # Minimum TVL filter
 TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "99999"))  # Top N vaults per chain
-OUTPUT_JSON = Path(os.getenv("OUTPUT_JSON", "~/.tradingstrategy/vaults/stablecoin-vault-metrics.json")).expanduser()
-DATA_DIR = Path(os.getenv("DATA_DIR", "~/.tradingstrategy/vaults")).expanduser()
-PARQUET_FILE = DATA_DIR / "cleaned-vault-prices-1h.parquet"
+
+
+# Path-typed arguments are accepted as explicit kwargs on :py:func:`main`
+# so in-process callers (notably :py:mod:`eth_defi.vault.post_processing`)
+# can route inputs and outputs through :py:func:`get_pipeline_data_dir`
+# without touching env vars. The env-var defaults below are only used by
+# the ``__main__`` entrypoint for manual invocations.
+def _resolve_defaults_from_env() -> dict:
+    """Read env-var defaults for manual invocation.
+
+    Returns a dict of path defaults that the ``__main__`` entrypoint
+    passes into :py:func:`main`. Keeping this in a function (rather than
+    at module import time) means env vars are re-read on every call and
+    can be set by the caller just before invocation.
+
+    :return:
+        Dict with keys ``data_dir``, ``vault_db_path``, ``parquet_path``,
+        ``output_path`` — all :py:class:`pathlib.Path` instances.
+    """
+    data_dir = Path(os.getenv("DATA_DIR", "~/.tradingstrategy/vaults")).expanduser()
+    return {
+        "data_dir": data_dir,
+        "vault_db_path": None,  # None → let VaultDatabase.read() use its own default
+        "parquet_path": data_dir / "cleaned-vault-prices-1h.parquet",
+        "output_path": Path(os.getenv("OUTPUT_JSON", "~/.tradingstrategy/vaults/stablecoin-vault-metrics.json")).expanduser(),
+    }
 
 
 def find_non_serializable_paths(obj, path=None, results=None):
@@ -102,15 +125,49 @@ def find_non_serializable_paths(obj, path=None, results=None):
     return results
 
 
-def main():
-    """Main execution function for vault analysis and JSON export."""
+def main(
+    data_dir: Path | None = None,
+    vault_db_path: Path | None = None,
+    parquet_path: Path | None = None,
+    output_path: Path | None = None,
+):
+    """Main execution function for vault analysis and JSON export.
+
+    :param data_dir:
+        Pipeline data directory. When ``None``, falls back to the
+        ``DATA_DIR`` env var (default ``~/.tradingstrategy/vaults``).
+        Only used to resolve ``parquet_path`` / ``output_path`` defaults
+        when those are also ``None``.
+
+    :param vault_db_path:
+        Path to the vault metadata pickle. When ``None``,
+        :py:meth:`VaultDatabase.read` uses
+        :py:data:`eth_defi.vault.vaultdb.DEFAULT_VAULT_DATABASE`.
+
+    :param parquet_path:
+        Path to the cleaned vault prices parquet. When ``None``, falls
+        back to ``data_dir / "cleaned-vault-prices-1h.parquet"``.
+
+    :param output_path:
+        Destination JSON path. When ``None``, falls back to the
+        ``OUTPUT_JSON`` env var.
+    """
+    defaults = _resolve_defaults_from_env()
+    if data_dir is None:
+        data_dir = defaults["data_dir"]
+    if parquet_path is None:
+        parquet_path = data_dir / "cleaned-vault-prices-1h.parquet"
+    if output_path is None:
+        output_path = defaults["output_path"]
+
     # --------------------------------------------------------------------
     # Step 2: Load database and parquet price data
     # --------------------------------------------------------------------
-    data_folder = DATA_DIR
-    vault_db = VaultDatabase.read()
-    cleaned_data_parquet_file = PARQUET_FILE
-    prices_df = pd.read_parquet(cleaned_data_parquet_file)
+    if vault_db_path is not None:
+        vault_db = VaultDatabase.read(vault_db_path)
+    else:
+        vault_db = VaultDatabase.read()
+    prices_df = pd.read_parquet(parquet_path)
     print(f"We have {len(vault_db):,} vaults in the database and {len(prices_df):,} price rows.")
 
     chains = prices_df["chain"].unique()
@@ -171,10 +228,11 @@ def main():
         raise ValueError("Non-serializable values found; aborting JSON export.")
 
     # 7️⃣ Write to JSON file (strict mode)
-    with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(output_data, f, indent=2, ensure_ascii=False, allow_nan=False)
 
-    print(f"✅ Exported {len(vaults):,} to {OUTPUT_JSON}")
+    print(f"✅ Exported {len(vaults):,} to {output_path}")
 
 
 if __name__ == "__main__":

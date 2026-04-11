@@ -1,9 +1,15 @@
 """Standalone post-processing pipeline for vault price data.
 
 Merges native protocol data (Hypercore, GRVT, Lighter) into the
-uncleaned parquet, cleans the data, and uploads to R2. Each step
-reports success/failure and the script exits with code 1 if any
-step fails.
+uncleaned parquet, cleans the data, generates the top-vaults JSON,
+and uploads to R2. Each step reports success/failure and the script
+exits with code 1 if any step fails.
+
+This script is a thin wrapper around
+:py:func:`eth_defi.vault.post_processing.run_post_processing` so it
+stays in lockstep with the production scanner pipeline — any new step
+added to ``run_post_processing()`` automatically shows up here with no
+drift.
 
 Use this to debug post-processing issues independently of the
 full chain scanning pipeline.
@@ -19,19 +25,19 @@ Usage:
     source .local-test.env && poetry run python scripts/erc-4626/post-process-prices.py
 
     # Include Hypercore, GRVT, Lighter merges
-    source .local-test.env && \
-    MERGE_HYPERCORE=true MERGE_GRVT=true MERGE_LIGHTER=true \
+    source .local-test.env && \\
+    MERGE_HYPERCORE=true MERGE_GRVT=true MERGE_LIGHTER=true \\
     poetry run python scripts/erc-4626/post-process-prices.py
 
     # Only merge and clean, skip all R2 uploads
-    SKIP_SPARKLINES=true SKIP_METADATA=true SKIP_DATA=true \
+    SKIP_SPARKLINES=true SKIP_METADATA=true SKIP_DATA=true SKIP_TOP_VAULTS=true \\
     poetry run python scripts/erc-4626/post-process-prices.py
 
     # Skip only data file upload
     SKIP_DATA=true poetry run python scripts/erc-4626/post-process-prices.py
 
     # Test upload (prefixes uploaded filenames with "test-")
-    source .local-test.env && \
+    source .local-test.env && \\
     UPLOAD_PREFIX=test- poetry run python scripts/erc-4626/post-process-prices.py
 
 Environment variables:
@@ -39,14 +45,16 @@ Environment variables:
 Pipeline control:
 
 - ``LOG_LEVEL``: Logging level (default: ``info``)
+- ``PIPELINE_DATA_DIR``: Override pipeline data directory (default: ``~/.tradingstrategy/vaults``)
 - ``MERGE_HYPERCORE``: Merge Hyperliquid native vault data (default: ``false``)
 - ``MERGE_GRVT``: Merge GRVT native vault data (default: ``false``)
 - ``MERGE_LIGHTER``: Merge Lighter native pool data (default: ``false``)
 - ``SKIP_CLEANING``: Skip price cleaning step (default: ``false``)
+- ``SKIP_TOP_VAULTS``: Skip top-vaults JSON generation and R2 upload (default: ``false``)
 - ``SKIP_SPARKLINES``: Skip sparkline image export to R2 (default: ``false``)
 - ``SKIP_METADATA``: Skip protocol/stablecoin metadata export to R2 (default: ``false``)
 - ``SKIP_DATA``: Skip data file (parquet, pickle) export to R2 (default: ``false``)
-- ``UPLOAD_PREFIX``: Prefix for uploaded data file keys, e.g. ``test-`` (default: ``""``)
+- ``UPLOAD_PREFIX``: Prefix for uploaded data file keys, e.g. ``test-`` (default: ``""``). Applies to all R2 uploads including the top-vaults JSON.
 - ``MAX_WORKERS``: Number of parallel workers for rendering/uploading (default: ``20``)
 
 Sparkline R2 bucket (required unless ``SKIP_SPARKLINES=true``):
@@ -76,6 +84,15 @@ Data files R2 bucket (falls back to ``R2_VAULT_METADATA_*`` if not set):
 - ``R2_DATA_SECRET_ACCESS_KEY``: R2 secret access key for data bucket
 - ``R2_DATA_ENDPOINT_URL``: R2 endpoint URL for data bucket
 - ``R2_DATA_PUBLIC_URL``: Public base URL for data files
+
+Top-vaults JSON R2 bucket (required unless ``SKIP_TOP_VAULTS=true``):
+
+- ``R2_TOP_VAULTS_BUCKET_NAME``: R2 bucket for ``top_vaults_by_chain.json`` (primary public bucket, e.g. ``top-defi-vaults.tradingstrategy.ai``)
+- ``R2_TOP_VAULTS_ACCESS_KEY_ID``: R2 access key ID for top-vaults bucket
+- ``R2_TOP_VAULTS_SECRET_ACCESS_KEY``: R2 secret access key for top-vaults bucket
+- ``R2_TOP_VAULTS_ENDPOINT_URL``: R2 endpoint URL for top-vaults bucket
+- ``R2_TOP_VAULTS_PUBLIC_URL``: Optional public base URL for the top-vaults JSON
+- ``R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME``: Optional alternative (private) bucket. When set, the JSON is uploaded to both primary and alternative using the same credentials.
 """
 
 import logging
@@ -85,13 +102,8 @@ import sys
 from tabulate import tabulate
 
 from eth_defi.utils import setup_console_logging
-from eth_defi.vault.post_processing import (
-    clean_prices,
-    export_data_files,
-    export_protocol_metadata,
-    export_sparklines,
-    merge_native_protocols,
-)
+from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
+from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -105,50 +117,54 @@ def main():
     merge_grvt = os.environ.get("MERGE_GRVT", "false").lower() == "true"
     merge_lighter = os.environ.get("MERGE_LIGHTER", "false").lower() == "true"
     skip_cleaning = os.environ.get("SKIP_CLEANING", "false").lower() == "true"
+    skip_top_vaults = os.environ.get("SKIP_TOP_VAULTS", "false").lower() == "true"
     skip_sparklines = os.environ.get("SKIP_SPARKLINES", "false").lower() == "true"
     skip_metadata = os.environ.get("SKIP_METADATA", "false").lower() == "true"
     skip_data = os.environ.get("SKIP_DATA", "false").lower() == "true"
 
-    steps = {}
+    # Fail-fast: crash with a clear error before we touch anything if the
+    # top-vaults R2 upload is not configured. Matches scan-vaults-all-chains.py.
+    validate_top_vaults_config(skip_top_vaults=skip_top_vaults)
 
-    # Step 1: Merge native protocols
-    logger.info("Step 1: Merging native protocol data")
-    merge_results = merge_native_protocols(
-        merge_hypercore=merge_hypercore,
-        merge_grvt=merge_grvt,
-        merge_lighter=merge_lighter,
-    )
-    steps.update(merge_results)
+    # Compute all pipeline paths from the shared data directory so
+    # PIPELINE_DATA_DIR is honoured identically to the production scanner.
+    # Without explicit paths, run_post_processing() falls back to the
+    # frozen module-level defaults resolved at import time from Path.home(),
+    # which silently ignore PIPELINE_DATA_DIR.
+    data_dir = get_pipeline_data_dir()
+    vault_db_path = data_dir / "vault-metadata-db.pickle"
+    uncleaned_price_path = data_dir / "vault-prices-1h.parquet"
+    cleaned_price_path = data_dir / "cleaned-vault-prices-1h.parquet"
+    hyperliquid_db_path = data_dir / "hyperliquid-vaults.duckdb"
+    hyperliquid_hf_db_path = data_dir / "hyperliquid-vaults-hf.duckdb"
+    grvt_db_path = data_dir / "grvt-vaults.duckdb"
+    lighter_db_path = data_dir / "lighter-pools.duckdb"
+
+    logger.info("Pipeline data directory: %s", data_dir)
     if not any([merge_hypercore, merge_grvt, merge_lighter]):
         logger.info("No native protocol merges requested (set MERGE_HYPERCORE/MERGE_GRVT/MERGE_LIGHTER=true)")
 
-    # Step 2: Clean prices
-    if skip_cleaning:
-        logger.info("Step 2: Skipping price cleaning (SKIP_CLEANING=true)")
-    else:
-        logger.info("Step 2: Cleaning prices")
-        steps["clean-prices"] = clean_prices()
-
-    # Step 3: Export sparklines to R2
-    if skip_sparklines:
-        logger.info("Step 3: Skipping sparkline export (SKIP_SPARKLINES=true)")
-    else:
-        logger.info("Step 3: Exporting sparklines")
-        steps["export-sparklines"] = export_sparklines()
-
-    # Step 4: Export protocol metadata to R2
-    if skip_metadata:
-        logger.info("Step 4: Skipping metadata export (SKIP_METADATA=true)")
-    else:
-        logger.info("Step 4: Exporting protocol metadata")
-        steps["export-protocol-metadata"] = export_protocol_metadata()
-
-    # Step 5: Export data files to R2
-    if skip_data:
-        logger.info("Step 5: Skipping data file export (SKIP_DATA=true)")
-    else:
-        logger.info("Step 5: Exporting data files")
-        steps["export-data-files"] = export_data_files()
+    # run_post_processing() uses scan_hypercore/scan_grvt/scan_lighter for
+    # the "merge this native protocol's data" flags. We keep the
+    # MERGE_* env var names that this debug script has always documented
+    # and map them at the call site — no behavioural change for operators.
+    steps = run_post_processing(
+        scan_hypercore=merge_hypercore,
+        scan_grvt=merge_grvt,
+        scan_lighter=merge_lighter,
+        skip_cleaning=skip_cleaning,
+        skip_top_vaults=skip_top_vaults,
+        skip_sparklines=skip_sparklines,
+        skip_metadata=skip_metadata,
+        skip_data=skip_data,
+        uncleaned_parquet_path=uncleaned_price_path,
+        hyperliquid_db_path=hyperliquid_db_path,
+        hyperliquid_hf_db_path=hyperliquid_hf_db_path,
+        grvt_db_path=grvt_db_path,
+        lighter_db_path=lighter_db_path,
+        vault_db_path=vault_db_path,
+        cleaned_path=cleaned_price_path,
+    )
 
     # Summary
     rows = []
