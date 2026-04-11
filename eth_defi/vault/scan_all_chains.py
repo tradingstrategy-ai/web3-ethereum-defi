@@ -157,12 +157,21 @@ def get_due_items(
     cycle_overrides: dict[str, datetime.timedelta],
     default_cycle: datetime.timedelta,
     state: dict[str, str],
+    tolerance: datetime.timedelta = datetime.timedelta(0),
 ) -> tuple[list, list[str]]:
     """Determine which chains and protocols are due for scanning.
 
     An item is due when either:
     - It has never been scanned (not in *state*)
-    - ``now - last_completed >= cycle_interval``
+    - ``now - last_completed >= cycle_interval - tolerance``
+
+    The *tolerance* argument prevents scheduler drift on fixed-interval
+    loops: because state save time lags tick start time by the scan
+    duration, a rigid ``>= cycle`` check always falls a few seconds short
+    of the 4h mark and slips by one whole tick (e.g. a "4h" cycle turns
+    into 5h when ``LOOP_INTERVAL_SECONDS=3600``). Passing ``tolerance =
+    loop_interval / 2`` fires the scan at whichever tick is closest to
+    the target time, eliminating drift.
 
     On a fresh state file every item is due on the first tick.
     EVM chains without a configured RPC URL will be skipped at scan time.
@@ -177,23 +186,29 @@ def get_due_items(
         Default cycle for items not in *cycle_overrides*.
     :param state:
         Last-completed timestamps from :py:func:`load_cycle_state`.
+    :param tolerance:
+        Allowed slack when checking if the cycle has elapsed. Defaults
+        to zero (strict comparison). The loop sets this to half the
+        tick interval so scans fire at the nearest tick rather than
+        drifting by one tick each cycle.
     :return:
         Tuple of ``(due_chains, due_protocols)``.
     """
     now = native_datetime_utc_now()
     due_chains = []
     due_protocols = []
+    threshold = lambda cycle: cycle - tolerance  # noqa: E731
 
     for chain in chain_configs:
         cycle = cycle_overrides.get(chain.name, default_cycle)
         last_str = state.get(chain.name)
-        if last_str is None or (now - datetime.datetime.fromisoformat(last_str)) >= cycle:
+        if last_str is None or (now - datetime.datetime.fromisoformat(last_str)) >= threshold(cycle):
             due_chains.append(chain)
 
     for proto in native_protocols:
         cycle = cycle_overrides.get(proto, default_cycle)
         last_str = state.get(proto)
-        if last_str is None or (now - datetime.datetime.fromisoformat(last_str)) >= cycle:
+        if last_str is None or (now - datetime.datetime.fromisoformat(last_str)) >= threshold(cycle):
             due_protocols.append(proto)
 
     return due_chains, due_protocols
@@ -1415,6 +1430,13 @@ def main():
         logger.info("FORCE_RESCAN: true — clearing cycle state for first cycle")
         save_cycle_state({}, cycle_state_path)
 
+    # Half-tick tolerance eliminates scheduler drift on fixed-interval loops.
+    # Without tolerance, a rigid ``>= cycle`` check always falls a few seconds
+    # short of the nominal cycle mark (state save time lags tick start time by
+    # the scan duration) and every check slips by one whole tick, turning a
+    # "4h" cycle into 5h when the loop interval is 1h.
+    schedule_tolerance = datetime.timedelta(seconds=loop_interval) / 2 if looped_mode else datetime.timedelta(0)
+
     cycle = 0
     while True:
         cycle += 1
@@ -1441,6 +1463,7 @@ def main():
                         cycle_overrides,
                         default_cycle,
                         state,
+                        tolerance=schedule_tolerance,
                     )
 
                     if due_chains or due_protocols:
@@ -1455,7 +1478,10 @@ def main():
                             last_str = state.get(name)
                             if last_str is not None:
                                 elapsed = now - datetime.datetime.fromisoformat(last_str)
-                                remaining = (cycle_td - elapsed).total_seconds() / 3600
+                                # Mirror the tolerance used in get_due_items so
+                                # the displayed "due in" matches when the scan
+                                # will actually fire.
+                                remaining = (cycle_td - schedule_tolerance - elapsed).total_seconds() / 3600
                                 not_due_items[name] = max(0.0, remaining)
                             else:
                                 not_due_items[name] = 0.0
