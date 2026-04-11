@@ -79,8 +79,13 @@ def _create_gspread_client(
 ):
     """Create an authorised gspread client.
 
-    This helper lazy-imports the optional Google dependencies so importing
-    :pymod:`eth_defi.hyperliquid.vault_review_sync` does not require them.
+    This helper lazy-imports the optional Google dependency so importing
+    :pymod:`eth_defi.hyperliquid.vault_review_sync` does not require it.
+
+    The repository's earlier Google Sheets tooling uses
+    :py:func:`gspread.service_account` with a service-account JSON file.
+    We keep that configuration style here and additionally support parsed
+    credentials for callers that already hold the JSON payload in memory.
 
     :param service_account_file:
         Path to a Google service account JSON file.
@@ -98,19 +103,13 @@ def _create_gspread_client(
 
     try:
         import gspread  # noqa: PLC0415
-        from google.oauth2.service_account import Credentials  # noqa: PLC0415
     except ModuleNotFoundError as exc:  # pragma: no cover - depends on optional extras
         message = "Google Sheets support requires the optional 'gsheets' dependencies"
         raise ImportError(message) from exc
 
-    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-
     if service_account_info is not None:
-        credentials = Credentials.from_service_account_info(dict(service_account_info), scopes=scopes)
-    else:
-        credentials = Credentials.from_service_account_file(str(service_account_file), scopes=scopes)
-
-    return gspread.authorize(credentials)
+        return gspread.service_account_from_dict(dict(service_account_info))
+    return gspread.service_account(filename=str(service_account_file))
 
 
 def _open_worksheet(
@@ -226,6 +225,11 @@ def _extract_existing_rows(worksheet) -> tuple[list[HexAddress], dict[HexAddress
         return [], {}
 
     header = values[0]
+    if not any(cell for cell in header):
+        # Brand-new / empty worksheet: gspread returns ``[[]]`` (or a single row
+        # of empty cells) instead of an empty list. Treat this as "no data".
+        return [], {}
+
     rows = values[1:]
     column_index = {name: idx for idx, name in enumerate(header)}
     for required in SHEET_HEADERS:
