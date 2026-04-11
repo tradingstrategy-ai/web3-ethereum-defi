@@ -140,6 +140,8 @@ feedparser = {version = "^6.0.11", optional = true}
 tweepy = {version = "^4.14", optional = true}
 # LZ4 decompression for Hyperliquid S3 archive backfill
 lz4 = {version = "^4.3.0", optional = true}
+# Google Sheets sync for Hyperliquid manual vault review workflow
+gspread = {version = "^6.2.1", optional = true}
 python-slugify = "^8.0.4"
 requests-ratelimiter = "^0.7.0"
 strictyaml = "^1.7.3"
@@ -185,6 +187,7 @@ cloudflare_r2 = ["boto3"]
 duckdb = ["duckdb"]
 posts = ["duckdb", "feedparser", "tweepy"]
 hyperliquid_backfill = ["boto3", "lz4", "duckdb"]
+gsheets = ["gspread"]
 hypersync = ["hypersync-temp"]
 #tester = ["eth-tester"]
 

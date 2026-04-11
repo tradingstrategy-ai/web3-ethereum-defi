@@ -23,7 +23,7 @@ from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_DAILY_METRICS_D
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.lighter.vault_data_export import merge_into_uncleaned_parquet as lighter_merge_parquet
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
-from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, get_pipeline_data_dir
+from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, get_pipeline_data_dir
 
 
 #: Required env vars for the top-vaults JSON R2 upload.
@@ -229,9 +229,9 @@ def validate_top_vaults_config(skip_top_vaults: bool = False) -> None:
         logger.info("SKIP_TOP_VAULTS=true — skipping R2 top-vaults config validation")
         return
 
-    missing = [name for name in _R2_TOP_VAULTS_REQUIRED_ENV_VARS if not os.environ.get(name)]
-    if missing:
-        raise RuntimeError("R2 top-vaults upload is not configured: " + ", ".join(missing) + " is not set. Either set the R2_TOP_VAULTS_* env vars or set SKIP_TOP_VAULTS=true to explicitly disable the top-vaults JSON export.")
+    missing_name = next((name for name in _R2_TOP_VAULTS_REQUIRED_ENV_VARS if not os.environ.get(name)), None)
+    if missing_name:
+        raise RuntimeError(f"R2 top-vaults upload is not configured: {missing_name} is not set. Either set the R2_TOP_VAULTS_* env vars or set SKIP_TOP_VAULTS=true to explicitly disable the top-vaults JSON export.")
 
     alt_bucket = os.environ.get("R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME")
     if alt_bucket:
@@ -280,6 +280,8 @@ def export_top_vaults_json(
         helpers so the caller can log and continue.
     """
     try:
+        validate_top_vaults_config(skip_top_vaults=False)
+
         base = get_pipeline_data_dir()
         if vault_db_path is None:
             vault_db_path = base / "vault-metadata-db.pickle"
@@ -290,6 +292,8 @@ def export_top_vaults_json(
 
         logger.info("Generating top vaults JSON at %s", output_path)
         spec = importlib.util.spec_from_file_location("vault_analysis_json", "scripts/erc-4626/vault-analysis-json.py")
+        assert spec is not None
+        assert spec.loader is not None
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         module.main(

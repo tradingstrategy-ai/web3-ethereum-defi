@@ -38,7 +38,7 @@ from eth_defi.token import is_stablecoin_like
 
 # Import core TradingStrategy / eth_defi modules
 from eth_defi.vault.base import VaultSpec  # noqa: F401
-from eth_defi.vault.vaultdb import VaultDatabase
+from eth_defi.vault.vaultdb import VaultDatabase, get_pipeline_data_dir
 from eth_defi.research.vault_metrics import (
     calculate_lifetime_metrics,
     export_lifetime_row,
@@ -56,13 +56,6 @@ THRESHOLD_TVL = float(os.getenv("MIN_TVL", "5000"))  # Minimum TVL filter
 TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "99999"))  # Top N vaults per chain
 
 
-# Path-typed arguments are accepted as explicit kwargs on :py:func:`main`
-# so in-process callers (notably :py:mod:`eth_defi.vault.post_processing`)
-# can route inputs and outputs through :py:func:`get_pipeline_data_dir`
-# without touching env vars. :py:func:`main` itself is a pure function of
-# its kwargs — it does NOT read env vars. All env-var resolution happens
-# in :py:func:`_resolve_defaults_from_env` and only for the ``__main__``
-# entrypoint used by manual CLI runs.
 #: Default output filename when no ``OUTPUT_JSON`` override is supplied
 #: and no ``output_path`` is passed to :py:func:`main`.
 DEFAULT_OUTPUT_FILENAME = "stablecoin-vault-metrics.json"
@@ -80,12 +73,12 @@ def _resolve_defaults_from_env() -> dict:
         Dict with keys ``data_dir``, ``vault_db_path``, ``parquet_path``,
         ``output_path`` suitable for splatting into :py:func:`main`.
     """
-    data_dir = Path(os.getenv("DATA_DIR", "~/.tradingstrategy/vaults")).expanduser()
+    data_dir = Path(os.getenv("DATA_DIR", str(get_pipeline_data_dir()))).expanduser()
     env_output_json = os.getenv("OUTPUT_JSON")
     output_path = Path(env_output_json).expanduser() if env_output_json else data_dir / DEFAULT_OUTPUT_FILENAME
     return {
         "data_dir": data_dir,
-        "vault_db_path": None,  # None → let VaultDatabase.read() use its own default
+        "vault_db_path": data_dir / "vault-metadata-db.pickle",
         "parquet_path": data_dir / "cleaned-vault-prices-1h.parquet",
         "output_path": output_path,
     }
@@ -171,20 +164,20 @@ def main(
         in-process callers get deterministic path anchoring with no env
         var surprises.
     """
+    defaults = _resolve_defaults_from_env()
     if data_dir is None:
-        data_dir = Path(os.getenv("DATA_DIR", "~/.tradingstrategy/vaults")).expanduser()
+        data_dir = defaults["data_dir"]
+    if vault_db_path is None:
+        vault_db_path = defaults["vault_db_path"]
     if parquet_path is None:
-        parquet_path = data_dir / "cleaned-vault-prices-1h.parquet"
+        parquet_path = defaults["parquet_path"]
     if output_path is None:
-        output_path = data_dir / DEFAULT_OUTPUT_FILENAME
+        output_path = defaults["output_path"]
 
     # --------------------------------------------------------------------
     # Step 2: Load database and parquet price data
     # --------------------------------------------------------------------
-    if vault_db_path is not None:
-        vault_db = VaultDatabase.read(vault_db_path)
-    else:
-        vault_db = VaultDatabase.read()
+    vault_db = VaultDatabase.read(vault_db_path)
     prices_df = pd.read_parquet(parquet_path)
     print(f"We have {len(vault_db):,} vaults in the database and {len(prices_df):,} price rows.")
 
@@ -254,8 +247,4 @@ def main(
 
 
 if __name__ == "__main__":
-    # Manual CLI runs: resolve all path defaults from env vars
-    # (DATA_DIR, OUTPUT_JSON) before invoking main(), so OUTPUT_JSON
-    # overrides still work for ad-hoc invocations without leaking env
-    # var reads into main() itself.
-    main(**_resolve_defaults_from_env())
+    main()
