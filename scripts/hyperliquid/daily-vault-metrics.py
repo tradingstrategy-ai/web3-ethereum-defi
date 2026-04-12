@@ -64,7 +64,7 @@ from eth_defi.hyperliquid.vault_data_export import (
     merge_into_vault_database,
     open_and_merge_hypercore_prices,
 )
-from eth_defi.hyperliquid.vault_review_sync import VaultReviewRow, sync_vault_review_sheet
+from eth_defi.hyperliquid.vault_review_sync import VaultReviewRow, fetch_vault_review_statuses, sync_vault_review_sheet
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE
@@ -146,14 +146,43 @@ def main():
     )
 
     metadata_df = None
+    sheet_fetch_failed = False
     try:
         vault_count = db.get_vault_count()
         print(f"Stored metrics for {vault_count} vaults in DuckDB")
         metadata_df = db.get_all_vault_metadata()
 
+        # Step 1b: Pull the latest manual review decisions from the Google
+        # Sheet before we rebuild the pickle. If the sheet is unreachable
+        # (network error, credentials missing, rate-limited, etc.) we log a
+        # warning and pass ``None`` into the merge — merge_into_vault_database
+        # will then carry forward whatever _manual_review_status was already
+        # stored in the pickle, so a sheet outage never wipes human reviews.
+        #
+        # We also record the failure in ``sheet_fetch_failed`` so Step 5
+        # below skips its own ``sync_vault_review_sheet`` call. Step 5's
+        # own ``try/except`` would catch the re-hit as well, but skipping
+        # it keeps us from logging two warnings for the same symptom and
+        # avoids the (tiny) wasted work of serialising ~500 rows just to
+        # have the HTTP call fail on the same auth/network issue.
+        review_statuses: dict | None = None
+        if gs_sheet_url and gs_service_account_file:
+            try:
+                review_statuses = fetch_vault_review_statuses(
+                    sheet_url=gs_sheet_url,
+                    worksheet_name=gs_worksheet_name,
+                    service_account_file=Path(gs_service_account_file).expanduser(),
+                )
+                reviewed_count = sum(1 for status in review_statuses.values() if status is not None)
+                print(f"Fetched {reviewed_count} manual review decisions from Google Sheet ({len(review_statuses)} rows total)")
+            except Exception as exc:
+                logger.warning("Failed to fetch manual review statuses from Google Sheet: %s — merge will carry forward existing pickle values and Step 5 sheet sync will be skipped", exc)
+                review_statuses = None
+                sheet_fetch_failed = True
+
         # Step 2: Merge into VaultDatabase pickle
         print(f"\nStep 2: Merging into VaultDatabase at {vault_db_path}...")
-        vault_db = merge_into_vault_database(db, vault_db_path)
+        vault_db = merge_into_vault_database(db, vault_db_path, review_statuses=review_statuses)
         print(f"VaultDatabase now has {len(vault_db)} total vaults")
 
         # Step 3: Merge into uncleaned Parquet.
@@ -181,40 +210,62 @@ def main():
             message = "Google Sheets sync requires both GS_SHEET_URL and GS_SERVICE_ACCOUNT_FILE when enabled"
             raise RuntimeError(message)
         assert metadata_df is not None
-        print("\nStep 5: Syncing Hyperliquid review spreadsheet...")
 
-        def _optional_float(value: object) -> float | None:
-            if value is None:
-                return None
-            if isinstance(value, float) and math.isnan(value):
-                return None
-            return float(value)
+        if sheet_fetch_failed:
+            # The earlier fetch_vault_review_statuses() call in Step 1b
+            # already hit a network/auth/rate-limit problem against this
+            # exact sheet. Retrying sync_vault_review_sheet() now would
+            # almost certainly trip the same failure and abort the whole
+            # pipeline, so skip it instead — the fresh metrics DataFrame
+            # is already safe in the pickle and will be pushed on the
+            # next run when the sheet is reachable again.
+            print("\nStep 5: Google Sheets sync skipped (Step 1b fetch failed; sheet is presumed unreachable)")
+        else:
+            print("\nStep 5: Syncing Hyperliquid review spreadsheet...")
 
-        def _optional_int(value: object) -> int | None:
-            if value is None:
-                return None
-            if isinstance(value, float) and math.isnan(value):
-                return None
-            return int(value)
+            def _optional_float(value: object) -> float | None:
+                if value is None:
+                    return None
+                if isinstance(value, float) and math.isnan(value):
+                    return None
+                return float(value)
 
-        review_rows = [
-            VaultReviewRow(
-                name=str(row["name"]),
-                address=str(row["vault_address"]).lower(),
-                apy_1m=_optional_float(row["apr"]),
-                tvl=_optional_float(row["tvl"]),
-                followers=_optional_int(row["follower_count"]),
-                review_status=None,
-            )
-            for _, row in metadata_df.iterrows()
-        ]
-        sync_vault_review_sheet(
-            rows=review_rows,
-            sheet_url=gs_sheet_url,
-            worksheet_name=gs_worksheet_name,
-            service_account_file=Path(gs_service_account_file).expanduser(),
-        )
-        print(f"Synced {len(review_rows):,} Hyperliquid vault rows to Google Sheets")
+            def _optional_int(value: object) -> int | None:
+                if value is None:
+                    return None
+                if isinstance(value, float) and math.isnan(value):
+                    return None
+                return int(value)
+
+            review_rows = [
+                VaultReviewRow(
+                    name=str(row["name"]),
+                    address=str(row["vault_address"]).lower(),
+                    apy_1m=_optional_float(row["apr"]),
+                    tvl=_optional_float(row["tvl"]),
+                    followers=_optional_int(row["follower_count"]),
+                    review_status=None,
+                )
+                for _, row in metadata_df.iterrows()
+            ]
+            # Defence in depth: even when Step 1b succeeded, the push
+            # side can fail for independent reasons (rate limit on write,
+            # sheet temporarily locked for editing, quota exhaustion,
+            # etc.). Treat those the same as the Step 1b fallback — log
+            # a warning and let the rest of the pipeline report success,
+            # because the data is already durable in the pickle and will
+            # be pushed on the next run.
+            try:
+                sync_vault_review_sheet(
+                    rows=review_rows,
+                    sheet_url=gs_sheet_url,
+                    worksheet_name=gs_worksheet_name,
+                    service_account_file=Path(gs_service_account_file).expanduser(),
+                )
+                print(f"Synced {len(review_rows):,} Hyperliquid vault rows to Google Sheets")
+            except Exception as exc:
+                logger.warning("Failed to push fresh metrics to Google Sheet: %s — the pipeline's pickle is still up to date, retry on the next run", exc)
+                print("Step 5: Google Sheets push failed (logged); pickle is up to date and will be retried on the next run")
     else:
         print("\nStep 5: Google Sheets sync skipped (set GS_SHEET_URL and GS_SERVICE_ACCOUNT_FILE to enable)")
 

@@ -1279,6 +1279,21 @@ def calculate_vault_record(
     description = vault_metadata.get("_description")
     short_description = vault_metadata.get("_short_description")
 
+    # Manual review decision from the Hyperliquid review Google Sheet.
+    # Captured into the pickle by
+    # :py:func:`eth_defi.hyperliquid.vault_data_export.merge_into_vault_database`
+    # and surfaced in the exported Series so the JSON export downstream can
+    # show it to the frontend. Stored as the enum's underlying string value
+    # so it JSON-serialises cleanly (`"ok"` / `"avoid"` / ``None``) without
+    # the export layer needing to know about the enum type.
+    manual_review_status_raw = vault_metadata.get("_manual_review_status")
+    if manual_review_status_raw is None:
+        manual_review_status = None
+    elif isinstance(manual_review_status_raw, Enum):
+        manual_review_status = manual_review_status_raw.value
+    else:
+        manual_review_status = str(manual_review_status_raw)
+
     detection: ERC4262VaultDetection = vault_metadata["_detection_data"]
     features = sorted([f.name for f in detection.features])
 
@@ -1496,6 +1511,8 @@ def calculate_vault_record(
             # Offchain vault descriptions (Euler, Lagoon, etc.)
             "description": description,
             "short_description": short_description,
+            # Manual review decision from the Hyperliquid review Google Sheet
+            "manual_review_status": manual_review_status,
         }
     )
 

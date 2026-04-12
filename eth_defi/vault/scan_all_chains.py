@@ -552,6 +552,32 @@ def _run_hypercore_scan(
 ) -> ChainResult:
     """Shared orchestration for Hypercore scan functions.
 
+    Steps:
+
+    1. Run the scan (``run_daily_scan`` or ``run_high_freq_scan``).
+    2. Optionally pull the latest manual review decisions from the
+       Hyperliquid review Google Sheet via
+       :py:func:`~eth_defi.hyperliquid.vault_review_sync.fetch_vault_review_statuses`.
+       Failure is logged as a warning and downgraded to ``None`` so the
+       merge step carries forward whatever ``_manual_review_status`` is
+       already stored in the pickle — an outage never wipes reviews.
+    3. Merge the Hyperliquid metadata + (possibly ``None``) review
+       statuses into the ``VaultDatabase`` pickle.
+    4. Optionally push the refreshed vault metadata back into the same
+       Google Sheet via
+       :py:func:`~eth_defi.hyperliquid.vault_review_sync.sync_vault_review_sheet`.
+       Skipped when Step 2 failed (same sheet is presumed unreachable)
+       and wrapped in its own ``try/except`` so push-side failures
+       (rate limit, sheet locked, quota) do not abort the scan.
+
+    The review sync only runs when both ``GS_SHEET_URL`` and
+    ``GS_SERVICE_ACCOUNT_FILE`` are set (``GS_WORKSHEET_NAME`` is
+    optional — it defaults to ``"Hyperliquid vault review"``). When
+    either required variable is unset, steps 2 and 4 are no-ops and
+    the scan behaves exactly like before. This mirrors the behaviour
+    of ``scripts/hyperliquid/daily-vault-metrics.py`` so both the
+    standalone script and the docker pipeline share the same contract.
+
     :param name:
         Label for logging (e.g. ``"Hypercore"`` or ``"Hypercore HF"``).
     :param scan_fn:
@@ -568,14 +594,70 @@ def _run_hypercore_scan(
     result = ChainResult(name="Hypercore", status="running")
     start_time = time.time()
 
+    # Review-sheet configuration is opt-in: all three env vars must be
+    # set, otherwise we behave exactly like before the review feature
+    # existed. ``GS_WORKSHEET_NAME`` defaults to the human-review tab
+    # name used by ``scripts/hyperliquid/daily-vault-metrics.py``.
+    gs_sheet_url = os.environ.get("GS_SHEET_URL", "").strip()
+    gs_service_account_file = os.environ.get("GS_SERVICE_ACCOUNT_FILE", "").strip()
+    gs_worksheet_name = os.environ.get("GS_WORKSHEET_NAME", "Hyperliquid vault review").strip()
+    review_sync_enabled = bool(gs_sheet_url and gs_service_account_file)
+
     try:
         db = scan_fn(**scan_kwargs)
         try:
             result.vault_count = db.get_vault_count()
             result.vault_scan_ok = True
-            merge_into_vault_database(db, vault_db_path)
+
+            # Step 2: fetch current manual review decisions from the sheet
+            # before the merge so they can be persisted to the pickle.
+            review_statuses = None
+            sheet_fetch_failed = False
+            if review_sync_enabled:
+                from eth_defi.hyperliquid.vault_review_sync import fetch_vault_review_statuses  # noqa: PLC0415
+
+                try:
+                    review_statuses = fetch_vault_review_statuses(
+                        sheet_url=gs_sheet_url,
+                        worksheet_name=gs_worksheet_name,
+                        service_account_file=Path(gs_service_account_file).expanduser(),
+                    )
+                    reviewed_count = sum(1 for status in review_statuses.values() if status is not None)
+                    logger.info(
+                        "%s: fetched %d manual review decisions from Google Sheet (%d rows total)",
+                        name,
+                        reviewed_count,
+                        len(review_statuses),
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "%s: failed to fetch manual review statuses from Google Sheet: %s — merge will carry forward existing pickle values and the post-merge push will be skipped",
+                        name,
+                        exc,
+                    )
+                    sheet_fetch_failed = True
+
+            # Step 3: merge metadata + reviews into the pickle.
+            merge_into_vault_database(db, vault_db_path, review_statuses=review_statuses)
             # Price merge happens in post-processing
             result.price_scan_ok = True
+
+            # Step 4: push the refreshed metadata back to the sheet so
+            # the reviewer sees fresh TVL/APR/follower numbers.
+            if review_sync_enabled:
+                if sheet_fetch_failed:
+                    logger.info(
+                        "%s: skipping Google Sheet push (Step 2 fetch already failed; sheet is presumed unreachable)",
+                        name,
+                    )
+                else:
+                    _push_hypercore_review_sheet(
+                        name=name,
+                        db=db,
+                        sheet_url=gs_sheet_url,
+                        worksheet_name=gs_worksheet_name,
+                        service_account_file=Path(gs_service_account_file).expanduser(),
+                    )
         finally:
             db.close()
         result.status = "success"
@@ -587,6 +669,82 @@ def _run_hypercore_scan(
 
     result.duration = time.time() - start_time
     return result
+
+
+def _push_hypercore_review_sheet(
+    name: str,
+    db,
+    sheet_url: str,
+    worksheet_name: str,
+    service_account_file: Path,
+) -> None:
+    """Push fresh Hyperliquid vault metadata to the review Google Sheet.
+
+    Wrapped in its own ``try/except`` so a push-side failure (write-side
+    rate limit, sheet temporarily locked for editing, quota exhaustion,
+    etc.) is logged as a warning instead of aborting the whole scan.
+    The pickle is already durable at this point and the next run will
+    retry the push.
+
+    :param name:
+        Logging label (e.g. ``"Hypercore"`` or ``"Hypercore HF"``).
+    :param db:
+        The Hyperliquid metrics database that already holds fresh
+        metadata from the just-completed scan. Must expose
+        ``get_all_vault_metadata()`` returning a DataFrame with
+        ``name``, ``vault_address``, ``apr``, ``tvl``, and
+        ``follower_count`` columns (both daily and HF databases do).
+    :param sheet_url:
+        Google Sheets URL.
+    :param worksheet_name:
+        Worksheet tab name.
+    :param service_account_file:
+        Path to the service account JSON key.
+    """
+    import math  # noqa: PLC0415
+
+    from eth_defi.hyperliquid.vault_review_sync import VaultReviewRow, sync_vault_review_sheet  # noqa: PLC0415
+
+    def _optional_float(value: object) -> float | None:
+        if value is None:
+            return None
+        if isinstance(value, float) and math.isnan(value):
+            return None
+        return float(value)
+
+    def _optional_int(value: object) -> int | None:
+        if value is None:
+            return None
+        if isinstance(value, float) and math.isnan(value):
+            return None
+        return int(value)
+
+    try:
+        metadata_df = db.get_all_vault_metadata()
+        review_rows = [
+            VaultReviewRow(
+                name=str(row["name"]),
+                address=str(row["vault_address"]).lower(),
+                apy_1m=_optional_float(row["apr"]),
+                tvl=_optional_float(row["tvl"]),
+                followers=_optional_int(row["follower_count"]),
+                review_status=None,
+            )
+            for _, row in metadata_df.iterrows()
+        ]
+        sync_vault_review_sheet(
+            rows=review_rows,
+            sheet_url=sheet_url,
+            worksheet_name=worksheet_name,
+            service_account_file=service_account_file,
+        )
+        logger.info("%s: pushed %d vault rows to Google Sheet", name, len(review_rows))
+    except Exception as exc:
+        logger.warning(
+            "%s: failed to push fresh metrics to Google Sheet: %s — the pickle is still up to date and the next run will retry",
+            name,
+            exc,
+        )
 
 
 def scan_hypercore_fn(

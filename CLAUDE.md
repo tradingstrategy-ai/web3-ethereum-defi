@@ -7,8 +7,10 @@ touches the relevant area:
 
 - `.claude/docs/gspread.md` — Google Sheets integration test setup. **Read
   this before attempting any Google Sheets automation via the
-  Claude-in-Chrome plugin**: sharing a sheet with a service account
-  cannot be done by Claude and must be performed manually by the operator.
+  Claude-in-Chrome plugin**: in the `tradingstrategy.ai` Workspace
+  environment we've tested, sharing a sheet with a service account
+  cannot be completed by Claude-in-Chrome and must be performed
+  manually by the operator. Other Workspace orgs may behave differently.
 
 ## Skills
 

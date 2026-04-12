@@ -81,6 +81,34 @@ services:
       # Hyperliquid backfill script
       WEBSHARE_API_KEY: ${WEBSHARE_API_KEY:-}
 
+      # Hyperliquid manual vault review Google Sheet sync.
+      #
+      # When all three variables are set, the Hypercore branch of
+      # eth_defi/vault/scan_all_chains.py::_run_hypercore_scan() fetches
+      # the latest OK/Avoid decisions from the sheet into the vault
+      # metadata pickle and pushes fresh TVL/APR/follower metrics back
+      # to the sheet. A sheet outage is logged as a warning and the
+      # scan continues — manual review decisions are carried forward
+      # from the pickle so a Google Sheets outage never wipes them.
+      # Leaving any of the three unset disables the sync entirely.
+      #
+      # Usage: eth_defi/vault/scan_all_chains.py#_run_hypercore_scan
+      # Source: eth_defi/hyperliquid/vault_review_sync.py
+
+      # Service account JSON file — must be mounted into the container
+      # from the host. Referenced by sync_vault_review_sheet() and
+      # fetch_vault_review_statuses() via the ``service_account_file`` kwarg.
+      GS_SERVICE_ACCOUNT_FILE: ${GS_SERVICE_ACCOUNT_FILE:-}
+
+      # Full Google Sheets URL of the target review spreadsheet, e.g.
+      # https://docs.google.com/spreadsheets/d/<ID>/edit — passed as the
+      # ``sheet_url`` kwarg of sync_vault_review_sheet().
+      GS_SHEET_URL: ${GS_SHEET_URL:-}
+
+      # Worksheet tab name. Defaults to the production human-review tab
+      # name used by scripts/hyperliquid/daily-vault-metrics.py.
+      GS_WORKSHEET_NAME: ${GS_WORKSHEET_NAME:-Hyperliquid vault review}
+
     # Try with 8gb RAM, 32G limit
     # The bottleneck seems to be the data cleaning script.
     mem_limit: ${MEM_LIMIT:-48g}
@@ -174,6 +202,27 @@ services:
       R2_DATA_ENDPOINT_URL: ${R2_VAULT_METADATA_ENDPOINT_URL:-}
       R2_DATA_PUBLIC_URL: ${R2_VAULT_METADATA_PUBLIC_URL:-}
       R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME: ${R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME:-}
+
+      # Hyperliquid manual vault review Google Sheet sync — same
+      # contract as the one-shot vault-scanner service above.
+      #
+      # The looped service defaults to HYPERCORE_MODE=high_freq, so the
+      # fetch/push happens on every 4h HF cycle. sync_vault_review_sheet()
+      # preserves existing OK/Avoid decisions, so re-pushing every 4h
+      # only refreshes the metric columns and never overwrites human
+      # review work.
+      #
+      # Usage: eth_defi/vault/scan_all_chains.py#_run_hypercore_scan
+      # Source: eth_defi/hyperliquid/vault_review_sync.py
+
+      # Service account JSON file (mounted from host).
+      GS_SERVICE_ACCOUNT_FILE: ${GS_SERVICE_ACCOUNT_FILE:-}
+
+      # Full Google Sheets URL.
+      GS_SHEET_URL: ${GS_SHEET_URL:-}
+
+      # Worksheet tab name.
+      GS_WORKSHEET_NAME: ${GS_WORKSHEET_NAME:-Hyperliquid vault review}
 
     mem_limit: ${MEM_LIMIT:-48g}
     mem_reservation: ${MEM_RESERVATION:-8g}

@@ -5,15 +5,17 @@ gspread-backed tests) need a service account and a dedicated spreadsheet.
 This note captures the parts of the setup that cannot be reliably automated
 with browser MCP tooling and must be handled by a human operator.
 
-## TL;DR — Claude cannot share Google Sheets with a service account
+## TL;DR — in this Workspace environment, Claude cannot share sheets with a service account
 
-**The "Share" step must be done by a human.** The Claude-in-Chrome plugin
-and every other browser-based approach we have tried fail for this specific
-action in the `tradingstrategy.ai` Workspace environment. Claude can
+**The "Share" step must be done by a human** in the `tradingstrategy.ai`
+Google Workspace environment we've tested. The Claude-in-Chrome plugin
+and every other browser-based approach we have tried fail for this
+specific action against this Workspace configuration. Claude can
 complete every other step of the Google Sheets test setup autonomously,
 but when it reaches "share the spreadsheet with the service account as
 Editor" it will stop and ask the operator to do it manually in their own
-browser.
+browser. Other Workspace orgs may behave differently — we haven't
+verified.
 
 ## Required resources
 
@@ -88,8 +90,14 @@ Everything else in the setup pipeline is automatable and has been verified:
 - Create the service account and download the JSON key (honouring the
   explicit-permission rule for file downloads).
 - Create the spreadsheet and rename the document title via the Sheets UI.
-- Rename the worksheet tab via `gspread` **after** the sheet has been
-  manually shared with the service account.
+- Rename the worksheet tab **after** the sheet has been manually shared
+  with the service account. The simplest way is a one-off
+  ``google-api-python-client`` ``spreadsheets.batchUpdate`` call with an
+  ``updateSheetProperties`` request — ``google-auth`` and
+  ``google-api-python-client`` are already in the project's
+  transitive dependencies via the ``-E data`` extra, so no extra install
+  is needed even before ``-E gsheets`` is available. ``gspread`` works
+  equally well once the ``-E gsheets`` extra is installed.
 - Serialise the service-account JSON into an env var, write it to
   `env/local-test.env`, and delete the downloaded `.json` file.
 - Update the test module to read `TEST_GS_*` variables and construct

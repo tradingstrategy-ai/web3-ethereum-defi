@@ -33,11 +33,14 @@ import numpy as np
 import pandas as pd
 from eth_typing import HexAddress
 
+from collections.abc import Mapping
+
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE, HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE, HYPERLIQUID_PROTOCOL_VAULT_LOCKUP, HYPERLIQUID_USER_VAULT_LOCKUP, HYPERLIQUID_VAULT_FEE_MODE, HYPERLIQUID_VAULT_PERFORMANCE_FEE
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
+from eth_defi.hyperliquid.vault_review_sync import ReviewStatus
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag
@@ -104,6 +107,7 @@ def create_hyperliquid_vault_row(
     allow_deposits: bool = True,
     relationship_type: str = "normal",
     leader_fraction: float | None = None,
+    manual_review_status: ReviewStatus | None = None,
 ) -> tuple[VaultSpec, VaultRow]:
     """Create a synthetic VaultRow for a Hyperliquid native vault.
 
@@ -141,6 +145,11 @@ def create_hyperliquid_vault_row(
         Leader's fraction of total vault capital (e.g. 0.10 = 10%).
         Used for :py:func:`_get_deposit_closed_reason` to warn when
         close to the Hyperliquid 5% minimum.
+    :param manual_review_status:
+        Manual review decision for this vault captured from the Hyperliquid
+        review Google Sheet. Stored on the row so downstream exports
+        (``calculate_vault_record`` → JSON) can surface the decision without
+        re-reading the sheet on every invocation.
     :return:
         Tuple of (VaultSpec, VaultRow).
     """
@@ -214,6 +223,7 @@ def create_hyperliquid_vault_row(
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,
         "_risk": risk,
+        "_manual_review_status": manual_review_status,
     }
 
     spec = VaultSpec(chain_id=chain_id, vault_address=address)
@@ -398,6 +408,7 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
 def merge_into_vault_database(
     db: HyperliquidDailyMetricsDatabase,
     vault_db_path: Path,
+    review_statuses: Mapping[HexAddress, ReviewStatus | None] | None = None,
 ) -> VaultDatabase:
     """Merge Hyperliquid vault metadata into an existing VaultDatabase pickle.
 
@@ -407,10 +418,34 @@ def merge_into_vault_database(
 
     If the pickle file does not exist, creates a new VaultDatabase.
 
+    Manual review statuses
+    ----------------------
+
+    The ``review_statuses`` argument is how the Hyperliquid review Google
+    Sheet feeds human-entered ``OK`` / ``Avoid`` decisions into the pickle
+    so downstream consumers (``calculate_vault_record`` → JSON export)
+    can surface them without re-reading the sheet on every invocation.
+
+    Behaviour:
+
+    - ``review_statuses`` is ``None`` (sheet unreachable, credentials
+      missing, or the caller explicitly opted out): the existing
+      ``_manual_review_status`` value is carried forward from the
+      previous pickle entry for each vault. This is the "persist if
+      Google Sheets is down" contract — the last known manual review
+      survives an outage.
+    - ``review_statuses`` is a mapping: the mapped value
+      (including an explicit ``None`` for "no review") is written for
+      every address present in the mapping. Addresses absent from the
+      mapping fall back to the carry-forward path above.
+
     :param db:
         The Hyperliquid daily metrics database.
     :param vault_db_path:
         Path to the VaultDatabase pickle file.
+    :param review_statuses:
+        Optional mapping from lowercased vault address to the latest
+        manual review decision read from the Google Sheet.
     :return:
         The updated VaultDatabase.
     """
@@ -428,7 +463,17 @@ def merge_into_vault_database(
     updated = 0
     for _, row in metadata_df.iterrows():
         address = row["vault_address"].lower()
-        spec, vault_row = create_hyperliquid_vault_row(
+        spec = VaultSpec(chain_id=HYPERCORE_CHAIN_ID, vault_address=address)
+
+        # Resolve the manual review status for this vault. Mapping wins,
+        # pickle carry-forward is the fallback, and "no data" is ``None``.
+        if review_statuses is not None and address in review_statuses:
+            manual_review_status = review_statuses[address]
+        else:
+            existing_row = vault_db.rows.get(spec)
+            manual_review_status = existing_row.get("_manual_review_status") if existing_row else None
+
+        _, vault_row = create_hyperliquid_vault_row(
             vault_address=row["vault_address"],
             name=row["name"],
             description=row.get("description"),
@@ -439,6 +484,7 @@ def merge_into_vault_database(
             allow_deposits=bool(row.get("allow_deposits", True)),
             relationship_type=row.get("relationship_type", "normal") or "normal",
             leader_fraction=leader_fractions.get(address),
+            manual_review_status=manual_review_status,
         )
 
         if spec in vault_db.rows:

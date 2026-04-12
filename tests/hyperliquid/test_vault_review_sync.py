@@ -205,12 +205,15 @@ def test_vault_review_sheet_google_bulk_integration() -> None:
     3. Call :py:func:`sync_vault_review_sheet` against a dedicated bulk
        worksheet tab and time the round-trip.
     4. Read the review statuses back and assert every pushed address is
-       present in the sheet, that addresses are stored lowercased, and
-       that the new "blank status" rows come back as ``None``.
+       present in the readback and that a sample address is stored
+       lowercased (the upper-case form of that same address is **not**
+       in the returned mapping).
     5. Assert that any manually-entered ``OK`` / ``Avoid`` statuses the
        operator already put into the sheet survive the sync
        unchanged — this is the "preserve manual review history" contract
-       of :py:func:`sync_vault_review_sheet`.
+       of :py:func:`sync_vault_review_sheet`. Preserved statuses from
+       the pre-sync snapshot must equal the post-sync statuses for the
+       same addresses.
     6. Assert the sync finished within
        :py:data:`BULK_SYNC_TIME_BUDGET_SECONDS` to catch accidental
        per-row API calls or other O(N) regressions.

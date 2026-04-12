@@ -95,6 +95,21 @@ class VaultRow(TypedDict):
     #: If set, takes priority over :py:func:`~eth_defi.vault.risk.get_vault_risk`.
     _risk: VaultTechnicalRisk | None
 
+    #: Manual review decision captured from the Hyperliquid review Google Sheet.
+    #:
+    #: Populated by ``scripts/hyperliquid/daily-vault-metrics.py`` when the
+    #: Google Sheets credentials are configured. Kept in the pickle so that
+    #: downstream consumers (``calculate_vault_record`` → JSON export) still
+    #: see the latest human decision even if the sheet is unreachable on
+    #: a given day.
+    #:
+    #: Stored as :py:class:`eth_defi.hyperliquid.vault_review_sync.ReviewStatus`
+    #: (or ``None`` if the vault has no manual decision yet). We deliberately
+    #: avoid importing the enum at module load time because the
+    #: :py:mod:`eth_defi.hyperliquid.vault_review_sync` module lazy-imports
+    #: ``gspread``, which is an optional dependency.
+    _manual_review_status: object | None
+
     __annotations__ = {
         "First seen at": datetime.datetime,
         "Mgmt fee": float,

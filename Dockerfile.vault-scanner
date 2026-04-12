@@ -56,7 +56,13 @@ COPY README.md README.md
 # some setuptools issue, so we need to create a virtual env
 ENV POETRY_VIRTUALENVS_CREATE=true
 ENV POETRY_VIRTUALENVS_IN_PROJECT=true
-RUN poetry install -E data -E hypersync -E cloudflare_r2 -E duckdb -E posts --no-interaction --no-ansi --without=dev
+# ``-E gsheets`` pulls in ``gspread`` which powers the Hyperliquid manual
+# vault review sheet sync in ``eth_defi/hyperliquid/vault_review_sync.py``.
+# The sync is opt-in at runtime (controlled by ``GS_SHEET_URL`` /
+# ``GS_SERVICE_ACCOUNT_FILE`` env vars) but must be installed here so the
+# import in ``eth_defi/vault/scan_all_chains.py::_run_hypercore_scan``
+# does not raise ``ModuleNotFoundError`` when the env vars are set.
+RUN poetry install -E data -E hypersync -E cloudflare_r2 -E duckdb -E posts -E gsheets --no-interaction --no-ansi --without=dev
 
 # Clean Poetry cache to reduce image size
 RUN poetry cache clear pypi --all --no-interaction

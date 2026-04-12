@@ -288,6 +288,184 @@ FULL_SCAN_WEEKDAY=3 LOG_LEVEL=info \
 | `FULL_SCAN` | *(unset)* | Set to `1` to force a full scan |
 | `FULL_SCAN_WEEKDAY` | `6` (Sunday) | Day of the week to auto-trigger full scan |
 
+## Manual vault review Google Sheet
+
+The Hypercore scan path optionally syncs Hyperliquid vault metadata into
+a Google Sheet so a human reviewer can mark individual vaults as `OK` or
+`Avoid`. The decisions are read back into the pipeline and persisted so
+downstream consumers (and the exported JSON) can see them without
+hitting the sheet themselves.
+
+The sync runs in **two** entry points with identical semantics:
+
+- [`scripts/hyperliquid/daily-vault-metrics.py`](daily-vault-metrics.py)
+  — the standalone CLI. Numbers its steps `1 / 2 / 3 / 4 / 5` and logs
+  progress via `print()` for interactive use.
+- [`eth_defi/vault/scan_all_chains.py::_run_hypercore_scan`](../../eth_defi/vault/scan_all_chains.py)
+  — the docker production path that `scan-vaults-all-chains.py` routes
+  all Hypercore scans through. Logs via the module logger. This is the
+  path both docker compose services (`vault-scanner` daily and
+  `vault-scanner-looped` HF) go through.
+
+Both paths use the same `GS_*` environment variables, the same
+`fetch_vault_review_statuses()` / `sync_vault_review_sheet()` functions,
+the same graceful-degradation contract, and write the same `VaultRow`
+schema into the pickle. Everything below applies to both.
+
+### Why it exists
+
+Hyperliquid has hundreds of active vaults and the bulk scanner has no way to
+tell which ones are "legit market makers" vs "random leader copy-trading into
+doom". A lightweight human-curated whitelist/blacklist fits naturally into a
+spreadsheet that a reviewer opens occasionally, and we keep the sheet as the
+source of truth for the review decisions.
+
+### How it's wired
+
+- Source of truth: the `Review status` column in the configured worksheet
+  tab (default tab name: `"Hyperliquid vault review"`). Reviewers type
+  `OK`, `ok`, `Avoid`, `avoid`, etc. — parsing is case-insensitive.
+- Transport: [`eth_defi.hyperliquid.vault_review_sync`](../../eth_defi/hyperliquid/vault_review_sync.py),
+  which uses `gspread` with a service account (optional `gsheets` extra).
+- Persistence: the review decision is written to the `_manual_review_status`
+  field on each `VaultRow` in `vault-metadata-db.pickle`. The pipeline is
+  the authoritative local cache; the sheet is both a source and a sink.
+- Exposure: `calculate_vault_record()` copies `_manual_review_status` into
+  the emitted `manual_review_status` Series column as the plain string
+  `"ok"` / `"avoid"` / `null`, so the existing `export_lifetime_row()` JSON
+  serialiser picks it up without needing to know about the enum type.
+
+The sync also writes two derived link columns next to `Review status`:
+
+- `Trading Strategy` — `https://tradingstrategy.ai/trading-view/vaults/address/<address>`
+- `Hyperliquid` — `https://app.hyperliquid.xyz/vaults/<address>`
+
+Both are regenerated from the vault address on every sync so they never go
+stale when URL templates change.
+
+### Dataflow
+
+```
+Google Sheet (Review status column, OK/Avoid, case-insensitive)
+        |
+        | fetch_vault_review_statuses()  ── tolerant of sheet outage
+        v
+dict[HexAddress, ReviewStatus | None]
+        |
+        | merge_into_vault_database(db, path, review_statuses=...)
+        v
+VaultRow._manual_review_status in vault-metadata-db.pickle
+        |
+        | calculate_vault_record() unwraps enum to str
+        v
+Series["manual_review_status"] = "ok" | "avoid" | None
+        |
+        | export_lifetime_row()
+        v
+JSON: {"manual_review_status": "ok", ...}
+```
+
+### Graceful degradation when the sheet is down
+
+The sync is designed so a Google Sheets outage never wipes manual review
+work and never aborts the scan. The contract, stated independently of
+which entry point is running:
+
+1. **Fetch**: before the pickle merge, `fetch_vault_review_statuses()`
+   is called. On any exception (network, auth, rate-limit, Workspace
+   policy change, quota, etc.) the error is logged as a warning, the
+   result falls back to `None`, and an internal "sheet fetch failed"
+   flag is set for this scan.
+2. **Merge**: `merge_into_vault_database(..., review_statuses=…)` is
+   always called. When the mapping is `None`, the merge carries forward
+   whatever `_manual_review_status` each `VaultRow` already had in the
+   pickle — so reviewers' decisions survive any sheet outage until the
+   next successful fetch.
+3. **Push**: `sync_vault_review_sheet()` runs after the merge to push
+   fresh TVL/APR/follower metrics back to the sheet. It is skipped
+   entirely when the fetch in step 1 failed (the same problem would
+   just produce a second warning for the same symptom), and is wrapped
+   in its own `try/except` so an independent push-side failure (write
+   rate limit, sheet temporarily locked, quota exhaustion) is also
+   logged as a warning instead of aborting the scan.
+
+The practical guarantee: **if the sheet is reachable, reviews flow in
+and fresh metrics flow out; if it's down, the scan finishes cleanly
+with the pickle up to date and the next run retries the sheet**.
+
+### Enabling the sync
+
+Set both required environment variables (the third has a default):
+
+```shell
+export GS_SERVICE_ACCOUNT_FILE=/path/to/service_account.json
+export GS_SHEET_URL=https://docs.google.com/spreadsheets/d/<ID>/edit
+# Optional — defaults to the production tab name below:
+# export GS_WORKSHEET_NAME="Hyperliquid vault review"
+
+poetry install -E gsheets    # installs gspread + google-auth-oauthlib
+```
+
+Then run either entry point:
+
+```shell
+# Standalone (prints its own Step 5 status messages):
+LOG_LEVEL=info poetry run python scripts/hyperliquid/daily-vault-metrics.py
+
+# Docker production path (uses the module logger):
+LOG_LEVEL=info poetry run python scripts/erc-4626/scan-vaults-all-chains.py
+```
+
+Leaving either of the two required variables unset disables the sync;
+both entry points fall through to the old no-sheet behaviour and
+proceed normally.
+
+### Setting up the sheet and service account
+
+In the Trading Strategy Google Workspace environment, there is one step
+Claude Code cannot currently automate via the Claude-in-Chrome plugin:
+sharing the target spreadsheet with the service account email as
+`Editor`. Every other step of the setup — creating the GCP project,
+enabling the Sheets API, creating the service account, generating the
+JSON key, renaming the worksheet tab via a one-off
+[`google-api-python-client`](https://github.com/googleapis/google-api-python-client)
+call — is automatable, and Claude will pause at the share step and ask
+you to unblock it.
+
+See the operator playbook: [`.claude/docs/gspread.md`](../../.claude/docs/gspread.md).
+
+### Integration tests
+
+Two test modules cover the whole path. `test_vault_review_sync.py`
+hits the real Google Sheet via `TEST_GS_*` env vars (a dedicated test
+spreadsheet, separate from the production review tab).
+`test_vault_review_persistence.py` is fully offline and only needs the
+`-E duckdb` extra.
+
+- [`tests/hyperliquid/test_vault_review_sync.py`](../../tests/hyperliquid/test_vault_review_sync.py)
+  — 2-row happy path plus a bulk sync of every vault in the local
+  Hyperliquid daily-metrics DuckDB (~500 vaults at the time of writing).
+  Asserts every pushed address round-trips, addresses are stored
+  lowercased, manual reviews are preserved across re-syncs, and the
+  full sync+readback fits inside a 180 s wall-clock budget.
+- [`tests/hyperliquid/test_vault_review_persistence.py`](../../tests/hyperliquid/test_vault_review_persistence.py)
+  — fast offline tests for the row builder, the merge carry-forward
+  contract when the sheet is "down", and the
+  `calculate_vault_record` → Series emission.
+
+Run them with:
+
+```shell
+source .local-test.env && poetry run pytest \
+  tests/hyperliquid/test_vault_review_sync.py \
+  tests/hyperliquid/test_vault_review_persistence.py \
+  -v --log-cli-level=info
+```
+
+The sheet-backed tests auto-skip when the `TEST_GS_*` env vars are
+unset; the bulk test additionally skips when the local Hyperliquid
+daily-metrics DuckDB does not exist.
+
 ## High-frequency pipeline
 
 An alternative pipeline collects vault data at sub-daily intervals (default 4h,
@@ -567,6 +745,9 @@ for v in data['vaults'][:5]:
 | `FULL_SCAN_WEEKDAY` | `6` (Sunday) | Day of the week to auto-trigger full scan (0=Monday, 6=Sunday) |
 | `VAULT_DB_PATH` | `~/.tradingstrategy/vaults/vault-metadata-db.pickle` | ERC-4626 VaultDatabase pickle to merge into |
 | `PARQUET_PATH` | `~/.tradingstrategy/vaults/cleaned-vault-prices-1h.parquet` | Cleaned Parquet to merge into |
+| `GS_SERVICE_ACCOUNT_FILE` | *(unset)* | Google service account JSON file for the manual review sheet. Must be set together with `GS_SHEET_URL` to enable the sync. |
+| `GS_SHEET_URL` | *(unset)* | Full `https://docs.google.com/spreadsheets/d/<ID>/edit` URL of the review sheet. |
+| `GS_WORKSHEET_NAME` | `Hyperliquid vault review` | Worksheet tab name. The sync auto-creates it if it does not exist. |
 
 ## Trade history reconstruction
 
@@ -705,7 +886,8 @@ source .local-test.env && poetry run pytest \
 |--------|------|
 | `eth_defi/hyperliquid/daily_metrics.py` | DuckDB storage, share price computation, parallel scanning |
 | `eth_defi/hyperliquid/deposit.py` | Deposit/withdrawal event fetching and daily flow aggregation |
-| `eth_defi/hyperliquid/vault_data_export.py` | Bridge to ERC-4626 pipeline (VaultRow builder, Parquet/pickle merge) |
+| `eth_defi/hyperliquid/vault_data_export.py` | Bridge to ERC-4626 pipeline (VaultRow builder, Parquet/pickle merge, manual review carry-forward) |
+| `eth_defi/hyperliquid/vault_review_sync.py` | Google Sheets sync for the manual `OK` / `Avoid` review workflow (optional `gsheets` extra) |
 | `eth_defi/hyperliquid/combined_analysis.py` | `_calculate_share_price()` -- time-weighted return logic |
 | `eth_defi/hyperliquid/vault.py` | API client (`fetch_all_vaults`, `HyperliquidVault`, `VaultInfo`) |
 | `eth_defi/hyperliquid/session.py` | Rate-limited HTTP session (`create_hyperliquid_session`) |
