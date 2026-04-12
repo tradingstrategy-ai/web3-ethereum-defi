@@ -2075,6 +2075,7 @@ def format_lifetime_table(
             "leader_fraction": "Leader fraction",
             "leader_commission": "Leader commission",
             "netflow": "Netflow",
+            "manual_review_status": "Manual review",
         }
     )
 
