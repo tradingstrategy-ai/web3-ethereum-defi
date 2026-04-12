@@ -119,12 +119,11 @@ services:
     # OOM kill disable (use with caution)
     oom_kill_disable: ${OOM_KILL_DISABLE:-false}
 
+    # To run ad-hoc scripts inside the container use ./vault-shell.sh
+    # which spawns a bash shell with the same environment.
     volumes:
       # Writing vault data files here
       - ${HOME}/.tradingstrategy:/root/.tradingstrategy:rw
-      # Expose hosts scan-all-chains.sh script to container,
-      # as we need to live-edit it for problematic RPCs all the time
-      - ./scripts:/usr/src/web3-ethereum-defi/scripts:ro
       # Expose log file output to host
       - ./logs:/usr/src/web3-ethereum-defi/logs:rw
       # Expose token cache files and other cache files reused by the vault scanner
@@ -229,9 +228,10 @@ services:
     memswap_limit: ${MEMSWAP_LIMIT:-64g}
     shm_size: ${SHM_SIZE:-2g}
     oom_kill_disable: ${OOM_KILL_DISABLE:-false}
+    # To run ad-hoc scripts inside the container use ./vault-shell.sh
+    # which spawns a bash shell with the same environment.
     volumes:
       - ${HOME}/.tradingstrategy:/root/.tradingstrategy:rw
-      - ./scripts:/usr/src/web3-ethereum-defi/scripts:ro
       - ./logs:/usr/src/web3-ethereum-defi/logs:rw
       - ${HOME}/.cache:/root/.cache:rw
 
@@ -257,7 +257,6 @@ services:
     mem_reservation: 512m
     volumes:
       - ${HOME}/.tradingstrategy:/root/.tradingstrategy:rw
-      - ./scripts:/usr/src/web3-ethereum-defi/scripts:ro
       # The scanner will update YAML files with failed RSS feeds and Twitter accounts,
       # then we manually push them to github now and then
       - ./eth_defi/data/feeds:/usr/src/web3-ethereum-defi/eth_defi/data/feeds:rw
