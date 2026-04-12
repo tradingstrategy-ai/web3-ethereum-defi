@@ -1402,6 +1402,8 @@ def main():
       checking per-item cycle intervals to decide what is due.
     """
     # Setup logging with daily log rotation
+    # - stdout: defaults to WARNING to keep container logs clean
+    # - log file: always INFO for full diagnostics
     log_dir = Path("logs")
     log_dir.mkdir(parents=True, exist_ok=True)
     setup_console_logging(
@@ -1417,7 +1419,12 @@ def main():
     )
     rotating_handler.setLevel(logging.INFO)
     rotating_handler.setFormatter(logging.Formatter("%(asctime)s %(name)-44s [%(threadName)s] %(message)s", "%Y-%m-%d %H:%M:%S"))
-    logging.getLogger().addHandler(rotating_handler)
+
+    root = logging.getLogger()
+    root.addHandler(rotating_handler)
+    # Root logger level must be low enough for INFO messages to reach
+    # the file handler; console handler level gates stdout independently.
+    root.setLevel(min(root.level, logging.INFO))
 
     # Read configuration from environment
     retry_count = int(os.environ.get("RETRY_COUNT", "1"))

@@ -180,7 +180,7 @@ services:
       SCAN_GRVT: ${SCAN_GRVT:-true}
       SCAN_LIGHTER: ${SCAN_LIGHTER:-true}
 
-      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_LEVEL: ${LOG_LEVEL:-warning}
       MAX_WORKERS: ${MAX_WORKERS:-50}
       WEBSHARE_API_KEY: ${WEBSHARE_API_KEY:-}
 
