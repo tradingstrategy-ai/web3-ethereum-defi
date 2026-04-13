@@ -353,7 +353,14 @@ def export_top_vaults_json(
         logger.info("Top vaults JSON export complete")
         return True
     except Exception:
-        logger.exception("Export top vaults JSON failed")
+        logger.exception(
+            "Export top vaults JSON failed — bucket=%s, endpoint=%s, object_key=%s, access_key_id=%s...%s",
+            bucket_name,
+            endpoint_url,
+            object_key,
+            access_key_id[:4] if access_key_id else "<empty>",
+            access_key_id[-4:] if access_key_id else "",
+        )
         return False
 
 

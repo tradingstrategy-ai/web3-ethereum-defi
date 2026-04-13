@@ -172,6 +172,14 @@ def fetch_r2_object_head(
         error_code = str(exc.response.get("Error", {}).get("Code", ""))
         if error_code in {"404", "NoSuchKey", "NotFound"}:
             return None
+        if error_code == "403":
+            raise ClientError(
+                exc.response,
+                exc.operation_name,
+            ) from RuntimeError(
+                f"R2 returned 403 Forbidden for HeadObject on bucket={bucket_name!r}, key={object_name!r}. "
+                f"Check that the R2 API token has read/write access to this bucket and that the bucket name is correct."
+            )
         raise
 
 
