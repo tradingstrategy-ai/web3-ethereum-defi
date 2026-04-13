@@ -227,7 +227,13 @@ filterwarnings = [
 
 [tool.ruff]
 # We hate arbitrary line lengths
-extend-exclude = ["*.ipynb"]
+extend-exclude = [
+  "*.ipynb",
+  # Third-party contract submodules carry their own generated helper scripts.
+  # We do not maintain their Python formatting in this repository.
+  "contracts/guard/lib/hyper-evm-lib/**",
+  "contracts/safe-integration/lib/openzeppelin-contracts-upgradeable/**",
+]
 indent-width = 4
 line-length = 999
 
