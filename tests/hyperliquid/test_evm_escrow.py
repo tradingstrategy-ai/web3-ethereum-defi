@@ -163,6 +163,41 @@ def test_wait_for_evm_escrow_clear_waits_for_spot_balance_after_escrow_clears():
     # 3. Verify the helper keeps polling until the spot balance actually reaches the expected level.
 
 
+def test_wait_for_evm_escrow_clear_uses_explicit_pre_phase_baseline():
+    """Use the caller-provided pre-phase baseline when the first poll is already post-deposit.
+
+    1. Mock the first observed HyperCore state as already escrow-cleared and already post-deposit.
+    2. Run ``wait_for_evm_escrow_clear()`` with both ``expected_usdc`` and an explicit ``baseline_usdc``.
+    3. Verify the helper succeeds from the explicit baseline without trying to re-snapshot a later one.
+    """
+    from eth_defi.hyperliquid.evm_escrow import wait_for_evm_escrow_clear
+
+    post_deposit_state = SimpleNamespace(
+        evm_escrows=[],
+        balances=[SimpleNamespace(coin="USDC", total=Decimal("150"), hold=Decimal("0"))],
+    )
+
+    # 1. Mock the first observed HyperCore state as already escrow-cleared and already post-deposit.
+    with patch(
+        "eth_defi.hyperliquid.evm_escrow.fetch_spot_clearinghouse_state",
+        return_value=post_deposit_state,
+    ) as mock_fetch:
+        with patch("eth_defi.hyperliquid.evm_escrow.time.sleep"):
+            with patch("eth_defi.hyperliquid.evm_escrow.time.time", side_effect=_monotonic_time()):
+                # 2. Run wait_for_evm_escrow_clear() with both expected_usdc and an explicit baseline_usdc.
+                wait_for_evm_escrow_clear(
+                    session=object(),
+                    user="0x0000000000000000000000000000000000000001",
+                    expected_usdc=Decimal("50"),
+                    baseline_usdc=Decimal("100"),
+                    timeout=10.0,
+                    poll_interval=1.0,
+                )
+
+    # 3. Verify the helper succeeds from the explicit baseline without trying to re-snapshot a later one.
+    assert mock_fetch.call_count == 1
+
+
 def test_wait_for_evm_escrow_clear_times_out_if_spot_balance_never_arrives():
     """Raise TimeoutError if escrow clears but the expected spot USDC never appears.
 

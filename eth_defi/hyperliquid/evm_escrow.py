@@ -554,6 +554,7 @@ def wait_for_evm_escrow_clear(
     timeout: float = 60.0,
     poll_interval: float = 2.0,
     expected_usdc: Decimal | None = None,
+    baseline_usdc: Decimal | None = None,
 ) -> None:
     """Wait until the user's EVM escrow is empty (all bridged funds have cleared).
 
@@ -598,6 +599,13 @@ def wait_for_evm_escrow_clear(
         captures the pre-existing USDC spot balance and verifies that the
         balance increased by at least this amount after escrows clear.
 
+    :param baseline_usdc:
+        Optional explicit pre-phase baseline for the user's HyperCore spot
+        USDC balance. Use this when the caller already captured the spot
+        balance before the EVM deposit transaction was broadcast. This avoids
+        a late-snapshot race where capturing the baseline after phase 1 has
+        already settled would make the observed increase look like zero.
+
     :raises TimeoutError:
         If the escrow does not clear within the timeout period.
     """
@@ -606,9 +614,19 @@ def wait_for_evm_escrow_clear(
     deadline = time.time() + timeout
     attempt = 0
 
-    # P15: Capture baseline spot USDC balance before waiting.
-    baseline_usdc: Decimal | None = None
-    if expected_usdc is not None:
+    # WARNING: The caller may already know the correct pre-phase-1 spot
+    # baseline. Prefer that explicit baseline over a fresh read here.
+    # Capturing the baseline after the phase 1 tx has already landed can
+    # produce a false zero-delta reading when the deposit settled faster
+    # than the receipt/verification pipeline.
+    if expected_usdc is not None and baseline_usdc is not None:
+        logger.info(
+            "P15: Using caller-provided baseline USDC spot balance for %s: %s (expecting +%s)",
+            user,
+            baseline_usdc,
+            expected_usdc,
+        )
+    elif expected_usdc is not None:
         try:
             baseline_state = fetch_spot_clearinghouse_state(session, user=user)
             baseline_usdc = _get_usdc_spot_balance(baseline_state)
