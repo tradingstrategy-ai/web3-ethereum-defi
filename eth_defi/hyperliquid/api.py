@@ -627,8 +627,7 @@ def wait_for_vault_deposit_confirmation(
                 # state and let the caller treat a broken deposit as success.
                 if increase >= expected_deposit - accepted_tolerance:
                     logger.info(
-                        "Vault deposit confirmed for %s in vault %s: equity %s "
-                        "(expected %s, tolerance %s) after %d poll(s)",
+                        "Vault deposit confirmed for %s in vault %s: equity %s (expected %s, tolerance %s) after %d poll(s)",
                         user,
                         vault_address,
                         eq.equity,
@@ -643,8 +642,7 @@ def wait_for_vault_deposit_confirmation(
                 # can move during the confirmation window.
                 if increase >= expected_deposit - accepted_tolerance:
                     logger.info(
-                        "Vault deposit confirmed for %s in vault %s: equity %s "
-                        "(increase %s, expected %s, tolerance %s) after %d poll(s)",
+                        "Vault deposit confirmed for %s in vault %s: equity %s (increase %s, expected %s, tolerance %s) after %d poll(s)",
                         user,
                         vault_address,
                         eq.equity,
@@ -656,8 +654,7 @@ def wait_for_vault_deposit_confirmation(
                     return eq
 
             logger.info(
-                "Vault deposit pending for %s in vault %s: equity %s "
-                "(increase %s, expected %s, tolerance %s, poll #%d)",
+                "Vault deposit pending for %s in vault %s: equity %s (increase %s, expected %s, tolerance %s, poll #%d)",
                 user,
                 vault_address,
                 eq.equity if eq else None,

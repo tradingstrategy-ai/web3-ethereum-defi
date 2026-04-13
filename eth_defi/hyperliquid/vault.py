@@ -369,11 +369,7 @@ class HyperliquidVault:
         :raises requests.HTTPError:
             If the HTTP request fails
         """
-        assert user is not None, (
-            "user address is required for fetch_info() — "
-            "Hyperliquid vaultDetails returns maxWithdrawable=0 without it. "
-            "Use fetch_metadata() if you only need vault metadata without user-specific data."
-        )
+        assert user is not None, "user address is required for fetch_info() — Hyperliquid vaultDetails returns maxWithdrawable=0 without it. Use fetch_metadata() if you only need vault metadata without user-specific data."
         params: dict[str, Any] = {"vaultAddress": self.vault_address, "user": user}
         data = self._make_request("vaultDetails", params)
         return self._parse_vault_details(data)

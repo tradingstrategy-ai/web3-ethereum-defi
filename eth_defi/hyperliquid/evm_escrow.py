@@ -649,15 +649,10 @@ def wait_for_evm_escrow_clear(
                 if increase < expected_usdc - tolerance:
                     remaining = deadline - time.time()
                     if remaining <= 0:
-                        raise TimeoutError(
-                            f"EVM escrow for {user} cleared, but HyperCore spot USDC "
-                            f"did not increase enough within {timeout}s. Expected +{expected_usdc}, "
-                            f"observed +{increase}, baseline {baseline_usdc}, current {current_usdc}."
-                        )
+                        raise TimeoutError(f"EVM escrow for {user} cleared, but HyperCore spot USDC did not increase enough within {timeout}s. Expected +{expected_usdc}, observed +{increase}, baseline {baseline_usdc}, current {current_usdc}.")
 
                     logger.warning(
-                        "P15: Escrow cleared but USDC spot balance increase (%s) is less than expected (%s) for %s. "
-                        "Baseline: %s, current: %s. Waiting for the actual spot balance update instead of returning success yet.",
+                        "P15: Escrow cleared but USDC spot balance increase (%s) is less than expected (%s) for %s. Baseline: %s, current: %s. Waiting for the actual spot balance update instead of returning success yet.",
                         increase,
                         expected_usdc,
                         user,
