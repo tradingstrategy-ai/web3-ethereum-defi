@@ -636,21 +636,36 @@ def wait_for_evm_escrow_clear(
         state = fetch_spot_clearinghouse_state(session, user=user)
 
         if not state.evm_escrows:
-            # P15: Additional verification — check spot balance increased.
+            # Loud guard: escrow clearance alone is NOT enough to prove the
+            # deposit reached HyperCore spot. We have seen cases where the
+            # escrow entry disappears first and the expected USDC increase is
+            # still missing, which would otherwise let phase 2 continue on a
+            # false success signal.
             if expected_usdc is not None and baseline_usdc is not None:
                 current_usdc = _get_usdc_spot_balance(state)
                 increase = current_usdc - baseline_usdc
                 # Use 1% tolerance for rounding/fee differences
                 tolerance = expected_usdc * D("0.01")
                 if increase < expected_usdc - tolerance:
+                    remaining = deadline - time.time()
+                    if remaining <= 0:
+                        raise TimeoutError(
+                            f"EVM escrow for {user} cleared, but HyperCore spot USDC "
+                            f"did not increase enough within {timeout}s. Expected +{expected_usdc}, "
+                            f"observed +{increase}, baseline {baseline_usdc}, current {current_usdc}."
+                        )
+
                     logger.warning(
-                        "P15: Escrow cleared but USDC spot balance increase (%s) is less than expected (%s) for %s. Baseline: %s, current: %s. Possible silent bridge failure.",
+                        "P15: Escrow cleared but USDC spot balance increase (%s) is less than expected (%s) for %s. "
+                        "Baseline: %s, current: %s. Waiting for the actual spot balance update instead of returning success yet.",
                         increase,
                         expected_usdc,
                         user,
                         baseline_usdc,
                         current_usdc,
                     )
+                    time.sleep(min(poll_interval, remaining))
+                    continue
                 else:
                     logger.info(
                         "P15: Escrow cleared AND spot USDC verified: +%s USDC (expected +%s) for %s",

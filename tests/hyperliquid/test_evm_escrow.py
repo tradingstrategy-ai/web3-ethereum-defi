@@ -1,5 +1,8 @@
+import itertools
 import logging
+from decimal import Decimal
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
@@ -102,3 +105,99 @@ def test_is_account_activated_reports_empty_precompile_reply(caplog: pytest.LogC
     assert "rpc.hyperliquid.xyz" in str(exc_info.value)
     assert "Last RPC headers" in str(exc_info.value)
     assert "rpc.hyperliquid.xyz" in caplog.text
+
+
+def _monotonic_time():
+    """Yield monotonically increasing timestamps for patched time.time().
+
+    1. Create an infinite counter-backed callable.
+    2. Use it in tests that need deterministic timeout progression.
+    3. Avoid StopIteration from unrelated logging calls.
+    """
+    counter = itertools.count()
+    return lambda: float(next(counter))
+
+
+def test_wait_for_evm_escrow_clear_waits_for_spot_balance_after_escrow_clears():
+    """Do not return success until the expected spot USDC increase is visible.
+
+    1. Mock a baseline spot state, then an escrow-cleared state without the expected USDC, then a final state with the expected increase.
+    2. Run ``wait_for_evm_escrow_clear()`` with ``expected_usdc`` set.
+    3. Verify the helper keeps polling until the spot balance actually reaches the expected level.
+    """
+    from eth_defi.hyperliquid.evm_escrow import wait_for_evm_escrow_clear
+
+    states = iter(
+        [
+            SimpleNamespace(
+                evm_escrows=[SimpleNamespace(coin="USDC", total=Decimal("10"))],
+                balances=[SimpleNamespace(coin="USDC", total=Decimal("1"), hold=Decimal("0"))],
+            ),
+            SimpleNamespace(
+                evm_escrows=[],
+                balances=[SimpleNamespace(coin="USDC", total=Decimal("1"), hold=Decimal("0"))],
+            ),
+            SimpleNamespace(
+                evm_escrows=[],
+                balances=[SimpleNamespace(coin="USDC", total=Decimal("101"), hold=Decimal("0"))],
+            ),
+        ]
+    )
+
+    # 1. Mock a baseline spot state, then an escrow-cleared state without the expected USDC, then a final state with the expected increase.
+    with patch(
+        "eth_defi.hyperliquid.evm_escrow.fetch_spot_clearinghouse_state",
+        side_effect=lambda session, user: next(states),
+    ):
+        with patch("eth_defi.hyperliquid.evm_escrow.time.sleep"):
+            with patch("eth_defi.hyperliquid.evm_escrow.time.time", side_effect=_monotonic_time()):
+                # 2. Run wait_for_evm_escrow_clear() with expected_usdc set.
+                wait_for_evm_escrow_clear(
+                    session=object(),
+                    user="0x0000000000000000000000000000000000000001",
+                    expected_usdc=Decimal("100"),
+                    timeout=10.0,
+                    poll_interval=1.0,
+                )
+
+    # 3. Verify the helper keeps polling until the spot balance actually reaches the expected level.
+
+
+def test_wait_for_evm_escrow_clear_times_out_if_spot_balance_never_arrives():
+    """Raise TimeoutError if escrow clears but the expected spot USDC never appears.
+
+    1. Mock a baseline spot state followed by repeated escrow-cleared states without the expected USDC increase.
+    2. Run ``wait_for_evm_escrow_clear()`` with ``expected_usdc`` set and a short timeout.
+    3. Verify the helper raises ``TimeoutError`` instead of returning false success.
+    """
+    from eth_defi.hyperliquid.evm_escrow import wait_for_evm_escrow_clear
+
+    baseline_state = SimpleNamespace(
+        evm_escrows=[SimpleNamespace(coin="USDC", total=Decimal("10"))],
+        balances=[SimpleNamespace(coin="USDC", total=Decimal("1"), hold=Decimal("0"))],
+    )
+    post_clear_state = SimpleNamespace(
+        evm_escrows=[],
+        balances=[SimpleNamespace(coin="USDC", total=Decimal("1"), hold=Decimal("0"))],
+    )
+
+    with patch(
+        "eth_defi.hyperliquid.evm_escrow.fetch_spot_clearinghouse_state",
+        side_effect=[baseline_state, post_clear_state, post_clear_state, post_clear_state],
+    ):
+        with patch("eth_defi.hyperliquid.evm_escrow.time.sleep"):
+            with patch(
+                "eth_defi.hyperliquid.evm_escrow.time.time",
+                side_effect=[0.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+            ):
+                # 1. Mock a baseline spot state followed by repeated escrow-cleared states without the expected USDC increase.
+                # 2. Run wait_for_evm_escrow_clear() with expected_usdc set and a short timeout.
+                # 3. Verify the helper raises TimeoutError instead of returning false success.
+                with pytest.raises(TimeoutError, match="did not increase enough"):
+                    wait_for_evm_escrow_clear(
+                        session=object(),
+                        user="0x0000000000000000000000000000000000000001",
+                        expected_usdc=Decimal("100"),
+                        timeout=3.0,
+                        poll_interval=1.0,
+                    )

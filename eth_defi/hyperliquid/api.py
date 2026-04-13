@@ -41,6 +41,10 @@ DEFAULT_VAULT_EQUITY_CACHE_TIMEOUT = 15 * 60
 #: Module-level cache: ``(api_url, user) -> (timestamp, list[UserVaultEquity])``
 _vault_equity_cache: dict[tuple, tuple[float, list["UserVaultEquity"]]] = {}
 
+#: Accept up to 1% equity drift when verifying a deposit into an existing vault
+#: because live vault equity can move during the HyperCore confirmation window.
+DEFAULT_VAULT_DEPOSIT_RELATIVE_TOLERANCE = Decimal("0.01")
+
 
 class HypercoreDepositVerificationError(Exception):
     """Raised when a Hypercore vault deposit cannot be verified on HyperCore.
@@ -536,6 +540,7 @@ def wait_for_vault_deposit_confirmation(
     timeout: float = 60.0,
     poll_interval: float = 2.0,
     tolerance: Decimal = Decimal("0.01"),
+    relative_tolerance: Decimal = DEFAULT_VAULT_DEPOSIT_RELATIVE_TOLERANCE,
 ) -> UserVaultEquity:
     """Wait for a vault deposit to be confirmed on HyperCore.
 
@@ -550,7 +555,7 @@ def wait_for_vault_deposit_confirmation(
       Waits for any equity > 0 to appear for the vault.
     - **Existing position**: *existing_equity* is provided.
       Waits for equity to increase by at least
-      ``expected_deposit - tolerance``.
+      ``expected_deposit - max(tolerance, expected_deposit * relative_tolerance)``.
 
     :param session:
         Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
@@ -580,6 +585,12 @@ def wait_for_vault_deposit_confirmation(
         increase (to account for rounding, fees, vault PnL during
         the wait).  Defaults to 0.01 USDC.
 
+    :param relative_tolerance:
+        Acceptable relative difference for existing vault deposits.
+        The larger of ``tolerance`` and ``expected_deposit * relative_tolerance``
+        is used, because live vault equity can drift during confirmation.
+        Defaults to 1%.
+
     :return:
         The confirmed :py:class:`UserVaultEquity` after the deposit.
 
@@ -589,6 +600,7 @@ def wait_for_vault_deposit_confirmation(
     deadline = time.time() + timeout
     attempt = 0
     baseline = existing_equity or Decimal(0)
+    accepted_tolerance = max(tolerance, expected_deposit * relative_tolerance)
 
     # Initial delay: give HyperCore time to process the deposit
     # before first poll (API can lag behind HyperCore state).
@@ -609,37 +621,49 @@ def wait_for_vault_deposit_confirmation(
         if eq is not None:
             increase = eq.equity - baseline
             if existing_equity is None:
-                # New position: any equity > 0 confirms deposit
-                if eq.equity > 0:
+                # Loud guard: first deposits must still be close to the
+                # expected amount. Accepting any non-zero equity here can
+                # falsely confirm on dust, a partial move, or stale residual
+                # state and let the caller treat a broken deposit as success.
+                if increase >= expected_deposit - accepted_tolerance:
                     logger.info(
-                        "Vault deposit confirmed for %s in vault %s: equity %s after %d poll(s)",
+                        "Vault deposit confirmed for %s in vault %s: equity %s "
+                        "(expected %s, tolerance %s) after %d poll(s)",
                         user,
                         vault_address,
                         eq.equity,
+                        expected_deposit,
+                        accepted_tolerance,
                         attempt,
                     )
                     return eq
             else:
-                # Existing position: equity must increase by ~expected amount
-                if increase >= expected_deposit - tolerance:
+                # Existing position: equity must increase by ~expected amount.
+                # Accept a small relative shortfall because live vault equity
+                # can move during the confirmation window.
+                if increase >= expected_deposit - accepted_tolerance:
                     logger.info(
-                        "Vault deposit confirmed for %s in vault %s: equity %s (increase %s, expected %s) after %d poll(s)",
+                        "Vault deposit confirmed for %s in vault %s: equity %s "
+                        "(increase %s, expected %s, tolerance %s) after %d poll(s)",
                         user,
                         vault_address,
                         eq.equity,
                         increase,
                         expected_deposit,
+                        accepted_tolerance,
                         attempt,
                     )
                     return eq
 
             logger.info(
-                "Vault deposit pending for %s in vault %s: equity %s (increase %s, expected %s, poll #%d)",
+                "Vault deposit pending for %s in vault %s: equity %s "
+                "(increase %s, expected %s, tolerance %s, poll #%d)",
                 user,
                 vault_address,
                 eq.equity if eq else None,
                 increase,
                 expected_deposit,
+                accepted_tolerance,
                 attempt,
             )
         else:
