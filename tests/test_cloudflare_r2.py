@@ -4,11 +4,20 @@ from __future__ import annotations
 
 import gzip
 import hashlib
+import logging
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from eth_defi.cloudflare_r2 import calculate_bytes_digest, calculate_file_digest, upload_bytes_to_r2, upload_file_to_r2
+from eth_defi.cloudflare_r2 import (
+    R2AccessDeniedError,
+    calculate_bytes_digest,
+    calculate_file_digest,
+    fetch_r2_object_head,
+    upload_bytes_to_r2,
+    upload_file_to_r2,
+)
 
 try:
     from botocore.exceptions import ClientError
@@ -22,15 +31,25 @@ except ModuleNotFoundError:  # pragma: no cover - exercised in CI dependency mat
 class FakeS3Client:
     """Small in-memory S3 client stub for upload helper tests."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        endpoint_url: str = "https://db6295230fa08e641c3ce159dcda30a8.r2.cloudflarestorage.com",
+        access_key_id: str = "e24301234567dac",
+    ) -> None:
         self.head_responses: dict[tuple[str, str], dict] = {}
+        self.head_exceptions: dict[tuple[str, str], Exception] = {}
         self.put_calls: list[dict] = []
         self.upload_calls: list[dict] = []
+        self.meta = SimpleNamespace(endpoint_url=endpoint_url)
+        self._request_signer = SimpleNamespace(_credentials=SimpleNamespace(access_key=access_key_id))
 
     def head_object(self, **kwargs) -> dict:
         """Return a stored head response or raise a not-found error."""
         bucket = kwargs["Bucket"]
         key = kwargs["Key"]
+        forced_exception = self.head_exceptions.get((bucket, key))
+        if forced_exception is not None:
+            raise forced_exception
         try:
             return self.head_responses[bucket, key]
         except KeyError as exc:
@@ -198,3 +217,53 @@ def test_upload_file_to_r2_uploads_when_remote_checksum_differs(tmp_path: Path) 
     assert uploaded is True
     assert len(s3_client.upload_calls) == 1
     assert s3_client.upload_calls[0]["ExtraArgs"]["Metadata"] == calculate_file_digest(file_path).as_metadata()
+
+
+def test_fetch_r2_object_head_raises_enriched_access_denied_error() -> None:
+    """403 responses should include Cloudflare-specific credential hints."""
+    s3_client = FakeS3Client()
+    s3_client.head_exceptions["bucket", "metadata.json"] = ClientError(
+        {
+            "Error": {"Code": "403", "Message": "Forbidden"},
+            "ResponseMetadata": {"HTTPStatusCode": 403},
+        },
+        "HeadObject",
+    )
+
+    with pytest.raises(R2AccessDeniedError) as exc_info:
+        fetch_r2_object_head(s3_client, "bucket", "metadata.json")
+
+    message = str(exc_info.value)
+    assert "HeadObject" in message
+    assert "wrong R2 access key ID" in message
+    assert "wrong R2 secret access key" in message
+    assert "Cloudflare account ID from endpoint" in message
+    assert "e243...7dac" in message
+    assert isinstance(exc_info.value.__cause__, ClientError)
+
+
+def test_upload_file_to_r2_continues_after_head_access_denied(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """Upload should continue when the skip-if-current HEAD check is forbidden."""
+    s3_client = FakeS3Client()
+    file_path = tmp_path / "top_vaults_by_chain.json"
+    file_path.write_bytes(b'{"vaults":[]}')
+    s3_client.head_exceptions["bucket", file_path.name] = ClientError(
+        {
+            "Error": {"Code": "403", "Message": "Forbidden"},
+            "ResponseMetadata": {"HTTPStatusCode": 403},
+        },
+        "HeadObject",
+    )
+
+    with caplog.at_level(logging.WARNING):
+        uploaded = upload_file_to_r2(
+            s3_client=s3_client,
+            file_path=file_path,
+            bucket_name="bucket",
+            object_name=file_path.name,
+            skip_if_current=True,
+        )
+
+    assert uploaded is True
+    assert len(s3_client.upload_calls) == 1
+    assert "Proceeding with upload attempt anyway" in caplog.text

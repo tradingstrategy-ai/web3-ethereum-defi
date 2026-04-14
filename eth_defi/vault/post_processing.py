@@ -12,6 +12,7 @@ import importlib.util
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 from eth_defi.cloudflare_r2 import create_r2_client, upload_file_to_r2
 from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
@@ -36,6 +37,164 @@ _R2_TOP_VAULTS_REQUIRED_ENV_VARS = (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _mask_access_key_id(access_key_id: str | None) -> str:
+    """Mask an R2 access key ID for safe logging.
+
+    :param access_key_id:
+        Raw access key ID.
+
+    :return:
+        Masked access key ID.
+    """
+    if not access_key_id:
+        return "<unknown>"
+    if len(access_key_id) <= 8:
+        return access_key_id
+    return f"{access_key_id[:4]}...{access_key_id[-4:]}"
+
+
+def _upload_top_vaults_json_to_bucket(
+    s3_client: Any,
+    output_path: Path,
+    bucket_name: str,
+    endpoint_url: str,
+    object_key: str,
+    access_key_id: str,
+    *,
+    public_url: str = "",
+    bucket_label: str,
+) -> bool:
+    """Upload the generated top-vaults JSON to one configured bucket.
+
+    Each bucket is handled independently so that one misconfigured R2
+    target does not stop follow-up uploads to other buckets.
+
+    :param s3_client:
+        Authenticated boto3 S3 client.
+
+    :param output_path:
+        Generated JSON file path.
+
+    :param bucket_name:
+        Target bucket name.
+
+    :param endpoint_url:
+        R2 endpoint URL for logging.
+
+    :param object_key:
+        Destination object key.
+
+    :param access_key_id:
+        R2 access key ID for masked logging.
+
+    :param public_url:
+        Optional public URL to log for the primary bucket.
+
+    :param bucket_label:
+        Human-readable label such as ``primary`` or ``alternative``.
+
+    :return:
+        ``True`` if the bucket upload succeeded or was skipped as
+        unchanged, ``False`` on failure.
+    """
+    try:
+        uploaded = upload_file_to_r2(
+            s3_client=s3_client,
+            file_path=output_path,
+            bucket_name=bucket_name,
+            object_name=object_key,
+            skip_if_current=True,
+        )
+        if uploaded:
+            logger.info("Uploaded %s to %s s3://%s/%s", output_path, bucket_label, bucket_name, object_key)
+            if public_url:
+                logger.info("  -> %s/%s", public_url.rstrip("/"), object_key)
+        else:
+            logger.info("Skipped unchanged %s for %s s3://%s/%s", output_path, bucket_label, bucket_name, object_key)
+        return True
+    except Exception:
+        logger.exception(
+            "Top vaults JSON %s bucket upload failed — bucket=%s, endpoint=%s, object_key=%s, access_key_id=%s",
+            bucket_label,
+            bucket_name,
+            endpoint_url,
+            object_key,
+            _mask_access_key_id(access_key_id),
+        )
+        return False
+
+
+def _upload_top_vaults_json_to_configured_buckets(
+    s3_client: Any,
+    output_path: Path,
+    bucket_name: str,
+    endpoint_url: str,
+    object_key: str,
+    access_key_id: str,
+    *,
+    public_url: str = "",
+    alt_bucket_name: str | None = None,
+) -> bool:
+    """Upload the generated top-vaults JSON to all configured buckets.
+
+    The primary and alternative buckets are attempted independently.
+    This means a permission issue on one bucket does not stop the other
+    upload attempt or later post-processing steps.
+
+    :param s3_client:
+        Authenticated boto3 S3 client.
+
+    :param output_path:
+        Generated JSON file path.
+
+    :param bucket_name:
+        Primary bucket name.
+
+    :param endpoint_url:
+        R2 endpoint URL for logging.
+
+    :param object_key:
+        Destination object key.
+
+    :param access_key_id:
+        R2 access key ID for masked logging.
+
+    :param public_url:
+        Optional public URL for the primary bucket.
+
+    :param alt_bucket_name:
+        Optional alternative bucket name.
+
+    :return:
+        ``True`` if all configured uploads succeeded or were skipped as
+        unchanged, otherwise ``False``.
+    """
+    primary_success = _upload_top_vaults_json_to_bucket(
+        s3_client=s3_client,
+        output_path=output_path,
+        bucket_name=bucket_name,
+        endpoint_url=endpoint_url,
+        object_key=object_key,
+        access_key_id=access_key_id,
+        public_url=public_url,
+        bucket_label="primary",
+    )
+
+    alternative_success = True
+    if alt_bucket_name:
+        alternative_success = _upload_top_vaults_json_to_bucket(
+            s3_client=s3_client,
+            output_path=output_path,
+            bucket_name=alt_bucket_name,
+            endpoint_url=endpoint_url,
+            object_key=object_key,
+            access_key_id=access_key_id,
+            bucket_label="alternative",
+        )
+
+    return primary_success and alternative_success
 
 
 def merge_native_protocols(
@@ -279,6 +438,12 @@ def export_top_vaults_json(
         any failure. Matches the behaviour of the other ``export_*``
         helpers so the caller can log and continue.
     """
+    bucket_name = "<unset>"
+    endpoint_url = "<unset>"
+    object_key = "<unset>"
+    access_key_id = ""
+    public_url = ""
+
     try:
         validate_top_vaults_config(skip_top_vaults=False)
 
@@ -317,41 +482,25 @@ def export_top_vaults_json(
             secret_access_key=secret_access_key,
         )
 
-        # Primary upload — the public bucket that serves
-        # https://top-defi-vaults.tradingstrategy.ai/top_vaults_by_chain.json
-        uploaded = upload_file_to_r2(
-            s3_client=s3_client,
-            file_path=output_path,
-            bucket_name=bucket_name,
-            object_name=object_key,
-            skip_if_current=True,
-        )
-        if uploaded:
-            logger.info("Uploaded %s to s3://%s/%s", output_path, bucket_name, object_key)
-            if public_url:
-                logger.info("  -> %s/%s", public_url.rstrip("/"), object_key)
-        else:
-            logger.info("Skipped unchanged %s for s3://%s/%s", output_path, bucket_name, object_key)
-
         # TODO: phase out public R2_TOP_VAULTS_BUCKET_NAME later once
         # downstream consumers (classification.py, add-vault-note skill,
         # deploy-lagoon-multichain.py) migrate to the private bucket.
         alt_bucket_name = os.environ.get("R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME")
-        if alt_bucket_name:
-            alt_uploaded = upload_file_to_r2(
-                s3_client=s3_client,
-                file_path=output_path,
-                bucket_name=alt_bucket_name,
-                object_name=object_key,
-                skip_if_current=True,
-            )
-            if alt_uploaded:
-                logger.info("Uploaded %s to alternative s3://%s/%s", output_path, alt_bucket_name, object_key)
-            else:
-                logger.info("Skipped unchanged %s for alternative s3://%s/%s", output_path, alt_bucket_name, object_key)
-
-        logger.info("Top vaults JSON export complete")
-        return True
+        uploads_ok = _upload_top_vaults_json_to_configured_buckets(
+            s3_client=s3_client,
+            output_path=output_path,
+            bucket_name=bucket_name,
+            endpoint_url=endpoint_url,
+            object_key=object_key,
+            access_key_id=access_key_id,
+            public_url=public_url,
+            alt_bucket_name=alt_bucket_name,
+        )
+        if uploads_ok:
+            logger.info("Top vaults JSON export complete")
+        else:
+            logger.warning("Top vaults JSON export completed with one or more upload failures")
+        return uploads_ok
     except Exception:
         logger.exception(
             "Export top vaults JSON failed — bucket=%s, endpoint=%s, object_key=%s, access_key_id=%s...%s",

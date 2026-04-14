@@ -13,6 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,112 @@ class R2SourceDigest:
             R2_SOURCE_SHA256_METADATA_KEY: self.sha256,
             R2_SOURCE_SIZE_METADATA_KEY: str(self.size),
         }
+
+
+class R2OperationError(RuntimeError):
+    """Raised when an R2 operation fails with enriched diagnostics."""
+
+
+class R2AccessDeniedError(R2OperationError):
+    """Raised when R2 rejects an operation because access is denied."""
+
+
+def _mask_access_key_id(access_key_id: str | None) -> str:
+    """Mask an access key ID for safe logging.
+
+    :param access_key_id:
+        Raw access key ID from the boto3 client credentials.
+
+    :return:
+        Masked access key ID safe to emit in logs.
+    """
+    if not access_key_id:
+        return "<unknown>"
+    if len(access_key_id) <= 8:
+        return access_key_id
+    return f"{access_key_id[:4]}...{access_key_id[-4:]}"
+
+
+def _extract_r2_client_context(s3_client: Any) -> tuple[str | None, str | None, str | None]:
+    """Extract endpoint, access key and account ID from an R2 client.
+
+    :param s3_client:
+        boto3-compatible S3 client.
+
+    :return:
+        Tuple of endpoint URL, access key ID and parsed account ID.
+    """
+    endpoint_url = getattr(getattr(s3_client, "meta", None), "endpoint_url", None)
+    credentials = getattr(getattr(s3_client, "_request_signer", None), "_credentials", None)
+    access_key_id = getattr(credentials, "access_key", None)
+
+    account_id = None
+    if endpoint_url:
+        hostname = urlparse(endpoint_url).hostname or ""
+        if hostname.endswith(".r2.cloudflarestorage.com"):
+            account_id = hostname.removesuffix(".r2.cloudflarestorage.com")
+
+    return endpoint_url, access_key_id, account_id
+
+
+def _create_r2_operation_error(
+    exc: Exception,
+    s3_client: Any,
+    bucket_name: str,
+    object_name: str,
+) -> R2OperationError:
+    """Create an enriched exception for an R2 client failure.
+
+    The returned exception is intended to be raised ``from`` the
+    original botocore error so the full traceback remains available.
+
+    :param exc:
+        Original botocore client error.
+
+    :param s3_client:
+        boto3-compatible S3 client.
+
+    :param bucket_name:
+        Target bucket name.
+
+    :param object_name:
+        Target object key.
+
+    :return:
+        Enriched exception instance.
+    """
+    operation_name = getattr(exc, "operation_name", "<unknown>")
+    response = getattr(exc, "response", {}) or {}
+    error = response.get("Error", {}) or {}
+    error_code = str(error.get("Code", "")) or "<unknown>"
+    error_message = str(error.get("Message", "")) or "<no message>"
+    http_status = response.get("ResponseMetadata", {}).get("HTTPStatusCode", "<unknown>")
+    endpoint_url, access_key_id, account_id = _extract_r2_client_context(s3_client)
+    masked_access_key_id = _mask_access_key_id(access_key_id)
+
+    detail_lines = [
+        f"R2 {operation_name} failed for bucket={bucket_name!r}, key={object_name!r}, error_code={error_code!r}, http_status={http_status!r}.",
+        f"Endpoint URL: {endpoint_url or '<unknown>'}",
+        f"Access key ID: {masked_access_key_id}",
+    ]
+    if account_id:
+        detail_lines.append(f"Cloudflare account ID from endpoint: {account_id}")
+
+    if error_code == "InvalidAccessKeyId":
+        detail_lines.append("Likely cause: the R2 access key ID is wrong, revoked, or belongs to a different Cloudflare account.")
+        return R2AccessDeniedError(" ".join(detail_lines))
+
+    if error_code == "SignatureDoesNotMatch":
+        detail_lines.append("Likely cause: the R2 secret access key does not match the access key ID, or the endpoint account ID is wrong.")
+        return R2AccessDeniedError(" ".join(detail_lines))
+
+    if error_code in {"403", "AccessDenied", "Forbidden"} or http_status == 403:
+        detail_lines.append("Likely causes: wrong R2 access key ID; wrong R2 secret access key; wrong Cloudflare account ID in the endpoint URL; wrong bucket name; or missing read/write permission for this bucket.")
+        detail_lines.append(f"Original R2 error message: {error_message}")
+        return R2AccessDeniedError(" ".join(detail_lines))
+
+    detail_lines.append(f"Original R2 error message: {error_message}")
+    return R2OperationError(" ".join(detail_lines))
 
 
 def create_r2_client(
@@ -147,9 +254,10 @@ def fetch_r2_object_head(
 ) -> dict[str, Any] | None:
     """Fetch object metadata using ``head_object()``.
 
-    Missing objects return ``None``. Any other S3 error is raised to the
-    caller unchanged so upload scripts fail loudly instead of silently
-    skipping work.
+    Missing objects return ``None``. Any other R2 error is re-raised as
+    an enriched runtime exception with Cloudflare-specific diagnostics,
+    while preserving the original botocore exception as the nested
+    cause.
 
     :param s3_client:
         Authenticated boto3 S3 client.
@@ -172,12 +280,7 @@ def fetch_r2_object_head(
         error_code = str(exc.response.get("Error", {}).get("Code", ""))
         if error_code in {"404", "NoSuchKey", "NotFound"}:
             return None
-        if error_code == "403":
-            raise ClientError(
-                exc.response,
-                exc.operation_name,
-            ) from RuntimeError(f"R2 returned 403 Forbidden for HeadObject on bucket={bucket_name!r}, key={object_name!r}. Check that the R2 API token has read/write access to this bucket and that the bucket name is correct.")
-        raise
+        raise _create_r2_operation_error(exc, s3_client, bucket_name, object_name) from exc
 
 
 def _calculate_md5_hex(payload: bytes) -> str:
@@ -306,16 +409,25 @@ def upload_bytes_to_r2(
     source_digest = source_digest or calculate_bytes_digest(payload)
 
     if skip_if_current:
-        remote_head = fetch_r2_object_head(s3_client, bucket_name, object_name)
-        if remote_head and _is_remote_object_current(
-            remote_head=remote_head,
-            source_digest=source_digest,
-            expected_length=len(payload),
-            content_type=content_type,
-            content_encoding=content_encoding,
-            payload_md5=_calculate_md5_hex(payload),
-        ):
-            return False
+        try:
+            remote_head = fetch_r2_object_head(s3_client, bucket_name, object_name)
+        except R2AccessDeniedError as exc:
+            logger.warning(
+                "R2 HeadObject pre-flight failed for s3://%s/%s while checking whether upload can be skipped. Proceeding with upload attempt anyway. %s",
+                bucket_name,
+                object_name,
+                exc,
+            )
+        else:
+            if remote_head and _is_remote_object_current(
+                remote_head=remote_head,
+                source_digest=source_digest,
+                expected_length=len(payload),
+                content_type=content_type,
+                content_encoding=content_encoding,
+                payload_md5=_calculate_md5_hex(payload),
+            ):
+                return False
 
     put_kwargs: dict[str, Any] = {
         "Bucket": bucket_name,
@@ -331,7 +443,7 @@ def upload_bytes_to_r2(
     try:
         s3_client.put_object(**put_kwargs)
     except ClientError as exc:
-        raise RuntimeError(f"Failed to upload {object_name} to bucket {bucket_name}: {exc}") from exc
+        raise _create_r2_operation_error(exc, s3_client, bucket_name, object_name) from exc
 
     return True
 
@@ -382,14 +494,23 @@ def upload_file_to_r2(
     source_digest = calculate_file_digest(file_path)
 
     if skip_if_current:
-        remote_head = fetch_r2_object_head(s3_client, bucket_name, object_name)
-        if remote_head and _is_remote_object_current(
-            remote_head=remote_head,
-            source_digest=source_digest,
-            expected_length=source_digest.size,
-            content_type=content_type,
-        ):
-            return False
+        try:
+            remote_head = fetch_r2_object_head(s3_client, bucket_name, object_name)
+        except R2AccessDeniedError as exc:
+            logger.warning(
+                "R2 HeadObject pre-flight failed for s3://%s/%s while checking whether upload can be skipped. Proceeding with upload attempt anyway. %s",
+                bucket_name,
+                object_name,
+                exc,
+            )
+        else:
+            if remote_head and _is_remote_object_current(
+                remote_head=remote_head,
+                source_digest=source_digest,
+                expected_length=source_digest.size,
+                content_type=content_type,
+            ):
+                return False
 
     extra_args: dict[str, Any] = {
         "Metadata": source_digest.as_metadata(),
@@ -407,6 +528,6 @@ def upload_file_to_r2(
                 Callback=callback,
             )
         except ClientError as exc:
-            raise RuntimeError(f"Failed to upload {object_name} to bucket {bucket_name}: {exc}") from exc
+            raise _create_r2_operation_error(exc, s3_client, bucket_name, object_name) from exc
 
     return True
