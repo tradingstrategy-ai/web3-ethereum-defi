@@ -183,7 +183,7 @@ def test_close_uses_on_chain_pool_when_self_markets_is_wrong(ccxt_gmx_arbitrum: 
         initial_collateral_delta=100.0,
     )
 
-    assert captured_kwargs.get("market_key", "").lower() == correct_pool.lower(), f"Expected market_key={correct_pool} (correct USDC pool), " f"got {captured_kwargs.get('market_key')} for symbol {symbol}"
+    assert captured_kwargs.get("market_key", "").lower() == correct_pool.lower(), f"Expected market_key={correct_pool} (correct USDC pool), got {captured_kwargs.get('market_key')} for symbol {symbol}"
     assert captured_kwargs.get("collateral_symbol") == "USDC"
     assert captured_kwargs.get("start_token_symbol") == "USDC"
 
@@ -329,5 +329,5 @@ def test_btc_close_uses_on_chain_pool(ccxt_gmx_arbitrum: GMX) -> None:
         initial_collateral_delta=100.0,
     )
 
-    assert captured_kwargs.get("market_key", "").lower() == correct_pool.lower(), f"BTC close: expected WBTC-USDC pool {correct_pool}, " f"got {captured_kwargs.get('market_key')}"
+    assert captured_kwargs.get("market_key", "").lower() == correct_pool.lower(), f"BTC close: expected WBTC-USDC pool {correct_pool}, got {captured_kwargs.get('market_key')}"
     assert captured_kwargs.get("collateral_symbol") == "USDC"
