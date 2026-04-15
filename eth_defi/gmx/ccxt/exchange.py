@@ -6641,6 +6641,108 @@ class GMX(ExchangeCompatible):
 
         return order
 
+    def _execute_close_with_position(
+        self,
+        symbol: str,
+        type: str,
+        side: str,
+        gmx_params: dict,
+        position_to_close: dict,
+        size_delta_usd: int | float,
+        initial_collateral_delta: float,
+    ) -> dict:
+        """Assemble ``close_kwargs`` and invoke ``trader.close_position``.
+
+        Extracted from :meth:`create_order` so the pool-override logic can be
+        exercised by unit tests without hitting an RPC endpoint.
+
+        Closing a position must always target the on-chain pool recorded in
+        ``position_to_close["market"]`` — never the pool cached in
+        ``self.markets[symbol]["info"]["market_token"]``.  The cached value can
+        point at the wrong pool when multiple GMX pools share the same index token.
+        For example, SOL-USDC and the SOL-SOL synthetic pool both have WSOL as
+        index token; the RPC market loader has a dict-overwrite race that can
+        clobber one entry with the other.  The on-chain position is always the
+        authoritative source of which pool and collateral were actually used.
+
+        :param symbol:
+            CCXT symbol (e.g. ``SOL/USDC:USDC``) — used for log context only.
+        :param type:
+            CCXT order type (``market`` or ``limit``) — used for log context only.
+        :param side:
+            CCXT order side (``buy`` / ``sell``) — used for log context only.
+        :param gmx_params:
+            Parameters produced by :meth:`_convert_ccxt_to_gmx_params`.
+            ``market_key`` and ``collateral_symbol`` here may be stale and will
+            be overridden from ``position_to_close`` when they differ.
+        :param position_to_close:
+            On-chain position dict as produced by
+            :class:`eth_defi.gmx.core.open_positions.GetOpenPositions`.
+            Must contain ``market`` (authoritative pool address) and
+            ``collateral_token`` (authoritative collateral symbol).
+        :param size_delta_usd:
+            Decrease size already capped against the on-chain ``sizeInUsd``.
+        :param initial_collateral_delta:
+            Pro-rata collateral withdrawal amount in USD.
+        :return:
+            Order result dict returned by ``trader.close_position``.
+        """
+        logger.debug(
+            "CLOSE: _execute_close_with_position symbol=%s type=%s side=%s",
+            symbol,
+            type,
+            side,
+        )
+
+        # Use on-chain position as the authoritative source for pool + collateral.
+        # self.markets[symbol] can hold the wrong pool when multiple pools share one
+        # index token (e.g. SOL-USDC and SOL-SOL synthetic both have WSOL as index).
+        # The open position dict always records which pool was actually used on-chain.
+        authoritative_market_key = position_to_close.get("market")
+        if authoritative_market_key:
+            authoritative_market_key = to_checksum_address(authoritative_market_key)
+            _existing_key = gmx_params.get("market_key") or ""
+            if authoritative_market_key.lower() != _existing_key.lower():
+                logger.warning(
+                    "CLOSE: overriding market_key from on-chain position for %s: %s -> %s",
+                    symbol,
+                    _existing_key or "<unset>",
+                    authoritative_market_key,
+                )
+        authoritative_collateral_symbol = position_to_close.get("collateral_token")
+        if authoritative_collateral_symbol and authoritative_collateral_symbol != gmx_params.get("collateral_symbol"):
+            logger.warning(
+                "CLOSE: overriding collateral_symbol from on-chain position for %s: %s -> %s",
+                symbol,
+                gmx_params.get("collateral_symbol"),
+                authoritative_collateral_symbol,
+            )
+
+        # Call close_position with the derived parameters.
+        # Use the actual position direction from the on-chain position.
+        # Pass market_key and index_token_address so that close_position()
+        # bypasses OrderArgumentParser's _MARKETS_CACHE lookup — which returns
+        # the deprecated pool for versioned markets like XAUT.v2.
+        _close_collateral_symbol = authoritative_collateral_symbol or gmx_params["collateral_symbol"]
+        close_kwargs: dict = dict(
+            market_symbol=gmx_params["market_symbol"],
+            collateral_symbol=_close_collateral_symbol,
+            start_token_symbol=_close_collateral_symbol,
+            is_long=position_to_close.get("is_long"),  # Use actual position direction
+            size_delta_usd=size_delta_usd,
+            initial_collateral_delta=initial_collateral_delta,
+            slippage_percent=gmx_params.get("slippage_percent", self.default_slippage),
+            execution_buffer=gmx_params.get("execution_buffer", self.execution_buffer),
+            auto_cancel=gmx_params.get("auto_cancel", False),
+        )
+        if authoritative_market_key:
+            close_kwargs["market_key"] = authoritative_market_key
+        elif gmx_params.get("market_key"):
+            close_kwargs["market_key"] = gmx_params["market_key"]
+        if gmx_params.get("index_token_address"):
+            close_kwargs["index_token_address"] = gmx_params["index_token_address"]
+        return self.trader.close_position(**close_kwargs)
+
     def create_order(
         self,
         symbol: str,
@@ -7277,28 +7379,18 @@ class GMX(ExchangeCompatible):
                     close_fraction * 100,
                 )
 
-                # Call close_position with the derived parameters
-                # Use the actual position direction from the found position
-                # Pass market_key and index_token_address so that
-                # close_position() bypasses OrderArgumentParser's _MARKETS_CACHE
-                # lookup — which returns the deprecated pool for versioned
-                # markets like XAUT.v2.
-                close_kwargs: dict = dict(
-                    market_symbol=gmx_params["market_symbol"],
-                    collateral_symbol=gmx_params["collateral_symbol"],
-                    start_token_symbol=gmx_params["start_token_symbol"],
-                    is_long=position_to_close.get("is_long"),  # Use actual position direction
+                # Delegate close_kwargs assembly + pool override to helper.
+                # See _execute_close_with_position for bug context (SOL/USDC:USDC
+                # pool disambiguation — on-chain position is source of truth).
+                order_result = self._execute_close_with_position(
+                    symbol=symbol,
+                    type=type,
+                    side=side,
+                    gmx_params=gmx_params,
+                    position_to_close=position_to_close,
                     size_delta_usd=size_delta_usd,
                     initial_collateral_delta=initial_collateral_delta,
-                    slippage_percent=gmx_params.get("slippage_percent", self.default_slippage),
-                    execution_buffer=gmx_params.get("execution_buffer", self.execution_buffer),
-                    auto_cancel=gmx_params.get("auto_cancel", False),
                 )
-                if gmx_params.get("market_key"):
-                    close_kwargs["market_key"] = gmx_params["market_key"]
-                if gmx_params.get("index_token_address"):
-                    close_kwargs["index_token_address"] = gmx_params["index_token_address"]
-                order_result = self.trader.close_position(**close_kwargs)
 
             except ValueError as e:
                 # Check if this is a "position not found" error (our code above)
