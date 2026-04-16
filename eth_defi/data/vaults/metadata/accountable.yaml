@@ -3,13 +3,11 @@ slug: accountable
 short_description: |
   Blockchain-based financial verification technology with ERC-7540 async redemption vaults.
 long_description: |
-  Accountable Capital develops blockchain-based financial verification technology that enables
-  organisations and investors to demonstrate solvency, liquidity, and compliance through
-  transparent, verifiable attestations. The platform combines cryptographic proofs with
-  auditable financial data to enhance trust across Web3 and traditional finance.
-
-  Accountable vaults implement the ERC-7540 async redemption pattern with a queue system
-  for processing withdrawal requests. The protocol is primarily deployed on Monad blockchain.
+  YieldApp by Accountable is the first yield marketplace built on top of Accountable's
+  Data Verification Network. Every opportunity from borrower vaults to structured credit
+  strategies is backed by live, cryptographically verifiable data. Designed for allocators,
+  YieldApp makes it easy to discover, assess, and deploy into yield opportunities you can
+  trust.
 
 fee_description: |
   Fee information is not publicly exposed on-chain. Accountable vaults do not have
