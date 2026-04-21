@@ -10,9 +10,8 @@ from json import JSONDecodeError
 from pathlib import Path
 from typing import TypedDict
 import logging
-from urllib.error import HTTPError
-
 import requests
+from requests.exceptions import HTTPError
 
 from web3 import Web3
 from eth_typing import HexAddress
@@ -69,7 +68,7 @@ def fetch_euler_vaults_file_for_chain(
         if not file.exists() or (now_ - native_datetime_utc_fromtimestamp(file.stat().st_mtime)) > max_cache_duration or file_size == 0:
             logger.info(f"Re-fetching cached Euler vaults file for chain {chain_id} from {github_base_url}")
             with file.open("wt") as f:
-                url = f"{github_base_url}/{chain_id}/vaults.json"
+                url = f"{github_base_url}/{chain_id}/earn-vaults.json"
 
                 # Fetch and save the file
                 response = requests.get(url)
@@ -82,7 +81,11 @@ def fetch_euler_vaults_file_for_chain(
                     # Check Github file looks valuew
                     logger.info("Fetched Euler vaults file for chain %d from %s, size %d bytes", chain_id, url, len(response.text))
                     content = json.loads(response.text)  # Validate
-                    f.write(response.text)
+                    if isinstance(content, list):
+                        # earn-vaults.json (new format) is a plain list of addresses
+                        # with no per-vault metadata — treat as empty dict.
+                        content = {}
+                    f.write(json.dumps(content))
 
                     logger.info(f"Wrote {file.resolve()}")
 
