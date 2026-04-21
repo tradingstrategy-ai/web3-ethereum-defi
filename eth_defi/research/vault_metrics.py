@@ -31,7 +31,7 @@ from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.fee import FeeData, VaultFeeMode, get_vault_fee_mode
 from eth_defi.vault.curator import get_curator_name, identify_curator, is_protocol_curator
 from eth_defi.vault.flag import ABNORMAL_SHARE_PRICE, ABNORMAL_TVL, ABNORMAL_VOLATILITY, VaultFlag, get_notes
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
@@ -1156,7 +1156,16 @@ def calculate_vault_record(
             withdraw=vault_metadata.get("Withdrawal fee", 0),  # Rare: assume 0 if not explicitly set
         )
 
+    vault_address = vault_metadata["Address"]
+    protocol = vault_metadata["Protocol"]
+
     fee_mode = fee_data.fee_mode
+    if fee_mode is None:
+        # Cached scan data may pre-date the fee matrix entry for this protocol.
+        # Re-derive from the current matrix so updates take effect without rescanning.
+        fee_mode = get_vault_fee_mode(protocol, vault_address)
+        fee_data.fee_mode = fee_mode
+
     net_fee_data = fee_data.get_net_fees()
 
     mgmt_fee = fee_data.management
@@ -1164,10 +1173,8 @@ def calculate_vault_record(
     deposit_fee = fee_data.deposit
     withdrawal_fee = fee_data.withdraw
 
-    vault_address = vault_metadata["Address"]
     link = vault_metadata.get("Link")
     event_count = prices_df["event_count"].iloc[-1]
-    protocol = vault_metadata["Protocol"]
 
     risk = vault_metadata.get("_risk") or get_vault_risk(protocol, vault_address)
     notes = get_notes(vault_address, chain_id=chain_id)
