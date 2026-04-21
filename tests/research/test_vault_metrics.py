@@ -131,6 +131,8 @@ def test_calculate_lifetime_metrics(
         assert hasattr(pm, "ranking_overall")
         assert hasattr(pm, "ranking_chain")
         assert hasattr(pm, "ranking_protocol")
+        # avg_utilisation must be present on every period (None for non-lending vaults)
+        assert hasattr(pm, "avg_utilisation")
 
     # # Check 3M period rankings - vault has valid CAGR and TVL so should have rankings
     # three_month_result = next(p for p in period_results if p.period == "3M")
@@ -250,6 +252,44 @@ def test_calculate_period_metrics(
     assert metrics_lifetime.daily_samples > 0
     assert metrics_lifetime.tvl_start > 0
     assert metrics_lifetime.tvl_end > 0
+
+    # When no utilisation series is provided, avg_utilisation must be None for all periods
+    assert metrics_1m.avg_utilisation is None
+    assert metrics_lifetime.avg_utilisation is None
+
+    # Test avg_utilisation with a synthetic utilisation series (lending vault scenario).
+    # All samples are 0.75 so the mean must equal 0.75 exactly.
+    utilisation_uniform = pd.Series(0.75, index=vault_data.index)
+    metrics_util_lifetime = calculate_period_metrics(
+        period="lifetime",
+        gross_fee_data=fee_data,
+        net_fee_data=net_fee_data,
+        share_price_hourly=share_price_hourly,
+        share_price_daily=share_price_daily,
+        tvl=tvl,
+        now_=now_,
+        utilisation=utilisation_uniform,
+    )
+    assert metrics_util_lifetime.avg_utilisation == pytest.approx(0.75)
+
+    # Test that varying utilisation values are averaged correctly.
+    # Assign linearly spaced values 0.6 … 0.8 across the vault index; the mean is 0.7.
+    n = len(vault_data)
+    utilisation_varying = pd.Series(
+        [0.6 + 0.2 * i / (n - 1) for i in range(n)],
+        index=vault_data.index,
+    )
+    metrics_util_varying = calculate_period_metrics(
+        period="lifetime",
+        gross_fee_data=fee_data,
+        net_fee_data=net_fee_data,
+        share_price_hourly=share_price_hourly,
+        share_price_daily=share_price_daily,
+        tvl=tvl,
+        now_=now_,
+        utilisation=utilisation_varying,
+    )
+    assert metrics_util_varying.avg_utilisation == pytest.approx(0.7, rel=0.01)
 
 
 def test_apply_abnormal_value_checks_handles_pandas_na():

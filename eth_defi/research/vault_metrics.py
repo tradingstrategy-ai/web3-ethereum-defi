@@ -131,6 +131,9 @@ class PeriodMetrics:
     #: Rank among vaults in the same protocol (1 = best), based on CAGR
     ranking_protocol: int | None = None
 
+    #: Average utilisation over the period (lending vaults only, 0.0–1.0)
+    avg_utilisation: Percent | None = None
+
 
 @dataclass(slots=True)
 class NetflowMetrics:
@@ -778,6 +781,7 @@ def calculate_period_metrics(
     share_price_daily: pd.Series,
     tvl: pd.Series,
     now_: pd.Timestamp,
+    utilisation: pd.Series | None = None,
 ) -> PeriodMetrics:
     """Calculate metrics for one period.
 
@@ -801,6 +805,10 @@ def calculate_period_metrics(
 
     :param now_:
         The reference timestamp (usually the last timestamp in the data)
+
+    :param utilisation:
+        Optional utilisation series (lending vaults only, values 0.0–1.0).
+        When provided, ``avg_utilisation`` is computed for the period window.
 
     :return:
         PeriodMetrics dataclass with calculated metrics
@@ -996,6 +1004,13 @@ def calculate_period_metrics(
     else:
         tvl_start = tvl_end = tvl_low = tvl_high = 0
 
+    # Average utilisation for lending vaults.
+    avg_utilisation = None
+    if utilisation is not None:
+        period_utilisation = utilisation.loc[samples_start_at:samples_end_at].dropna()
+        if len(period_utilisation) > 0:
+            avg_utilisation = float(period_utilisation.mean())
+
     return PeriodMetrics(
         period=period,
         error_reason=None,
@@ -1018,6 +1033,7 @@ def calculate_period_metrics(
         tvl_end=tvl_end,
         tvl_low=tvl_low,
         tvl_high=tvl_high,
+        avg_utilisation=avg_utilisation,
     )
 
 
@@ -1329,6 +1345,7 @@ def calculate_vault_record(
     share_price_hourly = prices_df["share_price"]
     share_price_daily = share_price_hourly.resample("D").last()
     tvl_series = prices_df["total_assets"]
+    utilisation_series = prices_df["utilisation"] if "utilisation" in prices_df.columns else None
 
     period_results = []
     for period in LOOKBACK_AND_TOLERANCES.keys():
@@ -1340,6 +1357,7 @@ def calculate_vault_record(
             share_price_daily=share_price_daily,
             tvl=tvl_series,
             now_=now_,
+            utilisation=utilisation_series,
         )
         period_results.append(period_metric)
 
