@@ -297,6 +297,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/data/vaults/README.md` | Vault protocol metadata and logo system |
 | `eth_defi/erc_4626/vault_protocol/README-reader-states.md` | Vault reader states and warmup system |
 | `eth_defi/erc_4626/vault_protocol/README-utilisation.md` | Utilisation and available liquidity metrics for lending vaults |
+| `eth_defi/erc_4626/vault_protocol/README-vault-redeemable.md` | Why utilisation ≠ redeemable liquidity for Morpho/IPOR multi-market vaults |
 | `eth_defi/gmx/README-GMX-Lagoon.md` | GMX Lagoon integration security analysis |
 | `eth_defi/gmx/README.md` | GMX CCXT adapter for eth_defi |
 | `eth_defi/gmx/ccxt/README.md` | GMX CCXT adapter implementation |
