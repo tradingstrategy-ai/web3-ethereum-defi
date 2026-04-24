@@ -150,6 +150,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Lighter": VaultTechnicalRisk.severe,
     # Inverse Finance - sDOLA savings vault, open source but limited audits
     "Inverse Finance": VaultTechnicalRisk.severe,
+    # Gauntlet - uses Aera vault infrastructure, audited, institutional-grade security
+    "Gauntlet": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

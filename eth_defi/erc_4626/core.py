@@ -59,11 +59,19 @@ class ERC4626Feature(enum.Enum):
 
     #: Morpho Vault V2
     #:
-    #: Newer version with adapter-based architecture for multi-protocol yield allocation.
-    #: Uses adaptersLength() function for identification.
-    #: https://docs.morpho.org/learn/concepts/vault-v2/
-    #: https://github.com/morpho-org/vault-v2
+    #: Deprecated: renamed to :py:attr:`gauntlet_like`.
+    #: Kept for backwards compatibility with pickled databases.
+    #: These vaults use Aera's VaultV2 infrastructure, which is Gauntlet's own vault platform.
     morpho_v2_like = "morpho_v2_like"
+
+    #: Gauntlet (Aera vault infrastructure)
+    #:
+    #: Gauntlet vaults use Aera's onchain vault infrastructure (VaultV2 / MultiDepositorVault).
+    #: VaultV2 uses ``adapterRegistry()`` function for identification.
+    #: MultiDepositorVault (Aera V3) uses hardcoded addresses.
+    #: https://app.gauntlet.xyz/
+    #: https://docs.aera.finance/
+    gauntlet_like = "gauntlet_like"
 
     #: Harvest Finance like protocol
     harvest_finance = "harvest_finance"
@@ -593,6 +601,7 @@ LENDING_PROTOCOL_FEATURES: frozenset[ERC4626Feature] = frozenset(
         ERC4626Feature.euler_earn_like,
         ERC4626Feature.morpho_like,
         ERC4626Feature.morpho_v2_like,
+        ERC4626Feature.gauntlet_like,
         ERC4626Feature.fluid_like,
         ERC4626Feature.silo_like,
         ERC4626Feature.llamma_like,
@@ -627,8 +636,10 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """
     if ERC4626Feature.broken in features:
         return "<not ERC-4626>"
+    elif ERC4626Feature.gauntlet_like in features:
+        return "Gauntlet"
     elif ERC4626Feature.morpho_v2_like in features:
-        return "Morpho"
+        return "Gauntlet"
     elif ERC4626Feature.morpho_like in features:
         return "Morpho"
     elif ERC4626Feature.fluid_like in features:

@@ -1,0 +1,37 @@
+name: Gauntlet
+slug: gauntlet
+short_description: |
+  Risk-managed DeFi yield vaults powered by Aera onchain infrastructure.
+long_description: |
+  Gauntlet is a DeFi-native quantitative research firm specialising in risk management,
+  incentive optimisation, and vault curation. Founded in 2018, Gauntlet manages over $1B
+  in vault TVL across 80+ vaults on Ethereum, Base, Arbitrum, and Optimism.
+
+  Gauntlet uses Aera's onchain vault infrastructure with two contract types:
+
+  - **VaultV2** (Aera V2): Adapter-based architecture for multi-protocol yield allocation,
+    with granular cap systems, timelocked governance, and performance/management fees.
+  - **MultiDepositorVault** (Aera V3): Guardian-based architecture with provisioner pattern
+    for cross-chain yield strategies like Gauntlet USD Alpha (gtUSDa).
+
+  Vault strategies include Prime (conservative lending), Balanced (moderate risk),
+  Frontier (maximum yield), and Earn (cross-protocol, cross-chain yield).
+fee_description: |
+  Gauntlet vaults may charge management fees (up to 5% per year on AUM) and performance
+  fees (up to 50% on yield generated). Fee parameters are stored on-chain and can be read
+  via the `managementFee()` and `performanceFee()` functions. Many Gauntlet vaults
+  currently have 0% fees.
+links:
+  homepage: https://www.gauntlet.xyz/
+  app: https://app.gauntlet.xyz/
+  twitter: https://x.com/gauntlet_xyz
+  github: https://github.com/GauntletNetworks/aera-contracts-public
+  documentation: https://vaultbook.gauntlet.xyz/
+  defillama: https://defillama.com/protocol/gauntlet
+  audits: https://www.gauntlet.xyz/vaults/security
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/gauntlet
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/gauntlet/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x8c106eedad96553e64287a5a6839c3cc78afa3d0
+  - https://etherscan.io/address/0x3bd9248048df95db4fbd748c6cd99c1baa40bad0

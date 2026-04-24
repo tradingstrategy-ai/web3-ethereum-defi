@@ -288,13 +288,14 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Morpho V2 - newer adapter-based architecture
-        # https://docs.morpho.org/learn/concepts/vault-v2/
-        # https://arbiscan.io/address/0xbeefff13dd098de415e07f033dae65205b31a894
+        # Gauntlet / Aera VaultV2 - adapter-based architecture
+        # Uses adapterRegistry() as unique detection signature
+        # https://docs.aera.finance/
+        # https://etherscan.io/address/0x8c106eedad96553e64287a5a6839c3cc78afa3d0
         yield EncodedCall.from_keccak_signature(
             address=address,
-            signature=Web3.keccak(text="adaptersLength()")[0:4],
-            function="adaptersLength",
+            signature=Web3.keccak(text="adapterRegistry()")[0:4],
+            function="adapterRegistry",
             data=b"",
             extra_data=None,
         )
@@ -795,10 +796,10 @@ def identify_vault_features(
     if calls["MORPHO"].success:
         features.add(ERC4626Feature.morpho_like)
 
-    # Morpho V2 - uses adaptersLength() instead of MORPHO()
-    # Must check that MORPHO() fails to distinguish from V1
-    if calls["adaptersLength"].success and not calls["MORPHO"].success:
-        features.add(ERC4626Feature.morpho_v2_like)
+    # Gauntlet / Aera VaultV2 - uses adapterRegistry() for identification
+    # Must check that MORPHO() fails to distinguish from Morpho V1 (MetaMorpho)
+    if calls["adapterRegistry"].success and not calls["MORPHO"].success:
+        features.add(ERC4626Feature.gauntlet_like)
 
     # Triggered by USDai
     # TODO: Any better ways to check this?
@@ -1268,12 +1269,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 
         return MorphoV1Vault(web3, spec, **kwargs)
-    elif ERC4626Feature.morpho_v2_like in features:
-        # Morpho V2 instance (adapter-based architecture)
-        from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
-        from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
+    elif ERC4626Feature.gauntlet_like in features or ERC4626Feature.morpho_v2_like in features:
+        # Gauntlet / Aera VaultV2 instance
+        from eth_defi.erc_4626.vault_protocol.gauntlet.vault import GauntletVault
 
-        return MorphoV2Vault(web3, spec, **kwargs)
+        return GauntletVault(web3, spec, **kwargs)
     elif ERC4626Feature.euler_earn_like in features:
         # EulerEarn metavault instance
         from eth_defi.erc_4626.vault_protocol.euler.vault import EulerEarnVault
@@ -1862,6 +1862,18 @@ HARDCODED_PROTOCOLS = {
     # Inverse Finance - sDOLA vault on Ethereum
     # https://etherscan.io/address/0xb45ad160634c528Cc3D2926d9807104FA3157305
     "0xb45ad160634c528cc3d2926d9807104fa3157305": {ERC4626Feature.inverse_finance_like},
+    # Gauntlet / Aera MultiDepositorVault (V3) - hardcoded because not standard ERC-4626
+    # https://app.gauntlet.xyz/
+    # gtUSDa on Ethereum
+    "0x3bd9248048df95db4fbd748c6cd99c1baa40bad0": {ERC4626Feature.gauntlet_like},
+    # gtUSDa on Base
+    "0x000000000001cdb57e58fa75fe420a0f4d6640d5": {ERC4626Feature.gauntlet_like},
+    # gtUSDa on Arbitrum
+    "0x000000001dc8bd45d7e7829fb1c969cbe4d0d1ec": {ERC4626Feature.gauntlet_like},
+    # gtBTC on Ethereum
+    "0xeff0ae5b39271b33f448cd408b51dc8aa72a672b": {ERC4626Feature.gauntlet_like},
+    # Gauntlet Levered FalconX on Ethereum
+    "0x00000000d8f3d6c5dfeb2d2b5ed2276095f3af44": {ERC4626Feature.gauntlet_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

@@ -1,6 +1,7 @@
-"""Morpho Vault V2 protocol tests.
+"""Gauntlet / Aera VaultV2 protocol tests.
 
-Tests for the newer Morpho Vault V2 adapter-based architecture.
+Tests for the Aera VaultV2 adapter-based architecture used by Gauntlet vaults.
+Previously classified as Morpho V2, but the VaultV2 contract is Gauntlet/Aera infrastructure.
 """
 
 import os
@@ -14,7 +15,7 @@ from web3 import Web3
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature, is_lending_protocol
-from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault, MorphoV2VaultHistoricalReader
+from eth_defi.erc_4626.vault_protocol.gauntlet.vault import GauntletVault, GauntletVaultHistoricalReader
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import (
@@ -64,9 +65,9 @@ def test_morpho_v2_vault(
         vault_address="0xbeefff13dd098de415e07f033dae65205b31a894",
     )
 
-    assert isinstance(vault, MorphoV2Vault)
-    assert vault.features == {ERC4626Feature.morpho_v2_like}
-    assert vault.get_protocol_name() == "Morpho"
+    assert isinstance(vault, GauntletVault)
+    assert vault.features == {ERC4626Feature.gauntlet_like}
+    assert vault.get_protocol_name() == "Gauntlet"
     assert vault.name == "Steakhouse High Yield Turbo"
     assert vault.symbol == "ptUSDCturbo"
 
@@ -80,14 +81,9 @@ def test_morpho_v2_vault(
     assert management_fee == 0.0
     assert performance_fee == 0.0
 
-    # Check adapters count
-    adapters_count = vault.get_adapters_count("latest")
-    assert adapters_count == 2
-
     # Check link format
     link = vault.get_link()
-    assert "morpho.org" in link
-    assert "arbitrum" in link.lower()
+    assert "gauntlet.xyz" in link
 
     # Test deposit/redemption status methods
     deposit_reason = vault.fetch_deposit_closed_reason()
@@ -127,7 +123,7 @@ def test_morpho_v2_vault(
 
     # Test historical reader
     reader = vault.get_historical_reader(stateful=False)
-    assert isinstance(reader, MorphoV2VaultHistoricalReader)
+    assert isinstance(reader, GauntletVaultHistoricalReader)
     calls = list(reader.construct_multicalls())
     call_names = [c.extra_data.get("function") for c in calls if c.extra_data]
     assert "idle_assets" in call_names

@@ -54,6 +54,7 @@ Supported protocols
    foxify/index
    frax/index
    gains/index
+   gauntlet/index
    gearbox/index
    goat/index
    harvest/index
