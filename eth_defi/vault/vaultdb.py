@@ -7,11 +7,10 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from io import BufferedIOBase
 from pathlib import Path
-from typing import TypedDict, TypeAlias, Iterable
+from typing import Iterable, NotRequired, TypeAlias, TypedDict
 
 import pandas as pd
 from atomicwrites import atomic_write
-
 from eth_typing import HexAddress
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
@@ -110,6 +109,15 @@ class VaultRow(TypedDict):
     #: ``gspread``, which is an optional dependency.
     _manual_review_status: object | None
 
+    #: Share price staleness diagnostics copied from ``VaultReaderState``.
+    _share_price_last_changed_at: NotRequired[datetime.datetime | None]
+    _share_price_last_changed_block: NotRequired[int | None]
+    _share_price_last_checked_at: NotRequired[datetime.datetime | None]
+    _share_price_last_checked_block: NotRequired[int | None]
+    _share_price_last_check_error: NotRequired[str | None]
+    _vault_poll_frequency: NotRequired[str | None]
+    _vault_poll_interval_seconds: NotRequired[int | None]
+
     __annotations__ = {
         "First seen at": datetime.datetime,
         "Mgmt fee": float,
@@ -118,7 +126,55 @@ class VaultRow(TypedDict):
         "Withdrawal fee": float,
         "Share token": str,
         "Peak NAV": Decimal,
+        "_share_price_last_changed_at": datetime.datetime | None,
+        "_share_price_last_changed_block": int | None,
+        "_share_price_last_checked_at": datetime.datetime | None,
+        "_share_price_last_checked_block": int | None,
+        "_share_price_last_check_error": str | None,
+        "_vault_poll_frequency": str | None,
+        "_vault_poll_interval_seconds": int | None,
     }
+
+
+def sync_vault_staleness_metadata(
+    vault_db: "VaultDatabase",
+    reader_states: VaultReaderData,
+) -> int:
+    """Copy share price staleness diagnostics from reader states to metadata.
+
+    The vault metrics pipeline consumes :py:class:`VaultDatabase` rows,
+    while the scanner persists live polling state separately in
+    ``vault-reader-state-1h.pickle``. This helper bridges the two after
+    a price scan without adding diagnostic-only rows to the price Parquet.
+
+    :param vault_db:
+        Vault metadata database to mutate in-place.
+
+    :param reader_states:
+        Reader state dictionary keyed by :py:class:`VaultSpec`.
+
+    :return:
+        Number of vault metadata rows updated.
+    """
+    assert isinstance(vault_db, VaultDatabase)
+    assert isinstance(reader_states, dict)
+
+    updated = 0
+    for spec, state in reader_states.items():
+        row = vault_db.rows.get(spec)
+        if row is None:
+            continue
+
+        row["_share_price_last_changed_at"] = state.get("share_price_last_changed_at")
+        row["_share_price_last_changed_block"] = state.get("share_price_last_changed_block")
+        row["_share_price_last_checked_at"] = state.get("share_price_last_checked_at")
+        row["_share_price_last_checked_block"] = state.get("share_price_last_checked_block")
+        row["_share_price_last_check_error"] = state.get("share_price_last_check_error")
+        row["_vault_poll_frequency"] = state.get("vault_poll_frequency")
+        row["_vault_poll_interval_seconds"] = state.get("vault_poll_interval_seconds")
+        updated += 1
+
+    return updated
 
 
 #: Legacy pickle format

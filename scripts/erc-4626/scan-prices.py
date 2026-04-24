@@ -100,12 +100,12 @@ except ImportError as e:
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection
-from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
+from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.historical import scan_historical_prices_to_parquet, pformat_scan_result
-from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE
+from eth_defi.vault.historical import pformat_scan_result, scan_historical_prices_to_parquet
+from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, sync_vault_staleness_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -286,6 +286,11 @@ def main():
         # print("Example state:\n", pformat(example_state))
         with atomic_write(str(reader_state_db), mode="wb", overwrite=True) as f:
             pickle.dump(states, f)
+
+        updated = sync_vault_staleness_metadata(vault_db, states)
+        if updated:
+            vault_db.write(vault_db_fname)
+            print(f"Updated share price staleness metadata for {updated:,} vaults in {vault_db_fname}")
 
         unique_chains = set(spec.chain_id for spec in states.keys())
         print(f"Reader states saved for {len(unique_chains)} chains")

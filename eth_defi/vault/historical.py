@@ -487,6 +487,14 @@ class VaultHistoricalReadMulticaller:
                     results,
                 )
 
+                if reader.reader_state is not None:
+                    reader.reader_state.record_share_price_check(
+                        block_number=block_number,
+                        timestamp=timestamp,
+                        share_price=current_result.share_price,
+                        errors=current_result.errors,
+                    )
+
                 current_result.vault_poll_frequency = state.vault_poll_frequency
 
                 if current_result.errors:

@@ -1,5 +1,6 @@
 """Test vault metrics calculations and charts."""
 
+import datetime
 import json
 import os.path
 import pickle
@@ -10,12 +11,13 @@ import pytest
 import zstandard as zstd
 from plotly.graph_objects import Figure
 
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.research.sparkline import export_sparkline_as_png, export_sparkline_as_svg, extract_vault_price_data, render_sparkline_simple
 from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
 from eth_defi.research.vault_metrics import PeriodMetrics, apply_abnormal_value_checks, calculate_lifetime_metrics, calculate_period_metrics, display_vault_chart_and_tearsheet, export_lifetime_row, format_lifetime_table
-from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -322,6 +324,168 @@ def test_apply_abnormal_value_checks_handles_pandas_na():
     assert VaultFlag.abnormal_tvl in flags
     assert VaultFlag.abnormal_share_price in flags
     assert VaultFlag.abnormal_volatility in flags
+
+
+def test_calculate_lifetime_metrics_exports_share_price_staleness():
+    """Vault metadata staleness diagnostics are exposed in metrics and JSON export."""
+    address = "0x0000000000000000000000000000000000000001"
+    spec = VaultSpec(chain_id=1, vault_address=address)
+    changed_at = datetime.datetime(2026, 1, 1, 12, 0)
+    checked_at = datetime.datetime(2026, 1, 3, 12, 0)
+
+    detection = ERC4262VaultDetection(
+        chain=1,
+        address=address,
+        first_seen_at_block=100,
+        first_seen_at=changed_at,
+        features={ERC4626Feature.morpho_like},
+        updated_at=checked_at,
+        deposit_count=30,
+        redeem_count=5,
+    )
+
+    vault_db = {
+        spec: {
+            "Name": "Staleness Test Vault",
+            "Address": address,
+            "Denomination": "USDC",
+            "Share token": "stUSDC",
+            "Protocol": "Morpho",
+            "Link": None,
+            "Mgmt fee": 0.0,
+            "Perf fee": 0.0,
+            "Deposit fee": 0.0,
+            "Withdrawal fee": 0.0,
+            "_detection_data": detection,
+            "_fees": FeeData(
+                fee_mode=VaultFeeMode.externalised,
+                management=0.0,
+                performance=0.0,
+                deposit=0.0,
+                withdraw=0.0,
+            ),
+            "_flags": set(),
+            "_share_price_last_changed_at": changed_at,
+            "_share_price_last_changed_block": 100,
+            "_share_price_last_checked_at": checked_at,
+            "_share_price_last_checked_block": 200,
+            "_share_price_last_check_error": None,
+            "_vault_poll_frequency": "large_tvl",
+            "_vault_poll_interval_seconds": 3600,
+        }
+    }
+
+    index = pd.date_range("2026-01-01", periods=5, freq="D")
+    prices_df = pd.DataFrame(
+        {
+            "id": [spec.as_string_id()] * len(index),
+            "chain": [1] * len(index),
+            "address": [address] * len(index),
+            "block_number": [100, 125, 150, 175, 200],
+            "share_price": [1.0, 1.0001, 1.0002, 1.0003, 1.0004],
+            "total_assets": [20_000.0] * len(index),
+            "total_supply": [20_000.0] * len(index),
+            "event_count": [35] * len(index),
+            "utilisation": [pd.NA] * len(index),
+        },
+        index=index,
+    )
+
+    metrics = calculate_lifetime_metrics(prices_df, vault_db)
+    row = metrics.iloc[0]
+
+    assert row["share_price_last_changed_at"] == changed_at
+    assert row["share_price_last_changed_block"] == 100
+    assert row["share_price_last_checked_at"] == checked_at
+    assert row["share_price_last_checked_block"] == 200
+    assert row["share_price_last_check_error"] is None
+    assert row["share_price_staleness_seconds"] == 2 * 24 * 3600
+    assert row["share_price_staleness_days"] == 2
+    assert row["vault_poll_frequency"] == "large_tvl"
+    assert row["vault_poll_interval_seconds"] == 3600
+    assert bool(row["share_price_staleness_applicable"]) is True
+
+    exported = export_lifetime_row(row)
+    assert exported["share_price_last_changed_at"] == changed_at.isoformat()
+    assert exported["share_price_staleness_seconds"] == 2 * 24 * 3600
+    assert exported["share_price_staleness_applicable"] is True
+
+
+def test_calculate_lifetime_metrics_share_price_staleness_applicability():
+    """Only frequent, healthy, error-free checks are actionable."""
+    address = "0x0000000000000000000000000000000000000001"
+    spec = VaultSpec(chain_id=1, vault_address=address)
+    changed_at = datetime.datetime(2026, 1, 1, 12, 0)
+    checked_at = datetime.datetime(2026, 1, 3, 12, 0)
+
+    detection = ERC4262VaultDetection(
+        chain=1,
+        address=address,
+        first_seen_at_block=100,
+        first_seen_at=changed_at,
+        features={ERC4626Feature.morpho_like},
+        updated_at=checked_at,
+        deposit_count=30,
+        redeem_count=5,
+    )
+
+    base_row = {
+        "Name": "Staleness Test Vault",
+        "Address": address,
+        "Denomination": "USDC",
+        "Share token": "stUSDC",
+        "Protocol": "Morpho",
+        "Link": None,
+        "Mgmt fee": 0.0,
+        "Perf fee": 0.0,
+        "Deposit fee": 0.0,
+        "Withdrawal fee": 0.0,
+        "_detection_data": detection,
+        "_fees": FeeData(
+            fee_mode=VaultFeeMode.externalised,
+            management=0.0,
+            performance=0.0,
+            deposit=0.0,
+            withdraw=0.0,
+        ),
+        "_flags": set(),
+        "_share_price_last_changed_at": changed_at,
+        "_share_price_last_changed_block": 100,
+        "_share_price_last_checked_at": checked_at,
+        "_share_price_last_checked_block": 200,
+    }
+
+    index = pd.date_range("2026-01-01", periods=5, freq="D")
+
+    def _calculate_applicable(current_nav: float, interval: int, error: str | None) -> bool:
+        vault_db = {
+            spec: {
+                **base_row,
+                "_share_price_last_check_error": error,
+                "_vault_poll_frequency": "large_tvl",
+                "_vault_poll_interval_seconds": interval,
+            }
+        }
+        prices_df = pd.DataFrame(
+            {
+                "id": [spec.as_string_id()] * len(index),
+                "chain": [1] * len(index),
+                "address": [address] * len(index),
+                "block_number": [100, 125, 150, 175, 200],
+                "share_price": [1.0, 1.0001, 1.0002, 1.0003, 1.0004],
+                "total_assets": [current_nav] * len(index),
+                "total_supply": [current_nav] * len(index),
+                "event_count": [35] * len(index),
+                "utilisation": [pd.NA] * len(index),
+            },
+            index=index,
+        )
+        return bool(calculate_lifetime_metrics(prices_df, vault_db).iloc[0]["share_price_staleness_applicable"])
+
+    assert _calculate_applicable(current_nav=20_000, interval=3600, error=None) is True
+    assert _calculate_applicable(current_nav=20_000, interval=7 * 24 * 3600, error=None) is False
+    assert _calculate_applicable(current_nav=5_000, interval=24 * 3600, error=None) is False
+    assert _calculate_applicable(current_nav=20_000, interval=3600, error="convertToAssets call failed") is False
 
 
 def test_vault_charts(

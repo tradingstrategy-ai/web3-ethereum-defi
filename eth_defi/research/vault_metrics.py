@@ -25,14 +25,14 @@ from tqdm.auto import tqdm
 
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.research.value_table import format_grouped_series_as_multi_column_grid, format_series_as_multi_column_grid
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
-from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.fee import FeeData, VaultFeeMode, get_vault_fee_mode
 from eth_defi.vault.curator import get_curator_name, identify_curator, is_protocol_curator
+from eth_defi.vault.fee import FeeData, VaultFeeMode, get_vault_fee_mode
 from eth_defi.vault.flag import ABNORMAL_SHARE_PRICE, ABNORMAL_TVL, ABNORMAL_VOLATILITY, VaultFlag, get_notes
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
@@ -58,6 +58,9 @@ MAX_VALID_SHARE_PRICE: USDollarAmount = 1_000_000
 #: This catches low-TVL Hyperliquid vaults with one or few trades
 #: that produce extreme volatility numbers.
 MAX_VALID_VOLATILITY: Percent = 10_000
+
+#: Minimum current NAV for share price staleness to be treated as actionable.
+SHARE_PRICE_STALENESS_MIN_NAV: USDollarAmount = 10_000
 
 
 @dataclass(slots=True)
@@ -1169,6 +1172,27 @@ def calculate_vault_record(
     current_nav = prices_df["total_assets"].iloc[-1]
     chain_id = prices_df["chain"].iloc[-1]
 
+    share_price_last_changed_at = vault_metadata.get("_share_price_last_changed_at")
+    share_price_last_changed_block = vault_metadata.get("_share_price_last_changed_block")
+    share_price_last_checked_at = vault_metadata.get("_share_price_last_checked_at")
+    share_price_last_checked_block = vault_metadata.get("_share_price_last_checked_block")
+    share_price_last_check_error = vault_metadata.get("_share_price_last_check_error")
+    vault_poll_frequency = vault_metadata.get("_vault_poll_frequency")
+    vault_poll_interval_seconds = vault_metadata.get("_vault_poll_interval_seconds")
+
+    def _has_value(value) -> bool:
+        return value is not None and not pd.isna(value)
+
+    if _has_value(share_price_last_changed_at) and _has_value(share_price_last_checked_at):
+        share_price_staleness_seconds = (share_price_last_checked_at - share_price_last_changed_at).total_seconds()
+        share_price_staleness_days = share_price_staleness_seconds / 86400
+    else:
+        share_price_staleness_seconds = None
+        share_price_staleness_days = None
+
+    has_share_price_check_error = _has_value(share_price_last_check_error) and str(share_price_last_check_error) != ""
+    share_price_staleness_applicable = bool(not has_share_price_check_error and _has_value(vault_poll_interval_seconds) and vault_poll_interval_seconds <= 86400 and _has_value(current_nav) and current_nav >= SHARE_PRICE_STALENESS_MIN_NAV)
+
     fee_data: FeeData = vault_metadata.get("_fees")
     gross_fee_data = fee_data
 
@@ -1511,6 +1535,16 @@ def calculate_vault_record(
             "last_updated_at": last_updated_at,
             "last_updated_block": last_updated_block,
             "last_share_price": last_share_price,
+            "share_price_last_changed_at": share_price_last_changed_at,
+            "share_price_last_changed_block": share_price_last_changed_block,
+            "share_price_last_checked_at": share_price_last_checked_at,
+            "share_price_last_checked_block": share_price_last_checked_block,
+            "share_price_last_check_error": share_price_last_check_error,
+            "share_price_staleness_seconds": share_price_staleness_seconds,
+            "share_price_staleness_days": share_price_staleness_days,
+            "vault_poll_frequency": vault_poll_frequency,
+            "vault_poll_interval_seconds": vault_poll_interval_seconds,
+            "share_price_staleness_applicable": share_price_staleness_applicable,
             "features": features,
             "flags": flags,
             "notes": notes,
@@ -2147,7 +2181,7 @@ def display_lifetime_table(df: pd.DataFrame):
     :param df:
         DataFrame returned by :py:func:`format_lifetime_table`.
     """
-    from IPython.display import display, HTML
+    from IPython.display import HTML, display
 
     style = "<style>table.lifetime-table td, table.lifetime-table th { padding: 2px 6px; white-space: nowrap; }</style>"
     table_html = df.to_html(escape=False, classes="lifetime-table")
@@ -2765,6 +2799,9 @@ def export_lifetime_row(row: pd.Series) -> dict:
         # (pd.NaT can match isinstance checks for datetime/Timestamp)
         if value is pd.NaT:
             return None
+        # Numpy bool
+        if isinstance(value, np.bool_):
+            return bool(value)
         # Numpy scalar
         if isinstance(value, (np.floating, np.integer)):
             return value.item()
