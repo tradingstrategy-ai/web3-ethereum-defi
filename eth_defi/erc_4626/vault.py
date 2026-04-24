@@ -11,14 +11,7 @@ from eth_typing import HexAddress
 from requests.exceptions import HTTPError
 from web3 import Web3
 from web3.contract import Contract
-
-from eth_defi.middleware import ProbablyNodeHasNoBlock
-from eth_defi.provider.broken_provider import get_safe_cached_latest_block_number
-from eth_defi.provider.fallback import ExtraValueError
-from eth_defi.vault.flag import VaultFlag
-
 from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange
-
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
@@ -32,8 +25,12 @@ from eth_defi.erc_4626.vault_token import (
 )
 from eth_defi.event_reader.conversion import BadAddressError, convert_int256_bytes_to_int, convert_uint256_bytes_to_address
 from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult
+from eth_defi.middleware import ProbablyNodeHasNoBlock
+from eth_defi.provider.broken_provider import get_safe_cached_latest_block_number
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details, is_stablecoin_like
 from eth_defi.vault.base import DEPOSIT_CLOSED_CAP_REACHED, DEPOSIT_CLOSED_PAUSED, REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY, REDEMPTION_CLOSED_PAUSED, TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalRead, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.flag import VaultFlag
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +97,12 @@ class VaultReaderState(BatchCallState):
     SERIALISABLE_ATTRIBUTES = (
         "last_tvl",
         "last_share_price",
+        "last_significant_share_price",
+        "share_price_last_changed_at",
+        "share_price_last_changed_block",
+        "share_price_last_checked_at",
+        "share_price_last_checked_block",
+        "share_price_last_check_error",
         "max_tvl",
         "first_seen_at_block",
         "first_block",
@@ -117,6 +120,7 @@ class VaultReaderState(BatchCallState):
         "one_raw_share",
         "reading_restarted_count",
         "vault_poll_frequency",
+        "vault_poll_interval_seconds",
         "token_symbol",
         "unsupported_token",
         "invoke_count_passed",
@@ -181,6 +185,28 @@ class VaultReaderState(BatchCallState):
         #: Start with zero share price
         self.last_share_price: Decimal = Decimal(0)
 
+        #: Last share price that moved more than the staleness threshold.
+        #:
+        #: Unlike :py:attr:`last_share_price`, this value is only updated
+        #: when the share price changes enough to be meaningful for
+        #: oracle/NAV lag diagnostics.
+        self.last_significant_share_price: Decimal | None = None
+
+        #: When ``last_significant_share_price`` last changed.
+        self.share_price_last_changed_at: datetime.datetime | None = None
+
+        #: Block where ``last_significant_share_price`` last changed.
+        self.share_price_last_changed_block: int | None = None
+
+        #: When the scanner last attempted to read share price.
+        self.share_price_last_checked_at: datetime.datetime | None = None
+
+        #: Block where the scanner last attempted to read share price.
+        self.share_price_last_checked_block: int | None = None
+
+        #: Error message from the latest share price check, if any.
+        self.share_price_last_check_error: str | None = None
+
         #: When this vault received its last eth_call update
         self.last_call_at: datetime.datetime | None = None
 
@@ -238,6 +264,10 @@ class VaultReaderState(BatchCallState):
         #: Cache for how often we are polling this vault,
         #: the mode name
         self.vault_poll_frequency = None
+
+        #: Cache for how often we are polling this vault,
+        #: the current nominal interval in seconds.
+        self.vault_poll_interval_seconds: int | None = None
 
         #: Cache for debuggin
         self.token_symbol = None
@@ -359,17 +389,17 @@ class VaultReaderState(BatchCallState):
         if self.first_seen_at_block:
             if block_identifier < self.first_seen_at_block:
                 # We do not read historical data before the first seen block
-                self.vault_poll_frequency = "not_started"
+                self._set_vault_poll_frequency("not_started", None)
                 return False
 
         if self.last_call_at is None:
             # First read, we always read it
-            self.vault_poll_frequency = "first_read"
+            self._set_vault_poll_frequency("first_read", None)
             self.invoke_count_first_read += 1
             return True
 
         vault_poll_frequency, freq = self.get_frequency()
-        self.vault_poll_frequency = vault_poll_frequency
+        self._set_vault_poll_frequency(vault_poll_frequency, freq)
 
         if freq is None:
             # Further reads disabled
@@ -383,6 +413,23 @@ class VaultReaderState(BatchCallState):
 
         self.invoke_count_throttled += 1
         return False
+
+    def _set_vault_poll_frequency(
+        self,
+        vault_poll_frequency: VaultPollFrequency | Literal["first_read", "not_started"],
+        interval: datetime.timedelta | None,
+    ) -> None:
+        """Set the latest vault poll mode and nominal interval.
+
+        :param vault_poll_frequency:
+            Human-readable polling mode used for diagnostics.
+
+        :param interval:
+            Nominal polling interval, or ``None`` when the mode does not
+            have a regular interval.
+        """
+        self.vault_poll_frequency = vault_poll_frequency
+        self.vault_poll_interval_seconds = int(interval.total_seconds()) if interval is not None else None
 
     def get_frequency(self) -> tuple[VaultPollFrequency, datetime.timedelta | None]:
         """How fast we are reading this vault or should the further reading be skipped."""
@@ -414,10 +461,14 @@ class VaultReaderState(BatchCallState):
         result: "EncodedCallResult",
         total_assets: Decimal | None = None,
         share_price: Decimal | None = None,
+        errors: list[str] | None = None,
     ):
         """
         :param result:
             Result of convertToAssets() call
+
+        :param errors:
+            Errors attached to the combined vault read.
         """
         assert result.timestamp, f"EncodedCallResult {result} has no timestamp, cannot update state"
 
@@ -451,7 +502,9 @@ class VaultReaderState(BatchCallState):
         self.last_block = result.block_identifier
         existing_max_tvl = self.max_tvl or 0
         self.max_tvl = max(existing_max_tvl, total_assets) if total_assets != -1 else total_assets
-        self.last_share_price = share_price
+
+        if not errors:
+            self.last_share_price = share_price
 
         # The vault TVL has fell too much, disable
         if self.max_tvl > self.peaked_tvl_threshold:
@@ -483,6 +536,69 @@ class VaultReaderState(BatchCallState):
 
         # Diagnostics counter
         self.entry_count += 1
+
+    def record_share_price_check(
+        self,
+        block_number: int,
+        timestamp: datetime.datetime,
+        share_price: Decimal | None,
+        errors: list[str] | None,
+        significant_change_epsilon: Decimal = Decimal("0.001"),
+    ) -> None:
+        """Track share price freshness diagnostics.
+
+        This bookkeeping is separate from :py:meth:`on_called`, because
+        ``on_called`` drives adaptive polling and TVL state. Staleness
+        diagnostics need to advance the last checked timestamp even when
+        the share price read fails, while only successful and error-free
+        reads may update the last significant share price.
+
+        :param block_number:
+            Block where the scanner attempted the read.
+
+        :param timestamp:
+            Naive UTC timestamp of the block.
+
+        :param share_price:
+            Decoded share price. ``None`` means the share price was not
+            available.
+
+        :param errors:
+            Errors attached to the historical read.
+
+        :param significant_change_epsilon:
+            Relative change threshold for considering a share price move
+            meaningful for staleness diagnostics.
+        """
+        assert isinstance(block_number, int)
+        assert isinstance(timestamp, datetime.datetime)
+        assert isinstance(significant_change_epsilon, Decimal)
+
+        self.share_price_last_checked_at = timestamp
+        self.share_price_last_checked_block = block_number
+
+        if share_price is None or errors:
+            self.share_price_last_check_error = ", ".join(errors) if errors else "share_price is None"
+            return
+
+        self.share_price_last_check_error = None
+
+        if self.last_significant_share_price is None:
+            self.last_significant_share_price = share_price
+            self.share_price_last_changed_at = timestamp
+            self.share_price_last_changed_block = block_number
+            return
+
+        previous_price = self.last_significant_share_price
+        if previous_price == 0:
+            significant_change = share_price != previous_price
+        else:
+            significant_change = abs((share_price - previous_price) / previous_price) > significant_change_epsilon
+
+        if significant_change:
+            self.last_significant_share_price = share_price
+            self.share_price_last_changed_at = timestamp
+            self.share_price_last_changed_block = block_number
 
     def pformat(self) -> str:
         """Pretty print the current state."""
@@ -695,6 +811,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
                     convert_to_assets_call_result,
                     total_assets=total_assets,
                     share_price=share_price,
+                    errors=errors or None,
                 )
         else:
             share_price = None

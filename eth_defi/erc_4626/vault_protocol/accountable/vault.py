@@ -69,6 +69,7 @@ class AccountableHistoricalReader(ERC4626HistoricalReader):
                 convert_to_assets_result,
                 total_assets=total_assets,
                 share_price=share_price,
+                errors=errors,
             )
 
         # Utilisation = deployed capital / true NAV

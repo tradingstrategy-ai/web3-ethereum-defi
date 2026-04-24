@@ -47,7 +47,7 @@ from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
-from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, get_pipeline_data_dir
+from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, get_pipeline_data_dir, sync_vault_staleness_metadata
 
 #: How many days of backups to keep
 BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "7"))
@@ -427,6 +427,10 @@ def scan_prices_for_chain(
         if result["reader_states"]:
             with atomic_write(str(reader_state_path), mode="wb", overwrite=True) as f:
                 pickle.dump(result["reader_states"], f)
+            updated = sync_vault_staleness_metadata(vault_db, result["reader_states"])
+            if updated:
+                vault_db.write(vault_db_path)
+                logger.info("Updated share price staleness metadata for %d vaults", updated)
 
         return True, {
             "rows_written": result["rows_written"],
