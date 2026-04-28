@@ -17,6 +17,9 @@ Example output::
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import create_vault_instance, detect_vault_features
+from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import print_morpho_flag_analytics
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.utils import setup_console_logging
@@ -24,8 +27,8 @@ from eth_defi.vault.base import VaultSpec
 
 setup_console_logging(default_log_level="INFO")
 
-# Ostium LP on Arbitrum
-spec = VaultSpec.parse_string("42161-0x20d419a8e12c45f88fda7c5760bb6923cee27f98")
+# frobUSDC on Arbitrum — has short_timelock (RED) vault warning + bad_debt_unrealized (RED) market warning
+spec = VaultSpec.parse_string("42161-0xC3415c9231Dad88F8146107372143f6dAE042967")
 
 json_rpc_url = read_json_rpc_url(spec.chain_id)
 web3 = create_multi_provider_web3(json_rpc_url)
@@ -65,6 +68,12 @@ print("\nFlags and notes:")
 print(f"  Flags: {flags or 'None'}")
 print(f"  Notes: {notes or 'None'}")
 print("-" * 80)
+
+# Morpho-specific offchain warnings from Morpho Blue GraphQL API
+if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)):
+    print("\nMorpho offchain warnings:")
+    print_morpho_flag_analytics(vault)
+    print("-" * 80)
 
 # Check deposit/redemption status
 print("\nDeposit/Redemption status:")

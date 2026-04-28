@@ -1,5 +1,7 @@
 # Current
 
+- feat: Morpho Blue flag analytics submodule — extract warning analytics from inline code into `eth_defi/erc_4626/vault_protocol/morpho/flag_analytics.py` with `MorphoFlagAnalytics` dataclass, `analyze_morpho_flags()` entry point, and `print_morpho_flag_analytics()` CLI printer; `get_notes()` on `MorphoV1Vault` and `MorphoV2Vault` now returns the dynamically generated Morpho issue note (2026-04-28)
+
 - feat: Morpho Blue offchain warnings — fetch vault and market-level RED/YELLOW warnings from the Morpho Blue GraphQL API, cache them 24 h on disk, expose via `get_morpho_vault_flags()` / `get_morpho_market_flags()` on `MorphoV1Vault` and `MorphoV2Vault`, set `VaultFlag.morpho_issues` when any RED warning is present, and surface `morpho_vault_flags` / `morpho_market_flags` in `calculate_vault_record()` `other_data` (2026-04-25)
 
 - feat: Add avg_utilisation per period to PeriodMetrics — lending vaults now expose average utilisation for each lookback window (1W, 1M, 3M, 6M, 1Y, lifetime) via PeriodMetrics.avg_utilisation; utilisation (latest) was already present as a top-level column (2026-04-21)

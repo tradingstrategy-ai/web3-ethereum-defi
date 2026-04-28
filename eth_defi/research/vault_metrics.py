@@ -26,6 +26,7 @@ from tqdm.auto import tqdm
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection
+from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
 from eth_defi.research.value_table import format_grouped_series_as_multi_column_grid, format_series_as_multi_column_grid
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
@@ -1320,20 +1321,19 @@ def calculate_vault_record(
     morpho_vault_flags: list[str] = []
     morpho_market_flags: list[str] = []
 
+    morpho_analytics: MorphoFlagAnalytics | None = None
     if morpho_offchain_data is not None:
-        # Use sorted lists for stable JSON output (sets have non-deterministic ordering)
-        morpho_vault_flags = sorted({w["type"] for w in morpho_offchain_data.get("vault_warnings", [])})
-        morpho_market_flags = sorted({w["type"] for w in morpho_offchain_data.get("market_warnings", [])})
+        morpho_analytics = analyze_morpho_flags(morpho_offchain_data)
+        morpho_vault_flags = morpho_analytics.vault_flag_types
+        morpho_market_flags = morpho_analytics.market_flag_types
 
-        all_red_flags = sorted({w["type"] for w in morpho_offchain_data.get("vault_warnings", []) if w.get("level") == "RED"} | {w["type"] for w in morpho_offchain_data.get("market_warnings", []) if w.get("level") == "RED"})
-        if all_red_flags:
+        if morpho_analytics.red_flags:
             # Add the flag unconditionally — any RED warning warrants the flag
             flags = set(flags)
             flags.add(VaultFlag.morpho_issues)
             # Only generate the note text when no existing manual or abnormal-metric note is set
             if not notes:
-                morpho_flags_str = ", ".join(all_red_flags)
-                notes = f"Morpho reports the vault is facing the following issues: {morpho_flags_str}"
+                notes = morpho_analytics.note
 
     # ``other_data`` is a protocol-specific extension dict included in the metrics Series.
     # Currently populated for Morpho vaults; all other protocols return empty lists.
