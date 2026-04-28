@@ -19,6 +19,7 @@ Key features of Morpho Vault V2:
 import datetime
 import logging
 from decimal import Decimal
+from functools import cached_property
 from typing import Iterable
 
 from eth_typing import BlockIdentifier
@@ -27,6 +28,7 @@ from web3 import Web3
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import MorphoVaultData, fetch_morpho_vault_data
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
 from eth_defi.vault.base import (
@@ -35,6 +37,7 @@ from eth_defi.vault.base import (
     VaultHistoricalRead,
     VaultHistoricalReader,
 )
+from eth_defi.vault.flag import VaultFlag
 
 logger = logging.getLogger(__name__)
 
@@ -201,6 +204,70 @@ class MorphoV2Vault(ERC4626Vault):
     See also :py:class:`eth_defi.erc_4626.vault_protocol.morpho.vault_v1.MorphoV1Vault`
     for the original MetaMorpho architecture.
     """
+
+    @cached_property
+    def morpho_offchain_data(self) -> MorphoVaultData | None:
+        """Vault and market warnings from the Morpho Blue GraphQL API (24h cached).
+
+        Fetches vault-level governance warnings and market-level risk warnings via the
+        Morpho Blue public GraphQL API.
+
+        Note: the Morpho Blue ``vaultByAddress`` query currently returns ``NOT_FOUND``
+        for V2 vault addresses — V2 vaults use an adapter-based architecture and are
+        not yet indexed by this API endpoint. This method will return ``None`` for
+        all current V2 vaults and is included for future compatibility.
+
+        :return:
+            :py:class:`~eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata.MorphoVaultData`
+            or ``None``.
+        """
+        return fetch_morpho_vault_data(self.web3, self.vault_address)
+
+    def get_morpho_vault_flags(self) -> set[str]:
+        """Return warning type strings from vault-level Morpho API warnings.
+
+        :return:
+            Set of warning type strings, e.g. ``{"short_timelock", "not_whitelisted"}``.
+            Empty set if no data available (expected for V2 vaults currently).
+        """
+        data = self.morpho_offchain_data
+        if not data:
+            return set()
+        return {w["type"] for w in data.get("vault_warnings", [])}
+
+    def get_morpho_market_flags(self) -> set[str]:
+        """Return warning type strings from Morpho API warnings on underlying markets.
+
+        :return:
+            Set of warning type strings, e.g. ``{"bad_debt_unrealized"}``.
+            Empty set if no data available (expected for V2 vaults currently).
+        """
+        data = self.morpho_offchain_data
+        if not data:
+            return set()
+        return {w["type"] for w in data.get("market_warnings", [])}
+
+    def get_flags(self) -> set[VaultFlag]:
+        """Get vault flags, adding ``morpho_issues`` when RED warnings are detected.
+
+        Calls the Morpho Blue GraphQL API (24h cached) to check for RED-level
+        vault or market warnings. If any are found, adds
+        :py:attr:`~eth_defi.vault.flag.VaultFlag.morpho_issues` to the flag set.
+
+        For current V2 vaults this will return the base ERC-4626 flags only,
+        as the Morpho Blue API does not yet index V2 vault addresses.
+
+        :return:
+            Set of :py:class:`~eth_defi.vault.flag.VaultFlag` values.
+        """
+        flags = super().get_flags()
+        data = self.morpho_offchain_data
+        if data:
+            has_red = any(w.get("level") == "RED" for w in data.get("vault_warnings", []) + data.get("market_warnings", []))
+            if has_red:
+                flags = set(flags)
+                flags.add(VaultFlag.morpho_issues)
+        return flags
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Get Morpho V2 management fee.

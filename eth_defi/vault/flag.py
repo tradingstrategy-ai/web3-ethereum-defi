@@ -68,6 +68,13 @@ class VaultFlag(str, enum.Enum):
     #: The vault does not do daily NAV. It's share price has confusing equity curve, making users misjudge the vault.
     irregular_reporting = "irregular_reporting"
 
+    #: Morpho Blue API reports one or more RED-level warnings on this vault or its underlying markets.
+    #:
+    #: RED warnings include unrealised bad debt (``bad_debt_unrealized``), oracle price deviation,
+    #: short timelock, and deposit-disabled. Check ``other_data["morpho_vault_flags"]`` and
+    #: ``other_data["morpho_market_flags"]`` in the metrics Series for the specific flag types.
+    morpho_issues = "morpho_issues"
+
 
 #: Don't touch vaults with these flags
 BAD_FLAGS = {

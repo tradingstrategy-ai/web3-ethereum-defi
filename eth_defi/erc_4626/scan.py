@@ -14,6 +14,8 @@ from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import get_vault_protocol_name, is_lending_protocol
 from eth_defi.erc_4626.discovery_base import ERC4262VaultDetection
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDiskCache
@@ -194,6 +196,7 @@ def create_vault_scan_record(
             "_utilisation": utilisation,
             "_description": vault.description,
             "_short_description": vault.short_description,
+            "_morpho_offchain_data": vault.morpho_offchain_data if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,
         }
         return data
     except ExtraValueError as e:

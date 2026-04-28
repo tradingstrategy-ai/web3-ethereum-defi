@@ -110,6 +110,14 @@ class VaultRow(TypedDict):
     #: ``gspread``, which is an optional dependency.
     _manual_review_status: object | None
 
+    #: Cached Morpho Blue GraphQL API warning data (vault + market warnings).
+    #:
+    #: Set by :py:func:`eth_defi.erc_4626.scan.create_vault_scan_record` for Morpho vaults.
+    #: ``None`` for non-Morpho vaults or if the API fetch failed/timed out.
+    #: The value is a :py:class:`eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata.MorphoVaultData`
+    #: TypedDict when populated.
+    _morpho_offchain_data: dict | None
+
     __annotations__ = {
         "First seen at": datetime.datetime,
         "Mgmt fee": float,

@@ -1313,6 +1313,42 @@ def calculate_vault_record(
     description = vault_metadata.get("_description")
     short_description = vault_metadata.get("_short_description")
 
+    # Morpho Blue API offchain warnings.
+    # ``_morpho_offchain_data`` is a MorphoVaultData TypedDict set by scan.py for Morpho vaults;
+    # None for all other protocols.
+    morpho_offchain_data = vault_metadata.get("_morpho_offchain_data")
+    morpho_vault_flags: list[str] = []
+    morpho_market_flags: list[str] = []
+
+    if morpho_offchain_data is not None:
+        # Use sorted lists for stable JSON output (sets have non-deterministic ordering)
+        morpho_vault_flags = sorted({w["type"] for w in morpho_offchain_data.get("vault_warnings", [])})
+        morpho_market_flags = sorted({w["type"] for w in morpho_offchain_data.get("market_warnings", [])})
+
+        all_red_flags = sorted({w["type"] for w in morpho_offchain_data.get("vault_warnings", []) if w.get("level") == "RED"} | {w["type"] for w in morpho_offchain_data.get("market_warnings", []) if w.get("level") == "RED"})
+        if all_red_flags:
+            # Add the flag unconditionally — any RED warning warrants the flag
+            flags = set(flags)
+            flags.add(VaultFlag.morpho_issues)
+            # Only generate the note text when no existing manual or abnormal-metric note is set
+            if not notes:
+                morpho_flags_str = ", ".join(all_red_flags)
+                notes = f"Morpho reports the vault is facing the following issues: {morpho_flags_str}"
+
+    # ``other_data`` is a protocol-specific extension dict included in the metrics Series.
+    # Currently populated for Morpho vaults; all other protocols return empty lists.
+    # Future protocols should add their own keys here rather than adding top-level Series fields.
+    other_data: dict = {
+        # Vault-level governance warning types from the Morpho Blue API.
+        # Sourced from MorphoVaultData["vault_warnings"] (via _morpho_offchain_data in VaultRow).
+        # Example: ["not_whitelisted", "short_timelock"]
+        "morpho_vault_flags": morpho_vault_flags,
+        # Market-level risk warning types from the vault's underlying Morpho market allocations.
+        # Sourced from MorphoVaultData["market_warnings"] (via _morpho_offchain_data in VaultRow).
+        # RED entries trigger VaultFlag.morpho_issues. Example: ["bad_debt_unrealized"]
+        "morpho_market_flags": morpho_market_flags,
+    }
+
     # Manual review decision from the Hyperliquid review Google Sheet.
     # Captured into the pickle by
     # :py:func:`eth_defi.hyperliquid.vault_data_export.merge_into_vault_database`
@@ -1549,6 +1585,8 @@ def calculate_vault_record(
             "short_description": short_description,
             # Manual review decision from the Hyperliquid review Google Sheet
             "manual_review_status": manual_review_status,
+            # Protocol-specific extension data; see other_data definition above for structure
+            "other_data": other_data,
         }
     )
 
@@ -2062,9 +2100,10 @@ def format_lifetime_table(
     _del("curator_name")
     _del("protocol_curator")
 
-    # Offchain descriptions are exported via JSON API, not human-readable table
+    # Offchain descriptions and protocol extension data are exported via JSON API, not human-readable table
     _del("description")
     _del("short_description")
+    _del("other_data")
 
     # Metadata timestamp, not relevant for human-readable table
     _del("generated_at")
