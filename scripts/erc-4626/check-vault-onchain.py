@@ -17,7 +17,7 @@ Example output::
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import create_vault_instance, detect_vault_features
-from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import print_morpho_flag_analytics
+from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import format_morpho_flag_analytics
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.provider.env import read_json_rpc_url
@@ -72,7 +72,7 @@ print("-" * 80)
 # Morpho-specific offchain warnings from Morpho Blue GraphQL API
 if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)):
     print("\nMorpho offchain warnings:")
-    print_morpho_flag_analytics(vault)
+    print(format_morpho_flag_analytics(vault))
     print("-" * 80)
 
 # Check deposit/redemption status

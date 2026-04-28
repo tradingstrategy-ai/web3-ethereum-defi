@@ -28,7 +28,7 @@ from web3 import Web3
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import generate_morpho_issue_note
+from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import analyze_morpho_flags
 from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import MorphoVaultData, fetch_morpho_vault_data
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
@@ -266,7 +266,7 @@ class MorphoV2Vault(ERC4626Vault):
             return note
         data = self.morpho_offchain_data
         if data is not None:
-            return generate_morpho_issue_note(data)
+            return analyze_morpho_flags(data).note
         return None
 
     def get_flags(self) -> set[VaultFlag]:

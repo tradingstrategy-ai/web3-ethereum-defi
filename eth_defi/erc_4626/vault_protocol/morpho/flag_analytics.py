@@ -14,6 +14,7 @@ serialises to a human-readable string via ``str()``.
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import MorphoVaultData
 
@@ -151,13 +152,16 @@ def generate_morpho_issue_note(data: MorphoVaultData) -> str | None:
     return analyze_morpho_flags(data).note
 
 
-def print_morpho_flag_analytics(vault) -> None:
-    """Print a formatted Morpho Blue warning summary for a vault to stdout.
+def format_morpho_flag_analytics(vault: Any) -> str:
+    """Return a formatted Morpho Blue warning summary for a vault as a string.
 
-    Intended for CLI diagnostic scripts (e.g. ``check-vault-onchain.py``).
-    Prints a message when the vault has no Morpho offchain data.
+    Builds a multi-line human-readable block suitable for CLI diagnostic scripts
+    (e.g. ``check-vault-onchain.py``). The caller decides how to output it — typically
+    via ``print(format_morpho_flag_analytics(vault))``.
 
-    Displays:
+    Returns a single-line message when the vault has no Morpho offchain data.
+
+    Includes:
 
     - Vault-level and market-level warning type sets
     - Per-warning detail lines (severity level, type, market ID, bad-debt USD / share)
@@ -167,19 +171,22 @@ def print_morpho_flag_analytics(vault) -> None:
         A :py:class:`~eth_defi.erc_4626.vault_protocol.morpho.vault_v1.MorphoV1Vault`
         or :py:class:`~eth_defi.erc_4626.vault_protocol.morpho.vault_v2.MorphoV2Vault`
         instance.
+
+    :return:
+        Formatted multi-line string with the warning summary.
     """
     data = vault.morpho_offchain_data
     if data is None:
-        print("  No data (vault not indexed by Morpho Blue API)")  # noqa: T201
-        return
+        return "  No data (vault not indexed by Morpho Blue API)"
 
     analytics = analyze_morpho_flags(data)
+    lines: list[str] = []
 
-    print(f"  Vault-level warning types:  {analytics.vault_flag_types or 'none'}")  # noqa: T201
-    print(f"  Market-level warning types: {analytics.market_flag_types or 'none'}")  # noqa: T201
+    lines.append(f"  Vault-level warning types:  {analytics.vault_flag_types or 'none'}")
+    lines.append(f"  Market-level warning types: {analytics.market_flag_types or 'none'}")
 
     for w in data.get("vault_warnings", []):
-        print(f"    vault  [{w.get('level', '?'):6s}] {w.get('type', '?')}")  # noqa: T201
+        lines.append(f"    vault  [{w.get('level', '?'):6s}] {w.get('type', '?')}")
 
     for w in data.get("market_warnings", []):
         extra = ""
@@ -187,7 +194,9 @@ def print_morpho_flag_analytics(vault) -> None:
             extra = f"  bad_debt_usd={w['bad_debt_usd']:.2f}  bad_debt_share={w.get('bad_debt_share', 0):.4f}"
         market_id = w.get("market_id", "?")
         short_id = market_id[:_MARKET_ID_PREFIX_LEN] + "..." if len(market_id) > _MARKET_ID_PREFIX_LEN else market_id
-        print(f"    market [{w.get('level', '?'):6s}] {w.get('type', '?')}  market_id={short_id}{extra}")  # noqa: T201
+        lines.append(f"    market [{w.get('level', '?'):6s}] {w.get('type', '?')}  market_id={short_id}{extra}")
 
     if analytics.note:
-        print(f"\n  Note: {analytics.note}")  # noqa: T201
+        lines.append(f"\n  Note: {analytics.note}")
+
+    return "\n".join(lines)
