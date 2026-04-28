@@ -159,7 +159,13 @@ HLT_IRREGULAR_SHARE_PRICE = "This vault has experienced irregular share price re
 
 LOW_TVL_ABNORMAL_PRICE = "Low-TVL vault with abnormal price behaviour"
 
+ILLIQUID_ABNORMAL_SHARE_PRICE = "Vault likely illiquid. Share price chart has abnormal high returns while deposits are still enabled."
+
 MISSING_IN_PROTOCOL_FRONTEND = "This vault is missing in the protocol's primary website and cannot be verified."
+
+TEST_VAULT = "This appears to be a test vault and should not be shown to end users."
+
+UNKNOWN_ABNORMAL_SHARE_PRICE = "Share price chart has abnormal high returns and the vault protocol is not yet identified."
 
 SUBVAULT = "This vault is likely not intended to be directly exposed to the end users. It may be used by other vaults as a part of the strategy mix and has erratic TVL."
 
@@ -263,6 +269,15 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x196f3c7443e940911ee2bb88e019fd71400349d9": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Borrowable USDC Deposit, SiloId: 170
     "0x7786dba2a1f7a4b0b7abf0962c449154c4f2b8ac": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Borrowable USDC Deposit, SiloId: 105
+    "0x4f55e28d36b30a638c3aa1d5cbf9c4ccb3831506": (VaultFlag.illiquid, ILLIQUID_ABNORMAL_SHARE_PRICE),
+    # 40avax-USDC-VAULT on Avalanche
+    "0xbed7c02887efd6b5eb9a547ac1a4d5e582791647": (VaultFlag.abnormal_share_price, UNKNOWN_ABNORMAL_SHARE_PRICE),
+    # XAU Aplha Vault on Arbitrum
+    "0x5424293637cc59ad7580ad1cac46e28d4801a587": (VaultFlag.abnormal_share_price, UNKNOWN_ABNORMAL_SHARE_PRICE),
+    # HaUSDC Share - Test on Hyperliquid
+    "0x7db7bcd6746f4dcfa2fdcdd80c1c313cc371f166": (VaultFlag.unofficial, TEST_VAULT),
+    "0x25b4dc5f96312c7083a58d80d8ecad6ecddbbdfb": (VaultFlag.unofficial, TEST_VAULT),
     # Valamor aUSDC/USDC/USDT etc.
     # https://x.com/VarlamoreCap/status/1986290754688541003
     "0x3d7b0c3997e48fa3fc96cd057d1fb4e5f891835b": (VaultFlag.illiquid, XUSD_MESSAGE),
