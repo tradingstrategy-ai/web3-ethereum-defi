@@ -150,6 +150,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Liquid Royalty": VaultFeeMode.feeless,
     # Inverse Finance sDOLA - no explicit fees, yield via DBR auction mechanism
     "Inverse Finance": VaultFeeMode.feeless,
+    # 40acres - fees are embedded in the protocol's reward distribution (20% of weekly rewards to lenders)
+    "40acres": None,
     # IPOR Fusion - management fees (up to 5%/yr on AUM) and performance fees (up to 50%, high-water mark)
     # are both collected by minting new vault shares to FeeAccount contracts, which the FeeManager then
     # distributes between IPOR DAO and atomist-defined recipients. From an investor's perspective fees

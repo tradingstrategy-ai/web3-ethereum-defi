@@ -580,6 +580,12 @@ class ERC4626Feature(enum.Enum):
     #: https://www.inverse.finance/
     inverse_finance_like = "inverse_finance_like"
 
+    #: 40acres
+    #:
+    #: Cashflow lending protocol for veNFT collateral with USDC supply vaults.
+    #: https://www.40acres.finance/
+    forty_acres_like = "forty_acres_like"
+
 
 #: Features that identify lending protocol vaults.
 #:
@@ -869,6 +875,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.inverse_finance_like in features:
         return "Inverse Finance"
+
+    elif ERC4626Feature.forty_acres_like in features:
+        return "40acres"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

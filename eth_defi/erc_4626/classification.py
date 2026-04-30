@@ -1613,6 +1613,11 @@ def create_vault_instance(
 
         return InverseFinanceVault(web3, spec, **kwargs)
 
+    elif ERC4626Feature.forty_acres_like in features:
+        from eth_defi.erc_4626.vault_protocol.forty_acres.vault import FortyAcresVault
+
+        return FortyAcresVault(web3, spec, **kwargs)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1862,6 +1867,12 @@ HARDCODED_PROTOCOLS = {
     # Inverse Finance - sDOLA vault on Ethereum
     # https://etherscan.io/address/0xb45ad160634c528Cc3D2926d9807104FA3157305
     "0xb45ad160634c528cc3d2926d9807104fa3157305": {ERC4626Feature.inverse_finance_like},
+    # 40acres - Blackhole USDC vault on Avalanche
+    # https://snowtrace.io/address/0xc0485c4bafb594ae1457820fb6e5b67e8a04bcfd
+    "0xc0485c4bafb594ae1457820fb6e5b67e8a04bcfd": {ERC4626Feature.forty_acres_like},
+    # 40acres - Pharaoh USDC vault on Avalanche
+    # https://snowtrace.io/address/0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7
+    "0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7": {ERC4626Feature.forty_acres_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

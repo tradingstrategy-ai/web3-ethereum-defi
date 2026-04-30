@@ -32,6 +32,7 @@ Supported protocols
 .. toctree::
    :maxdepth: 1
 
+   forty_acres/index
    aarna/index
    accountable/index
    altura/index

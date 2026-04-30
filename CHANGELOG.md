@@ -1,5 +1,7 @@
 # Current
 
+- feat: Add 40acres vault protocol — cashflow lending for veNFT collateral with ERC-4626 USDC supply vaults on Avalanche, Base, and Optimism (2026-04-30)
+
 - feat: Hibachi vault API — reverse-engineered `data-api.hibachi.xyz` REST endpoints for vault metadata and performance; documented in `eth_defi/hibachi/README.md` (2026-04-30)
 
 - feat: Morpho Blue flag analytics submodule — extract warning analytics from inline code into `eth_defi/erc_4626/vault_protocol/morpho/flag_analytics.py` with `MorphoFlagAnalytics` dataclass, `analyze_morpho_flags()` entry point, and `print_morpho_flag_analytics()` CLI printer; `get_notes()` on `MorphoV1Vault` and `MorphoV2Vault` now returns the dynamically generated Morpho issue note (2026-04-28)
