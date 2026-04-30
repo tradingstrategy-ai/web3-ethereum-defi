@@ -59,12 +59,13 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `LOG_LEVEL` | Optional. Default: WARNING. |
 | `PIPELINE_DATA_DIR` | Optional. Directory for all pipeline files (parquet, pickle, DuckDB, state). Default: `~/.tradingstrategy/vaults`. |
 | `LOOP_INTERVAL_SECONDS` | Optional. When >0, enables looped mode — ticks every N seconds. Default: 0 (single run). |
-| `SCAN_CYCLES` | Optional. Per-item cycle intervals, e.g. `Lighter=4h,GRVT=4h,Hypercore=4h`. |
+| `SCAN_CYCLES` | Optional. Per-item cycle intervals, e.g. `Lighter=4h,GRVT=4h,Hypercore=4h,Hibachi=4h`. |
 | `DEFAULT_CYCLE` | Optional. Default cycle for items not in `SCAN_CYCLES`. Default: `24h`. |
 | `MAX_CYCLES` | Optional. Exit after N cycles (for testing). Default: 0 (unlimited). |
 | `SCAN_HYPERCORE` | Optional. Enable Hyperliquid native vault scanning. Default: false. |
 | `SCAN_GRVT` | Optional. Enable GRVT native vault scanning. Default: false. |
 | `SCAN_LIGHTER` | Optional. Enable Lighter native pool scanning. Default: false. |
+| `SCAN_HIBACHI` | Optional. Enable Hibachi native vault scanning. Default: false. |
 
 ### scan-prices.py
 

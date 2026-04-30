@@ -1,0 +1,37 @@
+name: Hibachi
+slug: hibachi
+short_description: |
+  Native perpetual trading vaults on the Hibachi stablecoin FX exchange.
+long_description: |
+  Hibachi is a stablecoin-native FX and crypto perpetuals exchange
+  built on a custom L2. Investment vaults allow strategy operators
+  to trade perpetual futures using pooled funds from depositors,
+  with automated execution and disciplined leverage management.
+
+  All vaults are denominated in USDT. There is currently no lockup
+  period (minUnlockHours = 0 for all vaults).
+
+  Key features:
+
+  - Strategy operators deploy perpetual trading strategies on Hibachi
+  - All vault-level fees are zero (no management, performance, deposit, or withdrawal fees)
+  - Platform charges trading taker fees (0.045%) and deposit/withdrawal fees separately
+  - Zero maker fees for trading
+  - All vaults denominated in USDT
+fee_description: |
+  All vault-level fees are zero — no management, performance, deposit, or
+  withdrawal fees at the vault level. The platform charges trading taker
+  fees (0.045%) and deposit/withdrawal fees (approx 0.68% deposit, 1.81%
+  withdrawal) separately at the exchange level. These platform fees are
+  not vault-specific and do not affect the share price.
+links:
+  homepage: https://hibachi.xyz
+  app: https://hibachi.xyz/vaults
+  twitter:
+  github:
+  documentation:
+  defillama:
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/hibachi
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/api/hibachi/index.html

@@ -71,7 +71,7 @@ class VaultSpec:
     def __post_init__(self):
         assert isinstance(self.chain_id, int)
         assert isinstance(self.vault_address, str), f"Expected str, got {self.vault_address}"
-        assert is_good_multichain_address(self.vault_address), f"Vault address must start with 0x or VLT: prefix, got: {self.vault_address}"
+        assert is_good_multichain_address(self.vault_address), f"Vault address must start with 0x, VLT:, lighter-pool-, or hibachi-vault- prefix, got: {self.vault_address}"
         # TODO: Get rid of old codepaths so we can make this dataclass frozen
         self.vault_address = self.vault_address.lower()
 

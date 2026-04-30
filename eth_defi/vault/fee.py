@@ -146,6 +146,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # already reflected in share prices (internalised skimming).
     # Per-pool operator fees range from 0% (LLP) to variable amounts for user pools.
     "Lighter": VaultFeeMode.internalised_skimming,
+    # Hibachi - all vault-level fees are zero (management, performance, deposit, withdrawal)
+    # Platform charges trading taker fees and deposit/withdrawal fees at exchange level
+    "Hibachi": VaultFeeMode.feeless,
     # Liquid Royalty has no management/performance fees, but 20% early withdrawal penalty within 7-day cooldown
     "Liquid Royalty": VaultFeeMode.feeless,
     # Inverse Finance sDOLA - no explicit fees, yield via DBR auction mechanism

@@ -28,6 +28,9 @@ Usage:
     # Include Lighter native pools
     SCAN_LIGHTER=true python scripts/erc-4626/scan-vaults-all-chains.py
 
+    # Include Hibachi native vaults
+    SCAN_HIBACHI=true python scripts/erc-4626/scan-vaults-all-chains.py
+
     # Custom retry count
     RETRY_COUNT=2 python scripts/erc-4626/scan-vaults-all-chains.py
 
@@ -42,9 +45,9 @@ Usage:
 
     # Looped mode: tick every 1h, Lighter/GRVT/Hypercore on 4h cycle, EVM chains on 24h
     LOOP_INTERVAL_SECONDS=3600 \\
-    SCAN_CYCLES="Hypercore=4h,GRVT=4h,Lighter=4h" \\
+    SCAN_CYCLES="Hypercore=4h,GRVT=4h,Lighter=4h,Hibachi=4h" \\
     DEFAULT_CYCLE=24h \\
-    SCAN_HYPERCORE=true SCAN_GRVT=true SCAN_LIGHTER=true \\
+    SCAN_HYPERCORE=true SCAN_GRVT=true SCAN_LIGHTER=true SCAN_HIBACHI=true \\
     python scripts/erc-4626/scan-vaults-all-chains.py
 
 Manual testing:

@@ -41,6 +41,9 @@ from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.lighter.daily_metrics import run_daily_scan as lighter_run_daily_scan
 from eth_defi.lighter.session import create_lighter_session
 from eth_defi.lighter.vault_data_export import merge_into_vault_database as lighter_merge_vault_db
+from eth_defi.hibachi.constants import HIBACHI_DAILY_METRICS_DATABASE
+from eth_defi.hibachi.daily_metrics import run_daily_scan as hibachi_run_daily_scan
+from eth_defi.hibachi.vault_data_export import merge_into_vault_database as hibachi_merge_vault_db
 from eth_defi.provider.broken_provider import verify_archive_node
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
@@ -943,6 +946,60 @@ def scan_lighter_fn(
     return result
 
 
+def scan_hibachi_fn(
+    db_path: Path | None = None,
+    vault_db_path: Path = DEFAULT_VAULT_DATABASE,
+) -> ChainResult:
+    """Scan Hibachi native vaults via public endpoints.
+
+    Runs the Hibachi daily metrics pipeline: fetches vault metadata
+    and share price history from the public data API, stores in DuckDB,
+    and merges into the shared VaultDatabase pickle.
+
+    No authentication required.
+
+    :param db_path:
+        Path to the Hibachi DuckDB file.  ``None`` uses the default.
+    :param vault_db_path:
+        Path to the vault database pickle.
+    :return:
+        Scan result with vault count and duration.
+    """
+    from eth_defi.hibachi.constants import HIBACHI_DAILY_METRICS_DATABASE
+
+    if db_path is None:
+        db_path = HIBACHI_DAILY_METRICS_DATABASE
+
+    result = ChainResult(name="Hibachi", status="running")
+    start_time = time.time()
+
+    try:
+        db = hibachi_run_daily_scan(
+            db_path=db_path,
+        )
+
+        try:
+            vault_count = db.get_vault_count()
+            result.vault_count = vault_count
+            result.vault_scan_ok = True
+
+            hibachi_merge_vault_db(db, vault_db_path)
+            result.price_scan_ok = True
+        finally:
+            db.close()
+
+        result.status = "success"
+
+    except Exception as e:
+        logger.exception("Hibachi scan failed")
+        result.status = "failed"
+        result.error = str(e)
+        result.traceback_str = traceback.format_exc()
+
+    result.duration = time.time() - start_time
+    return result
+
+
 def _load_last_timestamps(uncleaned_price_path: Path | None = None) -> dict[str, str]:
     """Load the last data timestamp per chain from the uncleaned parquet.
 
@@ -1090,6 +1147,7 @@ def backup_pipeline_files(backup_files: list[Path] | None = None, backup_dir: Pa
             HYPERLIQUID_DAILY_METRICS_DATABASE,
             GRVT_DAILY_METRICS_DATABASE,
             LIGHTER_DAILY_METRICS_DATABASE,
+            HIBACHI_DAILY_METRICS_DATABASE,
         ]
 
     if backup_dir is None:
@@ -1137,6 +1195,7 @@ def run_scan_tick(
     scan_hypercore: bool,
     scan_grvt: bool,
     scan_lighter: bool,
+    scan_hibachi: bool,
     max_workers: int,
     frequency: str,
     retry_count: int,
@@ -1153,6 +1212,7 @@ def run_scan_tick(
     hyperliquid_hf_db_path: Path,
     grvt_db_path: Path,
     lighter_db_path: Path,
+    hibachi_db_path: Path,
     bkp_files: list[Path],
     bkp_dir: Path,
     cleaned_price_path: Path | None = None,
@@ -1302,6 +1362,22 @@ def run_scan_tick(
             logger.error("Lighter: FAILED - %s", r.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
+    if scan_hibachi and "Hibachi" in active_protocols:
+        logger.info("Scanning Hibachi (native vaults)")
+        try:
+            results["Hibachi"] = scan_hibachi_fn(db_path=hibachi_db_path, vault_db_path=vault_db_path)
+        except Exception as e:
+            logger.exception("Hibachi scan crashed with unhandled exception")
+            results["Hibachi"] = ChainResult(name="Hibachi", status="failed", error=str(e), traceback_str=traceback.format_exc())
+        r = results["Hibachi"]
+        if r.status == "success":
+            logger.info("Hibachi: SUCCESS - %d vaults", r.vault_count or 0)
+            if on_item_success:
+                on_item_success("Hibachi")
+        elif r.status == "failed":
+            logger.error("Hibachi: FAILED - %s", r.error)
+        print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
+
     # Retry passes - retry failed EVM chains (native protocols are not retried)
     evm_chain_names = {c.name for c in chains}
     for attempt in range(1, retry_count + 1):
@@ -1346,6 +1422,7 @@ def run_scan_tick(
             scan_hypercore=scan_hypercore,
             scan_grvt=scan_grvt,
             scan_lighter=scan_lighter,
+            scan_hibachi=scan_hibachi,
             skip_cleaning=skip_cleaning,
             skip_top_vaults=skip_top_vaults,
             skip_sparklines=skip_sparklines,
@@ -1356,6 +1433,7 @@ def run_scan_tick(
             hyperliquid_hf_db_path=hyperliquid_hf_db_path,
             grvt_db_path=grvt_db_path,
             lighter_db_path=lighter_db_path,
+            hibachi_db_path=hibachi_db_path,
             vault_db_path=vault_db_path,
             cleaned_path=cleaned_price_path,
         )
@@ -1432,6 +1510,7 @@ def main():
     scan_hypercore = os.environ.get("SCAN_HYPERCORE", "false").lower() == "true"
     scan_grvt = os.environ.get("SCAN_GRVT", "false").lower() == "true"
     scan_lighter = os.environ.get("SCAN_LIGHTER", "false").lower() == "true"
+    scan_hibachi = os.environ.get("SCAN_HIBACHI", "false").lower() == "true"
     force_rescan = os.environ.get("FORCE_RESCAN", "false").lower() == "true"
     max_workers = int(os.environ.get("MAX_WORKERS", "50"))
     frequency = os.environ.get("FREQUENCY", "1h")
@@ -1473,12 +1552,13 @@ def main():
     pipeline_lock_path = data_dir / "scan-pipeline"
     backup_dir = data_dir / "backups"
     lighter_db_path = data_dir / "lighter-pools.duckdb"
+    hibachi_db_path = data_dir / "hibachi-vaults.duckdb"
     hypercore_mode = os.environ.get("HYPERCORE_MODE", "daily").strip().lower()
     hyperliquid_db_path = data_dir / "hyperliquid-vaults.duckdb"
     hyperliquid_hf_db_path = data_dir / "hyperliquid-vaults-hf.duckdb"
     grvt_db_path = data_dir / "grvt-vaults.duckdb"
 
-    bkp_files = [uncleaned_price_path, reader_state_path, vault_db_path, hyperliquid_db_path, hyperliquid_hf_db_path, grvt_db_path, lighter_db_path]
+    bkp_files = [uncleaned_price_path, reader_state_path, vault_db_path, hyperliquid_db_path, hyperliquid_hf_db_path, grvt_db_path, lighter_db_path, hibachi_db_path]
 
     # Test mode - filter chains if TEST_CHAINS is set
     disable_chains_str = os.environ.get("DISABLE_CHAINS")
@@ -1491,7 +1571,7 @@ def main():
 
     logger.debug("=" * 80)
     logger.info("Starting multi-chain vault scan")
-    logger.info("SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, FREQUENCY: %s", scan_prices, scan_hypercore, scan_grvt, scan_lighter, retry_count, max_workers, frequency)
+    logger.info("SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, FREQUENCY: %s", scan_prices, scan_hypercore, scan_grvt, scan_lighter, scan_hibachi, retry_count, max_workers, frequency)
     logger.info("PIPELINE_DATA_DIR: %s", data_dir)
     if skip_post_processing:
         logger.info("SKIP_POST_PROCESSING: true")
@@ -1558,6 +1638,8 @@ def main():
         all_protocols.append("GRVT")
     if scan_lighter:
         all_protocols.append("Lighter")
+    if scan_hibachi:
+        all_protocols.append("Hibachi")
 
     # Pre-compute human-readable cycle intervals for all items
     if looped_mode:
@@ -1578,6 +1660,7 @@ def main():
         scan_hypercore=scan_hypercore,
         scan_grvt=scan_grvt,
         scan_lighter=scan_lighter,
+        scan_hibachi=scan_hibachi,
         max_workers=max_workers,
         frequency=frequency,
         retry_count=retry_count,
@@ -1594,6 +1677,7 @@ def main():
         hyperliquid_hf_db_path=hyperliquid_hf_db_path,
         grvt_db_path=grvt_db_path,
         lighter_db_path=lighter_db_path,
+        hibachi_db_path=hibachi_db_path,
         bkp_files=bkp_files,
         bkp_dir=backup_dir,
         cleaned_price_path=cleaned_price_path,

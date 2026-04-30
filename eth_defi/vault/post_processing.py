@@ -23,6 +23,9 @@ from eth_defi.hyperliquid.vault_data_export import open_and_merge_hypercore_pric
 from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_DAILY_METRICS_DATABASE
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.lighter.vault_data_export import merge_into_uncleaned_parquet as lighter_merge_parquet
+from eth_defi.hibachi.constants import HIBACHI_CHAIN_ID, HIBACHI_DAILY_METRICS_DATABASE
+from eth_defi.hibachi.daily_metrics import HibachiDailyMetricsDatabase
+from eth_defi.hibachi.vault_data_export import merge_into_uncleaned_parquet as hibachi_merge_parquet
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, get_pipeline_data_dir
 
@@ -201,11 +204,13 @@ def merge_native_protocols(
     merge_hypercore: bool = False,
     merge_grvt: bool = False,
     merge_lighter: bool = False,
+    merge_hibachi: bool = False,
     uncleaned_parquet_path: Path | None = None,
     hyperliquid_db_path: Path | None = None,
     hyperliquid_hf_db_path: Path | None = None,
     grvt_db_path: Path | None = None,
     lighter_db_path: Path | None = None,
+    hibachi_db_path: Path | None = None,
 ) -> dict[str, bool]:
     """Merge native protocol price data into the uncleaned parquet.
 
@@ -219,11 +224,13 @@ def merge_native_protocols(
     :param merge_hypercore: Merge Hyperliquid native (Hypercore) vault data
     :param merge_grvt: Merge GRVT native vault data
     :param merge_lighter: Merge Lighter native pool data
+    :param merge_hibachi: Merge Hibachi native vault data
     :param uncleaned_parquet_path: Override for the uncleaned parquet path
     :param hyperliquid_db_path: Override for the daily Hyperliquid DuckDB path
     :param hyperliquid_hf_db_path: Override for the HF Hyperliquid DuckDB path
     :param grvt_db_path: Override for the GRVT DuckDB path
     :param lighter_db_path: Override for the Lighter DuckDB path
+    :param hibachi_db_path: Override for the Hibachi DuckDB path
     :return: Dictionary mapping step name to success boolean
     """
     parquet_path = uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE
@@ -275,6 +282,22 @@ def merge_native_protocols(
         except Exception:
             logger.exception("Lighter price merge failed")
             steps["lighter-price-merge"] = False
+
+    if merge_hibachi:
+        try:
+            logger.info("Merging Hibachi prices into uncleaned parquet")
+            h_db_path = hibachi_db_path or HIBACHI_DAILY_METRICS_DATABASE
+            db = HibachiDailyMetricsDatabase(h_db_path)
+            try:
+                combined_df = hibachi_merge_parquet(db, parquet_path)
+                hibachi_rows = len(combined_df[combined_df["chain"] == HIBACHI_CHAIN_ID]) if len(combined_df) > 0 else 0
+                logger.info("Hibachi price merge: %d Hibachi price entries in uncleaned parquet", hibachi_rows)
+            finally:
+                db.close()
+            steps["hibachi-price-merge"] = True
+        except Exception:
+            logger.exception("Hibachi price merge failed")
+            steps["hibachi-price-merge"] = False
 
     return steps
 
@@ -517,6 +540,7 @@ def run_post_processing(
     scan_hypercore: bool = False,
     scan_grvt: bool = False,
     scan_lighter: bool = False,
+    scan_hibachi: bool = False,
     skip_cleaning: bool = False,
     skip_top_vaults: bool = False,
     skip_sparklines: bool = False,
@@ -527,6 +551,7 @@ def run_post_processing(
     hyperliquid_hf_db_path: Path | None = None,
     grvt_db_path: Path | None = None,
     lighter_db_path: Path | None = None,
+    hibachi_db_path: Path | None = None,
     vault_db_path: Path | None = None,
     cleaned_path: Path | None = None,
 ) -> dict[str, bool]:
@@ -543,6 +568,7 @@ def run_post_processing(
     :param scan_hypercore: Whether to merge Hypercore data
     :param scan_grvt: Whether to merge GRVT data
     :param scan_lighter: Whether to merge Lighter data
+    :param scan_hibachi: Whether to merge Hibachi data
     :param skip_cleaning: Skip price cleaning step
     :param skip_top_vaults: Skip top-vaults JSON generation and R2 upload
     :param skip_sparklines: Skip sparkline image export to R2
@@ -553,6 +579,7 @@ def run_post_processing(
     :param hyperliquid_hf_db_path: Override for the HF Hyperliquid DuckDB path
     :param grvt_db_path: Override for the GRVT DuckDB path
     :param lighter_db_path: Override for the Lighter DuckDB path
+    :param hibachi_db_path: Override for the Hibachi DuckDB path
     :param vault_db_path: Override for the vault database pickle path
     :param cleaned_path: Override for the cleaned parquet output path
     :return: Dictionary mapping step name to success boolean
@@ -564,11 +591,13 @@ def run_post_processing(
         merge_hypercore=scan_hypercore,
         merge_grvt=scan_grvt,
         merge_lighter=scan_lighter,
+        merge_hibachi=scan_hibachi,
         uncleaned_parquet_path=uncleaned_parquet_path,
         hyperliquid_db_path=hyperliquid_db_path,
         hyperliquid_hf_db_path=hyperliquid_hf_db_path,
         grvt_db_path=grvt_db_path,
         lighter_db_path=lighter_db_path,
+        hibachi_db_path=hibachi_db_path,
     )
     steps.update(merge_results)
 

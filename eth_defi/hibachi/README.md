@@ -132,6 +132,12 @@ GET https://data-api.hibachi.xyz/vault/performance?vaultId=3&timeRange=All
 | `perSharePrice` | str decimal | Share price in USDT at this snapshot |
 | `totalValueLocked` | str decimal | TVL in USDT at this snapshot |
 
+**Granularity note:** Daily is the only available granularity. The API
+accepts extra query parameters like `interval`, `granularity`, and
+`resolution` without error, but silently ignores them — the response
+always contains the same daily data points with exactly 86 400-second
+(24 h) gaps. The `interval` field in every entry is hardcoded to `"1d"`.
+
 ---
 
 ### `GET /market/inventory`

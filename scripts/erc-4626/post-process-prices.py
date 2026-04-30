@@ -1,6 +1,6 @@
 """Standalone post-processing pipeline for vault price data.
 
-Merges native protocol data (Hypercore, GRVT, Lighter) into the
+Merges native protocol data (Hypercore, GRVT, Lighter, Hibachi) into the
 uncleaned parquet, cleans the data, generates the top-vaults JSON,
 and uploads to R2. Each step reports success/failure and the script
 exits with code 1 if any step fails.
@@ -24,9 +24,9 @@ Usage:
     # Skip native protocol merges (just clean + export)
     source .local-test.env && poetry run python scripts/erc-4626/post-process-prices.py
 
-    # Include Hypercore, GRVT, Lighter merges
+    # Include Hypercore, GRVT, Lighter, Hibachi merges
     source .local-test.env && \\
-    MERGE_HYPERCORE=true MERGE_GRVT=true MERGE_LIGHTER=true \\
+    MERGE_HYPERCORE=true MERGE_GRVT=true MERGE_LIGHTER=true MERGE_HIBACHI=true \\
     poetry run python scripts/erc-4626/post-process-prices.py
 
     # Only merge and clean, skip all R2 uploads
@@ -49,6 +49,7 @@ Pipeline control:
 - ``MERGE_HYPERCORE``: Merge Hyperliquid native vault data (default: ``false``)
 - ``MERGE_GRVT``: Merge GRVT native vault data (default: ``false``)
 - ``MERGE_LIGHTER``: Merge Lighter native pool data (default: ``false``)
+- ``MERGE_HIBACHI``: Merge Hibachi native vault data (default: ``false``)
 - ``SKIP_CLEANING``: Skip price cleaning step (default: ``false``)
 - ``SKIP_TOP_VAULTS``: Skip top-vaults JSON generation and R2 upload (default: ``false``)
 - ``SKIP_SPARKLINES``: Skip sparkline image export to R2 (default: ``false``)
@@ -116,6 +117,7 @@ def main():
     merge_hypercore = os.environ.get("MERGE_HYPERCORE", "false").lower() == "true"
     merge_grvt = os.environ.get("MERGE_GRVT", "false").lower() == "true"
     merge_lighter = os.environ.get("MERGE_LIGHTER", "false").lower() == "true"
+    merge_hibachi = os.environ.get("MERGE_HIBACHI", "false").lower() == "true"
     skip_cleaning = os.environ.get("SKIP_CLEANING", "false").lower() == "true"
     skip_top_vaults = os.environ.get("SKIP_TOP_VAULTS", "false").lower() == "true"
     skip_sparklines = os.environ.get("SKIP_SPARKLINES", "false").lower() == "true"
@@ -139,10 +141,11 @@ def main():
     hyperliquid_hf_db_path = data_dir / "hyperliquid-vaults-hf.duckdb"
     grvt_db_path = data_dir / "grvt-vaults.duckdb"
     lighter_db_path = data_dir / "lighter-pools.duckdb"
+    hibachi_db_path = data_dir / "hibachi-vaults.duckdb"
 
     logger.info("Pipeline data directory: %s", data_dir)
-    if not any([merge_hypercore, merge_grvt, merge_lighter]):
-        logger.info("No native protocol merges requested (set MERGE_HYPERCORE/MERGE_GRVT/MERGE_LIGHTER=true)")
+    if not any([merge_hypercore, merge_grvt, merge_lighter, merge_hibachi]):
+        logger.info("No native protocol merges requested (set MERGE_HYPERCORE/MERGE_GRVT/MERGE_LIGHTER/MERGE_HIBACHI=true)")
 
     # run_post_processing() uses scan_hypercore/scan_grvt/scan_lighter for
     # the "merge this native protocol's data" flags. We keep the
@@ -152,6 +155,7 @@ def main():
         scan_hypercore=merge_hypercore,
         scan_grvt=merge_grvt,
         scan_lighter=merge_lighter,
+        scan_hibachi=merge_hibachi,
         skip_cleaning=skip_cleaning,
         skip_top_vaults=skip_top_vaults,
         skip_sparklines=skip_sparklines,
@@ -162,6 +166,7 @@ def main():
         hyperliquid_hf_db_path=hyperliquid_hf_db_path,
         grvt_db_path=grvt_db_path,
         lighter_db_path=lighter_db_path,
+        hibachi_db_path=hibachi_db_path,
         vault_db_path=vault_db_path,
         cleaned_path=cleaned_price_path,
     )

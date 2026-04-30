@@ -1762,7 +1762,7 @@ def calculate_vault_rankings(
 #:
 #: These vaults get their data from off-chain APIs (e.g. GRVT, Hyperliquid, Lighter)
 #: or are hardcoded protocol entries that may lack standard ERC-4626 events.
-SPECIAL_VAULT_PROTOCOL_SLUGS = {"grvt", "hyperliquid", "lighter"}
+SPECIAL_VAULT_PROTOCOL_SLUGS = {"grvt", "hyperliquid", "lighter", "hibachi"}
 
 
 def is_special_vault(
