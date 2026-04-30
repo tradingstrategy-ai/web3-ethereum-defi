@@ -7,6 +7,7 @@ earn organic yield sourced from real DEX trading fees and bribes.
 
 - `Homepage <https://www.40acres.finance/>`__
 - `Documentation <https://docs.40acres.finance/>`__
+- `GitHub <https://github.com/40-Acres/loan-contracts>`__
 - `Fee structure <https://docs.40acres.finance/fee-structure>`__
 - `Security (4 Sherlock audits) <https://docs.40acres.finance/security>`__
 - `DefiLlama <https://defillama.com/protocol/40-acres>`__
@@ -38,6 +39,7 @@ class FortyAcresVault(ERC4626Vault):
 
     - `Homepage <https://www.40acres.finance/>`__
     - `Documentation <https://docs.40acres.finance/>`__
+    - `GitHub <https://github.com/40-Acres/loan-contracts>`__
     - `Fee structure <https://docs.40acres.finance/fee-structure>`__
     - `Contracts <https://docs.40acres.finance/contracts>`__
     - `Security <https://docs.40acres.finance/security>`__

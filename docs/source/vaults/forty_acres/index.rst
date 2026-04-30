@@ -15,6 +15,7 @@ Links
 - `Documentation <https://docs.40acres.finance/>`__
 - `Twitter <https://x.com/40acres_finance>`__
 - `DefiLlama <https://defillama.com/protocol/40-acres>`__
+- `GitHub <https://github.com/40-Acres/loan-contracts>`__
 - `Audits (4 independent audits by Sherlock) <https://docs.40acres.finance/security>`__
 - `Bug bounty (up to $50,000) <https://audits.sherlock.xyz/bug-bounties/102>`__
 
