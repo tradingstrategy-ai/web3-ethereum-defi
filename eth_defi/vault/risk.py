@@ -150,8 +150,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Lighter": VaultTechnicalRisk.severe,
     # Inverse Finance - sDOLA savings vault, open source but limited audits
     "Inverse Finance": VaultTechnicalRisk.severe,
-    # 40acres - 4 independent audits by Sherlock, active bug bounty
-    "40acres": None,
+    # 40acres - 4 independent audits by Sherlock, active bug bounty, open source contracts
+    "40acres": VaultTechnicalRisk.low,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
