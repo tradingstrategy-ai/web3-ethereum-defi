@@ -44,13 +44,35 @@ class FortyAcresVault(ERC4626Vault):
     - `Contracts <https://docs.40acres.finance/contracts>`__
     - `Security <https://docs.40acres.finance/security>`__
 
-    Fees are embedded in the protocol mechanics rather than exposed
-    as on-chain fee functions:
+    **Fee mechanism (internalised skimming)**
 
-    - 20% of weekly veNFT rewards distributed to lenders
-    - 5% to the protocol treasury
-    - 0.8% origination fee on new loans
-    - 1% relayer fee on rewards
+    Fees are internalised in the share price. The vault is a plain OpenZeppelin
+    ``ERC4626Upgradeable`` with no overrides of ``deposit()``, ``withdraw()``,
+    ``mint()`` or ``redeem()`` — there are no entry or exit fees.
+
+    When veNFT collateral earns weekly rewards (trading fees + bribes),
+    ``LoanV2._processFees()`` splits them:
+
+    - **20% lender premium** — transferred as USDC directly to the vault
+      via ``_asset.transfer(_vault, lenderPremium)``, increasing
+      ``_asset.balanceOf(vault)`` → ``totalAssets()`` → share price.
+    - **5% protocol fee** — sent to the protocol owner, never touches the vault.
+    - **75% loan repayment** — repays the borrower's outstanding balance,
+      reducing ``_outstandingCapital`` (tracked in ``activeAssets()``).
+    - **0.8% origination fee** — deducted from borrowed amount at loan creation,
+      sent to protocol owner.
+    - **1% relayer fee** — infrastructure/automation cost.
+
+    ``totalAssets()`` is defined as::
+
+        _asset.balanceOf(vault) + _loanContract.activeAssets() - epochRewardsLocked()
+
+    The ``epochRewardsLocked()`` mechanism linearly vests each week's lender
+    premium over the 7-day epoch, preventing front-running by depositing
+    just before rewards arrive.
+
+    See `LoanV2._processFees() <https://github.com/40-Acres/loan-contracts/blob/main/src/LoanV2.sol>`__
+    for the fee distribution implementation.
 
     Example vaults:
 
