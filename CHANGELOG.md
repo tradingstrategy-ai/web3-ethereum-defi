@@ -1,5 +1,7 @@
 # Current
 
+- feat: Hibachi protocol logos — original logo assets (512×512 app icon, Twitter profile image) and Twitter link added to metadata YAML (2026-05-01)
+
 - feat: Hibachi native vault DuckDB reader — full metrics pipeline for Hibachi vaults (API fetch → DuckDB → VaultDatabase pickle → uncleaned Parquet → cleaning), with `HibachiSession`, production scanner wiring (`SCAN_HIBACHI`), and post-processing integration (2026-04-30)
 
 - feat: Add 40acres vault protocol — cashflow lending for veNFT collateral with ERC-4626 USDC supply vaults on Avalanche, Base, and Optimism (2026-04-30)
