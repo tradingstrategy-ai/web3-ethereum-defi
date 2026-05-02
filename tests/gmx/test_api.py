@@ -4,11 +4,48 @@ Tests for GMXAPI with parametrized chain testing.
 This test suite makes real API calls to GMX API endpoints for Arbitrum and Avalanche networks.
 """
 
+import functools
+
 import pandas as pd
+import pytest
 from flaky import flaky
 
 from eth_defi.gmx.api import GMXAPI
 from tests.gmx.conftest import GMX_TEST_RETRY_CONFIG
+
+
+def skip_on_gmx_v2_api_failure(func):
+    """Skip a test when the GMX v2 REST API is unreachable.
+
+    The GMX v2 API (``/pairs``, ``/tokens/info``, ``/rates``,
+    ``/prices/ohlcv``, ``/positions``, ``/orders``) is an external service
+    prone to transient outages and rate limiting from CI.  When
+    :meth:`eth_defi.gmx.api.GMXAPI._make_v2_request` exhausts its internal
+    retries it raises ``RuntimeError("GMX v2 API request failed after N
+    attempts: <endpoint>")``.  Stacking this decorator under
+    ``@flaky(max_runs=3, min_passes=1)`` is not enough — all three flaky
+    retries run within seconds and fail back-to-back during a longer
+    outage, masking the failure as a real regression.
+
+    This decorator converts that specific ``RuntimeError`` into a
+    :func:`pytest.skip`, mirroring the pattern already used by
+    pre-fetch fixtures in ``tests/gmx/conftest.py`` (e.g. lines 481, 1034,
+    1071).  Other ``RuntimeError`` instances continue to fail the test.
+
+    :param func: The test function to wrap.
+    :return: Wrapped test that skips on GMX v2 API outage.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except RuntimeError as exc:
+            if "GMX v2 API request failed" in str(exc):
+                pytest.skip(f"GMX v2 API unreachable — transient outage: {exc}")
+            raise
+
+    return wrapper
 
 
 @flaky(max_runs=3, min_passes=1)
@@ -304,6 +341,7 @@ def test_make_v2_request_unsupported_chain(gmx_config):
 
 
 @flaky(max_runs=3, min_passes=1)
+@skip_on_gmx_v2_api_failure
 def test_get_pairs(api):
     """Test retrieving all trading pairs via the v2 REST API.
 
@@ -322,6 +360,7 @@ def test_get_pairs(api):
 
 
 @flaky(max_runs=3, min_passes=1)
+@skip_on_gmx_v2_api_failure
 def test_get_pairs_caching(api):
     """Test that get_pairs returns cached data on the second call.
 
@@ -335,6 +374,7 @@ def test_get_pairs_caching(api):
 
 
 @flaky(max_runs=3, min_passes=1)
+@skip_on_gmx_v2_api_failure
 def test_get_token_info(api):
     """Test retrieving comprehensive token information via the v2 REST API.
 
@@ -354,6 +394,7 @@ def test_get_token_info(api):
 
 
 @flaky(max_runs=3, min_passes=1)
+@skip_on_gmx_v2_api_failure
 def test_get_token_info_caching(api):
     """Test that get_token_info returns cached data on the second call."""
     first = api.get_token_info(use_cache=True)
@@ -363,6 +404,7 @@ def test_get_token_info_caching(api):
 
 
 @flaky(max_runs=3, min_passes=1)
+@skip_on_gmx_v2_api_failure
 def test_get_rates(api):
     """Test retrieving funding and borrowing rate snapshots via the v2 REST API.
 
@@ -377,6 +419,7 @@ def test_get_rates(api):
 
 
 @flaky(max_runs=3, min_passes=1)
+@skip_on_gmx_v2_api_failure
 def test_get_rates_non_empty(api):
     """Test that get_rates returns a non-empty collection.
 
@@ -396,6 +439,7 @@ def test_get_rates_non_empty(api):
 
 
 @flaky(max_runs=3, min_passes=1)
+@skip_on_gmx_v2_api_failure
 def test_get_rates_caching(api):
     """Test that get_rates returns cached data on the second call."""
     first = api.get_rates(use_cache=True)
@@ -405,6 +449,7 @@ def test_get_rates_caching(api):
 
 
 @flaky(max_runs=3, min_passes=1)
+@skip_on_gmx_v2_api_failure
 def test_get_ohlcv(api):
     """Test retrieving OHLCV candle data via the v2 REST API.
 
@@ -423,6 +468,7 @@ def test_get_ohlcv(api):
 
 
 @flaky(max_runs=3, min_passes=1)
+@skip_on_gmx_v2_api_failure
 def test_get_ohlcv_with_since(api):
     """Test get_ohlcv with the ``since`` parameter for historical data.
 
@@ -439,6 +485,7 @@ def test_get_ohlcv_with_since(api):
 
 
 @flaky(max_runs=3, min_passes=1)
+@skip_on_gmx_v2_api_failure
 def test_get_positions_empty(api):
     """Test get_positions returns a valid response for an address with no positions.
 
@@ -455,6 +502,7 @@ def test_get_positions_empty(api):
 
 
 @flaky(max_runs=3, min_passes=1)
+@skip_on_gmx_v2_api_failure
 def test_get_orders_empty(api):
     """Test get_orders returns a valid response for an address with no orders.
 
