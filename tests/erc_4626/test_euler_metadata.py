@@ -117,7 +117,7 @@ def test_euler_metadata_products_json(
     assert meta["entity"] == "euler-dao"
 
     # 3. New fields from products.json
-    assert meta["entities"] == ["euler-dao", "gauntlet"]
+    assert meta["entities"] == ["euler-dao"]
     assert meta["product"] == "euler-prime"
     assert meta["product_name"] == "Euler Prime"
     assert meta["deprecated"] is False
