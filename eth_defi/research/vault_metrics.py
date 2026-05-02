@@ -1321,16 +1321,24 @@ def calculate_vault_record(
     morpho_vault_flags: list[str] = []
     morpho_market_flags: list[str] = []
 
+    morpho_red_flags: list[str] = []
+    morpho_yellow_flags: list[str] = []
     morpho_analytics: MorphoFlagAnalytics | None = None
     if morpho_offchain_data is not None:
         morpho_analytics = analyze_morpho_flags(morpho_offchain_data)
         morpho_vault_flags = morpho_analytics.vault_flag_types
         morpho_market_flags = morpho_analytics.market_flag_types
+        morpho_red_flags = morpho_analytics.red_flags
+        morpho_yellow_flags = morpho_analytics.yellow_flags
 
         if morpho_analytics.red_flags:
             # Add the flag unconditionally — any RED warning warrants the flag
             flags = set(flags)
             flags.add(VaultFlag.morpho_issues)
+            # Blacklist the vault — RED Morpho warnings mean the vault has active issues
+            # (bad debt, compromised oracle, governance attack window) and should not be used
+            risk = VaultTechnicalRisk.blacklisted
+            risk_numeric = VaultTechnicalRisk.blacklisted.value
             # Only generate the note text when no existing manual or abnormal-metric note is set
             if not notes:
                 notes = morpho_analytics.note
@@ -1347,6 +1355,12 @@ def calculate_vault_record(
         # Sourced from MorphoVaultData["market_warnings"] (via _morpho_offchain_data in VaultRow).
         # RED entries trigger VaultFlag.morpho_issues. Example: ["bad_debt_unrealized"]
         "morpho_market_flags": morpho_market_flags,
+        # Combined RED-level warning types across vault and market warnings.
+        # Non-empty when VaultFlag.morpho_issues is set. Example: ["bad_debt_unrealized", "short_timelock"]
+        "morpho_red_flags": morpho_red_flags,
+        # Combined YELLOW-level warning types across vault and market warnings.
+        # YELLOW flags do not trigger VaultFlag.morpho_issues. Example: ["bad_debt_realized", "not_whitelisted"]
+        "morpho_yellow_flags": morpho_yellow_flags,
     }
 
     # Manual review decision from the Hyperliquid review Google Sheet.

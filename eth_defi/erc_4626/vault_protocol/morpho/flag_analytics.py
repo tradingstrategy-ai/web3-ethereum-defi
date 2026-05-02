@@ -50,6 +50,11 @@ class MorphoFlagAnalytics:
     #: Example: ``["bad_debt_unrealized", "short_timelock"]``
     red_flags: list[str]
 
+    #: Sorted YELLOW-level warning type strings across vault and market warnings.
+    #: YELLOW flags do not trigger :py:attr:`~eth_defi.vault.flag.VaultFlag.morpho_issues`.
+    #: Example: ``["bad_debt_realized", "not_whitelisted"]``
+    yellow_flags: list[str]
+
     #: Human-readable note for the pipeline / ``get_notes()`` output.
     #: ``None`` when there are no RED warnings.
     note: str | None
@@ -63,6 +68,8 @@ class MorphoFlagAnalytics:
             parts.append(f"market=[{', '.join(self.market_flag_types)}]")
         if self.red_flags:
             parts.append(f"RED=[{', '.join(self.red_flags)}]")
+        if self.yellow_flags:
+            parts.append(f"YELLOW=[{', '.join(self.yellow_flags)}]")
         return " ".join(parts) if parts else "no warnings"
 
 
@@ -85,12 +92,17 @@ def analyze_morpho_flags(data: MorphoVaultData) -> MorphoFlagAnalytics:
     red_market = {w["type"] for w in data.get("market_warnings", []) if w.get("level") == "RED"}
     red_flags = sorted(red_vault | red_market)
 
+    yellow_vault = {w["type"] for w in data.get("vault_warnings", []) if w.get("level") == "YELLOW"}
+    yellow_market = {w["type"] for w in data.get("market_warnings", []) if w.get("level") == "YELLOW"}
+    yellow_flags = sorted(yellow_vault | yellow_market)
+
     note = f"Morpho has flagged this vault with the following issues: {', '.join(red_flags)}" if red_flags else None
 
     return MorphoFlagAnalytics(
         vault_flag_types=vault_flag_types,
         market_flag_types=market_flag_types,
         red_flags=red_flags,
+        yellow_flags=yellow_flags,
         note=note,
     )
 
