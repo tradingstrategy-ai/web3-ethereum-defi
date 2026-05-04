@@ -43,6 +43,36 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 logger = logging.getLogger(__name__)
 
 
+def _create_short_description(name: str | None, description: str | None) -> str | None:
+    """Create a listing description that does not duplicate the vault name.
+
+    Hibachi's ``shortDescription`` API field is the vault display name, so
+    using it for both ``Name`` and ``_short_description`` repeats the title
+    in vault listings. Use the first sentence of the strategy description
+    instead, and return ``None`` if the source text is missing or still
+    matches the name.
+
+    :param name:
+        Vault display name.
+    :param description:
+        Long vault strategy description from the Hibachi API.
+    :return:
+        First strategy sentence, or ``None`` if no distinct short
+        description is available.
+    """
+    if not description:
+        return None
+
+    first_sentence = description.split(".", maxsplit=1)[0].strip()
+    if not first_sentence:
+        return None
+
+    if name and first_sentence.casefold() == name.strip().casefold():
+        return None
+
+    return f"{first_sentence}."
+
+
 def create_hibachi_vault_row(
     vault_id: int,
     symbol: str,
@@ -120,7 +150,7 @@ def create_hibachi_vault_row(
         "_flags": flags,
         "_lockup": HIBACHI_VAULT_LOCKUP,
         "_description": description,
-        "_short_description": name,
+        "_short_description": _create_short_description(name, description),
         "_available_liquidity": None,
         "_utilisation": None,
         "_deposit_closed_reason": None,

@@ -282,6 +282,44 @@ def test_vault_spec_creation():
     assert row["Link"] == "https://hibachi.xyz/vaults"
     assert row["Mgmt fee"] == 0.0
     assert row["Perf fee"] == 0.0
+    assert row["Name"] == "Growi Alpha Vault"
+    assert row["_description"] == "Test description"
+    assert row["_short_description"] == "Test description."
+    assert row["_short_description"] != row["Name"]
+
+
+def test_vault_short_description_not_title_duplicate():
+    """Verify Hibachi vault listing description does not duplicate title.
+
+    1. Call ``create_hibachi_vault_row`` with a title-like name and longer
+       strategy description
+    2. Assert ``_short_description`` uses the strategy description
+    3. Assert ``_short_description`` is omitted when only duplicate text is
+       available
+    """
+    # 1. Create with distinct long description
+    _, row = create_hibachi_vault_row(
+        vault_id=3,
+        symbol="FLP",
+        name="Fire Liquidity Provider",
+        description="Market making across all Hibachi markets. Operated by Kappa Lab.",
+        tvl=750000.0,
+    )
+
+    # 2. Short description comes from the first strategy sentence, not title
+    assert row["Name"] == "Fire Liquidity Provider"
+    assert row["_short_description"] == "Market making across all Hibachi markets."
+    assert row["_short_description"] != row["Name"]
+
+    # 3. Duplicate-only source text is not repeated in the listing
+    _, duplicate_row = create_hibachi_vault_row(
+        vault_id=4,
+        symbol="DUP",
+        name="Duplicate Vault",
+        description="Duplicate Vault",
+        tvl=10.0,
+    )
+    assert duplicate_row["_short_description"] is None
 
 
 def test_run_post_processing_wiring(tmp_path: Path):
