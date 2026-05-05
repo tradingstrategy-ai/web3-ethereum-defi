@@ -16,7 +16,7 @@ This module provides:
   manages it using word-boundary regex matching against known curator
   names loaded from YAML feeder files
 - **Protocol-curated detection** — some vaults are operated by the
-  protocol itself (Ostium, gTrade, Hyperliquid HLP, Lighter LLP) rather
+  protocol itself (Ostium, Gains Network, Hyperliquid HLP, Lighter LLP) rather
   than a third-party curator; these are identified by address lookups
   against known system vault address sets
 - **Curator metadata loading** — load curator metadata from the shared
@@ -81,7 +81,7 @@ short patterns are registered in :py:data:`CURATOR_NAME_PATTERNS`.
 
 Protocol-curated vaults are identified before name matching:
 
-- **Ostium** and **gTrade** — all vaults on these protocols are
+- **Ostium** and **Gains Network** — all vaults on these protocols are
   protocol-curated (no external curator)
 - **Hyperliquid** — system vaults (HLP parent, HLP children, Liquidator)
   are identified by address against
@@ -122,8 +122,10 @@ import re
 from pathlib import Path
 from typing import TypedDict
 
+from eth_defi.feed.sources import load_feeder_metadata, resolve_canonical_feeder_yaml
 from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
 from eth_defi.lighter.constants import LIGHTER_SYSTEM_POOL_ADDRESSES
+from eth_defi.research.sparkline import upload_to_r2_compressed
 
 logger = logging.getLogger(__name__)
 
@@ -140,8 +142,14 @@ CURATORS_DATA_DIR: Path = Path(__file__).parent.parent / "data" / "feeds" / "cur
 #: itself operates every vault.  The slug values correspond to
 #: :py:func:`eth_defi.research.vault_metrics.slugify_protocol` output.
 PROTOCOL_CURATED_SLUGS: set[str] = {
+    "gains-network",
     "ostium",
-    "gtrade",
+}
+
+#: Legacy protocol slug aliases that should resolve to the canonical
+#: protocol-curator slug emitted by :py:func:`identify_curator`.
+PROTOCOL_CURATOR_SLUG_ALIASES: dict[str, str] = {
+    "gtrade": "gains-network",
 }
 
 #: Complete set of protocol slugs that can appear as curator slugs.
@@ -159,8 +167,8 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
 #: These names are used by :py:func:`get_curator_name` when the curator
 #: slug matches a protocol rather than a third-party curator YAML file.
 PROTOCOL_CURATOR_NAMES: dict[str, str] = {
+    "gains-network": "Gains Network",
     "ostium": "Ostium",
-    "gtrade": "gTrade",
     "hyperliquid": "Hyperliquid",
     "lighter": "Lighter",
 }
@@ -176,7 +184,7 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
 #: ``"GammaSwap V1"``).
 CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "re7-labs": ["RE7"],
-    "steakhouse-financial": ["Steakhouse"],
+    "steakhouse-financial": ["Steakhouse", "Smokehouse"],
     "block-analitica": ["B.Protocol"],
     "growi-finance": ["Growi"],
     "avantgarde-finance": ["Avantgarde"],
@@ -217,6 +225,8 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "singularity": ["Singularity"],
     "fija": ["Fija"],
     "woo": ["Woo"],
+    "telosc": ["TelosC"],
+    "kappa-lab": ["Fire Liquidity Provider"],
 }
 
 
@@ -252,7 +262,7 @@ class CuratorInfo(TypedDict):
     #: Whether this is a protocol-native curator (the protocol itself
     #: acts as curator) rather than a third-party risk manager.
     #:
-    #: ``True`` for protocol-curated vaults (Ostium, gTrade, HLP, LLP).
+    #: ``True`` for protocol-curated vaults (Ostium, Gains Network, HLP, LLP).
     #: ``False`` for third-party curators (Gauntlet, RE7 Labs, etc.).
     protocol_curator: bool
 
@@ -295,7 +305,7 @@ class CuratorMetadata(TypedDict):
 
     #: Whether this curator is the protocol itself (not a third party).
     #:
-    #: ``True`` for protocol-curated vaults (e.g. Ostium, gTrade, HLP, LLP).
+    #: ``True`` for protocol-curated vaults (e.g. Ostium, Gains Network, HLP, LLP).
     #: ``False`` for third-party curators (e.g. Gauntlet, RE7 Labs).
     protocol_curator: bool
 
@@ -321,8 +331,6 @@ def _load_curator_yaml(yaml_path: Path) -> CuratorInfo:
     :param yaml_path:
         Path to a curator YAML file.
     """
-    from eth_defi.feed.sources import load_feeder_metadata
-
     parsed = load_feeder_metadata(yaml_path)
     return CuratorInfo(
         slug=parsed["feeder-id"],
@@ -331,7 +339,7 @@ def _load_curator_yaml(yaml_path: Path) -> CuratorInfo:
         twitter=parsed.get("twitter"),
         linkedin=parsed.get("linkedin"),
         rss=parsed.get("rss"),
-        protocol_curator=False,  # YAML curators are always third-party
+        protocol_curator=parsed["feeder-id"] in ALL_PROTOCOL_CURATOR_SLUGS,
         canonical_feeder_id=parsed.get("canonical-feeder-id"),
     )
 
@@ -346,7 +354,7 @@ def load_curator_map() -> dict[str, CuratorInfo]:
     :return:
         Dict keyed by curator slug.
     """
-    global _cached_curator_map
+    global _cached_curator_map  # noqa: PLW0603
 
     if _cached_curator_map is not None:
         return _cached_curator_map
@@ -372,7 +380,7 @@ def _build_matching_patterns() -> list[tuple[re.Pattern, str]]:
         List of ``(compiled_regex, curator_slug)`` pairs, longest
         pattern first.
     """
-    global _cached_patterns
+    global _cached_patterns  # noqa: PLW0603
 
     if _cached_patterns is not None:
         return _cached_patterns
@@ -437,6 +445,10 @@ def identify_curator(
         Use :py:func:`is_protocol_curator` to distinguish protocol-curated
         from third-party curators.
     """
+
+    del chain_id, vault_token_symbol
+
+    protocol_slug = PROTOCOL_CURATOR_SLUG_ALIASES.get(protocol_slug, protocol_slug)
 
     # 1. Blanket protocol-curated protocols (all vaults are protocol-operated)
     if protocol_slug in PROTOCOL_CURATED_SLUGS:
@@ -521,8 +533,6 @@ def build_curator_metadata_json(yaml_path: Path) -> CuratorMetadata:
     # If alias, inherit metadata from the canonical feeder.
     # Derive the feeds root from yaml_path: curators/foo.yaml -> parent.parent
     if info["canonical_feeder_id"]:
-        from eth_defi.feed.sources import load_feeder_metadata, resolve_canonical_feeder_yaml
-
         feeds_root = yaml_path.parent.parent
         canonical_yaml = resolve_canonical_feeder_yaml(
             info["canonical_feeder_id"],
@@ -560,33 +570,37 @@ def build_curator_metadata_json(yaml_path: Path) -> CuratorMetadata:
 
 
 def _build_protocol_curator_entries() -> list[CuratorMetadata]:
-    """Build synthetic curator metadata entries for protocol-curated slugs.
+    """Build metadata entries for protocol-curated slugs.
 
     One entry per protocol in :py:data:`PROTOCOL_CURATOR_NAMES` is
-    created so that frontend slug lookups always find metadata for
-    every slug that :py:func:`identify_curator` can emit.
+    created or loaded from YAML so that frontend slug lookups always
+    find metadata for every slug that :py:func:`identify_curator` can emit.
 
     :return:
-        List of synthetic :py:class:`CuratorMetadata` dicts.
+        List of :py:class:`CuratorMetadata` dicts.
     """
     entries: list[CuratorMetadata] = []
     for slug, name in sorted(PROTOCOL_CURATOR_NAMES.items()):
-        entries.append(
-            CuratorMetadata(
-                slug=slug,
-                name=name,
-                website=None,
-                twitter=None,
-                linkedin=None,
-                rss=None,
-                protocol_curator=True,
-                canonical_feeder_id=None,
+        yaml_path = CURATORS_DATA_DIR / f"{slug}.yaml"
+        if yaml_path.exists():
+            entries.append(build_curator_metadata_json(yaml_path))
+        else:
+            entries.append(
+                CuratorMetadata(
+                    slug=slug,
+                    name=name,
+                    website=None,
+                    twitter=None,
+                    linkedin=None,
+                    rss=None,
+                    protocol_curator=True,
+                    canonical_feeder_id=None,
+                )
             )
-        )
     return entries
 
 
-def process_and_upload_curator_metadata(
+def process_and_upload_curator_metadata(  # noqa: PLR0917
     yaml_path: Path,
     bucket_name: str,
     endpoint_url: str,
@@ -619,8 +633,6 @@ def process_and_upload_curator_metadata(
     :return:
         The processed :py:class:`CuratorMetadata`.
     """
-    from eth_defi.research.sparkline import upload_to_r2_compressed
-
     metadata = build_curator_metadata_json(yaml_path)
     slug = metadata["slug"]
 
@@ -671,8 +683,6 @@ def upload_protocol_curator_metadata(
     :return:
         List of uploaded :py:class:`CuratorMetadata` entries.
     """
-    from eth_defi.research.sparkline import upload_to_r2_compressed
-
     entries = _build_protocol_curator_entries()
 
     for metadata in entries:
@@ -712,8 +722,8 @@ def build_curator_index() -> list[CuratorMetadata]:
     for yaml_path in sorted(CURATORS_DATA_DIR.glob("*.yaml")):
         index.append(build_curator_metadata_json(yaml_path))
 
-    # Inject protocol-curator entries (Ostium, gTrade, Hyperliquid, Lighter)
-    index.extend(_build_protocol_curator_entries())
+    existing_slugs = {entry["slug"] for entry in index}
+    index.extend(entry for entry in _build_protocol_curator_entries() if entry["slug"] not in existing_slugs)
 
     return index
 
@@ -747,8 +757,6 @@ def upload_curator_index(
     :return:
         The full index list.
     """
-    from eth_defi.research.sparkline import upload_to_r2_compressed
-
     index = build_curator_index()
 
     json_bytes = json.dumps(index, indent=2).encode()

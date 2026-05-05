@@ -1,0 +1,5 @@
+# Summer.fi curator - feeds provided by protocols/summer-fi.yaml
+feeder-id: summer-fi
+name: Summer.fi
+role: curator
+canonical-feeder-id: summer-fi

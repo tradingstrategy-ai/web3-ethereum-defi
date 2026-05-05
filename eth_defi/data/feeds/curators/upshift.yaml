@@ -1,0 +1,5 @@
+# Upshift curator - feeds provided by protocols/upshift.yaml
+feeder-id: upshift
+name: Upshift
+role: curator
+canonical-feeder-id: upshift

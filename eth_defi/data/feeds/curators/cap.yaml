@@ -1,0 +1,5 @@
+# CAP curator - feeds provided by protocols/cap.yaml
+feeder-id: cap
+name: CAP
+role: curator
+canonical-feeder-id: cap

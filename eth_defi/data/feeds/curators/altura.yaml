@@ -1,0 +1,5 @@
+# Altura curator - feeds provided by protocols/altura.yaml
+feeder-id: altura
+name: Altura
+role: curator
+canonical-feeder-id: altura

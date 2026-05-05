@@ -1,0 +1,24 @@
+feeder-id: janus-henderson-anemoy
+name: Janus Henderson Anemoy
+role: curator
+website: https://www.anemoy.io/funds/jtrsy
+twitter: anemoycapital
+linkedin: anemoy
+
+# Evidence and background references.
+#
+# Local vault data contains Janus Henderson Anemoy Treasury Fund, AAA CLO
+# Fund, and S&P500 Fund vaults across Centrifuge/ERC-7540 chains.  The
+# Janus Henderson press release says Janus Henderson partnered with
+# Anemoy and Centrifuge to manage Anemoy's on-chain fund and serves as
+# sub-advisor.  Anemoy fund pages use the combined Janus Henderson
+# Anemoy product names.
+other-links:
+  - title: Janus Henderson press release - partnership with Anemoy and Centrifuge on tokenized fund
+    url: https://ir.janushenderson.com/News--Events/news/news-details/2024/Janus-Henderson-to-Partner-with-Anemoy-and-Centrifuge-on-Its-First-Tokenized-Fund/default.aspx
+  - title: Anemoy fund page - Janus Henderson Anemoy Treasury Fund
+    url: https://www.anemoy.io/funds/jtrsy
+  - title: Anemoy fund page - Janus Henderson Anemoy AAA CLO Fund
+    url: https://www.anemoy.io/funds/jaaa
+  - title: Anemoy fund page - Anemoy Janus Henderson S&P500 Index Fund
+    url: https://www.anemoy.io/funds/spxa

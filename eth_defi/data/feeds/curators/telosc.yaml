@@ -1,0 +1,22 @@
+feeder-id: telosc
+name: Telos Consilium
+role: curator
+website: https://telosc.com
+twitter: TelosConsilium
+linkedin: telosc
+
+# Evidence and background references.
+#
+# Telos Consilium uses the short form TelosC in Euler vault names.
+# The local vault export has multiple Euler vault descriptions stating
+# "Governed and curated by TelosC"; the links below preserve the
+# official identity and external vault-curator evidence trail.
+other-links:
+  - title: Official website - Telos Consilium Web3 accelerator with curation and non-custodial asset management services
+    url: https://telosc.com/
+  - title: Euler docs - Telos Consilium authored Maglev documentation as a Web3 service provider mandated by Euler
+    url: https://docs.euler.finance/creator-tools/maglev/overview/
+  - title: Trading Strategy vault page - TelosC Stream Euler vault described as governed and curated by TelosC
+    url: https://tradingstrategy.ai/trading-view/ethereum/vaults/telosc-stream-3
+  - title: SignalPlus coverage - TelosC acts as risk curator for Euler vaults
+    url: https://t.signalplus.com/crypto-news/detail/peckshield-27m-defi-risk-euler-telosc-vaults

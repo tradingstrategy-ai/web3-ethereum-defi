@@ -1,0 +1,5 @@
+# GRVT curator - feeds provided by protocols/grvt.yaml
+feeder-id: grvt
+name: GRVT
+role: curator
+canonical-feeder-id: grvt

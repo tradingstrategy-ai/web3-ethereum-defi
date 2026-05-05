@@ -1,0 +1,5 @@
+# sBOLD curator - feeds provided by stablecoins/sbold.yaml
+feeder-id: sbold
+name: sBOLD
+role: curator
+canonical-feeder-id: sbold

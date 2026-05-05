@@ -1,0 +1,5 @@
+# Gains Network curator - feeds provided by protocols/gains-network.yaml
+feeder-id: gains-network
+name: Gains Network
+role: curator
+canonical-feeder-id: gains-network

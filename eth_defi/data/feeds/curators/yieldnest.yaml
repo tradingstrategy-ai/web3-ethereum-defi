@@ -1,0 +1,5 @@
+# YieldNest curator - feeds provided by protocols/yieldnest.yaml
+feeder-id: yieldnest
+name: YieldNest
+role: curator
+canonical-feeder-id: yieldnest

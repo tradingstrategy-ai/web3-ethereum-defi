@@ -1,0 +1,5 @@
+# Curvance curator - feeds provided by protocols/curvance.yaml
+feeder-id: curvance
+name: Curvance
+role: curator
+canonical-feeder-id: curvance

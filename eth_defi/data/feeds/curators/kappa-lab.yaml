@@ -1,0 +1,17 @@
+feeder-id: kappa-lab
+name: Kappa Lab
+role: curator
+website: https://kappalab.io
+twitter: KappaLab_io
+linkedin: kappalab
+
+# Evidence and background references.
+#
+# Hibachi's public vault API describes the Fire Liquidity Provider
+# vault as operated by Kappa Lab.  Kappa Lab's own website identifies
+# the organisation as a digital assets market maker.
+other-links:
+  - title: Hibachi public vault API - Fire Liquidity Provider operated by Kappa Lab
+    url: https://data-api.hibachi.xyz/vault/info?vaultId=3
+  - title: Hibachi vaults page - official vault interface
+    url: https://hibachi.xyz/vaults
