@@ -1,4 +1,19 @@
 # sBOLD curator - feeds provided by stablecoins/sbold.yaml
+#
+# Alias rationale:
+# - sBOLD is both a yield-bearing stablecoin surface and an ERC-4626
+#   vault-name surface discovered in local vault exports.
+# - K3 Capital remains the organisation-level curator alias; this file
+#   covers the product/vault name "sBOLD" when it appears directly.
+# - K3 docs describe sBOLD as routing BOLD into Liquity V2 Stability
+#   Pools and K3 Capital actively managing the weights:
+#   https://k3-capital.gitbook.io/sbold/introducing-sbold
+# - Liquity docs describe sBOLD as an auto-compounding Stability Pool
+#   vault built and maintained by K3 Capital:
+#   https://docs.liquity.org/v2-faq/bold-and-earn
+# - ChainSecurity describes sBOLD as an ERC-4626 vault and asset
+#   allocation layer over Liquity V2 Stability Pool deposits:
+#   https://www.chainsecurity.com/security-audit/k3-sbold
 feeder-id: sbold
 name: sBOLD
 role: curator

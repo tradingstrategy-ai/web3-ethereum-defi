@@ -1,4 +1,11 @@
 # Summer.fi curator - feeds provided by protocols/summer-fi.yaml
+#
+# Alias rationale:
+# - The first curator discovery batch found Summer.fi-branded,
+#   protocol-owned vaults.
+# - Summer.fi already has canonical protocol feed metadata, so this
+#   curator alias only preserves the curator identity for vault exports.
+# - Official protocol site: https://summer.fi/
 feeder-id: summer-fi
 name: Summer.fi
 role: curator

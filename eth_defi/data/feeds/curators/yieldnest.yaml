@@ -1,4 +1,11 @@
 # YieldNest curator - feeds provided by protocols/yieldnest.yaml
+#
+# Alias rationale:
+# - The first curator discovery batch found the YieldNest RWA MAX
+#   vault-name surface.
+# - This points to the protocol feeder rather than the ynUSDx product
+#   feeder, because the discovered curator surface is YieldNest-branded.
+# - Official protocol site: https://www.yieldnest.finance
 feeder-id: yieldnest
 name: YieldNest
 role: curator

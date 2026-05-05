@@ -1,4 +1,11 @@
 # Upshift curator - feeds provided by protocols/upshift.yaml
+#
+# Alias rationale:
+# - The first curator discovery batch found Upshift-branded,
+#   protocol-owned vaults.
+# - Upshift already has canonical protocol feed metadata, so this
+#   curator alias avoids duplicating social/RSS sources.
+# - Official protocol site: https://www.upshift.finance/
 feeder-id: upshift
 name: Upshift
 role: curator

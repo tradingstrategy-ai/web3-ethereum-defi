@@ -1,4 +1,11 @@
 # Curvance curator - feeds provided by protocols/curvance.yaml
+#
+# Alias rationale:
+# - The first curator discovery batch found Curvance-branded,
+#   protocol-owned vaults.
+# - Curvance already has canonical protocol feed metadata, so this
+#   curator alias only preserves the curator identity for vault exports.
+# - Official protocol site: https://www.curvance.com/
 feeder-id: curvance
 name: Curvance
 role: curator

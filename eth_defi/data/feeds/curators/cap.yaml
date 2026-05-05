@@ -1,4 +1,11 @@
 # CAP curator - feeds provided by protocols/cap.yaml
+#
+# Alias rationale:
+# - The first curator discovery batch found the protocol-owned
+#   "cap USDC" vault surface.
+# - CAP already has canonical protocol feed metadata, so this curator
+#   alias avoids duplicating social/RSS sources.
+# - Official protocol site: https://cap.app/
 feeder-id: cap
 name: CAP
 role: curator

@@ -1,4 +1,14 @@
 # K3 Capital curator — feeds provided by stablecoins/sbold.yaml
+#
+# Alias rationale:
+# - K3 Capital is the organisation-level curator/manager behind sBOLD
+#   and appears directly in several vault names.
+# - The canonical feed source is stablecoins/sbold.yaml because K3's
+#   tracked social and RSS metadata was already attached to the sBOLD
+#   stablecoin/product feeder.
+# - sBOLD itself has a separate curator alias for product/vault names
+#   that contain "sBOLD" but not "K3 Capital".
+# - K3 docs: https://k3-capital.gitbook.io/sbold/introducing-sbold
 feeder-id: k3-capital
 name: K3 Capital
 role: curator

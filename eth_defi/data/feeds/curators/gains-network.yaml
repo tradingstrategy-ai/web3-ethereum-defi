@@ -1,4 +1,11 @@
 # Gains Network curator - feeds provided by protocols/gains-network.yaml
+#
+# Alias rationale:
+# - Gains vaults are protocol-managed rather than third-party curated.
+# - The exported protocol slug is gains-network; legacy gtrade inputs
+#   are normalised in eth_defi.vault.curator.identify_curator().
+# - Gains Network already has canonical protocol feed metadata.
+# - Official protocol site: https://gains.trade/
 feeder-id: gains-network
 name: Gains Network
 role: curator

@@ -1,4 +1,11 @@
 # GRVT curator - feeds provided by protocols/grvt.yaml
+#
+# Alias rationale:
+# - The first curator discovery batch found the GRVT Liquidity Provider
+#   native vault surface.
+# - GRVT already has canonical protocol feed metadata, so this alias
+#   reuses the protocol feeder and avoids duplicate source tracking.
+# - Official protocol site: https://grvt.io
 feeder-id: grvt
 name: GRVT
 role: curator

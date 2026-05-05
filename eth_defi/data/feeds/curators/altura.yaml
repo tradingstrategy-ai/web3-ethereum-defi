@@ -1,4 +1,12 @@
 # Altura curator - feeds provided by protocols/altura.yaml
+#
+# Alias rationale:
+# - The first curator discovery batch found Altura-branded,
+#   protocol-owned vaults.
+# - Altura already has canonical protocol feed metadata, so this
+#   curator alias exists only to make vault curator detection/export
+#   resolve to the same feeder.
+# - Official protocol site: https://altura.trade/
 feeder-id: altura
 name: Altura
 role: curator
