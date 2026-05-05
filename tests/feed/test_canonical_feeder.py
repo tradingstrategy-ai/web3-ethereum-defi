@@ -14,6 +14,7 @@ from eth_defi.feed.sources import (
     load_feeder_metadata,
     load_post_sources,
 )
+from eth_defi.vault import curator as curator_module
 
 
 def _write_yaml(path: Path, content: str) -> None:
@@ -64,8 +65,8 @@ def test_alias_loading(tmp_path: Path):
 
     # 6. Both aliases present
     alias_map = {(a.feeder_id, a.role): a.canonical_feeder_id for a in aliases}
-    assert alias_map[("usdt-e", "stablecoin")] == "usdt"
-    assert alias_map[("yo", "curator")] == "yo"
+    assert alias_map["usdt-e", "stablecoin"] == "usdt"
+    assert alias_map["yo", "curator"] == "yo"
 
     # 7. No aliases counted as skipped
     assert skipped == 0
@@ -89,7 +90,7 @@ def test_alias_validation_errors(tmp_path: Path):
         "feeder-id: bad-alias\nname: Bad\nrole: stablecoin\ncanonical-feeder-id: usdt\ntwitter: tether\n",
     )
 
-    with pytest.raises(ValueError, match="canonical-feeder-id.*twitter"):
+    with pytest.raises(ValueError, match=r"canonical-feeder-id.*twitter"):
         load_post_sources(tmp_path)
 
     # Clean up for next sub-test
@@ -101,7 +102,7 @@ def test_alias_validation_errors(tmp_path: Path):
         "feeder-id: ghost-alias\nname: Ghost\nrole: stablecoin\ncanonical-feeder-id: nonexistent\n",
     )
 
-    with pytest.raises(ValueError, match="nonexistent.*does not match any known feeder-id"):
+    with pytest.raises(ValueError, match=r"nonexistent.*does not match any known feeder-id"):
         load_post_sources(tmp_path)
 
     (tmp_path / "stablecoins" / "ghost-alias.yaml").unlink()
@@ -120,7 +121,7 @@ def test_alias_validation_errors(tmp_path: Path):
         "feeder-id: a\nname: Alias A\nrole: stablecoin\ncanonical-feeder-id: b\n",
     )
 
-    with pytest.raises(ValueError, match="alias.*chains are not allowed"):
+    with pytest.raises(ValueError, match=r"alias.*chains are not allowed"):
         load_post_sources(tmp_path)
 
 
@@ -132,26 +133,26 @@ def test_real_yaml_files_load_without_errors():
     3. Assert specific known aliases are present.
     """
 
-    sources, skipped, aliases = load_post_sources(FEEDS_DATA_DIR)
+    sources, _skipped, aliases = load_post_sources(FEEDS_DATA_DIR)
     assert len(sources) > 0
     assert len(aliases) > 0
 
     alias_map = {(a.feeder_id, a.role): a.canonical_feeder_id for a in aliases}
 
     # Same-role stablecoin aliases
-    assert alias_map[("usdt-e", "stablecoin")] == "usdt"
-    assert alias_map[("usdc-e", "stablecoin")] == "usdc"
-    assert alias_map[("sfrax", "stablecoin")] == "frax"
+    assert alias_map["usdt-e", "stablecoin"] == "usdt"
+    assert alias_map["usdc-e", "stablecoin"] == "usdc"
+    assert alias_map["sfrax", "stablecoin"] == "frax"
 
     # Cross-role curator -> stablecoin
-    assert alias_map[("ethena", "curator")] == "usde"
+    assert alias_map["ethena", "curator"] == "usde"
 
     # Cross-role curator -> protocol
-    assert alias_map[("spark", "curator")] == "spark"
-    assert alias_map[("ipor", "curator")] == "ipor-fusion"
+    assert alias_map["spark", "curator"] == "spark"
+    assert alias_map["ipor", "curator"] == "ipor-fusion"
 
     # Cross-role protocol -> stablecoin (sbold dedup)
-    assert alias_map[("sbold", "protocol")] == "sbold"
+    assert alias_map["sbold", "protocol"] == "sbold"
 
 
 def test_other_links_metadata_loads(tmp_path: Path):
@@ -188,8 +189,6 @@ def test_metadata_inheritance_in_curator_export(tmp_path: Path):
     5. Create a second alias whose canonical has no linkedin — assert linkedin is None.
     """
 
-    from eth_defi.vault.curator import build_curator_metadata_json
-
     # Full metadata canonical
     _write_yaml(
         tmp_path / "stablecoins" / "usde.yaml",
@@ -200,12 +199,13 @@ def test_metadata_inheritance_in_curator_export(tmp_path: Path):
         "feeder-id: ethena\nname: Ethena\nrole: curator\ncanonical-feeder-id: usde\n",
     )
 
-    metadata = build_curator_metadata_json(tmp_path / "curators" / "ethena.yaml")
+    metadata = curator_module.build_curator_metadata_json(tmp_path / "curators" / "ethena.yaml")
     assert metadata["slug"] == "ethena"
     assert metadata["name"] == "Ethena"
     assert metadata["website"] == "https://ethena.fi/"
     assert metadata["twitter"] == "https://x.com/ethena"
     assert metadata["linkedin"] == "https://www.linkedin.com/company/ethena-labs"
+    assert metadata["logos"] == {"generic": None, "dark": None, "light": None}
     assert metadata["canonical_feeder_id"] == "usde"
 
     # 5. Partial metadata canonical — no linkedin field
@@ -218,6 +218,76 @@ def test_metadata_inheritance_in_curator_export(tmp_path: Path):
         "feeder-id: abc-curator\nname: ABC Curator\nrole: curator\ncanonical-feeder-id: abc\n",
     )
 
-    meta2 = build_curator_metadata_json(tmp_path / "curators" / "abc-curator.yaml")
+    meta2 = curator_module.build_curator_metadata_json(tmp_path / "curators" / "abc-curator.yaml")
     assert meta2["twitter"] == "https://x.com/abctoken"
     assert meta2["linkedin"] is None
+
+
+def test_curator_metadata_export_includes_logo_urls(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Curator metadata export includes URLs for available logo variants.
+
+    1. Create a curator YAML file.
+    2. Point the curator logo directory to a temporary folder.
+    3. Create ``generic`` and ``dark`` PNG variants.
+    4. Assert the public metadata contains only available logo URLs.
+    """
+
+    _write_yaml(
+        tmp_path / "curators" / "gauntlet.yaml",
+        "feeder-id: gauntlet\nname: Gauntlet\nrole: curator\ntwitter: gauntlet_xyz\n",
+    )
+    logo_dir = tmp_path / "logos" / "gauntlet"
+    logo_dir.mkdir(parents=True)
+    (logo_dir / "generic.png").write_bytes(b"generic")
+    (logo_dir / "dark.png").write_bytes(b"dark")
+    monkeypatch.setattr(curator_module, "FORMATTED_LOGOS_DIR", tmp_path / "logos")
+
+    metadata = curator_module.build_curator_metadata_json(
+        tmp_path / "curators" / "gauntlet.yaml",
+        public_url="https://pub.example/",
+    )
+
+    assert metadata["logos"] == {
+        "generic": "https://pub.example/curator-metadata/gauntlet/generic.png",
+        "dark": "https://pub.example/curator-metadata/gauntlet/dark.png",
+        "light": None,
+    }
+
+
+def test_curator_metadata_uploads_logo_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Curator metadata upload includes JSON and available PNG logo variants."""
+
+    _write_yaml(
+        tmp_path / "curators" / "gauntlet.yaml",
+        "feeder-id: gauntlet\nname: Gauntlet\nrole: curator\ntwitter: gauntlet_xyz\n",
+    )
+    logo_dir = tmp_path / "logos" / "gauntlet"
+    logo_dir.mkdir(parents=True)
+    (logo_dir / "generic.png").write_bytes(b"generic")
+    (logo_dir / "light.png").write_bytes(b"light")
+    monkeypatch.setattr(curator_module, "FORMATTED_LOGOS_DIR", tmp_path / "logos")
+
+    uploads = []
+
+    def fake_upload_to_r2_compressed(**kwargs):
+        uploads.append(kwargs)
+        return True
+
+    monkeypatch.setattr(curator_module, "upload_to_r2_compressed", fake_upload_to_r2_compressed)
+
+    metadata = curator_module.process_and_upload_curator_metadata(
+        yaml_path=tmp_path / "curators" / "gauntlet.yaml",
+        bucket_name="bucket",
+        endpoint_url="https://endpoint.example",
+        access_key_id="key",
+        secret_access_key="secret",
+        public_url="https://pub.example/",
+        key_prefix="test-",
+    )
+
+    assert metadata["logos"]["generic"] == "https://pub.example/curator-metadata/gauntlet/generic.png"
+    assert {upload["object_name"] for upload in uploads} == {
+        "curator-metadata/test-gauntlet/metadata.json",
+        "curator-metadata/test-gauntlet/generic.png",
+        "curator-metadata/test-gauntlet/light.png",
+    }

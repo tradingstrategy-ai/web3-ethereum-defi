@@ -129,6 +129,15 @@ from eth_defi.research.sparkline import upload_to_r2_compressed
 
 logger = logging.getLogger(__name__)
 
+#: Base directory for shared vault protocol and curator data.
+VAULTS_DATA_DIR: Path = Path(__file__).parent.parent / "data" / "vaults"
+
+#: Directory containing formatted 256x256 PNG logos.
+FORMATTED_LOGOS_DIR: Path = VAULTS_DATA_DIR / "formatted_logos"
+
+#: Logo variants supported by the shared vault logo folder.
+LOGO_VARIANTS: tuple[str, ...] = ("generic", "dark", "light")
+
 #: Path to the curator feeder YAML files.
 #:
 #: These files use the shared feeder schema from
@@ -275,6 +284,23 @@ class CuratorInfo(TypedDict):
     canonical_feeder_id: str | None
 
 
+class CuratorLogos(TypedDict):
+    """Logo URLs for a vault curator.
+
+    Logo URLs point to 256x256 PNG files in R2 storage.
+    ``None`` if the logo variant is not available.
+    """
+
+    #: Generic logo variant for neutral display contexts.
+    generic: str | None
+
+    #: Logo for dark background themes when available.
+    dark: str | None
+
+    #: Logo for light background themes when available.
+    light: str | None
+
+
 class CuratorMetadata(TypedDict):
     """Curator metadata as exported to JSON for R2 upload.
 
@@ -303,6 +329,9 @@ class CuratorMetadata(TypedDict):
 
     #: RSS or Atom feed URL, or ``None``.
     rss: str | None
+
+    #: Logo URLs for available 256x256 PNG variants.
+    logos: CuratorLogos
 
     #: Whether this curator is the protocol itself (not a third party).
     #:
@@ -516,7 +545,44 @@ def get_curator_name(slug: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def build_curator_metadata_json(yaml_path: Path) -> CuratorMetadata:
+def get_curator_available_logos(slug: str) -> dict[str, bool]:
+    """Check which logo variants are available for a curator.
+
+    Curator and vault protocol logos share
+    ``eth_defi/data/vaults/formatted_logos/{slug}/``.
+
+    :param slug:
+        Curator slug, e.g. ``"gauntlet"``.
+
+    :return:
+        Dictionary keyed by ``generic``, ``dark`` and ``light``.
+    """
+    logo_dir = FORMATTED_LOGOS_DIR / slug
+    return {variant: (logo_dir / f"{variant}.png").exists() for variant in LOGO_VARIANTS}
+
+
+def _build_curator_logo_urls(slug: str, public_url: str = "") -> CuratorLogos:
+    """Build public logo URLs for available curator logo variants.
+
+    :param slug:
+        Curator slug.
+
+    :param public_url:
+        Public base URL for constructing logo URLs.
+
+    :return:
+        Logo URL mapping for JSON export.
+    """
+    available_logos = get_curator_available_logos(slug)
+    public_url = public_url.rstrip("/") if public_url else ""
+    return CuratorLogos(
+        generic=f"{public_url}/curator-metadata/{slug}/generic.png" if available_logos["generic"] and public_url else None,
+        dark=f"{public_url}/curator-metadata/{slug}/dark.png" if available_logos["dark"] and public_url else None,
+        light=f"{public_url}/curator-metadata/{slug}/light.png" if available_logos["light"] and public_url else None,
+    )
+
+
+def build_curator_metadata_json(yaml_path: Path, public_url: str = "") -> CuratorMetadata:
     """Build a :py:class:`CuratorMetadata` dict from a curator YAML file.
 
     Twitter handles are expanded to full ``https://x.com/{handle}`` URLs.
@@ -526,10 +592,14 @@ def build_curator_metadata_json(yaml_path: Path) -> CuratorMetadata:
     :param yaml_path:
         Path to a curator YAML file.
 
+    :param public_url:
+        Public base URL for constructing logo URLs.
+
     :return:
         Metadata dict ready for JSON serialisation.
     """
     info = _load_curator_yaml(yaml_path)
+    slug = info["slug"]
 
     # If alias, inherit metadata from the canonical feeder.
     # Derive the feeds root from yaml_path: curators/foo.yaml -> parent.parent
@@ -559,23 +629,27 @@ def build_curator_metadata_json(yaml_path: Path) -> CuratorMetadata:
         linkedin_url = f"https://www.linkedin.com/company/{linkedin_id}"
 
     return CuratorMetadata(
-        slug=info["slug"],
+        slug=slug,
         name=info["name"],
         website=website,
         twitter=twitter_url,
         linkedin=linkedin_url,
         rss=rss,
+        logos=_build_curator_logo_urls(slug, public_url=public_url),
         protocol_curator=info["protocol_curator"],
         canonical_feeder_id=info["canonical_feeder_id"],
     )
 
 
-def _build_protocol_curator_entries() -> list[CuratorMetadata]:
+def _build_protocol_curator_entries(public_url: str = "") -> list[CuratorMetadata]:
     """Build metadata entries for protocol-curated slugs.
 
     One entry per protocol in :py:data:`PROTOCOL_CURATOR_NAMES` is
     created or loaded from YAML so that frontend slug lookups always
     find metadata for every slug that :py:func:`identify_curator` can emit.
+
+    :param public_url:
+        Public base URL for constructing logo URLs.
 
     :return:
         List of :py:class:`CuratorMetadata` dicts.
@@ -584,7 +658,7 @@ def _build_protocol_curator_entries() -> list[CuratorMetadata]:
     for slug, name in sorted(PROTOCOL_CURATOR_NAMES.items()):
         yaml_path = CURATORS_DATA_DIR / f"{slug}.yaml"
         if yaml_path.exists():
-            entries.append(build_curator_metadata_json(yaml_path))
+            entries.append(build_curator_metadata_json(yaml_path, public_url=public_url))
         else:
             entries.append(
                 CuratorMetadata(
@@ -594,6 +668,7 @@ def _build_protocol_curator_entries() -> list[CuratorMetadata]:
                     twitter=None,
                     linkedin=None,
                     rss=None,
+                    logos=_build_curator_logo_urls(slug, public_url=public_url),
                     protocol_curator=True,
                     canonical_feeder_id=None,
                 )
@@ -607,11 +682,15 @@ def process_and_upload_curator_metadata(  # noqa: PLR0917
     endpoint_url: str,
     access_key_id: str,
     secret_access_key: str,
+    public_url: str = "",
     key_prefix: str = "",
 ) -> CuratorMetadata:
-    """Process and upload a single curator's metadata to R2.
+    """Process and upload a single curator's metadata and logos to R2.
 
-    Uploads to ``curator-metadata/{key_prefix}{slug}/metadata.json``.
+    Uploads:
+
+    - ``curator-metadata/{key_prefix}{slug}/metadata.json`` — JSON metadata
+    - ``curator-metadata/{key_prefix}{slug}/{variant}.png`` — 256x256 logo
 
     :param yaml_path:
         Path to the curator YAML file.
@@ -628,13 +707,16 @@ def process_and_upload_curator_metadata(  # noqa: PLR0917
     :param secret_access_key:
         R2 secret access key.
 
+    :param public_url:
+        Public base URL for constructing logo URLs in metadata.
+
     :param key_prefix:
         Optional prefix for R2 keys (e.g. ``"test-"`` for testing).
 
     :return:
         The processed :py:class:`CuratorMetadata`.
     """
-    metadata = build_curator_metadata_json(yaml_path)
+    metadata = build_curator_metadata_json(yaml_path, public_url=public_url)
     slug = metadata["slug"]
 
     json_bytes = json.dumps(metadata, indent=2).encode()
@@ -650,14 +732,36 @@ def process_and_upload_curator_metadata(  # noqa: PLR0917
     )
     logger.info("%s curator metadata for: %s", "Uploaded" if metadata_uploaded else "Skipped unchanged", slug)
 
+    logo_dir = FORMATTED_LOGOS_DIR / slug
+    for variant in LOGO_VARIANTS:
+        logo_path = logo_dir / f"{variant}.png"
+        if logo_path.exists():
+            logo_uploaded = upload_to_r2_compressed(
+                payload=logo_path.read_bytes(),
+                bucket_name=bucket_name,
+                object_name=f"curator-metadata/{key_prefix}{slug}/{variant}.png",
+                endpoint_url=endpoint_url,
+                access_key_id=access_key_id,
+                secret_access_key=secret_access_key,
+                content_type="image/png",
+                skip_if_current=True,
+            )
+            logger.info(
+                "%s %s logo for curator: %s",
+                "Uploaded" if logo_uploaded else "Skipped unchanged",
+                variant,
+                slug,
+            )
+
     return metadata
 
 
-def upload_protocol_curator_metadata(
+def upload_protocol_curator_metadata(  # noqa: PLR0917
     bucket_name: str,
     endpoint_url: str,
     access_key_id: str,
     secret_access_key: str,
+    public_url: str = "",
     key_prefix: str = "",
 ) -> list[CuratorMetadata]:
     """Upload metadata entries for all protocol-curated slugs to R2.
@@ -678,13 +782,16 @@ def upload_protocol_curator_metadata(
     :param secret_access_key:
         R2 secret access key.
 
+    :param public_url:
+        Public base URL for constructing logo URLs in metadata.
+
     :param key_prefix:
         Optional prefix for R2 keys.
 
     :return:
         List of uploaded :py:class:`CuratorMetadata` entries.
     """
-    entries = _build_protocol_curator_entries()
+    entries = _build_protocol_curator_entries(public_url=public_url)
 
     for metadata in entries:
         slug = metadata["slug"]
@@ -706,34 +813,59 @@ def upload_protocol_curator_metadata(
             slug,
         )
 
+        logo_dir = FORMATTED_LOGOS_DIR / slug
+        for variant in LOGO_VARIANTS:
+            logo_path = logo_dir / f"{variant}.png"
+            if logo_path.exists():
+                logo_uploaded = upload_to_r2_compressed(
+                    payload=logo_path.read_bytes(),
+                    bucket_name=bucket_name,
+                    object_name=f"curator-metadata/{key_prefix}{slug}/{variant}.png",
+                    endpoint_url=endpoint_url,
+                    access_key_id=access_key_id,
+                    secret_access_key=secret_access_key,
+                    content_type="image/png",
+                    skip_if_current=True,
+                )
+                logger.info(
+                    "%s %s logo for protocol-curator: %s",
+                    "Uploaded" if logo_uploaded else "Skipped unchanged",
+                    variant,
+                    slug,
+                )
+
     return entries
 
 
-def build_curator_index() -> list[CuratorMetadata]:
+def build_curator_index(public_url: str = "") -> list[CuratorMetadata]:
     """Build the aggregate curator metadata index.
 
     Loads all curator YAML files and appends synthetic entries for
     protocol-curated slugs.  The result is suitable for JSON
     serialisation and R2 upload as ``curator-metadata/index.json``.
 
+    :param public_url:
+        Public base URL for constructing logo URLs.
+
     :return:
         List of :py:class:`CuratorMetadata` dicts for all known curators.
     """
     index: list[CuratorMetadata] = []
     for yaml_path in sorted(CURATORS_DATA_DIR.glob("*.yaml")):
-        index.append(build_curator_metadata_json(yaml_path))
+        index.append(build_curator_metadata_json(yaml_path, public_url=public_url))
 
     existing_slugs = {entry["slug"] for entry in index}
-    index.extend(entry for entry in _build_protocol_curator_entries() if entry["slug"] not in existing_slugs)
+    index.extend(entry for entry in _build_protocol_curator_entries(public_url=public_url) if entry["slug"] not in existing_slugs)
 
     return index
 
 
-def upload_curator_index(
+def upload_curator_index(  # noqa: PLR0917
     bucket_name: str,
     endpoint_url: str,
     access_key_id: str,
     secret_access_key: str,
+    public_url: str = "",
     key_prefix: str = "",
 ) -> list[CuratorMetadata]:
     """Build and upload the aggregate curator index to R2.
@@ -752,13 +884,16 @@ def upload_curator_index(
     :param secret_access_key:
         R2 secret access key.
 
+    :param public_url:
+        Public base URL for constructing logo URLs in metadata.
+
     :param key_prefix:
         Optional prefix for R2 keys.
 
     :return:
         The full index list.
     """
-    index = build_curator_index()
+    index = build_curator_index(public_url=public_url)
 
     json_bytes = json.dumps(index, indent=2).encode()
     index_uploaded = upload_to_r2_compressed(

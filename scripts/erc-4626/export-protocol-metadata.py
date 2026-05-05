@@ -37,7 +37,7 @@ from eth_defi.vault.protocol_metadata import METADATA_DIR, get_available_logos, 
 logger = logging.getLogger(__name__)
 
 
-def main():
+def main():  # noqa: PLR0914
     setup_console_logging(
         log_file=Path("logs/export-protocol-metadata.log"),
         only_log_file=False,
@@ -111,6 +111,41 @@ def main():
             public_url=public_url,
         )
 
+        # Upload curator metadata
+        curator_files = list(CURATORS_DATA_DIR.glob("*.yaml"))
+        logger.info("Found %d curator metadata files", len(curator_files))
+
+        def _process_curator(yaml_path: Path, _bucket: str = current_bucket):
+            process_and_upload_curator_metadata(
+                yaml_path=yaml_path,
+                bucket_name=_bucket,
+                endpoint_url=endpoint_url,
+                access_key_id=access_key_id,
+                secret_access_key=secret_access_key,
+                public_url=public_url,
+            )
+
+        curator_tasks = (delayed(_process_curator)(f) for f in curator_files)
+        Parallel(n_jobs=max_workers, prefer="threads")(tqdm(curator_tasks, total=len(curator_files), desc="Checking curator metadata"))
+
+        # Upload protocol-curator entries (Ostium, gTrade, Hyperliquid, Lighter)
+        upload_protocol_curator_metadata(
+            bucket_name=current_bucket,
+            endpoint_url=endpoint_url,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            public_url=public_url,
+        )
+
+        # Upload aggregate curator index
+        curator_index = upload_curator_index(
+            bucket_name=current_bucket,
+            endpoint_url=endpoint_url,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            public_url=public_url,
+        )
+
     # Build summary table of exported protocols and logo availability
     table_data = []
     for slug in sorted(slugs):
@@ -133,38 +168,6 @@ def main():
     )
 
     print(f"\nStablecoin metadata export complete: {len(stablecoin_files)} stablecoins, {len(index)} index entries\n")
-
-    # Upload curator metadata
-    curator_files = list(CURATORS_DATA_DIR.glob("*.yaml"))
-    logger.info("Found %d curator metadata files", len(curator_files))
-
-    def _process_curator(yaml_path: Path):
-        process_and_upload_curator_metadata(
-            yaml_path=yaml_path,
-            bucket_name=bucket_name,
-            endpoint_url=endpoint_url,
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-        )
-
-    curator_tasks = (delayed(_process_curator)(f) for f in curator_files)
-    Parallel(n_jobs=max_workers, prefer="threads")(tqdm(curator_tasks, total=len(curator_files), desc="Checking curator metadata"))
-
-    # Upload protocol-curator entries (Ostium, gTrade, Hyperliquid, Lighter)
-    upload_protocol_curator_metadata(
-        bucket_name=bucket_name,
-        endpoint_url=endpoint_url,
-        access_key_id=access_key_id,
-        secret_access_key=secret_access_key,
-    )
-
-    # Upload aggregate curator index
-    curator_index = upload_curator_index(
-        bucket_name=bucket_name,
-        endpoint_url=endpoint_url,
-        access_key_id=access_key_id,
-        secret_access_key=secret_access_key,
-    )
 
     print(f"\nCurator metadata export complete: {len(curator_files)} curators, {len(curator_index)} index entries\n")
 
