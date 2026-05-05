@@ -367,6 +367,7 @@ Optional environment variables:
 
 - `X_LIST_ID`: explicit X list ID override; otherwise the default list name is resolved
 - `X_LIST_NAME`: X list name to resolve, default `Best builders in DeFi`
+- `X_LIST_ADD_DELAY_SECONDS`: delay between list member writes, default `1`
 - `DB_PATH`: DuckDB path, default `~/.tradingstrategy/vaults/vault-post-database.duckdb`
 - `MAPPINGS_DIR`: feeder YAML root, default `eth_defi/data/feeds`
 - `LOG_LEVEL`: logging level, default `info` for this standalone script
@@ -489,6 +490,7 @@ Environment variables accepted by the runner:
 - `X_LIST_ID`: optional X list ID override for list sync
 - `X_LIST_NAME`: optional X list name to resolve when `X_LIST_ID` is unset,
   default `Best builders in DeFi`
+- `X_LIST_ADD_DELAY_SECONDS`: delay between list member writes, default `1`
 
 ## Main files
 

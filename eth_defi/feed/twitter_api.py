@@ -13,6 +13,7 @@ import html
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -37,6 +38,10 @@ DEFAULT_TWITTER_USER_CACHE_PATH = Path("~/.tradingstrategy/vaults/feeds/twitter-
 
 class XApiError(RuntimeError):
     """Raised when the X API returns an unrecoverable error."""
+
+
+class XRateLimitError(XApiError):
+    """Raised when the X API rate-limits a list sync operation."""
 
 
 @dataclass(slots=True)
@@ -440,6 +445,36 @@ def compute_handles_hash(handles: list[str]) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
+def _format_rate_limit_reset(exc: tweepy.TooManyRequests) -> str:
+    """Format X API rate-limit reset headers for operator logs.
+
+    :param exc:
+        Tweepy rate-limit exception.
+
+    :return:
+        Human-readable retry hint, or an empty string if no header was present.
+    """
+
+    response = getattr(exc, "response", None)
+    headers = getattr(response, "headers", {}) or {}
+
+    retry_after = headers.get("retry-after")
+    if retry_after:
+        return f" Retry after {retry_after} seconds."
+
+    reset = headers.get("x-rate-limit-reset")
+    if not reset:
+        return ""
+
+    try:
+        reset_at = datetime.datetime.fromtimestamp(int(reset), datetime.UTC).replace(tzinfo=None)
+    except ValueError:
+        return ""
+
+    wait_seconds = max(0, int((reset_at - native_datetime_utc_now()).total_seconds()))
+    return f" Retry after {reset_at.isoformat()} UTC ({wait_seconds} seconds)."
+
+
 def sync_x_list_members(
     list_id: str,
     twitter_handles: list[str],
@@ -450,6 +485,8 @@ def sync_x_list_members(
     user_cache: TwitterUserCache,
     bearer_token: str,
     db: VaultPostDatabase,
+    *,
+    add_delay_seconds: float = 1.0,
 ) -> int:
     """Sync X list membership with the provided Twitter handles.
 
@@ -489,14 +526,12 @@ def sync_x_list_members(
             for member in response.data:
                 current_member_ids.add(str(member.id))
 
-        meta = response.meta or {}
-        pagination_token = meta.get("next_token")
+        pagination_token = (response.meta or {}).get("next_token")
         if not pagination_token:
             break
 
     # Add missing members using OAuth 1.0a user context
-    target_ids = set(handle_to_id.values())
-    to_add = target_ids - current_member_ids
+    to_add = set(handle_to_id.values()) - current_member_ids
 
     if not to_add:
         logger.info("All %d handles already in X list %s", len(twitter_handles), list_id)
@@ -512,13 +547,41 @@ def sync_x_list_members(
 
     added = 0
     failed = 0
-    for user_id in to_add:
+    id_to_handle = {user_id: handle for handle, user_id in handle_to_id.items()}
+
+    for user_id in sorted(to_add):
         try:
             client_write.add_list_member(list_id, user_id)
             added += 1
+            logger.info(
+                "Added @%s (%s) to X list %s (%d/%d missing members)",
+                id_to_handle.get(user_id, "unknown"),
+                user_id,
+                list_id,
+                added,
+                len(to_add),
+            )
+            if add_delay_seconds > 0:
+                time.sleep(add_delay_seconds)
+        except tweepy.TooManyRequests as e:
+            user_cache.save()
+            message = f"X API rate limit hit while adding @{id_to_handle.get(user_id, 'unknown')} ({user_id}) to list {list_id} after {added}/{len(to_add)} missing members were added.{_format_rate_limit_reset(e)} List sync state was not updated; rerun later to resume."
+            raise XRateLimitError(message) from e
+        except (tweepy.Unauthorized, tweepy.Forbidden) as e:
+            user_cache.save()
+            message = f"X API rejected list member writes while adding @{id_to_handle.get(user_id, 'unknown')} ({user_id}) to list {list_id}: {e}. Check OAuth 1.0a app permissions and access token ownership."
+            raise XApiError(message) from e
         except tweepy.TweepyException as e:
             failed += 1
-            logger.warning("Failed to add user %s to list %s: %s", user_id, list_id, e)
+            logger.warning(
+                "Failed to add @%s (%s) to list %s: %s",
+                id_to_handle.get(user_id, "unknown"),
+                user_id,
+                list_id,
+                e,
+            )
+            if add_delay_seconds > 0:
+                time.sleep(add_delay_seconds)
 
     # Only persist the hash when every add succeeded.  When some fail due to
     # transient API errors the next cycle will detect the mismatch and retry.
@@ -532,5 +595,11 @@ def sync_x_list_members(
         )
 
     user_cache.save()
-    logger.info("Added %d members to X list %s (%d already present, %d failed)", added, list_id, len(current_member_ids), failed)
+    logger.info(
+        "Added %d members to X list %s (%d already present, %d failed)",
+        added,
+        list_id,
+        len(current_member_ids),
+        failed,
+    )
     return added

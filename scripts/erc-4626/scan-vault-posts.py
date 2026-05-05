@@ -33,6 +33,7 @@ Environment variables:
 - ``TWITTER_ACCESS_TOKEN_SECRET``: Optional. OAuth 1.0a user access token secret.
 - ``X_LIST_ID``: Optional. X list ID override for the default list.
 - ``X_LIST_NAME``: Optional. X list name to resolve when X_LIST_ID is unset.
+- ``X_LIST_ADD_DELAY_SECONDS``: Optional. Delay between list member writes. Default: 1.
 - ``SYNC_X_LIST``: Optional. Set to "true" for production list sync. Default: false.
 - ``WEBSHARE_API_KEY``: Optional. Enable Webshare-backed proxy rotation.
 - ``WEBSHARE_PROXY_MODE``: Optional. Webshare proxy pool mode.
@@ -147,6 +148,7 @@ def _build_config() -> PostScanConfig:
         x_list_id=os.environ.get("X_LIST_ID"),
         x_list_name=os.environ.get("X_LIST_NAME") or DEFAULT_X_LIST_NAME,
         sync_x_list=os.environ.get("SYNC_X_LIST", "").lower() == "true",
+        x_list_add_delay_seconds=float(os.environ.get("X_LIST_ADD_DELAY_SECONDS", "1")),
         limit=int(limit_str) if limit_str else None,
         death_detection_days=int(os.environ.get("DEATH_DETECTION_PERIOD", "180")),
         twitter_rss_base_urls=_parse_csv(os.environ.get("TWITTER_RSS_BASE_URLS")),

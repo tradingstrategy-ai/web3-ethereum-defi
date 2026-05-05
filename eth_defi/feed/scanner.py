@@ -67,6 +67,8 @@ class PostScanConfig:
     twitter_user_cache_path: Path | None = None
     #: Enable X list membership sync (production only).
     sync_x_list: bool = False
+    #: Delay between X list member write calls.
+    x_list_add_delay_seconds: float = 1.0
     #: Limit number of sources per type (for test runs).
     limit: int | None = None
     #: Days after which an inactive Twitter account is considered dead.
@@ -167,6 +169,7 @@ def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
                 twitter_user_cache,
                 config.twitter_bearer_token,
                 db_for_sync,
+                add_delay_seconds=config.x_list_add_delay_seconds,
             )
             db_for_sync.save()
         finally:

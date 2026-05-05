@@ -27,16 +27,20 @@ Optional environment variables:
   ``~/.tradingstrategy/vaults/vault-post-database.duckdb``
 - ``MAPPINGS_DIR``: feeder YAML root, default ``eth_defi/data/feeds``
 - ``LOG_LEVEL``: logging level, default ``info``
+- ``X_LIST_ADD_DELAY_SECONDS``: delay between list member writes, default ``1``
 """
 
+import logging
 import os
 from pathlib import Path
 
 from eth_defi.feed.constants import DEFAULT_X_LIST_NAME
 from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE, VaultPostDatabase
 from eth_defi.feed.sources import FEEDS_DATA_DIR, load_post_sources
-from eth_defi.feed.twitter_api import TwitterUserCache, resolve_x_list_id_by_name, sync_x_list_members
+from eth_defi.feed.twitter_api import TwitterUserCache, XApiError, XRateLimitError, resolve_x_list_id_by_name, sync_x_list_members
 from eth_defi.utils import setup_console_logging
+
+logger = logging.getLogger(__name__)
 
 REQUIRED_ENV_VARS = (
     "TWITTER_BEARER_TOKEN",
@@ -88,6 +92,16 @@ def _get_mappings_dir() -> Path:
     return Path(mappings_dir).expanduser() if mappings_dir else FEEDS_DATA_DIR
 
 
+def _get_x_list_add_delay_seconds() -> float:
+    """Read the delay between X list member write calls.
+
+    :return:
+        Delay in seconds.
+    """
+
+    return float(os.environ.get("X_LIST_ADD_DELAY_SECONDS", "1"))
+
+
 def _get_x_list_id() -> str:
     """Resolve the target X list ID.
 
@@ -127,7 +141,12 @@ def main() -> None:
 
     db_path = _get_db_path()
     mappings_dir = _get_mappings_dir()
-    list_id = _get_x_list_id()
+    try:
+        list_id = _get_x_list_id()
+    except XApiError as e:
+        logger.error("%s", e)
+        raise SystemExit(1) from None
+    add_delay_seconds = _get_x_list_add_delay_seconds()
 
     sources, feeders_skipped, aliases = load_post_sources(mappings_dir)
     handles = sorted({source.source_key for source in sources if source.source_type == "twitter"})
@@ -136,17 +155,27 @@ def main() -> None:
         raise RuntimeError(f"No Twitter/X handles found in {mappings_dir}")
 
     with VaultPostDatabase(db_path) as db:
-        added = sync_x_list_members(
-            list_id,
-            handles,
-            _get_required_env("TWITTER_CONSUMER_KEY"),
-            _get_required_env("TWITTER_SECRET_KEY"),
-            _get_required_env("TWITTER_ACCESS_TOKEN"),
-            _get_required_env("TWITTER_ACCESS_TOKEN_SECRET"),
-            TwitterUserCache(),
-            _get_required_env("TWITTER_BEARER_TOKEN"),
-            db,
-        )
+        try:
+            added = sync_x_list_members(
+                list_id,
+                handles,
+                _get_required_env("TWITTER_CONSUMER_KEY"),
+                _get_required_env("TWITTER_SECRET_KEY"),
+                _get_required_env("TWITTER_ACCESS_TOKEN"),
+                _get_required_env("TWITTER_ACCESS_TOKEN_SECRET"),
+                TwitterUserCache(),
+                _get_required_env("TWITTER_BEARER_TOKEN"),
+                db,
+                add_delay_seconds=add_delay_seconds,
+            )
+        except XRateLimitError as e:
+            db.save()
+            logger.error("%s", e)
+            raise SystemExit(2) from None
+        except XApiError as e:
+            db.save()
+            logger.error("%s", e)
+            raise SystemExit(1) from None
         db.save()
 
     print(f"Synced {len(handles)} Twitter/X handles to list {list_id}; added {added} new members. Skipped {feeders_skipped} disabled feeders and {len(aliases)} aliases.")
