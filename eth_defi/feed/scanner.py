@@ -13,6 +13,7 @@ from pathlib import Path
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.feed.collector import CollectorRunSummary, collect_posts, fetch_feed_proxy_rotator
+from eth_defi.feed.constants import DEFAULT_X_LIST_NAME
 from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE, VaultPostDatabase
 from eth_defi.feed.sources import (
     FEEDS_DATA_DIR,
@@ -23,8 +24,7 @@ from eth_defi.feed.sources import (
     mark_twitter_handle_unknown,
     mark_twitter_source_dead,
 )
-from eth_defi.feed.twitter_api import TwitterUserCache, resolve_twitter_handles, sync_x_list_members
-
+from eth_defi.feed.twitter_api import TwitterUserCache, resolve_twitter_handles, resolve_x_list_id_by_name, sync_x_list_members
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +59,10 @@ class PostScanConfig:
     twitter_access_token: str | None = None
     #: OAuth 1.0a user access token secret for X list write operations.
     twitter_access_token_secret: str | None = None
-    #: X list ID for the "Best builders in DeFi" list.
+    #: X list ID. If unset, resolve :py:attr:`x_list_name` for the authenticated X user.
     x_list_id: str | None = None
+    #: X list name to resolve when :py:attr:`x_list_id` is not set.
+    x_list_name: str = DEFAULT_X_LIST_NAME
     #: Path to the Twitter user metadata cache JSON.
     twitter_user_cache_path: Path | None = None
     #: Enable X list membership sync (production only).
@@ -131,12 +133,32 @@ def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
             twitter_sources = [s for s in twitter_sources if s.source_key in handle_to_id]
 
     # Sync X list membership (production only, change-detected)
-    if config.sync_x_list and config.x_list_id and config.twitter_consumer_key:
+    can_sync_x_list = all(
+        (
+            config.twitter_consumer_key,
+            config.twitter_consumer_secret,
+            config.twitter_access_token,
+            config.twitter_access_token_secret,
+            config.twitter_bearer_token,
+        )
+    )
+
+    if config.sync_x_list and not can_sync_x_list:
+        logger.warning("Skipping X list sync because one or more X API credentials are missing")
+
+    if config.sync_x_list and can_sync_x_list:
         handles = [s.source_key for s in twitter_sources]
+        x_list_id = config.x_list_id or resolve_x_list_id_by_name(
+            config.x_list_name,
+            config.twitter_consumer_key,
+            config.twitter_consumer_secret,
+            config.twitter_access_token,
+            config.twitter_access_token_secret,
+        )
         db_for_sync = VaultPostDatabase(config.db_path)
         try:
             sync_x_list_members(
-                config.x_list_id,
+                x_list_id,
                 handles,
                 config.twitter_consumer_key,
                 config.twitter_consumer_secret,

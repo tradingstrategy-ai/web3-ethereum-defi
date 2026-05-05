@@ -331,9 +331,20 @@ want to update the configured X list membership without running RSS, LinkedIn,
 or post collection.
 
 The script reads Twitter/X handles from the feeder YAML files, resolves them
-through the X API, updates the list configured by `X_LIST_ID`, and writes
+through the X API, updates the configured X list, and writes
 `twitter_handles_hash` to the `feed_sync_state` table.  Running it again with
 the same handle set is idempotent and will skip the external list update.
+
+By default the script resolves the list named `Best builders in DeFi` from the
+authenticated X user's owned lists.  Set `X_LIST_ID` only when you want to
+override this automatic lookup with a numeric list ID from a URL like
+`https://x.com/i/lists/<id>`.
+
+Current default X list:
+
+- Name: `Best builders in DeFi`
+- ID: `2051667540674236789`
+- URL: `https://x.com/i/lists/2051667540674236789`
 
 The Docker service already passes through the needed X credentials from the
 host environment.  Rebuild the local scanner image after code changes, then run
@@ -351,10 +362,11 @@ Required environment variables:
 - `TWITTER_SECRET_KEY`
 - `TWITTER_ACCESS_TOKEN`
 - `TWITTER_ACCESS_TOKEN_SECRET`
-- `X_LIST_ID`
 
 Optional environment variables:
 
+- `X_LIST_ID`: explicit X list ID override; otherwise the default list name is resolved
+- `X_LIST_NAME`: X list name to resolve, default `Best builders in DeFi`
 - `DB_PATH`: DuckDB path, default `~/.tradingstrategy/vaults/vault-post-database.duckdb`
 - `MAPPINGS_DIR`: feeder YAML root, default `eth_defi/data/feeds`
 - `LOG_LEVEL`: logging level, default `info` for this standalone script
@@ -474,6 +486,9 @@ Environment variables accepted by the runner:
 - `WEBSHARE_PROXY_MODE`: optional Webshare proxy pool mode
 - `MAX_POST_AGE_DAYS`: retention window in days for pruning old posts, default
   `365`
+- `X_LIST_ID`: optional X list ID override for list sync
+- `X_LIST_NAME`: optional X list name to resolve when `X_LIST_ID` is unset,
+  default `Best builders in DeFi`
 
 ## Main files
 
@@ -485,6 +500,8 @@ The main files for this submodule are:
   text cleaning, synthetic id generation, and collection orchestration
 - [`eth_defi/feed/database.py`](./database.py): DuckDB schema, source sync
   state, idempotent inserts, and retention pruning
+- [`eth_defi/feed/constants.py`](./constants.py): shared feed constants such as
+  the default X list name
 - [`eth_defi/feed/testing.py`](./testing.py): reusable helpers for feed tests
 - [`scripts/erc-4626/scan-vault-posts.py`](../../scripts/erc-4626/scan-vault-posts.py):
   standalone operator script for scheduled collection, summary output, and

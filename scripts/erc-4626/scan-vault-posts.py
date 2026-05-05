@@ -31,7 +31,8 @@ Environment variables:
 - ``TWITTER_SECRET_KEY``: Optional. OAuth 1.0a consumer secret for list writes.
 - ``TWITTER_ACCESS_TOKEN``: Optional. OAuth 1.0a user access token for list writes.
 - ``TWITTER_ACCESS_TOKEN_SECRET``: Optional. OAuth 1.0a user access token secret.
-- ``X_LIST_ID``: Optional. X list ID for "Best builders in DeFi".
+- ``X_LIST_ID``: Optional. X list ID override for the default list.
+- ``X_LIST_NAME``: Optional. X list name to resolve when X_LIST_ID is unset.
 - ``SYNC_X_LIST``: Optional. Set to "true" for production list sync. Default: false.
 - ``WEBSHARE_API_KEY``: Optional. Enable Webshare-backed proxy rotation.
 - ``WEBSHARE_PROXY_MODE``: Optional. Webshare proxy pool mode.
@@ -48,6 +49,7 @@ from pathlib import Path
 
 from tabulate import tabulate
 
+from eth_defi.feed.constants import DEFAULT_X_LIST_NAME
 from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE
 from eth_defi.feed.scanner import PostScanConfig, run_post_scan_cycle
 from eth_defi.feed.sources import FEEDS_DATA_DIR
@@ -143,6 +145,7 @@ def _build_config() -> PostScanConfig:
         twitter_access_token=os.environ.get("TWITTER_ACCESS_TOKEN"),
         twitter_access_token_secret=os.environ.get("TWITTER_ACCESS_TOKEN_SECRET"),
         x_list_id=os.environ.get("X_LIST_ID"),
+        x_list_name=os.environ.get("X_LIST_NAME", DEFAULT_X_LIST_NAME),
         sync_x_list=os.environ.get("SYNC_X_LIST", "").lower() == "true",
         limit=int(limit_str) if limit_str else None,
         death_detection_days=int(os.environ.get("DEATH_DETECTION_PERIOD", "180")),

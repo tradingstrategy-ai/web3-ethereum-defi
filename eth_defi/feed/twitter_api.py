@@ -21,7 +21,6 @@ import tweepy
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.feed.database import CollectedPost, VaultPostDatabase
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -189,6 +188,98 @@ def resolve_twitter_handles(
             reason = error_reasons.get(h.lower(), "handle not present in API response (may be suspended or deleted)")
             logger.warning("Could not resolve Twitter handle @%s to user ID — %s", h, reason)
     return result
+
+
+def resolve_x_list_id_by_name(
+    list_name: str,
+    consumer_key: str,
+    consumer_secret: str,
+    access_token: str,
+    access_token_secret: str,
+) -> str:
+    """Resolve an X list ID by exact list name for the authenticated user.
+
+    Uses OAuth 1.0a user context to read the current X user and enumerate
+    the lists owned by that account.  This is intended for operator scripts
+    where the production list owner is also the OAuth user.
+
+    :param list_name:
+        Exact X list name to find, e.g. ``Best builders in DeFi``.
+    :param consumer_key:
+        OAuth 1.0a consumer key.
+    :param consumer_secret:
+        OAuth 1.0a consumer secret.
+    :param access_token:
+        OAuth 1.0a user access token.
+    :param access_token_secret:
+        OAuth 1.0a user access token secret.
+    :return:
+        Numeric X list ID as a string.
+    :raise XApiError:
+        If the current user cannot be read, or if zero or multiple owned lists
+        match the requested name.
+
+    See the X API v2 list lookup endpoints:
+    https://docs.x.com/x-api/lists/list-lookup
+    """
+
+    client = tweepy.Client(
+        consumer_key=consumer_key,
+        consumer_secret=consumer_secret,
+        access_token=access_token,
+        access_token_secret=access_token_secret,
+    )
+
+    try:
+        me_response = client.get_me(user_auth=True)
+    except tweepy.TweepyException as e:
+        message = f"Failed to resolve authenticated X user: {e}"
+        raise XApiError(message) from e
+
+    if me_response.data is None:
+        message = "Failed to resolve authenticated X user: response did not include user data"
+        raise XApiError(message)
+
+    owner_id = str(me_response.data.id)
+    matches: list[str] = []
+    pagination_token = None
+
+    while True:
+        request_params = {
+            "max_results": 100,
+            "user_auth": True,
+        }
+        if pagination_token:
+            request_params["pagination_token"] = pagination_token
+
+        try:
+            response = client.get_owned_lists(
+                owner_id,
+                **request_params,
+            )
+        except tweepy.TweepyException as e:
+            message = f"Failed to fetch owned X lists for user {owner_id}: {e}"
+            raise XApiError(message) from e
+
+        if response.data:
+            for item in response.data:
+                if item.name == list_name:
+                    matches.append(str(item.id))
+
+        meta = response.meta or {}
+        pagination_token = meta.get("next_token")
+        if not pagination_token:
+            break
+
+    if not matches:
+        message = f"Could not find an X list named {list_name!r} owned by user {owner_id}"
+        raise XApiError(message)
+    if len(matches) > 1:
+        message = f"Found multiple X lists named {list_name!r} owned by user {owner_id}: {matches}"
+        raise XApiError(message)
+
+    logger.info("Resolved X list %r to id %s for user %s", list_name, matches[0], owner_id)
+    return matches[0]
 
 
 def _tweet_to_collected_post(tweet_data: dict, author_handle: str) -> CollectedPost:
