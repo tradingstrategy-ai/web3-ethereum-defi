@@ -1,0 +1,18 @@
+feeder-id: anthias-labs
+name: Anthias Labs
+role: curator
+website: https://anthias.xyz
+twitter: anthiasxyz
+linkedin: anthias-xyz
+
+# Evidence and background references.
+#
+# The Felix vault names do not contain "Anthias", but Felix terms
+# designate Anthias Labs as Curator, Allocator, and Guardian for the
+# Morpho Vaults.  Anthias also has its own Morpho forum curator
+# introduction covering Moonwell and Felix vault curation work.
+other-links:
+  - title: Morpho forum - Anthias Labs curator introduction
+    url: https://forum.morpho.org/t/anthias-labs-curator-introduction/2061
+  - title: Felix terms - Anthias Labs designated as Curator, Allocator, and Guardian for Morpho Vaults
+    url: https://usefelix.gitbook.io/docs/terms/terms-and-conditions

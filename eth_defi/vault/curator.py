@@ -201,6 +201,8 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "frax-finance": ["Frax", "FRAX"],
     "usdai": ["USD.AI", "USDai"],
     "agora-finance": ["Agora"],
+    # Felix terms designate Anthias Labs as Curator, Allocator, and Guardian for Felix Morpho vaults.
+    "anthias-labs": ["Felix"],
     "tangent-finance": ["Tangent"],
     "ipor": ["IPOR", "Autopilot"],
     "reservoir": ["Reservoir"],
