@@ -1877,8 +1877,8 @@ HARDCODED_PROTOCOLS = {
     # https://optimistic.etherscan.io/address/0x08dCDBf7baDe91Ccd42CB2a4EA8e5D199d285957
     "0x08dcdbf7bade91ccd42cb2a4ea8e5d199d285957": {ERC4626Feature.forty_acres_like},
     # 40acres - Aerodrome USDC vault on Base
-    # https://basescan.org/address/0xB99B6dDF96d4d5448cC0a5B3e0ef7896df9507Cf5
-    "0xb99b6ddf96d4d5448cc0a5b3e0ef7896df9507cf5": {ERC4626Feature.forty_acres_like},
+    # https://basescan.org/address/0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5
+    "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5": {ERC4626Feature.forty_acres_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

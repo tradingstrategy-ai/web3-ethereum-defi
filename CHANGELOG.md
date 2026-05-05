@@ -1,5 +1,7 @@
 # Current
 
+- fix: 40acres Aerodrome USDC vault on Base had a typo in the contract address (duplicated `d`), causing vault detection to fail; correct address is `0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5` (2026-05-05)
+
 - feat: Twitter list collector falls back to individual user timeline for handles with zero list results, ensuring last_post_published_at is always populated (2026-05-05)
 
 - feat: Logos added for 67 vault curators — 256×256 RGBA PNG assets sourced from official brand kits, GitHub repos, website SVGs, CDN assets, and Twitter avatars; one curator (Tanken) documented as logo-unavailable (2026-05-05)

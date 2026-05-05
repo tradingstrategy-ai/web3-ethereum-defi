@@ -74,6 +74,10 @@ class AccountableVaultMetadata(TypedDict):
     #: Source of yield, or None if not specified
     yield_source: str | None
 
+    #: Loan/strategy contract address used in the yield app URL
+    #: (distinct from the ERC-4626 vault/share token address)
+    loan_address: str | None
+
 
 def _fetch_vault_listing(
     api_base_url: str = DEFAULT_API_BASE_URL,
@@ -164,6 +168,7 @@ def _parse_vault_metadata(listing_item: dict, detail: dict | None) -> Accountabl
         net_apy=listing_item.get("net_apy"),
         performance_fee=performance_fee,
         yield_source=loan.get("yield_source"),
+        loan_address=listing_item.get("loan_address"),
     )
 
 
