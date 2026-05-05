@@ -694,6 +694,7 @@ def collect_twitter_list_posts(
     bearer_token: str,
     twitter_user_cache: TwitterUserCache,
     max_tweets: int,
+    fallback_max_tweets: int = 5,
     label: str = "Twitter list",
 ) -> CollectorRunSummary:
     """Collect Twitter/X posts through a single X list timeline read.
@@ -702,6 +703,11 @@ def collect_twitter_list_posts(
     chronological order.  This lets production collection avoid one API call
     per tracked account while still storing posts under the account-specific
     tracked source rows.
+
+    When a handle has no tweets in the list timeline (either because they have
+    not posted recently or their posts were already known), the collector falls
+    back to a single individual timeline read to populate ``last_post_published_at``
+    and store a small number of recent posts.
 
     :param db:
         Vault post database.
@@ -715,6 +721,10 @@ def collect_twitter_list_posts(
         Cache containing handle-to-user-ID mappings.
     :param max_tweets:
         Maximum tweets to read from the list timeline.
+    :param fallback_max_tweets:
+        Maximum tweets to fetch per account when the list timeline returns
+        zero results for that handle.  Used to populate ``last_post_published_at``
+        for inactive accounts.  Defaults to 5.
     :param label:
         Dashboard label for this collection phase.
     :return:
@@ -737,6 +747,30 @@ def collect_twitter_list_posts(
         source_id = source_ids[source.get_logical_key()]
         cached = twitter_user_cache.get(source.source_key)
         posts = posts_by_user_id.get(cached.user_id, []) if cached else []
+
+        # Fall back to individual timeline when the list returned zero tweets
+        # for this handle, so that last_post_published_at is always populated.
+        if not posts and cached:
+            try:
+                posts = fetch_user_tweets(
+                    cached.user_id,
+                    bearer_token,
+                    source.source_key,
+                    max_tweets=fallback_max_tweets,
+                )
+                if posts:
+                    logger.info(
+                        "Fetched %d fallback tweet(s) for @%s — handle had zero list timeline results",
+                        len(posts),
+                        source.source_key,
+                    )
+            except Exception as e:
+                logger.warning(
+                    "Fallback individual timeline fetch failed for @%s: %s",
+                    source.source_key,
+                    e,
+                )
+
         latest_post_at = max((post.published_at for post in posts if post.published_at is not None), default=None)
         inserted = db.insert_posts(source_id, posts)
         db.mark_source_success(
