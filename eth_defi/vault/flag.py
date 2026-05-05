@@ -448,6 +448,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xaf68a0f0d2d4f82e671578ae6dd6a99de0e84cc6": (VaultFlag.malicious, MALICIOUS_VAULT),
     # Borrowable USDC Deposit, SiloId: 138
     "0x20abecf84ce707c3650b4e8afcf7ea1e22bbcd0c": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Borrowable USDC Deposit, SiloId: 127 (Ethereum)
+    "0xce6ab1c71981e79cd30052c521c162674251018a": (VaultFlag.illiquid, XUSD_MESSAGE),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
