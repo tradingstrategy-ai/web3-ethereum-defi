@@ -379,6 +379,31 @@ class VaultPostDatabase:
             rows = self.con.execute("SELECT external_post_id FROM posts").fetchall()
         return {row[0] for row in rows}
 
+    def get_source_last_post_timestamps(self, source_ids: Iterable[int]) -> dict[int, datetime.datetime | None]:
+        """Return the stored ``last_post_published_at`` for the given source IDs.
+
+        Used to gate backfill fallbacks: a source whose stored timestamp is
+        not ``None`` has already been seen before and does not need a fallback
+        individual timeline read.
+
+        :param source_ids:
+            Iterable of numeric source IDs to look up.
+
+        :return:
+            Mapping of ``source_id → last_post_published_at`` (``None`` when
+            the column has never been set for that row).
+        """
+
+        ids = list(source_ids)
+        if not ids:
+            return {}
+        placeholders = ", ".join("?" * len(ids))
+        rows = self.con.execute(
+            f"SELECT source_id, last_post_published_at FROM tracked_sources WHERE source_id IN ({placeholders})",
+            ids,
+        ).fetchall()
+        return {int(row[0]): row[1] for row in rows}
+
     def get_tracked_sources_df(self) -> pd.DataFrame:
         """Return tracked source rows for diagnostics."""
 

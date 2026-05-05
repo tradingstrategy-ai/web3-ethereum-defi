@@ -197,10 +197,12 @@ Twitter/X usernames are normalised to a handle.  In production, when
 X list timeline once and maps returned tweets back to the tracked member
 handles.  This avoids one API read per account.
 
-When a handle has no tweets in the list timeline — either because they have not
-posted recently or their recent posts were already in the database — the
-collector falls back to a single individual timeline read.  This ensures
-`last_post_published_at` is always populated, even for infrequent posters.
+When a handle has no tweets in the list timeline **and** has no stored
+`last_post_published_at`, the collector falls back to a single individual
+timeline read to seed the timestamp for that handle.  The fallback only fires
+for genuinely new handles; on steady-state runs the list fetch stops early at
+the first already-known tweet, which would otherwise trigger a per-account
+API call for every tracked handle and exhaust X API rate limits.
 
 If list timeline collection is unavailable or fails, the collector falls back
 to per-account X API timeline reads and then to RSS bridge URLs built from

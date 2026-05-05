@@ -704,10 +704,12 @@ def collect_twitter_list_posts(
     per tracked account while still storing posts under the account-specific
     tracked source rows.
 
-    When a handle has no tweets in the list timeline (either because they have
-    not posted recently or their posts were already known), the collector falls
-    back to a single individual timeline read to populate ``last_post_published_at``
-    and store a small number of recent posts.
+    When a handle has no tweets in the list timeline **and** has no stored
+    ``last_post_published_at`` (i.e. it is a brand-new handle whose first
+    scan returned nothing), the collector falls back to a single individual
+    timeline read.  This seeds the timestamp and stores a small number of
+    recent posts without firing per-account API calls on steady-state runs
+    where the list stopped early because all recent tweets were already known.
 
     :param db:
         Vault post database.
@@ -743,14 +745,23 @@ def collect_twitter_list_posts(
     )
     checked_at = native_datetime_utc_now()
 
+    # Pre-load stored timestamps so we only fall back for genuinely new handles.
+    # A source with last_post_published_at already set has been seen before; the
+    # list fetch simply had nothing newer for it and a per-account call would add
+    # no value while burning API quota.
+    stored_timestamps = db.get_source_last_post_timestamps(source_ids.values())
+
     for source in sources:
         source_id = source_ids[source.get_logical_key()]
         cached = twitter_user_cache.get(source.source_key)
         posts = posts_by_user_id.get(cached.user_id, []) if cached else []
 
-        # Fall back to individual timeline when the list returned zero tweets
-        # for this handle, so that last_post_published_at is always populated.
-        if not posts and cached:
+        # Fall back to individual timeline only when the source has no stored
+        # last_post_published_at (i.e. it is brand-new and has never had any
+        # tweets collected).  Skipping this check would fire one X API call per
+        # handle on every steady-state run because the list fetch stops at the
+        # first already-known tweet.
+        if not posts and cached and stored_timestamps.get(source_id) is None:
             try:
                 posts = fetch_user_tweets(
                     cached.user_id,
@@ -760,7 +771,7 @@ def collect_twitter_list_posts(
                 )
                 if posts:
                     logger.info(
-                        "Fetched %d fallback tweet(s) for @%s — handle had zero list timeline results",
+                        "Fetched %d fallback tweet(s) for @%s — new handle with no stored timestamp",
                         len(posts),
                         source.source_key,
                     )
