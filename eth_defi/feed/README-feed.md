@@ -324,6 +324,41 @@ export MAX_PROXY_ROTATIONS=5
 poetry run python scripts/erc-4626/scan-vault-posts.py
 ```
 
+### Sync X list only (Docker)
+
+Use [`scripts/feed/sync-x-list.py`](../../scripts/feed/sync-x-list.py) when you
+want to update the configured X list membership without running RSS, LinkedIn,
+or post collection.
+
+The script reads Twitter/X handles from the feeder YAML files, resolves them
+through the X API, updates the list configured by `X_LIST_ID`, and writes
+`twitter_handles_hash` to the `feed_sync_state` table.  Running it again with
+the same handle set is idempotent and will skip the external list update.
+
+The Docker service already passes through the needed X credentials from the
+host environment.  Rebuild the local scanner image after code changes, then run
+a single list sync with:
+
+```shell
+docker compose build vault-scanner
+docker compose run --rm -T --no-deps --entrypoint python post-scanner scripts/feed/sync-x-list.py
+```
+
+Required environment variables:
+
+- `TWITTER_BEARER_TOKEN`
+- `TWITTER_CONSUMER_KEY`
+- `TWITTER_SECRET_KEY`
+- `TWITTER_ACCESS_TOKEN`
+- `TWITTER_ACCESS_TOKEN_SECRET`
+- `X_LIST_ID`
+
+Optional environment variables:
+
+- `DB_PATH`: DuckDB path, default `~/.tradingstrategy/vaults/vault-post-database.duckdb`
+- `MAPPINGS_DIR`: feeder YAML root, default `eth_defi/data/feeds`
+- `LOG_LEVEL`: logging level, default `info` for this standalone script
+
 ## Dashboard output
 
 After each run the script prints a two-part dashboard to stdout.
@@ -454,6 +489,9 @@ The main files for this submodule are:
 - [`scripts/erc-4626/scan-vault-posts.py`](../../scripts/erc-4626/scan-vault-posts.py):
   standalone operator script for scheduled collection, summary output, and
   per-source dashboard tables
+- [`scripts/feed/sync-x-list.py`](../../scripts/feed/sync-x-list.py):
+  standalone operator script for synchronising configured Twitter/X handles to
+  an X list without collecting posts
 - [`eth_defi/data/feeds/README.md`](../data/feeds/README.md): top-level feed
   folder summary and pointer back to this README
 
