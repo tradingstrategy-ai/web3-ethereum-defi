@@ -1,5 +1,7 @@
 # Current
 
+- feat: Flowdesk curator metadata and logo assets added, with repo-local curator discovery and add-curator skills for maintaining vault curator coverage (2026-05-05)
+
 - feat: Hibachi formatted logos — post-processed 256×256 PNG variants (`light.png`, `dark.png`) added to `formatted_logos/hibachi/` (2026-05-04)
 
 - feat: Morpho flag severity — expose `morpho_red_flags` and `morpho_yellow_flags` in `calculate_vault_record()` `other_data`; vaults with RED Morpho warnings are now classified as `blacklisted` risk level (2026-05-02)
