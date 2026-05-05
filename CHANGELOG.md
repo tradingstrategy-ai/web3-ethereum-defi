@@ -1,5 +1,7 @@
 # Current
 
+- feat: Logos added for 67 vault curators — 256×256 RGBA PNG assets sourced from official brand kits, GitHub repos, website SVGs, CDN assets, and Twitter avatars; one curator (Tanken) documented as logo-unavailable (2026-05-05)
+
 - feat: Feed Twitter collection uses the X list timeline by default when a list ID is available, reducing per-account API reads while falling back to individual timelines and RSS bridges if list reads fail (2026-05-05)
 
 - feat: 13 new Morpho-verified curators added — AlphaPing, B.Protocol, Compound DAO, Felix, Galaxy, Keyrock, Moonwell, SingularV, Stake DAO, SwissBorg, UltraYield, Unified Labs, Yearn; Felix and B.Protocol detection moved to their own slugs; Morpho curators API documented in `morpho-curators.md` (2026-05-05)
