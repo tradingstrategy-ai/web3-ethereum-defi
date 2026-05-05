@@ -13,6 +13,7 @@ Tests cover:
 """
 
 import datetime
+import os
 from pathlib import Path
 
 import pytest
@@ -355,6 +356,7 @@ def test_run_post_processing_wiring(tmp_path: Path):
     assert "hibachi-price-merge" in steps
 
 
+@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Hibachi too flaky")
 def test_hibachi_live_scan_single_vault(tmp_path: Path):
     """Smoke integration test: scan a single Hibachi vault from the live API.
 
