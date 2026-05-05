@@ -286,5 +286,13 @@ class AccountableVault(ERC4626Vault):
         return None
 
     def get_link(self, referral: str | None = None) -> str:
-        """Return the yield app link."""
+        """Return the yield app link.
+
+        Accountable's yield app URLs use the loan/strategy contract address,
+        not the ERC-4626 vault (share token) address.
+        Falls back to the vault address if metadata is unavailable.
+        """
+        meta = self.accountable_metadata
+        if meta and meta.get("loan_address"):
+            return f"https://yield.accountable.capital/vaults/{meta['loan_address']}"
         return f"https://yield.accountable.capital/vaults/{self.vault_address}"
