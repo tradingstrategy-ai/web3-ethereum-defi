@@ -1,0 +1,23 @@
+feeder-id: api3
+name: API3
+role: curator
+website: https://api3.org
+twitter: API3DAO
+linkedin: api3
+rss: https://blog.api3.org/rss/
+
+# Evidence and background references.
+#
+# API3 has Morpho vaults branded as Api3 Core USDC and Api3 dCOMP USDC.
+# The Morpho forum introduction explicitly presents API3 as a Morpho
+# curator, while the API3 blog and social updates give additional
+# context on its OEV-boosted Morpho vault work.
+other-links:
+  - title: Morpho forum - API3 introduces Api3-curated vaults on Morpho
+    url: https://forum.morpho.org/t/introducing-api3-curated-vaults-on-morpho/2111
+  - title: Morpho app - API3 curator page
+    url: https://app.morpho.org/ethereum/curator/api3
+  - title: API3 blog - OEV-Boosted Morpho Markets background
+    url: https://blog.api3.org/introducing-oev-boosted-morpho-markets/
+  - title: API3 LinkedIn - official company page
+    url: https://www.linkedin.com/company/api3

@@ -64,6 +64,51 @@ def test_identify_kappa_lab_fire_liquidity_provider() -> None:
     assert slug == "kappa-lab"
 
 
+def test_identify_api3_vault() -> None:
+    """Api3 Morpho vault names resolve to API3."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="Api3CoreUSDC",
+        vault_name="Api3 Core USDC",
+        vault_address="0xb3f4d94a209045ef35661e657db9adac584141f1",
+        protocol_slug="morpho",
+    )
+
+    assert slug == "api3"
+    assert get_curator_name("api3") == "API3"
+
+
+def test_identify_hakutora_vault() -> None:
+    """Hakutora Morpho vault names resolve to Hakutora."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="hUSDC",
+        vault_name="Hakutora USDC",
+        vault_address="0x974c8fbf4fd795f66b85b73ebc988a51f1a040a9",
+        protocol_slug="morpho",
+    )
+
+    assert slug == "hakutora"
+    assert get_curator_name("hakutora") == "Hakutora"
+
+
+def test_identify_pangolins_vault() -> None:
+    """Pangolins Morpho vault names resolve to Pangolins."""
+
+    slug = identify_curator(
+        chain_id=8453,
+        vault_token_symbol="pUSDC",
+        vault_name="Pangolins USDC",
+        vault_address="0x1401d1271c47648ac70cbcdfa3776d4a87ce006b",
+        protocol_slug="morpho",
+    )
+
+    assert slug == "pangolins"
+    assert get_curator_name("pangolins") == "Pangolins"
+
+
 def test_identify_gains_network_protocol_curator() -> None:
     """Gains Network protocol vaults resolve to the exported protocol slug."""
 

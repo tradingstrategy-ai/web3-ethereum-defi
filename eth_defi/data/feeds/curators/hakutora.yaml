@@ -1,0 +1,18 @@
+feeder-id: hakutora
+name: Hakutora
+role: curator
+
+# Evidence and background references.
+#
+# Hakutora vaults appear on Morpho under the Hakutora curator slug.  A
+# standalone Hakutora website or social account was not found during
+# research; OneKey's Help Centre presents the identity as
+# "OneKey (Hakutora)".  Keep this file source-only until the canonical
+# organisation identity is clearer.
+other-links:
+  - title: OneKey Help Centre - Morpho USDC managed by OneKey (Hakutora)
+    url: https://help.onekey.so/en/articles/12605538-resolv-season-2-rewards-distributed-to-onekey-app-defi-users
+  - title: Morpho app - Hakutora curator page
+    url: https://app.morpho.org/curator/hakutora
+  - title: Morpho app - Hakutora USDC vault
+    url: https://app.morpho.org/ethereum/vault/0x974c8FBf4fd795F66B85B73ebC988A51F1A040a9/hakutora-usdc

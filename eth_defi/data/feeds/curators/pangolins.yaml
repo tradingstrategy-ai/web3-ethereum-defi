@@ -1,0 +1,21 @@
+feeder-id: pangolins
+name: Pangolins
+role: curator
+website: https://pangolins.io
+twitter: PangolinsVault
+
+# Evidence and background references.
+#
+# Pangolins vaults appear on Morpho and in local ERC-4626 vault data.
+# The official site describes Pangolins as curating DeFi protocols and
+# executing automated risk control, while the Morpho forum introduction
+# and Morpho update identify Pangolins as a Morpho curator.
+other-links:
+  - title: Pangolins official website - Curates DeFi protocols and automated risk control
+    url: https://pangolins.io/
+  - title: Morpho forum - Pangolins curator introduction
+    url: https://forum.morpho.org/t/about-pangolins/1996
+  - title: Morpho blog - Pangolins named as one of the latest Morpho curators
+    url: https://morpho.org/blog/morpho-effect-november-2025/
+  - title: Morpho app - Pangolins USDC Base vault
+    url: https://app.morpho.org/base/vault/0x1401d1271C47648AC70cBcdfA3776D4A87CE006B/pangolins-usdc
