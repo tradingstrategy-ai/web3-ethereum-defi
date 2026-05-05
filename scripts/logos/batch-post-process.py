@@ -49,9 +49,7 @@ DARK_PRIORITY = [
     lambda slug, files: _find(files, f"{slug}.dark", ".png"),
     lambda slug, files: _find(files, f"{slug}.dark", ".jpg"),
     # Also match files with "dark" anywhere in stem (not wordmark)
-    lambda slug, files: next(
-        (f for f in files if "dark" in f.stem.lower() and "wordmark" not in f.stem.lower()), None
-    ),
+    lambda slug, files: next((f for f in files if "dark" in f.stem.lower() and "wordmark" not in f.stem.lower()), None),
 ]
 
 
