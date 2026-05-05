@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 #: Used to override the cryptic on-chain ``name()`` return values.
 VAULT_NAMES: dict[str, str] = {
     # Aerodrome USDC vault on Base
-    "0xb99b6ddf96d4d5448cc0a5b3e0ef7896df9507cf5": "Aerodrome USDC",
+    "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5": "Aerodrome USDC",
     # Velodrome USDC vault on Optimism
     "0x08dcdbf7bade91ccd42cb2a4ea8e5d199d285957": "Velodrome USDC",
     # Pharaoh USDC vault on Avalanche
@@ -94,7 +94,7 @@ class FortyAcresVault(ERC4626Vault):
     - `Blackhole vault on Avalanche <https://snowtrace.io/address/0xc0485c4bafb594ae1457820fb6e5b67e8a04bcfd>`__
     - `Pharaoh vault on Avalanche <https://snowtrace.io/address/0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7>`__
     - `Velodrome vault on Optimism <https://optimistic.etherscan.io/address/0x08dCDBf7baDe91Ccd42CB2a4EA8e5D199d285957>`__
-    - `Aerodrome vault on Base <https://basescan.org/address/0xB99B6dDF96d4d5448cC0a5B3e0ef7896df9507Cf5>`__
+    - `Aerodrome vault on Base <https://basescan.org/address/0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5>`__
     """
 
     @property
