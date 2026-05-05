@@ -215,6 +215,8 @@ Use these type values:
 When making code/data changes:
 
 - add or update `eth_defi/data/feeds/curators/{slug}.yaml`
+- add evidence links under `other-links` when a protocol forum,
+  documentation page, or vault launch post proves the curator role
 - update `eth_defi/vault/curator.py` only for classification/name-pattern changes
 - add tests when changing curator classification behaviour
 - update `eth_defi/data/curators.md` only if requested or if the new curator belongs in the human reference list

@@ -7,16 +7,16 @@ vault-related post collection.
 
 import logging
 import re
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable, Sequence
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse, urlunparse
 
 if TYPE_CHECKING:
     from eth_defi.feed.collector import CollectorRunSummary
 
-from strictyaml import Int, Map, Optional, Str, load
-
+from strictyaml import Int, Map, Optional, Seq, Str, load
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,14 @@ _MAPPING_SCHEMA = Map(
         Optional("rss-failure-at"): Str(),
         Optional("rss-failure-status-code"): Int(),
         Optional("rss-failure-exception-message"): Str(),
+        Optional("other-links"): Seq(
+            Map(
+                {
+                    "title": Str(),
+                    "url": Str(),
+                }
+            )
+        ),
     }
 )
 
@@ -155,7 +163,7 @@ def _normalise_http_url(url: str, mapping_file: Path) -> str:
     """Normalise a generic HTTP(S) URL for storage."""
 
     parsed = urlparse(url.strip())
-    if parsed.scheme not in ("http", "https"):
+    if parsed.scheme not in {"http", "https"}:
         raise ValueError(f"Expected http or https URL in {mapping_file}: {url}")
     if not parsed.netloc:
         raise ValueError(f"URL is missing host in {mapping_file}: {url}")
@@ -168,6 +176,59 @@ def _normalise_rss_source(url: str, mapping_file: Path) -> tuple[str, str]:
 
     canonical_url = _normalise_http_url(url, mapping_file)
     return canonical_url, canonical_url
+
+
+def _normalise_other_links(other_links: object, mapping_file: Path) -> list[dict[str, str]] | None:
+    """Normalise supporting reference links from feeder YAML metadata.
+
+    These links are not collected as feeds.  They preserve evidence and
+    background references, such as protocol forum posts proving that a
+    company acts as a vault curator.
+
+    :param other_links:
+        Parsed ``other-links`` YAML value.
+    :param mapping_file:
+        YAML file path used for validation errors.
+    :return:
+        Normalised list of ``{"title": ..., "url": ...}`` dictionaries,
+        or ``None`` if no supporting links are configured.
+    """
+
+    if other_links is None:
+        return None
+
+    normalised_links: list[dict[str, str]] = []
+    for idx, link in enumerate(other_links):
+        title = link.get("title")
+        if not isinstance(title, str) or not title.strip():
+            raise ValueError(f"other-links[{idx}].title must be a non-empty string in {mapping_file}")
+
+        url = link.get("url")
+        if not isinstance(url, str) or not url.strip():
+            raise ValueError(f"other-links[{idx}].url must be a non-empty URL in {mapping_file}")
+
+        normalised_links.append(
+            {
+                "title": title.strip(),
+                "url": _normalise_http_url(url, mapping_file),
+            }
+        )
+
+    return normalised_links
+
+
+def _normalise_mapping_metadata(parsed: dict, mapping_file: Path) -> None:
+    """Normalise optional metadata fields in a parsed feeder YAML mapping.
+
+    :param parsed:
+        Parsed feeder YAML data.  Updated in place.
+    :param mapping_file:
+        YAML file path used for validation errors.
+    """
+
+    other_links = _normalise_other_links(parsed.get("other-links"), mapping_file)
+    if other_links is not None:
+        parsed["other-links"] = other_links
 
 
 def _normalise_twitter_source(handle: str, mapping_file: Path) -> tuple[str, str]:
@@ -248,6 +309,7 @@ def _load_mapping_file(mapping_file: Path) -> tuple[list[TrackedPostSource], Fee
         raise ValueError(f"name must be a non-empty string in {mapping_file}")
 
     role = _validate_role(parsed.get("role"), mapping_file)
+    _normalise_mapping_metadata(parsed, mapping_file)
 
     # Handle alias files — canonical-feeder-id delegates feed sources
     canonical_feeder_id = parsed.get("canonical-feeder-id")
@@ -638,5 +700,6 @@ def load_feeder_metadata(yaml_path: Path) -> dict:
     parsed = load(yaml_path.read_text(), _MAPPING_SCHEMA).data
     feeder_id = _validate_slug(parsed.get("feeder-id"), "feeder-id", yaml_path)
     _validate_role(parsed.get("role"), yaml_path)
+    _normalise_mapping_metadata(parsed, yaml_path)
     assert feeder_id == yaml_path.stem, f"feeder-id {feeder_id!r} does not match filename {yaml_path.stem!r} in {yaml_path}"
     return parsed

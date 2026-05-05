@@ -85,6 +85,9 @@ website: { optional company website URL }
 twitter: { optional Twitter/X username }
 linkedin: { optional LinkedIn company id }
 rss: { optional RSS or Atom feed URL }
+other-links:
+  - title: { optional evidence or reference link title }
+    url: { optional evidence or reference link URL }
 ```
 
 Notes:
@@ -95,6 +98,8 @@ Notes:
 - `twitter` is a username such as `gauntlet_xyz`, not a full profile URL
 - `linkedin` is collected through operator-supplied LinkedIn bridge templates
 - `linkedin` is a company id such as `gauntlet-xyz`, not a full LinkedIn URL
+- `other-links` is an optional list of supporting references, such as forum
+  evidence that a company acts as a vault curator
 - at least one of `twitter`, `linkedin`, or `rss` must be present for collection
   — **unless** `canonical-feeder-id` is set (see below)
 - one YAML file currently produces one to three tracked sources internally:
@@ -159,6 +164,9 @@ website: https://www.gauntlet.xyz/
 twitter: gauntlet_xyz
 linkedin: gauntlet-xyz
 rss: https://medium.com/feed/gauntlet-networks
+other-links:
+  - title: Example curator evidence
+    url: https://example.com/curator-announcement
 ```
 
 See the folder summary in [`eth_defi/data/feeds/README.md`](../data/feeds/README.md).

@@ -16,7 +16,7 @@ Gather or infer these before editing:
 - Curator slug, using the existing feeder slug style
 - Evidence from vault data: vault names, protocols, chains, and why this is a curator
 - Curator type: third-party curator, alias to an existing feeder, protocol-managed curator, or name-pattern update
-- Optional website, Twitter/X, LinkedIn, blog/RSS, and logo source
+- Optional website, Twitter/X, LinkedIn, blog/RSS, supporting links, and logo source
 
 If the candidate was produced by `find-new-curators`, open its result
 file first and keep the evidence trail in mind.
@@ -66,6 +66,9 @@ website: https://example.org
 twitter: example
 linkedin: example-company
 rss: https://example.org/feed.xml
+other-links:
+  - title: Curator evidence
+    url: https://example.org/curator-announcement
 ```
 
 Save this as:
@@ -75,6 +78,9 @@ eth_defi/data/feeds/curators/{curator-slug}.yaml
 ```
 
 Omit unknown optional fields instead of leaving empty keys.
+Use `other-links` for evidence pages such as protocol forum
+announcements, documentation pages, or vault launch posts that prove
+the organisation acts as curator.
 
 For an alias to an existing feeder, create only identity metadata:
 

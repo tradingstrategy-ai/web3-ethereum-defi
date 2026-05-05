@@ -11,6 +11,7 @@ import pytest
 
 from eth_defi.feed.sources import (
     FEEDS_DATA_DIR,
+    load_feeder_metadata,
     load_post_sources,
 )
 
@@ -151,6 +152,30 @@ def test_real_yaml_files_load_without_errors():
 
     # Cross-role protocol -> stablecoin (sbold dedup)
     assert alias_map[("sbold", "protocol")] == "sbold"
+
+
+def test_other_links_metadata_loads(tmp_path: Path):
+    """Supporting feeder links are accepted and normalised.
+
+    1. Create a curator YAML with ``other-links`` evidence.
+    2. Load the metadata through the shared feeder loader.
+    3. Assert the link title is preserved and the URL is normalised.
+    """
+
+    yaml_path = tmp_path / "curators" / "flowdesk.yaml"
+    _write_yaml(
+        yaml_path,
+        "feeder-id: flowdesk\nname: Flowdesk\nrole: curator\ntwitter: flowdesk_co\nother-links:\n  - title: Morpho forum evidence\n    url: https://forum.morpho.org/t/announcing-flowdesk-ausd-rwa-strategy/2213\n",
+    )
+
+    metadata = load_feeder_metadata(yaml_path)
+
+    assert metadata["other-links"] == [
+        {
+            "title": "Morpho forum evidence",
+            "url": "https://forum.morpho.org/t/announcing-flowdesk-ausd-rwa-strategy/2213",
+        }
+    ]
 
 
 def test_metadata_inheritance_in_curator_export(tmp_path: Path):
