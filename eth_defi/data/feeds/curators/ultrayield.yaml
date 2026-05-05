@@ -1,0 +1,23 @@
+feeder-id: ultrayield
+name: UltraYield
+role: curator
+website: https://ultrayield.app
+twitter: ultrayieldapp
+
+# UltraYield is the vault curation product of Edge Capital Group, a crypto
+# hedge fund specialising in market-neutral DeFi and CeFi strategies.  The
+# platform makes institutional-grade yield strategies accessible to retail
+# depositors by structuring and optimising lending vaults across multiple
+# chains.  At peak, UltraYield had over $410 million in minted assets across
+# its vaults and lending markets.  It is a Morpho-verified curator active on
+# Ethereum (1), Optimism (10), Katana (143), Base (8453), and Arbitrum
+# (42161).  Edge Capital Group's main Twitter/X account is @EdgeCapitalMgmt.
+other-links:
+  - title: Morpho governance forum - Edge UltraYield USDC vault updates
+    url: https://forum.morpho.org/t/edge-ultrayield-usdc-vault-updates/1827
+  - title: Morpho curator page - UltraYield
+    url: https://app.morpho.org/curator/ultrayield
+  - title: Edge Capital Group website
+    url: https://edgecapital.xyz
+  - title: Edge Capital Group on X - curator for syrupUSDT pre-deposit vault on Plasma Chain
+    url: https://x.com/EdgeCapitalMgmt/status/1970110895473742032

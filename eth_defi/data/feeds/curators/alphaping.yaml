@@ -1,0 +1,23 @@
+feeder-id: alphaping
+name: AlphaPing
+role: curator
+website: https://alphaping.ch
+twitter: 0xAlphaping
+linkedin: alphaping-gmbh
+
+# Evidence and background references.
+#
+# AlphaPing GmbH is a Swiss-based company (Lucerne) founded in 2017,
+# operating mandate-driven, non-custodial on-chain credit vaults with
+# defined risk constraints and verifiable operation.  Morpho-verified
+# curator active on Ethereum, HyperEVM, Base, and Arbitrum with ~$52M AUM.
+#
+# Vaults include Alpha USDC Core V2, Alpha USDC Enhanced V2, Alpha LINK
+# Enhanced V2, and others across multiple chains.
+other-links:
+  - title: Morpho governance forum - Introducing Alphaping curator announcement
+    url: https://forum.morpho.org/t/introducing-alphaping/1560
+  - title: Morpho curator page - AlphaPing
+    url: https://app.morpho.org/curator/alphaping
+  - title: AlphaPing vault curation page
+    url: https://alphaping.ch/vault-curation/

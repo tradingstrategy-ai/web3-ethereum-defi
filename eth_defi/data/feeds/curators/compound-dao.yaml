@@ -1,0 +1,22 @@
+feeder-id: compound-dao
+name: Compound DAO
+role: curator
+website: https://compound.finance/
+twitter: compoundfinance
+linkedin: compound-labs
+# Compound Medium is stale; use the active governance/forum RSS.
+rss: https://www.comp.xyz/latest.rss
+
+# Evidence and background references.
+#
+# Compound DAO acts as Morpho vault curator on Polygon, deploying a
+# Compound USDC vault (~$5.8M AUM) managed via DAO governance.
+# The Morpho curator profile page confirms Compound DAO is a
+# verified/protocol-managed curator.
+other-links:
+  - title: Morpho - Compound DAO curator profile listing all vaults
+    url: https://app.morpho.org/curator/compound-dao
+  - title: Compound governance forum (comp.xyz) - DAO proposals and risk management
+    url: https://www.comp.xyz/
+  - title: Compound Finance - official protocol homepage
+    url: https://compound.finance/

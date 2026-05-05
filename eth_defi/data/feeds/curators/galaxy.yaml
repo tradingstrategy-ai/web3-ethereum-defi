@@ -1,0 +1,21 @@
+feeder-id: galaxy
+name: Galaxy
+role: curator
+website: https://www.galaxy.com
+twitter: GalaxyHQ
+linkedin: galaxyhq
+
+# Evidence and background references.
+#
+# Galaxy Digital is a global digital assets firm.  Galaxy curates Morpho
+# vaults under the "Galaxy Curation" identity — verified by Morpho as a
+# third-party curator.  Known vaults include "Galaxy USDC Quality" and
+# "Galaxy USDT Quality" on Ethereum, with additional vaults on Base.
+# Combined AUM ~$49 M across Ethereum (chain 1) and Base (chain 8453).
+other-links:
+  - title: Morpho curator page - Galaxy Curation verified curator profile
+    url: https://app.morpho.org/curator/galaxy
+  - title: Galaxy Digital official website
+    url: https://www.galaxy.com
+  - title: Galaxy X account linked from Morpho curator page
+    url: https://x.com/GalaxyHQ

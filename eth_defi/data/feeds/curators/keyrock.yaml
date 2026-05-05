@@ -1,0 +1,18 @@
+feeder-id: keyrock
+name: Keyrock
+role: curator
+website: https://keyrock.com
+twitter: keyrock
+linkedin: keyrock
+
+# Evidence and background references.
+#
+# Keyrock is a digital asset liquidity solutions provider founded in 2017,
+# operating across centralised and decentralised venues with market-making,
+# OTC trading, and liquidity pool management services.  They appear as a
+# Morpho-verified curator on Ethereum with ~$775K AUM.
+other-links:
+  - title: Morpho app - Keyrock curator page
+    url: https://app.morpho.org/curator/keyrock
+  - title: Keyrock official website
+    url: https://keyrock.com

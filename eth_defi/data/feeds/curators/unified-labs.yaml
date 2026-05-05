@@ -1,0 +1,22 @@
+feeder-id: unified-labs
+name: Unified Labs
+role: curator
+website: https://unifiedlabs.io
+twitter: unifiedlabs_
+rss: https://unifiedlabs.substack.com/feed
+
+# Evidence and background references.
+#
+# Unified Labs is Asia's first Morpho-verified RWA risk curator.  The team
+# combines expertise from central bank blockchain pilots, fixed-income
+# management, and DeFi protocols.  They design institutional-grade lending
+# vaults where tokenised real-world assets (RWAs) serve as collateral.
+# Their initial vault product is a USDC lending market using FUSD (a
+# yield-bearing stablecoin backed by money market funds and government bonds,
+# issued by FinChain under Fosun Wealth Holdings) as collateral.
+# Active on Ethereum (1), Polygon (137), Katana (143), and Arbitrum (42161).
+other-links:
+  - title: Morpho governance forum - Unified Labs, Asia's RWA risk curator on Morpho
+    url: https://forum.morpho.org/t/unified-labs-asias-rwa-risk-curator-on-morpho/2230
+  - title: Morpho curator page - Unified Labs
+    url: https://app.morpho.org/curator/unified-labs

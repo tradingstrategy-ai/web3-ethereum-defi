@@ -1,0 +1,27 @@
+feeder-id: felix
+name: Felix
+role: curator
+website: https://www.usefelix.xyz/
+twitter: felixprotocol
+
+# Evidence and background references.
+#
+# Felix is a DeFi protocol on Hyperliquid (HyperEVM, chain 999) offering
+# CDP borrowing, vanilla lending, and Morpho-based yield vaults.  Felix
+# introduced itself as curator for Morpho on Hyperliquid in May 2025
+# and is listed as a verified curator by Morpho Blue.
+#
+# Relationship with Anthias Labs: Felix Labs is the Vault Owner while
+# Anthias Labs serves as Curator, Allocator, and Guardian per Felix's
+# published terms.  Both organisations are therefore tracked separately —
+# Felix as the protocol identity and product owner, Anthias Labs as the
+# technical risk curator.  See anthias-labs.yaml for the risk-curator entry.
+other-links:
+  - title: Morpho forum - Introducing Felix vaults on Hyperliquid
+    url: https://forum.morpho.org/t/introducing-felix-vaults/2047
+  - title: Morpho Blue - Felix verified curator page
+    url: https://app.morpho.org/curator/felix
+  - title: Felix terms - Anthias Labs designated as Curator, Allocator, and Guardian for Morpho Vaults
+    url: https://usefelix.gitbook.io/docs/terms/terms-and-conditions
+  - title: Felix documentation - Felix Vaults overview
+    url: https://usefelix.gitbook.io/felix-docs/

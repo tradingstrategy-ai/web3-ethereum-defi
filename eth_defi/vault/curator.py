@@ -185,7 +185,6 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
 CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "re7-labs": ["RE7"],
     "steakhouse-financial": ["Steakhouse", "Smokehouse"],
-    "block-analitica": ["B.Protocol"],
     "growi-finance": ["Growi"],
     "avantgarde-finance": ["Avantgarde"],
     "fisher8-capital": ["Fisher8"],
@@ -209,8 +208,6 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "frax-finance": ["Frax", "FRAX"],
     "usdai": ["USD.AI", "USDai"],
     "agora-finance": ["Agora"],
-    # Felix terms designate Anthias Labs as Curator, Allocator, and Guardian for Felix Morpho vaults.
-    "anthias-labs": ["Felix"],
     "tangent-finance": ["Tangent"],
     "ipor": ["IPOR", "Autopilot"],
     "reservoir": ["Reservoir"],
@@ -227,6 +224,10 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "woo": ["Woo"],
     "telosc": ["TelosC"],
     "kappa-lab": ["Fire Liquidity Provider"],
+    # New curators from Morpho verified list (2026-05-05)
+    "b-protocol": ["B.Protocol"],
+    "felix": ["Felix"],
+    "stake-dao": ["StakeDAO"],
 }
 
 

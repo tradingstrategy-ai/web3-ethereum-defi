@@ -1,5 +1,7 @@
 # Current
 
+- feat: 13 new Morpho-verified curators added — AlphaPing, B.Protocol, Compound DAO, Felix, Galaxy, Keyrock, Moonwell, SingularV, Stake DAO, SwissBorg, UltraYield, Unified Labs, Yearn; Felix and B.Protocol detection moved to their own slugs; Morpho curators API documented in `morpho-curators.md` (2026-05-05)
+
 - feat: Flowdesk and Anthias Labs curator metadata and logo assets added, with repo-local curator discovery and add-curator skills for maintaining vault curator coverage (2026-05-05)
 
 - feat: Hibachi formatted logos — post-processed 256×256 PNG variants (`light.png`, `dark.png`) added to `formatted_logos/hibachi/` (2026-05-04)

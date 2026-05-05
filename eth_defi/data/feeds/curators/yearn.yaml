@@ -1,0 +1,5 @@
+# Yearn curator — feeds provided by protocols/yearn.yaml
+feeder-id: yearn
+name: Yearn
+role: curator
+canonical-feeder-id: yearn

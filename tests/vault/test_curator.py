@@ -3,12 +3,12 @@
 from eth_defi.vault.curator import get_curator_name, identify_curator, is_protocol_curator
 
 
-def test_identify_anthias_labs_felix_vault() -> None:
-    """Felix Morpho vault names resolve to Anthias Labs.
+def test_identify_felix_vault() -> None:
+    """Felix Morpho vault names resolve to the Felix curator.
 
-    Felix's terms designate Anthias Labs as Curator, Allocator, and
-    Guardian for the Felix Morpho vaults, while exported vault names use
-    the Felix brand.
+    Felix is a Morpho-verified curator on HyperEVM.  Although Anthias Labs
+    acts as risk curator/allocator/guardian for Felix vaults, vault names
+    use the Felix brand and are now mapped to the felix feeder slug.
     """
 
     slug = identify_curator(
@@ -19,7 +19,7 @@ def test_identify_anthias_labs_felix_vault() -> None:
         protocol_slug="morpho",
     )
 
-    assert slug == "anthias-labs"
+    assert slug == "felix"
 
 
 def test_identify_smokehouse_as_steakhouse_financial() -> None:

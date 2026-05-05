@@ -1,0 +1,18 @@
+feeder-id: swissborg
+name: SwissBorg
+role: curator
+website: https://swissborg.com
+twitter: swissborg
+linkedin: swissborg
+
+# Evidence and background references.
+#
+# SwissBorg is a Swiss-based crypto wealth management app operating
+# across 47 countries.  They curate Morpho vaults on Ethereum mainnet
+# as part of their DeFi yield offerings, appearing as a Morpho-verified
+# curator with ~$11M AUM.
+other-links:
+  - title: Morpho - SwissBorg curator page
+    url: https://app.morpho.org/curator/swissborg
+  - title: SwissBorg official website
+    url: https://swissborg.com

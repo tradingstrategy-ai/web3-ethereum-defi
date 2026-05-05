@@ -1,0 +1,24 @@
+feeder-id: moonwell
+name: Moonwell
+role: curator
+website: https://moonwell.fi
+twitter: MoonwellDeFi
+
+# Evidence and background references.
+#
+# Moonwell is a DeFi lending protocol deployed on Base and Optimism that
+# also curates its own Morpho vaults.  It acts as a protocol-managed
+# curator (verified by Morpho) with ~$25M AUM across Base (chain 8453)
+# and Optimism (chain 10).
+#
+# The Morpho curator page at app.morpho.org/curator/moonwell lists
+# Moonwell as a Morpho-verified curator.  Moonwell's GitHub organisation
+# (github.com/moonwell-fi) confirms the official Twitter handle as
+# @MoonwellDeFi and the website as moonwell.fi.
+other-links:
+  - title: Morpho - Moonwell curator page
+    url: https://app.morpho.org/curator/moonwell
+  - title: Moonwell - official website (lending protocol on Base and Optimism)
+    url: https://moonwell.fi
+  - title: Moonwell GitHub organisation
+    url: https://github.com/moonwell-fi

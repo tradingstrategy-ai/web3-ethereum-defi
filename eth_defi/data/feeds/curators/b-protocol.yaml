@@ -1,0 +1,18 @@
+feeder-id: b-protocol
+name: B.Protocol
+role: curator
+website: https://www.bprotocol.org
+twitter: bprotocoleth
+
+# Evidence and background references.
+#
+# B.Protocol describes itself as a "DeFi economic risk mitigation hub".
+# It co-manages Morpho vaults together with Block Analitica — both
+# organisations appear as curators on the same vault addresses on
+# Ethereum, Optimism and Base.  B.Protocol is a distinct entity from
+# Block Analitica and has its own Morpho curator page.
+other-links:
+  - title: Morpho app - B.Protocol curator page
+    url: https://app.morpho.org/curator/b-protocol
+  - title: B.Protocol X/Twitter - official account confirming curator identity
+    url: https://x.com/bprotocoleth

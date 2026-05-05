@@ -1,0 +1,30 @@
+feeder-id: stake-dao
+name: Stake DAO
+role: curator
+website: https://stakedao.org
+twitter: StakeDAOHQ
+linkedin: stake-dao
+rss: https://medium.com/@stakedaohq/feed
+
+# Evidence and background references.
+#
+# Stake DAO is a non-custodial DeFi yield optimisation protocol based in
+# Zug, Switzerland.  It is best known for its Liquid Lockers product
+# (governance tokens staked as sdTokens) and yield strategies.  Stake DAO
+# expanded into Morpho vault curation following a governance proposal
+# (SDGP-58, August 2025) that mandated a new curation vertical.
+# As a Morpho curator it manages vaults across Ethereum (1), Optimism (10),
+# Polygon (137), Base (8453), and Arbitrum (42161) with combined AUM of
+# approximately $7.8 M.  Morpho lists Stake DAO as a verified third-party
+# curator.
+other-links:
+  - title: Morpho - Stake DAO verified curator profile listing all vaults
+    url: https://app.morpho.org/curator/stake-dao
+  - title: Stake DAO governance forum - SDGP-58 proposal to launch curation vertical on Morpho and Euler
+    url: https://gov.stakedao.org/t/sdgp-58-boost-stake-dao-growth-by-launching-a-curation-vertical/1094
+  - title: Stake DAO official homepage
+    url: https://stakedao.org
+  - title: Stake DAO X account (StakeDAOHQ) linked from Morpho curator page
+    url: https://x.com/StakeDAOHQ
+  - title: Morpho SVG logo asset for Stake DAO
+    url: https://cdn.morpho.org/v2/assets/images/stakedao.svg

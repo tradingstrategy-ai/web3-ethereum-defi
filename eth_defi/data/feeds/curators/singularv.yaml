@@ -1,0 +1,16 @@
+feeder-id: singularv
+name: SingularV
+role: curator
+website: https://www.singularv.xyz
+twitter: singularv_xyz
+
+# SingularV is an onchain market-making firm focusing on optimisation and
+# risk management, primarily active on Ethereum and TON. They curate Morpho
+# vaults on Ethereum (chain 1), Unichain (chain 130), and Plume (chain 747474)
+# with ~$2.2M AUM as of 2026-05.
+#
+# Note: SingularV is a separate entity from "Singularity Finance"
+# (feeder-id: singularity), which is an unrelated DeFi protocol.
+other-links:
+  - title: Morpho - SingularV curator page
+    url: https://app.morpho.org/curator/singularv
