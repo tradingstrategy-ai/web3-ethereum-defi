@@ -529,7 +529,9 @@ Common errors and their causes:
 
 ## Configuration reference
 
-Environment variables accepted by the runner:
+### scan-vault-posts.py
+
+Environment variables accepted by the main scanner:
 
 - `DB_PATH`: DuckDB path, default `~/.tradingstrategy/vaults/vault-post-database.duckdb`
 - `MAPPINGS_DIR`: optional override for the feeder directory root, default
@@ -558,6 +560,36 @@ Environment variables accepted by the runner:
   default `1200`
 - `USE_X_LIST_TIMELINE`: use the X list timeline for Twitter reads when a list
   ID is available, default `true`
+
+### backfill-twitter-handles.py
+
+Environment variables accepted by the one-shot backfill script:
+
+- `TWITTER_BEARER_TOKEN`: **required** — X API v2 bearer token for reading
+  individual user timelines
+- `DB_PATH`: DuckDB path, default `~/.tradingstrategy/vaults/vault-post-database.duckdb`
+- `MAPPINGS_DIR`: feeder YAML root, default `eth_defi/data/feeds`
+- `LOG_LEVEL`: logging level, default `info`
+- `MAX_TWEETS_PER_HANDLE`: tweets to fetch per handle on first backfill, default `20`
+- `DELAY_BETWEEN_HANDLES`: seconds to sleep between X API calls, default `1`
+
+### sync-x-list.py
+
+Environment variables accepted by the X list membership sync script:
+
+- `TWITTER_BEARER_TOKEN`: **required** — X API v2 bearer token
+- `TWITTER_CONSUMER_KEY`: **required** — OAuth 1.0a consumer key
+- `TWITTER_SECRET_KEY`: **required** — OAuth 1.0a consumer secret
+- `TWITTER_ACCESS_TOKEN`: **required** — OAuth 1.0a user access token
+- `TWITTER_ACCESS_TOKEN_SECRET`: **required** — OAuth 1.0a user access token secret
+- `X_LIST_ID`: explicit X list ID override; otherwise the default list name is resolved
+- `X_LIST_NAME`: X list name to resolve, default `Best builders in DeFi`
+- `X_LIST_ADD_DELAY_SECONDS`: delay between list member writes, default `1`
+- `X_LIST_RATE_LIMIT_SLEEP_MAX_SECONDS`: maximum automatic rate-limit sleep,
+  default `1200`
+- `DB_PATH`: DuckDB path, default `~/.tradingstrategy/vaults/vault-post-database.duckdb`
+- `MAPPINGS_DIR`: feeder YAML root, default `eth_defi/data/feeds`
+- `LOG_LEVEL`: logging level, default `info`
 
 ## Main files
 
