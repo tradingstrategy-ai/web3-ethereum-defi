@@ -25,6 +25,7 @@ import logging
 
 from eth_typing import BlockIdentifier
 
+from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626Vault
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,19 @@ class FortyAcresVault(ERC4626Vault):
 
     - `Blackhole vault on Avalanche <https://snowtrace.io/address/0xc0485c4bafb594ae1457820fb6e5b67e8a04bcfd>`__
     - `Pharaoh vault on Avalanche <https://snowtrace.io/address/0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7>`__
+    - `Velodrome vault on Optimism <https://optimistic.etherscan.io/address/0x08dCDBf7baDe91Ccd42CB2a4EA8e5D199d285957>`__
+    - `Aerodrome vault on Base <https://basescan.org/address/0xB99B6dDF96d4d5448cC0a5B3e0ef7896df9507Cf5>`__
     """
+
+    @property
+    def name(self) -> str:
+        """Return a human-readable name based on the chain.
+
+        On-chain ``name()`` returns cryptic strings like ``40op-USDC-Vault``.
+        We override to produce a consistent ``40acres on <Chain>`` format.
+        """
+        chain = get_chain_name(self.chain_id)
+        return f"40acres on {chain}"
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """No explicit management fee on the vault contract.
