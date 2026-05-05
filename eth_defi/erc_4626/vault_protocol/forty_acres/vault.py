@@ -12,9 +12,9 @@ earn organic yield sourced from real DEX trading fees and bribes.
 - `Security (4 Sherlock audits) <https://docs.40acres.finance/security>`__
 - `DefiLlama <https://defillama.com/protocol/40-acres>`__
 
-Fees are embedded in the protocol mechanics: 20% of weekly veNFT rewards
-go to lenders, 5% to the treasury, and 75% to borrower loan repayment.
-There are no explicit management or performance fee functions on the vault contract.
+40acres vaults are feeless for lenders: no management fee, no performance fee.
+The protocol's 5% treasury cut is taken from borrower rewards, not from depositor
+principal or yield. There are no explicit fee functions on the vault contract.
 
 The vault uses UUPS upgradeable proxy pattern with a ``_loanContract`` reference
 to the protocol's lending engine.
@@ -29,6 +29,20 @@ from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626Vault
 
 logger = logging.getLogger(__name__)
+
+#: Human-readable vault names sourced from the 40acres API (``/api/vaults/<dex>``).
+#: Keys are lowercase vault contract addresses.
+#: Used to override the cryptic on-chain ``name()`` return values.
+VAULT_NAMES: dict[str, str] = {
+    # Aerodrome USDC vault on Base
+    "0xb99b6ddf96d4d5448cc0a5b3e0ef7896df9507cf5": "Aerodrome USDC",
+    # Velodrome USDC vault on Optimism
+    "0x08dcdbf7bade91ccd42cb2a4ea8e5d199d285957": "Velodrome USDC",
+    # Pharaoh USDC vault on Avalanche
+    "0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7": "Pharaoh USDC",
+    # Blackhole USDC vault on Avalanche
+    "0xc0485c4bafb594ae1457820fb6e5b67e8a04bcfd": "Blackhole USDC",
+}
 
 
 class FortyAcresVault(ERC4626Vault):
@@ -85,28 +99,40 @@ class FortyAcresVault(ERC4626Vault):
 
     @property
     def name(self) -> str:
-        """Return a human-readable name based on the chain.
+        """Return a human-readable vault name.
 
         On-chain ``name()`` returns cryptic strings like ``40op-USDC-Vault``.
-        We override to produce a consistent ``40acres on <Chain>`` format.
+        We look up the address in :py:data:`VAULT_NAMES` for the DEX-based name
+        (e.g. ``"Aerodrome USDC"``), falling back to ``"40acres on <Chain>"``.
         """
+        known = VAULT_NAMES.get(self.vault_address_checksumless)
+        if known:
+            return known
         chain = get_chain_name(self.chain_id)
         return f"40acres on {chain}"
 
-    def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """No explicit management fee on the vault contract.
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
+        """No management fee.
 
-        Fees are embedded in the protocol's reward distribution mechanics.
+        40acres vaults charge no explicit management fee to lenders.
+        The protocol's 5% treasury cut is taken from borrower rewards,
+        not deducted from depositor principal or yield.
+
+        :return:
+            0.0
         """
-        return None
+        return 0.0
 
-    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """No explicit performance fee on the vault contract.
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float:
+        """No performance fee.
 
-        The protocol takes 5% of weekly rewards as a treasury fee,
-        but this is not a traditional performance fee charged to lenders.
+        40acres vaults charge no explicit performance fee to lenders.
+        Yield is delivered in full via share price appreciation.
+
+        :return:
+            0.0
         """
-        return None
+        return 0.0
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         """Withdrawals depend on vault utilisation.
