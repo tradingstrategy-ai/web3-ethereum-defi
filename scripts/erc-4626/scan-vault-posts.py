@@ -36,6 +36,8 @@ Environment variables:
 - ``X_LIST_ADD_DELAY_SECONDS``: Optional. Delay between list member writes. Default: 1.
 - ``X_LIST_RATE_LIMIT_SLEEP_MAX_SECONDS``: Optional. Maximum automatic rate-limit sleep.
   Default: 1200.
+- ``USE_X_LIST_TIMELINE``: Optional. Use the X list timeline for Twitter reads
+  when a list ID is available. Default: true.
 - ``SYNC_X_LIST``: Optional. Set to "true" for production list sync. Default: false.
 - ``WEBSHARE_API_KEY``: Optional. Enable Webshare-backed proxy rotation.
 - ``WEBSHARE_PROXY_MODE``: Optional. Webshare proxy pool mode.
@@ -152,6 +154,7 @@ def _build_config() -> PostScanConfig:
         sync_x_list=os.environ.get("SYNC_X_LIST", "").lower() == "true",
         x_list_add_delay_seconds=float(os.environ.get("X_LIST_ADD_DELAY_SECONDS", "1")),
         x_list_rate_limit_sleep_max_seconds=float(os.environ.get("X_LIST_RATE_LIMIT_SLEEP_MAX_SECONDS", "1200")),
+        use_x_list_timeline=os.environ.get("USE_X_LIST_TIMELINE", "true").lower() == "true",
         limit=int(limit_str) if limit_str else None,
         death_detection_days=int(os.environ.get("DEATH_DETECTION_PERIOD", "180")),
         twitter_rss_base_urls=_parse_csv(os.environ.get("TWITTER_RSS_BASE_URLS")),

@@ -6,8 +6,9 @@ from pathlib import Path
 import pytest
 import requests
 
-from eth_defi.feed.collector import AllBridgesFailedError, collect_posts, collect_posts_for_source
-from eth_defi.feed.database import VaultPostDatabase
+from eth_defi.compat import native_datetime_utc_now
+from eth_defi.feed.collector import AllBridgesFailedError, collect_posts, collect_posts_for_source, collect_twitter_list_posts
+from eth_defi.feed.database import CollectedPost, VaultPostDatabase
 from eth_defi.feed.sources import (
     FEEDS_DATA_DIR,
     auto_disable_failed_linkedin_sources,
@@ -15,7 +16,7 @@ from eth_defi.feed.sources import (
     mark_linkedin_source_disabled,
 )
 from eth_defi.feed.testing import make_test_tracked_source
-
+from eth_defi.feed.twitter_api import TwitterUserCache
 
 RSS_XML = b"""<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0">
@@ -145,6 +146,68 @@ def test_end_to_end_collection_with_dedup(tmp_path: Path, monkeypatch) -> None:
         assert tracked_df["last_success_at"].notna().all()
         assert set(posts_df["title"].dropna().tolist()) == {"Protocol launch", "Atom entry"}
         assert set(posts_df["ai_summary"].tolist()) == {None}
+    finally:
+        db.close()
+
+
+def test_collect_twitter_list_posts_maps_posts_to_sources(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Collect Twitter posts through one list timeline read and store per source."""
+
+    source = make_test_tracked_source(
+        feeder_id="gauntlet",
+        name="Gauntlet",
+        role="curator",
+        source_type="twitter",
+        source_key="gauntlet_xyz",
+        canonical_url="https://x.com/gauntlet_xyz",
+    )
+
+    post = CollectedPost(
+        external_post_id="tweet-1",
+        title=None,
+        post_url="https://x.com/gauntlet_xyz/status/tweet-1",
+        published_at=native_datetime_utc_now(),
+        fetched_at=native_datetime_utc_now(),
+        short_description="Vault risk update",
+        full_text="Vault risk update",
+    )
+
+    def fake_fetch_tweets_from_x_list(
+        list_id: str,
+        bearer_token: str,
+        user_cache: TwitterUserCache,
+        *,
+        max_tweets: int,
+        known_post_ids: set[str] | None = None,
+    ) -> dict[str, list[CollectedPost]]:
+        assert list_id == "123"
+        assert bearer_token == "bearer-token"
+        assert user_cache.get("gauntlet_xyz").user_id == "42"
+        assert max_tweets == 100
+        assert known_post_ids == set()
+        return {"42": [post]}
+
+    monkeypatch.setattr("eth_defi.feed.collector.fetch_tweets_from_x_list", fake_fetch_tweets_from_x_list)
+
+    cache = TwitterUserCache(tmp_path / "twitter-users.json")
+    cache.put("gauntlet_xyz", "42", "Gauntlet")
+
+    db = VaultPostDatabase(tmp_path / "posts.duckdb")
+    try:
+        summary = collect_twitter_list_posts(
+            db,
+            [source],
+            list_id="123",
+            bearer_token="bearer-token",
+            twitter_user_cache=cache,
+            max_tweets=100,
+        )
+
+        posts_df = db.get_posts_df()
+        assert summary.sources_succeeded == 1
+        assert summary.posts_fetched == 1
+        assert summary.posts_inserted == 1
+        assert posts_df.iloc[0]["external_post_id"] == "tweet-1"
     finally:
         db.close()
 

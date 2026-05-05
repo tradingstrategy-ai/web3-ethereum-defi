@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.feed.collector import CollectorRunSummary, collect_posts, fetch_feed_proxy_rotator
+from eth_defi.feed.collector import CollectorRunSummary, collect_posts, collect_twitter_list_posts, fetch_feed_proxy_rotator
 from eth_defi.feed.constants import DEFAULT_X_LIST_NAME
 from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE, VaultPostDatabase
 from eth_defi.feed.sources import (
@@ -24,7 +24,7 @@ from eth_defi.feed.sources import (
     mark_twitter_handle_unknown,
     mark_twitter_source_dead,
 )
-from eth_defi.feed.twitter_api import TwitterUserCache, resolve_twitter_handles, resolve_x_list_id_by_name, sync_x_list_members
+from eth_defi.feed.twitter_api import TwitterUserCache, XApiError, resolve_twitter_handles, resolve_x_list_id_by_name, sync_x_list_members
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +71,8 @@ class PostScanConfig:
     x_list_add_delay_seconds: float = 1.0
     #: Maximum automatic sleep after X API list-write rate limits.
     x_list_rate_limit_sleep_max_seconds: float = 1200.0
+    #: Use X list timeline reads for Twitter collection when a list ID is available.
+    use_x_list_timeline: bool = True
     #: Limit number of sources per type (for test runs).
     limit: int | None = None
     #: Days after which an inactive Twitter account is considered dead.
@@ -136,6 +138,24 @@ def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
                     )
             twitter_sources = [s for s in twitter_sources if s.source_key in handle_to_id]
 
+    resolved_x_list_id = config.x_list_id
+    can_resolve_x_list_id = all(
+        (
+            config.twitter_consumer_key,
+            config.twitter_consumer_secret,
+            config.twitter_access_token,
+            config.twitter_access_token_secret,
+        )
+    )
+    if not resolved_x_list_id and can_resolve_x_list_id and (config.sync_x_list or config.use_x_list_timeline):
+        resolved_x_list_id = resolve_x_list_id_by_name(
+            config.x_list_name or DEFAULT_X_LIST_NAME,
+            config.twitter_consumer_key,
+            config.twitter_consumer_secret,
+            config.twitter_access_token,
+            config.twitter_access_token_secret,
+        )
+
     # Sync X list membership (production only, change-detected)
     can_sync_x_list = all(
         (
@@ -152,17 +172,11 @@ def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
 
     if config.sync_x_list and can_sync_x_list:
         handles = [s.source_key for s in twitter_sources]
-        x_list_id = config.x_list_id or resolve_x_list_id_by_name(
-            config.x_list_name or DEFAULT_X_LIST_NAME,
-            config.twitter_consumer_key,
-            config.twitter_consumer_secret,
-            config.twitter_access_token,
-            config.twitter_access_token_secret,
-        )
+        assert resolved_x_list_id is not None
         db_for_sync = VaultPostDatabase(config.db_path)
         try:
             sync_x_list_members(
-                x_list_id,
+                resolved_x_list_id,
                 handles,
                 config.twitter_consumer_key,
                 config.twitter_consumer_secret,
@@ -181,6 +195,7 @@ def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
     proxy_rotator = fetch_feed_proxy_rotator()
     db = VaultPostDatabase(config.db_path)
     combined_summary = CollectorRunSummary(source_results=[], feeders_skipped=feeders_skipped)
+    twitter_collection_used_list_timeline = False
 
     try:
         # Phase 1: RSS sources
@@ -226,24 +241,57 @@ def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
         # Phase 3: Twitter sources
         if twitter_sources:
             logger.info("Scanning %d Twitter sources", len(twitter_sources))
-            twitter_summary = collect_posts(
-                db,
-                twitter_sources,
-                max_workers=config.max_workers,
-                max_posts_per_source=config.max_posts_per_source,
-                request_timeout=config.request_timeout,
-                request_delay_seconds=config.request_delay_seconds,
-                twitter_rss_base_urls=config.twitter_rss_base_urls,
-                proxy_rotator=proxy_rotator,
-                max_proxy_rotations=config.max_proxy_rotations,
-                twitter_bearer_token=config.twitter_bearer_token,
-                twitter_user_cache=twitter_user_cache,
-                label="Twitter",
-            )
+            if config.use_x_list_timeline and config.twitter_bearer_token and twitter_user_cache and resolved_x_list_id:
+                logger.info("Collecting Twitter posts through X list timeline %s", resolved_x_list_id)
+                try:
+                    twitter_summary = collect_twitter_list_posts(
+                        db,
+                        twitter_sources,
+                        list_id=resolved_x_list_id,
+                        bearer_token=config.twitter_bearer_token,
+                        twitter_user_cache=twitter_user_cache,
+                        max_tweets=max(100, config.max_posts_per_source * len(twitter_sources)),
+                    )
+                    twitter_collection_used_list_timeline = True
+                except XApiError as e:
+                    logger.warning(
+                        "X list timeline collection failed for list %s, falling back to per-source Twitter collection: %s",
+                        resolved_x_list_id,
+                        e,
+                    )
+                    twitter_summary = collect_posts(
+                        db,
+                        twitter_sources,
+                        max_workers=config.max_workers,
+                        max_posts_per_source=config.max_posts_per_source,
+                        request_timeout=config.request_timeout,
+                        request_delay_seconds=config.request_delay_seconds,
+                        twitter_rss_base_urls=config.twitter_rss_base_urls,
+                        proxy_rotator=proxy_rotator,
+                        max_proxy_rotations=config.max_proxy_rotations,
+                        twitter_bearer_token=config.twitter_bearer_token,
+                        twitter_user_cache=twitter_user_cache,
+                        label="Twitter",
+                    )
+            else:
+                twitter_summary = collect_posts(
+                    db,
+                    twitter_sources,
+                    max_workers=config.max_workers,
+                    max_posts_per_source=config.max_posts_per_source,
+                    request_timeout=config.request_timeout,
+                    request_delay_seconds=config.request_delay_seconds,
+                    twitter_rss_base_urls=config.twitter_rss_base_urls,
+                    proxy_rotator=proxy_rotator,
+                    max_proxy_rotations=config.max_proxy_rotations,
+                    twitter_bearer_token=config.twitter_bearer_token,
+                    twitter_user_cache=twitter_user_cache,
+                    label="Twitter",
+                )
             _merge_summary(combined_summary, twitter_summary)
 
         # Detect dead Twitter accounts
-        if config.death_detection_days > 0:
+        if config.death_detection_days > 0 and not twitter_collection_used_list_timeline:
             dead_count = _detect_dead_twitter_accounts(db, twitter_sources, config.death_detection_days)
             if dead_count:
                 logger.info("Marked %d dead Twitter accounts", dead_count)

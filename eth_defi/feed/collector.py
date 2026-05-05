@@ -21,8 +21,7 @@ from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_u
 from eth_defi.event_reader.webshare import ProxyRotator, load_proxy_rotator
 from eth_defi.feed.database import CollectedPost, VaultPostDatabase
 from eth_defi.feed.sources import TrackedPostSource
-from eth_defi.feed.twitter_api import TwitterUserCache, XApiError, fetch_user_tweets
-
+from eth_defi.feed.twitter_api import TwitterUserCache, fetch_tweets_from_x_list, fetch_user_tweets
 
 logger = logging.getLogger(__name__)
 
@@ -684,4 +683,88 @@ def collect_posts(
         source_result.posts_inserted = inserted
         summary.source_results.append(source_result)
 
+    return summary
+
+
+def collect_twitter_list_posts(
+    db: VaultPostDatabase,
+    sources: Sequence[TrackedPostSource],
+    *,
+    list_id: str,
+    bearer_token: str,
+    twitter_user_cache: TwitterUserCache,
+    max_tweets: int,
+    label: str = "Twitter list",
+) -> CollectorRunSummary:
+    """Collect Twitter/X posts through a single X list timeline read.
+
+    The list timeline API returns tweets across all list members in reverse
+    chronological order.  This lets production collection avoid one API call
+    per tracked account while still storing posts under the account-specific
+    tracked source rows.
+
+    :param db:
+        Vault post database.
+    :param sources:
+        Twitter tracked sources whose handles are represented in the X list.
+    :param list_id:
+        Numeric X list ID.
+    :param bearer_token:
+        X API bearer token used for list timeline reads.
+    :param twitter_user_cache:
+        Cache containing handle-to-user-ID mappings.
+    :param max_tweets:
+        Maximum tweets to read from the list timeline.
+    :param label:
+        Dashboard label for this collection phase.
+    :return:
+        Collector run summary with per-source insert counters.
+    """
+
+    summary = CollectorRunSummary(sources_loaded=len(sources), source_results=[])
+    source_ids = db.upsert_tracked_sources(sources)
+    known_post_ids = db.get_known_post_ids()
+    posts_by_user_id = fetch_tweets_from_x_list(
+        list_id,
+        bearer_token,
+        twitter_user_cache,
+        max_tweets=max_tweets,
+        known_post_ids=known_post_ids,
+    )
+    checked_at = native_datetime_utc_now()
+
+    for source in sources:
+        source_id = source_ids[source.get_logical_key()]
+        cached = twitter_user_cache.get(source.source_key)
+        posts = posts_by_user_id.get(cached.user_id, []) if cached else []
+        latest_post_at = max((post.published_at for post in posts if post.published_at is not None), default=None)
+        inserted = db.insert_posts(source_id, posts)
+        db.mark_source_success(
+            source_id,
+            checked_at=checked_at,
+            last_post_published_at=latest_post_at,
+        )
+
+        source_result = CollectedSourceResult(
+            feeder_id=source.feeder_id,
+            name=source.name,
+            role=source.role,
+            source_type=source.source_type,
+            status="success",
+            posts_fetched=len(posts),
+            posts_inserted=inserted,
+            last_post_published_at=latest_post_at,
+        )
+        summary.sources_succeeded += 1
+        summary.posts_fetched += len(posts)
+        summary.posts_inserted += inserted
+        summary.source_results.append(source_result)
+
+    logger.info(
+        "Collected %d posts via X list %s for %d %s sources",
+        summary.posts_fetched,
+        list_id,
+        len(sources),
+        label,
+    )
     return summary

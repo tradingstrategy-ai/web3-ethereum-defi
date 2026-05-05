@@ -192,11 +192,17 @@ RSS sources are fetched directly from their configured feed URL.
 
 ### Twitter/X sources
 
-Twitter/X usernames are normalised to a handle and then expanded to one or
-more live feed URLs using `TWITTER_RSS_BASE_URLS` and
-`TWITTER_FEED_URL_TEMPLATES`.
+Twitter/X usernames are normalised to a handle.  In production, when
+`TWITTER_BEARER_TOKEN` and an X list ID are available, the collector reads the
+X list timeline once and maps returned tweets back to the tracked member
+handles.  This avoids one API read per account.
 
-The collector supports two ways to build live Twitter/X feed URLs:
+If list timeline collection is unavailable or fails, the collector falls back
+to per-account X API timeline reads and then to RSS bridge URLs built from
+`TWITTER_RSS_BASE_URLS` and `TWITTER_FEED_URL_TEMPLATES`.
+
+The fallback bridge collector supports two ways to build live Twitter/X feed
+URLs:
 
 - `TWITTER_RSS_BASE_URLS` is for bridges that expose the conventional
   `/{handle}/rss` path
@@ -378,6 +384,8 @@ Optional environment variables:
 - `X_LIST_ADD_DELAY_SECONDS`: delay between list member writes, default `1`
 - `X_LIST_RATE_LIMIT_SLEEP_MAX_SECONDS`: maximum automatic rate-limit sleep,
   default `1200`
+- `USE_X_LIST_TIMELINE`: use the X list timeline for Twitter reads when a list
+  ID is available, default `true`
 - `DB_PATH`: DuckDB path, default `~/.tradingstrategy/vaults/vault-post-database.duckdb`
 - `MAPPINGS_DIR`: feeder YAML root, default `eth_defi/data/feeds`
 - `LOG_LEVEL`: logging level, default `info` for this standalone script
@@ -503,6 +511,8 @@ Environment variables accepted by the runner:
 - `X_LIST_ADD_DELAY_SECONDS`: delay between list member writes, default `1`
 - `X_LIST_RATE_LIMIT_SLEEP_MAX_SECONDS`: maximum automatic rate-limit sleep,
   default `1200`
+- `USE_X_LIST_TIMELINE`: use the X list timeline for Twitter reads when a list
+  ID is available, default `true`
 
 ## Main files
 
