@@ -4,6 +4,4 @@ role: protocol
 website: https://www.euler.finance/
 twitter: eulerfinance
 linkedin: euler-xyz
-rss: https://newsletter.euler.finance/feed
-rss-failure-at: 2026-04-30
-rss-failure-exception-message: "Feed parse failed for https://newsletter.euler.finance/feed: <unknown>:2:219721: not well-formed (invalid token)"
+# rss: https://newsletter.euler.finance/feed  # Redirects to euler.finance HTML; active website blog has no RSS endpoint as of 2026-05.

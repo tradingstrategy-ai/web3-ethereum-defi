@@ -5,6 +5,3 @@ website: https://usdd.io/
 twitter: usddio
 linkedin: trondao
 rss: https://trondao.medium.com/feed
-rss-failure-at: 2026-04-10
-rss-failure-status-code: 429
-rss-failure-exception-message: "429 Client Error: Too Many Requests for url: https://trondao.medium.com/feed"

@@ -2,7 +2,7 @@
 # Redemption at 1:1 until March 2027, protocol ceasing operations after
 # Team now focuses on Merkl incentive platform
 # blog.angle.money custom domain DNS is dead, but Medium publication still exists
-# RSS feed available at medium.com/feed/angle-protocol (last posts from 2022)
+# RSS feed moved from Medium to Paragraph.
 # Twitter @AngleProtocol confirmed active and correct
 feeder-id: usda
 name: Angle USDA
@@ -10,5 +10,4 @@ role: stablecoin
 website: https://www.angle.money/
 twitter: AngleProtocol
 linkedin: angle-labs
-rss: https://medium.com/feed/angle-protocol
-rss-dead-at: 2026-04-06
+rss: https://api.paragraph.com/blogs/rss/@angleprotocol

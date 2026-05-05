@@ -6,6 +6,3 @@ twitter: mstable_
 linkedin: stability-labs
 rss: https://medium.com/feed/mstable
 linkedin-rss-hub-disabled-at: 2026-04-04
-rss-failure-at: 2026-04-10
-rss-failure-status-code: 429
-rss-failure-exception-message: "429 Client Error: Too Many Requests for url: https://medium.com/feed/mstable"

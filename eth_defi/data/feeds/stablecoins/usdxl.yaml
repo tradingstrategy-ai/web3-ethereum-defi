@@ -3,6 +3,4 @@ name: HypurrFi Last USD
 role: stablecoin
 website: https://hypurr.fi/
 twitter: HypurrFi
-rss: https://hypurrfi.beehiiv.com/feed
-rss-failure-at: 2026-04-30
-rss-failure-exception-message: "Feed parse failed for https://hypurrfi.beehiiv.com/feed: <unknown>:109:918: not well-formed (invalid token)"
+# rss: https://hypurrfi.beehiiv.com/feed  # Beehiiv archive is active, but /feed returns an HTML 404 page as of 2026-05.

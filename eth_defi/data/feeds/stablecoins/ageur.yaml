@@ -4,8 +4,5 @@ role: stablecoin
 website: https://www.angle.money/
 twitter: AngleProtocol
 linkedin: angle-labs
-rss: https://medium.com/feed/angle-protocol
-rss-failure-at: 2026-04-06
-rss-failure-status-code: 429
-rss-failure-exception-message: "429 Client Error: Too Many Requests for url: https://medium.com/feed/angle-protocol"
-rss-dead-at: 2026-04-06
+# Angle blog moved from Medium to Paragraph.
+rss: https://api.paragraph.com/blogs/rss/@angleprotocol

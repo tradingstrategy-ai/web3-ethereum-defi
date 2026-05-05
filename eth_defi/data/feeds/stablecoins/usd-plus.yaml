@@ -5,6 +5,3 @@ website: https://overnight.fi/
 twitter: overnight_fi
 linkedin: overnightfi
 rss: https://overnightdefi.medium.com/feed
-rss-failure-at: 2026-04-10
-rss-failure-status-code: 429
-rss-failure-exception-message: "429 Client Error: Too Many Requests for url: https://overnightdefi.medium.com/feed"

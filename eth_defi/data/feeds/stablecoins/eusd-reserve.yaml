@@ -5,6 +5,3 @@ website: https://app.reserve.org/
 twitter: reserveprotocol
 linkedin: reserveprotocol
 rss: https://blog.reserve.org/feed
-rss-failure-at: 2026-04-06
-rss-failure-status-code: 429
-rss-failure-exception-message: "429 Client Error: Too Many Requests for url: https://blog.reserve.org/feed"

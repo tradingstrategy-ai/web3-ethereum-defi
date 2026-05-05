@@ -4,7 +4,4 @@ role: stablecoin
 website: https://stablecoin.z.com/zusd/
 twitter: GMOTrust
 linkedin: gmo-z-com-trust-company
-rss: https://medium.com/feed/gmo-z-com-trust-company
-rss-failure-at: 2026-04-10
-rss-failure-status-code: 429
-rss-failure-exception-message: "429 Client Error: Too Many Requests for url: https://medium.com/feed/gmo-z-com-trust-company"
+# rss: https://medium.com/feed/gmo-z-com-trust-company  # Medium is stale; official press page is active but has no RSS endpoint as of 2026-05.

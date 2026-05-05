@@ -4,7 +4,5 @@ role: stablecoin
 website: https://katana.network/
 twitter: katana
 linkedin: katananetwork
+# Official blog is active, but no RSS endpoint was found as of 2026-05; keep Medium as the only RSS source.
 rss: https://medium.com/feed/@katananetwork
-rss-failure-at: 2026-04-10
-rss-failure-status-code: 429
-rss-failure-exception-message: "429 Client Error: Too Many Requests for url: https://medium.com/feed/@katananetwork"

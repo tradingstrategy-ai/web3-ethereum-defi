@@ -4,8 +4,6 @@ role: stablecoin
 website: https://reservoir.xyz/
 twitter: __reservoir
 linkedin: fortunafi
-rss: https://reservoir.beehiiv.com/feed
 linkedin-rss-hub-disabled-at: 2026-04-04
 twitter-dead-at: 2026-04-06
-rss-failure-at: 2026-04-30
-rss-failure-exception-message: "Feed parse failed for https://reservoir.beehiiv.com/feed: <unknown>:109:918: not well-formed (invalid token)"
+# rss: https://reservoir.beehiiv.com/feed  # Beehiiv archive is active, but /feed returns an HTML 404 page as of 2026-05.

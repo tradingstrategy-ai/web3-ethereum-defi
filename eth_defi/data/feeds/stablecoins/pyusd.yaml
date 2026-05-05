@@ -4,6 +4,5 @@ role: stablecoin
 website: https://www.paypal.com/pyusd
 twitter: PayPal
 linkedin: paypal
-rss: https://newsroom.paypal-corp.com/index.php?s=20324&rsspage=20325
-rss-failure-at: 2026-04-30
-rss-failure-exception-message: "Feed parse failed for https://newsroom.paypal-corp.com/index.php?s=20324&rsspage=20325: <unknown>:3:0: syntax error"
+# PayPal newsroom RSS moved from the old index.php query endpoint to pagetemplate=rss.
+rss: https://newsroom.paypal-corp.com/news-cryptocurrency?pagetemplate=rss

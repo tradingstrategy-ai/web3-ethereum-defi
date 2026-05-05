@@ -4,7 +4,4 @@ role: stablecoin
 website: https://orby.network/
 twitter: OrbyNetwork
 rss: https://orbynetwork.medium.com/feed
-rss-failure-at: 2026-04-06
-rss-failure-status-code: 429
-rss-failure-exception-message: "429 Client Error: Too Many Requests for url: https://orbynetwork.medium.com/feed"
 rss-dead-at: 2026-04-06

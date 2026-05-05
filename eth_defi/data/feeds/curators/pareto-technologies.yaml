@@ -3,6 +3,4 @@ name: Pareto Technologies
 role: curator
 website: https://paretotechnologies.com
 linkedin: pareto-technologies-llc
-rss: https://paretotechnologies.beehiiv.com/feed.xml
-rss-failure-at: 2026-04-30
-rss-failure-exception-message: "Feed parse failed for https://paretotechnologies.beehiiv.com/feed.xml: <unknown>:109:918: not well-formed (invalid token)"
+# rss: https://paretotechnologies.beehiiv.com/feed.xml  # Beehiiv archive is active, but /feed and /feed.xml return HTML 404 pages as of 2026-05.

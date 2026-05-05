@@ -4,7 +4,4 @@ role: stablecoin
 website: https://www.tangent.finance/
 twitter: Tangent_fi
 rss: https://medium.com/feed/tangent-finance
-rss-failure-at: 2026-04-06
-rss-failure-status-code: 429
-rss-failure-exception-message: "429 Client Error: Too Many Requests for url: https://medium.com/feed/tangent-finance"
 rss-dead-at: 2026-04-06
