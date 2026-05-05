@@ -66,8 +66,19 @@ website: https://example.org
 twitter: example
 linkedin: example-company
 rss: https://example.org/feed.xml
+
+# Evidence and background references.
+#
+# Use this section to preserve why this organisation is treated as a
+# vault curator.  Prefer primary sources: protocol forum announcements,
+# protocol docs, curator launch posts, vault UI pages, or official blog
+# posts.  These links are metadata only; the feed collector will not
+# fetch them as post sources.
+#
+# Be verbose with titles so a future reviewer can understand the
+# evidence without opening every link.
 other-links:
-  - title: Curator evidence
+  - title: Protocol forum - {Curator name} announced as curator for {vault or strategy name}
     url: https://example.org/curator-announcement
 ```
 
