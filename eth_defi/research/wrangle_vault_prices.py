@@ -6,13 +6,19 @@
 - Remove abnormalities in the price data
 - Reduce data by removing hourly changes that are below our epsilon threshold
 - Generate returns data
+
+The input is the raw scanner parquet conforming to
+:py:class:`~eth_defi.vault.base.RawVaultPriceRow`.
+The output is a cleaned DataFrame conforming to
+:py:class:`CleanedVaultPriceRow`, consumed by
+:py:func:`~eth_defi.research.vault_metrics.calculate_lifetime_metrics`.
 """
 
 import os
 import pickle
 import warnings
 from pathlib import Path
-from typing import Callable
+from typing import Callable, TypedDict
 
 from atomicwrites import atomic_write
 import numpy as np
@@ -25,6 +31,282 @@ from eth_defi.chain import get_chain_name
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
+
+
+class CleanedVaultPriceRow(TypedDict, total=False):
+    """Schema for a single row in the cleaned vault price DataFrame.
+
+    This is the enriched format produced by the cleaning pipeline in this module
+    and consumed by
+    :py:func:`~eth_defi.research.vault_metrics.calculate_lifetime_metrics`.
+
+    It extends :py:class:`~eth_defi.vault.base.RawVaultPriceRow` with
+    denormalised metadata columns (``id``, ``name``, ``event_count``,
+    ``protocol``) and computed columns (``returns_1h``).
+    The DataFrame uses a :py:class:`~pandas.DatetimeIndex` built from the
+    ``timestamp`` column.
+
+    Columns are grouped by availability:
+
+    - **General** columns are present for all vault protocols.
+    - **ERC-4626 only** columns come from on-chain ERC-4626 calls and are
+      NaN / empty for native protocols.
+    - **Lending only** columns are populated for lending protocol vaults
+      (IPOR, Euler, Morpho, Gearbox, etc.) and NaN for others.
+    - **Hypercore only** columns come from the Hyperliquid native vault API
+      and are NaN for all other protocols.
+    - **Native protocol flow** columns are populated for native protocols
+      that provide daily deposit/withdrawal data (Hypercore, GRVT, Lighter,
+      Hibachi) and NaN for ERC-4626 vaults.
+    """
+
+    # -- General columns (all protocols) --
+
+    #: EVM chain id (e.g. ``1`` for Ethereum, ``8453`` for Base).
+    #:
+    #: Native (non-EVM) protocols use synthetic in-house chain ids:
+    #:
+    #: - ``9999`` — Hypercore (native Hyperliquid vaults),
+    #:   see :py:data:`~eth_defi.hyperliquid.constants.HYPERCORE_CHAIN_ID`
+    #: - ``9998`` — Lighter DEX pools,
+    #:   see :py:data:`~eth_defi.lighter.constants.LIGHTER_CHAIN_ID`
+    #: - ``9997`` — Hibachi native vaults,
+    #:   see :py:data:`~eth_defi.hibachi.constants.HIBACHI_CHAIN_ID`
+    #: - ``325`` — GRVT (Gravity Markets),
+    #:   see :py:data:`~eth_defi.grvt.constants.GRVT_CHAIN_ID`
+    #:
+    #: The full mapping lives in :py:data:`~eth_defi.chain.CHAIN_NAMES`.
+    #:
+    #: General — present for all protocols.
+    chain: int
+
+    #: Vault contract address, lowercase.
+    #:
+    #: Address formats vary by protocol:
+    #:
+    #: - EVM vaults: ``0x``-prefixed hex (e.g. ``"0xabcd..."``)
+    #: - Hypercore: ``0x``-prefixed hex (Hyperliquid vault addresses)
+    #: - GRVT: platform-specific id (e.g. ``"vlt:xxx"``)
+    #: - Lighter: synthetic id (e.g. ``"lighter-pool-281474976710654"``)
+    #: - Hibachi: synthetic id (e.g. ``"hibachi-vault-2"``)
+    #:
+    #: See :py:func:`~eth_defi.utils.is_good_multichain_address` for
+    #: the validation function that accepts all these formats.
+    #:
+    #: General — present for all protocols.
+    address: str
+
+    #: Block number of the on-chain read.
+    #: For native protocols without blocks this is a synthetic sequence number.
+    #:
+    #: General — present for all protocols.
+    block_number: int
+
+    #: Naive UTC timestamp (also used as the DatetimeIndex).
+    #:
+    #: General — present for all protocols.
+    timestamp: "pd.Timestamp"
+
+    #: Share price in denomination token units.
+    #:
+    #: For ERC-4626 vaults this is read directly from the contract
+    #: (``convertToAssets(1e decimals)``).
+    #: GRVT, Lighter, and Hibachi provide native share prices from their
+    #: respective APIs.
+    #: Hypercore (native Hyperliquid vaults) does not expose a share price;
+    #: it is **internally calculated** as ``total_assets / total_supply``
+    #: from reconstructed equity curves and deposit/withdrawal histories.
+    #: See :py:mod:`eth_defi.hyperliquid.combined_analysis` for the
+    #: Hypercore share price derivation.
+    #:
+    #: General — present for all protocols.
+    share_price: float
+
+    #: Total assets under management (TVL) in denomination token units.
+    #:
+    #: General — present for all protocols.
+    total_assets: float
+
+    #: Total supply of vault share tokens.
+    #:
+    #: General — present for all protocols.
+    total_supply: float
+
+    #: Performance fee at time of read (e.g. 0.20 = 20%). NaN if unknown.
+    #:
+    #: General — present for all protocols.
+    performance_fee: float
+
+    #: Management fee at time of read (e.g. 0.02 = 2%). NaN if unknown.
+    #:
+    #: General — present for all protocols.
+    management_fee: float
+
+    #: Comma-separated RPC error messages, or empty string if no errors.
+    #:
+    #: Example values: ``"total_supply call failed"``,
+    #: ``"total_assets zero: 0"``, ``"total_supply call missing"``.
+    #: Always empty for native protocols.
+    #:
+    #: General — present for all protocols (always empty for native protocols).
+    errors: str
+
+    #: Dynamic poll frequency used when taking this sample.
+    #: Empty string if not set.
+    #:
+    #: Example values: ``"1h"``, ``"4h"``, ``"24h"``.
+    #: The scanner adjusts frequency based on vault TVL and activity;
+    #: low-TVL vaults may be polled less frequently.
+    #:
+    #: General — present for all protocols (may be empty for native protocols).
+    vault_poll_frequency: str
+
+    # -- Denormalised metadata columns added by the cleaning pipeline --
+
+    #: Vault identifier string: ``"<chain_id>-<address>"``.
+    #:
+    #: General — present for all protocols.
+    id: str
+
+    #: Human-readable vault name (unique within the dataset).
+    #:
+    #: General — present for all protocols.
+    name: str
+
+    #: Total deposit + redeem events observed for this vault.
+    #:
+    #: General — present for all protocols.
+    event_count: int
+
+    #: Protocol name (e.g. ``"Morpho"``, ``"Yearn"``, ``"Hyperliquid"``).
+    #:
+    #: General — present for all protocols.
+    protocol: str
+
+    # -- Computed columns --
+
+    #: Hourly return as ``pct_change()`` of ``share_price`` within each vault group.
+    #: Despite the name, for native protocols (Hypercore, GRVT, Lighter) the
+    #: interval may be daily or irregular — the column name is kept for
+    #: backward compatibility.
+    #:
+    #: General — present for all protocols.
+    returns_1h: float
+
+    # -- Vault state pass-through columns (from VAULT_STATE_COLUMNS) --
+
+    #: Maximum deposit amount allowed (ERC-4626 ``maxDeposit``). NaN if unknown.
+    #:
+    #: ERC-4626 only — NaN for native protocols.
+    max_deposit: float
+
+    #: Maximum redeem amount allowed (ERC-4626 ``maxRedeem``). NaN if unknown.
+    #:
+    #: ERC-4626 only — NaN for native protocols.
+    max_redeem: float
+
+    #: Whether deposits were open: ``"true"``, ``"false"``, or ``""``.
+    #:
+    #: ERC-4626 only — empty for native protocols.
+    deposits_open: str
+
+    #: Whether redemptions were open: ``"true"``, ``"false"``, or ``""``.
+    #:
+    #: ERC-4626 only — empty for native protocols.
+    redemption_open: str
+
+    #: Whether the vault was actively trading: ``"true"``, ``"false"``, or ``""``.
+    #: Currently only supported for D2 Finance vaults.
+    #:
+    #: Protocol-specific — empty for most protocols.
+    trading: str
+
+    #: Available liquidity for immediate withdrawal in denomination token units. NaN if not applicable.
+    #:
+    #: Lending only — IPOR, Euler, Morpho, Gearbox, etc. NaN for other protocols.
+    available_liquidity: float
+
+    #: Utilisation ratio (0.0–1.0) for lending vaults. NaN if not applicable.
+    #:
+    #: .. warning::
+    #:
+    #:    This metric measures **capital deployment efficiency**
+    #:    (how much of the vault's AUM is lent out), not redeemable liquidity.
+    #:    For single-market vaults (Euler EVK, Gearbox, Silo) high utilisation
+    #:    does mean low available liquidity.
+    #:    For multi-market aggregators (Morpho, Euler Earn, IPOR) a vault can
+    #:    show 95% utilisation yet have substantial instantly redeemable
+    #:    liquidity in low-utilisation underlying markets.
+    #:    See ``README-vault-redeemable.md`` and ``README-utilisation.md``
+    #:    in :py:mod:`eth_defi.erc_4626.vault_protocol` for details.
+    #:
+    #: Lending only — IPOR, Euler, Morpho, Gearbox, etc. NaN for other protocols.
+    utilisation: float
+
+    #: Unified reason why deposits are closed (e.g. ``"Vault deposits disabled"``).
+    #: Empty string if deposits are open. Derived from ``deposits_open`` for
+    #: ERC-4626 vaults or set directly by native protocol exporters.
+    #:
+    #: General — present for all protocols (empty when deposits are open).
+    deposit_closed_reason: str
+
+    #: When this price row was actually written/fetched (naive UTC). NaT for old data.
+    #:
+    #: General — present for all protocols.
+    written_at: "pd.Timestamp"
+
+    # -- Hypercore only columns --
+    # Populated for native Hyperliquid vaults (chain 9999). NaN for all other protocols.
+
+    #: Fraction of vault assets controlled by the leader (0.0–1.0).
+    #:
+    #: Hypercore only — NaN for all other protocols.
+    leader_fraction: float
+
+    #: Commission rate charged by the vault leader (0.0–1.0).
+    #:
+    #: Hypercore only — NaN for all other protocols.
+    leader_commission: float
+
+    #: Number of followers in the vault.
+    #:
+    #: Hypercore only — NaN for all other protocols.
+    follower_count: float
+
+    #: Cumulative PnL of the vault leader account in USD.
+    #:
+    #: Hypercore only — NaN for all other protocols.
+    account_pnl: float
+
+    #: Cumulative trading volume of the vault in USD.
+    #:
+    #: Hypercore only — NaN for all other protocols.
+    cumulative_volume: float
+
+    # -- Native protocol flow columns --
+    # Populated for native protocols with daily deposit/withdrawal data
+    # (Hypercore, GRVT, Lighter, Hibachi). NaN for ERC-4626 vaults.
+
+    #: Number of deposit events in the latest day.
+    #:
+    #: Native protocol flow — Hypercore, GRVT, Lighter, Hibachi. NaN for ERC-4626 vaults.
+    daily_deposit_count: float
+
+    #: Number of withdrawal events in the latest day.
+    #:
+    #: Native protocol flow — Hypercore, GRVT, Lighter, Hibachi. NaN for ERC-4626 vaults.
+    daily_withdrawal_count: float
+
+    #: Total USD deposited in the latest day.
+    #:
+    #: Native protocol flow — Hypercore, GRVT, Lighter, Hibachi. NaN for ERC-4626 vaults.
+    daily_deposit_usd: float
+
+    #: Total USD withdrawn in the latest day.
+    #:
+    #: Native protocol flow — Hypercore, GRVT, Lighter, Hibachi. NaN for ERC-4626 vaults.
+    daily_withdrawal_usd: float
+
 
 #: For manual debugging, we process these vaults first
 PRIORITY_SORT_IDS = [
@@ -47,6 +329,7 @@ def get_vaults_by_id(rows: dict[VaultSpec, VaultRow]) -> dict[str, VaultRow]:
 #: Vault state and pass-through columns added by the historical scanner.
 #: Ensure these are always present in cleaned data,
 #: even when processing old scan data that lacks them.
+#: See :py:class:`CleanedVaultPriceRow` for column semantics.
 VAULT_STATE_COLUMNS = {
     "max_deposit": float("nan"),
     "max_redeem": float("nan"),

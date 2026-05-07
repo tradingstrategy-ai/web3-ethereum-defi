@@ -7,6 +7,10 @@
 - Handle both trading (asset management role) and investor management (deposits/redemptions)
 
 - See :py:class:`VaultBase` to get started
+
+- See :py:class:`RawVaultPriceRow` for the raw scanner parquet row schema
+  and :py:class:`~eth_defi.research.wrangle_vault_prices.CleanedVaultPriceRow`
+  for the enriched cleaned format
 """
 
 import dataclasses
@@ -208,6 +212,147 @@ class VaultPortfolio:
 _nan = float("nan")
 
 
+class RawVaultPriceRow(TypedDict, total=False):
+    """Schema for a single row in the uncleaned vault price parquet file.
+
+    This is the format produced by :py:meth:`VaultHistoricalRead.export` and written
+    to ``vault-prices-1h.parquet`` by the historical scanner
+    (:py:func:`~eth_defi.vault.historical.scan_historical_prices_to_parquet`).
+
+    The canonical columns are defined by :py:meth:`VaultHistoricalRead.to_pyarrow_schema`.
+    Native protocol merges (Hyperliquid, GRVT, Lighter, Hibachi) may add extra columns
+    (e.g. ``account_pnl``, ``leader_fraction``) that are preserved across schema migrations
+    but are not part of this TypedDict.
+
+    See :py:class:`CleanedVaultPriceRow` in
+    :py:mod:`eth_defi.research.wrangle_vault_prices` for the enriched schema
+    produced by the cleaning pipeline.
+    """
+
+    #: EVM chain id (e.g. ``1`` for Ethereum, ``8453`` for Base).
+    #:
+    #: Native (non-EVM) protocols use synthetic in-house chain ids:
+    #:
+    #: - ``9999`` — Hypercore (native Hyperliquid vaults),
+    #:   see :py:data:`~eth_defi.hyperliquid.constants.HYPERCORE_CHAIN_ID`
+    #: - ``9998`` — Lighter DEX pools,
+    #:   see :py:data:`~eth_defi.lighter.constants.LIGHTER_CHAIN_ID`
+    #: - ``9997`` — Hibachi native vaults,
+    #:   see :py:data:`~eth_defi.hibachi.constants.HIBACHI_CHAIN_ID`
+    #: - ``325`` — GRVT (Gravity Markets),
+    #:   see :py:data:`~eth_defi.grvt.constants.GRVT_CHAIN_ID`
+    #:
+    #: The full mapping lives in :py:data:`~eth_defi.chain.CHAIN_NAMES`.
+    chain: int
+
+    #: Vault contract address, lowercase.
+    #:
+    #: Address formats vary by protocol:
+    #:
+    #: - EVM vaults: ``0x``-prefixed hex (e.g. ``"0xabcd..."``)
+    #: - Hypercore: ``0x``-prefixed hex (Hyperliquid vault addresses)
+    #: - GRVT: platform-specific id (e.g. ``"vlt:xxx"``)
+    #: - Lighter: synthetic id (e.g. ``"lighter-pool-281474976710654"``)
+    #: - Hibachi: synthetic id (e.g. ``"hibachi-vault-2"``)
+    #:
+    #: See :py:func:`~eth_defi.utils.is_good_multichain_address` for
+    #: the validation function that accepts all these formats.
+    address: str
+
+    #: Block number of the on-chain read.
+    #: For native protocols without blocks this is a synthetic sequence number.
+    block_number: int
+
+    #: Naive UTC timestamp of the block.
+    timestamp: "pd.Timestamp"
+
+    #: Share price in denomination token units.
+    #:
+    #: For ERC-4626 vaults this is read directly from the contract
+    #: (``convertToAssets(1e decimals)``).
+    #: GRVT, Lighter, and Hibachi provide native share prices from their
+    #: respective APIs.
+    #: Hypercore (native Hyperliquid vaults) does not expose a share price;
+    #: it is **internally calculated** as ``total_assets / total_supply``
+    #: from reconstructed equity curves and deposit/withdrawal histories.
+    #: See :py:mod:`eth_defi.hyperliquid.combined_analysis` for the
+    #: Hypercore share price derivation.
+    share_price: float
+
+    #: Total assets under management (TVL) in denomination token units.
+    total_assets: float
+
+    #: Total supply of vault share tokens.
+    total_supply: float
+
+    #: Performance fee at time of read (e.g. 0.20 = 20%). NaN if unknown.
+    performance_fee: float
+
+    #: Management fee at time of read (e.g. 0.02 = 2%). NaN if unknown.
+    management_fee: float
+
+    #: Comma-separated RPC error messages, or empty string if no errors.
+    #:
+    #: Example values: ``"total_supply call failed"``,
+    #: ``"total_assets zero: 0"``, ``"total_supply call missing"``.
+    errors: str
+
+    #: Dynamic poll frequency used when taking this sample.
+    #: Empty string if not set.
+    #:
+    #: Example values: ``"1h"``, ``"4h"``, ``"24h"``.
+    #: The scanner adjusts frequency based on vault TVL and activity;
+    #: low-TVL vaults may be polled less frequently.
+    vault_poll_frequency: str
+
+    #: Maximum deposit amount allowed (ERC-4626 ``maxDeposit``),
+    #: in denomination token units. NaN if unknown.
+    #: ERC-4626 vaults only.
+    max_deposit: float
+
+    #: Maximum redeem amount allowed (ERC-4626 ``maxRedeem``),
+    #: in share token units. NaN if unknown.
+    #: ERC-4626 vaults only.
+    max_redeem: float
+
+    #: Whether deposits were open: ``"true"``, ``"false"``, or ``""`` (unknown).
+    #: Stored as string for legacy reasons; see ``deposit_closed_reason`` in
+    #: :py:class:`~eth_defi.research.wrangle_vault_prices.CleanedVaultPriceRow`.
+    #: ERC-4626 vaults only.
+    deposits_open: str
+
+    #: Whether redemptions were open: ``"true"``, ``"false"``, or ``""`` (unknown).
+    #: ERC-4626 vaults only.
+    redemption_open: str
+
+    #: Whether the vault was actively trading: ``"true"``, ``"false"``, or ``""`` (unknown).
+    #: Currently only supported for D2 Finance vaults.
+    trading: str
+
+    #: Available liquidity for immediate withdrawal in denomination token units.
+    #: Lending protocol vaults only (IPOR, Euler, Morpho, Gearbox, etc.). NaN otherwise.
+    available_liquidity: float
+
+    #: Utilisation ratio (0.0–1.0) for lending vaults. NaN if not applicable.
+    #: Lending protocol vaults only.
+    #:
+    #: .. warning::
+    #:
+    #:    This metric measures **capital deployment efficiency**
+    #:    (how much of the vault's AUM is lent out), not redeemable liquidity.
+    #:    For single-market vaults (Euler EVK, Gearbox, Silo) high utilisation
+    #:    does mean low available liquidity.
+    #:    For multi-market aggregators (Morpho, Euler Earn, IPOR) a vault can
+    #:    show 95% utilisation yet have substantial instantly redeemable
+    #:    liquidity in low-utilisation underlying markets.
+    #:    See ``README-vault-redeemable.md`` and ``README-utilisation.md``
+    #:    in :py:mod:`eth_defi.erc_4626.vault_protocol` for details.
+    utilisation: float
+
+    #: When this row was actually written/fetched (naive UTC). ``None`` until stamped at write time.
+    written_at: "pd.Timestamp | None"
+
+
 @dataclass(slots=True, frozen=False)
 class VaultHistoricalRead:
     """Vault share price and fee structure at the point of time."""
@@ -322,8 +467,11 @@ class VaultHistoricalRead:
 
         return abs(share_price_diff) <= epsilon and abs(total_assets_diff) <= epsilon and abs(total_supply_diff) <= epsilon
 
-    def export(self) -> dict:
-        """Convert historical read for a Parquet/DataFrame export."""
+    def export(self) -> "RawVaultPriceRow":
+        """Convert historical read for a Parquet/DataFrame export.
+
+        The returned dict conforms to :py:class:`RawVaultPriceRow`.
+        """
         error_msgs = ", ".join(self.errors) if self.errors else None
         data = {
             "chain": self.vault.chain_id,
@@ -357,6 +505,7 @@ class VaultHistoricalRead:
         """Get parquet schema for writing this data.
 
         - Write multiple chains, multiple vaults, to a single Parquet file
+        - Column semantics are documented in :py:class:`RawVaultPriceRow`
         """
         import pyarrow as pa
 

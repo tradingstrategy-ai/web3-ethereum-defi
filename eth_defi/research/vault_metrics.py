@@ -1134,7 +1134,8 @@ def calculate_vault_record(
     - Exported to frontend, everything
 
     :param prices_df:
-        Price DataFrame for a single vault
+        Price DataFrame for a single vault, conforming to
+        :py:class:`~eth_defi.research.wrangle_vault_prices.CleanedVaultPriceRow`
 
     :param vault_metadata_rows:
         Dictionary of vault metadata keyed by VaultSpec
@@ -1618,6 +1619,11 @@ def calculate_lifetime_metrics(
     - Volatility (3M)
 
     Lookback based on the last entry.
+
+    :param df:
+        Cleaned price DataFrame conforming to
+        :py:class:`~eth_defi.research.wrangle_vault_prices.CleanedVaultPriceRow`.
+        Must have a :py:class:`~pandas.DatetimeIndex`.
 
     :param vault_db:
         Pass all vaults or subset of vaults as VaultRows, or full VaultDatabase
