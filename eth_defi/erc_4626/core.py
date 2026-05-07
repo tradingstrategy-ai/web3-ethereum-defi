@@ -939,10 +939,15 @@ class ERC4262VaultDetection:
     #: When this entry was scanned on chain
     updated_at: datetime.datetime
 
-    #: Event counts
+    #: Number of on-chain deposit events observed.
+    #:
+    #: Zero for native protocols (GRVT, Lighter, Hibachi) that do not
+    #: support on-chain deposit/redeem event tracking.
     deposit_count: int
 
-    #: Event counts
+    #: Number of on-chain redeem events observed.
+    #:
+    #: Zero for native protocols that do not support on-chain event tracking.
     redeem_count: int
 
     def get_spec(self) -> VaultSpec:

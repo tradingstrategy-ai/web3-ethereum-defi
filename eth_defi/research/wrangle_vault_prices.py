@@ -175,6 +175,9 @@ class CleanedVaultPriceRow(TypedDict, total=False):
 
     #: Total deposit + redeem events observed for this vault.
     #:
+    #: Zero if the protocol does not support on-chain deposit/redeem event tracking
+    #: (e.g. native vaults like GRVT, Lighter, Hibachi).
+    #:
     #: General — present for all protocols.
     event_count: int
 

@@ -98,7 +98,7 @@ def create_lighter_pool_row(
         first_seen_at=created_at or datetime.datetime(2025, 1, 1),
         features={ERC4626Feature.lighter_native},
         updated_at=native_datetime_utc_now(),
-        deposit_count=1,
+        deposit_count=0,
         redeem_count=0,
     )
 

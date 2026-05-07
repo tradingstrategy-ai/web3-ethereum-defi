@@ -101,7 +101,7 @@ def create_grvt_vault_row(
         first_seen_at=datetime.datetime(2025, 1, 1),
         features={ERC4626Feature.grvt_native},
         updated_at=native_datetime_utc_now(),
-        deposit_count=1,
+        deposit_count=0,
         redeem_count=0,
     )
 

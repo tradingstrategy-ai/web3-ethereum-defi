@@ -262,7 +262,7 @@ def test_calculate_vault_record_emits_manual_review_status() -> None:
         first_seen_at=datetime.datetime(2024, 1, 1),
         features={ERC4626Feature.hypercore_native},
         updated_at=datetime.datetime(2024, 1, 1),
-        deposit_count=1,
+        deposit_count=0,
         redeem_count=0,
     )
     fee_data = FeeData(
