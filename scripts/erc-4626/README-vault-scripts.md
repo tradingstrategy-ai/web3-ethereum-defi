@@ -66,6 +66,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SCAN_GRVT` | Optional. Enable GRVT native vault scanning. Default: false. |
 | `SCAN_LIGHTER` | Optional. Enable Lighter native pool scanning. Default: false. |
 | `SCAN_HIBACHI` | Optional. Enable Hibachi native vault scanning. Default: false. |
+| `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
 
 ### scan-prices.py
 
@@ -125,6 +126,7 @@ MERGE_HYPERCORE=true MERGE_GRVT=true MERGE_LIGHTER=true \
 | `MERGE_GRVT` | Optional. Merge GRVT native vault data. Default: false. |
 | `MERGE_LIGHTER` | Optional. Merge Lighter native pool data. Default: false. |
 | `SKIP_EXPORT` | Optional. Skip sparkline and metadata export to R2. Default: false. |
+| `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
 | `LOG_LEVEL` | Optional. Default: info. |
 
 ### clean-prices.py
@@ -168,6 +170,31 @@ poetry run python scripts/erc-4626/export-protocol-metadata.py
 | `R2_VAULT_METADATA_PUBLIC_URL` | Required. R2 public URL. |
 | `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` | Optional. Alternative R2 bucket for the upcoming private commercial professional vault data bucket. Uses same credentials as primary. |
 | `MAX_WORKERS` | Optional. Default: 20. |
+
+### export-sample-files.py
+
+Export Ethereum-only sample versions of cleaned vault data files to Cloudflare R2.
+Generates `vault-historical.sample.parquet` and `vault-metadata.sample.json`
+filtered to Ethereum mainnet (chain_id=1) only, for free download.
+
+Sample files are uploaded to the primary (public) R2 bucket only, not the alternative bucket.
+
+```shell
+source .local-test.env && poetry run python scripts/erc-4626/export-sample-files.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `R2_DATA_BUCKET_NAME` | R2 bucket for data files (falls back to `R2_VAULT_METADATA_BUCKET_NAME`). |
+| `R2_DATA_ACCESS_KEY_ID` | R2 access key (falls back to `R2_VAULT_METADATA_ACCESS_KEY_ID`). |
+| `R2_DATA_SECRET_ACCESS_KEY` | R2 secret (falls back to `R2_VAULT_METADATA_SECRET_ACCESS_KEY`). |
+| `R2_DATA_ENDPOINT_URL` | R2 endpoint (falls back to `R2_VAULT_METADATA_ENDPOINT_URL`). |
+| `R2_DATA_PUBLIC_URL` | Public base URL (falls back to `R2_VAULT_METADATA_PUBLIC_URL`). |
+| `UPLOAD_PREFIX` | Optional. Prefix for S3 keys. |
+
+Public download URLs:
+- `https://vault-protocol-metadata.tradingstrategy.ai/vault-historical.sample.parquet`
+- `https://vault-protocol-metadata.tradingstrategy.ai/vault-metadata.sample.json`
 
 ### scan-vault-posts.py
 

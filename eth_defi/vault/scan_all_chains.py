@@ -1205,6 +1205,7 @@ def run_scan_tick(
     skip_sparklines: bool,
     skip_metadata: bool,
     skip_data: bool,
+    skip_samples: bool,
     vault_db_path: Path,
     uncleaned_price_path: Path,
     reader_state_path: Path,
@@ -1428,6 +1429,7 @@ def run_scan_tick(
             skip_sparklines=skip_sparklines,
             skip_metadata=skip_metadata,
             skip_data=skip_data,
+            skip_samples=skip_samples,
             uncleaned_parquet_path=uncleaned_price_path,
             hyperliquid_db_path=hyperliquid_db_path,
             hyperliquid_hf_db_path=hyperliquid_hf_db_path,
@@ -1520,6 +1522,7 @@ def main():
     skip_sparklines = os.environ.get("SKIP_SPARKLINES", "false").lower() == "true"
     skip_metadata = os.environ.get("SKIP_METADATA", "false").lower() == "true"
     skip_data = os.environ.get("SKIP_DATA", "false").lower() == "true"
+    skip_samples = os.environ.get("SKIP_SAMPLES", "false").lower() == "true"
 
     # Fail-fast: refuse to start the scan loop if the top-vaults R2 upload
     # is not configured. Discovering at the end of a multi-hour scan that
@@ -1670,6 +1673,7 @@ def main():
         skip_sparklines=skip_sparklines,
         skip_metadata=skip_metadata,
         skip_data=skip_data,
+        skip_samples=skip_samples,
         vault_db_path=vault_db_path,
         uncleaned_price_path=uncleaned_price_path,
         reader_state_path=reader_state_path,

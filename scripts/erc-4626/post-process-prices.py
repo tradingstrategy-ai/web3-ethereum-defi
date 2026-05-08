@@ -55,6 +55,7 @@ Pipeline control:
 - ``SKIP_SPARKLINES``: Skip sparkline image export to R2 (default: ``false``)
 - ``SKIP_METADATA``: Skip protocol/stablecoin metadata export to R2 (default: ``false``)
 - ``SKIP_DATA``: Skip data file (parquet, pickle) export to R2 (default: ``false``)
+- ``SKIP_SAMPLES``: Skip Ethereum-only sample file export to R2 (default: ``false``)
 - ``UPLOAD_PREFIX``: Prefix for uploaded data file keys, e.g. ``test-`` (default: ``""``). Applies to all R2 uploads including the top-vaults JSON.
 - ``MAX_WORKERS``: Number of parallel workers for rendering/uploading (default: ``20``)
 
@@ -123,6 +124,7 @@ def main():
     skip_sparklines = os.environ.get("SKIP_SPARKLINES", "false").lower() == "true"
     skip_metadata = os.environ.get("SKIP_METADATA", "false").lower() == "true"
     skip_data = os.environ.get("SKIP_DATA", "false").lower() == "true"
+    skip_samples = os.environ.get("SKIP_SAMPLES", "false").lower() == "true"
 
     # Fail-fast: crash with a clear error before we touch anything if the
     # top-vaults R2 upload is not configured. Matches scan-vaults-all-chains.py.
@@ -161,6 +163,7 @@ def main():
         skip_sparklines=skip_sparklines,
         skip_metadata=skip_metadata,
         skip_data=skip_data,
+        skip_samples=skip_samples,
         uncleaned_parquet_path=uncleaned_price_path,
         hyperliquid_db_path=hyperliquid_db_path,
         hyperliquid_hf_db_path=hyperliquid_hf_db_path,

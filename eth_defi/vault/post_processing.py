@@ -387,6 +387,46 @@ def export_data_files() -> bool:
         return False
 
 
+def export_sample_files(
+    skip_parquet_sample: bool = False,
+    skip_json_sample: bool = False,
+) -> bool:
+    """Export Ethereum-only sample data files to R2.
+
+    Generates filtered sample versions of the cleaned parquet and
+    top-vaults JSON for free download, then uploads to the primary
+    (public) R2 bucket only — deliberately skips the alternative
+    (private) bucket.
+
+    :param skip_parquet_sample:
+        Skip the parquet sample generation (e.g. when the
+        cleaned parquet was not generated this run).
+
+    :param skip_json_sample:
+        Skip the JSON sample generation (e.g. when the
+        top-vaults JSON was not generated this run).
+
+    :return: True if export succeeded
+    """
+    try:
+        logger.info("Exporting sample data files")
+        spec = importlib.util.spec_from_file_location(
+            "export_sample_files",
+            "scripts/erc-4626/export-sample-files.py",
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        module.main(
+            skip_parquet_sample=skip_parquet_sample,
+            skip_json_sample=skip_json_sample,
+        )
+        logger.info("Sample data file export complete")
+        return True
+    except Exception:
+        logger.exception("Export sample files failed")
+        return False
+
+
 def validate_top_vaults_config(skip_top_vaults: bool = False) -> None:
     """Fail-fast pre-flight check for the top-vaults JSON R2 upload.
 
@@ -546,6 +586,7 @@ def run_post_processing(
     skip_sparklines: bool = False,
     skip_metadata: bool = False,
     skip_data: bool = False,
+    skip_samples: bool = False,
     uncleaned_parquet_path: Path | None = None,
     hyperliquid_db_path: Path | None = None,
     hyperliquid_hf_db_path: Path | None = None,
@@ -564,6 +605,7 @@ def run_post_processing(
     4. Export sparklines to R2
     5. Export protocol metadata to R2
     6. Export data files (parquet, pickle) to R2
+    7. Export Ethereum-only sample files to R2 (public bucket only)
 
     :param scan_hypercore: Whether to merge Hypercore data
     :param scan_grvt: Whether to merge GRVT data
@@ -574,6 +616,7 @@ def run_post_processing(
     :param skip_sparklines: Skip sparkline image export to R2
     :param skip_metadata: Skip protocol/stablecoin metadata export to R2
     :param skip_data: Skip data file (parquet, pickle) export to R2
+    :param skip_samples: Skip Ethereum-only sample file export to R2
     :param uncleaned_parquet_path: Override for the uncleaned parquet path
     :param hyperliquid_db_path: Override for the daily Hyperliquid DuckDB path
     :param hyperliquid_hf_db_path: Override for the HF Hyperliquid DuckDB path
@@ -637,5 +680,34 @@ def run_post_processing(
         logger.info("Skipping data file export (SKIP_DATA=true)")
     else:
         steps["export-data-files"] = export_data_files()
+
+    # Step 7: Export Ethereum-only sample files (public bucket only)
+    if skip_samples:
+        logger.info("Skipping sample file export (SKIP_SAMPLES=true)")
+    else:
+        # Parquet sample requires clean-prices to have succeeded this run.
+        # If cleaning was explicitly skipped (SKIP_CLEANING=true), the operator
+        # asserts the existing cleaned parquet is valid, so samples are allowed.
+        parquet_ok = steps.get("clean-prices", True) if not skip_cleaning else True
+
+        # JSON sample requires BOTH a fresh cleaned parquet (top-vaults JSON is
+        # derived from cleaned data) AND a successful top-vaults export.
+        # This prevents sampling a JSON built from stale cleaned data after a
+        # cleaning failure.
+        json_ok = (parquet_ok and steps.get("export-top-vaults-json", False)) if not skip_top_vaults else False
+
+        # If neither sample type is eligible, skip the step entirely
+        # rather than recording a misleading "OK" for zero work.
+        if not parquet_ok and not json_ok:
+            logger.warning(
+                "Skipping sample export — no eligible source data (clean-prices=%s, export-top-vaults-json=%s)",
+                steps.get("clean-prices"),
+                steps.get("export-top-vaults-json"),
+            )
+        else:
+            steps["export-sample-files"] = export_sample_files(
+                skip_parquet_sample=not parquet_ok,
+                skip_json_sample=not json_ok,
+            )
 
     return steps

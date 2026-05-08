@@ -1,5 +1,7 @@
 # Current
 
+- feat: Ethereum-only sample vault data files (`vault-historical.sample.parquet`, `vault-metadata.sample.json`) generated during post-processing and uploaded to the public R2 bucket for free download; skip with `SKIP_SAMPLES=true` (2026-05-08)
+
 - fix: 40acres Aerodrome USDC vault on Base had a typo in the contract address (duplicated `d`), causing vault detection to fail; correct address is `0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5` (2026-05-05)
 
 - feat: Twitter list collector falls back to individual user timeline for handles with zero list results, ensuring last_post_published_at is always populated (2026-05-05)
