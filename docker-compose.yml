@@ -84,6 +84,7 @@ services:
       R2_TOP_VAULTS_PUBLIC_URL: ${R2_TOP_VAULTS_PUBLIC_URL:-}
       R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME: ${R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME:-}
       SKIP_TOP_VAULTS: ${SKIP_TOP_VAULTS:-false}
+      SKIP_SAMPLES: ${SKIP_SAMPLES:-false}
 
       # General workers per script
       MAX_WORKERS: ${MAX_WORKERS:-50}
@@ -221,6 +222,7 @@ services:
       R2_TOP_VAULTS_PUBLIC_URL: ${R2_TOP_VAULTS_PUBLIC_URL:-}
       R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME: ${R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME:-}
       SKIP_TOP_VAULTS: ${SKIP_TOP_VAULTS:-false}
+      SKIP_SAMPLES: ${SKIP_SAMPLES:-false}
 
       # Hyperliquid manual vault review Google Sheet sync — same
       # contract as the one-shot vault-scanner service above.
