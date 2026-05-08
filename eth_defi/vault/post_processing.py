@@ -409,14 +409,10 @@ def export_sample_files(
     :return: True if export succeeded
     """
     try:
+        from eth_defi.vault.sample_export import export_sample_files_to_r2
+
         logger.info("Exporting sample data files")
-        spec = importlib.util.spec_from_file_location(
-            "export_sample_files",
-            "scripts/erc-4626/export-sample-files.py",
-        )
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        module.main(
+        export_sample_files_to_r2(
             skip_parquet_sample=skip_parquet_sample,
             skip_json_sample=skip_json_sample,
         )
