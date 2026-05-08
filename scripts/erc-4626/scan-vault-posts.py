@@ -91,6 +91,13 @@ def _format_duration(seconds: float | None) -> str:
 def _print_dashboard(summary) -> None:
     """Print run summary and per-source dashboard."""
 
+    # Compute per-medium post totals from source results
+    fetched_by_medium: dict[str, int] = {}
+    inserted_by_medium: dict[str, int] = {}
+    for r in summary.source_results or []:
+        fetched_by_medium[r.source_type] = fetched_by_medium.get(r.source_type, 0) + r.posts_fetched
+        inserted_by_medium[r.source_type] = inserted_by_medium.get(r.source_type, 0) + r.posts_inserted
+
     rows = [
         ["Sources loaded", summary.sources_loaded],
         ["Sources succeeded", summary.sources_succeeded],
@@ -98,12 +105,19 @@ def _print_dashboard(summary) -> None:
         ["Feeders all-skipped", summary.feeders_skipped],
         ["Posts fetched", summary.posts_fetched],
         ["Posts inserted", summary.posts_inserted],
-        ["Twitter method", summary.twitter_method or "-"],
-        ["Duration: RSS", _format_duration(summary.rss_duration_seconds)],
-        ["Duration: LinkedIn", _format_duration(summary.linkedin_duration_seconds)],
-        ["Duration: Twitter", _format_duration(summary.twitter_duration_seconds)],
-        ["Duration: total", _format_duration(summary.total_duration_seconds)],
     ]
+    for medium in sorted(fetched_by_medium):
+        rows.append([f"Posts fetched: {medium}", fetched_by_medium[medium]])
+        rows.append([f"Posts inserted: {medium}", inserted_by_medium.get(medium, 0)])
+    rows.extend(
+        [
+            ["Twitter method", summary.twitter_method or "-"],
+            ["Duration: RSS", _format_duration(summary.rss_duration_seconds)],
+            ["Duration: LinkedIn", _format_duration(summary.linkedin_duration_seconds)],
+            ["Duration: Twitter", _format_duration(summary.twitter_duration_seconds)],
+            ["Duration: total", _format_duration(summary.total_duration_seconds)],
+        ]
+    )
     print(tabulate(rows, headers=["Metric", "Value"], tablefmt="fancy_grid"))
 
     # Breakdown of failures/skips by source type
