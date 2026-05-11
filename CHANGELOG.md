@@ -1,6 +1,6 @@
 # Current
 
-- fix: GMX freqtrade adapter — zombie order detection in `Gmx.fetch_order()` no longer cancels non-market orders. `limit`, `stopLoss`, `take_profit`, and `stop` orders are designed to sit `"open"` until the trigger fires (hours/days), so the 10-minute zombie cutoff falsely cancelled them in memory while the on-chain order continued to live and eventually filled — causing freqtrade's trade DB to desync from the GMX positions. Zombie cutoff now applies only to `type == "market"`. See tradingstrategy-ai/gmx-strategies#67 (2026-05-11)
+- fix: GMX freqtrade adapter — zombie order detection in `Gmx.fetch_order()` no longer cancels non-market orders. `limit`, `stopLoss`, `take_profit`, and `stop` orders are designed to sit `"open"` until the trigger fires (hours/days), so the 10-minute zombie cutoff falsely cancelled them in memory while the on-chain order continued to live and eventually filled — causing freqtrade's trade DB to desync from the GMX positions. Zombie cutoff now applies only to `type == "market"`. Additionally, an implausible-age sanity ceiling (1 year) skips zombie detection on synthetic timestamps from cache-miss paths. See tradingstrategy-ai/gmx-strategies#67 (2026-05-11)
 
 - feat: Ethereum-only sample vault data files (`vault-historical.sample.parquet`, `vault-metadata.sample.json`) generated during post-processing and uploaded to the public R2 bucket for free download; skip with `SKIP_SAMPLES=true` (2026-05-08)
 
