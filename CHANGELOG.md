@@ -1,5 +1,7 @@
 # Current
 
+- fix: GMX freqtrade adapter — zombie order detection in `Gmx.fetch_order()` no longer cancels non-market orders. `limit`, `stopLoss`, `take_profit`, and `stop` orders are designed to sit `"open"` until the trigger fires (hours/days), so the 10-minute zombie cutoff falsely cancelled them in memory while the on-chain order continued to live and eventually filled — causing freqtrade's trade DB to desync from the GMX positions. Zombie cutoff now applies only to `type == "market"`. See tradingstrategy-ai/gmx-strategies#67 (2026-05-11)
+
 - feat: Ethereum-only sample vault data files (`vault-historical.sample.parquet`, `vault-metadata.sample.json`) generated during post-processing and uploaded to the public R2 bucket for free download; skip with `SKIP_SAMPLES=true` (2026-05-08)
 
 - fix: 40acres Aerodrome USDC vault on Base had a typo in the contract address (duplicated `d`), causing vault detection to fail; correct address is `0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5` (2026-05-05)

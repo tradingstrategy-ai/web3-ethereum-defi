@@ -544,10 +544,17 @@ class Gmx(Exchange):
 
         Extends the parent ``fetch_order()`` with two GMX-specific behaviours:
 
-        **Zombie order detection:** GMX market orders execute within seconds via
-        keepers. If an order is still "open" after :data:`GMX_ORDER_MAX_AGE_MS`
-        (default 10 min) with no keeper event, the indexer missed it or something
-        went wrong. Force-resolve as cancelled so freqtrade can retry.
+        **Zombie order detection (market orders only):** GMX market orders
+        execute within seconds via keepers. If a market order is still "open"
+        after :data:`GMX_ORDER_MAX_AGE_MS` (default 10 min) with no keeper
+        event, the indexer missed it or something went wrong. Force-resolve
+        as cancelled so freqtrade can retry.
+
+        Trigger-style orders (``limit``, ``stopLoss``, ``take_profit``,
+        ``stop``) are designed to sit "open" until the trigger price is
+        reached, which may take hours or days. They are NOT zombie-cancelled
+        here — freqtrade's own ``unfilledtimeout`` handles their lifetime
+        instead. See tradingstrategy-ai/gmx-strategies#67.
 
         **Cancel reason logging:** When a keeper rejects an order (e.g.
         ``OrderNotFulfillableAtAcceptablePrice``), log the GMX-specific reason
@@ -556,8 +563,11 @@ class Gmx(Exchange):
         order = super().fetch_order(order_id, pair, params)
         info = order.get("info", {})
 
-        # Zombie order detection: force-cancel orders stuck as "open" beyond max age
-        if order.get("status") == "open" and order.get("timestamp") is not None:
+        # Zombie order detection: only applies to market orders. Limit / stop /
+        # take-profit orders legitimately sit "open" until the trigger fires.
+        # Cancelling them here would desync freqtrade from the on-chain state and
+        # produce ghost positions (tradingstrategy-ai/gmx-strategies#67).
+        if order.get("type") == "market" and order.get("status") == "open" and order.get("timestamp") is not None:
             age_ms = int(datetime.now(timezone.utc).timestamp() * 1000) - order["timestamp"]
             if age_ms > GMX_ORDER_MAX_AGE_MS:
                 age_seconds = age_ms // 1000
