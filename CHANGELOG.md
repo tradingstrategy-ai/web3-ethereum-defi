@@ -1,5 +1,7 @@
 # Current
 
+- fix: GMX CCXT adapter — `GMX.fetch_order` cache-miss path now uses the block's epoch-millisecond timestamp (`block.timestamp * 1000`) instead of `block.number * 1000`. The previous behaviour made the synthetic order's `timestamp` ~3 orders of magnitude too small; the freqtrade wrapper's age check then saw apparent ages of ~41 years and zombie-cancelled limit orders in memory on every bot restart, producing orphan on-chain positions. Fixed in both the sync and async adapters (3 sites each), via a new `_block_timestamp_ms` helper that returns `None` on RPC failure to keep `fetch_order` non-fatal. Companion to PR #1000. See tradingstrategy-ai/gmx-strategies#67 (2026-05-11)
+
 - feat: Ethereum-only sample vault data files (`vault-historical.sample.parquet`, `vault-metadata.sample.json`) generated during post-processing and uploaded to the public R2 bucket for free download; skip with `SKIP_SAMPLES=true` (2026-05-08)
 
 - fix: 40acres Aerodrome USDC vault on Base had a typo in the contract address (duplicated `d`), causing vault detection to fail; correct address is `0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5` (2026-05-05)
