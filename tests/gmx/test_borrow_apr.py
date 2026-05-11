@@ -35,10 +35,19 @@ def test_get_data_processing(get_borrow_apr):
 
 def test_get_data_processing_empty_markets(get_borrow_apr):
     """Test _get_data_processing with empty markets."""
-    # Temporarily replace markets cache with empty dict
+    # Temporarily replace markets cache with an empty (non-partial) entry.
+    # Note: ``_CLASS_MARKETS_CACHE`` is now keyed to
+    # :class:`eth_defi.gmx.core.markets._MarketsCacheEntry` rather than a raw
+    # dict (issue-#67 redesign — see CHANGELOG entry for 2026-05-11).
+    import time as _time
+
     chain_key = get_borrow_apr.markets.config.chain
-    original_markets_cache = markets._CLASS_MARKETS_CACHE.get(chain_key, {})
-    markets._CLASS_MARKETS_CACHE[chain_key] = {}
+    original_markets_cache = markets._CLASS_MARKETS_CACHE.get(chain_key)
+    markets._CLASS_MARKETS_CACHE[chain_key] = markets._MarketsCacheEntry(
+        markets={},
+        fetched_at_ms=int(_time.time() * 1000),
+        partial=False,
+    )
 
     result = get_borrow_apr.get_data()
 
@@ -49,7 +58,10 @@ def test_get_data_processing_empty_markets(get_borrow_apr):
     assert "short" in result
 
     # Restore original markets
-    markets._CLASS_MARKETS_CACHE[chain_key] = original_markets_cache
+    if original_markets_cache is None:
+        markets._CLASS_MARKETS_CACHE.pop(chain_key, None)
+    else:
+        markets._CLASS_MARKETS_CACHE[chain_key] = original_markets_cache
 
 
 def test_output_format(get_borrow_apr):

@@ -1287,6 +1287,35 @@ class GMX(ExchangeCompatible):
             )
             return markets
 
+    def get_on_chain_index_tokens(self) -> set[str]:
+        """Return the set of index-token addresses currently listed on GMX V2.
+
+        Bypasses the oracle-snapshot filter that
+        :meth:`Markets.get_available_markets` historically applied and gives
+        the **structural** answer to "is this token a GMX market right now?".
+        That structural view is the correct input for startup whitelist
+        validation — it must not drop pairs whose oracle feed is momentarily
+        unavailable.  This is the decoupling pin called out in the
+        issue-#67 deep-dive: a transient oracle gap must never silently
+        shrink the production whitelist again.
+
+        :returns: EIP-55 checksummed Ethereum addresses of every listed index
+            token on the configured chain.  Zero-address sentinels (used by
+            swap-only markets / the wstETH special-case) are filtered out.
+        :raises: Propagates any RPC error from the underlying reader call.
+            Callers performing startup validation should treat a raise as
+            "no validation possible — keep whitelist as-is" and log loudly.
+        """
+        from eth_defi.gmx.core.markets import Markets
+
+        raw_markets = Markets(self.config)._get_available_markets_raw()
+        zero = "0x" + "0" * 40
+        return {
+            to_checksum_address(row[1])
+            for row in raw_markets
+            if row[1] and row[1].lower() != zero
+        }
+
     def _fetch_position_close_from_event_logs(
         self,
         market_address: str,
