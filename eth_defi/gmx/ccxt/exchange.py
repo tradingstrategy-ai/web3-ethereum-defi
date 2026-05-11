@@ -328,33 +328,6 @@ def _derive_side_from_trade_action(trade_action: dict) -> str | None:
     return None
 
 
-def _block_timestamp_ms(web3: "Web3", block_number: int | None) -> int | None:
-    """Return block-creation epoch milliseconds for ``block_number``, or ``None``.
-
-    Used to build synthetic CCXT-order dicts in the cache-miss path of
-    :meth:`GMX.fetch_order` after a bot restart. Falling back to ``None`` on
-    any failure keeps the order construction non-fatal — downstream consumers
-    (e.g. the freqtrade wrapper) already handle ``timestamp=None`` safely.
-
-    :param web3: Connected :class:`web3.Web3` instance.
-    :param block_number: Block number to look up. ``None`` or ``0`` returns
-        ``None`` without making an RPC call.
-    :returns: ``block.timestamp * 1000`` in epoch milliseconds, or ``None`` if
-        ``block_number`` is falsy or the RPC call fails.
-    :raises: Never — RPC failures are logged at debug and return ``None``.
-    """
-    if not block_number:
-        return None
-    try:
-        block = web3.eth.get_block(block_number)
-        return int(block["timestamp"]) * 1000
-    except Exception as e:  # noqa: BLE001 — fetch_order must never raise here
-        logger.debug(
-            "_block_timestamp_ms: get_block(%s) failed: %s", block_number, e
-        )
-        return None
-
-
 class GMX(ExchangeCompatible):
     """
     CCXT-compatible wrapper for GMX protocol market data and trading.
@@ -8743,12 +8716,11 @@ class GMX(ExchangeCompatible):
                 tx_success = receipt.get("status") == 1
                 if not tx_success:
                     # Transaction failed - return failed order
-                    _ts_ms = _block_timestamp_ms(self.web3, tx.get("blockNumber"))
                     order = {
                         "id": id,
                         "clientOrderId": None,
-                        "datetime": self.iso8601(_ts_ms) if _ts_ms is not None else None,
-                        "timestamp": _ts_ms,
+                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
+                        "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
                         "lastTradeTimestamp": None,
                         "status": "failed",
                         "symbol": symbol if symbol else None,
@@ -8785,12 +8757,11 @@ class GMX(ExchangeCompatible):
                 if not order_key:
                     # No order_key - can't verify execution, assume still pending
                     logger.warning("fetch_order(%s): no order_key, returning status=open", id)
-                    _ts_ms = _block_timestamp_ms(self.web3, tx.get("blockNumber"))
                     order = {
                         "id": id,
                         "clientOrderId": None,
-                        "datetime": self.iso8601(_ts_ms) if _ts_ms is not None else None,
-                        "timestamp": _ts_ms,
+                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
+                        "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
                         "lastTradeTimestamp": None,
                         "status": "open",
                         "symbol": symbol if symbol else None,
@@ -8862,12 +8833,11 @@ class GMX(ExchangeCompatible):
                         "ORDER_TRACE: fetch_order(%s) - NO EXECUTION FOUND (checked Subsquid + EventEmitter) - RETURNING status=open (might be lost/pending)",
                         id,
                     )
-                    _ts_ms = _block_timestamp_ms(self.web3, tx.get("blockNumber"))
                     order = {
                         "id": id,
                         "clientOrderId": None,
-                        "datetime": self.iso8601(_ts_ms) if _ts_ms is not None else None,
-                        "timestamp": _ts_ms,
+                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
+                        "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
                         "lastTradeTimestamp": None,
                         "status": "open",
                         "symbol": symbol if symbol else None,
