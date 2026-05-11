@@ -236,7 +236,7 @@ async def _async_scan_logs_chunked_for_trade_action(
     return None
 
 
-async def _block_timestamp_ms(web3, block_number: int | None) -> int | None:
+async def _block_timestamp_ms(web3: "AsyncWeb3", block_number: int | None) -> int | None:
     """Return block-creation epoch milliseconds for ``block_number``, or ``None``.
 
     Async mirror of the sync helper in :mod:`eth_defi.gmx.ccxt.exchange`. Used
@@ -248,7 +248,9 @@ async def _block_timestamp_ms(web3, block_number: int | None) -> int | None:
     :param web3: Connected :class:`web3.AsyncWeb3` instance.
     :param block_number: Block number to look up. ``None`` or ``0`` returns
         ``None`` without making an RPC call.
-    :returns: ``block.timestamp * 1000`` in epoch milliseconds, or ``None``.
+    :returns: ``block.timestamp * 1000`` in epoch milliseconds, or ``None`` if
+        ``block_number`` is falsy or the RPC call fails.
+    :raises: Never — RPC failures are logged at debug and return ``None``.
     """
     if not block_number:
         return None
@@ -256,7 +258,7 @@ async def _block_timestamp_ms(web3, block_number: int | None) -> int | None:
         block = await web3.eth.get_block(block_number)
         return int(block["timestamp"]) * 1000
     except Exception as e:  # noqa: BLE001 — fetch_order must never raise here
-        logging.getLogger(__name__).debug(
+        logger.debug(
             "_block_timestamp_ms: get_block(%s) failed: %s", block_number, e
         )
         return None

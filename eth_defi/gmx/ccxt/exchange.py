@@ -328,7 +328,7 @@ def _derive_side_from_trade_action(trade_action: dict) -> str | None:
     return None
 
 
-def _block_timestamp_ms(web3, block_number: int | None) -> int | None:
+def _block_timestamp_ms(web3: "Web3", block_number: int | None) -> int | None:
     """Return block-creation epoch milliseconds for ``block_number``, or ``None``.
 
     Used to build synthetic CCXT-order dicts in the cache-miss path of
@@ -339,7 +339,9 @@ def _block_timestamp_ms(web3, block_number: int | None) -> int | None:
     :param web3: Connected :class:`web3.Web3` instance.
     :param block_number: Block number to look up. ``None`` or ``0`` returns
         ``None`` without making an RPC call.
-    :returns: ``block.timestamp * 1000`` in epoch milliseconds, or ``None``.
+    :returns: ``block.timestamp * 1000`` in epoch milliseconds, or ``None`` if
+        ``block_number`` is falsy or the RPC call fails.
+    :raises: Never — RPC failures are logged at debug and return ``None``.
     """
     if not block_number:
         return None
@@ -347,7 +349,7 @@ def _block_timestamp_ms(web3, block_number: int | None) -> int | None:
         block = web3.eth.get_block(block_number)
         return int(block["timestamp"]) * 1000
     except Exception as e:  # noqa: BLE001 — fetch_order must never raise here
-        logging.getLogger(__name__).debug(
+        logger.debug(
             "_block_timestamp_ms: get_block(%s) failed: %s", block_number, e
         )
         return None
