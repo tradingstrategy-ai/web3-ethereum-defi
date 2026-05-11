@@ -18,8 +18,11 @@ from eth_defi.gmx.contracts import get_tokens_metadata_dict
 
 logger = logging.getLogger(__name__)
 
-# Module-level caches to avoid repeated expensive calls
-_MARKETS_CACHE: dict[str, dict] = {}  # Key: chain name
+# Module-level cache for token metadata only.  The previous ``_MARKETS_CACHE``
+# was removed in the issue-#67 fix — :class:`Markets` now owns a TTL'd cache
+# that is invalidated centrally via :meth:`Markets.invalidate_cache`, so a
+# parallel cache here would defeat the cache-coherence guarantee that the
+# refresh-on-miss path depends on.
 _TOKEN_METADATA_CACHE: dict[tuple[int, str], dict] = {}  # Key: (chain_id, chain_name)
 
 
@@ -110,20 +113,21 @@ class OrderArgumentParser:
             # GMXConfigManager has get_chain() method
             chain = config.get_chain()
 
-        # Check if markets are cached — skip an empty cache entry so a previous transient
-        # API failure cannot poison this call (Markets.get_available_markets() now raises
-        # ValueError on empty rather than returning {}, so this guard handles any legacy
-        # empty entry that may exist in the cache from a prior run).
-        if chain not in _MARKETS_CACHE or not _MARKETS_CACHE[chain]:
-            # Get user wallet address - handle both types
-            user_wallet_address = getattr(config, "user_wallet_address", None) or getattr(config, "_user_wallet_address", None)
+        # Resolve markets via :class:`Markets`.  The class-level cache inside
+        # ``Markets`` carries its own 5-minute TTL and invalidation surface
+        # (see ``Markets.invalidate_cache``), so we do NOT layer a second
+        # cache here — having two caches with independent staleness was
+        # exactly the failure mode behind issue #67.
+        user_wallet_address = getattr(config, "user_wallet_address", None) or getattr(config, "_user_wallet_address", None)
+        gmx_config = GMXConfig(self.web3, user_wallet_address=user_wallet_address)
+        self._gmx_config_for_refresh = gmx_config  # Held so the miss-retry path can re-resolve.
+        self.markets = Markets(gmx_config).get_available_markets()
 
-            gmx_config = GMXConfig(self.web3, user_wallet_address=user_wallet_address)
-
-            # Get markets info - Markets expects GMXConfig, not GMXConfigManager
-            _MARKETS_CACHE[chain] = Markets(gmx_config).get_available_markets()
-
-        self.markets = _MARKETS_CACHE[chain]
+        #: True once :meth:`_handle_missing_market_key` has performed its
+        #: one allowed cache-refresh retry.  Bounding the retry per parser
+        #: instance prevents an infinite loop when the index token is
+        #: structurally absent from GMX.
+        self._market_key_refresh_attempted: bool = False
 
         if is_increase:
             self.required_keys = [
@@ -258,14 +262,35 @@ class OrderArgumentParser:
         all_matches = self.find_all_market_keys_by_index_address(self.markets, index_token_address)
 
         if not all_matches:
-            available = [v.get("index_token_address") for v in self.markets.values()]
-            logger.info(
-                "_handle_missing_market_key: NOT FOUND for index_token_address=%s — available=%s",
-                index_token_address,
-                available,
-            )
-            msg = f"No GMX market found for index_token_address={index_token_address!r}. Available index_token_addresses: {available}"
-            raise ValueError(msg)
+            # Force a cache refresh once per parser instance before giving up.
+            # The class-level Markets cache may be stale (e.g. a new GMX
+            # listing happened since the parser was constructed); a single
+            # forced refresh covers that case without risking an infinite
+            # retry loop when the token is genuinely absent.
+            if not self._market_key_refresh_attempted:
+                self._market_key_refresh_attempted = True
+                chain = self.parameters_dict.get("chain")
+                logger.warning(
+                    "_handle_missing_market_key: index_token_address=%s not in cached markets — invalidating cache for chain=%s and retrying once",
+                    index_token_address,
+                    chain,
+                )
+                Markets.invalidate_cache(chain)
+                self.markets = Markets(self._gmx_config_for_refresh).get_available_markets()
+                all_matches = self.find_all_market_keys_by_index_address(self.markets, index_token_address)
+
+            if not all_matches:
+                available = [v.get("index_token_address") for v in self.markets.values()]
+                logger.info(
+                    "_handle_missing_market_key: NOT FOUND for index_token_address=%s — available=%s",
+                    index_token_address,
+                    available,
+                )
+                msg = (
+                    f"No GMX market found for index_token_address={index_token_address!r} "
+                    f"after forced cache refresh. Available index_token_addresses: {available}"
+                )
+                raise ValueError(msg)
 
         if len(all_matches) == 1:
             market_key = all_matches[0]

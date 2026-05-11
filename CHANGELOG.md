@@ -1,5 +1,7 @@
 # Current
 
+- fix: GMX market cache — bounded caching + on-chain liveness check. `Markets._process_markets` no longer drops markets whose index token is momentarily missing from the oracle snapshot; the oracle-snapshot filter is replaced with a Multicall3 `IS_MARKET_DISABLED` check (mirroring the existing CCXT-side pattern). Cache now carries a 5-minute TTL and exposes `Markets.invalidate_cache(chain)`. `OrderArgumentParser._handle_missing_market_key` invalidates and retries once before raising `ValueError`. Redundant `_MARKETS_CACHE` in `order_argument_parser.py` removed. New `GMX.get_on_chain_index_tokens()` enumerator gives downstream consumers a structural ("is this market listed?") answer that's decoupled from oracle staleness. Resolves a class of failures where new GMX listings or oracle hiccups produced spurious `ValueError: No GMX market found for index_token_address=...` crashes. See tradingstrategy-ai/gmx-strategies#67 (2026-05-11)
+
 - feat: Ethereum-only sample vault data files (`vault-historical.sample.parquet`, `vault-metadata.sample.json`) generated during post-processing and uploaded to the public R2 bucket for free download; skip with `SKIP_SAMPLES=true` (2026-05-08)
 
 - fix: 40acres Aerodrome USDC vault on Base had a typo in the contract address (duplicated `d`), causing vault detection to fail; correct address is `0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5` (2026-05-05)
