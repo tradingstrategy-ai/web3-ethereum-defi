@@ -67,6 +67,7 @@ from eth_defi.gmx.constants import (
 from eth_defi.gmx.contracts import (
     get_contract_addresses,
     get_datastore_contract,
+    get_reader_contract,
     get_token_address_normalized,
 )
 from eth_defi.gmx.keys import is_market_disabled_key
@@ -8558,6 +8559,429 @@ class GMX(ExchangeCompatible):
             for resolved_id in resolved_ids
         ]
 
+    # ------------------------------------------------------------------
+    # Tiered order resolution helpers
+    # ------------------------------------------------------------------
+
+    def _map_market_to_symbol(self, market_address: str) -> str | None:
+        """Return the CCXT symbol for a GMX market-token address, or ``None``.
+
+        Looks up ``market_address`` in ``self.markets`` using the ``market_token``
+        field stored in each market's ``info`` dict.
+
+        :param market_address: GMX market-token contract address (any case).
+        :returns: CCXT symbol string (e.g. ``"APE/USDC:USDC"``) or ``None``.
+        """
+        if not market_address or not self.markets:
+            return None
+        market_lower = market_address.lower()
+        for sym, mkt in self.markets.items():
+            info = mkt.get("info", {})
+            token = info.get("market_token") or info.get("marketToken") or ""
+            if token.lower() == market_lower:
+                return sym
+        return None
+
+    def _resolve_order_from_sources(
+        self,
+        order_key_hex: str,
+        symbol: str | None,
+        receipt: dict | None,
+        tx: dict | None,
+    ) -> dict | None:
+        """Resolve order state from authoritative sources after a cache miss.
+
+        Tier ladder (A → B → C → D → None):
+
+        A. Subsquid ``tradeActions`` — returns real execution price + fees.
+        B. GMX REST API v2 ``/orders`` + ``/positions`` — returns live status.
+        C. On-chain ``SyntheticsReader.getAccountOrders/Positions`` — authoritative.
+        D. EventEmitter log scan — slow but comprehensive.
+
+        Returns a CCXT-shaped order dict, or ``None`` if all tiers are exhausted.
+        ``None`` means the caller should build a synthetic-from-receipt fallback.
+
+        :param order_key_hex: GMX ``orderKey`` as ``0x``-prefixed hex string.
+        :param symbol: CCXT-style pair (e.g. ``"APE/USDC:USDC"``), may be ``None``.
+        :param receipt: Raw tx receipt dict (used only by EventEmitter tier).
+        :param tx: Raw tx dict (used only by EventEmitter tier).
+        :returns: CCXT order dict or ``None``.
+        """
+        # Tier A — Subsquid tradeActions
+        try:
+            subsquid = GMXSubsquidClient(chain=self.config.get_chain())
+            trade_action = subsquid.get_trade_action_by_order_key(
+                order_key_hex,
+                timeout_seconds=5,
+                poll_interval=0.5,
+                account=self.wallet_address,
+            )
+            if trade_action is not None:
+                logger.debug(
+                    "_resolve_order_from_sources(%s): resolved via Subsquid (Tier A)",
+                    order_key_hex[:10],
+                )
+                return self._build_order_from_trade_action(trade_action, symbol)
+        except Exception as exc:
+            logger.debug(
+                "_resolve_order_from_sources(%s): Subsquid Tier A failed: %s",
+                order_key_hex[:10],
+                exc,
+            )
+
+        # Tier B — GMX REST API v2
+        if self.wallet_address:
+            try:
+                gmx_api = GMXAPI(chain=self.config.get_chain())
+                rest_orders = gmx_api.get_orders(self.wallet_address) or []
+                for rest_order in rest_orders:
+                    key = rest_order.get("key") or rest_order.get("orderKey", "")
+                    if key.lower() == order_key_hex.lower():
+                        logger.debug(
+                            "_resolve_order_from_sources(%s): resolved via REST v2 orders (Tier B)",
+                            order_key_hex[:10],
+                        )
+                        return self._build_order_from_rest_order(rest_order, symbol)
+                rest_positions = gmx_api.get_positions(self.wallet_address) or []
+                for pos in rest_positions:
+                    pos_symbol = self._map_market_to_symbol(pos.get("market", ""))
+                    if pos_symbol == symbol:
+                        logger.debug(
+                            "_resolve_order_from_sources(%s): inferred executed via REST v2 position (Tier B)",
+                            order_key_hex[:10],
+                        )
+                        return self._build_order_from_rest_position(pos, order_key_hex, symbol)
+            except Exception as exc:
+                logger.debug(
+                    "_resolve_order_from_sources(%s): REST v2 Tier B failed: %s",
+                    order_key_hex[:10],
+                    exc,
+                )
+
+        # Tier C — On-chain SyntheticsReader
+        if self.wallet_address:
+            try:
+                chain = self.config.get_chain()
+                contract_addresses = get_contract_addresses(chain)
+                reader = get_reader_contract(self.web3, chain)
+                datastore_addr = contract_addresses.datastore
+                raw_orders = reader.functions.getAccountOrders(
+                    datastore_addr, self.wallet_address, 0, 100
+                ).call()
+                for raw_order in raw_orders:
+                    key_bytes = raw_order[0] if isinstance(raw_order, (list, tuple)) else None
+                    if key_bytes and ("0x" + key_bytes.hex()) == order_key_hex.lower():
+                        logger.debug(
+                            "_resolve_order_from_sources(%s): resolved via Reader orders (Tier C)",
+                            order_key_hex[:10],
+                        )
+                        _ts_ms = _block_timestamp_ms(self.web3, self.web3.eth.block_number)
+                        return self._build_open_order_from_reader(raw_order, order_key_hex, symbol, _ts_ms)
+                raw_positions = reader.functions.getAccountPositions(
+                    datastore_addr, self.wallet_address, 0, 100
+                ).call()
+                matching_pos = self._find_matching_reader_position(raw_positions, symbol)
+                _ts_ms = _block_timestamp_ms(self.web3, tx.get("blockNumber") if tx else None)
+                if matching_pos is not None:
+                    logger.debug(
+                        "_resolve_order_from_sources(%s): order not in DataStore but position exists — closed (Tier C)",
+                        order_key_hex[:10],
+                    )
+                    return self._build_closed_order_no_fill(order_key_hex, symbol, _ts_ms)
+                else:
+                    logger.debug(
+                        "_resolve_order_from_sources(%s): order not in DataStore, no position — cancelled (Tier C)",
+                        order_key_hex[:10],
+                    )
+                    return self._build_cancelled_order(order_key_hex, symbol, _ts_ms)
+            except Exception as exc:
+                logger.debug(
+                    "_resolve_order_from_sources(%s): Reader Tier C failed: %s",
+                    order_key_hex[:10],
+                    exc,
+                )
+
+        # Tier D — EventEmitter log scan
+        if receipt is not None:
+            try:
+                chain = self.config.get_chain()
+                addresses = get_contract_addresses(chain)
+                event_emitter = addresses.eventemitter
+                creation_block = receipt.get("blockNumber", 0)
+                current_block = self.web3.eth.block_number
+                order_key_bytes = bytes.fromhex(order_key_hex.lstrip("0x"))
+                trade_action = _scan_logs_chunked_for_trade_action(
+                    self.web3,
+                    event_emitter,
+                    order_key_bytes,
+                    order_key_hex,
+                    creation_block,
+                    current_block,
+                )
+                if trade_action is not None:
+                    logger.debug(
+                        "_resolve_order_from_sources(%s): resolved via EventEmitter scan (Tier D)",
+                        order_key_hex[:10],
+                    )
+                    return self._build_order_from_trade_action(trade_action, symbol)
+            except Exception as exc:
+                logger.debug(
+                    "_resolve_order_from_sources(%s): EventEmitter Tier D failed: %s",
+                    order_key_hex[:10],
+                    exc,
+                )
+
+        logger.warning(
+            "_resolve_order_from_sources(%s): all tiers exhausted — caller will use synthetic fallback",
+            order_key_hex[:10],
+        )
+        return None
+
+    def _build_order_from_trade_action(self, trade_action: dict, symbol: str | None) -> dict:
+        """Build a CCXT order dict from a Subsquid tradeAction or EventEmitter action.
+
+        :param trade_action: Trade action dict from Subsquid or EventEmitter.
+        :param symbol: CCXT pair symbol.
+        :returns: CCXT-shaped order dict.
+        """
+        event_name = trade_action.get("eventName", "")
+        if "Executed" in event_name or "Execute" in event_name:
+            status = "closed"
+        elif "Cancelled" in event_name or "Cancel" in event_name:
+            status = "cancelled"
+        elif "Frozen" in event_name:
+            status = "expired"
+        else:
+            status = "open"
+
+        exec_price_raw = trade_action.get("executionPrice") or trade_action.get("triggerPrice")
+        exec_price = float(exec_price_raw) / 1e30 if exec_price_raw else None
+        size_raw = trade_action.get("sizeDeltaUsd") or trade_action.get("sizeDeltaInTokens")
+        filled = float(size_raw) / 1e30 if size_raw else None
+        ts_s = trade_action.get("timestamp")
+        ts_ms = int(ts_s) * 1000 if ts_s else None
+        order_key = trade_action.get("orderKey", trade_action.get("id", ""))
+
+        pos_fee_raw = trade_action.get("positionFeeAmount", 0) or 0
+        borrow_fee_raw = trade_action.get("borrowingFeeAmount", 0) or 0
+        funding_fee_raw = trade_action.get("fundingFeeAmount", 0) or 0
+        total_fee = (float(pos_fee_raw) + float(borrow_fee_raw) + float(funding_fee_raw)) / 1e30
+
+        return {
+            "id": order_key,
+            "clientOrderId": None,
+            "datetime": self.iso8601(ts_ms) if ts_ms else None,
+            "timestamp": ts_ms,
+            "lastTradeTimestamp": ts_ms if status == "closed" else None,
+            "status": status,
+            "symbol": symbol,
+            "type": "limit",
+            "side": "buy" if trade_action.get("isLong") else "sell",
+            "price": exec_price,
+            "average": exec_price,
+            "amount": filled,
+            "filled": filled if status == "closed" else 0.0,
+            "remaining": 0.0 if status == "closed" else filled,
+            "cost": (exec_price * filled) if (exec_price and filled) else None,
+            "trades": [],
+            "fee": {"currency": "USDC", "cost": total_fee, "rate": None},
+            "fees": [{"currency": "USDC", "cost": total_fee, "type": "taker"}],
+            "info": {
+                "trade_action": trade_action,
+                "reconciler_tier": "subsquid_or_event_emitter",
+            },
+        }
+
+    def _build_order_from_rest_order(self, rest_order: dict, symbol: str | None) -> dict:
+        """Build a CCXT order dict from a GMX REST v2 /orders entry.
+
+        :param rest_order: Order dict from the GMX REST v2 API.
+        :param symbol: CCXT pair symbol.
+        :returns: CCXT-shaped order dict with ``status="open"``.
+        """
+        _ts_ms = _block_timestamp_ms(self.web3, self.web3.eth.block_number)
+        return {
+            "id": rest_order.get("key", rest_order.get("orderKey", "")),
+            "clientOrderId": None,
+            "datetime": self.iso8601(_ts_ms) if _ts_ms else None,
+            "timestamp": _ts_ms,
+            "lastTradeTimestamp": None,
+            "status": "open",
+            "symbol": symbol,
+            "type": "limit",
+            "side": "buy" if rest_order.get("isLong") else "sell",
+            "price": float(rest_order.get("triggerPrice", 0)) / 1e30 or None,
+            "average": None,
+            "amount": float(rest_order.get("sizeDeltaUsd", 0)) / 1e30 or None,
+            "filled": 0.0,
+            "remaining": float(rest_order.get("sizeDeltaUsd", 0)) / 1e30 or None,
+            "cost": None,
+            "trades": [],
+            "fee": None,
+            "fees": [],
+            "info": {"rest_order": rest_order, "reconciler_tier": "rest_v2", "fill_data_pending": True},
+        }
+
+    def _build_order_from_rest_position(self, pos: dict, order_key_hex: str, symbol: str | None) -> dict:
+        """Build a partial CCXT ``"closed"`` order from a REST v2 position (no exact fill price).
+
+        :param pos: Position dict from the GMX REST v2 API.
+        :param order_key_hex: Order key as ``0x``-prefixed hex.
+        :param symbol: CCXT pair symbol.
+        :returns: CCXT-shaped order dict with ``status="closed"`` and ``fill_data_pending=True``.
+        """
+        _ts_ms = _block_timestamp_ms(self.web3, self.web3.eth.block_number)
+        size_usd = float(pos.get("sizeInUsd", 0)) / 1e30
+        return {
+            "id": order_key_hex,
+            "clientOrderId": None,
+            "datetime": self.iso8601(_ts_ms) if _ts_ms else None,
+            "timestamp": _ts_ms,
+            "lastTradeTimestamp": _ts_ms,
+            "status": "closed",
+            "symbol": symbol,
+            "type": "limit",
+            "side": "buy" if pos.get("isLong") else "sell",
+            "price": None,
+            "average": None,
+            "amount": size_usd,
+            "filled": size_usd,
+            "remaining": 0.0,
+            "cost": size_usd,
+            "trades": [],
+            "fee": None,
+            "fees": [],
+            "info": {"rest_position": pos, "reconciler_tier": "rest_v2", "fill_data_pending": True},
+        }
+
+    def _build_open_order_from_reader(
+        self,
+        raw_order: tuple,
+        order_key_hex: str,
+        symbol: str | None,
+        ts_ms: int | None,
+    ) -> dict:
+        """Build a CCXT ``"open"`` order from SyntheticsReader.getAccountOrders entry.
+
+        :param raw_order: Raw tuple from the Reader contract.
+        :param order_key_hex: Order key as ``0x``-prefixed hex.
+        :param symbol: CCXT pair symbol.
+        :param ts_ms: Block timestamp in milliseconds, or ``None``.
+        :returns: CCXT-shaped order dict with ``status="open"``.
+        """
+        return {
+            "id": order_key_hex,
+            "clientOrderId": None,
+            "datetime": self.iso8601(ts_ms) if ts_ms else None,
+            "timestamp": ts_ms,
+            "lastTradeTimestamp": None,
+            "status": "open",
+            "symbol": symbol,
+            "type": "limit",
+            "side": None,
+            "price": None,
+            "average": None,
+            "amount": None,
+            "filled": 0.0,
+            "remaining": None,
+            "cost": None,
+            "trades": [],
+            "fee": None,
+            "fees": [],
+            "info": {"reader_order": list(raw_order), "reconciler_tier": "reader"},
+        }
+
+    def _build_closed_order_no_fill(
+        self,
+        order_key_hex: str,
+        symbol: str | None,
+        ts_ms: int | None,
+    ) -> dict:
+        """Build a CCXT ``"closed"`` order when Reader shows no pending order but a position exists.
+
+        :param order_key_hex: Order key as ``0x``-prefixed hex.
+        :param symbol: CCXT pair symbol.
+        :param ts_ms: Block timestamp in milliseconds, or ``None``.
+        :returns: CCXT-shaped order dict with ``status="closed"`` and ``fill_data_pending=True``.
+        """
+        return {
+            "id": order_key_hex,
+            "clientOrderId": None,
+            "datetime": self.iso8601(ts_ms) if ts_ms else None,
+            "timestamp": ts_ms,
+            "lastTradeTimestamp": ts_ms,
+            "status": "closed",
+            "symbol": symbol,
+            "type": "limit",
+            "side": None,
+            "price": None,
+            "average": None,
+            "amount": None,
+            "filled": None,
+            "remaining": 0.0,
+            "cost": None,
+            "trades": [],
+            "fee": None,
+            "fees": [],
+            "info": {"reconciler_tier": "reader", "fill_data_pending": True},
+        }
+
+    def _build_cancelled_order(
+        self,
+        order_key_hex: str,
+        symbol: str | None,
+        ts_ms: int | None,
+    ) -> dict:
+        """Build a CCXT ``"cancelled"`` order when not in DataStore and no matching position.
+
+        :param order_key_hex: Order key as ``0x``-prefixed hex.
+        :param symbol: CCXT pair symbol.
+        :param ts_ms: Block timestamp in milliseconds, or ``None``.
+        :returns: CCXT-shaped order dict with ``status="cancelled"``.
+        """
+        return {
+            "id": order_key_hex,
+            "clientOrderId": None,
+            "datetime": self.iso8601(ts_ms) if ts_ms else None,
+            "timestamp": ts_ms,
+            "lastTradeTimestamp": None,
+            "status": "cancelled",
+            "symbol": symbol,
+            "type": "limit",
+            "side": None,
+            "price": None,
+            "average": None,
+            "amount": None,
+            "filled": 0.0,
+            "remaining": None,
+            "cost": None,
+            "trades": [],
+            "fee": None,
+            "fees": [],
+            "info": {"reconciler_tier": "reader"},
+        }
+
+    def _find_matching_reader_position(
+        self,
+        raw_positions: list,
+        symbol: str | None,
+    ) -> dict | None:
+        """Return the first Reader position whose market maps to ``symbol``, or ``None``.
+
+        :param raw_positions: List of raw position tuples from the Reader contract.
+        :param symbol: CCXT pair symbol to match against.
+        :returns: Matching raw position or ``None``.
+        """
+        if not symbol:
+            return None
+        for pos in raw_positions:
+            pos_symbol = self._map_market_to_symbol(
+                pos[1] if isinstance(pos, (list, tuple)) and len(pos) > 1 else ""
+            )
+            if pos_symbol == symbol:
+                return pos
+        return None
+
     def fetch_order(
         self,
         id: str,
@@ -8845,214 +9269,53 @@ class GMX(ExchangeCompatible):
                     }
                     return order
 
-                # Follow GMX SDK flow: Query TradeAction via GraphQL (Subsquid)
+                # Follow tiered resolution: Subsquid → REST v2 → Reader → EventEmitter → synthetic
                 order_key_hex = "0x" + order_key.hex()
-                trade_action = None
-
-                try:
-                    subsquid = GMXSubsquidClient(chain=self.config.get_chain())
-                    # Historical query - give Subsquid a few seconds to respond
-                    trade_action = subsquid.get_trade_action_by_order_key(
-                        order_key_hex,
-                        timeout_seconds=5,
-                        poll_interval=0.5,
-                        account=self.wallet_address,
-                    )
-                except Exception as e:
-                    logger.info("fetch_order(%s): Subsquid query failed: %s", id[:16], e)
-
-                # Fallback: Query EventEmitter logs if Subsquid failed
-                if trade_action is None:
-                    logger.info("fetch_order(%s): Falling back to EventEmitter logs", id[:16])
-
-                    try:
-                        addresses = get_contract_addresses(self.config.get_chain())
-                        event_emitter = addresses.eventemitter
-                        creation_block = receipt.get("blockNumber", 0)
-                        current_block = self.web3.eth.block_number
-
-                        # Use chunked scanning to avoid RPC timeouts on large block ranges
-                        trade_action = _scan_logs_chunked_for_trade_action(
-                            self.web3,
-                            event_emitter,
-                            order_key,
-                            order_key_hex,
-                            creation_block,
-                            current_block,
-                        )
-
-                    except Exception as e:
-                        logger.debug("fetch_order(%s): EventEmitter query failed: %s", id, e)
-
-                # Process the trade action result
-                if trade_action is None:
-                    # No execution found - still pending or lost
-                    logger.warning(
-                        "ORDER_TRACE: fetch_order(%s) - NO EXECUTION FOUND (checked Subsquid + EventEmitter) - RETURNING status=open (might be lost/pending)",
-                        id,
-                    )
-                    _ts_ms = _block_timestamp_ms(self.web3, tx.get("blockNumber"))
-                    order = {
-                        "id": id,
-                        "clientOrderId": None,
-                        "datetime": self.iso8601(_ts_ms) if _ts_ms is not None else None,
-                        "timestamp": _ts_ms,
-                        "lastTradeTimestamp": None,
-                        "status": "open",
-                        "symbol": symbol if symbol else None,
-                        "type": "market",
-                        "side": None,
-                        "price": None,
-                        "amount": None,
-                        "filled": None,
-                        "remaining": None,
-                        "cost": None,
-                        "trades": [],
-                        "fee": {
-                            "currency": "ETH",
-                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
-                            "rate": None,
-                        },
-                        "info": {
-                            "creation_receipt": receipt,
-                            "transaction": tx,
-                            "order_key": order_key_hex,
-                        },
-                        "average": None,
-                        "fees": [],
-                    }
-                    return order
-
-                # Log trade_action fields for diagnostics (exclude bulky transaction data)
-                trade_action_fields = {k: v for k, v in trade_action.items() if k != "transaction"}
-                logger.info(
-                    "fetch_order(%s): trade_action fields: %s",
-                    id[:16],
-                    trade_action_fields,
+                resolved = self._resolve_order_from_sources(
+                    order_key_hex=order_key_hex,
+                    symbol=symbol,
+                    receipt=receipt,
+                    tx=tx,
                 )
+                if resolved is not None:
+                    resolved["id"] = id
+                    self._orders[id] = resolved
+                    return resolved
 
-                # Derive CCXT side from orderType + isLong
-                derived_side = _derive_side_from_trade_action(trade_action)
-
-                # Check event type
-                event_name = trade_action.get("eventName", "")
-
-                if event_name in ("OrderCancelled", "OrderFrozen"):
-                    # Order cancelled/frozen
-                    is_frozen = event_name == "OrderFrozen"
-                    error_reason = trade_action.get("reason") or f"Order {event_name.lower()}"
-                    logger.info(
-                        "ORDER_TRACE: fetch_order(%s) - Order %s - reason=%s - RETURNING status=%s",
-                        id,
-                        event_name,
-                        error_reason,
-                        "expired" if is_frozen else "cancelled",
-                    )
-
-                    timestamp = self.milliseconds()
-                    order = {
-                        "id": id,
-                        "clientOrderId": None,
-                        "timestamp": timestamp,
-                        "datetime": self.iso8601(timestamp),
-                        "lastTradeTimestamp": timestamp,
-                        "symbol": symbol,
-                        "type": "market",
-                        "side": derived_side,  # Derived from orderType + isLong
-                        "price": None,
-                        "amount": None,
-                        "cost": None,
-                        "average": None,
-                        "filled": 0.0,
-                        "remaining": None,
-                        "status": "expired" if is_frozen else "cancelled",
-                        "fee": {
-                            "currency": "ETH",
-                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
-                            "rate": None,
-                        },
-                        "trades": [],
-                        "info": {
-                            "creation_receipt": receipt,
-                            "transaction": tx,
-                            "order_key": order_key_hex,
-                            "event_name": event_name,
-                            "cancel_reason": error_reason,
-                            "gmx_status": "frozen" if is_frozen else "cancelled",
-                        },
-                    }
-                    return order
-
-                # Order executed successfully (OrderExecuted event)
-                raw_exec_price = trade_action.get("executionPrice")
-                execution_price = None
-                market = self.markets.get(symbol) if symbol else None
-                if raw_exec_price and market:
-                    execution_price = self._convert_price_to_usd(float(raw_exec_price), market)
-
-                execution_tx_hash = trade_action.get("transaction", {}).get("hash")
-                is_long = trade_action.get("isLong")
-
-                # Gas cost stored separately in info
-                gas_cost_eth = float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18
-                size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / 10**PRECISION if trade_action.get("sizeDeltaUsd") else 0.0
-
-                # Extract actual trading fee from trade_action
-                fee_dict = self._extract_fee_from_trade_action(
-                    trade_action,
-                    symbol,
-                    size_delta_usd,
-                    is_long,
-                    execution_tx_hash,
-                    order_key,
-                    f"fetch_order({id[:16]})",
+                # All tiers exhausted — build synthetic as last resort
+                logger.warning(
+                    "ORDER_TRACE: fetch_order(%s) - all resolution tiers exhausted, returning synthetic open",
+                    id,
                 )
-
-                logger.info(
-                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED: price=%s, size_usd=$%.2f, side=%s, orderType=%s, isLong=%s | trading_fee=$%.6f %s (rate=%.4f%%)",
-                    id[:16],
-                    execution_price or 0,
-                    size_delta_usd,
-                    derived_side,
-                    trade_action.get("orderType"),
-                    trade_action.get("isLong"),
-                    fee_dict.get("cost", 0),
-                    fee_dict.get("currency", "USDC"),
-                    fee_dict.get("rate", 0) * 100,
-                )
-
-                timestamp = self.milliseconds()
+                _ts_ms = _block_timestamp_ms(self.web3, tx.get("blockNumber"))
                 order = {
                     "id": id,
                     "clientOrderId": None,
-                    "timestamp": timestamp,
-                    "datetime": self.iso8601(timestamp),
-                    "lastTradeTimestamp": timestamp,
-                    "symbol": symbol,
+                    "datetime": self.iso8601(_ts_ms) if _ts_ms is not None else None,
+                    "timestamp": _ts_ms,
+                    "lastTradeTimestamp": None,
+                    "status": "open",
+                    "symbol": symbol if symbol else None,
                     "type": "market",
-                    "side": derived_side,  # Derived from orderType + isLong
-                    "price": execution_price,
+                    "side": None,
+                    "price": None,
                     "amount": None,
+                    "filled": None,
+                    "remaining": None,
                     "cost": None,
-                    "average": execution_price,
-                    "filled": None,  # Unknown from tx alone
-                    "remaining": 0.0,
-                    "status": "closed",
-                    "fee": fee_dict,
                     "trades": [],
+                    "fee": {
+                        "currency": "ETH",
+                        "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                        "rate": None,
+                    },
                     "info": {
                         "creation_receipt": receipt,
                         "transaction": tx,
-                        "execution_tx_hash": execution_tx_hash,
                         "order_key": order_key_hex,
-                        "execution_price": execution_price,
-                        "is_long": is_long,
-                        "event_name": event_name,
-                        "execution_fee_eth": gas_cost_eth,
-                        "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 10**PRECISION if trade_action.get("pnlUsd") else None,
-                        "size_delta_usd": size_delta_usd if size_delta_usd else None,
-                        "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 10**PRECISION if trade_action.get("priceImpactUsd") else None,
                     },
+                    "average": None,
+                    "fees": [],
                 }
                 return order
 
