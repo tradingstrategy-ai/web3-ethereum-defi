@@ -18,9 +18,16 @@ import pytest
 
 # Freqtrade is an optional sibling install (lives in the parent
 # ``gmx-strategies-livebt`` venv, not the web3-ethereum-defi venv). Skip
-# the whole module gracefully when it is not importable so the suite
+# the whole module gracefully when it is not fully importable so the suite
 # remains runnable in either environment.
-pytest.importorskip("freqtrade", reason="freqtrade not installed in this environment")
+#
+# Probe ``freqtrade.enums`` specifically: ``eth_defi.gmx.freqtrade.gmx_exchange``
+# does ``from freqtrade.enums import MarginMode, TradingMode`` at module top, so
+# checking only the top-level ``freqtrade`` package is insufficient when CI has
+# a partial / namespace install that satisfies ``import freqtrade`` but not the
+# submodule import the wrapper needs (observed on the upstream GMX Tests
+# workflow which installs the package without the ``freqtrade`` extra).
+pytest.importorskip("freqtrade.enums", reason="freqtrade.enums required (install with --extras freqtrade)")
 
 
 def _apply_zombie_inplace(order: dict, pair: str = "BTC/USDC:USDC") -> dict:
