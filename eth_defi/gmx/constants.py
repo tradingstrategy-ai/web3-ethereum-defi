@@ -163,6 +163,16 @@ GMX_API_V2_URLS: dict[str, str] = {
     "avalanche": "https://avalanche.gmxapi.io/v1",
 }
 
+#: Fallback REST API v2 endpoint URLs (DigitalOcean mirror).
+#:
+#: Used by :meth:`~eth_defi.gmx.api.GMXAPI._make_v2_request` when the primary
+#: :data:`GMX_API_V2_URLS` (``gmxapi.io``) and the ``gmxapi.ai`` peer both
+#: fail.  The correct path prefix is ``/v1`` (not ``/api/v1``).
+GMX_API_V2_URLS_FALLBACK: dict[str, str] = {
+    "arbitrum": "https://gmx-api-arbitrum-2nlbk.ondigitalocean.app/v1",
+    "avalanche": "https://gmx-api-avalanche-vxjas.ondigitalocean.app/v1",
+}
+
 # TODO: get rid of the rest bcz they will be migrated soon.
 # Contract addresses by chain
 GMX_EVENT_EMITTER_ADDRESS = {

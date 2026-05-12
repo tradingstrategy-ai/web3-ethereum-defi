@@ -19,6 +19,7 @@ from eth_defi.gmx.constants import (
     GMX_API_URLS_BACKUP,
     GMX_API_URLS_FALLBACK_3,
     GMX_API_V2_URLS,
+    GMX_API_V2_URLS_FALLBACK,
     GMX_SUPPORTED_CHAINS,
     _APY_CACHE_TTL_SECONDS,
     _MARKETS_CACHE_TTL_SECONDS,
@@ -286,33 +287,39 @@ class GMXAPI:
         :raises RuntimeError:
             When all retry attempts fail.
         """
-        base = self.base_v2_url
-        if not base:
+        primary = self.base_v2_url
+        if not primary:
             raise ValueError(f"No GMX v2 API URL configured for chain: {self.chain!r}")
 
-        url = f"{base}{endpoint}"
+        fallback = GMX_API_V2_URLS_FALLBACK.get(self.chain.lower(), "")
+
+        # Try primary (gmxapi.io) then fallback (DigitalOcean mirror), 2 attempts each.
+        candidates = [b for b in (primary, fallback) if b]
         last_error: Exception | None = None
-        delay = 1.0
 
-        for attempt in range(3):
-            try:
-                response = requests.get(url, params=params, timeout=timeout)
-                response.raise_for_status()
-                return response.json()
-            except requests.RequestException as exc:
-                last_error = exc
-                if attempt < 2:
-                    logger.warning(
-                        "GMX v2 API attempt %d/3 failed for %s: %s — retrying in %.1fs",
-                        attempt + 1,
-                        endpoint,
-                        exc,
-                        delay,
-                    )
-                    time.sleep(delay)
-                    delay = min(delay * 2.0, 10.0)
+        for base in candidates:
+            url = f"{base}{endpoint}"
+            delay = 1.0
+            for attempt in range(2):
+                try:
+                    response = requests.get(url, params=params, timeout=timeout)
+                    response.raise_for_status()
+                    return response.json()
+                except requests.RequestException as exc:
+                    last_error = exc
+                    if attempt == 0:
+                        logger.warning(
+                            "GMX v2 API attempt failed for %s (%s): %s — retrying in %.1fs",
+                            endpoint,
+                            base,
+                            exc,
+                            delay,
+                        )
+                        time.sleep(delay)
+                        delay = min(delay * 2.0, 10.0)
+            logger.warning("GMX v2 API: %s exhausted, trying next host", base)
 
-        raise RuntimeError(f"GMX v2 API request failed after 3 attempts: {endpoint}") from last_error
+        raise RuntimeError(f"GMX v2 API request failed on all hosts: {endpoint}") from last_error
 
     def _make_request(
         self,
