@@ -225,6 +225,10 @@ filterwarnings = [
   "ignore::ResourceWarning",
 ]
 
+markers = [
+  "live: marks tests that hit live mainnet (deselect with -m 'not live')",
+]
+
 [tool.ruff]
 # We hate arbitrary line lengths
 extend-exclude = [
