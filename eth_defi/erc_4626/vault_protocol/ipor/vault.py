@@ -1,11 +1,10 @@
 """IPOR vault reading implementation."""
 
 import datetime
+from collections.abc import Iterable
 from decimal import Decimal
 from functools import cached_property
-from typing import Iterable
 
-from cachetools import cached
 from web3 import Web3
 from web3.contract import Contract
 from web3.types import BlockIdentifier
@@ -13,8 +12,7 @@ from web3.types import BlockIdentifier
 from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
-from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
-from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_UTILISATION,
@@ -32,6 +30,35 @@ PERFORMANCE_FEE_CALL_SIGNATURE = Web3.keccak(text="getPerformanceFeeData()")[0:4
 #: function getManagementFeeData() external view returns (PlasmaVaultStorageLib.PerformanceFeeData memory feeData);
 #: https://etherscan.io/address/0xabab980f0ecb232d52f422c6b68d25c3d0c18e3e#code
 MANAGEGEMENT_FEE_CALL_SIGNATURE = Web3.keccak(text="getManagementFeeData()")[0:4]
+
+#: function FEE_MANAGER() external view returns (address);
+#: FeeAccount.sol
+FEE_MANAGER_CALL_SIGNATURE = Web3.keccak(text="FEE_MANAGER()")[0:4]
+
+#: function getDepositFee() external view returns (uint256);
+#: FeeManager.sol
+DEPOSIT_FEE_CALL_SIGNATURE = Web3.keccak(text="getDepositFee()")[0:4]
+
+ABI_WORD_BYTES = 32
+ABI_ADDRESS_OFFSET_BYTES = 12
+
+
+def decode_abi_address_word(data: bytes) -> str:
+    """Decode an ABI address value from the first 32-byte word.
+
+    :param data:
+        ABI-encoded call result.
+
+    :return:
+        EVM address as a checksum string, or zero address if the word is zero.
+    """
+    assert isinstance(data, bytes), f"Expected bytes, got {type(data)}"
+    assert len(data) >= ABI_WORD_BYTES, f"Expected at least one ABI word, got {len(data)} bytes"
+
+    address_bytes = data[ABI_ADDRESS_OFFSET_BYTES:ABI_WORD_BYTES]
+    if int.from_bytes(address_bytes, byteorder="big") == 0:
+        return ZERO_ADDRESS_STR
+    return Web3.to_checksum_address(f"0x{address_bytes.hex()}")
 
 
 class IPORVaultHistoricalReader(ERC4626HistoricalReader):
@@ -279,14 +306,14 @@ class IPORVault(ERC4626Vault):
     - The ``FeeManager`` is a distribution layer on top of already-minted
       fee shares, not a separate fee-collection mechanism.
 
-    Optional deposit fee (not modelled by :class:`eth_defi.vault.fee.FeeData`):
+    Optional deposit fee:
 
     - ``FeeManager.setDepositFee()`` (line 508) allows an atomist to configure
       an explicit deposit fee with 18-decimal precision. NatSpec says the fee
       is *"deducted from the user's deposit amount before minting shares"*,
       making it an externalised fee at deposit time. This is a per-vault
-      optional add-on and is orthogonal to the management/performance fee
-      mode; most Plasma Vaults leave it at 0.
+      optional add-on and is orthogonal to the management/performance fee mode.
+      ``previewDeposit()`` already returns shares net of this fee.
 
     References:
 
@@ -300,7 +327,6 @@ class IPORVault(ERC4626Vault):
     @cached_property
     def plasma_vault(self) -> Contract:
         """Get IPOR's proprietary PlasmaVault implementation."""
-        #
         return get_deployed_contract(
             self.web3,
             fname="ipor/PlasmaVaultBase.json",
@@ -329,20 +355,97 @@ class IPORVault(ERC4626Vault):
     def get_historical_reader(self, stateful) -> VaultHistoricalReader:
         return IPORVaultHistoricalReader(self, stateful)
 
+    def call_raw_signature(
+        self,
+        address: str,
+        function: str,
+        signature: bytes,
+        block_identifier: BlockIdentifier,
+    ) -> bytes:
+        """Call a raw IPOR selector.
+
+        IPOR Fusion fee helpers live across PlasmaVault, FeeAccount and
+        FeeManager contracts. Some helper ABIs are not bundled locally, so
+        selector-level reads keep the dependency small.
+
+        :param address:
+            Contract address to call.
+        :param function:
+            Human-readable function name for diagnostics.
+        :param signature:
+            Four-byte selector.
+        :param block_identifier:
+            Block to read.
+        :return:
+            Raw ABI-encoded result bytes.
+        """
+        call = EncodedCall.from_keccak_signature(
+            address=address,
+            function=function,
+            signature=signature,
+            data=b"",
+            extra_data=None,
+        )
+        return call.call(self.web3, block_identifier=block_identifier)
+
+    def fetch_performance_fee_account(self, block_identifier: BlockIdentifier) -> str:
+        """Read the IPOR performance fee account address.
+
+        The performance fee account is a ``FeeAccount`` contract that exposes
+        ``FEE_MANAGER()``. The FeeManager stores the deposit/onboarding fee.
+
+        :param block_identifier:
+            Block to read.
+        :return:
+            Fee account address, or zero address if unset.
+        """
+        data = self.call_raw_signature(
+            address=self.address,
+            function="getPerformanceFeeData",
+            signature=PERFORMANCE_FEE_CALL_SIGNATURE,
+            block_identifier=block_identifier,
+        )
+        return decode_abi_address_word(data)
+
+    def fetch_fee_manager(self, block_identifier: BlockIdentifier) -> str | None:
+        """Read the IPOR FeeManager address.
+
+        :param block_identifier:
+            Block to read.
+        :return:
+            FeeManager address, or ``None`` if the fee account is unset.
+        """
+        performance_fee_account = self.fetch_performance_fee_account(block_identifier)
+        if performance_fee_account == ZERO_ADDRESS_STR:
+            return None
+
+        try:
+            data = self.call_raw_signature(
+                address=performance_fee_account,
+                function="FEE_MANAGER",
+                signature=FEE_MANAGER_CALL_SIGNATURE,
+                block_identifier=block_identifier,
+            )
+        except ValueError:
+            return None
+
+        fee_manager = decode_abi_address_word(data)
+        if fee_manager == ZERO_ADDRESS_STR:
+            return None
+        return fee_manager
+
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get the current management fee as a percent.
 
         :return:
             0.1 = 10%
         """
-        management_fee_call = EncodedCall.from_keccak_signature(
+        data = self.call_raw_signature(
             address=self.address,
-            function="getPerformanceFeeData",
+            function="getManagementFeeData",
             signature=MANAGEGEMENT_FEE_CALL_SIGNATURE,
-            data=b"",
-            extra_data=None,
+            block_identifier=block_identifier,
         )
-        data = management_fee_call.call(self.web3, block_identifier)
         management_fee = int.from_bytes(data[32:64], byteorder="big") / 10_000
         return management_fee
 
@@ -352,16 +455,43 @@ class IPORVault(ERC4626Vault):
         :return:
             0.1 = 10%
         """
-        performance_fee_call = EncodedCall.from_keccak_signature(
+        data = self.call_raw_signature(
             address=self.address,
             function="getPerformanceFeeData",
             signature=PERFORMANCE_FEE_CALL_SIGNATURE,
-            data=b"",
-            extra_data=None,
+            block_identifier=block_identifier,
         )
-        data = performance_fee_call.call(self.web3, block_identifier=block_identifier)
         performance_fee = int.from_bytes(data[32:64], byteorder="big") / 10_000
         return performance_fee
+
+    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> float | None:
+        """Get the current deposit/onboarding fee as a percent.
+
+        IPOR stores this fee in ``FeeManager.getDepositFee()`` using 18-decimal
+        precision where ``1e18`` is 100%. PlasmaVault ``previewDeposit()``
+        already returns shares after this fee.
+
+        :param block_identifier:
+            Block to read.
+        :return:
+            ``0.008`` means 0.8%.
+        """
+        fee_manager = self.fetch_fee_manager(block_identifier)
+        if fee_manager is None:
+            return 0.0
+
+        try:
+            data = self.call_raw_signature(
+                address=fee_manager,
+                function="getDepositFee",
+                signature=DEPOSIT_FEE_CALL_SIGNATURE,
+                block_identifier=block_identifier,
+            )
+        except ValueError:
+            return 0.0
+
+        deposit_fee = int.from_bytes(data[:32], byteorder="big") / 10**18
+        return deposit_fee
 
     def get_redemption_delay(self) -> datetime.timedelta | None:
         """Get the redemption delay for the vault.

@@ -220,8 +220,8 @@ class FeeData:
                 fee_mode=self.fee_mode,
                 management=0,
                 performance=0,
-                deposit=0.0,
-                withdraw=0.0,
+                deposit=self.deposit,
+                withdraw=self.withdraw,
             )
         else:
             return self
