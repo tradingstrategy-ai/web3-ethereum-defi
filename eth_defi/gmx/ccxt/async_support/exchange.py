@@ -35,6 +35,7 @@ from eth_defi.gmx.ccxt.cancel_helpers import (
 from eth_defi.gmx.ccxt.exchange import _derive_side_from_trade_action
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
+from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.symbols import DEPRECATED_MARKET_TOKENS, SYMBOL_NORMALISE
 from eth_defi.gmx.constants import (
@@ -2181,8 +2182,6 @@ class GMX(Exchange):
         # Tier B — GMX REST API v2
         if self.wallet_address:
             try:
-                from eth_defi.gmx.api import GMXAPI
-
                 loop = asyncio.get_running_loop()
                 gmx_api = GMXAPI(chain=self.config.get_chain())
                 rest_orders = await loop.run_in_executor(
@@ -2245,7 +2244,8 @@ class GMX(Exchange):
                 )
                 matching_pos = self._find_matching_reader_position(raw_positions, symbol)
                 _ts_ms = await _block_timestamp_ms(
-                    self.web3, tx.get("blockNumber") if tx else None
+                    self.web3,
+                    tx.get("blockNumber") if tx else await self.web3.eth.block_number,
                 )
                 if matching_pos is not None:
                     logger.debug(
@@ -2623,7 +2623,7 @@ class GMX(Exchange):
             # Check if order still pending in DataStore (using sync call via asyncio)
             try:
                 # Run sync function in thread pool
-                status_result = await asyncio.get_running_loop().run_in_executor(None, lambda: check_order_status(self.web3, order_key, self.chain))
+                status_result = await asyncio.get_running_loop().run_in_executor(None, lambda: check_order_status(self.sync_web3, order_key, self.chain))
             except Exception as e:
                 logger.warning("fetch_order(%s): error checking order status: %s", id, e)
                 return order
@@ -2636,7 +2636,7 @@ class GMX(Exchange):
             # Order no longer pending - verify execution result
             if status_result.execution_receipt:
                 verification = verify_gmx_order_execution(
-                    self.web3,
+                    self.sync_web3,
                     status_result.execution_receipt,
                     order_key,
                 )
