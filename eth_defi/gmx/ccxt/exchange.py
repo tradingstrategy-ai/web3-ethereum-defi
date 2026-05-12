@@ -8776,7 +8776,7 @@ class GMX(ExchangeCompatible):
             "status": status,
             "symbol": symbol,
             "type": "limit",
-            "side": "buy" if trade_action.get("isLong") else "sell",
+            "side": _derive_side_from_trade_action(trade_action),
             "price": exec_price,
             "average": exec_price,
             "amount": filled,
@@ -8917,7 +8917,7 @@ class GMX(ExchangeCompatible):
             "price": None,
             "average": None,
             "amount": None,
-            "filled": None,
+            "filled": 0.0,  # conservative; fill_data_pending=True means exact amount unknown
             "remaining": 0.0,
             "cost": None,
             "trades": [],
@@ -8976,7 +8976,7 @@ class GMX(ExchangeCompatible):
             return None
         for pos in raw_positions:
             pos_symbol = self._map_market_to_symbol(
-                pos[1] if isinstance(pos, (list, tuple)) and len(pos) > 1 else ""
+                pos[0][1] if isinstance(pos, (list, tuple)) and len(pos) > 0 and len(pos[0]) > 1 else ""
             )
             if pos_symbol == symbol:
                 return pos
@@ -9317,6 +9317,7 @@ class GMX(ExchangeCompatible):
                     "average": None,
                     "fees": [],
                 }
+                self._orders[id] = order
                 return order
 
             except Exception as e:
