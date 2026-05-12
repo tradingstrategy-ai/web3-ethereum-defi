@@ -13,12 +13,13 @@ from eth_typing import HexAddress
 from eth_utils import to_checksum_address
 
 from eth_defi.event_reader.multicall_batcher import get_multicall_contract
+from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses, get_datastore_contract, get_reader_contract, get_tokens_metadata_dict
-from eth_defi.gmx.keys import MARKET_LIST, is_market_disabled_key
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.types import MarketData, MarketSymbol
+from eth_defi.gmx.keys import MARKET_LIST, is_market_disabled_key
 from eth_defi.gmx.symbols import SYMBOL_NORMALISE
+from eth_defi.gmx.types import MarketData, MarketSymbol
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,42 @@ _CLASS_MARKETS_CACHE: dict[str, _MarketsCacheEntry] = {}
 #: no expiry; this bound caps the blast radius of any future filter regression
 #: at 5 minutes per process.
 _CLASS_MARKETS_CACHE_TTL_MS: int = 5 * 60 * 1000
+
+_ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+
+
+def _normalize_rest_market(entry: dict) -> dict | None:
+    """Normalise a single ``/markets`` REST response entry to a uniform schema.
+
+    Handles two field-name shapes that appear across GMX API mirrors:
+
+    * **gmxinfra.io**: ``marketToken``, ``indexToken``, ``longToken``, ``shortToken``
+    * **gmxapi.ai**: ``marketTokenAddress``, ``indexTokenAddress``,
+      ``longTokenAddress``, ``shortTokenAddress``
+
+    :param entry: Raw dict from the ``markets`` list in the API response.
+    :return: Normalised dict with snake_case keys, or ``None`` when the entry
+        should be skipped (``isListed: false`` or zero index-token address).
+    """
+    is_listed = entry.get("isListed", True)
+    if not is_listed:
+        return None
+
+    market_address = entry.get("marketToken") or entry.get("marketTokenAddress", "")
+    index_token_address = entry.get("indexToken") or entry.get("indexTokenAddress", "")
+    long_token_address = entry.get("longToken") or entry.get("longTokenAddress", "")
+    short_token_address = entry.get("shortToken") or entry.get("shortTokenAddress", "")
+
+    if not index_token_address or index_token_address.lower() == _ZERO_ADDRESS:
+        return None
+
+    return {
+        "market_address": market_address,
+        "index_token_address": index_token_address,
+        "long_token_address": long_token_address,
+        "short_token_address": short_token_address,
+        "is_listed": bool(is_listed),
+    }
 
 
 @dataclass(slots=True)
@@ -129,6 +166,140 @@ class Markets:
             oracle_prices = {}
 
         return oracle_prices
+
+    def _fetch_markets_from_rest(self) -> list[dict]:
+        """Fetch the live market list from the REST ``/markets`` endpoint.
+
+        Returns a normalised list of market dicts with keys: ``market_address``,
+        ``index_token_address``, ``long_token_address``, ``short_token_address``,
+        ``is_listed``. Entries with ``isListed: false`` and swap markets (zero
+        index-token) are already filtered before return.
+
+        ``use_cache=False`` is intentional — :meth:`_process_markets` owns caching
+        via :data:`_CLASS_MARKETS_CACHE`. Adding a second API-level cache layer
+        here would create two competing TTLs with no benefit.
+
+        :return: Normalised list of listed, non-zero-index markets.
+        :raises RuntimeError: When all REST endpoints fail after retries.
+        """
+        api = GMXAPI(chain=self.config.chain)
+        data = api.get_markets(use_cache=False)
+        raw_list: list[dict] = data.get("markets", [])
+        result: list[dict] = []
+        for entry in raw_list:
+            normalised = _normalize_rest_market(entry)
+            if normalised is not None:
+                result.append(normalised)
+        logger.debug(
+            "_fetch_markets_from_rest: %d listed markets from REST (out of %d raw entries)",
+            len(result),
+            len(raw_list),
+        )
+        return result
+
+    def _check_markets_disabled_onchain(self, market_addresses: list[str]) -> dict[str, bool]:
+        """Batch-check ``IS_MARKET_DISABLED`` for the supplied addresses via Multicall3.
+
+        Used by :meth:`_fetch_markets_from_onchain` when the REST ``/markets``
+        endpoint is unavailable after all retries.
+
+        :param market_addresses: Checksummed GMX market token addresses.
+        :return: Mapping of ``market_address`` → ``True`` if disabled on-chain.
+            All input addresses appear as keys; entries that fail after two
+            attempts are treated as **enabled** (conservative fail-open).
+        """
+        result: dict[str, bool] = dict.fromkeys(market_addresses, False)
+        if not market_addresses:
+            return result
+
+        try:
+            chain = self.config.chain
+            datastore = get_datastore_contract(self.config.web3, chain)
+            multicall = get_multicall_contract(self.config.web3)
+
+            batch: list[tuple[str, bytes]] = []
+            for market_addr in market_addresses:
+                key = is_market_disabled_key(market_addr)
+                calldata = bytes.fromhex(
+                    datastore.encode_abi(abi_element_identifier="getBool", args=[key])[2:]
+                )
+                batch.append((market_addr, calldata))
+
+            datastore_addr = datastore.address
+            pending = batch
+            for attempt in range(1, 3):
+                mc_calls = [(datastore_addr, True, data) for (_a, data) in pending]
+                mc_results = multicall.functions.aggregate3(mc_calls).call()
+                retry: list[tuple[str, bytes]] = []
+                for (market_addr, calldata), (success, return_data) in zip(pending, mc_results):
+                    if not success or not return_data:
+                        if attempt == 1:
+                            retry.append((market_addr, calldata))
+                        else:
+                            logger.warning(
+                                "IS_MARKET_DISABLED check failed for %s after 2 attempts — treating as enabled",
+                                market_addr,
+                            )
+                        continue
+                    result[market_addr] = bool(int(return_data.hex(), 16))
+                if not retry:
+                    break
+                pending = retry
+        except Exception as exc:
+            logger.warning(
+                "_check_markets_disabled_onchain failed, treating all markets as enabled: %s",
+                exc,
+            )
+
+        return result
+
+    def _fetch_markets_from_onchain(self) -> list[dict]:
+        """Fallback market source: on-chain ``SyntheticsReader.getMarkets()``.
+
+        Used when :meth:`_fetch_markets_from_rest` fails after all retries.
+        Replicates the pre-REST pipeline: DataStore count → reader batch →
+        Multicall3 ``IS_MARKET_DISABLED`` filter.
+
+        Unlike the REST path, zero-index-token entries (e.g. the wstETH market)
+        are passed through so that :meth:`_process_markets` can apply the
+        special-case remap.
+
+        :return: List of market dicts with the same keys as
+            :meth:`_fetch_markets_from_rest`: ``market_address``,
+            ``index_token_address``, ``long_token_address``,
+            ``short_token_address``, ``is_listed``.
+        :raises Exception: Propagates any RPC error so the caller can surface it.
+        """
+        reader_contract = get_reader_contract(self.config.web3, self.config.chain)
+        contract_addresses = get_contract_addresses(self.config.chain)
+        datastore_contract = get_datastore_contract(self.config.web3, self.config.chain)
+        market_count = datastore_contract.functions.getAddressCount(MARKET_LIST).call()
+
+        raw = reader_contract.functions.getMarkets(
+            contract_addresses.datastore,
+            0,
+            market_count + 1,
+        ).call()
+
+        result: list[dict] = [
+            {
+                "market_address": tup[0],
+                "index_token_address": tup[1],
+                "long_token_address": tup[2],
+                "short_token_address": tup[3],
+                "is_listed": True,
+            }
+            for tup in raw
+        ]
+
+        # Filter markets the DataStore reports as disabled.
+        if result:
+            addrs = [r["market_address"] for r in result]
+            disabled_map = self._check_markets_disabled_onchain(addrs)
+            result = [r for r in result if not disabled_map.get(r["market_address"], False)]
+
+        logger.debug("_fetch_markets_from_onchain: %d enabled markets from on-chain", len(result))
+        return result
 
     def get_available_markets(self) -> MarketData:
         """
@@ -257,112 +428,6 @@ class Markets:
         # For now, assume all markets in our processed list are enabled
         return market_address not in self._process_markets()
 
-    def _get_available_markets_raw(self) -> list[tuple]:
-        """
-        Get the available markets from the reader contract.
-
-        :return: List of raw output from the reader contract
-        :rtype: List[tuple]
-        """
-        reader_contract = get_reader_contract(self.config.web3, self.config.chain)
-        contract_addresses = get_contract_addresses(self.config.chain)
-        data_store_contract_address = contract_addresses.datastore
-
-        # Query the actual market count from the DataStore rather than
-        # using a hardcoded limit that silently breaks when GMX adds markets.
-        datastore_contract = get_datastore_contract(self.config.web3, self.config.chain)
-        market_count = datastore_contract.functions.getAddressCount(MARKET_LIST).call()
-
-        return reader_contract.functions.getMarkets(
-            data_store_contract_address,
-            0,
-            market_count + 1,
-        ).call()
-
-    def _get_on_chain_market_count(self) -> int:
-        """Read the live ``MARKET_LIST`` length from the DataStore.
-
-        Used by :meth:`_process_markets` for partial-build detection — if the
-        processed-markets count is strictly less than this value, the cache
-        entry is marked ``partial=True`` so the next call refetches instead of
-        permanently shadowing dropped markets.
-
-        :return: Number of markets currently registered on-chain.
-        :raises Exception: Propagates any RPC error from the DataStore call.
-        """
-        datastore_contract = get_datastore_contract(self.config.web3, self.config.chain)
-        return datastore_contract.functions.getAddressCount(MARKET_LIST).call()
-
-    def _check_markets_disabled_onchain(self, market_addresses: list[str]) -> dict[str, bool]:
-        """Batch-check ``IS_MARKET_DISABLED`` for the supplied market addresses.
-
-        Mirrors the proven Multicall3 pattern in
-        :meth:`eth_defi.gmx.ccxt.exchange.GMX._filter_datastore_disabled_markets`.
-        All ``DataStore.getBool(IS_MARKET_DISABLED)`` calls are batched into a
-        single ``aggregate3`` round-trip with up to two attempts; an entry that
-        still fails after two attempts is treated as **enabled** (conservative —
-        the market goes through and a later trade attempt will surface any
-        ground-truth disabled status).
-
-        :param market_addresses: Checksummed GMX market token addresses.
-        :return: Mapping of ``market_address`` -> ``True`` if the market is
-            disabled on-chain, ``False`` otherwise.  All input addresses
-            appear as keys in the returned dict.
-        """
-        result: dict[str, bool] = {addr: False for addr in market_addresses}
-        if not market_addresses:
-            return result
-
-        try:
-            chain = self.config.chain
-            datastore = get_datastore_contract(self.config.web3, chain)
-            multicall = get_multicall_contract(self.config.web3)
-
-            # Encode one getBool() calldata per market.
-            batch: list[tuple[str, bytes]] = []
-            for market_addr in market_addresses:
-                key = is_market_disabled_key(market_addr)
-                calldata = bytes.fromhex(
-                    datastore.encode_abi(abi_element_identifier="getBool", args=[key])[2:]
-                )
-                batch.append((market_addr, calldata))
-
-            datastore_addr = datastore.address
-            pending = batch
-            for attempt in range(1, 3):
-                mc_calls = [(datastore_addr, True, data) for (_a, data) in pending]
-                mc_results = multicall.functions.aggregate3(mc_calls).call()
-                retry: list[tuple[str, bytes]] = []
-                for (market_addr, calldata), (success, return_data) in zip(pending, mc_results):
-                    if not success or not return_data:
-                        if attempt < 2:
-                            retry.append((market_addr, calldata))
-                        else:
-                            # Two attempts failed — treat conservatively as enabled.
-                            logger.warning(
-                                "IS_MARKET_DISABLED check failed for market %s after 2 attempts — treating as enabled",
-                                market_addr,
-                            )
-                            result[market_addr] = False
-                        continue
-                    disabled = bool(int(return_data.hex(), 16))
-                    result[market_addr] = disabled
-                if not retry:
-                    break
-                pending = retry
-        except Exception as e:
-            # If Multicall3 itself blows up, log loudly and report every market as
-            # enabled.  Better to let a disabled market through (the trade will
-            # revert on-chain with a clear error) than to silently shrink the
-            # cached set the way the oracle filter used to.
-            logger.warning(
-                "_check_markets_disabled_onchain failed, treating all markets as enabled: %s",
-                e,
-            )
-            return {addr: False for addr in market_addresses}
-
-        return result
-
     def _process_markets(self) -> dict:
         """
         Process the raw market data and return the results.
@@ -372,20 +437,16 @@ class Markets:
         1. **TTL fast path** — if a non-partial cache entry exists for this
            chain and was built within :data:`_CLASS_MARKETS_CACHE_TTL_MS`,
            return it without any RPC traffic.
-        2. **Fetch + structural build** — read raw markets from the on-chain
-           reader contract and synthesise metadata.  The oracle REST snapshot
-           is fetched but **never used as an exclusion filter** — issue #67
-           proved that filtering on oracle availability causes spurious
-           ``ValueError: No GMX market found`` crashes whenever Pyth feeds
-           lag a new listing.
-        3. **On-chain liveness** — batch-check ``IS_MARKET_DISABLED`` via
-           Multicall3 and drop markets that the DataStore says are disabled.
-        4. **Partial-build detection** — compare the processed count to
-           ``DataStore.MARKET_LIST`` size.  If the new build is partial *and*
-           a prior complete entry exists, return the prior entry (logged as a
-           warning) so a transient gap cannot permanently shrink the cached
-           set.  Otherwise mark the new entry ``partial=True`` so it will
-           refresh on every subsequent call.
+        2. **Fetch + structural build** — read listed markets from the REST
+           ``/markets`` endpoint (via :meth:`_fetch_markets_from_rest`) and
+           synthesise metadata.  ``isListed:false`` and zero-index-token
+           entries are pre-filtered by the REST helper.
+        3. **Partial-build detection** — compare the processed count to the
+           raw REST market count.  If the new build is partial *and* a prior
+           complete entry exists, return the prior entry (logged as a warning)
+           so a transient gap cannot permanently shrink the cached set.
+           Otherwise mark the new entry ``partial=True`` so it will refresh on
+           every subsequent call.
 
         :return: Dictionary of processed markets, keyed by checksummed market
             contract address.
@@ -411,38 +472,37 @@ class Markets:
 
         # 2. Pre-load necessary data.
         token_metadata_dict = self._get_token_metadata_dict()
-        # NOTE: oracle_prices is still fetched for downstream consumers that may
-        # rely on it (e.g. price warm-up), but it is intentionally NOT used to
-        # exclude markets — see issue #67 for the failure mode the old filter
-        # produced.
-        try:
-            self._get_oracle_prices()
-        except Exception as exc:  # pragma: no cover — defensive
-            logger.debug("Oracle prices fetch failed (non-fatal under new design): %s", exc)
 
         # Use token metadata for testnets from contracts module
         if self.config.chain == "arbitrum_sepolia":
             arbitrum_sepolia_token_metadata = get_tokens_metadata_dict(self.config.chain)
             token_metadata_dict.update(arbitrum_sepolia_token_metadata)
 
-        # Get raw market data.
-        raw_markets = self._get_available_markets_raw()
-        logger.debug("Retrieved %s raw markets from contract", len(raw_markets))
+        # Get market list — REST /markets primary, on-chain SyntheticsReader fallback.
+        try:
+            rest_markets = self._fetch_markets_from_rest()
+        except Exception as rest_exc:
+            logger.warning(
+                "REST /markets failed after retries — falling back to on-chain SyntheticsReader: %s",
+                rest_exc,
+            )
+            rest_markets = self._fetch_markets_from_onchain()
+        rest_markets_count = len(rest_markets)
+        logger.debug("Retrieved %d markets (REST primary with on-chain fallback)", rest_markets_count)
 
         # 3. Synthesise metadata for every raw market — no oracle filtering.
         processed_markets: dict[str, dict] = {}
 
-        for raw_market in raw_markets:
+        for rest_market in rest_markets:
             try:
-                # Checksum all addresses
-                market_address = to_checksum_address(raw_market[0])
-                index_token_address = to_checksum_address(raw_market[1])
-                long_token_address = to_checksum_address(raw_market[2])
-                short_token_address = to_checksum_address(raw_market[3])
+                # Checksum all addresses (REST returns mixed-case hex strings).
+                market_address = to_checksum_address(rest_market["market_address"])
+                index_token_address = to_checksum_address(rest_market["index_token_address"])
+                long_token_address = to_checksum_address(rest_market["long_token_address"])
+                short_token_address = to_checksum_address(rest_market["short_token_address"])
 
-                # Skip markets with zero index token address (except for special case)
+                # Special case: wstETH market uses zero index token in REST — remap it.
                 if index_token_address == "0x0000000000000000000000000000000000000000":
-                    # Special case for wstETH market
                     if market_address == self._special_wsteth_address:
                         index_token_address = to_checksum_address("0x5979D7b546E38E414F7E9822514be443A4800529")
                     else:
@@ -501,42 +561,29 @@ class Markets:
                 }
 
             except Exception as e:
-                logger.debug("Skipping market %s: %s", raw_market[0], e)
+                logger.debug("Skipping market %s: %s", rest_market.get("market_address", "?"), e)
                 continue
 
-        logger.debug("Built %d markets for chain %s (pre-disabled-check)", len(processed_markets), chain_key)
-
-        # 4. On-chain liveness — drop markets the DataStore reports as disabled.
-        if processed_markets:
-            disabled_map = self._check_markets_disabled_onchain(list(processed_markets.keys()))
-            disabled_addrs = [addr for addr, is_disabled in disabled_map.items() if is_disabled]
-            for addr in disabled_addrs:
-                logger.warning("Market %s is disabled on-chain (IS_MARKET_DISABLED=true) — excluding", addr)
-                processed_markets.pop(addr, None)
+        logger.debug("Built %d markets for chain %s from REST /markets", len(processed_markets), chain_key)
 
         # 5. Empty-result guard — preserve the PR-#722 invariant.
         if not processed_markets:
             raise ValueError(
                 f"Markets resolved to empty dict for chain {chain_key!r}. "
-                f"raw_markets count: {len(raw_markets)}, "
+                f"rest_markets count: {rest_markets_count}, "
                 f"token_metadata_dict count: {len(token_metadata_dict)}. "
                 "Likely a transient GMX API timeout or saturation — do not cache."
             )
 
-        # 6. Partial-build detection — compare to on-chain MARKET_LIST count.
-        partial = False
-        try:
-            on_chain_count = self._get_on_chain_market_count()
-            partial = len(processed_markets) < on_chain_count
-            if partial:
-                logger.warning(
-                    "Partial build for chain %s: processed=%d on_chain=%d — entry will refresh on next call",
-                    chain_key,
-                    len(processed_markets),
-                    on_chain_count,
-                )
-        except Exception as exc:  # pragma: no cover — defensive
-            logger.debug("On-chain market count check failed (assuming complete): %s", exc)
+        # 6. Partial-build detection — compare processed to the raw REST count.
+        partial = len(processed_markets) < rest_markets_count
+        if partial:
+            logger.warning(
+                "Partial build for chain %s: processed=%d rest_count=%d — entry will refresh on next call",
+                chain_key,
+                len(processed_markets),
+                rest_markets_count,
+            )
 
         # 7. Partial-rebuild protection — keep a complete prior entry if the new
         # build is smaller.  Without this, a single mid-flight RPC blip could

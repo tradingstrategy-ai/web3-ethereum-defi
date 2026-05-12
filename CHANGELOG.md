@@ -10,6 +10,8 @@
 
 - feat: IPOR Fusion vault descriptions fetched from the offchain customisation API at `api.ipor.io/fusion/vaults-customization-list`, with prospectus links appended as markdown (2026-05-13)
 
+- fix(gmx/markets): replace `SyntheticsReader.getMarkets()` + Multicall3 `IS_MARKET_DISABLED` on-chain pipeline in `Markets._process_markets` with a single REST `/markets` call (`GMXAPI.get_markets()`). New `_normalize_rest_market` helper bridges two field-name schemas (gmxinfra.io vs gmxapi.ai). `isListed: false` entries are filtered at normalisation time, eliminating the oracle-lag gap that excluded newly-listed tokens (CHZ, etc.). On-chain `SyntheticsReader` path is retained as an automatic fallback if all REST endpoints fail after retries. CHZ confirmed present on all three REST mirrors (135 markets on gmxinfra.io, 133 on gmxapi.ai). Closes the root-cause half of tradingstrategy-ai/gmx-strategies#67 (2026-05-12)
+
 - feat: `async fetch_my_trades` implemented — was a TODO stub returning `[]`; now merges in-memory order cache with Subsquid `positionChanges`, deduplicates on `transactionHash + logIndex`, and returns CCXT-formatted trades sorted newest-first. See tradingstrategy-ai/gmx-strategies#67 (2026-05-12)
 - feat: `AsyncGMXSubsquidClient.get_position_changes` added — async mirror of `GMXSubsquidClient.get_position_changes` using the existing aiohttp session with 3 retries and endpoint failover. See tradingstrategy-ai/gmx-strategies#67 (2026-05-12)
 - feat: `_resolve_order_from_sources` tiered resolver (Subsquid → REST v2 → Reader → EventEmitter) replaces synthetic-only cache-miss path in `GMX.fetch_order` (sync + async). See tradingstrategy-ai/gmx-strategies#67 (2026-05-12)
@@ -174,7 +176,6 @@
 - Fix: Replace deprecated `datetime.utcnow()` and `pd.Timestamp.utcfromtimestamp()` with Python 3.12+ compatible alternatives (2026-02-08)
 - Add: New protocol: [sBOLD](https://tradingstrategy.ai/trading-view/vaults/protocols/sbold) - yield-bearing tokenised representation of deposits into Liquity V2 Stability Pools by K3 Capital (2026-02-08)
 - Fix: Multi-chain vault scanner now captures and displays exceptions per chain instead of crashing, with full tracebacks printed before the final dashboard (2026-02-05)
-
 
 # 0.40
 

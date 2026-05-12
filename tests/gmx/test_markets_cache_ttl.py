@@ -25,6 +25,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from eth_defi.gmx.core.markets import _normalize_rest_market  # noqa: PLC2701
 
 # Token addresses used as fixtures throughout the suite.  These are real
 # Arbitrum addresses but the tests do not touch any RPC — every test
@@ -42,9 +43,15 @@ def _build_raw_market_tuple(
     index_token: str,
     long_token: str = _USDC_LONG,
     short_token: str = _USDC_SHORT,
-) -> tuple[str, str, str, str]:
-    """Return a tuple shaped like one row of ``MarketReader.getMarkets()``."""
-    return (market_address, index_token, long_token, short_token)
+) -> dict:
+    """Return a dict shaped like one entry from ``_fetch_markets_from_rest``."""
+    return {
+        "market_address": market_address,
+        "index_token_address": index_token,
+        "long_token_address": long_token,
+        "short_token_address": short_token,
+        "is_listed": True,
+    }
 
 
 def _build_token_metadata(addresses: list[str]) -> dict[str, dict[str, Any]]:
@@ -72,30 +79,51 @@ def _clean_cache():
 
 def _install_mocks(
     monkeypatch,
-    raw_markets: list[tuple[str, str, str, str]],
+    raw_markets: list[dict],
     token_metadata: dict[str, dict[str, Any]] | None = None,
     disabled_addresses: set[str] | None = None,
     on_chain_count: int | None = None,
 ):
-    """Patch the network surfaces ``_process_markets`` depends on."""
+    """Patch the network surfaces ``_process_markets`` depends on.
+
+    :param monkeypatch: pytest monkeypatch fixture.
+    :param raw_markets: List of normalized market dicts (from ``_build_raw_market_tuple``).
+    :param token_metadata: Optional token-metadata mapping; built automatically from raw_markets if omitted.
+    :param disabled_addresses: Set of market addresses that should be treated as disabled (unused — kept for
+        API compatibility; disabled filtering is now REST-based and handled upstream of ``_process_markets``).
+    :param on_chain_count: If provided, the REST mock returns exactly this many markets (to simulate a
+        partial build where ``on_chain_count > len(raw_markets)``); otherwise defaults to ``len(raw_markets)``.
+    """
     from eth_defi.gmx.core import markets as markets_mod
 
-    token_meta = token_metadata or _build_token_metadata([t for row in raw_markets for t in row[1:]])
-    disabled = disabled_addresses or set()
-    count = on_chain_count if on_chain_count is not None else len(raw_markets)
+    # Build token metadata from all token addresses found in the market dicts.
+    token_meta = token_metadata or _build_token_metadata(
+        [m["index_token_address"] for m in raw_markets]
+        + [m["long_token_address"] for m in raw_markets]
+        + [m["short_token_address"] for m in raw_markets]
+    )
 
-    raw_call = MagicMock(return_value=list(raw_markets))
-    monkeypatch.setattr(markets_mod.Markets, "_get_available_markets_raw", raw_call)
+    # When on_chain_count > len(raw_markets), pad the REST return value with
+    # extra dummy entries so partial-build detection fires correctly.
+    rest_list = list(raw_markets)
+    if on_chain_count is not None and on_chain_count > len(raw_markets):
+        # Add placeholder entries with unique addresses and zero-token index so
+        # they are skipped during the metadata build but still count toward
+        # rest_markets_count for partial-build detection.
+        for i in range(on_chain_count - len(raw_markets)):
+            rest_list.append({
+                "market_address": f"0xDEAD{'0' * 36}{i:04d}",
+                "index_token_address": f"0xBEEF{'0' * 36}{i:04d}",
+                "long_token_address": _USDC_LONG,
+                "short_token_address": _USDC_SHORT,
+                "is_listed": True,
+            })
+
+    rest_call = MagicMock(return_value=rest_list)
+    monkeypatch.setattr(markets_mod.Markets, "_fetch_markets_from_rest", rest_call)
     monkeypatch.setattr(markets_mod.Markets, "_get_token_metadata_dict", lambda self: dict(token_meta))
-    monkeypatch.setattr(markets_mod.Markets, "_get_oracle_prices", lambda self: {})
 
-    disabled_check = MagicMock(return_value={addr: (addr in disabled) for addr in [row[0] for row in raw_markets]})
-    monkeypatch.setattr(markets_mod.Markets, "_check_markets_disabled_onchain", disabled_check, raising=False)
-
-    count_call = MagicMock(return_value=count)
-    monkeypatch.setattr(markets_mod.Markets, "_get_on_chain_market_count", count_call, raising=False)
-
-    return {"raw_call": raw_call, "disabled_check": disabled_check, "count_call": count_call}
+    return {"raw_call": rest_call}
 
 
 def test_cache_entry_under_ttl_returns_cached(monkeypatch):
@@ -268,7 +296,13 @@ def test_partial_build_does_not_overwrite_complete_prior(monkeypatch):
 
 
 def test_disabled_market_filtered_via_onchain_check(monkeypatch):
-    """A market flagged as disabled by ``IS_MARKET_DISABLED`` is excluded."""
+    """Disabled filtering is now done upstream by the REST /markets endpoint (isListed:false).
+
+    _process_markets no longer calls _check_markets_disabled_onchain — all markets
+    returned by _fetch_markets_from_rest are considered listed and processed.
+    This test verifies that all REST-returned markets are present in the result
+    (the ``disabled_addresses`` arg is now a no-op in _install_mocks).
+    """
     from eth_defi.gmx.core.markets import Markets
 
     raw = [
@@ -278,7 +312,7 @@ def test_disabled_market_filtered_via_onchain_check(monkeypatch):
     _install_mocks(
         monkeypatch,
         raw,
-        disabled_addresses={_BTC_MARKET_ADDR},
+        disabled_addresses={_BTC_MARKET_ADDR},  # no longer has any effect
         on_chain_count=2,
     )
 
@@ -286,8 +320,10 @@ def test_disabled_market_filtered_via_onchain_check(monkeypatch):
     markets = Markets(config)
     result = markets._process_markets()
 
+    # Both markets are present — disabled filtering happens in _fetch_markets_from_rest,
+    # not inside _process_markets.
     assert _ETH_MARKET_ADDR in result
-    assert _BTC_MARKET_ADDR not in result, "Disabled market must be filtered out"
+    assert _BTC_MARKET_ADDR in result, "REST-listed markets must all be included"
 
 
 def test_oracle_snapshot_does_not_exclude_markets(monkeypatch):
@@ -326,3 +362,137 @@ def test_empty_processed_markets_still_raises(monkeypatch):
     markets = Markets(config)
     with pytest.raises(ValueError, match="empty dict"):
         markets._process_markets()
+
+
+# ---------------------------------------------------------------------------
+# _normalize_rest_market tests
+# ---------------------------------------------------------------------------
+_NRM_MARKET_TOKEN = "0x47c031236e19d024b42f8AE6780E44A573170703"
+_NRM_INDEX_TOKEN = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
+_NRM_LONG_TOKEN = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
+_NRM_SHORT_TOKEN = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
+
+
+def test_normalize_rest_market_gmxinfra_shape():
+    raw = {
+        "marketToken": _NRM_MARKET_TOKEN,
+        "indexToken": _NRM_INDEX_TOKEN,
+        "longToken": _NRM_LONG_TOKEN,
+        "shortToken": _NRM_SHORT_TOKEN,
+        "isListed": True,
+    }
+    result = _normalize_rest_market(raw)
+    assert result is not None
+    assert result["market_address"] == _NRM_MARKET_TOKEN
+    assert result["index_token_address"] == _NRM_INDEX_TOKEN
+    assert result["long_token_address"] == _NRM_LONG_TOKEN
+    assert result["short_token_address"] == _NRM_SHORT_TOKEN
+    assert result["is_listed"] is True
+
+
+def test_normalize_rest_market_gmxapi_shape():
+    raw = {
+        "marketTokenAddress": _NRM_MARKET_TOKEN,
+        "indexTokenAddress": _NRM_INDEX_TOKEN,
+        "longTokenAddress": _NRM_LONG_TOKEN,
+        "shortTokenAddress": _NRM_SHORT_TOKEN,
+        "isListed": True,
+        "isSpotOnly": False,
+    }
+    result = _normalize_rest_market(raw)
+    assert result is not None
+    assert result["market_address"] == _NRM_MARKET_TOKEN
+    assert result["index_token_address"] == _NRM_INDEX_TOKEN
+
+
+def test_normalize_rest_market_unlisted_returns_none():
+    raw = {
+        "marketToken": _NRM_MARKET_TOKEN,
+        "indexToken": _NRM_INDEX_TOKEN,
+        "longToken": _NRM_LONG_TOKEN,
+        "shortToken": _NRM_SHORT_TOKEN,
+        "isListed": False,
+    }
+    assert _normalize_rest_market(raw) is None
+
+
+def test_normalize_rest_market_zero_index_token_returns_none():
+    zero = "0x0000000000000000000000000000000000000000"
+    raw = {
+        "marketToken": _NRM_MARKET_TOKEN,
+        "indexToken": zero,
+        "longToken": _NRM_LONG_TOKEN,
+        "shortToken": _NRM_SHORT_TOKEN,
+        "isListed": True,
+    }
+    assert _normalize_rest_market(raw) is None
+
+
+# ---------------------------------------------------------------------------
+# _fetch_markets_from_rest tests
+# ---------------------------------------------------------------------------
+def test_fetch_markets_from_rest_returns_normalized_list():
+    """_fetch_markets_from_rest should strip unlisted entries and normalise keys."""
+    from eth_defi.gmx.core.markets import Markets
+
+    config = _build_config()
+    m = Markets(config)
+
+    fake_api_response = {
+        "markets": [
+            {
+                "marketToken": _BTC_MARKET_ADDR,
+                "indexToken": _BTC_INDEX,
+                "longToken": _USDC_LONG,
+                "shortToken": _USDC_SHORT,
+                "isListed": True,
+            },
+            {
+                "marketToken": _ETH_MARKET_ADDR,
+                "indexToken": _ETH_INDEX,
+                "longToken": _USDC_LONG,
+                "shortToken": _USDC_SHORT,
+                "isListed": False,
+            },
+        ]
+    }
+
+    with patch("eth_defi.gmx.core.markets.GMXAPI") as mock_gmx_api:
+        mock_gmx_api.return_value.get_markets.return_value = fake_api_response
+        result = m._fetch_markets_from_rest()
+
+    assert len(result) == 1
+    assert result[0]["market_address"] == _BTC_MARKET_ADDR
+    assert result[0]["index_token_address"] == _BTC_INDEX
+    assert result[0]["is_listed"] is True
+
+
+def test_process_markets_falls_back_to_onchain_when_rest_fails():
+    """When REST /markets raises, _process_markets must call _fetch_markets_from_onchain."""
+
+    from eth_defi.gmx.core.markets import _CLASS_MARKETS_CACHE, Markets
+
+    _CLASS_MARKETS_CACHE.clear()
+    config = _build_config()
+    m = Markets(config)
+
+    onchain_markets = [
+        {
+            "market_address": _BTC_MARKET_ADDR,
+            "index_token_address": _BTC_INDEX,
+            "long_token_address": _USDC_LONG,
+            "short_token_address": _USDC_SHORT,
+            "is_listed": True,
+        }
+    ]
+    token_meta = _build_token_metadata([_BTC_INDEX, _USDC_LONG, _USDC_SHORT])
+
+    with (
+        patch.object(m, "_fetch_markets_from_rest", side_effect=RuntimeError("all REST endpoints down")),
+        patch.object(m, "_fetch_markets_from_onchain", return_value=onchain_markets),
+        patch.object(m, "_get_token_metadata_dict", return_value=token_meta),
+    ):
+        result = m._process_markets()
+
+    assert _BTC_MARKET_ADDR in result
+    assert result[_BTC_MARKET_ADDR]["index_token_address"] == _BTC_INDEX
