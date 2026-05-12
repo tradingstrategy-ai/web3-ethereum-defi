@@ -268,9 +268,10 @@ class GMXAPI:
     ) -> Any:
         """Make a request to the GMX REST API v2 with basic retry logic.
 
-        The v2 API uses different base URLs hosted on DigitalOcean and does
-        not have the multi-tier failover of v1.  This method retries up to
-        3 times with exponential backoff on transient failures.
+        The v2 API uses the officially documented ``gmxapi.io`` base URLs
+        (see :data:`GMX_API_V2_URLS`).  Unlike the v1 infrastructure this
+        method does not have multi-tier failover — it retries up to 3 times
+        with exponential backoff on transient failures.
 
         :param endpoint:
             API endpoint path (e.g. ``"/positions"``, ``"/orders"``).
