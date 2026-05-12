@@ -17,6 +17,7 @@ from eth_defi.gmx.market_depth import MarketDepthInfo, parse_market_depth
 from eth_defi.gmx.constants import (
     GMX_API_URLS,
     GMX_API_URLS_BACKUP,
+    GMX_API_URLS_FALLBACK_3,
     GMX_API_V2_URLS,
     GMX_SUPPORTED_CHAINS,
     _APY_CACHE_TTL_SECONDS,
@@ -190,6 +191,74 @@ class GMXAPI:
             if no v2 endpoint is configured for this chain.
         """
         return GMX_API_V2_URLS.get(self.chain.lower(), "")
+
+    @property
+    def base_gmxapi_ai_url(self) -> str:
+        """Get the gmxapi.ai REST URL for the configured chain.
+
+        This endpoint hosts wallet-specific routes such as ``/positions`` and
+        ``/orders`` that are not available on the DigitalOcean v2 host.
+
+        :return:
+            gmxapi.ai base URL (e.g. ``https://arbitrum.gmxapi.ai/v1``) or
+            empty string if not configured for this chain.
+        """
+        return GMX_API_URLS_FALLBACK_3.get(self.chain.lower(), "")
+
+    def _make_gmxapi_ai_request(
+        self,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        timeout: float = 10.0,
+    ) -> Any:
+        """Make a request to the gmxapi.ai REST endpoint with retry logic.
+
+        Used for wallet-scoped routes (``/positions``, ``/orders``) that are
+        served by ``https://<chain>.gmxapi.ai/v1`` and are **not** available
+        on the DigitalOcean v2 host used by :meth:`_make_v2_request`.
+
+        Retries up to 3 times with exponential backoff on transient failures.
+
+        :param endpoint:
+            API endpoint path (e.g. ``"/positions"``, ``"/orders"``).
+        :param params:
+            Optional query parameters dict.
+        :param timeout:
+            HTTP request timeout in seconds.
+        :return:
+            API response parsed as a dict or list.
+        :raises ValueError:
+            When no gmxapi.ai URL is configured for the current chain.
+        :raises RuntimeError:
+            When all retry attempts fail.
+        """
+        base = self.base_gmxapi_ai_url
+        if not base:
+            raise ValueError(f"No gmxapi.ai URL configured for chain: {self.chain!r}")
+
+        url = f"{base}{endpoint}"
+        last_error: Exception | None = None
+        delay = 1.0
+
+        for attempt in range(3):
+            try:
+                response = requests.get(url, params=params, timeout=timeout)
+                response.raise_for_status()
+                return response.json()
+            except requests.RequestException as exc:
+                last_error = exc
+                if attempt < 2:
+                    logger.warning(
+                        "gmxapi.ai attempt %d/3 failed for %s: %s — retrying in %.1fs",
+                        attempt + 1,
+                        endpoint,
+                        exc,
+                        delay,
+                    )
+                    time.sleep(delay)
+                    delay = min(delay * 2.0, 10.0)
+
+        raise RuntimeError(f"gmxapi.ai request failed after 3 attempts: {endpoint}") from last_error
 
     def _make_v2_request(
         self,
@@ -726,7 +795,7 @@ class GMXAPI:
         if include_related_orders:
             params["includeRelatedOrders"] = "true"
 
-        data = self._make_v2_request("/positions", params=params)
+        data = self._make_gmxapi_ai_request("/positions", params=params)
 
         if use_cache:
             _POSITIONS_CACHE[cache_key] = (data, time.time())
@@ -756,7 +825,7 @@ class GMXAPI:
         :raises RuntimeError:
             When all retry attempts fail.
         """
-        return self._make_v2_request("/orders", params={"address": address})
+        return self._make_gmxapi_ai_request("/orders", params={"address": address})
 
     def get_rates(
         self,
