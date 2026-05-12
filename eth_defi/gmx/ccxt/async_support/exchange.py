@@ -2953,14 +2953,143 @@ class GMX(Exchange):
         since: int | None = None,
         limit: int | None = None,
         params: dict | None = None,
-    ):
-        """Fetch user trade history from Subsquid."""
+    ) -> list[dict]:
+        """Fetch user trade history (async).
+
+        Merges the in-memory order cache (filled orders) with Subsquid
+        ``positionChanges``.  Async port of the sync
+        :py:meth:`~eth_defi.gmx.ccxt.exchange.GMX.fetch_my_trades`.
+
+        :param symbol: Filter by CCXT symbol (optional).
+        :param since: Millisecond timestamp lower bound (optional).
+        :param limit: Maximum trades to return.
+        :param params: Extra params; ``wallet_address`` overrides config wallet.
+        :returns: List of CCXT-formatted trade dicts, sorted newest-first.
+        """
         await self._ensure_session()
         await self.load_markets()
+        params = params or {}
 
-        # TODO: Implement GraphQL query for user trades via Subsquid
-        # For now, return empty list
-        return []
+        wallet = params.get("wallet_address") or self.wallet_address
+        if not wallet:
+            raise ValueError("wallet_address must be provided in config or params")
+
+        # ----------------------------------------------------------------
+        # Step 1: in-memory order cache (filled orders already on-chain)
+        # ----------------------------------------------------------------
+        cache_trades: list[dict] = []
+        for order_id, order in self._orders.items():
+            if order.get("status") != "closed":
+                continue
+            if symbol:
+                normalized = self._normalize_symbol(symbol)
+                if order.get("symbol") != normalized:
+                    continue
+            if since and (order.get("timestamp") or 0) < since:
+                continue
+            cache_trades.append(
+                {
+                    "id": order_id,
+                    "order": order_id,
+                    "timestamp": order.get("timestamp"),
+                    "datetime": order.get("datetime"),
+                    "symbol": order.get("symbol"),
+                    "type": order.get("type"),
+                    "side": order.get("side"),
+                    "takerOrMaker": None,
+                    "price": order.get("average") or order.get("price"),
+                    "amount": order.get("filled") or order.get("amount"),
+                    "cost": order.get("cost"),
+                    "fee": order.get("fee"),
+                    "fees": [order.get("fee")] if order.get("fee") else [],
+                    "info": order.get("info", {}),
+                }
+            )
+
+        # ----------------------------------------------------------------
+        # Step 2: Subsquid positionChanges (async)
+        # ----------------------------------------------------------------
+        position_changes = await self.subsquid.get_position_changes(
+            account=wallet,
+            limit=limit or 100,
+        )
+
+        subsquid_trades: list[dict] = []
+        for change in position_changes:
+            try:
+                if since:
+                    change_ts_ms = (change.get("timestamp") or 0) * 1000
+                    if change_ts_ms < since:
+                        continue
+
+                market_address = change.get("market")
+                market = None
+                for sym_key, market_info in self.markets.items():
+                    token = (
+                        market_info.get("info", {}).get("market_token")
+                        or market_info.get("info", {}).get("marketToken")
+                        or ""
+                    )
+                    if token.lower() == (market_address or "").lower():
+                        market = market_info
+                        break
+
+                if market is None:
+                    continue
+
+                if symbol and market["symbol"] != self._normalize_symbol(symbol):
+                    continue
+
+                exec_price_raw = change.get("executionPrice")
+                exec_price = self._convert_price_to_usd(
+                    float(exec_price_raw) if exec_price_raw else None,
+                    market,
+                )
+                size_raw = change.get("sizeDeltaUsd")
+                size_usd = float(size_raw) / 1e30 if size_raw else None
+                amount = (size_usd / exec_price) if (exec_price and exec_price > 0 and size_usd) else None
+                ts_s = change.get("timestamp")
+                ts_ms = int(ts_s) * 1000 if ts_s else None
+
+                trade = {
+                    "id": change.get("orderKey") or change.get("id", ""),
+                    "order": change.get("orderKey") or change.get("id", ""),
+                    "timestamp": ts_ms,
+                    "datetime": self.iso8601(ts_ms) if ts_ms else None,
+                    "symbol": market["symbol"],
+                    "type": "limit",
+                    "side": "buy" if change.get("isLong") else "sell",
+                    "takerOrMaker": None,
+                    "price": exec_price,
+                    "amount": abs(amount) if amount is not None else None,
+                    "cost": abs(size_usd) if size_usd is not None else None,
+                    "fee": None,
+                    "fees": [],
+                    "info": change,
+                }
+                subsquid_trades.append(trade)
+            except Exception as exc:
+                logger.debug("fetch_my_trades: skipping position change: %s", exc)
+                continue
+
+        # ----------------------------------------------------------------
+        # Step 3: merge + dedup on (transactionHash + logIndex) composite key
+        # ----------------------------------------------------------------
+        seen: set[str] = set()
+        result: list[dict] = []
+        for trade in cache_trades + subsquid_trades:
+            info = trade.get("info") or {}
+            tx_hash = info.get("transactionHash") or trade.get("id", "")
+            log_index = info.get("logIndex", "")
+            dedup_key = "%s:%s" % (tx_hash, log_index)
+            if dedup_key not in seen:
+                seen.add(dedup_key)
+                result.append(trade)
+
+        result.sort(key=lambda t: t.get("timestamp") or 0, reverse=True)
+        if limit:
+            result = result[:limit]
+        return result
 
     async def fetch_trades(
         self,
