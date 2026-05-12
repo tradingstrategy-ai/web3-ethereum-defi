@@ -498,6 +498,17 @@ class OrderArgumentParser:
         # Compare lowercase on both sides so the method works regardless of whether
         # stored addresses are checksummed (RPC/GraphQL path) or lowercase (REST API path).
         matches = [key for key, value in input_dict.items() if value.get("index_token_address", "").lower() == lower_address]
+        # Stable deterministic order: standard pools (long_token != short_token) before
+        # single-token loop pools (ETH2, BTC2 where long==short), then by market address.
+        # This ensures the same pool is picked regardless of the iteration order of the
+        # input_dict (e.g. after a REST-API market refresh reorders the cache).
+        if len(matches) > 1:
+            matches.sort(
+                key=lambda k: (
+                    1 if input_dict[k].get("long_token_address", "").lower() == input_dict[k].get("short_token_address", "").lower() else 0,
+                    k.lower(),
+                )
+            )
         logger.info(
             "find_all_market_keys_by_index_address: address=%s found %d match(es): %s",
             checksum_address,

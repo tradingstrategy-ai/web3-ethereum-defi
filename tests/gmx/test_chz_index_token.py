@@ -21,6 +21,7 @@ from flaky import flaky
 from web3 import Web3
 
 from eth_defi.gmx.api import GMXAPI
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.markets import _normalize_rest_market  # noqa: PLC2701
 from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
@@ -68,7 +69,7 @@ def test_chz_present_in_order_argument_parser_index_tokens():
     Requires a live Arbitrum RPC (JSON_RPC_ARBITRUM).
     """
     rpc = os.environ["JSON_RPC_ARBITRUM"]
-    web3 = Web3(Web3.HTTPProvider(rpc))
+    web3 = create_multi_provider_web3(rpc)
     config = GMXConfig(web3)
 
     parser = OrderArgumentParser(config, is_increase=True)
