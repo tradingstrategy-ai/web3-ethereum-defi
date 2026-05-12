@@ -16,7 +16,6 @@ from __future__ import annotations
 import os
 
 import pytest
-from web3 import AsyncWeb3
 
 from eth_defi.gmx.ccxt.async_support.exchange import GMX as AsyncGMX
 
@@ -36,8 +35,7 @@ async def test_async_fetch_my_trades_returns_known_fills():
 
     trades = await gmx.fetch_my_trades(limit=50)
 
-    assert isinstance(trades, list), "Must return a list, not []"
-    assert len(trades) > 0, "Must return at least 1 trade — got empty list (stub not ported)"
+    assert len(trades) > 0, "async fetch_my_trades returned empty list — stub not ported"
 
     symbols = {t["symbol"] for t in trades if t.get("symbol")}
     assert "APE/USDC:USDC" in symbols or "LDO/USDC:USDC" in symbols, (

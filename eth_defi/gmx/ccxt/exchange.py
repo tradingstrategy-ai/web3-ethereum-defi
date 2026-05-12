@@ -4995,6 +4995,7 @@ class GMX(ExchangeCompatible):
 
                 # Parse trade
                 trade = self.parse_trade(change, market)
+                subsquid_trades.append(trade)
             except (KeyError, ValueError, TypeError) as e:
                 # Skip trades we can't parse due to missing/invalid data
                 logger.debug("Skipping unparseable trade: %s", str(e))

@@ -296,6 +296,7 @@ class AsyncGMXSubsquidClient:
             orderKey
             type
             timestamp
+            transactionHash
           }}
         }}
         """

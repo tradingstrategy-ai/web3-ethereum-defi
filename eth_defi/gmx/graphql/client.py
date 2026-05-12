@@ -474,6 +474,7 @@ class GMXSubsquidClient:
             orderKey
             type
             timestamp
+            transactionHash
           }}
         }}
         """

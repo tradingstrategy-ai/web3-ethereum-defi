@@ -3068,8 +3068,11 @@ class GMX(Exchange):
                     "info": change,
                 }
                 subsquid_trades.append(trade)
+            except (KeyError, ValueError, TypeError) as exc:
+                logger.debug("fetch_my_trades: skipping malformed position change: %s", exc)
+                continue
             except Exception as exc:
-                logger.debug("fetch_my_trades: skipping position change: %s", exc)
+                logger.warning("fetch_my_trades: unexpected error processing position change: %s", exc, exc_info=True)
                 continue
 
         # ----------------------------------------------------------------
