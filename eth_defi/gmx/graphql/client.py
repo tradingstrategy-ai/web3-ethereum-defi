@@ -474,7 +474,6 @@ class GMXSubsquidClient:
             orderKey
             type
             timestamp
-            transactionHash
           }}
         }}
         """
@@ -1323,7 +1322,6 @@ class GMXSubsquidClient:
             collateralTokenPriceMax
             proportionalPendingImpactUsd
             timestamp
-            transactionHash
           }
         }
         """

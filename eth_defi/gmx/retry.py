@@ -16,6 +16,7 @@ from eth_defi.gmx.constants import (
     GMX_API_URLS_BACKUP,
     GMX_API_URLS_FALLBACK,
     GMX_API_URLS_FALLBACK_2,
+    GMX_API_URLS_FALLBACK_3,
 )
 
 logger = logging.getLogger(__name__)
@@ -192,8 +193,9 @@ def make_gmx_api_request(
     backup_url = GMX_API_URLS_BACKUP.get(chain_lower)
     fallback_url = GMX_API_URLS_FALLBACK.get(chain_lower)
     fallback_url_2 = GMX_API_URLS_FALLBACK_2.get(chain_lower)
+    fallback_url_3 = GMX_API_URLS_FALLBACK_3.get(chain_lower)
 
-    if not primary_url and not backup_url and not fallback_url and not fallback_url_2:
+    if not primary_url and not backup_url and not fallback_url and not fallback_url_2 and not fallback_url_3:
         raise ValueError(f"No GMX API URLs configured for chain: {chain}")
 
     last_error = None
@@ -261,6 +263,20 @@ def make_gmx_api_request(
                 timeout,
                 retry_config,
                 "fallback-2",
+            )
+            if result is not None:
+                return result
+            last_error = error
+
+        # Try third fallback API (gmxapi.ai)
+        if fallback_url_3:
+            result, error = _try_api_with_retries(
+                fallback_url_3,
+                endpoint,
+                params,
+                timeout,
+                retry_config,
+                "fallback-3",
             )
             if result is not None:
                 return result
