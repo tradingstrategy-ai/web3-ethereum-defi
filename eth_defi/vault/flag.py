@@ -452,6 +452,10 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x20abecf84ce707c3650b4e8afcf7ea1e22bbcd0c": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Borrowable USDC Deposit, SiloId: 127 (Ethereum)
     "0xce6ab1c71981e79cd30052c521c162674251018a": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Teller USDC (Yearn on Base)
+    "0x19f233b2953275196e6343f17b76da098c478e21": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
+    # Borrowable USDC Deposit, SiloId: 27 (Sonic)
+    "0x7e88ae5e50474a48dea4c42a634aa7485e7caa62": (VaultFlag.illiquid, XUSD_MESSAGE),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
