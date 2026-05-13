@@ -1,0 +1,19 @@
+feeder-id: alphagrowth
+name: AlphaGrowth
+role: curator
+website: https://alphagrowth.io/
+twitter: alphagrowth1
+
+# Evidence and background references.
+#
+# AlphaGrowth curates Euler EVK vaults and hosts a dedicated Euler Light
+# frontend for Monad vaults with custom Balancer LP token collateral support.
+# Their GitHub organisation maintains the Euler Light Balancer frontend and
+# related Euler label repository.
+other-links:
+  - title: AlphaGrowth Euler Light vault app
+    url: https://euler.alphagrowth.io/
+  - title: AlphaGrowth GitHub organisation
+    url: https://github.com/alphagrowth
+  - title: GitHub - AlphaGrowth Euler Light Balancer frontend documentation and source
+    url: https://github.com/alphagrowth/ag-euler-lite-balancer

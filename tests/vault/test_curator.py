@@ -22,6 +22,21 @@ def test_identify_felix_vault() -> None:
     assert slug == "felix"
 
 
+def test_identify_alphagrowth_vault() -> None:
+    """AlphaGrowth Euler vault names resolve to the AlphaGrowth curator."""
+
+    slug = identify_curator(
+        chain_id=8453,
+        vault_token_symbol="agUSDC",
+        vault_name="AlphaGrowth USDC Base Vault",
+        vault_address="0x4c1aeda9b43efcf1da1d1755b18802aabe90f61e",
+        protocol_slug="euler",
+    )
+
+    assert slug == "alphagrowth"
+    assert get_curator_name("alphagrowth") == "AlphaGrowth"
+
+
 def test_identify_smokehouse_as_steakhouse_financial() -> None:
     """Smokehouse vault names resolve to Steakhouse Financial."""
 
