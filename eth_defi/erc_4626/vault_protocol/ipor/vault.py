@@ -373,7 +373,7 @@ class IPORVault(ERC4626Vault):
         if dot_idx >= 0:
             return text[: dot_idx + 1]
         # If no sentence boundary, return the whole text (it's likely one sentence)
-        return text.rstrip("."  ) + "."
+        return text.rstrip(".") + "."
 
     def get_flags(self) -> set[VaultFlag]:
         """Get vault flags, auto-flagging vaults missing from IPOR's customisation list.
