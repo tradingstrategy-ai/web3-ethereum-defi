@@ -359,12 +359,21 @@ class IPORVault(ERC4626Vault):
 
     @property
     def short_description(self) -> str | None:
-        """Short vault summary.
+        """Short vault summary derived from the first sentence of the description."""
+        metadata = self.ipor_metadata
+        if not metadata:
+            return None
 
-        IPOR does not provide a separate short description field,
-        so this always returns ``None``.
-        """
-        return None
+        text = metadata.get("description")
+        if not text:
+            return None
+
+        # Take the first sentence
+        dot_idx = text.find(". ")
+        if dot_idx >= 0:
+            return text[: dot_idx + 1]
+        # If no sentence boundary, return the whole text (it's likely one sentence)
+        return text.rstrip("."  ) + "."
 
     def get_flags(self) -> set[VaultFlag]:
         """Get vault flags, auto-flagging vaults missing from IPOR's customisation list.
