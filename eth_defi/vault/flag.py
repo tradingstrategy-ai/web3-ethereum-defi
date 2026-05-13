@@ -178,6 +178,8 @@ SUBVAULT = "This vault is likely not intended to be directly exposed to the end 
 
 PEAPODS_ILLIQUID = "Peapods vault is illiquid"
 
+GREENHOUSE_ILLIQUID = "Greenhouse vault is illiquid"
+
 YIELDNEST_YNRWAX = """ynRWAx: Tokenized Australian residential real estate credit earning 11% APY, allocated to mortgage-backed loans on verified house-and-land developments. Made safe in collaboration with a fully licensed and insured fund manager, [Kimber Capital](https://kimbercapital.au/) (AFS Licence No. 425278).
 
 Fees: 0%.
@@ -452,6 +454,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x20abecf84ce707c3650b4e8afcf7ea1e22bbcd0c": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Borrowable USDC Deposit, SiloId: 127 (Ethereum)
     "0xce6ab1c71981e79cd30052c521c162674251018a": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Greenhouse scUSD (Sonic)
+    "0x61e175f91f017987c421e0731d6baa0594eca6eb": (VaultFlag.illiquid, GREENHOUSE_ILLIQUID),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
