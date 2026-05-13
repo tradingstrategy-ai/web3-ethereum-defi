@@ -178,6 +178,10 @@ SUBVAULT = "This vault is likely not intended to be directly exposed to the end 
 
 PEAPODS_ILLIQUID = "Peapods vault is illiquid"
 
+SUMMER_FI_ILLIQUID = "Summer.fi vault is illiquid"
+
+GREENHOUSE_ILLIQUID = "Greenhouse vault is illiquid"
+
 YIELDNEST_YNRWAX = """ynRWAx: Tokenized Australian residential real estate credit earning 11% APY, allocated to mortgage-backed loans on verified house-and-land developments. Made safe in collaboration with a fully licensed and insured fund manager, [Kimber Capital](https://kimbercapital.au/) (AFS Licence No. 425278).
 
 Fees: 0%.
@@ -456,6 +460,12 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x19f233b2953275196e6343f17b76da098c478e21": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Borrowable USDC Deposit, SiloId: 27 (Sonic)
     "0x7e88ae5e50474a48dea4c42a634aa7485e7caa62": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Summer.fi USDC (Sonic)
+    "0xf06bedaf951aaff253acaa05e391adfbdd6bfbe0": (VaultFlag.illiquid, SUMMER_FI_ILLIQUID),
+    # Greenhouse scUSD (Sonic)
+    "0x61e175f91f017987c421e0731d6baa0594eca6eb": (VaultFlag.illiquid, GREENHOUSE_ILLIQUID),
+    # Borrowable USDC Deposit, SiloId: 149 (Arbitrum)
+    "0xa9a4bd976dbcfc2b89f554467ac85e2c758e2618": (VaultFlag.illiquid, XUSD_MESSAGE),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
