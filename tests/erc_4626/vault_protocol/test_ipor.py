@@ -65,6 +65,24 @@ def vault(web3: Web3) -> IPORVault:
     return vault
 
 
+def test_ipor_vault_description(vault: IPORVault):
+    """Fetch vault description from IPOR's offchain customisation API.
+
+    1. Read the description property which fetches from the customisation API
+    2. Verify the Bitcoin Dollar USDC vault has a non-empty description
+    3. Verify the prospectus link is appended as a markdown link
+    """
+    # 1. Read the description property
+    description = vault.description
+
+    # 2. Verify the description is present and contains expected content
+    assert description is not None, "Bitcoin Dollar USDC vault should have a description in IPOR's customisation API"
+    assert "Bitcoin Dollar" in description
+
+    # 3. Verify the prospectus markdown link is appended
+    assert "[View prospectus](" in description
+
+
 def test_ipor_onboarding_fee(vault: IPORVault):
     """Read IPOR onboarding fee as an explicit deposit fee."""
     fee_data = vault.get_fee_data()
