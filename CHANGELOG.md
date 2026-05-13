@@ -1,5 +1,7 @@
 # Current
 
+- feat: AlphaGrowth Monad Euler EVK vaults with custom Balancer LP collateral now link to AlphaGrowth's Euler Light frontend instead of Euler's official frontend (2026-05-13)
+
 - feat: IPOR Fusion vault descriptions fetched from the offchain customisation API at `api.ipor.io/fusion/vaults-customization-list`, with prospectus links appended as markdown (2026-05-13)
 
 - feat: Ethereum-only sample vault data files (`vault-historical.sample.parquet`, `vault-metadata.sample.json`) generated during post-processing and uploaded to the public R2 bucket for free download; skip with `SKIP_SAMPLES=true` (2026-05-08)

@@ -34,6 +34,50 @@ CASH_SIGNATURE = Web3.keccak(text="cash()")[0:4]
 TOTAL_BORROWS_SIGNATURE = Web3.keccak(text="totalBorrows()")[0:4]
 INTEREST_FEE_SIGNATURE = Web3.keccak(text="interestFee()")[0:4]
 
+#: Monad mainnet chain id.
+MONAD_CHAIN_ID = 143
+
+
+#: AlphaGrowth's Euler Light frontend for Monad EVK vaults that Euler's
+#: official frontend cannot list because they use Balancer LP tokens as collateral.
+ALPHAGROWTH_EULER_LIGHT_BASE_URL = "https://euler.alphagrowth.io"
+
+#: AlphaGrowth-curated Monad EVK vaults that need the Euler Light frontend.
+#:
+#: Kyril from AlphaGrowth explained that these vaults have custom Balancer LP
+#: collateral support, so Euler cannot list them on the official frontend.
+#: AlphaGrowth curates its Euler vaults with governorAdmin
+#: ``0x4f894Bfc9481110278C356adE1473eBe2127Fd3C``, but only these two Monad
+#: vaults currently need this custom frontend link.
+ALPHAGROWTH_EULER_LIGHT_MONAD_VAULTS = frozenset(
+    {
+        "0x438cedce647491b1d93a73d491ec19a50194c222",
+        "0x75b6c392f778b8bcf9bdb676f8f128b4dd49ac19",
+    }
+)
+
+
+def is_alphagrowth_euler_light_vault(chain_id: int, vault_address: str) -> bool:
+    """Check if an Euler EVK vault should link to AlphaGrowth's Euler Light UI.
+
+    AlphaGrowth hosts a dedicated Euler Light interface for its Monad EVK vaults
+    that cannot be listed on Euler's official frontend because of their custom
+    Balancer LP token collateral handling. This helper is deliberately based on
+    the explicit unlisted vault addresses, instead of governorAdmin discovery,
+    because other AlphaGrowth-curated Euler vaults can still use the normal
+    Euler frontend.
+
+    :param chain_id:
+        EVM chain id for the vault.
+
+    :param vault_address:
+        ERC-4626 vault contract address.
+
+    :return:
+        ``True`` if the vault should use the AlphaGrowth Euler Light frontend.
+    """
+    return chain_id == MONAD_CHAIN_ID and vault_address.lower() in ALPHAGROWTH_EULER_LIGHT_MONAD_VAULTS
+
 
 class EulerVaultHistoricalReader(ERC4626HistoricalReader):
     """Read Euler EVK vault core data + utilisation metrics.
@@ -242,6 +286,24 @@ class EulerVault(ERC4626Vault):
         return datetime.timedelta(days=0)
 
     def get_link(self, referral: str | None = None) -> str:
+        """Get link to the Euler EVK vault frontend.
+
+        Most EVK vaults use Euler's official frontend. AlphaGrowth's two Monad
+        EVK vaults with custom Balancer LP collateral support are linked to
+        AlphaGrowth's Euler Light frontend instead, because Euler cannot list
+        them on the official frontend.
+
+        :param referral:
+            Optional referral code. Not used by Euler links.
+
+        :return:
+            Frontend URL for this vault.
+        """
+        del referral
+
+        if is_alphagrowth_euler_light_vault(self.chain_id, self.vault_address):
+            return f"{ALPHAGROWTH_EULER_LIGHT_BASE_URL}/lend/{self.vault_address}"
+
         chain_name = get_chain_name(self.chain_id).lower()
         return f"https://app.euler.finance/earn/{self.vault_address}?network={chain_name}"
 
