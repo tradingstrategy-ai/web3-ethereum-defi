@@ -259,9 +259,7 @@ async def _block_timestamp_ms(web3: "AsyncWeb3", block_number: int | None) -> in
         block = await web3.eth.get_block(block_number)
         return int(block["timestamp"]) * 1000
     except Exception as e:  # noqa: BLE001 — fetch_order must never raise here
-        logger.debug(
-            "_block_timestamp_ms: get_block(%s) failed: %s", block_number, e
-        )
+        logger.debug("_block_timestamp_ms: get_block(%s) failed: %s", block_number, e)
         return None
 
 
@@ -2184,9 +2182,7 @@ class GMX(Exchange):
             try:
                 loop = asyncio.get_running_loop()
                 gmx_api = GMXAPI(chain=self.config.get_chain())
-                rest_orders = await loop.run_in_executor(
-                    None, lambda: gmx_api.get_orders(self.wallet_address)
-                ) or []
+                rest_orders = await loop.run_in_executor(None, lambda: gmx_api.get_orders(self.wallet_address)) or []
                 for rest_order in rest_orders:
                     key = rest_order.get("key") or rest_order.get("orderKey", "")
                     if key.lower() == order_key_hex.lower():
@@ -2195,9 +2191,7 @@ class GMX(Exchange):
                             order_key_hex[:10],
                         )
                         return self._build_order_from_rest_order(rest_order, symbol)
-                rest_positions = await loop.run_in_executor(
-                    None, lambda: gmx_api.get_positions(self.wallet_address)
-                ) or []
+                rest_positions = await loop.run_in_executor(None, lambda: gmx_api.get_positions(self.wallet_address)) or []
                 for pos in rest_positions:
                     pos_symbol = self._map_market_to_symbol(pos.get("market", ""))
                     if pos_symbol == symbol:
@@ -2221,9 +2215,7 @@ class GMX(Exchange):
                 datastore_addr = get_contract_addresses(self.config.get_chain()).datastore
                 raw_orders = await loop.run_in_executor(
                     None,
-                    lambda: reader.functions.getAccountOrders(
-                        datastore_addr, self.wallet_address, 0, 100
-                    ).call(),
+                    lambda: reader.functions.getAccountOrders(datastore_addr, self.wallet_address, 0, 100).call(),
                 )
                 for raw_order in raw_orders:
                     key_bytes = raw_order[0] if isinstance(raw_order, (list, tuple)) else None
@@ -2232,15 +2224,11 @@ class GMX(Exchange):
                             "_resolve_order_from_sources(%s): resolved via Reader orders (Tier C)",
                             order_key_hex[:10],
                         )
-                        _ts_ms = await _block_timestamp_ms(
-                            self.web3, await self.web3.eth.block_number
-                        )
+                        _ts_ms = await _block_timestamp_ms(self.web3, await self.web3.eth.block_number)
                         return self._build_open_order_from_reader(raw_order, order_key_hex, symbol, _ts_ms)
                 raw_positions = await loop.run_in_executor(
                     None,
-                    lambda: reader.functions.getAccountPositions(
-                        datastore_addr, self.wallet_address, 0, 100
-                    ).call(),
+                    lambda: reader.functions.getAccountPositions(datastore_addr, self.wallet_address, 0, 100).call(),
                 )
                 matching_pos = self._find_matching_reader_position(raw_positions, symbol)
                 _ts_ms = await _block_timestamp_ms(
@@ -2540,9 +2528,7 @@ class GMX(Exchange):
         if not symbol:
             return None
         for pos in raw_positions:
-            pos_symbol = self._map_market_to_symbol(
-                pos[0][1] if isinstance(pos, (list, tuple)) and len(pos) > 0 and len(pos[0]) > 1 else ""
-            )
+            pos_symbol = self._map_market_to_symbol(pos[0][1] if isinstance(pos, (list, tuple)) and len(pos) > 0 and len(pos[0]) > 1 else "")
             if pos_symbol == symbol:
                 return pos
         return None
@@ -3025,11 +3011,7 @@ class GMX(Exchange):
                 market_address = change.get("market")
                 market = None
                 for sym_key, market_info in self.markets.items():
-                    token = (
-                        market_info.get("info", {}).get("market_token")
-                        or market_info.get("info", {}).get("marketToken")
-                        or ""
-                    )
+                    token = market_info.get("info", {}).get("market_token") or market_info.get("info", {}).get("marketToken") or ""
                     if token.lower() == (market_address or "").lower():
                         market = market_info
                         break

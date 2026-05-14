@@ -220,9 +220,7 @@ class Markets:
             batch: list[tuple[str, bytes]] = []
             for market_addr in market_addresses:
                 key = is_market_disabled_key(market_addr)
-                calldata = bytes.fromhex(
-                    datastore.encode_abi(abi_element_identifier="getBool", args=[key])[2:]
-                )
+                calldata = bytes.fromhex(datastore.encode_abi(abi_element_identifier="getBool", args=[key])[2:])
                 batch.append((market_addr, calldata))
 
             datastore_addr = datastore.address
@@ -459,12 +457,7 @@ class Markets:
 
         # 1. TTL fast path — non-partial, fresh entries skip the rebuild entirely.
         cached_entry = _CLASS_MARKETS_CACHE.get(chain_key)
-        if (
-            cached_entry is not None
-            and not cached_entry.partial
-            and cached_entry.markets
-            and (now_ms - cached_entry.fetched_at_ms) < _CLASS_MARKETS_CACHE_TTL_MS
-        ):
+        if cached_entry is not None and not cached_entry.partial and cached_entry.markets and (now_ms - cached_entry.fetched_at_ms) < _CLASS_MARKETS_CACHE_TTL_MS:
             logger.debug("Returning cached markets data for chain %s (fresh)", chain_key)
             return cached_entry.markets
 
@@ -568,12 +561,7 @@ class Markets:
 
         # 5. Empty-result guard — preserve the PR-#722 invariant.
         if not processed_markets:
-            raise ValueError(
-                f"Markets resolved to empty dict for chain {chain_key!r}. "
-                f"rest_markets count: {rest_markets_count}, "
-                f"token_metadata_dict count: {len(token_metadata_dict)}. "
-                "Likely a transient GMX API timeout or saturation — do not cache."
-            )
+            raise ValueError(f"Markets resolved to empty dict for chain {chain_key!r}. rest_markets count: {rest_markets_count}, token_metadata_dict count: {len(token_metadata_dict)}. Likely a transient GMX API timeout or saturation — do not cache.")
 
         # 6. Partial-build detection — compare processed to the raw REST count.
         partial = len(processed_markets) < rest_markets_count

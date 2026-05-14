@@ -720,8 +720,7 @@ class Gmx(Exchange):
             reconciled_info["reconciled_position_size"] = pos_size
             reconciled["info"] = reconciled_info
             logger.warning(
-                "fetch_order reconcile: order %s for %s flipped open→closed via on-chain "
-                "position match (order_amount=%.8f, position_size=%.8f, side=%s)",
+                "fetch_order reconcile: order %s for %s flipped open→closed via on-chain position match (order_amount=%.8f, position_size=%.8f, side=%s)",
                 order_id[:18],
                 pair,
                 order_amount,

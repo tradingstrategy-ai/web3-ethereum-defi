@@ -488,10 +488,7 @@ class MarketCatalog:
             now = time.time()
 
             # 1. Memory hit.
-            if (
-                self._memory_entries is not None
-                and (now - self._memory_loaded_at) < self.memory_ttl_seconds
-            ):
+            if self._memory_entries is not None and (now - self._memory_loaded_at) < self.memory_ttl_seconds:
                 return self._memory_entries
 
             # 2. Disk hit.
@@ -609,24 +606,18 @@ class MarketCatalog:
             for entry in entries:
                 if entry.market_key.lower() == target:
                     return entry
-            raise NoMarketFoundError(
-                f"No catalog entry for market_key={explicit_market_key!r}"
-            )
+            raise NoMarketFoundError(f"No catalog entry for market_key={explicit_market_key!r}")
 
         candidates = [e for e in entries if e.index_token_symbol == base_symbol]
         if not candidates:
             raise NoMarketFoundError(f"No markets indexed by base_symbol={base_symbol!r}")
 
         if selection == MarketSelection.USDC_PAIRED:
-            usdc_pools = [
-                e for e in candidates
-                if "USDC" in {e.long_token_symbol.upper(), e.short_token_symbol.upper()}
-            ]
+            usdc_pools = [e for e in candidates if "USDC" in {e.long_token_symbol.upper(), e.short_token_symbol.upper()}]
             if usdc_pools:
                 return max(usdc_pools, key=lambda e: e.liquidity_usd)
             logger.info(
-                "pick_market: USDC_PAIRED fell back to HIGHEST_LIQUIDITY for base_symbol=%s "
-                "(no USDC-paired pool found among %d candidates)",
+                "pick_market: USDC_PAIRED fell back to HIGHEST_LIQUIDITY for base_symbol=%s (no USDC-paired pool found among %d candidates)",
                 base_symbol,
                 len(candidates),
             )
@@ -636,9 +627,7 @@ class MarketCatalog:
             return max(candidates, key=lambda e: e.liquidity_usd)
 
         # MarketSelection.EXPLICIT without ``explicit_market_key`` — caller bug.
-        raise ValueError(
-            "MarketSelection.EXPLICIT requires explicit_market_key to be supplied"
-        )
+        raise ValueError("MarketSelection.EXPLICIT requires explicit_market_key to be supplied")
 
     def _persist_to_disk(self, entries: list[MarketEntry], now: float) -> None:
         """Write entries to ``self.cache_file``, best-effort.

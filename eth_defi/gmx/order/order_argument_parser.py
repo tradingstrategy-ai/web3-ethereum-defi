@@ -286,10 +286,7 @@ class OrderArgumentParser:
                     index_token_address,
                     available,
                 )
-                msg = (
-                    f"No GMX market found for index_token_address={index_token_address!r} "
-                    f"after forced cache refresh. Available index_token_addresses: {available}"
-                )
+                msg = f"No GMX market found for index_token_address={index_token_address!r} after forced cache refresh. Available index_token_addresses: {available}"
                 raise ValueError(msg)
 
         if len(all_matches) == 1:
@@ -330,8 +327,10 @@ class OrderArgumentParser:
                 # mirrors the catalog's USDC_PAIRED default selection strategy.
                 # See ``eth_defi.gmx.core.market_catalog.MarketSelection``.
                 usdc_candidates = [
-                    key for key in all_matches
-                    if "USDC" in (
+                    key
+                    for key in all_matches
+                    if "USDC"
+                    in (
                         (self.markets[key].get("long_token_metadata", {}).get("symbol", "") or "").upper(),
                         (self.markets[key].get("short_token_metadata", {}).get("symbol", "") or "").upper(),
                     )
@@ -339,9 +338,7 @@ class OrderArgumentParser:
                 if usdc_candidates:
                     market_key = usdc_candidates[0]
                     logger.info(
-                        "_handle_missing_market_key: %d markets share index_token %s, "
-                        "no explicit collateral hint — picked USDC-paired pool %s "
-                        "(USDC candidates: %s, all candidates: %s)",
+                        "_handle_missing_market_key: %d markets share index_token %s, no explicit collateral hint — picked USDC-paired pool %s (USDC candidates: %s, all candidates: %s)",
                         len(all_matches),
                         index_token_address,
                         market_key,
@@ -351,9 +348,7 @@ class OrderArgumentParser:
                 else:
                     market_key = all_matches[0]
                     logger.warning(
-                        "_handle_missing_market_key: %d markets share index_token %s, "
-                        "no USDC-paired pool found and no collateral hint — using first match %s. "
-                        "All candidates: %s",
+                        "_handle_missing_market_key: %d markets share index_token %s, no USDC-paired pool found and no collateral hint — using first match %s. All candidates: %s",
                         len(all_matches),
                         index_token_address,
                         market_key,
@@ -432,8 +427,7 @@ class OrderArgumentParser:
             self.parameters_dict["collateral_address"] = collateral_address
             if not is_directly_supported:
                 logger.info(
-                    "COLLATERAL_TRACE: collateral %s not directly accepted by market_key %s "
-                    "— relying on GMX router swap_path to convert at order time",
+                    "COLLATERAL_TRACE: collateral %s not directly accepted by market_key %s — relying on GMX router swap_path to convert at order time",
                     collateral_token_symbol,
                     self.parameters_dict.get("market_key"),
                 )
@@ -517,8 +511,7 @@ class OrderArgumentParser:
 
         # Soft fail — log but never raise.  The router handles the swap.
         logger.info(
-            "_check_if_valid_collateral_for_market: collateral %s not directly held by market %s "
-            "(valid long_token=%s (%s), short_token=%s (%s)) — router swap_path will convert",
+            "_check_if_valid_collateral_for_market: collateral %s not directly held by market %s (valid long_token=%s (%s), short_token=%s (%s)) — router swap_path will convert",
             collateral_address,
             market_key,
             market["long_token_address"],

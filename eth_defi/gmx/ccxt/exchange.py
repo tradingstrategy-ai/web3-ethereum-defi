@@ -350,9 +350,7 @@ def _block_timestamp_ms(web3: "Web3", block_number: int | None) -> int | None:
         block = web3.eth.get_block(block_number)
         return int(block["timestamp"]) * 1000
     except Exception as e:  # noqa: BLE001 — fetch_order must never raise here
-        logger.debug(
-            "_block_timestamp_ms: get_block(%s) failed: %s", block_number, e
-        )
+        logger.debug("_block_timestamp_ms: get_block(%s) failed: %s", block_number, e)
         return None
 
 
@@ -1311,11 +1309,7 @@ class GMX(ExchangeCompatible):
 
         raw_markets = Markets(self.config)._get_available_markets_raw()
         zero = "0x" + "0" * 40
-        return {
-            to_checksum_address(row[1])
-            for row in raw_markets
-            if row[1] and row[1].lower() != zero
-        }
+        return {to_checksum_address(row[1]) for row in raw_markets if row[1] and row[1].lower() != zero}
 
     def _fetch_position_close_from_event_logs(
         self,
@@ -8665,9 +8659,7 @@ class GMX(ExchangeCompatible):
                 contract_addresses = get_contract_addresses(chain)
                 reader = get_reader_contract(self.web3, chain)
                 datastore_addr = contract_addresses.datastore
-                raw_orders = reader.functions.getAccountOrders(
-                    datastore_addr, self.wallet_address, 0, 100
-                ).call()
+                raw_orders = reader.functions.getAccountOrders(datastore_addr, self.wallet_address, 0, 100).call()
                 for raw_order in raw_orders:
                     key_bytes = raw_order[0] if isinstance(raw_order, (list, tuple)) else None
                     if key_bytes and ("0x" + key_bytes.hex()) == order_key_hex.lower():
@@ -8677,9 +8669,7 @@ class GMX(ExchangeCompatible):
                         )
                         _ts_ms = _block_timestamp_ms(self.web3, self.web3.eth.block_number)
                         return self._build_open_order_from_reader(raw_order, order_key_hex, symbol, _ts_ms)
-                raw_positions = reader.functions.getAccountPositions(
-                    datastore_addr, self.wallet_address, 0, 100
-                ).call()
+                raw_positions = reader.functions.getAccountPositions(datastore_addr, self.wallet_address, 0, 100).call()
                 matching_pos = self._find_matching_reader_position(raw_positions, symbol)
                 _ts_ms = _block_timestamp_ms(self.web3, tx.get("blockNumber") if tx else None)
                 if matching_pos is not None:
@@ -8768,8 +8758,7 @@ class GMX(ExchangeCompatible):
         # not just "everything failed".  Use ``extra=`` so log aggregators
         # can index by field; the formatted line remains human-readable.
         logger.warning(
-            "_resolve_order_from_sources: all tiers exhausted for order_key=%s symbol=%s "
-            "wallet=%s tier_errors=%s — caller will use synthetic fallback",
+            "_resolve_order_from_sources: all tiers exhausted for order_key=%s symbol=%s wallet=%s tier_errors=%s — caller will use synthetic fallback",
             order_key_hex,
             symbol,
             self.wallet_address,
@@ -9022,9 +9011,7 @@ class GMX(ExchangeCompatible):
         if not symbol:
             return None
         for pos in raw_positions:
-            pos_symbol = self._map_market_to_symbol(
-                pos[0][1] if isinstance(pos, (list, tuple)) and len(pos) > 0 and len(pos[0]) > 1 else ""
-            )
+            pos_symbol = self._map_market_to_symbol(pos[0][1] if isinstance(pos, (list, tuple)) and len(pos) > 0 and len(pos[0]) > 1 else "")
             if pos_symbol == symbol:
                 return pos
         return None

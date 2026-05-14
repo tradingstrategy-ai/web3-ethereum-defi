@@ -90,9 +90,7 @@ class AsyncMarketCatalog:
             self._sync = sync_catalog
         else:
             if config is None or chain_id is None:
-                raise ValueError(
-                    "AsyncMarketCatalog requires either sync_catalog or both config and chain_id"
-                )
+                raise ValueError("AsyncMarketCatalog requires either sync_catalog or both config and chain_id")
             self._sync = MarketCatalog(
                 config=config,
                 chain_id=chain_id,
