@@ -543,9 +543,10 @@ class Gmx(Exchange):
         return None
 
     def fetch_order(self, order_id: str, pair: str, params: dict | None = None) -> CcxtOrder:
-        """Fetch order with GMX-specific zombie detection and cancel reason logging.
+        """Fetch order with GMX-specific zombie detection, cancel reason logging,
+        and on-chain position reconciliation.
 
-        Extends the parent ``fetch_order()`` with two GMX-specific behaviours:
+        Extends the parent ``fetch_order()`` with three GMX-specific behaviours:
 
         **Zombie order detection (market orders only):** GMX market orders
         execute within seconds via keepers. If a market order is still "open"
@@ -562,9 +563,28 @@ class Gmx(Exchange):
         **Cancel reason logging:** When a keeper rejects an order (e.g.
         ``OrderNotFulfillableAtAcceptablePrice``), log the GMX-specific reason
         for easier debugging in freqtrade logs.
+
+        **On-chain position reconciliation (Issue B fix):** When the parent
+        resolver returns ``status="open"`` for a limit / stop / take-profit
+        order, cross-check by listing on-chain positions for this wallet.  If
+        a position exists matching the order's pair + side + size, the order
+        has filled on-chain even though the resolver didn't see the keeper
+        event (caused by 818 Subsquid 4xx errors in the 2026-05-14 logs).
+        Flip the order to ``status="closed"`` based on on-chain truth instead
+        of leaving it perpetually open in the freqtrade DB.  This replaces
+        the originally-planned periodic watchdog with an inline lazy check
+        that triggers exactly when freqtrade asks for fill state.
         """
         order = super().fetch_order(order_id, pair, params)
         info = order.get("info", {})
+
+        # On-chain position reconciliation for non-market orders that look stuck.
+        # Only runs when needed; ``_reconcile_via_positions`` returns ``None``
+        # (the order is unchanged) when no match exists.
+        if order.get("status") == "open" and order.get("type") != "market":
+            reconciled = self._reconcile_via_positions(order, pair, order_id)
+            if reconciled is not None:
+                return reconciled
 
         # Zombie order detection: only applies to market orders. Limit / stop /
         # take-profit orders legitimately sit "open" until the trigger fires.
@@ -610,6 +630,107 @@ class Gmx(Exchange):
                 )
 
         return order
+
+    #: Tolerance for matching a freqtrade order's amount against an on-chain
+    #: position's contracts.  GMX truncates to market decimals so the on-chain
+    #: size can be slightly smaller (or larger after rounding) than what
+    #: freqtrade submitted.  Half a percent comfortably absorbs that drift
+    #: while remaining tight enough to prevent matching the wrong position
+    #: when multiple are open on the same pair.
+    _POSITION_AMOUNT_TOLERANCE = 0.005
+
+    def _reconcile_via_positions(
+        self,
+        order: CcxtOrder,
+        pair: str,
+        order_id: str,
+    ) -> CcxtOrder | None:
+        """Cross-check a "still open" order against on-chain positions.
+
+        Replaces the proposed periodic watchdog (originally Task 5.4) with
+        an inline lazy check.  Freqtrade's only fill-detection path is
+        :meth:`fetch_order`; when its resolver returns ``"open"`` for a
+        limit / stop / take-profit order even though the keeper executed it
+        on-chain, freqtrade has no other way to learn the order filled.  The
+        cached order_key resolver path (Subsquid, REST, Reader) can lag or
+        return stale data — most acutely when Subsquid returns 4xx errors
+        (818 of those in 2026-05-14 logs).
+
+        Strategy: ask ``fetch_positions`` (REST/v2 primary, Reader fallback —
+        already on-chain truth) for positions on ``pair``.  If a position
+        exists with the order's ``side`` and ``amount`` within
+        :data:`_POSITION_AMOUNT_TOLERANCE`, the order has filled.  Return a
+        copy of the order with ``status="closed"``, ``filled=amount``,
+        ``remaining=0.0`` and the matched position summary in ``info`` so
+        downstream logs can audit the reconciliation.
+
+        :param order: The order returned by the parent ``fetch_order``.
+        :param pair: ccxt unified pair symbol (``"BTC/USDC:USDC"``).
+        :param order_id: Original ``order_id`` from freqtrade — used for log
+            correlation; not for matching.
+        :returns: The reconciled order when a matching position is found;
+            ``None`` when no match exists (caller returns the original order
+            unchanged).
+        """
+        try:
+            positions = self._api.fetch_positions([pair])
+        except Exception as exc:  # noqa: BLE001 — soft fallback, never raise
+            # Reconciliation is a best-effort augmentation.  A failure here
+            # must not break the underlying ``fetch_order`` contract, so we
+            # log and return the order unchanged.
+            logger.debug(
+                "fetch_order reconcile: fetch_positions(%s) failed (%s) — returning original order",
+                pair,
+                exc,
+            )
+            return None
+
+        if not positions:
+            return None
+
+        order_side = order.get("side")  # "buy" / "sell"
+        order_amount = float(order.get("amount") or 0.0)
+        if order_amount <= 0.0:
+            return None
+
+        # Match order side to position side.  ccxt orders use buy/sell;
+        # GMX positions use long/short.
+        expected_position_side = "long" if order_side == "buy" else "short"
+
+        tolerance = order_amount * self._POSITION_AMOUNT_TOLERANCE
+        for position in positions:
+            if position.get("symbol") != pair:
+                continue
+            if position.get("side") != expected_position_side:
+                continue
+            pos_size = float(position.get("contracts") or 0.0)
+            if pos_size <= 0.0:
+                continue
+            if abs(pos_size - order_amount) > tolerance:
+                continue
+
+            # Match — flip the order to closed using on-chain truth.
+            reconciled = dict(order)
+            reconciled["status"] = "closed"
+            reconciled["filled"] = order_amount
+            reconciled["remaining"] = 0.0
+            reconciled_info = dict(order.get("info") or {})
+            reconciled_info["reconciled_via_position"] = True
+            reconciled_info["reconciled_position_key"] = position.get("id") or position.get("position_key")
+            reconciled_info["reconciled_position_size"] = pos_size
+            reconciled["info"] = reconciled_info
+            logger.warning(
+                "fetch_order reconcile: order %s for %s flipped open→closed via on-chain "
+                "position match (order_amount=%.8f, position_size=%.8f, side=%s)",
+                order_id[:18],
+                pair,
+                order_amount,
+                pos_size,
+                expected_position_side,
+            )
+            return reconciled
+
+        return None
 
     @property
     def _ccxt_config(self) -> dict:

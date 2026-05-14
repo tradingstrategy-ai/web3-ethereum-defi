@@ -500,21 +500,60 @@ Per-tier shape differences to handle:
 - [ ] **Step 7: Tests pass.**
 - [ ] **Step 8: Commit.**
 
-### Task 5.4: Watchdog for stuck open limit orders
+### Task 5.4: On-chain position reconciliation inside `Gmx.fetch_order`
 
 **Files:**
-- Modify: `eth_defi/gmx/freqtrade/gmx_exchange.py` (`Gmx.fetch_order`)
-- Test: `tests/gmx/freqtrade/test_stuck_order_watchdog.py`
+- Modify: `eth_defi/gmx/freqtrade/gmx_exchange.py` (`Gmx.fetch_order`, line 569 area)
+- Modify: `eth_defi/gmx/ccxt/async_support/exchange.py` (mirror, if an async `fetch_order` wrapper exists)
+- Test: `tests/gmx/freqtrade/test_fetch_order_position_reconcile.py`
 
-**Watchdog rule:** for any limit order that has been ``open`` for >10 minutes
-with ``filled=0.0``, trigger wallet-scoped recovery (Task 5.2 path) even if
-the order_key IS cached. This protects against the case where the on-chain
-order filled but the resolver missed an event for any reason.
+**Replaces the original "watchdog" design (2026-05-14):**
 
-- [ ] **Step 1: Failing test** — limit order open for 15 minutes with filled=0 → fetch_order triggers wallet-scoped enumeration → finds order has been filled on-chain → returns updated status.
-- [ ] **Step 2: Implement watchdog** in `Gmx.fetch_order`.
-- [ ] **Step 3: Tests pass.**
-- [ ] **Step 4: Commit.**
+Investigation confirmed that freqtrade's main loop uses ``fetch_order(order_id)``
+for fill detection — never ``fetch_positions``.  ``Wallets.update()`` does call
+``fetch_positions`` but is rate-limited to once per hour (too slow to catch
+stuck fills).  A separate periodic watchdog adds threading/asyncio complexity
+the simpler design avoids.
+
+Instead, fold the reconciliation inline into ``Gmx.fetch_order``:
+
+1. Call ``super().fetch_order()`` as today.
+2. If the result is a non-market order still ``"open"``, cross-check by
+   calling ``self._api.fetch_positions([pair])`` (already on-chain Reader
+   truth via ``GetOpenPositions``).
+3. Match returned positions against the order by ``(symbol, side, size ±0.5%)``.
+4. If a matching position exists → the limit/SL/TP order has filled; return
+   the order with ``status="closed"``, ``filled=order["amount"]``, and
+   ``remaining=0.0``.  Carry the position data into ``order["info"]`` for
+   downstream visibility.
+5. If no match → return the order unchanged (still ``"open"`` is correct).
+
+**Why this beats a separate watchdog:**
+
+- Triggers exactly when freqtrade asks for fill state (no extra loop).
+- Zero overhead when the existing resolver works correctly.
+- Synchronous, no threading/asyncio scheduling complexity.
+- Reuses ``fetch_positions`` which is already on-chain-truth (Reader-backed).
+- Sync + async path can be mirrored identically.
+
+- [ ] **Step 1: Failing test** in `tests/gmx/freqtrade/test_fetch_order_position_reconcile.py`:
+  - Mock ``Gmx._api.fetch_positions`` to return a matching position.
+  - Mock ``super().fetch_order`` to return an ``open`` limit order.
+  - Assert ``Gmx.fetch_order`` returns ``status="closed"`` with ``filled=amount``.
+  - Negative case: no matching position → status stays ``open``.
+  - Market order case: skipped (zombie path owns it).
+- [ ] **Step 2: Implement** the reconciliation block at line 569 of
+  ``gmx_exchange.py``, right after ``super().fetch_order()``.  Use a helper
+  ``_reconcile_via_positions(order, pair) -> dict | None`` returning the
+  patched order or ``None`` when no match.
+- [ ] **Step 3: Mirror in async** — if there's an async ``Gmx`` equivalent;
+  otherwise the sync path is sufficient since freqtrade calls sync
+  ``fetch_order``.
+- [ ] **Step 4: Add structured log** when reconciliation flips a stuck order:
+  ``logger.warning("fetch_order: reconciled %s from open→closed via on-chain
+  position match (cached order_key was %s)", order_id, key)``.
+- [ ] **Step 5: Tests pass.**
+- [ ] **Step 6: Commit.**
 
 ### Task 5.5: Structured logging for resolver outcomes
 
