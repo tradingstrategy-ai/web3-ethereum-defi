@@ -26,9 +26,7 @@ def test_symbol_normalise_covers_known_k_prefix_tokens():
         "kFLOKI": "FLOKI",
     }
     for raw, canonical in expected.items():
-        assert SYMBOL_NORMALISE.get(raw) == canonical, (
-            f"{raw} must normalise to {canonical} for the catalog to find the market"
-        )
+        assert SYMBOL_NORMALISE.get(raw) == canonical, f"{raw} must normalise to {canonical} for the catalog to find the market"
 
 
 def test_symbol_normalise_covers_versioned_xaut():

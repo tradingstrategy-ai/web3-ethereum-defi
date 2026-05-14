@@ -71,9 +71,7 @@ def test_method_exists_on_gmx():
     """The new method must be on the ``GMX`` class itself, not a helper."""
     from eth_defi.gmx.ccxt.exchange import GMX
 
-    assert hasattr(GMX, "get_on_chain_index_tokens"), (
-        "GMX.get_on_chain_index_tokens() is missing — issue #67 fix not applied"
-    )
+    assert hasattr(GMX, "get_on_chain_index_tokens"), "GMX.get_on_chain_index_tokens() is missing — issue #67 fix not applied"
 
 
 def test_returns_set_of_checksum_addresses(monkeypatch):
@@ -115,9 +113,7 @@ def test_does_not_apply_oracle_filter(monkeypatch):
     with patch.object(markets_mod.OraclePrices, "get_recent_prices", return_value={}):
         result = gmx.get_on_chain_index_tokens()
 
-    assert Web3.to_checksum_address(_CHZ_INDEX) in result, (
-        "Oracle-missing token must still appear in the structural enumeration"
-    )
+    assert Web3.to_checksum_address(_CHZ_INDEX) in result, "Oracle-missing token must still appear in the structural enumeration"
     assert Web3.to_checksum_address(_ETH_INDEX) in result
 
 

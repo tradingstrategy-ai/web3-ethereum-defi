@@ -97,11 +97,7 @@ def _install_mocks(
     from eth_defi.gmx.core import markets as markets_mod
 
     # Build token metadata from all token addresses found in the market dicts.
-    token_meta = token_metadata or _build_token_metadata(
-        [m["index_token_address"] for m in raw_markets]
-        + [m["long_token_address"] for m in raw_markets]
-        + [m["short_token_address"] for m in raw_markets]
-    )
+    token_meta = token_metadata or _build_token_metadata([m["index_token_address"] for m in raw_markets] + [m["long_token_address"] for m in raw_markets] + [m["short_token_address"] for m in raw_markets])
 
     # When on_chain_count > len(raw_markets), pad the REST return value with
     # extra dummy entries so partial-build detection fires correctly.
@@ -111,13 +107,15 @@ def _install_mocks(
         # they are skipped during the metadata build but still count toward
         # rest_markets_count for partial-build detection.
         for i in range(on_chain_count - len(raw_markets)):
-            rest_list.append({
-                "market_address": f"0xDEAD{'0' * 36}{i:04d}",
-                "index_token_address": f"0xBEEF{'0' * 36}{i:04d}",
-                "long_token_address": _USDC_LONG,
-                "short_token_address": _USDC_SHORT,
-                "is_listed": True,
-            })
+            rest_list.append(
+                {
+                    "market_address": f"0xDEAD{'0' * 36}{i:04d}",
+                    "index_token_address": f"0xBEEF{'0' * 36}{i:04d}",
+                    "long_token_address": _USDC_LONG,
+                    "short_token_address": _USDC_SHORT,
+                    "is_listed": True,
+                }
+            )
 
     rest_call = MagicMock(return_value=rest_list)
     monkeypatch.setattr(markets_mod.Markets, "_fetch_markets_from_rest", rest_call)
@@ -199,12 +197,8 @@ def test_invalidate_cache_clears_all_when_chain_none():
         _MarketsCacheEntry,
     )
 
-    _CLASS_MARKETS_CACHE["arbitrum"] = _MarketsCacheEntry(
-        markets={"0xabc": {}}, fetched_at_ms=0, partial=False
-    )
-    _CLASS_MARKETS_CACHE["avalanche"] = _MarketsCacheEntry(
-        markets={"0xdef": {}}, fetched_at_ms=0, partial=False
-    )
+    _CLASS_MARKETS_CACHE["arbitrum"] = _MarketsCacheEntry(markets={"0xabc": {}}, fetched_at_ms=0, partial=False)
+    _CLASS_MARKETS_CACHE["avalanche"] = _MarketsCacheEntry(markets={"0xdef": {}}, fetched_at_ms=0, partial=False)
     Markets.invalidate_cache()
     assert _CLASS_MARKETS_CACHE == {}
 
@@ -272,9 +266,7 @@ def test_partial_build_does_not_overwrite_complete_prior(monkeypatch):
     }
     markets_mod._CLASS_MARKETS_CACHE["arbitrum"] = _MarketsCacheEntry(
         markets=complete_markets,
-        fetched_at_ms=int(time.time() * 1000)
-        - markets_mod._CLASS_MARKETS_CACHE_TTL_MS
-        - 1,  # past TTL → would normally rebuild
+        fetched_at_ms=int(time.time() * 1000) - markets_mod._CLASS_MARKETS_CACHE_TTL_MS - 1,  # past TTL → would normally rebuild
         partial=False,
     )
 

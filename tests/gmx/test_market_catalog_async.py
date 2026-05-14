@@ -111,6 +111,7 @@ class TestAsyncMarketCatalogAPI:
 
         # Counter that increments each time the underlying pipeline runs.
         counter = {"n": 0}
+
         def counting_enumerate(config, now_ts=None):
             counter["n"] += 1
             return fake_entries
@@ -190,6 +191,7 @@ class TestAsyncSyncSharedCache:
 
         # Fresh async catalog at the same path.  Should hit disk, not rebuild.
         counter = {"n": 0}
+
         def counting_enumerate(config, now_ts=None):
             counter["n"] += 1
             return fake_entries

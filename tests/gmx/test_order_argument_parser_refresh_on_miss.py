@@ -116,9 +116,7 @@ def test_first_miss_invalidates_and_retries_then_succeeds(monkeypatch):
     """First lookup misses CHZ; after refresh CHZ is present and resolves."""
     from eth_defi.gmx.core.markets import Markets
 
-    parser, mock_get_available_markets = _build_parser(
-        monkeypatch, _markets_with_btc_only()
-    )
+    parser, mock_get_available_markets = _build_parser(monkeypatch, _markets_with_btc_only())
 
     # Now arrange that the next call returns the *expanded* market set.
     mock_get_available_markets.return_value = _markets_with_btc_and_chz()
@@ -137,9 +135,7 @@ def test_first_miss_invalidates_and_retries_then_succeeds(monkeypatch):
 
 def test_second_miss_after_refresh_raises_value_error(monkeypatch):
     """When CHZ is structurally absent, the retry also misses and raises."""
-    parser, mock_get_available_markets = _build_parser(
-        monkeypatch, _markets_with_btc_only()
-    )
+    parser, mock_get_available_markets = _build_parser(monkeypatch, _markets_with_btc_only())
     # Even after the refresh, CHZ is not present anywhere.
     mock_get_available_markets.return_value = _markets_with_btc_only()
 
@@ -155,9 +151,7 @@ def test_refresh_is_bounded_one_attempt_per_parser_instance(monkeypatch):
     """Two consecutive structural misses must NOT cause two cache refreshes."""
     from eth_defi.gmx.core.markets import Markets
 
-    parser, mock_get_available_markets = _build_parser(
-        monkeypatch, _markets_with_btc_only()
-    )
+    parser, mock_get_available_markets = _build_parser(monkeypatch, _markets_with_btc_only())
     mock_get_available_markets.return_value = _markets_with_btc_only()
 
     with patch.object(Markets, "invalidate_cache", wraps=Markets.invalidate_cache) as inv:
@@ -179,9 +173,7 @@ def test_refresh_is_bounded_one_attempt_per_parser_instance(monkeypatch):
             parser._handle_missing_market_key()
         second_refresh_count = inv.call_count
 
-    assert second_refresh_count == first_refresh_count, (
-        "A second miss on the same parser must not trigger another refresh"
-    )
+    assert second_refresh_count == first_refresh_count, "A second miss on the same parser must not trigger another refresh"
 
 
 def test_initial_hit_does_not_invalidate_cache(monkeypatch):

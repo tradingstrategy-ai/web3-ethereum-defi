@@ -81,4 +81,4 @@ def test_market_order_with_implausible_age_is_NOT_zombied(fake_order_factory):
     ten_years_ago = int((datetime.now(timezone.utc) - timedelta(days=365 * 10)).timestamp() * 1000)
     order = fake_order_factory(order_type="market", timestamp_ms=ten_years_ago)
     result = _apply_zombie_inplace(order)
-    assert result["status"] == "open"   # left untouched, NOT cancelled
+    assert result["status"] == "open"  # left untouched, NOT cancelled

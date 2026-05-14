@@ -147,18 +147,14 @@ class TestEnumerateMarkets:
     def test_enumerate_returns_one_entry_per_market(self, monkeypatch):
         from eth_defi.gmx.core import market_catalog as mc
 
-        monkeypatch.setattr(
-            mc, "_load_raw_markets", lambda config: self._markets_blob()
-        )
+        monkeypatch.setattr(mc, "_load_raw_markets", lambda config: self._markets_blob())
         entries = mc.enumerate_markets(config=object(), now_ts=1_700_000_000)
         assert {e.market_key for e in entries} == {"0xWBTCUSDC", "0xTBTC2", "0xBONKUSDC"}
 
     def test_enumerate_normalises_index_symbol_for_k_prefix(self, monkeypatch):
         from eth_defi.gmx.core import market_catalog as mc
 
-        monkeypatch.setattr(
-            mc, "_load_raw_markets", lambda config: self._markets_blob()
-        )
+        monkeypatch.setattr(mc, "_load_raw_markets", lambda config: self._markets_blob())
         entries = mc.enumerate_markets(config=object(), now_ts=1_700_000_000)
         bonk = next(e for e in entries if e.market_key == "0xBONKUSDC")
         # Both index and long-token symbols must lose the k-prefix.
@@ -169,9 +165,7 @@ class TestEnumerateMarkets:
     def test_enumerate_detects_synthetic_via_dataclass_property(self, monkeypatch):
         from eth_defi.gmx.core import market_catalog as mc
 
-        monkeypatch.setattr(
-            mc, "_load_raw_markets", lambda config: self._markets_blob()
-        )
+        monkeypatch.setattr(mc, "_load_raw_markets", lambda config: self._markets_blob())
         entries = {e.market_key: e for e in mc.enumerate_markets(config=object(), now_ts=1_700_000_000)}
         assert entries["0xTBTC2"].is_synthetic is True
         assert entries["0xWBTCUSDC"].is_synthetic is False
@@ -179,9 +173,7 @@ class TestEnumerateMarkets:
     def test_enumerate_sets_refreshed_at_and_zero_liquidity(self, monkeypatch):
         from eth_defi.gmx.core import market_catalog as mc
 
-        monkeypatch.setattr(
-            mc, "_load_raw_markets", lambda config: self._markets_blob()
-        )
+        monkeypatch.setattr(mc, "_load_raw_markets", lambda config: self._markets_blob())
         entries = mc.enumerate_markets(config=object(), now_ts=1_700_000_000)
         for e in entries:
             # Liquidity / OI augmentation happens in Task 1.3 — for now every
@@ -361,7 +353,9 @@ class TestAugmentWithLiquidity:
         from eth_defi.gmx.core import market_catalog as mc
 
         monkeypatch.setattr(
-            mc, "_resolve_market_symbol", lambda config, key: None  # symbol resolver returns None
+            mc,
+            "_resolve_market_symbol",
+            lambda config, key: None,  # symbol resolver returns None
         )
         monkeypatch.setattr(
             mc,
@@ -581,12 +575,18 @@ class TestMarketCatalogCache:
         monkeypatch.setattr(mc, "augment_with_liquidity", lambda entries, config: entries)
 
         c1 = mc.MarketCatalog(
-            config=object(), chain_id=42161, cache_dir=tmp_path,
-            disk_ttl_seconds=1, memory_ttl_seconds=1,
+            config=object(),
+            chain_id=42161,
+            cache_dir=tmp_path,
+            disk_ttl_seconds=1,
+            memory_ttl_seconds=1,
         )
         c2 = mc.MarketCatalog(
-            config=object(), chain_id=43114, cache_dir=tmp_path,
-            disk_ttl_seconds=1, memory_ttl_seconds=1,
+            config=object(),
+            chain_id=43114,
+            cache_dir=tmp_path,
+            disk_ttl_seconds=1,
+            memory_ttl_seconds=1,
         )
         c1.get_entries()
         c2.get_entries()
@@ -610,8 +610,11 @@ class TestPickMarket:
         monkeypatch.setattr(mc, "enumerate_markets", lambda config, now_ts=None: entries)
         monkeypatch.setattr(mc, "augment_with_liquidity", lambda items, config: items)
         return mc.MarketCatalog(
-            config=object(), chain_id=42161, cache_dir=tmp_path,
-            disk_ttl_seconds=1, memory_ttl_seconds=60,
+            config=object(),
+            chain_id=42161,
+            cache_dir=tmp_path,
+            disk_ttl_seconds=1,
+            memory_ttl_seconds=60,
         )
 
     @staticmethod
@@ -743,8 +746,11 @@ class TestPickMarket:
         monkeypatch.setattr(mc, "augment_with_liquidity", lambda items, config: items)
 
         cat = mc.MarketCatalog(
-            config=object(), chain_id=42161, cache_dir=tmp_path,
-            disk_ttl_seconds=1, memory_ttl_seconds=300,
+            config=object(),
+            chain_id=42161,
+            cache_dir=tmp_path,
+            disk_ttl_seconds=1,
+            memory_ttl_seconds=300,
         )
         cat.pick_market("BTC")
         cat.pick_market("BTC")

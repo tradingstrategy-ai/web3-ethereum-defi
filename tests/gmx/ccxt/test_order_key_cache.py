@@ -15,9 +15,7 @@ from pathlib import Path
 import pytest
 
 
-def _rec(tx_hash="0xtx1", order_key="0xorder1", symbol="BTC/USDC:USDC",
-         market_key="0xWBTCUSDC", side="long", amount=0.5, price=42000.0,
-         created_at_unix=None):
+def _rec(tx_hash="0xtx1", order_key="0xorder1", symbol="BTC/USDC:USDC", market_key="0xWBTCUSDC", side="long", amount=0.5, price=42000.0, created_at_unix=None):
     from eth_defi.gmx.ccxt.order_key_cache import OrderKeyRecord
 
     return OrderKeyRecord(
@@ -208,10 +206,7 @@ class TestOrderKeyCacheResilience:
         # Memory has it.
         assert cache.get("0xmem_only") is not None
         # WARNING about persistence failure was emitted.
-        assert any(
-            "persist" in rec.message.lower() or "could not" in rec.message.lower()
-            for rec in caplog.records
-        )
+        assert any("persist" in rec.message.lower() or "could not" in rec.message.lower() for rec in caplog.records)
 
     def test_schema_mismatch_row_skipped(self, tmp_path, caplog):
         cache_file = tmp_path / "order_keys_42161_0xe3f16770c0a336103d7c24b34a4afcbf6fb17583.json"

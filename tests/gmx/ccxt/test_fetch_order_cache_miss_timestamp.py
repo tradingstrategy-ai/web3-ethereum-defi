@@ -137,10 +137,7 @@ def test_failed_tx_synthetic_uses_block_timestamp_not_block_number(fake_chain_st
 
     assert order["status"] == "failed"
     expected_ms = fake_chain_state["block_timestamp_s"] * 1000
-    assert order["timestamp"] == expected_ms, (
-        f"timestamp should be block.timestamp*1000 = {expected_ms}, "
-        f"got {order['timestamp']} (likely block.number*1000 = {fake_chain_state['block_number'] * 1000})"
-    )
+    assert order["timestamp"] == expected_ms, f"timestamp should be block.timestamp*1000 = {expected_ms}, got {order['timestamp']} (likely block.number*1000 = {fake_chain_state['block_number'] * 1000})"
     # Sanity bound: must be within ±50 years of "now"
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     fifty_years_ms = 50 * 365 * 24 * 60 * 60 * 1000

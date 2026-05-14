@@ -33,8 +33,7 @@ def _fake_gmx_with_positions(positions: list[dict]):
     return fake
 
 
-def _limit_order(side: str = "buy", amount: float = 1.0, status: str = "open",
-                  order_id: str = "0xabc", pair_in_order: str = "BTC/USDC:USDC") -> dict:
+def _limit_order(side: str = "buy", amount: float = 1.0, status: str = "open", order_id: str = "0xabc", pair_in_order: str = "BTC/USDC:USDC") -> dict:
     """Limit-order CCXT shape.  The reconciler ignores ``type=='market'``,
     so the test default is ``limit`` — the case that matters for Issue B.
     """

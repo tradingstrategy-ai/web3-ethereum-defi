@@ -38,11 +38,7 @@ async def test_async_fetch_my_trades_returns_known_fills():
     assert len(trades) > 0, "async fetch_my_trades returned empty list — stub not ported"
 
     symbols = {t["symbol"] for t in trades if t.get("symbol")}
-    assert "APE/USDC:USDC" in symbols or "LDO/USDC:USDC" in symbols, (
-        "Expected APE or LDO fill in trades, got symbols: %s" % symbols
-    )
+    assert "APE/USDC:USDC" in symbols or "LDO/USDC:USDC" in symbols, "Expected APE or LDO fill in trades, got symbols: %s" % symbols
     for trade in trades:
         ts = trade.get("timestamp")
-        assert ts is None or ts > 1_700_000_000_000, (
-            "Trade timestamp %s looks like block.number*1000, not epoch-ms" % ts
-        )
+        assert ts is None or ts > 1_700_000_000_000, "Trade timestamp %s looks like block.number*1000, not epoch-ms" % ts
