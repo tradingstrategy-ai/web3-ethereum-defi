@@ -29,6 +29,8 @@ SYMBOL_NORMALISE: dict[str, str] = {
     # 1000x denomination tokens (k-prefix)
     "kBONK": "BONK",
     "kSHIB": "SHIB",
+    "kPEPE": "PEPE",
+    "kFLOKI": "FLOKI",
 }
 
 #: Known deprecated GMX market token addresses (lowercase).
