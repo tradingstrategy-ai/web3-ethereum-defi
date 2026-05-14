@@ -407,3 +407,188 @@ class TestAugmentWithLiquidity:
         assert btc.liquidity_usd == pytest.approx(100.0)
         assert btc.oi_long_usd == pytest.approx(50.0)
         assert btc.oi_short_usd == 0.0
+
+
+class TestMarketCatalogCache:
+    """``MarketCatalog`` glues enumeration + augmentation + TTL caching.
+
+    Memory cache: 5-minute TTL for hot-path latency.
+    Disk cache: 24-hour TTL so a process restart re-uses the snapshot
+    instead of refetching every market on cold start.
+    """
+
+    @staticmethod
+    def _fake_entries():
+        from eth_defi.gmx.core.market_catalog import MarketEntry
+
+        return [
+            MarketEntry(
+                market_key="0xKEY1",
+                index_token_symbol="ETH",
+                index_token_address="0xEth",
+                long_token_symbol="WETH",
+                long_token_address="0xWeth",
+                short_token_symbol="USDC",
+                short_token_address="0xUsdc",
+                liquidity_usd=100_000_000.0,
+                oi_long_usd=10_000_000.0,
+                oi_short_usd=8_000_000.0,
+                refreshed_at=1_700_000_000,
+            )
+        ]
+
+    def _make_catalog(self, tmp_path, monkeypatch, build_count_ref):
+        """Build a MarketCatalog instance with mocked enumerate+augment.
+
+        The shared build counter lets tests assert how many times the
+        underlying pipeline was triggered — used to verify TTL / cache hits.
+        """
+        from eth_defi.gmx.core import market_catalog as mc
+
+        def fake_enumerate(config, now_ts=None):
+            build_count_ref["calls"] += 1
+            return self._fake_entries()
+
+        monkeypatch.setattr(mc, "enumerate_markets", fake_enumerate)
+        monkeypatch.setattr(mc, "augment_with_liquidity", lambda entries, config: entries)
+
+        return mc.MarketCatalog(
+            config=object(),
+            chain_id=42161,
+            cache_dir=tmp_path,
+            disk_ttl_seconds=86400,
+            memory_ttl_seconds=300,
+        )
+
+    def test_first_call_builds_and_writes_disk(self, tmp_path, monkeypatch):
+        from eth_defi.gmx.core import market_catalog as mc
+
+        counter = {"calls": 0}
+        catalog = self._make_catalog(tmp_path, monkeypatch, counter)
+        entries = catalog.get_entries()
+        assert len(entries) == 1
+        assert counter["calls"] == 1
+        # File exists at expected path with chain_id encoded.
+        cache_file = tmp_path / "market_catalog_42161.json"
+        assert cache_file.exists()
+
+    def test_second_call_within_memory_ttl_skips_rebuild(self, tmp_path, monkeypatch):
+        counter = {"calls": 0}
+        catalog = self._make_catalog(tmp_path, monkeypatch, counter)
+        catalog.get_entries()
+        catalog.get_entries()
+        # Memory hit on the second call.
+        assert counter["calls"] == 1
+
+    def test_force_refresh_rebuilds(self, tmp_path, monkeypatch):
+        counter = {"calls": 0}
+        catalog = self._make_catalog(tmp_path, monkeypatch, counter)
+        catalog.get_entries()
+        catalog.refresh()
+        assert counter["calls"] == 2
+
+    def test_new_instance_reads_disk_within_disk_ttl(self, tmp_path, monkeypatch):
+        from eth_defi.gmx.core import market_catalog as mc
+
+        # First instance builds + persists.
+        counter1 = {"calls": 0}
+        c1 = self._make_catalog(tmp_path, monkeypatch, counter1)
+        c1.get_entries()
+        assert counter1["calls"] == 1
+
+        # Second instance (fresh process equivalent) should hit disk, not rebuild.
+        counter2 = {"calls": 0}
+        c2 = self._make_catalog(tmp_path, monkeypatch, counter2)
+        entries = c2.get_entries()
+        assert counter2["calls"] == 0
+        assert len(entries) == 1
+        # Same content as written.
+        assert entries[0].market_key == "0xKEY1"
+
+    def test_expired_disk_entry_triggers_rebuild(self, tmp_path, monkeypatch):
+        from eth_defi.gmx.core import market_catalog as mc
+
+        counter = {"calls": 0}
+        catalog = self._make_catalog(tmp_path, monkeypatch, counter)
+        catalog.get_entries()
+        assert counter["calls"] == 1
+
+        # Tamper with cache file: backdate the saved-at timestamp past TTL.
+        cache_file = tmp_path / "market_catalog_42161.json"
+        import json
+
+        blob = json.loads(cache_file.read_text())
+        blob["saved_at_unix"] = 0  # 1970 — way past 24h
+        cache_file.write_text(json.dumps(blob))
+
+        # New instance now sees a stale file → rebuilds.
+        counter2 = {"calls": 0}
+        catalog2 = self._make_catalog(tmp_path, monkeypatch, counter2)
+        catalog2.get_entries()
+        assert counter2["calls"] == 1
+
+    def test_corrupt_disk_cache_falls_back_to_rebuild(self, tmp_path, monkeypatch, caplog):
+        import logging
+
+        counter = {"calls": 0}
+        # Write a corrupt cache file BEFORE any catalog instance.
+        cache_file = tmp_path / "market_catalog_42161.json"
+        cache_file.write_text("{not valid json")
+        caplog.set_level(logging.WARNING, logger="eth_defi.gmx.core.market_catalog")
+
+        catalog = self._make_catalog(tmp_path, monkeypatch, counter)
+        catalog.get_entries()
+        # Should have rebuilt despite the bogus file.
+        assert counter["calls"] == 1
+        assert any("corrupt" in rec.message.lower() or "decode" in rec.message.lower() for rec in caplog.records)
+
+    def test_disk_write_failure_still_serves_from_memory(self, tmp_path, monkeypatch, caplog):
+        import logging
+
+        counter = {"calls": 0}
+        # Point cache_dir at a non-existent, non-creatable path.
+        cache_file = tmp_path / "subdir" / "market_catalog_42161.json"
+        # Pre-create the parent as a file so subdir creation fails.
+        (tmp_path / "subdir").write_text("blocker")
+
+        from eth_defi.gmx.core import market_catalog as mc
+
+        def fake_enumerate(config, now_ts=None):
+            counter["calls"] += 1
+            return self._fake_entries()
+
+        monkeypatch.setattr(mc, "enumerate_markets", fake_enumerate)
+        monkeypatch.setattr(mc, "augment_with_liquidity", lambda entries, config: entries)
+
+        caplog.set_level(logging.WARNING, logger="eth_defi.gmx.core.market_catalog")
+        catalog = mc.MarketCatalog(
+            config=object(),
+            chain_id=42161,
+            cache_dir=tmp_path / "subdir",
+            disk_ttl_seconds=86400,
+            memory_ttl_seconds=300,
+        )
+        entries = catalog.get_entries()
+        # Build succeeded; disk write failed silently.
+        assert len(entries) == 1
+        assert counter["calls"] == 1
+        assert any("write" in rec.message.lower() or "persist" in rec.message.lower() for rec in caplog.records)
+
+    def test_cache_file_path_includes_chain_id(self, tmp_path, monkeypatch):
+        from eth_defi.gmx.core import market_catalog as mc
+
+        monkeypatch.setattr(mc, "enumerate_markets", lambda config, now_ts=None: self._fake_entries())
+        monkeypatch.setattr(mc, "augment_with_liquidity", lambda entries, config: entries)
+
+        c1 = mc.MarketCatalog(
+            config=object(), chain_id=42161, cache_dir=tmp_path,
+            disk_ttl_seconds=1, memory_ttl_seconds=1,
+        )
+        c2 = mc.MarketCatalog(
+            config=object(), chain_id=43114, cache_dir=tmp_path,
+            disk_ttl_seconds=1, memory_ttl_seconds=1,
+        )
+        c1.get_entries()
+        c2.get_entries()
+        assert (tmp_path / "market_catalog_42161.json").exists()
+        assert (tmp_path / "market_catalog_43114.json").exists()
