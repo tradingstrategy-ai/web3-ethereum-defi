@@ -8592,15 +8592,26 @@ class GMX(ExchangeCompatible):
     ) -> dict | None:
         """Resolve order state from authoritative sources after a cache miss.
 
-        Tier ladder (A → B → C → D → None):
+        Tier ladder (A → B → C → D → None) — reordered 2026-05-14 per
+        operator directive to put Subsquid last after it produced 818×404 +
+        818×400 errors on 2026-05-14 logs, blinding the resolver to
+        BONK / SHIB fills:
 
-        A. Subsquid ``tradeActions`` — returns real execution price + fees.
-        B. GMX REST API v2 ``/orders`` + ``/positions`` — returns live status.
-        C. On-chain ``SyntheticsReader.getAccountOrders/Positions`` — authoritative.
-        D. EventEmitter log scan — slow but comprehensive.
+        A. GMX REST API v2 ``/orders`` + ``/positions`` — returns live status
+           directly from the GMX team's hosted API.  Lowest latency among
+           sources that don't require Subsquid indexing.
+        B. On-chain ``SyntheticsReader.getAccountOrders/Positions`` —
+           authoritative.  Slower than REST (RPC round-trips) but never
+           depends on third-party indexing.
+        C. EventEmitter log scan — slow but comprehensive when the order
+           creation receipt is available.
+        D. Subsquid ``tradeActions`` — last-resort fallback.  Useful for
+           historical resolution but flaky for live order confirmation,
+           hence the demotion.
 
-        Returns a CCXT-shaped order dict, or ``None`` if all tiers are exhausted.
-        ``None`` means the caller should build a synthetic-from-receipt fallback.
+        Returns a CCXT-shaped order dict, or ``None`` if all tiers are
+        exhausted.  ``None`` means the caller should build a
+        synthetic-from-receipt fallback.
 
         :param order_key_hex: GMX ``orderKey`` as ``0x``-prefixed hex string.
         :param symbol: CCXT-style pair (e.g. ``"APE/USDC:USDC"``), may be ``None``.
@@ -8608,29 +8619,13 @@ class GMX(ExchangeCompatible):
         :param tx: Raw tx dict (used only by EventEmitter tier).
         :returns: CCXT order dict or ``None``.
         """
-        # Tier A — Subsquid tradeActions
-        try:
-            subsquid = GMXSubsquidClient(chain=self.config.get_chain())
-            trade_action = subsquid.get_trade_action_by_order_key(
-                order_key_hex,
-                timeout_seconds=5,
-                poll_interval=0.5,
-                account=self.wallet_address,
-            )
-            if trade_action is not None:
-                logger.debug(
-                    "_resolve_order_from_sources(%s): resolved via Subsquid (Tier A)",
-                    order_key_hex[:10],
-                )
-                return self._build_order_from_trade_action(trade_action, symbol)
-        except Exception as exc:
-            logger.debug(
-                "_resolve_order_from_sources(%s): Subsquid Tier A failed: %s",
-                order_key_hex[:10],
-                exc,
-            )
+        #: Structured error context for the final WARNING when every tier
+        #: misses.  Populated as each tier reports its failure mode so the
+        #: emitted log includes the actual cause per source, not just
+        #: "everything failed".
+        tier_errors: dict[str, str] = {}
 
-        # Tier B — GMX REST API v2
+        # Tier A — GMX REST API v2
         if self.wallet_address:
             try:
                 gmx_api = GMXAPI(chain=self.config.get_chain())
@@ -8639,7 +8634,7 @@ class GMX(ExchangeCompatible):
                     key = rest_order.get("key") or rest_order.get("orderKey", "")
                     if key.lower() == order_key_hex.lower():
                         logger.debug(
-                            "_resolve_order_from_sources(%s): resolved via REST v2 orders (Tier B)",
+                            "_resolve_order_from_sources(%s): resolved via REST v2 orders (Tier A)",
                             order_key_hex[:10],
                         )
                         return self._build_order_from_rest_order(rest_order, symbol)
@@ -8648,18 +8643,22 @@ class GMX(ExchangeCompatible):
                     pos_symbol = self._map_market_to_symbol(pos.get("market", ""))
                     if pos_symbol == symbol:
                         logger.debug(
-                            "_resolve_order_from_sources(%s): inferred executed via REST v2 position (Tier B)",
+                            "_resolve_order_from_sources(%s): inferred executed via REST v2 position (Tier A)",
                             order_key_hex[:10],
                         )
                         return self._build_order_from_rest_position(pos, order_key_hex, symbol)
+                tier_errors["A_rest"] = "no match in /orders or /positions"
             except Exception as exc:
+                tier_errors["A_rest"] = str(exc)
                 logger.debug(
-                    "_resolve_order_from_sources(%s): REST v2 Tier B failed: %s",
+                    "_resolve_order_from_sources(%s): REST v2 Tier A failed: %s",
                     order_key_hex[:10],
                     exc,
                 )
+        else:
+            tier_errors["A_rest"] = "no wallet_address configured"
 
-        # Tier C — On-chain SyntheticsReader
+        # Tier B — On-chain SyntheticsReader
         if self.wallet_address:
             try:
                 chain = self.config.get_chain()
@@ -8673,7 +8672,7 @@ class GMX(ExchangeCompatible):
                     key_bytes = raw_order[0] if isinstance(raw_order, (list, tuple)) else None
                     if key_bytes and ("0x" + key_bytes.hex()) == order_key_hex.lower():
                         logger.debug(
-                            "_resolve_order_from_sources(%s): resolved via Reader orders (Tier C)",
+                            "_resolve_order_from_sources(%s): resolved via Reader orders (Tier B)",
                             order_key_hex[:10],
                         )
                         _ts_ms = _block_timestamp_ms(self.web3, self.web3.eth.block_number)
@@ -8685,24 +8684,27 @@ class GMX(ExchangeCompatible):
                 _ts_ms = _block_timestamp_ms(self.web3, tx.get("blockNumber") if tx else None)
                 if matching_pos is not None:
                     logger.debug(
-                        "_resolve_order_from_sources(%s): order not in DataStore but position exists — closed (Tier C)",
+                        "_resolve_order_from_sources(%s): order not in DataStore but position exists — closed (Tier B)",
                         order_key_hex[:10],
                     )
                     return self._build_closed_order_no_fill(order_key_hex, symbol, _ts_ms)
                 else:
                     logger.debug(
-                        "_resolve_order_from_sources(%s): order not in DataStore, no position — cancelled (Tier C)",
+                        "_resolve_order_from_sources(%s): order not in DataStore, no position — cancelled (Tier B)",
                         order_key_hex[:10],
                     )
                     return self._build_cancelled_order(order_key_hex, symbol, _ts_ms)
             except Exception as exc:
+                tier_errors["B_reader"] = str(exc)
                 logger.debug(
-                    "_resolve_order_from_sources(%s): Reader Tier C failed: %s",
+                    "_resolve_order_from_sources(%s): Reader Tier B failed: %s",
                     order_key_hex[:10],
                     exc,
                 )
+        else:
+            tier_errors["B_reader"] = "no wallet_address configured"
 
-        # Tier D — EventEmitter log scan
+        # Tier C — EventEmitter log scan
         if receipt is not None:
             try:
                 chain = self.config.get_chain()
@@ -8721,20 +8723,64 @@ class GMX(ExchangeCompatible):
                 )
                 if trade_action is not None:
                     logger.debug(
-                        "_resolve_order_from_sources(%s): resolved via EventEmitter scan (Tier D)",
+                        "_resolve_order_from_sources(%s): resolved via EventEmitter scan (Tier C)",
                         order_key_hex[:10],
                     )
                     return self._build_order_from_trade_action(trade_action, symbol)
+                tier_errors["C_eventemitter"] = "no matching trade_action in scanned range"
             except Exception as exc:
+                tier_errors["C_eventemitter"] = str(exc)
                 logger.debug(
-                    "_resolve_order_from_sources(%s): EventEmitter Tier D failed: %s",
+                    "_resolve_order_from_sources(%s): EventEmitter Tier C failed: %s",
                     order_key_hex[:10],
                     exc,
                 )
+        else:
+            tier_errors["C_eventemitter"] = "no receipt provided"
 
+        # Tier D — Subsquid tradeActions (last-resort, demoted 2026-05-14
+        # after 818 × 404 + 818 × 400 errors blinded production fill detection)
+        try:
+            subsquid = GMXSubsquidClient(chain=self.config.get_chain())
+            trade_action = subsquid.get_trade_action_by_order_key(
+                order_key_hex,
+                timeout_seconds=5,
+                poll_interval=0.5,
+                account=self.wallet_address,
+            )
+            if trade_action is not None:
+                logger.debug(
+                    "_resolve_order_from_sources(%s): resolved via Subsquid (Tier D, last-resort)",
+                    order_key_hex[:10],
+                )
+                return self._build_order_from_trade_action(trade_action, symbol)
+            tier_errors["D_subsquid"] = "no trade_action returned"
+        except Exception as exc:
+            tier_errors["D_subsquid"] = str(exc)
+            logger.debug(
+                "_resolve_order_from_sources(%s): Subsquid Tier D (last-resort) failed: %s",
+                order_key_hex[:10],
+                exc,
+            )
+
+        # All tiers exhausted — emit a structured warning with the per-tier
+        # error context so operators can see *why* each source missed,
+        # not just "everything failed".  Use ``extra=`` so log aggregators
+        # can index by field; the formatted line remains human-readable.
         logger.warning(
-            "_resolve_order_from_sources(%s): all tiers exhausted — caller will use synthetic fallback",
-            order_key_hex[:10],
+            "_resolve_order_from_sources: all tiers exhausted for order_key=%s symbol=%s "
+            "wallet=%s tier_errors=%s — caller will use synthetic fallback",
+            order_key_hex,
+            symbol,
+            self.wallet_address,
+            tier_errors,
+            extra={
+                "gmx_order_key": order_key_hex,
+                "gmx_symbol": symbol,
+                "gmx_wallet": self.wallet_address,
+                "gmx_chain": self.config.get_chain(),
+                "gmx_tier_errors": tier_errors,
+            },
         )
         return None
 
