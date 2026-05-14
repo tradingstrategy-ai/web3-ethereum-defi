@@ -1641,6 +1641,59 @@ class GMX(ExchangeCompatible):
         except Exception as e:
             logger.warning("OrderKeyCache init failed (memory-only mode): %s", e)
 
+    def _resolve_amount_for_cache(
+        self,
+        order_key_hex: str | None,
+        symbol: str | None,
+        local_amount: float | None,
+    ) -> float:
+        """Return a reliable order amount for the :class:`OrderKeyCache` record.
+
+        When ``local_amount`` is unavailable (``None`` / ``0``) the order's
+        size is fetched live via :meth:`_resolve_order_from_sources` so the
+        persisted record carries the real size — important because the
+        cached amount survives bot restarts and is used by reconciliation.
+
+        :param order_key_hex: GMX ``orderKey`` (``0x``-prefixed hex) used
+            for the live lookup.  Falsy values short-circuit to the fallback.
+        :param symbol: CCXT-style pair forwarded to the resolver.
+        :param local_amount: Amount known to the caller; may be ``None`` or
+            ``0`` on edge paths.
+        :returns: A positive amount when at least one source has data; ``0.0``
+            only when every source comes back empty.
+        """
+        if local_amount and float(local_amount) > 0:
+            return float(local_amount)
+        if not order_key_hex:
+            return 0.0
+        try:
+            resolved = self._resolve_order_from_sources(
+                order_key_hex=order_key_hex,
+                symbol=symbol,
+                receipt=None,
+                tx=None,
+            )
+            if resolved is not None:
+                api_amount = resolved.get("amount")
+                if api_amount and float(api_amount) > 0:
+                    logger.info(
+                        "OrderKeyCache: filled missing amount for %s via live API (amount=%.6f)",
+                        order_key_hex[:18],
+                        float(api_amount),
+                    )
+                    return float(api_amount)
+        except Exception as e:
+            logger.warning(
+                "OrderKeyCache: live amount lookup failed for %s: %s",
+                order_key_hex[:18],
+                e,
+            )
+        logger.warning(
+            "OrderKeyCache: amount unresolved for %s — caching 0.0",
+            (order_key_hex or "unknown")[:18],
+        )
+        return 0.0
+
     def _init_empty(self):
         """Initialize with minimal functionality (no RPC/config)."""
         self.config = None
@@ -6458,13 +6511,14 @@ class GMX(ExchangeCompatible):
         self._orders[tx_hash.hex()] = order
         if self._order_key_cache is not None and order_key_hex:
             try:
+                cached_amount = self._resolve_amount_for_cache(order_key_hex, symbol, order.get("amount"))
                 self._order_key_cache.put(
                     OrderKeyRecord(
                         order_key=order_key_hex,
                         tx_hash=tx_hash.hex(),
                         symbol=symbol,
                         side=order.get("side", ""),
-                        amount=float(order.get("amount") or 0.0),
+                        amount=cached_amount,
                         price=float(order.get("stopPrice") or order.get("price") or 0.0),
                     )
                 )
@@ -6718,13 +6772,14 @@ class GMX(ExchangeCompatible):
         order_key_hex_cached = "0x" + order_key.hex() if order_key else None
         if self._order_key_cache is not None and order_key_hex_cached:
             try:
+                cached_amount = self._resolve_amount_for_cache(order_key_hex_cached, symbol, amount)
                 self._order_key_cache.put(
                     OrderKeyRecord(
                         order_key=order_key_hex_cached,
                         tx_hash=tx_hash if tx_hash.startswith("0x") else f"0x{tx_hash}",
                         symbol=symbol,
                         side=side,
-                        amount=float(amount or 0.0),
+                        amount=cached_amount,
                         price=float(order.get("price") or 0.0),
                     )
                 )
