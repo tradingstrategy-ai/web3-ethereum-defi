@@ -201,3 +201,148 @@ def enumerate_markets(
 
     logger.debug("enumerate_markets: produced %d entries", len(entries))
     return entries
+
+
+def _fetch_open_interest(config: "GMXConfig") -> dict[str, dict[str, float]] | None:
+    """Fetch GMX open interest via on-chain Reader (no Subsquid).
+
+    Wraps :class:`eth_defi.gmx.core.open_interest.GetOpenInterest`, which uses
+    DataStore reads under the hood — independent of Subsquid availability.
+    Indirection exists so tests can monkeypatch the fetch without standing up
+    a Web3 connection.
+
+    :param config: GMX configuration with a live ``web3`` reference.
+    :returns: Output of ``GetOpenInterest.get_data()`` — a dict with ``long``
+        and ``short`` sub-dicts keyed by ``market_symbol`` (``BTC``, ``BTC2``,
+        ``BONK``...) plus a ``parameter`` tag.  ``None`` when the fetch fails
+        for any reason — caller treats this as "no OI data available".
+    """
+    try:
+        from eth_defi.gmx.core.open_interest import GetOpenInterest
+
+        return GetOpenInterest(config).get_data()
+    except Exception as exc:  # noqa: BLE001 — broad catch; we never want catalog
+        # augmentation to abort the whole catalog build.
+        logger.warning("OI fetch failed, market_catalog will use 0.0 OI: %s", exc)
+        return None
+
+
+def _fetch_available_liquidity(config: "GMXConfig") -> dict[str, dict[str, float]] | None:
+    """Fetch GMX available liquidity via Multicall3 (no Subsquid).
+
+    Wraps :class:`eth_defi.gmx.core.available_liquidity.GetAvailableLiquidity`,
+    which queries pool amounts and reserve factors on-chain.  Same indirection
+    + degradation contract as :func:`_fetch_open_interest`.
+
+    :param config: GMX configuration with a live ``web3`` reference.
+    :returns: Output of ``GetAvailableLiquidity.get_data()`` — ``{'long': {sym:
+        usd}, 'short': {sym: usd}, 'parameter': 'available_liquidity'}``.
+        ``None`` on failure.
+    """
+    try:
+        from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity
+
+        return GetAvailableLiquidity(config).get_data()
+    except Exception as exc:  # noqa: BLE001 — broad catch as above.
+        logger.warning(
+            "Available liquidity fetch failed, market_catalog will use 0.0 liquidity: %s",
+            exc,
+        )
+        return None
+
+
+def _resolve_market_symbol(config: "GMXConfig", market_key: str) -> str | None:
+    """Resolve a market_key → GMX ``market_symbol`` (e.g. ``BTC``, ``BTC2``).
+
+    The catalog uses ``index_token_symbol`` for selection, but ``GetOpenInterest``
+    and ``GetAvailableLiquidity`` both key by ``market_symbol`` — the GMX-internal
+    name that distinguishes pools sharing an index (``BTC`` for WBTC-USDC,
+    ``BTC2`` for tBTC-tBTC).  This helper provides the bridge.
+
+    :param config: GMX configuration.
+    :param market_key: Checksummed market token address.
+    :returns: The ``market_symbol`` or ``None`` if the markets dict doesn't
+        contain this key.
+    """
+    try:
+        from eth_defi.gmx.core.markets import Markets
+
+        symbol = Markets(config).get_market_symbol(market_key)
+        return symbol if symbol else None
+    except Exception as exc:  # noqa: BLE001 — same broad-catch rationale.
+        logger.debug("market_symbol resolve failed for %s: %s", market_key, exc)
+        return None
+
+
+def augment_with_liquidity(
+    entries: list[MarketEntry],
+    config: "GMXConfig",
+) -> list[MarketEntry]:
+    """Populate ``liquidity_usd``, ``oi_long_usd``, ``oi_short_usd`` on each entry.
+
+    Sourcing (Subsquid never touched on this path):
+
+    1. :func:`_fetch_available_liquidity` — on-chain multicall via the existing
+       ``GetAvailableLiquidity`` pipeline.
+    2. :func:`_fetch_open_interest` — on-chain reads via ``GetOpenInterest``.
+    3. :func:`_resolve_market_symbol` — local ``Markets`` cache, no network.
+
+    ``liquidity_usd`` is the sum of the ``long`` and ``short`` available
+    liquidity for the market — the total tradable depth the catalog uses to
+    rank pools.  ``oi_long_usd`` / ``oi_short_usd`` are pass-throughs from
+    open-interest data.
+
+    **Degradation contract:** any source returning ``None`` (failure) is
+    silently skipped for that source — the affected field stays at ``0.0``
+    and a WARNING is logged once.  Partial data (e.g. one side missing) is
+    used as available — the missing side stays at ``0.0``.  This function
+    never raises; the catalog must always rebuild even with stale prices,
+    flaky RPC, or temporary endpoint outages.
+
+    :param entries: The bare entries from :func:`enumerate_markets`.
+    :param config: GMX configuration.
+    :returns: A **new** list of :class:`MarketEntry` — input is not mutated
+        (entries are frozen dataclasses anyway).
+    """
+    liquidity = _fetch_available_liquidity(config)
+    open_interest = _fetch_open_interest(config)
+
+    if liquidity is None:
+        logger.warning("market_catalog augmentation: no liquidity data; entries will report 0.0 liquidity_usd")
+    if open_interest is None:
+        logger.warning("market_catalog augmentation: no open-interest data; entries will report 0.0 OI")
+
+    long_liq: dict[str, float] = (liquidity or {}).get("long", {})
+    short_liq: dict[str, float] = (liquidity or {}).get("short", {})
+    long_oi: dict[str, float] = (open_interest or {}).get("long", {})
+    short_oi: dict[str, float] = (open_interest or {}).get("short", {})
+
+    augmented: list[MarketEntry] = []
+    for entry in entries:
+        market_symbol = _resolve_market_symbol(config, entry.market_key)
+        if not market_symbol:
+            augmented.append(entry)
+            continue
+
+        liq_long = float(long_liq.get(market_symbol, 0.0))
+        liq_short = float(short_liq.get(market_symbol, 0.0))
+        oi_long = float(long_oi.get(market_symbol, 0.0))
+        oi_short = float(short_oi.get(market_symbol, 0.0))
+
+        augmented.append(
+            MarketEntry(
+                market_key=entry.market_key,
+                index_token_symbol=entry.index_token_symbol,
+                index_token_address=entry.index_token_address,
+                long_token_symbol=entry.long_token_symbol,
+                long_token_address=entry.long_token_address,
+                short_token_symbol=entry.short_token_symbol,
+                short_token_address=entry.short_token_address,
+                liquidity_usd=liq_long + liq_short,
+                oi_long_usd=oi_long,
+                oi_short_usd=oi_short,
+                refreshed_at=entry.refreshed_at,
+            )
+        )
+
+    return augmented

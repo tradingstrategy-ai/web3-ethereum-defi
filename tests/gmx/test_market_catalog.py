@@ -219,3 +219,191 @@ class TestEnumerateMarkets:
         monkeypatch.setattr(mc, "_load_raw_markets", lambda config: bad)
         entries = mc.enumerate_markets(config=object(), now_ts=1_700_000_000)
         assert {e.market_key for e in entries} == {"0xOK"}
+
+
+class TestAugmentWithLiquidity:
+    """``augment_with_liquidity`` populates ``liquidity_usd``, ``oi_long_usd``,
+    ``oi_short_usd`` from on-chain / REST sources (GetAvailableLiquidity +
+    GetOpenInterest — neither depends on Subsquid).  Graceful degradation:
+    when augmentation fails, entries keep their zero-init values and a single
+    WARNING is logged — never raises.
+    """
+
+    @staticmethod
+    def _base_entries():
+        from eth_defi.gmx.core.market_catalog import MarketEntry
+
+        return [
+            MarketEntry(
+                market_key="0xWBTCUSDC",
+                index_token_symbol="BTC",
+                index_token_address="0xBtcIndex",
+                long_token_symbol="WBTC",
+                long_token_address="0xWbtc",
+                short_token_symbol="USDC",
+                short_token_address="0xUsdc",
+                liquidity_usd=0.0,
+                oi_long_usd=0.0,
+                oi_short_usd=0.0,
+                refreshed_at=1_700_000_000,
+            ),
+            MarketEntry(
+                market_key="0xTBTC2",
+                index_token_symbol="BTC",
+                index_token_address="0xBtcIndex",
+                long_token_symbol="tBTC",
+                long_token_address="0xTbtc",
+                short_token_symbol="tBTC",
+                short_token_address="0xTbtc",
+                liquidity_usd=0.0,
+                oi_long_usd=0.0,
+                oi_short_usd=0.0,
+                refreshed_at=1_700_000_000,
+            ),
+            MarketEntry(
+                market_key="0xBONKUSDC",
+                index_token_symbol="BONK",
+                index_token_address="0xBonkIndex",
+                long_token_symbol="BONK",
+                long_token_address="0xKbonk",
+                short_token_symbol="USDC",
+                short_token_address="0xUsdc",
+                liquidity_usd=0.0,
+                oi_long_usd=0.0,
+                oi_short_usd=0.0,
+                refreshed_at=1_700_000_000,
+            ),
+        ]
+
+    def test_augment_populates_liquidity_and_oi_from_contract_calls(self, monkeypatch):
+        from eth_defi.gmx.core import market_catalog as mc
+
+        # GMX core returns dicts keyed by `market_symbol`, NOT by market_key —
+        # the catalog augmenter must resolve market_symbol per entry.
+        monkeypatch.setattr(
+            mc,
+            "_resolve_market_symbol",
+            lambda config, key: {"0xWBTCUSDC": "BTC", "0xTBTC2": "BTC2", "0xBONKUSDC": "BONK"}[key],
+        )
+        monkeypatch.setattr(
+            mc,
+            "_fetch_available_liquidity",
+            lambda config: {
+                "long": {"BTC": 500_000_000.0, "BTC2": 5_000_000.0, "BONK": 1_000_000.0},
+                "short": {"BTC": 500_000_000.0, "BTC2": 5_000_000.0, "BONK": 1_000_000.0},
+                "parameter": "available_liquidity",
+            },
+        )
+        monkeypatch.setattr(
+            mc,
+            "_fetch_open_interest",
+            lambda config: {
+                "long": {"BTC": 200_000_000.0, "BTC2": 1_000_000.0, "BONK": 250_000.0},
+                "short": {"BTC": 180_000_000.0, "BTC2": 900_000.0, "BONK": 220_000.0},
+                "parameter": "open_interest",
+            },
+        )
+
+        entries = mc.augment_with_liquidity(self._base_entries(), config=object())
+        by_key = {e.market_key: e for e in entries}
+
+        # liquidity_usd is long + short available — total tradable depth.
+        assert by_key["0xWBTCUSDC"].liquidity_usd == pytest.approx(1_000_000_000.0)
+        assert by_key["0xTBTC2"].liquidity_usd == pytest.approx(10_000_000.0)
+        assert by_key["0xBONKUSDC"].liquidity_usd == pytest.approx(2_000_000.0)
+
+        # OI populated per side.
+        assert by_key["0xWBTCUSDC"].oi_long_usd == pytest.approx(200_000_000.0)
+        assert by_key["0xWBTCUSDC"].oi_short_usd == pytest.approx(180_000_000.0)
+        assert by_key["0xBONKUSDC"].oi_long_usd == pytest.approx(250_000.0)
+
+    def test_augment_returns_entries_unchanged_when_liquidity_fetch_fails(self, monkeypatch, caplog):
+        import logging
+
+        from eth_defi.gmx.core import market_catalog as mc
+
+        monkeypatch.setattr(mc, "_resolve_market_symbol", lambda config, key: "BTC")
+        monkeypatch.setattr(mc, "_fetch_available_liquidity", lambda config: None)
+        monkeypatch.setattr(
+            mc,
+            "_fetch_open_interest",
+            lambda config: {"long": {"BTC": 1.0}, "short": {"BTC": 2.0}, "parameter": "open_interest"},
+        )
+
+        caplog.set_level(logging.WARNING, logger="eth_defi.gmx.core.market_catalog")
+        entries = mc.augment_with_liquidity(self._base_entries(), config=object())
+
+        # When liquidity source fails, OI may still be populated (each source
+        # degrades independently).  Liquidity stays at zero.
+        for e in entries:
+            assert e.liquidity_usd == 0.0
+        assert any("liquidity" in rec.message.lower() for rec in caplog.records)
+
+    def test_augment_handles_total_fetch_failure_gracefully(self, monkeypatch, caplog):
+        import logging
+
+        from eth_defi.gmx.core import market_catalog as mc
+
+        monkeypatch.setattr(mc, "_resolve_market_symbol", lambda config, key: "BTC")
+        monkeypatch.setattr(mc, "_fetch_available_liquidity", lambda config: None)
+        monkeypatch.setattr(mc, "_fetch_open_interest", lambda config: None)
+
+        caplog.set_level(logging.WARNING, logger="eth_defi.gmx.core.market_catalog")
+        # Must not raise — caller can still use the catalog with zero
+        # liquidity (selection will fall back to first-listed order).
+        entries = mc.augment_with_liquidity(self._base_entries(), config=object())
+        for e in entries:
+            assert e.liquidity_usd == 0.0
+            assert e.oi_long_usd == 0.0
+            assert e.oi_short_usd == 0.0
+
+    def test_augment_skips_unknown_market_symbols(self, monkeypatch):
+        from eth_defi.gmx.core import market_catalog as mc
+
+        monkeypatch.setattr(
+            mc, "_resolve_market_symbol", lambda config, key: None  # symbol resolver returns None
+        )
+        monkeypatch.setattr(
+            mc,
+            "_fetch_available_liquidity",
+            lambda config: {"long": {"BTC": 1.0}, "short": {"BTC": 1.0}, "parameter": "available_liquidity"},
+        )
+        monkeypatch.setattr(
+            mc,
+            "_fetch_open_interest",
+            lambda config: {"long": {"BTC": 1.0}, "short": {"BTC": 1.0}, "parameter": "open_interest"},
+        )
+
+        entries = mc.augment_with_liquidity(self._base_entries(), config=object())
+        # No market_symbol → no lookup → zero values preserved.
+        for e in entries:
+            assert e.liquidity_usd == 0.0
+
+    def test_augment_partial_oi_data_uses_what_is_available(self, monkeypatch):
+        """If OI only covers one side (e.g. short-only synthetic), the other
+        side stays at 0.0 and no exception is raised.
+        """
+        from eth_defi.gmx.core import market_catalog as mc
+
+        monkeypatch.setattr(
+            mc,
+            "_resolve_market_symbol",
+            lambda config, key: {"0xWBTCUSDC": "BTC", "0xTBTC2": "BTC2", "0xBONKUSDC": "BONK"}[key],
+        )
+        monkeypatch.setattr(
+            mc,
+            "_fetch_available_liquidity",
+            lambda config: {"long": {"BTC": 100.0}, "short": {}, "parameter": "available_liquidity"},
+        )
+        monkeypatch.setattr(
+            mc,
+            "_fetch_open_interest",
+            lambda config: {"long": {"BTC": 50.0}, "short": {}, "parameter": "open_interest"},
+        )
+
+        entries = mc.augment_with_liquidity(self._base_entries(), config=object())
+        btc = next(e for e in entries if e.market_key == "0xWBTCUSDC")
+        # liquidity_usd = long-only since short side missing — degraded but defined.
+        assert btc.liquidity_usd == pytest.approx(100.0)
+        assert btc.oi_long_usd == pytest.approx(50.0)
+        assert btc.oi_short_usd == 0.0

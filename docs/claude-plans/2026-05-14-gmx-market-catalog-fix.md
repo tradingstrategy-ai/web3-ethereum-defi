@@ -434,27 +434,71 @@ Schema: `{tx_hash: {order_key, symbol, side, timestamp_ms, amount, price, market
 - [ ] **Step 4: Tests pass.**
 - [ ] **Step 5: Commit.**
 
-### Task 5.3: Reorder resolver tiers + remove Subsquid
+### Task 5.3: Reorder resolver tiers — Subsquid demoted to last-resort
 
 **Files:**
 - Modify: `eth_defi/gmx/ccxt/exchange.py` (`_resolve_order_from_sources`, currently line 8586)
 - Modify: `eth_defi/gmx/ccxt/async_support/exchange.py` (mirror)
+- Modify: `eth_defi/gmx/core/open_positions.py` (positions tier order — Subsquid Tier 2 → Tier 4)
 - Test: `tests/gmx/ccxt/test_order_resolution.py`
 
-New tier order (per user directive — Subsquid removed entirely from this path):
+**Scope clarification (user directive 2026-05-14):**
+
+Subsquid is only flaky for **positions** and **order confirmation/resolution**.
+Other Subsquid uses (historical ``tradeActions``, per-account P&L, etc.) work
+fine and stay untouched. This task only reorders the tiers used by the two
+flaky paths and keeps Subsquid as a last-resort backup so we never go
+worse-than-current.
+
+**New tier order for order resolution:**
 
 | Tier | Source | Endpoint / Call |
 |---|---|---|
 | A | GMX REST v2 | `get_orders(address)` → `/v1/orders?address=...` |
 | B | On-chain Reader | `Reader.getAccountOrders(datastore, account, 0, 1000)` |
 | C | EventEmitter logs | Chunked RPC log scan (existing, slow but exhaustive) |
+| D | Subsquid (last resort) | `tradeActions` query — only fires when A–C all miss |
 
-- [ ] **Step 1: Failing test** — Subsquid call site removed; resolver returns valid order from REST when Reader and EventEmitter are mocked offline.
-- [ ] **Step 2: Delete the Subsquid branch** in `_resolve_order_from_sources` (line 8614). Reorder remaining tiers: REST first, Reader second, EventEmitter third. Add log line at each tier transition for observability.
-- [ ] **Step 3: Mirror in async.**
-- [ ] **Step 4: Audit other code paths that still hit Subsquid for positions/orders** — confirm `open_positions.py` Tier 2 is the only remaining Subsquid call for this domain. If any others exist, remove them too (or document why they stay).
-- [ ] **Step 5: Tests pass.**
-- [ ] **Step 6: Commit.**
+**New tier order for positions** (mirror in ``open_positions.py``):
+
+| Tier | Source |
+|---|---|
+| 1 | REST `/v1/positions?address=...` (already correct) |
+| 2 | Reader `getAccountPositions(...)` (promote from Tier 3) |
+| 3 | EventEmitter logs (if available for positions) |
+| 4 | Subsquid (demote from Tier 2 — last resort) |
+
+**Output normalisation contract:**
+
+REST, Reader, EventEmitter, and Subsquid return **different shapes**.  Add an
+``_OrderRecord`` / ``_PositionRecord`` dataclass per domain plus a normaliser
+function per tier so callers always see the same shape regardless of source.
+
+Per-tier shape differences to handle:
+
+| Source | Shape | Notes |
+|---|---|---|
+| REST `/v1/orders` | JSON object per order: `{key, orderType, sizeDeltaUsd, triggerPrice, ...}` | snake/camel mixed, decimal as string |
+| `Reader.getAccountOrders` | `list[tuple]` — index access; tuple position varies by Reader ABI version | tuple[0] is bytes32 order_key |
+| EventEmitter logs | `LogEntry` event with topics + data bytes | needs ABI decoding |
+| Subsquid `tradeActions` | GraphQL JSON with snake_case keys, decimals as strings | nested ``transaction`` object |
+
+- [ ] **Step 1: Failing tests** for each tier:
+  - REST happy path → normalised `_OrderRecord` with all fields populated.
+  - Reader happy path → normalised `_OrderRecord` matching REST output.
+  - EventEmitter happy path → normalised `_OrderRecord` matching REST output.
+  - Subsquid happy path → normalised `_OrderRecord` matching REST output.
+  - REST returns 404, Reader works → Reader output used, no exception.
+  - REST returns 404, Reader returns empty, EventEmitter works → EventEmitter output used.
+  - All higher tiers fail, Subsquid works → Subsquid output used (last-resort).
+  - All tiers fail → structured WARNING logged, returns None.
+- [ ] **Step 2: Implement `_OrderRecord` dataclass + four normaliser functions** (`_normalise_rest_order`, `_normalise_reader_order`, `_normalise_event_order`, `_normalise_subsquid_order`).
+- [ ] **Step 3: Reorder branches** in `_resolve_order_from_sources`: REST first, Reader second, EventEmitter third, Subsquid last. Log at each tier transition.
+- [ ] **Step 4: Mirror in async.**
+- [ ] **Step 5: Same treatment for `open_positions.py`** — promote Reader to Tier 2, demote Subsquid to Tier 4. Add `_PositionRecord` normaliser.
+- [ ] **Step 6: Audit other Subsquid call sites** — list them, document each as "flaky for this case → migrate" or "works → leave alone". Expected outcome: only positions + order-confirmation are migrated; the rest stay.
+- [ ] **Step 7: Tests pass.**
+- [ ] **Step 8: Commit.**
 
 ### Task 5.4: Watchdog for stuck open limit orders
 
