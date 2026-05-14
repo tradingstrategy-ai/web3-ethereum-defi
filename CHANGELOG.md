@@ -1,5 +1,7 @@
 # Current
 
+- feat: AlphaGrowth Monad Euler EVK vaults now use AlphaGrowth's Euler Light label metadata for display names, descriptions, and curator attribution (2026-05-14)
+
 - feat: AlphaGrowth curator metadata added, and AlphaGrowth Monad Euler EVK vaults with custom Balancer LP collateral now link to AlphaGrowth's Euler Light frontend instead of Euler's official frontend (2026-05-13)
 
 - feat: IPOR Fusion vault descriptions fetched from the offchain customisation API at `api.ipor.io/fusion/vaults-customization-list`, with prospectus links appended as markdown (2026-05-13)

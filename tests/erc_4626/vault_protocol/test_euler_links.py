@@ -35,6 +35,16 @@ def test_euler_alphagrowth_ausd_vault_uses_light_frontend() -> None:
     assert vault.get_link() == f"{ALPHAGROWTH_EULER_LIGHT_BASE_URL}/lend/{Web3.to_checksum_address(vault_address)}"
 
 
+def test_euler_alphagrowth_ausd_vault_uses_light_metadata() -> None:
+    """AlphaGrowth AUSD vault uses metadata from AlphaGrowth's label repository."""
+    vault_address = "0x438cedcE647491B1d93a73d491eC19A50194c222"
+    vault = create_euler_vault(chain_id=143, vault_address=vault_address)
+
+    assert vault.name == "AlphaGrowth AUSD Borrow Vault"
+    assert vault.description == "Borrow AUSD against Balancer BPT collateral."
+    assert vault.entity == "alphagrowth"
+
+
 def test_euler_alphagrowth_wmon_vault_uses_light_frontend() -> None:
     """AlphaGrowth WMON vault links to its Euler Light lend route."""
     vault_address = "0x75b6c392f778b8bcf9bdb676f8f128b4dd49ac19"

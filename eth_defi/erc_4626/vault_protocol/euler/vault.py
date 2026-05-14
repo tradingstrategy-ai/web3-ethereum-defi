@@ -49,12 +49,26 @@ ALPHAGROWTH_EULER_LIGHT_BASE_URL = "https://euler.alphagrowth.io"
 #: AlphaGrowth curates its Euler vaults with governorAdmin
 #: ``0x4f894Bfc9481110278C356adE1473eBe2127Fd3C``, but only these two Monad
 #: vaults currently need this custom frontend link.
-ALPHAGROWTH_EULER_LIGHT_MONAD_VAULTS = frozenset(
-    {
-        "0x438cedce647491b1d93a73d491ec19a50194c222",
-        "0x75b6c392f778b8bcf9bdb676f8f128b4dd49ac19",
-    }
-)
+ALPHAGROWTH_EULER_LIGHT_MONAD_METADATA: dict[str, EulerVaultMetadata] = {
+    "0x438cedce647491b1d93a73d491ec19a50194c222": {
+        "name": "AlphaGrowth AUSD Borrow Vault",
+        "description": "Borrow AUSD against Balancer BPT collateral.",
+        "entity": "alphagrowth",
+        "entities": ["alphagrowth", "balancer", "euler"],
+        "product": "ausd-bpt-leverage",
+        "product_name": "Stablecoin BPT Leverage",
+    },
+    "0x75b6c392f778b8bcf9bdb676f8f128b4dd49ac19": {
+        "name": "AlphaGrowth WMON Borrow Vault",
+        "description": "Borrow WMON against Balancer BPT collateral.",
+        "entity": "alphagrowth",
+        "entities": ["alphagrowth", "balancer", "euler"],
+        "product": "wmon-bpt-leverage",
+        "product_name": "WMON BPT Leverage",
+    },
+}
+
+ALPHAGROWTH_EULER_LIGHT_MONAD_VAULTS = frozenset(ALPHAGROWTH_EULER_LIGHT_MONAD_METADATA.keys())
 
 
 def is_alphagrowth_euler_light_vault(chain_id: int, vault_address: str) -> bool:
@@ -77,6 +91,34 @@ def is_alphagrowth_euler_light_vault(chain_id: int, vault_address: str) -> bool:
         ``True`` if the vault should use the AlphaGrowth Euler Light frontend.
     """
     return chain_id == MONAD_CHAIN_ID and vault_address.lower() in ALPHAGROWTH_EULER_LIGHT_MONAD_VAULTS
+
+
+def get_alphagrowth_euler_light_metadata(chain_id: int, vault_address: str) -> EulerVaultMetadata | None:
+    """Get AlphaGrowth-specific metadata for Monad Euler Light vaults.
+
+    AlphaGrowth maintains labels for its Euler Light frontend in
+    ``alphagrowth/ag-euler-balancer-labels``.  The source labels identify the
+    AUSD vault as ``AUSD Borrow Vault`` and the WMON vault as
+    ``WMON Borrow Vault`` with ``alphagrowth`` as the entity.  We prefix the
+    display names with ``AlphaGrowth`` so our current curator detection, which
+    matches against vault names, can recognise these vaults without a separate
+    on-chain governorAdmin lookup.
+
+    Source:
+    https://github.com/alphagrowth/ag-euler-balancer-labels/tree/main/143
+
+    :param chain_id:
+        EVM chain id for the vault.
+
+    :param vault_address:
+        ERC-4626 vault contract address.
+
+    :return:
+        Metadata override for AlphaGrowth Euler Light vaults, or ``None``.
+    """
+    if chain_id != MONAD_CHAIN_ID:
+        return None
+    return ALPHAGROWTH_EULER_LIGHT_MONAD_METADATA.get(vault_address.lower())
 
 
 class EulerVaultHistoricalReader(ERC4626HistoricalReader):
@@ -228,6 +270,9 @@ class EulerVault(ERC4626Vault):
 
     @property
     def name(self) -> str:
+        if alphagrowth_metadata := get_alphagrowth_euler_light_metadata(self.chain_id, self.vault_address):
+            return alphagrowth_metadata["name"]
+
         if self.euler_metadata:
             # Euler metadata might not have an entry for this vault yet
             return self.euler_metadata.get("name", super().name)
@@ -235,12 +280,18 @@ class EulerVault(ERC4626Vault):
 
     @property
     def description(self) -> str | None:
+        if alphagrowth_metadata := get_alphagrowth_euler_light_metadata(self.chain_id, self.vault_address):
+            return alphagrowth_metadata.get("description")
+
         if self.euler_metadata:
             return self.euler_metadata.get("description")
         return None
 
     @property
     def entity(self) -> str | None:
+        if alphagrowth_metadata := get_alphagrowth_euler_light_metadata(self.chain_id, self.vault_address):
+            return alphagrowth_metadata.get("entity")
+
         if self.euler_metadata:
             return self.euler_metadata.get("entity")
         return None
