@@ -24,12 +24,10 @@ Limitations:
 import logging
 import time
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Optional
 
 from eth_defi.gmx.api import GMXAPI
 from eth_typing import HexAddress
-import pandas as pd
 from web3 import Web3
 from freqtrade.enums import MarginMode, TradingMode
 from freqtrade.exceptions import InsufficientFundsError, OperationalException, TemporaryError
@@ -40,7 +38,6 @@ from freqtrade.exchange.exchange_types import CcxtOrder, FtHas
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
-from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import (
     GMX_SUPPORTED_CHAINS,
@@ -644,156 +641,6 @@ class Gmx(Exchange):
             if not has_private_key:
                 msg = "privateKey must be provided in ccxt_config when using a Lagoon vault. The private key is the asset manager's signing key."
                 raise OperationalException(msg)
-
-        # Validate timerange for backtesting
-        if config.get("runmode") in ["backtest", "hyperopt"]:
-            self._validate_backtest_timerange(config)
-
-    def _validate_backtest_timerange(self, config: dict) -> None:
-        """Validate that backtest timerange is within available historical data.
-
-        This method checks if the requested timerange in backtesting falls within
-        the available data range in cached feather files. Raises an error if data
-        is insufficient, preventing wasted computation on invalid backtests.
-
-        :param config: Freqtrade configuration dict containing timerange and pair_whitelist
-        :raises InsufficientHistoricalDataError: If timerange exceeds available data
-        :raises OperationalException: If data files cannot be read
-        """
-        # Extract timerange parameter
-        timerange_str = config.get("timerange")
-        if not timerange_str:
-            # No timerange specified, use all available data
-            return
-
-        # Parse timerange string (format: "20250101-20251130" or "20250101-")
-        timerange_parts = timerange_str.split("-")
-        if len(timerange_parts) < 2:
-            # Invalid format, let freqtrade handle it
-            return
-
-        # Convert start date to timestamp (ms)
-        start_str = timerange_parts[0]
-        try:
-            requested_start = self._parse_timerange_date(start_str)
-        except ValueError:
-            # Invalid date format, let freqtrade handle it
-            return
-
-        # Get pairs and timeframe
-        pairs = config.get("exchange", {}).get("pair_whitelist", [])
-        timeframe = config.get("timeframe", "5m")
-
-        # Get data directory
-        user_data_dir = Path(config.get("user_data_dir", "user_data"))
-        datadir_config = config.get("datadir")
-        if datadir_config:
-            datadir = Path(datadir_config)
-        else:
-            # Default: user_data/data/<exchange_name>
-            datadir = user_data_dir / "data" / self.name
-
-        # Validate each pair
-        for pair in pairs:
-            self._validate_pair_data(
-                pair=pair,
-                timeframe=timeframe,
-                requested_start=requested_start,
-                datadir=datadir,
-            )
-
-    def _parse_timerange_date(self, date_str: str) -> int:
-        """Parse freqtrade timerange date string to millisecond timestamp.
-
-        :param date_str: Date string in format YYYYMMDD or YYYYMMDDHHMMSS
-        :return: Unix timestamp in milliseconds
-        :raises ValueError: If date_str format is invalid
-        """
-        # Parse different formats
-        if len(date_str) == 8:  # YYYYMMDD
-            dt = datetime.strptime(date_str, "%Y%m%d")
-        elif len(date_str) == 14:  # YYYYMMDDHHMMSS
-            dt = datetime.strptime(date_str, "%Y%m%d%H%M%S")
-        else:
-            raise ValueError(f"Invalid timerange date format: {date_str}")
-
-        # Convert to UTC timestamp (ms)
-        dt = dt.replace(tzinfo=timezone.utc)
-        return int(dt.timestamp() * 1000)
-
-    def _validate_pair_data(
-        self,
-        pair: str,
-        timeframe: str,
-        requested_start: int,
-        datadir: Path,
-    ) -> None:
-        """Validate single pair's data availability against requested timerange.
-
-        Reads feather file metadata (date column only) and checks if available
-        data range covers the requested start date. Validation is date-based,
-        meaning any time on the requested date is acceptable.
-
-        :param pair: Trading pair (e.g., "ETH/USDC:USDC")
-        :param timeframe: Candle timeframe (e.g., "5m", "1h")
-        :param requested_start: Requested start timestamp (ms)
-        :param datadir: Path to data directory containing feather files
-        :raises InsufficientHistoricalDataError: If data is insufficient
-        :raises OperationalException: If feather file cannot be read
-        """
-        # Convert pair format: "ETH/USDC:USDC" -> "ETH_USDC_USDC"
-        pair_filename = pair.replace("/", "_").replace(":", "_")
-
-        # Construct feather file path
-        candle_type = "futures"  # GMX only supports futures
-        feather_file = datadir / candle_type / f"{pair_filename}-{timeframe}-{candle_type}.feather"
-
-        # Check if file exists
-        if not feather_file.exists():
-            raise InsufficientHistoricalDataError(
-                symbol=pair,
-                timeframe=timeframe,
-                requested_start=requested_start,
-                available_start=None,
-                available_end=None,
-                candles_received=0,
-            )
-
-        # Load feather file metadata (only date column)
-        try:
-            df = pd.read_feather(feather_file, columns=["date"])
-        except Exception as e:
-            raise OperationalException(f"Failed to read data file {feather_file}: {e}")
-
-        if len(df) == 0:
-            raise InsufficientHistoricalDataError(
-                symbol=pair,
-                timeframe=timeframe,
-                requested_start=requested_start,
-                available_start=None,
-                available_end=None,
-                candles_received=0,
-            )
-
-        # Extract available date range
-        available_start = int(df["date"].min().timestamp() * 1000)
-        available_end = int(df["date"].max().timestamp() * 1000)
-
-        # Compare dates (ignore time) for validation
-        # This allows any time on the same date to be acceptable
-        requested_date = datetime.fromtimestamp(requested_start / 1000, tz=timezone.utc).date()
-        available_start_date = datetime.fromtimestamp(available_start / 1000, tz=timezone.utc).date()
-
-        # Check if data starts on a later date
-        if available_start_date > requested_date:
-            raise InsufficientHistoricalDataError(
-                symbol=pair,
-                timeframe=timeframe,
-                requested_start=requested_start,
-                available_start=available_start,
-                available_end=available_end,
-                candles_received=len(df),
-            )
 
     def _get_params(
         self,

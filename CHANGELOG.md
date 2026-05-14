@@ -1,5 +1,7 @@
 # Current
 
+- fix(gmx-freqtrade): remove pre-flight backtest data validator that aborted runs when any pair had short history; backtests now follow vanilla Freqtrade semantics (pairs start trading when their candles arrive) (2026-05-14)
+
 - feat: AlphaGrowth Monad Euler EVK vaults now use AlphaGrowth's Euler Light label metadata for display names, descriptions, and curator attribution (2026-05-14)
 
 - feat: AlphaGrowth curator metadata added, and AlphaGrowth Monad Euler EVK vaults with custom Balancer LP collateral now link to AlphaGrowth's Euler Light frontend instead of Euler's official frontend (2026-05-13)
