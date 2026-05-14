@@ -323,16 +323,42 @@ class OrderArgumentParser:
                             break
 
             if market_key is None:
-                # No collateral hint or no match — fall back to first entry with a warning
-                market_key = all_matches[0]
-                logger.warning(
-                    "_handle_missing_market_key: %d markets share index_token %s, could not disambiguate by collateral (%s) — using first match %s. All candidates: %s",
-                    len(all_matches),
-                    index_token_address,
-                    collateral_symbol,
-                    market_key,
-                    all_matches,
-                )
+                # No collateral hint or no match — prefer USDC-paired pools.
+                # Standard "<base>-USDC" pools (WBTC-USDC, WETH-USDC, BONK-USDC)
+                # always have orders-of-magnitude deeper liquidity than the
+                # synthetic single-sided alternatives (tBTC-tBTC etc.), so this
+                # mirrors the catalog's USDC_PAIRED default selection strategy.
+                # See ``eth_defi.gmx.core.market_catalog.MarketSelection``.
+                usdc_candidates = [
+                    key for key in all_matches
+                    if "USDC" in (
+                        (self.markets[key].get("long_token_metadata", {}).get("symbol", "") or "").upper(),
+                        (self.markets[key].get("short_token_metadata", {}).get("symbol", "") or "").upper(),
+                    )
+                ]
+                if usdc_candidates:
+                    market_key = usdc_candidates[0]
+                    logger.info(
+                        "_handle_missing_market_key: %d markets share index_token %s, "
+                        "no explicit collateral hint — picked USDC-paired pool %s "
+                        "(USDC candidates: %s, all candidates: %s)",
+                        len(all_matches),
+                        index_token_address,
+                        market_key,
+                        usdc_candidates,
+                        all_matches,
+                    )
+                else:
+                    market_key = all_matches[0]
+                    logger.warning(
+                        "_handle_missing_market_key: %d markets share index_token %s, "
+                        "no USDC-paired pool found and no collateral hint — using first match %s. "
+                        "All candidates: %s",
+                        len(all_matches),
+                        index_token_address,
+                        market_key,
+                        all_matches,
+                    )
 
         self.parameters_dict["market_key"] = market_key
 
@@ -387,18 +413,30 @@ class OrderArgumentParser:
         tokens = _get_token_metadata_dict(self.web3, self.parameters_dict["chain"])
         collateral_address = self.find_key_by_symbol(tokens, collateral_token_symbol)
 
-        # Debug logging for collateral token flow
+        # Always set the collateral address.  The GMX router auto-swaps via
+        # ``swap_path`` when the requested collateral is not directly accepted
+        # by the chosen market — see :meth:`_handle_missing_swap_path`.  The
+        # previous "raise on mismatch" path landed real orders in a hard-fail
+        # state for synthetic markets (issue #67 follow-up, 2026-05-14:
+        # ``Not a valid collateral for selected market!`` BTC/USDC:USDC vs
+        # tBTC-tBTC).  We now log + continue so the router can swap.
+        is_directly_supported = self._check_if_valid_collateral_for_market(collateral_address)
         logger.info(
-            "COLLATERAL_TRACE: Resolved collateral address:\n  collateral_token_symbol=%s → collateral_address=%s\n  is_valid_for_market=%s",
+            "COLLATERAL_TRACE: Resolved collateral address:\n  collateral_token_symbol=%s → collateral_address=%s\n  is_directly_supported_by_market=%s",
             collateral_token_symbol,
             collateral_address,
-            self._check_if_valid_collateral_for_market(collateral_address),
+            is_directly_supported,
         )
 
-        # Validate collateral is valid for the market
-        if self._check_if_valid_collateral_for_market(collateral_address) and not self.is_swap:
+        if not self.is_swap:
             self.parameters_dict["collateral_address"] = collateral_address
-            # Debug logging for collateral token flow
+            if not is_directly_supported:
+                logger.info(
+                    "COLLATERAL_TRACE: collateral %s not directly accepted by market_key %s "
+                    "— relying on GMX router swap_path to convert at order time",
+                    collateral_token_symbol,
+                    self.parameters_dict.get("market_key"),
+                )
             logger.info(
                 "COLLATERAL_TRACE: Final collateral address set:\n  parameters_dict['collateral_address']=%s",
                 self.parameters_dict["collateral_address"],
@@ -444,8 +482,25 @@ class OrderArgumentParser:
         msg = "Please indicate slippage!"
         raise Exception(msg)
 
-    def _check_if_valid_collateral_for_market(self, collateral_address: str):
-        """Validate collateral token is valid for the selected market."""
+    def _check_if_valid_collateral_for_market(self, collateral_address: str) -> bool:
+        """Check whether ``collateral_address`` is directly held by the market.
+
+        Returns ``True`` when the collateral matches the market's long or short
+        token, ``False`` otherwise.  This is now a **soft** check — the GMX
+        router auto-swaps mismatched collateral via the order's ``swap_path``,
+        so a return value of ``False`` is informational, not an error.
+
+        Previously this method raised on mismatch with
+        ``"Not a valid collateral for selected market!"``.  That path
+        catastrophically hard-failed live orders for synthetic markets
+        (issue #67 follow-up, 2026-05-14: BTC/USDC:USDC vs tBTC-tBTC pool).
+        The raise has been removed; callers decide how to handle a
+        ``False`` return.
+
+        :param collateral_address: Collateral token contract address.
+        :returns: ``True`` when the collateral is directly accepted; ``False``
+            when it would need to be swapped via the router.
+        """
         market_key = self.parameters_dict["market_key"]
 
         # Special handling for WBTC market
@@ -454,15 +509,24 @@ class OrderArgumentParser:
 
         market = self.markets[market_key]
 
-        # Collateral must be either long or short token of the market
         if collateral_address in (
             market["long_token_address"],
             market["short_token_address"],
         ):
             return True
-        else:
-            msg = f"Not a valid collateral for selected market!\n  market_key: {market_key}\n  collateral_address: {collateral_address}\n  valid long_token: {market['long_token_address']} ({market['long_token_metadata'].get('symbol', '?')})\n  valid short_token: {market['short_token_address']} ({market['short_token_metadata'].get('symbol', '?')})\n  Hint: set collateral_symbol to the long or short token symbol of this market."
-            raise Exception(msg)
+
+        # Soft fail — log but never raise.  The router handles the swap.
+        logger.info(
+            "_check_if_valid_collateral_for_market: collateral %s not directly held by market %s "
+            "(valid long_token=%s (%s), short_token=%s (%s)) — router swap_path will convert",
+            collateral_address,
+            market_key,
+            market["long_token_address"],
+            market["long_token_metadata"].get("symbol", "?"),
+            market["short_token_address"],
+            market["short_token_metadata"].get("symbol", "?"),
+        )
+        return False
 
     @staticmethod
     def find_key_by_symbol(input_dict: dict, search_symbol: str):
