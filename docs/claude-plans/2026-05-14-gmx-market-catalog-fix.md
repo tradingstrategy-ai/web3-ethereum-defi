@@ -143,68 +143,146 @@ git commit -m "feat(gmx/catalog): MarketEntry dataclass with synthetic + accepts
 
 ## Chunk 2: Selection Logic
 
-### Task 2.1: `pick_market(base, requested_collateral)` with liquidity ranking
+### Task 2.1: `pick_market` with three flexible selection strategies
 
 **Files:**
 - Modify: `eth_defi/gmx/core/market_catalog.py`
 - Test: `tests/gmx/test_market_catalog.py`
 
-- [ ] **Step 1: Failing test** for selection scenarios:
-  - BTC with USDC → returns WBTC-USDC market (highest liquidity that accepts USDC), not tBTC-tBTC
-  - BTC with tBTC → returns tBTC-tBTC if higher liquidity, else WBTC-USDC if no tBTC-tBTC
-  - BONK with USDC → returns the USDC-supporting BONK market
-  - SOL with USDC where no SOL/USDC pool exists → falls back to highest-liquidity SOL market, returns `(entry, fallback_collateral_symbol)` tuple, logs WARNING
-- [ ] **Step 2: Implement:**
+**Design rationale (post-user-clarification 2026-05-14):**
+
+The operator wants control over which pool an order routes to. Three strategies,
+default is the canonical "USDC-paired" pool because that's where the bot's
+intent (USDC-margined perps) lines up most cleanly with the deepest liquidity
+and simplest risk profile.
+
+**Collateral handling is OUT of pick_market.**  The GMX router auto-swaps
+collateral via the order's ``swap_path`` parameter.  The strict
+``_check_if_valid_collateral_for_market`` validation that currently raises
+``Not a valid collateral for selected market!`` will be **removed** in Task 2.2.
+
+**Selection strategies:**
+
+| Strategy | When chosen | Example for BTC base |
+|---|---|---|
+| ``USDC_PAIRED`` (default) | Strategy code wants the canonical pool — USDC stable on one side, base/wrapped-base on the other. Default for everything. | Returns WBTC-USDC pool. |
+| ``HIGHEST_LIQUIDITY`` | Operator opts in to TVL-only ranking. Useful when a synthetic or WETH-paired pool is deeper than the USDC-paired one. | Returns whichever BTC pool has highest ``liquidity_usd``. |
+| ``EXPLICIT`` | Operator passes ``explicit_market_key`` directly. Used for backtesting against a specific market, operator-forced routing, or research. | Whatever the caller supplies. |
+
+**Fallback:** ``USDC_PAIRED`` falls through to ``HIGHEST_LIQUIDITY`` when no
+USDC-paired pool exists for the base (rare; happens for some synthetic-only
+listings). Logs INFO when this fires — flagworthy.
+
+- [ ] **Step 1: Define `MarketSelection` enum + `NoMarketFoundError`:**
+
+```python
+from enum import Enum
+
+class MarketSelection(str, Enum):
+    """Strategy for picking a GMX market when multiple pools exist for a base.
+
+    :cvar USDC_PAIRED: Default. Prefer the standard two-sided pool where USDC
+        is one side. WBTC-USDC for BTC, WETH-USDC for ETH, BONK-USDC for BONK,
+        etc. Falls back to ``HIGHEST_LIQUIDITY`` if no USDC-paired pool exists
+        for the base.
+    :cvar HIGHEST_LIQUIDITY: Rank all candidate pools by ``liquidity_usd``
+        descending and return the top. Use when synthetic / WETH-paired pools
+        are acceptable.
+    :cvar EXPLICIT: Caller supplies an exact ``explicit_market_key``. For
+        backtesting against a specific market or operator-forced routing.
+    """
+    USDC_PAIRED = "usdc_paired"
+    HIGHEST_LIQUIDITY = "highest_liquidity"
+    EXPLICIT = "explicit"
+
+
+class NoMarketFoundError(LookupError):
+    """No catalog entry matched the requested base symbol or explicit key."""
+```
+
+- [ ] **Step 2: Failing tests** for selection scenarios:
+  - BTC base, default (USDC_PAIRED) → returns WBTC-USDC even if tBTC-tBTC has temporarily-higher TVL
+  - BTC base, HIGHEST_LIQUIDITY → returns whichever pool wins on liquidity_usd
+  - BTC base, USDC_PAIRED but only synthetic markets exist → falls back to HIGHEST_LIQUIDITY, logs INFO
+  - Explicit key set → returns that exact market regardless of `selection`
+  - Explicit key that doesn't exist → raises `NoMarketFoundError`
+  - Unknown base → raises `NoMarketFoundError`
+  - BONK base, USDC_PAIRED → returns BONK-USDC
+  - Operator picks HIGHEST_LIQUIDITY for ETH on a day when a deep synthetic pool exists → returns the deeper pool, not WETH-USDC
+- [ ] **Step 3: Implement `pick_market`:**
 
 ```python
 def pick_market(
     self,
     base_symbol: str,
-    requested_collateral: str,
-    chain_id: int,
-) -> tuple[MarketEntry, str]:
-    """Pick the best GMX market for a base + collateral.
+    selection: MarketSelection = MarketSelection.USDC_PAIRED,
+    explicit_market_key: str | None = None,
+) -> MarketEntry:
+    """Pick a GMX V2 market for ``base_symbol``.
 
-    :param base_symbol: Normalised base token (e.g. 'BTC', 'BONK' — not 'kBONK').
-    :param requested_collateral: Preferred collateral symbol (e.g. 'USDC').
-    :returns: (chosen entry, actual collateral symbol). When the requested
-        collateral isn't supported by any pool for this base, falls back to
-        the highest-liquidity pool's long_token and emits a WARNING.
-    :raises NoMarketFoundError: When no markets exist for base_symbol at all.
+    Three operator-selectable strategies:
+
+    +---------------------+--------------------------------------------------+
+    | ``USDC_PAIRED``     | Default. Standard pool with USDC on one side.    |
+    | (default)           | WBTC-USDC for BTC, WETH-USDC for ETH, BONK-USDC  |
+    |                     | for BONK, etc. Falls back to HIGHEST_LIQUIDITY   |
+    |                     | when no USDC-paired pool exists for this base.   |
+    +---------------------+--------------------------------------------------+
+    | ``HIGHEST_LIQUIDITY``| Top by ``liquidity_usd`` regardless of pool type.|
+    +---------------------+--------------------------------------------------+
+    | ``EXPLICIT``        | Caller passes the exact ``market_key``.          |
+    +---------------------+--------------------------------------------------+
+
+    Collateral handling is intentionally outside this function.  The GMX
+    router auto-swaps collateral via the order's ``swap_path``, so callers
+    pass any collateral and the router converts as needed.
+
+    :param base_symbol: Normalised base token (e.g. ``'BTC'``, ``'BONK'`` —
+        never ``'kBONK'``).
+    :param selection: Selection strategy.  Defaults to ``USDC_PAIRED``.
+    :param explicit_market_key: When supplied, this exact market is returned
+        regardless of ``selection`` — explicit always wins.
+    :returns: The chosen :class:`MarketEntry`.
+    :raises NoMarketFoundError: When no markets match the request.
     """
 ```
 
 Logic:
-1. Filter catalog by `index_token_symbol == base_symbol`
-2. If empty → raise `NoMarketFoundError`
-3. Partition into `accepting` and `not_accepting` by `entry.accepts_collateral(requested_collateral)`
-4. If `accepting` non-empty → return `max(accepting, key=lambda e: e.liquidity_usd), requested_collateral`
-5. Else → pick `top = max(not_accepting, key=lambda e: e.liquidity_usd)`, log WARNING, return `(top, top.long_token_symbol)`
+1. If `explicit_market_key is not None`: scan catalog for that exact key. Return or raise `NoMarketFoundError`. `selection` is ignored — explicit always wins.
+2. Filter catalog: `candidates = [e for e in catalog if e.index_token_symbol == base_symbol]`. Empty → raise `NoMarketFoundError(base_symbol)`.
+3. Branch:
+   - `USDC_PAIRED`: `usdc = [e for e in candidates if "USDC" in {e.long_token_symbol.upper(), e.short_token_symbol.upper()}]`. If non-empty → `return max(usdc, key=liquidity_usd)`. Else → log INFO "USDC_PAIRED fell back to HIGHEST_LIQUIDITY for {base_symbol}", continue to `HIGHEST_LIQUIDITY` branch.
+   - `HIGHEST_LIQUIDITY`: `return max(candidates, key=lambda e: e.liquidity_usd)`.
+   - `EXPLICIT` without key: raise `ValueError("EXPLICIT requires explicit_market_key")`.
 
-- [ ] **Step 3: Tests pass.**
-- [ ] **Step 4: Commit.**
+- [ ] **Step 4: Tests pass.**
+- [ ] **Step 5: Commit.**
 
-### Task 2.2: Wire into `OrderArgumentParser`
+### Task 2.2: Wire into `OrderArgumentParser` + remove strict collateral validation
 
 **Files:**
 - Modify: `eth_defi/gmx/order_argument_parser.py:235-337` (`_handle_missing_market_key`)
-- Modify: `eth_defi/gmx/order_argument_parser.py:484-518` (`find_all_market_keys_by_index_address` — to be deprecated)
-- Test: `tests/gmx/test_order_argument_parser.py` (extend or update existing test)
+- Modify: `eth_defi/gmx/order_argument_parser.py:447-465` (`_check_if_valid_collateral_for_market` — remove or relax)
+- Modify: `eth_defi/gmx/order_argument_parser.py:484-518` (`find_all_market_keys_by_index_address` — deprecate)
+- Test: `tests/gmx/test_order_argument_parser.py`
 
-- [ ] **Step 1: Failing test** — submit a BTC order with USDC collateral, expect catalog-selected WBTC-USDC market_key, not tBTC-tBTC.
-- [ ] **Step 2: Replace pool-type sort** with `MarketCatalog.pick_market()` call. Deprecate `find_all_market_keys_by_index_address` (keep with `DeprecationWarning` until callers migrate).
-- [ ] **Step 3: Update `_check_if_valid_collateral_for_market`** error message to suggest the catalog's recommendation (e.g. "Try collateral_symbol='tBTC' — it's the only one this synthetic market accepts.").
+- [ ] **Step 1: Failing tests:**
+  - Submit BTC/USDC:USDC order → expect WBTC-USDC market_key from catalog, NOT tBTC-tBTC.
+  - Submit BTC/USDC:USDC order against tBTC-tBTC market via explicit override → expect no exception, swap_path populated for USDC→tBTC conversion.
+  - Confirm `_check_if_valid_collateral_for_market` no longer raises (or is removed entirely).
+- [ ] **Step 2: Replace `find_all_market_keys_by_index_address`** call sites with `MarketCatalog.pick_market(base_symbol, explicit_market_key=params.get("market_key"))`. Add `DeprecationWarning` on the legacy function.
+- [ ] **Step 3: Remove `_check_if_valid_collateral_for_market`** — the router handles collateral via `swap_path`. If we want a defensive check, keep it as a DEBUG-level log only, never raise.
 - [ ] **Step 4: Tests pass; full `pytest tests/gmx/` clean.**
 - [ ] **Step 5: Commit.**
 
-### Task 2.3: Synthetic-market explicit handling
+### Task 2.3: Ensure `swap_path` is populated when collateral ≠ long/short token
 
 **Files:**
-- Modify: `eth_defi/gmx/order_argument_parser.py`
-- Test: `tests/gmx/test_order_argument_parser.py`
+- Modify: `eth_defi/gmx/order/base_order.py` (or wherever the order params are built)
+- Test: `tests/gmx/test_base_order.py` (extend)
 
-- [ ] **Step 1: Failing test** — when the only available market for base X is synthetic (long==short==Y), and the user requested collateral Z ≠ Y, ensure the adapter (a) logs a clear WARNING explaining the override, (b) uses Y as collateral, (c) does NOT raise. Strategy code may then opt out at a higher level.
-- [ ] **Step 2: Implement** that branch using `entry.is_synthetic` + fallback collateral logic from Task 2.1.
+- [ ] **Step 1: Failing test** — building a USDC-collateral order against tBTC-tBTC market produces a `swap_path` of `[USDC_market_key]` so the router swaps USDC → tBTC at order time.
+- [ ] **Step 2: Implement** swap_path inference: if collateral_token ∉ {long_token, short_token} of the target market, look up a swap market that bridges them (e.g. WBTC-USDC pool can swap USDC ↔ WBTC). Use the catalog to find candidate bridge markets, picked by liquidity.
 - [ ] **Step 3: Tests pass.**
 - [ ] **Step 4: Commit.**
 
@@ -275,46 +353,133 @@ SYMBOL_NORMALISE = {
 
 ---
 
-## Chunk 5: `order_key` Storage Fix (Issue B root cause)
+## Chunk 5: Order Resolution Rewrite — Root Cause of Issue B
 
-### Task 5.1: Re-rank resolver tiers (REST primary, Subsquid fallback)
+### Investigation findings (2026-05-14)
+
+The "no order_key stored" warnings (10,614 post-fix) are caused by a flawed
+storage model, not a resolver bug:
+
+1. ``create_order`` stores ``order_key`` in ``self._orders`` dict
+   (``eth_defi/gmx/ccxt/exchange.py:6448``) — **in-memory only**.
+2. ``__init__`` initialises ``self._orders = {}`` on every bot start
+   (``exchange.py:1554``). **Cache wiped on restart.**
+3. ``fetch_order`` requires ``order_key`` to call ``_resolve_order_from_sources``
+   (``exchange.py:9038-9042``). With no cached key, it logs the warning and
+   returns the order **unchanged** — status stays ``open`` forever.
+
+Compounding factors: Subsquid is Tier A and is broken (818 × 404, 818 × 400);
+REST ``/v1/orders?address=wallet`` is Tier B but is never reached because the
+function exits before tier dispatch when ``order_key`` is missing.
+
+**Three-pronged fix:**
+
+1. Persist ``order_key`` to disk so it survives restart.
+2. Add a wallet-scoped recovery path that resolves orders **without** a
+   cached ``order_key`` — enumerate all of the wallet's orders via REST
+   ``/v1/orders?address=...`` and match by tx_hash / symbol / timestamp / size.
+3. Reorder tiers: REST → Reader → EventEmitter logs. **Subsquid removed
+   entirely** per user directive (positions/orders only — Subsquid can stay
+   for other tradeAction-style historical queries that have no replacement).
+
+### Task 5.1: Disk-persisted `order_key` cache
 
 **Files:**
-- Modify: `eth_defi/gmx/ccxt/exchange.py` (`_resolve_order_from_sources`)
-- Modify: `eth_defi/gmx/ccxt/async_support/exchange.py` (async mirror)
-- Test: `tests/gmx/ccxt/test_order_resolution.py`
+- Create: `eth_defi/gmx/ccxt/order_key_cache.py`
+- Modify: `eth_defi/gmx/ccxt/exchange.py` (replace `self._orders` writes)
+- Modify: `eth_defi/gmx/ccxt/async_support/exchange.py` (mirror)
+- Test: `tests/gmx/ccxt/test_order_key_cache.py`
 
-- [ ] **Step 1: Failing test** — mock Subsquid returning 404, REST v2 returning a valid order; verify resolver returns the REST result, not None.
-- [ ] **Step 2: Reorder tiers** in `_resolve_order_from_sources`:
-  1. REST v2 (gmxapi.io → gmxapi.ai)
-  2. Reader contract
-  3. EventEmitter (RPC log scan)
-  4. Subsquid (fallback only)
-- [ ] **Step 3: Mirror in async.**
+**Cache file:** `~/.cache/eth_defi/gmx/order_keys_{chain_id}_{wallet_lower}.json`.
+Schema: `{tx_hash: {order_key, symbol, side, timestamp_ms, amount, price, market_key}}`.
+
+- [ ] **Step 1: Failing tests**:
+  - Write order, restart process, read back → same `order_key` returned.
+  - Concurrent write from two processes → file lock prevents corruption.
+  - Disk-write failure (read-only FS / permission error) → falls back to in-memory only, logs WARNING, never raises.
+  - Stale entries (>30 days, settled orders) → pruned on load.
+- [ ] **Step 2: Implement** `OrderKeyCache` class with:
+  - JSON file on disk + bounded in-memory dict
+  - `filelock` for cross-process safety (or `fcntl` if filelock not already a dep)
+  - Atomic write (write to `.tmp`, rename) to prevent partial corruption
+  - Eager flush on every `put()` (durability > throughput for this volume)
+  - Prune on load: drop entries with `timestamp_ms` older than 30 days
+- [ ] **Step 3: Replace** `self._orders[tx_hash.hex()] = order` writes in `create_order` with `self._order_key_cache.put(tx_hash, order_info)`. Replace lookups in `fetch_order` likewise.
+- [ ] **Step 4: Mirror in async.**
+- [ ] **Step 5: Tests pass; bot restart no longer drops order_keys.**
+- [ ] **Step 6: Commit.**
+
+### Task 5.2: Wallet-scoped recovery — find orders WITHOUT a cached `order_key`
+
+**Files:**
+- Modify: `eth_defi/gmx/ccxt/exchange.py` (`fetch_order` + new `_recover_order_from_wallet`)
+- Modify: `eth_defi/gmx/ccxt/async_support/exchange.py` (mirror)
+- Test: `tests/gmx/ccxt/test_wallet_recovery.py`
+
+**Recovery flow when `order_key` is missing for a given trade:**
+
+1. Query `GMXAPI.get_orders(address=wallet)` — returns all live orders for the wallet from REST `/v1/orders?address=...`.
+2. Match each returned order against the freqtrade trade by (a) market_key + side + size with 0.5% tolerance, OR (b) tx_hash if available, OR (c) original price within 0.5%.
+3. If a match is found → backfill `order_key` into disk cache, proceed with normal status-check flow.
+4. If REST fails / returns empty → fall through to on-chain `Reader.getAccountOrders(...)` enumeration.
+5. If both fail → log structured WARNING and return order unchanged (current behaviour, but logged with full context, not just "no order_key").
+
+- [ ] **Step 1: Failing tests**:
+  - Cache empty + REST returns matching order → recovery succeeds, key backfilled.
+  - Cache empty + REST empty + Reader returns matching order → recovery via on-chain.
+  - Cache empty + REST returns multiple ambiguous matches → log WARNING, pick highest-confidence match (tx_hash > size+side > price proximity).
+  - Cache empty + nothing matches → log structured WARNING with wallet, chain_id, trade snapshot, attempted tiers.
+- [ ] **Step 2: Implement `_recover_order_from_wallet(trade)`** as the new fallback path inside `fetch_order` when `order_key` is None.
+- [ ] **Step 3: Mirror in async** (uses `aiohttp` for REST + `AsyncWeb3` for Reader call).
 - [ ] **Step 4: Tests pass.**
 - [ ] **Step 5: Commit.**
 
-### Task 5.2: Eager-cache `order_key` on first successful resolution
+### Task 5.3: Reorder resolver tiers + remove Subsquid
 
 **Files:**
-- Modify: `eth_defi/gmx/ccxt/exchange.py` (`fetch_order`, `_resolve_order_from_sources`)
-- Modify: `eth_defi/gmx/ccxt/async_support/exchange.py`
+- Modify: `eth_defi/gmx/ccxt/exchange.py` (`_resolve_order_from_sources`, currently line 8586)
+- Modify: `eth_defi/gmx/ccxt/async_support/exchange.py` (mirror)
 - Test: `tests/gmx/ccxt/test_order_resolution.py`
 
-- [ ] **Step 1: Failing test** — first `fetch_order(id)` from REST stores `order_key` in cache; second `fetch_order(id)` does not call REST.
-- [ ] **Step 2: Add cache write** at the moment ANY resolver succeeds (not only when the order is settled). Cache key: `(chain_id, order_id)`. Bounded LRU, 1000 entries default.
-- [ ] **Step 3: Mirror in async.**
-- [ ] **Step 4: Tests pass.**
-- [ ] **Step 5: Commit.**
+New tier order (per user directive — Subsquid removed entirely from this path):
 
-### Task 5.3: Structured logging for resolver failures
+| Tier | Source | Endpoint / Call |
+|---|---|---|
+| A | GMX REST v2 | `get_orders(address)` → `/v1/orders?address=...` |
+| B | On-chain Reader | `Reader.getAccountOrders(datastore, account, 0, 1000)` |
+| C | EventEmitter logs | Chunked RPC log scan (existing, slow but exhaustive) |
+
+- [ ] **Step 1: Failing test** — Subsquid call site removed; resolver returns valid order from REST when Reader and EventEmitter are mocked offline.
+- [ ] **Step 2: Delete the Subsquid branch** in `_resolve_order_from_sources` (line 8614). Reorder remaining tiers: REST first, Reader second, EventEmitter third. Add log line at each tier transition for observability.
+- [ ] **Step 3: Mirror in async.**
+- [ ] **Step 4: Audit other code paths that still hit Subsquid for positions/orders** — confirm `open_positions.py` Tier 2 is the only remaining Subsquid call for this domain. If any others exist, remove them too (or document why they stay).
+- [ ] **Step 5: Tests pass.**
+- [ ] **Step 6: Commit.**
+
+### Task 5.4: Watchdog for stuck open limit orders
+
+**Files:**
+- Modify: `eth_defi/gmx/freqtrade/gmx_exchange.py` (`Gmx.fetch_order`)
+- Test: `tests/gmx/freqtrade/test_stuck_order_watchdog.py`
+
+**Watchdog rule:** for any limit order that has been ``open`` for >10 minutes
+with ``filled=0.0``, trigger wallet-scoped recovery (Task 5.2 path) even if
+the order_key IS cached. This protects against the case where the on-chain
+order filled but the resolver missed an event for any reason.
+
+- [ ] **Step 1: Failing test** — limit order open for 15 minutes with filled=0 → fetch_order triggers wallet-scoped enumeration → finds order has been filled on-chain → returns updated status.
+- [ ] **Step 2: Implement watchdog** in `Gmx.fetch_order`.
+- [ ] **Step 3: Tests pass.**
+- [ ] **Step 4: Commit.**
+
+### Task 5.5: Structured logging for resolver outcomes
 
 **Files:**
 - Modify: `eth_defi/gmx/ccxt/exchange.py`
 - Modify: `eth_defi/gmx/ccxt/async_support/exchange.py`
 
-- [ ] **Step 1: Failing test** — when all resolvers miss, log includes pair, chain_id, order_id, tried tiers, last error per tier.
-- [ ] **Step 2: Implement** with `logger.warning("no order_key resolved", extra={...})`. Avoid f-strings in log calls (project rule).
+- [ ] **Step 1: Failing test** — when all tiers miss, log includes pair, chain_id, order_id, tried tiers, last error per tier, wallet, trade snapshot.
+- [ ] **Step 2: Implement** with `logger.warning("order resolution miss", extra={...})`. Avoid f-strings in log calls (project rule).
 - [ ] **Step 3: Mirror in async.**
 - [ ] **Step 4: Tests pass.**
 - [ ] **Step 5: Commit.**
