@@ -49,6 +49,7 @@ from eth_defi.gmx.ccxt.cancel_helpers import (
     build_cancel_order_response,
     resolve_order_id,
 )
+from eth_defi.gmx.ccxt.order_key_cache import OrderKeyCache, OrderKeyRecord
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
@@ -668,6 +669,7 @@ class GMX(ExchangeCompatible):
 
         # Common initialization
         self._init_common()
+        self._init_order_key_cache()
 
     def _configure_verbose_logging(self):
         """Enable verbose logging for GMX SDK components."""
@@ -743,6 +745,7 @@ class GMX(ExchangeCompatible):
 
         # Common initialization
         self._init_common()
+        self._init_order_key_cache()
 
     def _load_markets_from_graphql(self) -> dict[str, Any]:
         """Load markets from GraphQL.
@@ -1546,6 +1549,7 @@ class GMX(ExchangeCompatible):
         self.markets_loaded = False
         self.symbols = []
         self._orders = {}  # Order cache - cleared on fresh runs to avoid stale data
+        self._order_key_cache: OrderKeyCache | None = None
 
         # Consecutive failure tracking for safety
         self._consecutive_failures = 0  # Track consecutive transaction failures
@@ -1624,6 +1628,18 @@ class GMX(ExchangeCompatible):
         except Exception as e:
             logger.warning("Failed to initialise market cache: %s", e)
             self._market_cache = None
+
+    def _init_order_key_cache(self) -> None:
+        """Initialise the disk-persisted order-key cache when wallet info is available."""
+        if getattr(self, "web3", None) is None or not getattr(self, "wallet_address", None):
+            return
+        try:
+            self._order_key_cache = OrderKeyCache(
+                chain_id=self.web3.eth.chain_id,
+                wallet_address=self.wallet_address,
+            )
+        except Exception as e:
+            logger.warning("OrderKeyCache init failed (memory-only mode): %s", e)
 
     def _init_empty(self):
         """Initialize with minimal functionality (no RPC/config)."""
@@ -6440,6 +6456,20 @@ class GMX(ExchangeCompatible):
         # Cache the order so that fetch_order(tx_hash) and cancel_order(tx_hash)
         # can find the real order_key via info["order_key"] without re-parsing the receipt.
         self._orders[tx_hash.hex()] = order
+        if self._order_key_cache is not None and order_key_hex:
+            try:
+                self._order_key_cache.put(
+                    OrderKeyRecord(
+                        order_key=order_key_hex,
+                        tx_hash=tx_hash.hex(),
+                        symbol=symbol,
+                        side=order.get("side", ""),
+                        amount=float(order.get("amount") or 0.0),
+                        price=float(order.get("stopPrice") or order.get("price") or 0.0),
+                    )
+                )
+            except Exception as _e:
+                logger.warning("OrderKeyCache.put failed for tx %s: %s", tx_hash.hex()[:16], _e)
 
         logger.info(
             "Created standalone %s order for %s: trigger=%.2f, amount=%.2f USD, tx=%s, order_key=%s",
@@ -6684,6 +6714,22 @@ class GMX(ExchangeCompatible):
 
         # Store order for fetch_order() to retrieve
         self._orders[tx_hash] = order
+
+        order_key_hex_cached = "0x" + order_key.hex() if order_key else None
+        if self._order_key_cache is not None and order_key_hex_cached:
+            try:
+                self._order_key_cache.put(
+                    OrderKeyRecord(
+                        order_key=order_key_hex_cached,
+                        tx_hash=tx_hash if tx_hash.startswith("0x") else f"0x{tx_hash}",
+                        symbol=symbol,
+                        side=side,
+                        amount=float(amount or 0.0),
+                        price=float(order.get("price") or 0.0),
+                    )
+                )
+            except Exception as _e:
+                logger.warning("OrderKeyCache.put failed for tx %s: %s", str(tx_hash)[:16], _e)
 
         logger.debug(
             "ORDER_TRACE: Created order id=%s with status='open' (pending keeper execution), order_key=%s",
@@ -9220,6 +9266,28 @@ class GMX(ExchangeCompatible):
             "ORDER_TRACE: fetch_order(%s) - NOT IN CACHE, fetching from blockchain (e.g., after bot restart)",
             id if id else "None",
         )
+
+        # Fast path: disk cache survives bot restarts and avoids a full tx-receipt round-trip.
+        _order_key_cache = getattr(self, "_order_key_cache", None)
+        if _order_key_cache is not None:
+            _cached_rec = _order_key_cache.get(id)
+            if _cached_rec is not None:
+                logger.info(
+                    "ORDER_TRACE: fetch_order(%s) - disk cache hit (order_key=%s), resolving via sources",
+                    id,
+                    _cached_rec.order_key[:16],
+                )
+                _resolved = self._resolve_order_from_sources(
+                    order_key_hex=_cached_rec.order_key,
+                    symbol=symbol or _cached_rec.symbol or None,
+                    receipt=None,
+                    tx=None,
+                )
+                if _resolved is not None:
+                    _resolved["id"] = id
+                    self._orders[id] = _resolved
+                    return _resolved
+
         normalized_id = id if id.startswith("0x") else f"0x{id}"
 
         if len(normalized_id) == 66:  # Valid tx hash length (0x + 64 hex chars)

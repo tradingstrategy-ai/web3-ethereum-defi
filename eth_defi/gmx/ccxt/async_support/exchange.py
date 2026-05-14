@@ -4328,3 +4328,32 @@ class GMX(Exchange):
             self._consecutive_failures,
             self._trading_paused,
         )
+
+    async def _resolve_market_info(self, symbol: str, params: dict) -> dict:
+        """Async wrapper for resolving GMX market info by symbol.
+
+        Delegates to :func:`Markets.get_available_markets` on a worker thread so
+        the event loop is not blocked during the multicall round-trip.
+
+        :param symbol: CCXT unified symbol, e.g. ``"BTC/USDC:USDC"``.
+        :param params: Extra params forwarded from the caller (currently unused
+            but kept for API consistency with sync helpers).
+        :returns: Raw market data dict from :class:`Markets`.
+        """
+        return await asyncio.to_thread(Markets(self.config).get_available_markets)
+
+    async def fetch_pools_for_symbol(self, symbol: str) -> list[dict]:
+        """Return all GMX V2 liquidity pools that list *symbol* as their index token.
+
+        Fetches the full market catalogue via :class:`Markets` on a worker thread
+        and filters to pools whose ``market_symbol`` (after normalisation) matches
+        the base of *symbol* (e.g. ``"BTC"`` from ``"BTC/USDC:USDC"``).
+
+        :param symbol: CCXT unified symbol, e.g. ``"BTC/USDC:USDC"``.
+        :returns: List of raw market-data dicts for the matching pools.
+        """
+        base = symbol.split("/")[0] if "/" in symbol else symbol
+        base = SYMBOL_NORMALISE.get(base, base)
+
+        all_markets = await asyncio.to_thread(Markets(self.config).get_available_markets)
+        return [market for market in all_markets.values() if SYMBOL_NORMALISE.get(market.get("market_symbol", ""), market.get("market_symbol", "")) == base]
