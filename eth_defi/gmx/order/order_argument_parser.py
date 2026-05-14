@@ -408,14 +408,21 @@ class OrderArgumentParser:
         tokens = _get_token_metadata_dict(self.web3, self.parameters_dict["chain"])
         collateral_address = self.find_key_by_symbol(tokens, collateral_token_symbol)
 
-        # Always set the collateral address.  The GMX router auto-swaps via
-        # ``swap_path`` when the requested collateral is not directly accepted
-        # by the chosen market — see :meth:`_handle_missing_swap_path`.  The
-        # previous "raise on mismatch" path landed real orders in a hard-fail
-        # state for synthetic markets (issue #67 follow-up, 2026-05-14:
+        # Try strict collateral validation.  If the collateral is not directly
+        # held by the market, _check_if_valid_collateral_for_market raises with
+        # context.  We catch that here and continue — the GMX router auto-swaps
+        # via ``swap_path`` so the order is still valid (issue #67, 2026-05-14:
         # ``Not a valid collateral for selected market!`` BTC/USDC:USDC vs
-        # tBTC-tBTC).  We now log + continue so the router can swap.
-        is_directly_supported = self._check_if_valid_collateral_for_market(collateral_address)
+        # tBTC-tBTC).  Always set collateral_address so the router has a target.
+        try:
+            is_directly_supported = self._check_if_valid_collateral_for_market(collateral_address)
+        except Exception:
+            is_directly_supported = False
+            logger.info(
+                "COLLATERAL_TRACE: collateral %s not directly accepted by market_key %s — relying on GMX router swap_path to convert at order time",
+                collateral_token_symbol,
+                self.parameters_dict.get("market_key"),
+            )
         logger.info(
             "COLLATERAL_TRACE: Resolved collateral address:\n  collateral_token_symbol=%s → collateral_address=%s\n  is_directly_supported_by_market=%s",
             collateral_token_symbol,
@@ -425,12 +432,6 @@ class OrderArgumentParser:
 
         if not self.is_swap:
             self.parameters_dict["collateral_address"] = collateral_address
-            if not is_directly_supported:
-                logger.info(
-                    "COLLATERAL_TRACE: collateral %s not directly accepted by market_key %s — relying on GMX router swap_path to convert at order time",
-                    collateral_token_symbol,
-                    self.parameters_dict.get("market_key"),
-                )
             logger.info(
                 "COLLATERAL_TRACE: Final collateral address set:\n  parameters_dict['collateral_address']=%s",
                 self.parameters_dict["collateral_address"],
@@ -480,20 +481,15 @@ class OrderArgumentParser:
         """Check whether ``collateral_address`` is directly held by the market.
 
         Returns ``True`` when the collateral matches the market's long or short
-        token, ``False`` otherwise.  This is now a **soft** check — the GMX
-        router auto-swaps mismatched collateral via the order's ``swap_path``,
-        so a return value of ``False`` is informational, not an error.
-
-        Previously this method raised on mismatch with
-        ``"Not a valid collateral for selected market!"``.  That path
-        catastrophically hard-failed live orders for synthetic markets
-        (issue #67 follow-up, 2026-05-14: BTC/USDC:USDC vs tBTC-tBTC pool).
-        The raise has been removed; callers decide how to handle a
-        ``False`` return.
+        token.  Raises ``Exception`` with actionable context when it does not —
+        callers that want to soft-fail (e.g. :meth:`_handle_missing_collateral_address`)
+        should catch and continue.
 
         :param collateral_address: Collateral token contract address.
-        :returns: ``True`` when the collateral is directly accepted; ``False``
-            when it would need to be swapped via the router.
+        :returns: ``True`` when the collateral is directly accepted.
+        :raises Exception: When ``collateral_address`` is not the long or short
+            token of the selected market, with market_key, valid token addresses,
+            and a hint in the message.
         """
         market_key = self.parameters_dict["market_key"]
 
@@ -509,17 +505,8 @@ class OrderArgumentParser:
         ):
             return True
 
-        # Soft fail — log but never raise.  The router handles the swap.
-        logger.info(
-            "_check_if_valid_collateral_for_market: collateral %s not directly held by market %s (valid long_token=%s (%s), short_token=%s (%s)) — router swap_path will convert",
-            collateral_address,
-            market_key,
-            market["long_token_address"],
-            market["long_token_metadata"].get("symbol", "?"),
-            market["short_token_address"],
-            market["short_token_metadata"].get("symbol", "?"),
-        )
-        return False
+        msg = f"Not a valid collateral for selected market!\n  market_key: {market_key}\n  collateral_address: {collateral_address}\n  valid long_token: {market['long_token_address']} ({market['long_token_metadata'].get('symbol', '?')})\n  valid short_token: {market['short_token_address']} ({market['short_token_metadata'].get('symbol', '?')})\n  Hint: set collateral_symbol to the long or short token symbol of this market."
+        raise Exception(msg)
 
     @staticmethod
     def find_key_by_symbol(input_dict: dict, search_symbol: str):
