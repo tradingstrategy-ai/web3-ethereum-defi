@@ -592,3 +592,161 @@ class TestMarketCatalogCache:
         c2.get_entries()
         assert (tmp_path / "market_catalog_42161.json").exists()
         assert (tmp_path / "market_catalog_43114.json").exists()
+
+
+class TestPickMarket:
+    """``pick_market`` exposes 3 selection strategies — USDC_PAIRED default,
+    HIGHEST_LIQUIDITY opt-in, EXPLICIT for power users.
+
+    Fallback chain: USDC_PAIRED degrades to HIGHEST_LIQUIDITY when no
+    USDC-paired pool exists for the base.  Both raise ``NoMarketFoundError``
+    when no markets at all match the base symbol.
+    """
+
+    @staticmethod
+    def _build_catalog(tmp_path, monkeypatch, entries):
+        from eth_defi.gmx.core import market_catalog as mc
+
+        monkeypatch.setattr(mc, "enumerate_markets", lambda config, now_ts=None: entries)
+        monkeypatch.setattr(mc, "augment_with_liquidity", lambda items, config: items)
+        return mc.MarketCatalog(
+            config=object(), chain_id=42161, cache_dir=tmp_path,
+            disk_ttl_seconds=1, memory_ttl_seconds=60,
+        )
+
+    @staticmethod
+    def _btc_pool(market_key, long_sym, long_addr, short_sym, short_addr, liq):
+        from eth_defi.gmx.core.market_catalog import MarketEntry
+
+        return MarketEntry(
+            market_key=market_key,
+            index_token_symbol="BTC",
+            index_token_address="0xBtcIndex",
+            long_token_symbol=long_sym,
+            long_token_address=long_addr,
+            short_token_symbol=short_sym,
+            short_token_address=short_addr,
+            liquidity_usd=liq,
+            oi_long_usd=0.0,
+            oi_short_usd=0.0,
+            refreshed_at=1_700_000_000,
+        )
+
+    def test_default_usdc_paired_picks_wbtc_usdc_even_if_synth_has_more_tvl(self, tmp_path, monkeypatch):
+        # Worst-case ordering: synthetic pool TEMPORARILY has higher TVL.
+        # USDC_PAIRED must still pick the standard pool because the strategy
+        # explicitly prefers two-sided stablecoin pools.
+        from eth_defi.gmx.core.market_catalog import MarketSelection
+
+        wbtc_usdc = self._btc_pool("0xWBTCUSDC", "WBTC", "0xWbtc", "USDC", "0xUsdc", liq=100.0)
+        tbtc_synth = self._btc_pool("0xTBTC2", "tBTC", "0xTbtc", "tBTC", "0xTbtc", liq=99999.0)
+
+        cat = self._build_catalog(tmp_path, monkeypatch, [tbtc_synth, wbtc_usdc])
+        chosen = cat.pick_market("BTC", selection=MarketSelection.USDC_PAIRED)
+        assert chosen.market_key == "0xWBTCUSDC"
+
+    def test_highest_liquidity_picks_deeper_pool_regardless(self, tmp_path, monkeypatch):
+        from eth_defi.gmx.core.market_catalog import MarketSelection
+
+        wbtc_usdc = self._btc_pool("0xWBTCUSDC", "WBTC", "0xWbtc", "USDC", "0xUsdc", liq=100.0)
+        tbtc_synth = self._btc_pool("0xTBTC2", "tBTC", "0xTbtc", "tBTC", "0xTbtc", liq=99999.0)
+
+        cat = self._build_catalog(tmp_path, monkeypatch, [wbtc_usdc, tbtc_synth])
+        chosen = cat.pick_market("BTC", selection=MarketSelection.HIGHEST_LIQUIDITY)
+        assert chosen.market_key == "0xTBTC2"
+
+    def test_usdc_paired_falls_back_when_no_usdc_pool(self, tmp_path, monkeypatch, caplog):
+        import logging
+
+        from eth_defi.gmx.core.market_catalog import MarketSelection
+
+        # Only synthetic pools exist for this base — USDC_PAIRED has nothing
+        # to match, must degrade to HIGHEST_LIQUIDITY rather than raise.
+        synth_a = self._btc_pool("0xSYNTH_A", "tBTC", "0xTbtc", "tBTC", "0xTbtc", liq=10.0)
+        synth_b = self._btc_pool("0xSYNTH_B", "tBTC2", "0xTbtc2", "tBTC2", "0xTbtc2", liq=20.0)
+
+        cat = self._build_catalog(tmp_path, monkeypatch, [synth_a, synth_b])
+        caplog.set_level(logging.INFO, logger="eth_defi.gmx.core.market_catalog")
+        chosen = cat.pick_market("BTC")
+        assert chosen.market_key == "0xSYNTH_B"  # higher liquidity wins on fallback
+        assert any("fell back" in rec.message.lower() or "fall back" in rec.message.lower() for rec in caplog.records)
+
+    def test_explicit_market_key_returns_that_market_regardless(self, tmp_path, monkeypatch):
+        from eth_defi.gmx.core.market_catalog import MarketSelection
+
+        wbtc_usdc = self._btc_pool("0xWBTCUSDC", "WBTC", "0xWbtc", "USDC", "0xUsdc", liq=100.0)
+        tbtc_synth = self._btc_pool("0xTBTC2", "tBTC", "0xTbtc", "tBTC", "0xTbtc", liq=20.0)
+
+        cat = self._build_catalog(tmp_path, monkeypatch, [wbtc_usdc, tbtc_synth])
+        # USDC_PAIRED would normally pick WBTC-USDC; explicit override flips it.
+        chosen = cat.pick_market(
+            "BTC",
+            selection=MarketSelection.USDC_PAIRED,
+            explicit_market_key="0xTBTC2",
+        )
+        assert chosen.market_key == "0xTBTC2"
+
+    def test_unknown_base_raises_no_market_found(self, tmp_path, monkeypatch):
+        from eth_defi.gmx.core.market_catalog import NoMarketFoundError
+
+        wbtc_usdc = self._btc_pool("0xWBTCUSDC", "WBTC", "0xWbtc", "USDC", "0xUsdc", liq=100.0)
+        cat = self._build_catalog(tmp_path, monkeypatch, [wbtc_usdc])
+
+        with pytest.raises(NoMarketFoundError):
+            cat.pick_market("UNKNOWN")
+
+    def test_explicit_key_not_in_catalog_raises(self, tmp_path, monkeypatch):
+        from eth_defi.gmx.core.market_catalog import NoMarketFoundError
+
+        wbtc_usdc = self._btc_pool("0xWBTCUSDC", "WBTC", "0xWbtc", "USDC", "0xUsdc", liq=100.0)
+        cat = self._build_catalog(tmp_path, monkeypatch, [wbtc_usdc])
+
+        with pytest.raises(NoMarketFoundError):
+            cat.pick_market("BTC", explicit_market_key="0xDOES_NOT_EXIST")
+
+    def test_explicit_case_insensitive_match(self, tmp_path, monkeypatch):
+        # market_key addresses come in mixed case from REST and checksummed
+        # from Reader — explicit lookup must compare case-insensitively.
+        wbtc_usdc = self._btc_pool("0xWBTCUSDC_KEY", "WBTC", "0xWbtc", "USDC", "0xUsdc", liq=100.0)
+        cat = self._build_catalog(tmp_path, monkeypatch, [wbtc_usdc])
+        chosen = cat.pick_market("BTC", explicit_market_key="0xwbtcusdc_key")
+        assert chosen.market_key == "0xWBTCUSDC_KEY"
+
+    def test_usdc_paired_returns_deeper_usdc_pool_when_multiple(self, tmp_path, monkeypatch):
+        # Two USDC-paired pools for the same base: pick the deeper one.
+        cheap = self._btc_pool("0xUSDC_A", "WBTC", "0xWbtc", "USDC", "0xUsdc", liq=50.0)
+        deep = self._btc_pool("0xUSDC_B", "BTC.b", "0xBtcb", "USDC", "0xUsdc", liq=500.0)
+        cat = self._build_catalog(tmp_path, monkeypatch, [cheap, deep])
+        chosen = cat.pick_market("BTC")
+        assert chosen.market_key == "0xUSDC_B"
+
+    def test_usdc_paired_accepts_usdc_on_long_side_too(self, tmp_path, monkeypatch):
+        # Most GMX pools have USDC as short token, but the catalog must not
+        # depend on that side — match either orientation.
+        reverse_pool = self._btc_pool("0xREV", "USDC", "0xUsdc", "WBTC", "0xWbtc", liq=200.0)
+        normal_pool = self._btc_pool("0xNORM", "WBTC", "0xWbtc", "USDC", "0xUsdc", liq=100.0)
+        cat = self._build_catalog(tmp_path, monkeypatch, [reverse_pool, normal_pool])
+        chosen = cat.pick_market("BTC")
+        assert chosen.market_key == "0xREV"  # higher liquidity among the two USDC pools
+
+    def test_pick_market_uses_catalog_cache(self, tmp_path, monkeypatch):
+        # Multiple pick_market calls must NOT re-trigger enumerate_markets —
+        # the underlying TTL cache must serve them.
+        call_count = {"n": 0}
+        from eth_defi.gmx.core import market_catalog as mc
+
+        def fake_enumerate(config, now_ts=None):
+            call_count["n"] += 1
+            return [self._btc_pool("0xWBTCUSDC", "WBTC", "0xWbtc", "USDC", "0xUsdc", liq=100.0)]
+
+        monkeypatch.setattr(mc, "enumerate_markets", fake_enumerate)
+        monkeypatch.setattr(mc, "augment_with_liquidity", lambda items, config: items)
+
+        cat = mc.MarketCatalog(
+            config=object(), chain_id=42161, cache_dir=tmp_path,
+            disk_ttl_seconds=1, memory_ttl_seconds=300,
+        )
+        cat.pick_market("BTC")
+        cat.pick_market("BTC")
+        cat.pick_market("BTC")
+        assert call_count["n"] == 1

@@ -26,6 +26,7 @@ import logging
 import threading
 import time
 from dataclasses import asdict, dataclass
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -43,6 +44,41 @@ DEFAULT_DISK_TTL_SECONDS = 24 * 60 * 60
 #: (``_CLASS_MARKETS_CACHE_TTL_MS``), so consumers don't see surprise
 #: rebuilds within a single hot path.
 DEFAULT_MEMORY_TTL_SECONDS = 5 * 60
+
+
+class MarketSelection(str, Enum):
+    """Strategy for picking a GMX market when multiple pools exist for a base.
+
+    Subclasses ``str`` so values round-trip cleanly through JSON / CLI / env
+    vars without an explicit converter.
+
+    :cvar USDC_PAIRED: **Default.** Prefer the standard two-sided pool where
+        USDC is one side. WBTC-USDC for BTC, WETH-USDC for ETH, BONK-USDC
+        for BONK, etc.  Falls back to :attr:`HIGHEST_LIQUIDITY` if no
+        USDC-paired pool exists for the base (rare; happens for
+        synthetic-only listings).
+    :cvar HIGHEST_LIQUIDITY: Rank all candidate pools by ``liquidity_usd``
+        descending and return the top.  Use when a synthetic or non-USDC
+        pool would be acceptable.
+    :cvar EXPLICIT: Caller supplies an exact ``explicit_market_key``.  Used
+        for backtesting against a specific market or operator-forced routing.
+        When ``explicit_market_key`` is set this strategy is implied
+        regardless of the ``selection`` argument — explicit always wins.
+    """
+
+    USDC_PAIRED = "usdc_paired"
+    HIGHEST_LIQUIDITY = "highest_liquidity"
+    EXPLICIT = "explicit"
+
+
+class NoMarketFoundError(LookupError):
+    """No catalog entry matched the requested base symbol or explicit key.
+
+    Raised by :meth:`MarketCatalog.pick_market` when neither the base symbol
+    filter nor an explicit ``market_key`` lookup yields a candidate.  Inherits
+    :class:`LookupError` so callers can ``except LookupError`` for both this
+    case and standard dict-lookup misses.
+    """
 
 
 @dataclass(slots=True, frozen=True)
@@ -524,6 +560,85 @@ class MarketCatalog:
         except (TypeError, KeyError) as exc:
             logger.warning("market_catalog: schema mismatch in %s — rebuilding (%s)", cache_file, exc)
             return None
+
+    def pick_market(
+        self,
+        base_symbol: str,
+        selection: MarketSelection = MarketSelection.USDC_PAIRED,
+        explicit_market_key: str | None = None,
+    ) -> MarketEntry:
+        """Pick a GMX V2 market for ``base_symbol``.
+
+        Three operator-selectable strategies:
+
+        +------------------------+--------------------------------------------+
+        | ``USDC_PAIRED``        | Default.  Standard pool with USDC on one   |
+        | (default)              | side.  WBTC-USDC for BTC, WETH-USDC for    |
+        |                        | ETH, BONK-USDC for BONK, etc.  Falls back  |
+        |                        | to ``HIGHEST_LIQUIDITY`` when no USDC-     |
+        |                        | paired pool exists for this base.          |
+        +------------------------+--------------------------------------------+
+        | ``HIGHEST_LIQUIDITY``  | Top by ``liquidity_usd`` regardless of     |
+        |                        | pool type.                                 |
+        +------------------------+--------------------------------------------+
+        | ``EXPLICIT``           | Caller passes the exact ``market_key``.    |
+        |                        | Implied automatically when                 |
+        |                        | ``explicit_market_key`` is supplied —      |
+        |                        | explicit always wins over ``selection``.   |
+        +------------------------+--------------------------------------------+
+
+        Collateral handling is intentionally outside this function.  The GMX
+        router auto-swaps collateral via the order's ``swap_path`` parameter,
+        so callers pass any collateral and the router converts as needed.
+
+        :param base_symbol: Normalised base token (e.g. ``'BTC'``, ``'BONK'``
+            — never ``'kBONK'``).
+        :param selection: Selection strategy.  Defaults to
+            :attr:`MarketSelection.USDC_PAIRED`.  Ignored when
+            ``explicit_market_key`` is supplied.
+        :param explicit_market_key: When set, returns this exact market
+            (case-insensitive lookup).
+        :returns: The chosen :class:`MarketEntry`.
+        :raises NoMarketFoundError: When no catalog entry matches the request.
+        """
+        entries = self.get_entries()
+
+        # Explicit override always wins, regardless of ``selection``.
+        if explicit_market_key is not None:
+            target = explicit_market_key.lower()
+            for entry in entries:
+                if entry.market_key.lower() == target:
+                    return entry
+            raise NoMarketFoundError(
+                f"No catalog entry for market_key={explicit_market_key!r}"
+            )
+
+        candidates = [e for e in entries if e.index_token_symbol == base_symbol]
+        if not candidates:
+            raise NoMarketFoundError(f"No markets indexed by base_symbol={base_symbol!r}")
+
+        if selection == MarketSelection.USDC_PAIRED:
+            usdc_pools = [
+                e for e in candidates
+                if "USDC" in {e.long_token_symbol.upper(), e.short_token_symbol.upper()}
+            ]
+            if usdc_pools:
+                return max(usdc_pools, key=lambda e: e.liquidity_usd)
+            logger.info(
+                "pick_market: USDC_PAIRED fell back to HIGHEST_LIQUIDITY for base_symbol=%s "
+                "(no USDC-paired pool found among %d candidates)",
+                base_symbol,
+                len(candidates),
+            )
+            return max(candidates, key=lambda e: e.liquidity_usd)
+
+        if selection == MarketSelection.HIGHEST_LIQUIDITY:
+            return max(candidates, key=lambda e: e.liquidity_usd)
+
+        # MarketSelection.EXPLICIT without ``explicit_market_key`` — caller bug.
+        raise ValueError(
+            "MarketSelection.EXPLICIT requires explicit_market_key to be supplied"
+        )
 
     def _persist_to_disk(self, entries: list[MarketEntry], now: float) -> None:
         """Write entries to ``self.cache_file``, best-effort.
