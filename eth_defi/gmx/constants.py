@@ -25,8 +25,6 @@ networks by simply selecting the appropriate constants for the target blockchain
 The constants are loaded at module import time to ensure consistent configuration
 throughout the application lifecycle.
 
-Example:
-
 .. code-block:: python
 
     # Access API endpoints for different networks
@@ -43,7 +41,8 @@ Example:
     # Load ABI for contract interaction
     event_emitter_abi = GMX_EVENT_EMITTER_ABI
 
-Note:
+.. note::
+
     GMX maintains the API endpoints and official documentation can be found at:
     https://gmx-docs.io/docs/api/rest-v2
 """

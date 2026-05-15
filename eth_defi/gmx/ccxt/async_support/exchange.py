@@ -293,12 +293,11 @@ class GMX(Exchange):
     def __init__(self, config: dict | None = None):
         """Initialize async GMX exchange.
 
-        Args:
-            config: CCXT-style configuration dict with:
-                - rpcUrl: Arbitrum RPC endpoint (required)
-                - privateKey: Private key for trading (optional)
-                - chainId: Chain ID override (optional)
-                - subsquidEndpoint: Custom Subsquid endpoint (optional)
+        :param config: CCXT-style configuration dict with:
+            - rpcUrl: Arbitrum RPC endpoint (required)
+            - privateKey: Private key for trading (optional)
+            - chainId: Chain ID override (optional)
+            - subsquidEndpoint: Custom Subsquid endpoint (optional)
         """
         # Initialize CCXT base class
         super().__init__(config or {})
@@ -378,17 +377,14 @@ class GMX(Exchange):
         For backtesting, we use a fixed 0.06% (0.0006) which represents
         a realistic middle ground for position trading.
 
-        Args:
-            symbol: Trading pair symbol (e.g., "ETH/USD")
-            type: Order type (e.g., "market", "limit")
-            side: Order side ("buy" or "sell")
-            amount: Order amount in base currency
-            price: Order price
-            takerOrMaker: "taker" or "maker" (not used for GMX)
-            params: Additional parameters
-
-        Returns:
-            Fee dictionary with rate and cost
+        :param symbol: Trading pair symbol (e.g., "ETH/USD")
+        :param type: Order type (e.g., "market", "limit")
+        :param side: Order side ("buy" or "sell")
+        :param amount: Order amount in base currency
+        :param price: Order price
+        :param takerOrMaker: "taker" or "maker" (not used for GMX)
+        :param params: Additional parameters
+        :returns: Fee dictionary with rate and cost
         """
         if params is None:
             params = {}
@@ -422,14 +418,12 @@ class GMX(Exchange):
 
         Fee is denominated in the settlement/quote currency (typically USDC).
 
-        Args:
-            symbol: Trading pair symbol
-            size_delta_usd: Position size in USD
+        :param symbol: Trading pair symbol
+        :param size_delta_usd: Position size in USD
+        :returns: CCXT fee dict with cost, currency, and rate
 
-        Returns:
-            CCXT fee dict with cost, currency, and rate
+        .. seealso::
 
-        See Also:
             https://docs.gmx.io/docs/trading#fees-and-rebates
         """
         rate = 0.0006  # 0.06% - matches calculate_fee()
@@ -562,14 +556,11 @@ class GMX(Exchange):
 
         Returns CCXT-compliant fee structure with cost, currency, and rate.
 
-        Args:
-            verification: GMXOrderVerificationResult with fee data
-            market: CCXT market dict
-            is_long: Whether position is long
-            size_delta_usd: Position size in USD
-
-        Returns:
-            CCXT fee dict with actual cost, currency, and rate
+        :param verification: GMXOrderVerificationResult with fee data
+        :param market: CCXT market dict
+        :param is_long: Whether position is long
+        :param size_delta_usd: Position size in USD
+        :returns: CCXT fee dict with actual cost, currency, and rate
         """
         if not verification or not verification.fees:
             # Fallback to fixed rate if no fee data available
@@ -1286,12 +1277,9 @@ class GMX(Exchange):
         - options={'graphql_only': True} - Force GraphQL mode
         - params={'graphql_only': True} - Force GraphQL mode (CCXT style)
 
-        Args:
-            reload: Force reload even if cached
-            params: Additional parameters (CCXT compatibility)
-
-        Returns:
-            Dictionary mapping symbols to market info
+        :param reload: Force reload even if cached
+        :param params: Additional parameters (CCXT compatibility)
+        :returns: Dictionary mapping symbols to market info
         """
         if not reload and self.markets:
             return self.markets
@@ -1527,11 +1515,8 @@ class GMX(Exchange):
     async def fetch_markets(self, params: dict | None = None) -> list[dict]:
         """Fetch all available markets.
 
-        Args:
-            params: Additional parameters
-
-        Returns:
-            List of market structures
+        :param params: Additional parameters
+        :returns: List of market structures
         """
         markets = await self.load_markets(reload=True)
         return list(markets.values())
@@ -1542,14 +1527,9 @@ class GMX(Exchange):
         This is a sync method (not async) following CCXT patterns.
         Markets must be loaded before calling this.
 
-        Args:
-            symbol: Market symbol (e.g., "ETH/USD")
-
-        Returns:
-            Market structure dict
-
-        Raises:
-            ValueError: If markets not loaded or symbol not found
+        :param symbol: Market symbol (e.g., "ETH/USD")
+        :returns: Market structure dict
+        :raises ValueError: If markets not loaded or symbol not found
         """
         if not self.markets:
             raise ValueError(f"Markets not loaded for {symbol}. Call 'await exchange.load_markets()' first.")
@@ -1562,12 +1542,9 @@ class GMX(Exchange):
     async def fetch_ticker(self, symbol: str, params: dict | None = None) -> dict:
         """Fetch ticker for a single market.
 
-        Args:
-            symbol: Market symbol (e.g., "ETH/USD")
-            params: Additional parameters
-
-        Returns:
-            Ticker dictionary with price and stats
+        :param symbol: Market symbol (e.g., "ETH/USD")
+        :param params: Additional parameters
+        :returns: Ticker dictionary with price and stats
         """
         await self._ensure_session()
         await self.load_markets()
@@ -1616,12 +1593,9 @@ class GMX(Exchange):
     async def fetch_tickers(self, symbols: list[str] | None = None, params: dict | None = None) -> dict:
         """Fetch tickers for multiple markets concurrently.
 
-        Args:
-            symbols: List of symbols (if None, fetch all)
-            params: Additional parameters
-
-        Returns:
-            Dictionary mapping symbols to tickers
+        :param symbols: List of symbols (if None, fetch all)
+        :param params: Additional parameters
+        :returns: Dictionary mapping symbols to tickers
         """
         await self.load_markets()
 
@@ -1767,19 +1741,14 @@ class GMX(Exchange):
     ) -> list[list]:
         """Fetch OHLCV candlestick data.
 
-        Args:
-            symbol: Market symbol
-            timeframe: Candle interval (1m, 5m, 15m, 1h, 4h, 1d)
-            since: Start timestamp in ms (for filtering)
-            limit: Max number of candles
-            params: Additional parameters (e.g., {"skip_validation": True})
-
-        Returns:
-            List of OHLCV candles [timestamp, open, high, low, close, volume]
-
-        Raises:
-            ValueError: If invalid timeframe
-            InsufficientHistoricalDataError: If insufficient data for requested time range (when since is specified)
+        :param symbol: Market symbol
+        :param timeframe: Candle interval (1m, 5m, 15m, 1h, 4h, 1d)
+        :param since: Start timestamp in ms (for filtering)
+        :param limit: Max number of candles
+        :param params: Additional parameters (e.g., {"skip_validation": True})
+        :returns: List of OHLCV candles [timestamp, open, high, low, close, volume]
+        :raises ValueError: If invalid timeframe
+        :raises InsufficientHistoricalDataError: If insufficient data for requested time range (when since is specified)
         """
         await self._ensure_session()
         await self.load_markets()
@@ -3189,11 +3158,8 @@ class GMX(Exchange):
     async def fetch_balance(self, params: dict | None = None) -> dict:
         """Fetch account balance.
 
-        Args:
-            params: Additional parameters
-
-        Returns:
-            Balance dictionary in CCXT format
+        :param params: Additional parameters
+        :returns: Balance dictionary in CCXT format
         """
         await self._ensure_session()
 
@@ -3240,12 +3206,9 @@ class GMX(Exchange):
     async def fetch_open_interest(self, symbol: str, params: dict | None = None) -> dict:
         """Fetch current open interest for a symbol.
 
-        Args:
-            symbol: Unified symbol (e.g., "ETH/USD")
-            params: Additional parameters
-
-        Returns:
-            Open interest dictionary with long/short breakdown
+        :param symbol: Unified symbol (e.g., "ETH/USD")
+        :param params: Additional parameters
+        :returns: Open interest dictionary with long/short breakdown
         """
         await self._ensure_session()
         await self.load_markets()
@@ -3319,15 +3282,12 @@ class GMX(Exchange):
     ) -> list[dict]:
         """Fetch historical open interest data.
 
-        Args:
-            symbol: Unified symbol (e.g., "ETH/USD")
-            timeframe: Time interval (note: data is snapshot-based)
-            since: Start timestamp in milliseconds
-            limit: Maximum number of records (default: 100)
-            params: Additional parameters
-
-        Returns:
-            List of historical open interest snapshots
+        :param symbol: Unified symbol (e.g., "ETH/USD")
+        :param timeframe: Time interval (note: data is snapshot-based)
+        :param since: Start timestamp in milliseconds
+        :param limit: Maximum number of records (default: 100)
+        :param params: Additional parameters
+        :returns: List of historical open interest snapshots
         """
         await self._ensure_session()
         await self.load_markets()
@@ -3371,12 +3331,9 @@ class GMX(Exchange):
     async def fetch_open_interests(self, symbols: list[str] | None = None, params: dict | None = None) -> dict:
         """Fetch open interest for multiple symbols.
 
-        Args:
-            symbols: List of symbols (if None, fetch all)
-            params: Additional parameters
-
-        Returns:
-            Dictionary mapping symbols to open interest data
+        :param symbols: List of symbols (if None, fetch all)
+        :param params: Additional parameters
+        :returns: Dictionary mapping symbols to open interest data
         """
         await self.load_markets()
 
@@ -3454,12 +3411,9 @@ class GMX(Exchange):
     async def fetch_funding_rate(self, symbol: str, params: dict | None = None) -> dict:
         """Fetch current funding rate for a symbol.
 
-        Args:
-            symbol: Unified symbol (e.g., "ETH/USD")
-            params: Additional parameters
-
-        Returns:
-            Funding rate dictionary with long/short rates
+        :param symbol: Unified symbol (e.g., "ETH/USD")
+        :param params: Additional parameters
+        :returns: Funding rate dictionary with long/short rates
         """
         await self._ensure_session()
         await self.load_markets()
@@ -3511,14 +3465,11 @@ class GMX(Exchange):
     ) -> list[dict]:
         """Fetch historical funding rate data.
 
-        Args:
-            symbol: Unified symbol (e.g., "ETH/USD")
-            since: Start timestamp in milliseconds
-            limit: Maximum number of records (default: 100)
-            params: Additional parameters
-
-        Returns:
-            List of historical funding rate snapshots
+        :param symbol: Unified symbol (e.g., "ETH/USD")
+        :param since: Start timestamp in milliseconds
+        :param limit: Maximum number of records (default: 100)
+        :param params: Additional parameters
+        :returns: List of historical funding rate snapshots
         """
         await self._ensure_session()
         await self.load_markets()
@@ -3603,12 +3554,9 @@ class GMX(Exchange):
     async def fetch_funding_rates(self, symbols: list[str] | None = None, params: dict | None = None) -> dict:
         """Fetch funding rates for multiple symbols.
 
-        Args:
-            symbols: List of symbols (if None, fetch all)
-            params: Additional parameters
-
-        Returns:
-            Dictionary mapping symbols to funding rates
+        :param symbols: List of symbols (if None, fetch all)
+        :param params: Additional parameters
+        :returns: Dictionary mapping symbols to funding rates
         """
         await self.load_markets()
 

@@ -13,8 +13,6 @@ When the deviation between these prices exceeds a configurable threshold (defaul
 the system can take various actions such as logging warnings, using the oracle price,
 or raising an exception to prevent potentially problematic trades.
 
-Example:
-
 .. code-block:: python
 
     from eth_defi.gmx.price_sanity import (

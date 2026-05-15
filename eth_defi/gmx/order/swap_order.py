@@ -30,7 +30,8 @@ class SwapOrder(BaseOrder):
     estimation capabilities and unsigned transaction generation for
     external signing.
 
-    Example:
+    .. code-block:: python
+
         >TODO: Add example usage
     """
 

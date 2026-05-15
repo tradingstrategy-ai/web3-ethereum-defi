@@ -66,7 +66,8 @@ class SLTPEntry:
     Allows specifying trigger prices as absolute values or percentages,
     and close sizes as percentages or USD amounts.
 
-    Example:
+    .. code-block:: python
+
         # 5% stop loss, close 100% of position
         stop_loss = SLTPEntry(trigger_percent=0.05)
 
@@ -246,7 +247,8 @@ class SLTPOrder(BaseOrder):
     Provides methods for creating SL/TP orders both bundled with position
     opens and as standalone orders for existing positions.
 
-    Example:
+    .. code-block:: python
+
         sltp = SLTPOrder(config, market_key, collateral_address, index_token, is_long=True)
 
         # Bundled: open + SL + TP in one transaction

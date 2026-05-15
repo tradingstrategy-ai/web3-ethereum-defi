@@ -30,8 +30,6 @@ class GMXRetryConfig:
     across multiple endpoints. Production defaults are tuned for reliability;
     tests should use :func:`get_test_retry_config` for faster feedback.
 
-    Example:
-
     .. code-block:: python
 
         # Production (default)

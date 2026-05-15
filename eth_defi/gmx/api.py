@@ -113,8 +113,6 @@ class GMXAPI:
     to backup URLs and provides both raw dictionary responses and pandas DataFrame
     conversions for price data.
 
-    Example:
-
     .. code-block:: python
 
         # Initialize GMX API client
@@ -466,8 +464,6 @@ class GMXAPI:
         it into a pandas DataFrame with properly formatted timestamps and
         standardized column names.
 
-        Example:
-
         .. code-block:: python
 
             # Get hourly ETH price data
@@ -640,8 +636,6 @@ class GMXAPI:
         :raises ValueError: If period is invalid
         :raises RuntimeError: If all API endpoints fail after retries
 
-        Example:
-
         .. code-block:: python
 
             api = GMXAPI(config)
@@ -710,8 +704,6 @@ class GMXAPI:
 
         The response is cached for 60 seconds by default (``use_cache=True``),
         so calling this method repeatedly in a tight loop is safe.
-
-        Example:
 
         .. code-block:: python
 

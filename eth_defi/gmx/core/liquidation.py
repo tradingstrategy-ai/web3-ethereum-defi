@@ -13,7 +13,8 @@ Key Differences from Simplified Estimates:
 - Handles both same-collateral and cross-collateral positions
 - Properly scales decimals for different token types
 
-Example:
+.. code-block:: python
+
     from eth_defi.gmx.config import GMXConfig
     from eth_defi.gmx.core.liquidation import get_liquidation_price
 
@@ -44,13 +45,10 @@ def get_is_equivalent_tokens(token1: str, token2: str, chain: str) -> bool:
     use native versions (BTC). This function checks if tokens are equivalent
     for the purposes of liquidation calculations.
 
-    Args:
-        token1: First token address
-        token2: Second token address
-        chain: Chain name (arbitrum, avalanche, etc.)
-
-    Returns:
-        True if tokens are equivalent, False otherwise
+    :param token1: First token address
+    :param token2: Second token address
+    :param chain: Chain name (arbitrum, avalanche, etc.)
+    :returns: True if tokens are equivalent, False otherwise
     """
     # Normalize addresses to lowercase
     token1 = token1.lower()
@@ -82,14 +80,11 @@ def get_position_fee(
     GMX charges different fees based on whether the price impact is positive
     or negative. Positive impact (0.05%) vs negative impact (0.07%).
 
-    Args:
-        size_delta_usd: Size of position change in USD
-        for_positive_impact: True if calculating for positive price impact
-        referral_info: Optional referral information for fee discounts
-        ui_fee_factor: Optional UI fee factor
-
-    Returns:
-        Dictionary with positionFeeUsd key containing fee amount
+    :param size_delta_usd: Size of position change in USD
+    :param for_positive_impact: True if calculating for positive price impact
+    :param referral_info: Optional referral information for fee discounts
+    :param ui_fee_factor: Optional UI fee factor
+    :returns: Dictionary with positionFeeUsd key containing fee amount
     """
     # GMX V2 fee structure: 0.05% for positive impact, 0.07% for negative
     factor = Decimal("0.0005") if for_positive_impact else Decimal("0.0007")
@@ -107,11 +102,8 @@ def min_collateral_factor_for_liquidation_key(market: str) -> bytes:
     This is different from the regular minimum collateral factor - it's
     specifically used for liquidation threshold calculations.
 
-    Args:
-        market: Market address
-
-    Returns:
-        32-byte key for datastore lookup
+    :param market: Market address
+    :returns: 32-byte key for datastore lookup
     """
     return create_hash(["bytes32", "address"], [create_hash_string("MIN_COLLATERAL_FACTOR_FOR_LIQUIDATION"), market])
 
@@ -119,11 +111,8 @@ def min_collateral_factor_for_liquidation_key(market: str) -> bytes:
 def max_position_impact_factor_for_liquidations_key(market: str) -> bytes:
     """Get datastore key for max position impact factor for liquidations.
 
-    Args:
-        market: Market address
-
-    Returns:
-        32-byte key for datastore lookup
+    :param market: Market address
+    :returns: 32-byte key for datastore lookup
     """
     return create_hash(["bytes32", "address"], [create_hash_string("MAX_POSITION_IMPACT_FACTOR_FOR_LIQUIDATIONS"), market])
 
@@ -151,26 +140,23 @@ def calculate_liquidation_price(
     This implementation matches the official GMX TypeScript SDK logic,
     including all fees, price impacts, and edge cases.
 
-    Args:
-        datastore_obj: GMX datastore contract instance
-        market_info: Market information dictionary from Markets.get_available_markets()
-        market_address: Market contract address
-        index_token_address: Index token address (e.g., WETH for ETH/USD market)
-        size_in_usd: Position size in USD (30 decimals)
-        size_in_tokens: Position size in tokens (token decimals)
-        collateral_amount: Collateral amount in token units
-        collateral_usd: Collateral value in USD (30 decimals)
-        collateral_token_address: Collateral token address
-        pending_funding_fees_usd: Pending funding fees in USD (30 decimals)
-        pending_borrowing_fees_usd: Pending borrowing fees in USD (30 decimals)
-        min_collateral_usd: Minimum collateral requirement in USD (30 decimals)
-        is_long: True for long position, False for short
-        chain: Chain name (arbitrum, avalanche, etc.)
-        use_max_price_impact: If True, use maximum negative price impact
-        user_referral_info: Optional referral information
-
-    Returns:
-        Liquidation price in token's native decimals, or None if calculation impossible
+    :param datastore_obj: GMX datastore contract instance
+    :param market_info: Market information dictionary from Markets.get_available_markets()
+    :param market_address: Market contract address
+    :param index_token_address: Index token address (e.g., WETH for ETH/USD market)
+    :param size_in_usd: Position size in USD (30 decimals)
+    :param size_in_tokens: Position size in tokens (token decimals)
+    :param collateral_amount: Collateral amount in token units
+    :param collateral_usd: Collateral value in USD (30 decimals)
+    :param collateral_token_address: Collateral token address
+    :param pending_funding_fees_usd: Pending funding fees in USD (30 decimals)
+    :param pending_borrowing_fees_usd: Pending borrowing fees in USD (30 decimals)
+    :param min_collateral_usd: Minimum collateral requirement in USD (30 decimals)
+    :param is_long: True for long position, False for short
+    :param chain: Chain name (arbitrum, avalanche, etc.)
+    :param use_max_price_impact: If True, use maximum negative price impact
+    :param user_referral_info: Optional referral information
+    :returns: Liquidation price in token's native decimals, or None if calculation impossible
     """
     # Validate inputs
     if size_in_usd <= 0 or size_in_tokens <= 0:
@@ -272,15 +258,13 @@ def get_liquidation_price(
     High-level convenience function that fetches all required data and
     calculates the liquidation price for a position.
 
-    Args:
-        config: GMXConfig instance
-        position_dict: Position dictionary from get_positions()
-        wallet_address: Wallet address (optional, uses config if not provided)
+    :param config: GMXConfig instance
+    :param position_dict: Position dictionary from get_positions()
+    :param wallet_address: Wallet address (optional, uses config if not provided)
+    :returns: Liquidation price as float, or None if calculation not possible
 
-    Returns:
-        Liquidation price as float, or None if calculation not possible
+    .. code-block:: python
 
-    Example:
         from eth_defi.gmx.config import GMXConfig
         from eth_defi.gmx.utils import get_positions
         from eth_defi.gmx.core.liquidation import get_liquidation_price
@@ -376,11 +360,8 @@ def _transform_position_data(raw_data: list) -> list:
     Internal helper function to parse the complex tuple structure returned
     by getAccountPositionInfoList contract call.
 
-    Args:
-        raw_data: Raw position data from contract
-
-    Returns:
-        List of position dictionaries
+    :param raw_data: Raw position data from contract
+    :returns: List of position dictionaries
     """
     result = []
 

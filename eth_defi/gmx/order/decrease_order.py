@@ -24,7 +24,8 @@ class DecreaseOrder(BaseOrder):
     Handles creation of decrease position transactions on GMX protocol, providing
     unsigned transaction generation for external signing.
 
-    Example:
+    .. code-block:: python
+
         TODO: Add example usage
     """
 

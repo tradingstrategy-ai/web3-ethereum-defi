@@ -1830,7 +1830,8 @@ class GMX(ExchangeCompatible):
         :return:
             CCXT fee dict with cost, currency, and rate
 
-        See Also:
+        .. seealso::
+
             - https://docs.gmx.io/docs/trading#fees-and-rebates
         """
         rate = 0.0006  # 0.06% - matches calculate_fee()

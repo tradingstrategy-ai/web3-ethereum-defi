@@ -47,8 +47,6 @@ needed for sophisticated trading strategies.
 - **Liquidity Management**: Convert positions to desired assets based on market conditions
 - **Emergency Risk Management**: Rapidly close positions during adverse market conditions
 
-Example:
-
 .. code-block:: python
 
     # Professional position management workflow
@@ -98,7 +96,8 @@ strategies, risk management systems, and portfolio optimization algorithms.
 Its flexible parameter structure and comprehensive validation make it suitable
 for both manual trading and systematic strategy implementation.
 
-Note:
+.. note::
+
     All order operations require wallet configuration with transaction signing
     capabilities. Test your strategies thoroughly before live execution.
 
@@ -245,8 +244,6 @@ class GMXOrderManager:
         collateral removal, and complex asset swap strategies. This enables
         implementation of professional-grade risk management systems.
 
-        Example:
-
         .. code-block:: python
 
             # Algorithmic position management with dynamic parameters
@@ -362,8 +359,6 @@ class GMXOrderManager:
         risk exposure. Selecting stable tokens (USDC) locks in current values,
         while selecting volatile tokens (ETH) maintains price exposure. This
         strategic flexibility supports diverse trading and investment approaches.
-
-        Example:
 
         .. code-block:: python
 

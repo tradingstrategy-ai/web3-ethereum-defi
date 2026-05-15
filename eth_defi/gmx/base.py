@@ -27,8 +27,6 @@ class GMXClient:
     access to configuration and wallet information. It's designed to be the single
     object developers need to interact with GMX across all supported networks.
 
-    Example:
-
     .. code-block:: python
 
         # Initialize GMX client for Arbitrum with read-only access
