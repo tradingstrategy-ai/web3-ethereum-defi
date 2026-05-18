@@ -15,13 +15,16 @@
 
 import dataclasses
 import datetime
+import logging
+import os
+import pathlib
+import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
 from typing import Iterable, Tuple, TypedDict
 
-from atomicwrites import atomic_write
 from eth_typing import BlockIdentifier, BlockNumber, HexAddress
 from web3 import Web3
 
@@ -35,6 +38,8 @@ from eth_defi.vault.lower_case_dict import LowercaseDict
 from .fee import FeeData, VaultFeeMode, get_vault_fee_mode
 from .flag import VaultFlag, get_notes, get_vault_special_flags
 from .risk import VaultTechnicalRisk, get_vault_risk
+
+logger = logging.getLogger(__name__)
 
 BlockRange = Tuple[BlockNumber, BlockNumber]
 
@@ -52,6 +57,126 @@ REDEMPTION_CLOSED_FUNDS_CUSTODIED = "Funds custodied or epoch in progress"
 REDEMPTION_CLOSED_BY_ADMIN = "Redemptions closed by vault admin"
 REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY = "Insufficient liquidity for redemption"
 REDEMPTION_CLOSED_PAUSED = "Vault paused by admin"
+
+
+class ParquetVerificationError(Exception):
+    """Raised when a parquet file fails post-write verification.
+
+    This is a hard failure — the operator must investigate and restore
+    from backup.  Never catch and swallow this exception.
+    """
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class ParquetVerificationResult:
+    """Result of verifying a parquet file after writing.
+
+    Returned by :py:func:`verify_parquet_file` on success.
+    """
+
+    #: Path to the verified file.
+    path: pathlib.Path
+
+    #: Number of rows read back from the file metadata.
+    row_count: int
+
+    #: Number of columns in the file schema.
+    column_count: int
+
+    #: File size in bytes on disk.
+    file_size: int
+
+    #: Column names found in the file schema.
+    column_names: list[str]
+
+
+def verify_parquet_file(
+    path: pathlib.Path | str,
+    expected_rows: int | None = None,
+    expected_schema: "pyarrow.Schema | None" = None,
+    required_columns: list[str] | None = None,
+) -> ParquetVerificationResult:
+    """Read back a parquet file after writing and verify its integrity.
+
+    Performs a metadata read-back (not a full table load) to check:
+
+    1. The file can be opened and its metadata read without errors
+    2. Row count matches ``expected_rows`` if provided
+    3. All columns in ``expected_schema`` are present with correct types
+       (extra columns are permitted — e.g. native protocol columns)
+    4. All ``required_columns`` are present
+
+    Uses ``pq.read_metadata()`` and ``pq.read_schema()`` instead of
+    ``pq.read_table()`` to avoid loading the full dataset into memory.
+
+    This function should be called on a **temp file before the atomic
+    replace** so that the previous good file is preserved when
+    verification fails.
+
+    :param path:
+        Path to the parquet file to verify.
+    :param expected_rows:
+        If set, assert the file contains exactly this many rows.
+    :param expected_schema:
+        If set, verify that all columns in this schema are present with
+        the correct types.  Extra columns are permitted.
+    :param required_columns:
+        If set, verify these column names are present.
+    :return:
+        Verification result with metadata about the file.
+    :raises ParquetVerificationError:
+        If any verification check fails or the file cannot be read.
+    """
+    import pyarrow.parquet as pq
+
+    path = pathlib.Path(path)
+
+    # 1. Read metadata — catches truncation and footer corruption
+    try:
+        metadata = pq.read_metadata(path)
+        schema = pq.read_schema(path)
+    except Exception as e:
+        raise ParquetVerificationError(f"Cannot read parquet file {path}: {e}") from e
+
+    row_count = metadata.num_rows
+    column_names = schema.names
+    file_size = path.stat().st_size
+
+    # 2. Verify row count
+    if expected_rows is not None and row_count != expected_rows:
+        raise ParquetVerificationError(f"Row count mismatch in {path}: expected {expected_rows:,}, got {row_count:,}")
+
+    # 3. Verify schema fields (extra columns allowed)
+    if expected_schema is not None:
+        schema_by_name = {f.name: f for f in schema}
+        for field in expected_schema:
+            actual = schema_by_name.get(field.name)
+            if actual is None:
+                raise ParquetVerificationError(f"Missing column '{field.name}' in {path}. Expected schema has {len(expected_schema)} fields, file has columns: {column_names}")
+            if actual.type != field.type:
+                raise ParquetVerificationError(f"Type mismatch for column '{field.name}' in {path}: expected {field.type}, got {actual.type}")
+
+    # 4. Verify required columns
+    if required_columns is not None:
+        missing = set(required_columns) - set(column_names)
+        if missing:
+            raise ParquetVerificationError(f"Missing required columns in {path}: {sorted(missing)}. File has columns: {column_names}")
+
+    logger.info(
+        "Parquet verification passed for %s: %d rows, %d columns, %d bytes",
+        path,
+        row_count,
+        len(column_names),
+        file_size,
+    )
+
+    return ParquetVerificationResult(
+        path=path,
+        row_count=row_count,
+        column_count=len(column_names),
+        file_size=file_size,
+        column_names=column_names,
+    )
 
 
 @dataclass(slots=True)
@@ -637,8 +762,25 @@ class VaultHistoricalRead:
                     table.column(i).cast(target_field.type, safe=False),
                 )
 
-        with atomic_write(str(path), mode="wb", overwrite=True) as f:
-            pq.write_table(table, f, compression=compression)
+        # Write to a temp file, verify, then atomically replace the target.
+        # If verification fails, the original file is preserved.
+        temp_fd, temp_path = tempfile.mkstemp(
+            suffix=".parquet",
+            dir=str(path.parent),
+        )
+        try:
+            os.close(temp_fd)
+            pq.write_table(table, temp_path, compression=compression)
+            verify_parquet_file(
+                temp_path,
+                expected_rows=len(df),
+                expected_schema=table.schema,
+            )
+            os.replace(temp_path, str(path))
+        except BaseException:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+            raise
 
 
 @dataclasses.dataclass(slots=True, frozen=True)

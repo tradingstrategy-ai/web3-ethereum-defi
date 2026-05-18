@@ -16,11 +16,11 @@ The output is a cleaned DataFrame conforming to
 
 import os
 import pickle
+import tempfile
 import warnings
 from pathlib import Path
 from typing import Callable, TypedDict
 
-from atomicwrites import atomic_write
 import numpy as np
 import pandas as pd
 from eth_typing import HexAddress
@@ -29,7 +29,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
 from eth_defi.token import is_stablecoin_like
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultSpec, verify_parquet_file
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
 
 
@@ -1342,9 +1342,25 @@ def generate_cleaned_vault_datasets(
     # Sort for better compression
     enhanced_prices_df.sort_values(by=["id", "timestamp"], inplace=True)
 
-    # Atomic write with fsync + directory sync via atomicwrites
-    with atomic_write(str(cleaned_price_df_path), mode="wb", overwrite=True) as f:
-        enhanced_prices_df.to_parquet(f, compression="zstd")
+    # Write to a temp file, verify, then atomically replace the target.
+    # If verification fails, the original cleaned parquet is preserved.
+    temp_fd, temp_path = tempfile.mkstemp(
+        suffix=".parquet",
+        dir=str(cleaned_price_df_path.parent),
+    )
+    try:
+        os.close(temp_fd)
+        enhanced_prices_df.to_parquet(temp_path, compression="zstd")
+        verify_parquet_file(
+            temp_path,
+            expected_rows=len(enhanced_prices_df),
+            required_columns=["id", "share_price", "raw_share_price", "returns_1h", "timestamp"],
+        )
+        os.replace(temp_path, str(cleaned_price_df_path))
+    except BaseException:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+        raise
 
     fsize = cleaned_price_df_path.stat().st_size
     logger(f"Saved cleaned vault prices to {cleaned_price_df_path}, total {len(enhanced_prices_df):,} rows, file size is {fsize / 1024 / 1024:.2f} MB")

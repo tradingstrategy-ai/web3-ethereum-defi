@@ -38,7 +38,7 @@ from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details
 from eth_defi.utils import chunked
-from eth_defi.vault.base import VaultBase, VaultHistoricalRead, VaultHistoricalReader, VaultSpec
+from eth_defi.vault.base import VaultBase, VaultHistoricalRead, VaultHistoricalReader, VaultSpec, verify_parquet_file
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
 logger = logging.getLogger(__name__)
@@ -837,6 +837,13 @@ def scan_historical_prices_to_parquet(
             _proper_fsync(fd)
         finally:
             os.close(fd)
+        # Verify temp file before replacing the target so the
+        # previous good file is preserved if verification fails.
+        verify_parquet_file(
+            temp_fname,
+            expected_rows=existing_row_count + rows_written,
+            expected_schema=writer_schema,
+        )
         os.replace(temp_fname, output_fname)
         dir_fd = os.open(str(output_fname.parent), os.O_RDONLY)
         try:
