@@ -210,7 +210,7 @@ def copy_r2_object_daily_backup(
         ``True`` if a backup copy was created, ``False`` if it was
         skipped (already exists) or if the copy failed.
     """
-    from botocore.exceptions import ClientError  # noqa: PLC0415
+    from botocore.exceptions import BotoCoreError, ClientError  # noqa: PLC0415
 
     from eth_defi.compat import native_datetime_utc_now  # noqa: PLC0415
 
@@ -246,6 +246,14 @@ def copy_r2_object_daily_backup(
             bucket_name,
             backup_key,
             enriched,
+        )
+        return False
+    except BotoCoreError as exc:
+        logger.warning(
+            "Daily backup copy failed for s3://%s/%s: %s",
+            bucket_name,
+            backup_key,
+            exc,
         )
         return False
 

@@ -198,7 +198,7 @@ def _upload_top_vaults_json_to_configured_buckets(
         )
 
         daily_backup_enabled = os.environ.get("R2_DAILY_BACKUP", "true").lower() != "false"
-        if daily_backup_enabled:
+        if alternative_success and daily_backup_enabled:
             copied = copy_r2_object_daily_backup(s3_client, alt_bucket_name, object_key)
             if copied:
                 logger.info("Created daily backup for top_vaults_by_chain.json in alternative bucket")
