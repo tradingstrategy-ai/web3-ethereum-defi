@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from eth_defi.cloudflare_r2 import create_r2_client, upload_file_to_r2
+from eth_defi.cloudflare_r2 import copy_r2_object_daily_backup, create_r2_client, upload_file_to_r2
 from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
 from eth_defi.grvt.vault_data_export import merge_into_uncleaned_parquet as grvt_merge_parquet
@@ -196,6 +196,14 @@ def _upload_top_vaults_json_to_configured_buckets(
             access_key_id=access_key_id,
             bucket_label="alternative",
         )
+
+        daily_backup_enabled = os.environ.get("R2_DAILY_BACKUP", "true").lower() != "false"
+        if daily_backup_enabled:
+            copied = copy_r2_object_daily_backup(s3_client, alt_bucket_name, object_key)
+            if copied:
+                logger.info("Created daily backup for top_vaults_by_chain.json in alternative bucket")
+            else:
+                logger.info("Daily backup skipped or failed for top_vaults_by_chain.json in alternative bucket")
 
     return primary_success and alternative_success
 
