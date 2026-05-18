@@ -25,6 +25,7 @@ def test_upload_top_vaults_json_to_configured_buckets_continues_after_primary_fa
         return True
 
     monkeypatch.setattr(post_processing, "upload_file_to_r2", fake_upload_file_to_r2)
+    monkeypatch.setenv("R2_DAILY_BACKUP", "false")
 
     success = post_processing._upload_top_vaults_json_to_configured_buckets(
         s3_client=object(),

@@ -14,10 +14,12 @@ from eth_defi.cloudflare_r2 import (
     R2AccessDeniedError,
     calculate_bytes_digest,
     calculate_file_digest,
+    copy_r2_object_daily_backup,
     fetch_r2_object_head,
     upload_bytes_to_r2,
     upload_file_to_r2,
 )
+from eth_defi.compat import native_datetime_utc_now
 
 try:
     from botocore.exceptions import ClientError
@@ -40,6 +42,7 @@ class FakeS3Client:
         self.head_exceptions: dict[tuple[str, str], Exception] = {}
         self.put_calls: list[dict] = []
         self.upload_calls: list[dict] = []
+        self.copy_calls: list[dict] = []
         self.meta = SimpleNamespace(endpoint_url=endpoint_url)
         self._request_signer = SimpleNamespace(_credentials=SimpleNamespace(access_key=access_key_id))
 
@@ -65,6 +68,20 @@ class FakeS3Client:
             "Metadata": kwargs.get("Metadata", {}),
             "ETag": f'"{_md5_hex(kwargs["Body"])}"',
         }
+
+    def copy_object(self, **kwargs) -> None:
+        """Record a copy-object call and duplicate the head state."""
+        bucket = kwargs["Bucket"]
+        key = kwargs["Key"]
+        copy_exc = self.head_exceptions.get(("copy", bucket, key))
+        if copy_exc is not None:
+            raise copy_exc
+        source = kwargs["CopySource"]
+        src_bucket = source["Bucket"]
+        src_key = source["Key"]
+        self.copy_calls.append(kwargs)
+        if (src_bucket, src_key) in self.head_responses:
+            self.head_responses[bucket, key] = dict(self.head_responses[src_bucket, src_key])
 
     def upload_fileobj(self, fileobj, bucket_name: str, object_name: str, **kwargs) -> None:
         """Record an upload-fileobj call and update the stored head state."""
@@ -267,3 +284,103 @@ def test_upload_file_to_r2_continues_after_head_access_denied(tmp_path: Path, ca
     assert uploaded is True
     assert len(s3_client.upload_calls) == 1
     assert "Proceeding with upload attempt anyway" in caplog.text
+
+
+def test_copy_r2_object_daily_backup_creates_copy() -> None:
+    """Server-side copy should be issued when no backup exists for today."""
+    s3_client = FakeS3Client()
+    # Simulate a live file already in the bucket.
+    s3_client.head_responses["bucket", "vault-prices-1h.parquet"] = {
+        "ContentLength": 100,
+        "Metadata": {},
+    }
+
+    copied = copy_r2_object_daily_backup(
+        s3_client=s3_client,
+        bucket_name="bucket",
+        source_key="vault-prices-1h.parquet",
+    )
+
+    today = native_datetime_utc_now().strftime("%Y-%m-%d")
+    expected_key = f"daily/{today}/vault-prices-1h.parquet"
+
+    assert copied is True
+    assert len(s3_client.copy_calls) == 1
+    assert s3_client.copy_calls[0]["Key"] == expected_key
+    assert s3_client.copy_calls[0]["CopySource"] == {"Bucket": "bucket", "Key": "vault-prices-1h.parquet"}
+
+
+def test_copy_r2_object_daily_backup_skips_when_exists() -> None:
+    """Backup should be skipped when today's copy already exists."""
+    s3_client = FakeS3Client()
+    today = native_datetime_utc_now().strftime("%Y-%m-%d")
+    backup_key = f"daily/{today}/vault-prices-1h.parquet"
+
+    # Pre-populate — backup already exists.
+    s3_client.head_responses["bucket", backup_key] = {
+        "ContentLength": 100,
+        "Metadata": {},
+    }
+
+    copied = copy_r2_object_daily_backup(
+        s3_client=s3_client,
+        bucket_name="bucket",
+        source_key="vault-prices-1h.parquet",
+    )
+
+    assert copied is False
+    assert s3_client.copy_calls == []
+
+
+def test_copy_r2_object_daily_backup_preserves_upload_prefix() -> None:
+    """Full source key including upload prefix should appear in backup key."""
+    s3_client = FakeS3Client()
+    source_key = "test-vault-prices-1h.parquet"
+    s3_client.head_responses["bucket", source_key] = {
+        "ContentLength": 50,
+        "Metadata": {},
+    }
+
+    copied = copy_r2_object_daily_backup(
+        s3_client=s3_client,
+        bucket_name="bucket",
+        source_key=source_key,
+    )
+
+    today = native_datetime_utc_now().strftime("%Y-%m-%d")
+    expected_key = f"daily/{today}/test-vault-prices-1h.parquet"
+
+    assert copied is True
+    assert len(s3_client.copy_calls) == 1
+    assert s3_client.copy_calls[0]["Key"] == expected_key
+
+
+def test_copy_r2_object_daily_backup_returns_false_on_error(caplog: pytest.LogCaptureFixture) -> None:
+    """Copy failure should log a warning and return False, never raise."""
+    s3_client = FakeS3Client()
+    s3_client.head_responses["bucket", "data.parquet"] = {
+        "ContentLength": 10,
+        "Metadata": {},
+    }
+
+    today = native_datetime_utc_now().strftime("%Y-%m-%d")
+    backup_key = f"daily/{today}/data.parquet"
+
+    # Force copy_object to raise.
+    s3_client.head_exceptions[("copy", "bucket", backup_key)] = ClientError(
+        {
+            "Error": {"Code": "AccessDenied", "Message": "Access Denied"},
+            "ResponseMetadata": {"HTTPStatusCode": 403},
+        },
+        "CopyObject",
+    )
+
+    with caplog.at_level(logging.WARNING):
+        copied = copy_r2_object_daily_backup(
+            s3_client=s3_client,
+            bucket_name="bucket",
+            source_key="data.parquet",
+        )
+
+    assert copied is False
+    assert "Daily backup copy failed" in caplog.text

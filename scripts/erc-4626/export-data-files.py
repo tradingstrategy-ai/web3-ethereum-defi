@@ -26,7 +26,7 @@ from pathlib import Path
 
 from tqdm_loggable.auto import tqdm
 
-from eth_defi.cloudflare_r2 import create_r2_client, upload_file_to_r2
+from eth_defi.cloudflare_r2 import copy_r2_object_daily_backup, create_r2_client, upload_file_to_r2
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
@@ -165,6 +165,8 @@ def main():
         size = f"{p.stat().st_size / 1024 / 1024:.1f} MB" if exists else "MISSING"
         print(f"    - {p.name}: {size}")
 
+    daily_backup_enabled = os.environ.get("R2_DAILY_BACKUP", "true").lower() != "false"
+
     for current_bucket in bucket_names:
         if len(bucket_names) > 1:
             logger.info("Uploading data files to bucket: %s", current_bucket)
@@ -178,6 +180,30 @@ def main():
             key_prefix=upload_prefix,
             public_url=public_url,
         )
+
+        # Create daily timestamped backups in the alternative (private) bucket only.
+        if current_bucket == alt_bucket_name and daily_backup_enabled:
+            s3_client = create_r2_client(
+                endpoint_url=endpoint_url,
+                access_key_id=access_key_id,
+                secret_access_key=secret_access_key,
+            )
+            backup_created = 0
+            backup_skipped = 0
+            for file_path in paths:
+                if not file_path.exists():
+                    continue
+                source_key = f"{upload_prefix}{file_path.name}"
+                if copy_r2_object_daily_backup(s3_client, current_bucket, source_key):
+                    backup_created += 1
+                else:
+                    backup_skipped += 1
+            logger.info(
+                "Daily backup summary for bucket %s: %d created, %d skipped",
+                current_bucket,
+                backup_created,
+                backup_skipped,
+            )
 
 
 if __name__ == "__main__":

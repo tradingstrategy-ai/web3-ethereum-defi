@@ -167,6 +167,106 @@ def _create_r2_operation_error(
     return R2OperationError(" ".join(detail_lines))
 
 
+def copy_r2_object_daily_backup(
+    s3_client: Any,
+    bucket_name: str,
+    source_key: str,
+    *,
+    backup_prefix: str = "daily",
+) -> bool:
+    """Create a daily timestamped backup copy of an R2 object.
+
+    Uses server-side ``copy_object()`` to create a dated snapshot within
+    the same bucket. The copy is skipped if a backup for today already
+    exists (cheap ``head_object()`` pre-flight check).
+
+    Failures are **non-fatal** — any ``ClientError`` is logged as a
+    warning and the function returns ``False``. The caller's primary
+    upload has already succeeded, so a backup copy failure should not
+    crash the pipeline.
+
+    Backup key layout::
+
+        {backup_prefix} / {YYYY - MM - DD} / {source_key}
+
+    The full ``source_key`` is preserved (including any upload prefix)
+    to avoid collisions.
+
+    :param s3_client:
+        Authenticated boto3 S3 client.
+
+    :param bucket_name:
+        Bucket containing the source object (backup is created in the
+        same bucket).
+
+    :param source_key:
+        Object key of the live file to back up.
+
+    :param backup_prefix:
+        Top-level prefix for backup copies. Defaults to ``daily``,
+        making it easy to target with R2 lifecycle rules.
+
+    :return:
+        ``True`` if a backup copy was created, ``False`` if it was
+        skipped (already exists) or if the copy failed.
+    """
+    from botocore.exceptions import BotoCoreError, ClientError  # noqa: PLC0415
+
+    from eth_defi.compat import native_datetime_utc_now  # noqa: PLC0415
+
+    today = native_datetime_utc_now().strftime("%Y-%m-%d")
+    backup_key = f"{backup_prefix}/{today}/{source_key}"
+
+    try:
+        head = fetch_r2_object_head(s3_client, bucket_name, backup_key)
+        if head is not None:
+            logger.info(
+                "Daily backup already exists, skipping: s3://%s/%s",
+                bucket_name,
+                backup_key,
+            )
+            return False
+    except R2OperationError:
+        logger.warning(
+            "Daily backup head check failed for s3://%s/%s, attempting copy anyway",
+            bucket_name,
+            backup_key,
+        )
+
+    try:
+        s3_client.copy_object(
+            Bucket=bucket_name,
+            Key=backup_key,
+            CopySource={"Bucket": bucket_name, "Key": source_key},
+        )
+    except ClientError as exc:
+        enriched = _create_r2_operation_error(exc, s3_client, bucket_name, backup_key)
+        logger.warning(
+            "Daily backup copy failed for s3://%s/%s: %s",
+            bucket_name,
+            backup_key,
+            enriched,
+        )
+        return False
+    except BotoCoreError as exc:
+        logger.warning(
+            "Daily backup copy failed for s3://%s/%s: %s",
+            bucket_name,
+            backup_key,
+            exc,
+        )
+        return False
+
+    logger.info(
+        "Created daily backup: s3://%s/%s -> s3://%s/%s",
+        bucket_name,
+        source_key,
+        bucket_name,
+        backup_key,
+    )
+    return True
+
+
 def create_r2_client(
     endpoint_url: str,
     access_key_id: str,

@@ -1,5 +1,7 @@
 # Current
 
+- feat: Daily timestamped R2 backups for vault data files in private buckets using server-side `copy_object`, with skip-if-exists and opt-out via `R2_DAILY_BACKUP=false` (2026-05-18)
+
 - fix(gmx-freqtrade): remove pre-flight backtest data validator that aborted runs when any pair had short history; backtests now follow vanilla Freqtrade semantics (pairs start trading when their candles arrive) (2026-05-14)
 
 - feat: AlphaGrowth Monad Euler EVK vaults now use AlphaGrowth's Euler Light label metadata for display names, descriptions, and curator attribution (2026-05-14)
