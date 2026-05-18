@@ -1498,7 +1498,7 @@ def main():
         encoding="utf-8",
     )
     rotating_handler.setLevel(logging.INFO)
-    rotating_handler.setFormatter(logging.Formatter("%(asctime)s %(name)-44s [%(threadName)s] %(message)s", "%Y-%m-%d %H:%M:%S"))
+    rotating_handler.setFormatter(logging.Formatter("%(asctime)s %(name)-44s %(levelname)-8s [%(threadName)s] %(message)s", "%Y-%m-%d %H:%M:%S"))
 
     root = logging.getLogger()
     root.addHandler(rotating_handler)

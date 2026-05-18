@@ -105,6 +105,7 @@ class LagoonVersion(enum.Enum):
     legacy = "legacy"
     v_0_5_0 = "v0.5.0"
     v_0_4_0 = "v0.4.0"
+    v_0_6_0 = "v0.6.0"
 
 
 class AutomatedSafe:
@@ -432,6 +433,8 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
                 return LagoonVersion.v_0_4_0
             elif decoded_version == "v0.5.0":
                 return LagoonVersion.v_0_5_0
+            elif decoded_version == "v0.6.0":
+                return LagoonVersion.v_0_6_0
             else:
                 raise NotImplementedError(f"Unknown Lagoon version {decoded_version} for vault {self.spec.vault_address}")
         except (ValueError, ContractLogicError, InsufficientDataBytes) as e:
@@ -629,7 +632,7 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
         # Lagoon team removed pendingSilo() function
         # as they hit the contract size limit
         vault_contract = self.vault_contract
-        if self.version in (LagoonVersion.v_0_5_0, LagoonVersion.v_0_4_0):
+        if self.version in (LagoonVersion.v_0_5_0, LagoonVersion.v_0_4_0, LagoonVersion.v_0_6_0):
             web3 = self.web3
             # Magic storage slot for Silo address
             slot = "0x5c74d456014b1c0eb4368d944667a568313858a3029a650ff0cb7b56f8b57a08"

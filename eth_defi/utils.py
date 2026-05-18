@@ -326,7 +326,7 @@ def setup_console_logging(
         fmt = "%(message)s"
         date_fmt = "%H:%M:%S"
     else:
-        fmt = "%(asctime)s %(name)-44s [%(threadName)s] %(message)s"
+        fmt = "%(asctime)s %(name)-44s %(levelname)-8s [%(threadName)s] %(message)s"
         date_fmt = "%Y-%m-%d %H:%M:%S"
 
     def _wrap_thread_colours(handler: logging.Handler):
