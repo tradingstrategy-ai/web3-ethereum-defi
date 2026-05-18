@@ -311,6 +311,13 @@ def clean_prices(
 
     Reads uncleaned parquet and writes cleaned parquet.
 
+    .. note::
+
+        ``OSError`` (e.g. ZSTD decompression failure from a corrupted
+        parquet file) is deliberately **not** caught here.  A corrupted
+        input file is a critical data-integrity issue that must crash the
+        pipeline so an operator can investigate and restore from backup.
+
     :param vault_db_path: Override for the vault database pickle path
     :param uncleaned_path: Override for the uncleaned parquet path
     :param cleaned_path: Override for the cleaned parquet output path
@@ -328,6 +335,11 @@ def clean_prices(
         generate_cleaned_vault_datasets(**kwargs)
         logger.info("Price cleaning complete")
         return True
+    except OSError:
+        # Corrupted parquet (e.g. "ZSTD decompression failed: Data
+        # corruption detected") is a hard failure — the operator must
+        # investigate and restore from backup.  Never swallow this.
+        raise
     except Exception:
         logger.exception("Clean prices failed")
         return False
@@ -650,9 +662,19 @@ def run_post_processing(
             cleaned_path=cleaned_path,
         )
 
+    # Determine whether cleaned data is trustworthy for downstream exports.
+    # If cleaning was explicitly skipped, the operator asserts the existing
+    # cleaned parquet is valid.  If cleaning ran and failed, downstream steps
+    # that depend on fresh cleaned data must NOT run — otherwise they would
+    # silently re-upload stale artefacts, masking the failure.
+    cleaning_ok = steps.get("clean-prices", True) if not skip_cleaning else True
+
     # Step 3: Export top vaults JSON (depends on cleaned parquet, must run before data-file upload)
     if skip_top_vaults:
         logger.info("Skipping top vaults export (SKIP_TOP_VAULTS=true)")
+    elif not cleaning_ok:
+        logger.warning("Skipping top vaults export — clean_prices failed, refusing to upload stale data")
+        steps["export-top-vaults-json"] = False
     else:
         steps["export-top-vaults-json"] = export_top_vaults_json(
             vault_db_path=vault_db_path,
@@ -662,10 +684,13 @@ def run_post_processing(
     # Step 4: Export sparklines
     if skip_sparklines:
         logger.info("Skipping sparkline export (SKIP_SPARKLINES=true)")
+    elif not cleaning_ok:
+        logger.warning("Skipping sparkline export — clean_prices failed, refusing to export from stale data")
+        steps["export-sparklines"] = False
     else:
         steps["export-sparklines"] = export_sparklines()
 
-    # Step 5: Export protocol metadata
+    # Step 5: Export protocol metadata (not derived from cleaned prices — always safe to run)
     if skip_metadata:
         logger.info("Skipping metadata export (SKIP_METADATA=true)")
     else:
@@ -674,6 +699,9 @@ def run_post_processing(
     # Step 6: Export data files
     if skip_data:
         logger.info("Skipping data file export (SKIP_DATA=true)")
+    elif not cleaning_ok:
+        logger.warning("Skipping data file export — clean_prices failed, refusing to export stale data")
+        steps["export-data-files"] = False
     else:
         steps["export-data-files"] = export_data_files()
 
@@ -682,15 +710,11 @@ def run_post_processing(
         logger.info("Skipping sample file export (SKIP_SAMPLES=true)")
     else:
         # Parquet sample requires clean-prices to have succeeded this run.
-        # If cleaning was explicitly skipped (SKIP_CLEANING=true), the operator
-        # asserts the existing cleaned parquet is valid, so samples are allowed.
-        parquet_ok = steps.get("clean-prices", True) if not skip_cleaning else True
+        parquet_ok = cleaning_ok
 
         # JSON sample requires BOTH a fresh cleaned parquet (top-vaults JSON is
         # derived from cleaned data) AND a successful top-vaults export.
-        # This prevents sampling a JSON built from stale cleaned data after a
-        # cleaning failure.
-        json_ok = (parquet_ok and steps.get("export-top-vaults-json", False)) if not skip_top_vaults else False
+        json_ok = (cleaning_ok and steps.get("export-top-vaults-json", False)) if not skip_top_vaults else False
 
         # If neither sample type is eligible, skip the step entirely
         # rather than recording a misleading "OK" for zero work.
