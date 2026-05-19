@@ -188,6 +188,8 @@ CLEARSTAR_YIELD_USDC_ILLIQUID = "Clearstar Yield USDC is illiquid"
 
 ETHEREALM_USDC_ILLIQUID = "Etherealm USDC is illiquid"
 
+VAULTMORPHO_ILLIQUID = "VaultMorpho is illiquid"
+
 YIELDNEST_YNRWAX = """ynRWAx: Tokenized Australian residential real estate credit earning 11% APY, allocated to mortgage-backed loans on verified house-and-land developments. Made safe in collaboration with a fully licensed and insured fund manager, [Kimber Capital](https://kimbercapital.au/) (AFS Licence No. 425278).
 
 Fees: 0%.
@@ -480,6 +482,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x322e1d5384aa4ed66aeca770b95686271de61dc3": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Etherealm USDC (Morpho on Ethereum)
     "0xb7305d968ecd8a23a13ec01927e3f9588c7653b5": (VaultFlag.illiquid, ETHEREALM_USDC_ILLIQUID),
+    # VaultMorpho (Morpho on Ethereum)
+    "0x21ed44c18c926c60092b1b2985e2c999421a5a69": (VaultFlag.illiquid, VAULTMORPHO_ILLIQUID),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
