@@ -17,7 +17,9 @@ from eth_defi.gmx.market_depth import MarketDepthInfo, parse_market_depth
 from eth_defi.gmx.constants import (
     GMX_API_URLS,
     GMX_API_URLS_BACKUP,
+    GMX_API_URLS_FALLBACK_3,
     GMX_API_V2_URLS,
+    GMX_API_V2_URLS_FALLBACK,
     GMX_SUPPORTED_CHAINS,
     _APY_CACHE_TTL_SECONDS,
     _MARKETS_CACHE_TTL_SECONDS,
@@ -111,8 +113,6 @@ class GMXAPI:
     to backup URLs and provides both raw dictionary responses and pandas DataFrame
     conversions for price data.
 
-    Example:
-
     .. code-block:: python
 
         # Initialize GMX API client
@@ -191,17 +191,32 @@ class GMXAPI:
         """
         return GMX_API_V2_URLS.get(self.chain.lower(), "")
 
-    def _make_v2_request(
+    @property
+    def base_gmxapi_ai_url(self) -> str:
+        """Get the gmxapi.ai REST URL for the configured chain.
+
+        This endpoint hosts wallet-specific routes such as ``/positions`` and
+        ``/orders`` that are not available on the DigitalOcean v2 host.
+
+        :return:
+            gmxapi.ai base URL (e.g. ``https://arbitrum.gmxapi.ai/v1``) or
+            empty string if not configured for this chain.
+        """
+        return GMX_API_URLS_FALLBACK_3.get(self.chain.lower(), "")
+
+    def _make_gmxapi_ai_request(
         self,
         endpoint: str,
         params: dict[str, Any] | None = None,
         timeout: float = 10.0,
     ) -> Any:
-        """Make a request to the GMX REST API v2 with basic retry logic.
+        """Make a request to the gmxapi.ai REST endpoint with retry logic.
 
-        The v2 API uses different base URLs hosted on DigitalOcean and does
-        not have the multi-tier failover of v1.  This method retries up to
-        3 times with exponential backoff on transient failures.
+        Used for wallet-scoped routes (``/positions``, ``/orders``) that are
+        served by ``https://<chain>.gmxapi.ai/v1`` and are **not** available
+        on the DigitalOcean v2 host used by :meth:`_make_v2_request`.
+
+        Retries up to 3 times with exponential backoff on transient failures.
 
         :param endpoint:
             API endpoint path (e.g. ``"/positions"``, ``"/orders"``).
@@ -212,13 +227,13 @@ class GMXAPI:
         :return:
             API response parsed as a dict or list.
         :raises ValueError:
-            When no v2 API URL is configured for the current chain.
+            When no gmxapi.ai URL is configured for the current chain.
         :raises RuntimeError:
             When all retry attempts fail.
         """
-        base = self.base_v2_url
+        base = self.base_gmxapi_ai_url
         if not base:
-            raise ValueError(f"No GMX v2 API URL configured for chain: {self.chain!r}")
+            raise ValueError(f"No gmxapi.ai URL configured for chain: {self.chain!r}")
 
         url = f"{base}{endpoint}"
         last_error: Exception | None = None
@@ -233,7 +248,7 @@ class GMXAPI:
                 last_error = exc
                 if attempt < 2:
                     logger.warning(
-                        "GMX v2 API attempt %d/3 failed for %s: %s — retrying in %.1fs",
+                        "gmxapi.ai attempt %d/3 failed for %s: %s — retrying in %.1fs",
                         attempt + 1,
                         endpoint,
                         exc,
@@ -242,7 +257,67 @@ class GMXAPI:
                     time.sleep(delay)
                     delay = min(delay * 2.0, 10.0)
 
-        raise RuntimeError(f"GMX v2 API request failed after 3 attempts: {endpoint}") from last_error
+        raise RuntimeError(f"gmxapi.ai request failed after 3 attempts: {endpoint}") from last_error
+
+    def _make_v2_request(
+        self,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        timeout: float = 10.0,
+    ) -> Any:
+        """Make a request to the GMX REST API v2 with basic retry logic.
+
+        The v2 API uses the officially documented ``gmxapi.io`` base URLs
+        (see :data:`GMX_API_V2_URLS`).  Unlike the v1 infrastructure this
+        method does not have multi-tier failover — it retries up to 3 times
+        with exponential backoff on transient failures.
+
+        :param endpoint:
+            API endpoint path (e.g. ``"/positions"``, ``"/orders"``).
+        :param params:
+            Optional query parameters dict.
+        :param timeout:
+            HTTP request timeout in seconds.
+        :return:
+            API response parsed as a dict or list.
+        :raises ValueError:
+            When no v2 API URL is configured for the current chain.
+        :raises RuntimeError:
+            When all retry attempts fail.
+        """
+        primary = self.base_v2_url
+        if not primary:
+            raise ValueError(f"No GMX v2 API URL configured for chain: {self.chain!r}")
+
+        fallback = GMX_API_V2_URLS_FALLBACK.get(self.chain.lower(), "")
+
+        # Try primary (gmxapi.io) then fallback (DigitalOcean mirror), 2 attempts each.
+        candidates = [b for b in (primary, fallback) if b]
+        last_error: Exception | None = None
+
+        for base in candidates:
+            url = f"{base}{endpoint}"
+            delay = 1.0
+            for attempt in range(2):
+                try:
+                    response = requests.get(url, params=params, timeout=timeout)
+                    response.raise_for_status()
+                    return response.json()
+                except requests.RequestException as exc:
+                    last_error = exc
+                    if attempt == 0:
+                        logger.warning(
+                            "GMX v2 API attempt failed for %s (%s): %s — retrying in %.1fs",
+                            endpoint,
+                            base,
+                            exc,
+                            delay,
+                        )
+                        time.sleep(delay)
+                        delay = min(delay * 2.0, 10.0)
+            logger.warning("GMX v2 API: %s exhausted, trying next host", base)
+
+        raise RuntimeError(f"GMX v2 API request failed on all hosts: {endpoint}") from last_error
 
     def _make_request(
         self,
@@ -388,8 +463,6 @@ class GMXAPI:
         This is a convenience method that fetches candlestick data and converts
         it into a pandas DataFrame with properly formatted timestamps and
         standardized column names.
-
-        Example:
 
         .. code-block:: python
 
@@ -563,8 +636,6 @@ class GMXAPI:
         :raises ValueError: If period is invalid
         :raises RuntimeError: If all API endpoints fail after retries
 
-        Example:
-
         .. code-block:: python
 
             api = GMXAPI(config)
@@ -633,8 +704,6 @@ class GMXAPI:
 
         The response is cached for 60 seconds by default (``use_cache=True``),
         so calling this method repeatedly in a tight loop is safe.
-
-        Example:
 
         .. code-block:: python
 
@@ -726,7 +795,7 @@ class GMXAPI:
         if include_related_orders:
             params["includeRelatedOrders"] = "true"
 
-        data = self._make_v2_request("/positions", params=params)
+        data = self._make_gmxapi_ai_request("/positions", params=params)
 
         if use_cache:
             _POSITIONS_CACHE[cache_key] = (data, time.time())
@@ -756,7 +825,7 @@ class GMXAPI:
         :raises RuntimeError:
             When all retry attempts fail.
         """
-        return self._make_v2_request("/orders", params={"address": address})
+        return self._make_gmxapi_ai_request("/orders", params={"address": address})
 
     def get_rates(
         self,

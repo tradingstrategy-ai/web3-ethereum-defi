@@ -514,8 +514,6 @@ def calculate_max_position_whale_risk(
     with $1 M long OI allows at most ``$25 000`` on the long side — meaning
     10 equally weighted positions would already be constrained.
 
-    Example:
-
     .. code-block:: python
 
         from eth_defi.gmx.api import GMXAPI

@@ -48,8 +48,6 @@ while maintaining consistent interfaces and operational patterns. This enables
 the same application code to work seamlessly across Arbitrum, Avalanche, and
 other supported networks.
 
-Example:
-
 .. code-block:: python
 
     # Basic configuration
@@ -356,8 +354,6 @@ def create_gmx_config_with_fallback(
     or newlines. URLs prefixed with ``mev+`` are used for transaction
     broadcasting (MEV protection).
 
-    Example:
-
     .. code-block:: python
 
         from eth_defi.gmx.config import create_gmx_config_with_fallback
@@ -425,8 +421,6 @@ def get_fallback_provider_from_gmx_config(config: "GMXConfig"):
     This utility function extracts the FallbackProvider from a GMXConfig
     that was created with multi-provider support, allowing access to
     provider statistics and manual failover controls.
-
-    Example:
 
     .. code-block:: python
 

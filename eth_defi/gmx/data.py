@@ -25,8 +25,6 @@ funding rates, open interest, and user position data.
 - **Trading Metrics**: Open interest, borrowing rates, and funding APR
 - **User Data**: Individual position information and claimable fees
 
-Example:
-
 .. code-block:: python
 
     # Basic market data access
@@ -50,7 +48,8 @@ Example:
     # Check user positions (requires wallet address)
     user_positions = market_data.get_user_positions("0x742d...")
 
-Note:
+.. note::
+
     This module uses read-only configuration to ensure safe data access without
     requiring wallet credentials or transaction signing capabilities.
 """

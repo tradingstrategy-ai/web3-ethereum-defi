@@ -11,8 +11,6 @@ positions.
 - Designed for USDC-collateralised accounts — collateral and PnL are
   both in USD terms
 
-Example:
-
 .. code-block:: python
 
     import os

@@ -80,15 +80,12 @@ def patch_freqtrade(force: bool = False) -> bool:
     1. Patches CCXT to add GMX (using eth_defi.gmx.ccxt.monkeypatch)
     2. Registers GMX in Freqtrade's exchange module
 
-    Args:
-        force: If True, re-apply the patch even if already applied.
-               If False (default), skip if already patched.
+    :param force: If True, re-apply the patch even if already applied.
+        If False (default), skip if already patched.
 
-    Returns:
-        True if patch was applied, False if already patched and not forced.
+    :returns: True if patch was applied, False if already patched and not forced.
 
-    Raises:
-        ImportError: If required modules cannot be imported.
+    :raises ImportError: If required modules cannot be imported.
 
     Example::
 
@@ -184,8 +181,7 @@ def unpatch_freqtrade() -> bool:
 
     Also unpatches CCXT.
 
-    Returns:
-        True if unpatch was performed, False if not currently patched.
+    :returns: True if unpatch was performed, False if not currently patched.
 
     .. warning::
         This function is primarily for testing. In production code, you typically
@@ -256,8 +252,7 @@ def unpatch_freqtrade() -> bool:
 def is_patched() -> bool:
     """Check if Freqtrade is currently patched with GMX support.
 
-    Returns:
-        True if GMX is currently registered in Freqtrade, False otherwise.
+    :returns: True if GMX is currently registered in Freqtrade, False otherwise.
 
     Example::
 
@@ -278,8 +273,7 @@ def gmx_freqtrade_patch():
     context and automatically removes it when exiting. Useful for testing or
     when you only need GMX support temporarily.
 
-    Yields:
-        None
+    :yields: None
 
     Example::
 

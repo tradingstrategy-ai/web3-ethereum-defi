@@ -15,13 +15,12 @@ class InsufficientHistoricalDataError(ExchangeError):
     2. The market didn't exist for the entire requested time range
     3. There are gaps in historical data due to API issues
 
-    Attributes:
-        symbol: Market symbol that was requested
-        timeframe: Candlestick interval requested
-        requested_start: Unix timestamp (ms) of the requested start time
-        available_start: Unix timestamp (ms) of the earliest available data
-        available_end: Unix timestamp (ms) of the latest available data
-        candles_received: Number of candles actually received
+    :ivar symbol: Market symbol that was requested
+    :ivar timeframe: Candlestick interval requested
+    :ivar requested_start: Unix timestamp (ms) of the requested start time
+    :ivar available_start: Unix timestamp (ms) of the earliest available data
+    :ivar available_end: Unix timestamp (ms) of the latest available data
+    :ivar candles_received: Number of candles actually received
     """
 
     def __init__(

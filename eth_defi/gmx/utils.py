@@ -49,8 +49,6 @@ invalid operations from propagating through the system. This defensive programmi
 approach ensures that errors are caught early and reported clearly, preventing
 costly mistakes during live trading operations.
 
-Example:
-
 .. code-block:: python
 
     # Mathematical risk analysis workflow
@@ -125,7 +123,8 @@ def convert_raw_price_to_usd(raw_price: int | float, token_decimals: int) -> flo
     GMX stores prices in 30-decimal PRECISION format. The conversion formula is:
         price_usd = raw_price / 10^(30 - token_decimals)
 
-    Examples:
+    .. code-block:: python
+
         - BTC (8 decimals): raw / 10^22
         - ETH (18 decimals): raw / 10^12
         - USDC (6 decimals): raw / 10^24
@@ -271,8 +270,6 @@ def calculate_estimated_liquidation_price(
         liq_price = entry_price * (1 ± max_loss_ratio)
 
     This provides quick estimates when token details are unavailable.
-
-    Example:
 
     .. code-block:: python
 
@@ -532,8 +529,6 @@ def transform_open_position_to_order_parameters(
     and properly formatted before attempting transformation. Clear error messages
     help identify configuration issues or missing position data that would prevent
     successful order creation.
-
-    Example:
 
     .. code-block:: python
 

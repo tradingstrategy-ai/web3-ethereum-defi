@@ -244,6 +244,107 @@ class AsyncGMXSubsquidClient:
             ),
         )
 
+    async def get_position_changes(
+        self,
+        account: str | None = None,
+        position_key: str | None = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        """Fetch position change history (increases/decreases) via async aiohttp.
+
+        Mirrors :py:meth:`GMXSubsquidClient.get_position_changes` using the async
+        session, with automatic failover to the backup endpoint and 3 retry attempts.
+
+        :param account: Optional wallet address filter.
+        :param position_key: Optional position key filter.
+        :param limit: Maximum number of results.
+        :returns: List of position change dicts (same shape as sync version).
+        """
+        if not self.session:
+            raise RuntimeError("Session not initialized. Use 'async with' context manager.")
+
+        where_conditions = []
+        variables: dict = {"limit": limit}
+        if account:
+            where_conditions.append("account_eq: $account")
+            variables["account"] = account
+        if position_key:
+            where_conditions.append("positionKey_eq: $positionKey")
+            variables["positionKey"] = position_key
+
+        where_clause = ", ".join(where_conditions)
+        account_var = ", $account: String!" if account else ""
+        position_key_var = ", $positionKey: String!" if position_key else ""
+        where_block = f"where: {{ {where_clause} }}" if where_clause else ""
+
+        query = f"""
+        query GetPositionChanges($limit: Int!{account_var}{position_key_var}) {{
+          positionChanges(
+            limit: $limit
+            orderBy: [timestamp_DESC]
+            {where_block}
+          ) {{
+            id
+            account
+            market
+            collateralToken
+            isLong
+            sizeInUsd
+            sizeDeltaUsd
+            collateralAmount
+            executionPrice
+            orderKey
+            type
+            timestamp
+            transactionHash
+          }}
+        }}
+        """
+
+        endpoints_to_try = [self.endpoint]
+        if self.endpoint_backup:
+            endpoints_to_try.append(self.endpoint_backup)
+
+        payload = {"query": query, "variables": variables}
+        last_error: Exception | None = None
+
+        for attempt in range(3):
+            for endpoint in endpoints_to_try:
+                try:
+                    async with self.session.post(
+                        endpoint,
+                        json=payload,
+                        timeout=aiohttp.ClientTimeout(total=30),
+                    ) as resp:
+                        if not resp.ok:
+                            body = await resp.text()
+                            logger.warning(
+                                "get_position_changes: HTTP %s from %s | body=%s",
+                                resp.status,
+                                endpoint.split("/")[2],
+                                body[:300],
+                            )
+                            resp.raise_for_status()
+                        data = await resp.json()
+                        if "errors" in data:
+                            raise RuntimeError("GraphQL errors: %s" % data["errors"])
+                        return data.get("data", {}).get("positionChanges", [])
+                except Exception as exc:
+                    last_error = exc
+                    logger.warning(
+                        "get_position_changes attempt %d/%d on %s failed: %s",
+                        attempt + 1,
+                        3,
+                        endpoint.split("/")[2],
+                        exc,
+                    )
+            # Short back-off between retry attempts (not between endpoint failovers)
+            if attempt < 2:
+                await asyncio.sleep(0.5)
+
+        logger.error("get_position_changes: all retries failed — returning []: %s", last_error)
+        return []
+
     @staticmethod
     def calculate_max_leverage(min_collateral_factor: str) -> float | None:
         """Calculate max leverage from min collateral factor.

@@ -87,7 +87,8 @@ class GMXSyntheticTokenDetails:
         :param raw_amount: Raw token amount as integer
         :return: Decimal representation of the amount
 
-        Example:
+        .. code-block:: python
+
             If token has 6 decimals, converts 1000000 -> 1.0
         """
         if not isinstance(raw_amount, int):
@@ -100,7 +101,8 @@ class GMXSyntheticTokenDetails:
         :param decimal_amount: Decimal amount
         :return: Raw token amount as integer
 
-        Example:
+        .. code-block:: python
+
             If token has 6 decimals, converts 1.0 -> 1000000
         """
         if not isinstance(decimal_amount, Decimal):
@@ -171,8 +173,6 @@ def fetch_gmx_synthetic_tokens(
     :return: list of GMXSyntheticTokenDetails objects
     :raises GMXTokenFetchError: If API request fails on both primary and backup
     :raises ValueError: If chain_id is not supported
-
-    Example:
 
     .. code-block:: python
 
@@ -275,8 +275,6 @@ def get_gmx_synthetic_token_by_symbol(
         Retry behaviour for the underlying API request.
         Defaults to production settings when ``None``.
     :return: GMXSyntheticTokenDetails if found, None otherwise
-
-    Example:
 
     .. code-block:: python
 

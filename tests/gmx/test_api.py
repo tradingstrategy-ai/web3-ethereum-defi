@@ -316,8 +316,8 @@ def test_base_v2_url(chain_name, gmx_config):
     api = GMXAPI(gmx_config, retry_config=GMX_TEST_RETRY_CONFIG)
 
     if chain_name.lower() == "arbitrum":
-        assert "ondigitalocean.app" in api.base_v2_url
-        assert api.base_v2_url.endswith("/api/v1")
+        assert "gmxapi.io" in api.base_v2_url
+        assert api.base_v2_url.endswith("/v1")
     elif chain_name.lower() == "avalanche":
         # Avalanche v2 may or may not be configured — just check it's a string
         assert isinstance(api.base_v2_url, str)

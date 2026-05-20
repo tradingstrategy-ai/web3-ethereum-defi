@@ -283,8 +283,7 @@ def gmx_ccxt_patch():
     context and automatically removes it when exiting. Useful for testing or
     when you only need GMX support temporarily.
 
-    Yields:
-        None
+    :yields: None
 
     Example::
 

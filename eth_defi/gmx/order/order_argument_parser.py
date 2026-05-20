@@ -18,8 +18,11 @@ from eth_defi.gmx.contracts import get_tokens_metadata_dict
 
 logger = logging.getLogger(__name__)
 
-# Module-level caches to avoid repeated expensive calls
-_MARKETS_CACHE: dict[str, dict] = {}  # Key: chain name
+# Module-level cache for token metadata only.  The previous ``_MARKETS_CACHE``
+# was removed in the issue-#67 fix — :class:`Markets` now owns a TTL'd cache
+# that is invalidated centrally via :meth:`Markets.invalidate_cache`, so a
+# parallel cache here would defeat the cache-coherence guarantee that the
+# refresh-on-miss path depends on.
 _TOKEN_METADATA_CACHE: dict[tuple[int, str], dict] = {}  # Key: (chain_id, chain_name)
 
 
@@ -110,20 +113,21 @@ class OrderArgumentParser:
             # GMXConfigManager has get_chain() method
             chain = config.get_chain()
 
-        # Check if markets are cached — skip an empty cache entry so a previous transient
-        # API failure cannot poison this call (Markets.get_available_markets() now raises
-        # ValueError on empty rather than returning {}, so this guard handles any legacy
-        # empty entry that may exist in the cache from a prior run).
-        if chain not in _MARKETS_CACHE or not _MARKETS_CACHE[chain]:
-            # Get user wallet address - handle both types
-            user_wallet_address = getattr(config, "user_wallet_address", None) or getattr(config, "_user_wallet_address", None)
+        # Resolve markets via :class:`Markets`.  The class-level cache inside
+        # ``Markets`` carries its own 5-minute TTL and invalidation surface
+        # (see ``Markets.invalidate_cache``), so we do NOT layer a second
+        # cache here — having two caches with independent staleness was
+        # exactly the failure mode behind issue #67.
+        user_wallet_address = getattr(config, "user_wallet_address", None) or getattr(config, "_user_wallet_address", None)
+        gmx_config = GMXConfig(self.web3, user_wallet_address=user_wallet_address)
+        self._gmx_config_for_refresh = gmx_config  # Held so the miss-retry path can re-resolve.
+        self.markets = Markets(gmx_config).get_available_markets()
 
-            gmx_config = GMXConfig(self.web3, user_wallet_address=user_wallet_address)
-
-            # Get markets info - Markets expects GMXConfig, not GMXConfigManager
-            _MARKETS_CACHE[chain] = Markets(gmx_config).get_available_markets()
-
-        self.markets = _MARKETS_CACHE[chain]
+        #: True once :meth:`_handle_missing_market_key` has performed its
+        #: one allowed cache-refresh retry.  Bounding the retry per parser
+        #: instance prevents an infinite loop when the index token is
+        #: structurally absent from GMX.
+        self._market_key_refresh_attempted: bool = False
 
         if is_increase:
             self.required_keys = [
@@ -258,14 +262,32 @@ class OrderArgumentParser:
         all_matches = self.find_all_market_keys_by_index_address(self.markets, index_token_address)
 
         if not all_matches:
-            available = [v.get("index_token_address") for v in self.markets.values()]
-            logger.info(
-                "_handle_missing_market_key: NOT FOUND for index_token_address=%s — available=%s",
-                index_token_address,
-                available,
-            )
-            msg = f"No GMX market found for index_token_address={index_token_address!r}. Available index_token_addresses: {available}"
-            raise ValueError(msg)
+            # Force a cache refresh once per parser instance before giving up.
+            # The class-level Markets cache may be stale (e.g. a new GMX
+            # listing happened since the parser was constructed); a single
+            # forced refresh covers that case without risking an infinite
+            # retry loop when the token is genuinely absent.
+            if not self._market_key_refresh_attempted:
+                self._market_key_refresh_attempted = True
+                chain = self.parameters_dict.get("chain")
+                logger.warning(
+                    "_handle_missing_market_key: index_token_address=%s not in cached markets — invalidating cache for chain=%s and retrying once",
+                    index_token_address,
+                    chain,
+                )
+                Markets.invalidate_cache(chain)
+                self.markets = Markets(self._gmx_config_for_refresh).get_available_markets()
+                all_matches = self.find_all_market_keys_by_index_address(self.markets, index_token_address)
+
+            if not all_matches:
+                available = [v.get("index_token_address") for v in self.markets.values()]
+                logger.info(
+                    "_handle_missing_market_key: NOT FOUND for index_token_address=%s — available=%s",
+                    index_token_address,
+                    available,
+                )
+                msg = f"No GMX market found for index_token_address={index_token_address!r} after forced cache refresh. Available index_token_addresses: {available}"
+                raise ValueError(msg)
 
         if len(all_matches) == 1:
             market_key = all_matches[0]
@@ -298,16 +320,40 @@ class OrderArgumentParser:
                             break
 
             if market_key is None:
-                # No collateral hint or no match — fall back to first entry with a warning
-                market_key = all_matches[0]
-                logger.warning(
-                    "_handle_missing_market_key: %d markets share index_token %s, could not disambiguate by collateral (%s) — using first match %s. All candidates: %s",
-                    len(all_matches),
-                    index_token_address,
-                    collateral_symbol,
-                    market_key,
-                    all_matches,
-                )
+                # No collateral hint or no match — prefer USDC-paired pools.
+                # Standard "<base>-USDC" pools (WBTC-USDC, WETH-USDC, BONK-USDC)
+                # always have orders-of-magnitude deeper liquidity than the
+                # synthetic single-sided alternatives (tBTC-tBTC etc.), so this
+                # mirrors the catalog's USDC_PAIRED default selection strategy.
+                # See ``eth_defi.gmx.core.market_catalog.MarketSelection``.
+                usdc_candidates = [
+                    key
+                    for key in all_matches
+                    if "USDC"
+                    in (
+                        (self.markets[key].get("long_token_metadata", {}).get("symbol", "") or "").upper(),
+                        (self.markets[key].get("short_token_metadata", {}).get("symbol", "") or "").upper(),
+                    )
+                ]
+                if usdc_candidates:
+                    market_key = usdc_candidates[0]
+                    logger.info(
+                        "_handle_missing_market_key: %d markets share index_token %s, no explicit collateral hint — picked USDC-paired pool %s (USDC candidates: %s, all candidates: %s)",
+                        len(all_matches),
+                        index_token_address,
+                        market_key,
+                        usdc_candidates,
+                        all_matches,
+                    )
+                else:
+                    market_key = all_matches[0]
+                    logger.warning(
+                        "_handle_missing_market_key: %d markets share index_token %s, no USDC-paired pool found and no collateral hint — using first match %s. All candidates: %s",
+                        len(all_matches),
+                        index_token_address,
+                        market_key,
+                        all_matches,
+                    )
 
         self.parameters_dict["market_key"] = market_key
 
@@ -362,18 +408,30 @@ class OrderArgumentParser:
         tokens = _get_token_metadata_dict(self.web3, self.parameters_dict["chain"])
         collateral_address = self.find_key_by_symbol(tokens, collateral_token_symbol)
 
-        # Debug logging for collateral token flow
+        # Try strict collateral validation.  If the collateral is not directly
+        # held by the market, _check_if_valid_collateral_for_market raises with
+        # context.  We catch that here and continue — the GMX router auto-swaps
+        # via ``swap_path`` so the order is still valid (issue #67, 2026-05-14:
+        # ``Not a valid collateral for selected market!`` BTC/USDC:USDC vs
+        # tBTC-tBTC).  Always set collateral_address so the router has a target.
+        try:
+            is_directly_supported = self._check_if_valid_collateral_for_market(collateral_address)
+        except Exception:
+            is_directly_supported = False
+            logger.info(
+                "COLLATERAL_TRACE: collateral %s not directly accepted by market_key %s — relying on GMX router swap_path to convert at order time",
+                collateral_token_symbol,
+                self.parameters_dict.get("market_key"),
+            )
         logger.info(
-            "COLLATERAL_TRACE: Resolved collateral address:\n  collateral_token_symbol=%s → collateral_address=%s\n  is_valid_for_market=%s",
+            "COLLATERAL_TRACE: Resolved collateral address:\n  collateral_token_symbol=%s → collateral_address=%s\n  is_directly_supported_by_market=%s",
             collateral_token_symbol,
             collateral_address,
-            self._check_if_valid_collateral_for_market(collateral_address),
+            is_directly_supported,
         )
 
-        # Validate collateral is valid for the market
-        if self._check_if_valid_collateral_for_market(collateral_address) and not self.is_swap:
+        if not self.is_swap:
             self.parameters_dict["collateral_address"] = collateral_address
-            # Debug logging for collateral token flow
             logger.info(
                 "COLLATERAL_TRACE: Final collateral address set:\n  parameters_dict['collateral_address']=%s",
                 self.parameters_dict["collateral_address"],
@@ -419,8 +477,20 @@ class OrderArgumentParser:
         msg = "Please indicate slippage!"
         raise Exception(msg)
 
-    def _check_if_valid_collateral_for_market(self, collateral_address: str):
-        """Validate collateral token is valid for the selected market."""
+    def _check_if_valid_collateral_for_market(self, collateral_address: str) -> bool:
+        """Check whether ``collateral_address`` is directly held by the market.
+
+        Returns ``True`` when the collateral matches the market's long or short
+        token.  Raises ``Exception`` with actionable context when it does not —
+        callers that want to soft-fail (e.g. :meth:`_handle_missing_collateral_address`)
+        should catch and continue.
+
+        :param collateral_address: Collateral token contract address.
+        :returns: ``True`` when the collateral is directly accepted.
+        :raises Exception: When ``collateral_address`` is not the long or short
+            token of the selected market, with market_key, valid token addresses,
+            and a hint in the message.
+        """
         market_key = self.parameters_dict["market_key"]
 
         # Special handling for WBTC market
@@ -429,15 +499,14 @@ class OrderArgumentParser:
 
         market = self.markets[market_key]
 
-        # Collateral must be either long or short token of the market
         if collateral_address in (
             market["long_token_address"],
             market["short_token_address"],
         ):
             return True
-        else:
-            msg = f"Not a valid collateral for selected market!\n  market_key: {market_key}\n  collateral_address: {collateral_address}\n  valid long_token: {market['long_token_address']} ({market['long_token_metadata'].get('symbol', '?')})\n  valid short_token: {market['short_token_address']} ({market['short_token_metadata'].get('symbol', '?')})\n  Hint: set collateral_symbol to the long or short token symbol of this market."
-            raise Exception(msg)
+
+        msg = f"Not a valid collateral for selected market!\n  market_key: {market_key}\n  collateral_address: {collateral_address}\n  valid long_token: {market['long_token_address']} ({market['long_token_metadata'].get('symbol', '?')})\n  valid short_token: {market['short_token_address']} ({market['short_token_metadata'].get('symbol', '?')})\n  Hint: set collateral_symbol to the long or short token symbol of this market."
+        raise Exception(msg)
 
     @staticmethod
     def find_key_by_symbol(input_dict: dict, search_symbol: str):
@@ -473,6 +542,17 @@ class OrderArgumentParser:
         # Compare lowercase on both sides so the method works regardless of whether
         # stored addresses are checksummed (RPC/GraphQL path) or lowercase (REST API path).
         matches = [key for key, value in input_dict.items() if value.get("index_token_address", "").lower() == lower_address]
+        # Stable deterministic order: standard pools (long_token != short_token) before
+        # single-token loop pools (ETH2, BTC2 where long==short), then by market address.
+        # This ensures the same pool is picked regardless of the iteration order of the
+        # input_dict (e.g. after a REST-API market refresh reorders the cache).
+        if len(matches) > 1:
+            matches.sort(
+                key=lambda k: (
+                    1 if input_dict[k].get("long_token_address", "").lower() == input_dict[k].get("short_token_address", "").lower() else 0,
+                    k.lower(),
+                )
+            )
         logger.info(
             "find_all_market_keys_by_index_address: address=%s found %d match(es): %s",
             checksum_address,

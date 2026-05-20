@@ -25,8 +25,6 @@ networks by simply selecting the appropriate constants for the target blockchain
 The constants are loaded at module import time to ensure consistent configuration
 throughout the application lifecycle.
 
-Example:
-
 .. code-block:: python
 
     # Access API endpoints for different networks
@@ -43,7 +41,8 @@ Example:
     # Load ABI for contract interaction
     event_emitter_abi = GMX_EVENT_EMITTER_ABI
 
-Note:
+.. note::
+
     GMX maintains the API endpoints and official documentation can be found at:
     https://gmx-docs.io/docs/api/rest-v2
 """
@@ -126,22 +125,51 @@ GMX_API_URLS_FALLBACK_2: dict = {
     "arbitrum_sepolia": "https://dolphin-app-a2dup.ondigitalocean.app",
 }
 
+GMX_API_URLS_FALLBACK_3: dict = {
+    #: Third fallback API endpoint URLs for GMX protocol services by blockchain network.
+    #:
+    #: These endpoints provide a fifth level of redundancy using the gmxapi.ai
+    #: infrastructure, tried when all four gmxinfra endpoints are unavailable.
+    #:
+    #: :type: dict[str, str]
+    #: :var arbitrum: Third fallback API endpoint for Arbitrum network operations
+    #: :var avalanche: Third fallback API endpoint for Avalanche network operations
+    "arbitrum": "https://arbitrum.gmxapi.ai/v1",
+    "avalanche": "https://avalanche.gmxapi.ai/v1",
+}
+
 #: REST API v2 endpoint URLs for GMX protocol services by blockchain network.
 #:
-#: These endpoints provide access to newer GMX REST API v2 services hosted on
-#: DigitalOcean, including positions, orders, funding/borrowing rates, OHLCV
-#: candles with flexible ``since`` parameter, token info, and trading pairs.
+#: These endpoints are the officially documented GMX REST API base URLs
+#: (https://docs.gmx.io/docs/api/overview/).  Two independent peer regions are
+#: available per chain: ``gmxapi.io`` (primary, listed here) and ``gmxapi.ai``
+#: (fallback, stored in :data:`GMX_API_URLS_FALLBACK_3`).
 #:
-#: The v2 base URL path includes ``/api/v1`` as part of the base — endpoint
-#: paths are appended directly (e.g. ``/positions``, ``/orders``).
+#: Endpoint paths are appended directly to the base URL
+#: (e.g. ``/positions``, ``/orders``).
+#:
+#: .. note::
+#:     The previous DigitalOcean host
+#:     (``gmx-api-arbitrum-2nlbk.ondigitalocean.app``) used the wrong
+#:     ``/api/v1`` path prefix and is no longer referenced here.
 #:
 #: .. note::
 #:     v1 endpoints (:data:`GMX_API_URLS`) remain the primary source for
 #:     tickers, signed prices, markets, and APY data.  v2 endpoints expose
 #:     **additional** surfaces not available in v1.
 GMX_API_V2_URLS: dict[str, str] = {
-    "arbitrum": "https://gmx-api-arbitrum-2nlbk.ondigitalocean.app/api/v1",
-    "avalanche": "https://gmx-api-avalanche-vxjas.ondigitalocean.app/api/v1",
+    "arbitrum": "https://arbitrum.gmxapi.io/v1",
+    "avalanche": "https://avalanche.gmxapi.io/v1",
+}
+
+#: Fallback REST API v2 endpoint URLs (DigitalOcean mirror).
+#:
+#: Used by :meth:`~eth_defi.gmx.api.GMXAPI._make_v2_request` when the primary
+#: :data:`GMX_API_V2_URLS` (``gmxapi.io``) and the ``gmxapi.ai`` peer both
+#: fail.  The correct path prefix is ``/v1`` (not ``/api/v1``).
+GMX_API_V2_URLS_FALLBACK: dict[str, str] = {
+    "arbitrum": "https://gmx-api-arbitrum-2nlbk.ondigitalocean.app/v1",
+    "avalanche": "https://gmx-api-avalanche-vxjas.ondigitalocean.app/v1",
 }
 
 # TODO: get rid of the rest bcz they will be migrated soon.

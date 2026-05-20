@@ -38,8 +38,6 @@ class GMXMarketCache(PersistentKeyValueStore):
         "loading_mode": "rest_api|graphql|rpc"
     }
 
-    Example:
-
     .. code-block:: python
 
         cache = GMXMarketCache.get_cache("arbitrum")

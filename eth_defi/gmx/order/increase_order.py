@@ -24,7 +24,8 @@ class IncreaseOrder(BaseOrder):
     Handles creation of increase position transactions on GMX protocol, providing
     unsigned transaction generation for external signing.
 
-    Example:
+    .. code-block:: python
+
         TODO: Add example usage
     """
 

@@ -78,7 +78,8 @@ def _timeframe_to_milliseconds(timeframe: str) -> int:
     :param timeframe: Timeframe string (e.g., "1m", "5m", "1h", "4h", "1d")
     :return: Duration in milliseconds
 
-    Examples:
+    .. code-block:: python
+
         >>> _timeframe_to_milliseconds("1m")
         60000
         >>> _timeframe_to_milliseconds("1h")

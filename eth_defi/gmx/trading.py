@@ -53,8 +53,6 @@ The module supports multiple trading patterns including:
 - **Multi-Asset Support**: Trade across all GMX-supported markets and tokens
 - **Slippage Management**: Dynamic slippage adjustment based on market conditions
 
-Example:
-
 .. code-block:: python
 
     # Professional trading workflow with comprehensive risk management
@@ -105,11 +103,13 @@ risk management systems, and portfolio optimization algorithms. Its clean
 interface and comprehensive parameter control make it suitable for both manual
 trading and systematic strategy implementation.
 
-Note:
+.. note::
+
     All trading operations require wallet configuration with transaction signing
     capabilities and sufficient collateral for the intended operations.
 
-Warning:
+.. warning::
+
     Leveraged trading involves substantial risk of loss. Positions can be
     liquidated if market movements exceed collateral capacity. Never trade
     with more capital than you can afford to lose completely.
@@ -265,8 +265,6 @@ class GMXTrading:
         4. On success: log actual gas usage, return success result
         5. On OutOfGas: return failed result (no crash)
         6. On other error: return failed result with error message
-
-        Example:
 
         .. code-block:: python
 
@@ -579,8 +577,6 @@ class GMXTrading:
         of the market you're trading. Never risk more than you can afford to
         lose on any single position.
 
-        Example:
-
         .. code-block:: python
 
             # Conservative long position with stable collateral
@@ -829,8 +825,6 @@ class GMXTrading:
         speed against price protection based on current market volatility and
         urgency of the closure requirement.
 
-        Example:
-
         .. code-block:: python
 
             # Profit-taking strategy: Partial closure with stable output
@@ -1061,8 +1055,6 @@ class GMXTrading:
         workflows, enabling complex strategies that combine position adjustments
         with asset rebalancing in coordinated sequences.
 
-        Example:
-
         .. code-block:: python
 
             # Portfolio rebalancing: Convert profits to stable assets
@@ -1202,8 +1194,6 @@ class GMXTrading:
         For long positions, the order triggers when the market price falls to
         or below the trigger price. For short positions, the order triggers
         when the market price rises to or above the trigger price.
-
-        Example:
 
         .. code-block:: python
 
@@ -1345,8 +1335,6 @@ class GMXTrading:
         SL/TP orders. All three orders are submitted together, ensuring the
         protective orders are in place from the moment the position is opened.
 
-        Example:
-
         .. code-block:: python
 
             # Open long with 5% stop loss and 10% take profit
@@ -1480,8 +1468,6 @@ class GMXTrading:
         The SL order will trigger when price moves against your position
         by the specified amount, limiting potential losses.
 
-        Example:
-
         .. code-block:: python
 
             # Create SL 5% below entry for a long position
@@ -1590,8 +1576,6 @@ class GMXTrading:
 
         The TP order will trigger when price moves in your favor
         by the specified amount, locking in profits.
-
-        Example:
 
         .. code-block:: python
 

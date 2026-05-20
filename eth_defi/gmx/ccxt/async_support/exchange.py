@@ -35,6 +35,7 @@ from eth_defi.gmx.ccxt.cancel_helpers import (
 from eth_defi.gmx.ccxt.exchange import _derive_side_from_trade_action
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
+from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.symbols import DEPRECATED_MARKET_TOKENS, SYMBOL_NORMALISE
 from eth_defi.gmx.constants import (
@@ -44,7 +45,7 @@ from eth_defi.gmx.constants import (
     _MIN_LOG_CHUNK_BLOCKS,
 )
 from eth_defi.event_reader.multicall_batcher import get_multicall_contract
-from eth_defi.gmx.contracts import get_contract_addresses, get_datastore_contract
+from eth_defi.gmx.contracts import get_contract_addresses, get_datastore_contract, get_reader_contract
 from eth_defi.gmx.keys import is_market_disabled_key
 from eth_defi.gmx.core import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
@@ -236,6 +237,32 @@ async def _async_scan_logs_chunked_for_trade_action(
     return None
 
 
+async def _block_timestamp_ms(web3: "AsyncWeb3", block_number: int | None) -> int | None:
+    """Return block-creation epoch milliseconds for ``block_number``, or ``None``.
+
+    Async mirror of the sync helper in :mod:`eth_defi.gmx.ccxt.exchange`. Used
+    to build synthetic CCXT-order dicts in the cache-miss path of
+    :meth:`GMX.fetch_order` after a bot restart. Falling back to ``None`` on
+    any failure keeps the order construction non-fatal — downstream consumers
+    (e.g. the freqtrade wrapper) already handle ``timestamp=None`` safely.
+
+    :param web3: Connected :class:`web3.AsyncWeb3` instance.
+    :param block_number: Block number to look up. ``None`` or ``0`` returns
+        ``None`` without making an RPC call.
+    :returns: ``block.timestamp * 1000`` in epoch milliseconds, or ``None`` if
+        ``block_number`` is falsy or the RPC call fails.
+    :raises: Never — RPC failures are logged at debug and return ``None``.
+    """
+    if not block_number:
+        return None
+    try:
+        block = await web3.eth.get_block(block_number)
+        return int(block["timestamp"]) * 1000
+    except Exception as e:  # noqa: BLE001 — fetch_order must never raise here
+        logger.debug("_block_timestamp_ms: get_block(%s) failed: %s", block_number, e)
+        return None
+
+
 class GMX(Exchange):
     """Async GMX exchange with native async I/O.
 
@@ -266,12 +293,11 @@ class GMX(Exchange):
     def __init__(self, config: dict | None = None):
         """Initialize async GMX exchange.
 
-        Args:
-            config: CCXT-style configuration dict with:
-                - rpcUrl: Arbitrum RPC endpoint (required)
-                - privateKey: Private key for trading (optional)
-                - chainId: Chain ID override (optional)
-                - subsquidEndpoint: Custom Subsquid endpoint (optional)
+        :param config: CCXT-style configuration dict with:
+            - rpcUrl: Arbitrum RPC endpoint (required)
+            - privateKey: Private key for trading (optional)
+            - chainId: Chain ID override (optional)
+            - subsquidEndpoint: Custom Subsquid endpoint (optional)
         """
         # Initialize CCXT base class
         super().__init__(config or {})
@@ -351,17 +377,14 @@ class GMX(Exchange):
         For backtesting, we use a fixed 0.06% (0.0006) which represents
         a realistic middle ground for position trading.
 
-        Args:
-            symbol: Trading pair symbol (e.g., "ETH/USD")
-            type: Order type (e.g., "market", "limit")
-            side: Order side ("buy" or "sell")
-            amount: Order amount in base currency
-            price: Order price
-            takerOrMaker: "taker" or "maker" (not used for GMX)
-            params: Additional parameters
-
-        Returns:
-            Fee dictionary with rate and cost
+        :param symbol: Trading pair symbol (e.g., "ETH/USD")
+        :param type: Order type (e.g., "market", "limit")
+        :param side: Order side ("buy" or "sell")
+        :param amount: Order amount in base currency
+        :param price: Order price
+        :param takerOrMaker: "taker" or "maker" (not used for GMX)
+        :param params: Additional parameters
+        :returns: Fee dictionary with rate and cost
         """
         if params is None:
             params = {}
@@ -395,14 +418,12 @@ class GMX(Exchange):
 
         Fee is denominated in the settlement/quote currency (typically USDC).
 
-        Args:
-            symbol: Trading pair symbol
-            size_delta_usd: Position size in USD
+        :param symbol: Trading pair symbol
+        :param size_delta_usd: Position size in USD
+        :returns: CCXT fee dict with cost, currency, and rate
 
-        Returns:
-            CCXT fee dict with cost, currency, and rate
+        .. seealso::
 
-        See Also:
             https://docs.gmx.io/docs/trading#fees-and-rebates
         """
         rate = 0.0006  # 0.06% - matches calculate_fee()
@@ -535,14 +556,11 @@ class GMX(Exchange):
 
         Returns CCXT-compliant fee structure with cost, currency, and rate.
 
-        Args:
-            verification: GMXOrderVerificationResult with fee data
-            market: CCXT market dict
-            is_long: Whether position is long
-            size_delta_usd: Position size in USD
-
-        Returns:
-            CCXT fee dict with actual cost, currency, and rate
+        :param verification: GMXOrderVerificationResult with fee data
+        :param market: CCXT market dict
+        :param is_long: Whether position is long
+        :param size_delta_usd: Position size in USD
+        :returns: CCXT fee dict with actual cost, currency, and rate
         """
         if not verification or not verification.fees:
             # Fallback to fixed rate if no fee data available
@@ -1259,12 +1277,9 @@ class GMX(Exchange):
         - options={'graphql_only': True} - Force GraphQL mode
         - params={'graphql_only': True} - Force GraphQL mode (CCXT style)
 
-        Args:
-            reload: Force reload even if cached
-            params: Additional parameters (CCXT compatibility)
-
-        Returns:
-            Dictionary mapping symbols to market info
+        :param reload: Force reload even if cached
+        :param params: Additional parameters (CCXT compatibility)
+        :returns: Dictionary mapping symbols to market info
         """
         if not reload and self.markets:
             return self.markets
@@ -1500,11 +1515,8 @@ class GMX(Exchange):
     async def fetch_markets(self, params: dict | None = None) -> list[dict]:
         """Fetch all available markets.
 
-        Args:
-            params: Additional parameters
-
-        Returns:
-            List of market structures
+        :param params: Additional parameters
+        :returns: List of market structures
         """
         markets = await self.load_markets(reload=True)
         return list(markets.values())
@@ -1515,14 +1527,9 @@ class GMX(Exchange):
         This is a sync method (not async) following CCXT patterns.
         Markets must be loaded before calling this.
 
-        Args:
-            symbol: Market symbol (e.g., "ETH/USD")
-
-        Returns:
-            Market structure dict
-
-        Raises:
-            ValueError: If markets not loaded or symbol not found
+        :param symbol: Market symbol (e.g., "ETH/USD")
+        :returns: Market structure dict
+        :raises ValueError: If markets not loaded or symbol not found
         """
         if not self.markets:
             raise ValueError(f"Markets not loaded for {symbol}. Call 'await exchange.load_markets()' first.")
@@ -1535,12 +1542,9 @@ class GMX(Exchange):
     async def fetch_ticker(self, symbol: str, params: dict | None = None) -> dict:
         """Fetch ticker for a single market.
 
-        Args:
-            symbol: Market symbol (e.g., "ETH/USD")
-            params: Additional parameters
-
-        Returns:
-            Ticker dictionary with price and stats
+        :param symbol: Market symbol (e.g., "ETH/USD")
+        :param params: Additional parameters
+        :returns: Ticker dictionary with price and stats
         """
         await self._ensure_session()
         await self.load_markets()
@@ -1589,12 +1593,9 @@ class GMX(Exchange):
     async def fetch_tickers(self, symbols: list[str] | None = None, params: dict | None = None) -> dict:
         """Fetch tickers for multiple markets concurrently.
 
-        Args:
-            symbols: List of symbols (if None, fetch all)
-            params: Additional parameters
-
-        Returns:
-            Dictionary mapping symbols to tickers
+        :param symbols: List of symbols (if None, fetch all)
+        :param params: Additional parameters
+        :returns: Dictionary mapping symbols to tickers
         """
         await self.load_markets()
 
@@ -1740,19 +1741,14 @@ class GMX(Exchange):
     ) -> list[list]:
         """Fetch OHLCV candlestick data.
 
-        Args:
-            symbol: Market symbol
-            timeframe: Candle interval (1m, 5m, 15m, 1h, 4h, 1d)
-            since: Start timestamp in ms (for filtering)
-            limit: Max number of candles
-            params: Additional parameters (e.g., {"skip_validation": True})
-
-        Returns:
-            List of OHLCV candles [timestamp, open, high, low, close, volume]
-
-        Raises:
-            ValueError: If invalid timeframe
-            InsufficientHistoricalDataError: If insufficient data for requested time range (when since is specified)
+        :param symbol: Market symbol
+        :param timeframe: Candle interval (1m, 5m, 15m, 1h, 4h, 1d)
+        :param since: Start timestamp in ms (for filtering)
+        :param limit: Max number of candles
+        :param params: Additional parameters (e.g., {"skip_validation": True})
+        :returns: List of OHLCV candles [timestamp, open, high, low, close, volume]
+        :raises ValueError: If invalid timeframe
+        :raises InsufficientHistoricalDataError: If insufficient data for requested time range (when since is specified)
         """
         await self._ensure_session()
         await self.load_markets()
@@ -2083,6 +2079,429 @@ class GMX(Exchange):
 
         return convert_raw_price_to_usd(v, token_decimals)
 
+    # ------------------------------------------------------------------
+    # Tiered order resolution helpers (async mirror of sync adapter)
+    # ------------------------------------------------------------------
+
+    def _map_market_to_symbol(self, market_address: str) -> str | None:
+        """Return the CCXT symbol for a GMX market-token address, or ``None``.
+
+        Looks up ``market_address`` in ``self.markets`` using the ``market_token``
+        field stored in each market's ``info`` dict.
+
+        :param market_address: GMX market-token contract address (any case).
+        :returns: CCXT symbol string (e.g. ``"APE/USDC:USDC"``) or ``None``.
+        """
+        if not market_address or not self.markets:
+            return None
+        market_lower = market_address.lower()
+        for sym, mkt in self.markets.items():
+            info = mkt.get("info", {})
+            token = info.get("market_token") or info.get("marketToken") or ""
+            if token.lower() == market_lower:
+                return sym
+        return None
+
+    async def _resolve_order_from_sources(
+        self,
+        order_key_hex: str,
+        symbol: str | None,
+        receipt: dict | None,
+        tx: dict | None,
+    ) -> dict | None:
+        """Async mirror of sync ``_resolve_order_from_sources``. See sync version for full docs.
+
+        Tier ladder (A → B → C → D → None):
+
+        A. Subsquid ``tradeActions`` — returns real execution price + fees.
+        B. GMX REST API v2 ``/orders`` + ``/positions`` — returns live status.
+        C. On-chain ``SyntheticsReader.getAccountOrders/Positions`` — authoritative.
+        D. EventEmitter log scan — slow but comprehensive.
+
+        :param order_key_hex: GMX ``orderKey`` as ``0x``-prefixed hex string.
+        :param symbol: CCXT-style pair (e.g. ``"APE/USDC:USDC"``), may be ``None``.
+        :param receipt: Raw tx receipt dict (used only by EventEmitter tier).
+        :param tx: Raw tx dict (used only by EventEmitter tier).
+        :returns: CCXT order dict or ``None``.
+        """
+        # Tier A — Subsquid tradeActions
+        try:
+            subsquid = AsyncGMXSubsquidClient(chain=self.config.get_chain())
+            trade_action = await subsquid.get_trade_action_by_order_key(
+                order_key_hex,
+                timeout_seconds=5,
+                poll_interval=0.5,
+                account=self.wallet_address,
+            )
+            if trade_action is not None:
+                logger.debug(
+                    "_resolve_order_from_sources(%s): resolved via Subsquid (Tier A)",
+                    order_key_hex[:10],
+                )
+                return self._build_order_from_trade_action(trade_action, symbol)
+        except Exception as exc:
+            logger.debug(
+                "_resolve_order_from_sources(%s): Subsquid Tier A failed: %s",
+                order_key_hex[:10],
+                exc,
+            )
+
+        # Tier B — GMX REST API v2
+        if self.wallet_address:
+            try:
+                loop = asyncio.get_running_loop()
+                gmx_api = GMXAPI(chain=self.config.get_chain())
+                rest_orders = await loop.run_in_executor(None, lambda: gmx_api.get_orders(self.wallet_address)) or []
+                for rest_order in rest_orders:
+                    key = rest_order.get("key") or rest_order.get("orderKey", "")
+                    if key.lower() == order_key_hex.lower():
+                        logger.debug(
+                            "_resolve_order_from_sources(%s): resolved via REST v2 orders (Tier B)",
+                            order_key_hex[:10],
+                        )
+                        return self._build_order_from_rest_order(rest_order, symbol)
+                rest_positions = await loop.run_in_executor(None, lambda: gmx_api.get_positions(self.wallet_address)) or []
+                for pos in rest_positions:
+                    pos_symbol = self._map_market_to_symbol(pos.get("market", ""))
+                    if pos_symbol == symbol:
+                        logger.debug(
+                            "_resolve_order_from_sources(%s): inferred executed via REST v2 position (Tier B)",
+                            order_key_hex[:10],
+                        )
+                        return self._build_order_from_rest_position(pos, order_key_hex, symbol)
+            except Exception as exc:
+                logger.debug(
+                    "_resolve_order_from_sources(%s): REST v2 Tier B failed: %s",
+                    order_key_hex[:10],
+                    exc,
+                )
+
+        # Tier C — On-chain SyntheticsReader
+        if self.wallet_address:
+            try:
+                loop = asyncio.get_running_loop()
+                reader = get_reader_contract(self.sync_web3, self.config.get_chain())
+                datastore_addr = get_contract_addresses(self.config.get_chain()).datastore
+                raw_orders = await loop.run_in_executor(
+                    None,
+                    lambda: reader.functions.getAccountOrders(datastore_addr, self.wallet_address, 0, 100).call(),
+                )
+                for raw_order in raw_orders:
+                    key_bytes = raw_order[0] if isinstance(raw_order, (list, tuple)) else None
+                    if key_bytes and ("0x" + key_bytes.hex()) == order_key_hex.lower():
+                        logger.debug(
+                            "_resolve_order_from_sources(%s): resolved via Reader orders (Tier C)",
+                            order_key_hex[:10],
+                        )
+                        _ts_ms = await _block_timestamp_ms(self.web3, await self.web3.eth.block_number)
+                        return self._build_open_order_from_reader(raw_order, order_key_hex, symbol, _ts_ms)
+                raw_positions = await loop.run_in_executor(
+                    None,
+                    lambda: reader.functions.getAccountPositions(datastore_addr, self.wallet_address, 0, 100).call(),
+                )
+                matching_pos = self._find_matching_reader_position(raw_positions, symbol)
+                _ts_ms = await _block_timestamp_ms(
+                    self.web3,
+                    tx.get("blockNumber") if tx else await self.web3.eth.block_number,
+                )
+                if matching_pos is not None:
+                    logger.debug(
+                        "_resolve_order_from_sources(%s): order not in DataStore but position exists — closed (Tier C)",
+                        order_key_hex[:10],
+                    )
+                    return self._build_closed_order_no_fill(order_key_hex, symbol, _ts_ms)
+                else:
+                    logger.debug(
+                        "_resolve_order_from_sources(%s): order not in DataStore, no position — cancelled (Tier C)",
+                        order_key_hex[:10],
+                    )
+                    return self._build_cancelled_order(order_key_hex, symbol, _ts_ms)
+            except Exception as exc:
+                logger.debug(
+                    "_resolve_order_from_sources(%s): Reader Tier C failed: %s",
+                    order_key_hex[:10],
+                    exc,
+                )
+
+        # Tier D — EventEmitter log scan
+        if receipt is not None:
+            try:
+                addresses = get_contract_addresses(self.config.get_chain())
+                event_emitter = addresses.eventemitter
+                creation_block = receipt.get("blockNumber", 0)
+                current_block = await self.web3.eth.block_number
+                order_key_bytes = bytes.fromhex(order_key_hex.lstrip("0x"))
+                trade_action = await _async_scan_logs_chunked_for_trade_action(
+                    self.web3,
+                    self.sync_web3,
+                    event_emitter,
+                    order_key_bytes,
+                    order_key_hex,
+                    creation_block,
+                    current_block,
+                )
+                if trade_action is not None:
+                    logger.debug(
+                        "_resolve_order_from_sources(%s): resolved via EventEmitter scan (Tier D)",
+                        order_key_hex[:10],
+                    )
+                    return self._build_order_from_trade_action(trade_action, symbol)
+            except Exception as exc:
+                logger.debug(
+                    "_resolve_order_from_sources(%s): EventEmitter Tier D failed: %s",
+                    order_key_hex[:10],
+                    exc,
+                )
+
+        logger.warning(
+            "_resolve_order_from_sources(%s): all tiers exhausted — caller will use synthetic fallback",
+            order_key_hex[:10],
+        )
+        return None
+
+    def _build_order_from_trade_action(self, trade_action: dict, symbol: str | None) -> dict:
+        """Build a CCXT order dict from a Subsquid tradeAction or EventEmitter action.
+
+        :param trade_action: Trade action dict from Subsquid or EventEmitter.
+        :param symbol: CCXT pair symbol.
+        :returns: CCXT-shaped order dict.
+        """
+        event_name = trade_action.get("eventName", "")
+        if "Executed" in event_name or "Execute" in event_name:
+            status = "closed"
+        elif "Cancelled" in event_name or "Cancel" in event_name:
+            status = "cancelled"
+        elif "Frozen" in event_name:
+            status = "expired"
+        else:
+            status = "open"
+
+        exec_price_raw = trade_action.get("executionPrice") or trade_action.get("triggerPrice")
+        exec_price = float(exec_price_raw) / 1e30 if exec_price_raw else None
+        size_raw = trade_action.get("sizeDeltaUsd") or trade_action.get("sizeDeltaInTokens")
+        filled = float(size_raw) / 1e30 if size_raw else None
+        ts_s = trade_action.get("timestamp")
+        ts_ms = int(ts_s) * 1000 if ts_s else None
+        order_key = trade_action.get("orderKey", trade_action.get("id", ""))
+
+        pos_fee_raw = trade_action.get("positionFeeAmount", 0) or 0
+        borrow_fee_raw = trade_action.get("borrowingFeeAmount", 0) or 0
+        funding_fee_raw = trade_action.get("fundingFeeAmount", 0) or 0
+        total_fee = (float(pos_fee_raw) + float(borrow_fee_raw) + float(funding_fee_raw)) / 1e30
+
+        return {
+            "id": order_key,
+            "clientOrderId": None,
+            "datetime": self.iso8601(ts_ms) if ts_ms else None,
+            "timestamp": ts_ms,
+            "lastTradeTimestamp": ts_ms if status == "closed" else None,
+            "status": status,
+            "symbol": symbol,
+            "type": "limit",
+            "side": _derive_side_from_trade_action(trade_action),
+            "price": exec_price,
+            "average": exec_price,
+            "amount": filled,
+            "filled": filled if status == "closed" else 0.0,
+            "remaining": 0.0 if status == "closed" else filled,
+            "cost": (exec_price * filled) if (exec_price and filled) else None,
+            "trades": [],
+            "fee": {"currency": "USDC", "cost": total_fee, "rate": None},
+            "fees": [{"currency": "USDC", "cost": total_fee, "type": "taker"}],
+            "info": {
+                "trade_action": trade_action,
+                "reconciler_tier": "subsquid_or_event_emitter",
+            },
+        }
+
+    def _build_order_from_rest_order(self, rest_order: dict, symbol: str | None) -> dict:
+        """Build a CCXT order dict from a GMX REST v2 /orders entry.
+
+        :param rest_order: Order dict from the GMX REST v2 API.
+        :param symbol: CCXT pair symbol.
+        :returns: CCXT-shaped order dict with ``status="open"``.
+        """
+        _ts_ms = self.milliseconds()
+        return {
+            "id": rest_order.get("key", rest_order.get("orderKey", "")),
+            "clientOrderId": None,
+            "datetime": self.iso8601(_ts_ms) if _ts_ms else None,
+            "timestamp": _ts_ms,
+            "lastTradeTimestamp": None,
+            "status": "open",
+            "symbol": symbol,
+            "type": "limit",
+            "side": "buy" if rest_order.get("isLong") else "sell",
+            "price": float(rest_order.get("triggerPrice", 0)) / 1e30 or None,
+            "average": None,
+            "amount": float(rest_order.get("sizeDeltaUsd", 0)) / 1e30 or None,
+            "filled": 0.0,
+            "remaining": float(rest_order.get("sizeDeltaUsd", 0)) / 1e30 or None,
+            "cost": None,
+            "trades": [],
+            "fee": None,
+            "fees": [],
+            "info": {"rest_order": rest_order, "reconciler_tier": "rest_v2", "fill_data_pending": True},
+        }
+
+    def _build_order_from_rest_position(self, pos: dict, order_key_hex: str, symbol: str | None) -> dict:
+        """Build a partial CCXT ``"closed"`` order from a REST v2 position (no exact fill price).
+
+        :param pos: Position dict from the GMX REST v2 API.
+        :param order_key_hex: Order key as ``0x``-prefixed hex.
+        :param symbol: CCXT pair symbol.
+        :returns: CCXT-shaped order dict with ``status="closed"`` and ``fill_data_pending=True``.
+        """
+        _ts_ms = self.milliseconds()
+        size_usd = float(pos.get("sizeInUsd", 0)) / 1e30
+        return {
+            "id": order_key_hex,
+            "clientOrderId": None,
+            "datetime": self.iso8601(_ts_ms) if _ts_ms else None,
+            "timestamp": _ts_ms,
+            "lastTradeTimestamp": _ts_ms,
+            "status": "closed",
+            "symbol": symbol,
+            "type": "limit",
+            "side": "buy" if pos.get("isLong") else "sell",
+            "price": None,
+            "average": None,
+            "amount": size_usd,
+            "filled": size_usd,
+            "remaining": 0.0,
+            "cost": size_usd,
+            "trades": [],
+            "fee": None,
+            "fees": [],
+            "info": {"rest_position": pos, "reconciler_tier": "rest_v2", "fill_data_pending": True},
+        }
+
+    def _build_open_order_from_reader(
+        self,
+        raw_order: tuple,
+        order_key_hex: str,
+        symbol: str | None,
+        ts_ms: int | None,
+    ) -> dict:
+        """Build a CCXT ``"open"`` order from SyntheticsReader.getAccountOrders entry.
+
+        :param raw_order: Raw tuple from the Reader contract.
+        :param order_key_hex: Order key as ``0x``-prefixed hex.
+        :param symbol: CCXT pair symbol.
+        :param ts_ms: Block timestamp in milliseconds, or ``None``.
+        :returns: CCXT-shaped order dict with ``status="open"``.
+        """
+        return {
+            "id": order_key_hex,
+            "clientOrderId": None,
+            "datetime": self.iso8601(ts_ms) if ts_ms else None,
+            "timestamp": ts_ms,
+            "lastTradeTimestamp": None,
+            "status": "open",
+            "symbol": symbol,
+            "type": "limit",
+            "side": None,
+            "price": None,
+            "average": None,
+            "amount": None,
+            "filled": 0.0,
+            "remaining": None,
+            "cost": None,
+            "trades": [],
+            "fee": None,
+            "fees": [],
+            "info": {"reader_order": list(raw_order), "reconciler_tier": "reader"},
+        }
+
+    def _build_closed_order_no_fill(
+        self,
+        order_key_hex: str,
+        symbol: str | None,
+        ts_ms: int | None,
+    ) -> dict:
+        """Build a CCXT ``"closed"`` order when Reader shows no pending order but a position exists.
+
+        :param order_key_hex: Order key as ``0x``-prefixed hex.
+        :param symbol: CCXT pair symbol.
+        :param ts_ms: Block timestamp in milliseconds, or ``None``.
+        :returns: CCXT-shaped order dict with ``status="closed"`` and ``fill_data_pending=True``.
+        """
+        return {
+            "id": order_key_hex,
+            "clientOrderId": None,
+            "datetime": self.iso8601(ts_ms) if ts_ms else None,
+            "timestamp": ts_ms,
+            "lastTradeTimestamp": ts_ms,
+            "status": "closed",
+            "symbol": symbol,
+            "type": "limit",
+            "side": None,
+            "price": None,
+            "average": None,
+            "amount": None,
+            "filled": 0.0,  # conservative; fill_data_pending=True means exact amount unknown
+            "remaining": 0.0,
+            "cost": None,
+            "trades": [],
+            "fee": None,
+            "fees": [],
+            "info": {"reconciler_tier": "reader", "fill_data_pending": True},
+        }
+
+    def _build_cancelled_order(
+        self,
+        order_key_hex: str,
+        symbol: str | None,
+        ts_ms: int | None,
+    ) -> dict:
+        """Build a CCXT ``"cancelled"`` order when not in DataStore and no matching position.
+
+        :param order_key_hex: Order key as ``0x``-prefixed hex.
+        :param symbol: CCXT pair symbol.
+        :param ts_ms: Block timestamp in milliseconds, or ``None``.
+        :returns: CCXT-shaped order dict with ``status="cancelled"``.
+        """
+        return {
+            "id": order_key_hex,
+            "clientOrderId": None,
+            "datetime": self.iso8601(ts_ms) if ts_ms else None,
+            "timestamp": ts_ms,
+            "lastTradeTimestamp": None,
+            "status": "cancelled",
+            "symbol": symbol,
+            "type": "limit",
+            "side": None,
+            "price": None,
+            "average": None,
+            "amount": None,
+            "filled": 0.0,
+            "remaining": None,
+            "cost": None,
+            "trades": [],
+            "fee": None,
+            "fees": [],
+            "info": {"reconciler_tier": "reader"},
+        }
+
+    def _find_matching_reader_position(
+        self,
+        raw_positions: list,
+        symbol: str | None,
+    ) -> dict | None:
+        """Return the first Reader position whose market maps to ``symbol``, or ``None``.
+
+        :param raw_positions: List of raw position tuples from the Reader contract.
+        :param symbol: CCXT pair symbol to match against.
+        :returns: Matching raw position or ``None``.
+        """
+        if not symbol:
+            return None
+        for pos in raw_positions:
+            pos_symbol = self._map_market_to_symbol(pos[0][1] if isinstance(pos, (list, tuple)) and len(pos) > 0 and len(pos[0]) > 1 else "")
+            if pos_symbol == symbol:
+                return pos
+        return None
+
     async def fetch_order(self, id: str, symbol: str | None = None, params: dict | None = None):
         """Fetch order by ID (transaction hash).
 
@@ -2159,7 +2578,7 @@ class GMX(Exchange):
             # Check if order still pending in DataStore (using sync call via asyncio)
             try:
                 # Run sync function in thread pool
-                status_result = await asyncio.get_running_loop().run_in_executor(None, lambda: check_order_status(self.web3, order_key, self.chain))
+                status_result = await asyncio.get_running_loop().run_in_executor(None, lambda: check_order_status(self.sync_web3, order_key, self.chain))
             except Exception as e:
                 logger.warning("fetch_order(%s): error checking order status: %s", id, e)
                 return order
@@ -2172,7 +2591,7 @@ class GMX(Exchange):
             # Order no longer pending - verify execution result
             if status_result.execution_receipt:
                 verification = verify_gmx_order_execution(
-                    self.web3,
+                    self.sync_web3,
                     status_result.execution_receipt,
                     order_key,
                 )
@@ -2302,11 +2721,12 @@ class GMX(Exchange):
                 tx_success = receipt.get("status") == 1
                 if not tx_success:
                     # Transaction failed - return failed order
+                    _ts_ms = await _block_timestamp_ms(self.web3, tx.get("blockNumber"))
                     order = {
                         "id": id,
                         "clientOrderId": None,
-                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
-                        "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
+                        "datetime": self.iso8601(_ts_ms) if _ts_ms is not None else None,
+                        "timestamp": _ts_ms,
                         "lastTradeTimestamp": None,
                         "status": "failed",
                         "symbol": symbol if symbol else None,
@@ -2347,11 +2767,12 @@ class GMX(Exchange):
                 if not order_key:
                     # No order_key - can't verify execution, assume still pending
                     logger.warning("fetch_order(%s): no order_key, returning status=open", id)
+                    _ts_ms = await _block_timestamp_ms(self.web3, tx.get("blockNumber"))
                     order = {
                         "id": id,
                         "clientOrderId": None,
-                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
-                        "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
+                        "datetime": self.iso8601(_ts_ms) if _ts_ms is not None else None,
+                        "timestamp": _ts_ms,
                         "lastTradeTimestamp": None,
                         "status": "open",
                         "symbol": symbol if symbol else None,
@@ -2377,213 +2798,55 @@ class GMX(Exchange):
                     }
                     return order
 
-                # Follow GMX SDK flow: Query TradeAction via GraphQL (Subsquid)
+                # Delegate to the tiered resolver (Subsquid → REST v2 → Reader → EventEmitter)
                 order_key_hex = "0x" + order_key.hex()
-                trade_action = None
-
-                try:
-                    subsquid = AsyncGMXSubsquidClient(chain=self.config.get_chain())
-                    trade_action = await subsquid.get_trade_action_by_order_key(
-                        order_key_hex,
-                        timeout_seconds=5,
-                        poll_interval=0.5,
-                        account=self.wallet_address,
-                    )
-                except Exception as e:
-                    logger.debug("fetch_order(%s): Subsquid query failed: %s", id, e)
-
-                # Fallback: Query EventEmitter logs if Subsquid failed
-                if trade_action is None:
-                    logger.debug("fetch_order(%s): Falling back to EventEmitter logs", id)
-
-                    try:
-                        addresses = get_contract_addresses(self.config.get_chain())
-                        event_emitter = addresses.eventemitter
-                        creation_block = receipt.get("blockNumber", 0)
-                        current_block = await self.web3.eth.block_number
-
-                        # Use chunked scanning to avoid RPC timeouts on large block ranges
-                        trade_action = await _async_scan_logs_chunked_for_trade_action(
-                            self.web3,
-                            self.sync_web3,
-                            event_emitter,
-                            order_key,
-                            order_key_hex,
-                            creation_block,
-                            current_block,
-                        )
-
-                    except Exception as e:
-                        logger.debug("fetch_order(%s): EventEmitter query failed: %s", id, e)
-
-                # Process the trade action result
-                if trade_action is None:
-                    # No execution found - still pending or lost
-                    logger.warning(
-                        "ORDER_TRACE: fetch_order(%s) - NO EXECUTION FOUND (async, checked Subsquid + EventEmitter) - RETURNING status=open (might be lost/pending)",
-                        id,
-                    )
-                    order = {
-                        "id": id,
-                        "clientOrderId": None,
-                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
-                        "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
-                        "lastTradeTimestamp": None,
-                        "status": "open",
-                        "symbol": symbol if symbol else None,
-                        "type": "market",
-                        "side": None,
-                        "price": None,
-                        "amount": None,
-                        "filled": None,
-                        "remaining": None,
-                        "cost": None,
-                        "trades": [],
-                        "fee": {
-                            "currency": "ETH",
-                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
-                            "rate": None,
-                        },
-                        "info": {
-                            "creation_receipt": receipt,
-                            "transaction": tx,
-                            "order_key": order_key_hex,
-                        },
-                        "average": None,
-                        "fees": [],
-                    }
-                    return order
-
-                # Log trade_action fields for diagnostics (exclude bulky transaction data)
-                trade_action_fields = {k: v for k, v in trade_action.items() if k != "transaction"}
-                logger.info(
-                    "fetch_order(%s): trade_action fields: %s",
-                    id[:16],
-                    trade_action_fields,
+                resolved = await self._resolve_order_from_sources(
+                    order_key_hex=order_key_hex,
+                    symbol=symbol,
+                    receipt=receipt,
+                    tx=tx,
                 )
+                if resolved is not None:
+                    resolved["id"] = id
+                    self._orders[id] = resolved
+                    return resolved
 
-                # Derive CCXT side from orderType + isLong
-                derived_side = _derive_side_from_trade_action(trade_action)
-
-                # Check event type
-                event_name = trade_action.get("eventName", "")
-
-                if event_name in ("OrderCancelled", "OrderFrozen"):
-                    # Order cancelled/frozen
-                    is_frozen = event_name == "OrderFrozen"
-                    error_reason = trade_action.get("reason") or f"Order {event_name.lower()}"
-                    logger.info(
-                        "ORDER_TRACE: fetch_order(%s) - Order %s (async) - reason=%s - RETURNING status=%s",
-                        id,
-                        event_name,
-                        error_reason,
-                        "expired" if is_frozen else "cancelled",
-                    )
-
-                    timestamp = self.milliseconds()
-                    order = {
-                        "id": id,
-                        "clientOrderId": None,
-                        "timestamp": timestamp,
-                        "datetime": self.iso8601(timestamp),
-                        "lastTradeTimestamp": timestamp,
-                        "symbol": symbol,
-                        "type": "market",
-                        "side": derived_side,
-                        "price": None,
-                        "amount": None,
-                        "cost": None,
-                        "average": None,
-                        "filled": 0.0,
-                        "remaining": None,
-                        "status": "expired" if is_frozen else "cancelled",
-                        "fee": {
-                            "currency": "ETH",
-                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
-                            "rate": None,
-                        },
-                        "trades": [],
-                        "info": {
-                            "creation_receipt": receipt,
-                            "transaction": tx,
-                            "order_key": order_key_hex,
-                            "event_name": event_name,
-                            "cancel_reason": error_reason,
-                            "gmx_status": "frozen" if is_frozen else "cancelled",
-                        },
-                    }
-                    return order
-
-                # Order executed successfully (OrderExecuted event)
-                raw_exec_price = trade_action.get("executionPrice")
-                execution_price = None
-                market = self.markets.get(symbol) if symbol else None
-                if raw_exec_price and market:
-                    execution_price = self._convert_price_to_usd(float(raw_exec_price), market)
-
-                execution_tx_hash = trade_action.get("transaction", {}).get("hash")
-                is_long = trade_action.get("isLong")
-
-                gas_cost_eth = float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18
-                size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / 10**PRECISION if trade_action.get("sizeDeltaUsd") else 0.0
-
-                fee_dict = self._extract_fee_from_trade_action(
-                    trade_action,
-                    symbol,
-                    size_delta_usd,
-                    is_long,
-                    execution_tx_hash,
-                    order_key,
-                    log_prefix=f"fetch_order({id[:16]})",
-                    web3_instance=self.sync_web3,
+                # All tiers exhausted — build synthetic open as last resort
+                logger.warning(
+                    "ORDER_TRACE: fetch_order(%s) - all resolution tiers exhausted (async), returning synthetic open",
+                    id,
                 )
-
-                logger.info(
-                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED (async): price=%s, size_usd=$%.2f, side=%s, orderType=%s, isLong=%s | trading_fee=$%.6f %s (rate=%.4f%%)",
-                    id[:16],
-                    execution_price or 0,
-                    size_delta_usd,
-                    derived_side,
-                    trade_action.get("orderType"),
-                    trade_action.get("isLong"),
-                    fee_dict.get("cost", 0),
-                    fee_dict.get("currency", "USDC"),
-                    fee_dict.get("rate", 0) * 100,
-                )
-
-                timestamp = self.milliseconds()
+                _ts_ms = await _block_timestamp_ms(self.web3, tx.get("blockNumber"))
                 order = {
                     "id": id,
                     "clientOrderId": None,
-                    "timestamp": timestamp,
-                    "datetime": self.iso8601(timestamp),
-                    "lastTradeTimestamp": timestamp,
-                    "symbol": symbol,
+                    "datetime": self.iso8601(_ts_ms) if _ts_ms is not None else None,
+                    "timestamp": _ts_ms,
+                    "lastTradeTimestamp": None,
+                    "status": "open",
+                    "symbol": symbol if symbol else None,
                     "type": "market",
-                    "side": derived_side,
-                    "price": execution_price,
+                    "side": None,
+                    "price": None,
                     "amount": None,
-                    "cost": None,
-                    "average": execution_price,
                     "filled": None,
-                    "remaining": 0.0,
-                    "status": "closed",
-                    "fee": fee_dict,
+                    "remaining": None,
+                    "cost": None,
                     "trades": [],
+                    "fee": {
+                        "currency": "ETH",
+                        "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                        "rate": None,
+                    },
                     "info": {
                         "creation_receipt": receipt,
                         "transaction": tx,
-                        "execution_tx_hash": execution_tx_hash,
                         "order_key": order_key_hex,
-                        "execution_price": execution_price,
-                        "is_long": is_long,
-                        "event_name": event_name,
-                        "execution_fee_eth": gas_cost_eth,
-                        "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 10**PRECISION if trade_action.get("pnlUsd") else None,
-                        "size_delta_usd": size_delta_usd if size_delta_usd else None,
-                        "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 10**PRECISION if trade_action.get("priceImpactUsd") else None,
                     },
+                    "average": None,
+                    "fees": [],
                 }
+                self._orders[id] = order
                 return order
 
             except Exception as e:
@@ -2645,14 +2908,142 @@ class GMX(Exchange):
         since: int | None = None,
         limit: int | None = None,
         params: dict | None = None,
-    ):
-        """Fetch user trade history from Subsquid."""
+    ) -> list[dict]:
+        """Fetch user trade history (async).
+
+        Merges the in-memory order cache (filled orders) with Subsquid
+        ``positionChanges``.  Async port of the sync
+        :py:meth:`~eth_defi.gmx.ccxt.exchange.GMX.fetch_my_trades`.
+
+        :param symbol: Filter by CCXT symbol (optional).
+        :param since: Millisecond timestamp lower bound (optional).
+        :param limit: Maximum trades to return.
+        :param params: Extra params; ``wallet_address`` overrides config wallet.
+        :returns: List of CCXT-formatted trade dicts, sorted newest-first.
+        """
         await self._ensure_session()
         await self.load_markets()
+        params = params or {}
 
-        # TODO: Implement GraphQL query for user trades via Subsquid
-        # For now, return empty list
-        return []
+        wallet = params.get("wallet_address") or self.wallet_address
+        if not wallet:
+            raise ValueError("wallet_address must be provided in config or params")
+
+        # ----------------------------------------------------------------
+        # Step 1: in-memory order cache (filled orders already on-chain)
+        # ----------------------------------------------------------------
+        cache_trades: list[dict] = []
+        for order_id, order in self._orders.items():
+            if order.get("status") != "closed":
+                continue
+            if symbol:
+                normalized = self._normalize_symbol(symbol)
+                if order.get("symbol") != normalized:
+                    continue
+            if since and (order.get("timestamp") or 0) < since:
+                continue
+            cache_trades.append(
+                {
+                    "id": order_id,
+                    "order": order_id,
+                    "timestamp": order.get("timestamp"),
+                    "datetime": order.get("datetime"),
+                    "symbol": order.get("symbol"),
+                    "type": order.get("type"),
+                    "side": order.get("side"),
+                    "takerOrMaker": None,
+                    "price": order.get("average") or order.get("price"),
+                    "amount": order.get("filled") or order.get("amount"),
+                    "cost": order.get("cost"),
+                    "fee": order.get("fee"),
+                    "fees": [order.get("fee")] if order.get("fee") else [],
+                    "info": order.get("info", {}),
+                }
+            )
+
+        # ----------------------------------------------------------------
+        # Step 2: Subsquid positionChanges (async)
+        # ----------------------------------------------------------------
+        position_changes = await self.subsquid.get_position_changes(
+            account=wallet,
+            limit=limit or 100,
+        )
+
+        subsquid_trades: list[dict] = []
+        for change in position_changes:
+            try:
+                if since:
+                    change_ts_ms = (change.get("timestamp") or 0) * 1000
+                    if change_ts_ms < since:
+                        continue
+
+                market_address = change.get("market")
+                market = None
+                for sym_key, market_info in self.markets.items():
+                    token = market_info.get("info", {}).get("market_token") or market_info.get("info", {}).get("marketToken") or ""
+                    if token.lower() == (market_address or "").lower():
+                        market = market_info
+                        break
+
+                if market is None:
+                    continue
+
+                if symbol and market["symbol"] != self._normalize_symbol(symbol):
+                    continue
+
+                exec_price_raw = change.get("executionPrice")
+                exec_price = self._convert_price_to_usd(
+                    float(exec_price_raw) if exec_price_raw else None,
+                    market,
+                )
+                size_raw = change.get("sizeDeltaUsd")
+                size_usd = float(size_raw) / 1e30 if size_raw else None
+                amount = (size_usd / exec_price) if (exec_price and exec_price > 0 and size_usd) else None
+                ts_s = change.get("timestamp")
+                ts_ms = int(ts_s) * 1000 if ts_s else None
+
+                trade = {
+                    "id": change.get("orderKey") or change.get("id", ""),
+                    "order": change.get("orderKey") or change.get("id", ""),
+                    "timestamp": ts_ms,
+                    "datetime": self.iso8601(ts_ms) if ts_ms else None,
+                    "symbol": market["symbol"],
+                    "type": "limit",
+                    "side": "buy" if change.get("isLong") else "sell",
+                    "takerOrMaker": None,
+                    "price": exec_price,
+                    "amount": abs(amount) if amount is not None else None,
+                    "cost": abs(size_usd) if size_usd is not None else None,
+                    "fee": None,
+                    "fees": [],
+                    "info": change,
+                }
+                subsquid_trades.append(trade)
+            except (KeyError, ValueError, TypeError) as exc:
+                logger.debug("fetch_my_trades: skipping malformed position change: %s", exc)
+                continue
+            except Exception as exc:
+                logger.warning("fetch_my_trades: unexpected error processing position change: %s", exc, exc_info=True)
+                continue
+
+        # ----------------------------------------------------------------
+        # Step 3: merge + dedup on (transactionHash + logIndex) composite key
+        # ----------------------------------------------------------------
+        seen: set[str] = set()
+        result: list[dict] = []
+        for trade in cache_trades + subsquid_trades:
+            info = trade.get("info") or {}
+            tx_hash = info.get("transactionHash") or trade.get("id", "")
+            log_index = info.get("logIndex", "")
+            dedup_key = "%s:%s" % (tx_hash, log_index)
+            if dedup_key not in seen:
+                seen.add(dedup_key)
+                result.append(trade)
+
+        result.sort(key=lambda t: t.get("timestamp") or 0, reverse=True)
+        if limit:
+            result = result[:limit]
+        return result
 
     async def fetch_trades(
         self,
@@ -2767,11 +3158,8 @@ class GMX(Exchange):
     async def fetch_balance(self, params: dict | None = None) -> dict:
         """Fetch account balance.
 
-        Args:
-            params: Additional parameters
-
-        Returns:
-            Balance dictionary in CCXT format
+        :param params: Additional parameters
+        :returns: Balance dictionary in CCXT format
         """
         await self._ensure_session()
 
@@ -2818,12 +3206,9 @@ class GMX(Exchange):
     async def fetch_open_interest(self, symbol: str, params: dict | None = None) -> dict:
         """Fetch current open interest for a symbol.
 
-        Args:
-            symbol: Unified symbol (e.g., "ETH/USD")
-            params: Additional parameters
-
-        Returns:
-            Open interest dictionary with long/short breakdown
+        :param symbol: Unified symbol (e.g., "ETH/USD")
+        :param params: Additional parameters
+        :returns: Open interest dictionary with long/short breakdown
         """
         await self._ensure_session()
         await self.load_markets()
@@ -2897,15 +3282,12 @@ class GMX(Exchange):
     ) -> list[dict]:
         """Fetch historical open interest data.
 
-        Args:
-            symbol: Unified symbol (e.g., "ETH/USD")
-            timeframe: Time interval (note: data is snapshot-based)
-            since: Start timestamp in milliseconds
-            limit: Maximum number of records (default: 100)
-            params: Additional parameters
-
-        Returns:
-            List of historical open interest snapshots
+        :param symbol: Unified symbol (e.g., "ETH/USD")
+        :param timeframe: Time interval (note: data is snapshot-based)
+        :param since: Start timestamp in milliseconds
+        :param limit: Maximum number of records (default: 100)
+        :param params: Additional parameters
+        :returns: List of historical open interest snapshots
         """
         await self._ensure_session()
         await self.load_markets()
@@ -2949,12 +3331,9 @@ class GMX(Exchange):
     async def fetch_open_interests(self, symbols: list[str] | None = None, params: dict | None = None) -> dict:
         """Fetch open interest for multiple symbols.
 
-        Args:
-            symbols: List of symbols (if None, fetch all)
-            params: Additional parameters
-
-        Returns:
-            Dictionary mapping symbols to open interest data
+        :param symbols: List of symbols (if None, fetch all)
+        :param params: Additional parameters
+        :returns: Dictionary mapping symbols to open interest data
         """
         await self.load_markets()
 
@@ -3032,12 +3411,9 @@ class GMX(Exchange):
     async def fetch_funding_rate(self, symbol: str, params: dict | None = None) -> dict:
         """Fetch current funding rate for a symbol.
 
-        Args:
-            symbol: Unified symbol (e.g., "ETH/USD")
-            params: Additional parameters
-
-        Returns:
-            Funding rate dictionary with long/short rates
+        :param symbol: Unified symbol (e.g., "ETH/USD")
+        :param params: Additional parameters
+        :returns: Funding rate dictionary with long/short rates
         """
         await self._ensure_session()
         await self.load_markets()
@@ -3089,14 +3465,11 @@ class GMX(Exchange):
     ) -> list[dict]:
         """Fetch historical funding rate data.
 
-        Args:
-            symbol: Unified symbol (e.g., "ETH/USD")
-            since: Start timestamp in milliseconds
-            limit: Maximum number of records (default: 100)
-            params: Additional parameters
-
-        Returns:
-            List of historical funding rate snapshots
+        :param symbol: Unified symbol (e.g., "ETH/USD")
+        :param since: Start timestamp in milliseconds
+        :param limit: Maximum number of records (default: 100)
+        :param params: Additional parameters
+        :returns: List of historical funding rate snapshots
         """
         await self._ensure_session()
         await self.load_markets()
@@ -3181,12 +3554,9 @@ class GMX(Exchange):
     async def fetch_funding_rates(self, symbols: list[str] | None = None, params: dict | None = None) -> dict:
         """Fetch funding rates for multiple symbols.
 
-        Args:
-            symbols: List of symbols (if None, fetch all)
-            params: Additional parameters
-
-        Returns:
-            Dictionary mapping symbols to funding rates
+        :param symbols: List of symbols (if None, fetch all)
+        :param params: Additional parameters
+        :returns: Dictionary mapping symbols to funding rates
         """
         await self.load_markets()
 
@@ -3906,3 +4276,32 @@ class GMX(Exchange):
             self._consecutive_failures,
             self._trading_paused,
         )
+
+    async def _resolve_market_info(self, symbol: str, params: dict) -> dict:
+        """Async wrapper for resolving GMX market info by symbol.
+
+        Delegates to :func:`Markets.get_available_markets` on a worker thread so
+        the event loop is not blocked during the multicall round-trip.
+
+        :param symbol: CCXT unified symbol, e.g. ``"BTC/USDC:USDC"``.
+        :param params: Extra params forwarded from the caller (currently unused
+            but kept for API consistency with sync helpers).
+        :returns: Raw market data dict from :class:`Markets`.
+        """
+        return await asyncio.to_thread(Markets(self.config).get_available_markets)
+
+    async def fetch_pools_for_symbol(self, symbol: str) -> list[dict]:
+        """Return all GMX V2 liquidity pools that list *symbol* as their index token.
+
+        Fetches the full market catalogue via :class:`Markets` on a worker thread
+        and filters to pools whose ``market_symbol`` (after normalisation) matches
+        the base of *symbol* (e.g. ``"BTC"`` from ``"BTC/USDC:USDC"``).
+
+        :param symbol: CCXT unified symbol, e.g. ``"BTC/USDC:USDC"``.
+        :returns: List of raw market-data dicts for the matching pools.
+        """
+        base = symbol.split("/")[0] if "/" in symbol else symbol
+        base = SYMBOL_NORMALISE.get(base, base)
+
+        all_markets = await asyncio.to_thread(Markets(self.config).get_available_markets)
+        return [market for market in all_markets.values() if SYMBOL_NORMALISE.get(market.get("market_symbol", ""), market.get("market_symbol", "")) == base]
