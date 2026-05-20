@@ -32,7 +32,10 @@ from eth_defi.gmx.ccxt.cancel_helpers import (
     build_cancel_order_response,
     resolve_order_id,
 )
-from eth_defi.gmx.ccxt.exchange import _derive_side_from_trade_action
+from eth_defi.gmx.ccxt.exchange import (
+    _derive_side_from_trade_action,
+    _resolve_reduce_only_size_delta_usd,
+)
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.api import GMXAPI

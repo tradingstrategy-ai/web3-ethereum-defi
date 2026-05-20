@@ -355,6 +355,64 @@ def _block_timestamp_ms(web3: "Web3", block_number: int | None) -> int | None:
         return None
 
 
+def _resolve_reduce_only_size_delta_usd(
+    *,
+    requested_size_usd: float,
+    gmx_position: dict,
+    full_close_tolerance: float = 0.995,
+) -> float | int:
+    """Resolve the GMX ``sizeDeltaUsd`` for a reduce-only close.
+
+    Background. Freqtrade's stock ``execute_trade_exit`` calls
+    ``exchange.create_order(..., amount=Trade.amount, reduceOnly=True, ...)``
+    without forwarding a ``sub_trade_amt`` CCXT parameter. The GMX adapter
+    therefore must decide the on-chain decrease size from the ``amount``
+    Freqtrade passes (translated to USD by the caller before this helper is
+    invoked), NOT from the external GMX net position size — otherwise a
+    logical per-trade close flattens the entire on-chain position when
+    multiple Freqtrade trades share a single GMX market position (the
+    same-pair NT-HEDGING parity case shipped in the
+    ``feat/orchestrator-live-independent-same-pair`` work upstream of this
+    fix).
+
+    Three cases.
+
+    * ``actual_size_usd <= 0`` (invalid / closed) — return ``requested_size_usd``
+      unchanged; the calling create_order path will surface the
+      ``InvalidDecreaseOrderSize`` revert if it really is invalid.
+    * ``requested_size_usd >= actual_size_usd * full_close_tolerance`` (the
+      caller is effectively asking for the whole position) — return the
+      raw uint256 ``position_size_usd_raw`` if available, else
+      ``actual_size_usd``. Preserves the historical dust-prevention behaviour
+      for true full closes (avoids ``int(float * 10^30)`` overshoot causing
+      GMX ``InvalidDecreaseOrderSize`` reverts).
+    * Otherwise — return ``min(requested_size_usd, actual_size_usd)``. The
+      ``min`` caps the request at the actual on-chain size so a bug in the
+      caller can never over-reduce a position; ``cap_size_delta_to_position``
+      later in ``create_order`` keeps a final safety net.
+
+    :param requested_size_usd: The amount the Freqtrade caller asked to
+        decrease, already translated to USD (``amount * price``).
+    :param gmx_position: Dict from ``GetOpenPositions`` with at least
+        ``position_size`` (float USD) and optionally
+        ``position_size_usd_raw`` (uint256 with 30 decimals).
+    :param full_close_tolerance: Fraction of ``actual_size_usd`` at or above
+        which the request is treated as a full close. Default ``0.995`` —
+        ie. the caller must request at least 99.5% of the on-chain size to
+        get the dust-preventing raw int substitution.
+    :returns: The ``sizeDeltaUsd`` value the GMX order builder should use.
+        May be a ``float`` (USD) or a ``int`` (raw uint256, 30 decimals);
+        downstream ``_format_size_info`` already handles both.
+    """
+    actual_size_usd = float(gmx_position.get("position_size", 0.0) or 0.0)
+    actual_size_usd_raw = int(gmx_position.get("position_size_usd_raw", 0) or 0)
+    if actual_size_usd <= 0:
+        return requested_size_usd
+    if requested_size_usd >= actual_size_usd * full_close_tolerance:
+        return actual_size_usd_raw if actual_size_usd_raw > 0 else actual_size_usd
+    return min(requested_size_usd, actual_size_usd)
+
+
 class GMX(ExchangeCompatible):
     """
     CCXT-compatible wrapper for GMX protocol market data and trading.
@@ -5762,60 +5820,57 @@ class GMX(ExchangeCompatible):
 
         # Only proceed with GMX position logic if we still have a valid position
         if reduceOnly and gmx_position:
-            # Check if this is a partial close (sub_trade_amt provided)
+            # The CCXT caller's authoritative close size is whichever of these
+            # is set: an explicit ``sub_trade_amt`` (Freqtrade DCA partial-exit
+            # path) OR the ``amount`` argument itself (Freqtrade's stock
+            # ``execute_trade_exit`` — the same-pair logical-trade case). Pre
+            # this fix the ``sub_trade_amt is None`` branch substituted the
+            # external net GMX position size, which silently flattened sibling
+            # logical Trades sharing one GMX position. Make ``amount``
+            # authoritative; the historical dust-prevention behaviour for true
+            # full closes is preserved by
+            # :func:`_resolve_reduce_only_size_delta_usd`'s
+            # ``full_close_tolerance`` branch.
             sub_trade_amt = params.get("sub_trade_amt")
+            close_amount = sub_trade_amt if sub_trade_amt is not None else amount
 
-            if sub_trade_amt is None:
-                # ============================================
-                # FULL CLOSE: Use GMX's exact raw position size
-                # ============================================
-                # Pass the raw 30-decimal int so _format_size_info() uses it
-                # as-is (isinstance(int) and > 10^20 branch) without the
-                # lossy int(float * 10^30) multiplication.
-                size_delta_usd = actual_size_usd_raw if actual_size_usd_raw > 0 else actual_size_usd
-
-                logger.info(
-                    "FULL CLOSE: Using exact GMX position size %.2f USD (raw=%s, freqtrade amount %.2f tokens ignored to prevent remnants)",
-                    actual_size_usd,
-                    actual_size_usd_raw,
-                    amount,
-                )
-
+            if price:
+                requested_size_usd = close_amount * price
             else:
-                # ============================================
-                # PARTIAL CLOSE: Calculate requested, clamp to actual
-                # ============================================
-                if price:
-                    requested_size_usd = sub_trade_amt * price
-                else:
-                    ticker = self.fetch_ticker(symbol)
-                    current_price = ticker["last"]
-                    requested_size_usd = sub_trade_amt * current_price
+                ticker = self.fetch_ticker(symbol)
+                current_price = ticker["last"]
+                requested_size_usd = close_amount * current_price
 
-                # Clamp to actual position size (float comparison fine for partial amounts)
-                size_delta_usd = min(requested_size_usd, actual_size_usd)
+            size_delta_usd = _resolve_reduce_only_size_delta_usd(
+                requested_size_usd=requested_size_usd,
+                gmx_position=gmx_position,
+            )
 
-                if size_delta_usd < requested_size_usd:
-                    logger.warning(
-                        "PARTIAL CLOSE: Clamping size from %.2f to %.2f USD (actual GMX position)",
-                        requested_size_usd,
-                        size_delta_usd,
-                    )
-
-                # If clamped to full position size, use the raw int to avoid
-                # float precision dust (same logic as full close path)
-                if size_delta_usd >= actual_size_usd and actual_size_usd_raw > 0:
-                    size_delta_usd = actual_size_usd_raw
-                    logger.info(
-                        "PARTIAL CLOSE: Clamped to full position — using raw int to avoid dust (raw=%s)",
-                        actual_size_usd_raw,
-                    )
-
+            # Diagnostic log distinguishes the three resolved paths so prod
+            # operators can grep for unexpected full closes in 5-min logs.
+            if isinstance(size_delta_usd, int) and size_delta_usd > 10**20:
                 logger.info(
-                    "PARTIAL CLOSE: size_delta_usd=%s (requested %.2f, actual position %.2f)",
+                    "FULL CLOSE: Using exact GMX position size %.2f USD (raw=%s, "
+                    "requested %.2f USD ≥ %.1f%% of actual — substituting raw int to prevent dust)",
+                    actual_size_usd,
+                    size_delta_usd,
+                    requested_size_usd,
+                    99.5,
+                )
+            elif size_delta_usd < requested_size_usd:
+                logger.warning(
+                    "PARTIAL CLOSE: Clamping size from %.2f to %.2f USD (actual GMX position)",
+                    requested_size_usd,
+                    size_delta_usd,
+                )
+            else:
+                logger.info(
+                    "PARTIAL CLOSE: size_delta_usd=%.2f (requested %.2f, actual position %.2f, "
+                    "source=%s)",
                     size_delta_usd,
                     requested_size_usd,
                     actual_size_usd,
+                    "sub_trade_amt" if sub_trade_amt is not None else "amount",
                 )
 
         elif "size_usd" in params:
