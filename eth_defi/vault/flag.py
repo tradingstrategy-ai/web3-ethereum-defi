@@ -484,6 +484,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xb7305d968ecd8a23a13ec01927e3f9588c7653b5": (VaultFlag.illiquid, ETHEREALM_USDC_ILLIQUID),
     # VaultMorpho (Morpho on Ethereum)
     "0x21ed44c18c926c60092b1b2985e2c999421a5a69": (VaultFlag.illiquid, VAULTMORPHO_ILLIQUID),
+    # VaultV2 (Morpho on Ethereum) - empty name, no curator
+    "0x5e577efb2807d106e2a8bdde3fc5fcffffc9ec13": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
