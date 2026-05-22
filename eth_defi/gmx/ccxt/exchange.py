@@ -8512,6 +8512,37 @@ class GMX(ExchangeCompatible):
         self._orders = {}
         logger.info("Cleared order cache")
 
+    def _patch_cached_order_key(self, order_id: str, order_key_hex: str) -> None:
+        """Patch a recovered GMX order key into all cached aliases for an order.
+
+        Called by the freqtrade wrapper when the no-key reconciler recovers
+        the real ``order_key`` from a live GMX pending order or a historical
+        Subsquid / EventEmitter record.  Patching the cache in place lets
+        the next ``fetch_order`` cycle hit the normal order-key-aware path
+        (``exchange.py`` lines 8593+ — DataStore + verification) instead of
+        re-triggering the no-key fallback.
+
+        Orders are inserted into ``self._orders`` under both their bare
+        (``"{hash}"``) and ``0x``-prefixed (``"0x{hash}"``) form by various
+        creation paths and by the cache-key resolver at
+        ``fetch_order`` line 8542.  The patch must update whichever alias(es)
+        the order is currently under so a subsequent lookup via either form
+        sees the recovered key.
+
+        :param order_id:
+            The order id that the wrapper is reconciling.  Either form
+            (``"0x..."`` or bare) is accepted; both aliases are checked.
+        :param order_key_hex:
+            Recovered GMX order key as a ``0x``-prefixed hex string.
+        """
+        bare = order_id.removeprefix("0x")
+        aliases = {order_id, bare, f"0x{bare}"}
+        for alias in aliases:
+            cached = self._orders.get(alias)
+            if not cached:
+                continue
+            cached.setdefault("info", {})["order_key"] = order_key_hex
+
     def reset_failure_counter(self):
         """Reset consecutive failure counter and resume trading.
 

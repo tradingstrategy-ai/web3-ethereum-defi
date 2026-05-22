@@ -4260,6 +4260,29 @@ class GMX(Exchange):
         self._orders = {}
         logger.info("Cleared order cache (async)")
 
+    def _patch_cached_order_key(self, order_id: str, order_key_hex: str) -> None:
+        """Async-side mirror of :meth:`eth_defi.gmx.ccxt.exchange.GMX._patch_cached_order_key`.
+
+        Kept in sync/async lockstep so the freqtrade wrapper can invoke
+        the same repair API regardless of which adapter is bound to
+        ``self._api``.  Signature, semantics and alias handling are
+        identical to the sync sibling — see that docstring for the
+        rationale around bare and ``0x``-prefixed aliases.
+
+        :param order_id:
+            Order id under reconciliation; both ``"0x..."`` and bare forms
+            are accepted.
+        :param order_key_hex:
+            Recovered GMX order key as a ``0x``-prefixed hex string.
+        """
+        bare = order_id.removeprefix("0x")
+        aliases = {order_id, bare, f"0x{bare}"}
+        for alias in aliases:
+            cached = self._orders.get(alias)
+            if not cached:
+                continue
+            cached.setdefault("info", {})["order_key"] = order_key_hex
+
     def reset_failure_counter(self):
         """Reset consecutive failure counter and resume trading.
 

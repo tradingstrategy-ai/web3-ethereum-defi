@@ -578,11 +578,15 @@ class Gmx(Exchange):
         order = super().fetch_order(order_id, pair, params)
         info = order.get("info", {})
 
-        # On-chain position reconciliation for non-market orders that look stuck.
-        # Only runs when needed; ``_reconcile_via_positions`` returns ``None``
-        # (the order is unchanged) when no match exists.
+        # On-chain reconciliation for non-market orders that look stuck.
+        # Cascades: position match (filled) → live pending order
+        # (legitimately still open, repair cache) → historical event
+        # (cancelled / frozen / executed) → final cancelled marker when
+        # every authoritative source says the order has no existence
+        # anywhere on-chain.  Returns ``None`` when nothing definitive is
+        # found, in which case the original order is returned unchanged.
         if order.get("status") == "open" and order.get("type") != "market":
-            reconciled = self._reconcile_via_positions(order, pair, order_id)
+            reconciled = self._reconcile_open_non_market_order(order, pair, order_id)
             if reconciled is not None:
                 return reconciled
 
@@ -729,6 +733,507 @@ class Gmx(Exchange):
             )
             return reconciled
 
+        return None
+
+    #: How long a single ``order_id`` is excluded from re-running the
+    #: no-key reconciliation after a fall-through (no live pending
+    #: order, no position, no historical record).  Prevents Subsquid
+    #: / REST quota burn when 100+ open orders are polled every loop.
+    _RECONCILE_THROTTLE_MS = 60_000
+
+    #: Price-level tolerance for matching a cached order against a
+    #: live GMX pending DataStore order.  GMX stores trigger prices
+    #: in 30-decimal raw form and CCXT exposes them as floats — a
+    #: tiny float-conversion drift is expected.
+    _PENDING_PRICE_TOLERANCE = 1e-6
+
+    def _reconcile_open_non_market_order(
+        self,
+        order: CcxtOrder,
+        pair: str,
+        order_id: str,
+    ) -> CcxtOrder | None:
+        """Reconcile a stuck-open limit / stop / take-profit order.
+
+        Two authoritative sources for "is this order still pending?" —
+        REST first, on-chain Reader second.  Both follow the same
+        positive-proof-of-absence contract: a tier may only contribute
+        to a cancellation decision when it returned successfully and
+        produced no match.  Network errors leave the order untouched.
+
+        1. :meth:`_reconcile_via_positions` (PR #1008) — order may have
+           filled and the indexer missed the event; flip to ``closed``.
+        2. If the cached order has a real ``info["order_key"]``, the
+           standard CCXT resolver path is authoritative next cycle;
+           short-circuit.
+        3. Otherwise (the no-``order_key`` case this method exists for):
+
+           **Tier A — GMX REST** (``https://<chain>.gmxapi.ai/v1/orders``
+           via :meth:`eth_defi.gmx.api.GMXAPI.get_orders`, which
+           already retries 3× with exponential backoff inside
+           ``_make_gmxapi_ai_request``).
+
+           **Tier B — On-chain Reader** (``SyntheticsReader.getAccountOrders``
+           via :func:`eth_defi.gmx.order.pending_orders.fetch_pending_orders`).
+           Single eth_call, returns the same fields the matcher uses.
+
+           - If **either** tier finds a matching pending order →
+             adopt the recovered ``order_key``, patch the cache, keep
+             ``status="open"``.
+           - If **both** tiers ran successfully and **both** confirmed
+             no match → flip ``status="cancelled"``.
+           - If a tier errored, downgrade its vote to "inconclusive";
+             cancellation requires positive evidence from at least one
+             tier and no contradicting matches.  If both tiers errored
+             we leave the order untouched.
+
+        Throttled per ``order_id`` by :data:`_RECONCILE_THROTTLE_MS`.
+
+        :param order: Order returned by the parent ``fetch_order``.
+        :param pair: Unified ccxt symbol (``"BTC/USDC:USDC"``).
+        :param order_id: The freqtrade-supplied order id (typically the
+            creation tx hash, used for log correlation + cache lookup).
+        :returns: Reconciled order copy when a resolver had a definitive
+            answer; ``None`` when both tiers were inconclusive (caller
+            returns the original order unchanged).
+        """
+        # Step 1 — PR #1008 position-match path.  Canonical for
+        # "keeper filled the order but the indexer hasn't surfaced it".
+        reconciled = self._reconcile_via_positions(order, pair, order_id)
+        if reconciled is not None:
+            return reconciled
+
+        # Step 2 — cache already has an order_key → the standard
+        # CCXT resolver paths are authoritative next cycle.
+        order_key = (order.get("info") or {}).get("order_key")
+        if order_key:
+            return None
+
+        # Step 3 — throttle the (potentially expensive) cascade.
+        if not self._should_run_no_key_reconcile(order_id):
+            return None
+
+        # Tier A — GMX REST `/v1/orders` (gmxapi.ai, already retried).
+        rest_checked, rest_match = self._reconcile_no_key_via_rest_orders(order, pair, order_id)
+        if rest_match is not None:
+            return rest_match
+
+        # Tier B — on-chain SyntheticsReader.getAccountOrders.
+        # Even if REST returned empty (rest_checked=True, rest_match=None),
+        # the Reader is the more authoritative source so we always
+        # consult it before flipping cancelled.  An on-chain "yes
+        # it's pending" overrides REST's apparent absence.
+        contract_checked, contract_match = self._reconcile_no_key_via_contract(order, pair, order_id)
+        if contract_match is not None:
+            return contract_match
+
+        # Both tiers succeeded and neither saw the order → flip cancelled.
+        # The contract Reader is authoritative on-chain; if it agrees
+        # with REST that the order doesn't exist, the order really
+        # doesn't exist.
+        if rest_checked and contract_checked:
+            return self._mark_no_key_order_cancelled(order, order_id, pair)
+
+        # Otherwise at least one tier was inconclusive — keep the
+        # order untouched until next cycle.
+        return None
+
+    def _mark_no_key_order_cancelled(
+        self,
+        order: CcxtOrder,
+        order_id: str,
+        pair: str,
+    ) -> CcxtOrder:
+        """Flip the cached order to ``cancelled`` after both REST and Reader confirmed absence.
+
+        Tiers A (REST) and B (on-chain Reader) both returned
+        successfully and both reported no matching pending order for
+        this pair/side.  That is the strongest possible signal short
+        of replaying the creation transaction's events — the order is
+        gone from the GMX DataStore (rejected at creation, frozen, or
+        cancelled by a keeper outside our visibility).  Freqtrade can
+        now finalise the trade row.
+
+        :param order: Cached CCXT order being reconciled.
+        :param order_id: Order id (creation tx hash) for log correlation.
+        :param pair: Unified ccxt symbol for log correlation.
+        :returns: Reconciled copy with ``status="cancelled"`` and a
+            structured ``info["cancel_reason"]`` recording which tiers
+            confirmed absence.
+        """
+        resolved = dict(order)
+        resolved["status"] = "cancelled"
+        resolved["filled"] = 0.0
+        resolved["remaining"] = order.get("remaining") or order.get("amount")
+        resolved_info = dict(order.get("info") or {})
+        resolved_info["gmx_status"] = "no_key_not_found_in_any_tier"
+        resolved_info["cancel_reason"] = (
+            "no matching GMX pending order in gmxapi.ai /v1/orders nor on-chain SyntheticsReader.getAccountOrders"
+        )
+        resolved["info"] = resolved_info
+        logger.warning(
+            "fetch_order no-key reconcile: order %s for %s flipped open→cancelled "
+            "(REST + on-chain Reader both report no matching pending row)",
+            order_id[:18],
+            pair,
+        )
+        return resolved
+
+    def _should_run_no_key_reconcile(self, order_id: str) -> bool:
+        """Per-id throttle for the no-key reconciler.
+
+        Returns ``True`` on first observation and again every
+        :data:`_RECONCILE_THROTTLE_MS` thereafter.  Stores the last
+        observation timestamp on ``self._last_reconcile_ms`` (lazy
+        initialised so the wrapper works even when constructed via
+        ``__new__`` in tests).
+
+        :param order_id: Order id under reconciliation.
+        :returns: ``True`` if the reconciler should run this cycle.
+        """
+        # Lazy init keeps test fixtures (which bypass __init__) honest.
+        if not hasattr(self, "_last_reconcile_ms"):
+            self._last_reconcile_ms = {}
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        last = self._last_reconcile_ms.get(order_id)
+        if last is not None and (now_ms - last) < self._RECONCILE_THROTTLE_MS:
+            return False
+        self._last_reconcile_ms[order_id] = now_ms
+        return True
+
+    def _reconcile_no_key_via_rest_orders(
+        self,
+        order: CcxtOrder,
+        pair: str,
+        order_id: str,
+    ) -> tuple[bool, CcxtOrder | None]:
+        """Tier-A resolver — GMX REST ``/v1/orders`` (gmxapi.ai).
+
+        Calls
+        ``https://<chain>.gmxapi.ai/v1/orders?address={wallet}`` through
+        :meth:`eth_defi.gmx.api.GMXAPI.get_orders` — which itself
+        already applies a 3-attempt exponential-backoff retry inside
+        :meth:`eth_defi.gmx.api.GMXAPI._make_gmxapi_ai_request`.
+
+        Returns a ``(checked, reconciled)`` tuple so the orchestrator
+        in :meth:`_reconcile_open_non_market_order` can fuse this tier
+        with the on-chain Reader tier under positive-proof-of-absence
+        semantics:
+
+        - ``(True, order_copy)`` — definitive answer (matched a live
+          pending order; recovered key patched into cache).
+        - ``(True, None)`` — REST returned successfully and listed no
+          matching row.  Contributes to the cancellation vote.
+        - ``(False, None)`` — REST errored, returned a non-list payload,
+          or we could not resolve the market token while rows existed
+          (ambiguous).  Inconclusive; do NOT contribute to cancellation.
+
+        :param order: Cached CCXT order with ``info["order_key"]`` missing.
+        :param pair: Unified ccxt symbol.
+        :param order_id: Order id under reconciliation (logging + cache patching).
+        :returns: ``(checked, reconciled)`` — see contract above.
+        """
+        api_adapter = getattr(self, "_api", None)
+        if api_adapter is None:
+            return False, None
+        gmx_api = getattr(api_adapter, "api", None)
+        wallet = getattr(api_adapter, "wallet_address", None)
+        if gmx_api is None or not wallet:
+            logger.debug(
+                "fetch_order no-key reconcile: GMXAPI client or wallet_address unavailable — leaving order open",
+            )
+            return False, None
+
+        try:
+            rest_orders = gmx_api.get_orders(wallet)
+        except Exception as exc:  # noqa: BLE001 — soft fallback, never raise
+            logger.debug(
+                "fetch_order no-key reconcile: gmxapi.ai /orders lookup failed for %s (%s) — leaving order open",
+                pair,
+                exc,
+            )
+            return False, None
+
+        # gmxapi.ai returns a list of dicts; anything else means the
+        # endpoint mis-routed and we cannot interpret it as positive
+        # proof of absence.
+        if not isinstance(rest_orders, (list, tuple)):
+            logger.debug(
+                "fetch_order no-key reconcile: /orders response for %s is not a list (%r) — leaving order open",
+                pair,
+                type(rest_orders).__name__,
+            )
+            return False, None
+
+        market_token = self._market_token_for_pair(pair)
+        if market_token is None and rest_orders:
+            logger.debug(
+                "fetch_order no-key reconcile: cannot resolve market token for %s while /orders returned %d row(s) — leaving order open",
+                pair,
+                len(rest_orders),
+            )
+            return False, None
+
+        match = self._match_rest_pending_order(order, rest_orders, market_token=market_token)
+        if match is not None:
+            recovered_key = match.get("key") or match.get("orderKey")
+            if recovered_key:
+                self._api._patch_cached_order_key(order_id, recovered_key)
+            resolved = dict(order)
+            resolved_info = dict(order.get("info") or {})
+            if recovered_key:
+                resolved_info["order_key"] = recovered_key
+            resolved_info["reconciled_via_rest_orders"] = True
+            resolved["info"] = resolved_info
+            resolved["status"] = "open"
+            logger.info(
+                "fetch_order no-key reconcile: order %s for %s found live in gmxapi.ai /orders — keeping status=open, order_key=%s",
+                order_id[:18],
+                pair,
+                (recovered_key[:18] + "…") if isinstance(recovered_key, str) and len(recovered_key) > 18 else recovered_key,
+            )
+            return True, resolved
+
+        # REST returned and the order isn't there — REST tier votes
+        # absence.  Caller fuses with Tier-B Reader before flipping.
+        logger.info(
+            "fetch_order no-key reconcile: order %s for %s — REST /v1/orders has no matching pending row (deferring to Reader tier)",
+            order_id[:18],
+            pair,
+        )
+        return True, None
+
+    def _reconcile_no_key_via_contract(
+        self,
+        order: CcxtOrder,
+        pair: str,
+        order_id: str,
+    ) -> tuple[bool, CcxtOrder | None]:
+        """Tier-B resolver — on-chain ``SyntheticsReader.getAccountOrders``.
+
+        Delegates to
+        :func:`eth_defi.gmx.order.pending_orders.fetch_pending_orders`
+        which wraps a single eth_call to the GMX Reader contract.
+        Authoritative on-chain truth; never indexer-lagged.
+
+        Same ``(checked, reconciled)`` contract as
+        :meth:`_reconcile_no_key_via_rest_orders` — RPC failures
+        downgrade to inconclusive and the orchestrator handles fusion.
+
+        Matching rules mirror the REST tier so the two sources are
+        comparable: market token + ``is_long`` + trigger price within
+        :data:`_PENDING_PRICE_TOLERANCE`.  ``PendingOrder.trigger_price_usd``
+        already absorbs the GMX 30-decimal scaling for 18-decimal index
+        tokens — non-18-decimal tokens (WBTC=8) would need
+        ``trigger_price_usd_for_decimals`` if we widen the universe; for
+        the current pair_whitelist 18 decimals is the rule.
+
+        :param order: Cached CCXT order with ``info["order_key"]`` missing.
+        :param pair: Unified ccxt symbol.
+        :param order_id: Order id under reconciliation.
+        :returns: ``(checked, reconciled)`` per the cascade contract.
+        """
+        api_adapter = getattr(self, "_api", None)
+        if api_adapter is None:
+            return False, None
+        web3 = getattr(api_adapter, "web3", None)
+        wallet = getattr(api_adapter, "wallet_address", None)
+        config = getattr(api_adapter, "config", None)
+        chain_getter = getattr(config, "get_chain", None) if config is not None else None
+        if web3 is None or not wallet or chain_getter is None:
+            logger.debug(
+                "fetch_order no-key reconcile: web3/wallet/config unavailable for Reader tier — leaving order open",
+            )
+            return False, None
+
+        try:
+            chain = chain_getter()
+        except Exception as exc:  # noqa: BLE001 — soft fallback
+            logger.debug("fetch_order no-key reconcile: get_chain() failed (%s)", exc)
+            return False, None
+
+        # Local import keeps the wrapper module light and lets the
+        # test fixture stub the helper without owning the chain config.
+        try:
+            from eth_defi.gmx.order.pending_orders import fetch_pending_orders
+        except Exception as exc:  # noqa: BLE001 — defensive
+            logger.debug("fetch_order no-key reconcile: pending_orders import failed (%s)", exc)
+            return False, None
+
+        market_token = self._market_token_for_pair(pair)
+        order_side = order.get("side")
+        if order_side not in ("buy", "sell"):
+            return False, None
+        is_long = order_side == "buy"
+
+        try:
+            pending_iter = fetch_pending_orders(
+                web3,
+                chain,
+                wallet,
+                market_filter=market_token,
+                is_long_filter=is_long,
+            )
+            pending = list(pending_iter)
+        except Exception as exc:  # noqa: BLE001 — soft fallback
+            logger.debug(
+                "fetch_order no-key reconcile: Reader.getAccountOrders failed for %s (%s) — leaving order open",
+                pair,
+                exc,
+            )
+            return False, None
+
+        match = self._match_reader_pending_order(order, pending)
+        if match is not None:
+            recovered_key = "0x" + match.order_key.hex()
+            self._api._patch_cached_order_key(order_id, recovered_key)
+            resolved = dict(order)
+            resolved_info = dict(order.get("info") or {})
+            resolved_info["order_key"] = recovered_key
+            resolved_info["reconciled_via_reader"] = True
+            resolved["info"] = resolved_info
+            resolved["status"] = "open"
+            logger.info(
+                "fetch_order no-key reconcile: order %s for %s found live in SyntheticsReader.getAccountOrders — keeping status=open, order_key=%s",
+                order_id[:18],
+                pair,
+                recovered_key[:18] + "…",
+            )
+            return True, resolved
+
+        logger.info(
+            "fetch_order no-key reconcile: order %s for %s — Reader.getAccountOrders has no matching pending row (REST tier vote required)",
+            order_id[:18],
+            pair,
+        )
+        return True, None
+
+    def _match_reader_pending_order(self, order: CcxtOrder, pending: list) -> object | None:
+        """Match a cached order to a row from :func:`fetch_pending_orders`.
+
+        The Reader iterator yields :class:`~eth_defi.gmx.order.pending_orders.PendingOrder`
+        instances with USD-denominated ``trigger_price_usd`` (18-decimal
+        index tokens) or raw int ``trigger_price`` (1e30-scaled).  We
+        match on price within :data:`_PENDING_PRICE_TOLERANCE` when the
+        cached order carries a price; otherwise, when only one
+        candidate is left after the ``fetch_pending_orders`` filters
+        (market + is_long), accept it directly.
+
+        :param order: Cached CCXT order.
+        :param pending: List of ``PendingOrder`` instances from the
+            Reader scan.
+        :returns: Matching ``PendingOrder`` or ``None``.
+        """
+        if not pending:
+            return None
+        order_price = order.get("price") or order.get("stopPrice")
+        order_price_float = float(order_price) if order_price is not None else None
+        if order_price_float is None or len(pending) == 1:
+            return pending[0]
+        for candidate in pending:
+            cand_price = getattr(candidate, "trigger_price_usd", None)
+            if cand_price is None:
+                continue
+            if abs(float(cand_price) - order_price_float) <= self._PENDING_PRICE_TOLERANCE * max(order_price_float, 1.0):
+                return candidate
+        return None
+
+    def _market_token_for_pair(self, pair: str) -> str | None:
+        """Resolve the GMX market token address for a CCXT pair via the adapter's market cache.
+
+        The REST ``/v1/orders`` rows reference markets by their token
+        address, so matching against a CCXT pair string requires this
+        lookup.  Returns ``None`` when markets haven't been loaded or
+        the pair isn't found.  If REST returned any rows, callers must
+        treat that as inconclusive instead of matching by side only.
+
+        :param pair: Unified ccxt symbol (``"DOGE/USDC:USDC"``).
+        :returns: Lower-cased market token address or ``None``.
+        """
+        api_adapter = getattr(self, "_api", None)
+        markets = getattr(api_adapter, "markets", None) or {}
+        market = markets.get(pair)
+        if not market:
+            return None
+        info = market.get("info") or {}
+        token = info.get("market_token") or info.get("marketToken")
+        if isinstance(token, str):
+            return token.lower()
+        return None
+
+    def _match_rest_pending_order(
+        self,
+        order: CcxtOrder,
+        rest_orders: list[dict],
+        market_token: str | None,
+    ) -> dict | None:
+        """Match a cached order to a row from gmxapi.ai ``/v1/orders``.
+
+        REST schema (relevant fields)::
+
+            {
+              "key": "0x... (orderKey)",
+              "account": "0x...",
+              "market": "0x... (market token address)",
+              "isLong": True/False,
+              "orderType": int,
+              "triggerPrice": "<raw 1e30 USD>",
+              "sizeDeltaUsd": "<raw 1e30 USD>",
+              ...
+            }
+
+        Matching is conservative — market + ``isLong`` must agree, and
+        when both ends carry a price the values must agree within
+        :data:`_PENDING_PRICE_TOLERANCE` (relative).  We deliberately
+        avoid matching on amount because the REST endpoint reports
+        ``sizeDeltaUsd`` (1e30-scaled USD) while cached orders carry
+        token-denominated ``amount`` — comparing across units risks
+        both false positives and false negatives.
+
+        :param order: Cached CCXT order.
+        :param rest_orders: List of REST rows from gmxapi.ai ``/v1/orders``.
+        :param market_token: Lower-cased market token address for the
+            cached order's pair.  Must not be ``None`` when REST
+            returned any rows; the caller handles that case as
+            inconclusive.
+        :returns: Matching REST row or ``None``.
+        """
+        order_side = order.get("side")
+        if order_side not in ("buy", "sell"):
+            return None
+        expected_is_long = order_side == "buy"
+
+        order_price = order.get("price") or order.get("stopPrice")
+        order_price_float = float(order_price) if order_price is not None else None
+
+        candidates: list[dict] = []
+        for row in rest_orders:
+            if not isinstance(row, dict):
+                continue
+            if bool(row.get("isLong")) != expected_is_long:
+                continue
+            row_market = row.get("market") or ""
+            if not isinstance(row_market, str) or row_market.lower() != market_token:
+                continue
+            candidates.append(row)
+
+        if not candidates:
+            return None
+        if order_price_float is None or len(candidates) == 1:
+            return candidates[0]
+
+        # Multiple candidates with a known cached price — discriminate
+        # by trigger price within tolerance.
+        for candidate in candidates:
+            raw_trigger = candidate.get("triggerPrice") or candidate.get("triggerPriceUsd")
+            if raw_trigger is None:
+                continue
+            try:
+                trigger_float = float(raw_trigger) / 1e30
+            except (TypeError, ValueError):
+                continue
+            if abs(trigger_float - order_price_float) <= self._PENDING_PRICE_TOLERANCE * max(order_price_float, 1.0):
+                return candidate
         return None
 
     @property
