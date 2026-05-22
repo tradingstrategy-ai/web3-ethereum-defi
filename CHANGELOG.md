@@ -1,5 +1,7 @@
 # Current
 
+- feat: Add TokenGateway (ForgeYieldsUSDC / fyUSDC) custom event discovery for ERC-4626 vault scanning (2026-05-22)
+
 - feat: Daily timestamped R2 backups for vault data files in private buckets using server-side `copy_object`, with skip-if-exists and opt-out via `R2_DAILY_BACKUP=false` (2026-05-18)
 
 - docs(gmx): convert Google-style docstrings (`Args:` / `Returns:` / `Raises:` / `Example:` / `Note:` / `Attributes:`) to native Sphinx fields across 25 modules in `eth_defi/gmx/` — `sphinx.ext.napoleon` is not enabled in `docs/source/conf.py`, so these blocks previously rendered as plain text in the API docs. ~88 docstring blocks converted; no executable code changed (2026-05-15)
