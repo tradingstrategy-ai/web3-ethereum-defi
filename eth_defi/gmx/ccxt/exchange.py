@@ -77,6 +77,7 @@ from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.precision import cap_size_delta_to_position, is_raw_usd_amount
+from eth_defi.gmx.errors import decode_gmx_revert_selector
 from eth_defi.gmx.events import (
     _get_event_emitter_contract,
     decode_error_reason,
@@ -8185,6 +8186,21 @@ class GMX(ExchangeCompatible):
                         decoded_error = decode_error_reason(_reason_bytes)
                     except Exception:
                         pass
+                # If the legacy events.py registry only produced a bare
+                # "Unknown error (selector: 0x...)" string, consult the
+                # comprehensive GMX V2 selector registry in eth_defi.gmx.errors
+                # to surface the human-readable error name + description.
+                # Example uplift:
+                #   "Unknown error (selector: 0x839c693e)"
+                #     -> "InvalidCollateralTokenForMarket — The collateral
+                #         token is not accepted by this market
+                #         (selector: 0x839c693e)"
+                if decoded_error and decoded_error.startswith("Unknown error (selector: 0x"):
+                    _selector_hex = decoded_error.split("0x", 1)[1].rstrip(")")
+                    _named = decode_gmx_revert_selector(_selector_hex)
+                    if _named is not None:
+                        _desc = f" — {_named.description}" if _named.description else ""
+                        decoded_error = f"{_named.name}{_desc} (selector: {_named.selector})"
                 error_reason = decoded_error or trade_action.get("reason") or f"Order {event_name.lower()}"
                 logger.warning(
                     "ORDER_TRACE: create_order() - Order %s by keeper for %s - decoded=%s, raw_reason=%s, tx=%s, order_key=%s",

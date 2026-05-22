@@ -54,6 +54,7 @@ from eth_defi.gmx.keys import is_market_disabled_key
 from eth_defi.gmx.core import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
+from eth_defi.gmx.errors import decode_gmx_revert_selector  # noqa: F401  -- sync/async lockstep with eth_defi.gmx.ccxt.exchange
 from eth_defi.gmx.events import (
     GMX_USD_PRECISION,
     decode_gmx_event,
