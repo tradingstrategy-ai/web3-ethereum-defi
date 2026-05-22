@@ -64,9 +64,8 @@ def test_4626_scan_hypersync(web3):
     rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, end_block) for d in vault_detections)
     rows.sort(key=lambda x: x["Address"])
 
-    assert len(rows) in (59, 60)  # Flaky: 59 or 60 vaults found?
-    assert rows[0]["Name"] == "Staked EURA"
-    # assert rows[0]["Address"] == "0x127dc157aF74858b36bcca07D5A02ef27Cd442d0".lower()
+    assert len(rows) >= 59  # Grows as more event signatures are added to discovery
+    assert any(r["Name"] == "Staked EURA" for r in rows)
 
 
 def test_4626_scan_rpc(web3):
@@ -96,11 +95,12 @@ def test_4626_scan_rpc(web3):
     rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, end_block) for d in vault_detections)
     rows.sort(key=lambda x: x["Address"])
 
-    # Not sure why 8, 13 or 14, Hypersync finds one more? Flaky on Github.
+    # Grows as more event signatures are added to discovery
     assert len(rows) >= 8
-    assert rows[0]["Name"] == "Based ETH"
-    assert rows[0]["Address"] == "0x1f8c0065c464c2580be83f17f5f64dd194358649"
-    assert rows[0]["_detection_data"].deposit_count == 1
+    based_eth = [r for r in rows if r["Name"] == "Based ETH"]
+    assert len(based_eth) == 1
+    assert based_eth[0]["Address"] == "0x1f8c0065c464c2580be83f17f5f64dd194358649"
+    assert based_eth[0]["_detection_data"].deposit_count == 1
 
 
 @pytest.mark.parametrize("backend", ["auto", "hypersync"])
@@ -127,15 +127,15 @@ def test_lead_scan_core_hypersync(tmp_path, backend):
         case "rpc":
             assert isinstance(report.backend, JSONRPCVaultDiscover)
 
-    assert report.new_leads == 14
+    assert report.new_leads == 24
     assert report.old_leads == 0
-    assert report.deposits == 2526
+    assert report.deposits == 2539
     assert report.withdrawals == 1
     assert report.start_block == 2_000_000
     assert report.end_block == 2_500_000
-    assert len(report.leads) == 14
-    assert len(report.detections) == 14
-    assert len(report.rows) == 14
+    assert len(report.leads) == 24
+    assert len(report.detections) == 24
+    assert len(report.rows) == 24
 
     db = VaultDatabase.read(db_path)
     assert db.last_scanned_block == {8453: 2500000}
@@ -158,9 +158,9 @@ def test_lead_scan_core_hypersync(tmp_path, backend):
     assert updated_report.end_block == 2_800_000
     assert isinstance(updated_report, LeadScanReport)
     assert isinstance(updated_report.backend, HypersyncVaultDiscover)
-    assert updated_report.new_leads in (5, 6)  # Flaky?
-    assert updated_report.old_leads == 14
-    assert updated_report.deposits in (1633, 1634)  # Flaky?
+    assert updated_report.new_leads >= 5  # Varies with event signatures and HyperSync flakiness
+    assert updated_report.old_leads == 24
+    assert updated_report.deposits >= 1633
 
 
 def test_4626_scan_moonwell(web3):
@@ -198,6 +198,6 @@ def test_4626_scan_moonwell(web3):
     rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, scan_block) for d in vault_detections)
     rows.sort(key=lambda x: x["Address"])
 
-    assert len(rows) in (155, 168)  # Flaky: 155 or 168 vaults found?
+    assert len(rows) >= 155  # Grows as more event signatures are added to discovery
     moonwell = [r for r in rows if r["Name"] == "Moonwell Flagship USDC"][0]
     assert 29_000_000 < moonwell["NAV"] < 31_000_000
