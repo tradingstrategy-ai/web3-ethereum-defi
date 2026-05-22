@@ -32,7 +32,11 @@ from eth_defi.gmx.ccxt.cancel_helpers import (
     build_cancel_order_response,
     resolve_order_id,
 )
-from eth_defi.gmx.ccxt.exchange import _derive_side_from_trade_action
+from eth_defi.gmx.ccxt.exchange import (
+    _derive_side_from_trade_action,
+    _resolve_close_order_filled_amount,
+    _resolve_reduce_only_size_delta_usd,
+)
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.api import GMXAPI
@@ -50,6 +54,7 @@ from eth_defi.gmx.keys import is_market_disabled_key
 from eth_defi.gmx.core import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
+from eth_defi.gmx.errors import decode_gmx_revert_selector  # noqa: F401  -- sync/async lockstep with eth_defi.gmx.ccxt.exchange
 from eth_defi.gmx.events import (
     GMX_USD_PRECISION,
     decode_gmx_event,

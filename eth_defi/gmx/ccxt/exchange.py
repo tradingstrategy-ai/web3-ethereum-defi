@@ -77,6 +77,7 @@ from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.precision import cap_size_delta_to_position, is_raw_usd_amount
+from eth_defi.gmx.errors import decode_gmx_revert_selector
 from eth_defi.gmx.events import (
     _get_event_emitter_contract,
     decode_error_reason,
@@ -353,6 +354,156 @@ def _block_timestamp_ms(web3: "Web3", block_number: int | None) -> int | None:
     except Exception as e:  # noqa: BLE001 — fetch_order must never raise here
         logger.debug("_block_timestamp_ms: get_block(%s) failed: %s", block_number, e)
         return None
+
+
+def _resolve_reduce_only_size_delta_usd(
+    *,
+    requested_size_usd: float,
+    gmx_position: dict,
+    full_close_tolerance: float = 0.995,
+) -> float | int:
+    """Resolve the GMX ``sizeDeltaUsd`` for a reduce-only close.
+
+    Background. Freqtrade's stock ``execute_trade_exit`` calls
+    ``exchange.create_order(..., amount=Trade.amount, reduceOnly=True, ...)``
+    without forwarding a ``sub_trade_amt`` CCXT parameter. The GMX adapter
+    therefore must decide the on-chain decrease size from the ``amount``
+    Freqtrade passes (translated to USD by the caller before this helper is
+    invoked), NOT from the external GMX net position size — otherwise a
+    logical per-trade close flattens the entire on-chain position when
+    multiple Freqtrade trades share a single GMX market position (the
+    same-pair NT-HEDGING parity case shipped in the
+    ``feat/orchestrator-live-independent-same-pair`` work upstream of this
+    fix).
+
+    Three cases.
+
+    * ``actual_size_usd <= 0`` (invalid / closed) — return ``requested_size_usd``
+      unchanged; the calling create_order path will surface the
+      ``InvalidDecreaseOrderSize`` revert if it really is invalid.
+    * ``requested_size_usd >= actual_size_usd * full_close_tolerance`` (the
+      caller is effectively asking for the whole position) — return the
+      raw uint256 ``position_size_usd_raw`` if available, else
+      ``actual_size_usd``. Preserves the historical dust-prevention behaviour
+      for true full closes (avoids ``int(float * 10^30)`` overshoot causing
+      GMX ``InvalidDecreaseOrderSize`` reverts).
+    * Otherwise — return ``min(requested_size_usd, actual_size_usd)``. The
+      ``min`` caps the request at the actual on-chain size so a bug in the
+      caller can never over-reduce a position; ``cap_size_delta_to_position``
+      later in ``create_order`` keeps a final safety net.
+
+    :param requested_size_usd: The amount the Freqtrade caller asked to
+        decrease, already translated to USD (``amount * price``).
+    :param gmx_position: Dict from ``GetOpenPositions`` with at least
+        ``position_size`` (float USD) and optionally
+        ``position_size_usd_raw`` (uint256 with 30 decimals).
+    :param full_close_tolerance: Fraction of ``actual_size_usd`` at or above
+        which the request is treated as a full close. Default ``0.995`` —
+        ie. the caller must request at least 99.5% of the on-chain size to
+        get the dust-preventing raw int substitution.
+    :returns: The ``sizeDeltaUsd`` value the GMX order builder should use.
+        May be a ``float`` (USD) or a ``int`` (raw uint256, 30 decimals);
+        downstream ``_format_size_info`` already handles both.
+    """
+    actual_size_usd = float(gmx_position.get("position_size", 0.0) or 0.0)
+    actual_size_usd_raw = int(gmx_position.get("position_size_usd_raw", 0) or 0)
+    if actual_size_usd <= 0:
+        return requested_size_usd
+    if requested_size_usd >= actual_size_usd * full_close_tolerance:
+        return actual_size_usd_raw if actual_size_usd_raw > 0 else actual_size_usd
+    return min(requested_size_usd, actual_size_usd)
+
+
+def _resolve_close_order_filled_amount(
+    *,
+    requested_amount: float,
+    size_delta_usd: float | None,
+    execution_price: float | None,
+    gmx_position: dict | None,
+    full_close_tolerance: float = 0.995,
+) -> float:
+    """Resolve the ``filled`` / ``amount`` value reported in a close-order CCXT response.
+
+    Background. The GMX close-order response previously reported
+    ``size_delta_usd / execution_price`` for both ``filled`` and ``amount``.
+    That value is the *post-execution* base-currency amount derived from
+    on-chain ``sizeInTokens``, which differs from the Freqtrade-requested
+    ``amount`` by a few wei because GMX price impact + integer rounding
+    shift the fill price slightly relative to the signal price the caller
+    used to size the trade.
+
+    For partial closes that token-derived value is correct — Freqtrade
+    needs the accurate base-currency delta to keep its wallet view aligned
+    with the on-chain position.
+
+    For full closes it is destructive. Freqtrade's
+    :func:`freqtrade.persistence.trade_model.Trade.update_trade` calls
+    ``isclose(filled, amount, abs_tol=1e-14)`` to decide whether the close
+    was full or partial. The wei-level gap blows that tolerance — Freqtrade
+    marks the successful full close as a PARTIAL fill, keeps
+    ``Trade.is_open = True`` with a dust residual base amount, and
+    re-fires ``should_exit`` on the next tick, triggering a 6-minute
+    dust-close retry via the Subsquid event-scanner fallback. Live
+    evidence: LINK trade #8 on 2026-05-22 closed at 01:37 for 0.30608767
+    LINK then again at 01:43 for 0.00107856 LINK dust.
+
+    Decision matrix.
+
+    * ``size_delta_usd`` falsy or ``execution_price`` falsy / None →
+      return ``requested_amount``. No token-derived value possible.
+    * ``gmx_position`` is None or ``position_size`` ≤ 0 →
+      return ``requested_amount``. We can't compare against actual size.
+    * Full close (``size_delta_usd >= actual_size_usd × full_close_tolerance``) →
+      return ``requested_amount``. Keeps ``filled == amount`` exactly so
+      Freqtrade sees a full fill.
+    * Partial close → return ``size_delta_usd / execution_price``
+      (token-derived). Preserves the wallet-sync behaviour.
+
+    Complement to :func:`_resolve_reduce_only_size_delta_usd` — that helper
+    fixes the *sizing* (entry into ``create_order``), this one fixes the
+    *reporting* (close-order response). Both are required for correct
+    same-pair NT-HEDGING parity behaviour in the
+    ``feat/orchestrator-live-independent-same-pair`` work upstream of this
+    fix.
+
+    :param requested_amount: The Freqtrade-requested ``amount`` (in base
+        currency). For DCA closes, callers should pass
+        ``params.get("sub_trade_amt") or amount`` so the authoritative
+        partial value flows through.
+    :param size_delta_usd: The USD size delta of the executed close, as
+        reported by the keeper trade-action event (post price-impact).
+        May be ``0.0`` / ``None`` when the order was already closed via
+        the Subsquid fallback paths (synthetic responses).
+    :param execution_price: The on-chain executed price in USD per base
+        currency. May be ``None`` when no execution event was found.
+    :param gmx_position: The ``GetOpenPositions`` dict for the position
+        being closed, or ``None`` if the position was already gone. Must
+        contain at least ``position_size`` (float USD) when not None.
+    :param full_close_tolerance: Fraction of ``actual_size_usd`` at or
+        above which the close is treated as full. Default ``0.995``
+        mirrors :func:`_resolve_reduce_only_size_delta_usd`.
+    :returns: The base-currency amount to report in the CCXT response's
+        ``filled`` and ``amount`` fields.
+    """
+    # Fallback: no token-derived value possible.
+    if not size_delta_usd or not execution_price:
+        return requested_amount
+
+    # Fallback: no comparable on-chain position.
+    if gmx_position is None:
+        return requested_amount
+
+    actual_size_usd = float(gmx_position.get("position_size", 0.0) or 0.0)
+    if actual_size_usd <= 0:
+        return requested_amount
+
+    # Full-close path: return the FT-requested amount so Freqtrade's
+    # isclose(filled, amount) check sees an exact match.
+    if size_delta_usd >= actual_size_usd * full_close_tolerance:
+        return requested_amount
+
+    # Partial-close path: return the token-derived value (wallet-sync).
+    return size_delta_usd / execution_price
 
 
 class GMX(ExchangeCompatible):
@@ -5762,60 +5913,57 @@ class GMX(ExchangeCompatible):
 
         # Only proceed with GMX position logic if we still have a valid position
         if reduceOnly and gmx_position:
-            # Check if this is a partial close (sub_trade_amt provided)
+            # The CCXT caller's authoritative close size is whichever of these
+            # is set: an explicit ``sub_trade_amt`` (Freqtrade DCA partial-exit
+            # path) OR the ``amount`` argument itself (Freqtrade's stock
+            # ``execute_trade_exit`` — the same-pair logical-trade case). Pre
+            # this fix the ``sub_trade_amt is None`` branch substituted the
+            # external net GMX position size, which silently flattened sibling
+            # logical Trades sharing one GMX position. Make ``amount``
+            # authoritative; the historical dust-prevention behaviour for true
+            # full closes is preserved by
+            # :func:`_resolve_reduce_only_size_delta_usd`'s
+            # ``full_close_tolerance`` branch.
             sub_trade_amt = params.get("sub_trade_amt")
+            close_amount = sub_trade_amt if sub_trade_amt is not None else amount
 
-            if sub_trade_amt is None:
-                # ============================================
-                # FULL CLOSE: Use GMX's exact raw position size
-                # ============================================
-                # Pass the raw 30-decimal int so _format_size_info() uses it
-                # as-is (isinstance(int) and > 10^20 branch) without the
-                # lossy int(float * 10^30) multiplication.
-                size_delta_usd = actual_size_usd_raw if actual_size_usd_raw > 0 else actual_size_usd
-
-                logger.info(
-                    "FULL CLOSE: Using exact GMX position size %.2f USD (raw=%s, freqtrade amount %.2f tokens ignored to prevent remnants)",
-                    actual_size_usd,
-                    actual_size_usd_raw,
-                    amount,
-                )
-
+            if price:
+                requested_size_usd = close_amount * price
             else:
-                # ============================================
-                # PARTIAL CLOSE: Calculate requested, clamp to actual
-                # ============================================
-                if price:
-                    requested_size_usd = sub_trade_amt * price
-                else:
-                    ticker = self.fetch_ticker(symbol)
-                    current_price = ticker["last"]
-                    requested_size_usd = sub_trade_amt * current_price
+                ticker = self.fetch_ticker(symbol)
+                current_price = ticker["last"]
+                requested_size_usd = close_amount * current_price
 
-                # Clamp to actual position size (float comparison fine for partial amounts)
-                size_delta_usd = min(requested_size_usd, actual_size_usd)
+            size_delta_usd = _resolve_reduce_only_size_delta_usd(
+                requested_size_usd=requested_size_usd,
+                gmx_position=gmx_position,
+            )
 
-                if size_delta_usd < requested_size_usd:
-                    logger.warning(
-                        "PARTIAL CLOSE: Clamping size from %.2f to %.2f USD (actual GMX position)",
-                        requested_size_usd,
-                        size_delta_usd,
-                    )
-
-                # If clamped to full position size, use the raw int to avoid
-                # float precision dust (same logic as full close path)
-                if size_delta_usd >= actual_size_usd and actual_size_usd_raw > 0:
-                    size_delta_usd = actual_size_usd_raw
-                    logger.info(
-                        "PARTIAL CLOSE: Clamped to full position — using raw int to avoid dust (raw=%s)",
-                        actual_size_usd_raw,
-                    )
-
+            # Diagnostic log distinguishes the three resolved paths so prod
+            # operators can grep for unexpected full closes in 5-min logs.
+            if isinstance(size_delta_usd, int) and size_delta_usd > 10**20:
                 logger.info(
-                    "PARTIAL CLOSE: size_delta_usd=%s (requested %.2f, actual position %.2f)",
+                    "FULL CLOSE: Using exact GMX position size %.2f USD (raw=%s, "
+                    "requested %.2f USD ≥ %.1f%% of actual — substituting raw int to prevent dust)",
+                    actual_size_usd,
+                    size_delta_usd,
+                    requested_size_usd,
+                    99.5,
+                )
+            elif size_delta_usd < requested_size_usd:
+                logger.warning(
+                    "PARTIAL CLOSE: Clamping size from %.2f to %.2f USD (actual GMX position)",
+                    requested_size_usd,
+                    size_delta_usd,
+                )
+            else:
+                logger.info(
+                    "PARTIAL CLOSE: size_delta_usd=%.2f (requested %.2f, actual position %.2f, "
+                    "source=%s)",
                     size_delta_usd,
                     requested_size_usd,
                     actual_size_usd,
+                    "sub_trade_amt" if sub_trade_amt is not None else "amount",
                 )
 
         elif "size_usd" in params:
@@ -8038,6 +8186,21 @@ class GMX(ExchangeCompatible):
                         decoded_error = decode_error_reason(_reason_bytes)
                     except Exception:
                         pass
+                # If the legacy events.py registry only produced a bare
+                # "Unknown error (selector: 0x...)" string, consult the
+                # comprehensive GMX V2 selector registry in eth_defi.gmx.errors
+                # to surface the human-readable error name + description.
+                # Example uplift:
+                #   "Unknown error (selector: 0x839c693e)"
+                #     -> "InvalidCollateralTokenForMarket — The collateral
+                #         token is not accepted by this market
+                #         (selector: 0x839c693e)"
+                if decoded_error and decoded_error.startswith("Unknown error (selector: 0x"):
+                    _selector_hex = decoded_error.split("0x", 1)[1].rstrip(")")
+                    _named = decode_gmx_revert_selector(_selector_hex)
+                    if _named is not None:
+                        _desc = f" — {_named.description}" if _named.description else ""
+                        decoded_error = f"{_named.name}{_desc} (selector: {_named.selector})"
                 error_reason = decoded_error or trade_action.get("reason") or f"Order {event_name.lower()}"
                 logger.warning(
                     "ORDER_TRACE: create_order() - Order %s by keeper for %s - decoded=%s, raw_reason=%s, tx=%s, order_key=%s",
@@ -8127,6 +8290,20 @@ class GMX(ExchangeCompatible):
             )
 
             timestamp = self.milliseconds()
+            # Compute the reportable filled/amount once so close-order responses
+            # report the FT-requested amount on a full close (avoids the wei-level
+            # gap between token-derived and requested amounts blowing Freqtrade's
+            # isclose(filled, amount, abs_tol=1e-14) check → dust-residual retry).
+            # See :func:`_resolve_close_order_filled_amount` for the full rationale.
+            # For opens, `_gmx_position` is popped from gmx_params at line ~7333
+            # so the helper hits its `gmx_position is None` fallback and returns
+            # `amount` unchanged — preserving open-order behaviour exactly.
+            _reportable_amount = _resolve_close_order_filled_amount(
+                requested_amount=(params.get("sub_trade_amt") if params else None) or amount,
+                size_delta_usd=size_delta_usd,
+                execution_price=execution_price,
+                gmx_position=gmx_params.get("_gmx_position") if isinstance(gmx_params, dict) else None,
+            )
             order = {
                 "id": tx_hash,
                 "clientOrderId": None,
@@ -8137,15 +8314,17 @@ class GMX(ExchangeCompatible):
                 "type": type,
                 "side": side,
                 "price": execution_price,
-                # Use actual executed token amount derived from on-chain size_delta_usd / execution_price.
-                # The original `amount` parameter is a pre-execution estimate based on signal price;
-                # GMX price impact shifts the fill price slightly, producing a different sizeInTokens
-                # on-chain. Using the post-execution value here avoids the Freqtrade wallet-sync
-                # mismatch warning "Wallet shows X but trade has Y".
-                "amount": size_delta_usd / execution_price if (size_delta_usd and execution_price) else amount,
+                # On a full close (requested >= 99.5% × actual on-chain position) we
+                # report the Freqtrade-requested amount so update_trade's
+                # isclose(filled, amount) sees an exact match and marks the trade
+                # closed. On a partial close we keep the post-execution token-derived
+                # value (size_delta_usd / execution_price) so the Freqtrade wallet
+                # view stays aligned with the on-chain position (avoids the
+                # "Wallet shows X but trade has Y" warning).
+                "amount": _reportable_amount,
                 "cost": size_delta_usd if size_delta_usd else ((execution_price or 0) * amount if execution_price else None),
                 "average": execution_price,
-                "filled": size_delta_usd / execution_price if (size_delta_usd and execution_price) else amount,
+                "filled": _reportable_amount,
                 "remaining": 0.0,
                 "status": "closed",
                 "fee": fee_dict,
