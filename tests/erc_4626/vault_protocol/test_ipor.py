@@ -19,24 +19,34 @@ JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 #: https://app.ipor.io/fusion/ethereum/0xf8f226da66244f89e70c5b5d1a5c5b0d505eb1d8
 IPOR_BDUSD_ETHEREUM = "0xf8f226da66244f89e70c5b5d1a5c5b0d505eb1d8"
 
-IPOR_BDUSD_DEPOSIT_FEE = 0.008
+#: This fee has been set to 0 on-chain as of 2026-05-22.
+IPOR_BDUSD_DEPOSIT_FEE = 0.0
 
 
 def test_internalised_fee_mode_preserves_explicit_deposit_fee():
-    """Explicit deposit fees are investor-paid even if other fees are internalised."""
+    """Explicit deposit fees are investor-paid even if other fees are internalised.
+
+    1. Create a FeeData with internalised_minting mode and a non-zero deposit fee
+    2. Call get_net_fees() to compute investor-visible fees
+    3. Verify management and performance are zeroed (internalised) but deposit fee survives
+    """
+    # 1. Create FeeData with a non-zero deposit fee (hardcoded, not tied to current on-chain state)
+    deposit_fee = 0.008
     fee_data = FeeData(
         fee_mode=VaultFeeMode.internalised_minting,
         management=0.005,
         performance=0.0,
-        deposit=IPOR_BDUSD_DEPOSIT_FEE,
+        deposit=deposit_fee,
         withdraw=0.0,
     )
 
+    # 2. Compute investor-visible fees
     net_fees = fee_data.get_net_fees()
 
+    # 3. Verify deposit fee survives while management/performance are zeroed
     assert net_fees.management == 0
     assert net_fees.performance == 0
-    assert net_fees.deposit == IPOR_BDUSD_DEPOSIT_FEE
+    assert net_fees.deposit == deposit_fee
     assert net_fees.withdraw == 0.0
 
 
@@ -96,15 +106,23 @@ def test_ipor_onboarding_fee(vault: IPORVault):
 
 
 def test_ipor_preview_deposit_is_net_of_onboarding_fee(vault: IPORVault):
-    """IPOR previewDeposit() returns shares net of the onboarding fee."""
+    """IPOR previewDeposit() returns shares net of the onboarding fee.
+
+    1. Convert 1,000 denomination tokens to raw amount
+    2. Compare convertToShares (gross) with previewDeposit (net)
+    3. Verify implied fee matches the on-chain onboarding fee
+    """
+    # 1. Convert 1,000 denomination tokens to raw amount
     raw_assets = vault.denomination_token.convert_to_raw(Decimal(1_000))
 
+    # 2. Compare convertToShares (gross) with previewDeposit (net)
     gross_shares = vault.vault_contract.functions.convertToShares(raw_assets).call()
     net_shares = vault.vault_contract.functions.previewDeposit(raw_assets).call()
 
     assert gross_shares > 0
     assert net_shares > 0
-    assert net_shares < gross_shares
+    assert net_shares <= gross_shares
 
+    # 3. Verify implied fee matches the on-chain onboarding fee
     implied_fee = (gross_shares - net_shares) / gross_shares
-    assert implied_fee == pytest.approx(IPOR_BDUSD_DEPOSIT_FEE, rel=0.000001)
+    assert implied_fee == pytest.approx(IPOR_BDUSD_DEPOSIT_FEE, abs=0.001)

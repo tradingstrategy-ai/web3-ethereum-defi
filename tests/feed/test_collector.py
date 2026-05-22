@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+import flaky
 import pytest
 import requests
 
@@ -212,12 +213,15 @@ def test_collect_twitter_list_posts_maps_posts_to_sources(monkeypatch: pytest.Mo
         db.close()
 
 
+@flaky.flaky
 def test_live_gauntlet_collection_and_source_registration(tmp_path: Path) -> None:
     """Read the current Gauntlet feeds and store them in DuckDB.
 
     1. Load the real Gauntlet feeder YAML from the repository feed folder.
     2. Upsert available source rows into DuckDB (RSS may be dead).
     3. Fetch live Twitter and LinkedIn feeds and verify posts are stored.
+
+    Flaky: depends on public LinkedIn RSS bridge availability.
     """
 
     db = VaultPostDatabase(tmp_path / "posts.duckdb")
