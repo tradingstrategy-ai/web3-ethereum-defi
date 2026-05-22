@@ -34,6 +34,7 @@ from eth_defi.gmx.ccxt.cancel_helpers import (
 )
 from eth_defi.gmx.ccxt.exchange import (
     _derive_side_from_trade_action,
+    _resolve_close_order_filled_amount,
     _resolve_reduce_only_size_delta_usd,
 )
 from eth_defi.gmx.ccxt.properties import describe_gmx
