@@ -238,3 +238,55 @@ class TestOrderKeyCacheAtomicWrites:
         assert leftovers == []
         final = list(tmp_path.glob("order_keys_*.json"))
         assert len(final) == 1
+
+
+class _StubOrderKeyCache:
+    """Test-only stand-in that mirrors :class:`OrderKeyCache`'s constructor
+    signature so adapter kwarg drift is caught without touching disk."""
+
+    def __init__(self, *, chain_id: int, wallet: str, cache_dir=None, max_entry_age_seconds: int = 0):
+        self.chain_id = chain_id
+        self.wallet = wallet.lower()
+        self.cache_dir = cache_dir
+        self.max_entry_age_seconds = max_entry_age_seconds
+
+
+class TestOrderKeyCacheAdapterWiring:
+    """Regression: the GMX CCXT adapter must instantiate :class:`OrderKeyCache`
+    with the correct kwarg names. Before this guard, ``exchange.py`` passed
+    ``wallet_address=`` whereas the constructor expects ``wallet=`` — the
+    persistent cache silently fell back to memory-only mode on every restart,
+    forcing the no-key reconcile path on every stale order.
+    """
+
+    def test_init_order_key_cache_wires_constructor_kwargs(self, monkeypatch):
+        """Drive ``_init_order_key_cache`` with stubbed wallet+web3 and confirm
+        the cache instance is created (i.e. constructor accepted the kwargs).
+        """
+        from types import SimpleNamespace
+
+        from eth_defi.gmx.ccxt import exchange as exchange_module
+        from eth_defi.gmx.ccxt.exchange import GMX
+
+        monkeypatch.setattr(exchange_module, "OrderKeyCache", _StubOrderKeyCache)
+
+        # Minimal stand-in exposing only the attributes _init_order_key_cache
+        # reads — enough to exercise the real call site without instantiating
+        # the full GMX exchange (which would need RPCs, secrets, etc.).
+        stub = SimpleNamespace(
+            web3=SimpleNamespace(eth=SimpleNamespace(chain_id=42161)),
+            wallet_address="0xE3F16770C0A336103d7c24B34A4AfcBf6fb17583",
+            _order_key_cache=None,
+        )
+
+        GMX._init_order_key_cache(stub)
+
+        # If the constructor kwargs had drifted, init would silently swallow
+        # the TypeError and leave _order_key_cache as None (memory-only mode).
+        assert stub._order_key_cache is not None, (
+            "OrderKeyCache constructor kwargs drifted from "
+            "eth_defi/gmx/ccxt/order_key_cache.py — adapter falls back to "
+            "memory-only mode on every restart."
+        )
+        assert stub._order_key_cache.chain_id == 42161
+        assert stub._order_key_cache.wallet == "0xe3f16770c0a336103d7c24b34a4afcbf6fb17583"

@@ -1787,7 +1787,7 @@ class GMX(ExchangeCompatible):
         try:
             self._order_key_cache = OrderKeyCache(
                 chain_id=self.web3.eth.chain_id,
-                wallet_address=self.wallet_address,
+                wallet=self.wallet_address,
             )
         except Exception as e:
             logger.warning("OrderKeyCache init failed (memory-only mode): %s", e)
