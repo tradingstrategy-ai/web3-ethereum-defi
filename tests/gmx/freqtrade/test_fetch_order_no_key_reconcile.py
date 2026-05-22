@@ -233,10 +233,12 @@ class TestNoKeyRestOrderResolver:
         gmx._api._patch_cached_order_key.assert_not_called()
 
     def test_empty_rest_orders_with_empty_reader_marks_cancelled(self):
-        # The original "phantom" case (stuck multistrat trades): no
-        # pending row in either tier → flip cancelled.
+        # The original "phantom" case (stuck multistrat trades): both
+        # tiers can resolve the market (DOGE in default fixture) and
+        # both return no pending row → flip cancelled.  Unknown market
+        # would be inconclusive (see test_unknown_market_*).
         cached = _cached_open_limit()
-        gmx = _fake_gmx(markets={}, rest_orders=[])
+        gmx = _fake_gmx(rest_orders=[])
 
         resolved = _invoke(gmx, cached)
 
@@ -256,6 +258,19 @@ class TestNoKeyRestOrderResolver:
 
         assert resolved["status"] == "open"
         assert resolved["info"]["order_key"] == "0xright"
+
+    def test_single_rest_candidate_with_wrong_trigger_price_does_not_match(self):
+        # Even one same-market/same-side REST candidate is not enough
+        # if the cached order has a trigger price and the row's trigger
+        # price is different.
+        cached = _cached_open_limit(price=0.10086039)
+        gmx = _fake_gmx(rest_orders=[_rest_order(price=0.22, order_key="0xwrong")])
+
+        resolved = _invoke(gmx, cached)
+
+        assert resolved["status"] == "cancelled"
+        assert "order_key" not in resolved["info"]
+        gmx._api._patch_cached_order_key.assert_not_called()
 
 
 class TestNoKeyContractResolver:
@@ -319,6 +334,41 @@ class TestNoKeyContractResolver:
 
         assert resolved["status"] == "open"
         assert "gmx_status" not in resolved["info"]
+
+    def test_reader_unknown_market_with_pending_rows_is_inconclusive(self):
+        # Without a pair -> market-token mapping, the Reader tier must
+        # not scan all same-side wallet orders and adopt the sole row.
+        # That could patch DOGE/FIL/TAO with another pair's order_key.
+        cached = _cached_open_limit()
+        gmx = _fake_gmx(markets={}, rest_orders=[])
+
+        resolved = _invoke(
+            gmx,
+            cached,
+            reader_pending=[_reader_order(market=FIL_MARKET)],
+        )
+
+        assert resolved["status"] == "open"
+        assert "order_key" not in resolved["info"]
+        assert "gmx_status" not in resolved["info"]
+        gmx._api._patch_cached_order_key.assert_not_called()
+
+    def test_single_reader_candidate_with_wrong_trigger_price_does_not_match(self):
+        # Reader candidate is filtered by market + side, but if cached
+        # price exists the trigger price still has to agree before we
+        # adopt its order_key.
+        cached = _cached_open_limit(price=0.10086039)
+        gmx = _fake_gmx(rest_orders=[])
+
+        resolved = _invoke(
+            gmx,
+            cached,
+            reader_pending=[_reader_order(trigger_price_usd=0.22)],
+        )
+
+        assert resolved["status"] == "cancelled"
+        assert "order_key" not in resolved["info"]
+        gmx._api._patch_cached_order_key.assert_not_called()
 
 
 class TestThrottle:

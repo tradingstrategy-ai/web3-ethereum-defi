@@ -1061,6 +1061,13 @@ class Gmx(Exchange):
             return False, None
 
         market_token = self._market_token_for_pair(pair)
+        if market_token is None:
+            logger.debug(
+                "fetch_order no-key reconcile: cannot resolve market token for %s before Reader tier — leaving order open",
+                pair,
+            )
+            return False, None
+
         order_side = order.get("side")
         if order_side not in ("buy", "sell"):
             return False, None
@@ -1128,8 +1135,9 @@ class Gmx(Exchange):
             return None
         order_price = order.get("price") or order.get("stopPrice")
         order_price_float = float(order_price) if order_price is not None else None
-        if order_price_float is None or len(pending) == 1:
-            return pending[0]
+        if order_price_float is None:
+            return pending[0] if len(pending) == 1 else None
+
         for candidate in pending:
             cand_price = getattr(candidate, "trigger_price_usd", None)
             if cand_price is None:
@@ -1219,8 +1227,8 @@ class Gmx(Exchange):
 
         if not candidates:
             return None
-        if order_price_float is None or len(candidates) == 1:
-            return candidates[0]
+        if order_price_float is None:
+            return candidates[0] if len(candidates) == 1 else None
 
         # Multiple candidates with a known cached price — discriminate
         # by trigger price within tolerance.
