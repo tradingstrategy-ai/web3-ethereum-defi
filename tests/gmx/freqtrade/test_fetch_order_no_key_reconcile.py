@@ -245,6 +245,35 @@ class TestNoKeyRestOrderResolver:
         assert resolved["status"] == "cancelled"
         assert resolved["info"]["gmx_status"] == "no_key_not_found_in_any_tier"
 
+    def test_absent_pending_order_with_same_pair_position_marks_filled_even_when_amount_units_drift(self):
+        # Production DOGE/TAO regression: after restart the cached no-key
+        # entry amount can degrade to USD notional while the live GMX
+        # position reports base-token contracts.  If both pending-order
+        # tiers are empty, the same-pair position is stronger evidence of
+        # fill than "cancelled"; use the position size as filled amount.
+        cached = _cached_open_limit(amount=5.07005546, price=0.10086039)
+        gmx = _fake_gmx(
+            positions=[
+                {
+                    "symbol": "DOGE/USDC:USDC",
+                    "side": "long",
+                    "contracts": 50.27877164,
+                    "entryPrice": 0.10083888881985023,
+                    "id": "0xdogepos",
+                },
+            ],
+            rest_orders=[],
+        )
+
+        resolved = _invoke(gmx, cached)
+
+        assert resolved["status"] == "closed"
+        assert resolved["filled"] == pytest.approx(50.27877164)
+        assert resolved["remaining"] == 0.0
+        assert resolved["average"] == pytest.approx(0.10083888881985023)
+        assert resolved["info"]["reconciled_via_position"] is True
+        assert resolved["info"]["reconciled_position_size"] == pytest.approx(50.27877164)
+
     def test_multiple_same_side_candidates_match_by_trigger_price(self):
         cached = _cached_open_limit(price=0.10086039)
         gmx = _fake_gmx(

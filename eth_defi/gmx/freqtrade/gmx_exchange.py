@@ -648,6 +648,8 @@ class Gmx(Exchange):
         order: CcxtOrder,
         pair: str,
         order_id: str,
+        *,
+        allow_size_mismatch: bool = False,
     ) -> CcxtOrder | None:
         """Cross-check a "still open" order against on-chain positions.
 
@@ -672,6 +674,11 @@ class Gmx(Exchange):
         :param pair: ccxt unified pair symbol (``"BTC/USDC:USDC"``).
         :param order_id: Original ``order_id`` from freqtrade — used for log
             correlation; not for matching.
+        :param allow_size_mismatch: When ``True``, a same-pair/same-side
+            position is accepted even if the cached order amount is missing or
+            in the wrong unit.  This is only used after pending-order sources
+            have confirmed the trigger order is gone, so the live position is
+            the strongest remaining fill signal.
         :returns: The reconciled order when a matching position is found;
             ``None`` when no match exists (caller returns the original order
             unchanged).
@@ -694,14 +701,14 @@ class Gmx(Exchange):
 
         order_side = order.get("side")  # "buy" / "sell"
         order_amount = float(order.get("amount") or 0.0)
-        if order_amount <= 0.0:
+        if order_amount <= 0.0 and not allow_size_mismatch:
             return None
 
         # Match order side to position side.  ccxt orders use buy/sell;
         # GMX positions use long/short.
         expected_position_side = "long" if order_side == "buy" else "short"
 
-        tolerance = order_amount * self._POSITION_AMOUNT_TOLERANCE
+        tolerance = order_amount * self._POSITION_AMOUNT_TOLERANCE if order_amount > 0.0 else 0.0
         for position in positions:
             if position.get("symbol") != pair:
                 continue
@@ -710,26 +717,36 @@ class Gmx(Exchange):
             pos_size = float(position.get("contracts") or 0.0)
             if pos_size <= 0.0:
                 continue
-            if abs(pos_size - order_amount) > tolerance:
+            amount_matches = order_amount > 0.0 and abs(pos_size - order_amount) <= tolerance
+            if not amount_matches and not allow_size_mismatch:
                 continue
 
             # Match — flip the order to closed using on-chain truth.
             reconciled = dict(order)
             reconciled["status"] = "closed"
-            reconciled["filled"] = order_amount
+            reconciled["amount"] = pos_size if allow_size_mismatch and not amount_matches else order_amount
+            reconciled["filled"] = reconciled["amount"]
             reconciled["remaining"] = 0.0
+            entry_price = position.get("entryPrice")
+            if entry_price is not None:
+                reconciled["average"] = float(entry_price)
+                reconciled["price"] = float(entry_price)
+                reconciled["cost"] = reconciled["filled"] * float(entry_price)
             reconciled_info = dict(order.get("info") or {})
             reconciled_info["reconciled_via_position"] = True
             reconciled_info["reconciled_position_key"] = position.get("id") or position.get("position_key")
             reconciled_info["reconciled_position_size"] = pos_size
+            if allow_size_mismatch and not amount_matches:
+                reconciled_info["reconciled_amount_source"] = "position_contracts"
             reconciled["info"] = reconciled_info
             logger.warning(
-                "fetch_order reconcile: order %s for %s flipped open→closed via on-chain position match (order_amount=%.8f, position_size=%.8f, side=%s)",
+                "fetch_order reconcile: order %s for %s flipped open→closed via on-chain position match (order_amount=%.8f, position_size=%.8f, side=%s, allow_size_mismatch=%s)",
                 order_id[:18],
                 pair,
                 order_amount,
                 pos_size,
                 expected_position_side,
+                allow_size_mismatch,
             )
             return reconciled
 
@@ -826,6 +843,21 @@ class Gmx(Exchange):
         contract_checked, contract_match = self._reconcile_no_key_via_contract(order, pair, order_id)
         if contract_match is not None:
             return contract_match
+
+        # If both pending-order sources say the trigger order is gone, a
+        # same-pair/same-side live position is stronger evidence of a fill
+        # than a cancellation.  In this path the cached order may have lost
+        # base-token amount semantics across restart, so accept the position
+        # size instead of requiring exact amount equality.
+        if rest_checked and contract_checked:
+            reconciled = self._reconcile_via_positions(
+                order,
+                pair,
+                order_id,
+                allow_size_mismatch=True,
+            )
+            if reconciled is not None:
+                return reconciled
 
         # Both tiers succeeded and neither saw the order → flip cancelled.
         # The contract Reader is authoritative on-chain; if it agrees
