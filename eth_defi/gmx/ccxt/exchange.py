@@ -9102,10 +9102,36 @@ class GMX(ExchangeCompatible):
         else:
             status = "open"
 
+        market = self.markets.get(symbol) if symbol else None
+
+        # GMX prices are scaled by 10^(30 - index_token_decimals).  Hard
+        # ``/1e30`` is wrong for DOGE (8), TAO (9), WBTC (8), etc.  Use the
+        # standard decimals-aware helper so the persisted price field is
+        # always a clean human-readable USD number.
         exec_price_raw = trade_action.get("executionPrice") or trade_action.get("triggerPrice")
-        exec_price = float(exec_price_raw) / 1e30 if exec_price_raw else None
-        size_raw = trade_action.get("sizeDeltaUsd") or trade_action.get("sizeDeltaInTokens")
-        filled = float(size_raw) / 1e30 if size_raw else None
+        exec_price = self._convert_price_to_usd(float(exec_price_raw), market) if exec_price_raw else None
+
+        # ``sizeDeltaUsd`` is pure USD (always /1e30 — fees + USD-only fields).
+        # ``sizeDeltaInTokens`` is base-token in token decimals.  CCXT's
+        # ``amount`` must be base tokens, so prefer ``sizeDeltaInTokens``
+        # when present; otherwise derive base tokens from sizeDeltaUsd / price.
+        size_tokens_raw = trade_action.get("sizeDeltaInTokens")
+        size_usd_raw = trade_action.get("sizeDeltaUsd")
+        filled: float | None = None
+        if size_tokens_raw is not None and market is not None:
+            try:
+                token_decimals = self._get_token_decimals(market)
+                if token_decimals is not None:
+                    filled = float(size_tokens_raw) / (10**token_decimals)
+            except Exception:
+                filled = None
+        if filled is None and size_usd_raw is not None and exec_price not in (None, 0.0):
+            filled = (float(size_usd_raw) / 1e30) / exec_price
+        if filled is None and size_usd_raw is not None:
+            # No price available — fall back to USD notional.  Better than
+            # silently dropping the order, callers should treat ``amount``
+            # carefully when ``price`` is also None.
+            filled = float(size_usd_raw) / 1e30
         ts_s = trade_action.get("timestamp")
         ts_ms = int(ts_s) * 1000 if ts_s else None
         order_key = trade_action.get("orderKey", trade_action.get("id", ""))
@@ -9148,6 +9174,21 @@ class GMX(ExchangeCompatible):
         :returns: CCXT-shaped order dict with ``status="open"``.
         """
         _ts_ms = _block_timestamp_ms(self.web3, self.web3.eth.block_number)
+        market = self.markets.get(symbol) if symbol else None
+
+        # ``triggerPrice`` is scaled by 10^(30 - index_token_decimals);
+        # ``sizeDeltaUsd`` is pure USD (/1e30).  CCXT ``amount`` must be in
+        # base tokens, so we compute it as size_usd / trigger_usd when
+        # both are known.  Falls back to USD notional only when the price
+        # is missing — better than silently mixing units in the cached row.
+        raw_trigger = rest_order.get("triggerPrice", 0)
+        trigger_usd = self._convert_price_to_usd(float(raw_trigger), market) if raw_trigger else None
+        size_usd = float(rest_order.get("sizeDeltaUsd", 0) or 0) / 1e30 or None
+        if size_usd is not None and trigger_usd not in (None, 0.0):
+            amount_tokens: float | None = size_usd / trigger_usd
+        else:
+            amount_tokens = size_usd  # last-resort fallback (USD notional)
+
         return {
             "id": rest_order.get("key", rest_order.get("orderKey", "")),
             "clientOrderId": None,
@@ -9158,11 +9199,11 @@ class GMX(ExchangeCompatible):
             "symbol": symbol,
             "type": "limit",
             "side": "buy" if rest_order.get("isLong") else "sell",
-            "price": float(rest_order.get("triggerPrice", 0)) / 1e30 or None,
+            "price": trigger_usd,
             "average": None,
-            "amount": float(rest_order.get("sizeDeltaUsd", 0)) / 1e30 or None,
+            "amount": amount_tokens,
             "filled": 0.0,
-            "remaining": float(rest_order.get("sizeDeltaUsd", 0)) / 1e30 or None,
+            "remaining": amount_tokens,
             "cost": None,
             "trades": [],
             "fee": None,

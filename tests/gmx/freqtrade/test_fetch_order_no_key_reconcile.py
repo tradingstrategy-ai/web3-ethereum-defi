@@ -22,6 +22,8 @@ pytest.importorskip("freqtrade.enums", reason="freqtrade.enums required for thes
 
 DOGE_MARKET = "0x" + "11" * 20
 FIL_MARKET = "0x" + "22" * 20
+DOGE_INDEX = "0x" + "aa" * 20
+FIL_INDEX = "0x" + "bb" * 20
 
 
 def _fake_gmx(
@@ -51,8 +53,12 @@ def _fake_gmx(
     fake._api.config = MagicMock()
     fake._api.config.get_chain = MagicMock(return_value=chain)
     fake._api.markets = markets if markets is not None else {
-        "DOGE/USDC:USDC": {"info": {"market_token": DOGE_MARKET}},
-        "FIL/USDC:USDC": {"info": {"market_token": FIL_MARKET}},
+        "DOGE/USDC:USDC": {"info": {"market_token": DOGE_MARKET, "index_token": DOGE_INDEX}},
+        "FIL/USDC:USDC": {"info": {"market_token": FIL_MARKET, "index_token": FIL_INDEX}},
+    }
+    fake._api._token_metadata = {
+        DOGE_INDEX: {"symbol": "DOGE", "decimals": 8},
+        FIL_INDEX: {"symbol": "FIL", "decimals": 18},
     }
     fake._last_reconcile_ms = {}
     return fake
@@ -134,13 +140,14 @@ def _rest_order(
     price: float = 0.10086039,
     order_key: str = "0xorderkey",
     market: str = DOGE_MARKET,
+    token_decimals: int = 8,
 ) -> dict:
-    """GMX REST ``/orders`` row with raw 1e30 trigger price."""
+    """GMX REST ``/orders`` row with raw token-decimal-aware trigger price."""
     return {
         "key": order_key,
         "market": market,
         "isLong": is_long,
-        "triggerPrice": str(int(price * 1e30)),
+        "triggerPrice": str(int(price * 10 ** (30 - token_decimals))),
         "sizeDeltaUsd": str(int(100 * 1e30)),
     }
 
@@ -185,6 +192,28 @@ class TestNoKeyRestOrderResolver:
         assert resolved["info"]["reconciled_via_rest_orders"] is True
         gmx._api.api.get_orders.assert_called_once_with(gmx._api.wallet_address)
         gmx._api._patch_cached_order_key.assert_called_once_with("0xcreationtx", "0xorderkey")
+
+    def test_no_key_open_limit_matches_fil_raw_trigger_price_with_18_decimals(self):
+        cached = _cached_open_limit(
+            amount=4.90272068,
+            price=0.91901046,
+            pair="FIL/USDC:USDC",
+        )
+        gmx = _fake_gmx(
+            rest_orders=[
+                _rest_order(
+                    price=0.91901046,
+                    order_key="0xfilorderkey",
+                    market=FIL_MARKET,
+                    token_decimals=18,
+                )
+            ]
+        )
+
+        resolved = _invoke(gmx, cached, pair="FIL/USDC:USDC")
+
+        assert resolved["status"] == "open"
+        assert resolved["info"]["order_key"] == "0xfilorderkey"
 
     def test_existing_order_key_skips_cascade_entirely(self):
         cached = _cached_open_limit(with_order_key=True)

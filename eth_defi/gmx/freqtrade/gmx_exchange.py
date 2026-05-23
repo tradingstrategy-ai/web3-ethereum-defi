@@ -52,6 +52,7 @@ from eth_defi.gmx.freqtrade.telegram_utils import send_freqtrade_telegram_messag
 from eth_defi.gmx.lagoon.approvals import UNLIMITED, approve_gmx_collateral_via_vault
 from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 from eth_defi.gmx.trading import GMXTrading
+from eth_defi.gmx.utils import convert_raw_price_to_usd
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import fetch_erc20_details
 from eth_defi.vault.base import VaultSpec
@@ -1006,7 +1007,29 @@ class Gmx(Exchange):
             )
             return False, None
 
-        match = self._match_rest_pending_order(order, rest_orders, market_token=market_token)
+        # Resolve the index-token decimals up front so the matcher can do
+        # the standard decimals-aware price conversion.  If the GMX tokens
+        # endpoint hasn't surfaced this pair yet (one-shot reload happens
+        # inside the helper), treat the whole tier as inconclusive — better
+        # than silently mis-comparing prices on a ``/1e30`` fallback.
+        token_decimals: int | None = None
+        if rest_orders:
+            token_decimals = self._index_token_decimals_for_pair(pair)
+            if token_decimals is None:
+                logger.warning(
+                    "fetch_order no-key reconcile: cannot resolve index-token decimals for %s while /orders returned %d row(s) — leaving order open (inconclusive)",
+                    pair,
+                    len(rest_orders),
+                )
+                return False, None
+
+        match = (
+            self._match_rest_pending_order(
+                order, rest_orders, market_token=market_token, token_decimals=token_decimals
+            )
+            if token_decimals is not None
+            else None
+        )
         if match is not None:
             recovered_key = match.get("key") or match.get("orderKey")
             if recovered_key:
@@ -1122,7 +1145,28 @@ class Gmx(Exchange):
             )
             return False, None
 
-        match = self._match_reader_pending_order(order, pending)
+        # Resolve decimals up front so the matcher can do the standard
+        # decimals-aware price conversion.  If the GMX tokens endpoint
+        # hasn't surfaced this pair yet, treat the tier as inconclusive
+        # — Reader is authoritative on chain but we still can't compare
+        # prices accurately without decimals, so we'd rather leave the
+        # order open than fail the matcher on a silent unit mismatch.
+        token_decimals: int | None = None
+        if pending:
+            token_decimals = self._index_token_decimals_for_pair(pair)
+            if token_decimals is None:
+                logger.warning(
+                    "fetch_order no-key reconcile: cannot resolve index-token decimals for %s while Reader returned %d pending row(s) — leaving order open (inconclusive)",
+                    pair,
+                    len(pending),
+                )
+                return False, None
+
+        match = (
+            self._match_reader_pending_order(order, pending, token_decimals=token_decimals)
+            if token_decimals is not None
+            else None
+        )
         if match is not None:
             recovered_key = "0x" + match.order_key.hex()
             self._api._patch_cached_order_key(order_id, recovered_key)
@@ -1147,20 +1191,34 @@ class Gmx(Exchange):
         )
         return True, None
 
-    def _match_reader_pending_order(self, order: CcxtOrder, pending: list) -> object | None:
+    def _match_reader_pending_order(
+        self,
+        order: CcxtOrder,
+        pending: list,
+        *,
+        token_decimals: int,
+    ) -> object | None:
         """Match a cached order to a row from :func:`fetch_pending_orders`.
 
         The Reader iterator yields :class:`~eth_defi.gmx.order.pending_orders.PendingOrder`
-        instances with USD-denominated ``trigger_price_usd`` (18-decimal
-        index tokens) or raw int ``trigger_price`` (1e30-scaled).  We
-        match on price within :data:`_PENDING_PRICE_TOLERANCE` when the
-        cached order carries a price; otherwise, when only one
+        instances whose ``trigger_price`` is the raw chain value at
+        ``10^(30 - index_token_decimals)`` scale.  ``trigger_price_usd``
+        assumes 18 decimals and is silently wrong for DOGE (8), TAO (9),
+        WBTC (8) etc., so the matcher requires the resolved decimals up
+        front (see :meth:`_index_token_decimals_for_pair`) and converts
+        the raw chain value with the same standard formula used elsewhere
+        in the adapter.
+
+        Match policy: price within :data:`_PENDING_PRICE_TOLERANCE` when
+        the cached order carries a price; otherwise, when only one
         candidate is left after the ``fetch_pending_orders`` filters
         (market + is_long), accept it directly.
 
         :param order: Cached CCXT order.
         :param pending: List of ``PendingOrder`` instances from the
             Reader scan.
+        :param token_decimals: Resolved index-token decimals for the
+            cached order's pair (required — see callers).
         :returns: Matching ``PendingOrder`` or ``None``.
         """
         if not pending:
@@ -1171,12 +1229,80 @@ class Gmx(Exchange):
             return pending[0] if len(pending) == 1 else None
 
         for candidate in pending:
-            cand_price = getattr(candidate, "trigger_price_usd", None)
-            if cand_price is None:
-                continue
-            if abs(float(cand_price) - order_price_float) <= self._PENDING_PRICE_TOLERANCE * max(order_price_float, 1.0):
+            raw = getattr(candidate, "trigger_price", None)
+            if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+                cand_price = convert_raw_price_to_usd(float(raw), token_decimals)
+            else:
+                # Pre-converted test-only mocks expose ``trigger_price_usd``
+                # as a float but don't surface the raw chain int — accept
+                # that derived value verbatim so unit tests don't have to
+                # carry the full raw / decimals representation.  Real
+                # ``PendingOrder`` instances always populate ``trigger_price``
+                # and therefore take the decimals-aware branch above.
+                legacy = getattr(candidate, "trigger_price_usd", None)
+                if not isinstance(legacy, (int, float)) or isinstance(legacy, bool):
+                    continue
+                cand_price = float(legacy)
+            if abs(cand_price - order_price_float) <= self._PENDING_PRICE_TOLERANCE * max(order_price_float, 1.0):
                 return candidate
         return None
+
+    def _index_token_decimals_for_pair(self, pair: str, *, allow_reload: bool = True) -> int | None:
+        """Resolve the index-token decimals for a CCXT pair.
+
+        GMX V2 prices are stored at ``10^(30 - index_token_decimals)`` precision,
+        so accurate human-readable USD conversion needs to know the index
+        token's ERC20 decimals.  The helper looks up the index-token address
+        via the adapter's market cache and the decimals via the adapter's
+        ``_token_metadata`` cache.  When metadata isn't loaded yet, it
+        attempts a one-shot ``_load_token_metadata()`` retry against the GMX
+        API before giving up.  Returns ``None`` only when the GMX API itself
+        doesn't carry the token — callers must treat that as inconclusive
+        (leave the order open) rather than fall back to ``/1e30``.
+
+        :param pair: Unified ccxt symbol (``"DOGE/USDC:USDC"``).
+        :param allow_reload: When ``True`` (default), retry by calling
+            ``_load_token_metadata()`` if the cache miss looks fresh.  Set
+            ``False`` to skip the network round-trip (used by retry guards).
+        :returns: Index-token decimals (int) or ``None`` when unresolvable.
+        """
+        api_adapter = getattr(self, "_api", None)
+        if api_adapter is None:
+            return None
+        markets = getattr(api_adapter, "markets", None) or {}
+        market = markets.get(pair)
+        if not market:
+            return None
+        info = market.get("info") or {}
+        index_addr = info.get("index_token") or info.get("indexTokenAddress")
+        if not isinstance(index_addr, str) or not index_addr:
+            return None
+        token_meta = getattr(api_adapter, "_token_metadata", None) or {}
+        entry = token_meta.get(index_addr.lower())
+        if entry is None and allow_reload:
+            # Cache miss — reload from the GMX tokens endpoint and retry.
+            loader = getattr(api_adapter, "_load_token_metadata", None)
+            if callable(loader):
+                try:
+                    loader()
+                except Exception as exc:  # noqa: BLE001 — soft fallback
+                    logger.debug(
+                        "fetch_order no-key reconcile: _load_token_metadata() failed for %s (%s)",
+                        pair,
+                        exc,
+                    )
+                else:
+                    token_meta = getattr(api_adapter, "_token_metadata", None) or {}
+                    entry = token_meta.get(index_addr.lower())
+        if not entry:
+            return None
+        decimals = entry.get("decimals") if isinstance(entry, dict) else None
+        if decimals is None:
+            return None
+        try:
+            return int(decimals)
+        except (TypeError, ValueError):
+            return None
 
     def _market_token_for_pair(self, pair: str) -> str | None:
         """Resolve the GMX market token address for a CCXT pair via the adapter's market cache.
@@ -1206,6 +1332,8 @@ class Gmx(Exchange):
         order: CcxtOrder,
         rest_orders: list[dict],
         market_token: str | None,
+        *,
+        token_decimals: int,
     ) -> dict | None:
         """Match a cached order to a row from gmxapi.ai ``/v1/orders``.
 
@@ -1217,18 +1345,22 @@ class Gmx(Exchange):
               "market": "0x... (market token address)",
               "isLong": True/False,
               "orderType": int,
-              "triggerPrice": "<raw 1e30 USD>",
-              "sizeDeltaUsd": "<raw 1e30 USD>",
+              "triggerPrice": "<30-decimal price, scale = 10^(30 - index_token_decimals)>",
+              "sizeDeltaUsd": "<raw 1e30 USD — genuinely USD-only>",
               ...
             }
 
         Matching is conservative — market + ``isLong`` must agree, and
         when both ends carry a price the values must agree within
-        :data:`_PENDING_PRICE_TOLERANCE` (relative).  We deliberately
-        avoid matching on amount because the REST endpoint reports
-        ``sizeDeltaUsd`` (1e30-scaled USD) while cached orders carry
-        token-denominated ``amount`` — comparing across units risks
-        both false positives and false negatives.
+        :data:`_PENDING_PRICE_TOLERANCE` (relative).  The chain-side
+        ``triggerPrice`` is normalised to human-readable USD via
+        :meth:`Gmx._convert_price_to_usd` (decimals-aware) before the
+        tolerance check; otherwise non-18-decimal index tokens (DOGE 8,
+        TAO 9 synthetic, WBTC 8, …) silently fail to match.  We
+        deliberately avoid matching on amount because the REST endpoint
+        reports ``sizeDeltaUsd`` (1e30-scaled USD) while cached orders
+        carry token-denominated ``amount`` — comparing across units
+        risks both false positives and false negatives.
 
         :param order: Cached CCXT order.
         :param rest_orders: List of REST rows from gmxapi.ai ``/v1/orders``.
@@ -1262,16 +1394,22 @@ class Gmx(Exchange):
         if order_price_float is None:
             return candidates[0] if len(candidates) == 1 else None
 
-        # Multiple candidates with a known cached price — discriminate
-        # by trigger price within tolerance.
+        # Candidates with a known cached price — discriminate by
+        # decimals-aware trigger price within tolerance.  The chain
+        # stores ``triggerPrice`` at ``10^(30 - index_token_decimals)``
+        # scale; hard-coding ``/1e30`` silently breaks for DOGE (8),
+        # TAO (9 synthetic), WBTC (8) etc.  Callers resolve and pass
+        # ``token_decimals`` so the conversion uses the standard
+        # adapter formula without any silent ``/1e30`` fallback.
         for candidate in candidates:
             raw_trigger = candidate.get("triggerPrice") or candidate.get("triggerPriceUsd")
             if raw_trigger is None:
                 continue
             try:
-                trigger_float = float(raw_trigger) / 1e30
+                raw_trigger_f = float(raw_trigger)
             except (TypeError, ValueError):
                 continue
+            trigger_float = convert_raw_price_to_usd(raw_trigger_f, token_decimals)
             if abs(trigger_float - order_price_float) <= self._PENDING_PRICE_TOLERANCE * max(order_price_float, 1.0):
                 return candidate
         return None
