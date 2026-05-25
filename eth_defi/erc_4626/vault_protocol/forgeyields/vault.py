@@ -74,6 +74,11 @@ class ForgeYieldsHistoricalReader(ERC4626HistoricalReader):
         # Decode common variables — total_assets will be None because totalAssets() reverts
         share_price, total_supply, _total_assets, errors, max_deposit = self.process_core_erc_4626_result(call_by_name)
 
+        # Strip the expected totalAssets revert error — we derive NAV below,
+        # so this is not a real error and must not increment rpc_error_count.
+        if errors:
+            errors = [e for e in errors if "total_assets" not in e]
+
         # Override total_assets with the true NAV: share_price * total_supply
         total_assets = _total_assets
         if share_price is not None and total_supply is not None and total_supply > 0:
