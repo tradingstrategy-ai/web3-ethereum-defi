@@ -116,6 +116,17 @@ from eth_defi.gmx.contracts import get_tokens_address_dict, NETWORK_TOKENS, TEST
 # GMX uses 30-decimal precision for all price values
 GMX_PRICE_PRECISION = 30
 
+#: Minimum fraction of ``size_usd`` the approximate liquidation formula must
+#: leave as headroom before its output is considered meaningful.  When the
+#: GMX_MIN_LIQUIDATION_COLLATERAL_USD floor dominates ``max_loss`` the
+#: approximation produces a liquidation price arbitrarily close to entry,
+#: which is nonsense (a $5 1× long would appear to liquidate on a 1% drop).
+#: Below this ratio :func:`calculate_estimated_liquidation_price` returns
+#: ``None`` instead.  1% is intentionally generous: a real high-leverage
+#: position always exceeds it by an order of magnitude; only tiny-stake
+#: floor-bound positions land below.
+_LIQUIDATION_APPROX_MIN_BUFFER_RATIO = 0.01
+
 
 def convert_raw_price_to_usd(raw_price: int | float, token_decimals: int) -> float:
     """Convert GMX raw price to human-readable USD.
@@ -233,7 +244,7 @@ def calculate_estimated_liquidation_price(
     include_closing_fee: bool = True,
     collateral_is_index_token: bool = False,
     collateral_amount: float | None = None,
-) -> float:
+) -> float | None:
     """
     Calculate liquidation price matching GMX V2 SDK implementation.
 
@@ -331,12 +342,26 @@ def calculate_estimated_liquidation_price(
         Required for exact calculation. If None, uses approximate formula.
     :type collateral_amount: float | None
     :return:
-        Liquidation price in USD
-    :rtype: float
+        Liquidation price in USD, or ``None`` when the approximation cannot
+        produce a meaningful value (e.g. small positions where the
+        :data:`GMX_MIN_LIQUIDATION_COLLATERAL_USD` floor dominates the
+        formula, or degenerate inputs like ``size_in_tokens == 0``).
+        Callers must treat ``None`` as "unknown" — never substitute ``0``
+        or any other fallback that downstream code could interpret as a
+        valid liquidation price.
+    :rtype: float | None
 
     **Note:**
         For maximum accuracy, provide `collateral_is_index_token` and `collateral_amount`.
         Without these, the function uses an approximate formula with ±0.5% error.
+
+        Historical caveat: previously this function returned ``0.0`` for
+        unresolvable cases.  That was a footgun — Freqtrade's downstream
+        ``stoploss_or_liquidation()`` and ``get_liquidation_price()`` paths
+        do not treat ``0.0`` as falsy, so the sentinel landed in the DB,
+        was then offset by a 5% buffer, and the resulting non-zero
+        liquidation price triggered false ``ExitType.LIQUIDATION`` exits.
+        ``None`` is the correct unknown sentinel and is now used uniformly.
     """
     # Calculate total fees
     total_pending_fees = pending_funding_fees_usd + pending_borrowing_fees_usd
@@ -357,18 +382,18 @@ def calculate_estimated_liquidation_price(
                 # Long: liq_price = (size + liq_collateral + fees) / (size_tokens + collateral_tokens)
                 denominator = size_in_tokens + collateral_amount
                 if denominator == 0:
-                    return 0.0
+                    return None
                 liquidation_price = (size_usd + liquidation_collateral_usd + total_fees) / denominator
             else:
                 # Short: liq_price = (size - liq_collateral - fees) / (size_tokens - collateral_tokens)
                 denominator = size_in_tokens - collateral_amount
                 if denominator == 0:
-                    return 0.0
+                    return None
                 liquidation_price = (size_usd - liquidation_collateral_usd - total_fees) / denominator
         else:
             # Different token collateral (e.g., USDC collateral for ETH/USD position)
             if size_in_tokens == 0:
-                return 0.0
+                return None
 
             remaining_collateral_usd = collateral_usd - total_pending_fees - closing_fee
 
@@ -379,34 +404,51 @@ def calculate_estimated_liquidation_price(
                 # Short: liq_price = (size - liq_collateral + remaining_collateral) / size_tokens
                 liquidation_price = (size_usd - liquidation_collateral_usd + remaining_collateral_usd) / size_in_tokens
     else:
-        # Fallback to approximate formula when token details not provided
+        # Fallback to approximate formula when token details not provided.
+        # When stake is small (≲$10) the ``GMX_MIN_LIQUIDATION_COLLATERAL_USD``
+        # floor dominates ``min_collateral_requirement`` and the resulting
+        # ``max_loss`` is a tiny number (or zero/negative).  The formula then
+        # produces a liquidation price arbitrarily close to entry — for a 1×
+        # long with $5 stake that lands ~0.9% below entry, which is nonsense.
+        # We refuse to return such values and bubble ``None`` up so Freqtrade
+        # records the column as unknown rather than treating the bogus value
+        # as a real liquidation level (which would trigger false
+        # ``ExitType.LIQUIDATION`` exits every loop).
         remaining_collateral = collateral_usd - total_fees
         min_collateral_requirement = liquidation_collateral_usd
+        max_loss = remaining_collateral - min_collateral_requirement
+        if max_loss <= 0:
+            # Collateral does not cover the minimum liquidation threshold —
+            # the approximation cannot describe a meaningful liquidation level.
+            return None
+
+        # Sanity guard against the floor-dominated edge: if max_loss is a
+        # tiny fraction of size_usd, the approximation is unreliable even
+        # though it doesn't go negative.  The threshold is intentionally
+        # generous (1%): for genuine high-leverage positions max_loss/size
+        # is much larger than this; only tiny-stake positions land below.
+        if size_usd <= 0 or (max_loss / size_usd) < _LIQUIDATION_APPROX_MIN_BUFFER_RATIO:
+            return None
 
         if is_long:
             # For longs: price drop reduces collateral value
-            max_loss = remaining_collateral - min_collateral_requirement
-            if max_loss <= 0:
-                # Collateral is smaller than GMX_MIN_LIQUIDATION_COLLATERAL_USD ($5).
-                # Note: GMX_MIN_COST_USD ($2) is the minimum ORDER size — a separate value.
-                # When collateral < min liquidation threshold the formula produces a
-                # liquidation price ABOVE entry, which is nonsensical for a long.
-                # Return 0.0 so freqtrade's stoploss_or_liquidation() treats it as unset
-                # (falsy) and falls back to the strategy's stop-loss price instead.
-                return 0.0
             price_drop_ratio = max_loss / size_usd
             liquidation_price = entry_price * (1 - price_drop_ratio)
         else:
             # For shorts: price rise reduces collateral value
-            max_loss = remaining_collateral - min_collateral_requirement
-            if max_loss <= 0:
-                # Same issue for shorts: formula produces liquidation price BELOW entry.
-                # Return 0.0 as sentinel — caller should treat 0.0 as "not meaningful".
-                return 0.0
             price_rise_ratio = max_loss / size_usd
             liquidation_price = entry_price * (1 + price_rise_ratio)
 
-    return max(liquidation_price, 0.0)
+    # Final sanity: a long's liquidation must be BELOW entry, a short's must be
+    # ABOVE entry.  If the computed value violates that invariant — or comes out
+    # non-positive — surface ``None`` instead of a misleading number.
+    if liquidation_price <= 0:
+        return None
+    if is_long and liquidation_price >= entry_price:
+        return None
+    if (not is_long) and liquidation_price <= entry_price:
+        return None
+    return liquidation_price
 
 
 def get_positions(config, address: str = None) -> dict[str, Any]:

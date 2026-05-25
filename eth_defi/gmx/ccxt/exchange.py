@@ -4813,7 +4813,18 @@ class GMX(ExchangeCompatible):
         if position_size_usd and percentage is not None:
             unrealized_pnl = position_size_usd * (percentage / 100)
 
-        # Calculate liquidation price including fees
+        # Liquidation price.  ``calculate_estimated_liquidation_price`` returns
+        # ``None`` when the approximation cannot be trusted (small positions
+        # dominated by the GMX min-collateral floor, degenerate inputs, or
+        # results on the wrong side of entry).  We must propagate ``None``
+        # all the way to CCXT — Freqtrade's stoploss-or-liquidation check
+        # treats ``None`` as "unknown" but treats any non-zero number as a
+        # real liquidation level, including stale or implausible values.
+        #
+        # Belt-and-suspenders: even when the helper returns a number, we
+        # re-validate the direction here so that a future refactor or an
+        # alternative source upstream cannot silently push a wrong-direction
+        # value through this codepath.
         liquidation_price = None
         if entry_price and collateral_amount and position_size_usd and position_size_usd > 0:
             liquidation_price = calculate_estimated_liquidation_price(
@@ -4824,6 +4835,17 @@ class GMX(ExchangeCompatible):
                 maintenance_margin=0.01,  # GMX typically uses 1%
                 include_closing_fee=True,  # Include 0.07% closing fee
             )
+            if liquidation_price is not None:
+                # Re-check the direction invariant the helper already enforces.
+                # If anything looks off — non-positive, or on the wrong side of
+                # entry — set to ``None`` instead of letting a misleading value
+                # land in Freqtrade's persistent state.
+                if liquidation_price <= 0:
+                    liquidation_price = None
+                elif is_long and liquidation_price >= entry_price:
+                    liquidation_price = None
+                elif (not is_long) and liquidation_price <= entry_price:
+                    liquidation_price = None
 
         # Calculate margin ratio (used margin / total position value)
         margin_ratio = None
