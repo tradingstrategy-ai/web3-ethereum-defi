@@ -13,6 +13,9 @@ The fyUSDC, fyETH and fyWBTC vaults issue auto-compounding ERC-4626 tokens (fyTo
 The Ethereum vault is built on Veda Labs' BoringVault and allocates across Aave, Morpho,
 Curve, Pendle and others.
 
+The TokenGateway contract does not implement ``totalAssets()`` — NAV is derived
+from ``convertToAssets(totalSupply())``.
+
 Fee model:
 
 - 20 % daily performance fee, internalised into the share price
@@ -28,12 +31,10 @@ Example contracts:
 
 import datetime
 import logging
-from functools import cached_property
+from decimal import Decimal
 
 from eth_typing import BlockIdentifier
-from web3.contract import Contract
 
-from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 
 logger = logging.getLogger(__name__)
@@ -51,16 +52,30 @@ class ForgeYieldsVault(ERC4626Vault):
     - `Homepage <https://www.forgeyields.com/>`__
     - `Documentation <https://forge-labs.gitbook.io/forge-docs>`__
     - `Audits <https://forge-labs.gitbook.io/forge-docs/other/audits>`__
+
+    The TokenGateway contract does not implement ``totalAssets()``.
+    NAV is derived from ``convertToAssets(totalSupply())``.
     """
 
-    @cached_property
-    def vault_contract(self) -> Contract:
-        """Get the TokenGateway vault deployment."""
-        return get_deployed_erc_4626_contract(
-            self.web3,
-            self.spec.vault_address,
-            abi_fname="forgeyields/TokenGateway.json",
-        )
+    def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal | None:
+        """Compute total assets from ``convertToAssets(totalSupply())``.
+
+        TokenGateway does not implement ``totalAssets()`` — it reverts.
+        We derive NAV from the share supply and the price-per-share conversion.
+
+        :param block_identifier:
+            Block number to read.
+
+        :return:
+            Total vault value in the denomination token.
+        """
+        total_supply = self.vault_contract.functions.totalSupply().call(block_identifier=block_identifier)
+        if total_supply == 0:
+            return Decimal(0)
+        raw_assets = self.vault_contract.functions.convertToAssets(total_supply).call(block_identifier=block_identifier)
+        if self.underlying_token is not None:
+            return self.underlying_token.convert_to_decimals(raw_assets)
+        return None
 
     def has_custom_fees(self) -> bool:
         return False
