@@ -17,6 +17,7 @@ import aiohttp
 from ccxt.async_support import Exchange
 from ccxt.base.errors import (
     ExchangeError,
+    InvalidOrder,
     NotSupported,
     OrderNotFound,
 )
@@ -32,6 +33,7 @@ from eth_defi.gmx.ccxt.cancel_helpers import (
     build_cancel_order_response,
     resolve_order_id,
 )
+from eth_defi.gmx.ccxt._position_metrics import safe_liquidation_price
 from eth_defi.gmx.ccxt.exchange import (
     _derive_side_from_trade_action,
     _resolve_close_order_filled_amount,
@@ -3153,6 +3155,18 @@ class GMX(Exchange):
             if position_size_usd:
                 unrealized_pnl = position_size_usd * (percent_profit / 100)
 
+            is_long = bool(data.get("is_long", True))
+            # Same helper as the sync ``parse_position`` — keeps the two
+            # paths byte-equivalent for the liquidation_price field and
+            # honours the sync/async lockstep rule.  See
+            # :pymod:`eth_defi.gmx.ccxt._position_metrics`.
+            liquidation_price = safe_liquidation_price(
+                entry_price=float(entry_price) if entry_price else None,
+                collateral_usd=collateral_usd,
+                position_size_usd=position_size_usd,
+                is_long=is_long,
+            )
+
             timestamp = self.milliseconds()
 
             result.append(
@@ -3163,7 +3177,7 @@ class GMX(Exchange):
                     "datetime": self.iso8601(timestamp),
                     "isolated": False,
                     "hedged": False,
-                    "side": "long" if data.get("is_long", True) else "short",
+                    "side": "long" if is_long else "short",
                     "contracts": contracts,
                     "contractSize": self.parse_number("1"),
                     "entryPrice": entry_price,
@@ -3176,7 +3190,7 @@ class GMX(Exchange):
                     "initialMarginPercentage": None,
                     "maintenanceMarginPercentage": 0.01,
                     "unrealizedPnl": unrealized_pnl,
-                    "liquidationPrice": None,
+                    "liquidationPrice": liquidation_price,
                     "marginRatio": None,
                     "percentage": percent_profit,
                     "info": data,
@@ -4025,6 +4039,7 @@ class GMX(Exchange):
         collateral_symbol = params.get("collateral_symbol", "USDC")
         slippage_percent = params.get("slippage_percent", 0.003)
         execution_buffer = params.get("execution_buffer", 2.2)
+        reduceOnly = params.get("reduceOnly", False)
 
         # GMX Extension: Support direct USD sizing via size_usd parameter
         if "size_usd" in params:
@@ -4038,6 +4053,16 @@ class GMX(Exchange):
             ticker = await self.fetch_ticker(symbol)
             current_price = ticker["last"]
             size_delta_usd = amount * current_price
+
+        # Sync/async lockstep — see ``_convert_ccxt_to_gmx_params`` in
+        # ``eth_defi/gmx/ccxt/exchange.py`` for the same guard and the
+        # reduce-only exemption rationale.
+        if not reduceOnly and size_delta_usd < GMX_MIN_COST_USD:
+            raise InvalidOrder(
+                f"Order notional ${size_delta_usd:.4f} below GMX minimum "
+                f"${GMX_MIN_COST_USD} for {symbol} {side}; adjust stake / "
+                f"position sizing.",
+            )
 
         return {
             "symbol": symbol,

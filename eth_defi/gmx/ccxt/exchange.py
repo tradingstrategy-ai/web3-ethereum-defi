@@ -97,10 +97,8 @@ from eth_defi.gmx.order.pending_orders import PendingOrder, fetch_pending_orders
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
 from eth_defi.gmx.trading import GMXTrading
-from eth_defi.gmx.utils import (
-    calculate_estimated_liquidation_price,
-    convert_raw_price_to_usd,
-)
+from eth_defi.gmx.ccxt._position_metrics import safe_liquidation_price
+from eth_defi.gmx.utils import convert_raw_price_to_usd
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.fallback import ExtraValueError, get_fallback_provider
 from eth_defi.provider.log_block_range import get_logs_max_block_range
@@ -4813,39 +4811,15 @@ class GMX(ExchangeCompatible):
         if position_size_usd and percentage is not None:
             unrealized_pnl = position_size_usd * (percentage / 100)
 
-        # Liquidation price.  ``calculate_estimated_liquidation_price`` returns
-        # ``None`` when the approximation cannot be trusted (small positions
-        # dominated by the GMX min-collateral floor, degenerate inputs, or
-        # results on the wrong side of entry).  We must propagate ``None``
-        # all the way to CCXT — Freqtrade's stoploss-or-liquidation check
-        # treats ``None`` as "unknown" but treats any non-zero number as a
-        # real liquidation level, including stale or implausible values.
-        #
-        # Belt-and-suspenders: even when the helper returns a number, we
-        # re-validate the direction here so that a future refactor or an
-        # alternative source upstream cannot silently push a wrong-direction
-        # value through this codepath.
-        liquidation_price = None
-        if entry_price and collateral_amount and position_size_usd and position_size_usd > 0:
-            liquidation_price = calculate_estimated_liquidation_price(
-                entry_price=entry_price,
-                collateral_usd=collateral_amount,
-                size_usd=position_size_usd,
-                is_long=is_long,
-                maintenance_margin=0.01,  # GMX typically uses 1%
-                include_closing_fee=True,  # Include 0.07% closing fee
-            )
-            if liquidation_price is not None:
-                # Re-check the direction invariant the helper already enforces.
-                # If anything looks off — non-positive, or on the wrong side of
-                # entry — set to ``None`` instead of letting a misleading value
-                # land in Freqtrade's persistent state.
-                if liquidation_price <= 0:
-                    liquidation_price = None
-                elif is_long and liquidation_price >= entry_price:
-                    liquidation_price = None
-                elif (not is_long) and liquidation_price <= entry_price:
-                    liquidation_price = None
+        # Liquidation price via the shared sync/async helper — see
+        # :pymod:`eth_defi.gmx.ccxt._position_metrics` for why the
+        # validation chain lives there.
+        liquidation_price = safe_liquidation_price(
+            entry_price=entry_price,
+            collateral_usd=collateral_amount,
+            position_size_usd=position_size_usd,
+            is_long=is_long,
+        )
 
         # Calculate margin ratio (used margin / total position value)
         margin_ratio = None
@@ -5992,8 +5966,6 @@ class GMX(ExchangeCompatible):
             # GMX Extension: Direct USD sizing via size_usd parameter
             # Validate: size_usd and non-zero amount should not be used together
             if amount and amount > 0:
-                from ccxt.base.errors import InvalidOrder
-
                 raise InvalidOrder(f"Cannot use both 'size_usd' ({params['size_usd']}) and non-zero 'amount' ({amount}) together. Use either: (1) 'size_usd' in params for direct USD sizing (recommended), or (2) 'amount' for base currency sizing (will be multiplied by price). Recommendation: Use 'size_usd' with amount=0 for precise USD-denominated positions.")
             size_delta_usd = params["size_usd"]
             logger.debug("ORDER_TRACE: Using size_usd=%s from params", size_delta_usd)
@@ -6019,6 +5991,20 @@ class GMX(ExchangeCompatible):
                     current_price,
                     size_delta_usd,
                 )
+
+        # GMX protocol minimum order notional is ``GMX_MIN_COST_USD`` ($2).
+        # The market-limits dict already advertises this to Freqtrade, but a
+        # bypassed limits check or a custom client could still submit a
+        # sub-$2 order — GMX would reject on-chain with no clear surface
+        # error.  Fail fast at the application layer instead.  Reduce-only
+        # closes are exempt because a tiny remainder close can legitimately
+        # fall below the floor and GMX accepts it as a dust cleanup.
+        if not reduceOnly and size_delta_usd < GMX_MIN_COST_USD:
+            raise InvalidOrder(
+                f"Order notional ${size_delta_usd:.4f} below GMX minimum "
+                f"${GMX_MIN_COST_USD} for {symbol} {side}; adjust stake / "
+                f"position sizing.",
+            )
 
         # Resolve market info — honours optional ``market_address`` param so callers can
         # select a non-default pool (e.g. BTC-BTC instead of the default BTC-USDC pool).
