@@ -1,5 +1,7 @@
 # Current
 
+- feat: Add ForgeYields vault protocol support with CONTROLLER_DOMAIN() auto-detection, 20% performance fee, metadata and logos (2026-05-25)
+
 - feat: Add TokenGateway (ForgeYieldsUSDC / fyUSDC) custom event discovery for ERC-4626 vault scanning (2026-05-22)
 
 - feat: Daily timestamped R2 backups for vault data files in private buckets using server-side `copy_object`, with skip-if-exists and opt-out via `R2_DAILY_BACKUP=false` (2026-05-18)

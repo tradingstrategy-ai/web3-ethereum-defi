@@ -1,0 +1,41 @@
+name: ForgeYields
+slug: forgeyields
+short_description: |
+  Cross-chain, non-custodial yield aggregator for underwritten frontier DeFi strategies.
+long_description: |
+  ForgeYields is a cross-chain, non-custodial yield aggregator. It deploys into
+  frontier DeFi strategies — but only those cleared by Hallmark, its public risk
+  methodology.
+
+  The fyUSDC, fyETH and fyWBTC vaults issue auto-compounding ERC-4626 tokens
+  (fyTokens). The Ethereum vault is built on Veda Labs' BoringVault and allocates
+  across Aave, Morpho, Curve, Pendle and others.
+
+  Every allocator action is reported in real time through the Atomic Transparency
+  Ledger, giving on-chain-verifiable visibility into AUM, transactions and PnL.
+
+  Key features:
+
+  - Non-custodial: relayers are confined to a Merkle-gated allow-list of calls,
+    enforced on-chain by the Manager middleware; off-allow-list calls revert
+  - Hallmark-underwritten strategies — public risk methodology
+  - Atomic Transparency Ledger — real-time, on-chain-verifiable reporting
+  - Cross-chain deposits settling on Ethereum
+  - Asynchronous request-then-claim redemption; funds keep earning until claimed
+fee_description: |
+  20% performance fee, calculated on a daily basis.
+links:
+  homepage: https://www.forgeyields.com/
+  app: https://app.forgeyields.com/
+  twitter: https://x.com/ForgeYields
+  github: https://github.com/ForgeYields
+  documentation: https://forge-labs.gitbook.io/forge-docs
+  defillama: https://defillama.com/protocol/forgeyields
+  audits: https://forge-labs.gitbook.io/forge-docs/other/audits
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/forgeyields/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x943109DC7C950da4592d85ebd4Cfed007Af64670
+  - https://etherscan.io/address/0x98CD770b4e9905B1263f0c9ae6cdE34E1923508E
+  - https://etherscan.io/address/0xeDca8230366B9eaFf06becdD1D261577836AA507
