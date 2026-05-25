@@ -56,8 +56,9 @@ def test_forgeyields(web3: Web3):
     2. Verify it is identified as ForgeYieldsVault
     3. Check protocol name, features
     4. Verify fee data (20% performance, 0% management)
-    5. Verify totalAssets() works (NAV pipeline compatibility)
-    6. Verify vault link
+    5. Verify NAV via fetch_total_assets (uses convertToAssets(totalSupply), not totalAssets)
+    6. Verify fetch_nav works (same corrected path)
+    7. Verify vault link
     """
     # 1. Auto-detect the vault
     vault = create_vault_instance_autodetect(
@@ -76,9 +77,14 @@ def test_forgeyields(web3: Web3):
     assert vault.get_management_fee("latest") == 0.0
     assert vault.get_performance_fee("latest") == pytest.approx(0.20)
 
-    # 5. Verify totalAssets() works (NAV pipeline compatibility)
+    # 5. Verify NAV via fetch_total_assets (convertToAssets(totalSupply), not totalAssets)
     total_assets = vault.fetch_total_assets("latest")
     assert total_assets > 0
 
-    # 6. Verify vault link
+    # 6. Verify fetch_nav works (same corrected path)
+    nav = vault.fetch_nav()
+    assert nav > 0
+    assert nav == total_assets
+
+    # 7. Verify vault link
     assert vault.get_link() == "https://app.forgeyields.com/"
