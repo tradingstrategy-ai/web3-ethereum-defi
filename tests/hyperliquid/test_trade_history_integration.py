@@ -19,8 +19,10 @@ from eth_defi.hyperliquid.trade_history import (
 from eth_defi.hyperliquid.trade_history_db import HyperliquidTradeHistoryDatabase
 
 
-#: Growi HF vault — moderately active, used in existing test fixtures
-VAULT_ADDRESS = "0x1e37a337ed460039d1b15bd3bc489de789768d5e"
+#: Growi HF leader wallet — actively trading account used for fill-dependent tests.
+#: The vault address (0x1e37…) has periods of inactivity with zero fills,
+#: so we use the leader wallet which trades more consistently.
+ACTIVE_ACCOUNT = "0x3df9769bbbb335340872f01d8157c779d73c6ed0"
 
 #: Short time range for faster tests — must be recent enough
 #: that Hyperliquid API still returns fills (old data is purged).
@@ -36,16 +38,16 @@ def session():
 
 @pytest.mark.timeout(60)
 def test_fetch_account_funding(session):
-    """Fetch funding payments for a known vault."""
+    """Fetch funding payments for a known active account."""
     payments = list(
         fetch_account_funding(
             session,
-            VAULT_ADDRESS,
+            ACTIVE_ACCOUNT,
             start_time=TEST_START,
             end_time=TEST_END,
         )
     )
-    assert len(payments) > 0, "Expected funding payments for an active vault"
+    assert len(payments) > 0, "Expected funding payments for an active account"
 
     # Verify chronological order
     for i in range(1, len(payments)):
@@ -59,15 +61,15 @@ def test_fetch_account_funding(session):
 
 @pytest.mark.timeout(120)
 def test_reconstruct_vault_trade_history(session, tmp_path):
-    """Reconstruct trade history for a vault account and verify against clearinghouse."""
+    """Reconstruct trade history for an active account and verify fill data."""
     db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
     try:
-        db.add_account(VAULT_ADDRESS, label="Growi HF", is_vault=True)
-        db.sync_account_fills(session, VAULT_ADDRESS, start_time=TEST_START, end_time=TEST_END)
+        db.add_account(ACTIVE_ACCOUNT, label="Growi HF leader", is_vault=False)
+        db.sync_account_fills(session, ACTIVE_ACCOUNT, start_time=TEST_START, end_time=TEST_END)
 
         history = fetch_account_trade_history(
             session,
-            VAULT_ADDRESS,
+            ACTIVE_ACCOUNT,
             start_time=TEST_START,
             end_time=TEST_END,
         )
@@ -80,7 +82,7 @@ def test_reconstruct_vault_trade_history(session, tmp_path):
             assert trade.realised_pnl is not None
 
         # Sync state recorded
-        state = db.get_sync_state(VAULT_ADDRESS)
+        state = db.get_sync_state(ACTIVE_ACCOUNT)
         assert "fills" in state
         assert state["fills"]["row_count"] > 0
     finally:
@@ -127,24 +129,24 @@ def test_sync_idempotent(session, tmp_path):
     """
     db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
     try:
-        db.add_account(VAULT_ADDRESS, label="Growi HF", is_vault=True)
+        db.add_account(ACTIVE_ACCOUNT, label="Growi HF leader", is_vault=False)
 
         # First sync: fetches real data
         first_result = db.sync_account(
             session,
-            VAULT_ADDRESS,
+            ACTIVE_ACCOUNT,
             start_time=TEST_START,
             end_time=TEST_END,
         )
         db.save()
 
         assert first_result["fills"] > 0, "Expected fills on first sync"
-        first_state = db.get_sync_state(VAULT_ADDRESS)
+        first_state = db.get_sync_state(ACTIVE_ACCOUNT)
 
         # Second sync: same time range — should produce zero new records
         second_result = db.sync_account(
             session,
-            VAULT_ADDRESS,
+            ACTIVE_ACCOUNT,
             start_time=TEST_START,
             end_time=TEST_END,
         )
@@ -155,10 +157,12 @@ def test_sync_idempotent(session, tmp_path):
         assert second_result["ledger"] == 0, f"Expected 0 new ledger on re-sync, got {second_result['ledger']}"
 
         # Row counts should be unchanged
-        second_state = db.get_sync_state(VAULT_ADDRESS)
+        second_state = db.get_sync_state(ACTIVE_ACCOUNT)
         assert second_state["fills"]["row_count"] == first_state["fills"]["row_count"]
         assert second_state["funding"]["row_count"] == first_state["funding"]["row_count"]
-        assert second_state["ledger"]["row_count"] == first_state["ledger"]["row_count"]
+        # Ledger may not have sync state if the account has no ledger events
+        if "ledger" in first_state:
+            assert second_state["ledger"]["row_count"] == first_state["ledger"]["row_count"]
     finally:
         db.close()
 
@@ -173,30 +177,30 @@ def test_trade_history_sync_resume(session, tmp_path):
     """
     db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
     try:
-        db.add_account(VAULT_ADDRESS, label="Growi HF", is_vault=True)
+        db.add_account(ACTIVE_ACCOUNT, label="Growi HF leader", is_vault=False)
 
         # First sync: narrow window (simulates partial/interrupted sync)
         db.sync_account_fills(
             session,
-            VAULT_ADDRESS,
+            ACTIVE_ACCOUNT,
             start_time=TEST_START,
             end_time=TEST_START + datetime.timedelta(days=3),
         )
         db.save()
 
-        first_state = db.get_sync_state(VAULT_ADDRESS)
+        first_state = db.get_sync_state(ACTIVE_ACCOUNT)
         first_count = first_state["fills"]["row_count"]
         first_newest = first_state["fills"]["newest_ts"]
         assert first_count > 0, "First sync produced no fills"
 
         # Read first-run fills for comparison
-        first_fills = db.get_fills(VAULT_ADDRESS)
+        first_fills = db.get_fills(ACTIVE_ACCOUNT)
 
         # Second sync: broader range (resume)
-        db.sync_account_fills(session, VAULT_ADDRESS, end_time=TEST_END)
+        db.sync_account_fills(session, ACTIVE_ACCOUNT, end_time=TEST_END)
         db.save()
 
-        second_state = db.get_sync_state(VAULT_ADDRESS)
+        second_state = db.get_sync_state(ACTIVE_ACCOUNT)
         second_count = second_state["fills"]["row_count"]
 
         # Should have same or more fills (new data added)
@@ -206,7 +210,7 @@ def test_trade_history_sync_resume(session, tmp_path):
         assert second_state["fills"]["newest_ts"] >= first_newest
 
         # Original fills should still be present (no data loss)
-        second_fills = db.get_fills(VAULT_ADDRESS)
+        second_fills = db.get_fills(ACTIVE_ACCOUNT)
         first_trade_ids = {f.trade_id for f in first_fills}
         second_trade_ids = {f.trade_id for f in second_fills}
         assert first_trade_ids.issubset(second_trade_ids), "Resume lost fills from first sync"

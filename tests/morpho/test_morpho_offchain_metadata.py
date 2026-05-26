@@ -64,8 +64,9 @@ FROB_USDC_ARBITRUM = "0xC3415c9231Dad88F8146107372143f6dAE042967"
 #: Dune USDC on Ethereum — short_timelock (RED) vault warning + bad_debt_realized (YELLOW) market
 DUNE_USDC_ETHEREUM = "0xfD1241C4fc37680De370dDc20eBF7bC5e561E1c1"
 
-#: Steakhouse Level USDC on Ethereum — not_whitelisted (YELLOW) vault only, no market warnings
-STEAKHOUSE_LEVEL_USDC_ETHEREUM = "0xbEEf11C63d7173BdCC2037e7220eE9Bd0cCDA862"
+#: Safe x Steakhouse USDC on Ethereum — not_whitelisted (YELLOW) vault only, no market warnings
+#: (Previous vault 0xbEEf11C63d7173BdCC2037e7220eE9Bd0cCDA862 gained deposit_disabled RED in May 2026)
+YELLOW_ONLY_USDC_ETHEREUM = "0xbEeFCe6c76C7D7A8066562Fe9FF0e343a52dD92F"
 
 #: Gauntlet USDC Prime on Ethereum — clean vault, no warnings
 GAUNTLET_USDC_PRIME_ETHEREUM = "0xdd0f28e19C1780eb6396170735D45153D261490d"
@@ -207,19 +208,19 @@ def test_morpho_short_timelock_red_only(web3_ethereum: Web3):
 @flaky.flaky
 @pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed")
 def test_morpho_yellow_only_no_flag(web3_ethereum: Web3):
-    """Steakhouse Level USDC on Ethereum has only a YELLOW vault warning (not_whitelisted).
+    """Safe x Steakhouse USDC on Ethereum has only a YELLOW vault warning (not_whitelisted).
 
     ``VaultFlag.morpho_issues`` must NOT be set — YELLOW warnings are informational only.
 
     Steps:
 
-    1. Fetch offchain data for Steakhouse Level USDC.
+    1. Fetch offchain data for Safe x Steakhouse USDC.
     2. Assert no RED warnings exist at vault level.
     3. Assert market_warnings list is empty (no market-level warnings at all).
     4. Assert ``VaultFlag.morpho_issues`` is not in ``get_flags()``.
     """
     # 1. Fetch
-    data = fetch_morpho_vault_data(web3_ethereum, STEAKHOUSE_LEVEL_USDC_ETHEREUM)
+    data = fetch_morpho_vault_data(web3_ethereum, YELLOW_ONLY_USDC_ETHEREUM)
     assert data is not None, "Expected Morpho data for Steakhouse Level USDC"
 
     # 2. No RED at vault level (only not_whitelisted YELLOW expected)
@@ -232,7 +233,7 @@ def test_morpho_yellow_only_no_flag(web3_ethereum: Web3):
     assert data["market_warnings"] == [], f"Expected no market warnings, got {data['market_warnings']}"
 
     # 4. No RED → no morpho_issues flag
-    vault = create_vault_instance_autodetect(web3_ethereum, STEAKHOUSE_LEVEL_USDC_ETHEREUM)
+    vault = create_vault_instance_autodetect(web3_ethereum, YELLOW_ONLY_USDC_ETHEREUM)
     assert VaultFlag.morpho_issues not in vault.get_flags()
 
 
