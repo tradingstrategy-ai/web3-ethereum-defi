@@ -83,9 +83,6 @@ async def get_block_timestamps_using_hypersync_async(
     assert start_block >= 0
     assert end_block >= start_block, f"end_block {end_block} must be >= start_block {start_block}"
 
-    connected_chain_id = await client.get_chain_id()
-    assert chain_id == connected_chain_id, f"Connected to chain {connected_chain_id}, but expected {chain_id}"
-
     if display_progress:
         progress_bar = tqdm(
             total=(end_block - start_block),
@@ -230,11 +227,12 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         if start_block < first_read_block:
             scan_start = start_block
         else:
-            scan_start = last_read_block
+            # +1 to avoid re-fetching the last cached block
+            scan_start = last_read_block + 1
     else:
         scan_start = start_block
 
-    logger.info(f"Adjusted timestamp scan range for chain {chain_id}: blocks {scan_start} - {end_block}")
+    logger.info(f"Adjusted timestamp scan range for chain {chain_id}: blocks {scan_start:,} - {end_block:,} (delta {end_block - scan_start:,} blocks)")
 
     def _save():
         series = pd.Series(data=values, index=index)
@@ -249,7 +247,10 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
     index = []
     values = []
 
-    if end_block > last_read_block or start_block < first_read_block:
+    needs_head = start_block < first_read_block
+    needs_tail = end_block > last_read_block
+
+    if needs_head or needs_tail:
         iter = get_block_timestamps_using_hypersync_async(
             client,
             chain_id,
@@ -309,6 +310,13 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
                     heal_series = pd.Series(data=heal_values, index=heal_index)
                     timestamp_db.import_chain_data(chain_id, heal_series)
                     logger.info("Healed gap %d-%d: inserted %d timestamps", gap_start + 1, gap_end - 1, len(heal_index))
+    else:
+        logger.info(
+            "Timestamp cache fully covers requested range %d-%d for chain %d, skipping Hypersync fetch",
+            start_block,
+            end_block,
+            chain_id,
+        )
 
     # Drop unnecessary blocks from memory
     return timestamp_db.get_slicer()
@@ -347,5 +355,10 @@ def fetch_block_timestamps_using_hypersync_cached(
                 if attempt + 1 >= attempts:
                     logger.error("Exceeded maximum Hypersync attempts, failing: %s", e)
                     raise
+                # Exponential backoff: 30s, 60s, 120s, 240s to avoid hammering
+                # a rate-limited Hypersync endpoint
+                backoff = 30 * (2**attempt)
+                logger.info("Backing off %d seconds before retry", backoff)
+                await asyncio.sleep(backoff)
 
     return asyncio.run(_hypersync_asyncio_wrapper())
