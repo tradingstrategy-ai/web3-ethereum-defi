@@ -4,6 +4,21 @@ Tests trade history reconstruction, DuckDB persistence, and sync resume
 for both vault and normal accounts.
 
 Requires network access to the Hyperliquid API.
+
+.. warning::
+
+    These tests query the **live Hyperliquid API** and use a rolling 7-day
+    time window.  The underlying data is not pinned to a historical snapshot:
+
+    - Accounts may stop trading, producing zero fills in the test window.
+    - The API purges old fill data, so widening the window is not a reliable fix.
+    - Fill counts, funding payments, and trade reconstruction results change
+      daily as new activity occurs.
+
+    When these tests break, it is usually because the chosen account has gone
+    inactive.  The fix is to switch ``ACTIVE_ACCOUNT`` to a currently active
+    trader address — **not** to pin to a historical block or mock the API,
+    because the purpose of these tests is to verify the real integration path.
 """
 
 import datetime

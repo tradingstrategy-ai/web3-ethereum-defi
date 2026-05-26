@@ -25,7 +25,7 @@ Vaults used:
   → ``VaultFlag.morpho_issues`` expected (RED vault warning)
   Also used for ``bad_debt_realized`` metadata assertions.
 
-- ``Steakhouse Level USDC`` — ``0xbEEf11C63d7173BdCC2037e7220eE9Bd0cCDA862``
+- ``Safe x Steakhouse USDC`` — ``0xbEeFCe6c76C7D7A8066562Fe9FF0e343a52dD92F``
   Vault warnings: ``not_whitelisted`` (YELLOW only)
   Market warnings: none
   → ``VaultFlag.morpho_issues`` NOT expected (all warnings are YELLOW)
@@ -33,6 +33,22 @@ Vaults used:
 - ``Gauntlet USDC Prime`` — ``0xdd0f28e19C1780eb6396170735D45153D261490d``
   No warnings at all
   → ``VaultFlag.morpho_issues`` NOT expected
+
+.. warning::
+
+    These tests query the **live Morpho Blue GraphQL API**.  Warning levels
+    and types are controlled by Morpho's offchain risk pipeline and change
+    without notice as vault parameters are updated on-chain:
+
+    - A vault classified as YELLOW-only today may gain a RED warning tomorrow
+      (e.g. ``deposit_disabled``, ``short_timelock``, ``bad_debt_unrealized``).
+    - A vault with no warnings may acquire warnings, or vice versa.
+    - Market-level warnings come and go as bad debt is realised or resolved.
+
+    When these tests break, it is usually because a test vault's warning state
+    has changed.  The fix is to find a replacement vault with the expected
+    warning profile using the Morpho GraphQL API — **not** to mock the API,
+    because the purpose of these tests is to verify the real integration path.
 
 Because the Morpho Blue API is a live external service these tests are marked
 ``flaky`` and skipped on CI if the required ``JSON_RPC_*`` env var is absent.
