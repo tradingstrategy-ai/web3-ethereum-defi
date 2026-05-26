@@ -57,18 +57,15 @@ def _is_hypersync_rate_limit_error(e: Exception) -> bool:
     return isinstance(e, RuntimeError) and "429" in str(e)
 
 
-def _validate_hypersync_chain_id(client: hypersync.HypersyncClient, expected_chain_id: int) -> None:
+async def _validate_hypersync_chain_id_async(client: hypersync.HypersyncClient, expected_chain_id: int) -> None:
     """Validate that the Hypersync client is connected to the expected chain.
 
-    Called once per public entry point (before any retry loop) to guard
-    against poisoning persistent caches with wrong-chain data.
+    Guards against poisoning persistent caches with wrong-chain data.
+    Must be called inside an async context so it participates in the
+    retry/backoff loop when rate-limited.
     """
-
-    async def _check():
-        connected = await client.get_chain_id()
-        assert connected == expected_chain_id, f"Hypersync client connected to chain {connected}, but expected {expected_chain_id}"
-
-    asyncio.run(_check())
+    connected = await client.get_chain_id()
+    assert connected == expected_chain_id, f"Hypersync client connected to chain {connected}, but expected {expected_chain_id}"
 
 
 async def get_block_timestamps_using_hypersync_async(
@@ -193,10 +190,9 @@ def get_block_timestamps_using_hypersync(
         Block number -> header mapping
     """
 
-    _validate_hypersync_chain_id(client, chain_id)
-
     # Don't leak async colored interface, as it is an implementation detail
     async def _hypersync_asyncio_wrapper():
+        await _validate_hypersync_chain_id_async(client, chain_id)
         iter = get_block_timestamps_using_hypersync_async(
             client,
             chain_id,
@@ -285,6 +281,11 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
     needs_tail = end_block > last_read_block
 
     if needs_head or needs_tail:
+        # Validate chain_id only when we actually need to fetch from Hypersync.
+        # Skipped on warm cache hits to avoid wasting API quota.
+        if isinstance(client, hypersync.HypersyncClient):
+            await _validate_hypersync_chain_id_async(client, chain_id)
+
         iter = get_block_timestamps_using_hypersync_async(
             client,
             chain_id,
@@ -372,10 +373,6 @@ def fetch_block_timestamps_using_hypersync_cached(
     :param attempts:
         Work around Hypersync timeout issues
     """
-
-    # Validate once before entering the retry loop so a 429 from
-    # get_chain_id() does not bypass the backoff path.
-    _validate_hypersync_chain_id(client, chain_id)
 
     async def _hypersync_asyncio_wrapper():
         for attempt in range(attempts):
