@@ -61,10 +61,15 @@ async def _validate_hypersync_chain_id_async(client: hypersync.HypersyncClient, 
     """Validate that the Hypersync client is connected to the expected chain.
 
     Guards against poisoning persistent caches with wrong-chain data.
-    Must be called inside an async context so it participates in the
-    retry/backoff loop when rate-limited.
+    Wraps 429 errors as :py:class:`HypersyncFlaky` so the caller's
+    retry/backoff loop handles rate limits.
     """
-    connected = await client.get_chain_id()
+    try:
+        connected = await client.get_chain_id()
+    except RuntimeError as e:
+        if _is_hypersync_rate_limit_error(e):
+            raise HypersyncFlaky(f"Hypersync rate limited during chain_id validation: {e}") from e
+        raise
     assert connected == expected_chain_id, f"Hypersync client connected to chain {connected}, but expected {expected_chain_id}"
 
 
@@ -76,6 +81,7 @@ async def get_block_timestamps_using_hypersync_async(
     timeout: float = 120.0,
     display_progress: bool = True,
     progress_throttle=10_000,
+    validate_chain_id: bool = True,
 ) -> AsyncIterable[BlockHeader]:
     """Read block timestamps using Hypersync API.
 
@@ -83,9 +89,8 @@ async def get_block_timestamps_using_hypersync_async(
     get block timestamps using Hypersync API 1000x faster.
 
     :param chain_id:
-        Verify HyperSync client is connected to the correct chain ID.
-
-        (Not actually used in request because client is per-chain)
+        Expected chain ID. Validated against the client unless
+        ``validate_chain_id`` is ``False``.
 
     :param start_block:
         Start block, inclusive
@@ -96,12 +101,20 @@ async def get_block_timestamps_using_hypersync_async(
     :param client:
         Hypersync client to use
 
+    :param validate_chain_id:
+        When ``True`` (default), verify the client is connected to
+        the expected chain before streaming. Set to ``False`` when the
+        caller has already validated (e.g. the cached path).
+
     """
 
     assert isinstance(client, hypersync.HypersyncClient), f"Expected HypersyncClient, got {type(client)}"
     assert type(chain_id) == int
     assert start_block >= 0
     assert end_block >= start_block, f"end_block {end_block} must be >= start_block {start_block}"
+
+    if validate_chain_id:
+        await _validate_hypersync_chain_id_async(client, chain_id)
 
     if display_progress:
         progress_bar = tqdm(
@@ -192,7 +205,6 @@ def get_block_timestamps_using_hypersync(
 
     # Don't leak async colored interface, as it is an implementation detail
     async def _hypersync_asyncio_wrapper():
-        await _validate_hypersync_chain_id_async(client, chain_id)
         iter = get_block_timestamps_using_hypersync_async(
             client,
             chain_id,
@@ -292,6 +304,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
             start_block=scan_start,
             end_block=end_block,
             display_progress=display_progress,
+            validate_chain_id=False,  # Already validated above
         )
 
         async for block_header in iter:
@@ -338,6 +351,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
                     start_block=gap_start + 1,
                     end_block=gap_end - 1,
                     display_progress=False,
+                    validate_chain_id=False,  # Already validated above
                 ):
                     heal_index.append(bh.block_number)
                     heal_values.append(bh.timestamp)
