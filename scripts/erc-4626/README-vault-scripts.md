@@ -222,6 +222,67 @@ poetry run python scripts/erc-4626/scan-vault-posts.py
 | `MAX_POST_AGE_DAYS` | Optional. Default: 365. |
 | `LOG_LEVEL` | Optional. Default: warning. |
 
+## Docker usage
+
+The vault scanner is packaged as a Docker image via `Dockerfile.vault-scanner`.
+The default entrypoint is `scan-vaults-all-chains.py`, which scans **all chains**.
+
+To run a **single-chain** script or override the command, you must use `--entrypoint`
+because the Dockerfile sets `ENTRYPOINT` (not just `CMD`). Without `--entrypoint`,
+any command you pass is appended as arguments to the all-chains script.
+
+### Scan only Ethereum (vault discovery)
+
+```shell
+docker compose --profile oneshot run --rm \
+  --entrypoint python \
+  -e JSON_RPC_URL="$JSON_RPC_ETHEREUM" \
+  -e LOG_LEVEL=info \
+  vault-scanner \
+  scripts/erc-4626/scan-vaults.py
+```
+
+### Scan only Ethereum with lead reset (after adding new protocol support)
+
+```shell
+docker compose --profile oneshot run --rm \
+  --entrypoint python \
+  -e JSON_RPC_URL="$JSON_RPC_ETHEREUM" \
+  -e RESET_LEADS=true \
+  -e LOG_LEVEL=info \
+  vault-scanner \
+  scripts/erc-4626/scan-vaults.py
+```
+
+### Scan historical prices for specific vaults only (e.g. ForgeYields)
+
+Use `VAULT_ID` with comma-separated `chain_id-address` pairs. This is safe
+to run against production data — only the specified vaults' parquet rows
+are deleted and rewritten.
+
+```shell
+# ForgeYields: fyUSDC, fyETH, fyWBTC on Ethereum (chain_id=1)
+docker compose --profile oneshot run --rm \
+  --entrypoint python \
+  -e JSON_RPC_URL="$JSON_RPC_ETHEREUM" \
+  -e VAULT_ID="1-0x943109dc7c950da4592d85ebd4cfed007af64670,1-0x98cd770b4e9905b1263f0c9ae6cde34e1923508e,1-0xedca8230366b9eaff06becdd1d261577836aa507" \
+  -e LOG_LEVEL=info \
+  vault-scanner \
+  scripts/erc-4626/scan-prices.py
+```
+
+### Run the all-chains scanner (default)
+
+```shell
+docker compose --profile oneshot run --rm vault-scanner
+```
+
+### Interactive shell inside the container
+
+```shell
+docker compose --profile oneshot run --rm --entrypoint /bin/bash vault-scanner
+```
+
 ## Debugging and verification
 
 Scripts for checking individual vault data and diagnosing issues.
