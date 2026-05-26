@@ -45,7 +45,16 @@ logger = logging.getLogger(__name__)
 
 
 class HypersyncFlaky(Exception):
-    """Hypersync stream flaky error, e.g. timeout."""
+    """Hypersync stream flaky error, e.g. timeout or rate limit."""
+
+
+def _is_hypersync_rate_limit_error(e: Exception) -> bool:
+    """Check if a Hypersync RuntimeError is a 429 rate limit error.
+
+    The Rust client raises ``RuntimeError`` with the HTTP status in the message
+    after exhausting its internal retries.
+    """
+    return isinstance(e, RuntimeError) and "429" in str(e)
 
 
 async def get_block_timestamps_using_hypersync_async(
@@ -108,7 +117,12 @@ async def get_block_timestamps_using_hypersync_async(
         ),
     )
 
-    receiver = await client.stream(query, hypersync.StreamConfig())
+    try:
+        receiver = await client.stream(query, hypersync.StreamConfig())
+    except RuntimeError as e:
+        if _is_hypersync_rate_limit_error(e):
+            raise HypersyncFlaky(f"Hypersync rate limited during stream setup: {e}") from e
+        raise
 
     while True:
         try:
@@ -116,6 +130,10 @@ async def get_block_timestamps_using_hypersync_async(
         except asyncio.TimeoutError as e:
             logger.error("HyperSync receiver timed out, cannot recover")
             raise HypersyncFlaky(f"Cannot recover from HyperSync stream timeout after {timeout} seconds") from e
+        except RuntimeError as e:
+            if _is_hypersync_rate_limit_error(e):
+                raise HypersyncFlaky(f"Hypersync rate limited during streaming: {e}") from e
+            raise
 
         # exit if the stream finished
         if res is None:
@@ -212,6 +230,13 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
     :return:
         Block number -> datetime mapping
     """
+
+    # Validate chain_id once per sync call to guard against poisoning
+    # the persistent timestamp cache with data from the wrong chain.
+    # This is checked here (not per-stream) to avoid wasting API quota.
+    if isinstance(client, hypersync.HypersyncClient):
+        connected_chain_id = await client.get_chain_id()
+        assert chain_id == connected_chain_id, f"Hypersync client connected to chain {connected_chain_id}, but expected {chain_id}"
 
     if cache_path.exists():
         timestamp_db = load_timestamp_cache(chain_id, cache_path)
