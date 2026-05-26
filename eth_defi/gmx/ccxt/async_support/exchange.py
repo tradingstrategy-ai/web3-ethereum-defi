@@ -17,6 +17,7 @@ import aiohttp
 from ccxt.async_support import Exchange
 from ccxt.base.errors import (
     ExchangeError,
+    InvalidOrder,
     NotSupported,
     OrderNotFound,
 )
@@ -32,6 +33,7 @@ from eth_defi.gmx.ccxt.cancel_helpers import (
     build_cancel_order_response,
     resolve_order_id,
 )
+from eth_defi.gmx.ccxt._position_metrics import safe_liquidation_price
 from eth_defi.gmx.ccxt.exchange import (
     _derive_side_from_trade_action,
     _resolve_close_order_filled_amount,
@@ -2281,10 +2283,36 @@ class GMX(Exchange):
         else:
             status = "open"
 
+        market = self.markets.get(symbol) if symbol else None
+
+        # GMX prices are scaled by 10^(30 - index_token_decimals).  Hard
+        # ``/1e30`` is wrong for DOGE (8), TAO (9), WBTC (8), etc.  Use the
+        # standard decimals-aware helper so the persisted price field is
+        # always a clean human-readable USD number.
         exec_price_raw = trade_action.get("executionPrice") or trade_action.get("triggerPrice")
-        exec_price = float(exec_price_raw) / 1e30 if exec_price_raw else None
-        size_raw = trade_action.get("sizeDeltaUsd") or trade_action.get("sizeDeltaInTokens")
-        filled = float(size_raw) / 1e30 if size_raw else None
+        exec_price = self._convert_price_to_usd(float(exec_price_raw), market) if exec_price_raw else None
+
+        # ``sizeDeltaUsd`` is pure USD (always /1e30 — fees + USD-only fields).
+        # ``sizeDeltaInTokens`` is base-token in token decimals.  CCXT's
+        # ``amount`` must be base tokens, so prefer ``sizeDeltaInTokens``
+        # when present; otherwise derive base tokens from sizeDeltaUsd / price.
+        size_tokens_raw = trade_action.get("sizeDeltaInTokens")
+        size_usd_raw = trade_action.get("sizeDeltaUsd")
+        filled: float | None = None
+        if size_tokens_raw is not None and market is not None:
+            try:
+                token_decimals = self._get_token_decimals(market)
+                if token_decimals is not None:
+                    filled = float(size_tokens_raw) / (10**token_decimals)
+            except Exception:
+                filled = None
+        if filled is None and size_usd_raw is not None and exec_price not in (None, 0.0):
+            filled = (float(size_usd_raw) / 1e30) / exec_price
+        if filled is None and size_usd_raw is not None:
+            # No price available — fall back to USD notional.  Better than
+            # silently dropping the order, callers should treat ``amount``
+            # carefully when ``price`` is also None.
+            filled = float(size_usd_raw) / 1e30
         ts_s = trade_action.get("timestamp")
         ts_ms = int(ts_s) * 1000 if ts_s else None
         order_key = trade_action.get("orderKey", trade_action.get("id", ""))
@@ -2327,6 +2355,21 @@ class GMX(Exchange):
         :returns: CCXT-shaped order dict with ``status="open"``.
         """
         _ts_ms = self.milliseconds()
+        market = self.markets.get(symbol) if symbol else None
+
+        # ``triggerPrice`` is scaled by 10^(30 - index_token_decimals);
+        # ``sizeDeltaUsd`` is pure USD (/1e30).  CCXT ``amount`` must be in
+        # base tokens, so we compute it as size_usd / trigger_usd when
+        # both are known.  Falls back to USD notional only when the price
+        # is missing — better than silently mixing units in the cached row.
+        raw_trigger = rest_order.get("triggerPrice", 0)
+        trigger_usd = self._convert_price_to_usd(float(raw_trigger), market) if raw_trigger else None
+        size_usd = float(rest_order.get("sizeDeltaUsd", 0) or 0) / 1e30 or None
+        if size_usd is not None and trigger_usd not in (None, 0.0):
+            amount_tokens: float | None = size_usd / trigger_usd
+        else:
+            amount_tokens = size_usd  # last-resort fallback (USD notional)
+
         return {
             "id": rest_order.get("key", rest_order.get("orderKey", "")),
             "clientOrderId": None,
@@ -2337,11 +2380,11 @@ class GMX(Exchange):
             "symbol": symbol,
             "type": "limit",
             "side": "buy" if rest_order.get("isLong") else "sell",
-            "price": float(rest_order.get("triggerPrice", 0)) / 1e30 or None,
+            "price": trigger_usd,
             "average": None,
-            "amount": float(rest_order.get("sizeDeltaUsd", 0)) / 1e30 or None,
+            "amount": amount_tokens,
             "filled": 0.0,
-            "remaining": float(rest_order.get("sizeDeltaUsd", 0)) / 1e30 or None,
+            "remaining": amount_tokens,
             "cost": None,
             "trades": [],
             "fee": None,
@@ -3112,6 +3155,18 @@ class GMX(Exchange):
             if position_size_usd:
                 unrealized_pnl = position_size_usd * (percent_profit / 100)
 
+            is_long = bool(data.get("is_long", True))
+            # Same helper as the sync ``parse_position`` — keeps the two
+            # paths byte-equivalent for the liquidation_price field and
+            # honours the sync/async lockstep rule.  See
+            # :pymod:`eth_defi.gmx.ccxt._position_metrics`.
+            liquidation_price = safe_liquidation_price(
+                entry_price=float(entry_price) if entry_price else None,
+                collateral_usd=collateral_usd,
+                position_size_usd=position_size_usd,
+                is_long=is_long,
+            )
+
             timestamp = self.milliseconds()
 
             result.append(
@@ -3122,7 +3177,7 @@ class GMX(Exchange):
                     "datetime": self.iso8601(timestamp),
                     "isolated": False,
                     "hedged": False,
-                    "side": "long" if data.get("is_long", True) else "short",
+                    "side": "long" if is_long else "short",
                     "contracts": contracts,
                     "contractSize": self.parse_number("1"),
                     "entryPrice": entry_price,
@@ -3135,7 +3190,7 @@ class GMX(Exchange):
                     "initialMarginPercentage": None,
                     "maintenanceMarginPercentage": 0.01,
                     "unrealizedPnl": unrealized_pnl,
-                    "liquidationPrice": None,
+                    "liquidationPrice": liquidation_price,
                     "marginRatio": None,
                     "percentage": percent_profit,
                     "info": data,
@@ -3984,6 +4039,7 @@ class GMX(Exchange):
         collateral_symbol = params.get("collateral_symbol", "USDC")
         slippage_percent = params.get("slippage_percent", 0.003)
         execution_buffer = params.get("execution_buffer", 2.2)
+        reduceOnly = params.get("reduceOnly", False)
 
         # GMX Extension: Support direct USD sizing via size_usd parameter
         if "size_usd" in params:
@@ -3997,6 +4053,16 @@ class GMX(Exchange):
             ticker = await self.fetch_ticker(symbol)
             current_price = ticker["last"]
             size_delta_usd = amount * current_price
+
+        # Sync/async lockstep — see ``_convert_ccxt_to_gmx_params`` in
+        # ``eth_defi/gmx/ccxt/exchange.py`` for the same guard and the
+        # reduce-only exemption rationale.
+        if not reduceOnly and size_delta_usd < GMX_MIN_COST_USD:
+            raise InvalidOrder(
+                f"Order notional ${size_delta_usd:.4f} below GMX minimum "
+                f"${GMX_MIN_COST_USD} for {symbol} {side}; adjust stake / "
+                f"position sizing.",
+            )
 
         return {
             "symbol": symbol,
@@ -4259,6 +4325,29 @@ class GMX(Exchange):
         """
         self._orders = {}
         logger.info("Cleared order cache (async)")
+
+    def _patch_cached_order_key(self, order_id: str, order_key_hex: str) -> None:
+        """Async-side mirror of :meth:`eth_defi.gmx.ccxt.exchange.GMX._patch_cached_order_key`.
+
+        Kept in sync/async lockstep so the freqtrade wrapper can invoke
+        the same repair API regardless of which adapter is bound to
+        ``self._api``.  Signature, semantics and alias handling are
+        identical to the sync sibling — see that docstring for the
+        rationale around bare and ``0x``-prefixed aliases.
+
+        :param order_id:
+            Order id under reconciliation; both ``"0x..."`` and bare forms
+            are accepted.
+        :param order_key_hex:
+            Recovered GMX order key as a ``0x``-prefixed hex string.
+        """
+        bare = order_id.removeprefix("0x")
+        aliases = {order_id, bare, f"0x{bare}"}
+        for alias in aliases:
+            cached = self._orders.get(alias)
+            if not cached:
+                continue
+            cached.setdefault("info", {})["order_key"] = order_key_hex
 
     def reset_failure_counter(self):
         """Reset consecutive failure counter and resume trading.

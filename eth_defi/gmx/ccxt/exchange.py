@@ -97,10 +97,8 @@ from eth_defi.gmx.order.pending_orders import PendingOrder, fetch_pending_orders
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
 from eth_defi.gmx.trading import GMXTrading
-from eth_defi.gmx.utils import (
-    calculate_estimated_liquidation_price,
-    convert_raw_price_to_usd,
-)
+from eth_defi.gmx.ccxt._position_metrics import safe_liquidation_price
+from eth_defi.gmx.utils import convert_raw_price_to_usd
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.fallback import ExtraValueError, get_fallback_provider
 from eth_defi.provider.log_block_range import get_logs_max_block_range
@@ -1787,7 +1785,7 @@ class GMX(ExchangeCompatible):
         try:
             self._order_key_cache = OrderKeyCache(
                 chain_id=self.web3.eth.chain_id,
-                wallet_address=self.wallet_address,
+                wallet=self.wallet_address,
             )
         except Exception as e:
             logger.warning("OrderKeyCache init failed (memory-only mode): %s", e)
@@ -4813,17 +4811,15 @@ class GMX(ExchangeCompatible):
         if position_size_usd and percentage is not None:
             unrealized_pnl = position_size_usd * (percentage / 100)
 
-        # Calculate liquidation price including fees
-        liquidation_price = None
-        if entry_price and collateral_amount and position_size_usd and position_size_usd > 0:
-            liquidation_price = calculate_estimated_liquidation_price(
-                entry_price=entry_price,
-                collateral_usd=collateral_amount,
-                size_usd=position_size_usd,
-                is_long=is_long,
-                maintenance_margin=0.01,  # GMX typically uses 1%
-                include_closing_fee=True,  # Include 0.07% closing fee
-            )
+        # Liquidation price via the shared sync/async helper — see
+        # :pymod:`eth_defi.gmx.ccxt._position_metrics` for why the
+        # validation chain lives there.
+        liquidation_price = safe_liquidation_price(
+            entry_price=entry_price,
+            collateral_usd=collateral_amount,
+            position_size_usd=position_size_usd,
+            is_long=is_long,
+        )
 
         # Calculate margin ratio (used margin / total position value)
         margin_ratio = None
@@ -5970,8 +5966,6 @@ class GMX(ExchangeCompatible):
             # GMX Extension: Direct USD sizing via size_usd parameter
             # Validate: size_usd and non-zero amount should not be used together
             if amount and amount > 0:
-                from ccxt.base.errors import InvalidOrder
-
                 raise InvalidOrder(f"Cannot use both 'size_usd' ({params['size_usd']}) and non-zero 'amount' ({amount}) together. Use either: (1) 'size_usd' in params for direct USD sizing (recommended), or (2) 'amount' for base currency sizing (will be multiplied by price). Recommendation: Use 'size_usd' with amount=0 for precise USD-denominated positions.")
             size_delta_usd = params["size_usd"]
             logger.debug("ORDER_TRACE: Using size_usd=%s from params", size_delta_usd)
@@ -5997,6 +5991,20 @@ class GMX(ExchangeCompatible):
                     current_price,
                     size_delta_usd,
                 )
+
+        # GMX protocol minimum order notional is ``GMX_MIN_COST_USD`` ($2).
+        # The market-limits dict already advertises this to Freqtrade, but a
+        # bypassed limits check or a custom client could still submit a
+        # sub-$2 order — GMX would reject on-chain with no clear surface
+        # error.  Fail fast at the application layer instead.  Reduce-only
+        # closes are exempt because a tiny remainder close can legitimately
+        # fall below the floor and GMX accepts it as a dust cleanup.
+        if not reduceOnly and size_delta_usd < GMX_MIN_COST_USD:
+            raise InvalidOrder(
+                f"Order notional ${size_delta_usd:.4f} below GMX minimum "
+                f"${GMX_MIN_COST_USD} for {symbol} {side}; adjust stake / "
+                f"position sizing.",
+            )
 
         # Resolve market info — honours optional ``market_address`` param so callers can
         # select a non-default pool (e.g. BTC-BTC instead of the default BTC-USDC pool).
@@ -8512,6 +8520,37 @@ class GMX(ExchangeCompatible):
         self._orders = {}
         logger.info("Cleared order cache")
 
+    def _patch_cached_order_key(self, order_id: str, order_key_hex: str) -> None:
+        """Patch a recovered GMX order key into all cached aliases for an order.
+
+        Called by the freqtrade wrapper when the no-key reconciler recovers
+        the real ``order_key`` from a live GMX pending order or a historical
+        Subsquid / EventEmitter record.  Patching the cache in place lets
+        the next ``fetch_order`` cycle hit the normal order-key-aware path
+        (``exchange.py`` lines 8593+ — DataStore + verification) instead of
+        re-triggering the no-key fallback.
+
+        Orders are inserted into ``self._orders`` under both their bare
+        (``"{hash}"``) and ``0x``-prefixed (``"0x{hash}"``) form by various
+        creation paths and by the cache-key resolver at
+        ``fetch_order`` line 8542.  The patch must update whichever alias(es)
+        the order is currently under so a subsequent lookup via either form
+        sees the recovered key.
+
+        :param order_id:
+            The order id that the wrapper is reconciling.  Either form
+            (``"0x..."`` or bare) is accepted; both aliases are checked.
+        :param order_key_hex:
+            Recovered GMX order key as a ``0x``-prefixed hex string.
+        """
+        bare = order_id.removeprefix("0x")
+        aliases = {order_id, bare, f"0x{bare}"}
+        for alias in aliases:
+            cached = self._orders.get(alias)
+            if not cached:
+                continue
+            cached.setdefault("info", {})["order_key"] = order_key_hex
+
     def reset_failure_counter(self):
         """Reset consecutive failure counter and resume trading.
 
@@ -9071,10 +9110,36 @@ class GMX(ExchangeCompatible):
         else:
             status = "open"
 
+        market = self.markets.get(symbol) if symbol else None
+
+        # GMX prices are scaled by 10^(30 - index_token_decimals).  Hard
+        # ``/1e30`` is wrong for DOGE (8), TAO (9), WBTC (8), etc.  Use the
+        # standard decimals-aware helper so the persisted price field is
+        # always a clean human-readable USD number.
         exec_price_raw = trade_action.get("executionPrice") or trade_action.get("triggerPrice")
-        exec_price = float(exec_price_raw) / 1e30 if exec_price_raw else None
-        size_raw = trade_action.get("sizeDeltaUsd") or trade_action.get("sizeDeltaInTokens")
-        filled = float(size_raw) / 1e30 if size_raw else None
+        exec_price = self._convert_price_to_usd(float(exec_price_raw), market) if exec_price_raw else None
+
+        # ``sizeDeltaUsd`` is pure USD (always /1e30 — fees + USD-only fields).
+        # ``sizeDeltaInTokens`` is base-token in token decimals.  CCXT's
+        # ``amount`` must be base tokens, so prefer ``sizeDeltaInTokens``
+        # when present; otherwise derive base tokens from sizeDeltaUsd / price.
+        size_tokens_raw = trade_action.get("sizeDeltaInTokens")
+        size_usd_raw = trade_action.get("sizeDeltaUsd")
+        filled: float | None = None
+        if size_tokens_raw is not None and market is not None:
+            try:
+                token_decimals = self._get_token_decimals(market)
+                if token_decimals is not None:
+                    filled = float(size_tokens_raw) / (10**token_decimals)
+            except Exception:
+                filled = None
+        if filled is None and size_usd_raw is not None and exec_price not in (None, 0.0):
+            filled = (float(size_usd_raw) / 1e30) / exec_price
+        if filled is None and size_usd_raw is not None:
+            # No price available — fall back to USD notional.  Better than
+            # silently dropping the order, callers should treat ``amount``
+            # carefully when ``price`` is also None.
+            filled = float(size_usd_raw) / 1e30
         ts_s = trade_action.get("timestamp")
         ts_ms = int(ts_s) * 1000 if ts_s else None
         order_key = trade_action.get("orderKey", trade_action.get("id", ""))
@@ -9117,6 +9182,21 @@ class GMX(ExchangeCompatible):
         :returns: CCXT-shaped order dict with ``status="open"``.
         """
         _ts_ms = _block_timestamp_ms(self.web3, self.web3.eth.block_number)
+        market = self.markets.get(symbol) if symbol else None
+
+        # ``triggerPrice`` is scaled by 10^(30 - index_token_decimals);
+        # ``sizeDeltaUsd`` is pure USD (/1e30).  CCXT ``amount`` must be in
+        # base tokens, so we compute it as size_usd / trigger_usd when
+        # both are known.  Falls back to USD notional only when the price
+        # is missing — better than silently mixing units in the cached row.
+        raw_trigger = rest_order.get("triggerPrice", 0)
+        trigger_usd = self._convert_price_to_usd(float(raw_trigger), market) if raw_trigger else None
+        size_usd = float(rest_order.get("sizeDeltaUsd", 0) or 0) / 1e30 or None
+        if size_usd is not None and trigger_usd not in (None, 0.0):
+            amount_tokens: float | None = size_usd / trigger_usd
+        else:
+            amount_tokens = size_usd  # last-resort fallback (USD notional)
+
         return {
             "id": rest_order.get("key", rest_order.get("orderKey", "")),
             "clientOrderId": None,
@@ -9127,11 +9207,11 @@ class GMX(ExchangeCompatible):
             "symbol": symbol,
             "type": "limit",
             "side": "buy" if rest_order.get("isLong") else "sell",
-            "price": float(rest_order.get("triggerPrice", 0)) / 1e30 or None,
+            "price": trigger_usd,
             "average": None,
-            "amount": float(rest_order.get("sizeDeltaUsd", 0)) / 1e30 or None,
+            "amount": amount_tokens,
             "filled": 0.0,
-            "remaining": float(rest_order.get("sizeDeltaUsd", 0)) / 1e30 or None,
+            "remaining": amount_tokens,
             "cost": None,
             "trades": [],
             "fee": None,
