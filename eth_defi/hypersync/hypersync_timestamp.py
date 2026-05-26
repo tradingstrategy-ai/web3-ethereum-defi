@@ -57,6 +57,20 @@ def _is_hypersync_rate_limit_error(e: Exception) -> bool:
     return isinstance(e, RuntimeError) and "429" in str(e)
 
 
+def _validate_hypersync_chain_id(client: hypersync.HypersyncClient, expected_chain_id: int) -> None:
+    """Validate that the Hypersync client is connected to the expected chain.
+
+    Called once per public entry point (before any retry loop) to guard
+    against poisoning persistent caches with wrong-chain data.
+    """
+
+    async def _check():
+        connected = await client.get_chain_id()
+        assert connected == expected_chain_id, f"Hypersync client connected to chain {connected}, but expected {expected_chain_id}"
+
+    asyncio.run(_check())
+
+
 async def get_block_timestamps_using_hypersync_async(
     client: hypersync.HypersyncClient,
     chain_id: int,
@@ -179,6 +193,8 @@ def get_block_timestamps_using_hypersync(
         Block number -> header mapping
     """
 
+    _validate_hypersync_chain_id(client, chain_id)
+
     # Don't leak async colored interface, as it is an implementation detail
     async def _hypersync_asyncio_wrapper():
         iter = get_block_timestamps_using_hypersync_async(
@@ -230,13 +246,6 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
     :return:
         Block number -> datetime mapping
     """
-
-    # Validate chain_id once per sync call to guard against poisoning
-    # the persistent timestamp cache with data from the wrong chain.
-    # This is checked here (not per-stream) to avoid wasting API quota.
-    if isinstance(client, hypersync.HypersyncClient):
-        connected_chain_id = await client.get_chain_id()
-        assert chain_id == connected_chain_id, f"Hypersync client connected to chain {connected_chain_id}, but expected {chain_id}"
 
     if cache_path.exists():
         timestamp_db = load_timestamp_cache(chain_id, cache_path)
@@ -363,6 +372,10 @@ def fetch_block_timestamps_using_hypersync_cached(
     :param attempts:
         Work around Hypersync timeout issues
     """
+
+    # Validate once before entering the retry loop so a 429 from
+    # get_chain_id() does not bypass the backoff path.
+    _validate_hypersync_chain_id(client, chain_id)
 
     async def _hypersync_asyncio_wrapper():
         for attempt in range(attempts):
