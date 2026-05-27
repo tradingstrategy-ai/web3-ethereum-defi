@@ -15,6 +15,7 @@ See tests/derive/derive-test-key-setup.md for detailed instructions.
 import os
 from decimal import Decimal
 
+import flaky
 import pytest
 from eth_account import Account
 
@@ -63,6 +64,7 @@ def authenticated_client(owner_account, derive_wallet_address):
     return client
 
 
+@flaky.flaky(max_runs=3, min_passes=1)
 def test_account_collaterals(authenticated_client):
     """Test fetching collaterals from a Derive account.
 
@@ -83,6 +85,7 @@ def test_account_collaterals(authenticated_client):
         assert col.total >= col.available, f"{col.token} total should be >= available"
 
 
+@flaky.flaky(max_runs=3, min_passes=1)
 def test_account_summary(authenticated_client):
     """Test fetching complete account summary from a Derive account.
 
@@ -104,6 +107,7 @@ def test_account_summary(authenticated_client):
     assert len(summary.collaterals) > 0, "Funded account should have collaterals"
 
 
+@flaky.flaky(max_runs=3, min_passes=1)
 def test_session_key_scope_read_only(authenticated_client):
     """Verify that session key can read account data."""
     ids = fetch_subaccount_ids(authenticated_client)

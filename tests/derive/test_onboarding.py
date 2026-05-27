@@ -12,6 +12,7 @@ Required environment variables for integration tests:
 import os
 import logging
 
+import flaky
 import pytest
 from eth_account import Account
 
@@ -72,6 +73,7 @@ def test_derive_wallet_address_resolution(owner_account, derive_wallet_address):
     logger.info("Owner %s -> LightAccount %s", owner_account.address, derive_wallet_address)
 
 
+@flaky.flaky(max_runs=3, min_passes=1)
 def test_session_key_authentication(authenticated_client):
     """Verify the session key from the web UI can authenticate API requests."""
     result = authenticated_client._make_jsonrpc_request(
@@ -84,6 +86,7 @@ def test_session_key_authentication(authenticated_client):
     logger.info("get_subaccounts result: %s", result)
 
 
+@flaky.flaky(max_runs=3, min_passes=1)
 def test_session_key_verification(authenticated_client):
     """Verify the session key can read account collateral data."""
     assert verify_session_key(authenticated_client)
