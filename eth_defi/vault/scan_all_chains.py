@@ -41,7 +41,6 @@ from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.hyperliquid.daily_metrics import run_daily_scan as hyperliquid_run_daily_scan
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database as hyperliquid_merge_vault_db
-from eth_defi.hypersync.session import _create_limiter, get_hypersync_rpm_from_env
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.lighter.constants import LIGHTER_CHAIN_ID
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
@@ -320,18 +319,12 @@ def build_chain_configs() -> list[ChainConfig]:
     ]
 
 
-def scan_vaults_for_chain(
-    rpc_url: str,
-    max_workers: int,
-    vault_db_path: Path = DEFAULT_VAULT_DATABASE,
-    hypersync_limiter=None,
-) -> tuple[bool, dict]:
+def scan_vaults_for_chain(rpc_url: str, max_workers: int, vault_db_path: Path = DEFAULT_VAULT_DATABASE) -> tuple[bool, dict]:
     """Scan vaults for a single chain by calling scan_leads() directly.
 
     :param rpc_url: RPC URL for the chain
     :param max_workers: Number of parallel workers
     :param vault_db_path: Path to the vault database pickle
-    :param hypersync_limiter: Shared Hypersync rate limiter
     :return: Tuple of (success, metrics_dict)
     """
     try:
@@ -342,7 +335,6 @@ def scan_vaults_for_chain(
             backend="auto",
             hypersync_api_key=os.environ.get("HYPERSYNC_API_KEY"),
             printer=lambda msg: None,  # Suppress output to keep logs clean
-            hypersync_limiter=hypersync_limiter,
         )
 
         return True, {
@@ -364,7 +356,6 @@ def scan_prices_for_chain(
     vault_db_path: Path = DEFAULT_VAULT_DATABASE,
     uncleaned_price_path: Path = DEFAULT_UNCLEANED_PRICE_DATABASE,
     reader_state_path: Path = DEFAULT_READER_STATE_DATABASE,
-    hypersync_limiter=None,
 ) -> tuple[bool, dict]:
     """Scan historical prices for a single chain.
 
@@ -374,7 +365,6 @@ def scan_prices_for_chain(
     :param vault_db_path: Path to the vault database pickle
     :param uncleaned_price_path: Path to the uncleaned price parquet
     :param reader_state_path: Path to the reader state pickle
-    :param hypersync_limiter: Shared Hypersync rate limiter
     :return: Tuple of (success, metrics_dict)
     """
     try:
@@ -424,7 +414,7 @@ def scan_prices_for_chain(
             return True, {"rows_written": 0}
 
         # Configure HyperSync (shares throttle with vault lead discovery)
-        hypersync_config = configure_hypersync_from_env(web3, limiter=hypersync_limiter)
+        hypersync_config = configure_hypersync_from_env(web3)
 
         # Scan historical prices
         result = scan_historical_prices_to_parquet(
@@ -493,10 +483,9 @@ def scan_chain(
     logger.info("%s: Starting scan (retry %d)", config.name, retry_attempt)
     start_time = time.time()
 
-    # Create a shared Hypersync rate limiter for this chain scan so that
-    # vault lead discovery and price scanning coordinate their API
-    # request rate through one SQLite-backed bucket.
-    hypersync_limiter = _create_limiter(requests_per_minute=get_hypersync_rpm_from_env())
+    # No explicit limiter — configure_hypersync_from_env() creates one
+    # lazily only when a Hypersync client is actually needed.  Multiple
+    # callers coordinate via the same SQLite database file.
 
     # Verify RPC providers and filter out broken ones
     try:
@@ -511,7 +500,7 @@ def scan_chain(
 
     # Scan vaults
     if config.scan_vaults:
-        vault_success, vault_metrics = scan_vaults_for_chain(rpc_url, max_workers, vault_db_path=vault_db_path, hypersync_limiter=hypersync_limiter)
+        vault_success, vault_metrics = scan_vaults_for_chain(rpc_url, max_workers, vault_db_path=vault_db_path)
         result.vault_scan_ok = vault_success
 
         if vault_success:
@@ -529,7 +518,6 @@ def scan_chain(
             rpc_url,
             max_workers,
             frequency,
-            hypersync_limiter=hypersync_limiter,
             vault_db_path=vault_db_path,
             uncleaned_price_path=uncleaned_price_path,
             reader_state_path=reader_state_path,
