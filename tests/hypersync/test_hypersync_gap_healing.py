@@ -41,7 +41,7 @@ def test_hypersync_gap_healing(tmp_path):
 
     call_count = 0
 
-    async def mock_get_timestamps(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000):
+    async def mock_get_timestamps(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000, validate_chain_id=True):
         nonlocal call_count
         call_count += 1
         current_call = call_count
@@ -98,7 +98,7 @@ def test_hypersync_gap_healing_no_gaps(tmp_path):
 
     call_count = 0
 
-    async def mock_get_timestamps(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000):
+    async def mock_get_timestamps(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000, validate_chain_id=True):
         nonlocal call_count
         call_count += 1
 
@@ -150,7 +150,7 @@ def test_hypersync_gap_healing_persistent_gap(tmp_path):
 
     call_count = 0
 
-    async def mock_get_timestamps(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000):
+    async def mock_get_timestamps(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000, validate_chain_id=True):
         nonlocal call_count
         call_count += 1
 

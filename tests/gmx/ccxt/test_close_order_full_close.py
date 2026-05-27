@@ -75,10 +75,7 @@ def test_full_close_returns_requested_amount_not_token_derived() -> None:
 
     token_derived = size_delta_usd / execution_price
     assert filled == requested_amount
-    assert filled != token_derived, (
-        f"Full-close path must return requested amount ({requested_amount}), "
-        f"not the token-derived value ({token_derived})"
-    )
+    assert filled != token_derived, f"Full-close path must return requested amount ({requested_amount}), not the token-derived value ({token_derived})"
 
 
 def test_partial_close_returns_token_derived_amount() -> None:

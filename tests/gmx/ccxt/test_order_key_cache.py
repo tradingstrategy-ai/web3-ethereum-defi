@@ -283,10 +283,6 @@ class TestOrderKeyCacheAdapterWiring:
 
         # If the constructor kwargs had drifted, init would silently swallow
         # the TypeError and leave _order_key_cache as None (memory-only mode).
-        assert stub._order_key_cache is not None, (
-            "OrderKeyCache constructor kwargs drifted from "
-            "eth_defi/gmx/ccxt/order_key_cache.py — adapter falls back to "
-            "memory-only mode on every restart."
-        )
+        assert stub._order_key_cache is not None, "OrderKeyCache constructor kwargs drifted from eth_defi/gmx/ccxt/order_key_cache.py — adapter falls back to memory-only mode on every restart."
         assert stub._order_key_cache.chain_id == 42161
         assert stub._order_key_cache.wallet == "0xe3f16770c0a336103d7c24b34a4afcbf6fb17583"

@@ -55,7 +55,6 @@ class GmxError(NamedTuple):
     params: tuple[str, ...]
 
 
-
 _GMX_ERROR_REGISTRY: dict[str, GmxError] = {
     "0xb244a107": GmxError(
         selector="0xb244a107",

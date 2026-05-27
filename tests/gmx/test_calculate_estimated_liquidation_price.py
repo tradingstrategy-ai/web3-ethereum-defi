@@ -134,7 +134,7 @@ class TestDirectionInvariant:
         result = calculate_estimated_liquidation_price(
             entry_price=100.0,
             collateral_usd=200.0,  # large enough that approximation is meaningful
-            size_usd=1000.0,       # 5× leverage
+            size_usd=1000.0,  # 5× leverage
             is_long=True,
         )
         assert result is not None
@@ -217,10 +217,10 @@ class TestProductionDataReplay:
     @pytest.mark.parametrize(
         ("pair", "entry", "stake"),
         [
-            ("ICP", 2.5522, 5.05),     # trade 1 — crash trigger
-            ("INJ", 5.2174, 4.88),     # trade 2 — filled, 5% buffer artefact
+            ("ICP", 2.5522, 5.05),  # trade 1 — crash trigger
+            ("INJ", 5.2174, 4.88),  # trade 2 — filled, 5% buffer artefact
             ("PENDLE", 1.8508, 4.14),  # trade 7 — filled, 5% buffer artefact
-            ("SUI", 1.0426, 4.00),     # trade 8 — filled, 5% buffer artefact
+            ("SUI", 1.0426, 4.00),  # trade 8 — filled, 5% buffer artefact
         ],
     )
     def test_filled_trades_yield_no_bogus_liquidation_price(self, pair, entry, stake):

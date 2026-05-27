@@ -52,10 +52,14 @@ def _fake_gmx(
     fake._api.web3 = MagicMock()
     fake._api.config = MagicMock()
     fake._api.config.get_chain = MagicMock(return_value=chain)
-    fake._api.markets = markets if markets is not None else {
-        "DOGE/USDC:USDC": {"info": {"market_token": DOGE_MARKET, "index_token": DOGE_INDEX}},
-        "FIL/USDC:USDC": {"info": {"market_token": FIL_MARKET, "index_token": FIL_INDEX}},
-    }
+    fake._api.markets = (
+        markets
+        if markets is not None
+        else {
+            "DOGE/USDC:USDC": {"info": {"market_token": DOGE_MARKET, "index_token": DOGE_INDEX}},
+            "FIL/USDC:USDC": {"info": {"market_token": FIL_MARKET, "index_token": FIL_INDEX}},
+        }
+    )
     fake._api._token_metadata = {
         DOGE_INDEX: {"symbol": "DOGE", "decimals": 8},
         FIL_INDEX: {"symbol": "FIL", "decimals": 18},

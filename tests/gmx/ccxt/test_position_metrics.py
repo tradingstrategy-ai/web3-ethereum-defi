@@ -166,19 +166,13 @@ class TestSyncAsyncImportLockstep:
         from eth_defi.gmx.ccxt import exchange as sync_mod
 
         assert hasattr(sync_mod, "safe_liquidation_price")
-        assert (
-            sync_mod.safe_liquidation_price
-            is safe_liquidation_price
-        )
+        assert sync_mod.safe_liquidation_price is safe_liquidation_price
 
     def test_async_imports_safe_liquidation_price(self):
         from eth_defi.gmx.ccxt.async_support import exchange as async_mod
 
         assert hasattr(async_mod, "safe_liquidation_price")
-        assert (
-            async_mod.safe_liquidation_price
-            is safe_liquidation_price
-        )
+        assert async_mod.safe_liquidation_price is safe_liquidation_price
 
 
 # ---------------------------------------------------------------------------
@@ -209,12 +203,8 @@ def sync_gmx_with_stub_markets():
     gmx.default_slippage = 0.003
 
     # Bind the real implementation so we exercise the production code path.
-    gmx._convert_ccxt_to_gmx_params = (
-        GMX._convert_ccxt_to_gmx_params.__get__(gmx, GMX)
-    )
-    gmx._normalize_symbol = lambda s: (
-        s if s.endswith(":USDC") else s.replace("/USDC", "/USDC:USDC")
-    )
+    gmx._convert_ccxt_to_gmx_params = GMX._convert_ccxt_to_gmx_params.__get__(gmx, GMX)
+    gmx._normalize_symbol = lambda s: (s if s.endswith(":USDC") else s.replace("/USDC", "/USDC:USDC"))
     gmx._resolve_market_info = lambda symbol, params: {
         "market_token": "0x0000000000000000000000000000000000000000",
         "index_token": "0x0000000000000000000000000000000000000000",
@@ -225,9 +215,7 @@ def sync_gmx_with_stub_markets():
 class TestSyncMinCostGuard:
     """Sync ``_convert_ccxt_to_gmx_params`` must reject sub-$2 opens."""
 
-    def test_open_below_min_raises_invalid_order(
-        self, sync_gmx_with_stub_markets
-    ):
+    def test_open_below_min_raises_invalid_order(self, sync_gmx_with_stub_markets):
         with pytest.raises(InvalidOrder, match="below GMX minimum"):
             sync_gmx_with_stub_markets._convert_ccxt_to_gmx_params(
                 symbol="BTC/USDC:USDC",
@@ -260,9 +248,7 @@ class TestSyncMinCostGuard:
         )
         assert result["size_delta_usd"] == 100.0
 
-    def test_reduce_only_below_min_allowed(
-        self, sync_gmx_with_stub_markets
-    ):
+    def test_reduce_only_below_min_allowed(self, sync_gmx_with_stub_markets):
         # A dust-close reduce-only at $0.50 must NOT raise — GMX accepts
         # tiny remainder closes.
         result = sync_gmx_with_stub_markets._convert_ccxt_to_gmx_params(
@@ -288,9 +274,7 @@ class TestAsyncMinCostGuard:
         from eth_defi.gmx.ccxt.async_support.exchange import GMX as AsyncGMX
 
         gmx = MagicMock(spec=AsyncGMX)
-        gmx._convert_ccxt_to_gmx_params_async = (
-            AsyncGMX._convert_ccxt_to_gmx_params_async.__get__(gmx, AsyncGMX)
-        )
+        gmx._convert_ccxt_to_gmx_params_async = AsyncGMX._convert_ccxt_to_gmx_params_async.__get__(gmx, AsyncGMX)
         with pytest.raises(InvalidOrder, match="below GMX minimum"):
             await gmx._convert_ccxt_to_gmx_params_async(
                 symbol="BTC/USDC:USDC",
@@ -306,9 +290,7 @@ class TestAsyncMinCostGuard:
         from eth_defi.gmx.ccxt.async_support.exchange import GMX as AsyncGMX
 
         gmx = MagicMock(spec=AsyncGMX)
-        gmx._convert_ccxt_to_gmx_params_async = (
-            AsyncGMX._convert_ccxt_to_gmx_params_async.__get__(gmx, AsyncGMX)
-        )
+        gmx._convert_ccxt_to_gmx_params_async = AsyncGMX._convert_ccxt_to_gmx_params_async.__get__(gmx, AsyncGMX)
         result = await gmx._convert_ccxt_to_gmx_params_async(
             symbol="BTC/USDC:USDC",
             type="market",
@@ -327,9 +309,7 @@ class TestAsyncMinCostGuard:
         from eth_defi.gmx.ccxt.async_support.exchange import GMX as AsyncGMX
 
         gmx = MagicMock(spec=AsyncGMX)
-        gmx._convert_ccxt_to_gmx_params_async = (
-            AsyncGMX._convert_ccxt_to_gmx_params_async.__get__(gmx, AsyncGMX)
-        )
+        gmx._convert_ccxt_to_gmx_params_async = AsyncGMX._convert_ccxt_to_gmx_params_async.__get__(gmx, AsyncGMX)
         result = await gmx._convert_ccxt_to_gmx_params_async(
             symbol="BTC/USDC:USDC",
             type="market",

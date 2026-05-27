@@ -45,7 +45,32 @@ logger = logging.getLogger(__name__)
 
 
 class HypersyncFlaky(Exception):
-    """Hypersync stream flaky error, e.g. timeout."""
+    """Hypersync stream flaky error, e.g. timeout or rate limit."""
+
+
+def _is_hypersync_rate_limit_error(e: Exception) -> bool:
+    """Check if a Hypersync RuntimeError is a 429 rate limit error.
+
+    The Rust client raises ``RuntimeError`` with the HTTP status in the message
+    after exhausting its internal retries.
+    """
+    return isinstance(e, RuntimeError) and "429" in str(e)
+
+
+async def _validate_hypersync_chain_id_async(client: hypersync.HypersyncClient, expected_chain_id: int) -> None:
+    """Validate that the Hypersync client is connected to the expected chain.
+
+    Guards against poisoning persistent caches with wrong-chain data.
+    Wraps 429 errors as :py:class:`HypersyncFlaky` so the caller's
+    retry/backoff loop handles rate limits.
+    """
+    try:
+        connected = await client.get_chain_id()
+    except RuntimeError as e:
+        if _is_hypersync_rate_limit_error(e):
+            raise HypersyncFlaky(f"Hypersync rate limited during chain_id validation: {e}") from e
+        raise
+    assert connected == expected_chain_id, f"Hypersync client connected to chain {connected}, but expected {expected_chain_id}"
 
 
 async def get_block_timestamps_using_hypersync_async(
@@ -56,6 +81,7 @@ async def get_block_timestamps_using_hypersync_async(
     timeout: float = 120.0,
     display_progress: bool = True,
     progress_throttle=10_000,
+    validate_chain_id: bool = True,
 ) -> AsyncIterable[BlockHeader]:
     """Read block timestamps using Hypersync API.
 
@@ -63,9 +89,8 @@ async def get_block_timestamps_using_hypersync_async(
     get block timestamps using Hypersync API 1000x faster.
 
     :param chain_id:
-        Verify HyperSync client is connected to the correct chain ID.
-
-        (Not actually used in request because client is per-chain)
+        Expected chain ID. Validated against the client unless
+        ``validate_chain_id`` is ``False``.
 
     :param start_block:
         Start block, inclusive
@@ -76,6 +101,11 @@ async def get_block_timestamps_using_hypersync_async(
     :param client:
         Hypersync client to use
 
+    :param validate_chain_id:
+        When ``True`` (default), verify the client is connected to
+        the expected chain before streaming. Set to ``False`` when the
+        caller has already validated (e.g. the cached path).
+
     """
 
     assert isinstance(client, hypersync.HypersyncClient), f"Expected HypersyncClient, got {type(client)}"
@@ -83,8 +113,8 @@ async def get_block_timestamps_using_hypersync_async(
     assert start_block >= 0
     assert end_block >= start_block, f"end_block {end_block} must be >= start_block {start_block}"
 
-    connected_chain_id = await client.get_chain_id()
-    assert chain_id == connected_chain_id, f"Connected to chain {connected_chain_id}, but expected {chain_id}"
+    if validate_chain_id:
+        await _validate_hypersync_chain_id_async(client, chain_id)
 
     if display_progress:
         progress_bar = tqdm(
@@ -111,7 +141,12 @@ async def get_block_timestamps_using_hypersync_async(
         ),
     )
 
-    receiver = await client.stream(query, hypersync.StreamConfig())
+    try:
+        receiver = await client.stream(query, hypersync.StreamConfig())
+    except RuntimeError as e:
+        if _is_hypersync_rate_limit_error(e):
+            raise HypersyncFlaky(f"Hypersync rate limited during stream setup: {e}") from e
+        raise
 
     while True:
         try:
@@ -119,6 +154,10 @@ async def get_block_timestamps_using_hypersync_async(
         except asyncio.TimeoutError as e:
             logger.error("HyperSync receiver timed out, cannot recover")
             raise HypersyncFlaky(f"Cannot recover from HyperSync stream timeout after {timeout} seconds") from e
+        except RuntimeError as e:
+            if _is_hypersync_rate_limit_error(e):
+                raise HypersyncFlaky(f"Hypersync rate limited during streaming: {e}") from e
+            raise
 
         # exit if the stream finished
         if res is None:
@@ -230,11 +269,12 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         if start_block < first_read_block:
             scan_start = start_block
         else:
-            scan_start = last_read_block
+            # +1 to avoid re-fetching the last cached block
+            scan_start = last_read_block + 1
     else:
         scan_start = start_block
 
-    logger.info(f"Adjusted timestamp scan range for chain {chain_id}: blocks {scan_start} - {end_block}")
+    logger.info(f"Adjusted timestamp scan range for chain {chain_id}: blocks {scan_start:,} - {end_block:,} (delta {end_block - scan_start:,} blocks)")
 
     def _save():
         series = pd.Series(data=values, index=index)
@@ -249,13 +289,22 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
     index = []
     values = []
 
-    if end_block > last_read_block or start_block < first_read_block:
+    needs_head = start_block < first_read_block
+    needs_tail = end_block > last_read_block
+
+    if needs_head or needs_tail:
+        # Validate chain_id only when we actually need to fetch from Hypersync.
+        # Skipped on warm cache hits to avoid wasting API quota.
+        if isinstance(client, hypersync.HypersyncClient):
+            await _validate_hypersync_chain_id_async(client, chain_id)
+
         iter = get_block_timestamps_using_hypersync_async(
             client,
             chain_id,
             start_block=scan_start,
             end_block=end_block,
             display_progress=display_progress,
+            validate_chain_id=False,  # Already validated above
         )
 
         async for block_header in iter:
@@ -302,6 +351,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
                     start_block=gap_start + 1,
                     end_block=gap_end - 1,
                     display_progress=False,
+                    validate_chain_id=False,  # Already validated above
                 ):
                     heal_index.append(bh.block_number)
                     heal_values.append(bh.timestamp)
@@ -309,6 +359,13 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
                     heal_series = pd.Series(data=heal_values, index=heal_index)
                     timestamp_db.import_chain_data(chain_id, heal_series)
                     logger.info("Healed gap %d-%d: inserted %d timestamps", gap_start + 1, gap_end - 1, len(heal_index))
+    else:
+        logger.info(
+            "Timestamp cache fully covers requested range %d-%d for chain %d, skipping Hypersync fetch",
+            start_block,
+            end_block,
+            chain_id,
+        )
 
     # Drop unnecessary blocks from memory
     return timestamp_db.get_slicer()
@@ -347,5 +404,10 @@ def fetch_block_timestamps_using_hypersync_cached(
                 if attempt + 1 >= attempts:
                     logger.error("Exceeded maximum Hypersync attempts, failing: %s", e)
                     raise
+                # Exponential backoff: 30s, 60s, 120s, 240s to avoid hammering
+                # a rate-limited Hypersync endpoint
+                backoff = 30 * (2**attempt)
+                logger.info("Backing off %d seconds before retry", backoff)
+                await asyncio.sleep(backoff)
 
     return asyncio.run(_hypersync_asyncio_wrapper())
