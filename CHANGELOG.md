@@ -1,6 +1,6 @@
 # Current
 
-- CI: selective test execution — only run tests for changed subsystems on PRs, with `[ci full]` commit-message override to force a full run (2026-05-27).
+- CI: sharded test execution — full test suite split into a Beefy `test-heavy` job (fork-RPC subsystems) and two `ubuntu-latest` `test-light` shards via `pytest-split` (~80% billable-min reduction, ~3× faster wall-clock) (2026-05-27).
 
 - feat: Add ForgeYields vault protocol support with hardcoded address classification, 20% performance fee, metadata and logos (2026-05-25)
 
