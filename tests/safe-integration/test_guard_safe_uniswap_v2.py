@@ -6,7 +6,7 @@
 """
 
 import pytest
-from web3 import Web3, HTTPProvider
+from web3 import HTTPProvider, Web3
 from web3._utils.events import EventLogErrorFlags
 from web3.contract import Contract
 
@@ -14,6 +14,7 @@ from eth_defi.abi import get_deployed_contract, get_function_selector
 from eth_defi.deploy import deploy_contract
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
+from eth_defi.testing.evm_snapshot_fixture import make_evm_snapshot_fixture
 from eth_defi.token import create_token
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import (
@@ -25,7 +26,7 @@ from eth_defi.uniswap_v2.deployment import (
 from eth_defi.uniswap_v2.pair import PairDetails, fetch_pair_details
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def anvil(request) -> AnvilLaunch:
     """Create a standalone Anvil RPC backend.
 
@@ -275,3 +276,8 @@ def test_safe_module_can_trade_uniswap_v2(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     assert weth.functions.balanceOf(safe.address).call() == 3696700037078235076
+
+
+# Per-test EVM state isolation on module-scope Anvil.
+# See eth_defi.testing.evm_snapshot_fixture for the rationale.
+_evm_snapshot = make_evm_snapshot_fixture("anvil")
