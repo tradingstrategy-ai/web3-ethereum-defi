@@ -292,6 +292,17 @@ jobs:
         run: |
           poetry install -E test -E data -E hypersync -E ccxt -E duckdb
 
+      - name: Cache Foundry
+        uses: actions/cache@v4
+        with:
+          path: ~/.foundry
+          key: foundry-v1.2.3-${{ runner.os }}
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: "v1.2.3"
+
       - name: Run tests (parallel, shard ${{ matrix.shard }}/2)
         run: |
           # The HEAVY_DIRS env is space-separated; convert each entry to a
