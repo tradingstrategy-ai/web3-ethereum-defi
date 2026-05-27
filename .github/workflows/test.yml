@@ -6,16 +6,15 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
-      - 'docs/**/**'
   pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
     branches: [master]
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
-      - 'docs/**/**'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:

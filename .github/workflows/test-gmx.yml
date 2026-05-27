@@ -19,6 +19,7 @@ on:
       - 'docs/**'
       - '**/*.md'
   pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
     branches: [ master ]
     paths:
       - 'eth_defi/gmx/**'
@@ -29,7 +30,7 @@ on:
       - '**/*.md'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
