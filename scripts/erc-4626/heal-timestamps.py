@@ -162,6 +162,7 @@ def main():
                 start_block=fetch_start,
                 end_block=fetch_end,
                 display_progress=False,
+                reason="manual-gap-heal",
             ):
                 index.append(block_header.block_number)
                 values.append(block_header.timestamp)

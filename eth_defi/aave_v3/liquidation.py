@@ -201,6 +201,7 @@ class AaveLiquidationReader:
         """
         assert end_block >= start_block
 
+        logger.info("Hypersync API call: get_chain_id [aave-liquidation-scan]")
         hypersync_chain = await self.client.get_chain_id()
         assert hypersync_chain == self.web3.eth.chain_id, f"Hypersync client chain does not match Web3 chain: {hypersync_chain} != {self.web3.eth.chain_id}"
 
@@ -241,7 +242,7 @@ class AaveLiquidationReader:
             try:
                 res = await asyncio.wait_for(receiver.recv(), timeout=self.hypersync_read_timeout)
             except asyncio.TimeoutError as e:
-                raise RuntimeError(f"Hypersync stream() read timeout after {self.hypersync_read_timeout} seconds - currently this is unrecoverable TODO") from e
+                raise RuntimeError(f"Hypersync stream() read timeout after {self.hypersync_read_timeout} seconds [aave-liquidation-scan]") from e
 
             # exit if the stream finished
             if res is None:
