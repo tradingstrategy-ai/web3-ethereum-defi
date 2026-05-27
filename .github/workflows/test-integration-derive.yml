@@ -1,4 +1,4 @@
-name: Integration — derive
+name: derive Tests
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
       matrix:
         python-version: ["3.14"]
 
-    name: derive — Python ${{ matrix.python-version }}
+    name: derive Tests — Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests

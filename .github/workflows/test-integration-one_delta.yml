@@ -1,4 +1,4 @@
-name: Integration — one_delta
+name: one_delta Tests
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
       matrix:
         python-version: ["3.14"]
 
-    name: one_delta — Python ${{ matrix.python-version }}
+    name: one_delta Tests — Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests

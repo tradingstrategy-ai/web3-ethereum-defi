@@ -1,4 +1,4 @@
-name: Integration — guard
+name: guard Tests
 
 on:
   push:
@@ -36,7 +36,7 @@ jobs:
       matrix:
         python-version: ["3.14"]
 
-    name: guard — Python ${{ matrix.python-version }}
+    name: guard Tests — Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests

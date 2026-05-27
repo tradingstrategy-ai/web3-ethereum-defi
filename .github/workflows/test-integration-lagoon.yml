@@ -1,4 +1,4 @@
-name: Integration — lagoon
+name: lagoon Tests
 
 on:
   push:
@@ -38,7 +38,7 @@ jobs:
       matrix:
         python-version: ["3.14"]
 
-    name: lagoon — Python ${{ matrix.python-version }}
+    name: lagoon Tests — Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests

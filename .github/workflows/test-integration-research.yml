@@ -1,4 +1,4 @@
-name: Integration — research
+name: research Tests
 
 on:
   push:
@@ -36,7 +36,7 @@ jobs:
       matrix:
         python-version: ["3.14"]
 
-    name: research — Python ${{ matrix.python-version }}
+    name: research Tests — Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests

@@ -1,4 +1,4 @@
-name: Integration — ipor
+name: ipor Tests
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
       matrix:
         python-version: ["3.14"]
 
-    name: ipor — Python ${{ matrix.python-version }}
+    name: ipor Tests — Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests

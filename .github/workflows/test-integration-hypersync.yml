@@ -1,4 +1,4 @@
-name: Integration — hypersync
+name: hypersync Tests
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
       matrix:
         python-version: ["3.14"]
 
-    name: hypersync — Python ${{ matrix.python-version }}
+    name: hypersync Tests — Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests

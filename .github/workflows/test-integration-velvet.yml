@@ -1,4 +1,4 @@
-name: Integration — velvet
+name: velvet Tests
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
       matrix:
         python-version: ["3.14"]
 
-    name: velvet — Python ${{ matrix.python-version }}
+    name: velvet Tests — Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests

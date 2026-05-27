@@ -1,4 +1,4 @@
-name: Integration — token_analysis
+name: token_analysis Tests
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
       matrix:
         python-version: ["3.14"]
 
-    name: token_analysis — Python ${{ matrix.python-version }}
+    name: token_analysis Tests — Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests

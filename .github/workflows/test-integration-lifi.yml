@@ -1,4 +1,4 @@
-name: Integration — lifi
+name: lifi Tests
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
       matrix:
         python-version: ["3.14"]
 
-    name: lifi — Python ${{ matrix.python-version }}
+    name: lifi Tests — Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests

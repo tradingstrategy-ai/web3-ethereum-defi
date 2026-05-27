@@ -1,4 +1,4 @@
-name: Integration — safe-integration
+name: safe-integration Tests
 
 on:
   push:
@@ -36,7 +36,7 @@ jobs:
       matrix:
         python-version: ["3.14"]
 
-    name: safe-integration — Python ${{ matrix.python-version }}
+    name: safe-integration Tests — Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests

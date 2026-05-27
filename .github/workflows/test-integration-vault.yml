@@ -1,4 +1,4 @@
-name: Integration — vault
+name: vault Tests
 
 on:
   push:
@@ -36,7 +36,7 @@ jobs:
       matrix:
         python-version: ["3.14"]
 
-    name: vault — Python ${{ matrix.python-version }}
+    name: vault Tests — Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests

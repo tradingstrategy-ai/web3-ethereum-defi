@@ -1,4 +1,4 @@
-name: Integration — uniswap_v2
+name: uniswap_v2 Tests
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
       matrix:
         python-version: ["3.14"]
 
-    name: uniswap_v2 — Python ${{ matrix.python-version }}
+    name: uniswap_v2 Tests — Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests
