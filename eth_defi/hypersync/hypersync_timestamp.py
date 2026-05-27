@@ -39,6 +39,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.event_reader.block_header import BlockHeader
 from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampSlicer
+from eth_defi.hypersync.session import is_hypersync_client
 from eth_defi.utils import from_unix_timestamp
 
 logger = logging.getLogger(__name__)
@@ -118,7 +119,7 @@ async def get_block_timestamps_using_hypersync_async(
 
     """
 
-    assert isinstance(client, hypersync.HypersyncClient), f"Expected HypersyncClient, got {type(client)}"
+    assert is_hypersync_client(client), f"Expected HypersyncClient or ThrottledHypersyncClient, got {type(client)}"
     assert type(chain_id) == int
     assert start_block >= 0
     assert end_block >= start_block, f"end_block {end_block} must be >= start_block {start_block}"
@@ -322,7 +323,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
     if needs_head or needs_tail:
         # Validate chain_id only when we actually need to fetch from Hypersync.
         # Skipped on warm cache hits to avoid wasting API quota.
-        if isinstance(client, hypersync.HypersyncClient):
+        if is_hypersync_client(client):
             await _validate_hypersync_chain_id_async(client, chain_id, reason="timestamp-cache-validate")
 
         iter = get_block_timestamps_using_hypersync_async(
@@ -360,6 +361,16 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
             gaps = [(s, e, n) for s, e, n in gaps if s >= scan_start and e <= end_block]
             if not gaps:
                 break
+
+            # Back off before each healing pass to let Hypersync rate limits
+            # recover.  Without this, gap healing immediately re-hammers the
+            # API after a 429-induced drop, turning a transient rate limit
+            # into a cascading failure.
+            if heal_attempt > 0:
+                heal_backoff = 30 * (2**heal_attempt)  # 60s, 120s
+                logger.info("Backing off %d seconds before gap-heal attempt %d/%d", heal_backoff, heal_attempt + 1, max_heal_attempts)
+                await asyncio.sleep(heal_backoff)
+
             total_missing = sum(g[2] for g in gaps)
             logger.warning(
                 "HyperSync dropped %d blocks across %d gaps in range %d-%d (heal attempt %d/%d), re-fetching",

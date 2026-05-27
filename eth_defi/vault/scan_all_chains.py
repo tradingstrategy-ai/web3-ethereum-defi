@@ -4,6 +4,12 @@ Multi-chain vault scanning pipeline with retry logic, native protocol
 support (Hypercore, GRVT, Lighter), looped scheduling, and
 post-processing.  Extracted from the
 ``scripts/erc-4626/scan-vaults-all-chains.py`` CLI wrapper.
+
+Hypersync rate limiting is controlled by the ``HYPERSYNC_RPM``
+environment variable (default: 150 requests per minute, 75% of the
+free-tier 200 RPM limit).  All scan phases within a chain share
+one SQLite-backed rate limiter so that vault lead discovery and
+price scanning coordinate their API quota.
 """
 
 import datetime
@@ -407,7 +413,7 @@ def scan_prices_for_chain(
             logger.info("No vaults to scan on chain %d after filtering", chain_id)
             return True, {"rows_written": 0}
 
-        # Configure HyperSync
+        # Configure HyperSync (shares throttle with vault lead discovery)
         hypersync_config = configure_hypersync_from_env(web3)
 
         # Scan historical prices
@@ -476,6 +482,10 @@ def scan_chain(
 
     logger.info("%s: Starting scan (retry %d)", config.name, retry_attempt)
     start_time = time.time()
+
+    # No explicit limiter — configure_hypersync_from_env() creates one
+    # lazily only when a Hypersync client is actually needed.  Multiple
+    # callers coordinate via the same SQLite database file.
 
     # Verify RPC providers and filter out broken ones
     try:
