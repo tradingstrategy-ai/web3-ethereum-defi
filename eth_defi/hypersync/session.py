@@ -64,35 +64,18 @@ async def _acquire_async(limiter: Limiter, reason: str = "") -> None:
             await asyncio.sleep(delay)
 
 
-class ThrottledReceiver:
-    """Wraps a Hypersync stream receiver with per-``recv()`` rate limiting.
-
-    Each ``recv()`` call consumes one or more HTTP requests against the
-    Hypersync API quota.  This wrapper acquires a rate-limit slot
-    before each ``recv()`` to stay within the configured budget.
-    """
-
-    def __init__(self, receiver, limiter: Limiter):
-        self._receiver = receiver
-        self._limiter = limiter
-
-    async def recv(self):
-        """Receive the next batch, throttled."""
-        await _acquire_async(self._limiter, "recv")
-        return await self._receiver.recv()
-
-
 class ThrottledHypersyncClient:
     """Drop-in wrapper for :py:class:`hypersync.HypersyncClient` with
     built-in rate limiting.
 
-    Delegates all calls to the underlying Rust client after acquiring
-    a slot from the shared :py:class:`pyrate_limiter.Limiter`.  The
-    limiter uses an SQLite-backed token bucket, giving thread-safe and
-    cross-process coordination of the per-API-key rate limit.
+    Throttles one-shot API calls (``stream``, ``get_chain_id``,
+    ``get_height``) through a shared :py:class:`pyrate_limiter.Limiter`
+    with an SQLite-backed token bucket.
 
-    The ``stream()`` method returns a :py:class:`ThrottledReceiver`
-    so that ``recv()`` calls within the stream are also throttled.
+    ``recv()`` is intentionally **not** throttled.  The Rust client
+    manages its own HTTP pagination and internal 429 retries within an
+    open stream — adding a Python-side delay on ``recv()`` only slows
+    down buffer reads without reducing actual API load.
 
     .. note::
 
@@ -113,10 +96,9 @@ class ThrottledHypersyncClient:
         self._limiter = limiter
 
     async def stream(self, query, config):
-        """Open a throttled stream."""
+        """Open a stream, throttled at the setup level."""
         await _acquire_async(self._limiter, "stream-setup")
-        receiver = await self._client.stream(query, config)
-        return ThrottledReceiver(receiver, self._limiter)
+        return await self._client.stream(query, config)
 
     async def get_chain_id(self):
         """Get chain ID, throttled."""
