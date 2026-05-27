@@ -44,7 +44,7 @@ jobs:
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
     concurrency:
-      group: ${{ github.workflow }}-heavy-${{ github.ref }}-${{ matrix.python-version }}
+      group: ${{ github.workflow }}-heavy-${{ github.head_ref || github.run_id }}
       cancel-in-progress: true
 
     strategy:
@@ -136,6 +136,9 @@ jobs:
         with:
           path: ~/.foundry
           key: foundry-v1.2.3-${{ runner.os }}
+          restore-keys: |
+            foundry-v1.2.3-
+            foundry-
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -211,7 +214,7 @@ jobs:
           # --ignore list. NOTE: GMX tests run separately in test-gmx.yml.
           # shellcheck disable=SC2086
           poetry run pytest $HEAVY_DIRS \
-            --timeout-method=thread --tb=native -n auto -v -s --capture=no
+            --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
@@ -241,7 +244,7 @@ jobs:
     if: github.event.pull_request.draft == false || github.event_name == 'push'
 
     concurrency:
-      group: ${{ github.workflow }}-light-${{ github.ref }}-${{ matrix.shard }}
+      group: ${{ github.workflow }}-light-${{ github.head_ref || github.run_id }}-${{ matrix.shard }}
       cancel-in-progress: true
 
     strategy:
@@ -304,6 +307,9 @@ jobs:
         with:
           path: ~/.foundry
           key: foundry-v1.2.3-${{ runner.os }}
+          restore-keys: |
+            foundry-v1.2.3-
+            foundry-
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -323,7 +329,7 @@ jobs:
             --ignore=tests/gmx \
             $ignore_args \
             --splits 2 --group ${{ matrix.shard }} \
-            --timeout-method=thread --tb=native -n auto -v -s --capture=no
+            --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
