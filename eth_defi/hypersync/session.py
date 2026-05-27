@@ -24,6 +24,7 @@ Usage::
 
 import asyncio
 import logging
+import os
 from pathlib import Path
 
 import hypersync
@@ -151,6 +152,22 @@ def _create_limiter(
         bucket_class=SQLiteBucket,
         bucket_kwargs={"path": str(db_path)},
     )
+
+
+def get_hypersync_rpm_from_env() -> int:
+    """Read ``HYPERSYNC_RPM`` from the environment.
+
+    Returns :py:data:`DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE` when the
+    variable is unset or blank.  Raises :py:class:`ValueError` with a
+    clear message when a non-empty value cannot be parsed as an integer.
+    """
+    raw = os.environ.get("HYPERSYNC_RPM", "").strip()
+    if not raw:
+        return DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE
+    try:
+        return int(raw)
+    except ValueError:
+        raise ValueError(f"HYPERSYNC_RPM must be an integer, got: {raw!r}") from None
 
 
 def create_throttled_hypersync_client(

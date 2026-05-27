@@ -41,7 +41,7 @@ from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.hyperliquid.daily_metrics import run_daily_scan as hyperliquid_run_daily_scan
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database as hyperliquid_merge_vault_db
-from eth_defi.hypersync.session import _create_limiter
+from eth_defi.hypersync.session import _create_limiter, get_hypersync_rpm_from_env
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.lighter.constants import LIGHTER_CHAIN_ID
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
@@ -496,9 +496,7 @@ def scan_chain(
     # Create a shared Hypersync rate limiter for this chain scan so that
     # vault lead discovery and price scanning coordinate their API
     # request rate through one SQLite-backed bucket.
-    # Honour HYPERSYNC_RPM env var so operators can lower the limit after 429s.
-    rpm = int(os.environ.get("HYPERSYNC_RPM", "0")) or None
-    hypersync_limiter = _create_limiter(requests_per_minute=rpm) if rpm else _create_limiter()
+    hypersync_limiter = _create_limiter(requests_per_minute=get_hypersync_rpm_from_env())
 
     # Verify RPC providers and filter out broken ones
     try:

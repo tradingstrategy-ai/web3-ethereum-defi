@@ -9,7 +9,7 @@ import hypersync
 from pyrate_limiter import Limiter
 
 from eth_defi.hypersync.server import get_hypersync_server
-from eth_defi.hypersync.session import ThrottledHypersyncClient, create_throttled_hypersync_client, _create_limiter, DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE
+from eth_defi.hypersync.session import ThrottledHypersyncClient, create_throttled_hypersync_client, _create_limiter, get_hypersync_rpm_from_env
 
 
 @dataclass(slots=True, frozen=True)
@@ -56,8 +56,7 @@ def configure_hypersync_from_env(
     # Always throttle by default.  HYPERSYNC_RPM overrides the default;
     # an explicit limiter= argument takes precedence over both.
     if limiter is None:
-        rpm = int(os.environ.get("HYPERSYNC_RPM", "0")) or DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE
-        limiter = _create_limiter(requests_per_minute=rpm)
+        limiter = _create_limiter(requests_per_minute=get_hypersync_rpm_from_env())
 
     def _make_client(url: str) -> ThrottledHypersyncClient:
         config = hypersync.ClientConfig(url=url, bearer_token=hypersync_api_key)
