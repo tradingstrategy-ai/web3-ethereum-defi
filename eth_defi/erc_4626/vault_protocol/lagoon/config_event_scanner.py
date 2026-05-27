@@ -1508,7 +1508,7 @@ async def _fetch_guard_events_hypersync_async(
 
     topic0_list = list(topic_map.keys())
     logger.info(
-        "HyperSync guard event scan: module %s, blocks %d-%s, topics %d",
+        "Hypersync stream open: module %s, blocks %d-%s, topics %d [lagoon-guard-event-scan]",
         module_address,
         from_block,
         to_block if to_block is not None else "latest",

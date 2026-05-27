@@ -178,7 +178,13 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         logger.info("Building HyperSync query")
         query = self.build_query(start_block, end_block)
 
-        logger.info(f"Starting HyperSync stream {start_block:,} to {end_block:,}, chain {chain}, query is {query}")
+        logger.info(
+            "Hypersync stream open: chain %d, blocks %d-%d (%d blocks) [vault-lead-discovery]",
+            chain,
+            start_block,
+            end_block,
+            end_block - start_block,
+        )
         # start the stream
         receiver = await self.client.stream(query, hypersync.StreamConfig())
 

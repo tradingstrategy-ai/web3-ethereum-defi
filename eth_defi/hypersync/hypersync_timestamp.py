@@ -254,6 +254,7 @@ def get_hypersync_block_height(
     """
 
     async def _hypersync_asyncio_wrapper():
+        logger.info("Hypersync API call: get_height [block-height-check]")
         return await client.get_height()
 
     return asyncio.run(_hypersync_asyncio_wrapper())
