@@ -47,4 +47,4 @@ node_modules/
 node_modules/.cache
 
 # Claude working on work trees
-.claude/worktrees
+.claude/worktreestests/unit-manifest.txt

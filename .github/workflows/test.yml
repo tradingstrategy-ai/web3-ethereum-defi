@@ -165,10 +165,13 @@ jobs:
       #     limit-access-to-actor: true
       # if: ${{ failure() || github.event.inputs.debug == 'true' }}
 
+      - name: Generate unit test manifest
+        run: bash scripts/ci/list-unit-tests.sh > tests/unit-manifest.txt
+
       - name: Run unit tests
         run: |
-          # Files listed in tests/unit-manifest.txt have no fork/live-RPC deps.
-          # Misclassified files will fail loudly here — fix manifest, not this step.
+          # tests/unit-manifest.txt is generated dynamically above — never committed.
+          # Misclassified files will fail loudly here — fix scripts/ci/list-unit-tests.sh.
           UNIT_FILES=$(tr '\n' ' ' < tests/unit-manifest.txt)
           poetry run pytest $UNIT_FILES \
             --timeout-method=thread --tb=native -n auto -v -s --capture=no
@@ -341,6 +344,9 @@ jobs:
       #   with:
       #     limit-access-to-actor: true
       # if: ${{ failure() || github.event.inputs.debug == 'true' }}
+
+      - name: Generate unit test manifest
+        run: bash scripts/ci/list-unit-tests.sh > tests/unit-manifest.txt
 
       - name: Run integration tests
         run: |
