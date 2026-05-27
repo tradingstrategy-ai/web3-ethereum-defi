@@ -1,5 +1,7 @@
 # Current
 
+- feat(ci): Documentation build moved from Beefy runner to free `ubuntu-latest`, with poetry venv cached for faster cold builds (2026-05-27)
+
 - feat: Add ForgeYields vault protocol support with hardcoded address classification, 20% performance fee, metadata and logos (2026-05-25)
 
 - feat: Add TokenGateway (ForgeYieldsUSDC / fyUSDC) custom event discovery for ERC-4626 vault scanning (2026-05-22)
