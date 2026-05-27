@@ -74,6 +74,14 @@ jobs:
           # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
           echo $PNPM_HOME >> $GITHUB_PATH
 
+      - name: Cache PNPM store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('contracts/aave-v3-deploy/package-lock.json') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-
+
       - name: Install poetry (using matrix Python)
         run: pipx install "poetry>=2.3" --python "${{ env.PYTHON_PATH }}"
 
@@ -85,6 +93,16 @@ jobs:
           cache-dependency-path: |
             **/pyproject.toml
 
+      - name: Cache Poetry & Pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.cache/pip
+          key: poetry-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            poetry-${{ runner.os }}-
+
       - name: Install dependencies
         run: |
           poetry install
@@ -92,6 +110,14 @@ jobs:
 
       - name: Install Ganache
         run: yarn global add ganache
+
+      - name: Cache Foundry
+        uses: actions/cache@v4
+        with:
+          path: ~/.foundry
+          key: foundry-${{ runner.os }}-${{ hashFiles('foundry.toml') }}
+          restore-keys: |
+            foundry-${{ runner.os }}-
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -182,6 +208,3 @@ jobs:
           ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: ${{ secrets.ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
 
-      - name: Ruff lint check
-        run: |
-          poetry run ruff format --check --diff
