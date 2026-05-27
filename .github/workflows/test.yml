@@ -163,7 +163,7 @@ jobs:
       #     limit-access-to-actor: true
       # if: ${{ failure() || github.event.inputs.debug == 'true' }}
 
-      - name: Run tests
+      - name: Run tests (parallel)
         run: |
           # NOTE: GMX tests run separately in test-gmx.yml due to fork state conflicts.
           # Always use verbose pytest output so stalled CI runs show the latest
