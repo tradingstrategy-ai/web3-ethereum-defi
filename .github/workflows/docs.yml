@@ -6,8 +6,11 @@ on:
 
 jobs:
   build-docs:
-    runs-on:
-      group: Beefy runners
+    # Docs are pure Python + Pandoc + Sphinx + wrangler — no Anvil, no archive
+    # RPCs, no submodules. Runs on the free ubuntu-latest runner (1× billing)
+    # instead of Beefy (16× billing).
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     # Only run the action for the latest push
     concurrency:
@@ -35,6 +38,27 @@ jobs:
           cache: "poetry"
           cache-dependency-path: |
             **/pyproject.toml
+
+      - name: Resolve poetry venv path
+        id: venv-path
+        run: |
+          venv_path=$(poetry env info --path 2>/dev/null || true)
+          if [ -z "$venv_path" ]; then
+            poetry env use 3.14
+            venv_path=$(poetry env info --path)
+          fi
+          echo "path=$venv_path" >> "$GITHUB_OUTPUT"
+
+      # Cache the resolved venv so we skip dependency reinstall on cache hit.
+      # Keyed by lockfile to invalidate on any dep change.
+      - name: Cache poetry venv
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.venv-path.outputs.path }}
+          key: docs-venv-${{ runner.os }}-py3.14-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
+          restore-keys: |
+            docs-venv-${{ runner.os }}-py3.14-
+            docs-venv-${{ runner.os }}-
 
       # Required by nbsphinx for notebook conversion
       - name: Install Pandoc

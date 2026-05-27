@@ -4,7 +4,7 @@
 
 - feat: ForgeYields offchain metadata — fetch canonical cross-chain TVL and APY from `api.forgeyields.com/strategies` instead of the misleading on-chain gateway residual (2026-05-28)
 
-- feat(ci): Ruff format check moved to its own `lint.yml` workflow on the free `ubuntu-latest` runner, removed from the Beefy test job (2026-05-27)
+- feat(ci): Big CI cost reduction round 2 — module-scope Anvil fork fixtures (~24% test wall-clock cut), `lint.yml` split to free `ubuntu-latest`, `docs.yml` moved off Beefy, `test-gmx.yml` modernised (Python 3.14 `importlib.metadata`, Foundry+venv caches, `actions/checkout@v4`) (2026-05-27)
 
 - feat: Add ForgeYields vault protocol support with hardcoded address classification, 20% performance fee, metadata and logos (2026-05-25)
 
