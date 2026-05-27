@@ -344,17 +344,50 @@ jobs:
 
       - name: Run integration tests
         run: |
-          # NOTE: GMX tests are excluded here and run separately in test-gmx.yml workflow
-          # GMX tests cannot run in parallel due to mainnet fork state conflicts
-          # See .github/workflows/test-gmx.yml for details on why parallel execution fails
-          #
-          # Unit-manifest files are excluded here — they run in the test-unit job above.
+          # NOTE: GMX tests run separately in test-gmx.yml (fork state conflicts).
+          # Each other subsystem runs in its own test-integration-<sub>.yml workflow
+          # (path-filtered so it only fires when that subsystem's files change).
+          # Unit-manifest files run in the test-unit job above.
+          # This catch-all runs what remains: flat tests/ root files and any subsystem
+          # not yet fully migrated to its own workflow.
           #
           # Always use verbose pytest output so stalled CI runs show the latest
           # test names in the Actions log.
           DESELECT=$(awk '{print "--deselect=" $0}' tests/unit-manifest.txt | tr '\n' ' ')
           poetry run pytest tests/ \
             --ignore=tests/gmx \
+            --ignore=tests/aave_v3 \
+            --ignore=tests/cctp \
+            --ignore=tests/derive \
+            --ignore=tests/enzyme \
+            --ignore=tests/erc_4626 \
+            --ignore=tests/event_reader \
+            --ignore=tests/feed \
+            --ignore=tests/gains \
+            --ignore=tests/grvt \
+            --ignore=tests/guard \
+            --ignore=tests/hibachi \
+            --ignore=tests/hyperliquid \
+            --ignore=tests/hypersync \
+            --ignore=tests/ipor \
+            --ignore=tests/lagoon \
+            --ignore=tests/lifi \
+            --ignore=tests/lighter \
+            --ignore=tests/morpho \
+            --ignore=tests/one_delta \
+            --ignore=tests/orderly \
+            --ignore=tests/provider \
+            --ignore=tests/research \
+            --ignore=tests/rpc \
+            --ignore=tests/safe \
+            --ignore="tests/safe-integration" \
+            --ignore=tests/token_analysis \
+            --ignore=tests/uniswap_v2 \
+            --ignore=tests/uniswap_v3 \
+            --ignore=tests/usdc \
+            --ignore=tests/vault \
+            --ignore=tests/velora \
+            --ignore=tests/velvet \
             $DESELECT \
             --timeout-method=thread --tb=native -n auto -v -s --capture=no
         env:
