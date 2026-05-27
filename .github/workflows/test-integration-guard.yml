@@ -8,8 +8,6 @@ on:
       - 'eth_defi/simple_vault/**'
       - 'tests/guard/**'
       - '.github/workflows/test-integration-guard.yml'
-      - 'pyproject.toml'
-      - 'poetry.lock'
   pull_request:
     branches: [master]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -18,8 +16,6 @@ on:
       - 'eth_defi/simple_vault/**'
       - 'tests/guard/**'
       - '.github/workflows/test-integration-guard.yml'
-      - 'pyproject.toml'
-      - 'poetry.lock'
 
 jobs:
   test:

@@ -7,8 +7,6 @@ on:
       - 'eth_defi/velvet/**'
       - 'tests/velvet/**'
       - '.github/workflows/test-integration-velvet.yml'
-      - 'pyproject.toml'
-      - 'poetry.lock'
   pull_request:
     branches: [master]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -16,8 +14,6 @@ on:
       - 'eth_defi/velvet/**'
       - 'tests/velvet/**'
       - '.github/workflows/test-integration-velvet.yml'
-      - 'pyproject.toml'
-      - 'poetry.lock'
 
 jobs:
   test:

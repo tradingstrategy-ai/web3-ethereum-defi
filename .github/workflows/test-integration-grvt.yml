@@ -7,8 +7,6 @@ on:
       - 'eth_defi/grvt/**'
       - 'tests/grvt/**'
       - '.github/workflows/test-integration-grvt.yml'
-      - 'pyproject.toml'
-      - 'poetry.lock'
   pull_request:
     branches: [master]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -16,8 +14,6 @@ on:
       - 'eth_defi/grvt/**'
       - 'tests/grvt/**'
       - '.github/workflows/test-integration-grvt.yml'
-      - 'pyproject.toml'
-      - 'poetry.lock'
 
 jobs:
   test:

@@ -7,8 +7,6 @@ on:
       - 'eth_defi/aave_v3/**'
       - 'tests/aave_v3/**'
       - '.github/workflows/test-integration-aave_v3.yml'
-      - 'pyproject.toml'
-      - 'poetry.lock'
   pull_request:
     branches: [master]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -16,8 +14,6 @@ on:
       - 'eth_defi/aave_v3/**'
       - 'tests/aave_v3/**'
       - '.github/workflows/test-integration-aave_v3.yml'
-      - 'pyproject.toml'
-      - 'poetry.lock'
 
 jobs:
   test:

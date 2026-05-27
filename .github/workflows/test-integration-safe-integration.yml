@@ -8,8 +8,6 @@ on:
       - 'contracts/safe-integration/**'
       - 'tests/safe-integration/**'
       - '.github/workflows/test-integration-safe-integration.yml'
-      - 'pyproject.toml'
-      - 'poetry.lock'
   pull_request:
     branches: [master]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -18,8 +16,6 @@ on:
       - 'contracts/safe-integration/**'
       - 'tests/safe-integration/**'
       - '.github/workflows/test-integration-safe-integration.yml'
-      - 'pyproject.toml'
-      - 'poetry.lock'
 
 jobs:
   test:

@@ -8,8 +8,6 @@ on:
       - 'eth_defi/erc_4626/**'
       - 'tests/vault/**'
       - '.github/workflows/test-integration-vault.yml'
-      - 'pyproject.toml'
-      - 'poetry.lock'
   pull_request:
     branches: [master]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -18,8 +16,6 @@ on:
       - 'eth_defi/erc_4626/**'
       - 'tests/vault/**'
       - '.github/workflows/test-integration-vault.yml'
-      - 'pyproject.toml'
-      - 'poetry.lock'
 
 jobs:
   test:
