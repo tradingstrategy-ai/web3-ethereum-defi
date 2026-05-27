@@ -26,7 +26,7 @@ JSON_RPC_URL=$JSON_RPC_BASE poetry run python scripts/erc-4626/scan-vaults.py
 | `END_BLOCK` | Optional. Stop scanning at this block. |
 | `RESET_LEADS` | Optional. Rescan discovery events from block 1. Existing vault database rows are not deleted before the scan; new results are merged back in and matching rows may be overwritten with freshly detected metadata. Use when new protocol event support has been added and historical events need to be re-discovered. Very slow on large chains like Ethereum mainnet (~24M+ blocks). |
 | `HYPERSYNC_API_KEY` | Optional. Required when using `auto` scan backend. |
-| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150 (75% of the 200 RPM free-tier limit). Lower this after persistent 429 errors. |
+| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150 (75% of the 200 RPM free-tier limit). Throttling is always on; set this to lower the limit after persistent 429 errors. |
 
 #### Re-discovering vaults after adding new protocol support
 

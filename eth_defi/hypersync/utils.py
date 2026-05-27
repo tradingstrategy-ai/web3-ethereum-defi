@@ -9,12 +9,12 @@ import hypersync
 from pyrate_limiter import Limiter
 
 from eth_defi.hypersync.server import get_hypersync_server
-from eth_defi.hypersync.session import ThrottledHypersyncClient, create_throttled_hypersync_client, _create_limiter
+from eth_defi.hypersync.session import ThrottledHypersyncClient, create_throttled_hypersync_client, _create_limiter, DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE
 
 
 @dataclass(slots=True, frozen=True)
 class HypersyncBackendConfig:
-    hypersync_client: "hypersync.HypersyncClient | ThrottledHypersyncClient | None"
+    hypersync_client: "ThrottledHypersyncClient | None"
     hypersync_url: "str | None"
     scan_backend: str
 
@@ -27,11 +27,11 @@ def configure_hypersync_from_env(
     """Helper for scan-vaults and scan-prices scripts to configure Hypersync client from environment variables.
 
     - Some chains support HyperSync, others don't - autodetect support
-    - When a *limiter* is provided, the returned client is a
+    - The returned client is always a
       :py:class:`~eth_defi.hypersync.session.ThrottledHypersyncClient`
-      that rate-limits every API call through the shared limiter.
-      When ``None`` and the environment variable ``HYPERSYNC_RPM`` is
-      set, a limiter is created automatically.
+      that rate-limits every API call.  The rate defaults to 150 RPM
+      and can be overridden with the ``HYPERSYNC_RPM`` environment
+      variable or by passing an explicit *limiter*.
 
     :param hypersync_api_key:
         Use given API key, instead of reading from env.
@@ -53,16 +53,15 @@ def configure_hypersync_from_env(
     if scan_backend == "auto":
         assert hypersync_api_key, f"HYPERSYNC_API_KEY must be set to use auto scan backend"
 
-    # Auto-create limiter from env if not provided
-    rpm_env = os.environ.get("HYPERSYNC_RPM")
-    if limiter is None and rpm_env:
-        limiter = _create_limiter(requests_per_minute=int(rpm_env))
+    # Always throttle by default.  HYPERSYNC_RPM overrides the default;
+    # an explicit limiter= argument takes precedence over both.
+    if limiter is None:
+        rpm = int(os.environ.get("HYPERSYNC_RPM", "0")) or DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE
+        limiter = _create_limiter(requests_per_minute=rpm)
 
-    def _make_client(url: str) -> "hypersync.HypersyncClient | ThrottledHypersyncClient":
+    def _make_client(url: str) -> ThrottledHypersyncClient:
         config = hypersync.ClientConfig(url=url, bearer_token=hypersync_api_key)
-        if limiter is not None:
-            return create_throttled_hypersync_client(config, limiter=limiter)
-        return hypersync.HypersyncClient(config)
+        return create_throttled_hypersync_client(config, limiter=limiter)
 
     match scan_backend:
         case "auto":

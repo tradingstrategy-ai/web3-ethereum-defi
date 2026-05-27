@@ -46,6 +46,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER, load_timestamp_cache
 from eth_defi.hypersync.hypersync_timestamp import get_block_timestamps_using_hypersync_async
 from eth_defi.hypersync.server import get_hypersync_server, is_hypersync_supported_chain
+from eth_defi.hypersync.session import create_throttled_hypersync_client, DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE
 from eth_defi.utils import setup_console_logging
 
 logger = logging.getLogger(__name__)
@@ -135,14 +136,16 @@ def heal_chain(chain_id: int, dry_run: bool) -> dict:
             result["duration"] = time.time() - start_time
             return result
 
-        # Configure HyperSync
+        # Configure HyperSync with throttling
         hypersync_server = get_hypersync_server(chain_id)
         hypersync_api_key = os.environ.get("HYPERSYNC_API_KEY")
-        hypersync_client = hypersync.HypersyncClient(
+        rpm = int(os.environ.get("HYPERSYNC_RPM", "0")) or DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE
+        hypersync_client = create_throttled_hypersync_client(
             hypersync.ClientConfig(
                 url=hypersync_server,
-                api_token=hypersync_api_key,
-            )
+                bearer_token=hypersync_api_key,
+            ),
+            requests_per_minute=rpm,
         )
 
         async def _heal():
