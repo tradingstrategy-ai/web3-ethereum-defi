@@ -1,5 +1,7 @@
 # Current
 
+- CI: Reduce pull request Actions cost with draft/path skips, separate cheap Ruff workflow, Foundry and soldeer caches, and conservative selective pytest targeting with full-suite fallback (2026-05-27).
+
 - feat: Add ForgeYields vault protocol support with hardcoded address classification, 20% performance fee, metadata and logos (2026-05-25)
 
 - feat: Add TokenGateway (ForgeYieldsUSDC / fyUSDC) custom event discovery for ERC-4626 vault scanning (2026-05-22)
