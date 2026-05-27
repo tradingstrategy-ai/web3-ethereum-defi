@@ -104,6 +104,7 @@ Environment variables:
     - MAX_CYCLES: Exit after N cycles in looped mode, for testing (default: "0" = unlimited)
     - FORCE_RESCAN: "true" to ignore cycle state and rescan all items on the first cycle (default: "false")
     - PIPELINE_DATA_DIR: Override base directory for all pipeline files (default: ~/.tradingstrategy/vaults)
+    - HYPERSYNC_RPM: Hypersync API requests-per-minute limit (default: 150, 75% of the 200 RPM free-tier limit). Lower after persistent 429 errors.
 
 Example CHAIN_ORDER for all chains:
     CHAIN_ORDER="Sonic, Monad, Hyperliquid, Base, Arbitrum, Ethereum, Linea, Gnosis, Zora, Polygon, Avalanche, Berachain, Unichain, Hemi, Plasma, Binance, Mantle, Katana, Ink, Blast, Soneium, Optimism"

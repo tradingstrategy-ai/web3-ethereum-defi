@@ -24,19 +24,35 @@ JSON_RPC_URL=$JSON_RPC_BASE poetry run python scripts/erc-4626/scan-vaults.py
 | `MAX_GETLOGS_RANGE` | Optional. Max block range for getLogs. |
 | `SCAN_BACKEND` | Optional. Event reader backend (`auto`, `hypersync`, `rpc`). |
 | `END_BLOCK` | Optional. Stop scanning at this block. |
-| `RESET_LEADS` | Optional. Rescan from block 1, discarding existing leads. Use when new protocol event support has been added and historical events need to be re-discovered. Very slow on large chains like Ethereum mainnet (~24M+ blocks). |
+| `RESET_LEADS` | Optional. Rescan discovery events from block 1. Existing vault database rows are not deleted before the scan; new results are merged back in and matching rows may be overwritten with freshly detected metadata. Use when new protocol event support has been added and historical events need to be re-discovered. Very slow on large chains like Ethereum mainnet (~24M+ blocks). |
 | `HYPERSYNC_API_KEY` | Optional. Required when using `auto` scan backend. |
+| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150 (75% of the 200 RPM free-tier limit). Lower this after persistent 429 errors. |
 
 #### Re-discovering vaults after adding new protocol support
 
 The vault scanner is incremental — it only scans new blocks since the last run.
 When support for a new protocol's custom events is added (e.g. Ember's `VaultDeposit`),
 vaults that emitted events before the code change will not be discovered because the scanner
-has already passed those blocks. Use `RESET_LEADS` to rescan from the beginning:
+has already passed those blocks. Use `RESET_LEADS` to rescan from the beginning.
+
+`RESET_LEADS` does **not** truncate the existing vault database before scanning. The scanner
+builds a fresh in-memory lead set from block 1, then merges those leads and metadata rows back
+into the existing pickle. Existing leads that are found again are refreshed; unrelated existing
+rows remain in the database. Because matching rows may be overwritten, take a backup before a
+large production rescan:
+
+```shell
+cp ~/.tradingstrategy/vaults/vault-metadata-db.pickle \
+   ~/.tradingstrategy/vaults/vault-metadata-db.before-reset-leads.pickle
+```
+
+The scanner currently cannot limit discovery to only the newly added custom event topics. A
+historical custom-event backfill, such as TokenGateway/ForgeYields support, still re-queries all
+configured vault discovery events for the block range.
 
 ```shell
 # Re-discover all vaults on Ethereum from block 1
-# Works with both Hypersync and RPC backends
+# Works with both HyperSync and RPC backends
 RESET_LEADS=1 LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ETHEREUM poetry run python scripts/erc-4626/scan-vaults.py
 ```
 
@@ -67,6 +83,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SCAN_LIGHTER` | Optional. Enable Lighter native pool scanning. Default: false. |
 | `SCAN_HIBACHI` | Optional. Enable Hibachi native vault scanning. Default: false. |
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
+| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150. Lower after persistent 429 errors. |
 
 ### scan-prices.py
 
@@ -244,10 +261,17 @@ docker compose --profile oneshot run --rm \
 
 ### Scan only Ethereum with lead reset (after adding new protocol support)
 
+This rescans all configured vault discovery event topics from block 1 and merges the results
+back into the existing vault database. It does not delete the database first, but matching rows
+may be refreshed with newly detected metadata. Back up `~/.tradingstrategy/vaults/vault-metadata-db.pickle`
+before running this against production data.
+
 ```shell
 docker compose --profile oneshot run --rm \
   --entrypoint python \
   -e JSON_RPC_URL="$JSON_RPC_ETHEREUM" \
+  -e HYPERSYNC_API_KEY="$HYPERSYNC_API_KEY" \
+  -e SCAN_BACKEND=hypersync \
   -e RESET_LEADS=true \
   -e LOG_LEVEL=info \
   vault-scanner \

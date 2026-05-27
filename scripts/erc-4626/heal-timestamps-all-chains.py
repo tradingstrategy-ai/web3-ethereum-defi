@@ -23,6 +23,7 @@ Environment variables:
     - TEST_CHAINS: Comma-separated chain names to heal (default: all)
     - LOG_LEVEL: Logging level (default: "info")
     - HYPERSYNC_API_KEY: HyperSync API key (optional but recommended)
+    - HYPERSYNC_RPM: Hypersync API requests-per-minute limit (default: 150). Lower after persistent 429 errors.
 """
 
 import asyncio
