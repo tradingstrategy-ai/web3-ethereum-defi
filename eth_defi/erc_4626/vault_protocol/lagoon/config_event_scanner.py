@@ -1555,6 +1555,10 @@ async def _fetch_guard_events_hypersync_async(
             res = await asyncio.wait_for(receiver.recv(), timeout=recv_timeout)
         except asyncio.TimeoutError as e:
             raise RuntimeError(f"Hypersync stream() read timeout after {recv_timeout} seconds [lagoon-guard-event-scan]") from e
+        except RuntimeError as e:
+            if "429" in str(e):
+                raise RuntimeError(f"Hypersync rate limited [lagoon-guard-event-scan]: {e}") from e
+            raise
         if res is None:
             break
 

@@ -253,6 +253,10 @@ class AaveLiquidationReader:
                 res = await asyncio.wait_for(receiver.recv(), timeout=self.hypersync_read_timeout)
             except asyncio.TimeoutError as e:
                 raise RuntimeError(f"Hypersync stream() read timeout after {self.hypersync_read_timeout} seconds [aave-liquidation-scan]") from e
+            except RuntimeError as e:
+                if "429" in str(e):
+                    raise RuntimeError(f"Hypersync rate limited [aave-liquidation-scan]: {e}") from e
+                raise
 
             # exit if the stream finished
             if res is None:

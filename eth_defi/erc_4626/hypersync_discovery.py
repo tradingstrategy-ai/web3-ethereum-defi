@@ -222,6 +222,10 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
             except asyncio.TimeoutError as e:
                 logger.error("HyperSync receiver timed out [vault-lead-discovery]")
                 raise HypersyncCrappedOut(f"Cannot recover from HyperSync stream timeout after {self.recv_timeout} seconds [vault-lead-discovery]") from e
+            except RuntimeError as e:
+                if "429" in str(e):
+                    raise HypersyncCrappedOut(f"Hypersync rate limited [vault-lead-discovery]: {e}") from e
+                raise
 
             # exit if the stream finished
             if res is None:
