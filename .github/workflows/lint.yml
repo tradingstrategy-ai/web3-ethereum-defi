@@ -19,13 +19,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install poetry
+        run: pipx install "poetry>=2.3"
+
       - name: Set up Python 3.14
         uses: actions/setup-python@v5
         with:
           python-version: "3.14"
+          cache: "poetry"
+          cache-dependency-path: "**/pyproject.toml"
 
-      - name: Install ruff
-        run: pipx install "ruff==0.11.13"
+      - name: Install dependencies
+        run: poetry install --no-root --only main
 
       - name: Ruff format check
-        run: ruff format --check --diff
+        run: poetry run ruff format --check --diff
