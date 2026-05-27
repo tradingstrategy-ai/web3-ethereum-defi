@@ -76,6 +76,9 @@ matplotlib = {version = ">=3.5", optional = true}
 plotly = {version = ">6", optional = true}
 pyarrow = {version = "*", optional = true}
 pytest-xdist = {version = "^3.3.1", optional = true}
+# Shards the test suite into N balanced groups for parallel CI execution.
+# https://github.com/jerry-git/pytest-split
+pytest-split = {version = "^0.10", optional = true}
 tenacity = {version = "*", optional = true}# Needed for Plotly
 
 # We are using evm-trace, so for compat
@@ -180,7 +183,7 @@ docs = [
   "sphinx-sitemap",
   "sphinx-rtd-theme",
 ]
-test = ["pytest-xdist"]
+test = ["pytest-xdist", "pytest-split"]
 
 ccxt = ["ccxt"]
 cloudflare_r2 = ["boto3"]
