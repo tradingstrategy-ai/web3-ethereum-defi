@@ -3,11 +3,24 @@ name: Automated test suite
 on:
   push:
     branches: [master]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - 'docs/**/**'
   pull_request:
     branches: [master]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - 'docs/**/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test-python:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners

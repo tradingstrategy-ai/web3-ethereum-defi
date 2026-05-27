@@ -14,15 +14,27 @@ on:
       - 'eth_defi/gmx/**'
       - 'tests/gmx/**'
       - '.github/workflows/test-gmx.yml'
+    # Ignore docs-only changes to avoid firing heavy GMX tests
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
   pull_request:
     branches: [ master ]
     paths:
       - 'eth_defi/gmx/**'
       - 'tests/gmx/**'
       - '.github/workflows/test-gmx.yml'
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test-gmx-serial:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
