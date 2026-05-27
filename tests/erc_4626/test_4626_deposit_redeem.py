@@ -1,16 +1,19 @@
 import os
 from decimal import Decimal
 from typing import cast
+
 import pytest
+from eth_typing import HexAddress
 from web3 import Web3
+
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, mine
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details, TokenDetails, USDC_WHALE
+from eth_defi.testing.evm_snapshot_fixture import make_evm_snapshot_fixture
+from eth_defi.token import USDC_WHALE, TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_typing import HexAddress
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
@@ -19,7 +22,7 @@ CI = os.environ.get("CI", None) is not None
 pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE environment variable")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def anvil_base_fork(request) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
@@ -157,3 +160,8 @@ def test_erc_4626_redeem(
     redemption_request.broadcast()
     shares = vault.share_token.fetch_balance_of(test_user)
     assert shares == 0
+
+
+# Per-test EVM state isolation on module-scope Anvil fork.
+# See eth_defi.testing.evm_snapshot_fixture for the rationale.
+_evm_snapshot = make_evm_snapshot_fixture("anvil_base_fork")

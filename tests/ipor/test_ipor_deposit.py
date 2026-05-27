@@ -12,15 +12,15 @@ from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.erc_4626.analysis import analyse_4626_flow_transaction
-from eth_defi.erc_4626.estimate import estimate_4626_redeem, estimate_4626_deposit, estimate_value_by_share_price
+from eth_defi.erc_4626.estimate import estimate_4626_deposit, estimate_4626_redeem, estimate_value_by_share_price
 from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch, mine
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, mine
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.evm_snapshot_fixture import make_evm_snapshot_fixture
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.trade import TradeSuccess
-
 from eth_defi.vault.base import VaultSpec
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
@@ -28,7 +28,7 @@ JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 pytestmark = pytest.mark.skipif(JSON_RPC_BASE is None, reason="JSON_RPC_BASE needed to run these tests")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def usdc_holder() -> HexAddress:
     # https://basescan.org/token/0x833589fcd6edb6e08f4c7c32d4f71b54bda02913#balances
     return "0x3304E22DDaa22bCdC5fCa2269b418046aE7b566A"
@@ -39,7 +39,7 @@ def test_block_number() -> int:
     return 27975506
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def anvil_base_fork(usdc_holder, test_block_number: int) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
@@ -237,3 +237,8 @@ def test_ipor_redeem(
     # Share price has changed over 1yera
     share_price = vault.fetch_share_price("latest")
     assert share_price == pytest.approx(Decimal("1.024204051979538320520931622"))
+
+
+# Per-test EVM state isolation on module-scope Anvil fork.
+# See eth_defi.testing.evm_snapshot_fixture for the rationale.
+_evm_snapshot = make_evm_snapshot_fixture("anvil_base_fork")
