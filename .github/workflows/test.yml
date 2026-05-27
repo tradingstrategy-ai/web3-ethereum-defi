@@ -15,53 +15,7 @@ on:
 
 jobs:
 
-  # ── Detect which subsystems the diff touches ─────────────────────────────
-  # Cheap classifier on ubuntu-latest (1× billing) that turns the diff into
-  # either a list of subsystem dirs (mode=subset) or 'tests/' (mode=full).
-  detect:
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false || github.event_name == 'push'
-
-    outputs:
-      mode: ${{ steps.classify.outputs.mode }}
-      pytest_targets: ${{ steps.classify.outputs.pytest_targets }}
-      affected_subsystems: ${{ steps.classify.outputs.affected_subsystems }}
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Compute changed files
-        id: diff
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            base="${{ github.event.pull_request.base.sha }}"
-            head="${{ github.event.pull_request.head.sha }}"
-            git diff --name-only "$base" "$head" > /tmp/changed.txt
-          else
-            # push to master: list files changed in the head commit
-            git diff --name-only HEAD~1 HEAD > /tmp/changed.txt || true
-          fi
-          echo "Changed files:"
-          cat /tmp/changed.txt || true
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
-
-      - name: Classify changes
-        id: classify
-        env:
-          COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.event.pull_request.title }}
-          IS_MASTER_PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
-        run: |
-          export CHANGED_FILES="$(cat /tmp/changed.txt)"
-          python -m scripts.ci.classify_changes
-
   test-python:
-    needs: detect
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
@@ -234,11 +188,9 @@ jobs:
       - name: Run tests (parallel)
         run: |
           # NOTE: GMX tests run separately in test-gmx.yml due to fork state conflicts.
-          # ``needs.detect.outputs.pytest_targets`` is either a list of subsystem
-          # directories or the literal ``tests/`` for a full run.  Always use
-          # verbose pytest output so stalled CI runs show the latest test names
-          # in the Actions log.
-          poetry run pytest ${{ needs.detect.outputs.pytest_targets }} \
+          # Always use verbose pytest output so stalled CI runs show the latest
+          # test names in the Actions log.
+          poetry run pytest tests/ \
             --ignore=tests/gmx \
             --timeout-method=thread --tb=native -n auto -v -s --capture=no
         env:
