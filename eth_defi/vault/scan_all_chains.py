@@ -318,7 +318,7 @@ def scan_vaults_for_chain(
     rpc_url: str,
     max_workers: int,
     vault_db_path: Path = DEFAULT_VAULT_DATABASE,
-    hypersync_limiter: "Limiter | None" = None,
+    hypersync_limiter=None,
 ) -> tuple[bool, dict]:
     """Scan vaults for a single chain by calling scan_leads() directly.
 
@@ -358,7 +358,7 @@ def scan_prices_for_chain(
     vault_db_path: Path = DEFAULT_VAULT_DATABASE,
     uncleaned_price_path: Path = DEFAULT_UNCLEANED_PRICE_DATABASE,
     reader_state_path: Path = DEFAULT_READER_STATE_DATABASE,
-    hypersync_limiter: "Limiter | None" = None,
+    hypersync_limiter=None,
 ) -> tuple[bool, dict]:
     """Scan historical prices for a single chain.
 
@@ -490,7 +490,9 @@ def scan_chain(
     # Create a shared Hypersync rate limiter for this chain scan so that
     # vault lead discovery and price scanning coordinate their API
     # request rate through one SQLite-backed bucket.
-    hypersync_limiter = _create_limiter()
+    # Honour HYPERSYNC_RPM env var so operators can lower the limit after 429s.
+    rpm = int(os.environ.get("HYPERSYNC_RPM", "0")) or None
+    hypersync_limiter = _create_limiter(requests_per_minute=rpm) if rpm else _create_limiter()
 
     # Verify RPC providers and filter out broken ones
     try:
