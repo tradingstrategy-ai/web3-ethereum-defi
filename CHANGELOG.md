@@ -1,5 +1,7 @@
 # Current
 
+- CI: selective test execution — only run tests for changed subsystems on PRs, with `[ci full]` commit-message override to force a full run (2026-05-27).
+
 - feat: Add ForgeYields vault protocol support with hardcoded address classification, 20% performance fee, metadata and logos (2026-05-25)
 
 - feat: Add TokenGateway (ForgeYieldsUSDC / fyUSDC) custom event discovery for ERC-4626 vault scanning (2026-05-22)

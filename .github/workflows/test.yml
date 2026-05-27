@@ -15,7 +15,53 @@ on:
 
 jobs:
 
+  # ── Detect which subsystems the diff touches ─────────────────────────────
+  # Cheap classifier on ubuntu-latest (1× billing) that turns the diff into
+  # either a list of subsystem dirs (mode=subset) or 'tests/' (mode=full).
+  detect:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false || github.event_name == 'push'
+
+    outputs:
+      mode: ${{ steps.classify.outputs.mode }}
+      pytest_targets: ${{ steps.classify.outputs.pytest_targets }}
+      affected_subsystems: ${{ steps.classify.outputs.affected_subsystems }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute changed files
+        id: diff
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+            git diff --name-only "$base" "$head" > /tmp/changed.txt
+          else
+            # push to master: list files changed in the head commit
+            git diff --name-only HEAD~1 HEAD > /tmp/changed.txt || true
+          fi
+          echo "Changed files:"
+          cat /tmp/changed.txt || true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Classify changes
+        id: classify
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.event.pull_request.title }}
+          IS_MASTER_PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        run: |
+          export CHANGED_FILES="$(cat /tmp/changed.txt)"
+          python -m scripts.ci.classify_changes
+
   test-python:
+    needs: detect
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
@@ -29,7 +75,7 @@ jobs:
       cancel-in-progress: true
 
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         python-version: ["3.14"]
 
@@ -81,6 +127,28 @@ jobs:
           cache: "poetry"
           cache-dependency-path: |
             **/pyproject.toml
+
+      - name: Resolve poetry venv path
+        id: venv-path
+        run: |
+          # Resolve where poetry will install the venv so we can cache it.
+          # We must do this AFTER setup-python+poetry are installed and
+          # BEFORE 'poetry install' so a cache hit lets the install step
+          # skip wheel building.
+          venv_path=$(poetry env info --path 2>/dev/null || true)
+          if [ -z "$venv_path" ]; then
+            # Pre-create the venv so its path is stable across the cache step.
+            poetry env use 3.14
+            venv_path=$(poetry env info --path)
+          fi
+          echo "path=$venv_path" >> "$GITHUB_OUTPUT"
+          echo "Resolved venv path: $venv_path"
+
+      - name: Cache poetry venv
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.venv-path.outputs.path }}
+          key: venv-${{ runner.os }}-py3.14-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
 
       - name: Install dependencies
         run: |
@@ -166,9 +234,11 @@ jobs:
       - name: Run tests (parallel)
         run: |
           # NOTE: GMX tests run separately in test-gmx.yml due to fork state conflicts.
-          # Always use verbose pytest output so stalled CI runs show the latest
-          # test names in the Actions log.
-          poetry run pytest tests/ \
+          # ``needs.detect.outputs.pytest_targets`` is either a list of subsystem
+          # directories or the literal ``tests/`` for a full run.  Always use
+          # verbose pytest output so stalled CI runs show the latest test names
+          # in the Actions log.
+          poetry run pytest ${{ needs.detect.outputs.pytest_targets }} \
             --ignore=tests/gmx \
             --timeout-method=thread --tb=native -n auto -v -s --capture=no
         env:
