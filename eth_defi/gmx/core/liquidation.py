@@ -21,11 +21,7 @@ Key Differences from Simplified Estimates:
     config = GMXConfig(web3, user_wallet_address="0x...")
     positions = get_positions(config)
 
-    liq_price = get_liquidation_price(
-        config=config,
-        position_dict=positions["ETH_long"],
-        wallet_address="0x..."
-    )
+    liq_price = get_liquidation_price(config=config, position_dict=positions["ETH_long"], wallet_address="0x...")
     print(f"Liquidation price: ${liq_price:.2f}")
 """
 

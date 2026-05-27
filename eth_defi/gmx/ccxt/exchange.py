@@ -5939,8 +5939,7 @@ class GMX(ExchangeCompatible):
             # operators can grep for unexpected full closes in 5-min logs.
             if isinstance(size_delta_usd, int) and size_delta_usd > 10**20:
                 logger.info(
-                    "FULL CLOSE: Using exact GMX position size %.2f USD (raw=%s, "
-                    "requested %.2f USD ≥ %.1f%% of actual — substituting raw int to prevent dust)",
+                    "FULL CLOSE: Using exact GMX position size %.2f USD (raw=%s, requested %.2f USD ≥ %.1f%% of actual — substituting raw int to prevent dust)",
                     actual_size_usd,
                     size_delta_usd,
                     requested_size_usd,
@@ -5954,8 +5953,7 @@ class GMX(ExchangeCompatible):
                 )
             else:
                 logger.info(
-                    "PARTIAL CLOSE: size_delta_usd=%.2f (requested %.2f, actual position %.2f, "
-                    "source=%s)",
+                    "PARTIAL CLOSE: size_delta_usd=%.2f (requested %.2f, actual position %.2f, source=%s)",
                     size_delta_usd,
                     requested_size_usd,
                     actual_size_usd,
@@ -6001,9 +5999,7 @@ class GMX(ExchangeCompatible):
         # fall below the floor and GMX accepts it as a dust cleanup.
         if not reduceOnly and size_delta_usd < GMX_MIN_COST_USD:
             raise InvalidOrder(
-                f"Order notional ${size_delta_usd:.4f} below GMX minimum "
-                f"${GMX_MIN_COST_USD} for {symbol} {side}; adjust stake / "
-                f"position sizing.",
+                f"Order notional ${size_delta_usd:.4f} below GMX minimum ${GMX_MIN_COST_USD} for {symbol} {side}; adjust stake / position sizing.",
             )
 
         # Resolve market info — honours optional ``market_address`` param so callers can

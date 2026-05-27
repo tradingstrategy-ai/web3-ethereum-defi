@@ -4059,9 +4059,7 @@ class GMX(Exchange):
         # reduce-only exemption rationale.
         if not reduceOnly and size_delta_usd < GMX_MIN_COST_USD:
             raise InvalidOrder(
-                f"Order notional ${size_delta_usd:.4f} below GMX minimum "
-                f"${GMX_MIN_COST_USD} for {symbol} {side}; adjust stake / "
-                f"position sizing.",
+                f"Order notional ${size_delta_usd:.4f} below GMX minimum ${GMX_MIN_COST_USD} for {symbol} {side}; adjust stake / position sizing.",
             )
 
         return {
