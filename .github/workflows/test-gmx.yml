@@ -16,6 +16,7 @@ on:
       - '.github/workflows/test-gmx.yml'
   pull_request:
     branches: [ master ]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'eth_defi/gmx/**'
       - 'tests/gmx/**'
@@ -26,6 +27,8 @@ jobs:
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
+
+    if: github.event.pull_request.draft == false || github.event_name == 'push'
 
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
