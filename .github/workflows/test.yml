@@ -13,46 +13,28 @@ on:
       - 'eth_defi/data/vaults/**'
       - '.github/workflows/!(test.yml)'
 
-env:
-  # Subsystems that need Anvil mainnet-fork against archive RPC, or are
-  # otherwise too heavy for ubuntu-latest. Kept in sync between
-  # test-heavy (which runs them) and test-light (which ignores them).
-  HEAVY_DIRS: >-
-    tests/lagoon
-    tests/enzyme
-    tests/erc_4626
-    tests/hyperliquid
-    tests/derive
-    tests/morpho
-    tests/uniswap_v3
-    tests/aave_v3
-    tests/guard
-    tests/vault
-    tests/safe-integration
-    tests/ipor
-
 jobs:
 
-  test-heavy:
-    # Reserved multicore instance for running heavy fork-RPC tests
+  test-python:
+    # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
-    timeout-minutes: 15
+    timeout-minutes: 60
 
     if: github.event.pull_request.draft == false || github.event_name == 'push'
 
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
     concurrency:
-      group: ${{ github.workflow }}-heavy-${{ github.head_ref || github.run_id }}
+      group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
       cancel-in-progress: true
 
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         python-version: ["3.14"]
 
-    name: heavy (Python ${{ matrix.python-version }})
+    name: Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests
@@ -69,15 +51,6 @@ jobs:
           node-version: 18
           cache: "npm"
           cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
-
-      #      # pnpm needed to compile Enzyme
-      #      # We need version 7 to be exact.
-      #      - name: Install pnpm
-      #        run: |
-      #          curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=7.27.1 sh -
-      #          PNPM_HOME="/home/runner/.local/share/pnpm"
-      #          # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
-      #          echo $PNPM_HOME >> $GITHUB_PATH
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -104,18 +77,12 @@ jobs:
       - name: Resolve poetry venv path
         id: venv-path
         run: |
-          # Resolve where poetry will install the venv so we can cache it.
-          # We must do this AFTER setup-python+poetry are installed and
-          # BEFORE 'poetry install' so a cache hit lets the install step
-          # skip wheel building.
           venv_path=$(poetry env info --path 2>/dev/null || true)
           if [ -z "$venv_path" ]; then
-            # Pre-create the venv so its path is stable across the cache step.
             poetry env use 3.14
             venv_path=$(poetry env info --path)
           fi
           echo "path=$venv_path" >> "$GITHUB_OUTPUT"
-          echo "Resolved venv path: $venv_path"
 
       - name: Cache poetry venv
         uses: actions/cache@v4
@@ -197,24 +164,15 @@ jobs:
               print(f'{d.metadata[\"Name\"]}: {d.metadata[\"Version\"]}')
           "
 
-      # Setup Debug Session before tests - Enable this when you need to debug test issues
-      # - name: Setup Debug Session Before Tests
-      #   uses: csexton/debugger-action@master
-
-      # - name: Setup tmate session for debugging
-      #   uses: mxschmitt/action-tmate@v3
-      #   with:
-      #     limit-access-to-actor: true
-      # if: ${{ failure() || github.event.inputs.debug == 'true' }}
-
       - name: Run tests (parallel)
         run: |
-          # Heavy fork-RPC subsystems that need Beefy cores. List comes from
-          # the HEAVY_DIRS workflow-level env to stay in sync with test-light's
-          # --ignore list. NOTE: GMX tests run separately in test-gmx.yml.
-          # shellcheck disable=SC2086
-          poetry run pytest $HEAVY_DIRS \
-            --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no
+          # NOTE: GMX tests are excluded here and run separately in test-gmx.yml workflow
+          # GMX tests cannot run in parallel due to mainnet fork state conflicts
+          # See .github/workflows/test-gmx.yml for details on why parallel execution fails
+          #
+          # Always use verbose pytest output so stalled CI runs show the latest
+          # test names in the Actions log.
+          poetry run pytest --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no --ignore=tests/gmx
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
@@ -234,111 +192,4 @@ jobs:
           TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
           ARBITRUM_SEPOLIA_RPC_URL: ${{ secrets.ARBITRUM_SEPOLIA_RPC_URL }}
           ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: ${{ secrets.ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY }}
-          HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
-
-  test-light:
-    # Free 1× billing on public repos. 2-way shard via pytest-split.
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    if: github.event.pull_request.draft == false || github.event_name == 'push'
-
-    concurrency:
-      group: ${{ github.workflow }}-light-${{ github.head_ref || github.run_id }}-${{ matrix.shard }}
-      cancel-in-progress: true
-
-    strategy:
-      fail-fast: true
-      matrix:
-        shard: [1, 2]
-
-    name: light shard ${{ matrix.shard }}/2
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: false
-
-      - name: Init guard contract submodules
-        run: |
-          git submodule update --init \
-            contracts/guard/lib/forge-std \
-            contracts/guard/lib/openzeppelin-contracts \
-            contracts/guard/lib/hyper-evm-lib
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.21.0
-
-      - name: Install poetry
-        run: pipx install "poetry>=2.3"
-
-      - name: Set up Python 3.14
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
-          cache: "poetry"
-          cache-dependency-path: |
-            **/pyproject.toml
-
-      - name: Resolve poetry venv path
-        id: venv-path
-        run: |
-          venv_path=$(poetry env info --path 2>/dev/null || true)
-          if [ -z "$venv_path" ]; then
-            poetry env use 3.14
-            venv_path=$(poetry env info --path)
-          fi
-          echo "path=$venv_path" >> "$GITHUB_OUTPUT"
-
-      - name: Cache poetry venv
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.venv-path.outputs.path }}
-          key: venv-${{ runner.os }}-py3.14-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
-
-      - name: Install dependencies
-        run: |
-          poetry install -E test -E data -E hypersync -E ccxt -E duckdb
-
-      - name: Cache Foundry
-        uses: actions/cache@v4
-        with:
-          path: ~/.foundry
-          key: foundry-v1.2.3-${{ runner.os }}
-          restore-keys: |
-            foundry-v1.2.3-
-            foundry-
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: "v1.2.3"
-
-      - name: Run tests (parallel, shard ${{ matrix.shard }}/2)
-        run: |
-          # The HEAVY_DIRS env is space-separated; convert each entry to a
-          # --ignore flag so the light shards never collect heavy tests.
-          ignore_args=""
-          for d in $HEAVY_DIRS; do
-            ignore_args="$ignore_args --ignore=$d"
-          done
-          # shellcheck disable=SC2086
-          poetry run pytest tests/ \
-            --ignore=tests/gmx \
-            $ignore_args \
-            --splits 2 --group ${{ matrix.shard }} \
-            --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no
-        env:
-          BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
-          JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
-          JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
-          JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
-          JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
-          JSON_RPC_BINANCE: ${{ secrets.JSON_RPC_BINANCE }}
-          JSON_RPC_ARBITRUM: ${{ secrets.JSON_RPC_ARBITRUM }}
-          JSON_RPC_PLASMA: ${{ secrets.JSON_RPC_PLASMA }}
-          JSON_RPC_HYPERLIQUID: ${{ secrets.JSON_RPC_HYPERLIQUID }}
-          ETHEREUM_JSON_RPC: ${{ secrets.JSON_RPC_ETHEREUM }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
