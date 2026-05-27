@@ -1508,7 +1508,7 @@ async def _fetch_guard_events_hypersync_async(
 
     topic0_list = list(topic_map.keys())
     logger.info(
-        "HyperSync guard event scan: module %s, blocks %d-%s, topics %d",
+        "Hypersync stream open: module %s, blocks %d-%s, topics %d [lagoon-guard-event-scan]",
         module_address,
         from_block,
         to_block if to_block is not None else "latest",
@@ -1540,13 +1540,25 @@ async def _fetch_guard_events_hypersync_async(
         ),
     )
 
-    receiver = await client.stream(query, hypersync.StreamConfig())
+    try:
+        receiver = await client.stream(query, hypersync.StreamConfig())
+    except RuntimeError as e:
+        if "429" in str(e):
+            raise RuntimeError(f"Hypersync rate limited [lagoon-guard-event-scan]: {e}") from e
+        raise
     events: list[DecodedGuardEvent] = []
     chunk_count = 0
     raw_log_count = 0
 
     while True:
-        res = await asyncio.wait_for(receiver.recv(), timeout=recv_timeout)
+        try:
+            res = await asyncio.wait_for(receiver.recv(), timeout=recv_timeout)
+        except asyncio.TimeoutError as e:
+            raise RuntimeError(f"Hypersync stream() read timeout after {recv_timeout} seconds [lagoon-guard-event-scan]") from e
+        except RuntimeError as e:
+            if "429" in str(e):
+                raise RuntimeError(f"Hypersync rate limited [lagoon-guard-event-scan]: {e}") from e
+            raise
         if res is None:
             break
 

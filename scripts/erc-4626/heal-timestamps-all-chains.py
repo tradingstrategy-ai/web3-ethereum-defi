@@ -172,6 +172,7 @@ def heal_chain(chain_id: int, dry_run: bool) -> dict:
                     start_block=fetch_start,
                     end_block=fetch_end,
                     display_progress=False,
+                    reason="manual-gap-heal-all-chains",
                 ):
                     index.append(block_header.block_number)
                     values.append(block_header.timestamp)

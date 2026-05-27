@@ -201,7 +201,13 @@ class AaveLiquidationReader:
         """
         assert end_block >= start_block
 
-        hypersync_chain = await self.client.get_chain_id()
+        logger.info("Hypersync API call: get_chain_id [aave-liquidation-scan]")
+        try:
+            hypersync_chain = await self.client.get_chain_id()
+        except RuntimeError as e:
+            if "429" in str(e):
+                raise RuntimeError(f"Hypersync rate limited [aave-liquidation-scan]: {e}") from e
+            raise
         assert hypersync_chain == self.web3.eth.chain_id, f"Hypersync client chain does not match Web3 chain: {hypersync_chain} != {self.web3.eth.chain_id}"
 
         chain_id = self.web3.eth.chain_id
@@ -210,9 +216,20 @@ class AaveLiquidationReader:
         logger.info("Building HyperSync query")
         query = self.build_query(start_block, end_block)
 
-        logger.info(f"Starting HyperSync stream {start_block:,} to {end_block:,}, chain {chain_name}, query is {query}")
+        logger.info(
+            "Hypersync stream open: chain %s, blocks %d-%d (%d blocks) [aave-liquidation-scan]",
+            chain_name,
+            start_block,
+            end_block,
+            end_block - start_block,
+        )
         # start the stream
-        receiver = await self.client.stream(query, hypersync.StreamConfig())
+        try:
+            receiver = await self.client.stream(query, hypersync.StreamConfig())
+        except RuntimeError as e:
+            if "429" in str(e):
+                raise RuntimeError(f"Hypersync rate limited [aave-liquidation-scan]: {e}") from e
+            raise
 
         if display_progress:
             progress_bar = tqdm(
@@ -235,7 +252,11 @@ class AaveLiquidationReader:
             try:
                 res = await asyncio.wait_for(receiver.recv(), timeout=self.hypersync_read_timeout)
             except asyncio.TimeoutError as e:
-                raise RuntimeError(f"Hypersync stream() read timeout after {self.hypersync_read_timeout} seconds - currently this is unrecoverable TODO") from e
+                raise RuntimeError(f"Hypersync stream() read timeout after {self.hypersync_read_timeout} seconds [aave-liquidation-scan]") from e
+            except RuntimeError as e:
+                if "429" in str(e):
+                    raise RuntimeError(f"Hypersync rate limited [aave-liquidation-scan]: {e}") from e
+                raise
 
             # exit if the stream finished
             if res is None:

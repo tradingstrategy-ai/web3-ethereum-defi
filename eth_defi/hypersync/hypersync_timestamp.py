@@ -57,18 +57,23 @@ def _is_hypersync_rate_limit_error(e: Exception) -> bool:
     return isinstance(e, RuntimeError) and "429" in str(e)
 
 
-async def _validate_hypersync_chain_id_async(client: hypersync.HypersyncClient, expected_chain_id: int) -> None:
+async def _validate_hypersync_chain_id_async(
+    client: hypersync.HypersyncClient,
+    expected_chain_id: int,
+    reason: str | None = None,
+) -> None:
     """Validate that the Hypersync client is connected to the expected chain.
 
     Guards against poisoning persistent caches with wrong-chain data.
     Wraps 429 errors as :py:class:`HypersyncFlaky` so the caller's
     retry/backoff loop handles rate limits.
     """
+    reason_suffix = f" [{reason}]" if reason else ""
     try:
         connected = await client.get_chain_id()
     except RuntimeError as e:
         if _is_hypersync_rate_limit_error(e):
-            raise HypersyncFlaky(f"Hypersync rate limited during chain_id validation: {e}") from e
+            raise HypersyncFlaky(f"Hypersync rate limited during chain_id validation{reason_suffix}: {e}") from e
         raise
     assert connected == expected_chain_id, f"Hypersync client connected to chain {connected}, but expected {expected_chain_id}"
 
@@ -82,10 +87,11 @@ async def get_block_timestamps_using_hypersync_async(
     display_progress: bool = True,
     progress_throttle=10_000,
     validate_chain_id: bool = True,
+    reason: str | None = None,
 ) -> AsyncIterable[BlockHeader]:
     """Read block timestamps using Hypersync API.
 
-    Instead of hammering `eth_getBlockByNumber` JSON-RPC endpoint, we can
+    Instead of hammering ``eth_getBlockByNumber`` JSON-RPC endpoint, we can
     get block timestamps using Hypersync API 1000x faster.
 
     :param chain_id:
@@ -106,6 +112,10 @@ async def get_block_timestamps_using_hypersync_async(
         the expected chain before streaming. Set to ``False`` when the
         caller has already validated (e.g. the cached path).
 
+    :param reason:
+        Human-readable label for this request, included in log and
+        error messages to help track which caller is consuming API quota.
+
     """
 
     assert isinstance(client, hypersync.HypersyncClient), f"Expected HypersyncClient, got {type(client)}"
@@ -113,8 +123,19 @@ async def get_block_timestamps_using_hypersync_async(
     assert start_block >= 0
     assert end_block >= start_block, f"end_block {end_block} must be >= start_block {start_block}"
 
+    reason_suffix = f" [{reason}]" if reason else ""
+
     if validate_chain_id:
-        await _validate_hypersync_chain_id_async(client, chain_id)
+        await _validate_hypersync_chain_id_async(client, chain_id, reason=reason)
+
+    logger.info(
+        "Hypersync stream open: chain %d, blocks %d-%d (%d blocks)%s",
+        chain_id,
+        start_block,
+        end_block,
+        end_block - start_block,
+        reason_suffix,
+    )
 
     if display_progress:
         progress_bar = tqdm(
@@ -145,18 +166,18 @@ async def get_block_timestamps_using_hypersync_async(
         receiver = await client.stream(query, hypersync.StreamConfig())
     except RuntimeError as e:
         if _is_hypersync_rate_limit_error(e):
-            raise HypersyncFlaky(f"Hypersync rate limited during stream setup: {e}") from e
+            raise HypersyncFlaky(f"Hypersync rate limited during stream setup{reason_suffix}: {e}") from e
         raise
 
     while True:
         try:
             res = await asyncio.wait_for(receiver.recv(), timeout=timeout)
         except asyncio.TimeoutError as e:
-            logger.error("HyperSync receiver timed out, cannot recover")
-            raise HypersyncFlaky(f"Cannot recover from HyperSync stream timeout after {timeout} seconds") from e
+            logger.error("HyperSync receiver timed out%s, cannot recover", reason_suffix)
+            raise HypersyncFlaky(f"Cannot recover from HyperSync stream timeout after {timeout} seconds{reason_suffix}") from e
         except RuntimeError as e:
             if _is_hypersync_rate_limit_error(e):
-                raise HypersyncFlaky(f"Hypersync rate limited during streaming: {e}") from e
+                raise HypersyncFlaky(f"Hypersync rate limited during streaming{reason_suffix}: {e}") from e
             raise
 
         # exit if the stream finished
@@ -233,7 +254,13 @@ def get_hypersync_block_height(
     """
 
     async def _hypersync_asyncio_wrapper():
-        return await client.get_height()
+        logger.info("Hypersync API call: get_height [block-height-check]")
+        try:
+            return await client.get_height()
+        except RuntimeError as e:
+            if _is_hypersync_rate_limit_error(e):
+                raise HypersyncFlaky(f"Hypersync rate limited [block-height-check]: {e}") from e
+            raise
 
     return asyncio.run(_hypersync_asyncio_wrapper())
 
@@ -296,7 +323,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         # Validate chain_id only when we actually need to fetch from Hypersync.
         # Skipped on warm cache hits to avoid wasting API quota.
         if isinstance(client, hypersync.HypersyncClient):
-            await _validate_hypersync_chain_id_async(client, chain_id)
+            await _validate_hypersync_chain_id_async(client, chain_id, reason="timestamp-cache-validate")
 
         iter = get_block_timestamps_using_hypersync_async(
             client,
@@ -305,6 +332,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
             end_block=end_block,
             display_progress=display_progress,
             validate_chain_id=False,  # Already validated above
+            reason="timestamp-cache-fill",
         )
 
         async for block_header in iter:
@@ -352,6 +380,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
                     end_block=gap_end - 1,
                     display_progress=False,
                     validate_chain_id=False,  # Already validated above
+                    reason=f"gap-heal-{heal_attempt + 1}/{max_heal_attempts}",
                 ):
                     heal_index.append(bh.block_number)
                     heal_values.append(bh.timestamp)

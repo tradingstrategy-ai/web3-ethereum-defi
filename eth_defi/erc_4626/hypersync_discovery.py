@@ -178,9 +178,20 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         logger.info("Building HyperSync query")
         query = self.build_query(start_block, end_block)
 
-        logger.info(f"Starting HyperSync stream {start_block:,} to {end_block:,}, chain {chain}, query is {query}")
+        logger.info(
+            "Hypersync stream open: chain %d, blocks %d-%d (%d blocks) [vault-lead-discovery]",
+            chain,
+            start_block,
+            end_block,
+            end_block - start_block,
+        )
         # start the stream
-        receiver = await self.client.stream(query, hypersync.StreamConfig())
+        try:
+            receiver = await self.client.stream(query, hypersync.StreamConfig())
+        except RuntimeError as e:
+            if "429" in str(e):
+                raise HypersyncCrappedOut(f"Hypersync rate limited [vault-lead-discovery]: {e}") from e
+            raise
 
         if display_progress:
             chain_name = get_chain_name(self.web3.eth.chain_id)
@@ -209,10 +220,12 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
             try:
                 res = await asyncio.wait_for(receiver.recv(), timeout=self.recv_timeout)
             except asyncio.TimeoutError as e:
-                # TODO: Not sure if we can recover from a timeout like this
-                retry_sleep = 10
-                logger.error("HyperSync receiver timed out, sleeping %f", retry_sleep)
-                raise HypersyncCrappedOut(f"Cannot recover from HyperSync stream timeout after {self.recv_timeout} seconds") from e
+                logger.error("HyperSync receiver timed out [vault-lead-discovery]")
+                raise HypersyncCrappedOut(f"Cannot recover from HyperSync stream timeout after {self.recv_timeout} seconds [vault-lead-discovery]") from e
+            except RuntimeError as e:
+                if "429" in str(e):
+                    raise HypersyncCrappedOut(f"Hypersync rate limited [vault-lead-discovery]: {e}") from e
+                raise
 
             # exit if the stream finished
             if res is None:
