@@ -1,21 +1,22 @@
-name: Automated test suite
+name: token_analysis Tests
 
 on:
   push:
     branches: [master]
+    paths:
+      - 'eth_defi/token_analysis/**'
+      - 'tests/token_analysis/**'
+      - '.github/workflows/test-integration-token_analysis.yml'
   pull_request:
     branches: [master]
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - 'docs/**'
-      - 'scripts/**'
-      - '**.md'
-      - 'eth_defi/data/vaults/**'
-      - '.github/workflows/!(test.yml)'
+    paths:
+      - 'eth_defi/token_analysis/**'
+      - 'tests/token_analysis/**'
+      - '.github/workflows/test-integration-token_analysis.yml'
 
 jobs:
-
-  test-python:
+  test:
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
@@ -25,7 +26,7 @@ jobs:
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.python-version }}
+      group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
 
     strategy:
@@ -33,7 +34,7 @@ jobs:
       matrix:
         python-version: ["3.14"]
 
-    name: Python ${{ matrix.python-version }}
+    name: token_analysis Tests — Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests
@@ -50,15 +51,6 @@ jobs:
           node-version: 18
           cache: "npm"
           cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
-
-      #      # pnpm needed to compile Enzyme
-      #      # We need version 7 to be exact.
-      #      - name: Install pnpm
-      #        run: |
-      #          curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=7.27.1 sh -
-      #          PNPM_HOME="/home/runner/.local/share/pnpm"
-      #          # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
-      #          echo $PNPM_HOME >> $GITHUB_PATH
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -144,14 +136,6 @@ jobs:
           echo ""
           echo "=== Web3.py Version ==="
           poetry run python -c "import web3; print(f'Web3.py version: {web3.__version__}')"
-          echo ""
-          echo "=== Installed Packages (Web3-related) ==="
-          poetry run python -c "
-          from importlib.metadata import distributions
-          web3_packages = [d for d in distributions() if 'web3' in d.metadata['Name'].lower() or 'eth' in d.metadata['Name'].lower()]
-          for d in sorted(web3_packages, key=lambda x: x.metadata['Name']):
-              print(f'{d.metadata[\"Name\"]}: {d.metadata[\"Version\"]}')
-          "
 
       # Setup Debug Session before tests - Enable this when you need to debug test issues
       # - name: Setup Debug Session Before Tests
@@ -163,50 +147,11 @@ jobs:
       #     limit-access-to-actor: true
       # if: ${{ failure() || github.event.inputs.debug == 'true' }}
 
-      - name: Run tests
+      - name: Run token_analysis tests
         run: |
-          # NOTE: GMX tests run separately in test-gmx.yml (fork state conflicts).
-          # Each other subsystem runs in its own test-integration-<sub>.yml workflow
-          # (path-filtered so it only fires when that subsystem's files change).
-          # This catch-all runs what remains: flat tests/ root files and any subsystem
-          # not yet fully migrated to its own workflow.
-          #
           # Always use verbose pytest output so stalled CI runs show the latest
           # test names in the Actions log.
-          poetry run pytest tests/ \
-            --ignore=tests/gmx \
-            --ignore=tests/aave_v3 \
-            --ignore=tests/cctp \
-            --ignore=tests/derive \
-            --ignore=tests/enzyme \
-            --ignore=tests/erc_4626 \
-            --ignore=tests/event_reader \
-            --ignore=tests/feed \
-            --ignore=tests/gains \
-            --ignore=tests/grvt \
-            --ignore=tests/guard \
-            --ignore=tests/hibachi \
-            --ignore=tests/hyperliquid \
-            --ignore=tests/hypersync \
-            --ignore=tests/ipor \
-            --ignore=tests/lagoon \
-            --ignore=tests/lifi \
-            --ignore=tests/lighter \
-            --ignore=tests/morpho \
-            --ignore=tests/one_delta \
-            --ignore=tests/orderly \
-            --ignore=tests/provider \
-            --ignore=tests/research \
-            --ignore=tests/rpc \
-            --ignore=tests/safe \
-            --ignore="tests/safe-integration" \
-            --ignore=tests/token_analysis \
-            --ignore=tests/uniswap_v2 \
-            --ignore=tests/uniswap_v3 \
-            --ignore=tests/usdc \
-            --ignore=tests/vault \
-            --ignore=tests/velora \
-            --ignore=tests/velvet \
+          poetry run pytest tests/token_analysis/ \
             --timeout-method=thread --tb=native -n auto -v -s --capture=no
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
