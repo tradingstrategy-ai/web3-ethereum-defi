@@ -1,0 +1,339 @@
+name: Subsystem Tests
+
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - 'docs/**'
+      - 'scripts/**'
+      - '**.md'
+      - 'eth_defi/data/vaults/**'
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - 'docs/**'
+      - 'scripts/**'
+      - '**.md'
+      - 'eth_defi/data/vaults/**'
+
+# Cancel in-flight runs for the same branch when a new push arrives.
+# Matrix jobs are all cancelled together since they share the workflow run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  # ── Detect which subsystems changed ────────────────────────────────────────
+  detect:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false || github.event_name == 'push'
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has_changes: ${{ steps.set-matrix.outputs.has_changes }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            run_all:
+              - 'pyproject.toml'
+              - 'poetry.lock'
+              - '.github/workflows/test-subsystems.yml'
+            aave_v3:
+              - 'eth_defi/aave_v3/**'
+              - 'tests/aave_v3/**'
+            cctp:
+              - 'eth_defi/cctp/**'
+              - 'tests/cctp/**'
+            derive:
+              - 'eth_defi/derive/**'
+              - 'tests/derive/**'
+            enzyme:
+              - 'eth_defi/enzyme/**'
+              - 'tests/enzyme/**'
+            erc_4626:
+              - 'eth_defi/erc_4626/**'
+              - 'tests/erc_4626/**'
+            event_reader:
+              - 'eth_defi/event_reader/**'
+              - 'tests/event_reader/**'
+            feed:
+              - 'eth_defi/feed/**'
+              - 'tests/feed/**'
+            gains:
+              - 'eth_defi/gains/**'
+              - 'tests/gains/**'
+            grvt:
+              - 'eth_defi/grvt/**'
+              - 'tests/grvt/**'
+            guard:
+              - 'eth_defi/guard/**'
+              - 'eth_defi/simple_vault/**'
+              - 'tests/guard/**'
+            hibachi:
+              - 'eth_defi/hibachi/**'
+              - 'tests/hibachi/**'
+            hyperliquid:
+              - 'eth_defi/hyperliquid/**'
+              - 'tests/hyperliquid/**'
+            hypersync:
+              - 'eth_defi/hypersync/**'
+              - 'tests/hypersync/**'
+            ipor:
+              - 'eth_defi/ipor/**'
+              - 'tests/ipor/**'
+            lagoon:
+              - 'eth_defi/lagoon/**'
+              - 'eth_defi/erc_4626/**'
+              - 'eth_defi/safe/**'
+              - 'tests/lagoon/**'
+            lifi:
+              - 'eth_defi/lifi/**'
+              - 'tests/lifi/**'
+            lighter:
+              - 'eth_defi/lighter/**'
+              - 'tests/lighter/**'
+            morpho:
+              - 'eth_defi/morpho/**'
+              - 'tests/morpho/**'
+            one_delta:
+              - 'eth_defi/one_delta/**'
+              - 'tests/one_delta/**'
+            orderly:
+              - 'eth_defi/orderly/**'
+              - 'tests/orderly/**'
+            provider:
+              - 'eth_defi/provider/**'
+              - 'tests/provider/**'
+            research:
+              - 'eth_defi/erc_4626/**'
+              - 'eth_defi/research/**'
+              - 'tests/research/**'
+            rpc:
+              - 'eth_defi/provider/**'
+              - 'eth_defi/rpc/**'
+              - 'tests/rpc/**'
+            safe:
+              - 'eth_defi/safe/**'
+              - 'tests/safe/**'
+            safe-integration:
+              - 'eth_defi/safe/**'
+              - 'tests/safe-integration/**'
+            token_analysis:
+              - 'eth_defi/token_analysis/**'
+              - 'tests/token_analysis/**'
+            uniswap_v2:
+              - 'eth_defi/uniswap_v2/**'
+              - 'tests/uniswap_v2/**'
+            uniswap_v3:
+              - 'eth_defi/uniswap_v3/**'
+              - 'tests/uniswap_v3/**'
+            usdc:
+              - 'eth_defi/usdc/**'
+              - 'tests/usdc/**'
+            vault:
+              - 'eth_defi/erc_4626/**'
+              - 'eth_defi/vault/**'
+              - 'tests/vault/**'
+            velora:
+              - 'eth_defi/velora/**'
+              - 'tests/velora/**'
+            velvet:
+              - 'eth_defi/velvet/**'
+              - 'tests/velvet/**'
+
+      - name: Build test matrix
+        id: set-matrix
+        env:
+          CHANGES: ${{ steps.filter.outputs.changes }}
+          RUN_ALL: ${{ steps.filter.outputs.run_all }}
+        run: |
+          python3 << 'EOF'
+          import json, os
+          ALL_SUBS = [
+              "aave_v3", "cctp", "derive", "enzyme", "erc_4626", "event_reader",
+              "feed", "gains", "grvt", "guard", "hibachi", "hyperliquid", "hypersync",
+              "ipor", "lagoon", "lifi", "lighter", "morpho", "one_delta", "orderly",
+              "provider", "research", "rpc", "safe", "safe-integration", "token_analysis",
+              "uniswap_v2", "uniswap_v3", "usdc", "vault", "velora", "velvet",
+          ]
+          run_all = os.environ.get("RUN_ALL", "false").lower() == "true"
+          if run_all:
+              matrix = ALL_SUBS
+          else:
+              changes = json.loads(os.environ.get("CHANGES", "[]"))
+              matrix = [c for c in changes if c in ALL_SUBS]
+          has_changes = "true" if matrix else "false"
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"matrix={json.dumps(matrix)}\n")
+              f.write(f"has_changes={has_changes}\n")
+          print(f"run_all={run_all}, subsystems to test: {matrix}")
+          EOF
+
+  # ── Run tests for each detected subsystem ──────────────────────────────────
+  test:
+    needs: detect
+    if: needs.detect.outputs.has_changes == 'true'
+
+    # Reserved multicore instance for running tests
+    runs-on:
+      group: Beefy runners
+
+    strategy:
+      fail-fast: false
+      matrix:
+        subsystem: ${{ fromJson(needs.detect.outputs.matrix) }}
+
+    name: ${{ matrix.subsystem }} Tests — Python 3.14
+
+    steps:
+      # TODO: we only need contracts/aave-v3-deploy for tests
+      # but there does not seem to be an option to choose which submodules to checkout
+      # https://github.com/actions/checkout
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          # npm version need to support aave-deploy
+          node-version: 18
+          cache: "npm"
+          cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
+
+      #      # pnpm needed to compile Enzyme
+      #      # We need version 7 to be exact.
+      #      - name: Install pnpm
+      #        run: |
+      #          curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=7.27.1 sh -
+      #          PNPM_HOME="/home/runner/.local/share/pnpm"
+      #          # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
+      #          echo $PNPM_HOME >> $GITHUB_PATH
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+
+      - name: Export PNPM location
+        run: |
+          PNPM_HOME="/home/runner/.local/share/pnpm"
+          # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
+          echo $PNPM_HOME >> $GITHUB_PATH
+
+      - name: Install poetry (using matrix Python)
+        run: pipx install "poetry>=2.3" --python "${{ env.PYTHON_PATH }}"
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: "poetry"
+          cache-dependency-path: |
+            **/pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          poetry install
+          poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb -E posts
+
+      - name: Install Ganache
+        run: yarn global add ganache
+
+      - name: Cache Foundry
+        uses: actions/cache@v4
+        with:
+          path: ~/.foundry
+          key: foundry-v1.2.3-${{ runner.os }}
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          # pick a nightly release from: https://github.com/foundry-rs/foundry/releases
+          # version: "nightly-de33b6af53005037b463318d2628b5cfcaf39916"
+          #version: "nightly-fdd321bac95f0935529164a88faf99d4d5cfa321"
+          version: "v1.2.3"
+
+      # We also work around race condition for setting up Aave NPM packages.
+      - name: Setup Aave v3 for tests
+        run: |
+          poetry run install-aave-for-testing
+
+      # We also work around race condition for setting up Aave NPM packages.
+      - name: Build needed contracts
+        run: |
+          pnpm --version
+      # Broken with the latest foudry?
+      # make guard in-house safe-integration
+
+      # Lagoon source deployment needs soldeer
+      - name: Cache Lagoon soldeer deps
+        uses: actions/cache@v4
+        with:
+          path: contracts/lagoon-v0/dependencies
+          key: soldeer-${{ hashFiles('contracts/lagoon-v0/soldeer.lock', 'contracts/lagoon-v0/foundry.toml') }}
+          restore-keys: |
+            soldeer-
+
+      - name: Lagoon dependency issue smoke test
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          (cd contracts/lagoon-v0 && forge soldeer install)
+          ls -lha contracts/lagoon-v0/dependencies/
+          ls -lha contracts/lagoon-v0/dependencies/@openzeppelin-contracts-upgradeable-5.0.0/
+
+      # CRITICAL: Verify the correct Web3.py version is installed
+      # This helps debug any remaining issues
+      - name: Verify Web3.py version and environment isolation
+        run: |
+          echo "=== Environment Information ==="
+          poetry env info
+          echo ""
+          echo "=== Python Version ==="
+          poetry run python --version
+          echo ""
+          echo "=== Web3.py Version ==="
+          poetry run python -c "import web3; print(f'Web3.py version: {web3.__version__}')"
+
+      # Setup Debug Session before tests - Enable this when you need to debug test issues
+      # - name: Setup Debug Session Before Tests
+      #   uses: csexton/debugger-action@master
+
+      # - name: Setup tmate session for debugging
+      #   uses: mxschmitt/action-tmate@v3
+      #   with:
+      #     limit-access-to-actor: true
+      # if: ${{ failure() || github.event.inputs.debug == 'true' }}
+
+      - name: Run ${{ matrix.subsystem }} tests
+        run: |
+          # Always use verbose pytest output so stalled CI runs show the latest
+          # test names in the Actions log.
+          poetry run pytest tests/${{ matrix.subsystem }}/ \
+            --timeout-method=thread --tb=native -n auto -v -s --capture=no
+        env:
+          BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
+          JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
+          JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
+          JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
+          JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
+          JSON_RPC_BINANCE: ${{ secrets.JSON_RPC_BINANCE }}
+          JSON_RPC_ARBITRUM: ${{ secrets.JSON_RPC_ARBITRUM }}
+          JSON_RPC_PLASMA: ${{ secrets.JSON_RPC_PLASMA }}
+          JSON_RPC_HYPERLIQUID: ${{ secrets.JSON_RPC_HYPERLIQUID }}
+          ETHEREUM_JSON_RPC: ${{ secrets.JSON_RPC_ETHEREUM }}
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_REGION: ${{ secrets.GOOGLE_CLOUD_REGION }}
+          KEY_RING: ${{ secrets.KEY_RING }}
+          KEY_NAME: ${{ secrets.KEY_NAME }}
+          GCP_ADC_CREDENTIALS_STRING: ${{ secrets.GCP_ADC_CREDENTIALS_STRING }}
+          TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
+          ARBITRUM_SEPOLIA_RPC_URL: ${{ secrets.ARBITRUM_SEPOLIA_RPC_URL }}
+          ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: ${{ secrets.ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY }}
+          HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
