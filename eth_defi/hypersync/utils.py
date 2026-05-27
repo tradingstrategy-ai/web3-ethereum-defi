@@ -53,12 +53,11 @@ def configure_hypersync_from_env(
     if scan_backend == "auto":
         assert hypersync_api_key, f"HYPERSYNC_API_KEY must be set to use auto scan backend"
 
-    # Always throttle by default.  HYPERSYNC_RPM overrides the default;
-    # an explicit limiter= argument takes precedence over both.
-    if limiter is None:
-        limiter = _create_limiter(requests_per_minute=get_hypersync_rpm_from_env())
-
     def _make_client(url: str) -> ThrottledHypersyncClient:
+        """Create a throttled client, lazily building the limiter on first use."""
+        nonlocal limiter
+        if limiter is None:
+            limiter = _create_limiter(requests_per_minute=get_hypersync_rpm_from_env())
         config = hypersync.ClientConfig(url=url, bearer_token=hypersync_api_key)
         return create_throttled_hypersync_client(config, limiter=limiter)
 

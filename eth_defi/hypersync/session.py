@@ -165,9 +165,12 @@ def get_hypersync_rpm_from_env() -> int:
     if not raw:
         return DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE
     try:
-        return int(raw)
+        rpm = int(raw)
     except ValueError:
-        raise ValueError(f"HYPERSYNC_RPM must be an integer, got: {raw!r}") from None
+        raise ValueError(f"HYPERSYNC_RPM must be a positive integer, got: {raw!r}") from None
+    if rpm <= 0:
+        raise ValueError(f"HYPERSYNC_RPM must be a positive integer, got: {rpm}")
+    return rpm
 
 
 def create_throttled_hypersync_client(
