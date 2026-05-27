@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [master]
 
+# actions: write is required by the cancel-sibling job below so it can call
+# the Actions REST API via `gh run cancel`.
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   test-python:
     # Reserved multicore instance for running tests
@@ -189,3 +195,34 @@ jobs:
       # Ruff format check now runs in .github/workflows/lint.yml on the free
       # ubuntu-latest runner. Keeping it out of the Beefy job saves billable
       # minutes and gives lint feedback before tests finish.
+
+  # Cancel the in-progress test-gmx.yml run for the same commit when this
+  # job fails, so we don't keep burning Beefy minutes on a sibling workflow
+  # once the main test suite has already gone red. Runs on the free runner.
+  cancel-sibling-gmx:
+    needs: test-python
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Cancel test-gmx workflow run for this SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          run_id=$(gh run list \
+            --repo "$REPO" \
+            --workflow=test-gmx.yml \
+            --status=in_progress \
+            --limit=20 \
+            --json databaseId,headSha \
+            --jq ".[] | select(.headSha == \"$SHA\") | .databaseId" \
+            | head -n1)
+          if [ -n "$run_id" ]; then
+            echo "Cancelling test-gmx run $run_id (SHA $SHA)"
+            gh run cancel --repo "$REPO" "$run_id"
+          else
+            echo "No in-progress test-gmx run found for SHA $SHA"
+          fi
