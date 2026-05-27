@@ -244,10 +244,7 @@ def test_builders_return_amount_in_base_tokens_not_usd_notional(symbol, index_to
         symbol,
     )
 
-    assert rest_sync["amount"] == pytest.approx(expected_amount_tokens, rel=1e-6), (
-        f"sync _build_order_from_rest_order amount must be base tokens "
-        f"(expected {expected_amount_tokens:.6f} {symbol.split('/')[0]}, got {rest_sync['amount']})"
-    )
+    assert rest_sync["amount"] == pytest.approx(expected_amount_tokens, rel=1e-6), f"sync _build_order_from_rest_order amount must be base tokens (expected {expected_amount_tokens:.6f} {symbol.split('/')[0]}, got {rest_sync['amount']})"
     assert rest_sync["remaining"] == pytest.approx(expected_amount_tokens, rel=1e-6)
     assert rest_async["amount"] == pytest.approx(expected_amount_tokens, rel=1e-6)
     assert rest_async["remaining"] == pytest.approx(expected_amount_tokens, rel=1e-6)
@@ -282,10 +279,7 @@ def test_builders_return_amount_in_base_tokens_not_usd_notional(symbol, index_to
         symbol,
     )
 
-    assert trade_action_sync["amount"] == pytest.approx(expected_amount_tokens, rel=1e-6), (
-        f"sync _build_order_from_trade_action amount must be base tokens from sizeDeltaInTokens "
-        f"(expected {expected_amount_tokens:.6f}, got {trade_action_sync['amount']})"
-    )
+    assert trade_action_sync["amount"] == pytest.approx(expected_amount_tokens, rel=1e-6), f"sync _build_order_from_trade_action amount must be base tokens from sizeDeltaInTokens (expected {expected_amount_tokens:.6f}, got {trade_action_sync['amount']})"
     assert trade_action_sync["filled"] == pytest.approx(expected_amount_tokens, rel=1e-6)
     assert trade_action_async["amount"] == pytest.approx(expected_amount_tokens, rel=1e-6)
     assert trade_action_async["filled"] == pytest.approx(expected_amount_tokens, rel=1e-6)

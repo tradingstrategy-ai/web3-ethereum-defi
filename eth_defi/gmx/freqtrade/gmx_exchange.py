@@ -900,13 +900,10 @@ class Gmx(Exchange):
         resolved["remaining"] = order.get("remaining") or order.get("amount")
         resolved_info = dict(order.get("info") or {})
         resolved_info["gmx_status"] = "no_key_not_found_in_any_tier"
-        resolved_info["cancel_reason"] = (
-            "no matching GMX pending order in gmxapi.ai /v1/orders nor on-chain SyntheticsReader.getAccountOrders"
-        )
+        resolved_info["cancel_reason"] = "no matching GMX pending order in gmxapi.ai /v1/orders nor on-chain SyntheticsReader.getAccountOrders"
         resolved["info"] = resolved_info
         logger.warning(
-            "fetch_order no-key reconcile: order %s for %s flipped open→cancelled "
-            "(REST + on-chain Reader both report no matching pending row)",
+            "fetch_order no-key reconcile: order %s for %s flipped open→cancelled (REST + on-chain Reader both report no matching pending row)",
             order_id[:18],
             pair,
         )
@@ -1023,13 +1020,7 @@ class Gmx(Exchange):
                 )
                 return False, None
 
-        match = (
-            self._match_rest_pending_order(
-                order, rest_orders, market_token=market_token, token_decimals=token_decimals
-            )
-            if token_decimals is not None
-            else None
-        )
+        match = self._match_rest_pending_order(order, rest_orders, market_token=market_token, token_decimals=token_decimals) if token_decimals is not None else None
         if match is not None:
             recovered_key = match.get("key") or match.get("orderKey")
             if recovered_key:
@@ -1162,11 +1153,7 @@ class Gmx(Exchange):
                 )
                 return False, None
 
-        match = (
-            self._match_reader_pending_order(order, pending, token_decimals=token_decimals)
-            if token_decimals is not None
-            else None
-        )
+        match = self._match_reader_pending_order(order, pending, token_decimals=token_decimals) if token_decimals is not None else None
         if match is not None:
             recovered_key = "0x" + match.order_key.hex()
             self._api._patch_cached_order_key(order_id, recovered_key)

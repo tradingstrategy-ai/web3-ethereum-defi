@@ -156,9 +156,7 @@ def test_curated_descriptions_cover_operational_errors():
         "DisabledMarket",
         "InsufficientExecutionFee",
     }
-    described = {
-        v.name for v in _GMX_ERROR_REGISTRY.values() if v.description
-    }
+    described = {v.name for v in _GMX_ERROR_REGISTRY.values() if v.description}
     missing = operational_errors - described
     assert not missing, f"Operational errors missing descriptions: {missing}"
 
@@ -186,11 +184,7 @@ def test_adapter_keeper_cancel_message_includes_decoded_name():
             _desc = f" — {_named.description}" if _named.description else ""
             decoded_error = f"{_named.name}{_desc} (selector: {_named.selector})"
 
-    assert decoded_error == (
-        "InvalidCollateralTokenForMarket — "
-        "The collateral token is not accepted by this market "
-        "(selector: 0x839c693e)"
-    )
+    assert decoded_error == ("InvalidCollateralTokenForMarket — The collateral token is not accepted by this market (selector: 0x839c693e)")
 
 
 def test_adapter_keeper_cancel_message_falls_through_for_unknown_selector():
