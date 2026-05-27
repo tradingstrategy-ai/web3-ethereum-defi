@@ -22,6 +22,7 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.event_reader.conversion import convert_uint256_bytes_to_address
+from eth_defi.hypersync.session import is_hypersync_client
 from eth_defi.token import fetch_erc20_details, TokenDetails
 from eth_defi.utils import addr
 
@@ -76,7 +77,7 @@ class AaveLiquidationReader:
         web3: Web3,
         hypersync_read_timeout: float = 90,
     ):
-        assert isinstance(client, hypersync.HypersyncClient), f"Expected HypersyncClient, got {type(client)}"
+        assert is_hypersync_client(client), f"Expected HypersyncClient or ThrottledHypersyncClient, got {type(client)}"
         assert isinstance(web3, Web3), f"Expected Web3, got {type(web3)}"
         self.client = client
         self.web3 = web3
