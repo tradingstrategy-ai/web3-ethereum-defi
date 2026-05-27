@@ -5,12 +5,21 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - 'docs/**'
+      - 'scripts/**'
+      - '**.md'
+      - 'eth_defi/data/vaults/**'
+      - '.github/workflows/!(test.yml)'
 
 jobs:
   test-python:
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
+
+    if: github.event.pull_request.draft == false || github.event_name == 'push'
 
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
@@ -80,6 +89,12 @@ jobs:
       - name: Install Ganache
         run: yarn global add ganache
 
+      - name: Cache Foundry
+        uses: actions/cache@v4
+        with:
+          path: ~/.foundry
+          key: foundry-v1.2.3-${{ runner.os }}
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -101,6 +116,14 @@ jobs:
       # make guard in-house safe-integration
 
       # Lagoon source deployment needs soldeer
+      - name: Cache Lagoon soldeer deps
+        uses: actions/cache@v4
+        with:
+          path: contracts/lagoon-v0/dependencies
+          key: soldeer-${{ hashFiles('contracts/lagoon-v0/soldeer.lock', 'contracts/lagoon-v0/foundry.toml') }}
+          restore-keys: |
+            soldeer-
+
       - name: Lagoon dependency issue smoke test
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
@@ -169,6 +192,3 @@ jobs:
           ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: ${{ secrets.ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
 
-      - name: Ruff lint check
-        run: |
-          poetry run ruff format --check --diff
