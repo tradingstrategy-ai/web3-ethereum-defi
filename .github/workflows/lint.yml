@@ -30,7 +30,7 @@ jobs:
           cache-dependency-path: "**/pyproject.toml"
 
       - name: Install dependencies
-        run: poetry install --no-root --only main
+        run: poetry install --no-root --only dev
 
       - name: Ruff format check
         run: poetry run ruff format --check --diff
