@@ -6,10 +6,8 @@ on:
 
 jobs:
   build-docs:
-    # Docs are pure Python + Pandoc + Sphinx + wrangler — no Anvil, no archive
-    # RPCs, no submodules. Runs on the free ubuntu-latest runner (1× billing)
-    # instead of Beefy (16× billing).
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Beefy runners
     timeout-minutes: 30
 
     # Only run the action for the latest push
