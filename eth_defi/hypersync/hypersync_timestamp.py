@@ -91,7 +91,7 @@ async def get_block_timestamps_using_hypersync_async(
 ) -> AsyncIterable[BlockHeader]:
     """Read block timestamps using Hypersync API.
 
-    Instead of hammering `eth_getBlockByNumber`` JSON-RPC endpoint, we can
+    Instead of hammering ``eth_getBlockByNumber`` JSON-RPC endpoint, we can
     get block timestamps using Hypersync API 1000x faster.
 
     :param chain_id:
@@ -255,7 +255,12 @@ def get_hypersync_block_height(
 
     async def _hypersync_asyncio_wrapper():
         logger.info("Hypersync API call: get_height [block-height-check]")
-        return await client.get_height()
+        try:
+            return await client.get_height()
+        except RuntimeError as e:
+            if _is_hypersync_rate_limit_error(e):
+                raise HypersyncFlaky(f"Hypersync rate limited [block-height-check]: {e}") from e
+            raise
 
     return asyncio.run(_hypersync_asyncio_wrapper())
 

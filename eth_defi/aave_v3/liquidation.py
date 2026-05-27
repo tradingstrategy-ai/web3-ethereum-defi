@@ -202,7 +202,12 @@ class AaveLiquidationReader:
         assert end_block >= start_block
 
         logger.info("Hypersync API call: get_chain_id [aave-liquidation-scan]")
-        hypersync_chain = await self.client.get_chain_id()
+        try:
+            hypersync_chain = await self.client.get_chain_id()
+        except RuntimeError as e:
+            if "429" in str(e):
+                raise RuntimeError(f"Hypersync rate limited [aave-liquidation-scan]: {e}") from e
+            raise
         assert hypersync_chain == self.web3.eth.chain_id, f"Hypersync client chain does not match Web3 chain: {hypersync_chain} != {self.web3.eth.chain_id}"
 
         chain_id = self.web3.eth.chain_id
@@ -219,7 +224,12 @@ class AaveLiquidationReader:
             end_block - start_block,
         )
         # start the stream
-        receiver = await self.client.stream(query, hypersync.StreamConfig())
+        try:
+            receiver = await self.client.stream(query, hypersync.StreamConfig())
+        except RuntimeError as e:
+            if "429" in str(e):
+                raise RuntimeError(f"Hypersync rate limited [aave-liquidation-scan]: {e}") from e
+            raise
 
         if display_progress:
             progress_bar = tqdm(

@@ -186,7 +186,12 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
             end_block - start_block,
         )
         # start the stream
-        receiver = await self.client.stream(query, hypersync.StreamConfig())
+        try:
+            receiver = await self.client.stream(query, hypersync.StreamConfig())
+        except RuntimeError as e:
+            if "429" in str(e):
+                raise HypersyncCrappedOut(f"Hypersync rate limited [vault-lead-discovery]: {e}") from e
+            raise
 
         if display_progress:
             chain_name = get_chain_name(self.web3.eth.chain_id)

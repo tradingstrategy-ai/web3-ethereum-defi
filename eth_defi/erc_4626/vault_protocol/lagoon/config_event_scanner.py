@@ -1540,7 +1540,12 @@ async def _fetch_guard_events_hypersync_async(
         ),
     )
 
-    receiver = await client.stream(query, hypersync.StreamConfig())
+    try:
+        receiver = await client.stream(query, hypersync.StreamConfig())
+    except RuntimeError as e:
+        if "429" in str(e):
+            raise RuntimeError(f"Hypersync rate limited [lagoon-guard-event-scan]: {e}") from e
+        raise
     events: list[DecodedGuardEvent] = []
     chunk_count = 0
     raw_log_count = 0
