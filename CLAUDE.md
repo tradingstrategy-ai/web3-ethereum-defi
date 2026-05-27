@@ -70,19 +70,6 @@ by specifying `timeout: 180000` (3 minutes) in the bash tool parameters.
 
 If you need extra output pass `--log-cli-level=info` argument to `pytest`.
 
-### Forcing a full CI test run
-
-On a PR, the `detect` job in `.github/workflows/test.yml` only runs the
-tests for subsystems whose files changed.  When a change is cross-cutting
-and you want the full suite to run anyway, include the literal substring
-`[ci full]` anywhere in the commit message of the head commit:
-
-```bash
-git commit -m "fix(lagoon): also affects safe and erc_4626 indirectly [ci full]"
-```
-
-Master pushes always run the full suite; the override is only needed on PRs.
-
 ### Environment variable configuration and RPC URL format
 
 We use environment variables like `JSON_RPC_ETHEREUM`, JSON_RPC_ARBITRUM` to interact with various EVM-based blockchains.
