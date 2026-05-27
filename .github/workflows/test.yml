@@ -256,6 +256,13 @@ jobs:
         with:
           submodules: false
 
+      - name: Init guard contract submodules
+        run: |
+          git submodule update --init \
+            contracts/guard/lib/forge-std \
+            contracts/guard/lib/openzeppelin-contracts \
+            contracts/guard/lib/hyper-evm-lib
+
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
