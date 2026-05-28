@@ -80,8 +80,8 @@ class ForgeYieldsVaultMetadata(TypedDict):
 
     #: Total cross-chain TVL in USD.
     #:
-    #: Used for metadata NAV and ranking. Not suitable for ``total_assets``
-    #: in the price parquet (which expects denomination-token units).
+    #: Informational only. The pipeline uses ``tvl`` (denomination-token units)
+    #: for ``total_assets`` and ``fetch_nav()``.
     tvl_usd: Decimal
 
     #: Total cross-chain TVL in denomination token units (ETH, USDC, WBTC).
