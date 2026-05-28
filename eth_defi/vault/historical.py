@@ -881,3 +881,93 @@ def scan_historical_prices_to_parquet(
         start_block=start_block,
         end_block=end_block,
     )
+
+
+def stamp_external_tvl(
+    output_fname: Path,
+    vaults: list["VaultBase"],
+) -> int:
+    """Record current TVL from external APIs into ``total_assets`` on the latest row.
+
+    Called after :py:func:`scan_historical_prices_to_parquet` on each scan
+    cycle. For vaults where :py:meth:`~eth_defi.vault.base.VaultBase.fetch_tvl_usd`
+    returns a value, stamps that value into the ``total_assets`` column of
+    the vault's most recent parquet row.
+
+    Over successive scan cycles this builds up a historical ``total_assets``
+    time series from the offchain API, one data point per scan interval.
+
+    :param output_fname:
+        Path to the uncleaned vault price parquet file.
+
+    :param vaults:
+        List of vault instances. Only vaults where ``fetch_tvl_usd()``
+        returns a non-``None`` value are processed.
+
+    :return:
+        Number of vaults whose latest row was updated.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    if not output_fname.exists():
+        logger.warning("Parquet file %s does not exist, cannot stamp external TVL", output_fname)
+        return 0
+
+    # Fetch TVL for each vault that provides it, keyed by (chain_id, address)
+    tvl_by_key: dict[tuple[int, str], float] = {}
+    for vault in vaults:
+        tvl_usd = vault.fetch_tvl_usd()
+        if tvl_usd is None:
+            continue
+        logger.info("Stamping external TVL for %s (chain %d): $%s", vault.address, vault.chain_id, tvl_usd)
+        tvl_by_key[(vault.chain_id, vault.address.lower())] = float(tvl_usd)
+
+    if not tvl_by_key:
+        return 0
+
+    # Read parquet and find the latest row per (chain, address) for matching vaults
+    table = pq.read_table(str(output_fname))
+    table = VaultHistoricalRead.migrate_parquet_schema(table)
+
+    chains = table.column("chain").to_pylist()
+    addresses = table.column("address").to_pylist()
+    timestamps = table.column("timestamp").to_pylist()
+
+    latest_idx: dict[tuple[int, str], int] = {}
+    latest_ts: dict[tuple[int, str], object] = {}
+    for i, (chain, addr) in enumerate(zip(chains, addresses)):
+        key = (chain, addr)
+        if key in tvl_by_key:
+            ts = timestamps[i]
+            if key not in latest_ts or ts > latest_ts[key]:
+                latest_ts[key] = ts
+                latest_idx[key] = i
+
+    if not latest_idx:
+        logger.warning("No existing rows found for external TVL vaults in %s", output_fname)
+        return 0
+
+    # Update total_assets on the latest row per vault
+    col_idx = table.schema.get_field_index("total_assets")
+    values = table.column("total_assets").to_pylist()
+    for key, idx in latest_idx.items():
+        values[idx] = tvl_by_key[key]
+
+    table = table.set_column(col_idx, "total_assets", pa.array(values, type=pa.float64()))
+
+    # Write back atomically
+    temp_fd, temp_path = tempfile.mkstemp(suffix=".parquet", dir=str(output_fname.parent))
+    os.close(temp_fd)
+    try:
+        pq.write_table(table, temp_path, compression="zstd")
+        verify_parquet_file(Path(temp_path), expected_rows=len(table), expected_schema=table.schema)
+        os.replace(temp_path, str(output_fname))
+    except Exception:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+        raise
+
+    stamped = len(latest_idx)
+    logger.info("Stamped external TVL for %d vaults in %s", stamped, output_fname)
+    return stamped

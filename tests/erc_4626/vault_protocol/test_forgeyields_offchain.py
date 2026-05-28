@@ -12,6 +12,7 @@ TVL comes from the proprietary API at api.forgeyields.com/strategies.
 
 import datetime
 import json
+import os
 import tempfile
 from decimal import Decimal
 from pathlib import Path
@@ -169,8 +170,8 @@ def test_unknown_address_returns_none():
 
 
 @pytest.mark.skipif(
-    not pytest.importorskip("requests", reason="requests needed"),
-    reason="Live API test",
+    os.environ.get("FORGE_YIELDS_LIVE_TEST") is None,
+    reason="Set FORGE_YIELDS_LIVE_TEST=1 to run",
 )
 def test_live_api():
     """Integration test hitting the real ForgeYields API.

@@ -54,7 +54,7 @@ from eth_defi.provider.broken_provider import verify_archive_node
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
-from eth_defi.vault.historical import scan_historical_prices_to_parquet
+from eth_defi.vault.historical import scan_historical_prices_to_parquet, stamp_external_tvl
 from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
 from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, get_pipeline_data_dir
 
@@ -431,6 +431,9 @@ def scan_prices_for_chain(
             reader_states=reader_states,
             hypersync_client=hypersync_config.hypersync_client,
         )
+
+        # Record current TVL from external APIs (e.g. ForgeYields)
+        stamp_external_tvl(output_fname=uncleaned_price_path, vaults=vaults)
 
         # Save reader states atomically to avoid corruption on interruption
         if result["reader_states"]:
