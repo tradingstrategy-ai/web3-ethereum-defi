@@ -1294,19 +1294,6 @@ class VaultBase(ABC):
         )
         return fees
 
-    def fetch_tvl_usd(self) -> Decimal | None:
-        """Fetch current TVL in USD from an external source.
-
-        Override in protocol-specific subclasses for vaults where
-        on-chain ``totalAssets()`` is not available or misleading.
-        Used by :py:func:`~eth_defi.erc_4626.scan.scan_vault_data` as a
-        fallback for ``NAV`` when ``fetch_total_assets()`` returns ``None``.
-
-        :return:
-            Total vault value in USD, or ``None`` if not available.
-        """
-        return None
-
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         """What is the estimated lock-up period for this vault.
 

@@ -1171,16 +1171,6 @@ def calculate_vault_record(
     current_nav = prices_df["total_assets"].iloc[-1]
     chain_id = prices_df["chain"].iloc[-1]
 
-    # For vaults without on-chain TVL (e.g. ForgeYields), total_assets is NaN
-    # in the price history. Fall back to the metadata NAV which scan.py fills
-    # from fetch_tvl_usd() for these vaults.
-    metadata_nav = vault_metadata.get("NAV")
-    if metadata_nav is not None and not pd.isna(metadata_nav):
-        if pd.isna(max_nav) or max_nav == 0:
-            max_nav = float(metadata_nav)
-        if pd.isna(current_nav) or current_nav == 0:
-            current_nav = float(metadata_nav)
-
     fee_data: FeeData = vault_metadata.get("_fees")
     gross_fee_data = fee_data
 
@@ -1417,11 +1407,6 @@ def calculate_vault_record(
     share_price_hourly = prices_df["share_price"]
     share_price_daily = share_price_hourly.resample("D").last()
     tvl_series = prices_df["total_assets"]
-    # For vaults with external-only TVL, fill the last value from metadata NAV
-    # so period metrics get a non-NaN tvl_end for ranking eligibility.
-    if tvl_series.isna().all() and metadata_nav is not None and not pd.isna(metadata_nav):
-        tvl_series = tvl_series.copy()
-        tvl_series.iloc[-1] = float(metadata_nav)
     utilisation_series = prices_df["utilisation"] if "utilisation" in prices_df.columns else None
 
     period_results = []

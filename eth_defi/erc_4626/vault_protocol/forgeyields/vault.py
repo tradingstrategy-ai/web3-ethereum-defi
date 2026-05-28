@@ -184,26 +184,12 @@ class ForgeYieldsVault(ERC4626Vault):
             return meta["tvl"]
         return None
 
-    def fetch_tvl_usd(self) -> Decimal | None:
-        """Fetch total cross-chain TVL in USD from the ForgeYields API.
-
-        Used for metadata NAV and ranking only. Not suitable for ``total_assets``
-        in the price parquet (which expects denomination-token units).
-
-        :return:
-            Total vault value in USD across all chains, or ``None`` if unavailable.
-        """
-        meta = self.forgeyields_metadata
-        if meta is not None:
-            return meta["tvl_usd"]
-        return None
-
     def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal | None:
         """Not available — on-chain value is the gateway residual, not the true AUM.
 
         The TokenGateway's ``convertToAssets(totalSupply())`` returns only
         the small residual held by the Ethereum gateway (~$12K), not the
-        cross-chain AUM (~$1.8M). Use :py:meth:`fetch_tvl_usd` for the
+        cross-chain AUM (~$1.8M). Use :py:meth:`fetch_nav` for the
         canonical current TVL from the ForgeYields API.
 
         :return:
@@ -212,15 +198,15 @@ class ForgeYieldsVault(ERC4626Vault):
         return None
 
     def fetch_nav(self, block_identifier=None) -> Decimal | None:
-        """Not available — on-chain value is the gateway residual, not the true AUM.
+        """Fetch current TVL in denomination token units from the ForgeYields API.
 
-        See :py:meth:`fetch_total_assets` for rationale. Use
-        :py:meth:`fetch_tvl_usd` for the canonical current TVL.
+        Returns the cross-chain AUM in the vault's denomination token
+        (ETH, USDC, WBTC) from ``api.forgeyields.com/strategies``.
 
         :return:
-            Always ``None``.
+            Total vault value in denomination token units, or ``None``.
         """
-        return None
+        return self.fetch_tvl()
 
     def has_custom_fees(self) -> bool:
         return False

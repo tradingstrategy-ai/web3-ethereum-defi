@@ -53,15 +53,15 @@ def test_forgeyields(web3: Web3):
     """Read ForgeYields fyUSDC vault metadata.
 
     On-chain TVL is not available — the TokenGateway only holds a residual.
-    fetch_total_assets() and fetch_nav() return None by design.
-    The canonical TVL comes from the offchain API (tested separately).
+    fetch_total_assets() returns None. fetch_nav() returns the canonical
+    TVL from the ForgeYields API in denomination token units.
 
     1. Auto-detect the vault via hardcoded address in HARDCODED_PROTOCOLS
     2. Verify it is identified as ForgeYieldsVault
     3. Check protocol name, features
     4. Verify fee data (20% performance, 0% management)
     5. Verify fetch_total_assets returns None (on-chain TVL not supported)
-    6. Verify fetch_nav returns None (same reason)
+    6. Verify fetch_nav returns denomination-token TVL from API
     7. Verify vault link
     """
     # 1. Auto-detect the vault
@@ -84,8 +84,10 @@ def test_forgeyields(web3: Web3):
     # 5. Verify fetch_total_assets returns None (on-chain TVL not supported)
     assert vault.fetch_total_assets("latest") is None
 
-    # 6. Verify fetch_nav returns None (same reason)
-    assert vault.fetch_nav() is None
+    # 6. Verify fetch_nav returns denomination-token TVL from API (USDC)
+    nav = vault.fetch_nav()
+    assert nav is not None
+    assert nav > 10_000  # Should be ~1M USDC
 
     # 7. Verify vault link
     assert vault.get_link() == "https://app.forgeyields.com/"
