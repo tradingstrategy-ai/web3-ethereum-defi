@@ -92,10 +92,10 @@ class ForgeYieldsHistoricalReader(ERC4626HistoricalReader):
         if errors:
             errors = [e for e in errors if "total_assets" not in e]
 
-        # Use the current cross-chain TVL from the ForgeYields API instead of
-        # the broken on-chain value. The API response is cached in-process so
-        # this is a dict lookup, not a network call.
-        total_assets = self.vault.fetch_tvl_usd()
+        # Use the current cross-chain TVL in denomination-token units from the
+        # ForgeYields API instead of the broken on-chain value. The API response
+        # is cached in-process so this is a dict lookup, not a network call.
+        total_assets = self.vault.fetch_tvl()
 
         # Feed the real TVL into the reader state so adaptive polling does not
         # degrade to faded/tiny cadence due to zero-TVL classification.
@@ -154,15 +154,28 @@ class ForgeYieldsVault(ERC4626Vault):
     def get_historical_reader(self, stateful) -> VaultHistoricalReader:
         return ForgeYieldsHistoricalReader(self, stateful=stateful)
 
+    def fetch_tvl(self) -> Decimal | None:
+        """Fetch total cross-chain TVL in denomination token units from the ForgeYields API.
+
+        Returns the TVL in the vault's denomination token (ETH, USDC, WBTC),
+        suitable for writing to ``total_assets`` in the price parquet.
+
+        :return:
+            Total vault value in denomination token units, or ``None`` if unavailable.
+        """
+        meta = self.forgeyields_metadata
+        if meta is not None:
+            return meta["tvl"]
+        return None
+
     def fetch_tvl_usd(self) -> Decimal | None:
         """Fetch total cross-chain TVL in USD from the ForgeYields API.
 
-        The on-chain ``convertToAssets(totalSupply())`` only returns the Ethereum
-        gateway's residual balance, not the true cross-chain AUM.
-        The canonical TVL comes from ``api.forgeyields.com/strategies``.
+        Used for metadata NAV and ranking only. Not suitable for ``total_assets``
+        in the price parquet (which expects denomination-token units).
 
         :return:
-            Total vault value in USD across all chains, or None if unavailable.
+            Total vault value in USD across all chains, or ``None`` if unavailable.
         """
         meta = self.forgeyields_metadata
         if meta is not None:

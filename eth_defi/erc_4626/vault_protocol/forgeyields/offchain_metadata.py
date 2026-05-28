@@ -80,9 +80,15 @@ class ForgeYieldsVaultMetadata(TypedDict):
 
     #: Total cross-chain TVL in USD.
     #:
-    #: This is the canonical TVL — the on-chain ``convertToAssets(totalSupply())``
-    #: on the Ethereum TokenGateway only returns a small residual, not the true AUM.
+    #: Used for metadata NAV and ranking. Not suitable for ``total_assets``
+    #: in the price parquet (which expects denomination-token units).
     tvl_usd: Decimal
+
+    #: Total cross-chain TVL in denomination token units (ETH, USDC, WBTC).
+    #:
+    #: This is the value that should be written to ``total_assets`` in the
+    #: price parquet. Read from the top-level ``tvl`` field in the API response.
+    tvl: Decimal
 
     #: Overall APY as a percentage, e.g. ``25.07`` for 25.07%
     apy: float | None
@@ -111,13 +117,17 @@ def _parse_strategy(raw: dict) -> ForgeYieldsVaultMetadata:
     apy_raw = info.get("overallApy")
     apy = float(apy_raw) if apy_raw is not None else None
 
-    tvl_raw = info.get("overallUsdPrice", "0")
-    tvl_usd = Decimal(str(tvl_raw))
+    tvl_usd_raw = info.get("overallUsdPrice", "0")
+    tvl_usd = Decimal(str(tvl_usd_raw))
+
+    tvl_raw = raw.get("tvl", "0")
+    tvl = Decimal(str(tvl_raw))
 
     return ForgeYieldsVaultMetadata(
         name=raw.get("name", ""),
         symbol=raw.get("symbol", ""),
         tvl_usd=tvl_usd,
+        tvl=tvl,
         apy=apy,
         ethereum_gateway=ethereum_gateway,
     )
@@ -192,6 +202,7 @@ def fetch_forgeyields_strategies(
             for k, v in result.items():
                 sv = dict(v)
                 sv["tvl_usd"] = str(sv["tvl_usd"])
+                sv["tvl"] = str(sv["tvl"])
                 serialisable[k] = sv
 
             with file.open("wt") as f:
@@ -219,6 +230,7 @@ def fetch_forgeyields_strategies(
             result = {}
             for k, v in serialised.items():
                 v["tvl_usd"] = Decimal(v["tvl_usd"])
+                v["tvl"] = Decimal(v.get("tvl", "0"))
                 result[k] = v
             return result
 

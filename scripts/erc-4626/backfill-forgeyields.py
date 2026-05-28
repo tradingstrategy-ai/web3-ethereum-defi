@@ -108,10 +108,6 @@ def main():
         if addr not in history_by_addr:
             continue
 
-        # Only fill NaN rows
-        if not math.isnan(total_assets[i]):
-            continue
-
         row_ts = timestamps[i].timestamp() if hasattr(timestamps[i], "timestamp") else float(timestamps[i])
         history = history_by_addr[addr]
 

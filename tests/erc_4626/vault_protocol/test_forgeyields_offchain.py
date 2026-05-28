@@ -34,6 +34,7 @@ MOCK_STRATEGIES_RESPONSE = [
     {
         "name": "ForgeYields USDC",
         "symbol": "fyUSDC",
+        "tvl": "1069435.712178",
         "token_gateway_per_domain": [
             {"domain": "ethereum", "token_gateway": FYUSDC_ADDRESS},
             {"domain": "starknet", "token_gateway": "0x07fDcec0ceF01294C9C3D52415215949805C77bAe8003702A7928fd6D2c36BC1"},
@@ -46,6 +47,7 @@ MOCK_STRATEGIES_RESPONSE = [
     {
         "name": "ForgeYields ETH",
         "symbol": "fyETH",
+        "tvl": "268.828125652177874350",
         "token_gateway_per_domain": [
             {"domain": "ethereum", "token_gateway": "0x98CD770b4e9905B1263f0c9ae6cdE34E1923508E"},
         ],
@@ -57,6 +59,7 @@ MOCK_STRATEGIES_RESPONSE = [
     {
         "name": "ForgeYields WBTC",
         "symbol": "fyWBTC",
+        "tvl": "2.48726603",
         "token_gateway_per_domain": [
             {"domain": "ethereum", "token_gateway": "0xeDca8230366B9eaFf06becdD1D261577836AA507"},
         ],
@@ -93,6 +96,7 @@ def _write_mock_cache(tmpdir: str) -> Path:
                     "name": raw["name"],
                     "symbol": raw["symbol"],
                     "tvl_usd": info.get("overallUsdPrice", "0"),
+                    "tvl": raw.get("tvl", "0"),
                     "apy": float(info["overallApy"]) if info.get("overallApy") else None,
                     "ethereum_gateway": Web3.to_checksum_address(gw["token_gateway"]),
                 }
