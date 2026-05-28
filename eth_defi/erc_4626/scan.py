@@ -91,9 +91,9 @@ def create_vault_scan_record(
         except ValueError:
             total_assets = None
 
-        # For vaults without on-chain TVL (e.g. ForgeYields), fall back to
-        # the external API TVL so the vault metadata DB has a usable figure.
-        if total_assets is None and not vault.is_historical_tvl_supported():
+        # For vaults without on-chain TVL (e.g. ForgeYields cross-chain aggregator),
+        # fall back to the protocol's external API for a current TVL figure.
+        if total_assets is None:
             total_assets = vault.fetch_tvl_usd()
 
         try:

@@ -1294,23 +1294,6 @@ class VaultBase(ABC):
         )
         return fees
 
-    def is_historical_tvl_supported(self) -> bool:
-        """Whether on-chain historical TVL reads are meaningful for this vault.
-
-        Most ERC-4626 vaults expose ``totalAssets()`` on-chain, making
-        block-by-block historical TVL tracking possible. Some vaults
-        (e.g. ForgeYields cross-chain aggregator) only hold a small
-        gateway residual on-chain while the real AUM is elsewhere.
-        For those vaults, ``total_assets`` in the historical pipeline
-        is ``None`` and the canonical TVL must be fetched from an
-        external API via :py:meth:`fetch_tvl_usd`.
-
-        :return:
-            ``True`` if the scanner should use on-chain ``total_assets``,
-            ``False`` if TVL comes from an external API.
-        """
-        return True
-
     def fetch_tvl_usd(self) -> Decimal | None:
         """Fetch current TVL in USD from an external source.
 
