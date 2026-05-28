@@ -10,15 +10,17 @@ TVL comes from the proprietary API at api.forgeyields.com/strategies.
 4. Verify per-vault lookup by Ethereum gateway address
 """
 
+import datetime
+import tempfile
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
+import eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata as forgeyields_offchain
 from eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata import (
-    ForgeYieldsVaultMetadata,
     fetch_forgeyields_strategies,
     fetch_forgeyields_vault_metadata,
-    _cached_strategies,
 )
 
 
@@ -35,11 +37,9 @@ FYWBTC_ADDRESS = "0xeDca8230366B9eaFf06becdD1D261577836AA507"
 @pytest.fixture(autouse=True)
 def clear_cache():
     """Clear the in-process cache before each test."""
-    import eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata as mod
-
-    mod._cached_strategies = None
+    forgeyields_offchain._cached_strategies = None
     yield
-    mod._cached_strategies = None
+    forgeyields_offchain._cached_strategies = None
 
 
 def test_fetch_strategies():
@@ -50,10 +50,6 @@ def test_fetch_strategies():
     3. Verify all three known Ethereum gateways are present
     4. Verify each has non-zero TVL in USD
     """
-    import datetime
-    from pathlib import Path
-    import tempfile
-
     # 1. Fetch with a temporary cache dir to avoid polluting production cache
     with tempfile.TemporaryDirectory() as tmpdir:
         strategies = fetch_forgeyields_strategies(
