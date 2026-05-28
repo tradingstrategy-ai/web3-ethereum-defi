@@ -45,6 +45,7 @@ from typing import Iterable
 
 from eth_typing import BlockIdentifier
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata import (
     ForgeYieldsVaultMetadata,
@@ -61,18 +62,19 @@ class ForgeYieldsHistoricalReader(ERC4626HistoricalReader):
 
     The on-chain ``totalAssets()`` reverts on the TokenGateway and
     ``convertToAssets(totalSupply())`` returns only the gateway residual.
-    This reader substitutes the current cross-chain TVL from the ForgeYields
-    API (cached in-process, refreshed every 2 days) into ``total_assets``.
 
-    Every row in a scan batch receives the same API TVL snapshot — a
-    point-in-time value, not a per-block historical read. Over successive
-    hourly scan cycles this builds up a TVL time series. The backfill script
-    (``scripts/erc-4626/backfill-forgeyields.py``) fills the historical gap
-    from the API's 30-day ``historyReports``.
+    For rows near the chain head (within 24 hours of now), this reader
+    writes the current denomination-token TVL from the ForgeYields API
+    into ``total_assets``. Older rows get ``total_assets=None`` — the
+    backfill script fills those from the API's 30-day ``historyReports``.
 
-    Using a real TVL value also keeps the adaptive reader state healthy —
-    it won't degrade to faded/tiny cadence as it would with ``total_assets=None``.
+    The current TVL is also fed into the reader state so adaptive polling
+    does not degrade to faded/tiny cadence.
     """
+
+    #: Only write API TVL for rows within this window of the current time.
+    #: Older rows get total_assets=None for the backfill to handle.
+    NEAR_HEAD_WINDOW = datetime.timedelta(hours=24)
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         yield from self.construct_core_erc_4626_multicall()
@@ -85,17 +87,23 @@ class ForgeYieldsHistoricalReader(ERC4626HistoricalReader):
     ) -> VaultHistoricalRead:
         call_by_name = self.dictify_multicall_results(block_number, call_results)
 
-        # Decode common variables — total_assets will be None because totalAssets() reverts
         share_price, total_supply, _total_assets, errors, max_deposit = self.process_core_erc_4626_result(call_by_name)
 
-        # Strip the expected totalAssets revert error — we substitute from the API below.
+        # Strip the expected totalAssets revert error
         if errors:
             errors = [e for e in errors if "total_assets" not in e]
 
-        # Use the current cross-chain TVL in denomination-token units from the
-        # ForgeYields API instead of the broken on-chain value. The API response
-        # is cached in-process so this is a dict lookup, not a network call.
-        total_assets = self.vault.fetch_tvl()
+        # Fetch the current denomination-token TVL from the API (cached in-process)
+        current_tvl = self.vault.fetch_tvl()
+
+        # Only write TVL for near-head rows — the API value is a current
+        # snapshot and would be incorrect for older historical blocks.
+        # The backfill script handles older rows from historyReports.
+        total_assets = None
+        if current_tvl is not None and timestamp is not None:
+            age = native_datetime_utc_now() - timestamp
+            if age <= self.NEAR_HEAD_WINDOW:
+                total_assets = current_tvl
 
         # Feed the real TVL into the reader state so adaptive polling does not
         # degrade to faded/tiny cadence due to zero-TVL classification.
@@ -103,7 +111,7 @@ class ForgeYieldsHistoricalReader(ERC4626HistoricalReader):
         if convert_to_assets_result is not None and convert_to_assets_result.state is not None:
             convert_to_assets_result.state.on_called(
                 convert_to_assets_result,
-                total_assets=total_assets,
+                total_assets=current_tvl,
                 share_price=share_price,
             )
 

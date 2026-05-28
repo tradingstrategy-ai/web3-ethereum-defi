@@ -173,6 +173,35 @@ def test_unknown_address_returns_none():
     assert fetch_forgeyields_vault_metadata("0x0000000000000000000000000000000000000001") is None
 
 
+def test_fetch_forgeyields_history():
+    """Verify history parser returns denomination-token TVL entries.
+
+    1. Call fetch_forgeyields_history against the live API
+    2. Verify fyUSDC has ~30 daily entries
+    3. Verify entries have denomination-token tvl (not USD)
+    """
+    from eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata import fetch_forgeyields_history
+
+    strategies = fetch_forgeyields_history()
+    assert len(strategies) >= 3
+
+    # Find fyUSDC
+    fyusdc = [s for s in strategies if s["symbol"] == "fyUSDC"]
+    assert len(fyusdc) == 1
+    strat = fyusdc[0]
+
+    assert strat["underlying_symbol"] == "USDC"
+    assert strat["ethereum_gateway"] is not None
+    assert len(strat["history"]) >= 25
+
+    # Entries should have denomination-token TVL (large for USDC, not <1)
+    entry = strat["history"][-1]
+    assert entry["tvl"] > 10_000  # USDC denomination
+    assert entry["tvl_usd"] > 10_000
+    assert entry["apr"] > 0
+    assert entry["timestamp"].year >= 2026
+
+
 @pytest.mark.skipif(
     os.environ.get("FORGE_YIELDS_LIVE_TEST") is None,
     reason="Set FORGE_YIELDS_LIVE_TEST=1 to run",

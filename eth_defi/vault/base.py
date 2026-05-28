@@ -1300,9 +1300,7 @@ class VaultBase(ABC):
         Override in protocol-specific subclasses for vaults where
         on-chain ``totalAssets()`` is not available or misleading.
         Used by :py:func:`~eth_defi.erc_4626.scan.scan_vault_data` as a
-        fallback for ``NAV`` when ``fetch_total_assets()`` returns ``None``,
-        and by :py:class:`~eth_defi.erc_4626.vault_protocol.forgeyields.vault.ForgeYieldsHistoricalReader`
-        to populate ``total_assets`` on each price row from the offchain API.
+        fallback for ``NAV`` when ``fetch_total_assets()`` returns ``None``.
 
         :return:
             Total vault value in USD, or ``None`` if not available.
