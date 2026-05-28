@@ -22,6 +22,8 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Callable, Iterable, Literal, TypedDict
 
+from decimal import Decimal
+
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
@@ -881,3 +883,120 @@ def scan_historical_prices_to_parquet(
         start_block=start_block,
         end_block=end_block,
     )
+
+
+def stamp_external_tvl(
+    output_fname: Path,
+    vaults: list["VaultBase"],
+    now_: datetime.datetime | None = None,
+) -> int:
+    """Stamp current USD TVL from external APIs for vaults without on-chain TVL.
+
+    Called after :py:func:`scan_historical_prices_to_parquet` to append a
+    point-in-time TVL row for each vault where
+    :py:meth:`~eth_defi.vault.base.VaultBase.is_historical_tvl_supported`
+    returns ``False``.
+
+    Each row uses the ``now()`` timestamp and a synthetic block number of 0.
+    Only the ``tvl_usd`` column is populated; other fields are NaN/empty.
+
+    :param output_fname:
+        Path to the uncleaned vault price parquet file.
+
+    :param vaults:
+        List of vault instances. Only vaults where
+        ``is_historical_tvl_supported() == False`` are processed.
+
+    :param now_:
+        Override current time (for testing).
+
+    :return:
+        Number of TVL rows stamped.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    from eth_defi.compat import native_datetime_utc_now
+
+    if not now_:
+        now_ = native_datetime_utc_now()
+
+    # Filter to vaults that need external TVL
+    external_vaults = [v for v in vaults if not v.is_historical_tvl_supported()]
+    if not external_vaults:
+        return 0
+
+    rows = []
+    for vault in external_vaults:
+        tvl_usd = vault.fetch_tvl_usd()
+        if tvl_usd is None:
+            logger.warning("Vault %s returned None from fetch_tvl_usd(), skipping", vault.address)
+            continue
+
+        logger.info(
+            "Stamping external TVL for %s: $%s",
+            vault.address,
+            tvl_usd,
+        )
+
+        read = VaultHistoricalRead(
+            vault=vault,
+            block_number=0,
+            timestamp=now_,
+            share_price=None,
+            total_assets=None,
+            total_supply=None,
+            performance_fee=None,
+            management_fee=None,
+            errors=None,
+            tvl_usd=tvl_usd,
+        )
+        rows.append(read.export())
+
+    if not rows:
+        return 0
+
+    # Read existing parquet to get the writer schema
+    canonical_schema = VaultHistoricalRead.to_pyarrow_schema()
+    if output_fname.exists():
+        existing_table = pq.read_table(str(output_fname))
+        existing_table = VaultHistoricalRead.migrate_parquet_schema(existing_table)
+        writer_schema = existing_table.schema
+    else:
+        existing_table = None
+        writer_schema = canonical_schema
+
+    # Build new rows table
+    new_table = pa.Table.from_pylist(rows, schema=canonical_schema)
+    # Stamp written_at
+    new_table = new_table.set_column(
+        new_table.schema.get_field_index("written_at"),
+        "written_at",
+        pa.array([now_] * len(new_table), type=pa.timestamp("ms")),
+    )
+    # Pad extra columns from the writer schema
+    for field in writer_schema:
+        if field.name not in new_table.schema.names:
+            new_table = new_table.append_column(field, pa.nulls(len(new_table), type=field.type))
+
+    # Concatenate and write
+    if existing_table is not None:
+        # Ensure new table matches existing schema column order
+        new_table = new_table.select(writer_schema.names)
+        combined = pa.concat_tables([existing_table, new_table], promote_options="default")
+    else:
+        combined = new_table
+
+    temp_fd, temp_path = tempfile.mkstemp(suffix=".parquet", dir=str(output_fname.parent))
+    os.close(temp_fd)
+    try:
+        pq.write_table(combined, temp_path, compression="zstd")
+        verify_parquet_file(Path(temp_path), expected_rows=len(combined), expected_schema=combined.schema)
+        os.replace(temp_path, str(output_fname))
+    except Exception:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+        raise
+
+    logger.info("Stamped %d external TVL rows into %s", len(rows), output_fname)
+    return len(rows)

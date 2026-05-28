@@ -104,7 +104,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiPr
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.historical import scan_historical_prices_to_parquet, pformat_scan_result
+from eth_defi.vault.historical import scan_historical_prices_to_parquet, pformat_scan_result, stamp_external_tvl
 from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE
 
 logger = logging.getLogger(__name__)
@@ -277,6 +277,14 @@ def main():
         if pr:
             pr.disable()
             pr.dump_stats(profiler_file)
+
+    # Stamp external TVL for vaults without on-chain TVL (e.g. ForgeYields)
+    external_tvl_count = stamp_external_tvl(
+        output_fname=price_parquet_fname,
+        vaults=vaults,
+    )
+    if external_tvl_count:
+        print(f"Stamped {external_tvl_count} external TVL rows")
 
     # Save states
     states = scan_result["reader_states"]

@@ -177,6 +177,14 @@ class ForgeYieldsVault(ERC4626Vault):
         """
         return None
 
+    def is_historical_tvl_supported(self) -> bool:
+        """On-chain TVL is not available — returns ``False``.
+
+        The TokenGateway only holds a residual; the canonical cross-chain
+        TVL comes from the ForgeYields API via :py:meth:`fetch_tvl_usd`.
+        """
+        return False
+
     def has_custom_fees(self) -> bool:
         return False
 

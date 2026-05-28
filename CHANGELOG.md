@@ -1,5 +1,7 @@
 # Current
 
+- feat: External TVL stamping for vaults without on-chain TVL — `stamp_external_tvl()` post-scan step writes point-in-time USD TVL from protocol APIs (ForgeYields), new `tvl_usd` parquet column and `is_historical_tvl_supported()` on `VaultBase` (2026-05-28)
+
 - feat: ForgeYields offchain metadata — fetch canonical cross-chain TVL and APY from `api.forgeyields.com/strategies` instead of the misleading on-chain gateway residual (2026-05-28)
 
 - feat: Add ForgeYields vault protocol support with hardcoded address classification, 20% performance fee, metadata and logos (2026-05-25)
