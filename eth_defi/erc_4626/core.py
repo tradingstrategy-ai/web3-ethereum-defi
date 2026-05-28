@@ -593,13 +593,6 @@ class ERC4626Feature(enum.Enum):
     #: https://www.40acres.finance/
     forty_acres_like = "forty_acres_like"
 
-    #: ForgeYields
-    #:
-    #: Cross-chain, non-custodial yield aggregator for underwritten frontier DeFi strategies.
-    #: Uses TokenGateway cross-chain deposit architecture (Hyperlane-based).
-    #: https://www.forgeyields.com/
-    forgeyields_like = "forgeyields_like"
-
 
 #: Features that identify lending protocol vaults.
 #:
@@ -895,9 +888,6 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.forty_acres_like in features:
         return "40acres"
-
-    elif ERC4626Feature.forgeyields_like in features:
-        return "ForgeYields"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

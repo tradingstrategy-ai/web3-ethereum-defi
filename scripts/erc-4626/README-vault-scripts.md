@@ -47,7 +47,7 @@ cp ~/.tradingstrategy/vaults/vault-metadata-db.pickle \
 ```
 
 The scanner currently cannot limit discovery to only the newly added custom event topics. A
-historical custom-event backfill, such as TokenGateway/ForgeYields support, still re-queries all
+historical custom-event backfill still re-queries all
 configured vault discovery events for the block range.
 
 ```shell
@@ -276,23 +276,6 @@ docker compose --profile oneshot run --rm \
   -e LOG_LEVEL=info \
   vault-scanner \
   scripts/erc-4626/scan-vaults.py
-```
-
-### Scan historical prices for specific vaults only (e.g. ForgeYields)
-
-Use `VAULT_ID` with comma-separated `chain_id-address` pairs. This is safe
-to run against production data — only the specified vaults' parquet rows
-are deleted and rewritten.
-
-```shell
-# ForgeYields: fyUSDC, fyETH, fyWBTC on Ethereum (chain_id=1)
-docker compose --profile oneshot run --rm \
-  --entrypoint python \
-  -e JSON_RPC_URL="$JSON_RPC_ETHEREUM" \
-  -e VAULT_ID="1-0x943109dc7c950da4592d85ebd4cfed007af64670,1-0x98cd770b4e9905b1263f0c9ae6cde34e1923508e,1-0xedca8230366b9eaff06becdd1d261577836aa507" \
-  -e LOG_LEVEL=info \
-  vault-scanner \
-  scripts/erc-4626/scan-prices.py
 ```
 
 ### Run the all-chains scanner (default)

@@ -1,1 +1,0 @@
-"""ForgeYields protocol integration."""

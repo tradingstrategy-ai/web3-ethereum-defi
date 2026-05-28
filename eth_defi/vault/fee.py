@@ -163,8 +163,6 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # are internalised in the share price through dilution — there is no fee charged at redemption.
     # https://deepwiki.com/IPOR-Labs/ipor-fusion/6.2-fee-distribution
     "IPOR Fusion": VaultFeeMode.internalised_minting,
-    # ForgeYields - 20% daily performance fee internalised into the share price via pps updates
-    "ForgeYields": VaultFeeMode.internalised_skimming,
 }
 
 

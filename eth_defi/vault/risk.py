@@ -154,8 +154,6 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Inverse Finance": VaultTechnicalRisk.severe,
     # 40acres - 4 independent audits by Sherlock, active bug bounty, open source contracts
     "40acres": VaultTechnicalRisk.low,
-    # ForgeYields - audited (see https://forge-labs.gitbook.io/forge-docs/other/audits)
-    "ForgeYields": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

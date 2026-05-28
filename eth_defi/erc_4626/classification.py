@@ -1618,11 +1618,6 @@ def create_vault_instance(
 
         return FortyAcresVault(web3, spec, **kwargs)
 
-    elif ERC4626Feature.forgeyields_like in features:
-        from eth_defi.erc_4626.vault_protocol.forgeyields.vault import ForgeYieldsVault
-
-        return ForgeYieldsVault(web3, spec, **kwargs)
-
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1884,15 +1879,6 @@ HARDCODED_PROTOCOLS = {
     # 40acres - Aerodrome USDC vault on Base
     # https://basescan.org/address/0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5
     "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5": {ERC4626Feature.forty_acres_like},
-    # ForgeYields - fyUSDC vault on Ethereum
-    # https://etherscan.io/address/0x943109DC7C950da4592d85ebd4Cfed007Af64670
-    "0x943109dc7c950da4592d85ebd4cfed007af64670": {ERC4626Feature.forgeyields_like},
-    # ForgeYields - fyETH vault on Ethereum
-    # https://etherscan.io/address/0x98CD770b4e9905B1263f0c9ae6cdE34E1923508E
-    "0x98cd770b4e9905b1263f0c9ae6cde34e1923508e": {ERC4626Feature.forgeyields_like},
-    # ForgeYields - fyWBTC vault on Ethereum
-    # https://etherscan.io/address/0xeDca8230366B9eaFf06becdD1D261577836AA507
-    "0xedca8230366b9eaff06becdd1d261577836aa507": {ERC4626Feature.forgeyields_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

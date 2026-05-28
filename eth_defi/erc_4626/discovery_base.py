@@ -4,7 +4,6 @@
 - Supports standard ERC-4626 Deposit/Withdraw events
 - Supports BrinkVault DepositFunds/WithdrawFunds events
 - Supports EmberVault VaultDeposit/RequestRedeemed events
-- Supports TokenGateway Deposit(5-arg)/RedeemRequested/RedeemTokenGatewayDepreciated events
 """
 
 import abc
@@ -71,23 +70,6 @@ def get_ember_vault_event_contract(web3):
     )
 
 
-def get_token_gateway_event_contract(web3):
-    """Get ITokenGatewayEvents interface for TokenGateway events.
-
-    TokenGateway (ForgeYieldsUSDC / fyUSDC) uses non-standard ERC-4626 flow events:
-
-    - ``Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares, uint256 referralCode)`` — 5-arg deposit with referral code
-    - ``RedeemRequested(address indexed owner, address indexed receiver, uint256 shares, uint256 assets, uint256 id, uint256 epoch)`` — async redemption request
-    - ``RedeemTokenGatewayDepreciated(address indexed caller, address indexed receiver, uint256 shares, uint256 assets)`` — deprecated direct redeem
-
-    `Etherscan link <https://etherscan.io/address/0x943109DC7C950da4592d85ebd4Cfed007Af64670>`_.
-    """
-    return get_contract(
-        web3,
-        "token_gateway/ITokenGatewayEvents.json",
-    )
-
-
 def get_standard_erc_4626_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get list of standard ERC-4626 events we use in vault discovery.
 
@@ -149,23 +131,6 @@ def get_ember_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     ]
 
 
-def get_token_gateway_discovery_events(web3) -> list[Type[ContractEvent]]:
-    """Get list of TokenGateway events we use in vault discovery.
-
-    TokenGateway uses non-standard ERC-4626 flow events:
-
-    - ``Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares, uint256 referralCode)`` — deposit with referral code (distinct topic from standard ERC-4626 Deposit)
-    - ``RedeemRequested(address indexed owner, address indexed receiver, uint256 shares, uint256 assets, uint256 id, uint256 epoch)`` — async redemption request
-    - ``RedeemTokenGatewayDepreciated(address indexed caller, address indexed receiver, uint256 shares, uint256 assets)`` — deprecated direct redeem
-    """
-    ITokenGatewayEvents = get_token_gateway_event_contract(web3)
-    return [
-        ITokenGatewayEvents.events.Deposit,
-        ITokenGatewayEvents.events.RedeemRequested,
-        ITokenGatewayEvents.events.RedeemTokenGatewayDepreciated,
-    ]
-
-
 def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get all events used in vault discovery, including protocol-specific ones.
 
@@ -173,15 +138,13 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     - Standard ERC-4626 Deposit/Withdraw events
     - BrinkVault DepositFunds/WithdrawFunds events
     - EmberVault VaultDeposit/RequestRedeemed events
-    - TokenGateway Deposit(5-arg)/RedeemRequested/RedeemTokenGatewayDepreciated events
 
     :return:
         List of contract event types in order:
         [ERC4626.Deposit, ERC4626.Withdraw, BrinkVault.Deposited, BrinkVault.Withdrawal,
-         EmberVault.VaultDeposit, EmberVault.RequestRedeemed,
-         TokenGateway.Deposit, TokenGateway.RedeemRequested, TokenGateway.RedeemTokenGatewayDepreciated]
+         EmberVault.VaultDeposit, EmberVault.RequestRedeemed]
     """
-    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3)
+    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3)
 
 
 def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
@@ -197,8 +160,6 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
     erc4626_events = get_standard_erc_4626_vault_discovery_events(web3)
     brink_events = get_brink_vault_discovery_events(web3)
     ember_events = get_ember_vault_discovery_events(web3)
-    token_gateway_events = get_token_gateway_discovery_events(web3)
-
     return {
         get_topic_signature_from_event(erc4626_events[0]): VaultEventKind.deposit,
         get_topic_signature_from_event(erc4626_events[1]): VaultEventKind.withdraw,
@@ -206,9 +167,6 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
         get_topic_signature_from_event(brink_events[1]): VaultEventKind.withdraw,
         get_topic_signature_from_event(ember_events[0]): VaultEventKind.deposit,
         get_topic_signature_from_event(ember_events[1]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(token_gateway_events[0]): VaultEventKind.deposit,
-        get_topic_signature_from_event(token_gateway_events[1]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(token_gateway_events[2]): VaultEventKind.withdraw,
     }
 
 

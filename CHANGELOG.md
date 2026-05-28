@@ -1,8 +1,6 @@
 # Current
 
-- feat: Add ForgeYields vault protocol support with hardcoded address classification, 20% performance fee, metadata and logos (2026-05-25)
-
-- feat: Add TokenGateway (ForgeYieldsUSDC / fyUSDC) custom event discovery for ERC-4626 vault scanning (2026-05-22)
+- Remove ForgeYields vault protocol — Ethereum TVL is negligible (~$12K); 99% of TVL is on Starknet which we do not support (2026-05-28)
 
 - feat: Daily timestamped R2 backups for vault data files in private buckets using server-side `copy_object`, with skip-if-exists and opt-out via `R2_DAILY_BACKUP=false` (2026-05-18)
 

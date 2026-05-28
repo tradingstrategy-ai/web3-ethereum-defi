@@ -52,7 +52,6 @@ Supported protocols
    euler/index
    eth_strategy/index
    fluid/index
-   forgeyields/index
    foxify/index
    frax/index
    gains/index
