@@ -1,5 +1,7 @@
 # Current
 
+- feat: ForgeYields offchain metadata — fetch canonical cross-chain TVL and APY from `api.forgeyields.com/strategies` instead of the misleading on-chain gateway residual (2026-05-28)
+
 - feat: Add ForgeYields vault protocol support with hardcoded address classification, 20% performance fee, metadata and logos (2026-05-25)
 
 - feat: Add TokenGateway (ForgeYieldsUSDC / fyUSDC) custom event discovery for ERC-4626 vault scanning (2026-05-22)
