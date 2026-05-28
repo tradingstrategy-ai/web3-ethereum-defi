@@ -128,7 +128,7 @@ def main():
             # Row is outside the API history window. If it has a value, it is
             # a stale gateway residual from the old buggy on-chain reader.
             # Clear it to NaN so it does not pollute the historical series.
-            if not math.isnan(total_assets[i]):
+            if total_assets[i] is not None and not math.isnan(total_assets[i]):
                 total_assets[i] = float("nan")
                 filled += 1
                 matched_vaults.add(addr)
