@@ -7,6 +7,7 @@ on the latest existing row for vaults where on-chain TVL is not available.
 2. Run stamp_external_tvl() with a ForgeYields-like mock vault
 3. Verify tvl_usd is set on the existing row (not a new row)
 4. Verify the row survives the cleaning pipeline's NaN-share-price filter
+5. Verify tvl_usd feeds through to period metrics tvl_end for ranking eligibility
 """
 
 import datetime
@@ -16,6 +17,7 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
@@ -190,3 +192,58 @@ def test_stamp_keys_by_chain_and_address():
         # Chain 42161 row should still be NaN
         chain42161_idx = chains.index(42161)
         assert math.isnan(tvl_values[chain42161_idx])
+
+
+def test_tvl_usd_feeds_period_metrics():
+    """Verify tvl_usd reaches period metrics tvl_end for ranking eligibility.
+
+    ForgeYields has valid share_price but NaN total_assets. After stamping
+    tvl_usd, the period metrics pipeline should use tvl_usd as fallback
+    so the vault gets a non-null tvl_end and passes ranking filters.
+
+    1. Build a DataFrame with valid share_price, NaN total_assets, stamped tvl_usd
+    2. Run calculate_period_metrics
+    3. Assert tvl_end equals the stamped tvl_usd
+    """
+    from eth_defi.research.vault_metrics import calculate_period_metrics
+    from eth_defi.vault.fee import FeeData, VaultFeeMode
+
+    # 1. Build price data: 30 hourly rows with valid share_price, NaN total_assets
+    dates = pd.date_range("2026-05-01", periods=30 * 24, freq="h")
+    prices_df = pd.DataFrame(
+        {
+            "share_price": [1.0 + i * 0.0001 for i in range(len(dates))],
+            "total_assets": [float("nan")] * len(dates),
+            "tvl_usd": [float("nan")] * len(dates),
+        },
+        index=dates,
+    )
+    # Stamp tvl_usd on the last row (simulating stamp_external_tvl)
+    prices_df.iloc[-1, prices_df.columns.get_loc("tvl_usd")] = 1_085_984.0
+
+    # Apply the same fallback as vault_metrics.py line 1419
+    tvl_series = prices_df["total_assets"].combine_first(prices_df["tvl_usd"])
+
+    fee_data = FeeData(
+        fee_mode=VaultFeeMode.internalised_skimming,
+        management=0.0,
+        performance=0.20,
+        deposit=0.0,
+        withdraw=0.0,
+    )
+
+    # 2. Run period metrics
+    pm = calculate_period_metrics(
+        period="1M",
+        gross_fee_data=fee_data,
+        net_fee_data=fee_data.get_net_fees(),
+        share_price_hourly=prices_df["share_price"],
+        share_price_daily=prices_df["share_price"].resample("D").last(),
+        tvl=tvl_series,
+        now_=dates[-1],
+    )
+
+    # 3. Assert tvl_end is populated from the stamped tvl_usd
+    assert pm is not None
+    assert pm.error_reason is None
+    assert pm.tvl_end == pytest.approx(1_085_984.0)

@@ -1417,6 +1417,10 @@ def calculate_vault_record(
     share_price_hourly = prices_df["share_price"]
     share_price_daily = share_price_hourly.resample("D").last()
     tvl_series = prices_df["total_assets"]
+
+    # For vaults without on-chain TVL, fill gaps from tvl_usd (external API stamp)
+    if "tvl_usd" in prices_df.columns:
+        tvl_series = tvl_series.combine_first(prices_df["tvl_usd"])
     utilisation_series = prices_df["utilisation"] if "utilisation" in prices_df.columns else None
 
     period_results = []
