@@ -1171,6 +1171,16 @@ def calculate_vault_record(
     current_nav = prices_df["total_assets"].iloc[-1]
     chain_id = prices_df["chain"].iloc[-1]
 
+    # For vaults without on-chain TVL (e.g. ForgeYields cross-chain aggregator),
+    # total_assets is NaN. Fall back to tvl_usd from the external API stamp.
+    if "tvl_usd" in prices_df.columns:
+        tvl_usd_series = prices_df["tvl_usd"].dropna()
+        if len(tvl_usd_series) > 0:
+            if pd.isna(max_nav) or max_nav == 0:
+                max_nav = tvl_usd_series.max()
+            if pd.isna(current_nav) or current_nav == 0:
+                current_nav = tvl_usd_series.iloc[-1]
+
     fee_data: FeeData = vault_metadata.get("_fees")
     gross_fee_data = fee_data
 

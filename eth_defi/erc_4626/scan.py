@@ -178,7 +178,7 @@ def create_vault_scan_record(
             "Address": detection.address,
             "Denomination": vault.denomination_token.symbol if vault.denomination_token else None,
             "Share token": vault.share_token.symbol if vault.share_token else None,
-            "NAV": total_assets,
+            "NAV": total_assets if total_assets is not None else tvl_usd,
             "Protocol": protocol_name,
             "Mgmt fee": management_fee,
             "Perf fee": performance_fee,

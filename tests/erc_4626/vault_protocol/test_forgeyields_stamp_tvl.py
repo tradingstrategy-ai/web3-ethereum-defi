@@ -148,3 +148,45 @@ def test_stamp_skips_onchain_vaults():
         count = stamp_external_tvl(output_fname=parquet_path, vaults=[normal_vault])
 
         assert count == 0
+
+
+def test_stamp_keys_by_chain_and_address():
+    """Verify that stamping uses (chain, address) not just address.
+
+    Same address on two chains should not cross-contaminate.
+
+    1. Create parquet with same address on chain 1 and chain 42161
+    2. Stamp external TVL for chain 1 only
+    3. Verify only the chain 1 row gets tvl_usd, chain 42161 stays NaN
+    """
+    addr = "0x943109dc7c950da4592d85ebd4cfed007af64670"
+    ts = datetime.datetime(2026, 5, 28, 12, 0, 0)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        parquet_path = Path(tmpdir) / "vault-prices-1h.parquet"
+
+        schema = VaultHistoricalRead.to_pyarrow_schema()
+        rows = [
+            _make_price_row(addr, 1, 1.05, ts, 25_000_000),
+            _make_price_row(addr, 42161, 1.10, ts, 200_000_000),
+        ]
+        table = pa.Table.from_pylist(rows, schema=schema)
+        pq.write_table(table, str(parquet_path))
+
+        # Only chain 1 vault
+        forge_vault = _make_mock_vault(addr, Decimal("1000000.00"), historical_supported=False)
+        forge_vault.chain_id = 1
+        count = stamp_external_tvl(output_fname=parquet_path, vaults=[forge_vault])
+
+        assert count == 1
+        result = pq.read_table(str(parquet_path))
+        tvl_values = result.column("tvl_usd").to_pylist()
+        chains = result.column("chain").to_pylist()
+
+        # Chain 1 row should have TVL
+        chain1_idx = chains.index(1)
+        assert tvl_values[chain1_idx] == pytest.approx(1000000.00)
+
+        # Chain 42161 row should still be NaN
+        chain42161_idx = chains.index(42161)
+        assert math.isnan(tvl_values[chain42161_idx])

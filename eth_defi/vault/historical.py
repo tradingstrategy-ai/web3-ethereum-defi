@@ -920,36 +920,38 @@ def stamp_external_tvl(
         logger.warning("Parquet file %s does not exist, cannot stamp external TVL", output_fname)
         return 0
 
-    # Fetch TVL for each external vault
-    tvl_by_address: dict[str, float] = {}
+    # Fetch TVL for each external vault, keyed by (chain_id, address)
+    tvl_by_key: dict[tuple[int, str], float] = {}
     for vault in external_vaults:
         tvl_usd = vault.fetch_tvl_usd()
         if tvl_usd is None:
             logger.warning("Vault %s returned None from fetch_tvl_usd(), skipping", vault.address)
             continue
 
-        logger.info("Stamping external TVL for %s: $%s", vault.address, tvl_usd)
-        tvl_by_address[vault.address.lower()] = float(tvl_usd)
+        logger.info("Stamping external TVL for %s (chain %d): $%s", vault.address, vault.chain_id, tvl_usd)
+        tvl_by_key[(vault.chain_id, vault.address.lower())] = float(tvl_usd)
 
-    if not tvl_by_address:
+    if not tvl_by_key:
         return 0
 
     # Read the parquet and update the tvl_usd column on the latest row per vault
     table = pq.read_table(str(output_fname))
     table = VaultHistoricalRead.migrate_parquet_schema(table)
 
+    chains = table.column("chain").to_pylist()
     addresses = table.column("address").to_pylist()
     timestamps = table.column("timestamp").to_pylist()
 
-    # Find the index of the latest row for each external vault
-    latest_idx: dict[str, int] = {}
-    latest_ts: dict[str, object] = {}
-    for i, addr in enumerate(addresses):
-        if addr in tvl_by_address:
+    # Find the index of the latest row for each external vault, keyed by (chain, address)
+    latest_idx: dict[tuple[int, str], int] = {}
+    latest_ts: dict[tuple[int, str], object] = {}
+    for i, (chain, addr) in enumerate(zip(chains, addresses)):
+        key = (chain, addr)
+        if key in tvl_by_key:
             ts = timestamps[i]
-            if addr not in latest_ts or ts > latest_ts[addr]:
-                latest_ts[addr] = ts
-                latest_idx[addr] = i
+            if key not in latest_ts or ts > latest_ts[key]:
+                latest_ts[key] = ts
+                latest_idx[key] = i
 
     if not latest_idx:
         logger.warning("No existing rows found for external TVL vaults in %s", output_fname)
@@ -958,8 +960,8 @@ def stamp_external_tvl(
     # Build a new tvl_usd column with updated values
     tvl_col_idx = table.schema.get_field_index("tvl_usd")
     old_tvl = table.column("tvl_usd").to_pylist()
-    for addr, idx in latest_idx.items():
-        old_tvl[idx] = tvl_by_address[addr]
+    for key, idx in latest_idx.items():
+        old_tvl[idx] = tvl_by_key[key]
 
     new_tvl_array = pa.array(old_tvl, type=pa.float64())
     table = table.set_column(tvl_col_idx, "tvl_usd", new_tvl_array)
