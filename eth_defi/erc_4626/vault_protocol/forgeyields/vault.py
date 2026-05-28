@@ -57,19 +57,21 @@ logger = logging.getLogger(__name__)
 
 
 class ForgeYieldsHistoricalReader(ERC4626HistoricalReader):
-    """Read ForgeYields vault data — share price only, no TVL.
+    """Read ForgeYields vault data — share price from on-chain, TVL from offchain API.
 
-    Historical TVL is not available for ForgeYields vaults:
+    The on-chain ``totalAssets()`` reverts on the TokenGateway and
+    ``convertToAssets(totalSupply())`` returns only the gateway residual.
+    This reader substitutes the current cross-chain TVL from the ForgeYields
+    API (cached in-process, refreshed every 2 days) into ``total_assets``.
 
-    - ``totalAssets()`` reverts on the TokenGateway contract
-    - ``convertToAssets(totalSupply())`` returns only the gateway residual (~$12K),
-      not the true cross-chain AUM (~$1.8M)
-    - The proprietary API at ``api.forgeyields.com`` provides current TVL only,
-      not historical snapshots
+    Every row in a scan batch receives the same API TVL snapshot — a
+    point-in-time value, not a per-block historical read. Over successive
+    hourly scan cycles this builds up a TVL time series. The backfill script
+    (``scripts/erc-4626/backfill-forgeyields.py``) fills the historical gap
+    from the API's 30-day ``historyReports``.
 
-    This reader emits ``total_assets = None`` so the scanner does not report
-    the misleading on-chain residual. Share price is still tracked via
-    ``convertToAssets(1e<decimals>)`` from the standard multicall.
+    Using a real TVL value also keeps the adaptive reader state healthy —
+    it won't degrade to faded/tiny cadence as it would with ``total_assets=None``.
     """
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
@@ -86,17 +88,31 @@ class ForgeYieldsHistoricalReader(ERC4626HistoricalReader):
         # Decode common variables — total_assets will be None because totalAssets() reverts
         share_price, total_supply, _total_assets, errors, max_deposit = self.process_core_erc_4626_result(call_by_name)
 
-        # Strip the expected totalAssets revert error — we cannot derive
-        # historical TVL for this vault, so this is not a real error.
+        # Strip the expected totalAssets revert error — we substitute from the API below.
         if errors:
             errors = [e for e in errors if "total_assets" not in e]
+
+        # Use the current cross-chain TVL from the ForgeYields API instead of
+        # the broken on-chain value. The API response is cached in-process so
+        # this is a dict lookup, not a network call.
+        total_assets = self.vault.fetch_tvl_usd()
+
+        # Feed the real TVL into the reader state so adaptive polling does not
+        # degrade to faded/tiny cadence due to zero-TVL classification.
+        convert_to_assets_result = call_by_name.get("convertToAssets")
+        if convert_to_assets_result is not None and convert_to_assets_result.state is not None:
+            convert_to_assets_result.state.on_called(
+                convert_to_assets_result,
+                total_assets=total_assets,
+                share_price=share_price,
+            )
 
         return VaultHistoricalRead(
             vault=self.vault,
             block_number=block_number,
             timestamp=timestamp,
             share_price=share_price,
-            total_assets=None,
+            total_assets=total_assets,
             total_supply=total_supply,
             performance_fee=None,
             management_fee=None,
