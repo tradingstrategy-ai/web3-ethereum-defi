@@ -182,6 +182,19 @@ def fetch_forgeyields_strategies(
                 raw_list = resp.json()
             except (requests.RequestException, JSONDecodeError) as e:
                 logger.warning("Failed to fetch ForgeYields strategies from %s: %s", url, e)
+                # Fall back to stale cache rather than returning empty
+                if file.exists() and file.stat().st_size > 0:
+                    logger.info("Using stale cache at %s after API failure", file)
+                    try:
+                        serialised = json.load(open(file, "rt"))
+                        result = {}
+                        for k, v in serialised.items():
+                            v["tvl_usd"] = Decimal(v["tvl_usd"])
+                            v["tvl"] = Decimal(v.get("tvl", "0"))
+                            result[k] = v
+                        return result
+                    except (JSONDecodeError, KeyError):
+                        pass
                 return {}
 
             result: dict[str, ForgeYieldsVaultMetadata] = {}

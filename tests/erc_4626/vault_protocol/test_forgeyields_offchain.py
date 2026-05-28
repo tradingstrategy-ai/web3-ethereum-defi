@@ -173,38 +173,68 @@ def test_unknown_address_returns_none():
     assert fetch_forgeyields_vault_metadata("0x0000000000000000000000000000000000000001") is None
 
 
-def test_parse_history_entry():
-    """Verify history parser produces correct ForgeYieldsHistoryEntry dicts.
+def test_fetch_history_with_mocked_api():
+    """Verify the full history parser path with a mocked requests.get.
 
-    1. Parse a mock historyReports entry
-    2. Verify fields are correctly extracted
+    1. Mock requests.get to return a strategy with historyReports
+    2. Call fetch_forgeyields_history()
+    3. Verify parsed entries have correct denomination-token TVL
     """
-    from eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata import ForgeYieldsHistoryEntry
+    from unittest.mock import MagicMock, patch
 
-    raw = {
-        "timestamp": "2026-05-15T10:00:00.000Z",
-        "epochTimestamp": 1778590800,
-        "tvl": 1085717.92,
-        "tvlUSD": 1085178.0,
-        "underlyingPrice": 0.999503,
-        "apr": 13.18,
-    }
+    from eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata import fetch_forgeyields_history
 
-    ts = datetime.datetime.fromisoformat(raw["timestamp"].replace("Z", "+00:00")).replace(tzinfo=None)
-    entry = ForgeYieldsHistoryEntry(
-        timestamp=ts,
-        tvl=float(raw["tvl"]),
-        tvl_usd=float(raw["tvlUSD"]),
-        apr=float(raw["apr"]),
-        underlying_price=float(raw["underlyingPrice"]),
-    )
+    mock_api_response = [
+        {
+            "name": "ForgeYields USDC",
+            "symbol": "fyUSDC",
+            "underlyingSymbol": "USDC",
+            "tvl": "1069435.712178",
+            "token_gateway_per_domain": [
+                {"domain": "ethereum", "token_gateway": FYUSDC_ADDRESS},
+            ],
+            "integrationInfo": {"overallUsdPrice": "1085984.11", "overallApy": "25.07"},
+            "historyReports": [
+                {
+                    "timestamp": "2026-05-15T10:00:00.000Z",
+                    "epochTimestamp": 1778590800,
+                    "tvl": 1085717.92,
+                    "tvlUSD": 1085178.0,
+                    "underlyingPrice": 0.999503,
+                    "apr": 13.18,
+                },
+                {
+                    "timestamp": "2026-05-16T10:00:00.000Z",
+                    "epochTimestamp": 1778677200,
+                    "tvl": 1086000.0,
+                    "tvlUSD": 1085500.0,
+                    "underlyingPrice": 0.999540,
+                    "apr": 13.20,
+                },
+            ],
+        },
+    ]
 
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = mock_api_response
+    mock_resp.raise_for_status = MagicMock()
+
+    with patch("eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata.requests.get", return_value=mock_resp):
+        strategies = fetch_forgeyields_history()
+
+    assert len(strategies) == 1
+    strat = strategies[0]
+    assert strat["name"] == "ForgeYields USDC"
+    assert strat["symbol"] == "fyUSDC"
+    assert strat["underlying_symbol"] == "USDC"
+    assert strat["ethereum_gateway"] is not None
+
+    assert len(strat["history"]) == 2
+    entry = strat["history"][0]
     assert entry["tvl"] == pytest.approx(1085717.92)
     assert entry["tvl_usd"] == pytest.approx(1085178.0)
     assert entry["apr"] == pytest.approx(13.18)
-    assert entry["timestamp"].year == 2026
-    assert entry["timestamp"].month == 5
-    assert entry["timestamp"].day == 15
+    assert entry["timestamp"] == datetime.datetime(2026, 5, 15, 10, 0, 0)
 
 
 @pytest.mark.skipif(
