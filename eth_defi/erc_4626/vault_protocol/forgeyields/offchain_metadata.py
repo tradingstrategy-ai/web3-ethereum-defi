@@ -246,3 +246,106 @@ def fetch_forgeyields_vault_metadata(vault_address: HexAddress) -> ForgeYieldsVa
 
 #: In-process cache of fetched strategies
 _cached_strategies: dict[str, ForgeYieldsVaultMetadata] | None = None
+
+
+class ForgeYieldsHistoryEntry(TypedDict):
+    """A single daily TVL/APR snapshot from the ForgeYields ``historyReports`` array."""
+
+    #: Naive UTC datetime
+    timestamp: datetime.datetime
+
+    #: TVL in denomination token units (ETH, USDC, WBTC)
+    tvl: float
+
+    #: TVL in USD
+    tvl_usd: float
+
+    #: APR at this point (percentage, e.g. 13.14 for 13.14%)
+    apr: float
+
+    #: Denomination token USD price at this point
+    underlying_price: float
+
+
+class ForgeYieldsStrategyHistory(TypedDict):
+    """Historical data for a single ForgeYields strategy."""
+
+    #: Strategy name, e.g. ``"ForgeYields USDC"``
+    name: str
+
+    #: Share token symbol, e.g. ``"fyUSDC"``
+    symbol: str
+
+    #: Denomination token symbol, e.g. ``"USDC"``
+    underlying_symbol: str
+
+    #: Ethereum gateway address (checksummed)
+    ethereum_gateway: str | None
+
+    #: Daily snapshots, oldest first
+    history: list[ForgeYieldsHistoryEntry]
+
+
+def fetch_forgeyields_history(
+    api_base_url: str = DEFAULT_API_BASE_URL,
+) -> list[ForgeYieldsStrategyHistory]:
+    """Fetch historical TVL/APR data from the ForgeYields API.
+
+    The ``/strategies`` response includes a ``historyReports`` array with
+    ~30 daily snapshots per strategy. Each entry has TVL in both
+    denomination token units and USD, plus APR.
+
+    This is a direct API call with no caching — intended for one-shot
+    backfill scripts.
+
+    :param api_base_url:
+        ForgeYields API base URL.
+
+    :return:
+        List of strategy histories, one per vault.
+    """
+    url = f"{api_base_url}/strategies"
+    logger.info("Fetching ForgeYields history from %s", url)
+    resp = requests.get(url, headers={"Content-Type": "application/json"}, timeout=30)
+    resp.raise_for_status()
+    raw_list = resp.json()
+
+    results = []
+    for raw in raw_list:
+        # Find Ethereum gateway
+        ethereum_gateway = None
+        for gw in raw.get("token_gateway_per_domain", []):
+            if gw.get("domain") == "ethereum":
+                addr = gw.get("token_gateway")
+                if addr and len(addr) == 42:
+                    ethereum_gateway = Web3.to_checksum_address(addr)
+                break
+
+        # Parse history entries
+        history = []
+        for entry in raw.get("historyReports", []):
+            ts_str = entry.get("timestamp", "")
+            # Parse ISO 8601 to naive UTC datetime
+            ts = datetime.datetime.fromisoformat(ts_str.replace("Z", "+00:00")).replace(tzinfo=None)
+            history.append(
+                ForgeYieldsHistoryEntry(
+                    timestamp=ts,
+                    tvl=float(entry.get("tvl", 0)),
+                    tvl_usd=float(entry.get("tvlUSD", 0)),
+                    apr=float(entry.get("apr", 0)),
+                    underlying_price=float(entry.get("underlyingPrice", 0)),
+                )
+            )
+
+        results.append(
+            ForgeYieldsStrategyHistory(
+                name=raw.get("name", ""),
+                symbol=raw.get("symbol", ""),
+                underlying_symbol=raw.get("underlyingSymbol", ""),
+                ethereum_gateway=ethereum_gateway,
+                history=history,
+            )
+        )
+
+    logger.info("Fetched history for %d ForgeYields strategies", len(results))
+    return results
