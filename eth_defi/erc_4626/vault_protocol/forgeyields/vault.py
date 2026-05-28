@@ -17,12 +17,12 @@ NAV calculation
 ~~~~~~~~~~~~~~~
 
 The TokenGateway contract does not implement ``totalAssets()`` — the call reverts.
-NAV is derived from ``convertToAssets(totalSupply())``, which uses the internal
-price-per-share (``pps()``) to convert shares to assets.
+On-chain ``convertToAssets(totalSupply())`` returns only the gateway's residual balance
+(~$12K), not the true cross-chain AUM (~$1.8M). The canonical TVL comes from
+ForgeYields' proprietary API at ``https://api.forgeyields.com/strategies``.
 
-Both :py:meth:`ForgeYieldsVault.fetch_total_assets`,
-:py:meth:`ForgeYieldsVault.fetch_nav` and :py:class:`ForgeYieldsHistoricalReader`
-use this corrected calculation.
+See :py:mod:`~eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata` for
+the API integration.
 
 Fee model:
 
@@ -40,11 +40,18 @@ Example contracts:
 import datetime
 import logging
 from decimal import Decimal
+from functools import cached_property
 from typing import Iterable
 
 from eth_typing import BlockIdentifier
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata import (
+    ForgeYieldsVaultMetadata,
+    fetch_forgeyields_strategies,
+    fetch_forgeyields_vault_metadata,
+)
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 
@@ -52,13 +59,23 @@ logger = logging.getLogger(__name__)
 
 
 class ForgeYieldsHistoricalReader(ERC4626HistoricalReader):
-    """Read ForgeYields vault data with corrected NAV.
+    """Read ForgeYields vault data — share price from on-chain, TVL from offchain API.
 
-    TokenGateway's ``totalAssets()`` reverts, so the standard ERC-4626
-    ``total_assets`` multicall will fail.  This reader derives
-    ``total_assets = share_price * total_supply`` from the successful
-    ``convertToAssets`` and ``totalSupply`` calls instead.
+    The on-chain ``totalAssets()`` reverts on the TokenGateway and
+    ``convertToAssets(totalSupply())`` returns only the gateway residual.
+
+    For rows near the chain head (within 24 hours of now), this reader
+    writes the current denomination-token TVL from the ForgeYields API
+    into ``total_assets``. Older rows get ``total_assets=None`` — the
+    backfill script fills those from the API's 30-day ``historyReports``.
+
+    The current TVL is also fed into the reader state so adaptive polling
+    does not degrade to faded/tiny cadence.
     """
+
+    #: Only write API TVL for rows within this window of the current time.
+    #: Older rows get total_assets=None for the backfill to handle.
+    NEAR_HEAD_WINDOW = datetime.timedelta(hours=24)
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         yield from self.construct_core_erc_4626_multicall()
@@ -71,27 +88,31 @@ class ForgeYieldsHistoricalReader(ERC4626HistoricalReader):
     ) -> VaultHistoricalRead:
         call_by_name = self.dictify_multicall_results(block_number, call_results)
 
-        # Decode common variables — total_assets will be None because totalAssets() reverts
         share_price, total_supply, _total_assets, errors, max_deposit = self.process_core_erc_4626_result(call_by_name)
 
-        # Strip the expected totalAssets revert error — we derive NAV below,
-        # so this is not a real error and must not increment rpc_error_count.
+        # Strip the expected totalAssets revert error
         if errors:
             errors = [e for e in errors if "total_assets" not in e]
 
-        # Override total_assets with the true NAV: share_price * total_supply
-        total_assets = _total_assets
-        if share_price is not None and total_supply is not None and total_supply > 0:
-            total_assets = share_price * total_supply
+        # Fetch the current denomination-token TVL from the API (cached in-process)
+        current_tvl = self.vault.fetch_tvl()
 
-        # Fix VaultReaderState that was updated with the failed totalAssets() value
-        # inside process_core_erc_4626_result(). The state uses TVL for adaptive polling
-        # frequency and peaked/faded detection, so it must reflect the true NAV.
+        # Only write TVL for near-head rows — the API value is a current
+        # snapshot and would be incorrect for older historical blocks.
+        # The backfill script handles older rows from historyReports.
+        total_assets = None
+        if current_tvl is not None and timestamp is not None:
+            age = native_datetime_utc_now() - timestamp
+            if age <= self.NEAR_HEAD_WINDOW:
+                total_assets = current_tvl
+
+        # Feed the real TVL into the reader state so adaptive polling does not
+        # degrade to faded/tiny cadence due to zero-TVL classification.
         convert_to_assets_result = call_by_name.get("convertToAssets")
         if convert_to_assets_result is not None and convert_to_assets_result.state is not None:
             convert_to_assets_result.state.on_called(
                 convert_to_assets_result,
-                total_assets=total_assets,
+                total_assets=current_tvl,
                 share_price=share_price,
             )
 
@@ -123,48 +144,69 @@ class ForgeYieldsVault(ERC4626Vault):
     - `Audits <https://forge-labs.gitbook.io/forge-docs/other/audits>`__
 
     The TokenGateway contract does not implement ``totalAssets()``.
-    NAV is derived from ``convertToAssets(totalSupply())``.
+    On-chain ``convertToAssets(totalSupply())`` returns only the gateway residual.
+    The canonical TVL comes from the offchain API.
+
+    See :py:mod:`~eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata`.
     """
+
+    @cached_property
+    def forgeyields_metadata(self) -> ForgeYieldsVaultMetadata | None:
+        """Offchain metadata from ForgeYields' proprietary API.
+
+        - Fetched from ``api.forgeyields.com/strategies``
+        - Cached on first access (in-process + disk)
+        - Returns None if vault address is not a known ForgeYields Ethereum gateway
+        """
+        return fetch_forgeyields_vault_metadata(self.vault_address)
 
     def get_historical_reader(self, stateful) -> VaultHistoricalReader:
         return ForgeYieldsHistoricalReader(self, stateful=stateful)
 
+    def fetch_tvl(self) -> Decimal | None:
+        """Fetch total cross-chain TVL in denomination token units from the ForgeYields API.
+
+        Returns the TVL in the vault's denomination token (ETH, USDC, WBTC),
+        suitable for writing to ``total_assets`` in the price parquet.
+
+        Uses a short (1-hour) disk cache so hourly scan cycles pick up
+        fresh TVL values, unlike the 2-day metadata cache used for ranking.
+
+        :return:
+            Total vault value in denomination token units, or ``None`` if unavailable.
+        """
+        strategies = fetch_forgeyields_strategies(
+            max_cache_duration=datetime.timedelta(hours=1),
+        )
+        key = self.vault_address.lower()
+        meta = strategies.get(key)
+        if meta is not None:
+            return meta["tvl"]
+        return None
+
     def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal | None:
-        """Compute total assets from ``convertToAssets(totalSupply())``.
+        """Not available — on-chain value is the gateway residual, not the true AUM.
 
-        TokenGateway does not implement ``totalAssets()`` — it reverts.
-        We derive NAV from the share supply and the price-per-share conversion.
-
-        :param block_identifier:
-            Block number to read.
-
-        :return:
-            Total vault value in the denomination token.
-        """
-        if self.underlying_token is None:
-            return None
-
-        total_supply = self.vault_contract.functions.totalSupply().call(block_identifier=block_identifier)
-        if total_supply == 0:
-            return Decimal(0)
-        raw_assets = self.vault_contract.functions.convertToAssets(total_supply).call(block_identifier=block_identifier)
-        return self.underlying_token.convert_to_decimals(raw_assets)
-
-    def fetch_nav(self, block_identifier=None) -> Decimal:
-        """Fetch the most recent onchain NAV value.
-
-        Uses ``convertToAssets(totalSupply())`` instead of ``totalAssets()``
-        because TokenGateway does not implement ``totalAssets()``.
+        The TokenGateway's ``convertToAssets(totalSupply())`` returns only
+        the small residual held by the Ethereum gateway (~$12K), not the
+        cross-chain AUM (~$1.8M). Use :py:meth:`fetch_nav` for the
+        canonical current TVL from the ForgeYields API.
 
         :return:
-            Vault NAV, denominated in :py:meth:`denomination_token`
+            Always ``None``.
         """
-        token = self.denomination_token
-        raw_total_supply = self.vault_contract.functions.totalSupply().call(block_identifier=block_identifier)
-        if raw_total_supply == 0:
-            return Decimal(0)
-        raw_nav = self.vault_contract.functions.convertToAssets(raw_total_supply).call(block_identifier=block_identifier)
-        return token.convert_to_decimals(raw_nav)
+        return None
+
+    def fetch_nav(self, block_identifier=None) -> Decimal | None:
+        """Fetch current TVL in denomination token units from the ForgeYields API.
+
+        Returns the cross-chain AUM in the vault's denomination token
+        (ETH, USDC, WBTC) from ``api.forgeyields.com/strategies``.
+
+        :return:
+            Total vault value in denomination token units, or ``None``.
+        """
+        return self.fetch_tvl()
 
     def has_custom_fees(self) -> bool:
         return False

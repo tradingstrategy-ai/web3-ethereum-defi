@@ -91,6 +91,12 @@ def create_vault_scan_record(
         except ValueError:
             total_assets = None
 
+        # For vaults without on-chain total_assets (e.g. ForgeYields cross-chain
+        # aggregator), fall back to fetch_nav() which may return denomination-token
+        # TVL from an external API.
+        if total_assets is None:
+            total_assets = vault.fetch_nav()
+
         try:
             total_supply = vault.fetch_total_supply(block_identifier)
         except ValueError:

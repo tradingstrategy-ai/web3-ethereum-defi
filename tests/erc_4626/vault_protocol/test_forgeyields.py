@@ -52,12 +52,16 @@ def web3(anvil_ethereum_fork: AnvilLaunch) -> Web3:
 def test_forgeyields(web3: Web3):
     """Read ForgeYields fyUSDC vault metadata.
 
+    On-chain TVL is not available — the TokenGateway only holds a residual.
+    fetch_total_assets() returns None. fetch_nav() returns the canonical
+    TVL from the ForgeYields API in denomination token units.
+
     1. Auto-detect the vault via hardcoded address in HARDCODED_PROTOCOLS
     2. Verify it is identified as ForgeYieldsVault
     3. Check protocol name, features
     4. Verify fee data (20% performance, 0% management)
-    5. Verify NAV via fetch_total_assets (uses convertToAssets(totalSupply), not totalAssets)
-    6. Verify fetch_nav works (same corrected path)
+    5. Verify fetch_total_assets returns None (on-chain TVL not supported)
+    6. Verify fetch_nav returns denomination-token TVL from API
     7. Verify vault link
     """
     # 1. Auto-detect the vault
@@ -77,14 +81,13 @@ def test_forgeyields(web3: Web3):
     assert vault.get_management_fee("latest") == 0.0
     assert vault.get_performance_fee("latest") == pytest.approx(0.20)
 
-    # 5. Verify NAV via fetch_total_assets (convertToAssets(totalSupply), not totalAssets)
-    total_assets = vault.fetch_total_assets("latest")
-    assert total_assets > 0
+    # 5. Verify fetch_total_assets returns None (on-chain TVL not supported)
+    assert vault.fetch_total_assets("latest") is None
 
-    # 6. Verify fetch_nav works (same corrected path)
+    # 6. Verify fetch_nav returns denomination-token TVL from API (USDC)
     nav = vault.fetch_nav()
-    assert nav > 0
-    assert nav == total_assets
+    assert nav is not None
+    assert nav > 10_000  # Should be ~1M USDC
 
     # 7. Verify vault link
     assert vault.get_link() == "https://app.forgeyields.com/"
