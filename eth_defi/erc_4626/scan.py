@@ -91,6 +91,12 @@ def create_vault_scan_record(
         except ValueError:
             total_assets = None
 
+        # For vaults without on-chain TVL (e.g. ForgeYields), fall back to
+        # the external API TVL so the vault metadata DB has a usable figure.
+        tvl_usd = None
+        if total_assets is None and not vault.is_historical_tvl_supported():
+            tvl_usd = vault.fetch_tvl_usd()
+
         try:
             total_supply = vault.fetch_total_supply(block_identifier)
         except ValueError:
@@ -194,6 +200,7 @@ def create_vault_scan_record(
             "_redemption_next_open": redemption_next_open,
             "_available_liquidity": available_liquidity,
             "_utilisation": utilisation,
+            "_tvl_usd": tvl_usd,
             "_description": vault.description,
             "_short_description": vault.short_description,
             "_morpho_offchain_data": vault.morpho_offchain_data if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,

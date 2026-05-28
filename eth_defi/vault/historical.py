@@ -22,8 +22,6 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Callable, Iterable, Literal, TypedDict
 
-from decimal import Decimal
-
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
@@ -888,17 +886,17 @@ def scan_historical_prices_to_parquet(
 def stamp_external_tvl(
     output_fname: Path,
     vaults: list["VaultBase"],
-    now_: datetime.datetime | None = None,
 ) -> int:
-    """Stamp current USD TVL from external APIs for vaults without on-chain TVL.
+    """Stamp current USD TVL onto the latest existing row for each external-TVL vault.
 
-    Called after :py:func:`scan_historical_prices_to_parquet` to append a
-    point-in-time TVL row for each vault where
-    :py:meth:`~eth_defi.vault.base.VaultBase.is_historical_tvl_supported`
-    returns ``False``.
+    Called after :py:func:`scan_historical_prices_to_parquet`. For each vault
+    where :py:meth:`~eth_defi.vault.base.VaultBase.is_historical_tvl_supported`
+    returns ``False``, fetches the current TVL from the protocol's API and
+    writes it into the ``tvl_usd`` column of the vault's most recent row
+    in the parquet file. No new rows are appended.
 
-    Each row uses the ``now()`` timestamp and a synthetic block number of 0.
-    Only the ``tvl_usd`` column is populated; other fields are NaN/empty.
+    This ensures the ``tvl_usd`` value lives on a row that has a valid
+    ``share_price`` and survives the cleaning pipeline's NaN-share-price filter.
 
     :param output_fname:
         Path to the uncleaned vault price parquet file.
@@ -907,96 +905,77 @@ def stamp_external_tvl(
         List of vault instances. Only vaults where
         ``is_historical_tvl_supported() == False`` are processed.
 
-    :param now_:
-        Override current time (for testing).
-
     :return:
-        Number of TVL rows stamped.
+        Number of vaults whose latest row was updated.
     """
     import pyarrow as pa
     import pyarrow.parquet as pq
-
-    from eth_defi.compat import native_datetime_utc_now
-
-    if not now_:
-        now_ = native_datetime_utc_now()
 
     # Filter to vaults that need external TVL
     external_vaults = [v for v in vaults if not v.is_historical_tvl_supported()]
     if not external_vaults:
         return 0
 
-    rows = []
+    if not output_fname.exists():
+        logger.warning("Parquet file %s does not exist, cannot stamp external TVL", output_fname)
+        return 0
+
+    # Fetch TVL for each external vault
+    tvl_by_address: dict[str, float] = {}
     for vault in external_vaults:
         tvl_usd = vault.fetch_tvl_usd()
         if tvl_usd is None:
             logger.warning("Vault %s returned None from fetch_tvl_usd(), skipping", vault.address)
             continue
 
-        logger.info(
-            "Stamping external TVL for %s: $%s",
-            vault.address,
-            tvl_usd,
-        )
+        logger.info("Stamping external TVL for %s: $%s", vault.address, tvl_usd)
+        tvl_by_address[vault.address.lower()] = float(tvl_usd)
 
-        read = VaultHistoricalRead(
-            vault=vault,
-            block_number=0,
-            timestamp=now_,
-            share_price=None,
-            total_assets=None,
-            total_supply=None,
-            performance_fee=None,
-            management_fee=None,
-            errors=None,
-            tvl_usd=tvl_usd,
-        )
-        rows.append(read.export())
-
-    if not rows:
+    if not tvl_by_address:
         return 0
 
-    # Read existing parquet to get the writer schema
-    canonical_schema = VaultHistoricalRead.to_pyarrow_schema()
-    if output_fname.exists():
-        existing_table = pq.read_table(str(output_fname))
-        existing_table = VaultHistoricalRead.migrate_parquet_schema(existing_table)
-        writer_schema = existing_table.schema
-    else:
-        existing_table = None
-        writer_schema = canonical_schema
+    # Read the parquet and update the tvl_usd column on the latest row per vault
+    table = pq.read_table(str(output_fname))
+    table = VaultHistoricalRead.migrate_parquet_schema(table)
 
-    # Build new rows table
-    new_table = pa.Table.from_pylist(rows, schema=canonical_schema)
-    # Stamp written_at
-    new_table = new_table.set_column(
-        new_table.schema.get_field_index("written_at"),
-        "written_at",
-        pa.array([now_] * len(new_table), type=pa.timestamp("ms")),
-    )
-    # Pad extra columns from the writer schema
-    for field in writer_schema:
-        if field.name not in new_table.schema.names:
-            new_table = new_table.append_column(field, pa.nulls(len(new_table), type=field.type))
+    addresses = table.column("address").to_pylist()
+    timestamps = table.column("timestamp").to_pylist()
 
-    # Concatenate and write
-    if existing_table is not None:
-        # Ensure new table matches existing schema column order
-        new_table = new_table.select(writer_schema.names)
-        combined = pa.concat_tables([existing_table, new_table], promote_options="default")
-    else:
-        combined = new_table
+    # Find the index of the latest row for each external vault
+    latest_idx: dict[str, int] = {}
+    latest_ts: dict[str, object] = {}
+    for i, addr in enumerate(addresses):
+        if addr in tvl_by_address:
+            ts = timestamps[i]
+            if addr not in latest_ts or ts > latest_ts[addr]:
+                latest_ts[addr] = ts
+                latest_idx[addr] = i
 
+    if not latest_idx:
+        logger.warning("No existing rows found for external TVL vaults in %s", output_fname)
+        return 0
+
+    # Build a new tvl_usd column with updated values
+    tvl_col_idx = table.schema.get_field_index("tvl_usd")
+    old_tvl = table.column("tvl_usd").to_pylist()
+    for addr, idx in latest_idx.items():
+        old_tvl[idx] = tvl_by_address[addr]
+
+    new_tvl_array = pa.array(old_tvl, type=pa.float64())
+    table = table.set_column(tvl_col_idx, "tvl_usd", new_tvl_array)
+
+    # Write back atomically
     temp_fd, temp_path = tempfile.mkstemp(suffix=".parquet", dir=str(output_fname.parent))
     os.close(temp_fd)
     try:
-        pq.write_table(combined, temp_path, compression="zstd")
-        verify_parquet_file(Path(temp_path), expected_rows=len(combined), expected_schema=combined.schema)
+        pq.write_table(table, temp_path, compression="zstd")
+        verify_parquet_file(Path(temp_path), expected_rows=len(table), expected_schema=table.schema)
         os.replace(temp_path, str(output_fname))
     except Exception:
         if os.path.exists(temp_path):
             os.unlink(temp_path)
         raise
 
-    logger.info("Stamped %d external TVL rows into %s", len(rows), output_fname)
-    return len(rows)
+    stamped = len(latest_idx)
+    logger.info("Stamped external TVL for %d vaults in %s", stamped, output_fname)
+    return stamped
