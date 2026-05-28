@@ -31,7 +31,7 @@ import pyarrow.parquet as pq
 
 from eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata import fetch_forgeyields_history
 from eth_defi.utils import setup_console_logging
-from eth_defi.vault.base import VaultHistoricalRead
+from eth_defi.vault.base import VaultHistoricalRead, verify_parquet_file
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +43,8 @@ MAX_MATCH_DELTA_SECONDS = 24 * 3600  # 24 hours (API has daily snapshots)
 
 
 def main():
-    log_level = os.environ.get("LOG_LEVEL", "info").upper()
-    setup_console_logging(log_level=getattr(logging, log_level))
+    log_level = os.environ.get("LOG_LEVEL", "info").lower()
+    setup_console_logging(default_log_level=log_level)
 
     parquet_path = Path(
         os.environ.get(
@@ -148,6 +148,7 @@ def main():
     os.close(temp_fd)
     try:
         pq.write_table(table, temp_path, compression="zstd")
+        verify_parquet_file(Path(temp_path), expected_rows=len(table), expected_schema=table.schema)
         os.replace(temp_path, str(parquet_path))
     except Exception:
         if os.path.exists(temp_path):

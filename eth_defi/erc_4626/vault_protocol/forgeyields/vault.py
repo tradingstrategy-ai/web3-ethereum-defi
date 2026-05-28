@@ -49,6 +49,7 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata import (
     ForgeYieldsVaultMetadata,
+    fetch_forgeyields_strategies,
     fetch_forgeyields_vault_metadata,
 )
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
@@ -168,10 +169,17 @@ class ForgeYieldsVault(ERC4626Vault):
         Returns the TVL in the vault's denomination token (ETH, USDC, WBTC),
         suitable for writing to ``total_assets`` in the price parquet.
 
+        Uses a short (1-hour) disk cache so hourly scan cycles pick up
+        fresh TVL values, unlike the 2-day metadata cache used for ranking.
+
         :return:
             Total vault value in denomination token units, or ``None`` if unavailable.
         """
-        meta = self.forgeyields_metadata
+        strategies = fetch_forgeyields_strategies(
+            max_cache_duration=datetime.timedelta(hours=1),
+        )
+        key = self.vault_address.lower()
+        meta = strategies.get(key)
         if meta is not None:
             return meta["tvl"]
         return None

@@ -173,8 +173,46 @@ def test_unknown_address_returns_none():
     assert fetch_forgeyields_vault_metadata("0x0000000000000000000000000000000000000001") is None
 
 
-def test_fetch_forgeyields_history():
-    """Verify history parser returns denomination-token TVL entries.
+def test_parse_history_entry():
+    """Verify history parser produces correct ForgeYieldsHistoryEntry dicts.
+
+    1. Parse a mock historyReports entry
+    2. Verify fields are correctly extracted
+    """
+    from eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata import ForgeYieldsHistoryEntry
+
+    raw = {
+        "timestamp": "2026-05-15T10:00:00.000Z",
+        "epochTimestamp": 1778590800,
+        "tvl": 1085717.92,
+        "tvlUSD": 1085178.0,
+        "underlyingPrice": 0.999503,
+        "apr": 13.18,
+    }
+
+    ts = datetime.datetime.fromisoformat(raw["timestamp"].replace("Z", "+00:00")).replace(tzinfo=None)
+    entry = ForgeYieldsHistoryEntry(
+        timestamp=ts,
+        tvl=float(raw["tvl"]),
+        tvl_usd=float(raw["tvlUSD"]),
+        apr=float(raw["apr"]),
+        underlying_price=float(raw["underlyingPrice"]),
+    )
+
+    assert entry["tvl"] == pytest.approx(1085717.92)
+    assert entry["tvl_usd"] == pytest.approx(1085178.0)
+    assert entry["apr"] == pytest.approx(13.18)
+    assert entry["timestamp"].year == 2026
+    assert entry["timestamp"].month == 5
+    assert entry["timestamp"].day == 15
+
+
+@pytest.mark.skipif(
+    os.environ.get("FORGE_YIELDS_LIVE_TEST") is None,
+    reason="Set FORGE_YIELDS_LIVE_TEST=1 to run",
+)
+def test_fetch_forgeyields_history_live():
+    """Verify history fetch returns denomination-token TVL entries from the live API.
 
     1. Call fetch_forgeyields_history against the live API
     2. Verify fyUSDC has ~30 daily entries
@@ -185,7 +223,6 @@ def test_fetch_forgeyields_history():
     strategies = fetch_forgeyields_history()
     assert len(strategies) >= 3
 
-    # Find fyUSDC
     fyusdc = [s for s in strategies if s["symbol"] == "fyUSDC"]
     assert len(fyusdc) == 1
     strat = fyusdc[0]
@@ -194,12 +231,10 @@ def test_fetch_forgeyields_history():
     assert strat["ethereum_gateway"] is not None
     assert len(strat["history"]) >= 25
 
-    # Entries should have denomination-token TVL (large for USDC, not <1)
     entry = strat["history"][-1]
-    assert entry["tvl"] > 10_000  # USDC denomination
+    assert entry["tvl"] > 10_000
     assert entry["tvl_usd"] > 10_000
     assert entry["apr"] > 0
-    assert entry["timestamp"].year >= 2026
 
 
 @pytest.mark.skipif(

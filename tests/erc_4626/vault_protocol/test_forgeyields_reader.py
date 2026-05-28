@@ -117,46 +117,60 @@ def test_reader_old_row_gets_none():
 
 
 def test_backfill_overwrites_existing_values():
-    """Backfill script overwrites all ForgeYields rows, not just NaN.
+    """Backfill script overwrites ForgeYields rows with API history values.
+
+    Calls the actual backfill main() with mocked API and env vars.
 
     1. Create a parquet with a row that has an incorrect total_assets value
-    2. Run the backfill main logic
+    2. Run the backfill script's main() with mocked fetch_forgeyields_history
     3. Verify total_assets is overwritten with the API history value
     """
+    import sys
+
     addr = "0x943109dc7c950da4592d85ebd4cfed007af64670"
-    # Row timestamp matches a history entry
     row_ts = datetime.datetime(2026, 5, 15, 10, 0, 0)
+
+    # Mock history data matching the row timestamp
+    mock_history = [
+        {
+            "name": "ForgeYields USDC",
+            "symbol": "fyUSDC",
+            "underlying_symbol": "USDC",
+            "ethereum_gateway": "0x943109DC7C950da4592d85ebd4Cfed007Af64670",
+            "history": [
+                {
+                    "timestamp": row_ts,
+                    "tvl": 1085717.92,
+                    "tvl_usd": 1085178.0,
+                    "apr": 13.18,
+                    "underlying_price": 0.999503,
+                },
+            ],
+        },
+    ]
 
     with tempfile.TemporaryDirectory() as tmpdir:
         parquet_path = Path(tmpdir) / "vault-prices-1h.parquet"
 
-        # 1. Create parquet with an incorrect total_assets (e.g. old USD value)
+        # 1. Create parquet with an incorrect total_assets
         schema = VaultHistoricalRead.to_pyarrow_schema()
         rows = [_make_price_row(addr, 1, 1.086, row_ts, 25_000_000, total_assets=999999.0)]
         table = pa.Table.from_pylist(rows, schema=schema)
         pq.write_table(table, str(parquet_path))
 
-        # 2. Simulate backfill: read table, match history, overwrite
-        table = pq.read_table(str(parquet_path))
-        table = VaultHistoricalRead.migrate_parquet_schema(table)
+        # 2. Run the actual backfill main() with mocked API
+        # Import the script module
+        sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "erc-4626"))
+        try:
+            import importlib
 
-        history = [(row_ts.timestamp(), 1085717.92)]  # denomination-token TVL from API
-        total_assets = table.column("total_assets").to_pylist()
-        timestamps = table.column("timestamp").to_pylist()
-        addresses = table.column("address").to_pylist()
-        chains = table.column("chain").to_pylist()
+            backfill_mod = importlib.import_module("backfill-forgeyields")
+        finally:
+            sys.path.pop(0)
 
-        for i in range(len(table)):
-            if chains[i] != 1 or addresses[i] != addr:
-                continue
-            ts = timestamps[i].timestamp() if hasattr(timestamps[i], "timestamp") else float(timestamps[i])
-            for epoch, tvl in history:
-                if abs(ts - epoch) <= 24 * 3600:
-                    total_assets[i] = tvl
-
-        col_idx = table.schema.get_field_index("total_assets")
-        table = table.set_column(col_idx, "total_assets", pa.array(total_assets, type=pa.float64()))
-        pq.write_table(table, str(parquet_path))
+        with patch.dict("os.environ", {"PARQUET_PATH": str(parquet_path), "LOG_LEVEL": "warning"}):
+            with patch.object(backfill_mod, "fetch_forgeyields_history", return_value=mock_history):
+                backfill_mod.main()
 
         # 3. Verify
         result = pq.read_table(str(parquet_path))
