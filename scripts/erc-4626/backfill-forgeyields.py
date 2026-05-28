@@ -124,6 +124,14 @@ def main():
             total_assets[i] = best_tvl
             filled += 1
             matched_vaults.add(addr)
+        else:
+            # Row is outside the API history window. If it has a value, it is
+            # a stale gateway residual from the old buggy on-chain reader.
+            # Clear it to NaN so it does not pollute the historical series.
+            if not math.isnan(total_assets[i]):
+                total_assets[i] = float("nan")
+                filled += 1
+                matched_vaults.add(addr)
 
     logger.info(
         "Filled %d rows across %d vaults (of %d total rows)",
