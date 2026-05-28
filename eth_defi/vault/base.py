@@ -474,13 +474,6 @@ class RawVaultPriceRow(TypedDict, total=False):
     #:    in :py:mod:`eth_defi.erc_4626.vault_protocol` for details.
     utilisation: float
 
-    #: Total vault value in USD from an external API.
-    #:
-    #: Used for cross-chain aggregators (e.g. ForgeYields) where on-chain
-    #: ``totalAssets()`` is not meaningful. Stamped by the post-scan
-    #: external TVL step using a ``now()`` timestamp. NaN if not applicable.
-    tvl_usd: float
-
     #: When this row was actually written/fetched (naive UTC). ``None`` until stamped at write time.
     written_at: "pd.Timestamp | None"
 
@@ -562,14 +555,6 @@ class VaultHistoricalRead:
     #: Value between 0.0 and 1.0 (0% to 100%).
     utilisation: Percent | None = None
 
-    #: Total vault value in USD from an external API.
-    #:
-    #: Used for vaults where on-chain ``totalAssets()`` is not meaningful
-    #: (e.g. cross-chain aggregators like ForgeYields). Stamped by the
-    #: post-scan :py:func:`~eth_defi.vault.historical.stamp_external_tvl`
-    #: step using a ``now()`` timestamp.
-    tvl_usd: Decimal | None = None
-
     def __eq__(self, other: "VaultHistoricalRead | None") -> bool:
         """Check if the read statistics match.
 
@@ -636,7 +621,6 @@ class VaultHistoricalRead:
             "trading": str(self.trading).lower() if self.trading is not None else "",
             "available_liquidity": float(self.available_liquidity) if self.available_liquidity is not None else _nan,
             "utilisation": float(self.utilisation) if self.utilisation is not None else _nan,
-            "tvl_usd": float(self.tvl_usd) if self.tvl_usd is not None else _nan,
             "written_at": None,  # Stamped in batch at Parquet write time
         }
         return data
@@ -670,7 +654,6 @@ class VaultHistoricalRead:
                 ("trading", pa.string()),
                 ("available_liquidity", pa.float64()),
                 ("utilisation", pa.float32()),
-                ("tvl_usd", pa.float64()),
                 ("written_at", pa.timestamp("ms")),  # When this row was actually written/fetched (naive UTC)
             ]
         )

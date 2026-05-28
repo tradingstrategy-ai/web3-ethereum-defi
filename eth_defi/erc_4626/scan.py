@@ -93,9 +93,8 @@ def create_vault_scan_record(
 
         # For vaults without on-chain TVL (e.g. ForgeYields), fall back to
         # the external API TVL so the vault metadata DB has a usable figure.
-        tvl_usd = None
         if total_assets is None and not vault.is_historical_tvl_supported():
-            tvl_usd = vault.fetch_tvl_usd()
+            total_assets = vault.fetch_tvl_usd()
 
         try:
             total_supply = vault.fetch_total_supply(block_identifier)
@@ -178,7 +177,7 @@ def create_vault_scan_record(
             "Address": detection.address,
             "Denomination": vault.denomination_token.symbol if vault.denomination_token else None,
             "Share token": vault.share_token.symbol if vault.share_token else None,
-            "NAV": total_assets if total_assets is not None else tvl_usd,
+            "NAV": total_assets,
             "Protocol": protocol_name,
             "Mgmt fee": management_fee,
             "Perf fee": performance_fee,
@@ -200,7 +199,6 @@ def create_vault_scan_record(
             "_redemption_next_open": redemption_next_open,
             "_available_liquidity": available_liquidity,
             "_utilisation": utilisation,
-            "_tvl_usd": tvl_usd,
             "_description": vault.description,
             "_short_description": vault.short_description,
             "_morpho_offchain_data": vault.morpho_offchain_data if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,

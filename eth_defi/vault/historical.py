@@ -887,16 +887,17 @@ def stamp_external_tvl(
     output_fname: Path,
     vaults: list["VaultBase"],
 ) -> int:
-    """Stamp current USD TVL onto the latest existing row for each external-TVL vault.
+    """Stamp current TVL into ``total_assets`` on the latest row for each external-TVL vault.
 
     Called after :py:func:`scan_historical_prices_to_parquet`. For each vault
     where :py:meth:`~eth_defi.vault.base.VaultBase.is_historical_tvl_supported`
     returns ``False``, fetches the current TVL from the protocol's API and
-    writes it into the ``tvl_usd`` column of the vault's most recent row
+    writes it into the ``total_assets`` column of the vault's most recent row
     in the parquet file. No new rows are appended.
 
-    This ensures the ``tvl_usd`` value lives on a row that has a valid
-    ``share_price`` and survives the cleaning pipeline's NaN-share-price filter.
+    This is a point-in-time snapshot — the value reflects current cross-chain
+    AUM, not a historical on-chain read. The row retains its original
+    ``share_price`` and ``block_number``.
 
     :param output_fname:
         Path to the uncleaned vault price parquet file.
@@ -957,14 +958,14 @@ def stamp_external_tvl(
         logger.warning("No existing rows found for external TVL vaults in %s", output_fname)
         return 0
 
-    # Build a new tvl_usd column with updated values
-    tvl_col_idx = table.schema.get_field_index("tvl_usd")
-    old_tvl = table.column("tvl_usd").to_pylist()
+    # Update total_assets on the latest row for each external vault
+    col_idx = table.schema.get_field_index("total_assets")
+    old_values = table.column("total_assets").to_pylist()
     for key, idx in latest_idx.items():
-        old_tvl[idx] = tvl_by_key[key]
+        old_values[idx] = tvl_by_key[key]
 
-    new_tvl_array = pa.array(old_tvl, type=pa.float64())
-    table = table.set_column(tvl_col_idx, "tvl_usd", new_tvl_array)
+    new_array = pa.array(old_values, type=pa.float64())
+    table = table.set_column(col_idx, "total_assets", new_array)
 
     # Write back atomically
     temp_fd, temp_path = tempfile.mkstemp(suffix=".parquet", dir=str(output_fname.parent))
