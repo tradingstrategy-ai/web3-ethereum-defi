@@ -141,7 +141,7 @@ services:
       - ${HOME}/.cache:/root/.cache:rw
 
   # Persistent: looped vault scanner, ticks every 1h, scans chains on configurable cycles.
-  # Hyperliquid/GRVT/Lighter/Hibachi default to 4h, EVM chains default to 24h.
+  # Ethereum/Base/Arbitrum on 8h, Hyperliquid/GRVT/Lighter/Hibachi on 4h, other EVM chains on 24h.
   # Uses a pipeline lock to prevent overlap with the single-run vault-scanner.
   # Started by `docker compose up -d`.
   vault-scanner-looped:
