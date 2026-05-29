@@ -43,9 +43,9 @@ Usage:
     # Disable specific chains (skip them)
     DISABLE_CHAINS=Plasma,Katana python scripts/erc-4626/scan-vaults-all-chains.py
 
-    # Looped mode: tick every 1h, Lighter/GRVT/Hypercore on 4h cycle, EVM chains on 24h
+    # Looped mode: tick every 1h, major EVM chains on 8h, native protocols on 4h, rest on 24h
     LOOP_INTERVAL_SECONDS=3600 \\
-    SCAN_CYCLES="Hypercore=4h,GRVT=4h,Lighter=4h,Hibachi=4h" \\
+    SCAN_CYCLES="Ethereum=8h,Base=8h,Arbitrum=8h,Hypercore=4h,GRVT=4h,Lighter=4h,Hibachi=4h" \\
     DEFAULT_CYCLE=24h \\
     SCAN_HYPERCORE=true SCAN_GRVT=true SCAN_LIGHTER=true SCAN_HIBACHI=true \\
     python scripts/erc-4626/scan-vaults-all-chains.py
@@ -99,7 +99,7 @@ Environment variables:
     - SKIP_DATA: "true" to skip data file (parquet, pickle) export to R2 (default: "false")
     - JSON_RPC_<CHAIN>: RPC URL for each chain (required per chain)
     - LOOP_INTERVAL_SECONDS: Seconds between ticks in looped mode (default: "0" = single run)
-    - SCAN_CYCLES: Per-chain/protocol cycle overrides, e.g. "Hypercore=4h,GRVT=4h,Lighter=4h"
+    - SCAN_CYCLES: Per-chain/protocol cycle overrides, e.g. "Ethereum=8h,Base=8h,Arbitrum=8h,Hypercore=4h,GRVT=4h,Lighter=4h"
     - DEFAULT_CYCLE: Default cycle interval for items not in SCAN_CYCLES (default: "24h")
     - MAX_CYCLES: Exit after N cycles in looped mode, for testing (default: "0" = unlimited)
     - FORCE_RESCAN: "true" to ignore cycle state and rescan all items on the first cycle (default: "false")
