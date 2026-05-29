@@ -26,7 +26,9 @@ jobs:
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
-    timeout-minutes: 60
+    # Hard cap — GMX serial run should sit comfortably under 15 min on Beefy
+    # after the round-2 cost-reduction work; anything longer is a stall.
+    timeout-minutes: 15
 
     if: github.event.pull_request.draft == false || github.event_name == 'push'
 

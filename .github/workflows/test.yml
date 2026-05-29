@@ -11,6 +11,10 @@ jobs:
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
+    # Hard cap — no test run should exceed 15 min on Beefy after the round-2
+    # cost-reduction work; anything longer is a stall and should be killed
+    # rather than burn Beefy minutes.
+    timeout-minutes: 15
 
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
