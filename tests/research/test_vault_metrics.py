@@ -12,12 +12,38 @@ from plotly.graph_objects import Figure
 
 from eth_defi.research.sparkline import export_sparkline_as_png, export_sparkline_as_svg, extract_vault_price_data, render_sparkline_simple
 from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
-from eth_defi.research.vault_metrics import PeriodMetrics, apply_abnormal_value_checks, calculate_lifetime_metrics, calculate_period_metrics, display_vault_chart_and_tearsheet, export_lifetime_row, format_lifetime_table
-from eth_defi.vault.flag import VaultFlag
+from eth_defi.research.vault_metrics import PeriodMetrics, apply_abnormal_value_checks, apply_morpho_not_in_api_check, calculate_lifetime_metrics, calculate_period_metrics, display_vault_chart_and_tearsheet, export_lifetime_row, format_lifetime_table
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase
+
+
+def test_apply_morpho_not_in_api_check_blacklists_vault():
+    """Morpho API missing flag blacklists the vault in metrics."""
+    risk, notes, flags = apply_morpho_not_in_api_check(
+        risk=VaultTechnicalRisk.negligible,
+        notes=None,
+        flags={VaultFlag.not_in_morpho_api},
+    )
+
+    assert risk == VaultTechnicalRisk.blacklisted
+    assert notes == NOT_IN_MORPHO_API
+    assert flags == {VaultFlag.not_in_morpho_api}
+
+
+def test_apply_morpho_not_in_api_check_preserves_existing_note():
+    """Morpho API missing flag does not replace higher-priority notes."""
+    risk, notes, flags = apply_morpho_not_in_api_check(
+        risk=VaultTechnicalRisk.negligible,
+        notes="Existing manual note",
+        flags={VaultFlag.not_in_morpho_api},
+    )
+
+    assert risk == VaultTechnicalRisk.blacklisted
+    assert notes == "Existing manual note"
+    assert flags == {VaultFlag.not_in_morpho_api}
 
 
 @pytest.fixture(scope="module")

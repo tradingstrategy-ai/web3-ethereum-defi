@@ -59,17 +59,22 @@ from pathlib import Path
 
 import flaky
 import pytest
+import requests
 from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
+    MorphoVaultAPIResult,
+    MorphoVaultAPIStatus,
     MorphoVaultData,
     _cached_vault_data,  # noqa: PLC2701
+    fetch_morpho_vault_api_result,
     fetch_morpho_vault_data,
 )
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -87,6 +92,71 @@ YELLOW_ONLY_USDC_ETHEREUM = "0xbEeFCe6c76C7D7A8066562Fe9FF0e343a52dD92F"
 #: Gauntlet USDC Prime on Ethereum — clean vault, no warnings
 GAUNTLET_USDC_PRIME_ETHEREUM = "0xdd0f28e19C1780eb6396170735D45153D261490d"
 
+NOT_FOUND_TEST_VAULT = "0x000000000000000000000000000000000000dead"
+
+
+class _FakeEth:
+    """Minimal fake Web3.eth object for Morpho API tests."""
+
+    chain_id = 1
+
+
+class _FakeWeb3:
+    """Minimal fake Web3 object for Morpho API tests."""
+
+    eth = _FakeEth()
+
+
+class _FakeResponse:
+    """Minimal requests response for Morpho API tests."""
+
+    def __init__(self, body: dict):
+        self.body = body
+
+    def raise_for_status(self) -> None:
+        """No-op for successful fake responses."""
+
+    def json(self) -> dict:
+        """Return the fake JSON body."""
+        return self.body
+
+
+def _patch_morpho_api(monkeypatch: pytest.MonkeyPatch, responses: list[dict]) -> list[dict]:
+    """Patch Morpho API HTTP calls and return captured payloads."""
+    calls: list[dict] = []
+
+    def fake_post(url: str, json: dict, timeout: int, headers: dict) -> _FakeResponse:
+        calls.append(
+            {
+                "url": url,
+                "json": json,
+                "timeout": timeout,
+                "headers": headers,
+            }
+        )
+        return _FakeResponse(responses.pop(0))
+
+    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata.requests.post", fake_post)
+    return calls
+
+
+def _make_morpho_v1_vault(address: str) -> MorphoV1Vault:
+    """Create a Morpho V1 vault with only offchain API dependencies populated."""
+    return MorphoV1Vault(
+        web3=_FakeWeb3(),  # type: ignore[arg-type]
+        spec=VaultSpec(chain_id=1, vault_address=address),
+        token_cache={},
+    )
+
+
+def _patch_base_vault_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Avoid onchain ERC-4626 flag reads in pure Morpho API unit tests."""
+
+    def fake_get_flags(_self) -> set[VaultFlag]:
+        return set()
+
+    monkeypatch.setattr("eth_defi.erc_4626.vault.ERC4626Vault.get_flags", fake_get_flags)
+
 
 @pytest.fixture(scope="module")
 def web3_arbitrum() -> Web3:
@@ -98,6 +168,130 @@ def web3_arbitrum() -> Web3:
 def web3_ethereum() -> Web3:
     """Web3 connection to Ethereum mainnet."""
     return create_multi_provider_web3(JSON_RPC_ETHEREUM)
+
+
+# ---------------------------------------------------------------------------
+# Mocked API status tests
+# ---------------------------------------------------------------------------
+
+
+def test_morpho_not_found_adds_dynamic_flag_and_note(monkeypatch: pytest.MonkeyPatch):
+    """A definitive Morpho ``NOT_FOUND`` adds the dynamic blacklist flag and note."""
+    _patch_base_vault_flags(monkeypatch)
+
+    def fake_fetch_morpho_vault_api_result(*_args, **_kwargs) -> MorphoVaultAPIResult:
+        return MorphoVaultAPIResult(MorphoVaultAPIStatus.not_found)
+
+    monkeypatch.setattr(
+        "eth_defi.erc_4626.vault_protocol.morpho.vault_v1.fetch_morpho_vault_api_result",
+        fake_fetch_morpho_vault_api_result,
+    )
+
+    vault = _make_morpho_v1_vault(NOT_FOUND_TEST_VAULT)
+
+    assert vault.get_flags() == {VaultFlag.not_in_morpho_api}
+    assert vault.get_notes() == NOT_IN_MORPHO_API
+    assert VaultFlag.morpho_issues not in vault.get_flags()
+
+
+def test_morpho_not_found_is_not_cached(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    """A definitive Morpho ``NOT_FOUND`` is queried again by a fresh vault instance."""
+    calls = _patch_morpho_api(
+        monkeypatch,
+        [
+            {
+                "errors": [
+                    {
+                        "message": "No results matching given parameters",
+                        "status": "NOT_FOUND",
+                        "extensions": {},
+                    }
+                ],
+                "data": None,
+            },
+            {
+                "errors": [
+                    {
+                        "message": "No results matching given parameters",
+                        "status": "NOT_FOUND",
+                        "extensions": {},
+                    }
+                ],
+                "data": None,
+            },
+        ],
+    )
+
+    vault_1 = _make_morpho_v1_vault(NOT_FOUND_TEST_VAULT)
+    vault_2 = _make_morpho_v1_vault(NOT_FOUND_TEST_VAULT)
+
+    assert fetch_morpho_vault_api_result(vault_1.web3, vault_1.vault_address, cache_path=tmp_path).is_not_found
+    assert fetch_morpho_vault_api_result(vault_2.web3, vault_2.vault_address, cache_path=tmp_path).is_not_found
+
+    cache_file = tmp_path / f"morpho_1_{NOT_FOUND_TEST_VAULT.lower()}.json"
+    assert not cache_file.exists()
+    expected_call_count = 2
+    assert len(calls) == expected_call_count
+
+
+def test_morpho_transient_error_does_not_add_not_found_flag(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    """Transient Morpho API errors are not treated as definitive missing-vault results."""
+    _patch_base_vault_flags(monkeypatch)
+
+    def fake_post(_url: str, **_kwargs) -> _FakeResponse:
+        message = "temporary timeout"
+        raise requests.Timeout(message)
+
+    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata.requests.post", fake_post)
+
+    vault = _make_morpho_v1_vault(NOT_FOUND_TEST_VAULT)
+    result = fetch_morpho_vault_api_result(vault.web3, vault.vault_address, cache_path=tmp_path)
+
+    def fake_fetch_morpho_vault_api_result(*_args, **_kwargs) -> MorphoVaultAPIResult:
+        return MorphoVaultAPIResult(MorphoVaultAPIStatus.transient_error)
+
+    monkeypatch.setattr(
+        "eth_defi.erc_4626.vault_protocol.morpho.vault_v1.fetch_morpho_vault_api_result",
+        fake_fetch_morpho_vault_api_result,
+    )
+
+    assert result.status == MorphoVaultAPIStatus.transient_error
+    assert VaultFlag.not_in_morpho_api not in vault.get_flags()
+    assert vault.get_notes() is None
+
+    cache_file = tmp_path / f"morpho_1_{NOT_FOUND_TEST_VAULT.lower()}.json"
+    assert not cache_file.exists()
+
+
+def test_morpho_found_data_uses_disk_cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    """Successful Morpho warning data still uses the existing disk cache."""
+    calls = _patch_morpho_api(
+        monkeypatch,
+        [
+            {
+                "data": {
+                    "vaultByAddress": {
+                        "address": Web3.to_checksum_address(DUNE_USDC_ETHEREUM),
+                        "warnings": [{"type": "short_timelock", "level": "RED"}],
+                        "state": {"allocation": []},
+                    }
+                }
+            }
+        ],
+    )
+
+    web3 = _FakeWeb3()  # type: ignore[assignment]
+    result_1 = fetch_morpho_vault_data(web3, DUNE_USDC_ETHEREUM, cache_path=tmp_path)
+    assert result_1 is not None
+    assert result_1["vault_warnings"] == [{"type": "short_timelock", "level": "RED"}]
+
+    cache_key = f"{tmp_path}:1:{DUNE_USDC_ETHEREUM.lower()}"
+    _cached_vault_data.pop(cache_key, None)
+
+    result_2 = fetch_morpho_vault_data(web3, DUNE_USDC_ETHEREUM, cache_path=tmp_path)
+
+    assert result_2 == result_1
+    assert len(calls) == 1
 
 
 # ---------------------------------------------------------------------------
