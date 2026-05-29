@@ -1,21 +1,17 @@
-"""Shared autouse fixture for per-test EVM state isolation on module-scope Anvil.
+"""EVM snapshot/revert helper for per-test isolation on module-scope Anvil forks.
 
-This module provides :func:`make_evm_snapshot_fixture` — a factory that creates
-an autouse pytest fixture wrapping each test in an ``evm_snapshot`` /
-``evm_revert`` pair.
-
-The motivation is CI cost reduction: many test fixtures that wrap
-:func:`~eth_defi.provider.anvil.fork_network_anvil` are function-scoped,
-spawning a fresh Anvil per test and re-warming the fork from the archive RPC.
-Bumping the fork fixture to ``scope="module"`` and adding an autouse
-snapshot/revert keeps per-test isolation but spawns Anvil once per module —
-typically a 30-50% wall-clock reduction on fork-heavy dirs.
+Use this when a test module shares one Anvil fork fixture (``scope="module"``)
+to keep per-test state isolation cheap. Each test brackets in ``evm_snapshot``
+and reverts on exit, so the fork warms up once per module instead of once per
+test.
 
 Usage in a conftest or test file:
 
 .. code-block:: python
 
-    from eth_defi.testing.evm_snapshot_fixture import make_evm_snapshot_fixture
+    import pytest
+    from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+    from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 
 
     @pytest.fixture(scope="module")
@@ -27,73 +23,65 @@ Usage in a conftest or test file:
             launch.close()
 
 
-    _evm_snapshot = make_evm_snapshot_fixture("anvil_base_fork")
-
-The factory takes the *name* of the fork fixture (so it can request that
-fixture as a dependency by string lookup) and returns an autouse function-scope
-fixture.
+    @pytest.fixture(autouse=True)
+    def _evm_snapshot(anvil_base_fork):
+        yield from evm_snapshot_revert(anvil_base_fork)
 
 See the Anvil fork caching design doc for the full strategy:
 ``docs/superpowers/specs/2026-05-27-anvil-fork-caching-design.md``
 """
 
 import logging
+from collections.abc import Iterator
 
-import pytest
 from web3 import HTTPProvider, Web3
 
 logger = logging.getLogger(__name__)
 
 
-def make_evm_snapshot_fixture(fork_fixture_name: str):
-    """Return an autouse pytest fixture that snapshots EVM state per test.
+def evm_snapshot_revert(fork) -> Iterator[None]:
+    """Snapshot EVM state before, revert after — generator helper for autouse fixtures.
 
-    The returned fixture depends on ``fork_fixture_name`` (which must yield an
-    object with a ``json_rpc_url`` attribute, e.g.
-    :class:`~eth_defi.provider.anvil.AnvilLaunch`). Before each test it issues
-    ``evm_snapshot``; after the test it reverts via ``evm_revert``. This pattern
-    lets a module share one Anvil process while each test still sees a clean
-    state.
+    Yields once after taking the snapshot, then reverts on resume. Designed to
+    be used with ``yield from`` inside a per-file
+    ``@pytest.fixture(autouse=True)`` so each test sees a clean state on a
+    module-scope Anvil fork.
 
-    :param fork_fixture_name:
-        Name of an existing module-scope or session-scope Anvil fixture in the
-        same conftest/test file. Looked up via
-        ``pytest.FixtureRequest.getfixturevalue``.
+    :param fork:
+        Object with a ``json_rpc_url`` attribute, typically
+        :class:`~eth_defi.provider.anvil.AnvilLaunch`. The fixture that yields
+        ``fork`` should itself be ``scope="module"`` or ``scope="session"`` —
+        otherwise the snapshot/revert dance buys nothing.
 
     :return:
-        An autouse function-scope :func:`pytest.fixture` ready to bind to a
-        module-level name.
+        Generator yielding ``None`` once, then performing the revert on resume.
+
+    :raises RuntimeError:
+        If the ``evm_snapshot`` RPC call returns a non-result (e.g. an older
+        Anvil build or a non-Anvil backend snuck in via a different fixture).
 
     .. note::
 
         ``evm_revert`` restores EVM state and storage but **does not** reset
         block timestamp. Tests asserting on ``block.timestamp == X`` must call
-        ``evm_setNextBlockTimestamp`` themselves; the snapshot pattern alone is
-        insufficient for time-sensitive assertions.
+        ``evm_setNextBlockTimestamp`` themselves.
 
     .. seealso::
 
         `Anvil custom JSON-RPC methods
-        <https://book.getfoundry.sh/anvil/#custom-methods>`_ for the full list
-        of ``evm_*`` and ``anvil_*`` methods.
+        <https://book.getfoundry.sh/anvil/#custom-methods>`_
     """
-
-    @pytest.fixture(autouse=True)
-    def _evm_snapshot(request):
-        fork = request.getfixturevalue(fork_fixture_name)
-        web3 = Web3(HTTPProvider(fork.json_rpc_url))
-        snap_response = web3.provider.make_request("evm_snapshot", [])
-        snap_id = snap_response.get("result")
-        if snap_id is None:
-            error = snap_response.get("error", {})
-            msg = f"evm_snapshot failed: {error}"
-            raise RuntimeError(msg)
-        try:
-            yield
-        finally:
-            revert_response = web3.provider.make_request("evm_revert", [snap_id])
-            ok = revert_response.get("result")
-            if ok is not True:
-                logger.warning("evm_revert returned %s for snap %s", revert_response, snap_id)
-
-    return _evm_snapshot
+    web3 = Web3(HTTPProvider(fork.json_rpc_url))
+    snap_response = web3.provider.make_request("evm_snapshot", [])
+    snap_id = snap_response.get("result")
+    if snap_id is None:
+        error = snap_response.get("error", {})
+        msg = f"evm_snapshot failed: {error}"
+        raise RuntimeError(msg)
+    try:
+        yield
+    finally:
+        revert_response = web3.provider.make_request("evm_revert", [snap_id])
+        ok = revert_response.get("result")
+        if ok is not True:
+            logger.warning("evm_revert returned %s for snap %s", revert_response, snap_id)

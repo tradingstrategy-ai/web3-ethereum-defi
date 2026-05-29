@@ -17,7 +17,7 @@ from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, mine
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.testing.evm_snapshot_fixture import make_evm_snapshot_fixture
+from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.trade import TradeSuccess
@@ -241,4 +241,6 @@ def test_ipor_redeem(
 
 # Per-test EVM state isolation on module-scope Anvil fork.
 # See eth_defi.testing.evm_snapshot_fixture for the rationale.
-_evm_snapshot = make_evm_snapshot_fixture("anvil_base_fork")
+@pytest.fixture(autouse=True)
+def _evm_snapshot(anvil_base_fork):
+    yield from evm_snapshot_revert(anvil_base_fork)

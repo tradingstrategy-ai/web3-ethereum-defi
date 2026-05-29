@@ -14,7 +14,7 @@ from eth_defi.abi import get_deployed_contract, get_function_selector
 from eth_defi.deploy import deploy_contract
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
-from eth_defi.testing.evm_snapshot_fixture import make_evm_snapshot_fixture
+from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.token import create_token
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import (
@@ -280,4 +280,6 @@ def test_safe_module_can_trade_uniswap_v2(
 
 # Per-test EVM state isolation on module-scope Anvil.
 # See eth_defi.testing.evm_snapshot_fixture for the rationale.
-_evm_snapshot = make_evm_snapshot_fixture("anvil")
+@pytest.fixture(autouse=True)
+def _evm_snapshot(anvil):
+    yield from evm_snapshot_revert(anvil)
