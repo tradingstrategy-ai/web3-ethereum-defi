@@ -43,6 +43,7 @@ def create_vault_scan_record(
         detection.address,
         detection.features,
         token_cache=token_cache,
+        default_block_identifier=block_identifier,
     )
 
     empty_record = {
@@ -95,7 +96,10 @@ def create_vault_scan_record(
         # aggregator), fall back to fetch_nav() which may return denomination-token
         # TVL from an external API.
         if total_assets is None:
-            total_assets = vault.fetch_nav()
+            try:
+                total_assets = vault.fetch_nav(block_identifier)
+            except (AttributeError, ValueError):
+                total_assets = None
 
         try:
             total_supply = vault.fetch_total_supply(block_identifier)

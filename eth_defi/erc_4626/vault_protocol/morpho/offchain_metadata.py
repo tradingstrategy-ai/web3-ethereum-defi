@@ -1,10 +1,10 @@
 """Morpho Blue offchain vault metadata.
 
-- Morpho Blue exposes a public GraphQL API that reports vault-level governance
+- Morpho exposes a public GraphQL API that reports vault-level governance
   warnings (e.g. ``short_timelock``) and market-level risk warnings
   (e.g. ``bad_debt_unrealized``)
-- We reverse-engineered the warning schema from the Morpho Blue GraphQL API at
-  ``blue-api.morpho.org``
+- We reverse-engineered the warning schema from the Morpho GraphQL API at
+  ``api.morpho.org``
 - Vault-level warnings cover governance risk; market-level warnings cover
   financial risk in underlying market allocations
 - Two-level caching: disk (24h TTL) + in-process dictionary keyed by
@@ -28,16 +28,18 @@ Warning types observed from the API:
 - ``not_whitelisted`` (YELLOW) — market not curated
 - ``unrecognized_collateral_asset`` / ``unrecognized_loan_asset`` (YELLOW)
 
-Morpho Blue API documentation:
-- `Morpho Blue GraphQL API <https://blue-api.morpho.org/graphql>`__
+Morpho API documentation:
+- `Morpho GraphQL API <https://api.morpho.org/graphql>`__
 - `Morpho documentation <https://docs.morpho.org/>`__
 """
 
 import datetime
+import enum
 import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 import requests
 from eth_typing import HexAddress
@@ -51,8 +53,8 @@ from eth_defi.utils import wait_other_writers
 #: Where we cache fetched Morpho vault data files
 DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "morpho"
 
-#: Morpho Blue public GraphQL API endpoint
-MORPHO_BLUE_GRAPHQL_URL = "https://blue-api.morpho.org/graphql"
+#: Morpho public GraphQL API endpoint
+MORPHO_BLUE_GRAPHQL_URL = "https://api.morpho.org/graphql"
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +100,53 @@ query MorphoVaultWarnings($address: String!, $chainId: Int!) {
 }
 """
 
+#: GraphQL query to fetch V2 vault-level warnings for a single vault.
+_VAULT_V2_WARNINGS_QUERY = """
+query MorphoVaultV2Warnings($address: String!, $chainId: Int!) {
+  vaultV2ByAddress(address: $address, chainId: $chainId) {
+    address
+    warnings {
+      type
+      level
+    }
+  }
+}
+"""
+
+MorphoVaultAPIVersion = Literal["v1", "v2"]
+
+
+class MorphoVaultAPIStatus(str, enum.Enum):
+    """Status of a Morpho API vault lookup."""
+
+    #: The vault was found and warning data is present.
+    found = "found"
+
+    #: Morpho returned a definitive ``NOT_FOUND`` or null address lookup.
+    not_found = "not_found"
+
+    #: The lookup failed due to a retryable network/API issue.
+    transient_error = "transient_error"
+
+
+@dataclass(slots=True)
+class MorphoVaultAPIResult:
+    """Three-way Morpho API result for a vault lookup.
+
+    :ivar status:
+        Lookup status.
+    :ivar data:
+        Warning payload when :py:attr:`status` is :py:attr:`MorphoVaultAPIStatus.found`.
+    """
+
+    status: MorphoVaultAPIStatus
+    data: "MorphoVaultData | None" = None
+
+    @property
+    def is_not_found(self) -> bool:
+        """Does the result mean Morpho API does not know this vault."""
+        return self.status == MorphoVaultAPIStatus.not_found
+
 
 class MorphoMarketWarning(TypedDict):
     """A warning on a Morpho Blue market that a vault is allocated to.
@@ -105,7 +154,7 @@ class MorphoMarketWarning(TypedDict):
     Market warnings indicate financial risk in the underlying market allocations.
     The most critical are ``bad_debt_unrealized`` (RED) and ``bad_debt_realized`` (YELLOW).
 
-    - `Morpho Blue market warning types <https://blue-api.morpho.org/graphql>`__
+    - `Morpho market warning types <https://api.morpho.org/graphql>`__
     """
 
     #: Warning type identifier, snake_case.
@@ -135,15 +184,15 @@ class MorphoMarketWarning(TypedDict):
 
 
 class MorphoVaultData(TypedDict):
-    """Offchain warning data for a Morpho vault from the Morpho Blue GraphQL API.
+    """Offchain warning data for a Morpho vault from the Morpho GraphQL API.
 
-    Fetched from ``https://blue-api.morpho.org/graphql`` via the ``vaultByAddress`` query.
+    Fetched from ``https://api.morpho.org/graphql`` via the ``vaultByAddress`` query.
 
     - ``vault_warnings`` covers vault-level governance risk
     - ``market_warnings`` covers financial risk in underlying market allocations
 
-    Note: for Morpho V2 vaults, the API currently returns ``NOT_FOUND`` so
-    ``market_warnings`` will always be empty for those vaults.
+    Note: Morpho V2 vault responses do not expose V1-style market allocation
+    warnings, so ``market_warnings`` will be empty for those vaults.
     """
 
     #: Vault-level governance warnings.
@@ -168,8 +217,13 @@ _cached_vault_data: dict[str, MorphoVaultData] = {}
 #: Sentinel to distinguish transient API failures from definitively-not-found
 _TRANSIENT_ERROR = object()
 
+#: Sentinel for legacy empty-dict cache files that represented ``NOT_FOUND``.
+#:
+#: TODO: Remove after production Morpho cache files have rotated past their old 24h TTL.
+_NOT_FOUND_CACHE_MARKER = object()
 
-def _parse_cached_json(file: Path) -> MorphoVaultData | object | None:
+
+def _parse_cached_json(file: Path) -> MorphoVaultData | object:
     """Read and validate a Morpho vault data JSON cache file.
 
     :param file:
@@ -177,7 +231,8 @@ def _parse_cached_json(file: Path) -> MorphoVaultData | object | None:
 
     :return:
         - :py:class:`MorphoVaultData` on a valid cache hit
-        - ``None`` if the file is an empty-dict NOT_FOUND marker
+        - :py:data:`_NOT_FOUND_CACHE_MARKER` if the file is a legacy empty-dict
+          NOT_FOUND marker
         - :py:data:`_TRANSIENT_ERROR` if the file cannot be parsed or has unexpected shape
     """
     try:
@@ -187,8 +242,7 @@ def _parse_cached_json(file: Path) -> MorphoVaultData | object | None:
         logger.warning("Corrupted Morpho cache file %s: %s - ignoring", file, e)
         return _TRANSIENT_ERROR
     if not raw:
-        # Empty dict marker written when vault is definitively NOT_FOUND
-        return None
+        return _NOT_FOUND_CACHE_MARKER
     if not isinstance(raw, dict):
         logger.warning("Unexpected Morpho cache shape in %s (%s) - ignoring", file, type(raw).__name__)
         return _TRANSIENT_ERROR
@@ -246,16 +300,31 @@ def _build_vault_data_from_api_response(raw_vault: dict) -> MorphoVaultData:
     )
 
 
-def fetch_morpho_vault_data(
+def _get_cache_key(cache_path: Path, chain_id: int, address_lower: str, api_version: MorphoVaultAPIVersion) -> str:
+    """Build an in-process cache key for Morpho API data."""
+    if api_version == "v1":
+        return f"{cache_path}:{chain_id}:{address_lower}"
+    return f"{cache_path}:{api_version}:{chain_id}:{address_lower}"
+
+
+def _get_cache_file(cache_path: Path, chain_id: int, address_lower: str, api_version: MorphoVaultAPIVersion) -> Path:
+    """Build a disk cache file path for Morpho API data."""
+    if api_version == "v1":
+        return (cache_path / f"morpho_{chain_id}_{address_lower}.json").resolve()
+    return (cache_path / f"morpho_{api_version}_{chain_id}_{address_lower}.json").resolve()
+
+
+def fetch_morpho_vault_api_result(  # noqa: PLR0917
     web3: Web3,
     vault_address: HexAddress,
     cache_path: Path = DEFAULT_CACHE_PATH,
     now_: datetime.datetime | None = None,
     max_cache_duration: datetime.timedelta = datetime.timedelta(hours=24),
-) -> MorphoVaultData | None:
-    """Fetch and cache Morpho Blue API offchain warning data for a vault.
+    api_version: MorphoVaultAPIVersion = "v1",
+) -> MorphoVaultAPIResult:
+    """Fetch and cache Morpho API offchain warning data for a vault.
 
-    Queries the Morpho Blue public GraphQL API at ``blue-api.morpho.org`` to
+    Queries the Morpho public GraphQL API at ``api.morpho.org`` to
     retrieve vault-level governance warnings and market-level risk warnings for
     the vault's underlying market allocations.
 
@@ -267,13 +336,11 @@ def fetch_morpho_vault_data(
     Caching policy:
 
     - **Found**: Full :py:class:`MorphoVaultData` written to disk and in-process cache.
-    - **Not found** (``NOT_FOUND`` GraphQL error or null ``vaultByAddress``): empty marker
-      ``{}`` written to disk so we don't re-query for 24h.
-    - **Transient error** (network failure, rate limit, unexpected GraphQL error): returns
-      ``None`` without writing cache so the next call retries.
-
-    Note: Morpho V2 vaults are currently not indexed by the ``vaultByAddress`` query
-    and will return ``None`` (NOT_FOUND).
+    - **Not found** (``NOT_FOUND`` GraphQL error or null address lookup): no disk
+      or in-process cache is written, so unofficial vaults are rechecked on every
+      scan cycle.
+    - **Transient error** (network failure, rate limit, unexpected GraphQL error):
+      no cache is written so the next call retries.
 
     :param web3:
         Web3 instance (used to determine chain ID and checksum the address).
@@ -290,28 +357,30 @@ def fetch_morpho_vault_data(
     :param max_cache_duration:
         Cache TTL. Default 24 hours (shorter than Euler/Lagoon's 2 days because
         bad-debt warnings can appear and resolve more quickly).
+    :param api_version:
+        Morpho vault API family. V1 uses ``vaultByAddress`` and V2 uses
+        ``vaultV2ByAddress``.
 
     :return:
-        Vault warning data, or ``None`` if the vault is not indexed by the Morpho
-        Blue API or if a transient error occurred.
+        Three-way Morpho API lookup result.
     """
     chain_id = web3.eth.chain_id
     address_lower = vault_address.lower()
     checksum_address = Web3.to_checksum_address(vault_address)
-    cache_key = f"{cache_path}:{chain_id}:{address_lower}"
+    cache_key = _get_cache_key(cache_path, chain_id, address_lower, api_version)
 
     logger.info("Resolving Morpho GraphQL data for vault %s on chain %d", checksum_address, chain_id)
 
     # 1. In-process cache hit
     if cache_key in _cached_vault_data:
-        return _cached_vault_data[cache_key]
+        return MorphoVaultAPIResult(MorphoVaultAPIStatus.found, _cached_vault_data[cache_key])
 
     # 2. Disk cache
     if not now_:
         now_ = native_datetime_utc_now()
 
     cache_path.mkdir(parents=True, exist_ok=True)
-    file = (cache_path / f"morpho_{chain_id}_{address_lower}.json").resolve()
+    file = _get_cache_file(cache_path, chain_id, address_lower, api_version)
 
     with wait_other_writers(file):
         if file.exists() and file.stat().st_size > 0:
@@ -325,43 +394,84 @@ def fetch_morpho_vault_data(
                     age,
                 )
                 cached = _parse_cached_json(file)
-                if cached is None:
-                    # Empty-dict NOT_FOUND marker
-                    return None
+                if cached is _NOT_FOUND_CACHE_MARKER:
+                    logger.info("Ignoring legacy Morpho NOT_FOUND cache marker %s", file)
+                    file.unlink(missing_ok=True)
+                    cached = _TRANSIENT_ERROR
                 if cached is not _TRANSIENT_ERROR:
                     _cached_vault_data[cache_key] = cached  # type: ignore[assignment]
-                    return cached  # type: ignore[return-value]
+                    return MorphoVaultAPIResult(MorphoVaultAPIStatus.found, cached)  # type: ignore[arg-type]
 
         # 3. Fetch from API
         logger.info("Fetching Morpho vault warnings for %s on chain %d", checksum_address, chain_id)
-        result = _query_morpho_api(chain_id, checksum_address)
+        result = _query_morpho_api(chain_id, checksum_address, api_version=api_version)
 
-        if result is _TRANSIENT_ERROR:
-            # Transient failure — do not cache, let the next call retry
-            return None
+        if result.status == MorphoVaultAPIStatus.transient_error:
+            return result
 
-        if result is None:
-            # Definitively NOT_FOUND — cache empty marker so we don't re-query
+        if result.status == MorphoVaultAPIStatus.not_found:
             logger.info("Morpho API: vault %s on chain %d is not indexed (NOT_FOUND)", checksum_address, chain_id)
-            with file.open("wt") as f:
-                json.dump({}, f)
-            return None
+            file.unlink(missing_ok=True)
+            return result
 
         # Successful fetch — write to disk and populate in-process cache
+        assert result.data is not None
         serialisable = {
-            "vault_warnings": result["vault_warnings"],
-            "market_warnings": [dict(w) for w in result["market_warnings"]],
+            "vault_warnings": result.data["vault_warnings"],
+            "market_warnings": [dict(w) for w in result.data["market_warnings"]],
         }
         with file.open("wt") as f:
             json.dump(serialisable, f, indent=2)
-        logger.info("Wrote Morpho vault data cache %s (%d vault warnings, %d market warnings)", file, len(result["vault_warnings"]), len(result["market_warnings"]))
+        logger.info("Wrote Morpho vault data cache %s (%d vault warnings, %d market warnings)", file, len(result.data["vault_warnings"]), len(result.data["market_warnings"]))
 
-        _cached_vault_data[cache_key] = result
+        _cached_vault_data[cache_key] = result.data
         return result
 
 
-def _query_morpho_api(chain_id: int, address: str) -> MorphoVaultData | object | None:
-    """Execute the GraphQL query against the Morpho Blue API.
+def fetch_morpho_vault_data(  # noqa: PLR0917
+    web3: Web3,
+    vault_address: HexAddress,
+    cache_path: Path = DEFAULT_CACHE_PATH,
+    now_: datetime.datetime | None = None,
+    max_cache_duration: datetime.timedelta = datetime.timedelta(hours=24),
+    api_version: MorphoVaultAPIVersion = "v1",
+) -> MorphoVaultData | None:
+    """Fetch and cache Morpho API offchain warning data for a vault.
+
+    Backwards-compatible data-only wrapper around
+    :py:func:`fetch_morpho_vault_api_result`. Returns ``None`` for both
+    ``NOT_FOUND`` and transient API failures.
+
+    :param web3:
+        Web3 instance.
+    :param vault_address:
+        Vault contract address.
+    :param cache_path:
+        Directory for cache files.
+    :param now_:
+        Override current UTC time for cache TTL checks.
+    :param max_cache_duration:
+        Cache TTL.
+    :param api_version:
+        Morpho vault API family.
+
+    :return:
+        Vault warning data, or ``None`` if the vault is not indexed by the Morpho
+        API or if a transient error occurred.
+    """
+    result = fetch_morpho_vault_api_result(
+        web3=web3,
+        vault_address=vault_address,
+        cache_path=cache_path,
+        now_=now_,
+        max_cache_duration=max_cache_duration,
+        api_version=api_version,
+    )
+    return result.data if result.status == MorphoVaultAPIStatus.found else None
+
+
+def _query_morpho_api(chain_id: int, address: str, api_version: MorphoVaultAPIVersion = "v1") -> MorphoVaultAPIResult:
+    """Execute the GraphQL query against the Morpho API.
 
     :param chain_id:
         EVM chain ID.
@@ -369,13 +479,15 @@ def _query_morpho_api(chain_id: int, address: str) -> MorphoVaultData | object |
     :param address:
         Checksummed vault address.
 
+    :param api_version:
+        Morpho vault API family.
+
     :return:
-        - :py:class:`MorphoVaultData` on success
-        - ``None`` when the vault is definitively not found (NOT_FOUND error or null data)
-        - :py:data:`_TRANSIENT_ERROR` sentinel on transient failures (network, rate limit, etc.)
+        Three-way Morpho API lookup result.
     """
+    query = _VAULT_WARNINGS_QUERY if api_version == "v1" else _VAULT_V2_WARNINGS_QUERY
     payload = {
-        "query": _VAULT_WARNINGS_QUERY,
+        "query": query,
         "variables": {"address": address, "chainId": chain_id},
     }
     try:
@@ -389,30 +501,34 @@ def _query_morpho_api(chain_id: int, address: str) -> MorphoVaultData | object |
         body = resp.json()
     except requests.RequestException as e:
         logger.warning("Morpho API request failed for %s on chain %d: %s", address, chain_id, e)
-        return _TRANSIENT_ERROR
+        return MorphoVaultAPIResult(MorphoVaultAPIStatus.transient_error)
     except json.JSONDecodeError as e:
         logger.warning("Morpho API returned invalid JSON for %s on chain %d: %s", address, chain_id, e)
-        return _TRANSIENT_ERROR
+        return MorphoVaultAPIResult(MorphoVaultAPIStatus.transient_error)
 
     # Check for GraphQL-level errors
     errors = body.get("errors")
     if errors:
         # Only treat NOT_FOUND as definitively absent; everything else is a transient error
         if any(str(err.get("status", "")).upper() == "NOT_FOUND" for err in errors):
-            return None
+            return MorphoVaultAPIResult(MorphoVaultAPIStatus.not_found)
         logger.warning(
             "Morpho API returned unexpected GraphQL errors for %s on chain %d: %s",
             address,
             chain_id,
             errors,
         )
-        return _TRANSIENT_ERROR
+        return MorphoVaultAPIResult(MorphoVaultAPIStatus.transient_error)
 
     data = body.get("data") or {}
-    raw_vault = data.get("vaultByAddress")
+    response_key = "vaultByAddress" if api_version == "v1" else "vaultV2ByAddress"
+    raw_vault = data.get(response_key)
 
     if raw_vault is None:
-        # data.vaultByAddress is null — vault not indexed
-        return None
+        # Address lookup returned null — vault not indexed
+        return MorphoVaultAPIResult(MorphoVaultAPIStatus.not_found)
 
-    return _build_vault_data_from_api_response(raw_vault)
+    return MorphoVaultAPIResult(
+        status=MorphoVaultAPIStatus.found,
+        data=_build_vault_data_from_api_response(raw_vault),
+    )

@@ -20,11 +20,16 @@ from web3 import Web3
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import analyze_morpho_flags
-from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import MorphoVaultData, fetch_morpho_vault_data
+from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
+    MorphoVaultAPIResult,
+    MorphoVaultAPIStatus,
+    MorphoVaultData,
+    fetch_morpho_vault_api_result,
+)
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
-from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 
 logger = logging.getLogger(__name__)
 
@@ -157,22 +162,34 @@ class MorphoV1Vault(ERC4626Vault):
     """
 
     @cached_property
+    def morpho_api_result(self) -> MorphoVaultAPIResult:
+        """Vault lookup result from the Morpho GraphQL API.
+
+        Unlike :py:attr:`morpho_offchain_data`, this property preserves the
+        difference between ``NOT_FOUND`` and transient API failures.
+
+        :return:
+            Three-way Morpho API lookup result.
+        """
+        return fetch_morpho_vault_api_result(self.web3, self.vault_address, api_version="v1")
+
+    @cached_property
     def morpho_offchain_data(self) -> MorphoVaultData | None:
-        """Vault and market warnings from the Morpho Blue GraphQL API (24h cached).
+        """Vault and market warnings from the Morpho GraphQL API (24h cached).
 
         Fetches vault-level governance warnings (e.g. ``short_timelock``) and
         market-level risk warnings (e.g. ``bad_debt_unrealized``) for this vault
         and its underlying market allocations.
 
         - Results are cached in-process and on disk for 24 hours.
-        - Returns ``None`` if the vault is not indexed by the Morpho Blue API or if
+        - Returns ``None`` if the vault is not indexed by the Morpho API or if
           a transient network error occurred.
 
         :return:
             :py:class:`~eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata.MorphoVaultData`
             or ``None``.
         """
-        return fetch_morpho_vault_data(self.web3, self.vault_address)
+        return self.morpho_api_result.data if self.morpho_api_result.status == MorphoVaultAPIStatus.found else None
 
     def get_morpho_vault_flags(self) -> set[str]:
         """Return warning type strings from vault-level Morpho API warnings.
@@ -210,7 +227,7 @@ class MorphoV1Vault(ERC4626Vault):
         """Return a human-readable note about RED-level Morpho warnings, if any.
 
         Checks the hardcoded flag table first (via the base class), then falls back
-        to a dynamically generated note from the Morpho Blue GraphQL API when RED
+        to a dynamically generated note from the Morpho GraphQL API when RED
         warnings are present.
 
         The generated text follows the form::
@@ -223,6 +240,8 @@ class MorphoV1Vault(ERC4626Vault):
         note = super().get_notes()
         if note:
             return note
+        if self.morpho_api_result.is_not_found:
+            return NOT_IN_MORPHO_API
         data = self.morpho_offchain_data
         if data is not None:
             return analyze_morpho_flags(data).note
@@ -231,7 +250,7 @@ class MorphoV1Vault(ERC4626Vault):
     def get_flags(self) -> set[VaultFlag]:
         """Get vault flags, adding ``morpho_issues`` when RED warnings are detected.
 
-        Calls the Morpho Blue GraphQL API (24h cached) to check for RED-level
+        Calls the Morpho GraphQL API (24h cached) to check for RED-level
         vault or market warnings. If any are found, adds
         :py:attr:`~eth_defi.vault.flag.VaultFlag.morpho_issues` to the flag set.
 
@@ -239,6 +258,10 @@ class MorphoV1Vault(ERC4626Vault):
             Set of :py:class:`~eth_defi.vault.flag.VaultFlag` values.
         """
         flags = super().get_flags()
+        if self.morpho_api_result.is_not_found:
+            flags = set(flags)
+            flags.add(VaultFlag.not_in_morpho_api)
+            return flags
         data = self.morpho_offchain_data
         if data:
             has_red = any(w.get("level") == "RED" for w in data.get("vault_warnings", []) + data.get("market_warnings", []))

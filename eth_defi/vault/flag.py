@@ -75,6 +75,9 @@ class VaultFlag(str, enum.Enum):
     #: ``other_data["morpho_market_flags"]`` in the metrics Series for the specific flag types.
     morpho_issues = "morpho_issues"
 
+    #: Morpho API does not return this vault by address.
+    not_in_morpho_api = "not_in_morpho_api"
+
 
 #: Don't touch vaults with these flags
 BAD_FLAGS = {
@@ -88,6 +91,7 @@ BAD_FLAGS = {
     VaultFlag.abnormal_volatility,
     VaultFlag.subvault,
     VaultFlag.irregular_reporting,
+    VaultFlag.not_in_morpho_api,
 }
 
 
@@ -169,6 +173,8 @@ LOW_TVL_ABNORMAL_PRICE = "Low-TVL vault with abnormal price behaviour"
 ILLIQUID_ABNORMAL_SHARE_PRICE = "Vault likely illiquid. Share price chart has abnormal high returns while deposits are still enabled."
 
 MISSING_IN_PROTOCOL_FRONTEND = "This vault is missing in the protocol's primary website and cannot be verified."
+
+NOT_IN_MORPHO_API = "This vault does not appear on Morpho website."
 
 TEST_VAULT = "This appears to be a test vault and should not be shown to end users."
 
@@ -416,6 +422,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xcca902f2d3d265151f123d8ce8fdac38ba9745ed": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Blue Chip USDC Vault (Prime) on Ethereum - Morpho
     "0x74847d0d124ce5c89ca8f4e7547aecd09e86b2e0": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
+    # VaultMorpho on Ethereum - Morpho
+    "0x21ed44c18c926c60092b1b2985e2c999421a5a69": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Borrowable USDC Deposit, SiloId: 125 on Avalanche
     "0xe0345f66318f482acccd67244a921c7fdc410957": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Peapods Interest Bearing USDC - 22 (Arbitrum)

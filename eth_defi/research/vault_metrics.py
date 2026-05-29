@@ -25,16 +25,23 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
 from eth_defi.research.value_table import format_grouped_series_as_multi_column_grid, format_series_as_multi_column_grid
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
-from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.fee import FeeData, VaultFeeMode, get_vault_fee_mode
 from eth_defi.vault.curator import get_curator_name, identify_curator, is_protocol_curator
-from eth_defi.vault.flag import ABNORMAL_SHARE_PRICE, ABNORMAL_TVL, ABNORMAL_VOLATILITY, VaultFlag, get_notes
+from eth_defi.vault.fee import FeeData, VaultFeeMode, get_vault_fee_mode
+from eth_defi.vault.flag import (
+    ABNORMAL_SHARE_PRICE,
+    ABNORMAL_TVL,
+    ABNORMAL_VOLATILITY,
+    NOT_IN_MORPHO_API,
+    VaultFlag,
+    get_notes,
+)
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
@@ -1122,6 +1129,35 @@ def apply_abnormal_value_checks(
     return risk, notes, flags
 
 
+def apply_morpho_not_in_api_check(
+    risk: VaultTechnicalRisk | None,
+    notes: str | None,
+    flags: set[VaultFlag],
+) -> tuple[VaultTechnicalRisk | None, str | None, set[VaultFlag]]:
+    """Blacklist Morpho vaults missing from Morpho API.
+
+    Dynamic scan flags are not visible to :py:func:`get_vault_risk`, because
+    that helper only reads the static manual flag table. This helper handles the
+    Morpho-specific dynamic blacklist flag before metrics export.
+
+    :param risk:
+        Current risk classification.
+    :param notes:
+        Current note, if any. Existing notes have priority.
+    :param flags:
+        Dynamic flags collected during vault scan.
+
+    :return:
+        Updated risk, notes, and flags.
+    """
+    if VaultFlag.not_in_morpho_api in flags:
+        risk = VaultTechnicalRisk.blacklisted
+        if not notes:
+            notes = NOT_IN_MORPHO_API
+
+    return risk, notes, flags
+
+
 def calculate_vault_record(
     prices_df: pd.DataFrame,
     vault_metadata_rows: dict[VaultSpec, VaultRow],
@@ -1217,6 +1253,11 @@ def calculate_vault_record(
         flags=flags,
         current_nav=current_nav,
         current_share_price=current_share_price,
+    )
+    risk, notes, flags = apply_morpho_not_in_api_check(
+        risk=risk,
+        notes=notes,
+        flags=flags,
     )
 
     vault_slug = vault_metadata["vault_slug"]

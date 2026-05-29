@@ -6,6 +6,11 @@ from eth_defi.vault.flag import BAD_FLAGS, VaultFlag, get_notes, get_vault_speci
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 
 
+def test_not_in_morpho_api_is_bad_flag():
+    """Morpho API missing vaults are blacklisted."""
+    assert VaultFlag.not_in_morpho_api in BAD_FLAGS
+
+
 @pytest.mark.parametrize(
     ("address", "protocol", "expected_flag", "expected_note"),
     [
