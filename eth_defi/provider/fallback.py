@@ -18,6 +18,7 @@ from web3.types import RPCEndpoint, RPCResponse
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.middleware import DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock, is_retryable_http_exception, SomeCrappyRPCProviderException
 from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
+from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
 
@@ -327,6 +328,44 @@ class FallbackProvider(BaseNamedProvider):
         except IndexError as e:
             raise IndexProvider(f"Currently active provider index {self.currently_active_provider} is out of range for configured providers {len(self.providers)}") from e
 
+    def get_provider_context_for_log(self, provider: NamedProvider) -> dict[str, Any]:
+        """Get provider diagnostics suitable for warning logs.
+
+        The context includes Anvil launch metadata when the local Anvil
+        provider has metadata copied by :py:func:`create_multi_provider_web3`.
+        The metadata is registered by :py:func:`eth_defi.provider.anvil.launch_anvil`.
+        Upstream RPC URLs are reduced to domains to avoid leaking API keys.
+
+        :param provider:
+            Provider that handled the failing JSON-RPC request.
+
+        :return:
+            Dictionary safe to include in logs.
+        """
+
+        chain_id = getattr(provider, "anvil_chain_id", None)
+        if chain_id is None:
+            chain_id = self.expected_chain_id
+
+        context: dict[str, Any] = {
+            "provider": get_provider_name(provider),
+            "chain_id": chain_id,
+        }
+
+        upstream_rpc_urls = getattr(provider, "anvil_upstream_rpc_urls", ())
+        if upstream_rpc_urls:
+            context["anvil_upstream_rpc_providers"] = [get_url_domain(url) for url in upstream_rpc_urls]
+
+        effective_fork_url = getattr(provider, "anvil_effective_fork_url", None)
+        if effective_fork_url:
+            context["anvil_effective_fork_provider"] = get_url_domain(effective_fork_url)
+
+        fork_block_number = getattr(provider, "anvil_fork_block_number", None)
+        if fork_block_number is not None:
+            context["anvil_fork_block_number"] = fork_block_number
+
+        return context
+
     def get_total_api_call_counts(self) -> dict[str, int]:
         """Get API call coubst across all providers"""
         total = Counter()
@@ -429,18 +468,21 @@ class FallbackProvider(BaseNamedProvider):
                     if i < self.retries:
                         # Black messes up string new lines here
                         # See https://github.com/psf/black/issues/1837
-                        headers = get_last_headers()
-                        logger.log(
-                            self.switchover_noisiness,
-                            "Encountered JSON-RPC retryable error %s\nWhen calling RPC method: %s%s\nHeaders are: %s\nRetrying in %f seconds, retry #%d / %d",
-                            e,
-                            method,
-                            params,
-                            pformat(headers),
-                            current_sleep,
-                            i + 1,
-                            self.retries,
-                        )
+                        if logger.isEnabledFor(self.switchover_noisiness):
+                            headers = get_last_headers()
+                            provider_context = self.get_provider_context_for_log(provider)
+                            logger.log(
+                                self.switchover_noisiness,
+                                "Encountered JSON-RPC retryable error %s\nWhen calling RPC method: %s%s\nProvider context: %s\nHeaders are: %s\nRetrying in %f seconds, retry #%d / %d",
+                                e,
+                                method,
+                                params,
+                                pformat(provider_context),
+                                pformat(headers),
+                                current_sleep,
+                                i + 1,
+                                self.retries,
+                            )
                         time.sleep(current_sleep)
                         current_sleep *= self.backoff
                         self.retry_count += 1

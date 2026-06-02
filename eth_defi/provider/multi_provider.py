@@ -16,7 +16,7 @@ from eth_defi.chain import install_chain_middleware
 from eth_defi.compat import clear_middleware, create_http_provider
 from eth_defi.event_reader.fast_json_rpc import patch_provider, patch_web3
 from eth_defi.middleware import static_call_cache_middleware
-from eth_defi.provider.anvil import is_anvil
+from eth_defi.provider.anvil import _get_anvil_launch_metadata, is_anvil
 from eth_defi.provider.broken_provider import set_block_tip_latency
 from eth_defi.provider.fallback import ChainIdMismatch, FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
@@ -99,6 +99,27 @@ class MultiProviderWeb3(Web3):
             RPC endpoint name, call count dict
         """
         return self.get_fallback_provider().get_total_api_call_counts()
+
+
+def _apply_anvil_launch_metadata(provider: HTTPProvider) -> None:
+    """Attach Anvil launch metadata to a provider when available.
+
+    ``create_multi_provider_web3()`` often receives only the local Anvil
+    ``localhost`` URL. The provider itself needs launch metadata for retry logs
+    to show the original fork chain id and upstream RPC providers.
+
+    :param provider:
+        HTTP provider created for a JSON-RPC endpoint.
+    """
+
+    metadata = _get_anvil_launch_metadata(str(provider.endpoint_uri))
+    if metadata is None:
+        return
+
+    provider.anvil_chain_id = metadata.chain_id  # type: ignore[attr-defined]
+    provider.anvil_upstream_rpc_urls = metadata.upstream_rpc_urls  # type: ignore[attr-defined]
+    provider.anvil_fork_block_number = metadata.fork_block_number  # type: ignore[attr-defined]
+    provider.anvil_effective_fork_url = metadata.effective_fork_url  # type: ignore[attr-defined]
 
 
 def create_multi_provider_web3(
@@ -262,6 +283,7 @@ def create_multi_provider_web3(
             get_url_domain(url),
             request_kwargs.get("timeout"),
         )
+        _apply_anvil_launch_metadata(provider)
 
         call_providers.append(provider)
 
@@ -284,6 +306,7 @@ def create_multi_provider_web3(
     if len(transact_endpoints) > 0:
         transact_endpoint = transact_endpoints[0]
         transact_provider = HTTPProvider(transact_endpoint, request_kwargs=request_kwargs, session=session)
+        _apply_anvil_launch_metadata(transact_provider)
 
         _fix_provider(transact_provider)
 
