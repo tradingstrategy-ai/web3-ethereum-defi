@@ -24,6 +24,11 @@ bytes4 constant SEL_GMX_MULTICALL = 0xac9650d8;  // multicall(bytes[])
 bytes4 constant SEL_GMX_SEND_WNT = 0x7d39aaf1;  // sendWnt(address,uint256)
 bytes4 constant SEL_GMX_SEND_TOKENS = 0xe6d66ac8;  // sendTokens(address,address,uint256)
 bytes4 constant SEL_GMX_CREATE_ORDER = 0xf59c48eb;  // createOrder(tuple)
+bytes4 constant SEL_GMX_CANCEL_ORDER = 0x7489ec23;  // cancelOrder(bytes32)
+bytes4 constant SEL_GMX_UPDATE_ORDER = 0xdd5baad2;  // updateOrder(bytes32,uint256,uint256,uint256,uint256,uint256,bool)
+bytes4 constant SEL_GMX_CLAIM_FUNDING_FEES = 0xc41b1ab3;  // claimFundingFees(address[],address[],address)
+bytes4 constant SEL_GMX_CLAIM_COLLATERAL = 0xe9249b57;  // claimCollateral(address[],address[],uint256[],address)
+bytes4 constant SEL_GMX_CLAIM_AFFILIATE_REWARDS = 0x49287a22;  // claimAffiliateRewards(address[],address[],address)
 
 library GmxLib {
 
@@ -153,6 +158,28 @@ library GmxLib {
                         require(s.allowedMarkets[params.addresses.swapPath[j]], "GMX: market not allowed");
                     }
                 }
+            } else if (selector == SEL_GMX_CANCEL_ORDER || selector == SEL_GMX_UPDATE_ORDER) {
+                // cancelOrder(bytes32) / updateOrder(bytes32, ...): no fund-flow
+                // destination. GMX's OrderHandler enforces order.account == caller,
+                // so the vault can only cancel/modify its own orders, and any
+                // released collateral + execution fee return to the order's
+                // original receiver (the vault). updateOrder only changes order
+                // economics (size, prices, trigger), which the guard does not
+                // validate for createOrder either. No parameters to check.
+            } else if (selector == SEL_GMX_CLAIM_FUNDING_FEES || selector == SEL_GMX_CLAIM_AFFILIATE_REWARDS) {
+                // claimFundingFees(address[] markets, address[] tokens, address receiver)
+                // claimAffiliateRewards(address[] markets, address[] tokens, address receiver)
+                // The receiver is a fund-flow destination, so it must be a
+                // whitelisted receiver (the vault) — otherwise the asset manager
+                // could redirect claimed rewards to an arbitrary address.
+                (, , address receiver) = abi.decode(innerCallData, (address[], address[], address));
+                require(guard.isAllowedReceiver(receiver), "GMX: receiver not allowed");
+            } else if (selector == SEL_GMX_CLAIM_COLLATERAL) {
+                // claimCollateral(address[] markets, address[] tokens, uint256[] timeKeys, address receiver)
+                // Same fund-flow reasoning as the other claim functions: the
+                // receiver must be whitelisted.
+                (, , , address receiver) = abi.decode(innerCallData, (address[], address[], uint256[], address));
+                require(guard.isAllowedReceiver(receiver), "GMX: receiver not allowed");
             } else {
                 revert("GMX: Unknown function in multicall");
             }
