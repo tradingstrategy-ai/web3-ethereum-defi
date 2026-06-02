@@ -5,13 +5,14 @@ import os
 import pytest
 from web3 import HTTPProvider, Web3
 
+from eth_defi.abi import ZERO_ADDRESS
 from eth_defi.chain import has_graphql_support
 from eth_defi.hotwallet import HotWallet
-from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderConfigurationError
+from eth_defi.provider import multi_provider as multi_provider_module
+from eth_defi.provider.anvil import AnvilForkMetadata, AnvilLaunch, launch_anvil
+from eth_defi.provider.multi_provider import MultiProviderConfigurationError, create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.abi import ZERO_ADDRESS
 from eth_defi.tx import get_tx_broadcast_data
 
 
@@ -132,3 +133,35 @@ def test_multi_provider_transact(anvil):
 
     mev_blocker = web3.get_configured_transact_provider()
     assert mev_blocker.provider_counter == {"call": 3, "transact": 1}
+
+
+def test_multi_provider_anvil_launch_metadata(anvil: AnvilLaunch, monkeypatch: pytest.MonkeyPatch):
+    """Anvil metadata is available in fallback provider diagnostics."""
+
+    metadata = AnvilForkMetadata(
+        chain_id=anvil.chain_id,
+        upstream_rpc_urls=("https://rpc.example.test/api-key",),
+        fork_block_number=12_345,
+        effective_fork_url="http://127.0.0.1:12345",
+    )
+
+    def mock_get_anvil_launch_metadata(json_rpc_url: str) -> AnvilForkMetadata | None:
+        """Return mocked launch metadata for the active local Anvil endpoint."""
+        if json_rpc_url == anvil.json_rpc_url:
+            return metadata
+        return None
+
+    monkeypatch.setattr(
+        multi_provider_module,
+        "_get_anvil_launch_metadata",
+        mock_get_anvil_launch_metadata,
+    )
+
+    web3 = create_multi_provider_web3(anvil.json_rpc_url)
+    provider = web3.get_active_call_provider()
+    context = web3.get_fallback_provider().get_provider_context_for_log(provider)
+
+    assert context["chain_id"] == anvil.chain_id
+    assert context["anvil_upstream_rpc_providers"] == ["rpc.example.test"]
+    assert context["anvil_fork_block_number"] == 12_345
+    assert context["anvil_effective_fork_provider"] == "127.0.0.1:12345"

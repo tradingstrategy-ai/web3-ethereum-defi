@@ -94,8 +94,8 @@ def test_euler_metadata_products_json(
 ):
     """Verify the new products.json metadata fields for a vault that IS listed.
 
-    Euler Prime WETH (0xD8b2...) is part of the "euler-prime" product.
-    The product has two entity curators: euler-dao and gauntlet.
+    Euler Prime WETH (0xD8b2...) is present in Euler's live products.json.
+    The upstream product assignment may change as vault curators are updated.
 
     Steps:
 
@@ -110,16 +110,18 @@ def test_euler_metadata_products_json(
 
     # 2. Backward-compatible fields.
     # No per-vault name override in products.json, so name falls back to the product name.
-    assert meta["name"] == "Euler Prime"
+    assert meta["name"] == meta["product_name"]
     assert meta["description"] is not None
     assert len(meta["description"]) > 0
     assert "lending" in meta["description"].lower()
     # entity is the first element of the product's entity list (backward compat)
-    assert meta["entity"] == "euler-dao"
+    assert meta["entity"] == meta["entities"][0]
 
     # 3. New fields from products.json
-    assert meta["entities"] == ["euler-dao"]
-    assert meta["product"] == "euler-prime"
-    assert meta["product_name"] == "Euler Prime"
+    expected_products = {
+        ("euler-prime", "Euler Prime", ("euler-dao",)),
+        ("k3-prime", "K3 Capital Prime Market", ("k3",)),
+    }
+    assert (meta["product"], meta["product_name"], tuple(meta["entities"])) in expected_products
     assert meta["deprecated"] is False
     assert meta["deprecation_reason"] is None

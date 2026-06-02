@@ -72,6 +72,102 @@ logger = logging.getLogger(__name__)
 #: a flaky endpoint across multiple test fixtures.
 _anvil_rpc_state = threading.local()
 
+
+@dataclass(slots=True, frozen=True)
+class AnvilForkMetadata:
+    """Metadata for a locally running Anvil JSON-RPC endpoint.
+
+    This metadata lets later ``Web3`` objects created from only the local
+    Anvil URL still report which upstream fork RPC providers Anvil was
+    configured to use.
+
+    :ivar chain_id:
+        Chain id reported by the local Anvil instance after startup.
+
+    :ivar upstream_rpc_urls:
+        Original upstream RPC URLs passed to Anvil fork mode. If Anvil was
+        started as a standalone local backend, this is empty.
+
+    :ivar fork_block_number:
+        Explicit fork block used for Anvil, if any.
+
+    :ivar effective_fork_url:
+        URL passed to Anvil as ``--fork-url``. With multiple upstreams this can
+        be a local failover proxy URL instead of one of the upstream RPC URLs.
+    """
+
+    #: Chain id reported by the local Anvil instance after startup.
+    chain_id: int | None
+
+    #: Original upstream RPC URLs passed to Anvil fork mode.
+    upstream_rpc_urls: tuple[str, ...]
+
+    #: Explicit fork block used for Anvil, if any.
+    fork_block_number: int | None
+
+    #: URL passed to Anvil as ``--fork-url``.
+    effective_fork_url: str | None
+
+
+#: Protect the process-local Anvil metadata registry.
+_anvil_launch_metadata_lock = threading.Lock()
+
+#: Local Anvil JSON-RPC URL -> fork metadata.
+#:
+#: ``create_multi_provider_web3()`` often receives only
+#: ``AnvilLaunch.json_rpc_url``. Without this registry, retry logs can only
+#: show ``localhost:<port>`` and lose the upstream fork provider context.
+#:
+#: The returned :py:class:`AnvilLaunch` object is the canonical metadata source
+#: for callers. This registry is a process-local mirror used to recover the same
+#: metadata from a localhost URL later. HTTP providers receive a copied snapshot
+#: for logging only.
+_anvil_launch_metadata: dict[str, AnvilForkMetadata] = {}
+
+
+def _get_anvil_launch_metadata(json_rpc_url: str) -> AnvilForkMetadata | None:
+    """Return metadata for a locally launched Anvil endpoint.
+
+    :param json_rpc_url:
+        Local Anvil JSON-RPC URL.
+
+    :return:
+        Stored launch metadata, or ``None`` if this endpoint was not created by
+        :py:func:`launch_anvil` in the current Python process.
+    """
+
+    with _anvil_launch_metadata_lock:
+        return _anvil_launch_metadata.get(json_rpc_url)
+
+
+def _register_anvil_launch_metadata(
+    json_rpc_url: str,
+    metadata: AnvilForkMetadata,
+) -> None:
+    """Store metadata for a locally launched Anvil endpoint.
+
+    :param json_rpc_url:
+        Local Anvil JSON-RPC URL.
+
+    :param metadata:
+        Metadata copied from the canonical :py:class:`AnvilLaunch` values.
+    """
+
+    with _anvil_launch_metadata_lock:
+        _anvil_launch_metadata[json_rpc_url] = metadata
+
+
+def _unregister_anvil_launch_metadata(json_rpc_url: str) -> None:
+    """Remove metadata for a closed Anvil endpoint.
+
+    :param json_rpc_url:
+        Local Anvil JSON-RPC URL.
+    """
+
+    with _anvil_launch_metadata_lock:
+        _anvil_launch_metadata.pop(json_rpc_url, None)
+
+
 #: HyperEVM mainnet/testnet chain ids.
 #:
 #: HyperEVM RPCs are special when forking with Anvil: asking Anvil to fork the
@@ -278,6 +374,12 @@ class AnvilLaunch:
     """Control Anvil processes launched on background.
 
     Comes with a helpful :py:meth:`close` method when it is time to put Anvil rest.
+
+    The ``chain_id``, ``upstream_rpc_urls``, ``fork_block_number`` and
+    ``effective_fork_url`` fields are the canonical launch metadata exposed to
+    callers. The module-level metadata registry mirrors these values only so
+    that later ``create_multi_provider_web3(launch.json_rpc_url)`` calls can
+    attach the same context to retry diagnostics.
     """
 
     #: Which port was bound by the Anvil
@@ -291,6 +393,18 @@ class AnvilLaunch:
 
     #: UNIX process that we opened
     process: psutil.Popen
+
+    #: Chain id reported by the local Anvil instance after startup.
+    chain_id: int | None = None
+
+    #: Original upstream RPC URLs passed to Anvil fork mode.
+    upstream_rpc_urls: tuple[str, ...] = ()
+
+    #: Explicit fork block used for Anvil, if any.
+    fork_block_number: int | None = None
+
+    #: URL passed to Anvil as ``--fork-url``.
+    effective_fork_url: str | None = None
 
     #: Optional JSON-RPC failover proxy sitting between Anvil and upstream RPCs.
     #: Automatically started by :py:func:`launch_anvil` when multiple RPCs are
@@ -334,6 +448,7 @@ class AnvilLaunch:
             check_port=self.port,
         )
         logger.info("Anvil shutdown %s", self.json_rpc_url)
+        _unregister_anvil_launch_metadata(self.json_rpc_url)
         if self.proxy is not None and self._proxy_managed:
             self.proxy.close()
         return stdout, stderr
@@ -895,6 +1010,7 @@ def launch_anvil(
 
     proxy = None
     available_rpcs = []
+    upstream_rpc_urls: tuple[str, ...] = ()
     # Track whether we manage the proxy lifecycle (True) or the caller does (False)
     proxy_managed = True
 
@@ -906,6 +1022,7 @@ def launch_anvil(
         if not available_rpcs:
             # All endpoints are mev+, strip the prefix as a fallback
             available_rpcs = [u.replace("mev+", "", 1) for u in all_rpcs]
+        upstream_rpc_urls = tuple(available_rpcs)
 
         if len(available_rpcs) > 1 and proxy_multiple_upstream is not False:
             from eth_defi.provider.rpc_proxy import RPCProxy as RPCProxyClass
@@ -945,6 +1062,8 @@ def launch_anvil(
             logger.info("Using Anvil at RPC endpoint %d/%d: %s", rpc_index + 1, len(available_rpcs), cleaned_fork_url)
     else:
         cleaned_fork_url = fork_url if not fork_url or not fork_url.startswith("mev+") else fork_url.replace("mev+", "", 1)
+        if cleaned_fork_url:
+            upstream_rpc_urls = (cleaned_fork_url,)
 
     # Check given RPC works.
     # When a proxy is active, smoke-test one of the upstream URLs directly
@@ -1139,11 +1258,30 @@ def launch_anvil(
     # Use f-string for a thousand separator formatting
     logger.info(f"anvil forked network {chain_id}, the current block is {current_block:,}, Anvil JSON-RPC is {url}")
 
+    fork_metadata = AnvilForkMetadata(
+        chain_id=chain_id,
+        upstream_rpc_urls=upstream_rpc_urls,
+        fork_block_number=fork_block_number,
+        effective_fork_url=cleaned_fork_url,
+    )
+    _register_anvil_launch_metadata(url, fork_metadata)
+
     # Perform unlock accounts for all accounts
     for account in unlocked_addresses:
         unlock_account(web3, account)
 
-    return AnvilLaunch(port, final_cmd, url, process, proxy=proxy, _proxy_managed=proxy_managed)
+    return AnvilLaunch(
+        port,
+        final_cmd,
+        url,
+        process,
+        chain_id=fork_metadata.chain_id,
+        upstream_rpc_urls=fork_metadata.upstream_rpc_urls,
+        fork_block_number=fork_metadata.fork_block_number,
+        effective_fork_url=fork_metadata.effective_fork_url,
+        proxy=proxy,
+        _proxy_managed=proxy_managed,
+    )
 
 
 def unlock_account(web3: Web3, address: str):
