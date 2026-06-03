@@ -7,8 +7,11 @@ Safe source code:
 - https://github.com/safe-global/safe-smart-account/blob/main/contracts/Safe.sol
 """
 
+from __future__ import annotations
+
 import logging
 import time
+from typing import TYPE_CHECKING
 
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
@@ -28,6 +31,9 @@ from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.execute import execute_safe_tx
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.trace import TransactionAssertionError, assert_transaction_success_with_explanation
+
+if TYPE_CHECKING:
+    from eth_defi.hotwallet import HotWallet
 
 
 logger = logging.getLogger(__name__)
@@ -204,6 +210,7 @@ def deploy_safe_with_deterministic_address(
     master_copy_address: HexAddress | str = SAFE_L2_MASTER_COPY_ADDRESS,
     proxy_factory_address: HexAddress | str = SAFE_PROXY_FACTORY_ADDRESS,
     post_deploy_delay_seconds: float = 10.0,
+    hot_wallet: HotWallet | None = None,
 ) -> Safe:
     """Deploy a new Safe wallet at a deterministic address using CREATE2.
 
@@ -238,6 +245,11 @@ def deploy_safe_with_deterministic_address(
 
     :param post_deploy_delay_seconds:
         Sleep after deployment on non-Anvil networks to let state propagate.
+
+    :param hot_wallet:
+        When provided, allocate the transaction nonce from the wallet's
+        internal counter instead of letting ``safe_eth`` read from the
+        RPC node.  Avoids stale-nonce errors on load-balanced endpoints.
     """
     assert len(owners) >= 1, "Safe must have at least one owner"
     assert isinstance(deployer, LocalAccount), "Safe can be only deployed using LocalAccount"
@@ -269,11 +281,15 @@ def deploy_safe_with_deterministic_address(
     logger.info("Expected deterministic Safe address: %s", expected_address)
 
     # Deploy via ProxyFactory.createProxyWithNonce (CREATE2)
+    # When a HotWallet is provided, use its nonce counter instead of
+    # letting safe_eth read from the (potentially stale) RPC node.
+    deploy_nonce = hot_wallet.allocate_nonce() if hot_wallet is not None else None
     tx_sent = proxy_factory.deploy_proxy_contract_with_nonce(
         deployer_account=deployer,
         master_copy=master_copy_address,
         initializer=initializer,
         salt_nonce=salt_nonce,
+        nonce=deploy_nonce,
     )
 
     assert_transaction_success_with_explanation(web3, tx_sent.tx_hash)
@@ -302,6 +318,7 @@ def add_new_safe_owners(
     threshold: int,
     gas_per_tx=500_000,
     gnosis_safe_state_safety_sleep=12,
+    hot_wallet: HotWallet | None = None,
 ):
     """Update Safe owners and threshold list.
 
@@ -319,6 +336,10 @@ def add_new_safe_owners(
     :param between_calls_sleep:
         Deployer hack
 
+    :param hot_wallet:
+        When provided, allocate transaction nonces from the wallet's
+        internal counter instead of letting ``safe_eth`` read from the
+        RPC node.  Avoids stale-nonce errors on load-balanced endpoints.
 
     More info:
 
@@ -363,6 +384,7 @@ def add_new_safe_owners(
                     tx_sender_private_key=deployer._private_key.hex(),
                     tx_gas=1_000_000,
                     gas_fee=gas_estimate,
+                    hot_wallet=hot_wallet,
                 )
                 assert_transaction_success_with_explanation(web3, tx_hash)
                 break  # Success
@@ -402,6 +424,7 @@ def add_new_safe_owners(
                 tx_sender_private_key=deployer._private_key.hex(),
                 tx_gas=1_000_000,
                 gas_fee=gas_estimate,
+                hot_wallet=hot_wallet,
             )
             assert_transaction_success_with_explanation(web3, tx_hash)
             break

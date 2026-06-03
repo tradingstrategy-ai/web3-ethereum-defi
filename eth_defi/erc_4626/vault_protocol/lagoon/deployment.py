@@ -1169,12 +1169,16 @@ def deploy_safe_trading_strategy_module(
 
         safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
         safe_tx.sign(_deployer_account._private_key.hex())
+        # Pass HotWallet so nonce comes from the internal counter
+        # instead of a potentially stale RPC read.
+        _hot_wallet = deployer if isinstance(deployer, HotWallet) else None
         tx_hash, tx = execute_safe_tx(
             safe_tx,
             tx_sender_private_key=_deployer_account._private_key.hex(),
             tx_gas=1_500_000,
             # eip1559_speed=TxSpeed.NORMAL,
             gas_fee=gas_estimate,
+            hot_wallet=_hot_wallet,
         )
         assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -1804,6 +1808,8 @@ def deploy_automated_lagoon_vault(
         vault_label = f" with vault {vault_contract.address}" if vault_contract is not None else ""
         raise AssertionError(f"Cannot find TradingStrategyModuleV0 on Safe {safe.address}{vault_label}, modules {modules}")
 
+    _hot_wallet = deployer if isinstance(deployer, HotWallet) else None
+
     if not existing_safe_address:
         # Deploy a Safe multisig that forms the core of Lagoon vault
         with big_blocks_for_deployment(web3, _private_key_hex) if _need_big_blocks_for_proxy else nullcontext():
@@ -1815,6 +1821,7 @@ def deploy_automated_lagoon_vault(
                     threshold=1,
                     salt_nonce=safe_salt_nonce,
                     proxy_factory_address=safe_proxy_factory_address or "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+                    hot_wallet=_hot_wallet,
                 )
             else:
                 safe = deploy_safe(
@@ -1827,10 +1834,12 @@ def deploy_automated_lagoon_vault(
         parameters.safe = safe.address
         logger.info("Deployed new Safe: %s", safe.address)
 
-        # Safe deployment bypasses HotWallet nonce tracking (uses LocalAccount
-        # directly via safe-eth-py). Sync so subsequent forge deploys use the
-        # correct on-chain nonce.
-        if isinstance(deployer, HotWallet):
+        # When no HotWallet is available, Safe deployment bypasses nonce
+        # tracking (uses LocalAccount directly via safe-eth-py).  Sync so
+        # subsequent deploys use the correct on-chain nonce.
+        # When HotWallet IS available, nonce was already allocated via
+        # hot_wallet.allocate_nonce() inside deploy_safe_with_deterministic_address.
+        if isinstance(deployer, HotWallet) and safe_salt_nonce is None:
             deployer.sync_nonce(web3)
     else:
         safe = fetch_safe_deployment(
@@ -2011,6 +2020,7 @@ def deploy_automated_lagoon_vault(
             tx_sender_private_key=deployer_local_account._private_key.hex(),
             tx_gas=1_500_000,
             gas_fee=gas_estimate,
+            hot_wallet=_hot_wallet,
         )
         assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -2027,6 +2037,7 @@ def deploy_automated_lagoon_vault(
             deployer_local_account,
             owners=safe_owners,
             threshold=safe_threshold,
+            hot_wallet=_hot_wallet,
         )
     elif satellite_chain:
         # Satellite chains still need Safe owners set up
@@ -2036,6 +2047,7 @@ def deploy_automated_lagoon_vault(
             deployer_local_account,
             owners=safe_owners,
             threshold=safe_threshold,
+            hot_wallet=_hot_wallet,
         )
 
     if satellite_chain:
