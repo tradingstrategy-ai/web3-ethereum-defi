@@ -4,8 +4,8 @@ This module provides session creation with retry logic and rate limiting
 for Core3 Projects Data API requests, plus helper functions to fetch
 and unwrap individual endpoints.
 
-Rate limiting is thread-safe using SQLite backend, so the session can be
-shared across multiple threads when using ``joblib.Parallel`` or similar.
+Rate limiting is thread-safe using an in-memory queue bucket, so the
+session can be shared across multiple threads.
 
 The :py:class:`Core3Session` carries the API URL and API key so that
 downstream functions do not need separate arguments on every call.
@@ -16,16 +16,14 @@ for endpoint details.
 
 import logging
 import os
-from pathlib import Path
 
-from pyrate_limiter import SQLiteBucket
+from pyrate_limiter import MemoryQueueBucket
 from requests import Session
 from requests_ratelimiter import LimiterAdapter
 
 from eth_defi.core3.constants import (
     CORE3_API_URL,
     CORE3_DEFAULT_REQUESTS_PER_SECOND,
-    CORE3_RATE_LIMIT_SQLITE_DATABASE,
     CORE3_USER_AGENT,
 )
 from eth_defi.velvet.logging_retry import LoggingRetry
@@ -80,18 +78,19 @@ def create_core3_session(
     backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
     requests_per_second: float = CORE3_DEFAULT_REQUESTS_PER_SECOND,
     pool_maxsize: int = 32,
-    rate_limit_db_path: Path = CORE3_RATE_LIMIT_SQLITE_DATABASE,
 ) -> Core3Session:
     """Create a :py:class:`Core3Session` configured for Core3 API.
 
     The session is configured with:
 
     - The API URL and API key stored on the session
-    - Rate limiting to respect Cloudflare throttling (thread-safe via SQLite)
+    - Rate limiting to respect Cloudflare throttling (in-memory, thread-safe)
     - Retry logic for handling transient errors using exponential backoff
 
-    The rate limiter uses SQLite backend for thread-safe coordination across
-    multiple threads (e.g., when using ``joblib.Parallel`` with threading backend).
+    The rate limiter uses an in-memory queue bucket which is thread-safe
+    for use with ``ThreadPoolExecutor`` or similar. SQLite-backed buckets
+    are avoided because they can cause segfaults when combined with DuckDB
+    in multi-threaded scenarios.
 
     Example::
 
@@ -113,13 +112,9 @@ def create_core3_session(
     :param pool_maxsize:
         Maximum number of connections to keep in the connection pool.
         Should be at least as large as ``max_workers`` when using parallel requests.
-    :param rate_limit_db_path:
-        Path to SQLite database for storing rate limit state.
     :return:
         Configured :py:class:`Core3Session` with rate limiting and retry logic.
     """
-    rate_limit_db_path.parent.mkdir(parents=True, exist_ok=True)
-
     session = Core3Session(api_url=api_url, api_key=api_key)
 
     retry_policy = LoggingRetry(
@@ -135,8 +130,7 @@ def create_core3_session(
         max_retries=retry_policy,
         pool_connections=pool_maxsize,
         pool_maxsize=pool_maxsize,
-        bucket_class=SQLiteBucket,
-        bucket_kwargs={"path": str(rate_limit_db_path)},
+        bucket_class=MemoryQueueBucket,
     )
     session.mount("http://", adapter)
     session.mount("https://", adapter)

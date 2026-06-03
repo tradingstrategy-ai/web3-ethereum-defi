@@ -102,6 +102,15 @@ class Core3Database:
         self.path = path
         self.con = duckdb.connect(str(path))
         self._db_lock = threading.Lock()
+
+        # Disable automatic WAL checkpoint (default 16 MiB).
+        # When the scanner runs with ThreadPoolExecutor, auto-checkpoint
+        # can trigger inside an INSERT while worker threads are alive,
+        # causing heap corruption on Python 3.14 + DuckDB 1.5.
+        # We do a manual CHECKPOINT via save() after all threads exit.
+        # See: https://github.com/duckdb/duckdb/issues/17006
+        self.con.execute("SET wal_autocheckpoint = '1TB'")
+
         self._init_schema()
 
     def __del__(self):
@@ -110,7 +119,18 @@ class Core3Database:
             self.con = None
 
     def _init_schema(self):
-        """Create all tables if they don't exist."""
+        """Create all tables if they don't exist.
+
+        No PRIMARY KEY or UNIQUE constraints are used because DuckDB 1.5.0's
+        ART index (used for unique constraint enforcement) causes SIGSEGV
+        (heap corruption in ``tiny_malloc_should_clear``) on file-backed
+        databases with Python 3.14 + macOS ARM64 when enough rows accumulate.
+
+        Deduplication is handled at the application level using DELETE + INSERT
+        instead of ``ON CONFLICT``.
+
+        See `duckdb#17006 <https://github.com/duckdb/duckdb/issues/17006>`__.
+        """
 
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS project_snapshots (
@@ -121,8 +141,7 @@ class Core3Database:
                 pol_score DOUBLE,
                 pol_rating VARCHAR,
                 market_cap_usd VARCHAR,
-                payload VARCHAR NOT NULL,
-                PRIMARY KEY (slug, fetched_at)
+                payload VARCHAR NOT NULL
             )
         """)
 
@@ -132,8 +151,7 @@ class Core3Database:
                 section VARCHAR NOT NULL,
                 fetched_at TIMESTAMP NOT NULL,
                 section_pol_score DOUBLE,
-                payload VARCHAR NOT NULL,
-                PRIMARY KEY (slug, section, fetched_at)
+                payload VARCHAR NOT NULL
             )
         """)
 
@@ -142,8 +160,7 @@ class Core3Database:
                 slug VARCHAR NOT NULL,
                 ts TIMESTAMP NOT NULL,
                 pol_score DOUBLE NOT NULL,
-                fetched_at TIMESTAMP NOT NULL,
-                PRIMARY KEY (slug, ts)
+                fetched_at TIMESTAMP NOT NULL
             )
         """)
 
@@ -156,8 +173,7 @@ class Core3Database:
                 operational_score DOUBLE,
                 reputational_score DOUBLE,
                 regulatory_score DOUBLE,
-                fetched_at TIMESTAMP NOT NULL,
-                PRIMARY KEY (slug, ts)
+                fetched_at TIMESTAMP NOT NULL
             )
         """)
 
@@ -167,17 +183,38 @@ class Core3Database:
                 data_type VARCHAR NOT NULL,
                 last_ts BIGINT,
                 backfill_done BOOLEAN NOT NULL DEFAULT FALSE,
-                last_synced TIMESTAMP NOT NULL,
-                PRIMARY KEY (slug, data_type)
+                last_synced TIMESTAMP NOT NULL
             )
         """)
 
     def close(self):
-        """Close the database connection."""
+        """Close the database connection.
+
+        DuckDB performs an implicit checkpoint on close, flushing
+        the WAL to the main database file.
+        """
         logger.info("Closing Core3 database at %s", self.path)
         if self.con is not None:
             self.con.close()
             self.con = None
+
+    def reconnect(self):
+        """Close and reopen the database connection.
+
+        Used to flush writes between chunks when DuckDB CHECKPOINT
+        cannot be called safely (e.g. threading issues with
+        Python 3.14 + DuckDB 1.5, see `duckdb#13904
+        <https://github.com/duckdb/duckdb/issues/13904>`__).
+
+        DuckDB checkpoints implicitly on close, so this is equivalent
+        to ``save()`` followed by reopening the connection.
+        """
+        import duckdb
+
+        if self.con is not None:
+            self.con.close()
+        self.con = duckdb.connect(str(self.path))
+        self.con.execute("SET wal_autocheckpoint = '1TB'")
 
     def save(self):
         """Force a checkpoint to ensure data is persisted to disk."""
@@ -214,17 +251,13 @@ class Core3Database:
 
         with self._db_lock:
             self.con.execute(
+                "DELETE FROM project_snapshots WHERE slug = ? AND fetched_at = ?",
+                [slug, fetched_at],
+            )
+            self.con.execute(
                 """
                 INSERT INTO project_snapshots (slug, fetched_at, name, rank, pol_score, pol_rating, market_cap_usd, payload)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT (slug, fetched_at)
-                DO UPDATE SET
-                    name = EXCLUDED.name,
-                    rank = EXCLUDED.rank,
-                    pol_score = EXCLUDED.pol_score,
-                    pol_rating = EXCLUDED.pol_rating,
-                    market_cap_usd = EXCLUDED.market_cap_usd,
-                    payload = EXCLUDED.payload
                 """,
                 [
                     slug,
@@ -263,13 +296,13 @@ class Core3Database:
 
         with self._db_lock:
             self.con.execute(
+                "DELETE FROM section_snapshots WHERE slug = ? AND section = ? AND fetched_at = ?",
+                [slug, section, fetched_at],
+            )
+            self.con.execute(
                 """
                 INSERT INTO section_snapshots (slug, section, fetched_at, section_pol_score, payload)
                 VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT (slug, section, fetched_at)
-                DO UPDATE SET
-                    section_pol_score = EXCLUDED.section_pol_score,
-                    payload = EXCLUDED.payload
                 """,
                 [
                     slug,
@@ -289,7 +322,8 @@ class Core3Database:
         """Insert PoL daily history points, deduplicating on ``(slug, ts)``.
 
         Converts unix timestamps from the API to naive UTC datetimes.
-        Uses ``ON CONFLICT DO NOTHING`` for idempotent inserts.
+        Deduplication uses a temp table with DELETE + INSERT instead of
+        ``ON CONFLICT`` to avoid DuckDB 1.5.0 ART index crashes.
 
         :param slug:
             Project slug (or :py:data:`~eth_defi.core3.constants.INDEX_SLUG`
@@ -309,14 +343,11 @@ class Core3Database:
         with self._db_lock:
             before = self.con.execute("SELECT COUNT(*) FROM pol_daily WHERE slug = ?", [slug]).fetchone()[0]
 
-            self.con.executemany(
-                """
-                INSERT INTO pol_daily (slug, ts, pol_score, fetched_at)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT (slug, ts) DO NOTHING
-                """,
-                rows,
-            )
+            self.con.execute("CREATE TEMP TABLE IF NOT EXISTS _tmp_pol (slug VARCHAR, ts TIMESTAMP, pol_score DOUBLE, fetched_at TIMESTAMP)")
+            self.con.execute("DELETE FROM _tmp_pol")
+            self.con.executemany("INSERT INTO _tmp_pol VALUES (?, ?, ?, ?)", rows)
+            self.con.execute("DELETE FROM pol_daily p USING _tmp_pol t WHERE p.slug = t.slug AND p.ts = t.ts")
+            self.con.execute("INSERT INTO pol_daily SELECT * FROM _tmp_pol")
 
             after = self.con.execute("SELECT COUNT(*) FROM pol_daily WHERE slug = ?", [slug]).fetchone()[0]
 
@@ -364,15 +395,14 @@ class Core3Database:
         with self._db_lock:
             before = self.con.execute("SELECT COUNT(*) FROM pol_category_daily WHERE slug = ?", [slug]).fetchone()[0]
 
-            self.con.executemany(
-                """
-                INSERT INTO pol_category_daily (slug, ts, security_score, financial_score,
-                    operational_score, reputational_score, regulatory_score, fetched_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT (slug, ts) DO NOTHING
-                """,
-                rows,
-            )
+            self.con.execute("""CREATE TEMP TABLE IF NOT EXISTS _tmp_cat (
+                slug VARCHAR, ts TIMESTAMP, security_score DOUBLE, financial_score DOUBLE,
+                operational_score DOUBLE, reputational_score DOUBLE, regulatory_score DOUBLE,
+                fetched_at TIMESTAMP)""")
+            self.con.execute("DELETE FROM _tmp_cat")
+            self.con.executemany("INSERT INTO _tmp_cat VALUES (?, ?, ?, ?, ?, ?, ?, ?)", rows)
+            self.con.execute("DELETE FROM pol_category_daily p USING _tmp_cat t WHERE p.slug = t.slug AND p.ts = t.ts")
+            self.con.execute("INSERT INTO pol_category_daily SELECT * FROM _tmp_cat")
 
             after = self.con.execute("SELECT COUNT(*) FROM pol_category_daily WHERE slug = ?", [slug]).fetchone()[0]
 
@@ -432,14 +462,13 @@ class Core3Database:
         now = native_datetime_utc_now()
         with self._db_lock:
             self.con.execute(
+                "DELETE FROM sync_state WHERE slug = ? AND data_type = ?",
+                [slug, data_type],
+            )
+            self.con.execute(
                 """
                 INSERT INTO sync_state (slug, data_type, last_ts, backfill_done, last_synced)
                 VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT (slug, data_type)
-                DO UPDATE SET
-                    last_ts = EXCLUDED.last_ts,
-                    backfill_done = EXCLUDED.backfill_done,
-                    last_synced = EXCLUDED.last_synced
                 """,
                 [slug, data_type, last_ts, backfill_done, now],
             )

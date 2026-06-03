@@ -15,12 +15,6 @@ CORE3_API_URL: str = "https://api.core3.io/projects_data"
 #: Default DuckDB path for Core3 risk data.
 CORE3_DATABASE_PATH: Path = Path("~/.tradingstrategy/core3/risk-data.duckdb").expanduser()
 
-#: Default SQLite database path for rate limiting state.
-#:
-#: Using SQLite ensures thread-safe rate limiting across multiple threads
-#: when using ``joblib.Parallel`` or similar parallel processing.
-CORE3_RATE_LIMIT_SQLITE_DATABASE: Path = Path("~/.tradingstrategy/core3/rate-limit.sqlite").expanduser()
-
 #: Default requests per second.
 #:
 #: Conservative; Core3 docs do not specify a quota. The API is behind

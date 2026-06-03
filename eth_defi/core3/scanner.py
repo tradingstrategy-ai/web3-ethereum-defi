@@ -22,11 +22,11 @@ Example usage::
 import datetime
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import requests
-from joblib import Parallel, delayed
-from tqdm_loggable.auto import tqdm
+from tqdm.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import CORE3_DATABASE_PATH, INDEX_SLUG, SECTIONS
@@ -104,29 +104,24 @@ def _sync_time_series(
     return new_count
 
 
-def _process_project(
+def _fetch_project_data(
     session: Core3Session,
-    db: Core3Database,
     slug: str,
-    fetched_at: datetime.datetime,
     fetch_pol: bool,
     fetch_categories: bool,
     fetch_sections_flag: bool,
     timeout: float,
 ) -> dict:
-    """Worker function to process a single project.
+    """Worker function to fetch all API data for a single project.
 
+    Runs in a thread pool — only does HTTP fetching, no database writes.
     Each endpoint call is wrapped in its own try/except so that a failure
     on one endpoint does not prevent the others from succeeding.
 
     :param session:
         Core3 API session.
-    :param db:
-        Core3 database.
     :param slug:
         Project slug.
-    :param fetched_at:
-        Timestamp of the current scan cycle.
     :param fetch_pol:
         Whether to fetch PoL history.
     :param fetch_categories:
@@ -136,15 +131,13 @@ def _process_project(
     :param timeout:
         HTTP request timeout.
     :return:
-        Summary dict with counts.
+        Dict with fetched data keyed by endpoint type.
     """
-    result = {"slug": slug, "snapshot": False, "pol_new": 0, "category_new": 0, "sections": 0}
+    data = {"slug": slug, "detail": None, "pol_points": None, "category_points": None, "sections": {}}
 
-    # 1. Project detail snapshot
+    # 1. Project detail
     try:
-        raw = fetch_project_detail(session, slug, timeout=timeout)
-        db.insert_project_snapshot(slug, fetched_at, raw)
-        result["snapshot"] = True
+        data["detail"] = fetch_project_detail(session, slug, timeout=timeout)
     except requests.HTTPError as e:
         if e.response is not None and e.response.status_code in (401, 403):
             raise
@@ -163,18 +156,7 @@ def _process_project(
     # 2. PoL daily history
     if fetch_pol:
         try:
-            new = _sync_time_series(
-                db,
-                session,
-                slug,
-                "pol_daily",
-                fetch_backfill=lambda: fetch_pol_history(session, slug, timeout=timeout),
-                fetch_incremental=lambda f, t: fetch_pol_history_incremental(session, slug, f, t, timeout=timeout),
-                insert_fn=db.insert_pol_daily_points,
-                fetched_at=fetched_at,
-                timeout=timeout,
-            )
-            result["pol_new"] = new
+            data["pol_points"] = fetch_pol_history(session, slug, timeout=timeout)
         except requests.HTTPError as e:
             if e.response is not None and e.response.status_code in (401, 403):
                 raise
@@ -193,18 +175,7 @@ def _process_project(
     # 3. Category PoL daily history
     if fetch_categories:
         try:
-            new = _sync_time_series(
-                db,
-                session,
-                slug,
-                "pol_category_daily",
-                fetch_backfill=lambda: fetch_pol_category_history(session, slug, timeout=timeout),
-                fetch_incremental=lambda f, t: fetch_pol_category_history_incremental(session, slug, f, t, timeout=timeout),
-                insert_fn=db.insert_pol_category_daily_points,
-                fetched_at=fetched_at,
-                timeout=timeout,
-            )
-            result["category_new"] = new
+            data["category_points"] = fetch_pol_category_history(session, slug, timeout=timeout)
         except requests.HTTPError as e:
             if e.response is not None and e.response.status_code in (401, 403):
                 raise
@@ -220,13 +191,11 @@ def _process_project(
         except (ValueError, KeyError) as e:
             logger.error("Project %s: category history bad response (%s), skipping", slug, e)
 
-    # 4. Section snapshots
+    # 4. Section details
     if fetch_sections_flag:
         for section in SECTIONS:
             try:
-                raw = fetch_section_detail(session, slug, section, timeout=timeout)
-                db.insert_section_snapshot(slug, section, fetched_at, raw)
-                result["sections"] += 1
+                data["sections"][section] = fetch_section_detail(session, slug, section, timeout=timeout)
             except requests.HTTPError as e:
                 if e.response is not None and e.response.status_code in (401, 403):
                     raise
@@ -242,7 +211,40 @@ def _process_project(
             except (ValueError, KeyError) as e:
                 logger.error("Project %s: %s section bad response (%s), skipping", slug, section, e)
 
-    return result
+    return data
+
+
+def _store_project_data(
+    db: Core3Database,
+    data: dict,
+    fetched_at: datetime.datetime,
+) -> None:
+    """Write fetched project data to the database (main thread only).
+
+    :param db:
+        Core3 database.
+    :param data:
+        Dict returned by :py:func:`_fetch_project_data`.
+    :param fetched_at:
+        Timestamp of the current scan cycle.
+    """
+    slug = data["slug"]
+
+    if data["detail"] is not None:
+        db.insert_project_snapshot(slug, fetched_at, data["detail"])
+
+    if data["pol_points"] is not None:
+        db.insert_pol_daily_points(slug, data["pol_points"], fetched_at)
+        last_ts = max((p["timestamp"] for p in data["pol_points"]), default=None)
+        db.update_sync_state(slug, "pol_daily", last_ts, backfill_done=True)
+
+    if data["category_points"] is not None:
+        db.insert_pol_category_daily_points(slug, data["category_points"], fetched_at)
+        last_ts = max((p["timestamp"] for p in data["category_points"]), default=None)
+        db.update_sync_state(slug, "pol_category_daily", last_ts, backfill_done=True)
+
+    for section, raw in data["sections"].items():
+        db.insert_section_snapshot(slug, section, fetched_at, raw)
 
 
 def scan_projects(
@@ -255,13 +257,14 @@ def scan_projects(
     limit: int | None = None,
     max_workers: int = 8,
     timeout: float = 30.0,
+    checkpoint_every: int = 100,
 ) -> Core3Database:
     """Scan all Core3 projects and store snapshots in DuckDB.
 
     This function:
 
     1. Fetches the project list from ``/v1/list`` to get all slugs
-    2. For each slug (parallelised with ``joblib``):
+    2. For each slug (parallelised with ``ThreadPoolExecutor``):
 
        a. Fetches ``/v1/{slug}`` and inserts into ``project_snapshots``
        b. Optionally fetches PoL history and inserts into ``pol_daily``
@@ -290,6 +293,13 @@ def scan_projects(
         Maximum number of parallel workers for fetching project data.
     :param timeout:
         HTTP request timeout in seconds.
+    :param checkpoint_every:
+        Flush WAL to disk every N projects. DuckDB CHECKPOINT cannot run
+        safely while ``ThreadPoolExecutor`` threads are alive (heap
+        corruption on Python 3.14 + DuckDB 1.5, see `duckdb#13904
+        <https://github.com/duckdb/duckdb/issues/13904>`__), so work is
+        processed in chunks — the executor exits and all threads join
+        before each checkpoint.
     :return:
         :py:class:`~eth_defi.core3.database.Core3Database` instance with
         the newly inserted data. Caller must call ``close()`` when done.
@@ -307,21 +317,59 @@ def scan_projects(
         slugs = slugs[:limit]
         logger.info("Limited to %d projects", len(slugs))
 
-    # Parallel per-project processing
-    desc = f"Scanning Core3 projects ({max_workers} workers)"
-    Parallel(n_jobs=max_workers, backend="threading")(
-        delayed(_process_project)(
-            session,
-            db,
-            slug,
-            fetched_at,
-            fetch_pol=fetch_pol_history,
-            fetch_categories=fetch_category_history,
-            fetch_sections_flag=fetch_sections,
-            timeout=timeout,
-        )
-        for slug in tqdm(slugs, desc=desc)
-    )
+    # Process projects in chunks with a two-phase approach per chunk:
+    #   Phase 1 (fetch): parallel HTTP with ThreadPoolExecutor + tqdm
+    #   Phase 2 (store): sequential DB writes, then reconnect
+    #
+    # DuckDB con.close() triggers an implicit CHECKPOINT which causes
+    # heap corruption if ANY Python thread is alive — including tqdm's
+    # persistent monitor thread (Python 3.14 + DuckDB 1.5, duckdb#13904).
+    # By collecting fetch results first, we can ensure no threads exist
+    # when we touch the database.
+    chunks = [slugs[i : i + checkpoint_every] for i in range(0, len(slugs), checkpoint_every)]
+    processed = 0
+
+    for chunk_idx, chunk in enumerate(chunks):
+        # Phase 1: fetch all data (threads + tqdm alive, no DB access)
+        results = []
+        desc = f"Fetching chunk {chunk_idx + 1}/{len(chunks)} ({max_workers} workers)"
+        if max_workers > 1:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {
+                    executor.submit(
+                        _fetch_project_data,
+                        session,
+                        slug,
+                        fetch_pol=fetch_pol_history,
+                        fetch_categories=fetch_category_history,
+                        fetch_sections_flag=fetch_sections,
+                        timeout=timeout,
+                    ): slug
+                    for slug in chunk
+                }
+                with tqdm(total=len(chunk), desc=desc) as progress:
+                    for future in as_completed(futures):
+                        results.append(future.result())
+                        progress.update(1)
+        else:
+            for slug in tqdm(chunk, desc=desc):
+                results.append(
+                    _fetch_project_data(
+                        session,
+                        slug,
+                        fetch_pol=fetch_pol_history,
+                        fetch_categories=fetch_category_history,
+                        fetch_sections_flag=fetch_sections,
+                        timeout=timeout,
+                    )
+                )
+
+        # Phase 2: write to DB and checkpoint (no threads alive)
+        for data in results:
+            _store_project_data(db, data, fetched_at)
+        processed += len(results)
+        db.reconnect()
+        logger.info("Saved %d/%d projects", processed, len(slugs))
 
     # Index-level PoL history (single request, not parallelised)
     if fetch_index_pol:
@@ -346,7 +394,7 @@ def scan_projects(
         except (ValueError, KeyError) as e:
             logger.error("Index PoL history bad response: %s", e)
 
-    db.save()
+    db.reconnect()
     logger.info(
         "Scan complete: %d projects, %d snapshots, %d PoL daily rows",
         db.get_project_count(),
