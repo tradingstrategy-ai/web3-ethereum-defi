@@ -162,9 +162,14 @@ def test_hypersync_gap_healing_persistent_gap(tmp_path):
     async def _run():
         mock_client = MagicMock()
 
-        with patch(
-            "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
-            side_effect=mock_get_timestamps,
+        with (
+            patch(
+                "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+                side_effect=mock_get_timestamps,
+            ),
+            patch(
+                "eth_defi.hypersync.hypersync_timestamp.asyncio.sleep",
+            ),
         ):
             slicer = await fetch_block_timestamps_using_hypersync_cached_async(
                 client=mock_client,

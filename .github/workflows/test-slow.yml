@@ -1,0 +1,80 @@
+name: Slow integration tests
+
+# Tests marked @pytest.mark.slow — long block scans, live API pipelines.
+# Runs on free ubuntu-latest in parallel with the main test suite so they
+# don't add wall-clock to the Beefy job.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  test-slow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    if: github.event.pull_request.draft == false || github.event_name == 'push'
+
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+      cancel-in-progress: true
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.14"]
+
+    name: Slow tests - Python ${{ matrix.python-version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install poetry (using matrix Python)
+        run: pipx install "poetry>=2.3" --python "${{ env.PYTHON_PATH }}"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "poetry"
+          cache-dependency-path: |
+            **/pyproject.toml
+
+      - name: Resolve poetry venv path
+        id: venv-path
+        run: |
+          venv_path=$(poetry env info --path 2>/dev/null || true)
+          if [ -z "$venv_path" ]; then
+            poetry env use ${{ matrix.python-version }}
+            venv_path=$(poetry env info --path)
+          fi
+          echo "path=$venv_path" >> "$GITHUB_OUTPUT"
+
+      - name: Cache poetry venv
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.venv-path.outputs.path }}
+          key: slow-venv-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
+          restore-keys: |
+            slow-venv-${{ runner.os }}-py${{ matrix.python-version }}-
+            slow-venv-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          poetry install
+          poetry install -E data -E test -E hypersync -E ccxt -E duckdb -E posts
+
+      - name: Run slow tests
+        run: |
+          poetry run pytest --timeout-method=thread --tb=native -v -s --capture=no --ignore=tests/gmx -m slow
+        env:
+          JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
+          JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
+          JSON_RPC_ARBITRUM: ${{ secrets.JSON_RPC_ARBITRUM }}
+          JSON_RPC_BINANCE: ${{ secrets.JSON_RPC_BINANCE }}
+          JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
+          HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
+          TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}

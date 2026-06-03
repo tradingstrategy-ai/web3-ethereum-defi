@@ -19,6 +19,7 @@ import pytest
 from eth_defi.vault.scan_all_chains import main
 
 
+@pytest.mark.slow
 @pytest.mark.timeout(180)
 def test_scan_loop_lighter_single_cycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Run one looped cycle scanning only Lighter and verify output files.

@@ -121,6 +121,7 @@ def test_token_gateway_deposit_distinct_from_erc4626(web3: Web3):
     assert erc4626_deposit_topic != tg_deposit_topic, f"TokenGateway Deposit topic should differ from standard ERC-4626 Deposit, both are {erc4626_deposit_topic}"
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed")
 def test_token_gateway_vault_discovery_ethereum():
     """Verify that JSONRPCVaultDiscover detects the ForgeYieldsUSDC vault on Ethereum.

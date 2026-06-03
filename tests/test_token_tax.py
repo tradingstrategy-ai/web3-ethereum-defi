@@ -18,8 +18,9 @@ import pytest
 from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
 
-from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.chain import install_chain_middleware, install_retry_middleware
+from eth_defi.provider.anvil import fork_network_anvil
+from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.token import fetch_erc20_details
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
 from eth_defi.uniswap_v2.token_tax import (
@@ -47,7 +48,7 @@ def large_busd_holder() -> HexAddress:
     return HexAddress(HexStr("0x8894E0a0c962CB723c1976a4421c95949bE2D4E3"))
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def anvil_bnb_chain_fork(request, large_busd_holder) -> str:
     """Create a testable fork of live BNB chain.
 
@@ -73,6 +74,12 @@ def web3(anvil_bnb_chain_fork: str):
     install_chain_middleware(web3)
     install_retry_middleware(web3)
     return web3
+
+
+# Per-test EVM state isolation on module-scope Anvil fork.
+@pytest.fixture(autouse=True)
+def _evm_snapshot(anvil_bnb_chain_fork):
+    yield from evm_snapshot_revert(anvil_bnb_chain_fork)
 
 
 @pytest.fixture
@@ -141,7 +148,7 @@ def test_token_tax(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, 
     assert token_tax_info.sell_tax == pytest.approx(expected_elephant_tax_percent, rel=1e-4)
 
 
-@flaky.flaky(max_runs=5)
+@flaky.flaky(max_runs=2)
 def test_not_enough_tokens_to_buy(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, seller: HexAddress, elephant: HexAddress, busd: HexAddress):
     """There are not enough tokens to buy"""
     buy_amount: float = 1e30
