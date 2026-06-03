@@ -15,7 +15,8 @@ and centralised exchanges, scoring risk on a 0-100 scale where 0 = Exceptional a
 | Module | Description |
 |--------|-------------|
 | `eth_defi.core3.constants` | Shared constants: API URL, database paths, rate limit config, section names |
-| `eth_defi.core3.session` | `Core3Session` (requests.Session subclass) with rate limiting, retry logic, and fetch helpers for all API endpoints |
+| `eth_defi.core3.session` | `Core3Session` (requests.Session subclass) with rate limiting and retry logic |
+| `eth_defi.core3.api` | Fetch helpers for all Core3 API endpoints (project list, detail, PoL history, sections) |
 | `eth_defi.core3.database` | `Core3Database` — DuckDB persistence with thread-safe inserts, deduplication, sync state watermarks, and query methods |
 | `eth_defi.core3.scanner` | `scan_projects()` orchestrator — parallel fetching with `joblib.Parallel`, incremental sync, error handling |
 | `eth_defi.core3.mappings` | `CORE3_MAPPINGS` — canonical mapping from our vault protocol slugs to Core3 project slugs |
