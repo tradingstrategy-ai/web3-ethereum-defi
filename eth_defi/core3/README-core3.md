@@ -23,12 +23,12 @@ and centralised exchanges, scoring risk on a 0-100 scale where 0 = Exceptional a
 
 ## Database files
 
-Default location: `~/.tradingstrategy/core3/`
+Default location: `~/.tradingstrategy/vaults/core3/`
 
 | File | Description |
 |------|-------------|
-| `risk-data.duckdb` | Main DuckDB database with all project snapshots and time-series data |
-| `risk-data.duckdb.wal` | DuckDB write-ahead log (automatically managed) |
+| `core3.duckdb` | Main DuckDB database with all project snapshots and time-series data |
+| `core3.duckdb.wal` | DuckDB write-ahead log (automatically managed) |
 | `rate-limit.sqlite` | SQLite database for thread-safe rate limiting state across `joblib` workers |
 
 ### Database tables
@@ -60,7 +60,7 @@ source .local-test.env && poetry run python scripts/core3/scan-core3.py
 |---------------------|---------|-------------|
 | `CORE3_API_KEY` | (required) | Core3 API key (prefixed `core3_`) |
 | `LOG_LEVEL` | `warning` | Logging level: debug, info, warning, error |
-| `DB_PATH` | `~/.tradingstrategy/core3/risk-data.duckdb` | Path to DuckDB database file |
+| `CORE3_DATABASE_PATH` | `~/.tradingstrategy/vaults/core3/core3.duckdb` | Path to DuckDB database file |
 | `LIMIT` | (none) | Limit number of projects to scan (for testing) |
 | `MAX_WORKERS` | `8` | Maximum number of parallel workers for API fetching |
 | `FETCH_SECTIONS` | `false` | Set to `true` to also fetch section detail endpoints (5 extra API calls per project) |
@@ -76,7 +76,7 @@ poetry run python scripts/core3/core3-overview.py
 
 | Environment variable | Default | Description |
 |---------------------|---------|-------------|
-| `DB_PATH` | `~/.tradingstrategy/core3/risk-data.duckdb` | Path to DuckDB database file |
+| `CORE3_DATABASE_PATH` | `~/.tradingstrategy/vaults/core3/core3.duckdb` | Path to DuckDB database file |
 
 ### update-core3-mappings.py — vault protocol mapping updater
 
@@ -105,7 +105,7 @@ source .local-test.env && PYTHONPATH="$(pwd):$PYTHONPATH" poetry run python scri
 
 | Environment variable | Default | Description |
 |---------------------|---------|-------------|
-| `DB_PATH` | `~/.tradingstrategy/core3/risk-data.duckdb` | Path to DuckDB database file |
+| `CORE3_DATABASE_PATH` | `~/.tradingstrategy/vaults/core3/core3.duckdb` | Path to DuckDB database file |
 | `LOG_LEVEL` | `warning` | Logging level |
 
 ### reproduce-duckdb-crash.py — crash reproducer

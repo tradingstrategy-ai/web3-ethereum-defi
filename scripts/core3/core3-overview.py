@@ -10,11 +10,11 @@ Usage:
     poetry run python scripts/core3/core3-overview.py
 
     # Custom database path
-    DB_PATH=~/my-core3.duckdb poetry run python scripts/core3/core3-overview.py
+    CORE3_DATABASE_PATH=~/my-core3.duckdb poetry run python scripts/core3/core3-overview.py
 
 Environment variables:
 
-- ``DB_PATH``: Path to DuckDB database file. Default: ~/.tradingstrategy/core3/risk-data.duckdb
+- ``CORE3_DATABASE_PATH``: Path to DuckDB database file. Default: ~/.tradingstrategy/vaults/core3/core3.duckdb
 """
 
 import os
@@ -37,7 +37,7 @@ def _fmt_market_cap(x) -> str:
 
 
 def main():
-    db_path_str = os.environ.get("DB_PATH")
+    db_path_str = os.environ.get("CORE3_DATABASE_PATH")
     if db_path_str:
         db_path = Path(db_path_str).expanduser()
     else:

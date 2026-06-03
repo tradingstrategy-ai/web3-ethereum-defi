@@ -1,5 +1,6 @@
 """Test vault metrics calculations and charts."""
 
+import datetime
 import json
 import os.path
 import pickle
@@ -10,6 +11,7 @@ import pytest
 import zstandard as zstd
 from plotly.graph_objects import Figure
 
+from eth_defi.core3.database import Core3Database
 from eth_defi.research.sparkline import export_sparkline_as_png, export_sparkline_as_svg, extract_vault_price_data, render_sparkline_simple
 from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
 from eth_defi.research.vault_metrics import PeriodMetrics, apply_abnormal_value_checks, apply_morpho_not_in_api_check, calculate_lifetime_metrics, calculate_period_metrics, display_vault_chart_and_tearsheet, export_lifetime_row, format_lifetime_table
@@ -533,3 +535,123 @@ def test_export_lifetime_row_nat_serialization():
     # Verify other fields are still properly serialized
     assert parsed["name"] == "Test Vault"
     assert parsed["current_nav"] == 1000.0
+
+
+def _make_core3_project_json(slug: str, name: str, rank: int, pol_score: float) -> dict:
+    """Build a Core3 project JSON matching the full API payload shape.
+
+    Local helper — not imported from ``tests/core3/`` to avoid
+    cross-test-tree imports.
+    """
+    return {
+        "slug": slug,
+        "name": name,
+        "description": f"{name} is a DeFi protocol.",
+        "rank": rank,
+        "pol": {"score": pol_score, "rating": "BB", "confidence": "High"},
+        "ticker": slug.upper(),
+        "coingecko_id": slug,
+        "logo": f"https://example.com/{slug}.png",
+        "link": f"https://core3.io{slug}",
+        "launched_at": None,
+        "category": {"name": "Decentralized Finance"},
+        "data_coverage": {"percentage": 76.7},
+        "market_cap": {"in_usd": "1000000", "change_24h_percentage": -0.5, "change_24h_in_usd": "-5000"},
+        "chains": [{"name": "Ethereum"}, {"name": "Base"}],
+        "links": {
+            "website": f"https://{slug}.org/",
+            "legal": None,
+            "whitepaper": None,
+            "socials": [{"name": "Twitter", "link": f"https://twitter.com/{slug}"}],
+        },
+        "tags": [],
+        "top_risks": [{"content": "Example risk finding.", "date": "2026-01-01T00:00:00.000Z"}],
+        "recent_changes": [],
+        "seals": {
+            "security_measures": {"value": False, "logo": None},
+            "independent_certificates": {"value": False, "logo": None},
+            "self_regulation": {"value": False, "logo": None},
+        },
+    }
+
+
+def test_core3_integration_in_lifetime_metrics(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+    tmp_path: Path,
+):
+    """Core3 risk data flows through calculate_lifetime_metrics into JSON export.
+
+    The Hemi test fixture contains Morpho vaults (protocol_slug == "morpho").
+    We insert a synthetic Core3 snapshot for "morpho" and verify:
+
+    1. Create a temp Core3 DuckDB and insert a "morpho" project snapshot
+    2. Call calculate_lifetime_metrics with core3_db
+    3. Verify Morpho vaults have other_data["core3"] populated with PoL score
+    4. Verify non-Morpho vaults have other_data["core3"] as None
+    5. Run export_lifetime_row + json.dumps to verify full serialisation path
+    6. Assert fetched_at becomes an ISO 8601 string, not a raw datetime
+    """
+    # 1. Create temp Core3 DuckDB with a morpho snapshot
+    core3_db = Core3Database(tmp_path / "test-core3.duckdb")
+    t_fetch = datetime.datetime(2025, 7, 1, 12, 0, 0)
+    raw = _make_core3_project_json("morpho", "Morpho", rank=96, pol_score=32.15)
+    core3_db.insert_project_snapshot("morpho", t_fetch, raw)
+
+    try:
+        # 2. Calculate lifetime metrics with Core3 DB
+        metrics = calculate_lifetime_metrics(
+            price_df,
+            vault_db,
+            core3_db=core3_db,
+        )
+    finally:
+        core3_db.close()
+
+    assert len(metrics) == 3
+
+    # 3. Morpho vault should have Core3 data populated
+    morpho_row = metrics.set_index("id").loc["43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"]
+    assert morpho_row["protocol_slug"] == "morpho"
+    core3_data = morpho_row["other_data"]["core3"]
+    assert core3_data is not None
+    assert core3_data["slug"] == "morpho"
+    assert core3_data["pol"]["score"] == pytest.approx(32.15)
+    assert core3_data["rank"] == 96
+    assert len(core3_data["top_risks"]) == 1
+    assert isinstance(core3_data["fetched_at"], datetime.datetime)
+
+    # 4. Non-Morpho vaults should have core3 as None
+    non_morpho_rows = metrics[metrics["protocol_slug"] != "morpho"]
+    for _, row in non_morpho_rows.iterrows():
+        assert row["other_data"]["core3"] is None
+
+    # 5. Full serialisation path: export_lifetime_row + json.dumps
+    exported = export_lifetime_row(morpho_row)
+    json_str = json.dumps(exported)
+    parsed = json.loads(json_str)
+
+    # 6. fetched_at must be an ISO 8601 string after serialisation
+    assert parsed["other_data"]["core3"]["fetched_at"] == "2025-07-01T12:00:00"
+    assert parsed["other_data"]["core3"]["pol"]["score"] == pytest.approx(32.15)
+    assert parsed["other_data"]["core3"]["rank"] == 96
+
+
+def test_core3_none_when_db_not_provided(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+):
+    """Without Core3 DB, all vaults have other_data["core3"] as None.
+
+    1. Call calculate_lifetime_metrics without core3_db
+    2. Verify all rows have other_data["core3"] as None
+    """
+    # 1. No core3_db argument
+    metrics = calculate_lifetime_metrics(
+        price_df,
+        vault_db,
+    )
+
+    # 2. All rows should have core3 as None
+    for _, row in metrics.iterrows():
+        assert row["other_data"]["core3"] is None

@@ -22,7 +22,7 @@ Usage:
 
 Environment variables:
 
-- ``DB_PATH``: Path to DuckDB database file. Default: ~/.tradingstrategy/core3/risk-data.duckdb
+- ``CORE3_DATABASE_PATH``: Path to DuckDB database file. Default: ~/.tradingstrategy/vaults/core3/core3.duckdb
 - ``LOG_LEVEL``: Logging level. Default: warning
 """
 
@@ -343,7 +343,7 @@ def main():
     default_log_level = os.environ.get("LOG_LEVEL", "warning")
     setup_console_logging(default_log_level=default_log_level)
 
-    db_path_str = os.environ.get("DB_PATH")
+    db_path_str = os.environ.get("CORE3_DATABASE_PATH")
     db_path = Path(db_path_str).expanduser() if db_path_str else CORE3_DATABASE_PATH
 
     if not db_path.exists():

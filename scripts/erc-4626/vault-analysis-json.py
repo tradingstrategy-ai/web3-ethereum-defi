@@ -131,6 +131,7 @@ def main(
     vault_db_path: Path | None = None,
     parquet_path: Path | None = None,
     output_path: Path | None = None,
+    core3_db_path: Path | None = None,
 ):
     """Main execution function for vault analysis and JSON export.
 
@@ -162,6 +163,12 @@ def main(
         ``__main__`` entrypoint, not by :py:func:`main` itself, so
         in-process callers get deterministic path anchoring with no env
         var surprises.
+
+    :param core3_db_path:
+        Path to the Core3 risk intelligence DuckDB database.
+        When ``None``, resolved from ``CORE3_DATABASE_PATH`` env var,
+        then the default constant. The database is only opened if the
+        resolved file exists on disk.
     """
     defaults = _resolve_defaults_from_env()
     if data_dir is None:
@@ -205,7 +212,30 @@ def main(
 
     raw_returns_df = returns_df = calculate_hourly_returns_for_all_vaults(prices_df)
 
-    lifetime_data_df = calculate_lifetime_metrics(returns_df, vault_db)
+    # Open Core3 risk intelligence database if locally available.
+    # Resolved from explicit argument, CORE3_DATABASE_PATH env var, or the default constant.
+    # Only opened if the file exists — constructing Core3Database on a non-existent
+    # path would create an empty database rather than being truly optional.
+    core3_db = None
+    if core3_db_path is None:
+        db_path_env = os.getenv("CORE3_DATABASE_PATH")
+        if db_path_env:
+            core3_db_path = Path(db_path_env).expanduser()
+        else:
+            from eth_defi.core3.constants import CORE3_DATABASE_PATH
+
+            core3_db_path = CORE3_DATABASE_PATH
+    if core3_db_path.exists():
+        from eth_defi.core3.database import Core3Database
+
+        core3_db = Core3Database(core3_db_path)
+        print(f"Opened Core3 risk database at {core3_db_path} with {core3_db.get_project_count()} projects")
+
+    try:
+        lifetime_data_df = calculate_lifetime_metrics(returns_df, vault_db, core3_db=core3_db)
+    finally:
+        if core3_db is not None:
+            core3_db.close()
 
     print(f"Calculated lifetime metrics for {len(lifetime_data_df):,} vaults with {len(lifetime_data_df.columns):,} columns")
 
