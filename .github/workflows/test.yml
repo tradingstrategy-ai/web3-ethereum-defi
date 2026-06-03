@@ -168,7 +168,9 @@ jobs:
           #
           # Always use verbose pytest output so stalled CI runs show the latest
           # test names in the Actions log.
-          poetry run pytest --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no --ignore=tests/gmx
+          # Slow tests (large block scans, live API pipelines) run separately
+          # in test-slow.yml on a free ubuntu-latest runner in parallel.
+          poetry run pytest --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no --ignore=tests/gmx -m "not slow"
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
