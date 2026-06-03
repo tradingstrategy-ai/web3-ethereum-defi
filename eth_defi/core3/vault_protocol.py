@@ -21,13 +21,10 @@ Example::
 
 import datetime
 import json
-import logging
 from typing import TypedDict
 
 from eth_defi.core3.database import Core3Database
 from eth_defi.core3.mappings import CORE3_MAPPINGS
-
-logger = logging.getLogger(__name__)
 
 
 class Core3Seal(TypedDict):
@@ -285,7 +282,6 @@ def get_core3_protocol_record(
     """
     core3_slug = CORE3_MAPPINGS.get(vault_protocol_slug)
     if core3_slug is None:
-        logger.debug("No Core3 mapping for vault protocol %s", vault_protocol_slug)
         return None
 
     with db._db_lock:
@@ -301,7 +297,6 @@ def get_core3_protocol_record(
         ).fetchone()
 
     if row is None:
-        logger.warning("Core3 slug %s (mapped from %s) not found in database", core3_slug, vault_protocol_slug)
         return None
 
     payload = json.loads(row[0])
