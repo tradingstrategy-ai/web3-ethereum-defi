@@ -13,6 +13,7 @@ import pytest
 
 from eth_defi.core3.constants import INDEX_SLUG
 from eth_defi.core3.database import Core3Database
+from eth_defi.core3.vault_protocol import get_core3_protocol_record
 
 
 @pytest.fixture()
@@ -296,3 +297,117 @@ def test_index_slug_isolation(db: Core3Database):
     df_index = db.get_pol_daily(INDEX_SLUG)
     assert len(df_index) == 1
     assert df_index.iloc[0]["pol_score"] == pytest.approx(50.0)
+
+
+def _make_full_project_json(slug: str, name: str, rank: int, pol_score: float) -> dict:
+    """Build a Core3 project JSON matching the full API payload shape.
+
+    Used by tests that exercise :func:`get_core3_protocol_record` which
+    expects the complete payload structure.
+    """
+    return {
+        "slug": slug,
+        "name": name,
+        "description": f"{name} is a DeFi protocol.",
+        "rank": rank,
+        "pol": {"score": pol_score, "rating": "BB", "confidence": "High"},
+        "ticker": slug.upper(),
+        "coingecko_id": slug,
+        "logo": f"https://example.com/{slug}.png",
+        "link": f"https://core3.io{slug}",
+        "launched_at": None,
+        "category": {"name": "Decentralized Finance"},
+        "data_coverage": {"percentage": 76.7},
+        "market_cap": {"in_usd": "1000000", "change_24h_percentage": -0.5, "change_24h_in_usd": "-5000"},
+        "chains": [{"name": "Ethereum"}, {"name": "Base"}],
+        "links": {
+            "website": f"https://{slug}.org/",
+            "legal": None,
+            "whitepaper": None,
+            "socials": [{"name": "Twitter", "link": f"https://twitter.com/{slug}"}],
+        },
+        "tags": [],
+        "top_risks": [{"content": "Example risk finding.", "date": "2026-01-01T00:00:00.000Z"}],
+        "recent_changes": [],
+        "seals": {
+            "security_measures": {"value": False, "logo": None},
+            "independent_certificates": {"value": False, "logo": None},
+            "self_regulation": {"value": False, "logo": None},
+        },
+    }
+
+
+def test_get_core3_protocol_record_mapped(db: Core3Database):
+    """Look up a vault protocol that has a Core3 mapping.
+
+    We insert a snapshot under the Core3 slug "morpho" (which is the
+    mapping target for our vault protocol slug "morpho") and verify
+    that get_core3_protocol_record resolves and returns the full record.
+
+    1. Insert a full project snapshot for "morpho"
+    2. Call get_core3_protocol_record with our slug "morpho"
+    3. Verify returned record contains all expected fields
+    4. Verify fetched_at is populated from the database layer
+    """
+    t_fetch = datetime.datetime(2025, 7, 1, 12, 0, 0)
+    raw = _make_full_project_json("morpho", "Morpho", rank=96, pol_score=32.15)
+
+    # 1. Insert snapshot
+    db.insert_project_snapshot("morpho", t_fetch, raw)
+
+    # 2. Look up via vault protocol slug
+    record = get_core3_protocol_record(db, "morpho")
+
+    # 3. Verify record fields
+    assert record is not None
+    assert record["slug"] == "morpho"
+    assert record["name"] == "Morpho"
+    assert record["rank"] == 96
+    assert record["pol"]["score"] == pytest.approx(32.15)
+    assert record["pol"]["rating"] == "BB"
+    assert record["pol"]["confidence"] == "High"
+    assert record["category"]["name"] == "Decentralized Finance"
+    assert record["market_cap"]["in_usd"] == "1000000"
+    assert len(record["chains"]) == 2
+    assert record["top_risks"][0]["content"] == "Example risk finding."
+    assert record["description"] == "Morpho is a DeFi protocol."
+
+    # 4. fetched_at is set by the database layer
+    assert record["fetched_at"] == t_fetch
+
+
+def test_get_core3_protocol_record_aliased(db: Core3Database):
+    """Look up a vault protocol whose Core3 slug differs from ours.
+
+    Our "fluid" maps to Core3 "instadapp". We insert under
+    "instadapp" and verify lookup via "fluid" resolves correctly.
+
+    1. Insert a snapshot under Core3 slug "instadapp"
+    2. Call get_core3_protocol_record with our slug "fluid"
+    3. Verify the record is returned with the Core3 slug
+    """
+    t_fetch = datetime.datetime(2025, 7, 1, 12, 0, 0)
+    raw = _make_full_project_json("instadapp", "Fluid", rank=288, pol_score=48.97)
+
+    # 1. Insert under Core3 slug
+    db.insert_project_snapshot("instadapp", t_fetch, raw)
+
+    # 2. Look up via our vault protocol slug
+    record = get_core3_protocol_record(db, "fluid")
+
+    # 3. Returns the record with Core3's slug
+    assert record is not None
+    assert record["slug"] == "instadapp"
+    assert record["name"] == "Fluid"
+    assert record["pol"]["score"] == pytest.approx(48.97)
+
+
+def test_get_core3_protocol_record_unmapped(db: Core3Database):
+    """Look up a vault protocol with no Core3 mapping returns None.
+
+    1. Call get_core3_protocol_record with an unmapped slug
+    2. Verify None is returned
+    """
+    # 1-2. No mapping for ipor-fusion
+    assert get_core3_protocol_record(db, "ipor-fusion") is None
+    assert get_core3_protocol_record(db, "lagoon-finance") is None
