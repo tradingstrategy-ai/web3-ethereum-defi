@@ -1,0 +1,298 @@
+"""Offline tests for Core3Database — no API key required.
+
+Verifies DuckDB insert, deduplication, sync state, and query methods
+using synthetic data so these tests always run in CI.
+"""
+
+import datetime
+import json
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+from eth_defi.core3.constants import INDEX_SLUG
+from eth_defi.core3.database import Core3Database
+
+
+@pytest.fixture()
+def db(tmp_path: Path):
+    """Create a temporary Core3Database, closed after test."""
+    database = Core3Database(tmp_path / "test.duckdb")
+    yield database
+    database.close()
+
+
+def _make_project_json(slug: str, rank: int, pol_score: float, market_cap: str | None = None) -> dict:
+    """Build a minimal project detail JSON matching the API shape."""
+    result = {
+        "slug": slug,
+        "name": slug.replace("-", " ").title(),
+        "rank": rank,
+        "pol": {"score": pol_score, "rating": "BBB"},
+    }
+    if market_cap is not None:
+        result["market_cap"] = {"in_usd": market_cap}
+    return result
+
+
+def test_insert_and_query_project_snapshots(db: Core3Database):
+    """Insert project snapshots and verify query methods return correct data.
+
+    1. Insert two project snapshots with different fetched_at timestamps
+    2. Verify get_project_count returns unique slug count
+    3. Verify get_snapshot_count returns total row count
+    4. Verify get_latest_project_snapshots returns only the most recent per slug
+    5. Verify get_project_snapshot_history returns all snapshots for a slug
+    """
+    t1 = datetime.datetime(2025, 1, 1, 12, 0, 0)
+    t2 = datetime.datetime(2025, 1, 2, 12, 0, 0)
+
+    raw_aave = _make_project_json("aave", rank=5, pol_score=15.5, market_cap="1000000")
+    raw_uniswap = _make_project_json("uniswap", rank=10, pol_score=20.0)
+
+    # 1. Insert at two timestamps
+    db.insert_project_snapshot("aave", t1, raw_aave)
+    db.insert_project_snapshot("uniswap", t1, raw_uniswap)
+    db.insert_project_snapshot("aave", t2, raw_aave)
+
+    # 2. Unique project count
+    assert db.get_project_count() == 2
+
+    # 3. Total snapshot rows
+    assert db.get_snapshot_count() == 3
+
+    # 4. Latest snapshots — one per slug
+    df_latest = db.get_latest_project_snapshots()
+    assert len(df_latest) == 2
+    aave_row = df_latest[df_latest["slug"] == "aave"].iloc[0]
+    assert aave_row["rank"] == 5
+    assert aave_row["pol_score"] == pytest.approx(15.5)
+    assert aave_row["market_cap_usd"] == "1000000"
+
+    # uniswap has no market cap
+    uni_row = df_latest[df_latest["slug"] == "uniswap"].iloc[0]
+    assert uni_row["market_cap_usd"] is None or pd.isna(uni_row["market_cap_usd"])
+
+    # 5. History for aave
+    df_history = db.get_project_snapshot_history("aave")
+    assert len(df_history) == 2
+
+    # Payload is valid JSON
+    payload = json.loads(aave_row["payload"])
+    assert payload["slug"] == "aave"
+
+
+def test_snapshot_upsert_on_conflict(db: Core3Database):
+    """Inserting a snapshot with the same (slug, fetched_at) updates existing row.
+
+    1. Insert a snapshot
+    2. Insert again with same key but different rank
+    3. Verify the row was updated (not duplicated)
+    """
+    t1 = datetime.datetime(2025, 1, 1, 12, 0, 0)
+
+    # 1. Initial insert
+    db.insert_project_snapshot("aave", t1, _make_project_json("aave", rank=5, pol_score=15.0))
+
+    # 2. Upsert with updated rank
+    db.insert_project_snapshot("aave", t1, _make_project_json("aave", rank=3, pol_score=12.0))
+
+    # 3. Still one row, with updated values
+    assert db.get_snapshot_count() == 1
+    df = db.get_latest_project_snapshots()
+    assert df.iloc[0]["rank"] == 3
+    assert df.iloc[0]["pol_score"] == pytest.approx(12.0)
+
+
+def test_pol_daily_insert_and_dedup(db: Core3Database):
+    """Insert PoL daily points and verify ON CONFLICT DO NOTHING deduplication.
+
+    1. Insert 3 points for a project
+    2. Insert overlapping points (2 old + 1 new)
+    3. Verify only the new point was added (total 4, not 6)
+    4. Verify scores are in expected range
+    """
+    t_fetch = datetime.datetime(2025, 6, 1, 0, 0, 0)
+
+    # 1. Initial 3 points
+    points_1 = [
+        {"score": 10.0, "timestamp": 1700000000},
+        {"score": 11.0, "timestamp": 1700086400},
+        {"score": 12.0, "timestamp": 1700172800},
+    ]
+    new_count = db.insert_pol_daily_points("aave", points_1, t_fetch)
+    assert new_count == 3
+
+    # 2. Overlapping insert (2 existing + 1 new)
+    points_2 = [
+        {"score": 10.0, "timestamp": 1700000000},
+        {"score": 11.0, "timestamp": 1700086400},
+        {"score": 13.0, "timestamp": 1700259200},
+    ]
+    new_count = db.insert_pol_daily_points("aave", points_2, t_fetch)
+    assert new_count == 1
+
+    # 3. Total is 4
+    assert db.get_pol_daily_count() == 4
+
+    # 4. Query and verify
+    df = db.get_pol_daily("aave")
+    assert len(df) == 4
+    assert df["pol_score"].min() == pytest.approx(10.0)
+    assert df["pol_score"].max() == pytest.approx(13.0)
+
+
+def test_pol_daily_empty_points(db: Core3Database):
+    """Inserting an empty points list returns 0 and does not error.
+
+    1. Insert empty list
+    2. Verify return value is 0 and table is empty
+    """
+    t_fetch = datetime.datetime(2025, 6, 1, 0, 0, 0)
+    assert db.insert_pol_daily_points("aave", [], t_fetch) == 0
+    assert db.get_pol_daily_count() == 0
+
+
+def test_pol_category_daily_insert(db: Core3Database):
+    """Insert category PoL daily points and verify column extraction.
+
+    1. Insert points with category scores
+    2. Verify all category columns are populated
+    3. Verify deduplication on second insert
+    """
+    t_fetch = datetime.datetime(2025, 6, 1, 0, 0, 0)
+
+    points = [
+        {
+            "timestamp": 1700000000,
+            "security": {"score": 5.0},
+            "financial": {"score": 10.0},
+            "operational": {"score": 15.0},
+            "reputational": {"score": 20.0},
+            "regulatory": {"score": 25.0},
+        },
+        {
+            "timestamp": 1700086400,
+            "security": {"score": 6.0},
+            "financial": None,
+            "operational": {"score": 16.0},
+        },
+    ]
+
+    # 1. Insert
+    new_count = db.insert_pol_category_daily_points("aave", points, t_fetch)
+    assert new_count == 2
+
+    # 2. Verify columns
+    df = db.get_pol_category_daily("aave")
+    assert len(df) == 2
+    row0 = df.iloc[0]
+    assert row0["security_score"] == pytest.approx(5.0)
+    assert row0["regulatory_score"] == pytest.approx(25.0)
+
+    # Second row has None for financial (API returned null)
+    row1 = df.iloc[1]
+    assert row1["financial_score"] is None or pd.isna(row1["financial_score"])
+
+    # 3. Dedup
+    new_count = db.insert_pol_category_daily_points("aave", points, t_fetch)
+    assert new_count == 0
+
+
+def test_sync_state_lifecycle(db: Core3Database):
+    """Verify sync state create, read, update cycle.
+
+    1. Initially no state exists
+    2. Update sync state with backfill_done=True
+    3. Read back and verify fields
+    4. Update with new last_ts
+    5. Verify updated values
+    """
+    # 1. No state
+    assert db.get_sync_state("aave", "pol_daily") is None
+
+    # 2. Create state
+    db.update_sync_state("aave", "pol_daily", last_ts=1700000000, backfill_done=True)
+
+    # 3. Read back
+    state = db.get_sync_state("aave", "pol_daily")
+    assert state is not None
+    assert state["last_ts"] == 1700000000
+    assert state["backfill_done"] is True
+    assert state["last_synced"] is not None
+
+    # 4. Update
+    db.update_sync_state("aave", "pol_daily", last_ts=1700172800, backfill_done=True)
+
+    # 5. Verify update
+    state = db.get_sync_state("aave", "pol_daily")
+    assert state["last_ts"] == 1700172800
+
+
+def test_sync_state_null_last_ts(db: Core3Database):
+    """Sync state with last_ts=None represents a backfilled project with no data.
+
+    1. Set backfill_done=True with last_ts=None
+    2. Verify state distinguishes from never-synced (None return)
+    """
+    # 1. Backfill done, but no data
+    db.update_sync_state("empty-project", "pol_daily", last_ts=None, backfill_done=True)
+
+    # 2. State exists (not None) but last_ts is None
+    state = db.get_sync_state("empty-project", "pol_daily")
+    assert state is not None
+    assert state["last_ts"] is None
+    assert state["backfill_done"] is True
+
+
+def test_section_snapshot_insert(db: Core3Database):
+    """Insert a section snapshot and verify extraction.
+
+    1. Insert a security section snapshot
+    2. Verify section_pol_score is extracted
+    3. Verify payload is stored
+    """
+    t_fetch = datetime.datetime(2025, 6, 1, 0, 0, 0)
+    raw = {"pol": {"score": 8.5}, "details": [{"name": "audit", "status": "passed"}]}
+
+    # 1. Insert
+    db.insert_section_snapshot("aave", "security", t_fetch, raw)
+
+    # 2-3. Query via raw SQL (no dedicated query method for sections)
+    with db._db_lock:
+        row = db.con.execute(
+            "SELECT section_pol_score, payload FROM section_snapshots WHERE slug = ? AND section = ?",
+            ["aave", "security"],
+        ).fetchone()
+
+    assert row[0] == pytest.approx(8.5)
+    payload = json.loads(row[1])
+    assert payload["details"][0]["name"] == "audit"
+
+
+def test_index_slug_isolation(db: Core3Database):
+    """Index-level PoL rows use INDEX_SLUG and are isolated from project rows.
+
+    1. Insert points for a project and for the index
+    2. Verify get_pol_daily returns only the requested slug's rows
+    """
+    t_fetch = datetime.datetime(2025, 6, 1, 0, 0, 0)
+
+    project_points = [{"score": 20.0, "timestamp": 1700000000}]
+    index_points = [{"score": 50.0, "timestamp": 1700000000}]
+
+    db.insert_pol_daily_points("aave", project_points, t_fetch)
+    db.insert_pol_daily_points(INDEX_SLUG, index_points, t_fetch)
+
+    # Total is 2
+    assert db.get_pol_daily_count() == 2
+
+    # Each query returns only its own rows
+    df_aave = db.get_pol_daily("aave")
+    assert len(df_aave) == 1
+    assert df_aave.iloc[0]["pol_score"] == pytest.approx(20.0)
+
+    df_index = db.get_pol_daily(INDEX_SLUG)
+    assert len(df_index) == 1
+    assert df_index.iloc[0]["pol_score"] == pytest.approx(50.0)

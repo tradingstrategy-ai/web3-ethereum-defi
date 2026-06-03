@@ -34,6 +34,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    one_delta/index
    safe/index
    vault/index
+   core3/index
    feed/index
    erc_4626/index
    enzyme/index
