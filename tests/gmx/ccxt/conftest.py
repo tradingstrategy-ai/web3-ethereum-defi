@@ -109,85 +109,75 @@ def _fund_wallet_on_fork(
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def anvil_chain_fork_ccxt_long(
+    chain_name,
+    chain_rpc_url,
     large_eth_holder,
     large_wbtc_holder,
+    large_wavax_holder,
     large_usdc_holder_arbitrum,
+    large_usdc_holder_avalanche,
+    large_wbtc_holder_avalanche,
+    large_link_holder_avalanche,
     gmx_controller_arbitrum,
     large_weth_holder_arbitrum,
     gmx_keeper_arbitrum,
     large_gm_eth_usdc_holder_arbitrum,
 ) -> Generator[str, Any, None]:
-    """Create a module-scoped testable fork of Arbitrum for long position tests.
-
-    Spawned once per module; per-test isolation is provided by the
-    ``evm_snapshot``/``evm_revert`` calls inside ``ccxt_gmx_fork_open_close``.
-    """
-    rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
-    if not rpc_url:
-        pytest.skip("JSON_RPC_ARBITRUM not set")
-    unlocked_addresses = [
+    """Create a testable fork for long position tests."""
+    yield from _create_anvil_fork(
+        chain_name,
+        chain_rpc_url,
         large_eth_holder,
         large_wbtc_holder,
+        large_wavax_holder,
         large_usdc_holder_arbitrum,
+        large_usdc_holder_avalanche,
+        large_wbtc_holder_avalanche,
+        large_link_holder_avalanche,
         gmx_controller_arbitrum,
         large_weth_holder_arbitrum,
         gmx_keeper_arbitrum,
         large_gm_eth_usdc_holder_arbitrum,
-    ]
-    launch = fork_network_anvil(
-        rpc_url,
-        unlocked_addresses=unlocked_addresses,
-        test_request_timeout=100,
-        launch_wait_seconds=60,
     )
-    try:
-        yield launch.json_rpc_url
-    finally:
-        launch.close(log_level=logging.ERROR)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def anvil_chain_fork_ccxt_short(
+    chain_name,
+    chain_rpc_url,
     large_eth_holder,
     large_wbtc_holder,
+    large_wavax_holder,
     large_usdc_holder_arbitrum,
+    large_usdc_holder_avalanche,
+    large_wbtc_holder_avalanche,
+    large_link_holder_avalanche,
     gmx_controller_arbitrum,
     large_weth_holder_arbitrum,
     gmx_keeper_arbitrum,
     large_gm_eth_usdc_holder_arbitrum,
 ) -> Generator[str, Any, None]:
-    """Create a module-scoped testable fork of Arbitrum for short position tests.
-
-    Spawned once per module; per-test isolation is provided by the
-    ``evm_snapshot``/``evm_revert`` calls inside ``ccxt_gmx_fork_short``.
-    """
-    rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
-    if not rpc_url:
-        pytest.skip("JSON_RPC_ARBITRUM not set")
-    unlocked_addresses = [
+    """Create a testable fork for short position tests."""
+    yield from _create_anvil_fork(
+        chain_name,
+        chain_rpc_url,
         large_eth_holder,
         large_wbtc_holder,
+        large_wavax_holder,
         large_usdc_holder_arbitrum,
+        large_usdc_holder_avalanche,
+        large_wbtc_holder_avalanche,
+        large_link_holder_avalanche,
         gmx_controller_arbitrum,
         large_weth_holder_arbitrum,
         gmx_keeper_arbitrum,
         large_gm_eth_usdc_holder_arbitrum,
-    ]
-    launch = fork_network_anvil(
-        rpc_url,
-        unlocked_addresses=unlocked_addresses,
-        test_request_timeout=100,
-        launch_wait_seconds=60,
     )
-    try:
-        yield launch.json_rpc_url
-    finally:
-        launch.close(log_level=logging.ERROR)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def web3_arbitrum_fork_ccxt_long(anvil_chain_fork_ccxt_long: str) -> Web3:
     """Set up web3 for long position tests."""
     web3 = create_multi_provider_web3(
@@ -199,7 +189,7 @@ def web3_arbitrum_fork_ccxt_long(anvil_chain_fork_ccxt_long: str) -> Web3:
     return web3
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def web3_arbitrum_fork_ccxt_short(anvil_chain_fork_ccxt_short: str) -> Web3:
     """Set up web3 for short position tests."""
     web3 = create_multi_provider_web3(
@@ -220,12 +210,9 @@ def ccxt_gmx_fork_open_close(
 ) -> GMX:
     """CCXT GMX exchange with wallet for open/close long position testing.
 
-    Uses module-scoped Anvil fork; takes an ``evm_snapshot`` before setup and
-    reverts on teardown so every test in the module starts from a clean state.
+    Uses separate anvil fork to avoid state pollution with other tests.
     Uses RPC loading (default) for complete market data.
     """
-    snap_id = web3_arbitrum_fork_ccxt_long.provider.make_request("evm_snapshot", [])["result"]
-
     setup_mock_oracle(web3_arbitrum_fork_ccxt_long)
 
     # Fund wallet on this fork (test_wallet is funded on a different fork)
@@ -259,10 +246,7 @@ def ccxt_gmx_fork_open_close(
     )
     # Load markets using RPC mode (REST API won't work with forked chain)
     gmx.load_markets(params={"rest_api_mode": False, "graphql_only": False})
-    try:
-        yield gmx
-    finally:
-        web3_arbitrum_fork_ccxt_long.provider.make_request("evm_revert", [snap_id])
+    return gmx
 
 
 @pytest.fixture
@@ -274,12 +258,10 @@ def ccxt_gmx_fork_short(
 ) -> GMX:
     """CCXT GMX exchange with wallet for short position testing.
 
-    Uses module-scoped Anvil fork; takes an ``evm_snapshot`` before setup and
-    reverts on teardown so every test in the module starts from a clean state.
+    Uses separate anvil fork to avoid state pollution with other tests.
+    Uses RPC loading (default) for complete market data.
     Short positions require USDC collateral, which is funded by _fund_wallet_on_fork.
     """
-    snap_id = web3_arbitrum_fork_ccxt_short.provider.make_request("evm_snapshot", [])["result"]
-
     setup_mock_oracle(web3_arbitrum_fork_ccxt_short)
 
     # Fund wallet on this fork (test_wallet is funded on a different fork)
@@ -307,10 +289,7 @@ def ccxt_gmx_fork_short(
     )
     # Load markets using RPC mode (REST API won't work with forked chain)
     gmx.load_markets(params={"rest_api_mode": False, "graphql_only": False})
-    try:
-        yield gmx
-    finally:
-        web3_arbitrum_fork_ccxt_short.provider.make_request("evm_revert", [snap_id])
+    return gmx
 
 
 @pytest.fixture
@@ -362,11 +341,10 @@ def ccxt_gmx_fork_graphql(
 ) -> GMX:
     """CCXT GMX exchange with wallet for testing GraphQL market loading.
 
-    Uses module-scoped Anvil fork; takes an ``evm_snapshot`` before setup and
-    reverts on teardown. Uses GraphQL loading for fast market data retrieval.
+    Uses separate anvil fork to avoid state pollution with other tests.
+    Uses GraphQL loading for fast market data retrieval.
+    Markets are pre-loaded so they're immediately available.
     """
-    snap_id = web3_arbitrum_fork_ccxt_long.provider.make_request("evm_snapshot", [])["result"]
-
     setup_mock_oracle(web3_arbitrum_fork_ccxt_long)
 
     # Fund wallet on this fork (test_wallet is funded on a different fork)
@@ -394,10 +372,7 @@ def ccxt_gmx_fork_graphql(
     )
     # Pre-load markets so they're available immediately
     gmx.load_markets()
-    try:
-        yield gmx
-    finally:
-        web3_arbitrum_fork_ccxt_long.provider.make_request("evm_revert", [snap_id])
+    return gmx
 
 
 # ============================================================================
@@ -439,10 +414,9 @@ def test_wallet_tenderly(web3_tenderly: Web3) -> "HotWallet":
     Funds the wallet with ETH, WETH, and USDC using Tenderly's setBalance.
     """
     from eth_account import Account
-    from eth_utils import to_checksum_address
-
     from eth_defi.hotwallet import HotWallet
     from eth_defi.token import fetch_erc20_details
+    from eth_utils import to_checksum_address
     from tests.gmx.fork_helpers import set_balance
 
     # Use default anvil private key
