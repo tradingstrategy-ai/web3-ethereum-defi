@@ -1285,6 +1285,10 @@ def create_vault_instance(
 
         return EulerVault(web3, spec, **kwargs)
 
+    elif ERC4626Feature.domination_finance_like in features:
+        from eth_defi.erc_4626.vault_protocol.gains.vault import DominationFinanceVault
+
+        return DominationFinanceVault(web3, spec, **kwargs)
     elif ERC4626Feature.gains_like in features:
         # Gains instance
         from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
@@ -1842,6 +1846,9 @@ HARDCODED_PROTOCOLS = {
     # Ostium - ostiumLP vault on Arbitrum
     # https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98
     "0x20d419a8e12c45f88fda7c5760bb6923cee27f98": {ERC4626Feature.ostium_like},
+    # Domination Finance - dfUSDC vault on Base
+    # https://basescan.org/address/0xA194082Aabb75Dd1Ca9Dc1BA573A5528BeB8c2Fb
+    "0xa194082aabb75dd1ca9dc1ba573a5528beb8c2fb": {ERC4626Feature.domination_finance_like},
     # Ember Protocol - EmberVault on Ethereum
     # https://etherscan.io/address/0xf3190a3ecc109f88e7947b849b281918c798a0c4
     "0xf3190a3ecc109f88e7947b849b281918c798a0c4": {ERC4626Feature.ember_like},

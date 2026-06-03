@@ -84,6 +84,9 @@ Supported protocols, chains and integrations
    * - Ostium
      - Leveraged trading, vaults
      - `API <vaults/gains/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/gains-network>`__
+   * - Domination Finance
+     - Leveraged trading, vaults
+     - `API <vaults/domination/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/domination-finance>`__
    * - LFG
      - Token swaps, data research
      - `API <api/uniswap_v2/index.html>`__
