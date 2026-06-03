@@ -52,6 +52,7 @@ from eth_defi.hibachi.daily_metrics import run_daily_scan as hibachi_run_daily_s
 from eth_defi.hibachi.vault_data_export import merge_into_vault_database as hibachi_merge_vault_db
 from eth_defi.provider.broken_provider import verify_archive_node
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
+from eth_defi.core3.constants import CORE3_DATABASE_PATH
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
@@ -1232,6 +1233,7 @@ def run_scan_tick(
     not_due_items: dict[str, float] | None = None,
     cycle_intervals: dict[str, str] | None = None,
     on_item_success: Callable[[str], None] | None = None,
+    core3_db_path: Path | None = None,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -1244,6 +1246,10 @@ def run_scan_tick(
         an interrupted scan does not re-fetch already-completed items on
         restart.  Not related to post-processing — post-processing always
         runs after all data fetches complete.
+
+    :param core3_db_path:
+        Path to the Core3 risk intelligence DuckDB. Forwarded to
+        :py:func:`~eth_defi.vault.post_processing.run_post_processing`.
     """
     # Back up critical pipeline files before any scanning
     backup_pipeline_files(backup_files=bkp_files, backup_dir=bkp_dir)
@@ -1448,6 +1454,7 @@ def run_scan_tick(
             hibachi_db_path=hibachi_db_path,
             vault_db_path=vault_db_path,
             cleaned_path=cleaned_price_path,
+            core3_db_path=core3_db_path,
         )
         for step, success in post_results.items():
             logger.info("Post-processing %s: %s", step, "SUCCESS" if success else "FAILED")
@@ -1570,6 +1577,10 @@ def main():
     hyperliquid_db_path = data_dir / "hyperliquid-vaults.duckdb"
     hyperliquid_hf_db_path = data_dir / "hyperliquid-vaults-hf.duckdb"
     grvt_db_path = data_dir / "grvt-vaults.duckdb"
+
+    # Core3 risk intelligence database path — resolved from env var or default constant.
+    core3_db_path_env = os.environ.get("CORE3_DATABASE_PATH")
+    core3_db_path = Path(core3_db_path_env).expanduser() if core3_db_path_env else CORE3_DATABASE_PATH
 
     bkp_files = [uncleaned_price_path, reader_state_path, vault_db_path, hyperliquid_db_path, hyperliquid_hf_db_path, grvt_db_path, lighter_db_path, hibachi_db_path]
 
@@ -1697,6 +1708,7 @@ def main():
         cleaned_price_path=cleaned_price_path,
         excluded_chains=[c.name for c in skipped_by_order + disabled_chains],
         hypercore_mode=hypercore_mode,
+        core3_db_path=core3_db_path,
     )
 
     # Clear cycle state on disc so the first tick rescans everything.

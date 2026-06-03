@@ -25,6 +25,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.core3.vault_protocol import get_core3_protocol_record
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
@@ -1164,6 +1165,7 @@ def calculate_vault_record(
     month_ago: pd.Timestamp,
     three_months_ago: pd.Timestamp,
     vault_id: str | None = None,
+    core3_cache: dict | None = None,
 ) -> pd.Series:
     """Process a single vault metadata + prices to calculate its full data.
 
@@ -1184,6 +1186,12 @@ def calculate_vault_record(
 
     :param vault_id:
         Vault ID string. If not provided, extracted from prices_df["id"].
+
+    :param core3_cache:
+        Pre-computed dict mapping protocol slugs to
+        :py:class:`~eth_defi.core3.vault_protocol.Core3Record` or ``None``.
+        Built by :py:func:`calculate_lifetime_metrics` before the per-vault loop.
+        When ``None``, ``other_data["core3"]`` is set to ``None``.
 
     :return:
         Series with calculated metrics
@@ -1386,7 +1394,8 @@ def calculate_vault_record(
                 notes = morpho_analytics.note
 
     # ``other_data`` is a protocol-specific extension dict included in the metrics Series.
-    # Currently populated for Morpho vaults; all other protocols return empty lists.
+    # Currently populated for Morpho warnings and Core3 risk intelligence;
+    # all other protocols return empty lists / None.
     # Future protocols should add their own keys here rather than adding top-level Series fields.
     other_data: dict = {
         # Vault-level governance warning types from the Morpho Blue API.
@@ -1403,6 +1412,11 @@ def calculate_vault_record(
         # Combined YELLOW-level warning types across vault and market warnings.
         # YELLOW flags do not trigger VaultFlag.morpho_issues. Example: ["bad_debt_realized", "not_whitelisted"]
         "morpho_yellow_flags": morpho_yellow_flags,
+        # Core3 risk intelligence record for this vault's protocol.
+        # A :py:class:`~eth_defi.core3.vault_protocol.Core3Record` TypedDict with PoL score,
+        # rating, top risks, seals, etc. ``None`` when Core3 DB is not available or
+        # the protocol has no Core3 mapping.
+        "core3": core3_cache.get(protocol_slug) if core3_cache else None,
     }
 
     # Manual review decision from the Hyperliquid review Google Sheet.
@@ -1651,6 +1665,7 @@ def calculate_lifetime_metrics(
     df: pd.DataFrame,
     vault_db: VaultDatabase | dict[VaultSpec, VaultRow],
     returns_column: str = "returns_1h",
+    core3_db: "Core3Database | None" = None,
 ) -> pd.DataFrame:
     """Calculate lifetime metrics for each vault in the provided DataFrame.
 
@@ -1668,6 +1683,12 @@ def calculate_lifetime_metrics(
 
     :param vault_db:
         Pass all vaults or subset of vaults as VaultRows, or full VaultDatabase
+
+    :param core3_db:
+        Optional open :py:class:`~eth_defi.core3.database.Core3Database` connection.
+        When provided, Core3 risk intelligence records are looked up per protocol
+        and included in each vault's ``other_data["core3"]``. When ``None``,
+        ``other_data["core3"]`` is set to ``None`` for all vaults.
 
     :return:
         DataFrame, one row per vault.
@@ -1692,11 +1713,19 @@ def calculate_lifetime_metrics(
         vaults=vaults_by_id,
     )
 
+    # Pre-compute Core3 risk records per protocol slug.
+    # Core3 data is per-protocol (not per-vault), so we look up each
+    # unique protocol slug once and cache the result for the per-vault loop.
+    core3_cache: dict | None = None
+    if core3_db is not None:
+        unique_slugs = {v.get("protocol_slug") for v in vaults_by_id.values() if v.get("protocol_slug")}
+        core3_cache = {slug: get_core3_protocol_record(core3_db, slug) for slug in unique_slugs}
+
     # Use progress_apply instead of the for loop
     # Sort is needed for slug stability
     # We pass include_groups=False to avoid FutureWarning, and pass id via group.name
     def _apply_vault_record(group):
-        return calculate_vault_record(group, vaults_by_id, month_ago, three_months_ago, vault_id=group.name)
+        return calculate_vault_record(group, vaults_by_id, month_ago, three_months_ago, vault_id=group.name, core3_cache=core3_cache)
 
     results_df = df.groupby("id", group_keys=False, sort=True).progress_apply(
         _apply_vault_record,

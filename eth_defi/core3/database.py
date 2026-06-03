@@ -24,7 +24,7 @@ run in parallel while database writes are serialised.
 Storage location
 ----------------
 
-Default: ``~/.tradingstrategy/core3/risk-data.duckdb``
+Default: ``~/.tradingstrategy/vaults/core3/core3.duckdb``
 
 Example::
 

@@ -24,7 +24,7 @@ Environment variables:
 
 - ``CORE3_API_KEY``: Core3 API key (required, prefixed ``core3_``)
 - ``LOG_LEVEL``: Logging level (debug, info, warning, error). Default: warning
-- ``DB_PATH``: Path to DuckDB database file. Default: ~/.tradingstrategy/core3/risk-data.duckdb
+- ``CORE3_DATABASE_PATH``: Path to DuckDB database file. Default: ~/.tradingstrategy/vaults/core3/core3.duckdb
 - ``LIMIT``: Limit the number of projects to scan (for testing). Default: None (scan all)
 - ``MAX_WORKERS``: Maximum number of parallel workers. Default: 8
 - ``FETCH_SECTIONS``: Set to ``true`` to also fetch section detail endpoints. Default: false
@@ -53,7 +53,7 @@ def main():
 
     logger.info("Using log level: %s", default_log_level)
 
-    db_path_str = os.environ.get("DB_PATH")
+    db_path_str = os.environ.get("CORE3_DATABASE_PATH")
     if db_path_str:
         db_path = Path(db_path_str).expanduser()
     else:

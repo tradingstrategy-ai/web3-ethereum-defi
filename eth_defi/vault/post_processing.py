@@ -480,6 +480,7 @@ def export_top_vaults_json(
     vault_db_path: Path | None = None,
     cleaned_path: Path | None = None,
     output_path: Path | None = None,
+    core3_db_path: Path | None = None,
 ) -> bool:
     """Generate the top-vaults lifetime-metrics JSON and upload to R2.
 
@@ -511,6 +512,11 @@ def export_top_vaults_json(
         ``get_pipeline_data_dir() / "top_vaults_by_chain.json"``. The
         filename is intentionally kept identical to the existing public
         URL ``https://top-defi-vaults.tradingstrategy.ai/top_vaults_by_chain.json``.
+
+    :param core3_db_path:
+        Override for the Core3 risk intelligence DuckDB path. When ``None``,
+        ``vault-analysis-json.main()`` auto-discovers from
+        ``CORE3_DATABASE_PATH`` env var or the default constant.
 
     :return:
         ``True`` if the JSON was generated and uploaded, ``False`` on
@@ -545,6 +551,7 @@ def export_top_vaults_json(
             vault_db_path=vault_db_path,
             parquet_path=cleaned_path,
             output_path=output_path,
+            core3_db_path=core3_db_path,
         )
 
         bucket_name = os.environ["R2_TOP_VAULTS_BUCKET_NAME"]
@@ -611,6 +618,7 @@ def run_post_processing(
     hibachi_db_path: Path | None = None,
     vault_db_path: Path | None = None,
     cleaned_path: Path | None = None,
+    core3_db_path: Path | None = None,
 ) -> dict[str, bool]:
     """Run full post-processing pipeline after chain scans complete.
 
@@ -641,6 +649,7 @@ def run_post_processing(
     :param hibachi_db_path: Override for the Hibachi DuckDB path
     :param vault_db_path: Override for the vault database pickle path
     :param cleaned_path: Override for the cleaned parquet output path
+    :param core3_db_path: Override for the Core3 risk intelligence DuckDB path
     :return: Dictionary mapping step name to success boolean
     """
     steps = {}
@@ -687,6 +696,7 @@ def run_post_processing(
         steps["export-top-vaults-json"] = export_top_vaults_json(
             vault_db_path=vault_db_path,
             cleaned_path=cleaned_path,
+            core3_db_path=core3_db_path,
         )
 
     # Step 4: Export sparklines
