@@ -1,5 +1,7 @@
 # Current
 
+- feat: Core3 vault protocol mapping — `CORE3_MAPPINGS` dict mapping 21 of our 75 vault protocol slugs to Core3 project slugs, with `update-core3-mappings.py` discovery script using heuristics (exact slug, website domain, DeFi Llama, name similarity) (2026-06-03)
+
 - feat: Core3 risk intelligence DuckDB pipeline — scan ~1,400 crypto projects for Probability of Loss (PoL) scores, store snapshots and time-series in DuckDB with incremental sync, parallel fetching, and raw JSON payload storage (2026-06-03)
 
 - test(gmx): remove redundant `test_gmx_valuation.py` — required a live archive node (`JSON_RPC_ARBITRUM`) but covered the same on-chain `Reader` + `GMXAPI` path that `test_precision_fork.py` already exercises via a self-contained Anvil fork (2026-05-29)
