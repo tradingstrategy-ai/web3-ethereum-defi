@@ -41,19 +41,21 @@ faulthandler.enable()
 # ---------------------------------------------------------------------------
 # Configuration — matches real Core3 scanner data volume
 # ---------------------------------------------------------------------------
-NUM_PROJECTS = 150          # crash happens at ~100 in real scanner
-POINTS_PER_PROJECT = 200    # reduced from 700; still pushes WAL past 16 MiB
-CATEGORY_POINTS = 200       # reduced from 700
-CHECKPOINT_EVERY = 100      # chunk boundary
+NUM_PROJECTS = 150  # crash happens at ~100 in real scanner
+POINTS_PER_PROJECT = 200  # reduced from 700; still pushes WAL past 16 MiB
+CATEGORY_POINTS = 200  # reduced from 700
+CHECKPOINT_EVERY = 100  # chunk boundary
 MAX_WORKERS = 8
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def create_db(path: Path, disable_autocheckpoint: bool = False):
     """Create a DuckDB database with Core3-like schema."""
     import duckdb
+
     con = duckdb.connect(str(path))
     if disable_autocheckpoint:
         con.execute("SET wal_autocheckpoint = '1TB'")
@@ -97,14 +99,8 @@ def make_fake_project(slug: str) -> dict:
     """Generate fake project data matching real scanner volume."""
     fetched_at = datetime.datetime(2025, 6, 1, 0, 0, 0)
     detail = {"slug": slug, "name": f"Project {slug}", "rank": 1, "pol": {"score": 42.0}}
-    pol_points = [
-        (slug, datetime.datetime(2023, 1, 1) + datetime.timedelta(days=i), 42.0 + i * 0.01, fetched_at)
-        for i in range(POINTS_PER_PROJECT)
-    ]
-    cat_points = [
-        (slug, datetime.datetime(2023, 1, 1) + datetime.timedelta(days=i), 10.0, 20.0, 30.0, 40.0, 50.0, fetched_at)
-        for i in range(CATEGORY_POINTS)
-    ]
+    pol_points = [(slug, datetime.datetime(2023, 1, 1) + datetime.timedelta(days=i), 42.0 + i * 0.01, fetched_at) for i in range(POINTS_PER_PROJECT)]
+    cat_points = [(slug, datetime.datetime(2023, 1, 1) + datetime.timedelta(days=i), 10.0, 20.0, 30.0, 40.0, 50.0, fetched_at) for i in range(CATEGORY_POINTS)]
     return {
         "slug": slug,
         "fetched_at": fetched_at,
@@ -155,6 +151,7 @@ def checkpoint(con, lock):
 def reconnect(path: Path, con, lock, disable_autocheckpoint: bool = False):
     """Close and reopen connection."""
     import duckdb
+
     with lock:
         con.close()
     new_con = duckdb.connect(str(path))
@@ -167,6 +164,7 @@ def reconnect(path: Path, con, lock, disable_autocheckpoint: bool = False):
 # Scenarios
 # ---------------------------------------------------------------------------
 
+
 def scenario_1(db_path: Path):
     """Sequential writes only, no threads, no tqdm, CHECKPOINT every 100."""
     print("Scenario 1: sequential + CHECKPOINT")
@@ -176,9 +174,9 @@ def scenario_1(db_path: Path):
         project = make_fake_project(f"project-{i}")
         write_project_to_db(con, lock, project)
         if (i + 1) % CHECKPOINT_EVERY == 0:
-            report_threads(f"before checkpoint at {i+1}")
+            report_threads(f"before checkpoint at {i + 1}")
             checkpoint(con, lock)
-            print(f"  Checkpoint at {i+1} OK")
+            print(f"  Checkpoint at {i + 1} OK")
     con.close()
     print("  PASSED")
 
@@ -186,6 +184,7 @@ def scenario_1(db_path: Path):
 def scenario_2(db_path: Path):
     """Sequential writes + tqdm, no threads, CHECKPOINT every 100."""
     from tqdm.auto import tqdm
+
     print("Scenario 2: sequential + tqdm + CHECKPOINT")
     con = create_db(db_path)
     lock = threading.Lock()
@@ -193,9 +192,9 @@ def scenario_2(db_path: Path):
         project = make_fake_project(f"project-{i}")
         write_project_to_db(con, lock, project)
         if (i + 1) % CHECKPOINT_EVERY == 0:
-            report_threads(f"before checkpoint at {i+1}")
+            report_threads(f"before checkpoint at {i + 1}")
             checkpoint(con, lock)
-            print(f"  Checkpoint at {i+1} OK")
+            print(f"  Checkpoint at {i + 1} OK")
     con.close()
     print("  PASSED")
 
@@ -206,7 +205,7 @@ def scenario_3(db_path: Path):
     con = create_db(db_path)
     lock = threading.Lock()
     slugs = [f"project-{i}" for i in range(NUM_PROJECTS)]
-    chunks = [slugs[i:i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
+    chunks = [slugs[i : i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
 
     for chunk_idx, chunk in enumerate(chunks):
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
@@ -225,11 +224,12 @@ def scenario_3(db_path: Path):
 def scenario_4(db_path: Path):
     """ThreadPoolExecutor + tqdm + DB writes on main, CHECKPOINT every 100."""
     from tqdm.auto import tqdm
+
     print("Scenario 4: ThreadPoolExecutor + tqdm + CHECKPOINT")
     con = create_db(db_path)
     lock = threading.Lock()
     slugs = [f"project-{i}" for i in range(NUM_PROJECTS)]
-    chunks = [slugs[i:i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
+    chunks = [slugs[i : i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
 
     with tqdm(total=NUM_PROJECTS, desc="Scenario 4") as progress:
         for chunk_idx, chunk in enumerate(chunks):
@@ -250,11 +250,12 @@ def scenario_4(db_path: Path):
 def scenario_5(db_path: Path):
     """ThreadPoolExecutor + tqdm + DB writes on main, reconnect() every 100."""
     from tqdm.auto import tqdm
+
     print("Scenario 5: ThreadPoolExecutor + tqdm + reconnect()")
     con = create_db(db_path)
     lock = threading.Lock()
     slugs = [f"project-{i}" for i in range(NUM_PROJECTS)]
-    chunks = [slugs[i:i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
+    chunks = [slugs[i : i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
 
     with tqdm(total=NUM_PROJECTS, desc="Scenario 5") as progress:
         for chunk_idx, chunk in enumerate(chunks):
@@ -275,6 +276,7 @@ def scenario_5(db_path: Path):
 def scenario_6(db_path: Path):
     """ThreadPoolExecutor + tqdm + DB writes on main, NO checkpoint at all."""
     from tqdm.auto import tqdm
+
     print("Scenario 6: ThreadPoolExecutor + tqdm + NO checkpoint")
     con = create_db(db_path, disable_autocheckpoint=True)
     lock = threading.Lock()
@@ -301,7 +303,7 @@ def scenario_7(db_path: Path):
         project = make_fake_project(f"project-{i}")
         write_project_to_db(con, lock, project)
         if (i + 1) % 50 == 0:
-            print(f"  Written {i+1}/{NUM_PROJECTS}")
+            print(f"  Written {i + 1}/{NUM_PROJECTS}")
     report_threads("before close")
     con.close()
     print("  PASSED")
@@ -310,11 +312,12 @@ def scenario_7(db_path: Path):
 def scenario_8(db_path: Path):
     """Like scenario 4, but with wal_autocheckpoint disabled."""
     from tqdm.auto import tqdm
+
     print("Scenario 8: ThreadPoolExecutor + tqdm + CHECKPOINT + autocheckpoint=1TB")
     con = create_db(db_path, disable_autocheckpoint=True)
     lock = threading.Lock()
     slugs = [f"project-{i}" for i in range(NUM_PROJECTS)]
-    chunks = [slugs[i:i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
+    chunks = [slugs[i : i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
 
     with tqdm(total=NUM_PROJECTS, desc="Scenario 8") as progress:
         for chunk_idx, chunk in enumerate(chunks):
@@ -333,6 +336,7 @@ def scenario_8(db_path: Path):
 
 
 # ---------------------------------------------------------------------------
+
 
 def scenario_9(db_path: Path):
     """Like scenario 4, but with a real requests Session + LimiterAdapter."""
@@ -357,7 +361,7 @@ def scenario_9(db_path: Path):
     con = create_db(db_path)
     lock = threading.Lock()
     slugs = [f"project-{i}" for i in range(NUM_PROJECTS)]
-    chunks = [slugs[i:i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
+    chunks = [slugs[i : i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
 
     def fetch_with_session(slug):
         # Don't actually make HTTP calls, but use the session object
@@ -403,7 +407,7 @@ def scenario_10(db_path: Path):
     con = create_db(db_path)
     lock = threading.Lock()
     slugs = [f"project-{i}" for i in range(NUM_PROJECTS)]
-    chunks = [slugs[i:i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
+    chunks = [slugs[i : i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
 
     def fetch_with_real_http(slug):
         # Make a real HTTP request that fails fast
@@ -433,6 +437,7 @@ def scenario_10(db_path: Path):
 def scenario_11(db_path: Path):
     """Like scenario 4, but with REAL data volume (700 points per project) and network-like delays."""
     from tqdm.auto import tqdm
+
     print("Scenario 11: ThreadPoolExecutor + tqdm + CHECKPOINT + 700 points/project + delays")
 
     global POINTS_PER_PROJECT, CATEGORY_POINTS
@@ -449,7 +454,7 @@ def scenario_11(db_path: Path):
     con = create_db(db_path)
     lock = threading.Lock()
     slugs = [f"project-{i}" for i in range(NUM_PROJECTS)]
-    chunks = [slugs[i:i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
+    chunks = [slugs[i : i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
 
     with tqdm(total=NUM_PROJECTS, desc="Scenario 11") as progress:
         for chunk_idx, chunk in enumerate(chunks):
@@ -477,6 +482,7 @@ def malloc_heavy_fetch(slug):
     """
     import random
     import ssl
+
     ctx = ssl.create_default_context()
     big_data = {f"key_{i}": f"value_{i}" * random.randint(10, 100) for i in range(200)}
     payload = json.dumps(big_data)
@@ -497,6 +503,7 @@ def scenario_12(db_path: Path):
     All threads share the same macOS malloc arenas → heap corruption.
     """
     from tqdm.auto import tqdm
+
     print("Scenario 12: INTERLEAVED — DB writes while threads do malloc-heavy work")
     print("  (This scenario attempts to reproduce the real crash)")
 
@@ -530,6 +537,7 @@ def scenario_13(db_path: Path):
     DB connection kept open during fetch phase (DuckDB's internal threads present).
     """
     from tqdm.auto import tqdm
+
     print("Scenario 13: TWO-PHASE — DB open during fetch (DuckDB threads present)")
 
     global POINTS_PER_PROJECT, CATEGORY_POINTS
@@ -540,14 +548,14 @@ def scenario_13(db_path: Path):
     con = create_db(db_path)
     lock = threading.Lock()
     slugs = [f"project-{i}" for i in range(NUM_PROJECTS)]
-    chunks = [slugs[i:i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
+    chunks = [slugs[i : i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
 
     for chunk_idx, chunk in enumerate(chunks):
         # Phase 1: fetch all (threads alive, DuckDB connection open but idle)
         results = []
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = {executor.submit(malloc_heavy_fetch, s): s for s in chunk}
-            with tqdm(total=len(chunk), desc=f"Fetch chunk {chunk_idx+1}/{len(chunks)}") as progress:
+            with tqdm(total=len(chunk), desc=f"Fetch chunk {chunk_idx + 1}/{len(chunks)}") as progress:
                 for future in as_completed(futures):
                     results.append(future.result())
                     progress.update(1)
@@ -570,6 +578,7 @@ def scenario_14(db_path: Path):
     DuckDB's 22 internal threads don't exist during malloc-heavy fetch phase.
     """
     from tqdm.auto import tqdm
+
     print("Scenario 14: TWO-PHASE + LATE DB OPEN — DB closed during fetch")
 
     global POINTS_PER_PROJECT, CATEGORY_POINTS
@@ -578,14 +587,14 @@ def scenario_14(db_path: Path):
     CATEGORY_POINTS = 700
 
     slugs = [f"project-{i}" for i in range(NUM_PROJECTS)]
-    chunks = [slugs[i:i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
+    chunks = [slugs[i : i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
 
     for chunk_idx, chunk in enumerate(chunks):
         # Phase 1: fetch all (NO DuckDB connection — no internal threads)
         results = []
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = {executor.submit(malloc_heavy_fetch, s): s for s in chunk}
-            with tqdm(total=len(chunk), desc=f"Fetch chunk {chunk_idx+1}/{len(chunks)}") as progress:
+            with tqdm(total=len(chunk), desc=f"Fetch chunk {chunk_idx + 1}/{len(chunks)}") as progress:
                 for future in as_completed(futures):
                     results.append(future.result())
                     progress.update(1)
@@ -607,6 +616,7 @@ def scenario_14(db_path: Path):
 def scenario_15(db_path: Path):
     """Like scenario 12, but with DuckDB threads=1."""
     from tqdm.auto import tqdm
+
     print("Scenario 15: INTERLEAVED + DuckDB threads=1")
 
     global POINTS_PER_PROJECT, CATEGORY_POINTS
@@ -615,6 +625,7 @@ def scenario_15(db_path: Path):
     CATEGORY_POINTS = 700
 
     import duckdb
+
     con = duckdb.connect(str(db_path))
     con.execute("SET threads = 1")
     con.execute("SET wal_autocheckpoint = '1TB'")
@@ -662,7 +673,7 @@ def scenario_16(db_path: Path):
     CATEGORY_POINTS = 700
 
     slugs = [f"project-{i}" for i in range(NUM_PROJECTS)]
-    chunks = [slugs[i:i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
+    chunks = [slugs[i : i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
 
     for chunk_idx, chunk in enumerate(chunks):
         # Phase 1: fetch all (NO DuckDB, NO tqdm)
@@ -671,7 +682,7 @@ def scenario_16(db_path: Path):
             futures = {executor.submit(malloc_heavy_fetch, s): s for s in chunk}
             for future in as_completed(futures):
                 results.append(future.result())
-        print(f"  Fetched chunk {chunk_idx+1}/{len(chunks)}: {len(results)} projects")
+        print(f"  Fetched chunk {chunk_idx + 1}/{len(chunks)}: {len(results)} projects")
 
         # Phase 2: open DB, write, close
         con = create_db(db_path)
@@ -692,6 +703,7 @@ def scenario_17(db_path: Path):
     If this passes, multi-threaded malloc_heavy_fetch is required for the crash.
     """
     from tqdm.auto import tqdm
+
     print("Scenario 17: SEQUENTIAL malloc-heavy + DuckDB (no ThreadPoolExecutor)")
 
     global POINTS_PER_PROJECT, CATEGORY_POINTS
@@ -719,6 +731,7 @@ def scenario_18(db_path: Path):
     """
     from tqdm.auto import tqdm
     from concurrent.futures import ProcessPoolExecutor
+
     print("Scenario 18: ProcessPoolExecutor + DuckDB on main (separate heaps)")
 
     global POINTS_PER_PROJECT, CATEGORY_POINTS
@@ -729,13 +742,13 @@ def scenario_18(db_path: Path):
     con = create_db(db_path)
     lock = threading.Lock()
     slugs = [f"project-{i}" for i in range(NUM_PROJECTS)]
-    chunks = [slugs[i:i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
+    chunks = [slugs[i : i + CHECKPOINT_EVERY] for i in range(0, len(slugs), CHECKPOINT_EVERY)]
 
     for chunk_idx, chunk in enumerate(chunks):
         results = []
         with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = {executor.submit(malloc_heavy_fetch, s): s for s in chunk}
-            with tqdm(total=len(chunk), desc=f"Fetch chunk {chunk_idx+1}/{len(chunks)}") as progress:
+            with tqdm(total=len(chunk), desc=f"Fetch chunk {chunk_idx + 1}/{len(chunks)}") as progress:
                 for future in as_completed(futures):
                     results.append(future.result())
                     progress.update(1)
@@ -758,6 +771,7 @@ def scenario_19(db_path: Path):
     Isolates whether SSL context creation is required for the crash.
     """
     from tqdm.auto import tqdm
+
     print("Scenario 19: SEQUENTIAL JSON-only churn + DuckDB (no SSL)")
 
     global POINTS_PER_PROJECT, CATEGORY_POINTS
@@ -797,6 +811,7 @@ def scenario_20(db_path: Path):
     """
     from tqdm.auto import tqdm
     import ssl
+
     print("Scenario 20: SEQUENTIAL SSL-only + DuckDB (no JSON churn)")
 
     global POINTS_PER_PROJECT, CATEGORY_POINTS
@@ -810,6 +825,7 @@ def scenario_20(db_path: Path):
         return make_fake_project(slug)
 
     import random
+
     con = create_db(db_path)
     lock = threading.Lock()
     slugs = [f"project-{i}" for i in range(NUM_PROJECTS)]
@@ -830,6 +846,7 @@ def scenario_21(db_path: Path):
     CHECKPOINT races with tqdm's monitor thread.
     """
     from tqdm.auto import tqdm
+
     print("Scenario 21: PURE DuckDB writes only, 700 points/project, DEFAULT autocheckpoint")
 
     global POINTS_PER_PROJECT, CATEGORY_POINTS
@@ -857,6 +874,7 @@ def scenario_22(db_path: Path):
     """
     from tqdm.auto import tqdm
     import random
+
     print("Scenario 22: JSON churn ALL first, then DuckDB writes ALL")
 
     global POINTS_PER_PROJECT, CATEGORY_POINTS
@@ -893,6 +911,7 @@ def scenario_23(db_path: Path):
     DuckDB's implicit wal_autocheckpoint + tqdm's daemon thread = heap corruption.
     """
     from tqdm.auto import tqdm
+
     print("Scenario 23: PURE DuckDB writes, 700 points, autocheckpoint=1TB")
 
     global POINTS_PER_PROJECT, CATEGORY_POINTS
@@ -932,7 +951,7 @@ def scenario_24(db_path: Path):
         project = make_fake_project(f"project-{i}")
         write_project_to_db(con, lock, project)
         if (i + 1) % 50 == 0:
-            print(f"  Written {i+1}/{NUM_PROJECTS}")
+            print(f"  Written {i + 1}/{NUM_PROJECTS}")
 
     report_threads("before close")
     con.close()
@@ -978,6 +997,7 @@ def main():
     print(f"\nPython {sys.version}")
 
     import duckdb
+
     print(f"DuckDB {duckdb.__version__}")
     print(f"GIL enabled: {sys._is_gil_enabled() if hasattr(sys, '_is_gil_enabled') else 'N/A'}")
     print(f"Projects: {NUM_PROJECTS}, points/project: {POINTS_PER_PROJECT}+{CATEGORY_POINTS}")

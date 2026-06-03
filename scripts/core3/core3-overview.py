@@ -20,6 +20,7 @@ Environment variables:
 import os
 from pathlib import Path
 
+import pandas as pd
 from tabulate import tabulate
 
 from eth_defi.core3.constants import CORE3_DATABASE_PATH
@@ -27,7 +28,7 @@ from eth_defi.core3.database import Core3Database
 
 
 def _fmt_market_cap(x) -> str:
-    if x is None or x == "":
+    if not isinstance(x, str) or x == "":
         return ""
     try:
         return f"${int(x):,}"
@@ -122,11 +123,11 @@ def main():
             ]
         ].copy()
 
-        display["pol_score"] = display["pol_score"].apply(lambda x: f"{x:.2f}" if x is not None else "")
+        display["pol_score"] = display["pol_score"].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "")
         display["market_cap_usd"] = display["market_cap_usd"].apply(_fmt_market_cap)
-        display["pol_first"] = display["pol_first"].apply(lambda x: x.strftime("%Y-%m-%d") if x is not None else "")
-        display["pol_last"] = display["pol_last"].apply(lambda x: x.strftime("%Y-%m-%d") if x is not None else "")
-        display["last_snapshot"] = display["last_snapshot"].apply(lambda x: x.strftime("%Y-%m-%d %H:%M") if x is not None else "")
+        display["pol_first"] = display["pol_first"].apply(lambda x: x.strftime("%Y-%m-%d") if pd.notna(x) else "")
+        display["pol_last"] = display["pol_last"].apply(lambda x: x.strftime("%Y-%m-%d") if pd.notna(x) else "")
+        display["last_snapshot"] = display["last_snapshot"].apply(lambda x: x.strftime("%Y-%m-%d %H:%M") if pd.notna(x) else "")
 
         display.columns = [
             "slug",
