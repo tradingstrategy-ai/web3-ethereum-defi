@@ -104,10 +104,10 @@ class Core3Database:
         self._db_lock = threading.Lock()
 
         # Disable automatic WAL checkpoint (default 16 MiB).
-        # When the scanner runs with ThreadPoolExecutor, auto-checkpoint
-        # can trigger inside an INSERT while worker threads are alive,
-        # causing heap corruption on Python 3.14 + DuckDB 1.5.
-        # We do a manual CHECKPOINT via save() after all threads exit.
+        # DuckDB 1.5.0 has ART index heap corruption on file-backed DBs
+        # with Python 3.14 + macOS ARM64. We removed PRIMARY KEY constraints
+        # as a workaround, but also disable auto-checkpoint as a defensive
+        # measure. Manual CHECKPOINT via save() after all writes complete.
         # See: https://github.com/duckdb/duckdb/issues/17006
         self.con.execute("SET wal_autocheckpoint = '1TB'")
 
@@ -197,24 +197,6 @@ class Core3Database:
         if self.con is not None:
             self.con.close()
             self.con = None
-
-    def reconnect(self):
-        """Close and reopen the database connection.
-
-        Used to flush writes between chunks when DuckDB CHECKPOINT
-        cannot be called safely (e.g. threading issues with
-        Python 3.14 + DuckDB 1.5, see `duckdb#13904
-        <https://github.com/duckdb/duckdb/issues/13904>`__).
-
-        DuckDB checkpoints implicitly on close, so this is equivalent
-        to ``save()`` followed by reopening the connection.
-        """
-        import duckdb
-
-        if self.con is not None:
-            self.con.close()
-        self.con = duckdb.connect(str(self.path))
-        self.con.execute("SET wal_autocheckpoint = '1TB'")
 
     def save(self):
         """Force a checkpoint to ensure data is persisted to disk."""
