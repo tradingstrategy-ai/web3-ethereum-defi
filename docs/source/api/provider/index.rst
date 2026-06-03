@@ -19,6 +19,7 @@ This submodule offers functionality to connect and enhance robustness of various
    eth_defi.provider.multi_provider
    eth_defi.provider.mev_blocker
    eth_defi.provider.fallback
+   eth_defi.provider.receipt
    eth_defi.provider.broken_provider
    eth_defi.provider.ankr
    eth_defi.provider.llamanodes
@@ -31,4 +32,3 @@ This submodule offers functionality to connect and enhance robustness of various
    eth_defi.provider.rpc_proxy
    eth_defi.provider.rpc_monitoring_adapter
    eth_defi.provider.tenderly
-

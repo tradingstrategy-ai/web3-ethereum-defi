@@ -14,6 +14,7 @@ from eth_defi.event_reader.conversion import convert_uint256_string_to_int, conv
 from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.hotwallet import HotWallet
+from eth_defi.provider.receipt import wait_for_transaction_receipt_robust
 from eth_defi.token import TokenDiskCache
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -124,6 +125,7 @@ def fund_lagoon_vault(
         else:
             tx_hash = bound_func.transact({"from": test_account_with_balance, "gas": gas})
         assert_transaction_success_with_explanation(web3, tx_hash)
+        return tx_hash
 
     def _send_as_manager(bound_func, description: str, gas: int = 1_000_000):
         """Sign and broadcast as asset manager."""
@@ -133,14 +135,17 @@ def fund_lagoon_vault(
         else:
             tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
         assert_transaction_success_with_explanation(web3, tx_hash)
+        return tx_hash
 
     # 1. Post initial valuation (needed for fresh vaults)
     _send_as_manager(vault.post_new_valuation(Decimal(0)), "Post initial valuation")
 
     # 2. Approve denomination token for vault deposit
-    _send(denomination_token.approve(vault.address, amount), f"Approve {amount} for vault deposit")
-    # Live RPC read providers can lag behind the sequencer/write provider.
-    time.sleep(5)
+    approval_tx_hash = _send(
+        denomination_token.approve(vault.address, amount),
+        f"Approve {amount} for vault deposit",
+    )
+    wait_for_transaction_receipt_robust(web3, approval_tx_hash)
 
     # 3. Put to deposit queue
     deposit_func = vault.request_deposit(test_account_with_balance, raw_amount)
@@ -148,7 +153,8 @@ def fund_lagoon_vault(
 
     # 4. Update NAV and settle
     _send_as_manager(vault.post_new_valuation(nav), "Post valuation for settlement")
-    _send_as_manager(vault.settle_via_trading_strategy_module(nav), "Settle vault deposits")
+    settle_tx_hash = _send_as_manager(vault.settle_via_trading_strategy_module(nav), "Settle vault deposits")
+    wait_for_transaction_receipt_robust(web3, settle_tx_hash)
 
     # 5. Claim shares (ERC-7540: settlement mints shares to the vault contract,
     #    depositor must call deposit() to transfer them to their wallet)
@@ -162,11 +168,14 @@ def fund_lagoon_vault(
     #    On live chains this helper is often used with a MultiProviderWeb3 setup
     #    where writes go to the sequencer / transaction provider and reads go to
     #    one or more public RPC providers. These read providers can trail the
-    #    sequencer by a few seconds. If we call finalise_deposit() during this
-    #    window, it internally reads maxDeposit(depositor). A stale read returns
-    #    zero or an unclaimable epoch, then the transaction builder estimates gas
-    #    for deposit(0, depositor). Lagoon rejects that path with the custom error
-    #    RequestIdNotClaimable() (selector 0x912d1a73).
+    #    sequencer by a few seconds. We first wait until all configured read
+    #    providers can see the settlement receipt, but this still does not prove
+    #    every future eth_call will hit a backend with fresh Lagoon epoch state.
+    #    If we call finalise_deposit() during this window, it internally reads
+    #    maxDeposit(depositor). A stale read returns zero or an unclaimable epoch,
+    #    then the transaction builder estimates gas for deposit(0, depositor).
+    #    Lagoon rejects that path with the custom error RequestIdNotClaimable()
+    #    (selector 0x912d1a73).
     #
     #    Poll for an actually claimable deposit before building the final claim
     #    transaction. We also pass the raw claimable amount explicitly to
@@ -191,7 +200,10 @@ def fund_lagoon_vault(
         time.sleep(claim_retry_delay)
 
     if claimable_raw_amount == 0:
-        raise RuntimeError(f"Lagoon deposit settlement was mined, but maxDeposit({test_account_with_balance}) stayed 0 after {claim_attempts * claim_retry_delay} seconds. The deposit request is not yet claimable on the read RPC, or settlement did not mark it claimable.")
+        raise RuntimeError(
+            f"Lagoon deposit settlement was mined, but maxDeposit({test_account_with_balance}) stayed 0 after {claim_attempts * claim_retry_delay} seconds. "
+            "The deposit request is not yet claimable on the read RPC, or settlement did not mark it claimable."
+        )
 
     finalise_func = vault.finalise_deposit(test_account_with_balance, raw_amount=claimable_raw_amount)
     _send(finalise_func, f"Claim shares for {test_account_with_balance}")
