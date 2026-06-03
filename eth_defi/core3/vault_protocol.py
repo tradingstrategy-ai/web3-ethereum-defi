@@ -21,7 +21,7 @@ Example::
 
 import datetime
 import json
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from eth_defi.core3.database import Core3Database
 from eth_defi.core3.mappings import CORE3_MAPPINGS
@@ -207,10 +207,12 @@ class Core3Record(TypedDict):
     pol: Core3PolScore
 
     #: Token ticker symbol, e.g. ``"MORPHO"``, ``"EUL"``.
-    ticker: str | None
+    #: Some projects omit this key entirely from the API response.
+    ticker: NotRequired[str | None]
 
     #: CoinGecko ID for cross-referencing, e.g. ``"morpho"``, ``"euler"``.
-    coingecko_id: str | None
+    #: Some projects omit this key entirely from the API response.
+    coingecko_id: NotRequired[str | None]
 
     #: URL to the project logo image on CoinGecko CDN.
     logo: str | None
