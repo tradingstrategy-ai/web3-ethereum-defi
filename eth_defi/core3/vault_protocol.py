@@ -284,24 +284,12 @@ def get_core3_protocol_record(
     if core3_slug is None:
         return None
 
-    with db._db_lock:
-        row = db.con.execute(
-            """
-            SELECT payload, fetched_at
-            FROM project_snapshots
-            WHERE slug = ?
-            ORDER BY fetched_at DESC
-            LIMIT 1
-            """,
-            [core3_slug],
-        ).fetchone()
-
-    if row is None:
+    result = db.get_latest_project_snapshot_raw(core3_slug)
+    if result is None:
         return None
 
-    payload = json.loads(row[0])
-    fetched_at = row[1]
-
+    payload_str, fetched_at = result
+    payload = json.loads(payload_str)
     payload["fetched_at"] = fetched_at
 
     return payload
