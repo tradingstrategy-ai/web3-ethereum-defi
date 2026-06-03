@@ -33,6 +33,8 @@ import pandas as pd
 import datetime
 from pathlib import Path
 
+from eth_defi.core3.constants import CORE3_DATABASE_PATH
+from eth_defi.core3.database import Core3Database
 from eth_defi.token import is_stablecoin_like
 
 # Import core TradingStrategy / eth_defi modules
@@ -222,12 +224,8 @@ def main(
         if db_path_env:
             core3_db_path = Path(db_path_env).expanduser()
         else:
-            from eth_defi.core3.constants import CORE3_DATABASE_PATH
-
             core3_db_path = CORE3_DATABASE_PATH
     if core3_db_path.exists():
-        from eth_defi.core3.database import Core3Database
-
         core3_db = Core3Database(core3_db_path)
         print(f"Opened Core3 risk database at {core3_db_path} with {core3_db.get_project_count()} projects")
 

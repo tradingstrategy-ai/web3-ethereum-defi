@@ -104,6 +104,7 @@ from pathlib import Path
 
 from tabulate import tabulate
 
+from eth_defi.core3.constants import CORE3_DATABASE_PATH
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
@@ -146,9 +147,7 @@ def main():
     lighter_db_path = data_dir / "lighter-pools.duckdb"
     hibachi_db_path = data_dir / "hibachi-vaults.duckdb"
 
-    # Core3 risk intelligence database
-    from eth_defi.core3.constants import CORE3_DATABASE_PATH
-
+    # Core3 risk intelligence database path — resolved from env var or default constant.
     core3_db_path_env = os.environ.get("CORE3_DATABASE_PATH")
     core3_db_path = Path(core3_db_path_env).expanduser() if core3_db_path_env else CORE3_DATABASE_PATH
 

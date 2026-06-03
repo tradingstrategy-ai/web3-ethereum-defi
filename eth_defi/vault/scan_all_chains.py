@@ -52,6 +52,7 @@ from eth_defi.hibachi.daily_metrics import run_daily_scan as hibachi_run_daily_s
 from eth_defi.hibachi.vault_data_export import merge_into_vault_database as hibachi_merge_vault_db
 from eth_defi.provider.broken_provider import verify_archive_node
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
+from eth_defi.core3.constants import CORE3_DATABASE_PATH
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
@@ -1577,10 +1578,7 @@ def main():
     hyperliquid_hf_db_path = data_dir / "hyperliquid-vaults-hf.duckdb"
     grvt_db_path = data_dir / "grvt-vaults.duckdb"
 
-    # Core3 risk intelligence database — lives under data_dir/core3/ alongside
-    # the vault pipeline data rather than the old standalone location.
-    from eth_defi.core3.constants import CORE3_DATABASE_PATH
-
+    # Core3 risk intelligence database path — resolved from env var or default constant.
     core3_db_path_env = os.environ.get("CORE3_DATABASE_PATH")
     core3_db_path = Path(core3_db_path_env).expanduser() if core3_db_path_env else CORE3_DATABASE_PATH
 

@@ -25,6 +25,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.core3.vault_protocol import get_core3_protocol_record
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
@@ -1717,8 +1718,6 @@ def calculate_lifetime_metrics(
     # unique protocol slug once and cache the result for the per-vault loop.
     core3_cache: dict | None = None
     if core3_db is not None:
-        from eth_defi.core3.vault_protocol import get_core3_protocol_record
-
         unique_slugs = {v.get("protocol_slug") for v in vaults_by_id.values() if v.get("protocol_slug")}
         core3_cache = {slug: get_core3_protocol_record(core3_db, slug) for slug in unique_slugs}
 
