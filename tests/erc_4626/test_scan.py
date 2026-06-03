@@ -68,6 +68,7 @@ def test_4626_scan_hypersync(web3):
     assert any(r["Name"] == "Staked EURA" for r in rows)
 
 
+@pytest.mark.slow
 def test_4626_scan_rpc(web3):
     """Read vaults of early Base chain using raw RPC calls"""
 
@@ -163,6 +164,7 @@ def test_lead_scan_core_hypersync(tmp_path, backend):
     assert updated_report.deposits >= 1633
 
 
+@pytest.mark.slow
 def test_4626_scan_moonwell(web3):
     """Test against good known Moonwell USDC vault on Base.
 

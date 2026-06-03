@@ -71,7 +71,8 @@ def evm_snapshot_revert(fork) -> Iterator[None]:
         `Anvil custom JSON-RPC methods
         <https://book.getfoundry.sh/anvil/#custom-methods>`_
     """
-    web3 = Web3(HTTPProvider(fork.json_rpc_url))
+    url = fork if isinstance(fork, str) else fork.json_rpc_url
+    web3 = Web3(HTTPProvider(url))
     snap_response = web3.provider.make_request("evm_snapshot", [])
     snap_id = snap_response.get("result")
     if snap_id is None:
