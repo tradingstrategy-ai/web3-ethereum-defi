@@ -1,6 +1,7 @@
 """Lagoon unit test helpers."""
 
 import logging
+import time
 from decimal import Decimal
 
 from web3 import Web3
@@ -138,6 +139,8 @@ def fund_lagoon_vault(
 
     # 2. Approve denomination token for vault deposit
     _send(denomination_token.approve(vault.address, amount), f"Approve {amount} for vault deposit")
+    # Live RPC read providers can lag behind the sequencer/write provider.
+    time.sleep(5)
 
     # 3. Put to deposit queue
     deposit_func = vault.request_deposit(test_account_with_balance, raw_amount)
