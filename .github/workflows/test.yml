@@ -11,11 +11,10 @@ jobs:
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
-    # Hard cap — test job typically runs ~7-9 min on Beefy after the round-2
-    # cost-reduction work. 10 min keeps the combined (test + GMX) under 20 min
-    # wall-clock; anything longer is a stall and should be killed rather than
-    # burn Beefy minutes.
-    timeout-minutes: 10
+    # Hard cap — test job typically runs ~7-9 min on Beefy on warm cache;
+    # cold-cache pushes to master can reach ~12-13 min. 15 min keeps the
+    # combined (test + GMX) under 25 min wall-clock while still killing stalls.
+    timeout-minutes: 15
 
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
