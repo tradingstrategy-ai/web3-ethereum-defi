@@ -139,17 +139,3 @@ def create_core3_session(
     session.mount("http://", adapter)
     session.mount("https://", adapter)
     return session
-
-
-# Backwards-compatible re-exports — fetch helpers moved to eth_defi.core3.api
-from eth_defi.core3.api import (  # noqa: E402, F401
-    fetch_index_pol_history,
-    fetch_index_pol_history_incremental,
-    fetch_pol_category_history,
-    fetch_pol_category_history_incremental,
-    fetch_pol_history,
-    fetch_pol_history_incremental,
-    fetch_project_detail,
-    fetch_project_list,
-    fetch_section_detail,
-)
