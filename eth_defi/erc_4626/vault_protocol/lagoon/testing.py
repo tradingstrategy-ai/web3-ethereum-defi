@@ -152,7 +152,52 @@ def fund_lagoon_vault(
 
     # 5. Claim shares (ERC-7540: settlement mints shares to the vault contract,
     #    depositor must call deposit() to transfer them to their wallet)
-    finalise_func = vault.finalise_deposit(test_account_with_balance)
+    #
+    #    This looks like it should be safe to do immediately after settleDeposit()
+    #    has been mined, because _send_as_manager() above waits for the settlement
+    #    transaction receipt. On a local Anvil fork this is true: the same JSON-RPC
+    #    endpoint handles writes and reads, so the next maxDeposit() call sees the
+    #    freshly settled epoch.
+    #
+    #    On live chains this helper is often used with a MultiProviderWeb3 setup
+    #    where writes go to the sequencer / transaction provider and reads go to
+    #    one or more public RPC providers. These read providers can trail the
+    #    sequencer by a few seconds. If we call finalise_deposit() during this
+    #    window, it internally reads maxDeposit(depositor). A stale read returns
+    #    zero or an unclaimable epoch, then the transaction builder estimates gas
+    #    for deposit(0, depositor). Lagoon rejects that path with the custom error
+    #    RequestIdNotClaimable() (selector 0x912d1a73).
+    #
+    #    Poll for an actually claimable deposit before building the final claim
+    #    transaction. We also pass the raw claimable amount explicitly to
+    #    finalise_deposit() so the amount used for gas estimation is the same
+    #    value we just observed as claimable, instead of doing a second hidden
+    #    maxDeposit() read in finalise_deposit().
+    claim_attempts = 12
+    claim_retry_delay = 5
+    claimable_raw_amount = 0
+    for attempt in range(1, claim_attempts + 1):
+        claimable_raw_amount = vault.vault_contract.functions.maxDeposit(test_account_with_balance).call()
+        if claimable_raw_amount > 0:
+            break
+
+        logger.info(
+            "Lagoon deposit settlement is not visible on the read RPC yet, maxDeposit(%s) is 0, retrying %d/%d in %d seconds",
+            test_account_with_balance,
+            attempt,
+            claim_attempts,
+            claim_retry_delay,
+        )
+        time.sleep(claim_retry_delay)
+
+    if claimable_raw_amount == 0:
+        raise RuntimeError(
+            f"Lagoon deposit settlement was mined, but maxDeposit({test_account_with_balance}) "
+            f"stayed 0 after {claim_attempts * claim_retry_delay} seconds. "
+            "The deposit request is not yet claimable on the read RPC, or settlement did not mark it claimable."
+        )
+
+    finalise_func = vault.finalise_deposit(test_account_with_balance, raw_amount=claimable_raw_amount)
     _send(finalise_func, f"Claim shares for {test_account_with_balance}")
 
     share_balance = vault.share_token.fetch_balance_of(test_account_with_balance)
