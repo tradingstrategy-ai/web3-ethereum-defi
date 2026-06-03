@@ -1,5 +1,7 @@
 # Current
 
+- feat: Core3 risk intelligence DuckDB pipeline — scan ~1,400 crypto projects for Probability of Loss (PoL) scores, store snapshots and time-series in DuckDB with incremental sync, parallel fetching, and raw JSON payload storage (2026-06-03)
+
 - test(gmx): remove redundant `test_gmx_valuation.py` — required a live archive node (`JSON_RPC_ARBITRUM`) but covered the same on-chain `Reader` + `GMXAPI` path that `test_precision_fork.py` already exercises via a self-contained Anvil fork (2026-05-29)
 
 - feat: External TVL stamping for vaults without on-chain TVL — `stamp_external_tvl()` post-scan step writes point-in-time USD TVL from protocol APIs (ForgeYields), new `tvl_usd` parquet column and `is_historical_tvl_supported()` on `VaultBase` (2026-05-28)
