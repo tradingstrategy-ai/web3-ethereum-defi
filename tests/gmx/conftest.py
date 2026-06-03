@@ -234,7 +234,7 @@ def test_address(anvil_private_key) -> HexAddress:
     return account.address
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def large_eth_holder() -> HexAddress:
     """A random account picked from Arbitrum Smart chain that holds a lot of ETH.
 
@@ -246,7 +246,7 @@ def large_eth_holder() -> HexAddress:
     return addr("0xF977814e90dA44bFA03b6295A0616a897441aceC")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def large_wbtc_holder() -> HexAddress:
     """A random account picked from Arbitrum Smart chain that holds a lot of WBTC.
 
@@ -258,7 +258,7 @@ def large_wbtc_holder() -> HexAddress:
     return addr("0xdcF711cB8A1e0856fF1cB1CfD52C5084f5B28030")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def large_wavax_holder() -> HexAddress:
     """A random account picked from Avalanche Smart chain that holds a lot of WAVAX.
 
@@ -271,7 +271,7 @@ def large_wavax_holder() -> HexAddress:
     return addr("0x73AF3bcf944a6559933396c1577B257e2054D935")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def large_wbtc_holder_avalanche() -> HexAddress:
     """A random account picked from Avalanche Smart chain that holds a lot of WBTC.
 
@@ -283,7 +283,7 @@ def large_wbtc_holder_avalanche() -> HexAddress:
     return addr("0x8ffDf2DE812095b1D19CB146E4c004587C0A0692")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def large_usdc_holder_arbitrum() -> HexAddress:
     """A random account picked from Arbitrum Smart chain that holds a lot of USDC.
 
@@ -295,7 +295,7 @@ def large_usdc_holder_arbitrum() -> HexAddress:
     return to_checksum_address("0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def large_usdc_holder_avalanche() -> HexAddress:
     """A random account picked from Avalanche Smart chain that holds a lot of USDC.
 
@@ -305,13 +305,13 @@ def large_usdc_holder_avalanche() -> HexAddress:
     return addr("0x9f8c163cBA728e99993ABe7495F06c0A3c8Ac8b9")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def large_weth_holder_arbitrum() -> HexAddress:
     # # https://arbiscan.io/address/0x70d95587d40A2caf56bd97485aB3Eec10Bee6336
     return to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def large_link_holder_avalanche() -> HexAddress:
     """A random account picked from Avalanche Smart chain that holds a lot of LINK.
 
@@ -321,19 +321,19 @@ def large_link_holder_avalanche() -> HexAddress:
     return addr("0x4e9f683A27a6BdAD3FC2764003759277e93696e6")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def large_arb_holder_arbitrum() -> HexAddress:
     # Binance Hot wallet 20
     return addr("0xF977814e90dA44bFA03b6295A0616a897441aceC")
 
 
 # GMX Actors for passing checks
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def gmx_controller_arbitrum() -> HexAddress:
     return to_checksum_address("0xf5F30B10141E1F63FC11eD772931A8294a591996")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def gmx_keeper_arbitrum() -> HexAddress:
     return to_checksum_address("0xE47b36382DC50b90bCF6176Ddb159C4b9333A7AB")
 
@@ -1114,7 +1114,7 @@ def get_glv_stats(gmx_config):
     return GlvStats(gmx_config)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def large_gm_eth_usdc_holder_arbitrum() -> HexAddress:
     """A random account picked from Arbitrum that holds GM-ETH-USDC tokens.
 
