@@ -87,6 +87,12 @@ class ERC4626Feature(enum.Enum):
     #: ALmost like Gains, but Ostium LP
     ostium_like = "ostium_like"
 
+    #: Domination Finance
+    #:
+    #: Gains/Ostium-family counterparty liquidity vault for dominance perpetual futures.
+    #: https://domination.finance/
+    domination_finance_like = "domination_finance_like"
+
     #: Gains tranche?
     #: https://basescan.org/address/0x2ac590a4a78298093e5bc7742685446af96d56e7#code
     gains_tranche_like = "gains_tranche_like"
@@ -667,6 +673,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Astrolab"
     elif ERC4626Feature.baklava_space_like in features:
         return "Baklava"
+    elif ERC4626Feature.domination_finance_like in features:
+        return "Domination Finance"
     elif ERC4626Feature.gains_like in features:
         return "Gains Network"
     elif ERC4626Feature.return_finance_like in features:

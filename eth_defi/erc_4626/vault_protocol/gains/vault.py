@@ -459,6 +459,39 @@ class GainsVault(ERC4626Vault):
             return None
 
 
+class DominationFinanceVault(GainsVault):
+    """Domination Finance dfUSDC vault support.
+
+    Domination Finance is a dominance perpetual futures exchange on Base.
+    Its dfUSDC vault is a Gains/Ostium-family ERC-4626 counterparty
+    liquidity vault where depositors provide native USDC to traders.
+
+    - Protocol homepage: https://domination.finance/
+    - Vault app: https://app.domination.finance/vault
+    - Developer docs: https://docs.domination.finance/docs/developers/addresses/
+    - Vault contract: https://basescan.org/address/0xA194082Aabb75Dd1Ca9Dc1BA573A5528BeB8c2Fb
+    """
+
+    @property
+    def name(self) -> str:
+        return ERC4626Vault.name.fget(self)
+
+    def get_link(self, referral: str | None = None) -> str:
+        if referral:
+            logger.debug("Domination Finance vault link does not support referral code: %s", referral)
+        if self.chain_id != 8453:
+            logger.warning("Domination Finance vault expected on Base, got chain id %d", self.chain_id)
+        return "https://app.domination.finance/vault"
+
+    @property
+    def short_description(self) -> str | None:
+        return "Counterparty liquidity vault for dominance perpetual futures on Base."
+
+    @property
+    def description(self) -> str | None:
+        return "Domination Finance is a perpetual futures exchange for dominance indices, including BTCDOM and ETHDOM markets. The dfUSDC vault accepts native USDC on Base and acts as counterparty liquidity for leveraged traders. Vault returns come from trading-fee revenue and net trader PnL rather than token emissions."
+
+
 class OstiumVault(GainsVault):
     """Ostium vault is a Gains-like vault.
 

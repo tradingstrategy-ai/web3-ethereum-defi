@@ -13,6 +13,8 @@ Known implementations are:
 - `gTrade <https://gains.trade/>`__, formerly known as Gains protocol and its gToken vaults
 - `Ostium <https://ostium.app/vault>`__ vaults, also known as "Ostium LP" vaults where LP stands
   for `liquidity provider <https://tradingstrategy.ai/glossary/liquidity-provider>`__
+- `Domination Finance <https://domination.finance/>`__ dfUSDC vault, a Base counterparty
+  liquidity vault for dominance perpetual futures
 
 Links
 ~~~~~
@@ -24,6 +26,8 @@ Links
 - `GitHub <https://github.com/GainsNetwork-org>`__
 - `Twitter <https://x.com/GainsNetwork_io>`__
 - `DefiLlama <https://defillama.com/protocol/gains-network>`__
+- `Domination Finance vault <https://app.domination.finance/vault>`__
+- `Domination Finance documentation <https://docs.domination.finance/>`__
 
 This `Python-based <https://tradingstrategy.ai/glossary/python>`__ API allows you to automate
 interactions with these vault in your application:

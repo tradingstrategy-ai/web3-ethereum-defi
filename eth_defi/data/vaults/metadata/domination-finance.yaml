@@ -1,0 +1,67 @@
+name: Domination Finance
+slug: domination-finance
+short_description: |
+  Counterparty liquidity vault for dominance perpetual futures on Base.
+long_description: |
+  Domination Finance is a perpetual futures exchange for dominance indices:
+  the relative market share of major crypto assets such as BTCDOM, ETHDOM,
+  USDTDOM, BNBDOM and SOLDOM. Traders can use leverage on these proprietary
+  oracle-backed markets.
+
+  The dfUSDC vault is the protocol's liquidity backbone. It is an ERC-4626
+  vault on Base where users deposit native USDC and receive dfUSDC shares.
+  Vault capital acts as counterparty liquidity to leveraged trading activity
+  on the exchange.
+
+  Yield comes from trading fees and counterparty PnL, not token emissions.
+  Traders pay fees when positions are opened and closed, and part of those
+  fees accrues to dfUSDC holders through the vault share price. Because the
+  vault is the counterparty to traders, it also captures net trader losses
+  over time, while net trader gains are paid from the vault.
+
+  Key features:
+
+  - ERC-4626 standard vault on Base
+  - Native USDC underlying asset
+  - Real-yield model driven by exchange activity
+  - Counterparty exposure to dominance perpetual markets
+fee_description: |
+  The dfUSDC vault does not charge a management fee or a performance fee to
+  depositors. There are no explicit deposit or withdrawal fees. Instead, the
+  vault is a yield-bearing ERC-4626 share whose dfUSDC to USDC exchange rate
+  reflects accumulated trading-fee revenue and net counterparty PnL.
+
+  How depositors earn:
+
+  - Traders pay a fee on notional volume when positions are opened and closed.
+    The vault portion of those fees accrues to the vault and lifts the dfUSDC
+    share price.
+  - The vault is the direct counterparty to leveraged traders. Net trader
+    losses accrue to the vault, raising share price; net trader gains are paid
+    out of the vault, lowering share price.
+
+  Mechanics (``DomfiVault.sol``):
+
+  - ``shareToAssetsPrice`` is the dfUSDC/USDC conversion rate. It rises with
+    accrued fees and net trader losses and falls with net trader gains, so the
+    reported share price is already net of the protocol's trading economics.
+  - ``accPnlPerTokenUsed`` tracks the vault's open and realised PnL per share
+    and governs collateralisation.
+  - A daily PnL-outflow throttle rate-limits payouts to traders to protect
+    depositors during stress.
+  - Optional deposit-with-lock methods can grant bonus shares to depositors
+    who lock during under-collateralised periods. This is a depositor
+    incentive, not a fee.
+links:
+  homepage: https://domination.finance/
+  app: https://app.domination.finance/vault
+  twitter: https://x.com/dominationfi
+  github:
+  documentation: https://docs.domination.finance/
+  defillama:
+  audits: https://docs.domination.finance/docs/security/audits/
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/domination-finance
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/domination/index.html
+example_smart_contracts:
+  - https://basescan.org/address/0xA194082Aabb75Dd1Ca9Dc1BA573A5528BeB8c2Fb

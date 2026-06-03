@@ -59,6 +59,7 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Peapods": None,
     "Ostium": VaultFeeMode.feeless,
     "Gains": VaultFeeMode.feeless,
+    "Domination Finance": VaultFeeMode.feeless,
     "Plutus": VaultFeeMode.internalised_skimming,
     "Harvest Finance": VaultFeeMode.internalised_skimming,
     "D2 Finance": VaultFeeMode.internalised_skimming,
