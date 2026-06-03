@@ -10,6 +10,100 @@ and centralised exchanges, scoring risk on a 0-100 scale where 0 = Exceptional a
 - OpenAPI spec: https://docs.core3.io/api-reference/projects-data-openapi.json
 - Contact: info@core3.io
 
+## Modules
+
+| Module | Description |
+|--------|-------------|
+| `eth_defi.core3.constants` | Shared constants: API URL, database paths, rate limit config, section names |
+| `eth_defi.core3.session` | `Core3Session` (requests.Session subclass) with rate limiting, retry logic, and fetch helpers for all API endpoints |
+| `eth_defi.core3.database` | `Core3Database` — DuckDB persistence with thread-safe inserts, deduplication, sync state watermarks, and query methods |
+| `eth_defi.core3.scanner` | `scan_projects()` orchestrator — parallel fetching with `joblib.Parallel`, incremental sync, error handling |
+
+## Database files
+
+Default location: `~/.tradingstrategy/core3/`
+
+| File | Description |
+|------|-------------|
+| `risk-data.duckdb` | Main DuckDB database with all project snapshots and time-series data |
+| `risk-data.duckdb.wal` | DuckDB write-ahead log (automatically managed) |
+| `rate-limit.sqlite` | SQLite database for thread-safe rate limiting state across `joblib` workers |
+
+### Database tables
+
+| Table | Description |
+|-------|-------------|
+| `project_snapshots` | One row per poll cycle per project — raw JSON payload plus extracted key columns (slug, name, rank, PoL score/rating, market cap) |
+| `section_snapshots` | Optional section detail storage (security, financial, operational, reputational, regulatory) |
+| `pol_daily` | API-native PoL score time-series (sparse timestamps); `__index__` slug for aggregate |
+| `pol_category_daily` | API-native category PoL breakdown time-series (security, financial, operational, reputational, regulatory scores) |
+| `sync_state` | Per-slug watermarks for incremental sync — tracks `last_ts`, `backfill_done`, and `last_synced` |
+
+No PRIMARY KEY or UNIQUE constraints are used due to a DuckDB 1.5.0 ART index crash
+on Python 3.14 + macOS ARM64 ([duckdb#17006](https://github.com/duckdb/duckdb/issues/17006)).
+Deduplication is handled at the application level using DELETE + INSERT via temp tables.
+
+## Scripts
+
+### scan-core3.py — batch scanner
+
+Fetches all Core3 projects and stores snapshots + PoL time-series in DuckDB.
+Supports incremental sync (first run does full backfill, subsequent runs fetch only new data).
+
+```shell
+source .local-test.env && poetry run python scripts/core3/scan-core3.py
+```
+
+| Environment variable | Default | Description |
+|---------------------|---------|-------------|
+| `CORE3_API_KEY` | (required) | Core3 API key (prefixed `core3_`) |
+| `LOG_LEVEL` | `warning` | Logging level: debug, info, warning, error |
+| `DB_PATH` | `~/.tradingstrategy/core3/risk-data.duckdb` | Path to DuckDB database file |
+| `LIMIT` | (none) | Limit number of projects to scan (for testing) |
+| `MAX_WORKERS` | `8` | Maximum number of parallel workers for API fetching |
+| `FETCH_SECTIONS` | `false` | Set to `true` to also fetch section detail endpoints (5 extra API calls per project) |
+
+### core3-overview.py — database inspector
+
+Displays a tabulated overview of the database contents: one row per project with
+rank, PoL score, market cap, snapshot counts, and PoL date ranges.
+
+```shell
+poetry run python scripts/core3/core3-overview.py
+```
+
+| Environment variable | Default | Description |
+|---------------------|---------|-------------|
+| `DB_PATH` | `~/.tradingstrategy/core3/risk-data.duckdb` | Path to DuckDB database file |
+
+### reproduce-duckdb-crash.py — crash reproducer
+
+Standalone DuckDB crash reproducer (no API key needed). Simulates the scanner's data volume
+and threading patterns across 24 scenarios to isolate the SIGSEGV trigger.
+
+```shell
+# Run all scenarios
+poetry run python scripts/core3/reproduce-duckdb-crash.py all
+
+# Run a specific scenario
+poetry run python scripts/core3/reproduce-duckdb-crash.py 12
+```
+
+## Tests
+
+| Test module | Description | Requires API key |
+|-------------|-------------|-----------------|
+| `tests/core3/test_core3_scanner.py` | Integration tests: scan projects, verify snapshots, PoL history, idempotency | Yes (`CORE3_API_KEY`) |
+| `tests/core3/test_core3_database.py` | Offline tests: insert, deduplication, sync state, query methods with synthetic data | No |
+
+```shell
+# Run offline tests (no API key needed)
+source .local-test.env && PYTHONPATH="$(pwd):$PYTHONPATH" poetry run pytest tests/core3/test_core3_database.py -v --timeout=300
+
+# Run integration tests (requires CORE3_API_KEY)
+source .local-test.env && PYTHONPATH="$(pwd):$PYTHONPATH" poetry run pytest tests/core3/test_core3_scanner.py -v --timeout=300
+```
+
 ## API overview
 
 - **Type**: REST / JSON, read-only (all endpoints are `GET`)
