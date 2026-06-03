@@ -32,8 +32,7 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import CORE3_DATABASE_PATH, INDEX_SLUG, SECTIONS
 from eth_defi.core3.database import Core3Database
-from eth_defi.core3.session import (
-    Core3Session,
+from eth_defi.core3.api import (
     fetch_index_pol_history,
     fetch_index_pol_history_incremental,
     fetch_pol_category_history,
@@ -44,6 +43,7 @@ from eth_defi.core3.session import (
     fetch_project_list,
     fetch_section_detail,
 )
+from eth_defi.core3.session import Core3Session
 
 logger = logging.getLogger(__name__)
 

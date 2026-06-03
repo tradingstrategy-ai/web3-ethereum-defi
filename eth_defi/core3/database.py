@@ -546,3 +546,27 @@ class Core3Database:
         """
         with self._db_lock:
             return int(self.con.execute("SELECT COUNT(*) FROM pol_daily").fetchone()[0])
+
+    def get_latest_project_snapshot_raw(self, slug: str) -> tuple[str, "datetime.datetime"] | None:
+        """Get the raw JSON payload and fetch timestamp for the latest snapshot of a project.
+
+        :param slug:
+            Core3 project slug.
+        :return:
+            Tuple of ``(payload_json_string, fetched_at)`` or ``None``
+            if the slug has no snapshots.
+        """
+        with self._db_lock:
+            row = self.con.execute(
+                """
+                SELECT payload, fetched_at
+                FROM project_snapshots
+                WHERE slug = ?
+                ORDER BY fetched_at DESC
+                LIMIT 1
+                """,
+                [slug],
+            ).fetchone()
+        if row is None:
+            return None
+        return row[0], row[1]

@@ -191,11 +191,7 @@ def fund_lagoon_vault(
         time.sleep(claim_retry_delay)
 
     if claimable_raw_amount == 0:
-        raise RuntimeError(
-            f"Lagoon deposit settlement was mined, but maxDeposit({test_account_with_balance}) "
-            f"stayed 0 after {claim_attempts * claim_retry_delay} seconds. "
-            "The deposit request is not yet claimable on the read RPC, or settlement did not mark it claimable."
-        )
+        raise RuntimeError(f"Lagoon deposit settlement was mined, but maxDeposit({test_account_with_balance}) stayed 0 after {claim_attempts * claim_retry_delay} seconds. The deposit request is not yet claimable on the read RPC, or settlement did not mark it claimable.")
 
     finalise_func = vault.finalise_deposit(test_account_with_balance, raw_amount=claimable_raw_amount)
     _send(finalise_func, f"Claim shares for {test_account_with_balance}")

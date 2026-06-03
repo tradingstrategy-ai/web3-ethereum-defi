@@ -15,9 +15,11 @@ and centralised exchanges, scoring risk on a 0-100 scale where 0 = Exceptional a
 | Module | Description |
 |--------|-------------|
 | `eth_defi.core3.constants` | Shared constants: API URL, database paths, rate limit config, section names |
-| `eth_defi.core3.session` | `Core3Session` (requests.Session subclass) with rate limiting, retry logic, and fetch helpers for all API endpoints |
+| `eth_defi.core3.session` | `Core3Session` (requests.Session subclass) with rate limiting and retry logic |
+| `eth_defi.core3.api` | Fetch helpers for all Core3 API endpoints (project list, detail, PoL history, sections) |
 | `eth_defi.core3.database` | `Core3Database` — DuckDB persistence with thread-safe inserts, deduplication, sync state watermarks, and query methods |
 | `eth_defi.core3.scanner` | `scan_projects()` orchestrator — parallel fetching with `joblib.Parallel`, incremental sync, error handling |
+| `eth_defi.core3.mappings` | `CORE3_MAPPINGS` — canonical mapping from our vault protocol slugs to Core3 project slugs |
 
 ## Database files
 
@@ -75,6 +77,36 @@ poetry run python scripts/core3/core3-overview.py
 | Environment variable | Default | Description |
 |---------------------|---------|-------------|
 | `DB_PATH` | `~/.tradingstrategy/core3/risk-data.duckdb` | Path to DuckDB database file |
+
+### update-core3-mappings.py — vault protocol mapping updater
+
+Compares our vault protocol metadata (`eth_defi/data/vaults/metadata/*.yaml`) against the
+Core3 DuckDB database and generates a Markdown report at `/tmp/core3-mappings.md` with:
+
+1. Our vault protocols table (name, slug, homepage)
+2. Core3 DeFi-related projects table (name, slug, category, PoL)
+3. Current confirmed mappings
+4. Candidate new mappings discovered by heuristics
+5. Unmapped protocols with no Core3 equivalent
+
+The script applies four matching heuristics in priority order:
+
+1. **Exact slug match** — our slug exists verbatim in Core3
+2. **Website domain match** — our `links.homepage` domain matches Core3 `links.website`
+3. **DeFi Llama slug match** — our `links.defillama` slug matches Core3 `coingecko_id`
+4. **Normalised name match** — name similarity after stripping suffixes like "Finance", "Protocol"
+
+Candidates must be manually verified before adding to `CORE3_MAPPINGS` in
+`eth_defi/core3/mappings.py` — false positives occur (e.g. "GOAT Network" L2 vs "Goat Protocol" vaults).
+
+```shell
+source .local-test.env && PYTHONPATH="$(pwd):$PYTHONPATH" poetry run python scripts/core3/update-core3-mappings.py
+```
+
+| Environment variable | Default | Description |
+|---------------------|---------|-------------|
+| `DB_PATH` | `~/.tradingstrategy/core3/risk-data.duckdb` | Path to DuckDB database file |
+| `LOG_LEVEL` | `warning` | Logging level |
 
 ### reproduce-duckdb-crash.py — crash reproducer
 

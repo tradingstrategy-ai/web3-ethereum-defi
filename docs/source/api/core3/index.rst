@@ -21,6 +21,9 @@ Features:
    :recursive:
 
    eth_defi.core3.session
+   eth_defi.core3.api
    eth_defi.core3.database
    eth_defi.core3.scanner
    eth_defi.core3.constants
+   eth_defi.core3.mappings
+   eth_defi.core3.vault_protocol
