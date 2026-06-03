@@ -12,6 +12,7 @@ from eth_defi.erc_4626.vault_protocol.gains.vault import DominationFinanceVault,
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.fee import VaultFeeMode
+from eth_defi.vault.risk import VaultTechnicalRisk
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
@@ -60,6 +61,6 @@ def test_domination_read_data(web3: Web3):
     assert vault.get_management_fee("latest") == 0.0
     assert vault.get_performance_fee("latest") == 0.0
     assert vault.get_fee_mode() == VaultFeeMode.feeless
-    assert vault.get_risk() is None
+    assert vault.get_risk() == VaultTechnicalRisk.severe
     assert vault.get_link() == "https://app.domination.finance/vault"
     assert vault.get_max_discount_percent() >= 0
