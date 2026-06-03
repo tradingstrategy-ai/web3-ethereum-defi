@@ -176,23 +176,37 @@ def _process_project(
 
     # 2. PoL daily history
     if fetch_pol:
-        _safe_fetch(slug, "PoL history", lambda: _sync_time_series(
-            db, session, slug, "pol_daily",
-            fetch_backfill=lambda: fetch_pol_history(session, slug, timeout=timeout),
-            fetch_incremental=lambda f, t: fetch_pol_history_incremental(session, slug, f, t, timeout=timeout),
-            insert_fn=db.insert_pol_daily_points,
-            fetched_at=fetched_at,
-        ))
+        _safe_fetch(
+            slug,
+            "PoL history",
+            lambda: _sync_time_series(
+                db,
+                session,
+                slug,
+                "pol_daily",
+                fetch_backfill=lambda: fetch_pol_history(session, slug, timeout=timeout),
+                fetch_incremental=lambda f, t: fetch_pol_history_incremental(session, slug, f, t, timeout=timeout),
+                insert_fn=db.insert_pol_daily_points,
+                fetched_at=fetched_at,
+            ),
+        )
 
     # 3. Category PoL daily history
     if fetch_categories:
-        _safe_fetch(slug, "category history", lambda: _sync_time_series(
-            db, session, slug, "pol_category_daily",
-            fetch_backfill=lambda: fetch_pol_category_history(session, slug, timeout=timeout),
-            fetch_incremental=lambda f, t: fetch_pol_category_history_incremental(session, slug, f, t, timeout=timeout),
-            insert_fn=db.insert_pol_category_daily_points,
-            fetched_at=fetched_at,
-        ))
+        _safe_fetch(
+            slug,
+            "category history",
+            lambda: _sync_time_series(
+                db,
+                session,
+                slug,
+                "pol_category_daily",
+                fetch_backfill=lambda: fetch_pol_category_history(session, slug, timeout=timeout),
+                fetch_incremental=lambda f, t: fetch_pol_category_history_incremental(session, slug, f, t, timeout=timeout),
+                insert_fn=db.insert_pol_category_daily_points,
+                fetched_at=fetched_at,
+            ),
+        )
 
     # 4. Section snapshots
     if fetch_sections_flag:
@@ -282,13 +296,20 @@ def scan_projects(
 
     # Index-level PoL history (single request, not parallelised)
     if fetch_index_pol:
-        _safe_fetch(INDEX_SLUG, "index PoL history", lambda: _sync_time_series(
-            db, session, INDEX_SLUG, "pol_daily",
-            fetch_backfill=lambda: fetch_index_pol_history(session, timeout=timeout),
-            fetch_incremental=lambda f, t: fetch_index_pol_history_incremental(session, f, t, timeout=timeout),
-            insert_fn=db.insert_pol_daily_points,
-            fetched_at=fetched_at,
-        ))
+        _safe_fetch(
+            INDEX_SLUG,
+            "index PoL history",
+            lambda: _sync_time_series(
+                db,
+                session,
+                INDEX_SLUG,
+                "pol_daily",
+                fetch_backfill=lambda: fetch_index_pol_history(session, timeout=timeout),
+                fetch_incremental=lambda f, t: fetch_index_pol_history_incremental(session, f, t, timeout=timeout),
+                insert_fn=db.insert_pol_daily_points,
+                fetched_at=fetched_at,
+            ),
+        )
 
     db.save()
     logger.info(
