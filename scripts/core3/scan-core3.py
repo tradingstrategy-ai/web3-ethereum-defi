@@ -97,7 +97,16 @@ def main():
             print("\nTop 10 projects by rank:")
             top_10 = df.head(10)[["slug", "name", "rank", "pol_score", "pol_rating", "market_cap_usd"]].copy()
             top_10["pol_score"] = top_10["pol_score"].apply(lambda x: f"{x:.2f}" if x is not None else "")
-            top_10["market_cap_usd"] = top_10["market_cap_usd"].apply(lambda x: f"${int(x):,}" if x is not None and x != "" else "")
+
+            def _fmt_market_cap(x):
+                if x is None or x == "":
+                    return ""
+                try:
+                    return f"${int(x):,}"
+                except (ValueError, TypeError):
+                    return str(x)
+
+            top_10["market_cap_usd"] = top_10["market_cap_usd"].apply(_fmt_market_cap)
             table_fmt = tabulate(
                 top_10.to_dict("records"),
                 headers="keys",
