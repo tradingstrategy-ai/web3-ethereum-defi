@@ -7,15 +7,15 @@ import pytest
 from eth_typing import HexAddress
 from web3 import Web3
 
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details, USDC_WHALE
+from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
+from eth_defi.token import USDC_WHALE, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
 from eth_defi.uniswap_v3.deployment import (
     fetch_deployment,
 )
-
 from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
@@ -25,13 +25,13 @@ CI = os.environ.get("CI", None) is not None
 pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE environment variable")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def usdc_holder() -> HexAddress:
     # https://basescan.org/token/0x833589fcd6edb6e08f4c7c32d4f71b54bda02913#balances
     return USDC_WHALE[8453]
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def anvil_base_fork(request, usdc_holder) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
@@ -115,3 +115,10 @@ def test_uniswap_v3_swap_on_base(
 
     tx_hash = bound_call.transact({"from": usdc_holder})
     assert_transaction_success_with_explanation(web3, tx_hash)
+
+
+# Per-test EVM state isolation on module-scope Anvil fork.
+# See eth_defi.testing.evm_snapshot_fixture for the rationale.
+@pytest.fixture(autouse=True)
+def _evm_snapshot(anvil_base_fork):
+    yield from evm_snapshot_revert(anvil_base_fork)

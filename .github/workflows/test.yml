@@ -11,11 +11,16 @@ jobs:
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
+    # Hard cap — test job typically runs ~7-9 min on Beefy after the round-2
+    # cost-reduction work. 10 min keeps the combined (test + GMX) under 20 min
+    # wall-clock; anything longer is a stall and should be killed rather than
+    # burn Beefy minutes.
+    timeout-minutes: 10
 
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.python-version }}
+      group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
       cancel-in-progress: true
 
     strategy:
@@ -80,6 +85,15 @@ jobs:
       - name: Install Ganache
         run: yarn global add ganache
 
+      - name: Cache Foundry
+        uses: actions/cache@v4
+        with:
+          path: ~/.foundry
+          key: foundry-v1.2.3-${{ runner.os }}
+          restore-keys: |
+            foundry-v1.2.3-
+            foundry-
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -101,6 +115,14 @@ jobs:
       # make guard in-house safe-integration
 
       # Lagoon source deployment needs soldeer
+      - name: Cache Lagoon soldeer deps
+        uses: actions/cache@v4
+        with:
+          path: contracts/lagoon-v0/dependencies
+          key: soldeer-${{ hashFiles('contracts/lagoon-v0/soldeer.lock', 'contracts/lagoon-v0/foundry.toml') }}
+          restore-keys: |
+            soldeer-
+
       - name: Lagoon dependency issue smoke test
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
@@ -147,7 +169,7 @@ jobs:
           #
           # Always use verbose pytest output so stalled CI runs show the latest
           # test names in the Actions log.
-          poetry run pytest --timeout-method=thread --tb=native -n auto -v -s --capture=no --ignore=tests/gmx
+          poetry run pytest --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no --ignore=tests/gmx
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
@@ -169,6 +191,6 @@ jobs:
           ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: ${{ secrets.ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
 
-      - name: Ruff lint check
-        run: |
-          poetry run ruff format --check --diff
+      # Ruff format check now runs in .github/workflows/lint.yml on the free
+      # ubuntu-latest runner. Keeping it out of the Beefy job saves billable
+      # minutes and gives lint feedback before tests finish.

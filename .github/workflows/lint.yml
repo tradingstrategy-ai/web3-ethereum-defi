@@ -1,0 +1,41 @@
+name: Lint
+
+# Ruff format check runs on the free ubuntu-latest runner (1× billing) instead
+# of the Beefy runners (16× billing) used by the test suite. This shaves Beefy
+# minutes on every PR and gives lint feedback in ~10s instead of waiting for the
+# whole test job.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+
+permissions:
+  contents: read
+
+jobs:
+  ruff-format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    if: github.event.pull_request.draft == false || github.event_name == 'push'
+
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Use the official Ruff action — it caches the ruff binary across runs.
+      # Keep the version pin in sync with pyproject.toml [tool.poetry.group.dev.dependencies].
+      - name: Ruff format check
+        uses: astral-sh/ruff-action@v3
+        with:
+          version: "0.11.13"
+          args: "format --check --diff"

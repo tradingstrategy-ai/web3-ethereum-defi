@@ -18,7 +18,8 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
-from eth_defi.token import TokenDetails, fetch_erc20_details, USDC_WHALE
+from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
+from eth_defi.token import USDC_WHALE, TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import FOREVER_DEADLINE, UniswapV2Deployment, fetch_deployment
@@ -56,7 +57,7 @@ def safe_deployer_hot_wallet(web3) -> HotWallet:
     return hot_wallet
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def usdc_whale() -> HexAddress:
     """Large USDC holder onchain, unlocked in Anvil for testing"""
     # https://basescan.org/token/0x833589fcd6edb6e08f4c7c32d4f71b54bda02913#balances
@@ -89,7 +90,7 @@ def uniswap_v2(web3) -> UniswapV2Deployment:
     )
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def anvil_base_fork(request, usdc_whale) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
@@ -584,3 +585,10 @@ def test_velora_token_not_whitelisted(
             b"\x00",
         ).transact({"from": asset_manager})
     assert "tokenIn not allowed" in str(e)
+
+
+# Per-test EVM state isolation on module-scope Anvil fork.
+# See eth_defi.testing.evm_snapshot_fixture for the rationale.
+@pytest.fixture(autouse=True)
+def _evm_snapshot(anvil_base_fork):
+    yield from evm_snapshot_revert(anvil_base_fork)
