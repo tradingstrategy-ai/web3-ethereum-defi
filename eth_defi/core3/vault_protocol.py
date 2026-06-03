@@ -14,7 +14,7 @@ Example::
     db = Core3Database(CORE3_DATABASE_PATH)
     record = get_core3_protocol_record(db, "morpho")
     if record:
-        print(f"PoL score: {record['pol_score']}")
+        print(f"PoL score: {record['pol']['score']}")
         print(f"Top risks: {len(record['top_risks'])}")
     db.close()
 """
