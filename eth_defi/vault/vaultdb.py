@@ -1,6 +1,7 @@
 """Describe vault database pickle format."""
 
 import datetime
+import logging
 import os
 import pickle
 from dataclasses import dataclass, field
@@ -19,6 +20,8 @@ from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.risk import VaultTechnicalRisk
+
+logger = logging.getLogger(__name__)
 
 
 def get_pipeline_data_dir() -> Path:
@@ -131,6 +134,17 @@ class VaultRow(TypedDict):
 
 #: Legacy pickle format
 VaultDatabaseOld: TypeAlias = dict[VaultSpec, VaultRow]
+
+
+def _is_broken_row(row: VaultRow) -> bool:
+    """Check if a vault row represents a broken/failed scan result.
+
+    When the vault scanner encounters an RPC transient error (e.g. HTTP 400/500),
+    it creates a placeholder record with ``<broken: ...>`` as the name and empty
+    denomination.  Such records should not overwrite previously good metadata.
+    """
+    name = row.get("Name") or ""
+    return name.startswith("<broken") or (not name and not row.get("Denomination"))
 
 
 def has_good_fee_data(vault_row: VaultRow) -> bool:
@@ -246,7 +260,28 @@ class VaultDatabase:
         assert type(leads) == dict
         self.last_scanned_block[chain_id] = last_scanned_block
         self.leads.update({VaultSpec(chain_id, addr): lead for addr, lead in leads.items()})
-        self.rows.update(rows)
+        self._merge_rows(rows)
+
+    def _merge_rows(self, new_rows: dict[VaultSpec, VaultRow]):
+        """Merge new vault rows, preserving good data over broken rescans.
+
+        If a vault already has good metadata (name, denomination, NAV)
+        and the new scan produced a broken record (e.g. due to an RPC
+        transient failure), the existing good entry is kept instead of
+        being overwritten.
+        """
+        for spec, new_row in new_rows.items():
+            existing = self.rows.get(spec)
+            if existing is not None and _is_broken_row(new_row) and not _is_broken_row(existing):
+                logger.warning(
+                    "Skipping broken rescan for %s-%s (name=%s), keeping existing good data (name=%s)",
+                    spec.chain_id,
+                    spec.vault_address,
+                    new_row.get("Name"),
+                    existing.get("Name"),
+                )
+                continue
+            self.rows[spec] = new_row
 
     def limit_to_single_vault(self, vault_spec: VaultSpec) -> "VaultDatabase":
         """Limit results to a single vault.

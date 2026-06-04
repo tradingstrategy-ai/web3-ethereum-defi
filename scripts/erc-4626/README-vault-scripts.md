@@ -441,6 +441,25 @@ poetry run python scripts/erc-4626/purge-stale-chain-ids.py
 | `DRY_RUN` | Optional. Report only, no changes. |
 | `LOG_LEVEL` | Optional. Default: info. |
 
+### heal-broken-vaults.py
+
+Heal broken vault metadata entries caused by transient RPC failures.
+When the vault scanner hits an HTTP error or timeout, it stores a placeholder
+record with `<broken: ...>` as the name. This script re-reads those vaults
+from the chain and replaces the broken records with fresh data.
+
+```shell
+source .local-test.env && poetry run python scripts/erc-4626/heal-broken-vaults.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `MAX_WORKERS` | Optional. Thread pool size. Default: 8. |
+| `DRY_RUN` | Optional. Report broken vaults without healing. Default: false. |
+| `HEAL_ALL` | Optional. Also attempt empty-name entries (likely false positives). Default: false. |
+| `JSON_RPC_<CHAIN>` | Required per chain with broken vaults. |
+| `LOG_LEVEL` | Optional. Default: info. |
+
 ### heal-timestamps.py
 
 Heal gaps in the block timestamp DuckDB cache populated by HyperSync.
