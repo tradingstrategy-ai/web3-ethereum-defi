@@ -250,6 +250,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xb739ae19620f7ecb4fb84727f205453aa5bc1ad2": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Borrowable scUSD Deposit, SiloId: 125
     "0x0ab02dd08c1555d1a20c76a6ea30e3e36f3e06d4": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Borrowable frxUSD Deposit, SiloId: 37
+    "0xda14a41dbda731f03a94cb722191639dd22b35b2": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Exposure to Elixir
     "0x94643e86aa5e38ddac6c7791c1297f4e40cd96c1": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Exposure to xUSD - Silos
