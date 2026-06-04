@@ -557,6 +557,6 @@ def check_lagoon_compatibility_with_database(
 
         anvil.close()
 
-    with database_file.open("wb") as f:
+    with atomic_write(str(database_file), mode="wb", overwrite=True) as f:
         pickle.dump(database, f)
     return database

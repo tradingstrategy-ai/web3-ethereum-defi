@@ -8,11 +8,14 @@ metadata for a vault.
 
 This script:
 
-1. Loads the vault-metadata-db.pickle (local or from R2).
+1. Loads the local vault-metadata-db.pickle.
 2. Finds all explicitly broken entries (``<broken: ...>``) across every chain.
 3. Re-reads each broken vault from the chain via JSON-RPC.
 4. Replaces the broken record with the freshly read good data.
-5. Writes the healed pickle back (and optionally uploads to R2).
+5. Writes the healed pickle back to the local pipeline data directory.
+
+To repair production data, run the normal ``export-data-files.py``
+script after healing to upload the fixed pickle to R2.
 
 By default only targets entries whose name starts with ``<broken``
 (transient RPC failures).  Set ``HEAL_ALL=true`` to also attempt
