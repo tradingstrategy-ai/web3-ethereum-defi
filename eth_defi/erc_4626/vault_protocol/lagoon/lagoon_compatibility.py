@@ -10,6 +10,8 @@ from pathlib import Path
 from pprint import pformat
 from statistics import mean
 
+from atomicwrites import atomic_write
+
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 from eth_typing import HexAddress
@@ -550,7 +552,7 @@ def check_lagoon_compatibility_with_database(
         database.report_by_token[base_token_address.lower()] = report
 
         # Because the operation is so slow, we want to resave after each iteration
-        with database_file.open("wb") as f:
+        with atomic_write(str(database_file), mode="wb", overwrite=True) as f:
             pickle.dump(database, f)
 
         anvil.close()
