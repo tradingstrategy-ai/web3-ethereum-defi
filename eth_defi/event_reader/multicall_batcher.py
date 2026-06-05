@@ -872,6 +872,11 @@ WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES = {
         "failsafe timeout policy exceeded",
         # dRPC out of credit?
         "API key is not allowed to access blockchain",
+        # eRPC consensus mode requires multiple upstream RPC providers to return
+        # identical responses. When providers disagree (e.g. Hyperliquid nodes with
+        # inconsistent state), eRPC returns this error. It is transient and should
+        # be retried, as a subsequent attempt may hit providers that agree.
+        "not enough agreement among responses",
     )
 }
 
