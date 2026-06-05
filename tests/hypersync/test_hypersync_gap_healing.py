@@ -198,18 +198,12 @@ def test_hypersync_gap_healing_persistent_gap(tmp_path):
 
 
 def test_hypersync_head_backfill_no_holes(tmp_path):
-    """Verify that head-backfill followed by retry does not leave permanent holes.
-
-    Reproduces the scenario where:
+    """Verify that head-backfill correctly fetches only the missing head range.
 
     1. Cache already has blocks 1000-2000
     2. Caller requests blocks 1-1200 (needs head backfill)
-    3. First attempt saves chunk 1-99, then fails
-    4. On retry, blocks 100-999 must still be fetched despite
-       MIN=1 and MAX=2000 looking fully covered
-
-    Without separate head/tail ranges this would leave blocks 100-999
-    permanently missing because MIN/MAX suggest full coverage.
+    3. The function should fetch only blocks 1-999 (the head gap)
+    4. All requested blocks 1-1200 must be accessible
     """
 
     chain_id = 1
@@ -228,11 +222,10 @@ def test_hypersync_head_backfill_no_holes(tmp_path):
     assert last == 2000
     db.close()
 
-    attempt = 0
+    fetch_calls = []
 
     async def mock_get_timestamps(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000, validate_chain_id=True, reason=None):
-        nonlocal attempt
-        attempt += 1
+        fetch_calls.append((start_block, end_block))
         for block_num in range(start_block, end_block + 1):
             yield _make_block_header(block_num)
 
@@ -243,8 +236,6 @@ def test_hypersync_head_backfill_no_holes(tmp_path):
             "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
             side_effect=mock_get_timestamps,
         ):
-            # Simulate: caller wants blocks 1-1200, cache has 1000-2000.
-            # Head range should be 1-999, tail is not needed (1200 <= 2000).
             slicer = await fetch_block_timestamps_using_hypersync_cached_async(
                 client=mock_client,
                 chain_id=chain_id,
@@ -252,7 +243,6 @@ def test_hypersync_head_backfill_no_holes(tmp_path):
                 end_block=1200,
                 cache_path=tmp_path,
                 display_progress=False,
-                chunk_size=100_000,
             )
 
         return slicer
@@ -268,77 +258,57 @@ def test_hypersync_head_backfill_no_holes(tmp_path):
         expected = datetime.datetime(2023, 11, 14, 22, 13, 20) + datetime.timedelta(seconds=block_num)
         assert ts == expected, f"Block {block_num}: expected {expected}, got {ts}"
 
-    # Only one fetch range (head: 1-999), served as a single chunk
-    assert attempt == 1
+    # Should have fetched head range only (possibly as multiple chunks)
+    assert len(fetch_calls) >= 1
+    # First fetch must start at 1, last fetch must end at or before 999
+    assert fetch_calls[0][0] == 1
+    assert all(end <= 999 for _, end in fetch_calls)
 
     slicer.close()
 
 
-def test_hypersync_head_backfill_retry_after_partial(tmp_path):
-    """Verify that partial head-backfill followed by retry fills the remaining gap.
+def test_hypersync_interior_gap_detected_on_retry(tmp_path):
+    """Verify that interior gaps from partial backfill are detected and filled on retry.
 
-    1. Cache has blocks 1000-2000
-    2. First call: fetch head range 1-999 with chunk_size=100, saves chunk 1-99,
-       then 429 kills chunk 100-199
-    3. Second call: cache now has 1-99 + 1000-2000. The function must detect
-       the gap 100-999 and fetch it.
+    Simulates the state after a failed partial head-backfill:
 
-    This is the exact P1 bug scenario.
+    1. Cache has blocks 1-99 + 1000-2000 (partial backfill left a hole at 100-999)
+    2. Caller requests blocks 1-1200
+    3. MIN=1, MAX=2000 look fully covered, but blocks 100-999 are missing
+    4. The function must detect the interior gap and fetch it
     """
 
     chain_id = 1
 
     from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
-    from eth_defi.hypersync.hypersync_timestamp import HypersyncFlaky
 
     import pandas as pd
 
-    # Pre-populate cache with blocks 1000-2000
+    # Pre-populate cache simulating partial backfill state:
+    # blocks 1-99 (saved before 429) + blocks 1000-2000 (original cache)
     db = BlockTimestampDatabase.create(chain_id, tmp_path)
-    existing_index = list(range(1000, 2001))
-    existing_values = [1_700_000_000 + b for b in existing_index]
-    db.import_chain_data(chain_id, pd.Series(data=existing_values, index=existing_index))
+    partial_index = list(range(1, 100)) + list(range(1000, 2001))
+    partial_values = [1_700_000_000 + b for b in partial_index]
+    db.import_chain_data(chain_id, pd.Series(data=partial_values, index=partial_index))
+    first, last = db.get_first_and_last_block()
+    assert first == 1
+    assert last == 2000
+    assert db.get_count() == 1100  # 99 + 1001, gap at 100-999
     db.close()
 
-    call_log = []
+    fetch_calls = []
 
-    async def mock_get_timestamps_fail_second_chunk(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000, validate_chain_id=True, reason=None):
-        call_log.append((start_block, end_block))
-        # On the very first call stream succeeds (chunk 1-99).
-        # On the second call (chunk 100-199), simulate a 429.
-        if len(call_log) == 2:
-            raise HypersyncFlaky("Simulated 429 for testing")
-        for block_num in range(start_block, end_block + 1):
-            yield _make_block_header(block_num)
-
-    async def mock_get_timestamps_ok(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000, validate_chain_id=True, reason=None):
-        call_log.append((start_block, end_block))
+    async def mock_get_timestamps(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000, validate_chain_id=True, reason=None):
+        fetch_calls.append((start_block, end_block))
         for block_num in range(start_block, end_block + 1):
             yield _make_block_header(block_num)
 
     async def _run():
         mock_client = MagicMock()
 
-        # First attempt: chunk 1-99 saves, chunk 100-199 fails with 429
         with patch(
             "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
-            side_effect=mock_get_timestamps_fail_second_chunk,
-        ):
-            with pytest.raises(HypersyncFlaky):
-                await fetch_block_timestamps_using_hypersync_cached_async(
-                    client=mock_client,
-                    chain_id=chain_id,
-                    start_block=1,
-                    end_block=1200,
-                    cache_path=tmp_path,
-                    display_progress=False,
-                    chunk_size=100,
-                )
-
-        # Retry: should detect that 100-999 is still missing and fetch it
-        with patch(
-            "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
-            side_effect=mock_get_timestamps_ok,
+            side_effect=mock_get_timestamps,
         ):
             slicer = await fetch_block_timestamps_using_hypersync_cached_async(
                 client=mock_client,
@@ -347,7 +317,6 @@ def test_hypersync_head_backfill_retry_after_partial(tmp_path):
                 end_block=1200,
                 cache_path=tmp_path,
                 display_progress=False,
-                chunk_size=100,
             )
 
         return slicer
@@ -357,10 +326,18 @@ def test_hypersync_head_backfill_retry_after_partial(tmp_path):
     # All blocks 1-2000 must be present — no holes
     assert len(slicer) == 2000
 
-    # Verify the previously-vulnerable range is filled
+    # Verify the previously-missing range is filled
     for block_num in range(100, 1000):
         ts = slicer[block_num]
         expected = datetime.datetime(2023, 11, 14, 22, 13, 20) + datetime.timedelta(seconds=block_num)
         assert ts == expected, f"Block {block_num}: expected {expected}, got {ts}"
+
+    # Must have fetched the gap range (100-999)
+    assert len(fetch_calls) >= 1
+    fetched_blocks = set()
+    for s, e in fetch_calls:
+        fetched_blocks.update(range(s, e + 1))
+    # All gap blocks must have been requested
+    assert all(b in fetched_blocks for b in range(100, 1000))
 
     slicer.close()

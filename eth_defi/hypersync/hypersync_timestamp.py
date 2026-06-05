@@ -353,23 +353,30 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
                 f"{end_block - tail_start + 1:,}",
             )
 
-        # Check for interior gaps within the requested range.
+        # Check for interior gaps that overlap the requested range.
         # A partial head-backfill followed by a 429 can leave holes
         # (e.g. cache has 1-99 + 1000-2000, blocks 100-999 are missing).
         # MIN/MAX look fully covered but find_gaps() detects the holes.
+        # Gaps may only partially overlap the requested range, so we clip
+        # them to the intersection rather than requiring full containment.
         interior_gaps = timestamp_db.find_gaps()
-        interior_gaps = [(s, e, n) for s, e, n in interior_gaps if s >= start_block and e <= end_block]
-        if interior_gaps:
-            for gap_start, gap_end, gap_size in interior_gaps:
-                fetch_ranges.append((gap_start + 1, gap_end - 1))
+        for gap_start, gap_end, gap_size in interior_gaps:
+            # gap_start/gap_end are the boundary blocks that DO exist;
+            # the missing blocks are gap_start+1 .. gap_end-1
+            clip_start = max(start_block, gap_start + 1)
+            clip_end = min(end_block, gap_end - 1)
+            if clip_start <= clip_end:
+                fetch_ranges.append((clip_start, clip_end))
                 logger.info(
-                    "Chain %d: interior gap detected — blocks %s - %s (%s missing blocks)",
+                    "Chain %d: interior gap detected — blocks %s - %s (%s missing blocks, clipped from full gap %s - %s)",
                     chain_id,
+                    f"{clip_start:,}",
+                    f"{clip_end:,}",
+                    f"{clip_end - clip_start + 1:,}",
                     f"{gap_start + 1:,}",
                     f"{gap_end - 1:,}",
-                    f"{gap_size:,}",
                 )
-        elif not needs_head and not needs_tail:
+        if not fetch_ranges:
             logger.info(
                 "Chain %d: cache fully covers requested range %s - %s (cache has %s - %s), no gaps",
                 chain_id,
@@ -484,8 +491,11 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         max_heal_attempts = 3
         for heal_attempt in range(max_heal_attempts):
             gaps = timestamp_db.find_gaps()
-            # Only heal gaps within our scan range
-            gaps = [(s, e, n) for s, e, n in gaps if s >= scan_start and e <= scan_end]
+            # Only heal gaps that overlap our scan range.
+            # find_gaps() returns (boundary_start, boundary_end, count) where
+            # boundary blocks exist but everything between them is missing.
+            # Filter to gaps that overlap scan_start..scan_end.
+            gaps = [(s, e, n) for s, e, n in gaps if s + 1 <= scan_end and e - 1 >= scan_start]
             if not gaps:
                 logger.info(
                     "Chain %d: no gaps found in scan range (heal check %d/%d)",
