@@ -246,6 +246,8 @@ def fetch_lagoon_vaults_for_chain(
             logger.info("Re-fetching Lagoon vaults metadata for chain %d from %s", chain_id, api_base_url)
 
             # Step 1: Enumerate all vaults on this chain via listing endpoint
+            # Note: Lagoon's listing endpoint ignores the chainId parameter and returns
+            # ALL vaults across all chains, so we must filter by the vault's actual chainId
             all_vault_addresses = []
             page_index = 0
             while True:
@@ -253,7 +255,8 @@ def fetch_lagoon_vaults_for_chain(
                 vaults_in_page = page_data.get("vaults", [])
                 for v in vaults_in_page:
                     addr = v.get("address")
-                    if addr:
+                    vault_chain_id = v.get("chain", {}).get("id")
+                    if addr and vault_chain_id is not None and int(vault_chain_id) == chain_id:
                         all_vault_addresses.append(addr)
                 if not page_data.get("hasNextPage", False):
                     break
