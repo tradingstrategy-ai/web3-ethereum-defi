@@ -157,6 +157,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "40acres": VaultTechnicalRisk.low,
     # ForgeYields - audited (see https://forge-labs.gitbook.io/forge-docs/other/audits)
     "ForgeYields": None,
+    # CrystalClear - verified contracts on Hyperscan, UUPS proxy, no public audits yet
+    "CrystalClear": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
