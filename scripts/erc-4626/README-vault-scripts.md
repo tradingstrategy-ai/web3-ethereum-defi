@@ -501,9 +501,48 @@ docker compose --profile oneshot run --rm \
 | `JSON_RPC_<CHAIN>` | Required per chain. Same env vars as docker-compose. |
 | `LOG_LEVEL` | Optional. Default: info. |
 
+### heal-timestamps-all-chains.py
+
+Detect and heal gaps in block timestamp DuckDB caches across all chains.
+Scans `~/.tradingstrategy/block-timestamp/` for existing databases, detects
+interior gaps left by dropped Hypersync batches, and re-fetches them. No RPC
+URLs needed — chain IDs are extracted from database filenames and Hypersync
+servers are resolved automatically.
+
+```shell
+# Diagnose gaps without healing (recommended first step)
+DRY_RUN=true poetry run python scripts/erc-4626/heal-timestamps-all-chains.py
+
+# Heal all chains
+poetry run python scripts/erc-4626/heal-timestamps-all-chains.py
+
+# Heal specific chains only
+TEST_CHAINS=Monad,Base poetry run python scripts/erc-4626/heal-timestamps-all-chains.py
+```
+
+Inside the Docker container:
+
+```shell
+docker compose --profile oneshot run --rm \
+  --entrypoint python \
+  -e DRY_RUN=true \
+  -e LOG_LEVEL=info \
+  vault-scanner \
+  scripts/erc-4626/heal-timestamps-all-chains.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `DRY_RUN` | Optional. Report gaps without healing. Default: false. |
+| `TEST_CHAINS` | Optional. Comma-separated chain names to heal. Default: all. |
+| `HYPERSYNC_API_KEY` | Optional but recommended. Envio Hypersync API key. |
+| `HYPERSYNC_RPM` | Optional. Requests-per-minute limit. Default: 150. |
+| `LOG_LEVEL` | Optional. Default: info. |
+
 ### heal-timestamps.py
 
-Heal gaps in the block timestamp DuckDB cache populated by HyperSync.
+Heal gaps in the block timestamp DuckDB cache for a single chain. Use
+`heal-timestamps-all-chains.py` above for multi-chain healing.
 
 ```shell
 JSON_RPC_URL=$JSON_RPC_MONAD poetry run python scripts/erc-4626/heal-timestamps.py
