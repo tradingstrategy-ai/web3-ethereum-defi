@@ -39,9 +39,14 @@ logger = logging.getLogger(__name__)
 HYPERSYNC_RATE_LIMIT_SQLITE_DATABASE = Path("~/.tradingstrategy/hypersync/rate-limit.sqlite").expanduser()
 
 #: Conservative default: 150 RPM leaves 25% headroom below Hypersync's
-#: 200 RPM limit, accounting for internal Rust client retries that also
-#: consume quota.
+#: 200 RPM limit.
 DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE = 150
+
+#: Disable internal Rust client retries so that 429 errors surface
+#: immediately to Python-side retry logic with proper backoff and
+#: durable progress saves. The Rust client's internal retries are
+#: invisible to our rate limiter and waste API quota on tight loops.
+DEFAULT_HYPERSYNC_MAX_NUM_RETRIES = 0
 
 
 async def _acquire_async(limiter: Limiter, reason: str = "") -> None:
@@ -72,10 +77,11 @@ class ThrottledHypersyncClient:
     ``get_height``) through a shared :py:class:`pyrate_limiter.Limiter`
     with an SQLite-backed token bucket.
 
-    ``recv()`` is intentionally **not** throttled.  The Rust client
-    manages its own HTTP pagination and internal 429 retries within an
-    open stream — adding a Python-side delay on ``recv()`` only slows
-    down buffer reads without reducing actual API load.
+    ``recv()`` is intentionally **not** throttled — adding a
+    Python-side delay on ``recv()`` only slows down buffer reads
+    without reducing actual API load.  Internal Rust retries are
+    disabled (``max_num_retries=0``) so 429 errors surface
+    immediately to the Python-side retry logic.
 
     .. note::
 
@@ -180,14 +186,22 @@ def create_throttled_hypersync_client(
         A :py:class:`ThrottledHypersyncClient` wrapping a native
         ``HypersyncClient``.
     """
+
+    # Disable Rust-side retries so 429 errors surface immediately to
+    # Python-side retry logic. The caller's backoff loop handles
+    # retries with durable progress saves between attempts.
+    if config.max_num_retries is None:
+        config.max_num_retries = DEFAULT_HYPERSYNC_MAX_NUM_RETRIES
+
     client = hypersync.HypersyncClient(config)
 
     if limiter is None:
         limiter = _create_limiter(requests_per_minute)
 
     logger.info(
-        "Created throttled Hypersync client: url=%s, rpm=%d",
+        "Created throttled Hypersync client: url=%s, rpm=%d, max_retries=%s",
         config.url,
         requests_per_minute,
+        config.max_num_retries,
     )
     return ThrottledHypersyncClient(client, limiter)
