@@ -154,17 +154,13 @@ def _assert_receipts_match(receipts: dict[str, dict], tx_hash_hex: str) -> None:
         block_hash = receipt.get("blockHash", "").lower()
 
         if receipt_tx_hash != expected_tx_hash:
-            raise ReceiptVisibilityMismatch(
-                f"Provider {label} returned receipt for transaction {receipt_tx_hash}, expected {expected_tx_hash}"
-            )
+            raise ReceiptVisibilityMismatch(f"Provider {label} returned receipt for transaction {receipt_tx_hash}, expected {expected_tx_hash}")
 
         if reference_block_hash is None:
             reference_label = label
             reference_block_hash = block_hash
         elif block_hash != reference_block_hash:
-            raise ReceiptVisibilityMismatch(
-                f"Provider {label} returned blockHash {block_hash}, but provider {reference_label} returned {reference_block_hash}"
-            )
+            raise ReceiptVisibilityMismatch(f"Provider {label} returned blockHash {block_hash}, but provider {reference_label} returned {reference_block_hash}")
 
 
 def _get_insufficient_confirmations(
@@ -451,6 +447,4 @@ def wait_for_transaction_receipt_robust(
         last_errors,
         last_insufficient_confirmations,
     )
-    raise ReceiptVisibilityTimedOut(
-        f"Timed out after {timeout} seconds waiting for receipt {tx_hash_hex} on all read providers. Missing providers: {detail}.{extra}"
-    )
+    raise ReceiptVisibilityTimedOut(f"Timed out after {timeout} seconds waiting for receipt {tx_hash_hex} on all read providers. Missing providers: {detail}.{extra}")
