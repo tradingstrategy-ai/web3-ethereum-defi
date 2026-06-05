@@ -34,20 +34,18 @@ class RoycoAssetClaims:
 
     Royco tranche vaults return this struct from ``totalAssets()``,
     ``convertToAssets(uint256)``, ``previewRedeem(uint256)`` and ``redeem(...)``.
-
-    :ivar st_assets:
-        Claim on senior tranche assets in tranche units.
-
-    :ivar jt_assets:
-        Claim on junior tranche assets in tranche units.
-
-    :ivar nav:
-        Net asset value in raw Royco NAV units. Use the vault share token's
-        :py:class:`eth_defi.token.TokenDetails` to convert this to decimals.
     """
 
+    #: Claim on senior tranche assets in tranche units.
     st_assets: int
+
+    #: Claim on junior tranche assets in tranche units.
     jt_assets: int
+
+    #: Net asset value in raw Royco NAV units.
+    #:
+    #: Use the vault share token's :py:class:`eth_defi.token.TokenDetails` to
+    #: convert this to decimals.
     nav: int
 
 

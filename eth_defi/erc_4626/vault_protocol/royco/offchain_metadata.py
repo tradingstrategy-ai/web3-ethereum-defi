@@ -44,57 +44,44 @@ DEFAULT_ROYCO_API_KEY = "ROYCO_DEMO"
 
 
 class RoycoOffchainVaultMetadata(TypedDict):
-    """Royco offchain vault metadata.
+    """Royco offchain vault metadata."""
 
-    :ivar source:
-        API source that produced the row: ``vault_explore`` or ``market_explore``.
-
-    :ivar chain_id:
-        EVM chain id.
-
-    :ivar vault_address:
-        Vault contract address to scan.
-
-    :ivar underlying_vault_address:
-        Underlying vault address for Royco Vault Market wrappers, when supplied.
-
-    :ivar name:
-        Royco display name.
-
-    :ivar description:
-        Royco description text.
-
-    :ivar is_active:
-        Whether the market row is active. Royco Vault product rows do not expose
-        this flag and use ``None``.
-
-    :ivar is_verified:
-        Whether Royco marks the row verified.
-
-    :ivar tvl_usd:
-        Royco's USD TVL snapshot.
-
-    :ivar share_price:
-        Royco's share price string for Royco Vault product rows.
-
-    :ivar last_updated:
-        API row last-updated timestamp.
-
-    :ivar raw:
-        Original API row.
-    """
-
+    #: API source that produced the row.
     source: Literal["vault_explore", "market_explore"]
+
+    #: EVM chain id.
     chain_id: int
+
+    #: Vault contract address to scan.
     vault_address: HexAddress
+
+    #: Underlying vault address for Royco Vault Market wrappers, when supplied.
     underlying_vault_address: HexAddress | None
+
+    #: Royco display name.
     name: str
+
+    #: Royco description text.
     description: str | None
+
+    #: Whether the market row is active.
+    #:
+    #: Royco Vault product rows do not expose this flag and use ``None``.
     is_active: bool | None
+
+    #: Whether Royco marks the row verified.
     is_verified: bool
+
+    #: Royco's USD TVL snapshot.
     tvl_usd: float | None
+
+    #: Royco's share price string for Royco Vault product rows.
     share_price: str | None
+
+    #: API row last-updated timestamp.
     last_updated: str | None
+
+    #: Original API row.
     raw: dict[str, Any]
 
 
