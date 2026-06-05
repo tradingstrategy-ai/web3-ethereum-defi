@@ -513,6 +513,10 @@ class HyperliquidTradeHistoryDatabase:
             if own_bar and progress is not None:
                 progress.close()
 
+        # Always update sync state so resume logic knows this window was scanned,
+        # even when the API returned zero fills.
+        self._update_sync_state_fills(addr)
+
         logger.info("Synced %d new fills for %s (fetched %d)", total_inserted, addr, total_fetched)
         return total_inserted
 
@@ -669,6 +673,10 @@ class HyperliquidTradeHistoryDatabase:
             if own_bar and progress is not None:
                 progress.close()
 
+        # Always update sync state so resume logic knows this window was scanned,
+        # even when the API returned zero funding payments.
+        self._update_sync_state_funding(addr)
+
         logger.info("Synced %d new funding payments for %s (fetched %d)", total_inserted, addr, total_fetched)
         return total_inserted
 
@@ -819,6 +827,10 @@ class HyperliquidTradeHistoryDatabase:
         finally:
             if own_bar and progress is not None:
                 progress.close()
+
+        # Always update sync state so resume logic knows this window was scanned,
+        # even when the API returned zero ledger events.
+        self._update_sync_state_ledger(addr)
 
         logger.info("Synced %d new ledger events for %s (fetched %d)", total_inserted, addr, total_fetched)
         return total_inserted

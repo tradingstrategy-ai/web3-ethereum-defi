@@ -204,9 +204,8 @@ def test_trade_history_sync_resume(session, tmp_path):
         db.save()
 
         first_state = db.get_sync_state(ACTIVE_ACCOUNT)
+        assert "fills" in first_state, "sync_state should be recorded even for empty windows"
         first_count = first_state["fills"]["row_count"]
-        first_newest = first_state["fills"]["newest_ts"]
-        assert first_count > 0, "First sync produced no fills"
 
         # Read first-run fills for comparison
         first_fills = db.get_fills(ACTIVE_ACCOUNT)
@@ -221,8 +220,12 @@ def test_trade_history_sync_resume(session, tmp_path):
         # Should have same or more fills (new data added)
         assert second_count >= first_count, f"Expected >= {first_count} fills, got {second_count}"
 
-        # Newest timestamp should be >= first run
-        assert second_state["fills"]["newest_ts"] >= first_newest
+        # Full window should have some fills even if the first sub-window was empty
+        assert second_count > 0, "Expected fills in the full 7-day window"
+
+        # Newest timestamp should advance or appear after resume
+        if first_state["fills"]["newest_ts"] is not None:
+            assert second_state["fills"]["newest_ts"] >= first_state["fills"]["newest_ts"]
 
         # Original fills should still be present (no data loss)
         second_fills = db.get_fills(ACTIVE_ACCOUNT)
