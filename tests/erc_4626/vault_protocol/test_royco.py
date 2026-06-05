@@ -69,6 +69,11 @@ def test_zerolend_royco_vault(
     ZeroLend RWA USDC vault wrapped by Royco.
     This vault has both zerolend_like and royco_like features.
     https://etherscan.io/address/0x887d57a509070a0843c6418eb5cffc090dcbbe95
+
+    1. Create a vault instance using ERC-4626 autodetection.
+    2. Verify the more specific ZeroLend adapter is selected.
+    3. Verify Royco and ZeroLend feature flags are both present.
+    4. Check basic fee, link, deposit, redeem and capability metadata.
     """
 
     vault = create_vault_instance_autodetect(
@@ -105,7 +110,12 @@ def test_zerolend_royco_vault(
 
 
 def test_royco_tranche_redeem_topic_is_withdraw():
-    """Royco tranche custom Redeem event is treated as a withdrawal lead."""
+    """Royco tranche custom Redeem event is treated as a withdrawal lead.
+
+    1. Build Royco tranche discovery events.
+    2. Derive the custom ``Redeem`` event topic.
+    3. Verify the topic is mapped to a withdrawal event kind.
+    """
     web3 = Web3()
     royco_events = get_royco_tranche_discovery_events(web3)
     redeem_topic = get_topic_signature_from_event(royco_events[0])
@@ -117,19 +127,23 @@ def test_royco_tranche_redeem_topic_is_withdraw():
 
 @flaky.flaky
 @pytest.mark.parametrize(
-    ("vault_address", "tranche_type", "expected_nav", "expected_share_price"),
+    ("vault_address", "tranche_type", "expected_nav", "expected_share_price", "expected_total_supply", "expected_max_deposit"),
     [
         (
             ROYCO_JUNIOR_TRANCHE,
             1,
             Decimal("112977.546343749885828324"),
             Decimal("1.011041852920180597"),
+            Decimal("111743.688965435143396373"),
+            Decimal("1.157920892373161954235709850E+71"),
         ),
         (
             ROYCO_SENIOR_TRANCHE,
             0,
             Decimal("904838.104129907413558521"),
             Decimal("1.004272285312968733"),
+            Decimal("900988.822815045705371738"),
+            Decimal("110030.837687"),
         ),
     ],
 )
@@ -139,8 +153,17 @@ def test_royco_tranche_vault(
     tranche_type: int,
     expected_nav: Decimal,
     expected_share_price: Decimal,
+    expected_total_supply: Decimal,
+    expected_max_deposit: Decimal,
 ):
-    """Read Royco senior/junior tranche values using tuple-aware adapters."""
+    """Read Royco senior/junior tranche values using tuple-aware adapters.
+
+    1. Create a vault instance via ERC-4626 autodetection.
+    2. Verify protocol name, feature flags and tranche type.
+    3. Fetch and assert current NAV and share price.
+    4. Exercise historical reader multicalls at the pinned fork block.
+    5. Assert historical values exactly for the fixed Anvil fork.
+    """
     vault = create_vault_instance_autodetect(
         royco_tranche_web3,
         vault_address=vault_address,
@@ -169,13 +192,18 @@ def test_royco_tranche_vault(
     assert vault_read.block_number == ROYCO_TRANCHE_BLOCK
     assert vault_read.share_price == expected_share_price
     assert vault_read.total_assets == expected_nav
-    assert vault_read.total_supply > Decimal(0)
-    assert vault_read.max_deposit >= Decimal(0)
+    assert vault_read.total_supply == expected_total_supply
+    assert vault_read.max_deposit == expected_max_deposit
     assert vault_read.errors is None
 
 
 def test_royco_offchain_metadata_cache(tmp_path: Path):
-    """Fetch Royco metadata from both first-party vault API surfaces."""
+    """Fetch Royco metadata from both first-party vault API surfaces.
+
+    1. Mock Royco ``vault/explore`` and ``market/explore`` API responses.
+    2. Fetch and merge Royco metadata through the cache helper.
+    3. Verify both API surfaces are normalised by checksum vault address.
+    """
     vault_response = Mock()
     vault_response.raise_for_status.return_value = None
     vault_response.json.return_value = {

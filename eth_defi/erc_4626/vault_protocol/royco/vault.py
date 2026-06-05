@@ -301,7 +301,8 @@ class RoycoTrancheVault(RoycoVault):
         Senior and junior tranche implementations expose the same external
         function/event surface for scanner purposes. We use the senior ABI as
         the shared runtime interface while storing both verified implementation
-        ABIs under ``eth_defi/abi/royco``.
+        ABIs under ``eth_defi/abi/royco``. See ``eth_defi/abi/royco/README.md``
+        for provenance notes.
         """
         return get_deployed_erc_4626_contract(
             self.web3,
@@ -351,7 +352,7 @@ class RoycoTrancheVault(RoycoVault):
         claims = self.fetch_asset_claims(block_identifier)
         return _convert_nav_to_decimal(claims.nav, self.share_token)
 
-    def fetch_nav(self, block_identifier=None) -> Decimal:
+    def fetch_nav(self, block_identifier: BlockIdentifier | None = None) -> Decimal:
         """Fetch current tranche NAV from Royco ``AssetClaims.nav``.
 
         :param block_identifier:
@@ -360,7 +361,9 @@ class RoycoTrancheVault(RoycoVault):
         :return:
             Vault NAV in Royco NAV units.
         """
-        return self.fetch_total_assets(block_identifier or "latest")
+        if block_identifier is None:
+            block_identifier = "latest"
+        return self.fetch_total_assets(block_identifier)
 
     def fetch_share_price(self, block_identifier: BlockIdentifier) -> Decimal:
         """Fetch share price from ``convertToAssets(1 share).nav``.

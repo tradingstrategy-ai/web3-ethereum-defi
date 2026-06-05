@@ -40,6 +40,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    enzyme/index
    lagoon/index
    ipor/index
+   royco/index
    velvet/index
    morpho/index
    erc_7540/index
