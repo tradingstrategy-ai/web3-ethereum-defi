@@ -18,12 +18,11 @@ from eth_defi.erc_4626.vault_protocol.royco.offchain_metadata import (
 )
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.token import TokenDetails
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 
 logger = logging.getLogger(__name__)
 
-NAV_UNIT_DECIMALS = 18
-NAV_UNIT_SCALE = Decimal(10) ** NAV_UNIT_DECIMALS
 EVM_WORD_BYTES = 32
 ASSET_CLAIMS_WORDS = 3
 ASSET_CLAIMS_BYTES = EVM_WORD_BYTES * ASSET_CLAIMS_WORDS
@@ -43,8 +42,8 @@ class RoycoAssetClaims:
         Claim on junior tranche assets in tranche units.
 
     :ivar nav:
-        Net asset value in Royco NAV units. The contract documents NAV units as
-        WAD precision, so callers should divide by ``1e18``.
+        Net asset value in raw Royco NAV units. Use the vault share token's
+        :py:class:`eth_defi.token.TokenDetails` to convert this to decimals.
     """
 
     st_assets: int
@@ -81,9 +80,25 @@ def _parse_asset_claims(value: tuple[int, int, int] | list[int] | bytes) -> Royc
     )
 
 
-def _convert_nav_to_decimal(raw_nav: int) -> Decimal:
-    """Convert Royco WAD precision NAV units to a decimal value."""
-    return Decimal(raw_nav) / NAV_UNIT_SCALE
+def _convert_nav_to_decimal(raw_nav: int, nav_unit_token: TokenDetails) -> Decimal:
+    """Convert Royco raw NAV units to a decimal value.
+
+    Royco's ABI exposes NAV values as ``NAV_UNIT`` instead of a plain ERC-20
+    asset amount. For the currently deployed tranche contracts, this unit uses
+    the tranche share token precision, while the denomination token may have a
+    different number of decimals. Use :py:class:`eth_defi.token.TokenDetails`
+    for the conversion so the reader does not hardcode token precision.
+
+    :param raw_nav:
+        Raw ``NAV_UNIT`` integer from ``AssetClaims.nav``.
+
+    :param nav_unit_token:
+        Token details that define the NAV unit decimal precision.
+
+    :return:
+        Decimal NAV value.
+    """
+    return nav_unit_token.convert_to_decimals(raw_nav)
 
 
 class RoycoTrancheHistoricalReader(ERC4626HistoricalReader):
@@ -125,17 +140,17 @@ class RoycoTrancheHistoricalReader(ERC4626HistoricalReader):
         if total_assets_result is None:
             errors.append("total_assets call missing")
             total_assets = None
-        elif total_assets_result.success:
+        elif total_assets_result.success and share_token is not None:
             total_claims = _parse_asset_claims(total_assets_result.result)
-            total_assets = _convert_nav_to_decimal(total_claims.nav)
+            total_assets = _convert_nav_to_decimal(total_claims.nav, share_token)
         else:
             errors.append("total_assets call failed")
             total_assets = None
 
         convert_to_assets_result = call_by_name.get("convertToAssets")
-        if convert_to_assets_result is not None and convert_to_assets_result.success:
+        if convert_to_assets_result is not None and convert_to_assets_result.success and share_token is not None:
             share_claims = _parse_asset_claims(convert_to_assets_result.result)
-            share_price = _convert_nav_to_decimal(share_claims.nav)
+            share_price = _convert_nav_to_decimal(share_claims.nav, share_token)
 
             if convert_to_assets_result.state is not None:
                 convert_to_assets_result.state.on_called(
@@ -269,9 +284,11 @@ class RoycoTrancheVault(RoycoVault):
       the standard ERC-4626 ``Withdraw`` event
     - ``TRANCHE_TYPE()`` returns ``0`` for senior and ``1`` for junior
 
-    The canonical value for vault price history is ``AssetClaims.nav`` in WAD
-    precision. The standard ERC-4626 reader only decodes the first tuple word,
-    so this class provides tuple-aware current and historical readers.
+    The canonical value for vault price history is ``AssetClaims.nav`` in Royco
+    ``NAV_UNIT`` precision. The standard ERC-4626 reader only decodes the first
+    tuple word, so this class provides tuple-aware current and historical
+    readers and converts raw NAV values through the tranche token
+    :py:class:`eth_defi.token.TokenDetails`.
 
     Examples:
 
@@ -325,7 +342,7 @@ class RoycoTrancheVault(RoycoVault):
 
         Royco's ``totalAssets()`` does not return a single ERC-4626 asset
         amount. It returns ``AssetClaims`` where ``nav`` is the full net asset
-        value in WAD precision.
+        value in Royco ``NAV_UNIT`` precision.
 
         :param block_identifier:
             Block to query.
@@ -334,7 +351,7 @@ class RoycoTrancheVault(RoycoVault):
             Vault NAV in Royco NAV units.
         """
         claims = self.fetch_asset_claims(block_identifier)
-        return _convert_nav_to_decimal(claims.nav)
+        return _convert_nav_to_decimal(claims.nav, self.share_token)
 
     def fetch_nav(self, block_identifier=None) -> Decimal:
         """Fetch current tranche NAV from Royco ``AssetClaims.nav``.
@@ -358,4 +375,4 @@ class RoycoTrancheVault(RoycoVault):
         """
         raw_claims = self.vault_contract.functions.convertToAssets(self.share_token.convert_to_raw(Decimal(1))).call(block_identifier=block_identifier)
         claims = _parse_asset_claims(raw_claims)
-        return _convert_nav_to_decimal(claims.nav)
+        return _convert_nav_to_decimal(claims.nav, self.share_token)
