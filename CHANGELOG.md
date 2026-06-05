@@ -1,5 +1,7 @@
 # Current
 
+- feat: Add Ostium V1.5 async settlement-based deposit/withdrawal support with version auto-detection, settlement-price analysis, and full test coverage for both V1 and V1.5 (2026-06-05)
+
 - feat: Add Royco senior/junior tranche vault support with custom Redeem event discovery, tuple-aware current and historical NAV readers, stored ABIs, and Royco offchain metadata fetching (2026-06-05)
 
 - feat: Add CrystalClear vault protocol — algorithmic trading vaults on HyperEVM that trade perpetuals on HyperCore, with hardcoded address detection, metadata, and Sphinx docs (2026-06-05)

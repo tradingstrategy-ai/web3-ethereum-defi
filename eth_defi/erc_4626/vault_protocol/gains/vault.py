@@ -20,10 +20,12 @@ Notes:
 """
 
 import datetime
+import enum
 import logging
 from functools import cached_property
 from typing import Iterable
 
+import eth_abi
 from web3 import Web3
 from web3.contract.contract import Contract
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
@@ -48,6 +50,20 @@ from eth_typing import BlockIdentifier
 from eth_defi.vault.risk import VaultTechnicalRisk
 
 logger = logging.getLogger(__name__)
+
+
+class OstiumVersion(enum.Enum):
+    """Ostium vault implementation version.
+
+    - V1: legacy epoch-based deposit/withdrawal (synchronous ``deposit()``, ``makeWithdrawRequest()``/``redeem()``)
+    - V1.5: async settlement-based flow (``requestDeposit()``/``claimDeposit()``, ``requestWithdraw()``/``claimWithdraw()``)
+    """
+
+    #: Legacy epoch-based deposit and withdrawal
+    v1 = "v1"
+
+    #: Settlement-based async deposit and withdrawal (upgraded 2026-04-28)
+    v1_5 = "v1_5"
 
 
 class GainsHistoricalReader(ERC4626HistoricalReader):
@@ -163,6 +179,43 @@ class GainsHistoricalReader(ERC4626HistoricalReader):
             max_deposit=max_deposit,
             deposits_open=deposits_open,
             redemption_open=redemption_open,
+        )
+
+
+class OstiumV15HistoricalReader(ERC4626HistoricalReader):
+    """Read Ostium V1.5 vault data using only core ERC-4626 multicalls.
+
+    V1.5 deprecates ``currentMaxSupply()`` and ``nextEpochValuesRequestCount()``,
+    so the Gains-specific epoch calls are skipped. In V1.5, ``requestDeposit()``
+    and ``requestWithdraw()`` are always available (caps enforced at settlement),
+    so both deposits and redemptions are reported as open.
+    """
+
+    def construct_multicalls(self) -> Iterable[EncodedCall]:
+        yield from self.construct_core_erc_4626_multicall()
+
+    def process_result(
+        self,
+        block_number: int,
+        timestamp: datetime.datetime,
+        call_results: list[EncodedCallResult],
+    ) -> VaultHistoricalRead:
+        call_by_name = self.dictify_multicall_results(block_number, call_results)
+        share_price, total_supply, total_assets, errors, max_deposit = self.process_core_erc_4626_result(call_by_name)
+
+        return VaultHistoricalRead(
+            vault=self.vault,
+            block_number=block_number,
+            timestamp=timestamp,
+            share_price=share_price,
+            total_assets=total_assets,
+            total_supply=total_supply,
+            performance_fee=None,
+            management_fee=None,
+            errors=errors or None,
+            max_deposit=max_deposit,
+            deposits_open=True,
+            redemption_open=True,
         )
 
 
@@ -518,8 +571,12 @@ class DominationFinanceVault(GainsVault):
 class OstiumVault(GainsVault):
     """Ostium vault is a Gains-like vault.
 
-    - OstiumVault.sol https://github.com/0xOstium/smart-contracts-public/blob/da3b944623bef814285b7f418d43e6a95f4ad4b1/src/OstiumVault.sol#L243
-    - OstiumVault on Arbitrum
+    Supports both V1 (legacy epoch-based) and V1.5 (async settlement-based) versions.
+    Version is auto-detected by probing ``targetSettlementId(bool)`` which only exists in V1.5.
+
+    - `OstiumVault V1.5 source <https://github.com/0xOstium/smart-contracts-public/blob/main/src/OstiumVault.sol>`__
+    - `OstiumVault V1 source <https://github.com/0xOstium/smart-contracts-public/blob/da3b944623bef814285b7f418d43e6a95f4ad4b1/src/OstiumVault.sol#L243>`__
+    - OstiumVault on Arbitrum https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98
     - OstiumOpenPnl https://arbiscan.io/address/0xe607ac9ff58697c5978afa1fc1c5c437a6d1858c
 
     What Ostium says:
@@ -529,15 +586,46 @@ class OstiumVault(GainsVault):
 
     @property
     def name(self) -> str:
-        return f"Ostium Liquidity Pool Vault"
+        return "Ostium Liquidity Pool Vault"
+
+    @cached_property
+    def version(self) -> OstiumVersion:
+        """Detect Ostium vault implementation version.
+
+        Probes ``targetSettlementId(bool)`` which only exists in V1.5.
+        Uses raw keccak call to avoid ABI dependency (since ABI selection depends on version).
+
+        Respects ``default_block_identifier`` so that archive-backed instances
+        created at a pre-upgrade block correctly detect V1.
+        """
+        target_settlement_call = EncodedCall.from_keccak_signature(
+            address=self.address,
+            signature=Web3.keccak(text="targetSettlementId(bool)")[0:4],
+            function="targetSettlementId",
+            data=eth_abi.encode(["bool"], [True]),
+            extra_data=None,
+        )
+
+        try:
+            target_settlement_call.call(
+                web3=self.web3,
+                block_identifier=self._get_block_identifier(),
+            )
+            return OstiumVersion.v1_5
+        except (ValueError, BadFunctionCallOutput):
+            return OstiumVersion.v1
 
     @cached_property
     def vault_contract(self) -> Contract:
-        """Get vault deployment."""
+        """Get vault deployment with version-appropriate ABI."""
+        if self.version == OstiumVersion.v1_5:
+            abi_fname = "gains/OstiumVaultV1_5.json"
+        else:
+            abi_fname = "gains/OstiumVault.json"
         return get_deployed_erc_4626_contract(
             self.web3,
             self.spec.vault_address,
-            abi_fname="gains/OstiumVault.json",
+            abi_fname=abi_fname,
         )
 
     @cached_property
@@ -545,12 +633,11 @@ class OstiumVault(GainsVault):
         """Get Ostium registry contract.
 
         - https://github.com/0xOstium/smart-contracts-public/blob/da3b944623bef814285b7f418d43e6a95f4ad4b1/src/OstiumRegistry.sol
-        -
         """
 
-        # OstiumVault has `registry()` call to get the registry address
+        # Use self.address (not self.vault_contract.address) to avoid ABI-loading dependency
         registry_call = EncodedCall.from_keccak_signature(
-            address=self.vault_contract.address,
+            address=self.address,
             signature=Web3.keccak(text="registry()")[0:4],
             function="registry",
             data=b"",
@@ -577,7 +664,7 @@ class OstiumVault(GainsVault):
     def open_pnl_contract(self) -> Contract:
         """Get OpenPNL contract.
 
-        - Needed for epoch calls
+        - Needed for epoch calls (V1 only)
         """
 
         ostium_registry = self.ostium_registry
@@ -590,7 +677,54 @@ class OstiumVault(GainsVault):
                 open_pnl_address,
             )
 
-        raise NotImplementedError(f"Does not know this Gains-like vault structure")
+        raise NotImplementedError("Does not know this Gains-like vault structure")
+
+    def get_deposit_manager(self):
+        """Return version-appropriate deposit manager."""
+        if self.version == OstiumVersion.v1_5:
+            from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import OstiumV15DepositManager
+
+            return OstiumV15DepositManager(self)
+
+        from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager
+
+        return GainsDepositManager(self)
+
+    def get_historical_reader(self, stateful) -> VaultHistoricalReader:
+        """Return version-appropriate historical reader."""
+        if self.version == OstiumVersion.v1_5:
+            return OstiumV15HistoricalReader(self, stateful)
+        return GainsHistoricalReader(self, stateful)
+
+    def fetch_deposit_closed_reason(self) -> str | None:
+        """Check if deposits are closed.
+
+        V1.5: ``deposit()`` always reverts with ``FunctionDisabled``, but deposits
+        are open via ``requestDeposit()``. The ``FunctionDisabled`` revert is expected
+        and should not be reported as closed.
+
+        V1: checks ``maxDeposit()`` and probes ``deposit()`` for ``FunctionDisabled``.
+        """
+        if self.version == OstiumVersion.v1_5:
+            # V1.5: deposits are always available via requestDeposit()
+            # maxDeposit() returns max uint (ERC-4626 spec violation) so no cap check
+            return None
+
+        return super().fetch_deposit_closed_reason()
+
+    def fetch_redemption_closed_reason(self) -> str | None:
+        """Check if redemptions are closed.
+
+        V1.5: ``requestWithdraw()`` can be called any time (settlement is separate).
+        The epoch-based ``nextEpochValuesRequestCount`` check no longer applies.
+
+        V1: epoch-based check via ``nextEpochValuesRequestCount``.
+        """
+        if self.version == OstiumVersion.v1_5:
+            # V1.5: requestWithdraw() is always available
+            return None
+
+        return super().fetch_redemption_closed_reason()
 
     @property
     def short_description(self) -> str | None:
@@ -598,4 +732,6 @@ class OstiumVault(GainsVault):
 
     @property
     def description(self) -> str | None:
+        if self.version == OstiumVersion.v1_5:
+            return "Users deposit USDC to mint OLP tokens via an async settlement flow. Deposits are queued via requestDeposit() and settled daily, after which shares can be claimed. Withdrawals follow the same pattern via requestWithdraw()/claimWithdraw(). Returns come from trading fees and trader PnL exposure. See [Ostium docs](https://docs.ostium.com) for details."
         return "Users deposit USDC to mint OLP tokens, representing a stake in a fund that generates returns through trading fees and trader PnL exposure. The vault operates on an epoch-based system (currently 3-day cycles) with two states: when undercollateralised (c-ratio < 100%), OLP holders act as direct counterparties to traders with higher fee capture but more volatility; when overcollateralised (c-ratio >= 100%), a buffer absorbs trader PnL first, insulating OLP from volatility. Fees include 30% of opening fees (continuous) and 100% of rollover/liquidation fees (end-of-epoch). Withdrawals require a request during the first 48 hours of an epoch, followed by a cool-off period before USDC redemption. See [Ostium vault documentation](https://ostium-labs.gitbook.io/ostium-docs/vault/overview) for more details."
