@@ -5,6 +5,7 @@
 - Supports BrinkVault DepositFunds/WithdrawFunds events
 - Supports EmberVault VaultDeposit/RequestRedeemed events
 - Supports TokenGateway Deposit(5-arg)/RedeemRequested/RedeemTokenGatewayDepreciated events
+- Supports Royco tranche Redeem event
 """
 
 import abc
@@ -14,16 +15,15 @@ import enum
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Type, Iterable
+from typing import Type
 
+from eth_typing import HexAddress
 from web3.contract.contract import ContractEvent
 
 from eth_defi.abi import get_contract
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import probe_vaults
 from eth_defi.erc_4626.core import get_erc_4626_contract, ERC4626Feature, ERC4262VaultDetection
-from eth_typing import HexAddress
-
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
@@ -85,6 +85,23 @@ def get_token_gateway_event_contract(web3):
     return get_contract(
         web3,
         "token_gateway/ITokenGatewayEvents.json",
+    )
+
+
+def get_royco_tranche_event_contract(web3):
+    """Get Royco tranche interface for custom redemption events.
+
+    Royco senior/junior tranche vaults use the standard ERC-4626 ``Deposit``
+    event topic, but do not emit the standard ERC-4626 ``Withdraw`` event.
+    Instead, redemptions use:
+
+    - ``Redeem(address indexed sender, address indexed receiver, (uint256,uint256,uint256) claims, uint256 shares)``
+
+    `Etherscan example <https://etherscan.io/address/0x1ba515a409dd702105415cdaae439059aa0b402a>`__.
+    """
+    return get_contract(
+        web3,
+        "royco/RoycoSeniorTranche.json",
     )
 
 
@@ -166,6 +183,24 @@ def get_token_gateway_discovery_events(web3) -> list[Type[ContractEvent]]:
     ]
 
 
+def get_royco_tranche_discovery_events(web3) -> list[Type[ContractEvent]]:
+    """Get Royco tranche events we use in vault discovery.
+
+    Royco tranche vaults are almost ERC-4626:
+
+    - ``Deposit(address,address,uint256,uint256)`` matches standard ERC-4626
+    - ``Redeem(address,address,(uint256,uint256,uint256),uint256)`` replaces
+      the standard ``Withdraw`` event
+
+    Only the custom redemption event is returned here because the deposit event
+    is already covered by :py:func:`get_standard_erc_4626_vault_discovery_events`.
+    """
+    IRoycoTranche = get_royco_tranche_event_contract(web3)
+    return [
+        IRoycoTranche.events.Redeem,
+    ]
+
+
 def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get all events used in vault discovery, including protocol-specific ones.
 
@@ -174,14 +209,16 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     - BrinkVault DepositFunds/WithdrawFunds events
     - EmberVault VaultDeposit/RequestRedeemed events
     - TokenGateway Deposit(5-arg)/RedeemRequested/RedeemTokenGatewayDepreciated events
+    - Royco tranche Redeem event
 
     :return:
         List of contract event types in order:
         [ERC4626.Deposit, ERC4626.Withdraw, BrinkVault.Deposited, BrinkVault.Withdrawal,
          EmberVault.VaultDeposit, EmberVault.RequestRedeemed,
-         TokenGateway.Deposit, TokenGateway.RedeemRequested, TokenGateway.RedeemTokenGatewayDepreciated]
+         TokenGateway.Deposit, TokenGateway.RedeemRequested, TokenGateway.RedeemTokenGatewayDepreciated,
+         RoycoTranche.Redeem]
     """
-    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3)
+    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3)
 
 
 def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
@@ -198,6 +235,7 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
     brink_events = get_brink_vault_discovery_events(web3)
     ember_events = get_ember_vault_discovery_events(web3)
     token_gateway_events = get_token_gateway_discovery_events(web3)
+    royco_tranche_events = get_royco_tranche_discovery_events(web3)
 
     return {
         get_topic_signature_from_event(erc4626_events[0]): VaultEventKind.deposit,
@@ -209,6 +247,7 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
         get_topic_signature_from_event(token_gateway_events[0]): VaultEventKind.deposit,
         get_topic_signature_from_event(token_gateway_events[1]): VaultEventKind.withdraw,
         get_topic_signature_from_event(token_gateway_events[2]): VaultEventKind.withdraw,
+        get_topic_signature_from_event(royco_tranche_events[0]): VaultEventKind.withdraw,
     }
 
 

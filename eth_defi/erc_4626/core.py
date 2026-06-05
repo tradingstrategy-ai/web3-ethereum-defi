@@ -365,6 +365,12 @@ class ERC4626Feature(enum.Enum):
     #: https://royco.org/
     royco_like = "royco_like"
 
+    #: Royco tranche vaults
+    #:
+    #: Senior/junior tranche vaults with Royco ``AssetClaims`` tuple accounting.
+    #: https://royco.org/
+    royco_tranche_like = "royco_tranche_like"
+
     #: ZeroLend
     #:
     #: Multi-chain DeFi lending protocol built on Layer 2 solutions, based on Aave V3.
@@ -792,6 +798,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.zerolend_like in features:
         return "ZeroLend"
+
+    elif ERC4626Feature.royco_tranche_like in features:
+        return "Royco"
 
     elif ERC4626Feature.royco_like in features:
         return "Royco"
