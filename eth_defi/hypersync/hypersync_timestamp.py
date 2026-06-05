@@ -273,11 +273,20 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
     end_block: int,
     cache_path=DEFAULT_TIMESTAMP_CACHE_FOLDER,
     display_progress: bool = True,
-    checkpoint_freq: int = 1_250_000_000,
+    chunk_size: int = 100_000,
 ) -> BlockTimestampSlicer:
     """Quickly get block timestamps using Hypersync API and a local cache file.
 
     - Ultra fast, used optimised Hypersync streaming and DuckDB local cache.
+    - Large ranges are split into chunks of *chunk_size* blocks so that
+      each chunk opens a separate Hypersync ``stream()`` call.  This keeps
+      individual requests small, lets the Python-side rate limiter pace
+      them, and — crucially — saves progress after each chunk so that a
+      429 failure only loses the current chunk, not all prior work.
+
+    :param chunk_size:
+        Maximum number of blocks per Hypersync streaming request.
+        Defaults to 100 000 (~2 days on Polygon, ~3 days on Binance).
 
     :return:
         Block number -> datetime mapping
@@ -290,124 +299,162 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
 
     first_read_block, last_read_block = timestamp_db.get_first_and_last_block()
 
-    logger.info(f"Timestamp cache {cache_path} for chain {chain_id}: blocks {first_read_block} - {last_read_block}")
+    logger.info(
+        "Chain %d: timestamp cache has blocks %s - %s (%s entries), caller wants %s - %s",
+        chain_id,
+        f"{first_read_block:,}" if first_read_block else "None",
+        f"{last_read_block:,}" if last_read_block else "None",
+        f"{timestamp_db.get_count():,}",
+        f"{start_block:,}",
+        f"{end_block:,}",
+    )
+
+    # Build (start, end) pairs for blocks we need to fetch.
+    # Head and tail are computed separately so a partial backfill
+    # followed by a 429 doesn't leave permanent holes on retry.
+    fetch_ranges: list[tuple[int, int]] = []
 
     if last_read_block:
-        # Check the range we need to map out, we might ask earlier blocks than before
         if start_block < first_read_block:
-            scan_start = start_block
-        else:
-            # +1 to avoid re-fetching the last cached block
-            scan_start = last_read_block + 1
+            fetch_ranges.append((start_block, first_read_block - 1))
+        if end_block > last_read_block:
+            fetch_ranges.append((last_read_block + 1, end_block))
+
+        # Detect interior gaps (e.g. from a partial backfill that saved
+        # blocks 1-99 then got a 429, leaving a hole at 100-999).
+        # Clip each gap to the requested range since we only care about
+        # the intersection.
+        for gap_start, gap_end, _count in timestamp_db.find_gaps():
+            clip_start = max(start_block, gap_start + 1)
+            clip_end = min(end_block, gap_end - 1)
+            if clip_start <= clip_end:
+                fetch_ranges.append((clip_start, clip_end))
     else:
-        scan_start = start_block
+        fetch_ranges.append((start_block, end_block))
 
-    logger.info(f"Adjusted timestamp scan range for chain {chain_id}: blocks {scan_start:,} - {end_block:,} (delta {end_block - scan_start:,} blocks)")
+    total_to_fetch = sum(e - s + 1 for s, e in fetch_ranges)
 
-    def _save():
-        series = pd.Series(data=values, index=index)
-        timestamp_db.import_chain_data(
-            chain_id,
-            series,
-        )
+    if not fetch_ranges:
+        logger.info("Chain %d: cache fully covers requested range, nothing to fetch", chain_id)
+        return timestamp_db.get_slicer()
 
-    # Check if we have anything to read
-    checkpoint_count = 0
+    # Validate chain_id once before streaming
+    if is_hypersync_client(client):
+        await _validate_hypersync_chain_id_async(client, chain_id, reason="timestamp-cache-validate")
 
-    index = []
-    values = []
+    # Split ranges into chunks — each opens a separate stream() call
+    # so the Python-side throttle can pace requests, and progress is
+    # saved after each chunk.
+    all_chunks: list[tuple[int, int]] = []
+    for range_start, range_end in fetch_ranges:
+        for cs in range(range_start, range_end + 1, chunk_size):
+            all_chunks.append((cs, min(cs + chunk_size - 1, range_end)))
 
-    needs_head = start_block < first_read_block
-    needs_tail = end_block > last_read_block
+    n_chunks = len(all_chunks)
+    logger.info(
+        "Chain %d: fetching %s blocks in %d chunk(s) across %d range(s)",
+        chain_id,
+        f"{total_to_fetch:,}",
+        n_chunks,
+        len(fetch_ranges),
+    )
 
-    if needs_head or needs_tail:
-        # Validate chain_id only when we actually need to fetch from Hypersync.
-        # Skipped on warm cache hits to avoid wasting API quota.
-        if is_hypersync_client(client):
-            await _validate_hypersync_chain_id_async(client, chain_id, reason="timestamp-cache-validate")
+    empty_chunks = 0
+    for chunk_idx, (chunk_start, chunk_end) in enumerate(all_chunks):
+        index = []
+        values = []
 
-        iter = get_block_timestamps_using_hypersync_async(
+        async for block_header in get_block_timestamps_using_hypersync_async(
             client,
             chain_id,
-            start_block=scan_start,
-            end_block=end_block,
+            start_block=chunk_start,
+            end_block=chunk_end,
             display_progress=display_progress,
-            validate_chain_id=False,  # Already validated above
-            reason="timestamp-cache-fill",
-        )
-
-        async for block_header in iter:
+            validate_chain_id=False,
+            reason=f"timestamp-cache-fill chunk {chunk_idx + 1}/{n_chunks}",
+        ):
             index.append(block_header.block_number)
             values.append(block_header.timestamp)
 
-            # result[block_header.block_number] = pd.to_datetime(block_header.timestamp, unit="s")
-            checkpoint_count += 1
-
-            if checkpoint_count % checkpoint_freq == 0:
-                _save()
-                # Reset buffer
-                index = []
-                values = []
-
-        _save()
-
-        # Detect and heal any gaps left by silently dropped HyperSync batches.
-        # On fast chains like Monad, HyperSync can skip entire ~9,000-block
-        # streaming batches without raising errors.
-        max_heal_attempts = 3
-        for heal_attempt in range(max_heal_attempts):
-            gaps = timestamp_db.find_gaps()
-            # Only heal gaps within our scan range
-            gaps = [(s, e, n) for s, e, n in gaps if s >= scan_start and e <= end_block]
-            if not gaps:
-                break
-
-            # Back off before each healing pass to let Hypersync rate limits
-            # recover.  Without this, gap healing immediately re-hammers the
-            # API after a 429-induced drop, turning a transient rate limit
-            # into a cascading failure.
-            if heal_attempt > 0:
-                heal_backoff = 30 * (2**heal_attempt)  # 60s, 120s
-                logger.info("Backing off %d seconds before gap-heal attempt %d/%d", heal_backoff, heal_attempt + 1, max_heal_attempts)
-                await asyncio.sleep(heal_backoff)
-
-            total_missing = sum(g[2] for g in gaps)
-            logger.warning(
-                "HyperSync dropped %d blocks across %d gaps in range %d-%d (heal attempt %d/%d), re-fetching",
-                total_missing,
-                len(gaps),
-                scan_start,
-                end_block,
-                heal_attempt + 1,
-                max_heal_attempts,
+        # Save after each chunk so progress is durable
+        if index:
+            timestamp_db.import_chain_data(chain_id, pd.Series(data=values, index=index))
+            logger.info(
+                "Chain %d: chunk %d/%d saved %s blocks (%s - %s)",
+                chain_id,
+                chunk_idx + 1,
+                n_chunks,
+                f"{len(index):,}",
+                f"{chunk_start:,}",
+                f"{chunk_end:,}",
             )
-            for gap_start, gap_end, gap_size in gaps:
+        else:
+            empty_chunks += 1
+
+    # If Hypersync returned zero rows for any chunk, the blocks are
+    # still missing but find_gaps() cannot detect head/tail gaps
+    # (no boundary blocks to define them). Treat this as a flaky
+    # error so the retry loop re-enters with a fresh cache check.
+    if empty_chunks:
+        raise HypersyncFlaky(f"Chain {chain_id}: Hypersync returned 0 rows for {empty_chunks}/{n_chunks} chunks")
+
+    # Heal gaps left by silently dropped HyperSync batches.
+    # On fast chains like Monad, HyperSync can skip entire ~9,000-block
+    # streaming batches without raising errors.
+    scan_start = min(s for s, _ in fetch_ranges)
+    scan_end = max(e for _, e in fetch_ranges)
+    max_heal_attempts = 3
+
+    for heal_attempt in range(max_heal_attempts):
+        gaps = timestamp_db.find_gaps()
+        # Clip gaps to our scan range — don't heal the full database
+        # gap when we only need a subset.
+        clipped_gaps: list[tuple[int, int]] = []
+        for s, e, _n in gaps:
+            clip_start = max(scan_start, s + 1)
+            clip_end = min(scan_end, e - 1)
+            if clip_start <= clip_end:
+                clipped_gaps.append((clip_start, clip_end))
+        if not clipped_gaps:
+            break
+
+        # Back off before re-heal to let rate limits recover
+        if heal_attempt > 0:
+            heal_backoff = 30 * (2**heal_attempt)
+            logger.info("Chain %d: backing off %ds before gap-heal attempt %d/%d", chain_id, heal_backoff, heal_attempt + 1, max_heal_attempts)
+            await asyncio.sleep(heal_backoff)
+
+        total_missing = sum(e - s + 1 for s, e in clipped_gaps)
+        logger.warning(
+            "Chain %d: %d blocks dropped across %d gaps (heal attempt %d/%d)",
+            chain_id,
+            total_missing,
+            len(clipped_gaps),
+            heal_attempt + 1,
+            max_heal_attempts,
+        )
+
+        # Chunk heal ranges the same way as initial fetches
+        for heal_start, heal_end in clipped_gaps:
+            for hs in range(heal_start, heal_end + 1, chunk_size):
+                he = min(hs + chunk_size - 1, heal_end)
                 heal_index = []
                 heal_values = []
                 async for bh in get_block_timestamps_using_hypersync_async(
                     client,
                     chain_id,
-                    start_block=gap_start + 1,
-                    end_block=gap_end - 1,
+                    start_block=hs,
+                    end_block=he,
                     display_progress=False,
-                    validate_chain_id=False,  # Already validated above
+                    validate_chain_id=False,
                     reason=f"gap-heal-{heal_attempt + 1}/{max_heal_attempts}",
                 ):
                     heal_index.append(bh.block_number)
                     heal_values.append(bh.timestamp)
                 if heal_index:
-                    heal_series = pd.Series(data=heal_values, index=heal_index)
-                    timestamp_db.import_chain_data(chain_id, heal_series)
-                    logger.info("Healed gap %d-%d: inserted %d timestamps", gap_start + 1, gap_end - 1, len(heal_index))
-    else:
-        logger.info(
-            "Timestamp cache fully covers requested range %d-%d for chain %d, skipping Hypersync fetch",
-            start_block,
-            end_block,
-            chain_id,
-        )
+                    timestamp_db.import_chain_data(chain_id, pd.Series(data=heal_values, index=heal_index))
+                    logger.info("Chain %d: healed %d-%d (%d blocks)", chain_id, hs, he, len(heal_index))
 
-    # Drop unnecessary blocks from memory
     return timestamp_db.get_slicer()
 
 
@@ -420,7 +467,7 @@ def fetch_block_timestamps_using_hypersync_cached(
     display_progress: bool = True,
     attempts=5,
 ) -> BlockTimestampSlicer:
-    """Sync wrapper.
+    """Sync wrapper with retry and exponential backoff.
 
     See :py:func:`fetch_block_timestamps_using_hypersync_cached_async` for documentation.
 
@@ -440,14 +487,11 @@ def fetch_block_timestamps_using_hypersync_cached(
                     display_progress=display_progress,
                 )
             except HypersyncFlaky as e:
-                logger.warning(f"Hypersync flaky error on attempt {attempt + 1}/{attempts}: {e}")
+                logger.warning("Chain %d: Hypersync flaky on attempt %d/%d: %s", chain_id, attempt + 1, attempts, e)
                 if attempt + 1 >= attempts:
-                    logger.error("Exceeded maximum Hypersync attempts, failing: %s", e)
                     raise
-                # Exponential backoff: 30s, 60s, 120s, 240s to avoid hammering
-                # a rate-limited Hypersync endpoint
                 backoff = 30 * (2**attempt)
-                logger.info("Backing off %d seconds before retry", backoff)
+                logger.info("Chain %d: backing off %ds before retry %d/%d", chain_id, backoff, attempt + 2, attempts)
                 await asyncio.sleep(backoff)
 
     return asyncio.run(_hypersync_asyncio_wrapper())
