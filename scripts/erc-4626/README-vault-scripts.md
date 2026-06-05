@@ -460,6 +460,47 @@ source .local-test.env && poetry run python scripts/erc-4626/heal-broken-vaults.
 | `JSON_RPC_<CHAIN>` | Required per chain with broken vaults. |
 | `LOG_LEVEL` | Optional. Default: info. |
 
+### prepopulate-timestamps.py
+
+Prepopulate the Hypersync block timestamp DuckDB cache for all scanner chains.
+Use this to recover chains stuck in a 429 rate-limit spiral — when a chain's
+timestamp cache falls behind, each scan cycle needs more blocks, making it more
+likely to hit 429 again. Running this script during a quiet period (with the
+looped scanner stopped) lets the cache catch up without competing for API quota.
+
+The script uses the same chain list as `scan-vaults-all-chains.py` and only
+fetches the delta since the last cached block — it never re-downloads data that
+is already in the cache. Large ranges are chunked into 100k-block pieces with
+durable saves after each chunk.
+
+```shell
+# All chains (skips those without JSON_RPC_* or Hypersync support)
+source .local-test.env && poetry run python scripts/hypersync/prepopulate-timestamps.py
+
+# Specific stuck chains only
+CHAIN_FILTER="Polygon,Binance,Plasma" \
+  source .local-test.env && poetry run python scripts/hypersync/prepopulate-timestamps.py
+```
+
+Inside the Docker container:
+
+```shell
+docker compose --profile oneshot run --rm \
+  --entrypoint python \
+  -e CHAIN_FILTER="Polygon,Binance,Plasma" \
+  -e LOG_LEVEL=info \
+  vault-scanner \
+  scripts/hypersync/prepopulate-timestamps.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `CHAIN_FILTER` | Optional. Comma-separated chain names to process. Default: all chains. |
+| `HYPERSYNC_API_KEY` | Required. Envio Hypersync API key. |
+| `HYPERSYNC_RPM` | Optional. Requests-per-minute limit. Default: 150. Lower after persistent 429 errors. |
+| `JSON_RPC_<CHAIN>` | Required per chain. Same env vars as docker-compose. |
+| `LOG_LEVEL` | Optional. Default: info. |
+
 ### heal-timestamps.py
 
 Heal gaps in the block timestamp DuckDB cache populated by HyperSync.
