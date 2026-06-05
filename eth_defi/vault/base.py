@@ -50,6 +50,7 @@ DEPOSIT_CLOSED_BY_ADMIN = "Deposits closed by vault admin"
 DEPOSIT_CLOSED_CAP_REACHED = "Max deposit cap reached"
 DEPOSIT_CLOSED_UTILISATION = "Vault utilisation too high"
 DEPOSIT_CLOSED_PAUSED = "Vault paused by admin"
+DEPOSIT_CLOSED_FUNCTION_DISABLED = "Deposit function disabled by vault upgrade"
 
 #: Redemption closed reason constants
 REDEMPTION_CLOSED_EPOCH_WINDOW = "Epoch redemption window closed"

@@ -26,7 +26,7 @@ from typing import Iterable
 
 from web3 import Web3
 from web3.contract.contract import Contract
-from web3.exceptions import BadFunctionCallOutput
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.compat import native_datetime_utc_now
@@ -38,6 +38,7 @@ from eth_defi.utils import from_unix_timestamp
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_CAP_REACHED,
+    DEPOSIT_CLOSED_FUNCTION_DISABLED,
     REDEMPTION_CLOSED_EPOCH_WINDOW,
     VaultHistoricalRead,
     VaultHistoricalReader,
@@ -410,9 +411,15 @@ class GainsVault(ERC4626Vault):
         return GainsDepositManager(self)
 
     def fetch_deposit_closed_reason(self) -> str | None:
-        """Check maxDeposit to determine if deposits are closed.
+        """Check if deposits are closed.
 
-        Deposits closed when vault reaches max supply during profitable periods.
+        - First checks ``maxDeposit()`` for the standard ERC-4626 cap signal
+        - Then does a static ``deposit()`` call to catch non-compliant vaults
+          (e.g. Ostium) that disable ``deposit()`` at the contract level
+          without updating ``maxDeposit()`` to return 0
+
+        Deposits closed when vault reaches max supply during profitable periods,
+        or when the vault has disabled the deposit function via a contract upgrade.
         """
         try:
             max_deposit = self.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
@@ -420,6 +427,22 @@ class GainsVault(ERC4626Vault):
                 return f"{DEPOSIT_CLOSED_CAP_REACHED} (maxDeposit=0)"
         except Exception:
             pass
+
+        # Probe with a static call to catch disabled deposit functions.
+        # Some vaults (Ostium) disable deposit() via contract upgrades
+        # while leaving maxDeposit() returning a non-zero value,
+        # violating the ERC-4626 spec.
+        try:
+            self.vault_contract.functions.deposit(0, ZERO_ADDRESS_STR).call()
+        except (ContractLogicError, ValueError) as e:
+            # ContractLogicError for standard web3 providers,
+            # ValueError (ExtraValueError) for fallback providers
+            error_str = str(e.args[0]) if e.args else str(e)
+            if "bf241488" in error_str.lower():
+                return f"{DEPOSIT_CLOSED_FUNCTION_DISABLED} (FunctionDisabled)"
+        except Exception:
+            pass
+
         return None
 
     def fetch_redemption_closed_reason(self) -> str | None:
