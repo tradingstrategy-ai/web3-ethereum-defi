@@ -127,13 +127,24 @@ def test_royco_tranche_redeem_topic_is_withdraw():
 
 @flaky.flaky
 @pytest.mark.parametrize(
-    ("vault_address", "tranche_type", "expected_nav", "expected_share_price", "expected_total_supply", "expected_max_deposit"),
+    (
+        "vault_address",
+        "tranche_type",
+        "expected_nav",
+        "expected_share_price",
+        "expected_st_assets",
+        "expected_jt_assets",
+        "expected_total_supply",
+        "expected_max_deposit",
+    ),
     [
         (
             ROYCO_JUNIOR_TRANCHE,
             1,
             Decimal("112977.546343749885828324"),
             Decimal("1.011041852920180597"),
+            Decimal("751.607955"),
+            Decimal("110279.428414"),
             Decimal("111743.688965435143396373"),
             Decimal("1.157920892373161954235709850E+71"),
         ),
@@ -142,6 +153,8 @@ def test_royco_tranche_redeem_topic_is_withdraw():
             0,
             Decimal("904838.104129907413558521"),
             Decimal("1.004272285312968733"),
+            Decimal("889248.489634"),
+            Decimal("0"),
             Decimal("900988.822815045705371738"),
             Decimal("110030.837687"),
         ),
@@ -153,6 +166,8 @@ def test_royco_tranche_vault(
     tranche_type: int,
     expected_nav: Decimal,
     expected_share_price: Decimal,
+    expected_st_assets: Decimal,
+    expected_jt_assets: Decimal,
     expected_total_supply: Decimal,
     expected_max_deposit: Decimal,
 ):
@@ -160,9 +175,10 @@ def test_royco_tranche_vault(
 
     1. Create a vault instance via ERC-4626 autodetection.
     2. Verify protocol name, feature flags and tranche type.
-    3. Fetch and assert current NAV and share price.
-    4. Exercise historical reader multicalls at the pinned fork block.
-    5. Assert historical values exactly for the fixed Anvil fork.
+    3. Fetch and assert ``RoycoAssetClaims`` unit conversions.
+    4. Fetch and assert current NAV and share price.
+    5. Exercise historical reader multicalls at the pinned fork block.
+    6. Assert historical values exactly for the fixed Anvil fork.
     """
     vault = create_vault_instance_autodetect(
         royco_tranche_web3,
@@ -173,6 +189,11 @@ def test_royco_tranche_vault(
     assert vault.get_protocol_name() == "Royco"
     assert ERC4626Feature.royco_tranche_like in vault.features
     assert vault.fetch_tranche_type() == tranche_type
+
+    claims = vault.fetch_asset_claims("latest")
+    assert claims.convert_nav_to_decimal(vault.share_token) == expected_nav
+    assert claims.convert_st_assets_to_decimal(vault.denomination_token) == expected_st_assets
+    assert claims.convert_jt_assets_to_decimal(vault.denomination_token) == expected_jt_assets
 
     assert vault.fetch_total_assets("latest") == expected_nav
     assert vault.fetch_nav("latest") == expected_nav
