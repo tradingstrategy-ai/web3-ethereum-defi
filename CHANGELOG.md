@@ -2,6 +2,8 @@
 
 - feat: Add Royco senior/junior tranche vault support with custom Redeem event discovery, tuple-aware current and historical NAV readers, stored ABIs, and Royco offchain metadata fetching (2026-06-05)
 
+- feat: Add CrystalClear vault protocol — algorithmic trading vaults on HyperEVM that trade perpetuals on HyperCore, with hardcoded address detection, metadata, and Sphinx docs (2026-06-05)
+
 - fix: Preserve vault metadata when rescan fails with transient RPC errors, add `heal-broken-vaults.py` healer script, atomic writes for Lagoon compatibility database (2026-06-04)
 
 - feat: Core3 risk intelligence in vault lifetime metrics — `calculate_lifetime_metrics()` accepts optional `Core3Database`, pre-computes per-protocol cache, and exports Core3 PoL score, rating, top risks in `other_data["core3"]`; standardised `CORE3_DATABASE_PATH` env var across all Core3 scripts; moved default database to `~/.tradingstrategy/vaults/core3/core3.duckdb` (2026-06-03)

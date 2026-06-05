@@ -166,6 +166,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "IPOR Fusion": VaultFeeMode.internalised_minting,
     # ForgeYields - 20% daily performance fee internalised into the share price via pps updates
     "ForgeYields": VaultFeeMode.internalised_skimming,
+    # CrystalClear - 20% performance fee charged at redemption (externalised)
+    # Fee is deducted from withdrawal proceeds via WithdrawalClaimed event
+    "CrystalClear": VaultFeeMode.externalised,
 }
 
 

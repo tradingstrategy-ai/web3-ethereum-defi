@@ -612,6 +612,13 @@ class ERC4626Feature(enum.Enum):
     #: https://www.forgeyields.com/
     forgeyields_like = "forgeyields_like"
 
+    #: CrystalClear
+    #:
+    #: Algorithmic trading vaults on HyperEVM that trade perpetuals on HyperCore.
+    #: ERC-4626 with UUPS proxy, two-step withdrawal, externalised performance fee.
+    #: https://crystalclear.finance/
+    crystalclear_like = "crystalclear_like"
+
 
 #: Features that identify lending protocol vaults.
 #:
@@ -915,6 +922,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.forgeyields_like in features:
         return "ForgeYields"
+
+    elif ERC4626Feature.crystalclear_like in features:
+        return "CrystalClear"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

@@ -1651,6 +1651,11 @@ def create_vault_instance(
 
         return ForgeYieldsVault(web3, spec, **kwargs)
 
+    elif ERC4626Feature.crystalclear_like in features:
+        from eth_defi.erc_4626.vault_protocol.crystalclear.vault import CrystalClearVault
+
+        return CrystalClearVault(web3, spec, **kwargs)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1924,6 +1929,28 @@ HARDCODED_PROTOCOLS = {
     # ForgeYields - fyWBTC vault on Ethereum
     # https://etherscan.io/address/0xeDca8230366B9eaFf06becdD1D261577836AA507
     "0xedca8230366b9eaff06becdd1d261577836aa507": {ERC4626Feature.forgeyields_like},
+    # CrystalClear - algorithmic trading vaults on HyperEVM
+    # Hardcoded because convertToShares() reverts when called at a specific block
+    # (HyperCore precompiles are not available for historical state queries)
+    # https://app.crystalclear.finance/app.html#vaults
+    # Onyx
+    "0x231f66c336512e897855420a2788b83e164c6adf": {ERC4626Feature.crystalclear_like},
+    # Amber
+    "0x1b463561f264114f9d4db6ff9ee2771b33076b13": {ERC4626Feature.crystalclear_like},
+    # Ruby
+    "0xb44169e66c898ff70029f9cf2fdb9685d7bc99c6": {ERC4626Feature.crystalclear_like},
+    # Moonstone
+    "0x015a70185a80d8c8c034e3d360e25a14c7fb8cf0": {ERC4626Feature.crystalclear_like},
+    # Emerald
+    "0x1efae1f600947ca5dc0e87aa18657f36c559a40b": {ERC4626Feature.crystalclear_like},
+    # Diamond (retired)
+    "0x318ca1ee088effc96fa67c1bb50c7893c3c4feaa": {ERC4626Feature.crystalclear_like},
+    # Opal
+    "0x89c08a6f468ca5af65e7d48bc091e5c4025b42c2": {ERC4626Feature.crystalclear_like},
+    # Peridot
+    "0x2d7acd39b634b50cd37883fe374e1f430e27ea50": {ERC4626Feature.crystalclear_like},
+    # Sapphire
+    "0x6b88f2975b784531db1159d37cff9f1629e93fa8": {ERC4626Feature.crystalclear_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():
