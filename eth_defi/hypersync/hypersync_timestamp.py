@@ -359,6 +359,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         len(fetch_ranges),
     )
 
+    empty_chunks = 0
     for chunk_idx, (chunk_start, chunk_end) in enumerate(all_chunks):
         index = []
         values = []
@@ -387,6 +388,15 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
                 f"{chunk_start:,}",
                 f"{chunk_end:,}",
             )
+        else:
+            empty_chunks += 1
+
+    # If Hypersync returned zero rows for any chunk, the blocks are
+    # still missing but find_gaps() cannot detect head/tail gaps
+    # (no boundary blocks to define them). Treat this as a flaky
+    # error so the retry loop re-enters with a fresh cache check.
+    if empty_chunks:
+        raise HypersyncFlaky(f"Chain {chain_id}: Hypersync returned 0 rows for {empty_chunks}/{n_chunks} chunks")
 
     # Heal gaps left by silently dropped HyperSync batches.
     # On fast chains like Monad, HyperSync can skip entire ~9,000-block
@@ -397,9 +407,15 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
 
     for heal_attempt in range(max_heal_attempts):
         gaps = timestamp_db.find_gaps()
-        # Only heal gaps that overlap our scan range
-        gaps = [(s, e, n) for s, e, n in gaps if s + 1 <= scan_end and e - 1 >= scan_start]
-        if not gaps:
+        # Clip gaps to our scan range — don't heal the full database
+        # gap when we only need a subset.
+        clipped_gaps: list[tuple[int, int]] = []
+        for s, e, _n in gaps:
+            clip_start = max(scan_start, s + 1)
+            clip_end = min(scan_end, e - 1)
+            if clip_start <= clip_end:
+                clipped_gaps.append((clip_start, clip_end))
+        if not clipped_gaps:
             break
 
         # Back off before re-heal to let rate limits recover
@@ -408,33 +424,36 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
             logger.info("Chain %d: backing off %ds before gap-heal attempt %d/%d", chain_id, heal_backoff, heal_attempt + 1, max_heal_attempts)
             await asyncio.sleep(heal_backoff)
 
-        total_missing = sum(g[2] for g in gaps)
+        total_missing = sum(e - s + 1 for s, e in clipped_gaps)
         logger.warning(
             "Chain %d: %d blocks dropped across %d gaps (heal attempt %d/%d)",
             chain_id,
             total_missing,
-            len(gaps),
+            len(clipped_gaps),
             heal_attempt + 1,
             max_heal_attempts,
         )
 
-        for gap_start, gap_end, _gap_size in gaps:
-            heal_index = []
-            heal_values = []
-            async for bh in get_block_timestamps_using_hypersync_async(
-                client,
-                chain_id,
-                start_block=gap_start + 1,
-                end_block=gap_end - 1,
-                display_progress=False,
-                validate_chain_id=False,
-                reason=f"gap-heal-{heal_attempt + 1}/{max_heal_attempts}",
-            ):
-                heal_index.append(bh.block_number)
-                heal_values.append(bh.timestamp)
-            if heal_index:
-                timestamp_db.import_chain_data(chain_id, pd.Series(data=heal_values, index=heal_index))
-                logger.info("Chain %d: healed gap %d-%d (%d blocks)", chain_id, gap_start + 1, gap_end - 1, len(heal_index))
+        # Chunk heal ranges the same way as initial fetches
+        for heal_start, heal_end in clipped_gaps:
+            for hs in range(heal_start, heal_end + 1, chunk_size):
+                he = min(hs + chunk_size - 1, heal_end)
+                heal_index = []
+                heal_values = []
+                async for bh in get_block_timestamps_using_hypersync_async(
+                    client,
+                    chain_id,
+                    start_block=hs,
+                    end_block=he,
+                    display_progress=False,
+                    validate_chain_id=False,
+                    reason=f"gap-heal-{heal_attempt + 1}/{max_heal_attempts}",
+                ):
+                    heal_index.append(bh.block_number)
+                    heal_values.append(bh.timestamp)
+                if heal_index:
+                    timestamp_db.import_chain_data(chain_id, pd.Series(data=heal_values, index=heal_index))
+                    logger.info("Chain %d: healed %d-%d (%d blocks)", chain_id, hs, he, len(heal_index))
 
     return timestamp_db.get_slicer()
 
