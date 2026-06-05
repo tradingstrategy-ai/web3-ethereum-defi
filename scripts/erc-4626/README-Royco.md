@@ -94,6 +94,45 @@ LOG_LEVEL=info \
 poetry run python scripts/erc-4626/scan-prices.py
 ```
 
+### Scan all Royco API vault ids in one pass
+
+Use this command to build the Ethereum `VAULT_ID` list directly from Royco's
+first-party API, then pass all ids to one `scan-prices.py` run. This filters to
+active verified Royco API rows on `ROYCO_CHAIN_ID=1` because `scan-prices.py`
+scans one RPC chain at a time.
+
+```shell
+source .local-test.env && \
+export ROYCO_API_VAULT_IDS="$(
+  ROYCO_CHAIN_ID="${ROYCO_CHAIN_ID:-1}" poetry run python - <<'PY'
+import os
+
+from eth_defi.erc_4626.vault_protocol.royco.offchain_metadata import fetch_royco_vaults
+
+chain_id = int(os.environ.get("ROYCO_CHAIN_ID", "1"))
+metadata = fetch_royco_vaults(api_key=os.environ.get("ROYCO_API_KEY", "ROYCO_DEMO"))
+vault_ids = sorted(
+    f"{entry['chain_id']}-{entry['vault_address']}"
+    for entry in metadata.values()
+    if entry["chain_id"] == chain_id
+    and entry["is_verified"]
+    and (entry["is_active"] is None or entry["is_active"])
+)
+print(",".join(vault_ids))
+PY
+)" && \
+test -n "$ROYCO_API_VAULT_IDS" && \
+echo "$ROYCO_API_VAULT_IDS" | tr ',' '\n' && \
+VAULT_ID="$ROYCO_API_VAULT_IDS" \
+JSON_RPC_URL="$JSON_RPC_ETHEREUM" \
+START_BLOCK=1 \
+LOG_LEVEL=info \
+poetry run python scripts/erc-4626/scan-prices.py
+```
+
+To scan another Royco EVM chain, change `ROYCO_CHAIN_ID` and use the matching
+`JSON_RPC_URL`. Run one command per chain.
+
 For a bounded smoke test, set `END_BLOCK` to a recent Ethereum block before
 running the full history scan:
 
