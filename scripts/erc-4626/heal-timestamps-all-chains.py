@@ -44,10 +44,13 @@ except ImportError as e:
 
 from eth_defi.chain import get_chain_name
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER, load_timestamp_cache
-from eth_defi.hypersync.hypersync_timestamp import get_block_timestamps_using_hypersync_async
+from eth_defi.hypersync.hypersync_timestamp import HypersyncFlaky, get_block_timestamps_using_hypersync_async
 from eth_defi.hypersync.server import get_hypersync_server, is_hypersync_supported_chain
 from eth_defi.hypersync.session import create_throttled_hypersync_client, get_hypersync_rpm_from_env
 from eth_defi.utils import setup_console_logging
+
+#: Max retries per gap when Hypersync returns 429
+MAX_GAP_ATTEMPTS = 3
 
 logger = logging.getLogger(__name__)
 
@@ -156,43 +159,71 @@ def heal_chain(chain_id: int, dry_run: bool) -> dict:
                 if fetch_start > fetch_end:
                     continue
 
-                logger.info(
-                    "%s: Healing gap %d/%d: blocks %d-%d (%d missing)",
-                    chain_name,
-                    i + 1,
-                    len(gaps),
-                    fetch_start,
-                    fetch_end,
-                    gap_size,
-                )
+                # Retry each gap independently so a 429 on one gap
+                # doesn't skip all remaining gaps
+                for attempt in range(MAX_GAP_ATTEMPTS):
+                    try:
+                        logger.info(
+                            "%s: Healing gap %d/%d: blocks %d-%d (%d missing)%s",
+                            chain_name,
+                            i + 1,
+                            len(gaps),
+                            fetch_start,
+                            fetch_end,
+                            gap_size,
+                            f" (attempt {attempt + 1}/{MAX_GAP_ATTEMPTS})" if attempt > 0 else "",
+                        )
 
-                index = []
-                values = []
+                        index = []
+                        values = []
 
-                async for block_header in get_block_timestamps_using_hypersync_async(
-                    hypersync_client,
-                    chain_id,
-                    start_block=fetch_start,
-                    end_block=fetch_end,
-                    display_progress=False,
-                    reason="manual-gap-heal-all-chains",
-                ):
-                    index.append(block_header.block_number)
-                    values.append(block_header.timestamp)
+                        async for block_header in get_block_timestamps_using_hypersync_async(
+                            hypersync_client,
+                            chain_id,
+                            start_block=fetch_start,
+                            end_block=fetch_end,
+                            display_progress=False,
+                            reason="manual-gap-heal-all-chains",
+                        ):
+                            index.append(block_header.block_number)
+                            values.append(block_header.timestamp)
 
-                if index:
-                    series = pd.Series(data=values, index=index)
-                    timestamp_db.import_chain_data(chain_id, series)
-                    healed += len(index)
-                else:
-                    logger.warning(
-                        "%s: HyperSync returned no blocks for gap %d/%d (blocks %d-%d)",
-                        chain_name,
-                        i + 1,
-                        len(gaps),
-                        fetch_start,
-                        fetch_end,
-                    )
+                        if index:
+                            series = pd.Series(data=values, index=index)
+                            timestamp_db.import_chain_data(chain_id, series)
+                            healed += len(index)
+                        else:
+                            logger.warning(
+                                "%s: HyperSync returned no blocks for gap %d/%d (blocks %d-%d)",
+                                chain_name,
+                                i + 1,
+                                len(gaps),
+                                fetch_start,
+                                fetch_end,
+                            )
+                        break  # Success, move to next gap
+
+                    except HypersyncFlaky as e:
+                        if attempt + 1 >= MAX_GAP_ATTEMPTS:
+                            logger.error(
+                                "%s: gap %d/%d failed after %d attempts: %s",
+                                chain_name,
+                                i + 1,
+                                len(gaps),
+                                MAX_GAP_ATTEMPTS,
+                                e,
+                            )
+                        else:
+                            backoff = 30 * (2**attempt)
+                            logger.warning(
+                                "%s: gap %d/%d rate limited, backing off %ds before retry: %s",
+                                chain_name,
+                                i + 1,
+                                len(gaps),
+                                backoff,
+                                e,
+                            )
+                            await asyncio.sleep(backoff)
 
             return healed
 
