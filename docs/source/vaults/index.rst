@@ -42,6 +42,7 @@ Supported protocols
    brink/index
    cap/index
    centrifuge/index
+   crystalclear/index
    csigma/index
    curvance/index
    d2_finance/index

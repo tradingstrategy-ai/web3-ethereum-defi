@@ -1,0 +1,42 @@
+name: CrystalClear
+slug: crystalclear
+short_description: |
+  Algorithmic trading vaults on Hyperliquid's HyperEVM that trade perpetual futures on HyperCore.
+long_description: |
+  CrystalClear builds ERC-4626 vaults on HyperEVM that run quantitative trading
+  strategies across Hyperliquid perpetual futures markets. Each vault targets a
+  distinct risk-return profile — diversified, momentum-tilted, high-conviction,
+  or low-turnover — trading long and short across multiple crypto assets.
+
+  Strategies are rebalanced every two weeks: the live roster is replaced with a
+  freshly evolved cohort that has been out-of-sample validated before going live.
+  Vaults use a UUPS proxy pattern with OpenZeppelin v5 and share a single
+  implementation contract.
+
+  Key features:
+
+  - ERC-4626 with 9 share decimals and USDC denomination
+  - Two-step withdrawal via requestWithdraw() then claimWithdraw()
+  - 1-hour deposit lock for MEV protection
+  - Per-vault TVL caps via maxTVL()
+  - Vault equity held on HyperCore; totalAssets() reflects full account value
+fee_description: |
+  20% performance fee charged at redemption (externalised). No management fee.
+  Performance fee is deducted from withdrawal proceeds.
+links:
+  homepage: https://crystalclear.finance/
+  app: https://app.crystalclear.finance/app.html#vaults
+  twitter: https://x.com/CrystalClearHL
+  github:
+  documentation: https://crystalclear.gitbook.io/crystalclear-docs/
+  defillama:
+  audits:
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/crystalclear/index.html
+example_smart_contracts:
+  - https://www.hyperscan.com/address/0x231f66c336512e897855420a2788B83e164C6Adf
+  - https://www.hyperscan.com/address/0x1b463561f264114F9D4db6FF9eE2771B33076B13
+  - https://www.hyperscan.com/address/0xb44169e66C898FF70029f9CF2fdB9685d7bC99c6
+  - https://www.hyperscan.com/address/0x015A70185a80D8C8c034e3d360E25A14c7FB8cF0
+  - https://www.hyperscan.com/address/0x1efAE1f600947cA5dc0E87AA18657f36c559A40b
