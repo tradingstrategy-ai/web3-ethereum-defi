@@ -9,7 +9,6 @@ from eth_defi.erc_4626.classification import (
     create_probe_calls,
 )
 
-
 # Chain IDs for reference
 ETHEREUM_MAINNET = 1
 ARBITRUM = 42161
@@ -23,10 +22,11 @@ MANTLE = 5000
 def test_chain_probe_filtering():
     """Test that create_probe_calls() correctly filters probes based on chain_id.
 
-    This test verifies:
-    - Core probes are always present regardless of chain
-    - Protocol-specific probes are filtered based on deployment chains
-    - Disabled protocols (empty sets) never yield probes
+    1. Verify chain-restricted probe configuration is well formed.
+    2. Verify core probes are always present regardless of chain.
+    3. Verify protocol-specific probes are filtered based on deployment chains.
+    4. Verify disabled protocols never yield probes.
+    5. Verify Royco tranche detection uses one Ethereum-only probe.
     """
     test_address = "0x0000000000000000000000000000000000000001"
 
@@ -78,10 +78,16 @@ def test_chain_probe_filtering():
     assert "strategy" not in func_names_eth
     assert "queue" not in func_names_eth
 
+    royco_tranche_probe_names = ["getRawNAV"]
+    assert sum(1 for func_name in func_names_eth if func_name in royco_tranche_probe_names) == 1
+    assert "getRawNAV" in func_names_eth
+
     # Core probes always present
     assert "name" in func_names_eth
     assert "convertToShares" in func_names_eth
 
     # Polygon should have fewer probes than Monad (which has Accountable probes)
     probes_polygon = list(create_probe_calls([test_address], chain_id=POLYGON))
+    func_names_polygon = [p.func_name for p in probes_polygon]
+    assert "getRawNAV" not in func_names_polygon
     assert len(probes_polygon) < len(probes_monad)
