@@ -319,66 +319,101 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         f"{cached_count:,}" if cached_count else "0",
     )
 
+    # Build a list of (range_start, range_end) pairs to fetch.
+    # We compute head and tail ranges separately so that a partial
+    # backfill before an existing cache doesn't leave permanent holes.
+    # Using a single scan_start derived from MIN/MAX would miss interior
+    # gaps created when a head-backfill chunk saves, then a 429 kills
+    # the stream — on retry MIN/MAX would look fully covered.
+    fetch_ranges: list[tuple[int, int]] = []
+
     if last_read_block:
-        # Check the range we need to map out, we might ask earlier blocks than before
-        if start_block < first_read_block:
-            scan_start = start_block
+        needs_head = start_block < first_read_block
+        needs_tail = end_block > last_read_block
+
+        if needs_head:
+            head_end = first_read_block - 1
+            fetch_ranges.append((start_block, head_end))
             logger.info(
-                "Chain %d: caller needs blocks earlier than cache (caller start %d < cache start %d), backfilling from %d",
+                "Chain %d: head backfill needed — blocks %s - %s (%s blocks before existing cache)",
                 chain_id,
-                start_block,
-                first_read_block,
-                scan_start,
+                f"{start_block:,}",
+                f"{head_end:,}",
+                f"{head_end - start_block + 1:,}",
             )
-        else:
-            # +1 to avoid re-fetching the last cached block
-            scan_start = last_read_block + 1
+
+        if needs_tail:
+            tail_start = last_read_block + 1
+            fetch_ranges.append((tail_start, end_block))
             logger.info(
-                "Chain %d: cache covers up to block %d, will fetch new blocks from %d onwards",
+                "Chain %d: tail append needed — blocks %s - %s (%s new blocks after cache)",
                 chain_id,
-                last_read_block,
-                scan_start,
+                f"{tail_start:,}",
+                f"{end_block:,}",
+                f"{end_block - tail_start + 1:,}",
+            )
+
+        # Check for interior gaps within the requested range.
+        # A partial head-backfill followed by a 429 can leave holes
+        # (e.g. cache has 1-99 + 1000-2000, blocks 100-999 are missing).
+        # MIN/MAX look fully covered but find_gaps() detects the holes.
+        interior_gaps = timestamp_db.find_gaps()
+        interior_gaps = [(s, e, n) for s, e, n in interior_gaps if s >= start_block and e <= end_block]
+        if interior_gaps:
+            for gap_start, gap_end, gap_size in interior_gaps:
+                fetch_ranges.append((gap_start + 1, gap_end - 1))
+                logger.info(
+                    "Chain %d: interior gap detected — blocks %s - %s (%s missing blocks)",
+                    chain_id,
+                    f"{gap_start + 1:,}",
+                    f"{gap_end - 1:,}",
+                    f"{gap_size:,}",
+                )
+        elif not needs_head and not needs_tail:
+            logger.info(
+                "Chain %d: cache fully covers requested range %s - %s (cache has %s - %s), no gaps",
+                chain_id,
+                f"{start_block:,}",
+                f"{end_block:,}",
+                f"{first_read_block:,}",
+                f"{last_read_block:,}",
             )
     else:
-        scan_start = start_block
-        logger.info("Chain %d: empty cache, starting from block %d", chain_id, scan_start)
+        fetch_ranges.append((start_block, end_block))
+        logger.info("Chain %d: empty cache, fetching full range %s - %s", chain_id, f"{start_block:,}", f"{end_block:,}")
 
-    total_delta = end_block - scan_start
-    needs_head = start_block < first_read_block
-    needs_tail = end_block > last_read_block
+    total_blocks_to_fetch = sum(e - s + 1 for s, e in fetch_ranges)
 
     logger.info(
-        "Timestamp fetch decision for chain %d: needs_head=%s, needs_tail=%s, scan_start=%s, end_block=%s, delta=%s blocks to fetch",
+        "Timestamp fetch plan for chain %d: %d range(s), %s total blocks to fetch",
         chain_id,
-        needs_head,
-        needs_tail,
-        f"{scan_start:,}",
-        f"{end_block:,}",
-        f"{total_delta:,}",
+        len(fetch_ranges),
+        f"{total_blocks_to_fetch:,}",
     )
 
-    if needs_head or needs_tail:
+    if fetch_ranges:
         # Validate chain_id only when we actually need to fetch from Hypersync.
         # Skipped on warm cache hits to avoid wasting API quota.
         if is_hypersync_client(client):
             await _validate_hypersync_chain_id_async(client, chain_id, reason="timestamp-cache-validate")
 
-        # Split the range into chunks so each opens a fresh stream() call.
-        # This lets the Python-side throttle pace requests and saves
-        # progress after each chunk — a 429 only loses the current chunk.
-        chunk_starts = list(range(scan_start, end_block + 1, chunk_size))
-        n_chunks = len(chunk_starts)
+        # Build chunks across all ranges
+        all_chunks: list[tuple[int, int]] = []
+        for range_start, range_end in fetch_ranges:
+            for cs in range(range_start, range_end + 1, chunk_size):
+                ce = min(cs + chunk_size - 1, range_end)
+                all_chunks.append((cs, ce))
 
+        n_chunks = len(all_chunks)
         logger.info(
             "Chain %d: streaming %s blocks from Hypersync in %d chunk(s) of up to %s blocks each",
             chain_id,
-            f"{total_delta:,}",
+            f"{total_blocks_to_fetch:,}",
             n_chunks,
             f"{chunk_size:,}",
         )
 
-        for chunk_idx, chunk_start in enumerate(chunk_starts):
-            chunk_end = min(chunk_start + chunk_size - 1, end_block)
+        for chunk_idx, (chunk_start, chunk_end) in enumerate(all_chunks):
             chunk_block_count = chunk_end - chunk_start + 1
 
             logger.info(
@@ -431,12 +466,16 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
                     f"{chunk_end:,}",
                 )
 
+        # Compute the full scan extent for gap healing below
+        scan_start = min(s for s, _ in fetch_ranges)
+        scan_end = max(e for _, e in fetch_ranges)
+
         logger.info(
             "Chain %d: all %d chunk(s) streamed, checking for gaps in range %s - %s",
             chain_id,
             n_chunks,
             f"{scan_start:,}",
-            f"{end_block:,}",
+            f"{scan_end:,}",
         )
 
         # Detect and heal any gaps left by silently dropped HyperSync batches.
@@ -446,7 +485,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         for heal_attempt in range(max_heal_attempts):
             gaps = timestamp_db.find_gaps()
             # Only heal gaps within our scan range
-            gaps = [(s, e, n) for s, e, n in gaps if s >= scan_start and e <= end_block]
+            gaps = [(s, e, n) for s, e, n in gaps if s >= scan_start and e <= scan_end]
             if not gaps:
                 logger.info(
                     "Chain %d: no gaps found in scan range (heal check %d/%d)",
@@ -472,7 +511,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
                 total_missing,
                 len(gaps),
                 scan_start,
-                end_block,
+                scan_end,
                 heal_attempt + 1,
                 max_heal_attempts,
             )

@@ -153,6 +153,9 @@ def main():
         ", ".join(failed) or "(none)",
     )
 
+    if failed:
+        raise SystemExit(1)
+
 
 if __name__ == "__main__":
     main()
