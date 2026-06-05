@@ -297,7 +297,62 @@ Read `eth_defi/data/vaults/README.md` and use it to write a YAML file for the va
 
 AFTER COMPLETING THIS STEP REMEMBER TO CONTINUE WITH THE MAIN TASK.
 
-## Step 12: Verification checklist
+## Step 12: Add feed protocol YAML entry
+
+Create a feed YAML file at `eth_defi/data/feeds/protocols/{protocol-slug}.yaml` so the protocol's social media posts are collected by the feed scanner. For full schema documentation and collection behaviour details, see `eth_defi/feed/README-feed.md`.
+
+Use the protocol slug with dashes (not underscores). E.g. `lagoon-finance`, `ipor-fusion`, `goat-protocol`.
+
+The file should follow this format:
+
+```yaml
+feeder-id: {protocol-slug}
+name: {Protocol Name}
+role: protocol
+website: {homepage URL}
+twitter: {twitter handle without @}
+linkedin: {linkedin company slug}
+rss: {RSS or Atom feed URL}
+```
+
+To fill the fields:
+
+1. **feeder-id**: Same slug as the filename (without `.yaml`)
+2. **name**: Human-readable protocol name, matching `get_vault_protocol_name()` output
+3. **role**: Always `protocol` for vault protocols
+4. **website**: Protocol homepage URL (already gathered in earlier steps)
+5. **twitter**: Twitter/X handle without `@` — find on the protocol homepage. If no Twitter found, omit the field.
+6. **linkedin**: LinkedIn company page slug (the part after `linkedin.com/company/`). Find via web search for `"{protocol name}" site:linkedin.com/company`. If not found, omit the field.
+7. **rss**: Look for an RSS/Atom feed URL. Common patterns:
+   - Medium blogs: `https://medium.com/feed/@{handle}` or `https://medium.com/feed/{publication}`
+   - Substack: `https://{name}.substack.com/feed`
+   - Blog pages: Check for `<link rel="alternate" type="application/rss+xml">` in page source
+   - If no RSS feed exists, add a comment: `# rss: not found — {reason}`
+
+Example (simple):
+
+```yaml
+feeder-id: plutus
+name: Plutus
+role: protocol
+website: https://plutus.fi/
+twitter: plutus_fi_x
+rss: https://medium.com/feed/@plutus.fi
+```
+
+Example (no RSS):
+
+```yaml
+feeder-id: lagoon-finance
+name: Lagoon Finance
+role: protocol
+website: https://lagoon.finance/
+twitter: lagoon_finance
+linkedin: lagoon-finance
+# rss: not found — blog is at lagoon.finance/blog but has no RSS feed
+```
+
+## Step 13: Verification checklist
 
 After implementation, verify:
 
@@ -312,14 +367,15 @@ After implementation, verify:
 - [ ] API documents have been updated
 - [ ] Check that homepage link in the API documentation takes to the correct homepage
 - [ ] Check that Twitter link in the API documentation works and takes to the same Twitter account as listed on the protocol homepage
+- [ ] Feed YAML file exists at `eth_defi/data/feeds/protocols/{protocol-slug}.yaml`
 
 If there are problems with the checklist, ask for human assistance.
 
-## Step 13: Changelog
+## Step 14: Changelog
 
 - Update changelog line in `CHANGELOG.md` and add a note of added new protocol
 
-## Step 14: Pull request (optional)
+## Step 15: Pull request (optional)
 
 After everything is done, open a pull request, but only if the user asks you to.
 
