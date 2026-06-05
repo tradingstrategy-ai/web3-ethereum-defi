@@ -108,8 +108,8 @@ base58 = "^2.1.1"
 joblib = "^1.4.2"
 
 # HyperSync
-# Temporary package name that publishes Python 3.14 compatible Envio HyperSync wheels
-hypersync-temp = {version = "^0.10.0", optional = true}
+# Fast blockchain data indexing via Envio HyperSync
+hypersync = {version = "^1.0.0", optional = true}
 # cherry-etl = "^0.5.1"
 
 atomicwrites = "^1.4.1"
@@ -188,7 +188,7 @@ duckdb = ["duckdb"]
 posts = ["duckdb", "feedparser", "tweepy"]
 hyperliquid_backfill = ["boto3", "lz4", "duckdb"]
 gsheets = ["gspread"]
-hypersync = ["hypersync-temp"]
+hypersync = ["hypersync"]
 #tester = ["eth-tester"]
 
 [build-system]
