@@ -4,6 +4,7 @@
 
 - feat: Core3 risk intelligence in vault lifetime metrics — `calculate_lifetime_metrics()` accepts optional `Core3Database`, pre-computes per-protocol cache, and exports Core3 PoL score, rating, top risks in `other_data["core3"]`; standardised `CORE3_DATABASE_PATH` env var across all Core3 scripts; moved default database to `~/.tradingstrategy/vaults/core3/core3.duckdb` (2026-06-03)
 
+
 - feat: Core3 vault protocol mapping — `CORE3_MAPPINGS` dict mapping 21 of our 75 vault protocol slugs to Core3 project slugs, with `update-core3-mappings.py` discovery script using heuristics (exact slug, website domain, DeFi Llama, name similarity) (2026-06-03)
 
 - feat: Core3 risk intelligence DuckDB pipeline — scan ~1,400 crypto projects for Probability of Loss (PoL) scores, store snapshots and time-series in DuckDB with incremental sync, parallel fetching, and raw JSON payload storage (2026-06-03)
