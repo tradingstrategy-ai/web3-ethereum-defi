@@ -159,9 +159,10 @@ def test_ostium_v15_read_data(web3, vault: OstiumVault):
     assert vault_read.total_assets > 0
     assert vault_read.total_supply > 0
 
-    # V1.5: both always open
+    # V1.5: both always open, max_deposit is None (V1.5 maxDeposit returns max uint)
     assert vault_read.deposits_open is True
     assert vault_read.redemption_open is True
+    assert vault_read.max_deposit is None
 
     # V1.5: deposit/redemption not closed
     assert vault.fetch_deposit_closed_reason() is None

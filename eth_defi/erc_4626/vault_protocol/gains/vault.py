@@ -213,7 +213,7 @@ class OstiumV15HistoricalReader(ERC4626HistoricalReader):
             performance_fee=None,
             management_fee=None,
             errors=errors or None,
-            max_deposit=max_deposit,
+            max_deposit=None,  # V1.5 maxDeposit() returns max uint (ERC-4626 spec violation)
             deposits_open=True,
             redemption_open=True,
         )
