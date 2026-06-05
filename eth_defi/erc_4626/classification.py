@@ -14,7 +14,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.types import BlockIdentifier
 
-from eth_defi.abi import ZERO_ADDRESS_BYTES, ZERO_ADDRESS_STR
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -54,8 +54,6 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "getPerformanceFeeData": {1, 8453, 42161},  # IPOR - Ethereum, Base, Arbitrum
     "borrowed_token": {1, 10, 42161},  # Llama Lend - Ethereum, Optimism, Arbitrum
     "previewRateAfterDeposit": {1, 42161, 80094},  # Royco - Ethereum, Arbitrum, Berachain
-    "KERNEL": {1},  # Royco senior/junior tranche vaults - Ethereum
-    "TRANCHE_TYPE": {1},  # Royco senior/junior tranche vaults - Ethereum
     "getRawNAV": {1},  # Royco senior/junior tranche vaults - Ethereum
     "repoTokenHoldings": {1, 9745, 43114},  # Term Finance - Ethereum, Plasma, Avalanche
     "depositController": {1, 56, 42161},  # TrueFi - Ethereum, BSC, Arbitrum
@@ -623,24 +621,6 @@ def create_probe_calls(
         # Royco tranche vaults - senior/junior tranche accounting interface
         # https://etherscan.io/address/0x059bc7aa5000a26aae2601cfbf060653adf8fd91
         # https://etherscan.io/address/0x1ba515a409dd702105415cdaae439059aa0b402a
-        if _should_yield_probe("KERNEL", chain_id):
-            yield EncodedCall.from_keccak_signature(
-                address=address,
-                signature=Web3.keccak(text="KERNEL()")[0:4],
-                function="KERNEL",
-                data=b"",
-                extra_data=None,
-            )
-
-        if _should_yield_probe("TRANCHE_TYPE", chain_id):
-            yield EncodedCall.from_keccak_signature(
-                address=address,
-                signature=Web3.keccak(text="TRANCHE_TYPE()")[0:4],
-                function="TRANCHE_TYPE",
-                data=b"",
-                extra_data=None,
-            )
-
         if _should_yield_probe("getRawNAV", chain_id):
             yield EncodedCall.from_keccak_signature(
                 address=address,
@@ -938,8 +918,9 @@ def identify_vault_features(
         features.add(ERC4626Feature.royco_like)
 
     # Royco tranche vaults - senior/junior tranches use AssetClaims tuple accounting.
-    # Require all three calls to avoid confusing generic contracts with KERNEL()-like naming.
-    if calls["KERNEL"].success and calls["TRANCHE_TYPE"].success and calls["getRawNAV"].success:
+    # Keep this as a single probe because vault discovery can touch tens of thousands
+    # of contracts. ``TRANCHE_TYPE()`` is still read later by the runtime adapter.
+    if calls["getRawNAV"].success:
         features.add(ERC4626Feature.royco_tranche_like)
 
     # Gearbox Protocol - PoolV3 lending pools
