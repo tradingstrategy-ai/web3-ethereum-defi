@@ -4,6 +4,10 @@ Supports the full async request/settle/claim lifecycle including reclaim
 after failed settlements. All transaction-sending actions require y/n
 confirmation before broadcast.
 
+See also ``scripts/lagoon/lagoon-gmx-example.py`` for a similar pattern
+applied to GMX perpetuals trading through a Lagoon vault (deployment,
+deposit, trading, withdrawal, and transaction cost tracking).
+
 Environment variables:
     JSON_RPC_ARBITRUM   Arbitrum RPC URL (space-separated fallback format)
     ACTION              One of: status, deposit, withdraw (default: status)
@@ -78,11 +82,15 @@ def confirm(prompt: str) -> bool:
 
 def broadcast(web3, hot_wallet: HotWallet, func, description: str, gas: int = 500_000) -> HexBytes:
     """Sign, broadcast, and wait for a contract call. Returns tx hash."""
+    from eth_defi.provider.receipt import wait_for_transaction_receipt_robust
+
     signed_tx = hot_wallet.sign_bound_call_with_new_nonce(func, tx_params={"gas": gas}, web3=web3, fill_gas_price=True)
     print(f"  Broadcasting: {description}")
     print(f"  TX hash: {signed_tx.hash.hex()}")
     web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-    receipt = web3.eth.wait_for_transaction_receipt(signed_tx.hash, timeout=120)
+    # Use robust receipt waiter to handle multi-provider RPC sync delays;
+    # extra_sleep gives lagging read-only providers time to catch up
+    receipt = wait_for_transaction_receipt_robust(web3, signed_tx.hash, timeout=120, extra_sleep=5.0)
     assert receipt["status"] == 1, f"Transaction reverted: {signed_tx.hash.hex()}"
     print(f"  Gas used: {receipt['gasUsed']:,}")
     return signed_tx.hash
