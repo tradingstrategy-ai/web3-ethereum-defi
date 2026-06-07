@@ -255,11 +255,33 @@ def main():
     logger.info("Tranche rows %spurged: %d", action, purged)
     logger.info("Reader states %scleared: %d", action, cleared)
 
-    if not dry_run and purged > 0:
-        logger.info("Next steps:")
-        logger.info("  1. Re-run the price scanner to repopulate tranche data with the correct reader")
-        logger.info("  2. Wait for several scan cycles to accumulate enough data points")
-        logger.info("  3. Re-run the post-processing pipeline to regenerate cleaned data")
+    if purged > 0 or cleared > 0:
+        # Group specs by chain_id for per-chain rescan commands.
+        # scan-prices.py scans one chain at a time, so we need one command per chain.
+        # VAULT_ID + START_BLOCK=1 forces a targeted rescan from the first block
+        # instead of resuming from the max last_block of other chain vaults.
+        from eth_defi.chain import get_chain_name
+
+        specs_by_chain: dict[int, list[VaultSpec]] = {}
+        for spec in tranche_specs:
+            specs_by_chain.setdefault(spec.chain_id, []).append(spec)
+
+        logger.info("")
+        logger.info("Next steps — rescan affected vaults per chain:")
+        for chain_id, chain_specs in sorted(specs_by_chain.items()):
+            vault_ids = ",".join(sorted(str(s) for s in chain_specs))
+            chain_name = get_chain_name(chain_id)
+            rpc_var = f"JSON_RPC_{chain_name.upper().replace(' ', '_')}"
+            logger.info("")
+            logger.info("  # %s (chain %d)", chain_name, chain_id)
+            logger.info(
+                '  VAULT_ID="%s" START_BLOCK=1 JSON_RPC_URL=$%s poetry run python scripts/erc-4626/scan-prices.py',
+                vault_ids,
+                rpc_var,
+            )
+        logger.info("")
+        logger.info("After rescanning, re-run the post-processing pipeline:")
+        logger.info("  poetry run python scripts/erc-4626/post-process-prices.py")
 
 
 if __name__ == "__main__":
