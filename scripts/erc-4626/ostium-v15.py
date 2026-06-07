@@ -81,53 +81,73 @@ def confirm(prompt: str) -> bool:
 def print_vault_state(vault: OstiumVault, web3, owner_address: str | None = None):
     """Print vault state summary at the start of every action.
 
-    Shows TVL, share price, settlement state, deposit/redemption open status,
-    and owner-specific balances and active tickets when an address is available.
+    Shows chain info, vault TVL, share price, settlement state,
+    deposit/redemption status, and owner-specific token balances
+    and active settlement tickets.
     """
+    from eth_defi.chain import get_chain_name
+    from eth_defi.utils import from_unix_timestamp
+
     block = web3.eth.block_number
+    chain_id = web3.eth.chain_id
+    chain_name = get_chain_name(chain_id)
     contract = vault.vault_contract
 
-    # Vault basics
+    # ── Chain and vault ──────────────────────────────────────────────
+    print("=" * 70)
+    print(f"OSTIUM V1.5 VAULT")
+    print("=" * 70)
+
+    print(f"\nChain:          {chain_name} (chain ID: {chain_id})")
+    print(f"Block:          {block:,}")
+    print(f"Vault:          {vault.name}")
+    print(f"Address:        {vault.address}")
+    print(f"Denomination:   {vault.denomination_token.symbol} ({vault.denomination_token.address})")
+    print(f"Share token:    {vault.share_token.symbol} ({vault.share_token.address})")
+
+    # ── TVL and pricing ──────────────────────────────────────────────
     total_assets = vault.fetch_total_assets(block)
     total_supply = vault.fetch_total_supply(block)
     share_price = vault.fetch_share_price(block)
     deposit_closed = vault.fetch_deposit_closed_reason()
     redemption_closed = vault.fetch_redemption_closed_reason()
 
-    print(f"{'=' * 60}")
-    print(f"Ostium V1.5 vault: {vault.name}")
-    print(f"Address: {vault.address}")
-    print(f"Block: {block:,}")
-    print(f"{'=' * 60}")
-    print(f"TVL (total assets): {total_assets} {vault.denomination_token.symbol}")
-    print(f"Total supply:       {total_supply} {vault.share_token.symbol}")
-    print(f"Share price:        {share_price} {vault.denomination_token.symbol}/{vault.share_token.symbol}")
-    print(f"Deposits:           {'OPEN' if not deposit_closed else deposit_closed}")
-    print(f"Redemptions:        {'OPEN' if not redemption_closed else redemption_closed}")
+    print(f"\n{'─' * 70}")
+    print(f"TVL (total assets):  {total_assets} {vault.denomination_token.symbol}")
+    print(f"Total supply:        {total_supply} {vault.share_token.symbol}")
+    print(f"Share price:         {share_price} {vault.denomination_token.symbol}/{vault.share_token.symbol}")
+    print(f"Deposits:            {'OPEN' if not deposit_closed else deposit_closed}")
+    print(f"Redemptions:         {'OPEN' if not redemption_closed else redemption_closed}")
 
-    # Settlement state
+    # ── Settlement state ─────────────────────────────────────────────
     last_settlement_id = contract.functions.lastSettlementId().call()
     deposit_target = contract.functions.targetSettlementId(True).call()
     withdraw_target = contract.functions.targetSettlementId(False).call()
     last_ts = contract.functions.lastSettlementTs().call()
     max_interval = contract.functions.maxSettlementInterval().call()
+    last_settlement_dt = from_unix_timestamp(last_ts)
 
-    print(f"\nSettlement state:")
+    print(f"\n{'─' * 70}")
+    print(f"Settlement state:")
     print(f"  Last settlement ID:    {last_settlement_id}")
     print(f"  Deposit target ID:     {deposit_target}")
     print(f"  Withdraw target ID:    {withdraw_target}")
-    print(f"  Last settlement ts:    {last_ts}")
+    print(f"  Last settlement:       {last_settlement_dt.strftime('%Y-%m-%d %H:%M:%S')} UTC")
     print(f"  Max interval:          {max_interval}s ({max_interval / 3600:.1f}h)")
 
-    # Owner-specific info
+    # ── Owner balances and tickets ───────────────────────────────────
     if owner_address:
+        eth_balance = web3.eth.get_balance(owner_address)
+        eth_human = web3.from_wei(eth_balance, "ether")
         usdc_balance = vault.denomination_token.fetch_balance_of(owner_address)
         share_balance = vault.share_token.fetch_balance_of(owner_address)
         share_value = share_balance * share_price if share_price else Decimal(0)
 
-        print(f"\nOwner: {owner_address}")
-        print(f"  USDC balance:          {usdc_balance} {vault.denomination_token.symbol}")
-        print(f"  OLP share balance:     {share_balance} {vault.share_token.symbol}")
+        print(f"\n{'─' * 70}")
+        print(f"Owner: {owner_address}")
+        print(f"  ETH balance:           {eth_human} ETH")
+        print(f"  {vault.denomination_token.symbol} balance:          {usdc_balance} {vault.denomination_token.symbol}")
+        print(f"  {vault.share_token.symbol} balance:           {share_balance} {vault.share_token.symbol}")
         print(f"  Share value:           ~{share_value:.2f} {vault.denomination_token.symbol}")
 
         # Active tickets
@@ -155,8 +175,10 @@ def print_vault_state(vault: OstiumVault, web3, owner_address: str | None = None
             print(f"\n  Active tickets:")
             print("  " + tabulate(rows, headers="keys", tablefmt="simple").replace("\n", "\n  "))
     else:
-        print("\nSet OWNER_ADDRESS or PRIVATE_KEY to see owner-specific balances and tickets.")
+        print(f"\n{'─' * 70}")
+        print("Set OWNER_ADDRESS or PRIVATE_KEY to see owner-specific balances and tickets.")
 
+    print("=" * 70)
     print()
 
 
