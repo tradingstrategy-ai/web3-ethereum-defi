@@ -476,20 +476,23 @@ def test_morpho_clean_vault_no_warnings(web3_ethereum: Web3):
     assert VaultFlag.morpho_issues not in vault.get_flags()
 
 
-@pytest.mark.skip(reason="Morpho offchain API no longer returns bad_debt_usd for this vault — external data change")
+@flaky.flaky
 @pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed")
 def test_morpho_bad_debt_realized_metadata(web3_ethereum: Web3):
-    """bad_debt_realized warnings include metadata: bad_debt_usd and bad_debt_share.
+    """bad_debt_realized warnings include metadata: bad_debt_share (and optionally bad_debt_usd).
 
-    Dune USDC on Ethereum has ``bad_debt_realized`` (YELLOW) market warnings with USD and
+    Dune USDC on Ethereum has ``bad_debt_realized`` (YELLOW) market warnings with
     share-fraction metadata. Verifies that market warning metadata is parsed correctly.
+
+    Note: as of June 2026, the Morpho API returns ``badDebtUsd: null`` for
+    ``bad_debt_realized`` warnings while ``badDebtShare`` remains populated.
 
     Steps:
 
     1. Fetch data for Dune USDC (known to have bad_debt_realized YELLOW market warnings).
     2. Find a market warning of type bad_debt_realized.
-    3. Assert bad_debt_usd is a positive float.
-    4. Assert bad_debt_share is a float in the range (0.0, 1.0].
+    3. Assert bad_debt_share is a float in the range (0.0, 1.0].
+    4. Assert bad_debt_usd, if present, is a positive float.
     """
     # 1. Fetch
     data = fetch_morpho_vault_data(web3_ethereum, DUNE_USDC_ETHEREUM)
@@ -501,10 +504,10 @@ def test_morpho_bad_debt_realized_metadata(web3_ethereum: Web3):
 
     w = realized_warnings[0]
 
-    # 3. bad_debt_usd is a positive float
-    assert w["bad_debt_usd"] is not None, "Expected bad_debt_usd to be set"
-    assert w["bad_debt_usd"] > 0, f"Expected positive bad_debt_usd, got {w['bad_debt_usd']}"
-
-    # 4. bad_debt_share is a fraction in (0, 1]
+    # 3. bad_debt_share is a fraction in (0, 1]
     assert w["bad_debt_share"] is not None, "Expected bad_debt_share to be set"
     assert 0.0 < w["bad_debt_share"] <= 1.0, f"Expected fraction in (0,1], got {w['bad_debt_share']}"
+
+    # 4. bad_debt_usd, if present, is a positive float
+    if w["bad_debt_usd"] is not None:
+        assert w["bad_debt_usd"] > 0, f"Expected positive bad_debt_usd, got {w['bad_debt_usd']}"
