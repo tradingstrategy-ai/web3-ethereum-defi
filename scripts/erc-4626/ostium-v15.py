@@ -8,10 +8,27 @@ See also ``scripts/lagoon/lagoon-gmx-example.py`` for a similar pattern
 applied to GMX perpetuals trading through a Lagoon vault (deployment,
 deposit, trading, withdrawal, and transaction cost tracking).
 
+Simulation mode
+---------------
+
+Set ``SIMULATE=true`` to run the script using an Anvil mainnet fork of Arbitrum.
+The default action in simulation mode is ``simulate_all`` which runs a full
+deposit/settlement/claim/withdraw cycle using a test wallet funded from a
+USDC whale account. No real money is spent.
+
+Example:
+
+.. code-block:: shell
+
+    SIMULATE=true JSON_RPC_ARBITRUM="https://arb1.arbitrum.io/rpc" python scripts/erc-4626/ostium-v15.py
+
 Environment variables:
     JSON_RPC_ARBITRUM   Arbitrum RPC URL (space-separated fallback format)
-    ACTION              One of: status, deposit, cancel_deposit, withdraw (default: status)
-    PRIVATE_KEY         Private key for signing (required for deposit/withdraw/cancel)
+    SIMULATE            Set to "true" to use Anvil fork with test wallet
+    ACTION              One of: status, deposit, cancel_deposit, withdraw,
+                        simulate_all (default: status, or simulate_all if SIMULATE=true)
+    PRIVATE_KEY         Private key for signing (required for deposit/withdraw/cancel,
+                        not needed in simulation mode)
     VAULT_ADDRESS       Ostium vault address (default: OLP vault)
     OWNER_ADDRESS       Address to check status for (status action only,
                         defaults to PRIVATE_KEY address if set)
@@ -40,6 +57,9 @@ Usage:
 
     # Claim withdrawal after settlement
     ACTION=withdraw SETTLEMENT_ID=42 poetry run python scripts/erc-4626/ostium-v15.py --claim
+
+    # Simulate full deposit/withdrawal cycle on Anvil fork (no real money)
+    SIMULATE=true poetry run python scripts/erc-4626/ostium-v15.py
 """
 
 import logging
@@ -444,35 +464,78 @@ def do_withdraw(vault: OstiumVault, deposit_manager: OstiumV15DepositManager, ho
 
 # --- Main ---
 
-action = os.environ.get("ACTION", "status").lower()
+simulate = os.environ.get("SIMULATE", "").lower() in ("true", "1", "yes")
+action = os.environ.get("ACTION", "simulate_all" if simulate else "status").lower()
 vault_address = os.environ.get("VAULT_ADDRESS", "0x20d419a8e12c45f88fda7c5760bb6923cee27f98")
+anvil_launch = None
 
-web3 = create_multi_provider_web3(os.environ["JSON_RPC_ARBITRUM"])
-vault: OstiumVault = create_vault_instance_autodetect(web3, vault_address)
-assert vault.version == OstiumVersion.v1_5, f"Expected V1.5, got {vault.version}"
+try:
+    if simulate:
+        from eth_defi.erc_4626.vault_protocol.gains.testing import (
+            setup_ostium_simulation,
+            simulate_ostium_v15_cycle,
+        )
 
-# Resolve owner address for vault state display
-owner_address = os.environ.get("OWNER_ADDRESS")
-if not owner_address and os.environ.get("PRIVATE_KEY"):
-    owner_address = HotWallet.from_private_key(os.environ["PRIVATE_KEY"]).address
+        print("=" * 70)
+        print("OSTIUM V1.5 (SIMULATION MODE)")
+        print("=" * 70)
 
-# Always print vault state at the start
-print_vault_state(vault, web3, owner_address)
+        web3, hot_wallet, anvil_launch, vault = setup_ostium_simulation(
+            os.environ["JSON_RPC_ARBITRUM"],
+            vault_address=vault_address,
+            fund_amount=Decimal(os.environ.get("AMOUNT", "100")),
+        )
+        owner_address = hot_wallet.address
 
-if action == "status":
-    pass  # Vault state already printed above
-elif action in ("deposit", "cancel_deposit", "withdraw"):
-    private_key = os.environ["PRIVATE_KEY"]
-    hot_wallet = HotWallet.from_private_key(private_key)
-    hot_wallet.sync_nonce(web3)
-    deposit_manager: OstiumV15DepositManager = vault.get_deposit_manager()
+        print_vault_state(vault, web3, owner_address)
 
-    if action == "deposit":
-        do_deposit(vault, deposit_manager, hot_wallet, web3)
-    elif action == "cancel_deposit":
-        do_cancel_deposit(vault, deposit_manager, hot_wallet, web3)
+        if action == "simulate_all":
+            deposit_amount = Decimal(os.environ.get("AMOUNT", "50"))
+            simulate_ostium_v15_cycle(web3, hot_wallet, vault, deposit_amount=deposit_amount)
+        elif action == "status":
+            pass
+        else:
+            # Allow running individual actions in simulate mode too
+            deposit_manager: OstiumV15DepositManager = vault.get_deposit_manager()
+            if action == "deposit":
+                do_deposit(vault, deposit_manager, hot_wallet, web3)
+            elif action == "cancel_deposit":
+                do_cancel_deposit(vault, deposit_manager, hot_wallet, web3)
+            elif action == "withdraw":
+                do_withdraw(vault, deposit_manager, hot_wallet, web3)
+            else:
+                print(f"Unknown ACTION: {action}. Use: simulate_all, status, deposit, cancel_deposit, withdraw")
+                sys.exit(1)
     else:
-        do_withdraw(vault, deposit_manager, hot_wallet, web3)
-else:
-    print(f"Unknown ACTION: {action}. Use: status, deposit, cancel_deposit, withdraw")
-    sys.exit(1)
+        web3 = create_multi_provider_web3(os.environ["JSON_RPC_ARBITRUM"])
+        vault: OstiumVault = create_vault_instance_autodetect(web3, vault_address)
+        assert vault.version == OstiumVersion.v1_5, f"Expected V1.5, got {vault.version}"
+
+        # Resolve owner address for vault state display
+        owner_address = os.environ.get("OWNER_ADDRESS")
+        if not owner_address and os.environ.get("PRIVATE_KEY"):
+            owner_address = HotWallet.from_private_key(os.environ["PRIVATE_KEY"]).address
+
+        print_vault_state(vault, web3, owner_address)
+
+        if action == "status":
+            pass
+        elif action in ("deposit", "cancel_deposit", "withdraw"):
+            private_key = os.environ["PRIVATE_KEY"]
+            hot_wallet = HotWallet.from_private_key(private_key)
+            hot_wallet.sync_nonce(web3)
+            deposit_manager: OstiumV15DepositManager = vault.get_deposit_manager()
+
+            if action == "deposit":
+                do_deposit(vault, deposit_manager, hot_wallet, web3)
+            elif action == "cancel_deposit":
+                do_cancel_deposit(vault, deposit_manager, hot_wallet, web3)
+            else:
+                do_withdraw(vault, deposit_manager, hot_wallet, web3)
+        else:
+            print(f"Unknown ACTION: {action}. Use: status, deposit, cancel_deposit, withdraw")
+            sys.exit(1)
+finally:
+    if anvil_launch is not None:
+        print("\nShutting down Anvil fork...")
+        anvil_launch.close()
