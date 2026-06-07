@@ -111,47 +111,45 @@ in `eth_defi`:
    settlement, not at deposit time. Valuation models need to account
    for pending deposits that have not yet converted to shares.
 
-## Manual scripts
+## Manual script
 
-Three standalone scripts for testing the V1.5 async deposit/withdrawal flow.
-All scripts use environment variables for configuration:
+`scripts/erc-4626/ostium-v15.py` — combined script for status checking,
+deposits, and withdrawals. All transaction-sending actions require y/n
+confirmation before broadcast.
 
 | Variable | Description |
 |----------|-------------|
 | `JSON_RPC_ARBITRUM` | Arbitrum RPC URL (space-separated fallback format supported) |
-| `PRIVATE_KEY` | Private key for the signing wallet |
+| `ACTION` | `status` (default), `deposit`, or `withdraw` |
+| `PRIVATE_KEY` | Private key for the signing wallet (required for deposit/withdraw) |
 | `VAULT_ADDRESS` | Ostium vault address (default: `0x20d419a8e12c45f88fda7c5760bb6923cee27f98`) |
+| `OWNER_ADDRESS` | Address to check status for (defaults to `PRIVATE_KEY` address) |
 | `AMOUNT` | USDC amount for deposit, OLP share amount for withdrawal |
+| `SETTLEMENT_ID` | Settlement ID for `--claim` / `--reclaim` modes |
 
-### ostium-v15-deposit.py
+### Examples
 
-Request an async deposit to the Ostium V1.5 vault. Approves USDC, calls
-`requestDeposit(assets)`, and displays the `settlement_id` from the
-`DepositRequestedV2` event. After settlement (daily 5-6 PM ET Mon-Fri),
-run again with `--claim` to call `claimDeposit()` and receive OLP shares.
+    # Check vault state and owner request status
+    source .local-test.env && ACTION=status poetry run python scripts/erc-4626/ostium-v15.py
+    source .local-test.env && ACTION=status OWNER_ADDRESS=0x... poetry run python scripts/erc-4626/ostium-v15.py
 
-    source .local-test.env && poetry run python scripts/erc-4626/ostium-v15-deposit.py
-    source .local-test.env && SETTLEMENT_ID=42 poetry run python scripts/erc-4626/ostium-v15-deposit.py --claim
+    # Request a deposit (approve + requestDeposit)
+    source .local-test.env && ACTION=deposit AMOUNT=100 poetry run python scripts/erc-4626/ostium-v15.py
 
-### ostium-v15-withdraw.py
+    # Claim deposit after settlement
+    source .local-test.env && ACTION=deposit SETTLEMENT_ID=42 poetry run python scripts/erc-4626/ostium-v15.py --claim
 
-Request an async withdrawal from the Ostium V1.5 vault. Calls
-`requestWithdraw(shares)` and displays the `settlement_id`. After
-settlement, run again with `--claim` to call `claimWithdraw()` and
-receive USDC.
+    # Reclaim USDC after failed settlement
+    source .local-test.env && ACTION=deposit SETTLEMENT_ID=42 poetry run python scripts/erc-4626/ostium-v15.py --reclaim
 
-    source .local-test.env && poetry run python scripts/erc-4626/ostium-v15-withdraw.py
-    source .local-test.env && SETTLEMENT_ID=42 poetry run python scripts/erc-4626/ostium-v15-withdraw.py --claim
+    # Request a withdrawal (requestWithdraw)
+    source .local-test.env && ACTION=withdraw AMOUNT=50 poetry run python scripts/erc-4626/ostium-v15.py
 
-### ostium-v15-status.py
+    # Claim withdrawal after settlement
+    source .local-test.env && ACTION=withdraw SETTLEMENT_ID=42 poetry run python scripts/erc-4626/ostium-v15.py --claim
 
-Check the deposit and withdrawal status for an address. Displays current
-`targetSettlementId`, `lastSettlementId`, `maxSettlementInterval`, and
-the status (`NONE`, `PENDING`, `CLAIMABLE`, `RECLAIMABLE`) for each
-settlement ID the address has interacted with.
-
-    source .local-test.env && poetry run python scripts/erc-4626/ostium-v15-status.py
-    source .local-test.env && OWNER_ADDRESS=0x... poetry run python scripts/erc-4626/ostium-v15-status.py
+    # Reclaim OLP shares after failed withdrawal settlement
+    source .local-test.env && ACTION=withdraw SETTLEMENT_ID=42 poetry run python scripts/erc-4626/ostium-v15.py --reclaim
 
 ## Reference links
 
