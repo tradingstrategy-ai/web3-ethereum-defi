@@ -35,17 +35,24 @@ from eth_defi.core3.scanner import scan_projects as core3_scan_projects
 from eth_defi.core3.session import create_core3_session
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
 from eth_defi.erc_4626.lead_scan_core import scan_leads
+from eth_defi.grvt.constants import GRVT_CHAIN_ID
+from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
 from eth_defi.grvt.daily_metrics import run_daily_scan as grvt_run_daily_scan
 from eth_defi.grvt.vault_data_export import merge_into_vault_database as grvt_merge_vault_db
-from eth_defi.hibachi.constants import HIBACHI_DAILY_METRICS_DATABASE
-from eth_defi.hibachi.daily_metrics import run_daily_scan as hibachi_run_daily_scan
-from eth_defi.hibachi.vault_data_export import merge_into_vault_database as hibachi_merge_vault_db
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.hyperliquid.daily_metrics import run_daily_scan as hyperliquid_run_daily_scan
 from eth_defi.hyperliquid.session import create_hyperliquid_session
+from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database as hyperliquid_merge_vault_db
 from eth_defi.hypersync.utils import configure_hypersync_from_env
+from eth_defi.lighter.constants import LIGHTER_CHAIN_ID
+from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.lighter.daily_metrics import run_daily_scan as lighter_run_daily_scan
 from eth_defi.lighter.session import create_lighter_session
 from eth_defi.lighter.vault_data_export import merge_into_vault_database as lighter_merge_vault_db
+from eth_defi.hibachi.constants import HIBACHI_DAILY_METRICS_DATABASE
+from eth_defi.hibachi.daily_metrics import run_daily_scan as hibachi_run_daily_scan
+from eth_defi.hibachi.vault_data_export import merge_into_vault_database as hibachi_merge_vault_db
 from eth_defi.provider.broken_provider import verify_archive_node
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
@@ -612,7 +619,7 @@ def scan_chain(
     vault_ok = result.vault_scan_ok if config.scan_vaults else True
     price_ok = result.price_scan_ok if scan_prices else True
 
-    if vault_ok is not False and price_ok is not False:
+    if vault_ok and price_ok:
         result.status = "success"
     else:
         result.status = "failed"
