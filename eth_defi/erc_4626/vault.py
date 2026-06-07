@@ -669,8 +669,17 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             errors.append("total_assets call missing")
             total_assets = None
         elif self.vault.denomination_token is not None and total_assets_call_result.success:
-            raw_total_assets = convert_int256_bytes_to_int(total_assets_call_result.result)
-            total_assets = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
+            # Guard against non-standard multi-word return types (e.g. Royco AssetClaims tuple).
+            # Standard ERC-4626 totalAssets() returns a single uint256 (32 bytes).
+            # If the return payload is longer, the generic reader cannot decode it correctly
+            # and would produce astronomically wrong values.
+            result_bytes = total_assets_call_result.result
+            if isinstance(result_bytes, bytes) and len(result_bytes) > 32:
+                errors.append(f"total_assets returned {len(result_bytes)} bytes, expected 32 (non-standard ABI)")
+                total_assets = None
+            else:
+                raw_total_assets = convert_int256_bytes_to_int(result_bytes)
+                total_assets = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
 
         else:
             errors.append("total_assets call failed")
@@ -684,9 +693,15 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
         convert_to_assets_call_result = call_by_name.get("convertToAssets")
         if self.vault.denomination_token is not None and convert_to_assets_call_result is not None and convert_to_assets_call_result.success:
-            # Take one unit of assets
-            raw_total_assets = convert_int256_bytes_to_int(convert_to_assets_call_result.result)
-            share_price = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
+            # Guard against non-standard multi-word return types (e.g. Royco AssetClaims tuple).
+            # Standard ERC-4626 convertToAssets(uint256) returns a single uint256 (32 bytes).
+            result_bytes = convert_to_assets_call_result.result
+            if isinstance(result_bytes, bytes) and len(result_bytes) > 32:
+                errors.append(f"convertToAssets returned {len(result_bytes)} bytes, expected 32 (non-standard ABI)")
+                share_price = None
+            else:
+                raw_total_assets = convert_int256_bytes_to_int(result_bytes)
+                share_price = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
 
             # Handle dealing with the adaptive frequency
             state = total_assets_call_result.state
