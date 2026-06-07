@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 vault_address = os.environ.get("VAULT_ADDRESS", "0x20d419a8e12c45f88fda7c5760bb6923cee27f98")
 claim_mode = "--claim" in sys.argv
+reclaim_mode = "--reclaim" in sys.argv
 
 web3 = create_multi_provider_web3(os.environ["JSON_RPC_ARBITRUM"])
 
@@ -47,7 +48,7 @@ assert vault.version == OstiumVersion.v1_5, f"Expected V1.5, got {vault.version}
 
 deposit_manager: OstiumV15DepositManager = vault.get_deposit_manager()
 
-if claim_mode:
+if claim_mode or reclaim_mode:
     settlement_id = int(os.environ["SETTLEMENT_ID"])
     from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import OstiumDepositTicket
     from hexbytes import HexBytes
@@ -56,7 +57,7 @@ if claim_mode:
         vault_address=vault_address,
         owner=owner,
         to=owner,
-        raw_amount=1,  # Dummy — not used by finish_deposit/get_status
+        raw_amount=1,  # Dummy — not used by finish_deposit/get_status/reclaim
         tx_hash=HexBytes(b"\x00" * 32),
         gas_used=0,
         block_number=0,
@@ -67,7 +68,16 @@ if claim_mode:
     status = deposit_manager.get_deposit_request_status(ticket)
     print(f"Deposit status for settlement {settlement_id}: {status.value}")
 
-    if status == AsyncVaultRequestStatus.claimable:
+    if reclaim_mode:
+        if status != AsyncVaultRequestStatus.reclaimable:
+            print(f"Cannot reclaim — status is {status.value}, not reclaimable")
+            sys.exit(1)
+        reclaim_func = deposit_manager.reclaim_deposit(ticket)
+        tx_hash = hot_wallet.transact_with_contract(reclaim_func, gas=1_000_000)
+        assert_transaction_success_with_explanation(web3, tx_hash)
+        print(f"Reclaimed USDC from failed settlement {settlement_id}")
+        print(f"Tx hash: {tx_hash.hex()}")
+    elif status == AsyncVaultRequestStatus.claimable:
         claim_func = deposit_manager.finish_deposit(ticket)
         tx_hash = hot_wallet.transact_with_contract(claim_func, gas=1_000_000)
         assert_transaction_success_with_explanation(web3, tx_hash)
@@ -87,7 +97,7 @@ if claim_mode:
         analysis = deposit_manager.analyse_deposit(tx_hash, ticket_for_analysis)
         print(f"Claimed {analysis.share_count} shares ({analysis.denomination_amount} USDC equivalent)")
     elif status == AsyncVaultRequestStatus.reclaimable:
-        print("Settlement failed. Run with SETTLEMENT_ID and --reclaim to recover funds.")
+        print(f"Settlement failed. Reclaim with: SETTLEMENT_ID={settlement_id} python {sys.argv[0]} --reclaim")
     else:
         print(f"Cannot claim yet. Status: {status.value}")
 else:

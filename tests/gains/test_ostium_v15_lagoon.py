@@ -11,6 +11,7 @@ import logging
 import os
 from decimal import Decimal
 
+import flaky
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
@@ -40,7 +41,6 @@ from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
 
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
-CI = os.environ.get("CI") == "true"
 pytestmark = pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test")
 
 #: Post-upgrade fork block (V1.5 was deployed at block 457,238,658)
@@ -122,7 +122,7 @@ def new_depositor(web3, usdc) -> HexAddress:
     return depositor
 
 
-@pytest.mark.skipif(CI, reason="Skipped on CI due to RPC inconsistencies")
+@flaky.flaky
 def test_lagoon_ostium_v15_deposit_withdraw(
     web3: Web3,
     usdc: TokenDetails,

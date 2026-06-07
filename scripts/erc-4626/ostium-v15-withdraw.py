@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 vault_address = os.environ.get("VAULT_ADDRESS", "0x20d419a8e12c45f88fda7c5760bb6923cee27f98")
 claim_mode = "--claim" in sys.argv
+reclaim_mode = "--reclaim" in sys.argv
 
 web3 = create_multi_provider_web3(os.environ["JSON_RPC_ARBITRUM"])
 
@@ -46,7 +47,7 @@ assert vault.version == OstiumVersion.v1_5, f"Expected V1.5, got {vault.version}
 
 deposit_manager: OstiumV15DepositManager = vault.get_deposit_manager()
 
-if claim_mode:
+if claim_mode or reclaim_mode:
     settlement_id = int(os.environ["SETTLEMENT_ID"])
     from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import OstiumRedemptionTicket
     from hexbytes import HexBytes
@@ -56,7 +57,7 @@ if claim_mode:
         vault_address=vault_address,
         owner=owner,
         to=owner,
-        raw_shares=1,  # Dummy — not used by finish_redemption/get_status
+        raw_shares=1,  # Dummy — not used by finish_redemption/get_status/reclaim
         tx_hash=HexBytes(b"\x00" * 32),
         settlement_id=settlement_id,
     )
@@ -64,7 +65,16 @@ if claim_mode:
     status = deposit_manager.get_redemption_request_status(ticket)
     print(f"Withdrawal status for settlement {settlement_id}: {status.value}")
 
-    if status == AsyncVaultRequestStatus.claimable:
+    if reclaim_mode:
+        if status != AsyncVaultRequestStatus.reclaimable:
+            print(f"Cannot reclaim — status is {status.value}, not reclaimable")
+            sys.exit(1)
+        reclaim_func = deposit_manager.reclaim_withdrawal(ticket)
+        tx_hash = hot_wallet.transact_with_contract(reclaim_func, gas=1_000_000)
+        assert_transaction_success_with_explanation(web3, tx_hash)
+        print(f"Reclaimed OLP shares from failed settlement {settlement_id}")
+        print(f"Tx hash: {tx_hash.hex()}")
+    elif status == AsyncVaultRequestStatus.claimable:
         claim_func = deposit_manager.finish_redemption(ticket)
         tx_hash = hot_wallet.transact_with_contract(claim_func, gas=1_000_000)
         assert_transaction_success_with_explanation(web3, tx_hash)
@@ -80,7 +90,7 @@ if claim_mode:
         else:
             print("Claim succeeded but could not parse WithdrawClaimedV2 event")
     elif status == AsyncVaultRequestStatus.reclaimable:
-        print("Settlement failed. Use reclaimWithdraw to recover shares.")
+        print(f"Settlement failed. Reclaim with: SETTLEMENT_ID={settlement_id} python {sys.argv[0]} --reclaim")
     else:
         print(f"Cannot claim yet. Status: {status.value}")
 else:
