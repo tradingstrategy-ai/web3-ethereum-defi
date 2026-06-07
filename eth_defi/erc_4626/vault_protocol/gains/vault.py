@@ -381,11 +381,23 @@ class GainsVault(ERC4626Vault):
         raise NotImplementedError(f"Does not know this Gains-like vault structure")
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
-        """No management fee"""
+        """No management fee.
+
+        Ostium does not charge management fees to OLP holders.
+        Returns are generated from 30% of trader opening fees (V1.5)
+        or opening fees + rollover/liquidation fees + PnL exposure (V1).
+
+        See https://docs.ostium.com/vault/reference/olp-token
+        """
         return 0.0
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float:
-        """No performance fee"""
+        """No performance fee.
+
+        Ostium does not charge performance fees to OLP holders.
+
+        See https://docs.ostium.com/vault/reference/olp-token
+        """
         return 0.0
 
     def fetch_current_epoch(self) -> int:
@@ -728,10 +740,12 @@ class OstiumVault(GainsVault):
 
     @property
     def short_description(self) -> str | None:
+        if self.version == OstiumVersion.v1_5:
+            return "Ostium liquidity pool vault where depositors provide USDC via async settlement, earning a share of trading opening fees."
         return "Ostium liquidity pool vault where depositors provide USDC as counterparty liquidity to perpetual traders, earning trading fees and trader PnL exposure."
 
     @property
     def description(self) -> str | None:
         if self.version == OstiumVersion.v1_5:
-            return "Users deposit USDC to mint OLP tokens via an async settlement flow. Deposits are queued via requestDeposit() and settled daily, after which shares can be claimed. Withdrawals follow the same pattern via requestWithdraw()/claimWithdraw(). Returns come from trading fees and trader PnL exposure. See [Ostium docs](https://docs.ostium.com) for details."
-        return "Users deposit USDC to mint OLP tokens, representing a stake in a fund that generates returns through trading fees and trader PnL exposure. The vault operates on an epoch-based system (currently 3-day cycles) with two states: when undercollateralised (c-ratio < 100%), OLP holders act as direct counterparties to traders with higher fee capture but more volatility; when overcollateralised (c-ratio >= 100%), a buffer absorbs trader PnL first, insulating OLP from volatility. Fees include 30% of opening fees (continuous) and 100% of rollover/liquidation fees (end-of-epoch). Withdrawals require a request during the first 48 hours of an epoch, followed by a cool-off period before USDC redemption. See [Ostium vault documentation](https://ostium-labs.gitbook.io/ostium-docs/vault/overview) for more details."
+            return "Users deposit USDC to mint OLP tokens via an async settlement flow. Deposits are queued via requestDeposit() and settled daily (5-6 pm ET Mon-Fri), after which shares can be claimed. Withdrawals follow the same pattern via requestWithdraw()/claimWithdraw(). OLP holders earn 30% of opening fees paid by traders, allocated at each daily settlement. Unlike V1, OLP holders have no direct trader PnL exposure — returns come solely from opening fee revenue. The 30% allocation is a tunable protocol parameter. There are no management fees, performance fees, deposit fees, or withdrawal fees. See [Ostium vault docs](https://docs.ostium.com/vault/overview) for details."
+        return "Users deposit USDC to mint OLP tokens, representing a stake in a fund that generates returns through trading fees and trader PnL exposure. The vault operates on an epoch-based system (currently 3-day cycles) with two states: when undercollateralised (c-ratio < 100%), OLP holders act as direct counterparties to traders with higher fee capture but more volatility; when overcollateralised (c-ratio >= 100%), a buffer absorbs trader PnL first, insulating OLP from volatility. Fees include 30% of opening fees (continuous) and 100% of rollover/liquidation fees (end-of-epoch). Withdrawals require a request during the first 48 hours of an epoch, followed by a cool-off period before USDC redemption. See [Ostium vault documentation](https://docs.ostium.com/vault/overview) for more details."

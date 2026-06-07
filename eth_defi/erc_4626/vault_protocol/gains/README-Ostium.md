@@ -59,6 +59,25 @@ Deposit status is queryable via `getDepositStatus()` which returns an enum
 Withdrawals use the same pattern: `requestWithdraw` → settlement →
 `claimWithdraw`, with analogous cancel/reclaim paths.
 
+### Fee/revenue model change
+
+V1.5 fundamentally changed the OLP revenue model:
+
+| Aspect | V1 | V1.5 |
+|--------|----|----|
+| Opening fee share | 30% (continuous within epoch) | 30% (at daily settlement) |
+| Rollover/liquidation fees | 100% to OLP (end-of-epoch) | None — retained by protocol |
+| Trader PnL exposure | Yes (junior counterparty when undercollateralised) | None |
+| Management/performance fees | None | None |
+| APR characteristics | -4% to +50% (volatile, PnL-dependent) | Tighter, more stable (fee-only) |
+
+OLP holders no longer bear trader PnL risk. Returns come solely from
+the 30% opening fee allocation (a tunable protocol parameter). There
+are no management fees, performance fees, deposit fees, or withdrawal
+fees in either version.
+
+See: https://docs.ostium.com/vault/reference/olp-token
+
 ### ERC-4626 spec violation
 
 `maxDeposit()` still returns `type(uint256).max` even though `deposit()`
@@ -160,5 +179,7 @@ confirmation before broadcast.
 - [Vault proxy on Arbiscan](https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98)
 - [V1.5.0 implementation on Arbiscan](https://arbiscan.io/address/0xd2619e2012a120504e043f61c8acb3ede2472bf7)
 - [Old implementation on Arbiscan](https://arbiscan.io/address/0x7912cf084eb45e7d2a2c10dda3e98136d12043fb)
-- [Ostium docs (new)](https://docs.ostium.com)
+- [Ostium docs — vault overview](https://docs.ostium.com/vault/overview)
+- [Ostium docs — OLP token and yield](https://docs.ostium.com/vault/reference/olp-token)
+- [Ostium docs — fee breakdown](https://docs.ostium.com/traders/reference/fees)
 - [Ostium docs (old, deprecated)](https://ostium-labs.gitbook.io/ostium-docs)
