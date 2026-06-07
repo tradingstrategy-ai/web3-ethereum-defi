@@ -52,6 +52,7 @@ from tabulate import tabulate
 from web3._utils.events import EventLogErrorFlags
 
 from eth_defi.chain import get_chain_name
+from eth_defi.confirmation import broadcast_and_wait_transactions_to_complete
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import (
     OSTIUM_REQUEST_STATUS_NONE,
@@ -65,7 +66,6 @@ from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import (
 from eth_defi.erc_4626.vault_protocol.gains.vault import OstiumVault, OstiumVersion
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.provider.receipt import wait_for_transaction_receipt_robust
 from eth_defi.utils import from_unix_timestamp
 from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
 
@@ -87,17 +87,68 @@ def confirm(prompt: str) -> bool:
 
 
 def broadcast(web3, hot_wallet: HotWallet, func, description: str, gas: int = 500_000) -> HexBytes:
-    """Sign, broadcast, and wait for a contract call. Returns tx hash."""
+    """Sign, broadcast, and wait for a contract call.
+
+    Uses :py:func:`broadcast_and_wait_transactions_to_complete` which handles
+    multi-provider RPC sync issues by retrying across all configured providers
+    and waiting for confirmation.
+
+    :return:
+        Transaction hash.
+    """
     signed_tx = hot_wallet.sign_bound_call_with_new_nonce(func, tx_params={"gas": gas}, web3=web3, fill_gas_price=True)
     print(f"  Broadcasting: {description}")
     print(f"  TX hash: {signed_tx.hash.hex()}")
-    web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-    # Use robust receipt waiter to handle multi-provider RPC sync delays;
-    # extra_sleep gives lagging read-only providers time to catch up
-    receipt = wait_for_transaction_receipt_robust(web3, signed_tx.hash, timeout=120, extra_sleep=5.0)
+    receipts = broadcast_and_wait_transactions_to_complete(
+        web3,
+        [signed_tx],
+        confirmation_block_count=2,
+    )
+    receipt = receipts[signed_tx.hash]
     assert receipt["status"] == 1, f"Transaction reverted: {signed_tx.hash.hex()}"
     print(f"  Gas used: {receipt['gasUsed']:,}")
     return signed_tx.hash
+
+
+def resolve_settlement_id(deposit_manager: OstiumV15DepositManager, owner: str, direction: str) -> int:
+    """Resolve SETTLEMENT_ID from environment or auto-detect from on-chain events.
+
+    If ``SETTLEMENT_ID`` is set, uses that value directly.
+    Otherwise, scans on-chain events for pending requests matching the
+    given direction and auto-selects if exactly one is found.
+
+    :param direction:
+        ``"deposit"`` or ``"withdraw"``.
+    """
+    env_id = os.environ.get("SETTLEMENT_ID")
+    if env_id:
+        return int(env_id)
+
+    print(f"  SETTLEMENT_ID not set, querying contract for {direction} requests...")
+    all_requests = deposit_manager.fetch_settlement_requests(owner)
+    matching = [r for r in all_requests if r["direction"] == direction and r["status"] == OSTIUM_REQUEST_STATUS_PENDING]
+
+    if len(matching) == 0:
+        # Also check for claimable/reclaimable
+        actionable = [r for r in all_requests if r["direction"] == direction and r["status"] != OSTIUM_REQUEST_STATUS_NONE]
+        if actionable:
+            for r in actionable:
+                status_name = STATUS_NAMES.get(r["status"], str(r["status"]))
+                print(f"    Settlement {r['settlement_id']}: {status_name}")
+            print(f"  Set SETTLEMENT_ID explicitly for the one you want.")
+            sys.exit(1)
+        print(f"  No {direction} requests found for {owner}")
+        sys.exit(1)
+    elif len(matching) == 1:
+        sid = matching[0]["settlement_id"]
+        print(f"  Auto-detected settlement ID: {sid}")
+        return sid
+    else:
+        print(f"  Multiple pending {direction} requests found:")
+        for r in matching:
+            print(f"    Settlement {r['settlement_id']} (block {r['block_number']})")
+        print(f"  Set SETTLEMENT_ID explicitly to choose one.")
+        sys.exit(1)
 
 
 def print_vault_state(vault: OstiumVault, web3, owner_address: str | None = None):
@@ -209,7 +260,7 @@ def do_deposit(vault: OstiumVault, deposit_manager: OstiumV15DepositManager, hot
     reclaim_mode = "--reclaim" in sys.argv
 
     if claim_mode or reclaim_mode:
-        settlement_id = int(os.environ["SETTLEMENT_ID"])
+        settlement_id = resolve_settlement_id(deposit_manager, owner, "deposit")
         ticket = OstiumDepositTicket(
             vault_address=vault_address,
             owner=owner,
@@ -280,7 +331,7 @@ def do_cancel_deposit(vault: OstiumVault, deposit_manager: OstiumV15DepositManag
     """Cancel a pending deposit before settlement and recover USDC."""
     owner = hot_wallet.address
     vault_address = vault.address
-    settlement_id = int(os.environ["SETTLEMENT_ID"])
+    settlement_id = resolve_settlement_id(deposit_manager, owner, "deposit")
     amount = Decimal(os.environ["AMOUNT"])
     raw_amount = vault.denomination_token.convert_to_raw(amount)
 
@@ -335,7 +386,7 @@ def do_withdraw(vault: OstiumVault, deposit_manager: OstiumV15DepositManager, ho
     reclaim_mode = "--reclaim" in sys.argv
 
     if claim_mode or reclaim_mode:
-        settlement_id = int(os.environ["SETTLEMENT_ID"])
+        settlement_id = resolve_settlement_id(deposit_manager, owner, "withdraw")
         ticket = OstiumRedemptionTicket(
             vault_address=vault_address,
             owner=owner,

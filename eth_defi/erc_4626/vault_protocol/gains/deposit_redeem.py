@@ -211,6 +211,12 @@ class GainsDepositManager(ERC4626DepositManager):
 # Ostium V1.5 async settlement-based deposit/redemption
 # ---------------------------------------------------------------------------
 
+#: Arbitrum block number at which the Ostium vault was upgraded to V1.5.
+#: The proxy at 0x20D419a8e12C45f88fDA7c5760bb6923Cee27F98 was upgraded
+#: to implementation 0xd2619e2012a120504e043f61c8acb3ede2472bf7 in this tx:
+#: https://arbiscan.io/tx/0x3f25d52219c7a9b2469ac3582c6664940ede80da361b987bad6cab6336619363
+OSTIUM_V15_UPGRADE_BLOCK = 457_238_658
+
 
 class OstiumSettlementFailed(Exception):
     """Raised when an Ostium V1.5 settlement resulted in RECLAIMABLE status.
@@ -760,3 +766,50 @@ class OstiumV15DepositManager(ERC4626DepositManager):
     def cancel_withdrawal(self, ticket: OstiumRedemptionTicket, raw_shares: int) -> ContractFunction:
         """Return ``cancelRequestWithdraw(settlementId, shares)`` to cancel a pending withdrawal."""
         return self.vault.vault_contract.functions.cancelRequestWithdraw(ticket.settlement_id, raw_shares)
+
+    def fetch_settlement_requests(
+        self,
+        owner: str,
+    ) -> list[dict]:
+        """Query on-chain status for all recent settlement IDs for an address.
+
+        Checks ``getDepositStatus`` and ``getWithdrawStatus`` for settlement
+        IDs in the range ``[lastSettlementId - 10, max(depositTarget, withdrawTarget)]``.
+        This is fast (a few RPC calls) and avoids slow event scanning.
+
+        :param owner:
+            Address to check.
+
+        :return:
+            List of dicts with keys: ``settlement_id``, ``direction``
+            (``"deposit"`` or ``"withdraw"``), ``status`` (raw int).
+            Only includes entries with non-NONE status.
+        """
+        contract = self.vault.vault_contract
+
+        last_id = contract.functions.lastSettlementId().call()
+        deposit_target = contract.functions.targetSettlementId(True).call()
+        withdraw_target = contract.functions.targetSettlementId(False).call()
+
+        scan_start = max(1, last_id - 10)
+        scan_end = max(deposit_target, withdraw_target) + 1
+
+        results = []
+        for sid in range(scan_start, scan_end):
+            dep_status = contract.functions.getDepositStatus(owner, sid).call()
+            if dep_status != OSTIUM_REQUEST_STATUS_NONE:
+                results.append({
+                    "settlement_id": sid,
+                    "direction": "deposit",
+                    "status": dep_status,
+                })
+
+            wd_status = contract.functions.getWithdrawStatus(owner, sid).call()
+            if wd_status != OSTIUM_REQUEST_STATUS_NONE:
+                results.append({
+                    "settlement_id": sid,
+                    "direction": "withdraw",
+                    "status": wd_status,
+                })
+
+        return results
