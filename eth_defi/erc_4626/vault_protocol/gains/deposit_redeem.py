@@ -798,18 +798,22 @@ class OstiumV15DepositManager(ERC4626DepositManager):
         for sid in range(scan_start, scan_end):
             dep_status = contract.functions.getDepositStatus(owner, sid).call()
             if dep_status != OSTIUM_REQUEST_STATUS_NONE:
-                results.append({
-                    "settlement_id": sid,
-                    "direction": "deposit",
-                    "status": dep_status,
-                })
+                results.append(
+                    {
+                        "settlement_id": sid,
+                        "direction": "deposit",
+                        "status": dep_status,
+                    }
+                )
 
             wd_status = contract.functions.getWithdrawStatus(owner, sid).call()
             if wd_status != OSTIUM_REQUEST_STATUS_NONE:
-                results.append({
-                    "settlement_id": sid,
-                    "direction": "withdraw",
-                    "status": wd_status,
-                })
+                results.append(
+                    {
+                        "settlement_id": sid,
+                        "direction": "withdraw",
+                        "status": wd_status,
+                    }
+                )
 
         return results

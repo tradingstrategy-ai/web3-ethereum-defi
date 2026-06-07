@@ -319,7 +319,6 @@ def test_linkedin_disabled_mapping_is_skipped(tmp_path: Path) -> None:
     assert sources[0].feeder_id == "apostro"
 
 
-@pytest.mark.skip(reason="Live RSS bridge conditions changed — bridges now return connection errors and 5xx instead of auth blocks")
 def test_live_apostro_linkedin_auth_blocked_and_yaml_auto_disabled(tmp_path: Path) -> None:
     """Real Apostro LinkedIn bridges must fail with auth_blocked and auto-disable the YAML.
 

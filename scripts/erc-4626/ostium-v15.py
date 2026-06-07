@@ -146,27 +146,22 @@ def resolve_settlement_id(deposit_manager: OstiumV15DepositManager, owner: str, 
 
     print(f"  SETTLEMENT_ID not set, querying contract for {direction} requests...")
     all_requests = deposit_manager.fetch_settlement_requests(owner)
-    matching = [r for r in all_requests if r["direction"] == direction and r["status"] == OSTIUM_REQUEST_STATUS_PENDING]
+    # Match any non-NONE status (PENDING, CLAIMABLE, RECLAIMABLE)
+    matching = [r for r in all_requests if r["direction"] == direction and r["status"] != OSTIUM_REQUEST_STATUS_NONE]
 
     if len(matching) == 0:
-        # Also check for claimable/reclaimable
-        actionable = [r for r in all_requests if r["direction"] == direction and r["status"] != OSTIUM_REQUEST_STATUS_NONE]
-        if actionable:
-            for r in actionable:
-                status_name = STATUS_NAMES.get(r["status"], str(r["status"]))
-                print(f"    Settlement {r['settlement_id']}: {status_name}")
-            print(f"  Set SETTLEMENT_ID explicitly for the one you want.")
-            sys.exit(1)
         print(f"  No {direction} requests found for {owner}")
         sys.exit(1)
     elif len(matching) == 1:
         sid = matching[0]["settlement_id"]
-        print(f"  Auto-detected settlement ID: {sid}")
+        status_name = STATUS_NAMES.get(matching[0]["status"], str(matching[0]["status"]))
+        print(f"  Auto-detected settlement ID: {sid} ({status_name})")
         return sid
     else:
-        print(f"  Multiple pending {direction} requests found:")
+        print(f"  Multiple {direction} requests found:")
         for r in matching:
-            print(f"    Settlement {r['settlement_id']} (block {r['block_number']})")
+            status_name = STATUS_NAMES.get(r["status"], str(r["status"]))
+            print(f"    Settlement {r['settlement_id']}: {status_name}")
         print(f"  Set SETTLEMENT_ID explicitly to choose one.")
         sys.exit(1)
 
@@ -249,7 +244,8 @@ def print_vault_state(vault: OstiumVault, web3, owner_address: str | None = None
 
         # Scan recent settlement IDs for active requests
         rows = []
-        for sid in range(max(1, last_settlement_id - 5), deposit_target + 1):
+        scan_end = max(deposit_target, withdraw_target) + 1
+        for sid in range(max(1, last_settlement_id - 5), scan_end):
             dep_status = contract.functions.getDepositStatus(owner_address, sid).call()
             wd_status = contract.functions.getWithdrawStatus(owner_address, sid).call()
             if dep_status != OSTIUM_REQUEST_STATUS_NONE or wd_status != OSTIUM_REQUEST_STATUS_NONE:
