@@ -17,18 +17,23 @@ long_description: |
   - ERC-4626 compatible vaults for perpetual futures liquidity provision
   - Self-custodial trading on real-world assets
   - Capital efficient automated market making for perpetual swaps
-  - Epoch-based withdrawal system for managing redemptions
+  - Async settlement-based deposit/withdrawal flow (V1.5)
   - Built on Arbitrum for fast and low-cost transactions
 fee_description: |
+  No management fees, performance fees, deposit fees, or withdrawal fees are charged to OLP holders.
+  OLP holders earn 30% of trader opening fees, allocated at each daily settlement.
+  The 30% allocation is a tunable protocol parameter, periodically reviewed by the protocol.
+  OLP holders have no direct trader PnL exposure in V1.5 (unlike V1 where they acted as
+  junior counterparty). APR depends solely on trading volume and opening fee generation.
 links:
   homepage: https://www.ostium.com
   app: https://ostium.app/vault
   twitter: https://twitter.com/ostiumlabs
   github: https://github.com/0xOstium/smart-contracts-public
-  documentation: https://ostium-labs.gitbook.io/ostium-docs
+  documentation: https://docs.ostium.com
   defillama: https://defillama.com/protocol/ostium
   audits: https://ostium-labs.gitbook.io/ostium-docs/security/smart-contract-audits
-  fees: https://ostium-labs.gitbook.io/ostium-docs/fee-breakdown
+  fees: https://docs.ostium.com/traders/reference/fees
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/ostium
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/gains/index.html
 example_smart_contracts:
