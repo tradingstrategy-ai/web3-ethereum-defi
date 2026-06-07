@@ -49,13 +49,15 @@ deposit_manager: OstiumV15DepositManager = vault.get_deposit_manager()
 if claim_mode:
     settlement_id = int(os.environ["SETTLEMENT_ID"])
     from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import OstiumRedemptionTicket
+    from hexbytes import HexBytes
+    from web3._utils.events import EventLogErrorFlags
 
     ticket = OstiumRedemptionTicket(
         vault_address=vault_address,
         owner=owner,
         to=owner,
-        raw_shares=0,
-        tx_hash=b"\x00" * 32,
+        raw_shares=1,  # Dummy — not used by finish_redemption/get_status
+        tx_hash=HexBytes(b"\x00" * 32),
         settlement_id=settlement_id,
     )
 
@@ -66,8 +68,17 @@ if claim_mode:
         claim_func = deposit_manager.finish_redemption(ticket)
         tx_hash = hot_wallet.transact_with_contract(claim_func, gas=1_000_000)
         assert_transaction_success_with_explanation(web3, tx_hash)
-        analysis = deposit_manager.analyse_redemption(tx_hash, ticket)
-        print(f"Claimed {analysis.denomination_amount} USDC ({analysis.share_count} shares burned)")
+
+        # Read USDC amount directly from WithdrawClaimedV2 event
+        # (analyse_redemption needs the original raw_shares which we don't have in claim-only mode)
+        receipt = web3.eth.get_transaction_receipt(tx_hash)
+        logs = vault.vault_contract.events.WithdrawClaimedV2().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
+        if logs:
+            raw_assets = logs[0]["args"]["assets"]
+            usdc_amount = vault.denomination_token.convert_to_decimals(raw_assets)
+            print(f"Claimed {usdc_amount} USDC")
+        else:
+            print("Claim succeeded but could not parse WithdrawClaimedV2 event")
     elif status == AsyncVaultRequestStatus.reclaimable:
         print("Settlement failed. Use reclaimWithdraw to recover shares.")
     else:

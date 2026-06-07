@@ -50,13 +50,14 @@ deposit_manager: OstiumV15DepositManager = vault.get_deposit_manager()
 if claim_mode:
     settlement_id = int(os.environ["SETTLEMENT_ID"])
     from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import OstiumDepositTicket
+    from hexbytes import HexBytes
 
     ticket = OstiumDepositTicket(
         vault_address=vault_address,
         owner=owner,
         to=owner,
-        raw_amount=0,
-        tx_hash=b"\x00" * 32,
+        raw_amount=1,  # Dummy — not used by finish_deposit/get_status
+        tx_hash=HexBytes(b"\x00" * 32),
         gas_used=0,
         block_number=0,
         block_timestamp=None,
@@ -70,7 +71,20 @@ if claim_mode:
         claim_func = deposit_manager.finish_deposit(ticket)
         tx_hash = hot_wallet.transact_with_contract(claim_func, gas=1_000_000)
         assert_transaction_success_with_explanation(web3, tx_hash)
-        analysis = deposit_manager.analyse_deposit(tx_hash, ticket)
+
+        # Analyse the claim to get actual amounts
+        ticket_for_analysis = OstiumDepositTicket(
+            vault_address=vault_address,
+            owner=owner,
+            to=owner,
+            raw_amount=1,
+            tx_hash=HexBytes(tx_hash),
+            gas_used=0,
+            block_number=0,
+            block_timestamp=None,
+            settlement_id=settlement_id,
+        )
+        analysis = deposit_manager.analyse_deposit(tx_hash, ticket_for_analysis)
         print(f"Claimed {analysis.share_count} shares ({analysis.denomination_amount} USDC equivalent)")
     elif status == AsyncVaultRequestStatus.reclaimable:
         print("Settlement failed. Run with SETTLEMENT_ID and --reclaim to recover funds.")
