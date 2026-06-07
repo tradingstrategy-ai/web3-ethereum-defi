@@ -75,15 +75,24 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `LOG_LEVEL` | Optional. Default: WARNING. |
 | `PIPELINE_DATA_DIR` | Optional. Directory for all pipeline files (parquet, pickle, DuckDB, state). Default: `~/.tradingstrategy/vaults`. |
 | `LOOP_INTERVAL_SECONDS` | Optional. When >0, enables looped mode — ticks every N seconds. Default: 0 (single run). |
-| `SCAN_CYCLES` | Optional. Per-item cycle intervals, e.g. `Ethereum=8h,Base=8h,Arbitrum=8h,Lighter=4h,GRVT=4h,Hypercore=4h,Hibachi=4h`. |
+| `SCAN_CYCLES` | Optional. Per-item cycle intervals, e.g. `Ethereum=8h,Base=8h,Arbitrum=8h,Lighter=4h,GRVT=4h,Hypercore=4h,Hibachi=4h,Core3=24h`. |
 | `DEFAULT_CYCLE` | Optional. Default cycle for items not in `SCAN_CYCLES`. Default: `24h`. |
 | `MAX_CYCLES` | Optional. Exit after N cycles (for testing). Default: 0 (unlimited). |
 | `SCAN_HYPERCORE` | Optional. Enable Hyperliquid native vault scanning. Default: false. |
 | `SCAN_GRVT` | Optional. Enable GRVT native vault scanning. Default: false. |
 | `SCAN_LIGHTER` | Optional. Enable Lighter native pool scanning. Default: false. |
 | `SCAN_HIBACHI` | Optional. Enable Hibachi native vault scanning. Default: false. |
+| `SKIP_CORE3` | Optional. Skip Core3 risk intelligence enrichment. Default: false. Core3 is default-on enrichment for the top-vaults JSON, unlike optional native vault sources that use opt-in `SCAN_*` flags. |
+| `CORE3_API_KEY` | Optional. Core3 API key. If missing, Core3 is disabled for the run with a warning. |
+| `CORE3_DATABASE_PATH` | Optional. Core3 DuckDB path. Default: `~/.tradingstrategy/vaults/core3/core3.duckdb`. |
+| `CORE3_MAX_WORKERS` | Optional. Core3 API worker threads. Default: 8. |
+| `CORE3_FETCH_SECTIONS` | Optional. Fetch detailed Core3 section endpoints. Default: false. |
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150. Lower after persistent 429 errors. |
+
+Core3 runs after EVM and native vault scans and before post-processing. This
+keeps the Core3 DuckDB closed before `vault-analysis-json.py` reads it and
+before `export-data-files.py` uploads it to R2.
 
 ### scan-prices.py
 
@@ -187,6 +196,32 @@ poetry run python scripts/erc-4626/export-protocol-metadata.py
 | `R2_VAULT_METADATA_PUBLIC_URL` | Required. R2 public URL. |
 | `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` | Optional. Alternative R2 bucket for the upcoming private commercial professional vault data bucket. Uses same credentials as primary. |
 | `MAX_WORKERS` | Optional. Default: 20. |
+
+### export-data-files.py
+
+Export production data files to Cloudflare R2: raw and cleaned price Parquet,
+vault metadata pickle, reader state pickle, and Core3 risk intelligence DuckDB.
+
+```shell
+source .local-test.env && poetry run python scripts/erc-4626/export-data-files.py
+```
+
+When `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` is configured, files are
+uploaded to both buckets. Daily `daily/YYYY-MM-DD/...` backup copies are created
+only in the alternative bucket. Missing files, including the Core3 DuckDB, are
+logged and skipped.
+
+| Variable | Description |
+|----------|-------------|
+| `R2_DATA_BUCKET_NAME` | R2 bucket for data files (falls back to `R2_VAULT_METADATA_BUCKET_NAME`). |
+| `R2_DATA_ACCESS_KEY_ID` | R2 access key (falls back to `R2_VAULT_METADATA_ACCESS_KEY_ID`). |
+| `R2_DATA_SECRET_ACCESS_KEY` | R2 secret (falls back to `R2_VAULT_METADATA_SECRET_ACCESS_KEY`). |
+| `R2_DATA_ENDPOINT_URL` | R2 endpoint (falls back to `R2_VAULT_METADATA_ENDPOINT_URL`). |
+| `R2_DATA_PUBLIC_URL` | Public base URL (falls back to `R2_VAULT_METADATA_PUBLIC_URL`). |
+| `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` | Optional. Alternative bucket for private/professional data. |
+| `R2_DAILY_BACKUP` | Optional. Set to `false` to disable daily backup copies. Default: true. |
+| `CORE3_DATABASE_PATH` | Optional. Core3 DuckDB path. Default: `~/.tradingstrategy/vaults/core3/core3.duckdb`. |
+| `UPLOAD_PREFIX` | Optional. Prefix for S3 keys. |
 
 ### export-sample-files.py
 

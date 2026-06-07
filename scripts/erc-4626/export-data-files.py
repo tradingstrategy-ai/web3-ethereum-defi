@@ -1,7 +1,8 @@
-"""Export vault database files (parquet, pickle) to Cloudflare R2.
+"""Export vault database files (parquet, pickle, DuckDB) to Cloudflare R2.
 
-Uploads price databases and metadata pickles so the backtester
-can download them without running the full scan pipeline.
+Uploads price databases, metadata pickles, and Core3 risk intelligence
+DuckDB so the backtester can download them without running the full
+scan pipeline.
 
 Example:
 
@@ -17,6 +18,7 @@ Environment variables:
     - R2_DATA_PUBLIC_URL: Public base URL for data files (falls back to R2_VAULT_METADATA_PUBLIC_URL)
     - R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME: Alternative R2 bucket for the upcoming private
       commercial professional vault data bucket (optional, uses same credentials as primary)
+    - CORE3_DATABASE_PATH: Path to Core3 DuckDB export (default: ~/.tradingstrategy/vaults/core3/core3.duckdb)
     - UPLOAD_PREFIX: Prefix for S3 keys, e.g. "test-" (default: "")
 """
 
@@ -27,10 +29,41 @@ from pathlib import Path
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.cloudflare_r2 import copy_r2_object_daily_backup, create_r2_client, upload_file_to_r2
+from eth_defi.core3.constants import CORE3_DATABASE_PATH
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_core3_database_path() -> Path:
+    """Resolve the Core3 DuckDB path for data export.
+
+    :return:
+        Path from ``CORE3_DATABASE_PATH`` env var or the Core3 default constant.
+    """
+    path = os.environ.get("CORE3_DATABASE_PATH")
+    return Path(path).expanduser() if path else CORE3_DATABASE_PATH
+
+
+def get_data_file_paths(base_path: Path, core3_db_path: Path | None = None) -> list[Path]:
+    """Build the data file list uploaded to R2.
+
+    :param base_path:
+        Pipeline data directory.
+    :param core3_db_path:
+        Optional Core3 DuckDB path override.
+    :return:
+        Files to upload, including optional files that may be skipped later
+        if they do not exist.
+    """
+    return [
+        base_path / "vault-prices-1h.parquet",
+        base_path / "cleaned-vault-prices-1h.parquet",
+        base_path / "vault-metadata-db.pickle",
+        base_path / "vault-reader-state-1h.pickle",
+        core3_db_path or resolve_core3_database_path(),
+    ]
 
 
 def upload_files_to_r2(  # noqa: PLR0917
@@ -145,12 +178,7 @@ def main():
         logger.info("Alternative bucket configured: %s", alt_bucket_name)
 
     base_path = get_pipeline_data_dir()
-    paths = [
-        base_path / "vault-prices-1h.parquet",
-        base_path / "cleaned-vault-prices-1h.parquet",
-        base_path / "vault-metadata-db.pickle",
-        base_path / "vault-reader-state-1h.pickle",
-    ]
+    paths = get_data_file_paths(base_path)
 
     print("\nExporting data files to R2")
     print(f"  Bucket: {bucket_name}")
