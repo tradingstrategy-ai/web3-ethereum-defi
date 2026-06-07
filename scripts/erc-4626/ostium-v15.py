@@ -1,8 +1,8 @@
-"""Ostium V1.5 async vault operations: status, deposit, and withdraw.
+"""Ostium V1.5 async vault operations: status, deposit, cancel, and withdraw.
 
-Supports the full async request/settle/claim lifecycle including reclaim
-after failed settlements. All transaction-sending actions require y/n
-confirmation before broadcast.
+Supports the full async request/settle/claim lifecycle including cancel
+(before settlement) and reclaim (after failed settlement). All
+transaction-sending actions require y/n confirmation before broadcast.
 
 See also ``scripts/lagoon/lagoon-gmx-example.py`` for a similar pattern
 applied to GMX perpetuals trading through a Lagoon vault (deployment,
@@ -10,13 +10,13 @@ deposit, trading, withdrawal, and transaction cost tracking).
 
 Environment variables:
     JSON_RPC_ARBITRUM   Arbitrum RPC URL (space-separated fallback format)
-    ACTION              One of: status, deposit, withdraw (default: status)
-    PRIVATE_KEY         Private key for signing (required for deposit/withdraw)
+    ACTION              One of: status, deposit, cancel_deposit, withdraw (default: status)
+    PRIVATE_KEY         Private key for signing (required for deposit/withdraw/cancel)
     VAULT_ADDRESS       Ostium vault address (default: OLP vault)
     OWNER_ADDRESS       Address to check status for (status action only,
                         defaults to PRIVATE_KEY address if set)
-    AMOUNT              USDC amount for deposit, OLP share amount for withdraw
-    SETTLEMENT_ID       Settlement ID for --claim / --reclaim modes
+    AMOUNT              USDC amount for deposit/cancel, OLP share amount for withdraw
+    SETTLEMENT_ID       Settlement ID for --claim / --reclaim / cancel_deposit modes
 
 Usage:
     # Check vault state and owner status
@@ -25,6 +25,9 @@ Usage:
 
     # Request a deposit
     ACTION=deposit AMOUNT=100 poetry run python scripts/erc-4626/ostium-v15.py
+
+    # Cancel a pending deposit (before settlement)
+    ACTION=cancel_deposit SETTLEMENT_ID=100 AMOUNT=100 poetry run python scripts/erc-4626/ostium-v15.py
 
     # Claim after settlement
     ACTION=deposit SETTLEMENT_ID=42 poetry run python scripts/erc-4626/ostium-v15.py --claim
@@ -273,6 +276,57 @@ def do_deposit(vault: OstiumVault, deposit_manager: OstiumV15DepositManager, hot
         print(f"\nAfter settlement, claim with: ACTION=deposit SETTLEMENT_ID={ticket.settlement_id} python {sys.argv[0]} --claim")
 
 
+def do_cancel_deposit(vault: OstiumVault, deposit_manager: OstiumV15DepositManager, hot_wallet: HotWallet, web3):
+    """Cancel a pending deposit before settlement and recover USDC."""
+    owner = hot_wallet.address
+    vault_address = vault.address
+    settlement_id = int(os.environ["SETTLEMENT_ID"])
+    amount = Decimal(os.environ["AMOUNT"])
+    raw_amount = vault.denomination_token.convert_to_raw(amount)
+
+    ticket = OstiumDepositTicket(
+        vault_address=vault_address,
+        owner=owner,
+        to=owner,
+        raw_amount=raw_amount,
+        tx_hash=HexBytes(b"\x00" * 32),
+        gas_used=0,
+        block_number=0,
+        block_timestamp=None,
+        settlement_id=settlement_id,
+    )
+
+    status = deposit_manager.get_deposit_request_status(ticket)
+    print(f"Deposit status for settlement {settlement_id}: {status.value}")
+
+    if status != AsyncVaultRequestStatus.pending:
+        print(f"Cannot cancel — status is {status.value}, not pending")
+        sys.exit(1)
+
+    # Show USDC balance before cancel
+    usdc_before = vault.denomination_token.fetch_balance_of(owner)
+    print(f"\nUSDC balance before cancel: {usdc_before} {vault.denomination_token.symbol}")
+
+    if not confirm(f"Cancel pending deposit of {amount} USDC from settlement {settlement_id}?"):
+        sys.exit(0)
+
+    cancel_func = deposit_manager.cancel_deposit(ticket, raw_amount)
+    broadcast(web3, hot_wallet, cancel_func, f"cancelRequestDeposit({settlement_id}, {amount} USDC)", gas=1_000_000)
+
+    # Show USDC balance after cancel to verify refund
+    usdc_after = vault.denomination_token.fetch_balance_of(owner)
+    refunded = usdc_after - usdc_before
+    print(f"\nUSDC balance after cancel:  {usdc_after} {vault.denomination_token.symbol}")
+    print(f"USDC refunded:             {refunded} {vault.denomination_token.symbol}")
+
+    if refunded >= amount:
+        print("Deposit cancelled successfully — full amount returned.")
+    elif refunded > 0:
+        print(f"Partial refund received ({refunded} of {amount}).")
+    else:
+        print("WARNING: No USDC refund detected. Check the transaction on Arbiscan.")
+
+
 def do_withdraw(vault: OstiumVault, deposit_manager: OstiumV15DepositManager, hot_wallet: HotWallet, web3):
     """Handle withdrawal request, claim, or reclaim."""
     owner = hot_wallet.address
@@ -356,7 +410,7 @@ print_vault_state(vault, web3, owner_address)
 
 if action == "status":
     pass  # Vault state already printed above
-elif action in ("deposit", "withdraw"):
+elif action in ("deposit", "cancel_deposit", "withdraw"):
     private_key = os.environ["PRIVATE_KEY"]
     hot_wallet = HotWallet.from_private_key(private_key)
     hot_wallet.sync_nonce(web3)
@@ -364,8 +418,10 @@ elif action in ("deposit", "withdraw"):
 
     if action == "deposit":
         do_deposit(vault, deposit_manager, hot_wallet, web3)
+    elif action == "cancel_deposit":
+        do_cancel_deposit(vault, deposit_manager, hot_wallet, web3)
     else:
         do_withdraw(vault, deposit_manager, hot_wallet, web3)
 else:
-    print(f"Unknown ACTION: {action}. Use: status, deposit, withdraw")
+    print(f"Unknown ACTION: {action}. Use: status, deposit, cancel_deposit, withdraw")
     sys.exit(1)
