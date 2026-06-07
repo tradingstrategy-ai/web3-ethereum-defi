@@ -71,8 +71,18 @@ bytes4 constant SEL_REQUEST_REDEEM = 0x7d41c86e; // requestRedeem(uint256,addres
 bytes4 constant SEL_REQUEST_WITHDRAW = 0x32f25a3a; // requestWithdraw(uint256,address,address)
 bytes4 constant SEL_REQUEST_DEPOSIT = 0x85b77f45; // requestDeposit(uint256,address,address)
 
-// ===== Gains/Ostium =====
+// ===== Gains/Ostium V1.0 =====
 bytes4 constant SEL_MAKE_WITHDRAW_REQUEST = 0xa8abe905; // makeWithdrawRequest(uint256,address)
+
+// ===== Gains/Ostium V1.5 =====
+bytes4 constant SEL_OSTIUM_REQUEST_DEPOSIT = 0x0d1e6667;       // requestDeposit(uint256)
+bytes4 constant SEL_OSTIUM_CLAIM_DEPOSIT = 0xdaf6b5c0;         // claimDeposit(uint32)
+bytes4 constant SEL_OSTIUM_CANCEL_DEPOSIT = 0x6f0dfc86;        // cancelRequestDeposit(uint32,uint256)
+bytes4 constant SEL_OSTIUM_RECLAIM_DEPOSIT = 0xd46a0a4f;       // reclaimDeposit(uint32)
+bytes4 constant SEL_OSTIUM_REQUEST_WITHDRAW = 0x745400c9;      // requestWithdraw(uint256)
+bytes4 constant SEL_OSTIUM_CLAIM_WITHDRAW = 0xdd9cc053;        // claimWithdraw(uint32)
+bytes4 constant SEL_OSTIUM_CANCEL_WITHDRAW = 0x0665ddc2;       // cancelRequestWithdraw(uint32,uint256)
+bytes4 constant SEL_OSTIUM_RECLAIM_WITHDRAW = 0x984cf962;      // reclaimWithdraw(uint32)
 
 // ===== CCTP V2 =====
 bytes4 constant SEL_CCTP_DEPOSIT_FOR_BURN = 0x8e0250ee; // depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)
@@ -667,8 +677,21 @@ abstract contract GuardV0Base is IGuard, Multicall {
         } else if (selector == SEL_REQUEST_DEPOSIT) {
             _validate_ERC7540Deposit(callData);
         } else if (selector == SEL_MAKE_WITHDRAW_REQUEST) {
-            // Gains/Ostium modified ERC-4626: makeWithdrawRequest(uint256,address)
+            // Gains/Ostium V1.0: makeWithdrawRequest(uint256,address)
             validate_makeWithdrawRequest(callData);
+        } else if (
+            selector == SEL_OSTIUM_REQUEST_DEPOSIT ||
+            selector == SEL_OSTIUM_CLAIM_DEPOSIT ||
+            selector == SEL_OSTIUM_CANCEL_DEPOSIT ||
+            selector == SEL_OSTIUM_RECLAIM_DEPOSIT ||
+            selector == SEL_OSTIUM_REQUEST_WITHDRAW ||
+            selector == SEL_OSTIUM_CLAIM_WITHDRAW ||
+            selector == SEL_OSTIUM_CANCEL_WITHDRAW ||
+            selector == SEL_OSTIUM_RECLAIM_WITHDRAW
+        ) {
+            // Ostium V1.5 async settlement functions.
+            // No receiver parameter — all functions act on msg.sender.
+            // Call-site check (allowedCallSites) is sufficient.
 
             // --- GMX perpetuals ---
         } else if (selector == SEL_GMX_MULTICALL) {
@@ -779,8 +802,18 @@ abstract contract GuardV0Base is IGuard, Multicall {
         allowCallSite(vault, SEL_REQUEST_WITHDRAW, notes);
         allowCallSite(vault, SEL_REQUEST_DEPOSIT, notes);
 
-        // Ostium/Gains
+        // Ostium/Gains V1.0
         allowCallSite(vault, SEL_MAKE_WITHDRAW_REQUEST, notes);
+
+        // Ostium/Gains V1.5 async settlement
+        allowCallSite(vault, SEL_OSTIUM_REQUEST_DEPOSIT, notes);
+        allowCallSite(vault, SEL_OSTIUM_CLAIM_DEPOSIT, notes);
+        allowCallSite(vault, SEL_OSTIUM_CANCEL_DEPOSIT, notes);
+        allowCallSite(vault, SEL_OSTIUM_RECLAIM_DEPOSIT, notes);
+        allowCallSite(vault, SEL_OSTIUM_REQUEST_WITHDRAW, notes);
+        allowCallSite(vault, SEL_OSTIUM_CLAIM_WITHDRAW, notes);
+        allowCallSite(vault, SEL_OSTIUM_CANCEL_WITHDRAW, notes);
+        allowCallSite(vault, SEL_OSTIUM_RECLAIM_WITHDRAW, notes);
 
         allowApprovalDestination(vault, notes);
         _whitelistToken(shareToken, notes);

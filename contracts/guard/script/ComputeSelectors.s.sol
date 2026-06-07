@@ -72,9 +72,21 @@ contract ComputeSelectors is Script {
         logSelector("requestDeposit(uint256,address,address)");
         console.log("");
 
-        // Gains/Ostium
-        console.log("// Gains/Ostium");
+        // Gains/Ostium V1.0
+        console.log("// Gains/Ostium V1.0");
         logSelector("makeWithdrawRequest(uint256,address)");
+        console.log("");
+
+        // Gains/Ostium V1.5
+        console.log("// Gains/Ostium V1.5");
+        logSelector("requestDeposit(uint256)");
+        logSelector("claimDeposit(uint32)");
+        logSelector("cancelRequestDeposit(uint32,uint256)");
+        logSelector("reclaimDeposit(uint32)");
+        logSelector("requestWithdraw(uint256)");
+        logSelector("claimWithdraw(uint32)");
+        logSelector("cancelRequestWithdraw(uint32,uint256)");
+        logSelector("reclaimWithdraw(uint32)");
         console.log("");
 
         // Orderly

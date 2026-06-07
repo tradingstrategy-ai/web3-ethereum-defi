@@ -111,6 +111,46 @@ in `eth_defi`:
    settlement, not at deposit time. Valuation models need to account
    for pending deposits that have not yet converted to shares.
 
+## Manual script
+
+`scripts/erc-4626/ostium-v15.py` — combined script for status checking,
+deposits, and withdrawals. All transaction-sending actions require y/n
+confirmation before broadcast.
+
+| Variable | Description |
+|----------|-------------|
+| `JSON_RPC_ARBITRUM` | Arbitrum RPC URL (space-separated fallback format supported) |
+| `ACTION` | `status` (default), `deposit`, or `withdraw` |
+| `PRIVATE_KEY` | Private key for the signing wallet (required for deposit/withdraw) |
+| `VAULT_ADDRESS` | Ostium vault address (default: `0x20d419a8e12c45f88fda7c5760bb6923cee27f98`) |
+| `OWNER_ADDRESS` | Address to check status for (defaults to `PRIVATE_KEY` address) |
+| `AMOUNT` | USDC amount for deposit, OLP share amount for withdrawal |
+| `SETTLEMENT_ID` | Settlement ID for `--claim` / `--reclaim` modes |
+
+### Examples
+
+    # Check vault state and owner request status
+    source .local-test.env && ACTION=status poetry run python scripts/erc-4626/ostium-v15.py
+    source .local-test.env && ACTION=status OWNER_ADDRESS=0x... poetry run python scripts/erc-4626/ostium-v15.py
+
+    # Request a deposit (approve + requestDeposit)
+    source .local-test.env && ACTION=deposit AMOUNT=100 poetry run python scripts/erc-4626/ostium-v15.py
+
+    # Claim deposit after settlement
+    source .local-test.env && ACTION=deposit SETTLEMENT_ID=42 poetry run python scripts/erc-4626/ostium-v15.py --claim
+
+    # Reclaim USDC after failed settlement
+    source .local-test.env && ACTION=deposit SETTLEMENT_ID=42 poetry run python scripts/erc-4626/ostium-v15.py --reclaim
+
+    # Request a withdrawal (requestWithdraw)
+    source .local-test.env && ACTION=withdraw AMOUNT=50 poetry run python scripts/erc-4626/ostium-v15.py
+
+    # Claim withdrawal after settlement
+    source .local-test.env && ACTION=withdraw SETTLEMENT_ID=42 poetry run python scripts/erc-4626/ostium-v15.py --claim
+
+    # Reclaim OLP shares after failed withdrawal settlement
+    source .local-test.env && ACTION=withdraw SETTLEMENT_ID=42 poetry run python scripts/erc-4626/ostium-v15.py --reclaim
+
 ## Reference links
 
 - [Ostium V1.5.0 source (current)](https://github.com/0xOstium/smart-contracts-public/blob/main/src/OstiumVault.sol)
