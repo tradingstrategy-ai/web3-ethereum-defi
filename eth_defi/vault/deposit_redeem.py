@@ -1,6 +1,7 @@
 """Abstraction over different deposit/redeem flows of vaults."""
 
 import datetime
+import enum
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
@@ -18,6 +19,28 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 
 
 logger = logging.getLogger(__name__)
+
+
+class AsyncVaultRequestStatus(enum.Enum):
+    """Generic async vault request status.
+
+    Protocol adapters map their internal status to these values.
+    Used by the trade-executor settlement retry module to determine
+    the next action for a pending vault trade, without importing
+    protocol-specific code.
+    """
+
+    #: No request found for this ticket
+    none = "none"
+
+    #: Request submitted, awaiting settlement
+    pending = "pending"
+
+    #: Settlement done, claim available
+    claimable = "claimable"
+
+    #: Settlement failed, reclaim available to recover funds/shares
+    reclaimable = "reclaimable"
 
 
 class VaultTransactionFailed(Exception):
@@ -562,3 +585,120 @@ class VaultDepositManager(ABC):
 
         - Return information of the actual executed price for which we got the shares for
         """
+
+    # --- Async vault lifecycle: ticket serialisation ---
+
+    def serialize_deposit_ticket(self, ticket: DepositTicket) -> dict:
+        """Serialise a deposit ticket to a dict for persistence.
+
+        The trade-executor stores this in ``trade.other_data`` so that
+        the settlement retry module can reconstruct the ticket after a
+        process restart.
+
+        Default implementation stores base :py:class:`DepositTicket` fields.
+        Subclasses override to add protocol-specific fields
+        (e.g. ``settlement_id`` for Ostium, ``requestId`` for ERC-7540).
+        """
+        return {
+            "vault_address": ticket.vault_address,
+            "vault_owner": ticket.owner,
+            "vault_to": ticket.to,
+            "vault_raw_amount": ticket.raw_amount,
+            "vault_request_tx_hash": ticket.tx_hash.hex(),
+            "vault_request_gas_used": ticket.gas_used,
+            "vault_request_block_number": ticket.block_number,
+            "vault_request_block_timestamp": ticket.block_timestamp.isoformat() if ticket.block_timestamp else None,
+        }
+
+    def reconstruct_deposit_ticket(self, data: dict) -> DepositTicket:
+        """Reconstruct a deposit ticket from a serialised dict.
+
+        Default returns a base :py:class:`DepositTicket`.
+        Subclasses override for protocol-specific ticket types.
+        """
+        ts = data.get("vault_request_block_timestamp")
+        return DepositTicket(
+            vault_address=data["vault_address"],
+            owner=data["vault_owner"],
+            to=data.get("vault_to", data["vault_owner"]),
+            raw_amount=data["vault_raw_amount"],
+            tx_hash=HexBytes(data["vault_request_tx_hash"]),
+            gas_used=data.get("vault_request_gas_used", 0),
+            block_number=data.get("vault_request_block_number", 0),
+            block_timestamp=datetime.datetime.fromisoformat(ts) if ts else None,
+        )
+
+    def serialize_redemption_ticket(self, ticket: RedemptionTicket) -> dict:
+        """Serialise a redemption ticket to a dict for persistence.
+
+        Default implementation stores base :py:class:`RedemptionTicket` fields.
+        Subclasses override to add protocol-specific fields.
+        """
+        return {
+            "vault_address": ticket.vault_address,
+            "vault_owner": ticket.owner,
+            "vault_to": ticket.to,
+            "vault_raw_amount": ticket.raw_shares,
+            "vault_request_tx_hash": ticket.tx_hash.hex(),
+        }
+
+    def reconstruct_redemption_ticket(self, data: dict) -> RedemptionTicket:
+        """Reconstruct a redemption ticket from a serialised dict.
+
+        Async vault managers **must** override this to return their
+        protocol-specific ticket subclass. The base implementation
+        raises :py:class:`NotImplementedError` because
+        :py:class:`RedemptionTicket` has abstract methods.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} must override reconstruct_redemption_ticket() for async vault support")
+
+    # --- Async vault lifecycle: settlement status ---
+
+    def get_deposit_request_status(
+        self,
+        ticket: DepositTicket,
+    ) -> AsyncVaultRequestStatus:
+        """Query the current status of an async deposit request.
+
+        Default implementation probes via :py:meth:`can_finish_deposit`.
+        Subclasses should override for more accurate status reporting
+        (e.g. distinguishing ``reclaimable`` from ``pending``).
+        """
+        if self.can_finish_deposit(ticket):
+            return AsyncVaultRequestStatus.claimable
+        return AsyncVaultRequestStatus.pending
+
+    def get_redemption_request_status(
+        self,
+        ticket: RedemptionTicket,
+    ) -> AsyncVaultRequestStatus:
+        """Query the current status of an async redemption request.
+
+        Default implementation probes via :py:meth:`can_finish_redeem`.
+        Subclasses should override for more accurate status reporting.
+        """
+        if self.can_finish_redeem(ticket):
+            return AsyncVaultRequestStatus.claimable
+        return AsyncVaultRequestStatus.pending
+
+    # --- Async vault lifecycle: reclaim after failed settlement ---
+
+    def reclaim_deposit(
+        self,
+        ticket: DepositTicket,
+    ) -> ContractFunction | None:
+        """Return a function to recover funds after a failed async deposit settlement.
+
+        Returns ``None`` if the protocol does not support reclaim.
+        """
+        return None
+
+    def reclaim_withdrawal(
+        self,
+        ticket: RedemptionTicket,
+    ) -> ContractFunction | None:
+        """Return a function to recover shares after a failed async withdrawal settlement.
+
+        Returns ``None`` if the protocol does not support reclaim.
+        """
+        return None

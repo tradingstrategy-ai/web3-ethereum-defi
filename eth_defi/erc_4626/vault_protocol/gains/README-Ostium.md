@@ -111,6 +111,48 @@ in `eth_defi`:
    settlement, not at deposit time. Valuation models need to account
    for pending deposits that have not yet converted to shares.
 
+## Manual scripts
+
+Three standalone scripts for testing the V1.5 async deposit/withdrawal flow.
+All scripts use environment variables for configuration:
+
+| Variable | Description |
+|----------|-------------|
+| `JSON_RPC_ARBITRUM` | Arbitrum RPC URL (space-separated fallback format supported) |
+| `PRIVATE_KEY` | Private key for the signing wallet |
+| `VAULT_ADDRESS` | Ostium vault address (default: `0x20d419a8e12c45f88fda7c5760bb6923cee27f98`) |
+| `AMOUNT` | USDC amount for deposit, OLP share amount for withdrawal |
+
+### ostium-v15-deposit.py
+
+Request an async deposit to the Ostium V1.5 vault. Approves USDC, calls
+`requestDeposit(assets)`, and displays the `settlement_id` from the
+`DepositRequestedV2` event. After settlement (daily 5-6 PM ET Mon-Fri),
+run again with `--claim` to call `claimDeposit()` and receive OLP shares.
+
+    source .local-test.env && poetry run python scripts/erc-4626/ostium-v15-deposit.py
+    source .local-test.env && SETTLEMENT_ID=42 poetry run python scripts/erc-4626/ostium-v15-deposit.py --claim
+
+### ostium-v15-withdraw.py
+
+Request an async withdrawal from the Ostium V1.5 vault. Calls
+`requestWithdraw(shares)` and displays the `settlement_id`. After
+settlement, run again with `--claim` to call `claimWithdraw()` and
+receive USDC.
+
+    source .local-test.env && poetry run python scripts/erc-4626/ostium-v15-withdraw.py
+    source .local-test.env && SETTLEMENT_ID=42 poetry run python scripts/erc-4626/ostium-v15-withdraw.py --claim
+
+### ostium-v15-status.py
+
+Check the deposit and withdrawal status for an address. Displays current
+`targetSettlementId`, `lastSettlementId`, `maxSettlementInterval`, and
+the status (`NONE`, `PENDING`, `CLAIMABLE`, `RECLAIMABLE`) for each
+settlement ID the address has interacted with.
+
+    source .local-test.env && poetry run python scripts/erc-4626/ostium-v15-status.py
+    source .local-test.env && OWNER_ADDRESS=0x... poetry run python scripts/erc-4626/ostium-v15-status.py
+
 ## Reference links
 
 - [Ostium V1.5.0 source (current)](https://github.com/0xOstium/smart-contracts-public/blob/main/src/OstiumVault.sol)

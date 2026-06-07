@@ -648,7 +648,82 @@ class OstiumV15DepositManager(ERC4626DepositManager):
             denomination_amount=denomination_amount,
         )
 
-    # --- Ticket-based status helpers ---
+    # --- Generic async vault interface overrides ---
+
+    def serialize_deposit_ticket(self, ticket: OstiumDepositTicket) -> dict:
+        """Serialise an Ostium deposit ticket, including ``settlement_id``."""
+        data = super().serialize_deposit_ticket(ticket)
+        data["vault_settlement_id"] = ticket.settlement_id
+        return data
+
+    def reconstruct_deposit_ticket(self, data: dict) -> OstiumDepositTicket:
+        """Reconstruct an :py:class:`OstiumDepositTicket` from serialised dict."""
+        ts = data.get("vault_request_block_timestamp")
+        return OstiumDepositTicket(
+            vault_address=data["vault_address"],
+            owner=data["vault_owner"],
+            to=data.get("vault_to", data["vault_owner"]),
+            raw_amount=data["vault_raw_amount"],
+            tx_hash=HexBytes(data["vault_request_tx_hash"]),
+            gas_used=data.get("vault_request_gas_used", 0),
+            block_number=data.get("vault_request_block_number", 0),
+            block_timestamp=datetime.datetime.fromisoformat(ts) if ts else None,
+            settlement_id=data["vault_settlement_id"],
+        )
+
+    def serialize_redemption_ticket(self, ticket: OstiumRedemptionTicket) -> dict:
+        """Serialise an Ostium redemption ticket, including ``settlement_id``."""
+        data = super().serialize_redemption_ticket(ticket)
+        data["vault_settlement_id"] = ticket.settlement_id
+        return data
+
+    def reconstruct_redemption_ticket(self, data: dict) -> OstiumRedemptionTicket:
+        """Reconstruct an :py:class:`OstiumRedemptionTicket` from serialised dict."""
+        return OstiumRedemptionTicket(
+            vault_address=data["vault_address"],
+            owner=data["vault_owner"],
+            to=data.get("vault_to", data["vault_owner"]),
+            raw_shares=data["vault_raw_amount"],
+            tx_hash=HexBytes(data["vault_request_tx_hash"]),
+            settlement_id=data["vault_settlement_id"],
+        )
+
+    def get_deposit_request_status(self, ticket: OstiumDepositTicket) -> "AsyncVaultRequestStatus":
+        """Query Ostium V1.5 deposit status and map to generic enum.
+
+        Maps Ostium's internal status to :py:class:`AsyncVaultRequestStatus`
+        without raising :py:class:`OstiumSettlementFailed`.
+        """
+        from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
+
+        assert isinstance(ticket, OstiumDepositTicket)
+        raw_status = self.vault.vault_contract.functions.getDepositStatus(ticket.owner, ticket.settlement_id).call()
+        return self._map_ostium_status(raw_status)
+
+    def get_redemption_request_status(self, ticket: OstiumRedemptionTicket) -> "AsyncVaultRequestStatus":
+        """Query Ostium V1.5 withdrawal status and map to generic enum."""
+        from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
+
+        assert isinstance(ticket, OstiumRedemptionTicket)
+        raw_status = self.vault.vault_contract.functions.getWithdrawStatus(ticket.owner, ticket.settlement_id).call()
+        return self._map_ostium_status(raw_status)
+
+    @staticmethod
+    def _map_ostium_status(raw_status: int) -> "AsyncVaultRequestStatus":
+        """Map Ostium's raw uint8 status to generic :py:class:`AsyncVaultRequestStatus`."""
+        from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
+
+        if raw_status == OSTIUM_REQUEST_STATUS_NONE:
+            return AsyncVaultRequestStatus.none
+        elif raw_status == OSTIUM_REQUEST_STATUS_PENDING:
+            return AsyncVaultRequestStatus.pending
+        elif raw_status == OSTIUM_REQUEST_STATUS_CLAIMABLE:
+            return AsyncVaultRequestStatus.claimable
+        elif raw_status == OSTIUM_REQUEST_STATUS_RECLAIMABLE:
+            return AsyncVaultRequestStatus.reclaimable
+        return AsyncVaultRequestStatus.none
+
+    # --- Ticket-based status helpers (Ostium-specific) ---
 
     def get_deposit_ticket_status(self, ticket: OstiumDepositTicket) -> int:
         """Query deposit status for a specific ticket's settlement ID.
@@ -670,11 +745,11 @@ class OstiumV15DepositManager(ERC4626DepositManager):
 
     # --- Reclaim/cancel convenience methods ---
 
-    def reclaim_deposit(self, ticket: OstiumDepositTicket) -> ContractFunction:
+    def reclaim_deposit(self, ticket: OstiumDepositTicket) -> ContractFunction | None:
         """Return ``reclaimDeposit(settlementId)`` to recover funds after a failed settlement."""
         return self.vault.vault_contract.functions.reclaimDeposit(ticket.settlement_id)
 
-    def reclaim_withdrawal(self, ticket: OstiumRedemptionTicket) -> ContractFunction:
+    def reclaim_withdrawal(self, ticket: OstiumRedemptionTicket) -> ContractFunction | None:
         """Return ``reclaimWithdraw(settlementId)`` to recover shares after a failed settlement."""
         return self.vault.vault_contract.functions.reclaimWithdraw(ticket.settlement_id)
 
