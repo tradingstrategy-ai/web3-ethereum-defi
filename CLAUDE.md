@@ -100,6 +100,8 @@ Pull request description must have sections:
 - Why: the rational of change
 - Lessons learnt: memory
 - Summary: what was changed
+- Related issues and PRs: if the new PR continues other PRs and issues
+- Unrelated CI and test fixes: if we clean up misc CI integration tests 
 
 No test plan or verification section. Use Markdown formatting, headings.
 

@@ -11,7 +11,8 @@ For further reading see:
 import logging
 import threading
 import time
-from typing import Callable, Dict, Iterable, List, Optional, Protocol, Set, Any, TypeAlias, Union
+from typing import (Any, Callable, Dict, Iterable, List, Optional, Protocol,
+                    Set, TypeAlias, Union)
 
 import futureproof
 from eth_bloom import BloomFilter
@@ -22,12 +23,13 @@ from web3 import Web3
 from web3.contract.contract import ContractEvent
 from web3.datastructures import AttributeDict
 
+from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.logresult import LogContext, LogResult
 from eth_defi.event_reader.reorganisation_monitor import ReorganisationMonitor
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
-from eth_defi.event_reader.web3worker import get_worker_web3, create_thread_pool_executor
-from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
+from eth_defi.event_reader.web3worker import (create_thread_pool_executor,
+                                              get_worker_web3)
 from eth_defi.middleware import is_retryable_http_exception
 
 logger = logging.getLogger(__name__)
