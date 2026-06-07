@@ -57,8 +57,6 @@ from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import (
 from eth_defi.erc_4626.vault_protocol.gains.vault import OstiumVault, OstiumVersion
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details
-from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
@@ -76,6 +74,18 @@ def confirm(prompt: str) -> bool:
     """Ask for y/n confirmation before sending a transaction."""
     answer = input(f"{prompt} [y/N] ").strip().lower()
     return answer == "y"
+
+
+def broadcast(web3, hot_wallet: HotWallet, func, description: str, gas: int = 500_000) -> HexBytes:
+    """Sign, broadcast, and wait for a contract call. Returns tx hash."""
+    signed_tx = hot_wallet.sign_bound_call_with_new_nonce(func, tx_params={"gas": gas}, web3=web3, fill_gas_price=True)
+    print(f"  Broadcasting: {description}")
+    print(f"  TX hash: {signed_tx.hash.hex()}")
+    web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = web3.eth.wait_for_transaction_receipt(signed_tx.hash, timeout=120)
+    assert receipt["status"] == 1, f"Transaction reverted: {signed_tx.hash.hex()}"
+    print(f"  Gas used: {receipt['gasUsed']:,}")
+    return signed_tx.hash
 
 
 def print_vault_state(vault: OstiumVault, web3, owner_address: str | None = None):
@@ -213,16 +223,13 @@ def do_deposit(vault: OstiumVault, deposit_manager: OstiumV15DepositManager, hot
             if not confirm(f"Reclaim USDC from failed deposit settlement {settlement_id}?"):
                 sys.exit(0)
             reclaim_func = deposit_manager.reclaim_deposit(ticket)
-            tx_hash = hot_wallet.transact_with_contract(reclaim_func, gas=1_000_000)
-            assert_transaction_success_with_explanation(web3, tx_hash)
+            tx_hash = broadcast(web3, hot_wallet, reclaim_func, f"reclaimDeposit({settlement_id})", gas=1_000_000)
             print(f"Reclaimed USDC from failed settlement {settlement_id}")
-            print(f"Tx hash: {tx_hash.hex()}")
         elif status == AsyncVaultRequestStatus.claimable:
             if not confirm(f"Claim deposit from settlement {settlement_id}?"):
                 sys.exit(0)
             claim_func = deposit_manager.finish_deposit(ticket)
-            tx_hash = hot_wallet.transact_with_contract(claim_func, gas=1_000_000)
-            assert_transaction_success_with_explanation(web3, tx_hash)
+            tx_hash = broadcast(web3, hot_wallet, claim_func, f"claimDeposit({settlement_id})", gas=1_000_000)
 
             ticket_for_analysis = OstiumDepositTicket(
                 vault_address=vault_address,
@@ -247,13 +254,11 @@ def do_deposit(vault: OstiumVault, deposit_manager: OstiumV15DepositManager, hot
         if not confirm(f"Approve and request deposit of {amount} USDC to Ostium vault?"):
             sys.exit(0)
 
-        approve_func = usdc.approve(vault_address, amount)
-        tx_hash = hot_wallet.transact_with_contract(approve_func, gas=100_000)
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        approve_func = vault.denomination_token.approve(vault_address, amount)
+        broadcast(web3, hot_wallet, approve_func, f"Approve {amount} USDC to Ostium vault")
 
         deposit_request = deposit_manager.create_deposit_request(owner, amount=amount)
-        tx_hash = hot_wallet.transact_with_contract(deposit_request.funcs[0], gas=1_000_000)
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        tx_hash = broadcast(web3, hot_wallet, deposit_request.funcs[0], f"requestDeposit({amount} USDC)", gas=1_000_000)
 
         ticket = deposit_request.parse_deposit_transaction([tx_hash])
         print(f"Deposit requested: {amount} USDC")
@@ -290,16 +295,13 @@ def do_withdraw(vault: OstiumVault, deposit_manager: OstiumV15DepositManager, ho
             if not confirm(f"Reclaim OLP shares from failed withdrawal settlement {settlement_id}?"):
                 sys.exit(0)
             reclaim_func = deposit_manager.reclaim_withdrawal(ticket)
-            tx_hash = hot_wallet.transact_with_contract(reclaim_func, gas=1_000_000)
-            assert_transaction_success_with_explanation(web3, tx_hash)
+            tx_hash = broadcast(web3, hot_wallet, reclaim_func, f"reclaimWithdraw({settlement_id})", gas=1_000_000)
             print(f"Reclaimed OLP shares from failed settlement {settlement_id}")
-            print(f"Tx hash: {tx_hash.hex()}")
         elif status == AsyncVaultRequestStatus.claimable:
             if not confirm(f"Claim withdrawal from settlement {settlement_id}?"):
                 sys.exit(0)
             claim_func = deposit_manager.finish_redemption(ticket)
-            tx_hash = hot_wallet.transact_with_contract(claim_func, gas=1_000_000)
-            assert_transaction_success_with_explanation(web3, tx_hash)
+            tx_hash = broadcast(web3, hot_wallet, claim_func, f"claimWithdraw({settlement_id})", gas=1_000_000)
 
             receipt = web3.eth.get_transaction_receipt(tx_hash)
             logs = vault.vault_contract.events.WithdrawClaimedV2().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
@@ -320,8 +322,7 @@ def do_withdraw(vault: OstiumVault, deposit_manager: OstiumV15DepositManager, ho
             sys.exit(0)
 
         redemption_request = deposit_manager.create_redemption_request(owner, shares=amount)
-        tx_hash = hot_wallet.transact_with_contract(redemption_request.funcs[0], gas=1_000_000)
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        tx_hash = broadcast(web3, hot_wallet, redemption_request.funcs[0], f"requestWithdraw({amount} OLP)", gas=1_000_000)
 
         ticket = redemption_request.parse_redeem_transaction([tx_hash])
         print(f"Withdrawal requested: {amount} OLP shares")
