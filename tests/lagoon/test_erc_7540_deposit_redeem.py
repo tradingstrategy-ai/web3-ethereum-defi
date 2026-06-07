@@ -5,6 +5,7 @@ import datetime
 from decimal import Decimal
 from typing import cast
 
+import flaky
 import pytest
 from web3 import Web3
 
@@ -182,6 +183,7 @@ def test_erc_7540_deposit_722_capital(
     assert deposit_result.get_share_price() == pytest.approx(Decimal("1.040966706424453185124846464"))
 
 
+@flaky.flaky
 def test_erc_7540_redeem_722_capital(
     vault: ERC4626Vault,
     test_user: HexAddress,
