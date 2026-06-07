@@ -479,16 +479,18 @@ def test_morpho_clean_vault_no_warnings(web3_ethereum: Web3):
 @flaky.flaky
 @pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed")
 def test_morpho_bad_debt_realized_metadata(web3_ethereum: Web3):
-    """bad_debt_realized warnings include metadata: bad_debt_usd and bad_debt_share.
+    """bad_debt_realized warnings include nullable metadata fields.
 
-    Dune USDC on Ethereum has ``bad_debt_realized`` (YELLOW) market warnings with USD and
-    share-fraction metadata. Verifies that market warning metadata is parsed correctly.
+    Dune USDC on Ethereum has ``bad_debt_realized`` (YELLOW) market warnings with
+    share-fraction metadata. Morpho's live API may return ``null`` for
+    ``badDebtUsd`` after the realised bad debt amount is no longer reported, so
+    the USD field is validated as nullable while the share remains mandatory.
 
     Steps:
 
     1. Fetch data for Dune USDC (known to have bad_debt_realized YELLOW market warnings).
     2. Find a market warning of type bad_debt_realized.
-    3. Assert bad_debt_usd is a positive float.
+    3. Assert bad_debt_usd is either absent from the live API or positive.
     4. Assert bad_debt_share is a float in the range (0.0, 1.0].
     """
     # 1. Fetch
@@ -501,9 +503,9 @@ def test_morpho_bad_debt_realized_metadata(web3_ethereum: Web3):
 
     w = realized_warnings[0]
 
-    # 3. bad_debt_usd is a positive float
-    assert w["bad_debt_usd"] is not None, "Expected bad_debt_usd to be set"
-    assert w["bad_debt_usd"] > 0, f"Expected positive bad_debt_usd, got {w['bad_debt_usd']}"
+    # 3. bad_debt_usd is nullable in Morpho's live API
+    if w["bad_debt_usd"] is not None:
+        assert w["bad_debt_usd"] > 0, f"Expected positive bad_debt_usd, got {w['bad_debt_usd']}"
 
     # 4. bad_debt_share is a fraction in (0, 1]
     assert w["bad_debt_share"] is not None, "Expected bad_debt_share to be set"
