@@ -31,6 +31,10 @@ Usage:
     # Include Hibachi native vaults
     SCAN_HIBACHI=true python scripts/erc-4626/scan-vaults-all-chains.py
 
+    # Core3 risk intelligence enrichment runs by default when CORE3_API_KEY is set.
+    # Disable it explicitly if needed.
+    SKIP_CORE3=true python scripts/erc-4626/scan-vaults-all-chains.py
+
     # Custom retry count
     RETRY_COUNT=2 python scripts/erc-4626/scan-vaults-all-chains.py
 
@@ -43,9 +47,9 @@ Usage:
     # Disable specific chains (skip them)
     DISABLE_CHAINS=Plasma,Katana python scripts/erc-4626/scan-vaults-all-chains.py
 
-    # Looped mode: tick every 1h, major EVM chains on 8h, native protocols on 4h, rest on 24h
+    # Looped mode: tick every 1h, major EVM chains on 8h, native protocols on 4h, Core3 and rest on 24h
     LOOP_INTERVAL_SECONDS=3600 \\
-    SCAN_CYCLES="Ethereum=8h,Base=8h,Arbitrum=8h,Hypercore=4h,GRVT=4h,Lighter=4h,Hibachi=4h" \\
+    SCAN_CYCLES="Ethereum=8h,Base=8h,Arbitrum=8h,Hypercore=4h,GRVT=4h,Lighter=4h,Hibachi=4h,Core3=24h" \\
     DEFAULT_CYCLE=24h \\
     SCAN_HYPERCORE=true SCAN_GRVT=true SCAN_LIGHTER=true SCAN_HIBACHI=true \\
     python scripts/erc-4626/scan-vaults-all-chains.py
@@ -85,6 +89,13 @@ Environment variables:
     - SCAN_HYPERCORE: "true" to scan Hyperliquid native (Hypercore) vaults via REST API (default: "false")
     - SCAN_GRVT: "true" to scan GRVT native vaults via public endpoints (default: "false")
     - SCAN_LIGHTER: "true" to scan Lighter native pools via public endpoints (default: "false")
+    - SKIP_CORE3: "true" to skip Core3 risk intelligence enrichment (default: "false").
+      Core3 is default-on enrichment data for the top-vaults JSON, unlike optional native
+      vault sources that use opt-in SCAN_* flags.
+    - CORE3_API_KEY: Core3 API key. If missing, Core3 is disabled for the run with a warning.
+    - CORE3_DATABASE_PATH: Path to Core3 DuckDB (default: ~/.tradingstrategy/vaults/core3/core3.duckdb)
+    - CORE3_MAX_WORKERS: Number of Core3 API worker threads (default: "8")
+    - CORE3_FETCH_SECTIONS: "true" to fetch detailed Core3 section endpoints (default: "false")
     - RETRY_COUNT: Number of retry attempts (default: "1")
     - MAX_WORKERS: Number of parallel workers (default: "50")
     - FREQUENCY: "1h" or "1d" (default: "1h")

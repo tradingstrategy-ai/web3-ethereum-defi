@@ -1,5 +1,7 @@
 # Current
 
+- feat: Add Core3 to the all-chains vault scanner pipeline as default-on enrichment with 24h scheduling, Core3 DuckDB R2 export, daily alternative-bucket backups, and scanner/export documentation (2026-06-07)
+
 - feat: Add Ostium V1.5 async settlement-based deposit/withdrawal support with version auto-detection, settlement-price analysis, and full test coverage for both V1 and V1.5 (2026-06-05)
 
 - feat: Add Royco senior/junior tranche vault support with custom Redeem event discovery, tuple-aware current and historical NAV readers, stored ABIs, and Royco offchain metadata fetching (2026-06-05)

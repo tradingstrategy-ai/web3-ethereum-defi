@@ -30,6 +30,9 @@ from atomicwrites import atomic_write
 from filelock import Timeout as FileLockTimeout
 
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.core3.constants import resolve_core3_database_path
+from eth_defi.core3.scanner import scan_projects as core3_scan_projects
+from eth_defi.core3.session import create_core3_session
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
 from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.grvt.constants import GRVT_CHAIN_ID
@@ -52,7 +55,6 @@ from eth_defi.hibachi.daily_metrics import run_daily_scan as hibachi_run_daily_s
 from eth_defi.hibachi.vault_data_export import merge_into_vault_database as hibachi_merge_vault_db
 from eth_defi.provider.broken_provider import verify_archive_node
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
-from eth_defi.core3.constants import CORE3_DATABASE_PATH
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
@@ -61,6 +63,8 @@ from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEA
 
 #: How many days of backups to keep
 BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "7"))
+
+CORE3_PROTOCOL_NAME = "Core3"
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +129,71 @@ def format_duration(td: datetime.timedelta) -> str:
     if total_hours >= 24 and total_hours % 24 == 0:
         return f"{int(total_hours // 24)}d"
     return f"{int(total_hours)}h"
+
+
+def should_scan_core3(skip_core3: bool, core3_api_key: str | None) -> bool:
+    """Determine whether Core3 enrichment scanning should run.
+
+    Core3 is default-on enrichment data for the top-vaults JSON export,
+    so it uses ``SKIP_CORE3`` instead of the opt-in ``SCAN_*`` flags used
+    by optional native vault sources. Missing credentials degrade to a
+    warning and disable Core3 for the current run, letting operators who
+    have not configured Core3 keep the rest of the pipeline running.
+
+    :param skip_core3:
+        Whether the operator explicitly disabled Core3 for this run.
+    :param core3_api_key:
+        Core3 API key from ``CORE3_API_KEY``.
+    :return:
+        ``True`` if Core3 should be added to the scheduled item list.
+    """
+    if skip_core3:
+        logger.info("SKIP_CORE3=true - Core3 enrichment scan disabled")
+        return False
+    if not core3_api_key:
+        logger.warning("CORE3_API_KEY is not set - Core3 enrichment scan disabled for this run")
+        return False
+    return True
+
+
+def build_active_protocols(
+    scan_hypercore: bool,
+    scan_grvt: bool,
+    scan_lighter: bool,
+    scan_hibachi: bool,
+    scan_core3: bool,
+) -> list[str]:
+    """Build scheduled non-EVM scan item names.
+
+    The existing cycle scheduler calls these items protocols. Core3 reuses
+    that path to avoid a new item type: it is a cross-chain enrichment
+    scan, not a vault source, and therefore has no price merge step.
+
+    :param scan_hypercore:
+        Include Hypercore native vaults.
+    :param scan_grvt:
+        Include GRVT native vaults.
+    :param scan_lighter:
+        Include Lighter native pools.
+    :param scan_hibachi:
+        Include Hibachi native vaults.
+    :param scan_core3:
+        Include Core3 enrichment data.
+    :return:
+        Scheduled non-EVM scan item names.
+    """
+    all_protocols: list[str] = []
+    if scan_hypercore:
+        all_protocols.append("Hypercore")
+    if scan_grvt:
+        all_protocols.append("GRVT")
+    if scan_lighter:
+        all_protocols.append("Lighter")
+    if scan_hibachi:
+        all_protocols.append("Hibachi")
+    if scan_core3:
+        all_protocols.append(CORE3_PROTOCOL_NAME)
+    return all_protocols
 
 
 def load_cycle_state(path: Path) -> dict[str, str]:
@@ -1011,6 +1080,55 @@ def scan_hibachi_fn(
     return result
 
 
+def scan_core3_fn(
+    core3_db_path: Path,
+    max_workers: int = 8,
+    fetch_sections: bool = False,
+) -> ChainResult:
+    """Scan Core3 risk intelligence enrichment data.
+
+    Core3 is not a vault source and does not merge into the vault
+    metadata pickle or price parquet. It refreshes the DuckDB database
+    consumed by ``vault-analysis-json.py`` during post-processing.
+
+    :param core3_db_path:
+        Path to the Core3 DuckDB file.
+    :param max_workers:
+        Number of parallel workers for Core3 project API reads.
+    :param fetch_sections:
+        Whether to fetch detailed Core3 section endpoints.
+    :return:
+        Scan result with project count and duration.
+    """
+    result = ChainResult(name=CORE3_PROTOCOL_NAME, status="running")
+    start_time = time.time()
+    db = None
+
+    try:
+        session = create_core3_session(pool_maxsize=max(32, max_workers))
+        db = core3_scan_projects(
+            session=session,
+            db_path=core3_db_path,
+            max_workers=max_workers,
+            fetch_sections=fetch_sections,
+        )
+        result.vault_count = db.get_project_count()
+        result.vault_scan_ok = True
+        result.price_scan_ok = None
+        result.status = "success"
+    except Exception as e:
+        logger.exception("Core3 scan failed")
+        result.status = "failed"
+        result.error = str(e)
+        result.traceback_str = traceback.format_exc()
+    finally:
+        if db is not None:
+            db.close()
+
+    result.duration = time.time() - start_time
+    return result
+
+
 def _load_last_timestamps(uncleaned_price_path: Path | None = None) -> dict[str, str]:
     """Load the last data timestamp per chain from the uncleaned parquet.
 
@@ -1207,7 +1325,9 @@ def run_scan_tick(
     scan_grvt: bool,
     scan_lighter: bool,
     scan_hibachi: bool,
+    scan_core3: bool,
     max_workers: int,
+    core3_max_workers: int,
     frequency: str,
     retry_count: int,
     skip_post_processing: bool,
@@ -1234,6 +1354,7 @@ def run_scan_tick(
     cycle_intervals: dict[str, str] | None = None,
     on_item_success: Callable[[str], None] | None = None,
     core3_db_path: Path | None = None,
+    core3_fetch_sections: bool = False,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -1250,6 +1371,9 @@ def run_scan_tick(
     :param core3_db_path:
         Path to the Core3 risk intelligence DuckDB. Forwarded to
         :py:func:`~eth_defi.vault.post_processing.run_post_processing`.
+
+    :param core3_fetch_sections:
+        Whether Core3 should fetch section detail endpoints.
     """
     # Back up critical pipeline files before any scanning
     backup_pipeline_files(backup_files=bkp_files, backup_dir=bkp_dir)
@@ -1395,6 +1519,22 @@ def run_scan_tick(
             logger.error("Hibachi: FAILED - %s", r.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
+    if scan_core3 and CORE3_PROTOCOL_NAME in active_protocols:
+        logger.info("Scanning Core3 (risk intelligence enrichment)")
+        results[CORE3_PROTOCOL_NAME] = scan_core3_fn(
+            core3_db_path=core3_db_path or resolve_core3_database_path(),
+            max_workers=core3_max_workers,
+            fetch_sections=core3_fetch_sections,
+        )
+        r = results[CORE3_PROTOCOL_NAME]
+        if r.status == "success":
+            logger.info("Core3: SUCCESS - %d projects", r.vault_count or 0)
+            if on_item_success:
+                on_item_success(CORE3_PROTOCOL_NAME)
+        elif r.status == "failed":
+            logger.error("Core3: FAILED - %s", r.error)
+        print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
+
     # Retry passes - retry failed EVM chains (native protocols are not retried)
     evm_chain_names = {c.name for c in chains}
     for attempt in range(1, retry_count + 1):
@@ -1434,6 +1574,9 @@ def run_scan_tick(
     if skip_post_processing:
         logger.info("Skipping post-processing (SKIP_POST_PROCESSING=true)")
     else:
+        # Core3 DuckDB is safe to export in the normal sequential pipeline:
+        # scan_projects() checkpoints with db.save(), scan_core3_fn() closes
+        # the DuckDB handle, and only then can post-processing upload files.
         logger.info("All scans complete, starting post-processing")
         post_results = run_post_processing(
             scan_hypercore=scan_hypercore,
@@ -1530,8 +1673,12 @@ def main():
     scan_grvt = os.environ.get("SCAN_GRVT", "false").lower() == "true"
     scan_lighter = os.environ.get("SCAN_LIGHTER", "false").lower() == "true"
     scan_hibachi = os.environ.get("SCAN_HIBACHI", "false").lower() == "true"
+    skip_core3 = os.environ.get("SKIP_CORE3", "false").lower() == "true"
+    scan_core3 = should_scan_core3(skip_core3=skip_core3, core3_api_key=os.environ.get("CORE3_API_KEY"))
     force_rescan = os.environ.get("FORCE_RESCAN", "false").lower() == "true"
     max_workers = int(os.environ.get("MAX_WORKERS", "50"))
+    core3_max_workers = int(os.environ.get("CORE3_MAX_WORKERS", "8"))
+    core3_fetch_sections = os.environ.get("CORE3_FETCH_SECTIONS", "false").lower() == "true"
     frequency = os.environ.get("FREQUENCY", "1h")
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"
     skip_cleaning = os.environ.get("SKIP_CLEANING", "false").lower() == "true"
@@ -1579,10 +1726,9 @@ def main():
     grvt_db_path = data_dir / "grvt-vaults.duckdb"
 
     # Core3 risk intelligence database path — resolved from env var or default constant.
-    core3_db_path_env = os.environ.get("CORE3_DATABASE_PATH")
-    core3_db_path = Path(core3_db_path_env).expanduser() if core3_db_path_env else CORE3_DATABASE_PATH
+    core3_db_path = resolve_core3_database_path()
 
-    bkp_files = [uncleaned_price_path, reader_state_path, vault_db_path, hyperliquid_db_path, hyperliquid_hf_db_path, grvt_db_path, lighter_db_path, hibachi_db_path]
+    bkp_files = [uncleaned_price_path, reader_state_path, vault_db_path, hyperliquid_db_path, hyperliquid_hf_db_path, grvt_db_path, lighter_db_path, hibachi_db_path, core3_db_path]
 
     # Test mode - filter chains if TEST_CHAINS is set
     disable_chains_str = os.environ.get("DISABLE_CHAINS")
@@ -1595,7 +1741,20 @@ def main():
 
     logger.debug("=" * 80)
     logger.info("Starting multi-chain vault scan")
-    logger.info("SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, FREQUENCY: %s", scan_prices, scan_hypercore, scan_grvt, scan_lighter, scan_hibachi, retry_count, max_workers, frequency)
+    logger.info(
+        "SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, SKIP_CORE3: %s, CORE3: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, CORE3_MAX_WORKERS: %d, FREQUENCY: %s",
+        scan_prices,
+        scan_hypercore,
+        scan_grvt,
+        scan_lighter,
+        scan_hibachi,
+        skip_core3,
+        scan_core3,
+        retry_count,
+        max_workers,
+        core3_max_workers,
+        frequency,
+    )
     logger.info("PIPELINE_DATA_DIR: %s", data_dir)
     if skip_post_processing:
         logger.info("SKIP_POST_PROCESSING: true")
@@ -1605,6 +1764,8 @@ def main():
         logger.info("DISABLE_CHAINS: %s", disable_chains_str)
     if force_rescan:
         logger.info("FORCE_RESCAN: true")
+    if core3_fetch_sections:
+        logger.info("CORE3_FETCH_SECTIONS: true")
     logger.debug("=" * 80)
 
     # Build chain configurations
@@ -1654,16 +1815,16 @@ def main():
     if disabled_chains:
         logger.info("Disabled by DISABLE_CHAINS: %s", ", ".join(c.name for c in disabled_chains))
 
-    # Build list of active native protocols
-    all_protocols = []
-    if scan_hypercore:
-        all_protocols.append("Hypercore")
-    if scan_grvt:
-        all_protocols.append("GRVT")
-    if scan_lighter:
-        all_protocols.append("Lighter")
-    if scan_hibachi:
-        all_protocols.append("Hibachi")
+    # Build list of active non-EVM scan items. Core3 reuses the protocol
+    # scheduler path because it has the same cycle-state behaviour, even
+    # though it is enrichment data rather than a native vault source.
+    all_protocols = build_active_protocols(
+        scan_hypercore=scan_hypercore,
+        scan_grvt=scan_grvt,
+        scan_lighter=scan_lighter,
+        scan_hibachi=scan_hibachi,
+        scan_core3=scan_core3,
+    )
 
     # Pre-compute human-readable cycle intervals for all items
     if looped_mode:
@@ -1685,7 +1846,9 @@ def main():
         scan_grvt=scan_grvt,
         scan_lighter=scan_lighter,
         scan_hibachi=scan_hibachi,
+        scan_core3=scan_core3,
         max_workers=max_workers,
+        core3_max_workers=core3_max_workers,
         frequency=frequency,
         retry_count=retry_count,
         skip_post_processing=skip_post_processing,
@@ -1709,6 +1872,7 @@ def main():
         excluded_chains=[c.name for c in skipped_by_order + disabled_chains],
         hypercore_mode=hypercore_mode,
         core3_db_path=core3_db_path,
+        core3_fetch_sections=core3_fetch_sections,
     )
 
     # Clear cycle state on disc so the first tick rescans everything.
