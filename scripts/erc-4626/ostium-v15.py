@@ -48,6 +48,7 @@ from hexbytes import HexBytes
 from tabulate import tabulate
 from web3._utils.events import EventLogErrorFlags
 
+from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import (
     OSTIUM_REQUEST_STATUS_NONE,
@@ -61,6 +62,8 @@ from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import (
 from eth_defi.erc_4626.vault_protocol.gains.vault import OstiumVault, OstiumVersion
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.provider.receipt import wait_for_transaction_receipt_robust
+from eth_defi.utils import from_unix_timestamp
 from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
@@ -82,8 +85,6 @@ def confirm(prompt: str) -> bool:
 
 def broadcast(web3, hot_wallet: HotWallet, func, description: str, gas: int = 500_000) -> HexBytes:
     """Sign, broadcast, and wait for a contract call. Returns tx hash."""
-    from eth_defi.provider.receipt import wait_for_transaction_receipt_robust
-
     signed_tx = hot_wallet.sign_bound_call_with_new_nonce(func, tx_params={"gas": gas}, web3=web3, fill_gas_price=True)
     print(f"  Broadcasting: {description}")
     print(f"  TX hash: {signed_tx.hash.hex()}")
@@ -103,9 +104,6 @@ def print_vault_state(vault: OstiumVault, web3, owner_address: str | None = None
     deposit/redemption status, and owner-specific token balances
     and active settlement tickets.
     """
-    from eth_defi.chain import get_chain_name
-    from eth_defi.utils import from_unix_timestamp
-
     block = web3.eth.block_number
     chain_id = web3.eth.chain_id
     chain_name = get_chain_name(chain_id)
