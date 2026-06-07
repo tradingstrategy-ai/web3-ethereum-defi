@@ -703,14 +703,16 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
                 raw_total_assets = convert_int256_bytes_to_int(result_bytes)
                 share_price = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
 
-            # Handle dealing with the adaptive frequency
-            state = total_assets_call_result.state
-            if state:
-                state.on_called(
-                    convert_to_assets_call_result,
-                    total_assets=total_assets,
-                    share_price=share_price,
-                )
+                # Handle dealing with the adaptive frequency.
+                # Only call on_called() when share_price was successfully decoded;
+                # on_called() asserts if share_price is None without a revert_exception.
+                state = total_assets_call_result.state
+                if state:
+                    state.on_called(
+                        convert_to_assets_call_result,
+                        total_assets=total_assets,
+                        share_price=share_price,
+                    )
         else:
             share_price = None
 

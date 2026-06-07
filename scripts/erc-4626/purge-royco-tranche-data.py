@@ -31,7 +31,7 @@ from pathlib import Path
 import pandas as pd
 
 from eth_defi.utils import setup_console_logging
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, VaultDatabase
 
 logger = logging.getLogger(__name__)
@@ -46,13 +46,15 @@ ROYCO_PROTOCOL_NAME = "Royco"
 DEFAULT_MAX_REASONABLE_TOTAL_ASSETS = 1e12
 
 
-def find_royco_tranche_addresses() -> set[str]:
-    """Find Royco tranche vault addresses from the vault metadata DB.
+def find_royco_tranche_specs() -> set[VaultSpec]:
+    """Find Royco tranche vault specs from the vault metadata DB.
 
     These are vaults with Protocol='Royco' and names matching tranche patterns.
+    Returns full ``VaultSpec`` (chain_id, address) pairs to avoid cross-chain
+    address collisions.
 
     :return:
-        Set of lowercase vault addresses.
+        Set of ``VaultSpec`` instances.
     """
     try:
         db = VaultDatabase.read()
@@ -60,31 +62,34 @@ def find_royco_tranche_addresses() -> set[str]:
         logger.warning("Could not read vault database: %s", e)
         return set()
 
-    addresses = set()
+    specs = set()
     for spec, row in db.rows.items():
         if row.get("Protocol") != ROYCO_PROTOCOL_NAME:
             continue
         name = row.get("Name", "")
         # Tranche vaults have "Senior Tranche" or "Junior Tranche" in their name
         if "Tranche" in name:
-            addresses.add(spec.vault_address.lower())
+            specs.add(spec)
 
-    return addresses
+    return specs
 
 
 def purge_corrupted_rows(
     parquet_path: Path,
-    addresses: set[str],
+    specs: set[VaultSpec],
     max_total_assets: float,
     dry_run: bool,
 ) -> int:
     """Remove corrupted rows from the uncleaned price parquet.
 
+    Matches on both ``chain`` and ``address`` columns to avoid deleting
+    data from unrelated chains that happen to share an address.
+
     :param parquet_path:
         Path to the uncleaned price parquet.
 
-    :param addresses:
-        Set of vault addresses (lowercase) to check.
+    :param specs:
+        Set of ``VaultSpec`` (chain_id, address) pairs to check.
 
     :param max_total_assets:
         Maximum reasonable total_assets threshold.
@@ -103,26 +108,34 @@ def purge_corrupted_rows(
     df = pd.read_parquet(parquet_path)
     original_len = len(df)
 
-    # Find corrupted rows: vault address matches AND total_assets exceeds threshold
-    corrupted_mask = df["address"].str.lower().isin(addresses) & (df["total_assets"] > max_total_assets)
+    # Build a set of (chain_id, lowercase_address) tuples for matching
+    spec_pairs = {(spec.chain_id, spec.vault_address.lower()) for spec in specs}
+
+    # Find corrupted rows: (chain, address) matches AND total_assets exceeds threshold
+    matching_mask = pd.Series(
+        [(int(chain), addr.lower()) in spec_pairs for chain, addr in zip(df["chain"], df["address"])],
+        index=df.index,
+    )
+    corrupted_mask = matching_mask & (df["total_assets"] > max_total_assets)
     corrupted_count = corrupted_mask.sum()
 
     if corrupted_count == 0:
-        logger.info("No corrupted rows found for %d Royco tranche addresses", len(addresses))
+        logger.info("No corrupted rows found for %d Royco tranche specs", len(specs))
         return 0
 
     # Show details of what we're removing
     corrupted_df = df[corrupted_mask]
-    per_vault = corrupted_df.groupby("address").agg(
+    per_vault = corrupted_df.groupby(["chain", "address"]).agg(
         rows=("address", "count"),
         max_total_assets=("total_assets", "max"),
         min_timestamp=("timestamp", "min"),
         max_timestamp=("timestamp", "max"),
     )
     logger.info("Corrupted rows found:")
-    for addr, row in per_vault.iterrows():
+    for (chain, addr), row in per_vault.iterrows():
         logger.info(
-            "  %s: %d rows, max_total_assets=%.2e, date range %s to %s",
+            "  chain=%d %s: %d rows, max_total_assets=%.2e, date range %s to %s",
+            chain,
             addr,
             row["rows"],
             row["max_total_assets"],
@@ -139,26 +152,29 @@ def purge_corrupted_rows(
     logger.info("Creating backup at %s", backup_path)
     shutil.copy2(parquet_path, backup_path)
 
-    # Remove corrupted rows
+    # Remove corrupted rows and write with canonical schema
     df_clean = df[~corrupted_mask]
     logger.info("Writing cleaned parquet: %d -> %d rows (removed %d)", original_len, len(df_clean), corrupted_count)
-    df_clean.to_parquet(parquet_path, index=False)
+    VaultHistoricalRead.write_uncleaned_parquet(df_clean, parquet_path)
 
     return corrupted_count
 
 
 def clear_reader_states(
     reader_state_path: Path,
-    addresses: set[str],
+    specs: set[VaultSpec],
     dry_run: bool,
 ) -> int:
     """Clear reader states for Royco tranche vaults so they rescan from scratch.
 
+    Matches on full ``VaultSpec`` (chain_id, address) to avoid clearing
+    unrelated chains.
+
     :param reader_state_path:
         Path to the reader state pickle.
 
-    :param addresses:
-        Set of vault addresses (lowercase) to clear.
+    :param specs:
+        Set of ``VaultSpec`` (chain_id, address) pairs to clear.
 
     :param dry_run:
         If True, report only.
@@ -173,16 +189,22 @@ def clear_reader_states(
     with open(reader_state_path, "rb") as f:
         states = pickle.load(f)
 
-    to_clear = [spec for spec in states if spec.vault_address.lower() in addresses]
+    to_clear = [spec for spec in states if spec in specs]
 
     if not to_clear:
-        logger.info("No reader states found for Royco tranche addresses")
+        logger.info("No reader states found for Royco tranche specs")
         return 0
 
     logger.info("Found %d reader states to clear", len(to_clear))
     for spec in to_clear:
         state = states[spec]
-        logger.info("  %s (chain %d): entry_count=%s, last_block=%s", spec.vault_address, spec.chain_id, state.get("entry_count"), state.get("last_block"))
+        logger.info(
+            "  %s (chain %d): entry_count=%s, last_block=%s",
+            spec.vault_address,
+            spec.chain_id,
+            state.get("entry_count"),
+            state.get("last_block"),
+        )
 
     if dry_run:
         logger.info("DRY RUN: would clear %d reader states", len(to_clear))
@@ -213,34 +235,32 @@ def main():
     if dry_run:
         logger.info("DRY RUN MODE — no files will be modified")
 
-    # Find tranche vault addresses
-    tranche_addresses = find_royco_tranche_addresses()
-    if not tranche_addresses:
+    # 1. Find tranche vault specs
+    tranche_specs = find_royco_tranche_specs()
+    if not tranche_specs:
         logger.warning("No Royco tranche vaults found in vault metadata DB")
         logger.info("You can also specify addresses manually by extending this script")
         return
 
-    logger.info("Found %d Royco tranche vault addresses", len(tranche_addresses))
+    logger.info("Found %d Royco tranche vault specs", len(tranche_specs))
 
-    # Purge corrupted rows from parquet
-    purged = purge_corrupted_rows(parquet_path, tranche_addresses, max_total_assets, dry_run)
+    # 2. Purge corrupted rows from parquet
+    purged = purge_corrupted_rows(parquet_path, tranche_specs, max_total_assets, dry_run)
 
-    # Clear reader states so vaults rescan from beginning
-    cleared = clear_reader_states(reader_state_path, tranche_addresses, dry_run)
+    # 3. Clear reader states so vaults rescan from beginning
+    cleared = clear_reader_states(reader_state_path, tranche_specs, dry_run)
 
-    # Summary
-    print()
-    print(f"Royco tranche addresses found: {len(tranche_addresses)}")
-    print(f"Corrupted parquet rows {'would be ' if dry_run else ''}purged: {purged}")
-    print(f"Reader states {'would be ' if dry_run else ''}cleared: {cleared}")
+    # 4. Summary
+    action = "would be " if dry_run else ""
+    logger.info("Royco tranche specs found: %d", len(tranche_specs))
+    logger.info("Corrupted parquet rows %spurged: %d", action, purged)
+    logger.info("Reader states %scleared: %d", action, cleared)
 
     if not dry_run and purged > 0:
-        print()
-        print("Next steps:")
-        print("  1. Re-run the price scanner to repopulate tranche data with the correct reader:")
-        print(f"     source .local-test.env && poetry run python scripts/erc-4626/scan-prices.py")
-        print("  2. Wait for several scan cycles to accumulate enough data points")
-        print("  3. Re-run the post-processing pipeline to regenerate cleaned data")
+        logger.info("Next steps:")
+        logger.info("  1. Re-run the price scanner to repopulate tranche data with the correct reader")
+        logger.info("  2. Wait for several scan cycles to accumulate enough data points")
+        logger.info("  3. Re-run the post-processing pipeline to regenerate cleaned data")
 
 
 if __name__ == "__main__":
