@@ -78,48 +78,86 @@ def confirm(prompt: str) -> bool:
     return answer == "y"
 
 
-def do_status(vault: OstiumVault, owner_address: str | None):
-    """Display vault settlement state and per-address request status."""
+def print_vault_state(vault: OstiumVault, web3, owner_address: str | None = None):
+    """Print vault state summary at the start of every action.
+
+    Shows TVL, share price, settlement state, deposit/redemption open status,
+    and owner-specific balances and active tickets when an address is available.
+    """
+    block = web3.eth.block_number
     contract = vault.vault_contract
 
+    # Vault basics
+    total_assets = vault.fetch_total_assets(block)
+    total_supply = vault.fetch_total_supply(block)
+    share_price = vault.fetch_share_price(block)
+    deposit_closed = vault.fetch_deposit_closed_reason()
+    redemption_closed = vault.fetch_redemption_closed_reason()
+
+    print(f"{'=' * 60}")
+    print(f"Ostium V1.5 vault: {vault.name}")
+    print(f"Address: {vault.address}")
+    print(f"Block: {block:,}")
+    print(f"{'=' * 60}")
+    print(f"TVL (total assets): {total_assets} {vault.denomination_token.symbol}")
+    print(f"Total supply:       {total_supply} {vault.share_token.symbol}")
+    print(f"Share price:        {share_price} {vault.denomination_token.symbol}/{vault.share_token.symbol}")
+    print(f"Deposits:           {'OPEN' if not deposit_closed else deposit_closed}")
+    print(f"Redemptions:        {'OPEN' if not redemption_closed else redemption_closed}")
+
+    # Settlement state
     last_settlement_id = contract.functions.lastSettlementId().call()
     deposit_target = contract.functions.targetSettlementId(True).call()
     withdraw_target = contract.functions.targetSettlementId(False).call()
     last_ts = contract.functions.lastSettlementTs().call()
     max_interval = contract.functions.maxSettlementInterval().call()
 
-    print(f"Vault: {vault.name} ({vault.address})")
-    print(f"Last settlement ID: {last_settlement_id}")
-    print(f"Deposit target settlement ID: {deposit_target}")
-    print(f"Withdraw target settlement ID: {withdraw_target}")
-    print(f"Last settlement timestamp: {last_ts}")
-    print(f"Max settlement interval: {max_interval}s ({max_interval / 3600:.1f}h)")
-    print()
+    print(f"\nSettlement state:")
+    print(f"  Last settlement ID:    {last_settlement_id}")
+    print(f"  Deposit target ID:     {deposit_target}")
+    print(f"  Withdraw target ID:    {withdraw_target}")
+    print(f"  Last settlement ts:    {last_ts}")
+    print(f"  Max interval:          {max_interval}s ({max_interval / 3600:.1f}h)")
 
-    if not owner_address:
-        print("Set OWNER_ADDRESS (or PRIVATE_KEY) to check deposit/withdrawal status for a specific address.")
-        return
+    # Owner-specific info
+    if owner_address:
+        usdc_balance = vault.denomination_token.fetch_balance_of(owner_address)
+        share_balance = vault.share_token.fetch_balance_of(owner_address)
+        share_value = share_balance * share_price if share_price else Decimal(0)
 
-    print(f"Status for owner: {owner_address}")
-    print()
+        print(f"\nOwner: {owner_address}")
+        print(f"  USDC balance:          {usdc_balance} {vault.denomination_token.symbol}")
+        print(f"  OLP share balance:     {share_balance} {vault.share_token.symbol}")
+        print(f"  Share value:           ~{share_value:.2f} {vault.denomination_token.symbol}")
 
-    rows = []
-    for sid in range(max(1, last_settlement_id - 5), deposit_target + 1):
-        dep_status = contract.functions.getDepositStatus(owner_address, sid).call()
-        wd_status = contract.functions.getWithdrawStatus(owner_address, sid).call()
-        if dep_status != OSTIUM_REQUEST_STATUS_NONE or wd_status != OSTIUM_REQUEST_STATUS_NONE:
-            rows.append(
-                {
-                    "Settlement ID": sid,
-                    "Deposit": STATUS_NAMES.get(dep_status, f"UNKNOWN({dep_status})"),
-                    "Withdraw": STATUS_NAMES.get(wd_status, f"UNKNOWN({wd_status})"),
-                }
-            )
+        # Active tickets
+        deposit_manager = vault.get_deposit_manager()
+        has_pending_deposit = deposit_manager.is_deposit_in_progress(owner_address)
+        has_pending_redeem = deposit_manager.is_redemption_in_progress(owner_address)
+        print(f"  Pending deposit:       {'YES' if has_pending_deposit else 'no'}")
+        print(f"  Pending withdrawal:    {'YES' if has_pending_redeem else 'no'}")
 
-    if rows:
-        print(tabulate(rows, headers="keys", tablefmt="simple"))
+        # Scan recent settlement IDs for active requests
+        rows = []
+        for sid in range(max(1, last_settlement_id - 5), deposit_target + 1):
+            dep_status = contract.functions.getDepositStatus(owner_address, sid).call()
+            wd_status = contract.functions.getWithdrawStatus(owner_address, sid).call()
+            if dep_status != OSTIUM_REQUEST_STATUS_NONE or wd_status != OSTIUM_REQUEST_STATUS_NONE:
+                rows.append(
+                    {
+                        "Settlement ID": sid,
+                        "Deposit": STATUS_NAMES.get(dep_status, f"UNKNOWN({dep_status})"),
+                        "Withdraw": STATUS_NAMES.get(wd_status, f"UNKNOWN({wd_status})"),
+                    }
+                )
+
+        if rows:
+            print(f"\n  Active tickets:")
+            print("  " + tabulate(rows, headers="keys", tablefmt="simple").replace("\n", "\n  "))
     else:
-        print("No active deposit or withdrawal requests found.")
+        print("\nSet OWNER_ADDRESS or PRIVATE_KEY to see owner-specific balances and tickets.")
+
+    print()
 
 
 def do_deposit(vault: OstiumVault, deposit_manager: OstiumV15DepositManager, hot_wallet: HotWallet, web3):
@@ -183,12 +221,6 @@ def do_deposit(vault: OstiumVault, deposit_manager: OstiumV15DepositManager, hot
             print(f"Cannot claim yet. Status: {status.value}")
     else:
         amount = Decimal(os.environ["AMOUNT"])
-        usdc = fetch_erc20_details(web3, vault.denomination_token.address)
-
-        usdc_balance = usdc.fetch_balance_of(owner)
-        print(f"Wallet: {owner}")
-        print(f"USDC balance: {usdc_balance}")
-        print(f"Deposit amount: {amount} USDC")
 
         if not confirm(f"Approve and request deposit of {amount} USDC to Ostium vault?"):
             sys.exit(0)
@@ -261,12 +293,6 @@ def do_withdraw(vault: OstiumVault, deposit_manager: OstiumV15DepositManager, ho
             print(f"Cannot claim yet. Status: {status.value}")
     else:
         amount = Decimal(os.environ["AMOUNT"])
-        share_token = vault.share_token
-
-        share_balance = share_token.fetch_balance_of(owner)
-        print(f"Wallet: {owner}")
-        print(f"OLP share balance: {share_balance}")
-        print(f"Withdrawal amount: {amount} OLP shares")
 
         if not confirm(f"Request withdrawal of {amount} OLP shares from Ostium vault?"):
             sys.exit(0)
@@ -291,11 +317,16 @@ web3 = create_multi_provider_web3(os.environ["JSON_RPC_ARBITRUM"])
 vault: OstiumVault = create_vault_instance_autodetect(web3, vault_address)
 assert vault.version == OstiumVersion.v1_5, f"Expected V1.5, got {vault.version}"
 
+# Resolve owner address for vault state display
+owner_address = os.environ.get("OWNER_ADDRESS")
+if not owner_address and os.environ.get("PRIVATE_KEY"):
+    owner_address = HotWallet.from_private_key(os.environ["PRIVATE_KEY"]).address
+
+# Always print vault state at the start
+print_vault_state(vault, web3, owner_address)
+
 if action == "status":
-    owner_address = os.environ.get("OWNER_ADDRESS")
-    if not owner_address and os.environ.get("PRIVATE_KEY"):
-        owner_address = HotWallet.from_private_key(os.environ["PRIVATE_KEY"]).address
-    do_status(vault, owner_address)
+    pass  # Vault state already printed above
 elif action in ("deposit", "withdraw"):
     private_key = os.environ["PRIVATE_KEY"]
     hot_wallet = HotWallet.from_private_key(private_key)
