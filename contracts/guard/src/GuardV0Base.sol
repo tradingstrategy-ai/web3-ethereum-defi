@@ -781,6 +781,11 @@ abstract contract GuardV0Base is IGuard, Multicall {
      * - Any ERC-4626 extensions are not supported by this function, like special share tokens
      * - ERC-4626 withdrawal address must be always the Safe
      * - Because of non-standardisation the whitelisted function list is long
+     *
+     * TODO: Break this function into per-protocol helpers (e.g. _whitelistERC4626Core,
+     * _whitelistERC7540, _whitelistOstiumV15, _whitelistUmami) and compose them based
+     * on the actual vault type. Currently every vault gets every selector registered,
+     * which inflates callSiteCount and widens the call-site surface unnecessarily.
      */
     function whitelistERC4626(address vault, string calldata notes) external onlyGuardOwner {
         IERC4626 vault_ = IERC4626(vault);
