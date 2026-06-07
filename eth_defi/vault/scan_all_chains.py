@@ -30,7 +30,7 @@ from atomicwrites import atomic_write
 from filelock import Timeout as FileLockTimeout
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.core3.constants import CORE3_DATABASE_PATH
+from eth_defi.core3.constants import resolve_core3_database_path
 from eth_defi.core3.scanner import scan_projects as core3_scan_projects
 from eth_defi.core3.session import create_core3_session
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
@@ -612,7 +612,7 @@ def scan_chain(
     vault_ok = result.vault_scan_ok if config.scan_vaults else True
     price_ok = result.price_scan_ok if scan_prices else True
 
-    if vault_ok and price_ok:
+    if vault_ok is not False and price_ok is not False:
         result.status = "success"
     else:
         result.status = "failed"
@@ -1107,7 +1107,7 @@ def scan_core3_fn(
         )
         result.vault_count = db.get_project_count()
         result.vault_scan_ok = True
-        result.price_scan_ok = True
+        result.price_scan_ok = None
         result.status = "success"
     except Exception as e:
         logger.exception("Core3 scan failed")
@@ -1514,15 +1514,11 @@ def run_scan_tick(
 
     if scan_core3 and CORE3_PROTOCOL_NAME in active_protocols:
         logger.info("Scanning Core3 (risk intelligence enrichment)")
-        try:
-            results[CORE3_PROTOCOL_NAME] = scan_core3_fn(
-                core3_db_path=core3_db_path or CORE3_DATABASE_PATH,
-                max_workers=core3_max_workers,
-                fetch_sections=core3_fetch_sections,
-            )
-        except Exception as e:
-            logger.exception("Core3 scan crashed with unhandled exception")
-            results[CORE3_PROTOCOL_NAME] = ChainResult(name=CORE3_PROTOCOL_NAME, status="failed", error=str(e), traceback_str=traceback.format_exc())
+        results[CORE3_PROTOCOL_NAME] = scan_core3_fn(
+            core3_db_path=core3_db_path or resolve_core3_database_path(),
+            max_workers=core3_max_workers,
+            fetch_sections=core3_fetch_sections,
+        )
         r = results[CORE3_PROTOCOL_NAME]
         if r.status == "success":
             logger.info("Core3: SUCCESS - %d projects", r.vault_count or 0)
@@ -1723,8 +1719,7 @@ def main():
     grvt_db_path = data_dir / "grvt-vaults.duckdb"
 
     # Core3 risk intelligence database path — resolved from env var or default constant.
-    core3_db_path_env = os.environ.get("CORE3_DATABASE_PATH")
-    core3_db_path = Path(core3_db_path_env).expanduser() if core3_db_path_env else CORE3_DATABASE_PATH
+    core3_db_path = resolve_core3_database_path()
 
     bkp_files = [uncleaned_price_path, reader_state_path, vault_db_path, hyperliquid_db_path, hyperliquid_hf_db_path, grvt_db_path, lighter_db_path, hibachi_db_path, core3_db_path]
 

@@ -12,21 +12,11 @@ from pathlib import Path
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.cloudflare_r2 import copy_r2_object_daily_backup, create_r2_client, upload_file_to_r2
-from eth_defi.core3.constants import CORE3_DATABASE_PATH
+from eth_defi.core3.constants import resolve_core3_database_path
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
 logger = logging.getLogger(__name__)
-
-
-def resolve_core3_database_path() -> Path:
-    """Resolve the Core3 DuckDB path for data export.
-
-    :return:
-        Path from ``CORE3_DATABASE_PATH`` env var or the Core3 default constant.
-    """
-    path = os.environ.get("CORE3_DATABASE_PATH")
-    return Path(path).expanduser() if path else CORE3_DATABASE_PATH
 
 
 def get_data_file_paths(base_path: Path, core3_db_path: Path | None = None) -> list[Path]:
@@ -107,6 +97,8 @@ def upload_files_to_r2(  # noqa: PLR0917
     skipped_count = 0
 
     for file_path in files_to_upload:
+        # Data file exports intentionally use flat object keys so Core3 sits
+        # next to the vault parquet/pickle files consumed by downstream jobs.
         s3_key = f"{key_prefix}{file_path.name}"
         file_size = file_path.stat().st_size
 

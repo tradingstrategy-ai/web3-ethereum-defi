@@ -36,7 +36,15 @@ def test_core3_duckdb_upload_gets_alternative_daily_backup(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ):
-    """Core3 DuckDB uploads to all data buckets and backs up only in alternative bucket."""
+    """Core3 DuckDB uploads to all data buckets and backs up only in alternative bucket.
+
+    Steps:
+
+    1. Create all data export files, including the Core3 DuckDB.
+    2. Mock R2 upload and daily backup calls.
+    3. Assert Core3 uploads to both buckets but daily backup only runs in the
+       alternative bucket.
+    """
     core3_path = tmp_path / "core3" / "core3.duckdb"
     core3_path.parent.mkdir(parents=True)
 

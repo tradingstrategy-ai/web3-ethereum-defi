@@ -70,7 +70,14 @@ def test_get_due_items_honours_core3_cycle():
 
 
 def test_scan_core3_fn_closes_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """The Core3 wrapper closes the DuckDB handle before export can run."""
+    """The Core3 wrapper closes the DuckDB handle before export can run.
+
+    Steps:
+
+    1. Mock the Core3 project scan to return a closeable database handle.
+    2. Run the scanner wrapper against a temporary DuckDB path.
+    3. Assert the handle was closed and price scanning is marked not applicable.
+    """
 
     class FakeDb:
         closed = False
@@ -97,11 +104,19 @@ def test_scan_core3_fn_closes_database(tmp_path: Path, monkeypatch: pytest.Monke
 
     assert result.status == "success"
     assert result.vault_count == 12
+    assert result.price_scan_ok is None
     assert fake_db.closed is True
 
 
 def test_run_scan_tick_updates_core3_cycle_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """A successful Core3 tick invokes the cycle-state success callback."""
+    """A successful Core3 tick invokes the cycle-state success callback.
+
+    Steps:
+
+    1. Mock the Core3 wrapper to return a successful enrichment result.
+    2. Run a scan tick with only Core3 active and post-processing disabled.
+    3. Assert Core3 succeeded and its cycle-state callback fired once.
+    """
     saved_items: list[str] = []
 
     def fake_scan_core3_fn(**_: object) -> ChainResult:
@@ -109,7 +124,7 @@ def test_run_scan_tick_updates_core3_cycle_state(tmp_path: Path, monkeypatch: py
             name="Core3",
             status="success",
             vault_scan_ok=True,
-            price_scan_ok=True,
+            price_scan_ok=None,
             vault_count=12,
         )
 
