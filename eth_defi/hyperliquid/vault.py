@@ -162,6 +162,51 @@ class VaultInfo:
     parent: HexAddress | None = None
 
 
+def estimate_max_withdrawal_commission(
+    withdrawal_amount: Decimal,
+    commission_rate: Decimal | float | None,
+) -> Decimal:
+    """Estimate the worst-case vault leader commission for a withdrawal.
+
+    Hyperliquid vault leaders earn a performance fee (typically 10%) on
+    depositor profits.  The fee is deducted at withdrawal time from the
+    portion of the withdrawal that represents profit.
+
+    In the worst case — when the entire withdrawal consists of profit —
+    the commission equals ``commission_rate * withdrawal_amount``.  In
+    practice the commission is lower because only the profit portion is
+    taxed.
+
+    Protocol vaults (HLP and children) have no commission, so
+    ``commission_rate`` is ``None`` or zero for those.
+
+    The ``withdrawal_amount`` is always treated as a positive quantity.
+    Hyperliquid withdrawal events store outflows as negative values
+    (see :py:class:`~eth_defi.hyperliquid.deposit.VaultDepositEvent`),
+    so callers may pass a negative amount — ``abs()`` is applied
+    internally.
+
+    :param withdrawal_amount:
+        USDC amount being withdrawn.  Negative values are accepted and
+        treated as their absolute value.
+    :param commission_rate:
+        Leader commission rate as a fraction (e.g. ``0.1`` or
+        ``Decimal("0.1")`` for 10%).  Accepts both ``float`` (as
+        returned by :py:attr:`VaultInfo.commission_rate`) and
+        ``Decimal``.  ``None`` for protocol vaults with no fee.
+    :return:
+        Worst-case commission in USDC (always non-negative).  Returns
+        ``Decimal(0)`` when ``commission_rate`` is ``None`` or zero.
+
+    See https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults
+    """
+    if commission_rate is None or commission_rate <= 0:
+        return Decimal(0)
+    if not isinstance(commission_rate, Decimal):
+        commission_rate = Decimal(str(commission_rate))
+    return abs(withdrawal_amount) * commission_rate
+
+
 @dataclass(slots=True)
 class VaultSummary:
     """Summary information for a Hyperliquid vault.
