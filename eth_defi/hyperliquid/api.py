@@ -79,7 +79,15 @@ class UserVaultEquity:
     #: Hypercore vault address
     vault_address: HexAddress
 
-    #: USDC equity in the vault
+    #: USDC equity in the vault (gross, before withdrawal commission).
+    #:
+    #: The vault leader's performance fee (typically 10% of profits) is
+    #: deducted at withdrawal time, not reflected in this value.  The net
+    #: withdrawal amount is ``equity`` minus the commission on the profit
+    #: portion.
+    #:
+    #: See :py:func:`~eth_defi.hyperliquid.vault.estimate_max_withdrawal_commission`
+    #: for worst-case estimation.
     equity: Decimal
 
     #: UTC datetime until which withdrawals are locked.
