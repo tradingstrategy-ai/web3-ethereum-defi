@@ -8,6 +8,11 @@ This script removes **all** historical rows for affected Royco tranche vaults
 and resets their reader states so the scanner re-populates them from scratch
 with the correct reader.
 
+This is also the reference example for future vault classification migrations:
+changing classifier probes does not update stored ``vault-metadata-db.pickle``
+features or reader-state progress. Operators must explicitly repair/purge the
+database and rescan affected vaults after classification changes.
+
 Usage:
 
 .. code-block:: shell
@@ -16,6 +21,8 @@ Usage:
 
 Environment variables:
 
+- ``VAULT_DB``: Path to the vault metadata pickle. Defaults to
+  ``~/.tradingstrategy/vaults/vault-metadata-db.pickle``.
 - ``UNCLEANED_PRICE_DATABASE``: Path to the uncleaned price parquet. Same env
   var as ``scan-prices.py``. Defaults to
   ``~/.tradingstrategy/vaults/vault-prices-1h.parquet``.
@@ -29,48 +36,204 @@ import logging
 import os
 import pickle
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
 
+from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
-from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, VaultDatabase
+from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
 
 logger = logging.getLogger(__name__)
 
 
-#: Royco tranche vaults are identified by the royco_tranche_like feature.
-#: We find them in the vault metadata DB by their Protocol field.
-ROYCO_PROTOCOL_NAME = "Royco"
+#: Error marker produced by the generic ERC-4626 reader when it sees Royco's
+#: ``AssetClaims`` tuple return.
+NON_STANDARD_ABI_ERROR = "non-standard ABI"
+
+#: Names that indicate Royco tranche vaults in metadata rows.
+TRANCHE_NAME_MARKER = "Tranche"
 
 
-def find_royco_tranche_specs() -> set[VaultSpec]:
+@dataclass(slots=True, frozen=True)
+class MetadataRepairResult:
+    """Result of repairing Royco tranche metadata features.
+
+    :param specs:
+        All Royco tranche specs the purge script should operate on.
+
+    :param repaired_rows:
+        Number of vault metadata rows that would be or were updated.
+    """
+
+    specs: set[VaultSpec]
+    repaired_rows: int
+
+
+def collect_non_standard_abi_specs(parquet_path: Path) -> set[VaultSpec]:
+    """Collect vault specs that produced Royco tuple ABI errors.
+
+    These rows were read with the generic ERC-4626 reader, which rejects
+    Royco ``AssetClaims`` tuple payloads after the guard was added. They are
+    strong evidence that the stored metadata features are stale and should be
+    repaired to ``royco_tranche_like``.
+
+    :param parquet_path:
+        Path to the uncleaned price parquet.
+
+    :return:
+        Set of affected ``VaultSpec`` instances.
+    """
+    if not parquet_path.exists():
+        logger.warning("Cannot scan non-standard ABI rows, parquet file not found: %s", parquet_path)
+        return set()
+
+    df = pd.read_parquet(parquet_path, columns=["chain", "address", "errors"])
+    errors = df["errors"].fillna("").astype(str)
+    affected_df = df[errors.str.contains(NON_STANDARD_ABI_ERROR, na=False)]
+    specs = {VaultSpec(int(row.chain), str(row.address).lower()) for row in affected_df[["chain", "address"]].drop_duplicates().itertuples(index=False)}
+    logger.info("Found %d specs with non-standard ABI errors", len(specs))
+    return specs
+
+
+def is_royco_tranche_metadata_row(
+    spec: VaultSpec,
+    row: dict,
+    error_specs: set[VaultSpec],
+) -> bool:
+    """Check whether a vault metadata row should be treated as a Royco tranche.
+
+    The primary signal is ``royco_tranche_like`` in stored features. For stale
+    rows we also accept names like ``Royco Senior Tranche ...`` and any row
+    that produced a Royco tuple ABI error in the uncleaned parquet.
+
+    :param spec:
+        Vault spec for the metadata row.
+
+    :param row:
+        Vault metadata row from :class:`VaultDatabase`.
+
+    :param error_specs:
+        Specs collected from ``non-standard ABI`` parquet errors.
+
+    :return:
+        ``True`` if the row should use the Royco tranche reader.
+    """
+    features = set(row.get("features") or set())
+    detection = row.get("_detection_data")
+    if detection is not None:
+        features.update(detection.features)
+
+    if ERC4626Feature.royco_tranche_like in features:
+        return True
+
+    if spec in error_specs:
+        return True
+
+    name = row.get("Name") or ""
+    return "Royco" in name and TRANCHE_NAME_MARKER in name
+
+
+def repair_royco_tranche_metadata(
+    vault_db_path: Path,
+    parquet_path: Path,
+    *,
+    dry_run: bool,
+) -> MetadataRepairResult:
+    """Repair stored Royco tranche features in the vault metadata DB.
+
+    ``scan-prices.py`` creates vault instances from the stored
+    ``_detection_data.features`` set. If a tranche vault was discovered before
+    the Royco chain probes covered its chain, it is stored with an empty
+    feature set and the generic reader is selected. This function adds
+    ``royco_tranche_like`` and refreshes the row protocol so subsequent scans
+    instantiate :class:`RoycoTrancheVault`.
+
+    :param vault_db_path:
+        Path to the vault metadata pickle.
+
+    :param parquet_path:
+        Path to the uncleaned price parquet, used to discover rows that already
+        emitted ``non-standard ABI`` errors.
+
+    :param dry_run:
+        If ``True``, report only without modifying files.
+
+    :return:
+        Specs to purge/rescan and number of repaired metadata rows.
+    """
+    try:
+        db = VaultDatabase.read(vault_db_path)
+    except (FileNotFoundError, RuntimeError) as e:
+        logger.warning("Could not read vault database %s: %s", vault_db_path, e)
+        return MetadataRepairResult(specs=set(), repaired_rows=0)
+
+    error_specs = collect_non_standard_abi_specs(parquet_path)
+    specs: set[VaultSpec] = set()
+    repaired_rows = 0
+
+    for spec, row in db.rows.items():
+        if not is_royco_tranche_metadata_row(spec, row, error_specs):
+            continue
+
+        specs.add(spec)
+
+        changed = False
+        features = set(row.get("features") or set())
+        if ERC4626Feature.royco_tranche_like not in features:
+            features.add(ERC4626Feature.royco_tranche_like)
+            row["features"] = features
+            changed = True
+
+        detection = row.get("_detection_data")
+        if detection is not None and ERC4626Feature.royco_tranche_like not in detection.features:
+            detection.features.add(ERC4626Feature.royco_tranche_like)
+            changed = True
+
+        protocol_name = get_vault_protocol_name(features)
+        if row.get("Protocol") != protocol_name:
+            row["Protocol"] = protocol_name
+            changed = True
+
+        if changed:
+            repaired_rows += 1
+            logger.info("Repairing metadata for %s: Protocol=%s, features=%s", spec, row.get("Protocol"), sorted(f.value for f in features))
+
+    if repaired_rows == 0:
+        logger.info("No Royco tranche metadata feature repairs needed")
+    elif dry_run:
+        logger.info("DRY RUN: would repair %d vault metadata rows in %s", repaired_rows, vault_db_path)
+    else:
+        backup_path = vault_db_path.with_suffix(".pickle.bak-royco-purge")
+        logger.info("Creating vault DB backup at %s", backup_path)
+        shutil.copy2(vault_db_path, backup_path)
+        db.write(vault_db_path)
+        logger.info("Repaired %d vault metadata rows in %s", repaired_rows, vault_db_path)
+
+    return MetadataRepairResult(specs=specs, repaired_rows=repaired_rows)
+
+
+def find_royco_tranche_specs(
+    vault_db_path: Path = DEFAULT_VAULT_DATABASE,
+    parquet_path: Path = DEFAULT_UNCLEANED_PRICE_DATABASE,
+) -> set[VaultSpec]:
     """Find Royco tranche vault specs from the vault metadata DB.
 
-    These are vaults with Protocol='Royco' and names matching tranche patterns.
-    Returns full ``VaultSpec`` (chain_id, address) pairs to avoid cross-chain
-    address collisions.
+    This compatibility wrapper performs a dry-run metadata repair and returns
+    the specs the main purge flow would operate on.
+
+    :param vault_db_path:
+        Path to the vault metadata pickle.
+
+    :param parquet_path:
+        Path to the uncleaned price parquet.
 
     :return:
         Set of ``VaultSpec`` instances.
     """
-    try:
-        db = VaultDatabase.read()
-    except (FileNotFoundError, RuntimeError) as e:
-        logger.warning("Could not read vault database: %s", e)
-        return set()
-
-    specs = set()
-    for spec, row in db.rows.items():
-        if row.get("Protocol") != ROYCO_PROTOCOL_NAME:
-            continue
-        name = row.get("Name", "")
-        # Tranche vaults have "Senior Tranche" or "Junior Tranche" in their name
-        if "Tranche" in name:
-            specs.add(spec)
-
-    return specs
+    return repair_royco_tranche_metadata(vault_db_path, parquet_path, dry_run=True).specs
 
 
 def purge_tranche_rows(
@@ -227,6 +390,7 @@ def main():
 
     # Use the same env vars as scan-prices.py so operators with custom paths
     # purge the same files the scanner reads/writes.
+    vault_db_path = Path(os.environ.get("VAULT_DB", str(DEFAULT_VAULT_DATABASE))).expanduser()
     parquet_path = Path(os.environ.get("UNCLEANED_PRICE_DATABASE", str(DEFAULT_UNCLEANED_PRICE_DATABASE))).expanduser()
     reader_state_path = Path(os.environ.get("READER_STATE_DATABASE", str(DEFAULT_READER_STATE_DATABASE))).expanduser()
     dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
@@ -234,8 +398,9 @@ def main():
     if dry_run:
         logger.info("DRY RUN MODE — no files will be modified")
 
-    # 1. Find tranche vault specs
-    tranche_specs = find_royco_tranche_specs()
+    # 1. Repair stale metadata features and collect tranche specs
+    metadata_repair = repair_royco_tranche_metadata(vault_db_path, parquet_path, dry_run=dry_run)
+    tranche_specs = metadata_repair.specs
     if not tranche_specs:
         logger.warning("No Royco tranche vaults found in vault metadata DB")
         logger.info("You can also specify addresses manually by extending this script")
@@ -252,6 +417,7 @@ def main():
     # 4. Summary
     action = "would be " if dry_run else ""
     logger.info("Royco tranche specs found: %d", len(tranche_specs))
+    logger.info("Vault metadata rows %srepaired: %d", action, metadata_repair.repaired_rows)
     logger.info("Tranche rows %spurged: %d", action, purged)
     logger.info("Reader states %scleared: %d", action, cleared)
 
