@@ -85,3 +85,75 @@ source .local-test.env && \
 LOG_LEVEL=info \
 poetry run python scripts/erc-4626/post-process-prices.py
 ```
+
+## Fixing corrupted Royco tranche price data
+
+Before the `RoycoTrancheHistoricalReader` was deployed, the generic ERC-4626
+reader decoded only the first word of the Royco `AssetClaims(stAssets,
+jtAssets, nav)` tuple, producing wrong `total_assets` and `share_price` values.
+The first word (`stAssets`) can look plausibly small yet still be incorrect — the
+correct value is `claims.nav`.
+
+### Background
+
+- The fix is in `eth_defi/erc_4626/vault.py`: the generic reader now rejects
+  return payloads longer than 32 bytes with an error instead of misinterpreting
+  them.
+- The correct `RoycoTrancheHistoricalReader` (in
+  `eth_defi/erc_4626/vault_protocol/royco/vault.py`) decodes the full tuple
+  and uses `nav` for both TVL and share price.
+- Existing corrupted rows in the price parquet must be purged and rescanned
+  with the correct reader.
+
+### Step 1: purge corrupted data
+
+The purge script removes **all** historical rows for Royco tranche vaults
+(identified via vault metadata DB) and clears their reader states. It uses the
+same `UNCLEANED_PRICE_DATABASE` / `READER_STATE_DATABASE` env vars as
+`scan-prices.py`.
+
+Dry run first to see what would be removed:
+
+```shell
+source .local-test.env && \
+DRY_RUN=true \
+poetry run python scripts/erc-4626/purge-royco-tranche-data.py
+```
+
+Then run for real:
+
+```shell
+source .local-test.env && \
+poetry run python scripts/erc-4626/purge-royco-tranche-data.py
+```
+
+The script creates backups (`*.bak-royco-purge`) and outputs per-chain rescan
+commands.
+
+### Step 2: rescan affected vaults
+
+The normal scanner picks `start_block` from the max `last_block` of all reader
+states on the chain. After purging only the Royco tranche states, other vault
+states push `start_block` near head. Use `VAULT_ID` + `START_BLOCK=1` to force
+a targeted rescan from each vault's first block.
+
+The purge script outputs the exact commands, but the pattern is:
+
+```shell
+source .local-test.env && \
+VAULT_ID="1-0x059bc7aa5000a26aae2601cfbf060653adf8fd91,1-0x1ba515a409dd702105415cdaae439059aa0b402a" \
+START_BLOCK=1 \
+JSON_RPC_URL="$JSON_RPC_ETHEREUM" \
+LOG_LEVEL=info \
+poetry run python scripts/erc-4626/scan-prices.py
+```
+
+### Step 3: post-process
+
+After the rescan populates new rows with correct values:
+
+```shell
+source .local-test.env && \
+LOG_LEVEL=info \
+poetry run python scripts/erc-4626/post-process-prices.py
+```
