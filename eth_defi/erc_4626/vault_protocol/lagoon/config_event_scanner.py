@@ -65,6 +65,7 @@ from eth_defi.token import TokenDiskCache, fetch_erc20_details
 try:
     import hypersync
     from hypersync import BlockField, LogField
+    from eth_defi.hypersync.session import open_hypersync_stream
 except ImportError:
     hypersync = None
 
@@ -1541,7 +1542,7 @@ async def _fetch_guard_events_hypersync_async(
     )
 
     try:
-        receiver = await client.stream(query, hypersync.StreamConfig())
+        receiver = await open_hypersync_stream(client, query)
     except RuntimeError as e:
         if "429" in str(e):
             raise RuntimeError(f"Hypersync rate limited [lagoon-guard-event-scan]: {e}") from e

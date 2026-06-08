@@ -27,6 +27,8 @@ try:
 except ImportError as e:
     raise ImportError("Install the library with optional HyperSync dependency to use this module") from e
 
+from eth_defi.hypersync.session import open_hypersync_stream
+
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +189,7 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         )
         # start the stream
         try:
-            receiver = await self.client.stream(query, hypersync.StreamConfig())
+            receiver = await open_hypersync_stream(self.client, query)
         except RuntimeError as e:
             if "429" in str(e):
                 raise HypersyncCrappedOut(f"Hypersync rate limited [vault-lead-discovery]: {e}") from e

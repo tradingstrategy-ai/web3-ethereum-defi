@@ -39,7 +39,7 @@ from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_mul
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.hypersync.hypersync_timestamp import get_hypersync_block_height
 from eth_defi.hypersync.server import get_hypersync_server
-from eth_defi.hypersync.session import create_throttled_hypersync_client, get_hypersync_rpm_from_env
+from eth_defi.hypersync.session import create_throttled_hypersync_client, get_hypersync_rpm_from_env, get_hypersync_concurrency_from_env
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.scan_all_chains import build_chain_configs
@@ -86,6 +86,7 @@ def prepopulate_chain(env_var: str, chain_name: str, hypersync_api_key: str):
             bearer_token=hypersync_api_key,
         ),
         requests_per_minute=get_hypersync_rpm_from_env(),
+        concurrency=get_hypersync_concurrency_from_env(),
     )
 
     last_block = get_hypersync_block_height(hypersync_client)

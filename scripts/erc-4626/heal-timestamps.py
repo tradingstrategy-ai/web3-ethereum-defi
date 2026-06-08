@@ -50,7 +50,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER, load_timestamp_cache
 from eth_defi.hypersync.hypersync_timestamp import get_block_timestamps_using_hypersync_async
 from eth_defi.hypersync.server import get_hypersync_server
-from eth_defi.hypersync.session import create_throttled_hypersync_client, get_hypersync_rpm_from_env
+from eth_defi.hypersync.session import create_throttled_hypersync_client, get_hypersync_rpm_from_env, get_hypersync_concurrency_from_env
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.utils import from_unix_timestamp, setup_console_logging
 
@@ -139,6 +139,7 @@ def main():
             bearer_token=hypersync_api_key,
         ),
         requests_per_minute=get_hypersync_rpm_from_env(),
+        concurrency=get_hypersync_concurrency_from_env(),
     )
 
     print(f"\nHealing {len(gaps):,} gaps using HyperSync server {hypersync_server}...")

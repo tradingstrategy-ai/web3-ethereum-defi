@@ -111,7 +111,7 @@ joblib = "^1.4.2"
 
 # HyperSync
 # Fast blockchain data indexing via Envio HyperSync
-hypersync = {version = "^1.0.0", optional = true}
+hypersync = {version = "^1.1", optional = true}
 # cherry-etl = "^0.5.1"
 
 atomicwrites = "^1.4.1"

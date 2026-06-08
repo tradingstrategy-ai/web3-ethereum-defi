@@ -27,6 +27,7 @@ JSON_RPC_URL=$JSON_RPC_BASE poetry run python scripts/erc-4626/scan-vaults.py
 | `RESET_LEADS` | Optional. Rescan discovery events from block 1. Existing vault database rows are not deleted before the scan; new results are merged back in and matching rows may be overwritten with freshly detected metadata. Use when new protocol event support has been added and historical events need to be re-discovered. Very slow on large chains like Ethereum mainnet (~24M+ blocks). |
 | `HYPERSYNC_API_KEY` | Optional. Required when using `auto` scan backend. |
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150 (75% of the 200 RPM free-tier limit). Throttling is always on; set this to lower the limit after persistent 429 errors. |
+| `HYPERSYNC_CONCURRENCY` | Optional. Number of Hypersync requests in flight per stream — the main throughput knob. Default: server default (10). Increase for dense workloads, decrease for rate-limited plans. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 
 #### Re-discovering vaults after adding new protocol support
 
@@ -89,6 +90,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `CORE3_FETCH_SECTIONS` | Optional. Fetch detailed Core3 section endpoints. Default: false. |
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150. Lower after persistent 429 errors. |
+| `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: server default (10). See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 
 Core3 runs after EVM and native vault scans and before post-processing. This
 keeps the Core3 DuckDB closed before `vault-analysis-json.py` reads it and
@@ -533,6 +535,7 @@ docker compose --profile oneshot run --rm \
 | `CHAIN_FILTER` | Optional. Comma-separated chain names to process. Default: all chains. |
 | `HYPERSYNC_API_KEY` | Required. Envio Hypersync API key. |
 | `HYPERSYNC_RPM` | Optional. Requests-per-minute limit. Default: 150. Lower after persistent 429 errors. |
+| `HYPERSYNC_CONCURRENCY` | Optional. Stream concurrency. Default: server default (10). |
 | `JSON_RPC_<CHAIN>` | Required per chain. Same env vars as docker-compose. |
 | `LOG_LEVEL` | Optional. Default: info. |
 
@@ -572,6 +575,7 @@ docker compose --profile oneshot run --rm \
 | `TEST_CHAINS` | Optional. Comma-separated chain names to heal. Default: all. |
 | `HYPERSYNC_API_KEY` | Optional but recommended. Envio Hypersync API key. |
 | `HYPERSYNC_RPM` | Optional. Requests-per-minute limit. Default: 150. |
+| `HYPERSYNC_CONCURRENCY` | Optional. Stream concurrency. Default: server default (10). |
 | `LOG_LEVEL` | Optional. Default: info. |
 
 ### heal-timestamps.py
