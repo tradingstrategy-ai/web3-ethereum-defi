@@ -31,6 +31,8 @@ from eth_defi.utils import setup_console_logging
 import hypersync
 from hypersync import BlockField, LogField
 
+from eth_defi.hypersync.session import open_hypersync_stream
+
 logger = logging.getLogger(__name__)
 
 # ERC-4626 Deposit event topic
@@ -82,7 +84,7 @@ async def scan_depositors(
         ),
     )
 
-    receiver = await client.stream(query, hypersync.StreamConfig())
+    receiver = await open_hypersync_stream(client, query)
 
     deposits: list[DepositEvent] = []
 

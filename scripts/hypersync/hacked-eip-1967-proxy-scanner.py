@@ -38,6 +38,8 @@ except ImportError as e:
 from hypersync import BlockField, LogField
 from hypersync import HypersyncClient
 
+from eth_defi.hypersync.session import open_hypersync_stream
+
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +204,7 @@ async def refresh_chain(
     timestamp = None
 
     query = create_update_query(chain_state)
-    receiver = await client.stream(query, hypersync.StreamConfig())
+    receiver = await open_hypersync_stream(client, query)
     lead_count = 0
     interesting_lead_count = 0
 

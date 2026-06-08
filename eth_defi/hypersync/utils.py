@@ -9,7 +9,7 @@ import hypersync
 from pyrate_limiter import Limiter
 
 from eth_defi.hypersync.server import get_hypersync_server
-from eth_defi.hypersync.session import ThrottledHypersyncClient, create_throttled_hypersync_client, _create_limiter, get_hypersync_rpm_from_env
+from eth_defi.hypersync.session import ThrottledHypersyncClient, create_throttled_hypersync_client, _create_limiter, get_hypersync_rpm_from_env, get_hypersync_concurrency_from_env
 
 
 @dataclass(slots=True, frozen=True)
@@ -23,6 +23,7 @@ def configure_hypersync_from_env(
     web3: Web3,
     hypersync_api_key: str | None = None,
     limiter: Limiter | None = None,
+    concurrency: int | None = None,
 ) -> HypersyncBackendConfig:
     """Helper for scan-vaults and scan-prices scripts to configure Hypersync client from environment variables.
 
@@ -32,6 +33,9 @@ def configure_hypersync_from_env(
       that rate-limits every API call.  The rate defaults to 150 RPM
       and can be overridden with the ``HYPERSYNC_RPM`` environment
       variable or by passing an explicit *limiter*.
+    - Stream concurrency defaults to the Hypersync server default (10)
+      and can be overridden with the ``HYPERSYNC_CONCURRENCY``
+      environment variable or via the *concurrency* parameter.
 
     :param hypersync_api_key:
         Use given API key, instead of reading from env.
@@ -42,12 +46,20 @@ def configure_hypersync_from_env(
         (e.g. lead discovery + price scanning) so they coordinate rate
         limits via one SQLite bucket.
 
+    :param concurrency:
+        Number of requests in flight for stream tuning.
+        ``None`` falls back to the ``HYPERSYNC_CONCURRENCY`` env var,
+        then to the Hypersync server default.
+
     :return:
         A valid Hypersync config if the chain supports HyperSync
     """
 
     if not hypersync_api_key:
         hypersync_api_key = os.environ.get("HYPERSYNC_API_KEY", None)
+
+    if concurrency is None:
+        concurrency = get_hypersync_concurrency_from_env()
 
     scan_backend = os.environ.get("SCAN_BACKEND", "auto")
     if scan_backend == "auto":
@@ -59,7 +71,7 @@ def configure_hypersync_from_env(
         if limiter is None:
             limiter = _create_limiter(requests_per_minute=get_hypersync_rpm_from_env())
         config = hypersync.ClientConfig(url=url, bearer_token=hypersync_api_key)
-        return create_throttled_hypersync_client(config, limiter=limiter)
+        return create_throttled_hypersync_client(config, limiter=limiter, concurrency=concurrency)
 
     match scan_backend:
         case "auto":

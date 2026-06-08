@@ -22,7 +22,7 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.event_reader.conversion import convert_uint256_bytes_to_address
-from eth_defi.hypersync.session import is_hypersync_client
+from eth_defi.hypersync.session import is_hypersync_client, open_hypersync_stream
 from eth_defi.token import fetch_erc20_details, TokenDetails
 from eth_defi.utils import addr
 
@@ -226,7 +226,7 @@ class AaveLiquidationReader:
         )
         # start the stream
         try:
-            receiver = await self.client.stream(query, hypersync.StreamConfig())
+            receiver = await open_hypersync_stream(self.client, query)
         except RuntimeError as e:
             if "429" in str(e):
                 raise RuntimeError(f"Hypersync rate limited [aave-liquidation-scan]: {e}") from e

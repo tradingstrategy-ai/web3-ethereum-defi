@@ -39,7 +39,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.event_reader.block_header import BlockHeader
 from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampSlicer
-from eth_defi.hypersync.session import is_hypersync_client
+from eth_defi.hypersync.session import is_hypersync_client, open_hypersync_stream
 from eth_defi.utils import from_unix_timestamp
 
 logger = logging.getLogger(__name__)
@@ -164,7 +164,7 @@ async def get_block_timestamps_using_hypersync_async(
     )
 
     try:
-        receiver = await client.stream(query, hypersync.StreamConfig())
+        receiver = await open_hypersync_stream(client, query)
     except RuntimeError as e:
         if _is_hypersync_rate_limit_error(e):
             raise HypersyncFlaky(f"Hypersync rate limited during stream setup{reason_suffix}: {e}") from e

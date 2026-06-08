@@ -16,6 +16,7 @@ from eth_defi.hypersync.server import get_hypersync_server
 from hypersync import HypersyncClient, ClientConfig
 
 from eth_defi.hypersync.hypersync_timestamp import get_block_timestamps_using_hypersync, get_hypersync_block_height, fetch_block_timestamps_using_hypersync_cached
+from eth_defi.hypersync.session import create_throttled_hypersync_client, ThrottledHypersyncClient
 
 HYPERSYNC_API_KEY = os.environ.get("HYPERSYNC_API_KEY")
 
@@ -256,3 +257,52 @@ def test_timestamp_multi_save(hypersync_client: HypersyncClient, hypersync_polyg
     )
     assert len(blocks_ethereum_again) == 301
     blocks_ethereum_again.close()
+
+
+def test_stream_with_tuning_parameters():
+    """Verify that all StreamConfig tuning parameters are accepted by hypersync 1.1.
+
+    1. Create a ThrottledHypersyncClient with all tuning parameters set
+    2. Run a small query (100 blocks on Ethereum mainnet)
+    3. Assert expected results — verifies no spelling errors or type mismatches
+    4. Also test create_stream_config() directly
+    """
+
+    # 1. Create client with all tuning parameters
+    hypersync_url = get_hypersync_server(1)
+    client = create_throttled_hypersync_client(
+        ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY),
+        concurrency=5,
+        batch_size=500,
+        response_bytes_ceiling=500_000,
+        response_bytes_floor=200_000,
+        min_batch_size=100,
+        max_batch_size=10_000,
+    )
+
+    # 2. Verify create_stream_config() produces correct StreamConfig
+    config = client.create_stream_config()
+    assert config.concurrency == 5
+    assert config.batch_size == 500
+    assert config.response_bytes_ceiling == 500_000
+    assert config.response_bytes_floor == 200_000
+    assert config.min_batch_size == 100
+    assert config.max_batch_size == 10_000
+
+    # 3. Verify overrides work
+    override_config = client.create_stream_config(concurrency=30)
+    assert override_config.concurrency == 30
+    assert override_config.batch_size == 500  # still from stored params
+
+    # 4. Run a small query to verify end-to-end
+    blocks = get_block_timestamps_using_hypersync(
+        client,
+        chain_id=1,
+        start_block=10_000_000,
+        end_block=10_000_100,
+    )
+    assert len(blocks) == 101
+
+    block = blocks[10_000_100]
+    assert block.block_number == 10_000_100
+    assert block.timestamp_as_datetime == datetime.datetime(2020, 5, 4, 13, 45, 31)
