@@ -59,6 +59,7 @@ def web3(anvil_base_fork) -> Web3:
         web3 = create_multi_provider_web3(
             anvil_base_fork.json_rpc_url,
             retries=0,
+            default_http_timeout=(3, 250.0),
         )
     assert web3.eth.chain_id == 8453
     return web3

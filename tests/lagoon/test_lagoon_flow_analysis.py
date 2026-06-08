@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+import flaky
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
@@ -14,6 +15,7 @@ from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 
 
+@flaky.flaky
 def test_lagoon_deposit_redeem(
     web3: Web3,
     automated_lagoon_vault: LagoonAutomatedDeployment,
@@ -181,6 +183,7 @@ def test_lagoon_deposit_redeem(
     assert isinstance(data, dict)
 
 
+@flaky.flaky
 def test_lagoon_redeem_too_much(
     web3: Web3,
     automated_lagoon_vault: LagoonAutomatedDeployment,

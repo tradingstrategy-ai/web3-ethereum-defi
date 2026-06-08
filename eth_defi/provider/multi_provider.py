@@ -129,7 +129,7 @@ def create_multi_provider_web3(
     request_kwargs: Optional[Any] = None,
     session: Optional[Any] = None,
     switchover_noisiness=logging.WARNING,
-    default_http_timeout=(3.0, 30.0),
+    default_http_timeout=(3.0, 60.0),
     retries: int = 6,
     hint: Optional[str] = "",
     unit_test=False,
