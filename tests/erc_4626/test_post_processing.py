@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import brotli
 import pytest
+
+brotli = pytest.importorskip("brotli", reason="brotli not installed (cloudflare_r2 extra)")
 
 from eth_defi.vault import post_processing
 
