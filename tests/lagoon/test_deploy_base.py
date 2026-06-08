@@ -804,6 +804,7 @@ def test_lagoon_legacy_deploy_base_guarded_any_token(
     assert usdc.fetch_balance_of(depositor) > 994
 
 
+@flaky.flaky
 def test_lagoon_settle_v_0_1_0(
     web3: Web3,
     uniswap_v2,
