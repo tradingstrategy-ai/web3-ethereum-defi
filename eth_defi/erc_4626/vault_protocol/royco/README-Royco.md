@@ -232,6 +232,14 @@ As of the 2026-06-03 investigation:
 - Royco Dawn / BoringVault contracts used by DefiLlama need a separate
   integration if Trading Strategy wants protocol-wide Royco coverage.
 
+## Operational procedures
+
+See [`scripts/erc-4626/README-Royco.md`](../../../../scripts/erc-4626/README-Royco.md)
+for operator runbooks:
+
+- Initial vault rescan after adding Royco support
+- Fixing corrupted Royco tranche price data (purge + targeted rescan)
+
 ## Minimal discovery loop
 
 Pseudocode for refreshing Royco Vault Market candidates:
