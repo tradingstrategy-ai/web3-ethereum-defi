@@ -143,7 +143,16 @@ class VaultInfo:
     allow_deposits: bool
     #: Vault relationship type (normal, child, parent)
     relationship_type: str
-    #: Commission rate for the vault leader (as decimal, e.g., 0.1 = 10%)
+    #: Leader performance fee as a fraction (e.g. ``0.1`` for 10%).
+    #:
+    #: Sourced from the ``vaultDetails`` API ``leaderCommission`` field.
+    #: Protocol vaults (HLP and children) have no commission, so this
+    #: is ``None`` for those.
+    #:
+    #: Use :py:func:`estimate_max_withdrawal_commission` to compute the
+    #: worst-case fee for a given withdrawal amount.
+    #:
+    #: See https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults
     commission_rate: Percent | None = None
     #: Fraction of vault capital owned by the leader (e.g. 0.05 = 5%).
     #:
@@ -153,10 +162,8 @@ class VaultInfo:
     #:
     #: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy
     leader_fraction: Percent | None = None
-    #: Leader commission value from the ``vaultDetails`` API ``leaderCommission`` field.
-    #:
-    #: The exact semantics of this field are not yet fully understood — it may
-    #: represent accumulated commission in USD or an alternative commission metric.
+    #: Alias for :py:attr:`commission_rate`, kept for backward compatibility
+    #: with data pipelines that reference this field name.
     leader_commission: float | None = None
     #: Parent vault address if this is a child vault
     parent: HexAddress | None = None
@@ -191,9 +198,10 @@ def estimate_max_withdrawal_commission(
         treated as their absolute value.
     :param commission_rate:
         Leader commission rate as a fraction (e.g. ``0.1`` or
-        ``Decimal("0.1")`` for 10%).  Accepts both ``float`` (as
-        returned by :py:attr:`VaultInfo.commission_rate`) and
-        ``Decimal``.  ``None`` for protocol vaults with no fee.
+        ``Decimal("0.1")`` for 10%).  Accepts both ``float`` (as stored
+        in :py:attr:`VaultInfo.commission_rate` from the Hyperliquid
+        ``leaderCommission`` API field) and ``Decimal``.
+        ``None`` for protocol vaults with no fee.
     :return:
         Worst-case commission in USDC (always non-negative).  Returns
         ``Decimal(0)`` when ``commission_rate`` is ``None`` or zero.
@@ -370,7 +378,7 @@ class HyperliquidVault:
             is_closed=data.get("isClosed", False),
             allow_deposits=data.get("allowDeposits", True),
             relationship_type=relationship_type,
-            commission_rate=data.get("commissionRate"),
+            commission_rate=data.get("leaderCommission"),
             leader_fraction=data.get("leaderFraction"),
             leader_commission=data.get("leaderCommission"),
             parent=parent,
