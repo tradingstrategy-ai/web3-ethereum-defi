@@ -232,10 +232,16 @@ As of the 2026-06-03 investigation:
 - Royco Dawn / BoringVault contracts used by DefiLlama need a separate
   integration if Trading Strategy wants protocol-wide Royco coverage.
 
-## Vault rescan
+## Vault rescan (non-tranche WrappedVaults only)
 
 Run these commands after adding Royco vault support to rediscover old Royco
 events and rebuild historical prices for Royco API vaults.
+
+**Note:** These steps use the Royco market API which only returns non-tranche
+WrappedVault addresses. For tranche vaults (`ROY-ST-*`, `ROY-JT-*`), see
+[Fixing corrupted Royco tranche price data](#fixing-corrupted-royco-tranche-price-data)
+below — tranche vaults are discovered via on-chain event scanning, not the
+Royco API.
 
 ### 1. Back up state
 
@@ -366,12 +372,18 @@ commands.
 
 ### Step 2: rescan affected vaults
 
+**Important:** Do NOT use `ROYCO_API_VAULT_IDS` from the "Vault rescan" section
+above. The Royco market API does not return tranche vault addresses. Use the
+`VAULT_ID` commands printed by the purge script, which uses the correct
+addresses from the vault metadata DB.
+
 The normal scanner picks `start_block` from the max `last_block` of all reader
 states on the chain. After purging only the Royco tranche states, other vault
 states push `start_block` near head. Use `VAULT_ID` + `START_BLOCK=1` to force
 a targeted rescan from each vault's first block.
 
-The purge script outputs the exact commands, but the pattern is:
+The purge script outputs the exact commands. Copy and run them directly. The
+pattern is:
 
 ```shell
 source .local-test.env && \
