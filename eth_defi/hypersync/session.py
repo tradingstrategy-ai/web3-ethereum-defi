@@ -59,14 +59,32 @@ DEFAULT_HYPERSYNC_MAX_NUM_RETRIES = 0
 
 #: Stream tuning parameter names that map directly to
 #: :py:class:`hypersync.StreamConfig` constructor kwargs.
-_STREAM_TUNING_PARAMS = (
-    "concurrency",
-    "batch_size",
-    "min_batch_size",
-    "max_batch_size",
-    "response_bytes_ceiling",
-    "response_bytes_floor",
-)
+#:
+#: Detected at import time because the hypersync 1.1.0 Rust wheel
+#: exposes different field names on different platforms:
+#: macOS has ``response_bytes_ceiling``/``response_bytes_floor``,
+#: Linux has ``response_bytes_target``.
+def _detect_stream_tuning_params() -> tuple[str, ...]:
+    """Introspect ``StreamConfig.__init__`` to find available tuning params."""
+    import inspect
+
+    sig = inspect.signature(hypersync.StreamConfig.__init__)
+    available = set(sig.parameters.keys()) - {"self"}
+    candidates = (
+        "concurrency",
+        "batch_size",
+        "min_batch_size",
+        "max_batch_size",
+        # Platform-variant response byte params
+        "response_bytes_ceiling",
+        "response_bytes_floor",
+        "response_bytes_target",
+        "max_buffered_bytes",
+    )
+    return tuple(name for name in candidates if name in available)
+
+
+_STREAM_TUNING_PARAMS = _detect_stream_tuning_params()
 
 
 async def _acquire_async(limiter: Limiter, reason: str = "") -> None:
@@ -142,14 +160,22 @@ class ThrottledHypersyncClient:
         Hard cap on blocks per request. ``None`` means no cap.
 
     :param response_bytes_ceiling:
-        Upper target for response size in bytes; the server will not
-        return more than this per response. ``None`` uses the server
-        default.
+        Upper target for response size in bytes (macOS wheel).
+        ``None`` uses the server default.
 
     :param response_bytes_floor:
-        Lower target for response size in bytes; the server aims for
-        at least this much data per response. ``None`` uses the server
-        default.
+        Lower target for response size in bytes (macOS wheel).
+        ``None`` uses the server default.
+
+    :param response_bytes_target:
+        Target response size in bytes (Linux wheel).
+        ``None`` uses the server default.
+
+    .. note::
+
+       The hypersync 1.1.0 Rust wheel exposes different response-byte
+       parameter names on different platforms. Pass whichever your
+       platform supports; unsupported names are silently ignored.
     """
 
     def __init__(
@@ -163,6 +189,8 @@ class ThrottledHypersyncClient:
         max_batch_size: int | None = None,
         response_bytes_ceiling: int | None = None,
         response_bytes_floor: int | None = None,
+        response_bytes_target: int | None = None,
+        max_buffered_bytes: int | None = None,
     ):
         self._client = client
         self._limiter = limiter
@@ -172,6 +200,8 @@ class ThrottledHypersyncClient:
         self.max_batch_size = max_batch_size
         self.response_bytes_ceiling = response_bytes_ceiling
         self.response_bytes_floor = response_bytes_floor
+        self.response_bytes_target = response_bytes_target
+        self.max_buffered_bytes = max_buffered_bytes
 
     def create_stream_config(self, **overrides) -> hypersync.StreamConfig:
         """Build a :py:class:`hypersync.StreamConfig` from stored tuning params.
@@ -340,6 +370,8 @@ def create_throttled_hypersync_client(
     max_batch_size: int | None = None,
     response_bytes_ceiling: int | None = None,
     response_bytes_floor: int | None = None,
+    response_bytes_target: int | None = None,
+    max_buffered_bytes: int | None = None,
 ) -> ThrottledHypersyncClient:
     """Create a Hypersync client with built-in SQLite-backed rate limiting.
 
@@ -375,10 +407,16 @@ def create_throttled_hypersync_client(
         Hard cap on blocks per request.
 
     :param response_bytes_ceiling:
-        Upper target for response size in bytes.
+        Upper target for response size in bytes (macOS wheel).
 
     :param response_bytes_floor:
-        Lower target for response size in bytes.
+        Lower target for response size in bytes (macOS wheel).
+
+    :param response_bytes_target:
+        Target response size in bytes (Linux wheel).
+
+    :param max_buffered_bytes:
+        Cap on bytes of fetched-but-undelivered data (Linux wheel).
 
     :return:
         A :py:class:`ThrottledHypersyncClient` wrapping a native
@@ -411,4 +449,6 @@ def create_throttled_hypersync_client(
         max_batch_size=max_batch_size,
         response_bytes_ceiling=response_bytes_ceiling,
         response_bytes_floor=response_bytes_floor,
+        response_bytes_target=response_bytes_target,
+        max_buffered_bytes=max_buffered_bytes,
     )

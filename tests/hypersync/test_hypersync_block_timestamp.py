@@ -262,32 +262,43 @@ def test_timestamp_multi_save(hypersync_client: HypersyncClient, hypersync_polyg
 def test_stream_with_tuning_parameters():
     """Verify that all StreamConfig tuning parameters are accepted by hypersync 1.1.
 
-    1. Create a ThrottledHypersyncClient with all tuning parameters set
+    1. Create a ThrottledHypersyncClient with all platform-available tuning parameters
     2. Run a small query (100 blocks on Ethereum mainnet)
     3. Assert expected results — verifies no spelling errors or type mismatches
     4. Also test create_stream_config() directly
-    """
 
-    # 1. Create client with all tuning parameters
+    The response-byte param names vary by platform (macOS vs Linux wheels),
+    so we detect which are available and test accordingly.
+    """
+    from eth_defi.hypersync.session import _STREAM_TUNING_PARAMS
+
+    # 1. Build kwargs for platform-available response-byte params
+    response_kwargs = {}
+    if "response_bytes_ceiling" in _STREAM_TUNING_PARAMS:
+        response_kwargs["response_bytes_ceiling"] = 500_000
+    if "response_bytes_floor" in _STREAM_TUNING_PARAMS:
+        response_kwargs["response_bytes_floor"] = 200_000
+    if "response_bytes_target" in _STREAM_TUNING_PARAMS:
+        response_kwargs["response_bytes_target"] = 400_000
+
     hypersync_url = get_hypersync_server(1)
     client = create_throttled_hypersync_client(
         ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY),
         concurrency=5,
         batch_size=500,
-        response_bytes_ceiling=500_000,
-        response_bytes_floor=200_000,
         min_batch_size=100,
         max_batch_size=10_000,
+        **response_kwargs,
     )
 
     # 2. Verify create_stream_config() produces correct StreamConfig
     config = client.create_stream_config()
     assert config.concurrency == 5
     assert config.batch_size == 500
-    assert config.response_bytes_ceiling == 500_000
-    assert config.response_bytes_floor == 200_000
     assert config.min_batch_size == 100
     assert config.max_batch_size == 10_000
+    for key, expected in response_kwargs.items():
+        assert getattr(config, key) == expected
 
     # 3. Verify overrides work
     override_config = client.create_stream_config(concurrency=30)
