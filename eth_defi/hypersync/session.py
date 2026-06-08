@@ -57,6 +57,7 @@ DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE = 150
 #: invisible to our rate limiter and waste API quota on tight loops.
 DEFAULT_HYPERSYNC_MAX_NUM_RETRIES = 0
 
+
 #: Stream tuning parameter names that map directly to
 #: :py:class:`hypersync.StreamConfig` constructor kwargs.
 #:
