@@ -97,9 +97,14 @@ def generate_sample_json(json_path: Path, output_path: Path) -> int:
     sample_slugs = {v["protocol_slug"] for v in filtered_vaults if v.get("protocol_slug")}
     core3 = {k: v for k, v in data.get("core3_protocols", {}).items() if k in sample_slugs}
 
+    # Filter curators to only curator slugs present in the sample vaults
+    sample_curator_slugs = {v["curator_slug"] for v in filtered_vaults if v.get("curator_slug")}
+    curators = {k: v for k, v in data.get("curators", {}).items() if k in sample_curator_slugs}
+
     sample_data = {
         "generated_at": data["generated_at"],
         "core3_protocols": core3,
+        "curators": curators,
         "vaults": filtered_vaults,
     }
 

@@ -642,6 +642,10 @@ Generates `top_vaults_by_chain.json` with the following top-level structure:
     "morpho": { "slug": "morpho", "pol": {...}, "fetched_at": "2026-06-07T12:00:00", ... },
     "fluid": { "slug": "instadapp", "pol": {...}, ... }
   },
+  "curators": {
+    "gauntlet": { "slug": "gauntlet", "name": "Gauntlet", "twitter": "https://x.com/gauntlet_xyz", "recent_posts": [...], ... },
+    "hyperliquid": { "slug": "hyperliquid", "name": "Hyperliquid", "protocol_curator": true, ... }
+  },
   "vaults": [ ... ]
 }
 ```
@@ -650,6 +654,12 @@ Core3 risk intelligence records are attached at the top level keyed by protocol
 slug (not duplicated per-vault). The `core3_protocols` dict is built directly
 from the Core3 DuckDB at export time and only includes protocols present in the
 exported vaults.
+
+Curator metadata and recent feed entries are attached at the top level keyed by
+curator slug. The `curators` dict is built from curator/protocol YAML files and
+the vault post feed database at export time, and only includes curators present
+in the exported vaults. Each curator record includes up to 10 recent posts from
+Twitter, LinkedIn, and RSS feeds.
 
 #### Brotli-compressed R2 upload
 
@@ -679,6 +689,8 @@ OUTPUT_JSON=~/.tradingstrategy/top_vaults_by_chain.json poetry run python script
 |----------|-------------|
 | `OUTPUT_JSON` | Optional. Output file path. Default: `~/.tradingstrategy/vaults/stablecoin-vault-metrics.json`. |
 | `CORE3_DATABASE_PATH` | Optional. Core3 DuckDB path. Default: `~/.tradingstrategy/vaults/core3/core3.duckdb`. |
+| `FEED_DB_PATH` | Optional. Vault post feed DuckDB path. Falls back to `DB_PATH` (used by the feed collector). Default: `~/.tradingstrategy/vaults/vault-post-database.duckdb`. |
+| `R2_VAULT_METADATA_PUBLIC_URL` | Optional. Public base URL for curator logo URLs in the export. |
 
 After generating, upload to R2 with rclone:
 

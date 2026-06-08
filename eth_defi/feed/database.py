@@ -413,3 +413,71 @@ class VaultPostDatabase:
         """Return stored posts for diagnostics."""
 
         return self.con.execute("SELECT * FROM posts ORDER BY source_id, COALESCE(published_at, fetched_at)").df()
+
+    def fetch_recent_posts_by_feeder(
+        self,
+        feeder_ids: Iterable[str],
+        max_per_feeder: int = 10,
+    ) -> dict[str, list[dict]]:
+        """Fetch the most recent posts for each feeder across all source types.
+
+        Joins ``tracked_sources`` and ``posts`` on ``source_id``, ranks
+        posts per feeder by ``COALESCE(published_at, fetched_at) DESC``,
+        and returns the *max_per_feeder* newest posts per feeder.
+
+        :param feeder_ids:
+            Iterable of feeder-id slugs to look up.
+
+        :param max_per_feeder:
+            Maximum number of posts to return per feeder.
+
+        :return:
+            Dict mapping ``feeder_id`` to a list of post dicts with keys
+            ``title``, ``short_description``, ``post_url``, ``source_type``,
+            ``published_at`` (always set via COALESCE fallback to
+            ``fetched_at``).  Lists are ordered newest-first.
+        """
+        ids = list(feeder_ids)
+        if not ids:
+            return {}
+
+        placeholders = ", ".join("?" * len(ids))
+        rows = self.con.execute(
+            f"""
+            WITH ranked AS (
+                SELECT
+                    ts.feeder_id,
+                    p.title,
+                    p.short_description,
+                    p.post_url,
+                    ts.source_type,
+                    COALESCE(p.published_at, p.fetched_at) AS published_at,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY ts.feeder_id
+                        ORDER BY COALESCE(p.published_at, p.fetched_at) DESC
+                    ) AS rn
+                FROM tracked_sources ts
+                JOIN posts p ON ts.source_id = p.source_id
+                WHERE ts.feeder_id IN ({placeholders})
+            )
+            SELECT feeder_id, title, short_description, post_url, source_type, published_at
+            FROM ranked
+            WHERE rn <= ?
+            ORDER BY feeder_id, published_at DESC
+            """,
+            ids + [max_per_feeder],
+        ).fetchall()
+
+        result: dict[str, list[dict]] = {}
+        for row in rows:
+            feeder_id, title, short_description, post_url, source_type, published_at = row
+            result.setdefault(feeder_id, []).append(
+                {
+                    "title": title,
+                    "short_description": short_description,
+                    "post_url": post_url,
+                    "source_type": source_type,
+                    "published_at": published_at,
+                }
+            )
+        return result
