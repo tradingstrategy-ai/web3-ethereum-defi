@@ -15,6 +15,7 @@ from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import VaultEventKind, get_royco_tranche_discovery_events, get_vault_event_topic_map
 from eth_defi.erc_4626.vault_protocol.royco.offchain_metadata import fetch_royco_vaults
+from eth_defi.erc_4626.vault import ERC4626HistoricalReader
 from eth_defi.erc_4626.vault_protocol.royco.vault import RoycoTrancheHistoricalReader, RoycoTrancheVault, RoycoVault
 from eth_defi.erc_4626.vault_protocol.zerolend.vault import ZeroLendVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
@@ -216,6 +217,54 @@ def test_royco_tranche_vault(
     assert vault_read.total_supply == expected_total_supply
     assert vault_read.max_deposit == expected_max_deposit
     assert vault_read.errors is None
+
+
+@flaky.flaky
+def test_generic_reader_rejects_royco_tranche_tuple(
+    royco_tranche_web3: Web3,
+):
+    """Generic ERC-4626 reader rejects Royco tranche 96-byte tuple returns.
+
+    Before the RoycoTrancheHistoricalReader existed, the generic reader
+    decoded only the first 32 bytes of the AssetClaims tuple, producing
+    wrong values. The guard now rejects payloads longer than 32 bytes and
+    records an error instead of silently returning garbage.
+
+    1. Autodetect a Royco tranche vault (gets RoycoTrancheVault).
+    2. Force it through the generic ERC4626HistoricalReader.
+    3. Execute multicalls against the Anvil fork.
+    4. Assert total_assets and share_price are None with error messages.
+    5. Assert total_supply is still decoded (it returns standard uint256).
+    """
+    # 1. Autodetect vault
+    vault = create_vault_instance_autodetect(
+        royco_tranche_web3,
+        vault_address=ROYCO_JUNIOR_TRANCHE,
+    )
+    assert isinstance(vault, RoycoTrancheVault)
+
+    # 2. Force through generic reader instead of RoycoTrancheHistoricalReader
+    generic_reader = ERC4626HistoricalReader(vault, stateful=False)
+
+    # 3. Execute multicalls
+    block_number = royco_tranche_web3.eth.block_number
+    block = royco_tranche_web3.eth.get_block(block_number)
+    timestamp = datetime.datetime.fromtimestamp(block["timestamp"], tz=datetime.timezone.utc).replace(tzinfo=None)
+
+    calls = list(generic_reader.construct_multicalls())
+    call_results = [c.call_as_result(web3=royco_tranche_web3, block_identifier=block_number) for c in calls]
+    vault_read = generic_reader.process_result(block_number, timestamp, call_results)
+
+    # 4. Guard should reject the 96-byte tuple returns
+    assert vault_read.total_assets is None
+    assert vault_read.share_price is None
+    assert vault_read.errors is not None
+    assert any("non-standard ABI" in e for e in vault_read.errors)
+    assert any("96 bytes" in e for e in vault_read.errors)
+
+    # 5. total_supply uses standard uint256, should still work
+    assert vault_read.total_supply is not None
+    assert vault_read.total_supply > 0
 
 
 def test_royco_offchain_metadata_cache(tmp_path: Path):
