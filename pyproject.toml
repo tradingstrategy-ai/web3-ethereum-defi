@@ -55,6 +55,8 @@ cachetools = ">=4"
 eth-bloom = "^2.0.0" 
 futureproof = "^0.3.1" 
 orjson = ">=3.10.0" # Fast JSON decoding for JSON-RPC responses
+# Brotli compression for R2 JSON uploads (transparent browser decompression)
+brotli = {version = "^1.1.0", optional = true}
 psutil = "^5.9.0" 
 setuptools = {version = ">=63,<=70"} 
 #evm-trace = "^0.2.6"
@@ -183,7 +185,7 @@ docs = [
 test = ["pytest-xdist"]
 
 ccxt = ["ccxt"]
-cloudflare_r2 = ["boto3"]
+cloudflare_r2 = ["boto3", "brotli"]
 duckdb = ["duckdb"]
 posts = ["duckdb", "feedparser", "tweepy"]
 hyperliquid_backfill = ["boto3", "lz4", "duckdb"]

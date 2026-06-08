@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from eth_defi.cloudflare_r2 import copy_r2_object_daily_backup, create_r2_client, upload_file_to_r2
+from eth_defi.cloudflare_r2 import calculate_bytes_digest, copy_r2_object_daily_backup, create_r2_client, upload_bytes_to_r2, upload_file_to_r2
 from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
 from eth_defi.grvt.vault_data_export import merge_into_uncleaned_parquet as grvt_merge_parquet
@@ -116,7 +116,6 @@ def _upload_top_vaults_json_to_bucket(
                 logger.info("  -> %s/%s", public_url.rstrip("/"), object_key)
         else:
             logger.info("Skipped unchanged %s for %s s3://%s/%s", output_path, bucket_label, bucket_name, object_key)
-        return True
     except Exception:
         logger.exception(
             "Top vaults JSON %s bucket upload failed — bucket=%s, endpoint=%s, object_key=%s, access_key_id=%s",
@@ -127,6 +126,46 @@ def _upload_top_vaults_json_to_bucket(
             _mask_access_key_id(access_key_id),
         )
         return False
+
+    # Upload brotli-compressed variant (.json.br) alongside raw JSON.
+    # Brotli is an optional dependency — if unavailable, raw upload still succeeds.
+    try:
+        import brotli
+
+        raw_bytes = output_path.read_bytes()
+        compressed = brotli.compress(raw_bytes, quality=11)
+        source_digest = calculate_bytes_digest(raw_bytes)
+
+        br_uploaded = upload_bytes_to_r2(
+            s3_client=s3_client,
+            payload=compressed,
+            bucket_name=bucket_name,
+            object_name=object_key + ".br",
+            content_type="application/json",
+            content_encoding="br",
+            source_digest=source_digest,
+            skip_if_current=True,
+        )
+        ratio = len(compressed) / len(raw_bytes) * 100 if raw_bytes else 0
+        if br_uploaded:
+            logger.info(
+                "Uploaded brotli %s.br to %s s3://%s/%s.br (%.1f%% of original)",
+                output_path.name,
+                bucket_label,
+                bucket_name,
+                object_key,
+                ratio,
+            )
+        else:
+            logger.info("Skipped unchanged brotli for %s s3://%s/%s.br", bucket_label, bucket_name, object_key)
+    except ImportError:
+        logger.warning("brotli package not installed — skipping .json.br upload for %s bucket", bucket_label)
+        return False
+    except Exception:
+        logger.exception("Brotli compression/upload failed for %s bucket — raw JSON already uploaded", bucket_label)
+        return False
+
+    return True
 
 
 def _upload_top_vaults_json_to_configured_buckets(

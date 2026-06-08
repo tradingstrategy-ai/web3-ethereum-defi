@@ -93,8 +93,13 @@ def generate_sample_json(json_path: Path, output_path: Path) -> int:
     if len(filtered_vaults) == 0:
         raise ValueError(f"No Ethereum (chain_id={ETHEREUM_CHAIN_ID}) vaults found in {json_path}")
 
+    # Filter core3_protocols to only protocol slugs present in the sample vaults
+    sample_slugs = {v["protocol_slug"] for v in filtered_vaults if v.get("protocol_slug")}
+    core3 = {k: v for k, v in data.get("core3_protocols", {}).items() if k in sample_slugs}
+
     sample_data = {
         "generated_at": data["generated_at"],
+        "core3_protocols": core3,
         "vaults": filtered_vaults,
     }
 

@@ -21,10 +21,14 @@ Example::
 
 import datetime
 import json
+import logging
+from collections.abc import Iterable
 from typing import NotRequired, TypedDict
 
 from eth_defi.core3.database import Core3Database
 from eth_defi.core3.mappings import CORE3_MAPPINGS
+
+logger = logging.getLogger(__name__)
 
 
 class Core3Seal(TypedDict):
@@ -295,3 +299,117 @@ def get_core3_protocol_record(
     payload["fetched_at"] = fetched_at
 
     return payload
+
+
+class Core3ExportRecord(TypedDict):
+    """Serialised Core3 project record for JSON export.
+
+    Same structure as :class:`Core3Record` but with ``fetched_at``
+    as an ISO 8601 string instead of :class:`~datetime.datetime`,
+    since the JSON export cannot contain raw datetime objects.
+    """
+
+    #: Core3 project slug (CoinGecko-style), e.g. ``"morpho"``,
+    #: ``"instadapp"``, ``"syrup"``.
+    slug: str
+
+    #: Project display name, e.g. ``"Morpho"``, ``"Fluid"``.
+    name: str
+
+    #: Project description text from Core3 (may contain newlines).
+    description: str | None
+
+    #: Core3 global rank (1 = lowest risk). ``None`` if unranked.
+    rank: int | None
+
+    #: Probability of Loss score, rating, and confidence level.
+    pol: Core3PolScore
+
+    #: Token ticker symbol, e.g. ``"MORPHO"``, ``"EUL"``.
+    ticker: NotRequired[str | None]
+
+    #: CoinGecko ID for cross-referencing.
+    coingecko_id: NotRequired[str | None]
+
+    #: URL to the project logo image on CoinGecko CDN.
+    logo: str | None
+
+    #: Core3 project page link.
+    link: str | None
+
+    #: ISO 8601 launch date string, or ``None`` if unknown.
+    launched_at: str | None
+
+    #: Project category classification.
+    category: Core3Category | None
+
+    #: Data coverage percentage indicator.
+    data_coverage: Core3DataCoverage | None
+
+    #: Market capitalisation data.
+    market_cap: Core3MarketCap | None
+
+    #: Blockchain networks where the project is deployed.
+    chains: list[Core3Chain]
+
+    #: External links (website, legal, whitepaper, socials).
+    links: Core3Links | None
+
+    #: Project tags (often empty).
+    tags: list[str]
+
+    #: Top risk findings from Core3's assessment.
+    top_risks: list[Core3TopRisk]
+
+    #: Recent monitoring changes detected by Core3.
+    recent_changes: list[Core3RecentChange]
+
+    #: Trust seals status.
+    seals: Core3Seals | None
+
+    #: ISO 8601 timestamp when this snapshot was fetched.
+    fetched_at: str
+
+
+def build_core3_protocols_for_export(
+    db: Core3Database,
+    protocol_slugs: Iterable[str],
+) -> dict[str, Core3ExportRecord]:
+    """Build a protocol-slug-keyed dict of Core3 records for the JSON export.
+
+    Looks up each vault protocol slug in the Core3 database and returns
+    a dict suitable for embedding as the top-level ``core3_protocols``
+    key in the vault metrics JSON export. Records are keyed by our
+    internal protocol slugs (e.g. ``"fluid"``), not Core3's own slugs
+    (e.g. ``"instadapp"``).
+
+    :param db:
+        Open Core3 DuckDB database connection.
+
+    :param protocol_slugs:
+        Iterable of our vault protocol slugs to look up.
+
+    :return:
+        Dict mapping protocol slug to :class:`Core3ExportRecord`.
+        Slugs with no Core3 mapping or no database record are excluded.
+    """
+    result: dict[str, Core3ExportRecord] = {}
+    protocol_slugs = set(protocol_slugs)
+
+    for slug in protocol_slugs:
+        record = get_core3_protocol_record(db, slug)
+        if record is None:
+            continue
+
+        # Shallow copy to avoid mutating the original Core3Record in-place
+        export_record = {**record}
+
+        # Serialise fetched_at datetime to ISO 8601 string
+        fetched_at = export_record["fetched_at"]
+        if isinstance(fetched_at, datetime.datetime):
+            export_record["fetched_at"] = fetched_at.isoformat()
+
+        result[slug] = export_record
+
+    logger.info("Built Core3 export records for %d / %d protocol slugs", len(result), len(protocol_slugs))
+    return result
