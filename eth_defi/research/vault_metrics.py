@@ -10,7 +10,7 @@ import math
 import warnings
 from dataclasses import asdict, dataclass, is_dataclass
 from enum import Enum
-from typing import Literal, Optional, TypeAlias
+from typing import Literal, Optional, TypeAlias, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -25,7 +25,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.core3.vault_protocol import get_core3_protocol_record
+from eth_defi.core3.vault_protocol import Core3ExportRecord
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
@@ -184,6 +184,93 @@ LOOKBACK_AND_TOLERANCES: dict[Period, tuple[pd.DateOffset, pd.Timedelta]] = {
     "1Y": (pd.DateOffset(days=365), pd.Timedelta(days=365 + 45)),
     "lifetime": (pd.DateOffset(years=100), pd.Timedelta(days=100 * 365)),
 }
+
+
+class VaultMetricsRecord(TypedDict, total=False):
+    """Per-vault record in the JSON export.
+
+    Uses ``total=False`` so that only the most critical fields are typed
+    explicitly — remaining fields are still present but not enforced by
+    the type checker. This is an incremental approach; more fields can
+    be promoted to required as the schema stabilises.
+    """
+
+    #: Vault display name
+    name: str
+
+    #: Chain identifier (integer chain ID)
+    chain_id: int
+
+    #: Chain display name, e.g. ``"Ethereum"``
+    chain: str
+
+    #: Protocol display name, e.g. ``"Morpho"``
+    protocol: str
+
+    #: Protocol slug, e.g. ``"morpho"``
+    protocol_slug: str
+
+    #: Vault contract address (checksummed hex)
+    address: str
+
+    #: Unique vault slug for URLs
+    vault_slug: str
+
+    #: Compound Annual Growth Rate (lifetime)
+    cagr: float | None
+
+    #: Lifetime total return
+    lifetime_return: float | None
+
+    #: 3-month CAGR
+    three_months_cagr: float | None
+
+    #: 1-month CAGR
+    one_month_cagr: float | None
+
+    #: Annualised volatility
+    volatility: float | None
+
+    #: Sharpe ratio
+    sharpe: float | None
+
+    #: Technical risk classification
+    risk: str | None
+
+    #: Current net asset value in USD
+    current_nav: float | None
+
+    #: Peak net asset value in USD
+    peak_nav: float | None
+
+    #: Management fee percentage
+    management_fee: float | None
+
+    #: Performance fee percentage
+    performance_fee: float | None
+
+    #: Protocol-specific extension data (Morpho flags, etc.)
+    other_data: dict
+
+    #: Per-period tearsheet results
+    period_results: list[dict]
+
+
+class VaultMetricsExport(TypedDict):
+    """Top-level structure of the vault metrics JSON export.
+
+    Describes the shape of ``top_vaults_by_chain.json`` uploaded to R2.
+    """
+
+    #: ISO 8601 UTC timestamp when the export was generated
+    generated_at: str
+
+    #: Core3 risk intelligence keyed by protocol slug.
+    #: Only protocols present in the exported vaults are included.
+    core3_protocols: dict[str, Core3ExportRecord]
+
+    #: List of per-vault metric records
+    vaults: list[VaultMetricsRecord]
 
 
 def fmt_one_decimal_or_int(x: float | None) -> str:
@@ -1165,7 +1252,6 @@ def calculate_vault_record(
     month_ago: pd.Timestamp,
     three_months_ago: pd.Timestamp,
     vault_id: str | None = None,
-    core3_cache: dict | None = None,
 ) -> pd.Series:
     """Process a single vault metadata + prices to calculate its full data.
 
@@ -1186,12 +1272,6 @@ def calculate_vault_record(
 
     :param vault_id:
         Vault ID string. If not provided, extracted from prices_df["id"].
-
-    :param core3_cache:
-        Pre-computed dict mapping protocol slugs to
-        :py:class:`~eth_defi.core3.vault_protocol.Core3Record` or ``None``.
-        Built by :py:func:`calculate_lifetime_metrics` before the per-vault loop.
-        When ``None``, ``other_data["core3"]`` is set to ``None``.
 
     :return:
         Series with calculated metrics
@@ -1394,8 +1474,8 @@ def calculate_vault_record(
                 notes = morpho_analytics.note
 
     # ``other_data`` is a protocol-specific extension dict included in the metrics Series.
-    # Currently populated for Morpho warnings and Core3 risk intelligence;
-    # all other protocols return empty lists / None.
+    # Currently populated for Morpho warnings; Core3 risk intelligence is attached
+    # at JSON export time as a top-level ``core3_protocols`` dict (not per-vault).
     # Future protocols should add their own keys here rather than adding top-level Series fields.
     other_data: dict = {
         # Vault-level governance warning types from the Morpho Blue API.
@@ -1412,11 +1492,6 @@ def calculate_vault_record(
         # Combined YELLOW-level warning types across vault and market warnings.
         # YELLOW flags do not trigger VaultFlag.morpho_issues. Example: ["bad_debt_realized", "not_whitelisted"]
         "morpho_yellow_flags": morpho_yellow_flags,
-        # Core3 risk intelligence record for this vault's protocol.
-        # A :py:class:`~eth_defi.core3.vault_protocol.Core3Record` TypedDict with PoL score,
-        # rating, top risks, seals, etc. ``None`` when Core3 DB is not available or
-        # the protocol has no Core3 mapping.
-        "core3": core3_cache.get(protocol_slug) if core3_cache else None,
     }
 
     # Manual review decision from the Hyperliquid review Google Sheet.
@@ -1665,7 +1740,6 @@ def calculate_lifetime_metrics(
     df: pd.DataFrame,
     vault_db: VaultDatabase | dict[VaultSpec, VaultRow],
     returns_column: str = "returns_1h",
-    core3_db: "Core3Database | None" = None,
 ) -> pd.DataFrame:
     """Calculate lifetime metrics for each vault in the provided DataFrame.
 
@@ -1683,12 +1757,6 @@ def calculate_lifetime_metrics(
 
     :param vault_db:
         Pass all vaults or subset of vaults as VaultRows, or full VaultDatabase
-
-    :param core3_db:
-        Optional open :py:class:`~eth_defi.core3.database.Core3Database` connection.
-        When provided, Core3 risk intelligence records are looked up per protocol
-        and included in each vault's ``other_data["core3"]``. When ``None``,
-        ``other_data["core3"]`` is set to ``None`` for all vaults.
 
     :return:
         DataFrame, one row per vault.
@@ -1713,19 +1781,11 @@ def calculate_lifetime_metrics(
         vaults=vaults_by_id,
     )
 
-    # Pre-compute Core3 risk records per protocol slug.
-    # Core3 data is per-protocol (not per-vault), so we look up each
-    # unique protocol slug once and cache the result for the per-vault loop.
-    core3_cache: dict | None = None
-    if core3_db is not None:
-        unique_slugs = {v.get("protocol_slug") for v in vaults_by_id.values() if v.get("protocol_slug")}
-        core3_cache = {slug: get_core3_protocol_record(core3_db, slug) for slug in unique_slugs}
-
     # Use progress_apply instead of the for loop
     # Sort is needed for slug stability
     # We pass include_groups=False to avoid FutureWarning, and pass id via group.name
     def _apply_vault_record(group):
-        return calculate_vault_record(group, vaults_by_id, month_ago, three_months_ago, vault_id=group.name, core3_cache=core3_cache)
+        return calculate_vault_record(group, vaults_by_id, month_ago, three_months_ago, vault_id=group.name)
 
     results_df = df.groupby("id", group_keys=False, sort=True).progress_apply(
         _apply_vault_record,

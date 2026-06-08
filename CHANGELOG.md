@@ -10,6 +10,8 @@
 
 - fix: Preserve vault metadata when rescan fails with transient RPC errors, add `heal-broken-vaults.py` healer script, atomic writes for Lagoon compatibility database (2026-06-04)
 
+- refactor: Normalise Core3 data in JSON export — Core3 records moved from per-vault `other_data["core3"]` to top-level `core3_protocols` dict keyed by protocol slug; Core3 removed from `calculate_lifetime_metrics()` pipeline; added brotli-compressed `.json.br` R2 upload (2026-06-08)
+
 - feat: Core3 risk intelligence in vault lifetime metrics — `calculate_lifetime_metrics()` accepts optional `Core3Database`, pre-computes per-protocol cache, and exports Core3 PoL score, rating, top risks in `other_data["core3"]`; standardised `CORE3_DATABASE_PATH` env var across all Core3 scripts; moved default database to `~/.tradingstrategy/vaults/core3/core3.duckdb` (2026-06-03)
 
 

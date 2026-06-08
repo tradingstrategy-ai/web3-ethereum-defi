@@ -629,6 +629,42 @@ poetry run python scripts/erc-4626/identify-curators.py
 
 Multi-chain vault analysis with JSON export and lifetime metric analysis.
 
+Generates `top_vaults_by_chain.json` with the following top-level structure:
+
+```json
+{
+  "generated_at": "2026-06-08T12:00:00Z",
+  "core3_protocols": {
+    "morpho": { "slug": "morpho", "pol": {...}, "fetched_at": "2026-06-07T12:00:00", ... },
+    "fluid": { "slug": "instadapp", "pol": {...}, ... }
+  },
+  "vaults": [ ... ]
+}
+```
+
+Core3 risk intelligence records are attached at the top level keyed by protocol
+slug (not duplicated per-vault). The `core3_protocols` dict is built directly
+from the Core3 DuckDB at export time and only includes protocols present in the
+exported vaults.
+
+#### Brotli-compressed R2 upload
+
+When the top-vaults JSON is uploaded to R2 (via the post-processing pipeline or
+`scan-vaults-all-chains.py`), both the raw `.json` and a brotli-compressed
+`.json.br` variant are uploaded to each configured bucket. The `.json.br` object
+uses `Content-Encoding: br` and `Content-Type: application/json` so that
+browsers transparently decompress it.
+
+Brotli compression uses quality 11 (maximum, suitable for offline pipelines).
+If the `brotli` package is not installed, the upload fails with a logged warning
+and the function returns `False` — the raw JSON is still uploaded first.
+
+The `brotli` package is included in the `cloudflare_r2` poetry extra:
+
+```shell
+poetry install -E cloudflare_r2
+```
+
 In production, run with `OUTPUT_JSON` pointing to the upload path:
 
 ```shell
@@ -638,6 +674,7 @@ OUTPUT_JSON=~/.tradingstrategy/top_vaults_by_chain.json poetry run python script
 | Variable | Description |
 |----------|-------------|
 | `OUTPUT_JSON` | Optional. Output file path. Default: `~/.tradingstrategy/vaults/stablecoin-vault-metrics.json`. |
+| `CORE3_DATABASE_PATH` | Optional. Core3 DuckDB path. Default: `~/.tradingstrategy/vaults/core3/core3.duckdb`. |
 
 After generating, upload to R2 with rclone:
 

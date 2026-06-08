@@ -35,12 +35,14 @@ from pathlib import Path
 
 from eth_defi.core3.constants import CORE3_DATABASE_PATH
 from eth_defi.core3.database import Core3Database
+from eth_defi.core3.vault_protocol import build_core3_protocols_for_export
 from eth_defi.token import is_stablecoin_like
 
 # Import core TradingStrategy / eth_defi modules
 from eth_defi.vault.base import VaultSpec  # noqa: F401
 from eth_defi.vault.vaultdb import VaultDatabase, get_pipeline_data_dir
 from eth_defi.research.vault_metrics import (
+    VaultMetricsExport,
     calculate_lifetime_metrics,
     export_lifetime_row,
     cross_check_data,
@@ -214,26 +216,7 @@ def main(
 
     raw_returns_df = returns_df = calculate_hourly_returns_for_all_vaults(prices_df)
 
-    # Open Core3 risk intelligence database if locally available.
-    # Resolved from explicit argument, CORE3_DATABASE_PATH env var, or the default constant.
-    # Only opened if the file exists — constructing Core3Database on a non-existent
-    # path would create an empty database rather than being truly optional.
-    core3_db = None
-    if core3_db_path is None:
-        db_path_env = os.getenv("CORE3_DATABASE_PATH")
-        if db_path_env:
-            core3_db_path = Path(db_path_env).expanduser()
-        else:
-            core3_db_path = CORE3_DATABASE_PATH
-    if core3_db_path.exists():
-        core3_db = Core3Database(core3_db_path)
-        print(f"Opened Core3 risk database at {core3_db_path} with {core3_db.get_project_count()} projects")
-
-    try:
-        lifetime_data_df = calculate_lifetime_metrics(returns_df, vault_db, core3_db=core3_db)
-    finally:
-        if core3_db is not None:
-            core3_db.close()
+    lifetime_data_df = calculate_lifetime_metrics(returns_df, vault_db)
 
     print(f"Calculated lifetime metrics for {len(lifetime_data_df):,} vaults with {len(lifetime_data_df.columns):,} columns")
 
@@ -244,9 +227,30 @@ def main(
     # 5️⃣ Convert DataFrame → list of dicts
     vaults = [export_lifetime_row(r) for _, r in filtered_lifetime_data_df.iterrows()]
 
-    # 6️⃣ Add metadata and deep sanitize
-    output_data = {
+    # 6️⃣ Build Core3 protocol-level risk data directly for the export.
+    # Core3 data is per-protocol (not per-vault), so it lives at the top level
+    # of the JSON export keyed by our internal protocol slugs.
+    core3_protocols = {}
+    if core3_db_path is None:
+        db_path_env = os.getenv("CORE3_DATABASE_PATH")
+        if db_path_env:
+            core3_db_path = Path(db_path_env).expanduser()
+        else:
+            core3_db_path = CORE3_DATABASE_PATH
+    if core3_db_path.exists():
+        core3_db = Core3Database(core3_db_path)
+        try:
+            print(f"Opened Core3 risk database at {core3_db_path} with {core3_db.get_project_count()} projects")
+            unique_slugs = {v.get("protocol_slug") for v in vaults if v.get("protocol_slug")}
+            unique_slugs.discard(None)
+            core3_protocols = build_core3_protocols_for_export(core3_db, unique_slugs)
+        finally:
+            core3_db.close()
+
+    # 7️⃣ Add metadata and deep sanitize
+    output_data: VaultMetricsExport = {
         "generated_at": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "core3_protocols": core3_protocols,
         "vaults": vaults,
     }
 
