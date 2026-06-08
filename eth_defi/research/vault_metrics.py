@@ -10,7 +10,7 @@ import math
 import warnings
 from dataclasses import asdict, dataclass, is_dataclass
 from enum import Enum
-from typing import Literal, Optional, TypeAlias, TypedDict
+from typing import TYPE_CHECKING, Literal, Optional, TypeAlias, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -45,6 +45,9 @@ from eth_defi.vault.flag import (
 )
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
+
+if TYPE_CHECKING:
+    from eth_defi.vault.curator_export import CuratorExportRecord
 
 logger = logging.getLogger(__name__)
 
@@ -268,6 +271,10 @@ class VaultMetricsExport(TypedDict):
     #: Core3 risk intelligence keyed by protocol slug.
     #: Only protocols present in the exported vaults are included.
     core3_protocols: dict[str, Core3ExportRecord]
+
+    #: Curator metadata and recent feed entries keyed by curator slug.
+    #: Only curators present in the exported vaults are included.
+    curators: dict[str, "CuratorExportRecord"]
 
     #: List of per-vault metric records
     vaults: list[VaultMetricsRecord]

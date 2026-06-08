@@ -27,4 +27,5 @@ A generic high-level Python framework to integrate different vault providers.
    eth_defi.vault.flag
    eth_defi.vault.protocol_metadata
    eth_defi.vault.curator
+   eth_defi.vault.curator_export
    eth_defi.vault.data_file_export

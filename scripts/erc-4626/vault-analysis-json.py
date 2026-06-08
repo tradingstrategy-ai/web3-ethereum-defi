@@ -36,7 +36,9 @@ from pathlib import Path
 from eth_defi.core3.constants import CORE3_DATABASE_PATH
 from eth_defi.core3.database import Core3Database
 from eth_defi.core3.vault_protocol import build_core3_protocols_for_export
+from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE, VaultPostDatabase
 from eth_defi.token import is_stablecoin_like
+from eth_defi.vault.curator_export import build_curators_for_export
 
 # Import core TradingStrategy / eth_defi modules
 from eth_defi.vault.base import VaultSpec  # noqa: F401
@@ -136,6 +138,7 @@ def main(
     parquet_path: Path | None = None,
     output_path: Path | None = None,
     core3_db_path: Path | None = None,
+    feed_db_path: Path | None = None,
 ):
     """Main execution function for vault analysis and JSON export.
 
@@ -173,6 +176,13 @@ def main(
         When ``None``, resolved from ``CORE3_DATABASE_PATH`` env var,
         then the default constant. The database is only opened if the
         resolved file exists on disk.
+
+    :param feed_db_path:
+        Path to the vault post feed DuckDB database.
+        When ``None``, resolved from ``FEED_DB_PATH`` env var,
+        falling back to ``DB_PATH`` (used by the feed collector),
+        then :py:data:`~eth_defi.feed.database.DEFAULT_VAULT_POST_DATABASE`.
+        The database is only opened if the resolved file exists on disk.
     """
     defaults = _resolve_defaults_from_env()
     if data_dir is None:
@@ -247,10 +257,45 @@ def main(
         finally:
             core3_db.close()
 
+    # 6b. Build curator metadata and recent feed entries for the export.
+    # Curator data is per-curator (not per-vault), keyed by curator slug.
+    curators_export = {}
+    unique_curator_slugs = {v.get("curator_slug") for v in vaults if v.get("curator_slug")}
+    unique_curator_slugs.discard(None)
+    public_url = os.getenv("R2_VAULT_METADATA_PUBLIC_URL", "")
+
+    if feed_db_path is None:
+        feed_db_path_env = os.getenv("FEED_DB_PATH") or os.getenv("DB_PATH")
+        if feed_db_path_env:
+            feed_db_path = Path(feed_db_path_env).expanduser()
+        else:
+            feed_db_path = DEFAULT_VAULT_POST_DATABASE
+
+    if feed_db_path.exists():
+        feed_db = VaultPostDatabase(feed_db_path)
+        try:
+            print(f"Opened feed database at {feed_db_path}")
+            curators_export = build_curators_for_export(
+                unique_curator_slugs,
+                feed_db=feed_db,
+                public_url=public_url,
+            )
+        finally:
+            feed_db.close()
+    else:
+        curators_export = build_curators_for_export(
+            unique_curator_slugs,
+            feed_db=None,
+            public_url=public_url,
+        )
+
+    print(f"Built curator export for {len(curators_export)} curators")
+
     # 7️⃣ Add metadata and deep sanitize
     output_data: VaultMetricsExport = {
         "generated_at": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "core3_protocols": core3_protocols,
+        "curators": curators_export,
         "vaults": vaults,
     }
 
