@@ -24,6 +24,24 @@ from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 logger = logging.getLogger(__name__)
 
 
+#: Royco chains that may host WrappedVault or tranche vault markets.
+#:
+#: Based on Royco ``vault/explore`` and ``market/explore`` API rows, plus
+#: locally observed Royco vault rows that may temporarily disappear from the
+#: API response.
+ROYCO_CHAIN_IDS = {
+    1,  # Ethereum
+    146,  # Sonic
+    999,  # HyperEVM
+    8453,  # Base
+    42161,  # Arbitrum
+    43114,  # Avalanche
+    80094,  # Berachain
+    98866,  # Plume
+    11155111,  # Sepolia
+    21000000,  # Corn
+}
+
 #: Chain restrictions for protocols deployed on 3 or fewer chains.
 #:
 #: Maps probe function names to the set of chain IDs where that protocol is deployed.
@@ -32,6 +50,11 @@ logger = logging.getLogger(__name__)
 #: Data source: https://top-defi-vaults.tradingstrategy.ai/top_vaults_by_chain.json
 #: Data checked: 2026-01-13
 #:
+#: When changing vault classification probes, remember that already discovered
+#: vaults keep stored feature flags in ``vault-metadata-db.pickle`` and reader
+#: progress in reader-state pickle files. Manually purge or repair the database
+#: and rescan affected vaults; see ``scripts/erc-4626/purge-royco-tranche-data.py``
+#: for an example.
 CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     # Disabled protocols - not found in vault data, disable everywhere
     "outputToLp0Route": set(),  # Baklava Space - not found in data
@@ -54,7 +77,7 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "getPerformanceFeeData": {1, 8453, 42161},  # IPOR - Ethereum, Base, Arbitrum
     "borrowed_token": {1, 10, 42161},  # Llama Lend - Ethereum, Optimism, Arbitrum
     "previewRateAfterDeposit": {1, 42161, 80094},  # Royco - Ethereum, Arbitrum, Berachain
-    "getRawNAV": {1},  # Royco senior/junior tranche vaults - Ethereum
+    "getRawNAV": ROYCO_CHAIN_IDS,  # Royco senior/junior tranche vaults
     "repoTokenHoldings": {1, 9745, 43114},  # Term Finance - Ethereum, Plasma, Avalanche
     "depositController": {1, 56, 42161},  # TrueFi - Ethereum, BSC, Arbitrum
     "poolId": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum

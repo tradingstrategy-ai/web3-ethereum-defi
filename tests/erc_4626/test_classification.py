@@ -5,6 +5,7 @@ Tests for create_probe_calls() chain filtering functionality.
 
 from eth_defi.erc_4626.classification import (
     CHAIN_RESTRICTED_PROBES,
+    ROYCO_CHAIN_IDS,
     _should_yield_probe,
     create_probe_calls,
 )
@@ -17,6 +18,7 @@ POLYGON = 137
 BSC = 56
 MONAD = 143
 MANTLE = 5000
+AVALANCHE = 43114
 
 
 def test_chain_probe_filtering():
@@ -26,7 +28,7 @@ def test_chain_probe_filtering():
     2. Verify core probes are always present regardless of chain.
     3. Verify protocol-specific probes are filtered based on deployment chains.
     4. Verify disabled protocols never yield probes.
-    5. Verify Royco tranche detection uses one Ethereum-only probe.
+    5. Verify Royco tranche detection uses one probe on Royco chains.
     """
     test_address = "0x0000000000000000000000000000000000000001"
 
@@ -81,6 +83,13 @@ def test_chain_probe_filtering():
     royco_tranche_probe_names = ["getRawNAV"]
     assert sum(1 for func_name in func_names_eth if func_name in royco_tranche_probe_names) == 1
     assert "getRawNAV" in func_names_eth
+    assert _should_yield_probe("getRawNAV", ARBITRUM) is True
+    assert _should_yield_probe("getRawNAV", AVALANCHE) is True
+
+    for chain_id in ROYCO_CHAIN_IDS:
+        probes = list(create_probe_calls([test_address], chain_id=chain_id))
+        func_names = [p.func_name for p in probes]
+        assert sum(1 for func_name in func_names if func_name in royco_tranche_probe_names) == 1
 
     # Core probes always present
     assert "name" in func_names_eth

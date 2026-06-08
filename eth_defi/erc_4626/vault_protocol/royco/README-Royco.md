@@ -237,6 +237,13 @@ As of the 2026-06-03 investigation:
 Run these commands after adding Royco vault support to rediscover old Royco
 events and rebuild historical prices for Royco API vaults.
 
+When vault classification changes, the change is not retroactive for already
+discovered vaults. Stored feature flags in `vault-metadata-db.pickle`, old price
+rows and reader-state progress need to be repaired or purged manually, then the
+affected vaults must be rescanned. Use
+`scripts/erc-4626/purge-royco-tranche-data.py` below as the worked example for a
+classification migration.
+
 **Note:** These steps use the Royco market API which only returns non-tranche
 WrappedVault addresses. For tranche vaults (`ROY-ST-*`, `ROY-JT-*`), see
 [Fixing corrupted Royco tranche price data](#fixing-corrupted-royco-tranche-price-data)
