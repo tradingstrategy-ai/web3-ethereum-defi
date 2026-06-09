@@ -252,6 +252,14 @@ class VaultMetricsRecord(TypedDict, total=False):
     #: Performance fee percentage
     performance_fee: float | None
 
+    #: Denomination (reserve) token ERC-20 decimals, e.g. ``6`` for USDC.
+    #: Consumers use this to convert human amounts to raw uint256; a missing
+    #: value must NOT be defaulted to 18 (see ``denomination_token_address``).
+    denomination_decimals: int | None
+
+    #: Share token ERC-20 decimals (the vault's own ERC-4626 token).
+    share_token_decimals: int | None
+
     #: Protocol-specific extension data (Morpho flags, etc.)
     other_data: dict
 
@@ -1520,19 +1528,32 @@ def calculate_vault_record(
     detection: ERC4262VaultDetection = vault_metadata["_detection_data"]
     features = sorted([f.name for f in detection.features])
 
-    # Token addresses
+    # Token addresses and decimals.
+    #
+    # The decimals come from on-chain ERC-20 metadata captured during the
+    # scan (TokenDetails.export()). They MUST be carried through to the JSON
+    # export: downstream consumers convert human amounts to raw uint256 with
+    # these decimals, and a missing/wrong value (e.g. defaulting USDC to 18)
+    # scales transfers by 10**12 and reverts on-chain.
     share_token_data = vault_metadata.get("_share_token")
     if isinstance(share_token_data, dict):
         share_token_address = share_token_data.get("address")
+        share_token_decimals = share_token_data.get("decimals")
     else:
         share_token_address = None
+        share_token_decimals = None
 
     # Most ERC-4626 vaults are also the share token (ERC-20) contract.
     if not share_token_address:
         share_token_address = vault_metadata.get("Address") or detection.address
 
     denomination_token_data = vault_metadata.get("_denomination_token")
-    denomination_token_address = denomination_token_data.get("address") if isinstance(denomination_token_data, dict) else None
+    if isinstance(denomination_token_data, dict):
+        denomination_token_address = denomination_token_data.get("address")
+        denomination_token_decimals = denomination_token_data.get("decimals")
+    else:
+        denomination_token_address = None
+        denomination_token_decimals = None
 
     # Do we know fees for this vault
     known_fee = mgmt_fee is not None and perf_fee is not None
@@ -1651,7 +1672,9 @@ def calculate_vault_record(
             "curator_name": curator_name,
             "protocol_curator": is_protocol_curator(curator_slug) if curator_slug else None,
             "share_token_address": share_token_address,
+            "share_token_decimals": share_token_decimals,
             "denomination_token_address": denomination_token_address,
+            "denomination_decimals": denomination_token_decimals,
             "lifetime_return": lifetime_return,
             "lifetime_return_net": lifetime_return_net,
             "cagr": cagr,
@@ -2240,6 +2263,11 @@ def format_lifetime_table(
     # Addresses
     _del("share_token_address")
     _del("denomination_token_address")
+
+    # Token decimals are exported via JSON API (used for raw-amount math), not
+    # for the human-readable table.
+    _del("share_token_decimals")
+    _del("denomination_decimals")
 
     _del("link")
 
