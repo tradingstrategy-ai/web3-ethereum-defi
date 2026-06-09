@@ -129,6 +129,21 @@ If all three hold, `pin_fallback_provider_by_host(fallback_provider, "alchemy")`
 deterministically selects the Alchemy provider for the retries. Otherwise the normal
 random switch is used, so the change is inert on every other chain and provider mix.
 
+Two safeguards keep the pin robust:
+
+- **Chain-id verified pin.** Pinning goes through
+  `FallbackProvider.switch_to_provider_index()`, which performs the same
+  `eth_chainId` verification and rollback as `switch_provider()`. If the Alchemy
+  endpoint is misconfigured or starts routing to the wrong chain at runtime, the
+  switch rolls back and `pin_fallback_provider_by_host()` returns `False`, so we
+  never silently read from a bad endpoint — the caller resumes normal switching.
+- **Recomputed every retry.** The failover is re-evaluated on each retry against the
+  *latest* failure. We only stay pinned to Alchemy while the error is still the
+  consensus disagreement. If a later retry fails for a different reason (Alchemy
+  429 / timeout / outage), the detection returns `None` and we resume normal
+  provider switching, so retries are not all burned on one endpoint while dRPC or
+  another single node is still available.
+
 ### Providers / nodes involved
 
 | Role | Endpoint | Notes |

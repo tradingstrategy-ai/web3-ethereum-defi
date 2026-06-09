@@ -49,7 +49,7 @@ from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_mul
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.middleware import ProbablyNodeHasNoBlock, is_retryable_http_exception
-from eth_defi.provider.fallback import FallbackProvider
+from eth_defi.provider.fallback import ChainIdMismatch, FallbackProvider
 from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
@@ -970,6 +970,10 @@ def pin_fallback_provider_by_host(fallback_provider: FallbackProvider, host_subs
     multicall retries onto the Alchemy single node, bypassing goldsky's eRPC
     consensus endpoint. See ``docs/README-hyperevm-goldsky-failure.md``.
 
+    The switch goes through :py:meth:`FallbackProvider.switch_to_provider_index`, so
+    the pinned provider is chain-id verified and rolled back if it is misconfigured
+    or routing to the wrong chain — we never silently read from a bad endpoint.
+
     :param fallback_provider:
         The fallback provider to repoint.
 
@@ -977,12 +981,32 @@ def pin_fallback_provider_by_host(fallback_provider: FallbackProvider, host_subs
         Lower-case substring matched against :py:func:`get_provider_name` output.
 
     :return:
-        ``True`` if a matching provider was found and selected, ``False`` otherwise.
+        ``True`` if a matching provider was found and successfully selected,
+        ``False`` if no provider matched or the match failed chain-id verification
+        (in which case the caller should resume normal provider switching).
     """
     host_substring = host_substring.lower()
     for idx, candidate in enumerate(fallback_provider.providers):
         if host_substring in get_provider_name(candidate).lower():
-            fallback_provider.currently_active_provider = idx
+            if idx == fallback_provider.currently_active_provider:
+                # Already pinned to this provider; it was chain-id verified when we
+                # first switched to it, so there is nothing to do.
+                return True
+            try:
+                fallback_provider.switch_to_provider_index(
+                    idx,
+                    log_level=logging.WARNING,
+                    cause="HyperEVM goldsky eRPC consensus failover",
+                )
+            except ChainIdMismatch as e:
+                # The pinned provider failed chain-id verification and was already
+                # rolled back; let the caller fall back to normal switching.
+                logger.warning(
+                    "HyperEVM consensus failover to %r failed chain-id verification: %s; resuming normal provider switching",
+                    host_substring,
+                    e,
+                )
+                return False
             return True
     return False
 
@@ -1321,20 +1345,6 @@ class MultiprocessMulticallReader:
 
             last_exception = e
 
-            # HyperEVM (chain 999) goldsky eRPC consensus special case.
-            #
-            # When the failure is goldsky's "not enough agreement among responses"
-            # and the provider mix also has an Alchemy single node, randomly cycling
-            # providers keeps landing back on goldsky's consensus endpoint, which
-            # cannot serve these calls — the scan then burns all retries and aborts
-            # the whole chain. Instead we pin every retry to the Alchemy single node,
-            # which returns a usable answer without cross-node consensus.
-            #
-            # Detected by chain id (999) AND by the RPC mix containing both goldsky
-            # and Alchemy. Full failure analysis, nodes involved and on-chain
-            # evidence: docs/README-hyperevm-goldsky-failure.md.
-            consensus_failover_host = resolve_hyperevm_consensus_failover(chain_id, fallback_provider, e)
-
             if fallback_attempts > 0:
                 logger.warning("Attempting retry %d times with fallbacks", fallback_attempts)
                 for i in range(fallback_attempts):
@@ -1345,10 +1355,29 @@ class MultiprocessMulticallReader:
                     else:
                         logger.warning("Received no-throttle status %s: %s, cause: %s, multicall target addresses: %s...", status_code, pformat(headers), cause, multicall_addresses[0:12])
 
+                    # HyperEVM (chain 999) goldsky eRPC consensus special case.
+                    #
+                    # When the failure is goldsky's "not enough agreement among
+                    # responses" and the provider mix also has an Alchemy single
+                    # node, randomly cycling providers keeps landing back on
+                    # goldsky's consensus endpoint, which cannot serve these calls —
+                    # the scan then burns all retries and aborts the whole chain.
+                    # Instead we pin the retry to the Alchemy single node, which
+                    # returns a usable answer without cross-node consensus.
+                    #
+                    # Recomputed every iteration against the *latest* failure: we
+                    # only stay pinned while the error is still the consensus
+                    # disagreement. If a later retry fails for another reason
+                    # (Alchemy 429/timeout/outage), this returns None and we resume
+                    # normal provider switching, so we don't burn every retry on one
+                    # endpoint when dRPC or another single node is also available.
+                    #
+                    # Detected by chain id (999) AND by the RPC mix containing both
+                    # goldsky and Alchemy. Full failure analysis, nodes involved and
+                    # on-chain evidence: docs/README-hyperevm-goldsky-failure.md.
+                    consensus_failover_host = resolve_hyperevm_consensus_failover(chain_id, fallback_provider, last_exception)
+
                     if consensus_failover_host and pin_fallback_provider_by_host(fallback_provider, consensus_failover_host):
-                        # HyperEVM goldsky consensus failover — bypass consensus
-                        # endpoint and pin to the single node. See
-                        # docs/README-hyperevm-goldsky-failure.md.
                         logger.warning(
                             "HyperEVM (chain %d) eRPC consensus disagreement: pinning multicall retry to %r single-node provider, bypassing goldsky consensus. See docs/README-hyperevm-goldsky-failure.md",
                             chain_id,

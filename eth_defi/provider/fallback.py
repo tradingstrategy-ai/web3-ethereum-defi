@@ -279,6 +279,39 @@ class FallbackProvider(BaseNamedProvider):
         :param randomise:
             If set switch to a random provider instead of cycling.
         """
+        if randomise:
+            new_index = random.randint(0, len(self.providers) - 1)
+        else:
+            new_index = (self.currently_active_provider + 1) % len(self.providers)
+
+        self.switch_to_provider_index(new_index, log_level=log_level, cause=cause)
+
+    def switch_to_provider_index(self, new_index: int, log_level: int = None, cause: str = "<not specified>"):
+        """Switch to a specific provider by index, with the same verification as :py:meth:`switch_provider`.
+
+        Use this when you need to deterministically select one upstream (e.g. to
+        fail a chain over to a known-good single node) rather than cycling or
+        randomising. Like :py:meth:`switch_provider`, after switching it verifies
+        the new provider returns the expected ``eth_chainId`` and rolls back to the
+        previous provider (raising :py:class:`ChainIdMismatch`) if it does not — so
+        a misconfigured or mis-routing endpoint cannot be silently selected.
+
+        :param new_index:
+            Index into :py:attr:`providers` to switch to.
+
+        :param log_level:
+            Logging level to be verbose about the switch over.
+
+        :param cause:
+            Human-readable reason for the switch, logged for diagnostics.
+
+        :raises ChainIdMismatch:
+            If the new provider reports a different chain ID than expected, or its
+            ``eth_chainId`` cannot be fetched. The active provider is rolled back
+            to the previous one before raising.
+        """
+        assert 0 <= new_index < len(self.providers), f"Provider index {new_index} out of range for {len(self.providers)} providers"
+
         provider = self.get_active_provider()
         old_provider_name = get_provider_name(provider)
         old_index = self.currently_active_provider
@@ -290,10 +323,7 @@ class FallbackProvider(BaseNamedProvider):
             except Exception as e:
                 logger.warning("Could not capture initial chain ID from %s: %s", old_provider_name, e)
 
-        if randomise:
-            self.currently_active_provider = random.randint(0, len(self.providers) - 1)
-        else:
-            self.currently_active_provider = (self.currently_active_provider + 1) % len(self.providers)
+        self.currently_active_provider = new_index
 
         new_provider = self.get_active_provider()
         new_provider_name = get_provider_name(new_provider)
