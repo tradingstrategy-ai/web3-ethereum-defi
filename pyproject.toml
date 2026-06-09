@@ -100,6 +100,9 @@ sphinxcontrib-htmlhelp = {version = "2.0.1", optional = true}# Version pindowns 
 sphinxcontrib-qthelp = {version = "1.0.3", optional = true}# Version pindowns https://github.com/sphinx-doc/sphinxcontrib-qthelp/blob/master/CHANGES
 sphinxcontrib-serializinghtml = {version = "1.1.5", optional = true}# Version pindowns https://github.com/sphinx-doc/sphinxcontrib-serializinghtml/blob/master/CHANGES
 zope-dottedname = {version = "^6.0", optional = true}
+# Sphinx 4.x imports the stdlib `imghdr` module, which was removed in Python 3.13.
+# This backport restores it so the docs build works on Python 3.13/3.14.
+standard-imghdr = {version = "^3.13.0", optional = true, python = ">=3.13"}
 
 # Removed
 # Only soft dependency in tests, but RTD complains
@@ -181,6 +184,7 @@ docs = [
   "zope.dottedname",
   "sphinx-sitemap",
   "sphinx-rtd-theme",
+  "standard-imghdr",
 ]
 test = ["pytest-xdist"]
 
