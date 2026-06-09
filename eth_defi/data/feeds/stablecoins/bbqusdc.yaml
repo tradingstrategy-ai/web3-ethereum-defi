@@ -1,0 +1,7 @@
+# bbqUSDC (Smokehouse USDC) - MetaMorpho vault curated by Steakhouse Financial.
+# Same news source as the existing curators/steakhouse-financial feeder; alias to
+# avoid scanning the same Twitter/LinkedIn twice.
+feeder-id: bbqusdc
+name: Smokehouse USDC
+role: stablecoin
+canonical-feeder-id: steakhouse-financial

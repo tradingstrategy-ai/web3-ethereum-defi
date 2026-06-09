@@ -1,0 +1,31 @@
+symbol: syrupUSDC
+name: Maple Syrup USDC
+slug: syrupusdc
+category: yield_bearing
+short_description: |
+  syrupUSDC is Maple Finance's yield-bearing USDC receipt token issued through the Syrup permissionless lending platform. Users deposit USDC and receive syrupUSDC, which accrues value over time as the underlying pool earns yield from fixed-rate, overcollateralised institutional loans. It had over $1B circulating supply in 2026.
+long_description: |
+  syrupUSDC is issued by [Maple Finance](https://maple.finance/) through its permissionless [Syrup](https://syrup.fi/) platform, which brings Maple's institutional credit market to DeFi users without KYC requirements.
+
+  When users deposit USDC into the Syrup pool they receive syrupUSDC at the current exchange rate. The token's price appreciates continuously as the pool earns income from fixed-rate, overcollateralised loans made to institutional borrowers. The portfolio blends Maple's High Yield Secured and Blue Chip Secured lending strategies, targeting 6–10% APY depending on borrower demand.
+
+  The contract operates as an ERC-4626 vault and redemptions execute at the smart contract exchange rate with no slippage. Near-instant withdrawals are available through a dynamic liquidity buffer introduced in April 2025. syrupUSDC is deployed on Ethereum, Base, and Arbitrum, and is integrated into major DeFi protocols including Aave, Fluid, and Sky.
+
+  Maple Finance has originated over $20B in total loans and reached $4.6B+ in AUM by end of 2025, with zero losses to date across its lending pools. syrupUSDC is tracked on [CoinGecko](https://www.coingecko.com/en/coins/syrup-usdc) and [DeFiLlama](https://defillama.com/rwa/asset/syrupusdc).
+links:
+  homepage: https://syrup.fi/
+  coingecko: https://www.coingecko.com/en/coins/syrup-usdc
+  defillama: https://defillama.com/rwa/asset/syrupusdc
+  twitter: https://x.com/syrupfi
+contract_addresses:
+  - chain: ethereum
+    address: "0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b"
+  - chain: base
+    address: "0x660975730059246A68521a3e2FBD4740173100f5"
+  - chain: arbitrum
+    address: "0x41CA7586cC1311807B4605fBB748a3B8862b42b5"
+checks:
+  twitter_last_post_at: ""
+  domain_up_at: ""
+  marked_dead_at: ""
+  information_found_missing_at: ""

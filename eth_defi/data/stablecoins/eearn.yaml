@@ -1,0 +1,52 @@
+symbol: eEARN
+name: Ember Earn
+slug: eearn
+category: wrapped
+short_description: |
+  eEARN is the ERC-4626 vault-share token issued by Ember Protocol for its Earn Vault,
+  which accepts USDC deposits and runs opportunistic stablecoin yield strategies.
+  The token appreciates against USDC as the vault accumulates yield from lending spreads,
+  disciplined looping across blue-chip protocols, and delta-neutral funding-rate captures.
+long_description: |
+  eEARN is the receipt (share) token of the [Ember Protocol](https://ember.so/) Earn Vault on
+  Ethereum. Ember Protocol is a unified vault platform that tokenises yield and fund strategies
+  across DeFi, CeFi, and Web2, incubated by Upshift Fi and Bluefin.
+
+  ## Mechanism
+
+  When a user deposits USDC into the Earn Vault, they receive eEARN shares at the current
+  exchange rate, which starts at 1:1 and rises continuously as the vault generates yield.
+  The vault is managed by Ember curators who allocate pooled USDC across multiple
+  opportunistic stablecoin yield sources:
+
+  - **Lending-rate spreads** — supplying USDC to blue-chip money markets (Aave, Compound, etc.)
+  - **Disciplined looping** — leveraged lending loops to amplify stable-asset APY
+  - **Delta-neutral funding capture** — basis and funding-rate trades on perp DEXes
+
+  eEARN holders do not receive rebasing distributions; instead the vault's exchange rate
+  appreciates, meaning 1 eEARN redeems for progressively more USDC over time.
+
+  ## Relationship to Royco tranches
+
+  eEARN is also the denomination token for Royco-protocol tranche vaults
+  (ROY-ST-eEARN / ROY-JT-eEARN) on Ethereum, which wrap eEARN shares into senior/junior
+  tranches that redistribute yield and risk between depositor cohorts.
+
+  ## Sources
+
+  - [Ember Protocol app](https://ember.so/earn)
+  - [Ember Protocol documentation](https://learn.ember.so/ember-protocol/core-concepts)
+  - [Ember Protocol on Pendle](https://x.com/EmberProtocol/status/2044060134255534389)
+links:
+  homepage: https://ember.so/
+  coingecko: ''
+  defillama: https://defillama.com/protocol/ember-protocol
+  twitter: https://x.com/EmberProtocol
+contract_addresses:
+  - chain: ethereum
+    address: '0x9be9294722f8AAd37b11a9792Be2C782182caFA2'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

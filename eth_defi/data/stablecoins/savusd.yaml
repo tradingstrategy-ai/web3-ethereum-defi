@@ -1,0 +1,50 @@
+symbol: savUSD
+name: Avant Staked USD
+slug: savusd
+category: yield_bearing
+short_description: |
+  savUSD is the yield-bearing staked form of avUSD, issued by Avant Protocol on Avalanche.
+  Users stake avUSD to receive savUSD, which appreciates in value as the protocol's
+  delta-neutral DeFi strategies generate yield. savUSD represents a senior, lower-risk
+  position protected by the junior avUSDx tranche.
+long_description: |
+  savUSD is issued by [Avant Protocol](https://www.avantprotocol.com/), a yield-generating
+  DeFi platform built natively on [Avalanche](https://avax.network/). To acquire savUSD,
+  users stake [avUSD](https://www.coingecko.com/en/coins/avant-usd) — Avant's USDC-backed
+  stablecoin — on the protocol's native Avalanche deployment.
+
+  ## Mechanism
+
+  - savUSD accrues value through exchange-rate appreciation: as the protocol's strategies
+    generate returns, the savUSD/avUSD exchange rate continuously increases
+  - Yield comes from delta-neutral strategies managed by on-chain asset manager 0xPartners,
+    deployed across multiple trading partners to reduce single-strategy concentration risk
+  - savUSD sits at the top of the capital stack; losses are absorbed first by the junior
+    avUSDx tranche before savUSD holders are affected
+  - Redemption requires a 1-day cooldown; no yield accrues during this period
+  - savUSD is available natively on Avalanche and bridged to Ethereum, Linea, Arbitrum,
+    Berachain and Plasma via Chainlink CCIP
+
+  ## Sources
+
+  - [Avant Protocol documentation — core tokens](https://docs.avantprotocol.com/overview/core-tokens)
+  - [CoinGecko: Avant Staked USD](https://www.coingecko.com/en/coins/avant-staked-usd)
+links:
+  homepage: https://www.avantprotocol.com/
+  coingecko: https://www.coingecko.com/en/coins/avant-staked-usd
+  defillama: ''
+  twitter: https://x.com/avantprotocol
+contract_addresses:
+  - chain: avalanche
+    address: '0x06d47F3fb376649c3A9Dafe069B3D6E35572219E'
+  - chain: ethereum
+    address: '0xb8D89678E75a973E74698c976716308abB8a46A4'
+  - chain: arbitrum
+    address: '0xA322e23a357cB7C596A7a834102B9d6d5b15da3e'
+  - chain: linea
+    address: '0x5C247948fD58Bb02B6c4678d9940F5e6B9af1127'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

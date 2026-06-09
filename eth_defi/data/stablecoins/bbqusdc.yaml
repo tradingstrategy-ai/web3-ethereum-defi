@@ -1,0 +1,40 @@
+symbol: bbqUSDC
+name: Smokehouse USDC
+slug: bbqusdc
+category: wrapped
+short_description: |
+  bbqUSDC is a MetaMorpho ERC-4626 vault receipt token issued by Steakhouse Financial on Ethereum. Depositors provide USDC and the vault automatically allocates across a wide range of Morpho Blue collateral markets to optimise yield.
+long_description: |
+  bbqUSDC (Smokehouse USDC) is a [MetaMorpho](https://morpho.org/) vault share token deployed and curated by [Steakhouse Financial](https://www.steakhouse.financial) on Ethereum mainnet. The token represents a proportional claim on USDC deposited into the vault.
+
+  ## Mechanism
+
+  The vault is built on [Morpho Blue](https://morpho.org/), a permissionless lending primitive. Steakhouse Financial, acting as curator, actively allocates the pooled USDC across multiple Morpho Blue lending markets — each backed by different collateral types — to capture the highest risk-adjusted yield available at any given time. Allocation decisions are made by the curator's automated allocator contracts and its on-chain risk framework.
+
+  The "Smokehouse" branding reflects Steakhouse Financial's vault product line. The vanity address prefix `0xBEeFFF…` is consistent with the Steakhouse/Morpho vault deployment style.
+
+  ## Key properties
+
+  - ERC-4626 compliant receipt token; value appreciates as interest accrues
+  - Underlying asset: USDC (USD Coin by Circle)
+  - Curated by Steakhouse Financial on Morpho Blue
+  - Auto-compounding: no manual claim required
+  - Deployed on Ethereum mainnet
+
+  ## Sources
+
+  - [Morpho vault page](https://app.morpho.org/vault?vault=0xBEeFFF209270748ddd194831b3fa287a5386f5bC&network=mainnet)
+  - [Steakhouse Financial](https://www.steakhouse.financial)
+links:
+  homepage: https://www.steakhouse.financial
+  coingecko: ''
+  defillama: https://defillama.com/protocol/steakhouse-financial
+  twitter: https://x.com/SteakhouseFi
+contract_addresses:
+  - chain: ethereum
+    address: '0xBEeFFF209270748ddd194831b3fa287a5386f5bC'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''
