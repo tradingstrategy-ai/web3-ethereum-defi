@@ -9129,6 +9129,19 @@ pure-eval = "*"
 tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
+name = "standard-imghdr"
+version = "3.13.0"
+description = "Standard library imghdr redistribution. \"dead battery\"."
+optional = true
+python-versions = "*"
+groups = ["main"]
+markers = "python_version >= \"3.13\" and extra == \"docs\""
+files = [
+    {file = "standard_imghdr-3.13.0-py3-none-any.whl", hash = "sha256:30a1bff5465605bb496f842a6ac3cc1f2131bf3025b0da28d4877d6d4b7cc8e9"},
+    {file = "standard_imghdr-3.13.0.tar.gz", hash = "sha256:8d9c68058d882f6fc3542a8d39ef9ff94d2187dc90bd0c851e0902776b7b7a42"},
+]
+
+[[package]]
 name = "strenum"
 version = "0.4.15"
 description = "An Enum that inherits from str."
@@ -10157,7 +10170,7 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 ccxt = ["ccxt"]
 cloudflare-r2 = ["boto3", "brotli"]
 data = ["ffn", "gql", "jupyter", "kaleido", "matplotlib", "numpy", "plotly", "pyarrow", "tenacity", "tqdm"]
-docs = ["Sphinx", "furo", "nbsphinx", "sphinx-autodoc-typehints", "sphinx-rtd-theme", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-sitemap", "zope-dottedname"]
+docs = ["Sphinx", "furo", "nbsphinx", "sphinx-autodoc-typehints", "sphinx-rtd-theme", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-sitemap", "standard-imghdr", "zope-dottedname"]
 duckdb = ["duckdb"]
 gsheets = ["gspread"]
 hyperliquid-backfill = ["boto3", "duckdb", "lz4"]
@@ -10168,4 +10181,4 @@ test = ["pytest-xdist"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "11682ada096527545723717ceea0ecb29f54f674e0c235abe2270151358e4f0f"
+content-hash = "23da9d75b205a2aaf8fb96f673296695720a5309c81dff40f2a10b239b7e407e"

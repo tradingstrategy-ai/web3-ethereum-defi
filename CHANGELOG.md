@@ -1,5 +1,7 @@
 # Current
 
+- fix: Restore Sphinx docs build on Python 3.13/3.14 by adding the `standard-imghdr` backport, since stdlib `imghdr` (imported by Sphinx 4.x) was removed in Python 3.13 (2026-06-09)
+
 - feat: Add curator short and long descriptions to feeder metadata, curator exports, and all current curator YAML files (2026-06-09)
 
 - feat: Save full X/Twitter note tweets — request the `note_tweet` API field so tweets longer than 280 characters are stored and exported in full instead of truncated, and surface `full_text` alongside the 200-char `snippet` in the vault JSON bundle (2026-06-09)
