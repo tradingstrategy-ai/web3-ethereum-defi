@@ -881,6 +881,106 @@ WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES = {
 }
 
 
+#: Chain id of Hyperliquid HyperEVM.
+#:
+#: Used to gate the goldsky eRPC consensus failover special case in the multicall
+#: retry loop. See :py:func:`resolve_hyperevm_consensus_failover` and the full
+#: write-up in ``docs/README-hyperevm-goldsky-failure.md``.
+HYPEREVM_CHAIN_ID: Final[int] = 999
+
+
+#: Marker string eRPC returns when its upstream nodes disagree in consensus mode.
+#:
+#: This is goldsky's eRPC ``-32603`` "not enough agreement among responses" error.
+#: It is *not* a transient per-request glitch — on HyperEVM the upstream node pool
+#: intermittently disagrees on `eth_call` results (live HyperCore oracle reads, and
+#: revert serialisation past the ~128-block execution window), so retrying the same
+#: consensus endpoint cannot resolve it. See ``docs/README-hyperevm-goldsky-failure.md``.
+ERPC_CONSENSUS_DISAGREEMENT_CLUE: Final[str] = "not enough agreement among responses"
+
+
+def resolve_hyperevm_consensus_failover(
+    chain_id: int,
+    provider: Any,
+    exception: Exception,
+) -> str | None:
+    """Decide whether a failed HyperEVM multicall should fail over to a single node.
+
+    On HyperEVM (chain 999) the scan's primary provider is goldsky's eRPC endpoint
+    running in *consensus mode*: it fans each ``eth_call`` to several upstream nodes
+    and only returns a result when enough of them agree byte-for-byte. For some
+    vaults the upstreams intermittently disagree and eRPC returns
+    :py:data:`ERPC_CONSENSUS_DISAGREEMENT_CLUE`. Retrying or randomly cycling back
+    onto the same consensus endpoint is futile; a single (non-consensus) node such
+    as Alchemy returns a usable answer immediately.
+
+    This helper detects that exact situation — HyperEVM chain id, a consensus
+    disagreement error, and a provider mix that contains *both* a goldsky and an
+    Alchemy endpoint — and returns the provider host substring to pin retries to.
+
+    See ``docs/README-hyperevm-goldsky-failure.md`` for the full failure analysis,
+    the nodes involved, and the on-chain evidence.
+
+    :param chain_id:
+        Chain id of the multicall being retried.
+
+    :param provider:
+        The active web3 provider. Only :py:class:`FallbackProvider` mixes are
+        eligible (we need an alternative single node to fail over to).
+
+    :param exception:
+        The :py:class:`MulticallRetryable` (or its cause) raised by the failed call.
+
+    :return:
+        Lower-case provider host substring (``"alchemy"``) to pin retries to, or
+        ``None`` if this is not the HyperEVM goldsky consensus failure mode.
+    """
+    if chain_id != HYPEREVM_CHAIN_ID:
+        return None
+
+    if not isinstance(provider, FallbackProvider):
+        return None
+
+    if ERPC_CONSENSUS_DISAGREEMENT_CLUE not in str(exception).lower():
+        return None
+
+    # Only fail over when the mix actually contains the two relevant providers:
+    # goldsky (the consensus endpoint that fails) and Alchemy (the single node we
+    # pin to). If the mix is different, fall back to the normal random switch.
+    names = [get_provider_name(p).lower() for p in provider.providers]
+    has_goldsky = any("goldsky" in n for n in names)
+    has_alchemy = any("alchemy" in n for n in names)
+    if has_goldsky and has_alchemy:
+        return "alchemy"
+
+    return None
+
+
+def pin_fallback_provider_by_host(fallback_provider: FallbackProvider, host_substring: str) -> bool:
+    """Pin a :py:class:`FallbackProvider` to the provider whose host matches a substring.
+
+    Unlike :py:meth:`FallbackProvider.switch_provider` (which cycles or randomises),
+    this deterministically selects a specific upstream — used to force HyperEVM
+    multicall retries onto the Alchemy single node, bypassing goldsky's eRPC
+    consensus endpoint. See ``docs/README-hyperevm-goldsky-failure.md``.
+
+    :param fallback_provider:
+        The fallback provider to repoint.
+
+    :param host_substring:
+        Lower-case substring matched against :py:func:`get_provider_name` output.
+
+    :return:
+        ``True`` if a matching provider was found and selected, ``False`` otherwise.
+    """
+    host_substring = host_substring.lower()
+    for idx, candidate in enumerate(fallback_provider.providers):
+        if host_substring in get_provider_name(candidate).lower():
+            fallback_provider.currently_active_provider = idx
+            return True
+    return False
+
+
 class MultiprocessMulticallReader:
     """An instance created in a subprocess to do calls.
 

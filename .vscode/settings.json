@@ -17,9 +17,20 @@
     "**/.git": true,
     "**/docs/build": true
   },
-  "python.analysis.exclude": ["**/.venv"],
-  "python.analysis.include": ["**/eth_defi", "**/tests", "**scripts"],
+  "python.analysis.exclude": [
+    "**/.venv",
+    "**/.claude/worktrees",
+    "**/node_modules",
+    "**/contracts",
+    "**/docs/build"
+  ],
+  "python.analysis.include": ["eth_defi", "tests", "scripts"],
   "python.analysis.diagnosticMode": "workspace",
+  "files.watcherExclude": {
+    "**/.claude/worktrees/**": true,
+    "**/.venv/**": true,
+    "**/node_modules/**": true
+  },
   "[markdown]": {
     "editor.defaultFormatter": null,
     "editor.formatOnSave": false
