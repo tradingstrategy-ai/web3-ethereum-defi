@@ -45,6 +45,8 @@ _MAPPING_SCHEMA = Map(
         "role": Str(),
         Optional("canonical-feeder-id"): Str(),
         Optional("website"): Str(),
+        Optional("short_description"): Str(),
+        Optional("long_description"): Str(),
         Optional("twitter"): Str(),
         Optional("linkedin"): Str(),
         Optional("linkedin-rss-hub-disabled-at"): Str(),
@@ -229,6 +231,13 @@ def _normalise_mapping_metadata(parsed: dict, mapping_file: Path) -> None:
     other_links = _normalise_other_links(parsed.get("other-links"), mapping_file)
     if other_links is not None:
         parsed["other-links"] = other_links
+
+    for key in ("short_description", "long_description"):
+        value = parsed.get(key)
+        if value is not None:
+            if not isinstance(value, str):
+                raise ValueError(f"{key} must be a string in {mapping_file}")
+            parsed[key] = value.strip() or None
 
 
 def _normalise_twitter_source(handle: str, mapping_file: Path) -> tuple[str, str]:
@@ -686,7 +695,7 @@ def load_feeder_metadata(yaml_path: Path) -> dict:
     filename stem to catch slug/filename mismatches.
 
     This function provides a public API for modules that need feeder
-    metadata (slug, name, website, twitter, linkedin, rss) without
+    metadata (slug, name, descriptions, website, twitter, linkedin, rss) without
     pulling in the full feed-collection machinery of
     :py:func:`load_post_sources`.
 
@@ -695,7 +704,8 @@ def load_feeder_metadata(yaml_path: Path) -> dict:
 
     :return:
         Dict with keys: ``feeder-id``, ``name``, ``role``, ``website``,
-        ``twitter``, ``linkedin``, ``rss``, etc.
+        ``short_description``, ``long_description``, ``twitter``,
+        ``linkedin``, ``rss``, etc.
     """
     parsed = load(yaml_path.read_text(), _MAPPING_SCHEMA).data
     feeder_id = _validate_slug(parsed.get("feeder-id"), "feeder-id", yaml_path)

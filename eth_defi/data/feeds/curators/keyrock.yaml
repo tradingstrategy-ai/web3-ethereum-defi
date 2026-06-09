@@ -2,6 +2,9 @@ feeder-id: keyrock
 name: Keyrock
 role: curator
 website: https://keyrock.com
+short_description: 'Keyrock is a digital asset market maker and investment firm building financial services for tokenised markets.'
+long_description: |
+  Keyrock says it builds digital asset financial services across markets, asset management, and ecosystem solutions. Its homepage describes market making, OTC trading, options, onchain liquidity, validator services, and quant-led investment strategies across centralised and decentralised venues.
 twitter: keyrock
 linkedin: keyrock
 

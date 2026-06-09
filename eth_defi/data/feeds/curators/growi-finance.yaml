@@ -2,5 +2,10 @@ feeder-id: growi-finance
 name: Growi Finance
 role: curator
 website: https://growi.fi
+short_description: Growi.fi develops quantitative DeFi investment products designed to be accessible to a broad user base.
+long_description: |
+  Growi.fi builds decentralised finance products that aim to make quantitative investment strategies easier to access.
+  Its Growi.HF documentation describes an expert-driven protocol for bringing hedge fund-style quant strategies to DeFi through automated, transparent vault operations.
+  The product uses Hyperliquid infrastructure and quantitative models to trade futures contracts while showing allocations and activity on-chain.
 twitter: GrowiFinance
 linkedin: growi-fi

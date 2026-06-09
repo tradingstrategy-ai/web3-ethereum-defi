@@ -2,5 +2,8 @@ feeder-id: tesseract
 name: Tesseract
 role: curator
 website: https://tesseract.fi
+short_description: 'Tesseract is a Finnish institutional digital asset yield firm offering regulated vaults and lending.'
+long_description: |
+  Tesseract presents itself as an institutional digital asset yield provider with products for discretionary on-chain portfolio management and institutional counterparty lending. Its homepage says Tesseract Investment Oy is MiCA-authorised as a crypto-asset service provider and supervised by the Finnish Financial Supervisory Authority. LinkedIn describes its vaults as dedicated client vaults operated within its MiCA CASP authorisation and its lending product as CeFi lending to institutional counterparties.
 twitter: tesseractcrypto
 linkedin: tesseractinvestment

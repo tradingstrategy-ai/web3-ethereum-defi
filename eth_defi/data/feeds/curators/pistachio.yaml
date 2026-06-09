@@ -2,3 +2,6 @@ feeder-id: pistachio
 name: Pistachio
 role: curator
 website: https://www.pistachio.fi
+short_description: 'Pistachio Fi is a mobile self-custodial DeFi app for earning yield from curated vaults and tokenised bond products.'
+long_description: |
+  Pistachio Fi presents itself as a mobile app for passive income through curated low-risk vaults and multinational sovereign bonds. Its homepage highlights self-custody, device-level key security, recovery, gasless use, Apple Pay and Google Pay ramping, and simplified access to DeFi yield.

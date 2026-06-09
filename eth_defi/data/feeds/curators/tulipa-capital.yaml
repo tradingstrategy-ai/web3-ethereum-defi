@@ -2,6 +2,9 @@ feeder-id: tulipa-capital
 name: Tulipa Capital
 role: curator
 website: https://tulipa.capital
+short_description: 'Tulipa Capital is a DeFi prop fund and risk curator focused on asset management and capital protection.'
+long_description: |
+  Tulipa Capital describes itself as a DeFi risk curator for the long term. Its homepage says the team has been active in DeFi since 2019, began as a prop fund running delta-neutral strategies, and later built a public curation arm for lending markets and vaults. Its stated approach prioritises risk assessment, transparent feedback, accountability and capital protection over chasing yield.
 twitter: tulipacapital
 linkedin: tulipa-capital
 linkedin-rss-hub-disabled-at: 2026-04-04

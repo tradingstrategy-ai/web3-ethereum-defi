@@ -33,9 +33,10 @@ def test_build_curators_for_export_with_feed(tmp_path: Path):
         )
         sid = db.upsert_tracked_source(source)
 
-        base_time = datetime.datetime(2026, 6, 1, 12, 0, 0)
+        base_time = datetime.datetime(2026, 6, 1, 12, 0, 0)  # noqa: DTZ001
+        post_count = 5
         posts = []
-        for i in range(5):
+        for i in range(post_count):
             posts.append(
                 CollectedPost(
                     external_post_id=f"gauntlet-post-{i}",
@@ -60,12 +61,14 @@ def test_build_curators_for_export_with_feed(tmp_path: Path):
     assert rec["slug"] == "gauntlet"
     assert rec["name"] == "Gauntlet"
     assert rec["website"] == "https://www.gauntlet.xyz"
+    assert rec["short_description"].startswith("Gauntlet provides")
+    assert "risk management" in rec["long_description"]
     assert rec["twitter"] == "https://x.com/gauntlet_xyz"
     assert rec["protocol_curator"] is False
     assert rec["canonical_feeder_id"] is None
 
     # 5. Assert recent_posts
-    assert len(rec["recent_posts"]) == 5
+    assert len(rec["recent_posts"]) == post_count
     post = rec["recent_posts"][0]
     assert post["source_type"] == "twitter"
     assert post["link"].startswith("https://x.com/gauntlet_xyz/status/")
@@ -113,6 +116,8 @@ def test_build_curators_for_export_protocol_curator_with_protocol_yaml():
     # 3. Assert metadata from protocol YAML
     assert rec["name"] == "Hyperliquid"
     assert rec["website"] == "https://hyperliquid.xyz"
+    assert rec["short_description"] is None
+    assert rec["long_description"] is None
     assert rec["twitter"] == "https://x.com/HyperliquidX"
     assert rec["linkedin"] == "https://www.linkedin.com/company/hyperliquid"
 
@@ -143,9 +148,10 @@ def test_build_curators_for_export_canonical_feeder(tmp_path: Path):
         )
         sid = db.upsert_tracked_source(source)
 
-        base_time = datetime.datetime(2026, 6, 1, 12, 0, 0)
+        base_time = datetime.datetime(2026, 6, 1, 12, 0, 0)  # noqa: DTZ001
+        post_count = 3
         posts = []
-        for i in range(3):
+        for i in range(post_count):
             posts.append(
                 CollectedPost(
                     external_post_id=f"usde-post-{i}",
@@ -170,5 +176,5 @@ def test_build_curators_for_export_canonical_feeder(tmp_path: Path):
     assert rec["canonical_feeder_id"] == "usde"
 
     # 4. Assert recent_posts come from usde feeder
-    assert len(rec["recent_posts"]) == 3
+    assert len(rec["recent_posts"]) == post_count
     assert rec["recent_posts"][0]["snippet"].startswith("USDe news")

@@ -2,4 +2,7 @@
 feeder-id: spark
 name: Spark
 role: curator
+short_description: 'Spark is an on-chain asset allocator and DeFi yield engine powered by Sky, SparkLend, savings, and liquidity deployments.'
+long_description: |
+  Spark describes itself as an on-chain asset allocator deploying capital across DeFi, CeFi, and real-world assets. Its homepage highlights institutional-grade savings, SparkLend borrowing markets, the Spark Liquidity Layer, transparent on-chain deployments, governance through SPK, and integrations that help grow other protocols.
 canonical-feeder-id: spark

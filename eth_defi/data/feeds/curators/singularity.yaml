@@ -2,4 +2,7 @@ feeder-id: singularity
 name: Singularity Finance
 role: curator
 website: https://singularityfinance.ai
+short_description: 'Singularity Finance is AI-economy on-chain infrastructure for AI-driven finance, trading agents, and tokenised assets.'
+long_description: |
+  Singularity Finance presents itself as on-chain infrastructure powering the AI economy. Its homepage describes an AI-centric DeFi platform with agent discovery, autonomous non-custodial trading agents, AI portfolio tools, yield vaults, and real-world asset frameworks connected to the ASI Chain ecosystem.
 twitter: Singularity_fi

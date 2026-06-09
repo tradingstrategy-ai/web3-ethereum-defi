@@ -2,5 +2,8 @@ feeder-id: turtle
 name: Turtle
 role: curator
 website: https://www.turtle.xyz
+short_description: 'Turtle is a liquidity distribution protocol for Web3 deals, yield opportunities and incentive programmes.'
+long_description: |
+  Turtle describes itself as a liquidity distribution protocol that helps users unlock boosted rewards across Web3. Its homepage focuses on institutional liquidity, dealflow and diligence, connecting partner protocols, liquidity providers and distribution partners. Turtle says protocols can submit opportunities and track TVL, while liquidity providers can deposit into partner protocols to earn native yield and rewards.
 twitter: turtledotxyz
 linkedin: turtlexyz

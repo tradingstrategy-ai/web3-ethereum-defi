@@ -1,3 +1,6 @@
 feeder-id: tanken
 name: Tanken
 role: curator
+short_description: 'Tanken Capital is a DeFi research, risk management and investment team involved in vault curation.'
+long_description: |
+  Tanken Capital is described by Napier Finance as a professional team specialising in DeFi research, risk management and investment. DefiLlama lists Tanken Capital under risk curators, with on-chain vaults that allocate assets across multiple DeFi protocols using data and allocation frameworks. Because no official homepage was found, this description relies on protocol and data aggregator sources.

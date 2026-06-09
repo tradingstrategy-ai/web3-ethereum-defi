@@ -2,5 +2,10 @@ feeder-id: gami
 name: Gami
 role: curator
 website: https://gamilabs.io
+short_description: Gami provides institutional-grade DeFi vaults with on-chain curation and dynamic risk management.
+long_description: |
+  Gami Labs offers DeFi vaults designed to give users access to professionally curated on-chain yield strategies.
+  Its site describes a restricted set of vetted protocols across lending markets, liquidity engines and structured yield markets, with vaults that are dynamically rebalanced.
+  Gami also emphasises institutional infrastructure, multisig and HSM security, active risk management and governance-driven strategy support.
 twitter: GamiLabs
 # linkedin: not found

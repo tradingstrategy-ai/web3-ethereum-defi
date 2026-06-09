@@ -2,6 +2,9 @@ feeder-id: felix
 name: Felix
 role: curator
 website: https://www.usefelix.xyz/
+short_description: 'Felix is a Hyperliquid-native CDP protocol for borrowing and earning with the feUSD stablecoin.'
+long_description: |
+  Felix is described in ecosystem profiles as a Hyperliquid-native collateralised debt position protocol. It centres on feUSD, a stablecoin that users can borrow against crypto collateral such as BTC, ETH and HYPE. Public descriptions say Felix is based on a licensed Liquity V2 design and is aimed at saving, borrowing and yield use cases on Hyperliquid.
 twitter: felixprotocol
 
 # Evidence and background references.

@@ -2,6 +2,9 @@ feeder-id: block-analitica
 name: Block Analitica
 role: curator
 website: https://blockanalitica.com
+short_description: 'Block Analitica provides DeFi lending risk intelligence, dashboards, modelling, and advisory.'
+long_description: |
+  Block Analitica describes itself as a risk intelligence provider for DeFi lending protocols. Its homepage says it builds custom dashboards, tooling, monitoring, advisory, stress tests, and simulations, and notes support for the Sky ecosystem and other DeFi protocols since 2019.
 twitter: BlockAnalitica
 linkedin: block-analitica
 rss: https://medium.com/feed/block-analitica

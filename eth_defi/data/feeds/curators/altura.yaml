@@ -10,4 +10,7 @@
 feeder-id: altura
 name: Altura
 role: curator
+short_description: 'Altura is a HyperEVM multi-strategy yield protocol for passive USDT0 yield.'
+long_description: |
+  Altura describes itself as a yield engine that turns USDT0 into diversified, sustainable yield through a single multi-strategy vault on HyperEVM. Its homepage says the vault automatically allocates across funding and basis arbitrage, market making, liquidity provision, and RWA strategies while reflecting yield through on-chain price-per-share growth.
 canonical-feeder-id: altura

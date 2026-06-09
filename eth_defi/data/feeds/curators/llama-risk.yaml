@@ -2,6 +2,9 @@ feeder-id: llama-risk
 name: LlamaRisk
 role: curator
 website: https://llamarisk.com
+short_description: 'LlamaRisk provides DeFi risk intelligence, advisory, and automated risk infrastructure for protocols.'
+long_description: |
+  LlamaRisk presents itself as a DeFi risk organisation scaling financial infrastructure with actionable risk intelligence. Its homepage describes advisory work, liquidity and oracle risk analysis, stress simulations, legal and regulatory analysis, and the LlamaGuard infrastructure suite.
 twitter: LlamaRisk
 linkedin: llamarisk
 rss: https://llamarisk.substack.com/feed

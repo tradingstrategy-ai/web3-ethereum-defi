@@ -2,6 +2,9 @@ feeder-id: pangolins
 name: Pangolins
 role: curator
 website: https://pangolins.io
+short_description: 'Pangolins is a DeFi risk-management project researching protocols, strategies, and automated risk controls.'
+long_description: |
+  Pangolins describes its focus as DeFi risk management for safer participation in decentralised finance. Its public Morpho forum profile says it researches protocols, designs strategies, and implements automated risk controls without taking custody of user funds.
 twitter: PangolinsVault
 
 # Evidence and background references.

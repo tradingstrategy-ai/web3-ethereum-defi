@@ -2,5 +2,8 @@ feeder-id: fija
 name: Fija
 role: curator
 website: https://fija.finance
+short_description: 'fija Finance offers compliant, curated DeFi yield strategies with automated risk scoring and on-chain transparency.'
+long_description: |
+  fija's homepage describes a platform for earning real yields on crypto through curated DeFi strategies. It presents the product as compliant, easy and transparent, with strategy safety scores, automated risk management and fully on-chain fund visibility. The site says users can select risk-assessed strategies and let automated tools optimise yield execution.
 twitter: fija_finance
 linkedin: fija-finance-gmbh

@@ -3,3 +3,8 @@ feeder-id: harvest
 name: Harvest Finance
 role: curator
 canonical-feeder-id: harvest-finance
+short_description: Harvest Finance is an automated DeFi yield farming platform for discovering and managing yield strategies.
+long_description: |
+  Harvest is a smart contract platform that optimises yield farming through automated strategies.
+  Its documentation describes aggregating yield opportunities from lending, staking and liquidity provision across DeFi so users do not need to move funds manually.
+  Harvest also provides strategy discovery and performance metrics for assets across multiple blockchain networks.

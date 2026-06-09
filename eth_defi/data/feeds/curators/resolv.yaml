@@ -2,4 +2,7 @@
 feeder-id: resolv
 name: Resolv
 role: curator
+short_description: 'Resolv is a DeFi protocol for stable returns through USR, RLP, and professionally operated yield vaults.'
+long_description: |
+  Resolv describes itself as the financial layer for stable returns, built around transparent dollar products backed by diversified crypto yield sources. Its product stack includes USR as a stable prime asset, RLP as a risk-bearing liquidity pool, and vaults that allocate collateral into strategies such as staking, futures, lending, and tokenised real-world assets.
 canonical-feeder-id: usr

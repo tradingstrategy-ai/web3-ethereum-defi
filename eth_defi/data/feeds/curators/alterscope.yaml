@@ -2,5 +2,8 @@ feeder-id: alterscope
 name: Alterscope
 role: curator
 website: https://www.alterscope.org
+short_description: 'Alterscope provides risk data for on-chain markets across Ethereum, Stellar, and DeFi yield opportunities.'
+long_description: |
+  Alterscope describes itself as a data-first risk platform for on-chain markets. Its homepage says it helps users understand market backing, liquidity, failure conditions, oracle health, dependencies, and governance changes, with data delivered through an app, API, SDKs, webhooks, and agent-focused endpoints.
 twitter: Alterscope
 linkedin: alterscope

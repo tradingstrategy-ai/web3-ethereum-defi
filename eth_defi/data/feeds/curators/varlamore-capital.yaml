@@ -2,5 +2,8 @@ feeder-id: varlamore-capital
 name: Varlamore Capital
 role: curator
 website: https://varlamore.capital
+short_description: 'Varlamore Capital is a DeFi liquidity allocator focused on risk-curated vault strategies.'
+long_description: |
+  Varlamore Capital describes itself as a DeFi liquidity allocator that provides optimised yield matched to user risk profiles. Its homepage frames its work around curation, risk stratification and dynamic liquidity allocation. It says it operates as a vault manager for DeFi lending protocols and currently offers vaults on Silo Finance.
 twitter: VarlamoreCap
 # linkedin: not found

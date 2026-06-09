@@ -2,5 +2,8 @@ feeder-id: mev-capital
 name: MEV Capital
 role: curator
 website: https://www.mevcapital.com
+short_description: 'MEV Capital is a DeFi investment and risk management firm focused on onchain liquidity and vault curation.'
+long_description: |
+  MEV Capital says it manages liquidity in DeFi through bespoke yield strategies, economic-security curation, and risk-parameter management in permissionless vaults. Its homepage describes digital asset funds, vault curation services, segregated managed accounts, and market-neutral yield strategies.
 twitter: MEVCapital
 linkedin: mev-capital

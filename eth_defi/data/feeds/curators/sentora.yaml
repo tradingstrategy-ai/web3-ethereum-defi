@@ -2,6 +2,9 @@ feeder-id: sentora
 name: Sentora
 role: curator
 website: https://sentora.com
+short_description: 'Sentora is an institutional DeFi platform for capital deployment, risk management, strategy design, and cover.'
+long_description: |
+  Sentora describes its platform as institutional-grade intelligence for deploying on-chain capital across DeFi. The homepage highlights strategy design, risk management, integrated cover, stablecoin adoption, risk curation, and tokenised equity yield as solutions for protocols and institutions.
 twitter: SentoraHQ
 linkedin: sentorahq
 rss: https://medium.com/feed/sentora

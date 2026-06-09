@@ -2,5 +2,8 @@ feeder-id: silentist
 name: Silentist
 role: curator
 website: https://www.silentist.xyz
+short_description: 'Silentist is a crypto trading algorithm developer and provider offering client-account algorithmic strategies.'
+long_description: |
+  Silentist describes itself as a professional crypto trading algorithm developer and provider. Its homepage presents algorithmic long-short and spot strategies that operate on clients' own accounts, with live records and integrations through venues such as Binance Copy Trading, Lighter, and GRVT.
 twitter: silentist_inc
 linkedin: silentist-inc

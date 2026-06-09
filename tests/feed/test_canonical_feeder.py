@@ -156,21 +156,24 @@ def test_real_yaml_files_load_without_errors():
 
 
 def test_other_links_metadata_loads(tmp_path: Path):
-    """Supporting feeder links are accepted and normalised.
+    """Supporting feeder metadata is accepted and normalised.
 
     1. Create a curator YAML with ``other-links`` evidence.
     2. Load the metadata through the shared feeder loader.
-    3. Assert the link title is preserved and the URL is normalised.
+    3. Assert descriptions are preserved.
+    4. Assert the link title is preserved and the URL is normalised.
     """
 
     yaml_path = tmp_path / "curators" / "flowdesk.yaml"
     _write_yaml(
         yaml_path,
-        "feeder-id: flowdesk\nname: Flowdesk\nrole: curator\ntwitter: flowdesk_co\nother-links:\n  - title: Morpho forum evidence\n    url: https://forum.morpho.org/t/announcing-flowdesk-ausd-rwa-strategy/2213\n",
+        "feeder-id: flowdesk\nname: Flowdesk\nrole: curator\nshort_description: Flowdesk is an institutional market maker.\nlong_description: |\n  Flowdesk provides market making and liquidity services.\ntwitter: flowdesk_co\nother-links:\n  - title: Morpho forum evidence\n    url: https://forum.morpho.org/t/announcing-flowdesk-ausd-rwa-strategy/2213\n",
     )
 
     metadata = load_feeder_metadata(yaml_path)
 
+    assert metadata["short_description"] == "Flowdesk is an institutional market maker."
+    assert metadata["long_description"] == "Flowdesk provides market making and liquidity services."
     assert metadata["other-links"] == [
         {
             "title": "Morpho forum evidence",
@@ -180,29 +183,32 @@ def test_other_links_metadata_loads(tmp_path: Path):
 
 
 def test_metadata_inheritance_in_curator_export(tmp_path: Path):
-    """Curator metadata export inherits fields from canonical stablecoin feeder.
+    """Curator metadata export inherits source fields from canonical stablecoin feeder.
 
     1. Create stablecoins/usde.yaml with website, twitter, linkedin.
-    2. Create curators/ethena.yaml as alias pointing to usde.
+    2. Create curators/ethena.yaml as alias pointing to usde, with curator descriptions.
     3. Call build_curator_metadata_json().
     4. Assert website, twitter, linkedin are inherited (not None).
-    5. Create a second alias whose canonical has no linkedin — assert linkedin is None.
+    5. Assert descriptions come from the curator alias YAML.
+    6. Create a second alias whose canonical has no linkedin — assert linkedin is None.
     """
 
     # Full metadata canonical
     _write_yaml(
         tmp_path / "stablecoins" / "usde.yaml",
-        "feeder-id: usde\nname: Ethena USDe\nrole: stablecoin\nwebsite: https://ethena.fi/\ntwitter: ethena\nlinkedin: ethena-labs\n",
+        "feeder-id: usde\nname: Ethena USDe\nrole: stablecoin\nwebsite: https://ethena.fi/\nshort_description: USDe is a synthetic dollar.\nlong_description: |\n  USDe is a stablecoin product.\ntwitter: ethena\nlinkedin: ethena-labs\n",
     )
     _write_yaml(
         tmp_path / "curators" / "ethena.yaml",
-        "feeder-id: ethena\nname: Ethena\nrole: curator\ncanonical-feeder-id: usde\n",
+        "feeder-id: ethena\nname: Ethena\nrole: curator\ncanonical-feeder-id: usde\nshort_description: Ethena is a synthetic dollar protocol team.\nlong_description: |\n  Ethena operates the protocol behind USDe and related products.\n",
     )
 
     metadata = curator_module.build_curator_metadata_json(tmp_path / "curators" / "ethena.yaml")
     assert metadata["slug"] == "ethena"
     assert metadata["name"] == "Ethena"
     assert metadata["website"] == "https://ethena.fi/"
+    assert metadata["short_description"] == "Ethena is a synthetic dollar protocol team."
+    assert metadata["long_description"] == "Ethena operates the protocol behind USDe and related products."
     assert metadata["twitter"] == "https://x.com/ethena"
     assert metadata["linkedin"] == "https://www.linkedin.com/company/ethena-labs"
     assert metadata["logos"] == {"generic": None, "dark": None, "light": None}
@@ -234,7 +240,7 @@ def test_curator_metadata_export_includes_logo_urls(tmp_path: Path, monkeypatch:
 
     _write_yaml(
         tmp_path / "curators" / "gauntlet.yaml",
-        "feeder-id: gauntlet\nname: Gauntlet\nrole: curator\ntwitter: gauntlet_xyz\n",
+        "feeder-id: gauntlet\nname: Gauntlet\nrole: curator\nshort_description: Gauntlet is a DeFi risk manager.\nlong_description: |\n  Gauntlet builds risk management systems.\ntwitter: gauntlet_xyz\n",
     )
     logo_dir = tmp_path / "logos" / "gauntlet"
     logo_dir.mkdir(parents=True)
@@ -252,6 +258,8 @@ def test_curator_metadata_export_includes_logo_urls(tmp_path: Path, monkeypatch:
         "dark": "https://pub.example/curator-metadata/gauntlet/dark.png",
         "light": None,
     }
+    assert metadata["short_description"] == "Gauntlet is a DeFi risk manager."
+    assert metadata["long_description"] == "Gauntlet builds risk management systems."
 
 
 def test_curator_metadata_uploads_logo_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

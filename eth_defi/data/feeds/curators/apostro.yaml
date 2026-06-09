@@ -2,6 +2,9 @@ feeder-id: apostro
 name: Apostro
 role: curator
 website: https://apostro.xyz
+short_description: 'Apostro kickstarts and curates on-chain money markets using proprietary DeFi risk intelligence.'
+long_description: |
+  Apostro says it kickstarts and curates on-chain money markets with specific trading strategies in mind. Its homepage states that its markets hold more than $50M in TVL and that every product uses a proprietary risk intelligence engine analysing more than $45B in DeFi money markets.
 twitter: apostroxyz
 linkedin: apostro
 linkedin-rss-hub-disabled-at: 2026-04-04

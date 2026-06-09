@@ -2,5 +2,8 @@ feeder-id: pareto-technologies
 name: Pareto Technologies
 role: curator
 website: https://paretotechnologies.com
+short_description: 'Pareto Technologies is a digital asset investment, research, and technology firm using systematic crypto strategies.'
+long_description: |
+  Pareto Technologies describes itself as an investment, research, and technology firm operating in global digital asset markets. Its homepage says it uses multi-strategy systematic approaches, analytics, and risk management to seek alpha from fragmented and inefficient crypto markets.
 linkedin: pareto-technologies-llc
 # rss: https://paretotechnologies.beehiiv.com/feed.xml  # Beehiiv archive is active, but /feed and /feed.xml return HTML 404 pages as of 2026-05.

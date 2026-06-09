@@ -1,3 +1,6 @@
 feeder-id: tid-capital
 name: TiD Capital
 role: curator
+short_description: 'TID Capital is the research-driven farming and trading arm associated with Today in DeFi.'
+long_description: |
+  TID Capital is publicly described as the research-driven farming and trading arm of Today in DeFi. Its social profile says it publishes trade theses, position disclosures and information related to curated vaults. Today in DeFi describes itself as a DeFi alpha research team founded by Danger, a professional DeFi trader and farmer at TID Capital.

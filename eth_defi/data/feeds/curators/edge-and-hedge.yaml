@@ -1,5 +1,8 @@
 feeder-id: edge-and-hedge
 name: Edge & Hedge
 role: curator
+short_description: 'Edge & Hedge is a Hyperliquid vault running a quantitative delta-neutral long-short strategy.'
+long_description: |
+  Public vault listings describe Edge & Hedge as a Hyperliquid strategy using quantitative long and short positioning with roughly 3x leverage. The available description points to a delta-neutral approach and directs users to the operator's X account for updates. Because no official homepage or company profile was listed, the description is based on vault metadata and should be treated cautiously.
 twitter: blothecap
 # linkedin: not found

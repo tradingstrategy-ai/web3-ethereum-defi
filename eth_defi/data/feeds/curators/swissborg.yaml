@@ -2,6 +2,9 @@ feeder-id: swissborg
 name: SwissBorg
 role: curator
 website: https://swissborg.com
+short_description: 'SwissBorg is a Swiss crypto wealth app for buying, selling, earning, spending, and automating digital asset investing.'
+long_description: |
+  SwissBorg presents itself as a Switzerland-engineered crypto app for buying and selling crypto safely at low fees. Its homepage and LinkedIn profile describe a regulated wealth app with exchange aggregation, fiat gateways, Auto-Invest, trigger orders, crypto card spending, yield products, and the BORG loyalty token.
 twitter: swissborg
 linkedin: swissborg
 

@@ -1,5 +1,8 @@
 feeder-id: alleged-alpha
 name: Alleged Alpha
 role: curator
+short_description: 'Alleged Alpha runs a systematic, fully automated multi-strategy long/short trading vault.'
+long_description: |
+  No standalone homepage was found for Alleged Alpha. Public vault metadata describes it as executing a systematic, fully automated long/short approach that combines cross-sectional, momentum, and reversal strategies on Lighter.
 twitter: allegedalpha
 # linkedin: not found

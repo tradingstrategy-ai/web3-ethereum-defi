@@ -2,4 +2,7 @@ feeder-id: xerberus
 name: Xerberus
 role: curator
 website: https://xerberus.io
+short_description: 'Xerberus is a decentralised crypto risk ratings protocol using on-chain data and open-source models.'
+long_description: |
+  Xerberus describes itself as a risk ratings protocol designed to provide automated, objective and real-time risk insights from on-chain data. Its homepage says the Xerberus Oracle network supplies reporting for dApps and DeFi protocols, including data for collateral, leverage pricing and risk management. Its about page describes a DAO-led project focused on crypto-native risk ratings and risk-weighted vaults.
 twitter: Xerberus

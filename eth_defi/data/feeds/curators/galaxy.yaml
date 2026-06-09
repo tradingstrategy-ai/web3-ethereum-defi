@@ -2,6 +2,11 @@ feeder-id: galaxy
 name: Galaxy
 role: curator
 website: https://www.galaxy.com
+short_description: Galaxy provides institutional digital asset, blockchain, asset management and data centre infrastructure services.
+long_description: |
+  Galaxy is a digital asset and blockchain firm serving institutions, startups and qualified individuals.
+  Its homepage presents global markets, asset management and infrastructure, blockchain infrastructure, GalaxyOne and data centres as the main business areas.
+  The firm provides digital asset trading, lending, derivatives, investment solutions, staking, tokenisation, self-custody technology and AI/HPC data centre infrastructure.
 twitter: GalaxyHQ
 linkedin: galaxyhq
 

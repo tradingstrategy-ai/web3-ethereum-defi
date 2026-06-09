@@ -1,6 +1,11 @@
 feeder-id: hakutora
 name: Hakutora
 role: curator
+short_description: Hakutora provides on-chain asset management and risk control solutions for DeFi strategies.
+long_description: |
+  Hakutora focuses on uncovering on-chain opportunities and managing risk.
+  Its homepage describes decentralised investment and risk-management strategies built on on-chain protocols, with a platform for on-chain asset management.
+  Hakutora also describes protocol analysis, function-level risk control and automatic withdrawal services in extreme situations when authorised.
 
 # Evidence and background references.
 #

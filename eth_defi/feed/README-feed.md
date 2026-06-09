@@ -82,6 +82,8 @@ feeder-id: { curator slug, protocol slug, or vault slug }
 name: { human-readable name }
 role: { curator | protocol | stablecoin | vault }
 website: { optional company website URL }
+short_description: { optional one-line company or project summary }
+long_description: { optional multi-paragraph Markdown company or project description }
 twitter: { optional Twitter/X username }
 linkedin: { optional LinkedIn company id }
 rss: { optional RSS or Atom feed URL }
@@ -95,6 +97,8 @@ Notes:
 - `feeder-id` is the canonical slug and acts as the feeder identity
 - `role` must be one of `curator`, `protocol`, `stablecoin`, or `vault`
 - `website` is optional company metadata and is stored alongside tracked sources
+- `short_description` is optional feeder metadata for list and card views
+- `long_description` is optional Markdown feeder metadata for detail views
 - `twitter` is a username such as `gauntlet_xyz`, not a full profile URL
 - `linkedin` is collected through operator-supplied LinkedIn bridge templates
 - `linkedin` is a company id such as `gauntlet-xyz`, not a full LinkedIn URL
@@ -120,10 +124,10 @@ role: stablecoin
 canonical-feeder-id: usdt
 ```
 
-Alias files must contain only `feeder-id`, `name`, `role`, and
-`canonical-feeder-id` — no feed source fields (`twitter`, `linkedin`,
-`rss`).  They produce no tracked sources and no posts are collected for
-them.
+Alias files contain `feeder-id`, `name`, `role`, and `canonical-feeder-id`,
+and may carry non-source metadata like descriptions. They must not contain
+feed source fields (`twitter`, `linkedin`, `rss`). They produce no tracked
+sources and no posts are collected for them.
 
 `canonical-feeder-id` can cross roles.  When the same entity is a
 stablecoin, a protocol, and a curator, the priority order is:
@@ -161,6 +165,10 @@ feeder-id: gauntlet
 name: Gauntlet
 role: curator
 website: https://www.gauntlet.xyz/
+short_description: Gauntlet is a DeFi risk manager.
+long_description: |
+  Gauntlet builds risk management systems for lending markets, vaults and
+  other on-chain financial applications.
 twitter: gauntlet_xyz
 linkedin: gauntlet-xyz
 rss: https://medium.com/feed/gauntlet-networks

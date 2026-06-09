@@ -9,4 +9,7 @@
 feeder-id: summer-fi
 name: Summer.fi
 role: curator
+short_description: 'Summer.fi is a DeFi frontend for passive yield optimisation and advanced lending, borrowing, and earning strategies.'
+long_description: |
+  Summer.fi describes itself as the home of the Lazy Summer Protocol and a way to integrate high-quality DeFi yield. Its documentation explains that Summer.fi combines Lazy Summer vaults for passive, auto-rebalanced yield with Summer.fi Pro tools for experienced users who want lending, borrowing, multiply vaults, looping strategies, and protocol aggregation.
 canonical-feeder-id: summer-fi

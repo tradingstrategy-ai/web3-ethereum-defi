@@ -9,4 +9,7 @@
 feeder-id: yieldnest
 name: YieldNest
 role: curator
+short_description: 'YieldNest creates liquid DeFi yield products and MAX Vaults for unified, risk-adjusted strategy exposure.'
+long_description: |
+  YieldNest says it merges DeFi strategies into single, unified assets. Its homepage describes products for USD, ETH and RWA exposure, including MAX Vaults that rebalance across strategies to select risk-adjusted opportunities. The site also highlights audits, an in-house risk team and external risk support from LlamaRisk.
 canonical-feeder-id: yieldnest

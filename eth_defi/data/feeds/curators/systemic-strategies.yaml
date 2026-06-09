@@ -1,5 +1,8 @@
 feeder-id: systemic-strategies
 name: Systemic Strategies
 role: curator
+short_description: 'Systemic Strategies builds and operates Hyperliquid trading vaults.'
+long_description: |
+  Systemic Strategies appears to be a Hyperliquid-native vault operator focused on trading strategies. Public profile and vault pages reference HyperGrowth and L/S Grids vault activity, including volume, profits and depositor capacity updates. Because no standalone website was found, the description is based on social profile data and third-party vault pages.
 twitter: SystemicStratHL
 # linkedin: not found

@@ -9,4 +9,7 @@
 feeder-id: cap
 name: CAP
 role: curator
+short_description: 'Cap is a verifiable money platform for USD yield, private credit, and financial guarantees.'
+long_description: |
+  Cap describes itself as a three-sided platform connecting USD yield, private credit, and financial guarantees. Its homepage presents a protocol where depositors earn yield, borrowers take unsecured USD loans, and underwriters provide guarantees through a marketplace structure.
 canonical-feeder-id: cap

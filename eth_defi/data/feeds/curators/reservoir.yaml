@@ -2,4 +2,7 @@ feeder-id: reservoir
 name: Reservoir
 role: curator
 website: https://reservoir.xyz
+short_description: 'Reservoir is a permissionless stablecoin protocol offering rUSD, yield-bearing srUSD/wsrUSD, term products, and lending markets.'
+long_description: |
+  Reservoir presents itself as a next-generation stablecoin protocol with higher yield, multi-collateral backing, and instant liquidity. Its documentation describes rUSD as a stablecoin backed by digital and real-world assets, with srUSD, wsrUSD, trUSD, and lending markets designed to distribute protocol yield and support DeFi integrations.
 twitter: reservoir_xyz

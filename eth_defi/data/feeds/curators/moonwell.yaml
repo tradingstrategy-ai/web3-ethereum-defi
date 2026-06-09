@@ -2,6 +2,9 @@ feeder-id: moonwell
 name: Moonwell
 role: curator
 website: https://moonwell.fi
+short_description: 'Moonwell builds simple onchain lending and borrowing tools, primarily known for DeFi markets on Base and related networks.'
+long_description: |
+  Moonwell is publicly described as a decentralised lending and borrowing protocol with a focus on simple financial tools. Search-visible profile text and app pages position it around lending, borrowing, earning, and making treasuries productive onchain.
 twitter: MoonwellDeFi
 
 # Evidence and background references.

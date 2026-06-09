@@ -2,6 +2,11 @@ feeder-id: hyperithm
 name: Hyperithm
 role: curator
 website: https://www.hyperithm.com
+short_description: Hyperithm is a digital asset gateway for institutions focused on asset management, quant trading and venture investments.
+long_description: |
+  Hyperithm is a digital asset manager based in Tokyo and Seoul, serving institutions and high-net-worth individuals.
+  Its homepage describes quant trading, algorithmic and HFT market-neutral strategies, diversified arbitrage and risk management as part of its asset management work.
+  Hyperithm also makes venture investments in Web3 teams and operates with regulatory registrations in Japan and Korea.
 twitter: hyperithm
 linkedin: hyperithm
 rss: https://hyperithm.substack.com/feed

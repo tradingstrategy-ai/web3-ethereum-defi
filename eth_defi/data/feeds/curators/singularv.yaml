@@ -2,6 +2,9 @@ feeder-id: singularv
 name: SingularV
 role: curator
 website: https://www.singularv.xyz
+short_description: 'SingularV is a DeFi asset management firm using AI-driven yield optimisation and risk curation.'
+long_description: |
+  SingularV describes itself as a DeFi asset management firm powered by proprietary AI technology. Its site highlights market-neutral strategies, liquidity optimisation, svUSDC yield vaults, and risk curation services across lending protocols such as Morpho and Euler for DeFi and institutional partners.
 twitter: singularv_xyz
 
 # SingularV is an onchain market-making firm focusing on optimisation and

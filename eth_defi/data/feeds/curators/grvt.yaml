@@ -10,3 +10,8 @@ feeder-id: grvt
 name: GRVT
 role: curator
 canonical-feeder-id: grvt
+short_description: GRVT is a regulated self-custodial decentralised exchange for crypto trading and investment strategies.
+long_description: |
+  GRVT is a self-custodial decentralised exchange for trading crypto perpetuals and accessing managed investment strategies.
+  Its site describes trading, investing and earning tools, including curated and verified managers for strategy vaults.
+  GRVT documentation says the platform is built on ZKsync infrastructure for scalability, low latency, high throughput, gasless trading and trading privacy.

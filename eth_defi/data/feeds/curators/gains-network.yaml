@@ -10,3 +10,8 @@ feeder-id: gains-network
 name: Gains Network
 role: curator
 canonical-feeder-id: gains-network
+short_description: Gains Network develops gTrade, a decentralised leveraged trading platform for crypto and traditional market synthetics.
+long_description: |
+  Gains Network develops gTrade, a liquidity-efficient decentralised leveraged trading platform.
+  The platform supports markets including crypto, forex, stocks, indices and commodities, with trades settled on-chain against gToken liquidity vaults instead of per-pair order books.
+  Its documentation describes synthetic leverage, Chainlink oracle pricing and fee flows to governance, liquidity providers, staking, referrals and oracle execution.

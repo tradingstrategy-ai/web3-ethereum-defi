@@ -2,6 +2,11 @@ feeder-id: gauntlet
 name: Gauntlet
 role: curator
 website: https://www.gauntlet.xyz
+short_description: Gauntlet provides quantitative risk management, optimisation and vault strategies for DeFi protocols.
+long_description: |
+  Gauntlet applies quantitative optimisation, simulation and research to risk management and growth problems in DeFi.
+  Its site describes work across lending, restaking, real-world asset yield, applied research and self-custodial vault strategies.
+  The company builds tooling and recommendations for protocols, DAOs, builders and capital allocators while monitoring on-chain markets.
 twitter: gauntlet_xyz
 linkedin: gauntlet-xyz
 rss: https://medium.com/feed/gauntlet-networks

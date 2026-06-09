@@ -1,5 +1,7 @@
 # Current
 
+- feat: Add curator short and long descriptions to feeder metadata, curator exports, and all current curator YAML files (2026-06-09)
+
 - feat: Default Hypersync stream concurrency to 1 in the vault scanner pipeline, configurable via `HYPERSYNC_CONCURRENCY` env var and docker-compose (2026-06-09)
 
 - feat: Add Hypersync 1.1 stream tuning parameters — concurrency, batch_size, response byte limits configurable on ThrottledHypersyncClient and via HYPERSYNC_CONCURRENCY env var (2026-06-08)

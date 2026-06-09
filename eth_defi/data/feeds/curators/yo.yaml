@@ -2,4 +2,7 @@
 feeder-id: yo
 name: Yo
 role: curator
+short_description: 'YO is a multi-chain DeFi yield engine for wallets, exchanges, apps and end users.'
+long_description: |
+  YO Protocol describes itself as a yield engine for the crypto economy that can be embedded into apps in minutes. Its homepage lists yield products such as yoUSD, yoETH, yoBTC, yoEUR, yoSOL and yoGOLD across multiple chains. The site says YO tracks yield across DeFi protocols and chains while using Exponential.fi risk ratings to balance risk and reward.
 canonical-feeder-id: yo

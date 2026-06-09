@@ -2,6 +2,9 @@ feeder-id: re7-labs
 name: RE7 Labs
 role: curator
 website: https://re7.capital
+short_description: 'Re7 Labs is the innovation arm of Re7 Capital, supporting DeFi investment strategies and ecosystem development.'
+long_description: |
+  Re7 Capital describes itself as a research-driven digital asset investment firm specialising in DeFi yield and liquid alpha strategies. Its homepage and LinkedIn presence frame Re7 as investors and operators across decentralised digital asset ecosystems, with Re7 Labs referenced as the innovation arm behind its strategy stack.
 twitter: Re7Capital
 linkedin: re7capital
 rss: https://re7research.substack.com/feed
