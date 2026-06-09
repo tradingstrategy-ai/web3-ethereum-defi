@@ -1,5 +1,7 @@
 # Current
 
+- feat: Add `VaultDepositManager.get_deposit_delay_over()` to estimate when a pending async deposit will settle, with an Ostium V1.5 implementation (mirrors `get_redemption_delay_over()` using `targetSettlementId(true)`); operator-driven ERC-7540 vaults return `None` (2026-06-09)
+
 - fix: Restore Sphinx docs build on Python 3.13/3.14 by adding the `standard-imghdr` backport, since stdlib `imghdr` (imported by Sphinx 4.x) was removed in Python 3.13 (2026-06-09)
 
 - feat: Add curator short and long descriptions to feeder metadata, curator exports, and all current curator YAML files (2026-06-09)

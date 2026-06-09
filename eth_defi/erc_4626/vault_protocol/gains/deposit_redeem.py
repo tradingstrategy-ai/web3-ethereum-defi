@@ -551,6 +551,20 @@ class OstiumV15DepositManager(ERC4626DepositManager):
         settlements_to_wait = max(target_id - last_id, 1)
         return from_unix_timestamp(last_ts + settlements_to_wait * interval)
 
+    def get_deposit_delay_over(self, address: HexAddress | str) -> datetime.datetime | None:
+        """Estimate when the next deposit settlement will occur.
+
+        Mirror of :py:meth:`get_redemption_delay_over` but for the deposit
+        target settlement (``targetSettlementId(True)``).
+        """
+        vault = self.vault
+        target_id = vault.vault_contract.functions.targetSettlementId(True).call()
+        last_id = vault.vault_contract.functions.lastSettlementId().call()
+        last_ts = vault.vault_contract.functions.lastSettlementTs().call()
+        interval = vault.vault_contract.functions.maxSettlementInterval().call()
+        settlements_to_wait = max(target_id - last_id, 1)
+        return from_unix_timestamp(last_ts + settlements_to_wait * interval)
+
     def analyse_deposit(
         self,
         claim_tx_hash: HexBytes | str,
