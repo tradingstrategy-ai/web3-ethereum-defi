@@ -1,5 +1,7 @@
 # Current
 
+- feat: Add the anonymous "DER" curator for the Lagoon "Der" vault family (Der USDC, Der base USDC, Der EURC, Der ETH, Der BTC) (2026-06-09)
+
 - feat: Store GRVT extended vault metadata (raw `managerInfo` and full GraphQL node) as a JSON dump in a new `extended_vault_info` column with an `extended_vault_info_metadata_last_updated_at` timestamp, refreshed at most weekly via an atomic `ON CONFLICT` gate; the migration adds the columns safely (nullable, no data loss) and the new fields (strategy categories, manager profile image, cover image) are rendered as a Markdown "Strategy details" section in the vault long description (2026-06-09)
 
 - feat: Add Lighter and GRVT vault curators — register 16 third-party curators hosting vaults on the Lighter and GRVT marketplaces (Gerhard - Bitcoin Strategy, KangCFA, The Crypto Meerkat, AllDeFi, Project BTC, RoboNet, Warwolf, BTC Maxi Lab, SK System, pmalt, Mid-HTF Trading, Better Than Yours, PHP Trading Desk, Syzygy Strategy, Big Brain Research, Candle Effect), promote GRVT's in-house GLP market maker to a protocol-managed curator, add the Lighter XLP experimental pool to the system-pool set, and thread `manager_name` through `identify_curator()` so GRVT curators branded in the manager field (rather than the vault name) are detected (2026-06-09)

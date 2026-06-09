@@ -1,0 +1,17 @@
+feeder-id: der
+name: DER
+role: curator
+short_description: Anonymous curator on Lagoon
+long_description: |
+  DER is an anonymous curator operating a family of vaults on the Lagoon Finance
+  protocol (Der USDC, Der base USDC, Der EURC, Der ETH and Der BTC).
+  No public identity, website, or social presence is associated with this curator;
+  it is known only by the "Der" brand prefix used across its Lagoon vault names.
+
+# Evidence and background references.
+#
+# The curator is completely anonymous. The only evidence is the shared "Der"
+# brand prefix across its Lagoon Finance vault names.
+other-links:
+  - title: Lagoon Finance - protocol hosting the DER vaults
+    url: https://app.lagoon.finance
