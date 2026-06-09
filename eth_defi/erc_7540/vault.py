@@ -56,12 +56,15 @@ class ERC7540Vault(ERC4626Vault):
         """Move shares we received to the user wallet.
 
         - Phase 2 of deposit after settlement
+        - Uses the 3-argument ERC-7540 ``deposit(assets, receiver, controller)``
+          to claim async deposits, where the depositor is both receiver and
+          controller
         """
 
         if raw_amount is None:
             raw_amount = self.vault_contract.functions.maxDeposit(depositor).call()
 
-        return self.vault_contract.functions.deposit(raw_amount, depositor)
+        return self.vault_contract.functions.deposit(raw_amount, depositor, depositor)
 
     def request_redeem(self, depositor: HexAddress, raw_amount: int) -> ContractFunction:
         """Build a redeem transction.
