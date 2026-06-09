@@ -1696,6 +1696,10 @@ def main():
     scan_core3 = should_scan_core3(skip_core3=skip_core3, core3_api_key=os.environ.get("CORE3_API_KEY"))
     force_rescan = os.environ.get("FORCE_RESCAN", "false").lower() == "true"
     max_workers = int(os.environ.get("MAX_WORKERS", "50"))
+    # Pipeline default is 1 (sequential) to avoid API pressure when scanning
+    # many chains.  This is intentionally stricter than the library-level
+    # default in configure_hypersync_from_env() which uses the server default
+    # of 10 when no value is provided.
     hypersync_concurrency = int(os.environ.get("HYPERSYNC_CONCURRENCY", "1"))
     core3_max_workers = int(os.environ.get("CORE3_MAX_WORKERS", "8"))
     core3_fetch_sections = os.environ.get("CORE3_FETCH_SECTIONS", "false").lower() == "true"

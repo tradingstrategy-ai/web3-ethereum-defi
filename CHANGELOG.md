@@ -1,5 +1,7 @@
 # Current
 
+- feat: Default Hypersync stream concurrency to 1 in the vault scanner pipeline, configurable via `HYPERSYNC_CONCURRENCY` env var and docker-compose (2026-06-09)
+
 - feat: Add Hypersync 1.1 stream tuning parameters — concurrency, batch_size, response byte limits configurable on ThrottledHypersyncClient and via HYPERSYNC_CONCURRENCY env var (2026-06-08)
 
 - feat: Add Core3 to the all-chains vault scanner pipeline as default-on enrichment with 24h scheduling, Core3 DuckDB R2 export, daily alternative-bucket backups, and scanner/export documentation (2026-06-07)
