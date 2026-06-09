@@ -110,6 +110,14 @@ def test_calculate_lifetime_metrics(
     assert sample_row["current_nav"] == pytest.approx(2345373.103418)
     assert sample_row["fee_label"] == "0% / 15% (int.)"
 
+    # Token decimals must be carried into the export from the on-chain
+    # metadata. Regression: previously dropped entirely, which made downstream
+    # consumers default a missing value to 18 and break raw-amount math (a
+    # 6-decimal USDC burn scaled by 10**18 reverts on-chain). The denomination
+    # token (USDC.e) is 6 decimals, distinct from the share token (CSUSDCE) at 18.
+    assert sample_row["denomination_decimals"] == 6
+    assert sample_row["share_token_decimals"] == 18
+
     assert sample_row["lifetime_return"] == pytest.approx(0.002758)
     assert sample_row["cagr"] == pytest.approx(0.02483940718068034)
     assert sample_row["cagr_net"] == pytest.approx(0.02483940718068034)

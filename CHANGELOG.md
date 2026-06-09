@@ -1,5 +1,7 @@
 # Current
 
+- fix: Export `denomination_decimals` and `share_token_decimals` in the vault metrics JSON (`top_vaults_by_chain.json`). The on-chain token decimals were captured during the scan but dropped when building the per-vault export record, so consumers had no decimals to read and defaulted them (e.g. USDC to 18), scaling raw amounts by 10**12 (2026-06-09)
+
 - feat: Add `VaultDepositManager.get_deposit_delay_over()` to estimate when a pending async deposit will settle, with an Ostium V1.5 implementation (mirrors `get_redemption_delay_over()` using `targetSettlementId(true)`); operator-driven ERC-7540 vaults return `None` (2026-06-09)
 
 - fix: Make the feed post scanner resilient to X API list-member `503 Service Unavailable` errors — the `GET /2/lists/{id}/members` endpoint returns persistent endpoint-wide 503s while the list timeline keeps working, so list membership sync no longer reads back members from that broken endpoint but tracks added member IDs in a local `feed_sync_state` cache, every X read path retries transient 5xx with shared exponential-backoff handling, membership sync degrades gracefully if it still fails, and the scan loop isolates per-cycle errors so the process no longer crashes into a Docker restart hot-loop (2026-06-09)
