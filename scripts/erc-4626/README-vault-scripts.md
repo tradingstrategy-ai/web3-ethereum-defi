@@ -90,7 +90,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `CORE3_FETCH_SECTIONS` | Optional. Fetch detailed Core3 section endpoints. Default: false. |
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150. Lower after persistent 429 errors. |
-| `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: server default (10). See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
+| `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 
 Core3 runs after EVM and native vault scans and before post-processing. This
 keeps the Core3 DuckDB closed before `vault-analysis-json.py` reads it and
