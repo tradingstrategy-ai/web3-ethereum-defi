@@ -1,0 +1,65 @@
+symbol: AA_FalconXUSDC
+name: Pareto AA Tranche - FalconX USDC
+slug: aa-falconxusdc
+category: wrapped
+short_description: |
+  AA_FalconXUSDC is the senior ("AA") tranche receipt token issued by Pareto Credit for
+  the FalconX USDC private credit vault. Depositors supply USDC which is lent to FalconX,
+  the institutional digital-asset prime broker, through a structured credit facility. The
+  AA tranche holds the most-senior claim on repayment and accrues a fixed rate over USDC.
+long_description: |
+  [Pareto Credit](https://pareto.credit/) (formerly Idle DAO's senior/junior tranche
+  infrastructure) operates programmable institutional credit vaults on Ethereum. The
+  FalconX Credit Vault channels USDC deposits into a structured credit facility for
+  [FalconX](https://www.falconx.io/), a leading digital-asset prime broker that
+  finances hedge funds, trading firms, and other institutional counterparties.
+
+  ## Tranche structure
+
+  The vault is split into two tranches via Pareto's Collateralised Debt Obligation (CDO)
+  architecture, curated by M11 Credit:
+
+  - **AA tranche (AA_FalconXUSDC)** — senior class; receives principal and interest first,
+    carries lower yield but highest capital protection.
+  - **BB tranche (BB_FalconXUSDC)** — junior/equity class; absorbs first losses in exchange
+    for higher yield.
+
+  The CDO contract (`0x433D5B175148dA32Ffe1e1A37a939E1b7e79be4d`) mints both tranche
+  tokens, with USDC (`0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`) as the sole
+  underlying asset. NAV accrues continuously; redemptions follow monthly mechanics
+  governed by the FalconX credit facility terms.
+
+  ## Composability
+
+  After the vault crossed $135 million in deposits, Pareto enabled AA_FalconXUSDC as
+  collateral on [Morpho](https://morpho.org/) (Steakhouse market) so holders can borrow
+  additional USDC. Gauntlet and Aera Finance also offer a levered RWA loop strategy using
+  these tokens.
+
+  ## Risk profile
+
+  The AA tranche is protected by the junior tranche equity buffer and transaction-level
+  collateralisation, plus a real-time risk engine. Reserve attestations and quarterly
+  ISAE 3000 assurance reports are published by the protocol. Pharos Watch publishes an
+  independent risk profile for the token.
+
+  ## Sources
+
+  - [Pareto Credit — FalconX vault announcement](https://paragraph.com/@pareto/falconx-partnership)
+  - [FalconX — tokenised structured credit facility announcement](https://www.falconx.io/newsroom/falconx-launches-the-first-tokenized-structured-credit-facility-in-digital-assets)
+  - [Gauntlet — FalconX levered RWA strategy](https://www.gauntlet.xyz/resources/falconx-levered-rwa-strategy-with-pareto)
+  - [Pharos Watch — AA_FalconXUSDC risk profile](https://pharos.watch/stablecoin/aa-falconx-mev-capital/)
+  - [DeFiLlama — Pareto Credit](https://defillama.com/protocol/pareto-credit)
+links:
+  homepage: https://pareto.credit/
+  coingecko: ''
+  defillama: https://defillama.com/protocol/pareto-credit
+  twitter: https://x.com/paretocredit
+contract_addresses:
+  - chain: ethereum
+    address: '0xC26A6Fa2C37b38E549a4a1807543801Db684f99C'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

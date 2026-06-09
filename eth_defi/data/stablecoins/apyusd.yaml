@@ -1,0 +1,32 @@
+symbol: apyUSD
+name: Apyx Yield-Bearing USD
+slug: apyusd
+category: yield_bearing
+short_description: |
+  apyUSD is the yield-bearing savings token of the Apyx protocol, an ERC-4626 vault that wraps apxUSD — Apyx's dividend-backed synthetic dollar. Depositors receive apyUSD shares whose exchange rate against apxUSD increases continuously as dividends from Digital Asset Treasury preferred shares (such as Strategy's STRC) are streamed on-chain.
+long_description: |
+  apyUSD is issued by [Apyx](https://apyx.fi/), the first Dividend-Backed Stablecoin (DBS) protocol. The protocol transforms variable-rate perpetual preferred equity issued by Digital Asset Treasury (DAT) companies into programmable on-chain yield.
+
+  The two-token design separates liquidity from yield:
+
+  - **apxUSD** is the base synthetic dollar — an over-collateralised, non-rebasing stablecoin redeemable in USDC, designed for deep secondary-market liquidity.
+  - **apyUSD** is the savings layer — a non-rebasing ERC-4626 vault whose exchange rate against apxUSD rises over time as accumulated dividends are streamed into the vault.
+
+  Collateral backing consists of a diversified basket of variable-rate perpetual preferred shares from DAT companies (Strategy STRC, Strive SATA) supplemented by cash and short-duration US Treasuries. Apyx publishes monthly third-party attestations prepared by Wolf & Company, P.C., a PCAOB-registered audit firm.
+
+  apyUSD launched on Ethereum mainnet in February 2026 and is also deployed on Base. It is listed on [CoinGecko](https://www.coingecko.com/en/coins/apyusd) and tracked on [DefiLlama](https://defillama.com/rwa/asset/apyusd).
+links:
+  homepage: https://apyx.fi/
+  coingecko: https://www.coingecko.com/en/coins/apyusd
+  defillama: https://defillama.com/rwa/asset/apyusd
+  twitter: https://x.com/apyx_fi
+contract_addresses:
+  - chain: ethereum
+    address: '0x38EEb52F0771140d10c4E9A9a72349A329Fe8a6A'
+  - chain: base
+    address: '0x2c271ddF484aC0386d216eB7eB9Ff02D4Dc0F6AA'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

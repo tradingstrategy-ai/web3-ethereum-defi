@@ -1,0 +1,5 @@
+# autoUSD - same issuer as auto-finance (Tokemak / AUTO Finance)
+feeder-id: autousd
+name: Tokemak autoUSD
+role: stablecoin
+canonical-feeder-id: auto-finance

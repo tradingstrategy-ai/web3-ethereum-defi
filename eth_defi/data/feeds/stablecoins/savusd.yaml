@@ -1,0 +1,5 @@
+# savUSD - same issuer as avUSD (Avant Protocol)
+feeder-id: savusd
+name: Avant Staked USD
+role: stablecoin
+canonical-feeder-id: avusd

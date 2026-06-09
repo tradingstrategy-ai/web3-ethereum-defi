@@ -1,0 +1,5 @@
+# sNUSD - same issuer as NUSD (Neutrl)
+feeder-id: snusd
+name: Neutrl Staked NUSD
+role: stablecoin
+canonical-feeder-id: nusd

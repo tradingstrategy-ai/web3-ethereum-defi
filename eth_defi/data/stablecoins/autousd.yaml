@@ -1,0 +1,37 @@
+symbol: autoUSD
+name: Tokemak autoUSD
+slug: autousd
+category: wrapped
+short_description: |
+  autoUSD is a yield-bearing ERC-4626 receipt token issued by Tokemak (rebranded as AUTO Finance) representing USDC deposited into its autopool strategy. The token auto-compounds yield from Tokemak's automated liquidity provision across DeFi protocols, appreciating in value against the underlying USDC.
+long_description: |
+  autoUSD is issued by [AUTO Finance](https://auto.finance/) (the 2025 rebrand of Tokemak), an automated liquidity management protocol that routes deposited stablecoins across DeFi venues to optimise yield. When a user deposits USDC into the autoUSD autopool, they receive autoUSD tokens representing their share of the vault. The ERC-4626 vault auto-compounds returns, so the autoUSD/USDC exchange rate rises continuously.
+
+  ## Mechanism
+
+  Tokemak's autopools act as an automated market-making layer. The protocol allocates capital to liquidity pools across DEXes and lending markets, balancing yield and risk. The autoUSD vault denominates deposits in USDC and targets USD-stable yield sources, making autoUSD a stablecoin-like wrapped receipt rather than a directional asset.
+
+  ## Key properties
+
+  - ERC-4626 vault with USDC as the underlying asset
+  - Auto-compounding: no manual reward claims required
+  - Issued on Ethereum mainnet
+  - Issued by AUTO Finance (formerly Tokemak)
+
+  ## Sources
+
+  - [AUTO Finance — autopools](https://auto.finance/)
+  - [Tokemak documentation](https://docs.auto.finance/)
+links:
+  homepage: https://auto.finance/
+  coingecko: ""
+  defillama: ""
+  twitter: https://x.com/autopools
+contract_addresses:
+  - chain: ethereum
+    address: "0xa7569A44f348d3D70d8ad5889e50F78E33d80D35"
+checks:
+  twitter_last_post_at: ""
+  domain_up_at: ""
+  marked_dead_at: ""
+  information_found_missing_at: ""

@@ -1,5 +1,7 @@
 # Current
 
+- feat: Recognise nine yield-bearing / wrapped stablecoin derivatives used as Royco tranche vault denominations (sNUSD, savUSD, syrupUSDC, stcUSD, apyUSD, eEARN, autoUSD, bbqUSDC, AA_FalconXUSDC) so the affected Royco senior/junior tranche vaults stop being dropped by `filter_vaults_by_stablecoin()`; adds the `add-stablecoin` skill plus metadata and feed YAML for each token (2026-06-10)
+
 - fix: Stop HyperEVM (chain 999) vault scans aborting on goldsky eRPC `not enough agreement among responses` consensus failures — when the failing provider mix contains both goldsky and Alchemy, multicall retries are now pinned to the Alchemy single node instead of randomly cycling back onto goldsky's consensus endpoint (which cannot serve these calls); the disagreement is intermittent and upstream-pool driven, documented with on-chain evidence in `docs/README-hyperevm-goldsky-failure.md` (2026-06-10)
 
 - feat: Add eight vault curators discovered from a full vault-name sweep — Coinshift, Hyperbeat, Lista DAO, Keyring Network, Trust Wallet, CoolWallet, Mt Pelerin and HypurrFi (Morpho/Euler/Lagoon/Kiln Metavault) — plus name-pattern fixes so existing August Digital and DAMM Capital vaults are detected; distributor curators (Trust Wallet, CoolWallet) are matched at lowest priority so the underlying risk curator (Steakhouse, Gauntlet, ...) wins on co-branded vaults (2026-06-09)

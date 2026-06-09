@@ -1,0 +1,25 @@
+symbol: stcUSD
+name: Staked Cap USD
+slug: stcusd
+category: yield_bearing
+short_description: |
+  stcUSD is the yield-bearing staking token of Cap protocol. Users deposit USDC or USDT to mint cUSD (cap USD) at a 1:1 ratio, then stake cUSD to receive stcUSD, which auto-compounds institutional yield sourced from Cap's decentralised credit marketplace.
+long_description: |
+  stcUSD is issued by [Cap](https://cap.app/), a covered-credit stablecoin protocol on Ethereum. The protocol's two tokens work in tandem: depositors receive [cUSD](https://cap.app/) (cap USD) at a 1:1 ratio by depositing whitelisted assets (USDC, USDT, tokenised money-market funds) into Cap's Vault, and then stake cUSD to receive stcUSD, which begins accruing yield automatically.
+
+  Yield accrues from three streams: idle reserve assets deployed on Aave and Morpho, interest spreads earned when institutional borrowers (banks, high-frequency trading firms, market makers) repay loans via Cap's Credit Engine, and auto-compounding of accrued rewards. A network of restakers underwrites operator credit risk, ensuring cUSD remains fully backed at all times and stcUSD principal is protected through on-chain financial guarantees.
+
+  Cap launched on Ethereum mainnet in August 2025 and grew to over $500 million TVL by early 2026, with over 80% of cUSD reserves deployed to Aave V3 Core. stcUSD is listed on [CoinGecko](https://www.coingecko.com/en/coins/staked-cap-usd) and Cap is tracked on [DefiLlama](https://defillama.com/protocol/cap).
+links:
+  homepage: https://cap.app/
+  coingecko: https://www.coingecko.com/en/coins/staked-cap-usd
+  defillama: https://defillama.com/protocol/cap
+  twitter: https://x.com/capmoney_
+contract_addresses:
+  - chain: ethereum
+    address: '0x88887bE419578051FF9F4eb6C858A951921D8888'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''
