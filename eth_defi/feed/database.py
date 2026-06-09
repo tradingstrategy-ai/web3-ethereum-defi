@@ -35,8 +35,16 @@ class CollectedPost:
     #: Timestamp when the collector fetched this post in naive UTC.
     fetched_at: datetime.datetime
     #: Short preview text stored alongside the post.
+    #:
+    #: Capped at 200 characters for compact listings; this is **not** the
+    #: complete post body.  See :py:attr:`full_text` for the full content.
     short_description: str
     #: Best available full text extracted from the feed entry.
+    #:
+    #: For X/Twitter this is the complete *note tweet* body for tweets longer
+    #: than 280 characters, populated via
+    #: :py:func:`eth_defi.feed.twitter_api._extract_full_tweet_text`.  See
+    #: :py:attr:`short_description` for the truncated preview.
     full_text: str
     #: Optional future AI-generated summary, null in the current version.
     ai_summary: str | None = None
@@ -433,9 +441,9 @@ class VaultPostDatabase:
 
         :return:
             Dict mapping ``feeder_id`` to a list of post dicts with keys
-            ``title``, ``short_description``, ``post_url``, ``source_type``,
-            ``published_at`` (always set via COALESCE fallback to
-            ``fetched_at``).  Lists are ordered newest-first.
+            ``title``, ``short_description``, ``full_text``, ``post_url``,
+            ``source_type``, ``published_at`` (always set via COALESCE
+            fallback to ``fetched_at``).  Lists are ordered newest-first.
         """
         ids = list(feeder_ids)
         if not ids:
@@ -449,6 +457,7 @@ class VaultPostDatabase:
                     ts.feeder_id,
                     p.title,
                     p.short_description,
+                    p.full_text,
                     p.post_url,
                     ts.source_type,
                     COALESCE(p.published_at, p.fetched_at) AS published_at,
@@ -460,7 +469,7 @@ class VaultPostDatabase:
                 JOIN posts p ON ts.source_id = p.source_id
                 WHERE ts.feeder_id IN ({placeholders})
             )
-            SELECT feeder_id, title, short_description, post_url, source_type, published_at
+            SELECT feeder_id, title, short_description, full_text, post_url, source_type, published_at
             FROM ranked
             WHERE rn <= ?
             ORDER BY feeder_id, published_at DESC
@@ -470,11 +479,12 @@ class VaultPostDatabase:
 
         result: dict[str, list[dict]] = {}
         for row in rows:
-            feeder_id, title, short_description, post_url, source_type, published_at = row
+            feeder_id, title, short_description, full_text, post_url, source_type, published_at = row
             result.setdefault(feeder_id, []).append(
                 {
                     "title": title,
                     "short_description": short_description,
+                    "full_text": full_text,
                     "post_url": post_url,
                     "source_type": source_type,
                     "published_at": published_at,

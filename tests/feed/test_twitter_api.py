@@ -7,10 +7,71 @@ import tweepy
 
 from eth_defi.feed import twitter_api
 from eth_defi.feed.database import VaultPostDatabase
-from eth_defi.feed.twitter_api import TwitterUserCache, compute_handles_hash, sync_x_list_members
+from eth_defi.feed.twitter_api import (
+    TwitterUserCache,
+    _tweet_to_collected_post,
+    compute_handles_hash,
+    sync_x_list_members,
+)
 
 LIST_ID = "123"
 LIST_MEMBER_PAGE_SIZE = 100
+
+
+def test_tweet_to_collected_post_keeps_full_note_tweet() -> None:
+    """Store the full note tweet body, not the 280-char truncated preview.
+
+    The X API v2 caps the ``text`` field at 280 characters for long tweets and
+    returns the complete body in ``note_tweet`` only when that field is
+    requested.  We must keep the full text so downstream exports are not cut.
+
+    1. Build a tweet whose ``text`` is the truncated 280-char preview and whose
+       ``note_tweet.text`` carries the full long body.
+    2. Map it to a :class:`CollectedPost`.
+    3. Assert ``full_text`` holds the complete note tweet text.
+    4. Assert ``short_description`` is the 200-char preview.
+    """
+
+    # 1. Build a tweet with both the truncated text and the full note_tweet body
+    full_body = "A " + "long " * 200 + "tail."
+    tweet_data = {
+        "id": "999",
+        "text": full_body[:277] + "…",
+        "note_tweet": {"text": full_body},
+        "created_at": "2026-06-09T12:00:00.000Z",
+    }
+
+    # 2. Map it to a CollectedPost
+    post = _tweet_to_collected_post(tweet_data, "hyperliquidx")
+
+    # 3. full_text holds the complete note tweet text (whitespace-normalised)
+    assert post.full_text == twitter_api._normalise_whitespace(full_body)
+    assert len(post.full_text) > 280
+
+    # 4. short_description is the 200-char preview
+    assert len(post.short_description) == 200
+    assert post.full_text.startswith(post.short_description)
+
+
+def test_tweet_to_collected_post_falls_back_to_text() -> None:
+    """Use the legacy ``text`` field for short tweets without a note tweet.
+
+    Most tweets are under 280 characters and carry no ``note_tweet`` object, so
+    the mapper must fall back to ``text`` without error.
+
+    1. Build a short tweet with only a ``text`` field.
+    2. Map it to a :class:`CollectedPost`.
+    3. Assert ``full_text`` equals the normalised ``text``.
+    """
+
+    # 1. Build a short tweet with only a text field
+    tweet_data = {"id": "1", "text": "gm", "created_at": "2026-06-09T12:00:00.000Z"}
+
+    # 2. Map it to a CollectedPost
+    post = _tweet_to_collected_post(tweet_data, "someone")
+
+    # 3. full_text equals the normalised text
+    assert post.full_text == "gm"
 
 
 class _RateLimitedResponse:

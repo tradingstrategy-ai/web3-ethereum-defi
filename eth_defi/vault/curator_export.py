@@ -51,8 +51,20 @@ class CuratorFeedEntry(TypedDict):
     #: Post title, or ``None`` for untitled posts (e.g. tweets).
     title: str | None
 
-    #: Short preview text (first ~280 chars).
+    #: Short preview text (first 200 chars), suitable for compact listings.
+    #:
+    #: Derived from :py:attr:`~eth_defi.feed.database.CollectedPost.short_description`.
+    #: For the complete post body see :py:attr:`full_text`.
     snippet: str
+
+    #: Full untruncated post body.
+    #:
+    #: For X/Twitter this includes the complete *note tweet* text for tweets
+    #: longer than 280 characters, not just the preview — see
+    #: :py:func:`eth_defi.feed.twitter_api._extract_full_tweet_text`.  Derived
+    #: from :py:attr:`~eth_defi.feed.database.CollectedPost.full_text`.  For the
+    #: 200-character preview see :py:attr:`snippet`.
+    full_text: str
 
     #: Canonical URL to the original post, or ``None``.
     link: str | None
@@ -281,6 +293,7 @@ def build_curators_for_export(
                     CuratorFeedEntry(
                         title=post["title"],
                         snippet=post["short_description"],
+                        full_text=post["full_text"],
                         link=post["post_url"],
                         source_type=post["source_type"],
                         published_at=published_at,

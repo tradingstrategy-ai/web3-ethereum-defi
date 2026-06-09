@@ -5,6 +5,31 @@ Provides a user metadata cache to avoid repeated handle-to-ID lookups.
 
 Reading requires only a bearer token (``TWITTER_BEARER_TOKEN``).
 List membership writes require full OAuth 1.0a credentials.
+
+Note tweets and full text
+-------------------------
+
+The X API v2 caps the ``text`` field of every tweet at **280 characters**.
+Tweets longer than this — so called *note tweets*, available to premium and
+verified accounts — are returned with a truncated ``text`` value (ending in an
+ellipsis) and the complete body, up to ~25,000 characters, in a separate
+``note_tweet`` object.
+
+The ``note_tweet`` object is only present when the ``note_tweet`` field is
+explicitly requested via the ``tweet_fields`` request parameter.  Both
+:py:func:`fetch_tweets_from_x_list` and :py:func:`fetch_user_tweets` request it,
+and :py:func:`_extract_full_tweet_text` prefers ``note_tweet.text`` over the
+truncated ``text`` so the full body is preserved.
+
+The full body lands in :py:attr:`~eth_defi.feed.database.CollectedPost.full_text`,
+while :py:attr:`~eth_defi.feed.database.CollectedPost.short_description` keeps a
+200-character preview for compact listings.  Both are carried through to the
+vault JSON bundle as
+:py:attr:`~eth_defi.vault.curator_export.CuratorFeedEntry.full_text` and
+:py:attr:`~eth_defi.vault.curator_export.CuratorFeedEntry.snippet` respectively.
+
+See the X API v2 note tweet documentation:
+https://docs.x.com/x-api/fundamentals/note-tweets
 """
 
 import datetime
@@ -287,11 +312,55 @@ def resolve_x_list_id_by_name(
     return matches[0]
 
 
+def _extract_full_tweet_text(tweet_data: dict) -> str:
+    """Return the full, untruncated text of a tweet.
+
+    The X API v2 caps the ``text`` field at 280 characters.  Tweets longer
+    than this (so called *note tweets*, posted by premium accounts) are
+    truncated in ``text`` with a trailing ellipsis, and the complete body is
+    only returned in the ``note_tweet`` object when the ``note_tweet`` tweet
+    field is requested.  Prefer that full body when present, falling back to
+    the legacy ``text`` field.
+
+    The returned value is stored, after whitespace normalisation, in
+    :py:attr:`~eth_defi.feed.database.CollectedPost.full_text`.  The companion
+    :py:attr:`~eth_defi.feed.database.CollectedPost.short_description` keeps a
+    200-character preview of the same body.  See :py:func:`_tweet_to_collected_post`
+    for the mapping and the module docstring for the note tweet API overview.
+
+    :param tweet_data:
+        Raw tweet dict from the X API v2 (``tweepy`` ``Tweet.data``).
+        Carries ``note_tweet`` only when the ``note_tweet`` field was requested
+        in ``tweet_fields`` — see :py:func:`fetch_tweets_from_x_list`.
+
+    :return:
+        The longest available tweet body, raw (not whitespace-normalised).
+
+    See the X API v2 note tweet documentation:
+    https://docs.x.com/x-api/fundamentals/note-tweets
+    """
+
+    note_tweet = tweet_data.get("note_tweet")
+    if note_tweet:
+        note_text = note_tweet.get("text")
+        if note_text:
+            return note_text
+    return tweet_data.get("text", "")
+
+
 def _tweet_to_collected_post(tweet_data: dict, author_handle: str) -> CollectedPost:
-    """Map a raw tweet dict from the X API to a :class:`CollectedPost`."""
+    """Map a raw tweet dict from the X API to a :class:`CollectedPost`.
+
+    The full tweet body — including the complete *note tweet* for long tweets,
+    see :py:func:`_extract_full_tweet_text` — is stored in
+    :py:attr:`~eth_defi.feed.database.CollectedPost.full_text`, while
+    :py:attr:`~eth_defi.feed.database.CollectedPost.short_description` keeps the
+    first 200 characters as a preview.
+    """
 
     tweet_id = str(tweet_data["id"])
-    text = tweet_data.get("text", "")
+    # Prefer the full note_tweet body over the 280-char truncated text field
+    text = _extract_full_tweet_text(tweet_data)
     normalised_text = _normalise_whitespace(text)
     created_at_str = tweet_data.get("created_at")
     published_at = None
@@ -334,7 +403,9 @@ def fetch_tweets_from_x_list(
     total_fetched = 0
     pagination_token = None
 
-    tweet_fields = ["id", "text", "created_at", "author_id", "public_metrics", "entities", "referenced_tweets"]
+    # ``note_tweet`` is required to receive the full body of tweets longer than
+    # 280 chars — without it the X API returns only a truncated ``text`` field.
+    tweet_fields = ["id", "text", "note_tweet", "created_at", "author_id", "public_metrics", "entities", "referenced_tweets"]
     expansions = ["author_id"]
     user_fields = ["id", "username", "name"]
 
@@ -408,7 +479,9 @@ def fetch_user_tweets(
     """
 
     client = tweepy.Client(bearer_token=bearer_token)
-    tweet_fields = ["id", "text", "created_at", "author_id", "public_metrics", "entities", "referenced_tweets"]
+    # ``note_tweet`` is required to receive the full body of tweets longer than
+    # 280 chars — without it the X API returns only a truncated ``text`` field.
+    tweet_fields = ["id", "text", "note_tweet", "created_at", "author_id", "public_metrics", "entities", "referenced_tweets"]
 
     kwargs = {}
     if since is not None:

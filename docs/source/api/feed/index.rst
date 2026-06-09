@@ -10,3 +10,4 @@ Off-chain feed collection helpers for vault-related content.
    eth_defi.feed.sources
    eth_defi.feed.database
    eth_defi.feed.collector
+   eth_defi.feed.twitter_api
