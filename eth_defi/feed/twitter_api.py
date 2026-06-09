@@ -69,6 +69,17 @@ class XRateLimitError(XApiError):
     """Raised when the X API rate-limits a list sync operation."""
 
 
+#: Maximum retries for transient X API server errors (HTTP 5xx).
+#:
+#: The X API intermittently returns ``503 Service Unavailable`` and other 5xx
+#: responses during partial outages.  These are transient and succeed on retry,
+#: so we back off and try again rather than treating them as fatal.
+X_SERVER_ERROR_MAX_RETRIES = 5
+
+#: Base delay in seconds for exponential backoff on transient 5xx errors.
+X_SERVER_ERROR_BACKOFF_BASE_SECONDS = 5.0
+
+
 @dataclass(slots=True)
 class CachedTwitterUser:
     """Cached user metadata from a handle-to-ID lookup."""
@@ -604,6 +615,8 @@ def sync_x_list_members(
     current_member_ids: set[str] = set()
     pagination_token = None
 
+    server_error_retries = 0
+
     while True:
         try:
             response = client_read.get_list_members(
@@ -611,8 +624,43 @@ def sync_x_list_members(
                 max_results=100,
                 pagination_token=pagination_token,
             )
+        except tweepy.TooManyRequests as e:
+            # Read endpoint is rate-limited; honour the reset window and retry
+            # within the operator-configured ceiling, like the write loop below.
+            wait_seconds = _get_rate_limit_sleep_seconds(e)
+            if wait_seconds is None or wait_seconds > rate_limit_sleep_max_seconds:
+                raise XRateLimitError(f"X API rate limit hit while reading members of list {list_id}.{_format_rate_limit_reset(e)} Rerun later to resume.") from e
+            logger.warning(
+                "X API rate limit hit while reading members of list %s; sleeping %.0f seconds before retrying",
+                list_id,
+                wait_seconds,
+            )
+            time.sleep(wait_seconds)
+            continue
+        except tweepy.TwitterServerError as e:
+            # Transient X-side 5xx (e.g. 503 Service Unavailable).  Back off and
+            # retry rather than crashing the scan cycle: an uncaught error here
+            # exits the process and, under a Docker ``restart`` policy, produces
+            # a hot restart loop that hammers X while it is already failing.
+            server_error_retries += 1
+            if server_error_retries > X_SERVER_ERROR_MAX_RETRIES:
+                raise XApiError(f"X API still failing after {X_SERVER_ERROR_MAX_RETRIES} retries while fetching members of list {list_id}: {e}") from e
+            backoff = X_SERVER_ERROR_BACKOFF_BASE_SECONDS * 2 ** (server_error_retries - 1)
+            logger.warning(
+                "Transient X API server error (%s) while reading members of list %s; retry %d/%d after %.0f seconds",
+                e,
+                list_id,
+                server_error_retries,
+                X_SERVER_ERROR_MAX_RETRIES,
+                backoff,
+            )
+            time.sleep(backoff)
+            continue
         except tweepy.TweepyException as e:
             raise XApiError(f"Failed to fetch list members for list {list_id}: {e}") from e
+
+        # Reset the transient-error counter after a successful page fetch.
+        server_error_retries = 0
 
         if response.data:
             for member in response.data:

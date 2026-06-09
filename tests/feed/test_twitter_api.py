@@ -89,6 +89,21 @@ class _RateLimitedResponse:
         return {"title": "Too Many Requests"}
 
 
+class _ServerErrorResponse:
+    """Minimal response object for Tweepy 503 server errors."""
+
+    headers: ClassVar[dict[str, str]] = {}
+    reason = "Service Unavailable"
+    status_code = 503
+    text = "Service Unavailable"
+
+    @staticmethod
+    def json() -> dict[str, str]:
+        """Return a minimal X API error payload."""
+
+        return {"title": "Service Unavailable"}
+
+
 def test_sync_x_list_members_waits_on_rate_limit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Wait for X rate-limit reset and retry the same list member.
 
@@ -154,5 +169,76 @@ def test_sync_x_list_members_waits_on_rate_limit(monkeypatch: pytest.MonkeyPatch
         assert add_calls == ["1", "1", "2"]
         assert sleep_calls == [2]
         assert db.get_sync_state("twitter_handles_hash") == compute_handles_hash(["alice", "bob"])
+    finally:
+        db.close()
+
+
+def test_sync_x_list_members_retries_on_server_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Retry transient X API 503 server errors when reading list members.
+
+    A transient ``503 Service Unavailable`` from X used to propagate out of the
+    scan cycle and crash the long-running process, producing a Docker restart
+    hot-loop.  The read loop must back off and retry instead.
+
+    1. Stub a client whose ``get_list_members`` raises 503 twice, then succeeds.
+    2. Run the sync and capture the backoff sleeps.
+    3. Assert the read retried and the sync completed without raising.
+    """
+
+    # 1. Stub a client whose get_list_members raises 503 twice, then succeeds
+    monkeypatch.setattr(
+        twitter_api,
+        "resolve_twitter_handles",
+        lambda _handles, _bearer_token, _user_cache: {"alice": "1"},
+    )
+
+    read_calls: list[int] = []
+    sleep_calls: list[float] = []
+
+    class FakeClient:
+        """Fake Tweepy client that fails reads transiently before succeeding."""
+
+        def __init__(self, **_kwargs: object):
+            pass
+
+        @staticmethod
+        def get_list_members(list_id: str, max_results: int, pagination_token: str | None):
+            """Raise 503 for the first two calls, then return the member."""
+
+            read_calls.append(1)
+            if len(read_calls) <= 2:
+                raise tweepy.TwitterServerError(_ServerErrorResponse())
+            return SimpleNamespace(data=[SimpleNamespace(id="1")], meta={})
+
+        @staticmethod
+        def add_list_member(list_id: str, user_id: str) -> None:
+            """Member already present, so no writes should occur."""
+
+            raise AssertionError("add_list_member should not be called")
+
+    monkeypatch.setattr(twitter_api.tweepy, "Client", FakeClient)
+    monkeypatch.setattr(twitter_api.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+
+    db = VaultPostDatabase(tmp_path / "posts.duckdb")
+    try:
+        # 2. Run the sync and capture the backoff sleeps
+        added = sync_x_list_members(
+            LIST_ID,
+            ["alice"],
+            "consumer-key",
+            "consumer-secret",
+            "access-token",
+            "access-token-secret",
+            TwitterUserCache(tmp_path / "twitter-users.json"),
+            "bearer-token",
+            db,
+            add_delay_seconds=0,
+        )
+
+        # 3. The read retried twice and the sync completed without raising
+        assert added == 0
+        assert len(read_calls) == 3
+        assert sleep_calls == [5.0, 10.0]
+        assert db.get_sync_state("twitter_handles_hash") == compute_handles_hash(["alice"])
     finally:
         db.close()
