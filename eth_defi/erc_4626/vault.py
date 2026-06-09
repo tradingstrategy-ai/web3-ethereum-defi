@@ -1013,7 +1013,7 @@ class ERC4626Vault(VaultBase):
                 )
             return result
         else:
-            logger.warning(
+            logger.info(
                 "Vault %s asset() returned no address (block_identifier=%s)",
                 self.address,
                 block_identifier,
