@@ -129,6 +129,7 @@ def test_run_scan_tick_updates_core3_cycle_state(tmp_path: Path, monkeypatch: py
         )
 
     monkeypatch.setattr(scan_all_chains, "scan_core3_fn", fake_scan_core3_fn)
+    monkeypatch.setattr(scan_all_chains, "print_dashboard", lambda *_, **__: None)
 
     results = scan_all_chains.run_scan_tick(
         chains=[],
@@ -166,3 +167,63 @@ def test_run_scan_tick_updates_core3_cycle_state(tmp_path: Path, monkeypatch: py
 
     assert results["Core3"].status == "success"
     assert saved_items == ["Core3"]
+
+
+def test_run_scan_tick_fetches_core3_sections_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Core3 detailed section fetching is enabled by default.
+
+    Steps:
+
+    1. Mock the Core3 wrapper and capture its keyword arguments.
+    2. Run a scan tick with only Core3 active.
+    3. Assert ``fetch_sections`` defaults to ``True``.
+    """
+    captured_kwargs: dict[str, object] = {}
+
+    def fake_scan_core3_fn(**kwargs: object) -> ChainResult:
+        captured_kwargs.update(kwargs)
+        return ChainResult(
+            name="Core3",
+            status="success",
+            vault_scan_ok=True,
+            price_scan_ok=None,
+            vault_count=12,
+        )
+
+    monkeypatch.setattr(scan_all_chains, "scan_core3_fn", fake_scan_core3_fn)
+    monkeypatch.setattr(scan_all_chains, "print_dashboard", lambda *_, **__: None)
+
+    scan_all_chains.run_scan_tick(
+        chains=[],
+        active_protocols=["Core3"],
+        scan_prices=False,
+        scan_hypercore=False,
+        scan_grvt=False,
+        scan_lighter=False,
+        scan_hibachi=False,
+        scan_core3=True,
+        max_workers=1,
+        core3_max_workers=1,
+        frequency="1h",
+        retry_count=0,
+        skip_post_processing=True,
+        skip_cleaning=True,
+        skip_top_vaults=True,
+        skip_sparklines=True,
+        skip_metadata=True,
+        skip_data=True,
+        skip_samples=True,
+        vault_db_path=tmp_path / "vault-metadata-db.pickle",
+        uncleaned_price_path=tmp_path / "vault-prices-1h.parquet",
+        reader_state_path=tmp_path / "vault-reader-state-1h.pickle",
+        hyperliquid_db_path=tmp_path / "hyperliquid-vaults.duckdb",
+        hyperliquid_hf_db_path=tmp_path / "hyperliquid-vaults-hf.duckdb",
+        grvt_db_path=tmp_path / "grvt-vaults.duckdb",
+        lighter_db_path=tmp_path / "lighter-pools.duckdb",
+        hibachi_db_path=tmp_path / "hibachi-vaults.duckdb",
+        bkp_files=[],
+        bkp_dir=tmp_path / "backups",
+        core3_db_path=tmp_path / "core3.duckdb",
+    )
+
+    assert captured_kwargs["fetch_sections"] is True

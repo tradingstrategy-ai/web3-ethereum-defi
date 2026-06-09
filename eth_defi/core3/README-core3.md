@@ -63,7 +63,7 @@ source .local-test.env && poetry run python scripts/core3/scan-core3.py
 | `CORE3_DATABASE_PATH` | `~/.tradingstrategy/vaults/core3/core3.duckdb` | Path to DuckDB database file |
 | `LIMIT` | (none) | Limit number of projects to scan (for testing) |
 | `MAX_WORKERS` | `8` | Maximum number of parallel workers for API fetching |
-| `FETCH_SECTIONS` | `false` | Set to `true` to also fetch section detail endpoints (5 extra API calls per project) |
+| `FETCH_SECTIONS` | `true` | Set to `false` to skip section detail endpoints (5 extra API calls per project) |
 
 ### core3-overview.py — database inspector
 

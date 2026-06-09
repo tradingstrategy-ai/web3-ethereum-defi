@@ -87,7 +87,10 @@ services:
       SKIP_SAMPLES: ${SKIP_SAMPLES:-false}
 
       # Core3 risk intelligence DuckDB path override
+      CORE3_API_KEY: ${CORE3_API_KEY:-}
       CORE3_DATABASE_PATH: ${CORE3_DATABASE_PATH:-}
+      CORE3_MAX_WORKERS: ${CORE3_MAX_WORKERS:-8}
+      CORE3_FETCH_SECTIONS: ${CORE3_FETCH_SECTIONS:-true}
 
       # General workers per script
       MAX_WORKERS: ${MAX_WORKERS:-50}
@@ -158,7 +161,7 @@ services:
     entrypoint: [ "python", "scripts/erc-4626/scan-vaults-all-chains.py" ]
     environment:
       LOOP_INTERVAL_SECONDS: ${LOOP_INTERVAL_SECONDS:-3600}
-      SCAN_CYCLES: ${SCAN_CYCLES:-Ethereum=8h,Base=8h,Arbitrum=8h,Hypercore=4h,GRVT=4h,Lighter=4h,Hibachi=4h}
+      SCAN_CYCLES: ${SCAN_CYCLES:-Ethereum=8h,Base=8h,Arbitrum=8h,Hypercore=4h,GRVT=4h,Lighter=4h,Hibachi=4h,Core3=24h}
       DEFAULT_CYCLE: ${DEFAULT_CYCLE:-24h}
 
       CHAIN_ORDER: ${CHAIN_ORDER:-}
@@ -233,7 +236,10 @@ services:
       SKIP_SAMPLES: ${SKIP_SAMPLES:-false}
 
       # Core3 risk intelligence DuckDB path override
+      CORE3_API_KEY: ${CORE3_API_KEY:-}
       CORE3_DATABASE_PATH: ${CORE3_DATABASE_PATH:-}
+      CORE3_MAX_WORKERS: ${CORE3_MAX_WORKERS:-8}
+      CORE3_FETCH_SECTIONS: ${CORE3_FETCH_SECTIONS:-true}
 
       # Hyperliquid manual vault review Google Sheet sync — same
       # contract as the one-shot vault-scanner service above.

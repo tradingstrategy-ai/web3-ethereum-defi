@@ -1099,7 +1099,7 @@ def scan_hibachi_fn(
 def scan_core3_fn(
     core3_db_path: Path,
     max_workers: int = 8,
-    fetch_sections: bool = False,
+    fetch_sections: bool = True,
 ) -> ChainResult:
     """Scan Core3 risk intelligence enrichment data.
 
@@ -1370,7 +1370,7 @@ def run_scan_tick(
     cycle_intervals: dict[str, str] | None = None,
     on_item_success: Callable[[str], None] | None = None,
     core3_db_path: Path | None = None,
-    core3_fetch_sections: bool = False,
+    core3_fetch_sections: bool = True,
     hypersync_concurrency: int | None = None,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
@@ -1702,7 +1702,7 @@ def main():
     # of 10 when no value is provided.
     hypersync_concurrency = int(os.environ.get("HYPERSYNC_CONCURRENCY", "1"))
     core3_max_workers = int(os.environ.get("CORE3_MAX_WORKERS", "8"))
-    core3_fetch_sections = os.environ.get("CORE3_FETCH_SECTIONS", "false").lower() == "true"
+    core3_fetch_sections = os.environ.get("CORE3_FETCH_SECTIONS", "true").lower() == "true"
     frequency = os.environ.get("FREQUENCY", "1h")
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"
     skip_cleaning = os.environ.get("SKIP_CLEANING", "false").lower() == "true"

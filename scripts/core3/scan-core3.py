@@ -18,7 +18,7 @@ Usage:
     source .local-test.env && LIMIT=10 poetry run python scripts/core3/scan-core3.py
 
     # Include section details (security, financial, etc.)
-    source .local-test.env && FETCH_SECTIONS=true poetry run python scripts/core3/scan-core3.py
+    source .local-test.env && FETCH_SECTIONS=false poetry run python scripts/core3/scan-core3.py
 
 Environment variables:
 
@@ -27,7 +27,7 @@ Environment variables:
 - ``CORE3_DATABASE_PATH``: Path to DuckDB database file. Default: ~/.tradingstrategy/vaults/core3/core3.duckdb
 - ``LIMIT``: Limit the number of projects to scan (for testing). Default: None (scan all)
 - ``MAX_WORKERS``: Maximum number of parallel workers. Default: 8
-- ``FETCH_SECTIONS``: Set to ``true`` to also fetch section detail endpoints. Default: false
+- ``FETCH_SECTIONS``: Set to ``false`` to skip section detail endpoints. Default: true
 """
 
 import logging
@@ -63,7 +63,7 @@ def main():
     limit = int(limit_str) if limit_str else None
 
     max_workers = int(os.environ.get("MAX_WORKERS", "8"))
-    fetch_sections = os.environ.get("FETCH_SECTIONS", "false").lower() == "true"
+    fetch_sections = os.environ.get("FETCH_SECTIONS", "true").lower() == "true"
 
     print(f"Scanning Core3 projects...")
     print(f"Database path: {db_path}")

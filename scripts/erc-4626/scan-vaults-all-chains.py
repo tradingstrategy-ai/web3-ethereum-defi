@@ -95,7 +95,7 @@ Environment variables:
     - CORE3_API_KEY: Core3 API key. If missing, Core3 is disabled for the run with a warning.
     - CORE3_DATABASE_PATH: Path to Core3 DuckDB (default: ~/.tradingstrategy/vaults/core3/core3.duckdb)
     - CORE3_MAX_WORKERS: Number of Core3 API worker threads (default: "8")
-    - CORE3_FETCH_SECTIONS: "true" to fetch detailed Core3 section endpoints (default: "false")
+    - CORE3_FETCH_SECTIONS: "false" to skip detailed Core3 section endpoints (default: "true")
     - RETRY_COUNT: Number of retry attempts (default: "1")
     - MAX_WORKERS: Number of parallel workers (default: "50")
     - FREQUENCY: "1h" or "1d" (default: "1h")
