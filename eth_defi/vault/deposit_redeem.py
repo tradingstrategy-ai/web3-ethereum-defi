@@ -564,6 +564,28 @@ class VaultDepositManager(ABC):
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay_over()")
 
+    def get_deposit_delay_over(self, address: HexAddress | str) -> datetime.datetime | None:
+        """Estimate when a pending async deposit request will settle.
+
+        - Mirror of :py:meth:`get_redemption_delay_over` for the deposit side.
+
+        - Used to show an estimated settlement time for unsettled deposits
+          (e.g. in the trade-executor ``trade-ui`` table).
+
+        - Default returns ``None``: the protocol has no deterministic on-chain
+          settlement schedule (e.g. operator-driven ERC-7540 vaults like Lagoon).
+          Subclasses with a predictable settlement cadence (e.g. Ostium V1.5)
+          override this to return an estimated UTC timestamp.
+
+        :param address:
+            Owner of the pending deposit request.
+
+        :return:
+            Naive UTC timestamp when the deposit is expected to settle, or
+            ``None`` when no on-chain estimate is available.
+        """
+        return None
+
     @abstractmethod
     def analyse_deposit(
         self,
