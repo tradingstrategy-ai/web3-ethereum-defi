@@ -2,4 +2,7 @@
 feeder-id: yearn
 name: Yearn
 role: curator
+short_description: 'Yearn is a DeFi protocol that automates yield generation through vaults and related products.'
+long_description: |
+  Yearn documentation describes yVaults as capital pools that automatically generate yield from market opportunities. The docs say vaults socialise gas costs, automate yield generation and rebalancing, and move capital as opportunities arise. Yearn also offers yLockers, which are vault products built around vote-escrow governance tokens.
 canonical-feeder-id: yearn

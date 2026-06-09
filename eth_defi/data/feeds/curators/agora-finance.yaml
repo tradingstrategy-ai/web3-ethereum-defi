@@ -2,4 +2,7 @@ feeder-id: agora-finance
 name: Agora Finance
 role: curator
 website: https://www.agora.finance/
+short_description: 'Agora Finance builds AUSD and stablecoin infrastructure for internet-native money movement.'
+long_description: |
+  Agora describes itself as powering the assets and infrastructure of digital finance. Its homepage centres on AUSD, an institutional-grade digital dollar minted 1:1 with USD fiat, plus white-labelled stablecoins, instant liquidity, cross-chain bridging, and enterprise stablecoin utility.
 twitter: withAUSD

@@ -2,4 +2,7 @@
 feeder-id: ethena
 name: Ethena
 role: curator
+short_description: 'Ethena is a synthetic dollar protocol behind USDe and dollar-denominated crypto-native savings products.'
+long_description: |
+  Ethena describes USDe as a crypto-native synthetic dollar designed for use across DeFi, exchanges and institutional venues. Its public materials present staking and rewards products around USDe, with transparency metrics for backing, minting and redemption availability. LinkedIn describes Ethena as a synthetic dollar protocol built on Ethereum and associated with the Internet Bond concept.
 canonical-feeder-id: usde

@@ -2,6 +2,9 @@ feeder-id: kappa-lab
 name: Kappa Lab
 role: curator
 website: https://kappalab.io
+short_description: 'Kappa Lab is a digital asset market maker providing liquidity solutions across centralised and decentralised venues.'
+long_description: |
+  Kappa Lab describes itself as a cryptocurrency market maker delivering around-the-clock liquidity and improving market efficiency. Its homepage highlights proprietary trading technology, algorithms, risk controls, onchain infrastructure, and liquidity solutions for exchanges, token issuers, and ecosystems.
 twitter: KappaLab_io
 linkedin: kappalab
 

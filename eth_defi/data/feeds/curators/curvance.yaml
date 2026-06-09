@@ -9,4 +9,7 @@
 feeder-id: curvance
 name: Curvance
 role: curator
+short_description: 'Curvance is a DeFi app for depositing, borrowing, leveraging, swapping and earning yield from one dashboard.'
+long_description: |
+  Curvance presents itself as a unified DeFi dashboard where users can deposit crypto, borrow against it and keep assets earning yield. The homepage emphasises isolated markets, user-controlled exposure and portfolio-wide yield opportunities across blue chips, stablecoins and other assets. Its vaults are described as routing deposits across approved markets and rebalancing as rates change.
 canonical-feeder-id: curvance

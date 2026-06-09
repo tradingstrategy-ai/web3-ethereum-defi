@@ -35,14 +35,18 @@ Curator YAML files use the shared feeder schema defined in
     twitter: gauntlet_xyz
     linkedin: gauntlet-xyz
     rss: https://medium.com/feed/gauntlet-networks
+    short_description: Gauntlet is a DeFi risk manager.
+    long_description: |
+      Gauntlet builds risk management systems for lending markets,
+      vaults and other on-chain financial applications.
 
 Canonical feeder aliases
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 When the same organisation appears as both a curator and a stablecoin
 issuer or vault protocol, duplicate feed fetching is avoided by using
-``canonical-feeder-id``.  An alias YAML file contains only identity
-metadata — no feed source fields (twitter, linkedin, rss)::
+``canonical-feeder-id``.  An alias YAML file contains identity and
+description metadata, but no feed source fields (twitter, linkedin, rss)::
 
     feeder-id: ethena
     name: Ethena
@@ -257,6 +261,12 @@ class CuratorInfo(TypedDict):
     #: Company website URL, or ``None`` if not configured in YAML.
     website: str | None
 
+    #: One-line description of the curator.
+    short_description: str | None
+
+    #: Multi-paragraph Markdown description of the curator.
+    long_description: str | None
+
     #: Twitter/X handle without ``@`` prefix (e.g. ``"gauntlet_xyz"``),
     #: or ``None`` if not configured.
     twitter: str | None
@@ -318,6 +328,12 @@ class CuratorMetadata(TypedDict):
     #: Company website URL, or ``None``.
     website: str | None
 
+    #: One-line description of the curator.
+    short_description: str | None
+
+    #: Multi-paragraph Markdown description of the curator.
+    long_description: str | None
+
     #: Full Twitter/X profile URL (e.g. ``"https://x.com/gauntlet_xyz"``),
     #: or ``None``.
     twitter: str | None
@@ -366,6 +382,8 @@ def _load_curator_yaml(yaml_path: Path) -> CuratorInfo:
         slug=parsed["feeder-id"],
         name=parsed["name"],
         website=parsed.get("website"),
+        short_description=parsed.get("short_description"),
+        long_description=parsed.get("long_description"),
         twitter=parsed.get("twitter"),
         linkedin=parsed.get("linkedin"),
         rss=parsed.get("rss"),
@@ -632,6 +650,8 @@ def build_curator_metadata_json(yaml_path: Path, public_url: str = "") -> Curato
         slug=slug,
         name=info["name"],
         website=website,
+        short_description=info["short_description"],
+        long_description=info["long_description"],
         twitter=twitter_url,
         linkedin=linkedin_url,
         rss=rss,
@@ -665,6 +685,8 @@ def _build_protocol_curator_entries(public_url: str = "") -> list[CuratorMetadat
                     slug=slug,
                     name=name,
                     website=None,
+                    short_description=None,
+                    long_description=None,
                     twitter=None,
                     linkedin=None,
                     rss=None,

@@ -2,6 +2,9 @@ feeder-id: unified-labs
 name: Unified Labs
 role: curator
 website: https://unifiedlabs.io
+short_description: 'Unified Labs builds institutional risk strategies and liquidity infrastructure for on-chain finance.'
+long_description: |
+  Unified Labs describes its purpose as building infrastructure for institutional DeFi adoption. Its homepage says it delivers institutional risk strategies and liquidity infrastructure for optimal on-chain allocation. The site highlights stablecoin and yield product design, risk-vetted DeFi vault allocation, and advisory work around RWAs, stablecoins and tokenised assets.
 twitter: unifiedlabs_
 rss: https://unifiedlabs.substack.com/feed
 

@@ -2,6 +2,9 @@ feeder-id: telosc
 name: Telos Consilium
 role: curator
 website: https://telosc.com
+short_description: 'Telos Consilium advises Web3 projects on strategy, tokenomics, integrations and growth.'
+long_description: |
+  Telos Consilium presents itself as an accelerator and consulting firm for Web3 projects. Its homepage describes services including go-to-market strategy, non-custodial asset management, business development, technical services, curation, data verification and research. LinkedIn describes the firm as helping Web3 projects through strategy, tokenomics and ecosystem integrations.
 twitter: TelosConsilium
 linkedin: telosc
 

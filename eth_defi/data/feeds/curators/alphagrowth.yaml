@@ -2,6 +2,9 @@ feeder-id: alphagrowth
 name: AlphaGrowth
 role: curator
 website: https://alphagrowth.io/
+short_description: 'AlphaGrowth is a DeFi growth and execution firm supporting ecosystems, DAOs, investors, and protocols.'
+long_description: |
+  AlphaGrowth describes itself as a gateway to DeFi alpha, combining partners, systems, and institutional-grade execution. Its site highlights growth work for DeFi ecosystems and protocols, research content, deal flow, and solutions such as DeFi in a box, token-as-a-product, private lending, and onchain insurance.
 twitter: alphagrowth1
 
 # Evidence and background references.

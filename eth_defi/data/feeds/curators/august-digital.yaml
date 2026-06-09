@@ -2,6 +2,9 @@ feeder-id: august-digital
 name: August Digital
 role: curator
 website: https://www.augustdigital.io
+short_description: 'August Digital builds institutional on-chain prime brokerage infrastructure for digital assets.'
+long_description: |
+  August describes itself as an institutional-grade crypto platform for managing and settling digital assets. Its homepage highlights on-chain prime brokerage infrastructure, smart contract accounts, pricing and risk engines, execution capabilities, automated loan lifecycle tools, and reporting for institutional clients.
 twitter: august_digital
 linkedin: augustdigital
 linkedin-rss-hub-disabled-at: 2026-04-04

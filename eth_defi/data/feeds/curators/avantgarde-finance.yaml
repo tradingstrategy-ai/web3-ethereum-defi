@@ -2,6 +2,9 @@ feeder-id: avantgarde-finance
 name: Avantgarde Finance
 role: curator
 website: https://avantgarde.finance
+short_description: 'Avantgarde Finance curates on-chain asset management strategies and Morpho vaults.'
+long_description: |
+  Avantgarde Finance describes itself as pioneering on-chain asset management through curated vault strategies. Its homepage says it serves crypto-native organisations with DeFi vaults, Morpho curation, separately managed accounts, RWA-backed looping strategies, and non-custodial infrastructure designed around pre-approved investor controls.
 twitter: avantgardefi
 linkedin: avantgarde-finance
 rss: https://medium.com/feed/@avantgardefi

@@ -3,3 +3,8 @@ feeder-id: infinifi
 name: infiniFi
 role: curator
 canonical-feeder-id: infinifi
+short_description: infiniFi is a DeFi protocol that uses transparent capital efficiency to generate stablecoin yield without leverage.
+long_description: |
+  infiniFi is a DeFi protocol designed to amplify returns on existing platforms such as Pendle, Ethena and Aave.
+  Its documentation describes an on-chain fractional reserve system that aims to maximise yields while maintaining liquidity.
+  Users deposit USDC to receive iUSD, then can stake or lock positions through siUSD and liUSD tokens for different liquid and locked return profiles.

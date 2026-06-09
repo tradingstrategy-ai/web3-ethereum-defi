@@ -2,6 +2,9 @@ feeder-id: api3
 name: API3
 role: curator
 website: https://api3.org
+short_description: 'API3 provides oracle infrastructure and OEV rewards for DeFi protocols across multiple chains.'
+long_description: |
+  API3 presents its oracle network as infrastructure that lets DeFi projects receive OEV rewards wherever they build. Its homepage highlights OEV rewards paid, lending protocol adopters, and more than 100 data feeds across supported chains.
 twitter: API3DAO
 linkedin: api3
 rss: https://blog.api3.org/rss/

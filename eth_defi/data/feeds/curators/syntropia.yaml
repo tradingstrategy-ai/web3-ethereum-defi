@@ -2,5 +2,8 @@ feeder-id: syntropia
 name: Syntropia
 role: curator
 website: https://syntropia.ai
+short_description: 'Syntropia is a decentralised fund of risk-curated DeFi strategies with tranche-based yield products and circuit breakers.'
+long_description: |
+  Syntropia describes itself as automated yield from DeFi market making with institutional-grade security and protection through circuit breakers. Its documentation frames the product as a decentralised fund of risk-curated DeFi strategies, offering senior, mezzanine, and junior tranche assets alongside real-time monitoring of liquidity, borrow rates, market events, and sentiment.
 twitter: syntropia_ai
 linkedin: syntropiaai

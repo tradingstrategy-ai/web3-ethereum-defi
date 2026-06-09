@@ -3,3 +3,8 @@ feeder-id: frax-finance
 name: Frax Finance
 role: curator
 canonical-feeder-id: frax
+short_description: Frax builds stablecoin and Fraxtal infrastructure for open, on-chain digital money.
+long_description: |
+  Frax is a DeFi protocol and financial technology organisation behind frxUSD, FPI, frxETH and the Fraxtal blockchain.
+  Its documentation describes frxUSD as a fiat-redeemable, fully collateralised stablecoin backed by cash-equivalent reserves and governed by the Frax DAO.
+  FraxNet provides cross-chain minting and redemption infrastructure for frxUSD across supported networks and institutions.

@@ -2,4 +2,7 @@
 feeder-id: sky
 name: Sky
 role: curator
+short_description: 'Sky.money is a non-custodial interface to Sky Protocol for USDS, sUSDS, vaults, rewards, and SKY participation.'
+long_description: |
+  Sky.money presents itself as a stablecoin-yield interface where users can put stablecoins to work through Sky Protocol savings tools. The site covers USDS conversion, sUSDS via the Sky Savings Rate, third-party Morpho vault strategies, fixed yield via Pendle, ecosystem rewards, and SKY staking or governance participation.
 canonical-feeder-id: usds

@@ -2,6 +2,9 @@ feeder-id: b-cube-ai
 name: B-CUBE.AI
 role: curator
 website: https://b-cube.ai
+short_description: 'B-CUBE.AI is an AI and quantamental crypto trading platform for funds, strategies, and trading tools.'
+long_description: |
+  B-CUBE.AI describes itself as a regulated quantamental trading platform combining AI, quantitative models, and fundamentals for institutional clients. Public company information also describes an AI-driven platform for building, optimising, renting, and copying crypto trading strategies, with execution, sentiment analysis, and portfolio tools.
 twitter: bcubeai
 linkedin: b-cube-ai
 linkedin-rss-hub-disabled-at: 2026-04-04

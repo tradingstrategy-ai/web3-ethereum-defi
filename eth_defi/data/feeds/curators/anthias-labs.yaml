@@ -2,6 +2,9 @@ feeder-id: anthias-labs
 name: Anthias Labs
 role: curator
 website: https://anthias.xyz
+short_description: 'Anthias Labs is a boutique on-chain advisory firm focused on DeFi risk management and system design.'
+long_description: |
+  Anthias Labs describes itself as a mission-critical risk partner for protocols. Its homepage says it provides DeFi risk advisory, monitoring systems, technical research, and open-source tooling, with experience around depeggings, liquidation cascades, flash crashes, and protocol health monitoring.
 twitter: anthiasxyz
 linkedin: anthias-xyz
 

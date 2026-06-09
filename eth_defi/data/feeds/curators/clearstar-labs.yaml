@@ -2,6 +2,9 @@ feeder-id: clearstar-labs
 name: Clearstar Labs
 role: curator
 website: https://www.clearstar.xyz
+short_description: 'Clearstar Labs curates on-chain strategies with qualitative vetting, monitoring, and distribution infrastructure.'
+long_description: |
+  Clearstar Labs describes itself as building safer DeFi with a qualitative-first approach. Its homepage positions the company as an onchain strategy curator providing enterprise-grade infrastructure, risk and vetting, technical monitoring, execution, capital routing, and distribution across institutional blockchain networks.
 twitter: ClearstarLabs
 linkedin: clearstar-labs-ag
 linkedin-rss-hub-disabled-at: 2026-04-04

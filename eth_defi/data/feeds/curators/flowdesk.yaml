@@ -2,6 +2,9 @@ feeder-id: flowdesk
 name: Flowdesk
 role: curator
 website: https://www.flowdesk.co
+short_description: 'Flowdesk is a full-service digital asset trading and technology firm for liquidity and OTC execution.'
+long_description: |
+  Flowdesk describes itself as a trading and technology firm delivering liquidity solutions, OTC trading and venture support for digital asset markets. Its homepage highlights institutional-grade compliance, proprietary execution algorithms, global 24/7 service and integrations across more than 150 venues. LinkedIn adds that Flowdesk serves institutions, exchanges and token issuers globally.
 twitter: flowdesk_co
 linkedin: flowdesk-france
 other-links:

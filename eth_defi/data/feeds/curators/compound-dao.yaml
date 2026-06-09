@@ -2,6 +2,9 @@ feeder-id: compound-dao
 name: Compound DAO
 role: curator
 website: https://compound.finance/
+short_description: 'Compound is a DeFi lending protocol and credit infrastructure project governed by the COMP ecosystem.'
+long_description: |
+  Compound is one of DeFi's established lending and borrowing protocols. Its public materials describe an infrastructure layer for credit, with markets and partner-facing lending rails intended for exchanges, fintechs and institutions. The protocol has historically focused on permissionless money markets and governance-controlled upgrades.
 twitter: compoundfinance
 linkedin: compound-labs
 # Compound Medium is stale; use the active governance/forum RSS.

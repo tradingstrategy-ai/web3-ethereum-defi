@@ -2,6 +2,9 @@ feeder-id: kpk
 name: kpk
 role: curator
 website: https://kpk.io
+short_description: 'KPK provides scalable onchain asset management through funds, vaults, and treasury mandates.'
+long_description: |
+  KPK describes its work as scalable onchain asset management built around risk frameworks, automation, and policy-enforced execution. Its homepage presents tokenised funds, automated vault strategies, and bespoke treasury mandates for structured capital allocation across DeFi markets.
 twitter: kpk_io
 linkedin: kpk-io
 rss: https://newsletter.kpk.io/feed

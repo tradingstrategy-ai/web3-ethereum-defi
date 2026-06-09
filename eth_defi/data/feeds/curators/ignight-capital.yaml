@@ -2,6 +2,11 @@ feeder-id: ignight-capital
 name: Ignight Capital
 role: curator
 website: https://ignight.capital
+short_description: Ignight Capital is a crypto investment and liquidity bootstrapping firm for DeFi projects.
+long_description: |
+  Ignight Capital focuses on crypto investment opportunities and liquidity bootstrapping for emerging protocols.
+  Its site describes support for early-stage projects through strategic investments and guidance.
+  The firm also provides capital intended to help DeFi protocols grow total value locked and gain market visibility.
 twitter: IgnightCapital
 linkedin: ignightcapital
 rss: https://medium.com/feed/@ignightcapital

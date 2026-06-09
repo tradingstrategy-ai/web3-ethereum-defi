@@ -17,4 +17,7 @@
 feeder-id: sbold
 name: sBOLD
 role: curator
+short_description: 'sBOLD is a K3 Capital ERC-4626 vault tokenising deposits into Liquity v2 Stability Pools.'
+long_description: |
+  K3 Capital sBOLD documentation describes the product as a yield-bearing tokenised representation of deposits into Liquity v2 Stability Pools. Depositors supply BOLD and receive an ERC-4626 token while the vault routes funds across selected stability pools, compounds interest, and automates liquidation-collateral conversion back into BOLD.
 canonical-feeder-id: sbold

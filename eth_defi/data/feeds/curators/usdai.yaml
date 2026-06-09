@@ -2,4 +2,7 @@
 feeder-id: usdai
 name: USD.AI
 role: curator
+short_description: 'USD.AI issues USDai, a synthetic dollar backed by AI compute infrastructure and machine-backed credit.'
+long_description: |
+  USD.AI presents USDai as a fully backed synthetic dollar and sUSDai as its yield-bearing staked version. Its homepage says the protocol links yield to machine-backed credit and collateralises USDai with high-performance GPUs and compute infrastructure. The site also highlights verified reserves, decentralised underwriting and mechanisms intended to support exits from real-world loans.
 canonical-feeder-id: usdai

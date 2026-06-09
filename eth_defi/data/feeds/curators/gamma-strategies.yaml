@@ -4,6 +4,11 @@ feeder-id: gamma-strategies
 name: Gamma Strategies
 role: curator
 website: https://www.gamma.xyz
+short_description: Gamma is a protocol for active liquidity management and trading on decentralised exchanges.
+long_description: |
+  Gamma is a protocol for active liquidity management and trading on decentralised exchanges.
+  Its documentation lists a Uniswap v4 limit order hook, non-custodial automated LP vaults and perpetual trading vaults as its core products.
+  The LP vaults rebalance liquidity on concentrated liquidity AMMs, while the perpetual vaults run Hyperliquid strategies based on financial signals, momentum and sentiment analysis.
 twitter: GammaStrategies
 rss: https://medium.com/feed/@gammastrategies
 rss-dead-at: 2026-04-06

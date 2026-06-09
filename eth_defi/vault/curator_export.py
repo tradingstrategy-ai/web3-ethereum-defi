@@ -83,6 +83,12 @@ class CuratorExportRecord(TypedDict):
     #: Company website URL, or ``None``.
     website: str | None
 
+    #: One-line description of the curator.
+    short_description: str | None
+
+    #: Multi-paragraph Markdown description of the curator.
+    long_description: str | None
+
     #: Full Twitter/X profile URL (e.g. ``"https://x.com/gauntlet_xyz"``),
     #: or ``None``.
     twitter: str | None
@@ -132,6 +138,8 @@ def _build_protocol_curator_from_yaml(
     name = PROTOCOL_CURATOR_NAMES.get(slug, slug)
 
     website = None
+    short_description = None
+    long_description = None
     twitter_url = None
     linkedin_url = None
     rss = None
@@ -140,6 +148,8 @@ def _build_protocol_curator_from_yaml(
         meta = load_feeder_metadata(protocol_yaml)
         name = meta.get("name", name)
         website = meta.get("website")
+        short_description = meta.get("short_description")
+        long_description = meta.get("long_description")
         twitter_handle = meta.get("twitter")
         linkedin_id = meta.get("linkedin")
         rss = meta.get("rss")
@@ -153,6 +163,8 @@ def _build_protocol_curator_from_yaml(
         slug=slug,
         name=name,
         website=website,
+        short_description=short_description,
+        long_description=long_description,
         twitter=twitter_url,
         linkedin=linkedin_url,
         rss=rss,
@@ -224,6 +236,8 @@ def build_curators_for_export(
                 slug=meta["slug"],
                 name=meta["name"],
                 website=meta["website"],
+                short_description=meta["short_description"],
+                long_description=meta["long_description"],
                 twitter=meta["twitter"],
                 linkedin=meta["linkedin"],
                 rss=meta["rss"],

@@ -2,4 +2,7 @@ feeder-id: tangent-finance
 name: Tangent Finance
 role: curator
 website: https://www.tangent.finance/
+short_description: 'Tangent Finance builds USG, an over-collateralised DeFi stablecoin backed by productive collateral.'
+long_description: |
+  Tangent Finance presents USG as a decentralised, over-collateralised stablecoin designed around DeFi composability and capital efficiency. Its homepage describes markets where users can borrow against productive collateral, including LP and yield-bearing assets. It also offers sUSG as a yield-bearing version of USG and positions TAN holders as protocol governors who share in earnings.
 twitter: Tangent_fi

@@ -2,6 +2,9 @@ feeder-id: stake-dao
 name: Stake DAO
 role: curator
 website: https://stakedao.org
+short_description: 'Stake DAO is a non-custodial DeFi protocol for liquid lockers, yield strategies, lending, and vote markets.'
+long_description: |
+  Stake DAO describes itself as the Liquid Lockers Protocol, focused on governance tokens. Its documentation says the platform helps users maximise governance-token value through liquid lockers, boosted yield strategies, lending against staked positions, and Votemarket, an on-chain marketplace for vote incentives.
 twitter: StakeDAOHQ
 linkedin: stake-dao
 rss: https://medium.com/@stakedaohq/feed

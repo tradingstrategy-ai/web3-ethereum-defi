@@ -2,5 +2,8 @@ feeder-id: 9summits
 name: 9Summits
 role: curator
 website: https://vaults.9summits.io
+short_description: '9Summits curates DeFi vaults to help clients access yield opportunities with confidence and precision.'
+long_description: |
+  9Summits presents itself as an asset management project focused on curated DeFi vaults. Its homepage says it helps clients access decentralised finance opportunities by selecting top-performing vaults, while the vault app frames the product around earning and portfolio access.
 twitter: nine_summits
 # linkedin: not found

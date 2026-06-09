@@ -3,6 +3,9 @@ feeder-id: smardex
 name: SmarDex
 role: curator
 website: https://smardex.io
+short_description: 'SmarDex is a decentralised exchange and AMM protocol focused on smart liquidity and low-slippage swaps.'
+long_description: |
+  SmarDex describes itself as a decentralised exchange designed for efficient, low-slippage cryptocurrency swaps through smart liquidity mechanisms. Its documentation explains that it operates as an AMM using pricing algorithms, while its LinkedIn profile frames SmarDex.io as a DeFi access point for users of the SmarDex protocol.
 twitter: SmarDex
 linkedin: realsmardex
 linkedin-rss-hub-disabled-at: 2026-04-04

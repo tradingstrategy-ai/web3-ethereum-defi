@@ -2,3 +2,6 @@ feeder-id: strata
 name: Strata
 role: curator
 website: https://strata.markets
+short_description: 'Strata is a structured-yield protocol that splits on-chain yield strategies into senior and junior risk tranches.'
+long_description: |
+  Strata documentation describes it as a generalised risk-tranching protocol for structured yield products. It tokenises yield strategies into senior and junior tranches so users can choose different risk-reward profiles, with the junior tranche absorbing more risk in exchange for higher potential yield and the senior tranche targeting more protected exposure.

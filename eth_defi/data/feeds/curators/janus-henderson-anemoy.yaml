@@ -2,6 +2,9 @@ feeder-id: janus-henderson-anemoy
 name: Janus Henderson Anemoy
 role: curator
 website: https://www.anemoy.io/funds/jtrsy
+short_description: 'Janus Henderson Anemoy is a regulated onchain treasury fund providing access to short-duration US Treasury yield.'
+long_description: |
+  The Janus Henderson Anemoy Treasury Fund is described as a regulated, fully onchain actively managed fund for direct access to US Treasury yield with maturities under six months. The fund page emphasises daily redemptions, onchain transparency, investor protection, and tokenised fund shares.
 twitter: anemoycapital
 linkedin: anemoy
 

@@ -2,6 +2,9 @@ feeder-id: alphaping
 name: AlphaPing
 role: curator
 website: https://alphaping.ch
+short_description: 'AlphaPing operates mandate-driven, non-custodial on-chain credit vaults for institutional use cases.'
+long_description: |
+  AlphaPing describes its product as operator-grade on-chain credit vaults governed by explicit, mechanically enforced risk constraints. The homepage focuses on institutional allocators and asset managers, with over-collateralised credit, isolated mandates, deterministic exits, and verifiable on-chain accounting.
 twitter: 0xAlphaping
 linkedin: alphaping-gmbh
 

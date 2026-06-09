@@ -2,6 +2,9 @@ feeder-id: ultrayield
 name: UltraYield
 role: curator
 website: https://ultrayield.app
+short_description: 'UltraYield is a vault curator and infrastructure provider for CeFi and DeFi yield strategies.'
+long_description: |
+  UltraYield presents itself as a vault curator and infrastructure provider offering yield-generating strategies across CeFi and DeFi. Its homepage describes institutional-grade opportunities, market-neutral strategies and smart contract infrastructure for vaults. It lists curated vaults for USD, BTC and ETH exposure, as well as partner vaults across several yield products.
 twitter: ultrayieldapp
 
 # UltraYield is the vault curation product of Edge Capital Group, a crypto

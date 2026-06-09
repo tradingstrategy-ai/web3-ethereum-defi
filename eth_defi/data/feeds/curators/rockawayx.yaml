@@ -2,5 +2,8 @@ feeder-id: rockawayx
 name: RockawayX
 role: curator
 website: https://www.rockawayx.com
+short_description: 'RockawayX is a digital asset investment and engineering firm spanning venture, liquidity, and blockchain infrastructure.'
+long_description: |
+  RockawayX says it runs blockchains and provides liquidity to fuel protocols. Its homepage describes early-stage investing, validator and bare-metal infrastructure, and on-chain liquidity services for blockchain ecosystems, with a focus on building alongside portfolio projects rather than only providing capital.
 twitter: Rockaway_X
 linkedin: rockawayx

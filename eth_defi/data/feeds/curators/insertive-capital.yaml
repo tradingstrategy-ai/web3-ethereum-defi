@@ -1,5 +1,10 @@
 feeder-id: insertive-capital
 name: Insertive Capital
 role: curator
+short_description: Insertive Capital is a discretionary on-chain trading vault associated with the onchainquant profile.
+long_description: |
+  Insertive Capital appears as an on-chain discretionary trading vault under the onchainquant profile.
+  The published vault profile describes a high-risk, high-return strategy that seeks asymmetric opportunities across volatile markets.
+  The vault runs on Lighter and is denominated in USDC, with performance-fee-based operation shown in the vault metadata.
 twitter: onchainquant
 # linkedin: not found

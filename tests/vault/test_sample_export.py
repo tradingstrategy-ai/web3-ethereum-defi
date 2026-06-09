@@ -23,9 +23,27 @@ def test_sample_json_filters_core3_protocols_and_curators(tmp_path: Path):
             "gains-network": {"slug": "gains-network", "name": "Gains", "pol": {"score": 60.0}},
         },
         "curators": {
-            "gauntlet": {"slug": "gauntlet", "name": "Gauntlet", "recent_posts": []},
-            "re7-labs": {"slug": "re7-labs", "name": "RE7 Labs", "recent_posts": []},
-            "gains-network": {"slug": "gains-network", "name": "Gains Network", "recent_posts": []},
+            "gauntlet": {
+                "slug": "gauntlet",
+                "name": "Gauntlet",
+                "short_description": "Gauntlet short description.",
+                "long_description": "Gauntlet long description.",
+                "recent_posts": [],
+            },
+            "re7-labs": {
+                "slug": "re7-labs",
+                "name": "RE7 Labs",
+                "short_description": "RE7 Labs short description.",
+                "long_description": "RE7 Labs long description.",
+                "recent_posts": [],
+            },
+            "gains-network": {
+                "slug": "gains-network",
+                "name": "Gains Network",
+                "short_description": "Gains Network short description.",
+                "long_description": "Gains Network long description.",
+                "recent_posts": [],
+            },
         },
         "vaults": [
             {"chain_id": 1, "protocol_slug": "morpho", "curator_slug": "gauntlet", "name": "Morpho Vault A"},
@@ -46,8 +64,9 @@ def test_sample_json_filters_core3_protocols_and_curators(tmp_path: Path):
     # 3. Read and verify
     result = json.loads(output_path.read_text(encoding="utf-8"))
 
-    assert count == 3
-    assert len(result["vaults"]) == 3
+    expected_ethereum_vault_count = 3
+    assert count == expected_ethereum_vault_count
+    assert len(result["vaults"]) == expected_ethereum_vault_count
 
     # core3_protocols should only have morpho and fluid (Ethereum vaults)
     assert "morpho" in result["core3_protocols"]
@@ -58,6 +77,10 @@ def test_sample_json_filters_core3_protocols_and_curators(tmp_path: Path):
     # 4. curators should only have gauntlet and re7-labs (Ethereum vaults)
     assert "gauntlet" in result["curators"]
     assert "re7-labs" in result["curators"]
+    assert result["curators"]["gauntlet"]["short_description"] == "Gauntlet short description."
+    assert result["curators"]["gauntlet"]["long_description"] == "Gauntlet long description."
+    assert result["curators"]["re7-labs"]["short_description"] == "RE7 Labs short description."
+    assert result["curators"]["re7-labs"]["long_description"] == "RE7 Labs long description."
     # gains-network curator is Arbitrum only — should be excluded
     assert "gains-network" not in result["curators"]
 

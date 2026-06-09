@@ -2,5 +2,8 @@ feeder-id: tau
 name: TAU
 role: curator
 website: https://www.628labs.xyz
+short_description: 'TAU Labs is a crypto-native vault curation and mechanism design firm.'
+long_description: |
+  TAU Labs, operating via 628 Labs, describes its work as crypto-native vault curation, mechanism design, incentive optimisation, token design and risk management. Its homepage says it runs strategies for stablecoins, BTC, ETH and other assets across chains. The site also highlights economic modelling for interest rates, liquidations, auctions, stress testing and tokenomics.
 twitter: 628Labs
 linkedin: tau-labs

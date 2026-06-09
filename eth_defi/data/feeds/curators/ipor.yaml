@@ -2,4 +2,7 @@
 feeder-id: ipor
 name: IPOR
 role: curator
+short_description: 'IPOR builds Fusion, onchain vault infrastructure for institutional-grade yield strategies.'
+long_description: |
+  IPOR's homepage focuses on Fusion, a product for creating and managing onchain vaults inside a risk framework. The site presents Fusion as infrastructure for asset managers, institutions, and builders to create, white-label, and explore yield strategies.
 canonical-feeder-id: ipor-fusion
