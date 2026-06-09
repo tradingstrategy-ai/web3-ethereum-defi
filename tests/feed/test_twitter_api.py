@@ -124,19 +124,14 @@ def test_sync_x_list_members_waits_on_rate_limit(monkeypatch: pytest.MonkeyPatch
     sleep_calls: list[float] = []
 
     class FakeClient:
-        """Fake Tweepy client for list member reads and writes."""
+        """Fake Tweepy client for list member writes.
+
+        The local member cache starts empty, so both resolved handles need
+        adding and the broken ``get_list_members`` endpoint is never touched.
+        """
 
         def __init__(self, **_kwargs: object):
             pass
-
-        @staticmethod
-        def get_list_members(list_id: str, max_results: int, pagination_token: str | None):
-            """Return an empty list so every resolved user needs adding."""
-
-            assert list_id == LIST_ID
-            assert max_results == LIST_MEMBER_PAGE_SIZE
-            assert pagination_token is None
-            return SimpleNamespace(data=[], meta={})
 
         @staticmethod
         def add_list_member(list_id: str, user_id: str) -> None:
@@ -173,72 +168,129 @@ def test_sync_x_list_members_waits_on_rate_limit(monkeypatch: pytest.MonkeyPatch
         db.close()
 
 
-def test_sync_x_list_members_retries_on_server_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Retry transient X API 503 server errors when reading list members.
+def test_x_api_read_with_retry_retries_server_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Retry transient X API 5xx errors with exponential backoff, then succeed.
 
-    A transient ``503 Service Unavailable`` from X used to propagate out of the
-    scan cycle and crash the long-running process, producing a Docker restart
-    hot-loop.  The read loop must back off and retry instead.
+    The shared read wrapper protects every X read path (handle resolution, list
+    timeline, user timeline) from transient ``503 Service Unavailable`` blips
+    that would otherwise abort a scan cycle.
 
-    1. Stub a client whose ``get_list_members`` raises 503 twice, then succeeds.
-    2. Run the sync and capture the backoff sleeps.
-    3. Assert the read retried and the sync completed without raising.
+    1. Build a callable that raises 503 twice, then returns a value.
+    2. Call the retry wrapper, capturing the backoff sleeps.
+    3. Assert it returned the value after exactly two backoff sleeps.
     """
 
-    # 1. Stub a client whose get_list_members raises 503 twice, then succeeds
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(twitter_api.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+
+    # 1. Build a callable that raises 503 twice, then returns a value
+    calls: list[int] = []
+
+    def flaky() -> str:
+        calls.append(1)
+        if len(calls) <= 2:
+            raise tweepy.TwitterServerError(_ServerErrorResponse())
+        return "ok"
+
+    # 2. Call the retry wrapper, capturing the backoff sleeps
+    result = twitter_api._x_api_read_with_retry(flaky, description="testing the retry wrapper")
+
+    # 3. It returned after exactly two backoff sleeps
+    assert result == "ok"
+    assert len(calls) == 3
+    assert sleep_calls == [5.0, 10.0]
+
+
+def test_x_api_read_with_retry_raises_after_exhausting_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Surface an XApiError once 5xx retries are exhausted.
+
+    A persistently failing endpoint (like ``GET /2/lists/{id}/members``) must
+    eventually raise rather than retry forever.
+
+    1. Build a callable that always raises 503.
+    2. Call the retry wrapper.
+    3. Assert it raises XApiError after the configured maximum retries.
+    """
+
+    monkeypatch.setattr(twitter_api.time, "sleep", lambda _seconds: None)
+
+    # 1. Build a callable that always raises 503
+    def always_503() -> str:
+        raise tweepy.TwitterServerError(_ServerErrorResponse())
+
+    # 2. + 3. The wrapper gives up with XApiError after the retry budget
+    with pytest.raises(twitter_api.XApiError):
+        twitter_api._x_api_read_with_retry(always_503, description="hitting a dead endpoint")
+
+
+def test_sync_x_list_members_uses_local_member_cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Sync membership from a local cache instead of the broken members endpoint.
+
+    Because ``GET /2/lists/{id}/members`` returns persistent 503s, the sync must
+    never call it; it tracks added member IDs locally and only writes the delta
+    when handles change.
+
+    1. Stub resolution and a client that fails if the members endpoint is read.
+    2. Run sync, then add a third handle and run sync again.
+    3. Assert the first run adds all members and the second adds only the delta.
+    """
+
+    # 1. Stub resolution (mutable so the second run resolves a new handle) and a
+    #    client whose read endpoint must never be called.
+    handle_map = {"alice": "1", "bob": "2"}
     monkeypatch.setattr(
         twitter_api,
         "resolve_twitter_handles",
-        lambda _handles, _bearer_token, _user_cache: {"alice": "1"},
+        lambda handles, _bearer_token, _user_cache: {h: handle_map[h] for h in handles},
     )
 
-    read_calls: list[int] = []
-    sleep_calls: list[float] = []
+    add_calls: list[str] = []
 
     class FakeClient:
-        """Fake Tweepy client that fails reads transiently before succeeding."""
+        """Fake Tweepy client that records writes and forbids member reads."""
 
         def __init__(self, **_kwargs: object):
             pass
 
         @staticmethod
-        def get_list_members(list_id: str, max_results: int, pagination_token: str | None):
-            """Raise 503 for the first two calls, then return the member."""
+        def get_list_members(*_args: object, **_kwargs: object):
+            """The members endpoint is broken and must never be called."""
 
-            read_calls.append(1)
-            if len(read_calls) <= 2:
-                raise tweepy.TwitterServerError(_ServerErrorResponse())
-            return SimpleNamespace(data=[SimpleNamespace(id="1")], meta={})
+            raise AssertionError("get_list_members must not be called")
 
         @staticmethod
         def add_list_member(list_id: str, user_id: str) -> None:
-            """Member already present, so no writes should occur."""
+            """Record each successful add."""
 
-            raise AssertionError("add_list_member should not be called")
+            assert list_id == LIST_ID
+            add_calls.append(user_id)
 
     monkeypatch.setattr(twitter_api.tweepy, "Client", FakeClient)
-    monkeypatch.setattr(twitter_api.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+    monkeypatch.setattr(twitter_api.time, "sleep", lambda _seconds: None)
+
+    common_args = (
+        "consumer-key",
+        "consumer-secret",
+        "access-token",
+        "access-token-secret",
+        TwitterUserCache(tmp_path / "twitter-users.json"),
+        "bearer-token",
+    )
 
     db = VaultPostDatabase(tmp_path / "posts.duckdb")
     try:
-        # 2. Run the sync and capture the backoff sleeps
-        added = sync_x_list_members(
-            LIST_ID,
-            ["alice"],
-            "consumer-key",
-            "consumer-secret",
-            "access-token",
-            "access-token-secret",
-            TwitterUserCache(tmp_path / "twitter-users.json"),
-            "bearer-token",
-            db,
-            add_delay_seconds=0,
-        )
+        # 2. First run adds both members from an empty cache
+        added_first = sync_x_list_members(LIST_ID, ["alice", "bob"], *common_args, db, add_delay_seconds=0)
 
-        # 3. The read retried twice and the sync completed without raising
-        assert added == 0
-        assert len(read_calls) == 3
-        assert sleep_calls == [5.0, 10.0]
-        assert db.get_sync_state("twitter_handles_hash") == compute_handles_hash(["alice"])
+        # 2. Second run after a new handle is introduced
+        handle_map["carol"] = "3"
+        add_calls.clear()
+        added_second = sync_x_list_members(LIST_ID, ["alice", "bob", "carol"], *common_args, db, add_delay_seconds=0)
+
+        # 3. First run added all, second run added only the delta
+        assert added_first == 2
+        assert added_second == 1
+        assert add_calls == ["3"]
+        assert db.get_sync_state(twitter_api.X_LIST_MEMBER_IDS_STATE_KEY) is not None
     finally:
         db.close()

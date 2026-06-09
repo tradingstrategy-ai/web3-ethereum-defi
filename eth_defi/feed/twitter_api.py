@@ -41,6 +41,7 @@ import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Callable
 
 import tweepy
 
@@ -78,6 +79,15 @@ X_SERVER_ERROR_MAX_RETRIES = 5
 
 #: Base delay in seconds for exponential backoff on transient 5xx errors.
 X_SERVER_ERROR_BACKOFF_BASE_SECONDS = 5.0
+
+#: ``feed_sync_state`` key under which the X list member IDs we have added are
+#: stored as a JSON array.
+#:
+#: We maintain our own record of confirmed list members instead of reading them
+#: back from the X API, because ``GET /2/lists/{id}/members`` returns persistent
+#: endpoint-wide ``503 Service Unavailable`` errors.  See ``README`` notes and
+#: :func:`sync_x_list_members`.
+X_LIST_MEMBER_IDS_STATE_KEY = "x_list_member_ids"
 
 
 @dataclass(slots=True)
@@ -198,10 +208,10 @@ def resolve_twitter_handles(
     # Batch-resolve in groups of 100 (API limit)
     for i in range(0, len(stale), 100):
         batch = stale[i : i + 100]
-        try:
-            response = client.get_users(usernames=batch, user_fields=["id", "name", "username"])
-        except tweepy.TweepyException as e:
-            raise XApiError(f"Failed to resolve handles {batch[:3]}...: {e}") from e
+        response = _x_api_read_with_retry(
+            lambda: client.get_users(usernames=batch, user_fields=["id", "name", "username"]),
+            description=f"resolving handles {batch[:3]}...",
+        )
 
         if response.data:
             for user in response.data:
@@ -271,11 +281,10 @@ def resolve_x_list_id_by_name(
         access_token_secret=access_token_secret,
     )
 
-    try:
-        me_response = client.get_me(user_auth=True)
-    except tweepy.TweepyException as e:
-        message = f"Failed to resolve authenticated X user: {e}"
-        raise XApiError(message) from e
+    me_response = _x_api_read_with_retry(
+        lambda: client.get_me(user_auth=True),
+        description="resolving authenticated X user",
+    )
 
     if me_response.data is None:
         message = "Failed to resolve authenticated X user: response did not include user data"
@@ -293,14 +302,10 @@ def resolve_x_list_id_by_name(
         if pagination_token:
             request_params["pagination_token"] = pagination_token
 
-        try:
-            response = client.get_owned_lists(
-                owner_id,
-                **request_params,
-            )
-        except tweepy.TweepyException as e:
-            message = f"Failed to fetch owned X lists for user {owner_id}: {e}"
-            raise XApiError(message) from e
+        response = _x_api_read_with_retry(
+            lambda: client.get_owned_lists(owner_id, **request_params),
+            description=f"fetching owned X lists for user {owner_id}",
+        )
 
         if response.data:
             for item in response.data:
@@ -421,18 +426,18 @@ def fetch_tweets_from_x_list(
     user_fields = ["id", "username", "name"]
 
     while total_fetched < max_tweets:
-        try:
-            page_size = min(100, max_tweets - total_fetched)
-            response = client.get_list_tweets(
+        page_size = min(100, max_tweets - total_fetched)
+        response = _x_api_read_with_retry(
+            lambda: client.get_list_tweets(
                 list_id,
                 max_results=page_size,
                 tweet_fields=tweet_fields,
                 expansions=expansions,
                 user_fields=user_fields,
                 pagination_token=pagination_token,
-            )
-        except tweepy.TweepyException as e:
-            raise XApiError(f"Failed to fetch list timeline for list {list_id}: {e}") from e
+            ),
+            description=f"fetching list timeline for list {list_id}",
+        )
 
         if not response.data:
             break
@@ -499,15 +504,15 @@ def fetch_user_tweets(
         # X API requires RFC 3339 format with Z suffix
         kwargs["start_time"] = since.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    try:
-        response = client.get_users_tweets(
+    response = _x_api_read_with_retry(
+        lambda: client.get_users_tweets(
             user_id,
             max_results=min(max_tweets, 100),
             tweet_fields=tweet_fields,
             **kwargs,
-        )
-    except tweepy.TweepyException as e:
-        raise XApiError(f"Failed to fetch tweets for user {user_id} (@{author_handle}): {e}") from e
+        ),
+        description=f"fetching tweets for user {user_id} (@{author_handle})",
+    )
 
     if not response.data:
         return []
@@ -577,6 +582,110 @@ def _get_rate_limit_sleep_seconds(exc: tweepy.TooManyRequests) -> int | None:
     return max(1, int((reset_at - native_datetime_utc_now()).total_seconds()) + 1)
 
 
+def _x_api_read_with_retry(
+    fn: Callable[[], Any],
+    *,
+    description: str,
+    rate_limit_sleep_max_seconds: float = 1200.0,
+) -> Any:
+    """Call an X API read operation, retrying transient failures.
+
+    Wraps a single X API read call (one page) with uniform handling for the two
+    transient failure modes the X API exhibits, so every read path in this
+    module is resilient rather than each duplicating the logic:
+
+    - ``TwitterServerError`` (HTTP 5xx, e.g. ``503 Service Unavailable``) is
+      retried with exponential backoff up to :data:`X_SERVER_ERROR_MAX_RETRIES`
+      attempts before being surfaced as :class:`XApiError`.
+    - ``TooManyRequests`` (HTTP 429) is retried after sleeping until the
+      rate-limit reset window, as long as that wait is within
+      ``rate_limit_sleep_max_seconds``; otherwise :class:`XRateLimitError`.
+
+    Any other :class:`tweepy.TweepyException` is treated as a genuine
+    client-side error (bad id, auth failure, malformed request) and raised
+    immediately as :class:`XApiError` without retry.
+
+    :param fn:
+        Zero-argument callable performing exactly one X API read request.
+    :param description:
+        Present-participle description of the operation used in log and error
+        messages, e.g. ``"fetching list timeline for list 123"``.
+    :param rate_limit_sleep_max_seconds:
+        Maximum automatic sleep honoured for a rate-limit reset window.
+    :return:
+        Whatever ``fn`` returns on its first successful call.
+    :raise XApiError:
+        On non-transient errors, or once 5xx retries are exhausted.
+    :raise XRateLimitError:
+        When a rate-limit wait exceeds ``rate_limit_sleep_max_seconds``.
+    """
+
+    server_error_retries = 0
+
+    while True:
+        try:
+            return fn()
+        except tweepy.TooManyRequests as e:
+            wait_seconds = _get_rate_limit_sleep_seconds(e)
+            if wait_seconds is None or wait_seconds > rate_limit_sleep_max_seconds:
+                raise XRateLimitError(f"X API rate limit hit while {description}.{_format_rate_limit_reset(e)} Rerun later to resume.") from e
+            logger.warning("X API rate limit hit while %s; sleeping %.0f seconds before retrying", description, wait_seconds)
+            time.sleep(wait_seconds)
+        except tweepy.TwitterServerError as e:
+            # Transient X-side 5xx.  Back off and retry rather than failing the
+            # whole scan cycle; an uncaught error here can crash the process and,
+            # under a Docker ``restart`` policy, produce a hot restart loop that
+            # hammers X while it is already failing.
+            server_error_retries += 1
+            if server_error_retries > X_SERVER_ERROR_MAX_RETRIES:
+                raise XApiError(f"X API still failing after {X_SERVER_ERROR_MAX_RETRIES} retries while {description}: {e}") from e
+            backoff = X_SERVER_ERROR_BACKOFF_BASE_SECONDS * 2 ** (server_error_retries - 1)
+            logger.warning(
+                "Transient X API server error (%s) while %s; retry %d/%d after %.0f seconds",
+                e,
+                description,
+                server_error_retries,
+                X_SERVER_ERROR_MAX_RETRIES,
+                backoff,
+            )
+            time.sleep(backoff)
+        except tweepy.TweepyException as e:
+            raise XApiError(f"Failed while {description}: {e}") from e
+
+
+def _load_known_member_ids(db: VaultPostDatabase) -> set[str]:
+    """Load the set of X list member IDs we have previously added.
+
+    :param db:
+        Vault post database holding the ``feed_sync_state`` table.
+    :return:
+        Set of numeric user IDs, empty when no record exists yet.
+    """
+
+    raw = db.get_sync_state(X_LIST_MEMBER_IDS_STATE_KEY)
+    if not raw:
+        return set()
+    try:
+        return {str(member_id) for member_id in json.loads(raw)}
+    except (json.JSONDecodeError, TypeError):
+        # A corrupt record must not crash the sync — start from empty and let
+        # the add loop repopulate it (re-adding existing members is a no-op).
+        logger.warning("Corrupt X list member ID cache in feed_sync_state; rebuilding from empty")
+        return set()
+
+
+def _save_known_member_ids(db: VaultPostDatabase, member_ids: set[str]) -> None:
+    """Persist the set of X list member IDs we have added.
+
+    :param db:
+        Vault post database holding the ``feed_sync_state`` table.
+    :param member_ids:
+        Numeric user IDs confirmed present in the list.
+    """
+
+    db.set_sync_state(X_LIST_MEMBER_IDS_STATE_KEY, json.dumps(sorted(member_ids)))
+
+
 def sync_x_list_members(
     list_id: str,
     twitter_handles: list[str],
@@ -610,71 +719,24 @@ def sync_x_list_members(
     # Resolve handles → user IDs
     handle_to_id = resolve_twitter_handles(twitter_handles, bearer_token, user_cache)
 
-    # Get current list members
-    client_read = tweepy.Client(bearer_token=bearer_token)
-    current_member_ids: set[str] = set()
-    pagination_token = None
-
-    server_error_retries = 0
-
-    while True:
-        try:
-            response = client_read.get_list_members(
-                list_id,
-                max_results=100,
-                pagination_token=pagination_token,
-            )
-        except tweepy.TooManyRequests as e:
-            # Read endpoint is rate-limited; honour the reset window and retry
-            # within the operator-configured ceiling, like the write loop below.
-            wait_seconds = _get_rate_limit_sleep_seconds(e)
-            if wait_seconds is None or wait_seconds > rate_limit_sleep_max_seconds:
-                raise XRateLimitError(f"X API rate limit hit while reading members of list {list_id}.{_format_rate_limit_reset(e)} Rerun later to resume.") from e
-            logger.warning(
-                "X API rate limit hit while reading members of list %s; sleeping %.0f seconds before retrying",
-                list_id,
-                wait_seconds,
-            )
-            time.sleep(wait_seconds)
-            continue
-        except tweepy.TwitterServerError as e:
-            # Transient X-side 5xx (e.g. 503 Service Unavailable).  Back off and
-            # retry rather than crashing the scan cycle: an uncaught error here
-            # exits the process and, under a Docker ``restart`` policy, produces
-            # a hot restart loop that hammers X while it is already failing.
-            server_error_retries += 1
-            if server_error_retries > X_SERVER_ERROR_MAX_RETRIES:
-                raise XApiError(f"X API still failing after {X_SERVER_ERROR_MAX_RETRIES} retries while fetching members of list {list_id}: {e}") from e
-            backoff = X_SERVER_ERROR_BACKOFF_BASE_SECONDS * 2 ** (server_error_retries - 1)
-            logger.warning(
-                "Transient X API server error (%s) while reading members of list %s; retry %d/%d after %.0f seconds",
-                e,
-                list_id,
-                server_error_retries,
-                X_SERVER_ERROR_MAX_RETRIES,
-                backoff,
-            )
-            time.sleep(backoff)
-            continue
-        except tweepy.TweepyException as e:
-            raise XApiError(f"Failed to fetch list members for list {list_id}: {e}") from e
-
-        # Reset the transient-error counter after a successful page fetch.
-        server_error_retries = 0
-
-        if response.data:
-            for member in response.data:
-                current_member_ids.add(str(member.id))
-
-        pagination_token = (response.meta or {}).get("next_token")
-        if not pagination_token:
-            break
-
-    # Add missing members using OAuth 1.0a user context
-    to_add = set(handle_to_id.values()) - current_member_ids
+    # Determine which resolved members still need adding.
+    #
+    # The X API ``GET /2/lists/{id}/members`` endpoint returns persistent,
+    # endpoint-wide ``503 Service Unavailable`` errors (it fails for unrelated
+    # lists too, with a healthy rate-limit budget) and cannot be relied on to
+    # read back current membership.  Instead we keep our own record of the
+    # member IDs we have successfully added in ``feed_sync_state`` and diff
+    # against that.  Re-adding an existing member is a harmless no-op on X's
+    # side (the v2 add endpoint returns ``is_member`` without error), so a cold
+    # cache simply re-adds current members once before settling into delta-only
+    # syncs.  The list *timeline* endpoint used for actual post collection is
+    # unaffected by the members-endpoint outage.
+    known_member_ids = _load_known_member_ids(db)
+    resolved_ids = set(handle_to_id.values())
+    to_add = resolved_ids - known_member_ids
 
     if not to_add:
-        logger.info("All %d handles already in X list %s", len(twitter_handles), list_id)
+        logger.info("All %d resolved handles already in X list %s (per local member cache)", len(resolved_ids), list_id)
         db.set_sync_state("twitter_handles_hash", current_hash)
         return 0
 
@@ -694,6 +756,9 @@ def sync_x_list_members(
             try:
                 client_write.add_list_member(list_id, user_id)
                 added += 1
+                # Record confirmed membership so we never re-add this member,
+                # even if a later add in this batch fails (see persistence below).
+                known_member_ids.add(user_id)
                 logger.info(
                     "Added @%s (%s) to X list %s (%d/%d missing members)",
                     id_to_handle.get(user_id, "unknown"),
@@ -739,6 +804,10 @@ def sync_x_list_members(
                     time.sleep(add_delay_seconds)
                 break
 
+    # Persist confirmed membership even on partial failure so successfully
+    # added members are never re-added next cycle.
+    _save_known_member_ids(db, known_member_ids)
+
     # Only persist the hash when every add succeeded.  When some fail due to
     # transient API errors the next cycle will detect the mismatch and retry.
     if failed == 0:
@@ -752,10 +821,10 @@ def sync_x_list_members(
 
     user_cache.save()
     logger.info(
-        "Added %d members to X list %s (%d already present, %d failed)",
+        "Added %d members to X list %s (%d known members, %d failed)",
         added,
         list_id,
-        len(current_member_ids),
+        len(known_member_ids),
         failed,
     )
     return added
