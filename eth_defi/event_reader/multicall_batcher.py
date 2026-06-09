@@ -874,8 +874,14 @@ WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES = {
         "API key is not allowed to access blockchain",
         # eRPC consensus mode requires multiple upstream RPC providers to return
         # identical responses. When providers disagree (e.g. Hyperliquid nodes with
-        # inconsistent state), eRPC returns this error. It is transient and should
-        # be retried, as a subsequent attempt may hit providers that agree.
+        # inconsistent HyperCore-oracle state or divergent revert serialisation),
+        # eRPC returns this error. Classified retryable, but on HyperEVM the
+        # disagreement is intermittent and pool-driven, so simply retrying the same
+        # consensus endpoint may never converge — see the goldsky->Alchemy failover
+        # in resolve_hyperevm_consensus_failover() and the full analysis in
+        # docs/README-hyperevm-goldsky-failure.md. Keep this literal in sync with
+        # ERPC_CONSENSUS_DISAGREEMENT_CLUE (defined below; cannot reference it here
+        # as this set is built before it).
         "not enough agreement among responses",
     )
 }
@@ -1315,6 +1321,20 @@ class MultiprocessMulticallReader:
 
             last_exception = e
 
+            # HyperEVM (chain 999) goldsky eRPC consensus special case.
+            #
+            # When the failure is goldsky's "not enough agreement among responses"
+            # and the provider mix also has an Alchemy single node, randomly cycling
+            # providers keeps landing back on goldsky's consensus endpoint, which
+            # cannot serve these calls — the scan then burns all retries and aborts
+            # the whole chain. Instead we pin every retry to the Alchemy single node,
+            # which returns a usable answer without cross-node consensus.
+            #
+            # Detected by chain id (999) AND by the RPC mix containing both goldsky
+            # and Alchemy. Full failure analysis, nodes involved and on-chain
+            # evidence: docs/README-hyperevm-goldsky-failure.md.
+            consensus_failover_host = resolve_hyperevm_consensus_failover(chain_id, fallback_provider, e)
+
             if fallback_attempts > 0:
                 logger.warning("Attempting retry %d times with fallbacks", fallback_attempts)
                 for i in range(fallback_attempts):
@@ -1325,11 +1345,21 @@ class MultiprocessMulticallReader:
                     else:
                         logger.warning("Received no-throttle status %s: %s, cause: %s, multicall target addresses: %s...", status_code, pformat(headers), cause, multicall_addresses[0:12])
 
-                    fallback_provider.switch_provider(
-                        log_level=logging.WARNING,
-                        randomise=True,
-                        cause=f"Last exception: {str(last_exception)}",
-                    )
+                    if consensus_failover_host and pin_fallback_provider_by_host(fallback_provider, consensus_failover_host):
+                        # HyperEVM goldsky consensus failover — bypass consensus
+                        # endpoint and pin to the single node. See
+                        # docs/README-hyperevm-goldsky-failure.md.
+                        logger.warning(
+                            "HyperEVM (chain %d) eRPC consensus disagreement: pinning multicall retry to %r single-node provider, bypassing goldsky consensus. See docs/README-hyperevm-goldsky-failure.md",
+                            chain_id,
+                            consensus_failover_host,
+                        )
+                    else:
+                        fallback_provider.switch_provider(
+                            log_level=logging.WARNING,
+                            randomise=True,
+                            cause=f"Last exception: {str(last_exception)}",
+                        )
 
                     active_provider = fallback_provider.get_active_provider()
                     active_provider_name = get_provider_name(active_provider)
