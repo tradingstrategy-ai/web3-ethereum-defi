@@ -102,11 +102,13 @@ def test_fetch_recent_posts_by_feeder(tmp_path: Path):
         for post in result_all["feeder-a"]:
             assert post["published_at"] is not None
 
-        # 8. Source type is included
+        # 8. Source type and full_text are included
         for post in result["feeder-a"]:
             assert post["source_type"] == "twitter"
+            assert post["full_text"].startswith("Full text of post A ")
         for post in result["feeder-b"]:
             assert post["source_type"] == "rss"
+            assert post["full_text"].startswith("Full text of post B ")
 
         # 9. Empty feeder_ids returns {}
         assert db.fetch_recent_posts_by_feeder([]) == {}

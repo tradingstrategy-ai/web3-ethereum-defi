@@ -2,6 +2,8 @@
 
 - feat: Add curator short and long descriptions to feeder metadata, curator exports, and all current curator YAML files (2026-06-09)
 
+- feat: Save full X/Twitter note tweets — request the `note_tweet` API field so tweets longer than 280 characters are stored and exported in full instead of truncated, and surface `full_text` alongside the 200-char `snippet` in the vault JSON bundle (2026-06-09)
+
 - feat: Default Hypersync stream concurrency to 1 in the vault scanner pipeline, configurable via `HYPERSYNC_CONCURRENCY` env var and docker-compose (2026-06-09)
 
 - feat: Add Hypersync 1.1 stream tuning parameters — concurrency, batch_size, response byte limits configurable on ThrottledHypersyncClient and via HYPERSYNC_CONCURRENCY env var (2026-06-08)

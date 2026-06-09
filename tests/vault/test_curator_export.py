@@ -73,6 +73,7 @@ def test_build_curators_for_export_with_feed(tmp_path: Path):
     assert post["source_type"] == "twitter"
     assert post["link"].startswith("https://x.com/gauntlet_xyz/status/")
     assert post["snippet"].startswith("Risk analysis")
+    assert post["full_text"].startswith("Full risk analysis")
     # published_at is ISO 8601 string
     assert isinstance(post["published_at"], str)
     assert "T" in post["published_at"]
