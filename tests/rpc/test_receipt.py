@@ -220,7 +220,7 @@ def test_wait_for_transaction_receipt_robust_immediate(monkeypatch: pytest.Monke
     monkeypatch.setattr(receipt_module, "_is_anvil", lambda web3: False)
 
     # 2. Wait for robust receipt visibility.
-    receipt = wait_for_transaction_receipt_robust(web3, TX_HASH, timeout=1, poll_delay=0.001, max_poll_delay=0.002)
+    receipt = wait_for_transaction_receipt_robust(web3, TX_HASH, timeout=1, poll_delay=0.001, max_poll_delay=0.002, confirmation_block_count=0)
 
     # 3. Check the original Web3 receipt is returned.
     assert receipt == {"status": 1, "source": "original-web3"}
@@ -241,7 +241,7 @@ def test_wait_for_transaction_receipt_robust_lagging_provider(monkeypatch: pytes
     monkeypatch.setattr(receipt_module, "_is_anvil", lambda web3: False)
 
     # 2. Wait for robust receipt visibility.
-    wait_for_transaction_receipt_robust(web3, TX_HASH, timeout=1, poll_delay=0.001, max_poll_delay=0.002)
+    wait_for_transaction_receipt_robust(web3, TX_HASH, timeout=1, poll_delay=0.001, max_poll_delay=0.002, confirmation_block_count=0)
 
     # 3. Check the lagging provider was polled more than once.
     assert provider_2.calls.count("eth_getTransactionReceipt") == 2
@@ -271,6 +271,7 @@ def test_wait_for_transaction_receipt_robust_extra_sleep_after_visibility(monkey
         poll_delay=0.001,
         max_poll_delay=0.002,
         extra_sleep=0.123,
+        confirmation_block_count=0,
     )
 
     # 3. Check the extra sleep happens after the lagging provider is retried.
@@ -344,7 +345,7 @@ def test_wait_for_transaction_receipt_robust_transient_mismatch(monkeypatch: pyt
     monkeypatch.setattr(receipt_module, "_is_anvil", lambda web3: False)
 
     # 2. Wait for robust receipt visibility.
-    receipt = wait_for_transaction_receipt_robust(web3, TX_HASH, timeout=1, poll_delay=0.001, max_poll_delay=0.002)
+    receipt = wait_for_transaction_receipt_robust(web3, TX_HASH, timeout=1, poll_delay=0.001, max_poll_delay=0.002, confirmation_block_count=0)
 
     # 3. Check the original Web3 receipt is returned after retrying.
     assert receipt == {"status": 1, "source": "original-web3"}
@@ -376,6 +377,29 @@ def test_wait_for_transaction_receipt_robust_confirmation_success(monkeypatch: p
     )
 
     # 3. Check block numbers were polled until confirmations were high enough.
+    assert provider_1.calls.count("eth_blockNumber") == 2
+
+
+def test_wait_for_transaction_receipt_robust_default_confirmations(monkeypatch: pytest.MonkeyPatch):
+    """Wait for the default two confirmations on a live chain when none is given.
+
+    1. Create a provider that climbs from one to two confirmations over the receipt block.
+    2. Wait without passing confirmation_block_count, so the default resolves to 2.
+    3. Check block numbers were polled until two confirmations were reached.
+    """
+
+    # 1. Create a provider that climbs from one to two confirmations over the receipt block.
+    #    Receipt block is 0x1, so 0x2 is one confirmation (insufficient) and 0x3 is two (enough).
+    provider_1 = FakeProvider("read-1", block_number=["0x2", "0x3"])
+    provider_2 = FakeProvider("read-2", block_number="0x3")
+    web3 = FakeWeb3(FallbackProvider([provider_1, provider_2]))
+    monkeypatch.setattr(receipt_module, "_is_anvil", lambda web3: False)
+
+    # 2. Wait without passing confirmation_block_count, so the default resolves to 2.
+    wait_for_transaction_receipt_robust(web3, TX_HASH, timeout=1, poll_delay=0.001, max_poll_delay=0.002)
+
+    # 3. Check block numbers were polled until two confirmations were reached.
+    assert receipt_module.DEFAULT_CONFIRMATION_BLOCK_COUNT == 2
     assert provider_1.calls.count("eth_blockNumber") == 2
 
 
@@ -460,7 +484,7 @@ def test_wait_for_transaction_receipt_robust_final_typed_receipt_retry(monkeypat
     monkeypatch.setattr(receipt_module, "_is_anvil", lambda web3: False)
 
     # 2. Make the original Web3 receipt fetch fail once.
-    receipt = wait_for_transaction_receipt_robust(web3, TX_HASH, timeout=1, poll_delay=0.001, max_poll_delay=0.002)
+    receipt = wait_for_transaction_receipt_robust(web3, TX_HASH, timeout=1, poll_delay=0.001, max_poll_delay=0.002, confirmation_block_count=0)
 
     # 3. Check the typed receipt is retried and returned.
     assert receipt == {"status": 1, "source": "typed-retry"}
@@ -512,5 +536,5 @@ def test_wait_for_transaction_receipt_robust_real_fallback_provider(anvil: Anvil
 
     # 3. Force the live robust path and check receipt visibility succeeds.
     monkeypatch.setattr(receipt_module, "_is_anvil", lambda web3: False)
-    receipt = wait_for_transaction_receipt_robust(web3, tx_hash, timeout=10, poll_delay=0.01, max_poll_delay=0.05)
+    receipt = wait_for_transaction_receipt_robust(web3, tx_hash, timeout=10, poll_delay=0.01, max_poll_delay=0.05, confirmation_block_count=0)
     assert receipt["status"] == 1
