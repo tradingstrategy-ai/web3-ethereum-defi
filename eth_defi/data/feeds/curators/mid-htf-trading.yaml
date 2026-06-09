@@ -1,0 +1,22 @@
+feeder-id: mid-htf-trading
+name: Mid-HTF Trading
+role: curator
+short_description: Mid-HTF Trading is a quantitative mid-to-high-timeframe trading pool on Lighter run by the operator @stablealt.
+long_description: |
+  Mid-HTF Trading operates a public pool on the Lighter exchange, run by an operator publishing under the handle @stablealt.
+  The published pool profile describes quantitative trading on mid-to-high timeframes with discretionary execution, no narrative or emotion-based trading, and up to 10x account leverage.
+  Updates are shared through the operator's Telegram channel.
+twitter: stablealt
+
+# Evidence and background references.
+#
+# Note: the Lighter pool at account index 281474976623731 was originally named
+# "Mid-HTF Trading (@stablealt)" but has since been renamed to "rekt" by the
+# operator. The curator YAML retains the original pool name as the display name.
+# The @stablealt handle was stated by the operator in the original pool name;
+# independent verification via x.com was not possible (HTTP 402 gating).
+other-links:
+  - title: Lighter public pool - Mid-HTF Trading (@stablealt), now renamed "rekt" (account index 281474976623731)
+    url: https://app.lighter.xyz/public-pools/281474976623731
+  - title: Operator Telegram channel - altoshi_channel
+    url: https://t.me/altoshi_channel

@@ -1,0 +1,17 @@
+feeder-id: the-crypto-meerkat
+name: The Crypto Meerkat
+role: curator
+# twitter handle inferred: @cryptomeerkat matches "Ex derivatives trader - exploring arbitrage opportunities on digital assets"; no direct link from GRVT vault page confirmed
+twitter: cryptomeerkat
+short_description: The Crypto Meerkat is a quantitative trader running a sentiment-driven directional Bitcoin vault on GRVT.
+long_description: |
+  The Crypto Meerkat operates a directional Bitcoin trading vault on the GRVT exchange, where they are listed among the first cohort of verified Strategy Managers.
+  The published vault profile describes the manager as a Cambridge-educated PhD mathematician who has been trading crypto since 2020, across high-frequency, arbitrage and directional strategies.
+  The strategy uses sentiment factors combined with trend models based on Bollinger bands and rolling linear regression, scaling leverage by signal agreement and applying fixed stop-loss and partial take-profit rules.
+
+# Evidence and background references.
+other-links:
+  - title: GRVT strategy page - The Crypto Meerkat sentiment directional vault
+    url: https://grvt.io/exchange/strategies/1879036542
+  - title: GRVT blog - Grvt Strategies launch post listing Meerkat in the first cohort of Strategy Managers
+    url: https://grvt.io/blog/grvt-strategies-grvt-vaults/

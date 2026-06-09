@@ -1,0 +1,20 @@
+feeder-id: better-than-yours
+name: Better Than Yours
+role: curator
+short_description: Better Than Yours is a quant-inspired execution engine on Lighter focused on HYPE perpetuals, volume, and volatility.
+long_description: |
+  Better Than Yours is an independent operator running a public pool on the Lighter DEX, identified by the handle localh0rst1.
+  The pool description, written by the operator, states it is a quant-inspired execution engine focused on the HYPE market, trading volume and volatility, designed to perform best in volatile market conditions.
+  The operator charges a 30% performance fee, deducted from pool profits.
+twitter: localh0rst1
+
+# Evidence and background references.
+#
+# Pool description and X handle confirmed from the Lighter on-chain pool metadata
+# returned by /api/v1/account?by=index&value=281474976642928.
+# Operator's own text: "Quant-inspired execution engine focused on HYPE, volume, and volatility.
+# Built to perform best in volatile market conditions. For those who want to see real results,
+# check my X profile. x.com/localh0rst1"
+other-links:
+  - title: Lighter public pool - Better Than Yours (account index 281474976642928)
+    url: https://app.lighter.xyz/public-pools/281474976642928

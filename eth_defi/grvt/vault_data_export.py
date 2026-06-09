@@ -51,6 +51,7 @@ def create_grvt_vault_row(
     tvl: float,
     management_fee: float | None = None,
     performance_fee: float | None = None,
+    manager_name: str | None = None,
 ) -> tuple[VaultSpec, VaultRow]:
     """Create a synthetic VaultRow for a GRVT native vault.
 
@@ -86,6 +87,12 @@ def create_grvt_vault_row(
     :param performance_fee:
         Performance fee as a decimal fraction (e.g. 0.20 = 20%).
         ``None`` if not available.
+    :param manager_name:
+        Name of the vault manager/operator (the strategy leader).
+        GRVT brands the curator in this field rather than the vault
+        display name, so it is stored as ``_manager_name`` and used by
+        :py:func:`eth_defi.vault.curator.identify_curator` for curator
+        detection.  ``None`` if not available.
     :return:
         Tuple of (VaultSpec, VaultRow).
     """
@@ -137,6 +144,7 @@ def create_grvt_vault_row(
         "_lockup": GRVT_VAULT_LOCKUP,
         "_description": description,
         "_short_description": None,
+        "_manager_name": manager_name,
         "_available_liquidity": None,
         "_utilisation": None,
         "_deposit_closed_reason": None,
@@ -247,6 +255,7 @@ def merge_into_vault_database(
             tvl=row.get("tvl", 0.0) or 0.0,
             management_fee=mgmt_fee,
             performance_fee=perf_fee,
+            manager_name=row.get("manager_name"),
         )
 
         if spec in vault_db.rows:

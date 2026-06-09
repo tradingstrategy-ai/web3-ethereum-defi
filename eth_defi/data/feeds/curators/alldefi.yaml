@@ -1,0 +1,27 @@
+feeder-id: alldefi
+name: AllDeFi
+role: curator
+short_description: AllDeFi is an institutional quantitative alpha strategy provider operating a directional crypto perpetuals vault on the GRVT exchange.
+long_description: |
+  AllDeFi is an alpha strategy provider led by quantitative traders from a crypto hedge fund background,
+  part of GRVT Strategies' inaugural cohort of six verified strategy managers launched in July 2025.
+  The team deploys high-frequency trading, proprietary algorithms, and machine-learning pattern recognition
+  for short-term directional trades on crypto perpetuals, with risk management built around layered stop-losses,
+  hedging, and volatility-based position sizing.
+  AllDeFi operates pseudonymously: no official website or social media presence has been disclosed in GRVT's
+  public announcements or press releases, and no independent web presence could be confirmed during research.
+
+# Evidence and background references.
+#
+# AllDeFi appears exclusively in GRVT's own promotional materials and press releases.
+# No website, Twitter/X account, or LinkedIn page has been officially disclosed by AllDeFi.
+# Two unrelated entities share the "AllDeFi" name and were ruled out:
+#   - alldefi.io (Spanish passive-income DeFi aggregator, @Alldefi_io on X) — now defunct, redirects to postbuilder.io
+#   - pythagoras-group.gitbook.io/alldefi-whitepaper (DAO asset management protocol) — unrelated to GRVT quant trading
+other-links:
+  - title: GRVT strategy page - AllDeFi Quant Directional Strategy
+    url: https://grvt.io/exchange/strategies/794368819
+  - title: GRVT Strategies launch press release (Chainwire, July 2025) - AllDeFi listed as first-cohort manager
+    url: https://chainwire.org/2025/07/15/grvt-launches-strategies-worlds-first-compliant-peer-to-peer-on-chain-investment-marketplace/
+  - title: GRVT Strategies launch press release (PR Newswire, July 2025)
+    url: https://www.prnewswire.com/apac/news-releases/grvt-launches-strategies-worlds-first-compliant-peer-to-peer-on-chain-investment-marketplace-302505417.html

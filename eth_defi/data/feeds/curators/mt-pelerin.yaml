@@ -1,0 +1,33 @@
+feeder-id: mt-pelerin
+name: Mt Pelerin
+role: curator
+website: https://www.mtpelerin.com
+short_description: Mt Pelerin is a regulated Swiss fintech offering self-custodial crypto-fiat exchange, asset tokenisation, and DeFi vault curation since 2018.
+long_description: |
+  Mt Pelerin Group Ltd is a regulated Swiss crypto brokerage and fintech company founded in 2018, offering
+  self-custodial cryptocurrency exchange, fiat on/off-ramps, OTC brokerage, and Lombard loan services via its
+  Bridge Wallet application. The company has expanded into decentralised finance by curating ERC-4626 yield
+  vaults on Lagoon Finance and Morpho, focusing on USD, ETH, and BTC strategy pools with an emphasis on
+  security, transparency, and risk management. Mt Pelerin holds a regulated crypto brokerage licence in
+  Switzerland and has processed over USD 1 billion in transactions for more than 150,000 users worldwide.
+twitter: mtpelerin
+linkedin: mt-pelerin
+
+# Evidence and background references.
+#
+# Mt Pelerin appears as a vault curator in the Lagoon Finance platform and in Morpho,
+# managing strategy pools across Ethereum mainnet and Base.  Vault names observed:
+#   "Mt Pelerin – USD strategy pool"
+#   "Mt Pelerin – ETH strategy pool"
+#   "Mt Pelerin – BTC strategy pool"
+#   "Mt Pelerin x Montaigne - Strategy pool"
+#   "Mt Pelerin USDC"
+# The Lagoon curators API (https://app.lagoon.finance/api/curators) confirms the slug
+# "mt-pelerin", website https://www.mtpelerin.com, and their official about text.
+other-links:
+  - title: Mt Pelerin official website — regulated Swiss crypto exchange and Bridge Wallet provider
+    url: https://www.mtpelerin.com
+  - title: Lagoon Finance curators API — confirms Mt Pelerin as registered curator with slug mt-pelerin
+    url: https://app.lagoon.finance/api/curators
+  - title: Lagoon Finance app — vault listing showing Mt Pelerin curator filter
+    url: https://app.lagoon.finance

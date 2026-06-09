@@ -1,0 +1,28 @@
+feeder-id: hyperbeat
+name: Hyperbeat
+role: curator
+website: https://hyperbeat.org
+short_description: Hyperbeat is a HyperEVM-native yield platform offering meta vaults, lending optimisers, and liquid-banking products on Hyperliquid.
+long_description: |
+  Hyperbeat describes itself as a modular, permissionless, fully on-chain financial stack built exclusively on HyperEVM.
+  Its product suite includes meta vaults that continuously optimise yield across lending markets, Morpho-based lending optimiser vaults for USDC, USDT and beatUSD, delta-neutral strategies, HYPE liquid staking, and on-chain payment rails.
+  Hyperbeat Labs is the core contributor and operates the vault infrastructure; the platform works with external risk managers such as Gauntlet and MEV Capital for certain Morpho market selections.
+twitter: hyperbeat
+linkedin: hyperbeatorg
+
+# Evidence and background references.
+#
+# Use this section to preserve why this organisation is treated as a
+# vault curator.  Hyperbeat deploys and operates ERC-4626-compatible
+# vaults on HyperEVM under the Hyperbeat brand name.
+other-links:
+  - title: Hyperbeat homepage — modular on-chain financial stack on HyperEVM
+    url: https://hyperbeat.org
+  - title: Hyperbeat docs — Morphobeat lending and borrowing powered by Hyperbeat x Morpho
+    url: https://docs.hyperbeat.org/morphobeat.md
+  - title: Hyperbeat docs — supply vaults (USDC, USDT, beatUSD Lending Optimizers)
+    url: https://docs.hyperbeat.org/morphobeat/supply-vaults.md
+  - title: Hyperbeat docs — meta vaults optimising across HyperEVM and HyperCore
+    url: https://docs.hyperbeat.org
+  - title: Hyperbeat app — vault product UI
+    url: https://app.hyperbeat.org

@@ -78,3 +78,27 @@ GRVT_FEE_PPM_DIVISOR: int = 1_000_000
 #:
 #: Source: https://help.grvt.io/en/articles/11424466-grvt-strategies-core-concepts
 GRVT_VAULT_LOCKUP: datetime.timedelta = datetime.timedelta(hours=4)
+
+#: Maximum age of the stored extended vault info before it is refreshed.
+#:
+#: The extended vault info (raw GraphQL ``managerInfo`` and other metadata,
+#: stored as a JSON dump in the ``extended_vault_info`` column) changes rarely,
+#: so it is only re-written when the existing
+#: ``extended_vault_info_metadata_last_updated_at`` timestamp is older than this
+#: window.  This avoids churning the column on every daily scan.
+GRVT_EXTENDED_INFO_MAX_AGE: datetime.timedelta = datetime.timedelta(days=7)
+
+#: Set of GRVT system vault addresses (protocol-curated).
+#:
+#: The GLP (Grvt Liquidity Provider) is GRVT's own in-house market making
+#: vault, operated by the protocol rather than a third-party manager.
+#: The synthetic vault address is the lowercased GRVT ``vault_id``
+#: (``VLT:...``) as produced by
+#: :py:func:`eth_defi.grvt.vault_data_export.create_grvt_vault_row`.
+#:
+#: Useful for filtering protocol-operated vaults from third-party
+#: launchpad vaults, and consumed by
+#: :py:func:`eth_defi.vault.curator.identify_curator`.
+GRVT_SYSTEM_VAULT_ADDRESSES: set[str] = {
+    "vlt:34dtzyg6lhkgm49je5aabi9tebw",  # GLP (Grvt Liquidity Provider)
+}

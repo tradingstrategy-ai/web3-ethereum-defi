@@ -1,0 +1,31 @@
+feeder-id: trust-wallet
+name: Trust Wallet
+role: curator
+website: https://trustwallet.com
+short_description: Trust Wallet is the world's leading self-custody multi-chain wallet, trusted by over 200 million users, that sponsors branded ERC-4626 earn vaults built on Kiln Metavault infrastructure.
+long_description: |
+  Trust Wallet is a self-custody cryptocurrency wallet supporting more than 10 million digital assets
+  across 100+ blockchains, acquired by Binance in 2018 and used by over 200 million people worldwide.
+  The wallet provides mobile and browser-extension interfaces for managing crypto, NFTs, staking, and
+  DeFi access.
+  In its Earn product, Trust Wallet acts as the sponsor and distributor of a family of branded ERC-4626
+  vaults built on Kiln Metavault infrastructure; the underlying yield strategies are provided by established
+  DeFi protocols such as Aave v3 and Morpho (Gauntlet, Smokehouse curators), while Trust Wallet
+  distributes these vaults to its user base across Ethereum, Base, Arbitrum, and BNB Chain.
+twitter: trustwallet
+linkedin: trustwallet
+
+# Evidence and background references.
+#
+# These links document Trust Wallet's role as the sponsor/distributor of this vault family.
+# The underlying strategies are managed by Aave and Morpho curators; Trust Wallet provides
+# the brand and distribution channel via its Earn product.
+other-links:
+  - title: Trust Wallet Earn product — self-custody earn feature in Trust Wallet app
+    url: https://trustwallet.com/staking
+  - title: Trust Wallet press kit and brand assets
+    url: https://trustwallet.com/press
+  - title: Trust Wallet Earn country/regional availability blog post
+    url: https://trustwallet.com/blog/earn-country-regional-availability
+  - title: Kiln Metavault — ERC-4626 vault infrastructure used for Trust Wallet earn vaults (Ethereum, Base, Arbitrum, BNB Chain)
+    url: https://kiln.fi

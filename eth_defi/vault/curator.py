@@ -127,6 +127,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from eth_defi.feed.sources import load_feeder_metadata, resolve_canonical_feeder_yaml
+from eth_defi.grvt.constants import GRVT_SYSTEM_VAULT_ADDRESSES
 from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
 from eth_defi.lighter.constants import LIGHTER_SYSTEM_POOL_ADDRESSES
 from eth_defi.research.sparkline import upload_to_r2_compressed
@@ -168,11 +169,13 @@ PROTOCOL_CURATOR_SLUG_ALIASES: dict[str, str] = {
 #: Complete set of protocol slugs that can appear as curator slugs.
 #:
 #: Includes both blanket protocol-curated slugs and protocols whose
-#: *system vaults* are protocol-curated (Hyperliquid HLP, Lighter LLP).
+#: *system vaults* are protocol-curated (Hyperliquid HLP, Lighter LLP,
+#: GRVT GLP).
 #: Use :py:func:`is_protocol_curator` to check membership.
 ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
     "hyperliquid",
     "lighter",
+    "grvt",
 }
 
 #: Human-readable names for protocol-curator slugs.
@@ -184,6 +187,7 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "ostium": "Ostium",
     "hyperliquid": "Hyperliquid",
     "lighter": "Lighter",
+    "grvt": "GRVT",
 }
 
 #: Additional name patterns for curator matching.
@@ -207,8 +211,10 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "varlamore-capital": ["Varlamore"],
     "k3-capital": ["K3 Capital", "K3"],
     "edge-and-hedge": ["Edge & Hedge", "Edge and Hedge"],
-    "damm-capital": ["DAMM Capital"],
-    "august-digital": ["August Digital"],
+    "damm-capital": ["DAMM Capital", "DAMM"],
+    # "August" alone collides with the calendar month (e.g. "imToken August
+    # Campaign"), so match the specific August Digital vault names instead.
+    "august-digital": ["August Digital", "August USDC", "August AUSD"],
     "pareto-technologies": ["Pareto"],
     "tulipa-capital": ["Tulipa"],
     "systemic-strategies": ["Systemic Strategies"],
@@ -241,6 +247,23 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "b-protocol": ["B.Protocol"],
     "felix": ["Felix"],
     "stake-dao": ["StakeDAO"],
+    # New curators discovered from the vault-name sweep (2026-06-09).
+    # The vaults are "Keyring zkVerified Cluster", so match the short brand.
+    "keyring-network": ["Keyring"],
+}
+
+#: Distributor / sponsor curators whose brand is a white-label wrapper.
+#:
+#: These organisations brand a vault family (e.g. "Trust Wallet Morpho
+#: Smokehouse USDC") but the underlying strategy is run by another curator
+#: named in the same vault title.  Their name patterns are matched at the
+#: lowest priority so the real risk curator (Smokehouse/Steakhouse, Gauntlet,
+#: ...) wins on co-branded vaults, while sponsor-only vaults (e.g. "Trust
+#: Wallet AAVE v3 USDT", where the underlying is an uncurated Aave market)
+#: still resolve to the sponsor.
+SPONSOR_CURATOR_SLUGS: set[str] = {
+    "trust-wallet",
+    "cool-wallet",
 }
 
 
@@ -443,8 +466,10 @@ def _build_matching_patterns() -> list[tuple[re.Pattern, str]]:
         for extra in CURATOR_NAME_PATTERNS.get(slug, []):
             raw_pairs.append((extra, slug))
 
-    # Sort by pattern length descending — longest match wins
-    raw_pairs.sort(key=lambda pair: len(pair[0]), reverse=True)
+    # Sort so that sponsor/distributor patterns are matched last (so the real
+    # risk curator wins on co-branded vaults), and within each priority group
+    # the longest (most specific) pattern matches first.
+    raw_pairs.sort(key=lambda pair: (pair[1] in SPONSOR_CURATOR_SLUGS, -len(pair[0])))
 
     patterns = []
     for pattern_text, slug in raw_pairs:
@@ -455,18 +480,27 @@ def _build_matching_patterns() -> list[tuple[re.Pattern, str]]:
     return patterns
 
 
-def identify_curator(
+def identify_curator(  # noqa: PLR0917
     chain_id: int,
     vault_token_symbol: str,
     vault_name: str,
     vault_address: str,
     protocol_slug: str = "",
+    manager_name: str = "",
 ) -> str | None:
     """Identify the curator managing a vault.
 
     Checks protocol-curated status first (by protocol slug and vault
     address), then falls back to word-boundary regex matching against
-    the vault display name.
+    the vault display name and the manager name.
+
+    Some native marketplace protocols (notably GRVT) brand the curator
+    in a separate ``manager_name`` field rather than the vault display
+    name — the vault name there is the strategy name (e.g.
+    ``"Ethereum Moving Average Long/Short"``) while the curator identity
+    (e.g. ``"Gerhard - Bitcoin Strategy"``) is the manager.  Pass
+    ``manager_name`` so these curators are detected.  The vault name is
+    matched first and takes precedence over the manager name.
 
     :param chain_id:
         Chain ID where the vault is deployed.
@@ -485,6 +519,12 @@ def identify_curator(
         Slugified protocol name from
         :py:func:`eth_defi.research.vault_metrics.slugify_protocol`
         (e.g. ``"morpho"``, ``"hyperliquid"``, ``"lighter"``).
+
+    :param manager_name:
+        Optional name of the vault manager/operator, used by native
+        marketplace protocols (e.g. GRVT) where the curator brand lives
+        in the manager field rather than the vault name.  Empty string
+        when unknown.
 
     :return:
         Curator slug (e.g. ``"gauntlet"``, ``"ostium"``, ``"hyperliquid"``),
@@ -507,16 +547,26 @@ def identify_curator(
         if vault_address.lower() in HYPERLIQUID_SYSTEM_VAULT_ADDRESSES:
             return "hyperliquid"
 
-    # 3. Lighter system pools (LLP)
+    # 3. Lighter system pools (LLP, XLP)
     if protocol_slug == "lighter":
         if vault_address in LIGHTER_SYSTEM_POOL_ADDRESSES:
             return "lighter"
 
-    # 4. Word-boundary regex matching against vault name
+    # 4. GRVT system vaults (GLP, the protocol's in-house market maker)
+    if protocol_slug == "grvt":
+        if vault_address.lower() in GRVT_SYSTEM_VAULT_ADDRESSES:
+            return "grvt"
+
+    # 5. Word-boundary regex matching against vault name, then manager name.
+    #    Vault name is matched first so it takes precedence over the
+    #    manager name when both carry a recognisable brand.
     patterns = _build_matching_patterns()
-    for regex, slug in patterns:
-        if regex.search(vault_name):
-            return slug
+    for haystack in (vault_name, manager_name):
+        if not haystack:
+            continue
+        for regex, slug in patterns:
+            if regex.search(haystack):
+                return slug
 
     return None
 

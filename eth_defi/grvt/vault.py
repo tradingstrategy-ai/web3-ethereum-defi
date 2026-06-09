@@ -78,6 +78,25 @@ class GRVTVaultSummary:
     #: Strategy categories (e.g. ``["Market Making", "Delta Neutral"]``)
     categories: list[str]
 
+    #: Manager profile image URL (avatar) from the GRVT CDN.
+    #:
+    #: From the GraphQL ``managerInfo.profileImageURL`` field.  ``None`` when
+    #: the manager has no avatar.  Used as a curator logo source.
+    manager_profile_image_url: str | None = None
+
+    #: Vault cover image URL (banner artwork) from the GRVT CDN.
+    #:
+    #: From the GraphQL ``coverImageURL`` field.  ``None`` when no cover image.
+    cover_image_url: str | None = None
+
+    #: Raw GraphQL vault node as returned by the GRVT API.
+    #:
+    #: Stored verbatim so that newly added API fields are preserved without a
+    #: schema change.  Persisted as a JSON dump in the
+    #: ``extended_vault_info`` column and refreshed weekly.  ``None`` when the
+    #: summary was not built from a GraphQL node.
+    raw_metadata: dict[str, Any] | None = None
+
     #: Creation timestamp
     create_time: datetime | None = None
 
@@ -154,6 +173,10 @@ query VaultListingQuery($first: Int, $where: VaultWhereInput) {
                 performanceFee
                 createTime
                 valuationCap
+                coverImageURL
+                managerInfo {
+                    profileImageURL
+                }
                 mappedCategories {
                     name
                 }
@@ -188,6 +211,10 @@ def _graphql_node_to_summary(node: dict[str, Any]) -> GRVTVaultSummary:
     management_fee = mgmt_fee_ppm / GRVT_FEE_PPM_DIVISOR if mgmt_fee_ppm is not None else None
     performance_fee = perf_fee_ppm / GRVT_FEE_PPM_DIVISOR if perf_fee_ppm is not None else None
 
+    manager_info = node.get("managerInfo") or {}
+    manager_profile_image_url = manager_info.get("profileImageURL") or None
+    cover_image_url = node.get("coverImageURL") or None
+
     return GRVTVaultSummary(
         vault_id=node["id"],
         chain_vault_id=int(node["chainVaultID"]),
@@ -201,6 +228,9 @@ def _graphql_node_to_summary(node: dict[str, Any]) -> GRVTVaultSummary:
         status=node.get("status", ""),
         manager_name=node.get("managerName", ""),
         categories=categories,
+        manager_profile_image_url=manager_profile_image_url,
+        cover_image_url=cover_image_url,
+        raw_metadata=node,
         create_time=create_time,
         management_fee=management_fee,
         performance_fee=performance_fee,
@@ -211,10 +241,11 @@ def build_vault_description(summary: GRVTVaultSummary) -> str:
     """Build a merged markdown description from all GRVT vault description fields.
 
     Combines the short description, manager bio, investment philosophy,
-    and risk management process into a single markdown string with headings
-    matching the GRVT strategies page layout.
+    risk management process, and extended metadata (strategy categories,
+    manager profile image, cover image) into a single markdown string with
+    headings matching the GRVT strategies page layout.
 
-    Only includes sections where the text is non-empty.
+    Only includes sections where the text or field is non-empty.
 
     :param summary:
         Vault summary with description fields populated from the GraphQL API.
@@ -234,6 +265,19 @@ def build_vault_description(summary: GRVTVaultSummary) -> str:
 
     if summary.risk_management_process:
         parts.append(f"## Risk management\n\n{summary.risk_management_process.strip()}")
+
+    # Extended metadata rendered as a markdown bullet list.  Only emit the
+    # section when at least one extended field is present.
+    detail_lines = []
+    categories = [c for c in (summary.categories or []) if c]
+    if categories:
+        detail_lines.append(f"- **Categories:** {', '.join(categories)}")
+    if summary.manager_profile_image_url:
+        detail_lines.append(f"- **Manager profile image:** [{summary.manager_profile_image_url}]({summary.manager_profile_image_url})")
+    if summary.cover_image_url:
+        detail_lines.append(f"- **Cover image:** [{summary.cover_image_url}]({summary.cover_image_url})")
+    if detail_lines:
+        parts.append("## Strategy details\n\n" + "\n".join(detail_lines))
 
     return "\n\n".join(parts)
 

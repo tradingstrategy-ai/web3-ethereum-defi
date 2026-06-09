@@ -1,5 +1,13 @@
 # Current
 
+- feat: Add eight vault curators discovered from a full vault-name sweep — Coinshift, Hyperbeat, Lista DAO, Keyring Network, Trust Wallet, CoolWallet, Mt Pelerin and HypurrFi (Morpho/Euler/Lagoon/Kiln Metavault) — plus name-pattern fixes so existing August Digital and DAMM Capital vaults are detected; distributor curators (Trust Wallet, CoolWallet) are matched at lowest priority so the underlying risk curator (Steakhouse, Gauntlet, ...) wins on co-branded vaults (2026-06-09)
+
+- feat: Add the anonymous "DER" curator for the Lagoon "Der" vault family (Der USDC, Der base USDC, Der EURC, Der ETH, Der BTC) (2026-06-09)
+
+- feat: Store GRVT extended vault metadata (raw `managerInfo` and full GraphQL node) as a JSON dump in a new `extended_vault_info` column with an `extended_vault_info_metadata_last_updated_at` timestamp, refreshed at most weekly via an atomic `ON CONFLICT` gate; the migration adds the columns safely (nullable, no data loss) and the new fields (strategy categories, manager profile image, cover image) are rendered as a Markdown "Strategy details" section in the vault long description (2026-06-09)
+
+- feat: Add Lighter and GRVT vault curators — register 16 third-party curators hosting vaults on the Lighter and GRVT marketplaces (Gerhard - Bitcoin Strategy, KangCFA, The Crypto Meerkat, AllDeFi, Project BTC, RoboNet, Warwolf, BTC Maxi Lab, SK System, pmalt, Mid-HTF Trading, Better Than Yours, PHP Trading Desk, Syzygy Strategy, Big Brain Research, Candle Effect), promote GRVT's in-house GLP market maker to a protocol-managed curator, add the Lighter XLP experimental pool to the system-pool set, and thread `manager_name` through `identify_curator()` so GRVT curators branded in the manager field (rather than the vault name) are detected (2026-06-09)
+
 - fix: Export `denomination_decimals` and `share_token_decimals` in the vault metrics JSON (`top_vaults_by_chain.json`). The on-chain token decimals were captured during the scan but dropped when building the per-vault export record, so consumers had no decimals to read and defaulted them (e.g. USDC to 18), scaling raw amounts by 10**12 (2026-06-09)
 
 - feat: Add `VaultDepositManager.get_deposit_delay_over()` to estimate when a pending async deposit will settle, with an Ostium V1.5 implementation (mirrors `get_redemption_delay_over()` using `targetSettlementId(true)`); operator-driven ERC-7540 vaults return `None` (2026-06-09)

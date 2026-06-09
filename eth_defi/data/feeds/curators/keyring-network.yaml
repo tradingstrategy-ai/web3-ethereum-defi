@@ -1,0 +1,28 @@
+feeder-id: keyring-network
+name: Keyring Network
+role: curator
+website: https://keyring.network
+short_description: 'Keyring Network provides institutional-grade compliance automation and zero-knowledge identity verification for blockchain protocols.'
+long_description: |
+  Keyring Network is a London-based compliance infrastructure provider founded in 2022 that equips financial platforms with permissioning tools for compliant transactions on-chain, powered by zero-knowledge privacy. Its two products — Keyring Pro and Keyring Connect — enable protocols to implement reusable KYC/AML checks and permissioned vault access without exposing user data. Keyring deployed a series of zkVerified Euler clusters on Ethereum and Avalanche, defining the cluster access rules and collecting protocol fees, which places it in the role of vault operator for those vaults in addition to its compliance role.
+twitter: KeyringNetwork
+linkedin: keyring-network
+
+# Evidence and background references.
+#
+# Keyring Network launched a family of "zkVerified" permissioned ERC-4626 vaults on the
+# Euler lending protocol, deployed on Ethereum mainnet (chain 1) and Avalanche (chain 43114).
+# The vaults are named in the pattern "Keyring zkVerified Cluster …" which is how they
+# appear in the Euler vault dataset.
+#
+# Keyring functions as both the compliance/permissioning layer (ZK identity gate) AND the
+# economic operator that defines the cluster, collects protocol fees, and directs those fees.
+# This dual role justifies treating Keyring as a curator for this vault family, even though
+# its primary product is compliance infrastructure rather than yield management.
+other-links:
+  - title: Keyring Network blog - Keyring launches zkVerified DeFi vaults on Ethereum and Avalanche, donating vault fees to developer legal defence fund
+    url: https://keyring.network/blog-posts/developer-legal-defense-fund
+  - title: Keyring Network homepage - compliance automation and zkVerified permissioning products
+    url: https://keyring.network
+  - title: Keyring Network docs - permissioning tools for compliant transactions
+    url: https://docs.keyring.network

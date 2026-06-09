@@ -1,0 +1,19 @@
+feeder-id: syzygy-strategy
+name: Syzygy Strategy
+role: curator
+short_description: Syzygy Strategy is an independent pool operator on Lighter running a perpetuals trading strategy under the @SyzygyStrategy handle.
+long_description: |
+  Syzygy Strategy operates a public perpetuals trading pool on Lighter, a ZK-rollup-based derivatives exchange on Ethereum.
+  The pool applies a discretionary or systematic strategy with a 9% operator fee and is open for external capital deposits.
+  The operator's only disclosed public identity is the X/Twitter account @SyzygyStrategy; no separate website or company information has been published.
+twitter: SyzygyStrategy
+
+# Evidence and background references.
+#
+# X avatar confirms the account exists and has a branded logo mark.
+# Lighter API returns description "X/Twitter: @SyzygyStrategy" — the sole
+# public identifier given by the operator.
+# L1 address 0x7977b2F97866865d67A4E8b0c46F350F30e89fE2 resolves to ENS zer0.eth.
+other-links:
+  - title: Lighter public pool - Syzygy Strategy (account index 281474976539113)
+    url: https://app.lighter.xyz/public-pools/281474976539113

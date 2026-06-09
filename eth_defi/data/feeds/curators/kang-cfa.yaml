@@ -1,0 +1,21 @@
+feeder-id: kang-cfa
+name: KangCFA
+role: curator
+short_description: KangCFA is an individual trader running a cross-exchange arbitrage vault on GRVT, operating under the handle kang8932.
+long_description: |
+  KangCFA is an individual vault manager on GRVT Exchange who operates a cross-exchange arbitrage strategy that captures pricing inefficiencies across markets.
+  According to the GRVT vault profile, the operator holds CFA and CAIA charters, creates content about crypto, stocks and quantitative finance on YouTube, and publishes under the handle kang8932.
+  No independent website, X account, or YouTube channel could be confirmed from public sources; all biographical detail is drawn from the self-reported GRVT vault profile.
+
+# Evidence and background references.
+#
+# Identity is partially verified: the vault and strategy name "Kang" appear in
+# GRVT's public blog post listing strategies.  CFA/CAIA credentials, the kang8932
+# handle, and the Korean YouTuber claim are self-reported on the GRVT vault page
+# and could not be independently confirmed via web search.
+# No Twitter/X, YouTube channel, LinkedIn, or personal website was found.
+other-links:
+  - title: GRVT strategy page - KangCFA cross-exchange arbitrage vault (manager handle kang8932)
+    url: https://grvt.io/exchange/strategies/1789596527
+  - title: GRVT blog - What are GRVT strategies (lists Kang as a cross-exchange arbitrage strategy)
+    url: https://grvt.io/blog/grvt-strategies-grvt-vaults/
