@@ -39,6 +39,17 @@ PROVIDER_READ_EXCEPTIONS = (
 """Exceptions raised by unavailable or read-restricted JSON-RPC providers."""
 
 
+#: Default number of confirmations each read provider must see before
+#: :py:func:`wait_for_transaction_receipt_robust` returns on a live (non-Anvil) chain.
+#:
+#: Set to 2 so that a state read (``eth_call``) issued immediately after the wait is
+#: very likely served by a backend whose state trie already reflects the transaction,
+#: not just one that has the receipt visible. Avoids read-after-write races on
+#: MultiProvider setups where writes go to a sequencer / transaction provider and reads
+#: go to lagging public RPCs. Anvil ignores this (single coherent state view).
+DEFAULT_CONFIRMATION_BLOCK_COUNT = 2
+
+
 class ReceiptVisibilityTimedOut(TimeoutError):
     """Timed out before all read providers could see a transaction receipt."""
 
@@ -204,7 +215,7 @@ def wait_for_transaction_receipt_robust(
     timeout: float = 120.0,
     poll_delay: float = 1.0,
     max_poll_delay: float = 5.0,
-    confirmation_block_count: int = 0,
+    confirmation_block_count: int | None = None,
     extra_sleep: float = 0.0,
 ) -> TxReceipt:
     """Wait until a transaction receipt is visible through all read RPC providers.
@@ -229,6 +240,20 @@ def wait_for_transaction_receipt_robust(
     :param confirmation_block_count:
         How many confirmations each read provider should see. This is best-effort
         because provider block numbers are fetched sequentially.
+
+        Defaults to ``None``, which resolves to
+        :py:data:`DEFAULT_CONFIRMATION_BLOCK_COUNT` (2) on live chains and is ignored
+        on Anvil (Anvil has a single coherent state view).
+
+        Why 2 by default: requiring confirmations makes it very likely a state-read
+        ``eth_call`` issued immediately after this wait hits a backend whose state trie
+        already reflects the transaction, rather than merely a backend that has the
+        receipt visible. This prevents read-after-write races on MultiProvider setups —
+        for example reading an ``allowance()`` of 0 right after a confirmed ``approve()``
+        when the read provider trails the sequencer.
+
+        Pass ``confirmation_block_count=0`` explicitly to opt back into pure
+        receipt-visibility behaviour without waiting for confirmations.
     :param extra_sleep:
         Extra seconds to sleep once after all read providers have seen the
         matching receipt and enough confirmations.
@@ -238,7 +263,7 @@ def wait_for_transaction_receipt_robust(
     assert timeout > 0, f"timeout must be positive, got {timeout}"
     assert poll_delay > 0, f"poll_delay must be positive, got {poll_delay}"
     assert max_poll_delay >= poll_delay, f"max_poll_delay must be >= poll_delay, got {max_poll_delay} < {poll_delay}"
-    assert confirmation_block_count >= 0, f"confirmation_block_count must be non-negative, got {confirmation_block_count}"
+    assert confirmation_block_count is None or confirmation_block_count >= 0, f"confirmation_block_count must be non-negative, got {confirmation_block_count}"
     assert extra_sleep >= 0, f"extra_sleep must be non-negative, got {extra_sleep}"
 
     tx_hash_bytes = HexBytes(tx_hash)
@@ -274,6 +299,11 @@ def wait_for_transaction_receipt_robust(
             receipt.get("blockNumber"),
         )
         return receipt
+
+    # Resolve the Anvil-aware sentinel: live chains wait for confirmations by default,
+    # Anvil already returned above and never reaches here.
+    if confirmation_block_count is None:
+        confirmation_block_count = DEFAULT_CONFIRMATION_BLOCK_COUNT
 
     providers = get_read_providers(web3)
     provider_entries = list(enumerate(providers))
