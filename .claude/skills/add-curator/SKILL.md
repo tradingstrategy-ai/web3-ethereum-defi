@@ -16,6 +16,7 @@ Gather or infer these before editing:
 - Curator slug, using the existing feeder slug style
 - Evidence from vault data: vault names, protocols, chains, and why this is a curator
 - Curator type: third-party curator, alias to an existing feeder, protocol-managed curator, or name-pattern update
+- Short curator description and long curator description
 - Optional website, Twitter/X, LinkedIn, blog/RSS, supporting links, and logo source
 
 If the candidate was produced by `find-new-curators`, open its result
@@ -50,6 +51,18 @@ Use official sources when possible:
 - RSS or Atom feed for an official blog, only if it works
 - Documentation, forum post, or vault UI proving the organisation acts as curator
 
+Add descriptions from primary sources:
+
+- `short_description`: one concise sentence.  Prefer the Twitter/X or
+  LinkedIn bio when available; otherwise use the official homepage
+  tagline.  Describe the organisation, not a single vault or token.
+- `long_description`: two to four Markdown-safe sentences summarising
+  the official homepage, docs, or product overview.  Avoid hype,
+  rankings, unverifiable performance claims, and investment advice.
+- For alias curators, describe the curator organisation represented by
+  the alias.  Do not blindly inherit a product-only description from
+  the canonical feeder when it would misrepresent the alias.
+
 Avoid adding aggregator pages, unofficial social accounts, or broken
 RSS feeds.  If a social account is inferred from search results, note
 that it was inferred in the final answer.
@@ -63,6 +76,10 @@ feeder-id: {curator-slug}
 name: {Curator name}
 role: curator
 website: https://example.org
+short_description: {One-sentence curator description.}
+long_description: |
+  {Two to four sentence curator description based on official homepage,
+  docs, Twitter/X bio, or LinkedIn bio.}
 twitter: example
 linkedin: example-company
 rss: https://example.org/feed.xml
@@ -89,11 +106,15 @@ eth_defi/data/feeds/curators/{curator-slug}.yaml
 ```
 
 Omit unknown optional fields instead of leaving empty keys.
+Always add `short_description` and `long_description` for new curator
+YAML files.  If primary-source evidence is too weak to write them, stop
+and ask instead of inventing descriptions.
 Use `other-links` for evidence pages such as protocol forum
 announcements, documentation pages, or vault launch posts that prove
 the organisation acts as curator.
 
-For an alias to an existing feeder, create only identity metadata:
+For an alias to an existing feeder, create identity and description
+metadata:
 
 ```yaml
 # {Curator name} curator - feeds provided by {role}/{canonical-slug}.yaml
@@ -101,6 +122,9 @@ feeder-id: {curator-slug}
 name: {Curator name}
 role: curator
 canonical-feeder-id: {canonical-slug}
+short_description: {One-sentence curator description.}
+long_description: |
+  {Two to four sentence curator description based on official sources.}
 ```
 
 Do not duplicate feed sources on alias files.
@@ -190,12 +214,30 @@ poetry run ruff check eth_defi/vault/curator.py
 
 If YAML feed files were edited and no specific feed tests exist, at
 least run a script or small import path that loads feeder metadata.
+For curator YAML edits, also verify descriptions are present and load
+through the shared schema:
+
+```shell
+poetry run python - <<'PY'
+from pathlib import Path
+
+from eth_defi.feed.sources import load_feeder_metadata
+
+for path in sorted(Path("eth_defi/data/feeds/curators").glob("*.yaml")):
+    data = load_feeder_metadata(path)
+    assert data.get("short_description"), path
+    assert data.get("long_description"), path
+
+print("ok")
+PY
+```
 
 ## Step 7: Report
 
 Summarise:
 
 - Feed files created or aliased
+- Short and long descriptions added, with source pages used
 - Detection logic changed
 - Logo files added or reused
 - Verification commands run
