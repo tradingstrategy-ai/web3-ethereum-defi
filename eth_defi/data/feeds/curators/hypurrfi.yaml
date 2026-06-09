@@ -1,0 +1,27 @@
+feeder-id: hypurrfi
+name: HypurrFi
+role: curator
+website: https://hypurrfi.com
+short_description: HypurrFi is a DeFi lending and yield protocol on HyperEVM offering lending markets and curated earn vaults across major tokens and stablecoins.
+long_description: |
+  HypurrFi is a DeFi protocol built on Hyperliquid's HyperEVM chain that provides lending, borrowing, and yield-earning services.
+  Its app describes optimised lending markets and curated earn vaults for assets including USDC, USDT0, USDH, HYPE, and USDG0, targeting users who want to earn yield on their crypto holdings.
+  HypurrFi also offers USDXL, a Hyperliquid-native stablecoin, and integrated swap and bridge functionality.
+  The homepage tagline is "Trade, earn, spend, grow", combining lending markets with a crypto credit card product.
+twitter: hypurrfi
+
+# Evidence and background references.
+#
+# Vault names observed on HyperEVM (chain 999) that identify HypurrFi as curator:
+# - "HypurrFi Earn USDC"
+# - "HypurrFi Earn USDT0"
+# - "HypurrFi Earn USDH"
+# - "HypurrFi Earn HYPE"
+# - "HypurrFi Earn USDG0"
+other-links:
+  - title: HypurrFi app - earn vaults and lending markets on HyperEVM
+    url: https://app.hypurrfi.com/earn
+  - title: HypurrFi documentation
+    url: https://docs.hypurrfi.com
+  - title: HypurrFi brand assets on GitHub
+    url: https://github.com/hypurrfi/brand-assets

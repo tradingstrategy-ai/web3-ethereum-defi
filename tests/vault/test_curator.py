@@ -259,3 +259,46 @@ def test_identify_lighter_pmalt_pool_curator() -> None:
     # 2. Resolves to the pmalt curator
     assert slug == "pmalt"
     assert get_curator_name("pmalt") == "pmalt"
+
+
+def test_identify_vault_name_sweep_curators() -> None:
+    """Curators discovered from the vault-name sweep resolve on their vaults.
+
+    These were added by mining unmatched vault names across Morpho, Euler,
+    Lagoon and Kiln Metavault.  Most match via their YAML ``name``; Keyring
+    matches via an explicit short-brand pattern because its vaults are named
+    "Keyring zkVerified Cluster".
+
+    1. Resolve a representative vault for each new curator.
+    2. Confirm the anonymous Lagoon "Der" curator resolves on a Der vault.
+    3. Confirm the calendar month "August" does not false-match August Digital.
+    """
+
+    # 1. New curators detected by their brand in the vault name
+    cases = {
+        ("morpho", "Coinshift USDC"): "coinshift",
+        ("morpho", "Hyperbeat USDC Lending Optimizer"): "hyperbeat",
+        ("euler", "Lista DAO USD1 Vault"): "lista-dao",
+        ("euler", "Keyring zkVerified Cluster"): "keyring-network",
+        ("kiln-metavault", "Trust Wallet AAVE v3 USDT"): "trust-wallet",
+        ("kiln-metavault", "Cool Wallet AAVEv3 USDC"): "cool-wallet",
+        ("lagoon-finance", "Mt Pelerin – USD strategy pool"): "mt-pelerin",
+        ("euler", "HypurrFi Earn USDC"): "hypurrfi",
+        ("lagoon-finance", "DAMM Stablecoin Fund"): "damm-capital",
+        ("morpho", "August USDC"): "august-digital",
+    }
+    for (protocol_slug, name), expected in cases.items():
+        slug = identify_curator(
+            chain_id=1,
+            vault_token_symbol="",
+            vault_name=name,
+            vault_address="0x0000000000000000000000000000000000000000",
+            protocol_slug=protocol_slug,
+        )
+        assert slug == expected, f"{name!r} -> {slug!r}, expected {expected!r}"
+
+    # 2. Anonymous Lagoon "Der" curator
+    assert identify_curator(1, "", "Der USDC", "0x0", "lagoon-finance") == "der"
+
+    # 3. The calendar month must not be mistaken for August Digital
+    assert identify_curator(1, "", "Prize imToken August Campaign", "0x0", "morpho") is None

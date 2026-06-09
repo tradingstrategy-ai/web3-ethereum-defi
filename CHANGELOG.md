@@ -1,5 +1,7 @@
 # Current
 
+- feat: Add eight vault curators discovered from a full vault-name sweep — Coinshift, Hyperbeat, Lista DAO, Keyring Network, Trust Wallet, CoolWallet, Mt Pelerin and HypurrFi (Morpho/Euler/Lagoon/Kiln Metavault) — plus name-pattern fixes so existing August Digital and DAMM Capital vaults are detected; distributor curators (Trust Wallet, CoolWallet) are matched at lowest priority so the underlying risk curator (Steakhouse, Gauntlet, ...) wins on co-branded vaults (2026-06-09)
+
 - feat: Add the anonymous "DER" curator for the Lagoon "Der" vault family (Der USDC, Der base USDC, Der EURC, Der ETH, Der BTC) (2026-06-09)
 
 - feat: Store GRVT extended vault metadata (raw `managerInfo` and full GraphQL node) as a JSON dump in a new `extended_vault_info` column with an `extended_vault_info_metadata_last_updated_at` timestamp, refreshed at most weekly via an atomic `ON CONFLICT` gate; the migration adds the columns safely (nullable, no data loss) and the new fields (strategy categories, manager profile image, cover image) are rendered as a Markdown "Strategy details" section in the vault long description (2026-06-09)

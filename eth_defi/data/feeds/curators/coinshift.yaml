@@ -1,0 +1,30 @@
+feeder-id: coinshift
+name: Coinshift
+role: curator
+website: https://coinshift.xyz
+short_description: 'Coinshift is a self-custodial treasury management platform helping organisations manage payments, accounting, and onchain asset management.'
+long_description: |
+  Coinshift is a treasury management platform that lets any organisation manage their finances on the blockchain through a single self-custodial interface. The platform combines payments, accounting, and yield-generating asset management without KYC or hidden fees. Coinshift curates onchain vaults under the csUSDL and csUSDC products, co-designed with partners Steakhouse Financial, Paxos International, and Morpho Protocol. Major web3 organisations including Gitcoin, Aave, and Zapper use Coinshift to manage treasury capital.
+twitter: 0xCoinshift
+rss: https://blog.coinshift.xyz/rss.xml
+
+# Evidence and background references.
+#
+# Coinshift curates the following vault products on Ethereum mainnet:
+# - csUSDL (Coinshift USDL Morpho Vault): ERC-4626 vault combining Paxos USDL (T-Bill backed)
+#   with Morpho Blue lending yield; co-designed with Steakhouse Financial.
+# - csUSDC (Coinshift USDC Vault): Morpho vault where USDC lenders earn yield as csUSDC receipts.
+# - Lagoon Finance vaults: Coinshift Conservative USPC and Coinshift Leveraged USPC on chain 1.
+# Wrapper vaults by third parties (Alpine/Upshift "Alpine Coinshift USDC", Spectra
+# "Spectra ERC4626 Wrapper: Coinshift USDL") are NOT Coinshift-curated products.
+other-links:
+  - title: Coinshift documentation - csUSDL overview (Morpho Blue vault combining T-Bill and lending yield)
+    url: https://docs.coinshift.xyz/coinshift-assets/csusdl
+  - title: Coinshift documentation - csUSDC overview (Morpho vault for USDC yield with Steakhouse Financial)
+    url: https://docs.coinshift.xyz/coinshift-assets/csusdc
+  - title: CoinGecko - Coinshift USDL Morpho Vault token (confirms Coinshift as issuer)
+    url: https://www.coingecko.com/en/coins/coinshift-usdl-morpho-vault
+  - title: CoinGecko - Coinshift USDC token (confirms Twitter handle 0xCoinshift)
+    url: https://www.coingecko.com/en/coins/coinshift-usdc
+  - title: Coinshift blog (HubSpot hosted, treasury management content)
+    url: https://blog.coinshift.xyz

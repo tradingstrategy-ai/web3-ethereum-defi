@@ -1,0 +1,34 @@
+feeder-id: lista-dao
+name: Lista DAO
+role: curator
+website: https://lista.org/
+short_description: Lista DAO is a permissionless liquid staking and CDP stablecoin lending protocol native to BNB Chain.
+long_description: |
+  Lista DAO is an open-source liquidity protocol built on BNB Chain that enables users to earn yield on collateralised crypto assets including BNB, ETH, and stablecoins.
+  The protocol issues lisUSD, a decentralised stablecoin backed by collateralised debt positions, and slisBNB, a liquid staking token for BNB.
+  Lista DAO describes itself as a leading LSDfi and CDP stablecoin protocol, positioning liquid staking and stablecoin borrowing as accessible and permissionless for all DeFi participants.
+  The protocol curates Euler EVK vaults on Ethereum mainnet and BNB Chain, offering yield strategies across assets such as USDC, USDT, USD1, BTC, and BNB.
+twitter: lista_dao
+linkedin: listadao
+rss: https://medium.com/feed/listadao
+
+# Evidence and background references.
+#
+# Lista DAO curates Euler EVK vaults on Ethereum (chain 1) and BNB Chain (chain 56).
+# Vault names include "Lista DAO BNB Vault", "Lista DAO USD1 Vault", "Lista BTC Vault",
+# "Lista USDC Vault", "Lista USDT Vault", "Lista USDC Savings Vault",
+# "Lista USDT Savings Vault", "Lista U Vault", "Lista Credit Vault", and "Lista XAUT Vault".
+# The "Lista DAO" prefix in vault names and the self-branded "Lista *" naming scheme
+# are both used, distinguishing these from third-party vaults that use Lista tokens
+# as collateral (e.g. "Karak-Lista USD", "A41 Lista USD", "Staked Lista BNB").
+other-links:
+  - title: Lista DAO official homepage - lista.org
+    url: https://lista.org/
+  - title: Lista DAO GitHub organisation with smart contracts and SDK
+    url: https://github.com/lista-dao
+  - title: Lista DAO protocol documentation on GitHub gitbook
+    url: https://github.com/lista-dao/gitbook
+  - title: Lista DAO on LinkedIn - leading LSDfi and CDP stablecoin protocol on BNB Chain
+    url: https://www.linkedin.com/company/listadao/
+  - title: Lista DAO on CoinGecko - LISTA token and protocol overview
+    url: https://www.coingecko.com/en/coins/lista-dao

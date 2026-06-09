@@ -1,0 +1,28 @@
+feeder-id: cool-wallet
+name: Cool Wallet
+role: curator
+website: https://www.coolwallet.io
+short_description: 'CoolWallet is a hardware wallet brand by CoolBitX that sponsors Kiln OmniVault earn products for its users across Ethereum, Polygon, and BNB Chain.'
+long_description: |
+  CoolWallet is a consumer hardware wallet product line developed by CoolBitX Ltd., a blockchain security company founded in 2014 and headquartered in Taiwan. The CoolWallet devices (Pro, Go, and S) pair with a non-custodial mobile app supporting thousands of cryptocurrencies, staking, and Web3 browsing.
+  CoolWallet offers earn products to its users through a partnership with Kiln, deploying capital via Kiln OmniVault smart contracts. These vaults are branded "Cool Wallet AAVEv3 USDT" and "Cool Wallet AAVEv3 USDC" and run on Ethereum mainnet (chain 1), Polygon (chain 137), and BNB Chain (chain 56).
+twitter: coolwallet
+linkedin: coolbitx
+
+# Evidence and background references.
+#
+# CoolWallet acts as sponsor and distributor of Kiln OmniVault (formerly Metavault)
+# earn products branded under the "Cool Wallet" name.  Six vaults have been
+# observed in the dataset: "Cool Wallet AAVEv3 USDT" and "Cool Wallet AAVEv3 USDC"
+# on chains 1, 137, and 56.  Kiln OmniVaults are infrastructure vaults that
+# partners embed natively into their wallets or platforms; CoolWallet uses the
+# Kiln Widget / API to surface these as earn products inside the CoolWallet app.
+other-links:
+  - title: CoolWallet official website
+    url: https://www.coolwallet.io
+  - title: CoolBitX LinkedIn company page
+    url: https://www.linkedin.com/company/coolbitx
+  - title: Kiln OmniVaults partner integration documentation
+    url: https://docs.kiln.fi/v1/kiln-products/omnivaults
+  - title: CoolWallet on X (Twitter)
+    url: https://x.com/coolwallet

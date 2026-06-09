@@ -211,8 +211,10 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "varlamore-capital": ["Varlamore"],
     "k3-capital": ["K3 Capital", "K3"],
     "edge-and-hedge": ["Edge & Hedge", "Edge and Hedge"],
-    "damm-capital": ["DAMM Capital"],
-    "august-digital": ["August Digital"],
+    "damm-capital": ["DAMM Capital", "DAMM"],
+    # "August" alone collides with the calendar month (e.g. "imToken August
+    # Campaign"), so match the specific August Digital vault names instead.
+    "august-digital": ["August Digital", "August USDC", "August AUSD"],
     "pareto-technologies": ["Pareto"],
     "tulipa-capital": ["Tulipa"],
     "systemic-strategies": ["Systemic Strategies"],
@@ -245,6 +247,23 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "b-protocol": ["B.Protocol"],
     "felix": ["Felix"],
     "stake-dao": ["StakeDAO"],
+    # New curators discovered from the vault-name sweep (2026-06-09).
+    # The vaults are "Keyring zkVerified Cluster", so match the short brand.
+    "keyring-network": ["Keyring"],
+}
+
+#: Distributor / sponsor curators whose brand is a white-label wrapper.
+#:
+#: These organisations brand a vault family (e.g. "Trust Wallet Morpho
+#: Smokehouse USDC") but the underlying strategy is run by another curator
+#: named in the same vault title.  Their name patterns are matched at the
+#: lowest priority so the real risk curator (Smokehouse/Steakhouse, Gauntlet,
+#: ...) wins on co-branded vaults, while sponsor-only vaults (e.g. "Trust
+#: Wallet AAVE v3 USDT", where the underlying is an uncurated Aave market)
+#: still resolve to the sponsor.
+SPONSOR_CURATOR_SLUGS: set[str] = {
+    "trust-wallet",
+    "cool-wallet",
 }
 
 
@@ -447,8 +466,10 @@ def _build_matching_patterns() -> list[tuple[re.Pattern, str]]:
         for extra in CURATOR_NAME_PATTERNS.get(slug, []):
             raw_pairs.append((extra, slug))
 
-    # Sort by pattern length descending — longest match wins
-    raw_pairs.sort(key=lambda pair: len(pair[0]), reverse=True)
+    # Sort so that sponsor/distributor patterns are matched last (so the real
+    # risk curator wins on co-branded vaults), and within each priority group
+    # the longest (most specific) pattern matches first.
+    raw_pairs.sort(key=lambda pair: (pair[1] in SPONSOR_CURATOR_SLUGS, -len(pair[0])))
 
     patterns = []
     for pattern_text, slug in raw_pairs:
