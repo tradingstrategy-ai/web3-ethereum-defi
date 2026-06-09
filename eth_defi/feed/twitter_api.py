@@ -80,14 +80,37 @@ X_SERVER_ERROR_MAX_RETRIES = 5
 #: Base delay in seconds for exponential backoff on transient 5xx errors.
 X_SERVER_ERROR_BACKOFF_BASE_SECONDS = 5.0
 
-#: ``feed_sync_state`` key under which the X list member IDs we have added are
-#: stored as a JSON array.
+#: ``feed_sync_state`` key prefix under which the X list member IDs we have
+#: added are stored as a JSON array.
 #:
 #: We maintain our own record of confirmed list members instead of reading them
 #: back from the X API, because ``GET /2/lists/{id}/members`` returns persistent
 #: endpoint-wide ``503 Service Unavailable`` errors.  See ``README`` notes and
 #: :func:`sync_x_list_members`.
-X_LIST_MEMBER_IDS_STATE_KEY = "x_list_member_ids"
+#:
+#: The actual key is suffixed with the list ID (see :func:`_member_ids_state_key`)
+#: so a single database can sync multiple X lists without their member caches
+#: colliding.
+X_LIST_MEMBER_IDS_STATE_KEY_PREFIX = "x_list_member_ids"
+
+#: ``feed_sync_state`` key prefix under which the hash of synced Twitter handles
+#: is stored, used to skip list sync when the handle set is unchanged.
+#:
+#: Suffixed with the list ID (see :func:`_handles_hash_state_key`) so the
+#: change-detection hash is scoped to each X list.
+X_HANDLES_HASH_STATE_KEY_PREFIX = "twitter_handles_hash"
+
+
+def _member_ids_state_key(list_id: str) -> str:
+    """Return the per-list ``feed_sync_state`` key for the member ID cache."""
+
+    return f"{X_LIST_MEMBER_IDS_STATE_KEY_PREFIX}:{list_id}"
+
+
+def _handles_hash_state_key(list_id: str) -> str:
+    """Return the per-list ``feed_sync_state`` key for the handle hash."""
+
+    return f"{X_HANDLES_HASH_STATE_KEY_PREFIX}:{list_id}"
 
 
 @dataclass(slots=True)
@@ -653,16 +676,18 @@ def _x_api_read_with_retry(
             raise XApiError(f"Failed while {description}: {e}") from e
 
 
-def _load_known_member_ids(db: VaultPostDatabase) -> set[str]:
-    """Load the set of X list member IDs we have previously added.
+def _load_known_member_ids(db: VaultPostDatabase, list_id: str) -> set[str]:
+    """Load the set of member IDs we have previously added to an X list.
 
     :param db:
         Vault post database holding the ``feed_sync_state`` table.
+    :param list_id:
+        X list ID, used to scope the cache so multiple lists do not collide.
     :return:
         Set of numeric user IDs, empty when no record exists yet.
     """
 
-    raw = db.get_sync_state(X_LIST_MEMBER_IDS_STATE_KEY)
+    raw = db.get_sync_state(_member_ids_state_key(list_id))
     if not raw:
         return set()
     try:
@@ -670,20 +695,22 @@ def _load_known_member_ids(db: VaultPostDatabase) -> set[str]:
     except (json.JSONDecodeError, TypeError):
         # A corrupt record must not crash the sync — start from empty and let
         # the add loop repopulate it (re-adding existing members is a no-op).
-        logger.warning("Corrupt X list member ID cache in feed_sync_state; rebuilding from empty")
+        logger.warning("Corrupt X list member ID cache in feed_sync_state for list %s; rebuilding from empty", list_id)
         return set()
 
 
-def _save_known_member_ids(db: VaultPostDatabase, member_ids: set[str]) -> None:
-    """Persist the set of X list member IDs we have added.
+def _save_known_member_ids(db: VaultPostDatabase, list_id: str, member_ids: set[str]) -> None:
+    """Persist the set of member IDs we have added to an X list.
 
     :param db:
         Vault post database holding the ``feed_sync_state`` table.
+    :param list_id:
+        X list ID, used to scope the cache so multiple lists do not collide.
     :param member_ids:
         Numeric user IDs confirmed present in the list.
     """
 
-    db.set_sync_state(X_LIST_MEMBER_IDS_STATE_KEY, json.dumps(sorted(member_ids)))
+    db.set_sync_state(_member_ids_state_key(list_id), json.dumps(sorted(member_ids)))
 
 
 def sync_x_list_members(
@@ -709,7 +736,7 @@ def sync_x_list_members(
     """
 
     current_hash = compute_handles_hash(twitter_handles)
-    stored_hash = db.get_sync_state("twitter_handles_hash")
+    stored_hash = db.get_sync_state(_handles_hash_state_key(list_id))
     if stored_hash == current_hash:
         logger.info("Twitter handles unchanged (hash=%s), skipping list sync", current_hash[:12])
         return 0
@@ -731,13 +758,13 @@ def sync_x_list_members(
     # cache simply re-adds current members once before settling into delta-only
     # syncs.  The list *timeline* endpoint used for actual post collection is
     # unaffected by the members-endpoint outage.
-    known_member_ids = _load_known_member_ids(db)
+    known_member_ids = _load_known_member_ids(db, list_id)
     resolved_ids = set(handle_to_id.values())
     to_add = resolved_ids - known_member_ids
 
     if not to_add:
         logger.info("All %d resolved handles already in X list %s (per local member cache)", len(resolved_ids), list_id)
-        db.set_sync_state("twitter_handles_hash", current_hash)
+        db.set_sync_state(_handles_hash_state_key(list_id), current_hash)
         return 0
 
     client_write = tweepy.Client(
@@ -806,12 +833,12 @@ def sync_x_list_members(
 
     # Persist confirmed membership even on partial failure so successfully
     # added members are never re-added next cycle.
-    _save_known_member_ids(db, known_member_ids)
+    _save_known_member_ids(db, list_id, known_member_ids)
 
     # Only persist the hash when every add succeeded.  When some fail due to
     # transient API errors the next cycle will detect the mismatch and retry.
     if failed == 0:
-        db.set_sync_state("twitter_handles_hash", current_hash)
+        db.set_sync_state(_handles_hash_state_key(list_id), current_hash)
     else:
         logger.warning(
             "Skipping hash update — %d/%d list member adds failed, will retry next cycle",

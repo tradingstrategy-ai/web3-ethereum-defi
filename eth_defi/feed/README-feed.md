@@ -398,9 +398,19 @@ want to update the configured X list membership without running RSS, LinkedIn,
 or post collection.
 
 The script reads Twitter/X handles from the feeder YAML files, resolves them
-through the X API, updates the configured X list, and writes
-`twitter_handles_hash` to the `feed_sync_state` table.  Running it again with
-the same handle set is idempotent and will skip the external list update.
+through the X API, updates the configured X list, and writes a per-list handle
+hash (`twitter_handles_hash:<list_id>`) and member cache
+(`x_list_member_ids:<list_id>`) to the `feed_sync_state` table.  Both keys are
+scoped by list ID so one database can sync multiple X lists without their state
+colliding.  Running it again with the same handle set is idempotent and will
+skip the external list update.
+
+Because the X API `GET /2/lists/{id}/members` endpoint returns persistent
+`503 Service Unavailable` errors, the script does not read current membership
+back from X.  Instead it records the member IDs it has successfully added in the
+per-list `x_list_member_ids:<list_id>` cache and only writes the delta on later
+runs.  Re-adding an existing member is a no-op on X's side, so a cold cache
+self-heals on the first run.
 
 By default the script resolves the list named `Best builders in DeFi` from the
 authenticated X user's owned lists.  Set `X_LIST_ID` only when you want to

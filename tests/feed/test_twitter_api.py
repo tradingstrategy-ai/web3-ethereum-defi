@@ -163,7 +163,7 @@ def test_sync_x_list_members_waits_on_rate_limit(monkeypatch: pytest.MonkeyPatch
         assert added == 2
         assert add_calls == ["1", "1", "2"]
         assert sleep_calls == [2]
-        assert db.get_sync_state("twitter_handles_hash") == compute_handles_hash(["alice", "bob"])
+        assert db.get_sync_state(twitter_api._handles_hash_state_key(LIST_ID)) == compute_handles_hash(["alice", "bob"])
     finally:
         db.close()
 
@@ -291,6 +291,65 @@ def test_sync_x_list_members_uses_local_member_cache(monkeypatch: pytest.MonkeyP
         assert added_first == 2
         assert added_second == 1
         assert add_calls == ["3"]
-        assert db.get_sync_state(twitter_api.X_LIST_MEMBER_IDS_STATE_KEY) is not None
+        assert db.get_sync_state(twitter_api._member_ids_state_key(LIST_ID)) is not None
+    finally:
+        db.close()
+
+
+def test_sync_x_list_members_caches_are_scoped_per_list(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Keep member caches isolated per X list within one database.
+
+    Two different X lists synced against the same database must not share a
+    member cache: members of one list must never be treated as already present
+    in another, or handles would silently be left missing from the second list.
+
+    1. Stub a client that records (list_id, user_id) writes.
+    2. Sync ``alice,bob`` into one list, then ``alice,bob,carol`` into another.
+    3. Assert the second list receives all three members, not just the delta.
+    """
+
+    # 1. Stub resolution and a client recording which list each add targets
+    handle_map = {"alice": "1", "bob": "2", "carol": "3"}
+    monkeypatch.setattr(
+        twitter_api,
+        "resolve_twitter_handles",
+        lambda handles, _bearer_token, _user_cache: {h: handle_map[h] for h in handles},
+    )
+
+    add_calls: list[tuple[str, str]] = []
+
+    class FakeClient:
+        """Fake Tweepy client recording the list each member is added to."""
+
+        def __init__(self, **_kwargs: object):
+            pass
+
+        @staticmethod
+        def add_list_member(list_id: str, user_id: str) -> None:
+            """Record the (list, member) pair."""
+
+            add_calls.append((list_id, user_id))
+
+    monkeypatch.setattr(twitter_api.tweepy, "Client", FakeClient)
+    monkeypatch.setattr(twitter_api.time, "sleep", lambda _seconds: None)
+
+    common_args = (
+        "consumer-key",
+        "consumer-secret",
+        "access-token",
+        "access-token-secret",
+        TwitterUserCache(tmp_path / "twitter-users.json"),
+        "bearer-token",
+    )
+
+    db = VaultPostDatabase(tmp_path / "posts.duckdb")
+    try:
+        # 2. Sync alice,bob into list A, then alice,bob,carol into list B
+        sync_x_list_members("list-A", ["alice", "bob"], *common_args, db, add_delay_seconds=0)
+        sync_x_list_members("list-B", ["alice", "bob", "carol"], *common_args, db, add_delay_seconds=0)
+
+        # 3. List B must get all three members despite list A caching alice,bob
+        list_b_added = sorted(user_id for list_id, user_id in add_calls if list_id == "list-B")
+        assert list_b_added == ["1", "2", "3"]
     finally:
         db.close()
