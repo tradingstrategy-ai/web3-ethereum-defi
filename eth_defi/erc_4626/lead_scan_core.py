@@ -113,11 +113,17 @@ def scan_leads(
     max_getlogs_range: int | None = None,
     reset_leads=False,
     hypersync_api_key: str | None = None,
+    hypersync_concurrency: int | None = None,
 ) -> LeadScanReport:
     """Core loop to discover new vaults on a chain.
 
     - Use Hypersync if available, otherwise fall back to JSON-RPC only scanning
     - Resume for the last known block
+
+    :param hypersync_concurrency:
+        Number of concurrent Hypersync stream requests.
+        ``None`` falls back to the ``HYPERSYNC_CONCURRENCY`` env var,
+        then to the Hypersync server default.
     """
 
     from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
@@ -131,7 +137,7 @@ def scan_leads(
     name = get_chain_name(chain_id)
     rpcs = get_provider_name(web3.provider)
 
-    hypersync_config = configure_hypersync_from_env(web3, hypersync_api_key=hypersync_api_key)
+    hypersync_config = configure_hypersync_from_env(web3, hypersync_api_key=hypersync_api_key, concurrency=hypersync_concurrency)
     printer(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}, using rpcs: {rpcs}, using event backend {backend}, HyperSync: {hypersync_config.hypersync_url or '<not avail>'}, and {max_workers} workers")
 
     if not vault_db_file.exists():

@@ -10,6 +10,10 @@ environment variable (default: 150 requests per minute, 75% of the
 free-tier 200 RPM limit).  All scan phases within a chain share
 one SQLite-backed rate limiter so that vault lead discovery and
 price scanning coordinate their API quota.
+
+Hypersync stream concurrency defaults to 1 (sequential) in this
+pipeline to avoid overwhelming the API when scanning many chains.
+Override with ``HYPERSYNC_CONCURRENCY`` for higher throughput.
 """
 
 import datetime
@@ -389,12 +393,18 @@ def build_chain_configs() -> list[ChainConfig]:
     ]
 
 
-def scan_vaults_for_chain(rpc_url: str, max_workers: int, vault_db_path: Path = DEFAULT_VAULT_DATABASE) -> tuple[bool, dict]:
+def scan_vaults_for_chain(
+    rpc_url: str,
+    max_workers: int,
+    vault_db_path: Path = DEFAULT_VAULT_DATABASE,
+    hypersync_concurrency: int | None = None,
+) -> tuple[bool, dict]:
     """Scan vaults for a single chain by calling scan_leads() directly.
 
     :param rpc_url: RPC URL for the chain
     :param max_workers: Number of parallel workers
     :param vault_db_path: Path to the vault database pickle
+    :param hypersync_concurrency: Hypersync stream concurrency limit
     :return: Tuple of (success, metrics_dict)
     """
     try:
@@ -405,6 +415,7 @@ def scan_vaults_for_chain(rpc_url: str, max_workers: int, vault_db_path: Path = 
             backend="auto",
             hypersync_api_key=os.environ.get("HYPERSYNC_API_KEY"),
             printer=lambda msg: None,  # Suppress output to keep logs clean
+            hypersync_concurrency=hypersync_concurrency,
         )
 
         return True, {
@@ -426,6 +437,7 @@ def scan_prices_for_chain(
     vault_db_path: Path = DEFAULT_VAULT_DATABASE,
     uncleaned_price_path: Path = DEFAULT_UNCLEANED_PRICE_DATABASE,
     reader_state_path: Path = DEFAULT_READER_STATE_DATABASE,
+    hypersync_concurrency: int | None = None,
 ) -> tuple[bool, dict]:
     """Scan historical prices for a single chain.
 
@@ -435,6 +447,7 @@ def scan_prices_for_chain(
     :param vault_db_path: Path to the vault database pickle
     :param uncleaned_price_path: Path to the uncleaned price parquet
     :param reader_state_path: Path to the reader state pickle
+    :param hypersync_concurrency: Hypersync stream concurrency limit
     :return: Tuple of (success, metrics_dict)
     """
     try:
@@ -484,7 +497,7 @@ def scan_prices_for_chain(
             return True, {"rows_written": 0}
 
         # Configure HyperSync (shares throttle with vault lead discovery)
-        hypersync_config = configure_hypersync_from_env(web3)
+        hypersync_config = configure_hypersync_from_env(web3, concurrency=hypersync_concurrency)
 
         # Scan historical prices
         result = scan_historical_prices_to_parquet(
@@ -527,6 +540,7 @@ def scan_chain(
     vault_db_path: Path = DEFAULT_VAULT_DATABASE,
     uncleaned_price_path: Path = DEFAULT_UNCLEANED_PRICE_DATABASE,
     reader_state_path: Path = DEFAULT_READER_STATE_DATABASE,
+    hypersync_concurrency: int | None = None,
 ) -> ChainResult:
     """Scan a single chain (vaults and optionally prices).
 
@@ -538,6 +552,7 @@ def scan_chain(
     :param vault_db_path: Path to the vault database pickle
     :param uncleaned_price_path: Path to the uncleaned price parquet
     :param reader_state_path: Path to the reader state pickle
+    :param hypersync_concurrency: Hypersync stream concurrency limit
     :return: Scan result
     """
     result = ChainResult(name=config.name, status="running", retry_attempt=retry_attempt)
@@ -570,7 +585,7 @@ def scan_chain(
 
     # Scan vaults
     if config.scan_vaults:
-        vault_success, vault_metrics = scan_vaults_for_chain(rpc_url, max_workers, vault_db_path=vault_db_path)
+        vault_success, vault_metrics = scan_vaults_for_chain(rpc_url, max_workers, vault_db_path=vault_db_path, hypersync_concurrency=hypersync_concurrency)
         result.vault_scan_ok = vault_success
 
         if vault_success:
@@ -591,6 +606,7 @@ def scan_chain(
             vault_db_path=vault_db_path,
             uncleaned_price_path=uncleaned_price_path,
             reader_state_path=reader_state_path,
+            hypersync_concurrency=hypersync_concurrency,
         )
         result.price_scan_ok = price_success
 
@@ -1355,6 +1371,7 @@ def run_scan_tick(
     on_item_success: Callable[[str], None] | None = None,
     core3_db_path: Path | None = None,
     core3_fetch_sections: bool = False,
+    hypersync_concurrency: int | None = None,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -1412,6 +1429,7 @@ def run_scan_tick(
                 vault_db_path=vault_db_path,
                 uncleaned_price_path=uncleaned_price_path,
                 reader_state_path=reader_state_path,
+                hypersync_concurrency=hypersync_concurrency,
             )
         except Exception as e:
             logger.exception("Chain %s crashed with unhandled exception", chain.name)
@@ -1556,6 +1574,7 @@ def run_scan_tick(
                     vault_db_path=vault_db_path,
                     uncleaned_price_path=uncleaned_price_path,
                     reader_state_path=reader_state_path,
+                    hypersync_concurrency=hypersync_concurrency,
                 )
             except Exception as e:
                 logger.exception("Chain %s crashed with unhandled exception (retry %d)", chain.name, attempt)
@@ -1677,6 +1696,7 @@ def main():
     scan_core3 = should_scan_core3(skip_core3=skip_core3, core3_api_key=os.environ.get("CORE3_API_KEY"))
     force_rescan = os.environ.get("FORCE_RESCAN", "false").lower() == "true"
     max_workers = int(os.environ.get("MAX_WORKERS", "50"))
+    hypersync_concurrency = int(os.environ.get("HYPERSYNC_CONCURRENCY", "1"))
     core3_max_workers = int(os.environ.get("CORE3_MAX_WORKERS", "8"))
     core3_fetch_sections = os.environ.get("CORE3_FETCH_SECTIONS", "false").lower() == "true"
     frequency = os.environ.get("FREQUENCY", "1h")
@@ -1848,6 +1868,7 @@ def main():
         scan_hibachi=scan_hibachi,
         scan_core3=scan_core3,
         max_workers=max_workers,
+        hypersync_concurrency=hypersync_concurrency,
         core3_max_workers=core3_max_workers,
         frequency=frequency,
         retry_count=retry_count,
