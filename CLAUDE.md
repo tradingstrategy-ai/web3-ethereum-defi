@@ -287,6 +287,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `contracts/in-house/README.md` | Web3-Eth-Defi integration contracts |
 | `contracts/safe-integration/README.md` | Trading Strategy Zodiac-module for Safe multisig wallets |
 | `docs/README-Hypercore-guard.md` | Hypercore native vault guard integration |
+| `docs/README-hyperevm-goldsky-failure.md` | HyperEVM goldsky eRPC "not enough agreement" consensus failure and Alchemy failover |
 | `docs/README-contract-size.md` | Contract sizes and compiler optimisation |
 | `docs/derive-onboarding/README-derive-trader.md` | Derive session key for vault traders |
 | `docs/protocol-research/README.md` | AI-assisted vault protocol discovery notes |
