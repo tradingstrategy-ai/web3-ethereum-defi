@@ -2,7 +2,7 @@
 
 - feat: Add `VaultDepositManager.get_deposit_delay_over()` to estimate when a pending async deposit will settle, with an Ostium V1.5 implementation (mirrors `get_redemption_delay_over()` using `targetSettlementId(true)`); operator-driven ERC-7540 vaults return `None` (2026-06-09)
 
-- fix: Make the feed post scanner resilient to transient X API failures — retry `503 Service Unavailable` and other 5xx errors with exponential backoff when reading X list members, and catch per-cycle errors in the scan loop so a transient upstream outage no longer crashes the process into a Docker restart hot-loop (2026-06-09)
+- fix: Make the feed post scanner resilient to X API list-member `503 Service Unavailable` errors — the `GET /2/lists/{id}/members` endpoint returns persistent endpoint-wide 503s while the list timeline keeps working, so list membership sync now degrades gracefully and lets post collection continue, the read loop retries transient 5xx with exponential backoff, and the scan loop isolates per-cycle errors so the process no longer crashes into a Docker restart hot-loop (2026-06-09)
 
 - fix: Restore Sphinx docs build on Python 3.13/3.14 by adding the `standard-imghdr` backport, since stdlib `imghdr` (imported by Sphinx 4.x) was removed in Python 3.13 (2026-06-09)
 
