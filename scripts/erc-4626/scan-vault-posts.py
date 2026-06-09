@@ -48,6 +48,7 @@ Environment variables:
 - ``DEATH_DETECTION_PERIOD``: Optional. Default: 180 days.
 """
 
+import logging
 import os
 import time
 from pathlib import Path
@@ -59,6 +60,8 @@ from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE
 from eth_defi.feed.scanner import PostScanConfig, run_post_scan_cycle
 from eth_defi.feed.sources import FEEDS_DATA_DIR
 from eth_defi.utils import setup_console_logging
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_csv(raw_value: str | None) -> list[str]:
@@ -225,8 +228,20 @@ def main() -> None:
         cycle += 1
         print(f"\n=== Post scan cycle {cycle} ===")
 
-        summary = run_post_scan_cycle(config)
-        _print_dashboard(summary)
+        try:
+            summary = run_post_scan_cycle(config)
+            _print_dashboard(summary)
+        except Exception as e:
+            # A single cycle must never crash the long-running daemon.  Transient
+            # upstream failures (e.g. X API 503, RSS bridge outages) used to
+            # propagate out of main(), exit the process and — under a Docker
+            # ``restart`` policy — trigger an immediate restart loop with no
+            # backoff that hammered the failing service.  Log and wait for the
+            # next scheduled cycle instead.  When running as a single shot
+            # (loop_interval <= 0) we re-raise so the failure is still visible.
+            logger.exception("Post scan cycle %d failed: %s", cycle, e)
+            if loop_interval <= 0:
+                raise
 
         if loop_interval <= 0:
             break

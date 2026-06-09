@@ -190,6 +190,20 @@ def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
                 rate_limit_sleep_max_seconds=config.x_list_rate_limit_sleep_max_seconds,
             )
             db_for_sync.save()
+        except XApiError as e:
+            # List membership sync is non-essential maintenance that runs before
+            # post collection.  The X ``GET /2/lists/{id}/members`` endpoint is
+            # known to return persistent ``503 Service Unavailable`` for extended
+            # periods (endpoint-wide, not list-specific), while the list timeline
+            # read used for actual post collection keeps working.  Degrade
+            # gracefully and continue the cycle instead of aborting it — the sync
+            # state hash is left unchanged, so the next cycle retries.  This
+            # mirrors the timeline-collection fallback below.
+            logger.warning(
+                "X list membership sync failed for list %s, continuing post collection without it: %s",
+                resolved_x_list_id,
+                e,
+            )
         finally:
             db_for_sync.close()
 
