@@ -22,6 +22,8 @@ Example::
 
 """
 
+import datetime
+import json
 import logging
 from pathlib import Path
 
@@ -31,7 +33,7 @@ from requests import Session
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.grvt.constants import GRVT_DAILY_METRICS_DATABASE
+from eth_defi.grvt.constants import GRVT_DAILY_METRICS_DATABASE, GRVT_EXTENDED_INFO_MAX_AGE
 from eth_defi.grvt.vault import (
     GRVTVaultSummary,
     build_vault_description,
@@ -99,7 +101,9 @@ class GRVTDailyMetricsDatabase:
                 investor_count INTEGER,
                 management_fee DOUBLE,
                 performance_fee DOUBLE,
-                last_updated TIMESTAMP NOT NULL
+                last_updated TIMESTAMP NOT NULL,
+                extended_vault_info VARCHAR,
+                extended_vault_info_metadata_last_updated_at TIMESTAMP
             )
         """)
 
@@ -110,6 +114,18 @@ class GRVTDailyMetricsDatabase:
             pass  # Column already exists
         try:
             self.con.execute("ALTER TABLE vault_metadata ADD COLUMN performance_fee DOUBLE")
+        except duckdb.CatalogException:
+            pass  # Column already exists
+
+        # Migrate existing databases that lack the extended vault info columns.
+        # New columns are nullable with no default, so existing rows keep all
+        # their data and simply carry NULLs until the next weekly refresh.
+        try:
+            self.con.execute("ALTER TABLE vault_metadata ADD COLUMN extended_vault_info VARCHAR")
+        except duckdb.CatalogException:
+            pass  # Column already exists
+        try:
+            self.con.execute("ALTER TABLE vault_metadata ADD COLUMN extended_vault_info_metadata_last_updated_at TIMESTAMP")
         except duckdb.CatalogException:
             pass  # Column already exists
 
@@ -144,8 +160,18 @@ class GRVTDailyMetricsDatabase:
         investor_count: int | None,
         management_fee: float | None = None,
         performance_fee: float | None = None,
+        extended_vault_info: str | None = None,
+        extended_info_max_age: datetime.timedelta = GRVT_EXTENDED_INFO_MAX_AGE,
     ):
         """Insert or update a vault's metadata.
+
+        The regular fields (name, TVL, fees, description, ...) are updated on
+        every call.  The ``extended_vault_info`` JSON dump is only refreshed
+        when the existing
+        ``extended_vault_info_metadata_last_updated_at`` is missing or older
+        than ``extended_info_max_age``, so the column does not churn on every
+        daily scan.  The refresh decision is made atomically inside the
+        ``ON CONFLICT`` clause.
 
         :param vault_id:
             Vault string ID (e.g. ``VLT:xxx``).
@@ -155,14 +181,24 @@ class GRVTDailyMetricsDatabase:
             Annual management fee as a decimal fraction (e.g. 0.01 = 1%).
         :param performance_fee:
             Performance fee as a decimal fraction (e.g. 0.20 = 20%).
+        :param extended_vault_info:
+            Raw extended metadata as a JSON string (the full GraphQL vault
+            node, including ``managerInfo``).  ``None`` leaves the stored value
+            unchanged.
+        :param extended_info_max_age:
+            Maximum age of the stored extended info before it is refreshed on
+            update.  New rows always store the supplied value.
         """
+        now = native_datetime_utc_now()
+        refresh_cutoff = now - extended_info_max_age
         self.con.execute(
             """
             INSERT INTO vault_metadata (
                 vault_id, chain_vault_id, name, description, vault_type,
                 manager_name, tvl, share_price, investor_count,
-                management_fee, performance_fee, last_updated
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                management_fee, performance_fee, last_updated,
+                extended_vault_info, extended_vault_info_metadata_last_updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (vault_id)
             DO UPDATE SET
                 chain_vault_id = EXCLUDED.chain_vault_id,
@@ -175,7 +211,27 @@ class GRVTDailyMetricsDatabase:
                 investor_count = EXCLUDED.investor_count,
                 management_fee = EXCLUDED.management_fee,
                 performance_fee = EXCLUDED.performance_fee,
-                last_updated = EXCLUDED.last_updated
+                last_updated = EXCLUDED.last_updated,
+                -- Only refresh the extended info when we have a new payload and
+                -- the stored copy is missing or older than the max age window.
+                extended_vault_info = CASE
+                    WHEN EXCLUDED.extended_vault_info IS NOT NULL
+                        AND (
+                            vault_metadata.extended_vault_info_metadata_last_updated_at IS NULL
+                            OR vault_metadata.extended_vault_info_metadata_last_updated_at < ?
+                        )
+                    THEN EXCLUDED.extended_vault_info
+                    ELSE vault_metadata.extended_vault_info
+                END,
+                extended_vault_info_metadata_last_updated_at = CASE
+                    WHEN EXCLUDED.extended_vault_info IS NOT NULL
+                        AND (
+                            vault_metadata.extended_vault_info_metadata_last_updated_at IS NULL
+                            OR vault_metadata.extended_vault_info_metadata_last_updated_at < ?
+                        )
+                    THEN EXCLUDED.extended_vault_info_metadata_last_updated_at
+                    ELSE vault_metadata.extended_vault_info_metadata_last_updated_at
+                END
             """,
             [
                 vault_id,
@@ -189,7 +245,11 @@ class GRVTDailyMetricsDatabase:
                 investor_count,
                 management_fee,
                 performance_fee,
-                native_datetime_utc_now(),
+                now,
+                extended_vault_info,
+                now if extended_vault_info is not None else None,
+                refresh_cutoff,
+                refresh_cutoff,
             ],
         )
 
@@ -302,6 +362,10 @@ def fetch_and_store_vault(
         logger.debug("Skipping vault %s (%s): empty share price history", summary.name, summary.vault_id)
         return False
 
+    # Serialise the raw GraphQL node (managerInfo and all other fields) as a
+    # JSON dump for the extended_vault_info column.  Refreshed at most weekly.
+    extended_vault_info = json.dumps(summary.raw_metadata, sort_keys=True) if summary.raw_metadata is not None else None
+
     # Store metadata with merged markdown description
     db.upsert_vault_metadata(
         vault_id=summary.vault_id,
@@ -315,6 +379,7 @@ def fetch_and_store_vault(
         investor_count=None,
         management_fee=summary.management_fee,
         performance_fee=summary.performance_fee,
+        extended_vault_info=extended_vault_info,
     )
 
     # Build daily price rows

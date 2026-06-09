@@ -1,0 +1,13 @@
+feeder-id: project-btc
+name: Project BTC
+role: curator
+short_description: Project BTC is a trading and educational organisation running a rule-based crypto perpetuals vault on GRVT.
+long_description: |
+  Project BTC operates the ProjectBTC - Liquidity Cycle Protocol vault on the GRVT exchange.
+  The published vault profile describes a trading and educational organisation focused on professional, rules-based trading of BTC and ETH perpetuals with strict risk controls and transparent reporting.
+  Its self-described Precision Liquidity Framework locates liquidity pivots across multiple timeframes and manages each trade mechanically in defined multiples of risk, capping risk at 2% of account equity per setup.
+
+# Evidence and background references.
+other-links:
+  - title: GRVT strategy page - ProjectBTC - Liquidity Cycle Protocol
+    url: https://grvt.io/exchange/strategies/376732940

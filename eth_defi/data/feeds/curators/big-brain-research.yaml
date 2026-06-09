@@ -1,0 +1,13 @@
+feeder-id: big-brain-research
+name: Big Brain Research
+role: curator
+short_description: Big Brain Research runs an algorithmic momentum long/short pool on Lighter.
+long_description: |
+  Big Brain Research operates the "Algorithmic L/S | Big Brain Research" public pool on the Lighter exchange.
+  The published pool profile describes an algorithmic, momentum-based long/short strategy that is high-beta and high-volatility, designed to perform best in trending markets.
+  The operator notes manual intervention during extreme market events such as listings and breaking news.
+
+# Evidence and background references.
+other-links:
+  - title: Lighter public pool - Algorithmic L/S | Big Brain Research
+    url: https://app.lighter.xyz/public-pools/281474976690488

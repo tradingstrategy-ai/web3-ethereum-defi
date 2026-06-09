@@ -1,0 +1,25 @@
+feeder-id: btc-maxi-lab
+name: BTC Maxi Lab
+role: curator
+website: https://ichizenholdings.co.jp/btc-maxi-lab/
+twitter: kida_btcmaxi
+short_description: BTC Maxi Lab is a Japanese Bitcoin trading community run by Yosuke Kida under ICHIZEN HOLDINGS, focused on options-flow strategies to maximise Bitcoin holdings.
+long_description: |
+  BTC Maxi Lab is a subscription trading community operated by Yosuke Kida (木田陽介), Representative Director of ICHIZEN HOLDINGS, a Japanese Web3 consulting and crypto asset management firm.
+  The community publishes daily options and macro analysis on Bitcoin and gold, using techniques such as gamma-flow scalping based on dealer hedging flows and pinning-based trend following around option expiries.
+  ICHIZEN HOLDINGS supports listed companies in building treasury and crypto-asset strategies, and BTC Maxi Lab extends this to individual and institutional subscribers via the note.com platform and Discord.
+  The fund also manages a vault on the GRVT exchange under the same name, applying its quantamental Bitcoin strategies on-chain.
+
+# Evidence and background references.
+#
+# Primary sources confirming identity: ICHIZEN HOLDINGS official website listing BTC Maxi Lab
+# as a product; note.com profile (@kida_btcmaxi) with X/Twitter link; GRVT strategy page.
+other-links:
+  - title: ICHIZEN HOLDINGS - BTC Maxi Lab community page
+    url: https://ichizenholdings.co.jp/btc-maxi-lab/
+  - title: ICHIZEN HOLDINGS - BTC Maxi Lab launch announcement
+    url: https://ichizenholdings.co.jp/news/btc-maxi-lab-launch/
+  - title: Note.com profile - 木田陽介 | BTC Maxi Lab
+    url: https://note.com/kida_btcmaxi
+  - title: GRVT strategy page - BTC Maxi Lab vault
+    url: https://grvt.io/exchange/strategies/1141168323

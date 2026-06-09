@@ -1,0 +1,20 @@
+feeder-id: sk-system
+name: SK System
+role: curator
+short_description: Korean Bitcoin futures trend-following operator running the "Show Me The BTC (Breakout)" vault on GRVT, known online as 지발돈좀 (Jibaldonjom).
+long_description: |
+  SK System operates the "Show Me The BTC (Breakout)" strategy vault on the GRVT exchange under the manager name Kim Seon-kyung, CEO of YH Holdings.
+  The operator is known in Korean finance communities as 지발돈좀 (Jibaldonjom), running a YouTube channel with approximately 40,000 subscribers covering Bitcoin and stock market investment analysis.
+  The vault strategy uses ATR-based volatility breakout with ADX and momentum filters to trade Bitcoin futures, employing dynamic trailing stops and volatility-based position sizing for risk management.
+
+# Note: Instagram handle @jibaldonjom is inferred from matching YouTube channel identity
+# (@지발돈좀TV) and confirmed Instagram profile (@jibaldonjom); no independent cross-confirmation from GRVT vault page.
+
+# Evidence and background references.
+other-links:
+  - title: GRVT strategy page - Show Me The BTC (Breakout) by SK System
+    url: https://grvt.io/exchange/strategies/651347046
+  - title: YouTube channel - 지발돈좀 경제 인사이트 (@지발돈좀TV), Korean Bitcoin and stock market analysis
+    url: https://www.youtube.com/channel/UCUlMfOfavAkRAMX2nOa1CUQ
+  - title: Instagram profile - 지발돈좀 (@jibaldonjom), trading charts and analysis
+    url: https://www.instagram.com/jibaldonjom/

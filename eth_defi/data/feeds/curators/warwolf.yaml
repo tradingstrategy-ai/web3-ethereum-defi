@@ -1,0 +1,17 @@
+feeder-id: warwolf
+name: Warwolf
+role: curator
+# No verified website or social handle. GRVT exposes no website/social field
+# for managers (only a profile image); the operator "The Siege Engineer" has
+# no discoverable external presence.
+short_description: Warwolf is a volatility-adaptive market-making vault on GRVT, managed by "The Siege Engineer", trading BTC, ETH, SOL and BNB perpetuals with beta-weighted micro-hedging and Z-score mean reversion.
+long_description: |
+  Warwolf operates the "Warwolf: Kinetic Volatility Capture" vault on the GRVT exchange under manager handle "The Siege Engineer".
+  The strategy is a volatility-adaptive market maker that targets price dislocations on BTC, ETH, SOL and BNB liquid perpetuals, using beta-weighted micro-hedging against BTC correlation risk and Z-score mean-reversion windows to time entries at maximum market tension.
+  Position sizing uses ATR-based risk controls with strict volatility caps, and a hardcoded auto-redemption limit of 85% acts as a safety mechanism.
+  The vault carries a 1% annual management fee and a 15% performance fee, and is listed on the GRVT strategies page under the Market Making and Mean Reversion categories.
+
+# Evidence and background references.
+other-links:
+  - title: GRVT strategy page - Warwolf Kinetic Volatility Capture (manager The Siege Engineer)
+    url: https://grvt.io/exchange/strategies/1825085055

@@ -1,0 +1,24 @@
+feeder-id: candle-effect
+name: Candle Effect
+role: curator
+website: https://www.candleffect.com
+twitter: candleffect
+short_description: Candle Effect is a crypto trading signals and copy-trading community operating public pools on Lighter.
+long_description: |
+  Candle Effect provides cryptocurrency trading signals and automated copy-trading strategies,
+  primarily using the Cryptohopper platform on exchanges such as Binance and KuCoin.
+  The community operates public pools on the Lighter exchange (versions v1 and v2) and
+  coordinates through a Discord server as its primary community channel.
+
+# Evidence and background references.
+other-links:
+  - title: Lighter public pool - Candle Effect v2
+    url: https://app.lighter.xyz/public-pools/281474976543116
+  - title: Lighter public pool - Candle Effect v1
+    url: https://app.lighter.xyz/public-pools/281474976620676
+  - title: Candle Effect trading community on Discord
+    url: https://discord.gg/PCxhXEj7hR
+  - title: Candle Effect official website - The Most Profitable Crypto Trading Bot
+    url: https://www.candleffect.com
+  - title: Candle Effect on X (@candleffect)
+    url: https://x.com/candleffect

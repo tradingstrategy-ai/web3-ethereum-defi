@@ -1,0 +1,21 @@
+feeder-id: gerhard-bitcoin-strategy
+name: Gerhard - Bitcoin Strategy
+role: curator
+website: https://the-bitcoin-strategy.com
+short_description: Gerhard runs the Bitcoin Strategy YouTube channel and operates systematic moving-average long/short perpetual vaults on GRVT and Hyperliquid.
+long_description: |
+  Gerhard - Bitcoin Strategy is an independent crypto content creator and vault manager who publishes data-driven analysis of BTC, ETH and altcoins on the Bitcoin Strategy YouTube channel (160,000+ subscribers).
+  He operates systematic vaults on GRVT that trade Ethereum and Solana perpetuals using daily-rebalanced moving-average crossover signals calibrated through backtesting.
+  The same moving-average methodology underpins his premium membership service at the-bitcoin-strategy.com, which provides copy-trading signals and market analysis.
+twitter: BitcoinStrat
+
+# Evidence and background references.
+other-links:
+  - title: GRVT strategy page - Ethereum Moving Average Long/Short by Gerhard - Bitcoin Strategy
+    url: https://grvt.io/exchange/strategies/1457145751
+  - title: GRVT strategy page - Solana Moving Average Long/Short by Gerhard - Bitcoin Strategy
+    url: https://grvt.io/exchange/strategies/657290673
+  - title: Bitcoin Strategy YouTube channel (Gerhard)
+    url: https://www.youtube.com/@BitcoinStrategy
+  - title: Bitcoin Strategy membership site - the-bitcoin-strategy.com
+    url: https://the-bitcoin-strategy.com

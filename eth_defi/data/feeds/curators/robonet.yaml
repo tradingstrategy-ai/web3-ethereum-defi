@@ -1,0 +1,23 @@
+feeder-id: robonet
+name: RoboNet
+role: curator
+website: https://robonet.finance
+twitter: RoboNetHQ
+short_description: RoboNet is an AI-native quantitative trading platform that builds, backtests, and deploys automated perpetual strategies across on-chain venues.
+long_description: |
+  RoboNet is an AI-native technology platform for quantitative trading strategy development and deployment, positioning itself as "the operating system for capital."
+  It combines an LLM strategy engine with quantitative simulation tools and optional decentralised AI forecasts from the Allora network to convert trading intent into executable on-chain strategies.
+  RoboNet curates long/short perpetual vaults across BTC, ETH and SOL on the GRVT and Lighter exchanges, with signals rebalanced every eight hours using volatility-normalised, confidence-weighted exposure rules.
+
+# Evidence and background references.
+other-links:
+  - title: RoboNet homepage - AI-native quant trading platform
+    url: https://robonet.finance
+  - title: RoboNet documentation
+    url: https://docs.robonet.finance
+  - title: GRVT strategy page - RoboNet AI Long/Short Strategy
+    url: https://grvt.io/exchange/strategies/1604562259
+  - title: Lighter public pool - "[Robonet] - Allora Libra"
+    url: https://app.lighter.xyz/public-pools/281474976576705
+  - title: Allora Network - AI model coordination network powering RoboNet signals
+    url: https://www.allora.network

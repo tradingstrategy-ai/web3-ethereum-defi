@@ -1,0 +1,21 @@
+feeder-id: php-trading-desk
+name: PHP Trading Desk
+role: curator
+short_description: PHP Trading Desk is a whitelisted public pool operator on Lighter running an intraday Bitcoin trading strategy with strict risk management.
+long_description: |
+  PHP Trading Desk runs a public pool on Lighter, a zero-knowledge rollup decentralised exchange on Ethereum.
+  The pool focuses on intraday Bitcoin trading with strict risk management and consistent execution.
+  Lighter public pool operators are protocol-whitelisted and must maintain a minimum ownership stake in their own pool, aligning their interests with depositors.
+  The operator posts updates and accepts contact via X at @danipop99james.
+twitter: danipop99james
+
+# Note: Twitter handle @danipop99james is confirmed as the operator contact from the Lighter pool profile.
+# No separate website found; X is the only known online presence for this operator.
+# Note: handle identity not independently verified beyond the Lighter pool UI reference.
+
+# Evidence and background references.
+other-links:
+  - title: Lighter public pool - PHP Trading Desk (pool ID 281474976593834)
+    url: https://app.lighter.xyz/public-pools/281474976593834
+  - title: Lighter documentation - Public pools overview
+    url: https://docs.lighter.xyz/trading/public-pools.md
