@@ -403,6 +403,98 @@ def test_wait_for_transaction_receipt_robust_default_confirmations(monkeypatch: 
     assert provider_1.calls.count("eth_blockNumber") == 2
 
 
+def test_wait_for_transaction_receipt_robust_confirmation_block_time(monkeypatch: pytest.MonkeyPatch):
+    """Convert a wall-clock confirmation time to a per-chain block count on a fast chain.
+
+    1. Create an Arbitrum-like chain (0.25 s blocks) where 1 second converts to 4 blocks.
+    2. Wait with confirmation_block_time=1.0 and no block count requirement.
+    3. Check block numbers were polled until 4 confirmations were reached.
+    """
+
+    # 1. Create an Arbitrum-like chain (0.25 s blocks) where 1 second converts to 4 blocks.
+    #    Receipt block is 0x1, so 0x4 is three confirmations (insufficient) and 0x5 is four (enough).
+    provider_1 = FakeProvider("read-1", block_number=["0x4", "0x5"])
+    provider_2 = FakeProvider("read-2", block_number="0x5")
+    web3 = FakeWeb3(FallbackProvider([provider_1, provider_2]))
+    web3.eth.chain_id = 42161
+    monkeypatch.setattr(receipt_module, "_is_anvil", lambda web3: False)
+
+    # 2. Wait with confirmation_block_time=1.0 and no block count requirement.
+    wait_for_transaction_receipt_robust(
+        web3,
+        TX_HASH,
+        timeout=1,
+        poll_delay=0.001,
+        max_poll_delay=0.002,
+        confirmation_block_count=0,
+        confirmation_block_time=1.0,
+    )
+
+    # 3. Check block numbers were polled until 4 confirmations were reached.
+    assert provider_1.calls.count("eth_blockNumber") == 2
+
+
+def test_wait_for_transaction_receipt_robust_confirmation_block_time_max(monkeypatch: pytest.MonkeyPatch):
+    """A larger explicit block count wins over the time-based block count.
+
+    1. Create an Arbitrum-like chain where confirmation_block_time=1.0 gives 4 blocks but confirmation_block_count is 6.
+    2. Wait so the effective requirement is max(4, 6) = 6 confirmations.
+    3. Check 4 confirmations were not enough and polling continued to 6.
+    """
+
+    # 1. Create an Arbitrum-like chain where confirmation_block_time=1.0 gives 4 blocks but confirmation_block_count is 6.
+    #    Receipt block is 0x1, so 0x5 is four confirmations (insufficient) and 0x7 is six (enough).
+    provider_1 = FakeProvider("read-1", block_number=["0x5", "0x7"])
+    provider_2 = FakeProvider("read-2", block_number="0x7")
+    web3 = FakeWeb3(FallbackProvider([provider_1, provider_2]))
+    web3.eth.chain_id = 42161
+    monkeypatch.setattr(receipt_module, "_is_anvil", lambda web3: False)
+
+    # 2. Wait so the effective requirement is max(4, 6) = 6 confirmations.
+    wait_for_transaction_receipt_robust(
+        web3,
+        TX_HASH,
+        timeout=1,
+        poll_delay=0.001,
+        max_poll_delay=0.002,
+        confirmation_block_count=6,
+        confirmation_block_time=1.0,
+    )
+
+    # 3. Check 4 confirmations were not enough and polling continued to 6.
+    assert provider_1.calls.count("eth_blockNumber") == 2
+
+
+def test_wait_for_transaction_receipt_robust_confirmation_block_time_unknown_chain(monkeypatch: pytest.MonkeyPatch):
+    """Fall back to the plain block count when the chain block time is unknown.
+
+    1. Create a chain id missing from the block time table, with the default 25 s confirmation time.
+    2. Wait with confirmation_block_count=1, so the time requirement is ignored with a warning.
+    3. Check a single confirmation was enough.
+    """
+
+    # 1. Create a chain id missing from the block time table, with the default 25 s confirmation time.
+    #    Receipt block is 0x1, so 0x2 is one confirmation.
+    provider_1 = FakeProvider("read-1", block_number="0x2")
+    web3 = FakeWeb3(FallbackProvider([provider_1]))
+    web3.eth.chain_id = 424242424242
+    monkeypatch.setattr(receipt_module, "_is_anvil", lambda web3: False)
+
+    # 2. Wait with confirmation_block_count=1, so the time requirement is ignored with a warning.
+    assert receipt_module.DEFAULT_CONFIRMATION_BLOCK_TIME == 25.0
+    wait_for_transaction_receipt_robust(
+        web3,
+        TX_HASH,
+        timeout=1,
+        poll_delay=0.001,
+        max_poll_delay=0.002,
+        confirmation_block_count=1,
+    )
+
+    # 3. Check a single confirmation was enough.
+    assert provider_1.calls.count("eth_blockNumber") == 1
+
+
 def test_wait_for_transaction_receipt_robust_confirmation_block_number_error(monkeypatch: pytest.MonkeyPatch):
     """Treat a transient block number read error as insufficient confirmations.
 
