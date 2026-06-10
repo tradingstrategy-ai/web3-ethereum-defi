@@ -12,7 +12,10 @@ The motivation is more responsive PnL tracking. The daily pipeline produces one
 data point per vault per day. For vaults with intra-day volatility or for
 consumers that need fresher data, this is insufficient. The HF pipeline captures
 the same metrics — share prices, TVL, cumulative PnL, deposit/withdrawal flows —
-but at 4-hour (or finer) resolution.
+at the **finest resolution the API offers, ~20 minutes** (see "What the API
+actually returns" below). The `4h` default is the *scan trigger* cadence, not the
+data resolution — it controls how often we poll, not how closely spaced the data
+points are.
 
 ### Data flow
 
@@ -96,17 +99,35 @@ HyperliquidMetricsDatabaseBase (vault_metrics_db.py)
 
 ### What the API actually returns
 
-The Hyperliquid `vaultDetails` endpoint returns portfolio history in four periods
-with varying temporal resolution:
+The Hyperliquid `vaultDetails` endpoint returns portfolio history in four
+fixed-span periods, each with a **server-chosen resolution that we cannot
+influence**. Every period carries a roughly fixed budget of points (~70 for
+`day`/`week`, ~45 for `month`/`allTime`), so the resolution is simply
+`span / point-budget`:
 
-- **allTime**: ~weekly snapshots for the full vault lifetime
-- **month**: higher resolution for the last 30 days
-- **week**: higher resolution for the last 7 days
-- **day**: highest resolution for the last 24 hours (~hourly or better)
+| Period    | Span        | Resolution (measured) | Points |
+|-----------|-------------|-----------------------|--------|
+| `day`     | last 24h    | **~20 min**           | ~74    |
+| `week`    | last 7d     | ~3h                   | ~67    |
+| `month`   | last 30d    | ~10.5–24h             | ~45    |
+| `allTime` | full life   | ~weekly               | ~44    |
+
+**~20 minutes is the hard resolution floor.** The `day` period is the finest the
+API ever serves — there is no sub-20-min vault history anywhere in the endpoint,
+so no amount of polling can produce it (see "API portfolio resolution is the
+bottleneck" below).
+
+**The API downsamples points as they age.** A point that sits in today's `day`
+period at 20-min resolution will, within a few days, only survive inside the
+`week` period at ~3h resolution, then `month` at ~10.5h, then `allTime` weekly.
+The fine version is discarded server-side and **cannot be re-fetched later**. The
+only way to retain 20-min history permanently is to snapshot the `day` period
+into our own DuckDB before those points age out of the 24h window — which is the
+whole point of this pipeline.
 
 The daily pipeline calls this once per day, truncates every timestamp to `.date()`,
 and stores one row per vault per calendar day. This discards all intra-day
-resolution — the `day` period's hourly data points are collapsed into a single
+resolution — the `day` period's ~20-min data points are collapsed into a single
 daily entry.
 
 ### What the HF pipeline does differently
@@ -114,9 +135,9 @@ daily entry.
 The HF pipeline exploits the same API data more aggressively:
 
 1. **Raw timestamps instead of date truncation**: API timestamps are stored
-   as-is from the merged portfolio history.  The API returns data at varying
-   resolution (~weekly for `allTime`, sub-daily for `day` period) — all
-   points are preserved without flooring or deduplication.
+   as-is from the merged portfolio history.  This preserves the full per-period
+   resolution (~20 min for `day`, ~3h for `week`, ~10.5h for `month`, ~weekly
+   for `allTime`) — all points are kept without flooring or deduplication.
 
 2. **Resumable with overlap**: each poll stores all rows with timestamp `>=`
    the last stored timestamp.  The `>=` (not `>`) ensures the latest row is
@@ -284,13 +305,25 @@ are only attached to the **last row per calendar date**.  All other intraday
 rows on the same date carry `None` for flow fields (preserved via COALESCE on
 upsert).  Consumers can safely sum the flow columns without deduplication.
 
-**3. API portfolio resolution is the bottleneck**
+**3. API portfolio resolution is the bottleneck — ~20 min is a hard floor**
 
-The `allTime` period returns ~weekly snapshots regardless of poll frequency.
-Only the `day` period (last 24h) has sub-daily resolution. Polling every 1h does
-not magically produce 1h-resolution data for the full vault history — it only
-captures the freshest data point sooner. Historical data remains as coarse as
-the API provides.
+The resolution of each period is fixed server-side (`day` ~20 min, `week` ~3h,
+`month` ~10.5h, `allTime` ~weekly — see "What the API actually returns"). Polling
+harder does **not** buy finer data:
+
+- **Resolution is polling-independent.** The `day` period is always ~20 min
+  regardless of when or how often you call. There is no sub-20-min data to fetch,
+  so polling every 20 min instead of every 4h just re-downloads the same ~74
+  points — zero new information.
+- **Retention is what polling protects.** Because the API downsamples on aging,
+  the only way to keep 20-min history is to snapshot the `day` period before its
+  points age past the 24h window and get coarsened to `week`'s ~3h buckets. Since
+  `day` spans 24h, you must poll **at least once per 24h** to lose nothing. The
+  `4h` default is a 6× safety margin against a missed run, not a resolution knob.
+
+In short: poll *often enough* (≤24h), not *harder*. Polling faster than once a day
+yields identical data; the only thing that would raise resolution is Hyperliquid
+serving finer buckets, which is outside our control.
 
 **4. Proxy cost and monitoring**
 

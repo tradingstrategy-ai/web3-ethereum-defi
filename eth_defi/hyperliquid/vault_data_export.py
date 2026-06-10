@@ -578,7 +578,10 @@ def merge_into_uncleaned_parquet(
 def build_raw_prices_dataframe_hf(db: HyperliquidHighFreqMetricsDatabase) -> pd.DataFrame:
     """Build a raw prices DataFrame from the HF DuckDB.
 
-    Exports raw API timestamps without resampling.  The downstream
+    Exports raw API timestamps without resampling, so the spacing is
+    irregular and reflects the ``vaultDetails`` API's per-period resolution
+    (~20 min for the last 24h, coarsening to ~3h / ~10.5h / ~weekly for older
+    data — ~20 min is the finest the API ever serves). The downstream
     cleaning pipeline computes ``returns_1h`` via ``pct_change()`` on
     consecutive rows — this already works for irregular timestamps
     (the daily pipeline has always produced ~24h returns labelled

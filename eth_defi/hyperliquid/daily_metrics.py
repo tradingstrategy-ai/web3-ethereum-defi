@@ -118,14 +118,22 @@ def _merge_portfolio_periods(
 ) -> PortfolioHistory:
     """Merge multiple portfolio periods into a single high-resolution PortfolioHistory.
 
-    The Hyperliquid ``vaultDetails`` API returns four portfolio periods:
-    ``day``, ``week``, ``month``, ``allTime``. Each covers its window
-    with varying temporal resolution:
+    The Hyperliquid ``vaultDetails`` API returns four fixed-span portfolio
+    periods: ``day``, ``week``, ``month``, ``allTime``. Each carries a roughly
+    fixed budget of points (~70 for ``day``/``week``, ~45 for
+    ``month``/``allTime``), so the resolution is ``span / point-budget`` and is
+    fixed server-side — we cannot influence it by polling differently:
 
-    - ``allTime``: ~weekly snapshots for the full vault lifetime
-    - ``month``: higher resolution for the last 30 days
-    - ``week``: higher resolution for the last 7 days
-    - ``day``: highest resolution for the last 24 hours
+    - ``allTime``: ~weekly snapshots for the full vault lifetime (~44 points)
+    - ``month``: ~10.5–24h for the last 30 days (~45 points)
+    - ``week``: ~3h for the last 7 days (~67 points)
+    - ``day``: **~20 min** for the last 24 hours (~74 points) — the finest the
+      API ever serves, i.e. a hard resolution floor
+
+    As points age they drop from ``day`` into ``week``, then ``month``, then
+    ``allTime``, losing resolution at each step; the API discards the fine
+    version and it cannot be re-fetched. Merging the periods here recovers the
+    highest resolution still available in a single call.
 
     Strategy: start with ``allTime`` as the base, then overlay each
     higher-resolution period. For any timestamp in the overlay period,

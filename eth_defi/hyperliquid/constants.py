@@ -25,6 +25,16 @@ HYPERLIQUID_DAILY_METRICS_DATABASE = Path.home() / ".tradingstrategy" / "vaults"
 HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "hyperliquid-vaults-hf.duckdb"
 
 #: Default scan interval for high-frequency mode.
+#:
+#: This is the *scan trigger* cadence (how often the cron job polls the
+#: ``vaultDetails`` API), **not** the data resolution. The API serves the
+#: ``day`` period at a fixed ~20 min resolution and downsamples older points
+#: as they age (``week`` ~3h, ``month`` ~10.5h, ``allTime`` ~weekly). ~20 min
+#: is therefore a hard floor — polling faster than this yields no finer data.
+#: The 4h default only needs to stay ``<= 24h`` so each run snapshots the
+#: ``day`` window before its points age out and get coarsened; 4h is a 6x
+#: safety margin against missed runs. See
+#: ``scripts/hyperliquid/README-hyperliquid-vaults-high-frequency.md``.
 HYPERLIQUID_HIGH_FREQ_DEFAULT_INTERVAL: datetime.timedelta = datetime.timedelta(hours=4)
 
 #: Fixed performance fee (profit share) for Hyperliquid native vault leaders.

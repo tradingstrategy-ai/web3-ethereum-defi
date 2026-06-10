@@ -1,8 +1,12 @@
 """High-frequency Hyperliquid vault metrics pipeline.
 
-Collects vault share prices, PnL, TVL and flow data at configurable
-sub-daily intervals (default 4 h, configurable down to 1 h).  Uses
-Webshare rotating proxies for parallel throughput when available.
+Collects vault share prices, PnL, TVL and flow data. The ``default 4 h``
+interval is the *scan trigger* cadence (how often we poll), **not** the data
+resolution: the ``vaultDetails`` API serves the ``day`` period at a fixed
+~20 min resolution, which is the finest it ever offers. Polling harder yields
+no finer data — the 4h cadence only needs to stay ``<= 24h`` so each run
+snapshots the ``day`` window before the API downsamples those points (see
+below). Uses Webshare rotating proxies for parallel throughput when available.
 
 Mirrors the architecture of :py:mod:`~eth_defi.hyperliquid.daily_metrics`
 but stores rows keyed by ``(vault_address, timestamp)`` instead of
@@ -11,9 +15,11 @@ but stores rows keyed by ``(vault_address, timestamp)`` instead of
 Key differences from the daily pipeline:
 
 - **Raw timestamps**: rows preserve the API's original timestamps
-  (no ``.date()`` truncation or bucket flooring).  The API returns
-  data at varying resolution (~weekly for ``allTime``, sub-daily
-  for ``day`` period) — all points are stored as-is.
+  (no ``.date()`` truncation or bucket flooring).  The API returns four
+  fixed-span periods at server-chosen resolution — ``day`` last 24h at
+  ~20 min, ``week`` last 7d at ~3h, ``month`` last 30d at ~10.5h,
+  ``allTime`` at ~weekly — and downsamples each point as it ages out of a
+  window.  ~20 min is a hard floor; all points are stored as-is.
 - **Proxy-aware session pool**: workers get pre-cloned sessions for
   independent rate limiting per proxy IP.
 - **Resumable with overlap**: stores rows ``>=`` the last stored
