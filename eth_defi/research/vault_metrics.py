@@ -25,7 +25,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.core3.vault_protocol import Core3ExportRecord
+from eth_defi.core3.vault_protocol import Core3ExportRecord, Core3VaultSection, build_core3_vault_section
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
@@ -262,6 +262,11 @@ class VaultMetricsRecord(TypedDict, total=False):
 
     #: Protocol-specific extension data (Morpho flags, etc.)
     other_data: dict
+
+    #: Compact Core3 risk summary for the vault's protocol, or ``None``
+    #: when no Core3 data is available. See
+    #: :py:class:`~eth_defi.core3.vault_protocol.Core3VaultSection`.
+    core3: "Core3VaultSection | None"
 
     #: Per-period tearsheet results
     period_results: list[dict]
@@ -1305,6 +1310,7 @@ def calculate_vault_record(
     month_ago: pd.Timestamp,
     three_months_ago: pd.Timestamp,
     vault_id: str | None = None,
+    core3_protocols: dict[str, Core3ExportRecord] | None = None,
 ) -> pd.Series:
     """Process a single vault metadata + prices to calculate its full data.
 
@@ -1325,6 +1331,15 @@ def calculate_vault_record(
 
     :param vault_id:
         Vault ID string. If not provided, extracted from prices_df["id"].
+
+    :param core3_protocols:
+        Optional Core3 risk records keyed by our protocol slug, as
+        returned by
+        :py:func:`eth_defi.core3.vault_protocol.build_core3_protocols_for_export`.
+        When given, a compact per-vault ``core3`` summary
+        (:py:class:`~eth_defi.core3.vault_protocol.Core3VaultSection`) is
+        attached to the record for the vault's protocol, or ``None`` if
+        the protocol has no Core3 data.
 
     :return:
         Series with calculated metrics
@@ -1404,6 +1419,12 @@ def calculate_vault_record(
     vault_slug = vault_metadata["vault_slug"]
     protocol_slug = vault_metadata["protocol_slug"]
     risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
+
+    # Compact per-vault Core3 risk summary for the vault's protocol.
+    # Core3 data is per-protocol, so all vaults of the same protocol share
+    # the same summary. None when no Core3 records were supplied or the
+    # protocol has no Core3 data.
+    core3_section = build_core3_vault_section((core3_protocols or {}).get(protocol_slug))
 
     curator_slug = identify_curator(
         chain_id=chain_id,
@@ -1799,6 +1820,9 @@ def calculate_vault_record(
             "short_description": short_description,
             # Manual review decision from the Hyperliquid review Google Sheet
             "manual_review_status": manual_review_status,
+            # Compact per-vault Core3 risk summary (risk_score, market_cap, rating, etc.).
+            # None when no Core3 data is available for the vault's protocol.
+            "core3": core3_section,
             # Protocol-specific extension data; see other_data definition above for structure
             "other_data": other_data,
         }
@@ -1809,6 +1833,7 @@ def calculate_lifetime_metrics(
     df: pd.DataFrame,
     vault_db: VaultDatabase | dict[VaultSpec, VaultRow],
     returns_column: str = "returns_1h",
+    core3_protocols: dict[str, Core3ExportRecord] | None = None,
 ) -> pd.DataFrame:
     """Calculate lifetime metrics for each vault in the provided DataFrame.
 
@@ -1826,6 +1851,13 @@ def calculate_lifetime_metrics(
 
     :param vault_db:
         Pass all vaults or subset of vaults as VaultRows, or full VaultDatabase
+
+    :param core3_protocols:
+        Optional Core3 risk records keyed by our protocol slug, as
+        returned by
+        :py:func:`eth_defi.core3.vault_protocol.build_core3_protocols_for_export`.
+        Threaded through to :py:func:`calculate_vault_record` to attach a
+        per-vault ``core3`` summary. ``None`` to skip Core3 enrichment.
 
     :return:
         DataFrame, one row per vault.
@@ -1854,7 +1886,7 @@ def calculate_lifetime_metrics(
     # Sort is needed for slug stability
     # We pass include_groups=False to avoid FutureWarning, and pass id via group.name
     def _apply_vault_record(group):
-        return calculate_vault_record(group, vaults_by_id, month_ago, three_months_ago, vault_id=group.name)
+        return calculate_vault_record(group, vaults_by_id, month_ago, three_months_ago, vault_id=group.name, core3_protocols=core3_protocols)
 
     results_df = df.groupby("id", group_keys=False, sort=True).progress_apply(
         _apply_vault_record,
@@ -2328,6 +2360,7 @@ def format_lifetime_table(
     _del("description")
     _del("short_description")
     _del("other_data")
+    _del("core3")
 
     # Metadata timestamp, not relevant for human-readable table
     _del("generated_at")
