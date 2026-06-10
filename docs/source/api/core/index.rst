@@ -33,4 +33,5 @@ The core API is built on the top of Web3.py library.
    eth_defi.compat
    eth_defi.types
    eth_defi.provider_wallet
+   eth_defi.version_info
 

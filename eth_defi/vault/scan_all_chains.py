@@ -35,6 +35,8 @@ from filelock import Timeout as FileLockTimeout
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import resolve_core3_database_path
+from eth_defi.feed.database import resolve_feed_database_path
+from eth_defi.version_info import VersionInfo
 from eth_defi.core3.scanner import scan_projects as core3_scan_projects
 from eth_defi.core3.session import create_core3_session
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
@@ -1372,6 +1374,7 @@ def run_scan_tick(
     core3_db_path: Path | None = None,
     core3_fetch_sections: bool = True,
     hypersync_concurrency: int | None = None,
+    feed_db_path: Path | None = None,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -1391,6 +1394,11 @@ def run_scan_tick(
 
     :param core3_fetch_sections:
         Whether Core3 should fetch section detail endpoints.
+
+    :param feed_db_path:
+        Path to the vault post feed DuckDB used to enrich the top-vaults
+        JSON with curator metadata and recent feed entries. Forwarded to
+        :py:func:`~eth_defi.vault.post_processing.run_post_processing`.
     """
     # Back up critical pipeline files before any scanning
     backup_pipeline_files(backup_files=bkp_files, backup_dir=bkp_dir)
@@ -1617,6 +1625,7 @@ def run_scan_tick(
             vault_db_path=vault_db_path,
             cleaned_path=cleaned_price_path,
             core3_db_path=core3_db_path,
+            feed_db_path=feed_db_path,
         )
         for step, success in post_results.items():
             logger.info("Post-processing %s: %s", step, "SUCCESS" if success else "FAILED")
@@ -1752,6 +1761,11 @@ def main():
     # Core3 risk intelligence database path — resolved from env var or default constant.
     core3_db_path = resolve_core3_database_path()
 
+    # Vault post feed database path — resolved the same way as the post scanner
+    # (FEED_DB_PATH/DB_PATH env var or default constant) so the top-vaults JSON
+    # export reads the same database the feed collector writes.
+    feed_db_path = resolve_feed_database_path()
+
     bkp_files = [uncleaned_price_path, reader_state_path, vault_db_path, hyperliquid_db_path, hyperliquid_hf_db_path, grvt_db_path, lighter_db_path, hibachi_db_path, core3_db_path]
 
     # Test mode - filter chains if TEST_CHAINS is set
@@ -1765,6 +1779,8 @@ def main():
 
     logger.debug("=" * 80)
     logger.info("Starting multi-chain vault scan")
+    version_info = VersionInfo.read_docker_version()
+    logger.info("Docker image version: tag=%s, commit=%s", version_info.tag, version_info.commit_hash)
     logger.info(
         "SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, SKIP_CORE3: %s, CORE3: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, CORE3_MAX_WORKERS: %d, FREQUENCY: %s",
         scan_prices,
@@ -1780,6 +1796,7 @@ def main():
         frequency,
     )
     logger.info("PIPELINE_DATA_DIR: %s", data_dir)
+    logger.info("Feed post database: %s (exists=%s)", feed_db_path, feed_db_path.exists())
     if skip_post_processing:
         logger.info("SKIP_POST_PROCESSING: true")
     if test_chain_names:
@@ -1898,6 +1915,7 @@ def main():
         hypercore_mode=hypercore_mode,
         core3_db_path=core3_db_path,
         core3_fetch_sections=core3_fetch_sections,
+        feed_db_path=feed_db_path,
     )
 
     # Clear cycle state on disc so the first tick rescans everything.

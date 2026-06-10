@@ -520,6 +520,7 @@ def export_top_vaults_json(
     cleaned_path: Path | None = None,
     output_path: Path | None = None,
     core3_db_path: Path | None = None,
+    feed_db_path: Path | None = None,
 ) -> bool:
     """Generate the top-vaults lifetime-metrics JSON and upload to R2.
 
@@ -557,6 +558,13 @@ def export_top_vaults_json(
         ``vault-analysis-json.main()`` auto-discovers from
         ``CORE3_DATABASE_PATH`` env var or the default constant.
 
+    :param feed_db_path:
+        Override for the vault post feed DuckDB path, used to enrich the
+        export with curator metadata and recent feed entries. When
+        ``None``, ``vault-analysis-json.main()`` auto-discovers from
+        ``FEED_DB_PATH``/``DB_PATH`` env vars or the default constant via
+        :py:func:`~eth_defi.feed.database.resolve_feed_database_path`.
+
     :return:
         ``True`` if the JSON was generated and uploaded, ``False`` on
         any failure. Matches the behaviour of the other ``export_*``
@@ -591,6 +599,7 @@ def export_top_vaults_json(
             parquet_path=cleaned_path,
             output_path=output_path,
             core3_db_path=core3_db_path,
+            feed_db_path=feed_db_path,
         )
 
         bucket_name = os.environ["R2_TOP_VAULTS_BUCKET_NAME"]
@@ -658,6 +667,7 @@ def run_post_processing(
     vault_db_path: Path | None = None,
     cleaned_path: Path | None = None,
     core3_db_path: Path | None = None,
+    feed_db_path: Path | None = None,
 ) -> dict[str, bool]:
     """Run full post-processing pipeline after chain scans complete.
 
@@ -689,6 +699,7 @@ def run_post_processing(
     :param vault_db_path: Override for the vault database pickle path
     :param cleaned_path: Override for the cleaned parquet output path
     :param core3_db_path: Override for the Core3 risk intelligence DuckDB path
+    :param feed_db_path: Override for the vault post feed DuckDB path (curator metadata and feed entries)
     :return: Dictionary mapping step name to success boolean
     """
     steps = {}
@@ -736,6 +747,7 @@ def run_post_processing(
             vault_db_path=vault_db_path,
             cleaned_path=cleaned_path,
             core3_db_path=core3_db_path,
+            feed_db_path=feed_db_path,
         )
 
     # Step 4: Export sparklines

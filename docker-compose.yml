@@ -9,6 +9,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.vault-scanner
+      # Stamp the image with its git revision, read at runtime by
+      # eth_defi.version_info.VersionInfo. Build with:
+      #
+      #   GIT_VERSION_HASH=$(git rev-parse HEAD) \
+      #   GIT_VERSION_TAG=$(git describe --tags --always) \
+      #   GIT_COMMIT_MESSAGE=$(git log -1 --pretty=%s) \
+      #   docker compose build vault-scanner
+      args:
+        GIT_VERSION_TAG: ${GIT_VERSION_TAG:-unspecified}
+        GIT_COMMIT_MESSAGE: ${GIT_COMMIT_MESSAGE:-unspecified}
+        GIT_VERSION_HASH: ${GIT_VERSION_HASH:-unspecified}
     container_name: vault-scanner
     profiles: [ "oneshot" ]
     restart: "no"

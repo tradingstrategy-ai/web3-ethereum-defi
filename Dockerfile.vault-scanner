@@ -24,12 +24,6 @@
 
 FROM python:3.14.4
 
-# Passed from Github Actions
-ARG GIT_VERSION_TAG=unspecifiedls
-
-ARG GIT_COMMIT_MESSAGE=unspecified
-ARG GIT_VERSION_HASH=unspecified
-
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
@@ -70,6 +64,19 @@ RUN poetry cache clear pypi --all --no-interaction
 # Speed up Python process startup
 RUN python -m compileall -q /usr/local/lib/python3.14
 RUN python -m compileall -q eth_defi
+
+# Passed from the image build command, e.g. Github Actions or docker compose build.
+# Declared and written at the end so commit metadata changes do not invalidate
+# the expensive dependency install layers above.
+ARG GIT_VERSION_TAG=unspecified
+ARG GIT_COMMIT_MESSAGE=unspecified
+ARG GIT_VERSION_HASH=unspecified
+
+# Read by eth_defi.version_info.VersionInfo at runtime so the scanner can
+# report which git revision it is running, e.g. in the top-vaults JSON export.
+RUN echo $GIT_VERSION_TAG > GIT_VERSION_TAG.txt
+RUN echo $GIT_COMMIT_MESSAGE > GIT_COMMIT_MESSAGE.txt
+RUN echo $GIT_VERSION_HASH > GIT_VERSION_HASH.txt
 
 ENV SCAN_PRICES=true
 CMD ["python", "scripts/erc-4626/scan-vaults-all-chains.py"]

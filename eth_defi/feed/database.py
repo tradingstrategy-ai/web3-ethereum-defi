@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Self
@@ -18,6 +19,27 @@ logger = logging.getLogger(__name__)
 
 #: Default DuckDB path for collected vault posts.
 DEFAULT_VAULT_POST_DATABASE = Path("~/.tradingstrategy/vaults/vault-post-database.duckdb").expanduser()
+
+
+def resolve_feed_database_path() -> Path:
+    """Resolve the vault post feed DuckDB database path.
+
+    Mirrors the resolution used by the post scanner
+    (``scripts/erc-4626/scan-vault-posts.py``) so the JSON export reads
+    the same database the feed collector writes.  Keeping the resolver
+    next to :py:data:`DEFAULT_VAULT_POST_DATABASE` avoids each caller
+    repeating the same environment lookup and path expansion logic.
+
+    The ``FEED_DB_PATH`` override takes precedence, falling back to the
+    ``DB_PATH`` variable consumed by the post scanner, then the default
+    path.
+
+    :return:
+        Path from ``FEED_DB_PATH``, then ``DB_PATH``, then the default
+        vault post database path.
+    """
+    path = os.environ.get("FEED_DB_PATH") or os.environ.get("DB_PATH")
+    return Path(path).expanduser() if path else DEFAULT_VAULT_POST_DATABASE
 
 
 @dataclass(slots=True, frozen=True)

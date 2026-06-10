@@ -267,6 +267,35 @@ class VaultMetricsRecord(TypedDict, total=False):
     period_results: list[dict]
 
 
+class ExportVersionMetadata(TypedDict):
+    """Git version stamp of the exporter Docker image.
+
+    Produced by :py:meth:`eth_defi.version_info.VersionInfo.as_dict`.
+    All fields are ``None`` when the exporter runs outside a stamped
+    Docker image, e.g. from a source checkout.
+    """
+
+    #: Git tag at image build time, e.g. ``v0.30``.
+    tag: str | None
+
+    #: The latest git commit message at image build time.
+    commit_message: str | None
+
+    #: Git commit SHA hash at image build time.
+    commit_hash: str | None
+
+
+class ExportMetadata(TypedDict):
+    """Provenance metadata for the vault metrics JSON export.
+
+    Identifies which exporter build produced the file so stale
+    deployments are diagnosable from the JSON alone.
+    """
+
+    #: Git version stamp of the exporter Docker image.
+    version: ExportVersionMetadata
+
+
 class VaultMetricsExport(TypedDict):
     """Top-level structure of the vault metrics JSON export.
 
@@ -275,6 +304,9 @@ class VaultMetricsExport(TypedDict):
 
     #: ISO 8601 UTC timestamp when the export was generated
     generated_at: str
+
+    #: Export provenance metadata, see :py:class:`ExportMetadata`.
+    metadata: ExportMetadata
 
     #: Core3 risk intelligence keyed by protocol slug.
     #: Only protocols present in the exported vaults are included.
