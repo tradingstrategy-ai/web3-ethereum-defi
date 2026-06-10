@@ -1,0 +1,25 @@
+# Lighter curator - feeds provided by protocols/lighter.yaml
+#
+# Alias rationale:
+# - Lighter operates the Lighter Liquidity Pool (LLP), a
+#   protocol-operated market making pool, so the protocol itself acts
+#   as the curator for its system pool surface.
+# - Lighter already has canonical protocol feed metadata, so this
+#   alias reuses the protocol feeder and avoids duplicate source
+#   tracking.
+# - Official protocol site: https://lighter.xyz
+#
+# Description sources:
+# - https://docs.lighter.xyz/trading/liquidations-and-llp-insurance-fund.md
+# - https://docs.lighter.xyz/trading/public-pools.md
+# - https://docs.lighter.xyz/about-lighter/technical-architecture-lighter-core
+feeder-id: lighter
+name: Lighter
+role: curator
+canonical-feeder-id: lighter
+short_description: Lighter is a zero-fee decentralised perpetuals exchange with verifiable order matching, operating the Lighter Liquidity Pool (LLP) protocol market making vault.
+long_description: |
+  Lighter is a decentralised perpetuals exchange designed for a zero-fee trading environment, using succinct zero-knowledge proofs with Ethereum as the anchoring layer for proofs and system state.
+  Its protocol market making vault, the Lighter Liquidity Pool (LLP), acts as the counterparty to all LLP trading and liquidations, with depositors sharing the pool's profit and loss and absorbing auto-deleveraging risk.
+  LLP collateral is allocated across segregated strategy buckets so each strategy's maximum loss is capped at its allocation.
+  Lighter also offers user-created public pools where participants combine funds under a designated operator who trades on their behalf for an operator-set profit share.

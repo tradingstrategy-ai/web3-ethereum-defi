@@ -1,0 +1,24 @@
+# Hyperliquid curator - feeds provided by protocols/hyperliquid.yaml
+#
+# Alias rationale:
+# - Hyperliquid operates the Hyperliquidity Provider (HLP) protocol
+#   vault, so the protocol itself acts as the curator for its system
+#   vault surface.
+# - Hyperliquid already has canonical protocol feed metadata, so this
+#   alias reuses the protocol feeder and avoids duplicate source
+#   tracking.
+# - Official protocol site: https://hyperliquid.xyz
+#
+# Description sources:
+# - https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/protocol-vaults
+# - https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-depositors-legacy
+feeder-id: hyperliquid
+name: Hyperliquid
+role: curator
+canonical-feeder-id: hyperliquid
+short_description: Hyperliquid is a layer 1 blockchain running a fully on-chain perpetuals and spot exchange, whose protocol-run Hyperliquidity Provider (HLP) vault supplies community-owned market making liquidity.
+long_description: |
+  Hyperliquid is a performant layer 1 blockchain whose flagship application is a fully on-chain perpetuals and spot order book exchange.
+  Its protocol vault, Hyperliquidity Provider (HLP), provides liquidity through multiple market making strategies, performs liquidations, supplies USDC in Earn and accrues a portion of trading fees.
+  HLP is fully community-owned: depositors share the vault's profit and loss pro rata, there is no vault leader profit share, and withdrawals unlock four days after the most recent deposit.
+  Hyperliquid also supports user-created vaults where vault leaders trade on behalf of depositors for a 10% profit share.

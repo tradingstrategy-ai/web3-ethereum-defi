@@ -99,26 +99,35 @@ def test_build_curators_for_export_without_feed():
     assert rec["recent_posts"] == []
 
 
-def test_build_curators_for_export_protocol_curator_with_protocol_yaml():
-    """Protocol curators load metadata from protocol YAML when no curator YAML exists.
+def test_build_curators_for_export_protocol_curator_alias():
+    """Protocol curators with an alias curator YAML get descriptions and inherited socials.
+
+    Hyperliquid has a curator alias YAML (curators/hyperliquid.yaml)
+    carrying market-making-vault descriptions, with website and social
+    URLs inherited from the canonical protocol feeder
+    (protocols/hyperliquid.yaml).
 
     1. Call build_curators_for_export with 'hyperliquid'
-    2. Assert protocol_curator is True
-    3. Assert name, website, twitter come from protocol YAML
+    2. Assert protocol_curator is True and canonical_feeder_id resolves
+    3. Assert descriptions come from the curator alias YAML
+    4. Assert website and social URLs are inherited from protocol YAML
     """
-    # 1. Call builder with hyperliquid (has protocol YAML but no curator YAML)
+    # 1. Call builder with hyperliquid (protocol curator with alias curator YAML)
     result = build_curators_for_export(["hyperliquid"], feed_db=None)
 
-    # 2. Assert protocol_curator
+    # 2. Assert protocol_curator and canonical feeder resolution
     assert "hyperliquid" in result
     rec = result["hyperliquid"]
     assert rec["protocol_curator"] is True
+    assert rec["canonical_feeder_id"] == "hyperliquid"
 
-    # 3. Assert metadata from protocol YAML
+    # 3. Assert descriptions from the curator alias YAML
+    assert "Hyperliquidity Provider (HLP)" in rec["short_description"]
+    assert "market making" in rec["long_description"]
+
+    # 4. Assert metadata inherited from protocol YAML
     assert rec["name"] == "Hyperliquid"
     assert rec["website"] == "https://hyperliquid.xyz"
-    assert rec["short_description"] is None
-    assert rec["long_description"] is None
     assert rec["twitter"] == "https://x.com/HyperliquidX"
     assert rec["linkedin"] == "https://www.linkedin.com/company/hyperliquid"
 

@@ -1,0 +1,24 @@
+# Ostium curator - feeds provided by protocols/ostium.yaml
+#
+# Alias rationale:
+# - Ostium vaults are protocol-managed: the protocol operates the
+#   Market Making Vault that backstops all trading, so the protocol
+#   itself acts as the curator.
+# - Ostium already has canonical protocol feed metadata, so this alias
+#   reuses the protocol feeder and avoids duplicate source tracking.
+# - Official protocol site: https://www.ostium.com
+#
+# Description sources:
+# - https://ostium-labs.gitbook.io/ostium-docs/vault/overview.md
+# - https://ostium-labs.gitbook.io/ostium-docs/vault/olp-token.md
+# - https://ostium-labs.gitbook.io/ostium-docs/getting-started/ostium-explained-for-traders
+feeder-id: ostium
+name: Ostium
+role: curator
+canonical-feeder-id: ostium
+short_description: Ostium is a perpetuals trading protocol on Arbitrum for real-world assets and crypto, backed by its USDC Market Making Vault where liquidity providers earn a share of trading fees.
+long_description: |
+  Ostium is a perpetuals trading protocol on Arbitrum offering leveraged markets on real-world assets such as FX, commodities, indices and stocks alongside crypto.
+  Trades settle against a shared liquidity layer combining a Liquidity Buffer with the Market Making Vault: liquidity providers deposit USDC into the vault and receive OLP tokens representing their share.
+  The Liquidity Buffer, funded by accrued trader losses, settles trader profit first, while the Market Making Vault acts as direct counterparty to net trader profit and loss only when the buffer is depleted.
+  Its documentation describes OLP earning a share of opening fees, plus rollover fees and liquidation rewards in undercollateralised states, compounding into the vault share price.

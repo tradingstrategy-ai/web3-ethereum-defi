@@ -132,10 +132,13 @@ def _build_protocol_curator_from_yaml(
 ) -> CuratorExportRecord:
     """Build a curator export record for a protocol curator using its protocol YAML.
 
-    Protocol curators like Hyperliquid, Ostium, Lighter have protocol
-    YAML files at ``eth_defi/data/feeds/protocols/{slug}.yaml`` but
-    no curator YAML.  This function loads the protocol YAML metadata
-    to populate website, twitter, linkedin, and rss fields.
+    Fallback for protocol curators that have a protocol YAML file at
+    ``eth_defi/data/feeds/protocols/{slug}.yaml`` but no curator YAML.
+    This function loads the protocol YAML metadata to populate website,
+    twitter, linkedin, and rss fields.  All current protocol curators
+    (Hyperliquid, Ostium, Lighter, GRVT, Gains Network) have alias
+    curator YAML files with descriptions, so this path only applies to
+    newly added protocol curators before their curator YAML lands.
 
     :param slug:
         Protocol curator slug (e.g. ``"hyperliquid"``).
