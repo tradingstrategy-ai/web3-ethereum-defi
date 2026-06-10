@@ -49,6 +49,12 @@ CORE3_DEFAULT_REQUESTS_PER_SECOND: float = 5.0
 #: Requests without a User-Agent get blocked with HTTP 403 / error code 1010.
 CORE3_USER_AGENT: str = "eth-defi/core3"
 
+#: Default HTTP request timeout in seconds.
+#:
+#: Core3 history endpoints can be slow when backfilling large ranges, so we
+#: allow a generous per-request timeout.
+CORE3_DEFAULT_TIMEOUT: float = 60.0
+
 #: Project detail sections available for section snapshot fetching.
 SECTIONS: tuple[str, ...] = ("security", "financial", "operational", "reputational", "regulatory")
 

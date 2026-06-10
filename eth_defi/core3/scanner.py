@@ -30,7 +30,7 @@ from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.core3.constants import CORE3_DATABASE_PATH, INDEX_SLUG, SECTIONS
+from eth_defi.core3.constants import CORE3_DATABASE_PATH, CORE3_DEFAULT_TIMEOUT, INDEX_SLUG, SECTIONS
 from eth_defi.core3.database import Core3Database
 from eth_defi.core3.api import (
     fetch_index_pol_history,
@@ -225,7 +225,7 @@ def scan_projects(
     fetch_index_pol: bool = True,
     limit: int | None = None,
     max_workers: int = 8,
-    timeout: float = 30.0,
+    timeout: float = CORE3_DEFAULT_TIMEOUT,
 ) -> Core3Database:
     """Scan all Core3 projects and store snapshots in DuckDB.
 

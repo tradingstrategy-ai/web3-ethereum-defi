@@ -11,12 +11,13 @@ for endpoint details.
 
 import logging
 
+from eth_defi.core3.constants import CORE3_DEFAULT_TIMEOUT
 from eth_defi.core3.session import Core3Session
 
 logger = logging.getLogger(__name__)
 
 
-def fetch_project_list(session: Core3Session, timeout: float = 30.0) -> list[dict]:
+def fetch_project_list(session: Core3Session, timeout: float = CORE3_DEFAULT_TIMEOUT) -> list[dict]:
     """Fetch the full project list from ``/v1/list``.
 
     Returns the unwrapped list (the API wraps it as ``{"list": [...]}``)
@@ -35,7 +36,7 @@ def fetch_project_list(session: Core3Session, timeout: float = 30.0) -> list[dic
     return resp.json()["list"]
 
 
-def fetch_project_detail(session: Core3Session, slug: str, timeout: float = 30.0) -> dict:
+def fetch_project_detail(session: Core3Session, slug: str, timeout: float = CORE3_DEFAULT_TIMEOUT) -> dict:
     """Fetch full project detail from ``/v1/{slug}``.
 
     Returns the top-level project object including description, rank,
@@ -56,7 +57,7 @@ def fetch_project_detail(session: Core3Session, slug: str, timeout: float = 30.0
     return resp.json()
 
 
-def fetch_pol_history(session: Core3Session, slug: str, timeout: float = 30.0) -> list[dict]:
+def fetch_pol_history(session: Core3Session, slug: str, timeout: float = CORE3_DEFAULT_TIMEOUT) -> list[dict]:
     """Fetch all-time PoL history chart from ``/v1/{slug}/pol/history/chart``.
 
     Returns a list of ``{score, timestamp}`` points, unwrapped from
@@ -82,7 +83,7 @@ def fetch_pol_history_incremental(
     slug: str,
     from_ts: int,
     to_ts: int,
-    timeout: float = 30.0,
+    timeout: float = CORE3_DEFAULT_TIMEOUT,
 ) -> list[dict]:
     """Fetch ranged PoL history from ``/v1/{slug}/pol/history``.
 
@@ -109,7 +110,7 @@ def fetch_pol_history_incremental(
     return resp.json()["points"]
 
 
-def fetch_pol_category_history(session: Core3Session, slug: str, timeout: float = 30.0) -> list[dict]:
+def fetch_pol_category_history(session: Core3Session, slug: str, timeout: float = CORE3_DEFAULT_TIMEOUT) -> list[dict]:
     """Fetch all-time PoL category breakdown history from ``/v1/{slug}/pol/by_category/history/chart``.
 
     Returns a list of points, each containing a timestamp and per-category
@@ -135,7 +136,7 @@ def fetch_pol_category_history_incremental(
     slug: str,
     from_ts: int,
     to_ts: int,
-    timeout: float = 30.0,
+    timeout: float = CORE3_DEFAULT_TIMEOUT,
 ) -> list[dict]:
     """Fetch ranged PoL category breakdown history from ``/v1/{slug}/pol/by_category/history``.
 
@@ -158,7 +159,7 @@ def fetch_pol_category_history_incremental(
     return resp.json()["points"]
 
 
-def fetch_index_pol_history(session: Core3Session, timeout: float = 30.0) -> list[dict]:
+def fetch_index_pol_history(session: Core3Session, timeout: float = CORE3_DEFAULT_TIMEOUT) -> list[dict]:
     """Fetch all-time index-level aggregate PoL history from ``/v1/pol/history/chart``.
 
     :param session:
@@ -178,7 +179,7 @@ def fetch_index_pol_history_incremental(
     session: Core3Session,
     from_ts: int,
     to_ts: int,
-    timeout: float = 30.0,
+    timeout: float = CORE3_DEFAULT_TIMEOUT,
 ) -> list[dict]:
     """Fetch ranged index-level aggregate PoL history from ``/v1/pol/history``.
 
@@ -199,7 +200,7 @@ def fetch_index_pol_history_incremental(
     return resp.json()["points"]
 
 
-def fetch_section_detail(session: Core3Session, slug: str, section: str, timeout: float = 30.0) -> dict:
+def fetch_section_detail(session: Core3Session, slug: str, section: str, timeout: float = CORE3_DEFAULT_TIMEOUT) -> dict:
     """Fetch a project section endpoint (security, financial, etc.).
 
     :param session:
