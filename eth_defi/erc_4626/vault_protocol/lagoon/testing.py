@@ -154,7 +154,9 @@ def fund_lagoon_vault(
     # 4. Update NAV and settle
     _send_as_manager(vault.post_new_valuation(nav), "Post valuation for settlement")
     settle_tx_hash = _send_as_manager(vault.settle_via_trading_strategy_module(nav), "Settle vault deposits")
-    wait_for_transaction_receipt_robust(web3, settle_tx_hash)
+    # No confirmation wait needed: the maxDeposit() poll loop below already
+    # tolerates stale reads, so we only need receipt visibility here.
+    wait_for_transaction_receipt_robust(web3, settle_tx_hash, confirmation_block_count=0, confirmation_block_time=0)
 
     # 5. Claim shares (ERC-7540: settlement mints shares to the vault contract,
     #    depositor must call deposit() to transfer them to their wallet)
