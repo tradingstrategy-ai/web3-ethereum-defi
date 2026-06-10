@@ -6,3 +6,5 @@ twitter: AngleProtocol
 linkedin: angle-labs
 # Angle blog moved from Medium to Paragraph.
 rss: https://api.paragraph.com/blogs/rss/@angleprotocol
+rss-dead-at: 2026-06-09
+linkedin-rss-hub-disabled-at: 2026-06-09

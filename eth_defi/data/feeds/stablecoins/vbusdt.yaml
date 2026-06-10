@@ -6,3 +6,4 @@ twitter: katana
 linkedin: katananetwork
 # Official blog is active, but no RSS endpoint was found as of 2026-05; keep Medium as the only RSS source.
 rss: https://medium.com/feed/@katananetwork
+linkedin-rss-hub-disabled-at: 2026-06-09

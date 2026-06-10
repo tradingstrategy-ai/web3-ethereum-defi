@@ -5,3 +5,4 @@ website: https://www.euler.finance/
 twitter: eulerfinance
 linkedin: euler-xyz
 # rss: https://newsletter.euler.finance/feed  # Redirects to euler.finance HTML; active website blog has no RSS endpoint as of 2026-05.
+linkedin-rss-hub-disabled-at: 2026-06-09
