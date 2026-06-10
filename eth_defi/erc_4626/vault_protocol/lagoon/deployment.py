@@ -46,7 +46,7 @@ from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.whitelist import GMXDeployment, resolve_gmx_market_labels
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import is_anvil
-from eth_defi.safe.deployment import add_new_safe_owners, deploy_safe, deploy_safe_with_deterministic_address, fetch_safe_deployment
+from eth_defi.safe.deployment import DEFAULT_TX_CONFIRMATION_TIMEOUT, add_new_safe_owners, deploy_safe, deploy_safe_with_deterministic_address, fetch_safe_deployment
 from eth_defi.safe.execute import execute_safe_tx
 from eth_defi.token import WRAPPED_NATIVE_TOKEN, fetch_erc20_details, get_wrapped_native_token_address
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -592,7 +592,7 @@ def deploy_lagoon_protocol_registry(
         )
 
     time.sleep(4)
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
     #     function initialize(address initialOwner, address _protocolFeeReceiver) public initializer {
     #         __Ownable_init(initialOwner);
@@ -605,7 +605,7 @@ def deploy_lagoon_protocol_registry(
             safe.address,
         )
     )
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
     return contract
 
@@ -683,7 +683,7 @@ def deploy_fresh_lagoon_protocol(
             deploy_retries=deploy_retries,
         )
     time.sleep(forge_sync_delay)
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
     #     constructor(
     #         address _registry,
@@ -724,7 +724,7 @@ def deploy_fresh_lagoon_protocol(
             deploy_retries=deploy_retries,
         )
     time.sleep(forge_sync_delay)
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
     logger.info(f"Deployed Lagoon protocol. Fee registry: {fee_registry.address}, implementation: {implementation_contract.address}, beacon proxy factory: {beacon_proxy_factory_contract.address}")
 
@@ -898,7 +898,7 @@ def deploy_lagoon(
         signed_tx = acct.sign_transaction(tx_params)
         raw_bytes = get_tx_broadcast_data(signed_tx)
         tx_hash = web3.eth.send_raw_transaction(raw_bytes)
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
     elif factory_contract:
         # Latest method
         # https://docs.lagoon.finance/vault/create-your-vault
@@ -955,7 +955,7 @@ def deploy_lagoon(
         signed_tx = acct.sign_transaction(tx_data)
         raw_bytes = get_tx_broadcast_data(signed_tx)
         tx_hash = web3.eth.send_raw_transaction(raw_bytes)
-        receipt = assert_transaction_success_with_explanation(web3, tx_hash)
+        receipt = assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
         match beacon_proxy_factory_abi:
             case "lagoon/BeaconProxyFactory.json":
                 events = beacon_proxy_factory.events.BeaconProxyDeployed().process_receipt(receipt, EventLogErrorFlags.Discard)
@@ -1180,7 +1180,7 @@ def deploy_safe_trading_strategy_module(
             gas_fee=gas_estimate,
             hot_wallet=_hot_wallet,
         )
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
     return module
 
@@ -1247,13 +1247,13 @@ def setup_guard(
     for asset_manager in asset_managers:
         logger.info("Whitelisting trade-executor as sender: %s", asset_manager)
         tx_hash = _broadcast(module.functions.allowSender(asset_manager, "Whitelist trade-executor"))
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
         entries.append(WhitelistEntry("Sender", "trade-executor", asset_manager))
 
     # Enable safe as the receiver of tokens
     logger.info("Whitelist Safe as trade receiver")
     tx_hash = _broadcast(module.functions.allowReceiver(safe.address, "Whitelist Safe as trade receiver"))
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
     entries.append(WhitelistEntry("Receiver", "Safe", safe.address))
 
     anvil = is_anvil(web3)
@@ -1265,7 +1265,7 @@ def setup_guard(
     if uniswap_v2:
         logger.info("Whitelisting Uniswap v2 router: %s", uniswap_v2.router.address)
         tx_hash = _broadcast(module.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2"))
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
         entries.append(WhitelistEntry("Uniswap V2 router", "Router02", uniswap_v2.router.address))
     else:
         logger.info("Not whitelisted: Uniswap v2")
@@ -1274,7 +1274,7 @@ def setup_guard(
     if uniswap_v3:
         logger.info("Whitelisting Uniswap v3 router: %s", uniswap_v3.swap_router.address)
         tx_hash = _broadcast(module.functions.whitelistUniswapV3Router(uniswap_v3.swap_router.address, "Allow Uniswap v3"))
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
         entries.append(WhitelistEntry("Uniswap V3 router", "SwapRouter", uniswap_v3.swap_router.address))
     else:
         logger.info("Not whitelisted: Uniswap v3")
@@ -1288,7 +1288,7 @@ def setup_guard(
         logger.info("Whitelisting Aave v3 deployment: %s (pool)", aave_v3.pool.address)
         note = "Allow Aave v3 pool"
         tx_hash = _broadcast(module.functions.whitelistAaveV3(aave_v3.pool.address, note))
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
         entries.append(WhitelistEntry("Aave V3 pool", "Pool", aave_v3.pool.address))
 
@@ -1297,7 +1297,7 @@ def setup_guard(
             logger.info("Aave whitelisting for pool %s, aUSDC %s", aave_v3.pool.address, token.address)
             note = f"Aave v3 pool whitelisting for {token.symbol}"
             tx_hash = _broadcast(module.functions.whitelistToken(ausdc.address, note))
-            assert_transaction_success_with_explanation(web3, tx_hash)
+            assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
             entries.append(WhitelistEntry("Aave V3 aToken", token.symbol, token.address))
 
     else:
@@ -1328,7 +1328,7 @@ def setup_guard(
 
             call = module.functions.multicall(encode_multicalls(multicalls))
             tx_hash = _broadcast(call)
-            assert_transaction_success_with_explanation(web3, tx_hash)
+            assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
             if not anvil:
                 # TODO: A hack on Base mainnet inconsitency
@@ -1372,7 +1372,7 @@ def setup_guard(
 
             call = module.functions.multicall(encode_multicalls(multicalls))
             tx_hash = _broadcast(call)
-            assert_transaction_success_with_explanation(web3, tx_hash)
+            assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
             if not anvil:
                 # TODO: A hack on Base mainnet inconsitency
@@ -1387,7 +1387,7 @@ def setup_guard(
     if cowswap:
         logger.info("Whitelisting CowSwap: %s", COWSWAP_SETTLEMENT)
         tx_hash = _broadcast(module.functions.whitelistCowSwap(COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER, "Allow CowSwap"))
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
         entries.append(WhitelistEntry("CowSwap", "Settlement", COWSWAP_SETTLEMENT))
         entries.append(WhitelistEntry("CowSwap", "VaultRelayer", COWSWAP_VAULT_RELAYER))
 
@@ -1397,7 +1397,7 @@ def setup_guard(
         proxy = get_token_transfer_proxy(chain_id)
         logger.info("Whitelisting Velora: Augustus %s, TokenTransferProxy %s", augustus, proxy)
         tx_hash = _broadcast(module.functions.whitelistVelora(augustus, proxy, "Allow Velora"))
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
         entries.append(WhitelistEntry("Velora", "Augustus", augustus))
         entries.append(WhitelistEntry("Velora", "TokenTransferProxy", proxy))
 
@@ -1419,7 +1419,7 @@ def setup_guard(
                 "Allow GMX perpetuals",
             )
         )
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
         entries.append(WhitelistEntry("GMX", "ExchangeRouter", gmx_deployment.exchange_router))
         for token in collateral_tokens:
             entries.append(WhitelistEntry("GMX token", "collateral", token))
@@ -1431,7 +1431,7 @@ def setup_guard(
             market_name = market_labels.get(checksum, f"GMX market #{idx}")
             logger.info("Whitelisting %s: %s", market_name, market)
             tx_hash = _broadcast(module.functions.whitelistGMXMarket(market, market_name))
-            assert_transaction_success_with_explanation(web3, tx_hash)
+            assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
             entries.append(WhitelistEntry("GMX market", market_name, market))
 
         logger.info("GMX whitelisting complete: %d markets", len(gmx_deployment.markets))
@@ -1450,13 +1450,13 @@ def setup_guard(
                 "Allow CCTP cross-chain transfers",
             )
         )
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
         entries.append(WhitelistEntry("CCTP", "TokenMessenger", cctp_deployment.token_messenger))
 
         for domain in cctp_deployment.allowed_destination_domains:
             logger.info("Whitelisting CCTP destination domain: %d", domain)
             tx_hash = _broadcast(module.functions.whitelistCCTPDestination(domain, f"CCTP domain {domain}"))
-            assert_transaction_success_with_explanation(web3, tx_hash)
+            assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
             entries.append(WhitelistEntry("CCTP destination", f"domain {domain}"))
 
         logger.info(
@@ -1533,7 +1533,7 @@ def setup_guard(
 
         call = module.functions.multicall(encode_multicalls(multicalls))
         tx_hash = _broadcast(call)
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
         entries.append(WhitelistEntry("Hypercore", "CoreWriter", CORE_WRITER_ADDRESS))
         entries.append(WhitelistEntry("Hypercore", "CoreDepositWallet", cdw_address))
@@ -1551,7 +1551,7 @@ def setup_guard(
     if any_asset:
         logger.info("Allow any asset whitelist")
         tx_hash = _broadcast(module.functions.setAnyAssetAllowed(True, "Allow any asset"))
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
         entries.append(WhitelistEntry("Any asset", "enabled"))
     else:
         logger.info("Using only whitelisted assets")
@@ -1560,7 +1560,7 @@ def setup_guard(
     if vault is not None:
         logger.info("Whitelist vault settlement")
         tx_hash = _broadcast(module.functions.whitelistLagoon(vault.address, "Whitelist vault settlement"))
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
         entries.append(WhitelistEntry("Vault settlement", "Lagoon vault", vault.address))
     else:
         logger.info("Skipping vault settlement whitelisting (satellite chain, no vault)")
@@ -1766,7 +1766,7 @@ def deploy_automated_lagoon_vault(
             # Path must be taken with prod deployers
             deployer.sync_nonce(web3)
             tx_hash = deployer.transact_and_broadcast_with_contract(bound_func)
-            assert_transaction_success_with_explanation(web3, tx_hash)
+            assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
             logger.info("Sleeping for 2 seconds to wait for nonce to propagate")
             time.sleep(2)
             return tx_hash
@@ -1985,7 +1985,7 @@ def deploy_automated_lagoon_vault(
             approve_data = encode_function_call(approve_func, approve_func.arguments)
             wrapped = module.functions.performCall(token_address, approve_data, 0)
             tx_hash = _broadcast(wrapped)
-            assert_transaction_success_with_explanation(web3, tx_hash)
+            assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
             logger.info("GMX collateral approved: %s (%s) for SyntheticsRouter", token.symbol, token_address)
 
     # After everything is deployed, fix ownership
@@ -1996,7 +1996,7 @@ def deploy_automated_lagoon_vault(
     # 1. Transfer guard ownership to Gnosis
     assert module.functions.owner().call() == deployer.address
     tx_hash = _broadcast(module.functions.transferOwnership(safe.address))
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
     gas_estimate = estimate_gas_price(web3)
 
@@ -2022,7 +2022,7 @@ def deploy_automated_lagoon_vault(
             gas_fee=gas_estimate,
             hot_wallet=_hot_wallet,
         )
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
         if not is_anvil(web3):
             gnosis_sleep = 20.0

@@ -24,6 +24,7 @@ from safe_eth.safe.proxy_factory import ProxyFactory
 from safe_eth.safe.safe import SafeV141
 from web3 import Web3
 from web3.contract.contract import ContractFunction
+from web3.exceptions import TimeExhausted
 
 from eth_defi.abi import ONE_ADDRESS_STR
 from eth_defi.gas import estimate_gas_price, apply_gas
@@ -37,6 +38,23 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+#: Default timeout in seconds to wait for a deployment transaction to be mined.
+#:
+#: Used by Safe and Lagoon vault deployment helpers instead of the generic
+#: 120 second default of
+#: :py:func:`eth_defi.trace.assert_transaction_success_with_explanation`.
+#:
+#: 120 seconds proved too tight on Ethereum mainnet: on 2026-06-10 a Safe
+#: ``addOwnerWithThreshold()`` transaction with a near-zero priority fee took
+#: ~3.5 minutes to confirm, and the receipt timeout aborted a whole multichain
+#: Lagoon vault deployment mid-flight. Five minutes rides out slow inclusion
+#: while still failing reasonably fast for interactive deployments.
+#:
+#: See also :py:data:`eth_defi.gas.MIN_PRIORITY_FEE_PER_CHAIN` which prevents
+#: near-zero priority fees in the first place.
+#:
+DEFAULT_TX_CONFIRMATION_TIMEOUT: float = 300.0
 
 
 def deploy_safe(
@@ -211,6 +229,7 @@ def deploy_safe_with_deterministic_address(
     proxy_factory_address: HexAddress | str = SAFE_PROXY_FACTORY_ADDRESS,
     post_deploy_delay_seconds: float = 10.0,
     hot_wallet: HotWallet | None = None,
+    tx_confirmation_timeout: float = DEFAULT_TX_CONFIRMATION_TIMEOUT,
 ) -> Safe:
     """Deploy a new Safe wallet at a deterministic address using CREATE2.
 
@@ -250,6 +269,12 @@ def deploy_safe_with_deterministic_address(
         When provided, allocate the transaction nonce from the wallet's
         internal counter instead of letting ``safe_eth`` read from the
         RPC node.  Avoids stale-nonce errors on load-balanced endpoints.
+
+    :param tx_confirmation_timeout:
+        How long to wait for the deployment transaction to be mined, in seconds.
+
+        See :py:data:`DEFAULT_TX_CONFIRMATION_TIMEOUT` for why this is
+        longer than the generic transaction confirmation default.
     """
     assert len(owners) >= 1, "Safe must have at least one owner"
     assert isinstance(deployer, LocalAccount), "Safe can be only deployed using LocalAccount"
@@ -292,7 +317,7 @@ def deploy_safe_with_deterministic_address(
         nonce=deploy_nonce,
     )
 
-    assert_transaction_success_with_explanation(web3, tx_sent.tx_hash)
+    assert_transaction_success_with_explanation(web3, tx_sent.tx_hash, timeout=tx_confirmation_timeout)
 
     contract_address = tx_sent.contract_address
     assert contract_address == expected_address, f"Deployed address {contract_address} does not match expected {expected_address}"
@@ -319,6 +344,7 @@ def add_new_safe_owners(
     gas_per_tx=500_000,
     gnosis_safe_state_safety_sleep=12,
     hot_wallet: HotWallet | None = None,
+    tx_confirmation_timeout: float = DEFAULT_TX_CONFIRMATION_TIMEOUT,
 ):
     """Update Safe owners and threshold list.
 
@@ -340,6 +366,12 @@ def add_new_safe_owners(
         When provided, allocate transaction nonces from the wallet's
         internal counter instead of letting ``safe_eth`` read from the
         RPC node.  Avoids stale-nonce errors on load-balanced endpoints.
+
+    :param tx_confirmation_timeout:
+        How long to wait for each transaction to be mined, in seconds.
+
+        See :py:data:`DEFAULT_TX_CONFIRMATION_TIMEOUT` for why this is
+        longer than the generic transaction confirmation default.
 
     More info:
 
@@ -386,8 +418,22 @@ def add_new_safe_owners(
                     gas_fee=gas_estimate,
                     hot_wallet=hot_wallet,
                 )
-                assert_transaction_success_with_explanation(web3, tx_hash)
+                assert_transaction_success_with_explanation(web3, tx_hash, timeout=tx_confirmation_timeout)
                 break  # Success
+            except TimeExhausted:
+                # The receipt wait timed out, but the transaction may still be
+                # pending with a too-low priority fee and confirm later — this
+                # happened on Ethereum mainnet 2026-06-10 and aborted a whole
+                # multichain deployment. Check the on-chain state before giving up.
+                if Web3.to_checksum_address(owner) in safe.retrieve_owners():
+                    logger.warning(
+                        "Transaction %s adding owner %s timed out after %f seconds, but the owner is now on the Safe owner list — confirmed late, continuing",
+                        tx_hash.hex(),
+                        owner,
+                        tx_confirmation_timeout,
+                    )
+                    break
+                raise
             except (TransactionAssertionError, Exception) as e:
                 if "GS026" not in str(e) and "invalid nonce" not in str(e).lower():
                     raise  # Not a Safe state sync issue — propagate immediately
@@ -426,8 +472,19 @@ def add_new_safe_owners(
                 gas_fee=gas_estimate,
                 hot_wallet=hot_wallet,
             )
-            assert_transaction_success_with_explanation(web3, tx_hash)
+            assert_transaction_success_with_explanation(web3, tx_hash, timeout=tx_confirmation_timeout)
             break
+        except TimeExhausted:
+            # Same late-confirmation handling as for the owner additions above
+            if safe.retrieve_threshold() == threshold:
+                logger.warning(
+                    "Transaction %s changing threshold to %d timed out after %f seconds, but the threshold is now set — confirmed late, continuing",
+                    tx_hash.hex(),
+                    threshold,
+                    tx_confirmation_timeout,
+                )
+                break
+            raise
         except (TransactionAssertionError, Exception) as e:
             if "GS026" not in str(e) and "invalid nonce" not in str(e).lower():
                 raise
