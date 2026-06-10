@@ -5,9 +5,12 @@ website: https://www.augustdigital.io
 short_description: 'August Digital builds institutional on-chain prime brokerage infrastructure for digital assets.'
 long_description: |
   August describes itself as an institutional-grade crypto platform for managing and settling digital assets. Its homepage highlights on-chain prime brokerage infrastructure, smart contract accounts, pricing and risk engines, execution capabilities, automated loan lifecycle tools, and reporting for institutional clients.
-# 2026-06-10 maintain-curators: verified @august_digital active via web search
-# (recent posts, promotes @upshift_fi); twitter-dead-at was an X anti-bot false
-# positive — cleared. linkedin-rss-hub-disabled-at left as-is (bridge-level).
+# 2026-06-10 maintain-curators: handle @august_digital is correct (live
+# profile), but no post dated within the 180-day death_detection_days cutoff
+# (~2025-12-12) could be confirmed (X blocks bots, Nitter dead). Recency
+# unverifiable → twitter-dead-at left in place; re-clear only with a concrete
+# in-window post date.
 twitter: august_digital
 linkedin: augustdigital
 linkedin-rss-hub-disabled-at: 2026-04-04
+twitter-dead-at: 2026-04-06

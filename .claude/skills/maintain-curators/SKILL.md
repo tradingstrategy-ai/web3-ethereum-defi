@@ -62,9 +62,11 @@ operates on. Consult only the sections you need.
   `rss`) with no markers; the clean baseline to compare against. Note that
   `linkedin-rss-hub-disabled-at` is present on ~47 files, so "no markers at all"
   is rare — most live feeders still carry the LinkedIn bridge marker.
-- `august-digital.yaml` — `twitter-dead-at` on a still-active account (the
-  classic anti-bot false positive to clear); also carries the routine
-  `linkedin-rss-hub-disabled-at`.
+- `august-digital.yaml` — `twitter-dead-at` where the handle is correct and the
+  profile is live, but no in-window post could be confirmed → marker **retained,
+  not cleared**. The cautionary example: handle-valid ≠ recently-active.
+- `b-cube-ai.yaml` — `twitter-dead-at` confirmed **genuine**: latest indexed
+  post was an Oct-2025 AMA, older than the 180-day cutoff → marker retained.
 - `smardex.yaml` — `twitter-handle-resolved-unknown-at` plus a hand-written
   `# SmarDex is active …` comment; the handle is in fact live.
 - `gauntlet.yaml`, `block-analitica.yaml` — `rss-dead-at` on a Medium feed.
@@ -82,7 +84,7 @@ the whole feeder produces no posts.
 
 | Marker field | Set by | Meaning | Effect |
 |---|---|---|---|
-| `twitter-dead-at: YYYY-MM-DD` | `mark_twitter_source_dead()` / scanner `_detect_dead_twitter_accounts()` | Twitter account was reachable but had **no new post** within `death_detection_days` | Disables the `twitter:` source |
+| `twitter-dead-at: YYYY-MM-DD` | `mark_twitter_source_dead()` / scanner `_detect_dead_twitter_accounts()` | **Our collector** recorded no post (`last_post_published_at`) within `death_detection_days` (**default 180**, see `scanner.py`). A *recency* signal, computed from our DB — **not** a live scrape | Disables the `twitter:` source |
 | `twitter-handle-resolved-unknown-at: YYYY-MM-DD` | `mark_twitter_handle_unknown()` | X API **could not resolve the handle** to a user id (suspended, deleted, or renamed) | Disables the `twitter:` source |
 | `linkedin-rss-hub-disabled-at: YYYY-MM-DD` | `mark_linkedin_source_disabled()` / `auto_disable_failed_linkedin_sources()` | The RSS-Hub LinkedIn bridge stopped returning posts for this company | Disables the `linkedin:` source |
 | `rss-dead-at: YYYY-MM-DD` | `mark_rss_source_dead()` | RSS feed is valid but has published **nothing for ~a year or more** | Disables the `rss:` source |
@@ -99,22 +101,45 @@ Website deadness and whole-entity tombstones are therefore recorded as **YAML
 comments**, never as new top-level keys. Do not invent new marker keys unless
 you also extend `_MAPPING_SCHEMA`.
 
-### The critical false-positive trap
+### The two Twitter markers ask different questions — do not conflate them
 
-X (Twitter) and LinkedIn now return **HTTP 402 / 403 to nearly all automated
-fetchers**. The scanner that writes these markers hits the same wall, so:
+This is the single most important distinction in this skill. The two Twitter
+markers fail for different reasons and need different evidence to clear:
 
-- `twitter-handle-resolved-unknown-at` and many `twitter-dead-at` markers are
-  **anti-bot false positives**, not evidence that the handle is wrong or the
-  account is gone.
-- A direct `WebFetch` of `https://x.com/<handle>` will usually fail with 402 —
-  that failure tells you **nothing**. Do not treat it as proof of death.
-- Verify Twitter/LinkedIn liveness with **`WebSearch`** (which surfaces indexed
-  profile pages, recent-post snippets, news), not with `WebFetch` of the
-  profile URL.
+- **`twitter-handle-resolved-unknown-at` = handle validity.** "Does this handle
+  resolve to a real account?" Often an **X-API / anti-bot false positive**. It
+  is **refuted by a live, correctly-named profile** — if `WebSearch` shows the
+  handle exists with the right brand, clear it. Recency is irrelevant here.
+
+- **`twitter-dead-at` = recency.** "Has our collector seen a post in the last
+  `death_detection_days` (180)?" It is computed from our own database, **not** a
+  live scrape, so a working account our bridge simply failed to read can be
+  flagged — but so can a genuinely dormant one. **"The profile exists and looks
+  active" does NOT refute it.** The *only* thing that refutes `twitter-dead-at`
+  is a **concrete post dated within ~180 days of today** (i.e. after
+  `today − 180d`). If you cannot find such a dated post, you **cannot** clear
+  the marker — leave it and record that recency was unverifiable. Clearing on a
+  vague "live profile" is the classic mistake: the scanner will just re-stamp it
+  on the next run, and worse, the audit trail will claim a false positive that
+  was never demonstrated.
+
+When you *do* clear `twitter-dead-at`, the audit comment **must cite the
+concrete latest-post date** you found (e.g. "latest post 2026-05-30, within
+180d — cleared"). No date, no clear.
+
+### The anti-bot wall (applies to both)
+
+X (Twitter) and LinkedIn return **HTTP 402 / 403 to nearly all automated
+fetchers**, including a direct `WebFetch` of `https://x.com/<handle>` and, in
+2026, most Nitter mirrors. That failure tells you **nothing** — never treat it
+as proof of death. Use **`WebSearch`** for liveness/handle checks; it surfaces
+indexed profile pages, dated post snippets, and news. But note its limit:
+search often confirms a handle *exists* without giving a *dated* recent post —
+which is enough to clear `twitter-handle-resolved-unknown-at` but **not enough**
+to clear `twitter-dead-at`.
 
 Conversely, **website / RSS / DNS failures are usually real** and can be
-confirmed cheaply with `curl` and `nslookup`.
+confirmed cheaply and conclusively with `curl` and `nslookup`.
 
 ## Required inputs
 
@@ -158,28 +183,39 @@ Handle each marker type with the cheapest reliable check.
   "inconclusive"** — never tombstone on mere absence of evidence, and never
   clear on a hunch. This mirrors `check-stablecoins`' "never mark dead just
   because information is missing".
-- **The audit comment is the durable artefact, not the cleared marker.** For
-  `twitter-dead-at`/`twitter-handle-resolved-unknown-at`, the underlying cause
-  is usually that our collector's bridge cannot reach X. Clearing re-enables the
-  source, but if the bridge is still blind the scanner may **re-stamp** the
-  marker on its next run. That is fine: the dated comment you leave
-  ("verified @handle active … false positive") survives the re-stamp and stops
-  the next maintainer from wrongly *deleting the handle* or treating the account
-  as gone. Always leave the comment even when you expect a re-stamp.
+- **The audit comment is the durable artefact, not the cleared marker.** A
+  cleared `twitter-dead-at` can be **re-stamped** on the next scan if the
+  collector still sees no in-window post, so the lasting value is the comment.
+  Use it to separate the two facts you actually established: *handle validity*
+  ("@handle is correct, live profile") versus *recency* ("latest confirmed post
+  2026-05-30" or "recency unverifiable"). Even when you leave a marker in place,
+  recording "handle verified correct" stops the next maintainer from wrongly
+  *deleting the handle*. Always leave the comment; cite a concrete date whenever
+  you have one.
 
-### `twitter-dead-at` (inactivity)
+### `twitter-dead-at` (recency — needs a concrete in-window post date)
 
-The account exists but looked idle. Decide:
+This marker means our collector saw no post within **180 days**
+(`death_detection_days`). To clear it you must find a **concrete post dated
+after `today − 180d`** — nothing weaker counts. Decide:
 
-1. `WebSearch` for `"{name}" {handle} site:x.com` and for recent news/posts.
-2. If you find posts dated **within the last ~6 months**, the account is
-   active → the marker is a **false positive** (the scanner could not read X,
-   or the account resumed). Plan to **clear** it (Step 3, action 1).
-3. If the account genuinely shows no activity for 6+ months, or the name now
-   maps to a different/renamed handle, treat it as real (repoint or tombstone).
-4. If you cannot tell (everything blocked), **leave the marker untouched** and
-   record that it was inconclusive. Never clear on a guess — the scanner will
-   just re-stamp an inactive account on its next run.
+1. `WebSearch` for `"{name}" {handle} site:x.com` and for recent dated posts or
+   news referencing a specific recent post.
+2. **Found a post dated within 180 days?** The marker is a false positive →
+   **clear** it (Step 3, action 1) and **cite that date** in the audit comment.
+3. **Found only old posts** (newest predates `today − 180d`, e.g. an Oct-2025
+   AMA checked in Jun 2026)? The marker is **accurate** — the account is dormant
+   by the scanner's definition. **Leave it**, and note the latest-post date.
+4. **Could confirm the handle exists but found no dated recent post** (the
+   common case — X blocks bots, Nitter is dead)? Recency is **unverifiable** →
+   **leave the marker in place**. Do *not* clear: "the profile looks active" is
+   not evidence of an in-window post, and the scanner would re-stamp it anyway.
+   Record that the handle is correct but recency could not be confirmed.
+5. If the name now maps to a different/renamed handle, **repoint** (and the new
+   handle starts fresh, so clear the marker).
+
+Compute the cutoff explicitly from today's date; do not eyeball "about six
+months". On 2026-06-10 the cutoff is 2025-12-12.
 
 ### `twitter-handle-resolved-unknown-at` (handle did not resolve)
 

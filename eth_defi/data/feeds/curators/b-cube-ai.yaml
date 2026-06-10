@@ -5,9 +5,11 @@ website: https://b-cube.ai
 short_description: 'B-CUBE.AI is an AI and quantamental crypto trading platform for funds, strategies, and trading tools.'
 long_description: |
   B-CUBE.AI describes itself as a regulated quantamental trading platform combining AI, quantitative models, and fundamentals for institutional clients. Public company information also describes an AI-driven platform for building, optimising, renting, and copying crypto trading strategies, with execution, sentiment analysis, and portfolio tools.
-# 2026-06-10 maintain-curators: verified @bcubeai active via web search
-# (display "B-cube.ai", live profile); twitter-dead-at was an X anti-bot false
-# positive — cleared. linkedin-rss-hub-disabled-at left as-is (bridge-level).
+# 2026-06-10 maintain-curators: handle @bcubeai is correct (live profile,
+# display "B-cube.ai"), but latest indexed post is an Oct 2025 AMA — older than
+# the 180-day death_detection_days cutoff (~2025-12-12). twitter-dead-at is
+# therefore accurate (genuine inactivity, not a false positive) and RETAINED.
 twitter: bcubeai
 linkedin: b-cube-ai
 linkedin-rss-hub-disabled-at: 2026-04-04
+twitter-dead-at: 2026-04-23
