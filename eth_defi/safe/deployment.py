@@ -64,6 +64,7 @@ def deploy_safe(
     threshold: int,
     master_copy_address="0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
     post_deploy_delay_seconds=10.0,
+    tx_confirmation_timeout: float = DEFAULT_TX_CONFIRMATION_TIMEOUT,
 ) -> Safe:
     """Deploy a new Safe wallet.
 
@@ -71,6 +72,12 @@ def deploy_safe(
 
     :param deployer:
         Must be LocalAccount due to Safe library limitations.
+
+    :param tx_confirmation_timeout:
+        How long to wait for the deployment transaction to be mined, in seconds.
+
+        See :py:data:`DEFAULT_TX_CONFIRMATION_TIMEOUT` for why this is
+        longer than the generic transaction confirmation default.
 
     :param master_copy_address:
 
@@ -107,7 +114,7 @@ def deploy_safe(
     )
 
     tx_hash = safe_tx_stuff.tx_hash
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert_transaction_success_with_explanation(web3, tx_hash, timeout=tx_confirmation_timeout)
 
     contract_address = safe_tx_stuff.contract_address
     safe = SafeV141(contract_address, ethereum_client)
