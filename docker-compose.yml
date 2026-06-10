@@ -4,7 +4,7 @@ services:
   # Trigger manually with:
   #   docker compose --profile oneshot run --rm vault-scanner
   # See Dockerfile.vault-scanner for details.
-  vault-scanner:
+  vault-scanner-oneshot:
     image: vault-scanner:local
     build:
       context: .
