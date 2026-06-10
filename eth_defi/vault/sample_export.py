@@ -103,6 +103,9 @@ def generate_sample_json(json_path: Path, output_path: Path) -> int:
 
     sample_data = {
         "generated_at": data["generated_at"],
+        # Carry the exporter version stamp over so the sample keeps the
+        # same provenance contract as the full export
+        "metadata": data.get("metadata", {}),
         "core3_protocols": core3,
         "curators": curators,
         "vaults": filtered_vaults,

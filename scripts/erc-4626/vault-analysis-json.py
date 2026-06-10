@@ -39,6 +39,7 @@ from eth_defi.core3.vault_protocol import build_core3_protocols_for_export
 from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE, VaultPostDatabase
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.curator_export import build_curators_for_export
+from eth_defi.version_info import VersionInfo
 
 # Import core TradingStrategy / eth_defi modules
 from eth_defi.vault.base import VaultSpec  # noqa: F401
@@ -291,9 +292,15 @@ def main(
 
     print(f"Built curator export for {len(curators_export)} curators")
 
-    # 7️⃣ Add metadata and deep sanitize
+    # 7️⃣ Add metadata and deep sanitize.
+    # The git version stamp identifies which exporter build produced the file,
+    # so stale-deployment issues are diagnosable from the JSON alone.
+    version_info = VersionInfo.read_docker_version()
     output_data: VaultMetricsExport = {
         "generated_at": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "metadata": {
+            "version": version_info.as_dict(),
+        },
         "core3_protocols": core3_protocols,
         "curators": curators_export,
         "vaults": vaults,

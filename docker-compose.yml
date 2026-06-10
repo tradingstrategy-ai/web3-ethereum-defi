@@ -9,6 +9,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.vault-scanner
+      # Stamp the image with its git revision, read at runtime by
+      # eth_defi.version_info.VersionInfo. Build with:
+      #
+      #   GIT_VERSION_HASH=$(git rev-parse HEAD) \
+      #   GIT_VERSION_TAG=$(git describe --tags --exact-match 2>/dev/null || true) \
+      #   GIT_COMMIT_MESSAGE=$(git log -1 --pretty=%s) \
+      #   docker compose build vault-scanner
+      #
+      # GIT_VERSION_TAG must be an exact tag or empty — never a fallback
+      # describe string or abbreviated hash. Untagged builds leave it empty,
+      # the ${VAR:-unspecified} default below kicks in, and VersionInfo
+      # normalises the sentinel to None so metadata.version.tag is null;
+      # commit_hash is the primary build identifier.
+      args:
+        GIT_VERSION_TAG: ${GIT_VERSION_TAG:-unspecified}
+        GIT_COMMIT_MESSAGE: ${GIT_COMMIT_MESSAGE:-unspecified}
+        GIT_VERSION_HASH: ${GIT_VERSION_HASH:-unspecified}
     container_name: vault-scanner
     profiles: [ "oneshot" ]
     restart: "no"
