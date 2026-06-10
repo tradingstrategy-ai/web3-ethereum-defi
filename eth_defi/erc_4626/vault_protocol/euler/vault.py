@@ -503,11 +503,10 @@ class EulerEarnVault(ERC4626Vault):
         try:
             data = fee_call.call(self.web3, block_identifier)
         except ValueError as e:
-            logger.warning(
+            logger.info(
                 "fee() read reverted on EulerEarn vault %s: %s",
                 self,
                 str(e),
-                exc_info=e,
             )
             return None
 
