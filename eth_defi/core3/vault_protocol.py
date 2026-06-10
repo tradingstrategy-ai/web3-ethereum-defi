@@ -80,6 +80,37 @@ class Core3PolScore(TypedDict):
     confidence: str | None
 
 
+class Core3PolCategories(TypedDict):
+    """Latest per-category Probability of Loss (PoL) sub-scores.
+
+    Core3 assesses PoL across five risk categories, each with its own
+    sub-score on the same 0 (Exceptional) to 100 (Critical) scale as the
+    overall PoL. Sourced from the API-native category breakdown
+    (``/v1/{slug}/pol/by_category``), stored daily in
+    ``pol_category_daily``. Any sub-score may be ``None`` for
+    less-covered projects.
+    """
+
+    #: ISO 8601 timestamp of the category snapshot these scores come from.
+    #: ``None`` if not available.
+    ts: str | None
+
+    #: Security sub-score: audits, bug bounty, contract verification, monitoring.
+    security: float | None
+
+    #: Financial sub-score: revenue sources, treasury quality, token inflation.
+    financial: float | None
+
+    #: Operational sub-score: GitHub activity, team track record, liquidity.
+    operational: float | None
+
+    #: Reputational sub-score: auditor ratings, incidents, social metrics, insurance.
+    reputational: float | None
+
+    #: Regulatory sub-score: KYC/KYT, jurisdiction, legal documentation, transparency.
+    regulatory: float | None
+
+
 class Core3MarketCap(TypedDict):
     """Market capitalisation data from Core3.
 
@@ -210,6 +241,11 @@ class Core3Record(TypedDict):
     #: Probability of Loss score, rating, and confidence level.
     pol: Core3PolScore
 
+    #: Latest per-category PoL sub-scores (security, financial, etc.).
+    #: ``None`` if the project has no category breakdown in the database.
+    #: Added by the database layer, not present in the original API response.
+    pol_categories: NotRequired[Core3PolCategories | None]
+
     #: Token ticker symbol, e.g. ``"MORPHO"``, ``"EUL"``.
     #: Some projects omit this key entirely from the API response.
     ticker: NotRequired[str | None]
@@ -298,6 +334,11 @@ def get_core3_protocol_record(
     payload = json.loads(payload_str)
     payload["fetched_at"] = fetched_at
 
+    # Attach the latest per-category PoL breakdown (security, financial,
+    # operational, reputational, regulatory). Stored separately from the
+    # project snapshot payload in the pol_category_daily table.
+    payload["pol_categories"] = db.get_latest_pol_category(core3_slug)
+
     return payload
 
 
@@ -324,6 +365,10 @@ class Core3ExportRecord(TypedDict):
 
     #: Probability of Loss score, rating, and confidence level.
     pol: Core3PolScore
+
+    #: Latest per-category PoL sub-scores (security, financial, etc.).
+    #: ``None`` if the project has no category breakdown in the database.
+    pol_categories: NotRequired[Core3PolCategories | None]
 
     #: Token ticker symbol, e.g. ``"MORPHO"``, ``"EUL"``.
     ticker: NotRequired[str | None]
@@ -371,6 +416,75 @@ class Core3ExportRecord(TypedDict):
     fetched_at: str
 
 
+class Core3VaultSection(TypedDict):
+    """Compact per-vault Core3 risk summary.
+
+    A flattened subset of :class:`Core3ExportRecord` embedded under the
+    ``core3`` key of each vault record produced by
+    :py:func:`eth_defi.research.vault_metrics.calculate_vault_record`.
+    Individual values are ``None`` when the underlying Core3 field is
+    missing; the whole section is ``None`` when the vault's protocol has
+    no Core3 data (see :py:func:`build_core3_vault_section`).
+    """
+
+    #: Overall Probability of Loss score, 0 (Exceptional) – 100 (Critical).
+    risk_score: float | None
+
+    #: Total cross-chain market capitalisation in USD.
+    market_cap: float | None
+
+    #: Core3 global rank (1 = lowest risk).
+    core3_ranking: int | None
+
+    #: Data coverage percentage, 0–100.
+    data_coverage: float | None
+
+    #: PoL confidence label, e.g. ``"High"``, ``"Medium"``, ``"Low"``.
+    confidence: str | None
+
+    #: Credit-style PoL rating label, e.g. ``"BB"``, ``"AAA"``.
+    risk_rating_label: str | None
+
+
+def build_core3_vault_section(record: Core3ExportRecord | None) -> Core3VaultSection | None:
+    """Flatten a Core3 export record into a compact per-vault risk summary.
+
+    Picks the handful of headline risk fields the frontend shows on each
+    vault row, flattening the nested :class:`Core3ExportRecord` structure
+    (``pol.score``, ``market_cap.in_usd``, ``data_coverage.percentage``)
+    into a single flat dict.
+
+    :param record:
+        The Core3 export record for the vault's protocol, as returned by
+        :py:func:`build_core3_protocols_for_export`, or ``None`` if the
+        protocol has no Core3 data.
+
+    :return:
+        A :class:`Core3VaultSection` dict, or ``None`` if ``record`` is
+        ``None``. Individual keys are ``None`` when the corresponding
+        Core3 field is absent.
+    """
+    if record is None:
+        return None
+
+    pol = record.get("pol") or {}
+    market_cap = record.get("market_cap") or {}
+    data_coverage = record.get("data_coverage") or {}
+
+    # market_cap.in_usd is a numeric string from the Core3 API, e.g. "1246877334".
+    in_usd = market_cap.get("in_usd")
+    market_cap_usd = float(in_usd) if in_usd is not None else None
+
+    return {
+        "risk_score": pol.get("score"),
+        "market_cap": market_cap_usd,
+        "core3_ranking": record.get("rank"),
+        "data_coverage": data_coverage.get("percentage"),
+        "confidence": pol.get("confidence"),
+        "risk_rating_label": pol.get("rating"),
+    }
+
+
 def build_core3_protocols_for_export(
     db: Core3Database,
     protocol_slugs: Iterable[str],
@@ -408,6 +522,17 @@ def build_core3_protocols_for_export(
         fetched_at = export_record["fetched_at"]
         if isinstance(fetched_at, datetime.datetime):
             export_record["fetched_at"] = fetched_at.isoformat()
+
+        # Serialise the nested per-category snapshot timestamp, which the
+        # database layer returns as a datetime rather than an ISO string.
+        pol_categories = export_record.get("pol_categories")
+        if pol_categories is not None:
+            # Shallow copy to avoid mutating the cached Core3Record dict
+            pol_categories = {**pol_categories}
+            ts = pol_categories.get("ts")
+            if isinstance(ts, datetime.datetime):
+                pol_categories["ts"] = ts.isoformat()
+            export_record["pol_categories"] = pol_categories
 
         result[slug] = export_record
 

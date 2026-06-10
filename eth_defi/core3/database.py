@@ -520,6 +520,46 @@ class Core3Database:
                 [slug],
             ).df()
 
+    def get_latest_pol_category(self, slug: str) -> dict | None:
+        """Get the latest per-category PoL breakdown for a project.
+
+        Returns the most recent row from ``pol_category_daily``, which
+        holds the API-native sub-scores for the five Core3 risk
+        categories (security, financial, operational, reputational,
+        regulatory). Used to embed the category breakdown in the vault
+        metrics JSON export.
+
+        :param slug:
+            Core3 project slug.
+
+        :return:
+            Dict with ``ts`` (naive UTC :class:`~datetime.datetime`) and
+            ``security``, ``financial``, ``operational``,
+            ``reputational``, ``regulatory`` float sub-scores (each may
+            be ``None``), or ``None`` if the slug has no category rows.
+        """
+        with self._db_lock:
+            row = self.con.execute(
+                """
+                SELECT ts, security_score, financial_score, operational_score, reputational_score, regulatory_score
+                FROM pol_category_daily
+                WHERE slug = ?
+                ORDER BY ts DESC
+                LIMIT 1
+                """,
+                [slug],
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "ts": row[0],
+            "security": row[1],
+            "financial": row[2],
+            "operational": row[3],
+            "reputational": row[4],
+            "regulatory": row[5],
+        }
+
     def get_project_count(self) -> int:
         """Get number of unique projects in the database.
 
