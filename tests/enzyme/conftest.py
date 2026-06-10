@@ -7,6 +7,7 @@
 """
 
 import logging
+from pathlib import Path
 
 import pytest
 from eth_typing import HexAddress
@@ -28,6 +29,28 @@ from eth_defi.uniswap_v2.deployment import (
 from eth_defi.usdc.deployment import deploy_fiat_token
 
 logger = logging.getLogger(__name__)
+
+#: Enzyme integration is no longer supported, so every test under this directory is skipped.
+ENZYME_SKIP_REASON = "Enzyme no longer supported"
+
+_ENZYME_TEST_DIR = Path(__file__).parent
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Skip all Enzyme tests.
+
+    Enzyme is no longer supported, so we mark every test collected from this
+    directory as skipped rather than deleting the suite, keeping the code and
+    fixtures available for reference.
+
+    :param items:
+        Collected test items for the whole session; only those living under the
+        Enzyme test directory are marked.
+    """
+    skip_marker = pytest.mark.skip(reason=ENZYME_SKIP_REASON)
+    for item in items:
+        if _ENZYME_TEST_DIR in Path(item.fspath).parents:
+            item.add_marker(skip_marker)
 
 
 @pytest.fixture()
