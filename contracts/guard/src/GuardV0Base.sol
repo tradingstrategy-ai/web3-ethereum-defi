@@ -205,7 +205,8 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // When enabled, the asset manager can trade ANY ERC-20 token without
     // per-token whitelisting. This weakens security because:
     // - approve() calls bypass the per-token call site check
-    // - SwapRouter02 swaps skip recipient validation
+    // - SwapRouter02 swaps skip per-token swap path validation (the swap
+    //   recipient is still always validated against allowedReceivers)
     // - A compromised asset manager could create/use worthless tokens to
     //   extract value through flash-loan or sandwich attacks
     //
@@ -380,7 +381,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
         string calldata notes
     ) public onlyGuardOwner {
         allowedDelegationApprovalDestinations[destination] = true;
-        emit ApprovalDestinationApproved(destination, notes);
+        emit DelegationApprovalDestinationApproved(destination, notes);
     }
 
     function removeDelegationApprovalDestination(
