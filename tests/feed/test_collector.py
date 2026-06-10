@@ -218,8 +218,13 @@ def test_live_gauntlet_collection_and_source_registration(tmp_path: Path) -> Non
     """Read the current Gauntlet feeds and store them in DuckDB.
 
     1. Load the real Gauntlet feeder YAML from the repository feed folder.
-    2. Upsert available source rows into DuckDB (RSS may be dead).
-    3. Fetch live Twitter and LinkedIn feeds and verify posts are stored.
+    2. Upsert available source rows into DuckDB (Twitter is required; LinkedIn and RSS may be disabled or dead).
+    3. Fetch the live feeds that are still available and verify posts are stored.
+
+    Integration test against live data: feeder sources get disabled or marked dead
+    over time (``rss-dead-at``, ``linkedin-rss-hub-disabled-at``), which removes them
+    from :func:`load_post_sources`. Only Twitter is treated as mandatory; LinkedIn and
+    RSS are exercised only when still present in the feeder YAML.
 
     Flaky: depends on public LinkedIn RSS bridge availability.
     """
@@ -232,15 +237,16 @@ def test_live_gauntlet_collection_and_source_registration(tmp_path: Path) -> Non
         sources = [source for source in all_sources if source.feeder_id == "gauntlet"]
 
         # 2. Upsert available source rows into DuckDB.
-        # At minimum Twitter + LinkedIn; RSS may be marked dead.
-        assert len(sources) >= 2
+        # Live feeder data changes over time: LinkedIn can be disabled and RSS can
+        # be marked dead, so Twitter is the only source we can rely on being present.
+        assert len(sources) >= 1
         source_ids = db.upsert_tracked_sources(sources)
 
         twitter_source = next(source for source in sources if source.source_type == "twitter")
-        linkedin_source = next(source for source in sources if source.source_type == "linkedin")
+        linkedin_source = next((source for source in sources if source.source_type == "linkedin"), None)
         rss_source = next((source for source in sources if source.source_type == "rss"), None)
 
-        # 3. Fetch live feeds and verify posts are stored.
+        # 3. Fetch the live feeds that are still available and verify posts are stored.
         twitter_posts = collect_posts_for_source(
             twitter_source,
             max_posts_per_source=5,
@@ -248,21 +254,24 @@ def test_live_gauntlet_collection_and_source_registration(tmp_path: Path) -> Non
             twitter_rss_base_urls=[],
             twitter_url_templates=GAUNTLET_TWITTER_LIVE_TEMPLATES,
         )
-        try:
-            linkedin_posts = collect_posts_for_source(
-                linkedin_source,
-                max_posts_per_source=5,
-                request_timeout=20,
-                twitter_rss_base_urls=[],
-                linkedin_url_templates=GAUNTLET_LINKEDIN_LIVE_TEMPLATES,
-            )
-        except AllBridgesFailedError:
-            # All public LinkedIn RSS bridges are frequently down;
-            # skip LinkedIn assertions when none are reachable.
-            linkedin_posts = []
-
         inserted_twitter = db.insert_posts(source_ids[twitter_source.get_logical_key()], twitter_posts)
-        inserted_linkedin = db.insert_posts(source_ids[linkedin_source.get_logical_key()], linkedin_posts)
+
+        linkedin_posts = []
+        inserted_linkedin = 0
+        if linkedin_source is not None:
+            try:
+                linkedin_posts = collect_posts_for_source(
+                    linkedin_source,
+                    max_posts_per_source=5,
+                    request_timeout=20,
+                    twitter_rss_base_urls=[],
+                    linkedin_url_templates=GAUNTLET_LINKEDIN_LIVE_TEMPLATES,
+                )
+            except AllBridgesFailedError:
+                # All public LinkedIn RSS bridges are frequently down;
+                # skip LinkedIn assertions when none are reachable.
+                linkedin_posts = []
+            inserted_linkedin = db.insert_posts(source_ids[linkedin_source.get_logical_key()], linkedin_posts)
 
         if rss_source is not None:
             rss_posts = collect_posts_for_source(
@@ -279,9 +288,10 @@ def test_live_gauntlet_collection_and_source_registration(tmp_path: Path) -> Non
         assert set(tracked_df["feeder_id"]) == {"gauntlet"}
         assert set(tracked_df["role"]) == {"curator"}
         assert "twitter" in set(tracked_df["source_type"])
-        assert "linkedin" in set(tracked_df["source_type"])
         assert tracked_df.loc[tracked_df["source_type"] == "twitter"].iloc[0]["canonical_url"] == "https://x.com/gauntlet_xyz"
-        assert tracked_df.loc[tracked_df["source_type"] == "linkedin"].iloc[0]["canonical_url"] == "https://www.linkedin.com/company/gauntlet-xyz"
+        if linkedin_source is not None:
+            assert "linkedin" in set(tracked_df["source_type"])
+            assert tracked_df.loc[tracked_df["source_type"] == "linkedin"].iloc[0]["canonical_url"] == "https://www.linkedin.com/company/gauntlet-xyz"
 
         assert inserted_twitter > 0
         assert not posts_df.empty
@@ -289,7 +299,7 @@ def test_live_gauntlet_collection_and_source_registration(tmp_path: Path) -> Non
         assert posts_df["post_url"].notna().any()
         assert posts_df["full_text"].str.len().gt(0).any()
         assert posts_df.loc[posts_df["source_id"] == source_ids[twitter_source.get_logical_key()]].shape[0] > 0
-        if linkedin_posts:
+        if linkedin_source is not None and linkedin_posts:
             assert inserted_linkedin > 0
             assert posts_df.loc[posts_df["source_id"] == source_ids[linkedin_source.get_logical_key()]].shape[0] > 0
     finally:
