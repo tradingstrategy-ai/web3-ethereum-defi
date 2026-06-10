@@ -331,11 +331,39 @@ what was done, placed directly **above the field it concerns** (or at the top of
 the file for whole-entity decisions). Use this exact prefix so the trail is
 greppable:
 
+Cleared a `twitter-dead-at` — note the **concrete in-window post date** that
+justified it (without one, you may not clear):
+
 ```yaml
-# 2026-06-10 maintain-curators: verified @august_digital active via web search
-# (recent posts); twitter-dead-at was an X anti-bot false positive — cleared.
-twitter: august_digital
+# 2026-06-10 maintain-curators: latest post 2026-05-30 (within 180d cutoff
+# 2025-12-12); twitter-dead-at was stale — cleared.
+twitter: example_handle
 ```
+
+Cleared a `twitter-handle-resolved-unknown-at` — handle validity is enough here,
+no recent-date needed:
+
+```yaml
+# 2026-06-10 maintain-curators: @SmarDex resolves to a live, correctly-named
+# profile; handle-resolution marker was a false positive — cleared.
+twitter: SmarDex
+```
+
+**Retained** a `twitter-dead-at` because recency could not be confirmed — record
+that the handle is correct but no in-window post was found, so the next run does
+not re-clear it wrongly:
+
+```yaml
+# 2026-06-10 maintain-curators: handle @august_digital correct (live profile),
+# but no post within the 180-day cutoff could be confirmed (X blocks bots).
+# Recency unverifiable — twitter-dead-at left in place.
+twitter: august_digital
+linkedin: augustdigital
+linkedin-rss-hub-disabled-at: 2026-04-04
+twitter-dead-at: 2026-04-06
+```
+
+Repointed a migrated feed:
 
 ```yaml
 # 2026-06-10 maintain-curators: blog migrated to Substack; repointed RSS and
@@ -376,13 +404,16 @@ Summarise as a table plus notes:
 
 | Feeder | Marker found | Verdict | Action |
 |---|---|---|---|
-| august-digital | twitter-dead-at | false positive (active) | cleared |
-| candle-effect | — (website) | NXDOMAIN, no successor | website tombstone comment |
+| smardex | twitter-handle-resolved-unknown-at | handle resolves (live profile) | cleared |
+| b-cube-ai | twitter-dead-at | latest post Oct 2025, past 180d cutoff | retained (genuinely stale) |
+| august-digital | twitter-dead-at | handle correct, recency unverifiable | retained |
+| candle-effect | — (website) | NXDOMAIN, no successor | website-dead comment |
 | … | … | … | … |
 
 Then list, briefly:
 
-- Markers **cleared** (false positives) and the evidence used.
+- Markers **cleared**, with the evidence — for `twitter-dead-at` the concrete
+  in-window post date, for `twitter-handle-resolved-unknown-at` the live handle.
 - Sources **repointed** (old → new handle/URL).
 - Entities **tombstoned**, with why.
 - Markers **left untouched** and why (inconclusive, bridge-level, or genuinely
