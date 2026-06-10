@@ -300,6 +300,31 @@ def get_block_time(chain_id: int) -> float:
     return block_time
 
 
+def get_evm_block_time(chain_id: int, block_number: int | None = None) -> float | None:
+    """Get block time for a chain at a given block, tolerating unknown chains.
+
+    Unlike :py:func:`get_block_time`, returns ``None`` for chains missing from
+    :py:data:`EVM_BLOCK_TIMES` instead of crashing, so callers can degrade
+    gracefully (e.g. skip a time-based confirmation wait).
+
+    :param chain_id:
+        Chain id to get the block time for.
+
+    :param block_number:
+        Block at which the block time should be resolved.
+
+        Currently unused. Reserved for resolving the block time dynamically in
+        the future: block times change over chain upgrades (e.g. Polygon
+        shortening blocks, Arbitrum Nitro) and some chains have variable block
+        types (HyperEVM dual-block architecture), so a static per-chain value
+        is only an approximation.
+
+    :return:
+        Block time in seconds, or ``None`` if the chain is not in the lookup table.
+    """
+    return EVM_BLOCK_TIMES.get(chain_id)
+
+
 def get_default_call_gas_limit(chain_id: int) -> int:
     """Get the eth_call reasonable gas limit.
 

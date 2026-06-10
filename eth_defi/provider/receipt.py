@@ -1,6 +1,7 @@
 """Transaction receipt visibility helpers for multi-provider Web3 setups."""
 
 import logging
+import math
 import time
 
 from hexbytes import HexBytes
@@ -18,6 +19,7 @@ from web3.exceptions import (
 from web3.providers import BaseProvider
 from web3.types import TxReceipt
 
+from eth_defi.chain import get_evm_block_time
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.named import get_provider_name
@@ -48,6 +50,29 @@ PROVIDER_READ_EXCEPTIONS = (
 #: MultiProvider setups where writes go to a sequencer / transaction provider and reads
 #: go to lagging public RPCs. Anvil ignores this (single coherent state view).
 DEFAULT_CONFIRMATION_BLOCK_COUNT = 2
+
+#: Default wall-clock confirmation time in seconds for
+#: :py:func:`wait_for_transaction_receipt_robust` on live (non-Anvil) chains.
+#:
+#: Converted to a per-chain block count using
+#: :py:func:`eth_defi.chain.get_evm_block_time` and combined with
+#: ``confirmation_block_count`` as ``max(time_based_blocks, confirmation_block_count)``.
+#:
+#: Why a time and not a count: a fixed block count means a wildly different real wait
+#: per chain — :py:data:`DEFAULT_CONFIRMATION_BLOCK_COUNT` (2) is ~24 s on Ethereum
+#: mainnet but only ~0.5 s on Arbitrum. Half a second is not enough for all backend
+#: nodes behind a load-balanced RPC endpoint (lb.drpc.org and similar) to apply the
+#: new block, so an ``eth_call`` issued right after the wait could still read
+#: pre-transaction state. Observed on Arbitrum 2026-06-10: ``allowance()`` returned 0
+#: immediately after a confirmed ``approve()``, aborting a Lagoon vault first deposit.
+#:
+#: 25 seconds gives roughly: Ethereum mainnet 3 blocks, Base 13 blocks,
+#: Arbitrum 100 blocks.
+#:
+#: Pass ``confirmation_block_time=0`` to disable the time-based wait and use only
+#: ``confirmation_block_count``. An explicit ``confirmation_block_count=0`` (the
+#: documented pure receipt-visibility opt-out) also disables this default.
+DEFAULT_CONFIRMATION_BLOCK_TIME: float = 25.0
 
 
 class ReceiptVisibilityTimedOut(TimeoutError):
@@ -216,6 +241,7 @@ def wait_for_transaction_receipt_robust(
     poll_delay: float = 1.0,
     max_poll_delay: float = 5.0,
     confirmation_block_count: int | None = None,
+    confirmation_block_time: float | None = None,
     extra_sleep: float = 0.0,
 ) -> TxReceipt:
     """Wait until a transaction receipt is visible through all read RPC providers.
@@ -253,7 +279,29 @@ def wait_for_transaction_receipt_robust(
         when the read provider trails the sequencer.
 
         Pass ``confirmation_block_count=0`` explicitly to opt back into pure
-        receipt-visibility behaviour without waiting for confirmations.
+        receipt-visibility behaviour without waiting for confirmations. This
+        also disables the default time-based wait below, unless an explicit
+        ``confirmation_block_time`` is passed alongside.
+    :param confirmation_block_time:
+        Wall-clock confirmation time in seconds, converted to a per-chain block
+        count using :py:func:`eth_defi.chain.get_evm_block_time`.
+
+        The effective confirmation requirement is
+        ``max(ceil(confirmation_block_time / chain_block_time), confirmation_block_count)``.
+
+        This makes the wait meaningful on fast chains: a fixed block count of 2 is
+        ~24 s on Ethereum mainnet but only ~0.5 s on Arbitrum, which is not enough
+        for all backends behind a load-balanced RPC endpoint to catch up before a
+        follow-up state read. See :py:data:`DEFAULT_CONFIRMATION_BLOCK_TIME`.
+
+        Defaults to ``None``, which resolves to
+        :py:data:`DEFAULT_CONFIRMATION_BLOCK_TIME` (25 seconds) — except when
+        ``confirmation_block_count=0`` was explicitly passed, the documented
+        pure receipt-visibility opt-out, in which case no time-based wait is
+        applied either.
+
+        Pass ``0`` to disable and use only ``confirmation_block_count``. Ignored on
+        Anvil and on chains with no known block time.
     :param extra_sleep:
         Extra seconds to sleep once after all read providers have seen the
         matching receipt and enough confirmations.
@@ -264,6 +312,7 @@ def wait_for_transaction_receipt_robust(
     assert poll_delay > 0, f"poll_delay must be positive, got {poll_delay}"
     assert max_poll_delay >= poll_delay, f"max_poll_delay must be >= poll_delay, got {max_poll_delay} < {poll_delay}"
     assert confirmation_block_count is None or confirmation_block_count >= 0, f"confirmation_block_count must be non-negative, got {confirmation_block_count}"
+    assert confirmation_block_time is None or confirmation_block_time >= 0, f"confirmation_block_time must be non-negative, got {confirmation_block_time}"
     assert extra_sleep >= 0, f"extra_sleep must be non-negative, got {extra_sleep}"
 
     tx_hash_bytes = HexBytes(tx_hash)
@@ -304,6 +353,29 @@ def wait_for_transaction_receipt_robust(
     # Anvil already returned above and never reaches here.
     if confirmation_block_count is None:
         confirmation_block_count = DEFAULT_CONFIRMATION_BLOCK_COUNT
+
+    if confirmation_block_time is None:
+        # An explicit confirmation_block_count=0 is the documented pure
+        # receipt-visibility opt-out and disables the default time-based wait too.
+        confirmation_block_time = 0.0 if confirmation_block_count == 0 else DEFAULT_CONFIRMATION_BLOCK_TIME
+
+    # Convert the wall-clock confirmation time to a per-chain block count and
+    # take the stricter of the two requirements. On fast chains (Arbitrum ~250 ms
+    # blocks) a small fixed block count passes before load-balanced RPC backends
+    # have applied the block, so follow-up eth_calls can read stale state.
+    if confirmation_block_time > 0:
+        chain_id = getattr(web3.eth, "chain_id", None)
+        block_time = get_evm_block_time(chain_id) if chain_id is not None else None
+        if block_time is None:
+            logger.warning(
+                "Cannot resolve block time for chain %s, ignoring confirmation_block_time=%s and using confirmation_block_count=%d only",
+                chain_id,
+                confirmation_block_time,
+                confirmation_block_count,
+            )
+        else:
+            time_based_block_count = math.ceil(confirmation_block_time / block_time)
+            confirmation_block_count = max(confirmation_block_count, time_based_block_count)
 
     providers = get_read_providers(web3)
     provider_entries = list(enumerate(providers))
