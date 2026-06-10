@@ -1,6 +1,10 @@
 feeder-id: candle-effect
 name: Candle Effect
 role: curator
+# 2026-06-10 maintain-curators: candleffect.com is NXDOMAIN from public
+# resolvers (8.8.8.8, 1.1.1.1) — website domain is dead. Entity may still run
+# its Lighter public pools (see other-links), so not tombstoned; no successor
+# domain found. Left for the record; repoint if a new site surfaces.
 website: https://www.candleffect.com
 twitter: candleffect
 short_description: Candle Effect is a crypto trading signals and copy-trading community operating public pools on Lighter.

@@ -5,5 +5,10 @@ website: https://woo.org
 short_description: 'WOO builds crypto trading, automation and on-chain execution infrastructure for traders and agents.'
 long_description: |
   WOO describes itself as AI-powered infrastructure for trading, automation and on-chain execution across markets. Its homepage points users to WOOFi for cross-chain swaps and earn vaults, WOOFi Pro for a gasless orderbook perpetual DEX, and WOO Stake for on-chain WOO token staking. The site positions the ecosystem as infrastructure used by traders and agents across centralised and decentralised markets.
+# 2026-06-10 maintain-curators: handle @WOO_ecosystem is correct (current WOO
+# Network handle, live profile). twitter-dead-at most likely reflects a
+# collection gap for this very active account rather than real inactivity, but
+# no in-window post date could be confirmed (X blocks bots). Recency
+# unverifiable → marker left in place; re-clear with a concrete recent post date.
 twitter: WOO_ecosystem
 twitter-dead-at: 2026-04-06
