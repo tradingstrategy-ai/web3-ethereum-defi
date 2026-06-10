@@ -638,6 +638,13 @@ Generates `top_vaults_by_chain.json` with the following top-level structure:
 ```json
 {
   "generated_at": "2026-06-08T12:00:00Z",
+  "metadata": {
+    "version": {
+      "tag": "v0.31",
+      "commit_message": "feat: stamp version",
+      "commit_hash": "4cea3aa3deadbeef"
+    }
+  },
   "core3_protocols": {
     "morpho": { "slug": "morpho", "pol": {...}, "fetched_at": "2026-06-07T12:00:00", ... },
     "fluid": { "slug": "instadapp", "pol": {...}, ... }
@@ -649,6 +656,13 @@ Generates `top_vaults_by_chain.json` with the following top-level structure:
   "vaults": [ ... ]
 }
 ```
+
+The `metadata.version` dict carries the git version stamp of the exporter
+Docker image (see `eth_defi.version_info.VersionInfo` and
+`Dockerfile.vault-scanner`), so any generated JSON can be traced back to the
+exact code revision that produced it. All version fields are `null` when the
+exporter runs outside a stamped Docker image, e.g. from a source checkout.
+The Ethereum-only `vault-metadata.sample.json` carries the same `metadata` key.
 
 Core3 risk intelligence records are attached at the top level keyed by protocol
 slug (not duplicated per-vault). The `core3_protocols` dict is built directly

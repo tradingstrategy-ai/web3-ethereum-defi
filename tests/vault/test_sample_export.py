@@ -9,14 +9,22 @@ from eth_defi.vault.sample_export import generate_sample_json
 def test_sample_json_filters_core3_protocols_and_curators(tmp_path: Path):
     """Sample JSON export filters core3_protocols and curators to Ethereum-only slugs.
 
-    1. Create a source JSON with Ethereum and non-Ethereum vaults plus core3_protocols and curators
+    1. Create a source JSON with Ethereum and non-Ethereum vaults plus core3_protocols, curators and provenance metadata
     2. Generate sample JSON (Ethereum-only filter)
     3. Assert only protocol slugs present in Ethereum vaults are kept in core3_protocols
     4. Assert only curator slugs present in Ethereum vaults are kept in curators
+    5. Assert the exporter version stamp metadata is carried over unchanged
     """
-    # 1. Create source JSON with mixed chains, core3_protocols, and curators
+    # 1. Create source JSON with mixed chains, core3_protocols, curators and provenance metadata
     source_data = {
         "generated_at": "2026-06-08T00:00:00Z",
+        "metadata": {
+            "version": {
+                "tag": "v0.31",
+                "commit_message": "feat: stamp version",
+                "commit_hash": "4cea3aa3deadbeef",
+            },
+        },
         "core3_protocols": {
             "morpho": {"slug": "morpho", "name": "Morpho", "pol": {"score": 32.0}},
             "fluid": {"slug": "instadapp", "name": "Fluid", "pol": {"score": 45.0}},
@@ -85,3 +93,12 @@ def test_sample_json_filters_core3_protocols_and_curators(tmp_path: Path):
     assert "gains-network" not in result["curators"]
 
     assert result["generated_at"] == "2026-06-08T00:00:00Z"
+
+    # 5. Provenance metadata is carried over so the sample matches the full export shape
+    assert result["metadata"] == {
+        "version": {
+            "tag": "v0.31",
+            "commit_message": "feat: stamp version",
+            "commit_hash": "4cea3aa3deadbeef",
+        },
+    }
