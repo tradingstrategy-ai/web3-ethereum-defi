@@ -20,6 +20,7 @@ and centralised exchanges, scoring risk on a 0-100 scale where 0 = Exceptional a
 | `eth_defi.core3.database` | `Core3Database` — DuckDB persistence with thread-safe inserts, deduplication, sync state watermarks, and query methods |
 | `eth_defi.core3.scanner` | `scan_projects()` orchestrator — parallel fetching with `joblib.Parallel`, incremental sync, error handling |
 | `eth_defi.core3.mappings` | `CORE3_MAPPINGS` — canonical mapping from our vault protocol slugs to Core3 project slugs |
+| `eth_defi.core3.vault_protocol` | `build_core3_protocols_for_export()` / `get_core3_protocol_record()` — resolve vault protocol slugs to Core3 records for the vault metrics JSON export (`core3_protocols` key), including the latest per-category PoL sub-scores (`pol_categories`) |
 
 ## Database files
 

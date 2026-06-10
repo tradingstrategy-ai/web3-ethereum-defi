@@ -50,6 +50,7 @@ from eth_defi.research.vault_metrics import (
     export_lifetime_row,
     cross_check_data,
     calculate_hourly_returns_for_all_vaults,
+    slugify_protocol,
 )
 
 # --------------------------------------------------------------------
@@ -227,20 +228,10 @@ def main(
 
     raw_returns_df = returns_df = calculate_hourly_returns_for_all_vaults(prices_df)
 
-    lifetime_data_df = calculate_lifetime_metrics(returns_df, vault_db)
-
-    print(f"Calculated lifetime metrics for {len(lifetime_data_df):,} vaults with {len(lifetime_data_df.columns):,} columns")
-
-    # Don't export all crappy vaults to keep the data more compact
-    # Use peak TVL so we will export old vaults too which were popular in the past
-    filtered_lifetime_data_df = lifetime_data_df[lifetime_data_df["peak_nav"] >= THRESHOLD_TVL]
-
-    # 5️⃣ Convert DataFrame → list of dicts
-    vaults = [export_lifetime_row(r) for _, r in filtered_lifetime_data_df.iterrows()]
-
-    # 6️⃣ Build Core3 protocol-level risk data directly for the export.
-    # Core3 data is per-protocol (not per-vault), so it lives at the top level
-    # of the JSON export keyed by our internal protocol slugs.
+    # Build Core3 protocol-level risk data up front, so it can be attached
+    # both per-vault (compact ``core3`` summary inside each vault record) and
+    # at the top level of the export (full ``core3_protocols`` dict).
+    # Core3 records are keyed by our internal protocol slug.
     core3_protocols = {}
     if core3_db_path is None:
         db_path_env = os.getenv("CORE3_DATABASE_PATH")
@@ -252,11 +243,31 @@ def main(
         core3_db = Core3Database(core3_db_path)
         try:
             print(f"Opened Core3 risk database at {core3_db_path} with {core3_db.get_project_count()} projects")
-            unique_slugs = {v.get("protocol_slug") for v in vaults if v.get("protocol_slug")}
-            unique_slugs.discard(None)
-            core3_protocols = build_core3_protocols_for_export(core3_db, unique_slugs)
+            # Derive protocol slugs directly from vault metadata (slugify_vaults
+            # has not run yet at this point, so compute the slug from "Protocol").
+            all_protocol_slugs = {slugify_protocol(v["Protocol"]) for v in vault_db.values()}
+            core3_protocols = build_core3_protocols_for_export(core3_db, all_protocol_slugs)
         finally:
             core3_db.close()
+
+    lifetime_data_df = calculate_lifetime_metrics(returns_df, vault_db, core3_protocols=core3_protocols)
+
+    print(f"Calculated lifetime metrics for {len(lifetime_data_df):,} vaults with {len(lifetime_data_df.columns):,} columns")
+
+    # Don't export all crappy vaults to keep the data more compact
+    # Use peak TVL so we will export old vaults too which were popular in the past
+    filtered_lifetime_data_df = lifetime_data_df[lifetime_data_df["peak_nav"] >= THRESHOLD_TVL]
+
+    # 5️⃣ Convert DataFrame → list of dicts
+    vaults = [export_lifetime_row(r) for _, r in filtered_lifetime_data_df.iterrows()]
+
+    # 6️⃣ Restrict the top-level Core3 protocol risk data to protocols that
+    # actually survived the export filter. Core3 data is per-protocol (not
+    # per-vault), so it lives at the top level keyed by our protocol slugs;
+    # the full dict was built up front (above) and also fed per-vault.
+    exported_slugs = {v.get("protocol_slug") for v in vaults if v.get("protocol_slug")}
+    exported_slugs.discard(None)
+    core3_protocols = {slug: record for slug, record in core3_protocols.items() if slug in exported_slugs}
 
     # 6b. Build curator metadata and recent feed entries for the export.
     # Curator data is per-curator (not per-vault), keyed by curator slug.
