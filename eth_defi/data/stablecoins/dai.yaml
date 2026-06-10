@@ -20,7 +20,7 @@ links:
   twitter: https://x.com/MakerDAO
 contract_addresses:
   - chain: ethereum
-    address: '0x6b175474e89094c44da98b954eedeac495271d0f'
+    address: '0x6B175474E89094C44Da98b954EedeAC495271d0F'
 slug: dai
 checks:
   twitter_last_post_at: ''

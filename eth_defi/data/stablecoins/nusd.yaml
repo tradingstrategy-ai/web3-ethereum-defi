@@ -15,13 +15,13 @@ long_description: |
 
   ## Key contracts (Ethereum)
 
-  - NUSD: `0xE556ABa6fe6036275ec1f87eda296be72c811bce`
-  - sNUSD: `0x08EFCC2F3e61185d0ea7f8830b3fec9bfa2ee313`
+  - NUSD: `0xE556ABa6fe6036275Ec1f87eda296BE72C811BCE`
+  - sNUSD: `0x08EFCC2F3e61185D0EA7F8830B3FEc9Bfa2EE313`
 
   ## Note on NUSD duplicates
 
   There is also a separate legacy token, **Neutral Dollar (NUSD)** by Neutral Project
-  (`0x0C6144c16af288948c8fdb37fd8fec94bff3d1d9`), a stablecoin basket project from 2018–2019
+  (`0x0C6144c16af288948C8fdB37fD8fEc94bfF3d1d9`), a stablecoin basket project from 2018–2019
   that is now defunct (22,096 tokens, 97 holders, no activity).
 
   ## Status
@@ -33,7 +33,7 @@ long_description: |
 
   - [Neutrl](https://neutrl.fi/)
   - [Neutrl docs — contract addresses](https://docs.neutrl.fi/resources-and-ecosystem/addresses)
-  - [Etherscan — NUSD](https://etherscan.io/token/0xE556ABa6fe6036275ec1f87eda296be72c811bce)
+  - [Etherscan — NUSD](https://etherscan.io/token/0xE556ABa6fe6036275Ec1f87eda296BE72C811BCE)
 category: stablecoin
 links:
   homepage: https://neutrl.fi/
@@ -42,7 +42,7 @@ links:
   twitter: https://x.com/Neutrl
 contract_addresses:
   - chain: ethereum
-    address: '0xE556ABa6fe6036275ec1f87eda296be72c811bce'
+    address: '0xE556ABa6fe6036275Ec1f87eda296BE72C811BCE'
 slug: nusd
 checks:
   twitter_last_post_at: '2026-02-08'

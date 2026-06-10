@@ -14,10 +14,10 @@ links:
   homepage: https://truefi.io/
   coingecko: ''
   defillama: ''
-  twitter: https://x.com/TrueFi_DAO
+  twitter: https://x.com/TrueFiDAO
 contract_addresses:
   - chain: ethereum
-    address: '0xa991356d261fbaF194463aF6DF8f0464F8f1c742'
+    address: '0xA991356d261fbaF194463aF6DF8f0464F8f1c742'
 slug: tfusdc
 checks:
   twitter_last_post_at: ''

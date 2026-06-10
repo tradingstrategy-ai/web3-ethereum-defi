@@ -19,17 +19,17 @@ long_description: |
 
   ## Sources
 
-  - [Etherscan: CNHT on Ethereum](https://etherscan.io/token/0x6e109e9dd7fa1a58bc3eff667e8e41fc3cc07aef)
+  - [Etherscan: CNHT on Ethereum](https://etherscan.io/token/0x6E109E9dD7Fa1a58BC3eff667e8e41fC3cc07AEF)
 category: stablecoin
 links:
   homepage: https://tether.to/
   coingecko: ''
   defillama: ''
-  twitter: https://x.com/Tether_to
+  twitter: https://x.com/tether
 slug: cnht
 contract_addresses:
   - chain: ethereum
-    address: '0x6e109e9dd7fa1a58bc3eff667e8e41fc3cc07aef'
+    address: '0x6E109E9dD7Fa1a58BC3eff667e8e41fC3cc07AEF'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

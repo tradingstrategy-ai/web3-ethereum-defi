@@ -7,7 +7,7 @@ long_description: |
   minted by depositing FTM as collateral into the Fantom DeFi suite. It was pegged to the US dollar through an
   overcollateralisation mechanism. The project is now defunct following the broader wind-down of the original
   Fantom DeFi ecosystem. The Fantom blockchain itself later rebranded and upgraded to [Sonic](https://soniclabs.com/).
-  The token contract on Fantom at address `0xAD84341756Bf337f5a0164515b1f6F993D194E1f` is no longer actively
+  The token contract on Fantom at address `0xAd84341756Bf337f5a0164515b1f6F993D194E1f` is no longer actively
   supported.
 category: stablecoin
 links:
@@ -17,7 +17,7 @@ links:
   twitter: https://x.com/FantomFDN
 contract_addresses:
   - chain: fantom
-    address: '0xAD84341756Bf337f5a0164515b1f6F993D194E1f'
+    address: '0xAd84341756Bf337f5a0164515b1f6F993D194E1f'
 slug: fusd
 checks:
   twitter_last_post_at: ''

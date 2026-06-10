@@ -21,7 +21,7 @@ long_description: |
 
   ## Sources
 
-  - [Etherscan: BAC on Ethereum](https://etherscan.io/token/0x3449fc1cd036255ba1eb19d65ff4ba2b8903a69a)
+  - [Etherscan: BAC on Ethereum](https://etherscan.io/token/0x3449FC1Cd036255BA1EB19d65fF4BA2b8903A69a)
   - [CoinGecko: Basis Cash](https://www.coingecko.com/en/coins/basis-cash)
 category: stablecoin
 links:
@@ -32,7 +32,7 @@ links:
 slug: bac
 contract_addresses:
   - chain: ethereum
-    address: '0x3449fc1cd036255ba1eb19d65ff4ba2b8903a69a'
+    address: '0x3449FC1Cd036255BA1EB19d65fF4BA2b8903A69a'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

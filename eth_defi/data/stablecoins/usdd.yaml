@@ -48,11 +48,11 @@ links:
 slug: usdd
 contract_addresses:
   - chain: ethereum
-    address: '0x4f8e5de400de08b164e7421b3ee387f461becd1a'
+    address: '0x4f8e5DE400DE08B164E7421B3EE387f461beCD1A'
   - chain: binance
-    address: '0x392004bee213f1ff580c867359c246924f21e6ad'
+    address: '0x392004BEe213F1FF580C867359C246924f21E6Ad'
   - chain: arbitrum
-    address: '0x680447595e8b7b3aa1b43beb9f6098c79ac2ab3f'
+    address: '0x680447595e8b7b3Aa1B43beB9f6098C79ac2Ab3f'
 checks:
   twitter_last_post_at: '2026-02-06'
   domain_up_at: '2026-03-17'

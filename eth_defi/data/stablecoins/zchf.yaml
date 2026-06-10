@@ -29,7 +29,7 @@ links:
   twitter: https://x.com/frankencoinzchf
 contract_addresses:
   - chain: ethereum
-    address: '0xb58e61c3098d85632df34eecfb899a1ed80921cb'
+    address: '0xB58E61C3098d85632Df34EecfB899A1Ed80921cB'
 slug: zchf
 checks:
   twitter_last_post_at: '2026-03-01'

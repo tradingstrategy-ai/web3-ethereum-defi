@@ -18,7 +18,7 @@ links:
   twitter: https://x.com/compoundfinance
 contract_addresses:
   - chain: ethereum
-    address: '0xf650c3d88d12db855b8bf7d11be6c55a4e07dcc9'
+    address: '0xf650C3d88D12dB855b8bf7D11Be6C55A4e07dCC9'
 slug: cusdt
 checks:
   twitter_last_post_at: ''

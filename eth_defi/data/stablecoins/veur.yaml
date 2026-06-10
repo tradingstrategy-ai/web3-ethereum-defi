@@ -21,12 +21,12 @@ links:
   homepage: https://vnx.li/
   coingecko: https://www.coingecko.com/en/coins/vnx-euro
   defillama: https://defillama.com/stablecoin/vnx-euro
-  twitter: https://x.com/VNX_fi
+  twitter: https://x.com/VNX_Platform
 contract_addresses:
   - chain: ethereum
     address: '0x6bA75D640bEbfe5dA1197bb5A2aff3327789b5d3'
   - chain: arbitrum
-    address: '0x4883c8f0529f37e40ebea870f3c13cdfad5d01f8'
+    address: '0x4883C8f0529F37e40eBeA870F3C13cDfAD5d01f8'
 slug: veur
 checks:
   twitter_last_post_at: '2026-03-01'

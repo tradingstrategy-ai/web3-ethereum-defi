@@ -37,11 +37,11 @@ entries:
     twitter: https://x.com/AgoraCurrency
   contract_addresses:
     - chain: ethereum
-      address: '0x00000000efe302beaa2b3e6e1b18d08d69a9012a'
+      address: '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a'
     - chain: base
-      address: '0x00000000efe302beaa2b3e6e1b18d08d69a9012a'
+      address: '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a'
     - chain: arbitrum
-      address: '0x00000000efe302beaa2b3e6e1b18d08d69a9012a'
+      address: '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a'
   checks:
     twitter_last_post_at: ''
     domain_up_at: '2026-03-17'

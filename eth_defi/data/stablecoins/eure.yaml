@@ -18,7 +18,7 @@ links:
   twitter: https://x.com/monerium
 contract_addresses:
   - chain: ethereum
-    address: '0x39b8b6385416f4ca36a20319f70d28621895279d'
+    address: '0x39b8B6385416f4cA36a20319F70D28621895279D'
 slug: eure
 checks:
   twitter_last_post_at: ''

@@ -39,7 +39,7 @@ links:
 slug: byusd
 contract_addresses:
   - chain: berachain
-    address: '0x688e72142674041f8f6af4c808a4045ca1d6ac82'
+    address: '0x688e72142674041f8f6Af4c808a4045cA1D6aC82'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

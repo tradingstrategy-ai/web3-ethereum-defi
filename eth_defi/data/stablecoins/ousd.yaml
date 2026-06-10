@@ -22,13 +22,13 @@ long_description: |
   ## Status
 
   Active on Ethereum with approximately $5.8 million TVL and a 5.49% 30-day APY (as of early 2025).
-  The current contract at `0x2A8e1E676Ec238d8A992307B495b45B3feAA5e86` is the post-exploit version.
+  The current contract at `0x2A8e1E676Ec238d8A992307B495b45B3fEAa5e86` is the post-exploit version.
 
   ## Sources
 
   - [Origin Protocol — OUSD](https://www.originprotocol.com/ousd)
   - [DeFiLlama — Origin Dollar](https://defillama.com/stablecoin/origin-dollar)
-  - [Etherscan — OUSD](https://etherscan.io/token/0x2A8e1E676Ec238d8A992307B495b45B3feAA5e86)
+  - [Etherscan — OUSD](https://etherscan.io/token/0x2A8e1E676Ec238d8A992307B495b45B3fEAa5e86)
 category: yield_bearing
 links:
   homepage: https://www.originprotocol.com/ousd
@@ -37,7 +37,7 @@ links:
   twitter: https://x.com/OriginProtocol
 contract_addresses:
   - chain: ethereum
-    address: '0x2A8e1E676Ec238d8A992307B495b45B3feAA5e86'
+    address: '0x2A8e1E676Ec238d8A992307B495b45B3fEAa5e86'
 slug: ousd
 checks:
   twitter_last_post_at: ''

@@ -19,7 +19,7 @@ long_description: |
   ## Sources
 
   - [Liquity V2 documentation](https://docs.liquity.org/)
-  - [Etherscan: BOLD on Ethereum](https://etherscan.io/token/0x6440f144b7e50d6a8439336510312d2f54beb01d)
+  - [Etherscan: BOLD on Ethereum](https://etherscan.io/token/0x6440f144b7e50D6a8439336510312d2F54beB01D)
   - [DeFiLlama: Liquity BOLD](https://defillama.com/stablecoin/liquity-bold)
 category: stablecoin
 links:
@@ -30,7 +30,7 @@ links:
 slug: bold
 contract_addresses:
   - chain: ethereum
-    address: '0x6440f144b7e50d6a8439336510312d2f54beb01d'
+    address: '0x6440f144b7e50D6a8439336510312d2F54beB01D'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

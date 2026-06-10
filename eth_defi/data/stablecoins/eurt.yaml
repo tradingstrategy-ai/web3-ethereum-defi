@@ -15,10 +15,10 @@ links:
   homepage: https://tether.to/
   coingecko: https://www.coingecko.com/en/coins/tether-eurt
   defillama: https://defillama.com/stablecoin/tether-eurt
-  twitter: https://x.com/Tether_to
+  twitter: https://x.com/tether
 contract_addresses:
   - chain: ethereum
-    address: '0xc581b735a1688071a1746c968e0798d642ede491'
+    address: '0xC581b735A1688071A1746c968e0798D642EDE491'
 slug: eurt
 checks:
   twitter_last_post_at: ''

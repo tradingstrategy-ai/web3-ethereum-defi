@@ -34,7 +34,7 @@ links:
   twitter: https://x.com/csigmafinance
 contract_addresses:
   - chain: ethereum
-    address: '0xd5d097f278a735d0a3c609deee71234cac14b47e'
+    address: '0xD5D097F278a735d0a3c609DEEE71234CAc14B47e'
 slug: csusd
 checks:
   twitter_last_post_at: ''

@@ -23,7 +23,7 @@ links:
   twitter: https://x.com/GNDProtocol
 contract_addresses:
   - chain: arbitrum
-    address: '0xeC13336BBD50790a00CDc0FEDdF11287eAf92529'
+    address: '0xEC13336bbd50790a00CDc0fEddF11287eaF92529'
 slug: gmusd
 checks:
   twitter_last_post_at: ''

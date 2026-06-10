@@ -41,7 +41,7 @@ links:
 slug: usdbc
 contract_addresses:
   - chain: base
-    address: '0xd9aAEc86b65D86f6A7B5B1b0c42FFA531710b6CA'
+    address: '0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA'
 checks:
   twitter_last_post_at: '2026-03-17'
   domain_up_at: '2026-03-17'

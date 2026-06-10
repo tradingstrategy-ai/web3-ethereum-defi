@@ -22,7 +22,7 @@ long_description: |
   - [Jarvis Network](https://www.jarvis.network/)
   - [Jarvis Network: jFIAT minting overview](https://learn.jarvis.network/protocol-overview/minting)
   - [CoinGecko: Jarvis Synthetic Swiss Franc](https://www.coingecko.com/en/coins/jarvis-synthetic-swiss-franc)
-  - [Etherscan: jCHF token](https://etherscan.io/token/0x53dFEa0a8CC2A2a2e425E1C174Bc162999723ea0)
+  - [Etherscan: jCHF token](https://etherscan.io/token/0x53dfEa0A8CC2A2A2e425E1C174Bc162999723ea0)
 category: stablecoin
 links:
   homepage: https://www.jarvis.network/
@@ -31,7 +31,7 @@ links:
   twitter: https://x.com/Jarvis_Network
 contract_addresses:
   - chain: ethereum
-    address: '0x53dFEa0a8CC2A2a2e425E1C174Bc162999723ea0'
+    address: '0x53dfEa0A8CC2A2A2e425E1C174Bc162999723ea0'
 slug: jchf
 checks:
   twitter_last_post_at: ''

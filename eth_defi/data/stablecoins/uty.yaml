@@ -29,7 +29,7 @@ links:
   twitter: https://x.com/xsy_fi
 contract_addresses:
   - chain: avalanche
-    address: '0xdbc5192a6b6ffee7451301bb4ec312f844f02b4a'
+    address: '0xDBc5192A6B6FfEe7451301bb4ec312f844F02B4A'
 slug: uty
 checks:
   twitter_last_post_at: '2026-03-17'

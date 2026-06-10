@@ -23,7 +23,7 @@ long_description: |
   ## Sources
 
   - [Beanstalk documentation](https://docs.bean.money/)
-  - [Arbiscan: Bean on Arbitrum](https://arbiscan.io/token/0xbea0005b8599265d41256905a9b3073d397812e4)
+  - [Arbiscan: Bean on Arbitrum](https://arbiscan.io/token/0xBEA0005B8599265D41256905A9B3073D397812E4)
   - [DeFiLlama: Bean stablecoin](https://defillama.com/stablecoin/bean)
 category: stablecoin
 links:
@@ -34,7 +34,7 @@ links:
 slug: bean
 contract_addresses:
   - chain: arbitrum
-    address: '0xbea0005b8599265d41256905a9b3073d397812e4'
+    address: '0xBEA0005B8599265D41256905A9B3073D397812E4'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

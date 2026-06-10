@@ -46,10 +46,10 @@ links:
   homepage: https://gold.tether.to/
   coingecko: https://www.coingecko.com/en/coins/tether-gold
   defillama: ''
-  twitter: https://x.com/Tether_to
+  twitter: https://x.com/tether
 contract_addresses:
   - chain: ethereum
-    address: '0x68749665ff8d2d112fa859aa293f07a622782f38'
+    address: '0x68749665FF8D2d112Fa859AA293F07A622782F38'
 slug: xaut
 checks:
   twitter_last_post_at: '2026-03-01'
