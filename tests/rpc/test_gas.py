@@ -1,5 +1,7 @@
 """Gas helpers."""
 
+from unittest.mock import PropertyMock, patch
+
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
@@ -8,7 +10,7 @@ from eth_typing import HexAddress
 from web3 import Web3, EthereumTesterProvider
 from web3._utils.transactions import fill_nonce
 
-from eth_defi.gas import estimate_gas_fees, GasPriceMethod, apply_gas, GasPriceSuggestion, node_default_gas_price_strategy, GAS_PRICE_BUFFER_MULTIPLIER
+from eth_defi.gas import estimate_gas_fees, GasPriceMethod, apply_gas, GasPriceSuggestion, node_default_gas_price_strategy, GAS_PRICE_BUFFER_MULTIPLIER, MIN_PRIORITY_FEE_PER_CHAIN
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import create_token
 from eth_defi.tx import get_tx_broadcast_data
@@ -73,6 +75,47 @@ def test_gas_fees_london_no_buffer(web3: Web3, deployer: str):
     assert fees.base_fee == 1000000000
     assert fees.max_fee_per_gas == 3000000000
     assert fees.max_priority_fee_per_gas == 1000000000
+
+
+def test_gas_fees_min_priority_fee_explicit(web3: Web3):
+    """An explicit minimum priority fee floors the RPC suggestion.
+
+    EthereumTester suggests a 1 gwei priority fee, so a 5 gwei floor must
+    override it, and ``maxFeePerGas`` must be derived from the floored value.
+    """
+    fees = estimate_gas_fees(web3, min_priority_fee=5_000_000_000)
+    assert fees.method == GasPriceMethod.london
+    assert fees.max_priority_fee_per_gas == 5_000_000_000
+    # max_fee_per_gas = (floored priority fee + 2 * base fee) * buffer
+    assert fees.max_fee_per_gas == int((5_000_000_000 + 2 * 1_000_000_000) * GAS_PRICE_BUFFER_MULTIPLIER)
+
+
+def test_gas_fees_min_priority_fee_mainnet_default(web3: Web3):
+    """The Ethereum mainnet per-chain priority fee floor is applied by default.
+
+    A near-zero RPC priority fee suggestion (375,524 wei, as seen in the
+    2026-06-10 Lagoon deployment incident) must be floored to the 1 gwei
+    mainnet default so transactions do not linger unmined in the mempool.
+
+    ``chain_id`` and ``max_priority_fee`` are mocked because EthereumTester
+    cannot present itself as Ethereum mainnet nor suggest a near-zero tip.
+    """
+    with patch.object(type(web3.eth), "chain_id", new_callable=PropertyMock, return_value=1), patch.object(type(web3.eth), "max_priority_fee", new_callable=PropertyMock, return_value=375_524):
+        fees = estimate_gas_fees(web3)
+    assert fees.method == GasPriceMethod.london
+    assert fees.max_priority_fee_per_gas == MIN_PRIORITY_FEE_PER_CHAIN[1] == 1_000_000_000
+    assert fees.max_fee_per_gas == int((1_000_000_000 + 2 * 1_000_000_000) * GAS_PRICE_BUFFER_MULTIPLIER)
+
+
+def test_gas_fees_min_priority_fee_disabled(web3: Web3):
+    """Passing ``min_priority_fee=0`` disables the per-chain floor.
+
+    With the floor disabled, the raw near-zero RPC suggestion is used as-is
+    even on Ethereum mainnet. Mocks as in the mainnet default test above.
+    """
+    with patch.object(type(web3.eth), "chain_id", new_callable=PropertyMock, return_value=1), patch.object(type(web3.eth), "max_priority_fee", new_callable=PropertyMock, return_value=375_524):
+        fees = estimate_gas_fees(web3, min_priority_fee=0)
+    assert fees.max_priority_fee_per_gas == 375_524
 
 
 def test_raw_transaction_with_gas(web3: Web3, eth_tester, deployer: HexAddress, hot_wallet_account: LocalAccount):
