@@ -295,7 +295,7 @@ class MorphoV1Vault(ERC4626Vault):
         try:
             data = fee_call.call(self.web3, block_identifier)
         except ValueError as e:
-            logger.warning(
+            logger.info(
                 "Performance read reverted on Morpho V1 vault %s: %s",
                 self,
                 str(e),
