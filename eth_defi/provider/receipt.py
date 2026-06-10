@@ -70,7 +70,8 @@ DEFAULT_CONFIRMATION_BLOCK_COUNT = 2
 #: Arbitrum 100 blocks.
 #:
 #: Pass ``confirmation_block_time=0`` to disable the time-based wait and use only
-#: ``confirmation_block_count``.
+#: ``confirmation_block_count``. An explicit ``confirmation_block_count=0`` (the
+#: documented pure receipt-visibility opt-out) also disables this default.
 DEFAULT_CONFIRMATION_BLOCK_TIME: float = 25.0
 
 
@@ -240,7 +241,7 @@ def wait_for_transaction_receipt_robust(
     poll_delay: float = 1.0,
     max_poll_delay: float = 5.0,
     confirmation_block_count: int | None = None,
-    confirmation_block_time: float = DEFAULT_CONFIRMATION_BLOCK_TIME,
+    confirmation_block_time: float | None = None,
     extra_sleep: float = 0.0,
 ) -> TxReceipt:
     """Wait until a transaction receipt is visible through all read RPC providers.
@@ -278,7 +279,9 @@ def wait_for_transaction_receipt_robust(
         when the read provider trails the sequencer.
 
         Pass ``confirmation_block_count=0`` explicitly to opt back into pure
-        receipt-visibility behaviour without waiting for confirmations.
+        receipt-visibility behaviour without waiting for confirmations. This
+        also disables the default time-based wait below, unless an explicit
+        ``confirmation_block_time`` is passed alongside.
     :param confirmation_block_time:
         Wall-clock confirmation time in seconds, converted to a per-chain block
         count using :py:func:`eth_defi.chain.get_evm_block_time`.
@@ -290,6 +293,12 @@ def wait_for_transaction_receipt_robust(
         ~24 s on Ethereum mainnet but only ~0.5 s on Arbitrum, which is not enough
         for all backends behind a load-balanced RPC endpoint to catch up before a
         follow-up state read. See :py:data:`DEFAULT_CONFIRMATION_BLOCK_TIME`.
+
+        Defaults to ``None``, which resolves to
+        :py:data:`DEFAULT_CONFIRMATION_BLOCK_TIME` (25 seconds) — except when
+        ``confirmation_block_count=0`` was explicitly passed, the documented
+        pure receipt-visibility opt-out, in which case no time-based wait is
+        applied either.
 
         Pass ``0`` to disable and use only ``confirmation_block_count``. Ignored on
         Anvil and on chains with no known block time.
@@ -303,7 +312,7 @@ def wait_for_transaction_receipt_robust(
     assert poll_delay > 0, f"poll_delay must be positive, got {poll_delay}"
     assert max_poll_delay >= poll_delay, f"max_poll_delay must be >= poll_delay, got {max_poll_delay} < {poll_delay}"
     assert confirmation_block_count is None or confirmation_block_count >= 0, f"confirmation_block_count must be non-negative, got {confirmation_block_count}"
-    assert confirmation_block_time >= 0, f"confirmation_block_time must be non-negative, got {confirmation_block_time}"
+    assert confirmation_block_time is None or confirmation_block_time >= 0, f"confirmation_block_time must be non-negative, got {confirmation_block_time}"
     assert extra_sleep >= 0, f"extra_sleep must be non-negative, got {extra_sleep}"
 
     tx_hash_bytes = HexBytes(tx_hash)
@@ -344,6 +353,11 @@ def wait_for_transaction_receipt_robust(
     # Anvil already returned above and never reaches here.
     if confirmation_block_count is None:
         confirmation_block_count = DEFAULT_CONFIRMATION_BLOCK_COUNT
+
+    if confirmation_block_time is None:
+        # An explicit confirmation_block_count=0 is the documented pure
+        # receipt-visibility opt-out and disables the default time-based wait too.
+        confirmation_block_time = 0.0 if confirmation_block_count == 0 else DEFAULT_CONFIRMATION_BLOCK_TIME
 
     # Convert the wall-clock confirmation time to a per-chain block count and
     # take the stricter of the two requirements. On fast chains (Arbitrum ~250 ms

@@ -465,6 +465,34 @@ def test_wait_for_transaction_receipt_robust_confirmation_block_time_max(monkeyp
     assert provider_1.calls.count("eth_blockNumber") == 2
 
 
+def test_wait_for_transaction_receipt_robust_count_zero_opts_out_of_block_time(monkeypatch: pytest.MonkeyPatch):
+    """An explicit confirmation_block_count=0 keeps pure receipt-visibility semantics.
+
+    1. Create an Arbitrum-like chain where the default 25 s confirmation time would mean 100 blocks.
+    2. Wait with confirmation_block_count=0 only, the documented pure receipt-visibility opt-out.
+    3. Check no block numbers were polled, so no confirmation wait was applied.
+    """
+
+    # 1. Create an Arbitrum-like chain where the default 25 s confirmation time would mean 100 blocks.
+    provider_1 = FakeProvider("read-1", block_number="0x2")
+    web3 = FakeWeb3(FallbackProvider([provider_1]))
+    web3.eth.chain_id = 42161
+    monkeypatch.setattr(receipt_module, "_is_anvil", lambda web3: False)
+
+    # 2. Wait with confirmation_block_count=0 only, the documented pure receipt-visibility opt-out.
+    wait_for_transaction_receipt_robust(
+        web3,
+        TX_HASH,
+        timeout=1,
+        poll_delay=0.001,
+        max_poll_delay=0.002,
+        confirmation_block_count=0,
+    )
+
+    # 3. Check no block numbers were polled, so no confirmation wait was applied.
+    assert provider_1.calls.count("eth_blockNumber") == 0
+
+
 def test_wait_for_transaction_receipt_robust_confirmation_block_time_unknown_chain(monkeypatch: pytest.MonkeyPatch):
     """Fall back to the plain block count when the chain block time is unknown.
 
