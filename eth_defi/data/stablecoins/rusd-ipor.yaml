@@ -15,7 +15,7 @@ links:
   twitter: https://x.com/__reservoir
 contract_addresses:
   - chain: ethereum
-    address: '0x09d4214c03d01f49544c0448dbe3a27f768f2b34'
+    address: '0x09D4214C03D01F49544C0448DBE3A27f768F2b34'
 slug: rusd-ipor
 checks:
   twitter_last_post_at: ''

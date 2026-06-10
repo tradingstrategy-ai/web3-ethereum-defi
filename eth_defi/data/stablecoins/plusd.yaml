@@ -2,7 +2,7 @@ symbol: plUSD
 name: Trevee Plasma USD
 short_description: Trevee Plasma USD (plUSD) is a meta-stablecoin backed 1:1 by USDT on the Plasma L1 chain. Deposits are deployed into Aave and Fluid for yield. Previously known as Rings Protocol.
 long_description: |
-  plUSD is issued by [Trevee](https://trevee.com/) (previously known as Rings Protocol)
+  plUSD is issued by [Trevee](https://trevee.xyz/) (previously known as Rings Protocol)
   on the [Plasma](https://plasma.network/) L1 blockchain, a chain purpose-built for stablecoins.
 
   ## Mechanism
@@ -25,7 +25,7 @@ long_description: |
   - [DeFiLlama — Trevee Earn](https://defillama.com/protocol/trevee-earn)
 category: stablecoin
 links:
-  homepage: https://trevee.com/
+  homepage: https://trevee.xyz/
   coingecko: https://www.coingecko.com/en/coins/trevee-plasma-usd
   defillama: https://defillama.com/protocol/trevee-earn
   twitter: https://x.com/Trevee_xyz

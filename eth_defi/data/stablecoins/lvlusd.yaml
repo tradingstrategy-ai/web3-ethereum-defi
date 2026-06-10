@@ -28,7 +28,7 @@ links:
   homepage: https://www.level.money/
   coingecko: https://www.coingecko.com/en/coins/level-usd
   defillama: ''
-  twitter: https://x.com/leveldotmoney
+  twitter: https://x.com/levelusd
 contract_addresses:
   - chain: ethereum
     address: '0x7C1156E515aA1A2E851674120074968C905aAF37'

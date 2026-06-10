@@ -18,7 +18,7 @@ links:
   twitter: https://x.com/circle
 contract_addresses:
   - chain: ethereum
-    address: '0x1abaea1f7c830bd89acc67ec4af516284b1bc33c'
+    address: '0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c'
 slug: euroc
 checks:
   twitter_last_post_at: ''

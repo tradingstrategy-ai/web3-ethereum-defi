@@ -30,7 +30,7 @@ links:
   twitter: https://x.com/sora_xor
 contract_addresses:
   - chain: ethereum
-    address: '0xc7d9c108d4e1dd1484d3e2568d7f74bfd763d356'
+    address: '0xc7D9c108D4E1dD1484D3e2568d7f74bfD763d356'
 slug: xstusd
 checks:
   twitter_last_post_at: '2025-01-14'

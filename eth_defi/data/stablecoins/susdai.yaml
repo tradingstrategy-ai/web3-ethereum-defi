@@ -15,7 +15,7 @@ links:
   twitter: https://x.com/usd_ai
 contract_addresses:
   - chain: arbitrum
-    address: '0x0b2b2b2076d95dda7817e785989fe353fe955ef9'
+    address: '0x0B2b2B2076d95dda7817e785989fE353fe955ef9'
 slug: susdai
 checks:
   twitter_last_post_at: ''

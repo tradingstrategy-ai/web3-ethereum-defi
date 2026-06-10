@@ -27,7 +27,7 @@ links:
 slug: avusd
 contract_addresses:
   - chain: avalanche
-    address: '0x24de8771bc5ddb3362db529fc3358f2df3a0e346'
+    address: '0x24dE8771bC5DdB3362Db529Fc3358F2df3A0E346'
   - chain: ethereum
     address: '0xf4c13D631450De6B12a19829E37c8e2826891dC4'
 checks:

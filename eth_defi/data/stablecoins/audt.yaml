@@ -22,7 +22,7 @@ long_description: |
   ## Sources
 
   - [Chrono.tech — AUDT](https://chrono.tech/)
-  - [Etherscan: AUDT on Ethereum](https://etherscan.io/token/0xd7e0f80fb28233bdde0006c50568606a8feb964c)
+  - [Etherscan: AUDT on Ethereum](https://etherscan.io/token/0xD7e0F80FB28233bdde0006c50568606A8feb964C)
   - [CoinMarketCap: Australian Dollar Token](https://coinmarketcap.com/currencies/australian-dollar-token/)
 category: stablecoin
 links:
@@ -33,7 +33,7 @@ links:
 slug: audt
 contract_addresses:
   - chain: ethereum
-    address: '0xd7e0f80fb28233bdde0006c50568606a8feb964c'
+    address: '0xD7e0F80FB28233bdde0006c50568606A8feb964C'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

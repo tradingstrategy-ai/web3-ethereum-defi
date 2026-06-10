@@ -9,10 +9,10 @@ long_description: |
   TUSD is available on Ethereum, BNB Chain, Avalanche, and other networks. It is listed on [CoinGecko](https://www.coingecko.com/en/coins/true-usd) and [DefiLlama](https://defillama.com/stablecoin/trueusd).
 category: stablecoin
 links:
-  homepage: https://trueusd.com/
+  homepage: https://tusd.io/
   coingecko: https://www.coingecko.com/en/coins/true-usd
   defillama: https://defillama.com/stablecoin/trueusd
-  twitter: https://x.com/TrueUSD
+  twitter: https://x.com/tusdio
 contract_addresses:
   - chain: ethereum
     address: '0x0000000000085d4780B73119b644AE5ecd22b376'

@@ -29,7 +29,7 @@ entries:
     collateral (wstETH, WBTC) into a stable token (rUSD/fxUSD) and a leveraged perpetual
     (xPOSITION). The protocol has completed 16 security audits including OpenZeppelin.
 
-    Contract address on Ethereum: `0x65d72aa8da931f047169112fcf34f52dbaae7d18`
+    Contract address on Ethereum: `0x65D72AA8DA931F047169112fcf34f52DbaAE7D18`
     (103,956 rUSD, 142 holders as of early 2025)
   links:
     homepage: https://fx.aladdin.club/
@@ -47,7 +47,7 @@ entries:
     [Realio Network](https://realio.fund/) issues rUSD as "a Realio multichain stablecoin asset"
     providing users of the Realio Platform a fiat on/off ramp for trading.
 
-    Contract address on Ethereum: `0xF9A2D7E60a3297e513317ad1d7ce101cc4c6c8f6`
+    Contract address on Ethereum: `0xF9A2D7E60a3297E513317AD1d7Ce101CC4C6C8F6`
     (100M max supply, 89 holders, minimal activity as of early 2025)
   links:
     homepage: https://realio.fund/

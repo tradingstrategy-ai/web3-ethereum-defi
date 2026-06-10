@@ -9,10 +9,10 @@ long_description: |
   Note: Tether issued a separate offshore CNY stablecoin (CNH₮) on Ethereum and other networks. TCNH and CNH₮ are distinct products from different issuers.
 category: stablecoin
 links:
-  homepage: https://trueusd.com/
+  homepage: https://tusd.io/
   coingecko: https://www.coingecko.com/en/coins/truecnh
   defillama: ''
-  twitter: https://x.com/TrueUSD
+  twitter: https://x.com/tusdio
 contract_addresses:
   - chain: tron
     address: 'TBqsNXUtqaLptVK8AYvdPPctpqd8oBYWUC'

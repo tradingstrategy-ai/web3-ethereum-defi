@@ -22,7 +22,7 @@ long_description: |
   ## Sources
 
   - [Resupply](https://resupply.fi/)
-  - [Etherscan — reUSD](https://etherscan.io/token/0x57ab1e0003f623289cd798b1824be09a793e4bec)
+  - [Etherscan — reUSD](https://etherscan.io/token/0x57aB1E0003F623289CD798B1824Be09a793e4Bec)
 category: stablecoin
 links:
   homepage: https://resupply.fi/
@@ -31,7 +31,7 @@ links:
   twitter: https://x.com/ResupplyFi
 contract_addresses:
   - chain: ethereum
-    address: '0x57ab1e0003f623289cd798b1824be09a793e4bec'
+    address: '0x57aB1E0003F623289CD798B1824Be09a793e4Bec'
 slug: reusd
 checks:
   twitter_last_post_at: ''

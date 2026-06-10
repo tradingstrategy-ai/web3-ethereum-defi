@@ -15,7 +15,7 @@ links:
   twitter: https://x.com/Stablecoin_HUSD
 contract_addresses:
   - chain: ethereum
-    address: '0xdF574c24545E5FfEcb9a659C229253D4111d87e1'
+    address: '0xdF574c24545E5FfEcb9a659c229253D4111d87e1'
 slug: husd
 checks:
   twitter_last_post_at: ''

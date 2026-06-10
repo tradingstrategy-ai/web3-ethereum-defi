@@ -33,7 +33,7 @@ links:
   homepage: https://tether.to/
   coingecko: https://www.coingecko.com/en/coins/tether
   defillama: https://defillama.com/stablecoin/tether
-  twitter: https://x.com/Tether_to
+  twitter: https://x.com/tether
 slug: usd-t
 checks:
   twitter_last_post_at: '2026-03-17'

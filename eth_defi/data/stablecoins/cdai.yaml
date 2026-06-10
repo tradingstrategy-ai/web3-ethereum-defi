@@ -22,7 +22,7 @@ long_description: |
   ## Sources
 
   - [Compound V2 documentation](https://docs.compound.finance/v2/)
-  - [Etherscan: cDAI on Ethereum](https://etherscan.io/token/0x5d3a536e4d6dbd6114cc1ead35777bab948e3643)
+  - [Etherscan: cDAI on Ethereum](https://etherscan.io/token/0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643)
 category: yield_bearing
 links:
   homepage: https://compound.finance/
@@ -32,7 +32,7 @@ links:
 slug: cdai
 contract_addresses:
   - chain: ethereum
-    address: '0x5d3a536e4d6dbd6114cc1ead35777bab948e3643'
+    address: '0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

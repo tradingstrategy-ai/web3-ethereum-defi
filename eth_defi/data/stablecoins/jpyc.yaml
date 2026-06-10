@@ -27,7 +27,7 @@ long_description: |
 
   - [JPYC official site](https://jpyc.jp/)
   - [CoinGecko — JPYC](https://www.coingecko.com/en/coins/jpyc)
-  - [Etherscan — JPYC](https://etherscan.io/token/0x431D5dfF03120AFA4bDF332c61A6e1766eF37BDB)
+  - [Etherscan — JPYC](https://etherscan.io/token/0x431D5dfF03120AFA4bDf332c61A6e1766eF37BDB)
 category: stablecoin
 links:
   homepage: https://jpyc.jp/
@@ -36,7 +36,7 @@ links:
   twitter: https://x.com/jpy_coin
 contract_addresses:
   - chain: ethereum
-    address: '0x431D5dfF03120AFA4bDF332c61A6e1766eF37BDB'
+    address: '0x431D5dfF03120AFA4bDf332c61A6e1766eF37BDB'
 slug: jpyc
 checks:
   twitter_last_post_at: ''

@@ -23,7 +23,7 @@ links:
   homepage: https://tether.to/
   coingecko: https://www.coingecko.com/en/coins/tether
   defillama: https://defillama.com/stablecoin/tether
-  twitter: https://x.com/Tether_to
+  twitter: https://x.com/tether
 contract_addresses:
   - chain: ethereum
     address: '0xdAC17F958D2ee523a2206206994597C13D831ec7'

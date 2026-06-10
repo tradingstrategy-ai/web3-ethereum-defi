@@ -19,7 +19,7 @@ long_description: |
   ## Sources
 
   - [Curve crvUSD documentation](https://resources.curve.fi/crvusd/understanding-crvusd/)
-  - [Etherscan: crvUSD on Ethereum](https://etherscan.io/token/0xf939e0a03fb07f59a73314e73794be0e57ac1b4e)
+  - [Etherscan: crvUSD on Ethereum](https://etherscan.io/token/0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E)
   - [DeFiLlama: crvUSD](https://defillama.com/stablecoin/crvusd)
 category: stablecoin
 links:
@@ -33,7 +33,7 @@ token_symbols:
 - crvUSD
 contract_addresses:
   - chain: ethereum
-    address: '0xf939e0a03fb07f59a73314e73794be0e57ac1b4e'
+    address: '0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

@@ -26,7 +26,7 @@ links:
   homepage: https://openeden.com/
   coingecko: https://www.coingecko.com/en/coins/openeden-open-dollar
   defillama: https://defillama.com/protocol/openeden-usdo
-  twitter: https://x.com/OpenEdenLabs
+  twitter: https://x.com/OpenEden_X
 contract_addresses:
   - chain: ethereum
     address: '0x8238884Ec9668Ef77B90C6dfF4D1a9F4F4823BFe'

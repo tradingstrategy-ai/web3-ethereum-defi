@@ -22,7 +22,7 @@ long_description: |
   - [Gemini Dollar overview](https://www.gemini.com/dollar)
   - [Gemini cryptopedia: GUSD](https://www.gemini.com/cryptopedia/gusd-stablecoin-gemini-dollar)
   - [CoinGecko: Gemini Dollar](https://www.coingecko.com/en/coins/gemini-dollar)
-  - [Etherscan: GUSD token](https://etherscan.io/token/0x056Fd409E1d7A124Bd7017459dFEa2F387b6d5Cd)
+  - [Etherscan: GUSD token](https://etherscan.io/token/0x056Fd409E1d7A124BD7017459dFEa2F387b6d5Cd)
 category: stablecoin
 links:
   homepage: https://gemini.com/dollar
@@ -31,7 +31,7 @@ links:
   twitter: https://x.com/Gemini
 contract_addresses:
   - chain: ethereum
-    address: '0x056Fd409E1d7A124Bd7017459dFEa2F387b6d5Cd'
+    address: '0x056Fd409E1d7A124BD7017459dFEa2F387b6d5Cd'
 slug: gusd
 checks:
   twitter_last_post_at: ''

@@ -20,7 +20,7 @@ links:
   twitter: https://x.com/InverseFinance
 contract_addresses:
   - chain: ethereum
-    address: '0x865377367054516e17014ccded1e7d814edc9ce4'
+    address: '0x865377367054516e17014CcdED1e7d814EDC9ce4'
 slug: dola
 checks:
   twitter_last_post_at: ''

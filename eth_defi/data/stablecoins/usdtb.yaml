@@ -23,7 +23,7 @@ links:
   homepage: https://usdtb.money/
   coingecko: https://www.coingecko.com/en/coins/usdtb
   defillama: https://defillama.com/stablecoin/usdtb
-  twitter: https://x.com/ethena_labs
+  twitter: https://x.com/ethena
 slug: usdtb
 checks:
   twitter_last_post_at: '2026-03-17'

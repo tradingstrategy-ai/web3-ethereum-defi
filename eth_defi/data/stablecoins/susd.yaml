@@ -12,7 +12,7 @@ links:
   homepage: https://synthetix.io/
   coingecko: https://www.coingecko.com/en/coins/susd
   defillama: https://defillama.com/stablecoin/susd
-  twitter: https://x.com/synthetix_io
+  twitter: https://x.com/synthetix
 contract_addresses:
   - chain: ethereum
     address: '0x57Ab1ec28D129707052df4dF418D58a2D46d5f51'

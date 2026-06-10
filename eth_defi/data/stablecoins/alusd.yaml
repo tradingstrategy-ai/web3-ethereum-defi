@@ -18,7 +18,7 @@ long_description: |
   ## Sources
 
   - [Alchemix documentation](https://alchemix-finance.gitbook.io/user-docs/)
-  - [Etherscan: alUSD on Ethereum](https://etherscan.io/token/0xbc6da0fe9ad5f3b0d58160288917aa56653660e9)
+  - [Etherscan: alUSD on Ethereum](https://etherscan.io/token/0xBC6DA0FE9aD5f3b0d58160288917AA56653660E9)
   - [DeFiLlama: Alchemix USD](https://defillama.com/stablecoin/alchemix-usd)
 category: stablecoin
 links:
@@ -32,11 +32,11 @@ token_symbols:
 - alUSD
 contract_addresses:
   - chain: ethereum
-    address: '0xbc6da0fe9ad5f3b0d58160288917aa56653660e9'
+    address: '0xBC6DA0FE9aD5f3b0d58160288917AA56653660E9'
   - chain: arbitrum
-    address: '0xcb8fa9a76b8e203d8c3797bf438d8fb81ea3326a'
+    address: '0xCB8FA9a76b8e203D8C3797bF438d8FB81Ea3326A'
   - chain: optimism
-    address: '0xcb8fa9a76b8e203d8c3797bf438d8fb81ea3326a'
+    address: '0xCB8FA9a76b8e203D8C3797bF438d8FB81Ea3326A'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'
