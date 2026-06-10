@@ -23,11 +23,11 @@ links:
   homepage: https://mento.org/
   coingecko: https://www.coingecko.com/en/coins/celo-euro
   defillama: https://defillama.com/stablecoin/celo-euro
-  twitter: https://x.com/MentoProtocol
+  twitter: https://x.com/MentoLabs
 slug: ceur
 contract_addresses:
   - chain: celo
-    address: '0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73'
+    address: '0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

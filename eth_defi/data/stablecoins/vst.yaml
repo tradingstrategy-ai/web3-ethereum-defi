@@ -25,7 +25,7 @@ links:
   twitter: https://x.com/vestafinance
 contract_addresses:
   - chain: arbitrum
-    address: '0x64343594ab9b56e99087bfa6f2335db24c2d1f17'
+    address: '0x64343594Ab9b56e99087BfA6F2335Db24c2d1F17'
 slug: vst
 checks:
   twitter_last_post_at: ''

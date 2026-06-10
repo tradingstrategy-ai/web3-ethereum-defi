@@ -21,13 +21,13 @@ long_description: |
   - [DefiLlama — YieldNest](https://defillama.com/protocol/yieldnest)
 category: yield_bearing
 links:
-  homepage: https://app.yieldnest.finance/token/ynUSDx
+  homepage: https://yieldnest.finance/
   coingecko: https://www.coingecko.com/en/coins/ynusd-max
   defillama: https://defillama.com/protocol/yieldnest
   twitter: https://x.com/YieldNestFi
 contract_addresses:
   - chain: ethereum
-    address: '0x3db228fe836d99ccb25ec4dfdc80ed6d2cddcb4b'
+    address: '0x3DB228FE836D99Ccb25Ec4dfdC80ED6d2CDdCB4b'
 slug: ynusdx
 checks:
   twitter_last_post_at: '2026-01-22'

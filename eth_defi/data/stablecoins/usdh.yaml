@@ -44,10 +44,10 @@ long_description: |
   - [Brave New Coin — USDH launch](https://bravenewcoin.com/insights/hyperliquid-launches-usdh-stablecoin-after-native-markets-wins-competitive-bid)
 category: stablecoin
 links:
-  homepage: https://nativemarkets.xyz/
+  homepage: https://nativemarkets.com/
   coingecko: ''
   defillama: ''
-  twitter: https://x.com/native_markets
+  twitter: https://x.com/nativemarkets
 slug: usdh
 checks:
   twitter_last_post_at: '2026-03-17'

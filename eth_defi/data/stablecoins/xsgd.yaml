@@ -38,7 +38,7 @@ long_description: |
   - [StraitsX — XSGD](https://www.straitsx.com/xsgd)
   - [StraitsX — MAS IPA announcement](https://www.straitsx.com/blog-post/straitsx-receives-in-principle-approval-from-mas-to-issue-scs)
   - [CoinGecko — XSGD](https://www.coingecko.com/en/coins/xsgd)
-  - [Etherscan — XSGD token](https://etherscan.io/token/0x70e8de73ce538da2beed35d14187f6959a8eca96)
+  - [Etherscan — XSGD token](https://etherscan.io/token/0x70e8dE73cE538DA2bEEd35d14187F6959a8ecA96)
 category: stablecoin
 links:
   homepage: https://www.straitsx.com/xsgd
@@ -47,7 +47,7 @@ links:
   twitter: https://x.com/StraitsX
 contract_addresses:
   - chain: ethereum
-    address: '0x70e8de73ce538da2beed35d14187f6959a8eca96'
+    address: '0x70e8dE73cE538DA2bEEd35d14187F6959a8ecA96'
   - chain: polygon
     address: '0xDC3326e71D45186F113a2F448984CA0e8D201995'
 slug: xsgd

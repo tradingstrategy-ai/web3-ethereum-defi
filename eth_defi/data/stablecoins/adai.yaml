@@ -22,7 +22,7 @@ long_description: |
   ## Sources
 
   - [Aave V2 documentation](https://docs.aave.com/developers/v/2.0/)
-  - [Etherscan: aDAI on Ethereum](https://etherscan.io/token/0x028171bca77440897b824ca71d1c56cac55b68a3)
+  - [Etherscan: aDAI on Ethereum](https://etherscan.io/token/0x028171bCA77440897B824Ca71D1c56caC55b68A3)
 category: yield_bearing
 links:
   homepage: https://aave.com/
@@ -32,7 +32,7 @@ links:
 slug: adai
 contract_addresses:
   - chain: ethereum
-    address: '0x028171bca77440897b824ca71d1c56cac55b68a3'
+    address: '0x028171bCA77440897B824Ca71D1c56caC55b68A3'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

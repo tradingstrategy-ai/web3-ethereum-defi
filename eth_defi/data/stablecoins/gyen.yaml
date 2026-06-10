@@ -27,7 +27,7 @@ long_description: |
 
   - [GYEN official site](https://stablecoin.z.com/gyen/)
   - [CoinGecko — GYEN](https://www.coingecko.com/en/coins/gyen)
-  - [Etherscan — GYEN](https://etherscan.io/token/0xC08512927D12348F6620a698105e1BaAc6EcD911)
+  - [Etherscan — GYEN](https://etherscan.io/token/0xC08512927D12348F6620a698105e1BAac6EcD911)
 category: stablecoin
 links:
   homepage: https://stablecoin.z.com/gyen
@@ -36,7 +36,7 @@ links:
   twitter: https://x.com/GMOTrust
 contract_addresses:
   - chain: ethereum
-    address: '0xC08512927D12348F6620a698105e1BaAc6EcD911'
+    address: '0xC08512927D12348F6620a698105e1BAac6EcD911'
 slug: gyen
 checks:
   twitter_last_post_at: ''

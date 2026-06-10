@@ -22,7 +22,7 @@ entries:
     - chain: ethereum
       address: '0xC08e7E23C235073C6807C2EFE7021304cb7c2815'
     - chain: bsc
-      address: '0xF81aC2E1A0373ddE1BCE01E2Fe694a9b7E3bfcB9'
+      address: '0xF81aC2E1A0373ddE1BcE01E2Fe694a9b7E3bfcB9'
   checks:
     twitter_last_post_at: '2025-12-16'
     domain_up_at: '2026-03-17'

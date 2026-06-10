@@ -32,11 +32,11 @@ links:
 slug: usda-avalon
 contract_addresses:
   - chain: ethereum
-    address: '0x8a60e489004ca22d775c5f2c657598278d17d9c2'
+    address: '0x8A60E489004Ca22d775C5F2c657598278d17D9c2'
   - chain: mantle
-    address: '0x075df695b8e7f4361fa7f8c1426c63f11b06e326'
+    address: '0x075df695b8E7f4361FA7F8c1426C63f11B06e326'
   - chain: binance
-    address: '0x9356086146be5158e98ad827e21b5cf944699894'
+    address: '0x9356086146be5158E98aD827E21b5cF944699894'
 checks:
   twitter_last_post_at: '2026-03-17'
   domain_up_at: '2026-03-17'

@@ -24,11 +24,11 @@ links:
   homepage: https://mento.org/
   coingecko: https://www.coingecko.com/en/coins/celo-dollar
   defillama: https://defillama.com/stablecoin/celo-dollar
-  twitter: https://x.com/MentoProtocol
+  twitter: https://x.com/MentoLabs
 slug: cusd
 contract_addresses:
   - chain: celo
-    address: '0x765de816845861e75a25fca122bb6898b8b1282a'
+    address: '0x765DE816845861e75A25fCA122bb6898B8B1282a'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

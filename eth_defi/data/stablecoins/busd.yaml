@@ -16,7 +16,7 @@ long_description: |
 
   ## Sources
 
-  - [Etherscan: BUSD on Ethereum](https://etherscan.io/token/0x4fabb145d64652a948d72533023f6e7a623c7c53)
+  - [Etherscan: BUSD on Ethereum](https://etherscan.io/token/0x4Fabb145d64652a948d72533023f6E7A623C7C53)
   - [DeFiLlama: Binance USD](https://defillama.com/stablecoin/binance-usd)
 category: stablecoin
 links:
@@ -27,7 +27,7 @@ links:
 slug: busd
 contract_addresses:
   - chain: ethereum
-    address: '0x4fabb145d64652a948d72533023f6e7a623c7c53'
+    address: '0x4Fabb145d64652a948d72533023f6E7A623C7C53'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

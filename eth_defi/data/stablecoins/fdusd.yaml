@@ -16,9 +16,9 @@ links:
   twitter: https://x.com/FDLabsHQ
 contract_addresses:
   - chain: ethereum
-    address: '0xc5f0f7b66764f6ec8c8dff7ba683102295e16409'
+    address: '0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409'
   - chain: binance
-    address: '0xc5f0f7b66764f6ec8c8dff7ba683102295e16409'
+    address: '0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409'
 slug: fdusd
 checks:
   twitter_last_post_at: ''

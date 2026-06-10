@@ -15,7 +15,7 @@ links:
   twitter: https://x.com/k3_capital
 contract_addresses:
   - chain: ethereum
-    address: '0x50bd66d59911f5e086ec87ae43c811e0d059dd11'
+    address: '0x50Bd66D59911F5e086Ec87aE43C811e0D059DD11'
 slug: sbold
 checks:
   twitter_last_post_at: ''

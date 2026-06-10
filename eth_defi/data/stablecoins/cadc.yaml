@@ -15,7 +15,7 @@ long_description: |
 
   ## Sources
 
-  - [Etherscan: CADC on Ethereum](https://etherscan.io/token/0xcadc0acd4b445166f12d2c07eac6e2544fbe2eef)
+  - [Etherscan: CADC on Ethereum](https://etherscan.io/token/0xcaDC0acd4B445166f12d2C07EAc6E2544FbE2Eef)
   - [CoinGecko: CAD Coin](https://www.coingecko.com/en/coins/cad-coin)
 category: stablecoin
 links:
@@ -26,13 +26,13 @@ links:
 slug: cadc
 contract_addresses:
   - chain: ethereum
-    address: '0xcadc0acd4b445166f12d2c07eac6e2544fbe2eef'
+    address: '0xcaDC0acd4B445166f12d2C07EAc6E2544FbE2Eef'
   - chain: base
-    address: '0x043eb4b75d0805c43d7c834902e335621983cf03'
+    address: '0x043eB4B75d0805c43D7C834902E335621983Cf03'
   - chain: arbitrum
-    address: '0x2b28e826b55e399f4d4699b85f68666ac51e6f70'
+    address: '0x2b28E826b55e399F4d4699b85f68666AC51e6f70'
   - chain: polygon
-    address: '0x9de41aff9f55219d5bf4359f167d1d0c772a396d'
+    address: '0x9de41aFF9f55219D5bf4359F167d1D0c772A396D'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

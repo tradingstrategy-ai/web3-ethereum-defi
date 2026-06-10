@@ -21,7 +21,7 @@ links:
   twitter: https://x.com/hemi_xyz
 contract_addresses:
   - chain: hemi
-    address: '0x7a06c4aef988e7925575c50261297a946ad204a8'
+    address: '0x7A06C4AeF988e7925575C50261297a946aD204A8'
 slug: vusd-hemi
 checks:
   twitter_last_post_at: ''

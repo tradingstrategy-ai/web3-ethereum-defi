@@ -35,9 +35,9 @@ entries:
     twitter: https://x.com/GetYieldFi
   contract_addresses:
     - chain: arbitrum
-      address: '0x4772d2e014f9fc3a820c444e3313968e9a5c8121'
+      address: '0x4772D2e014F9fC3a820C444e3313968e9a5C8121'
     - chain: base
-      address: '0x895e15020c3f52ddd4d8e9514eb83c39f53b1579'
+      address: '0x895e15020C3f52ddD4D8e9514eB83C39F53B1579'
   checks:
     twitter_last_post_at: '2025-10-28'
     domain_up_at: '2026-03-17'

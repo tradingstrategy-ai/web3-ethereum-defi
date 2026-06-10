@@ -42,7 +42,7 @@ links:
   homepage: https://indigoprotocol.io/
   coingecko: https://www.coingecko.com/en/coins/indigo-protocol-iusd
   defillama: ''
-  twitter: https://x.com/IndigoProtocol1
+  twitter: https://x.com/Indigo_protocol
 slug: iusd-indigo
 checks:
   twitter_last_post_at: ''

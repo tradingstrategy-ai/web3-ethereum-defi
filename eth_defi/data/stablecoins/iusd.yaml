@@ -24,7 +24,7 @@ links:
   twitter: https://x.com/infinifilabs
 contract_addresses:
   - chain: ethereum
-    address: '0x48f9e38f3070ad8945dfeae3fa70987722e3d89c'
+    address: '0x48f9e38f3070AD8945DFEae3FA70987722E3D89c'
 slug: iusd
 checks:
   twitter_last_post_at: ''

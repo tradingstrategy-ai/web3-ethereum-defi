@@ -23,7 +23,7 @@ long_description: |
   ## Sources
 
   - [Chicken Bonds documentation](https://docs.chickenbonds.org/)
-  - [Etherscan: bLUSD on Ethereum](https://etherscan.io/token/0xb9d7dddca9a4ac480991865efef82e01273f79c3)
+  - [Etherscan: bLUSD on Ethereum](https://etherscan.io/token/0xB9D7DdDca9a4AC480991865EfEf82E01273F79C3)
 category: yield_bearing
 links:
   homepage: https://www.chickenbonds.org/
@@ -33,7 +33,7 @@ links:
 slug: blusd
 contract_addresses:
   - chain: ethereum
-    address: '0xb9d7dddca9a4ac480991865efef82e01273f79c3'
+    address: '0xB9D7DdDca9a4AC480991865EfEf82E01273F79C3'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

@@ -17,7 +17,7 @@ contract_addresses:
   - chain: ethereum
     address: '0xBc65ad17c5C0a2A4D159fa5a503f4992c7B545FE'
   - chain: arbitrum
-    address: '0x940098b108fb7d0a7e374f6eded7760787464609'
+    address: '0x940098b108fB7D0a7E374f6eDED7760787464609'
 slug: susdc
 checks:
   twitter_last_post_at: ''

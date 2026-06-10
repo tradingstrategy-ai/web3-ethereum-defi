@@ -18,7 +18,7 @@ links:
   twitter: https://x.com/SG_FORGE
 contract_addresses:
   - chain: ethereum
-    address: '0x5f7827fdeb7c20b443265fc2f40845b715385ff2'
+    address: '0x5F7827FDeb7c20b443265Fc2F40845B715385Ff2'
 slug: eurcv
 checks:
   twitter_last_post_at: ''

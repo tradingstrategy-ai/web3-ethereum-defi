@@ -19,7 +19,7 @@ long_description: |
   ## Sources
 
   - [Main Street Finance](https://mainstreet.finance/)
-  - [Etherscan — msUSD](https://etherscan.io/token/0x4ba01f22827018b4772cd326c7627fb4956a7c00)
+  - [Etherscan — msUSD](https://etherscan.io/token/0x4ba01f22827018b4772CD326C7627FB4956A7C00)
 category: stablecoin
 links:
   homepage: https://mainstreet.finance/
@@ -28,7 +28,7 @@ links:
   twitter: https://x.com/Main_St_Finance
 contract_addresses:
   - chain: ethereum
-    address: '0x4ba01f22827018b4772cd326c7627fb4956a7c00'
+    address: '0x4ba01f22827018b4772CD326C7627FB4956A7C00'
 slug: msusd
 checks:
   twitter_last_post_at: ''

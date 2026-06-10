@@ -38,7 +38,7 @@ long_description: |
   - [CoinDesk — GYD goes live on Ethereum mainnet](https://www.coindesk.com/markets/2023/12/07/galaxy-backed-gyroscopes-all-weather-decentralized-stablecoin-goes-live-on-ethereum-mainnet/)
   - [Consensys — Gyroscope overview](https://consensys.io/blog/gyroscope-a-self-stabilizing-all-weather-reserve-backed-stablecoin)
   - [Gyroscope docs — GYFI tokenomics](https://docs.gyro.finance/governance/gyfi-tokenomics)
-  - [Etherscan — GYD token](https://etherscan.io/token/0xe07F9D810A48ab5c3C914BA3cA53AF14E4491e8A)
+  - [Etherscan — GYD token](https://etherscan.io/token/0xe07F9D810a48ab5c3c914BA3cA53AF14E4491e8A)
 category: stablecoin
 links:
   homepage: https://www.gyro.finance/
@@ -47,9 +47,9 @@ links:
   twitter: https://x.com/GyroscopeFi
 contract_addresses:
   - chain: ethereum
-    address: '0xe07F9D810A48ab5c3C914BA3cA53AF14E4491e8A'
+    address: '0xe07F9D810a48ab5c3c914BA3cA53AF14E4491e8A'
   - chain: arbitrum
-    address: '0xCA5d8F8A8d49439357d3CF46Ca2e720702F132b8'
+    address: '0xCA5d8F8a8d49439357d3CF46Ca2e720702F132b8'
 slug: gyd
 checks:
   twitter_last_post_at: ''

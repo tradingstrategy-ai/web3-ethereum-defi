@@ -31,7 +31,7 @@ links:
   homepage: https://paxos.com/paxgold/
   coingecko: https://www.coingecko.com/en/coins/pax-gold
   defillama: ''
-  twitter: https://x.com/PaxosGlobal
+  twitter: https://x.com/Paxos
 contract_addresses:
   - chain: ethereum
     address: '0x45804880De22913dAFE09f4980848ECE6EcbAf78'

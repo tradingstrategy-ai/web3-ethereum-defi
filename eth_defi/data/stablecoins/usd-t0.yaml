@@ -28,7 +28,7 @@ links:
   homepage: https://usdt0.to/
   coingecko: ''
   defillama: ''
-  twitter: https://x.com/Tether_to
+  twitter: https://x.com/tether
 slug: usd-t0
 checks:
   twitter_last_post_at: '2026-03-17'

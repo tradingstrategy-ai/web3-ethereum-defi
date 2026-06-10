@@ -21,7 +21,7 @@ long_description: |
   ## Sources
 
   - [Angle Protocol documentation](https://docs.angle.money/)
-  - [Etherscan: EURA/agEUR on Ethereum](https://etherscan.io/token/0x1a7e4e63778b4f12a199c062f3efdd288afcbce8)
+  - [Etherscan: EURA/agEUR on Ethereum](https://etherscan.io/token/0x1a7e4e63778B4f12a199C062f3eFdD288afCBce8)
   - [DeFiLlama: agEUR stablecoin page](https://defillama.com/stablecoin/ageur)
 category: stablecoin
 links:
@@ -32,7 +32,7 @@ links:
 slug: ageur
 contract_addresses:
   - chain: ethereum
-    address: '0x1a7e4e63778b4f12a199c062f3efdd288afcbce8'
+    address: '0x1a7e4e63778B4f12a199C062f3eFdD288afCBce8'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

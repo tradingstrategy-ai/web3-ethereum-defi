@@ -22,7 +22,7 @@ long_description: |
   ## Sources
 
   - [Compound V2 documentation](https://docs.compound.finance/v2/)
-  - [Etherscan: cUSDC on Ethereum](https://etherscan.io/token/0x39aa39c021dfbae8fac545936693ac917d5e7563)
+  - [Etherscan: cUSDC on Ethereum](https://etherscan.io/token/0x39AA39c021dfbaE8faC545936693aC917d5E7563)
 category: yield_bearing
 links:
   homepage: https://compound.finance/
@@ -32,7 +32,7 @@ links:
 slug: cusdc
 contract_addresses:
   - chain: ethereum
-    address: '0x39aa39c021dfbae8fac545936693ac917d5e7563'
+    address: '0x39AA39c021dfbaE8faC545936693aC917d5E7563'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

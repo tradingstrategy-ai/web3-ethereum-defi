@@ -15,7 +15,7 @@ links:
   twitter: https://x.com/fraxfinance
 contract_addresses:
   - chain: ethereum
-    address: '0xa663b02cF0a4b149d2ad41910CB81e23e1c41c32'
+    address: '0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32'
 slug: sfrax
 checks:
   twitter_last_post_at: ''

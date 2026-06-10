@@ -28,7 +28,7 @@ links:
   homepage: https://par.mimo.capital/
   coingecko: https://www.coingecko.com/en/coins/par-stablecoin
   defillama: ''
-  twitter: https://x.com/mimodefi
+  twitter: https://x.com/mimo_labs
 contract_addresses:
   - chain: ethereum
     address: '0x68037790A0229e9Ce6EaA8A99ea92964106C4703'

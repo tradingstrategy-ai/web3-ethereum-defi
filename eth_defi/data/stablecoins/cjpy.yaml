@@ -16,7 +16,7 @@ long_description: |
 
   ## Sources
 
-  - [Etherscan: CJPY on Ethereum](https://etherscan.io/token/0x1cfa5641c01406ab8ac350ded7d735ec41298372)
+  - [Etherscan: CJPY on Ethereum](https://etherscan.io/token/0x1cfa5641c01406aB8AC350dEd7d735ec41298372)
   - [CoinGecko: Convertible JPY Token](https://www.coingecko.com/en/coins/convertible-jpy-token)
 category: stablecoin
 links:
@@ -27,7 +27,7 @@ links:
 slug: cjpy
 contract_addresses:
   - chain: ethereum
-    address: '0x1cfa5641c01406ab8ac350ded7d735ec41298372'
+    address: '0x1cfa5641c01406aB8AC350dEd7d735ec41298372'
 checks:
   twitter_last_post_at: ''
   domain_up_at: ''

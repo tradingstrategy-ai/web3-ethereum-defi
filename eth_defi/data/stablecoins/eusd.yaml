@@ -22,7 +22,7 @@ links:
   twitter: https://x.com/LybraFinance
 contract_addresses:
   - chain: ethereum
-    address: '0x97de57ec338ab5d51557da3434828c5dbfada371'
+    address: '0x97de57eC338AB5d51557DA3434828C5DbFaDA371'
 slug: eusd
 checks:
   twitter_last_post_at: ''

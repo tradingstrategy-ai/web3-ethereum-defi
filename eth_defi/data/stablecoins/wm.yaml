@@ -29,7 +29,7 @@ links:
   twitter: https://x.com/m0foundation
 contract_addresses:
   - chain: ethereum
-    address: '0x437cc33344a0b27a429f795ff6b469c72698b291'
+    address: '0x437cc33344a0B27A429f795ff6B469C72698B291'
 slug: wm
 checks:
   twitter_last_post_at: '2025-05-01'

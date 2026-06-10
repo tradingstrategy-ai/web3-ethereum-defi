@@ -31,7 +31,7 @@ links:
 slug: bdo
 contract_addresses:
   - chain: bnb
-    address: '0x190b589cf9fb8ddeabbfeae36a813ffb2a702454'
+    address: '0x190b589cf9Fb8DDEabBFeae36a813FFb2A702454'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

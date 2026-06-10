@@ -2,7 +2,7 @@ symbol: scUSD
 name: Rings scUSD
 short_description: scUSD is a yield-bearing stablecoin from Rings Protocol (rebranded as Trevee Earn) on the Sonic network. It is backed by Ethereum mainnet stablecoins bridged to Sonic and earns yield via Veda BoringVaults. scUSD reached over $111M TVL in early 2025.
 long_description: |
-  [Rings Protocol](https://app.rings.money/) is the meta-stable protocol of the [Sonic](https://www.soniclabs.com/) chain, built on Veda BoringVault infrastructure and drawing inspiration from Blast's native yield concept. It bridges Ethereum mainnet stablecoin holders to Sonic to earn yield.
+  [Rings Protocol](https://trevee.xyz/) (now Trevee Earn) is the meta-stable protocol of the [Sonic](https://www.soniclabs.com/) chain, built on Veda BoringVault infrastructure and drawing inspiration from Blast's native yield concept. It bridges Ethereum mainnet stablecoin holders to Sonic to earn yield.
 
   scUSD is minted on Sonic when users deposit supported stablecoins. The protocol integrates with Solidly's ve(3,3) model for liquidity incentives. Rings has since rebranded to Trevee Earn.
 
@@ -13,10 +13,10 @@ long_description: |
   In 2025–2026, Trevee (formerly Rings Protocol) suffered losses from two separate incidents: exposure to the Credix Finance exploit ($4.5M hack, team vanished) and alleged fraudulent conduct by Stream Finance. As a result, Trevee accrued bad debt of approximately $700k and suspended stkscUSD staking and unstaking until legal proceedings are resolved. scUSD itself remains redeemable but the broader Trevee Earn ecosystem is operating under restrictions.
 category: stablecoin
 links:
-  homepage: https://app.rings.money/
+  homepage: https://trevee.xyz/
   coingecko: https://www.coingecko.com/en/coins/rings-scusd
   defillama: https://defillama.com/stablecoin/rings-scusd
-  twitter: https://x.com/RingsProtocol
+  twitter: https://x.com/Trevee_xyz
 contract_addresses:
   - chain: sonic
     address: '0xd3DCe716f3eF535C5Ff8d041c1A41C3bd89b97aE'

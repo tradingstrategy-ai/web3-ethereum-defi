@@ -13,7 +13,7 @@ links:
   homepage: https://fathom.fi/
   coingecko: https://www.coingecko.com/en/coins/fathom-dollar
   defillama: https://defillama.com/stablecoin/fathom-dollar
-  twitter: https://x.com/FathomProtocol
+  twitter: https://x.com/Fathom_fi
 contract_addresses:
   - chain: xdc
     address: 'xdc49d3f7543335cf38Fa10889CCFF10207e22110B5'

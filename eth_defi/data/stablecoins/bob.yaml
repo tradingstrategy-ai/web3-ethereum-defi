@@ -23,7 +23,7 @@ long_description: |
   ## Sources
 
   - [zkBob documentation](https://docs.zkbob.com/)
-  - [Etherscan: BOB on Ethereum](https://etherscan.io/token/0xb0b195aefa3650a6908f15cdac7d92f8a5791b0b)
+  - [Etherscan: BOB on Ethereum](https://etherscan.io/token/0xB0B195aEFA3650A6908f15CdaC7D92F8a5791B0B)
   - [DeFiLlama: BOB](https://defillama.com/stablecoin/bob)
 category: stablecoin
 links:
@@ -34,9 +34,9 @@ links:
 slug: bob
 contract_addresses:
   - chain: ethereum
-    address: '0xb0b195aefa3650a6908f15cdac7d92f8a5791b0b'
+    address: '0xB0B195aEFA3650A6908f15CdaC7D92F8a5791B0B'
   - chain: polygon
-    address: '0xb0b195aefa3650a6908f15cdac7d92f8a5791b0b'
+    address: '0xB0B195aEFA3650A6908f15CdaC7D92F8a5791B0B'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'
