@@ -34,17 +34,32 @@ logger = logging.getLogger(__name__)
 #: or the repository checkout when running from source.
 VERSION_FILE_ROOT: Path = Path(__file__).parent.parent
 
+#: Sentinel written by the Docker build when a version ARG was not passed.
+#:
+#: ``Dockerfile.vault-scanner`` defaults each ``GIT_*`` build ARG to
+#: ``unspecified``, so an image built without the args (e.g. a plain
+#: ``docker compose build``) stamps this literal string into the files.
+#: :py:meth:`VersionInfo.read_version_file` normalises it to ``None``.
+UNSPECIFIED_SENTINEL = "unspecified"
+
 
 @dataclass(slots=True, frozen=True)
 class VersionInfo:
     """Reflect the git version information embedded in the Docker image during build.
 
     All fields are ``None`` when running outside a stamped Docker image,
-    e.g. from a source checkout.  See ``Dockerfile.vault-scanner`` for
-    how the stamp files are written.
+    e.g. from a source checkout.  Individual fields can also be ``None``
+    inside a stamped image when the corresponding build ARG was not
+    passed — in particular :py:attr:`tag` is ``None`` for images built
+    from an untagged commit.  See ``Dockerfile.vault-scanner`` for how
+    the stamp files are written.
     """
 
-    #: Git tag at build time, e.g. ``v0.30``, or ``unspecified``/``None``.
+    #: Git tag at build time, e.g. ``v0.30``.
+    #:
+    #: Often ``None``: only set when the image was built with the
+    #: ``GIT_VERSION_TAG`` build ARG, which requires a tagged commit.
+    #: Use :py:attr:`commit_hash` as the primary build identifier.
     tag: str | None = None
 
     #: The latest git commit message at build time.
@@ -64,11 +79,17 @@ class VersionInfo:
             Directory holding the stamp files.
 
         :return:
-            Stripped file content, or ``None`` if the file does not exist.
+            Stripped file content, or ``None`` if the file does not
+            exist, is empty, or contains the
+            :py:data:`UNSPECIFIED_SENTINEL` placeholder written when the
+            build ARG was not passed.
         """
         path = root / name
         if path.exists():
-            return path.read_text().strip()
+            value = path.read_text().strip()
+            if not value or value == UNSPECIFIED_SENTINEL:
+                return None
+            return value
         return None
 
     @classmethod

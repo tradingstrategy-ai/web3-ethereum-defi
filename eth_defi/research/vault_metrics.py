@@ -272,10 +272,16 @@ class ExportVersionMetadata(TypedDict):
 
     Produced by :py:meth:`eth_defi.version_info.VersionInfo.as_dict`.
     All fields are ``None`` when the exporter runs outside a stamped
-    Docker image, e.g. from a source checkout.
+    Docker image, e.g. from a source checkout.  Individual fields can
+    also be ``None`` inside a stamped image when the corresponding
+    build ARG was not passed.
     """
 
     #: Git tag at image build time, e.g. ``v0.30``.
+    #:
+    #: Often ``None``: only set when the image was built from a tagged
+    #: commit with the ``GIT_VERSION_TAG`` build ARG.  Consumers should
+    #: rely on :py:attr:`commit_hash` as the primary build identifier.
     tag: str | None
 
     #: The latest git commit message at image build time.

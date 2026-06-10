@@ -662,6 +662,9 @@ Docker image (see `eth_defi.version_info.VersionInfo` and
 `Dockerfile.vault-scanner`), so any generated JSON can be traced back to the
 exact code revision that produced it. All version fields are `null` when the
 exporter runs outside a stamped Docker image, e.g. from a source checkout.
+Each field can also be `null` individually when its build ARG was not passed —
+in particular `tag` is `null` for images built from an untagged commit, so
+consumers should treat `commit_hash` as the primary build identifier.
 The Ethereum-only `vault-metadata.sample.json` carries the same `metadata` key.
 
 Core3 risk intelligence records are attached at the top level keyed by protocol
