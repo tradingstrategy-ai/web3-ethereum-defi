@@ -66,8 +66,9 @@ def test_threejane_usd3(
     # 3. Confirm the protocol name and underlying denomination.
     assert vault.share_token.symbol == "USD3"
     assert vault.denomination_token.symbol == "USDC"
-    assert vault.get_management_fee("latest") is None
-    assert vault.get_performance_fee("latest") is None
+    # No explicit management/performance fees; yield is the net pool interest.
+    assert vault.get_management_fee("latest") == 0.0
+    assert vault.get_performance_fee("latest") == 0.0
     # Senior tranche has no redemption lock.
     assert vault.get_estimated_lock_up() == datetime.timedelta(0)
 

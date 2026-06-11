@@ -47,15 +47,23 @@ class ThreeJaneVault(ERC4626Vault):
     """3Jane credit-market vault (USD3 senior / sUSD3 junior tranche).
 
     Standard ERC-4626 vaults whose yield is internalised in the share price.
-    Exact fee parameters are not published as on-chain accessors, so the fee
-    getters return ``None`` (unknown) until confirmed from protocol docs.
+
+    3Jane charges no explicit management, performance, deposit, withdrawal or
+    redemption fees — suppliers receive the net pool interest, and the
+    protocol's economics run through the borrower/lender interest spread
+    (internalised in the share price). Redemptions are documented as "No fee".
+
+    - Suppliers: https://docs.3jane.xyz/usd3-susd3/suppliers
+    - FAQ (redemption fees): https://docs.3jane.xyz/resources/faq
     """
 
-    def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        return None
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
+        """No explicit management fee; yield is the net pool interest."""
+        return 0.0
 
-    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        return None
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float:
+        """No explicit performance fee; the protocol cut is the interest spread."""
+        return 0.0
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
         """Junior-tranche sUSD3 has a one-month redemption lock; senior USD3 has none.
