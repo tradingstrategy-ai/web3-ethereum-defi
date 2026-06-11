@@ -1,0 +1,54 @@
+"""3Jane protocol vault support.
+
+`3Jane <https://www.3jane.xyz/>`__ is a decentralised, credit-based money market
+on Ethereum that facilitates uncollateralised stablecoin lending. Depositors
+supply USDC and receive the protocol's ERC-4626 vault tokens — ``USD3`` (the
+senior tranche) or, by staking ``USD3``, ``sUSD3`` (the junior tranche). The
+pooled capital is lent across uncollateralised USDC credit lines to
+crypto-native borrowers and funding conduits to U.S. fintech lenders.
+
+Yield is internalised in the ERC-4626 share price: ``USD3`` appreciates against
+USDC as interest accrues, and ``sUSD3`` captures a higher proportion of pool
+yield in exchange for absorbing losses first in the senior/junior waterfall.
+
+3Jane is a single-protocol issuer of its own vaults, so the vaults are detected
+via :py:data:`eth_defi.erc_4626.classification.HARDCODED_PROTOCOLS` rather than
+an on-chain probe call.
+
+- Homepage: https://www.3jane.xyz/
+- Docs: https://docs.3jane.xyz/
+- USD3 (senior): https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
+- sUSD3 (junior): https://etherscan.io/address/0xf689555121e529Ff0463e191F9Bd9d1E496164a7
+"""
+
+import datetime
+import logging
+
+from eth_typing import BlockIdentifier
+
+from eth_defi.erc_4626.vault import ERC4626Vault
+
+logger = logging.getLogger(__name__)
+
+
+class ThreeJaneVault(ERC4626Vault):
+    """3Jane credit-market vault (USD3 senior / sUSD3 junior tranche).
+
+    Standard ERC-4626 vaults whose yield is internalised in the share price.
+    Exact fee parameters are not published as on-chain accessors, so the fee
+    getters return ``None`` (unknown) until confirmed from protocol docs.
+    """
+
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
+        return None
+
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
+        return None
+
+    def get_estimated_lock_up(self) -> datetime.timedelta | None:
+        #: sUSD3 (junior tranche) carries a one-month lock; USD3 (senior) has
+        #: none. Left unset at the protocol level as it is vault-specific.
+        return None
+
+    def get_link(self, referral: str | None = None) -> str:
+        return "https://www.3jane.xyz/"

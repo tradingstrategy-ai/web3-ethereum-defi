@@ -619,6 +619,13 @@ class ERC4626Feature(enum.Enum):
     #: https://crystalclear.finance/
     crystalclear_like = "crystalclear_like"
 
+    #: 3Jane
+    #:
+    #: Decentralised credit-based money market issuing the USD3 (senior) and
+    #: sUSD3 (junior) ERC-4626 tranche vaults backed by uncollateralised lending.
+    #: https://www.3jane.xyz/
+    threejane_like = "threejane_like"
+
 
 #: Features that identify lending protocol vaults.
 #:
@@ -758,6 +765,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.superform_like in features:
         return "Superform"
+
+    elif ERC4626Feature.threejane_like in features:
+        return "3Jane"
 
     elif ERC4626Feature.cap_like in features:
         return "CAP"

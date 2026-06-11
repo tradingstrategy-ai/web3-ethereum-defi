@@ -1,0 +1,34 @@
+name: 3Jane
+slug: 3jane
+short_description: |
+  Decentralised credit-based money market issuing the USD3 and sUSD3 stablecoin tranche vaults.
+long_description: |
+  3Jane is a decentralised, credit-based money market on Ethereum that facilitates
+  uncollateralised stablecoin lending. Depositors supply USDC and receive the protocol's
+  ERC-4626 vault tokens — USD3 (the senior tranche) or, by staking USD3, sUSD3 (the junior
+  tranche). The pooled capital is lent across two credit sleeves: uncollateralised USDC credit
+  lines to crypto-native borrowers and funding conduits to U.S. fintech lenders.
+
+  Yield is internalised in the share price: USD3 appreciates against USDC as interest accrues,
+  while sUSD3 captures a higher proportion of pool yield in exchange for absorbing losses first
+  in the senior/junior waterfall. As the protocol operates its own vaults, 3Jane acts as their
+  curator.
+fee_description: |
+  Yield is distributed through share-price appreciation rather than explicit deposit or
+  withdrawal fees. Both tranches take a fixed proportion of whatever the backing generates,
+  with sUSD3 (junior) receiving a larger share in return for first-loss risk. Exact fee
+  parameters are not published as on-chain accessors.
+links:
+  homepage: https://www.3jane.xyz/
+  app: https://www.3jane.xyz/
+  twitter: https://x.com/3janexyz
+  github:
+  documentation: https://docs.3jane.xyz/
+  defillama: https://defillama.com/protocol/3jane
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/3jane
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/threejane/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
+  - https://etherscan.io/address/0xf689555121e529Ff0463e191F9Bd9d1E496164a7
