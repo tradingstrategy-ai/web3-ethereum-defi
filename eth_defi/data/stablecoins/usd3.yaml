@@ -1,0 +1,56 @@
+symbol: USD3
+name: 3Jane USD3
+slug: usd3
+category: wrapped
+short_description: |
+  USD3 is the yield-bearing ERC-4626 senior-tranche token of the 3Jane credit
+  protocol. Users deposit USDC to mint USD3, whose value appreciates against USDC
+  as the protocol earns interest from uncollateralised crypto credit lines and
+  fintech credit conduits. As the senior tranche it is credit-enhanced and the
+  last to be impaired in the loss waterfall.
+long_description: |
+  USD3 is a yield-bearing ERC-4626 token issued by [3Jane](https://www.3jane.xyz/),
+  a decentralised credit-based money market on Ethereum (with a Base deployment) that
+  facilitates uncollateralised stablecoin loans. When a user deposits USDC they receive
+  USD3 shares at the current exchange rate, which starts at 1:1 with USDC and rises
+  continuously as the lending pool accrues interest — holders do not claim rebasing
+  rewards; instead each USD3 redeems for progressively more USDC over time.
+
+  ## Mechanism
+
+  Deposited USDC is allocated across two credit sleeves:
+
+  - **Crypto Credit Lines** — uncollateralised USDC lines to crypto-native borrowers.
+  - **Fintech Credit Conduits** — funding to U.S. fintech lenders backed by eligible
+    receivables and verified on-chain, CEX and bank assets.
+
+  Idle USDC is parked in [Aave](https://aave.com/) while awaiting deployment. Borrowers
+  pay interest, and that interest flows back to depositors as USD3 appreciation.
+
+  ## Tranche structure
+
+  3Jane runs a two-tier deposit structure. USD3 is the **senior tranche**: it earns a
+  variable share of pool yield, is credit-enhanced, and is the last to be impaired in
+  the waterfall. The **junior tranche** (sUSD3) absorbs losses before USD3 and carries
+  a one-month lock in exchange for higher yield. Both tranches take a fixed proportion
+  of whatever the backing generates, and additional $JANE token emissions can layer on
+  top of the native yield.
+
+  ## Sources
+
+  - [3Jane documentation — FAQ](https://docs.3jane.xyz/resources/faq)
+  - [3Jane homepage](https://www.3jane.xyz/)
+  - [USD3 on Etherscan](https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc)
+links:
+  homepage: https://www.3jane.xyz/
+  coingecko: ''
+  defillama: https://defillama.com/protocol/3jane
+  twitter: https://x.com/3janexyz
+contract_addresses:
+  - chain: ethereum
+    address: '0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

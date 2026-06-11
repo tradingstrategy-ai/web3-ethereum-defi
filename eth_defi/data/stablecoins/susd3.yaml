@@ -1,0 +1,47 @@
+symbol: sUSD3
+name: 3Jane sUSD3
+slug: susd3
+category: yield_bearing
+short_description: |
+  sUSD3 is the junior-tranche token of the 3Jane credit protocol, minted by staking
+  USD3. It is an ERC-4626 token whose underlying asset is USD3, appreciating as it
+  captures a higher share of pool yield in exchange for absorbing losses before USD3
+  in the waterfall. Junior deposits carry a one-month lock.
+long_description: |
+  sUSD3 is the **junior tranche** of the [3Jane](https://www.3jane.xyz/) credit
+  protocol, obtained by staking USD3 (the senior tranche). It is an ERC-4626 token whose
+  underlying asset is USD3 rather than USDC directly, so its value is denominated through
+  USD3's USDC peg.
+
+  ## Mechanism
+
+  Junior depositors stake USD3 to mint sUSD3 and, in return for accepting first-loss risk,
+  receive a higher proportion of the lending pool's yield. sUSD3 absorbs losses before USD3
+  is impaired in the loss waterfall, and junior positions are subject to a one-month lock.
+  Like USD3, sUSD3 appreciates against its underlying as interest accrues — yield is
+  reflected in the exchange rate rather than rebasing distributions, and additional $JANE
+  emissions can layer on top.
+
+  ## Relationship to USD3
+
+  sUSD3 is a staked derivative of USD3; it does not have a separate issuer or news source.
+  See the USD3 metadata for the full description of 3Jane's credit-backed money market.
+
+  ## Sources
+
+  - [3Jane documentation — FAQ](https://docs.3jane.xyz/resources/faq)
+  - [3Jane homepage](https://www.3jane.xyz/)
+  - [sUSD3 on Etherscan](https://etherscan.io/address/0xf689555121e529Ff0463e191F9Bd9d1E496164a7)
+links:
+  homepage: https://www.3jane.xyz/
+  coingecko: ''
+  defillama: https://defillama.com/protocol/3jane
+  twitter: https://x.com/3janexyz
+contract_addresses:
+  - chain: ethereum
+    address: '0xf689555121e529Ff0463e191F9Bd9d1E496164a7'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

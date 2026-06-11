@@ -1,0 +1,24 @@
+# Domination Finance curator - feeds provided by protocols/domination-finance.yaml
+#
+# Alias rationale:
+# - Domination Finance vaults are protocol-managed: the protocol operates
+#   the dfUSDC counterparty liquidity vault that backstops all leveraged
+#   trading on the exchange, so the protocol itself acts as the curator.
+# - Domination Finance already has canonical protocol feed metadata, so this
+#   alias reuses the protocol feeder and avoids duplicate source tracking.
+# - Official protocol site: https://domination.finance/
+#
+# Description sources:
+# - https://domination.finance/
+# - https://docs.domination.finance/
+# - https://app.domination.finance/vault
+feeder-id: domination-finance
+name: Domination Finance
+role: curator
+canonical-feeder-id: domination-finance
+short_description: Domination Finance is a Base perpetual futures exchange for crypto dominance indices, whose dfUSDC vault supplies USDC counterparty liquidity to all leveraged trading on the protocol.
+long_description: |
+  Domination Finance is a perpetual futures exchange on Base for dominance indices such as BTCDOM, ETHDOM and USDTDOM, where traders take leveraged positions on the relative market share of major crypto assets against oracle-backed markets.
+  Its protocol market making vault, dfUSDC, is an ERC-4626 vault on Base where depositors supply native USDC and receive dfUSDC shares that act as direct counterparty liquidity to all leveraged trading on the exchange.
+  Returns come from trading-fee revenue and net trader profit and loss rather than token emissions: trader fees and net trader losses lift the dfUSDC share price while net trader gains are paid out of the vault, and a daily PnL-outflow throttle rate-limits payouts to protect depositors during stress.
+  The vault charges no management or performance fee, so the dfUSDC-to-USDC exchange rate already reflects the protocol's trading economics.
