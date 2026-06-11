@@ -74,6 +74,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Silo Finance": VaultFeeMode.internalised_minting,
     "Sky": VaultFeeMode.feeless,
     "cSigma Finance": VaultFeeMode.feeless,
+    # 3Jane - yield internalised in share price; exact fee mode not yet confirmed
+    "3Jane": None,
     "Ethena": VaultFeeMode.feeless,
     "Term Finance": VaultFeeMode.internalised_skimming,
     "Royco": None,

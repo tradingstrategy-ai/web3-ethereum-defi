@@ -1,5 +1,5 @@
+# USD3 - issued by 3Jane; news source provided by protocols/3jane.yaml
 feeder-id: usd3
 name: 3Jane USD3
 role: stablecoin
-website: https://www.3jane.xyz/
-twitter: 3janexyz
+canonical-feeder-id: 3jane

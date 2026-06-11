@@ -91,6 +91,7 @@ Supported protocols
    superform/index
    teller/index
    term_finance/index
+   threejane/index
    truefi/index
    umami/index
    untangle/index
