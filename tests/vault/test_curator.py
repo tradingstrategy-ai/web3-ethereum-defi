@@ -140,6 +140,22 @@ def test_identify_gains_network_protocol_curator() -> None:
     assert get_curator_name("gains-network") == "Gains Network"
 
 
+def test_identify_3jane_protocol_curator() -> None:
+    """3Jane protocol vaults (USD3/sUSD3) resolve to the protocol-managed slug."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="USD3",
+        vault_name="USD3",
+        vault_address="0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc",
+        protocol_slug="3jane",
+    )
+
+    assert slug == "3jane"
+    assert is_protocol_curator("3jane")
+    assert get_curator_name("3jane") == "3Jane"
+
+
 def test_identify_legacy_gtrade_as_gains_network() -> None:
     """Legacy gTrade protocol slug resolves to Gains Network."""
 
