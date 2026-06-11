@@ -244,7 +244,9 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "fija": ["Fija"],
     "woo": ["Woo"],
     "telosc": ["TelosC"],
-    "kappa-lab": ["Fire Liquidity Provider"],
+    # "FLP" matches the closed Hibachi vault renamed to "FLP - Closed", which no
+    # longer contains the full "Fire Liquidity Provider" name (2026-06-11).
+    "kappa-lab": ["Fire Liquidity Provider", "FLP"],
     # New curators from Morpho verified list (2026-05-05)
     "b-protocol": ["B.Protocol"],
     "felix": ["Felix"],

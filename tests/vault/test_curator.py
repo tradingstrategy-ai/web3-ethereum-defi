@@ -66,12 +66,29 @@ def test_identify_telosc_short_name() -> None:
 
 
 def test_identify_kappa_lab_fire_liquidity_provider() -> None:
-    """Fire Liquidity Provider vault names resolve to Kappa Lab."""
+    """Fire Liquidity Provider and renamed FLP vault names resolve to Kappa Lab.
 
+    1. The full "Fire Liquidity Provider" name resolves to Kappa Lab.
+    2. The closed Hibachi vault renamed to "FLP - Closed" still resolves via
+       the short "FLP" pattern.
+    """
+
+    # 1. Full name resolves to Kappa Lab
     slug = identify_curator(
         chain_id=9999,
         vault_token_symbol="FLP",
         vault_name="Fire Liquidity Provider",
+        vault_address="hibachi:vault:4",
+        protocol_slug="hibachi",
+    )
+
+    assert slug == "kappa-lab"
+
+    # 2. Renamed "FLP - Closed" vault still resolves via the short pattern
+    slug = identify_curator(
+        chain_id=9999,
+        vault_token_symbol="FLP",
+        vault_name="FLP - Closed",
         vault_address="hibachi:vault:3",
         protocol_slug="hibachi",
     )
