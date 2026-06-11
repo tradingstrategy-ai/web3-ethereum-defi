@@ -74,8 +74,10 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Silo Finance": VaultFeeMode.internalised_minting,
     "Sky": VaultFeeMode.feeless,
     "cSigma Finance": VaultFeeMode.feeless,
-    # 3Jane - yield internalised in share price; exact fee mode not yet confirmed
-    "3Jane": None,
+    # 3Jane - credit money market with no explicit deposit/withdrawal/redemption fees;
+    # suppliers earn the net borrower interest, taken via the interest spread and
+    # internalised in the share price (https://docs.3jane.xyz/usd3-susd3/suppliers)
+    "3Jane": VaultFeeMode.internalised_skimming,
     "Ethena": VaultFeeMode.feeless,
     "Term Finance": VaultFeeMode.internalised_skimming,
     "Royco": None,

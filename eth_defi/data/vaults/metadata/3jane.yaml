@@ -14,18 +14,27 @@ long_description: |
   in the senior/junior waterfall. As the protocol operates its own vaults, 3Jane acts as their
   curator.
 fee_description: |
-  Yield is distributed through share-price appreciation rather than explicit deposit or
-  withdrawal fees. Both tranches take a fixed proportion of whatever the backing generates,
-  with sUSD3 (junior) receiving a larger share in return for first-loss risk. Exact fee
-  parameters are not published as on-chain accessors.
+  3Jane charges no explicit management, deposit, withdrawal or redemption fee — USD3 and
+  sUSD3 redemptions are documented as "No fee", and suppliers earn the net pool interest,
+  distributed through share-price appreciation. The vaults are Yearn V3 TokenizedStrategy
+  contracts, and the senior/junior split is implemented via the strategy's on-chain
+  performanceFee() (basis points out of 10000): USD3 (senior) reads 1000 = 10%, whose
+  performanceFeeRecipient is the sUSD3 vault itself — i.e. the TRANCHE_SHARE_VARIANT
+  waterfall routing senior yield to the junior tranche, not a 3Jane protocol fee. sUSD3
+  (junior) reads 0; in Phase 1 it receives 100% of net interest in return for first-loss
+  risk, and carries a one-month lock before redemption via a cooldown window.
+  See https://docs.3jane.xyz/usd3-susd3/suppliers and https://docs.3jane.xyz/resources/faq.
+
+  Note: no management-fee percentage is published (no accessor, no docs figure); the
+  performance fee is read live from the on-chain performanceFee() rather than assumed.
 links:
   homepage: https://www.3jane.xyz/
   app: https://www.3jane.xyz/
   twitter: https://x.com/3janexyz
-  github:
+  github: https://github.com/3jane-protocol/moneymarket-contracts
   documentation: https://docs.3jane.xyz/
   defillama: https://defillama.com/protocol/3jane
-  audits:
+  audits: https://docs.3jane.xyz/resources/audits
   fees:
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/3jane
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/threejane/index.html
