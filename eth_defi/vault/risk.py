@@ -88,8 +88,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Liquid Royalty": VaultTechnicalRisk.severe,
     "cSigma Finance": VaultTechnicalRisk.severe,
     "Spark": VaultTechnicalRisk.negligible,
-    # 3Jane - uncollateralised credit money market, risk not yet assessed by human judgement
-    "3Jane": None,
+    # 3Jane - uncollateralised credit money market; audited (Veridise, Sherlock, Electisec) and open source
+    "3Jane": VaultTechnicalRisk.low,
     "Teller": VaultTechnicalRisk.severe,
     "Deltr": VaultTechnicalRisk.dangerous,
     "Upshift": VaultTechnicalRisk.severe,
