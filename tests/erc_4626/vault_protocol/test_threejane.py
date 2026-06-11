@@ -66,9 +66,10 @@ def test_threejane_usd3(
     # 3. Confirm the protocol name and underlying denomination.
     assert vault.share_token.symbol == "USD3"
     assert vault.denomination_token.symbol == "USDC"
-    # No explicit management/performance fees; yield is the net pool interest.
+    # No management fee; the 10% performance fee is the senior->junior tranche
+    # waterfall (performanceFeeRecipient is the sUSD3 vault), read live on-chain.
     assert vault.get_management_fee("latest") == 0.0
-    assert vault.get_performance_fee("latest") == 0.0
+    assert vault.get_performance_fee("latest") == pytest.approx(0.1)
     # Senior tranche has no redemption lock.
     assert vault.get_estimated_lock_up() == datetime.timedelta(0)
 
@@ -101,3 +102,5 @@ def test_threejane_susd3(
     # Junior tranche carries a one-month redemption lock (SUSD3_LOCK_DURATION).
     assert vault.get_estimated_lock_up() == SUSD3_LOCK_DURATION
     assert vault.get_estimated_lock_up() == datetime.timedelta(days=30)
+    # Junior tranche has no performance fee (it is the senior-tranche waterfall recipient).
+    assert vault.get_performance_fee("latest") == 0.0
