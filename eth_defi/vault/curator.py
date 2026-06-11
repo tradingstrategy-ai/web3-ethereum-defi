@@ -158,6 +158,7 @@ CURATORS_DATA_DIR: Path = Path(__file__).parent.parent / "data" / "feeds" / "cur
 PROTOCOL_CURATED_SLUGS: set[str] = {
     "gains-network",
     "ostium",
+    "domination-finance",
 }
 
 #: Legacy protocol slug aliases that should resolve to the canonical
@@ -185,6 +186,7 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
 PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "gains-network": "Gains Network",
     "ostium": "Ostium",
+    "domination-finance": "Domination Finance",
     "hyperliquid": "Hyperliquid",
     "lighter": "Lighter",
     "grvt": "GRVT",
