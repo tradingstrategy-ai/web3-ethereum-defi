@@ -1,5 +1,7 @@
 # Current
 
+- fix: Add an `FLP` short pattern to the Kappa Lab curator so the closed Hibachi vault renamed from `Fire Liquidity Provider` to `FLP - Closed` is still detected by `identify_curator()`; the rename had dropped the only string the previous pattern matched, leaving the vault uncurated (2026-06-11)
+
 - feat: Add Domination Finance as a protocol-managed vault curator so its dfUSDC counterparty liquidity vault on Base is recognised by `identify_curator()` and exported with market-making-vault-specific short and long descriptions in the curator JSON, matching the existing Hyperliquid, GRVT, Ostium and Gains Network (gTrade) perp-DEX curator entries (2026-06-11)
 
 - feat: Add `eth_defi.cctp.events` — engine-agnostic scanning of CCTP V2 `DepositForBurn` events, wrapped into the slotted `CCTPDepositForBurn` dataclass so the underlying event reading engine can change without touching callers; `fetch_deposit_for_burn_events()` prefers HyperSync (server-side filtered streaming, scales to full-history scans) and falls back to chunked `eth_getLogs` with adaptive chunk shrinking when HyperSync is unavailable (e.g. Anvil forks). The correct V2 event topic is pinned in `DEPOSIT_FOR_BURN_EVENT_TOPIC0` because the bundled `TokenMessengerV2.json` ABI carries the stale V1 event signature whose topic hash matches nothing emitted on-chain (2026-06-10)
