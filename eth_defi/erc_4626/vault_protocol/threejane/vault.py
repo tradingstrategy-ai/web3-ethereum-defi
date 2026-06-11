@@ -53,6 +53,12 @@ class ThreeJaneVault(ERC4626Vault):
     protocol's economics run through the borrower/lender interest spread
     (internalised in the share price). Redemptions are documented as "No fee".
 
+    .. note ::
+
+        No fee percentages are published anywhere (no on-chain accessors, no
+        docs figures), so we classify the fee mode and the no-explicit-fee facts
+        rather than inventing numbers.
+
     - Suppliers: https://docs.3jane.xyz/usd3-susd3/suppliers
     - FAQ (redemption fees): https://docs.3jane.xyz/resources/faq
     """

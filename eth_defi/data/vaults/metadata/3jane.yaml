@@ -22,6 +22,9 @@ fee_description: |
   protocol's economics run through the borrower/lender interest spread, internalised in the
   share price. sUSD3 carries a one-month lock before redemption via a cooldown window.
   See https://docs.3jane.xyz/usd3-susd3/suppliers and https://docs.3jane.xyz/resources/faq.
+
+  Note: no fee percentages are published anywhere (no on-chain accessors, no docs figures),
+  so we classify the fee mode and the no-explicit-fee facts rather than inventing numbers.
 links:
   homepage: https://www.3jane.xyz/
   app: https://www.3jane.xyz/
