@@ -1,12 +1,12 @@
-# 3Jane curator - feeds provided by stablecoins/usd3.yaml
+# 3Jane curator - feeds provided by protocols/3jane.yaml
 #
 # Alias rationale:
 # - 3Jane vaults are protocol-managed: the protocol itself operates every
 #   vault (the USD3 senior tranche and the sUSD3 junior tranche), so the
 #   protocol acts as its own curator. There is no external risk manager.
-# - The 3Jane organisation's news source (Twitter @3janexyz) is already
-#   carried by the source-bearing stablecoin feeder stablecoins/usd3.yaml,
-#   so this curator aliases that feeder to avoid scanning the account twice.
+# - The 3Jane organisation's news source (Twitter @3janexyz) is carried by the
+#   source-bearing protocol feeder protocols/3jane.yaml, so this curator aliases
+#   that feeder to avoid scanning the account twice.
 # - Official site: https://www.3jane.xyz/ ; docs: https://docs.3jane.xyz/
 #
 # Description sources:
@@ -15,7 +15,7 @@
 feeder-id: 3jane
 name: 3Jane
 role: curator
-canonical-feeder-id: usd3
+canonical-feeder-id: 3jane
 short_description: 3Jane is a decentralised credit-based money market that issues ERC-4626 stablecoin vaults backed by uncollateralised lending to crypto-native borrowers and fintech credit conduits.
 long_description: |
   3Jane is a decentralised, credit-based money market on Ethereum that facilitates

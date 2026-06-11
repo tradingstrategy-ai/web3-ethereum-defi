@@ -1,5 +1,5 @@
-# sUSD3 - junior tranche, same issuer as USD3 (3Jane)
+# sUSD3 - junior tranche, issued by 3Jane; news source via protocols/3jane.yaml
 feeder-id: susd3
 name: 3Jane sUSD3
 role: stablecoin
-canonical-feeder-id: usd3
+canonical-feeder-id: 3jane
