@@ -30,6 +30,18 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 
 logger = logging.getLogger(__name__)
 
+#: sUSD3 (junior tranche) vault address on Ethereum.
+#:
+#: https://etherscan.io/address/0xf689555121e529Ff0463e191F9Bd9d1E496164a7
+SUSD3_ADDRESS = "0xf689555121e529ff0463e191f9bd9d1e496164a7"
+
+#: sUSD3 junior-tranche withdrawal lock.
+#:
+#: 3Jane's docs and protocol config (``SUSD3_LOCK_DURATION``) set a one-month
+#: cooldown on junior-tranche redemptions; the senior tranche (USD3) has none.
+#: https://docs.3jane.xyz/
+SUSD3_LOCK_DURATION = datetime.timedelta(days=30)
+
 
 class ThreeJaneVault(ERC4626Vault):
     """3Jane credit-market vault (USD3 senior / sUSD3 junior tranche).
@@ -45,10 +57,16 @@ class ThreeJaneVault(ERC4626Vault):
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         return None
 
-    def get_estimated_lock_up(self) -> datetime.timedelta | None:
-        #: sUSD3 (junior tranche) carries a one-month lock; USD3 (senior) has
-        #: none. Left unset at the protocol level as it is vault-specific.
-        return None
+    def get_estimated_lock_up(self) -> datetime.timedelta:
+        """Junior-tranche sUSD3 has a one-month redemption lock; senior USD3 has none.
+
+        :return:
+            :py:data:`SUSD3_LOCK_DURATION` for the sUSD3 vault, otherwise
+            ``timedelta(0)`` (USD3 redemptions are not time-locked).
+        """
+        if self.vault_address.lower() == SUSD3_ADDRESS:
+            return SUSD3_LOCK_DURATION
+        return datetime.timedelta(0)
 
     def get_link(self, referral: str | None = None) -> str:
         return "https://www.3jane.xyz/"

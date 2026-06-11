@@ -5,6 +5,7 @@ ERC-4626 tranche vaults are detected via
 :py:data:`eth_defi.erc_4626.classification.HARDCODED_PROTOCOLS`.
 """
 
+import datetime
 import os
 from pathlib import Path
 
@@ -14,7 +15,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.threejane.vault import ThreeJaneVault
+from eth_defi.erc_4626.vault_protocol.threejane.vault import SUSD3_LOCK_DURATION, ThreeJaneVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
@@ -67,6 +68,8 @@ def test_threejane_usd3(
     assert vault.denomination_token.symbol == "USDC"
     assert vault.get_management_fee("latest") is None
     assert vault.get_performance_fee("latest") is None
+    # Senior tranche has no redemption lock.
+    assert vault.get_estimated_lock_up() == datetime.timedelta(0)
 
 
 @flaky.flaky
@@ -94,3 +97,6 @@ def test_threejane_susd3(
     # 3. Confirm sUSD3 is denominated in USD3 (it wraps the senior tranche).
     assert vault.share_token.symbol == "sUSD3"
     assert vault.denomination_token.symbol == "USD3"
+    # Junior tranche carries a one-month redemption lock (SUSD3_LOCK_DURATION).
+    assert vault.get_estimated_lock_up() == SUSD3_LOCK_DURATION
+    assert vault.get_estimated_lock_up() == datetime.timedelta(days=30)

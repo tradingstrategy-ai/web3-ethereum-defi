@@ -22,10 +22,10 @@ links:
   homepage: https://www.3jane.xyz/
   app: https://www.3jane.xyz/
   twitter: https://x.com/3janexyz
-  github:
+  github: https://github.com/3jane-protocol/moneymarket-contracts
   documentation: https://docs.3jane.xyz/
   defillama: https://defillama.com/protocol/3jane
-  audits:
+  audits: https://docs.3jane.xyz/resources/audits
   fees:
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/3jane
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/threejane/index.html
