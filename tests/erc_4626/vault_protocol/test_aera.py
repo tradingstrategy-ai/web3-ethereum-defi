@@ -11,6 +11,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.aera.vault import AeraVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
@@ -80,5 +81,5 @@ def test_aera(web3: Web3) -> None:
 
     assert vault.get_management_fee("latest") is None
     assert vault.get_performance_fee("latest") is None
-    assert vault.get_risk() is None
+    assert vault.get_risk() == VaultTechnicalRisk.dangerous
     assert vault.get_link() == "https://app.aera.finance/"
