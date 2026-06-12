@@ -807,7 +807,7 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
 
         return self.vault_contract.functions.deposit(raw_amount, depositor, depositor)
 
-    def request_redeem(self, depositor: HexAddress, raw_amount: int) -> ContractFunction:
+    def request_redeem(self, depositor: HexAddress, raw_amount: int, check_enough_token: bool = True) -> ContractFunction:
         """Build a redeem transction.
 
         - Phase 1 of redemption, before settlement
@@ -816,14 +816,21 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
 
         :param raw_amount:
             Raw amount in share token
+
+        :param check_enough_token:
+            Assert the depositor still holds the shares. Set to False when only
+            rebuilding the request object to parse an already-broadcast
+            ``requestRedeem()`` transaction, because the shares have by then been
+            moved into the vault escrow and the depositor balance reads as zero.
         """
         assert type(raw_amount) == int, f"Got {raw_amount} {type(raw_amount)}"
         shares = self.share_token
         block_number = self.web3.eth.block_number
 
         # Check we have shares
-        owned_raw_amount = shares.fetch_raw_balance_of(depositor, block_number)
-        assert owned_raw_amount >= raw_amount, f"Cannot redeem, has only {owned_raw_amount} shares when {raw_amount} needed"
+        if check_enough_token:
+            owned_raw_amount = shares.fetch_raw_balance_of(depositor, block_number)
+            assert owned_raw_amount >= raw_amount, f"Cannot redeem, has only {owned_raw_amount} shares when {raw_amount} needed"
 
         human_amount = shares.convert_to_decimals(raw_amount)
         total_shares = self.fetch_total_supply(block_number)

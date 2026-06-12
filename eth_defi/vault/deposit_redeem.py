@@ -625,7 +625,9 @@ class VaultDepositManager(ABC):
             "vault_address": ticket.vault_address,
             "vault_owner": ticket.owner,
             "vault_to": ticket.to,
-            "vault_raw_amount": ticket.raw_amount,
+            # Stored as a string: 18-decimal raw amounts exceed the JavaScript
+            # safe-integer limit that the trade-executor state file enforces.
+            "vault_raw_amount": str(ticket.raw_amount),
             "vault_request_tx_hash": ticket.tx_hash.hex(),
             "vault_request_gas_used": ticket.gas_used,
             "vault_request_block_number": ticket.block_number,
@@ -643,7 +645,8 @@ class VaultDepositManager(ABC):
             vault_address=data["vault_address"],
             owner=data["vault_owner"],
             to=data.get("vault_to", data["vault_owner"]),
-            raw_amount=data["vault_raw_amount"],
+            # int() accepts both the current string form and legacy int form
+            raw_amount=int(data["vault_raw_amount"]),
             tx_hash=HexBytes(data["vault_request_tx_hash"]),
             gas_used=data.get("vault_request_gas_used", 0),
             block_number=data.get("vault_request_block_number", 0),
@@ -660,7 +663,9 @@ class VaultDepositManager(ABC):
             "vault_address": ticket.vault_address,
             "vault_owner": ticket.owner,
             "vault_to": ticket.to,
-            "vault_raw_amount": ticket.raw_shares,
+            # Stored as a string: 18-decimal raw share amounts exceed the JavaScript
+            # safe-integer limit that the trade-executor state file enforces.
+            "vault_raw_amount": str(ticket.raw_shares),
             "vault_request_tx_hash": ticket.tx_hash.hex(),
         }
 
