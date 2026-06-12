@@ -133,6 +133,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Avant": VaultTechnicalRisk.severe,
     # aarnâ - new protocol, risk not yet assessed
     "aarnâ": None,
+    # Aera - Github activity does not indicate transparent development process and lacks basic unit testing best practices
+    "Aera": VaultTechnicalRisk.severe,
     # Yo - YoVault_V2 source was not available on Github, and the development seems not to be transparent
     "Yo": VaultTechnicalRisk.severe,
     # Frax - extensively audited, open source, well-established protocol

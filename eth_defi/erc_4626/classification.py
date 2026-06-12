@@ -1633,6 +1633,11 @@ def create_vault_instance(
 
         return AarnaVault(web3, spec, **kwargs)
 
+    elif ERC4626Feature.aera_like in features:
+        from eth_defi.erc_4626.vault_protocol.aera.vault import AeraVault
+
+        return AeraVault(web3, spec, **kwargs)
+
     elif ERC4626Feature.yo_like in features:
         from eth_defi.erc_4626.vault_protocol.yo.vault import YoVault
 
@@ -1863,6 +1868,21 @@ HARDCODED_PROTOCOLS = {
     # aarnâ - atvPTmax Token vault on Ethereum
     # https://etherscan.io/address/0xb9c1344105faa4681bc7ffd68c5c526da61f2ae8
     "0xb9c1344105faa4681bc7ffd68c5c526da61f2ae8": {ERC4626Feature.aarna_like},
+    # Aera - Aera Strategy on Ethereum
+    # https://etherscan.io/address/0x8041ba598f0e656ebe80c67289efb42c09e86ae3
+    "0x8041ba598f0e656ebe80c67289efb42c09e86ae3": {ERC4626Feature.aera_like},
+    # Aera - USDC AeraVault Strategy on Ethereum
+    # https://etherscan.io/address/0x6593bb7272237f36444dee44df46ab3b0233a9a0
+    "0x6593bb7272237f36444dee44df46ab3b0233a9a0": {ERC4626Feature.aera_like},
+    # Aera - USDC AeraVault Strategy on Ethereum
+    # https://etherscan.io/address/0x7077ef67fe49ffb1260b893f2cd8475eeb72bbbb
+    "0x7077ef67fe49ffb1260b893f2cd8475eeb72bbbb": {ERC4626Feature.aera_like},
+    # Aera - Aera MultiOwner Wrapper 1 on Polygon
+    # https://polygonscan.com/address/0x00be76740759518db9c51bc59ec1993f2ffa4648
+    "0x00be76740759518db9c51bc59ec1993f2ffa4648": {ERC4626Feature.aera_like},
+    # Aera - Aera MultiOwner Wrapper 2 on Polygon
+    # https://polygonscan.com/address/0x83cd3d0e9f027b70cb4833b5c251f6fb62cfd9b0
+    "0x83cd3d0e9f027b70cb4833b5c251f6fb62cfd9b0": {ERC4626Feature.aera_like},
     # Yo Protocol - YoVault on Ethereum
     # https://etherscan.io/address/0x0000000f2eb9f69274678c76222b35eec7588a65
     # Same address also deployed on Base:

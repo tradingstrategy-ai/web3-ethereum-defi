@@ -1,0 +1,44 @@
+name: Aera
+slug: aera
+short_description: |
+  Non-custodial vault infrastructure for onchain treasury management and yield strategies.
+long_description: |
+  Aera powers onchain vaults with offchain intelligence. Vault owners configure
+  assets, protocol allowlists, guardians, and hooks so strategy execution can be
+  optimised offchain while remaining constrained and enforced onchain.
+
+  Aera V3 exposes a common BaseVault security model and two audited vault
+  implementations: SingleDepositorVault for treasury management use cases and
+  MultiDepositorVault for yield vaults where multiple depositors receive receipt
+  tokens representing their units in the vault.
+
+  Key features:
+
+  - Guardian-based operation execution with owner-approved constraints
+  - Whitelist and hook checks for protocol interactions and calldata
+  - Modular vault design for treasury management, earn programmes, and multi-depositor strategies
+  - Public contract snapshots and documentation
+fee_description: |
+  Fee information is vault-specific. Current ERC-4626 AeraStrategy wrappers
+  expose a Yearn TokenizedStrategy performance fee in basis points and point to
+  an underlying Aera V2 vault. The Aera V2 vault exposes a per-second TVL fee
+  in 18-decimal fixed point format; this maps to an annual management fee in
+  the vault analytics pipeline. Newer Aera V3 FeeVault deployments use fee
+  calculator contracts with TVL and performance fee settings.
+links:
+  homepage: https://www.aera.finance/
+  app: https://app.aera.finance/
+  twitter: https://x.com/aerafinance
+  github: https://github.com/aera-finance/aera-contracts-public
+  documentation: https://docs.aera.finance/
+  defillama:
+  audits:
+  fees: https://docs.aera.finance/aera-protocol-in-one-page
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/aera
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/aera/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x8041ba598f0e656ebe80c67289efb42c09e86ae3
+  - https://etherscan.io/address/0x6593bb7272237f36444dee44df46ab3b0233a9a0
+  - https://etherscan.io/address/0x7077ef67fe49ffb1260b893f2cd8475eeb72bbbb
+  - https://polygonscan.com/address/0x00be76740759518db9c51bc59ec1993f2ffa4648
+  - https://polygonscan.com/address/0x83cd3d0e9f027b70cb4833b5c251f6fb62cfd9b0

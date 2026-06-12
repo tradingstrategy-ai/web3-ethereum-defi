@@ -38,6 +38,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    feed/index
    erc_4626/index
    enzyme/index
+   aera/index
    lagoon/index
    ipor/index
    royco/index

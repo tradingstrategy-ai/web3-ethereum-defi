@@ -34,6 +34,7 @@ Supported protocols
 
    forty_acres/index
    aarna/index
+   aera/index
    accountable/index
    altura/index
    avant/index
