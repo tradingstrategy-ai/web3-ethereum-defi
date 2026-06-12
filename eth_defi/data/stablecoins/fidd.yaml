@@ -1,0 +1,29 @@
+symbol: FIDD
+name: Fidelity Digital Dollar
+short_description: Fidelity Digital Dollar (FIDD) is a US dollar stablecoin issued by Fidelity Digital Assets, National Association, a subsidiary of Fidelity Investments. FIDD is pegged 1:1 to the US dollar and fully
+  backed by cash, US treasuries and other liquid assets held at The Bank of New York Mellon.
+long_description: |
+  Fidelity Digital Dollar (FIDD) is the first stablecoin from [Fidelity Digital Assets](https://www.fidelitydigitalassets.com/stablecoin),
+  the digital asset arm of Fidelity Investments, launched on Ethereum mainnet in February 2026. FIDD is issued by Fidelity Digital
+  Assets, National Association (FDA, NA) and is pegged 1:1 to the US dollar, redeemable at $1 per unit through Fidelity accounts.
+
+  FIDD reserves are held as cash, US treasuries or other safe, liquid assets in accounts at The Bank of New York Mellon, with reserve
+  asset management by Fidelity Management & Research Company LLC. Monthly reserve reports are examined by PricewaterhouseCoopers LLP.
+
+  The FIDD smart contract is an ERC-20 token on Ethereum. Its [source code is open source](https://github.com/fidelity/mintable-token-ethereum-contract)
+  and was audited by OpenZeppelin.
+category: stablecoin
+links:
+  homepage: https://www.fidelitydigitalassets.com/stablecoin
+  coingecko: https://www.coingecko.com/en/coins/fidelity-digital-dollar
+  defillama: https://defillama.com/stablecoin/fidelity-digital-dollar
+  twitter: https://x.com/digitalassets
+contract_addresses:
+  - chain: ethereum
+    address: '0x7C135549504245B5eAe64fc0E99Fa5ebabb8e35D'
+slug: fidd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''
