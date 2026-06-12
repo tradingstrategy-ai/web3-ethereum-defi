@@ -72,7 +72,9 @@ def erc_vault_7540(web3) -> LagoonVault:
         address="0xb09f761cb13baca8ec087ac476647361b6314f98",
         features={ERC4626Feature.lagoon_like, ERC4626Feature.erc_7540_like},
     )
-    return cast(LagoonVault, vault)
+    lagoon_vault = cast(LagoonVault, vault)
+    assert lagoon_vault.get_link() == "https://app.lagoon.finance/vault/8453/0xB09F761Cb13baCa8eC087Ac476647361b6314F98"
+    return lagoon_vault
 
 
 def test_lagoon_erc_7540(
