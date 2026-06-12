@@ -1,5 +1,7 @@
 # Current
 
+- feat: Add Fidelity Digital Dollar (FIDD) as a recognised stablecoin — `is_stablecoin_like()` classification, stablecoin metadata YAML with the on-chain-verified Ethereum contract address, news feed entry for the `@digitalassets` Twitter handle, and the official FIDD token logo (2026-06-12)
+
 - fix: Add an `FLP` short pattern to the Kappa Lab curator so the closed Hibachi vault renamed from `Fire Liquidity Provider` to `FLP - Closed` is still detected by `identify_curator()`; the rename had dropped the only string the previous pattern matched, leaving the vault uncurated (2026-06-11)
 
 - feat: Add Domination Finance as a protocol-managed vault curator so its dfUSDC counterparty liquidity vault on Base is recognised by `identify_curator()` and exported with market-making-vault-specific short and long descriptions in the curator JSON, matching the existing Hyperliquid, GRVT, Ostium and Gains Network (gTrade) perp-DEX curator entries (2026-06-11)
