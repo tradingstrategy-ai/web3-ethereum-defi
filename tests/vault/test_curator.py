@@ -141,6 +141,28 @@ def test_identify_pangolins_vault() -> None:
     assert get_curator_name("pangolins") == "Pangolins"
 
 
+def test_identify_frax_usd_vaults() -> None:
+    """Frax USD and frxUSD vault names resolve to Frax Finance."""
+
+    cases = (
+        ("euler", "Euler Yield frxUSD"),
+        ("frax-finance", "Stable Frax USD Pre-Deposit"),
+        ("morpho", "Stake DAO frxUSD V2"),
+        ("morpho", "Alpha Frax USD Enhanced V2"),
+        ("morpho", "Steakhouse Prime frxUSD"),
+    )
+    for protocol_slug, vault_name in cases:
+        slug = identify_curator(
+            chain_id=1,
+            vault_token_symbol="",
+            vault_name=vault_name,
+            vault_address="0x0000000000000000000000000000000000000005",
+            protocol_slug=protocol_slug,
+        )
+
+        assert slug == "frax-finance", f"{vault_name!r} -> {slug!r}"
+
+
 def test_identify_gains_network_protocol_curator() -> None:
     """Gains Network protocol vaults resolve to the exported protocol slug."""
 
@@ -315,7 +337,7 @@ def test_identify_vault_name_sweep_curators() -> None:
         ("euler", "Keyring zkVerified Cluster"): "keyring-network",
         ("kiln-metavault", "Trust Wallet AAVE v3 USDT"): "trust-wallet",
         ("kiln-metavault", "Cool Wallet AAVEv3 USDC"): "cool-wallet",
-        ("lagoon-finance", "Mt Pelerin – USD strategy pool"): "mt-pelerin",
+        ("lagoon-finance", "Mt Pelerin - USD strategy pool"): "mt-pelerin",
         ("euler", "HypurrFi Earn USDC"): "hypurrfi",
         ("lagoon-finance", "DAMM Stablecoin Fund"): "damm-capital",
         ("morpho", "August USDC"): "august-digital",

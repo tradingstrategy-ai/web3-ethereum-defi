@@ -228,7 +228,7 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "llama-risk": ["LlamaRisk"],
     "9summits": ["9 Summits"],
     "sentora": ["IntoTheBlock"],
-    "frax-finance": ["Frax", "FRAX"],
+    "frax-finance": ["Frax USD", "frxUSD", "Frax", "FRAX"],
     "usdai": ["USD.AI", "USDai"],
     "agora-finance": ["Agora"],
     "tangent-finance": ["Tangent"],
@@ -270,6 +270,16 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
 SPONSOR_CURATOR_SLUGS: set[str] = {
     "trust-wallet",
     "cool-wallet",
+}
+
+#: Curators whose asset issuer match should win over co-branded vault names.
+#:
+#: Frax USD vaults on Morpho can include a third-party UI curator brand
+#: while the actual product family is Frax-managed.
+#: Stake DAO frxUSD V2, Alpha Frax USD Enhanced V2 and Steakhouse Prime
+#: frxUSD are Frax-based vaults based on the conversation with Frax (2026-06).
+PRIORITY_CURATOR_SLUGS: set[str] = {
+    "frax-finance",
 }
 
 
@@ -472,10 +482,9 @@ def _build_matching_patterns() -> list[tuple[re.Pattern, str]]:
         for extra in CURATOR_NAME_PATTERNS.get(slug, []):
             raw_pairs.append((extra, slug))
 
-    # Sort so that sponsor/distributor patterns are matched last (so the real
-    # risk curator wins on co-branded vaults), and within each priority group
-    # the longest (most specific) pattern matches first.
-    raw_pairs.sort(key=lambda pair: (pair[1] in SPONSOR_CURATOR_SLUGS, -len(pair[0])))
+    # Sort so that priority curators win over co-branded vault names, sponsor
+    # patterns are matched last, and the longest pattern wins within each group.
+    raw_pairs.sort(key=lambda pair: (pair[1] not in PRIORITY_CURATOR_SLUGS, pair[1] in SPONSOR_CURATOR_SLUGS, -len(pair[0])))
 
     patterns = []
     for pattern_text, slug in raw_pairs:
