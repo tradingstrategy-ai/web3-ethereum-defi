@@ -21,7 +21,7 @@ import datetime
 import logging
 from functools import cached_property
 
-from eth_typing import BlockIdentifier
+from eth_typing import BlockIdentifier, HexAddress
 from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 
@@ -34,6 +34,22 @@ logger = logging.getLogger(__name__)
 _AERA_BASIS_POINTS = 10_000
 _AERA_FEE_FIXED_POINT_ONE = 10**18
 _SECONDS_PER_YEAR = 365 * 24 * 60 * 60
+
+
+def convert_aera_tvl_fee_to_annual_management_fee(raw_fee_per_second: int) -> float:
+    """Convert the raw Aera V2 TVL fee to an annual management fee.
+
+    Aera V2 exposes its TVL fee as a per-second 18-decimal fixed point value.
+    The vault protocol abstraction reports management fees as annual fractions,
+    so ``10**9`` maps to ``0.031536`` or 3.1536% per year.
+
+    :param raw_fee_per_second:
+        Aera V2 ``fee()`` value.
+
+    :return:
+        Annual management fee as a fraction.
+    """
+    return raw_fee_per_second * _SECONDS_PER_YEAR / _AERA_FEE_FIXED_POINT_ONE
 
 
 class AeraVault(ERC4626Vault):
@@ -65,7 +81,7 @@ class AeraVault(ERC4626Vault):
             abi_fname="aera/AeraStrategy.json",
         )
 
-    def fetch_aera_vault_address(self, block_identifier: BlockIdentifier) -> str | None:
+    def fetch_aera_vault_address(self, block_identifier: BlockIdentifier) -> HexAddress | None:
         """Read the underlying Aera V2 vault address from the strategy wrapper.
 
         Some hardcoded Aera addresses are legacy wrappers that do not expose
@@ -122,7 +138,7 @@ class AeraVault(ERC4626Vault):
             return None
 
         raw_fee_per_second = aera_vault_contract.functions.fee().call(block_identifier=block_identifier)
-        return raw_fee_per_second * _SECONDS_PER_YEAR / _AERA_FEE_FIXED_POINT_ONE
+        return convert_aera_tvl_fee_to_annual_management_fee(raw_fee_per_second)
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Return the performance fee.

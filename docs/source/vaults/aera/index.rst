@@ -1,5 +1,5 @@
-Aera API
---------
+Aera
+----
 
 `Aera <https://www.aera.finance/>`__ integration.
 
@@ -29,9 +29,3 @@ Links
 - `Documentation <https://docs.aera.finance/>`__
 - `GitHub <https://github.com/aera-finance/aera-contracts-public>`__
 - `Protocol overview <https://docs.aera.finance/aera-protocol-in-one-page>`__
-
-.. autosummary::
-   :toctree: _autosummary_aera
-   :recursive:
-
-   eth_defi.erc_4626.vault_protocol.aera.vault
