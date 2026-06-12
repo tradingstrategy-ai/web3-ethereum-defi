@@ -15,9 +15,10 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
 
-    # Permissions for Cloudflare Pages deployment
+    # contents: write is needed to upload the pre-built docs zip as a
+    # rolling "docs-latest" GitHub Release asset (consumed by Read the Docs).
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -72,6 +73,23 @@ jobs:
         run: |
           poetry run make build-docs
 
+      # Zip the *contents* of docs/build/html so files land at the zip root
+      # (index.html, not html/index.html). Read the Docs unzips this straight
+      # into $READTHEDOCS_OUTPUT/html.
+      - name: Zip built HTML
+        run: (cd docs/build/html && zip -r -q "$GITHUB_WORKSPACE/docs-html.zip" .)
+
+      # Publish the zip as a rolling "docs-latest" release asset so RTD can
+      # download it over a stable public URL. --clobber overwrites the asset
+      # on every master build.
+      - name: Upload docs zip to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view docs-latest >/dev/null 2>&1 \
+            || gh release create docs-latest --prerelease --title "Latest docs build" --notes "Rolling pre-built Sphinx HTML for Read the Docs."
+          gh release upload docs-latest docs-html.zip --clobber
+
       - name: Install wrangler
         run: npm install -g wrangler
 
@@ -80,3 +98,14 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: make deploy-docs-cloudflare-only
+
+      # Kick Read the Docs to rebuild now that the fresh docs-latest asset is
+      # uploaded. RTD's build.commands just download that zip — no Sphinx run.
+      # https://docs.readthedocs.io/en/stable/api/v3.html#build-triggering
+      - name: Trigger Read the Docs build
+        env:
+          RTD_TOKEN: ${{ secrets.RTD_TOKEN }}
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Token $RTD_TOKEN" \
+            https://readthedocs.org/api/v3/projects/web3-ethereum-defi/versions/latest/builds/

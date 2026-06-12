@@ -2,23 +2,27 @@
 #
 # https://docs.readthedocs.io/en/stable/config-file/v2.html
 #
-# https://github.com/readthedocs/readthedocs.org/issues/4912#issuecomment-664002569
+# We do NOT build Sphinx on Read the Docs: the full build (API autosummary,
+# tutorials, vaults, notebooks) exceeds RTD's cloud build time limit. Instead
+# our GitHub Actions workflow (.github/workflows/docs.yml) builds the complete
+# HTML on our own runners, zips it and uploads it as a rolling GitHub Release
+# asset (tag "docs-latest"). Here RTD simply downloads that zip into
+# $READTHEDOCS_OUTPUT/html and publishes it — no pip install, no sphinx-build.
+#
+# https://docs.readthedocs.io/en/stable/build-customization.html
 
 version: 2
-
-sphinx:
-  configuration: docs/source/conf.py
 
 build:
   os: ubuntu-24.04
   tools:
+    # Required by the RTD config schema even though we never run Python here.
     python: "3.12"
   commands:
-    - python -m pip install --exists-action=w --no-cache-dir -r docs/requirements.txt
-    - pwd
-    - ls -l
-    - echo $READTHEDOCS_OUTPUT
-    - (cd docs/source && python -m sphinx -j auto -T -b html -D language=en . $READTHEDOCS_OUTPUT/html)
+    - mkdir -p "$READTHEDOCS_OUTPUT/html"
+    # -sfL: fail the build on a missing/4xx asset instead of writing a 404 page.
+    - curl -sfL https://github.com/tradingstrategy-ai/web3-ethereum-defi/releases/download/docs-latest/docs-html.zip -o /tmp/docs-html.zip
+    - unzip -q /tmp/docs-html.zip -d "$READTHEDOCS_OUTPUT/html"
 
 submodules:
   # include: all

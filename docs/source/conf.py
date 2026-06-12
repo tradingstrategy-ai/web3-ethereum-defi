@@ -4,8 +4,6 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-import os
-
 # -- Project information -----------------------------------------------------
 
 
@@ -39,21 +37,11 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
-
-# Minimal build for ReadTheDocs - only build index page as redirect stub.
-# Full docs moved to Cloudflare Pages at web3-ethereum-defi.tradingstrategy.ai
-# due to build timeout issues on RTD (full build exceeds RTD time limits).
-if os.environ.get("READTHEDOCS"):
-    exclude_patterns = [
-        "api/*",
-        "tutorials/*",
-        "vaults/*",
-        "_autosummary*",
-        "development.rst",
-        "troubleshooting.rst",
-        "related.rst",
-    ]
-    autosummary_generate = False
+# NOTE: Read the Docs no longer runs Sphinx. The full build exceeds RTD's
+# cloud build time limit, so GitHub Actions builds the complete HTML and RTD
+# only downloads and publishes the pre-built artifact. See .readthedocs.yml
+# and .github/workflows/docs.yml. This config therefore always builds the full
+# docs (the previous READTHEDOCS-only redirect-stub hack has been removed).
 
 # -- Options for HTML output -------------------------------------------------
 
