@@ -11,7 +11,6 @@ To run tests in this module:
 
 import logging
 import os
-import shutil
 
 import flaky
 import pytest
@@ -30,10 +29,7 @@ from eth_defi.uniswap_v2.token_tax import (
 )
 
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
-pytestmark = pytest.mark.skipif(
-    (os.environ.get("JSON_RPC_BINANCE") is None) or (shutil.which("anvil") is None),
-    reason="Set JSON_RPC_BINANCE env install anvil command to run these tests",
-)
+pytestmark = pytest.mark.skip(reason="Token tax functionality is no longer supported")
 
 
 @pytest.fixture(scope="module")

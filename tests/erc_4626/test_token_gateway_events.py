@@ -148,11 +148,14 @@ def test_token_gateway_vault_discovery_ethereum():
     vault_discover = JSONRPCVaultDiscover(
         web3,
         web3factory,
+        # Keep each eth_getLogs request small so providers with a strict
+        # max block range (-32012 errors) accept the query
+        max_getlogs_range=100,
     )
 
     # 2. Scan a narrow block range around the known deposit
-    start_block = DEPOSIT_BLOCK - 1_000
-    end_block = DEPOSIT_BLOCK + 1_000
+    start_block = DEPOSIT_BLOCK - 50
+    end_block = DEPOSIT_BLOCK + 50
 
     report = vault_discover.fetch_leads(start_block, end_block, display_progress=False)
 
