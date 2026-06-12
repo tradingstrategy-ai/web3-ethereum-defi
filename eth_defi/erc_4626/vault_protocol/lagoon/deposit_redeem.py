@@ -9,7 +9,7 @@ from eth_defi.event_reader.conversion import convert_bytes32_to_uint, convert_by
 from eth_defi.timestamp import get_block_timestamp
 from eth_typing import HexAddress, HexStr
 
-from eth_defi.vault.deposit_redeem import DepositTicket, CannotParseRedemptionTransaction, VaultDepositManager, DepositRedeemEventAnalysis, DepositRedeemEventFailure
+from eth_defi.vault.deposit_redeem import DepositTicket, CannotParseRedemptionTransaction, VaultDepositManager, DepositRedeemEventAnalysis, DepositRedeemEventFailure, AsyncVaultRequestStatus
 from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionRequest, RedemptionTicket
 
 import datetime
@@ -210,6 +210,7 @@ class ERC7540DepositManager(VaultDepositManager):
         func = self.vault.request_redeem(
             owner,
             raw_shares,
+            check_enough_token=check_enough_token,
         )
         return ERC7540RedemptionRequest(
             vault=self.vault,
@@ -255,6 +256,83 @@ class ERC7540DepositManager(VaultDepositManager):
             redemption_ticket.owner,
         ).call()
         return assets > 0
+
+    # --- Async vault lifecycle: ticket serialisation ---
+    #
+    # The base implementations drop ``request_id``, which ERC-7540 needs to
+    # query claimableDepositRequest()/claimableRedeemRequest() after a process
+    # restart, and the base reconstruct_redemption_ticket() raises
+    # NotImplementedError. Override all four so the trade-executor settlement
+    # retry module can persist and rebuild Lagoon tickets.
+
+    def serialize_deposit_ticket(self, ticket: ERC7540DepositTicket) -> dict:
+        """Serialise a Lagoon ERC-7540 deposit ticket, including ``request_id``."""
+        data = super().serialize_deposit_ticket(ticket)
+        data["vault_request_id"] = ticket.request_id
+        return data
+
+    def reconstruct_deposit_ticket(self, data: dict) -> ERC7540DepositTicket:
+        """Reconstruct an :py:class:`ERC7540DepositTicket` from a serialised dict."""
+        ts = data.get("vault_request_block_timestamp")
+        return ERC7540DepositTicket(
+            vault_address=data["vault_address"],
+            owner=data["vault_owner"],
+            to=data.get("vault_to", data["vault_owner"]),
+            # int() accepts both the current string form and legacy int form
+            raw_amount=int(data["vault_raw_amount"]),
+            tx_hash=HexBytes(data["vault_request_tx_hash"]),
+            request_id=data["vault_request_id"],
+            gas_used=data.get("vault_request_gas_used", 0),
+            block_number=data.get("vault_request_block_number", 0),
+            block_timestamp=datetime.datetime.fromisoformat(ts) if ts else None,
+        )
+
+    def serialize_redemption_ticket(self, ticket: ERC7540RedemptionTicket) -> dict:
+        """Serialise a Lagoon ERC-7540 redemption ticket, including ``request_id``."""
+        data = super().serialize_redemption_ticket(ticket)
+        data["vault_request_id"] = ticket.request_id
+        return data
+
+    def reconstruct_redemption_ticket(self, data: dict) -> ERC7540RedemptionTicket:
+        """Reconstruct an :py:class:`ERC7540RedemptionTicket` from a serialised dict."""
+        return ERC7540RedemptionTicket(
+            vault_address=data["vault_address"],
+            owner=data["vault_owner"],
+            to=data.get("vault_to", data["vault_owner"]),
+            # int() accepts both the current string form and legacy int form
+            raw_shares=int(data["vault_raw_amount"]),
+            tx_hash=HexBytes(data["vault_request_tx_hash"]),
+            request_id=data["vault_request_id"],
+        )
+
+    # --- Async vault lifecycle: settlement status ---
+
+    def get_deposit_request_status(self, ticket: ERC7540DepositTicket) -> AsyncVaultRequestStatus:
+        """Map Lagoon ERC-7540 deposit state to the generic status enum.
+
+        Check the request-specific claimable amount **first**: an aggregate
+        ``pendingDepositRequest(0, owner)`` query lumps together all of the
+        owner's requests, so probing it first would report an already-settled
+        request as still pending whenever another request is outstanding.
+        Lagoon has no on-chain reclaim, so ``reclaimable`` is never returned.
+        """
+        if self.can_finish_deposit(ticket):
+            return AsyncVaultRequestStatus.claimable
+        if self.is_deposit_in_progress(ticket.owner):
+            return AsyncVaultRequestStatus.pending
+        return AsyncVaultRequestStatus.none
+
+    def get_redemption_request_status(self, ticket: ERC7540RedemptionTicket) -> AsyncVaultRequestStatus:
+        """Map Lagoon ERC-7540 redemption state to the generic status enum.
+
+        Request-specific claimable is checked before the aggregate pending
+        query for the same reason as :py:meth:`get_deposit_request_status`.
+        """
+        if self.can_finish_redeem(ticket):
+            return AsyncVaultRequestStatus.claimable
+        if self.is_redemption_in_progress(ticket.owner):
+            return AsyncVaultRequestStatus.pending
+        return AsyncVaultRequestStatus.none
 
     def can_create_deposit_request(self, owner: HexAddress) -> bool:
         return True

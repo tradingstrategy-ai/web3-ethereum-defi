@@ -683,7 +683,8 @@ class OstiumV15DepositManager(ERC4626DepositManager):
             vault_address=data["vault_address"],
             owner=data["vault_owner"],
             to=data.get("vault_to", data["vault_owner"]),
-            raw_amount=data["vault_raw_amount"],
+            # int() accepts both the current string form and legacy int form
+            raw_amount=int(data["vault_raw_amount"]),
             tx_hash=HexBytes(data["vault_request_tx_hash"]),
             gas_used=data.get("vault_request_gas_used", 0),
             block_number=data.get("vault_request_block_number", 0),
@@ -703,7 +704,8 @@ class OstiumV15DepositManager(ERC4626DepositManager):
             vault_address=data["vault_address"],
             owner=data["vault_owner"],
             to=data.get("vault_to", data["vault_owner"]),
-            raw_shares=data["vault_raw_amount"],
+            # int() accepts both the current string form and legacy int form
+            raw_shares=int(data["vault_raw_amount"]),
             tx_hash=HexBytes(data["vault_request_tx_hash"]),
             settlement_id=data["vault_settlement_id"],
         )

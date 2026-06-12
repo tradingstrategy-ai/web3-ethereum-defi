@@ -10,14 +10,36 @@ import pytest
 import zstandard as zstd
 from plotly.graph_objects import Figure
 
+from eth_defi.research import vault_metrics
 from eth_defi.research.sparkline import export_sparkline_as_png, export_sparkline_as_svg, extract_vault_price_data, render_sparkline_simple
 from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
-from eth_defi.research.vault_metrics import PeriodMetrics, apply_abnormal_value_checks, apply_morpho_not_in_api_check, calculate_lifetime_metrics, calculate_period_metrics, display_vault_chart_and_tearsheet, export_lifetime_row, format_lifetime_table
+from eth_defi.research.vault_metrics import (
+    PeriodMetrics,
+    apply_abnormal_value_checks,
+    apply_morpho_not_in_api_check,
+    calculate_lifetime_metrics,
+    calculate_period_metrics,
+    display_vault_chart_and_tearsheet,
+    export_lifetime_row,
+    format_lifetime_table,
+)
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase
+
+
+def test_get_trading_strategy_links_use_canonical_vault_routes():
+    """Generated Trading Strategy links use canonical flat vault routes."""
+    vault_link = vault_metrics._get_trading_strategy_vault_link(
+        vault_slug="steakhouse-usdc",
+        vault_address="0x6043828A0cE0FccC6D27eC4848673Ff7F54Ebd0C",
+    )
+
+    assert vault_link == "https://tradingstrategy.ai/trading-view/vaults/steakhouse-usdc#0x6043828A0cE0FccC6D27eC4848673Ff7F54Ebd0C"
+    assert vault_metrics._get_trading_strategy_chain_link("Ethereum") == "https://tradingstrategy.ai/trading-view/vaults/chains/ethereum"
+    assert vault_metrics._get_trading_strategy_chain_link("Hypercore") == "https://tradingstrategy.ai/trading-view/vaults/chains/hyperliquid"
 
 
 def test_apply_morpho_not_in_api_check_blacklists_vault():
