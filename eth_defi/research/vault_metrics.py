@@ -400,7 +400,7 @@ def _get_chain_slug(chain_name: str) -> str:
 def _get_trading_strategy_chain_link(chain_name: str) -> str:
     """Get the tradingstrategy.ai vault listing URL for a chain."""
     chain_slug = _get_chain_slug(chain_name)
-    return f"https://tradingstrategy.ai/trading-view/{chain_slug}/vaults"
+    return f"https://tradingstrategy.ai/trading-view/vaults/chains/{chain_slug}"
 
 
 def _get_trading_strategy_protocol_link(protocol_slug: str) -> str:
@@ -409,14 +409,15 @@ def _get_trading_strategy_protocol_link(protocol_slug: str) -> str:
 
 
 def _get_trading_strategy_vault_link(
-    chain_id: int,
-    chain_name: str,
-    protocol_slug: str,
     vault_slug: str,
     vault_address: str,
-):
-    chain_slug = _get_chain_slug(chain_name)
-    return f"https://tradingstrategy.ai/trading-view/{chain_slug}/vaults/{vault_slug}?a={vault_address}"
+) -> str:
+    """Get the tradingstrategy.ai vault URL.
+
+    The vault address is kept in the URL fragment so the canonical page route
+    avoids the legacy redirect and the address does not affect routing.
+    """
+    return f"https://tradingstrategy.ai/trading-view/vaults/{vault_slug}#{vault_address}"
 
 
 def create_fee_label(
@@ -1437,9 +1438,6 @@ def calculate_vault_record(
     curator_name = get_curator_name(curator_slug) if curator_slug else None
 
     trading_strategy_link = _get_trading_strategy_vault_link(
-        chain_id=chain_id,
-        chain_name=get_chain_name(chain_id),
-        protocol_slug=protocol_slug,
         vault_slug=vault_slug,
         vault_address=vault_address,
     )
