@@ -19,9 +19,12 @@ long_description: |
   - Modular vault design for treasury management, earn programmes, and multi-depositor strategies
   - Public contract snapshots and documentation
 fee_description: |
-  Fee information is vault-specific. Aera supports FeeVault and fee calculator
-  contracts, including calculators for single-depositor and multi-depositor
-  vaults, but this integration does not yet decode per-vault fee settings.
+  Fee information is vault-specific. Current ERC-4626 AeraStrategy wrappers
+  expose a Yearn TokenizedStrategy performance fee in basis points and point to
+  an underlying Aera V2 vault. The Aera V2 vault exposes a per-second TVL fee
+  in 18-decimal fixed point format; this maps to an annual management fee in
+  the vault analytics pipeline. Newer Aera V3 FeeVault deployments use fee
+  calculator contracts with TVL and performance fee settings.
 links:
   homepage: https://www.aera.finance/
   app: https://app.aera.finance/

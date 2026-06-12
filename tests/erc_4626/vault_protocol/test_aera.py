@@ -12,6 +12,7 @@ from eth_defi.erc_4626.vault_protocol.aera.vault import AeraVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
+from eth_defi.vault.fee import VaultFeeMode
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
@@ -22,6 +23,15 @@ pytestmark = pytest.mark.skipif(
 
 #: USDC AeraVault Strategy on Ethereum.
 AERA_USDC_STRATEGY = "0x6593bb7272237f36444dee44df46ab3b0233a9a0"
+
+#: Underlying Aera V2 vault used by the USDC strategy.
+AERA_USDC_UNDERLYING_VAULT = "0xFA60E843a52eff94901f43ac08232b59351192cc"
+
+#: Current Aera V2 TVL fee on the tested strategy, mapped to annual management fee.
+EXPECTED_AERA_MANAGEMENT_FEE = 0
+
+#: Current Yearn TokenizedStrategy performance fee on the tested strategy.
+EXPECTED_AERA_PERFORMANCE_FEE = 0.10
 
 #: Aera vaults currently identified by hardcoded addresses.
 AERA_VAULT_ADDRESSES = {
@@ -79,7 +89,28 @@ def test_aera(web3: Web3) -> None:
     assert vault.get_protocol_name() == "Aera"
     assert vault.features == {ERC4626Feature.aera_like}
 
-    assert vault.get_management_fee("latest") is None
-    assert vault.get_performance_fee("latest") is None
+    assert vault.get_management_fee("latest") == EXPECTED_AERA_MANAGEMENT_FEE
+    assert vault.get_performance_fee("latest") == EXPECTED_AERA_PERFORMANCE_FEE
     assert vault.get_risk() == VaultTechnicalRisk.severe
     assert vault.get_link() == "https://app.aera.finance/"
+
+
+@flaky.flaky
+def test_aera_strategy_fees(web3: Web3) -> None:
+    """Read Aera strategy fee data.
+
+    Aera V2 exposes its TVL fee as a per-second fixed-point ``fee()`` on the
+    underlying Aera vault. This maps to our annual management fee. The ERC-4626
+    strategy wrapper exposes ``performanceFee()`` in basis points through the
+    Yearn TokenizedStrategy fallback.
+    """
+    vault = create_vault_instance_autodetect(
+        web3,
+        vault_address=AERA_USDC_STRATEGY,
+    )
+
+    assert isinstance(vault, AeraVault)
+    assert vault.fetch_aera_vault_address("latest") == AERA_USDC_UNDERLYING_VAULT
+    assert vault.get_management_fee("latest") == EXPECTED_AERA_MANAGEMENT_FEE
+    assert vault.get_performance_fee("latest") == EXPECTED_AERA_PERFORMANCE_FEE
+    assert vault.get_fee_mode() == VaultFeeMode.internalised_skimming

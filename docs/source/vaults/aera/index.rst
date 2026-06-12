@@ -13,6 +13,13 @@ initial integration identifies known Aera vaults by hardcoded vault addresses;
 a generic contract probe can be added later once a stable protocol-specific
 signature has been selected.
 
+For currently discovered Ethereum ERC-4626 AeraStrategy wrappers, fee data is
+read from the deployed contracts. The strategy wrapper exposes a Yearn
+TokenizedStrategy ``performanceFee()`` in basis points. The wrapper's
+``vaultAera()`` points to an Aera V2 vault whose ``fee()`` is a per-second
+18-decimal fixed-point TVL fee. This TVL fee is annualised and reported as the
+vault management fee.
+
 Links
 ~~~~~
 
