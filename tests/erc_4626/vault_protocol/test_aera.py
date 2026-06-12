@@ -81,5 +81,5 @@ def test_aera(web3: Web3) -> None:
 
     assert vault.get_management_fee("latest") is None
     assert vault.get_performance_fee("latest") is None
-    assert vault.get_risk() == VaultTechnicalRisk.dangerous
+    assert vault.get_risk() == VaultTechnicalRisk.severe
     assert vault.get_link() == "https://app.aera.finance/"
