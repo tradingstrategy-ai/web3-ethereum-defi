@@ -133,6 +133,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Avant": VaultTechnicalRisk.severe,
     # aarnâ - new protocol, risk not yet assessed
     "aarnâ": None,
+    # Aera - audited vault infrastructure by Gauntlet, risk not yet assessed
+    "Aera": None,
     # Yo - YoVault_V2 source was not available on Github, and the development seems not to be transparent
     "Yo": VaultTechnicalRisk.severe,
     # Frax - extensively audited, open source, well-established protocol

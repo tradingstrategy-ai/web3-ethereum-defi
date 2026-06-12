@@ -19,6 +19,18 @@ Before starting, gather the following information from the user:
 6. **Single vault protocol**: Some protocols, especially ones issuing out their own stablecoin, are know to have only a single vault for the stablecoin staking. Example protocols are like like Spark, Ethena, Cap. In this case use `HARDCODED_PROTOCOLS` classification later, as there is no point to create complex vault smart contract detection patterns if the protocol does not need it.
 7. **Risk level**: Optional. If not given, set to `None`
 
+## Completion requirements
+
+A new vault protocol integration is not complete unless it includes:
+
+- Protocol detection or hardcoded address classification
+- Vault class and `create_vault_instance()` wiring
+- Risk and fee matrix entries
+- Protocol metadata YAML under `eth_defi/data/vaults/metadata/`
+- Original and post-processed protocol logos
+- Vault documentation and API documentation entries
+- Focused tests for the new protocol
+
 ## Step-by-step implementation
 
 ### Step 1: Download and store the ABI
@@ -151,7 +163,7 @@ elif ERC4626Feature.{protocol_slug}_like in features:
     return {ProtocolName}Vault(web3, spec, token_cache=token_cache, features=features)
 ```
 
-### Step 5: Update risk and fee information
+### Step 6: Update risk and fee information
 
 Update `eth_defi/vault/risk.py` with the protocol stub.
 
@@ -164,7 +176,53 @@ Set `VAULT_PROTOCOL_FEE_MATRIX` to `None` for newly added protocol.
 
 Match `get_vault_protocol_name()` for the protocol name spelling.
 
-### Step 6: Create test file
+### Step 7: Add protocol metadata YAML
+
+Create `eth_defi/data/vaults/metadata/{protocol-slug}.yaml`.
+
+- Use the slug with dashes for metadata filenames if the protocol slug contains multiple words
+- Include name, slug, short description, long description, fee description, links, and example smart contracts
+- Use `eth_defi/data/vaults/README.md` as the schema reference
+- Include `trading_strategy` and `integration_documentation` links even if the Trading Strategy listing is not live yet
+
+Validate that the metadata can be parsed:
+
+```shell
+poetry run python - <<'PY'
+from pathlib import Path
+from eth_defi.vault.protocol_metadata import build_metadata_json
+print(build_metadata_json(Path("eth_defi/data/vaults/metadata/{protocol-slug}.yaml"), "https://example.invalid")["name"])
+PY
+```
+
+### Step 8: Extract and post-process protocol logos
+
+Protocol logos are required for vault protocol metadata and frontend listings.
+Do not skip this step unless no official or defensible logo source can be found
+after following the logo extraction workflow; if skipped, document why in the
+final response and in the logo README.
+
+1. Use the repo-local `extract-vault-protocol-logo` skill.
+   - Read `.claude/skills/extract-vault-protocol-logo/SKILL.md`
+   - Use the homepage from `eth_defi/data/vaults/metadata/{protocol-slug}.yaml`
+   - Save original logos under `eth_defi/data/vaults/original_logos/{protocol-slug}/`
+   - Add a `README.md` in the original logo folder documenting sources and choices
+2. Use the repo-local `post-process-logo` skill.
+   - Read `.claude/skills/post-process-logo/SKILL.md`
+   - Create post-processed 256x256 PNG logos under `eth_defi/data/vaults/formatted_logos/{protocol-slug}/`
+   - Produce at least `light.png` and `dark.png` when the source supports both; otherwise produce the best available variant and explain the limitation
+3. Verify the metadata exporter sees the logos:
+
+```shell
+poetry run python - <<'PY'
+from pathlib import Path
+from eth_defi.vault.protocol_metadata import build_metadata_json
+metadata = build_metadata_json(Path("eth_defi/data/vaults/metadata/{protocol-slug}.yaml"), "https://example.invalid")
+print(metadata["logos"])
+PY
+```
+
+### Step 9: Create test file
 
 First the latest block number for the selected chain using `get-block-number` skill.
 
@@ -245,7 +303,7 @@ def test_{protocol_slug}(
 
 After adding it, run the test module and fix any issues.
 
-### Step 7: Add module **init**.py
+### Step 10: Add module **init**.py
 
 Create `eth_defi/erc_4626/vault_protocol/{protocol_slug}/__init__.py`:
 
@@ -253,9 +311,12 @@ Create `eth_defi/erc_4626/vault_protocol/{protocol_slug}/__init__.py`:
 """{Protocol Name} protocol integration."""
 ```
 
-## Step 8: Update documentation
+## Step 11: Update documentation
 
 - Add protocol to `docs/source/vaults`
+- Add protocol to `docs/source/vaults/index.rst`
+- Add API stub under `docs/source/api/{protocol_slug}/index.rst`
+- Cross-reference the API stub in `docs/source/api/index.rst`
 - Include protocol name
 - Search web for a short description, two paragraph
 - Add a link to the protocol home page and documentation
@@ -271,7 +332,7 @@ Examples include
 
 - `docs/source/vaults/plutus/index.rst`, `docs/source/vaults/truefi/index.rst`, `docs/source/api/vaults/index.rst`,
 
-## Step 9: Run all vault protocol detection tests
+## Step 12: Run all vault protocol detection tests
 
 Check that all ERC-4626 tests pass after adding a new vault protocol by running all testse in `tests/erc_4626/vault_protocol` folder.
 
@@ -283,21 +344,11 @@ source .local-test.env && poetry run pytest -n auto -k vault_protocol
 
 Fix any issues if found.
 
-## Step 10: Format the codebase
+## Step 13: Format the codebase
 
 Format the newly added files with `poetry run ruff format`.
 
-## Step 11: Add metadata and logos
-
-Read `eth_defi/data/vaults/README.md` and use it to write a YAML file for the vault protocol in `eth_defi/data/vaults/metadata`.
-
-- Create the metadata YAML file
-- Use `extract-vault-protocol-logo` skill to save the vault protocol original logo files
-- Use `post-process-logo` skill to create a light variant of the logo
-
-AFTER COMPLETING THIS STEP REMEMBER TO CONTINUE WITH THE MAIN TASK.
-
-## Step 12: Add feed protocol YAML entry
+## Step 14: Add feed protocol YAML entry
 
 Create a feed YAML file at `eth_defi/data/feeds/protocols/{protocol-slug}.yaml` so the protocol's social media posts are collected by the feed scanner. For full schema documentation and collection behaviour details, see `eth_defi/feed/README-feed.md`.
 
@@ -352,18 +403,22 @@ linkedin: lagoon-finance
 # rss: not found — blog is at lagoon.finance/blog but has no RSS feed
 ```
 
-## Step 13: Verification checklist
+## Step 15: Verification checklist
 
 After implementation, verify:
 
-- [ ] ABI file is correctly placed in `eth_defi/abi/{protocol_slug}/`
+- [ ] ABI file is correctly placed in `eth_defi/abi/{protocol_slug}/`, or the protocol is intentionally using `HARDCODED_PROTOCOLS`
 - [ ] Vault class inherits from `ERC4626Vault`
 - [ ] `ERC4626Feature` enum has the new protocol
 - [ ] `get_vault_protocol_name()` returns the correct name
-- [ ] `create_probe_calls()` has a unique probe for the protocol
-- [ ] `identify_vault_features()` correctly identifies the protocol
+- [ ] `create_probe_calls()` has a unique probe for the protocol, or the protocol is intentionally using `HARDCODED_PROTOCOLS`
+- [ ] `identify_vault_features()` or `HARDCODED_PROTOCOLS` correctly identifies the protocol
 - [ ] `create_vault_instance()` creates the correct vault class
 - [ ] Test file runs successfully with: `source .local-test.env && poetry run pytest tests/erc_4626/vault_protocol/test_{protocol_slug}.py -v`
+- [ ] Metadata YAML parses successfully
+- [ ] Original logos are saved under `eth_defi/data/vaults/original_logos/{protocol-slug}/`
+- [ ] Post-processed logos are saved under `eth_defi/data/vaults/formatted_logos/{protocol-slug}/`
+- [ ] Metadata exporter sees the post-processed logos
 - [ ] API documents have been updated
 - [ ] Check that homepage link in the API documentation takes to the correct homepage
 - [ ] Check that Twitter link in the API documentation works and takes to the same Twitter account as listed on the protocol homepage
@@ -371,11 +426,11 @@ After implementation, verify:
 
 If there are problems with the checklist, ask for human assistance.
 
-## Step 14: Changelog
+## Step 16: Changelog
 
 - Update changelog line in `CHANGELOG.md` and add a note of added new protocol
 
-## Step 15: Pull request (optional)
+## Step 17: Pull request (optional)
 
 After everything is done, open a pull request, but only if the user asks you to.
 

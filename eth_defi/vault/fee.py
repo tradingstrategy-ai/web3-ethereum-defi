@@ -125,6 +125,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Avant": VaultFeeMode.feeless,
     # aarnâ - fee mode unknown
     "aarnâ": None,
+    # Aera - fee mode is vault-specific and can depend on fee calculator contracts
+    "Aera": None,
     # Yo - has deposit and withdrawal fees, externalised
     "Yo": None,
     # Frax - Fraxlend takes 10% of interest revenue as protocol fee, internalised in share price

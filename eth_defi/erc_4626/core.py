@@ -527,6 +527,13 @@ class ERC4626Feature(enum.Enum):
     #: https://www.aarna.ai/
     aarna_like = "aarna_like"
 
+    #: Aera
+    #:
+    #: Onchain vault infrastructure for treasury management and multi-depositor
+    #: yield strategies.
+    #: https://www.aera.finance/
+    aera_like = "aera_like"
+
     #: Yo Protocol
     #:
     #: DeFi protocol with ERC-4626 vault and asynchronous redemption mechanism.
@@ -893,6 +900,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.aarna_like in features:
         return "aarnâ"
+
+    elif ERC4626Feature.aera_like in features:
+        return "Aera"
 
     elif ERC4626Feature.yo_like in features:
         return "Yo"

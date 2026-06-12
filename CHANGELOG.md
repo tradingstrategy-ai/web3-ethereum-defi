@@ -1,5 +1,7 @@
 # Current
 
+- feat: Add Aera vault protocol support with hardcoded address classification, protocol metadata, official logo assets, Sphinx docs and focused tests for the currently discovered Ethereum and Polygon Aera strategy/wrapper vaults (2026-06-12)
+
 - feat: Add Fidelity Digital Dollar (FIDD) as a recognised stablecoin — `is_stablecoin_like()` classification, stablecoin metadata YAML with the on-chain-verified Ethereum contract address, news feed entry for the `@digitalassets` Twitter handle, and the official FIDD token logo (2026-06-12)
 
 - fix: Add an `FLP` short pattern to the Kappa Lab curator so the closed Hibachi vault renamed from `Fire Liquidity Provider` to `FLP - Closed` is still detected by `identify_curator()`; the rename had dropped the only string the previous pattern matched, leaving the vault uncurated (2026-06-11)
