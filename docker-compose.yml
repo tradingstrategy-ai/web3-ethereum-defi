@@ -10,12 +10,15 @@ services:
       context: .
       dockerfile: Dockerfile.vault-scanner
       # Stamp the image with its git revision, read at runtime by
-      # eth_defi.version_info.VersionInfo. Build with:
+      # eth_defi.version_info.VersionInfo.
       #
-      #   GIT_VERSION_HASH=$(git rev-parse HEAD) \
-      #   GIT_VERSION_TAG=$(git describe --tags --exact-match 2>/dev/null || true) \
-      #   GIT_COMMIT_MESSAGE=$(git log -1 --pretty=%s) \
-      #   docker compose build vault-scanner
+      # Always build the image with:
+      #
+      #   scripts/build-container.sh
+      #
+      # Do not call `docker compose build` directly for production images:
+      # the wrapper extracts the current git hash, exact tag and commit
+      # message, passes them as build args, and verifies the image stamp.
       #
       # GIT_VERSION_TAG must be an exact tag or empty — never a fallback
       # describe string or abbreviated hash. Untagged builds leave it empty,

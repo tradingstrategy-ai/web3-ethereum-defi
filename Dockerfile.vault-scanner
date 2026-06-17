@@ -65,7 +65,13 @@ RUN poetry cache clear pypi --all --no-interaction
 RUN python -m compileall -q /usr/local/lib/python3.14
 RUN python -m compileall -q eth_defi
 
-# Passed from the image build command, e.g. Github Actions or docker compose build.
+# Passed from scripts/build-container.sh.
+#
+# Always build production images with that script. It extracts git metadata
+# from the checkout, passes these ARGs to Docker Compose, and verifies the
+# resulting image stamp. A direct `docker compose build` will use the
+# ``unspecified`` defaults below and produce null JSON metadata fields.
+#
 # Declared and written at the end so commit metadata changes do not invalidate
 # the expensive dependency install layers above.
 ARG GIT_VERSION_TAG=unspecified
@@ -74,9 +80,9 @@ ARG GIT_VERSION_HASH=unspecified
 
 # Read by eth_defi.version_info.VersionInfo at runtime so the scanner can
 # report which git revision it is running, e.g. in the top-vaults JSON export.
-RUN echo $GIT_VERSION_TAG > GIT_VERSION_TAG.txt
-RUN echo $GIT_COMMIT_MESSAGE > GIT_COMMIT_MESSAGE.txt
-RUN echo $GIT_VERSION_HASH > GIT_VERSION_HASH.txt
+RUN printf '%s\n' "$GIT_VERSION_TAG" > GIT_VERSION_TAG.txt
+RUN printf '%s\n' "$GIT_COMMIT_MESSAGE" > GIT_COMMIT_MESSAGE.txt
+RUN printf '%s\n' "$GIT_VERSION_HASH" > GIT_VERSION_HASH.txt
 
 ENV SCAN_PRICES=true
 CMD ["python", "scripts/erc-4626/scan-vaults-all-chains.py"]
