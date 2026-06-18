@@ -84,7 +84,7 @@ tenacity = {version = "*", optional = true}# Needed for Plotly
 #eth-pydantic-types = {version = "^0.2.0"}
 
 # web3-google-hsm = {git = "https://github.com/Ankvik-Tech-Labs/web3-google-hsm"}
-pytz = "^2024.2"
+pytz = ">=2026.1.0"
 web3-google-hsm = "^0.1.0"
 
 # Docs
