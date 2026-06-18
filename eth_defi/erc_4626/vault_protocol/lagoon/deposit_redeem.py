@@ -73,9 +73,12 @@ class ERC7540DepositRequest(DepositRequest):
             request_id = convert_bytes32_to_uint(topics[-1])
 
         else:
-            logs = vault.vault_contract.events.DepositRequested().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
+            # ERC-7540 standard event is named DepositRequest (not DepositRequested).
+            # Lagoon v0.5+ vaults emit this; the legacy branch above parses the
+            # Referral event instead.
+            logs = vault.vault_contract.events.DepositRequest().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
             if len(logs) != 1:
-                raise CannotParseRedemptionTransaction(f"Expected exactly one DepositRequested event, got logs: {logs} at {tx_hash.hex()}")
+                raise CannotParseRedemptionTransaction(f"Expected exactly one DepositRequest event, got logs: {logs} at {tx_hash.hex()}")
 
             log = logs[0]
             request_id = log["args"]["requestId"]
@@ -124,7 +127,7 @@ class ERC7540RedemptionRequest(RedemptionRequest):
         logs = vault.vault_contract.events.RedeemRequest().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
 
         if len(logs) != 1:
-            raise CannotParseRedemptionTransaction(f"Expected exactly one DepositRequested event, got logs: {logs} at {tx_hash.hex()}")
+            raise CannotParseRedemptionTransaction(f"Expected exactly one RedeemRequest event, got logs: {logs} at {tx_hash.hex()}")
 
         log = logs[0]
         request_id = log["args"]["requestId"]
