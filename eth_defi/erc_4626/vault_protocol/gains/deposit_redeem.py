@@ -344,8 +344,8 @@ class OstiumV15DepositManager(ERC4626DepositManager):
     - Deposits: ``requestDeposit(assets)`` -> settlement -> ``claimDeposit(settlementId)``
     - Withdrawals: ``requestWithdraw(shares)`` -> settlement -> ``claimWithdraw(settlementId)``
 
-    Settlement happens daily via ``tryNewSettlement()`` (public, permissionless)
-    once ``maxSettlementInterval`` has elapsed.
+    Settlement happens via ``tryNewSettlement()`` (public, permissionless)
+    once ``maxSettlementInterval`` has elapsed after the previous settlement.
 
     The ``is_deposit_in_progress()`` / ``is_redemption_in_progress()`` methods only
     check the current ``targetSettlementId``. For checking specific tickets regardless
@@ -545,11 +545,7 @@ class OstiumV15DepositManager(ERC4626DepositManager):
         """Estimate when the next withdrawal settlement will occur."""
         vault = self.vault
         target_id = vault.vault_contract.functions.targetSettlementId(False).call()
-        last_id = vault.vault_contract.functions.lastSettlementId().call()
-        last_ts = vault.vault_contract.functions.lastSettlementTs().call()
-        interval = vault.vault_contract.functions.maxSettlementInterval().call()
-        settlements_to_wait = max(target_id - last_id, 1)
-        return from_unix_timestamp(last_ts + settlements_to_wait * interval)
+        return self.get_target_settlement_delay_over(target_id)
 
     def get_deposit_delay_over(self, address: HexAddress | str) -> datetime.datetime | None:
         """Estimate when the next deposit settlement will occur.
@@ -559,11 +555,66 @@ class OstiumV15DepositManager(ERC4626DepositManager):
         """
         vault = self.vault
         target_id = vault.vault_contract.functions.targetSettlementId(True).call()
+        return self.get_target_settlement_delay_over(target_id)
+
+    def get_target_settlement_delay_over(self, settlement_id: int) -> datetime.datetime:
+        """Estimate when a current target settlement id can be processed.
+
+        Target ids come from ``targetSettlementId()`` before a concrete request
+        ticket exists. Preserve the historical one-interval floor for this
+        pre-request estimate.
+
+        :param settlement_id:
+            Current target settlement id.
+
+        :return:
+            Naive UTC timestamp when ``tryNewSettlement()`` becomes eligible.
+        """
+        return self._calculate_settlement_delay_over(settlement_id, floor_to_next=True)
+
+    def get_settlement_delay_over(self, settlement_id: int) -> datetime.datetime:
+        """Estimate when an Ostium V1.5 ticket settlement id can be processed.
+
+        Ostium V1.5 request events carry the concrete settlement id that will
+        process the request. Use that persisted id for display and recovery
+        instead of the current ``targetSettlementId()`` value, because the
+        target can move after later requests or settlements.
+
+        :param settlement_id:
+            Ostium settlement id from a deposit or withdrawal ticket.
+
+        :return:
+            Naive UTC timestamp when ``tryNewSettlement()`` becomes eligible
+            for this settlement id.
+        """
+        return self._calculate_settlement_delay_over(settlement_id, floor_to_next=False)
+
+    def _calculate_settlement_delay_over(
+        self,
+        settlement_id: int,
+        floor_to_next: bool,
+    ) -> datetime.datetime:
+        """Calculate settlement eligibility timestamp from Ostium settlement clock."""
+        vault = self.vault
         last_id = vault.vault_contract.functions.lastSettlementId().call()
         last_ts = vault.vault_contract.functions.lastSettlementTs().call()
         interval = vault.vault_contract.functions.maxSettlementInterval().call()
-        settlements_to_wait = max(target_id - last_id, 1)
+        settlements_to_wait = settlement_id - last_id
+        if floor_to_next:
+            settlements_to_wait = max(settlements_to_wait, 1)
+        else:
+            settlements_to_wait = max(settlements_to_wait, 0)
         return from_unix_timestamp(last_ts + settlements_to_wait * interval)
+
+    def get_deposit_ticket_delay_over(self, ticket: OstiumDepositTicket) -> datetime.datetime:
+        """Estimate when a deposit ticket's settlement can be processed."""
+        assert isinstance(ticket, OstiumDepositTicket)
+        return self.get_settlement_delay_over(ticket.settlement_id)
+
+    def get_redemption_ticket_delay_over(self, ticket: OstiumRedemptionTicket) -> datetime.datetime:
+        """Estimate when a withdrawal ticket's settlement can be processed."""
+        assert isinstance(ticket, OstiumRedemptionTicket)
+        return self.get_settlement_delay_over(ticket.settlement_id)
 
     def analyse_deposit(
         self,

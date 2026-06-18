@@ -48,7 +48,8 @@ Deposits now use an async flow via the
 interface:
 
 1. `requestDeposit(uint256 assets)` — user submits USDC, queued for next settlement
-2. Settlement executes daily 5-6 pm ET Mon-Fri (batches all pending requests)
+2. Settlement executes through permissionless `tryNewSettlement()` once the
+   vault's on-chain settlement interval has elapsed
 3. `claimDeposit()` — user claims OLP shares after settlement
 
 Deposits can be cancelled before settlement via `cancelRequestDeposit()`.
