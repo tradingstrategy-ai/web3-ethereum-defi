@@ -1,24 +1,44 @@
 """Deposit/redemption flow for ERC-7540 vaults."""
 
+import datetime
+from collections.abc import Iterator
 from dataclasses import dataclass
+from decimal import Decimal
 from pprint import pformat
 from typing import cast
 
-from eth_defi.abi import get_topic_signature_from_event, ZERO_ADDRESS_STR
-from eth_defi.event_reader.conversion import convert_bytes32_to_uint, convert_bytes32_to_address
-from eth_defi.timestamp import get_block_timestamp
-from eth_typing import HexAddress, HexStr
-
-from eth_defi.vault.deposit_redeem import DepositTicket, CannotParseRedemptionTransaction, VaultDepositManager, DepositRedeemEventAnalysis, DepositRedeemEventFailure, AsyncVaultRequestStatus
-from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionRequest, RedemptionTicket
-
-import datetime
-from decimal import Decimal
-
-from web3.contract.contract import ContractFunction
-from eth_typing import HexAddress, BlockIdentifier
+import eth_abi
+from eth_typing import BlockIdentifier, HexAddress, HexStr
 from hexbytes import HexBytes
+from web3 import Web3
 from web3._utils.events import EventLogErrorFlags
+from web3.contract.contract import ContractFunction
+
+from eth_defi.abi import ZERO_ADDRESS_STR, get_topic_signature_from_event
+from eth_defi.event_reader.conversion import convert_bytes32_to_address, convert_bytes32_to_uint
+from eth_defi.timestamp import get_block_timestamp
+from eth_defi.vault.flow_events import (
+    PendingVaultFlow,
+    VaultFlowDirection,
+    create_pending_vault_flow,
+    decode_indexed_event_address,
+    decode_indexed_event_uint,
+    decode_single_uint256_event_data,
+    event_data_to_bytes,
+    fetch_vault_flow_logs_hypersync,
+    normalise_event_topic,
+)
+from eth_defi.vault.deposit_redeem import (
+    AsyncVaultRequestStatus,
+    CannotParseRedemptionTransaction,
+    DepositRedeemEventAnalysis,
+    DepositRedeemEventFailure,
+    DepositRequest,
+    DepositTicket,
+    RedemptionRequest,
+    RedemptionTicket,
+    VaultDepositManager,
+)
 
 
 @dataclass(slots=True)
@@ -46,8 +66,7 @@ class ERC7540DepositRequest(DepositRequest):
             If we did not know how to parse the transaction
         """
 
-        from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
-        from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVersion
+        from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, LagoonVersion
 
         tx_hash = tx_hashes[-1]
 
@@ -114,8 +133,7 @@ class ERC7540RedemptionRequest(RedemptionRequest):
     """Synchronous deposit request for ERC-7540 vaults."""
 
     def parse_redeem_transaction(self, tx_hashes: list[HexBytes]) -> RedemptionTicket:
-        from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
-        from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVersion
+        from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, LagoonVersion
 
         tx_hash = tx_hashes[-1]
 
@@ -159,6 +177,135 @@ class ERC7540DepositManager(VaultDepositManager):
 
         assert isinstance(vault, LagoonVault), f"Got {type(vault)}"
         self.vault = vault
+
+    def fetch_vault_flow_events(
+        self,
+        hypersync_client,
+        start_block: int,
+        end_block: int,
+    ) -> Iterator[PendingVaultFlow]:
+        """Fetch Lagoon ERC-7540 request events using Hypersync.
+
+        Lagoon vaults emit ``DepositRequest`` for deposit requests and
+        ``RedeemRequest`` for redemption requests. Some deployments also emit
+        ``Referral`` with the same request id and asset amount. ``Referral`` is
+        treated as a fallback only, because modern referred deposits can emit
+        both events in the same transaction.
+
+        :param hypersync_client:
+            Configured Hypersync client for the vault chain.
+
+        :param start_block:
+            Inclusive start block.
+
+        :param end_block:
+            Inclusive end block.
+
+        :return:
+            Iterator of indexed pending vault flow events in chain order.
+        """
+        vault = self.vault
+        deposit_topic = get_topic_signature_from_event(vault.vault_contract.events.DepositRequest).lower()
+        redeem_topic = get_topic_signature_from_event(vault.vault_contract.events.RedeemRequest).lower()
+        topic_map = {
+            deposit_topic: VaultFlowDirection.deposit,
+            redeem_topic: VaultFlowDirection.redeem,
+        }
+        if hasattr(vault.vault_contract.events, "Referral"):
+            referral_topic = get_topic_signature_from_event(vault.vault_contract.events.Referral).lower()
+            topic_map[referral_topic] = VaultFlowDirection.deposit
+
+        logs = fetch_vault_flow_logs_hypersync(
+            hypersync_client=hypersync_client,
+            vault_address=vault.address,
+            topic0_list=list(topic_map.keys()),
+            start_block=start_block,
+            end_block=end_block,
+        )
+        chain_id = self.web3.eth.chain_id
+        vault_address = Web3.to_checksum_address(vault.address)
+        deposit_request_ids = {decode_indexed_event_uint(log.topics[3]) for log in logs if normalise_event_topic(log.topics[0]) == deposit_topic}
+
+        for log in logs:
+            topic0 = normalise_event_topic(log.topics[0])
+            direction = topic_map.get(topic0)
+            if direction == VaultFlowDirection.deposit:
+                # event DepositRequest(address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 assets)
+                # Legacy event Referral(address indexed referral, address indexed owner, uint256 indexed requestId, uint256 assets) has no separate controller.
+                request_id = decode_indexed_event_uint(log.topics[3])
+                if topic0 == deposit_topic:
+                    controller = Web3.to_checksum_address(decode_indexed_event_address(log.topics[1]))
+                    owner = Web3.to_checksum_address(decode_indexed_event_address(log.topics[2]))
+                    _sender, raw_assets = eth_abi.decode(["address", "uint256"], event_data_to_bytes(log.data))
+                    raw_assets = int(raw_assets)
+                else:
+                    if request_id in deposit_request_ids:
+                        continue
+                    # Confirmed from the live legacy Lagoon vault ABI/event shape:
+                    # Referral only indexes referral, owner and requestId, and the
+                    # non-indexed data only carries assets. It does not emit a
+                    # controller/sender, so only self-controller legacy requests can
+                    # be reconstructed from events alone.
+                    owner = Web3.to_checksum_address(decode_indexed_event_address(log.topics[2]))
+                    controller = owner
+                    raw_assets = decode_single_uint256_event_data(log.data)
+                # Recovered tickets use the controller for owner/to because ERC-7540
+                # claim/status calls are controller-scoped. The economic owner is
+                # still exposed separately as PendingVaultFlow.owner.
+                ticket = ERC7540DepositTicket(
+                    vault_address=vault.address,
+                    owner=controller,
+                    to=controller,
+                    raw_amount=raw_assets,
+                    tx_hash=HexBytes(log.transaction_hash),
+                    gas_used=0,
+                    block_number=log.block_number,
+                    block_timestamp=log.block_timestamp,
+                    request_id=request_id,
+                )
+                yield create_pending_vault_flow(
+                    chain_id=chain_id,
+                    vault_address=vault_address,
+                    owner=owner,
+                    controller=controller,
+                    direction=VaultFlowDirection.deposit,
+                    status=AsyncVaultRequestStatus.pending,
+                    request_id=request_id,
+                    settlement_id=None,
+                    raw_assets=raw_assets,
+                    raw_shares=None,
+                    log=log,
+                    ticket_data=self.serialize_deposit_ticket(ticket),
+                )
+            elif direction == VaultFlowDirection.redeem:
+                # event RedeemRequest(address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 shares)
+                controller = Web3.to_checksum_address(decode_indexed_event_address(log.topics[1]))
+                owner = Web3.to_checksum_address(decode_indexed_event_address(log.topics[2]))
+                request_id = decode_indexed_event_uint(log.topics[3])
+                _sender, raw_shares = eth_abi.decode(["address", "uint256"], event_data_to_bytes(log.data))
+                raw_shares = int(raw_shares)
+                ticket = ERC7540RedemptionTicket(
+                    vault_address=vault.address,
+                    owner=controller,
+                    to=controller,
+                    raw_shares=raw_shares,
+                    tx_hash=HexBytes(log.transaction_hash),
+                    request_id=request_id,
+                )
+                yield create_pending_vault_flow(
+                    chain_id=chain_id,
+                    vault_address=vault_address,
+                    owner=owner,
+                    controller=controller,
+                    direction=VaultFlowDirection.redeem,
+                    status=AsyncVaultRequestStatus.pending,
+                    request_id=request_id,
+                    settlement_id=None,
+                    raw_assets=None,
+                    raw_shares=raw_shares,
+                    log=log,
+                    ticket_data=self.serialize_redemption_ticket(ticket),
+                )
 
     def create_deposit_request(
         self,
