@@ -32,6 +32,7 @@ Supported protocols
 .. toctree::
    :maxdepth: 1
 
+   aave/index
    forty_acres/index
    aarna/index
    aera/index

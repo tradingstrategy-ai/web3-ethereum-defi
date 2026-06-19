@@ -2,6 +2,8 @@
 
 - feat: Add pending asynchronous vault flow event discovery — `VaultDepositManager.fetch_vault_flow_events()` now lets Lagoon ERC-7540 and Ostium V1.5 managers reconstruct missing pending deposit and redemption requests from Hypersync event scans, with protocol-neutral `PendingVaultFlow` records and live fixed-range integration tests for Base Lagoon and Arbitrum Ostium vaults (2026-06-19)
 
+- feat: Add Aave (v4) as a recognised ERC-4626 vault protocol — detect Aave v4 Tokenization Spokes (the `wa{Hub}{Asset}` ERC-4626 vaults, e.g. `waCoreUSDC`) via the spoke-specific `SPOKE_REVISION()` probe as the new `AaveVault`/`aave_like` protocol, with protocol metadata, official ghost-mark logos, news feed entry, Sphinx docs and a focused mainnet-fork test against the live `CORE_USDC` spoke (2026-06-20)
+
 - feat: Fix Read the Docs builds timing out — RTD no longer runs Sphinx itself. GitHub Actions (`docs.yml`) builds the full HTML on our own runners, uploads it as a rolling `docs-latest` GitHub Release asset and triggers a Read the Docs rebuild via the RTD API; RTD's `build.commands` just download and publish that pre-built zip, so the full API/tutorials/vaults docs are served again instead of the previous redirect stub (2026-06-12)
 
 - feat: Add Aera vault protocol support with hardcoded address classification, ABI-backed management/performance fee extraction, protocol metadata, official logo assets, Sphinx docs and focused tests for the currently discovered Ethereum and Polygon Aera strategy/wrapper vaults (2026-06-12)

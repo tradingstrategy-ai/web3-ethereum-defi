@@ -1,0 +1,39 @@
+name: Aave
+slug: aave
+short_description: |
+  The leading decentralised liquidity protocol, with ERC-4626 vaults on Aave v4.
+long_description: |
+  Aave is one of the largest and most established decentralised lending protocols. Suppliers
+  earn interest by providing liquidity and borrowers take over-collateralised loans against it.
+
+  Aave v4 (launched on Ethereum mainnet on 30 March 2026) reorganises liquidity around a central
+  Liquidity Hub and modular Spokes. Each supplyable asset is exposed through a Tokenization Spoke,
+  an ERC-4626 compliant vault that tokenises a Hub deposit into fungible ``wa{Hub}{Asset}`` shares
+  (e.g. ``waCoreUSDC``, ``waPrimeWETH``). v4 debuts with three Liquidity Hubs — Core, Prime and Plus.
+
+  Key features:
+
+  - ERC-4626 compliant ``deposit``/``mint``/``withdraw``/``redeem`` on every Tokenization Spoke
+  - EIP-712 intent system for gasless, signature-based deposits and redemptions
+  - Yield accrues in the Hub-derived share price; no explicit spoke-level fee
+  - Heavily audited, including a ChainSecurity review of the Tokenization Spoke and a 6-week public
+    security contest
+fee_description: |
+  No explicit deposit, withdrawal or performance fee at the Tokenization Spoke level. Suppliers
+  earn the Hub interest spread; Aave protocol revenue is taken as a reserve factor on borrow
+  interest, internalised in the share price.
+links:
+  homepage: https://aave.com/
+  app: https://app.aave.com/markets/
+  twitter: https://x.com/aave
+  github: https://github.com/aave/aave-v4
+  documentation: https://aave.com/docs/aave-v4
+  defillama: https://defillama.com/protocol/aave
+  audits: https://github.com/aave/aave-v4/tree/main/audits
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/aave
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/aave/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x531E90a2376902DE8915789Fcc1075e3B0c153E7
+  - https://etherscan.io/address/0x58C14a5E061c9bC6926c5b853445290F296C2F7B
+  - https://etherscan.io/address/0x24f8c062e1E0451736C1D6E023510DA262a41df4

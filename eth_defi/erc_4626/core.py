@@ -633,6 +633,14 @@ class ERC4626Feature(enum.Enum):
     #: https://www.3jane.xyz/
     threejane_like = "threejane_like"
 
+    #: Aave (v4)
+    #:
+    #: Aave v4 Tokenization Spoke: an ERC-4626 vault that tokenises a deposit of a
+    #: Hub asset into fungible ``wa{Hub}{Asset}`` shares (e.g. ``waCoreUSDC``).
+    #: Identified by the spoke-specific ``SPOKE_REVISION()`` accessor.
+    #: https://aave.com/
+    aave_like = "aave_like"
+
 
 #: Features that identify lending protocol vaults.
 #:
@@ -775,6 +783,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.threejane_like in features:
         return "3Jane"
+
+    elif ERC4626Feature.aave_like in features:
+        return "Aave"
 
     elif ERC4626Feature.cap_like in features:
         return "CAP"

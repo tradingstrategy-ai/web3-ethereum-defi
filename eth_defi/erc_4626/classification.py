@@ -82,6 +82,7 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "depositController": {1, 56, 42161},  # TrueFi - Ethereum, BSC, Arbitrum
     "poolId": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
     "wards": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
+    "SPOKE_REVISION": {1},  # Aave v4 Tokenization Spoke - Ethereum only
 }
 
 
@@ -754,6 +755,18 @@ def create_probe_calls(
                 extra_data=None,
             )
 
+        # Aave (v4) Tokenization Spoke - Ethereum only
+        # ERC-4626 spoke wrapping a Hub asset; SPOKE_REVISION() is a spoke-specific accessor.
+        # https://etherscan.io/address/0x531E90a2376902DE8915789Fcc1075e3B0c153E7#readProxyContract
+        if _should_yield_probe("SPOKE_REVISION", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="SPOKE_REVISION()")[0:4],
+                function="SPOKE_REVISION",
+                data=b"",
+                extra_data=None,
+            )
+
 
 def identify_vault_features(
     address: HexAddress,
@@ -894,6 +907,10 @@ def identify_vault_features(
 
     if calls["DEGRADATION_COEFFICIENT"].success:
         features.add(ERC4626Feature.goat_like)
+
+    # Aave v4 Tokenization Spoke - SPOKE_REVISION() accessor is unique to the spoke
+    if calls["SPOKE_REVISION"].success:
+        features.add(ERC4626Feature.aave_like)
 
     if calls["bridgedSupply"].success:
         features.add(ERC4626Feature.usdai_like)
@@ -1403,6 +1420,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.goat.vault import GoatVault
 
         return GoatVault(web3, spec, **kwargs)
+    elif ERC4626Feature.aave_like in features:
+        # Aave v4 Tokenization Spoke - fees accrue in Hub share price, no explicit spoke fee
+        from eth_defi.erc_4626.vault_protocol.aave.vault import AaveVault
+
+        return AaveVault(web3, spec, **kwargs)
     elif ERC4626Feature.usdai_like in features:
         # Both of these have fees internatilised
         from eth_defi.erc_4626.vault_protocol.usdai.vault import StakedUSDaiVault
