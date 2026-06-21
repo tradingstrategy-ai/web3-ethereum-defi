@@ -102,7 +102,20 @@ aavev3_old:
 aavev3:
 	@(cd contracts/aave-v3-origin && forge clean && forge install && forge build) > /dev/null
 	@mkdir -p eth_defi/abi/aave_v3
-	@find contracts/aave-v3-origin/out -iname "*.json" -exec cp {} eth_defi/abi/aave_v3 \;
+	@find contracts/aave-v3-origin/out -iname "*.json" \
+		-not -path "*/build-info/*" \
+		-not -iname "*.dbg.json" \
+		-not -iname "*Tests*.json" \
+		-not -iname "*Test.json" \
+		-not -iname "*TestBase.json" \
+		-not -iname "Test[A-Z]*.json" \
+		-not -iname "*Test[A-Z]*.json" \
+		-not -iname "Mock*.json" \
+		-not -iname "Vm*.json" \
+		-not -iname "Std*.json" \
+		-not -iname "console*.json" \
+		-not -iname "safeconsole.json" \
+		-exec cp {} eth_defi/abi/aave_v3 \;
 
 aavev2:
 	@(cd contracts/aave-v2 && npm ci && npm run compile) > /dev/null
@@ -158,8 +171,32 @@ lagoon:
 	@mkdir -p eth_defi/abi/lagoon/v0.4.0
 	@mkdir -p eth_defi/abi/lagoon/v0.5.0
 	@mkdir -p eth_defi/abi/lagoon/protocol-v2
-	@find contracts/lagoon-v0/out/v0.5.0 -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/lagoon/v0.5.0 \;
-	@find contracts/lagoon-v0/out/v0.4.0 -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/lagoon/v0.4.0 \;
+	@find contracts/lagoon-v0/out/v0.5.0 -iname "*.json" \
+		-not -path "*/build-info/*" \
+		-not -iname "*.dbg.json" \
+		-not -iname "*Tests*.json" \
+		-not -iname "*Test.json" \
+		-not -iname "*TestBase.json" \
+		-not -iname "Test[A-Z]*.json" \
+		-not -iname "*Test[A-Z]*.json" \
+		-not -iname "Vm*.json" \
+		-not -iname "Std*.json" \
+		-not -iname "console*.json" \
+		-not -iname "safeconsole.json" \
+		-exec cp {} eth_defi/abi/lagoon/v0.5.0 \;
+	@find contracts/lagoon-v0/out/v0.4.0 -iname "*.json" \
+		-not -path "*/build-info/*" \
+		-not -iname "*.dbg.json" \
+		-not -iname "*Tests*.json" \
+		-not -iname "*Test.json" \
+		-not -iname "*TestBase.json" \
+		-not -iname "Test[A-Z]*.json" \
+		-not -iname "*Test[A-Z]*.json" \
+		-not -iname "Vm*.json" \
+		-not -iname "Std*.json" \
+		-not -iname "console*.json" \
+		-not -iname "safeconsole.json" \
+		-exec cp {} eth_defi/abi/lagoon/v0.4.0 \;
 	@cp contracts/lagoon-v0/out/BeaconProxyFactory.sol/BeaconProxyFactory.json eth_defi/abi/lagoon
 	@cp contracts/lagoon-v0/out/ProtocolRegistry.sol/ProtocolRegistry.json eth_defi/abi/lagoon
 #	@find contracts/lagoon-v0/out/protocol-v2 -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/lagoon/protocol-v2 \;
