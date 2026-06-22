@@ -84,6 +84,10 @@ role: { curator | protocol | stablecoin | vault }
 website: { optional company website URL }
 short_description: { optional one-line company or project summary }
 long_description: { optional multi-paragraph Markdown company or project description }
+ipor-atomist: { optional IPOR Fusion atomist display name, normally curator role }
+euler-entity: { optional Euler offchain API entity value, normally curator role }
+morpho-curator: { optional Morpho offchain API curator display name, normally curator role }
+lagoon-curator: { optional Lagoon API curator display name, normally curator role }
 twitter: { optional Twitter/X username }
 linkedin: { optional LinkedIn company id }
 rss: { optional RSS or Atom feed URL }
@@ -99,6 +103,9 @@ Notes:
 - `website` is optional company metadata and is stored alongside tracked sources
 - `short_description` is optional feeder metadata for list and card views
 - `long_description` is optional Markdown feeder metadata for detail views
+- `ipor-atomist`, `euler-entity`, `morpho-curator`, and `lagoon-curator` are
+  optional curator metadata fields. They are not collected as feeds; they map
+  protocol-native manager names to the canonical curator record
 - `twitter` is a username such as `gauntlet_xyz`, not a full profile URL
 - `linkedin` is collected through operator-supplied LinkedIn bridge templates
 - `linkedin` is a company id such as `gauntlet-xyz`, not a full LinkedIn URL
@@ -110,6 +117,56 @@ Notes:
   - one Twitter source
   - one LinkedIn source
   - one RSS source
+
+## Protocol manager metadata
+
+Some vault protocols expose the manager or curator identity through an offchain
+API field instead of, or in addition to, the vault display name. Curator YAML
+files can store these protocol-native names so vault scans can map
+`VaultBase.manager_name` directly to a curator slug:
+
+| YAML field | Protocol slug | API/app source | Example |
+| --- | --- | --- | --- |
+| `ipor-atomist` | `ipor-fusion` | IPOR Fusion atomist name | `TAU Labs` |
+| `euler-entity` | `euler` | Euler offchain `entity` string | `mev-capital` |
+| `morpho-curator` | `morpho` | Morpho curator display name | `Gauntlet` |
+| `lagoon-curator` | `lagoon-finance` | Lagoon curator display name | `Tulipa Capital` |
+
+These values are compared case-insensitively after stripping whitespace. They
+must be unique within a protocol. If two curator YAML files declare the same
+normalised value for the same protocol, `load_curator_map()` raises a
+`ValueError` so the data issue is fixed before vault scans continue.
+
+Use the exact value published by the protocol API or app. If the protocol
+spelling differs from the organisation's canonical `name`, keep one curator
+record and set the protocol-specific field there:
+
+```yaml
+feeder-id: tau
+name: TAU
+role: curator
+ipor-atomist: TAU Labs
+website: https://www.628labs.ai/
+```
+
+```yaml
+feeder-id: mev-capital
+name: MEV Capital
+role: curator
+ipor-atomist: MEV Capital
+euler-entity: mev-capital
+website: https://www.mevcapital.com
+```
+
+The curator detector checks protocol manager metadata after priority
+vault-name matches, currently used for Frax-branded vaults, and before ordinary
+vault-name fuzzy matching. This preserves existing priority curator behaviour
+while letting exact protocol metadata win over accidental ordinary vault-name
+matches.
+
+Protocol manager metadata can appear on alias curator YAML files too. The alias
+still delegates feed collection through `canonical-feeder-id`, but its manager
+metadata remains available for curator detection.
 
 ## Canonical feeder aliases
 

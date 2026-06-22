@@ -1,6 +1,7 @@
 feeder-id: apostro
 name: Apostro
 role: curator
+euler-entity: apostro
 website: https://apostro.xyz
 short_description: 'Apostro kickstarts and curates on-chain money markets using proprietary DeFi risk intelligence.'
 long_description: |

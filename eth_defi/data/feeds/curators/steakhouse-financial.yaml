@@ -1,6 +1,7 @@
 feeder-id: steakhouse-financial
 name: Steakhouse Financial
 role: curator
+morpho-curator: Steakhouse Financial
 website: https://steakhouse.financial
 short_description: 'Steakhouse Financial builds institutional-grade DeFi products, vaults, risk infrastructure, and stablecoin advisory services.'
 long_description: |

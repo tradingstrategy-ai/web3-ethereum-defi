@@ -65,6 +65,7 @@ def test_euler_metadata(
     assert "EVK Vault" in euler_prime_susds.name or "Euler Prime" in euler_prime_susds.name
     assert euler_prime_susds.description is None
     assert euler_prime_susds.entity is None
+    assert euler_prime_susds.manager_name is None
     assert euler_prime_susds.denomination_token.symbol == "sUSDS"
 
     # 4. Lending protocol identification

@@ -68,6 +68,9 @@ query MorphoVaultWarnings($address: String!, $chainId: Int!) {
       level
     }
     state {
+      curators {
+        name
+      }
       allocation {
         market {
           marketId
@@ -108,6 +111,11 @@ query MorphoVaultV2Warnings($address: String!, $chainId: Int!) {
     warnings {
       type
       level
+    }
+    curators {
+      items {
+        name
+      }
     }
   }
 }
@@ -207,6 +215,12 @@ class MorphoVaultData(TypedDict):
     #: Example: ``[{"type": "bad_debt_unrealized", "level": "RED", "market_id": "0x...", ...}]``
     market_warnings: list[MorphoMarketWarning]
 
+    #: Human-readable curator name from the Morpho offchain API, if listed.
+    #:
+    #: Morpho exposes this as ``vaultByAddress.state.curators[].name`` for V1
+    #: vaults and ``vaultV2ByAddress.curators.items[].name`` for V2 vaults.
+    manager_name: str | None
+
 
 #: In-process cache of fetched vault data.
 #:
@@ -275,6 +289,26 @@ def _parse_market_warning(warning: dict, market_id: str) -> MorphoMarketWarning:
     )
 
 
+def _parse_manager_name(raw_vault: dict) -> str | None:
+    """Parse curator display names from a Morpho vault GraphQL response.
+
+    :param raw_vault:
+        The ``vaultByAddress`` or ``vaultV2ByAddress`` dict from the GraphQL
+        ``data`` field.
+
+    :return:
+        Comma-separated curator display names, or ``None`` if Morpho does not
+        list named curators for the vault.
+    """
+    state = raw_vault.get("state") or {}
+    raw_curators = state.get("curators")
+    if raw_curators is None:
+        raw_curators = (raw_vault.get("curators") or {}).get("items") or []
+
+    names = (name for curator in raw_curators if isinstance(curator, dict) and (name := (curator.get("name") or "").strip()))
+    return ", ".join(names) or None
+
+
 def _build_vault_data_from_api_response(raw_vault: dict) -> MorphoVaultData:
     """Build a :py:class:`MorphoVaultData` from the ``vaultByAddress`` GraphQL response.
 
@@ -297,6 +331,7 @@ def _build_vault_data_from_api_response(raw_vault: dict) -> MorphoVaultData:
     return MorphoVaultData(
         vault_warnings=vault_warnings,
         market_warnings=market_warnings,
+        manager_name=_parse_manager_name(raw_vault),
     )
 
 
@@ -419,6 +454,7 @@ def fetch_morpho_vault_api_result(  # noqa: PLR0917
         serialisable = {
             "vault_warnings": result.data["vault_warnings"],
             "market_warnings": [dict(w) for w in result.data["market_warnings"]],
+            "manager_name": result.data.get("manager_name"),
         }
         with file.open("wt") as f:
             json.dump(serialisable, f, indent=2)

@@ -1,6 +1,7 @@
 feeder-id: alterscope
 name: Alterscope
 role: curator
+euler-entity: alterscope
 website: https://www.alterscope.org
 short_description: 'Alterscope provides risk data for on-chain markets across Ethereum, Stellar, and DeFi yield opportunities.'
 long_description: |
