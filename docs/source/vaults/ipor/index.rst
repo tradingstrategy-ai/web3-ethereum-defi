@@ -12,6 +12,11 @@ Vaults in IPOR Fusion are called Plasma Vaults and are the central part of the F
 All Plasma Vaults implement the ERC-4626 standard. Plasma Vaults implement a Diamond Proxy
 pattern and delegate calls to fuses and attached contracts to manage fees and rewards collection.
 
+IPOR calls vault managers atomists. The scanner stores known atomist names as vault manager
+metadata so that curator detection can map IPOR vaults to the correct curator even when the
+vault name does not contain the curator brand. Until IPOR exposes atomists in its public vault
+API, this mapping uses a committed overlay derived from IPOR Fusion frontend metadata.
+
 Key features:
 
 - Intelligence-driven execution for DeFi operations including looping, carry trades and arbitrage

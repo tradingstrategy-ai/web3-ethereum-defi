@@ -1,6 +1,7 @@
 feeder-id: reservoir
 name: Reservoir
 role: curator
+ipor-atomist: Reservoir
 website: https://reservoir.xyz
 short_description: 'Reservoir is a permissionless stablecoin protocol offering rUSD, yield-bearing srUSD/wsrUSD, term products, and lending markets.'
 long_description: |

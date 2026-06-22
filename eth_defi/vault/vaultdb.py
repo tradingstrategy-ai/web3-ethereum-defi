@@ -121,6 +121,12 @@ class VaultRow(TypedDict):
     #: TypedDict when populated.
     _morpho_offchain_data: dict | None
 
+    #: Protocol-supplied vault manager or curator display name.
+    #:
+    #: Used by :py:func:`eth_defi.vault.curator.identify_curator` when the
+    #: vault name itself does not contain the curator brand.
+    _manager_name: str | None
+
     __annotations__ = {
         "First seen at": datetime.datetime,
         "Mgmt fee": float,

@@ -225,7 +225,7 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "gamma-strategies": ["Gamma Strategies"],
     "rogue-traders": ["Rogue Traders"],
     "b-cube-ai": ["B-CUBE", "BCUBE"],
-    "llama-risk": ["LlamaRisk"],
+    "llama-risk": ["LlamaRisk", "Llama Risk"],
     "9summits": ["9 Summits"],
     "sentora": ["IntoTheBlock"],
     "frax-finance": ["Frax USD", "frxUSD", "Frax", "FRAX"],
@@ -253,6 +253,7 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "b-protocol": ["B.Protocol"],
     "felix": ["Felix"],
     "stake-dao": ["StakeDAO"],
+    "bizantine": ["Bizantine"],
     # New curators discovered from the vault-name sweep (2026-06-09).
     # The vaults are "Keyring zkVerified Cluster", so match the short brand.
     "keyring-network": ["Keyring"],

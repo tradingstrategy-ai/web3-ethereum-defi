@@ -1,0 +1,23 @@
+feeder-id: sentinel
+name: Sentinel
+role: curator
+ipor-atomist: Sentinel
+website: https://sentinel.codes/
+short_description: 'Sentinel Codes builds automated DeFi liquidity and yield strategies for vault curation.'
+long_description: |
+  Sentinel Codes describes itself as an automation-first technology provider focused on optimising DeFi liquidity and yield strategies. Its documentation says its automation systems execute and optimise yield within DeFi vault strategies while rebalancing and growing liquidity depth in DeFi markets.
+twitter: Sentinel_codes
+rss: https://medium.com/feed/@sentinel_codes
+
+# Evidence and background references.
+#
+# These links preserve why Sentinel is treated as an IPOR Fusion curator.
+other-links:
+  - title: Sentinel Codes documentation - What is Sentinel?
+    url: https://sentinel-7.gitbook.io/sentinel-codes/
+  - title: Sentinel Medium - first IPOR Fusion integrations and Atomist role
+    url: https://medium.com/@sentinel_codes/sentinel-hello-world-340e0d2d8f4f
+  - title: Liquity forum - Sentinel Codes IPOR ETH Carry Vault PIL initiative with IPOR Fusion vault address
+    url: https://voting.liquity.org/t/sentinel-codes-ipor-eth-carry-vault-pil-initiative/134
+  - title: IPOR Fusion app - Liquity ETH Carry vault on Ethereum
+    url: https://app.ipor.io/fusion/ethereum/0xb9e806e8f2d94c015ffefa90cd24ecce18f1663c

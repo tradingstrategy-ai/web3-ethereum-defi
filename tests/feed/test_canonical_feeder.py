@@ -167,13 +167,14 @@ def test_other_links_metadata_loads(tmp_path: Path):
     yaml_path = tmp_path / "curators" / "flowdesk.yaml"
     _write_yaml(
         yaml_path,
-        "feeder-id: flowdesk\nname: Flowdesk\nrole: curator\nshort_description: Flowdesk is an institutional market maker.\nlong_description: |\n  Flowdesk provides market making and liquidity services.\ntwitter: flowdesk_co\nother-links:\n  - title: Morpho forum evidence\n    url: https://forum.morpho.org/t/announcing-flowdesk-ausd-rwa-strategy/2213\n",
+        "feeder-id: flowdesk\nname: Flowdesk\nrole: curator\nipor-atomist: Flowdesk Labs\nshort_description: Flowdesk is an institutional market maker.\nlong_description: |\n  Flowdesk provides market making and liquidity services.\ntwitter: flowdesk_co\nother-links:\n  - title: Morpho forum evidence\n    url: https://forum.morpho.org/t/announcing-flowdesk-ausd-rwa-strategy/2213\n",
     )
 
     metadata = load_feeder_metadata(yaml_path)
 
     assert metadata["short_description"] == "Flowdesk is an institutional market maker."
     assert metadata["long_description"] == "Flowdesk provides market making and liquidity services."
+    assert metadata["ipor-atomist"] == "Flowdesk Labs"
     assert metadata["other-links"] == [
         {
             "title": "Morpho forum evidence",
