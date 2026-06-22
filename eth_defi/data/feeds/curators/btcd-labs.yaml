@@ -1,0 +1,24 @@
+feeder-id: btcd-labs
+name: BTCD Labs
+role: curator
+ipor-atomist: BTCD Labs
+website: https://btcd.fi
+short_description: 'BTCD Labs operates Bitcoin Dollar, a DeFi protocol built around BTCD, sBTCD and FISC.'
+long_description: |
+  BTCD Labs Ltd. presents Bitcoin Dollar as a service for BTCD minting, redemption and staking, with FISC governance. The Bitcoin Dollar documentation describes BTCD as a collateralised token pegged to a continuous 50/50 BTC/USD portfolio, with sBTCD as the yield-bearing staked version and FISC as the governance token. The project's blog covers the USD Vault, sBTCD collateral and integrations with IPOR Fusion, Morpho and Aave.
+twitter: BTCDOfficial
+
+# Evidence and background references.
+other-links:
+  - title: BTCD Labs privacy policy - identifies BTCD Labs Ltd. as the company behind the Bitcoin Dollar site and services
+    url: https://btcd.fi/privacy-policy
+  - title: Bitcoin Dollar documentation - BTCD, sBTCD and FISC protocol overview
+    url: https://docs.btcd.fi/readme.md
+  - title: Bitcoin Dollar blog - official BTCD Team updates on the USD Vault and IPOR Fusion
+    url: https://btcd.fi/blog
+  - title: IPOR Fusion app - Bitcoin Dollar USDC vault on Ethereum, showing BTCD Labs curator branding
+    url: https://app.ipor.io/fusion/ethereum/0xf8f226da66244f89e70c5b5d1a5c5b0d505eb1d8
+  - title: IPOR Fusion customisation API - Bitcoin Dollar USDC vault metadata for 0xf8f226dA66244F89e70C5B5D1a5C5b0d505Eb1d8
+    url: https://api.ipor.io/fusion/vaults-customization-list
+  - title: Vaults.fyi - Bitcoin Dollar USDC vault lists protocol IPOR and curator BTCD Labs
+    url: https://app.vaults.fyi/opportunity/mainnet/0xF8F226dA66244F89e70C5B5D1a5C5b0d505Eb1d8

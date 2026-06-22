@@ -44,6 +44,7 @@ _MAPPING_SCHEMA = Map(
         "name": Str(),
         "role": Str(),
         Optional("canonical-feeder-id"): Str(),
+        Optional("ipor-atomist"): Str(),
         Optional("website"): Str(),
         Optional("short_description"): Str(),
         Optional("long_description"): Str(),
@@ -238,6 +239,13 @@ def _normalise_mapping_metadata(parsed: dict, mapping_file: Path) -> None:
             if not isinstance(value, str):
                 raise ValueError(f"{key} must be a string in {mapping_file}")
             parsed[key] = value.strip() or None
+
+    ipor_atomist = parsed.get("ipor-atomist")
+    if ipor_atomist is not None:
+        ipor_atomist = ipor_atomist.strip()
+        if not ipor_atomist:
+            raise ValueError(f"ipor-atomist must be a non-empty string in {mapping_file}")
+        parsed["ipor-atomist"] = ipor_atomist
 
 
 def _normalise_twitter_source(handle: str, mapping_file: Path) -> tuple[str, str]:

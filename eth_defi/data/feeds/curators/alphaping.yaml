@@ -1,6 +1,7 @@
 feeder-id: alphaping
 name: AlphaPing
 role: curator
+ipor-atomist: Alphaping
 website: https://alphaping.ch
 short_description: 'AlphaPing operates mandate-driven, non-custodial on-chain credit vaults for institutional use cases.'
 long_description: |

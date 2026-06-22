@@ -1,6 +1,7 @@
 feeder-id: tesseract
 name: Tesseract
 role: curator
+ipor-atomist: Tesseract
 website: https://tesseract.fi
 short_description: 'Tesseract is a Finnish institutional digital asset yield firm offering regulated vaults and lending.'
 long_description: |

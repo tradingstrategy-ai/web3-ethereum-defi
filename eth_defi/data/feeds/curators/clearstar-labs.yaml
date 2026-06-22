@@ -1,6 +1,7 @@
 feeder-id: clearstar-labs
 name: Clearstar Labs
 role: curator
+ipor-atomist: Clearstar
 website: https://www.clearstar.xyz
 short_description: 'Clearstar Labs curates on-chain strategies with qualitative vetting, monitoring, and distribution infrastructure.'
 long_description: |

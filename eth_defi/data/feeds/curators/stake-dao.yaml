@@ -1,6 +1,7 @@
 feeder-id: stake-dao
 name: Stake DAO
 role: curator
+ipor-atomist: Stake DAO
 website: https://stakedao.org
 short_description: 'Stake DAO is a non-custodial DeFi protocol for liquid lockers, yield strategies, lending, and vote markets.'
 long_description: |

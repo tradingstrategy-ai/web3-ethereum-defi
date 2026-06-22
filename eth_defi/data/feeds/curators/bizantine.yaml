@@ -1,0 +1,23 @@
+feeder-id: bizantine
+name: Byzantine Finance
+role: curator
+ipor-atomist: Bizantine
+website: https://www.byzantine.fi/
+short_description: 'Byzantine Finance offers institutional digital credit products for corporate treasuries.'
+long_description: |
+  Byzantine Finance presents Byzantine Prime as an institutional-grade digital credit product for corporate cash. Its documentation describes a product that combines traditional-finance safety and compliance with digital credit markets. The company's website says users deploy into vaults whose strategy is managed by regulated curation services and can use regulated custody or non-custodial flows depending on their setup.
+twitter: byzantine_fi
+linkedin: byzantinefinance
+
+# Evidence and background references.
+#
+# IPOR spells the atomist as "Bizantine"; official sources use
+# "Byzantine Finance".  Keep the feeder slug aligned with the IPOR
+# atomist spelling while using the official display name above.
+other-links:
+  - title: Byzantine Finance homepage - institutional digital credit product
+    url: https://www.byzantine.fi/
+  - title: Byzantine Finance documentation - Byzantine Prime overview
+    url: https://docs.byzantine.fi/
+  - title: IPOR Fusion app - Origin Protocol wOUSD Leverage Loop vault on Ethereum with Bizantine atomist spelling
+    url: https://app.ipor.io/fusion/ethereum/0xf373a4d4d200d709aa73d4e0be49b822b0cc866d/activity
