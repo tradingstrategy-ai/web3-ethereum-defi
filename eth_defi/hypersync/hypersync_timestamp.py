@@ -27,6 +27,7 @@ Example:
 
 import asyncio
 import logging
+import time
 from typing import AsyncIterable
 
 import hypersync
@@ -47,7 +48,7 @@ class HypersyncFlaky(Exception):
     """Hypersync stream flaky error, e.g. timeout or rate limit."""
 
 
-def _is_hypersync_rate_limit_error(e: Exception) -> bool:
+def is_hypersync_rate_limit_error(e: Exception) -> bool:
     """Check if a Hypersync RuntimeError is a 429 rate limit error.
 
     The Rust client raises ``RuntimeError`` with the HTTP status in the message
@@ -56,7 +57,7 @@ def _is_hypersync_rate_limit_error(e: Exception) -> bool:
     return isinstance(e, RuntimeError) and "429" in str(e)
 
 
-def _is_hypersync_next_block_range_error(e: Exception) -> bool:
+def is_hypersync_next_block_range_error(e: Exception) -> bool:
     """Check if a Hypersync stream failed on an internal pagination boundary.
 
     Some Hypersync backends can fail near the indexed chain head with an
@@ -68,6 +69,16 @@ def _is_hypersync_next_block_range_error(e: Exception) -> bool:
         return False
     message = str(e)
     return "inner receiver" in message and "server returned next_block" in message and "outside the requested range" in message
+
+
+def is_hypersync_retryable_runtime_error(e: Exception) -> bool:
+    """Check if a Hypersync ``RuntimeError`` should be handled by retry logic."""
+    return is_hypersync_rate_limit_error(e) or is_hypersync_next_block_range_error(e)
+
+
+# Backwards-compatible aliases for older tests and integrations.
+_is_hypersync_rate_limit_error = is_hypersync_rate_limit_error
+_is_hypersync_next_block_range_error = is_hypersync_next_block_range_error
 
 
 async def _validate_hypersync_chain_id_async(
@@ -292,6 +303,51 @@ def get_hypersync_block_height(
             raise
 
     return asyncio.run(_hypersync_asyncio_wrapper())
+
+
+def get_hypersync_block_height_with_retries(
+    client: hypersync.HypersyncClient,
+    attempts: int = 3,
+    retry_sleep: int = 30,
+    reason: str = "block-height-check",
+) -> int:
+    """Get latest Hypersync block height with retry/backoff.
+
+    Hypersync height checks are one-shot API calls and can hit the same 429
+    rate limits as streams. Use this helper when a caller needs a height check
+    before opening a stream.
+
+    :param client:
+        Hypersync client.
+
+    :param attempts:
+        Maximum number of attempts before raising the last
+        :py:class:`HypersyncFlaky`.
+
+    :param retry_sleep:
+        Sleep time between attempts, in seconds.
+
+    :param reason:
+        Human-readable operation label for logs.
+
+    :return:
+        Latest block number known to Hypersync.
+    """
+    assert attempts > 0, "attempts must be at least 1"
+
+    last_exception = None
+    for attempt in range(attempts):
+        try:
+            return get_hypersync_block_height(client)
+        except HypersyncFlaky as e:
+            last_exception = e
+            logger.error("Hypersync height check %s attempt %d/%d failed: %s", reason, attempt + 1, attempts, e)
+            if attempt + 1 >= attempts:
+                raise
+            logger.info("Retrying Hypersync height check %s after %d seconds backoff", reason, retry_sleep)
+            time.sleep(retry_sleep)
+
+    raise last_exception or RuntimeError("Hypersync height check failed with no exception recorded")
 
 
 async def fetch_block_timestamps_using_hypersync_cached_async(
