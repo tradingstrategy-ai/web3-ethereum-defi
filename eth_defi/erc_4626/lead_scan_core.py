@@ -131,9 +131,15 @@ def scan_leads(
     assert isinstance(vault_db_file, Path)
 
     web3 = create_multi_provider_web3(json_rpc_urls)
-    web3factory = MultiProviderWeb3Factory(json_rpc_urls, retries=5)
-
     chain_id = web3.eth.chain_id
+
+    # The parent process verified provider chain IDs above. Subprocess workers
+    # rebuild Web3 from this factory; skip per-worker re-verification so we do not
+    # storm the primary provider with eth_chainId probes and trip HTTP 429. Seed
+    # the verified chain ID so worker-side provider switchover still rejects an
+    # endpoint that mis-routes to the wrong chain.
+    web3factory = MultiProviderWeb3Factory(json_rpc_urls, retries=5, skip_verification=True, expected_chain_id=chain_id)
+
     name = get_chain_name(chain_id)
     rpcs = get_provider_name(web3.provider)
 

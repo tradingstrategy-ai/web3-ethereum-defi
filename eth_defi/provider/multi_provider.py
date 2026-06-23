@@ -134,6 +134,8 @@ def create_multi_provider_web3(
     hint: Optional[str] = "",
     unit_test=False,
     add_signing_middleware: LocalAccount | None = None,
+    skip_verification: bool = False,
+    expected_chain_id: int | None = None,
 ) -> MultiProviderWeb3:
     """Create a Web3 instance with multi-provider support.
 
@@ -218,6 +220,29 @@ def create_multi_provider_web3(
         Pass an :py:class:`eth_account.signers.local.LocalAccount` instance,
         e.g. from ``Account.from_key(private_key)``.
 
+    :param skip_verification:
+        Skip the startup ``eth_chainId`` cross-check of all providers
+        (:py:meth:`FallbackProvider.verify_providers`).
+
+        That cross-check probes every configured provider with ``eth_chainId``.
+        When fanning out to multiprocessing worker pools (e.g.
+        :py:class:`~eth_defi.event_reader.multicall_batcher.MultiprocessMulticallReader`),
+        each worker rebuilds its own Web3 via :py:class:`MultiProviderWeb3Factory`,
+        so this probe runs once per worker and multiplies ``eth_chainId`` load on
+        the *primary* provider — which can itself trip rate limits (HTTP 429).
+        The parent process has already verified the chain ID before fan-out, so
+        pass ``True`` for subprocess factories together with ``expected_chain_id``.
+
+    :param expected_chain_id:
+        Pre-seed :py:attr:`FallbackProvider.expected_chain_id` without probing.
+
+        **Required** when ``skip_verification`` is set (asserted). The parent
+        process passes the chain ID it already verified so that runtime provider
+        switchover in the worker still rejects an endpoint that mis-routes to the
+        wrong chain. Without it, a verification-skipped worker would have no
+        chain-id baseline and could silently accept a wrong-chain provider on
+        failover, so the combination is rejected rather than silently downgraded.
+
     :return:
         Configured Web3 instance with multiple providers
     """
@@ -299,8 +324,17 @@ def create_multi_provider_web3(
         retries=retries,
     )
 
-    # Verify all call providers report the same chain ID before proceeding
-    fallback_provider.verify_providers()
+    # Verify all call providers report the same chain ID before proceeding.
+    # Skipped for subprocess factories: the parent has already verified, and
+    # re-probing eth_chainId in every worker can trip provider rate limits.
+    # When skipping, the caller must seed the parent-verified chain ID so runtime
+    # switchover still rejects an endpoint that mis-routes to the wrong chain;
+    # skipping without a baseline would silently disable that safety guard.
+    if not skip_verification:
+        fallback_provider.verify_providers()
+    else:
+        assert expected_chain_id is not None, f"skip_verification=True requires expected_chain_id to preserve runtime switchover chain-id safety. Hint is {hint}."
+        fallback_provider.expected_chain_id = expected_chain_id
 
     transact_provider = None
     if len(transact_endpoints) > 0:
@@ -379,10 +413,23 @@ class MultiProviderWeb3Factory:
     - Allows creating web3 connections from a config line in multiprocessing worker pools
     """
 
-    def __init__(self, rpc_url: str, retries=6, hint: str | None = ""):
+    def __init__(self, rpc_url: str, retries=6, hint: str | None = "", skip_verification: bool = False, expected_chain_id: int | None = None):
         self.rpc_url = rpc_url
         self.retries = retries
         self.hint = hint
+        #: Skip the per-worker ``eth_chainId`` provider cross-check.
+        #:
+        #: Defaults to ``False`` so a stand-alone factory behaves like
+        #: :py:func:`create_multi_provider_web3`. Set to ``True`` when this
+        #: factory is handed to a multiprocessing worker pool: the parent
+        #: process has already verified the chain ID, and re-verifying in every
+        #: worker multiplies ``eth_chainId`` load on the primary provider and
+        #: can itself trigger HTTP 429 rate limiting.
+        self.skip_verification = skip_verification
+        #: Parent-verified chain ID to seed into each worker when
+        #: :py:attr:`skip_verification` is set, preserving the runtime
+        #: switchover chain-id safety check.
+        self.expected_chain_id = expected_chain_id
 
     def __call__(self, context: Optional[Any] = None) -> Web3:
         """CAlled by the subprocess.
@@ -390,4 +437,10 @@ class MultiProviderWeb3Factory:
         :param context:
             Legacy argument, not used.
         """
-        return create_multi_provider_web3(self.rpc_url, retries=self.retries, hint=self.hint)
+        return create_multi_provider_web3(
+            self.rpc_url,
+            retries=self.retries,
+            hint=self.hint,
+            skip_verification=self.skip_verification,
+            expected_chain_id=self.expected_chain_id,
+        )
