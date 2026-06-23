@@ -5,26 +5,40 @@ Supports both Gains V1 (epoch-based) and Ostium V1.5 (settlement-based) flows.
 
 import datetime
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass
 from decimal import Decimal
 
+from eth_typing import HexAddress
+from hexbytes import HexBytes
+from web3 import Web3
+from web3._utils.events import EventLogErrorFlags
+from web3.contract.contract import ContractFunction
+
+from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.utils import from_unix_timestamp
+from eth_defi.vault.flow_events import (
+    PendingVaultFlow,
+    VaultFlowDirection,
+    create_pending_vault_flow,
+    decode_indexed_event_address,
+    decode_indexed_event_uint,
+    decode_single_uint256_event_data,
+    fetch_vault_flow_logs_hypersync,
+    normalise_event_topic,
+)
 from eth_defi.vault.deposit_redeem import (
+    AsyncVaultRequestStatus,
+    CannotParseRedemptionTransaction,
     DepositRedeemEventAnalysis,
     DepositRedeemEventFailure,
     DepositRequest,
     DepositTicket,
-    RedemptionTicket,
     RedemptionRequest,
-    CannotParseRedemptionTransaction,
+    RedemptionTicket,
 )
-from hexbytes import HexBytes
-from web3._utils.events import EventLogErrorFlags
-from eth_typing import HexAddress
-
-from web3.contract.contract import ContractFunction
 
 logger = logging.getLogger(__name__)
 
@@ -344,8 +358,8 @@ class OstiumV15DepositManager(ERC4626DepositManager):
     - Deposits: ``requestDeposit(assets)`` -> settlement -> ``claimDeposit(settlementId)``
     - Withdrawals: ``requestWithdraw(shares)`` -> settlement -> ``claimWithdraw(settlementId)``
 
-    Settlement happens daily via ``tryNewSettlement()`` (public, permissionless)
-    once ``maxSettlementInterval`` has elapsed.
+    Settlement happens via ``tryNewSettlement()`` (public, permissionless)
+    once ``maxSettlementInterval`` has elapsed after the previous settlement.
 
     The ``is_deposit_in_progress()`` / ``is_redemption_in_progress()`` methods only
     check the current ``targetSettlementId``. For checking specific tickets regardless
@@ -359,6 +373,109 @@ class OstiumV15DepositManager(ERC4626DepositManager):
         assert isinstance(vault, OstiumVault), f"Got {type(vault)}"
         assert vault.version == OstiumVersion.v1_5, f"OstiumV15DepositManager requires V1.5 vault, got {vault.version}"
         self.vault = vault
+
+    def fetch_vault_flow_events(
+        self,
+        hypersync_client,
+        start_block: int,
+        end_block: int,
+    ) -> Iterator[PendingVaultFlow]:
+        """Fetch Ostium V1.5 request events using Hypersync.
+
+        Ostium V1.5 emits concrete settlement ids in ``DepositRequestedV2`` and
+        ``WithdrawRequestedV2`` events. These ids are stable enough to
+        reconstruct the same tickets that live transaction parsing produces.
+
+        :param hypersync_client:
+            Configured Hypersync client for Arbitrum.
+
+        :param start_block:
+            Inclusive start block.
+
+        :param end_block:
+            Inclusive end block.
+
+        :return:
+            Iterator of indexed pending vault flow events in chain order.
+        """
+        vault = self.vault
+        deposit_topic = get_topic_signature_from_event(vault.vault_contract.events.DepositRequestedV2).lower()
+        withdraw_topic = get_topic_signature_from_event(vault.vault_contract.events.WithdrawRequestedV2).lower()
+        topic_map = {
+            deposit_topic: VaultFlowDirection.deposit,
+            withdraw_topic: VaultFlowDirection.redeem,
+        }
+
+        logs = fetch_vault_flow_logs_hypersync(
+            hypersync_client=hypersync_client,
+            vault_address=vault.address,
+            topic0_list=list(topic_map.keys()),
+            start_block=start_block,
+            end_block=end_block,
+        )
+        chain_id = self.web3.eth.chain_id
+        vault_address = Web3.to_checksum_address(vault.address)
+
+        for log in logs:
+            topic0 = normalise_event_topic(log.topics[0])
+            direction = topic_map.get(topic0)
+            if direction == VaultFlowDirection.deposit:
+                # event DepositRequestedV2(address indexed owner, uint32 indexed settlementId, uint256 assets)
+                owner = Web3.to_checksum_address(decode_indexed_event_address(log.topics[1]))
+                settlement_id = decode_indexed_event_uint(log.topics[2])
+                raw_assets = decode_single_uint256_event_data(log.data)
+                ticket = OstiumDepositTicket(
+                    vault_address=vault.address,
+                    owner=owner,
+                    to=owner,
+                    raw_amount=raw_assets,
+                    tx_hash=HexBytes(log.transaction_hash),
+                    gas_used=0,
+                    block_number=log.block_number,
+                    block_timestamp=log.block_timestamp,
+                    settlement_id=settlement_id,
+                )
+                yield create_pending_vault_flow(
+                    chain_id=chain_id,
+                    vault_address=vault_address,
+                    owner=owner,
+                    controller=owner,
+                    direction=VaultFlowDirection.deposit,
+                    status=AsyncVaultRequestStatus.pending,
+                    request_id=None,
+                    settlement_id=settlement_id,
+                    raw_assets=raw_assets,
+                    raw_shares=None,
+                    log=log,
+                    ticket_data=self.serialize_deposit_ticket(ticket),
+                )
+            elif direction == VaultFlowDirection.redeem:
+                # event WithdrawRequestedV2(address indexed owner, uint32 indexed settlementId, uint256 shares)
+                owner = Web3.to_checksum_address(decode_indexed_event_address(log.topics[1]))
+                settlement_id = decode_indexed_event_uint(log.topics[2])
+                raw_shares = decode_single_uint256_event_data(log.data)
+                ticket = OstiumRedemptionTicket(
+                    vault_address=vault.address,
+                    owner=owner,
+                    to=owner,
+                    raw_shares=raw_shares,
+                    tx_hash=HexBytes(log.transaction_hash),
+                    settlement_id=settlement_id,
+                )
+                yield create_pending_vault_flow(
+                    chain_id=chain_id,
+                    vault_address=vault_address,
+                    owner=owner,
+                    controller=owner,
+                    direction=VaultFlowDirection.redeem,
+                    status=AsyncVaultRequestStatus.pending,
+                    request_id=None,
+                    settlement_id=settlement_id,
+                    raw_assets=None,
+                    raw_shares=raw_shares,
+                    log=log,
+                    ticket_data=self.serialize_redemption_ticket(ticket),
+                )
 
     def has_synchronous_deposit(self) -> bool:
         return False
@@ -545,11 +662,7 @@ class OstiumV15DepositManager(ERC4626DepositManager):
         """Estimate when the next withdrawal settlement will occur."""
         vault = self.vault
         target_id = vault.vault_contract.functions.targetSettlementId(False).call()
-        last_id = vault.vault_contract.functions.lastSettlementId().call()
-        last_ts = vault.vault_contract.functions.lastSettlementTs().call()
-        interval = vault.vault_contract.functions.maxSettlementInterval().call()
-        settlements_to_wait = max(target_id - last_id, 1)
-        return from_unix_timestamp(last_ts + settlements_to_wait * interval)
+        return self.get_target_settlement_delay_over(target_id)
 
     def get_deposit_delay_over(self, address: HexAddress | str) -> datetime.datetime | None:
         """Estimate when the next deposit settlement will occur.
@@ -559,11 +672,66 @@ class OstiumV15DepositManager(ERC4626DepositManager):
         """
         vault = self.vault
         target_id = vault.vault_contract.functions.targetSettlementId(True).call()
+        return self.get_target_settlement_delay_over(target_id)
+
+    def get_target_settlement_delay_over(self, settlement_id: int) -> datetime.datetime:
+        """Estimate when a current target settlement id can be processed.
+
+        Target ids come from ``targetSettlementId()`` before a concrete request
+        ticket exists. Preserve the historical one-interval floor for this
+        pre-request estimate.
+
+        :param settlement_id:
+            Current target settlement id.
+
+        :return:
+            Naive UTC timestamp when ``tryNewSettlement()`` becomes eligible.
+        """
+        return self._calculate_settlement_delay_over(settlement_id, floor_to_next=True)
+
+    def get_settlement_delay_over(self, settlement_id: int) -> datetime.datetime:
+        """Estimate when an Ostium V1.5 ticket settlement id can be processed.
+
+        Ostium V1.5 request events carry the concrete settlement id that will
+        process the request. Use that persisted id for display and recovery
+        instead of the current ``targetSettlementId()`` value, because the
+        target can move after later requests or settlements.
+
+        :param settlement_id:
+            Ostium settlement id from a deposit or withdrawal ticket.
+
+        :return:
+            Naive UTC timestamp when ``tryNewSettlement()`` becomes eligible
+            for this settlement id.
+        """
+        return self._calculate_settlement_delay_over(settlement_id, floor_to_next=False)
+
+    def _calculate_settlement_delay_over(
+        self,
+        settlement_id: int,
+        floor_to_next: bool,
+    ) -> datetime.datetime:
+        """Calculate settlement eligibility timestamp from Ostium settlement clock."""
+        vault = self.vault
         last_id = vault.vault_contract.functions.lastSettlementId().call()
         last_ts = vault.vault_contract.functions.lastSettlementTs().call()
         interval = vault.vault_contract.functions.maxSettlementInterval().call()
-        settlements_to_wait = max(target_id - last_id, 1)
+        settlements_to_wait = settlement_id - last_id
+        if floor_to_next:
+            settlements_to_wait = max(settlements_to_wait, 1)
+        else:
+            settlements_to_wait = max(settlements_to_wait, 0)
         return from_unix_timestamp(last_ts + settlements_to_wait * interval)
+
+    def get_deposit_ticket_delay_over(self, ticket: OstiumDepositTicket) -> datetime.datetime:
+        """Estimate when a deposit ticket's settlement can be processed."""
+        assert isinstance(ticket, OstiumDepositTicket)
+        return self.get_settlement_delay_over(ticket.settlement_id)
+
+    def get_redemption_ticket_delay_over(self, ticket: OstiumRedemptionTicket) -> datetime.datetime:
+        """Estimate when a withdrawal ticket's settlement can be processed."""
+        assert isinstance(ticket, OstiumRedemptionTicket)
+        return self.get_settlement_delay_over(ticket.settlement_id)
 
     def analyse_deposit(
         self,

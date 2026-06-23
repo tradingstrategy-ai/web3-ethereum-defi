@@ -1,6 +1,7 @@
 feeder-id: der
 name: DER
 role: curator
+lagoon-curator: Der
 short_description: Anonymous curator on Lagoon
 long_description: |
   DER is an anonymous curator operating a family of vaults on the Lagoon Finance

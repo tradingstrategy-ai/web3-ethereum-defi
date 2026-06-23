@@ -2,21 +2,21 @@
 
 import datetime
 import enum
+import logging
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass
 from decimal import Decimal
-import logging
 from pprint import pformat
 
+from eth_typing import BlockIdentifier, BlockNumber, HexAddress
+from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 
-from hexbytes import HexBytes
-from eth_typing import HexAddress, BlockIdentifier, BlockNumber
-
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.trace import assert_transaction_success_with_explanation
-
+from eth_defi.vault.flow_events import PendingVaultFlow, VaultFlowDirection
 
 logger = logging.getLogger(__name__)
 
@@ -465,6 +465,31 @@ class VaultDepositManager(ABC):
         Vault can be full?
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement can_create_deposit_request()")
+
+    def fetch_vault_flow_events(
+        self,
+        hypersync_client,
+        start_block: int,
+        end_block: int,
+    ) -> Iterator[PendingVaultFlow]:
+        """Fetch asynchronous vault request events from an indexed backend.
+
+        The base implementation returns no events for vault managers that do
+        not have a two-phase deposit or redemption flow.
+
+        :param hypersync_client:
+            Configured Hypersync client for this vault's chain.
+
+        :param start_block:
+            Inclusive start block.
+
+        :param end_block:
+            Inclusive end block.
+
+        :return:
+            Iterator of protocol-neutral pending vault flow events.
+        """
+        return iter(())
 
     def get_max_deposit(self, owner: HexAddress) -> Decimal | None:
         """How much we can deposit"""

@@ -1,6 +1,7 @@
 feeder-id: xerberus
 name: Xerberus
 role: curator
+ipor-atomist: Xerberus
 website: https://xerberus.io
 short_description: 'Xerberus is a decentralised crypto risk ratings protocol using on-chain data and open-source models.'
 long_description: |

@@ -37,6 +37,7 @@ KNOWN_FEEDER_ROLES = {
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _VALID_SOURCE_TYPES = {"rss", "twitter", "linkedin"}
+_MANAGER_METADATA_KEYS = ("ipor-atomist", "euler-entity", "morpho-curator", "lagoon-curator")
 
 _MAPPING_SCHEMA = Map(
     {
@@ -44,6 +45,10 @@ _MAPPING_SCHEMA = Map(
         "name": Str(),
         "role": Str(),
         Optional("canonical-feeder-id"): Str(),
+        Optional("ipor-atomist"): Str(),
+        Optional("euler-entity"): Str(),
+        Optional("morpho-curator"): Str(),
+        Optional("lagoon-curator"): Str(),
         Optional("website"): Str(),
         Optional("short_description"): Str(),
         Optional("long_description"): Str(),
@@ -238,6 +243,14 @@ def _normalise_mapping_metadata(parsed: dict, mapping_file: Path) -> None:
             if not isinstance(value, str):
                 raise ValueError(f"{key} must be a string in {mapping_file}")
             parsed[key] = value.strip() or None
+
+    for key in _MANAGER_METADATA_KEYS:
+        value = parsed.get(key)
+        if value is not None:
+            value = value.strip()
+            if not value:
+                raise ValueError(f"{key} must be a non-empty string in {mapping_file}")
+            parsed[key] = value
 
 
 def _normalise_twitter_source(handle: str, mapping_file: Path) -> tuple[str, str]:

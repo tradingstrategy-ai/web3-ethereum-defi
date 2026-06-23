@@ -175,6 +175,10 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # CrystalClear - 20% performance fee charged at redemption (externalised)
     # Fee is deducted from withdrawal proceeds via WithdrawalClaimed event
     "CrystalClear": VaultFeeMode.externalised,
+    # Aave - v4 Tokenization Spoke has no explicit deposit/withdrawal or performance fee.
+    # Suppliers earn the Hub interest spread; Aave protocol revenue is taken as a reserve
+    # factor on borrow interest, so yield is internalised in the Hub-derived share price.
+    "Aave": VaultFeeMode.internalised_skimming,
 }
 
 

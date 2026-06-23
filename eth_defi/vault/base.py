@@ -1053,6 +1053,16 @@ class VaultBase(ABC):
         """
         return None
 
+    @property
+    def manager_name(self) -> str | None:
+        """Protocol-supplied vault manager or curator display name.
+
+        - Used when the vault name itself does not contain the curator brand
+        - Returns None if the protocol does not expose separate manager metadata
+        - Override in subclasses that support manager or operator metadata
+        """
+        return None
+
     @cached_property
     def flow_manager(self) -> VaultFlowManager:
         """Flow manager associated with this vault"""

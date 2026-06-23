@@ -1,6 +1,8 @@
 feeder-id: mev-capital
 name: MEV Capital
 role: curator
+ipor-atomist: MEV Capital
+euler-entity: mev-capital
 website: https://www.mevcapital.com
 short_description: 'MEV Capital is a DeFi investment and risk management firm focused on onchain liquidity and vault curation.'
 long_description: |

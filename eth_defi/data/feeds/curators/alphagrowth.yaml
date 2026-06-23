@@ -1,6 +1,7 @@
 feeder-id: alphagrowth
 name: AlphaGrowth
 role: curator
+euler-entity: alphagrowth
 website: https://alphagrowth.io/
 short_description: 'AlphaGrowth is a DeFi growth and execution firm supporting ecosystems, DAOs, investors, and protocols.'
 long_description: |

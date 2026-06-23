@@ -2,6 +2,7 @@
 feeder-id: harvest
 name: Harvest Finance
 role: curator
+ipor-atomist: Harvest
 canonical-feeder-id: harvest-finance
 short_description: Harvest Finance is an automated DeFi yield farming platform for discovering and managing yield strategies.
 long_description: |

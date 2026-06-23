@@ -194,6 +194,8 @@ CLEARSTAR_YIELD_USDC_ILLIQUID = "Clearstar Yield USDC is illiquid"
 
 ETHEREALM_USDC_ILLIQUID = "Etherealm USDC is illiquid"
 
+APOSTRO_USDC_FRONTIER_ILLIQUID = "Apostro USDC Frontier is illiquid"
+
 YIELDNEST_YNRWAX = """ynRWAx: Tokenized Australian residential real estate credit earning 11% APY, allocated to mortgage-backed loans on verified house-and-land developments. Made safe in collaboration with a fully licensed and insured fund manager, [Kimber Capital](https://kimbercapital.au/) (AFS Licence No. 425278).
 
 Fees: 0%.
@@ -422,6 +424,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xb250c9e0f7be4cff13f94374c993ac445a1385fe": (None, ETH_STRATEGY_ESPN),
     # Apostro aprUSDC (Sonic)
     "0xcca902f2d3d265151f123d8ce8fdac38ba9745ed": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
+    # Apostro USDC Frontier (Euler on Ethereum)
+    "0xed9278c5188f37670b33ef3b00729e38260cd5d5": (VaultFlag.illiquid, APOSTRO_USDC_FRONTIER_ILLIQUID),
     # Blue Chip USDC Vault (Prime) on Ethereum - Morpho
     "0x74847d0d124ce5c89ca8f4e7547aecd09e86b2e0": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # VaultMorpho on Ethereum - Morpho

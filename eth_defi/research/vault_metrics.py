@@ -331,6 +331,34 @@ class VaultMetricsExport(TypedDict):
     vaults: list[VaultMetricsRecord]
 
 
+def make_vault_display_flags(
+    red_flags: list[str],
+    yellow_flags: list[str],
+    source: str,
+) -> list[dict[str, str]]:
+    """Build generic vault warning display entries for JSON export.
+
+    :param red_flags:
+        Warning type strings with red severity.
+    :param yellow_flags:
+        Warning type strings with yellow severity.
+    :param source:
+        Protocol or data-source slug that produced the warnings.
+
+    :return:
+        JSON-safe warning entries suitable for user interfaces.
+    """
+    return [
+        {
+            "severity": severity,
+            "type": flag_type,
+            "source": source,
+        }
+        for severity, flags in (("red", red_flags), ("yellow", yellow_flags))
+        for flag_type in flags
+    ]
+
+
 def fmt_one_decimal_or_int(x: float | None) -> str:
     """Display fees to .1 accuracy if there are .1 fractions, otherwise as int."""
 
@@ -1546,11 +1574,21 @@ def calculate_vault_record(
             if not notes:
                 notes = morpho_analytics.note
 
+    vault_display_flags = make_vault_display_flags(
+        red_flags=morpho_red_flags,
+        yellow_flags=morpho_yellow_flags,
+        source="morpho",
+    )
+
     # ``other_data`` is a protocol-specific extension dict included in the metrics Series.
     # Currently populated for Morpho warnings; Core3 risk intelligence is attached
     # at JSON export time as a top-level ``core3_protocols`` dict (not per-vault).
     # Future protocols should add their own keys here rather than adding top-level Series fields.
     other_data: dict = {
+        # Generic warning display hints for user interfaces. Protocol adapters
+        # should append entries with ``severity`` and ``type`` instead of making
+        # UI code understand protocol-specific warning keys.
+        "vault_display_flags": vault_display_flags,
         # Vault-level governance warning types from the Morpho Blue API.
         # Sourced from MorphoVaultData["vault_warnings"] (via _morpho_offchain_data in VaultRow).
         # Example: ["not_whitelisted", "short_timelock"]

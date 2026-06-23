@@ -21,6 +21,7 @@ def test_not_in_morpho_api_is_bad_flag():
         ("0x25b4dc5f96312c7083a58d80d8ecad6ecddbbdfb", "<unknown ERC-7540>", VaultFlag.unofficial, "test vault"),
         ("0x3094b241aade60f91f1c82b0628a10d9501462f9", "Morpho", VaultFlag.illiquid, "illiquid"),
         ("0xfa17f7aadbfac2c5d3c8125555404c1ae17df853", "Morpho", VaultFlag.illiquid, "illiquid"),
+        ("0xed9278c5188f37670b33ef3b00729e38260cd5d5", "Euler", VaultFlag.illiquid, "illiquid"),
     ],
 )
 def test_abnormal_main_listing_vaults_are_hidden(

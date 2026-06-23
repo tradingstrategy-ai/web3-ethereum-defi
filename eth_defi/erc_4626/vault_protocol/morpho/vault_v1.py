@@ -191,6 +191,11 @@ class MorphoV1Vault(ERC4626Vault):
         """
         return self.morpho_api_result.data if self.morpho_api_result.status == MorphoVaultAPIStatus.found else None
 
+    @property
+    def manager_name(self) -> str | None:
+        """Morpho curator name from the offchain GraphQL API."""
+        return (self.morpho_offchain_data or {}).get("manager_name")
+
     def get_morpho_vault_flags(self) -> set[str]:
         """Return warning type strings from vault-level Morpho API warnings.
 

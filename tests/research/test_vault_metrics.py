@@ -22,6 +22,7 @@ from eth_defi.research.vault_metrics import (
     display_vault_chart_and_tearsheet,
     export_lifetime_row,
     format_lifetime_table,
+    make_vault_display_flags,
 )
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
@@ -66,6 +67,32 @@ def test_apply_morpho_not_in_api_check_preserves_existing_note():
     assert risk == VaultTechnicalRisk.blacklisted
     assert notes == "Existing manual note"
     assert flags == {VaultFlag.not_in_morpho_api}
+
+
+def test_make_vault_display_flags_builds_generic_warning_contract() -> None:
+    """Generic vault display flags use a compact JSON-safe warning contract.
+
+    1. Build display flags from red and yellow warning type strings.
+    2. Assert the output preserves severity, type and source in order.
+    3. Assert empty inputs produce an empty list for clean vaults.
+    """
+
+    # 1. Build display flags from red and yellow warning type strings.
+    display_flags = make_vault_display_flags(
+        red_flags=["bad_debt_unrealized", "short_timelock"],
+        yellow_flags=["not_whitelisted"],
+        source="morpho",
+    )
+
+    # 2. The output preserves severity, type and source in order.
+    assert display_flags == [
+        {"severity": "red", "type": "bad_debt_unrealized", "source": "morpho"},
+        {"severity": "red", "type": "short_timelock", "source": "morpho"},
+        {"severity": "yellow", "type": "not_whitelisted", "source": "morpho"},
+    ]
+
+    # 3. Clean vaults do not emit display flags.
+    assert make_vault_display_flags(red_flags=[], yellow_flags=[], source="morpho") == []
 
 
 @pytest.fixture(scope="module")

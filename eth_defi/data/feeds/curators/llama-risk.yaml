@@ -1,6 +1,7 @@
 feeder-id: llama-risk
 name: LlamaRisk
 role: curator
+ipor-atomist: Llama Risk
 website: https://llamarisk.com
 short_description: 'LlamaRisk provides DeFi risk intelligence, advisory, and automated risk infrastructure for protocols.'
 long_description: |

@@ -225,7 +225,7 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "gamma-strategies": ["Gamma Strategies"],
     "rogue-traders": ["Rogue Traders"],
     "b-cube-ai": ["B-CUBE", "BCUBE"],
-    "llama-risk": ["LlamaRisk"],
+    "llama-risk": ["LlamaRisk", "Llama Risk"],
     "9summits": ["9 Summits"],
     "sentora": ["IntoTheBlock"],
     "frax-finance": ["Frax USD", "frxUSD", "Frax", "FRAX"],
@@ -253,6 +253,7 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "b-protocol": ["B.Protocol"],
     "felix": ["Felix"],
     "stake-dao": ["StakeDAO"],
+    "bizantine": ["Bizantine"],
     # New curators discovered from the vault-name sweep (2026-06-09).
     # The vaults are "Keyring zkVerified Cluster", so match the short brand.
     "keyring-network": ["Keyring"],
@@ -280,6 +281,14 @@ SPONSOR_CURATOR_SLUGS: set[str] = {
 #: frxUSD are Frax-based vaults based on the conversation with Frax (2026-06).
 PRIORITY_CURATOR_SLUGS: set[str] = {
     "frax-finance",
+}
+
+#: Protocol-specific curator metadata fields in curator YAML files.
+PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
+    "ipor-fusion": "ipor-atomist",
+    "euler": "euler-entity",
+    "morpho": "morpho-curator",
+    "lagoon-finance": "lagoon-curator",
 }
 
 
@@ -331,6 +340,12 @@ class CuratorInfo(TypedDict):
     #: curator should be looked up under the canonical feeder's sources.
     #: ``None`` for curators that have their own feed sources.
     canonical_feeder_id: str | None
+
+    #: Exact protocol manager names keyed by protocol slug.
+    #:
+    #: These values are sourced from protocol-specific YAML fields such as
+    #: ``euler-entity`` and ``lagoon-curator``.
+    protocol_manager_names: dict[str, str]
 
 
 class CuratorLogos(TypedDict):
@@ -417,6 +432,8 @@ def _load_curator_yaml(yaml_path: Path) -> CuratorInfo:
         Path to a curator YAML file.
     """
     parsed = load_feeder_metadata(yaml_path)
+    protocol_manager_names = {protocol_slug: parsed[yaml_key] for protocol_slug, yaml_key in PROTOCOL_MANAGER_YAML_FIELDS.items() if parsed.get(yaml_key)}
+
     return CuratorInfo(
         slug=parsed["feeder-id"],
         name=parsed["name"],
@@ -428,6 +445,7 @@ def _load_curator_yaml(yaml_path: Path) -> CuratorInfo:
         rss=parsed.get("rss"),
         protocol_curator=parsed["feeder-id"] in ALL_PROTOCOL_CURATOR_SLUGS,
         canonical_feeder_id=parsed.get("canonical-feeder-id"),
+        protocol_manager_names=protocol_manager_names,
     )
 
 
@@ -447,8 +465,14 @@ def load_curator_map() -> dict[str, CuratorInfo]:
         return _cached_curator_map
 
     result: dict[str, CuratorInfo] = {}
+    protocol_manager_values: dict[tuple[str, str], str] = {}
     for yaml_path in sorted(CURATORS_DATA_DIR.glob("*.yaml")):
         info = _load_curator_yaml(yaml_path)
+        for protocol_slug, manager_name in info["protocol_manager_names"].items():
+            key = (protocol_slug, manager_name.strip().casefold())
+            if existing_slug := protocol_manager_values.get(key):
+                raise ValueError(f"Duplicate {protocol_slug} manager metadata {manager_name!r} in curator YAML files: {existing_slug} and {info['slug']}")
+            protocol_manager_values[key] = info["slug"]
         result[info["slug"]] = info
 
     _cached_curator_map = result
@@ -495,13 +519,75 @@ def _build_matching_patterns() -> list[tuple[re.Pattern, str]]:
     return patterns
 
 
+def _identify_curator_by_protocol_manager_name(protocol_slug: str, manager_name: str | None) -> str | None:
+    """Identify curator from an exact protocol-specific manager metadata field.
+
+    :param protocol_slug:
+        Normalised protocol slug.
+
+    :param manager_name:
+        Raw manager or curator name exposed by the protocol offchain API.
+
+    :return:
+        Curator slug, or ``None`` if no protocol-specific field matches.
+    """
+    if protocol_slug not in PROTOCOL_MANAGER_YAML_FIELDS:
+        return None
+
+    manager_name = (manager_name or "").strip()
+    if not manager_name:
+        return None
+
+    manager_name_lower = manager_name.casefold()
+    for slug, info in load_curator_map().items():
+        value = info["protocol_manager_names"].get(protocol_slug)
+        if value is not None and value.strip().casefold() == manager_name_lower:
+            return slug
+    return None
+
+
+def _identify_curator_by_patterns(
+    haystack: str | None,
+    patterns: list[tuple[re.Pattern, str]],
+    *,
+    include_slugs: set[str] | None = None,
+    exclude_slugs: set[str] | None = None,
+) -> str | None:
+    """Identify a curator by regex patterns, with optional slug filtering.
+
+    :param haystack:
+        Text to match, or ``None``/empty string to skip.
+    :param patterns:
+        Compiled curator regex patterns from :py:func:`_build_matching_patterns`.
+    :param include_slugs:
+        When given, only these curator slugs are considered.
+    :param exclude_slugs:
+        When given, these curator slugs are ignored.
+    :return:
+        Matching curator slug, or ``None`` if no pattern matched.
+    """
+
+    if not haystack:
+        return None
+
+    for regex, slug in patterns:
+        if include_slugs is not None and slug not in include_slugs:
+            continue
+        if exclude_slugs is not None and slug in exclude_slugs:
+            continue
+        if regex.search(haystack):
+            return slug
+
+    return None
+
+
 def identify_curator(  # noqa: PLR0917
     chain_id: int,
     vault_token_symbol: str,
     vault_name: str,
     vault_address: str,
     protocol_slug: str = "",
-    manager_name: str = "",
+    manager_name: str | None = "",
 ) -> str | None:
     """Identify the curator managing a vault.
 
@@ -514,8 +600,9 @@ def identify_curator(  # noqa: PLR0917
     name — the vault name there is the strategy name (e.g.
     ``"Ethereum Moving Average Long/Short"``) while the curator identity
     (e.g. ``"Gerhard - Bitcoin Strategy"``) is the manager.  Pass
-    ``manager_name`` so these curators are detected.  The vault name is
-    matched first and takes precedence over the manager name.
+    ``manager_name`` so these curators are detected.  Priority vault-name
+    matches run first, then exact protocol manager metadata, then ordinary
+    vault-name and manager-name fuzzy matching.
 
     :param chain_id:
         Chain ID where the vault is deployed.
@@ -539,7 +626,7 @@ def identify_curator(  # noqa: PLR0917
         Optional name of the vault manager/operator, used by native
         marketplace protocols (e.g. GRVT) where the curator brand lives
         in the manager field rather than the vault name.  Empty string
-        when unknown.
+        or ``None`` when unknown.
 
     :return:
         Curator slug (e.g. ``"gauntlet"``, ``"ostium"``, ``"hyperliquid"``),
@@ -572,16 +659,23 @@ def identify_curator(  # noqa: PLR0917
         if vault_address.lower() in GRVT_SYSTEM_VAULT_ADDRESSES:
             return "grvt"
 
-    # 5. Word-boundary regex matching against vault name, then manager name.
-    #    Vault name is matched first so it takes precedence over the
-    #    manager name when both carry a recognisable brand.
+    # 5. Priority vault-name matches, e.g. Frax-branded Morpho vaults with a
+    #    third-party UI curator.
     patterns = _build_matching_patterns()
-    for haystack in (vault_name, manager_name):
-        if not haystack:
-            continue
-        for regex, slug in patterns:
-            if regex.search(haystack):
-                return slug
+    if priority_slug := _identify_curator_by_patterns(vault_name, patterns, include_slugs=PRIORITY_CURATOR_SLUGS):
+        return priority_slug
+
+    # 6. Exact protocol-specific manager name mapping from offchain APIs.
+    if manager_slug := _identify_curator_by_protocol_manager_name(protocol_slug, manager_name):
+        return manager_slug
+
+    # 7. Ordinary vault-name fuzzy matching.
+    if vault_slug := _identify_curator_by_patterns(vault_name, patterns, exclude_slugs=PRIORITY_CURATOR_SLUGS):
+        return vault_slug
+
+    # 8. Legacy fuzzy matching against manager name for native marketplaces like GRVT.
+    if manager_slug := _identify_curator_by_patterns(manager_name, patterns):
+        return manager_slug
 
     return None
 

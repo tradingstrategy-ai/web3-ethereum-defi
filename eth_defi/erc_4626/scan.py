@@ -206,6 +206,7 @@ def create_vault_scan_record(
             "_utilisation": utilisation,
             "_description": vault.description,
             "_short_description": vault.short_description,
+            "_manager_name": vault.manager_name,
             "_morpho_offchain_data": vault.morpho_offchain_data if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,
         }
         return data

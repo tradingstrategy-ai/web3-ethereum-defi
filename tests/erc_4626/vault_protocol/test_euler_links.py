@@ -43,6 +43,7 @@ def test_euler_alphagrowth_ausd_vault_uses_light_metadata() -> None:
     assert vault.name == "AlphaGrowth AUSD Borrow Vault"
     assert vault.description == "Borrow AUSD against Balancer BPT collateral."
     assert vault.entity == "alphagrowth"
+    assert vault.manager_name == "alphagrowth"
 
 
 def test_euler_alphagrowth_wmon_vault_uses_light_frontend() -> None:

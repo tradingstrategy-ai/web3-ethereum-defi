@@ -296,6 +296,11 @@ class EulerVault(ERC4626Vault):
             return self.euler_metadata.get("entity")
         return None
 
+    @property
+    def manager_name(self) -> str | None:
+        """Euler product entity slug from Euler offchain metadata."""
+        return self.entity
+
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Euler vault kit vaults never have management fee"""
         return 0.0
