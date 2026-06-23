@@ -12,12 +12,15 @@ No live HyperSync connection needed — uses mocked async generators.
 
 import asyncio
 import datetime
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from eth_defi.event_reader.block_header import BlockHeader
-from eth_defi.hypersync.hypersync_timestamp import fetch_block_timestamps_using_hypersync_cached_async
+from eth_defi.hypersync.hypersync_timestamp import (
+    HypersyncFlaky,
+    _is_hypersync_next_block_range_error,
+    fetch_block_timestamps_using_hypersync_cached,
+    fetch_block_timestamps_using_hypersync_cached_async,
+)
 
 
 def _make_block_header(block_number: int) -> BlockHeader:
@@ -137,6 +140,225 @@ def test_hypersync_gap_healing_no_gaps(tmp_path):
     slicer.close()
 
 
+def test_hypersync_next_block_range_error_is_flaky():
+    """Verify that Hypersync near-head pagination failures are retryable."""
+    err = RuntimeError("inner receiver\n\nCaused by:\n    server returned next_block 24535975 outside the requested range [24535975..24535985)")
+
+    assert _is_hypersync_next_block_range_error(err)
+
+
+def test_hypersync_cached_sync_retries_next_block_range_error(tmp_path):
+    """Verify that the sync cached wrapper retries a flaky stream failure."""
+
+    chain_id = 1
+    start_block = 1000
+    end_block = 1009
+    call_count = 0
+
+    async def mock_get_timestamps(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000, validate_chain_id=True, reason=None):
+        nonlocal call_count
+        call_count += 1
+
+        if call_count == 1:
+            raise HypersyncFlaky("Hypersync stream pagination failed: inner receiver")
+
+        for block_num in range(start_block, end_block + 1):
+            yield _make_block_header(block_num)
+
+    with (
+        patch(
+            "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+            side_effect=mock_get_timestamps,
+        ),
+        patch(
+            "eth_defi.hypersync.hypersync_timestamp.asyncio.sleep",
+            new_callable=AsyncMock,
+        ),
+    ):
+        slicer = fetch_block_timestamps_using_hypersync_cached(
+            client=MagicMock(),
+            chain_id=chain_id,
+            start_block=start_block,
+            end_block=end_block,
+            cache_path=tmp_path,
+            display_progress=False,
+            attempts=2,
+        )
+
+    assert call_count == 2
+    assert len(slicer) == 10
+    assert slicer[start_block] == datetime.datetime(2023, 11, 14, 22, 30)
+    assert slicer[end_block] == datetime.datetime(2023, 11, 14, 22, 30, 9)
+
+    slicer.close()
+
+
+def test_hypersync_timestamp_fetch_clips_to_indexed_height(tmp_path):
+    """Verify that timestamp fetch does not stream past Hypersync indexed height."""
+
+    chain_id = 1
+    fetch_calls = []
+
+    async def mock_get_timestamps(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000, validate_chain_id=True, reason=None):
+        fetch_calls.append((start_block, end_block))
+        for block_num in range(start_block, end_block + 1):
+            yield _make_block_header(block_num)
+
+    async def _run():
+        with (
+            patch(
+                "eth_defi.hypersync.hypersync_timestamp.is_hypersync_client",
+                return_value=True,
+            ),
+            patch(
+                "eth_defi.hypersync.hypersync_timestamp._validate_hypersync_chain_id_async",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "eth_defi.hypersync.hypersync_timestamp._fetch_hypersync_block_height_async",
+                new_callable=AsyncMock,
+                return_value=1050,
+            ),
+            patch(
+                "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+                side_effect=mock_get_timestamps,
+            ),
+        ):
+            slicer = await fetch_block_timestamps_using_hypersync_cached_async(
+                client=MagicMock(),
+                chain_id=chain_id,
+                start_block=1000,
+                end_block=1099,
+                cache_path=tmp_path,
+                display_progress=False,
+            )
+
+        return slicer
+
+    slicer = asyncio.run(_run())
+
+    assert fetch_calls == [(1000, 1050)]
+    assert len(slicer) == 51
+    assert slicer.get_last_block() == 1050
+
+    slicer.close()
+
+
+def test_hypersync_timestamp_fetch_uses_warm_cache_without_height_check(tmp_path):
+    """Verify that a fully cached range does not call Hypersync."""
+
+    chain_id = 1
+
+    import pandas as pd
+
+    from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
+
+    db = BlockTimestampDatabase.create(chain_id, tmp_path)
+    existing_index = list(range(1000, 1100))
+    existing_values = [1_700_000_000 + b for b in existing_index]
+    db.import_chain_data(chain_id, pd.Series(data=existing_values, index=existing_index))
+    db.close()
+
+    async def _run():
+        height_check = AsyncMock(return_value=1099)
+        validate_chain = AsyncMock()
+
+        with (
+            patch(
+                "eth_defi.hypersync.hypersync_timestamp.is_hypersync_client",
+                return_value=True,
+            ),
+            patch(
+                "eth_defi.hypersync.hypersync_timestamp._validate_hypersync_chain_id_async",
+                validate_chain,
+            ),
+            patch(
+                "eth_defi.hypersync.hypersync_timestamp._fetch_hypersync_block_height_async",
+                height_check,
+            ),
+        ):
+            slicer = await fetch_block_timestamps_using_hypersync_cached_async(
+                client=MagicMock(),
+                chain_id=chain_id,
+                start_block=1000,
+                end_block=1099,
+                cache_path=tmp_path,
+                display_progress=False,
+            )
+
+        return slicer, validate_chain, height_check
+
+    slicer, validate_chain, height_check = asyncio.run(_run())
+
+    assert len(slicer) == 100
+    validate_chain.assert_not_awaited()
+    height_check.assert_not_awaited()
+
+    slicer.close()
+
+
+def test_hypersync_head_backfill_respects_clipped_indexed_height(tmp_path):
+    """Verify that head backfills do not fetch past clipped Hypersync height."""
+
+    chain_id = 1
+
+    import pandas as pd
+
+    from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
+
+    db = BlockTimestampDatabase.create(chain_id, tmp_path)
+    existing_index = list(range(1000, 1100))
+    existing_values = [1_700_000_000 + b for b in existing_index]
+    db.import_chain_data(chain_id, pd.Series(data=existing_values, index=existing_index))
+    db.close()
+
+    fetch_calls = []
+
+    async def mock_get_timestamps(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000, validate_chain_id=True, reason=None):
+        fetch_calls.append((start_block, end_block))
+        for block_num in range(start_block, end_block + 1):
+            yield _make_block_header(block_num)
+
+    async def _run():
+        with (
+            patch(
+                "eth_defi.hypersync.hypersync_timestamp.is_hypersync_client",
+                return_value=True,
+            ),
+            patch(
+                "eth_defi.hypersync.hypersync_timestamp._validate_hypersync_chain_id_async",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "eth_defi.hypersync.hypersync_timestamp._fetch_hypersync_block_height_async",
+                new_callable=AsyncMock,
+                return_value=500,
+            ),
+            patch(
+                "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+                side_effect=mock_get_timestamps,
+            ),
+        ):
+            slicer = await fetch_block_timestamps_using_hypersync_cached_async(
+                client=MagicMock(),
+                chain_id=chain_id,
+                start_block=1,
+                end_block=1200,
+                cache_path=tmp_path,
+                display_progress=False,
+            )
+
+        return slicer
+
+    slicer = asyncio.run(_run())
+
+    assert fetch_calls == [(1, 500)]
+    assert len(slicer) == 600
+    assert slicer.get_last_block() == 1099
+
+    slicer.close()
+
+
 def test_hypersync_gap_healing_persistent_gap(tmp_path):
     """Verify behaviour when a gap persists across all healing attempts.
 
@@ -209,9 +431,9 @@ def test_hypersync_head_backfill_no_holes(tmp_path):
     chain_id = 1
 
     # Pre-populate cache with blocks 1000-2000
-    from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
-
     import pandas as pd
+
+    from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
 
     db = BlockTimestampDatabase.create(chain_id, tmp_path)
     existing_index = list(range(1000, 2001))
@@ -280,9 +502,9 @@ def test_hypersync_interior_gap_detected_on_retry(tmp_path):
 
     chain_id = 1
 
-    from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
-
     import pandas as pd
+
+    from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
 
     # Pre-populate cache simulating partial backfill state:
     # blocks 1-99 (saved before 429) + blocks 1000-2000 (original cache)

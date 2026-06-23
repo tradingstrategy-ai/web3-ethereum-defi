@@ -455,9 +455,13 @@ def scan_prices_for_chain(
     try:
         # Setup Web3 connection
         web3 = create_multi_provider_web3(rpc_url)
-        web3factory = MultiProviderWeb3Factory(rpc_url, retries=5)
         token_cache = TokenDiskCache()
         chain_id = web3.eth.chain_id
+        # Subprocess price-reading workers rebuild Web3 from this factory; the
+        # parent already verified the chain ID, so skip per-worker re-verification
+        # to avoid storming the primary provider with eth_chainId probes (HTTP 429).
+        # Seed the verified chain ID so worker switchover still rejects wrong-chain endpoints.
+        web3factory = MultiProviderWeb3Factory(rpc_url, retries=5, skip_verification=True, expected_chain_id=chain_id)
 
         # Load vault database
         if not vault_db_path.exists():

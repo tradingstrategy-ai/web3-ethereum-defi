@@ -1,5 +1,7 @@
 # Current
 
+- fix: Stop the vault scanner's subprocess workers from re-running RPC chain ID verification — `create_multi_provider_web3()` and `MultiProviderWeb3Factory` gain a `skip_verification` flag (with `expected_chain_id` seeding to keep runtime switchover chain-id safety), used by the vault and price scan fan-out so 24 workers no longer storm the primary provider with `eth_chainId` probes and trip QuickNode's HTTP 429 rate limit (2026-06-23)
+
 - feat: Add direct offchain manager-name curator mapping for Euler, Morpho and Lagoon vaults, with protocol-specific curator YAML metadata fields and the new 722 Capital Lagoon curator record so vault scans can attribute these vaults without relying on vault-name fuzzy matching (2026-06-22)
 
 - feat: Add pending asynchronous vault flow event discovery — `VaultDepositManager.fetch_vault_flow_events()` now lets Lagoon ERC-7540 and Ostium V1.5 managers reconstruct missing pending deposit and redemption requests from Hypersync event scans, with protocol-neutral `PendingVaultFlow` records and live fixed-range integration tests for Base Lagoon and Arbitrum Ostium vaults (2026-06-19)

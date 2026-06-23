@@ -26,19 +26,17 @@ Example:
 """
 
 import asyncio
-from typing import AsyncIterable
 import logging
-
-import pandas as pd
-from eth_typing import BlockNumber
+from typing import AsyncIterable
 
 import hypersync
+import pandas as pd
+from eth_typing import BlockNumber
 from hypersync import BlockField
-
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.event_reader.block_header import BlockHeader
-from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampSlicer
+from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampDatabase, BlockTimestampSlicer, load_timestamp_cache
 from eth_defi.hypersync.session import is_hypersync_client, open_hypersync_stream
 from eth_defi.utils import from_unix_timestamp
 
@@ -56,6 +54,20 @@ def _is_hypersync_rate_limit_error(e: Exception) -> bool:
     after exhausting its internal retries.
     """
     return isinstance(e, RuntimeError) and "429" in str(e)
+
+
+def _is_hypersync_next_block_range_error(e: Exception) -> bool:
+    """Check if a Hypersync stream failed on an internal pagination boundary.
+
+    Some Hypersync backends can fail near the indexed chain head with an
+    ``inner receiver`` error where ``next_block`` is at the lower boundary of
+    the server-side subrange. Treat this as a flaky stream error so the caller
+    can retry or wait for the backend to index more blocks.
+    """
+    if not isinstance(e, RuntimeError):
+        return False
+    message = str(e)
+    return "inner receiver" in message and "server returned next_block" in message and "outside the requested range" in message
 
 
 async def _validate_hypersync_chain_id_async(
@@ -77,6 +89,20 @@ async def _validate_hypersync_chain_id_async(
             raise HypersyncFlaky(f"Hypersync rate limited during chain_id validation{reason_suffix}: {e}") from e
         raise
     assert connected == expected_chain_id, f"Hypersync client connected to chain {connected}, but expected {expected_chain_id}"
+
+
+async def _fetch_hypersync_block_height_async(
+    client: hypersync.HypersyncClient,
+    reason: str | None = None,
+) -> int:
+    """Fetch the latest indexed Hypersync block height."""
+    reason_suffix = f" [{reason}]" if reason else ""
+    try:
+        return await client.get_height()
+    except RuntimeError as e:
+        if _is_hypersync_rate_limit_error(e):
+            raise HypersyncFlaky(f"Hypersync rate limited during block height check{reason_suffix}: {e}") from e
+        raise
 
 
 async def get_block_timestamps_using_hypersync_async(
@@ -179,6 +205,8 @@ async def get_block_timestamps_using_hypersync_async(
         except RuntimeError as e:
             if _is_hypersync_rate_limit_error(e):
                 raise HypersyncFlaky(f"Hypersync rate limited during streaming{reason_suffix}: {e}") from e
+            if _is_hypersync_next_block_range_error(e):
+                raise HypersyncFlaky(f"Hypersync stream pagination failed{reason_suffix}: {e}") from e
             raise
 
         # exit if the stream finished
@@ -309,28 +337,33 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         f"{end_block:,}",
     )
 
-    # Build (start, end) pairs for blocks we need to fetch.
-    # Head and tail are computed separately so a partial backfill
-    # followed by a 429 doesn't leave permanent holes on retry.
-    fetch_ranges: list[tuple[int, int]] = []
+    def _build_fetch_ranges(range_end_block: int) -> list[tuple[int, int]]:
+        """Build (start, end) pairs for blocks we need to fetch."""
+        fetch_ranges: list[tuple[int, int]] = []
 
-    if last_read_block:
-        if start_block < first_read_block:
-            fetch_ranges.append((start_block, first_read_block - 1))
-        if end_block > last_read_block:
-            fetch_ranges.append((last_read_block + 1, end_block))
+        if last_read_block:
+            if start_block < first_read_block:
+                head_end_block = min(first_read_block - 1, range_end_block)
+                if start_block <= head_end_block:
+                    fetch_ranges.append((start_block, head_end_block))
+            if range_end_block > last_read_block:
+                fetch_ranges.append((last_read_block + 1, range_end_block))
 
-        # Detect interior gaps (e.g. from a partial backfill that saved
-        # blocks 1-99 then got a 429, leaving a hole at 100-999).
-        # Clip each gap to the requested range since we only care about
-        # the intersection.
-        for gap_start, gap_end, _count in timestamp_db.find_gaps():
-            clip_start = max(start_block, gap_start + 1)
-            clip_end = min(end_block, gap_end - 1)
-            if clip_start <= clip_end:
-                fetch_ranges.append((clip_start, clip_end))
-    else:
-        fetch_ranges.append((start_block, end_block))
+            # Detect interior gaps (e.g. from a partial backfill that saved
+            # blocks 1-99 then got a 429, leaving a hole at 100-999).
+            # Clip each gap to the requested range since we only care about
+            # the intersection.
+            for gap_start, gap_end, _count in timestamp_db.find_gaps():
+                clip_start = max(start_block, gap_start + 1)
+                clip_end = min(range_end_block, gap_end - 1)
+                if clip_start <= clip_end:
+                    fetch_ranges.append((clip_start, clip_end))
+        else:
+            fetch_ranges.append((start_block, range_end_block))
+
+        return fetch_ranges
+
+    fetch_ranges = _build_fetch_ranges(end_block)
 
     total_to_fetch = sum(e - s + 1 for s, e in fetch_ranges)
 
@@ -338,9 +371,33 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         logger.info("Chain %d: cache fully covers requested range, nothing to fetch", chain_id)
         return timestamp_db.get_slicer()
 
-    # Validate chain_id once before streaming
+    # Validate chain_id once before streaming, and avoid querying beyond
+    # Hypersync's current indexed height. Near-head overreads can surface as
+    # Rust receiver pagination errors instead of clean empty responses.
     if is_hypersync_client(client):
         await _validate_hypersync_chain_id_async(client, chain_id, reason="timestamp-cache-validate")
+        hypersync_height = await _fetch_hypersync_block_height_async(client, reason="timestamp-cache-height")
+        if end_block > hypersync_height:
+            logger.warning(
+                "Chain %d: clipping timestamp request end block from %s to Hypersync indexed height %s",
+                chain_id,
+                f"{end_block:,}",
+                f"{hypersync_height:,}",
+            )
+            end_block = hypersync_height
+            if end_block < start_block:
+                logger.warning(
+                    "Chain %d: Hypersync indexed height %s is before requested start block %s, nothing to fetch",
+                    chain_id,
+                    f"{hypersync_height:,}",
+                    f"{start_block:,}",
+                )
+                return timestamp_db.get_slicer()
+            fetch_ranges = _build_fetch_ranges(end_block)
+            total_to_fetch = sum(e - s + 1 for s, e in fetch_ranges)
+            if not fetch_ranges:
+                logger.info("Chain %d: cache fully covers clipped requested range, nothing to fetch", chain_id)
+                return timestamp_db.get_slicer()
 
     # Split ranges into chunks — each opens a separate stream() call
     # so the Python-side throttle can pace requests, and progress is
