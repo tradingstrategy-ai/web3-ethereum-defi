@@ -98,13 +98,19 @@ NOT_FOUND_TEST_VAULT = "0x000000000000000000000000000000000000dead"
 class _FakeEth:
     """Minimal fake Web3.eth object for Morpho API tests."""
 
-    chain_id = 1
+    def __init__(self, chain_id: int = 1):
+        self.chain_id = chain_id
 
 
 class _FakeWeb3:
-    """Minimal fake Web3 object for Morpho API tests."""
+    """Minimal fake Web3 object for Morpho API tests.
 
-    eth = _FakeEth()
+    :param chain_id:
+        Chain ID reported by ``web3.eth.chain_id``. Defaults to Ethereum mainnet (1).
+    """
+
+    def __init__(self, chain_id: int = 1):
+        self.eth = _FakeEth(chain_id)
 
 
 class _FakeResponse:
@@ -232,6 +238,70 @@ def test_morpho_not_found_is_not_cached(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert not cache_file.exists()
     expected_call_count = 2
     assert len(calls) == expected_call_count
+
+
+def test_morpho_unsupported_chain_short_circuits(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    """Vaults on chains Morpho does not index resolve to NOT_FOUND without any HTTP call.
+
+    The vault scanner detects Morpho-like vaults on chains the Morpho API does not
+    support (e.g. BNB Smart Chain, chain 56). Such lookups must be short-circuited so
+    the scanner does not query the API once per vault on every cycle.
+
+    1. Build a fake Web3 reporting chain 56 (BNB Smart Chain).
+    2. Patch the HTTP layer to fail loudly if it is ever called.
+    3. Assert the lookup returns NOT_FOUND with zero HTTP calls and no cache file.
+    """
+
+    # 1. Fake Web3 on chain 56 (BNB Smart Chain), which the Morpho API does not index.
+    web3 = _FakeWeb3(chain_id=56)
+
+    # 2. Any HTTP call would mean the short-circuit failed.
+    def fail_post(*_args, **_kwargs):
+        raise AssertionError("Morpho API must not be called for unsupported chains")
+
+    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata.requests.post", fail_post)
+
+    # 3. Lookup is NOT_FOUND, no HTTP call, no cache written.
+    result = fetch_morpho_vault_api_result(web3, NOT_FOUND_TEST_VAULT, cache_path=tmp_path)
+    assert result.is_not_found
+    cache_file = tmp_path / f"morpho_56_{NOT_FOUND_TEST_VAULT.lower()}.json"
+    assert not cache_file.exists()
+
+
+def test_morpho_unsupported_chainid_graphql_error_is_not_found(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    """A ``BAD_USER_INPUT`` / ``unsupported chainId`` GraphQL error is treated as NOT_FOUND.
+
+    This is the defensive layer: even if a chain slips past the supported-chain
+    allowlist, the API's ``BAD_USER_INPUT`` response must be classified as a
+    definitive miss (NOT_FOUND) rather than a transient error, so it is not
+    retried on every scan cycle.
+
+    1. Patch the API to return the real ``unsupported chainId`` GraphQL error.
+    2. Assert the result is NOT_FOUND (not transient) and nothing is cached.
+    """
+
+    # 1. Reproduce the exact production error payload for chain 56.
+    _patch_morpho_api(
+        monkeypatch,
+        [
+            {
+                "errors": [
+                    {
+                        "message": 'unsupported chainId "56"',
+                        "status": "BAD_USER_INPUT",
+                        "extensions": {},
+                    }
+                ],
+                "data": None,
+            }
+        ],
+    )
+
+    # 2. Classified as a definitive miss, nothing cached.
+    result = fetch_morpho_vault_api_result(_FakeWeb3(), NOT_FOUND_TEST_VAULT, cache_path=tmp_path)
+    assert result.status == MorphoVaultAPIStatus.not_found
+    cache_file = tmp_path / f"morpho_1_{NOT_FOUND_TEST_VAULT.lower()}.json"
+    assert not cache_file.exists()
 
 
 def test_morpho_transient_error_does_not_add_not_found_flag(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):

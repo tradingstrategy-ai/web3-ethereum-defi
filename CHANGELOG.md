@@ -1,5 +1,7 @@
 # Current
 
+- fix: Stop the vault scanner spamming the Morpho GraphQL API for chains it does not index (e.g. BNB Smart Chain / chain 56) — add a `MORPHO_API_SUPPORTED_CHAINS` allowlist that short-circuits Morpho lookups before any HTTP call, and reclassify the API's `BAD_USER_INPUT` / `unsupported chainId` GraphQL error as a definitive `NOT_FOUND` instead of a retried transient error, eliminating the per-vault-per-cycle warning log spam and wasted round-trips (2026-06-23)
+
 - fix: Stop the vault scanner's subprocess workers from re-running RPC chain ID verification — `create_multi_provider_web3()` and `MultiProviderWeb3Factory` gain a `skip_verification` flag (with `expected_chain_id` seeding to keep runtime switchover chain-id safety), used by the vault and price scan fan-out so 24 workers no longer storm the primary provider with `eth_chainId` probes and trip QuickNode's HTTP 429 rate limit (2026-06-23)
 
 - feat: Add direct offchain manager-name curator mapping for Euler, Morpho and Lagoon vaults, with protocol-specific curator YAML metadata fields and the new 722 Capital Lagoon curator record so vault scans can attribute these vaults without relying on vault-name fuzzy matching (2026-06-22)
