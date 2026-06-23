@@ -196,6 +196,7 @@ def scan_leads(
     # Perform vault discovery and categorisation,
     # so we get information which address contains which kind of a vault
     report = vault_discover.scan_vaults(start_block, end_block)
+    end_block = report.end_block
     vault_detections = list(report.detections.values())
 
     # Prepare data export by reading further per-vault data using multiprocessing
