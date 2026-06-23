@@ -20,6 +20,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.erc_4626.discovery_base import LeadScanReport, PotentialVaultMatch, VaultDiscoveryBase, get_vault_discovery_events, get_vault_event_topic_map, is_deposit_event
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.hypersync.hypersync_timestamp import HypersyncFlaky, _is_hypersync_next_block_range_error, get_hypersync_block_height
 
 try:
     import hypersync
@@ -29,8 +30,10 @@ except ImportError as e:
 
 from eth_defi.hypersync.session import open_hypersync_stream
 
-
 logger = logging.getLogger(__name__)
+
+VAULT_LEAD_HEIGHT_CHECK_ATTEMPTS = 3
+VAULT_LEAD_HEIGHT_CHECK_RETRY_SLEEP = 30
 
 
 class HypersyncCrappedOut(Exception):
@@ -120,6 +123,79 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         )
         return query
 
+    def clip_end_block_to_available_height(self, start_block: int, end_block: int) -> int:
+        """Clip scan end block to heights available from RPC and Hypersync.
+
+        Hypersync may lag the chain head by a few blocks. Asking it to stream
+        over that head gap can fail with an ``inner receiver`` pagination error.
+        We also cap by RPC height so follow-up vault probing does not request a
+        future block from the JSON-RPC provider.
+
+        :param start_block:
+            Inclusive scan start block.
+
+        :param end_block:
+            Requested inclusive scan end block.
+
+        :return:
+            End block that both Hypersync and RPC should be able to serve.
+        """
+        try:
+            rpc_height = self.web3.eth.block_number
+            hypersync_height = get_hypersync_block_height(self.client)
+        except HypersyncFlaky as e:
+            raise HypersyncCrappedOut(f"Hypersync failed during vault lead height check: {e}") from e
+
+        clipped_end_block = min(end_block, rpc_height, hypersync_height)
+        if clipped_end_block < end_block:
+            logger.warning(
+                "Clipping vault lead discovery end block from %s to %s (RPC height %s, Hypersync height %s)",
+                f"{end_block:,}",
+                f"{clipped_end_block:,}",
+                f"{rpc_height:,}",
+                f"{hypersync_height:,}",
+            )
+
+        return clipped_end_block
+
+    def scan_vaults(
+        self,
+        start_block: int,
+        end_block: int,
+        display_progress=True,
+    ) -> LeadScanReport:
+        """Scan vaults using a Hypersync-safe head block."""
+        last_exception = None
+        for attempt in range(VAULT_LEAD_HEIGHT_CHECK_ATTEMPTS):
+            try:
+                end_block = self.clip_end_block_to_available_height(start_block, end_block)
+                break
+            except HypersyncCrappedOut as e:
+                last_exception = e
+                logger.error("Hypersync vault lead height check attempt %d/%d failed: %s", attempt + 1, VAULT_LEAD_HEIGHT_CHECK_ATTEMPTS, e)
+                if attempt + 1 >= VAULT_LEAD_HEIGHT_CHECK_ATTEMPTS:
+                    raise
+                logger.info("Retrying Hypersync vault lead height check after %d seconds backoff", VAULT_LEAD_HEIGHT_CHECK_RETRY_SLEEP)
+                time.sleep(VAULT_LEAD_HEIGHT_CHECK_RETRY_SLEEP)
+        else:
+            raise last_exception or RuntimeError("Hypersync vault lead height check failed with no exception recorded")
+
+        if end_block <= start_block:
+            logger.info(
+                "No new Hypersync vault lead blocks to scan: start block %s, available end block %s",
+                f"{start_block:,}",
+                f"{end_block:,}",
+            )
+            return LeadScanReport(
+                backend=self,
+                leads=self.existing_leads.copy(),
+                old_leads=len(self.existing_leads),
+                start_block=start_block,
+                end_block=end_block,
+            )
+
+        return super().scan_vaults(start_block, end_block, display_progress=display_progress)
+
     def fetch_leads(self, start_block: int, end_block: int, display_progress=True, attempts=3, retry_sleep=30) -> LeadScanReport:
         """
         Synchronous wrapper around async lead scanning.
@@ -151,7 +227,7 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
                         raise
                     else:
                         logger.info(f"Retrying HyperSync scan after {retry_sleep} seconds backoff")
-                        time.sleep(retry_sleep)
+                        await asyncio.sleep(retry_sleep)
 
             # Should never reach here, but raise if we somehow do
             raise last_exception or RuntimeError("HyperSync scan failed with no exception recorded")
@@ -193,6 +269,8 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         except RuntimeError as e:
             if "429" in str(e):
                 raise HypersyncCrappedOut(f"Hypersync rate limited [vault-lead-discovery]: {e}") from e
+            if _is_hypersync_next_block_range_error(e):
+                raise HypersyncCrappedOut(f"Hypersync stream pagination failed [vault-lead-discovery]: {e}") from e
             raise
 
         if display_progress:
@@ -207,7 +285,7 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         last_block = start_block
         timestamp = None
 
-        logger.info(f"Streaming HyperSync")
+        logger.info("Streaming HyperSync")
 
         last_synced = None
 
@@ -227,6 +305,8 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
             except RuntimeError as e:
                 if "429" in str(e):
                     raise HypersyncCrappedOut(f"Hypersync rate limited [vault-lead-discovery]: {e}") from e
+                if _is_hypersync_next_block_range_error(e):
+                    raise HypersyncCrappedOut(f"Hypersync stream pagination failed [vault-lead-discovery]: {e}") from e
                 raise
 
             # exit if the stream finished
