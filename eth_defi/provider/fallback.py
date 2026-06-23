@@ -10,13 +10,13 @@ import time
 from collections import Counter, defaultdict
 from pprint import pformat
 from typing import Any, cast
-from requests.exceptions import HTTPError
 
+from requests.exceptions import HTTPError
 from web3 import Web3
 from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
-from eth_defi.middleware import DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock, is_retryable_http_exception, SomeCrappyRPCProviderException
+from eth_defi.middleware import DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock, SomeCrappyRPCProviderException, is_retryable_http_exception
 from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
 from eth_defi.utils import get_url_domain
 
@@ -72,6 +72,16 @@ class ChainIdMismatch(Exception):
 
     This typically happens when an RPC endpoint is misconfigured or its
     backend temporarily routes requests to the wrong chain after an outage.
+    """
+
+
+class ProviderNotAvailable(ChainIdMismatch):
+    """Raised when a provider cannot answer chain ID verification.
+
+    This is a recoverable switchover condition when other fallback providers
+    are available. It subclasses :py:class:`ChainIdMismatch` for backwards
+    compatibility with callers that treat failed chain ID verification as a
+    rejected provider selection.
     """
 
 
@@ -189,27 +199,41 @@ class FallbackProvider(BaseNamedProvider):
     def verify_providers(self):
         """Check that all providers return the same chain ID.
 
-        Call this at startup to detect misconfigured RPC endpoints
-        before any trading logic runs.
+        Call this at startup to detect misconfigured RPC endpoints before any
+        trading logic runs. Providers that do not answer during startup are
+        left in the fallback rotation, because their availability can be
+        transient and runtime switching verifies chain ID before selecting
+        them.
 
         :raises ChainIdMismatch:
-            If any provider returns a different chain ID, or if a
-            provider cannot be reached at all.
+            If responding providers return different chain IDs, or if no
+            provider can be reached at all.
         """
         if len(self.providers) < 2:
             return
 
         results: dict[str, int] = {}
+        unavailable: dict[str, Exception] = {}
         for provider in self.providers:
             name = get_provider_name(provider)
-            if name in results:
+            if name in results or name in unavailable:
                 # Same endpoint appears multiple times, skip duplicate
                 continue
             try:
                 chain_id = self._fetch_chain_id_from_provider(provider)
             except Exception as e:
-                raise ChainIdMismatch(f"Provider {name} did not respond to eth_chainId during startup verification: {e}") from e
+                unavailable[name] = e
+                logger.warning(
+                    "Provider %s did not respond to eth_chainId during startup verification, keeping it in fallback rotation: %s",
+                    name,
+                    e,
+                )
+                continue
             results[name] = chain_id
+
+        if not results:
+            detail = ", ".join(f"{name}: {exc}" for name, exc in unavailable.items())
+            raise ChainIdMismatch(f"No RPC providers responded to eth_chainId during startup verification: {detail}")
 
         chain_ids = set(results.values())
         if len(chain_ids) > 1:
@@ -219,7 +243,12 @@ class FallbackProvider(BaseNamedProvider):
         # Pre-populate expected_chain_id for runtime switch checks
         if chain_ids:
             self.expected_chain_id = chain_ids.pop()
-            logger.info("All %d RPC providers verified on chain ID %d", len(results), self.expected_chain_id)
+            logger.info(
+                "Verified %d/%d RPC providers on chain ID %d",
+                len(results),
+                len(results) + len(unavailable),
+                self.expected_chain_id,
+            )
 
     @property
     def endpoint_uri(self):
@@ -269,9 +298,9 @@ class FallbackProvider(BaseNamedProvider):
         """Switch to next available provider.
 
         After switching, verifies that the new provider returns the same
-        ``eth_chainId`` as the previously observed value.  If the chain ID
-        does not match or cannot be fetched, the provider index is rolled
-        back to the previous value and the exception is raised.
+        ``eth_chainId`` as the previously observed value. Providers that cannot
+        answer the verification call are skipped when other alternatives are
+        available. Providers that answer with a different chain ID are rejected.
 
         :param log_level:
             Logging level to be verbose about the switch over
@@ -279,12 +308,34 @@ class FallbackProvider(BaseNamedProvider):
         :param randomise:
             If set switch to a random provider instead of cycling.
         """
-        if randomise:
-            new_index = random.randint(0, len(self.providers) - 1)
-        else:
-            new_index = (self.currently_active_provider + 1) % len(self.providers)
+        provider_count = len(self.providers)
+        if provider_count <= 1:
+            self.switch_to_provider_index(self.currently_active_provider, log_level=log_level, cause=cause)
+            return
 
-        self.switch_to_provider_index(new_index, log_level=log_level, cause=cause)
+        old_index = self.currently_active_provider
+        if randomise:
+            candidate_indexes = [idx for idx in range(provider_count) if idx != old_index]
+            random.shuffle(candidate_indexes)
+        else:
+            candidate_indexes = [(old_index + offset) % provider_count for offset in range(1, provider_count)]
+
+        last_unavailable: ProviderNotAvailable | None = None
+        for new_index in candidate_indexes:
+            try:
+                self.switch_to_provider_index(new_index, log_level=log_level, cause=cause)
+                return
+            except ProviderNotAvailable as e:
+                last_unavailable = e
+                continue
+
+        if last_unavailable is not None:
+            provider = self.get_active_provider()
+            logger.warning(
+                "No alternative RPC provider could be verified during switchover from %s; keeping current provider. Last verification failure: %s",
+                get_provider_name(provider),
+                last_unavailable,
+            )
 
     def switch_to_provider_index(self, new_index: int, log_level: int = None, cause: str = "<not specified>"):
         """Switch to a specific provider by index, with the same verification as :py:meth:`switch_provider`.
@@ -293,7 +344,7 @@ class FallbackProvider(BaseNamedProvider):
         fail a chain over to a known-good single node) rather than cycling or
         randomising. Like :py:meth:`switch_provider`, after switching it verifies
         the new provider returns the expected ``eth_chainId`` and rolls back to the
-        previous provider (raising :py:class:`ChainIdMismatch`) if it does not — so
+        previous provider (raising :py:class:`ChainIdMismatch`) if it does not, so
         a misconfigured or mis-routing endpoint cannot be silently selected.
 
         :param new_index:
@@ -306,9 +357,10 @@ class FallbackProvider(BaseNamedProvider):
             Human-readable reason for the switch, logged for diagnostics.
 
         :raises ChainIdMismatch:
-            If the new provider reports a different chain ID than expected, or its
-            ``eth_chainId`` cannot be fetched. The active provider is rolled back
-            to the previous one before raising.
+            If the new provider reports a different chain ID than expected.
+
+        :raises ProviderNotAvailable:
+            If the new provider cannot answer ``eth_chainId`` verification.
         """
         assert 0 <= new_index < len(self.providers), f"Provider index {new_index} out of range for {len(self.providers)} providers"
 
@@ -332,21 +384,21 @@ class FallbackProvider(BaseNamedProvider):
             log_level = self.switchover_noisiness
 
         if old_provider_name != new_provider_name:
-            logger.log(log_level, "Switched RPC providers %s -> %s, cause: %s\n", old_provider_name, new_provider_name, cause)
-
             # Verify the new provider is on the same chain
             if self.expected_chain_id is not None:
                 try:
                     new_chain_id = self._fetch_chain_id_from_provider(new_provider)
                 except Exception as e:
                     self.currently_active_provider = old_index
-                    logger.warning("Rolling back to provider %s: new provider %s failed eth_chainId: %s", old_provider_name, new_provider_name, e)
-                    raise ChainIdMismatch(f"Provider {new_provider_name} could not be verified (eth_chainId failed: {e}). Rolled back to {old_provider_name}.") from e
+                    logger.warning("Keeping provider %s: new provider %s failed eth_chainId: %s", old_provider_name, new_provider_name, e)
+                    raise ProviderNotAvailable(f"Provider {new_provider_name} could not be verified (eth_chainId failed: {e}). Kept {old_provider_name}.") from e
                 if new_chain_id != self.expected_chain_id:
                     self.currently_active_provider = old_index
                     raise ChainIdMismatch(f"Provider {new_provider_name} returned chain ID {new_chain_id}, but expected {self.expected_chain_id} (from {old_provider_name}). The RPC endpoint may be misconfigured or routing to the wrong chain.")
+
+            logger.log(log_level, "Switched RPC providers %s -> %s, cause: %s\n", old_provider_name, new_provider_name, cause)
         else:
-            logger.log(log_level, "Only 1 RPC provider configured: %s, cannot switch, sleeping and hoping the issue resolves itself", old_provider_name)
+            logger.log(log_level, "No alternative RPC provider configured: %s, cannot switch, sleeping and hoping the issue resolves itself", old_provider_name)
 
     def get_active_provider(self) -> NamedProvider:
         """Get currently active provider.
