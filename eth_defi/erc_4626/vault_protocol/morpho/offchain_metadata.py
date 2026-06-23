@@ -56,6 +56,43 @@ DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "morpho"
 #: Morpho public GraphQL API endpoint
 MORPHO_BLUE_GRAPHQL_URL = "https://api.morpho.org/graphql"
 
+#: Chain IDs the Morpho GraphQL API (``api.morpho.org``) indexes.
+#:
+#: The API rejects any other chain with a ``BAD_USER_INPUT`` /
+#: ``unsupported chainId`` GraphQL error. The vault scanner detects Morpho-like
+#: vaults on chains Morpho does not support (e.g. BNB Smart Chain, chain 56),
+#: and without this guard it would query the API once per such vault on every
+#: scan cycle — calls that can never succeed, producing log spam and wasted
+#: round-trips.
+#:
+#: This set is a performance/noise optimisation only: it is safe for it to be
+#: incomplete, because :py:func:`_query_morpho_api` also treats an
+#: ``unsupported chainId`` / ``BAD_USER_INPUT`` error as a definitive
+#: ``NOT_FOUND``. If Morpho adds a new chain, add it here so we resume fetching
+#: warning metadata for that chain.
+#:
+#: Source: Morpho deployment list at https://docs.morpho.org/
+MORPHO_API_SUPPORTED_CHAINS = frozenset(
+    {
+        1,  # Ethereum
+        10,  # Optimism
+        130,  # Unichain
+        137,  # Polygon
+        146,  # Sonic
+        252,  # Fraxtal
+        480,  # World Chain
+        999,  # HyperEVM / Hyperliquid
+        1868,  # Soneium
+        8453,  # Base
+        34443,  # Mode
+        42161,  # Arbitrum One
+        43111,  # Hemi
+        57073,  # Ink
+        98866,  # Plume
+        747474,  # Katana
+    }
+)
+
 logger = logging.getLogger(__name__)
 
 #: GraphQL query to fetch vault-level and market-level warnings for a single vault
@@ -400,8 +437,23 @@ def fetch_morpho_vault_api_result(  # noqa: PLR0917
         Three-way Morpho API lookup result.
     """
     chain_id = web3.eth.chain_id
-    address_lower = vault_address.lower()
     checksum_address = Web3.to_checksum_address(vault_address)
+
+    # Short-circuit chains the Morpho API does not index (e.g. BNB Smart Chain,
+    # chain 56). Without this the scanner would query the API once per Morpho-like
+    # vault on every cycle, each call failing with "unsupported chainId". Logged at
+    # debug level to avoid spamming production logs once per vault. Returning here
+    # also skips the cache-key/address bookkeeping below, which is wasted for
+    # unsupported chains.
+    if chain_id not in MORPHO_API_SUPPORTED_CHAINS:
+        logger.debug(
+            "Morpho API does not index chain %d, skipping lookup for %s",
+            chain_id,
+            checksum_address,
+        )
+        return MorphoVaultAPIResult(MorphoVaultAPIStatus.not_found)
+
+    address_lower = vault_address.lower()
     cache_key = _get_cache_key(cache_path, chain_id, address_lower, api_version)
 
     logger.info("Resolving Morpho GraphQL data for vault %s on chain %d", checksum_address, chain_id)
@@ -506,6 +558,30 @@ def fetch_morpho_vault_data(  # noqa: PLR0917
     return result.data if result.status == MorphoVaultAPIStatus.found else None
 
 
+def _is_definitive_morpho_error(error: dict) -> bool:
+    """Is a Morpho GraphQL error a permanent miss rather than a transient failure.
+
+    A definitive error means the same request will never succeed, so it should be
+    reported as ``NOT_FOUND`` (and not retried on the next scan cycle):
+
+    - ``NOT_FOUND`` status — the vault is not indexed by Morpho.
+    - ``BAD_USER_INPUT`` status with an ``unsupported chainId`` message — the chain
+      is not indexed. We match the message rather than the bare status so a
+      genuinely malformed query (a different ``BAD_USER_INPUT``) stays a visible
+      transient warning instead of being silently swallowed.
+
+    :param error:
+        A single entry from the GraphQL ``errors`` array.
+
+    :return:
+        ``True`` if the error is permanent, ``False`` if it should be retried.
+    """
+    status = str(error.get("status", "")).upper()
+    if status == "NOT_FOUND":
+        return True
+    return status == "BAD_USER_INPUT" and "unsupported chainid" in str(error.get("message", "")).lower()
+
+
 def _query_morpho_api(chain_id: int, address: str, api_version: MorphoVaultAPIVersion = "v1") -> MorphoVaultAPIResult:
     """Execute the GraphQL query against the Morpho API.
 
@@ -542,11 +618,12 @@ def _query_morpho_api(chain_id: int, address: str, api_version: MorphoVaultAPIVe
         logger.warning("Morpho API returned invalid JSON for %s on chain %d: %s", address, chain_id, e)
         return MorphoVaultAPIResult(MorphoVaultAPIStatus.transient_error)
 
-    # Check for GraphQL-level errors
+    # Check for GraphQL-level errors. Definitive errors (see
+    # _is_definitive_morpho_error) are reported as not_found; everything else is
+    # transient and retried on the next scan cycle.
     errors = body.get("errors")
     if errors:
-        # Only treat NOT_FOUND as definitively absent; everything else is a transient error
-        if any(str(err.get("status", "")).upper() == "NOT_FOUND" for err in errors):
+        if any(_is_definitive_morpho_error(err) for err in errors):
             return MorphoVaultAPIResult(MorphoVaultAPIStatus.not_found)
         logger.warning(
             "Morpho API returned unexpected GraphQL errors for %s on chain %d: %s",
