@@ -445,6 +445,11 @@ def fetch_morpho_vault_api_result(  # noqa: PLR0917
     # debug level to avoid spamming production logs once per vault. Returning here
     # also skips the cache-key/address bookkeeping below, which is wasted for
     # unsupported chains.
+    #
+    # Note: returning not_found here intentionally makes callers flag these vaults
+    # with VaultFlag.not_in_morpho_api (a BAD flag). We treat a Morpho-like vault we
+    # cannot verify against the Morpho risk API as untouchable, regardless of whether
+    # it is unofficial or simply on a chain Morpho does not index.
     if chain_id not in MORPHO_API_SUPPORTED_CHAINS:
         logger.debug(
             "Morpho API does not index chain %d, skipping lookup for %s",
