@@ -27,7 +27,7 @@ def test_hypersync_vault_discovery_clips_end_block_to_available_height():
     discover = _create_discover(rpc_height=24537799)
 
     with patch(
-        "eth_defi.erc_4626.hypersync_discovery.get_hypersync_block_height",
+        "eth_defi.erc_4626.hypersync_discovery.get_hypersync_block_height_with_retries",
         return_value=24537791,
     ):
         clipped_end_block = discover.clip_end_block_to_available_height(
@@ -44,7 +44,7 @@ def test_hypersync_vault_discovery_scan_uses_clipped_end_block():
 
     with (
         patch(
-            "eth_defi.erc_4626.hypersync_discovery.get_hypersync_block_height",
+            "eth_defi.erc_4626.hypersync_discovery.get_hypersync_block_height_with_retries",
             return_value=150,
         ),
         patch.object(
@@ -69,7 +69,7 @@ def test_hypersync_vault_discovery_scan_noops_when_no_blocks_available():
 
     with (
         patch(
-            "eth_defi.erc_4626.hypersync_discovery.get_hypersync_block_height",
+            "eth_defi.erc_4626.hypersync_discovery.get_hypersync_block_height_with_retries",
             return_value=100,
         ),
         patch.object(
@@ -88,36 +88,40 @@ def test_hypersync_vault_discovery_scan_noops_when_no_blocks_available():
     base_scan.assert_not_called()
 
 
-def test_hypersync_vault_discovery_height_check_retries_flaky_error():
-    """Verify transient Hypersync height failures are retried before scanning."""
+def test_hypersync_vault_discovery_height_check_failure_is_wrapped():
+    """Verify Hypersync height failures are converted to discovery errors."""
     discover = _create_discover(rpc_height=200)
 
-    with (
-        patch(
-            "eth_defi.erc_4626.hypersync_discovery.get_hypersync_block_height",
-            side_effect=[
-                HypersyncFlaky("rate limited"),
-                150,
-            ],
-        ),
-        patch(
-            "eth_defi.erc_4626.hypersync_discovery.time.sleep",
-        ) as sleep_mock,
-        patch.object(
-            VaultDiscoveryBase,
-            "scan_vaults",
-            return_value=LeadScanReport(end_block=150),
-        ) as base_scan,
+    with patch(
+        "eth_defi.erc_4626.hypersync_discovery.get_hypersync_block_height_with_retries",
+        side_effect=HypersyncFlaky("rate limited"),
     ):
-        report = discover.scan_vaults(
+        with pytest.raises(HypersyncCrappedOut, match="rate limited"):
+            discover.scan_vaults(
+                start_block=100,
+                end_block=200,
+                display_progress=False,
+            )
+
+
+def test_hypersync_vault_discovery_scan_uses_shared_height_retry():
+    """Verify discovery asks the shared helper to retry height checks."""
+    discover = _create_discover(rpc_height=200)
+
+    with patch(
+        "eth_defi.erc_4626.hypersync_discovery.get_hypersync_block_height_with_retries",
+        return_value=150,
+    ) as height_check:
+        discover.clip_end_block_to_available_height(
             start_block=100,
             end_block=200,
-            display_progress=False,
         )
 
-    assert report.end_block == 150
-    sleep_mock.assert_called_once()
-    base_scan.assert_called_once_with(100, 150, display_progress=False)
+    height_check.assert_called_once()
+    kwargs = height_check.call_args.kwargs
+    assert kwargs["attempts"] == 3
+    assert kwargs["retry_sleep"] == 30
+    assert kwargs["reason"] == "vault-lead-discovery"
 
 
 def test_hypersync_vault_discovery_next_block_range_error_is_retryable():

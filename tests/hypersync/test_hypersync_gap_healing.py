@@ -17,9 +17,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from eth_defi.event_reader.block_header import BlockHeader
 from eth_defi.hypersync.hypersync_timestamp import (
     HypersyncFlaky,
-    _is_hypersync_next_block_range_error,
     fetch_block_timestamps_using_hypersync_cached,
     fetch_block_timestamps_using_hypersync_cached_async,
+    get_hypersync_block_height_with_retries,
+    is_hypersync_next_block_range_error,
 )
 
 
@@ -144,7 +145,35 @@ def test_hypersync_next_block_range_error_is_flaky():
     """Verify that Hypersync near-head pagination failures are retryable."""
     err = RuntimeError("inner receiver\n\nCaused by:\n    server returned next_block 24535975 outside the requested range [24535975..24535985)")
 
-    assert _is_hypersync_next_block_range_error(err)
+    assert is_hypersync_next_block_range_error(err)
+
+
+def test_hypersync_block_height_retry_helper_retries_flaky_error():
+    """Verify that transient Hypersync height failures are retried."""
+    mock_client = MagicMock()
+
+    with (
+        patch(
+            "eth_defi.hypersync.hypersync_timestamp.get_hypersync_block_height",
+            side_effect=[
+                HypersyncFlaky("rate limited"),
+                1234,
+            ],
+        ) as height_check,
+        patch(
+            "eth_defi.hypersync.hypersync_timestamp.time.sleep",
+        ) as sleep_mock,
+    ):
+        height = get_hypersync_block_height_with_retries(
+            mock_client,
+            attempts=2,
+            retry_sleep=1,
+            reason="test-height",
+        )
+
+    assert height == 1234
+    assert height_check.call_count == 2
+    sleep_mock.assert_called_once_with(1)
 
 
 def test_hypersync_cached_sync_retries_next_block_range_error(tmp_path):
