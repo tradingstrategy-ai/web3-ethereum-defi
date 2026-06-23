@@ -12,6 +12,7 @@ import pytest
 
 from eth_defi.cloudflare_r2 import (
     R2AccessDeniedError,
+    R2_DEFAULT_CACHE_CONTROL,
     calculate_bytes_digest,
     calculate_file_digest,
     copy_r2_object_daily_backup,
@@ -65,6 +66,7 @@ class FakeS3Client:
             "ContentLength": len(kwargs["Body"]),
             "ContentType": kwargs.get("ContentType"),
             "ContentEncoding": kwargs.get("ContentEncoding"),
+            "CacheControl": kwargs.get("CacheControl"),
             "Metadata": kwargs.get("Metadata", {}),
             "ETag": f'"{_md5_hex(kwargs["Body"])}"',
         }
@@ -102,6 +104,7 @@ class FakeS3Client:
         self.head_responses[bucket_name, object_name] = {
             "ContentLength": len(payload),
             "ContentType": extra_args.get("ContentType"),
+            "CacheControl": extra_args.get("CacheControl"),
             "Metadata": extra_args.get("Metadata", {}),
         }
 
@@ -122,6 +125,7 @@ def test_upload_bytes_to_r2_skips_when_remote_checksum_matches() -> None:
         "ContentLength": len(compressed_payload),
         "ContentType": "application/json",
         "ContentEncoding": "gzip",
+        "CacheControl": R2_DEFAULT_CACHE_CONTROL,
         "Metadata": source_digest.as_metadata(),
     }
 
@@ -150,6 +154,7 @@ def test_upload_bytes_to_r2_skips_with_matching_legacy_etag() -> None:
         "ContentLength": len(compressed_payload),
         "ContentType": "application/json",
         "ContentEncoding": "gzip",
+        "CacheControl": R2_DEFAULT_CACHE_CONTROL,
         "Metadata": {},
         "ETag": f'"{_md5_hex(compressed_payload)}"',
     }
@@ -186,6 +191,34 @@ def test_upload_bytes_to_r2_uploads_and_sets_checksum_metadata() -> None:
     assert uploaded is True
     assert len(s3_client.put_calls) == 1
     assert s3_client.put_calls[0]["Metadata"] == calculate_bytes_digest(payload).as_metadata()
+    assert s3_client.put_calls[0]["CacheControl"] == R2_DEFAULT_CACHE_CONTROL
+
+
+def test_upload_bytes_to_r2_refreshes_when_cache_control_is_missing() -> None:
+    """Objects missing the default cache header should be refreshed."""
+    s3_client = FakeS3Client()
+    payload = b"vault metadata"
+    source_digest = calculate_bytes_digest(payload)
+
+    s3_client.head_responses["bucket", "metadata.json"] = {
+        "ContentLength": len(payload),
+        "ContentType": "application/json",
+        "Metadata": source_digest.as_metadata(),
+    }
+
+    uploaded = upload_bytes_to_r2(
+        s3_client=s3_client,
+        payload=payload,
+        bucket_name="bucket",
+        object_name="metadata.json",
+        content_type="application/json",
+        skip_if_current=True,
+        source_digest=source_digest,
+    )
+
+    assert uploaded is True
+    assert len(s3_client.put_calls) == 1
+    assert s3_client.put_calls[0]["CacheControl"] == R2_DEFAULT_CACHE_CONTROL
 
 
 def test_upload_file_to_r2_skips_when_remote_checksum_matches(tmp_path: Path) -> None:
@@ -197,6 +230,7 @@ def test_upload_file_to_r2_skips_when_remote_checksum_matches(tmp_path: Path) ->
 
     s3_client.head_responses["bucket", file_path.name] = {
         "ContentLength": file_path.stat().st_size,
+        "CacheControl": R2_DEFAULT_CACHE_CONTROL,
         "Metadata": source_digest.as_metadata(),
     }
 
@@ -234,6 +268,7 @@ def test_upload_file_to_r2_uploads_when_remote_checksum_differs(tmp_path: Path) 
     assert uploaded is True
     assert len(s3_client.upload_calls) == 1
     assert s3_client.upload_calls[0]["ExtraArgs"]["Metadata"] == calculate_file_digest(file_path).as_metadata()
+    assert s3_client.upload_calls[0]["ExtraArgs"]["CacheControl"] == R2_DEFAULT_CACHE_CONTROL
 
 
 def test_fetch_r2_object_head_raises_enriched_access_denied_error() -> None:

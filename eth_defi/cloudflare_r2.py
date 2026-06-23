@@ -24,6 +24,9 @@ R2_SOURCE_SHA256_METADATA_KEY = "source_sha256"
 #: Custom S3 metadata key for the source payload byte length.
 R2_SOURCE_SIZE_METADATA_KEY = "source_size"
 
+#: Default browser/CDN cache time for public R2 uploads.
+R2_DEFAULT_CACHE_CONTROL = "public, max-age=3600"
+
 
 @dataclass(slots=True)
 class R2SourceDigest:
@@ -407,6 +410,7 @@ def _is_remote_object_current(  # noqa: PLR0917
     expected_length: int,
     content_type: str | None = None,
     content_encoding: str | None = None,
+    cache_control: str | None = R2_DEFAULT_CACHE_CONTROL,
     payload_md5: str | None = None,
 ) -> bool:
     """Check whether a remote object already matches a local source.
@@ -430,6 +434,9 @@ def _is_remote_object_current(  # noqa: PLR0917
     :param content_encoding:
         Expected content encoding, if relevant for this upload.
 
+    :param cache_control:
+        Expected Cache-Control header, if relevant for this upload.
+
     :param payload_md5:
         Optional MD5 digest of the exact uploaded body for ETag fallback.
 
@@ -443,6 +450,9 @@ def _is_remote_object_current(  # noqa: PLR0917
         return False
 
     if content_encoding is not None and remote_head.get("ContentEncoding") != content_encoding:
+        return False
+
+    if cache_control is not None and remote_head.get("CacheControl") != cache_control:
         return False
 
     metadata = {key.lower(): value for key, value in (remote_head.get("Metadata") or {}).items()}
@@ -465,6 +475,7 @@ def upload_bytes_to_r2(
     *,
     content_type: str | None = None,
     content_encoding: str | None = None,
+    cache_control: str | None = R2_DEFAULT_CACHE_CONTROL,
     skip_if_current: bool = False,
     source_digest: R2SourceDigest | None = None,
 ) -> bool:
@@ -491,6 +502,9 @@ def upload_bytes_to_r2(
 
     :param content_encoding:
         Optional content encoding for the upload.
+
+    :param cache_control:
+        Optional Cache-Control header for the upload.
 
     :param skip_if_current:
         Skip the upload if the existing object already matches the local
@@ -525,6 +539,7 @@ def upload_bytes_to_r2(
                 expected_length=len(payload),
                 content_type=content_type,
                 content_encoding=content_encoding,
+                cache_control=cache_control,
                 payload_md5=_calculate_md5_hex(payload),
             ):
                 return False
@@ -539,6 +554,8 @@ def upload_bytes_to_r2(
         put_kwargs["ContentType"] = content_type
     if content_encoding is not None:
         put_kwargs["ContentEncoding"] = content_encoding
+    if cache_control is not None:
+        put_kwargs["CacheControl"] = cache_control
 
     try:
         s3_client.put_object(**put_kwargs)
@@ -556,6 +573,7 @@ def upload_file_to_r2(
     *,
     skip_if_current: bool = False,
     content_type: str | None = None,
+    cache_control: str | None = R2_DEFAULT_CACHE_CONTROL,
     callback: Callable[[int], None] | None = None,
 ) -> bool:
     """Upload a file from disk to R2.
@@ -581,6 +599,9 @@ def upload_file_to_r2(
 
     :param content_type:
         Optional MIME type for the upload.
+
+    :param cache_control:
+        Optional Cache-Control header for the upload.
 
     :param callback:
         Optional boto3 progress callback.
@@ -609,6 +630,7 @@ def upload_file_to_r2(
                 source_digest=source_digest,
                 expected_length=source_digest.size,
                 content_type=content_type,
+                cache_control=cache_control,
             ):
                 return False
 
@@ -617,6 +639,8 @@ def upload_file_to_r2(
     }
     if content_type is not None:
         extra_args["ContentType"] = content_type
+    if cache_control is not None:
+        extra_args["CacheControl"] = cache_control
 
     with file_path.open("rb") as handle:
         try:
