@@ -4,15 +4,15 @@ import datetime
 import logging
 import os
 import pickle
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from decimal import Decimal
 from io import BufferedIOBase
 from pathlib import Path
-from typing import TypedDict, TypeAlias, Iterable
+from typing import TypeAlias, TypedDict
 
 import pandas as pd
 from atomicwrites import atomic_write
-
 from eth_typing import HexAddress
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
@@ -53,7 +53,7 @@ DEFAULT_UNCLEANED_PRICE_DATABASE = Path.home() / ".tradingstrategy" / "vaults" /
 #: The state per vault for reading vault prices, and disabled vaults
 #:
 #: See
-DEFAULT_READER_STATE_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / f"vault-reader-state-1h.pickle"
+DEFAULT_READER_STATE_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-reader-state-1h.pickle"
 
 #: See :py:attr:`eth_defi.erc_4626.vault.VaultReaderState`
 VaultReaderData: TypeAlias = dict[VaultSpec, dict]

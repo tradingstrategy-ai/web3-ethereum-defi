@@ -12,8 +12,7 @@ from web3.types import BlockIdentifier
 from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.ipor.curators import get_ipor_vault_atomist
-from eth_defi.erc_4626.vault_protocol.ipor.offchain_metadata import IPORVaultMetadata, fetch_ipor_vault_metadata
+from eth_defi.erc_4626.vault_protocol.ipor.offchain_metadata import IPORVaultMetadata, fetch_ipor_vault_atomist, fetch_ipor_vault_metadata
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
 from eth_defi.vault.base import (
@@ -329,8 +328,8 @@ class IPORVault(ERC4626Vault):
 
     @cached_property
     def atomist(self) -> str | None:
-        """IPOR Fusion atomist display name from the committed overlay."""
-        return get_ipor_vault_atomist(self.chain_id, self.vault_address)
+        """IPOR Fusion atomist display name from cached IPOR metadata."""
+        return fetch_ipor_vault_atomist(self.web3, self.vault_address)
 
     @property
     def manager_name(self) -> str | None:
