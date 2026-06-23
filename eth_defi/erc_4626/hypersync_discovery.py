@@ -9,7 +9,6 @@
 
 import asyncio
 import logging
-import time
 
 from eth_typing import HexAddress, HexStr
 from tqdm_loggable.auto import tqdm
@@ -20,7 +19,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.erc_4626.discovery_base import LeadScanReport, PotentialVaultMatch, VaultDiscoveryBase, get_vault_discovery_events, get_vault_event_topic_map, is_deposit_event
 from eth_defi.event_reader.web3factory import Web3Factory
-from eth_defi.hypersync.hypersync_timestamp import HypersyncFlaky, _is_hypersync_next_block_range_error, get_hypersync_block_height
+from eth_defi.hypersync.hypersync_timestamp import HypersyncFlaky, get_hypersync_block_height_with_retries, is_hypersync_next_block_range_error, is_hypersync_rate_limit_error, is_hypersync_retryable_runtime_error
 
 try:
     import hypersync
@@ -38,6 +37,16 @@ VAULT_LEAD_HEIGHT_CHECK_RETRY_SLEEP = 30
 
 class HypersyncCrappedOut(Exception):
     pass
+
+
+def _raise_recoverable_hypersync_error(e: RuntimeError, reason: str) -> None:
+    """Convert known recoverable Hypersync runtime errors to discovery errors."""
+    if not is_hypersync_retryable_runtime_error(e):
+        return
+    if is_hypersync_rate_limit_error(e):
+        raise HypersyncCrappedOut(f"Hypersync rate limited [{reason}]: {e}") from e
+    if is_hypersync_next_block_range_error(e):
+        raise HypersyncCrappedOut(f"Hypersync stream pagination failed [{reason}]: {e}") from e
 
 
 class HypersyncVaultDiscover(VaultDiscoveryBase):
@@ -142,7 +151,12 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         """
         try:
             rpc_height = self.web3.eth.block_number
-            hypersync_height = get_hypersync_block_height(self.client)
+            hypersync_height = get_hypersync_block_height_with_retries(
+                self.client,
+                attempts=VAULT_LEAD_HEIGHT_CHECK_ATTEMPTS,
+                retry_sleep=VAULT_LEAD_HEIGHT_CHECK_RETRY_SLEEP,
+                reason="vault-lead-discovery",
+            )
         except HypersyncFlaky as e:
             raise HypersyncCrappedOut(f"Hypersync failed during vault lead height check: {e}") from e
 
@@ -165,20 +179,7 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         display_progress=True,
     ) -> LeadScanReport:
         """Scan vaults using a Hypersync-safe head block."""
-        last_exception = None
-        for attempt in range(VAULT_LEAD_HEIGHT_CHECK_ATTEMPTS):
-            try:
-                end_block = self.clip_end_block_to_available_height(start_block, end_block)
-                break
-            except HypersyncCrappedOut as e:
-                last_exception = e
-                logger.error("Hypersync vault lead height check attempt %d/%d failed: %s", attempt + 1, VAULT_LEAD_HEIGHT_CHECK_ATTEMPTS, e)
-                if attempt + 1 >= VAULT_LEAD_HEIGHT_CHECK_ATTEMPTS:
-                    raise
-                logger.info("Retrying Hypersync vault lead height check after %d seconds backoff", VAULT_LEAD_HEIGHT_CHECK_RETRY_SLEEP)
-                time.sleep(VAULT_LEAD_HEIGHT_CHECK_RETRY_SLEEP)
-        else:
-            raise last_exception or RuntimeError("Hypersync vault lead height check failed with no exception recorded")
+        end_block = self.clip_end_block_to_available_height(start_block, end_block)
 
         if end_block <= start_block:
             logger.info(
@@ -267,10 +268,7 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         try:
             receiver = await open_hypersync_stream(self.client, query)
         except RuntimeError as e:
-            if "429" in str(e):
-                raise HypersyncCrappedOut(f"Hypersync rate limited [vault-lead-discovery]: {e}") from e
-            if _is_hypersync_next_block_range_error(e):
-                raise HypersyncCrappedOut(f"Hypersync stream pagination failed [vault-lead-discovery]: {e}") from e
+            _raise_recoverable_hypersync_error(e, "vault-lead-discovery")
             raise
 
         if display_progress:
@@ -303,10 +301,7 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
                 logger.error("HyperSync receiver timed out [vault-lead-discovery]")
                 raise HypersyncCrappedOut(f"Cannot recover from HyperSync stream timeout after {self.recv_timeout} seconds [vault-lead-discovery]") from e
             except RuntimeError as e:
-                if "429" in str(e):
-                    raise HypersyncCrappedOut(f"Hypersync rate limited [vault-lead-discovery]: {e}") from e
-                if _is_hypersync_next_block_range_error(e):
-                    raise HypersyncCrappedOut(f"Hypersync stream pagination failed [vault-lead-discovery]: {e}") from e
+                _raise_recoverable_hypersync_error(e, "vault-lead-discovery")
                 raise
 
             # exit if the stream finished
