@@ -5,11 +5,21 @@ In this repository we map IPOR atomists to the shared vault curator system, so
 IPOR vaults can be grouped under the same curator records as Morpho, Euler,
 Lagoon, GRVT and other vault protocols.
 
+IPOR uses the same protocol manager metadata mechanism as other ERC-4626
+protocols:
+
+| Protocol | Vault `manager_name` source | Curator YAML field |
+| --- | --- | --- |
+| IPOR Fusion | Atomist display name | `ipor-atomist` |
+| Euler | Offchain API `entity` value | `euler-entity` |
+| Morpho | Offchain API curator display name | `morpho-curator` |
+| Lagoon Finance | API curator display name | `lagoon-curator` |
+
 The curator mapping flow is:
 
 1. IPOR vault address -> IPOR atomist display name.
 2. IPOR atomist display name -> generic vault `manager_name`.
-3. `manager_name` -> repository curator slug.
+3. Exact `ipor-atomist` value -> repository curator slug.
 4. Curator slug -> metadata YAML in `eth_defi/data/feeds/curators/`.
 
 ## Data structures
@@ -37,8 +47,9 @@ Keys are formatted as:
 Values are IPOR atomist names as shown by the IPOR app or API. Keep the value
 as IPOR publishes it, even when the spelling differs from the curator's
 official name. The same value must appear in the resolved curator YAML
-`ipor-atomist` field. Spelling differences are handled by curator name
-patterns.
+`ipor-atomist` field. This exact field is the primary mapping; curator name
+patterns are only needed when the spelling should also be recognised by the
+legacy fuzzy `manager_name` fallback.
 
 The loader is implemented in `curators.py`:
 
@@ -53,10 +64,12 @@ ERC-4626 manager hook. During vault scanning, `eth_defi/erc_4626/scan.py`
 writes `vault.manager_name` to the internal scan row field `_manager_name`.
 
 Later, vault metric processing passes `_manager_name` to
-`eth_defi.vault.curator.identify_curator()`. Curator detection matches the
-vault name first and then the manager name. This means a branded vault name can
-still win, while IPOR vaults whose names do not contain the atomist brand can
-resolve from the atomist field.
+`eth_defi.vault.curator.identify_curator()`. Curator detection first handles
+protocol-level system vaults and priority vault-name matches. It then checks
+exact protocol manager metadata, including `ipor-atomist`, before ordinary
+vault-name fuzzy matching. This means priority branded vault names can still
+win, while IPOR vaults whose names do not contain the atomist brand can resolve
+from the atomist field.
 
 ## Curator records
 
@@ -88,8 +101,10 @@ elsewhere in the repository when it exists. Examples:
 | `Llama Risk` | `llama-risk` | IPOR includes a space; existing record is `LlamaRisk`. |
 | `Bizantine` | `bizantine` | IPOR spelling differs from official `Byzantine Finance`. |
 
-When the IPOR atomist spelling differs from the YAML `name`, add an explicit
-pattern in `eth_defi/vault/curator.py`:
+When the IPOR atomist spelling differs from the YAML `name`, `ipor-atomist`
+is enough for exact IPOR mapping. Add an explicit pattern in
+`eth_defi/vault/curator.py` only when the spelling should also work through
+legacy fuzzy manager-name matching:
 
 ```python
 CURATOR_NAME_PATTERNS = {
@@ -100,6 +115,21 @@ CURATOR_NAME_PATTERNS = {
 
 Do not create duplicate curator YAML files for spelling variants. Prefer one
 canonical curator record and one or more explicit name patterns.
+
+The same curator YAML file can carry multiple protocol manager fields when the
+same organisation appears in several protocol APIs:
+
+```yaml
+feeder-id: mev-capital
+name: MEV Capital
+role: curator
+ipor-atomist: MEV Capital
+euler-entity: mev-capital
+```
+
+Protocol manager field values are stripped and compared case-insensitively.
+They must be unique within the same protocol. Duplicate values fail loudly when
+the curator map is loaded.
 
 ## Updating atomist mappings
 
@@ -141,8 +171,8 @@ for atomist in atomists:
 PY
 ```
 
-This intentionally uses a neutral vault name so the result comes from
-`manager_name`, not from accidental vault-name matching.
+This intentionally uses a neutral vault name so the result comes from the exact
+`ipor-atomist` manager metadata, not from accidental vault-name matching.
 
 ## Adding a new IPOR curator
 
@@ -166,8 +196,9 @@ For a new third-party curator:
    no second hardcoded atomist list is needed.
 
 If the IPOR atomist is only a spelling variant of an existing curator, do not
-add a new YAML file. Add the spelling to `CURATOR_NAME_PATTERNS` and cover it
-with the IPOR manager-name test.
+add a new YAML file. Add `ipor-atomist` to the canonical curator YAML file.
+Add the spelling to `CURATOR_NAME_PATTERNS` only if the fallback fuzzy manager
+matcher also needs to recognise it.
 
 If the atomist is the protocol itself, map it to the protocol curator slug
 already used by the repository, such as `ipor` for `IPOR DAO`.

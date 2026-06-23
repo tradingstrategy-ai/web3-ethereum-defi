@@ -37,6 +37,107 @@ def test_identify_alphagrowth_vault() -> None:
     assert get_curator_name("alphagrowth") == "AlphaGrowth"
 
 
+def test_identify_euler_curator_by_entity_metadata() -> None:
+    """Euler manager names resolve by exact ``euler-entity`` YAML metadata."""
+
+    slug = identify_curator(
+        chain_id=146,
+        vault_token_symbol="",
+        vault_name="Sonic USDC Market",
+        vault_address="0x0000000000000000000000000000000000000006",
+        protocol_slug="euler",
+        manager_name="mev-capital",
+    )
+
+    assert slug == "mev-capital"
+
+
+def test_identify_ipor_curator_by_atomist_metadata() -> None:
+    """IPOR manager names resolve by exact ``ipor-atomist`` YAML metadata."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="",
+        vault_name="Prime HELOC Loop",
+        vault_address="0x0000000000000000000000000000000000000009",
+        protocol_slug="ipor-fusion",
+        manager_name="TAU Labs",
+    )
+
+    assert slug == "tau"
+
+
+def test_protocol_manager_metadata_precedes_ordinary_vault_name_match() -> None:
+    """Exact protocol manager metadata wins over non-priority vault-name matches."""
+
+    slug = identify_curator(
+        chain_id=146,
+        vault_token_symbol="",
+        vault_name="Gauntlet Sonic USDC Market",
+        vault_address="0x0000000000000000000000000000000000000010",
+        protocol_slug="euler",
+        manager_name="mev-capital",
+    )
+
+    assert slug == "mev-capital"
+
+
+def test_identify_curator_tolerates_none_manager_name() -> None:
+    """Unknown manager names can be passed as ``None``."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="",
+        vault_name="Unbranded USDC Market",
+        vault_address="0x0000000000000000000000000000000000000011",
+        protocol_slug="morpho",
+        manager_name=None,
+    )
+
+    assert slug is None
+
+
+def test_identify_morpho_curator_by_curator_metadata() -> None:
+    """Morpho manager names resolve by exact ``morpho-curator`` YAML metadata."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="",
+        vault_name="USDC Prime",
+        vault_address="0x0000000000000000000000000000000000000007",
+        protocol_slug="morpho",
+        manager_name="Gauntlet",
+    )
+
+    assert slug == "gauntlet"
+
+
+def test_identify_lagoon_curator_by_curator_metadata() -> None:
+    """Lagoon manager names resolve by exact ``lagoon-curator`` YAML metadata."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="",
+        vault_name="Stablecoin Fund",
+        vault_address="0x0000000000000000000000000000000000000008",
+        protocol_slug="lagoon-finance",
+        manager_name="DAMM Capital",
+    )
+
+    assert slug == "damm-capital"
+
+    slug = identify_curator(
+        chain_id=8453,
+        vault_token_symbol="",
+        vault_name="722Capital-USDC",
+        vault_address="0xb09f761cb13baca8ec087ac476647361b6314f98",
+        protocol_slug="lagoon-finance",
+        manager_name="722 Capital",
+    )
+
+    assert slug == "722-capital"
+
+
 def test_identify_smokehouse_as_steakhouse_financial() -> None:
     """Smokehouse vault names resolve to Steakhouse Financial."""
 
@@ -161,6 +262,21 @@ def test_identify_frax_usd_vaults() -> None:
         )
 
         assert slug == "frax-finance", f"{vault_name!r} -> {slug!r}"
+
+
+def test_identify_frax_usd_vault_name_precedes_manager_name() -> None:
+    """Frax-branded vault names win over third-party protocol manager names."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="",
+        vault_name="Steakhouse Prime frxUSD",
+        vault_address="0x0000000000000000000000000000000000000005",
+        protocol_slug="morpho",
+        manager_name="Steakhouse Financial",
+    )
+
+    assert slug == "frax-finance"
 
 
 def test_identify_gains_network_protocol_curator() -> None:

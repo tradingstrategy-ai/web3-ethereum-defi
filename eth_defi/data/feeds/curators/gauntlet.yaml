@@ -1,6 +1,7 @@
 feeder-id: gauntlet
 name: Gauntlet
 role: curator
+morpho-curator: Gauntlet
 website: https://www.gauntlet.xyz
 short_description: Gauntlet provides quantitative risk management, optimisation and vault strategies for DeFi protocols.
 long_description: |

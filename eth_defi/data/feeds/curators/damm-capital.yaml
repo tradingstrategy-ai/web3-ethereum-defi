@@ -1,6 +1,7 @@
 feeder-id: damm-capital
 name: DAMM Capital
 role: curator
+lagoon-curator: DAMM Capital
 website: https://dammcap.finance
 short_description: 'DAMM Capital is a DeFi asset management firm building quantitative on-chain strategies and tokenised funds.'
 long_description: |

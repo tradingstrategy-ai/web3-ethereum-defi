@@ -1,0 +1,19 @@
+feeder-id: 722-capital
+name: 722 Capital
+role: curator
+lagoon-curator: 722 Capital
+website: https://722.capital
+short_description: '722 Capital builds institutional-grade DeFi yield strategies for sophisticated investors, DAOs, protocols, and institutions.'
+long_description: |
+  722 Capital describes itself as a DeFi strategy firm founded by DeFi veterans. Its homepage says it builds institutional-grade yield strategies that use opportunities across decentralised finance, and serves sophisticated investors, DAOs, protocols, and institutions entering DeFi. Lagoon's vault API lists 722 Capital as the curator for the 722Capital-USDC vault on Base.
+
+# Evidence and background references.
+#
+# Lagoon's own vault API identifies 722 Capital as the curator for the
+# 722Capital-USDC vault on Base. The official 722 Capital website describes
+# the firm as building institutional-grade DeFi yield strategies.
+other-links:
+  - title: Lagoon Finance vault - 722Capital-USDC lists 722 Capital as curator
+    url: https://app.lagoon.finance/vault/8453/0xb09f761cb13baca8ec087ac476647361b6314f98
+  - title: 722 Capital vault app - 722 USDC vault
+    url: https://app.722.capital/v/722-usdc

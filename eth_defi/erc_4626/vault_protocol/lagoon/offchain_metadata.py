@@ -103,7 +103,7 @@ def _parse_curator(raw: dict) -> LagoonCuratorMetadata:
     """Parse a curator object from the Lagoon API response."""
     return LagoonCuratorMetadata(
         id=raw.get("id", ""),
-        name=raw.get("name", ""),
+        name=raw.get("name") or "",
         url=raw.get("url"),
         logo_url=raw.get("logoUrl"),
         about_description=raw.get("aboutDescription"),

@@ -273,7 +273,13 @@ def test_morpho_found_data_uses_disk_cache(monkeypatch: pytest.MonkeyPatch, tmp_
                     "vaultByAddress": {
                         "address": Web3.to_checksum_address(DUNE_USDC_ETHEREUM),
                         "warnings": [{"type": "short_timelock", "level": "RED"}],
-                        "state": {"allocation": []},
+                        "state": {
+                            "curators": [
+                                {"name": None},
+                                {"name": "Gauntlet"},
+                            ],
+                            "allocation": [],
+                        },
                     }
                 }
             }
@@ -284,6 +290,7 @@ def test_morpho_found_data_uses_disk_cache(monkeypatch: pytest.MonkeyPatch, tmp_
     result_1 = fetch_morpho_vault_data(web3, DUNE_USDC_ETHEREUM, cache_path=tmp_path)
     assert result_1 is not None
     assert result_1["vault_warnings"] == [{"type": "short_timelock", "level": "RED"}]
+    assert result_1["manager_name"] == "Gauntlet"
 
     cache_key = f"{tmp_path}:1:{DUNE_USDC_ETHEREUM.lower()}"
     _cached_vault_data.pop(cache_key, None)
@@ -292,6 +299,49 @@ def test_morpho_found_data_uses_disk_cache(monkeypatch: pytest.MonkeyPatch, tmp_
 
     assert result_2 == result_1
     assert len(calls) == 1
+
+    def fake_fetch_morpho_vault_api_result(*_args, **_kwargs) -> MorphoVaultAPIResult:
+        return MorphoVaultAPIResult(
+            MorphoVaultAPIStatus.found,
+            {
+                "vault_warnings": [],
+                "market_warnings": [],
+                "manager_name": "Gauntlet",
+            },
+        )
+
+    monkeypatch.setattr(
+        "eth_defi.erc_4626.vault_protocol.morpho.vault_v1.fetch_morpho_vault_api_result",
+        fake_fetch_morpho_vault_api_result,
+    )
+
+    vault = _make_morpho_v1_vault(GAUNTLET_USDC_PRIME_ETHEREUM)
+
+    assert vault.manager_name == "Gauntlet"
+
+    v2_calls = _patch_morpho_api(
+        monkeypatch,
+        [
+            {
+                "data": {
+                    "vaultV2ByAddress": {
+                        "address": Web3.to_checksum_address(GAUNTLET_USDC_PRIME_ETHEREUM),
+                        "warnings": [],
+                        "curators": {
+                            "items": [{"name": "Steakhouse Financial"}],
+                        },
+                    }
+                }
+            }
+        ],
+    )
+
+    result_3 = fetch_morpho_vault_api_result(web3, GAUNTLET_USDC_PRIME_ETHEREUM, cache_path=tmp_path, api_version="v2")
+
+    assert result_3.status == MorphoVaultAPIStatus.found
+    assert result_3.data is not None
+    assert result_3.data["manager_name"] == "Steakhouse Financial"
+    assert len(v2_calls) == 1
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 feeder-id: re7-labs
 name: RE7 Labs
 role: curator
+euler-entity: re7-labs
 website: https://re7.capital
 short_description: 'Re7 Labs is the innovation arm of Re7 Capital, supporting DeFi investment strategies and ecosystem development.'
 long_description: |

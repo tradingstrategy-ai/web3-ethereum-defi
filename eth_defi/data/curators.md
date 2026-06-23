@@ -6,6 +6,36 @@ Curators are responsible for setting risk parameters, allocating assets, and man
 
 Sources: On-disk vault metadata database (~11,000 stablecoin vaults across Morpho, Euler, IPOR Fusion, Lagoon Finance, and other protocols), Lagoon Finance API cache, Hyperliquid/GRVT/Lighter native DuckDB databases (vault descriptions parsed for manager identity), web search verification.
 
+## Curator YAML manager metadata
+
+Canonical curator records live in `eth_defi/data/feeds/curators/`. Besides
+feed source fields such as `twitter`, `linkedin` and `rss`, curator YAML files
+can declare protocol-specific manager names used for exact vault attribution:
+
+| YAML field | Protocol | Source value |
+|------------|----------|--------------|
+| `ipor-atomist` | IPOR Fusion | Atomist display name |
+| `euler-entity` | Euler | Offchain API `entity` string |
+| `morpho-curator` | Morpho | Offchain API curator display name |
+| `lagoon-curator` | Lagoon Finance | Lagoon API curator display name |
+
+Use the exact string exposed by the protocol API or app. If the same
+organisation appears with different spellings across protocols, keep one
+canonical YAML file and add the protocol-specific fields there instead of
+creating duplicate curator records. The curator detector compares these values
+case-insensitively after trimming whitespace and requires each value to be
+unique within a protocol.
+
+Example:
+
+```yaml
+feeder-id: mev-capital
+name: MEV Capital
+role: curator
+ipor-atomist: MEV Capital
+euler-entity: mev-capital
+```
+
 ## Cross-platform curators
 
 Active across multiple vault protocols (Morpho, Euler, Lagoon, IPOR Fusion, etc.).

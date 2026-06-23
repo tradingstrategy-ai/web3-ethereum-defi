@@ -500,6 +500,15 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
             return self.lagoon_metadata.get("short_description")
         return None
 
+    @property
+    def manager_name(self) -> str | None:
+        """Lagoon curator names from Lagoon's offchain vault API."""
+        if not self.lagoon_metadata:
+            return None
+
+        names = (name for curator in self.lagoon_metadata.get("curators", []) if (name := (curator.get("name") or "").strip()))
+        return ", ".join(names) or None
+
     def get_flags(self) -> set[VaultFlag]:
         """Get vault flags, auto-flagging vaults missing from Lagoon's frontend.
 
