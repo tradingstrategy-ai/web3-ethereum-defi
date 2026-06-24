@@ -812,18 +812,191 @@ def wait_and_broadcast_multiple_nodes(
     return receipts_received
 
 
-def check_nonce_mismatch(web3: Web3, txs: Collection[SignedTxType]):
+def _node_providers(web3: Web3) -> list[BaseProvider]:
+    """Return the individual RPC nodes behind a connection.
+
+    For a :py:class:`~eth_defi.provider.fallback.FallbackProvider` this is the list of
+    child providers; otherwise the single configured provider.  Used to sample each node
+    independently when diagnosing a nonce mismatch on an eventually-consistent multi-node
+    RPC (e.g. HyperEVM behind Alchemy / Goldsky / dRPC).
+
+    :param web3:
+        Web3 connection, ideally backed by a fallback provider.
+
+    :return:
+        List of underlying providers, never empty.
+    """
+    try:
+        return list(get_fallback_provider(web3).providers)
+    except AssertionError:
+        # Not a fallback provider (single node, e.g. plain Anvil in tests)
+        return [web3.provider]
+
+
+def _sample_node(provider: BaseProvider, address: str) -> tuple[int | None, int | None, str | None]:
+    """Read one node's latest block number and address nonce.
+
+    Issues raw ``eth_blockNumber`` and ``eth_getTransactionCount`` calls directly against a
+    single provider, bypassing the fallback provider so we observe that one node's view.
+    Never raises — a diagnostic must not mask the original error — and tolerates JSON-RPC
+    ``error`` objects and malformed (e.g. non-hex) responses.
+
+    :param provider:
+        A single RPC node provider.
+
+    :param address:
+        Hex address whose nonce we want.
+
+    :return:
+        Tuple ``(block_number, nonce, error)``.  On success ``error`` is ``None``; on
+        failure ``block_number`` and ``nonce`` are ``None`` and ``error`` is a message.
+    """
+    try:
+        block_resp = provider.make_request("eth_blockNumber", [])
+        nonce_resp = provider.make_request("eth_getTransactionCount", [address, "latest"])
+        if "error" in block_resp or "error" in nonce_resp:
+            return None, None, f"json-rpc error: {block_resp.get('error') or nonce_resp.get('error')}"
+        return int(block_resp["result"], 16), int(nonce_resp["result"], 16), None
+    except (KeyError, ValueError, TypeError) as e:
+        # Missing "result", non-hex value, wrong shape
+        return None, None, f"malformed response: {e}"
+    except Exception as e:  # noqa - diagnostic must stay resilient against any node failure
+        return None, None, f"{type(e).__name__}: {e}"
+
+
+def _sample_all_nodes(web3: Web3, address: str) -> list[dict]:
+    """Sample every RPC node for its latest block and the address nonce.
+
+    :param web3:
+        Web3 connection.
+
+    :param address:
+        Hex address whose nonce we want.
+
+    :return:
+        List of dicts with keys ``name``, ``block``, ``nonce``, ``error``.
+    """
+    samples = []
+    for provider in _node_providers(web3):
+        block, nonce, error = _sample_node(provider, address)
+        samples.append({"name": get_provider_name(provider), "block": block, "nonce": nonce, "error": error})
+    return samples
+
+
+def _authoritative_nonce(samples: list[dict]) -> tuple[int | None, bool, str | None]:
+    """Pick the authoritative nonce from per-node samples.
+
+    The node with the highest block number is the most up-to-date and is treated as
+    authoritative — a node that is behind cannot veto a node that is ahead.  If several
+    nodes share the highest block but disagree on the nonce, the reading is inconsistent
+    and must not be trusted (retry instead).
+
+    :param samples:
+        Output of :py:func:`_sample_all_nodes`.
+
+    :return:
+        Tuple ``(nonce, consistent, authority_name)``.  ``nonce`` is ``None`` and
+        ``consistent`` is ``False`` when no node could be sampled or the most-advanced
+        nodes disagree.
+    """
+    ok = [s for s in samples if s["error"] is None and s["block"] is not None]
+    if not ok:
+        return None, False, None
+    max_block = max(s["block"] for s in ok)
+    top = [s for s in ok if s["block"] == max_block]
+    if len({s["nonce"] for s in top}) > 1:
+        # Same height, different nonce -> inconsistent, do not trust
+        return None, False, top[0]["name"]
+    return top[0]["nonce"], True, top[0]["name"]
+
+
+def _format_samples(samples: list[dict]) -> str:
+    """Render per-node block/nonce samples as an aligned, friendly table."""
+    lines = ["Per-node state (nonce mismatch diagnostic):"]
+    for s in samples:
+        if s["error"]:
+            lines.append(f"  {s['name']:<40} ERROR: {s['error']}")
+        else:
+            lines.append(f"  {s['name']:<40} block={s['block']:<12} nonce={s['nonce']}")
+    return "\n".join(lines)
+
+
+def format_node_block_diagnostic(web3: Web3, address: str) -> str:
+    """Friendly per-node latest block + nonce table, for diagnosing lagging RPC nodes.
+
+    On a nonce mismatch this lets an operator immediately see whether one fallback node is
+    behind the others (the usual cause of a false positive on an eventually-consistent
+    multi-node RPC).
+
+    :param web3:
+        Web3 connection.
+
+    :param address:
+        Hex address whose nonce is in question.
+
+    :return:
+        Multi-line, aligned diagnostic string.
+    """
+    return _format_samples(_sample_all_nodes(web3, address))
+
+
+def check_nonce_mismatch(
+    web3: Web3,
+    txs: Collection[SignedTxType],
+    retries: int = 3,
+    retry_delay: datetime.timedelta = datetime.timedelta(seconds=1),
+):
     """Check for nonce re-use issues.
 
-    Compare pre-signed transactions with on-chain addresses' nonce states.
+    Compare pre-signed transactions with on-chain addresses' nonce states.  The nonce is
+    owned solely by our internal hot wallet counter, so the on-chain nonce must match our
+    expected nonce exactly — strict equality is intentional and preserved.
+
+    The happy path is a single ``get_transaction_count`` read (unchanged).  Only when that
+    first read disagrees do we re-sample every fallback node and trust the most up-to-date
+    one (highest block number): on an eventually-consistent multi-node RPC a single node can
+    lag a transaction behind and return a stale count, which previously crashed the live
+    loop.  We raise only if the mismatch persists on the most-advanced node across all
+    retries — a genuine desync — and include a per-node block/nonce diagnostic so the
+    lagging node is obvious.  See ``deps/web3-ethereum-defi/docs/README-hyperevm-goldsky-failure.md``.
+
+    :param web3:
+        Web3 connection, ideally a fallback provider over multiple nodes.
+
+    :param txs:
+        Pre-signed transactions to validate.  May span multiple addresses; the lowest nonce
+        per address is checked.
+
+    :param retries:
+        How many times to re-sample the nodes when the first read mismatches.
+
+    :param retry_delay:
+        Sleep between resamples, giving a lagging node time to catch up.  Total added
+        wall-clock is bounded by ``(retries - 1) * retry_delay``.
 
     :raise NonceMismatch:
-        If your transaction broadcast is going to fail because nonce too low.
+        If the most up-to-date node still disagrees with our expected nonce after retries,
+        or duplicate nonces appear in the same batch.
     """
 
     #
-    # We can broadcast for multiple addresses, each address can contain multipe txs
-    # Check the lowest on-chain nonce for each address
+    # Deterministic local batch validation (independent of RPC reads).
+    # Duplicate nonce for the same address is always a bug; nonce gaps are suspicious but
+    # may be legitimate (externally-submitted pending txs), so only warn.
+    #
+    per_address: dict[str, list[int]] = {}
+    for tx in txs:
+        per_address.setdefault(tx.address, []).append(tx.nonce)
+    for address, nonces in per_address.items():
+        ordered = sorted(nonces)
+        if len(set(nonces)) != len(nonces):
+            raise NonceMismatch(f"Duplicate nonce in transaction batch for {address}: {ordered}")
+        if any(b != a + 1 for a, b in zip(ordered, ordered[1:])):
+            logger.warning("Non-contiguous nonces in transaction batch for %s: %s", address, ordered)
+
+    #
+    # We can broadcast for multiple addresses, each address can contain multiple txs.
+    # Check the lowest on-chain nonce for each address.
     #
 
     #: address, starting nonce mappings
@@ -833,10 +1006,60 @@ def check_nonce_mismatch(web3: Web3, txs: Collection[SignedTxType]):
         min_nonces[address] = min(tx.nonce, min_nonces.get(address, 9_999_999))
 
     for address, nonce in min_nonces.items():
+        # Happy path: a single read that matches -> done, no extra RPC.
         on_chain_nonce = web3.eth.get_transaction_count(address)
+        if on_chain_nonce == nonce:
+            continue
 
-        if on_chain_nonce != nonce:
-            raise NonceMismatch(f"Nonce mismatch for broadcasted transactions.\n" + f"Address {address}, we have signed with nonce {nonce}, but on-chain is {on_chain_nonce}.\n" + f"Potential reasons include incorrectly shared hot wallet or badly synced hot wallet nonce.")
+        # First read disagrees. This may be a stale read from a single lagging fallback
+        # node rather than a genuine desync. Re-sample all nodes and trust the most
+        # up-to-date one, retrying to let a lagging node catch up.
+        last_samples: list[dict] = []
+        authority_nonce: int | None = on_chain_nonce
+        authority_name: str | None = get_provider_name(web3.provider)
+        resolved = False
+        for attempt in range(retries):
+            samples = _sample_all_nodes(web3, address)
+            last_samples = samples
+            sampled_nonce, consistent, sampled_authority = _authoritative_nonce(samples)
+            if sampled_authority is not None:
+                authority_nonce, authority_name = sampled_nonce, sampled_authority
+            if consistent and sampled_nonce == nonce:
+                logger.info(
+                    "Nonce mismatch on first read for %s resolved on attempt %d/%d: most up-to-date node %s reports expected nonce %d.\n%s",
+                    address,
+                    attempt + 1,
+                    retries,
+                    sampled_authority,
+                    nonce,
+                    _format_samples(samples),
+                )
+                resolved = True
+                break
+            logger.warning(
+                "Nonce check attempt %d/%d for %s: expected %d, most-advanced node (%s) reports %s (consistent=%s).\n%s",
+                attempt + 1,
+                retries,
+                address,
+                nonce,
+                authority_name,
+                sampled_nonce,
+                consistent,
+                _format_samples(samples),
+            )
+            if attempt < retries - 1:
+                time.sleep(retry_delay.total_seconds())
+
+        if resolved:
+            continue
+
+        raise NonceMismatch(
+            f"Nonce mismatch for broadcasted transactions.\n"
+            f"Address {address}, we have signed with nonce {nonce}, but the most up-to-date node "
+            f"({authority_name}) reports {authority_nonce}.\n"
+            f"Potential reasons include incorrectly shared hot wallet or badly synced hot wallet nonce.\n"
+            f"{_format_samples(last_samples)}"
+        )
 
 
 def wait_and_broadcast_multiple_nodes_mev_blocker(
