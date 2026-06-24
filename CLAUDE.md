@@ -11,6 +11,9 @@ touches the relevant area:
   environment we've tested, sharing a sheet with a service account
   cannot be completed by Claude-in-Chrome and must be performed
   manually by the operator. Other Workspace orgs may behave differently.
+- `.claude/docs/agent-tricks-and-troubleshooting.md` — Codex CLI and
+  Claude CLI usage patterns, including cross-agent review commands,
+  streaming Claude review output, and common failure modes.
 
 ## Skills
 
