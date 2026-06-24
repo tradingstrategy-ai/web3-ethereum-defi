@@ -485,8 +485,8 @@ def is_current_record_export_safe(record: dict) -> tuple[bool, str | None]:
     safe, reason = is_export_record_key_safe(record)
     if not safe:
         return safe, reason
-    for key in ("name", "protocol_slug", "curator_slug"):
-        if key not in record:
+    for key in ("name", "protocol_slug"):
+        if not record.get(key):
             return False, f"missing_{key}"
     return True, None
 
@@ -640,6 +640,8 @@ def make_state_entry_from_current_row(
     entry["chain_id"] = int(current_row.record["chain_id"])
     entry["address"] = str(current_row.record["address"]).lower()
     entry["status"] = "active"
+    entry.pop("suppression_reason", None)
+    entry.pop("suppressed_at", None)
     entry.setdefault("first_qualified_at", now_text)
     entry["last_exported_at"] = now_text
     entry["qualification"] = {
@@ -653,7 +655,14 @@ def make_state_entry_from_current_row(
     return entry
 
 
-def mark_state_entry_suppressed(state: dict, key: str, reason: str, now_text: str, current_row: CurrentVaultRow | None = None) -> None:
+def mark_state_entry_suppressed(
+    state: dict,
+    key: str,
+    reason: str,
+    now_text: str,
+    current_row: CurrentVaultRow | None = None,
+    threshold_tvl: float | None = None,
+) -> None:
     """Persist structural suppression for a vault.
 
     :param state:
@@ -666,6 +675,8 @@ def mark_state_entry_suppressed(state: dict, key: str, reason: str, now_text: st
         Current timestamp formatted for state.
     :param current_row:
         Current row, if available.
+    :param threshold_tvl:
+        Active ``MIN_TVL`` threshold, if the current row qualified.
     """
     entry = dict(state["vaults"].get(key, {}))
     if current_row is not None:
@@ -676,7 +687,7 @@ def mark_state_entry_suppressed(state: dict, key: str, reason: str, now_text: st
         entry.setdefault(
             "qualification",
             {
-                "min_tvl": THRESHOLD_TVL,
+                "min_tvl": threshold_tvl,
                 "peak_nav": current_row.record.get("peak_nav"),
             },
         )
@@ -766,12 +777,12 @@ def apply_sticky_export_state(
         current_filter_keys.add(key)
         existing_entry = state_vaults.get(key)
 
-        if existing_entry and existing_entry.get("status") == "suppressed":
+        if is_blacklisted_record(current_row.record):
+            mark_state_entry_suppressed(state, key, "current_blacklisted_record", now_text, current_row, threshold_tvl)
             stats.structurally_suppressed_vaults += 1
             continue
 
-        if is_blacklisted_record(current_row.record):
-            mark_state_entry_suppressed(state, key, "current_blacklisted_record", now_text, current_row)
+        if existing_entry and existing_entry.get("status") == "suppressed" and not current_row.export_safe:
             stats.structurally_suppressed_vaults += 1
             continue
 
@@ -802,7 +813,7 @@ def apply_sticky_export_state(
         current_row = current_rows.get(key)
         fallback_reason = None
         if current_row and is_blacklisted_record(current_row.record):
-            mark_state_entry_suppressed(state, key, "current_blacklisted_record", now_text, current_row)
+            mark_state_entry_suppressed(state, key, "current_blacklisted_record", now_text, current_row, threshold_tvl)
             stats.structurally_suppressed_vaults += 1
             vaults_by_key.pop(key, None)
             continue

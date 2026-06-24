@@ -43,14 +43,16 @@ empty file, because the state is the qualification history.
    exported row identity.
 5. Current rows passing `peak_nav >= MIN_TVL` qualify the vault forever, unless
    the row has exact `Blacklisted` risk.
-6. If a current row is missing non-key metadata such as `name`,
-   `protocol_slug`, or `curator_slug`, do not replace `last_exported_record`.
-   For a previously sticky vault, replay the stored fallback record instead.
+6. If a current row is missing or has a null required metadata value such as
+   `name` or `protocol_slug`, do not replace `last_exported_record`. For a
+   previously sticky vault, replay the stored fallback record instead.
+   `curator_slug` is nullable and does not make a row unsafe by itself.
 7. If a sticky vault has no current row, replay `last_exported_record` with
    stale annotations.
 8. If the fallback record is empty, has invalid identity fields, or has exact
    `Blacklisted` risk, mark the state entry `status="suppressed"` with a
-   structural `suppression_reason`.
+   structural `suppression_reason`. A clean, non-blacklisted current row that
+   later passes the export filter can reactivate a structurally suppressed entry.
 9. Do not expire sticky vaults automatically. Staleness only adds annotations
    and operator counters.
 10. Inject sticky rows before deriving top-level `core3_protocols` and

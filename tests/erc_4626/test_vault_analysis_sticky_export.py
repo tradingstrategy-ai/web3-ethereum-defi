@@ -191,6 +191,146 @@ def test_sticky_export_structurally_unsafe_current_row_falls_back():
     assert result.stats.current_row_structural_fallbacks == 1
 
 
+def test_sticky_export_null_current_metadata_falls_back():
+    """A sticky vault with null current metadata replays its stored row.
+
+    1. Seed state with a valid previous export
+    2. Run with the same vault carrying a null required metadata value
+    3. Assert the stored row is exported instead of replacing it with null data
+    4. Assert nullable curator_slug alone does not make the row unsafe
+    """
+    # 1. Seed state with a valid previous export
+    module = load_vault_analysis_json_module()
+    now = datetime.datetime(2026, 6, 24, 12, 0, 0)
+    state = module.make_empty_sticky_export_state("top_vaults_by_chain", now)
+    key = "1-0xabcd000000000000000000000000000000000001"
+    state["vaults"][key] = {
+        "chain_id": 1,
+        "address": "0xabcd000000000000000000000000000000000001",
+        "status": "active",
+        "first_qualified_at": "2026-06-20T00:00:00Z",
+        "last_qualified_at": "2026-06-20T00:00:00Z",
+        "last_exported_at": "2026-06-20T00:00:00Z",
+        "last_fresh_row_at": "2026-06-20T00:00:00Z",
+        "stale_since": None,
+        "qualification": {"min_tvl": 5000.0, "peak_nav": 10_000.0},
+        "last_exported_record": make_export_record(module, address="0xabcd000000000000000000000000000000000001", name="Stored name"),
+    }
+    current = make_metrics_row(address="0xabcd000000000000000000000000000000000001", name=None)
+    df = make_lifetime_df(current)
+
+    # 2. Run with the same vault carrying a null required metadata value
+    result = module.apply_sticky_export_state(
+        df,
+        state,
+        now=now,
+        threshold_tvl=5_000.0,
+        stale_warning_age_days=14,
+    )
+
+    # 3. Assert the stored row is exported instead of replacing it with null data
+    assert len(result.vaults) == 1
+    assert result.vaults[0]["name"] == "Stored name"
+    assert result.vaults[0]["fallback_reason"] == "current_row_structurally_unsafe"
+
+    # 4. Assert nullable curator_slug alone does not make the row unsafe
+    safe, reason = module.is_current_record_export_safe(make_export_record(module, curator_slug=None))
+    assert safe is True
+    assert reason is None
+
+
+def test_sticky_export_below_threshold_current_row_stays_exported():
+    """A sticky vault remains exported when current peak TVL is below threshold.
+
+    1. Seed state with a previously qualified vault
+    2. Run with a fresh current row below the current threshold
+    3. Assert the vault remains exported as sticky
+    4. Assert it does not update last_qualified_at
+    """
+    # 1. Seed state with a previously qualified vault
+    module = load_vault_analysis_json_module()
+    now = datetime.datetime(2026, 6, 24, 12, 0, 0)
+    state = module.make_empty_sticky_export_state("top_vaults_by_chain", now)
+    key = "1-0xabcd000000000000000000000000000000000001"
+    state["vaults"][key] = {
+        "chain_id": 1,
+        "address": "0xabcd000000000000000000000000000000000001",
+        "status": "active",
+        "first_qualified_at": "2026-06-20T00:00:00Z",
+        "last_qualified_at": "2026-06-20T00:00:00Z",
+        "last_exported_at": "2026-06-20T00:00:00Z",
+        "last_fresh_row_at": "2026-06-20T00:00:00Z",
+        "stale_since": None,
+        "qualification": {"min_tvl": 5000.0, "peak_nav": 10_000.0},
+        "last_exported_record": make_export_record(module, address="0xabcd000000000000000000000000000000000001"),
+    }
+    current = make_metrics_row(address="0xabcd000000000000000000000000000000000001", peak_nav=1_000.0)
+    df = make_lifetime_df(current)
+
+    # 2. Run with a fresh current row below the current threshold
+    result = module.apply_sticky_export_state(
+        df,
+        state,
+        now=now,
+        threshold_tvl=5_000.0,
+        stale_warning_age_days=14,
+    )
+
+    # 3. Assert the vault remains exported as sticky
+    assert len(result.vaults) == 1
+    assert result.vaults[0]["sticky_export"] is True
+    assert result.vaults[0]["stale_export"] is False
+    assert result.vaults[0]["peak_nav"] == 1_000.0
+
+    # 4. Assert it does not update last_qualified_at
+    assert result.state["vaults"][key]["last_qualified_at"] == "2026-06-20T00:00:00Z"
+
+
+def test_sticky_export_structural_suppression_recovers_on_clean_current_row():
+    """A structurally suppressed vault recovers when clean current data qualifies.
+
+    1. Seed state with a structurally suppressed vault
+    2. Run with a clean current row above the threshold
+    3. Assert the row is exported
+    4. Assert suppression fields are cleared
+    """
+    # 1. Seed state with a structurally suppressed vault
+    module = load_vault_analysis_json_module()
+    now = datetime.datetime(2026, 6, 24, 12, 0, 0)
+    state = module.make_empty_sticky_export_state("top_vaults_by_chain", now)
+    key = "1-0xabcd000000000000000000000000000000000001"
+    state["vaults"][key] = {
+        "chain_id": 1,
+        "address": "0xabcd000000000000000000000000000000000001",
+        "status": "suppressed",
+        "suppression_reason": "invalid_last_exported_record",
+        "suppressed_at": "2026-06-20T00:00:00Z",
+        "first_qualified_at": "2026-06-20T00:00:00Z",
+        "last_qualified_at": "2026-06-20T00:00:00Z",
+        "last_exported_record": {},
+    }
+    df = make_lifetime_df(make_metrics_row(address="0xabcd000000000000000000000000000000000001"))
+
+    # 2. Run with a clean current row above the threshold
+    result = module.apply_sticky_export_state(
+        df,
+        state,
+        now=now,
+        threshold_tvl=5_000.0,
+        stale_warning_age_days=14,
+    )
+
+    # 3. Assert the row is exported
+    assert len(result.vaults) == 1
+    assert result.vaults[0]["name"] == "Sticky USDC"
+
+    # 4. Assert suppression fields are cleared
+    entry = result.state["vaults"][key]
+    assert entry["status"] == "active"
+    assert "suppression_reason" not in entry
+    assert "suppressed_at" not in entry
+
+
 def test_sticky_export_blacklisted_rows_are_suppressed():
     """Blacklisted rows are suppressed using the real exported risk label.
 
