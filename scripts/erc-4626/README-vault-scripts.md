@@ -682,14 +682,16 @@ the vault post feed database at export time, and only includes curators present
 in the exported vaults. Each curator record includes up to 10 recent posts from
 Twitter, LinkedIn, and RSS feeds.
 
-The export is append-biased by default. Once a vault passes the production
-`MIN_TVL` peak TVL filter, it is recorded in a sticky state file and remains in
-later exports even if current metrics are temporarily missing, stale, or below
-the current threshold. The default state file is
+The export is append-biased. Once a vault passes the production `MIN_TVL` peak
+TVL filter, it is recorded in a sticky state file and remains in later exports
+even if current metrics are temporarily missing, stale, or below the current
+threshold. Sticky state is always enabled. The default state file is
 `~/.tradingstrategy/vaults/vault-export-state.json` or, when
 `PIPELINE_DATA_DIR` is set, `<PIPELINE_DATA_DIR>/vault-export-state.json`.
 Both `scan-vaults-all-chains.py` and `post-process-prices.py` route
 top-vaults generation through this shared pipeline data directory.
+Manual scratch runs should set `VAULT_EXPORT_STATE_PATH` if they should not
+read or update the shared state file.
 
 Sticky fallback rows carry `sticky_export=true`; rows replayed from the stored
 fallback record also carry `stale_export=true` and
@@ -702,10 +704,7 @@ vault identity are also structurally suppressed instead of being exported.
 
 A corrupt sticky state file aborts the top-vaults export instead of resetting
 qualification history. The post-processing wrapper reports this as `False`, the
-same boolean it uses for upload failures. If operators need to restore fresh
-exports while repairing state, run with `DISABLE_STICKY_VAULT_EXPORT=true`;
-this bypasses state loading, sticky annotations, suppression handling, and state
-writes for that run.
+same boolean it uses for upload failures.
 
 #### Brotli-compressed R2 upload
 
@@ -725,10 +724,18 @@ The `brotli` package is included in the `cloudflare_r2` poetry extra:
 poetry install -E cloudflare_r2
 ```
 
-In production, run with `OUTPUT_JSON` pointing to the upload path:
+In production, run with `OUTPUT_JSON` pointing to the upload path. This uses the
+shared sticky state file under the pipeline data directory:
 
 ```shell
 OUTPUT_JSON=~/.tradingstrategy/top_vaults_by_chain.json poetry run python scripts/erc-4626/vault-analysis-json.py
+```
+
+For local scratch exports, set both `OUTPUT_JSON` and `VAULT_EXPORT_STATE_PATH`
+to temporary paths:
+
+```shell
+OUTPUT_JSON=/tmp/top-vaults.json VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state.json poetry run python scripts/erc-4626/vault-analysis-json.py
 ```
 
 | Variable | Description |
@@ -737,8 +744,7 @@ OUTPUT_JSON=~/.tradingstrategy/top_vaults_by_chain.json poetry run python script
 | `CORE3_DATABASE_PATH` | Optional. Core3 DuckDB path. Default: `~/.tradingstrategy/vaults/core3/core3.duckdb`. |
 | `FEED_DB_PATH` | Optional. Vault post feed DuckDB path. Falls back to `DB_PATH` (used by the feed collector). Default: `~/.tradingstrategy/vaults/vault-post-database.duckdb`. |
 | `R2_VAULT_METADATA_PUBLIC_URL` | Optional. Public base URL for curator logo URLs in the export. |
-| `VAULT_EXPORT_STATE_PATH` | Optional. Explicit sticky export state path. Defaults to `vault-export-state.json` under the data directory. |
-| `DISABLE_STICKY_VAULT_EXPORT` | Optional. Set to `true` to bypass sticky state and run the filter-only export path. Default: false. |
+| `VAULT_EXPORT_STATE_PATH` | Optional. Explicit sticky export state path for scratch or alternate-pipeline runs. Defaults to `vault-export-state.json` under the data directory. |
 | `STICKY_STALE_WARNING_AGE_DAYS` | Optional. Age in days after which stale annotations and warnings are emitted. Default: 14. |
 
 After generating, upload to R2 with rclone:

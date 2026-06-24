@@ -16,13 +16,13 @@ To test out:
 
 .. code-block:: shell
 
-    OUTPUT_JSON=/tmp/top-vaults.json python -m eth_defi.vault.top_vaults_json
+    OUTPUT_JSON=/tmp/top-vaults.json VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state.json python -m eth_defi.vault.top_vaults_json
 
 The legacy wrapper also works:
 
 .. code-block:: shell
 
-    OUTPUT_JSON=/tmp/top-vaults.json python scripts/erc-4626/vault-analysis-json.py
+    OUTPUT_JSON=/tmp/top-vaults.json VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state.json python scripts/erc-4626/vault-analysis-json.py
 
 To test out Pandas warning issues in calculate_lifetime_metrics(), enable strict warnings:
 
@@ -173,31 +173,6 @@ def _resolve_defaults_from_env() -> dict:
         "parquet_path": data_dir / "cleaned-vault-prices-1h.parquet",
         "output_path": output_path,
     }
-
-
-def parse_env_bool(name: str, default: bool = False) -> bool:
-    """Parse a boolean environment variable.
-
-    Accepts common truthy and falsy spellings used in deployment
-    configuration. Unknown values fail closed with a clear error so a
-    misspelt safety switch does not silently do the wrong thing.
-
-    :param name:
-        Environment variable name.
-    :param default:
-        Value to return when the variable is absent.
-    :return:
-        Parsed boolean.
-    """
-    value = os.getenv(name)
-    if value is None:
-        return default
-    value = value.strip().lower()
-    if value in {"1", "true", "yes", "y", "on"}:
-        return True
-    if value in {"0", "false", "no", "n", "off"}:
-        return False
-    raise ValueError(f"Invalid boolean value for {name}: {value!r}")
 
 
 def format_state_timestamp(ts: datetime.datetime) -> str:
@@ -938,18 +913,10 @@ def main(
     parquet_path = Path(parquet_path)
     output_path = Path(output_path)
 
-    sticky_export_enabled = not parse_env_bool("DISABLE_STICKY_VAULT_EXPORT", default=False)
     now = native_datetime_utc_now()
-    sticky_state_path = None
-    sticky_state = None
-    stale_warning_age_days = STICKY_STALE_WARNING_AGE_DAYS_DEFAULT
-
-    if sticky_export_enabled:
-        sticky_state_path = resolve_sticky_export_state_path(data_dir)
-        stale_warning_age_days = int(os.getenv("STICKY_STALE_WARNING_AGE_DAYS", str(STICKY_STALE_WARNING_AGE_DAYS_DEFAULT)))
-        sticky_state = load_sticky_export_state(sticky_state_path, now)
-    else:
-        print("Sticky vault export state disabled with DISABLE_STICKY_VAULT_EXPORT=true")
+    sticky_state_path = resolve_sticky_export_state_path(data_dir)
+    stale_warning_age_days = int(os.getenv("STICKY_STALE_WARNING_AGE_DAYS", str(STICKY_STALE_WARNING_AGE_DAYS_DEFAULT)))
+    sticky_state = load_sticky_export_state(sticky_state_path, now)
 
     # --------------------------------------------------------------------
     # Step 2: Load database and parquet price data
@@ -1009,24 +976,14 @@ def main(
 
     print(f"Calculated lifetime metrics for {len(lifetime_data_df):,} vaults with {len(lifetime_data_df.columns):,} columns")
 
-    # Don't export all crappy vaults to keep the data more compact
-    # Use peak TVL so we will export old vaults too which were popular in the past
-    filtered_lifetime_data_df = lifetime_data_df[lifetime_data_df["peak_nav"] >= THRESHOLD_TVL]
-
-    sticky_result = None
-    if sticky_export_enabled:
-        assert sticky_state is not None
-        sticky_result = apply_sticky_export_state(
-            lifetime_data_df,
-            sticky_state,
-            now=now,
-            threshold_tvl=THRESHOLD_TVL,
-            stale_warning_age_days=stale_warning_age_days,
-        )
-        vaults = sticky_result.vaults
-    else:
-        # 5️⃣ Convert DataFrame → list of dicts
-        vaults = [export_lifetime_row(r) for _, r in filtered_lifetime_data_df.iterrows()]
+    sticky_result = apply_sticky_export_state(
+        lifetime_data_df,
+        sticky_state,
+        now=now,
+        threshold_tvl=THRESHOLD_TVL,
+        stale_warning_age_days=stale_warning_age_days,
+    )
+    vaults = sticky_result.vaults
 
     # 6️⃣ Restrict the top-level Core3 protocol risk data to protocols that
     # actually survived the export filter. Core3 data is per-protocol (not
@@ -1068,11 +1025,10 @@ def main(
             public_url=public_url,
         )
 
-    if sticky_result is not None:
-        sticky_protocol_slugs = {v.get("protocol_slug") for v in vaults if v.get("sticky_export") and v.get("protocol_slug")}
-        sticky_curator_slugs = {v.get("curator_slug") for v in vaults if v.get("sticky_export") and v.get("curator_slug")}
-        sticky_result.stats.missing_protocol_slugs = len(sticky_protocol_slugs - set(core3_protocols.keys()))
-        sticky_result.stats.missing_curator_slugs = len(sticky_curator_slugs - set(curators_export.keys()))
+    sticky_protocol_slugs = {v.get("protocol_slug") for v in vaults if v.get("sticky_export") and v.get("protocol_slug")}
+    sticky_curator_slugs = {v.get("curator_slug") for v in vaults if v.get("sticky_export") and v.get("curator_slug")}
+    sticky_result.stats.missing_protocol_slugs = len(sticky_protocol_slugs - set(core3_protocols.keys()))
+    sticky_result.stats.missing_curator_slugs = len(sticky_curator_slugs - set(curators_export.keys()))
 
     print(f"Built curator export for {len(curators_export)} curators")
 
@@ -1091,31 +1047,28 @@ def main(
     }
 
     validate_strict_json_serialisable(output_data)
-    if sticky_result is not None:
-        validate_strict_json_serialisable(sticky_result.state)
+    validate_strict_json_serialisable(sticky_result.state)
 
     # 7️⃣ Write to JSON file (strict mode)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with atomic_write(str(output_path), mode="w", overwrite=True, encoding="utf-8") as f:
         json.dump(output_data, f, indent=2, ensure_ascii=False, allow_nan=False)
 
-    if sticky_result is not None:
-        assert sticky_state_path is not None
-        save_sticky_export_state(sticky_result.state, sticky_state_path)
-        print(f"Sticky export state: loaded {sticky_result.stats.loaded_state_entries:,} vault entries from {sticky_state_path}")
-        print(f"Current filter passed: {sticky_result.stats.current_filter_passed:,}")
-        if sticky_result.stats.previous_current_filter_count is not None and sticky_result.stats.previous_current_filter_count > 0:
-            previous_count = sticky_result.stats.previous_current_filter_count
-            current_count = sticky_result.stats.current_filter_passed
-            if current_count < previous_count * 0.8:
-                print(f"WARNING: current filter rows dropped from {previous_count:,} to {current_count:,}")
-        print(f"Sticky additions: {sticky_result.stats.sticky_additions:,}")
-        print(f"Sticky fallback exports: {sticky_result.stats.sticky_fallback_exports:,}")
-        print(f"Current-row structural fallbacks: {sticky_result.stats.current_row_structural_fallbacks:,}")
-        print(f"Structurally suppressed vaults: {sticky_result.stats.structurally_suppressed_vaults:,}")
-        print(f"Stale warning vaults: {sticky_result.stats.stale_warning_vaults:,}")
-        print(f"Missing protocol slugs for sticky rows: {sticky_result.stats.missing_protocol_slugs:,}")
-        print(f"Missing curator slugs for sticky rows: {sticky_result.stats.missing_curator_slugs:,}")
+    save_sticky_export_state(sticky_result.state, sticky_state_path)
+    print(f"Sticky export state: loaded {sticky_result.stats.loaded_state_entries:,} vault entries from {sticky_state_path}")
+    print(f"Current filter passed: {sticky_result.stats.current_filter_passed:,}")
+    if sticky_result.stats.previous_current_filter_count is not None and sticky_result.stats.previous_current_filter_count > 0:
+        previous_count = sticky_result.stats.previous_current_filter_count
+        current_count = sticky_result.stats.current_filter_passed
+        if current_count < previous_count * 0.8:
+            print(f"WARNING: current filter rows dropped from {previous_count:,} to {current_count:,}")
+    print(f"Sticky additions: {sticky_result.stats.sticky_additions:,}")
+    print(f"Sticky fallback exports: {sticky_result.stats.sticky_fallback_exports:,}")
+    print(f"Current-row structural fallbacks: {sticky_result.stats.current_row_structural_fallbacks:,}")
+    print(f"Structurally suppressed vaults: {sticky_result.stats.structurally_suppressed_vaults:,}")
+    print(f"Stale warning vaults: {sticky_result.stats.stale_warning_vaults:,}")
+    print(f"Missing protocol slugs for sticky rows: {sticky_result.stats.missing_protocol_slugs:,}")
+    print(f"Missing curator slugs for sticky rows: {sticky_result.stats.missing_curator_slugs:,}")
 
     print(f"Exported {len(vaults):,} vault rows to {output_path}")
 
