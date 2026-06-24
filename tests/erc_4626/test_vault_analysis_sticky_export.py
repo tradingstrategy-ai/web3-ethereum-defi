@@ -276,6 +276,59 @@ def test_sticky_export_below_threshold_current_row_stays_exported():
 
     # 4. Assert it does not update last_qualified_at
     assert result.state["vaults"][key]["last_qualified_at"] == "2026-06-20T00:00:00Z"
+    assert result.state["vaults"][key]["qualification"] == {"min_tvl": 5000.0, "peak_nav": 10_000.0}
+
+
+def test_sticky_export_below_threshold_unsafe_current_row_falls_back():
+    """A below-threshold sticky vault with unsafe current metadata replays fallback.
+
+    1. Seed state with a previously qualified vault
+    2. Run with a below-threshold current row missing required metadata
+    3. Assert fallback export and structural fallback counter
+    4. Assert original qualification proof is preserved
+    """
+    # 1. Seed state with a previously qualified vault
+    module = get_top_vaults_json_module()
+    now = datetime.datetime(2026, 6, 24, 12, 0, 0)
+    state = module.make_empty_sticky_export_state(now)
+    key = "1-0xabcd000000000000000000000000000000000001"
+    state["vaults"][key] = {
+        "chain_id": 1,
+        "address": "0xabcd000000000000000000000000000000000001",
+        "status": "active",
+        "first_qualified_at": "2026-06-20T00:00:00Z",
+        "last_qualified_at": "2026-06-20T00:00:00Z",
+        "last_exported_at": "2026-06-20T00:00:00Z",
+        "last_fresh_row_at": "2026-06-20T00:00:00Z",
+        "stale_since": None,
+        "qualification": {"min_tvl": 5000.0, "peak_nav": 10_000.0},
+        "last_exported_record": make_export_record(module, address="0xabcd000000000000000000000000000000000001", name="Stored name"),
+    }
+    current = make_metrics_row(
+        address="0xabcd000000000000000000000000000000000001",
+        peak_nav=1_000.0,
+        name=None,
+    )
+    df = make_lifetime_df(current)
+
+    # 2. Run with a below-threshold current row missing required metadata
+    result = module.apply_sticky_export_state(
+        df,
+        state,
+        now=now,
+        threshold_tvl=5_000.0,
+        stale_warning_age_days=14,
+    )
+
+    # 3. Assert fallback export and structural fallback counter
+    assert len(result.vaults) == 1
+    assert result.vaults[0]["name"] == "Stored name"
+    assert result.vaults[0]["stale_export"] is True
+    assert result.vaults[0]["fallback_reason"] == "current_row_structurally_unsafe"
+    assert result.stats.current_row_structural_fallbacks == 1
+
+    # 4. Assert original qualification proof is preserved
+    assert result.state["vaults"][key]["qualification"] == {"min_tvl": 5000.0, "peak_nav": 10_000.0}
 
 
 def test_sticky_export_structural_suppression_recovers_on_clean_current_row():
@@ -383,10 +436,10 @@ def test_sticky_export_uses_single_state_file(tmp_path: Path, monkeypatch: pytes
     """
     # 1. Resolve state path for production output
     module = get_top_vaults_json_module()
-    production_path = module.resolve_sticky_export_state_path(tmp_path, tmp_path / "top_vaults_by_chain.json")
+    production_path = module.resolve_sticky_export_state_path(tmp_path)
 
     # 2. Resolve state path for standalone output
-    standalone_path = module.resolve_sticky_export_state_path(tmp_path, tmp_path / "stablecoin-vault-metrics.json")
+    standalone_path = module.resolve_sticky_export_state_path(tmp_path)
 
     # 3. Assert default paths are the same
     assert production_path.name == "vault-export-state.json"
@@ -396,7 +449,7 @@ def test_sticky_export_uses_single_state_file(tmp_path: Path, monkeypatch: pytes
     # 4. Assert explicit override is honoured
     override = tmp_path / "shared-state.json"
     monkeypatch.setenv("VAULT_EXPORT_STATE_PATH", str(override))
-    assert module.resolve_sticky_export_state_path(tmp_path, tmp_path / "top_vaults_by_chain.json") == override
+    assert module.resolve_sticky_export_state_path(tmp_path) == override
 
 
 def test_sticky_export_timestamp_normalisation_uses_utc_before_dropping_timezone():

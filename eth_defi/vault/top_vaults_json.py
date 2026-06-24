@@ -289,7 +289,7 @@ def make_vault_export_state_key_from_record(record: dict) -> str:
     return make_vault_export_state_key(chain_id, address)
 
 
-def resolve_sticky_export_state_path(data_dir: Path, output_path: Path) -> Path:
+def resolve_sticky_export_state_path(data_dir: Path) -> Path:
     """Resolve the sticky export state path.
 
     ``VAULT_EXPORT_STATE_PATH`` is an explicit override. Otherwise all
@@ -298,9 +298,6 @@ def resolve_sticky_export_state_path(data_dir: Path, output_path: Path) -> Path:
 
     :param data_dir:
         Pipeline data directory.
-    :param output_path:
-        Export JSON path. Kept in the signature for caller compatibility;
-        the default state path is shared across outputs.
     :return:
         State file path.
     """
@@ -646,10 +643,11 @@ def make_state_entry_from_current_row(
     entry.pop("suppressed_at", None)
     entry.setdefault("first_qualified_at", now_text)
     entry["last_exported_at"] = now_text
-    entry["qualification"] = {
-        "min_tvl": threshold_tvl,
-        "peak_nav": current_row.record.get("peak_nav"),
-    }
+    if current_row.record.get("peak_nav") is not None and current_row.record["peak_nav"] >= threshold_tvl:
+        entry["qualification"] = {
+            "min_tvl": threshold_tvl,
+            "peak_nav": current_row.record.get("peak_nav"),
+        }
     if current_row.fresh:
         entry["last_fresh_row_at"] = now_text
         entry["stale_since"] = None
@@ -756,7 +754,6 @@ def apply_sticky_export_state(
         previous_current_filter_count=state.get("last_current_filter_count"),
     )
     current_rows: dict[str, CurrentVaultRow] = {}
-    unsafe_current_row_keys: set[str] = set()
 
     for _, row in lifetime_data_df.iterrows():
         try:
@@ -765,18 +762,14 @@ def apply_sticky_export_state(
             print(f"Skipping metrics row with invalid vault identity: {e}")
             continue
         current_rows[current_row.key] = current_row
-        if not current_row.export_safe:
-            unsafe_current_row_keys.add(current_row.key)
 
     current_filter_rows = [current_row for current_row in current_rows.values() if current_row.record.get("peak_nav") is not None and current_row.record["peak_nav"] >= threshold_tvl]
     stats.current_filter_passed = len(current_filter_rows)
 
-    current_filter_keys = set()
     vaults_by_key: dict[str, tuple[int, dict]] = {}
 
     for current_row in current_filter_rows:
         key = current_row.key
-        current_filter_keys.add(key)
         existing_entry = state_vaults.get(key)
 
         if is_blacklisted_record(current_row.record):
@@ -789,12 +782,7 @@ def apply_sticky_export_state(
             continue
 
         if not current_row.export_safe:
-            if existing_entry and existing_entry.get("status") == "active" and existing_entry.get("last_exported_record"):
-                stats.current_row_structural_fallbacks += 1
-                unsafe_current_row_keys.add(key)
-            else:
-                stats.current_row_structural_fallbacks += 1
-                continue
+            continue
         else:
             is_new_entry = existing_entry is None
             entry = make_state_entry_from_current_row(current_row, now_text, threshold_tvl, existing_entry)
@@ -810,7 +798,7 @@ def apply_sticky_export_state(
     for key, entry in list(state_vaults.items()):
         if entry.get("status") != "active":
             continue
-        if key in current_filter_keys and key in vaults_by_key:
+        if key in vaults_by_key:
             continue
         current_row = current_rows.get(key)
         fallback_reason = None
@@ -831,8 +819,7 @@ def apply_sticky_export_state(
 
         if current_row and not current_row.export_safe:
             fallback_reason = "current_row_structurally_unsafe"
-            if key not in unsafe_current_row_keys:
-                stats.current_row_structural_fallbacks += 1
+            stats.current_row_structural_fallbacks += 1
 
         fallback_record = entry.get("last_exported_record")
         fallback_safe = isinstance(fallback_record, dict) and bool(fallback_record)
@@ -958,7 +945,7 @@ def main(
     stale_warning_age_days = STICKY_STALE_WARNING_AGE_DAYS_DEFAULT
 
     if sticky_export_enabled:
-        sticky_state_path = resolve_sticky_export_state_path(data_dir, output_path)
+        sticky_state_path = resolve_sticky_export_state_path(data_dir)
         stale_warning_age_days = int(os.getenv("STICKY_STALE_WARNING_AGE_DAYS", str(STICKY_STALE_WARNING_AGE_DAYS_DEFAULT)))
         sticky_state = load_sticky_export_state(sticky_state_path, now)
     else:
