@@ -1058,13 +1058,7 @@ def check_nonce_mismatch(
         if resolved:
             continue
 
-        raise NonceMismatch(
-            f"Nonce mismatch for broadcasted transactions.\n"
-            f"Address {address}, we have signed with nonce {nonce}, but the most up-to-date node "
-            f"({authority_name}) reports {authority_nonce}.\n"
-            f"Potential reasons include incorrectly shared hot wallet or badly synced hot wallet nonce.\n"
-            f"{_format_samples(last_samples)}"
-        )
+        raise NonceMismatch(f"Nonce mismatch for broadcasted transactions.\nAddress {address}, we have signed with nonce {nonce}, but the most up-to-date node ({authority_name}) reports {authority_nonce}.\nPotential reasons include incorrectly shared hot wallet or badly synced hot wallet nonce.\n{_format_samples(last_samples)}")
 
 
 def wait_and_broadcast_multiple_nodes_mev_blocker(
