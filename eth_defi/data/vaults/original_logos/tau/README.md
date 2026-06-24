@@ -9,11 +9,10 @@ TAU Labs is a vault curator associated with 628 Labs.
 ## Variants
 
 - `tau.drive-01.png` through `tau.drive-15.png` — transparent PNG logo variants downloaded from the Google Drive source folder.
-- `tau.drive-03.png` — standalone coloured brand mark used for `formatted_logos/tau/generic.png` and `formatted_logos/tau/light.png`.
-- `tau.drive-06.png` — standalone light/orange brand mark used for `formatted_logos/tau/dark.png`.
+- `tau.drive-06.png` — standalone light/orange brand mark from https://drive.google.com/file/d/14Y1omBtAVD7NyBPR3cv7RVIvpWucZJMx/view used for `formatted_logos/tau/generic.png`, `formatted_logos/tau/light.png`, and `formatted_logos/tau/dark.png`.
 
 ## Notes
 
 - The Drive folder includes wordmark and standalone brand mark variants.
 - Per the logo post-processing workflow, standalone brand marks were preferred over wordmarks.
-- Post-processed to `formatted_logos/tau/generic.png`, `formatted_logos/tau/light.png`, and `formatted_logos/tau/dark.png` (256×256 PNG, transparent background).
+- Post-processed to `formatted_logos/tau/generic.png`, `formatted_logos/tau/light.png`, and `formatted_logos/tau/dark.png` (256x256 PNG, transparent background).
