@@ -93,8 +93,8 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 
 Core3 runs after EVM and native vault scans and before post-processing. This
-keeps the Core3 DuckDB closed before `vault-analysis-json.py` reads it and
-before `export-data-files.py` uploads it to R2.
+keeps the Core3 DuckDB closed before `eth_defi.vault.top_vaults_json` reads it
+and before `export-data-files.py` uploads it to R2.
 
 ### scan-prices.py
 
@@ -634,6 +634,8 @@ poetry run python scripts/erc-4626/identify-curators.py
 ### vault-analysis-json.py
 
 Multi-chain vault analysis with JSON export and lifetime metric analysis.
+The implementation lives in `eth_defi.vault.top_vaults_json`; the script is a
+compatibility wrapper for manual operator runs.
 
 Generates `top_vaults_by_chain.json` with the following top-level structure:
 

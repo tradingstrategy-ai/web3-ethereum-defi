@@ -1,27 +1,19 @@
-"""Tests for sticky vault export state in vault-analysis-json.py."""
+"""Tests for sticky vault export state in the top-vaults JSON exporter."""
 
 from __future__ import annotations
 
 import datetime
-import importlib.util
-import sys
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
+from eth_defi.vault import top_vaults_json
 
-def load_vault_analysis_json_module():
-    """Load the hyphenated vault-analysis-json.py script as a test module."""
-    module_name = "vault_analysis_json_sticky_test"
-    module_path = Path(__file__).parents[2] / "scripts" / "erc-4626" / "vault-analysis-json.py"
-    spec = importlib.util.spec_from_file_location(module_name, module_path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
-    return module
+
+def get_top_vaults_json_module():
+    """Return the importable top-vaults JSON exporter module."""
+    return top_vaults_json
 
 
 def make_metrics_row(
@@ -72,7 +64,7 @@ def test_sticky_export_first_qualification_creates_state():
     4. Assert state keeps a lower-case canonical vault key
     """
     # 1. Build a current metrics row above the peak TVL filter
-    module = load_vault_analysis_json_module()
+    module = get_top_vaults_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
     state = module.make_empty_sticky_export_state(now)
     df = make_lifetime_df(make_metrics_row())
@@ -106,7 +98,7 @@ def test_sticky_export_missing_current_metrics_use_fallback():
     4. Assert stale state timestamps do not move backwards
     """
     # 1. Seed state with a previous exported row
-    module = load_vault_analysis_json_module()
+    module = get_top_vaults_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
     state = module.make_empty_sticky_export_state(now)
     key = "1-0xabcd000000000000000000000000000000000001"
@@ -153,7 +145,7 @@ def test_sticky_export_structurally_unsafe_current_row_falls_back():
     4. Assert the fallback reason is annotated
     """
     # 1. Seed state with a valid previous export
-    module = load_vault_analysis_json_module()
+    module = get_top_vaults_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
     state = module.make_empty_sticky_export_state(now)
     key = "1-0xabcd000000000000000000000000000000000001"
@@ -200,7 +192,7 @@ def test_sticky_export_null_current_metadata_falls_back():
     4. Assert nullable curator_slug alone does not make the row unsafe
     """
     # 1. Seed state with a valid previous export
-    module = load_vault_analysis_json_module()
+    module = get_top_vaults_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
     state = module.make_empty_sticky_export_state(now)
     key = "1-0xabcd000000000000000000000000000000000001"
@@ -248,7 +240,7 @@ def test_sticky_export_below_threshold_current_row_stays_exported():
     4. Assert it does not update last_qualified_at
     """
     # 1. Seed state with a previously qualified vault
-    module = load_vault_analysis_json_module()
+    module = get_top_vaults_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
     state = module.make_empty_sticky_export_state(now)
     key = "1-0xabcd000000000000000000000000000000000001"
@@ -295,7 +287,7 @@ def test_sticky_export_structural_suppression_recovers_on_clean_current_row():
     4. Assert suppression fields are cleared
     """
     # 1. Seed state with a structurally suppressed vault
-    module = load_vault_analysis_json_module()
+    module = get_top_vaults_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
     state = module.make_empty_sticky_export_state(now)
     key = "1-0xabcd000000000000000000000000000000000001"
@@ -340,7 +332,7 @@ def test_sticky_export_blacklisted_rows_are_suppressed():
     4. Assert stale fallback is also suppressed
     """
     # 1. Run a current qualifying row with the blacklist enum
-    module = load_vault_analysis_json_module()
+    module = get_top_vaults_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
     state = module.make_empty_sticky_export_state(now)
     key = "1-0xabcd000000000000000000000000000000000001"
@@ -390,7 +382,7 @@ def test_sticky_export_uses_single_state_file(tmp_path: Path, monkeypatch: pytes
     4. Assert explicit override is honoured
     """
     # 1. Resolve state path for production output
-    module = load_vault_analysis_json_module()
+    module = get_top_vaults_json_module()
     production_path = module.resolve_sticky_export_state_path(tmp_path, tmp_path / "top_vaults_by_chain.json")
 
     # 2. Resolve state path for standalone output
@@ -416,7 +408,7 @@ def test_sticky_export_timestamp_normalisation_uses_utc_before_dropping_timezone
     4. Assert stale current rows remain exported with warning annotations
     """
     # 1. Create a non-UTC timestamp
-    module = load_vault_analysis_json_module()
+    module = get_top_vaults_json_module()
     aware_timestamp = pd.Timestamp("2026-06-24T15:00:00+03:00")
 
     # 2. Normalise it through the exporter helper
@@ -452,7 +444,7 @@ def test_sticky_export_invalid_fallback_record_is_suppressed():
     4. Assert structural suppression is persisted
     """
     # 1. Seed state with an active vault carrying an empty fallback record
-    module = load_vault_analysis_json_module()
+    module = get_top_vaults_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
     key = "1-0xabcd000000000000000000000000000000000001"
     state = module.make_empty_sticky_export_state(now)

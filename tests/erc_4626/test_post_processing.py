@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -12,57 +11,21 @@ brotli = pytest.importorskip("brotli", reason="brotli not installed (cloudflare_
 from eth_defi.vault import post_processing
 
 
-class FakeVaultAnalysisJsonSpec:
-    """Minimal importlib spec for stubbing vault-analysis-json loading."""
-
-    loader: object
-
-    def __init__(self, loader: object) -> None:
-        self.loader = loader
-
-
-class FakeVaultAnalysisJsonModule:
-    """Mutable module object used by the fake importlib loader."""
-
-    main: Callable[..., None]
-
-
-class FakeVaultAnalysisJsonLoader:
-    """Inject a fake ``main`` function into the loaded module."""
-
-    def __init__(self, main_fn: Callable[..., None]) -> None:
-        self.main_fn = main_fn
-
-    def exec_module(self, module: FakeVaultAnalysisJsonModule) -> None:
-        module.main = self.main_fn
-
-
 def test_export_top_vaults_json_passes_pipeline_data_dir(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Top-vaults export passes the pipeline data directory to vault-analysis-json.
+    """Top-vaults export passes the pipeline data directory to its exporter module.
 
-    1. Stub vault-analysis-json import and R2 upload
+    1. Stub the top-vaults JSON exporter and R2 upload
     2. Run top-vaults export with a pipeline data directory
     3. Assert the JSON exporter receives that directory and output path
     """
-    # 1. Stub vault-analysis-json import and R2 upload.
+    # 1. Stub the top-vaults JSON exporter and R2 upload.
     calls: list[dict] = []
 
     def fake_main(**kwargs: object) -> None:
         calls.append(kwargs)
-
-    fake_loader = FakeVaultAnalysisJsonLoader(fake_main)
-
-    def fake_spec_from_file_location(name: str, location: str) -> FakeVaultAnalysisJsonSpec:
-        assert name == "vault_analysis_json"
-        assert location == "scripts/erc-4626/vault-analysis-json.py"
-        return FakeVaultAnalysisJsonSpec(fake_loader)
-
-    def fake_module_from_spec(spec: FakeVaultAnalysisJsonSpec) -> FakeVaultAnalysisJsonModule:
-        assert spec.loader is fake_loader
-        return FakeVaultAnalysisJsonModule()
 
     upload_calls: list[Path] = []
 
@@ -73,8 +36,7 @@ def test_export_top_vaults_json_passes_pipeline_data_dir(
         return True
 
     monkeypatch.setattr(post_processing, "get_pipeline_data_dir", lambda: tmp_path)
-    monkeypatch.setattr(post_processing.importlib.util, "spec_from_file_location", fake_spec_from_file_location)
-    monkeypatch.setattr(post_processing.importlib.util, "module_from_spec", fake_module_from_spec)
+    monkeypatch.setattr(post_processing.top_vaults_json, "main", fake_main)
     monkeypatch.setattr(post_processing, "create_r2_client", lambda **kwargs: object())
     monkeypatch.setattr(post_processing, "_upload_top_vaults_json_to_configured_buckets", fake_upload_top_vaults_json_to_configured_buckets)
     monkeypatch.setenv("R2_TOP_VAULTS_BUCKET_NAME", "top-vaults")

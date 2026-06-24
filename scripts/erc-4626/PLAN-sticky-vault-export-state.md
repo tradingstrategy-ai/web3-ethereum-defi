@@ -2,7 +2,7 @@
 
 ## Goal
 
-Make `scripts/erc-4626/vault-analysis-json.py` append-biased.
+Make `eth_defi.vault.top_vaults_json` append-biased.
 
 Once a vault passes the production `MIN_TVL` peak TVL filter, it should stay in
 the JSON export even if later metrics are stale, temporarily missing, below the
@@ -96,9 +96,9 @@ history.
 
 `scan-vaults-all-chains.py` calls `eth_defi.vault.scan_all_chains.main()`,
 which passes the pipeline data directory into `run_post_processing()` and
-`export_top_vaults_json()`. Because `vault-analysis-json.py` resolves the
-default state path from that `data_dir`, the all-chains production path uses the
-same shared state file.
+`export_top_vaults_json()`. Because `eth_defi.vault.top_vaults_json` resolves
+the default state path from that `data_dir`, the all-chains production path uses
+the same shared state file.
 
 ## Tests
 
