@@ -30,12 +30,14 @@ def get_data_file_paths(base_path: Path, core3_db_path: Path | None = None) -> l
         Files to upload, including optional files that may be skipped later
         if they do not exist.
     """
+    sticky_export_state_paths = sorted(base_path.glob("vault-export-state-*.json"))
     return [
         base_path / "vault-prices-1h.parquet",
         base_path / "cleaned-vault-prices-1h.parquet",
         base_path / "vault-metadata-db.pickle",
         base_path / "vault-reader-state-1h.pickle",
         core3_db_path or resolve_core3_database_path(),
+        *sticky_export_state_paths,
     ]
 
 

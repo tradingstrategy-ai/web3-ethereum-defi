@@ -17,6 +17,35 @@ def test_core3_duckdb_is_in_data_file_paths(tmp_path: Path, monkeypatch: pytest.
     assert core3_path in paths
 
 
+def test_sticky_export_state_files_are_in_data_file_paths(tmp_path: Path):
+    """Sticky export state files are part of the R2 data file export list.
+
+    Steps:
+
+    1. Create two output-namespaced sticky export state files.
+    2. Create an unrelated JSON file in the same directory.
+    3. Build the R2 data file path list.
+    4. Assert sticky state files are included and unrelated JSON is ignored.
+    """
+    # 1. Create two output-namespaced sticky export state files.
+    production_state = tmp_path / "vault-export-state-top_vaults_by_chain.json"
+    standalone_state = tmp_path / "vault-export-state-stablecoin-vault-metrics.json"
+    production_state.write_text("{}", encoding="utf-8")
+    standalone_state.write_text("{}", encoding="utf-8")
+
+    # 2. Create an unrelated JSON file in the same directory.
+    unrelated_json = tmp_path / "top_vaults_by_chain.json"
+    unrelated_json.write_text("{}", encoding="utf-8")
+
+    # 3. Build the R2 data file path list.
+    paths = data_file_export.get_data_file_paths(tmp_path)
+
+    # 4. Assert sticky state files are included and unrelated JSON is ignored.
+    assert production_state in paths
+    assert standalone_state in paths
+    assert unrelated_json not in paths
+
+
 def test_missing_core3_duckdb_is_skipped_without_failure(tmp_path: Path, caplog: pytest.LogCaptureFixture):
     """Missing Core3 DuckDB follows existing missing-file skip behaviour."""
     uploaded = data_file_export.upload_files_to_r2(
