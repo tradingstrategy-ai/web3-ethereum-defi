@@ -284,30 +284,29 @@ def make_vault_export_state_key_from_record(record: dict) -> str:
 
 
 def resolve_sticky_export_state_path(data_dir: Path, output_path: Path) -> Path:
-    """Resolve the output-namespaced sticky export state path.
+    """Resolve the sticky export state path.
 
-    ``VAULT_EXPORT_STATE_PATH`` is an explicit override. Otherwise the
-    output filename stem is included so manual standalone runs do not
-    mutate production ``top_vaults_by_chain`` state.
+    ``VAULT_EXPORT_STATE_PATH`` is an explicit override. Otherwise all
+    vault metric JSON outputs share one state file under the pipeline data
+    directory.
 
     :param data_dir:
         Pipeline data directory.
     :param output_path:
-        Export JSON path.
+        Export JSON path. Kept in the signature for caller compatibility;
+        the default state path is shared across outputs.
     :return:
         State file path.
     """
     env_path = os.getenv("VAULT_EXPORT_STATE_PATH")
     if env_path:
         return Path(env_path).expanduser()
-    return data_dir / f"vault-export-state-{output_path.stem}.json"
+    return data_dir / "vault-export-state.json"
 
 
-def make_empty_sticky_export_state(output_stem: str, now: datetime.datetime) -> dict:
+def make_empty_sticky_export_state(now: datetime.datetime) -> dict:
     """Create an empty sticky export state document.
 
-    :param output_stem:
-        Output filename stem this state belongs to.
     :param now:
         Current naive UTC datetime.
     :return:
@@ -315,7 +314,6 @@ def make_empty_sticky_export_state(output_stem: str, now: datetime.datetime) -> 
     """
     return {
         "schema_version": STICKY_EXPORT_STATE_SCHEMA_VERSION,
-        "output_stem": output_stem,
         "updated_at": format_state_timestamp(now),
         "last_current_filter_count": 0,
         "vaults": {},
@@ -346,7 +344,7 @@ def validate_sticky_export_state(state: dict) -> None:
             raise ValueError(f"Invalid sticky export state status for {key}: {status!r}")
 
 
-def load_sticky_export_state(path: Path, output_stem: str, now: datetime.datetime) -> dict:
+def load_sticky_export_state(path: Path, now: datetime.datetime) -> dict:
     """Load sticky export state or create a new empty state.
 
     Corrupt existing state raises instead of being reset, because the
@@ -354,15 +352,13 @@ def load_sticky_export_state(path: Path, output_stem: str, now: datetime.datetim
 
     :param path:
         State file path.
-    :param output_stem:
-        Output filename stem.
     :param now:
         Current naive UTC datetime.
     :return:
         Loaded state mapping.
     """
     if not path.exists():
-        return make_empty_sticky_export_state(output_stem, now)
+        return make_empty_sticky_export_state(now)
     with path.open("r", encoding="utf-8") as f:
         state = json.load(f)
     validate_sticky_export_state(state)
@@ -958,7 +954,7 @@ def main(
     if sticky_export_enabled:
         sticky_state_path = resolve_sticky_export_state_path(data_dir, output_path)
         stale_warning_age_days = int(os.getenv("STICKY_STALE_WARNING_AGE_DAYS", str(STICKY_STALE_WARNING_AGE_DAYS_DEFAULT)))
-        sticky_state = load_sticky_export_state(sticky_state_path, output_path.stem, now)
+        sticky_state = load_sticky_export_state(sticky_state_path, now)
     else:
         print("Sticky vault export state disabled with DISABLE_STICKY_VAULT_EXPORT=true")
 

@@ -74,7 +74,7 @@ def test_sticky_export_first_qualification_creates_state():
     # 1. Build a current metrics row above the peak TVL filter
     module = load_vault_analysis_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
-    state = module.make_empty_sticky_export_state("top_vaults_by_chain", now)
+    state = module.make_empty_sticky_export_state(now)
     df = make_lifetime_df(make_metrics_row())
 
     # 2. Apply sticky export state to an empty state
@@ -108,7 +108,7 @@ def test_sticky_export_missing_current_metrics_use_fallback():
     # 1. Seed state with a previous exported row
     module = load_vault_analysis_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
-    state = module.make_empty_sticky_export_state("top_vaults_by_chain", now)
+    state = module.make_empty_sticky_export_state(now)
     key = "1-0xabcd000000000000000000000000000000000001"
     state["vaults"][key] = {
         "chain_id": 1,
@@ -155,7 +155,7 @@ def test_sticky_export_structurally_unsafe_current_row_falls_back():
     # 1. Seed state with a valid previous export
     module = load_vault_analysis_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
-    state = module.make_empty_sticky_export_state("top_vaults_by_chain", now)
+    state = module.make_empty_sticky_export_state(now)
     key = "1-0xabcd000000000000000000000000000000000001"
     state["vaults"][key] = {
         "chain_id": 1,
@@ -202,7 +202,7 @@ def test_sticky_export_null_current_metadata_falls_back():
     # 1. Seed state with a valid previous export
     module = load_vault_analysis_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
-    state = module.make_empty_sticky_export_state("top_vaults_by_chain", now)
+    state = module.make_empty_sticky_export_state(now)
     key = "1-0xabcd000000000000000000000000000000000001"
     state["vaults"][key] = {
         "chain_id": 1,
@@ -250,7 +250,7 @@ def test_sticky_export_below_threshold_current_row_stays_exported():
     # 1. Seed state with a previously qualified vault
     module = load_vault_analysis_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
-    state = module.make_empty_sticky_export_state("top_vaults_by_chain", now)
+    state = module.make_empty_sticky_export_state(now)
     key = "1-0xabcd000000000000000000000000000000000001"
     state["vaults"][key] = {
         "chain_id": 1,
@@ -297,7 +297,7 @@ def test_sticky_export_structural_suppression_recovers_on_clean_current_row():
     # 1. Seed state with a structurally suppressed vault
     module = load_vault_analysis_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
-    state = module.make_empty_sticky_export_state("top_vaults_by_chain", now)
+    state = module.make_empty_sticky_export_state(now)
     key = "1-0xabcd000000000000000000000000000000000001"
     state["vaults"][key] = {
         "chain_id": 1,
@@ -342,7 +342,7 @@ def test_sticky_export_blacklisted_rows_are_suppressed():
     # 1. Run a current qualifying row with the blacklist enum
     module = load_vault_analysis_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
-    state = module.make_empty_sticky_export_state("top_vaults_by_chain", now)
+    state = module.make_empty_sticky_export_state(now)
     key = "1-0xabcd000000000000000000000000000000000001"
     df = make_lifetime_df(make_metrics_row(risk=module.VaultTechnicalRisk.blacklisted))
 
@@ -359,7 +359,7 @@ def test_sticky_export_blacklisted_rows_are_suppressed():
     assert first.state["vaults"][key]["suppression_reason"] == "current_blacklisted_record"
 
     # 3. Seed a stale fallback row with the serialised Blacklisted label
-    fallback_state = module.make_empty_sticky_export_state("top_vaults_by_chain", now)
+    fallback_state = module.make_empty_sticky_export_state(now)
     fallback_state["vaults"][key] = {
         "chain_id": 1,
         "address": "0xabcd000000000000000000000000000000000001",
@@ -381,12 +381,12 @@ def test_sticky_export_blacklisted_rows_are_suppressed():
     assert second.state["vaults"][key]["suppression_reason"] == "stale_blacklisted_record"
 
 
-def test_sticky_export_namespaces_state_by_output_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Default sticky state paths are namespaced by output filename.
+def test_sticky_export_uses_single_state_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Default sticky state path is shared by all output filenames.
 
     1. Resolve state path for production output
     2. Resolve state path for standalone output
-    3. Assert default paths differ
+    3. Assert default paths are the same
     4. Assert explicit override is honoured
     """
     # 1. Resolve state path for production output
@@ -396,10 +396,10 @@ def test_sticky_export_namespaces_state_by_output_path(tmp_path: Path, monkeypat
     # 2. Resolve state path for standalone output
     standalone_path = module.resolve_sticky_export_state_path(tmp_path, tmp_path / "stablecoin-vault-metrics.json")
 
-    # 3. Assert default paths differ
-    assert production_path.name == "vault-export-state-top_vaults_by_chain.json"
-    assert standalone_path.name == "vault-export-state-stablecoin-vault-metrics.json"
-    assert production_path != standalone_path
+    # 3. Assert default paths are the same
+    assert production_path.name == "vault-export-state.json"
+    assert standalone_path.name == "vault-export-state.json"
+    assert production_path == standalone_path
 
     # 4. Assert explicit override is honoured
     override = tmp_path / "shared-state.json"
@@ -428,7 +428,7 @@ def test_sticky_export_timestamp_normalisation_uses_utc_before_dropping_timezone
 
     # 4. Assert stale current rows remain exported with warning annotations
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
-    state = module.make_empty_sticky_export_state("top_vaults_by_chain", now)
+    state = module.make_empty_sticky_export_state(now)
     stale_timestamp = pd.Timestamp("2026-05-01T15:00:00+03:00")
     df = make_lifetime_df(make_metrics_row(last_updated_at=stale_timestamp))
     result = module.apply_sticky_export_state(
@@ -455,7 +455,7 @@ def test_sticky_export_invalid_fallback_record_is_suppressed():
     module = load_vault_analysis_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
     key = "1-0xabcd000000000000000000000000000000000001"
-    state = module.make_empty_sticky_export_state("top_vaults_by_chain", now)
+    state = module.make_empty_sticky_export_state(now)
     state["vaults"][key] = {
         "chain_id": 1,
         "address": "0xabcd000000000000000000000000000000000001",

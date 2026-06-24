@@ -20,15 +20,10 @@ Persist sticky history next to the pipeline data files.
 
 Default path:
 
-`<data_dir>/vault-export-state-{output_stem}.json`
-
-Production path:
-
-`<data_dir>/vault-export-state-top_vaults_by_chain.json`
+`<data_dir>/vault-export-state.json`
 
 `VAULT_EXPORT_STATE_PATH` can override the path when an operator explicitly
-wants multiple outputs to share the same state. Otherwise manual standalone runs
-use their own output-stem state file and cannot mutate production state.
+wants to place the state file elsewhere.
 
 Corrupt state must abort the sticky export. Do not reset corrupt state to an
 empty file, because the state is the qualification history.
@@ -37,7 +32,7 @@ empty file, because the state is the qualification history.
 
 1. If `DISABLE_STICKY_VAULT_EXPORT=true`, bypass state loading, sticky
    annotations, structural suppression, and state writes.
-2. Load the output-namespaced state file or create an empty state.
+2. Load the single shared state file or create an empty state.
 3. Calculate lifetime metrics as today.
 4. Build canonical state keys as `{chain_id}-{lowercase_address}` from the
    exported row identity.
@@ -95,9 +90,15 @@ There is intentionally no manual vault suppression environment variable in v1.
 
 ## Backups
 
-`eth_defi.vault.data_file_export.get_data_file_paths()` must include existing
-`vault-export-state-*.json` files so daily R2 backups include sticky
-qualification history.
+`eth_defi.vault.data_file_export.get_data_file_paths()` must include
+`vault-export-state.json` so daily R2 backups include sticky qualification
+history.
+
+`scan-vaults-all-chains.py` calls `eth_defi.vault.scan_all_chains.main()`,
+which passes the pipeline data directory into `run_post_processing()` and
+`export_top_vaults_json()`. Because `vault-analysis-json.py` resolves the
+default state path from that `data_dir`, the all-chains production path uses the
+same shared state file.
 
 ## Tests
 
@@ -108,7 +109,7 @@ Focused tests should cover:
 - structurally unsafe current rows replay fallback;
 - blacklisted current rows are suppressed;
 - blacklisted fallback rows are suppressed using the real `"Blacklisted"` label;
-- output-stem state paths do not collide;
+- all output filenames resolve to the same default state file;
 - timezone-aware timestamps are converted to UTC before comparison;
 - invalid fallback records are structurally suppressed;
 - sticky state files are included in data-file backups.

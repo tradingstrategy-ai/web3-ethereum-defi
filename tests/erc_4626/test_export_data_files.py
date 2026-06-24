@@ -22,16 +22,14 @@ def test_sticky_export_state_files_are_in_data_file_paths(tmp_path: Path):
 
     Steps:
 
-    1. Create two output-namespaced sticky export state files.
+    1. Create the sticky export state file.
     2. Create an unrelated JSON file in the same directory.
     3. Build the R2 data file path list.
-    4. Assert sticky state files are included and unrelated JSON is ignored.
+    4. Assert sticky state file is included and unrelated JSON is ignored.
     """
-    # 1. Create two output-namespaced sticky export state files.
-    production_state = tmp_path / "vault-export-state-top_vaults_by_chain.json"
-    standalone_state = tmp_path / "vault-export-state-stablecoin-vault-metrics.json"
-    production_state.write_text("{}", encoding="utf-8")
-    standalone_state.write_text("{}", encoding="utf-8")
+    # 1. Create the sticky export state file.
+    sticky_state = tmp_path / "vault-export-state.json"
+    sticky_state.write_text("{}", encoding="utf-8")
 
     # 2. Create an unrelated JSON file in the same directory.
     unrelated_json = tmp_path / "top_vaults_by_chain.json"
@@ -40,9 +38,8 @@ def test_sticky_export_state_files_are_in_data_file_paths(tmp_path: Path):
     # 3. Build the R2 data file path list.
     paths = data_file_export.get_data_file_paths(tmp_path)
 
-    # 4. Assert sticky state files are included and unrelated JSON is ignored.
-    assert production_state in paths
-    assert standalone_state in paths
+    # 4. Assert sticky state file is included and unrelated JSON is ignored.
+    assert sticky_state in paths
     assert unrelated_json not in paths
 
 
