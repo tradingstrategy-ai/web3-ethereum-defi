@@ -828,8 +828,9 @@ def _node_providers(web3: Web3) -> list[BaseProvider]:
     """
     try:
         return list(get_fallback_provider(web3).providers)
-    except AssertionError:
-        # Not a fallback provider (single node, e.g. plain Anvil in tests)
+    except (AssertionError, AttributeError):
+        # Not a fallback provider: single node (e.g. plain Anvil in tests) or an
+        # MEV-blocker wrapping a single call provider that has no .providers list.
         return [web3.provider]
 
 
@@ -1023,7 +1024,11 @@ def check_nonce_mismatch(
             last_samples = samples
             sampled_nonce, consistent, sampled_authority = _authoritative_nonce(samples)
             if sampled_authority is not None:
-                authority_nonce, authority_name = sampled_nonce, sampled_authority
+                authority_name = sampled_authority
+                # Keep the last known nonce for the message; do not overwrite with None
+                # when same-height nodes disagree (the diagnostic table still shows reality).
+                if sampled_nonce is not None:
+                    authority_nonce = sampled_nonce
             if consistent and sampled_nonce == nonce:
                 logger.info(
                     "Nonce mismatch on first read for %s resolved on attempt %d/%d: most up-to-date node %s reports expected nonce %d.\n%s",

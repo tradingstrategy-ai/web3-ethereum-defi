@@ -409,6 +409,37 @@ def test_check_nonce_mismatch_lagging_node_tolerated(web3: Web3, provider_1, pro
         check_nonce_mismatch(web3, [tx], retries=3, retry_delay=datetime.timedelta(0))
 
 
+def test_check_nonce_mismatch_happy_path_single_read(web3: Web3, provider_1, provider_2, deployer: str):
+    """The happy path stays a single read with no per-node fan-out.
+
+    1. The active node already reports the expected nonce.
+    2. Expect no raise and no eth_blockNumber sampling on either node.
+    """
+    expected_nonce = 5
+    tx = SimpleNamespace(address=deployer, nonce=expected_nonce)
+
+    block_calls = {"count": 0}
+
+    def responder(orig):
+        def side_effect(method, params):
+            if method == "eth_blockNumber":
+                block_calls["count"] += 1
+            if method == "eth_getTransactionCount":
+                return {"jsonrpc": "2.0", "id": 1, "result": _hex(expected_nonce)}
+            return orig(method, params)
+
+        return side_effect
+
+    se1 = responder(provider_1.make_request)
+    se2 = responder(provider_2.make_request)
+
+    with patch.object(provider_1, "make_request", side_effect=se1), patch.object(provider_2, "make_request", side_effect=se2):
+        # 1. Matching first read -> 2. no per-node sampling at all
+        check_nonce_mismatch(web3, [tx], retries=3, retry_delay=datetime.timedelta(0))
+
+    assert block_calls["count"] == 0
+
+
 def test_check_nonce_mismatch_recovers_after_retry(web3: Web3, provider_1, provider_2, deployer: str):
     """All nodes initially lag, then one catches up on a later resample -> no raise.
 
