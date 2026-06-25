@@ -79,13 +79,20 @@
       "Bash(uv pip index:*)",
       "Skill(make-release)",
       "Skill(make-release:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Read(//tmp/**)",
+      "Read(//private/tmp/**)",
+      "Bash(ls -la /Users/moo/code/trade-executor/deps/web3-ethereum-defi/.local-test.env /Users/moo/code/trade-executor/.local-test.env 2>&1; pwd)",
+      "Read(//Users/moo/code/trade-executor/**)",
+      "Bash(pyenv version *)",
+      "Bash(pyenv versions *)",
+      "Bash(pyenv which *)"
     ],
     "additionalDirectories": [
       "/Users/moo/.cache/lagoon"
     ]
   },
   "model": "opus",
-  "thinkingMode": "extended",
-   "effortLevel": "high"
+  "effortLevel": "high",
+  "thinkingMode": "extended"
 }
