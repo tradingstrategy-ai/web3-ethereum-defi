@@ -17,6 +17,48 @@
       "inputs": [
         {
           "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "addressToAccountIndex",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint48",
+          "name": "_accountIndex",
+          "type": "uint48"
+        },
+        {
+          "internalType": "uint8",
+          "name": "_apiKeyIndex",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_pubKey",
+          "type": "bytes"
+        }
+      ],
+      "name": "changePubKey",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
           "name": "_to",
           "type": "address"
         },

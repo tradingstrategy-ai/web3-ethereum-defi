@@ -158,6 +158,28 @@ not confuse `changePubKey` (trading-key rotation) with account registration.
 (Confirm the exact off-chain linking flow against
 [docs.lighter.xyz](https://docs.lighter.xyz).)
 
+## Creating an API key for the vault (changePubKey)
+
+Day-to-day trading uses an off-chain L2 API key. Creating one is two steps:
+
+1. **Generate** the API keypair off-chain (the `lighter-python` SDK; no L1 key
+   needed). Indices 2–254 are user keys; 0–1 are reserved for the web/mobile UI.
+2. **Register** its public key on L1 via
+   `ZkLighter.changePubKey(accountIndex, apiKeyIndex, pubKey)` — for a Safe this
+   is a **Safe transaction** (Lighter recommends the on-chain ChangePubKey for
+   multisigs). `changePubKey` binds to `msg.sender`'s registered account
+   (`masterAccountIndex = validateAndGetAccountIndexFromAddress(msg.sender)`), so
+   the Safe must already be a registered Lighter account.
+
+This is a **privileged governance/setup action by the Safe owners** — it is
+deliberately **not** in the asset-manager guard whitelist, so it goes directly
+through the Safe, not the module's restricted `performCall`. Use
+`eth_defi.lighter.pubkey` (`validate_lighter_pubkey`, `propose_change_pubkey`,
+`execute_change_pubkey`) and the CLI
+`scripts/lighter/lagoon-lighter-change-pubkey.py` (which can `propose` to the
+Safe Transaction Service, `execute` for a single-owner Safe, or `SIMULATE` a
+dry-run on a mainnet fork).
+
 ## Operator setup (Python)
 
 ```python
