@@ -22,9 +22,8 @@ without needing real funds or a private key.
 In simulation mode:
 - An Anvil fork is spawned from JSON_RPC_ARBITRUM
 - A test wallet is created and funded with ETH and USDC from whale accounts
-- Trading steps (open/close position) are skipped because GMX keepers
-  cannot be simulated in a local fork
-- The vault deployment, deposit, and withdrawal flows are fully tested
+- GMX keepers are emulated locally using ``eth_defi.gmx.testing`` helpers
+- The full lifecycle (deploy, deposit, trade, withdraw) is tested end-to-end
 - No real money is spent
 
 Example:
@@ -80,8 +79,8 @@ In testnet mode:
 - Deploys on Arbitrum Sepolia (chain ID 421614)
 - Uses GMX testnet tokens (different from Circle faucet USDC)
 - No Chainlink price feeds (USD cost estimates are unavailable)
-- Simulation is **not supported** on testnet because Lagoon factory contracts
-  are not deployed on Sepolia chains
+- Simulation is supported — Lagoon contracts are deployed from scratch
+  (``from_the_scratch=True``) on an Anvil fork of Sepolia
 
 To get testnet ETH funding, use `LearnWeb3 faucet for Arbitrum Sepolia
 <https://learnweb3.io/faucets/arbitrum_sepolia/>`__.
@@ -111,8 +110,8 @@ Environment variables
     (Arbitrum mainnet or Arbitrum Sepolia).
 
 ``SIMULATE``
-    Set to ``true`` to run using an Anvil mainnet fork.  Only compatible
-    with ``NETWORK=mainnet`` (the default).
+    Set to ``true`` to run using an Anvil fork.  Compatible with both
+    ``NETWORK=mainnet`` and ``NETWORK=testnet``.
 
 ``JSON_RPC_ARBITRUM``
     Arbitrum mainnet RPC endpoint.  Required when ``NETWORK=mainnet``.
@@ -177,6 +176,7 @@ from eth_defi.gmx.ccxt import GMX
 from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
 from eth_defi.gmx.lagoon.approvals import UNLIMITED, approve_gmx_collateral_via_vault
 from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
+from eth_defi.gmx.testing import execute_order_as_keeper, extract_order_key_from_receipt, setup_mock_oracle
 from eth_defi.gmx.whitelist import GMX_POPULAR_MARKETS, GMXDeployment, fetch_all_gmx_markets, resolve_gmx_market_labels
 from eth_defi.hotwallet import HotWallet, SignedTransactionWithNonce
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
@@ -239,9 +239,6 @@ class NetworkConfig:
     #: ``None`` on testnet (no Chainlink feeds on Sepolia).
     chainlink_eth_usd: HexAddress | None
 
-    #: Whether ``SIMULATE=true`` is supported on this network
-    simulate_supported: bool
-
     #: Whether deployment must create contracts from scratch (no factory)
     from_the_scratch: bool
 
@@ -266,7 +263,6 @@ def _create_mainnet_config() -> NetworkConfig:
         gmx_eth_usd_market=GMX_POPULAR_MARKETS["ETH/USD"],
         usdc_whale=USDC_WHALE[chain_id],
         chainlink_eth_usd="0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612",
-        simulate_supported=True,
         from_the_scratch=False,
         explorer_url="https://arbiscan.io",
     )
@@ -300,7 +296,6 @@ def _create_testnet_config() -> NetworkConfig:
         gmx_eth_usd_market=None,  # Resolved dynamically after connecting
         usdc_whale=None,
         chainlink_eth_usd=None,
-        simulate_supported=False,
         from_the_scratch=True,
         explorer_url="https://sepolia.arbiscan.io",
     )
@@ -824,6 +819,57 @@ def close_gmx_position(
 
 
 # ============================================================================
+# Keeper emulation for simulation mode
+# ============================================================================
+
+
+def emulate_keeper_execution(
+    web3: Web3,
+    order: dict,
+    hot_wallet: HotWallet,
+) -> None:
+    """Emulate GMX keeper execution for a submitted order on an Anvil fork.
+
+    Extracts the order key from the creation receipt, impersonates a real
+    keeper from the GMX RoleStore, and executes the order on-chain.
+
+    After execution, re-funds the hot wallet with ETH because
+    :func:`execute_order_as_keeper` drains the wallet's ETH balance on Anvil
+    forks (see its docstring for details).
+
+    :param web3: Web3 instance connected to the Anvil fork
+    :param order: CCXT-style order dict returned by ``gmx.create_order()``
+    :param hot_wallet: The asset manager's hot wallet (needs ETH re-funding)
+    """
+    # Try to use the order_key directly from the order dict first
+    order_key_hex = order.get("info", {}).get("order_key")
+    if order_key_hex:
+        order_key = bytes.fromhex(order_key_hex)
+    else:
+        # Fall back to extracting from receipt logs
+        receipt = order.get("info", {}).get("creation_receipt")
+        if receipt is None:
+            raise ValueError("Order dict missing info.creation_receipt — cannot extract order key")
+        order_key = extract_order_key_from_receipt(receipt)
+
+    print(f"  Order key: 0x{order_key.hex()}")
+    print("  Executing order as keeper...")
+
+    exec_receipt, keeper_address = execute_order_as_keeper(web3, order_key)
+    print(f"  Keeper executed in block {exec_receipt['blockNumber']}")
+    print(f"  Keeper address: {keeper_address}")
+
+    # Re-fund wallet — execute_order_as_keeper drains the wallet's ETH
+    # balance on Anvil forks.
+    web3.provider.make_request(
+        "anvil_setBalance",
+        [hot_wallet.address, hex(10 * 10**18)],
+    )
+    hot_wallet.sync_nonce(web3)
+    print("  Wallet re-funded with 10 ETH")
+
+
+# ============================================================================
 # Step 6: Withdraw from the vault
 # ============================================================================
 
@@ -921,11 +967,13 @@ def setup_simulation_environment(
     """
     print("\nStarting Anvil fork of Arbitrum...")
 
-    # Fork Arbitrum with whale account unlocked for funding
-    # launch_anvil handles mev+ prefixed URLs automatically
+    # Fork the target chain.  On mainnet we unlock a USDC whale for funding;
+    # on testnet (Arbitrum Sepolia) there is no whale — we mint USDC.SG via
+    # the MintableToken contract instead.
+    unlocked = [config.usdc_whale] if config.usdc_whale else []
     anvil_launch = fork_network_anvil(
         json_rpc_url,
-        unlocked_addresses=[config.usdc_whale],
+        unlocked_addresses=unlocked,
     )
 
     web3 = create_multi_provider_web3(
@@ -936,6 +984,13 @@ def setup_simulation_environment(
     print(f"  Anvil fork running at: {anvil_launch.json_rpc_url}")
     print(f"  Forked at block: {web3.eth.block_number:,}")
 
+    # Replace GMX's Chainlink data stream oracle with a mock that returns
+    # current prices.  This must be done BEFORE any GMX orders are created
+    # so the mock is in place when the keeper executes orders.
+    print("\n  Setting up mock oracle for GMX keeper emulation...")
+    setup_mock_oracle(web3)
+    print("  Mock oracle configured")
+
     # Create a test wallet
     hot_wallet = HotWallet.create_for_testing(web3, test_account_n=0, eth_amount=0)
     hot_wallet.sync_nonce(web3)
@@ -943,17 +998,32 @@ def setup_simulation_environment(
     # Fund with ETH (10 ETH for gas)
     web3.provider.make_request("anvil_setBalance", [hot_wallet.address, hex(10 * 10**18)])
 
-    # Fund with USDC from whale (100 USDC for testing)
+    # Fund with USDC (100 units for testing)
     usdc = fetch_erc20_details(web3, config.usdc_address)
-    tx_hash = usdc.contract.functions.transfer(
-        hot_wallet.address,
-        100 * 10**6,  # 100 USDC
-    ).transact({"from": config.usdc_whale, "gas": 100_000})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    usdc_amount = 100 * 10**usdc.decimals
+
+    if config.usdc_whale:
+        # Mainnet: transfer from whale
+        tx_hash = usdc.contract.functions.transfer(
+            hot_wallet.address,
+            usdc_amount,
+        ).transact({"from": config.usdc_whale, "gas": 100_000})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+        funding_method = "from whale"
+    else:
+        # Testnet: USDC.SG is a MintableToken — anyone can call mint()
+        mint_abi = [{"inputs": [{"name": "account", "type": "address"}, {"name": "amount", "type": "uint256"}], "name": "mint", "outputs": [], "stateMutability": "nonpayable", "type": "function"}]
+        mint_contract = web3.eth.contract(address=config.usdc_address, abi=mint_abi)
+        tx_hash = mint_contract.functions.mint(
+            hot_wallet.address,
+            usdc_amount,
+        ).transact({"from": hot_wallet.address, "gas": 100_000})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+        funding_method = "minted"
 
     print(f"\nSimulation wallet created: {hot_wallet.address}")
     print(f"  ETH balance: 10 ETH (simulated)")
-    print(f"  USDC balance: 100 USDC (from whale)")
+    print(f"  USDC balance: 100 ({funding_method})")
 
     return web3, hot_wallet, anvil_launch
 
@@ -983,10 +1053,6 @@ def main():
     else:
         config = _create_mainnet_config()
 
-    # Validate testnet + simulate combination
-    if simulate and not config.simulate_supported:
-        raise ValueError("Testnet simulation (NETWORK=testnet SIMULATE=true) is not supported because Lagoon factory contracts are not deployed on Sepolia chains. Use mainnet simulation (SIMULATE=true) for local testing.")
-
     # Load configuration from environment
     json_rpc_url = os.environ.get(config.rpc_env_var)
     if not json_rpc_url:
@@ -1010,9 +1076,11 @@ def main():
             print("LAGOON-GMX TRADING TUTORIAL (SIMULATION MODE)")
             print("=" * 80)
             print("\nRunning in SIMULATION mode using Anvil fork.")
-            print("Trading steps will be skipped (GMX keepers cannot be simulated).")
+            print("GMX keepers will be emulated locally using mock oracle.")
 
             web3, hot_wallet, anvil_launch = setup_simulation_environment(json_rpc_url, config)
+            # GMX CCXT adapter needs the Anvil URL, not the upstream fork URL
+            json_rpc_url = anvil_launch.json_rpc_url
             # Don't verify contracts in simulation mode
             etherscan_api_key = None
         else:
@@ -1084,6 +1152,14 @@ def main():
         # Re-sync nonce after deployment
         hot_wallet.sync_nonce(web3)
 
+        if simulate:
+            # Fund Safe with ETH so the GMX gas monitor does not reject orders.
+            # The gas monitor checks the wallet address (= Safe) for native balance.
+            web3.provider.make_request(
+                "anvil_setBalance",
+                [vault.safe_address, hex(10 * 10**18)],
+            )
+
         # =========================================================================
         # Step 2: Deposit collateral
         # =========================================================================
@@ -1093,58 +1169,59 @@ def main():
 
         deposit_to_vault(web3, hot_wallet, vault, deposit_amount)
 
+        # =========================================================================
+        # Step 3: Setup GMX trading
+        # =========================================================================
+        print("\n" + "=" * 80)
+        print("STEP 3: Setup GMX trading")
+        print("=" * 80)
+
+        gmx = setup_gmx_trading(web3, vault, hot_wallet, config, json_rpc_url)
+
+        # =========================================================================
+        # Step 4: Open position
+        # =========================================================================
+        print("\n" + "=" * 80)
+        print("STEP 4: Open leveraged ETH long position")
+        print("=" * 80)
+
+        open_order = open_gmx_position(
+            gmx,
+            config,
+            size_usd=position_size,
+            leverage=leverage,
+            is_long=True,
+        )
+
         if simulate:
-            # In simulation mode, skip trading steps
-            print("\n" + "=" * 80)
-            print("STEPS 3-5: SKIPPED (Simulation mode)")
-            print("=" * 80)
-            print("\nGMX trading steps are skipped in simulation mode because")
-            print("GMX keepers cannot be simulated in a local Anvil fork.")
-            print("The vault deployment and deposit/withdraw flows have been tested.")
+            # Emulate GMX keeper on the Anvil fork
+            print("\nEmulating GMX keeper execution...")
+            emulate_keeper_execution(web3, open_order, hot_wallet)
         else:
-            # =========================================================================
-            # Step 3: Setup GMX trading
-            # =========================================================================
-            print("\n" + "=" * 80)
-            print("STEP 3: Setup GMX trading")
-            print("=" * 80)
-
-            gmx = setup_gmx_trading(web3, vault, hot_wallet, config, json_rpc_url)
-
-            # =========================================================================
-            # Step 4: Open position
-            # =========================================================================
-            print("\n" + "=" * 80)
-            print("STEP 4: Open leveraged ETH long position")
-            print("=" * 80)
-
-            open_order = open_gmx_position(
-                gmx,
-                config,
-                size_usd=position_size,
-                leverage=leverage,
-                is_long=True,
-            )
-
-            # Wait for keeper execution
+            # Wait for real keeper execution on mainnet/testnet
             print("\nWaiting for GMX keeper execution...")
             time.sleep(30)
 
-            # =========================================================================
-            # Step 5: Close position
-            # =========================================================================
-            print("\n" + "=" * 80)
-            print("STEP 5: Close the position")
-            print("=" * 80)
+        # =========================================================================
+        # Step 5: Close position
+        # =========================================================================
+        print("\n" + "=" * 80)
+        print("STEP 5: Close the position")
+        print("=" * 80)
 
-            close_order = close_gmx_position(
-                gmx,
-                config,
-                size_usd=position_size,
-                is_long=True,
-            )
+        close_order = close_gmx_position(
+            gmx,
+            config,
+            size_usd=position_size,
+            is_long=True,
+        )
 
-            # Wait for keeper
+        if simulate:
+            # Emulate GMX keeper on the Anvil fork
+            print("\nEmulating GMX keeper execution...")
+            emulate_keeper_execution(web3, close_order, hot_wallet)
+        else:
+            # Wait for real keeper execution on mainnet/testnet
             print("\nWaiting for GMX keeper execution...")
             time.sleep(30)
 
