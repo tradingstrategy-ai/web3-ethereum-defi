@@ -1,0 +1,26 @@
+feeder-id: cassa
+name: Cassa
+role: curator
+website: https://www.cassa.fyi/
+curatorwatch: https://curatorwatch.com/curator/cassa
+short_description: Cassa is on-chain infrastructure for risk markets across vaults, lenders, stakers and stablecoin issuers.
+long_description: |
+  Cassa builds deterministic on-chain infrastructure for turning risk into liquid markets for vaults, lenders, stakers and stablecoin issuers.
+  Its data room describes current partnerships, technical materials and the team behind the protocol.
+  Turtle lists a Cassa campaign and identifies Cassa as an RWA risk and liquidity infrastructure layer connected to DeFi lending and stablecoin venues.
+
+# Evidence and background references.
+#
+# CuratorWatch summary evidence:
+# - Reported AUM: about $1.88M.
+# - Reported managed vaults: 3.
+# - Reported protocol: unknown.
+other-links:
+  - title: Cassa - official website for risk markets infrastructure
+    url: https://www.cassa.fyi/
+  - title: Cassa data room - official risk markets and partnerships overview
+    url: https://dataroom.cassa.fyi/
+  - title: Turtle - Cassa campaign describing Cassa as RWA risk and liquidity infrastructure
+    url: https://app.turtle.xyz/earn/cassa-campaign
+  - title: CuratorWatch - Cassa curator profile with low-AUM vault evidence
+    url: https://curatorwatch.com/curator/cassa

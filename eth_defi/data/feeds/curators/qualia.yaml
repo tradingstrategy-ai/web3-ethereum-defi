@@ -1,0 +1,14 @@
+feeder-id: qualia
+name: Qualia
+role: curator
+curatorwatch: https://curatorwatch.com/curator/qualia
+short_description: Qualia provides strategy research, modelling, and curation for Kintsu's SuperMON automated yield vault on Monad.
+long_description: |
+  Kintsu describes SuperMON as an automated yield engine on Monad, built in collaboration with Upshift and powered by Qualia for strategy research and curation. The SuperMON launch post says the vault routes capital across liquid staking, DEX liquidity pools, lending, looping, and structured products, and that Qualia provides the modelling and research. CuratorWatch tracks Qualia as the curator of one vault with an unknown protocol classification.
+
+# Evidence and background references.
+other-links:
+  - title: Kintsu blog - SuperMON strategy research and curation powered by Qualia
+    url: https://kintsu.xyz/blog/introducing-super-mon-kintsu-s-automated-yield-engine-built-for-monad
+  - title: CuratorWatch - Qualia curator profile
+    url: https://curatorwatch.com/curator/qualia

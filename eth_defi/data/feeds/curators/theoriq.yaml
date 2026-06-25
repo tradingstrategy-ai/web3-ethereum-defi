@@ -1,0 +1,23 @@
+feeder-id: theoriq
+name: Theoriq
+role: curator
+curatorwatch: https://curatorwatch.com/curator/theoriq
+website: https://www.theoriq.ai/
+short_description: Theoriq builds AI-curated vault products for onchain yield, including AlphaVault for ETH-native yield and Theoriq Gold Vault.
+long_description: |
+  Theoriq builds AI-curated vault products for onchain yield, starting with AlphaVault for ETH and Theoriq Gold Vault for tokenised gold yield. Its AlphaVault materials describe a vault-of-vaults for ETH-native yield that uses an AI-supported research workflow to select and manage strategies within defined constraints. Theoriq Gold Vault uses tokenised gold collateral with continuous monitoring, allocation, and risk management by GoldSwarm AI. CuratorWatch tracks Theoriq as the curator of two Ethereum vaults, with about $308k AUM across lido and unknown protocol classifications.
+twitter: TheoriqAI
+linkedin: theoriqai
+
+# Evidence and background references.
+other-links:
+  - title: Theoriq homepage - AI-curated vault products for onchain yield
+    url: https://www.theoriq.ai/
+  - title: Theoriq AlphaVault - AI-managed ETH yield vault-of-vaults
+    url: https://www.theoriq.ai/alphavault
+  - title: Theoriq Gold Vault - tokenised gold collateral vault product
+    url: https://www.theoriq.ai/theoriqgoldvault
+  - title: Theoriq brand guidelines - official logo orientations and social links
+    url: https://www.theoriq.ai/brand-guidelines
+  - title: CuratorWatch - Theoriq curator profile with about $308k AUM, 2 vaults, and lido/unknown protocol evidence
+    url: https://curatorwatch.com/curator/theoriq

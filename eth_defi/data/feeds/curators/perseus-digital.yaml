@@ -1,0 +1,22 @@
+feeder-id: perseus-digital
+name: Perseus Digital
+role: curator
+curatorwatch: https://curatorwatch.com/curator/perseus-digital
+website: https://www.perseusdigital.io/
+short_description: Perseus Digital is a quantitative trading firm that designs and operates production-grade trading strategies.
+long_description: |
+  Perseus Digital describes itself as a quantitative trading firm deploying strategies
+  across geographies and time horizons, with a focus on frontier markets. The firm
+  designs and operates production-grade quantitative strategies and the systems that
+  support them, combining research with engineering. Mezo identifies Perseus Digital
+  as the curator of the Mezo Stable Vault, where the strategy focuses on delta-neutral
+  stablecoin yield opportunities.
+
+# Evidence and background references.
+other-links:
+  - title: Perseus Digital - Official website and company description
+    url: https://www.perseusdigital.io/
+  - title: Mezo - BTC and Stablecoin Vaults Have Arrived on Mezo, naming Perseus Digital as the Mezo Stable Vault curator
+    url: https://mezo.org/blog/btc-and-stablecoin-vaults-have-arrived-on-mezo/
+  - title: CuratorWatch - Perseus Digital profile showing about $5.6M AUM, one unknown-protocol vault and Mezo Stable Vault evidence
+    url: https://curatorwatch.com/curator/perseus-digital

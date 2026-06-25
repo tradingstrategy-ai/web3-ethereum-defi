@@ -1,0 +1,25 @@
+feeder-id: r2
+name: R2
+role: curator
+website: https://www.r2.money/
+curatorwatch: https://curatorwatch.com/curator/r2
+short_description: R2 is an on-chain asset management protocol for structured access to real-world yield through stablecoins and tokenised assets.
+long_description: |
+  R2 describes itself as an on-chain wealth management protocol that connects stablecoin capital with institutional-grade yield strategies through a transparent, vault-based architecture. Its website presents R2 Reserve for cash-like allocation and R2 Prime for longer-term structured strategies across real-world asset and credit exposures. CuratorWatch tracks R2 as the curator of one Ethereum Staked R2USD vault, with approximately $247K AUM, protocol marked unknown, and live deal data pulled through Turtle.
+twitter: r2yield
+linkedin: r2-yield
+
+# Evidence and background references.
+#
+# CuratorWatch lists R2 with approximately $247K AUM and one Ethereum
+# vault, Staked R2USD, with protocol unknown and Turtle as the live
+# opportunity data source.
+other-links:
+  - title: R2 website - official on-chain asset management product overview and social links
+    url: https://www.r2.money/
+  - title: R2 documentation - official protocol overview and social links
+    url: https://r2money.gitbook.io/r2
+  - title: R2 LinkedIn - official company profile for R2 Labs
+    url: https://ky.linkedin.com/company/r2-yield
+  - title: CuratorWatch - R2 curator profile with AUM, Staked R2USD vault, unknown protocol, and Turtle data-source note
+    url: https://curatorwatch.com/curator/r2

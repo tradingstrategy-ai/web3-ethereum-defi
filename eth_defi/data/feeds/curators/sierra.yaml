@@ -1,0 +1,20 @@
+feeder-id: sierra
+name: Sierra
+role: curator
+website: https://sierra.money/
+curatorwatch: https://curatorwatch.com/curator/sierra
+short_description: Sierra issues SIERRA, a Liquid Yield Token backed by real-world asset and DeFi yield sources.
+long_description: |
+  The Sierra Protocol issues SIERRA, a Liquid Yield Token built for access across DeFi, CeFi and TradFi. Sierra's documentation describes SIERRA reserves as a diversified portfolio of real-world financial assets and blue-chip DeFi yield sources, with SIERRA natively issued on Avalanche and bridged to Ethereum through LayerZero. CuratorWatch tracks Sierra as the curator of two USDC vaults under protocol sierra on Avalanche and Ethereum.
+twitter: SierraIsMoney
+
+# Evidence and background references.
+other-links:
+  - title: Sierra documentation - Welcome to SIERRA and official social links
+    url: https://docs.sierra.money/
+  - title: Sierra launch announcement - SIERRA Liquid Yield Token on Avalanche
+    url: https://sierra.money/blog/sierra-launches-first-dynamically-rebalanced-liquid-yield-token
+  - title: Sierra reserve management - OpenTrade-powered reserve strategy
+    url: https://sierra.money/blog/how-sierra-manages-its-dynamic-reserves
+  - title: CuratorWatch - Sierra curator profile with about $69M AUM and 2 SIERRA USDC vaults under protocol sierra
+    url: https://curatorwatch.com/curator/sierra

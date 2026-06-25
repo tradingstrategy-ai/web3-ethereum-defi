@@ -1,0 +1,26 @@
+feeder-id: nunchi
+name: Nunchi
+role: curator
+website: https://nunchi.trade
+curatorwatch: https://curatorwatch.com/curator/nunchi
+short_description: Nunchi builds benchmark infrastructure and perpetual markets for onchain rate and yield exposure.
+long_description: |
+  Nunchi describes itself as benchmark infrastructure for rate markets, publishing rates-tracking indices and building tradable reference-rate products for desks, market makers, treasuries and systematic traders. Its documentation describes Nunchi as a HIP-3 perpetuals exchange for yield, while Nunchi's audit repository covers vault deployments associated with nLP. CuratorWatch tracks Nunchi as the curator of one HyperEVM HYPE vault under protocol unknown, with about $310k AUM.
+twitter: nunchi
+
+# Evidence and background references.
+#
+# CuratorWatch lists Nunchi as a curator with about $310k AUM across one
+# HyperEVM HYPE vault, and links an older/inconsistent X handle
+# (@nunchitrade). Nunchi's current official site and docs link to @nunchi.
+other-links:
+  - title: Nunchi homepage - benchmark infrastructure for rate markets and official social links
+    url: https://nunchi.trade
+  - title: Nunchi docs - official X and GitHub links
+    url: https://docs.nunchi.trade/
+  - title: Hyperbeat docs - Nunchi HIP-3 nLP Vault
+    url: https://docs.hyperbeat.org/hyperbeat-earn/nunchi-hip-3-nlp-vault
+  - title: Nunchi audits repository - vault deployments associated with nLP
+    url: https://github.com/Nunchi-trade/audits
+  - title: CuratorWatch - Nunchi curator profile with about $310k AUM and 1 HYPE vault under protocol unknown
+    url: https://curatorwatch.com/curator/nunchi

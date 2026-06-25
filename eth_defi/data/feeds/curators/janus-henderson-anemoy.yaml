@@ -1,22 +1,29 @@
 feeder-id: janus-henderson-anemoy
-name: Janus Henderson Anemoy
+name: Janus Henderson
 role: curator
-website: https://www.anemoy.io/funds/jtrsy
-short_description: 'Janus Henderson Anemoy is a regulated onchain treasury fund providing access to short-duration US Treasury yield.'
+website: https://www.janushenderson.com/en-us/investor/who-we-are/
+curatorwatch: https://curatorwatch.com/curator/janus-henderson
+short_description: Janus Henderson is a global active asset manager providing investment products across equities, fixed income, multi-asset and alternatives.
 long_description: |
-  The Janus Henderson Anemoy Treasury Fund is described as a regulated, fully onchain actively managed fund for direct access to US Treasury yield with maturities under six months. The fund page emphasises daily redemptions, onchain transparency, investor protection, and tokenised fund shares.
-twitter: anemoycapital
-linkedin: anemoy
+  Janus Henderson describes its mission as helping clients define and achieve financial outcomes through differentiated insights, disciplined investments and client service. The firm reports more than 90 years of investing experience, global investment capabilities and $479.6 billion in client assets under management as of 31 March 2026.
+  Janus Henderson partnered with Anemoy and Centrifuge to manage Anemoy's tokenised on-chain fund, with Janus Henderson serving as sub-advisor and managing day-to-day fund operations and portfolio management through Tabula.
+linkedin: janus-henderson-investors
 
 # Evidence and background references.
 #
-# Local vault data contains Janus Henderson Anemoy Treasury Fund, AAA CLO
-# Fund, and S&P500 Fund vaults across Centrifuge/ERC-7540 chains.  The
-# Janus Henderson press release says Janus Henderson partnered with
-# Anemoy and Centrifuge to manage Anemoy's on-chain fund and serves as
-# sub-advisor.  Anemoy fund pages use the combined Janus Henderson
-# Anemoy product names.
+# CuratorWatch lists Janus Henderson with approximately $16M AUM across
+# four vaults on Ethereum and Base: Janus Henderson Anemoy AAA CLO Fund,
+# Janus Henderson Anemoy Treasury Fund, and Janus Henderson Anemoy S&P500
+# Fund entries.  Local vault data contains the same Janus Henderson Anemoy
+# product names across Centrifuge/ERC-7540 chains.  The Janus Henderson
+# press release says Janus Henderson partnered with Anemoy and Centrifuge
+# to manage Anemoy's on-chain fund and serves as sub-advisor.  Anemoy fund
+# pages use the combined Janus Henderson Anemoy product names.
 other-links:
+  - title: CuratorWatch - Janus Henderson curator profile with AUM, vault count and managed vault evidence
+    url: https://curatorwatch.com/curator/janus-henderson
+  - title: Janus Henderson - official company overview and investment capabilities
+    url: https://www.janushenderson.com/en-us/investor/who-we-are/
   - title: Janus Henderson press release - partnership with Anemoy and Centrifuge on tokenized fund
     url: https://ir.janushenderson.com/News--Events/news/news-details/2024/Janus-Henderson-to-Partner-with-Anemoy-and-Centrifuge-on-Its-First-Tokenized-Fund/default.aspx
   - title: Anemoy fund page - Janus Henderson Anemoy Treasury Fund

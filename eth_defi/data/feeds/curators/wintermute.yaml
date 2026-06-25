@@ -1,0 +1,24 @@
+feeder-id: wintermute
+name: Wintermute
+role: curator
+website: https://www.wintermute.com
+curatorwatch: https://curatorwatch.com/curator/wintermute
+short_description: 'Wintermute is a digital asset algorithmic trading firm and liquidity provider.'
+long_description: |
+  Wintermute describes itself as an algorithmic trading firm that makes digital asset markets liquid and efficient. Its official site covers OTC trading, token liquidity provision, DeFi participation, venture investments and algorithmic trading infrastructure. Armitage by Wintermute presents Wintermute's onchain vault curation arm, applying trading infrastructure, operational experience and risk capabilities to DeFi yield vaults.
+twitter: wintermute_t
+linkedin: wintermute-trading
+
+# Evidence and background references.
+#
+# CuratorWatch lists Wintermute as a curator with about $57M AUM across two
+# Morpho vaults: Wintermute USDC Select and Wintermute USDC Prime.
+other-links:
+  - title: Armitage by Wintermute - official onchain vault curation page
+    url: https://armitage.wintermute.com/
+  - title: CuratorWatch - Wintermute curator profile
+    url: https://curatorwatch.com/curator/wintermute
+  - title: Morpho app - Wintermute USDC Prime vault
+    url: https://app.morpho.org/ethereum/vault/0x5dc53a23AdC9f2Bed98de6F59F7F309a7c71FF2B
+  - title: Morpho app - Wintermute USDC Select vault
+    url: https://app.morpho.org/ethereum/vault/0xA2EAaD0D586cF9FD73bb2c09cF6A7E3e187D68cd

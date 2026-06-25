@@ -1,0 +1,25 @@
+feeder-id: valos
+name: Valos
+role: curator
+euler-entity: valos
+website: https://valos.io/
+curatorwatch: https://curatorwatch.com/curator/valos
+short_description: Valos is a digital asset manager providing institutional-grade yield and secured lending solutions.
+long_description: |
+  Valos provides transparent yield and borrowing solutions for professional investors, institutions, businesses, and exchanges. Its site highlights private credit, DeFi yield solutions, secured loans, compliance, transparency, and risk management. Valos launched an institutional credit vault on Monad using Accountable's verification layer and Agora's AUSD, with capital deployed into institutional credit loans and monitored through real-time verification.
+linkedin: valosdigital
+
+# Evidence and background references.
+#
+# CuratorWatch tracks Valos as a curator on Monad with two Euler vaults and
+# about $79M AUM. Valos and Monad describe the Valos institutional credit
+# vault on Monad, while Euler lists Valos vUSD/AUSD Market vaults.
+other-links:
+  - title: CuratorWatch - Valos curator profile with Monad Euler vaults and about $79M AUM
+    url: https://curatorwatch.com/curator/valos
+  - title: Valos - Institutional credit vault with real-time independent verification
+    url: https://valos.io/announcements-and-insights/valos-launches-institutional-credit-vault-with-real-time-independent-verification
+  - title: Monad blog - Why Valos and Accountable launched the institutional credit vault on Monad
+    url: https://blog.monad.xyz/blog/valos-accountable-institutional-credit-vault-monad
+  - title: Euler app - Valos vUSD/AUSD Market on Monad
+    url: https://app.euler.finance/vault/0x598035A2E984993229f6FA4C8C3eCf6c52aD51b5?network=143

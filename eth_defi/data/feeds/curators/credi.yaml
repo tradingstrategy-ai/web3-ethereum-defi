@@ -1,0 +1,24 @@
+feeder-id: credi
+name: CREDI
+role: curator
+website: https://www.credilabs.io/
+curatorwatch: https://curatorwatch.com/curator/credi
+short_description: CREDI provides on-chain private credit portfolios backed by real-world invoice and receivables finance.
+long_description: |
+  CREDI describes its product as on-chain private credit that unlocks yields from high-quality private credit portfolios.
+  The official site says CREDI portfolios finance invoice and receivables facilities, use structural protection on deployments and bridge DeFi liquidity providers to traditional finance counterparties.
+  CREDI's official LinkedIn announcement for its Turtle integration says users can deposit USDC into the CREDI vault on Ethereum for yield generated from real-world invoice and receivables financing.
+
+# Evidence and background references.
+#
+# CuratorWatch summary evidence:
+# - Reported AUM: about $414k.
+# - Reported managed vaults: 1.
+# - Reported protocol: unknown.
+other-links:
+  - title: CREDI - official website for on-chain private credit
+    url: https://www.credilabs.io/
+  - title: LinkedIn - CREDI announces Turtle integration and CREDI vault on Ethereum
+    url: https://www.linkedin.com/posts/credi-io_weve-partnered-with-turtle-to-bring-tokenized-activity-7452748408051748864-h3tO
+  - title: CuratorWatch - CREDI curator profile with low-AUM vault evidence
+    url: https://curatorwatch.com/curator/credi
