@@ -958,6 +958,11 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // Whitelist the Lighter L1 contract (ZkLighter proxy) for USDC
     // deposits/withdrawals.
     //
+    // USDC-only: a single deposit asset index is whitelisted per call. To
+    // support more assets, call this again with another assetIndex (each adds
+    // to LighterLib's allowedAssetIndices set); there is no multi-asset/
+    // multicall batching helper yet (unlike Hypercore).
+    //
     // Enables: deposit() credits the Safe's Lighter account, withdraw() requests
     // a withdrawal, withdrawPendingBalance() releases funds back to the Safe.
     //

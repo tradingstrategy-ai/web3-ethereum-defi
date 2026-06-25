@@ -184,6 +184,20 @@ the Lagoon vault deployment flow (`eth_defi/erc_4626/vault_protocol/lagoon/
 deployment.py`) when a `lighter_deployment` is configured. The Anvil-fork
 tests reuse the same function.
 
+## Limitations (current scope)
+
+- **USDC-only.** A single deposit asset (USDC) is whitelisted; its asset index
+  is read from `ZkLighter.USDC_ASSET_INDEX()`. Additional assets are not
+  supported yet — `whitelistLighter` takes one `assetIndex` per call (each call
+  adds to `LighterLib.allowedAssetIndices`), and there is no multi-asset
+  convenience helper or multicall batching like
+  `setup_hypercore_whitelisting`.
+- **Deposit / withdraw only.** On-book trading (`createOrder`) and trading-key
+  rotation (`changePubKey`) are out of scope; trading happens off-chain via the
+  Lighter L2 API. See the manual tutorial
+  `scripts/lagoon/lagoon-lighter-example.py` for the end-to-end lifecycle
+  (the off-chain trading steps cannot be simulated on a fork, like GMX keepers).
+
 ## Deployment note (library linking)
 
 `LighterLib` is an external library: it must be **deployed and linked** into the

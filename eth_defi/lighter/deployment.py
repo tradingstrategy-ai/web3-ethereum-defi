@@ -49,17 +49,27 @@ logger = logging.getLogger(__name__)
 class LighterDeployment:
     """Lighter L1 deployment configuration for guard whitelisting.
 
+    .. note::
+
+        **USDC-only.** This integration currently whitelists a single Lighter
+        deposit asset — USDC — whose on-chain asset index is read from
+        ``ZkLighter.USDC_ASSET_INDEX()`` at whitelist time. Multiple deposit
+        assets / asset indexes are not yet supported (unlike Hypercore, which
+        whitelists multiple vaults via a single multicall). Adding more assets
+        would require a multi-asset ``whitelistLighter`` (or a
+        ``whitelistLighterAssetIndex`` helper) plus multicall batching.
+
     :ivar zk_lighter:
         The ``ZkLighter`` L1 contract (proxy) address. Holds user deposits.
 
     :ivar usdc:
-        The USDC token address used as the Lighter deposit asset.
+        The USDC token address used as the (single) Lighter deposit asset.
     """
 
     #: ZkLighter L1 contract (proxy) address.
     zk_lighter: HexAddress
 
-    #: USDC token address (Lighter deposit asset).
+    #: USDC token address — the single supported Lighter deposit asset.
     usdc: HexAddress
 
     @classmethod
@@ -140,6 +150,12 @@ def setup_lighter_whitelisting(
     Reads the USDC asset index from the ``ZkLighter`` contract
     (``USDC_ASSET_INDEX()``) and calls
     ``whitelistLighter(zkLighter, usdc, assetIndex, notes)``.
+
+    **USDC-only:** a single deposit asset (USDC) is whitelisted. Multiple asset
+    indexes are not supported yet (see :class:`LighterDeployment`). Unlike
+    ``setup_hypercore_whitelisting`` this issues sequential transactions rather
+    than a single multicall — there is only ever one ``whitelistLighter`` call
+    (plus an optional ``allowReceiver``), so batching buys little here.
 
     The Safe must be an allowed receiver (for ``deposit._to`` /
     ``withdrawPendingBalance._owner``). In the Lagoon flow ``setup_guard``

@@ -34,7 +34,9 @@ LIGHTER_CHAIN_ID: int = 9998
 #: chain id used by the off-chain metrics pipeline.
 #:
 #: See https://etherscan.io/address/0x3b4d794a66304f130a4db8f2551b0070dfcf5ca7
-LIGHTER_L1_CONTRACT: HexAddress = "0x3b4d794a66304f130a4db8f2551b0070dfcf5ca7"
+#:
+#: Stored checksummed so it can be passed directly to web3.py calls.
+LIGHTER_L1_CONTRACT: HexAddress = "0x3B4D794a66304F130a4Db8F2551B0070dfCf5ca7"
 
 #: USDC on Ethereum mainnet — the Lighter deposit asset.
 LIGHTER_USDC_ETHEREUM: HexAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
