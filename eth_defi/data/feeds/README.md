@@ -35,5 +35,15 @@ Use the exact value exposed by the protocol API or app, and keep spelling
 variants on the canonical curator YAML instead of creating duplicate curator
 records.
 
+Feeder YAML files can include `curatorwatch` metadata when CuratorWatch tracks
+the same curator:
+
+```yaml
+curatorwatch: https://curatorwatch.com/curator/gauntlet
+```
+
+This field is a reference link only. It is not a feed source and does not
+produce tracked posts.
+
 For the schema, collection behaviour, and configuration details, see
 [`eth_defi/feed/README-feed.md`](../../feed/README-feed.md).

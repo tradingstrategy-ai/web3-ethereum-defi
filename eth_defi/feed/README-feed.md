@@ -82,6 +82,7 @@ feeder-id: { curator slug, protocol slug, or vault slug }
 name: { human-readable name }
 role: { curator | protocol | stablecoin | vault }
 website: { optional company website URL }
+curatorwatch: { optional CuratorWatch curator page URL }
 short_description: { optional one-line company or project summary }
 long_description: { optional multi-paragraph Markdown company or project description }
 ipor-atomist: { optional IPOR Fusion atomist display name, normally curator role }
@@ -101,6 +102,9 @@ Notes:
 - `feeder-id` is the canonical slug and acts as the feeder identity
 - `role` must be one of `curator`, `protocol`, `stablecoin`, or `vault`
 - `website` is optional company metadata and is stored alongside tracked sources
+- `curatorwatch` is an optional CuratorWatch profile URL such as
+  `https://curatorwatch.com/curator/gauntlet`; it is metadata only and is not
+  collected as a feed
 - `short_description` is optional feeder metadata for list and card views
 - `long_description` is optional Markdown feeder metadata for detail views
 - `ipor-atomist`, `euler-entity`, `morpho-curator`, and `lagoon-curator` are

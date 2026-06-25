@@ -1,0 +1,25 @@
+feeder-id: etherealm
+name: Etherealm
+role: curator
+website: https://etherealm.one/
+curatorwatch: https://curatorwatch.com/curator/etherealm
+short_description: Etherealm Research builds liquidity-first on-chain risk systems for transparent, risk-controlled DeFi yield access.
+long_description: |
+  Etherealm Research presents its official site as liquidity-first risk systems and describes on-chain yield access with a focus on transparency, liquidity and disciplined risk control. A Morpho forum post by Etherealm-Research describes the team as a specialised on-chain asset management team incubated by BitFi Labs, bridging complex DeFi yield sources and passive USDC depositors through code-driven management. The same post identifies Etherealm USDC as a curated Morpho vault on Ethereum mainnet using a proprietary Morpho Vault Manager and a barbell risk strategy. CuratorWatch tracks Etherealm as the curator of one Morpho USDC vault with about $276k AUM.
+twitter: EtherealmOne
+
+# Evidence and background references.
+#
+# CuratorWatch links @myetherealm as the Twitter account, but that handle
+# appears to be an unrelated older account in search results. The Morpho forum
+# post by Etherealm-Research lists @EtherealmOne as the X account and provides
+# the official website and contact email.
+other-links:
+  - title: Etherealm homepage - liquidity-first risk systems and official contact page
+    url: https://etherealm.one/
+  - title: Morpho Governance Forum - Etherealm USDC Vault Whitelisting by Etherealm-Research
+    url: https://forum.morpho.org/t/etherealm-usdc-vault-whitelisting/2112
+  - title: Morpho app - Etherealm USDC vault on Ethereum
+    url: https://app.morpho.org/ethereum/vault/0xB7305D968ECD8a23a13eC01927E3f9588C7653B5/etherealm-usdc
+  - title: CuratorWatch - Etherealm curator profile with about $276k AUM and one Morpho USDC vault
+    url: https://curatorwatch.com/curator/etherealm

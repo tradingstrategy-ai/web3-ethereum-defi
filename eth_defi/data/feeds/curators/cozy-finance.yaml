@@ -1,0 +1,24 @@
+feeder-id: cozy-finance
+name: Cozy Finance
+role: curator
+website: https://www.cozy.finance/
+curatorwatch: https://curatorwatch.com/curator/cozy-finance
+short_description: Cozy Finance provides modular DeFi safety and risk management products for protocols and users.
+long_description: |
+  Cozy Finance describes itself as the DeFi safety stack, with modules for tranching, reserve backstops and protection markets.
+  Its official site says these products help protocols structure internal protection, external safeguards and market-based cover for security and market events.
+  Euler identifies Cozy Finance as the risk curator for the Cozy USDC market, giving primary protocol UI evidence for the curator label.
+
+# Evidence and background references.
+#
+# CuratorWatch summary evidence:
+# - Reported AUM: about $1.82M.
+# - Reported managed vaults: 4.
+# - Reported protocol: unknown.
+other-links:
+  - title: Cozy Finance - official website describing the DeFi safety stack
+    url: https://www.cozy.finance/
+  - title: Euler Finance - Cozy USDC market showing Risk curator as Cozy Finance
+    url: https://app.euler.finance/market/cozy-usdc
+  - title: CuratorWatch - Cozy Finance curator profile with low-AUM vault evidence
+    url: https://curatorwatch.com/curator/cozy-finance

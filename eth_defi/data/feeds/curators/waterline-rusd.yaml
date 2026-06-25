@@ -1,0 +1,28 @@
+# Waterline RUSD curator label - feeds provided by curators/steakhouse-financial.yaml
+feeder-id: waterline-rusd
+name: Waterline RUSD
+role: curator
+morpho-curator: Waterline RUSD
+curatorwatch: https://curatorwatch.com/curator/waterline-rusd
+short_description: Waterline RUSD is a Morpho vault curator label for Reservoir and infiniFi lending vaults associated with Steakhouse-curated strategies.
+long_description: |
+  CuratorWatch tracks Waterline RUSD as a Morpho curator label with three Ethereum vaults: Waterline Reservoir USDC, Waterline InfiniFi USDC, and Waterline Reservoir rUSD. The official Morpho vault pages present these as Waterline vaults for Reservoir and infiniFi collateral strategies, while the Steakhouse vault application describes the same Morpho vault surface as institutional-grade strategies curated by Steakhouse Financial. Treat this YAML as an alias for the existing Steakhouse Financial feed instead of a standalone Waterline organisation until primary sources identify Waterline RUSD as a separate curator.
+canonical-feeder-id: steakhouse-financial
+
+# Evidence and background references.
+#
+# CuratorWatch lists "Waterline RUSD" with approximately $33M AUM and three
+# Morpho vaults.  Official Morpho vault pages use Waterline naming, but
+# primary-source identity evidence points to the existing Steakhouse Financial
+# curator feed rather than a distinct Waterline organisation.
+other-links:
+  - title: CuratorWatch - Waterline RUSD curator profile lists three Morpho vaults
+    url: https://curatorwatch.com/curator/waterline-rusd
+  - title: Morpho - Waterline Reservoir USDC vault
+    url: https://app.morpho.org/ethereum/vault/0xBEeFF047C03714965a54b671A37C18beF6b96210/waterline-reservoir-usdc
+  - title: Morpho - Waterline InfiniFi USDC vault
+    url: https://app.morpho.org/ethereum/vault/0xbeEFF75262b2eC16a3C62a807F02EE7627654931/waterline-infinifi-usdc
+  - title: Morpho - Waterline Reservoir rUSD vault
+    url: https://app.morpho.org/ethereum/vault/0xBEeFf08E1887A11D91B9Ca68c133c08Ae3c4B44f/steakhouse-reservoir-rusd
+  - title: Steakhouse app - Morpho vault strategies curated by Steakhouse Financial
+    url: https://app.steakhouse.financial/earn/1/0xBEeFF047C03714965a54b671A37C18beF6b96210/waterline-reservoir-usdc
