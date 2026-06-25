@@ -87,6 +87,7 @@ GUARD_EVENT_ABI_FILES: tuple[str, ...] = (
     "guard/GmxLib.json",
     "guard/VeloraLib.json",
     "guard/HypercoreVaultLib.json",
+    "guard/LighterLib.json",
 )
 
 #: Configuration events we care about.  Events not in this set

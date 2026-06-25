@@ -13,7 +13,10 @@ Creating a Lighter API key is two steps:
    key, which a Safe does not have).
 
 This module covers step 2 for a Safe: validating the pubkey, encoding the
-``changePubKey`` call, and building / proposing / executing the Safe transaction.
+``changePubKey`` call, and building / executing the Safe transaction. To collect
+multisig signatures, print the transaction with
+``scripts/lighter/lagoon-lighter-change-pubkey.py`` and use the Safe{Wallet}
+Transaction Builder.
 
 .. note::
 
@@ -57,9 +60,13 @@ PUB_KEY_BYTES_SIZE = 40
 GOLDILOCKS_MODULUS = 0xFFFFFFFF00000001
 
 #: Maximum API-key index. From ``ZkLighter.MAX_API_KEY_INDEX``.
-#:
-#: Indices 2-254 are user keys; 0-1 are reserved for the web/mobile interfaces.
 MAX_API_KEY_INDEX = 254
+
+#: Minimum user API-key index.
+#:
+#: Indices 0-1 are reserved for the Lighter web/mobile interfaces; user keys are
+#: 2-254. We refuse to build a transaction targeting a reserved slot.
+MIN_API_KEY_INDEX = 2
 
 
 def validate_lighter_pubkey(pubkey: bytes) -> None:
@@ -120,8 +127,8 @@ def encode_change_pubkey(
     :return:
         ``(zk_lighter_address, calldata)``.
     """
-    if not (0 <= api_key_index <= MAX_API_KEY_INDEX):
-        raise ValueError(f"api_key_index must be 0..{MAX_API_KEY_INDEX}, got {api_key_index}")
+    if not (MIN_API_KEY_INDEX <= api_key_index <= MAX_API_KEY_INDEX):
+        raise ValueError(f"api_key_index must be {MIN_API_KEY_INDEX}..{MAX_API_KEY_INDEX} (0-1 reserved for web/mobile), got {api_key_index}")
     validate_lighter_pubkey(pubkey)
 
     zk_lighter = Web3.to_checksum_address(zk_lighter)
@@ -151,37 +158,6 @@ def build_change_pubkey_safe_tx(
     return safe.build_multisig_tx(zk_lighter, 0, bytes(data))
 
 
-def propose_change_pubkey(
-    web3: Web3,
-    safe: Safe,
-    proposer_private_key: str,
-    account_index: int,
-    api_key_index: int,
-    pubkey: bytes,
-    zk_lighter: HexAddress | str = LIGHTER_L1_CONTRACT,
-) -> SafeTx:
-    """Propose the ``changePubKey`` Safe transaction to the Safe Transaction Service.
-
-    Builds + signs the transaction with one owner and posts it so the remaining
-    Safe owners can co-sign in the Safe UI. Use this for a real multisig.
-
-    Thin wrapper over :py:func:`eth_defi.safe.tx.propose_safe_transaction`.
-
-    :param proposer_private_key:
-        The proposing owner's private key (``0x``-prefixed).
-
-    :return:
-        The proposed :class:`~safe_eth.safe.safe_tx.SafeTx`.
-    """
-    # Imported here to keep the Safe Transaction Service dependency optional for
-    # the build/encode/execute paths (which do not need it).
-    from eth_defi.safe.tx import propose_safe_transaction
-
-    zk_lighter, data = encode_change_pubkey(web3, account_index, api_key_index, pubkey, zk_lighter)
-    logger.info("Proposing Lighter changePubKey via Safe %s -> %s (account %d, key %d)", safe.address, zk_lighter, account_index, api_key_index)
-    return propose_safe_transaction(safe, zk_lighter, proposer_private_key, bytes(data))
-
-
 def execute_change_pubkey(
     web3: Web3,
     safe: Safe,
@@ -193,8 +169,10 @@ def execute_change_pubkey(
 ) -> HexBytes:
     """Build, sign and execute the ``changePubKey`` Safe transaction immediately.
 
-    For a single-owner Safe (or local simulation). For a real multisig prefer
-    :py:func:`propose_change_pubkey` so the other owners can co-sign.
+    For a single-owner Safe (or local simulation). For a real multisig, build the
+    transaction with :py:func:`build_change_pubkey_safe_tx` (or print it with
+    ``scripts/lighter/lagoon-lighter-change-pubkey.py``) and collect the owner
+    signatures in the Safe UI.
 
     :param owner_private_key:
         The executing owner's private key (``0x``-prefixed).

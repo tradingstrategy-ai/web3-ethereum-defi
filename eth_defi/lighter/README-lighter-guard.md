@@ -178,8 +178,8 @@ through the Safe, not the module's restricted `performCall`. The CLI
 (To / value / Data + ABI) to paste into the Safe{Wallet} **Transaction
 Builder**, where the owners co-sign. The `eth_defi.lighter.pubkey` helpers
 (`validate_lighter_pubkey`, `encode_change_pubkey`,
-`build_change_pubkey_safe_tx`, plus `propose_change_pubkey` /
-`execute_change_pubkey` for programmatic use) back it.
+`build_change_pubkey_safe_tx`, and `execute_change_pubkey` for a single-owner
+Safe) back it.
 
 ## Operator setup (Python)
 
