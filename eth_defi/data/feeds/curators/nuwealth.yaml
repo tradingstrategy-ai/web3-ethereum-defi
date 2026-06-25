@@ -1,0 +1,29 @@
+feeder-id: nuwealth
+name: NuWealth
+role: curator
+website: https://nuwealth.io/
+curatorwatch: https://curatorwatch.com/curator/nuwealth
+short_description: NuWealth is an onchain wealth app that provides curated DeFi yield vaults powered by Morpho.
+long_description: |
+  NuWealth describes itself as an onchain wealth partner for earning, saving and growing assets through curated DeFi yield vaults powered by Morpho. Bake's official lending announcement describes NuWealth as an independent third-party risk manager that helps optimise vault allocations and monitor risk parameters for conservative onchain lending strategies. CuratorWatch tracks NuWealth as the curator of three Ethereum Morpho vaults, with about $173k AUM across NuWealth Anchor USDC, NuWealth Anchor EURC and NuWealth Anchor USDT.
+twitter: nuwealthio
+linkedin: nuwealthio
+
+# Evidence and background references.
+#
+# CuratorWatch links the older-looking NuWealthApp Twitter handle, but the
+# official NuWealth DeFi website metadata links the nuwealthio X and LinkedIn
+# profiles. Use the official-site handles for feed metadata.
+other-links:
+  - title: NuWealth - official onchain wealth app website
+    url: https://nuwealth.io/
+  - title: Bake Blog - Bake Lending upgrade announcement naming NuWealth as independent risk curator for NuWealth Anchor vaults
+    url: https://blog.bake.io/bake-lending-gets-a-defi-upgrade-risk-managed-vaults-powered-by-nuwealth/
+  - title: CuratorWatch - NuWealth curator profile with about $173k AUM and three Ethereum Morpho vaults
+    url: https://curatorwatch.com/curator/nuwealth
+  - title: Morpho app - NuWealth Anchor USDC vault
+    url: https://app.morpho.org/ethereum/vault/0x2086eB7beAbB123961A940bDC0b018A43De02A85
+  - title: Morpho app - NuWealth Anchor EURC vault
+    url: https://app.morpho.org/ethereum/vault/0x02D2488A2292C25D0D313A1b8D882A2d28E74598
+  - title: Morpho app - NuWealth Anchor USDT vault
+    url: https://app.morpho.org/ethereum/vault/0x6d387c4756610682C4E562c636dac46ac40780c8

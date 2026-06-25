@@ -1,0 +1,24 @@
+feeder-id: axtior
+name: Axtior
+role: curator
+website: https://axtior.com/
+curatorwatch: https://curatorwatch.com/curator/axtior
+short_description: Axtior provides liquidity infrastructure and tailored market-making services for digital assets and tokenised projects.
+long_description: |
+  Axtior presents itself as liquidity infrastructure for token issuers and exchanges.
+  An introduction by Axtior co-founder Jose Ruiz describes Axtior as a provider of liquidity for digital assets and tokenised projects, with market-making experience across liquid and volatile assets.
+  CuratorWatch tracks Axtior as a low-AUM curator label across four managed vaults.
+
+# Evidence and background references.
+#
+# CuratorWatch summary evidence:
+# - Reported AUM: about $1.52M.
+# - Reported managed vaults: 4.
+# - Reported protocol: unknown.
+other-links:
+  - title: Axtior - official website for liquidity infrastructure
+    url: https://axtior.com/
+  - title: LinkedIn - Axtior introduction by co-founder Jose Ruiz
+    url: https://www.linkedin.com/posts/jose-pepe-ruiz_axtior-activity-7313912400183803906-3rvF
+  - title: CuratorWatch - Axtior curator profile with low-AUM vault evidence
+    url: https://curatorwatch.com/curator/axtior

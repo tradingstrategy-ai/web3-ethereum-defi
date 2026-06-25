@@ -1,0 +1,27 @@
+feeder-id: gtsy
+name: Gtsy
+role: curator
+curatorwatch: https://curatorwatch.com/curator/gtsy
+short_description: Gtsy is an individual Morpho vault curator associated with the Ethereum gtsy and gtsy (usdt) vaults.
+long_description: |
+  Morpho's official vault pages describe the Ethereum gtsy and gtsy (usdt) products as Morpho vaults and expose the same address as their curator in the rendered vault role metadata.
+  CuratorWatch tracks Gtsy as an individual curator with two Ethereum Morpho vaults, about $1.0M AUM, and no website listed.
+  The linked CuratorWatch profile lists the X handle gtsy__, while Morpho shows no submitted curator disclosure for the checked vault pages.
+twitter: gtsy__
+
+# Evidence and background references.
+#
+# CuratorWatch tracks Gtsy as an Individual curator with two Ethereum Morpho
+# vaults and approximately $1.0M AUM as of 2026-06-25. The official Morpho
+# vault pages expose 0xfe7bE004ccAAc2EAA7273F6C613e3E96b4B0b934 as the curator
+# address for both vaults. No official website or curator disclosure was found,
+# so the description is intentionally limited to the verified vault metadata.
+other-links:
+  - title: Morpho app - gtsy USDC vault on Ethereum
+    url: https://app.morpho.org/ethereum/vault/0xA7A78E8e98c734f87A3B07D8DB627C67001ABD02/gtsy
+  - title: Morpho app - gtsy (usdt) vault on Ethereum
+    url: https://app.morpho.org/ethereum/vault/0xa30D20cB10c869bAf99EbeADFD79408fe7Ad8FaA/gtsy-usdt
+  - title: CuratorWatch - Gtsy curator profile with two Morpho vaults and about $1.0M AUM
+    url: https://curatorwatch.com/curator/gtsy
+  - title: X profile - gtsy__
+    url: https://x.com/gtsy__

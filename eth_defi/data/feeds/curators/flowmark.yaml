@@ -1,0 +1,25 @@
+feeder-id: flowmark
+name: Flowmark
+role: curator
+website: https://flowmark.xyz
+morpho-curator: Flowmark FGenesis
+curatorwatch: https://curatorwatch.com/curator/flowmark-fgenesis
+short_description: Flowmark curates institutional-grade real-world asset vaults for on-chain credit markets.
+long_description: |
+  Flowmark describes itself as an RWA vault curator that bridges institutional capital to real-world yield through underwriting, quantitative risk management, and on-chain transparency. Its Morpho forum announcement says Flowmark designs, parameterises, and structures allocations to alternative lending markets so on-chain investors can access RWA-backed yield through auditable on-chain programmes.
+
+# Evidence and background references.
+#
+# CuratorWatch tracks Flowmark FGenesis as a low-AUM Morpho curator label for
+# the Flowmark fGenesis Ethereum USDC vault.  Primary sources identify Flowmark
+# as an RWA vault curator, and Morpho's official metadata lists the Flowmark
+# fGenesis vault as curated by Flowmark.
+other-links:
+  - title: Flowmark homepage - RWA vaults curator
+    url: https://flowmark.xyz
+  - title: Morpho governance forum - Introducing Flowmark vaults on Morpho
+    url: https://forum.morpho.org/t/introducing-flowmark-vaults-on-morpho/2252
+  - title: Morpho metadata - Flowmark fGenesis vault listing
+    url: https://github.com/morpho-org/morpho-blue-api-metadata/blob/main/data/vaults-v2-listing.json
+  - title: CuratorWatch - Flowmark FGenesis curator profile
+    url: https://curatorwatch.com/curator/flowmark-fgenesis

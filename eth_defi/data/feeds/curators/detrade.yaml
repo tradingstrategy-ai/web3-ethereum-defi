@@ -1,0 +1,24 @@
+feeder-id: detrade
+name: DeTrade
+role: curator
+website: https://detrade.fund/
+curatorwatch: https://curatorwatch.com/curator/detrade
+short_description: DeTrade Fund offers actively managed DeFi vaults powered by real-time data and protocol integrations.
+long_description: |
+  DeTrade Fund describes its product as actively managed DeFi vaults built on real-time data and protocol integrations.
+  Its official website lists DeTrade vault strategies across Ethereum, Base and Monad, including Lagoon and Morpho vaults.
+  The site describes the team as deploying capital across major protocols through risk-aware, adaptive strategies since 2020.
+  CuratorWatch tracks DeTrade as the curator of three Ethereum Morpho vaults, with about $62k AUM.
+twitter: DeTradeFund
+
+# Evidence and background references.
+#
+# CuratorWatch lists DeTrade with approximately $62k AUM and three Morpho
+# vaults: DeTrade Serenity USDC, DeTrade Serenity EURC, and DeTrade Serenity WETH.
+other-links:
+  - title: DeTrade Fund website - official vault, strategy, social and logo source
+    url: https://detrade.fund/
+  - title: DeTrade Fund app - official vault interface linked from the DeTrade website
+    url: https://app.detrade.fund/
+  - title: CuratorWatch - DeTrade curator profile with Morpho vaults and AUM
+    url: https://curatorwatch.com/curator/detrade

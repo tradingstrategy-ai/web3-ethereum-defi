@@ -2,6 +2,8 @@ feeder-id: unified-labs
 name: Unified Labs
 role: curator
 website: https://unifiedlabs.io
+morpho-curator: Unified Labs Regulated
+curatorwatch: https://curatorwatch.com/curator/unified-labs-regulated
 short_description: 'Unified Labs builds institutional risk strategies and liquidity infrastructure for on-chain finance.'
 long_description: |
   Unified Labs describes its purpose as building infrastructure for institutional DeFi adoption. Its homepage says it delivers institutional risk strategies and liquidity infrastructure for optimal on-chain allocation. The site highlights stablecoin and yield product design, risk-vetted DeFi vault allocation, and advisory work around RWAs, stablecoins and tokenised assets.
@@ -23,3 +25,7 @@ other-links:
     url: https://forum.morpho.org/t/unified-labs-asias-rwa-risk-curator-on-morpho/2230
   - title: Morpho curator page - Unified Labs
     url: https://app.morpho.org/curator/unified-labs
+  - title: CuratorWatch - Unified Labs Regulated curator profile
+    url: https://curatorwatch.com/curator/unified-labs-regulated
+  - title: Morpho metadata - Unified Labs Regulated USDC vault listing
+    url: https://github.com/morpho-org/morpho-blue-api-metadata/blob/main/data/vaults-v2-listing.json

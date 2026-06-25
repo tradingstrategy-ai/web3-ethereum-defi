@@ -1,0 +1,23 @@
+feeder-id: utorg
+name: Utorg
+role: curator
+website: https://utorg.com/
+curatorwatch: https://curatorwatch.com/curator/utorg
+short_description: Utorg builds stablecoin payment rails, wallet infrastructure, on- and off-ramps, and stablecoin-linked cards.
+long_description: |
+  Utorg builds APIs and interfaces for managing stablecoins, covering payouts, cross-chain liquidity orchestration, on- and off-ramps, and stablecoin-linked cards.
+  Its business site describes scalable wallet solutions for enterprise customers, including stablecoin custody, transfers, and digital payments for fintech, gaming, and web3 products.
+  CuratorWatch tracks Utorg as a Morpho curator with one vault and about $2k AUM.
+twitter: utorgcom
+linkedin: utorg
+
+# Evidence and background references.
+#
+# CuratorWatch tracks Utorg as a curator with one Morpho vault and about $2k
+# AUM. The official Utorg website provides the identity, description, social
+# links, and logo used here.
+other-links:
+  - title: CuratorWatch - Utorg curator profile with one Morpho vault and about $2k AUM
+    url: https://curatorwatch.com/curator/utorg
+  - title: Utorg official website - Stablecoin rails and wallet infrastructure
+    url: https://utorg.com/

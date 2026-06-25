@@ -50,6 +50,7 @@ _MAPPING_SCHEMA = Map(
         Optional("morpho-curator"): Str(),
         Optional("lagoon-curator"): Str(),
         Optional("website"): Str(),
+        Optional("curatorwatch"): Str(),
         Optional("short_description"): Str(),
         Optional("long_description"): Str(),
         Optional("twitter"): Str(),
@@ -178,6 +179,18 @@ def _normalise_http_url(url: str, mapping_file: Path) -> str:
     return urlunparse((parsed.scheme, parsed.netloc.lower(), path, "", parsed.query, ""))
 
 
+def _normalise_curatorwatch_url(url: str, mapping_file: Path) -> str:
+    """Normalise a CuratorWatch profile URL for feeder metadata."""
+
+    normalised_url = _normalise_http_url(url, mapping_file)
+    parsed = urlparse(normalised_url)
+    if parsed.netloc != "curatorwatch.com":
+        raise ValueError(f"curatorwatch must point to curatorwatch.com in {mapping_file}: {url}")
+    if not parsed.path.startswith("/curator/"):
+        raise ValueError(f"curatorwatch must point to a CuratorWatch curator page in {mapping_file}: {url}")
+    return normalised_url
+
+
 def _normalise_rss_source(url: str, mapping_file: Path) -> tuple[str, str]:
     """Normalise an RSS source URL."""
 
@@ -236,6 +249,10 @@ def _normalise_mapping_metadata(parsed: dict, mapping_file: Path) -> None:
     other_links = _normalise_other_links(parsed.get("other-links"), mapping_file)
     if other_links is not None:
         parsed["other-links"] = other_links
+
+    curatorwatch = parsed.get("curatorwatch")
+    if curatorwatch is not None:
+        parsed["curatorwatch"] = _normalise_curatorwatch_url(curatorwatch, mapping_file)
 
     for key in ("short_description", "long_description"):
         value = parsed.get(key)
@@ -708,8 +725,8 @@ def load_feeder_metadata(yaml_path: Path) -> dict:
     filename stem to catch slug/filename mismatches.
 
     This function provides a public API for modules that need feeder
-    metadata (slug, name, descriptions, website, twitter, linkedin, rss) without
-    pulling in the full feed-collection machinery of
+    metadata (slug, name, descriptions, website, curatorwatch, twitter,
+    linkedin, rss) without pulling in the full feed-collection machinery of
     :py:func:`load_post_sources`.
 
     :param yaml_path:
@@ -717,7 +734,7 @@ def load_feeder_metadata(yaml_path: Path) -> dict:
 
     :return:
         Dict with keys: ``feeder-id``, ``name``, ``role``, ``website``,
-        ``short_description``, ``long_description``, ``twitter``,
+        ``curatorwatch``, ``short_description``, ``long_description``, ``twitter``,
         ``linkedin``, ``rss``, etc.
     """
     parsed = load(yaml_path.read_text(), _MAPPING_SCHEMA).data

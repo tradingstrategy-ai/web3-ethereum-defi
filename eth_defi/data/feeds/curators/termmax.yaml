@@ -1,0 +1,32 @@
+# TermMax protocol-managed curator.
+#
+# CuratorWatch evidence:
+# - https://curatorwatch.com/curator/termmax
+# - Reported AUM: about $6M.
+# - Reported protocol vaults: TermMax USDC Vault V2, WETH Vault V2,
+#   and WBTC V2.
+#
+# Classification rationale:
+# - TermMax official contract address documentation lists TermMax as the
+#   Curator for TermMax vaults.
+# - TermMax official vault documentation describes vaults as managed by
+#   Curators and documents the Curator role as the primary manager.
+feeder-id: termmax
+name: TermMax
+role: curator
+website: https://ts.finance
+curatorwatch: https://curatorwatch.com/curator/termmax
+short_description: TermMax is a fixed-rate borrowing and lending marketplace for predictable rates, leveraged strategies, and curator-managed vault yields.
+long_description: |
+  TermMax is a fixed-rate borrowing and lending marketplace powered by AMM-based fixed-rate markets.
+  Its vault documentation describes ERC-4626 vaults that aggregate depositor capital and let Curators deploy strategies across TermMax markets under role-based controls and timelock protection.
+  Official contract address documentation lists TermMax itself as the Curator for TermMax protocol vaults, so this metadata treats TermMax as a protocol-managed curator rather than an independent third-party curator.
+twitter: TermMaxFi
+
+other-links:
+  - title: TermMax docs - Contract addresses list TermMax as curator for TermMax vaults
+    url: https://docs.ts.finance/technical-details/contract-addresses
+  - title: TermMax docs - Vault component explains Curator-managed TermMax vaults
+    url: https://docs.ts.finance/protocol-mechanisms/components/vault
+  - title: TermMax official media kit
+    url: https://docs.ts.finance/resources/media-kit
