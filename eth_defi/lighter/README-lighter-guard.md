@@ -173,12 +173,13 @@ Day-to-day trading uses an off-chain L2 API key. Creating one is two steps:
 
 This is a **privileged governance/setup action by the Safe owners** — it is
 deliberately **not** in the asset-manager guard whitelist, so it goes directly
-through the Safe, not the module's restricted `performCall`. Use
-`eth_defi.lighter.pubkey` (`validate_lighter_pubkey`, `propose_change_pubkey`,
-`execute_change_pubkey`) and the CLI
-`scripts/lighter/lagoon-lighter-change-pubkey.py` (which can `propose` to the
-Safe Transaction Service, `execute` for a single-owner Safe, or `SIMULATE` a
-dry-run on a mainnet fork).
+through the Safe, not the module's restricted `performCall`. The CLI
+`scripts/lighter/lagoon-lighter-change-pubkey.py` **prints the transaction**
+(To / value / Data + ABI) to paste into the Safe{Wallet} **Transaction
+Builder**, where the owners co-sign. The `eth_defi.lighter.pubkey` helpers
+(`validate_lighter_pubkey`, `encode_change_pubkey`,
+`build_change_pubkey_safe_tx`, plus `propose_change_pubkey` /
+`execute_change_pubkey` for programmatic use) back it.
 
 ## Operator setup (Python)
 

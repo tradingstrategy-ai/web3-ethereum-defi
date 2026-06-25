@@ -1,67 +1,48 @@
-"""Propose a Lighter ``changePubKey`` (API-key registration) for a Lagoon-vault Safe.
+"""Print a Lighter ``changePubKey`` (API-key registration) transaction for the Safe Transaction Builder.
 
-Registering a Lighter API key for a Safe-controlled account is an on-chain
-``ZkLighter.changePubKey(accountIndex, apiKeyIndex, pubKey)`` call made **from
-the Safe** (Lighter recommends the on-chain ChangePubKey for multisigs). This
-is a privileged setup action by the Safe owners (governance) — it is *not* part
-of the asset-manager guard whitelist, so it goes directly through the Safe, not
-the ``TradingStrategyModule``'s restricted ``performCall`` path.
+Registering a Lighter API key for a Safe-controlled (Lagoon vault) account is an
+on-chain ``ZkLighter.changePubKey(accountIndex, apiKeyIndex, pubKey)`` call made
+**from the Safe** (Lighter recommends the on-chain ChangePubKey for multisigs).
+This is a privileged setup action by the Safe owners (governance) — it is *not*
+part of the asset-manager guard whitelist, so it goes directly through the Safe,
+not the ``TradingStrategyModule``'s restricted ``performCall`` path.
 
-This CLI builds that call (validating the pubkey) and, depending on ``MODE``:
-
-- ``propose`` (default): posts a signed Safe transaction to the Safe
-  Transaction Service so the remaining owners can co-sign in the Safe UI.
-- ``execute``: builds, signs and executes immediately (single-owner Safe).
-
-Set ``SIMULATE=true`` to dry-run on an Anvil Ethereum-mainnet fork: the call is
-executed as if sent by the Safe (impersonated via Anvil) so you can confirm it
-would succeed before touching the real multisig. No signatures or funds needed.
+This CLI does **not** sign or send anything. It prints the transaction so you
+can paste it into the Safe{Wallet} **Transaction Builder** (use "Custom data":
+the ``To`` address, ``ETH value`` 0, and the raw ``Data`` hex), then collect the
+multisig signatures in the Safe UI. (Same idea as the manual guard-migration
+instructions printed by trade-executor's ``lagoon-deploy-vault`` command.)
 
 Generate the API keypair off-chain first (the ``lighter-python`` SDK); pass the
 resulting public key as ``PUB_KEY`` (40-byte hex).
 
-Examples::
+Example::
 
-    # Dry-run on a fork
-    SIMULATE=true JSON_RPC_ETHEREUM="https://eth.llamarpc.com" \
-        SAFE_ADDRESS=0xYourSafe ACCOUNT_INDEX=123 API_KEY_INDEX=2 \
-        PUB_KEY=0x0101...<40 bytes> python scripts/lighter/lagoon-lighter-change-pubkey.py
-
-    # Propose to the Safe Transaction Service (real multisig)
-    JSON_RPC_ETHEREUM=... SAFE_ADDRESS=0xYourSafe ACCOUNT_INDEX=123 API_KEY_INDEX=2 \
-        PUB_KEY=0x0101... PRIVATE_KEY=0x<proposer owner key> MODE=propose \
+    SAFE_ADDRESS=0xYourSafe ACCOUNT_INDEX=12345 API_KEY_INDEX=2 \
+        PUB_KEY=0x0101...<40 bytes> \
         python scripts/lighter/lagoon-lighter-change-pubkey.py
 
 Environment variables
 ---------------------
 
-``JSON_RPC_ETHEREUM``  Ethereum mainnet RPC. Required.
-``SAFE_ADDRESS``       The Lagoon vault's Gnosis Safe (the Lighter account owner). Required.
-``ACCOUNT_INDEX``      The Lighter account index. Required.
-``API_KEY_INDEX``      API-key slot, 2-254 (0-1 reserved). Default 2.
-``PUB_KEY``            New API-key public key, 40-byte hex. Required.
-``ZK_LIGHTER``         ZkLighter contract address. Default: Lighter mainnet proxy.
-``PRIVATE_KEY``        Proposing/executing owner key. Required unless ``SIMULATE``.
-``MODE``               ``propose`` (default) or ``execute``. Ignored when ``SIMULATE``.
-``SIMULATE``           ``true`` to dry-run on an Anvil mainnet fork.
-``SIMULATE_FORK_BLOCK``Fork block (default 25000000).
+``SAFE_ADDRESS``   The Lagoon vault's Gnosis Safe (the Lighter account owner). Required.
+``ACCOUNT_INDEX``  The Lighter account index. Required.
+``API_KEY_INDEX``  API-key slot, 2-254 (0-1 reserved). Default 2.
+``PUB_KEY``        New API-key public key, 40-byte hex. Required.
+``ZK_LIGHTER``     ZkLighter contract address. Default: Lighter mainnet proxy.
 """
 
-import logging
+import json
 import os
 
-from eth_defi.abi import get_deployed_contract
-from eth_defi.lighter.constants import LIGHTER_L1_CONTRACT
-from eth_defi.lighter.pubkey import (
-    execute_change_pubkey,
-    propose_change_pubkey,
-    validate_lighter_pubkey,
-)
-from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.safe.safe_compat import create_safe_ethereum_client
-from eth_defi.trace import assert_transaction_success_with_explanation
+from web3 import Web3
 
-logger = logging.getLogger(__name__)
+from eth_defi.abi import get_abi_by_filename
+from eth_defi.lighter.constants import LIGHTER_L1_CONTRACT
+from eth_defi.lighter.pubkey import encode_change_pubkey, validate_lighter_pubkey
+
+#: Lighter deposits/withdrawals live on Ethereum mainnet.
+ETHEREUM_CHAIN_ID = 1
 
 
 def _require(name: str) -> str:
@@ -71,60 +52,52 @@ def _require(name: str) -> str:
     return value
 
 
-def main():
-    logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
+def _change_pubkey_abi() -> dict:
+    """Return the ``changePubKey`` ABI fragment (for the Safe Transaction Builder)."""
+    abi = get_abi_by_filename("lighter/ZkLighter.json")["abi"]
+    for entry in abi:
+        if entry.get("name") == "changePubKey":
+            return entry
+    raise RuntimeError("changePubKey not found in ZkLighter ABI")
 
-    json_rpc_url = _require("JSON_RPC_ETHEREUM")
-    safe_address = _require("SAFE_ADDRESS")
+
+def main():
+    safe_address = Web3.to_checksum_address(_require("SAFE_ADDRESS"))
     account_index = int(_require("ACCOUNT_INDEX"))
     api_key_index = int(os.environ.get("API_KEY_INDEX", "2"))
     pubkey = bytes.fromhex(_require("PUB_KEY").removeprefix("0x"))
-    zk_lighter = os.environ.get("ZK_LIGHTER", LIGHTER_L1_CONTRACT)
-    simulate = os.environ.get("SIMULATE", "").lower() in ("true", "1", "yes")
+    zk_lighter = Web3.to_checksum_address(os.environ.get("ZK_LIGHTER", LIGHTER_L1_CONTRACT))
 
-    # Fail fast on a malformed pubkey before any network interaction.
+    # Fail fast on a malformed pubkey before printing anything.
     validate_lighter_pubkey(pubkey)
 
-    if simulate:
-        # Local imports so the fork-only deps are not needed for real runs.
-        from eth_defi.provider.anvil import fork_network_anvil
-        from eth_defi.safe.simulate import simulate_safe_execution_anvil
+    # Encode the calldata. No RPC connection is needed — a provider-less Web3 is
+    # enough for ABI encoding.
+    target, data = encode_change_pubkey(Web3(), account_index, api_key_index, pubkey, zk_lighter)
+    data_hex = "0x" + data.hex()
+    pubkey_hex = "0x" + pubkey.hex()
+    call = f"{target}.changePubKey({account_index}, {api_key_index}, {pubkey_hex})"
 
-        fork_block = int(os.environ.get("SIMULATE_FORK_BLOCK", "25000000"))
-        print(f"\nSIMULATE: forking Ethereum mainnet at block {fork_block}...")
-        anvil = fork_network_anvil(json_rpc_url, fork_block_number=fork_block)
-        try:
-            web3 = create_multi_provider_web3(anvil.json_rpc_url, default_http_timeout=(3.0, 180.0))
-            assert web3.eth.chain_id == 1
-            zk = get_deployed_contract(web3, "lighter/ZkLighter.json", web3.to_checksum_address(zk_lighter))
-            func = zk.functions.changePubKey(account_index, api_key_index, pubkey)
-            tx_hash = simulate_safe_execution_anvil(web3, safe_address, func)
-            assert_transaction_success_with_explanation(web3, tx_hash)
-            print(f"\nDry-run OK: ZkLighter.changePubKey would succeed from Safe {safe_address}")
-            print(f"  account_index={account_index} api_key_index={api_key_index} tx={tx_hash.hex()}")
-        finally:
-            anvil.close()
-        return
-
-    web3 = create_multi_provider_web3(json_rpc_url)
-    assert web3.eth.chain_id == 1, "Lighter changePubKey is on Ethereum mainnet"
-    private_key = _require("PRIVATE_KEY")
-
-    # safe_eth Safe object backed by the RPC.
-    from safe_eth.safe import Safe
-
-    safe = Safe(web3.to_checksum_address(safe_address), create_safe_ethereum_client(web3))
-
-    mode = os.environ.get("MODE", "propose").lower()
-    if mode == "execute":
-        tx_hash = execute_change_pubkey(web3, safe, private_key, account_index, api_key_index, pubkey, zk_lighter)
-        print(f"\nExecuted changePubKey: {tx_hash.hex()}")
-    elif mode == "propose":
-        safe_tx = propose_change_pubkey(web3, safe, private_key, account_index, api_key_index, pubkey, zk_lighter)
-        print(f"\nProposed changePubKey to the Safe Transaction Service.")
-        print(f"  safeTxHash (owners co-sign this): {safe_tx.safe_tx_hash.hex()}")
-    else:
-        raise ValueError(f"MODE must be 'propose' or 'execute', got '{mode}'")
+    lines = [
+        "Lighter changePubKey — Safe Transaction Builder instructions",
+        "",
+        "Propose this as a Safe transaction FROM the vault Safe (NOT through the",
+        "TradingStrategyModule). In the Safe{Wallet} Transaction Builder choose",
+        '"Custom data" and enter the To / value / Data below; owners then co-sign.',
+        "",
+        f"  Chain: Ethereum mainnet (chainId {ETHEREUM_CHAIN_ID})",
+        f"  Safe (from):     {safe_address}",
+        f"  To (target):     {target}",
+        f"  ETH value:       0",
+        f"  Function:        changePubKey(uint48,uint8,bytes)",
+        f"  Args:            accountIndex={account_index}, apiKeyIndex={api_key_index}, pubKey={pubkey_hex}",
+        f"  Call:            {call}",
+        f"  Data (calldata): {data_hex}",
+        "",
+        "  changePubKey ABI (for the Transaction Builder ABI mode):",
+        json.dumps(_change_pubkey_abi(), indent=2),
+    ]
+    print("\n".join(lines))
 
 
 if __name__ == "__main__":
