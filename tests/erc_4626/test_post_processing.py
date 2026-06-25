@@ -11,6 +11,52 @@ brotli = pytest.importorskip("brotli", reason="brotli not installed (cloudflare_
 from eth_defi.vault import post_processing
 
 
+def test_export_top_vaults_json_passes_pipeline_data_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Top-vaults export passes the pipeline data directory to its exporter module.
+
+    1. Stub the top-vaults JSON exporter and R2 upload
+    2. Run top-vaults export with a pipeline data directory
+    3. Assert the JSON exporter receives that directory and output path
+    """
+    # 1. Stub the top-vaults JSON exporter and R2 upload.
+    calls: list[dict] = []
+
+    def fake_main(**kwargs: object) -> None:
+        calls.append(kwargs)
+
+    upload_calls: list[Path] = []
+
+    def fake_upload_top_vaults_json_to_configured_buckets(**kwargs: object) -> bool:
+        output_path = kwargs["output_path"]
+        assert isinstance(output_path, Path)
+        upload_calls.append(output_path)
+        return True
+
+    monkeypatch.setattr(post_processing, "get_pipeline_data_dir", lambda: tmp_path)
+    monkeypatch.setattr(post_processing.top_vaults_json, "main", fake_main)
+    monkeypatch.setattr(post_processing, "create_r2_client", lambda **kwargs: object())
+    monkeypatch.setattr(post_processing, "_upload_top_vaults_json_to_configured_buckets", fake_upload_top_vaults_json_to_configured_buckets)
+    monkeypatch.setenv("R2_TOP_VAULTS_BUCKET_NAME", "top-vaults")
+    monkeypatch.setenv("R2_TOP_VAULTS_ACCESS_KEY_ID", "access-key")
+    monkeypatch.setenv("R2_TOP_VAULTS_SECRET_ACCESS_KEY", "secret-key")
+    monkeypatch.setenv("R2_TOP_VAULTS_ENDPOINT_URL", "https://example.r2.cloudflarestorage.com")
+
+    # 2. Run top-vaults export with a pipeline data directory.
+    success = post_processing.export_top_vaults_json()
+
+    # 3. Assert the JSON exporter receives that directory and output path.
+    assert success is True
+    assert len(calls) == 1
+    assert calls[0]["data_dir"] == tmp_path
+    assert calls[0]["vault_db_path"] == tmp_path / "vault-metadata-db.pickle"
+    assert calls[0]["parquet_path"] == tmp_path / "cleaned-vault-prices-1h.parquet"
+    assert calls[0]["output_path"] == tmp_path / "top_vaults_by_chain.json"
+    assert upload_calls == [tmp_path / "top_vaults_by_chain.json"]
+
+
 def test_upload_top_vaults_json_to_configured_buckets_continues_after_primary_failure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

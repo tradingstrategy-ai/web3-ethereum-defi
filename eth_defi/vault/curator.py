@@ -32,6 +32,7 @@ Curator YAML files use the shared feeder schema defined in
     name: Gauntlet
     role: curator
     website: https://www.gauntlet.xyz
+    curatorwatch: https://curatorwatch.com/curator/gauntlet
     twitter: gauntlet_xyz
     linkedin: gauntlet-xyz
     rss: https://medium.com/feed/gauntlet-networks
@@ -309,6 +310,9 @@ class CuratorInfo(TypedDict):
     #: Company website URL, or ``None`` if not configured in YAML.
     website: str | None
 
+    #: CuratorWatch profile URL, or ``None`` if not configured in YAML.
+    curatorwatch: str | None
+
     #: One-line description of the curator.
     short_description: str | None
 
@@ -382,6 +386,9 @@ class CuratorMetadata(TypedDict):
     #: Company website URL, or ``None``.
     website: str | None
 
+    #: CuratorWatch profile URL, or ``None``.
+    curatorwatch: str | None
+
     #: One-line description of the curator.
     short_description: str | None
 
@@ -438,6 +445,7 @@ def _load_curator_yaml(yaml_path: Path) -> CuratorInfo:
         slug=parsed["feeder-id"],
         name=parsed["name"],
         website=parsed.get("website"),
+        curatorwatch=parsed.get("curatorwatch"),
         short_description=parsed.get("short_description"),
         long_description=parsed.get("long_description"),
         twitter=parsed.get("twitter"),
@@ -788,11 +796,13 @@ def build_curator_metadata_json(yaml_path: Path, public_url: str = "") -> Curato
         )
         canonical = load_feeder_metadata(canonical_yaml)
         website = canonical.get("website")
+        curatorwatch = info["curatorwatch"] or canonical.get("curatorwatch")
         twitter_handle = canonical.get("twitter")
         linkedin_id = canonical.get("linkedin")
         rss = canonical.get("rss")
     else:
         website = info["website"]
+        curatorwatch = info["curatorwatch"]
         twitter_handle = info["twitter"]
         linkedin_id = info["linkedin"]
         rss = info["rss"]
@@ -809,6 +819,7 @@ def build_curator_metadata_json(yaml_path: Path, public_url: str = "") -> Curato
         slug=slug,
         name=info["name"],
         website=website,
+        curatorwatch=curatorwatch,
         short_description=info["short_description"],
         long_description=info["long_description"],
         twitter=twitter_url,
@@ -844,6 +855,7 @@ def _build_protocol_curator_entries(public_url: str = "") -> list[CuratorMetadat
                     slug=slug,
                     name=name,
                     website=None,
+                    curatorwatch=None,
                     short_description=None,
                     long_description=None,
                     twitter=None,

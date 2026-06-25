@@ -1,0 +1,24 @@
+feeder-id: defx
+name: Defx
+role: curator
+website: https://defx.com/
+curatorwatch: https://curatorwatch.com/curator/defx
+short_description: Defx is a decentralised perpetuals exchange with a custom Layer 1, unified liquidity and tokenised vault products.
+long_description: |
+  Defx documentation describes a platform for private perpetuals trading, multi-asset portfolio margin and one-to-one USD to USDC ramps.
+  The official overview also describes an Earn product where users can participate in tokenised vaults, including liquidity provisioning and curated strategies.
+  CuratorWatch tracks Defx as a low-AUM curator label for a single managed vault.
+
+# Evidence and background references.
+#
+# CuratorWatch summary evidence:
+# - Reported AUM: about $1.65M.
+# - Reported managed vaults: 1.
+# - Reported protocol: unknown.
+other-links:
+  - title: Defx documentation - official overview describing trading, Earn and tokenised vaults
+    url: https://docs.defx.com/docs
+  - title: Defx LinkedIn - official company profile describing Defx Labs
+    url: https://www.linkedin.com/company/defxofficial
+  - title: CuratorWatch - Defx curator profile with low-AUM vault evidence
+    url: https://curatorwatch.com/curator/defx

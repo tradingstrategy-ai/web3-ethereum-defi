@@ -93,8 +93,8 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 
 Core3 runs after EVM and native vault scans and before post-processing. This
-keeps the Core3 DuckDB closed before `vault-analysis-json.py` reads it and
-before `export-data-files.py` uploads it to R2.
+keeps the Core3 DuckDB closed before `eth_defi.vault.top_vaults_json` reads it
+and before `export-data-files.py` uploads it to R2.
 
 ### scan-prices.py
 
@@ -202,7 +202,8 @@ poetry run python scripts/erc-4626/export-protocol-metadata.py
 ### export-data-files.py
 
 Export production data files to Cloudflare R2: raw and cleaned price Parquet,
-vault metadata pickle, reader state pickle, and Core3 risk intelligence DuckDB.
+vault metadata pickle, reader state pickle, sticky vault export state JSON
+files, and Core3 risk intelligence DuckDB.
 
 ```shell
 source .local-test.env && poetry run python scripts/erc-4626/export-data-files.py
@@ -211,7 +212,8 @@ source .local-test.env && poetry run python scripts/erc-4626/export-data-files.p
 When `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` is configured, files are
 uploaded to both buckets. Daily `daily/YYYY-MM-DD/...` backup copies are created
 only in the alternative bucket. Missing files, including the Core3 DuckDB, are
-logged and skipped.
+logged and skipped. Existing `vault-export-state.json` is included so sticky
+qualification history is backed up with the rest of the production data set.
 
 | Variable | Description |
 |----------|-------------|
@@ -632,6 +634,8 @@ poetry run python scripts/erc-4626/identify-curators.py
 ### vault-analysis-json.py
 
 Multi-chain vault analysis with JSON export and lifetime metric analysis.
+The implementation lives in `eth_defi.vault.top_vaults_json`; the script is a
+compatibility wrapper for manual operator runs.
 
 Generates `top_vaults_by_chain.json` with the following top-level structure:
 
@@ -678,6 +682,30 @@ the vault post feed database at export time, and only includes curators present
 in the exported vaults. Each curator record includes up to 10 recent posts from
 Twitter, LinkedIn, and RSS feeds.
 
+The export is append-biased. Once a vault passes the production `MIN_TVL` peak
+TVL filter, it is recorded in a sticky state file and remains in later exports
+even if current metrics are temporarily missing, stale, or below the current
+threshold. Sticky state is always enabled. The default state file is
+`~/.tradingstrategy/vaults/vault-export-state.json` or, when
+`PIPELINE_DATA_DIR` is set, `<PIPELINE_DATA_DIR>/vault-export-state.json`.
+Both `scan-vaults-all-chains.py` and `post-process-prices.py` route
+top-vaults generation through this shared pipeline data directory.
+Manual scratch runs should set `VAULT_EXPORT_STATE_PATH` if they should not
+read or update the shared state file.
+
+Sticky fallback rows carry `sticky_export=true`; rows replayed from the stored
+fallback record also carry `stale_export=true` and
+`risk_possibly_stale=true`. Current rows that are old but still present remain
+exported with `stale_current_row=true` and `risk_possibly_stale=true`.
+
+Rows with the exact `Blacklisted` risk label are structurally suppressed and
+are not sticky-replayed. Sticky fallback records that no longer contain a safe
+vault identity are also structurally suppressed instead of being exported.
+
+A corrupt sticky state file aborts the top-vaults export instead of resetting
+qualification history. The post-processing wrapper reports this as `False`, the
+same boolean it uses for upload failures.
+
 #### Brotli-compressed R2 upload
 
 When the top-vaults JSON is uploaded to R2 (via the post-processing pipeline or
@@ -696,10 +724,18 @@ The `brotli` package is included in the `cloudflare_r2` poetry extra:
 poetry install -E cloudflare_r2
 ```
 
-In production, run with `OUTPUT_JSON` pointing to the upload path:
+In production, run with `OUTPUT_JSON` pointing to the upload path. This uses the
+shared sticky state file under the pipeline data directory:
 
 ```shell
 OUTPUT_JSON=~/.tradingstrategy/top_vaults_by_chain.json poetry run python scripts/erc-4626/vault-analysis-json.py
+```
+
+For local scratch exports, set both `OUTPUT_JSON` and `VAULT_EXPORT_STATE_PATH`
+to temporary paths:
+
+```shell
+OUTPUT_JSON=/tmp/top-vaults.json VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state.json poetry run python scripts/erc-4626/vault-analysis-json.py
 ```
 
 | Variable | Description |
@@ -708,6 +744,8 @@ OUTPUT_JSON=~/.tradingstrategy/top_vaults_by_chain.json poetry run python script
 | `CORE3_DATABASE_PATH` | Optional. Core3 DuckDB path. Default: `~/.tradingstrategy/vaults/core3/core3.duckdb`. |
 | `FEED_DB_PATH` | Optional. Vault post feed DuckDB path. Falls back to `DB_PATH` (used by the feed collector). Default: `~/.tradingstrategy/vaults/vault-post-database.duckdb`. |
 | `R2_VAULT_METADATA_PUBLIC_URL` | Optional. Public base URL for curator logo URLs in the export. |
+| `VAULT_EXPORT_STATE_PATH` | Optional. Explicit sticky export state path for scratch or alternate-pipeline runs. Defaults to `vault-export-state.json` under the data directory. |
+| `STICKY_STALE_WARNING_AGE_DAYS` | Optional. Age in days after which stale annotations and warnings are emitted. Default: 14. |
 
 After generating, upload to R2 with rclone:
 

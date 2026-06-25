@@ -3,6 +3,7 @@
 import datetime
 import os
 from pprint import pformat
+from types import SimpleNamespace
 from unittest.mock import DEFAULT, patch
 
 import flaky
@@ -13,7 +14,7 @@ from web3 import HTTPProvider, Web3
 
 from eth_defi.abi import ZERO_ADDRESS
 from eth_defi.compat import clear_middleware, create_http_provider
-from eth_defi.confirmation import NonceMismatch, wait_and_broadcast_multiple_nodes
+from eth_defi.confirmation import NonceMismatch, check_nonce_mismatch, format_node_block_diagnostic, wait_and_broadcast_multiple_nodes
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
@@ -353,3 +354,201 @@ def test_broadcast_and_wait_multiple_nonce_too_high(web3: Web3, deployer: str):
             node_switch_timeout=datetime.timedelta(seconds=1),
             check_nonce_validity=True,
         )
+
+
+# ---------------------------------------------------------------------------
+# Lagging-node nonce check (regression for HyperCore sequential-trade crash):
+# a single eventually-consistent fallback node lagging one tx behind must not
+# crash the strict nonce check. The most up-to-date node (highest block) is
+# authoritative; we only raise if the mismatch persists there.
+# ---------------------------------------------------------------------------
+
+
+def _hex(value: int) -> str:
+    return hex(value)
+
+
+def _node_responder(orig_make_request, block: int, nonce: int):
+    """Build a make_request side effect that pins this node's block + nonce.
+
+    Other RPC methods delegate to the original provider so the connection still works.
+    ``block`` / ``nonce`` may be callables to vary the answer across calls (catch-up).
+    """
+
+    def side_effect(method, params):
+        if method == "eth_blockNumber":
+            return {"jsonrpc": "2.0", "id": 1, "result": _hex(block() if callable(block) else block)}
+        if method == "eth_getTransactionCount":
+            return {"jsonrpc": "2.0", "id": 1, "result": _hex(nonce() if callable(nonce) else nonce)}
+        return orig_make_request(method, params)
+
+    return side_effect
+
+
+def test_check_nonce_mismatch_lagging_node_tolerated(web3: Web3, provider_1, provider_2, deployer: str):
+    """A lagging fallback node must not trigger a false NonceMismatch.
+
+    Reproduces the production crash: the active node lags one tx behind (reports nonce-1),
+    while another node is up to date. The most-advanced node is authoritative, so the check
+    passes instead of crashing.
+
+    1. Pin provider_1 (active) to a stale view: lower block, nonce 4.
+    2. Pin provider_2 to the up-to-date view: higher block, nonce 5.
+    3. Expect the signed nonce 5 to be accepted (no raise) because the highest-block node agrees.
+    """
+    expected_nonce = 5
+    tx = SimpleNamespace(address=deployer, nonce=expected_nonce)
+
+    # 1. provider_1 active but behind -> reports stale nonce 4 at an older block
+    se1 = _node_responder(provider_1.make_request, block=100, nonce=4)
+    # 2. provider_2 up to date -> nonce 5 at a newer block
+    se2 = _node_responder(provider_2.make_request, block=101, nonce=5)
+
+    with patch.object(provider_1, "make_request", side_effect=se1), patch.object(provider_2, "make_request", side_effect=se2):
+        # 3. Must not raise: most up-to-date node (provider_2) reports the expected nonce
+        check_nonce_mismatch(web3, [tx], retries=3, retry_delay=datetime.timedelta(0))
+
+
+def test_check_nonce_mismatch_happy_path_single_read(web3: Web3, provider_1, provider_2, deployer: str):
+    """The happy path stays a single read with no per-node fan-out.
+
+    1. The active node already reports the expected nonce.
+    2. Expect no raise and no eth_blockNumber sampling on either node.
+    """
+    expected_nonce = 5
+    tx = SimpleNamespace(address=deployer, nonce=expected_nonce)
+
+    block_calls = {"count": 0}
+
+    def responder(orig):
+        def side_effect(method, params):
+            if method == "eth_blockNumber":
+                block_calls["count"] += 1
+            if method == "eth_getTransactionCount":
+                return {"jsonrpc": "2.0", "id": 1, "result": _hex(expected_nonce)}
+            return orig(method, params)
+
+        return side_effect
+
+    se1 = responder(provider_1.make_request)
+    se2 = responder(provider_2.make_request)
+
+    with patch.object(provider_1, "make_request", side_effect=se1), patch.object(provider_2, "make_request", side_effect=se2):
+        # 1. Matching first read -> 2. no per-node sampling at all
+        check_nonce_mismatch(web3, [tx], retries=3, retry_delay=datetime.timedelta(0))
+
+    assert block_calls["count"] == 0
+
+
+def test_check_nonce_mismatch_recovers_after_retry(web3: Web3, provider_1, provider_2, deployer: str):
+    """All nodes initially lag, then one catches up on a later resample -> no raise.
+
+    1. Both nodes start at nonce 4 (behind the signed nonce 5).
+    2. After the first sample, the nodes advance to nonce 5 (and a newer block).
+    3. Expect no raise once a node catches up within the retry budget.
+    """
+    expected_nonce = 5
+    tx = SimpleNamespace(address=deployer, nonce=expected_nonce)
+
+    state = {"calls": 0}
+
+    def nonce_value():
+        # 1./2. Behind for the first sampling round, caught up afterwards
+        return 4 if state["calls"] < 1 else 5
+
+    def block_value():
+        return 100 if state["calls"] < 1 else 101
+
+    def bump_after(orig, block_fn, nonce_fn):
+        inner = _node_responder(orig, block=block_fn, nonce=nonce_fn)
+
+        def se(method, params):
+            result = inner(method, params)
+            if method == "eth_getTransactionCount":
+                state["calls"] += 1
+            return result
+
+        return se
+
+    se1 = bump_after(provider_1.make_request, block_value, nonce_value)
+    se2 = bump_after(provider_2.make_request, block_value, nonce_value)
+
+    with patch.object(provider_1, "make_request", side_effect=se1), patch.object(provider_2, "make_request", side_effect=se2):
+        # 3. Resolves on a later attempt instead of raising
+        check_nonce_mismatch(web3, [tx], retries=3, retry_delay=datetime.timedelta(0))
+
+
+def test_check_nonce_mismatch_genuine_desync_raises(web3: Web3, provider_1, provider_2, deployer: str):
+    """A genuine desync (most-advanced node disagrees) still raises, with diagnostic.
+
+    1. Every node, including the highest-block one, reports nonce 4 while we signed 5.
+    2. Expect NonceMismatch after retries.
+    3. Expect the per-node block/nonce diagnostic embedded in the error message.
+    """
+    tx = SimpleNamespace(address=deployer, nonce=5)
+
+    # 1. All nodes consistently report the wrong nonce
+    se1 = _node_responder(provider_1.make_request, block=101, nonce=4)
+    se2 = _node_responder(provider_2.make_request, block=101, nonce=4)
+
+    with patch.object(provider_1, "make_request", side_effect=se1), patch.object(provider_2, "make_request", side_effect=se2):
+        # 2. + 3. Raises and the message carries the diagnostic table
+        with pytest.raises(NonceMismatch, match="Per-node state"):
+            check_nonce_mismatch(web3, [tx], retries=2, retry_delay=datetime.timedelta(0))
+
+
+def test_check_nonce_mismatch_tie_disagreement_raises(web3: Web3, provider_1, provider_2, deployer: str):
+    """Same-height nodes disagreeing on the nonce is inconsistent -> raise, not guess.
+
+    1. Two nodes at the SAME highest block report different nonces (4 vs 5).
+    2. Even though one of them matches the signed nonce 5, the tie is inconsistent.
+    3. Expect NonceMismatch rather than arbitrarily trusting either node.
+    """
+    tx = SimpleNamespace(address=deployer, nonce=5)
+
+    # 1. Same block height, conflicting nonce
+    se1 = _node_responder(provider_1.make_request, block=101, nonce=4)
+    se2 = _node_responder(provider_2.make_request, block=101, nonce=5)
+
+    with patch.object(provider_1, "make_request", side_effect=se1), patch.object(provider_2, "make_request", side_effect=se2):
+        # 2. + 3. Inconsistent reading is never accepted
+        with pytest.raises(NonceMismatch):
+            check_nonce_mismatch(web3, [tx], retries=2, retry_delay=datetime.timedelta(0))
+
+
+def test_check_nonce_mismatch_batch_duplicate_raises(web3: Web3, deployer: str):
+    """A duplicate nonce within one batch is a local bug -> raise before any RPC.
+
+    1. Two transactions for the same address share nonce 5.
+    2. Expect NonceMismatch from the deterministic batch validation.
+    """
+    txs = [SimpleNamespace(address=deployer, nonce=5), SimpleNamespace(address=deployer, nonce=5)]
+
+    # 1. + 2. Duplicate detected locally, no node access required
+    with pytest.raises(NonceMismatch, match="Duplicate nonce"):
+        check_nonce_mismatch(web3, txs, retries=1, retry_delay=datetime.timedelta(0))
+
+
+def test_format_node_block_diagnostic_resilient(web3: Web3, provider_1, provider_2, deployer: str):
+    """The diagnostic lists every node and survives a node that errors.
+
+    1. provider_1 returns a normal block/nonce.
+    2. provider_2 raises on make_request.
+    3. Expect a multi-line table naming both nodes, with an ERROR row for the broken one.
+    """
+    # 1. healthy node
+    se1 = _node_responder(provider_1.make_request, block=101, nonce=5)
+
+    # 2. broken node
+    def se2(method, params):
+        if method in ("eth_blockNumber", "eth_getTransactionCount"):
+            raise ConnectionError("node down")
+        return provider_2.make_request(method, params)
+
+    with patch.object(provider_1, "make_request", side_effect=se1), patch.object(provider_2, "make_request", side_effect=se2):
+        diagnostic = format_node_block_diagnostic(web3, deployer)
+
+    # 3. Both nodes represented; broken one flagged, no exception escaped
+    assert "Per-node state" in diagnostic
+    assert "nonce=5" in diagnostic
+    assert "ERROR" in diagnostic

@@ -14,8 +14,11 @@ pattern and delegate calls to fuses and attached contracts to manage fees and re
 
 IPOR calls vault managers atomists. The scanner stores known atomist names as vault manager
 metadata so that curator detection can map IPOR vaults to the correct curator even when the
-vault name does not contain the curator brand. Until IPOR exposes atomists in its public vault
-API, this mapping uses a committed overlay derived from IPOR Fusion frontend metadata.
+vault name does not contain the curator brand. Manager names are fetched from IPOR-published
+metadata and cached locally: the customisation API ``curatorName`` field is preferred, with
+IPOR Fusion frontend atomist config used as a fallback while the API field has partial coverage.
+This fetch happens lazily through the IPOR vault offchain metadata accessor, so a normal vault
+scan fills ``manager_name`` when it first reads the vault's atomist metadata.
 
 Key features:
 
@@ -41,3 +44,4 @@ Links
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.ipor.vault
+   eth_defi.erc_4626.vault_protocol.ipor.offchain_metadata

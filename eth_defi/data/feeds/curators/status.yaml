@@ -1,0 +1,20 @@
+feeder-id: status
+name: Status
+role: curator
+curatorwatch: https://curatorwatch.com/curator/status
+website: https://status.network/
+short_description: Status Network is an Ethereum L2 project focused on gasless transactions, native-yield funding, and pre-deposit vaults.
+long_description: |
+  Status Network describes itself as an Ethereum L2 with gas-free transactions at scale, funded by native yield and fees. Its pre-deposit documentation describes vault systems used to bootstrap liquidity and early Karma distribution ahead of mainnet, including Aragon-built SNT, LINEA, and ETH vaults and Generic Protocol stablecoin vault infrastructure. The Status Network Hub lists pre-deposit vault withdrawals and accrued yield distribution for campaign participants. CuratorWatch tracks Status as the curator of the Status WETH Pre-Deposit Vault.
+twitter: StatusL2
+
+# Evidence and background references.
+other-links:
+  - title: Status Network homepage - gasless Ethereum L2 with native yield funding
+    url: https://status.network/
+  - title: Status Network docs - pre-deposit vault architecture and yield strategies
+    url: https://docs.status.network/overview/tokenomics/pre-deposits
+  - title: Status Network Hub - pre-deposit vault withdrawals and accrued yield distribution
+    url: https://hub.status.network/pre-deposits
+  - title: CuratorWatch - Status curator profile for the Status WETH Pre-Deposit Vault
+    url: https://curatorwatch.com/curator/status

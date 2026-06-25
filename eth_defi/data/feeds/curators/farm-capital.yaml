@@ -1,0 +1,21 @@
+feeder-id: farm-capital
+name: Farm Capital
+role: curator
+website: https://www.farmcapital.xyz/
+curatorwatch: https://curatorwatch.com/curator/farm-capital
+short_description: Farm Capital is a digital asset manager that actively manages liquidity across blockchain and DeFi platforms.
+long_description: |
+  Farm Capital describes itself as a digital asset manager managing liquidity across blockchain and DeFi platforms, specialising in yield farming opportunities, market-neutral arbitrage, quantitative trading and liquid venture investments. Its website presents mFARM as a flagship product formed through a partnership between Farm Capital and Midas, structured to track market-neutral yield strategies deployed in on-chain markets across multiple ecosystems. CuratorWatch tracks Farm Capital as the curator of the mFARM USDC vault on Polygon under protocol mfarm.
+twitter: FarmCapitalXYZ
+
+# Evidence and background references.
+#
+# CuratorWatch lists Farm Capital with approximately $2.1M AUM and one
+# Polygon vault, mFARM USDC, under protocol mfarm.
+other-links:
+  - title: Farm Capital website - official organisation description, mFARM product and social links
+    url: https://www.farmcapital.xyz/
+  - title: Midas app - official mFARM product page linked from Farm Capital
+    url: https://midas.app/mfarm
+  - title: CuratorWatch - Farm Capital curator profile with mFARM USDC on Polygon under protocol mfarm
+    url: https://curatorwatch.com/curator/farm-capital

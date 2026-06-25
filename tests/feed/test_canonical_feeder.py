@@ -167,7 +167,7 @@ def test_other_links_metadata_loads(tmp_path: Path):
     yaml_path = tmp_path / "curators" / "flowdesk.yaml"
     _write_yaml(
         yaml_path,
-        "feeder-id: flowdesk\nname: Flowdesk\nrole: curator\nipor-atomist: Flowdesk Labs\nshort_description: Flowdesk is an institutional market maker.\nlong_description: |\n  Flowdesk provides market making and liquidity services.\ntwitter: flowdesk_co\nother-links:\n  - title: Morpho forum evidence\n    url: https://forum.morpho.org/t/announcing-flowdesk-ausd-rwa-strategy/2213\n",
+        "feeder-id: flowdesk\nname: Flowdesk\nrole: curator\nipor-atomist: Flowdesk Labs\ncuratorwatch: https://curatorwatch.com/curator/flowdesk\nshort_description: Flowdesk is an institutional market maker.\nlong_description: |\n  Flowdesk provides market making and liquidity services.\ntwitter: flowdesk_co\nother-links:\n  - title: Morpho forum evidence\n    url: https://forum.morpho.org/t/announcing-flowdesk-ausd-rwa-strategy/2213\n",
     )
 
     metadata = load_feeder_metadata(yaml_path)
@@ -175,6 +175,7 @@ def test_other_links_metadata_loads(tmp_path: Path):
     assert metadata["short_description"] == "Flowdesk is an institutional market maker."
     assert metadata["long_description"] == "Flowdesk provides market making and liquidity services."
     assert metadata["ipor-atomist"] == "Flowdesk Labs"
+    assert metadata["curatorwatch"] == "https://curatorwatch.com/curator/flowdesk"
     assert metadata["other-links"] == [
         {
             "title": "Morpho forum evidence",
@@ -228,6 +229,32 @@ def test_metadata_inheritance_in_curator_export(tmp_path: Path):
     meta2 = curator_module.build_curator_metadata_json(tmp_path / "curators" / "abc-curator.yaml")
     assert meta2["twitter"] == "https://x.com/abctoken"
     assert meta2["linkedin"] is None
+
+
+def test_curatorwatch_metadata_export_prefers_alias_value(tmp_path: Path):
+    """CuratorWatch URL metadata is exported without creating a feed source.
+
+    1. Create a canonical stablecoin feeder with one CuratorWatch URL.
+    2. Create an alias curator feeder with its own CuratorWatch URL.
+    3. Assert the curator export prefers the alias URL.
+    4. Assert the alias still produces no tracked feed sources.
+    """
+
+    _write_yaml(
+        tmp_path / "stablecoins" / "usde.yaml",
+        "feeder-id: usde\nname: Ethena USDe\nrole: stablecoin\ncuratorwatch: https://curatorwatch.com/curator/usde\ntwitter: ethena\n",
+    )
+    _write_yaml(
+        tmp_path / "curators" / "ethena.yaml",
+        "feeder-id: ethena\nname: Ethena\nrole: curator\ncanonical-feeder-id: usde\ncuratorwatch: https://curatorwatch.com/curator/ethena\n",
+    )
+
+    metadata = curator_module.build_curator_metadata_json(tmp_path / "curators" / "ethena.yaml")
+    sources, _skipped, aliases = load_post_sources(tmp_path)
+
+    assert metadata["curatorwatch"] == "https://curatorwatch.com/curator/ethena"
+    assert {source.feeder_id for source in sources} == {"usde"}
+    assert {(alias.feeder_id, alias.role) for alias in aliases} == {("ethena", "curator")}
 
 
 def test_curator_metadata_export_includes_logo_urls(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

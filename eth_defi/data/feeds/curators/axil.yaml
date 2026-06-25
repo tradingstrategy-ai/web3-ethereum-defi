@@ -1,0 +1,23 @@
+feeder-id: axil
+name: Axil
+role: curator
+website: https://www.axil.pro/
+curatorwatch: https://curatorwatch.com/curator/axil
+short_description: Axil is a DeFi risk curator brand focused on on-chain risk management and growth optimisation in the RWA sector.
+long_description: |
+  Axil provides curated risk management frameworks that integrate with DeFi vaults
+  and combine on-chain risk analysis, growth opportunity structuring and transparent
+  disclosure. Its official site describes AXIL-curated vault parameters, liquidity
+  allocation rules and risk oversight across technical, economic, operational and
+  developmental risks. Axil's featured use cases include the rcPC Vault series and
+  pAlpha vault as examples of its curated risk framework for RWA and DeFi strategies.
+
+# Evidence and background references.
+#
+# CuratorWatch tracks Axil on Pharos with about $12M AUM across two USDC vaults:
+# Axil Consumer Credit Vault - 6M and Axil Consumer Credit Vault - 7D.
+other-links:
+  - title: AXIL - official website describing AXIL as a DeFi risk curator and featured use cases
+    url: https://www.axil.pro/
+  - title: CuratorWatch - Axil curator profile with Pharos vaults, AUM and managed vault evidence
+    url: https://curatorwatch.com/curator/axil

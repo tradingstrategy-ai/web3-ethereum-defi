@@ -27,6 +27,7 @@ from eth_defi.hibachi.constants import HIBACHI_CHAIN_ID, HIBACHI_DAILY_METRICS_D
 from eth_defi.hibachi.daily_metrics import HibachiDailyMetricsDatabase
 from eth_defi.hibachi.vault_data_export import merge_into_uncleaned_parquet as hibachi_merge_parquet
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
+from eth_defi.vault import top_vaults_json
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, get_pipeline_data_dir
 
 
@@ -524,7 +525,7 @@ def export_top_vaults_json(
 ) -> bool:
     """Generate the top-vaults lifetime-metrics JSON and upload to R2.
 
-    Runs :py:mod:`scripts/erc-4626/vault-analysis-json` against the
+    Runs :py:mod:`eth_defi.vault.top_vaults_json` against the
     active pipeline data directory to produce
     ``top_vaults_by_chain.json``, then uploads the result to the
     primary (public) ``R2_TOP_VAULTS_*`` bucket and, if configured,
@@ -555,13 +556,13 @@ def export_top_vaults_json(
 
     :param core3_db_path:
         Override for the Core3 risk intelligence DuckDB path. When ``None``,
-        ``vault-analysis-json.main()`` auto-discovers from
+        ``top_vaults_json.main()`` auto-discovers from
         ``CORE3_DATABASE_PATH`` env var or the default constant.
 
     :param feed_db_path:
         Override for the vault post feed DuckDB path, used to enrich the
         export with curator metadata and recent feed entries. When
-        ``None``, ``vault-analysis-json.main()`` auto-discovers from
+        ``None``, ``top_vaults_json.main()`` auto-discovers from
         ``FEED_DB_PATH``/``DB_PATH`` env vars or the default constant via
         :py:func:`~eth_defi.feed.database.resolve_feed_database_path`.
 
@@ -588,12 +589,7 @@ def export_top_vaults_json(
             output_path = base / "top_vaults_by_chain.json"
 
         logger.info("Generating top vaults JSON at %s", output_path)
-        spec = importlib.util.spec_from_file_location("vault_analysis_json", "scripts/erc-4626/vault-analysis-json.py")
-        assert spec is not None
-        assert spec.loader is not None
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        module.main(
+        top_vaults_json.main(
             data_dir=base,
             vault_db_path=vault_db_path,
             parquet_path=cleaned_path,
