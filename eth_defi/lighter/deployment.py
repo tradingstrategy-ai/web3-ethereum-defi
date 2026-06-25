@@ -19,7 +19,9 @@ security model.
 Authoritative docs:
 
 - Lighter: https://docs.lighter.xyz
-- ``ZkLighter`` on Etherscan:
+- Lighter L1 contract (proxy — the address operators whitelist and call):
+  https://etherscan.io/address/0x3b4d794a66304f130a4db8f2551b0070dfcf5ca7
+- ``ZkLighter`` implementation (verified source behind the proxy):
   https://etherscan.io/address/0x831ef69bab8af8b1037a4961b8d0674b124e7008
 """
 
