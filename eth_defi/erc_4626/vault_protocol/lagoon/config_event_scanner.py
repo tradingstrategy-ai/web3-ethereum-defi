@@ -87,6 +87,7 @@ GUARD_EVENT_ABI_FILES: tuple[str, ...] = (
     "guard/GmxLib.json",
     "guard/VeloraLib.json",
     "guard/HypercoreVaultLib.json",
+    "guard/LighterLib.json",
 )
 
 #: Configuration events we care about.  Events not in this set
@@ -129,6 +130,8 @@ GUARD_CONFIG_EVENT_NAMES: frozenset[str] = frozenset(
         "CoreDepositWalletApproved",
         "HypercoreVaultApproved",
         "HypercoreVaultRemoved",
+        # LighterLib
+        "LighterContractApproved",
     }
 )
 
@@ -155,6 +158,7 @@ _EVENT_ADDRESS_PARAMS: dict[str, list[tuple[str, str]]] = {
     "CoreWriterApproved": [("coreWriter", "Hypercore CoreWriter")],
     "CoreDepositWalletApproved": [("wallet", "Hypercore deposit wallet")],
     "HypercoreVaultApproved": [("vault", "Hypercore vault")],
+    "LighterContractApproved": [("zkLighter", "Lighter ZkLighter contract")],
 }
 
 
@@ -275,6 +279,8 @@ class ChainGuardConfig:
     hypercore_deposit_wallets: tuple[HexAddress, ...]
     #: Hypercore vault addresses
     hypercore_vaults: tuple[HexAddress, ...]
+    #: Lighter (ZkLighter L1) contract addresses
+    lighter_contracts: tuple[HexAddress, ...]
 
     # Raw call sites
     #: Whitelisted (target, selector_hex) tuples
@@ -346,6 +352,8 @@ class MultichainGuardConfig:
             _section(lines, "Hypercore core writers", cfg.hypercore_core_writers)
             _section(lines, "Hypercore deposit wallets", cfg.hypercore_deposit_wallets)
             _section(lines, "Hypercore vaults", cfg.hypercore_vaults)
+
+            _section(lines, "Lighter contracts", cfg.lighter_contracts)
 
             if cfg.call_sites:
                 lines.append(f"  Call sites: {len(cfg.call_sites)}")
@@ -729,6 +737,9 @@ def format_chain_config_detailed(
 
     if cfg.hypercore_vaults:
         sections.append(("Hypercore vaults", [_label(addr) for addr in cfg.hypercore_vaults]))
+
+    if cfg.lighter_contracts:
+        sections.append(("Lighter contracts", [_label(addr) for addr in cfg.lighter_contracts]))
 
     if cfg.call_sites:
         sections.append((f"Call sites: {len(cfg.call_sites)} whitelisted", []))
@@ -1114,6 +1125,9 @@ def _format_chain_config_markdown(
 
     if cfg.hypercore_vaults:
         sections.append(("Hypercore vaults", [_addr_labelled(a) for a in cfg.hypercore_vaults]))
+
+    if cfg.lighter_contracts:
+        sections.append(("Lighter contracts", [_addr_labelled(a) for a in cfg.lighter_contracts]))
 
     if cfg.call_sites:
         sections.append((f"Call sites: {len(cfg.call_sites)} whitelisted", []))
@@ -2101,6 +2115,7 @@ def _build_chain_config(
     hypercore_core_writers: set[HexAddress] = set()
     hypercore_deposit_wallets: set[HexAddress] = set()
     hypercore_vaults: set[HexAddress] = set()
+    lighter_contracts: set[HexAddress] = set()
     call_sites: set[tuple[HexAddress, str]] = set()
 
     for event in events:
@@ -2168,6 +2183,8 @@ def _build_chain_config(
             hypercore_vaults.add(args["vault"])
         elif name == "HypercoreVaultRemoved":
             hypercore_vaults.discard(args["vault"])
+        elif name == "LighterContractApproved":
+            lighter_contracts.add(args["zkLighter"])
 
         # Call sites
         elif name == "CallSiteApproved":
@@ -2198,6 +2215,7 @@ def _build_chain_config(
         hypercore_core_writers=tuple(sorted(hypercore_core_writers)),
         hypercore_deposit_wallets=tuple(sorted(hypercore_deposit_wallets)),
         hypercore_vaults=tuple(sorted(hypercore_vaults)),
+        lighter_contracts=tuple(sorted(lighter_contracts)),
         call_sites=tuple(sorted(call_sites)),
     )
 

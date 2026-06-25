@@ -45,6 +45,7 @@ from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.whitelist import GMXDeployment, resolve_gmx_market_labels
 from eth_defi.hotwallet import HotWallet
+from eth_defi.lighter.deployment import LighterDeployment, setup_lighter_whitelisting
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.deployment import DEFAULT_TX_CONFIRMATION_TIMEOUT, add_new_safe_owners, deploy_safe, deploy_safe_with_deterministic_address, fetch_safe_deployment
 from eth_defi.safe.execute import execute_safe_tx
@@ -268,6 +269,9 @@ class LagoonConfig:
 
     #: GMX perpetuals deployment for whitelisting
     gmx_deployment: GMXDeployment | None = None
+
+    #: Lighter (zk-rollup perps DEX, Ethereum L1) deployment for whitelisting
+    lighter_deployment: "LighterDeployment | None" = None
 
     #: CCTP V2 deployment for cross-chain USDC transfers
     cctp_deployment: CCTPDeployment | None = None
@@ -997,6 +1001,7 @@ def deploy_safe_trading_strategy_module(
     cowswap: bool = False,
     velora: bool = False,
     gmx_deployment: GMXDeployment | None = None,
+    lighter_deployment: "LighterDeployment | None" = None,
 ) -> Contract:
     """Deploy TradingStrategyModuleV0 for Safe and Lagoon.
 
@@ -1108,6 +1113,19 @@ def deploy_safe_trading_strategy_module(
             library_addresses["GmxLib"] = ZERO_ADDRESS
             logger.info("GmxLib not needed, linking with zero address")
 
+        if lighter_deployment:
+            lighter_lib = deploy_contract(
+                web3,
+                "guard/LighterLib.json",
+                deployer,
+                gas=guard_gas,
+            )
+            library_addresses["LighterLib"] = lighter_lib.address
+            logger.info("Deployed LighterLib at %s", lighter_lib.address)
+        else:
+            library_addresses["LighterLib"] = ZERO_ADDRESS
+            logger.info("LighterLib not needed, linking with zero address")
+
         if chain_id in (998, 999):  # Both testnet (998) and mainnet (999)
             # Only deploy if not already deployed via Forge
             logger.info("Deploying HypercoreVaultLib for HyperEVM chain %d", chain_id)
@@ -1203,6 +1221,7 @@ def setup_guard(
     cowswap: bool = False,
     velora: bool = False,
     gmx_deployment: GMXDeployment | None = None,
+    lighter_deployment: "LighterDeployment | None" = None,
     cctp_deployment: CCTPDeployment | None = None,
     hypercore_vaults: list[HexAddress | str] | None = None,
     hack_sleep=20.0,
@@ -1438,6 +1457,32 @@ def setup_guard(
     else:
         logger.info("Not whitelisted: GMX")
 
+    # Whitelist Lighter (zk-rollup perps DEX, Ethereum L1) deposits/withdrawals.
+    # Delegates to the canonical helper in eth_defi.lighter.deployment so the
+    # whitelisting logic lives in one place (shared with the Anvil-fork tests).
+    if lighter_deployment:
+
+        def _broadcast_and_assert(func: ContractFunction) -> HexBytes:
+            tx_hash = _broadcast(func)
+            assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
+            return tx_hash
+
+        # Wrap the Lagoon-independent rows into this module's WhitelistEntry
+        # (WhitelistEntry must NOT be imported by eth_defi.lighter.deployment).
+        lighter_rows = setup_lighter_whitelisting(
+            web3,
+            module=module,
+            owner=owner,
+            deployment=lighter_deployment,
+            safe_address=safe.address,
+            broadcast=_broadcast_and_assert,
+        )
+        for row in lighter_rows:
+            entries.append(WhitelistEntry(row.category, row.name, row.address))
+        logger.info("Lighter whitelisting complete: %d entries", len(lighter_rows))
+    else:
+        logger.info("Not whitelisted: Lighter")
+
     # Whitelist CCTP cross-chain USDC transfers
     if cctp_deployment:
         logger.info(
@@ -1584,6 +1629,7 @@ def deploy_automated_lagoon_vault(
     cowswap: bool = False,
     velora: bool = False,
     gmx_deployment: GMXDeployment | None = None,
+    lighter_deployment: "LighterDeployment | None" = None,
     cctp_deployment: CCTPDeployment | None = None,
     hypercore_vaults: list[HexAddress | str] | None = None,
     any_asset: bool = False,
@@ -1665,6 +1711,7 @@ def deploy_automated_lagoon_vault(
         cowswap = config.cowswap
         velora = config.velora
         gmx_deployment = config.gmx_deployment
+        lighter_deployment = config.lighter_deployment
         cctp_deployment = config.cctp_deployment
         any_asset = config.any_asset
         etherscan_api_key = config.etherscan_api_key
@@ -1936,6 +1983,7 @@ def deploy_automated_lagoon_vault(
         cowswap=cowswap,
         velora=velora,
         gmx_deployment=gmx_deployment,
+        lighter_deployment=lighter_deployment,
     )
 
     if not is_anvil(web3):
@@ -1960,6 +2008,7 @@ def deploy_automated_lagoon_vault(
         cowswap=cowswap,
         velora=velora,
         gmx_deployment=gmx_deployment,
+        lighter_deployment=lighter_deployment,
         cctp_deployment=cctp_deployment,
         hypercore_vaults=hypercore_vaults,
         erc_4626_vaults=erc_4626_vaults,

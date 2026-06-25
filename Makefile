@@ -51,6 +51,8 @@ guard:
 		-o \
 		-name "GmxLib.json" \
 		-o \
+		-name "LighterLib.json" \
+		-o \
 		-name "UniswapLib.json" \
 		-o \
 		-name "VeloraLib.json" \

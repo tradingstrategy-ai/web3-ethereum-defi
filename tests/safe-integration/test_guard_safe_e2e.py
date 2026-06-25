@@ -202,6 +202,7 @@ def uniswap_v2_whitelisted_trading_strategy_module(
             "CowSwapLib": ZERO_ADDRESS,
             "GmxLib": ZERO_ADDRESS,
             "HypercoreVaultLib": ZERO_ADDRESS,
+            "LighterLib": ZERO_ADDRESS,
         },
     )
 
@@ -265,6 +266,7 @@ def test_enable_safe_module(
             "CowSwapLib": ZERO_ADDRESS,
             "GmxLib": ZERO_ADDRESS,
             "HypercoreVaultLib": ZERO_ADDRESS,
+            "LighterLib": ZERO_ADDRESS,
         },
     )
 
@@ -449,6 +451,7 @@ def velora_whitelisted_trading_strategy_module(
             "CowSwapLib": ZERO_ADDRESS,
             "GmxLib": ZERO_ADDRESS,
             "HypercoreVaultLib": ZERO_ADDRESS,
+            "LighterLib": ZERO_ADDRESS,
             "UniswapLib": ZERO_ADDRESS,
         },
     )
