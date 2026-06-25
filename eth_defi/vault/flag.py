@@ -196,6 +196,10 @@ ETHEREALM_USDC_ILLIQUID = "Etherealm USDC is illiquid"
 
 APOSTRO_USDC_FRONTIER_ILLIQUID = "Apostro USDC Frontier is illiquid"
 
+HYUSDT0_HWHLP_ILLIQUID = "hyUSD₮0 (hwHLP) vault is illiquid"
+
+RESOLV_USDC_ILLIQUID = "Resolv USDC vault is illiquid"
+
 YIELDNEST_YNRWAX = """ynRWAx: Tokenized Australian residential real estate credit earning 11% APY, allocated to mortgage-backed loans on verified house-and-land developments. Made safe in collaboration with a fully licensed and insured fund manager, [Kimber Capital](https://kimbercapital.au/) (AFS Licence No. 425278).
 
 Fees: 0%.
@@ -496,6 +500,12 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xb7305d968ecd8a23a13ec01927e3f9588c7653b5": (VaultFlag.illiquid, ETHEREALM_USDC_ILLIQUID),
     # Borrowable USDC Deposit, SiloId: 178 (Ethereum)
     "0x93c8201c35666f9af8b3b943bad67b42ad0159a1": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # hyUSD₮0 (hwHLP) - 11 (Hyperliquid)
+    "0x2c910f67dbf81099e6f8e126e7265d7595dc20ad": (VaultFlag.illiquid, HYUSDT0_HWHLP_ILLIQUID),
+    # Resolv USDC (Ethereum)
+    "0xf0795c47fa58d00f5f77f4d5c01f31ee891e21b4": (VaultFlag.illiquid, RESOLV_USDC_ILLIQUID),
+    # Mainstreet USDC (msUSDC, Morpho on Ethereum)
+    "0xe3ba8f17fe581dd473e6699cfad04502998a57c7": (VaultFlag.malicious, MALICIOUS_VAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
