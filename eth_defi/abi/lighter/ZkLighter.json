@@ -1,0 +1,96 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "USDC_ASSET_INDEX",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint16",
+          "name": "_assetIndex",
+          "type": "uint16"
+        },
+        {
+          "internalType": "enum TxTypes.RouteType",
+          "name": "_routeType",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "deposit",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint48",
+          "name": "_accountIndex",
+          "type": "uint48"
+        },
+        {
+          "internalType": "uint16",
+          "name": "_assetIndex",
+          "type": "uint16"
+        },
+        {
+          "internalType": "enum TxTypes.RouteType",
+          "name": "_routeType",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint64",
+          "name": "_baseAmount",
+          "type": "uint64"
+        }
+      ],
+      "name": "withdraw",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_owner",
+          "type": "address"
+        },
+        {
+          "internalType": "uint16",
+          "name": "_assetIndex",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_baseAmount",
+          "type": "uint128"
+        }
+      ],
+      "name": "withdrawPendingBalance",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ]
+}

@@ -20,6 +20,15 @@
   "../enzyme": {
     "rev": "c9621dd5f8234bd45126772fc626252a38d46eee"
   },
+  "../guard/lib/forge-std": {
+    "rev": "36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3"
+  },
+  "../guard/lib/hyper-evm-lib": {
+    "rev": "97c76ca948947ee893acf558c9997c9087cac4a3"
+  },
+  "../guard/lib/openzeppelin-contracts": {
+    "rev": "0d5f54e69b2a2058bc98651a2e200f558c84a953"
+  },
   "../in-house/lib/openzeppelin-contracts": {
     "rev": "7e7060e00e107460fc57c178859d3cf0c6ac64ef"
   },
@@ -28,18 +37,6 @@
   },
   "../orderly-contract-evm": {
     "rev": "425cad49b4648d0d70fc2045a9fab22861a28e86"
-  },
-  "../safe-integration/lib/openzeppelin-contracts": {
-    "rev": "685136427d0f6fa4f4f1fe3d9975fa237ce59316"
-  },
-  "../safe-integration/lib/openzeppelin-contracts-upgradeable": {
-    "rev": "0d665b1d58581d153399158adc349410366061cd"
-  },
-  "../safe-integration/lib/safe-contracts": {
-    "rev": "f3af2a9a24aa47faea3dbd8ebcdf665694975a0f"
-  },
-  "../safe-integration/lib/zodiac": {
-    "rev": "18b7575bb342424537883f7ebe0a94cd7f3ec4f6"
   },
   "../sushiswap": {
     "rev": "ae7fbfda2319be51ec29f261f4e3d8d524597d00"
@@ -56,13 +53,16 @@
   "../velvet-core": {
     "rev": "5c7e8c4ab68cb962453cb1546627cbe1735673e7"
   },
-  "lib/forge-std": {
-    "rev": "36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3"
-  },
-  "lib/hyper-evm-lib": {
-    "rev": "97c76ca948947ee893acf558c9997c9087cac4a3"
-  },
   "lib/openzeppelin-contracts": {
-    "rev": "0d5f54e69b2a2058bc98651a2e200f558c84a953"
+    "rev": "685136427d0f6fa4f4f1fe3d9975fa237ce59316"
+  },
+  "lib/openzeppelin-contracts-upgradeable": {
+    "rev": "0d665b1d58581d153399158adc349410366061cd"
+  },
+  "lib/safe-contracts": {
+    "rev": "f3af2a9a24aa47faea3dbd8ebcdf665694975a0f"
+  },
+  "lib/zodiac": {
+    "rev": "18b7575bb342424537883f7ebe0a94cd7f3ec4f6"
   }
 }

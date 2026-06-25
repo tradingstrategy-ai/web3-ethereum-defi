@@ -32,3 +32,14 @@ fee model documentation, see
    eth_defi.lighter.vault_data_export
    eth_defi.lighter.session
    eth_defi.lighter.constants
+   eth_defi.lighter.deployment
+   eth_defi.lighter.testing
+
+Guard integration
+~~~~~~~~~~~~~~~~~~
+
+For depositing into and withdrawing from Lighter through an asset-managed
+Gnosis Safe governed by ``GuardV0`` / ``TradingStrategyModuleV0``, see
+:py:mod:`eth_defi.lighter.deployment` and the
+`README-lighter-guard.md <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/lighter/README-lighter-guard.md>`__
+architecture and security notes.
