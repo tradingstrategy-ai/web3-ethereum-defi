@@ -45,6 +45,30 @@ Real deployment
 Without ``SIMULATE``, the script connects to Ethereum mainnet and signs with
 ``LIGHTER_PRIVATE_KEY``. Start with small amounts and verify contract addresses.
 
+Why there is no ``NETWORK=testnet`` mode
+----------------------------------------
+
+Lighter does run a public test network (https://testnet.app.lighter.xyz/, info
+at https://lightertest.net/) supporting perpetual-futures (and, more recently,
+spot) markets. However, this script intentionally has **no testnet branch**
+(unlike the GMX tutorial's Arbitrum-Sepolia mode), for two reasons:
+
+- The documented way to get funds on Lighter testnet is a **claim portal /
+  faucet** ("connect an EVM wallet, generate a test address, claim simulated
+  liquidity with one click") — i.e. balances are granted directly, not by
+  depositing to the L1 ``ZkLighter`` deposit contract this guard whitelists.
+- As of writing, Lighter's public docs do **not** publish a testnet
+  ``ZkLighter`` deposit-contract address or its chain id, so a testnet deposit
+  flow cannot be wired up without guessing.
+
+Because this integration's whole point is the on-chain L1 deposit/withdraw
+custody path, the reliable way to exercise it is ``SIMULATE`` against an
+Ethereum-mainnet Anvil fork (which hits the real mainnet ``ZkLighter``). To add
+a real ``NETWORK=testnet`` mode, you would need a confirmed testnet
+``ZkLighter`` deposit-contract address + chain id (e.g. on Sepolia) from
+Lighter's API docs / SDK / team; then mirror the GMX tutorial's testnet branch.
+Verify the latest situation at https://docs.lighter.xyz before relying on this.
+
 Environment variables
 ----------------------
 
