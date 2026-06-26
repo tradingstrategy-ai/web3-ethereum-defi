@@ -145,6 +145,24 @@ USDC and credits the Safe's Lighter account.
 
 Funds are released on-chain directly to the Safe address.
 
+## Account valuation (off-chain)
+
+Lighter account NAV is read off-chain from the public account API, not through
+the guard. Use `eth_defi.lighter.valuation.fetch_lighter_total_equity()` with
+the Safe's Lighter account index to fetch `LighterEquity`.
+
+`LighterEquity.get_total()` returns Lighter's canonical `total_asset_value`
+field in USDC. The helper also exposes collateral, unrealised PnL, available
+balance and margin requirements so downstream systems, such as trade-executor,
+can report account state and size withdrawals without duplicating Lighter API
+parsing.
+
+The Lagoon + Lighter manual tutorial
+`scripts/lagoon/lagoon-lighter-example.py` uses this module after the ETH
+round-trip and before requesting the secure Lighter withdrawal. The guard still
+only authorises the L1 custody calls described above; valuation and trading are
+off-chain reads/signatures.
+
 ## Account creation (deposit-driven — not a guard call)
 
 Lighter's

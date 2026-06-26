@@ -24,6 +24,7 @@ The guarded Lagoon/Safe surface supports the manual mainnet custody lifecycle:
 - Safe-owned ``changePubKey`` API-key registration
 - Lagoon-vault helpers for USDC deposits, secure Lighter withdrawals and
   pending-balance claims
+- Account valuation via public Lighter account NAV fields
 - Small manual ETH perpetual round trips through the optional Lighter SDK
 
 Tutorials
@@ -40,6 +41,7 @@ fee model documentation, see
    :recursive:
 
    eth_defi.lighter.vault
+   eth_defi.lighter.valuation
    eth_defi.lighter.daily_metrics
    eth_defi.lighter.vault_data_export
    eth_defi.lighter.session

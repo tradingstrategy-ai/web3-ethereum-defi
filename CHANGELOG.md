@@ -1,5 +1,7 @@
 # Current
 
+- feat: Add Lighter account valuation helper for fetching total equity / NAV from live account state, with downstream trade-executor integration coverage and the Lagoon + Lighter manual tutorial now using this helper for withdrawal sizing (2026-06-26)
+
 - feat: Expand the Lagoon + Lighter manual test into a full mainnet lifecycle script with automatic Lagoon deployment JSON saving/loading, existing-vault resume support, live Lighter minimum sizing, Safe-owned API-key registration, ETH long open/close, Lighter withdrawal, Lagoon redemption back to the hot wallet, and reusable `eth_defi.lighter.api` / `eth_defi.lighter.lagoon` helpers (2026-06-26)
 
 - feat: Add Lighter API-key registration (`changePubKey`) tooling for a Safe-controlled (Lagoon vault) account — `eth_defi.lighter.pubkey` (validate / encode / build / execute) and a CLI `scripts/lighter/lagoon-lighter-change-pubkey.py` that prints the transaction (To / value / Data + ABI) for the Safe{Wallet} Transaction Builder so the owners co-sign. This is a privileged Safe-owner action, deliberately outside the asset-manager guard whitelist. Includes Anvil-fork integration tests (registration is bound to `msg.sender`) (2026-06-25)
