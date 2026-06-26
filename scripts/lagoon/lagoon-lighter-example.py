@@ -113,8 +113,6 @@ Environment variables
     Optional. Used by Lagoon deployment for source verification.
 """
 
-from __future__ import annotations
-
 import asyncio
 import json
 import logging

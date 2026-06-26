@@ -12,8 +12,6 @@ Authoritative documentation:
   https://etherscan.io/address/0x3b4d794a66304f130a4db8f2551b0070dfcf5ca7
 """
 
-from __future__ import annotations
-
 import logging
 import time
 from decimal import Decimal

@@ -13,8 +13,6 @@ Authoritative documentation:
   https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import time
