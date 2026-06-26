@@ -3,8 +3,8 @@
 Creating a Lighter API key is two steps:
 
 1. **Generate** the API keypair off-chain (the `lighter-python` SDK
-   ``SignerClient``; no L1 private key needed). Indices 2-254 are user keys;
-   0-1 are reserved for the web/mobile UI.
+   ``SignerClient``; no L1 private key needed). Indices 4-254 are user keys;
+   0-3 are reserved for the web/mobile UI.
 2. **Register** its public key with the Lighter account on L1 via
    ``ZkLighter.changePubKey(accountIndex, apiKeyIndex, pubKey)``. For a Gnosis
    Safe / Lagoon vault this is done as a **Safe transaction** — Lighter
@@ -36,6 +36,7 @@ Authoritative docs:
 
 import logging
 
+from eth_account import Account
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from safe_eth.safe import Safe
@@ -43,7 +44,9 @@ from safe_eth.safe.safe_tx import SafeTx
 from web3 import Web3
 
 from eth_defi.abi import get_deployed_contract
+from eth_defi.hotwallet import HotWallet
 from eth_defi.lighter.constants import LIGHTER_L1_CONTRACT
+from eth_defi.safe.execute import execute_safe_tx
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
@@ -64,9 +67,9 @@ MAX_API_KEY_INDEX = 254
 
 #: Minimum user API-key index.
 #:
-#: Indices 0-1 are reserved for the Lighter web/mobile interfaces; user keys are
-#: 2-254. We refuse to build a transaction targeting a reserved slot.
-MIN_API_KEY_INDEX = 2
+#: Indices 0-3 are reserved for the Lighter web/mobile interfaces; user keys are
+#: 4-254. We refuse to build a transaction targeting a reserved slot.
+MIN_API_KEY_INDEX = 4
 
 
 def validate_lighter_pubkey(pubkey: bytes) -> None:
@@ -95,7 +98,8 @@ def validate_lighter_pubkey(pubkey: bytes) -> None:
             all_zero = False
 
     if all_zero:
-        raise ValueError("Lighter pubkey must not be all zero")
+        msg = "Lighter pubkey must not be all zero"
+        raise ValueError(msg)
 
 
 def encode_change_pubkey(
@@ -116,7 +120,7 @@ def encode_change_pubkey(
         The Lighter account index whose key is being set.
 
     :param api_key_index:
-        The API-key slot (2-254 for user keys).
+        The API-key slot (4-254 for user keys).
 
     :param pubkey:
         The API-key public key (see :py:func:`validate_lighter_pubkey`).
@@ -128,7 +132,7 @@ def encode_change_pubkey(
         ``(zk_lighter_address, calldata)``.
     """
     if not (MIN_API_KEY_INDEX <= api_key_index <= MAX_API_KEY_INDEX):
-        raise ValueError(f"api_key_index must be {MIN_API_KEY_INDEX}..{MAX_API_KEY_INDEX} (0-1 reserved for web/mobile), got {api_key_index}")
+        raise ValueError(f"api_key_index must be {MIN_API_KEY_INDEX}..{MAX_API_KEY_INDEX} (0-3 reserved for web/mobile), got {api_key_index}")
     validate_lighter_pubkey(pubkey)
 
     zk_lighter = Web3.to_checksum_address(zk_lighter)
@@ -137,7 +141,7 @@ def encode_change_pubkey(
     return zk_lighter, HexBytes(data)
 
 
-def build_change_pubkey_safe_tx(
+def build_change_pubkey_safe_tx(  # noqa: PLR0917
     web3: Web3,
     safe: Safe,
     account_index: int,
@@ -158,7 +162,7 @@ def build_change_pubkey_safe_tx(
     return safe.build_multisig_tx(zk_lighter, 0, bytes(data))
 
 
-def execute_change_pubkey(
+def execute_change_pubkey(  # noqa: PLR0917
     web3: Web3,
     safe: Safe,
     owner_private_key: str,
@@ -166,6 +170,7 @@ def execute_change_pubkey(
     api_key_index: int,
     pubkey: bytes,
     zk_lighter: HexAddress | str = LIGHTER_L1_CONTRACT,
+    hot_wallet: HotWallet | None = None,
 ) -> HexBytes:
     """Build, sign and execute the ``changePubKey`` Safe transaction immediately.
 
@@ -177,12 +182,25 @@ def execute_change_pubkey(
     :param owner_private_key:
         The executing owner's private key (``0x``-prefixed).
 
+    :param hot_wallet:
+        Optional owner wallet for nonce allocation. Use this in scripts that
+        already submit transactions through :class:`~eth_defi.hotwallet.HotWallet`
+        to avoid stale RPC nonce reads.
+
     :return:
         The executed transaction hash.
     """
     safe_tx = build_change_pubkey_safe_tx(web3, safe, account_index, api_key_index, pubkey, zk_lighter)
     safe_tx.sign(owner_private_key)
-    tx_hash, _ = safe_tx.execute(tx_sender_private_key=owner_private_key)
+    gas_price = max(web3.eth.gas_price * 3, 2_000_000_000)
+    tx_nonce = None if hot_wallet else web3.eth.get_transaction_count(Account.from_key(owner_private_key).address, "pending")
+    tx_hash, _ = execute_safe_tx(
+        safe_tx,
+        tx_sender_private_key=owner_private_key,
+        tx_gas_price=gas_price,
+        tx_nonce=tx_nonce,
+        hot_wallet=hot_wallet,
+    )
     assert_transaction_success_with_explanation(web3, tx_hash)
     logger.info("Lighter changePubKey executed: %s", tx_hash.hex())
     return tx_hash

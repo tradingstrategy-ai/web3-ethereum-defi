@@ -1,6 +1,6 @@
 # To install:
 #
-# poetry install -E data -E test -E docs -E hypersync -E ccxt -E cloudflare_r2 -E duckdb
+# poetry install -E data -E test -E docs -E hypersync -E ccxt -E lighter -E cloudflare_r2 -E duckdb
 #
 # 
 
@@ -136,6 +136,8 @@ zstandard = "^0.25.0"
 # Very large dependency.
 boto3 = {version = "^1.41.0", optional = true}
 ccxt = {version = "^4.5.16", optional = true}
+# Lighter SDK is needed by the Lagoon + Lighter manual trading lifecycle script.
+lighter-sdk = {version = "^1.1.1", optional = true}
 
 # Timestamp cache
 duckdb = {version = "^1.4.2", optional = true}
@@ -189,6 +191,7 @@ docs = [
 test = ["pytest-xdist"]
 
 ccxt = ["ccxt"]
+lighter = ["lighter-sdk"]
 cloudflare_r2 = ["boto3", "brotli"]
 duckdb = ["duckdb"]
 posts = ["duckdb", "feedparser", "tweepy"]
