@@ -260,7 +260,14 @@ The actual validation logic lives in [GmxLib.sol](../../contracts/guard/src/lib/
 | `sendWnt(receiver, amount)` | `receiver == orderVault` (hardcoded per router during whitelisting) |
 | `sendTokens(token, receiver, amount)` | `receiver == orderVault`; token must pass `isAllowedAsset()` (unless `anyAsset`) |
 | `createOrder(params)` | See below |
+| `cancelOrder(key)` | Accepted, no parameter checks — GMX enforces `order.account == caller`, so the vault can only cancel its own orders and any released collateral returns to the order's receiver |
+| `updateOrder(key, …)` | Accepted, no parameter checks — only changes order economics on the vault's own order (the guard does not validate `createOrder` economics either) |
+| `claimFundingFees(markets, tokens, receiver)` | `receiver` must pass `isAllowedReceiver()` |
+| `claimAffiliateRewards(markets, tokens, receiver)` | `receiver` must pass `isAllowedReceiver()` |
+| `claimCollateral(markets, tokens, timeKeys, receiver)` | `receiver` must pass `isAllowedReceiver()` |
 | Unknown selector | **Reverts** — no unrecognised calls allowed |
+
+`cancelOrder` and `updateOrder` move no funds out of the Safe, so they carry no parameter checks. The `claim*` functions route claimed tokens to a caller-supplied `receiver`, which is a fund-flow destination — so the receiver must be a whitelisted receiver (the Safe), exactly like `createOrder`. This is enforced regardless of `anyAsset`. See [issue #1050](https://github.com/tradingstrategy-ai/web3-ethereum-defi/issues/1050) for the original `cancelOrder` gap.
 
 For `createOrder`, the params struct is ABI-decoded and the following fields are checked:
 
@@ -338,6 +345,7 @@ However, the asset manager **cannot steal funds** because:
 | `sendWnt(attacker, amount)` in multicall | Receiver must equal orderVault |
 | `sendTokens(token, attacker, amount)` | Receiver must equal orderVault |
 | Inject unknown function in multicall | Unknown selectors revert |
+| `claimFundingFees`/`claimCollateral`/`claimAffiliateRewards` to attacker | `receiver` must pass `isAllowedReceiver()` |
 | Short calldata to read garbage | `calls[i].length >= 4` check |
 | Batch valid + invalid orders | Loop validates ALL calls; any failure reverts |
 | `anyAsset` to bypass receiver checks | `anyAsset` only bypasses asset/market checks, not receiver checks |

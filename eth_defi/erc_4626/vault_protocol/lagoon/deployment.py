@@ -32,6 +32,7 @@ from web3 import Web3
 from web3._utils.events import EventLogErrorFlags
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
+from web3.exceptions import ContractLogicError
 
 from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.abi import ZERO_ADDRESS, ZERO_ADDRESS_STR, encode_function_call, encode_multicalls, get_deployed_contract
@@ -65,6 +66,16 @@ DEFAULT_RATE_UPDATE_COOLDOWN = 86400
 DEFAULT_MANAGEMENT_RATE = 200
 
 DEFAULT_PERFORMANCE_RATE = 2000
+
+#: Safety multiplier applied to the node ``eth_estimateGas`` result for guard
+#: setup / deployment broadcasts.
+#:
+#: Some L2s — Arbitrum in particular — under-estimate ``eth_estimateGas`` for
+#: simple guard-configuration calls (e.g. ``allowReceiver``), causing the
+#: transaction to revert on-chain with "out of gas" even though the estimate
+#: was accepted.  A multiplier on the estimate avoids this; the sender is still
+#: only charged for gas actually used, so over-provisioning the limit is free.
+DEFAULT_DEPLOYMENT_GAS_MULTIPLIER = 2.0
 
 
 CONTRACTS_ROOT = Path(os.path.dirname(__file__)) / ".." / ".." / ".." / ".." / "contracts"
@@ -1812,7 +1823,17 @@ def deploy_automated_lagoon_vault(
         if isinstance(deployer, HotWallet):
             # Path must be taken with prod deployers
             deployer.sync_nonce(web3)
-            tx_hash = deployer.transact_and_broadcast_with_contract(bound_func)
+            # Apply a safety multiplier over the node's gas estimate. On Arbitrum
+            # (incl. Sepolia) eth_estimateGas under-estimates guard-setup calls
+            # like allowReceiver, which then revert on-chain with "out of gas".
+            # Falls back to the default auto-estimate if estimation raises.
+            gas_limit = None
+            try:
+                estimated_gas = bound_func.estimate_gas({"from": deployer.address})
+                gas_limit = int(estimated_gas * DEFAULT_DEPLOYMENT_GAS_MULTIPLIER)
+            except (ValueError, ContractLogicError) as e:
+                logger.warning("Gas estimation failed for %s, using node auto-estimate: %s", bound_func.fn_name, e)
+            tx_hash = deployer.transact_and_broadcast_with_contract(bound_func, gas_limit=gas_limit)
             assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
             logger.info("Sleeping for 2 seconds to wait for nonce to propagate")
             time.sleep(2)
