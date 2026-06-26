@@ -18,7 +18,7 @@ resulting public key as ``PUB_KEY`` (40-byte hex).
 
 Example::
 
-    SAFE_ADDRESS=0xYourSafe ACCOUNT_INDEX=12345 API_KEY_INDEX=2 \
+    SAFE_ADDRESS=0xYourSafe ACCOUNT_INDEX=12345 API_KEY_INDEX=4 \
         PUB_KEY=0x0101...<40 bytes> \
         python scripts/lighter/lagoon-lighter-change-pubkey.py
 
@@ -27,7 +27,7 @@ Environment variables
 
 ``SAFE_ADDRESS``   The Lagoon vault's Gnosis Safe (the Lighter account owner). Required.
 ``ACCOUNT_INDEX``  The Lighter account index. Required.
-``API_KEY_INDEX``  API-key slot, 2-254 (0-1 reserved). Default 2.
+``API_KEY_INDEX``  API-key slot, 4-254 (0-3 reserved). Default 4.
 ``PUB_KEY``        New API-key public key, 40-byte hex. Required.
 ``ZK_LIGHTER``     ZkLighter contract address. Default: Lighter mainnet proxy.
 """
@@ -58,13 +58,14 @@ def _change_pubkey_abi() -> dict:
     for entry in abi:
         if entry.get("name") == "changePubKey":
             return entry
-    raise RuntimeError("changePubKey not found in ZkLighter ABI")
+    msg = "changePubKey not found in ZkLighter ABI"
+    raise RuntimeError(msg)
 
 
 def main():
     safe_address = Web3.to_checksum_address(_require("SAFE_ADDRESS"))
     account_index = int(_require("ACCOUNT_INDEX"))
-    api_key_index = int(os.environ.get("API_KEY_INDEX", "2"))
+    api_key_index = int(os.environ.get("API_KEY_INDEX", "4"))
     pubkey = bytes.fromhex(_require("PUB_KEY").removeprefix("0x"))
     zk_lighter = Web3.to_checksum_address(os.environ.get("ZK_LIGHTER", LIGHTER_L1_CONTRACT))
 
@@ -88,8 +89,8 @@ def main():
         f"  Chain: Ethereum mainnet (chainId {ETHEREUM_CHAIN_ID})",
         f"  Safe (from):     {safe_address}",
         f"  To (target):     {target}",
-        f"  ETH value:       0",
-        f"  Function:        changePubKey(uint48,uint8,bytes)",
+        "  ETH value:       0",
+        "  Function:        changePubKey(uint48,uint8,bytes)",
         f"  Args:            accountIndex={account_index}, apiKeyIndex={api_key_index}, pubKey={pubkey_hex}",
         f"  Call:            {call}",
         f"  Data (calldata): {data_hex}",
