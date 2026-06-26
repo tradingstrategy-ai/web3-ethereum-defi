@@ -10,10 +10,10 @@ the GMX (`eth_defi/gmx/README-GMX-Lagoon.md`) and Hypercore
 (`docs/README-Hypercore-guard.md`) guard integrations.
 
 > Guard scope: **deposit / withdraw only** (the on-chain L1 custody flow).
-> Account registration is off-chain (EIP-712 / EIP-1271 Safe signature, no guard
-> call). On-book trading (`createOrder`) and trading-key rotation
-> (`changePubKey`) happen off-chain / are out of scope for the guard (a follow-up
-> may add on-chain order validation to `LighterLib`).
+> Lighter account creation happens when the Safe receives its first credited
+> deposit. On-book trading (`createOrder`) is signed with the Lighter API key,
+> and trading-key rotation (`changePubKey`) is a Safe-owner setup action outside
+> the asset-manager guard.
 
 ## Why a Safe can use Lighter
 
@@ -23,10 +23,10 @@ smart-contract wallet, so a Safe multisig can custody funds on Lighter:
 
 - **Deposits / withdrawals** are ordinary L1 contract calls the Safe can make
   through the module.
-- **Account linking** ties a Lighter account to the Safe address via an
-  off-chain Safe signature (EIP-712 / EIP-1271, no gas). The day-to-day L2
-  trading key is delegated separately; its on-L1 rotation (`changePubKey`) is
-  out of scope for this guard whitelist.
+- **Account creation** is deposit-driven: crediting the Safe address on Lighter
+  creates a master account index after the deposit is processed. The day-to-day
+  L2 trading key is delegated separately; its on-L1 rotation (`changePubKey`)
+  is out of scope for this guard whitelist.
 - **Funds stay in the L1 contract** until withdrawn with a valid zk-proof +
   the controlling address, so withdrawals remain Safe-gated.
 
@@ -86,7 +86,8 @@ Safe is a valid recipient (same requirement as `whitelistGMX`).
 | `0x2f25807e` | `withdrawPendingBalance(address _owner, uint16 _assetIndex, uint128)` | `isAllowedReceiver(_owner)` (Safe) **and** `_assetIndex` ∈ allowed assets |
 
 `changePubKey(uint48,uint8,bytes)` (`0x17010c68`) is **not** whitelisted — it is
-trading-key rotation, a follow-up that needs an account-index/API-key policy.
+trading-key rotation and must be executed as an explicit Safe-owner setup
+transaction, not by the asset-manager hot wallet.
 
 ## Fund-flow security model
 
@@ -144,26 +145,34 @@ USDC and credits the Safe's Lighter account.
 
 Funds are released on-chain directly to the Safe address.
 
-## Account registration (off-chain — not a guard call)
+## Account creation (deposit-driven — not a guard call)
 
-Linking a Lighter account to the Safe is done **off-chain** by signing a
-message with the Safe (EIP-712 / EIP-1271, no gas, no on-chain transaction).
-The Safe becomes the L1 root owner of the Lighter account. This step does not
-go through the guard.
+Lighter's
+[Create accounts programmatically](https://apidocs.lighter.xyz/docs/create-accounts-programmatically)
+documentation says an account can be created by depositing assets to Lighter.
+After mainnet crediting completes, a master account index is generated for the
+credited L1 address; the index can be checked through `addressToAccountIndex`,
+`account` or `accountsByL1Address`. For a Lagoon vault, the credited L1 address
+is the Safe, so the Safe becomes the account owner. No separate guard call is
+involved.
 
 Day-to-day trading is then done off-chain via a delegated L2 trading key. On
 L1, that key is rotated with `changePubKey` — which is **out of scope** for
-this guard whitelist (a follow-up needing an account-index/API-key policy). Do
-not confuse `changePubKey` (trading-key rotation) with account registration.
-(Confirm the exact off-chain linking flow against
-[docs.lighter.xyz](https://docs.lighter.xyz).)
+this guard whitelist. Do not confuse `changePubKey` (trading-key rotation) with
+account creation.
 
 ## Creating an API key for the vault (changePubKey)
 
 Day-to-day trading uses an off-chain L2 API key. Creating one is two steps:
 
 1. **Generate** the API keypair off-chain (the `lighter-python` SDK; no L1 key
-   needed). Indices 2–254 are user keys; 0–1 are reserved for the web/mobile UI.
+   needed). Use indices 4–254 for automated keys: Lighter's dedicated
+   [API keys](https://apidocs.lighter.xyz/docs/api-keys) page says `{0,1,2,3}`
+   are reserved for desktop/mobile interfaces and repeats that these front-end
+   keys cannot be marked maker-only. Lighter's
+   [Get Started](https://apidocs.lighter.xyz/docs/get-started) page currently
+   says 2–254; this integration follows the stricter dedicated API-key page to
+   avoid overwriting keys used by the front-end.
 2. **Register** its public key on L1 via
    `ZkLighter.changePubKey(accountIndex, apiKeyIndex, pubKey)` — for a Safe this
    is a **Safe transaction** (Lighter recommends the on-chain ChangePubKey for
@@ -216,8 +225,8 @@ tests reuse the same function.
   convenience helper or multicall batching like
   `setup_hypercore_whitelisting`.
 - **Deposit / withdraw only.** On-book trading (`createOrder`) and trading-key
-  rotation (`changePubKey`) are out of scope; trading happens off-chain via the
-  Lighter L2 API. See the manual tutorial
+  rotation (`changePubKey`) are out of guard scope; trading happens off-chain
+  via the Lighter L2 API. See the manual tutorial
   `scripts/lagoon/lagoon-lighter-example.py` for the end-to-end lifecycle
   (the off-chain trading steps cannot be simulated on a fork, like GMX keepers).
 
@@ -242,6 +251,7 @@ On an Anvil **Ethereum mainnet fork** (Lighter is L1):
 
 ## References
 
+- Lighter deposits and withdrawals: <https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals>
 - Lighter docs: <https://docs.lighter.xyz>
 - `ZkLighter` on Etherscan: <https://etherscan.io/address/0x831ef69bab8af8b1037a4961b8d0674b124e7008>
 - Guard core: `contracts/guard/src/GuardV0Base.sol`
