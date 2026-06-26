@@ -33,6 +33,11 @@ contract_addresses:
   - chain: ethereum
     address: '0x57aB1E0003F623289CD798B1824Be09a793e4Bec'
 slug: reusd
+coingecko_id: resupply-reusd
+coingecko_link: https://www.coingecko.com/en/coins/resupply-reusd
+coingecko_id_source: url
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: coingecko_price_missing
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

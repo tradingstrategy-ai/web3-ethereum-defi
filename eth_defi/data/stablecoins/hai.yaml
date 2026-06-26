@@ -41,6 +41,11 @@ contract_addresses:
   - chain: optimism
     address: '0x10398AbC267496E49106B07dd6BE13364D10dC71'
 slug: hai
+coingecko_id: hai
+coingecko_link: https://www.coingecko.com/en/coins/hai
+coingecko_id_source: url
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: coingecko_price_missing
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

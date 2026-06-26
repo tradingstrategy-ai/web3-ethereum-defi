@@ -55,6 +55,7 @@ The guard dispatcher validates calls to the following protocols:
 | **Velora (ParaSwap)** | [VeloraLib](./src/lib/VeloraLib.sol) | Atomic swaps with balance-envelope verification for opaque Augustus calldata |
 | **GMX V2** | [GmxLib](./src/lib/GmxLib.sol) | Perpetuals multicall validation with market/router whitelisting |
 | **Hypercore** | [HypercoreVaultLib](./src/lib/HypercoreVaultLib.sol) | HyperEVM native vault deposits, CoreWriter action validation |
+| **Lighter** | [LighterLib](./src/lib/LighterLib.sol) | zk-rollup perps DEX L1 deposit/withdraw validation with receiver + asset-index checks ([docs](../../eth_defi/lighter/README-lighter-guard.md)) |
 | **ERC-20** | Built-in | `approve`, `transfer` to whitelisted addresses only |
 
 Additional built-in support: `multicall` batching, Lagoon vault `settle`/`requestSettle`,

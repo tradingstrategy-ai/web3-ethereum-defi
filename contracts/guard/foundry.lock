@@ -59,6 +59,9 @@
   "lib/forge-std": {
     "rev": "36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3"
   },
+  "lib/hyper-evm-lib": {
+    "rev": "97c76ca948947ee893acf558c9997c9087cac4a3"
+  },
   "lib/openzeppelin-contracts": {
     "rev": "0d5f54e69b2a2058bc98651a2e200f558c84a953"
   }

@@ -46,6 +46,12 @@ Environment variables:
 - ``LOOP_INTERVAL_SECONDS``: Optional. Default: 28800 (8 hours). Set to 0 for single run.
 - ``LIMIT``: Optional. Limit sources per type for test runs.
 - ``DEATH_DETECTION_PERIOD``: Optional. Default: 180 days.
+- ``REFRESH_STABLECOIN_RATES``: Optional. Refresh stablecoin rates. Default: true.
+- ``FORCE_STABLECOIN_RATE_REFRESH``: Optional. Bypass the 24h stablecoin gate. Default: false.
+- ``STABLECOIN_RATE_TIMEOUT``: Optional. CoinGecko timeout. Default: 20.
+- ``STABLECOIN_DATA_DIR``: Optional. Stablecoin YAML directory.
+- ``STABLECOIN_RATE_GATE_PATH``: Optional. Durable stablecoin refresh gate JSON path.
+- ``COINGECKO_DEMO_API_KEY``: Optional. CoinGecko demo API key used by the rate module.
 """
 
 import logging
@@ -59,6 +65,7 @@ from eth_defi.feed.constants import DEFAULT_X_LIST_NAME
 from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE
 from eth_defi.feed.scanner import PostScanConfig, run_post_scan_cycle
 from eth_defi.feed.sources import FEEDS_DATA_DIR
+from eth_defi.stablecoin_metadata import STABLECOINS_DATA_DIR
 from eth_defi.utils import setup_console_logging
 
 logger = logging.getLogger(__name__)
@@ -109,6 +116,20 @@ def _print_dashboard(summary) -> None:
         ["Posts fetched", summary.posts_fetched],
         ["Posts inserted", summary.posts_inserted],
     ]
+    if summary.stablecoin_rate_status:
+        stablecoin_summary = summary.stablecoin_rate_summary
+        rows.append(["Stablecoin rate status", summary.stablecoin_rate_status])
+        if stablecoin_summary:
+            rows.extend(
+                [
+                    ["Stablecoin rates fetched", stablecoin_summary.rates_fetched],
+                    ["Stablecoin files updated", stablecoin_summary.files_updated],
+                    ["Stablecoins depegged", stablecoin_summary.depegged_count],
+                    ["Stablecoin rate failures", stablecoin_summary.failed_count],
+                ]
+            )
+        if summary.stablecoin_rate_error:
+            rows.append(["Stablecoin rate error", summary.stablecoin_rate_error[:80]])
     for medium in sorted(fetched_by_medium):
         rows.append([f"Posts fetched: {medium}", fetched_by_medium[medium]])
         rows.append([f"Posts inserted: {medium}", inserted_by_medium.get(medium, 0)])
@@ -183,6 +204,8 @@ def _build_config() -> PostScanConfig:
 
     db_path_str = os.environ.get("DB_PATH")
     mappings_dir_str = os.environ.get("MAPPINGS_DIR")
+    stablecoin_data_dir_str = os.environ.get("STABLECOIN_DATA_DIR")
+    stablecoin_rate_gate_path_str = os.environ.get("STABLECOIN_RATE_GATE_PATH")
     limit_str = os.environ.get("LIMIT")
 
     return PostScanConfig(
@@ -208,6 +231,11 @@ def _build_config() -> PostScanConfig:
         limit=int(limit_str) if limit_str else None,
         death_detection_days=int(os.environ.get("DEATH_DETECTION_PERIOD", "180")),
         twitter_rss_base_urls=_parse_csv(os.environ.get("TWITTER_RSS_BASE_URLS")),
+        refresh_stablecoin_rates=os.environ.get("REFRESH_STABLECOIN_RATES", "true").lower() == "true",
+        force_stablecoin_rate_refresh=os.environ.get("FORCE_STABLECOIN_RATE_REFRESH", "false").lower() == "true",
+        stablecoin_data_dir=Path(stablecoin_data_dir_str).expanduser() if stablecoin_data_dir_str else STABLECOINS_DATA_DIR,
+        stablecoin_rate_timeout=float(os.environ.get("STABLECOIN_RATE_TIMEOUT", "20")),
+        stablecoin_rate_gate_path=Path(stablecoin_rate_gate_path_str).expanduser() if stablecoin_rate_gate_path_str else None,
     )
 
 

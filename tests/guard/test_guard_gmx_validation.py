@@ -17,7 +17,7 @@ from eth_tester.exceptions import TransactionFailed
 from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
 
-from eth_defi.abi import get_deployed_contract
+from eth_defi.abi import encode_function_call, get_contract, get_deployed_contract
 from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.token import create_token
 
@@ -546,6 +546,208 @@ def test_security_attack_scenario_non_whitelisted_swap_path(
     """
     # BTC/USD is NOT whitelisted (only ETH/USD was whitelisted in fixture)
     assert guard.functions.isAllowedGMXMarket(btc_usd_market).call() is False
+
+
+# =============================================================================
+# Test cancelOrder / updateOrder / claim* multicall validation
+# =============================================================================
+#
+# These exercise the real GmxLib.validateMulticall dispatch through the guard's
+# validateCall() view function, encoding actual multicall(bytes[]) payloads with
+# the GMX ExchangeRouter ABI. See issue #1050: the guard previously rejected
+# cancelOrder with "GMX: Unknown function in multicall", so vaults could open
+# but never cancel GMX orders.
+
+
+@pytest.fixture
+def exchange_router_contract(web3: Web3, exchange_router: str) -> Contract:
+    """GMX ExchangeRouter ABI bound to the mock router address.
+
+    Used only to ABI-encode ``multicall(bytes[])`` payloads for guard
+    validation; no calls are executed against it.
+    """
+    ExchangeRouter = get_contract(web3, "gmx/ExchangeRouter.json")
+    return ExchangeRouter(address=Web3.to_checksum_address(exchange_router))
+
+
+def _wrap_multicall(exchange_router_contract: Contract, inner_calls: list[bytes]) -> bytes:
+    """Encode a ``multicall(bytes[])`` payload from a list of inner call payloads."""
+    return bytes(encode_function_call(exchange_router_contract.functions.multicall(inner_calls)))
+
+
+# A fixed, arbitrary 32-byte order key for cancel/update tests.
+_ORDER_KEY = b"\x11" * 32
+
+
+def test_gmx_cancel_order_allowed(
+    guard: Contract,
+    asset_manager: str,
+    exchange_router: str,
+    exchange_router_contract: Contract,
+):
+    """cancelOrder inside a multicall passes guard validation (issue #1050).
+
+    Cancellation moves no funds out of the Safe — GMX enforces
+    ``order.account == caller`` and returns collateral to the original
+    receiver — so the guard accepts it without parameter checks.
+    """
+    inner = bytes(encode_function_call(exchange_router_contract.functions.cancelOrder(_ORDER_KEY)))
+    call_data = _wrap_multicall(exchange_router_contract, [inner])
+
+    # validateCall is a view function — should not revert
+    guard.functions.validateCall(asset_manager, exchange_router, call_data).call()
+
+
+def test_gmx_update_order_allowed(
+    guard: Contract,
+    asset_manager: str,
+    exchange_router: str,
+    exchange_router_contract: Contract,
+):
+    """updateOrder inside a multicall passes guard validation.
+
+    updateOrder only changes order economics (size, prices, trigger) on the
+    vault's own order; the guard does not validate economics for createOrder
+    either, so it accepts updateOrder without parameter checks.
+    """
+    inner = bytes(
+        encode_function_call(
+            exchange_router_contract.functions.updateOrder(
+                _ORDER_KEY,
+                0,  # sizeDeltaUsd
+                0,  # acceptablePrice
+                0,  # triggerPrice
+                0,  # minOutputAmount
+                0,  # validFromTime
+                False,  # autoCancel
+            )
+        )
+    )
+    call_data = _wrap_multicall(exchange_router_contract, [inner])
+
+    guard.functions.validateCall(asset_manager, exchange_router, call_data).call()
+
+
+def test_gmx_claim_funding_fees_allowed_receiver(
+    guard: Contract,
+    asset_manager: str,
+    safe_address: str,
+    exchange_router: str,
+    exchange_router_contract: Contract,
+    eth_usd_market: str,
+    usdc: Contract,
+):
+    """claimFundingFees to the whitelisted Safe passes guard validation."""
+    inner = bytes(
+        encode_function_call(
+            exchange_router_contract.functions.claimFundingFees(
+                [eth_usd_market],  # markets
+                [usdc.address],  # tokens
+                safe_address,  # receiver (whitelisted)
+            )
+        )
+    )
+    call_data = _wrap_multicall(exchange_router_contract, [inner])
+
+    guard.functions.validateCall(asset_manager, exchange_router, call_data).call()
+
+
+def test_gmx_claim_funding_fees_malicious_receiver(
+    guard: Contract,
+    asset_manager: str,
+    attacker: str,
+    exchange_router: str,
+    exchange_router_contract: Contract,
+    eth_usd_market: str,
+    usdc: Contract,
+):
+    """SECURITY: claimFundingFees to a non-whitelisted receiver is rejected.
+
+    The receiver is a fund-flow destination — without this check, a
+    compromised asset manager could redirect claimed funding fees to an
+    attacker address.
+    """
+    inner = bytes(
+        encode_function_call(
+            exchange_router_contract.functions.claimFundingFees(
+                [eth_usd_market],
+                [usdc.address],
+                attacker,  # NOT whitelisted
+            )
+        )
+    )
+    call_data = _wrap_multicall(exchange_router_contract, [inner])
+
+    with pytest.raises(Exception, match="GMX: receiver not allowed"):
+        guard.functions.validateCall(asset_manager, exchange_router, call_data).call()
+
+
+def test_gmx_claim_collateral_malicious_receiver(
+    guard: Contract,
+    asset_manager: str,
+    attacker: str,
+    exchange_router: str,
+    exchange_router_contract: Contract,
+    eth_usd_market: str,
+    usdc: Contract,
+):
+    """SECURITY: claimCollateral to a non-whitelisted receiver is rejected."""
+    inner = bytes(
+        encode_function_call(
+            exchange_router_contract.functions.claimCollateral(
+                [eth_usd_market],
+                [usdc.address],
+                [0],  # timeKeys
+                attacker,  # NOT whitelisted
+            )
+        )
+    )
+    call_data = _wrap_multicall(exchange_router_contract, [inner])
+
+    with pytest.raises(Exception, match="GMX: receiver not allowed"):
+        guard.functions.validateCall(asset_manager, exchange_router, call_data).call()
+
+
+def test_gmx_claim_affiliate_rewards_allowed_receiver(
+    guard: Contract,
+    asset_manager: str,
+    safe_address: str,
+    exchange_router: str,
+    exchange_router_contract: Contract,
+    eth_usd_market: str,
+    usdc: Contract,
+):
+    """claimAffiliateRewards to the whitelisted Safe passes guard validation."""
+    inner = bytes(
+        encode_function_call(
+            exchange_router_contract.functions.claimAffiliateRewards(
+                [eth_usd_market],
+                [usdc.address],
+                safe_address,  # whitelisted
+            )
+        )
+    )
+    call_data = _wrap_multicall(exchange_router_contract, [inner])
+
+    guard.functions.validateCall(asset_manager, exchange_router, call_data).call()
+
+
+def test_gmx_new_selector_constants():
+    """Verify cancelOrder / updateOrder / claim* selectors match GmxLib constants.
+
+    Guards against the function signatures drifting from the bytes4 constants
+    hardcoded in ``GmxLib.sol``.
+    """
+    expected = {
+        "cancelOrder(bytes32)": "7489ec23",
+        "updateOrder(bytes32,uint256,uint256,uint256,uint256,uint256,bool)": "dd5baad2",
+        "claimFundingFees(address[],address[],address)": "c41b1ab3",
+        "claimCollateral(address[],address[],uint256[],address)": "e9249b57",
+        "claimAffiliateRewards(address[],address[],address)": "49287a22",
+    }
+    for sig, selector in expected.items():
+        computed = Web3.keccak(text=sig)[:4]
+        assert computed == bytes.fromhex(selector), f"{sig}: expected {selector}, got {computed.hex()}"
 
 
 def test_security_verify_all_whitelisted_addresses_accepted(

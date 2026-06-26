@@ -23,6 +23,11 @@ contract_addresses:
   - chain: hemi
     address: '0x7A06C4AeF988e7925575C50261297a946aD204A8'
 slug: vusd-hemi
+coingecko_id: vusd-hemi
+coingecko_link: https://www.coingecko.com/en/coins/vusd-hemi
+coingecko_id_source: url
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: coingecko_price_missing
 checks:
   twitter_last_post_at: ''
   domain_up_at: ''

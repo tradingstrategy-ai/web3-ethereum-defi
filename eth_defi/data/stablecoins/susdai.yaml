@@ -17,6 +17,11 @@ contract_addresses:
   - chain: arbitrum
     address: '0x0B2b2B2076d95dda7817e785989fE353fe955ef9'
 slug: susdai
+coingecko_id: staked-usdai
+coingecko_link: https://www.coingecko.com/en/coins/staked-usdai
+coingecko_id_source: url
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: coingecko_price_missing
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

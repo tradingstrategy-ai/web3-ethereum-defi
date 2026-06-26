@@ -8,9 +8,10 @@ through a Lagoon vault using the CCXT-compatible GMX adapter:
 3. Setup GMX trading (approve tokens, create adapter)
 4. Open a leveraged ETH long position via GMX
 5. Close the position and realise PnL
-6. Withdraw collateral from the vault
-7. Display summary of all transactions and costs
-8. Print guard configuration report
+6. Open a GMX limit order and cancel it through the guard (issue #1050)
+7. Withdraw collateral from the vault
+8. Display summary of all transactions and costs
+9. Print guard configuration report
 
 Simulation mode
 ---------------
@@ -22,8 +23,11 @@ without needing real funds or a private key.
 In simulation mode:
 - An Anvil fork is spawned from JSON_RPC_ARBITRUM
 - A test wallet is created and funded with ETH and USDC from whale accounts
-- Trading steps (open/close position) are skipped because GMX keepers
-  cannot be simulated in a local fork
+- A GMX **limit order is opened and then cancelled** through the guard. This
+  needs no keeper (the order just stays pending in the DataStore), so it
+  exercises the full ``createOrder`` -> ``cancelOrder`` guard path on the fork.
+- Market open/close steps are still skipped because filling a market position
+  needs a GMX keeper, which cannot be simulated in a local fork
 - The vault deployment, deposit, and withdrawal flows are fully tested
 - No real money is spent
 
@@ -177,7 +181,7 @@ from eth_defi.gmx.ccxt import GMX
 from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
 from eth_defi.gmx.lagoon.approvals import UNLIMITED, approve_gmx_collateral_via_vault
 from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
-from eth_defi.gmx.whitelist import GMX_POPULAR_MARKETS, GMXDeployment, fetch_all_gmx_markets, resolve_gmx_market_labels
+from eth_defi.gmx.whitelist import GMX_POPULAR_MARKETS, GMXDeployment, resolve_gmx_market_labels
 from eth_defi.hotwallet import HotWallet, SignedTransactionWithNonce
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -212,8 +216,26 @@ class NetworkConfig:
     usdc_address: HexAddress
 
     #: GMX collateral symbol for CCXT order parameters.
-    #: ``"USDC"`` on mainnet, ``"USDC.SG"`` on testnet (matches market tokens).
+    #: ``"USDC"`` on mainnet, ``"USDC.SG"`` on testnet (matches the market's
+    #: actual collateral token, e.g. the ETH/USD market short token).
     gmx_collateral_symbol: str
+
+    #: CCXT market symbol passed to ``create_order`` / ``fetch_ticker``.
+    #: GMX normalises the stablecoin to ``USDC`` in the market label, so this is
+    #: ``"ETH/USDC:USDC"`` on *both* networks even though the testnet collateral
+    #: token is USDC.SG.  Kept separate from :attr:`gmx_collateral_symbol`
+    #: because the market label and the collateral token symbol differ on testnet.
+    gmx_market_symbol: str
+
+    #: GMX execution fee buffer multiplier for the CCXT adapter.
+    #:
+    #: GMX ``createOrder`` reverts with ``InsufficientExecutionFee`` when the
+    #: provided WNT fee is below ``estimatedGasLimit × tx.gasprice``.  On
+    #: Arbitrum Sepolia the adapter's gas-price estimate sits well under the
+    #: actual on-chain gas price, so the default 2.5x buffer under-provisions the
+    #: fee and the order reverts.  Excess execution fee is refunded by GMX (fully
+    #: refunded when the order is cancelled), so a larger buffer is safe.
+    gmx_execution_buffer: float
 
     #: WETH token address
     weth_address: HexAddress
@@ -259,6 +281,8 @@ def _create_mainnet_config() -> NetworkConfig:
         rpc_env_var="JSON_RPC_ARBITRUM",
         usdc_address=USDC_NATIVE_TOKEN[chain_id],
         gmx_collateral_symbol="USDC",
+        gmx_market_symbol="ETH/USDC:USDC",
+        gmx_execution_buffer=2.5,
         weth_address=WRAPPED_NATIVE_TOKEN[chain_id],
         gmx_exchange_router=addresses.exchangerouter,
         gmx_synthetics_router=addresses.syntheticsrouter,
@@ -293,6 +317,12 @@ def _create_testnet_config() -> NetworkConfig:
         rpc_env_var="JSON_RPC_ARBITRUM_SEPOLIA",
         usdc_address=gmx_tokens["USDC.SG"],
         gmx_collateral_symbol="USDC.SG",
+        gmx_market_symbol="ETH/USDC:USDC",
+        # Sepolia computes the execution fee at a stale ~0.02 gwei while GMX's
+        # on-chain InsufficientExecutionFee check uses the real ~0.4 gwei gas
+        # price (~20x higher), so over-provision heavily.  Excess is refunded
+        # (fully refunded when the order is cancelled).
+        gmx_execution_buffer=30.0,
         weth_address=gmx_tokens["WETH"],
         gmx_exchange_router=addresses.exchangerouter,
         gmx_synthetics_router=addresses.syntheticsrouter,
@@ -306,22 +336,37 @@ def _create_testnet_config() -> NetworkConfig:
     )
 
 
-def _fetch_eth_usd_market(web3: Web3) -> HexAddress:
-    """Dynamically fetch the ETH/USD market address from on-chain data.
+def _resolve_gmx_market_address(json_rpc_url: str, market_symbol: str) -> HexAddress:
+    """Resolve the GMX market address the CCXT adapter will use for a symbol.
 
-    Used on testnet where :data:`GMX_POPULAR_MARKETS` (mainnet only) is
-    not available.
+    The guard must whitelist *exactly* the market the order layer targets.  On
+    testnet several markets share the same index symbol (e.g. four ``ETH``
+    markets that differ only by collateral token: regular USDC vs USDC.SG), so
+    selecting "the first ETH market" can whitelist a different market than the
+    one the order actually uses — the order then reverts with
+    ``GMX: market not allowed`` at the guard.
 
-    :param web3: Web3 instance connected to the target chain
-    :return: ETH/USD market address
-    :raises ValueError: If no ETH/USD market found
+    To guarantee the deploy-time whitelist matches the order-time market, we
+    read the address from the same CCXT adapter (and therefore the same
+    ``load_markets()`` de-duplication) that :func:`setup_gmx_trading` builds
+    for trading.  GMX market metadata is served by the GMX API off-chain, so a
+    view-only adapter (no wallet) is enough.
+
+    :param json_rpc_url:
+        RPC URL for the target chain (mainnet, testnet, or an Anvil fork). Used
+        only to let the adapter detect the chain id and load that chain's markets.
+    :param market_symbol:
+        CCXT market symbol, e.g. ``"ETH/USDC:USDC"``.
+    :return: Checksummed GMX market (GM token) address.
+    :raises ValueError: If the symbol is not found in the loaded markets.
     """
-    markets = fetch_all_gmx_markets(web3)
-    for address, info in markets.items():
-        if info.market_symbol == "ETH":
-            return address
-    available = ", ".join(str(info.market_symbol) for info in markets.values())
-    raise ValueError(f"Could not find ETH/USD market on this chain. Available markets: {available}")
+    gmx = GMX(params={"rpcUrl": json_rpc_url})
+    gmx.load_markets()
+    if market_symbol not in gmx.markets:
+        available = ", ".join(gmx.symbols)
+        raise ValueError(f"Market {market_symbol} not found on this chain. Available markets: {available}")
+    market_address = gmx.markets[market_symbol]["info"]["gmx_market_address"]
+    return Web3.to_checksum_address(market_address)
 
 
 # ============================================================================
@@ -700,7 +745,7 @@ def setup_gmx_trading(
         params={
             "rpcUrl": json_rpc_url,
             "wallet": lagoon_wallet,
-            "executionBuffer": 2.5,  # Higher buffer for reliability
+            "executionBuffer": config.gmx_execution_buffer,  # Network-specific (Sepolia needs a larger fee buffer)
             "defaultSlippage": 0.005,  # 0.5% slippage tolerance
         }
     )
@@ -738,7 +783,7 @@ def open_gmx_position(
     print(f"  Collateral: ${float(size_usd) / leverage:.2f} {collateral}")
 
     # Create the order using CCXT-style interface
-    symbol = f"ETH/{collateral}:{collateral}"
+    symbol = config.gmx_market_symbol
     order = gmx.create_order(
         symbol=symbol,
         type="market",
@@ -792,7 +837,7 @@ def close_gmx_position(
     print(f"\nClosing {'LONG' if is_long else 'SHORT'} ETH position...")
 
     # Close the position (reduceOnly=True)
-    symbol = f"ETH/{collateral}:{collateral}"
+    symbol = config.gmx_market_symbol
     order = gmx.create_order(
         symbol=symbol,
         type="market",
@@ -821,6 +866,161 @@ def close_gmx_position(
         _summary.exit_price = Decimal(str(order["price"]))
 
     return order
+
+
+# ============================================================================
+# Step 4b / 5b: Open a GMX limit order and cancel it
+# ============================================================================
+
+
+def open_gmx_limit_order(
+    gmx: GMX,
+    config: NetworkConfig,
+    size_usd: Decimal,
+    leverage: float,
+    trigger_price: Decimal,
+    is_long: bool = False,
+) -> dict:
+    """Open a *pending* GMX limit order through the Lagoon vault.
+
+    A GMX limit order is stored in the DataStore and only filled by a keeper
+    once the index price crosses ``trigger_price``.  Because no keeper runs in
+    a local Anvil fork, the order simply stays pending — which makes this
+    flow (together with :func:`cancel_gmx_order`) the one piece of GMX trading
+    that can be exercised end-to-end *through the guard* in simulation mode,
+    proving the ``createOrder`` and ``cancelOrder`` selectors are whitelisted.
+
+    The order is built and signed by the :class:`LagoonGMXTradingWallet`
+    behind the CCXT adapter, so it is wrapped in ``performCall`` and validated
+    by ``TradingStrategyModuleV0`` / ``GmxLib.validateMulticall`` on-chain.
+
+    :param gmx: Configured GMX CCXT adapter instance
+    :param config: Network configuration
+    :param size_usd: Position size in USD
+    :param leverage: Leverage multiplier
+    :param trigger_price: Limit trigger price in USD
+    :param is_long: ``True`` for a long limit, ``False`` for a short limit
+    :return:
+        CCXT-style order result dict.  ``info.order_key`` (falling back to
+        ``id``) is the handle passed to :func:`cancel_gmx_order`.
+    """
+    collateral = config.gmx_collateral_symbol
+    symbol = config.gmx_market_symbol
+    print(f"\nOpening {'LONG' if is_long else 'SHORT'} ETH LIMIT order...")
+    print(f"  Size: ${size_usd}")
+    print(f"  Leverage: {leverage}x")
+    print(f"  Trigger price: ${trigger_price:.2f}")
+    print(f"  Collateral: {collateral}")
+
+    order = gmx.create_order(
+        symbol=symbol,
+        type="limit",
+        side="buy" if is_long else "sell",
+        amount=0,  # Ignored when size_usd is provided
+        price=float(trigger_price),
+        params={
+            "size_usd": float(size_usd),
+            "leverage": leverage,
+            "collateral_symbol": collateral,
+            # No keeper runs on a fork, so do not block waiting for execution —
+            # the order is created and left pending, ready to cancel.
+            "wait_for_execution": False,
+            "auto_cancel": False,
+            # Per-order execution-fee buffer (default 2.2). Raised on testnet so
+            # the WNT fee clears GMX's InsufficientExecutionFee check (refunded).
+            "execution_buffer": config.gmx_execution_buffer,
+        },
+    )
+
+    order_key = order.get("info", {}).get("order_key") or order.get("id")
+    print(f"\nLimit order submitted!")
+    print(f"  TX hash: {order.get('id', 'N/A')}")
+    print(f"  Order key: {order_key}")
+    print(f"  Status: {order.get('status', 'N/A')}")
+
+    # Record execution fee paid to keepers for this order
+    execution_fee = order.get("info", {}).get("execution_fee", 0)
+    if execution_fee:
+        _summary.gmx_execution_fees_eth += Decimal(execution_fee) / Decimal(10**18)
+
+    return order
+
+
+def cancel_gmx_order(gmx: GMX, order: dict) -> dict:
+    """Cancel a pending GMX limit order through the Lagoon vault guard.
+
+    Exercises the ``cancelOrder`` selector this branch whitelisted in
+    ``GmxLib`` (`issue #1050
+    <https://github.com/tradingstrategy-ai/web3-ethereum-defi/issues/1050>`__).
+    Before the fix this reverted on-chain with
+    ``"GMX: Unknown function in multicall"`` because the guard only recognised
+    ``sendWnt`` / ``sendTokens`` / ``createOrder``.
+
+    The cancel transaction is signed by the same
+    :class:`LagoonGMXTradingWallet`, so it flows through ``performCall`` and is
+    re-validated by the guard before reaching the GMX ExchangeRouter.
+
+    :param gmx: Configured GMX CCXT adapter instance
+    :param order:
+        The order dict returned by :func:`open_gmx_limit_order`.  Its
+        ``info.order_key`` (or ``id``) identifies the DataStore order to cancel.
+    :return: CCXT-style cancellation result dict with ``status="cancelled"``
+    :raises eth_defi.gmx.ccxt.errors.OrderNotFound:
+        If the order is not pending in the DataStore (already executed/cancelled).
+    """
+    order_key = order.get("info", {}).get("order_key") or order["id"]
+    print(f"\nCancelling limit order through the guard...")
+    print(f"  Order key: {order_key}")
+
+    result = gmx.cancel_order(order_key)
+
+    print(f"\nCancel submitted!")
+    print(f"  TX hash: {result.get('info', {}).get('tx_hash', 'N/A')}")
+    print(f"  Status: {result.get('status', 'N/A')}")
+    return result
+
+
+def run_limit_order_cancel_flow(
+    gmx: GMX,
+    config: NetworkConfig,
+    size_usd: Decimal,
+    leverage: float,
+) -> None:
+    """Open a pending limit order then cancel it, through the guard.
+
+    Fetches the current ETH mark price from GMX, places a LONG limit order with
+    a trigger 10% below spot (a long limit triggers only when price falls to the
+    trigger, so it stays pending without a keeper), then cancels it.  Used in
+    both simulation (fork) and live/testnet modes to prove the full
+    ``createOrder`` → ``cancelOrder`` guard path works.
+
+    :param gmx: Configured GMX CCXT adapter instance
+    :param config: Network configuration
+    :param size_usd: Limit order size in USD
+    :param leverage: Leverage multiplier
+    """
+    symbol = config.gmx_market_symbol
+
+    # A LONG limit triggers only when price falls to the trigger, so a trigger
+    # 10% below spot keeps it pending (and no keeper runs on a fork anyway).
+    ticker = gmx.fetch_ticker(symbol)
+    last_price = Decimal(str(ticker["last"]))
+    trigger_price = last_price * Decimal("0.90")
+    print(f"\nCurrent ETH mark price: ${last_price:.2f} -> limit trigger ${trigger_price:.2f}")
+
+    limit_order = open_gmx_limit_order(
+        gmx,
+        config,
+        size_usd=size_usd,
+        leverage=leverage,
+        trigger_price=trigger_price,
+        is_long=True,
+    )
+
+    # Small pause so the create transaction is mined before we cancel.
+    time.sleep(3)
+
+    cancel_gmx_order(gmx, limit_order)
 
 
 # ============================================================================
@@ -977,6 +1177,11 @@ def main():
 
     simulate = os.environ.get("SIMULATE", "").lower() in ("true", "1", "yes")
 
+    # SKIP_MARKET_ORDERS isolates the limit-order + cancel flow by skipping the
+    # keeper-filled market open/close (Steps 4-5). Useful on testnet to verify
+    # the createOrder/cancelOrder guard path without depending on a market fill.
+    skip_market_orders = os.environ.get("SKIP_MARKET_ORDERS", "").lower() in ("true", "1", "yes")
+
     # Create network-specific configuration
     if network == "testnet":
         config = _create_testnet_config()
@@ -1034,12 +1239,15 @@ def main():
         chain_id = web3.eth.chain_id
         chain_name = get_chain_name(chain_id)
 
-        # Resolve GMX ETH/USD market dynamically on testnet
+        # Resolve GMX ETH/USD market dynamically on testnet.
+        # Resolve it via the CCXT adapter so the market we whitelist in the guard
+        # is exactly the one the order layer will trade (several ETH markets exist
+        # on testnet — see _resolve_gmx_market_address).
         if config.gmx_eth_usd_market is None:
-            print("\nFetching ETH/USD market address from on-chain data...")
+            print("\nResolving ETH/USD market address via the GMX CCXT adapter...")
             config = dataclasses.replace(
                 config,
-                gmx_eth_usd_market=_fetch_eth_usd_market(web3),
+                gmx_eth_usd_market=_resolve_gmx_market_address(json_rpc_url, config.gmx_market_symbol),
             )
             print(f"  ETH/USD market: {config.gmx_eth_usd_market}")
 
@@ -1094,13 +1302,28 @@ def main():
         deposit_to_vault(web3, hot_wallet, vault, deposit_amount)
 
         if simulate:
-            # In simulation mode, skip trading steps
+            # Limit order create + cancel is the one GMX trading flow that needs
+            # NO keeper: the order is stored in the DataStore and just stays
+            # pending until a keeper fills it (which never happens on a local
+            # fork).  So we CAN exercise the guard's createOrder -> cancelOrder
+            # path end-to-end on the Anvil fork.  Market open/close still need a
+            # keeper to fill the position, so those remain skipped.
             print("\n" + "=" * 80)
-            print("STEPS 3-5: SKIPPED (Simulation mode)")
+            print("STEP 3: Setup GMX trading (simulation)")
             print("=" * 80)
-            print("\nGMX trading steps are skipped in simulation mode because")
-            print("GMX keepers cannot be simulated in a local Anvil fork.")
-            print("The vault deployment and deposit/withdraw flows have been tested.")
+
+            # The CCXT adapter broadcasts via the rpcUrl it is given, so point it
+            # at the Anvil fork (NOT the mainnet JSON_RPC_ARBITRUM) in simulation.
+            gmx = setup_gmx_trading(web3, vault, hot_wallet, config, anvil_launch.json_rpc_url)
+
+            print("\n" + "=" * 80)
+            print("STEP 4-5: Open a GMX limit order and cancel it through the guard")
+            print("=" * 80)
+            print("\n(No keeper required — proves createOrder + cancelOrder are whitelisted.)")
+
+            run_limit_order_cancel_flow(gmx, config, position_size, leverage)
+
+            print("\nMarket open/close skipped: GMX keepers cannot run on a local Anvil fork.")
         else:
             # =========================================================================
             # Step 3: Setup GMX trading
@@ -1111,42 +1334,58 @@ def main():
 
             gmx = setup_gmx_trading(web3, vault, hot_wallet, config, json_rpc_url)
 
+            if skip_market_orders:
+                # Market open/close need a keeper to fill the position and have
+                # their own GMX-protocol requirements; the limit+cancel flow does
+                # not depend on them, so allow isolating it for guard verification.
+                print("\nSTEP 4-5: Market open/close skipped (SKIP_MARKET_ORDERS set).")
+            else:
+                # =========================================================================
+                # Step 4: Open position
+                # =========================================================================
+                print("\n" + "=" * 80)
+                print("STEP 4: Open leveraged ETH long position")
+                print("=" * 80)
+
+                open_order = open_gmx_position(
+                    gmx,
+                    config,
+                    size_usd=position_size,
+                    leverage=leverage,
+                    is_long=True,
+                )
+
+                # Wait for keeper execution
+                print("\nWaiting for GMX keeper execution...")
+                time.sleep(30)
+
+                # =========================================================================
+                # Step 5: Close position
+                # =========================================================================
+                print("\n" + "=" * 80)
+                print("STEP 5: Close the position")
+                print("=" * 80)
+
+                close_order = close_gmx_position(
+                    gmx,
+                    config,
+                    size_usd=position_size,
+                    is_long=True,
+                )
+
+                # Wait for keeper
+                print("\nWaiting for GMX keeper execution...")
+                time.sleep(30)
+
             # =========================================================================
-            # Step 4: Open position
+            # Step 5b: Open a limit order and cancel it through the guard
             # =========================================================================
             print("\n" + "=" * 80)
-            print("STEP 4: Open leveraged ETH long position")
+            print("STEP 5b: Open a GMX limit order and cancel it through the guard")
             print("=" * 80)
+            print("\nProves the createOrder + cancelOrder guard path (issue #1050).")
 
-            open_order = open_gmx_position(
-                gmx,
-                config,
-                size_usd=position_size,
-                leverage=leverage,
-                is_long=True,
-            )
-
-            # Wait for keeper execution
-            print("\nWaiting for GMX keeper execution...")
-            time.sleep(30)
-
-            # =========================================================================
-            # Step 5: Close position
-            # =========================================================================
-            print("\n" + "=" * 80)
-            print("STEP 5: Close the position")
-            print("=" * 80)
-
-            close_order = close_gmx_position(
-                gmx,
-                config,
-                size_usd=position_size,
-                is_long=True,
-            )
-
-            # Wait for keeper
-            print("\nWaiting for GMX keeper execution...")
-            time.sleep(30)
+            run_limit_order_cancel_flow(gmx, config, position_size, leverage)
 
         # =========================================================================
         # Step 6: Withdraw

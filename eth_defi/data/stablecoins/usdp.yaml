@@ -25,6 +25,11 @@ contract_addresses:
   - chain: ethereum
     address: '0x8E870D67F660D95d5be530380D0eC0bd388289E1'
 slug: usdp
+coingecko_id: pax-dollar
+coingecko_link: https://www.coingecko.com/en/coins/pax-dollar
+coingecko_id_source: url
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: coingecko_price_missing
 checks:
   twitter_last_post_at: '2026-03-17'
   domain_up_at: '2026-03-17'

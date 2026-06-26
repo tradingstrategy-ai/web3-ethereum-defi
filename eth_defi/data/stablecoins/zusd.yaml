@@ -40,6 +40,18 @@ contract_addresses:
   - chain: ethereum
     address: '0xc56c2b7e71B54d38Aab6d52E94a04Cbfa8F604fA'
 slug: zusd
+coingecko_id: zusd
+coingecko_link: https://www.coingecko.com/en/coins/zusd
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.9983
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-08T03:32:39'
+peg_rate: 0.9983
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: '2025-08-28'
   domain_up_at: '2026-03-17'

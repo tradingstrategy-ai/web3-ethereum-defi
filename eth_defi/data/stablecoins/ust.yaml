@@ -37,6 +37,11 @@ links:
   defillama: https://defillama.com/stablecoin/terrausd
   twitter: https://x.com/terra_money
 slug: ust
+coingecko_id: terrausd
+coingecko_link: https://www.coingecko.com/en/coins/terrausd
+coingecko_id_source: url
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: coingecko_price_missing
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

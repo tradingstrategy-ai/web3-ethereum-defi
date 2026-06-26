@@ -51,6 +51,18 @@ contract_addresses:
   - chain: polygon
     address: '0xDC3326e71D45186F113a2F448984CA0e8D201995'
 slug: xsgd
+coingecko_id: xsgd
+coingecko_link: https://www.coingecko.com/en/coins/xsgd
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.771327
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:25'
+peg_rate: 0.998224
+peg_rate_currency: sgd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: '2025-12-16'
   domain_up_at: '2026-03-17'

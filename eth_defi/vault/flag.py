@@ -78,6 +78,9 @@ class VaultFlag(str, enum.Enum):
     #: Morpho API does not return this vault by address.
     not_in_morpho_api = "not_in_morpho_api"
 
+    #: Vault denomination stablecoin is marked as depegged.
+    depegged_denomination_token = "depegged_denomination_token"
+
 
 #: Don't touch vaults with these flags
 BAD_FLAGS = {
@@ -92,6 +95,7 @@ BAD_FLAGS = {
     VaultFlag.subvault,
     VaultFlag.irregular_reporting,
     VaultFlag.not_in_morpho_api,
+    VaultFlag.depegged_denomination_token,
 }
 
 

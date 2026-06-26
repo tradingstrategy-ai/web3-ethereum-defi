@@ -25,6 +25,18 @@ links:
   defillama: https://defillama.com/stablecoin/sperax-usd
   twitter: https://x.com/SperaxUSD
 slug: usds-sperax
+coingecko_id: sperax-usd
+coingecko_link: https://www.coingecko.com/en/coins/sperax-usd
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.997833
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:17'
+peg_rate: 0.997833
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: '2025-01-29'
   domain_up_at: '2026-03-17'

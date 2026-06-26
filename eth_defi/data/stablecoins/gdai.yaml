@@ -44,6 +44,11 @@ contract_addresses:
   - chain: arbitrum
     address: '0xd85E038593d7A098614721EaE955EC2022B9B91B'
 slug: gdai
+coingecko_id: gains-network-dai
+coingecko_link: https://www.coingecko.com/en/coins/gains-network-dai
+coingecko_id_source: url
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: coingecko_price_missing
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

@@ -26,6 +26,18 @@ contract_addresses:
   - chain: ethereum
     address: '0x48f9e38f3070AD8945DFEae3FA70987722E3D89c'
 slug: iusd
+coingecko_id: infinifi-usd
+coingecko_link: https://www.coingecko.com/en/coins/infinifi-usd
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.999462
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:12'
+peg_rate: 0.999462
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

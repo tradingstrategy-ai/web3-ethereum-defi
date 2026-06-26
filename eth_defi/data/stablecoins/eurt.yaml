@@ -20,6 +20,18 @@ contract_addresses:
   - chain: ethereum
     address: '0xC581b735A1688071A1746c968e0798D642EDE491'
 slug: eurt
+coingecko_id: tether-eurt
+coingecko_link: https://www.coingecko.com/en/coins/tether-eurt
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.054311
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:07'
+peg_rate: 0.04763623
+peg_rate_currency: eur
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: '2026-06-26T12:13:31'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

@@ -24,6 +24,18 @@ contract_addresses:
   - chain: ethereum
     address: '0x853d955aCEf822Db058eb8505911ED77F175b99e'
 slug: frax
+coingecko_id: frax
+coingecko_link: https://www.coingecko.com/en/coins/frax
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.982337
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:25'
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

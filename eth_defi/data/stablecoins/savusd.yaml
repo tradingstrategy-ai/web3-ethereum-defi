@@ -43,6 +43,18 @@ contract_addresses:
     address: '0xA322e23a357cB7C596A7a834102B9d6d5b15da3e'
   - chain: linea
     address: '0x5C247948fD58Bb02B6c4678d9940F5e6B9af1127'
+coingecko_id: avant-staked-usd
+coingecko_link: https://www.coingecko.com/en/coins/avant-staked-usd
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 1.16
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:10'
+peg_rate: 1.16
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: ''

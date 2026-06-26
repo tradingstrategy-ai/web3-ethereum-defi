@@ -33,6 +33,18 @@ slug: ageur
 contract_addresses:
   - chain: ethereum
     address: '0x1a7e4e63778B4f12a199C062f3eFdD288afCBce8'
+coingecko_id: ageur
+coingecko_link: https://www.coingecko.com/en/coins/ageur
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 1.14
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:11'
+peg_rate: 0.996731
+peg_rate_currency: eur
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

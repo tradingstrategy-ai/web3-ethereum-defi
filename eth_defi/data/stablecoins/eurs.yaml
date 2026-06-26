@@ -20,6 +20,18 @@ contract_addresses:
   - chain: ethereum
     address: '0xdB25f211AB05b1c97D595516F45794528a807ad8'
 slug: eurs
+coingecko_id: stasis-eurs
+coingecko_link: https://www.coingecko.com/en/coins/stasis-eurs
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 1.21
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:10'
+peg_rate: 1.063
+peg_rate_currency: eur
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'
