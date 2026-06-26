@@ -779,17 +779,23 @@ def scan_historical_prices_to_parquet(
     else:
         writer_schema = canonical_schema
 
-    # Perform atomic update of the prices Parquet file
+    # Perform atomic update of the prices Parquet file.
+    #
+    # The temp file lives next to the final Parquet file so ``os.replace()`` is
+    # atomic. Because ``delete=False`` is required for PyArrow and replacement,
+    # we must explicitly remove the file on every failure path.
+    writer = None
     with tempfile.NamedTemporaryFile(
         mode="wb",
         dir=output_fname.parent,
         suffix=".parquet",
         delete=False,
     ) as tmp:
-        # Initialize ParquetWriter with the unified schema
         temp_fname = tmp.name
-        writer = pq.ParquetWriter(temp_fname, writer_schema, compression=compression)
 
+    try:
+        # Initialize ParquetWriter with the unified schema
+        writer = pq.ParquetWriter(temp_fname, writer_schema, compression=compression)
         if existing_table is not None:
             writer.write_table(existing_table)
 
@@ -832,6 +838,7 @@ def scan_historical_prices_to_parquet(
         # and atomically replace the target.  We also sync the parent
         # directory so the new filename is durable after power loss.
         writer.close()
+        writer = None
         fd = os.open(temp_fname, os.O_RDONLY)
         try:
             _proper_fsync(fd)
@@ -850,6 +857,15 @@ def scan_historical_prices_to_parquet(
             _proper_fsync(dir_fd)
         finally:
             os.close(dir_fd)
+    except BaseException:
+        if writer is not None:
+            try:
+                writer.close()
+            except Exception as e:
+                logger.warning("Could not close failed Parquet writer for %s: %s", temp_fname, e)
+        if os.path.exists(temp_fname):
+            os.unlink(temp_fname)
+        raise
 
     size = output_fname.stat().st_size
 
