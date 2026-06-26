@@ -86,8 +86,8 @@ Environment variables
     Optional. ETH long notional in USDC. Defaults to Lighter's ETH market
     minimum quote amount with a small buffer.
 ``LIGHTER_API_KEY_INDEX``
-    Optional. API-key slot to register. Defaults to 4 because Lighter currently
-    reserves indices 0..3 for its web/mobile interfaces.
+    Optional. API-key slot to register. Defaults to 2 because Lighter currently
+    reserves indices 0..1 for its web/mobile interfaces.
 ``LIGHTER_WITHDRAW_TIMEOUT``
     Optional. Seconds to wait for the secure withdrawal to become claimable.
     Defaults to 3600.

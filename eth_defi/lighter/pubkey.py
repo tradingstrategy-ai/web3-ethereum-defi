@@ -3,8 +3,8 @@
 Creating a Lighter API key is two steps:
 
 1. **Generate** the API keypair off-chain (the `lighter-python` SDK
-   ``SignerClient``; no L1 private key needed). Indices 4-254 are user keys;
-   0-3 are reserved for the web/mobile UI.
+   ``SignerClient``; no L1 private key needed). Indices 2-254 are user keys;
+   0-1 are reserved for the web/mobile UI.
 2. **Register** its public key with the Lighter account on L1 via
    ``ZkLighter.changePubKey(accountIndex, apiKeyIndex, pubKey)``. For a Gnosis
    Safe / Lagoon vault this is done as a **Safe transaction** — Lighter
@@ -67,9 +67,9 @@ MAX_API_KEY_INDEX = 254
 
 #: Minimum user API-key index.
 #:
-#: Indices 0-3 are reserved for the Lighter web/mobile interfaces; user keys are
-#: 4-254. We refuse to build a transaction targeting a reserved slot.
-MIN_API_KEY_INDEX = 4
+#: Indices 0-1 are reserved for the Lighter web/mobile interfaces; user keys are
+#: 2-254. We refuse to build a transaction targeting a reserved slot.
+MIN_API_KEY_INDEX = 2
 
 
 def validate_lighter_pubkey(pubkey: bytes) -> None:
@@ -120,7 +120,7 @@ def encode_change_pubkey(
         The Lighter account index whose key is being set.
 
     :param api_key_index:
-        The API-key slot (4-254 for user keys).
+        The API-key slot (2-254 for user keys).
 
     :param pubkey:
         The API-key public key (see :py:func:`validate_lighter_pubkey`).
@@ -132,7 +132,7 @@ def encode_change_pubkey(
         ``(zk_lighter_address, calldata)``.
     """
     if not (MIN_API_KEY_INDEX <= api_key_index <= MAX_API_KEY_INDEX):
-        raise ValueError(f"api_key_index must be {MIN_API_KEY_INDEX}..{MAX_API_KEY_INDEX} (0-3 reserved for web/mobile), got {api_key_index}")
+        raise ValueError(f"api_key_index must be {MIN_API_KEY_INDEX}..{MAX_API_KEY_INDEX} (0-1 reserved for web/mobile), got {api_key_index}")
     validate_lighter_pubkey(pubkey)
 
     zk_lighter = Web3.to_checksum_address(zk_lighter)
