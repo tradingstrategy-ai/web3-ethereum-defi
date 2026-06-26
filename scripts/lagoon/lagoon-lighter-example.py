@@ -171,9 +171,6 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.lighter.api import (
     LIGHTER_MIN_MAINNET_USDC,
     LighterTradeAmounts,
-    fetch_lighter_account,
-    get_lighter_available_balance,
-    get_lighter_collateral,
     import_lighter,
     register_lighter_api_key,
     resolve_eth_trade_amounts,
@@ -186,6 +183,8 @@ from eth_defi.lighter.constants import LIGHTER_USDC_ETHEREUM
 from eth_defi.lighter.deployment import LighterDeployment
 from eth_defi.lighter.lagoon import broadcast_tx, claim_lighter_pending_balance, deposit_usdc_from_lagoon_safe_into_lighter, sweep_safe_usdc_to_hot_wallet
 from eth_defi.lighter.pubkey import MIN_API_KEY_INDEX
+from eth_defi.lighter.session import create_lighter_session
+from eth_defi.lighter.valuation import fetch_lighter_total_equity
 from eth_defi.provider.anvil import fork_network_anvil, fund_erc20_on_anvil, set_balance
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
@@ -630,14 +629,19 @@ async def run_mainnet() -> None:  # noqa: PLR0914
     api_private_key = await register_lighter_api_key(lighter, web3, vault.safe, hot_wallet, account_index, api_key_index)
     await trade_eth_roundtrip(lighter, account_index, api_private_key, api_key_index, amounts)
 
-    account = await fetch_lighter_account(lighter, account_index)
-    available_usdc = get_lighter_available_balance(account)
-    collateral_usdc = get_lighter_collateral(account)
-    withdraw_usdc = available_usdc.quantize(Decimal("0.000001"))
-    print("\nLighter balances after ETH round-trip:")
-    print(f"  Collateral: {collateral_usdc} USDC")
-    print(f"  Available:  {available_usdc} USDC")
-    print(f"  Withdrawal: {withdraw_usdc} USDC")
+    lighter_session = create_lighter_session()
+    try:
+        equity = fetch_lighter_total_equity(lighter_session, account_index)
+    finally:
+        lighter_session.close()
+
+    withdraw_usdc = equity.available_balance.quantize(Decimal("0.000001"))
+    print("\nLighter valuation after ETH round-trip:")
+    print(f"  NAV:            {equity.get_total()} USDC")
+    print(f"  Collateral:     {equity.collateral} USDC")
+    print(f"  Unrealised PnL: {equity.unrealised_pnl} USDC")
+    print(f"  Available:      {equity.available_balance} USDC")
+    print(f"  Withdrawal:     {withdraw_usdc} USDC")
     if withdraw_usdc < LIGHTER_MIN_MAINNET_USDC:
         raise RuntimeError(f"Lighter available balance {withdraw_usdc} USDC is below the secure withdrawal minimum {LIGHTER_MIN_MAINNET_USDC} USDC")
     await withdraw_from_lighter(lighter, account_index, api_private_key, api_key_index, withdraw_usdc)
