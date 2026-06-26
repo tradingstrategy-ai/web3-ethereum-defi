@@ -44,6 +44,27 @@ USDC:
   **0.10-0.20 ETH at 20 gwei**. Use **0.10 ETH as a practical minimum when
   gas is quiet** and increase it if mainnet gas is busy or you expect retries.
 
+Rough mainnet delays
+--------------------
+
+These are observed timings from a 2026-06-26 Ethereum mainnet run during quiet
+gas conditions. Treat them as order-of-magnitude planning numbers, not protocol
+service-level agreements:
+
+- Safe deployment: 20-30 seconds, including the deliberate Safe state
+  propagation sleep.
+- Lagoon vault, module, guard and Lighter whitelist deployment: 3-5 minutes.
+- Lagoon USDC deposit, valuation, settlement and share claim: 1-3 minutes.
+- Safe USDC approval and Lighter L1 deposit: 20-60 seconds.
+- Lighter account creation after deposit: 1-3 minutes.
+- Safe ``changePubKey`` transaction and API-key activation: 2-5 minutes.
+- ETH position open and close round trip: 30-90 seconds.
+- Lighter secure withdrawal request: accepted by the API immediately, but the
+  L1 pending balance may take more than one hour to become claimable. The
+  2026-06-26 run observed about 61 minutes.
+- Claiming the pending Lighter balance, redeeming Lagoon shares and sweeping
+  residual Safe USDC: 1-3 minutes after the L1 pending balance is claimable.
+
 Example::
 
     JSON_RPC_ETHEREUM="https://..." \\
