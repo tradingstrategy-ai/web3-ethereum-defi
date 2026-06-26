@@ -176,9 +176,11 @@ Workflow to add a logo for a new stablecoin:
 import json
 import logging
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from strictyaml import load
+
+from eth_defi.types import ISODateString, ISODateTimeString
 
 logger = logging.getLogger(__name__)
 
@@ -454,16 +456,16 @@ class StablecoinChecks(TypedDict):
     """Automated liveness checks for a stablecoin project."""
 
     #: Date (YYYY-MM-DD) of the most recent Twitter/X post, or empty string if unknown/missing
-    twitter_last_post_at: str
+    twitter_last_post_at: ISODateString
 
     #: Date (YYYY-MM-DD) when the homepage was last confirmed reachable, or empty string
-    domain_up_at: str
+    domain_up_at: ISODateString
 
     #: Date (YYYY-MM-DD) when the project was confirmed dead, or empty string if alive/unknown
-    marked_dead_at: str
+    marked_dead_at: ISODateString
 
     #: Date (YYYY-MM-DD) when liveness could not be determined (no links found), or empty string
-    information_found_missing_at: str
+    information_found_missing_at: ISODateString
 
 
 class StablecoinMetadata(TypedDict):
@@ -502,6 +504,42 @@ class StablecoinMetadata(TypedDict):
     #: Automated liveness checks (``None`` if checks have not been run yet)
     checks: StablecoinChecks | None
 
+    #: CoinGecko API coin id used for price refreshes.
+    coingecko_id: str | None
+
+    #: Human-readable CoinGecko page URL for this asset.
+    coingecko_link: str | None
+
+    #: How the CoinGecko id was selected: ``manual``, ``url``, or ``search``.
+    coingecko_id_source: str | None
+
+    #: Last time the CoinGecko id returned a valid price.
+    coingecko_id_verified_at: ISODateTimeString | None
+
+    #: Latest USD rate from the stablecoin rate feed.
+    usd_rate: float | None
+
+    #: Time when the USD rate was fetched by our updater.
+    usd_rate_fetched_at: ISODateTimeString | None
+
+    #: CoinGecko upstream update timestamp for the USD rate.
+    usd_rate_updated_at: ISODateTimeString | None
+
+    #: Price in the denomination's peg currency used for depeg checks.
+    peg_rate: float | None
+
+    #: CoinGecko currency key used for ``peg_rate``.
+    peg_rate_currency: str | None
+
+    #: Last failed rate refresh timestamp.
+    rate_fetch_failed_at: ISODateTimeString | None
+
+    #: Machine-readable reason for the latest rate refresh failure.
+    rate_fetch_failed_reason: str | None
+
+    #: Sticky depeg marker. Operators clear this manually.
+    depegged_at: ISODateTimeString | None
+
 
 def read_stablecoin_metadata(yaml_path: Path) -> dict:
     """Read and parse a stablecoin metadata YAML file.
@@ -521,11 +559,11 @@ def read_stablecoin_metadata(yaml_path: Path) -> dict:
 _cached_metadata: dict[str, list[StablecoinInfo]] | None = None
 
 
-def load_all_stablecoin_metadata() -> dict[str, list[StablecoinInfo]]:
+def load_all_stablecoin_metadata(data_dir: Path = STABLECOINS_DATA_DIR) -> dict[str, list[StablecoinInfo]]:
     """Load all stablecoin metadata from YAML files.
 
     Returns a dict mapping symbol to list of StablecoinInfo entries.
-    Cached in-process after first call.
+    Cached in-process after first call for the default package data directory.
 
     Files with a ``token_symbols`` list register the same metadata
     under each variant symbol (e.g. ``USDT`` and ``USDt``).
@@ -535,12 +573,13 @@ def load_all_stablecoin_metadata() -> dict[str, list[StablecoinInfo]]:
     """
     global _cached_metadata
 
-    if _cached_metadata is not None:
+    use_cache = data_dir == STABLECOINS_DATA_DIR
+    if use_cache and _cached_metadata is not None:
         return _cached_metadata
 
     result: dict[str, list[StablecoinInfo]] = {}
 
-    for yaml_path in sorted(STABLECOINS_DATA_DIR.glob("*.yaml")):
+    for yaml_path in sorted(data_dir.glob("*.yaml")):
         data = read_stablecoin_metadata(yaml_path)
         symbol = data["symbol"]
 
@@ -581,7 +620,8 @@ def load_all_stablecoin_metadata() -> dict[str, list[StablecoinInfo]]:
             if variant != symbol:
                 result[variant] = info_list
 
-    _cached_metadata = result
+    if use_cache:
+        _cached_metadata = result
     return result
 
 
@@ -692,6 +732,31 @@ def build_stablecoin_metadata_json(yaml_path: Path, public_url: str = "") -> lis
             return stripped if stripped else None
         return value
 
+    def normalise_float(value: Any) -> float | None:
+        normalised = normalise(value)
+        if normalised is None:
+            return None
+        try:
+            return float(normalised)
+        except (TypeError, ValueError):
+            return None
+
+    def parse_rate_fields(source: dict) -> dict[str, str | float | None]:
+        return {
+            "coingecko_id": normalise(source.get("coingecko_id")),
+            "coingecko_link": normalise(source.get("coingecko_link")),
+            "coingecko_id_source": normalise(source.get("coingecko_id_source")),
+            "coingecko_id_verified_at": normalise(source.get("coingecko_id_verified_at")),
+            "usd_rate": normalise_float(source.get("usd_rate")),
+            "usd_rate_fetched_at": normalise(source.get("usd_rate_fetched_at")),
+            "usd_rate_updated_at": normalise(source.get("usd_rate_updated_at")),
+            "peg_rate": normalise_float(source.get("peg_rate")),
+            "peg_rate_currency": normalise(source.get("peg_rate_currency")),
+            "rate_fetch_failed_at": normalise(source.get("rate_fetch_failed_at")),
+            "rate_fetch_failed_reason": normalise(source.get("rate_fetch_failed_reason")),
+            "depegged_at": normalise(source.get("depegged_at")),
+        }
+
     # Build logo URLs based on availability
     available = get_stablecoin_available_logos(slug)
     public_url = public_url.rstrip("/") if public_url else ""
@@ -740,6 +805,7 @@ def build_stablecoin_metadata_json(yaml_path: Path, public_url: str = "") -> lis
                     logos=logos,
                     contract_addresses=parse_contract_addresses(entry),
                     checks=parse_checks(entry),
+                    **parse_rate_fields(entry),
                 )
             )
         return result
@@ -761,6 +827,7 @@ def build_stablecoin_metadata_json(yaml_path: Path, public_url: str = "") -> lis
                 logos=logos,
                 contract_addresses=parse_contract_addresses(data),
                 checks=parse_checks(data),
+                **parse_rate_fields(data),
             )
         ]
 
@@ -842,7 +909,7 @@ def process_and_upload_stablecoin_metadata(
     return metadata
 
 
-def build_stablecoin_index(public_url: str = "") -> list[StablecoinMetadata]:
+def build_stablecoin_index(public_url: str = "", data_dir: Path = STABLECOINS_DATA_DIR) -> list[StablecoinMetadata]:
     """Build a single index of all stablecoin metadata.
 
     Loads every YAML file and returns a flat list of :py:class:`StablecoinMetadata`
@@ -851,11 +918,14 @@ def build_stablecoin_index(public_url: str = "") -> list[StablecoinMetadata]:
     :param public_url:
         Public base URL for constructing logo URLs
 
+    :param data_dir:
+        Stablecoin YAML data directory to export.
+
     :return:
         List of all stablecoin metadata entries
     """
     index: list[StablecoinMetadata] = []
-    for yaml_path in sorted(STABLECOINS_DATA_DIR.glob("*.yaml")):
+    for yaml_path in sorted(data_dir.glob("*.yaml")):
         entries = build_stablecoin_metadata_json(yaml_path, public_url=public_url)
         index.extend(entries)
     return index
@@ -868,6 +938,7 @@ def upload_stablecoin_index(
     secret_access_key: str,
     public_url: str = "",
     key_prefix: str = "",
+    data_dir: Path = STABLECOINS_DATA_DIR,
 ) -> list[StablecoinMetadata]:
     """Build and upload the aggregate stablecoin index to R2.
 
@@ -878,7 +949,7 @@ def upload_stablecoin_index(
     """
     from eth_defi.research.sparkline import upload_to_r2_compressed
 
-    index = build_stablecoin_index(public_url=public_url)
+    index = build_stablecoin_index(public_url=public_url, data_dir=data_dir)
 
     json_bytes = json.dumps(index, indent=2).encode()
     index_uploaded = upload_to_r2_compressed(

@@ -20,6 +20,11 @@ contract_addresses:
   - chain: ethereum
     address: '0xf650C3d88D12dB855b8bf7D11Be6C55A4e07dCC9'
 slug: cusdt
+coingecko_id: compound-usdt
+coingecko_link: https://www.coingecko.com/en/coins/compound-usdt
+coingecko_id_source: url
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: coingecko_price_missing
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

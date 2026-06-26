@@ -29,6 +29,18 @@ contract_addresses:
   - chain: ethereum
     address: '0x3DB228FE836D99Ccb25Ec4dfdC80ED6d2CDdCB4b'
 slug: ynusdx
+coingecko_id: ynusd-max
+coingecko_link: https://www.coingecko.com/en/coins/ynusd-max
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.982652
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:14:38'
+peg_rate: 0.982652
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: '2026-01-22'
   domain_up_at: '2026-03-17'

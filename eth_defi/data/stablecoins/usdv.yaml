@@ -31,6 +31,11 @@ links:
   defillama: https://defillama.com/stablecoin/verified-usd
   twitter: https://x.com/USDV_Money
 slug: usdv
+coingecko_id: verified-usd
+coingecko_link: https://www.coingecko.com/en/coins/verified-usd
+coingecko_id_source: url
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: coingecko_price_missing
 checks:
   twitter_last_post_at: '2024-11-14'
   domain_up_at: '2026-03-17'

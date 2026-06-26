@@ -20,6 +20,18 @@ contract_addresses:
   - chain: ethereum
     address: '0x39b8B6385416f4cA36a20319F70D28621895279D'
 slug: eure
+coingecko_id: monerium-eur-money
+coingecko_link: https://www.coingecko.com/en/coins/monerium-eur-money
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 1.14
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:27'
+peg_rate: 0.999365
+peg_rate_currency: eur
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

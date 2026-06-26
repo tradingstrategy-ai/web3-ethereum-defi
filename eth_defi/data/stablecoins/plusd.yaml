@@ -30,6 +30,18 @@ links:
   defillama: https://defillama.com/protocol/trevee-earn
   twitter: https://x.com/Trevee_xyz
 slug: plusd
+coingecko_id: trevee-plasma-usd
+coingecko_link: https://www.coingecko.com/en/coins/trevee-plasma-usd
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.996522
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-01-11T12:56:52'
+peg_rate: 0.996522
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: '2026-03-17'
   domain_up_at: '2026-03-17'

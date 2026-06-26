@@ -28,6 +28,18 @@ contract_addresses:
   - chain: arbitrum
     address: '0x4883C8f0529F37e40eBeA870F3C13cDfAD5d01f8'
 slug: veur
+coingecko_id: vnx-euro
+coingecko_link: https://www.coingecko.com/en/coins/vnx-euro
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.299938
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-21T12:27:09'
+peg_rate: 0.261441
+peg_rate_currency: eur
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: '2026-06-26T12:13:31'
 checks:
   twitter_last_post_at: '2026-03-01'
   domain_up_at: '2026-03-17'

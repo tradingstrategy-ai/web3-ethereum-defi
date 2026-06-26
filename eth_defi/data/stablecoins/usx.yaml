@@ -18,6 +18,11 @@ links:
   defillama: https://defillama.com/stablecoin/dforce-usd
   twitter: https://x.com/dForcenet
 slug: usx
+coingecko_id: dforce-usd
+coingecko_link: https://www.coingecko.com/en/coins/dforce-usd
+coingecko_id_source: url
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: coingecko_price_missing
 checks:
   twitter_last_post_at: '2026-03-17'
   domain_up_at: '2026-03-17'

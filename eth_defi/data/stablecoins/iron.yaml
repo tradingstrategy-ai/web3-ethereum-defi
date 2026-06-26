@@ -39,6 +39,18 @@ links:
   defillama: ''
   twitter: https://x.com/ironfinance
 slug: iron
+coingecko_id: iron-finance
+coingecko_link: https://www.coingecko.com/en/coins/iron-finance
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 2.12e-06
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:14:59'
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: ''

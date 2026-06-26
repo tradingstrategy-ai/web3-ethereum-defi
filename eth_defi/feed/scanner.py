@@ -6,11 +6,17 @@ without going through the script entry point.
 """
 
 import datetime
+import json
 import logging
+import os
 import re
+import stat
+import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from strictyaml import YAMLError
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.feed.collector import CollectorRunSummary, collect_posts, collect_twitter_list_posts, fetch_feed_proxy_rotator
@@ -25,9 +31,22 @@ from eth_defi.feed.sources import (
     mark_twitter_handle_unknown,
     mark_twitter_source_dead,
 )
+from eth_defi.feed.stablecoin_rate import StablecoinRateRefreshSummary, refresh_stablecoin_rates
 from eth_defi.feed.twitter_api import TwitterUserCache, XApiError, resolve_twitter_handles, resolve_x_list_id_by_name, sync_x_list_members
+from eth_defi.stablecoin_metadata import STABLECOINS_DATA_DIR
 
 logger = logging.getLogger(__name__)
+
+_STABLECOIN_RATE_SIDE_JOB_ERROR_TYPES = (
+    YAMLError,
+    OSError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+)
 
 
 @dataclass(slots=True)
@@ -80,6 +99,16 @@ class PostScanConfig:
     death_detection_days: int = 180
     #: Comma-separated RSS bridge base URLs.
     twitter_rss_base_urls: list[str] = field(default_factory=list)
+    #: Refresh stablecoin rates as a post-scan side job.
+    refresh_stablecoin_rates: bool = True
+    #: Force stablecoin refresh even if the scanner-level 24h gate would skip it.
+    force_stablecoin_rate_refresh: bool = False
+    #: Stablecoin YAML data directory.
+    stablecoin_data_dir: Path = field(default_factory=lambda: STABLECOINS_DATA_DIR)
+    #: Stablecoin rate HTTP timeout.
+    stablecoin_rate_timeout: float = 20.0
+    #: Durable state file for scanner-level 24h stablecoin refresh gate.
+    stablecoin_rate_gate_path: Path | None = None
 
 
 def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
@@ -212,6 +241,8 @@ def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
     combined_summary = CollectorRunSummary(source_results=[], feeders_skipped=feeders_skipped)
     twitter_collection_used_list_timeline = False
     total_start = time.monotonic()
+
+    _run_stablecoin_rate_side_job(config, combined_summary)
 
     try:
         # Phase 1: RSS sources
@@ -459,3 +490,126 @@ def _merge_summary(target: CollectorRunSummary, source: CollectorRunSummary) -> 
         if target.source_results is None:
             target.source_results = []
         target.source_results.extend(source.source_results)
+
+
+def _stablecoin_gate_path(config: PostScanConfig) -> Path:
+    """Return the durable stablecoin refresh gate path for this scan config."""
+    if config.stablecoin_rate_gate_path is not None:
+        return config.stablecoin_rate_gate_path
+    return config.db_path.with_suffix(".stablecoin-rate-state.json")
+
+
+def _read_stablecoin_gate(path: Path) -> dict:
+    """Read the stablecoin refresh gate JSON state."""
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning("Could not read stablecoin rate gate state %s: %s", path, e)
+        return {}
+
+
+def _write_stablecoin_gate(path: Path, state: dict) -> None:
+    """Write the stablecoin refresh gate JSON state."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_text_atomic(path, json.dumps(state, indent=2, sort_keys=True))
+
+
+def _write_text_atomic(path: Path, text: str) -> None:
+    """Write text to a file using a same-directory atomic replacement."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        existing_mode = stat.S_IMODE(path.stat().st_mode)
+    except FileNotFoundError:
+        existing_mode = None
+
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False) as tmp_file:
+        tmp_file.write(text)
+        tmp_path = Path(tmp_file.name)
+
+    try:
+        if existing_mode is not None:
+            os.chmod(tmp_path, existing_mode)
+        os.replace(tmp_path, path)
+    except OSError:
+        if tmp_path.exists():
+            tmp_path.unlink()
+        raise
+
+
+def _stablecoin_refresh_due(state: dict, now_: datetime.datetime) -> bool:
+    """Return ``True`` if scanner-level 24h stablecoin refresh gate is open."""
+    last_succeeded_at = state.get("last_succeeded_at")
+    if not last_succeeded_at:
+        return True
+    try:
+        last_succeeded = datetime.datetime.fromisoformat(last_succeeded_at)
+    except ValueError:
+        return True
+    return now_ - last_succeeded >= datetime.timedelta(hours=24)
+
+
+def _run_stablecoin_rate_side_job(config: PostScanConfig, summary: CollectorRunSummary) -> None:
+    """Run the stablecoin rate refresh side job when the durable gate allows it."""
+    if not config.refresh_stablecoin_rates:
+        summary.stablecoin_rate_status = "disabled"
+        return
+
+    now_ = native_datetime_utc_now()
+    gate_path = _stablecoin_gate_path(config)
+    gate_state = _read_stablecoin_gate(gate_path)
+
+    if not config.force_stablecoin_rate_refresh and not _stablecoin_refresh_due(gate_state, now_):
+        summary.stablecoin_rate_status = "skipped_recent"
+        return
+
+    try:
+        stablecoin_summary: StablecoinRateRefreshSummary = refresh_stablecoin_rates(
+            data_dir=config.stablecoin_data_dir,
+            now_=now_,
+            force=config.force_stablecoin_rate_refresh,
+            timeout=config.stablecoin_rate_timeout,
+        )
+        if _stablecoin_rate_summary_failed(stablecoin_summary):
+            _record_stablecoin_rate_side_job_failure(
+                gate_path,
+                gate_state,
+                summary,
+                f"stablecoin rate refresh failed for all due entries: failed_count={stablecoin_summary.failed_count}, rates_fetched={stablecoin_summary.rates_fetched}",
+            )
+            summary.stablecoin_rate_summary = stablecoin_summary
+            return
+
+        gate_state["last_succeeded_at"] = native_datetime_utc_now().replace(microsecond=0).isoformat()
+        _write_stablecoin_gate(gate_path, gate_state)
+    except _STABLECOIN_RATE_SIDE_JOB_ERROR_TYPES as e:
+        _record_stablecoin_rate_side_job_failure(gate_path, gate_state, summary, e)
+        return
+
+    summary.stablecoin_rate_status = "succeeded"
+    summary.stablecoin_rate_summary = stablecoin_summary
+
+
+def _stablecoin_rate_summary_failed(summary: StablecoinRateRefreshSummary) -> bool:
+    """Return ``True`` if a refresh ran but all due entries failed."""
+    all_attempts_failed = summary.failed_count > 0 and summary.rates_fetched == 0
+    only_failed_attempts_were_skipped = summary.due_count == 0 and summary.rates_fetched == 0 and summary.skipped_failed_today_count > 0 and summary.skipped_succeeded_today_count == 0
+    return all_attempts_failed or only_failed_attempts_were_skipped
+
+
+def _record_stablecoin_rate_side_job_failure(
+    gate_path: Path,
+    gate_state: dict,
+    summary: CollectorRunSummary,
+    error: BaseException | str,
+) -> None:
+    """Record a stablecoin refresh failure without aborting post collection."""
+    logger.warning("Stablecoin rate refresh failed, continuing post scan: %s", error)
+    gate_state["last_failed_at"] = native_datetime_utc_now().replace(microsecond=0).isoformat()
+    try:
+        _write_stablecoin_gate(gate_path, gate_state)
+    except _STABLECOIN_RATE_SIDE_JOB_ERROR_TYPES as gate_error:
+        logger.warning("Could not write stablecoin rate gate failure state %s: %s", gate_path, gate_error)
+    summary.stablecoin_rate_status = "failed"
+    summary.stablecoin_rate_error = str(error)

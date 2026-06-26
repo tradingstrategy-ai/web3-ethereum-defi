@@ -17,6 +17,18 @@ contract_addresses:
   - chain: ethereum
     address: '0x9D39A5DE30e57443BfF2A8307A4256c8797A3497'
 slug: susde
+coingecko_id: ethena-staked-usde
+coingecko_link: https://www.coingecko.com/en/coins/ethena-staked-usde
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 1.23
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:07'
+peg_rate: 1.23
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

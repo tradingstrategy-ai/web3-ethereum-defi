@@ -24,6 +24,11 @@ contract_addresses:
     address: "0x660975730059246A68521a3e2FBD4740173100f5"
   - chain: arbitrum
     address: "0x41CA7586cC1311807B4605fBB748a3B8862b42b5"
+coingecko_id: syrup-usdc
+coingecko_link: https://www.coingecko.com/en/coins/syrup-usdc
+coingecko_id_source: url
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: coingecko_price_missing
 checks:
   twitter_last_post_at: ""
   domain_up_at: ""

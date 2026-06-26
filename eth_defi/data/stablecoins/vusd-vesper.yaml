@@ -25,6 +25,8 @@ contract_addresses:
   - chain: ethereum
     address: '0x677ddbd918637E5F2c79e164D402454dE7dA8619'
 slug: vusd-vesper
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: missing_coingecko_id
 checks:
   twitter_last_post_at: '2025-08-01'
   domain_up_at: '2026-03-17'

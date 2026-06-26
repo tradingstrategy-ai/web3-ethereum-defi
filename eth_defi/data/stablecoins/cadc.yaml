@@ -33,6 +33,18 @@ contract_addresses:
     address: '0x2b28E826b55e399F4d4699b85f68666AC51e6f70'
   - chain: polygon
     address: '0x9de41aFF9f55219D5bf4359F167d1D0c772A396D'
+coingecko_id: cad-coin
+coingecko_link: https://www.coingecko.com/en/coins/cad-coin
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.702083
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:14:50'
+peg_rate: 0.995744
+peg_rate_currency: cad
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

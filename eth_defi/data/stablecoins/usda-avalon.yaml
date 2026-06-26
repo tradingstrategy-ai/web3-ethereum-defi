@@ -37,6 +37,18 @@ contract_addresses:
     address: '0x075df695b8E7f4361FA7F8c1426C63f11B06e326'
   - chain: binance
     address: '0x9356086146be5158E98aD827E21b5cF944699894'
+coingecko_id: usda-2
+coingecko_link: https://www.coingecko.com/en/coins/usda-2
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.98282
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-24T20:29:08'
+peg_rate: 0.98282
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: '2026-03-17'
   domain_up_at: '2026-03-17'

@@ -28,6 +28,18 @@ contract_addresses:
   - chain: ethereum
     address: '0x820802Fa8a99901F52e39acD21177b0BE6EE2974'
 slug: euroe
+coingecko_id: euroe-stablecoin
+coingecko_link: https://www.coingecko.com/en/coins/euroe-stablecoin
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 1.16
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2025-10-27T21:12:55'
+peg_rate: 0.999289
+peg_rate_currency: eur
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

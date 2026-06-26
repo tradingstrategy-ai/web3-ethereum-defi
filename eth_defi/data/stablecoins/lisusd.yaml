@@ -18,6 +18,11 @@ contract_addresses:
   - chain: binance
     address: '0x0782b6d8c4551B9760e74c0545a9bCD90bdc41E5'
 slug: lisusd
+coingecko_id: lista-usd
+coingecko_link: https://www.coingecko.com/en/coins/lista-usd
+coingecko_id_source: url
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: coingecko_price_missing
 checks:
   twitter_last_post_at: '2026-03-17'
   domain_up_at: '2026-03-17'

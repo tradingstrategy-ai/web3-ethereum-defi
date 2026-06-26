@@ -41,6 +41,18 @@ links:
   defillama: https://defillama.com/stablecoin/usd+
   twitter: https://x.com/overnight_fi
 slug: usd-plus
+coingecko_id: usd
+coingecko_link: https://www.coingecko.com/en/coins/usd
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.993561
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-03-18T03:37:53'
+peg_rate: 0.993561
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: '2026-02-25'
   domain_up_at: '2026-03-17'
