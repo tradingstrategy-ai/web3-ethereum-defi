@@ -33,6 +33,11 @@ slug: bac
 contract_addresses:
   - chain: ethereum
     address: '0x3449FC1Cd036255BA1EB19d65fF4BA2b8903A69a'
+coingecko_id: basis-cash
+coingecko_link: https://www.coingecko.com/en/coins/basis-cash
+coingecko_id_source: url
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: coingecko_price_missing
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

@@ -37,6 +37,18 @@ contract_addresses:
     address: '0xB0B195aEFA3650A6908f15CdaC7D92F8a5791B0B'
   - chain: polygon
     address: '0xB0B195aEFA3650A6908f15CdaC7D92F8a5791B0B'
+coingecko_id: bob
+coingecko_link: https://www.coingecko.com/en/coins/bob
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.999415
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:19'
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

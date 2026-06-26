@@ -17,6 +17,18 @@ contract_addresses:
   - chain: ethereum
     address: '0x09D4214C03D01F49544C0448DBE3A27f768F2b34'
 slug: rusd-ipor
+coingecko_id: reservoir-rusd
+coingecko_link: https://www.coingecko.com/en/coins/reservoir-rusd
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 1.003
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:16'
+peg_rate: 1.003
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

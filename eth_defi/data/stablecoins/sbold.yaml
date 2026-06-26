@@ -17,6 +17,11 @@ contract_addresses:
   - chain: ethereum
     address: '0x50Bd66D59911F5e086Ec87aE43C811e0D059DD11'
 slug: sbold
+coingecko_id: sbold-by-k3-capital
+coingecko_link: https://www.coingecko.com/en/coins/sbold-by-k3-capital
+coingecko_id_source: url
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: coingecko_price_missing
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

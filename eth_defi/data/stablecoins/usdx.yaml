@@ -12,9 +12,21 @@ entries:
     on March 13, 2026. The homepage (usdx.money) was unreachable as of March 2026. USDX is considered defunct.
   links:
     homepage: https://usdx.money/
-    coingecko: https://www.coingecko.com/en/coins/stables-labs-usdx
+    coingecko: https://www.coingecko.com/en/coins/usdx-money-usdx
     defillama: https://defillama.com/stablecoin/usdx-money
     twitter: https://x.com/usdx_money
+  coingecko_id: usdx-money-usdx
+  coingecko_link: https://www.coingecko.com/en/coins/usdx-money-usdx
+  coingecko_id_source: manual
+  coingecko_id_verified_at: '2026-06-26T12:16:16'
+  usd_rate: 0.0076278
+  usd_rate_fetched_at: '2026-06-26T12:16:16'
+  usd_rate_updated_at: '2026-06-26T01:17:30'
+  peg_rate: 0.0076278
+  peg_rate_currency: usd
+  rate_fetch_failed_at: ''
+  rate_fetch_failed_reason: ''
+  depegged_at: '2026-06-26T12:16:16'
   checks:
     twitter_last_post_at: '2025-01-14'
     domain_up_at: ''
@@ -51,12 +63,24 @@ entries:
     ## Sources
 
     - [Kava documentation — basics](https://docs.kava.io/docs/faq/basics/)
-    - [CoinGecko — Kava Lend](https://www.coingecko.com/en/coins/kava-lend)
+    - [CoinGecko — USDX](https://www.coingecko.com/en/coins/usdx)
   links:
     homepage: https://www.kava.io/
-    coingecko: https://www.coingecko.com/en/coins/kava-lend
+    coingecko: https://www.coingecko.com/en/coins/usdx
     defillama: ''
     twitter: https://x.com/KAVA_CHAIN
+  coingecko_id: usdx
+  coingecko_link: https://www.coingecko.com/en/coins/usdx
+  coingecko_id_source: manual
+  coingecko_id_verified_at: '2026-06-26T12:16:16'
+  usd_rate: 0.633962
+  usd_rate_fetched_at: '2026-06-26T12:16:16'
+  usd_rate_updated_at: '2026-06-26T12:15:25'
+  peg_rate: 0.633962
+  peg_rate_currency: usd
+  rate_fetch_failed_at: ''
+  rate_fetch_failed_reason: ''
+  depegged_at: '2026-06-26T12:15:26'
   checks:
     twitter_last_post_at: '2026-03-17'
     domain_up_at: '2026-03-17'

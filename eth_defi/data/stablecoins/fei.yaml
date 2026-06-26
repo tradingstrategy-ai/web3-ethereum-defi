@@ -20,6 +20,18 @@ links:
   defillama: https://defillama.com/stablecoin/fei-usd
   twitter: https://x.com/feiprotocol
 slug: fei
+coingecko_id: fei-usd
+coingecko_link: https://www.coingecko.com/en/coins/fei-usd
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.993942
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:08'
+peg_rate: 0.993942
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: ''

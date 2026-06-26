@@ -43,6 +43,18 @@ contract_addresses:
     address: '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d'
   - chain: binance
     address: '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d'
+coingecko_id: usd1-wlfi
+coingecko_link: https://www.coingecko.com/en/coins/usd1-wlfi
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.999145
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:11'
+peg_rate: 0.999145
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: '2026-03-17'
   domain_up_at: '2026-03-17'

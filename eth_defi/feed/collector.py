@@ -9,7 +9,7 @@ import re
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Iterator, Sequence
+from typing import Any, Iterator, Sequence
 
 import feedparser
 import joblib
@@ -119,6 +119,12 @@ class CollectorRunSummary:
     twitter_duration_seconds: float | None = None
     #: Total scan duration in seconds.
     total_duration_seconds: float | None = None
+    #: Stablecoin rate side-job status: disabled, skipped_recent, succeeded, or failed.
+    stablecoin_rate_status: str | None = None
+    #: Stablecoin rate side-job summary when a refresh ran successfully.
+    stablecoin_rate_summary: Any | None = None
+    #: Stablecoin rate side-job error when an unexpected refresh exception was caught.
+    stablecoin_rate_error: str | None = None
 
 
 @dataclass(slots=True)

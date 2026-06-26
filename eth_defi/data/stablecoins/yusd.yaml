@@ -13,6 +13,18 @@ entries:
     coingecko: https://www.coingecko.com/en/coins/yusd-stablecoin
     defillama: https://defillama.com/protocol/yeti-finance
     twitter: https://x.com/yetifinance
+  coingecko_id: yusd-stablecoin
+  coingecko_link: https://www.coingecko.com/en/coins/yusd-stablecoin
+  coingecko_id_source: url
+  coingecko_id_verified_at: '2026-06-26T12:16:16'
+  usd_rate: 0.99583
+  usd_rate_fetched_at: '2026-06-26T12:16:16'
+  usd_rate_updated_at: '2026-06-26T12:15:27'
+  peg_rate: 0.99583
+  peg_rate_currency: usd
+  rate_fetch_failed_at: ''
+  rate_fetch_failed_reason: ''
+  depegged_at: ''
   checks:
     twitter_last_post_at: ''
     domain_up_at: ''
@@ -38,6 +50,18 @@ entries:
       address: '0x4772D2e014F9fC3a820C444e3313968e9a5C8121'
     - chain: base
       address: '0x895e15020C3f52ddD4D8e9514eB83C39F53B1579'
+  coingecko_id: yieldfi-ytoken
+  coingecko_link: https://www.coingecko.com/en/coins/yieldfi-ytoken
+  coingecko_id_source: url
+  coingecko_id_verified_at: '2026-06-26T12:16:16'
+  usd_rate: 0.998454
+  usd_rate_fetched_at: '2026-06-26T12:16:16'
+  usd_rate_updated_at: '2026-06-26T12:10:09'
+  peg_rate: 0.998454
+  peg_rate_currency: usd
+  rate_fetch_failed_at: ''
+  rate_fetch_failed_reason: ''
+  depegged_at: ''
   checks:
     twitter_last_post_at: '2025-10-28'
     domain_up_at: '2026-03-17'

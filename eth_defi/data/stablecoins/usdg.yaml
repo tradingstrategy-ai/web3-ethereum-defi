@@ -52,6 +52,18 @@ slug: usdg
 contract_addresses:
   - chain: ethereum
     address: '0xe343167631d89B6Ffc58B88d6b7fB0228795491D'
+coingecko_id: global-dollar
+coingecko_link: https://www.coingecko.com/en/coins/global-dollar
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.999797
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:18'
+peg_rate: 1.29
+peg_rate_currency: sgd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: '2026-02-17'
   domain_up_at: '2026-03-17'

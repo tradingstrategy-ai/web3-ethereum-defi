@@ -30,6 +30,18 @@ contract_addresses:
   - chain: polygon
     address: '0x40379a439D4F6795B6fc9aa5687dB461677A2dBa'
 slug: usdr
+coingecko_id: real-usd
+coingecko_link: https://www.coingecko.com/en/coins/real-usd
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.464988
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:20'
+peg_rate: 0.464988
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: '2026-06-26T12:13:31'
 checks:
   twitter_last_post_at: '2024-10-31'
   domain_up_at: '2026-03-17'

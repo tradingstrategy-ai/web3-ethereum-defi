@@ -13,7 +13,6 @@ import pytest
 
 from eth_defi.feed.scanner import PostScanConfig, run_post_scan_cycle
 
-
 pytestmark = pytest.mark.skipif(
     not os.environ.get("TWITTER_BEARER_TOKEN"),
     reason="TWITTER_BEARER_TOKEN not set — skipping live X API tests",
@@ -43,10 +42,11 @@ def test_scan_single_twitter_account(tmp_path: Path) -> None:
         max_posts_per_source=10,
         request_delay_seconds=0,
         twitter_rss_base_urls=[],
+        refresh_stablecoin_rates=False,
     )
 
     # 2. Call run_post_scan_cycle()
-    summary = run_post_scan_cycle(config)
+    run_post_scan_cycle(config)
 
     # 3. Assert posts are stored in DuckDB with raw_payload
     from eth_defi.feed.database import VaultPostDatabase

@@ -1,5 +1,7 @@
 # Current
 
+- feat: Add a CoinGecko-backed stablecoin denomination rate feed and depeg monitor for vault metrics, with daily post-scan refresh, sticky YAML `depegged_at` flags, failure stamps for missing prices, `denomination_token_rate` export fields, and automatic vault blacklisting when a denomination stablecoin is marked depegged (2026-06-26)
+
 - feat: Add Lighter account valuation helper for fetching total equity / NAV from live account state, with downstream trade-executor integration coverage and the Lagoon + Lighter manual tutorial now using this helper for withdrawal sizing (2026-06-26)
 
 - feat: Expand the Lagoon + Lighter manual test into a full mainnet lifecycle script with automatic Lagoon deployment JSON saving/loading, existing-vault resume support, live Lighter minimum sizing, Safe-owned API-key registration, ETH long open/close, Lighter withdrawal, Lagoon redemption back to the hot wallet, and reusable `eth_defi.lighter.api` / `eth_defi.lighter.lagoon` helpers (2026-06-26)
