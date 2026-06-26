@@ -93,7 +93,15 @@ Environment variables
     conservative range to avoid overwriting front-end keys.
 ``LIGHTER_WITHDRAW_TIMEOUT``
     Optional. Seconds to wait for the secure withdrawal to become claimable.
-    Defaults to 3600.
+    Defaults to 14400 because Lighter secure withdrawals may take more than one
+    hour to become claimable on L1.
+``LIGHTER_RECOVERY_WITHDRAW_USDC``
+    Optional. Claim/redeem recovery mode for a run that already requested a
+    Lighter withdrawal but timed out before the L1 pending balance became
+    claimable. Set this to the expected human-readable USDC withdrawal amount
+    together with ``LIGHTER_TUTORIAL_DEPLOYMENT_FILE``. The script skips
+    deploy/deposit/trade/withdraw and only claims from Lighter, redeems Lagoon
+    shares, and sweeps residual Safe USDC.
 ``LIGHTER_TUTORIAL_DEPLOYMENT_FILE``
     Optional. Path to a previously saved Lagoon deployment JSON file. When set,
     the script reads the Lagoon deployment info back from this file and
@@ -141,6 +149,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lighter.api import (
     LIGHTER_MIN_MAINNET_USDC,
+    LighterTradeAmounts,
     fetch_lighter_account,
     get_lighter_available_balance,
     get_lighter_collateral,
@@ -171,6 +180,9 @@ LIGHTER_TUTORIAL_DEPLOYMENT_DIR = Path("~/.tradingstrategy/examples").expanduser
 
 #: File name prefix for automatically saved deployment files.
 LIGHTER_TUTORIAL_DEPLOYMENT_FILE_PREFIX = "lighter-tutorial"
+
+#: Default wait for Lighter secure withdrawals to become claimable on L1.
+DEFAULT_LIGHTER_WITHDRAW_TIMEOUT = 14_400
 
 
 def require_env(name: str) -> str:
@@ -518,7 +530,8 @@ async def run_mainnet() -> None:  # noqa: PLR0914
     private_key = require_env("LIGHTER_TEST_PRIVATE_KEY")
     etherscan_api_key = os.environ.get("ETHERSCAN_API_KEY")
     api_key_index = int(os.environ.get("LIGHTER_API_KEY_INDEX", str(MIN_API_KEY_INDEX)))
-    withdraw_timeout = int(os.environ.get("LIGHTER_WITHDRAW_TIMEOUT", "3600"))
+    withdraw_timeout = int(os.environ.get("LIGHTER_WITHDRAW_TIMEOUT", str(DEFAULT_LIGHTER_WITHDRAW_TIMEOUT)))
+    recovery_withdraw_usdc = parse_decimal_env("LIGHTER_RECOVERY_WITHDRAW_USDC", None)
     deployment_file = os.environ.get(LIGHTER_TUTORIAL_DEPLOYMENT_FILE_ENV)
     existing_vault_address = os.environ.get("LAGOON_VAULT_ADDRESS")
     existing_module_address = os.environ.get("TRADING_STRATEGY_MODULE_ADDRESS")
@@ -537,16 +550,9 @@ async def run_mainnet() -> None:  # noqa: PLR0914
     hot_wallet = HotWallet.from_private_key(private_key)
     hot_wallet.sync_nonce(web3)
     usdc = fetch_erc20_details(web3, LIGHTER_USDC_ETHEREUM)
-    amounts = await resolve_eth_trade_amounts(
-        lighter,
-        deposit_usdc=parse_decimal_env("LIGHTER_DEPOSIT_USDC", None),
-        position_usdc=parse_decimal_env("LIGHTER_POSITION_USDC", None),
-    )
 
     usdc_balance = usdc.fetch_balance_of(hot_wallet.address)
     eth_balance = Decimal(web3.eth.get_balance(hot_wallet.address)) / Decimal(10**18)
-    if usdc_balance < amounts.deposit_usdc:
-        raise RuntimeError(f"{hot_wallet.address} has {usdc_balance} USDC but needs {amounts.deposit_usdc}")
     if eth_balance <= 0:
         raise RuntimeError(f"{hot_wallet.address} has no ETH for mainnet gas")
 
@@ -554,6 +560,16 @@ async def run_mainnet() -> None:  # noqa: PLR0914
     print(f"  Address: {hot_wallet.address}")
     print(f"  ETH:     {eth_balance}")
     print(f"  USDC:    {usdc_balance}")
+
+    amounts: LighterTradeAmounts | None = None
+    if recovery_withdraw_usdc is None:
+        amounts = await resolve_eth_trade_amounts(
+            lighter,
+            deposit_usdc=parse_decimal_env("LIGHTER_DEPOSIT_USDC", None),
+            position_usdc=parse_decimal_env("LIGHTER_POSITION_USDC", None),
+        )
+        if usdc_balance < amounts.deposit_usdc:
+            raise RuntimeError(f"{hot_wallet.address} has {usdc_balance} USDC but needs {amounts.deposit_usdc}")
 
     if deployment_file:
         deploy_info = load_lagoon_deployment_file(web3, Path(deployment_file))
@@ -571,6 +587,19 @@ async def run_mainnet() -> None:  # noqa: PLR0914
         if not isinstance(vault, LagoonVault):
             msg = f"{saved_path} describes a satellite deployment, but the Lighter manual test needs a Lagoon vault"
             raise TypeError(msg)
+
+    if recovery_withdraw_usdc is not None:
+        if not deployment_file and not existing_vault_address:
+            msg = f"LIGHTER_RECOVERY_WITHDRAW_USDC needs {LIGHTER_TUTORIAL_DEPLOYMENT_FILE_ENV} or LAGOON_VAULT_ADDRESS/TRADING_STRATEGY_MODULE_ADDRESS"
+            raise ValueError(msg)
+        expected_raw_amount = usdc.convert_to_raw(recovery_withdraw_usdc)
+        claim_lighter_pending_balance(web3, hot_wallet, vault, usdc, expected_raw_amount, withdraw_timeout)
+        redeem_back_to_hot_wallet(web3, hot_wallet, vault)
+        sweep_safe_usdc_to_hot_wallet(web3, hot_wallet, vault)
+        print("\nLighter + Lagoon recovery completed.")
+        return
+
+    assert amounts is not None
 
     deposit_to_vault(web3, hot_wallet, vault, amounts.deposit_usdc)
     deposit_usdc_from_lagoon_safe_into_lighter(web3, hot_wallet, vault, usdc, amounts.deposit_usdc)
