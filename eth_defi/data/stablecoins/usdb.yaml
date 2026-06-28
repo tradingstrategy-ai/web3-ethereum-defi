@@ -43,6 +43,18 @@ slug: usdb
 contract_addresses:
   - chain: blast
     address: '0x4300000000000000000000000000000000000003'
+coingecko_id: usdb
+coingecko_link: https://www.coingecko.com/en/coins/usdb
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.989529
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:07'
+peg_rate: 0.989529
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: '2026-03-17'
   domain_up_at: '2026-03-17'

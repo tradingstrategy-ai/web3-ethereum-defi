@@ -51,6 +51,18 @@ contract_addresses:
   - chain: ethereum
     address: '0x68749665FF8D2d112Fa859AA293F07A622782F38'
 slug: xaut
+coingecko_id: tether-gold
+coingecko_link: https://www.coingecko.com/en/coins/tether-gold
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 4034.67
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:25'
+peg_rate: 0.996726
+peg_rate_currency: xau
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: '2026-03-01'
   domain_up_at: '2026-03-17'

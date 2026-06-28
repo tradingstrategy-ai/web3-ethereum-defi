@@ -17,6 +17,18 @@ links:
   defillama: https://defillama.com/stablecoin/mountain-protocol-usdm
   twitter: https://x.com/MountainUSDM
 slug: usdm
+coingecko_id: mountain-protocol-usdm
+coingecko_link: https://www.coingecko.com/en/coins/mountain-protocol-usdm
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 1.003
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:19'
+peg_rate: 1.003
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

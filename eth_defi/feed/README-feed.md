@@ -372,6 +372,52 @@ The main runner is
 
 It uses environment variables instead of a command line parser.
 
+## Stablecoin rate refresh
+
+The post scanner also runs the stablecoin rate refresh side job implemented in
+[`stablecoin_rate.py`](./stablecoin_rate.py). The side job reads
+`eth_defi/data/stablecoins/*.yaml`, fetches USD prices from the CoinGecko
+`/simple/price` endpoint, and writes the current rate metadata back to the YAML
+entry:
+
+- `coingecko_id` and `coingecko_link`
+- `usd_rate`, `usd_rate_fetched_at`, and `usd_rate_updated_at`
+- `peg_rate` and `peg_rate_currency`
+- `rate_fetch_failed_at` and `rate_fetch_failed_reason`
+- sticky `depegged_at`
+
+The scanner has a durable 24-hour gate, so the refresh is attempted at most
+once per day during normal post scanning. Per-entry daily gates also prevent a
+missing or failed CoinGecko asset from being retried on every scanner cycle.
+Set `FORCE_STABLECOIN_RATE_REFRESH=true` to bypass the scanner-level gate.
+
+If a stablecoin trades below 90% of its nominal peg, the updater stamps
+`depegged_at`. The updater does not clear this flag; operators clear it
+manually in the YAML file after reviewing the asset. Vault metrics use
+`StablecoinRateFeeder` to read the YAML data, export a
+`denomination_token_rate` section per vault, and blacklist vaults whose
+denomination token has a non-empty `depegged_at` field. This blacklist is
+intentionally sticky: a recovered or false-positive asset remains excluded
+until an operator clears `depegged_at` in the YAML file.
+
+For initial YAML population or manual refreshes, use:
+
+```shell
+poetry run python scripts/erc-4626/populate-stablecoin-rates.py
+```
+
+Useful environment variables:
+
+- `STABLECOIN_DATA_DIR`: override stablecoin YAML directory
+- `COINGECKO_ID_MAPPING_FILE`: JSON mapping for explicit ambiguous ids
+- `FORCE=true`: bypass per-entry daily gates
+- `COINGECKO_DEMO_API_KEY`: optional CoinGecko demo API key
+- `STABLECOIN_RATE_TIMEOUT`: CoinGecko timeout in seconds
+
+Ambiguous symbols must store an explicit `coingecko_id`. For example, Kava
+USDX uses `coingecko_id: usdx` even though older metadata linked to the
+CoinGecko Kava Lend page.
+
 ### Default run (RSS + Twitter/X + LinkedIn)
 
 Collects all sources.  Twitter/X and LinkedIn bridge URLs are built in as
@@ -472,6 +518,12 @@ back from X.  Instead it records the member IDs it has successfully added in the
 per-list `x_list_member_ids:<list_id>` cache and only writes the delta on later
 runs.  Re-adding an existing member is a no-op on X's side, so a cold cache
 self-heals on the first run.
+
+If X resolves a handle to a user ID but rejects the list write because the
+account is suspended, the scanner and standalone sync command treat this as a
+non-retryable account-state failure and stamp the feeder YAML with
+`twitter-handle-resolved-unknown-at`. The sync stores the current handle hash so
+the same account is not retried every run.
 
 By default the script resolves the list named `Best builders in DeFi` from the
 authenticated X user's owned lists.  Set `X_LIST_ID` only when you want to

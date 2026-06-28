@@ -14,6 +14,18 @@ links:
   defillama: ''
   twitter: https://x.com/Hector_Network
 slug: tor
+coingecko_id: tor
+coingecko_link: https://www.coingecko.com/en/coins/tor
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.01549515
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-25T20:34:40'
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: ''

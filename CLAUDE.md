@@ -14,6 +14,13 @@ touches the relevant area:
 - `.claude/docs/agent-tricks-and-troubleshooting.md` — Codex CLI and
   Claude CLI usage patterns, including cross-agent review commands,
   streaming Claude review output, and common failure modes.
+  **When invoking Codex CLI for a non-interactive review you MUST follow
+  the "Required method for non-interactive Codex reviews" section of that
+  doc** (run from the tree containing the changes and verify the diff is
+  non-empty first, use `codex exec --json` in the background, poll the PID,
+  and parse `agent_message` events). Do not run plain foreground
+  `codex exec "..."` — it buffers output, looks hung, and can silently
+  review the wrong git tree.
 
 ## Skills
 
@@ -116,6 +123,7 @@ No test plan or verification section. Use Markdown formatting, headings.
 - Each changelog entry should follow the date of the PR in YYYY-MM-DD format. Example: Something was updated (2026-01-01).
 - Before opening or updating a pull request, format the code
 - When merging pull request, squash and merge commits and use the PR description as the commit message
+- When watching CI for pull request merge readiness, never wait for documentation-only workflows like `Build documentation`; merge once non-documentation required checks are green, unless the user explicitly asks to wait for docs.
 - If continuous integration (CI) tests fail on your PR, and they are marked flaky, run tests locally to repeat the issue if it is real flakiness or regression
 
 ## Pushing to master
@@ -309,6 +317,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/gmx/README.md` | GMX CCXT adapter for eth_defi |
 | `eth_defi/gmx/ccxt/README.md` | GMX CCXT adapter implementation |
 | `eth_defi/gmx/graphql/README.md` | GMX Subsquid GraphQL integration |
+| `eth_defi/lighter/README-lighter-guard.md` | Lighter (zk-rollup perps DEX) L1 deposit/withdraw guard integration — architecture, security model, operator flow |
 | `scripts/base/README.md` | Base chain related manual test scripts |
 | `scripts/debian-bullseye-compatibility/README.md` | Running on Debian Bullseye |
 | `scripts/erc-4626/README-vault-scripts.md` | ERC-4626 vault scripts |

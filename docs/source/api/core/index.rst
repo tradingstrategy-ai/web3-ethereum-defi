@@ -29,9 +29,10 @@ The core API is built on the top of Web3.py library.
    eth_defi.trade
    eth_defi.sqlite_cache
    eth_defi.utils
+   eth_defi.coloured_logging
+   eth_defi.logging_retry
    eth_defi.basewallet
    eth_defi.compat
    eth_defi.types
    eth_defi.provider_wallet
    eth_defi.version_info
-

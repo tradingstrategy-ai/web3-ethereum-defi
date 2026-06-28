@@ -16,6 +16,18 @@ links:
   defillama: ''
   twitter: https://x.com/felixprotocol
 slug: feusd
+coingecko_id: felix-feusd
+coingecko_link: https://www.coingecko.com/en/coins/felix-feusd
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.998944
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:11'
+peg_rate: 0.998944
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

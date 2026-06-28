@@ -9,7 +9,7 @@ import re
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Iterator, Sequence
+from typing import Any, Iterator, Sequence
 
 import feedparser
 import joblib
@@ -119,6 +119,12 @@ class CollectorRunSummary:
     twitter_duration_seconds: float | None = None
     #: Total scan duration in seconds.
     total_duration_seconds: float | None = None
+    #: Stablecoin rate side-job status: disabled, skipped_recent, succeeded, or failed.
+    stablecoin_rate_status: str | None = None
+    #: Stablecoin rate side-job summary when a refresh ran successfully.
+    stablecoin_rate_summary: Any | None = None
+    #: Stablecoin rate side-job error when an unexpected refresh exception was caught.
+    stablecoin_rate_error: str | None = None
 
 
 @dataclass(slots=True)
@@ -543,7 +549,9 @@ def _collect_posts_for_source_worker(
     # different IPs.  Cloning per-source resets the index and causes proxy reuse.
     checked_rotator = proxy_rotator
     if checked_rotator is not None:
-        checked_rotator.rotate(failure_reason=None)
+        # Proactive pre-request rotation so consecutive requests to the same
+        # domain come from different IPs — not a proxy failure.
+        checked_rotator.rotate(reason=f"new source request: {source.canonical_url}")
 
     if request_delay_seconds > 0:
         time.sleep(request_delay_seconds)

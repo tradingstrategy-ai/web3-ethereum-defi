@@ -42,6 +42,18 @@ slug: usdbc
 contract_addresses:
   - chain: base
     address: '0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA'
+coingecko_id: bridged-usd-coin-base
+coingecko_link: https://www.coingecko.com/en/coins/bridged-usd-coin-base
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.999232
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:11'
+peg_rate: 0.999232
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: '2026-03-17'
   domain_up_at: '2026-03-17'

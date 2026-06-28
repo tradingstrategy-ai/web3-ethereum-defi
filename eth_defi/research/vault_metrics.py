@@ -29,6 +29,7 @@ from eth_defi.core3.vault_protocol import Core3ExportRecord, Core3VaultSection, 
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
+from eth_defi.feed.stablecoin_rate import DenominationTokenRate, StablecoinRateFeeder
 from eth_defi.research.value_table import format_grouped_series_as_multi_column_grid, format_series_as_multi_column_grid
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
@@ -267,6 +268,9 @@ class VaultMetricsRecord(TypedDict, total=False):
     #: when no Core3 data is available. See
     #: :py:class:`~eth_defi.core3.vault_protocol.Core3VaultSection`.
     core3: "Core3VaultSection | None"
+
+    #: Stablecoin rate data for the vault denomination token.
+    denomination_token_rate: DenominationTokenRate
 
     #: Per-period tearsheet results
     period_results: list[dict]
@@ -1340,6 +1344,7 @@ def calculate_vault_record(
     three_months_ago: pd.Timestamp,
     vault_id: str | None = None,
     core3_protocols: dict[str, Core3ExportRecord] | None = None,
+    stablecoin_rate_feeder: StablecoinRateFeeder | None = None,
 ) -> pd.Series:
     """Process a single vault metadata + prices to calculate its full data.
 
@@ -1369,6 +1374,13 @@ def calculate_vault_record(
         (:py:class:`~eth_defi.core3.vault_protocol.Core3VaultSection`) is
         attached to the record for the vault's protocol, or ``None`` if
         the protocol has no Core3 data.
+
+    :param stablecoin_rate_feeder:
+        Stablecoin rate/depeg lookup helper. If omitted, a default feeder using
+        package stablecoin metadata is constructed for this vault. Batch callers
+        should pass one shared
+        :py:class:`~eth_defi.feed.stablecoin_rate.StablecoinRateFeeder` so the
+        stablecoin YAML lookups are cached consistently across the batch.
 
     :return:
         Series with calculated metrics
@@ -1650,6 +1662,15 @@ def calculate_vault_record(
         denomination_token_address = None
         denomination_token_decimals = None
 
+    if stablecoin_rate_feeder is None:
+        stablecoin_rate_feeder = StablecoinRateFeeder()
+
+    denomination_token_rate = stablecoin_rate_feeder.get_denomination_token_rate_section(
+        chain_id=chain_id,
+        address=denomination_token_address,
+        symbol=normalised_denomination,
+    )
+
     # Do we know fees for this vault
     known_fee = mgmt_fee is not None and perf_fee is not None
 
@@ -1732,6 +1753,22 @@ def calculate_vault_record(
         three_months_volatility=three_months_volatility,
     )
 
+    if stablecoin_rate_feeder.is_depegged_stablecoin_token(
+        chain_id=chain_id,
+        address=denomination_token_address,
+        symbol=normalised_denomination,
+    ):
+        flags = set(flags)
+        flags.add(VaultFlag.depegged_denomination_token)
+        risk = VaultTechnicalRisk.blacklisted
+        depeg_note = f"Denomination stablecoin {normalised_denomination or denomination} is marked as depegged"
+        notes = f"{notes}; {depeg_note}" if notes else depeg_note
+        other_data["vault_display_flags"] = list(other_data.get("vault_display_flags") or []) + make_vault_display_flags(
+            red_flags=[VaultFlag.depegged_denomination_token.value],
+            yellow_flags=[],
+            source="stablecoin",
+        )
+
     # Legacy: One month metrics
     if one_month_pm and one_month_pm.error_reason is None:
         one_month_returns = one_month_pm.returns_gross
@@ -1757,6 +1794,7 @@ def calculate_vault_record(
     last_share_price = prices_df.iloc[-1]["share_price"]
     first_updated_at = prices_df.index.min()
     first_updated_block = prices_df.iloc[0]["block_number"]
+    risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
 
     return pd.Series(
         {
@@ -1859,6 +1897,7 @@ def calculate_vault_record(
             # Compact per-vault Core3 risk summary (risk_score, market_cap, rating, etc.).
             # None when no Core3 data is available for the vault's protocol.
             "core3": core3_section,
+            "denomination_token_rate": denomination_token_rate,
             # Protocol-specific extension data; see other_data definition above for structure
             "other_data": other_data,
         }
@@ -1870,6 +1909,7 @@ def calculate_lifetime_metrics(
     vault_db: VaultDatabase | dict[VaultSpec, VaultRow],
     returns_column: str = "returns_1h",
     core3_protocols: dict[str, Core3ExportRecord] | None = None,
+    stablecoin_rate_feeder: StablecoinRateFeeder | None = None,
 ) -> pd.DataFrame:
     """Calculate lifetime metrics for each vault in the provided DataFrame.
 
@@ -1895,6 +1935,10 @@ def calculate_lifetime_metrics(
         Threaded through to :py:func:`calculate_vault_record` to attach a
         per-vault ``core3`` summary. ``None`` to skip Core3 enrichment.
 
+    :param stablecoin_rate_feeder:
+        Stablecoin rate/depeg lookup helper shared across all vault rows in
+        this calculation. If omitted, one default feeder is constructed.
+
     :return:
         DataFrame, one row per vault.
     """
@@ -1918,11 +1962,22 @@ def calculate_lifetime_metrics(
         vaults=vaults_by_id,
     )
 
+    if stablecoin_rate_feeder is None:
+        stablecoin_rate_feeder = StablecoinRateFeeder()
+
     # Use progress_apply instead of the for loop
     # Sort is needed for slug stability
     # We pass include_groups=False to avoid FutureWarning, and pass id via group.name
     def _apply_vault_record(group):
-        return calculate_vault_record(group, vaults_by_id, month_ago, three_months_ago, vault_id=group.name, core3_protocols=core3_protocols)
+        return calculate_vault_record(
+            group,
+            vaults_by_id,
+            month_ago,
+            three_months_ago,
+            vault_id=group.name,
+            core3_protocols=core3_protocols,
+            stablecoin_rate_feeder=stablecoin_rate_feeder,
+        )
 
     results_df = df.groupby("id", group_keys=False, sort=True).progress_apply(
         _apply_vault_record,
@@ -2397,6 +2452,7 @@ def format_lifetime_table(
     _del("short_description")
     _del("other_data")
     _del("core3")
+    _del("denomination_token_rate")
 
     # Metadata timestamp, not relevant for human-readable table
     _del("generated_at")

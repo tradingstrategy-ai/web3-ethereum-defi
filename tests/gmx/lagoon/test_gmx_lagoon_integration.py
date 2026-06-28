@@ -25,6 +25,7 @@ from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 from eth_defi.gmx.order import OrderResult
+from eth_defi.gmx.order.pending_orders import fetch_pending_orders
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.whitelist import GMXDeployment
 from eth_defi.hotwallet import HotWallet
@@ -32,7 +33,7 @@ from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, setup_mock_oracle
+from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
 
 logger = logging.getLogger(__name__)
 
@@ -398,6 +399,86 @@ def test_lagoon_wallet_open_short_position(lagoon_gmx_fork_env: LagoonGMXForkEnv
     assert position["is_long"] is False, "Position should be short"
 
     logger.info("Short position opened: %s", position["market_symbol"])
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_lagoon_wallet_cancel_limit_order(lagoon_gmx_fork_env: LagoonGMXForkEnv):
+    """Open a GMX limit order through the vault, then cancel it through the Guard.
+
+    Regression test for `issue #1050
+    <https://github.com/tradingstrategy-ai/web3-ethereum-defi/issues/1050>`__:
+    ``TradingStrategyModuleV0`` previously rejected ``cancelOrder`` with
+    ``"GMX: Unknown function in multicall"``, so a Lagoon vault could open a GMX
+    order but never cancel a pending/timed-out one.
+
+    Flow:
+
+    1. Open a SHORT limit order with the trigger 10% above spot so it stays
+       pending (a short triggers only when price rises to the trigger, and no
+       keeper is run here).
+    2. Extract the order key and confirm the order is pending.
+    3. Build ``cancelOrder`` via :meth:`GMXTrading.cancel_order` and sign it
+       through :class:`LagoonGMXTradingWallet`, which wraps it in
+       ``performCall`` so it passes through the on-chain Guard.
+    4. Submit and assert the cancel transaction succeeds — before the fix this
+       reverted at guard validation.
+    5. Confirm the order is no longer pending.
+    """
+    env = lagoon_gmx_fork_env
+    safe_address = env.vault.safe_address
+
+    env.lagoon_wallet.sync_nonce(env.web3)
+
+    # Trigger 10% above spot keeps a short limit order pending (no keeper run).
+    eth_oracle_price, _ = fetch_on_chain_oracle_prices(env.web3)
+    trigger_price = eth_oracle_price * 1.10
+
+    # === Step 1: open a pending short limit order with USDC collateral ===
+    logger.info("Creating short ETH limit order (trigger $%.2f)...", trigger_price)
+    order_result = env.trading.open_limit_position(
+        market_symbol="ETH",
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
+        is_long=False,
+        size_delta_usd=10,
+        leverage=2.0,
+        trigger_price=trigger_price,
+        slippage_percent=0.005,
+        execution_buffer=30,
+        auto_cancel=False,
+    )
+    assert isinstance(order_result, OrderResult)
+
+    transaction = order_result.transaction.copy()
+    transaction.pop("nonce", None)
+    signed_tx = env.lagoon_wallet.sign_transaction_with_new_nonce(transaction)
+    tx_hash = env.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    assert_transaction_success_with_explanation(env.web3, tx_hash)
+    receipt = env.web3.eth.wait_for_transaction_receipt(tx_hash)
+
+    # === Step 2: confirm the order is pending ===
+    order_key = extract_order_key_from_receipt(receipt)
+    assert order_key is not None, "Should extract order key from receipt"
+
+    pending_before = list(fetch_pending_orders(env.web3, "arbitrum", safe_address))
+    assert any(o.order_key == order_key for o in pending_before), "Limit order should be pending before cancel"
+
+    # === Step 3 + 4: cancel through the Guard ===
+    env.lagoon_wallet.sync_nonce(env.web3)
+    cancel_result = env.trading.cancel_order(order_key)
+    cancel_tx = cancel_result.transaction.copy()
+    cancel_tx.pop("nonce", None)
+    signed_cancel = env.lagoon_wallet.sign_transaction_with_new_nonce(cancel_tx)
+    cancel_hash = env.web3.eth.send_raw_transaction(signed_cancel.rawTransaction)
+    # Regression assertion: this reverted with "GMX: Unknown function in
+    # multicall" before cancelOrder was whitelisted in GmxLib.
+    assert_transaction_success_with_explanation(env.web3, cancel_hash)
+
+    # === Step 5: order is gone ===
+    pending_after = list(fetch_pending_orders(env.web3, "arbitrum", safe_address))
+    assert not any(o.order_key == order_key for o in pending_after), "Order should be cancelled"
+
+    logger.info("Limit order %s cancelled through the guard", order_key.hex())
 
 
 def _create_lagoon_gmx_fork_env_forward_eth(rpc_url: str) -> LagoonGMXForkEnv:

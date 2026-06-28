@@ -41,7 +41,7 @@ from requests import Session
 from requests_ratelimiter import LimiterAdapter
 
 from eth_defi.event_reader.webshare import ProxyRotator
-from eth_defi.velvet.logging_retry import LoggingRetry
+from eth_defi.logging_retry import LoggingRetry
 
 logger = logging.getLogger(__name__)
 
@@ -302,12 +302,10 @@ class HyperliquidSession(Session):
                     self._rotation_count += 1
                     # Rotate without failure_reason — the ProxyStateManager
                     # must NOT mark this proxy as dead. It is only throttled
-                    # and will recover within minutes.
-                    self._rotator.rotate(failure_reason=None)
-                    logger.log(
-                        self._rotator.log_level,
-                        "Rotated on HTTP %d (throttled, proxy not marked dead)",
-                        response.status_code,
+                    # and will recover within minutes. The reason is logged by
+                    # rotate() itself.
+                    self._rotator.rotate(
+                        reason=f"HTTP {response.status_code} throttled (proxy not marked dead)",
                     )
                     continue
                 return response
@@ -465,7 +463,7 @@ def create_hyperliquid_session(
         Log level for proxy failure/rotation messages (from
         :class:`~eth_defi.event_reader.webshare.ProxyRotator`,
         :class:`~eth_defi.event_reader.webshare.ProxyStateManager`,
-        and :class:`~eth_defi.velvet.logging_retry.LoggingRetry`).
+        and :class:`~eth_defi.logging_retry.LoggingRetry`).
 
         - ``None`` (default): ``logging.DEBUG`` when proxies are used,
           ``logging.WARNING`` otherwise.

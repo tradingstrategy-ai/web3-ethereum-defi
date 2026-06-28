@@ -38,6 +38,9 @@ class VaultFlag(str, enum.Enum):
     #: The contract will steal your money
     malicious = "malicious"
 
+    #: Vault has unresolved controversy based on community reports
+    controversial = "controversial"
+
     #: Abnormal TVL
     abnormal_tvl = "abnormal_tvl"
 
@@ -78,12 +81,16 @@ class VaultFlag(str, enum.Enum):
     #: Morpho API does not return this vault by address.
     not_in_morpho_api = "not_in_morpho_api"
 
+    #: Vault denomination stablecoin is marked as depegged.
+    depegged_denomination_token = "depegged_denomination_token"
+
 
 #: Don't touch vaults with these flags
 BAD_FLAGS = {
     VaultFlag.illiquid,
     VaultFlag.broken,
     VaultFlag.malicious,
+    VaultFlag.controversial,
     VaultFlag.abnormal_tvl,
     VaultFlag.unofficial,
     VaultFlag.abnormal_price_on_low_tvl,
@@ -92,6 +99,7 @@ BAD_FLAGS = {
     VaultFlag.subvault,
     VaultFlag.irregular_reporting,
     VaultFlag.not_in_morpho_api,
+    VaultFlag.depegged_denomination_token,
 }
 
 
@@ -147,6 +155,8 @@ HIDDEN_VAULT = "Vault not actively listed on any known website. Likely unmaintai
 BROKEN_VAULT = "Onchain metrics coming out of this vault do not make sense and it's likely the smart contract is broken."
 
 MALICIOUS_VAULT = "This vault is reported as malicious, and may have some sort of mechanism to steal funds."
+
+CONTROVERSIAL_VAULT = "Based on community reports, this vault is controversial. Do not deposit, unless the issue is resolved and full transparency becomes available."
 
 MAINST_VAULT = "Main Street Market related products were wiped out in Oct 10th event https://x.com/Main_St_Finance/status/1976972055951147194"
 
@@ -386,6 +396,11 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xa446938b0204aa4055cdfed68ddf0e0d1bab3e9e": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Rezerve USDC
     "0xc42d337861878baa4dc820d9e6b6c667c2b57e8a": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
+    # Rezerve.money USD "USDR 2029 Bond" on Ethereum - unverified Rezerve product.
+    # Its denomination token reuses the USDR ticker (shared with the defunct Tangible
+    # and StablR USDR), so it is no longer caught by the USDR depeg blacklist now that
+    # USDR is matched by contract only. Keep it suppressed via a manual flag.
+    "0x3839a0dd920463eb5d8231efe4d8c5edc44145ec": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # YieldNest ynRWAx vault on Ethereum - fixed maturity date 15 Oct 2026
     "0x01ba69727e2860b37bc1a2bd56999c1afb4c15d8": (None, YIELDNEST_YNRWAX),
     # Supply USDC on ZeroLend RWA Market
@@ -506,6 +521,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xf0795c47fa58d00f5f77f4d5c01f31ee891e21b4": (VaultFlag.illiquid, RESOLV_USDC_ILLIQUID),
     # Mainstreet USDC (msUSDC, Morpho on Ethereum)
     "0xe3ba8f17fe581dd473e6699cfad04502998a57c7": (VaultFlag.malicious, MALICIOUS_VAULT),
+    # Altura Vault Tokens (AVLT) on Hyperliquid
+    "0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29": (VaultFlag.controversial, CONTROVERSIAL_VAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():

@@ -31,6 +31,18 @@ slug: bold
 contract_addresses:
   - chain: ethereum
     address: '0x6440f144b7e50D6a8439336510312d2F54beB01D'
+coingecko_id: liquity-bold
+coingecko_link: https://www.coingecko.com/en/coins/liquity-bold
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.999886
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-25T08:14:59'
+peg_rate: 0.999886
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

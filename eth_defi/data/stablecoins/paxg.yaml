@@ -36,6 +36,18 @@ contract_addresses:
   - chain: ethereum
     address: '0x45804880De22913dAFE09f4980848ECE6EcbAf78'
 slug: paxg
+coingecko_id: pax-gold
+coingecko_link: https://www.coingecko.com/en/coins/pax-gold
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 4038.6
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:25'
+peg_rate: 0.997695
+peg_rate_currency: xau
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

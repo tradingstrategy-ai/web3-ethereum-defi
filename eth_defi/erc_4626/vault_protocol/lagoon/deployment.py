@@ -32,12 +32,14 @@ from web3 import Web3
 from web3._utils.events import EventLogErrorFlags
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
+from web3.exceptions import ContractLogicError
 
 from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.abi import ZERO_ADDRESS, ZERO_ADDRESS_STR, encode_function_call, encode_multicalls, get_deployed_contract
 from eth_defi.cctp.whitelist import CCTPDeployment
 from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
-from eth_defi.deploy import build_guard_forge_libraries, deploy_contract
+from eth_defi.deploy import deploy_contract
+from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonSatelliteVault, LagoonVault
@@ -45,6 +47,7 @@ from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.whitelist import GMXDeployment, resolve_gmx_market_labels
 from eth_defi.hotwallet import HotWallet
+from eth_defi.lighter.deployment import LighterDeployment, setup_lighter_whitelisting
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.deployment import DEFAULT_TX_CONFIRMATION_TIMEOUT, add_new_safe_owners, deploy_safe, deploy_safe_with_deterministic_address, fetch_safe_deployment
 from eth_defi.safe.execute import execute_safe_tx
@@ -64,6 +67,16 @@ DEFAULT_RATE_UPDATE_COOLDOWN = 86400
 DEFAULT_MANAGEMENT_RATE = 200
 
 DEFAULT_PERFORMANCE_RATE = 2000
+
+#: Safety multiplier applied to the node ``eth_estimateGas`` result for guard
+#: setup / deployment broadcasts.
+#:
+#: Some L2s — Arbitrum in particular — under-estimate ``eth_estimateGas`` for
+#: simple guard-configuration calls (e.g. ``allowReceiver``), causing the
+#: transaction to revert on-chain with "out of gas" even though the estimate
+#: was accepted.  A multiplier on the estimate avoids this; the sender is still
+#: only charged for gas actually used, so over-provisioning the limit is free.
+DEFAULT_DEPLOYMENT_GAS_MULTIPLIER = 2.0
 
 
 CONTRACTS_ROOT = Path(os.path.dirname(__file__)) / ".." / ".." / ".." / ".." / "contracts"
@@ -269,6 +282,9 @@ class LagoonConfig:
     #: GMX perpetuals deployment for whitelisting
     gmx_deployment: GMXDeployment | None = None
 
+    #: Lighter (zk-rollup perps DEX, Ethereum L1) deployment for whitelisting
+    lighter_deployment: "LighterDeployment | None" = None
+
     #: CCTP V2 deployment for cross-chain USDC transfers
     cctp_deployment: CCTPDeployment | None = None
 
@@ -457,6 +473,138 @@ class LagoonAutomatedDeployment:
             fields["Vault"] = "N/A (satellite chain)"
 
         return fields
+
+    def as_json_friendly_dict(self) -> dict[str, Any]:
+        """Get JSON-serialisable deployment data.
+
+        :class:`LagoonAutomatedDeployment` contains live Web3 contract and
+        vault objects that cannot be written to JSON directly. This method
+        captures the deployment as plain JSON values, keeping enough addresses
+        and parameters to reconstruct the deployment object with
+        :py:meth:`from_json_friendly_dict`.
+
+        :return:
+            JSON-serialisable Lagoon deployment information.
+        """
+        data = {
+            "chain_id": self.chain_id,
+            "is_satellite": self.is_satellite,
+            "vault_address": None,
+            "safe_address": self.safe_address,
+            "trading_strategy_module_address": self.trading_strategy_module.address,
+            "old_trading_strategy_module_address": self.old_trading_strategy_module.address if self.old_trading_strategy_module else None,
+            "asset_manager": self.asset_manager,
+            "asset_managers": list(self.asset_managers),
+            "valuation_manager": self.valuation_manager,
+            "multisig_owners": list(self.multisig_owners),
+            "deployer": self.deployer,
+            "block_number": int(self.block_number),
+            "parameters": asdict(self.parameters),
+            "vault_abi": self.vault_abi,
+            "beacon_proxy_factory": self.beacon_proxy_factory,
+            "gas_used": str(self.gas_used) if self.gas_used is not None else None,
+            "safe_salt_nonce": self.safe_salt_nonce,
+            "whitelisted_items": [asdict(entry) for entry in self.whitelisted_items],
+        }
+
+        if not self.is_satellite:
+            vault = self.vault
+            data.update(
+                {
+                    "vault_address": vault.address,
+                    "underlying_token_address": vault.underlying_token.address,
+                    "underlying_token_symbol": vault.underlying_token.symbol,
+                    "share_token_address": vault.share_token.address,
+                    "share_token_symbol": vault.share_token.symbol,
+                }
+            )
+
+        return data
+
+    @classmethod
+    def from_json_friendly_dict(cls, web3: Web3, data: dict[str, Any]) -> "LagoonAutomatedDeployment":
+        """Recreate deployment information from JSON data.
+
+        This recreates the live Web3 contract and vault reader objects from
+        addresses stored by :py:meth:`as_json_friendly_dict`. The JSON payload
+        does not contain private keys or signed transactions.
+
+        :param web3:
+            Web3 connection for the deployment chain.
+
+        :param data:
+            JSON data produced by :py:meth:`as_json_friendly_dict`.
+
+        :return:
+            Hydrated Lagoon deployment information.
+        """
+        required_keys = {
+            "chain_id",
+            "is_satellite",
+            "safe_address",
+            "trading_strategy_module_address",
+            "asset_managers",
+            "valuation_manager",
+            "multisig_owners",
+            "deployer",
+            "block_number",
+            "parameters",
+            "vault_abi",
+        }
+        missing = sorted(key for key in required_keys if key not in data)
+        if missing:
+            msg = f"Lagoon deployment JSON is missing required keys: {', '.join(missing)}"
+            raise ValueError(msg)
+
+        chain_id = int(data["chain_id"])
+        if chain_id != web3.eth.chain_id:
+            msg = f"Lagoon deployment JSON is for chain {chain_id}, but Web3 is connected to chain {web3.eth.chain_id}"
+            raise ValueError(msg)
+
+        module_address = Web3.to_checksum_address(data["trading_strategy_module_address"])
+        module = get_deployed_contract(web3, "safe-integration/TradingStrategyModuleV0.json", module_address)
+        old_module_address = data.get("old_trading_strategy_module_address")
+        old_module = get_deployed_contract(web3, "safe-integration/TradingStrategyModuleV0.json", Web3.to_checksum_address(old_module_address)) if old_module_address else None
+
+        if data["is_satellite"]:
+            vault = LagoonSatelliteVault(
+                web3,
+                safe_address=Web3.to_checksum_address(data["safe_address"]),
+                trading_strategy_module_address=module_address,
+            )
+        else:
+            vault_address = data.get("vault_address")
+            if not vault_address:
+                msg = "Lagoon deployment JSON for a vault deployment must contain vault_address"
+                raise ValueError(msg)
+            vault = LagoonVault(
+                web3,
+                VaultSpec(chain_id, Web3.to_checksum_address(vault_address)),
+                trading_strategy_module_address=module_address,
+                vault_abi=data["vault_abi"],
+                features={ERC4626Feature.lagoon_like, ERC4626Feature.erc_7540_like},
+                default_block_identifier="latest",
+                require_denomination_token=True,
+            )
+
+        return cls(
+            chain_id=chain_id,
+            vault=vault,
+            trading_strategy_module=module,
+            asset_managers=tuple(Web3.to_checksum_address(address) for address in data["asset_managers"]),
+            valuation_manager=Web3.to_checksum_address(data["valuation_manager"]),
+            multisig_owners=[Web3.to_checksum_address(address) for address in data["multisig_owners"]],
+            deployer=Web3.to_checksum_address(data["deployer"]),
+            block_number=BlockNumber(int(data["block_number"])),
+            parameters=LagoonDeploymentParameters(**data["parameters"]),
+            vault_abi=data["vault_abi"],
+            safe_address=Web3.to_checksum_address(data["safe_address"]) if data["safe_address"] else None,
+            old_trading_strategy_module=old_module,
+            beacon_proxy_factory=Web3.to_checksum_address(data["beacon_proxy_factory"]) if data.get("beacon_proxy_factory") else None,
+            gas_used=Decimal(data["gas_used"]) if data.get("gas_used") else None,
+            safe_salt_nonce=data.get("safe_salt_nonce"),
+            whitelisted_items=tuple(WhitelistEntry(**entry) for entry in data.get("whitelisted_items", [])),
+        )
 
     def pformat(self) -> str:
         """Return pretty print of deployment info."""
@@ -997,6 +1145,7 @@ def deploy_safe_trading_strategy_module(
     cowswap: bool = False,
     velora: bool = False,
     gmx_deployment: GMXDeployment | None = None,
+    lighter_deployment: "LighterDeployment | None" = None,
 ) -> Contract:
     """Deploy TradingStrategyModuleV0 for Safe and Lagoon.
 
@@ -1108,6 +1257,19 @@ def deploy_safe_trading_strategy_module(
             library_addresses["GmxLib"] = ZERO_ADDRESS
             logger.info("GmxLib not needed, linking with zero address")
 
+        if lighter_deployment:
+            lighter_lib = deploy_contract(
+                web3,
+                "guard/LighterLib.json",
+                deployer,
+                gas=guard_gas,
+            )
+            library_addresses["LighterLib"] = lighter_lib.address
+            logger.info("Deployed LighterLib at %s", lighter_lib.address)
+        else:
+            library_addresses["LighterLib"] = ZERO_ADDRESS
+            logger.info("LighterLib not needed, linking with zero address")
+
         if chain_id in (998, 999):  # Both testnet (998) and mainnet (999)
             # Only deploy if not already deployed via Forge
             logger.info("Deploying HypercoreVaultLib for HyperEVM chain %d", chain_id)
@@ -1203,6 +1365,7 @@ def setup_guard(
     cowswap: bool = False,
     velora: bool = False,
     gmx_deployment: GMXDeployment | None = None,
+    lighter_deployment: "LighterDeployment | None" = None,
     cctp_deployment: CCTPDeployment | None = None,
     hypercore_vaults: list[HexAddress | str] | None = None,
     hack_sleep=20.0,
@@ -1438,6 +1601,32 @@ def setup_guard(
     else:
         logger.info("Not whitelisted: GMX")
 
+    # Whitelist Lighter (zk-rollup perps DEX, Ethereum L1) deposits/withdrawals.
+    # Delegates to the canonical helper in eth_defi.lighter.deployment so the
+    # whitelisting logic lives in one place (shared with the Anvil-fork tests).
+    if lighter_deployment:
+
+        def _broadcast_and_assert(func: ContractFunction) -> HexBytes:
+            tx_hash = _broadcast(func)
+            assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
+            return tx_hash
+
+        # Wrap the Lagoon-independent rows into this module's WhitelistEntry
+        # (WhitelistEntry must NOT be imported by eth_defi.lighter.deployment).
+        lighter_rows = setup_lighter_whitelisting(
+            web3,
+            module=module,
+            owner=owner,
+            deployment=lighter_deployment,
+            safe_address=safe.address,
+            broadcast=_broadcast_and_assert,
+        )
+        for row in lighter_rows:
+            entries.append(WhitelistEntry(row.category, row.name, row.address))
+        logger.info("Lighter whitelisting complete: %d entries", len(lighter_rows))
+    else:
+        logger.info("Not whitelisted: Lighter")
+
     # Whitelist CCTP cross-chain USDC transfers
     if cctp_deployment:
         logger.info(
@@ -1584,6 +1773,7 @@ def deploy_automated_lagoon_vault(
     cowswap: bool = False,
     velora: bool = False,
     gmx_deployment: GMXDeployment | None = None,
+    lighter_deployment: "LighterDeployment | None" = None,
     cctp_deployment: CCTPDeployment | None = None,
     hypercore_vaults: list[HexAddress | str] | None = None,
     any_asset: bool = False,
@@ -1665,6 +1855,7 @@ def deploy_automated_lagoon_vault(
         cowswap = config.cowswap
         velora = config.velora
         gmx_deployment = config.gmx_deployment
+        lighter_deployment = config.lighter_deployment
         cctp_deployment = config.cctp_deployment
         any_asset = config.any_asset
         etherscan_api_key = config.etherscan_api_key
@@ -1765,7 +1956,17 @@ def deploy_automated_lagoon_vault(
         if isinstance(deployer, HotWallet):
             # Path must be taken with prod deployers
             deployer.sync_nonce(web3)
-            tx_hash = deployer.transact_and_broadcast_with_contract(bound_func)
+            # Apply a safety multiplier over the node's gas estimate. On Arbitrum
+            # (incl. Sepolia) eth_estimateGas under-estimates guard-setup calls
+            # like allowReceiver, which then revert on-chain with "out of gas".
+            # Falls back to the default auto-estimate if estimation raises.
+            gas_limit = None
+            try:
+                estimated_gas = bound_func.estimate_gas({"from": deployer.address})
+                gas_limit = int(estimated_gas * DEFAULT_DEPLOYMENT_GAS_MULTIPLIER)
+            except (ValueError, ContractLogicError) as e:
+                logger.warning("Gas estimation failed for %s, using node auto-estimate: %s", bound_func.fn_name, e)
+            tx_hash = deployer.transact_and_broadcast_with_contract(bound_func, gas_limit=gas_limit)
             assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
             logger.info("Sleeping for 2 seconds to wait for nonce to propagate")
             time.sleep(2)
@@ -1936,6 +2137,7 @@ def deploy_automated_lagoon_vault(
         cowswap=cowswap,
         velora=velora,
         gmx_deployment=gmx_deployment,
+        lighter_deployment=lighter_deployment,
     )
 
     if not is_anvil(web3):
@@ -1960,6 +2162,7 @@ def deploy_automated_lagoon_vault(
         cowswap=cowswap,
         velora=velora,
         gmx_deployment=gmx_deployment,
+        lighter_deployment=lighter_deployment,
         cctp_deployment=cctp_deployment,
         hypercore_vaults=hypercore_vaults,
         erc_4626_vaults=erc_4626_vaults,

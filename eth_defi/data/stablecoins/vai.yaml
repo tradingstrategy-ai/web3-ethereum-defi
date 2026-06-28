@@ -24,6 +24,18 @@ contract_addresses:
   - chain: bsc
     address: '0x4BD17003473389A42DAF6a0a729f6Fdb328BbBd7'
 slug: vai
+coingecko_id: vai
+coingecko_link: https://www.coingecko.com/en/coins/vai
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.999084
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:14:39'
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: '2026-03-17'
   domain_up_at: '2026-03-17'

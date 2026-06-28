@@ -55,7 +55,7 @@ console = Console()
 logging.basicConfig(
     level=logging.INFO,
     format="%(message)s",
-    handlers=[RichHandler(console=console, show_path=False, rich_tracebacks=True)],
+    handlers=[RichHandler(console=console, show_path=False, rich_tracebacks=False)],
 )
 logger = logging.getLogger(__name__)
 
@@ -279,7 +279,7 @@ def main() -> None:
         )
     )
 
-    confirm = Prompt.ask("[bold yellow]Proceed?[/bold yellow] [dim]\[y/N][/dim]", default="n").strip().lower()
+    confirm = Prompt.ask("[bold yellow]Proceed?[/bold yellow] [dim]\\[y/N][/dim]", default="n").strip().lower()
     if confirm not in ("y", "yes"):
         console.print("[dim]Aborted.[/dim]")
         return

@@ -6,3 +6,6 @@ twitter: 0xfluid
 linkedin: instadapp
 rss: https://blog.instadapp.io/rss/
 linkedin-rss-hub-disabled-at: 2026-04-04
+rss-failure-at: 2026-06-13
+rss-failure-status-code: 522
+rss-failure-exception-message: "522 Server Error: <none> for url: https://blog.instadapp.io/rss/"

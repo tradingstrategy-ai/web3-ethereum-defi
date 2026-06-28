@@ -15,7 +15,7 @@ import logging
 from requests import Session
 
 from eth_defi.hibachi.constants import HIBACHI_DATA_API_URL
-from eth_defi.velvet.logging_retry import LoggingRetry
+from eth_defi.logging_retry import LoggingRetry
 
 logger = logging.getLogger(__name__)
 

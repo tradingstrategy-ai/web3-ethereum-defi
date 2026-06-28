@@ -101,6 +101,25 @@ X_LIST_MEMBER_IDS_STATE_KEY_PREFIX = "x_list_member_ids"
 X_HANDLES_HASH_STATE_KEY_PREFIX = "twitter_handles_hash"
 
 
+def _is_suspended_list_member_error(error: tweepy.TweepyException) -> bool:
+    """Check if X rejected a list member because the account is suspended.
+
+    The X API resolves some suspended accounts to a stable user ID, but then
+    returns a ``400 Bad Request`` when adding that user to a list.  This is a
+    deterministic account-state error, not a transient write failure.
+
+    :param error:
+        Tweepy exception raised by ``add_list_member``.
+
+    :return:
+        ``True`` if the error message identifies a suspended account.
+    """
+
+    messages = [str(error)]
+    messages.extend(getattr(error, "api_messages", []))
+    return any("cannot add a member that is suspended" in message.lower() or "member is suspended" in message.lower() for message in messages)
+
+
 def _member_ids_state_key(list_id: str) -> str:
     """Return the per-list ``feed_sync_state`` key for the member ID cache."""
 
@@ -726,6 +745,7 @@ def sync_x_list_members(
     *,
     add_delay_seconds: float = 1.0,
     rate_limit_sleep_max_seconds: float = 1200.0,
+    suspended_member_callback: Callable[[str, str], None] | None = None,
 ) -> int:
     """Sync X list membership with the provided Twitter handles.
 
@@ -733,6 +753,12 @@ def sync_x_list_members(
     using ``feed_sync_state`` table).  Returns the number of members added.
 
     Requires full OAuth 1.0a credentials for list write operations.
+
+    :param suspended_member_callback:
+        Optional callback called as ``callback(handle, user_id)`` when X
+        resolves a handle but refuses to add it to the list because the account
+        is suspended.  Scanner orchestration uses this to stamp the existing
+        ``twitter-handle-resolved-unknown-at`` YAML marker.
     """
 
     current_hash = compute_handles_hash(twitter_handles)
@@ -776,9 +802,14 @@ def sync_x_list_members(
 
     added = 0
     failed = 0
-    id_to_handle = {user_id: handle for handle, user_id in handle_to_id.items()}
+    suspended = 0
+    id_to_handles: dict[str, list[str]] = {}
+    for handle, user_id in handle_to_id.items():
+        id_to_handles.setdefault(user_id, []).append(handle)
 
     for user_id in sorted(to_add):
+        user_handles = id_to_handles.get(user_id, ["unknown"])
+        first_handle = user_handles[0]
         while True:
             try:
                 client_write.add_list_member(list_id, user_id)
@@ -788,7 +819,7 @@ def sync_x_list_members(
                 known_member_ids.add(user_id)
                 logger.info(
                     "Added @%s (%s) to X list %s (%d/%d missing members)",
-                    id_to_handle.get(user_id, "unknown"),
+                    first_handle,
                     user_id,
                     list_id,
                     added,
@@ -801,12 +832,12 @@ def sync_x_list_members(
                 user_cache.save()
                 wait_seconds = _get_rate_limit_sleep_seconds(e)
                 if wait_seconds is None or wait_seconds > rate_limit_sleep_max_seconds:
-                    message = f"X API rate limit hit while adding @{id_to_handle.get(user_id, 'unknown')} ({user_id}) to list {list_id} after {added}/{len(to_add)} missing members were added.{_format_rate_limit_reset(e)} List sync state was not updated; rerun later to resume."
+                    message = f"X API rate limit hit while adding @{first_handle} ({user_id}) to list {list_id} after {added}/{len(to_add)} missing members were added.{_format_rate_limit_reset(e)} List sync state was not updated; rerun later to resume."
                     raise XRateLimitError(message) from e
 
                 logger.warning(
                     "X API rate limit hit while adding @%s (%s) to list %s after %d/%d missing members; sleeping %.0f seconds before retrying",
-                    id_to_handle.get(user_id, "unknown"),
+                    first_handle,
                     user_id,
                     list_id,
                     added,
@@ -816,13 +847,29 @@ def sync_x_list_members(
                 time.sleep(wait_seconds)
             except (tweepy.Unauthorized, tweepy.Forbidden) as e:
                 user_cache.save()
-                message = f"X API rejected list member writes while adding @{id_to_handle.get(user_id, 'unknown')} ({user_id}) to list {list_id}: {e}. Check OAuth 1.0a app permissions and access token ownership."
+                message = f"X API rejected list member writes while adding @{first_handle} ({user_id}) to list {list_id}: {e}. Check OAuth 1.0a app permissions and access token ownership."
                 raise XApiError(message) from e
             except tweepy.TweepyException as e:
+                if _is_suspended_list_member_error(e):
+                    suspended += 1
+                    logger.warning(
+                        "Skipping suspended X account @%s (%s) for list %s: %s",
+                        first_handle,
+                        user_id,
+                        list_id,
+                        e,
+                    )
+                    if suspended_member_callback is not None:
+                        for handle in user_handles:
+                            suspended_member_callback(handle, user_id)
+                    if add_delay_seconds > 0:
+                        time.sleep(add_delay_seconds)
+                    break
+
                 failed += 1
                 logger.warning(
                     "Failed to add @%s (%s) to list %s: %s",
-                    id_to_handle.get(user_id, "unknown"),
+                    first_handle,
                     user_id,
                     list_id,
                     e,
@@ -854,4 +901,6 @@ def sync_x_list_members(
         len(known_member_ids),
         failed,
     )
+    if suspended:
+        logger.info("Skipped %d suspended X accounts while syncing list %s", suspended, list_id)
     return added

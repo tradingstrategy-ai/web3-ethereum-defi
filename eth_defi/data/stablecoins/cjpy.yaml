@@ -28,6 +28,18 @@ slug: cjpy
 contract_addresses:
   - chain: ethereum
     address: '0x1cfa5641c01406aB8AC350dEd7d735ec41298372'
+coingecko_id: convertible-jpy-token
+coingecko_link: https://www.coingecko.com/en/coins/convertible-jpy-token
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.00396901
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:14:37'
+peg_rate: 0.641587
+peg_rate_currency: jpy
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: '2026-06-26T12:13:31'
 checks:
   twitter_last_post_at: ''
   domain_up_at: ''

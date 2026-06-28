@@ -1,0 +1,47 @@
+symbol: apxUSD
+name: apxUSD
+short_description: apxUSD is an overcollateralised USD stablecoin. It lost its peg in June 2026 after collateral volatility, trading well below $1.
+long_description: |
+  apxUSD is an overcollateralised USD-pegged stablecoin.
+
+  ## Depeg
+
+  apxUSD first slipped below peg in early June 2026 as a fall in BTC increased the
+  volatility of its underlying collateral. The protocol initially described the
+  deviation as expected behaviour for an overcollateralised system, but the
+  discount deepened through June 2026, with apxUSD trading well below $1.
+
+  ## Sources
+
+  - [CoinGecko — apxUSD](https://www.coingecko.com/en/coins/apxusd)
+category: stablecoin
+links:
+  homepage: ''
+  coingecko: https://www.coingecko.com/en/coins/apxusd
+  defillama: ''
+  twitter: ''
+contract_addresses:
+  - chain: ethereum
+    address: '0x98a878b1cd98131b271883b390f68d2c90674665'
+  - chain: base
+    address: '0xd993935e13851dd7517af10687ec7e5022127228'
+  - chain: binance
+    address: '0x6b3788fd6604bbf03c5378d24e57bb334baad4af'
+slug: apxusd
+coingecko_id: apxusd
+coingecko_link: https://www.coingecko.com/en/coins/apxusd
+coingecko_id_source: manual
+coingecko_id_verified_at: '2026-06-28T00:00:00'
+usd_rate: 0.747085
+usd_rate_fetched_at: '2026-06-28T00:00:00'
+usd_rate_updated_at: '2026-06-28T00:00:00'
+peg_rate: 0.747085
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: '2026-06-28T00:00:00'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

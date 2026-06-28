@@ -40,6 +40,18 @@ slug: byusd
 contract_addresses:
   - chain: berachain
     address: '0x688e72142674041f8f6Af4c808a4045cA1D6aC82'
+coingecko_id: byusd
+coingecko_link: https://www.coingecko.com/en/coins/byusd
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.996983
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:14:45'
+peg_rate: 0.996983
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

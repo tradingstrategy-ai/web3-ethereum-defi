@@ -40,6 +40,18 @@ contract_addresses:
   - chain: ethereum
     address: '0x085780639CC2cACd35E474e71f4d000e2405d8f6'
 slug: fxusd
+coingecko_id: f-x-protocol-fxusd
+coingecko_link: https://www.coingecko.com/en/coins/f-x-protocol-fxusd
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.995719
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:07'
+peg_rate: 0.995719
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: '2026-01-02'
   domain_up_at: '2026-03-17'

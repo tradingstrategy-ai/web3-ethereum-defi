@@ -35,6 +35,18 @@ slug: bean
 contract_addresses:
   - chain: arbitrum
     address: '0xBEA0005B8599265D41256905A9B3073D397812E4'
+coingecko_id: bean
+coingecko_link: https://www.coingecko.com/en/coins/bean
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.252806
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-04-16T12:30:44'
+peg_rate: 0.252806
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: '2026-06-26T12:13:31'
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

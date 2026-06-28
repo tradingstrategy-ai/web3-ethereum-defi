@@ -17,6 +17,18 @@ contract_addresses:
   - chain: ethereum
     address: '0x83F20F44975D03b1b09e64809B757c47f942BEeA'
 slug: sdai
+coingecko_id: savings-dai
+coingecko_link: https://www.coingecko.com/en/coins/savings-dai
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 1.18
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2026-06-26T12:15:06'
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

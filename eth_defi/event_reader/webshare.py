@@ -47,6 +47,19 @@ DEFAULT_PROXY_STATE_PATH = Path("~/.tradingstrategy/webshare-proxy-state.json").
 GRACE_PERIOD_DAYS = 14
 
 
+def get_proxy_status_reset_instructions() -> str:
+    """Return operator instructions for clearing Webshare proxy status.
+
+    Webshare proxy failures are cached on disk so that bad proxies are skipped
+    during the grace period. When every proxy is blocked, the operator can
+    clear this local status file to retry the whole proxy pool.
+
+    :return:
+        Human-readable instructions for log messages.
+    """
+    return f"Reset Webshare proxy status with: poetry run python scripts/erc-4626/reset-proxy-state.py (or delete {DEFAULT_PROXY_STATE_PATH})"
+
+
 @dataclass(slots=True)
 class FailedProxyEntry:
     """Tracks a failed proxy with timestamp and reason."""
@@ -306,7 +319,12 @@ class ProxyRotator:
         if self.state_manager is not None:
             self.state_manager.record_failure(self.current(), reason)
 
-    def rotate(self, expected_generation: int | None = None, failure_reason: str | None = None) -> WebshareProxy:
+    def rotate(
+        self,
+        expected_generation: int | None = None,
+        failure_reason: str | None = None,
+        reason: str | None = None,
+    ) -> WebshareProxy:
         """Advance to the next proxy in the pool.
 
         If *expected_generation* is given and differs from the current
@@ -314,7 +332,14 @@ class ProxyRotator:
         without rotating again.
 
         If *failure_reason* is provided, records the current proxy as failed
-        before rotating.
+        before rotating; it also doubles as the logged rotation reason.
+
+        :param reason:
+            Human-readable explanation of *why* we rotate, used only for
+            logging. Use this for proactive rotations that do not mark the
+            current proxy as failed (e.g. load distribution, throttling).
+            When *failure_reason* is set it takes precedence as the logged
+            reason, so pass only one of the two.
         """
         with self._lock:
             if expected_generation is not None and expected_generation != self._generation:
@@ -328,17 +353,33 @@ class ProxyRotator:
             if failure_reason is not None:
                 self.record_failure(failure_reason)
 
+            # ``failure_reason`` describes a failure of the *previous* proxy and
+            # always wins as the logged reason; ``reason`` covers proactive
+            # rotations. Use explicit None checks (mirroring the record_failure
+            # guard above) so an empty string is not silently swallowed, and
+            # fall back to a sentinel so the cause is never silent.
+            if failure_reason is not None:
+                log_reason = failure_reason
+            elif reason is not None:
+                log_reason = reason
+            else:
+                log_reason = "no reason given"
+
+            previous = self.current()
             self._current_index = (self._current_index + 1) % len(self.proxies)
             self._generation += 1
             proxy = self.current()
             logger.log(
                 self.log_level,
-                "Rotated to proxy %s:%d (%s/%s) [gen %d]",
+                "Rotated from proxy %s:%d to %s:%d (%s/%s) [gen %d] — reason: %s",
+                previous.proxy_address,
+                previous.port,
                 proxy.proxy_address,
                 proxy.port,
                 proxy.country_code,
                 proxy.city_name,
                 self._generation,
+                log_reason,
             )
             return proxy
 
@@ -518,8 +559,9 @@ def load_proxy_rotator() -> ProxyRotator | None:
 
     if not proxies:
         logger.warning(
-            "All %d proxies are blocked — falling back to direct connection",
+            "All %d Webshare proxies are blocked; falling back to direct connection. %s",
             total_count,
+            get_proxy_status_reset_instructions(),
         )
         return None
 
@@ -588,7 +630,11 @@ def load_proxy_urls(api_key: str | None = None) -> list[str]:
         )
 
     if not proxies:
-        logger.warning("All %d proxies are blocked — returning empty list", total_count)
+        logger.warning(
+            "All %d Webshare proxies are blocked; returning empty list. %s",
+            total_count,
+            get_proxy_status_reset_instructions(),
+        )
         return []
 
     random.shuffle(proxies)

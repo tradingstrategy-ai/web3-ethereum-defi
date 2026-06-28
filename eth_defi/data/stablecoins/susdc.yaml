@@ -19,6 +19,8 @@ contract_addresses:
   - chain: arbitrum
     address: '0x940098b108fB7D0a7E374f6eDED7760787464609'
 slug: susdc
+rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_reason: missing_coingecko_id
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

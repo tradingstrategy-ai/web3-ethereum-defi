@@ -104,6 +104,21 @@ class _ServerErrorResponse:
         return {"title": "Service Unavailable"}
 
 
+class _SuspendedMemberResponse:
+    """Minimal response object for Tweepy suspended-member exceptions."""
+
+    headers: ClassVar[dict[str, str]] = {}
+    reason = "Bad Request"
+    status_code = 400
+    text = "You cannot add a member that is suspended."
+
+    @staticmethod
+    def json() -> dict[str, list[dict[str, str]]]:
+        """Return the X API suspended-member payload."""
+
+        return {"errors": [{"message": "You cannot add a member that is suspended."}]}
+
+
 def test_sync_x_list_members_waits_on_rate_limit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Wait for X rate-limit reset and retry the same list member.
 
@@ -351,5 +366,70 @@ def test_sync_x_list_members_caches_are_scoped_per_list(monkeypatch: pytest.Monk
         # 3. List B must get all three members despite list A caching alice,bob
         list_b_added = sorted(user_id for list_id, user_id in add_calls if list_id == "list-B")
         assert list_b_added == ["1", "2", "3"]
+    finally:
+        db.close()
+
+
+def test_sync_x_list_members_skips_suspended_accounts(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Treat suspended list members as non-retryable account-state failures.
+
+    X can resolve a suspended account to a user ID, then reject the list write
+    with ``400 Bad Request``.  The sync should notify the caller and still
+    persist the handle hash, otherwise every scanner cycle retries the same
+    suspended account and logs the same warning.
+
+    1. Stub handle resolution for one healthy and one suspended account.
+    2. Make ``add_list_member`` reject the suspended account with X's message.
+    3. Assert the callback receives the suspended handle and the sync hash is
+       stored despite the skipped member.
+    """
+
+    handle_map = {"alice": "1", "lybrafinance": "2"}
+    monkeypatch.setattr(
+        twitter_api,
+        "resolve_twitter_handles",
+        lambda handles, _bearer_token, _user_cache: {h: handle_map[h] for h in handles},
+    )
+
+    add_calls: list[str] = []
+
+    class FakeClient:
+        """Fake Tweepy client that rejects one suspended member."""
+
+        def __init__(self, **_kwargs: object):
+            pass
+
+        @staticmethod
+        def add_list_member(_list_id: str, user_id: str) -> None:
+            """Record healthy writes and reject the suspended user."""
+
+            if user_id == "2":
+                raise tweepy.BadRequest(_SuspendedMemberResponse())
+            add_calls.append(user_id)
+
+    monkeypatch.setattr(twitter_api.tweepy, "Client", FakeClient)
+    monkeypatch.setattr(twitter_api.time, "sleep", lambda _seconds: None)
+
+    suspended: list[tuple[str, str]] = []
+    db = VaultPostDatabase(tmp_path / "posts.duckdb")
+    try:
+        added = sync_x_list_members(
+            LIST_ID,
+            ["alice", "lybrafinance"],
+            "consumer-key",
+            "consumer-secret",
+            "access-token",
+            "access-token-secret",
+            TwitterUserCache(tmp_path / "twitter-users.json"),
+            "bearer-token",
+            db,
+            add_delay_seconds=0,
+            suspended_member_callback=lambda handle, user_id: suspended.append((handle, user_id)),
+        )
+
+        assert added == 1
+        assert add_calls == ["1"]
+        assert suspended == [("lybrafinance", "2")]
+        assert db.get_sync_state(twitter_api._handles_hash_state_key(LIST_ID)) == compute_handles_hash(["alice", "lybrafinance"])
     finally:
         db.close()

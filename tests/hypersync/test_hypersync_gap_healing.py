@@ -21,7 +21,70 @@ from eth_defi.hypersync.hypersync_timestamp import (
     fetch_block_timestamps_using_hypersync_cached_async,
     get_hypersync_block_height_with_retries,
     is_hypersync_next_block_range_error,
+    is_hypersync_rate_limit_error,
+    raise_if_recoverable_hypersync_flaky,
 )
+
+
+def test_is_hypersync_rate_limit_error_matches_textual_form():
+    """Verify the rate limit classifier matches both HTTP and textual server forms.
+
+    The Envio/HyperSync Rust client surfaces an exhausted request budget in two
+    shapes: as an HTTP ``429`` status, or as a textual ``rate limited by server``
+    message wrapped inside an ``inner receiver`` error. The textual form
+    contains no ``429`` and previously slipped past the classifier, so the whole
+    chain scan crashed instead of being retried.
+
+    1. Match the exact production textual rate limit message.
+    2. Match the legacy HTTP 429 form.
+    3. Reject unrelated runtime errors and non-RuntimeError exceptions.
+    """
+
+    # 1. Match the exact production textual rate limit message.
+    production_message = "inner receiver\n\nCaused by:\n    0: get initial data\n    1: rate limited by server (remaining=0/100 reqs, resets_in=15s). To increase your rate limits, upgrade your plan at https://envio.dev/app/api-tokens\n    2: "
+    assert is_hypersync_rate_limit_error(RuntimeError(production_message)) is True
+
+    # 2. Match the legacy HTTP 429 form and a "Too Many Requests" phrasing.
+    assert is_hypersync_rate_limit_error(RuntimeError("HTTP 429 Too Many Requests")) is True
+
+    # 3. Reject unrelated runtime errors and non-RuntimeError exceptions.
+    assert is_hypersync_rate_limit_error(RuntimeError("connection reset")) is False
+    assert is_hypersync_rate_limit_error(ValueError("rate limited")) is False
+
+
+def test_raise_if_recoverable_hypersync_flaky_wraps_and_passes_through():
+    """Verify the shared wrapper converts recoverable errors and ignores others.
+
+    The consolidated helper replaces four near-identical ``except RuntimeError``
+    blocks. It must wrap rate-limit and pagination errors as
+    :py:class:`HypersyncFlaky` so retry loops recover, while leaving unrelated
+    errors untouched for the caller's bare ``raise``.
+
+    1. A textual rate limit error becomes a HypersyncFlaky mentioning "rate limited".
+    2. A next_block_range pagination error becomes a HypersyncFlaky mentioning "stream pagination failed".
+    3. An unrelated RuntimeError is left untouched (helper returns None).
+    """
+
+    # 1. A textual rate limit error becomes a HypersyncFlaky mentioning "rate limited".
+    try:
+        raise_if_recoverable_hypersync_flaky(RuntimeError("rate limited by server"), "stream setup [unit-test]")
+    except HypersyncFlaky as e:
+        assert "rate limited" in str(e)
+        assert "stream setup [unit-test]" in str(e)
+    else:
+        assert False, "Expected HypersyncFlaky for rate limit error"
+
+    # 2. A next_block_range pagination error becomes a HypersyncFlaky mentioning "stream pagination failed".
+    pagination_message = "inner receiver\n\nCaused by:\n    server returned next_block 100 outside the requested range [100..200)"
+    try:
+        raise_if_recoverable_hypersync_flaky(RuntimeError(pagination_message), "streaming [unit-test]")
+    except HypersyncFlaky as e:
+        assert "stream pagination failed" in str(e)
+    else:
+        assert False, "Expected HypersyncFlaky for pagination error"
+
+    # 3. An unrelated RuntimeError is left untouched (helper returns None).
+    assert raise_if_recoverable_hypersync_flaky(RuntimeError("connection reset"), "streaming [unit-test]") is None
 
 
 def _make_block_header(block_number: int) -> BlockHeader:

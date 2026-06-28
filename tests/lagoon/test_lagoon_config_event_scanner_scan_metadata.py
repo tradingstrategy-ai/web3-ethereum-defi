@@ -167,6 +167,7 @@ def test_guard_report_includes_backend_and_block_range():
                 hypercore_core_writers=(),
                 hypercore_deposit_wallets=(),
                 hypercore_vaults=(),
+                lighter_contracts=(),
                 call_sites=(),
             )
         },

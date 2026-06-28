@@ -20,7 +20,7 @@ from eth_defi.derive.constants import (
     DEFAULT_RETRIES,
     DERIVE_RATE_LIMIT_SQLITE_DATABASE,
 )
-from eth_defi.velvet.logging_retry import LoggingRetry
+from eth_defi.logging_retry import LoggingRetry
 
 logger = logging.getLogger(__name__)
 
