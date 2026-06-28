@@ -5,6 +5,7 @@ These tests do not need network access or a Webshare API key — they build a
 """
 
 import logging
+from pathlib import Path
 
 import pytest
 
@@ -24,7 +25,7 @@ def _make_proxy(port: int, country: str) -> WebshareProxy:
 
 
 @pytest.fixture()
-def state_manager(tmp_path) -> ProxyStateManager:
+def state_manager(tmp_path: Path) -> ProxyStateManager:
     """A state manager backed by a temp file so failure recording is observable."""
     return ProxyStateManager(state_path=tmp_path / "proxy-state.json")
 
