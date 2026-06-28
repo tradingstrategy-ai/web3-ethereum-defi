@@ -6,6 +6,8 @@
 
 - feat: Add Rich-powered coloured console logging for Docker Compose vault scanner logs, with Docker log autodetection, coloured levels/context, plain file logging, and a smoke script for comparing terminal, forced-colour and Docker output modes (2026-06-28)
 
+- feat: Proxy rotation log lines now explain *why* a rotation happened. `ProxyRotator.rotate()` gains a `reason` parameter for proactive (non-failure) rotations, and the log message reads `Rotated from proxy <prev> to <new> (CC/city) [gen N] — reason: <reason>`. Feed collection now tags its proactive per-source rotation with the source URL, and the Hyperliquid throttle path folds its separate "Rotated on HTTP …" line into the centralised reason logging, so operators can distinguish routine load-distribution rotations from failure-driven ones (2026-06-28)
+
 - fix: Blacklist multi-entry depegged stablecoin denominations such as USDX. The depeg lookup only matched single-entry stablecoin YAML files, so USDX-denominated vaults (~$269M nominal TVL) were never blacklisted in production. Pin the dead Stables Labs USDX token by contract address, keep symbol matching off for ambiguous multi-entry tickers (so unrelated same-ticker tokens like Axis USD are not blacklisted), warn when a depeg cannot be enforced for lack of a contract address, and add `scripts/erc-4626/list-depegged-vaults.py` to report the blacklisted depeg TVL impact (2026-06-28)
 
 - refactor: Move the reusable `LoggingRetry` HTTP retry adapter out of the Velvet submodule to its own top-level `eth_defi.logging_retry` module, since it is shared across the Velvet, Derive, Core3, Hibachi, GRVT, Lighter, Hyperliquid and token-analysis integrations (2026-06-28)
