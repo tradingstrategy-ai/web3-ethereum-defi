@@ -145,7 +145,7 @@ YAML files are written to:
 | ✅ | gami | Gami | https://gamilabs.io | GamiLabs | | |
 | ⚠️ | hub-capital | Hub Capital | https://hub.capital | | | |
 | ⚠️ | odyssey-digital-am | Odyssey Digital AM | | | | |
-| ✅ | smardex | SmarDex | https://smardex.io | SmarDex | realsmardex | |
+| ✅ | smardex | SmarDex | https://smardex.io | every_thing | realsmardex | |
 | ✅ | syntropia | Syntropia | https://syntropia.ai | syntropia_ai | syntropiaai | |
 
 ### Hyperliquid vault managers
