@@ -47,6 +47,19 @@ DEFAULT_PROXY_STATE_PATH = Path("~/.tradingstrategy/webshare-proxy-state.json").
 GRACE_PERIOD_DAYS = 14
 
 
+def get_proxy_status_reset_instructions() -> str:
+    """Return operator instructions for clearing Webshare proxy status.
+
+    Webshare proxy failures are cached on disk so that bad proxies are skipped
+    during the grace period. When every proxy is blocked, the operator can
+    clear this local status file to retry the whole proxy pool.
+
+    :return:
+        Human-readable instructions for log messages.
+    """
+    return f"Reset Webshare proxy status with: poetry run python scripts/erc-4626/reset-proxy-state.py (or delete {DEFAULT_PROXY_STATE_PATH})"
+
+
 @dataclass(slots=True)
 class FailedProxyEntry:
     """Tracks a failed proxy with timestamp and reason."""
@@ -518,8 +531,9 @@ def load_proxy_rotator() -> ProxyRotator | None:
 
     if not proxies:
         logger.warning(
-            "All %d proxies are blocked — falling back to direct connection",
+            "All %d Webshare proxies are blocked; falling back to direct connection. %s",
             total_count,
+            get_proxy_status_reset_instructions(),
         )
         return None
 
@@ -588,7 +602,11 @@ def load_proxy_urls(api_key: str | None = None) -> list[str]:
         )
 
     if not proxies:
-        logger.warning("All %d proxies are blocked — returning empty list", total_count)
+        logger.warning(
+            "All %d Webshare proxies are blocked; returning empty list. %s",
+            total_count,
+            get_proxy_status_reset_instructions(),
+        )
         return []
 
     random.shuffle(proxies)
