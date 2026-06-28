@@ -41,7 +41,7 @@ from requests import Session
 from requests_ratelimiter import LimiterAdapter
 
 from eth_defi.event_reader.webshare import ProxyRotator
-from eth_defi.velvet.logging_retry import LoggingRetry
+from eth_defi.logging_retry import LoggingRetry
 
 logger = logging.getLogger(__name__)
 
@@ -465,7 +465,7 @@ def create_hyperliquid_session(
         Log level for proxy failure/rotation messages (from
         :class:`~eth_defi.event_reader.webshare.ProxyRotator`,
         :class:`~eth_defi.event_reader.webshare.ProxyStateManager`,
-        and :class:`~eth_defi.velvet.logging_retry.LoggingRetry`).
+        and :class:`~eth_defi.logging_retry.LoggingRetry`).
 
         - ``None`` (default): ``logging.DEBUG`` when proxies are used,
           ``logging.WARNING`` otherwise.

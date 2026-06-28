@@ -18,7 +18,7 @@ from requests import Session
 from requests_ratelimiter import LimiterAdapter
 
 from eth_defi.lighter.constants import LIGHTER_API_URL, LIGHTER_DEFAULT_REQUESTS_PER_SECOND
-from eth_defi.velvet.logging_retry import LoggingRetry
+from eth_defi.logging_retry import LoggingRetry
 
 logger = logging.getLogger(__name__)
 
