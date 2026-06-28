@@ -203,6 +203,7 @@ STABLECOIN_LINK_FIELDS = ["homepage", "coingecko", "defillama", "twitter"]
 STABLECOIN_LIKE = set(
     [
         "ALUSD",
+        "apxUSD",
         "AUDT",
         "AUSD",
         "BAC",
@@ -228,6 +229,7 @@ STABLECOIN_LIKE = set(
         "EURCV",
         "EUROC",
         "EUROe",
+        "EURR",
         "EURS",
         "EURT",
         "EURe",

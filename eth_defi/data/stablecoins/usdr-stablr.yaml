@@ -1,0 +1,45 @@
+symbol: USDR
+name: StablR USD
+short_description: StablR USD (USDR) is a USD-pegged stablecoin by StablR. It depegged in May 2026 after a minting multisig exploit and is effectively defunct.
+long_description: |
+  StablR USD (USDR) is a USD-pegged stablecoin issued by [StablR](https://stablr.com/).
+  It shares the ``USDR`` ticker with the unrelated, also-defunct Tangible Real USD,
+  so it is matched only by contract address.
+
+  ## Depeg
+
+  On 23–24 May 2026, StablR suffered an exploit of its minting multisig: a
+  compromised key allowed an attacker to mint unbacked USDR (and EURR) and dump
+  them. USDR collapsed and now trades near zero.
+
+  ## Sources
+
+  - [CoinGecko — StablR USD](https://www.coingecko.com/en/coins/stablr-usd)
+category: stablecoin
+links:
+  homepage: https://stablr.com/
+  coingecko: https://www.coingecko.com/en/coins/stablr-usd
+  defillama: ''
+  twitter: ''
+contract_addresses:
+  - chain: ethereum
+    address: '0x7b43e3875440b44613dc3bc08e7763e6da63c8f8'
+ambiguous_symbol: true
+slug: usdr-stablr
+coingecko_id: stablr-usd
+coingecko_link: https://www.coingecko.com/en/coins/stablr-usd
+coingecko_id_source: manual
+coingecko_id_verified_at: '2026-06-28T00:00:00'
+usd_rate: 0.0161127
+usd_rate_fetched_at: '2026-06-28T00:00:00'
+usd_rate_updated_at: '2026-06-28T00:00:00'
+peg_rate: 0.0161127
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: '2026-06-28T00:00:00'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

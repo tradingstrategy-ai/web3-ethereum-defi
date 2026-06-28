@@ -1,0 +1,42 @@
+symbol: EURR
+name: StablR Euro
+short_description: EURR is a euro-pegged stablecoin issued by StablR. It depegged in May 2026 after a minting multisig exploit minted unbacked tokens.
+long_description: |
+  EURR is a euro-pegged stablecoin issued by [StablR](https://stablr.com/).
+
+  ## Depeg
+
+  On 23–24 May 2026, StablR suffered an exploit of its minting multisig: a
+  compromised key allowed an attacker to mint unbacked EURR (and USDR) and dump
+  them, collapsing the peg by more than 20% at first and far further afterwards.
+
+  ## Sources
+
+  - [CoinGecko — StablR Euro](https://www.coingecko.com/en/coins/stablr-euro)
+category: stablecoin
+links:
+  homepage: https://stablr.com/
+  coingecko: https://www.coingecko.com/en/coins/stablr-euro
+  defillama: ''
+  twitter: ''
+contract_addresses:
+  - chain: ethereum
+    address: '0x50753cfaf86c094925bf976f218d043f8791e408'
+slug: eurr
+coingecko_id: stablr-euro
+coingecko_link: https://www.coingecko.com/en/coins/stablr-euro
+coingecko_id_source: manual
+coingecko_id_verified_at: '2026-06-28T00:00:00'
+usd_rate: 0.135679
+usd_rate_fetched_at: '2026-06-28T00:00:00'
+usd_rate_updated_at: '2026-06-28T00:00:00'
+peg_rate: 0.119126
+peg_rate_currency: eur
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: '2026-06-28T00:00:00'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

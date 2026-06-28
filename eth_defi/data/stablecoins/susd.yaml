@@ -19,11 +19,19 @@ contract_addresses:
   - chain: optimism
     address: '0x8c6f28f2F1A3C87F0f938b96d27520d9751ec8d9'
 slug: susd
-coingecko_id: susd
-coingecko_link: https://www.coingecko.com/en/coins/susd
-coingecko_id_source: url
-rate_fetch_failed_at: '2026-06-26T12:16:16'
-rate_fetch_failed_reason: coingecko_price_missing
+coingecko_id: nusd
+coingecko_link: https://www.coingecko.com/en/coins/nusd
+coingecko_id_source: manual
+coingecko_id_verified_at: '2026-06-28T00:00:00'
+usd_rate: 0.231948
+usd_rate_fetched_at: '2026-06-28T00:00:00'
+usd_rate_updated_at: '2026-06-28T00:00:00'
+peg_rate: 0.231948
+peg_rate_currency: usd
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: '2026-06-28T00:00:00'
+ambiguous_symbol: true
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'
