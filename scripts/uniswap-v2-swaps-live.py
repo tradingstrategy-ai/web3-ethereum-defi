@@ -28,9 +28,6 @@ To run for Polygon (and QuickSwap):
 
 .. code-block:: shell
 
-    # Need for nice output
-    pip install coloredlogs
-
     # Switch between INFO and DEBUG
     export LOG_LEVEL=INFO
     # Your Ethereum node RPC
@@ -39,29 +36,27 @@ To run for Polygon (and QuickSwap):
 
 """
 
-import datetime
+import logging
 import os
 import time
 from functools import lru_cache
 from pathlib import Path
-import logging
 
-import coloredlogs
 import requests
 from tqdm import tqdm
-
 from web3 import HTTPProvider, Web3
 
 from eth_defi.abi import get_contract
-from eth_defi.chain import install_chain_middleware, install_retry_middleware, install_api_call_counter_middleware
+from eth_defi.chain import install_api_call_counter_middleware, install_chain_middleware, install_retry_middleware
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.event_reader.block_time import measure_block_time
-from eth_defi.event_reader.conversion import decode_data, convert_int256_bytes_to_int, convert_jsonrpc_value_to_int
+from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_jsonrpc_value_to_int, decode_data
 from eth_defi.event_reader.csv_block_data_store import CSVDatasetBlockDataStore
 from eth_defi.event_reader.fast_json_rpc import patch_web3
-from eth_defi.event_reader.reader import read_events, LogResult, prepare_filter
+from eth_defi.event_reader.reader import LogResult, prepare_filter, read_events
 from eth_defi.event_reader.reorganisation_monitor import ChainReorganisationDetected, JSONRPCReorganisationMonitor
 from eth_defi.uniswap_v2.pair import PairDetails, fetch_pair_details
-
+from eth_defi.utils import setup_console_logging
 
 logger = logging.getLogger(__name__)
 
@@ -152,26 +147,11 @@ def format_swap(swap: dict) -> str:
         return f"{block_number:,} {tx_hash} {amount0_in} {token0.symbol}, {amount1_in} {token1.symbol} -> {amount0_out} {token0.symbol}, {amount1_out} {token1.symbol}"
 
 
-def setup_logging():
-    level = os.environ.get("LOG_LEVEL", "info").upper()
-
-    fmt = "%(asctime)s %(name)-44s %(message)s"
-    date_fmt = "%H:%M:%S"
-    coloredlogs.install(level=level, fmt=fmt, date_fmt=date_fmt)
-
-    logging.basicConfig(level=level, handlers=[logging.StreamHandler()])
-
-    # Mute noise
-    logging.getLogger("web3.providers.HTTPProvider").setLevel(logging.WARNING)
-    logging.getLogger("web3.RequestManager").setLevel(logging.WARNING)
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-
-
 def main():
     """Entry point for the script"""
 
     # Mute extra logging output
-    setup_logging()
+    setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
 
     # HTTP 1.1 keep-alive to speed up JSON-RPC protocol
     session = requests.Session()

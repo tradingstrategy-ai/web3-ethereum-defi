@@ -13,14 +13,13 @@ Example how to run:
 """
 
 import csv
-from functools import lru_cache
 import logging
 import os
-
-import coloredlogs
+from functools import lru_cache
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.enzyme.deployment import POLYGON_DEPLOYMENT, ETHEREUM_DEPLOYMENT, EnzymeDeployment
+from eth_defi.chainlink.token_price import get_native_token_price_with_chainlink, get_token_price_with_chainlink
+from eth_defi.enzyme.deployment import ETHEREUM_DEPLOYMENT, POLYGON_DEPLOYMENT, EnzymeDeployment
 from eth_defi.enzyme.price_feed import UnsupportedBaseAsset
 from eth_defi.enzyme.vault import Vault
 from eth_defi.event_reader.conversion import convert_uint256_bytes_to_address, convert_uint256_string_to_address, decode_data
@@ -29,7 +28,6 @@ from eth_defi.event_reader.multithread import MultithreadEventReader
 from eth_defi.event_reader.progress_update import PrintProgressUpdate
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.chainlink.token_price import get_native_token_price_with_chainlink, get_token_price_with_chainlink
 from eth_defi.utils import setup_console_logging
 
 logger = logging.getLogger(__name__)
