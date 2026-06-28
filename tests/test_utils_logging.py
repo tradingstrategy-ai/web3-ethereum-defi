@@ -237,8 +237,9 @@ def test_rich_logging_uses_compact_standard_tracebacks(monkeypatch: pytest.Monke
     setup_console_logging(default_log_level="info", stream=stream)
 
     logger = logging.getLogger("eth_defi.tests.traceback")
+    error_message = "inner receiver"
     try:
-        raise RuntimeError("inner receiver")
+        raise RuntimeError(error_message)
     except RuntimeError:
         logger.exception("Failure with compact traceback")
 
