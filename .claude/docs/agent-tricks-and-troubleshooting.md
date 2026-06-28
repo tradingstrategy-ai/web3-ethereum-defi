@@ -106,11 +106,36 @@ claude -p "Review the current worktree diff. Do not edit files." \
 # Avoid pasting huge diffs into the prompt. Make Claude inspect files itself.
 claude -p "Review uncommitted changes. First run git diff --name-only, then inspect targeted diffs."
 
+# Bounded review with a five minute wall-clock limit and live partial output.
+# `--safe-mode` avoids unnecessary side effects and `--include-partial-messages`
+# streams assistant tokens as they are generated, so the run never looks idle.
+timeout 300s claude --safe-mode \
+  -p "Review the current worktree diff for bugs, regressions, missing tests, and documentation gaps. Focus on actionable findings with file and line references." \
+  --output-format stream-json \
+  --include-partial-messages \
+  --verbose
+
 # Run cloud review when account credits and PR/base context are available.
 claude ultrareview master --timeout 15
 ```
 
-For long-running `claude -p` jobs, prefer `--output-format stream-json --verbose`. Text mode can look idle because useful output may be buffered until the final answer.
+For long-running `claude -p` jobs, prefer `--output-format stream-json --verbose`. Text mode can look idle because useful output may be buffered until the final answer. Wrap review runs in `timeout 300s` (five minutes is a good default) so a stuck review cannot block indefinitely.
+
+### Claude CLI authentication and `--bare`
+
+For normal repository reviews, use the authenticated CLI session that reads the
+local Claude Code login. Do not add `--bare`:
+
+```shell
+claude auth status
+```
+
+`--bare` is a minimal mode that skips hooks, plugin sync, keychain reads, OAuth
+login state, and automatic Claude memory discovery. In bare mode, Anthropic
+authentication must come from `ANTHROPIC_API_KEY` or an explicit API key helper;
+if neither is configured the command fails with `Not logged in · Please run
+/login`. Only use `--bare` when you have deliberately configured an API key for
+that command.
 
 ### Reviewing a plan or document with Claude CLI
 
