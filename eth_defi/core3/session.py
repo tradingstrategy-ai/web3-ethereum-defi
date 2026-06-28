@@ -26,7 +26,7 @@ from eth_defi.core3.constants import (
     CORE3_RATE_LIMIT_SQLITE_DATABASE,
     CORE3_USER_AGENT,
 )
-from eth_defi.velvet.logging_retry import LoggingRetry
+from eth_defi.logging_retry import LoggingRetry
 
 logger = logging.getLogger(__name__)
 

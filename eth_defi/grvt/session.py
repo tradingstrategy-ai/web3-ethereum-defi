@@ -33,7 +33,7 @@ from pyrate_limiter import SQLiteBucket
 from requests import Session
 from requests_ratelimiter import LimiterAdapter
 
-from eth_defi.velvet.logging_retry import LoggingRetry
+from eth_defi.logging_retry import LoggingRetry
 
 logger = logging.getLogger(__name__)
 
