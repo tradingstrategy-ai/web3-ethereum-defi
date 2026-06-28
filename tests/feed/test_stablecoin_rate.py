@@ -725,3 +725,29 @@ checks:
     yieldfi_susd = "0x4f8e1426a9d10bddc11d26042ad270f16ccb95f2"  # YieldFi Stable Token reuses the sUSD ticker
     assert feeder.is_depegged_stablecoin_token(1, yieldfi_susd, "sUSD") is False
     assert feeder.is_depegged_stablecoin_token(1, None, "sUSD") is False
+
+
+def test_packaged_duplicate_symbol_stablecoins_match_by_contract_only() -> None:
+    """Guard the real packaged data: shared-ticker depegged stablecoins match by contract, never by symbol.
+
+    ``USDX``, ``sUSD`` and ``USDR`` are each reused by several distinct tokens
+    (some healthy, e.g. Axis USD, YieldFi sUSD). This regression test locks in the
+    contract-only handling so a future edit to the packaged YAML cannot re-enable
+    ticker matching and blacklist the healthy same-ticker tokens.
+
+    1. Build the depeg lookups from the packaged ``eth_defi/data/stablecoins`` directory.
+    2. Assert each shared ticker is absent from the symbol set (so it is never symbol-matched).
+    3. Assert each known dead token is pinned by contract address instead.
+    """
+    # 1. Use the real shipped stablecoin metadata.
+    depegged_contracts, depegged_symbols = build_depegged_stablecoin_lookups()
+
+    # 2. The ambiguous shared tickers must not be symbol-matched.
+    for ticker in ("USDX", "SUSD", "USDR"):
+        assert ticker not in depegged_symbols, f"{ticker} is a shared ticker and must match by contract only"
+
+    # 3. The dead tokens behind those tickers must be pinned by contract.
+    assert (1, "0xf3527ef8de265eaa3716fb312c12847bfba66cef") in depegged_contracts  # Stables Labs USDX
+    assert (1, "0x57ab1ec28d129707052df4df418d58a2d46d5f51") in depegged_contracts  # Synthetix sUSD
+    assert (137, "0x40379a439d4f6795b6fc9aa5687db461677a2dba") in depegged_contracts  # Tangible Real USD
+    assert (1, "0x7b43e3875440b44613dc3bc08e7763e6da63c8f8") in depegged_contracts  # StablR USD
