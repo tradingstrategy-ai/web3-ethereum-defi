@@ -584,6 +584,84 @@ checks:
     assert StablecoinRateFeeder(tmp_path).is_depegged_stablecoin_token(1, None, "USDX") is False
 
 
+def test_depegged_multi_entry_blacklists_by_contract_not_symbol(tmp_path: Path) -> None:
+    """Multi-entry depegged tokens (e.g. USDX) blacklist by contract address, never by ticker.
+
+    Reproduces the production gap where USDX-denominated vaults stayed listed: a
+    multi-entry stablecoin YAML must blacklist the dead token by its pinned
+    contract address while leaving an unrelated token that merely reuses the
+    same ``USDX``/``USDx`` ticker (e.g. Axis USD) untouched.
+
+    1. Write a multi-entry USDX YAML where both entries are depegged and the
+       first carries ``contract_addresses``.
+    2. Build the depeg lookups and assert the contract is indexed but the
+       ambiguous ``USDX`` symbol is not.
+    3. Assert the dead token matches by contract while a same-ticker token at a
+       different address does not.
+    """
+    # 1. Multi-entry USDX YAML: both entries dead, first one pinned by address.
+    dead_address = "0xf3527ef8de265eaa3716fb312c12847bfba66cef"
+    (tmp_path / "usdx.yaml").write_text(
+        """symbol: USDX
+category: stablecoin
+entries:
+- name: Stables Labs USDX
+  short_description: ''
+  long_description: ''
+  contract_addresses:
+    - chain: ethereum
+      address: '0xf3527ef8dE265eAa3716FB312c12847bFBA66Cef'
+    - chain: binance
+      address: '0xf3527ef8dE265eAa3716FB312c12847bFBA66Cef'
+  coingecko_id: usdx-money-usdx
+  usd_rate: 0.0076
+  usd_rate_fetched_at: '2026-06-26T12:00:00'
+  depegged_at: '2026-06-26T12:00:00'
+  links:
+    homepage: ''
+    coingecko: ''
+    defillama: ''
+    twitter: ''
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: ''
+    marked_dead_at: ''
+    information_found_missing_at: ''
+- name: Kava USDX
+  short_description: ''
+  long_description: ''
+  coingecko_id: kava-lend
+  usd_rate: 0.63
+  usd_rate_fetched_at: '2026-06-26T12:00:00'
+  depegged_at: '2026-06-26T12:00:00'
+  links:
+    homepage: ''
+    coingecko: ''
+    defillama: ''
+    twitter: ''
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: ''
+    marked_dead_at: ''
+    information_found_missing_at: ''
+slug: usdx
+"""
+    )
+
+    # 2. The pinned address is indexed; the ambiguous USDX ticker is not.
+    depegged_contracts, depegged_symbols = build_depegged_stablecoin_lookups(tmp_path)
+    assert (1, dead_address) in depegged_contracts
+    assert (56, dead_address) in depegged_contracts
+    assert "USDX" not in depegged_symbols
+
+    # 3. Dead token matches by contract; a same-ticker token elsewhere does not.
+    feeder = StablecoinRateFeeder(tmp_path)
+    assert feeder.is_depegged_stablecoin_token(1, dead_address, "USDX") is True
+    other_address = "0xa1fa77779e6866fa3ef48fc0720657e042158387"  # Axis USD reuses the USDx ticker
+    assert feeder.is_depegged_stablecoin_token(8453, other_address, "USDX") is False
+    assert feeder.is_depegged_stablecoin_token(8453, None, "USDX") is False
+
+
 def test_stablecoin_yaml_atomic_write_preserves_existing_file_mode(tmp_path: Path) -> None:
     """Atomic YAML updates keep existing package file permissions."""
     yaml_path = _write_usdc_yaml(tmp_path)

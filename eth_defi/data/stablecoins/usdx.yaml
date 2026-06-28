@@ -15,6 +15,15 @@ entries:
     coingecko: https://www.coingecko.com/en/coins/usdx-money-usdx
     defillama: https://defillama.com/stablecoin/usdx-money
     twitter: https://x.com/usdx_money
+  contract_addresses:
+    - chain: ethereum
+      address: '0xf3527ef8dE265eAa3716FB312c12847bFBA66Cef'
+    - chain: arbitrum
+      address: '0xf3527ef8dE265eAa3716FB312c12847bFBA66Cef'
+    - chain: binance
+      address: '0xf3527ef8dE265eAa3716FB312c12847bFBA66Cef'
+    - chain: base
+      address: '0xf3527ef8dE265eAa3716FB312c12847bFBA66Cef'
   coingecko_id: usdx-money-usdx
   coingecko_link: https://www.coingecko.com/en/coins/usdx-money-usdx
   coingecko_id_source: manual

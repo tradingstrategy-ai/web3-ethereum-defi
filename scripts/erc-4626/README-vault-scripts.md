@@ -789,6 +789,37 @@ Test rendering a sparkline for a single vault and open the result in a browser.
 poetry run python scripts/erc-4626/render-sparkline.py
 ```
 
+### list-depegged-vaults.py
+
+Report which vaults are blacklisted because their denomination stablecoin has
+depegged, and the total TVL impact. Cross-references the vault metadata database
+against the stablecoin depeg markers (`depegged_at` in
+`eth_defi/data/stablecoins/*.yaml`) using the same lookup the export pipeline
+uses (`build_depegged_stablecoin_lookups`), so the figures match what gets
+blacklisted in production. Prints a per-stablecoin summary (vault count, nominal
+TVL, and estimated real USD value at the current depegged rate), a grand total,
+and an optional per-vault detail table. It also logs a warning for any depegged
+stablecoin that cannot be enforced because it has no `contract_addresses` and an
+ambiguous ticker (e.g. multi-entry tokens such as USDX before their address is
+pinned).
+
+```shell
+# Use the locally cached vault database
+poetry run python scripts/erc-4626/list-depegged-vaults.py
+
+# Point at an explicitly downloaded database and hide the per-vault detail
+VAULT_DB_PATH=/tmp/vault-metadata-db.pickle SHOW_DETAIL=false \
+    poetry run python scripts/erc-4626/list-depegged-vaults.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `VAULT_DB_PATH` | Optional. Path to the vault metadata database pickle. Default: `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
+| `STABLECOINS_DIR` | Optional. Stablecoin metadata YAML directory. Default: packaged `eth_defi/data/stablecoins`. |
+| `MIN_TVL` | Optional. Ignore vaults whose NAV is below this nominal value. Default: 0. |
+| `SHOW_DETAIL` | Optional. Print the per-vault detail table. Default: true. |
+| `LOG_LEVEL` | Optional. Default: warning. |
+
 ## Data extraction
 
 Scripts for extracting subsets of data for testing or analysis.
