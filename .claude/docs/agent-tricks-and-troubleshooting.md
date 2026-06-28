@@ -54,6 +54,88 @@ Use `codex exec` for CI-like or scripted work. It streams progress to stderr and
 
 Use interactive `codex` when the task needs back-and-forth decisions, screenshots, manual inspection, or careful approval of edits.
 
+### Required method for non-interactive Codex reviews
+
+Plain `codex exec "..."` run in the foreground is **not** a safe way to get a
+review from an agent. In practice it buffers all output until the end, so the
+call looks hung, and an agent's wall-clock timeout fires (observed: a 7m30s
+foreground run terminated with **zero output**). It can also silently review
+the wrong git tree. Always follow the steps below for an automated review.
+
+**1. Run Codex from the exact tree you want reviewed, and prove it sees the diff
+first.** Codex reviews the git working tree of its current working directory.
+When the changes live in a git worktree, you must launch Codex from that
+worktree path, otherwise it inspects a clean tree and reports "no changes". A
+clean-tree review is the single most common false negative — verify before
+trusting any "no findings" result:
+
+```shell
+cd /path/to/the/worktree-or-repo-with-changes
+git status --short          # must list your changed files
+git diff --name-only        # must be non-empty
+```
+
+If these are empty, Codex will find nothing no matter how good the prompt is.
+Fix the working directory (or move the changes into the right tree) before
+running the review.
+
+**2. Always use `--json` so output streams as JSONL events.** This is what
+prevents the silent-buffering hang. Never rely on plain-text `codex exec` for a
+long review.
+
+**3. Run it in the background, redirect to a log file, then poll the PID.** Do
+not block a foreground call on a multi-minute review:
+
+```shell
+rm -f /tmp/codex-review.log
+nohup codex exec --json --sandbox read-only --skip-git-repo-check \
+  "Review the uncommitted worktree diff for correctness bugs only. Do not run
+   tests. Run 'git diff --name-only' first, then inspect hunks with
+   'git diff -- <path>'. Give file:line findings; if none, say so with residual
+   risks." \
+  > /tmp/codex-review.log 2>&1 &
+CODEX_PID=$!
+
+# Poll until done (use a generous agent/bash timeout, e.g. 9 minutes).
+until ! kill -0 "$CODEX_PID" 2>/dev/null; do sleep 15; done
+echo "codex review finished"
+```
+
+**4. Parse the JSONL for the actual review text.** The human-readable review is
+in `item.completed` events whose `item.type == "agent_message"`:
+
+```shell
+python3 -c "
+import json
+for line in open('/tmp/codex-review.log'):
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        o = json.loads(line)
+    except ValueError:
+        continue
+    if o.get('type') == 'item.completed' and o.get('item', {}).get('type') == 'agent_message':
+        print(o['item']['text']); print('---')
+"
+```
+
+Flag conventions for review runs:
+
+- `--sandbox read-only` — review must never edit files.
+- `--skip-git-repo-check` — needed when launching from a worktree path that
+  Codex does not recognise as a top-level repo.
+- `--json` — mandatory for non-interactive runs to avoid buffered/silent output.
+
+Checklist before you trust a Codex review verdict:
+
+1. `git diff --name-only` in the review cwd was non-empty.
+2. The run used `--json` and you read `agent_message` items, not just the tail.
+3. The run actually completed (PID exited) rather than being killed by a
+   timeout.
+4. A "no changes"/"clean tree" message means a wrong-directory run, not a clean
+   review — re-run from the correct tree.
+
 ## Claude CLI
 
 Claude CLI is useful for independent second opinions, code reviews, background agents, and checking whether another agent's change makes sense.
