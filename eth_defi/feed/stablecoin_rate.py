@@ -157,6 +157,12 @@ class StablecoinRateTarget:
     depegged_at: datetime.datetime | None
     contract_addresses: list[tuple[int, str]]
 
+    #: The ticker is reused by unrelated tokens, so never match this entry by
+    #: symbol — only by contract address. Set ``ambiguous_symbol: true`` in the
+    #: YAML for tickers such as ``sUSD`` or ``USDR`` that several distinct tokens
+    #: share, otherwise marking one depegged would blacklist the healthy ones.
+    ambiguous_symbol: bool = False
+
 
 @dataclass(slots=True)
 class StablecoinRateRefreshSummary:
@@ -472,13 +478,14 @@ def build_depegged_stablecoin_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> 
 
     for target in iter_stablecoin_rate_targets(data_dir):
         normalised_symbol = normalise_token_symbol(target.symbol)
-        if normalised_symbol and target.entry_index is None:
+        symbol_matchable = bool(normalised_symbol) and target.entry_index is None and not target.ambiguous_symbol
+        if symbol_matchable:
             symbol_owner_counts[normalised_symbol] = symbol_owner_counts.get(normalised_symbol, 0) + 1
 
         if target.depegged_at is None:
             continue
         depegged_contracts.update(target.contract_addresses)
-        if normalised_symbol and target.entry_index is None:
+        if symbol_matchable:
             depegged_symbol_candidates.add(normalised_symbol)
         if not target.contract_addresses:
             depegged_without_contract.append(target)
@@ -513,7 +520,7 @@ def build_stablecoin_rate_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> tupl
             contract_rates[contract_key] = rate
 
         normalised_symbol = normalise_token_symbol(target.symbol)
-        if normalised_symbol and target.entry_index is None:
+        if normalised_symbol and target.entry_index is None and not target.ambiguous_symbol:
             symbol_candidates.setdefault(normalised_symbol, []).append((target, rate))
 
     symbol_rates = {symbol: matches[0][1] for symbol, matches in symbol_candidates.items() if len(matches) == 1}
@@ -592,6 +599,7 @@ def _build_target(yaml_path: Path, entry_index: int | None, slug: str, symbol: s
         rate_fetch_failed_reason=_clean_string(entry.get("rate_fetch_failed_reason")),
         depegged_at=_parse_datetime(entry.get("depegged_at")),
         contract_addresses=_parse_contract_addresses(entry),
+        ambiguous_symbol=bool(entry.get("ambiguous_symbol", False)),
     )
 
 

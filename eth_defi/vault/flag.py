@@ -390,6 +390,11 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xa446938b0204aa4055cdfed68ddf0e0d1bab3e9e": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Rezerve USDC
     "0xc42d337861878baa4dc820d9e6b6c667c2b57e8a": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
+    # Rezerve.money USD "USDR 2029 Bond" on Ethereum - unverified Rezerve product.
+    # Its denomination token reuses the USDR ticker (shared with the defunct Tangible
+    # and StablR USDR), so it is no longer caught by the USDR depeg blacklist now that
+    # USDR is matched by contract only. Keep it suppressed via a manual flag.
+    "0x3839a0dd920463eb5d8231efe4d8c5edc44145ec": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # YieldNest ynRWAx vault on Ethereum - fixed maturity date 15 Oct 2026
     "0x01ba69727e2860b37bc1a2bd56999c1afb4c15d8": (None, YIELDNEST_YNRWAX),
     # Supply USDC on ZeroLend RWA Market

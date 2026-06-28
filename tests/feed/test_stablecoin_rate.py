@@ -672,3 +672,82 @@ def test_stablecoin_yaml_atomic_write_preserves_existing_file_mode(tmp_path: Pat
     assert yaml_path.stat().st_mode & 0o777 == 0o644
     target = next(iter_stablecoin_rate_targets(tmp_path))
     assert target.usd_rate == pytest.approx(1.0)
+
+
+def test_ambiguous_symbol_matches_by_contract_only(tmp_path: Path) -> None:
+    """``ambiguous_symbol`` entries blacklist by contract address only, never by the shared ticker.
+
+    Tickers such as ``sUSD`` are reused by several unrelated tokens (Synthetix sUSD,
+    YieldFi Stable Token, Solaris USD). Marking the Synthetix one depegged must not
+    blacklist the healthy ticker-mates, so a flagged entry is matched by contract only.
+
+    1. Write a single depegged ``sUSD`` entry flagged ``ambiguous_symbol`` with a pinned contract.
+    2. Build the lookups and assert the contract is indexed but the ``SUSD`` symbol is not.
+    3. Assert the pinned Synthetix contract matches while a same-ticker token at another address does not.
+    """
+    # 1. A flat, single-owner depegged sUSD entry that is flagged ambiguous.
+    (tmp_path / "susd.yaml").write_text(
+        """symbol: SUSD
+name: Synthetix sUSD
+short_description: ''
+long_description: ''
+category: stablecoin
+contract_addresses:
+  - chain: ethereum
+    address: '0x57Ab1ec28D129707052df4dF418D58a2D46d5f51'
+ambiguous_symbol: true
+slug: susd
+coingecko_id: nusd
+usd_rate: 0.23
+usd_rate_fetched_at: '2026-06-28T00:00:00'
+depegged_at: '2026-06-28T00:00:00'
+links:
+  homepage: ''
+  coingecko: ''
+  defillama: ''
+  twitter: ''
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''
+"""
+    )
+
+    # 2. Contract indexed, but the ambiguous SUSD ticker is deliberately excluded.
+    depegged_contracts, depegged_symbols = build_depegged_stablecoin_lookups(tmp_path)
+    assert (1, "0x57ab1ec28d129707052df4df418d58a2d46d5f51") in depegged_contracts
+    assert "SUSD" not in depegged_symbols
+
+    # 3. Pinned Synthetix contract matches; a same-ticker token elsewhere stays safe.
+    feeder = StablecoinRateFeeder(tmp_path)
+    assert feeder.is_depegged_stablecoin_token(1, "0x57Ab1ec28D129707052df4dF418D58a2D46d5f51", "sUSD") is True
+    yieldfi_susd = "0x4f8e1426a9d10bddc11d26042ad270f16ccb95f2"  # YieldFi Stable Token reuses the sUSD ticker
+    assert feeder.is_depegged_stablecoin_token(1, yieldfi_susd, "sUSD") is False
+    assert feeder.is_depegged_stablecoin_token(1, None, "sUSD") is False
+
+
+def test_packaged_duplicate_symbol_stablecoins_match_by_contract_only() -> None:
+    """Guard the real packaged data: shared-ticker depegged stablecoins match by contract, never by symbol.
+
+    ``USDX``, ``sUSD`` and ``USDR`` are each reused by several distinct tokens
+    (some healthy, e.g. Axis USD, YieldFi sUSD). This regression test locks in the
+    contract-only handling so a future edit to the packaged YAML cannot re-enable
+    ticker matching and blacklist the healthy same-ticker tokens.
+
+    1. Build the depeg lookups from the packaged ``eth_defi/data/stablecoins`` directory.
+    2. Assert each shared ticker is absent from the symbol set (so it is never symbol-matched).
+    3. Assert each known dead token is pinned by contract address instead.
+    """
+    # 1. Use the real shipped stablecoin metadata.
+    depegged_contracts, depegged_symbols = build_depegged_stablecoin_lookups()
+
+    # 2. The ambiguous shared tickers must not be symbol-matched.
+    for ticker in ("USDX", "SUSD", "USDR"):
+        assert ticker not in depegged_symbols, f"{ticker} is a shared ticker and must match by contract only"
+
+    # 3. The dead tokens behind those tickers must be pinned by contract.
+    assert (1, "0xf3527ef8de265eaa3716fb312c12847bfba66cef") in depegged_contracts  # Stables Labs USDX
+    assert (1, "0x57ab1ec28d129707052df4df418d58a2d46d5f51") in depegged_contracts  # Synthetix sUSD
+    assert (137, "0x40379a439d4f6795b6fc9aa5687db461677a2dba") in depegged_contracts  # Tangible Real USD
+    assert (1, "0x7b43e3875440b44613dc3bc08e7763e6da63c8f8") in depegged_contracts  # StablR USD
