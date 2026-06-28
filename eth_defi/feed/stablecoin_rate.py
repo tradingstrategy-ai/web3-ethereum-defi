@@ -217,6 +217,20 @@ class StablecoinRateFeeder:
 
         return DenominationTokenRate(coingecko_id=None, usd_rate=None, usd_rate_fetched_at=None, usd_rate_source=None)
 
+    @property
+    def depegged_contracts(self) -> set[tuple[int, str]]:
+        """Set of ``(chain_id, lowercased_address)`` keys for depegged tokens (built lazily, cached)."""
+        if self._depegged_contracts is None or self._depegged_symbols is None:
+            self._depegged_contracts, self._depegged_symbols = build_depegged_stablecoin_lookups(self.data_dir)
+        return self._depegged_contracts
+
+    @property
+    def depegged_symbols(self) -> set[str]:
+        """Set of unambiguously depegged normalised symbols (built lazily, cached)."""
+        if self._depegged_contracts is None or self._depegged_symbols is None:
+            self._depegged_contracts, self._depegged_symbols = build_depegged_stablecoin_lookups(self.data_dir)
+        return self._depegged_symbols
+
     def is_depegged_stablecoin_token(
         self,
         chain_id: int | None,
@@ -224,15 +238,12 @@ class StablecoinRateFeeder:
         symbol: str | None,
     ) -> bool:
         """Return ``True`` when a denomination token is marked depegged."""
-        if self._depegged_contracts is None or self._depegged_symbols is None:
-            self._depegged_contracts, self._depegged_symbols = build_depegged_stablecoin_lookups(self.data_dir)
-
         key = _normalise_contract_key(chain_id, address)
-        if key and key in self._depegged_contracts:
+        if key and key in self.depegged_contracts:
             return True
 
         normalised_symbol = normalise_token_symbol(symbol)
-        return bool(normalised_symbol and normalised_symbol in self._depegged_symbols)
+        return bool(normalised_symbol and normalised_symbol in self.depegged_symbols)
 
 
 def extract_coingecko_id(url: str | None) -> str | None:
@@ -424,10 +435,40 @@ def refresh_stablecoin_rates(
 
 
 def build_depegged_stablecoin_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> tuple[set[tuple[int, str]], set[str]]:
-    """Build contract and unambiguous symbol lookups for depegged stablecoins."""
+    """Build contract and unambiguous symbol lookups for depegged stablecoins.
+
+    Determine which denomination tokens should be treated as depegged for vault
+    blacklisting. Two independent lookups are returned:
+
+    - A set of ``(chain_id, lowercased_address)`` contract keys for **every**
+      entry that carries a ``depegged_at`` marker, regardless of whether the
+      entry lives in a single- or multi-entry YAML file. This is the precise
+      path: it pins the dead token by address and never blacklists an unrelated
+      token that merely reuses the same ticker.
+    - A set of normalised symbols that are *unambiguously* depegged. A symbol is
+      only eligible here when a single flat (single-entry) YAML file owns it and
+      that file is marked ``depegged_at``.
+
+    Symbol matching is deliberately **not** used for multi-entry tokens. Tickers
+    such as ``USDX`` are reused by several unrelated tokens in the wild — e.g.
+    the dead Stables Labs USDX (``0xf3527ef8…``) versus the live Axis USD
+    (``USDx``) on Plasma — so matching by ticker would blacklist healthy vaults.
+    Multi-entry depegged tokens must therefore be pinned by ``contract_addresses``
+    in their YAML entry. A warning is logged for any depegged entry that has no
+    contract address and is not covered by an unambiguous symbol, because such a
+    depeg silently fails to blacklist anything (this is the gap that previously
+    let USDX-denominated vaults stay listed).
+
+    :param data_dir:
+        Directory of stablecoin metadata YAML files.
+
+    :return:
+        Tuple of ``(depegged_contract_keys, depegged_symbols)``.
+    """
     depegged_contracts: set[tuple[int, str]] = set()
     symbol_owner_counts: dict[str, int] = {}
     depegged_symbol_candidates: set[str] = set()
+    depegged_without_contract: list[StablecoinRateTarget] = []
 
     for target in iter_stablecoin_rate_targets(data_dir):
         normalised_symbol = normalise_token_symbol(target.symbol)
@@ -439,8 +480,25 @@ def build_depegged_stablecoin_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> 
         depegged_contracts.update(target.contract_addresses)
         if normalised_symbol and target.entry_index is None:
             depegged_symbol_candidates.add(normalised_symbol)
+        if not target.contract_addresses:
+            depegged_without_contract.append(target)
 
     depegged_symbols = {symbol for symbol in depegged_symbol_candidates if symbol_owner_counts.get(symbol) == 1}
+
+    # Warn about depegged entries we cannot enforce: no contract address and the
+    # symbol is not an unambiguous single-owner symbol (typically multi-entry
+    # tokens such as USDX). These need contract_addresses added to their YAML.
+    for target in depegged_without_contract:
+        normalised_symbol = normalise_token_symbol(target.symbol)
+        if normalised_symbol and normalised_symbol in depegged_symbols:
+            continue
+        logger.warning(
+            "Depegged stablecoin %s (%s) in %s has no contract address and an ambiguous symbol; vaults denominated in it cannot be blacklisted. Add contract_addresses to the YAML entry.",
+            target.symbol,
+            target.name,
+            target.yaml_path.name,
+        )
+
     return depegged_contracts, depegged_symbols
 
 

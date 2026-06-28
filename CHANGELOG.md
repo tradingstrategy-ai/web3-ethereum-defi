@@ -1,5 +1,7 @@
 # Current
 
+- fix: Blacklist multi-entry depegged stablecoin denominations such as USDX. The depeg lookup only matched single-entry stablecoin YAML files, so USDX-denominated vaults (~$269M nominal TVL) were never blacklisted in production. Pin the dead Stables Labs USDX token by contract address, keep symbol matching off for ambiguous multi-entry tickers (so unrelated same-ticker tokens like Axis USD are not blacklisted), warn when a depeg cannot be enforced for lack of a contract address, and add `scripts/erc-4626/list-depegged-vaults.py` to report the blacklisted depeg TVL impact (2026-06-28)
+
 - refactor: Move the reusable `LoggingRetry` HTTP retry adapter out of the Velvet submodule to its own top-level `eth_defi.logging_retry` module, since it is shared across the Velvet, Derive, Core3, Hibachi, GRVT, Lighter, Hyperliquid and token-analysis integrations (2026-06-28)
 
 - feat: Add a CoinGecko-backed stablecoin denomination rate feed and depeg monitor for vault metrics, with daily post-scan refresh, sticky YAML `depegged_at` flags, failure stamps for missing prices, `denomination_token_rate` export fields, and automatic vault blacklisting when a denomination stablecoin is marked depegged (2026-06-26)
