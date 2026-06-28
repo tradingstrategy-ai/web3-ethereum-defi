@@ -15,7 +15,6 @@ from rich.theme import Theme
 # Rich only honours fixed redirected-console width when both dimensions are set.
 RICH_LOG_WIDTH = 1000
 RICH_LOG_HEIGHT = 25
-RICH_TRACEBACK_WIDTH = 160
 DISABLED_FORCE_COLOUR_VALUES: set[str | None] = {None, "", "0"}
 RICH_LOG_THEME = Theme(
     {
@@ -138,14 +137,15 @@ def is_running_inside_docker() -> bool:
     return any(marker in cgroup for marker in ("docker", "containerd", "kubepods"))
 
 
-def should_do_colour_logging(stream: TextIO, *, autodetect_docker_log: bool = False) -> bool:
+def should_do_colour_logging(stream: TextIO, *, autodetect_docker_log: bool = True) -> bool:
     """Determine whether console logging should use ANSI colours.
 
     :param stream:
         Console stream that receives log output.
     :param autodetect_docker_log:
         Enable colours when the process is inside Docker even if the stream is
-        not a TTY.
+        not a TTY. Enabled by default because Docker Compose preserves ANSI
+        escape sequences in ``logs -f``.
     :return:
         ``True`` if ANSI colour output should be enabled.
     """
@@ -203,8 +203,7 @@ def create_rich_log_handler(
         show_path=False,
         omit_repeated_times=False,
         markup=False,
-        rich_tracebacks=True,
-        tracebacks_width=RICH_TRACEBACK_WIDTH,
+        rich_tracebacks=False,
         highlighter=ReprHighlighter(),
         show_context=not simplified_logging,
         colour_threads=coloured_threads,
@@ -258,7 +257,7 @@ def setup_console_logging(
     only_log_file: bool = False,
     clear_log_file: bool = True,
     coloured_threads: bool = False,
-    autodetect_docker_log: bool = False,
+    autodetect_docker_log: bool = True,
     stream: TextIO | None = None,
 ) -> logging.Logger:
     """Set up coloured log output.
@@ -283,7 +282,8 @@ def setup_console_logging(
         colour so interleaved parallel logs are easy to follow visually.
     :param autodetect_docker_log:
         Enable coloured Rich output inside Docker even when stderr is not a
-        TTY. Docker Compose preserves ANSI escape sequences in ``logs -f``.
+        TTY. Enabled by default because Docker Compose preserves ANSI escape
+        sequences in ``logs -f``.
     :param stream:
         Console stream that receives log output. Defaults to ``sys.stderr``.
     :return:

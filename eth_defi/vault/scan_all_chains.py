@@ -1680,7 +1680,6 @@ def main():
     log_dir.mkdir(parents=True, exist_ok=True)
     setup_console_logging(
         default_log_level=os.environ.get("LOG_LEVEL", "warning"),
-        autodetect_docker_log=True,
     )
 
     log_file = log_dir / "scan-all-chains.log"

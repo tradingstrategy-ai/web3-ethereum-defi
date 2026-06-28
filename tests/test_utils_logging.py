@@ -57,7 +57,7 @@ def test_should_do_colour_logging_respects_no_color(monkeypatch: pytest.MonkeyPa
     monkeypatch.setenv("NO_COLOR", "1")
     monkeypatch.setenv("FORCE_COLOR", "1")
 
-    assert should_do_colour_logging(DummyStream(is_tty=True), autodetect_docker_log=True) is False
+    assert should_do_colour_logging(DummyStream(is_tty=True)) is False
 
 
 def test_should_do_colour_logging_detects_docker(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -68,7 +68,32 @@ def test_should_do_colour_logging_detects_docker(monkeypatch: pytest.MonkeyPatch
     monkeypatch.delenv("CLICOLOR_FORCE", raising=False)
     monkeypatch.setattr(coloured_logging, "is_running_inside_docker", lambda: True)
 
-    assert should_do_colour_logging(DummyStream(is_tty=False), autodetect_docker_log=True) is True
+    assert should_do_colour_logging(DummyStream(is_tty=False)) is True
+
+
+def test_should_do_colour_logging_can_disable_docker_autodetection(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Docker log autodetection can be explicitly disabled."""
+
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
+    monkeypatch.delenv("CLICOLOR_FORCE", raising=False)
+    monkeypatch.setattr(coloured_logging, "is_running_inside_docker", lambda: True)
+
+    assert should_do_colour_logging(DummyStream(is_tty=False), autodetect_docker_log=False) is False
+
+
+def test_setup_console_logging_detects_docker_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Docker log autodetection is enabled unless explicitly disabled."""
+
+    stream = DummyStream(is_tty=False)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
+    monkeypatch.delenv("CLICOLOR_FORCE", raising=False)
+    monkeypatch.setattr(coloured_logging, "is_running_inside_docker", lambda: True)
+
+    root = setup_console_logging(default_log_level="info", stream=stream)
+
+    assert root.handlers[0].__class__.__name__ == "EthDefiRichHandler"
 
 
 def test_is_running_inside_docker_detects_marker_file(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -97,7 +122,7 @@ def test_setup_console_logging_installs_rich_handler(monkeypatch: pytest.MonkeyP
     assert handler.__class__.__name__ == "EthDefiRichHandler"
     assert handler.level == logging.INFO
     assert handler.console.width == coloured_logging.RICH_LOG_WIDTH
-    assert handler.tracebacks_width == coloured_logging.RICH_TRACEBACK_WIDTH
+    assert handler.rich_tracebacks is False
     assert handler._log_render.show_path is False
     assert handler._log_render.omit_repeated_times is False
 
@@ -200,6 +225,31 @@ def test_rich_logging_does_not_pad_lines(monkeypatch: pytest.MonkeyPatch) -> Non
     plain_line = ANSI_RE.sub("", stream.getvalue()).splitlines()[0]
     assert plain_line == plain_line.rstrip(" \t")
     assert len(plain_line) < MAX_SHORT_RICH_LINE_LENGTH
+
+
+def test_rich_logging_uses_compact_standard_tracebacks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Rich logging must not emit verbose boxed tracebacks."""
+
+    stream = DummyStream(is_tty=False)
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
+    setup_console_logging(default_log_level="info", stream=stream)
+
+    logger = logging.getLogger("eth_defi.tests.traceback")
+    try:
+        raise RuntimeError("inner receiver")
+    except RuntimeError:
+        logger.exception("Failure with compact traceback")
+
+    output = stream.getvalue()
+    plain_output = ANSI_RE.sub("", output)
+    assert "Failure with compact traceback" in plain_output
+    assert "Traceback (most recent call last)" in plain_output
+    assert "RuntimeError: inner receiver" in plain_output
+    assert "\u256d" not in output
+    assert "\u2502" not in output
+    assert "\u2570" not in output
 
 
 def test_rich_thread_colours_are_stable(monkeypatch: pytest.MonkeyPatch) -> None:
