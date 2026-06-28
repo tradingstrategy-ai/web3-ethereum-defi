@@ -49,12 +49,32 @@ class HypersyncFlaky(Exception):
 
 
 def is_hypersync_rate_limit_error(e: Exception) -> bool:
-    """Check if a Hypersync RuntimeError is a 429 rate limit error.
+    """Check if a Hypersync RuntimeError is a rate limit error.
 
-    The Rust client raises ``RuntimeError`` with the HTTP status in the message
-    after exhausting its internal retries.
+    The Rust client raises ``RuntimeError`` after exhausting its internal
+    retries. The rate limit can surface in two different textual forms
+    depending on where in the client it is detected:
+
+    - As an HTTP status, e.g. ``... 429 Too Many Requests ...``.
+
+    - As a server-side budget message wrapped inside a stream ``inner
+      receiver`` error, e.g.::
+
+          inner receiver
+          Caused by:
+            0: get initial data
+            1: rate limited by server (remaining=0/100 reqs, resets_in=15s).
+               To increase your rate limits, upgrade your plan at https://envio.dev/app/api-tokens
+
+      This second form contains no ``429`` token, so we also match the
+      ``rate limited by server`` wording. See the ``resets_in`` note in the
+      retry callers: we deliberately do not parse it and instead rely on the
+      caller's fixed backoff (typically longer than the reset window).
     """
-    return isinstance(e, RuntimeError) and "429" in str(e)
+    if not isinstance(e, RuntimeError):
+        return False
+    message = str(e).lower()
+    return "429" in message or "rate limited" in message or "too many requests" in message
 
 
 def is_hypersync_next_block_range_error(e: Exception) -> bool:
@@ -76,9 +96,23 @@ def is_hypersync_retryable_runtime_error(e: Exception) -> bool:
     return is_hypersync_rate_limit_error(e) or is_hypersync_next_block_range_error(e)
 
 
-# Backwards-compatible aliases for older tests and integrations.
-_is_hypersync_rate_limit_error = is_hypersync_rate_limit_error
-_is_hypersync_next_block_range_error = is_hypersync_next_block_range_error
+def raise_if_recoverable_hypersync_flaky(e: RuntimeError, context: str) -> None:
+    """Re-raise a recoverable Hypersync ``RuntimeError`` as :py:class:`HypersyncFlaky`.
+
+    The Rust Hypersync client raises a bare ``RuntimeError`` for both server-side
+    rate limiting and near-head pagination glitches. Wrapping them as
+    :py:class:`HypersyncFlaky` lets the caller's retry/backoff loop recover
+    instead of crashing the whole scan. Non-recoverable errors are left
+    untouched so the caller can re-raise them with a bare ``raise``.
+
+    :param context:
+        Where the error happened, included in the wrapped message,
+        e.g. ``"stream setup [vault-prices]"``.
+    """
+    if is_hypersync_rate_limit_error(e):
+        raise HypersyncFlaky(f"Hypersync rate limited during {context}: {e}") from e
+    if is_hypersync_next_block_range_error(e):
+        raise HypersyncFlaky(f"Hypersync stream pagination failed during {context}: {e}") from e
 
 
 async def _validate_hypersync_chain_id_async(
@@ -96,8 +130,7 @@ async def _validate_hypersync_chain_id_async(
     try:
         connected = await client.get_chain_id()
     except RuntimeError as e:
-        if _is_hypersync_rate_limit_error(e):
-            raise HypersyncFlaky(f"Hypersync rate limited during chain_id validation{reason_suffix}: {e}") from e
+        raise_if_recoverable_hypersync_flaky(e, f"chain_id validation{reason_suffix}")
         raise
     assert connected == expected_chain_id, f"Hypersync client connected to chain {connected}, but expected {expected_chain_id}"
 
@@ -111,8 +144,7 @@ async def _fetch_hypersync_block_height_async(
     try:
         return await client.get_height()
     except RuntimeError as e:
-        if _is_hypersync_rate_limit_error(e):
-            raise HypersyncFlaky(f"Hypersync rate limited during block height check{reason_suffix}: {e}") from e
+        raise_if_recoverable_hypersync_flaky(e, f"block height check{reason_suffix}")
         raise
 
 
@@ -203,8 +235,7 @@ async def get_block_timestamps_using_hypersync_async(
     try:
         receiver = await open_hypersync_stream(client, query)
     except RuntimeError as e:
-        if _is_hypersync_rate_limit_error(e):
-            raise HypersyncFlaky(f"Hypersync rate limited during stream setup{reason_suffix}: {e}") from e
+        raise_if_recoverable_hypersync_flaky(e, f"stream setup{reason_suffix}")
         raise
 
     while True:
@@ -214,10 +245,7 @@ async def get_block_timestamps_using_hypersync_async(
             logger.error("HyperSync receiver timed out%s, cannot recover", reason_suffix)
             raise HypersyncFlaky(f"Cannot recover from HyperSync stream timeout after {timeout} seconds{reason_suffix}") from e
         except RuntimeError as e:
-            if _is_hypersync_rate_limit_error(e):
-                raise HypersyncFlaky(f"Hypersync rate limited during streaming{reason_suffix}: {e}") from e
-            if _is_hypersync_next_block_range_error(e):
-                raise HypersyncFlaky(f"Hypersync stream pagination failed{reason_suffix}: {e}") from e
+            raise_if_recoverable_hypersync_flaky(e, f"streaming{reason_suffix}")
             raise
 
         # exit if the stream finished
@@ -298,8 +326,7 @@ def get_hypersync_block_height(
         try:
             return await client.get_height()
         except RuntimeError as e:
-            if _is_hypersync_rate_limit_error(e):
-                raise HypersyncFlaky(f"Hypersync rate limited [block-height-check]: {e}") from e
+            raise_if_recoverable_hypersync_flaky(e, "block-height-check")
             raise
 
     return asyncio.run(_hypersync_asyncio_wrapper())

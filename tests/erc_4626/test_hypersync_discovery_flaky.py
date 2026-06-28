@@ -153,6 +153,51 @@ def test_hypersync_vault_discovery_next_block_range_error_is_retryable():
     asyncio.run(_run())
 
 
+def test_hypersync_vault_discovery_server_rate_limit_error_is_retryable():
+    """Verify the production server-side rate limit error becomes retryable.
+
+    The Envio/HyperSync Rust client surfaces an exhausted request budget as a
+    ``RuntimeError`` whose message contains ``rate limited by server`` rather
+    than a literal ``429`` HTTP status. This previously slipped past the
+    classifier, propagated as a bare ``RuntimeError``, and crashed the whole
+    chain scan instead of being retried.
+
+    1. Build a receiver that raises the exact production rate limit message.
+    2. Run the lead discovery stream over it.
+    3. Assert it is converted to a retryable ``HypersyncCrappedOut``.
+    """
+
+    # 1. Build a receiver that raises the exact production rate limit message.
+    discover = _create_discover()
+    receiver = MagicMock()
+    rate_limit_message = "inner receiver\n\nCaused by:\n    0: get initial data\n    1: rate limited by server (remaining=0/100 reqs, resets_in=15s). To increase your rate limits, upgrade your plan at https://envio.dev/app/api-tokens\n    2: "
+    receiver.recv = AsyncMock(side_effect=RuntimeError(rate_limit_message))
+
+    async def _run():
+        with (
+            patch.object(discover, "build_query", return_value=MagicMock()),
+            patch(
+                "eth_defi.erc_4626.hypersync_discovery.get_vault_event_topic_map",
+                return_value={},
+            ),
+            patch(
+                "eth_defi.erc_4626.hypersync_discovery.open_hypersync_stream",
+                new_callable=AsyncMock,
+                return_value=receiver,
+            ),
+        ):
+            # 2. Run the lead discovery stream over it.
+            # 3. Assert it is converted to a retryable HypersyncCrappedOut.
+            with pytest.raises(HypersyncCrappedOut, match="rate limited"):
+                await discover.scan_potential_vaults(
+                    start_block=24483147,
+                    end_block=24537791,
+                    display_progress=False,
+                )
+
+    asyncio.run(_run())
+
+
 def test_hypersync_vault_discovery_stream_setup_next_block_range_error_is_retryable():
     """Verify stream setup pagination errors are retryable."""
     discover = _create_discover()

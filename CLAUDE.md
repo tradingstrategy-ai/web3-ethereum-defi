@@ -14,6 +14,13 @@ touches the relevant area:
 - `.claude/docs/agent-tricks-and-troubleshooting.md` — Codex CLI and
   Claude CLI usage patterns, including cross-agent review commands,
   streaming Claude review output, and common failure modes.
+  **When invoking Codex CLI for a non-interactive review you MUST follow
+  the "Required method for non-interactive Codex reviews" section of that
+  doc** (run from the tree containing the changes and verify the diff is
+  non-empty first, use `codex exec --json` in the background, poll the PID,
+  and parse `agent_message` events). Do not run plain foreground
+  `codex exec "..."` — it buffers output, looks hung, and can silently
+  review the wrong git tree.
 
 ## Skills
 
