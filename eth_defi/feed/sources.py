@@ -519,6 +519,72 @@ def mark_twitter_handle_unknown(yaml_path: Path, unknown_at: str) -> bool:
     return True
 
 
+def build_twitter_source_file_lookup(twitter_sources: list[TrackedPostSource]) -> dict[str, list[Path]]:
+    """Build a lower-case Twitter handle to feeder YAML file lookup.
+
+    Twitter sources are already normalised by
+    :py:func:`_normalise_twitter_source`, but this helper keeps callback users
+    defensive and centralises the repeated mapping logic.
+
+    :param twitter_sources:
+        Twitter sources loaded from feeder YAML files.
+
+    :return:
+        Mapping from lower-case handle to the YAML files that define it.
+    """
+
+    source_files_by_handle: dict[str, list[Path]] = {}
+    for source in twitter_sources:
+        source_files_by_handle.setdefault(source.source_key.lower(), []).append(source.mapping_file)
+    return source_files_by_handle
+
+
+def mark_suspended_twitter_handle(
+    handle: str,
+    user_id: str,
+    source_files_by_handle: dict[str, list[Path]],
+    today_str: str,
+) -> None:
+    """Mark a suspended X account as unavailable in feeder YAML files.
+
+    X can resolve suspended accounts to user IDs, but reject adding them to a
+    list. We reuse the existing ``twitter-handle-resolved-unknown-at`` marker
+    because it disables the source until an operator verifies that the account
+    has been restored or repointed.
+
+    :param handle:
+        Twitter/X handle that failed list membership.
+    :param user_id:
+        Numeric X user ID returned by handle resolution.
+    :param source_files_by_handle:
+        Mapping from lower-case handle to feeder YAML files.
+    :param today_str:
+        ISO date string to write to the marker.
+    """
+
+    mapping_files = source_files_by_handle.get(handle.lower(), [])
+    if not mapping_files:
+        logger.warning("Could not find feeder YAML for suspended X account @%s (%s)", handle, user_id)
+        return
+
+    for mapping_file in mapping_files:
+        updated = mark_twitter_handle_unknown(mapping_file, today_str)
+        if updated:
+            logger.info(
+                "Marked suspended X account @%s (%s) - added twitter-handle-resolved-unknown-at to %s",
+                handle,
+                user_id,
+                mapping_file,
+            )
+        else:
+            logger.info(
+                "Skipping suspended X account @%s (%s) - already marked as unresolvable in %s",
+                handle,
+                user_id,
+                mapping_file,
+            )
+
+
 def mark_rss_source_dead(yaml_path: Path, dead_at: str) -> bool:
     """Append ``rss-dead-at`` to a feeder YAML without rewriting it.
 
