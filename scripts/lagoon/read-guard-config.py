@@ -35,13 +35,11 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
 
-
 logger = logging.getLogger(__name__)
 
 
 def main():
-    log_level = os.environ.get("LOG_LEVEL", "info").upper()
-    setup_console_logging(log_level=getattr(logging, log_level, logging.INFO))
+    setup_console_logging(default_log_level="info")
 
     chain_id = int(os.environ.get("CHAIN_ID", "0"))
     safe_address = os.environ.get("SAFE_ADDRESS", "")

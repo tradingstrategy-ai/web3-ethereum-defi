@@ -43,9 +43,6 @@ To run for Polygon (and QuickSwap):
 
 .. code-block:: shell
 
-    # Need for nice output
-    pip install coloredlogs
-
     # Switch between INFO and DEBUG
     export LOG_LEVEL=INFO
     # Your Ethereum node RPC

@@ -6,12 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from eth_defi import utils
-from eth_defi.utils import (
-    is_running_inside_docker,
-    setup_console_logging,
-    should_do_colour_logging,
-)
+from eth_defi import coloured_logging
+from eth_defi.coloured_logging import is_running_inside_docker, should_do_colour_logging
+from eth_defi.utils import setup_console_logging
 
 ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 MAX_SHORT_RICH_LINE_LENGTH = 200
@@ -69,7 +66,7 @@ def test_should_do_colour_logging_detects_docker(monkeypatch: pytest.MonkeyPatch
     monkeypatch.delenv("NO_COLOR", raising=False)
     monkeypatch.delenv("FORCE_COLOR", raising=False)
     monkeypatch.delenv("CLICOLOR_FORCE", raising=False)
-    monkeypatch.setattr(utils, "is_running_inside_docker", lambda: True)
+    monkeypatch.setattr(coloured_logging, "is_running_inside_docker", lambda: True)
 
     assert should_do_colour_logging(DummyStream(is_tty=False), autodetect_docker_log=True) is True
 
@@ -99,8 +96,8 @@ def test_setup_console_logging_installs_rich_handler(monkeypatch: pytest.MonkeyP
     handler = root.handlers[0]
     assert handler.__class__.__name__ == "EthDefiRichHandler"
     assert handler.level == logging.INFO
-    assert handler.console.width == utils.RICH_LOG_WIDTH
-    assert handler.tracebacks_width == utils.RICH_TRACEBACK_WIDTH
+    assert handler.console.width == coloured_logging.RICH_LOG_WIDTH
+    assert handler.tracebacks_width == coloured_logging.RICH_TRACEBACK_WIDTH
     assert handler._log_render.show_path is False
     assert handler._log_render.omit_repeated_times is False
 
@@ -154,11 +151,10 @@ def test_rich_logging_outputs_ansi_and_context(monkeypatch: pytest.MonkeyPatch) 
     """Rich output contains ANSI escapes, module context and printf values."""
 
     stream = DummyStream(is_tty=False)
-    monkeypatch.setattr(utils.sys, "stderr", stream)
     monkeypatch.setenv("FORCE_COLOR", "1")
     monkeypatch.delenv("NO_COLOR", raising=False)
 
-    setup_console_logging(default_log_level="info")
+    setup_console_logging(default_log_level="info", stream=stream)
 
     logger = logging.getLogger("eth_defi.tests.logging")
     logger.info("Value %s count %d ratio %.2f", "abc", 123, 4.56)
@@ -175,11 +171,10 @@ def test_simplified_rich_logging_outputs_message_only(monkeypatch: pytest.Monkey
     """Simplified logging keeps message-only output when Rich is enabled."""
 
     stream = DummyStream(is_tty=False)
-    monkeypatch.setattr(utils.sys, "stderr", stream)
     monkeypatch.setenv("FORCE_COLOR", "1")
     monkeypatch.delenv("NO_COLOR", raising=False)
 
-    setup_console_logging(default_log_level="info", simplified_logging=True)
+    setup_console_logging(default_log_level="info", simplified_logging=True, stream=stream)
 
     logger = logging.getLogger("eth_defi.tests.simplified")
     logger.info("Simple value %s", "abc")
@@ -194,11 +189,10 @@ def test_rich_logging_does_not_pad_lines(monkeypatch: pytest.MonkeyPatch) -> Non
     """Rich logging must not right-pad short Docker log lines."""
 
     stream = DummyStream(is_tty=False)
-    monkeypatch.setattr(utils.sys, "stderr", stream)
     monkeypatch.setenv("FORCE_COLOR", "1")
     monkeypatch.delenv("NO_COLOR", raising=False)
 
-    setup_console_logging(default_log_level="info")
+    setup_console_logging(default_log_level="info", stream=stream)
 
     logger = logging.getLogger("eth_defi.tests.padding")
     logger.info("x")
@@ -226,11 +220,10 @@ def test_no_color_disables_thread_ansi(monkeypatch: pytest.MonkeyPatch) -> None:
     """NO_COLOR suppresses ANSI escapes even when thread colours are requested."""
 
     stream = DummyStream(is_tty=False)
-    monkeypatch.setattr(utils.sys, "stderr", stream)
     monkeypatch.setenv("NO_COLOR", "1")
     monkeypatch.delenv("FORCE_COLOR", raising=False)
 
-    setup_console_logging(default_log_level="info", coloured_threads=True)
+    setup_console_logging(default_log_level="info", coloured_threads=True, stream=stream)
 
     logger = logging.getLogger("eth_defi.tests.plain_threads")
     logger.info("Thread colour value %s", "abc")
@@ -249,10 +242,10 @@ def test_file_logging_stays_plain_with_rich_console(
 
     monkeypatch.setenv("FORCE_COLOR", "1")
     monkeypatch.delenv("NO_COLOR", raising=False)
-    monkeypatch.setattr(utils.sys, "stderr", DummyStream(is_tty=False))
+    stream = DummyStream(is_tty=False)
     log_file = tmp_path / "test.log"
 
-    root = setup_console_logging(default_log_level="info", log_file=log_file)
+    root = setup_console_logging(default_log_level="info", log_file=log_file, stream=stream)
 
     logger = logging.getLogger("eth_defi.tests.file_logging")
     logger.info("File value %s", "abc")
