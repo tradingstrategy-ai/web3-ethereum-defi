@@ -38,6 +38,9 @@ class VaultFlag(str, enum.Enum):
     #: The contract will steal your money
     malicious = "malicious"
 
+    #: Vault has unresolved controversy based on community reports
+    controversial = "controversial"
+
     #: Abnormal TVL
     abnormal_tvl = "abnormal_tvl"
 
@@ -87,6 +90,7 @@ BAD_FLAGS = {
     VaultFlag.illiquid,
     VaultFlag.broken,
     VaultFlag.malicious,
+    VaultFlag.controversial,
     VaultFlag.abnormal_tvl,
     VaultFlag.unofficial,
     VaultFlag.abnormal_price_on_low_tvl,
@@ -151,6 +155,8 @@ HIDDEN_VAULT = "Vault not actively listed on any known website. Likely unmaintai
 BROKEN_VAULT = "Onchain metrics coming out of this vault do not make sense and it's likely the smart contract is broken."
 
 MALICIOUS_VAULT = "This vault is reported as malicious, and may have some sort of mechanism to steal funds."
+
+CONTROVERSIAL_VAULT = "Based on community reports, this vault is controversial. Do not deposit, unless the issue is resolved and full transparency becomes available."
 
 MAINST_VAULT = "Main Street Market related products were wiped out in Oct 10th event https://x.com/Main_St_Finance/status/1976972055951147194"
 
@@ -515,6 +521,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xf0795c47fa58d00f5f77f4d5c01f31ee891e21b4": (VaultFlag.illiquid, RESOLV_USDC_ILLIQUID),
     # Mainstreet USDC (msUSDC, Morpho on Ethereum)
     "0xe3ba8f17fe581dd473e6699cfad04502998a57c7": (VaultFlag.malicious, MALICIOUS_VAULT),
+    # Altura Vault Tokens (AVLT) on Hyperliquid
+    "0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29": (VaultFlag.controversial, CONTROVERSIAL_VAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
