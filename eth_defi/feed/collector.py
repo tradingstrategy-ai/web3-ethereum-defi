@@ -549,7 +549,9 @@ def _collect_posts_for_source_worker(
     # different IPs.  Cloning per-source resets the index and causes proxy reuse.
     checked_rotator = proxy_rotator
     if checked_rotator is not None:
-        checked_rotator.rotate(failure_reason=None)
+        # Proactive pre-request rotation so consecutive requests to the same
+        # domain come from different IPs — not a proxy failure.
+        checked_rotator.rotate(reason=f"new source request: {source.canonical_url}")
 
     if request_delay_seconds > 0:
         time.sleep(request_delay_seconds)
