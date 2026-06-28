@@ -24,7 +24,7 @@ from requests.sessions import HTTPAdapter
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.sqlite_cache import PersistentKeyValueStore
-from eth_defi.velvet.logging_retry import LoggingRetry
+from eth_defi.logging_retry import LoggingRetry
 
 from .trusted_tokens import KNOWN_GOOD_TOKENS
 

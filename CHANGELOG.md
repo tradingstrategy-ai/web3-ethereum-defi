@@ -1,5 +1,7 @@
 # Current
 
+- refactor: Move the reusable `LoggingRetry` HTTP retry adapter out of the Velvet submodule to its own top-level `eth_defi.logging_retry` module, since it is shared across the Velvet, Derive, Core3, Hibachi, GRVT, Lighter, Hyperliquid and token-analysis integrations (2026-06-28)
+
 - feat: Add a CoinGecko-backed stablecoin denomination rate feed and depeg monitor for vault metrics, with daily post-scan refresh, sticky YAML `depegged_at` flags, failure stamps for missing prices, `denomination_token_rate` export fields, and automatic vault blacklisting when a denomination stablecoin is marked depegged (2026-06-26)
 
 - feat: Add Lighter account valuation helper for fetching total equity / NAV from live account state, with downstream trade-executor integration coverage and the Lagoon + Lighter manual tutorial now using this helper for withdrawal sizing (2026-06-26)
