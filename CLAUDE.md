@@ -321,6 +321,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `scripts/base/README.md` | Base chain related manual test scripts |
 | `scripts/debian-bullseye-compatibility/README.md` | Running on Debian Bullseye |
 | `scripts/erc-4626/README-vault-scripts.md` | ERC-4626 vault scripts |
+| `scripts/currency_api/README-currency-api.md` | Historical exchange rate ingestion (fawazahmed0 Exchange API) into DuckDB |
 | `scripts/grvt/README-grvt-vaults.md` | GRVT native vault metrics pipeline |
 | `scripts/hyperliquid/README-hyperliquid-copy-trading.md` | Hyperliquid copy trading platforms and HFT account identification |
 | `scripts/hyperliquid/README-hyperliquid-vaults.md` | Hyperliquid native vault metrics pipeline |

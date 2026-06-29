@@ -1,5 +1,7 @@
 # Current
 
+- feat: Add `eth_defi.currency_api` — incremental historical exchange rate ingestion into DuckDB from the free, no-API-key fawazahmed0 Exchange API. Scans a configurable set of named currencies (default EUR, GBP, JPY, AUD, BTC, ETH against USD) with completeness-driven resume, a quote-level gap table, jsDelivr→pages.dev host fallback, a per-date transient-failure budget, and a `source` column for future multi-source support. Includes `scripts/currency_api/scan-currencies.py` and black-box integration tests (2026-06-29)
+
 - feat: Add Tokenised GBP (tGBP) — BCP Technologies' FCA-registered, GBP-pegged stablecoin — to stablecoin classification, rich metadata YAML, news feed and logo, so tGBP-denominated vaults are recognised by `is_stablecoin_like()` and survive `filter_vaults_by_stablecoin()` across Ethereum, Base, Polygon, BNB Chain and Avalanche (2026-06-29)
 
 - fix: Autoretry HyperSync vault scans on server-side rate limiting. The Envio/HyperSync Rust client reports an exhausted request budget as a textual `rate limited by server` error with no HTTP `429`, which slipped past the rate-limit classifier and crashed the whole chain scan instead of being retried. Broaden `is_hypersync_rate_limit_error()` to match the textual form, consolidate four duplicated recoverable-error handlers into a shared `raise_if_recoverable_hypersync_flaky()` helper, and document the required `codex exec --json` background review method (2026-06-28)
