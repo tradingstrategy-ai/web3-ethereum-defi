@@ -24,14 +24,17 @@ logger = logging.getLogger(__name__)
 class CurrencyRateDatabase:
     """DuckDB database for storing historical exchange rates.
 
-    Two tables:
+    Three tables:
 
     - ``exchange_rates`` — the data, keyed by
       ``(date, base_currency, quote_currency, source)``. ``rate`` is the raw API
       value (units of quote per 1 unit of base).
     - ``unavailable_rates`` — quote-level gap tracking for cells confirmed to
-      have no data (whole-date 404s and individually missing quotes), so they are
-      not re-fetched on every run.
+      have no data (whole-date 404s, individually missing quotes and given-up
+      persistent errors), so they are not re-fetched on every run.
+    - ``fetch_attempts`` — internal bookkeeping of the consecutive
+      transient-failure count per ``(date, base_currency, source)``, used to give
+      up on a stuck date after a bounded number of attempts.
 
     Example::
 

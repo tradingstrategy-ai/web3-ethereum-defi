@@ -14,10 +14,6 @@ disturbing existing rows.
 **No authentication is required** — all data comes from a free, public,
 no-API-key endpoint with no rate limits.
 
-> This README documents the design in
-> `.claude/plans/currency-api-exchange-rates.md`, against which the module is
-> implemented.
-
 ## Architecture
 
 ```
@@ -190,7 +186,14 @@ DB state:
 - **Incremental gap-fill + reconfiguration** — a partial window then an extended
   window with an extra currency; asserts new dates and the new currency's history
   backfill while existing rows are not duplicated.
-- **Script entry point** (optional) — invokes `scan-currencies.py` as a subprocess
+- **Missing quote recorded, not retried** — a nonexistent currency code is
+  recorded in `unavailable_rates` as a permanent `quote_missing` gap, not a
+  transient failure.
+- **Transient-attempt counter** — the per-date give-up bookkeeping persists,
+  overwrites, clears, and escalates to a `persistent_error` gap.
+- **Present/unavailable disjoint** — upserting data for a cell removes any prior
+  gap record so the two tables stay mutually exclusive.
+- **Script entry point** — invokes `scan-currencies.py` as a subprocess
   with env vars set, asserting exit code 0 and expected DB rows.
 
 Exact rates are never asserted (the source may revise history); only presence,
