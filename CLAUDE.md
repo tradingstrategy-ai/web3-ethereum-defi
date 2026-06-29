@@ -309,6 +309,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/abi/uniswap-swap-contracts/README.md` | SwapRouter02 deployment on Base |
 | `eth_defi/cctp/README-cctp.md` | Circle CCTP V2 integration |
 | `eth_defi/core3/README-core3.md` | Core3 risk intelligence integration — modules, database schema, scripts, API reference |
+| `eth_defi/currency_api/README-currency-api.md` | Historical exchange rate ingestion (fawazahmed0 Exchange API) into DuckDB |
 | `eth_defi/data/vaults/README.md` | Vault protocol metadata and logo system |
 | `eth_defi/erc_4626/vault_protocol/README-reader-states.md` | Vault reader states and warmup system |
 | `eth_defi/erc_4626/vault_protocol/README-utilisation.md` | Utilisation and available liquidity metrics for lending vaults |
@@ -321,7 +322,6 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `scripts/base/README.md` | Base chain related manual test scripts |
 | `scripts/debian-bullseye-compatibility/README.md` | Running on Debian Bullseye |
 | `scripts/erc-4626/README-vault-scripts.md` | ERC-4626 vault scripts |
-| `scripts/currency_api/README-currency-api.md` | Historical exchange rate ingestion (fawazahmed0 Exchange API) into DuckDB |
 | `scripts/grvt/README-grvt-vaults.md` | GRVT native vault metrics pipeline |
 | `scripts/hyperliquid/README-hyperliquid-copy-trading.md` | Hyperliquid copy trading platforms and HFT account identification |
 | `scripts/hyperliquid/README-hyperliquid-vaults.md` | Hyperliquid native vault metrics pipeline |

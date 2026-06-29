@@ -337,3 +337,5 @@ skip-magic-trailing-comma = false # Respect trailing commas to force multi-line
 
 [tool.poetry.scripts]
 install-aave-for-testing = 'eth_defi.aave_v3.deployer:install_aave_for_testing'
+# Incremental historical exchange rate scanner (eth_defi.currency_api)
+scan-currencies = 'eth_defi.currency_api.cli:main'

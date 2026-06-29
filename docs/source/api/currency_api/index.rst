@@ -20,7 +20,7 @@ No authentication is required -- all data comes from a public endpoint.
 
 For architecture details, the DuckDB schema, environment variables and the
 incremental scanning model, see
-`README-currency-api.md <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/currency_api/README-currency-api.md>`__.
+`README-currency-api.md <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/currency_api/README-currency-api.md>`__.
 
 .. autosummary::
    :toctree: _autosummary_currency_api
@@ -31,3 +31,4 @@ incremental scanning model, see
    eth_defi.currency_api.database
    eth_defi.currency_api.session
    eth_defi.currency_api.constants
+   eth_defi.currency_api.cli

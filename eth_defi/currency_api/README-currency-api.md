@@ -127,21 +127,26 @@ The scanner resume is **completeness-driven**, not `MAX(date)`-driven:
 
 ## Quick start
 
+The scanner is installed as the `scan-currencies` Poetry console script:
+
 ```shell
 # Full incremental scan (resume from existing DB, default currencies)
-LOG_LEVEL=info poetry run python scripts/currency_api/scan-currencies.py
+LOG_LEVEL=info poetry run scan-currencies
 
 # Small test batch — a few days only (fast, deterministic)
 LOG_LEVEL=info START_DATE=2026-06-01 END_DATE=2026-06-05 \
-  poetry run python scripts/currency_api/scan-currencies.py
+  poetry run scan-currencies
 
 # Add more currencies (no schema change; history backfills automatically)
 QUOTE_CURRENCIES=eur,gbp,jpy,chf,btc,eth,sol \
-  poetry run python scripts/currency_api/scan-currencies.py
+  poetry run scan-currencies
 
 # Use a non-USD base
 BASE_CURRENCY=eur QUOTE_CURRENCIES=usd,gbp,jpy \
-  poetry run python scripts/currency_api/scan-currencies.py
+  poetry run scan-currencies
+
+# Equivalent module form (no install needed)
+poetry run python -m eth_defi.currency_api.cli
 ```
 
 ## Environment variables
@@ -169,6 +174,7 @@ BASE_CURRENCY=eur QUOTE_CURRENCIES=usd,gbp,jpy \
 | `eth_defi/currency_api/client.py` | `fetch_rates_for_date()` — fetch, jsDelivr→pages.dev host fallback, parse, outcome classification |
 | `eth_defi/currency_api/database.py` | `CurrencyRateDatabase` — DuckDB storage, upserts, gap tracking |
 | `eth_defi/currency_api/scanner.py` | `run_incremental_scan()` — completeness-driven incremental orchestration |
+| `eth_defi/currency_api/cli.py` | `main()` — env-driven `scan-currencies` Poetry console entry point |
 
 ## Running tests
 
@@ -193,8 +199,9 @@ DB state:
   overwrites, clears, and escalates to a `persistent_error` gap.
 - **Present/unavailable disjoint** — upserting data for a cell removes any prior
   gap record so the two tables stay mutually exclusive.
-- **Script entry point** — invokes `scan-currencies.py` as a subprocess
-  with env vars set, asserting exit code 0 and expected DB rows.
+- **Script entry point** — invokes the `scan-currencies` entry point
+  (`python -m eth_defi.currency_api.cli`) as a subprocess with env vars set,
+  asserting exit code 0 and expected DB rows.
 
 Exact rates are never asserted (the source may revise history); only presence,
 bounds, idempotency, and gap-filling.

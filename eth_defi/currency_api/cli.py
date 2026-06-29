@@ -1,4 +1,4 @@
-"""Incrementally scan historical exchange rates into DuckDB.
+"""Command-line entry point for the currency_api exchange rate scanner.
 
 Fetches daily exchange rates for a configurable set of named currencies
 (default: EUR, GBP, JPY, AUD, BTC, ETH against USD) from the free, no-API-key
@@ -7,20 +7,19 @@ completeness-driven, so re-running only fetches missing dates/currencies.
 
 No authentication is required — all data comes from a public endpoint.
 
-Usage:
-
-.. code-block:: shell
+Installed as the ``scan-currencies`` Poetry console script
+(``[tool.poetry.scripts]``). Run it with::
 
     # Full incremental scan (resume from existing DB, default currencies)
-    LOG_LEVEL=info poetry run python scripts/currency_api/scan-currencies.py
+    LOG_LEVEL=info poetry run scan-currencies
 
     # Small test batch — a few days only
-    LOG_LEVEL=info START_DATE=2026-06-01 END_DATE=2026-06-05 \
-      poetry run python scripts/currency_api/scan-currencies.py
+    LOG_LEVEL=info START_DATE=2026-06-01 END_DATE=2026-06-05 poetry run scan-currencies
 
     # Add more currencies (history backfills automatically)
-    QUOTE_CURRENCIES=eur,gbp,jpy,chf,btc,eth,sol \
-      poetry run python scripts/currency_api/scan-currencies.py
+    QUOTE_CURRENCIES=eur,gbp,jpy,chf,btc,eth,sol poetry run scan-currencies
+
+It can also be run as a module: ``poetry run python -m eth_defi.currency_api.cli``.
 
 Environment variables:
 
@@ -64,6 +63,12 @@ def _parse_date(name: str) -> datetime.date | None:
 
 
 def main() -> None:
+    """Run an incremental exchange rate scan from environment configuration.
+
+    Reads the configuration from environment variables (see the module
+    docstring), runs :py:func:`~eth_defi.currency_api.scanner.run_incremental_scan`,
+    and exits non-zero if any date failed transiently so cron alerting fires.
+    """
     default_log_level = os.environ.get("LOG_LEVEL", "warning")
     setup_console_logging(
         default_log_level=default_log_level,

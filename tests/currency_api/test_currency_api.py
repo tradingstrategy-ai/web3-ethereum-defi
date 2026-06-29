@@ -248,18 +248,15 @@ def test_present_and_unavailable_disjoint(db_path: Path):
 
 
 def test_scan_script_entry_point(db_path: Path, tmp_path: Path):
-    """The scan-currencies.py entry point runs end-to-end as an operator would.
+    """The scan-currencies entry point runs end-to-end as an operator would.
 
-    1. Invoke scripts/currency_api/scan-currencies.py as a subprocess with the
-       date window, currency set and DB path passed via environment variables.
+    1. Invoke the ``scan-currencies`` entry point module
+       (``python -m eth_defi.currency_api.cli``) as a subprocess with the date
+       window, currency set and DB path passed via environment variables.
     2. Assert the process exits 0 and the DuckDB contains the expected rows.
     """
 
-    # 1. Invoke the script as a subprocess with env-var configuration.
-    repo_root = Path(__file__).resolve().parents[2]
-    script = repo_root / "scripts" / "currency_api" / "scan-currencies.py"
-    assert script.exists(), f"script not found: {script}"
-
+    # 1. Invoke the entry-point module as a subprocess with env-var configuration.
     env = {
         **os.environ,
         "DB_PATH": str(db_path),
@@ -269,7 +266,7 @@ def test_scan_script_entry_point(db_path: Path, tmp_path: Path):
         "LOG_LEVEL": "info",
     }
     completed = subprocess.run(
-        [sys.executable, str(script)],
+        [sys.executable, "-m", "eth_defi.currency_api.cli"],
         env=env,
         cwd=tmp_path,  # keep logs/ out of the repo tree
         capture_output=True,

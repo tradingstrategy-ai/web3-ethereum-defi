@@ -5,7 +5,7 @@ quote-level gap table (``unavailable_rates``) so the scanner can resume on
 completeness rather than on ``MAX(date)`` and never re-fetch genuinely missing
 cells forever.
 
-See ``scripts/currency_api/README-currency-api.md`` for the schema overview.
+See ``eth_defi/currency_api/README-currency-api.md`` for the schema overview.
 """
 
 import datetime

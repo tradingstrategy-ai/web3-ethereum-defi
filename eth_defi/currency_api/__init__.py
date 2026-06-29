@@ -15,6 +15,6 @@ ECB/Frankfurter, CoinGecko, on-chain oracles) can be added later without
 disturbing existing rows.
 
 See :py:func:`eth_defi.currency_api.scanner.run_incremental_scan` for the main
-entry point and ``scripts/currency_api/README-currency-api.md`` for operator
+entry point and ``eth_defi/currency_api/README-currency-api.md`` for operator
 documentation.
 """
