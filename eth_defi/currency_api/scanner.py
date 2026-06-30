@@ -210,30 +210,7 @@ def run_incremental_scan(
         # ``unavailable_grace_days`` old; younger gaps are "not published yet".
         is_old = (today - res.date).days >= unavailable_grace_days
 
-        if res.status == "ok":
-            if res.rates and res.rates.rows:
-                db.upsert_rates(res.rates)
-                result.rows_upserted += len(res.rates.rows)
-            for quote in res.missing_quotes:
-                if is_old:
-                    db.record_unavailable(res.date, base_currency, quote, source, reason="quote_missing")
-                    result.quotes_recorded += 1
-                else:
-                    result.quotes_pending += 1
-            # The date resolved — reset any transient-failure streak.
-            db.clear_transient_attempts(res.date, base_currency, source)
-
-        elif res.status == "unavailable":
-            if is_old:
-                for quote in quote_currencies:
-                    db.record_unavailable(res.date, base_currency, quote, source, reason="date_404", http_status=404)
-                result.dates_unavailable += 1
-            else:
-                result.dates_pending += 1
-            # Definitive answer (even if pending on grace) — reset the streak.
-            db.clear_transient_attempts(res.date, base_currency, source)
-
-        else:  # transient_error
+        if res.status == "transient_error":
             attempts = prior_attempts.get(res.date, 0) + 1
             if attempts >= max_transient_attempts:
                 # Budget exhausted: give up and record a permanent gap so this
@@ -251,6 +228,28 @@ def run_incremental_scan(
                 # Still within budget: persist the streak and retry next run.
                 db.set_transient_attempts(res.date, base_currency, source, attempts)
                 result.transient_failures += 1
+            continue
+
+        if res.status == "ok":
+            if res.rates and res.rates.rows:
+                db.upsert_rates(res.rates)
+                result.rows_upserted += len(res.rates.rows)
+            for quote in res.missing_quotes:
+                if is_old:
+                    db.record_unavailable(res.date, base_currency, quote, source, reason="quote_missing")
+                    result.quotes_recorded += 1
+                else:
+                    result.quotes_pending += 1
+        else:  # unavailable — whole-date 404 on both hosts
+            if is_old:
+                for quote in quote_currencies:
+                    db.record_unavailable(res.date, base_currency, quote, source, reason="date_404", http_status=404)
+                result.dates_unavailable += 1
+            else:
+                result.dates_pending += 1
+
+        # ok / unavailable are definitive answers for the date — reset any streak.
+        db.clear_transient_attempts(res.date, base_currency, source)
 
     db.save()
 
