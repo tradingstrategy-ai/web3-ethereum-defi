@@ -6,8 +6,8 @@ Historical exchange rate ingestion from the free, no-API-key
 (``@fawazahmed0/currency-api``).
 
 This module incrementally scans daily historical exchange rates for a
-configurable set of named currencies (default: EUR, GBP, JPY, AUD, BTC, ETH against
-USD) and stores them in DuckDB:
+configurable set of named currencies (default: EUR, GBP, JPY, AUD, SGD, TRY,
+CHF, CAD, BTC, ETH against USD) and stores them in DuckDB:
 
 - One HTTP request per date returns the base currency against ~200 fiat and
   crypto currencies, with a jsDelivr → Cloudflare Pages host fallback

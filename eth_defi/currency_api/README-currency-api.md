@@ -3,8 +3,8 @@
 ## Overview
 
 Incrementally scans daily historical exchange rates for a configurable set of
-named currencies (default: EUR, GBP, JPY, AUD, BTC, ETH against USD) and stores them
-in a DuckDB database. The data is sourced from the **fawazahmed0 Exchange API**
+named currencies (default: EUR, GBP, JPY, AUD, SGD, TRY, CHF, CAD, BTC, ETH
+against USD) and stores them in a DuckDB database. The data is sourced from the **fawazahmed0 Exchange API**
 (`@fawazahmed0/currency-api`).
 
 The schema carries a `source` column so additional rate sources (e.g.
@@ -64,7 +64,7 @@ crypto currencies:
 ```json
 {
   "date": "2026-06-28",
-  "usd": { "eur": 0.87803784, "gbp": 0.75771599, "jpy": 161.75, "btc": 0.000016638, "eth": 0.00063644, ... }
+  "usd": { "eur": 0.87803784, "gbp": 0.75771599, "jpy": 161.75, "sgd": 1.28, "chf": 0.80, "cad": 1.37, "btc": 0.000016638, "eth": 0.00063644, ... }
 }
 ```
 
@@ -85,7 +85,7 @@ exchange_rates                              unavailable_rates
 ==============                              =================
 date           DATE     \                   date           DATE     \
 base_currency  VARCHAR   \                  base_currency  VARCHAR    \
-quote_currency VARCHAR    > composite PK    quote_currency VARCHAR     > composite PK
+quote_currency VARCHAR    > logical key     quote_currency VARCHAR     > logical key
 source         VARCHAR   /                  source         VARCHAR    /
 rate           DOUBLE                        reason         VARCHAR
 written_at     TIMESTAMP                     http_status    INTEGER
@@ -93,7 +93,9 @@ written_at     TIMESTAMP                     http_status    INTEGER
 ```
 
 - `rate` — raw API value, `quote` units per 1 `base`.
-- `source` — part of the primary key so multiple sources coexist.
+- `source` — part of the logical key so multiple sources coexist. Idempotence is
+  enforced by transactional delete-then-insert writes instead of DuckDB primary
+  key indexes.
 - `unavailable_rates` — rate cells confirmed to have no data (older than the grace
   window), tracked at `(date, base, quote, source)` granularity. `reason` is
   `date_404` (whole date 404 on both hosts), `quote_missing` (a single quote
@@ -176,7 +178,7 @@ LOG_LEVEL=info START_DATE=2026-06-01 END_DATE=2026-06-05 \
   poetry run scan-currencies
 
 # Add more currencies (no schema change; history backfills automatically)
-QUOTE_CURRENCIES=eur,gbp,jpy,chf,btc,eth,sol \
+QUOTE_CURRENCIES=eur,gbp,jpy,aud,sgd,try,chf,cad,btc,eth,sol \
   poetry run scan-currencies
 
 # Use a non-USD base
@@ -194,7 +196,7 @@ poetry run python -m eth_defi.currency_api.cli
 | `LOG_LEVEL` | `warning` | Logging level |
 | `DB_PATH` | `~/.tradingstrategy/currency-api/exchange-rates.duckdb` | DuckDB database path |
 | `BASE_CURRENCY` | `usd` | Base currency |
-| `QUOTE_CURRENCIES` | `eur,gbp,jpy,aud,btc,eth` | Comma-separated quote currencies |
+| `QUOTE_CURRENCIES` | `eur,gbp,jpy,aud,sgd,try,chf,cad,btc,eth` | Comma-separated quote currencies |
 | `START_DATE` | *(resume / earliest)* | `YYYY-MM-DD` lower bound (small-batch testing) |
 | `END_DATE` | *(today, UTC)* | `YYYY-MM-DD` upper bound (small-batch testing) |
 | `MAX_WORKERS` | `8` | Parallel date fetchers (threaded) |

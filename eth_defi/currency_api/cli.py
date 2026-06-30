@@ -1,7 +1,7 @@
 """Command-line entry point for the currency_api exchange rate scanner.
 
 Fetches daily exchange rates for a configurable set of named currencies
-(default: EUR, GBP, JPY, AUD, BTC, ETH against USD) from the free, no-API-key
+(default: EUR, GBP, JPY, AUD, SGD, TRY, CHF, CAD, BTC, ETH against USD) from the free, no-API-key
 fawazahmed0 Exchange API and stores them in a DuckDB database. Resume is
 completeness-driven, so re-running only fetches missing dates/currencies.
 
@@ -17,7 +17,7 @@ Installed as the ``scan-currencies`` Poetry console script
     LOG_LEVEL=info START_DATE=2026-06-01 END_DATE=2026-06-05 poetry run scan-currencies
 
     # Add more currencies (history backfills automatically)
-    QUOTE_CURRENCIES=eur,gbp,jpy,chf,btc,eth,sol poetry run scan-currencies
+    QUOTE_CURRENCIES=eur,gbp,jpy,aud,sgd,try,chf,cad,btc,eth,sol poetry run scan-currencies
 
 It can also be run as a module: ``poetry run python -m eth_defi.currency_api.cli``.
 
@@ -26,7 +26,7 @@ Environment variables:
 - ``LOG_LEVEL``: Logging level (debug, info, warning, error). Default: warning
 - ``DB_PATH``: DuckDB database file. Default: ~/.tradingstrategy/currency-api/exchange-rates.duckdb
 - ``BASE_CURRENCY``: Base currency. Default: usd
-- ``QUOTE_CURRENCIES``: Comma-separated quote currencies. Default: eur,gbp,jpy,aud,btc,eth
+- ``QUOTE_CURRENCIES``: Comma-separated quote currencies. Default: eur,gbp,jpy,aud,sgd,try,chf,cad,btc,eth
 - ``START_DATE``: ``YYYY-MM-DD`` lower bound. Default: resume / earliest available
 - ``END_DATE``: ``YYYY-MM-DD`` upper bound. Default: today (UTC)
 - ``MAX_WORKERS``: Parallel date fetchers. Default: 8

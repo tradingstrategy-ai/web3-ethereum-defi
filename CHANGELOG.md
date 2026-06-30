@@ -1,5 +1,7 @@
 # Current
 
+- feat: Expand the `eth_defi.currency_api` default USD quote set with SGD, TRY, CHF and CAD, so the scheduled currency-rate scan backfills Singapore dollar, Turkish lira, Swiss franc and Canadian dollar rates alongside EUR, GBP, JPY, AUD, BTC and ETH. Replace the scanner DuckDB primary-key indexes with transactional delete-then-insert idempotence, avoiding a DuckDB 1.5.0 native abort when closing the larger ten-currency full-history database (2026-06-30)
+
 - fix: Resolve the unactionable-depeg warnings for `AUSD`, `dUSD`, `USDN` and `USDX`. Pin the dead DefiDollar (`DUSD`) and Neutrino USD (`USDN`) tokens by their on-chain-verified Ethereum contract addresses so their depegged vaults are now blacklisted, and add a `non_evm: true` flag for natively non-EVM dead tokens (Acala `aUSD` on Polkadot, Kava `USDX` on Cosmos) that have no ERC-20 on any indexed chain, silencing the warning that no contract address could ever resolve (2026-06-30)
 
 - feat: Run the `eth_defi.currency_api` exchange-rate fetcher as a default-on `scan-vaults-all-chains` scheduled item, with a built-in 24h cycle, pipeline-local DuckDB path, backup coverage, configurable `CURRENCY_API_*` environment overrides and best-effort failure handling so currency API outages do not stop vault scans (2026-06-30)
