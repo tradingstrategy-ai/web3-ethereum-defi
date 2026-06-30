@@ -33,7 +33,9 @@ KNOWN_BAD_RATES: tuple[tuple[datetime.date, str, str, str], ...] = (
     # upstream glitch, not a local parsing/scaling bug. Fiat rates (eur/gbp/jpy/aud)
     # for the same day were normal, and the neighbouring days (12-05, 12-07) are
     # normal, so the bad point is isolated to btc/eth on 2025-12-06.
-    # Found during the 1-year data-quality review on PR #1158.
+    # A full-history audit (the entire available range 2024-03-02 .. 2026-06-29,
+    # rolling-median ratio test) found this to be the ONLY anomaly across all
+    # currencies. Found during the data-quality review on PR #1158.
     (datetime.date(2025, 12, 6), "usd", "btc", "fawazahmed0"),
     (datetime.date(2025, 12, 6), "usd", "eth", "fawazahmed0"),
 )

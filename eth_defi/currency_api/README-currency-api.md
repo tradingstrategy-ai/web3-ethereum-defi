@@ -54,7 +54,7 @@ run_incremental_scan()  --upsert-->      exchange_rates
 | Fallback URL | `https://{date}.currency-api.pages.dev/v1/currencies/{base}.min.json` |
 | `{date}` | `latest` or `YYYY-MM-DD` |
 | Frequency | Daily |
-| Earliest data | ~`2024-03-02` (constant `EARLIEST_AVAILABLE_DATE`) |
+| Earliest data | `2024-03-02` (verified — no history before this; all of 2020–2023 returns 404). Constant `EARLIEST_AVAILABLE_DATE`; earlier `START_DATE` clamps to it |
 
 ### Response shape
 

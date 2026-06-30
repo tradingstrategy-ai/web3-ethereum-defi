@@ -30,11 +30,14 @@ DEFAULT_BASE_CURRENCY = "usd"
 #: Default set of named quote currencies to scan.
 DEFAULT_QUOTE_CURRENCIES = ("eur", "gbp", "jpy", "aud", "btc", "eth")
 
-#: Earliest date for which the source publishes data.
+#: Earliest date for which the source publishes data: 2024-03-02.
 #:
-#: Verified via jsDelivr/npm version probing: the earliest dated package
-#: version is ``2024.3.2``; dates before this return HTTP 404. Adjust here if the
-#: provider backfills older history.
+#: Confirmed empirically by binary-searching the date-pinned endpoint —
+#: ``2024-03-02`` returns HTTP 200 while ``2024-03-01`` and every earlier date
+#: (all of 2020–2023, and 2019) return HTTP 404. There is **no pre-2020 history**,
+#: indeed nothing before 2024-03-02; the legacy GitHub-hosted endpoint serves
+#: nothing either. A scan requested from an earlier date is clamped to this floor.
+#: Adjust here if the provider ever backfills older history.
 EARLIEST_AVAILABLE_DATE = datetime.date(2024, 3, 2)
 
 #: Default DuckDB database path.
