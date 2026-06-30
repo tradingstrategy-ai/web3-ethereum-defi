@@ -37,22 +37,24 @@ long_description: |
 category: stablecoin
 links:
   homepage: https://overnight.fi/
-  coingecko: https://www.coingecko.com/en/coins/usd
+  coingecko: ''
   defillama: https://defillama.com/stablecoin/usd+
   twitter: https://x.com/overnight_fi
 slug: usd-plus
-coingecko_id: usd
-coingecko_link: https://www.coingecko.com/en/coins/usd
-coingecko_id_source: url
-coingecko_id_verified_at: '2026-06-26T12:16:16'
-usd_rate: 0.993561
-usd_rate_fetched_at: '2026-06-26T12:16:16'
-usd_rate_updated_at: '2026-03-18T03:37:53'
-peg_rate: 0.993561
-peg_rate_currency: usd
-rate_fetch_failed_at: ''
-rate_fetch_failed_reason: ''
 depegged_at: ''
+coingecko_id: ''
+coingecko_link: ''
+coingecko_id_source: ''
+coingecko_id_verified_at: ''
+coingecko_id_verification_failed_at: '2026-06-30T10:05:58'
+coingecko_id_verification_failed_reason: "CoinGecko id usd not found"
+usd_rate: ''
+usd_rate_fetched_at: ''
+usd_rate_updated_at: ''
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: '2026-06-30T10:05:58'
+rate_fetch_failed_reason: coingecko_id_not_found
 checks:
   twitter_last_post_at: '2026-02-25'
   domain_up_at: '2026-03-17'

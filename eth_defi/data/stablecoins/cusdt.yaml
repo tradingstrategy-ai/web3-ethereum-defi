@@ -13,18 +13,26 @@ long_description: |
 category: wrapped
 links:
   homepage: https://compound.finance/
-  coingecko: https://www.coingecko.com/en/coins/compound-usdt
+  coingecko: ''
   defillama: ''
   twitter: https://x.com/compoundfinance
 contract_addresses:
   - chain: ethereum
     address: '0xf650C3d88D12dB855b8bf7D11Be6C55A4e07dCC9'
 slug: cusdt
-coingecko_id: compound-usdt
-coingecko_link: https://www.coingecko.com/en/coins/compound-usdt
-coingecko_id_source: url
-rate_fetch_failed_at: '2026-06-26T12:16:16'
-rate_fetch_failed_reason: coingecko_price_missing
+coingecko_id: ''
+coingecko_link: ''
+coingecko_id_source: ''
+coingecko_id_verified_at: ''
+coingecko_id_verification_failed_at: '2026-06-30T10:05:58'
+coingecko_id_verification_failed_reason: "CoinGecko id compound-usdt not found"
+usd_rate: ''
+usd_rate_fetched_at: ''
+usd_rate_updated_at: ''
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: '2026-06-30T10:05:58'
+rate_fetch_failed_reason: coingecko_id_not_found
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

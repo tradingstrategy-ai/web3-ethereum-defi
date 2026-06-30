@@ -79,30 +79,32 @@ entries:
     ## Status
 
     aUSD never fully recovered market confidence after the exploit. Circulating supply and on-chain usage
-    remain negligible. The token is still listed on CoinGecko but has very low volume and liquidity.
+    remain negligible.
 
     ## Sources
 
     - [CoinDesk — Acala's stablecoin falls 99%](https://www.coindesk.com/tech/2022/08/15/acalas-stablecoin-falls-99-percent-after-hackers-issue-13-billion-tokens)
     - [CoinDesk — Inside the $3B DeFi exploit](https://www.coindesk.com/tech/2022/08/22/inside-the-3b-defi-exploit-of-acalas-crypto-platform)
-    - [CoinGecko — Acala Dollar](https://www.coingecko.com/en/coins/acala-dollar)
   links:
     homepage: https://acala.network/
-    coingecko: https://www.coingecko.com/en/coins/acala-dollar
+    coingecko: ''
     defillama: https://defillama.com/stablecoin/acala-dollar
     twitter: https://x.com/AcalaNetwork
-  coingecko_id: acala-dollar
-  coingecko_link: https://www.coingecko.com/en/coins/acala-dollar
-  coingecko_id_source: url
-  coingecko_id_verified_at: '2026-06-26T12:16:16'
-  usd_rate: 0.51763
-  usd_rate_fetched_at: '2026-06-26T12:16:16'
-  usd_rate_updated_at: '2023-07-20T12:00:03'
-  peg_rate: 0.51763
-  peg_rate_currency: usd
-  rate_fetch_failed_at: ''
-  rate_fetch_failed_reason: ''
+  non_evm: true  # Acala parachain (Polkadot); no ERC-20 on any indexed EVM chain, so no vault can be denominated in it
   depegged_at: '2026-06-26T12:13:31'
+  coingecko_id: ''
+  coingecko_link: ''
+  coingecko_id_source: ''
+  coingecko_id_verified_at: ''
+  coingecko_id_verification_failed_at: '2026-06-30T10:05:58'
+  coingecko_id_verification_failed_reason: "CoinGecko id acala-dollar not found"
+  usd_rate: ''
+  usd_rate_fetched_at: ''
+  usd_rate_updated_at: ''
+  peg_rate: ''
+  peg_rate_currency: ''
+  rate_fetch_failed_at: '2026-06-30T10:05:58'
+  rate_fetch_failed_reason: coingecko_id_not_found
   checks:
     twitter_last_post_at: ''
     domain_up_at: '2026-03-17'

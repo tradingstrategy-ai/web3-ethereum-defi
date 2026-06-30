@@ -10,7 +10,8 @@ Vault metric calculation should use :class:`StablecoinRateFeeder` instead of
 reading YAML files directly. The feeder owns the in-process lookup caches used
 to resolve a vault denomination token to stablecoin rate metadata.
 
-See `CoinGecko simple price documentation <https://docs.coingecko.com/reference/simple-price>`__.
+See `CoinGecko simple price documentation <https://docs.coingecko.com/reference/simple-price>`__
+and `CoinGecko coins list documentation <https://docs.coingecko.com/reference/coins-list>`__.
 """
 
 import datetime
@@ -81,6 +82,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 COINGECKO_SIMPLE_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price"
+COINGECKO_COINS_LIST_URL = "https://api.coingecko.com/api/v3/coins/list"
 COINGECKO_LINK_PREFIX = "https://www.coingecko.com/en/coins/"
 DEPEG_THRESHOLD = 0.90
 MIN_PLAUSIBLE_STABLECOIN_RATE = 0.01
@@ -91,6 +93,8 @@ _RATE_FIELDS = (
     "coingecko_link",
     "coingecko_id_source",
     "coingecko_id_verified_at",
+    "coingecko_id_verification_failed_at",
+    "coingecko_id_verification_failed_reason",
     "usd_rate",
     "usd_rate_fetched_at",
     "usd_rate_updated_at",
@@ -146,6 +150,8 @@ class StablecoinRateTarget:
     coingecko_link: str | None
     coingecko_id_source: str | None
     coingecko_id_verified_at: datetime.datetime | None
+    coingecko_id_verification_failed_at: datetime.datetime | None
+    coingecko_id_verification_failed_reason: str | None
     peg_currency: str | None
     usd_rate: float | None
     usd_rate_fetched_at: datetime.datetime | None
@@ -162,6 +168,13 @@ class StablecoinRateTarget:
     #: YAML for tickers such as ``sUSD`` or ``USDR`` that several distinct tokens
     #: share, otherwise marking one depegged would blacklist the healthy ones.
     ambiguous_symbol: bool = False
+
+    #: The token has no ERC-20 deployment on any chain we index, so it can never
+    #: denominate an EVM vault and there is nothing to blacklist. Set
+    #: ``non_evm: true`` in the YAML for natively non-EVM tokens (e.g. Acala aUSD
+    #: on Polkadot, Kava USDX on Cosmos) to silence the otherwise-unactionable
+    #: depeg warning, which no ``contract_addresses`` entry could ever resolve.
+    non_evm: bool = False
 
 
 @dataclass(slots=True)
@@ -181,6 +194,9 @@ class StablecoinRateRefreshSummary:
     skipped_missing_coingecko: int = 0
     skipped_unknown_peg: int = 0
     failed_count: int = 0
+    coingecko_ids_checked: int = 0
+    coingecko_ids_valid: int = 0
+    coingecko_id_validation_failed_count: int = 0
 
 
 @dataclass(slots=True)
@@ -266,7 +282,7 @@ def extract_coingecko_id(url: str | None) -> str | None:
 
 def resolve_coingecko_metadata(entry: dict[str, Any]) -> tuple[str | None, str | None, str | None]:
     """Resolve the CoinGecko id, page link, and id source for one YAML entry."""
-    explicit_id = _clean_string(entry.get("coingecko_id"))
+    explicit_id = _clean_coingecko_id(entry.get("coingecko_id"))
     explicit_link = _clean_string(entry.get("coingecko_link"))
     source = _clean_string(entry.get("coingecko_id_source"))
 
@@ -274,7 +290,7 @@ def resolve_coingecko_metadata(entry: dict[str, Any]) -> tuple[str | None, str |
         return explicit_id, explicit_link or f"{COINGECKO_LINK_PREFIX}{explicit_id}", source or "manual"
 
     for link in (explicit_link, _clean_string((entry.get("links") or {}).get("coingecko"))):
-        parsed_id = extract_coingecko_id(link)
+        parsed_id = _clean_coingecko_id(extract_coingecko_id(link))
         if parsed_id:
             return parsed_id, f"{COINGECKO_LINK_PREFIX}{parsed_id}", "url"
 
@@ -318,10 +334,7 @@ def fetch_stablecoin_rates(targets: Sequence[StablecoinRateTarget], timeout: flo
         return {}
 
     vs_currencies = sorted({"usd"} | {target.peg_currency for target in targets if target.peg_currency})
-    headers = {"User-Agent": "web3-ethereum-defi stablecoin rate refresh"}
-    api_key = os.environ.get("COINGECKO_DEMO_API_KEY")
-    if api_key:
-        headers["x-cg-demo-api-key"] = api_key
+    headers = _coingecko_headers()
 
     result: dict[str, dict[str, Any]] = {}
     batch_size = 200
@@ -344,6 +357,48 @@ def fetch_stablecoin_rates(targets: Sequence[StablecoinRateTarget], timeout: flo
             raise ValueError("CoinGecko simple price response was not a JSON object")
         result.update(payload)
     return result
+
+
+def fetch_valid_coingecko_ids(coin_ids: Sequence[str], timeout: float = 20.0, progress_bar: bool = False) -> set[str]:
+    """Validate CoinGecko coin ids against the canonical coins list endpoint.
+
+    CoinGecko web pages can redirect or fall back to search pages for stale
+    slugs. The collector therefore validates ids with the API before exporting
+    ``coingecko_id`` or deriving a human-readable ``coingecko_link``.
+
+    :param coin_ids:
+        CoinGecko ids to validate.
+
+    :param timeout:
+        HTTP request timeout in seconds.
+
+    :param progress_bar:
+        Show a tqdm progress bar for validation requests.
+
+    :return:
+        Set of ids that resolved to real CoinGecko coins.
+    """
+    requested_ids = {cleaned_id for coin_id in coin_ids if (cleaned_id := _clean_coingecko_id(coin_id))}
+    if not requested_ids:
+        return set()
+    if progress_bar:
+        logger.info("Validating %d CoinGecko ids", len(requested_ids))
+
+    headers = _coingecko_headers()
+    response = requests.get(
+        COINGECKO_COINS_LIST_URL,
+        params={"include_platform": "false"},
+        headers=headers,
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, list):
+        message = "CoinGecko coins list response was not a JSON list"
+        raise ValueError(message)
+
+    listed_ids = {entry.get("id") for entry in payload if isinstance(entry, dict) and isinstance(entry.get("id"), str)}
+    return requested_ids & listed_ids
 
 
 def refresh_stablecoin_rates(
@@ -388,19 +443,42 @@ def refresh_stablecoin_rates(
             summary.failed_count += 1
             updates[(target.yaml_path, target.entry_index)] = _failure_update(now_, "missing_coingecko_id", target)
 
-    prices: dict[str, dict[str, Any]] = {}
+    valid_targets: list[StablecoinRateTarget] = []
     if due_with_ids:
         try:
-            prices = fetch_stablecoin_rates(due_with_ids, timeout=timeout, progress_bar=progress_bar)
+            valid_coingecko_ids = fetch_valid_coingecko_ids([target.coingecko_id or "" for target in due_with_ids], timeout=timeout, progress_bar=progress_bar)
         except _coingecko_fetch_error_types() as e:
-            logger.warning("CoinGecko stablecoin rate batch failed: %s", e)
+            logger.warning("CoinGecko stablecoin id validation failed: %s", e)
             for target in due_with_ids:
                 summary.failed_count += 1
                 updates[(target.yaml_path, target.entry_index)] = _failure_update(now_, "coingecko_http_error", target)
             return _apply_refresh_updates(updates, summary, progress_bar=progress_bar)
 
+        checked_ids = {target.coingecko_id for target in due_with_ids if target.coingecko_id}
+        summary.coingecko_ids_checked = len(checked_ids)
+        summary.coingecko_ids_valid = len(valid_coingecko_ids)
+
+        for target in due_with_ids:
+            if target.coingecko_id in valid_coingecko_ids:
+                valid_targets.append(target)
+            else:
+                summary.failed_count += 1
+                summary.coingecko_id_validation_failed_count += 1
+                updates[(target.yaml_path, target.entry_index)] = _invalid_coingecko_id_update(now_, target)
+
+    prices: dict[str, dict[str, Any]] = {}
+    if valid_targets:
+        try:
+            prices = fetch_stablecoin_rates(valid_targets, timeout=timeout, progress_bar=progress_bar)
+        except _coingecko_fetch_error_types() as e:
+            logger.warning("CoinGecko stablecoin rate batch failed: %s", e)
+            for target in valid_targets:
+                summary.failed_count += 1
+                updates[(target.yaml_path, target.entry_index)] = _failure_update(now_, "coingecko_http_error", target)
+            return _apply_refresh_updates(updates, summary, progress_bar=progress_bar)
+
     fetched_ids: set[str] = set()
-    for target in _progress(due_with_ids, progress_bar, "Applying CoinGecko prices", "entry"):
+    for target in _progress(valid_targets, progress_bar, "Applying CoinGecko prices", "entry"):
         price_data = prices.get(target.coingecko_id or "")
         if not isinstance(price_data, dict):
             summary.failed_count += 1
@@ -429,7 +507,10 @@ def refresh_stablecoin_rates(
         elif should_check_depeg and peg_rate < DEPEG_THRESHOLD:
             update["depegged_at"] = target.depegged_at or now_
             summary.depegged_count += 1
-            if not _target_is_actionable(target):
+            if not target.non_evm and not _target_is_actionable(target):
+                # ``non_evm`` tokens are deliberately unenforceable (no ERC-20 on
+                # any chain we index), so they are expected, not a coverage gap —
+                # do not count or warn about them here.
                 summary.unactionable_depegged_count += 1
                 logger.warning("Depegged stablecoin entry %s/%s is not actionable for vault blacklisting", target.slug, target.name)
 
@@ -478,7 +559,11 @@ def build_depegged_stablecoin_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> 
 
     for target in iter_stablecoin_rate_targets(data_dir):
         normalised_symbol = normalise_token_symbol(target.symbol)
-        symbol_matchable = bool(normalised_symbol) and target.entry_index is None and not target.ambiguous_symbol
+        # ``non_evm`` tokens have no ERC-20 on any indexed chain, so they have no
+        # EVM symbol presence and must never participate in ticker matching —
+        # otherwise a dead off-chain token could blacklist a healthy same-ticker
+        # EVM token. Treat them like ``ambiguous_symbol``: contract-only.
+        symbol_matchable = bool(normalised_symbol) and target.entry_index is None and not target.ambiguous_symbol and not target.non_evm
         if symbol_matchable:
             symbol_owner_counts[normalised_symbol] = symbol_owner_counts.get(normalised_symbol, 0) + 1
 
@@ -496,6 +581,11 @@ def build_depegged_stablecoin_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> 
     # symbol is not an unambiguous single-owner symbol (typically multi-entry
     # tokens such as USDX). These need contract_addresses added to their YAML.
     for target in depegged_without_contract:
+        if target.non_evm:
+            # No ERC-20 on any chain we index, so no EVM vault can be denominated
+            # in it and there is nothing to blacklist — a contract address could
+            # never be added. Skip the warning rather than emit unactionable noise.
+            continue
         normalised_symbol = normalise_token_symbol(target.symbol)
         if normalised_symbol and normalised_symbol in depegged_symbols:
             continue
@@ -520,7 +610,9 @@ def build_stablecoin_rate_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> tupl
             contract_rates[contract_key] = rate
 
         normalised_symbol = normalise_token_symbol(target.symbol)
-        if normalised_symbol and target.entry_index is None and not target.ambiguous_symbol:
+        # ``non_evm`` tokens have no EVM symbol presence — keep them out of the
+        # ticker-based rate lookup as well, mirroring the depeg blacklist path.
+        if normalised_symbol and target.entry_index is None and not target.ambiguous_symbol and not target.non_evm:
             symbol_candidates.setdefault(normalised_symbol, []).append((target, rate))
 
     symbol_rates = {symbol: matches[0][1] for symbol, matches in symbol_candidates.items() if len(matches) == 1}
@@ -589,6 +681,8 @@ def _build_target(yaml_path: Path, entry_index: int | None, slug: str, symbol: s
         coingecko_link=coingecko_link,
         coingecko_id_source=coingecko_id_source,
         coingecko_id_verified_at=_parse_datetime(entry.get("coingecko_id_verified_at")),
+        coingecko_id_verification_failed_at=_parse_datetime(entry.get("coingecko_id_verification_failed_at")),
+        coingecko_id_verification_failed_reason=_clean_string(entry.get("coingecko_id_verification_failed_reason")),
         peg_currency=peg_currency,
         usd_rate=_parse_float(entry.get("usd_rate")),
         usd_rate_fetched_at=_parse_datetime(entry.get("usd_rate_fetched_at")),
@@ -600,6 +694,7 @@ def _build_target(yaml_path: Path, entry_index: int | None, slug: str, symbol: s
         depegged_at=_parse_datetime(entry.get("depegged_at")),
         contract_addresses=_parse_contract_addresses(entry),
         ambiguous_symbol=bool(entry.get("ambiguous_symbol", False)),
+        non_evm=bool(entry.get("non_evm", False)),
     )
 
 
@@ -625,6 +720,15 @@ def _coingecko_fetch_error_types() -> tuple[type[BaseException], ...]:
     return base_types
 
 
+def _coingecko_headers() -> dict[str, str]:
+    """Return HTTP headers for CoinGecko API requests."""
+    headers = {"User-Agent": "web3-ethereum-defi stablecoin rate refresh"}
+    api_key = os.environ.get("COINGECKO_DEMO_API_KEY")
+    if api_key:
+        headers["x-cg-demo-api-key"] = api_key
+    return headers
+
+
 def _chain_slug_to_id(chain: Any) -> int | None:
     if chain is None:
         return None
@@ -645,6 +749,12 @@ def _clean_string(value: Any) -> str | None:
         return None
     value = str(value).strip()
     return value or None
+
+
+def _clean_coingecko_id(value: Any) -> str | None:
+    """Return a canonical CoinGecko id candidate."""
+    text = _clean_string(value)
+    return text.lower() if text else None
 
 
 def _parse_datetime(value: Any) -> datetime.datetime | None:
@@ -760,6 +870,8 @@ def _success_update(
         "coingecko_link": target.coingecko_link or (f"{COINGECKO_LINK_PREFIX}{target.coingecko_id}" if target.coingecko_id else ""),
         "coingecko_id_source": target.coingecko_id_source or "",
         "coingecko_id_verified_at": now_,
+        "coingecko_id_verification_failed_at": "",
+        "coingecko_id_verification_failed_reason": "",
         "usd_rate": usd_rate,
         "usd_rate_fetched_at": now_,
         "usd_rate_updated_at": upstream_updated_at,
@@ -770,6 +882,27 @@ def _success_update(
         "depegged_at": target.depegged_at,
     }
     return update
+
+
+def _invalid_coingecko_id_update(now_: datetime.datetime, target: StablecoinRateTarget) -> dict[str, Any]:
+    """Clear stale CoinGecko metadata when an id no longer resolves."""
+    coingecko_id = target.coingecko_id or ""
+    return {
+        "coingecko_id": "",
+        "coingecko_link": "",
+        "coingecko_id_source": "",
+        "coingecko_id_verified_at": "",
+        "coingecko_id_verification_failed_at": now_,
+        "coingecko_id_verification_failed_reason": f"CoinGecko id {coingecko_id} not found",
+        "usd_rate": "",
+        "usd_rate_fetched_at": "",
+        "usd_rate_updated_at": "",
+        "peg_rate": "",
+        "peg_rate_currency": "",
+        "rate_fetch_failed_at": now_,
+        "rate_fetch_failed_reason": "coingecko_id_not_found",
+        "links.coingecko": "",
+    }
 
 
 def _failure_update(now_: datetime.datetime, reason: str, target: StablecoinRateTarget) -> dict[str, Any]:
@@ -829,7 +962,7 @@ def _apply_refresh_updates(updates: dict[tuple[Path, int | None], dict[str, Any]
 
 
 def _mapping_update(mapping: dict[str, Any]) -> dict[str, Any]:
-    coingecko_id = _clean_string(mapping.get("coingecko_id"))
+    coingecko_id = _clean_coingecko_id(mapping.get("coingecko_id"))
     return {
         "coingecko_id": coingecko_id or "",
         "coingecko_link": _clean_string(mapping.get("coingecko_link")) or (f"{COINGECKO_LINK_PREFIX}{coingecko_id}" if coingecko_id else ""),
@@ -857,6 +990,7 @@ def _format_yaml_value(value: Any) -> str:
 def _update_yaml_entry_fields(yaml_path: Path, entry_index: int | None, fields: dict[str, Any]) -> None:
     lines = yaml_path.read_text().splitlines(keepends=True)
     start, end, indent = _find_yaml_entry_block(lines, entry_index)
+    end += _update_yaml_link_fields(lines, start, end, indent, fields)
     existing = _find_existing_field_lines(lines, start, end, indent)
 
     rendered = [f"{indent}{key}: {_format_yaml_value(fields.get(key))}\n" for key in _RATE_FIELDS if key in fields]
@@ -870,6 +1004,32 @@ def _update_yaml_entry_fields(yaml_path: Path, entry_index: int | None, fields: 
         lines.insert(insert_at + offset, line)
 
     _write_text_atomic(yaml_path, "".join(lines))
+
+
+def _update_yaml_link_fields(lines: list[str], start: int, end: int, indent: str, fields: dict[str, Any]) -> int:
+    """Update nested link fields inside a stablecoin YAML entry block."""
+    if "links.coingecko" not in fields:
+        return 0
+
+    links_line = next((i for i in range(start, end) if lines[i].startswith(f"{indent}links:")), None)
+    if links_line is None:
+        return 0
+
+    link_indent = f"{indent}  "
+    link_end = end
+    for i in range(links_line + 1, end):
+        if lines[i].startswith(indent) and not lines[i].startswith(link_indent) and lines[i].strip():
+            link_end = i
+            break
+
+    rendered = f"{link_indent}coingecko: {_format_yaml_value(fields['links.coingecko'])}\n"
+    for i in range(links_line + 1, link_end):
+        if lines[i].startswith(f"{link_indent}coingecko:"):
+            lines[i] = rendered
+            return 0
+
+    lines.insert(link_end, rendered)
+    return 1
 
 
 def _write_text_atomic(path: Path, text: str) -> None:

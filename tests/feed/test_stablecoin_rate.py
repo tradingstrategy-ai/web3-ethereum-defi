@@ -19,14 +19,31 @@ USDX_ADDRESS = "0x1111111111111111111111111111111111111111"
 class DummyCoinGeckoResponse:
     """Small response object for mocked CoinGecko tests."""
 
-    payload: dict[str, Any]
+    payload: Any
+    status_code: int = 200
 
     def raise_for_status(self) -> None:
         """Mock successful HTTP response."""
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
 
-    def json(self) -> dict[str, Any]:
+    def json(self) -> Any:
         """Return the mocked JSON body."""
         return self.payload
+
+
+def _coins_list_response() -> DummyCoinGeckoResponse:
+    """Return a mocked CoinGecko coins list response for test fixtures."""
+    coin_ids = [
+        "usd-coin",
+        "usdx",
+        "usdx-money-usdx",
+        "cad-coin",
+        "convertible-jpy-token",
+        "magic-internet-money",
+        "compound-usd-coin",
+    ]
+    return DummyCoinGeckoResponse([{"id": coin_id} for coin_id in coin_ids])
 
 
 def _write_usdc_yaml(data_dir: Path) -> Path:
@@ -138,6 +155,8 @@ def test_refresh_stablecoin_rates_updates_usdc_happy_path(tmp_path: Path, monkey
     _write_usdc_yaml(tmp_path)
 
     def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return _coins_list_response()
         assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
         assert params["ids"] == "usd-coin"
         assert "usd" in params["vs_currencies"].split(",")
@@ -159,6 +178,8 @@ def test_refresh_stablecoin_rates_updates_usdc_happy_path(tmp_path: Path, monkey
 
     assert summary.files_scanned == 1
     assert summary.entries_seen == 1
+    assert summary.coingecko_ids_checked == 1
+    assert summary.coingecko_ids_valid == 1
     assert summary.rates_fetched == 1
     assert summary.failed_count == 0
     assert summary.depegged_count == 0
@@ -191,6 +212,8 @@ def test_refresh_stablecoin_rates_marks_usdx_depegged(tmp_path: Path, monkeypatc
     _write_usdx_yaml(tmp_path)
 
     def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return _coins_list_response()
         assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
         assert set(params["ids"].split(",")) == {"usdx", "usdx-money-usdx"}
         assert "User-Agent" in headers
@@ -250,6 +273,8 @@ def test_refresh_stablecoin_rates_preserves_sticky_depegged_at(tmp_path: Path, m
     ]
 
     def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return _coins_list_response()
         assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
         assert set(params["ids"].split(",")) == {"usdx", "usdx-money-usdx"}
         assert isinstance(headers, dict)
@@ -276,6 +301,8 @@ def test_refresh_stablecoin_rates_entry_gate_skips_same_day_and_refetches_next_d
     calls: list[dict[str, str]] = []
 
     def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return _coins_list_response()
         assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
         assert isinstance(headers, dict)
         assert timeout > 0
@@ -300,6 +327,8 @@ def test_refresh_stablecoin_rates_records_missing_price_failure(tmp_path: Path, 
     _write_usdc_yaml(tmp_path)
 
     def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return _coins_list_response()
         assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
         assert params["ids"] == "usd-coin"
         assert "User-Agent" in headers
@@ -316,6 +345,177 @@ def test_refresh_stablecoin_rates_records_missing_price_failure(tmp_path: Path, 
     assert target.rate_fetch_failed_at == now_
     assert target.rate_fetch_failed_reason == "coingecko_price_missing"
     assert target.depegged_at is None
+
+
+def test_refresh_stablecoin_rates_clears_invalid_coingecko_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stale CoinGecko ids are cleared instead of exported as guessed links."""
+    yaml_path = tmp_path / "ausd.yaml"
+    yaml_path.write_text(
+        """symbol: AUSD
+name: Acala Dollar
+short_description: Acala Dollar
+long_description: ''
+category: stablecoin
+coingecko_id: acala-dollar
+coingecko_link: https://www.coingecko.com/en/coins/acala-dollar
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-06-26T12:16:16'
+usd_rate: 0.51763
+usd_rate_fetched_at: '2026-06-26T12:16:16'
+usd_rate_updated_at: '2023-07-20T12:00:03'
+peg_rate: 0.51763
+peg_rate_currency: usd
+links:
+  homepage: https://acala.network/
+  coingecko: https://www.coingecko.com/en/coins/acala-dollar
+  defillama: https://defillama.com/stablecoin/acala-dollar
+  twitter: https://x.com/AcalaNetwork
+slug: ausd
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''
+"""
+    )
+
+    def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            assert params["include_platform"] == "false"
+            assert "User-Agent" in headers
+            assert timeout > 0
+            return DummyCoinGeckoResponse([{"id": "usd-coin"}])
+        message = "Invalid CoinGecko id must not be sent to the simple price endpoint"
+        raise AssertionError(message)
+
+    monkeypatch.setattr(stablecoin_rate.requests, "get", fake_get)
+    now_ = datetime.datetime(2026, 6, 30, 12, 0, 0)
+
+    summary = refresh_stablecoin_rates(data_dir=tmp_path, now_=now_, force=True)
+
+    assert summary.failed_count == 1
+    assert summary.coingecko_ids_checked == 1
+    assert summary.coingecko_ids_valid == 0
+    assert summary.coingecko_id_validation_failed_count == 1
+
+    target = next(iter_stablecoin_rate_targets(tmp_path))
+    assert target.coingecko_id is None
+    assert target.coingecko_link is None
+    assert target.coingecko_id_source is None
+    assert target.coingecko_id_verified_at is None
+    assert target.coingecko_id_verification_failed_at == now_
+    assert target.coingecko_id_verification_failed_reason == "CoinGecko id acala-dollar not found"
+    assert target.usd_rate is None
+    assert target.rate_fetch_failed_at == now_
+    assert target.rate_fetch_failed_reason == "coingecko_id_not_found"
+
+    metadata = build_stablecoin_metadata_json(yaml_path)[0]
+    assert metadata["coingecko_id"] is None
+    assert metadata["coingecko_link"] is None
+    assert metadata["coingecko_id_source"] is None
+    assert metadata["coingecko_id_verified_at"] is None
+    assert metadata["coingecko_id_verification_failed_at"] == "2026-06-30T12:00:00"
+    assert metadata["coingecko_id_verification_failed_reason"] == "CoinGecko id acala-dollar not found"
+    assert metadata["usd_rate"] is None
+    assert metadata["links"]["coingecko"] is None
+
+    text = yaml_path.read_text()
+    assert "  coingecko: ''" in text
+    assert "coingecko_id: ''" in text
+    assert "coingecko_link: ''" in text
+
+
+def test_refresh_stablecoin_rates_canonicalises_uppercase_coingecko_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Manual CoinGecko ids are lowercased before validation and price fetch."""
+    yaml_path = tmp_path / "usdc.yaml"
+    yaml_path.write_text(
+        """symbol: USDC
+name: Circle USDC
+short_description: USD Coin
+long_description: ''
+category: stablecoin
+coingecko_id: USD-COIN
+coingecko_link: ''
+coingecko_id_source: manual
+links:
+  homepage: https://www.circle.com/usdc
+  coingecko: ''
+  defillama: ''
+  twitter: ''
+slug: usdc
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''
+"""
+    )
+
+    def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return DummyCoinGeckoResponse([{"id": "usd-coin"}])
+        assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
+        assert params["ids"] == "usd-coin"
+        assert isinstance(headers, dict)
+        assert timeout > 0
+        return DummyCoinGeckoResponse({"usd-coin": {"usd": 1.0, "last_updated_at": 1782464168}})
+
+    monkeypatch.setattr(stablecoin_rate.requests, "get", fake_get)
+    now_ = datetime.datetime(2026, 6, 30, 12, 0, 0)
+
+    summary = refresh_stablecoin_rates(data_dir=tmp_path, now_=now_, force=True)
+
+    assert summary.failed_count == 0
+    assert summary.coingecko_id_validation_failed_count == 0
+    target = next(iter_stablecoin_rate_targets(tmp_path))
+    assert target.coingecko_id == "usd-coin"
+    assert target.coingecko_link == "https://www.coingecko.com/en/coins/usd-coin"
+    assert target.usd_rate == pytest.approx(1.0)
+    assert "coingecko_id: usd-coin" in yaml_path.read_text()
+
+
+def test_yaml_update_can_insert_missing_nested_coingecko_link_without_duplicate_fields(tmp_path: Path) -> None:
+    """Adding ``links.coingecko`` keeps the rate-field replacement range aligned."""
+    yaml_path = tmp_path / "stale.yaml"
+    yaml_path.write_text(
+        """symbol: STALE
+name: Stale coin
+short_description: Stale coin
+long_description: ''
+category: stablecoin
+links:
+  homepage: https://example.com/
+  defillama: ''
+  twitter: ''
+slug: stale
+coingecko_id: stale-coin
+coingecko_link: https://www.coingecko.com/en/coins/stale-coin
+coingecko_id_source: url
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''
+"""
+    )
+
+    stablecoin_rate._update_yaml_entry_fields(
+        yaml_path,
+        None,
+        {
+            "links.coingecko": "",
+            "coingecko_id": "",
+            "coingecko_link": "",
+            "coingecko_id_source": "",
+        },
+    )
+
+    text = yaml_path.read_text()
+    assert text.count("coingecko_id:") == 1
+    assert text.count("coingecko_link:") == 1
+    assert text.count("coingecko_id_source:") == 1
+    assert "  coingecko: ''" in text
+    assert next(iter_stablecoin_rate_targets(tmp_path)).coingecko_id is None
 
 
 @pytest.mark.parametrize(
@@ -338,6 +538,8 @@ def test_non_usd_fiat_stablecoins_compare_against_their_peg_currency(
     _write_fiat_stablecoin_yaml(tmp_path, symbol, name, coingecko_id)
 
     def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return _coins_list_response()
         assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
         assert params["ids"] == coingecko_id
         assert set(params["vs_currencies"].split(",")) == {"usd", peg_currency}
@@ -364,6 +566,8 @@ def test_url_derived_sub_cent_price_is_failure_not_depeg(tmp_path: Path, monkeyp
     _write_usdc_yaml(tmp_path)
 
     def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return _coins_list_response()
         assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
         assert params["ids"] == "usd-coin"
         assert "User-Agent" in headers
@@ -416,6 +620,8 @@ checks:
     )
 
     def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return _coins_list_response()
         assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
         assert params["ids"] == "usdx-money-usdx"
         assert "User-Agent" in headers
@@ -460,6 +666,8 @@ checks:
     )
 
     def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return _coins_list_response()
         assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
         assert params["ids"] == "magic-internet-money"
         assert set(params["vs_currencies"].split(",")) == {"usd"}
@@ -505,6 +713,8 @@ checks:
     )
 
     def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return _coins_list_response()
         assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
         assert params["ids"] == "compound-usd-coin"
         assert set(params["vs_currencies"].split(",")) == {"usd"}
@@ -727,6 +937,95 @@ checks:
     assert feeder.is_depegged_stablecoin_token(1, None, "sUSD") is False
 
 
+def test_non_evm_depegged_entry_suppresses_unactionable_warning(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """``non_evm`` depegged entries are silent; ordinary unenforceable ones still warn.
+
+    A depegged entry in a multi-entry (shared-ticker) file that carries no
+    ``contract_addresses`` cannot blacklist anything. When the token only exists
+    off EVM (e.g. Acala aUSD on Polkadot, Kava USDX on Cosmos), no EVM vault can
+    ever be denominated in it, so the otherwise-emitted warning is pure noise and
+    must be suppressed by the ``non_evm: true`` flag. An equally unenforceable
+    entry *without* the flag must still warn, so the flag is the only difference.
+
+    1. Write a multi-entry YAML with two depegged, contract-less entries — one
+       flagged ``non_evm``, one not.
+    2. Build the lookups while capturing logs and assert nothing is pinned.
+    3. Assert the unflagged entry warns and the ``non_evm`` entry does not.
+    """
+    # 1. Two depegged entries sharing the ``XUSD`` ticker, neither pinned by address.
+    (tmp_path / "xusd.yaml").write_text(
+        """symbol: XUSD
+category: stablecoin
+entries:
+- name: Cosmos XUSD
+  short_description: ''
+  long_description: ''
+  non_evm: true
+  coingecko_id: cosmos-xusd
+  usd_rate: 0.2
+  usd_rate_fetched_at: '2026-06-28T00:00:00'
+  depegged_at: '2026-06-28T00:00:00'
+  links:
+    homepage: ''
+    coingecko: ''
+    defillama: ''
+    twitter: ''
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: ''
+    marked_dead_at: ''
+    information_found_missing_at: ''
+- name: EVM XUSD
+  short_description: ''
+  long_description: ''
+  coingecko_id: evm-xusd
+  usd_rate: 0.3
+  usd_rate_fetched_at: '2026-06-28T00:00:00'
+  depegged_at: '2026-06-28T00:00:00'
+  links:
+    homepage: ''
+    coingecko: ''
+    defillama: ''
+    twitter: ''
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: ''
+    marked_dead_at: ''
+    information_found_missing_at: ''
+slug: xusd
+"""
+    )
+
+    # 2. Neither contract-less entry can be pinned by address or by the shared ticker.
+    with caplog.at_level("WARNING", logger="eth_defi.feed.stablecoin_rate"):
+        depegged_contracts, depegged_symbols = build_depegged_stablecoin_lookups(tmp_path)
+    assert depegged_contracts == set()
+    assert depegged_symbols == set()
+
+    # 3. Only the unflagged EVM entry warns; the non_evm one is silent.
+    warnings = [r.message for r in caplog.records if "cannot be blacklisted" in r.message]
+    assert any("EVM XUSD" in m for m in warnings), warnings
+    assert not any("Cosmos XUSD" in m for m in warnings), warnings
+
+
+def test_packaged_non_evm_depegs_emit_no_warning(caplog: pytest.LogCaptureFixture) -> None:
+    """The packaged Acala aUSD and Kava USDX depegs are flagged ``non_evm`` and stay silent.
+
+    These two tokens have no ERC-20 on any indexed chain, so no
+    ``contract_addresses`` could be added — they are silenced via ``non_evm:
+    true`` instead. Lock in that building the shipped data emits no
+    unenforceable-depeg warning for the four symbols this fix covers, without
+    coupling the assertion to unrelated future depegs.
+    """
+    with caplog.at_level("WARNING", logger="eth_defi.feed.stablecoin_rate"):
+        build_depegged_stablecoin_lookups()
+    noise = [r.message for r in caplog.records if "cannot be blacklisted" in r.message]
+    # Scope to the symbols addressed here: AUSD/USDX silenced via non_evm, and
+    # DUSD/USDN now pinned by contract — none of them may warn anymore.
+    covered = [m for m in noise if any(sym in m for sym in ("AUSD", "dUSD", "USDN", "USDX"))]
+    assert covered == [], covered
+
+
 def test_packaged_duplicate_symbol_stablecoins_match_by_contract_only() -> None:
     """Guard the real packaged data: shared-ticker depegged stablecoins match by contract, never by symbol.
 
@@ -751,3 +1050,5 @@ def test_packaged_duplicate_symbol_stablecoins_match_by_contract_only() -> None:
     assert (1, "0x57ab1ec28d129707052df4df418d58a2d46d5f51") in depegged_contracts  # Synthetix sUSD
     assert (137, "0x40379a439d4f6795b6fc9aa5687db461677a2dba") in depegged_contracts  # Tangible Real USD
     assert (1, "0x7b43e3875440b44613dc3bc08e7763e6da63c8f8") in depegged_contracts  # StablR USD
+    assert (1, "0x5bc25f649fc4e26069ddf4cf4010f9f706c23831") in depegged_contracts  # DefiDollar DUSD
+    assert (1, "0x674c6ad92fd080e4004b2312b45f796a192d27a0") in depegged_contracts  # Neutrino USD (USDN)
