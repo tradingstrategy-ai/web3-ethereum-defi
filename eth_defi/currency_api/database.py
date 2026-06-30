@@ -61,7 +61,7 @@ class CurrencyRateDatabase:
         self.con = duckdb.connect(str(path))
         self._init_schema()
 
-    def __del__(self):
+    def __del__(self) -> None:
         if hasattr(self, "con") and self.con is not None:
             self.con.close()
             self.con = None
@@ -188,8 +188,9 @@ class CurrencyRateDatabase:
         :param source:
             Provider identifier.
         :param reason:
-            ``date_404`` (whole date 404 on both hosts) or ``quote_missing``
-            (quote absent from an otherwise-200 body).
+            ``date_404`` (whole date 404 on both hosts), ``quote_missing``
+            (quote absent from an otherwise-200 body), or ``persistent_error``
+            (given up after exceeding the transient-failure budget).
         :param http_status:
             HTTP status that confirmed the gap, if applicable.
         """

@@ -12,7 +12,7 @@ ECB/Frankfurter, CoinGecko, on-chain oracles) can be added later without
 disturbing existing rows.
 
 **No authentication is required** — all data comes from a free, public,
-no-API-key endpoint with no rate limits.
+no-API-key endpoint with no documented rate limit.
 
 ## Architecture
 
