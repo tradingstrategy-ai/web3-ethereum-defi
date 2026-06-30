@@ -125,6 +125,24 @@ The scanner resume is **completeness-driven**, not `MAX(date)`-driven:
    given up on — recorded as a permanent gap (`reason='persistent_error'`) and no longer
    fetched. The counter resets as soon as the date succeeds or returns a definitive 404.
 
+### Known trade-offs
+
+These are accepted for now (configurable via the env vars above):
+
+- **`UNAVAILABLE_GRACE_DAYS` (2) is below `REFETCH_TAIL_DAYS` (3).** A date that
+  404s once it is `UNAVAILABLE_GRACE_DAYS` old is recorded as a permanent
+  `date_404` gap and is not retried (it has no stored data, so the tail-refresh
+  rule does not resurrect it). If the source ever publishes a date *later* than
+  the grace window, that date stays missing. To force a retry, delete its rows
+  from `unavailable_rates`. Set `UNAVAILABLE_GRACE_DAYS >= REFETCH_TAIL_DAYS` if
+  your source is prone to late publication.
+- **Upsert and gap-deletion are two statements, not one transaction.** A crash
+  between them could briefly leave a cell in both `exchange_rates` and
+  `unavailable_rates`; the next run's upsert re-deletes the stale gap, so it
+  self-heals.
+- **`MAX_TRANSIENT_ATTEMPTS=1` gives up on the first transient failure.** There
+  is no lower-bound guard; keep the default (5) unless you intend this.
+
 ## Quick start
 
 The scanner is installed as the `scan-currencies` Poetry console script:
