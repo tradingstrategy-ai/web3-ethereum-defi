@@ -1,5 +1,7 @@
 # Current
 
+- feat: Run the `eth_defi.currency_api` exchange-rate fetcher as a default-on `scan-vaults-all-chains` scheduled item, with a built-in 24h cycle, pipeline-local DuckDB path, backup coverage, configurable `CURRENCY_API_*` environment overrides and best-effort failure handling so currency API outages do not stop vault scans (2026-06-30)
+
 - feat: Add `eth_defi.currency_api` — incremental historical exchange rate ingestion into DuckDB from the free, no-API-key fawazahmed0 Exchange API. Scans a configurable set of named currencies (default EUR, GBP, JPY, AUD, BTC, ETH against USD) with completeness-driven resume, a quote-level gap table, jsDelivr→pages.dev host fallback, a per-date transient-failure budget, and a `source` column for future multi-source support. Includes a `scan-currencies` Poetry console entry point, a separate `filter_known_bad_rates()` cleaning step for documented upstream source glitches, and black-box integration tests (2026-06-29)
 
 - feat: Add Tokenised GBP (tGBP) — BCP Technologies' FCA-registered, GBP-pegged stablecoin — to stablecoin classification, rich metadata YAML, news feed and logo, so tGBP-denominated vaults are recognised by `is_stablecoin_like()` and survive `filter_vaults_by_stablecoin()` across Ethereum, Base, Polygon, BNB Chain and Avalanche (2026-06-29)
