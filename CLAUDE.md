@@ -14,6 +14,13 @@ touches the relevant area:
 - `.claude/docs/agent-tricks-and-troubleshooting.md` — Codex CLI and
   Claude CLI usage patterns, including cross-agent review commands,
   streaming Claude review output, and common failure modes.
+  **When invoking Codex CLI for a non-interactive review you MUST follow
+  the "Required method for non-interactive Codex reviews" section of that
+  doc** (run from the tree containing the changes and verify the diff is
+  non-empty first, use `codex exec --json` in the background, poll the PID,
+  and parse `agent_message` events). Do not run plain foreground
+  `codex exec "..."` — it buffers output, looks hung, and can silently
+  review the wrong git tree.
 
 ## Skills
 
@@ -302,6 +309,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/abi/uniswap-swap-contracts/README.md` | SwapRouter02 deployment on Base |
 | `eth_defi/cctp/README-cctp.md` | Circle CCTP V2 integration |
 | `eth_defi/core3/README-core3.md` | Core3 risk intelligence integration — modules, database schema, scripts, API reference |
+| `eth_defi/currency_api/README-currency-api.md` | Historical exchange rate ingestion (fawazahmed0 Exchange API) into DuckDB |
 | `eth_defi/data/vaults/README.md` | Vault protocol metadata and logo system |
 | `eth_defi/erc_4626/vault_protocol/README-reader-states.md` | Vault reader states and warmup system |
 | `eth_defi/erc_4626/vault_protocol/README-utilisation.md` | Utilisation and available liquidity metrics for lending vaults |

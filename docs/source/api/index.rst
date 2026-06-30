@@ -55,6 +55,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    token_analysis/index
    event_reader/index
    price_oracle/index
+   currency_api/index
    research/index
 
 

@@ -25,7 +25,9 @@ from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE, VaultPostDatabas
 from eth_defi.feed.sources import (
     FEEDS_DATA_DIR,
     auto_disable_failed_linkedin_sources,
+    build_twitter_source_file_lookup,
     load_post_sources,
+    mark_suspended_twitter_handle,
     mark_rss_source_dead,
     mark_rss_source_failure,
     mark_twitter_handle_unknown,
@@ -202,6 +204,9 @@ def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
 
     if config.sync_x_list and can_sync_x_list:
         handles = [s.source_key for s in twitter_sources]
+        source_files_by_handle = build_twitter_source_file_lookup(twitter_sources)
+        today_str = native_datetime_utc_now().strftime("%Y-%m-%d")
+
         assert resolved_x_list_id is not None
         db_for_sync = VaultPostDatabase(config.db_path)
         try:
@@ -217,6 +222,12 @@ def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
                 db_for_sync,
                 add_delay_seconds=config.x_list_add_delay_seconds,
                 rate_limit_sleep_max_seconds=config.x_list_rate_limit_sleep_max_seconds,
+                suspended_member_callback=lambda handle, user_id: mark_suspended_twitter_handle(
+                    handle,
+                    user_id,
+                    source_files_by_handle,
+                    today_str,
+                ),
             )
             db_for_sync.save()
         except XApiError as e:

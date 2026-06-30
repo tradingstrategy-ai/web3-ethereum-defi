@@ -30,25 +30,27 @@ long_description: |
 category: stablecoin
 links:
   homepage: https://www.mai.finance/
-  coingecko: https://www.coingecko.com/en/coins/mai
+  coingecko: ''
   defillama: https://defillama.com/stablecoin/mai
   twitter: https://x.com/QiDaoProtocol
 contract_addresses:
   - chain: polygon
     address: '0xa3Fa99A148fA48D14Ed51d610c367C61876997F1'
 slug: mimatic
-coingecko_id: mai
-coingecko_link: https://www.coingecko.com/en/coins/mai
-coingecko_id_source: url
-coingecko_id_verified_at: '2026-06-26T12:16:16'
-usd_rate: 3.19e-06
-usd_rate_fetched_at: '2026-06-26T12:16:16'
-usd_rate_updated_at: '2026-04-02T12:32:28'
+depegged_at: ''
+coingecko_id: ''
+coingecko_link: ''
+coingecko_id_source: ''
+coingecko_id_verified_at: ''
+coingecko_id_verification_failed_at: '2026-06-30T10:05:58'
+coingecko_id_verification_failed_reason: "CoinGecko id mai not found"
+usd_rate: ''
+usd_rate_fetched_at: ''
+usd_rate_updated_at: ''
 peg_rate: ''
 peg_rate_currency: ''
-rate_fetch_failed_at: ''
-rate_fetch_failed_reason: ''
-depegged_at: ''
+rate_fetch_failed_at: '2026-06-30T10:05:58'
+rate_fetch_failed_reason: coingecko_id_not_found
 checks:
   twitter_last_post_at: '2026-02-24'
   domain_up_at: '2026-03-17'

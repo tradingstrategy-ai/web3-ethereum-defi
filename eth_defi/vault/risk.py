@@ -322,6 +322,7 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x4D55F76Ce2dBBAE7B48661bef9bD144Ce0C9091b",  # Age old mainnet contract
     "0x2136bbBa2eDcA21AFDddee838fFf19eA70D10F03",  # Age old mainnet contract
     "0x76f586589fc4a15713DB986d97Eb6fDC6ff078F2",  # Age old mainnet contract
+    "0x728974844947E09B77f01BA1eF115230DdC8A9A0",  # DecentrEx, EtherDelta-style DEX from 2017 (block 4,544,275) - probe selectors consume >600M gas and poison the multicall batch
     "0x6a6E4ad4a5ca14B940Cd6949b1A90f947AE21c19",  # Broken Gains vault on Berachain - its open PnL feed contract (0x5705554B) causes multicall failures
     "0x5705554BAa86Da01fF4A82d29a1598c5B3A8B476",  # Open PnL feed helper contract for broken Gains vault on Berachain
     "0x8fF6aDBC653405245B6b686E31b14A7da7000281",  # BNB broken contract

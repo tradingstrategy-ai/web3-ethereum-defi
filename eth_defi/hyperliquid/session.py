@@ -302,12 +302,10 @@ class HyperliquidSession(Session):
                     self._rotation_count += 1
                     # Rotate without failure_reason — the ProxyStateManager
                     # must NOT mark this proxy as dead. It is only throttled
-                    # and will recover within minutes.
-                    self._rotator.rotate(failure_reason=None)
-                    logger.log(
-                        self._rotator.log_level,
-                        "Rotated on HTTP %d (throttled, proxy not marked dead)",
-                        response.status_code,
+                    # and will recover within minutes. The reason is logged by
+                    # rotate() itself.
+                    self._rotator.rotate(
+                        reason=f"HTTP {response.status_code} throttled (proxy not marked dead)",
                     )
                     continue
                 return response
