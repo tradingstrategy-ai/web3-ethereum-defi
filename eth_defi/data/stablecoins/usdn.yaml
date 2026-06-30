@@ -84,6 +84,9 @@ entries:
     coingecko: https://www.coingecko.com/en/coins/neutrino
     defillama: https://defillama.com/stablecoin/neutrino
     twitter: https://x.com/neutrino_proto
+  contract_addresses:
+    - chain: ethereum
+      address: '0x674C6Ad92Fd080e4004b2312b45f796a192D27a0'  # verified on-chain: symbol() == USDN, name() == Neutrino USD
   coingecko_id: neutrino
   coingecko_link: https://www.coingecko.com/en/coins/neutrino
   coingecko_id_source: url

@@ -1,5 +1,7 @@
 # Current
 
+- fix: Resolve the unactionable-depeg warnings for `AUSD`, `dUSD`, `USDN` and `USDX`. Pin the dead DefiDollar (`DUSD`) and Neutrino USD (`USDN`) tokens by their on-chain-verified Ethereum contract addresses so their depegged vaults are now blacklisted, and add a `non_evm: true` flag for natively non-EVM dead tokens (Acala `aUSD` on Polkadot, Kava `USDX` on Cosmos) that have no ERC-20 on any indexed chain, silencing the warning that no contract address could ever resolve (2026-06-30)
+
 - fix: Track and blacklist more depegged stablecoin denominations — apxUSD (~$177.5M nominal vault TVL), StablR EURR/USDR and the Synthetix sUSD rate source. Add an `ambiguous_symbol` flag so shared tickers (`sUSD`, `USDR`) match by contract address only, protecting healthy same-ticker tokens (e.g. YieldFi sUSD, Tangible vs StablR USDR) from being false-blacklisted, and manually flag the unrelated Rezerve.money USD vault that previously rode the USDR symbol match (2026-06-28)
 
 - feat: Add Rich-powered coloured console logging for Docker Compose vault scanner logs, with Docker log autodetection, coloured levels/context, plain file logging, and a smoke script for comparing terminal, forced-colour and Docker output modes (2026-06-28)
