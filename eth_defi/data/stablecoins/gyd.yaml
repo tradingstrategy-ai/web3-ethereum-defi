@@ -42,7 +42,7 @@ long_description: |
 category: stablecoin
 links:
   homepage: https://www.gyro.finance/
-  coingecko: https://www.coingecko.com/en/coins/gyroscope-gyd
+  coingecko: ''
   defillama: ''
   twitter: https://x.com/GyroscopeFi
 contract_addresses:
@@ -51,18 +51,20 @@ contract_addresses:
   - chain: arbitrum
     address: '0xCA5d8F8a8d49439357d3CF46Ca2e720702F132b8'
 slug: gyd
-coingecko_id: gyroscope-gyd
-coingecko_link: https://www.coingecko.com/en/coins/gyroscope-gyd
-coingecko_id_source: url
-coingecko_id_verified_at: '2026-06-26T12:16:16'
-usd_rate: 0.992463
-usd_rate_fetched_at: '2026-06-26T12:16:16'
-usd_rate_updated_at: '2026-02-01T07:23:58'
-peg_rate: 0.992463
-peg_rate_currency: usd
-rate_fetch_failed_at: ''
-rate_fetch_failed_reason: ''
 depegged_at: ''
+coingecko_id: ''
+coingecko_link: ''
+coingecko_id_source: ''
+coingecko_id_verified_at: ''
+coingecko_id_verification_failed_at: '2026-06-30T10:05:58'
+coingecko_id_verification_failed_reason: "CoinGecko id gyroscope-gyd not found"
+usd_rate: ''
+usd_rate_fetched_at: ''
+usd_rate_updated_at: ''
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: '2026-06-30T10:05:58'
+rate_fetch_failed_reason: coingecko_id_not_found
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

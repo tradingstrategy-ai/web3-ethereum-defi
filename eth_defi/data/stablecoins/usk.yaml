@@ -23,22 +23,24 @@ long_description: |
 category: stablecoin
 links:
   homepage: https://kujira.app/
-  coingecko: https://www.coingecko.com/en/coins/usk
+  coingecko: ''
   defillama: https://defillama.com/stablecoin/usk
   twitter: https://x.com/TeamKujira
 slug: usk
-coingecko_id: usk
-coingecko_link: https://www.coingecko.com/en/coins/usk
-coingecko_id_source: url
-coingecko_id_verified_at: '2026-06-26T12:16:16'
-usd_rate: 0.314985
-usd_rate_fetched_at: '2026-06-26T12:16:16'
-usd_rate_updated_at: '2025-10-11T05:03:12'
+depegged_at: ''
+coingecko_id: ''
+coingecko_link: ''
+coingecko_id_source: ''
+coingecko_id_verified_at: ''
+coingecko_id_verification_failed_at: '2026-06-30T10:05:58'
+coingecko_id_verification_failed_reason: "CoinGecko id usk not found"
+usd_rate: ''
+usd_rate_fetched_at: ''
+usd_rate_updated_at: ''
 peg_rate: ''
 peg_rate_currency: ''
-rate_fetch_failed_at: ''
-rate_fetch_failed_reason: ''
-depegged_at: ''
+rate_fetch_failed_at: '2026-06-30T10:05:58'
+rate_fetch_failed_reason: coingecko_id_not_found
 checks:
   twitter_last_post_at: '2026-03-17'
   domain_up_at: '2026-03-17'

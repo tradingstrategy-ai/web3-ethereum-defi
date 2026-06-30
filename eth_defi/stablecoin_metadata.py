@@ -520,6 +520,12 @@ class StablecoinMetadata(TypedDict):
     #: Last time the CoinGecko id returned a valid price.
     coingecko_id_verified_at: ISODateTimeString | None
 
+    #: Last time CoinGecko id verification failed.
+    coingecko_id_verification_failed_at: ISODateTimeString | None
+
+    #: Human-readable reason for the latest CoinGecko id verification failure.
+    coingecko_id_verification_failed_reason: str | None
+
     #: Latest USD rate from the stablecoin rate feed.
     usd_rate: float | None
 
@@ -751,6 +757,8 @@ def build_stablecoin_metadata_json(yaml_path: Path, public_url: str = "") -> lis
             "coingecko_link": normalise(source.get("coingecko_link")),
             "coingecko_id_source": normalise(source.get("coingecko_id_source")),
             "coingecko_id_verified_at": normalise(source.get("coingecko_id_verified_at")),
+            "coingecko_id_verification_failed_at": normalise(source.get("coingecko_id_verification_failed_at")),
+            "coingecko_id_verification_failed_reason": normalise(source.get("coingecko_id_verification_failed_reason")),
             "usd_rate": normalise_float(source.get("usd_rate")),
             "usd_rate_fetched_at": normalise(source.get("usd_rate_fetched_at")),
             "usd_rate_updated_at": normalise(source.get("usd_rate_updated_at")),

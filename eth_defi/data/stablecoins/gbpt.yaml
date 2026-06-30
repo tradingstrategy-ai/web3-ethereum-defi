@@ -11,25 +11,27 @@ long_description: |
 category: stablecoin
 links:
   homepage: https://poundtoken.io/
-  coingecko: https://www.coingecko.com/en/coins/poundtoken
+  coingecko: ''
   defillama: ''
   twitter: https://x.com/poundtoken
 contract_addresses:
   - chain: ethereum
     address: '0x86B4dBE5D203e634a12364C0e428fa242A3FbA98'
 slug: gbpt
-coingecko_id: poundtoken
-coingecko_link: https://www.coingecko.com/en/coins/poundtoken
-coingecko_id_source: url
-coingecko_id_verified_at: '2026-06-26T12:16:16'
-usd_rate: 1.32
-usd_rate_fetched_at: '2026-06-26T12:16:16'
-usd_rate_updated_at: '2024-06-12T16:08:51'
-peg_rate: 1.026
-peg_rate_currency: gbp
-rate_fetch_failed_at: ''
-rate_fetch_failed_reason: ''
 depegged_at: ''
+coingecko_id: ''
+coingecko_link: ''
+coingecko_id_source: ''
+coingecko_id_verified_at: ''
+coingecko_id_verification_failed_at: '2026-06-30T10:05:58'
+coingecko_id_verification_failed_reason: "CoinGecko id poundtoken not found"
+usd_rate: ''
+usd_rate_fetched_at: ''
+usd_rate_updated_at: ''
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: '2026-06-30T10:05:58'
+rate_fetch_failed_reason: coingecko_id_not_found
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'
