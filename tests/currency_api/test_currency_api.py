@@ -21,7 +21,7 @@ import pandas as pd
 import pytest
 
 from eth_defi.currency_api.cleaning import filter_known_bad_rates
-from eth_defi.currency_api.client import DateRates
+from eth_defi.currency_api.client import DateRates, _parse_document
 from eth_defi.currency_api.database import CurrencyRateDatabase
 from eth_defi.currency_api.scanner import run_incremental_scan
 
@@ -226,8 +226,8 @@ def test_present_and_unavailable_disjoint(db_path: Path):
     Runs against a real DuckDB (no mocks).
 
     1. Record a (date, quote) as an unavailable gap.
-    2. Upsert real data for the same cell.
-    3. Assert the cell is now present and no longer recorded as unavailable.
+    2. Upsert real data for the same cell — the stale gap row is deleted.
+    3. Recording the same cell as unavailable again is a no-op while it has data.
     """
 
     db = CurrencyRateDatabase(db_path)
@@ -238,14 +238,49 @@ def test_present_and_unavailable_disjoint(db_path: Path):
         db.record_unavailable(date, "usd", "eur", "fawazahmed0", reason="quote_missing")
         assert (date, "eur") in db.get_unavailable_pairs("usd", "fawazahmed0")
 
-        # 2. Upsert real data for the same cell.
+        # 2. Upsert real data for the same cell — gap removed, cell now present.
         db.upsert_rates(DateRates(date=date, base_currency="usd", source="fawazahmed0", rows=[("eur", 0.9)]))
+        assert (date, "eur") in db.get_present_pairs("usd", "fawazahmed0")
+        assert (date, "eur") not in db.get_unavailable_pairs("usd", "fawazahmed0")
 
-        # 3. The cell is present and the stale gap row is gone.
+        # 3. Reverse direction: recording a gap for an already-present cell is a
+        #    no-op (e.g. a present date that later 404s on a tail refetch / give-up).
+        db.record_unavailable(date, "usd", "eur", "fawazahmed0", reason="date_404", http_status=404)
         assert (date, "eur") in db.get_present_pairs("usd", "fawazahmed0")
         assert (date, "eur") not in db.get_unavailable_pairs("usd", "fawazahmed0")
     finally:
         db.close()
+
+
+def test_parse_document_classifies_present_absent_and_malformed():
+    """_parse_document distinguishes present, absent, and malformed quotes.
+
+    Pure-function test on literal JSON bodies (no network, no mocks).
+
+    1. A well-formed body returns `ok` with every requested quote parsed.
+    2. A quote absent from the body is reported in `missing_quotes` (still `ok`).
+    3. A present-but-unparseable value makes the whole date `transient_error`
+       (corrupt data is retried, not stored or recorded as a permanent gap).
+    """
+
+    date = datetime.date(2026, 6, 1)
+    quotes = ("eur", "gbp")
+
+    # 1. Well-formed body → ok with both quotes.
+    ok = _parse_document(date, "usd", quotes, "fawazahmed0", {"usd": {"eur": 0.9, "gbp": 0.8}})
+    assert ok.status == "ok"
+    assert dict(ok.rates.rows) == {"eur": 0.9, "gbp": 0.8}
+    assert ok.missing_quotes == ()
+
+    # 2. Absent quote → ok, reported as missing (a permanent per-quote gap).
+    absent = _parse_document(date, "usd", quotes, "fawazahmed0", {"usd": {"eur": 0.9}})
+    assert absent.status == "ok"
+    assert absent.missing_quotes == ("gbp",)
+    assert dict(absent.rates.rows) == {"eur": 0.9}
+
+    # 3. Present but unparseable value → transient_error (retry, do not record).
+    malformed = _parse_document(date, "usd", quotes, "fawazahmed0", {"usd": {"eur": 0.9, "gbp": "oops"}})
+    assert malformed.status == "transient_error"
 
 
 def test_filter_known_bad_rates_removes_source_outlier(db_path: Path):

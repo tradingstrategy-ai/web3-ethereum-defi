@@ -198,9 +198,11 @@ def _parse_document(
     :return:
         ``ok`` result with the present quotes (and any ``missing_quotes``) when the
         document is well-formed — even if no requested quote is present, since a
-        valid document means the date IS published and absent quotes are permanent
-        per-quote gaps, not a transient failure. Returns ``transient_error`` only
-        when the body is structurally malformed (missing the base key).
+        valid document means the date IS published and *absent* quotes are permanent
+        per-quote gaps, not a transient failure. Returns ``transient_error`` when the
+        body is structurally malformed (missing the base key) **or** a requested
+        quote is present but its value is unparseable: corrupt data must be retried,
+        not stored partially or recorded as a permanent ``quote_missing`` gap.
     """
     base_map = data.get(base_currency) if isinstance(data, dict) else None
     if not isinstance(base_map, dict):
@@ -210,19 +212,24 @@ def _parse_document(
 
     rows: list[tuple[str, float]] = []
     missing: list[str] = []
+    malformed: list[str] = []
     for quote in quote_currencies:
         value = base_map.get(quote)
         if value is None:
-            # Quote not present — never fabricate; hand back for grace/record.
+            # Quote genuinely absent — never fabricate; a permanent per-quote gap.
             missing.append(quote)
             continue
         try:
             rows.append((quote, float(value)))
         except (TypeError, ValueError):
-            # Malformed numeric for this quote — treat the cell as missing rather
-            # than raising out of the worker and aborting the whole parallel batch.
+            # Present but unparseable — corrupt source data, distinct from "absent".
             logger.warning("Malformed rate %r for %s/%s on %s", value, base_currency, quote, date)
-            missing.append(quote)
+            malformed.append(quote)
+
+    if malformed:
+        # A corrupt value means the document is suspect: retry the whole date rather
+        # than storing partial data or permanently recording the cell as missing.
+        return FetchResult(date=date, status="transient_error", missing_quotes=tuple(missing))
 
     # A well-formed document with zero present quotes is still ``ok``: the date
     # exists, so the absent quotes are recorded as permanent gaps after grace

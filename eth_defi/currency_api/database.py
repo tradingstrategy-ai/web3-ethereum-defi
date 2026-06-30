@@ -193,19 +193,42 @@ class CurrencyRateDatabase:
             (given up after exceeding the transient-failure budget).
         :param http_status:
             HTTP status that confirmed the gap, if applicable.
+
+        No-op for a cell that already has data in ``exchange_rates`` — the two
+        tables are kept mutually exclusive. This mirrors :py:meth:`upsert_rates`,
+        which deletes the gap row when data arrives; together they ensure a cell is
+        never recorded as both present and unavailable (e.g. when a date that
+        already has stored data later 404s on a tail refetch, or hits give-up).
         """
         self.con.execute(
             """
             INSERT INTO unavailable_rates (
                 date, base_currency, quote_currency, source, reason, http_status, checked_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            )
+            SELECT ?, ?, ?, ?, ?, ?, ?
+            WHERE NOT EXISTS (
+                SELECT 1 FROM exchange_rates
+                WHERE date = ? AND base_currency = ? AND quote_currency = ? AND source = ?
+            )
             ON CONFLICT (date, base_currency, quote_currency, source)
             DO UPDATE SET
                 reason = EXCLUDED.reason,
                 http_status = EXCLUDED.http_status,
                 checked_at = EXCLUDED.checked_at
             """,
-            [date, base_currency, quote_currency, source, reason, http_status, native_datetime_utc_now()],
+            [
+                date,
+                base_currency,
+                quote_currency,
+                source,
+                reason,
+                http_status,
+                native_datetime_utc_now(),
+                date,
+                base_currency,
+                quote_currency,
+                source,
+            ],
         )
 
     def get_transient_attempts(self, base_currency: str, source: str) -> dict[datetime.date, int]:
