@@ -6,9 +6,8 @@ website: https://smardex.io
 short_description: 'SmarDex is a decentralised exchange and AMM protocol focused on smart liquidity and low-slippage swaps.'
 long_description: |
   SmarDex describes itself as a decentralised exchange designed for efficient, low-slippage cryptocurrency swaps through smart liquidity mechanisms. Its documentation explains that it operates as an AMM using pricing algorithms, while its LinkedIn profile frames SmarDex.io as a DeFi access point for users of the SmarDex protocol.
-# 2026-06-10 maintain-curators: verified @SmarDex active via web search
-# (display "SMARDEX.io", live profile); twitter-handle-resolved-unknown-at was
-# an X-API resolution false positive — cleared. linkedin marker left (bridge).
-twitter: SmarDex
+# 2026-06-28 maintain-curators: SmarDex rebranded to Everything; indexed X
+# posts under the old @SmarDex URL now resolve as @every_thing - repointed.
+twitter: every_thing
 linkedin: realsmardex
 linkedin-rss-hub-disabled-at: 2026-04-04

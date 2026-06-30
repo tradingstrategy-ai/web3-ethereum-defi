@@ -43,7 +43,7 @@ These handles were wrong or outdated - the X API correctly reported them as unkn
 | tfusdc | TrueFi_DAO | Active, confirmed correct |
 | infinifi | infinifi_ | Active, confirmed correct |
 | ember | EmberProtocol_ | Active, confirmed correct |
-| smardex | SmarDex | Active, confirmed correct |
+| smardex | every_thing | Repointed after SmarDex rebrand to Everything |
 
 ## RSS feed fixes
 

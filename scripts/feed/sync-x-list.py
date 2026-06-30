@@ -36,9 +36,10 @@ import logging
 import os
 from pathlib import Path
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.feed.constants import DEFAULT_X_LIST_NAME
 from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE, VaultPostDatabase
-from eth_defi.feed.sources import FEEDS_DATA_DIR, load_post_sources
+from eth_defi.feed.sources import FEEDS_DATA_DIR, build_twitter_source_file_lookup, load_post_sources, mark_suspended_twitter_handle
 from eth_defi.feed.twitter_api import TwitterUserCache, XApiError, XRateLimitError, resolve_x_list_id_by_name, sync_x_list_members
 from eth_defi.utils import setup_console_logging
 
@@ -162,10 +163,14 @@ def main() -> None:
     rate_limit_sleep_max_seconds = _get_x_list_rate_limit_sleep_max_seconds()
 
     sources, feeders_skipped, aliases = load_post_sources(mappings_dir)
-    handles = sorted({source.source_key for source in sources if source.source_type == "twitter"})
+    twitter_sources = [source for source in sources if source.source_type == "twitter"]
+    handles = sorted({source.source_key for source in twitter_sources})
 
     if not handles:
         raise RuntimeError(f"No Twitter/X handles found in {mappings_dir}")
+
+    source_files_by_handle = build_twitter_source_file_lookup(twitter_sources)
+    today_str = native_datetime_utc_now().strftime("%Y-%m-%d")
 
     with VaultPostDatabase(db_path) as db:
         try:
@@ -181,6 +186,12 @@ def main() -> None:
                 db,
                 add_delay_seconds=add_delay_seconds,
                 rate_limit_sleep_max_seconds=rate_limit_sleep_max_seconds,
+                suspended_member_callback=lambda handle, user_id: mark_suspended_twitter_handle(
+                    handle,
+                    user_id,
+                    source_files_by_handle,
+                    today_str,
+                ),
             )
         except XRateLimitError as e:
             db.save()

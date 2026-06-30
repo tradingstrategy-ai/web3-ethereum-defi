@@ -519,6 +519,12 @@ per-list `x_list_member_ids:<list_id>` cache and only writes the delta on later
 runs.  Re-adding an existing member is a no-op on X's side, so a cold cache
 self-heals on the first run.
 
+If X resolves a handle to a user ID but rejects the list write because the
+account is suspended, the scanner and standalone sync command treat this as a
+non-retryable account-state failure and stamp the feeder YAML with
+`twitter-handle-resolved-unknown-at`. The sync stores the current handle hash so
+the same account is not retried every run.
+
 By default the script resolves the list named `Best builders in DeFi` from the
 authenticated X user's owned lists.  Set `X_LIST_ID` only when you want to
 override this automatic lookup with a numeric list ID from a URL like

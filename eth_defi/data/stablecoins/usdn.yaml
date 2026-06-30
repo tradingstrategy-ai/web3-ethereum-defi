@@ -35,14 +35,22 @@ entries:
     - [The Block — Noble first to launch via M^0](https://www.theblock.co/post/329332/cosmos-based-noble-first-to-launch-custom-stablecoin-using-cryptodollar-infrastructure-startup-m0)
   links:
     homepage: https://noble.xyz/
-    coingecko: https://www.coingecko.com/en/coins/noble-dollar
+    coingecko: ''
     defillama: https://defillama.com/stablecoin/noble-dollar
     twitter: https://x.com/noble_xyz
-  coingecko_id: noble-dollar
-  coingecko_link: https://www.coingecko.com/en/coins/noble-dollar
-  coingecko_id_source: url
-  rate_fetch_failed_at: '2026-06-26T12:16:16'
-  rate_fetch_failed_reason: coingecko_price_missing
+  coingecko_id: ''
+  coingecko_link: ''
+  coingecko_id_source: ''
+  coingecko_id_verified_at: ''
+  coingecko_id_verification_failed_at: '2026-06-30T10:05:58'
+  coingecko_id_verification_failed_reason: "CoinGecko id noble-dollar not found"
+  usd_rate: ''
+  usd_rate_fetched_at: ''
+  usd_rate_updated_at: ''
+  peg_rate: ''
+  peg_rate_currency: ''
+  rate_fetch_failed_at: '2026-06-30T10:05:58'
+  rate_fetch_failed_reason: coingecko_id_not_found
   checks:
     twitter_last_post_at: '2026-03-17'
     domain_up_at: '2026-03-17'

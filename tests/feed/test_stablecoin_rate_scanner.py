@@ -272,6 +272,17 @@ def test_stablecoin_rate_side_job_same_day_failed_attempts_do_not_become_success
             return {}
 
     def fake_missing_price_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> MissingPriceResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            assert params["include_platform"] == "false"
+
+            class CoinLookupResponse(MissingPriceResponse):
+                """Small successful CoinGecko coins list response."""
+
+                def json(self) -> list[dict[str, object]]:
+                    """Return known CoinGecko ids."""
+                    return [{"id": "usd-coin"}]
+
+            return CoinLookupResponse()
         assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
         assert params["ids"] == "usd-coin"
         assert isinstance(headers, dict)
