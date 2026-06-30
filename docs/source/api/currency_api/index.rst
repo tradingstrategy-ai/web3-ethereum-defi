@@ -29,6 +29,7 @@ incremental scanning model, see
    eth_defi.currency_api.scanner
    eth_defi.currency_api.client
    eth_defi.currency_api.database
+   eth_defi.currency_api.cleaning
    eth_defi.currency_api.session
    eth_defi.currency_api.constants
    eth_defi.currency_api.cli

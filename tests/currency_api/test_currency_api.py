@@ -20,6 +20,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from eth_defi.currency_api.cleaning import filter_known_bad_rates
 from eth_defi.currency_api.client import DateRates
 from eth_defi.currency_api.database import CurrencyRateDatabase
 from eth_defi.currency_api.scanner import run_incremental_scan
@@ -245,6 +246,48 @@ def test_present_and_unavailable_disjoint(db_path: Path):
         assert (date, "eur") not in db.get_unavailable_pairs("usd", "fawazahmed0")
     finally:
         db.close()
+
+
+def test_filter_known_bad_rates_removes_source_outlier(db_path: Path):
+    """The cleaning step removes the known 2025-12-06 BTC/ETH source outlier.
+
+    Real-network, no mocks: scans the window around the known upstream glitch and
+    applies the separate cleaning step.
+
+    1. Scan 2025-12-05..07 for the default currencies (the source returns garbage
+       btc/eth on 2025-12-06).
+    2. Assert the raw data still contains the bad 2025-12-06 btc/eth cells
+       (ingestion stores raw, unfiltered).
+    3. Apply `filter_known_bad_rates` and assert exactly those two cells are gone,
+       the row count drops by 2, and good rows (e.g. 2025-12-06 EUR) remain.
+    """
+
+    bad_date = datetime.date(2025, 12, 6)
+
+    # 1. Scan the window around the known source glitch.
+    result = run_incremental_scan(
+        db_path=db_path,
+        start_date=datetime.date(2025, 12, 5),
+        end_date=datetime.date(2025, 12, 7),
+    )
+    try:
+        raw = result.db.get_rates_dataframe()
+        raw["date"] = pd.to_datetime(raw["date"]).dt.date
+
+        # 2. Raw ingestion keeps the bad cells verbatim.
+        raw_pairs = {(row.date, row.quote_currency) for row in raw.itertuples()}
+        assert (bad_date, "btc") in raw_pairs
+        assert (bad_date, "eth") in raw_pairs
+
+        # 3. Cleaning removes exactly the two known-bad cells, keeps the rest.
+        cleaned = filter_known_bad_rates(raw)
+        cleaned_pairs = {(row.date, row.quote_currency) for row in cleaned.itertuples()}
+        assert (bad_date, "btc") not in cleaned_pairs
+        assert (bad_date, "eth") not in cleaned_pairs
+        assert (bad_date, "eur") in cleaned_pairs  # good rows untouched
+        assert len(cleaned) == len(raw) - 2
+    finally:
+        result.db.close()
 
 
 def test_scan_script_entry_point(db_path: Path, tmp_path: Path):

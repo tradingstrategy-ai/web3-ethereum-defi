@@ -143,6 +143,26 @@ These are accepted for now (configurable via the env vars above):
 - **`MAX_TRANSIENT_ATTEMPTS=1` gives up on the first transient failure.** There
   is no lower-bound guard; keep the default (5) unless you intend this.
 
+## Data cleaning
+
+Ingestion stores **raw** source values verbatim — it never fabricates or corrects
+data, so the DuckDB file stays a faithful, auditable mirror of the source.
+Cleaning is a **separate, explicit step**: `filter_known_bad_rates()` in
+`eth_defi/currency_api/cleaning.py` drops a small, documented allowlist of
+known-bad datapoints (upstream source glitches found by manual review) from a
+rates DataFrame, without touching the stored data.
+
+```python
+from eth_defi.currency_api.cleaning import filter_known_bad_rates
+
+clean_df = filter_known_bad_rates(db.get_rates_dataframe())
+```
+
+Currently the allowlist contains one entry: **2025-12-06 BTC and ETH**, where the
+source returned garbage values (`usd.btc ≈ 38.9`, `usd.eth ≈ 49,644` — ~6-7 orders
+of magnitude off, confirmed at the source; fiat for the same day was fine). Each
+entry in `KNOWN_BAD_RATES` is documented with the observed value and evidence.
+
 ## Quick start
 
 The scanner is installed as the `scan-currencies` Poetry console script:
@@ -192,6 +212,7 @@ poetry run python -m eth_defi.currency_api.cli
 | `eth_defi/currency_api/client.py` | `fetch_rates_for_date()` — fetch, jsDelivr→pages.dev host fallback, parse, outcome classification |
 | `eth_defi/currency_api/database.py` | `CurrencyRateDatabase` — DuckDB storage, upserts, gap tracking |
 | `eth_defi/currency_api/scanner.py` | `run_incremental_scan()` — completeness-driven incremental orchestration |
+| `eth_defi/currency_api/cleaning.py` | `filter_known_bad_rates()` — separate cleaning step dropping known source glitches |
 | `eth_defi/currency_api/cli.py` | `main()` — env-driven `scan-currencies` Poetry console entry point |
 
 ## Running tests
