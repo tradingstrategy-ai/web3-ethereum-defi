@@ -641,6 +641,14 @@ class ERC4626Feature(enum.Enum):
     #: https://aave.com/
     aave_like = "aave_like"
 
+    #: Mellow Core Vault.
+    #:
+    #: Routing marker for Mellow vaults discovered through Core Vault factory
+    #: events. Mellow vaults are not ERC-4626 vault contracts; the primary
+    #: vault address is separate from the ERC-20 ShareManager.
+    #: https://docs.mellow.finance/core-vaults
+    mellow_like = "mellow_like"
+
 
 #: Features that identify lending protocol vaults.
 #:
@@ -676,6 +684,26 @@ def is_lending_protocol(features: set[ERC4626Feature]) -> bool:
     return bool(features & LENDING_PROTOCOL_FEATURES)
 
 
+def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
+    """Check if a vault detection bypasses deposit/redeem count filters.
+
+    Some shared vault database entries are not discovered from canonical
+    ERC-4626 ``Deposit`` and ``Withdraw`` events emitted by the vault address.
+    Mellow Core Vaults are the first EVM example: the vault identity comes from
+    ``Factory.Created`` while user flow events live on per-asset queue
+    contracts. The scanner stores integer zero counts for compatibility and
+    uses this feature-based exemption to keep these vaults in price scans.
+
+    :param detection:
+        Shared vault detection envelope.
+
+    :return:
+        ``True`` if low activity count filters should not drop this detection.
+    """
+
+    return ERC4626Feature.mellow_like in detection.features
+
+
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
 
@@ -688,6 +716,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """
     if ERC4626Feature.broken in features:
         return "<not ERC-4626>"
+    elif ERC4626Feature.mellow_like in features:
+        return "Mellow"
     elif ERC4626Feature.morpho_v2_like in features:
         return "Morpho"
     elif ERC4626Feature.morpho_like in features:

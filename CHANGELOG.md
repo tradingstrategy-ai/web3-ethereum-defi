@@ -8,6 +8,8 @@
 
 - fix: Autoretry HyperSync vault scans on server-side rate limiting. The Envio/HyperSync Rust client reports an exhausted request budget as a textual `rate limited by server` error with no HTTP `429`, which slipped past the rate-limit classifier and crashed the whole chain scan instead of being retried. Broaden `is_hypersync_rate_limit_error()` to match the textual form, consolidate four duplicated recoverable-error handlers into a shared `raise_if_recoverable_hypersync_flaky()` helper, and document the required `codex exec --json` background review method (2026-06-28)
 
+- feat: Add initial Mellow Core Vault discovery and adapter support for documented Ethereum, Plasma, Arbitrum and Monad Core factories, including Hypersync factory-event scanning, `mellow_like` routing through the existing vault pipeline, a partial `MellowVault` reader, manual mapping script and focused classification tests (2026-06-30)
+
 - fix: Track and blacklist more depegged stablecoin denominations — apxUSD (~$177.5M nominal vault TVL), StablR EURR/USDR and the Synthetix sUSD rate source. Add an `ambiguous_symbol` flag so shared tickers (`sUSD`, `USDR`) match by contract address only, protecting healthy same-ticker tokens (e.g. YieldFi sUSD, Tangible vs StablR USDR) from being false-blacklisted, and manually flag the unrelated Rezerve.money USD vault that previously rode the USDR symbol match (2026-06-28)
 
 - feat: Add Rich-powered coloured console logging for Docker Compose vault scanner logs, with Docker log autodetection, coloured levels/context, plain file logging, and a smoke script for comparing terminal, forced-colour and Docker output modes (2026-06-28)

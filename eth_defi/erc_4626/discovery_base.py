@@ -15,7 +15,7 @@ import enum
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Type
+from typing import TYPE_CHECKING, Type
 
 from eth_typing import HexAddress
 from web3.contract.contract import ContractEvent
@@ -23,11 +23,14 @@ from web3.contract.contract import ContractEvent
 from eth_defi.abi import get_contract
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import probe_vaults
-from eth_defi.erc_4626.core import get_erc_4626_contract, ERC4626Feature, ERC4262VaultDetection
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_erc_4626_contract
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from eth_defi.mellow.discovery import MellowFactoryCandidate
 
 
 class VaultEventKind(enum.Enum):
@@ -42,7 +45,7 @@ class VaultEventKind(enum.Enum):
 
 @dataclasses.dataclass(slots=True, frozen=False)
 class PotentialVaultMatch:
-    """Categorise contracts that emit ERC-4626 like events."""
+    """Categorise contracts that emit vault discovery events."""
 
     chain: int
     address: HexAddress
@@ -50,9 +53,17 @@ class PotentialVaultMatch:
     first_seen_at: datetime.datetime
     deposit_count: int = 0
     withdrawal_count: int = 0
+    #: Mellow ``Factory.Created`` metadata when this lead came from a Mellow
+    #: factory event instead of vault-local deposit/withdraw events.
+    #:
+    #: Mellow Core Vault user flow events are emitted by queue contracts, not by
+    #: the canonical Vault. Keep this metadata on the normal lead object so the
+    #: discovery path can still use one lead map and one feature-probe loop.
+    mellow_factory_candidate: "MellowFactoryCandidate | None" = None
 
     def is_candidate(self) -> bool:
-        return self.deposit_count > 0 and self.withdrawal_count > 0
+        # Compatibility shim: older persisted lead objects may not have this slot; remove after reader state migration.
+        return getattr(self, "mellow_factory_candidate", None) is not None or (self.deposit_count > 0 and self.withdrawal_count > 0)
 
 
 def get_brink_vault_contract(web3):
@@ -290,6 +301,89 @@ class LeadScanReport:
     end_block: int = 0
 
 
+def _prepare_probe_leads(leads: dict[HexAddress, PotentialVaultMatch]) -> tuple[list[HexAddress], dict[str, PotentialVaultMatch], int]:
+    """Prepare lead data for the shared feature-probe pass.
+
+    :param leads:
+        Vault leads keyed by emitting contract address or canonical Mellow
+        Vault address.
+
+    :return:
+        Probe addresses, lower-case lead lookup and Mellow factory lead count.
+    """
+
+    addresses = []
+    leads_by_address = {}
+    seen_addresses = set()
+    mellow_lead_count = 0
+    for address, lead in leads.items():
+        lowered_address = address.lower()
+        leads_by_address[lowered_address] = lead
+
+        # Compatibility shim: older persisted lead objects may not have this slot; remove after reader state migration.
+        if getattr(lead, "mellow_factory_candidate", None) is not None:
+            mellow_lead_count += 1
+
+        if lowered_address in BROKEN_VAULT_CONTRACTS or lowered_address in seen_addresses:
+            continue
+        addresses.append(address)
+        seen_addresses.add(lowered_address)
+
+    return addresses, leads_by_address, mellow_lead_count
+
+
+def create_mellow_potential_vault_match(candidate: "MellowFactoryCandidate") -> PotentialVaultMatch:
+    """Create a normal lead object from a Mellow factory candidate.
+
+    :param candidate:
+        Decoded Mellow ``Factory.Created`` log.
+
+    :return:
+        Lead compatible with the shared ``probe_vaults()`` path.
+    """
+
+    return PotentialVaultMatch(
+        chain=candidate.chain,
+        address=candidate.address,
+        first_seen_at_block=candidate.created_block,
+        first_seen_at=candidate.created_at,
+        # Mellow flow events are emitted by DepositQueue contracts, not by the
+        # canonical Vault address discovered from Factory.Created. True flow
+        # counts need a second-stage queue scan; initial discovery and price
+        # scanning intentionally use feature-based activity-filter exemption.
+        deposit_count=0,
+        # Mellow redemption events are emitted by RedeemQueue contracts. Keep
+        # an integer zero for compatibility with numeric consumers;
+        # ERC4626Feature.mellow_like prevents these rows from being silently
+        # filtered out as inactive.
+        withdrawal_count=0,
+        mellow_factory_candidate=candidate,
+    )
+
+
+def add_mellow_factory_candidate_lead(
+    report: LeadScanReport,
+    leads: dict[HexAddress, PotentialVaultMatch],
+    candidate: "MellowFactoryCandidate",
+) -> None:
+    """Add a Mellow factory candidate to the shared lead map if new.
+
+    :param report:
+        Mutable scan report whose counters are updated.
+
+    :param leads:
+        Mutable lead map.
+
+    :param candidate:
+        Decoded Mellow ``Factory.Created`` candidate.
+    """
+
+    key = HexAddress(candidate.address.lower())
+    if key not in leads:
+        leads[key] = create_mellow_potential_vault_match(candidate)
+        report.new_leads += 1
+
+
 class VaultDiscoveryBase(abc.ABC):
     def __init__(
         self,
@@ -344,17 +438,14 @@ class VaultDiscoveryBase(abc.ABC):
 
         assert type(leads) == dict, f"Expected dict, got {type(leads)}"
 
-        logger.info("Found %d leads", len(leads))
-        addresses = list(leads.keys())
+        addresses, leads_by_address, mellow_lead_count = _prepare_probe_leads(leads)
+        logger.info("Found %d vault leads, of which %d are Mellow factory leads", len(leads), mellow_lead_count)
         good_vaults = broken_vaults = 0
 
         if display_progress:
             progress_bar_desc = f"Identifying vaults, using {self.max_workers} workers"
         else:
             progress_bar_desc = None
-
-        # Filter out known bad vaults
-        addresses = [a for a in addresses if a.lower() not in BROKEN_VAULT_CONTRACTS]
 
         for feature_probe in probe_vaults(
             chain,
@@ -366,8 +457,40 @@ class VaultDiscoveryBase(abc.ABC):
         ):
             if feature_probe.address.lower() in BROKEN_VAULT_CONTRACTS:
                 logger.warning(f"Skipping known broken vault {feature_probe.address}")
+                continue
 
-            lead = leads[feature_probe.address]
+            address_key = feature_probe.address.lower()
+            lead = leads_by_address[address_key]
+            # Compatibility shim: older persisted lead objects may not have this slot; remove after reader state migration.
+            candidate = getattr(lead, "mellow_factory_candidate", None)
+            if candidate is not None:
+                features = set(feature_probe.features)
+                features.discard(ERC4626Feature.broken)
+                features.add(ERC4626Feature.mellow_like)
+
+                detection = ERC4262VaultDetection(
+                    chain=chain,
+                    address=feature_probe.address,
+                    features=features,
+                    first_seen_at_block=candidate.created_block,
+                    first_seen_at=candidate.created_at,
+                    updated_at=native_datetime_utc_now(),
+                    # Mellow flow events are emitted by DepositQueue contracts,
+                    # not by the canonical Vault address discovered from
+                    # Factory.Created. True flow counts need a second-stage
+                    # queue scan; initial discovery and price scanning
+                    # intentionally use feature-based activity-filter exemption
+                    # instead.
+                    deposit_count=0,
+                    # Mellow redemption events are emitted by RedeemQueue
+                    # contracts. Keep an integer zero for compatibility with
+                    # numeric consumers; ERC4626Feature.mellow_like prevents
+                    # these rows from being silently filtered out as inactive.
+                    redeem_count=0,
+                )
+                report.detections[feature_probe.address] = detection
+                good_vaults += 1
+                continue
 
             detection = ERC4262VaultDetection(
                 chain=chain,
@@ -387,7 +510,7 @@ class VaultDiscoveryBase(abc.ABC):
                 good_vaults += 1
 
         logger.info(
-            "Found %d good ERC-4626 vaults, %d broken vaults",
+            "Found %d good ERC-4626/Mellow vaults, %d broken vaults",
             good_vaults,
             broken_vaults,
         )

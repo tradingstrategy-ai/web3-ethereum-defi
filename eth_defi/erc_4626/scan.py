@@ -11,7 +11,7 @@ from web3 import Web3
 from web3.types import BlockIdentifier
 
 from eth_defi.erc_4626.classification import create_vault_instance
-from eth_defi.erc_4626.core import get_vault_protocol_name, is_lending_protocol
+from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name, is_lending_protocol
 from eth_defi.erc_4626.discovery_base import ERC4262VaultDetection
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
@@ -71,6 +71,59 @@ def create_vault_scan_record(
         return empty_record
 
     try:
+        if ERC4626Feature.mellow_like in detection.features:
+            from eth_defi.mellow.vault import MellowVault
+
+            mellow_vault = cast(MellowVault, vault)
+
+            try:
+                total_assets = mellow_vault.fetch_nav(block_identifier)
+            except ValueError:
+                total_assets = None
+
+            try:
+                total_supply = mellow_vault.fetch_total_supply(block_identifier)
+            except ValueError:
+                total_supply = None
+
+            denomination_token = mellow_vault.denomination_token.export() if mellow_vault.denomination_token else None
+            share_token = mellow_vault.share_token.export() if mellow_vault.share_token else None
+
+            return {
+                "Symbol": mellow_vault.symbol,
+                "Name": mellow_vault.name,
+                "Address": detection.address,
+                "Denomination": mellow_vault.denomination_token.symbol if mellow_vault.denomination_token else None,
+                "Share token": mellow_vault.share_token.symbol if mellow_vault.share_token else None,
+                "NAV": total_assets or 0,
+                "Protocol": "Mellow",
+                "Mgmt fee": None,
+                "Perf fee": None,
+                "Deposit fee": None,
+                "Withdraw fee": None,
+                "Shares": total_supply,
+                "First seen": detection.first_seen_at,
+                "Features": ", ".join(sorted([f.name for f in detection.features])),
+                "Link": mellow_vault.get_link(),
+                "_detection_data": detection,
+                "_denomination_token": denomination_token,
+                "_share_token": share_token,
+                "_fees": BROKEN_FEE_DATA,
+                "_flags": {},
+                "_lockup": None,
+                "_deposit_closed_reason": None,
+                "_redemption_closed_reason": None,
+                "_deposit_next_open": None,
+                "_redemption_next_open": None,
+                "_available_liquidity": None,
+                "_utilisation": None,
+                "_description": mellow_vault.description,
+                "_short_description": mellow_vault.short_description,
+                "_manager_name": mellow_vault.manager_name,
+                "_morpho_offchain_data": None,
+                "_mellow_info": mellow_vault.fetch_info(),
+            }
+
         # Try to figure out the correct vault subclass
         # to pull out the data like fees
         vault = cast(ERC4626Vault, vault)
