@@ -90,6 +90,7 @@ entries:
     coingecko: ''
     defillama: https://defillama.com/stablecoin/acala-dollar
     twitter: https://x.com/AcalaNetwork
+  non_evm: true  # Acala parachain (Polkadot); no ERC-20 on any indexed EVM chain, so no vault can be denominated in it
   depegged_at: '2026-06-26T12:13:31'
   coingecko_id: ''
   coingecko_link: ''

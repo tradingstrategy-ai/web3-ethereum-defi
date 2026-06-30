@@ -169,6 +169,13 @@ class StablecoinRateTarget:
     #: share, otherwise marking one depegged would blacklist the healthy ones.
     ambiguous_symbol: bool = False
 
+    #: The token has no ERC-20 deployment on any chain we index, so it can never
+    #: denominate an EVM vault and there is nothing to blacklist. Set
+    #: ``non_evm: true`` in the YAML for natively non-EVM tokens (e.g. Acala aUSD
+    #: on Polkadot, Kava USDX on Cosmos) to silence the otherwise-unactionable
+    #: depeg warning, which no ``contract_addresses`` entry could ever resolve.
+    non_evm: bool = False
+
 
 @dataclass(slots=True)
 class StablecoinRateRefreshSummary:
@@ -500,7 +507,10 @@ def refresh_stablecoin_rates(
         elif should_check_depeg and peg_rate < DEPEG_THRESHOLD:
             update["depegged_at"] = target.depegged_at or now_
             summary.depegged_count += 1
-            if not _target_is_actionable(target):
+            if not target.non_evm and not _target_is_actionable(target):
+                # ``non_evm`` tokens are deliberately unenforceable (no ERC-20 on
+                # any chain we index), so they are expected, not a coverage gap —
+                # do not count or warn about them here.
                 summary.unactionable_depegged_count += 1
                 logger.warning("Depegged stablecoin entry %s/%s is not actionable for vault blacklisting", target.slug, target.name)
 
@@ -549,7 +559,11 @@ def build_depegged_stablecoin_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> 
 
     for target in iter_stablecoin_rate_targets(data_dir):
         normalised_symbol = normalise_token_symbol(target.symbol)
-        symbol_matchable = bool(normalised_symbol) and target.entry_index is None and not target.ambiguous_symbol
+        # ``non_evm`` tokens have no ERC-20 on any indexed chain, so they have no
+        # EVM symbol presence and must never participate in ticker matching —
+        # otherwise a dead off-chain token could blacklist a healthy same-ticker
+        # EVM token. Treat them like ``ambiguous_symbol``: contract-only.
+        symbol_matchable = bool(normalised_symbol) and target.entry_index is None and not target.ambiguous_symbol and not target.non_evm
         if symbol_matchable:
             symbol_owner_counts[normalised_symbol] = symbol_owner_counts.get(normalised_symbol, 0) + 1
 
@@ -567,6 +581,11 @@ def build_depegged_stablecoin_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> 
     # symbol is not an unambiguous single-owner symbol (typically multi-entry
     # tokens such as USDX). These need contract_addresses added to their YAML.
     for target in depegged_without_contract:
+        if target.non_evm:
+            # No ERC-20 on any chain we index, so no EVM vault can be denominated
+            # in it and there is nothing to blacklist — a contract address could
+            # never be added. Skip the warning rather than emit unactionable noise.
+            continue
         normalised_symbol = normalise_token_symbol(target.symbol)
         if normalised_symbol and normalised_symbol in depegged_symbols:
             continue
@@ -591,7 +610,9 @@ def build_stablecoin_rate_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> tupl
             contract_rates[contract_key] = rate
 
         normalised_symbol = normalise_token_symbol(target.symbol)
-        if normalised_symbol and target.entry_index is None and not target.ambiguous_symbol:
+        # ``non_evm`` tokens have no EVM symbol presence — keep them out of the
+        # ticker-based rate lookup as well, mirroring the depeg blacklist path.
+        if normalised_symbol and target.entry_index is None and not target.ambiguous_symbol and not target.non_evm:
             symbol_candidates.setdefault(normalised_symbol, []).append((target, rate))
 
     symbol_rates = {symbol: matches[0][1] for symbol, matches in symbol_candidates.items() if len(matches) == 1}
@@ -673,6 +694,7 @@ def _build_target(yaml_path: Path, entry_index: int | None, slug: str, symbol: s
         depegged_at=_parse_datetime(entry.get("depegged_at")),
         contract_addresses=_parse_contract_addresses(entry),
         ambiguous_symbol=bool(entry.get("ambiguous_symbol", False)),
+        non_evm=bool(entry.get("non_evm", False)),
     )
 
 

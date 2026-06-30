@@ -52,6 +52,9 @@ entries:
     coingecko: ''
     defillama: ''
     twitter: https://x.com/defidollar
+  contract_addresses:
+    - chain: ethereum
+      address: '0x5BC25f649fc4e26069dDF4cF4010F9f706c23831'  # verified on-chain: symbol() == DUSD, name() == DefiDollar
   depegged_at: '2026-06-26T12:13:31'
   coingecko_id: ''
   coingecko_link: ''

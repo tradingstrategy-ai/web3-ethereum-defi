@@ -937,6 +937,95 @@ checks:
     assert feeder.is_depegged_stablecoin_token(1, None, "sUSD") is False
 
 
+def test_non_evm_depegged_entry_suppresses_unactionable_warning(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """``non_evm`` depegged entries are silent; ordinary unenforceable ones still warn.
+
+    A depegged entry in a multi-entry (shared-ticker) file that carries no
+    ``contract_addresses`` cannot blacklist anything. When the token only exists
+    off EVM (e.g. Acala aUSD on Polkadot, Kava USDX on Cosmos), no EVM vault can
+    ever be denominated in it, so the otherwise-emitted warning is pure noise and
+    must be suppressed by the ``non_evm: true`` flag. An equally unenforceable
+    entry *without* the flag must still warn, so the flag is the only difference.
+
+    1. Write a multi-entry YAML with two depegged, contract-less entries — one
+       flagged ``non_evm``, one not.
+    2. Build the lookups while capturing logs and assert nothing is pinned.
+    3. Assert the unflagged entry warns and the ``non_evm`` entry does not.
+    """
+    # 1. Two depegged entries sharing the ``XUSD`` ticker, neither pinned by address.
+    (tmp_path / "xusd.yaml").write_text(
+        """symbol: XUSD
+category: stablecoin
+entries:
+- name: Cosmos XUSD
+  short_description: ''
+  long_description: ''
+  non_evm: true
+  coingecko_id: cosmos-xusd
+  usd_rate: 0.2
+  usd_rate_fetched_at: '2026-06-28T00:00:00'
+  depegged_at: '2026-06-28T00:00:00'
+  links:
+    homepage: ''
+    coingecko: ''
+    defillama: ''
+    twitter: ''
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: ''
+    marked_dead_at: ''
+    information_found_missing_at: ''
+- name: EVM XUSD
+  short_description: ''
+  long_description: ''
+  coingecko_id: evm-xusd
+  usd_rate: 0.3
+  usd_rate_fetched_at: '2026-06-28T00:00:00'
+  depegged_at: '2026-06-28T00:00:00'
+  links:
+    homepage: ''
+    coingecko: ''
+    defillama: ''
+    twitter: ''
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: ''
+    marked_dead_at: ''
+    information_found_missing_at: ''
+slug: xusd
+"""
+    )
+
+    # 2. Neither contract-less entry can be pinned by address or by the shared ticker.
+    with caplog.at_level("WARNING", logger="eth_defi.feed.stablecoin_rate"):
+        depegged_contracts, depegged_symbols = build_depegged_stablecoin_lookups(tmp_path)
+    assert depegged_contracts == set()
+    assert depegged_symbols == set()
+
+    # 3. Only the unflagged EVM entry warns; the non_evm one is silent.
+    warnings = [r.message for r in caplog.records if "cannot be blacklisted" in r.message]
+    assert any("EVM XUSD" in m for m in warnings), warnings
+    assert not any("Cosmos XUSD" in m for m in warnings), warnings
+
+
+def test_packaged_non_evm_depegs_emit_no_warning(caplog: pytest.LogCaptureFixture) -> None:
+    """The packaged Acala aUSD and Kava USDX depegs are flagged ``non_evm`` and stay silent.
+
+    These two tokens have no ERC-20 on any indexed chain, so no
+    ``contract_addresses`` could be added — they are silenced via ``non_evm:
+    true`` instead. Lock in that building the shipped data emits no
+    unenforceable-depeg warning for the four symbols this fix covers, without
+    coupling the assertion to unrelated future depegs.
+    """
+    with caplog.at_level("WARNING", logger="eth_defi.feed.stablecoin_rate"):
+        build_depegged_stablecoin_lookups()
+    noise = [r.message for r in caplog.records if "cannot be blacklisted" in r.message]
+    # Scope to the symbols addressed here: AUSD/USDX silenced via non_evm, and
+    # DUSD/USDN now pinned by contract — none of them may warn anymore.
+    covered = [m for m in noise if any(sym in m for sym in ("AUSD", "dUSD", "USDN", "USDX"))]
+    assert covered == [], covered
+
+
 def test_packaged_duplicate_symbol_stablecoins_match_by_contract_only() -> None:
     """Guard the real packaged data: shared-ticker depegged stablecoins match by contract, never by symbol.
 
@@ -961,3 +1050,5 @@ def test_packaged_duplicate_symbol_stablecoins_match_by_contract_only() -> None:
     assert (1, "0x57ab1ec28d129707052df4df418d58a2d46d5f51") in depegged_contracts  # Synthetix sUSD
     assert (137, "0x40379a439d4f6795b6fc9aa5687db461677a2dba") in depegged_contracts  # Tangible Real USD
     assert (1, "0x7b43e3875440b44613dc3bc08e7763e6da63c8f8") in depegged_contracts  # StablR USD
+    assert (1, "0x5bc25f649fc4e26069ddf4cf4010f9f706c23831") in depegged_contracts  # DefiDollar DUSD
+    assert (1, "0x674c6ad92fd080e4004b2312b45f796a192d27a0") in depegged_contracts  # Neutrino USD (USDN)

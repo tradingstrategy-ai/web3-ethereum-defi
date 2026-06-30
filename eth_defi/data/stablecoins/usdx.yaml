@@ -78,6 +78,7 @@ entries:
     coingecko: https://www.coingecko.com/en/coins/usdx
     defillama: ''
     twitter: https://x.com/KAVA_CHAIN
+  non_evm: true  # Kava (Cosmos) native CDP token; no ERC-20 on any indexed EVM chain, so no vault can be denominated in it
   coingecko_id: usdx
   coingecko_link: https://www.coingecko.com/en/coins/usdx
   coingecko_id_source: manual
