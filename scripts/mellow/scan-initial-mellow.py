@@ -968,9 +968,9 @@ def render_manual_price_rows(rows: list[CoreVaultRow], end_block: int) -> str:
                 "Vault": row.lead.vault,
                 "Block": end_block,
                 "Supply": format_decimal(row.total_supply),
-                "Share price": "n/a",
+                "Share price": "see historical reader",
                 "Total assets": format_money(row.api_vault.tvl_usd if row.api_vault else None),
-                "Error": "Mellow oracle price orientation is not implemented in the initial mapping script",
+                "Error": "Manual mapping script does not run the historical multicall reader",
             }
         )
 

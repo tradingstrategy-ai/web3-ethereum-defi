@@ -13,6 +13,7 @@ from eth_typing import HexAddress
 from tqdm_loggable.auto import tqdm
 from web3 import Web3
 
+from eth_defi.abi import get_contract
 from eth_defi.erc_4626.discovery_base import (
     LeadScanReport,
     PotentialVaultMatch,
@@ -26,7 +27,7 @@ from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.reader import read_events_concurrent
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.event_reader.web3worker import create_thread_pool_executor
-from eth_defi.mellow.abi import FACTORY_ABI as MELLOW_FACTORY_ABI
+from eth_defi.mellow.abi import FACTORY_ABI_FILENAME
 from eth_defi.mellow.discovery import create_mellow_factory_candidate, fetch_mellow_factories_for_chain
 from eth_defi.provider.log_block_range import get_logs_max_block_range
 from eth_defi.timestamp import get_block_timestamp
@@ -112,7 +113,7 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
         if not mellow_factories:
             return None
 
-        mellow_factory = self.web3.eth.contract(abi=MELLOW_FACTORY_ABI)
+        mellow_factory = get_contract(self.web3, FACTORY_ABI_FILENAME)
         return {
             "executor": executor,
             "start_block": start_block,

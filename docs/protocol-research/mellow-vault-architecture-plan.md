@@ -5,10 +5,11 @@
 This document records the technical mapping and phased implementation plan for
 Mellow Core Vault support. The initial PR implements factory-led discovery,
 `mellow_like` routing, the `MellowVault` adapter skeleton, share-supply
-historical reads, metadata row support, the activity-filter exemption, API docs
-and the manual mapping script. Oracle-derived TVL/share price and queue flow
-accounting remain explicitly unsupported until fixed-block checks pin those
-semantics.
+historical reads, oracle-derived share price and denomination-token TVL rows,
+metadata row support, the activity-filter exemption, API docs and the manual
+mapping script. Queue flow accounting remains explicitly unsupported until a
+separate queue-address event reader is implemented and fixed-block checks pin
+those semantics.
 
 Mellow Core Vaults should be added as a sibling vault architecture alongside ERC-4626 at the adapter level, but use `ERC4626Feature.mellow_like` as a pipeline compatibility/routing flag.
 
@@ -243,10 +244,11 @@ facts are locked down with verified ABIs and fixed-block checks:
     assuming `topic1`, `topic2` and `topic3`
   - test both the documented layout and reject malformed logs with clear errors
 - Confirmed `priceD18` orientation for Lido Earn USD:
-  - whether it means `shares / assets` or `assets / shares`
-  - how to convert it to `VaultHistoricalRead.share_price`
-  - a fixed-block cross-check where `share_price * total_supply` agrees with
-    Mellow API TVL within a documented tolerance
+  - Mellow reports raw `shares / assets`.
+  - `VaultHistoricalRead.share_price` is human-readable assets per share:
+    `10 ** (share_decimals + 18 - asset_decimals) / priceD18`.
+  - the historical reader samples `Oracle.getReport(denomination_token)` and
+    writes `total_assets = share_price * total_supply`.
 - Confirmed queue event names and event argument order for:
   - deposit request
   - deposit settlement / claim
@@ -433,12 +435,13 @@ Non-abstract but relevant fee methods:
 
 - Override `get_protocol_name()` to return `Mellow`, or make sure the generic
   implementation does not route Mellow through `ERC4626Feature.broken`.
-- Override `get_management_fee()` and `get_performance_fee()` only after fee
-  manager semantics are confirmed.
-- Leave `management_fee` as `None` in historical reads if Mellow protocol fee
-  cannot be honestly mapped to an annual management-fee percentage.
-- Override `has_custom_fees()` once deposit/redeem/performance/protocol fee
-  reading is implemented.
+- Read FeeManager D6 rates with `depositFeeD6()`, `redeemFeeD6()`,
+  `performanceFeeD6()` and `protocolFeeD6()`.
+- Map `protocolFeeD6()` to the shared `management_fee` field because Mellow
+  defines it as an annual time-based protocol fee and the generic schema does
+  not have a separate protocol-fee column.
+- Map `performanceFeeD6()` to `performance_fee`, `depositFeeD6()` to deposit
+  fee and `redeemFeeD6()` to withdraw fee.
 
 ### Detection and adapter routing
 
@@ -498,9 +501,9 @@ possible:
   ERC-4626 ABI assumptions. Treat it as a shared vault-detection envelope, not
   a standards-compliance proof.
 - Metadata row creation must support `mellow_like` without ERC-4626 scan-record
-  assumptions. Add a Mellow branch in `create_vault_scan_record()` or its
-  caller so protocol name, NAV, share token, denomination token, link and
-  `_detection_data` are populated from `MellowVault`.
+  assumptions. Keep Mellow on the same `create_vault_scan_record()` path as
+  ERC-4626 vaults and make the shared logic call only `VaultBase` methods, with
+  defensive fallbacks for optional ERC-4626-only reads like `totalAssets()`.
 
 ### Address and share-token audit
 
@@ -564,29 +567,29 @@ Initial multicalls:
 - `Vault.shareManager()`, if not cached
 - `Vault.oracle()`, if not cached
 - `Vault.feeManager()`, if not cached
-- latest oracle report for the base asset, once method name is confirmed
-- fee manager state for performance/protocol fees, once method names are confirmed
+- latest oracle report for the denomination asset through `Oracle.getReport(asset)`
+- fee manager state for performance/protocol fees
 - risk manager vault balance / limit state, once method names are confirmed
 
 Initial output fields in `VaultHistoricalRead`:
 
-- `share_price`: derive from Mellow oracle report only after confirming whether `priceD18` is `shares / assets` or `assets / shares`
-- `total_assets`: base-asset-denominated TVL if available, otherwise `None` with an error marker
+- `share_price`: derive from Mellow oracle `priceD18`, converted from raw
+  shares-per-raw-asset to human-readable denomination-token assets per share
+- `total_assets`: denomination-token TVL derived as `share_price * total_supply`
 - `total_supply`: share manager total supply converted with share token decimals
-- `performance_fee`: Mellow fee manager value if available
-- `management_fee`: protocol fee if it maps to an annual management-like fee
+- `performance_fee`: Mellow `performanceFeeD6`, converted from D6 to a
+  fractional fee
+- `management_fee`: Mellow `protocolFeeD6`, converted from D6 to a fractional
+  annual management-like fee
 - `max_deposit`: vault or risk manager remaining capacity if available
 - `errors`: explicit reasons for partial reads
 
-The `share_price` formula must be pinned by a fixed-block test:
+The `share_price` formula is pinned by fixed-block tests:
 
-- choose a block where Lido Earn USD has a recent accepted oracle report and
-  non-zero supply
-- read `ShareManager.totalSupply()` at that block
-- derive `share_price` from the oracle report in both possible orientations
-- assert the chosen orientation makes `share_price * total_supply` agree with
-  public Mellow API TVL, or a known on-chain TVL view if one is found
-- document the tolerance and the source of the comparison value
+- Lido Earn USD reads `ShareManager.totalSupply()` and `Oracle.getReport(USDC)`.
+- The direct Anvil test checks the fixed-block share price.
+- The real-chain Hypersync integration test samples two later blocks and asserts
+  the historical reader writes an increasing share-price series.
 
 If current-state `fetch_nav()` is temporarily unsupported, add a test proving
 that `MellowVaultHistoricalReader.process_result()` and the export path do not
@@ -777,9 +780,10 @@ The manual test must produce tabulated output for:
 - leads discovered from `Factory.Created`
 - metadata rows after component probing
 - price sample rows. In the initial PR these rows contain on-chain
-  `ShareManager.totalSupply()`, API TVL where the factory lead matches the
-  public Mellow API, and an explicit unsupported reason for oracle-derived share
-  price.
+  `ShareManager.totalSupply()` and API TVL where the factory lead matches the
+  public Mellow API. Oracle-derived share price and denomination-token
+  `total_assets` are covered by the production historical reader and its
+  fixed-block tests.
 
 Minimum manual assertions:
 

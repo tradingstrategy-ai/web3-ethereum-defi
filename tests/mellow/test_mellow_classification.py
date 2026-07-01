@@ -5,8 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from eth_defi.abi import get_abi_by_filename
 from eth_defi.erc_4626.classification import _ProbeResultsDict, create_probe_calls, create_vault_instance, identify_vault_features  # noqa: PLC2701
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name, is_activity_filter_exempt
+from eth_defi.mellow.abi import ERC20_ABI_FILENAME, FACTORY_ABI_FILENAME, FEE_MANAGER_ABI_FILENAME, ORACLE_ABI_FILENAME, VAULT_ABI_FILENAME
 from eth_defi.mellow.discovery import fetch_mellow_created_event_topic, fetch_mellow_factories_for_chain
 from eth_defi.mellow.vault import MellowVault
 from eth_defi.vault.base import VaultSpec
@@ -71,6 +73,22 @@ def test_mellow_created_topic_is_hypersync_hex() -> None:
 
     assert topic.startswith("0x")
     assert len(topic) == TOPIC_HEX_LENGTH
+
+
+def test_mellow_abi_files_load() -> None:
+    """Mellow ABI fragments are loaded from bundled JSON files."""
+
+    factory_abi = get_abi_by_filename(FACTORY_ABI_FILENAME)
+    vault_abi = get_abi_by_filename(VAULT_ABI_FILENAME)
+    oracle_abi = get_abi_by_filename(ORACLE_ABI_FILENAME)
+    fee_manager_abi = get_abi_by_filename(FEE_MANAGER_ABI_FILENAME)
+    erc20_abi = get_abi_by_filename(ERC20_ABI_FILENAME)
+
+    assert any(item["type"] == "event" and item["name"] == "Created" for item in factory_abi)
+    assert any(item["type"] == "function" and item["name"] == "shareManager" for item in vault_abi)
+    assert any(item["type"] == "function" and item["name"] == "getReport" for item in oracle_abi)
+    assert any(item["type"] == "function" and item["name"] == "protocolFeeD6" for item in fee_manager_abi)
+    assert any(item["type"] == "function" and item["name"] == "totalSupply" for item in erc20_abi)
 
 
 def test_mellow_factory_registry_matches_documented_core_deployments(monkeypatch: pytest.MonkeyPatch) -> None:

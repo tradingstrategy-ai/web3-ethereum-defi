@@ -23,7 +23,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
-from typing import Iterable, Tuple, TypedDict
+from typing import TYPE_CHECKING, Iterable, Tuple, TypedDict
 
 from eth_typing import BlockIdentifier, BlockNumber, HexAddress
 from web3 import Web3
@@ -40,6 +40,10 @@ from .flag import VaultFlag, get_notes, get_vault_special_flags
 from .risk import VaultTechnicalRisk, get_vault_risk
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import pyarrow
 
 BlockRange = Tuple[BlockNumber, BlockNumber]
 
@@ -690,10 +694,10 @@ class VaultHistoricalRead:
         existing_names = set(existing_table.schema.names)
 
         # Add missing canonical columns as null arrays
-        for field in target_schema:
-            if field.name not in existing_names:
-                null_array = pa.nulls(len(existing_table), type=field.type)
-                existing_table = existing_table.append_column(field, null_array)
+        for target_field in target_schema:
+            if target_field.name not in existing_names:
+                null_array = pa.nulls(len(existing_table), type=target_field.type)
+                existing_table = existing_table.append_column(target_field, null_array)
 
         # Drop only known legacy columns, preserve native protocol columns
         for name in VaultHistoricalRead._LEGACY_COLUMNS:
@@ -706,14 +710,14 @@ class VaultHistoricalRead:
         existing_table = existing_table.select(target_names + extra_names)
 
         # Cast canonical columns to their correct types
-        for field in target_schema:
-            col_idx = existing_table.schema.get_field_index(field.name)
+        for target_field in target_schema:
+            col_idx = existing_table.schema.get_field_index(target_field.name)
             col = existing_table.column(col_idx)
-            if col.type != field.type:
+            if col.type != target_field.type:
                 existing_table = existing_table.set_column(
                     col_idx,
-                    field,
-                    col.cast(field.type, safe=False),
+                    target_field,
+                    col.cast(target_field.type, safe=False),
                 )
 
         # Strip pandas metadata to avoid stale schema info
@@ -723,7 +727,7 @@ class VaultHistoricalRead:
 
     @staticmethod
     def write_uncleaned_parquet(
-        df: "pandas.DataFrame",
+        df: "pd.DataFrame",
         path: "pathlib.Path",
         compression: str = "zstd",
     ):
@@ -754,9 +758,9 @@ class VaultHistoricalRead:
         canonical = VaultHistoricalRead.to_pyarrow_schema()
         canonical_by_name = {f.name: f for f in canonical}
 
-        for i, field in enumerate(table.schema):
-            target_field = canonical_by_name.get(field.name)
-            if target_field is not None and field.type != target_field.type:
+        for i, existing_field in enumerate(table.schema):
+            target_field = canonical_by_name.get(existing_field.name)
+            if target_field is not None and existing_field.type != target_field.type:
                 table = table.set_column(
                     i,
                     target_field,
@@ -1062,6 +1066,21 @@ class VaultBase(ABC):
         - Override in subclasses that support manager or operator metadata
         """
         return None
+
+    def fetch_scan_record_extra_data(self) -> dict[str, object]:  # noqa: PLR6301
+        """Fetch protocol-specific private scan row columns.
+
+        Some vault protocols expose structured metadata that is useful for the
+        raw scanner output but does not fit the shared human-readable columns.
+        Override this hook in protocol-specific subclasses instead of adding a
+        separate branch to :py:func:`eth_defi.erc_4626.scan.create_vault_scan_record`.
+
+        :return:
+            Mapping of private scan-row column names, usually prefixed with
+            ``_``. The default implementation returns no extra data.
+        """
+
+        return {}
 
     @cached_property
     def flow_manager(self) -> VaultFlowManager:

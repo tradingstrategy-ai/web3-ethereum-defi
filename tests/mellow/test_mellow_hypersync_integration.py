@@ -12,6 +12,7 @@ from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
 from eth_defi.hypersync.server import get_hypersync_server
+from eth_defi.hypersync.session import ThrottledHypersyncClient, create_throttled_hypersync_client
 from eth_defi.mellow.vault import MellowVault
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
@@ -28,10 +29,14 @@ LIDO_EARN_USD_CREATED_BLOCK = 24_602_425
 LIDO_EARN_USD_CREATED_AT = pd.Timestamp("2026-03-07 01:54:35")
 DISCOVERY_START_BLOCK = 24_602_420
 DISCOVERY_END_BLOCK = 24_602_430
-PRICE_END_BLOCK = 24_602_445
-PRICE_STEP_BLOCKS = 10
+PRICE_START_BLOCK = 24_999_754
+PRICE_SECOND_BLOCK = 24_999_755
+PRICE_EXCLUSIVE_END_BLOCK = 24_999_756
+PRICE_STEP_BLOCKS = 1
 EXPECTED_MAX_DETECTIONS = 10
-MELLOW_PRICE_UNSUPPORTED_ERROR = "Mellow share price and TVL require oracle report orientation and subvault accounting confirmation"
+EXPECTED_PRICE_ROWS = 2
+EXPECTED_START_SHARE_PRICE = 1.0080417560461396
+EXPECTED_END_SHARE_PRICE = 1.008280253418576
 
 pytestmark = pytest.mark.skipif(
     JSON_RPC_ETHEREUM is None or HYPERSYNC_API_KEY is None,
@@ -39,25 +44,31 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _create_hypersync_client() -> hypersync.HypersyncClient:
-    """Create an Ethereum Hypersync client."""
+def _create_hypersync_client() -> ThrottledHypersyncClient:
+    """Create an Ethereum Hypersync client.
 
-    return hypersync.HypersyncClient(
+    Keep stream concurrency at one request so this real-chain integration test
+    does not burst against the shared Hypersync rate limit.
+    """
+
+    return create_throttled_hypersync_client(
         hypersync.ClientConfig(
             url=get_hypersync_server(ETHEREUM_CHAIN_ID),
             bearer_token=HYPERSYNC_API_KEY,
-        )
+        ),
+        concurrency=1,
     )
 
 
 @flaky.flaky
 def test_mellow_hypersync_discovery_and_historical_reader_price_row(tmp_path: Path) -> None:
-    """Discover Lido Earn USD and write the current Mellow historical row.
+    """Discover Lido Earn USD and write Mellow historical share-price rows.
 
-    This test intentionally asserts the current partial Mellow reader contract:
-    ``total_supply`` is filled from ``ShareManager.totalSupply()``, while
-    ``share_price`` and ``total_assets`` stay empty with an explicit error until
-    Mellow oracle/NAV accounting is implemented.
+    The discovery range is kept around the factory creation event. The price
+    range then samples two neighbouring fixed blocks where
+    ``Oracle.getReport(USDC)`` shows the share price increasing. The range is
+    intentionally short because the historical pipeline fills a timestamp cache
+    for every block in the requested range.
     """
 
     web3 = create_multi_provider_web3(JSON_RPC_ETHEREUM)
@@ -108,8 +119,8 @@ def test_mellow_hypersync_discovery_and_historical_reader_price_row(tmp_path: Pa
         web3factory=web3factory,
         vaults=[vault],
         token_cache=token_cache,
-        start_block=LIDO_EARN_USD_CREATED_BLOCK,
-        end_block=PRICE_END_BLOCK,
+        start_block=PRICE_START_BLOCK,
+        end_block=PRICE_EXCLUSIVE_END_BLOCK,
         step=PRICE_STEP_BLOCKS,
         max_workers=2,
         require_multicall_result=True,
@@ -118,29 +129,36 @@ def test_mellow_hypersync_discovery_and_historical_reader_price_row(tmp_path: Pa
         vault_addresses={LIDO_EARN_USD_VAULT_LOWER},
     )
 
-    assert scan_result["rows_written"] == 1
+    assert scan_result["rows_written"] == EXPECTED_PRICE_ROWS
     prices = pd.read_parquet(parquet_file)
     assert list(prices.columns) == VaultHistoricalRead.to_pyarrow_schema().names
-    assert len(prices) == 1
+    assert len(prices) == EXPECTED_PRICE_ROWS
 
-    row = prices.iloc[0]
-    assert row.chain == ETHEREUM_CHAIN_ID
-    assert row.address == LIDO_EARN_USD_VAULT_LOWER
-    assert row.block_number == LIDO_EARN_USD_CREATED_BLOCK
-    assert row.timestamp == LIDO_EARN_USD_CREATED_AT
-    assert row.total_supply == 0.0
-    assert row.errors == MELLOW_PRICE_UNSUPPORTED_ERROR
-    assert row.vault_poll_frequency == "first_read"
-    assert row.deposits_open == ""
-    assert row.redemption_open == ""
-    assert row.trading == ""
-    assert pd.notna(row.written_at)
+    prices = prices.sort_values("block_number").reset_index(drop=True)
+    assert prices["chain"].tolist() == [ETHEREUM_CHAIN_ID, ETHEREUM_CHAIN_ID]
+    assert prices["address"].tolist() == [LIDO_EARN_USD_VAULT_LOWER, LIDO_EARN_USD_VAULT_LOWER]
+    assert prices["block_number"].tolist() == [PRICE_START_BLOCK, PRICE_SECOND_BLOCK]
+    assert prices["errors"].tolist() == ["", ""]
+    assert prices["share_price"].notna().all()
+    assert prices["total_assets"].notna().all()
+    assert prices["total_supply"].notna().all()
+    assert prices["written_at"].notna().all()
 
-    assert pd.isna(row.share_price)
-    assert pd.isna(row.total_assets)
-    assert pd.isna(row.performance_fee)
-    assert pd.isna(row.management_fee)
-    assert pd.isna(row.max_deposit)
-    assert pd.isna(row.max_redeem)
-    assert pd.isna(row.available_liquidity)
-    assert pd.isna(row.utilisation)
+    start_row = prices.iloc[0]
+    end_row = prices.iloc[1]
+    assert start_row.share_price == pytest.approx(EXPECTED_START_SHARE_PRICE)
+    assert end_row.share_price == pytest.approx(EXPECTED_END_SHARE_PRICE)
+    assert end_row.share_price > start_row.share_price
+    assert end_row.total_assets != start_row.total_assets
+    assert end_row.total_supply != start_row.total_supply
+
+    assert (prices["vault_poll_frequency"] == "first_read").all()
+    assert (prices["deposits_open"] == "").all()
+    assert (prices["redemption_open"] == "").all()
+    assert (prices["trading"] == "").all()
+    assert (prices["performance_fee"] == 0.0).all()
+    assert (prices["management_fee"] == 0.0).all()
+    assert prices["max_deposit"].isna().all()
+    assert prices["max_redeem"].isna().all()
+    assert prices["available_liquidity"].isna().all()
+    assert prices["utilisation"].isna().all()
