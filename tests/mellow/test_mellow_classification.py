@@ -1,6 +1,7 @@
 """Test Mellow vault classification and routing."""
 
 import datetime
+import inspect
 from types import SimpleNamespace
 
 import pytest
@@ -11,7 +12,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_va
 from eth_defi.mellow.abi import ERC20_ABI_FILENAME, FACTORY_ABI_FILENAME, FEE_MANAGER_ABI_FILENAME, ORACLE_ABI_FILENAME, VAULT_ABI_FILENAME
 from eth_defi.mellow.discovery import fetch_mellow_created_event_topic, fetch_mellow_factories_for_chain
 from eth_defi.mellow.vault import MellowVault
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultBase, VaultSpec
 
 TOPIC_HEX_LENGTH = 66
 ETHEREUM_CHAIN_ID = 1
@@ -28,6 +29,14 @@ FACTORY_ENV_VARS = (
     "MELLOW_ARBITRUM_VAULT_FACTORY",
     "MELLOW_MONAD_VAULT_FACTORY",
     "MELLOW_BASE_VAULT_FACTORY",
+)
+VAULT_BASE_FEE_ACCESSOR_METHODS = (
+    "has_custom_fees",
+    "get_management_fee",
+    "get_performance_fee",
+    "get_deposit_fee",
+    "get_withdraw_fee",
+    "get_fee_data",
 )
 
 
@@ -89,6 +98,19 @@ def test_mellow_abi_files_load() -> None:
     assert any(item["type"] == "function" and item["name"] == "getReport" for item in oracle_abi)
     assert any(item["type"] == "function" and item["name"] == "protocolFeeD6" for item in fee_manager_abi)
     assert any(item["type"] == "function" and item["name"] == "totalSupply" for item in erc20_abi)
+
+
+def test_mellow_fee_accessors_match_vault_base_surface() -> None:
+    """Mellow fee accessors keep the shared VaultBase method contract."""
+
+    for method_name in VAULT_BASE_FEE_ACCESSOR_METHODS:
+        base_method = getattr(VaultBase, method_name)
+        mellow_method = getattr(MellowVault, method_name)
+        assert mellow_method is not base_method
+
+        base_parameters = tuple(inspect.signature(base_method).parameters)
+        mellow_parameters = tuple(inspect.signature(mellow_method).parameters)
+        assert mellow_parameters == base_parameters
 
 
 def test_mellow_factory_registry_matches_documented_core_deployments(monkeypatch: pytest.MonkeyPatch) -> None:

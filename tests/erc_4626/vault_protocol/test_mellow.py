@@ -99,6 +99,7 @@ def test_mellow_lido_earn_usd(web3: Web3) -> None:
     assert vault.get_performance_fee(FORK_BLOCK) == 0.0
     assert vault.get_deposit_fee(FORK_BLOCK) == 0.0
     assert vault.get_withdraw_fee(FORK_BLOCK) == 0.0
+    assert vault.has_custom_fees() is True
 
     fee_data = vault.get_fee_data()
     assert fee_data.fee_mode == VaultFeeMode.internalised_minting
