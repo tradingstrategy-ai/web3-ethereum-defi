@@ -51,6 +51,8 @@ Environment variables:
 - ``STABLECOIN_RATE_TIMEOUT``: Optional. CoinGecko timeout. Default: 20.
 - ``STABLECOIN_DATA_DIR``: Optional. Stablecoin YAML directory.
 - ``STABLECOIN_RATE_GATE_PATH``: Optional. Durable stablecoin refresh gate JSON path.
+- ``CURRENCY_API_DB_PATH`` / ``CURRENCY_API_DATABASE_PATH``: Optional. Local FX DuckDB path for non-USD stablecoin depeg checks.
+- ``CURRENCY_API_SOURCE``: Optional. FX source column. Default: fawazahmed0.
 - ``COINGECKO_DEMO_API_KEY``: Optional. CoinGecko demo API key used by the rate module.
 """
 
@@ -61,6 +63,7 @@ from pathlib import Path
 
 from tabulate import tabulate
 
+from eth_defi.currency_api.constants import SOURCE_NAME
 from eth_defi.feed.constants import DEFAULT_X_LIST_NAME
 from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE
 from eth_defi.feed.scanner import PostScanConfig, run_post_scan_cycle
@@ -206,6 +209,7 @@ def _build_config() -> PostScanConfig:
     mappings_dir_str = os.environ.get("MAPPINGS_DIR")
     stablecoin_data_dir_str = os.environ.get("STABLECOIN_DATA_DIR")
     stablecoin_rate_gate_path_str = os.environ.get("STABLECOIN_RATE_GATE_PATH")
+    currency_api_db_path_str = os.environ.get("CURRENCY_API_DB_PATH") or os.environ.get("CURRENCY_API_DATABASE_PATH")
     limit_str = os.environ.get("LIMIT")
 
     return PostScanConfig(
@@ -236,6 +240,8 @@ def _build_config() -> PostScanConfig:
         stablecoin_data_dir=Path(stablecoin_data_dir_str).expanduser() if stablecoin_data_dir_str else STABLECOINS_DATA_DIR,
         stablecoin_rate_timeout=float(os.environ.get("STABLECOIN_RATE_TIMEOUT", "20")),
         stablecoin_rate_gate_path=Path(stablecoin_rate_gate_path_str).expanduser() if stablecoin_rate_gate_path_str else None,
+        currency_api_db_path=Path(currency_api_db_path_str).expanduser() if currency_api_db_path_str else None,
+        currency_api_source=os.environ.get("CURRENCY_API_SOURCE", SOURCE_NAME),
     )
 
 

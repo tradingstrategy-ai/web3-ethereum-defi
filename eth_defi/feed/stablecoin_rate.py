@@ -4,11 +4,17 @@ This module maintains mutable rate metadata in
 ``eth_defi/data/stablecoins/*.yaml``. It fetches stablecoin prices from the
 CoinGecko simple price API, stores the latest USD rate and fetch timestamp, and
 marks a sticky ``depegged_at`` timestamp when a token trades below the
-configured threshold in its inferred peg currency.
+configured threshold in its manually curated source currency. Non-USD source
+currencies are converted through the local
+:py:class:`~eth_defi.currency_api.database.CurrencyRateDatabase` before depeg
+checks are made.
 
 Vault metric calculation should use :class:`StablecoinRateFeeder` instead of
 reading YAML files directly. The feeder owns the in-process lookup caches used
-to resolve a vault denomination token to stablecoin rate metadata.
+to resolve a vault denomination token to stablecoin rate metadata. The returned
+:class:`DenominationTokenRate` is exported by
+:py:func:`eth_defi.research.vault_metrics.calculate_lifetime_metrics` under the
+``denomination_token_rate`` JSON field.
 
 See `CoinGecko simple price documentation <https://docs.coingecko.com/reference/simple-price>`__
 and `CoinGecko coins list documentation <https://docs.coingecko.com/reference/coins-list>`__.
@@ -33,6 +39,8 @@ from strictyaml import YAMLError
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
+from eth_defi.currency_api.constants import SOURCE_NAME
+from eth_defi.currency_api.database import CurrencyRateDatabase
 from eth_defi.stablecoin_metadata import STABLECOINS_DATA_DIR, normalise_token_symbol, read_stablecoin_metadata
 
 try:
@@ -86,9 +94,17 @@ COINGECKO_COINS_LIST_URL = "https://api.coingecko.com/api/v3/coins/list"
 COINGECKO_LINK_PREFIX = "https://www.coingecko.com/en/coins/"
 DEPEG_THRESHOLD = 0.90
 MIN_PLAUSIBLE_STABLECOIN_RATE = 0.01
+MAX_SOURCE_CURRENCY_RATE_AGE_DAYS = 7
+NATIVE_RATE_CROSS_CHECK_RELATIVE_TOLERANCE = 0.02
 STABLECOIN_RATE_SOURCE_COINGECKO = "coingecko"
 
 _RATE_FIELDS = (
+    "source_currency",
+    "source_currency_source",
+    "source_currency_usd_rate",
+    "source_currency_usd_rate_date",
+    "source_currency_usd_rate_fetched_at",
+    "source_currency_usd_rate_source",
     "coingecko_id",
     "coingecko_link",
     "coingecko_id_source",
@@ -152,6 +168,26 @@ class StablecoinRateTarget:
     coingecko_id_verified_at: datetime.datetime | None
     coingecko_id_verification_failed_at: datetime.datetime | None
     coingecko_id_verification_failed_reason: str | None
+
+    #: Curated source currency ticker read from
+    #: :py:class:`eth_defi.stablecoin_metadata.StablecoinMetadata`.
+    source_currency: str | None
+
+    #: Source of ``source_currency``. Only ``manual`` values drive depeg checks.
+    source_currency_source: str | None
+
+    #: USD per one ``source_currency`` unit from the local currency database.
+    source_currency_usd_rate: float | None
+
+    #: Calendar date of ``source_currency_usd_rate``.
+    source_currency_usd_rate_date: datetime.date | None
+
+    #: Naive UTC timestamp when ``source_currency_usd_rate`` was read.
+    source_currency_usd_rate_fetched_at: datetime.datetime | None
+
+    #: Currency API source column used for ``source_currency_usd_rate``.
+    source_currency_usd_rate_source: str | None
+
     peg_currency: str | None
     usd_rate: float | None
     usd_rate_fetched_at: datetime.datetime | None
@@ -193,6 +229,22 @@ class StablecoinRateRefreshSummary:
     unactionable_depegged_count: int = 0
     skipped_missing_coingecko: int = 0
     skipped_unknown_peg: int = 0
+
+    #: Entries skipped because no source currency is known.
+    skipped_missing_source_currency: int = 0
+
+    #: Non-USD entries skipped because no usable currency database row existed.
+    skipped_missing_source_currency_rate: int = 0
+
+    #: Entries skipped because ``source_currency`` was not manually curated.
+    skipped_inferred_source_currency: int = 0
+
+    #: Source-currency FX rows accepted from the local currency database.
+    source_currency_rates_fetched: int = 0
+
+    #: Source-currency FX rows rejected because they were older than the allowed delay.
+    source_currency_rates_stale: int = 0
+
     failed_count: int = 0
     coingecko_ids_checked: int = 0
     coingecko_ids_valid: int = 0
@@ -200,13 +252,76 @@ class StablecoinRateRefreshSummary:
 
 
 @dataclass(slots=True)
-class DenominationTokenRate:
-    """Rate data section exported for a vault denomination token."""
+class SourceCurrencyRate:
+    """USD/source-currency rate read from the local currency DuckDB."""
 
+    #: Lower-case source currency ticker, e.g. ``eur`` or ``jpy``.
+    source_currency: str
+
+    #: USD per one ``source_currency`` unit.
+    usd_per_source_currency: float
+
+    #: Currency API calendar date for ``usd_per_source_currency``.
+    date: datetime.date
+
+    #: Currency API provider/source column.
+    source: str
+
+    #: ``True`` when the FX row is older than the accepted refresh delay.
+    is_stale: bool
+
+
+@dataclass(slots=True)
+class DenominationTokenRate:
+    """Rate data section exported for a vault denomination token.
+
+    This dataclass is returned by
+    :py:meth:`StablecoinRateFeeder.get_denomination_token_rate_section` and is
+    serialised by :py:func:`eth_defi.research.vault_metrics.export_lifetime_row`
+    for the ``denomination_token_rate`` field in lifetime metrics JSON output.
+    Source-currency values originate from
+    :py:class:`eth_defi.stablecoin_metadata.StablecoinMetadata` and are updated
+    by :py:func:`refresh_stablecoin_rates`.
+    """
+
+    #: CoinGecko coin id used to fetch ``usd_rate``.
     coingecko_id: str | None
+
+    #: Stablecoin source currency ticker, e.g. ``usd``, ``eur`` or ``jpy``.
+    source_currency: str | None
+
+    #: Latest token price in USD from CoinGecko.
     usd_rate: float | None
+
+    #: Naive UTC timestamp when ``usd_rate`` was fetched.
     usd_rate_fetched_at: datetime.datetime | None
+
+    #: Provider/source for ``usd_rate``. Currently ``coingecko`` when present.
     usd_rate_source: str | None
+
+    #: Latest token price in ``source_currency`` for non-USD stablecoins.
+    #:
+    #: This is omitted for ``source_currency == "usd"`` because ``usd_rate``
+    #: already carries the native value.
+    native_rate: float | None
+
+    #: Currency ticker for ``native_rate``. Populated only for non-USD source currencies.
+    native_rate_currency: str | None
+
+    #: Naive UTC timestamp for ``native_rate``. Matches ``usd_rate_fetched_at`` when populated.
+    native_rate_fetched_at: datetime.datetime | None
+
+    #: Provider chain for ``native_rate``, e.g. ``coingecko+fawazahmed0``.
+    native_rate_source: str | None
+
+    #: USD per one ``source_currency`` unit used to derive ``native_rate``.
+    source_currency_usd_rate: float | None
+
+    #: Naive UTC timestamp when ``source_currency_usd_rate`` was read from the currency database.
+    source_currency_usd_rate_fetched_at: datetime.datetime | None
+
+    #: Currency database provider/source for ``source_currency_usd_rate``.
+    source_currency_usd_rate_source: str | None
 
 
 @dataclass(slots=True)
@@ -237,7 +352,20 @@ class StablecoinRateFeeder:
         if normalised_symbol and normalised_symbol in self._rate_symbols:
             return self._rate_symbols[normalised_symbol]
 
-        return DenominationTokenRate(coingecko_id=None, usd_rate=None, usd_rate_fetched_at=None, usd_rate_source=None)
+        return DenominationTokenRate(
+            coingecko_id=None,
+            source_currency=None,
+            usd_rate=None,
+            usd_rate_fetched_at=None,
+            usd_rate_source=None,
+            native_rate=None,
+            native_rate_currency=None,
+            native_rate_fetched_at=None,
+            native_rate_source=None,
+            source_currency_usd_rate=None,
+            source_currency_usd_rate_fetched_at=None,
+            source_currency_usd_rate_source=None,
+        )
 
     @property
     def depegged_contracts(self) -> set[tuple[int, str]]:
@@ -401,12 +529,87 @@ def fetch_valid_coingecko_ids(coin_ids: Sequence[str], timeout: float = 20.0, pr
     return requested_ids & listed_ids
 
 
+def read_latest_usd_per_source_currency(
+    currency_db_path: Path,
+    source_currency: str,
+    coingecko_fetch_date: datetime.date,
+    source: str = SOURCE_NAME,
+    max_age_days: int = MAX_SOURCE_CURRENCY_RATE_AGE_DAYS,
+) -> SourceCurrencyRate | None:
+    """Read the latest USD/source-currency FX rate from local DuckDB.
+
+    The currency API database stores raw rows as ``quote`` units per one
+    ``base`` unit. With the production base ``usd`` this means, for example,
+    EUR rows are ``EUR per 1 USD``. Stablecoin depeg checks need USD per one
+    source-currency unit, so this helper inverts the stored raw rate.
+
+    :param currency_db_path:
+        DuckDB path populated by :mod:`eth_defi.currency_api`.
+    :param source_currency:
+        Lower-case source currency ticker, e.g. ``eur`` or ``jpy``.
+    :param coingecko_fetch_date:
+        Calendar date of the CoinGecko token price fetch.
+    :param source:
+        Currency API source column to read.
+    :param max_age_days:
+        Maximum allowed age between the token price date and FX row date.
+    :return:
+        USD per one source-currency unit, or ``None`` when no local row exists.
+    """
+    source_currency = source_currency.lower()
+    if source_currency == "usd":
+        return SourceCurrencyRate(
+            source_currency="usd",
+            usd_per_source_currency=1.0,
+            date=coingecko_fetch_date,
+            source=source,
+            is_stale=False,
+        )
+
+    db = CurrencyRateDatabase(currency_db_path)
+    try:
+        row = db.con.execute(
+            """
+            SELECT date, rate, source
+            FROM exchange_rates
+            WHERE base_currency = 'usd'
+              AND quote_currency = ?
+              AND source = ?
+              AND date <= ?
+            ORDER BY date DESC
+            LIMIT 1
+            """,
+            [source_currency, source, coingecko_fetch_date],
+        ).fetchone()
+    finally:
+        db.close()
+
+    if row is None:
+        return None
+
+    row_date, raw_rate, row_source = row
+    raw_rate_float = _parse_price(raw_rate)
+    if raw_rate_float is None:
+        return None
+
+    age_days = (coingecko_fetch_date - row_date).days
+    return SourceCurrencyRate(
+        source_currency=source_currency,
+        usd_per_source_currency=1.0 / raw_rate_float,
+        date=row_date,
+        source=row_source,
+        is_stale=age_days > max_age_days,
+    )
+
+
 def refresh_stablecoin_rates(
     data_dir: Path = STABLECOINS_DATA_DIR,
     now_: datetime.datetime | None = None,
     force: bool = False,
     timeout: float = 20.0,
     progress_bar: bool = False,
+    currency_db_path: Path | None = None,
+    currency_source: str = SOURCE_NAME,
 ) -> StablecoinRateRefreshSummary:
     """Refresh stablecoin rates and persist YAML metadata updates.
 
@@ -491,13 +694,60 @@ def refresh_stablecoin_rates(
             updates[(target.yaml_path, target.entry_index)] = _failure_update(now_, "coingecko_price_missing", target)
             continue
 
-        peg_currency = target.peg_currency
-        peg_rate = _parse_price(price_data.get(peg_currency)) if peg_currency else None
-        if peg_currency is None or peg_rate is None:
-            summary.skipped_unknown_peg += 1
-
         upstream_updated_at = _parse_upstream_timestamp(price_data.get("last_updated_at"))
-        update = _success_update(target, usd_rate, peg_rate, peg_currency if peg_rate is not None else None, upstream_updated_at, now_)
+        source_currency = target.source_currency
+        source_currency_rate: SourceCurrencyRate | None = None
+        peg_rate: float | None = None
+        peg_currency: str | None = None
+        rate_failure_reason: str | None = None
+
+        if not source_currency:
+            summary.skipped_missing_source_currency += 1
+            summary.skipped_unknown_peg += 1
+            rate_failure_reason = "missing_source_currency"
+        elif target.source_currency_source != "manual":
+            summary.skipped_inferred_source_currency += 1
+            summary.skipped_unknown_peg += 1
+            rate_failure_reason = "inferred_source_currency" if target.source_currency_source == "inferred" else "untrusted_source_currency"
+        elif source_currency == "usd":
+            source_currency_rate = SourceCurrencyRate(
+                source_currency="usd",
+                usd_per_source_currency=1.0,
+                date=now_.date(),
+                source=currency_source,
+                is_stale=False,
+            )
+            peg_rate = usd_rate
+            peg_currency = "usd"
+        elif currency_db_path is None:
+            summary.skipped_missing_source_currency_rate += 1
+            summary.skipped_unknown_peg += 1
+            summary.failed_count += 1
+            rate_failure_reason = "missing_source_currency_rate"
+        else:
+            source_currency_rate = read_latest_usd_per_source_currency(
+                currency_db_path=currency_db_path,
+                source_currency=source_currency,
+                coingecko_fetch_date=now_.date(),
+                source=currency_source,
+            )
+            if source_currency_rate is None:
+                summary.skipped_missing_source_currency_rate += 1
+                summary.skipped_unknown_peg += 1
+                summary.failed_count += 1
+                rate_failure_reason = "missing_source_currency_rate"
+            elif source_currency_rate.is_stale:
+                summary.source_currency_rates_stale += 1
+                summary.skipped_unknown_peg += 1
+                summary.failed_count += 1
+                rate_failure_reason = "stale_source_currency_rate"
+            else:
+                summary.source_currency_rates_fetched += 1
+                peg_rate = usd_rate / source_currency_rate.usd_per_source_currency
+                peg_currency = source_currency
+                _warn_on_native_rate_divergence(target, price_data, usd_rate, source_currency_rate)
+
+        update = _success_update(target, usd_rate, peg_rate, peg_currency, source_currency_rate, upstream_updated_at, now_, rate_failure_reason=rate_failure_reason)
 
         should_check_depeg = peg_rate is not None and target.category == "stablecoin"
         if should_check_depeg and _is_wrong_asset_guard_failure(target, peg_rate):
@@ -669,7 +919,8 @@ def apply_coingecko_mapping_file(data_dir: Path, mapping_path: Path, progress_ba
 
 def _build_target(yaml_path: Path, entry_index: int | None, slug: str, symbol: str, category: str, entry: dict[str, Any]) -> StablecoinRateTarget:
     coingecko_id, coingecko_link, coingecko_id_source = resolve_coingecko_metadata(entry)
-    peg_currency = _guess_peg_currency(symbol, f"{entry.get('name', '')} {entry.get('short_description', '')}")
+    source_currency = _clean_currency_code(entry.get("source_currency"))
+    source_currency_source = _clean_currency_code(entry.get("source_currency_source"))
     return StablecoinRateTarget(
         yaml_path=yaml_path,
         entry_index=entry_index,
@@ -683,7 +934,13 @@ def _build_target(yaml_path: Path, entry_index: int | None, slug: str, symbol: s
         coingecko_id_verified_at=_parse_datetime(entry.get("coingecko_id_verified_at")),
         coingecko_id_verification_failed_at=_parse_datetime(entry.get("coingecko_id_verification_failed_at")),
         coingecko_id_verification_failed_reason=_clean_string(entry.get("coingecko_id_verification_failed_reason")),
-        peg_currency=peg_currency,
+        source_currency=source_currency,
+        source_currency_source=source_currency_source,
+        source_currency_usd_rate=_parse_float(entry.get("source_currency_usd_rate")),
+        source_currency_usd_rate_date=_parse_date(entry.get("source_currency_usd_rate_date")),
+        source_currency_usd_rate_fetched_at=_parse_datetime(entry.get("source_currency_usd_rate_fetched_at")),
+        source_currency_usd_rate_source=_clean_string(entry.get("source_currency_usd_rate_source")),
+        peg_currency=source_currency,
         usd_rate=_parse_float(entry.get("usd_rate")),
         usd_rate_fetched_at=_parse_datetime(entry.get("usd_rate_fetched_at")),
         usd_rate_updated_at=_parse_datetime(entry.get("usd_rate_updated_at")),
@@ -757,12 +1014,28 @@ def _clean_coingecko_id(value: Any) -> str | None:
     return text.lower() if text else None
 
 
+def _clean_currency_code(value: Any) -> str | None:
+    """Return a lower-case source currency code."""
+    text = _clean_string(value)
+    return text.lower() if text else None
+
+
 def _parse_datetime(value: Any) -> datetime.datetime | None:
     text = _clean_string(value)
     if not text:
         return None
     try:
         return datetime.datetime.fromisoformat(text.replace("Z", ""))
+    except ValueError:
+        return None
+
+
+def _parse_date(value: Any) -> datetime.date | None:
+    text = _clean_string(value)
+    if not text:
+        return None
+    try:
+        return datetime.date.fromisoformat(text)
     except ValueError:
         return None
 
@@ -862,10 +1135,18 @@ def _success_update(
     usd_rate: float,
     peg_rate: float | None,
     peg_currency: str | None,
+    source_currency_rate: SourceCurrencyRate | None,
     upstream_updated_at: datetime.datetime | None,
     now_: datetime.datetime,
+    rate_failure_reason: str | None = None,
 ) -> dict[str, Any]:
     update: dict[str, Any] = {
+        "source_currency": target.source_currency or "",
+        "source_currency_source": target.source_currency_source or "",
+        "source_currency_usd_rate": source_currency_rate.usd_per_source_currency if source_currency_rate is not None else "",
+        "source_currency_usd_rate_date": source_currency_rate.date if source_currency_rate is not None else "",
+        "source_currency_usd_rate_fetched_at": now_ if source_currency_rate is not None else "",
+        "source_currency_usd_rate_source": source_currency_rate.source if source_currency_rate is not None else "",
         "coingecko_id": target.coingecko_id or "",
         "coingecko_link": target.coingecko_link or (f"{COINGECKO_LINK_PREFIX}{target.coingecko_id}" if target.coingecko_id else ""),
         "coingecko_id_source": target.coingecko_id_source or "",
@@ -877,8 +1158,8 @@ def _success_update(
         "usd_rate_updated_at": upstream_updated_at,
         "peg_rate": peg_rate,
         "peg_rate_currency": peg_currency or "",
-        "rate_fetch_failed_at": "",
-        "rate_fetch_failed_reason": "",
+        "rate_fetch_failed_at": now_ if rate_failure_reason else "",
+        "rate_fetch_failed_reason": rate_failure_reason or "",
         "depegged_at": target.depegged_at,
     }
     return update
@@ -933,12 +1214,52 @@ def _target_is_actionable(target: StablecoinRateTarget) -> bool:
     return target.entry_index is None and bool(normalise_token_symbol(target.symbol))
 
 
+def _warn_on_native_rate_divergence(target: StablecoinRateTarget, price_data: dict[str, Any], usd_rate: float, source_currency_rate: SourceCurrencyRate) -> None:
+    """Warn if CoinGecko native and locally-derived native rates materially diverge."""
+    if source_currency_rate.source_currency == "usd":
+        return
+
+    native_rate = _parse_price(price_data.get(source_currency_rate.source_currency))
+    if native_rate is None:
+        return
+
+    implied_usd_rate = native_rate * source_currency_rate.usd_per_source_currency
+    relative_diff = abs(usd_rate - implied_usd_rate) / usd_rate
+    if relative_diff > NATIVE_RATE_CROSS_CHECK_RELATIVE_TOLERANCE:
+        logger.warning(
+            "Stablecoin native rate cross-check diverged for %s/%s: usd_rate=%s source_currency=%s native_rate=%s source_currency_usd_rate=%s relative_diff=%s",
+            target.slug,
+            target.name,
+            usd_rate,
+            source_currency_rate.source_currency,
+            native_rate,
+            source_currency_rate.usd_per_source_currency,
+            relative_diff,
+        )
+
+
 def _target_to_denomination_rate(target: StablecoinRateTarget) -> DenominationTokenRate:
+    native_rate_source = None
+    has_native_rate = target.peg_rate is not None and target.peg_rate_currency != "usd"
+    if has_native_rate:
+        if target.source_currency_usd_rate_source:
+            native_rate_source = f"{STABLECOIN_RATE_SOURCE_COINGECKO}+{target.source_currency_usd_rate_source}"
+        else:
+            native_rate_source = STABLECOIN_RATE_SOURCE_COINGECKO
+
     return DenominationTokenRate(
         coingecko_id=target.coingecko_id,
+        source_currency=target.source_currency,
         usd_rate=target.usd_rate,
         usd_rate_fetched_at=target.usd_rate_fetched_at,
         usd_rate_source=STABLECOIN_RATE_SOURCE_COINGECKO if target.usd_rate is not None else None,
+        native_rate=target.peg_rate if has_native_rate else None,
+        native_rate_currency=target.peg_rate_currency if has_native_rate else None,
+        native_rate_fetched_at=target.usd_rate_fetched_at if has_native_rate else None,
+        native_rate_source=native_rate_source,
+        source_currency_usd_rate=target.source_currency_usd_rate,
+        source_currency_usd_rate_fetched_at=target.source_currency_usd_rate_fetched_at,
+        source_currency_usd_rate_source=target.source_currency_usd_rate_source,
     )
 
 
@@ -975,6 +1296,8 @@ def _format_yaml_value(value: Any) -> str:
         return "''"
     if isinstance(value, datetime.datetime):
         return f"'{_format_datetime(value)}'"
+    if isinstance(value, datetime.date):
+        return f"'{value.isoformat()}'"
     if isinstance(value, float):
         return f"{value:.12g}"
     if isinstance(value, int):

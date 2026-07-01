@@ -7,6 +7,8 @@ from typing import Any
 
 import pytest
 
+from eth_defi.currency_api.client import DateRates
+from eth_defi.currency_api.database import CurrencyRateDatabase
 from eth_defi.feed import stablecoin_rate
 from eth_defi.feed.stablecoin_rate import StablecoinRateFeeder, build_depegged_stablecoin_lookups, iter_stablecoin_rate_targets, refresh_stablecoin_rates
 from eth_defi.stablecoin_metadata import build_stablecoin_metadata_json
@@ -55,6 +57,8 @@ name: Circle USDC
 short_description: USD Coin
 long_description: ''
 category: stablecoin
+source_currency: usd
+source_currency_source: manual
 links:
   homepage: https://www.circle.com/usdc
   coingecko: https://www.coingecko.com/en/coins/usd-coin
@@ -84,6 +88,8 @@ entries:
 - name: Stables Labs USDX
   short_description: Stables Labs USDX
   long_description: ''
+  source_currency: usd
+  source_currency_source: manual
   coingecko_id: usdx-money-usdx
   coingecko_link: https://www.coingecko.com/en/coins/usdx-money-usdx
   coingecko_id_source: manual
@@ -100,6 +106,8 @@ entries:
 - name: Kava USDX
   short_description: Kava USDX
   long_description: ''
+  source_currency: usd
+  source_currency_source: manual
   coingecko_id: usdx
   coingecko_link: https://www.coingecko.com/en/coins/usdx
   coingecko_id_source: manual
@@ -124,6 +132,7 @@ slug: usdx
 
 def _write_fiat_stablecoin_yaml(data_dir: Path, symbol: str, name: str, coingecko_id: str) -> Path:
     """Create a minimal non-USD fiat stablecoin YAML file."""
+    source_currency = stablecoin_rate._guess_peg_currency(symbol, name)
     yaml_path = data_dir / f"{symbol.lower()}.yaml"
     yaml_path.write_text(
         f"""symbol: {symbol}
@@ -131,6 +140,8 @@ name: {name}
 short_description: {name}
 long_description: ''
 category: stablecoin
+source_currency: {source_currency}
+source_currency_source: manual
 coingecko_id: {coingecko_id}
 coingecko_link: https://www.coingecko.com/en/coins/{coingecko_id}
 coingecko_id_source: manual
@@ -148,6 +159,23 @@ checks:
 """
     )
     return yaml_path
+
+
+def _write_currency_rate_db(path: Path, date: datetime.date, quote_currency: str, usd_per_source_currency: float) -> None:
+    """Create a temporary currency API DuckDB with one USD/source FX row."""
+    db = CurrencyRateDatabase(path)
+    try:
+        db.upsert_rates(
+            DateRates(
+                date=date,
+                base_currency="usd",
+                source="fawazahmed0",
+                rows=[(quote_currency, 1.0 / usd_per_source_currency)],
+            )
+        )
+        db.save()
+    finally:
+        db.close()
 
 
 def test_refresh_stablecoin_rates_updates_usdc_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -194,6 +222,12 @@ def test_refresh_stablecoin_rates_updates_usdc_happy_path(tmp_path: Path, monkey
     assert target.depegged_at is None
 
     metadata = build_stablecoin_metadata_json(tmp_path / "usdc.yaml")[0]
+    assert metadata["source_currency"] == "usd"
+    assert metadata["source_currency_source"] == "manual"
+    assert metadata["source_currency_usd_rate"] == pytest.approx(1.0)
+    assert metadata["source_currency_usd_rate_date"] == "2026-06-26"
+    assert metadata["source_currency_usd_rate_fetched_at"] == "2026-06-26T12:00:00"
+    assert metadata["source_currency_usd_rate_source"] == "fawazahmed0"
     assert metadata["coingecko_id"] == "usd-coin"
     assert metadata["usd_rate"] == pytest.approx(0.9998)
     assert metadata["usd_rate_fetched_at"] == "2026-06-26T12:00:00"
@@ -201,9 +235,17 @@ def test_refresh_stablecoin_rates_updates_usdc_happy_path(tmp_path: Path, monkey
     feeder = StablecoinRateFeeder(data_dir=tmp_path)
     rate = feeder.get_denomination_token_rate_section(1, USDC_ADDRESS, "USDC")
     assert rate.coingecko_id == "usd-coin"
+    assert rate.source_currency == "usd"
     assert rate.usd_rate == pytest.approx(0.9998)
     assert rate.usd_rate_fetched_at == now_
     assert rate.usd_rate_source == "coingecko"
+    assert rate.native_rate is None
+    assert rate.native_rate_currency is None
+    assert rate.native_rate_fetched_at is None
+    assert rate.native_rate_source is None
+    assert rate.source_currency_usd_rate == pytest.approx(1.0)
+    assert rate.source_currency_usd_rate_fetched_at == now_
+    assert rate.source_currency_usd_rate_source == "fawazahmed0"
     assert feeder.is_depegged_stablecoin_token(1, USDC_ADDRESS, "USDC") is False
 
 
@@ -245,7 +287,10 @@ def test_refresh_stablecoin_rates_marks_usdx_depegged(tmp_path: Path, monkeypatc
 
     rate = feeder.get_denomination_token_rate_section(2222, USDX_ADDRESS, "USDX")
     assert rate.coingecko_id == "usdx"
+    assert rate.source_currency == "usd"
     assert rate.usd_rate == pytest.approx(0.646809)
+    assert rate.native_rate is None
+    assert rate.native_rate_currency is None
     assert rate.usd_rate_source == "coingecko"
 
 
@@ -356,6 +401,8 @@ name: Acala Dollar
 short_description: Acala Dollar
 long_description: ''
 category: stablecoin
+source_currency: usd
+source_currency_source: manual
 coingecko_id: acala-dollar
 coingecko_link: https://www.coingecko.com/en/coins/acala-dollar
 coingecko_id_source: url
@@ -434,6 +481,8 @@ name: Circle USDC
 short_description: USD Coin
 long_description: ''
 category: stablecoin
+source_currency: usd
+source_currency_source: manual
 coingecko_id: USD-COIN
 coingecko_link: ''
 coingecko_id_source: manual
@@ -536,6 +585,8 @@ def test_non_usd_fiat_stablecoins_compare_against_their_peg_currency(
 ) -> None:
     """Non-USD fiat stablecoins do not depeg merely because their USD price is below one."""
     _write_fiat_stablecoin_yaml(tmp_path, symbol, name, coingecko_id)
+    currency_db_path = tmp_path / "exchange-rates.duckdb"
+    _write_currency_rate_db(currency_db_path, datetime.date(2026, 6, 26), peg_currency, usd_rate)
 
     def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
         if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
@@ -550,7 +601,7 @@ def test_non_usd_fiat_stablecoins_compare_against_their_peg_currency(
     monkeypatch.setattr(stablecoin_rate.requests, "get", fake_get)
     now_ = datetime.datetime(2026, 6, 26, 12, 0, 0)
 
-    summary = refresh_stablecoin_rates(data_dir=tmp_path, now_=now_, force=True)
+    summary = refresh_stablecoin_rates(data_dir=tmp_path, now_=now_, force=True, currency_db_path=currency_db_path)
 
     assert summary.failed_count == 0
     assert summary.depegged_count == 0
@@ -558,6 +609,170 @@ def test_non_usd_fiat_stablecoins_compare_against_their_peg_currency(
     assert target.usd_rate == pytest.approx(usd_rate)
     assert target.peg_rate == pytest.approx(1.0)
     assert target.peg_rate_currency == peg_currency
+    assert target.source_currency == peg_currency
+    assert target.source_currency_usd_rate == pytest.approx(usd_rate)
+    assert target.source_currency_usd_rate_date == datetime.date(2026, 6, 26)
+    assert target.depegged_at is None
+
+
+def test_eur_stablecoin_depegs_against_native_currency_from_duckdb(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """EUR stablecoin at 1.00 USD depegs because it is below 0.90 EUR."""
+    _write_fiat_stablecoin_yaml(tmp_path, "EURe", "Monerium EUR emoney", "monerium-eur-money")
+    currency_db_path = tmp_path / "exchange-rates.duckdb"
+    _write_currency_rate_db(currency_db_path, datetime.date(2026, 6, 26), "eur", 1.137211905985)
+
+    def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return DummyCoinGeckoResponse([{"id": "monerium-eur-money"}])
+        assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
+        assert set(params["vs_currencies"].split(",")) == {"usd", "eur"}
+        assert isinstance(headers, dict)
+        assert timeout > 0
+        return DummyCoinGeckoResponse({"monerium-eur-money": {"usd": 1.0, "eur": 0.87934359, "last_updated_at": 1782464168}})
+
+    monkeypatch.setattr(stablecoin_rate.requests, "get", fake_get)
+    now_ = datetime.datetime(2026, 6, 26, 12, 0, 0)
+
+    summary = refresh_stablecoin_rates(data_dir=tmp_path, now_=now_, force=True, currency_db_path=currency_db_path)
+
+    assert summary.failed_count == 0
+    assert summary.depegged_count == 1
+    target = next(iter_stablecoin_rate_targets(tmp_path))
+    assert target.usd_rate == pytest.approx(1.0)
+    assert target.peg_rate == pytest.approx(0.87934359)
+    assert target.peg_rate_currency == "eur"
+    assert target.depegged_at == now_
+
+    feeder = StablecoinRateFeeder(data_dir=tmp_path)
+    rate = feeder.get_denomination_token_rate_section(None, None, "EURe")
+    assert rate.usd_rate == pytest.approx(1.0)
+    assert rate.usd_rate_fetched_at == now_
+    assert rate.native_rate == pytest.approx(0.87934359)
+    assert rate.native_rate_currency == "eur"
+    assert rate.native_rate_fetched_at == now_
+    assert rate.native_rate_source == "coingecko+fawazahmed0"
+
+
+def test_non_usd_stablecoin_missing_fx_rate_skips_depeg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Missing DuckDB FX rows keep USD price but skip native depeg checks."""
+    _write_fiat_stablecoin_yaml(tmp_path, "EURe", "Monerium EUR emoney", "monerium-eur-money")
+    currency_db_path = tmp_path / "exchange-rates.duckdb"
+    CurrencyRateDatabase(currency_db_path).close()
+
+    def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return DummyCoinGeckoResponse([{"id": "monerium-eur-money"}])
+        assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
+        assert isinstance(params, dict)
+        assert isinstance(headers, dict)
+        assert timeout > 0
+        return DummyCoinGeckoResponse({"monerium-eur-money": {"usd": 1.0, "eur": 0.87934359, "last_updated_at": 1782464168}})
+
+    monkeypatch.setattr(stablecoin_rate.requests, "get", fake_get)
+    now_ = datetime.datetime(2026, 6, 26, 12, 0, 0)
+
+    summary = refresh_stablecoin_rates(data_dir=tmp_path, now_=now_, force=True, currency_db_path=currency_db_path)
+
+    assert summary.rates_fetched == 1
+    assert summary.failed_count == 1
+    assert summary.skipped_missing_source_currency_rate == 1
+    assert summary.depegged_count == 0
+    target = next(iter_stablecoin_rate_targets(tmp_path))
+    assert target.usd_rate == pytest.approx(1.0)
+    assert target.peg_rate is None
+    assert target.peg_rate_currency is None
+    assert target.rate_fetch_failed_reason == "missing_source_currency_rate"
+    assert target.depegged_at is None
+
+
+def test_non_usd_stablecoin_stale_fx_rate_skips_depeg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """FX rows older than one week are stale and do not drive depeg checks."""
+    _write_fiat_stablecoin_yaml(tmp_path, "EURe", "Monerium EUR emoney", "monerium-eur-money")
+    currency_db_path = tmp_path / "exchange-rates.duckdb"
+    _write_currency_rate_db(currency_db_path, datetime.date(2026, 6, 18), "eur", 1.137211905985)
+
+    def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return DummyCoinGeckoResponse([{"id": "monerium-eur-money"}])
+        assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
+        assert isinstance(params, dict)
+        assert isinstance(headers, dict)
+        assert timeout > 0
+        return DummyCoinGeckoResponse({"monerium-eur-money": {"usd": 1.0, "eur": 0.87934359, "last_updated_at": 1782464168}})
+
+    monkeypatch.setattr(stablecoin_rate.requests, "get", fake_get)
+    now_ = datetime.datetime(2026, 6, 26, 12, 0, 0)
+
+    summary = refresh_stablecoin_rates(data_dir=tmp_path, now_=now_, force=True, currency_db_path=currency_db_path)
+
+    assert summary.failed_count == 1
+    assert summary.source_currency_rates_stale == 1
+    assert summary.depegged_count == 0
+    target = next(iter_stablecoin_rate_targets(tmp_path))
+    assert target.usd_rate == pytest.approx(1.0)
+    assert target.peg_rate is None
+    assert target.peg_rate_currency is None
+    assert target.rate_fetch_failed_reason == "stale_source_currency_rate"
+    assert target.depegged_at is None
+
+
+def test_inferred_source_currency_skips_depeg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Heuristic source-currency values are review-only until promoted to manual."""
+    _write_fiat_stablecoin_yaml(tmp_path, "EURe", "Monerium EUR emoney", "monerium-eur-money")
+    stablecoin_rate._update_yaml_entry_fields(tmp_path / "eure.yaml", None, {"source_currency_source": "inferred"})
+    currency_db_path = tmp_path / "exchange-rates.duckdb"
+    _write_currency_rate_db(currency_db_path, datetime.date(2026, 6, 26), "eur", 1.137211905985)
+
+    def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return DummyCoinGeckoResponse([{"id": "monerium-eur-money"}])
+        assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
+        assert isinstance(params, dict)
+        assert isinstance(headers, dict)
+        assert timeout > 0
+        return DummyCoinGeckoResponse({"monerium-eur-money": {"usd": 1.0, "eur": 0.87934359, "last_updated_at": 1782464168}})
+
+    monkeypatch.setattr(stablecoin_rate.requests, "get", fake_get)
+    now_ = datetime.datetime(2026, 6, 26, 12, 0, 0)
+
+    summary = refresh_stablecoin_rates(data_dir=tmp_path, now_=now_, force=True, currency_db_path=currency_db_path)
+
+    assert summary.skipped_inferred_source_currency == 1
+    assert summary.depegged_count == 0
+    target = next(iter_stablecoin_rate_targets(tmp_path))
+    assert target.usd_rate == pytest.approx(1.0)
+    assert target.peg_rate is None
+    assert target.rate_fetch_failed_reason == "inferred_source_currency"
+    assert target.depegged_at is None
+
+
+def test_empty_source_currency_source_skips_depeg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Source currency without manual provenance is not trusted for depeg stamping."""
+    _write_fiat_stablecoin_yaml(tmp_path, "EURe", "Monerium EUR emoney", "monerium-eur-money")
+    stablecoin_rate._update_yaml_entry_fields(tmp_path / "eure.yaml", None, {"source_currency_source": ""})
+    currency_db_path = tmp_path / "exchange-rates.duckdb"
+    _write_currency_rate_db(currency_db_path, datetime.date(2026, 6, 26), "eur", 1.137211905985)
+
+    def fake_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> DummyCoinGeckoResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            return DummyCoinGeckoResponse([{"id": "monerium-eur-money"}])
+        assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
+        assert isinstance(params, dict)
+        assert isinstance(headers, dict)
+        assert timeout > 0
+        return DummyCoinGeckoResponse({"monerium-eur-money": {"usd": 1.0, "eur": 0.87934359, "last_updated_at": 1782464168}})
+
+    monkeypatch.setattr(stablecoin_rate.requests, "get", fake_get)
+    now_ = datetime.datetime(2026, 6, 26, 12, 0, 0)
+
+    summary = refresh_stablecoin_rates(data_dir=tmp_path, now_=now_, force=True, currency_db_path=currency_db_path)
+
+    assert summary.skipped_inferred_source_currency == 1
+    assert summary.depegged_count == 0
+    target = next(iter_stablecoin_rate_targets(tmp_path))
+    assert target.usd_rate == pytest.approx(1.0)
+    assert target.peg_rate is None
+    assert target.rate_fetch_failed_reason == "untrusted_source_currency"
     assert target.depegged_at is None
 
 
@@ -602,6 +817,8 @@ name: Stables Labs USDX
 short_description: USDX is a USD stablecoin.
 long_description: ''
 category: stablecoin
+source_currency: usd
+source_currency_source: manual
 coingecko_id: usdx-money-usdx
 coingecko_link: https://www.coingecko.com/en/coins/usdx-money-usdx
 coingecko_id_source: manual
@@ -648,6 +865,8 @@ name: Abracadabra MIM
 short_description: Magic Internet Money is a USD-pegged stablecoin.
 long_description: ''
 category: stablecoin
+source_currency: usd
+source_currency_source: manual
 coingecko_id: magic-internet-money
 coingecko_link: https://www.coingecko.com/en/coins/magic-internet-money
 coingecko_id_source: manual
@@ -695,6 +914,8 @@ name: Compound USDC
 short_description: Compound USDC
 long_description: ''
 category: yield_bearing
+source_currency: usd
+source_currency_source: manual
 coingecko_id: compound-usd-coin
 coingecko_link: https://www.coingecko.com/en/coins/compound-usd-coin
 coingecko_id_source: manual

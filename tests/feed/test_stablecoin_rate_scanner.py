@@ -53,6 +53,8 @@ def test_stablecoin_rate_side_job_uses_24h_gate(tmp_path: Path, monkeypatch: pyt
         stablecoin_data_dir=tmp_path / "stablecoins",
         stablecoin_rate_gate_path=gate_path,
         stablecoin_rate_timeout=7.5,
+        currency_api_db_path=tmp_path / "exchange-rates.duckdb",
+        currency_api_source="test-source",
     )
 
     first_summary = CollectorRunSummary()
@@ -63,6 +65,8 @@ def test_stablecoin_rate_side_job_uses_24h_gate(tmp_path: Path, monkeypatch: pyt
     assert calls[0]["data_dir"] == tmp_path / "stablecoins"
     assert calls[0]["force"] is False
     assert calls[0]["timeout"] == 7.5
+    assert calls[0]["currency_db_path"] == tmp_path / "exchange-rates.duckdb"
+    assert calls[0]["currency_source"] == "test-source"
     assert json.loads(gate_path.read_text())["last_succeeded_at"]
 
     second_summary = CollectorRunSummary()

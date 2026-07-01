@@ -1920,6 +1920,12 @@ def calculate_lifetime_metrics(
 
     Lookback based on the last entry.
 
+    Each output row contains a ``denomination_token_rate`` value produced by
+    :py:meth:`eth_defi.feed.stablecoin_rate.StablecoinRateFeeder.get_denomination_token_rate_section`.
+    The value is a :py:class:`eth_defi.feed.stablecoin_rate.DenominationTokenRate`
+    carrying both USD rate fields and, for non-USD stablecoins, native source
+    currency rate fields.
+
     :param df:
         Cleaned price DataFrame conforming to
         :py:class:`~eth_defi.research.wrangle_vault_prices.CleanedVaultPriceRow`.
@@ -3141,11 +3147,17 @@ def display_vault_chart_and_tearsheet(
 
 
 def export_lifetime_row(row: pd.Series) -> dict:
-    """Export lifetime metrics row to a fully JSON-serializable dict.
+    """Export lifetime metrics row to a fully JSON-serialisable dict.
 
     - Recursively handles nested dicts, lists, tuples, sets, and dataclasses.
-    - Normalizes pandas, numpy, datetime, and custom types.
+    - Normalises pandas, numpy, datetime, and custom types.
     - Preserves legacy fee field names.
+
+    The ``denomination_token_rate`` dataclass from
+    :py:class:`eth_defi.feed.stablecoin_rate.DenominationTokenRate` is converted
+    to JSON fields here. This includes ``usd_rate``/``usd_rate_fetched_at`` for
+    all stablecoins and ``native_rate``/``native_rate_fetched_at`` only when the
+    native source currency is not USD.
     """
 
     def _serialize(value):
