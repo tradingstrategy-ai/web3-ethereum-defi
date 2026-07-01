@@ -800,17 +800,19 @@ class MellowVault(VaultBase):
         return "Mellow"
 
     def has_custom_fees(self) -> bool:
-        """Whether Mellow exposes custom deposit and redeem fee readers.
+        """Whether Mellow has fees outside the shared fee model.
 
-        Mellow FeeManager has explicit ``depositFeeD6`` and ``redeemFeeD6``
-        rates, so callers should not assume the VaultBase default zero
-        entry/exit fee behaviour.
+        Mellow FeeManager fees are all represented by :class:`FeeData`:
+        ``protocolFeeD6`` is management-like, ``performanceFeeD6`` is
+        performance-like, and ``depositFeeD6``/``redeemFeeD6`` map to the
+        standard deposit/withdraw fields.
 
         :return:
-            ``True``.
+            ``False`` because no Mellow FeeManager fee is outside the shared
+            fee fields.
         """
 
-        return True
+        return False
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Fetch management-like fee.

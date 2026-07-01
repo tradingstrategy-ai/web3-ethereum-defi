@@ -1266,17 +1266,19 @@ class VaultBase(ABC):
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_performance_fee()")
 
     def has_custom_fees(self) -> bool:
-        """Does this vault have custom fee structure reading methods.
+        """Does this vault have fees outside the shared fee model.
 
-        Causes risk in the vault comparison.
+        Custom fees cause risk in vault comparison because the shared
+        management/performance/deposit/withdraw fee fields cannot describe the
+        full fee structure.
 
-        E.g.
-
-        - Withdraw fee
-        - Deposit fee
+        Do not return ``True`` merely because a vault implements custom
+        accessors for ordinary management, performance, deposit, or withdraw
+        fees. Return ``True`` only when some vault fee cannot be reflected in
+        those standard fields as a fee-like value.
 
         :return:
-            True if custom fee reading methods are implemented
+            ``True`` if the vault has fees outside the shared fee model.
         """
         return False
 
