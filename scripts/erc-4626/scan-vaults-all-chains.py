@@ -123,7 +123,16 @@ Example CHAIN_ORDER for all chains:
     CHAIN_ORDER="Sonic, Monad, Hyperliquid, Base, Arbitrum, Ethereum, Linea, Gnosis, Zora, Polygon, Avalanche, Berachain, Unichain, Hemi, Plasma, Binance, Mantle, Katana, Ink, Blast, Soneium, Optimism"
 """
 
-from eth_defi.vault.scan_all_chains import main
+import os
+
+
+def _print_early_startup_banner() -> None:
+    """Print a boot marker before importing the scanner implementation."""
+    log_level = os.environ.get("LOG_LEVEL", "warning")
+    print(f"Starting vault scanner, LOG_LEVEL={log_level}", flush=True)
 
 if __name__ == "__main__":
+    _print_early_startup_banner()
+    from eth_defi.vault.scan_all_chains import main
+
     main()
