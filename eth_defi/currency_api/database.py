@@ -26,7 +26,7 @@ class CurrencyRateDatabase:
 
     Three tables:
 
-    - ``exchange_rates`` — the data, keyed by
+    - ``exchange_rates`` — the data, uniquely maintained by
       ``(date, base_currency, quote_currency, source)``. ``rate`` is the raw API
       value (units of quote per 1 unit of base).
     - ``unavailable_rates`` — quote-level gap tracking for cells confirmed to
@@ -75,8 +75,7 @@ class CurrencyRateDatabase:
                 quote_currency VARCHAR NOT NULL,
                 rate DOUBLE NOT NULL,
                 source VARCHAR NOT NULL,
-                written_at TIMESTAMP,
-                PRIMARY KEY (date, base_currency, quote_currency, source)
+                written_at TIMESTAMP
             )
         """)
 
@@ -88,8 +87,7 @@ class CurrencyRateDatabase:
                 source VARCHAR NOT NULL,
                 reason VARCHAR,
                 http_status INTEGER,
-                checked_at TIMESTAMP,
-                PRIMARY KEY (date, base_currency, quote_currency, source)
+                checked_at TIMESTAMP
             )
         """)
 
@@ -103,10 +101,105 @@ class CurrencyRateDatabase:
                 base_currency VARCHAR NOT NULL,
                 source VARCHAR NOT NULL,
                 transient_attempts INTEGER NOT NULL,
-                last_attempt_at TIMESTAMP,
-                PRIMARY KEY (date, base_currency, source)
+                last_attempt_at TIMESTAMP
             )
         """)
+
+        # DuckDB 1.5.0 can abort in native code while serialising ART primary-key
+        # indexes for this write pattern. Keep idempotence in application SQL and
+        # migrate any early databases that were created with PRIMARY KEY clauses.
+        self._rewrite_primary_key_table(
+            table_name="exchange_rates",
+            columns=("date", "base_currency", "quote_currency", "rate", "source", "written_at"),
+            key_columns=("date", "base_currency", "quote_currency", "source"),
+            order_column="written_at",
+        )
+        self._rewrite_primary_key_table(
+            table_name="unavailable_rates",
+            columns=("date", "base_currency", "quote_currency", "source", "reason", "http_status", "checked_at"),
+            key_columns=("date", "base_currency", "quote_currency", "source"),
+            order_column="checked_at",
+        )
+        self._rewrite_primary_key_table(
+            table_name="fetch_attempts",
+            columns=("date", "base_currency", "source", "transient_attempts", "last_attempt_at"),
+            key_columns=("date", "base_currency", "source"),
+            order_column="last_attempt_at",
+        )
+
+    def _rewrite_primary_key_table(
+        self,
+        table_name: str,
+        columns: tuple[str, ...],
+        key_columns: tuple[str, ...],
+        order_column: str,
+    ) -> None:
+        """Rewrite an early primary-key table as a plain DuckDB table.
+
+        DuckDB does not support dropping primary-key constraints in place. If a
+        primary-key table is found, copy the latest row for each logical key to a
+        replacement table and keep the original as a backup table.
+
+        :param table_name:
+            Table to inspect and rewrite.
+        :param columns:
+            Columns to copy, in storage order.
+        :param key_columns:
+            Logical uniqueness columns.
+        :param order_column:
+            Timestamp column used to choose the latest duplicate if any exist.
+        """
+        has_primary_key = self.con.execute(
+            """
+            SELECT COUNT(*) FROM duckdb_constraints()
+            WHERE table_name = ? AND constraint_type = 'PRIMARY KEY'
+            """,
+            [table_name],
+        ).fetchone()[0]
+        if not has_primary_key:
+            return
+
+        logger.warning("Rewriting %s without DuckDB PRIMARY KEY constraints", table_name)
+
+        replacement_table = f"{table_name}__without_primary_key"
+        backup_table = f"{table_name}__primary_key_backup"
+        suffix = 1
+        while self.con.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
+            [backup_table],
+        ).fetchone()[0]:
+            suffix += 1
+            backup_table = f"{table_name}__primary_key_backup_{suffix}"
+
+        column_sql = ", ".join(columns)
+        key_sql = ", ".join(key_columns)
+
+        self.con.execute("BEGIN TRANSACTION")
+        try:
+            self.con.execute(f"DROP TABLE IF EXISTS {replacement_table}")
+            self.con.execute(f"CREATE TABLE {replacement_table} AS SELECT {column_sql} FROM {table_name} WHERE FALSE")
+            self.con.execute(
+                f"""
+                INSERT INTO {replacement_table}
+                SELECT {column_sql}
+                FROM (
+                    SELECT
+                        {column_sql},
+                        ROW_NUMBER() OVER (
+                            PARTITION BY {key_sql}
+                            ORDER BY {order_column} DESC NULLS LAST
+                        ) AS rn
+                    FROM {table_name}
+                )
+                WHERE rn = 1
+                """
+            )
+            self.con.execute(f"ALTER TABLE {table_name} RENAME TO {backup_table}")
+            self.con.execute(f"ALTER TABLE {replacement_table} RENAME TO {table_name}")
+            self.con.execute("COMMIT")
+        except Exception:
+            self.con.execute("ROLLBACK")
+            raise
 
     def save(self) -> None:
         """Force a checkpoint so data is flushed to disk."""
@@ -122,8 +215,9 @@ class CurrencyRateDatabase:
     def upsert_rates(self, date_rates: DateRates) -> None:
         """Idempotently upsert the rates for one date.
 
-        Re-running with the same key overwrites the value and ``written_at``
-        (``ON CONFLICT DO UPDATE``), so a repeated scan produces no duplicates.
+        Re-running with the same key overwrites the value and ``written_at`` via
+        transactional delete-then-insert, so a repeated scan produces no
+        duplicates without relying on DuckDB primary-key indexes.
 
         :param date_rates:
             Parsed rates to store.
@@ -144,29 +238,40 @@ class CurrencyRateDatabase:
             for quote, rate in date_rates.rows
         ]
 
-        self.con.executemany(
-            """
-            INSERT INTO exchange_rates (
-                date, base_currency, quote_currency, rate, source, written_at
-            ) VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT (date, base_currency, quote_currency, source)
-            DO UPDATE SET
-                rate = EXCLUDED.rate,
-                written_at = EXCLUDED.written_at
-            """,
-            params,
-        )
+        key_params = [(date_rates.date, date_rates.base_currency, quote, date_rates.source) for quote, _ in date_rates.rows]
 
-        # A cell that now has data is no longer a gap: keep exchange_rates and
-        # unavailable_rates mutually exclusive so a previously-recorded gap
-        # (quote_missing / date_404 / persistent_error) cannot linger as a stale row.
-        self.con.executemany(
-            """
-            DELETE FROM unavailable_rates
-            WHERE date = ? AND base_currency = ? AND quote_currency = ? AND source = ?
-            """,
-            [(date_rates.date, date_rates.base_currency, quote, date_rates.source) for quote, _ in date_rates.rows],
-        )
+        self.con.execute("BEGIN TRANSACTION")
+        try:
+            self.con.executemany(
+                """
+                DELETE FROM exchange_rates
+                WHERE date = ? AND base_currency = ? AND quote_currency = ? AND source = ?
+                """,
+                key_params,
+            )
+            self.con.executemany(
+                """
+                INSERT INTO exchange_rates (
+                    date, base_currency, quote_currency, rate, source, written_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                params,
+            )
+
+            # A cell that now has data is no longer a gap: keep exchange_rates
+            # and unavailable_rates mutually exclusive so a previously-recorded
+            # gap cannot linger as a stale row.
+            self.con.executemany(
+                """
+                DELETE FROM unavailable_rates
+                WHERE date = ? AND base_currency = ? AND quote_currency = ? AND source = ?
+                """,
+                key_params,
+            )
+            self.con.execute("COMMIT")
+        except Exception:
+            self.con.execute("ROLLBACK")
+            raise
 
     def record_unavailable(
         self,
@@ -200,36 +305,44 @@ class CurrencyRateDatabase:
         never recorded as both present and unavailable (e.g. when a date that
         already has stored data later 404s on a tail refetch, or hits give-up).
         """
-        self.con.execute(
-            """
-            INSERT INTO unavailable_rates (
-                date, base_currency, quote_currency, source, reason, http_status, checked_at
-            )
-            SELECT ?, ?, ?, ?, ?, ?, ?
-            WHERE NOT EXISTS (
-                SELECT 1 FROM exchange_rates
+        self.con.execute("BEGIN TRANSACTION")
+        try:
+            self.con.execute(
+                """
+                DELETE FROM unavailable_rates
                 WHERE date = ? AND base_currency = ? AND quote_currency = ? AND source = ?
+                """,
+                [date, base_currency, quote_currency, source],
             )
-            ON CONFLICT (date, base_currency, quote_currency, source)
-            DO UPDATE SET
-                reason = EXCLUDED.reason,
-                http_status = EXCLUDED.http_status,
-                checked_at = EXCLUDED.checked_at
-            """,
-            [
-                date,
-                base_currency,
-                quote_currency,
-                source,
-                reason,
-                http_status,
-                native_datetime_utc_now(),
-                date,
-                base_currency,
-                quote_currency,
-                source,
-            ],
-        )
+            self.con.execute(
+                """
+                INSERT INTO unavailable_rates (
+                    date, base_currency, quote_currency, source, reason, http_status, checked_at
+                )
+                SELECT ?, ?, ?, ?, ?, ?, ?
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM exchange_rates
+                    WHERE date = ? AND base_currency = ? AND quote_currency = ? AND source = ?
+                )
+                """,
+                [
+                    date,
+                    base_currency,
+                    quote_currency,
+                    source,
+                    reason,
+                    http_status,
+                    native_datetime_utc_now(),
+                    date,
+                    base_currency,
+                    quote_currency,
+                    source,
+                ],
+            )
+            self.con.execute("COMMIT")
+        except Exception:
+            self.con.execute("ROLLBACK")
+            raise
 
     def get_transient_attempts(self, base_currency: str, source: str) -> dict[datetime.date, int]:
         """Return the consecutive transient-failure count per date.
@@ -269,18 +382,27 @@ class CurrencyRateDatabase:
         :param attempts:
             New cumulative count of consecutive transient failures.
         """
-        self.con.execute(
-            """
-            INSERT INTO fetch_attempts (
-                date, base_currency, source, transient_attempts, last_attempt_at
-            ) VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT (date, base_currency, source)
-            DO UPDATE SET
-                transient_attempts = EXCLUDED.transient_attempts,
-                last_attempt_at = EXCLUDED.last_attempt_at
-            """,
-            [date, base_currency, source, attempts, native_datetime_utc_now()],
-        )
+        self.con.execute("BEGIN TRANSACTION")
+        try:
+            self.con.execute(
+                """
+                DELETE FROM fetch_attempts
+                WHERE date = ? AND base_currency = ? AND source = ?
+                """,
+                [date, base_currency, source],
+            )
+            self.con.execute(
+                """
+                INSERT INTO fetch_attempts (
+                    date, base_currency, source, transient_attempts, last_attempt_at
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                [date, base_currency, source, attempts, native_datetime_utc_now()],
+            )
+            self.con.execute("COMMIT")
+        except Exception:
+            self.con.execute("ROLLBACK")
+            raise
 
     def clear_transient_attempts(self, date: datetime.date, base_currency: str, source: str) -> None:
         """Reset the transient-failure counter for a date once it resolves.

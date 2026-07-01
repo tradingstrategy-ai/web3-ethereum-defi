@@ -1,8 +1,8 @@
 """Historical exchange rate ingestion from the fawazahmed0 Exchange API.
 
 This package incrementally scans daily historical exchange rates for a
-configurable set of named currencies (default: EUR, GBP, JPY, AUD, BTC, ETH against
-USD) and stores them in a DuckDB database.
+configurable set of named currencies (default: EUR, GBP, JPY, AUD, SGD, TRY,
+CHF, CAD, BTC, ETH against USD) and stores them in a DuckDB database.
 
 The data is sourced from the free, no-API-key
 `fawazahmed0 Exchange API <https://github.com/fawazahmed0/exchange-api>`__

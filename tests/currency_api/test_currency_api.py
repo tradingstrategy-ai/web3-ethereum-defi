@@ -49,6 +49,10 @@ RATE_BOUNDS = {
     "gbp": (0.5, 1.5),
     "jpy": (50.0, 500.0),
     "aud": (1.0, 2.5),
+    "sgd": (1.0, 2.0),
+    "try": (10.0, 100.0),
+    "chf": (0.5, 1.5),
+    "cad": (1.0, 2.5),
     "btc": (0.0, 1.0),
     "eth": (0.0, 1.0),
 }
@@ -64,7 +68,7 @@ def test_limited_end_to_end_scan(db_path: Path):
     """Limited real-network end-to-end scan stores and is idempotent.
 
     1. Run a 3-day scan (2026-06-01..03) for the default currencies into a temp DB.
-    2. Assert every (date, quote) cell is present (3 dates x 6 quotes = 18 rows),
+    2. Assert every (date, quote) cell is present (3 dates x 10 quotes = 30 rows),
        the source column is populated, rates are within loose sanity bounds, and
        there were no transient failures.
     3. Re-run the identical scan and assert the row count is unchanged (idempotent
@@ -77,9 +81,10 @@ def test_limited_end_to_end_scan(db_path: Path):
         # 2. Assert completeness, source, bounds and no transient failures.
         assert result.transient_failures == 0
         df = _rates_with_python_dates(result.db)
-        assert len(df) == 18  # 3 dates x 6 default quotes
-
         expected_dates = {WINDOW_START, WINDOW_START + datetime.timedelta(days=1), WINDOW_END}
+        expected_row_count = len(expected_dates) * len(RATE_BOUNDS)
+        assert len(df) == expected_row_count
+
         present_pairs = {(row.date, row.quote_currency) for row in df.itertuples()}
         for date in expected_dates:
             for quote in RATE_BOUNDS:
@@ -94,7 +99,7 @@ def test_limited_end_to_end_scan(db_path: Path):
         # 3. Re-run the identical scan: idempotent, no duplicate rows.
         rerun = run_incremental_scan(db_path=db_path, start_date=WINDOW_START, end_date=WINDOW_END)
         try:
-            assert rerun.db.row_count() == 18
+            assert rerun.db.row_count() == expected_row_count
         finally:
             rerun.db.close()
     finally:
