@@ -11,6 +11,8 @@ long_description: |
   overcollateralised positions (similar to Maker Vaults), yield-bearing reserves, and algorithmic rebalancing across supported chains.
   EURA can be bridged across multiple EVM networks via the LayerZero-based Angle bridge.
 category: stablecoin
+source_currency: eur
+source_currency_source: manual
 links:
   homepage: https://www.angle.money/
   coingecko: https://www.coingecko.com/en/coins/ageur

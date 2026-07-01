@@ -11,6 +11,8 @@ long_description: |
   EURC is available on Ethereum, Base, Avalanche, Solana, and other networks.
   It is Circle's Euro-denominated equivalent of USDC.
 category: stablecoin
+source_currency: eur
+source_currency_source: manual
 links:
   homepage: https://www.circle.com/eurc
   coingecko: ''

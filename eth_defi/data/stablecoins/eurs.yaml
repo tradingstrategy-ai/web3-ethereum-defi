@@ -11,6 +11,8 @@ long_description: |
   It is targeted at institutional and retail users seeking Euro-denominated digital asset exposure.
   STASIS provides transparency reports and redemption services directly to verified users.
 category: stablecoin
+source_currency: eur
+source_currency_source: manual
 links:
   homepage: https://stasis.net/
   coingecko: https://www.coingecko.com/en/coins/stasis-eurs

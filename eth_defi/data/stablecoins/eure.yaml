@@ -11,6 +11,8 @@ long_description: |
   EURe is available on Ethereum, Gnosis Chain, Polygon, and Arbitrum.
   The token was upgraded to V2 on Ethereum in December 2024; V1 continues to work.
 category: stablecoin
+source_currency: eur
+source_currency_source: manual
 links:
   homepage: https://monerium.com/
   coingecko: https://www.coingecko.com/en/coins/monerium-eur-money

@@ -19,6 +19,8 @@ long_description: |
   The EUROe Account portal closed on 31 July 2025, the final date for direct redemptions.
   Paxos redirected European stablecoin efforts to its USDG (Global Dollar) product.
 category: stablecoin
+source_currency: eur
+source_currency_source: manual
 links:
   homepage: https://www.euroe.com/
   coingecko: ''
