@@ -283,6 +283,23 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
 
         report.leads = leads
 
-        self.scan_mellow_factory_leads(report, chain, leads, self.build_mellow_factory_query(executor, start_block, end_block))
+        # ``read_events_concurrent()`` owns the executor lifecycle. Use a fresh
+        # pool for the Mellow factory pass so the preceding ERC-4626/BrinkVault
+        # event scan cannot leave us with a shut down executor.
+        if fetch_mellow_factories_for_chain(chain):
+            self.scan_mellow_factory_leads(
+                report,
+                chain,
+                leads,
+                self.build_mellow_factory_query(
+                    create_thread_pool_executor(
+                        self.web3factory,
+                        context=None,
+                        max_workers=self.max_workers,
+                    ),
+                    start_block,
+                    end_block,
+                ),
+            )
 
         return report
