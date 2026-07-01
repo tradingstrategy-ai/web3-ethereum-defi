@@ -28,6 +28,8 @@ name: Kava USDX
 short_description: Kava USDX
 long_description: ''
 category: stablecoin
+source_currency: usd
+source_currency_source: manual
 coingecko_id: usdx
 coingecko_link: https://www.coingecko.com/en/coins/usdx
 coingecko_id_source: manual
@@ -37,6 +39,9 @@ usd_rate_fetched_at: '2026-06-26T12:00:00'
 usd_rate_updated_at: '2026-06-26T08:56:08'
 peg_rate: 0.646809
 peg_rate_currency: usd
+source_currency_usd_rate: 1.0
+source_currency_usd_rate_fetched_at: '2026-06-26T12:00:00'
+source_currency_usd_rate_source: fawazahmed0
 rate_fetch_failed_at: ''
 rate_fetch_failed_reason: ''
 depegged_at: '2026-06-26T12:00:00'
@@ -66,6 +71,8 @@ name: Circle USDC
 short_description: USD Coin
 long_description: ''
 category: stablecoin
+source_currency: usd
+source_currency_source: manual
 coingecko_id: usd-coin
 coingecko_link: https://www.coingecko.com/en/coins/usd-coin
 coingecko_id_source: manual
@@ -95,6 +102,8 @@ name: Kava USDX
 short_description: Kava USDX
 long_description: ''
 category: stablecoin
+source_currency: usd
+source_currency_source: manual
 coingecko_id: usdx
 coingecko_link: https://www.coingecko.com/en/coins/usdx
 coingecko_id_source: manual
@@ -204,17 +213,33 @@ def _assert_bad_usdx_vault_blacklisted(metrics: pd.DataFrame, expected_usd_rate:
 
     denomination_token_rate = row["denomination_token_rate"]
     assert denomination_token_rate.coingecko_id == "usdx"
+    assert denomination_token_rate.source_currency == "usd"
     assert denomination_token_rate.usd_rate == pytest.approx(expected_usd_rate)
     assert denomination_token_rate.usd_rate_fetched_at == expected_fetched_at
     assert denomination_token_rate.usd_rate_source == "coingecko"
+    assert denomination_token_rate.native_rate is None
+    assert denomination_token_rate.native_rate_currency is None
+    assert denomination_token_rate.native_rate_fetched_at is None
+    assert denomination_token_rate.native_rate_source is None
+    assert denomination_token_rate.source_currency_usd_rate == pytest.approx(1.0)
+    assert denomination_token_rate.source_currency_usd_rate_fetched_at == expected_fetched_at
+    assert denomination_token_rate.source_currency_usd_rate_source == "fawazahmed0"
 
     exported = export_lifetime_row(row)
     assert exported["risk"] == "Blacklisted"
     assert exported["denomination_token_rate"] == {
         "coingecko_id": "usdx",
+        "source_currency": "usd",
         "usd_rate": expected_usd_rate,
         "usd_rate_fetched_at": expected_fetched_at.isoformat(),
         "usd_rate_source": "coingecko",
+        "native_rate": None,
+        "native_rate_currency": None,
+        "native_rate_fetched_at": None,
+        "native_rate_source": None,
+        "source_currency_usd_rate": 1.0,
+        "source_currency_usd_rate_fetched_at": expected_fetched_at.isoformat(),
+        "source_currency_usd_rate_source": "fawazahmed0",
     }
     assert "depegged_denomination_token" in exported["flags"]
 
