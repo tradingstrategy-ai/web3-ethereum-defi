@@ -127,11 +127,10 @@ def _fetch_total_assets(vault: VaultBase, block_identifier: BlockIdentifier) -> 
 
     total_assets = _optional_vault_read(lambda: vault.fetch_total_assets(block_identifier))
 
-    # For vaults without on-chain total_assets (e.g. ForgeYields cross-chain
-    # aggregator) and VaultBase protocols without an ERC-4626 totalAssets()
-    # method, fall back to fetch_nav(). Mellow currently returns None here until
-    # a canonical on-chain portfolio/subvault NAV method is implemented; its
-    # historical reader derives TVL from on-chain share price and supply instead.
+    # For vaults without an ERC-4626 totalAssets() method, fall back to
+    # fetch_nav(). Protocol adapters can still expose comparable TVL through
+    # fetch_total_assets(); Mellow does this as share_price * total_supply, while
+    # ForgeYields uses fetch_nav() because its canonical TVL is off-chain.
     if total_assets is None:
         total_assets = _optional_vault_read(lambda: vault.fetch_nav(block_identifier))
 

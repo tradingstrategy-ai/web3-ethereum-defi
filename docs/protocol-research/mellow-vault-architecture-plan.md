@@ -79,7 +79,7 @@ It scans Mellow Core Vault factory `Created(address,uint256,address,bytes)` even
 - `shareManager()`
 - share token metadata
 - registered assets and queue count, where available
-- public Mellow API TVL, where available
+- public Mellow API USD TVL for diagnostics, where available
 
 The production scanner now reuses the same factory topic and decoder helpers,
 but this script remains the operator-facing mapping and diagnostics tool.
@@ -396,8 +396,10 @@ Core properties and methods:
 - `fetch_info()`: return a `MellowVaultInfo` dataclass with all component addresses
 - `fetch_share_token()`: `fetch_erc20_details()` on `shareManager`
 - `fetch_denomination_token()`: base token for valuation, not necessarily the only deposit token
-- `fetch_nav()`: return `None` until a confirmed on-chain Mellow TVL method is
-  implemented
+- `fetch_total_assets()`: return denomination-token TVL as on-chain
+  `fetch_share_price() * fetch_total_supply()`
+- `fetch_nav()`: alias the comparable on-chain `fetch_total_assets()` value and
+  never return public API USD TVL
 - `fetch_portfolio()`: balances of vault plus subvaults, if subvault enumeration is available
 - `get_historical_reader(stateful)`: return `MellowVaultHistoricalReader`
 - `get_flow_manager()`: return `MellowVaultFlowManager`
@@ -415,8 +417,8 @@ Core properties and methods:
 - registered assets
 - subvaults, if discoverable
 - factory address and factory version, if known
-- API metadata, if attached for manual diagnostics. API TVL must not be used as
-  production `fetch_nav()` output.
+- API metadata, if attached for manual diagnostics. API USD TVL must not be
+  used as production `fetch_nav()` output.
 
 ### `VaultBase` abstract surface mapping
 
@@ -438,7 +440,7 @@ names so omissions are easy to review.
 | `get_deposit_manager()` | Return an unsupported deposit manager or raise a clear `NotImplementedError` until active deposits/redeems are implemented. Reading support does not require transaction execution. |
 | `get_historical_reader(stateful)` | Return `MellowVaultHistoricalReader(self, stateful=stateful)`. |
 | `fetch_denomination_token()` | Return the configured/API base token for valuation; preserve all deposit and withdraw tokens separately in `MellowVaultInfo`. |
-| `fetch_nav()` | Return on-chain base-asset NAV only after the TVL method is confirmed. Until then return `None`; do not use public API TVL as production NAV. |
+| `fetch_nav()` | Return the same denomination-token TVL as `fetch_total_assets()`, derived from on-chain share price and total supply; do not use public API USD TVL as production NAV. |
 | `fetch_share_token()` | Return ERC-20 details for tokenised `ShareManager`. For `BasicShareManager`, raise a protocol-specific unsupported error unless the fallback path has been implemented and tested. |
 
 Non-abstract but relevant fee methods:
@@ -544,7 +546,8 @@ For initial integration:
 
 - Treat the API `base_token` or the configured base asset as the `denomination_token`.
 - Preserve all deposit and withdraw assets in `MellowVaultInfo`.
-- Do not assume `fetch_nav()` equals the raw balance of the base asset.
+- Do not assume `fetch_nav()` equals the raw balance of the base asset; it is
+  the on-chain share price multiplied by total share supply.
 - Do not calculate USD TVL from hardcoded stablecoin assumptions in the adapter.
 
 For production on-chain TVL, choose one of these after ABI/source confirmation:
@@ -601,16 +604,17 @@ The `share_price` formula is pinned by fixed-block tests:
 - The real-chain Hypersync integration test samples two later blocks and asserts
   the historical reader writes an increasing share-price series.
 
-Current-state `fetch_nav()` is intentionally unsupported and returns `None`
-until a canonical on-chain TVL method is confirmed. Tests must prove metadata
-and price export paths do not crash when current NAV is `None`; historical rows
-still derive `total_assets` on-chain as `share_price * total_supply`.
+Current-state `fetch_nav()` is intentionally the same on-chain
+denomination-token TVL as `fetch_total_assets()`. Tests must prove the adapter
+does not return public API USD TVL as NAV, and that historical rows derive
+`total_assets` on-chain with the same `share_price * total_supply` identity.
 
 Historical reader phases:
 
 1. Current-state reader:
    - Read share manager, assets, queues and total supply.
-   - Keep API TVL in the manual mapping script only for onboarding diagnostics.
+   - Keep API USD TVL in the manual mapping script only for onboarding diagnostics.
+   - Use on-chain share price and total supply for adapter `NAV`.
 2. Oracle-based historical reader:
    - Decode `ReportHandled` / oracle report events.
    - Sample latest accepted report at or before each historical block.
@@ -705,10 +709,9 @@ Initial focused tests:
   - process a fixed-block read for Lido Earn USD
   - assert absolute values at a fixed Ethereum block
   - pin `priceD18` orientation by cross-checking
-    `share_price * total_supply` against Mellow API TVL or a confirmed on-chain
-    TVL view
-  - prove unsupported/unknown NAV or `total_assets=None` is represented as a
-    `VaultHistoricalRead.errors` entry and does not crash the export path
+    `share_price * total_supply` against adapter `fetch_total_assets()`
+  - prove unavailable oracle/supply reads are represented as
+    `VaultHistoricalRead.errors` entries and do not crash the export path
 - `tests/mellow/test_mellow_flow_events.py`
   - scan pinned deposit/redeem queue event blocks
   - convert to `PendingVaultFlow`
@@ -790,10 +793,10 @@ The manual test must produce tabulated output for:
 - leads discovered from `Factory.Created`
 - metadata rows after component probing
 - price sample rows. In the initial PR these rows contain on-chain
-  `ShareManager.totalSupply()` and API TVL where the factory lead matches the
-  public Mellow API. Oracle-derived share price and denomination-token
-  `total_assets` are covered by the production historical reader and its
-  fixed-block tests.
+  `ShareManager.totalSupply()` and public API USD TVL where the factory lead
+  matches the public Mellow API. Oracle-derived share price and
+  denomination-token `total_assets` are covered by the production historical
+  reader and its fixed-block tests.
 
 Minimum manual assertions:
 
@@ -832,8 +835,9 @@ Minimum manual assertions:
 - Implement component accessors.
 - Implement share token metadata.
 - Implement asset and queue enumeration.
-- Add `fetch_nav()` as `None` until an official on-chain view is found.
-  Do not return public API TVL from the adapter.
+- Add `fetch_total_assets()` and `fetch_nav()` as on-chain
+  `share_price * total_supply`. Do not return public API USD TVL from the
+  adapter.
 - Add the address/share-token downstream audit and fix any code path that treats
   `vault.address` as the ERC-20 share token.
 

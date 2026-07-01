@@ -63,6 +63,11 @@ share-token and denomination-token decimals. The pipeline stores
 does not emit user flow events; ``ERC4626Feature.mellow_like`` is the explicit
 activity-filter exemption that keeps these vaults in downstream scans.
 
+Current scan-record TVL uses the same denomination-token accounting convention
+as the historical reader: Mellow oracle share price multiplied by tokenised
+``ShareManager.totalSupply()``. Public API USD TVL is kept as off-chain
+diagnostics and is not used for ``NAV``.
+
 Known unsupported cases:
 
 - Non-tokenised ``BasicShareManager`` contracts.
@@ -83,7 +88,7 @@ Reference material:
 # ruff: noqa: ARG002, FBT001, FBT002, PLC0415, PLR0904, PLR0917, PLR6301
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from decimal import Decimal
 from functools import cached_property
 
@@ -95,6 +100,7 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.mellow.abi import ERC20_ABI_FILENAME, FEE_MANAGER_ABI_FILENAME, ORACLE_ABI_FILENAME, VAULT_ABI_FILENAME
+from eth_defi.mellow.offchain_metadata import MellowApiVaultMetadata
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
@@ -225,34 +231,6 @@ class MellowFeeConfiguration:
 
     #: Minimum price observed by FeeManager for performance fee accounting.
     min_price_d18: int
-
-
-@dataclass(slots=True, frozen=True)
-class MellowApiVaultMetadata:
-    """Optional current Mellow API metadata attached to a vault."""
-
-    #: Public vault name.
-    name: str | None = None
-
-    #: Public vault symbol.
-    symbol: str | None = None
-
-    #: Current API TVL from the public Mellow API, for diagnostics only.
-    #:
-    #: Do not use this value as canonical production NAV. Historical price rows
-    #: derive denomination-token TVL from on-chain oracle share price and
-    #: ``ShareManager.totalSupply()``; current on-chain NAV needs a confirmed
-    #: Mellow portfolio/subvault accounting method.
-    tvl: Decimal | None = None
-
-    #: Base token address from API/configuration, if known.
-    base_token_address: HexAddress | None = None
-
-    #: Base token symbol from API/configuration, if known.
-    base_token_symbol: str | None = None
-
-    #: Raw API fields kept for diagnostics.
-    raw: dict[str, object] = field(default_factory=dict)
 
 
 class MellowVault(VaultBase):
@@ -701,26 +679,46 @@ class MellowVault(VaultBase):
 
         return {"_mellow_info": self.fetch_info()}
 
-    def fetch_nav(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
-        """Fetch Mellow NAV.
+    def fetch_total_assets(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch Mellow denomination-token TVL from on-chain share accounting.
 
-        Full current on-chain NAV requires confirmed Mellow portfolio/subvault
-        accounting. The public Mellow API may expose current TVL, but this
-        adapter intentionally does not return API TVL from ``fetch_nav()`` so
-        production scan rows do not mix off-chain point-in-time data with
-        on-chain historical reads.
-
-        Historical Mellow price rows derive denomination-token TVL on-chain as
-        ``share_price * total_supply`` in :class:`MellowVaultHistoricalReader`.
+        Mellow does not expose ERC-4626 ``totalAssets()`` on the canonical
+        vault. For comparable scanner output we use the same on-chain
+        accounting identity as the historical reader: oracle share price in the
+        denomination token multiplied by tokenised ``ShareManager.totalSupply``.
+        The public API USD TVL is not used here.
 
         :param block_identifier:
             Block number or tag.
 
         :return:
-            ``None`` until a canonical on-chain NAV method is implemented.
+            Human-readable denomination-token TVL, or ``None`` if either price
+            or supply is unavailable.
         """
 
-        return None
+        share_price = self.fetch_share_price(block_identifier)
+        total_supply = self.fetch_total_supply(block_identifier)
+
+        if share_price is None or total_supply is None:
+            return None
+
+        return share_price * total_supply
+
+    def fetch_nav(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch Mellow NAV.
+
+        ``fetch_nav()`` is kept as the :class:`VaultBase`-compatible alias for
+        current scanner reads. It returns the same denomination-token value as
+        :py:meth:`fetch_total_assets`, not the public API USD TVL.
+
+        :param block_identifier:
+            Block number or tag.
+
+        :return:
+            Human-readable denomination-token TVL, or ``None`` if unavailable.
+        """
+
+        return self.fetch_total_assets(block_identifier)
 
     def fetch_portfolio(
         self,

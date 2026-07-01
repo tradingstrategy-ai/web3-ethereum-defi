@@ -28,6 +28,7 @@ LIDO_EARN_USD_SHARE_MANAGER = "0x4Ce1ac8F43E0E5BD7A346A98aF777bF8fbeA1981"
 LIDO_EARN_USD_FEE_MANAGER = "0x72fa23f40e08eB9E45953233b2Dd9665E347e8Dc"
 LIDO_EARN_USD_FEE_RECIPIENT = "0xcCf2daba8Bb04a232a2fDA0D01010D4EF6C69B85"
 SHARE_TOKEN_DECIMALS = 18
+EXPECTED_TOTAL_ASSETS = Decimal("21882806.88017220903802179622")
 EXPECTED_START_SHARE_PRICE = Decimal("1.008280253418576")
 EXPECTED_END_SHARE_PRICE = Decimal("1.009843353086236")
 EXPECTED_FEE_MANAGER_TIMESTAMP = 1_782_802_559
@@ -83,6 +84,8 @@ def test_mellow_lido_earn_usd(web3: Web3) -> None:
     assert vault.fetch_share_token_address(FORK_BLOCK) == LIDO_EARN_USD_SHARE_MANAGER
     assert vault.fetch_total_supply(FORK_BLOCK) == Decimal("21518125.250450660540252819")
     assert vault.fetch_share_price(FORK_BLOCK) == pytest.approx(Decimal("1.016947648806622261909260417"))
+    assert vault.fetch_total_assets(FORK_BLOCK) == pytest.approx(EXPECTED_TOTAL_ASSETS)
+    assert vault.fetch_nav(FORK_BLOCK) == pytest.approx(EXPECTED_TOTAL_ASSETS)
 
     fee_configuration = vault.fetch_fee_configuration(FORK_BLOCK)
     assert fee_configuration is not None
@@ -202,7 +205,7 @@ def test_mellow_lido_earn_usd_scan_record(web3: Web3, tmp_path: Path) -> None:
     assert record["Address"] == LIDO_EARN_USD_VAULT
     assert record["Denomination"] == "USDC"
     assert record["Share token"] == "earnUSD"
-    assert record["NAV"] is None
+    assert record["NAV"] == pytest.approx(EXPECTED_TOTAL_ASSETS)
     assert record["Mgmt fee"] == 0.0
     assert record["Perf fee"] == 0.0
     assert record["Deposit fee"] == 0.0

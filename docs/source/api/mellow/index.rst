@@ -15,4 +15,5 @@ by the shared EVM vault scanner.
    eth_defi.mellow.discovery
    eth_defi.mellow.flow
    eth_defi.mellow.historical
+   eth_defi.mellow.offchain_metadata
    eth_defi.mellow.vault

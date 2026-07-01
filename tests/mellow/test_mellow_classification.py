@@ -15,7 +15,8 @@ from eth_defi.erc_4626.classification import _ProbeResultsDict, create_probe_cal
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name, is_activity_filter_exempt
 from eth_defi.mellow.abi import ERC20_ABI_FILENAME, FACTORY_ABI_FILENAME, FEE_MANAGER_ABI_FILENAME, ORACLE_ABI_FILENAME, VAULT_ABI_FILENAME
 from eth_defi.mellow.discovery import decode_mellow_created_event, fetch_mellow_created_event_topic, fetch_mellow_factories_for_chain
-from eth_defi.mellow.vault import MellowApiVaultMetadata, MellowVault
+from eth_defi.mellow.offchain_metadata import MellowApiVaultMetadata
+from eth_defi.mellow.vault import MellowVault
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 
@@ -294,15 +295,26 @@ def test_mellow_vault_exposes_vault_address_alias() -> None:
     assert vault.vault_address == vault.address
 
 
-def test_mellow_fetch_nav_does_not_use_api_tvl() -> None:
-    """Mellow API TVL is diagnostic metadata, not production NAV."""
+def test_mellow_fetch_nav_uses_onchain_price_and_supply_not_api_tvl() -> None:
+    """Mellow API USD TVL is diagnostic metadata, not production NAV."""
 
     web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1))
     vault = MellowVault(
         web3,
         VaultSpec(1, "0x014e6da8f283c4af65b2aa0f201438680a004452"),
         features={ERC4626Feature.mellow_like},
-        api_metadata=MellowApiVaultMetadata(tvl=Decimal("21897383.50")),
+        api_metadata=MellowApiVaultMetadata(tvl_usd=Decimal("21897383.50")),
     )
 
-    assert vault.fetch_nav("latest") is None
+    def fetch_share_price(_block_identifier="latest") -> Decimal:
+        return Decimal("1.2")
+
+    def fetch_total_supply(_block_identifier="latest") -> Decimal:
+        return Decimal("10")
+
+    vault.fetch_share_price = fetch_share_price
+    vault.fetch_total_supply = fetch_total_supply
+
+    assert vault.fetch_total_assets("latest") == Decimal("12.0")
+    assert vault.fetch_nav("latest") == Decimal("12.0")
+    assert vault.fetch_nav("latest") != vault.api_metadata.tvl_usd

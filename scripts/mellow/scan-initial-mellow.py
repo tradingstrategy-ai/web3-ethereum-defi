@@ -2,7 +2,7 @@
 
 This script discovers Mellow Core Vault instances from their factory
 ``Created(address,uint256,address,bytes)`` events and enriches the results
-with light on-chain metadata and the public Mellow API TVL data.
+with light on-chain metadata and public Mellow API USD TVL diagnostics.
 
 Usage:
 
@@ -25,7 +25,7 @@ Optional environment variables:
     Core vault factories, but not a Base Core vault factory.
 
 ``FETCH_MELLOW_API``
-    Set to ``false`` to skip the public API TVL enrichment.
+    Set to ``false`` to skip the public API USD TVL enrichment.
 
 ``START_BLOCK`` / ``END_BLOCK`` / ``BLOCK_RANGE``
     Restrict the factory scan block range. If ``BLOCK_RANGE`` is set without
@@ -52,7 +52,6 @@ from decimal import Decimal
 from typing import Any
 
 import hypersync
-import requests
 from eth_abi.exceptions import DecodingError
 from eth_typing import HexAddress
 from hypersync import BlockField, LogField
@@ -70,12 +69,11 @@ from eth_defi.hypersync.session import (
     open_hypersync_stream,
 )
 from eth_defi.mellow.discovery import decode_mellow_created_event, fetch_mellow_created_event_topic, fetch_mellow_factories_for_chain
+from eth_defi.mellow.offchain_metadata import MellowApiVaultMetadata, fetch_mellow_api_vaults
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.utils import setup_console_logging
 
 logger = logging.getLogger(__name__)
-
-MELLOW_API_VAULTS_URL = "https://points.mellow.finance/v1/vaults"
 
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
@@ -186,44 +184,6 @@ class ChainConfig:
 
 
 @dataclass(slots=True)
-class ApiVault:
-    """Mellow API vault metadata used for TVL enrichment.
-
-    The public API is used only as an enrichment layer. Hypersync factory
-    events remain the source of truth for newly-created Core Vault leads.
-
-    :param chain_id:
-        EVM chain id.
-
-    :param address:
-        Vault address.
-
-    :param symbol:
-        Public vault token symbol.
-
-    :param name:
-        Public vault name.
-
-    :param layer:
-        Mellow API layer field, e.g. ``mellow`` or ``symbiotic``.
-
-    :param tvl_usd:
-        Current API-reported TVL in USD.
-
-    :param base_token_symbol:
-        Base token symbol from the API, when present.
-    """
-
-    chain_id: int
-    address: HexAddress
-    symbol: str | None
-    name: str | None
-    layer: str | None
-    tvl_usd: Decimal | None
-    base_token_symbol: str | None
-
-
-@dataclass(slots=True)
 class CoreVaultLead:
     """A Mellow Core Vault instance discovered from a factory event.
 
@@ -310,7 +270,7 @@ class CoreVaultRow:
     asset_count: int | None
     queue_count: int | None
     asset_symbols: tuple[str, ...]
-    api_vault: ApiVault | None
+    api_vault: MellowApiVaultMetadata | None
 
 
 def env_bool(name: str, default: bool) -> bool:  # noqa: FBT001
@@ -670,39 +630,6 @@ async def fetch_created_events(
     return sorted(leads, key=lambda lead: (lead.block_number, lead.vault.lower()))
 
 
-def fetch_mellow_api_vaults() -> dict[tuple[int, str], ApiVault]:
-    """Fetch public Mellow API vault data for TVL enrichment.
-
-    The API schema is documented at:
-    https://docs.mellow.finance/resources/api
-
-    :return:
-        Mapping ``(chain_id, lower-case address) -> ApiVault``.
-    """
-
-    response = requests.get(MELLOW_API_VAULTS_URL, timeout=30)
-    response.raise_for_status()
-    data = response.json()
-
-    api_vaults: dict[tuple[int, str], ApiVault] = {}
-    for item in data:
-        address = Web3.to_checksum_address(item["address"])
-        base_token = item.get("base_token") or {}
-        tvl_raw = item.get("tvl_usd")
-        api_vault = ApiVault(
-            chain_id=int(item["chain_id"]),
-            address=HexAddress(address),
-            symbol=item.get("symbol"),
-            name=item.get("name"),
-            layer=item.get("layer"),
-            tvl_usd=Decimal(str(tvl_raw)) if tvl_raw is not None else None,
-            base_token_symbol=base_token.get("symbol"),
-        )
-        api_vaults[api_vault.chain_id, api_vault.address.lower()] = api_vault
-
-    return api_vaults
-
-
 def call_contract_function(function: ContractFunction) -> Any | None:
     """Call a contract function and return ``None`` if the method is absent.
 
@@ -768,7 +695,7 @@ def humanise_token_amount(raw_amount: int | None, decimals: int | None) -> Decim
     return Decimal(raw_amount) / Decimal(10**decimals)
 
 
-def fetch_core_vault_row(web3: Web3, lead: CoreVaultLead, api_vaults: dict[tuple[int, str], ApiVault]) -> CoreVaultRow:  # noqa: PLR0914
+def fetch_core_vault_row(web3: Web3, lead: CoreVaultLead, api_vaults: dict[tuple[int, str], MellowApiVaultMetadata]) -> CoreVaultRow:  # noqa: PLR0914
     """Fetch light on-chain metadata for a discovered Mellow Core Vault.
 
     :param web3:
@@ -857,7 +784,7 @@ def format_decimal(value: Decimal | None) -> str:
     return f"{value:,.6f}".rstrip("0").rstrip(".")
 
 
-def build_api_summary(api_vaults: dict[tuple[int, str], ApiVault], selected_chain_ids: set[int]) -> list[dict[str, Any]]:
+def build_api_summary(api_vaults: dict[tuple[int, str], MellowApiVaultMetadata], selected_chain_ids: set[int]) -> list[dict[str, Any]]:
     """Build summary rows from the public Mellow API.
 
     :param api_vaults:
@@ -882,7 +809,7 @@ def build_api_summary(api_vaults: dict[tuple[int, str], ApiVault], selected_chai
             {
                 "Scope": label,
                 "Vaults": len(matching),
-                "TVL": format_money(sum((vault.tvl_usd or Decimal(0) for vault in matching), Decimal(0))),
+                "API USD TVL": format_money(sum((vault.tvl_usd or Decimal(0) for vault in matching), Decimal(0))),
             }
         )
 
@@ -905,12 +832,12 @@ def build_core_summary(rows: list[CoreVaultRow]) -> list[dict[str, Any]]:
         {
             "Scope": "Hypersync Core factory events",
             "Vaults": len(rows),
-            "TVL": format_money(api_tvl) if api_matched else "n/a",
+            "API USD TVL": format_money(api_tvl) if api_matched else "n/a",
         },
         {
             "Scope": "Hypersync Core events matched to API",
             "Vaults": len(api_matched),
-            "TVL": format_money(api_tvl),
+            "API USD TVL": format_money(api_tvl),
         },
     ]
 
@@ -939,7 +866,7 @@ def render_core_rows(rows: list[CoreVaultRow]) -> str:
                 "Queues": row.queue_count if row.queue_count is not None else "n/a",
                 "Supply": format_decimal(row.total_supply),
                 "API layer": api_vault.layer if api_vault else "n/a",
-                "API TVL": format_money(api_vault.tvl_usd if api_vault else None),
+                "API USD TVL": format_money(api_vault.tvl_usd if api_vault else None),
                 "Created": row.lead.timestamp.strftime("%Y-%m-%d") if row.lead.timestamp else row.lead.block_number,
             }
         )
@@ -969,7 +896,8 @@ def render_manual_price_rows(rows: list[CoreVaultRow], end_block: int) -> str:
                 "Block": end_block,
                 "Supply": format_decimal(row.total_supply),
                 "Share price": "see historical reader",
-                "Total assets": format_money(row.api_vault.tvl_usd if row.api_vault else None),
+                "Total assets": "see historical reader",
+                "API USD TVL": format_money(row.api_vault.tvl_usd if row.api_vault else None),
                 "Error": "Manual mapping script does not run the historical multicall reader",
             }
         )
@@ -992,7 +920,7 @@ def main() -> None:  # noqa: PLR0914
     selected_chain_ids = {chain.chain_id for chain in chains}
 
     fetch_api = env_bool("FETCH_MELLOW_API", True)
-    api_vaults: dict[tuple[int, str], ApiVault] = {}
+    api_vaults: dict[tuple[int, str], MellowApiVaultMetadata] = {}
     if fetch_api:
         logger.info("Fetching public Mellow API vault metadata")
         api_vaults = fetch_mellow_api_vaults()
