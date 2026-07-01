@@ -131,6 +131,7 @@ def _print_early_startup_banner() -> None:
     log_level = os.environ.get("LOG_LEVEL", "warning")
     print(f"Starting vault scanner, LOG_LEVEL={log_level}", flush=True)
 
+
 if __name__ == "__main__":
     _print_early_startup_banner()
     from eth_defi.vault.scan_all_chains import main
