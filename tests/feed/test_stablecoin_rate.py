@@ -42,6 +42,7 @@ def _coins_list_response() -> DummyCoinGeckoResponse:
         "usdx-money-usdx",
         "cad-coin",
         "convertible-jpy-token",
+        "tokenised-gbp",
         "magic-internet-money",
         "compound-usd-coin",
     ]
@@ -572,6 +573,7 @@ checks:
     [
         ("CADC", "PayTrie CADC Canadian Dollar stablecoin", "cad-coin", "cad", 0.73),
         ("CJPY", "Yamato CJPY Japanese Yen stablecoin", "convertible-jpy-token", "jpy", 0.0064),
+        ("tGBP", "Tokenised GBP British Pound stablecoin", "tokenised-gbp", "gbp", 1.32),
     ],
 )
 def test_non_usd_fiat_stablecoins_compare_against_their_peg_currency(
@@ -613,6 +615,20 @@ def test_non_usd_fiat_stablecoins_compare_against_their_peg_currency(
     assert target.source_currency_usd_rate == pytest.approx(usd_rate)
     assert target.source_currency_usd_rate_date == datetime.date(2026, 6, 26)
     assert target.depegged_at is None
+
+    rate = StablecoinRateFeeder(data_dir=tmp_path).get_denomination_token_rate_section(None, None, symbol)
+    assert rate.coingecko_id == coingecko_id
+    assert rate.source_currency == peg_currency
+    assert rate.usd_rate == pytest.approx(usd_rate)
+    assert rate.usd_rate_fetched_at == now_
+    assert rate.usd_rate_source == "coingecko"
+    assert rate.native_rate == pytest.approx(1.0)
+    assert rate.native_rate_currency == peg_currency
+    assert rate.native_rate_fetched_at == now_
+    assert rate.native_rate_source == "coingecko+fawazahmed0"
+    assert rate.source_currency_usd_rate == pytest.approx(usd_rate)
+    assert rate.source_currency_usd_rate_fetched_at == now_
+    assert rate.source_currency_usd_rate_source == "fawazahmed0"
 
 
 def test_eur_stablecoin_depegs_against_native_currency_from_duckdb(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -24,6 +24,8 @@ long_description: |
   - [Etherscan: EURA/agEUR on Ethereum](https://etherscan.io/token/0x1a7e4e63778B4f12a199C062f3eFdD288afCBce8)
   - [DeFiLlama: agEUR stablecoin page](https://defillama.com/stablecoin/ageur)
 category: stablecoin
+source_currency: eur
+source_currency_source: manual
 links:
   homepage: https://www.angle.money/
   coingecko: https://www.coingecko.com/en/coins/ageur

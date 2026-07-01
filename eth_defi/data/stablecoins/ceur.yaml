@@ -19,6 +19,8 @@ long_description: |
   - [Mento Protocol documentation](https://docs.mento.org/)
   - [DeFiLlama: Celo Euro](https://defillama.com/stablecoin/celo-euro)
 category: stablecoin
+source_currency: eur
+source_currency_source: manual
 links:
   homepage: https://mento.org/
   coingecko: https://www.coingecko.com/en/coins/celo-euro

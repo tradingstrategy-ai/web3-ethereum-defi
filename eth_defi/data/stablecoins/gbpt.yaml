@@ -9,6 +9,8 @@ long_description: |
 
   The original GBPT token was deployed on Ethereum. The rebrand introduced a new 1GBP token contract.
 category: stablecoin
+source_currency: gbp
+source_currency_source: manual
 links:
   homepage: https://poundtoken.io/
   coingecko: ''

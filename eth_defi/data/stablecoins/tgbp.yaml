@@ -14,6 +14,8 @@ long_description: |
   tGBP is deployed natively across multiple EVM chains — Ethereum, Base, Polygon, BNB Chain and Avalanche — sharing the
   same token contract address, and is also available on Solana. The issuer is a member of the Digital Pound Foundation.
 category: stablecoin
+source_currency: gbp
+source_currency_source: manual
 links:
   homepage: https://www.tokenisedgbp.com/
   coingecko: https://www.coingecko.com/en/coins/tokenised-gbp
@@ -31,6 +33,9 @@ contract_addresses:
   - chain: avalanche
     address: '0x27f6c8289550fCE67f6B50BeD1F519966aFE5287'
 slug: tgbp
+coingecko_id: tokenised-gbp
+coingecko_link: https://www.coingecko.com/en/coins/tokenised-gbp
+coingecko_id_source: url
 checks:
   twitter_last_post_at: ''
   domain_up_at: ''

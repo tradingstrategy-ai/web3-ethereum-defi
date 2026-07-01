@@ -24,6 +24,8 @@ long_description: |
   - [CoinGecko — PAR](https://www.coingecko.com/en/coins/par-stablecoin)
   - [Etherscan — PAR](https://etherscan.io/token/0x68037790A0229e9Ce6EaA8A99ea92964106C4703)
 category: stablecoin
+source_currency: eur
+source_currency_source: manual
 links:
   homepage: https://par.mimo.capital/
   coingecko: https://www.coingecko.com/en/coins/par-stablecoin

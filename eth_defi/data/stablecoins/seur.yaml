@@ -8,6 +8,8 @@ long_description: |
 
   The Ethereum mainnet version of sEUR remains on-chain but with greatly reduced activity as Synthetix transitions away from legacy synth infrastructure.
 category: stablecoin
+source_currency: eur
+source_currency_source: manual
 links:
   homepage: https://synthetix.io/
   coingecko: https://www.coingecko.com/en/coins/seur

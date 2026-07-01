@@ -34,6 +34,8 @@ long_description: |
   - [Etherscan — jEUR token](https://etherscan.io/token/0x0f17BC9a994b87b5225cFb6a2Cd4D667ADb4F20B)
   - [CoinTelegraph — Jarvis jFIAT stablecoins](https://cointelegraph.com/press-releases/jarvis-network-launches-liquid-cad-sgd-and-php-stablecoins-on-polygon)
 category: stablecoin
+source_currency: eur
+source_currency_source: manual
 links:
   homepage: https://www.jarvis.network/
   coingecko: https://www.coingecko.com/en/coins/jarvis-synthetic-euro

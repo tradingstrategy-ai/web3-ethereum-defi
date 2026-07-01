@@ -11,6 +11,8 @@ long_description: |
   EURt has significantly lower market cap and trading volume compared to USDT, reflecting lower demand for Euro-pegged Tether products relative to USD-pegged ones.
   It is available on Ethereum and other supported Tether networks.
 category: stablecoin
+source_currency: eur
+source_currency_source: manual
 links:
   homepage: https://tether.to/
   coingecko: https://www.coingecko.com/en/coins/tether-eurt

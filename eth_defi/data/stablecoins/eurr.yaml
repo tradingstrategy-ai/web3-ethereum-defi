@@ -14,6 +14,8 @@ long_description: |
 
   - [CoinGecko — StablR Euro](https://www.coingecko.com/en/coins/stablr-euro)
 category: stablecoin
+source_currency: eur
+source_currency_source: manual
 links:
   homepage: https://stablr.com/
   coingecko: https://www.coingecko.com/en/coins/stablr-euro
