@@ -396,7 +396,8 @@ Core properties and methods:
 - `fetch_info()`: return a `MellowVaultInfo` dataclass with all component addresses
 - `fetch_share_token()`: `fetch_erc20_details()` on `shareManager`
 - `fetch_denomination_token()`: base token for valuation, not necessarily the only deposit token
-- `fetch_nav()`: Mellow-specific TVL calculation
+- `fetch_nav()`: return `None` until a confirmed on-chain Mellow TVL method is
+  implemented
 - `fetch_portfolio()`: balances of vault plus subvaults, if subvault enumeration is available
 - `get_historical_reader(stateful)`: return `MellowVaultHistoricalReader`
 - `get_flow_manager()`: return `MellowVaultFlowManager`
@@ -414,7 +415,8 @@ Core properties and methods:
 - registered assets
 - subvaults, if discoverable
 - factory address and factory version, if known
-- API metadata, if attached
+- API metadata, if attached for manual diagnostics. API TVL must not be used as
+  production `fetch_nav()` output.
 
 ### `VaultBase` abstract surface mapping
 
@@ -436,7 +438,7 @@ names so omissions are easy to review.
 | `get_deposit_manager()` | Return an unsupported deposit manager or raise a clear `NotImplementedError` until active deposits/redeems are implemented. Reading support does not require transaction execution. |
 | `get_historical_reader(stateful)` | Return `MellowVaultHistoricalReader(self, stateful=stateful)`. |
 | `fetch_denomination_token()` | Return the configured/API base token for valuation; preserve all deposit and withdraw tokens separately in `MellowVaultInfo`. |
-| `fetch_nav()` | Return on-chain base-asset NAV only after the TVL method is confirmed. Until then raise a clear unsupported exception or return `None` only if downstream non-fatal behaviour is covered by tests. |
+| `fetch_nav()` | Return on-chain base-asset NAV only after the TVL method is confirmed. Until then return `None`; do not use public API TVL as production NAV. |
 | `fetch_share_token()` | Return ERC-20 details for tokenised `ShareManager`. For `BasicShareManager`, raise a protocol-specific unsupported error unless the fallback path has been implemented and tested. |
 
 Non-abstract but relevant fee methods:
@@ -599,16 +601,16 @@ The `share_price` formula is pinned by fixed-block tests:
 - The real-chain Hypersync integration test samples two later blocks and asserts
   the historical reader writes an increasing share-price series.
 
-If current-state `fetch_nav()` is temporarily unsupported, add a test proving
-that `MellowVaultHistoricalReader.process_result()` and the export path do not
-crash when `VaultHistoricalRead.total_assets` or current NAV is `None`; they
-must surface an explicit `errors` value instead.
+Current-state `fetch_nav()` is intentionally unsupported and returns `None`
+until a canonical on-chain TVL method is confirmed. Tests must prove metadata
+and price export paths do not crash when current NAV is `None`; historical rows
+still derive `total_assets` on-chain as `share_price * total_supply`.
 
 Historical reader phases:
 
 1. Current-state reader:
-   - Read share manager, assets, queues, total supply and API TVL.
-   - Useful for onboarding and UI mapping.
+   - Read share manager, assets, queues and total supply.
+   - Keep API TVL in the manual mapping script only for onboarding diagnostics.
 2. Oracle-based historical reader:
    - Decode `ReportHandled` / oracle report events.
    - Sample latest accepted report at or before each historical block.
@@ -830,10 +832,8 @@ Minimum manual assertions:
 - Implement component accessors.
 - Implement share token metadata.
 - Implement asset and queue enumeration.
-- Add `fetch_nav()` as best-effort:
-  - use official on-chain view if found
-  - otherwise raise a clear unsupported exception, or return `None` only after
-    tests prove this is non-fatal for historical reads and exports
+- Add `fetch_nav()` as `None` until an official on-chain view is found.
+  Do not return public API TVL from the adapter.
 - Add the address/share-token downstream audit and fix any code path that treats
   `vault.address` as the ERC-20 share token.
 

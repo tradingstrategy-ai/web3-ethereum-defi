@@ -237,7 +237,12 @@ class MellowApiVaultMetadata:
     #: Public vault symbol.
     symbol: str | None = None
 
-    #: Current API TVL in USD or denomination-token units if known.
+    #: Current API TVL from the public Mellow API, for diagnostics only.
+    #:
+    #: Do not use this value as canonical production NAV. Historical price rows
+    #: derive denomination-token TVL from on-chain oracle share price and
+    #: ``ShareManager.totalSupply()``; current on-chain NAV needs a confirmed
+    #: Mellow portfolio/subvault accounting method.
     tvl: Decimal | None = None
 
     #: Base token address from API/configuration, if known.
@@ -699,18 +704,22 @@ class MellowVault(VaultBase):
     def fetch_nav(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
         """Fetch Mellow NAV.
 
-        Full on-chain NAV requires oracle and subvault accounting that is not
-        confirmed in the initial adapter.
+        Full current on-chain NAV requires confirmed Mellow portfolio/subvault
+        accounting. The public Mellow API may expose current TVL, but this
+        adapter intentionally does not return API TVL from ``fetch_nav()`` so
+        production scan rows do not mix off-chain point-in-time data with
+        on-chain historical reads.
+
+        Historical Mellow price rows derive denomination-token TVL on-chain as
+        ``share_price * total_supply`` in :class:`MellowVaultHistoricalReader`.
 
         :param block_identifier:
             Block number or tag.
 
         :return:
-            Current API TVL if attached, otherwise ``None``.
+            ``None`` until a canonical on-chain NAV method is implemented.
         """
 
-        if self.api_metadata and self.api_metadata.tvl is not None:
-            return self.api_metadata.tvl
         return None
 
     def fetch_portfolio(

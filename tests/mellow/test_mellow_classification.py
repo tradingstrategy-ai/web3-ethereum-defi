@@ -2,6 +2,7 @@
 
 import datetime
 import inspect
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -14,7 +15,7 @@ from eth_defi.erc_4626.classification import _ProbeResultsDict, create_probe_cal
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name, is_activity_filter_exempt
 from eth_defi.mellow.abi import ERC20_ABI_FILENAME, FACTORY_ABI_FILENAME, FEE_MANAGER_ABI_FILENAME, ORACLE_ABI_FILENAME, VAULT_ABI_FILENAME
 from eth_defi.mellow.discovery import decode_mellow_created_event, fetch_mellow_created_event_topic, fetch_mellow_factories_for_chain
-from eth_defi.mellow.vault import MellowVault
+from eth_defi.mellow.vault import MellowApiVaultMetadata, MellowVault
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 
@@ -291,3 +292,17 @@ def test_mellow_vault_exposes_vault_address_alias() -> None:
     )
 
     assert vault.vault_address == vault.address
+
+
+def test_mellow_fetch_nav_does_not_use_api_tvl() -> None:
+    """Mellow API TVL is diagnostic metadata, not production NAV."""
+
+    web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1))
+    vault = MellowVault(
+        web3,
+        VaultSpec(1, "0x014e6da8f283c4af65b2aa0f201438680a004452"),
+        features={ERC4626Feature.mellow_like},
+        api_metadata=MellowApiVaultMetadata(tvl=Decimal("21897383.50")),
+    )
+
+    assert vault.fetch_nav("latest") is None
