@@ -13,6 +13,7 @@ from eth_defi.mellow.abi import ERC20_ABI_FILENAME, FACTORY_ABI_FILENAME, FEE_MA
 from eth_defi.mellow.discovery import fetch_mellow_created_event_topic, fetch_mellow_factories_for_chain
 from eth_defi.mellow.vault import MellowVault
 from eth_defi.vault.base import VaultBase, VaultSpec
+from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 
 TOPIC_HEX_LENGTH = 66
 ETHEREUM_CHAIN_ID = 1
@@ -23,6 +24,7 @@ BASE_CHAIN_ID = 8453
 POLYGON_CHAIN_ID = 137
 DEFAULT_CORE_FACTORY = "0x4E38F679e46B3216f0bd4B314E9C429AFfB1dEE3"
 MONAD_CORE_FACTORY = "0x04c0287DEdE16e0C04A1C2A52F31400a88f1dF4c"
+LIDO_EARN_USD_VAULT = "0x014e6DA8F283C4aF65B2AA0f201438680A004452"
 FACTORY_ENV_VARS = (
     "MELLOW_ETHEREUM_VAULT_FACTORY",
     "MELLOW_PLASMA_VAULT_FACTORY",
@@ -73,6 +75,12 @@ def test_mellow_protocol_name() -> None:
     """Mellow feature maps to protocol name."""
 
     assert get_vault_protocol_name({ERC4626Feature.mellow_like}) == "Mellow"
+
+
+def test_mellow_risk_level() -> None:
+    """Mellow protocol is classified as low technical risk."""
+
+    assert get_vault_risk("Mellow", LIDO_EARN_USD_VAULT) is VaultTechnicalRisk.low
 
 
 def test_mellow_created_topic_is_hypersync_hex() -> None:

@@ -166,6 +166,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # Aave - v4 Tokenization Spoke; blue-chip lending protocol, audited (ChainSecurity)
     # and a 6-week public security contest, open source contracts.
     "Aave": VaultTechnicalRisk.low,
+    # Mellow - audited Core Vault architecture with verified component contracts.
+    "Mellow": VaultTechnicalRisk.low,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
