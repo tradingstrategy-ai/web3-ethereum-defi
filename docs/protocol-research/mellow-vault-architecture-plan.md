@@ -1,19 +1,19 @@
-# Mellow vault architecture integration plan
+# Mellow vault architecture integration plan and status
 
 ## Summary
 
 This document records the technical mapping and phased implementation plan for
 Mellow Core Vault support. The initial PR implements factory-led discovery,
-`mellow_like` routing, the `MellowVault` adapter skeleton, share-supply
+`mellow_like` routing, the `MellowVault` adapter, share-supply
 historical reads, oracle-derived share price and denomination-token TVL rows,
 metadata row support, the activity-filter exemption, API docs and the manual
-mapping script. Queue flow accounting remains explicitly unsupported until a
-separate queue-address event reader is implemented and fixed-block checks pin
-those semantics.
+mapping script. Queue flow accounting and active deposit/redemption transaction
+execution remain explicitly unsupported until a separate queue-address event
+reader is implemented and fixed-block checks pin those semantics.
 
 Mellow Core Vaults should be added as a sibling vault architecture alongside ERC-4626 at the adapter level, but use `ERC4626Feature.mellow_like` as a pipeline compatibility/routing flag.
 
-The adapter should subclass `eth_defi.vault.base.VaultBase` directly:
+The adapter subclasses `eth_defi.vault.base.VaultBase` directly:
 
 - `eth_defi/mellow/vault.py`: `MellowVault`
 - `eth_defi/mellow/historical.py`: `MellowVaultHistoricalReader`
@@ -228,27 +228,35 @@ Required production change:
     while the `mellow_like` exemption prevents the zero counts from silently
     dropping Mellow vaults.
 
-## Pre-implementation gates
+## Implementation gates and status
 
-Do not start the `MellowVault` historical reader or flow reader before these
-facts are locked down with verified ABIs and fixed-block checks:
+The historical reader was implemented only after the ABI, factory-event and
+oracle-price gates below were locked down with verified ABIs and fixed-block
+checks. Queue flow accounting is still gated on queue event decoding and
+fixed-block flow checks.
+
+Resolved gates:
 
 - Canonical verified ABIs for `Vault`, `Factory`, `ShareManager`,
-  `DepositQueue`, `RedeemQueue`, `Oracle`, `FeeManager`, `RiskManager` and
-  `Subvault`.
-- Confirmed `Factory.Created` ABI indexed layout before implementing Hypersync
-  field selection or demux code:
-  - whether `instance`, `version` and `owner` are indexed topics or encoded in
-    `data`
-  - decoder code must assert against the verified ABI layout instead of
-    assuming `topic1`, `topic2` and `topic3`
-  - test both the documented layout and reject malformed logs with clear errors
+  `Oracle`, and `FeeManager`.
+- Confirmed `Factory.Created` ABI layout before implementing Hypersync field
+  selection or demux code:
+  - official docs show `instance`, `version`, `owner` and `initParams` encoded
+    in `data`
+  - decoder also accepts an indexed compatibility layout for defensive parsing
+  - tests cover the documented layout and reject malformed logs with clear
+    errors
 - Confirmed `priceD18` orientation for Lido Earn USD:
   - Mellow reports raw `shares / assets`.
   - `VaultHistoricalRead.share_price` is human-readable assets per share:
     `10 ** (share_decimals + 18 - asset_decimals) / priceD18`.
   - the historical reader samples `Oracle.getReport(denomination_token)` and
     writes `total_assets = share_price * total_supply`.
+
+Remaining queue-flow gates:
+
+- Verified queue ABIs for `DepositQueue`, `RedeemQueue` and signature queue
+  variants.
 - Confirmed queue event names and event argument order for:
   - deposit request
   - deposit settlement / claim

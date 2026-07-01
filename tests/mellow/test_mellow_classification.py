@@ -5,12 +5,15 @@ import inspect
 from types import SimpleNamespace
 
 import pytest
+from eth_abi import encode
+from eth_abi.exceptions import DecodingError
+from web3 import Web3
 
 from eth_defi.abi import get_abi_by_filename
 from eth_defi.erc_4626.classification import _ProbeResultsDict, create_probe_calls, create_vault_instance, identify_vault_features  # noqa: PLC2701
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name, is_activity_filter_exempt
 from eth_defi.mellow.abi import ERC20_ABI_FILENAME, FACTORY_ABI_FILENAME, FEE_MANAGER_ABI_FILENAME, ORACLE_ABI_FILENAME, VAULT_ABI_FILENAME
-from eth_defi.mellow.discovery import fetch_mellow_created_event_topic, fetch_mellow_factories_for_chain
+from eth_defi.mellow.discovery import decode_mellow_created_event, fetch_mellow_created_event_topic, fetch_mellow_factories_for_chain
 from eth_defi.mellow.vault import MellowVault
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
@@ -25,6 +28,7 @@ POLYGON_CHAIN_ID = 137
 DEFAULT_CORE_FACTORY = "0x4E38F679e46B3216f0bd4B314E9C429AFfB1dEE3"
 MONAD_CORE_FACTORY = "0x04c0287DEdE16e0C04A1C2A52F31400a88f1dF4c"
 LIDO_EARN_USD_VAULT = "0x014e6DA8F283C4aF65B2AA0f201438680A004452"
+LIDO_EARN_USD_OWNER = Web3.to_checksum_address("0xf067739E4F3C7f496065Ed6518548a1052F99BC7")
 FACTORY_ENV_VARS = (
     "MELLOW_ETHEREUM_VAULT_FACTORY",
     "MELLOW_PLASMA_VAULT_FACTORY",
@@ -106,6 +110,57 @@ def test_mellow_abi_files_load() -> None:
     assert any(item["type"] == "function" and item["name"] == "getReport" for item in oracle_abi)
     assert any(item["type"] == "function" and item["name"] == "protocolFeeD6" for item in fee_manager_abi)
     assert any(item["type"] == "function" and item["name"] == "totalSupply" for item in erc20_abi)
+
+
+def test_mellow_created_decoder_accepts_documented_layout() -> None:
+    """Mellow factory decoder accepts the documented non-indexed event layout."""
+
+    init_params = b"\x12\x34"
+    log = SimpleNamespace(
+        topics=[fetch_mellow_created_event_topic()],
+        data=Web3.to_hex(encode(["address", "uint256", "address", "bytes"], [LIDO_EARN_USD_VAULT, 1, LIDO_EARN_USD_OWNER, init_params])),
+    )
+
+    instance, version, owner, decoded_init_params = decode_mellow_created_event(Web3(), log)
+
+    assert instance == LIDO_EARN_USD_VAULT
+    assert version == 1
+    assert owner == LIDO_EARN_USD_OWNER
+    assert decoded_init_params == init_params
+
+
+def test_mellow_created_decoder_accepts_indexed_compatibility_layout() -> None:
+    """Mellow factory decoder accepts defensive indexed event topics."""
+
+    init_params = b"\x12\x34"
+    log = SimpleNamespace(
+        topics=[
+            fetch_mellow_created_event_topic(),
+            "0x" + LIDO_EARN_USD_VAULT[2:].lower().rjust(64, "0"),
+            "0x" + format(1, "064x"),
+            "0x" + LIDO_EARN_USD_OWNER[2:].lower().rjust(64, "0"),
+        ],
+        data=Web3.to_hex(init_params),
+    )
+
+    instance, version, owner, decoded_init_params = decode_mellow_created_event(Web3(), log)
+
+    assert instance == LIDO_EARN_USD_VAULT
+    assert version == 1
+    assert owner == LIDO_EARN_USD_OWNER
+    assert decoded_init_params == init_params
+
+
+def test_mellow_created_decoder_rejects_malformed_data() -> None:
+    """Mellow factory decoder rejects malformed non-indexed event data."""
+
+    log = SimpleNamespace(
+        topics=[fetch_mellow_created_event_topic()],
+        data="0x1234",
+    )
+
+    with pytest.raises(DecodingError):
+        decode_mellow_created_event(Web3(), log)
 
 
 def test_mellow_fee_accessors_match_vault_base_surface() -> None:
