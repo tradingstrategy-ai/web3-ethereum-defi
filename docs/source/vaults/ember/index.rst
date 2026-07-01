@@ -20,7 +20,7 @@ Links
 - `Homepage <https://ember.so/>`__
 - `App <https://ember.so/earn>`__
 - `Documentation <https://learn.ember.so/>`__
-- `Twitter <https://x.com/EmberProtocol_>`__
+- `Twitter <https://x.com/EmberProtocol>`__
 - `Audit report <https://ember.so/documents/ember_protocol_audit.pdf>`__
 - `DefiLlama <https://defillama.com/protocol/ember>`__
 - `Example vault on Etherscan <https://etherscan.io/address/0xf3190a3ecc109f88e7947b849b281918c798a0c4>`__

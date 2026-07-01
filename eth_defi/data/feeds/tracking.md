@@ -45,7 +45,7 @@ YAML files are written to:
 | ✅ | decentralized-usd | Decentralized USD | https://usdd.io/ | usddio | | https://medium.com/feed/@usddio |
 | ⚠️ | deltr | Deltr | | | | |
 | ✅ | dolomite | Dolomite | https://dolomite.io/ | dolomite_io | dolomiteio | https://medium.com/feed/dolomite-official |
-| ✅ | ember | Ember | https://ember.so/ | EmberProtocol_ | ember-protocol | |
+| ✅ | ember | Ember | https://ember.so/ | EmberProtocol | ember-protocol | |
 | ✅ | eth-strategy | ETH Strategy | https://www.ethstrat.xyz/ | eth_strategy | | https://blog.ethstrat.xyz/feed |
 | ✅ | ethena | Ethena | https://ethena.fi/ | ethena_labs | ethena-labs | https://ethena.fi/blog/feed |
 | ✅ | euler | Euler | https://www.euler.finance/ | eulerfinance | euler-xyz | https://newsletter.euler.finance/feed |
