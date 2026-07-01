@@ -42,7 +42,17 @@ ROYCO_CHAIN_IDS = {
     21000000,  # Corn
 }
 
-#: Chain restrictions for protocols deployed on 3 or fewer chains.
+#: Mellow Core chains with official Core deployments.
+#:
+#: Source: https://docs.mellow.finance/core-vaults/core-deployments
+MELLOW_CORE_CHAIN_IDS = {
+    1,  # Ethereum
+    9745,  # Plasma
+    42161,  # Arbitrum
+    143,  # Monad
+}
+
+#: Chain restrictions for protocols deployed on a known limited chain set.
 #:
 #: Maps probe function names to the set of chain IDs where that protocol is deployed.
 #: Probes for these protocols will be skipped on chains not in their set.
@@ -71,6 +81,8 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "strategy": {143},  # Accountable - Monad only
     "queue": {143},  # Accountable - Monad only
     "POOL": {999},  # Sentiment - HyperEVM only
+    "shareManager": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
+    "getAssetCount": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
     # Two chain protocols
     "claimableKeeper": {137, 42161},  # Untangle Finance - Polygon, Arbitrum
     # Three chain protocols
@@ -179,7 +191,7 @@ def create_probe_calls(
     :param chain_id:
         If provided, filters out probe calls for protocols that are not deployed on this chain.
         This reduces unnecessary RPC calls when scanning chains where certain protocols don't exist.
-        Protocols deployed on 3 or fewer chains have their probes skipped on other chains.
+        Protocols with a known limited deployment set have their probes skipped on other chains.
         If None, all probes are generated (no filtering).
     """
 
@@ -222,6 +234,29 @@ def create_probe_calls(
             data=convert_to_shares_payload,
             extra_data=None,
         )
+
+        # Mellow Core Vaults are not ERC-4626, but use this same probe
+        # envelope so factory leads and autodetect follow the normal adapter
+        # routing path. The two-call signature is intentionally narrow:
+        # shareManager() identifies the share-accounting component and
+        # getAssetCount() identifies the Core Vault asset registry.
+        if _should_yield_probe("shareManager", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="shareManager()")[0:4],
+                function="shareManager",
+                data=b"",
+                extra_data=None,
+            )
+
+        if _should_yield_probe("getAssetCount", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="getAssetCount()")[0:4],
+                function="getAssetCount",
+                data=b"",
+                extra_data=None,
+            )
 
         # ====================
         # Protocol-specific probes - some filtered by chain_id
@@ -808,13 +843,18 @@ def identify_vault_features(
     # profitMaxUnlockTime True
     # MODULE_VAULT False
 
+    # If a call to an function which cannot exist succeeds, the contract is broken
+    if calls["EVM IS BROKEN SHIT"].success:
+        return {ERC4626Feature.broken}
+
+    if calls["shareManager"].success and calls["getAssetCount"].success:
+        features.add(ERC4626Feature.mellow_like)
+
     # Should return uint256 share count. Broken proxies may return 0x or similar response.
     if not calls["convertToShares"].success and len(calls["convertToShares"].result) != 32:
         # Not ERC-4626 vault
-        return {ERC4626Feature.broken}
-
-    # If a call to an function which cannot exist succeeds, the contract is broken
-    if calls["EVM IS BROKEN SHIT"].success:
+        if ERC4626Feature.mellow_like in features:
+            return features
         return {ERC4626Feature.broken}
 
     if calls["getPerformanceFeeData"].success and len(calls["getPerformanceFeeData"].result) == 64:
@@ -1305,9 +1345,18 @@ def create_vault_instance(
         assert not features, "Do not pass features when auto-detecting vault type"
 
     spec = VaultSpec(web3.eth.chain_id, address.lower())
-    kwargs = dict(token_cache=token_cache, features=features, default_block_identifier=default_block_identifier, require_denomination_token=require_denomination_token)
+    kwargs = {
+        "token_cache": token_cache,
+        "features": features,
+        "default_block_identifier": default_block_identifier,
+        "require_denomination_token": require_denomination_token,
+    }
 
-    if ERC4626Feature.broken in features:
+    if ERC4626Feature.mellow_like in features:
+        from eth_defi.mellow.vault import MellowVault
+
+        return MellowVault(web3, spec, **kwargs)
+    elif ERC4626Feature.broken in features:
         return None
     elif ERC4626Feature.ipor_like in features:
         # IPOR instance
