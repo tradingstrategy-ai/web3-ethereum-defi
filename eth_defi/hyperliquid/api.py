@@ -41,9 +41,28 @@ DEFAULT_VAULT_EQUITY_CACHE_TIMEOUT = 15 * 60
 #: Module-level cache: ``(api_url, user) -> (timestamp, list[UserVaultEquity])``
 _vault_equity_cache: dict[tuple, tuple[float, list["UserVaultEquity"]]] = {}
 
-#: Accept up to 1% equity drift when verifying a deposit into an existing vault
-#: because live vault equity can move during the HyperCore confirmation window.
-DEFAULT_VAULT_DEPOSIT_RELATIVE_TOLERANCE = Decimal("0.01")
+#: Accept up to 5% equity drift when verifying a deposit into an existing vault.
+#:
+#: When we deposit into an *existing* HyperCore vault position we confirm the
+#: deposit by checking that our USD equity increased by roughly the deposited
+#: amount.  The problem: live perp-trading vaults (e.g. copy-trading leader
+#: vaults) mark-to-market every block, so the vault's *existing* holdings drift
+#: in value during the minutes between snapshotting the baseline equity and
+#: running the verification poll loop.  That drift is subtracted from the
+#: apparent deposit and can make a fully-credited deposit look short.
+#:
+#: Real production incident (trade #1240, Loop Fund vault, 2026-07-01): an
+#: 8.06806 USDC deposit was credited essentially to the cent (the equity jump
+#: across two consecutive polls was 8.06608 USDC), but the vault's pre-existing
+#: ~750 USDC position had already marked down ~0.22 USDC (≈0.03%) versus the
+#: baseline snapshot.  Measured against the stale baseline, the apparent
+#: increase was only ~7.85 USDC, short of the 1% (0.08 USDC) tolerance band, so
+#: verification timed out, raised ``HypercoreDepositVerificationError`` and
+#: crashed the whole live trading loop even though the funds were safely in the
+#: vault.  Widening the band to 5% absorbs normal perp-vault NAV volatility over
+#: the confirmation window while still catching genuinely rejected / stranded
+#: deposits (which show ~0% increase, not a few-percent shortfall).
+DEFAULT_VAULT_DEPOSIT_RELATIVE_TOLERANCE = Decimal("0.05")
 
 
 class HypercoreDepositVerificationError(Exception):
@@ -597,7 +616,8 @@ def wait_for_vault_deposit_confirmation(
         Acceptable relative difference for existing vault deposits.
         The larger of ``tolerance`` and ``expected_deposit * relative_tolerance``
         is used, because live vault equity can drift during confirmation.
-        Defaults to 1%.
+        Defaults to 5% (see
+        :py:data:`DEFAULT_VAULT_DEPOSIT_RELATIVE_TOLERANCE` for why).
 
     :return:
         The confirmed :py:class:`UserVaultEquity` after the deposit.
