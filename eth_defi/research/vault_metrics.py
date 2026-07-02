@@ -40,6 +40,7 @@ from eth_defi.vault.flag import (
     ABNORMAL_SHARE_PRICE,
     ABNORMAL_TVL,
     ABNORMAL_VOLATILITY,
+    BAD_FLAGS,
     NOT_IN_MORPHO_API,
     VaultFlag,
     get_notes,
@@ -1337,6 +1338,40 @@ def apply_morpho_not_in_api_check(
     return risk, notes, flags
 
 
+def apply_bad_flag_check(
+    risk: VaultTechnicalRisk | None,
+    notes: str | None,
+    flags: set[VaultFlag],
+) -> tuple[VaultTechnicalRisk | None, str | None, set[VaultFlag]]:
+    """Blacklist vaults that carry scanned bad flags.
+
+    Scan-time flags may come from protocol adapters and are not visible to
+    :py:func:`get_vault_risk`, which only checks the static manual flag table.
+    Any flag listed in :py:data:`eth_defi.vault.flag.BAD_FLAGS` means the vault
+    must not be exported as a normal investable row.
+
+    :param risk:
+        Current risk classification.
+
+    :param notes:
+        Current note, if any. Existing notes are preserved.
+
+    :param flags:
+        Scan-time and manual flags collected for the vault.
+
+    :return:
+        Updated risk, notes, and flags.
+    """
+    bad_flags = flags & BAD_FLAGS
+    if bad_flags:
+        risk = VaultTechnicalRisk.blacklisted
+        if not notes:
+            flag_names = ", ".join(sorted(flag.value for flag in bad_flags))
+            notes = f"Vault has bad scan flags: {flag_names}"
+
+    return risk, notes, flags
+
+
 def calculate_vault_record(
     prices_df: pd.DataFrame,
     vault_metadata_rows: dict[VaultSpec, VaultRow],
@@ -1441,7 +1476,12 @@ def calculate_vault_record(
     risk = vault_metadata.get("_risk") or get_vault_risk(protocol, vault_address)
     notes = get_notes(vault_address, chain_id=chain_id)
 
-    flags = vault_metadata.get("_flags", set())
+    flags = set(vault_metadata.get("_flags") or set())
+    risk, notes, flags = apply_bad_flag_check(
+        risk=risk,
+        notes=notes,
+        flags=flags,
+    )
 
     current_share_price = prices_df.iloc[-1]["share_price"]
     risk, notes, flags = apply_abnormal_value_checks(
