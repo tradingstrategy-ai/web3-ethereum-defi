@@ -73,6 +73,8 @@ from eth_defi.utils import setup_console_logging
 
 logger = logging.getLogger(__name__)
 
+SECONDS_PER_MINUTE = 60
+
 
 def _parse_csv(raw_value: str | None) -> list[str]:
     """Parse a comma-separated environment variable into a list."""
@@ -80,6 +82,18 @@ def _parse_csv(raw_value: str | None) -> list[str]:
     if not raw_value:
         return []
     return [item.strip() for item in raw_value.split(",") if item.strip()]
+
+
+def _parse_float_env(name: str, *, default: float) -> float:
+    """Parse an optional floating-point environment variable."""
+    raw_value = os.environ.get(name)
+    if raw_value is None or not raw_value.strip():
+        return default
+    try:
+        return float(raw_value)
+    except ValueError:
+        logger.warning("Invalid %s=%r, using default %s", name, raw_value, default)
+        return default
 
 
 def _format_datetime(value) -> str:
@@ -94,10 +108,10 @@ def _format_duration(seconds: float | None) -> str:
     """Format duration in seconds to human-readable string."""
     if seconds is None:
         return "-"
-    if seconds < 60:
+    if seconds < SECONDS_PER_MINUTE:
         return f"{seconds:.1f}s"
-    minutes = int(seconds // 60)
-    secs = seconds % 60
+    minutes = int(seconds // SECONDS_PER_MINUTE)
+    secs = seconds % SECONDS_PER_MINUTE
     return f"{minutes}m {secs:.0f}s"
 
 
@@ -238,7 +252,7 @@ def _build_config() -> PostScanConfig:
         refresh_stablecoin_rates=os.environ.get("REFRESH_STABLECOIN_RATES", "true").lower() == "true",
         force_stablecoin_rate_refresh=os.environ.get("FORCE_STABLECOIN_RATE_REFRESH", "false").lower() == "true",
         stablecoin_data_dir=Path(stablecoin_data_dir_str).expanduser() if stablecoin_data_dir_str else STABLECOINS_DATA_DIR,
-        stablecoin_rate_timeout=float(os.environ.get("STABLECOIN_RATE_TIMEOUT", "20")),
+        stablecoin_rate_timeout=_parse_float_env("STABLECOIN_RATE_TIMEOUT", default=20.0),
         stablecoin_rate_gate_path=Path(stablecoin_rate_gate_path_str).expanduser() if stablecoin_rate_gate_path_str else None,
         currency_api_db_path=Path(currency_api_db_path_str).expanduser() if currency_api_db_path_str else None,
         currency_api_source=os.environ.get("CURRENCY_API_SOURCE", SOURCE_NAME),
