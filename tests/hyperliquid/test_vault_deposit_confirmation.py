@@ -147,7 +147,9 @@ def test_existing_deposit_rejects_large_relative_shortfall(
     3. Verify the helper raises ``HypercoreDepositVerificationError``.
     """
     session = MagicMock()
-    mock_fetch.return_value = _make_equity(Decimal("620.0"))
+    # Increase = 580.0 - 59.559287 = 520.44 vs expected 570.69, an ~8.8% shortfall
+    # that exceeds the 5% existing-position relative tolerance, so this must reject.
+    mock_fetch.return_value = _make_equity(Decimal("580.0"))
     mock_time.side_effect = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
 
     # 1. Mock an existing-position equity increase that stays materially below the expected amount.
@@ -163,3 +165,41 @@ def test_existing_deposit_rejects_large_relative_shortfall(
             timeout=3.0,
             poll_interval=1.0,
         )
+
+
+@patch("eth_defi.hyperliquid.api.time.sleep")
+@patch("eth_defi.hyperliquid.api.fetch_user_vault_equity")
+def test_existing_deposit_confirms_despite_nav_drift(
+    mock_fetch,
+    _mock_sleep,
+):
+    """Confirm an existing-position deposit even when vault NAV drifted against the stale baseline (regression for trade #1240).
+
+    Reproduces the production incident that crashed the live loop on 2026-07-01:
+    a fully-credited 8.06806 USDC deposit into the Loop Fund vault looked ~2.7%
+    short because the pre-existing ~750 USDC position marked down ~0.22 USDC
+    between the baseline snapshot and verification. The old 1% band rejected it
+    (0.08 USDC tolerance); the widened 5% band (0.40 USDC tolerance) must accept
+    it, since the increase 7.846518 exceeds the threshold 8.06806 - 0.40 = 7.665.
+
+    1. Mock the vault equity to the production value observed at the final poll.
+    2. Call ``wait_for_vault_deposit_confirmation()`` with the production baseline.
+    3. Verify the helper confirms the deposit under the default 5% tolerance.
+    """
+    session = MagicMock()
+    # 1. Mock the vault equity to the production value observed at the final poll.
+    mock_fetch.return_value = _make_equity(Decimal("757.794214"))
+
+    # 2. Call wait_for_vault_deposit_confirmation() with the production baseline.
+    result = wait_for_vault_deposit_confirmation(
+        session,
+        user=USER_ADDR,
+        vault_address=VAULT_ADDR,
+        expected_deposit=Decimal("8.06806"),
+        existing_equity=Decimal("749.947696"),
+        timeout=10.0,
+        poll_interval=1.0,
+    )
+
+    # 3. Verify the helper confirms the deposit under the default 5% tolerance.
+    assert result.equity == Decimal("757.794214")

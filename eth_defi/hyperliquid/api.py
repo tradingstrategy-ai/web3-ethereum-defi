@@ -41,15 +41,17 @@ DEFAULT_VAULT_EQUITY_CACHE_TIMEOUT = 15 * 60
 #: Module-level cache: ``(api_url, user) -> (timestamp, list[UserVaultEquity])``
 _vault_equity_cache: dict[tuple, tuple[float, list["UserVaultEquity"]]] = {}
 
-#: Accept up to 5% equity drift when verifying a deposit into an existing vault.
+#: Accept up to 5% equity drift when verifying a deposit into an *existing* vault
+#: position.
 #:
-#: When we deposit into an *existing* HyperCore vault position we confirm the
+#: When we deposit into an existing HyperCore vault position we confirm the
 #: deposit by checking that our USD equity increased by roughly the deposited
-#: amount.  The problem: live perp-trading vaults (e.g. copy-trading leader
-#: vaults) mark-to-market every block, so the vault's *existing* holdings drift
-#: in value during the minutes between snapshotting the baseline equity and
-#: running the verification poll loop.  That drift is subtracted from the
-#: apparent deposit and can make a fully-credited deposit look short.
+#: amount, measured against a baseline equity snapshotted before the deposit.
+#: The problem: live perp-trading vaults (e.g. copy-trading leader vaults)
+#: mark-to-market every block, so the vault's *existing* holdings drift in value
+#: during the minutes between snapshotting the baseline equity and running the
+#: verification poll loop.  That drift is subtracted from the apparent deposit
+#: and can make a fully-credited deposit look short.
 #:
 #: Real production incident (trade #1240, Loop Fund vault, 2026-07-01): an
 #: 8.06806 USDC deposit was credited essentially to the cent (the equity jump
@@ -62,7 +64,20 @@ _vault_equity_cache: dict[tuple, tuple[float, list["UserVaultEquity"]]] = {}
 #: vault.  Widening the band to 5% absorbs normal perp-vault NAV volatility over
 #: the confirmation window while still catching genuinely rejected / stranded
 #: deposits (which show ~0% increase, not a few-percent shortfall).
+#:
+#: This applies only to the existing-position branch; first deposits keep the
+#: tighter :py:data:`DEFAULT_FIRST_VAULT_DEPOSIT_RELATIVE_TOLERANCE`.
 DEFAULT_VAULT_DEPOSIT_RELATIVE_TOLERANCE = Decimal("0.05")
+
+#: Accept up to 1% shortfall when verifying a *first* deposit into a vault.
+#:
+#: A first deposit has no pre-existing position to mark-to-market, so the
+#: NAV-drift-against-a-stale-baseline problem that motivates the wider
+#: existing-position tolerance (see
+#: :py:data:`DEFAULT_VAULT_DEPOSIT_RELATIVE_TOLERANCE`) does not apply here.  We
+#: keep this a tight "loud guard" so a dust / partial / silently-rejected first
+#: deposit is not falsely confirmed as success.
+DEFAULT_FIRST_VAULT_DEPOSIT_RELATIVE_TOLERANCE = Decimal("0.01")
 
 
 class HypercoreDepositVerificationError(Exception):
@@ -568,6 +583,7 @@ def wait_for_vault_deposit_confirmation(
     poll_interval: float = 2.0,
     tolerance: Decimal = Decimal("0.01"),
     relative_tolerance: Decimal = DEFAULT_VAULT_DEPOSIT_RELATIVE_TOLERANCE,
+    first_deposit_relative_tolerance: Decimal = DEFAULT_FIRST_VAULT_DEPOSIT_RELATIVE_TOLERANCE,
 ) -> UserVaultEquity:
     """Wait for a vault deposit to be confirmed on HyperCore.
 
@@ -613,11 +629,18 @@ def wait_for_vault_deposit_confirmation(
         the wait).  Defaults to 0.01 USDC.
 
     :param relative_tolerance:
-        Acceptable relative difference for existing vault deposits.
-        The larger of ``tolerance`` and ``expected_deposit * relative_tolerance``
-        is used, because live vault equity can drift during confirmation.
-        Defaults to 5% (see
+        Acceptable relative difference for deposits into an *existing* vault
+        position.  The larger of ``tolerance`` and
+        ``expected_deposit * relative_tolerance`` is used, because live vault
+        equity can drift during confirmation.  Defaults to 5% (see
         :py:data:`DEFAULT_VAULT_DEPOSIT_RELATIVE_TOLERANCE` for why).
+
+    :param first_deposit_relative_tolerance:
+        Acceptable relative difference for a *first* deposit (no existing
+        position).  Kept tighter than ``relative_tolerance`` because there is no
+        pre-existing position to mark-to-market against a stale baseline.
+        Defaults to 1% (see
+        :py:data:`DEFAULT_FIRST_VAULT_DEPOSIT_RELATIVE_TOLERANCE`).
 
     :return:
         The confirmed :py:class:`UserVaultEquity` after the deposit.
@@ -628,7 +651,12 @@ def wait_for_vault_deposit_confirmation(
     deadline = time.time() + timeout
     attempt = 0
     baseline = existing_equity or Decimal(0)
-    accepted_tolerance = max(tolerance, expected_deposit * relative_tolerance)
+    # First deposits have no pre-existing position that can mark-to-market
+    # against a stale baseline, so they keep the tighter "loud guard" band;
+    # existing-position deposits get the wider band to absorb live NAV drift.
+    # ``existing_equity`` is fixed for the whole call, so this is computed once.
+    effective_relative_tolerance = first_deposit_relative_tolerance if existing_equity is None else relative_tolerance
+    accepted_tolerance = max(tolerance, expected_deposit * effective_relative_tolerance)
 
     # Initial delay: give HyperCore time to process the deposit
     # before first poll (API can lag behind HyperCore state).
