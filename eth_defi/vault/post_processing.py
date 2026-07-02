@@ -430,7 +430,7 @@ def export_protocol_metadata() -> bool:
 
 
 def export_data_files() -> bool:
-    """Export database files (parquet, pickle) to R2.
+    """Export database files (parquet, pickle, DuckDB) to R2.
 
     :return: True if export succeeded
     """

@@ -205,6 +205,30 @@ poetry run python -m eth_defi.currency_api.cli
 | `MAX_TRANSIENT_ATTEMPTS` | `5` | Consecutive transient failures per date before giving up |
 | `SOURCE` | `fawazahmed0` | Value written to the `source` column |
 
+## Uploading the DuckDB bundle
+
+The all-chain vault scanner writes the currency API database to
+`$PIPELINE_DATA_DIR/exchange-rates.duckdb` by default, using
+`CURRENCY_API_DB_PATH` or `CURRENCY_API_DATABASE_PATH` when either override is
+set. `scripts/erc-4626/export-data-files.py` follows the same path resolution
+and uploads the resulting DuckDB file with the other vault data artefacts.
+
+The upload creates a flat R2 object key from the local file name. The default
+object is therefore `exchange-rates.duckdb`, next to `vault-prices-1h.parquet`,
+`cleaned-vault-prices-1h.parquet`, the vault metadata pickle, reader state,
+sticky export state, and Core3 DuckDB. When
+`R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` is configured, the same file is
+uploaded to the alternative bucket and included in its daily
+`daily/YYYY-MM-DD/...` backup copy.
+
+```shell
+source .local-test.env && poetry run python scripts/erc-4626/export-data-files.py
+```
+
+If you run `scan-currencies` outside the all-chain scanner with its standalone
+`DB_PATH` default, set `CURRENCY_API_DB_PATH` or `CURRENCY_API_DATABASE_PATH` to
+that same DuckDB path before running the data-file export.
+
 ## Key modules
 
 | Module | Role |

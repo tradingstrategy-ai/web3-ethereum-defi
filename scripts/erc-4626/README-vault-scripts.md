@@ -86,6 +86,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SKIP_CORE3` | Optional. Skip Core3 risk intelligence enrichment. Default: false. Core3 is default-on enrichment for the top-vaults JSON, unlike optional native vault sources that use opt-in `SCAN_*` flags. |
 | `CORE3_API_KEY` | Optional. Core3 API key. If missing, Core3 is disabled for the run with a warning. |
 | `CORE3_DATABASE_PATH` | Optional. Core3 DuckDB path. Default: `~/.tradingstrategy/vaults/core3/core3.duckdb`. |
+| `CURRENCY_API_DB_PATH` / `CURRENCY_API_DATABASE_PATH` | Optional. Exchange-rate DuckDB bundle path. Default: `$PIPELINE_DATA_DIR/exchange-rates.duckdb`. |
 | `CORE3_MAX_WORKERS` | Optional. Core3 API worker threads. Default: 8. |
 | `CORE3_FETCH_SECTIONS` | Optional. Fetch detailed Core3 section endpoints. Default: true. Set to `false` to skip. |
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
@@ -203,7 +204,7 @@ poetry run python scripts/erc-4626/export-protocol-metadata.py
 
 Export production data files to Cloudflare R2: raw and cleaned price Parquet,
 vault metadata pickle, reader state pickle, sticky vault export state JSON
-files, and Core3 risk intelligence DuckDB.
+files, Core3 risk intelligence DuckDB, and exchange-rate DuckDB.
 
 ```shell
 source .local-test.env && poetry run python scripts/erc-4626/export-data-files.py
@@ -211,9 +212,12 @@ source .local-test.env && poetry run python scripts/erc-4626/export-data-files.p
 
 When `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` is configured, files are
 uploaded to both buckets. Daily `daily/YYYY-MM-DD/...` backup copies are created
-only in the alternative bucket. Missing files, including the Core3 DuckDB, are
-logged and skipped. Existing `vault-export-state.json` is included so sticky
-qualification history is backed up with the rest of the production data set.
+only in the alternative bucket. Missing files, including the Core3 and exchange-rate
+DuckDB files, are logged and skipped. Existing `vault-export-state.json` is included
+so sticky qualification history is backed up with the rest of the production data set.
+The exchange-rate DuckDB path uses the same `CURRENCY_API_DB_PATH` /
+`CURRENCY_API_DATABASE_PATH` configuration as the scheduled currency-rate scanner;
+without an override it is read from `$PIPELINE_DATA_DIR/exchange-rates.duckdb`.
 
 | Variable | Description |
 |----------|-------------|
@@ -225,6 +229,7 @@ qualification history is backed up with the rest of the production data set.
 | `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` | Optional. Alternative bucket for private/professional data. |
 | `R2_DAILY_BACKUP` | Optional. Set to `false` to disable daily backup copies. Default: true. |
 | `CORE3_DATABASE_PATH` | Optional. Core3 DuckDB path. Default: `~/.tradingstrategy/vaults/core3/core3.duckdb`. |
+| `CURRENCY_API_DB_PATH` / `CURRENCY_API_DATABASE_PATH` | Optional. Exchange-rate DuckDB bundle path. Default: `$PIPELINE_DATA_DIR/exchange-rates.duckdb`. |
 | `UPLOAD_PREFIX` | Optional. Prefix for S3 keys. |
 
 ### export-sample-files.py
