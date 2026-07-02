@@ -1,8 +1,8 @@
 """Export vault database files to Cloudflare R2.
 
 Uploads price databases, metadata pickles, and Core3 risk intelligence
-DuckDB so the backtester can download them without running the full scan
-pipeline.
+and exchange-rate DuckDB files so the backtester can download them
+without running the full scan pipeline.
 """
 
 import logging
@@ -13,30 +13,64 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.cloudflare_r2 import copy_r2_object_daily_backup, create_r2_client, upload_file_to_r2
 from eth_defi.core3.constants import resolve_core3_database_path
+from eth_defi.currency_api.constants import CURRENCY_API_DATABASE
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
 logger = logging.getLogger(__name__)
 
+EXCHANGE_RATE_DATABASE_FILENAME = "exchange-rates.duckdb"
 
-def get_data_file_paths(base_path: Path, core3_db_path: Path | None = None) -> list[Path]:
+
+def resolve_exchange_rate_database_path(base_path: Path | None = None) -> Path:
+    """Resolve the exchange-rate DuckDB database path.
+
+    The exchange-rate bundle is produced by the currency API scanner. Use
+    the same ``CURRENCY_API_DB_PATH`` / ``CURRENCY_API_DATABASE_PATH``
+    override contract as the all-chain scanner so exports upload the
+    database that the scanner writes. Without an override, data exports use
+    ``exchange-rates.duckdb`` under the active pipeline data directory.
+
+    :param base_path:
+        Pipeline data directory. ``None`` falls back to the standalone
+        currency API default path.
+    :return:
+        Path to the exchange-rate DuckDB database.
+    """
+    path = os.environ.get("CURRENCY_API_DB_PATH") or os.environ.get("CURRENCY_API_DATABASE_PATH")
+    if path:
+        return Path(path).expanduser()
+    if base_path is not None:
+        return base_path / EXCHANGE_RATE_DATABASE_FILENAME
+    return CURRENCY_API_DATABASE
+
+
+def get_data_file_paths(
+    base_path: Path,
+    core3_db_path: Path | None = None,
+    exchange_rate_db_path: Path | None = None,
+) -> list[Path]:
     """Build the data file list uploaded to R2.
 
     :param base_path:
         Pipeline data directory.
     :param core3_db_path:
         Optional Core3 DuckDB path override.
+    :param exchange_rate_db_path:
+        Optional exchange-rate DuckDB path override.
     :return:
         Files to upload, including optional files that may be skipped later
         if they do not exist.
     """
     sticky_export_state_paths = [base_path / "vault-export-state.json"]
+    exchange_rate_path = exchange_rate_db_path or resolve_exchange_rate_database_path(base_path)
     return [
         base_path / "vault-prices-1h.parquet",
         base_path / "cleaned-vault-prices-1h.parquet",
         base_path / "vault-metadata-db.pickle",
         base_path / "vault-reader-state-1h.pickle",
         core3_db_path or resolve_core3_database_path(),
+        exchange_rate_path,
         *sticky_export_state_paths,
     ]
 
