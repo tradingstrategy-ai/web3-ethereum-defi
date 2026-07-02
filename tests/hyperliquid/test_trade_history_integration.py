@@ -22,10 +22,18 @@ Requires network access to the Hyperliquid API.
 """
 
 import datetime
+import json
 
 import pytest
+import requests
 
-from eth_defi.hyperliquid.api import fetch_portfolio
+from eth_defi.hyperliquid.api import (
+    LEADERBOARD_URL,
+    fetch_frontend_open_orders_raw,
+    fetch_open_orders_raw,
+    fetch_perp_clearinghouse_state_raw,
+    fetch_portfolio,
+)
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.trade_history import (
     fetch_account_funding,
@@ -44,11 +52,55 @@ ACTIVE_ACCOUNT = "0x3df9769bbbb335340872f01d8157c779d73c6ed0"
 TEST_END = datetime.datetime.now(datetime.UTC).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None) - datetime.timedelta(days=1)
 TEST_START = TEST_END - datetime.timedelta(days=7)
 
+#: Public top traders that currently have substantial live open state.
+#:
+#: These are used as preferred live candidates before falling back to
+#: the current public leaderboard rows.
+LIVE_OPEN_STATE_CANDIDATES = (
+    ("ABC", "0x162cc7c861ebd0c06b3d72319201150482518185"),
+    ("Leaderboard rank 8", "0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00"),
+    ("Leaderboard rank 5", "0xc926ddba8b7617dbc65712f20cf8e1b58b8598d3"),
+)
+
 
 @pytest.fixture(scope="module")
 def session():
     """Create a shared HTTP session for all tests in this module."""
     return create_hyperliquid_session()
+
+
+def _iter_live_snapshot_candidates() -> list[tuple[str | None, str]]:
+    """Return public trader addresses ordered by likelihood of live open state."""
+    candidates: list[tuple[str | None, str]] = list(LIVE_OPEN_STATE_CANDIDATES)
+    seen_addresses = {address.lower() for _, address in candidates}
+
+    response = requests.get(LEADERBOARD_URL, timeout=30)
+    response.raise_for_status()
+    leaderboard_rows = response.json()["leaderboardRows"]
+
+    for row in leaderboard_rows[:20]:
+        address = row["ethAddress"].lower()
+        if address in seen_addresses:
+            continue
+        candidates.append((row.get("displayName") or None, address))
+        seen_addresses.add(address)
+
+    return candidates
+
+
+def _select_live_snapshot_account(session) -> tuple[str | None, str, dict, list[dict], list[dict]]:
+    """Pick a public leaderboard trader with live positions or live orders."""
+    for display_name, address in _iter_live_snapshot_candidates():
+        clearinghouse_state = fetch_perp_clearinghouse_state_raw(session, address)
+        open_orders = fetch_open_orders_raw(session, address)
+        frontend_open_orders = fetch_frontend_open_orders_raw(session, address)
+
+        position_count = len(clearinghouse_state.get("assetPositions", []))
+        materialised_order_count = len(frontend_open_orders)
+        if position_count > 0 or materialised_order_count > 0:
+            return display_name, address, clearinghouse_state, open_orders, frontend_open_orders
+
+    pytest.skip("Could not find a public Hyperliquid leaderboard trader with live open state")
 
 
 @pytest.mark.timeout(60)
@@ -260,6 +312,160 @@ def test_fetch_portfolio_first_activity(session):
     assert portfolio.first_activity_at is not None, "Expected first_activity_at from pnlHistory"
     assert portfolio.all_time_pnl is not None
     assert portfolio.all_time_volume is not None
-
     # HLP has been active since late 2023
     assert portfolio.first_activity_at < datetime.datetime(2024, 1, 1), f"HLP first activity {portfolio.first_activity_at} should be before 2024-01-01"
+
+
+@pytest.mark.timeout(120)
+def test_sync_account_writes_snapshot_rows(session, tmp_path):
+    """sync_account stores snapshot runs and raw source payloads."""
+    db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
+    try:
+        db.add_account(VAULT_ADDRESS, label="Growi HF", is_vault=True)
+
+        result = db.sync_account(
+            session,
+            VAULT_ADDRESS,
+            start_time=TEST_START,
+            end_time=TEST_END,
+        )
+        db.save()
+
+        runs = db.get_snapshot_runs(VAULT_ADDRESS)
+        assert len(runs) == 1
+        run = runs[0]
+
+        assert run["open_position_count"] == result["open_positions"]
+        assert run["open_trade_count"] == result["open_trades"]
+        assert run["open_order_count"] == result["open_orders"]
+
+        for source_name in (
+            "clearinghouseState",
+            "openOrders",
+            "frontendOpenOrders",
+            "historicalOrders",
+            "userTwapSliceFills",
+        ):
+            source = db.get_snapshot_source(VAULT_ADDRESS, source_name)
+            assert source is not None, f"Missing snapshot source {source_name}"
+            assert source["status"] in {"ok", "error"}
+
+        if run["open_position_count"] > 0:
+            positions = db.get_open_position_snapshots(VAULT_ADDRESS)
+            assert len(positions) == run["open_position_count"]
+
+        if run["open_order_count"] > 0:
+            orders = db.get_open_order_snapshots(VAULT_ADDRESS)
+            assert len(orders) == run["open_order_count"]
+
+        if run["open_trade_count"] > 0:
+            trades = db.get_open_trade_snapshots(VAULT_ADDRESS)
+            assert len(trades) == run["open_trade_count"]
+    finally:
+        db.close()
+
+
+@pytest.mark.timeout(180)
+def test_sync_account_adds_second_snapshot_run_without_duplicating_event_rows(session, tmp_path):
+    """A second sync writes a new snapshot run while event-row counts stay stable."""
+    db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
+    try:
+        db.add_account(VAULT_ADDRESS, label="Growi HF", is_vault=True)
+
+        first_result = db.sync_account(
+            session,
+            VAULT_ADDRESS,
+            start_time=TEST_START,
+            end_time=TEST_END,
+        )
+        db.save()
+        first_state = db.get_sync_state(VAULT_ADDRESS)
+        first_runs = db.get_snapshot_runs(VAULT_ADDRESS)
+
+        second_result = db.sync_account(
+            session,
+            VAULT_ADDRESS,
+            start_time=TEST_START,
+            end_time=TEST_END,
+        )
+        db.save()
+        second_state = db.get_sync_state(VAULT_ADDRESS)
+        second_runs = db.get_snapshot_runs(VAULT_ADDRESS)
+
+        assert first_result["fills"] > 0
+        assert second_result["fills"] == 0
+        assert second_result["funding"] == 0
+        assert second_result["ledger"] == 0
+
+        assert second_state["fills"]["row_count"] == first_state["fills"]["row_count"]
+        assert second_state["funding"]["row_count"] == first_state["funding"]["row_count"]
+        assert second_state["ledger"]["row_count"] == first_state["ledger"]["row_count"]
+
+        assert len(first_runs) == 1
+        assert len(second_runs) == 2
+        assert second_runs[-1]["ts"] >= first_runs[-1]["ts"]
+    finally:
+        db.close()
+
+
+@pytest.mark.timeout(180)
+def test_capture_account_snapshots_materialises_live_open_state_for_public_trader(session, tmp_path):
+    """capture_account_snapshots stores live open positions and orders for a public trader."""
+    display_name, address, _, _, _ = _select_live_snapshot_account(session)
+
+    db = HyperliquidTradeHistoryDatabase(tmp_path / "live-open-state.duckdb")
+    try:
+        db.add_account(address, label=display_name or "Live trader", is_vault=False)
+
+        result = db.capture_account_snapshots(
+            session,
+            address,
+            is_vault=False,
+            label=display_name,
+        )
+        db.save()
+
+        runs = db.get_snapshot_runs(address)
+        assert len(runs) == 1
+
+        run = runs[0]
+        assert run["open_position_count"] > 0 or run["open_order_count"] > 0
+
+        clearinghouse_source = db.get_snapshot_source(address, "clearinghouseState")
+        assert clearinghouse_source is not None
+        assert clearinghouse_source["status"] == "ok"
+        stored_clearinghouse_state = json.loads(clearinghouse_source["payload_json"])
+        expected_position_count = len(stored_clearinghouse_state["assetPositions"])
+        assert clearinghouse_source["item_count"] == expected_position_count
+        assert run["open_position_count"] == expected_position_count
+        assert result["open_positions"] == expected_position_count
+
+        open_orders_source = db.get_snapshot_source(address, "openOrders")
+        assert open_orders_source is not None
+        assert open_orders_source["status"] == "ok"
+        stored_open_orders = json.loads(open_orders_source["payload_json"])
+        assert open_orders_source["item_count"] == len(stored_open_orders)
+
+        frontend_orders_source = db.get_snapshot_source(address, "frontendOpenOrders")
+        assert frontend_orders_source is not None
+        assert frontend_orders_source["status"] == "ok"
+        stored_frontend_open_orders = json.loads(frontend_orders_source["payload_json"])
+        expected_order_count = len(stored_frontend_open_orders)
+        assert frontend_orders_source["item_count"] == expected_order_count
+        assert run["open_order_count"] == expected_order_count
+        assert result["open_orders"] == expected_order_count
+
+        positions = db.get_open_position_snapshots(address)
+        assert len(positions) == expected_position_count
+        if positions:
+            expected_coins = {item.get("position", item)["coin"] for item in stored_clearinghouse_state["assetPositions"]}
+            stored_coins = {position["coin"] for position in positions}
+            assert stored_coins == expected_coins
+            assert all(position["active_asset_data_json"] is not None for position in positions)
+
+        orders = db.get_open_order_snapshots(address)
+        assert len(orders) == expected_order_count
+        if orders:
+            assert all(order["source"] == "frontendOpenOrders" for order in orders)
+    finally:
+        db.close()

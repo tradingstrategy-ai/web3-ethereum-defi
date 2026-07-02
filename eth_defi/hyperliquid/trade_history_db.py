@@ -42,6 +42,7 @@ Example::
 """
 
 import datetime
+import json
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -55,9 +56,22 @@ from tqdm import tqdm as tqdm_std
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.hyperliquid.api import (
+    fetch_active_asset_data_raw,
+    fetch_frontend_open_orders_raw,
+    fetch_historical_orders_raw,
+    fetch_open_orders_raw,
+    fetch_perp_clearinghouse_state_raw,
+    fetch_user_twap_slice_fills_raw,
+)
 from eth_defi.hyperliquid.position import Fill
 from eth_defi.hyperliquid.session import HyperliquidSession
-from eth_defi.hyperliquid.trade_history import FundingPayment
+from eth_defi.hyperliquid.trade_history import (
+    FundingPayment,
+    attach_funding_to_trades,
+    group_fills_into_trades,
+)
+from eth_defi.hyperliquid.position import reconstruct_position_history
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +105,50 @@ MAX_PER_REQUEST = 2000
 
 #: Maximum records per API request for funding
 MAX_FUNDING_PER_REQUEST = 500
+
+#: Snapshot run schema version
+SNAPSHOT_VERSION = 1
+
+#: Account-level raw snapshot sources
+SNAPSHOT_SOURCE_NAMES: tuple[str, ...] = (
+    "clearinghouseState",
+    "openOrders",
+    "frontendOpenOrders",
+    "historicalOrders",
+    "userTwapSliceFills",
+)
+
+
+def _json_dumps(data: object) -> str:
+    """Serialise raw payload data to compact JSON text."""
+    return json.dumps(data, separators=(",", ":"), ensure_ascii=True)
+
+
+def _decimal_or_none(value: object) -> Decimal | None:
+    """Convert a raw payload value to :py:class:`Decimal` when present."""
+    if value is None:
+        return None
+    return Decimal(str(value))
+
+
+def _float_or_none(value: object) -> float | None:
+    """Convert a raw payload value to float when present."""
+    if value is None:
+        return None
+    return float(value)
+
+
+def _int_or_none(value: object) -> int | None:
+    """Convert a raw payload value to int when present."""
+    if value is None:
+        return None
+    return int(value)
+
+
+def _normalise_order_entry(entry: dict) -> tuple[dict, str | None, int | None]:
+    """Extract an order payload plus optional status metadata."""
+    order = entry.get("order", entry)
+    return order, entry.get("status"), _int_or_none(entry.get("statusTimestamp"))
 
 
 def _format_count(n: int) -> str:
@@ -247,6 +305,120 @@ class HyperliquidTradeHistoryDatabase:
                 row_count INTEGER,
                 last_synced BIGINT NOT NULL,
                 PRIMARY KEY (address, data_type)
+            )
+        """)
+
+        self.con.execute("""
+            CREATE TABLE IF NOT EXISTS account_snapshot_runs (
+                address VARCHAR NOT NULL,
+                ts BIGINT NOT NULL,
+                label VARCHAR,
+                is_vault BOOLEAN NOT NULL,
+                dex VARCHAR NOT NULL DEFAULT '',
+                fills_row_count INTEGER NOT NULL,
+                funding_row_count INTEGER NOT NULL,
+                ledger_row_count INTEGER NOT NULL,
+                open_position_count INTEGER NOT NULL DEFAULT 0,
+                open_trade_count INTEGER NOT NULL DEFAULT 0,
+                open_order_count INTEGER NOT NULL DEFAULT 0,
+                historical_order_count INTEGER,
+                twap_slice_fill_count INTEGER,
+                snapshot_version INTEGER NOT NULL DEFAULT 1,
+                PRIMARY KEY (address, ts)
+            )
+        """)
+
+        self.con.execute("""
+            CREATE TABLE IF NOT EXISTS account_snapshot_sources (
+                address VARCHAR NOT NULL,
+                ts BIGINT NOT NULL,
+                source VARCHAR NOT NULL,
+                status VARCHAR NOT NULL,
+                item_count INTEGER,
+                payload_json VARCHAR,
+                error_message VARCHAR,
+                PRIMARY KEY (address, ts, source)
+            )
+        """)
+
+        self.con.execute("""
+            CREATE TABLE IF NOT EXISTS open_position_snapshots (
+                address VARCHAR NOT NULL,
+                ts BIGINT NOT NULL,
+                coin VARCHAR NOT NULL,
+                position_type VARCHAR,
+                size FLOAT NOT NULL,
+                entry_px FLOAT,
+                unrealised_pnl FLOAT NOT NULL,
+                margin_used FLOAT NOT NULL,
+                position_value FLOAT NOT NULL,
+                liquidation_px FLOAT,
+                leverage_type VARCHAR,
+                leverage_value INTEGER,
+                max_leverage INTEGER,
+                return_on_equity FLOAT,
+                cumulative_funding_all_time FLOAT,
+                cumulative_funding_since_open FLOAT,
+                cumulative_funding_since_change FLOAT,
+                mark_px FLOAT,
+                available_to_trade_long FLOAT,
+                available_to_trade_short FLOAT,
+                max_trade_sz_long FLOAT,
+                max_trade_sz_short FLOAT,
+                position_json VARCHAR NOT NULL,
+                active_asset_data_json VARCHAR,
+                PRIMARY KEY (address, ts, coin)
+            )
+        """)
+
+        self.con.execute("""
+            CREATE TABLE IF NOT EXISTS open_trade_snapshots (
+                address VARCHAR NOT NULL,
+                ts BIGINT NOT NULL,
+                trade_index INTEGER NOT NULL,
+                coin VARCHAR NOT NULL,
+                direction VARCHAR NOT NULL,
+                is_complete BOOLEAN NOT NULL,
+                opened_at BIGINT NOT NULL,
+                entry_price FLOAT,
+                current_size FLOAT NOT NULL,
+                max_size FLOAT NOT NULL,
+                realised_pnl FLOAT NOT NULL,
+                funding_pnl FLOAT NOT NULL,
+                total_fees FLOAT NOT NULL,
+                net_pnl FLOAT NOT NULL,
+                unrealised_pnl FLOAT,
+                fill_count INTEGER NOT NULL,
+                trade_json VARCHAR NOT NULL,
+                PRIMARY KEY (address, ts, trade_index)
+            )
+        """)
+
+        self.con.execute("""
+            CREATE TABLE IF NOT EXISTS open_order_snapshots (
+                address VARCHAR NOT NULL,
+                ts BIGINT NOT NULL,
+                order_index INTEGER NOT NULL,
+                source VARCHAR NOT NULL,
+                coin VARCHAR NOT NULL,
+                side VARCHAR,
+                limit_px FLOAT,
+                sz FLOAT,
+                orig_sz FLOAT,
+                oid BIGINT,
+                cloid VARCHAR,
+                order_ts BIGINT,
+                status VARCHAR,
+                status_timestamp BIGINT,
+                trigger_condition VARCHAR,
+                is_trigger BOOLEAN,
+                trigger_px FLOAT,
+                is_position_tpsl BOOLEAN,
+                reduce_only BOOLEAN,
+                order_type VARCHAR,
+                tif VARCHAR,
+                order_json VARCHAR NOT NULL,
+                PRIMARY KEY (address, ts, order_index)
             )
         """)
 
@@ -858,6 +1030,380 @@ class HyperliquidTradeHistoryDatabase:
         return after - before
 
     # ──────────────────────────────────────────────
+    # Snapshots
+    # ──────────────────────────────────────────────
+
+    def _delete_snapshot_rows(self, address: str, timestamp_ms: int) -> None:
+        """Delete any existing snapshot rows for one account + timestamp."""
+        with self._db_lock:
+            for table in (
+                "account_snapshot_runs",
+                "account_snapshot_sources",
+                "open_position_snapshots",
+                "open_trade_snapshots",
+                "open_order_snapshots",
+            ):
+                self.con.execute(
+                    f"DELETE FROM {table} WHERE address = ? AND ts = ?",
+                    [address, timestamp_ms],
+                )
+
+    def _insert_snapshot_run(self, row: tuple) -> None:
+        """Insert one snapshot run row."""
+        with self._db_lock:
+            self.con.execute(
+                """
+                INSERT INTO account_snapshot_runs (
+                    address, ts, label, is_vault, dex,
+                    fills_row_count, funding_row_count, ledger_row_count,
+                    open_position_count, open_trade_count, open_order_count,
+                    historical_order_count, twap_slice_fill_count, snapshot_version
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                row,
+            )
+
+    def _insert_snapshot_source(
+        self,
+        address: str,
+        timestamp_ms: int,
+        source: str,
+        *,
+        status: str,
+        item_count: int | None,
+        payload: object | None,
+        error_message: str | None = None,
+    ) -> None:
+        """Insert one raw source payload or source error."""
+        payload_json = _json_dumps(payload) if payload is not None else None
+        with self._db_lock:
+            self.con.execute(
+                """
+                INSERT INTO account_snapshot_sources (
+                    address, ts, source, status, item_count, payload_json, error_message
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                [address, timestamp_ms, source, status, item_count, payload_json, error_message],
+            )
+
+    def _insert_open_positions_batch(self, rows: list[tuple]) -> None:
+        """Insert materialised open position rows for a snapshot."""
+        if not rows:
+            return
+        with self._db_lock:
+            self.con.executemany(
+                """
+                INSERT INTO open_position_snapshots (
+                    address, ts, coin, position_type, size, entry_px,
+                    unrealised_pnl, margin_used, position_value, liquidation_px,
+                    leverage_type, leverage_value, max_leverage, return_on_equity,
+                    cumulative_funding_all_time, cumulative_funding_since_open,
+                    cumulative_funding_since_change, mark_px,
+                    available_to_trade_long, available_to_trade_short,
+                    max_trade_sz_long, max_trade_sz_short, position_json,
+                    active_asset_data_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+
+    def _insert_open_orders_batch(self, rows: list[tuple]) -> None:
+        """Insert materialised open order rows for a snapshot."""
+        if not rows:
+            return
+        with self._db_lock:
+            self.con.executemany(
+                """
+                INSERT INTO open_order_snapshots (
+                    address, ts, order_index, source, coin, side, limit_px,
+                    sz, orig_sz, oid, cloid, order_ts, status,
+                    status_timestamp, trigger_condition, is_trigger, trigger_px,
+                    is_position_tpsl, reduce_only, order_type, tif, order_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+
+    def _insert_open_trades_batch(self, rows: list[tuple]) -> None:
+        """Insert materialised derived open trade rows for a snapshot."""
+        if not rows:
+            return
+        with self._db_lock:
+            self.con.executemany(
+                """
+                INSERT INTO open_trade_snapshots (
+                    address, ts, trade_index, coin, direction, is_complete,
+                    opened_at, entry_price, current_size, max_size,
+                    realised_pnl, funding_pnl, total_fees, net_pnl,
+                    unrealised_pnl, fill_count, trade_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+
+    def capture_account_snapshots(
+        self,
+        session: HyperliquidSession,
+        address: HexAddress,
+        *,
+        is_vault: bool,
+        label: str | None = None,
+        timeout: float = 30.0,
+        snapshot_time: datetime.datetime | None = None,
+    ) -> dict[str, int]:
+        """Capture open-state snapshots for a single account.
+
+        Stores raw payloads for each source and materialises row-level
+        open positions, open orders, and derived open trades.
+        """
+        addr = address.lower()
+        snapshot_time = snapshot_time or native_datetime_utc_now()
+        timestamp_ms = int(snapshot_time.timestamp() * 1000)
+
+        self._delete_snapshot_rows(addr, timestamp_ms)
+
+        fills = self.get_fills(addr)
+        funding = self.get_funding(addr)
+        ledger_count = self.get_ledger_count(addr)
+
+        clearinghouse_positions: dict[str, object] = {}
+        open_orders_payload: list[dict] | None = None
+        frontend_open_orders_payload: list[dict] | None = None
+        historical_orders_payload: list[dict] | None = None
+        twap_slice_fills_payload: list[dict] | None = None
+        open_positions_rows: list[tuple] = []
+        open_order_rows: list[tuple] = []
+
+        try:
+            raw_clearinghouse = fetch_perp_clearinghouse_state_raw(session, addr, timeout=timeout)
+            for asset_position in raw_clearinghouse.get("assetPositions", []):
+                pos = asset_position.get("position", asset_position)
+                leverage = pos.get("leverage", {})
+                cumulative_funding = pos.get("cumFunding", {})
+                coin = pos["coin"]
+                clearinghouse_positions[coin] = _decimal_or_none(pos.get("unrealizedPnl"))
+
+                active_asset_data = None
+                source_name = f"activeAssetData:{coin}"
+                try:
+                    active_asset_data = fetch_active_asset_data_raw(session, addr, coin, timeout=timeout)
+                    self._insert_snapshot_source(
+                        addr,
+                        timestamp_ms,
+                        source_name,
+                        status="ok",
+                        item_count=1,
+                        payload=active_asset_data,
+                    )
+                except Exception as exc:
+                    logger.warning("Failed to fetch %s for %s", source_name, addr, exc_info=True)
+                    self._insert_snapshot_source(
+                        addr,
+                        timestamp_ms,
+                        source_name,
+                        status="error",
+                        item_count=None,
+                        payload=None,
+                        error_message=str(exc),
+                    )
+
+                available_to_trade = active_asset_data.get("availableToTrade", []) if active_asset_data else []
+                max_trade_szs = active_asset_data.get("maxTradeSzs", []) if active_asset_data else []
+                open_positions_rows.append(
+                    (
+                        addr,
+                        timestamp_ms,
+                        coin,
+                        asset_position.get("type"),
+                        float(pos.get("szi", 0)),
+                        _float_or_none(pos.get("entryPx")),
+                        float(pos.get("unrealizedPnl", 0)),
+                        float(pos.get("marginUsed", 0)),
+                        float(pos.get("positionValue", 0)),
+                        _float_or_none(pos.get("liquidationPx")),
+                        leverage.get("type"),
+                        _int_or_none(leverage.get("value")),
+                        _int_or_none(pos.get("maxLeverage")),
+                        _float_or_none(pos.get("returnOnEquity")),
+                        _float_or_none(cumulative_funding.get("allTime")),
+                        _float_or_none(cumulative_funding.get("sinceOpen")),
+                        _float_or_none(cumulative_funding.get("sinceChange")),
+                        _float_or_none(active_asset_data.get("markPx")) if active_asset_data else None,
+                        _float_or_none(available_to_trade[0]) if len(available_to_trade) > 0 else None,
+                        _float_or_none(available_to_trade[1]) if len(available_to_trade) > 1 else None,
+                        _float_or_none(max_trade_szs[0]) if len(max_trade_szs) > 0 else None,
+                        _float_or_none(max_trade_szs[1]) if len(max_trade_szs) > 1 else None,
+                        _json_dumps(asset_position),
+                        _json_dumps(active_asset_data) if active_asset_data is not None else None,
+                    )
+                )
+
+            self._insert_snapshot_source(
+                addr,
+                timestamp_ms,
+                "clearinghouseState",
+                status="ok",
+                item_count=len(raw_clearinghouse["assetPositions"]),
+                payload=raw_clearinghouse,
+            )
+        except Exception as exc:
+            logger.warning("Failed to fetch clearinghouseState for %s", addr, exc_info=True)
+            self._insert_snapshot_source(
+                addr,
+                timestamp_ms,
+                "clearinghouseState",
+                status="error",
+                item_count=None,
+                payload=None,
+                error_message=str(exc),
+            )
+
+        for source_name, fetcher in (
+            ("openOrders", fetch_open_orders_raw),
+            ("frontendOpenOrders", fetch_frontend_open_orders_raw),
+            ("historicalOrders", fetch_historical_orders_raw),
+            ("userTwapSliceFills", fetch_user_twap_slice_fills_raw),
+        ):
+            try:
+                payload = fetcher(session, addr, timeout=timeout)
+                self._insert_snapshot_source(
+                    addr,
+                    timestamp_ms,
+                    source_name,
+                    status="ok",
+                    item_count=len(payload),
+                    payload=payload,
+                )
+                if source_name == "openOrders":
+                    open_orders_payload = payload
+                elif source_name == "frontendOpenOrders":
+                    frontend_open_orders_payload = payload
+                elif source_name == "historicalOrders":
+                    historical_orders_payload = payload
+                else:
+                    twap_slice_fills_payload = payload
+            except Exception as exc:
+                logger.warning("Failed to fetch %s for %s", source_name, addr, exc_info=True)
+                self._insert_snapshot_source(
+                    addr,
+                    timestamp_ms,
+                    source_name,
+                    status="error",
+                    item_count=None,
+                    payload=None,
+                    error_message=str(exc),
+                )
+
+        chosen_order_source = "frontendOpenOrders" if frontend_open_orders_payload is not None else "openOrders"
+        chosen_orders = frontend_open_orders_payload if frontend_open_orders_payload is not None else (open_orders_payload or [])
+        for index, entry in enumerate(chosen_orders):
+            order, status, status_timestamp = _normalise_order_entry(entry)
+            open_order_rows.append(
+                (
+                    addr,
+                    timestamp_ms,
+                    index,
+                    chosen_order_source,
+                    order["coin"],
+                    order.get("side"),
+                    _float_or_none(order.get("limitPx")),
+                    _float_or_none(order.get("sz")),
+                    _float_or_none(order.get("origSz")),
+                    _int_or_none(order.get("oid")),
+                    order.get("cloid"),
+                    _int_or_none(order.get("timestamp")),
+                    status,
+                    status_timestamp,
+                    order.get("triggerCondition"),
+                    order.get("isTrigger"),
+                    _float_or_none(order.get("triggerPx")),
+                    order.get("isPositionTpsl"),
+                    order.get("reduceOnly"),
+                    order.get("orderType"),
+                    order.get("tif"),
+                    _json_dumps(entry),
+                )
+            )
+
+        events = list(reconstruct_position_history(iter(fills))) if fills else []
+        closed_trades, open_trades = group_fills_into_trades(iter(events), fills=fills)
+        attach_funding_to_trades(closed_trades, open_trades, funding)
+
+        open_trade_rows = []
+        for index, trade in enumerate(open_trades):
+            live_position = clearinghouse_positions.get(trade.coin)
+            trade.unrealised_pnl = live_position
+            trade_payload = {
+                "coin": trade.coin,
+                "direction": trade.direction.value,
+                "is_complete": trade.is_complete,
+                "opened_at": int(trade.opened_at.timestamp() * 1000),
+                "entry_price": float(trade.entry_price),
+                "current_size": float(trade.current_size),
+                "max_size": float(trade.max_size),
+                "realised_pnl": float(trade.realised_pnl),
+                "funding_pnl": float(trade.funding_pnl),
+                "total_fees": float(trade.total_fees),
+                "net_pnl": float(trade.net_pnl),
+                "unrealised_pnl": _float_or_none(trade.unrealised_pnl),
+                "fill_count": trade.fill_count,
+            }
+            open_trade_rows.append(
+                (
+                    addr,
+                    timestamp_ms,
+                    index,
+                    trade.coin,
+                    trade.direction.value,
+                    trade.is_complete,
+                    int(trade.opened_at.timestamp() * 1000),
+                    float(trade.entry_price),
+                    float(trade.current_size),
+                    float(trade.max_size),
+                    float(trade.realised_pnl),
+                    float(trade.funding_pnl),
+                    float(trade.total_fees),
+                    float(trade.net_pnl),
+                    _float_or_none(trade.unrealised_pnl),
+                    trade.fill_count,
+                    _json_dumps(trade_payload),
+                )
+            )
+
+        self._insert_snapshot_run(
+            (
+                addr,
+                timestamp_ms,
+                label,
+                is_vault,
+                "",
+                len(fills),
+                len(funding),
+                ledger_count,
+                len(open_positions_rows),
+                len(open_trade_rows),
+                len(open_order_rows),
+                len(historical_orders_payload) if historical_orders_payload is not None else None,
+                len(twap_slice_fills_payload) if twap_slice_fills_payload is not None else None,
+                SNAPSHOT_VERSION,
+            )
+        )
+        self._insert_open_positions_batch(open_positions_rows)
+        self._insert_open_orders_batch(open_order_rows)
+        self._insert_open_trades_batch(open_trade_rows)
+
+        return {
+            "open_positions": len(open_positions_rows),
+            "open_trades": len(open_trade_rows),
+            "open_orders": len(open_order_rows),
+        }
+
+    # ──────────────────────────────────────────────
     # Sync: orchestrator
     # ──────────────────────────────────────────────
 
@@ -870,6 +1416,7 @@ class HyperliquidTradeHistoryDatabase:
         timeout: float = 30.0,
         progress: tqdm | None = None,
         label: str | None = None,
+        capture_snapshots: bool = True,
     ) -> dict[str, int]:
         """Sync all data types for a single account.
 
@@ -899,8 +1446,10 @@ class HyperliquidTradeHistoryDatabase:
             External tqdm bar to reuse across data types (None for auto).
         :param label:
             Short display name for progress bars (falls back to address prefix).
+        :param capture_snapshots:
+            Capture live open-state snapshots after syncing event history.
         :return:
-            Dict with counts: ``{"fills": N, "funding": N, "ledger": N}``.
+            Dict with counts for synced event history and snapshots.
         """
         addr = address.lower()
         short = label or addr[:10]
@@ -912,7 +1461,7 @@ class HyperliquidTradeHistoryDatabase:
         if progress is not None:
             progress.n = 0
             progress.last_print_n = 0
-            progress.total = 3
+            progress.total = 4 if capture_snapshots else 3
             progress.unit = "step"
             progress.set_postfix_str("")
             progress.set_description_str(_colour_desc("Fills", short))
@@ -943,7 +1492,32 @@ class HyperliquidTradeHistoryDatabase:
             progress.update(1)
             progress.set_postfix_str(_colour_postfix(fills=_format_count(fills_count), funding=_format_count(funding_count), ledger=_format_count(ledger_count)))
 
-        result = {"fills": fills_count, "funding": funding_count, "ledger": ledger_count}
+        snapshot_counts = {"open_positions": 0, "open_trades": 0, "open_orders": 0}
+        if capture_snapshots:
+            if progress is not None:
+                progress.set_description_str(_colour_desc("Snapshots", short))
+            snapshot_counts = self.capture_account_snapshots(
+                session,
+                addr,
+                is_vault=self.is_vault_address(addr),
+                label=label,
+                timeout=timeout,
+            )
+            self.save()
+            if progress is not None:
+                progress.update(1)
+                progress.set_postfix_str(
+                    _colour_postfix(
+                        fills=_format_count(fills_count),
+                        funding=_format_count(funding_count),
+                        ledger=_format_count(ledger_count),
+                        open_positions=_format_count(snapshot_counts["open_positions"]),
+                        open_trades=_format_count(snapshot_counts["open_trades"]),
+                        open_orders=_format_count(snapshot_counts["open_orders"]),
+                    )
+                )
+
+        result = {"fills": fills_count, "funding": funding_count, "ledger": ledger_count, **snapshot_counts}
         logger.info("Sync complete for %s: %s", addr, result)
         return result
 
@@ -953,6 +1527,7 @@ class HyperliquidTradeHistoryDatabase:
         max_workers: int = 1,
         timeout: float = 30.0,
         is_vault: bool | None = None,
+        capture_snapshots: bool = True,
     ) -> dict[str, dict[str, int]]:
         """Sync whitelisted accounts, optionally filtered by vault status.
 
@@ -991,15 +1566,26 @@ class HyperliquidTradeHistoryDatabase:
             return {}
 
         # Print existing database entry counts before syncing
-        existing = self.con.execute("SELECT (SELECT COUNT(*) FROM fills), (SELECT COUNT(*) FROM funding), (SELECT COUNT(*) FROM ledger)").fetchone()
+        existing = self.con.execute(
+            """
+            SELECT
+                (SELECT COUNT(*) FROM fills),
+                (SELECT COUNT(*) FROM funding),
+                (SELECT COUNT(*) FROM ledger),
+                (SELECT COUNT(*) FROM account_snapshot_runs)
+            """
+        ).fetchone()
         print(  # noqa: T201
-            f"Database: {_format_count(existing[0])} fills, {_format_count(existing[1])} funding, {_format_count(existing[2])} ledger entries for {len(accounts)} accounts"
+            f"Database: {_format_count(existing[0])} fills, {_format_count(existing[1])} funding, {_format_count(existing[2])} ledger entries, {_format_count(existing[3])} snapshot runs for {len(accounts)} accounts"
         )
 
         results = {}
         total_fills = 0
         total_funding = 0
         total_ledger = 0
+        total_open_positions = 0
+        total_open_trades = 0
+        total_open_orders = 0
 
         def _proxy_postfix(sessions: list[HyperliquidSession], **kwargs) -> str:
             """Build postfix string including proxy rotation stats if proxies are used."""
@@ -1014,6 +1600,9 @@ class HyperliquidTradeHistoryDatabase:
                 fills=_format_count(total_fills),
                 funding=_format_count(total_funding),
                 ledger=_format_count(total_ledger),
+                open_positions=_format_count(total_open_positions),
+                open_trades=_format_count(total_open_trades),
+                open_orders=_format_count(total_open_orders),
                 **extra,
             )
 
@@ -1031,15 +1620,18 @@ class HyperliquidTradeHistoryDatabase:
                 label = account.get("label", addr[:10])
                 overall.set_postfix_str(_totals_postfix(all_sessions, account=label))
                 try:
-                    result = self.sync_account(session, addr, timeout=timeout)
+                    result = self.sync_account(session, addr, timeout=timeout, capture_snapshots=capture_snapshots)
                     results[addr] = result
                     total_fills += result.get("fills", 0)
                     total_funding += result.get("funding", 0)
                     total_ledger += result.get("ledger", 0)
+                    total_open_positions += result.get("open_positions", 0)
+                    total_open_trades += result.get("open_trades", 0)
+                    total_open_orders += result.get("open_orders", 0)
                     overall.set_postfix_str(_totals_postfix(all_sessions, account=label))
                 except Exception:
                     logger.exception("Failed to sync account %s", addr)
-                    results[addr] = {"fills": 0, "funding": 0, "ledger": 0, "error": True}
+                    results[addr] = {"fills": 0, "funding": 0, "ledger": 0, "open_positions": 0, "open_trades": 0, "open_orders": 0, "error": True}
             return results
 
         # Threaded path with nested progress bars.
@@ -1086,11 +1678,11 @@ class HyperliquidTradeHistoryDatabase:
             with session_lock:
                 worker_session = session_pool.pop()
             try:
-                result = self.sync_account(worker_session, addr, timeout=timeout, progress=bar, label=short_label)
+                result = self.sync_account(worker_session, addr, timeout=timeout, progress=bar, label=short_label, capture_snapshots=capture_snapshots)
                 return addr, result
             except Exception:
                 logger.exception("Failed to sync account %s", addr)
-                return addr, {"fills": 0, "funding": 0, "ledger": 0, "error": True}
+                return addr, {"fills": 0, "funding": 0, "ledger": 0, "open_positions": 0, "open_trades": 0, "open_orders": 0, "error": True}
             finally:
                 bar.set_description_str(f"{_DIM}Worker idle{_RESET}")
                 bar.set_postfix_str("")
@@ -1110,6 +1702,9 @@ class HyperliquidTradeHistoryDatabase:
                         total_fills += result.get("fills", 0)
                         total_funding += result.get("funding", 0)
                         total_ledger += result.get("ledger", 0)
+                        total_open_positions += result.get("open_positions", 0)
+                        total_open_trades += result.get("open_trades", 0)
+                        total_open_orders += result.get("open_orders", 0)
                         overall.update(1)
                         overall.set_postfix_str(_totals_postfix(all_sessions, workers=str(n_bars)))
                 except KeyboardInterrupt:
@@ -1309,13 +1904,252 @@ class HyperliquidTradeHistoryDatabase:
         """Get total row counts across all accounts for each table.
 
         :return:
-            Dict with keys ``fills``, ``funding``, ``ledger`` and integer counts.
+            Dict with row counts for core event and snapshot tables.
         """
         with self._db_lock:
             fills = self.con.execute("SELECT COUNT(*) FROM fills").fetchone()[0]
             funding = self.con.execute("SELECT COUNT(*) FROM funding").fetchone()[0]
             ledger = self.con.execute("SELECT COUNT(*) FROM ledger").fetchone()[0]
-        return {"fills": fills, "funding": funding, "ledger": ledger}
+            snapshot_runs = self.con.execute("SELECT COUNT(*) FROM account_snapshot_runs").fetchone()[0]
+            snapshot_sources = self.con.execute("SELECT COUNT(*) FROM account_snapshot_sources").fetchone()[0]
+            open_positions = self.con.execute("SELECT COUNT(*) FROM open_position_snapshots").fetchone()[0]
+            open_trades = self.con.execute("SELECT COUNT(*) FROM open_trade_snapshots").fetchone()[0]
+            open_orders = self.con.execute("SELECT COUNT(*) FROM open_order_snapshots").fetchone()[0]
+        return {
+            "fills": fills,
+            "funding": funding,
+            "ledger": ledger,
+            "snapshot_runs": snapshot_runs,
+            "snapshot_sources": snapshot_sources,
+            "open_positions": open_positions,
+            "open_trades": open_trades,
+            "open_orders": open_orders,
+        }
+
+    def _get_latest_snapshot_timestamp(self, address: HexAddress) -> int | None:
+        """Get the latest snapshot timestamp for an account."""
+        with self._db_lock:
+            row = self.con.execute(
+                "SELECT MAX(ts) FROM account_snapshot_runs WHERE address = ?",
+                [address.lower()],
+            ).fetchone()
+        return row[0] if row and row[0] is not None else None
+
+    def get_snapshot_runs(self, address: HexAddress) -> list[dict]:
+        """Get all snapshot runs for an account."""
+        with self._db_lock:
+            rows = self.con.execute(
+                """
+                SELECT ts, label, is_vault, dex, fills_row_count, funding_row_count,
+                       ledger_row_count, open_position_count, open_trade_count,
+                       open_order_count, historical_order_count,
+                       twap_slice_fill_count, snapshot_version
+                FROM account_snapshot_runs
+                WHERE address = ?
+                ORDER BY ts ASC
+                """,
+                [address.lower()],
+            ).fetchall()
+        return [
+            {
+                "ts": r[0],
+                "label": r[1],
+                "is_vault": r[2],
+                "dex": r[3],
+                "fills_row_count": r[4],
+                "funding_row_count": r[5],
+                "ledger_row_count": r[6],
+                "open_position_count": r[7],
+                "open_trade_count": r[8],
+                "open_order_count": r[9],
+                "historical_order_count": r[10],
+                "twap_slice_fill_count": r[11],
+                "snapshot_version": r[12],
+            }
+            for r in rows
+        ]
+
+    def get_snapshot_source(
+        self,
+        address: HexAddress,
+        source: str,
+        timestamp_ms: int | None = None,
+    ) -> dict | None:
+        """Get one raw snapshot source payload."""
+        addr = address.lower()
+        timestamp_ms = timestamp_ms if timestamp_ms is not None else self._get_latest_snapshot_timestamp(addr)
+        if timestamp_ms is None:
+            return None
+
+        with self._db_lock:
+            row = self.con.execute(
+                """
+                SELECT status, item_count, payload_json, error_message
+                FROM account_snapshot_sources
+                WHERE address = ? AND ts = ? AND source = ?
+                """,
+                [addr, timestamp_ms, source],
+            ).fetchone()
+
+        if row is None:
+            return None
+        return {
+            "status": row[0],
+            "item_count": row[1],
+            "payload_json": row[2],
+            "error_message": row[3],
+        }
+
+    def get_open_position_snapshots(
+        self,
+        address: HexAddress,
+        timestamp_ms: int | None = None,
+    ) -> list[dict]:
+        """Get materialised open positions for a snapshot."""
+        addr = address.lower()
+        timestamp_ms = timestamp_ms if timestamp_ms is not None else self._get_latest_snapshot_timestamp(addr)
+        if timestamp_ms is None:
+            return []
+
+        with self._db_lock:
+            rows = self.con.execute(
+                """
+                SELECT coin, position_type, size, entry_px, unrealised_pnl,
+                       margin_used, position_value, liquidation_px, leverage_type,
+                       leverage_value, max_leverage, return_on_equity,
+                       cumulative_funding_all_time, cumulative_funding_since_open,
+                       cumulative_funding_since_change, mark_px,
+                       available_to_trade_long, available_to_trade_short,
+                       max_trade_sz_long, max_trade_sz_short,
+                       position_json, active_asset_data_json
+                FROM open_position_snapshots
+                WHERE address = ? AND ts = ?
+                ORDER BY coin ASC
+                """,
+                [addr, timestamp_ms],
+            ).fetchall()
+        return [
+            {
+                "coin": r[0],
+                "position_type": r[1],
+                "size": r[2],
+                "entry_px": r[3],
+                "unrealised_pnl": r[4],
+                "margin_used": r[5],
+                "position_value": r[6],
+                "liquidation_px": r[7],
+                "leverage_type": r[8],
+                "leverage_value": r[9],
+                "max_leverage": r[10],
+                "return_on_equity": r[11],
+                "cumulative_funding_all_time": r[12],
+                "cumulative_funding_since_open": r[13],
+                "cumulative_funding_since_change": r[14],
+                "mark_px": r[15],
+                "available_to_trade_long": r[16],
+                "available_to_trade_short": r[17],
+                "max_trade_sz_long": r[18],
+                "max_trade_sz_short": r[19],
+                "position_json": r[20],
+                "active_asset_data_json": r[21],
+            }
+            for r in rows
+        ]
+
+    def get_open_order_snapshots(
+        self,
+        address: HexAddress,
+        timestamp_ms: int | None = None,
+    ) -> list[dict]:
+        """Get materialised open orders for a snapshot."""
+        addr = address.lower()
+        timestamp_ms = timestamp_ms if timestamp_ms is not None else self._get_latest_snapshot_timestamp(addr)
+        if timestamp_ms is None:
+            return []
+
+        with self._db_lock:
+            rows = self.con.execute(
+                """
+                SELECT order_index, source, coin, side, limit_px, sz, orig_sz,
+                       oid, cloid, order_ts, status, status_timestamp,
+                       trigger_condition, is_trigger, trigger_px,
+                       is_position_tpsl, reduce_only, order_type, tif, order_json
+                FROM open_order_snapshots
+                WHERE address = ? AND ts = ?
+                ORDER BY order_index ASC
+                """,
+                [addr, timestamp_ms],
+            ).fetchall()
+        return [
+            {
+                "order_index": r[0],
+                "source": r[1],
+                "coin": r[2],
+                "side": r[3],
+                "limit_px": r[4],
+                "sz": r[5],
+                "orig_sz": r[6],
+                "oid": r[7],
+                "cloid": r[8],
+                "order_ts": r[9],
+                "status": r[10],
+                "status_timestamp": r[11],
+                "trigger_condition": r[12],
+                "is_trigger": r[13],
+                "trigger_px": r[14],
+                "is_position_tpsl": r[15],
+                "reduce_only": r[16],
+                "order_type": r[17],
+                "tif": r[18],
+                "order_json": r[19],
+            }
+            for r in rows
+        ]
+
+    def get_open_trade_snapshots(
+        self,
+        address: HexAddress,
+        timestamp_ms: int | None = None,
+    ) -> list[dict]:
+        """Get materialised derived open trades for a snapshot."""
+        addr = address.lower()
+        timestamp_ms = timestamp_ms if timestamp_ms is not None else self._get_latest_snapshot_timestamp(addr)
+        if timestamp_ms is None:
+            return []
+
+        with self._db_lock:
+            rows = self.con.execute(
+                """
+                SELECT trade_index, coin, direction, is_complete, opened_at,
+                       entry_price, current_size, max_size, realised_pnl,
+                       funding_pnl, total_fees, net_pnl, unrealised_pnl,
+                       fill_count, trade_json
+                FROM open_trade_snapshots
+                WHERE address = ? AND ts = ?
+                ORDER BY trade_index ASC
+                """,
+                [addr, timestamp_ms],
+            ).fetchall()
+        return [
+            {
+                "trade_index": r[0],
+                "coin": r[1],
+                "direction": r[2],
+                "is_complete": r[3],
+                "opened_at": r[4],
+                "entry_price": r[5],
+                "current_size": r[6],
+                "max_size": r[7],
+                "realised_pnl": r[8],
+                "funding_pnl": r[9],
+                "total_fees": r[10],
+                "net_pnl": r[11],
+                "unrealised_pnl": r[12],
+                "fill_count": r[13],
+                "trade_json": r[14],
+            }
+            for r in rows
+        ]
 
     # ──────────────────────────────────────────────
     # Sync state

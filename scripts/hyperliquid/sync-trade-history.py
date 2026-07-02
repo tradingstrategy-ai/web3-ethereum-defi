@@ -40,6 +40,7 @@ Environment variables:
 - ``PARQUET_PATH``: Path to cleaned vault prices Parquet (for MIN_VAULT_PEAK_TVL).
 - ``INTERACTIVE``: Set to ``false`` to skip confirmation prompts (for CI/cron). Default: true.
 - ``MAX_WORKERS``: Parallel threads (default: 1, DuckDB single-writer).
+- ``CAPTURE_SNAPSHOTS``: Capture open-state snapshots after each account sync. Default: true.
 - ``WEBSHARE_API_KEY``: Webshare proxy API token. When set, each worker gets
   its own proxy for API requests, with automatic rotation on failure.
 - ``SCAN``: Address source mode. Currently supports ``top_traders`` which uses
@@ -325,12 +326,14 @@ def main():
     min_peak_tvl_str = os.environ.get("MIN_VAULT_PEAK_TVL", "").strip()
     scan_mode = os.environ.get("SCAN", "").strip().lower()
     interactive = os.environ.get("INTERACTIVE", "true").strip().lower() != "false"
+    capture_snapshots = os.environ.get("CAPTURE_SNAPSHOTS", "true").strip().lower() != "false"
 
     max_workers = int(os.environ.get("MAX_WORKERS", "1"))
 
     print("Hyperliquid trade history sync")  # noqa: T201
     print(f"DuckDB path: {db_path}")  # noqa: T201
     print(f"Max workers: {max_workers}")  # noqa: T201
+    print(f"Capture snapshots: {capture_snapshots}")  # noqa: T201
 
     # Scan mode: use curated top traders set
     if scan_mode == "top_traders" and not addresses:
@@ -431,7 +434,7 @@ def main():
         interrupted = False
         results = {}
         try:
-            results = db.sync_all(session, max_workers=max_workers, is_vault=sync_vault_filter)
+            results = db.sync_all(session, max_workers=max_workers, is_vault=sync_vault_filter, capture_snapshots=capture_snapshots)
             db.save()
         except KeyboardInterrupt:
             interrupted = True
@@ -459,6 +462,9 @@ def main():
                         r.get("fills", 0),
                         r.get("funding", 0),
                         r.get("ledger", 0),
+                        r.get("open_positions", 0),
+                        r.get("open_trades", 0),
+                        r.get("open_orders", 0),
                         _human(state.get("fills", {}).get("row_count", 0)),
                         _human(state.get("funding", {}).get("row_count", 0)),
                         _human(state.get("ledger", {}).get("row_count", 0)),
@@ -470,14 +476,14 @@ def main():
                 "\n"
                 + tabulate(
                     rows,
-                    headers=["Label", "Address", "New fills", "New funding", "New ledger", "Total fills", "Total funding", "Total ledger", "Status"],
+                    headers=["Label", "Address", "New fills", "New funding", "New ledger", "Open positions", "Open trades", "Open orders", "Total fills", "Total funding", "Total ledger", "Status"],
                     tablefmt="simple",
                 )
             )
 
         # Always print grand totals (even on Ctrl+C)
         totals = db.get_total_row_counts()
-        print(f"\nDatabase totals: {_human(totals['fills'])} fills, {_human(totals['funding'])} funding, {_human(totals['ledger'])} ledger")
+        print(f"\nDatabase totals: {_human(totals['fills'])} fills, {_human(totals['funding'])} funding, {_human(totals['ledger'])} ledger, {_human(totals['snapshot_runs'])} snapshot runs, {_human(totals['open_positions'])} open positions, {_human(totals['open_trades'])} open trades, {_human(totals['open_orders'])} open orders")
         print(f"Database path: {db_path}")
 
         if interrupted:
