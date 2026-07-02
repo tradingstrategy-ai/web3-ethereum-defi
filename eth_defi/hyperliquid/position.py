@@ -276,12 +276,7 @@ def fetch_vault_fills(
 
         logger.debug("Fetching fills: startTime=%s, endTime=%s", current_start_ms, end_ms)
 
-        response = session.post(
-            f"{session.api_url}/info",
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=timeout,
-        )
+        response = session.post_info(payload, timeout=timeout)
         response.raise_for_status()
         raw_fills = response.json()
 
@@ -369,12 +364,7 @@ def fetch_vault_fills_iterator(
         if aggregate_by_time:
             payload["aggregateByTime"] = True
 
-        response = session.post(
-            f"{session.api_url}/info",
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=timeout,
-        )
+        response = session.post_info(payload, timeout=timeout)
         response.raise_for_status()
         raw_fills = response.json()
 

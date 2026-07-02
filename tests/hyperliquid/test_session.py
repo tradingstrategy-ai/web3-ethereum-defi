@@ -146,6 +146,43 @@ def test_no_rotation_when_proxies_disabled():
     assert m.call_count == 1
 
 
+def test_retry_error_gets_outer_retry_without_proxy():
+    """An exhausted adapter retry can recover through post_info's outer retry budget."""
+    session = create_hyperliquid_session(
+        post_info_retry_attempts=2,
+        post_info_retry_backoff_factor=0.0,
+    )
+    ok_response = MagicMock(status_code=200)
+
+    with (
+        patch("eth_defi.hyperliquid.session.time.sleep") as sleep,
+        patch.object(session, "post", side_effect=[requests.exceptions.RetryError("too many 429 error responses"), ok_response]) as m,
+    ):
+        resp = session.post_info({"type": "userFillsByTime"})
+
+    assert resp is ok_response
+    assert m.call_count == 2
+    sleep.assert_called_once_with(0.0)
+
+
+def test_retry_error_budget_is_respected_without_proxy():
+    """After the outer retry budget is exhausted, the original RetryError is raised."""
+    session = create_hyperliquid_session(
+        post_info_retry_attempts=2,
+        post_info_retry_backoff_factor=0.0,
+    )
+
+    with (
+        patch("eth_defi.hyperliquid.session.time.sleep") as sleep,
+        patch.object(session, "post", side_effect=requests.exceptions.RetryError("too many 429 error responses")) as m,
+        pytest.raises(requests.exceptions.RetryError),
+    ):
+        session.post_info({"type": "userFillsByTime"})
+
+    assert m.call_count == 3
+    assert sleep.call_count == 2
+
+
 def test_successful_200_short_circuits(session_with_proxies):
     """A 200 response returns immediately without rotation."""
     rotator = session_with_proxies._rotator

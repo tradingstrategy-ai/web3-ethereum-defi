@@ -371,12 +371,7 @@ def fetch_user_vault_equities(
 
     logger.debug("Fetching userVaultEquities for %s from %s", user, url)
 
-    response = session.post(
-        url,
-        json=payload,
-        headers={"Content-Type": "application/json"},
-        timeout=timeout,
-    )
+    response = session.post_info(payload, timeout=timeout)
     response.raise_for_status()
     data = response.json()
 
@@ -428,12 +423,7 @@ def fetch_user_abstraction_mode(
         Hyperliquid account abstraction mode such as ``"standard"`` or
         ``"unifiedAccount"``.
     """
-    response = session.post(
-        f"{session.api_url}/info",
-        json={"type": "userAbstraction", "user": user},
-        headers={"Content-Type": "application/json"},
-        timeout=timeout,
-    )
+    response = session.post_info({"type": "userAbstraction", "user": user}, timeout=timeout)
     response.raise_for_status()
     mode = response.json()
     assert isinstance(mode, str), f"Unexpected userAbstraction response for {user}: {mode!r}"
@@ -761,12 +751,7 @@ def fetch_spot_clearinghouse_state(
 
     logger.debug("Fetching spotClearinghouseState for %s from %s", user, url)
 
-    response = session.post(
-        url,
-        json=payload,
-        headers={"Content-Type": "application/json"},
-        timeout=timeout,
-    )
+    response = session.post_info(payload, timeout=timeout)
     response.raise_for_status()
     data = response.json()
 
@@ -826,12 +811,7 @@ def fetch_perp_clearinghouse_state(
 
     logger.debug("Fetching clearinghouseState for %s from %s", user, url)
 
-    response = session.post(
-        url,
-        json=payload,
-        headers={"Content-Type": "application/json"},
-        timeout=timeout,
-    )
+    response = session.post_info(payload, timeout=timeout)
     response.raise_for_status()
     data = response.json()
 
@@ -919,13 +899,7 @@ def fetch_portfolio(
         or ``None`` on network/API error.
     """
     try:
-        url = f"{session.api_url}/info"
-        resp = session.post(
-            url,
-            json={"type": "portfolio", "user": address},
-            headers={"Content-Type": "application/json"},
-            timeout=timeout,
-        )
+        resp = session.post_info({"type": "portfolio", "user": address}, timeout=timeout)
         resp.raise_for_status()
         data = resp.json()
         # Response is array of [period, {accountValueHistory, pnlHistory, vlm}]
@@ -991,16 +965,10 @@ def fetch_vault_name(
     :return:
         Vault display name, or ``None`` if not found.
     """
-    url = f"{session.api_url}/info"
     payload = {"type": "vaultDetails", "vaultAddress": vault_address}
 
     try:
-        response = session.post(
-            url,
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=timeout,
-        )
+        response = session.post_info(payload, timeout=timeout)
         response.raise_for_status()
         data = response.json()
         return data.get("name") or None
