@@ -98,6 +98,7 @@ BAD_FLAGS = {
     VaultFlag.abnormal_volatility,
     VaultFlag.subvault,
     VaultFlag.irregular_reporting,
+    VaultFlag.morpho_issues,
     VaultFlag.not_in_morpho_api,
     VaultFlag.depegged_denomination_token,
 }

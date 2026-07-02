@@ -1366,10 +1366,26 @@ def apply_bad_flag_check(
     if bad_flags:
         risk = VaultTechnicalRisk.blacklisted
         if not notes:
-            flag_names = ", ".join(sorted(flag.value for flag in bad_flags))
-            notes = f"Vault has bad scan flags: {flag_names}"
+            notes = format_bad_flag_note(bad_flags)
 
     return risk, notes, flags
+
+
+def format_bad_flag_note(bad_flags: set[VaultFlag]) -> str:
+    """Create a generic note for vaults that carry bad scan flags.
+
+    This note is used before any protocol-specific metadata has been analysed.
+    Later checks may replace it with a richer note if the generic bad flag and
+    the protocol-specific warning describe the same underlying issue.
+
+    :param bad_flags:
+        Bad vault flags to report.
+
+    :return:
+        Human-readable note.
+    """
+    flag_names = ", ".join(sorted(flag.value for flag in bad_flags))
+    return f"Vault has bad scan flags: {flag_names}"
 
 
 def calculate_vault_record(
@@ -1622,8 +1638,8 @@ def calculate_vault_record(
             # (bad debt, compromised oracle, governance attack window) and should not be used
             risk = VaultTechnicalRisk.blacklisted
             risk_numeric = VaultTechnicalRisk.blacklisted.value
-            # Only generate the note text when no existing manual or abnormal-metric note is set
-            if not notes:
+            # Replace only the generic Morpho bad-flag note with richer source metadata.
+            if not notes or notes == format_bad_flag_note({VaultFlag.morpho_issues}):
                 notes = morpho_analytics.note
 
     vault_display_flags = make_vault_display_flags(
