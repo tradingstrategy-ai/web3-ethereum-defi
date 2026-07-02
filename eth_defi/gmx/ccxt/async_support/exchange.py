@@ -899,12 +899,23 @@ class GMX(Exchange):
                     # Synthetic markets (long_token == short_token) get a "2" suffix
                     # (e.g. BTC2, ETH2) so a synthetic single-sided pool never collides
                     # with the real USDC-paired pool under one unified symbol. Mirrors
-                    # the sync loader (exchange.py:977-980); without it, freqtrade's
-                    # hourly reload copies a collapsed async market map onto the sync
+                    # the sync loader (exchange.py); without it, freqtrade's hourly
+                    # reload copies a collapsed async market map onto the sync
                     # order-placing client and live orders target a pool that may reject
                     # USDC collateral (InvalidCollateralTokenForMarket keeper cancels).
-                    long_token_addr = market_info.get("longTokenAddress", "").lower()
-                    short_token_addr = market_info.get("shortTokenAddress", "").lower()
+                    long_token_addr = (market_info.get("longTokenAddress") or "").lower()
+                    short_token_addr = (market_info.get("shortTokenAddress") or "").lower()
+
+                    # Malformed record guard: missing token fields would satisfy the
+                    # synthetic check via "" == "" and mislabel the market. Skip loudly
+                    # — a missing market is fail-safe, a mislabelled one misroutes orders.
+                    if not long_token_addr or not short_token_addr:
+                        logger.warning(
+                            "GraphQL: skipping market %s with missing long/short token fields",
+                            market_token_addr,
+                        )
+                        continue
+
                     if long_token_addr == short_token_addr:
                         raw_symbol = f"{raw_symbol}2"
 
@@ -1162,8 +1173,18 @@ class GMX(Exchange):
                     market_token = market.get("marketToken", "")
                     market_token_lower = market_token.lower()
                     index_token = market.get("indexToken", "").lower()
-                    long_token = market.get("longToken", "").lower()
-                    short_token = market.get("shortToken", "").lower()
+                    long_token = (market.get("longToken") or "").lower()
+                    short_token = (market.get("shortToken") or "").lower()
+
+                    # Malformed record guard: missing token fields would satisfy the
+                    # synthetic check via "" == "" and mislabel the market. Skip loudly
+                    # — a missing market is fail-safe, a mislabelled one misroutes orders.
+                    if not long_token or not short_token:
+                        logger.warning(
+                            "REST API: skipping market %s with missing long/short token fields",
+                            market_token,
+                        )
+                        continue
 
                     # Skip known-deprecated market tokens (address-based filter).
                     if market_token_lower in DEPRECATED_MARKET_TOKENS:
