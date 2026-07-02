@@ -183,6 +183,65 @@ async def test_rest_loader_synthetic_first_does_not_poison_canonical_symbol() ->
     )
 
 
+# ---------------------------------------------------------------------------
+# Malformed-record guard (adversarial-review finding: "" == "" false-synthetic)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "long_token,short_token",
+    [
+        (None, None),  # explicit nulls
+        ("", ""),  # empty strings — pre-guard this satisfied long == short
+        (None, "0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40"),  # one-sided
+        ("0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40", ""),  # other side
+    ],
+)
+async def test_graphql_loader_skips_records_with_missing_token_fields(
+    long_token: str | None, short_token: str | None
+) -> None:
+    """A record missing long/short token fields is skipped, never mislabelled.
+
+    Pre-guard, both-missing records satisfied ``"" == ""`` → falsely synthetic
+    → BTC renamed BTC2 → silently excluded. The real pool must still load.
+    """
+    malformed = {
+        "indexTokenAddress": _BTC_INDEX,
+        "marketTokenAddress": "0x1111111111111111111111111111111111111111",
+        "longTokenAddress": long_token,
+        "shortTokenAddress": short_token,
+    }
+    markets = await _run_graphql_loader([malformed] + _market_infos_synthetic_first())
+
+    # The malformed record never claims any symbol...
+    assert all(
+        m["info"]["market_token"] != malformed["marketTokenAddress"]
+        for m in markets.values()
+    )
+    # ...and the real pool still resolves the canonical symbol.
+    assert markets["BTC/USDC:USDC"]["info"]["market_token"] == _REAL_BTC_MARKET
+
+
+@pytest.mark.asyncio
+async def test_rest_loader_skips_records_with_missing_token_fields() -> None:
+    """REST fallback: same malformed-record guard as the GraphQL path."""
+    malformed = {
+        "marketToken": "0x1111111111111111111111111111111111111111",
+        "indexToken": _BTC_INDEX,
+        "longToken": None,
+        "shortToken": None,
+        "isListed": True,
+    }
+    markets = await _run_rest_loader([malformed] + _rest_markets_synthetic_first())
+
+    assert all(
+        m["info"]["market_token"] != malformed["marketToken"]
+        for m in markets.values()
+    )
+    assert markets["BTC/USDC:USDC"]["info"]["market_token"] == _REAL_BTC_MARKET
+
+
 @pytest.mark.asyncio
 async def test_graphql_and_rest_loaders_agree_on_keys() -> None:
     """Parity invariant: the two async loaders produce the same symbol set and

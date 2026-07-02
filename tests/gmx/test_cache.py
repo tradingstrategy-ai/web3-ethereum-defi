@@ -135,6 +135,42 @@ def test_cache_loading_mode_separation():
         assert graphql_retrieved == graphql_data
 
 
+def test_cache_schema_version_orphans_pre_fix_rows():
+    """Rows written under the pre-v2 (unversioned) key are never served.
+
+    Regression for issue #1178: a pre-fix binary could cache a poisoned
+    markets dict (unified symbol mapped to a synthetic pool that rejects
+    USDC collateral, or legacy ".../USDC:USDC2" symbols). The cache-hit
+    path returns before the fixed loader logic runs, so a post-fix binary
+    must NOT serve those rows. The schema-version suffix in the cache key
+    orphans them; the first post-upgrade load is a cache miss and re-fetches
+    through the corrected loaders.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        cache_dir = Path(tmpdir)
+        cache = GMXMarketCache.get_cache(
+            chain="arbitrum",
+            cache_dir=cache_dir,
+        )
+
+        poisoned = {
+            "BTC/USDC:USDC": {"info": {"market_token": "0xd620_synthetic_pool"}},
+            "BTC/USDC:USDC2": {"info": {"market_token": "0xd620_synthetic_pool"}},
+        }
+        # Simulate a PRE-fix binary: same entry bytes, legacy unversioned key.
+        cache["markets_rest_api"] = cache._make_cache_entry(
+            poisoned, ttl=3600, loading_mode="rest_api"
+        )
+
+        # The post-fix reader must treat it as a miss.
+        assert cache.get_markets(loading_mode="rest_api") is None
+
+        # And a post-fix write/read round-trips under the versioned key.
+        fresh = {"BTC/USDC:USDC": {"info": {"market_token": "0x47c0_real_pool"}}}
+        cache.set_markets(data=fresh, loading_mode="rest_api", ttl=3600)
+        assert cache.get_markets(loading_mode="rest_api") == fresh
+
+
 def test_cache_expiry():
     """Test that expired cache entries return None when check_expiry=True."""
     with tempfile.TemporaryDirectory() as tmpdir:

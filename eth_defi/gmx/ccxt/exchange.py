@@ -942,11 +942,23 @@ class GMX(ExchangeCompatible):
 
             for market_info in market_infos:
                 try:
-                    index_token_addr = market_info.get("indexTokenAddress", "").lower()
+                    index_token_addr = (market_info.get("indexTokenAddress") or "").lower()
                     market_token_addr = market_info.get("marketTokenAddress", "")
                     market_token_addr_lower = market_token_addr.lower()
-                    long_token_addr = market_info.get("longTokenAddress", "").lower()
-                    short_token_addr = market_info.get("shortTokenAddress", "").lower()
+                    long_token_addr = (market_info.get("longTokenAddress") or "").lower()
+                    short_token_addr = (market_info.get("shortTokenAddress") or "").lower()
+
+                    # Malformed record guard: a market missing either token field
+                    # would satisfy the synthetic check below via "" == "" and be
+                    # silently mislabelled/dropped. Skip loudly instead — a missing
+                    # market means freqtrade skips the pair (fail-safe), while a
+                    # mislabelled one can misroute live orders.
+                    if not long_token_addr or not short_token_addr:
+                        logger.warning(
+                            "GraphQL: skipping market %s with missing long/short token fields",
+                            market_token_addr,
+                        )
+                        continue
 
                     # Skip known-deprecated market tokens (address-based, symbol-name alone
                     # cannot distinguish deprecated from active when both share a canonical name).
@@ -1176,11 +1188,20 @@ class GMX(ExchangeCompatible):
             for market_info in markets_list:
                 try:
                     # Extract addresses
-                    index_token_addr = market_info.get("indexToken", "").lower()
+                    index_token_addr = (market_info.get("indexToken") or "").lower()
                     market_token_addr = market_info.get("marketToken", "")
                     market_token_addr_lower = market_token_addr.lower()
-                    long_token_addr = market_info.get("longToken", "").lower()
-                    short_token_addr = market_info.get("shortToken", "").lower()
+                    long_token_addr = (market_info.get("longToken") or "").lower()
+                    short_token_addr = (market_info.get("shortToken") or "").lower()
+
+                    # Malformed record guard — see GraphQL loader; "" == "" would
+                    # mislabel the market as synthetic.
+                    if not long_token_addr or not short_token_addr:
+                        logger.warning(
+                            "REST API: skipping market %s with missing long/short token fields",
+                            market_token_addr,
+                        )
+                        continue
 
                     # Skip known-deprecated market tokens before any symbol resolution.
                     if market_token_addr_lower in DEPRECATED_MARKET_TOKENS:
