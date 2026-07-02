@@ -40,6 +40,7 @@ from eth_defi.vault.flag import (
     ABNORMAL_SHARE_PRICE,
     ABNORMAL_TVL,
     ABNORMAL_VOLATILITY,
+    BAD_FLAGS,
     NOT_IN_MORPHO_API,
     VaultFlag,
     get_notes,
@@ -1337,6 +1338,56 @@ def apply_morpho_not_in_api_check(
     return risk, notes, flags
 
 
+def apply_bad_flag_check(
+    risk: VaultTechnicalRisk | None,
+    notes: str | None,
+    flags: set[VaultFlag],
+) -> tuple[VaultTechnicalRisk | None, str | None, set[VaultFlag]]:
+    """Blacklist vaults that carry scanned bad flags.
+
+    Scan-time flags may come from protocol adapters and are not visible to
+    :py:func:`get_vault_risk`, which only checks the static manual flag table.
+    Any flag listed in :py:data:`eth_defi.vault.flag.BAD_FLAGS` means the vault
+    must not be exported as a normal investable row.
+
+    :param risk:
+        Current risk classification.
+
+    :param notes:
+        Current note, if any. Existing notes are preserved.
+
+    :param flags:
+        Scan-time and manual flags collected for the vault.
+
+    :return:
+        Updated risk, notes, and flags.
+    """
+    bad_flags = flags & BAD_FLAGS
+    if bad_flags:
+        risk = VaultTechnicalRisk.blacklisted
+        if not notes:
+            notes = format_bad_flag_note(bad_flags)
+
+    return risk, notes, flags
+
+
+def format_bad_flag_note(bad_flags: set[VaultFlag]) -> str:
+    """Create a generic note for vaults that carry bad scan flags.
+
+    This note is used before any protocol-specific metadata has been analysed.
+    Later checks may replace it with a richer note if the generic bad flag and
+    the protocol-specific warning describe the same underlying issue.
+
+    :param bad_flags:
+        Bad vault flags to report.
+
+    :return:
+        Human-readable note.
+    """
+    flag_names = ", ".join(sorted(flag.value for flag in bad_flags))
+    return f"Vault has bad scan flags: {flag_names}"
+
+
 def calculate_vault_record(
     prices_df: pd.DataFrame,
     vault_metadata_rows: dict[VaultSpec, VaultRow],
@@ -1441,7 +1492,12 @@ def calculate_vault_record(
     risk = vault_metadata.get("_risk") or get_vault_risk(protocol, vault_address)
     notes = get_notes(vault_address, chain_id=chain_id)
 
-    flags = vault_metadata.get("_flags", set())
+    flags = set(vault_metadata.get("_flags") or set())
+    risk, notes, flags = apply_bad_flag_check(
+        risk=risk,
+        notes=notes,
+        flags=flags,
+    )
 
     current_share_price = prices_df.iloc[-1]["share_price"]
     risk, notes, flags = apply_abnormal_value_checks(
@@ -1582,8 +1638,8 @@ def calculate_vault_record(
             # (bad debt, compromised oracle, governance attack window) and should not be used
             risk = VaultTechnicalRisk.blacklisted
             risk_numeric = VaultTechnicalRisk.blacklisted.value
-            # Only generate the note text when no existing manual or abnormal-metric note is set
-            if not notes:
+            # Replace only the generic Morpho bad-flag note with richer source metadata.
+            if not notes or notes == format_bad_flag_note({VaultFlag.morpho_issues}):
                 notes = morpho_analytics.note
 
     vault_display_flags = make_vault_display_flags(
