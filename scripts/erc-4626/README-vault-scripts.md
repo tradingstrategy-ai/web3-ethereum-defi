@@ -157,6 +157,50 @@ MERGE_HYPERCORE=true MERGE_GRVT=true MERGE_LIGHTER=true \
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
 | `LOG_LEVEL` | Optional. Default: info. |
 
+### repair-vault-features.py
+
+Repair stale top-level feature fields in `vault-metadata-db.pickle`.
+
+Use this after classifier or scan-record changes when `_detection_data.features`
+contains protocol flags but the top-level `features` field is missing or empty.
+The detection features are authoritative: the script copies them to the
+top-level `features` field and does not mutate `_detection_data.features`.
+This repairs metadata only: it does not touch `vault-prices-1h.parquet`,
+`cleaned-vault-prices-1h.parquet`, reader state, or any vault history rows.
+
+Run a dry run first:
+
+```shell
+source .local-test.env && \
+DRY_RUN=true \
+poetry run python scripts/erc-4626/repair-vault-features.py
+```
+
+Then repair the local production pickle:
+
+```shell
+source .local-test.env && poetry run python scripts/erc-4626/repair-vault-features.py
+```
+
+The script creates a `*.bak-feature-repair` backup next to the pickle before
+writing. If that backup already exists, it appends a numeric suffix instead of
+overwriting it. After repairing production data, upload the fixed pickle with
+`export-data-files.py`.
+
+Run this script from a checkout that can unpickle the current production
+metadata schema. If the production pickle contains newer enum members or
+dataclass fields than the local checkout, update the checkout first.
+
+Use `purge-royco-tranche-data.py` instead when stale feature flags also caused
+bad historical price rows or reader-state progress and affected vaults need to
+be purged and rescanned.
+
+| Variable | Description |
+|----------|-------------|
+| `VAULT_DB` | Optional. Path to the vault metadata pickle. Default: `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
+| `DRY_RUN` | Optional. Set to `true` to report without modifying the pickle. |
+| `LOG_LEVEL` | Optional. Default: info. |
+
 ### clean-prices.py
 
 Clean raw scanned vault data. Reads `vault-prices-1h.parquet` and generates `vault-prices-1h-cleaned.parquet`.
@@ -214,6 +258,8 @@ uploaded to both buckets. Daily `daily/YYYY-MM-DD/...` backup copies are created
 only in the alternative bucket. Missing files, including the Core3 DuckDB, are
 logged and skipped. Existing `vault-export-state.json` is included so sticky
 qualification history is backed up with the rest of the production data set.
+Run this after metadata-only repairs such as `repair-vault-features.py` so the
+fixed `vault-metadata-db.pickle` is published.
 
 | Variable | Description |
 |----------|-------------|

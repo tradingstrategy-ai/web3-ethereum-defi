@@ -76,9 +76,9 @@ def main():
 
     print(f"Total {len(rows)} vaults detected")
     df = pd.DataFrame(rows)
-    # Cannot export the raw Python object,
-    # this is for the pickle only
-    df = df.drop(columns="_detection_data")
+    # Cannot export raw Python objects,
+    # these are for the pickle only.
+    df = df.drop(columns=["_detection_data", "features"], errors="ignore")
     df = df.sort_values("First seen")
 
     #

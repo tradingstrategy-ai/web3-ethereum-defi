@@ -922,6 +922,8 @@ def identify_vault_features(
 
     if calls["validateComponentRatios"].success:
         features.add(ERC4626Feature.nashpoint_like)
+        features.add(ERC4626Feature.erc_7540_like)
+        features.add(ERC4626Feature.erc_7575_like)
 
     if calls["borrowed_token"].success:
         features.add(ERC4626Feature.llamma_like)
