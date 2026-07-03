@@ -6,6 +6,7 @@
 - Supports EmberVault VaultDeposit/RequestRedeemed events
 - Supports TokenGateway Deposit(5-arg)/RedeemRequested/RedeemTokenGatewayDepreciated events
 - Supports Royco tranche Redeem event
+- Supports Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
 """
 
 import abc
@@ -63,7 +64,17 @@ class PotentialVaultMatch:
 
     def is_candidate(self) -> bool:
         # Compatibility shim: older persisted lead objects may not have this slot; remove after reader state migration.
-        return getattr(self, "mellow_factory_candidate", None) is not None or (self.deposit_count > 0 and self.withdrawal_count > 0)
+        if getattr(self, "mellow_factory_candidate", None) is not None:
+            return True
+
+        # Deposit-only event streams are valid vault leads.
+        # Large curated vaults can have deposits but no withdrawals yet because
+        # they are in a pre-deposit phase, have an initial lock-up, or use a
+        # delayed withdrawal process. Requiring withdrawal events made us miss
+        # RockawayX/Upshift vaults such as Tori Ecosystem Vault and Earn ctUSD.
+        # Extra deposit-only matches are still filtered by the later
+        # ``probe_vaults()`` feature-detection stage before export.
+        return self.deposit_count > 0
 
 
 def get_brink_vault_contract(web3):
@@ -113,6 +124,38 @@ def get_royco_tranche_event_contract(web3):
     return get_contract(
         web3,
         "royco/RoycoSeniorTranche.json",
+    )
+
+
+def get_upshift_multi_asset_event_contract(web3):
+    """Get Upshift multi-asset vault interface for custom flow events.
+
+    Upshift ``multiAssetVault`` contracts can accept multiple deposit assets and
+    therefore do not emit the standard ERC-4626
+    ``Deposit(address,address,uint256,uint256)`` event. Their vault-local
+    deposit event is:
+
+    - ``Deposit(address assetIn, uint256 amountIn, uint256 shares, address indexed senderAddr, address indexed receiverAddr)``
+    - ``WithdrawalRequested(uint256 shares, address indexed holderAddr, address indexed receiverAddr)``
+    - ``WithdrawalProcessed(uint256 assetsAmount, address indexed receiverAddr)``
+
+    The deposit event topic is
+    ``0xc436f473cd90c9b4dd731856a14b80f713d384a1688a506d4230140c5b36d5cd``.
+    This was observed on Ethereum mainnet Upshift/RockawayX vaults:
+
+    - `Tori Ecosystem Vault on Etherscan <https://etherscan.io/address/0xcd69123b3FBBfC666E1f6a501da27B564C00De54>`__
+    - `Earn ctUSD on Etherscan <https://etherscan.io/address/0xc87DBBB8C67e4F19fCD2E297c05937567b2572Ce>`__
+    - `Shared implementation on Etherscan <https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code>`__
+    - `Upshift API reference <https://docs.upshift.finance/developer-docs/api-reference>`__
+
+    Both vault addresses are TransparentUpgradeableProxy contracts whose public
+    explorer ABI exposes only proxy events. We keep this event-only ABI so lead
+    discovery can match the implementation-level log topic emitted at the proxy
+    address without depending on a single implementation address.
+    """
+    return get_contract(
+        web3,
+        "upshift/IMultiAssetVaultEvents.json",
     )
 
 
@@ -212,6 +255,35 @@ def get_royco_tranche_discovery_events(web3) -> list[Type[ContractEvent]]:
     ]
 
 
+def get_upshift_multi_asset_discovery_events(web3) -> list[Type[ContractEvent]]:
+    """Get Upshift multi-asset events we use in vault discovery.
+
+    Upshift has two vault families relevant for discovery:
+
+    - Older TokenizedAccount/ERC-4626-like vaults, such as Upshift AZT, emit
+      the standard ERC-4626 ``Deposit``/``Withdraw`` topics and are already
+      covered by :py:func:`get_standard_erc_4626_vault_discovery_events`.
+    - Newer ``multiAssetVault`` vaults emit a custom multi-asset ``Deposit``
+      topic because the event needs to include ``assetIn``. Some large vaults
+      have not emitted withdrawal events yet due to lock-up/pre-deposit
+      mechanics, so the deposit event alone must be enough to seed a lead.
+      When withdrawal request/processed events exist, we still scan them to
+      keep the diagnostic redemption counter useful.
+
+    `Upshift vault API <https://api.upshift.finance/v1/tokenized_vaults/0xcd69123b3FBBfC666E1f6a501da27B564C00De54>`__
+    reports Tori Ecosystem Vault as ``internal_type=multiAssetVault``.
+
+    :return:
+        List of Upshift multi-asset event types used for lead discovery.
+    """
+    IUpshiftMultiAssetVaultEvents = get_upshift_multi_asset_event_contract(web3)
+    return [
+        IUpshiftMultiAssetVaultEvents.events.Deposit,
+        IUpshiftMultiAssetVaultEvents.events.WithdrawalRequested,
+        IUpshiftMultiAssetVaultEvents.events.WithdrawalProcessed,
+    ]
+
+
 def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get all events used in vault discovery, including protocol-specific ones.
 
@@ -221,15 +293,18 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     - EmberVault VaultDeposit/RequestRedeemed events
     - TokenGateway Deposit(5-arg)/RedeemRequested/RedeemTokenGatewayDepreciated events
     - Royco tranche Redeem event
+    - Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
 
     :return:
         List of contract event types in order:
         [ERC4626.Deposit, ERC4626.Withdraw, BrinkVault.Deposited, BrinkVault.Withdrawal,
          EmberVault.VaultDeposit, EmberVault.RequestRedeemed,
          TokenGateway.Deposit, TokenGateway.RedeemRequested, TokenGateway.RedeemTokenGatewayDepreciated,
-         RoycoTranche.Redeem]
+         RoycoTranche.Redeem,
+         UpshiftMultiAsset.Deposit, UpshiftMultiAsset.WithdrawalRequested,
+         UpshiftMultiAsset.WithdrawalProcessed]
     """
-    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3)
+    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3) + get_upshift_multi_asset_discovery_events(web3)
 
 
 def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
@@ -247,6 +322,7 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
     ember_events = get_ember_vault_discovery_events(web3)
     token_gateway_events = get_token_gateway_discovery_events(web3)
     royco_tranche_events = get_royco_tranche_discovery_events(web3)
+    upshift_multi_asset_events = get_upshift_multi_asset_discovery_events(web3)
 
     return {
         get_topic_signature_from_event(erc4626_events[0]): VaultEventKind.deposit,
@@ -259,6 +335,9 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
         get_topic_signature_from_event(token_gateway_events[1]): VaultEventKind.withdraw,
         get_topic_signature_from_event(token_gateway_events[2]): VaultEventKind.withdraw,
         get_topic_signature_from_event(royco_tranche_events[0]): VaultEventKind.withdraw,
+        get_topic_signature_from_event(upshift_multi_asset_events[0]): VaultEventKind.deposit,
+        get_topic_signature_from_event(upshift_multi_asset_events[1]): VaultEventKind.withdraw,
+        get_topic_signature_from_event(upshift_multi_asset_events[2]): VaultEventKind.withdraw,
     }
 
 

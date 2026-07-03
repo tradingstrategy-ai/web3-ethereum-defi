@@ -131,6 +131,46 @@ START_BLOCK=1 \
 poetry run python scripts/erc-4626/scan-prices.py
 ```
 
+### fix-upshift-vaults.py
+
+Targeted repair script for all EVM Upshift vaults returned by the official
+Upshift API. The script has a baked API snapshot as a fallback, so operators can
+review the full vault address list in the script even if the API is temporarily
+unavailable.
+
+This script does not use `RESET_LEADS` and does not wipe whole-chain discovery
+or price data. It upserts lead rows for the selected Upshift API vaults, repairs
+missing or broken metadata rows for those same vaults, and scans historical
+prices only for those listed vault addresses. Existing price rows are preserved
+by default: vaults that already have rows continue from the latest known block.
+
+```shell
+source .local-test.env && poetry run python scripts/erc-4626/fix-upshift-vaults.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `DRY_RUN` | Optional. Show planned work without writing metadata or prices. Default: false. |
+| `UPSHIFT_FETCH_API` | Optional. Fetch the live Upshift API and prefer it over the baked snapshot. Default: true. |
+| `UPSHIFT_STATUS` | Optional. Comma-separated statuses to include, or `all`. Default: `all`. |
+| `UPSHIFT_VISIBLE_ONLY` | Optional. Process only API-visible vaults. Default: false. |
+| `UPSHIFT_SCAN_PRICES` | Optional. Set to `false` to update only leads and metadata. Default: true. |
+| `UPSHIFT_REWRITE_TARGETED` | Optional. Rescan every selected Upshift vault from its first known API block and rewrite only that vault's rows. Default: false. |
+| `UPSHIFT_REFRESH_EXISTING_METADATA` | Optional. Refresh existing good metadata rows as well as missing or broken rows. Default: false. |
+| `MAX_WORKERS` | Optional. Historical multicall worker count. Default: 8. |
+| `FREQUENCY` | Optional. Historical price frequency, `1h` or `1d`. Default: `1h`. |
+| `START_BLOCK` | Optional. Global start block override. Use only for a carefully scoped targeted backfill. |
+| `END_BLOCK` | Optional. Global end block override. |
+| `VAULT_DB_PATH` | Optional. Metadata DB path. Default: production vault metadata DB. |
+| `UNCLEANED_PRICE_DATABASE` | Optional. Raw price parquet path. Default: production uncleaned price DB. |
+| `READER_STATE_DATABASE` | Optional. Reader-state pickle path. Default: production reader state DB. |
+
+The script reads RPC URLs using normal `JSON_RPC_<CHAIN_NAME>` variables where
+the chain is known by `eth_defi.chain`. For Upshift API chains not yet present
+in the global chain metadata, provide `JSON_RPC_CHAIN_<chain_id>`. Lead rows are
+still upserted if an RPC URL is missing; only metadata repair and historical
+price scanning for that chain are skipped.
+
 ### post-process-prices.py
 
 Standalone post-processing pipeline: merges native protocol data, cleans prices,

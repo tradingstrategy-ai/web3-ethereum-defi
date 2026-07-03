@@ -92,13 +92,14 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         self.recv_timeout = recv_timeout
 
     def get_topic_signatures(self) -> list[HexStr]:
-        """Contracts must have at least one event of both these signatures
+        """Get topic signatures that can seed vault leads.
 
         - Find contracts emitting these events
         - Later prod these contracts to see which of them are proper vaults
-        - We are likely having a real ERC-4262 contract if both events match,
-          ``Deposit`` event might have few similar contracts
-        - Also includes BrinkVault DepositFunds/WithdrawFunds events
+        - A deposit event is enough to create a lead. Some large vaults have
+          not emitted withdrawal events yet because funds are still locked or
+          the vault is in a pre-deposit phase.
+        - Also includes protocol-specific vault flow events
         """
         return [get_topic_signature_from_event(e) for e in get_vault_discovery_events(self.web3)]
 

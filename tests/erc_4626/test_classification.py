@@ -54,10 +54,12 @@ def test_chain_probe_filtering():
     assert _should_yield_probe("getPerformanceFeeData", ARBITRUM) is True
     assert _should_yield_probe("getPerformanceFeeData", POLYGON) is False
 
-    # Accountable restricted to Monad
+    # Accountable restricted to Ethereum and Monad
+    assert _should_yield_probe("strategy", ETHEREUM_MAINNET) is True
+    assert _should_yield_probe("queue", ETHEREUM_MAINNET) is True
     assert _should_yield_probe("strategy", MONAD) is True
     assert _should_yield_probe("queue", MONAD) is True
-    assert _should_yield_probe("strategy", ETHEREUM_MAINNET) is False
+    assert _should_yield_probe("strategy", BASE) is False
 
     # Brink restricted to Mantle
     assert _should_yield_probe("strategist", MANTLE) is True
@@ -74,11 +76,11 @@ def test_chain_probe_filtering():
     assert "strategy" in func_names_monad
     assert "queue" in func_names_monad
 
-    # Accountable probes excluded on Ethereum
+    # Accountable probes included on Ethereum for OnRe Core Vault.
     probes_eth = list(create_probe_calls([test_address], chain_id=ETHEREUM_MAINNET))
     func_names_eth = [p.func_name for p in probes_eth]
-    assert "strategy" not in func_names_eth
-    assert "queue" not in func_names_eth
+    assert "strategy" in func_names_eth
+    assert "queue" in func_names_eth
 
     royco_tranche_probe_names = ["getRawNAV"]
     assert sum(1 for func_name in func_names_eth if func_name in royco_tranche_probe_names) == 1

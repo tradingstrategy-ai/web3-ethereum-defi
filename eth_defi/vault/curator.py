@@ -308,6 +308,8 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     (1, "0xe0181090c22579b6a217f1522cbf8c9f1f0c1965"): "rockawayx",
     (1, "0x67e1f506b148d0fc95a4e3ffb49068ceb6855c05"): "rockawayx",
     (1, "0x0f0a9d3f0bc6006143c96e6995572b51413cb3c4"): "rockawayx",
+    # Accountable API maps the Dune loan address above to this ERC-4626 share vault.
+    (1, "0xb9c317cae7dd05ecb0c0925020e529934c96f84d"): "rockawayx",
     (1, "0x64c18dcc4ccb3b8d27877a4aebb4c3126cb39cb9"): "rockawayx",
     (56, "0xb5a30e1fa2cf3c8dea882124b3ab5a47a27c5dd2"): "rockawayx",
     (1, "0xd65d6e8dbc3cd3d12418199e6f4014db3aaa0097"): "rockawayx",
