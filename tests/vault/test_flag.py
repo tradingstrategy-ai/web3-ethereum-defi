@@ -16,6 +16,11 @@ def test_controversial_is_bad_flag():
     assert VaultFlag.controversial in BAD_FLAGS
 
 
+def test_paused_is_bad_flag():
+    """Paused vaults are blacklisted."""
+    assert VaultFlag.paused in BAD_FLAGS
+
+
 @pytest.mark.parametrize(
     ("address", "protocol", "expected_flag", "expected_note"),
     [

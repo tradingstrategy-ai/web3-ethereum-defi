@@ -79,6 +79,7 @@ DEFAULT_OUTPUT_FILENAME = "stablecoin-vault-metrics.json"
 STICKY_EXPORT_STATE_SCHEMA_VERSION = 1
 STICKY_STALE_WARNING_AGE_DAYS_DEFAULT = 14
 BLACKLISTED_RISK_LABEL = VaultTechnicalRisk.blacklisted.get_risk_level_name()
+LEGACY_BLACKLIST_SUPPRESSION_REASONS = {"current_blacklisted_record", "stale_blacklisted_record"}
 
 
 @dataclass(slots=True)
@@ -706,7 +707,7 @@ def apply_sticky_export_state(
     Current rows passing the peak TVL filter qualify a vault forever.
     Later missing, stale, below-threshold, or structurally incomplete rows
     do not make a previously qualified vault disappear unless exact
-    blacklist/invalid-fallback suppression applies.
+    invalid-fallback suppression applies.
 
     :param lifetime_data_df:
         Calculated lifetime metrics.
@@ -747,11 +748,6 @@ def apply_sticky_export_state(
         key = current_row.key
         existing_entry = state_vaults.get(key)
 
-        if is_blacklisted_record(current_row.record):
-            mark_state_entry_suppressed(state, key, "current_blacklisted_record", now_text, current_row, threshold_tvl)
-            stats.structurally_suppressed_vaults += 1
-            continue
-
         if existing_entry and existing_entry.get("status") == "suppressed" and not current_row.export_safe:
             stats.structurally_suppressed_vaults += 1
             continue
@@ -772,17 +768,39 @@ def apply_sticky_export_state(
 
     for key, entry in list(state_vaults.items()):
         if entry.get("status") != "active":
+            if entry.get("suppression_reason") in LEGACY_BLACKLIST_SUPPRESSION_REASONS:
+                current_row = current_rows.get(key)
+                if current_row and current_row.export_safe and is_blacklisted_record(current_row.record):
+                    entry = make_state_entry_from_current_row(current_row, now_text, threshold_tvl, entry)
+                    state_vaults[key] = entry
+                    annotated = annotate_sticky_record(current_row.record, entry, current_row.fresh)
+                    if not current_row.fresh:
+                        stats.stale_warning_vaults += 1
+                    add_exported_vault(vaults_by_key, key, 20 if current_row.fresh else 10, annotated)
+                    continue
+
+                fallback_record = entry.get("last_exported_record")
+                fallback_safe = isinstance(fallback_record, dict) and bool(fallback_record)
+                if fallback_safe:
+                    fallback_safe, _reason = is_export_record_key_safe(fallback_record)
+                if fallback_safe and is_blacklisted_record(fallback_record):
+                    entry["status"] = "active"
+                    entry.pop("suppression_reason", None)
+                    entry.pop("suppressed_at", None)
+                    if entry.get("stale_since") is None:
+                        entry["stale_since"] = now_text
+                    entry["last_exported_at"] = now_text
+                    state_vaults[key] = entry
+                    annotated = annotate_fallback_record(fallback_record, entry, "legacy_blacklist_suppression_recovered")
+                    stats.sticky_fallback_exports += 1
+                    stats.stale_warning_vaults += 1
+                    add_exported_vault(vaults_by_key, key, 5, annotated)
+                    continue
             continue
         if key in vaults_by_key:
             continue
         current_row = current_rows.get(key)
         fallback_reason = None
-        if current_row and is_blacklisted_record(current_row.record):
-            mark_state_entry_suppressed(state, key, "current_blacklisted_record", now_text, current_row, threshold_tvl)
-            stats.structurally_suppressed_vaults += 1
-            vaults_by_key.pop(key, None)
-            continue
-
         if current_row and current_row.export_safe:
             entry = make_state_entry_from_current_row(current_row, now_text, threshold_tvl, entry)
             state_vaults[key] = entry
@@ -803,12 +821,6 @@ def apply_sticky_export_state(
 
         if not fallback_safe:
             mark_state_entry_suppressed(state, key, "invalid_last_exported_record", now_text)
-            stats.structurally_suppressed_vaults += 1
-            vaults_by_key.pop(key, None)
-            continue
-
-        if is_blacklisted_record(fallback_record):
-            mark_state_entry_suppressed(state, key, "stale_blacklisted_record", now_text)
             stats.structurally_suppressed_vaults += 1
             vaults_by_key.pop(key, None)
             continue
