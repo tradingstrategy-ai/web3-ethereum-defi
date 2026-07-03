@@ -1,5 +1,9 @@
 # Current
 
+- feat: Add J.P. Morgan as the curator for the Kinexys JLTXX vault-like instrument, with a curator feeder alias, exact-address detection and reused Kinexys logo assets (2026-07-03)
+
+- feat: Complete Kinexys vault protocol metadata with official JPMorgan-hosted logo assets, a feed source entry, public app/social links and vault documentation for the existing ODA-FACT JLTXX integration (2026-07-03)
+
 - feat: Add scan-only Kinexys support for the JPMorgan JLTXX tokenised money market fund using ODA-FACT contracts, with hardcoded production discovery, `VaultBase` adapter routing, historical supply/NAV reads, protocol metadata and unit tests (2026-07-03)
 
 - feat: Upload the exchange-rate DuckDB bundle with the vault data artefacts to both primary and alternative R2 buckets, and include it in alternative daily backups using the same `CURRENCY_API_DB_PATH` / `CURRENCY_API_DATABASE_PATH` path configuration as the currency-rate scanner (2026-07-02)

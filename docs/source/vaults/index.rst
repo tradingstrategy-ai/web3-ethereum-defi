@@ -71,6 +71,7 @@ Supported protocols
    infinifi/index
    inverse_finance/index
    ipor/index
+   kinexys/index
    lagoon/index
    liquid_royalty/index
    llama-lend/index
