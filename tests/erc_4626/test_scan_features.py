@@ -68,6 +68,11 @@ class _FakeVault:
         """Return vault link."""
         return "https://example.com/vault"
 
+    @staticmethod
+    def fetch_scan_record_extra_data() -> dict:
+        """Return no protocol-specific scan fields."""
+        return {}
+
 
 def _create_detection(features: set[ERC4626Feature]) -> ERC4262VaultDetection:
     """Create a detection object."""
