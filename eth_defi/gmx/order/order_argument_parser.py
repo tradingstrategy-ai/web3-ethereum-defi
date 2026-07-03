@@ -425,17 +425,27 @@ class OrderArgumentParser:
                 collateral_token_symbol,
                 self.parameters_dict["chain"],
             )
-
-            # Special handling for BTC on arbitrum
-            if collateral_token_symbol == "BTC" and self.parameters_dict["chain"] == "arbitrum":
-                self.parameters_dict["collateral_address"] = "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"
-                return
         except KeyError:
             msg = "Collateral Token Address and Symbol not provided!"
             raise Exception(msg)
 
-        tokens = _get_token_metadata_dict(self.web3, self.parameters_dict["chain"])
-        collateral_address = self.find_key_by_symbol(tokens, collateral_token_symbol)
+        # Resolve the collateral token to an address. BTC on Arbitrum maps to
+        # WBTC (BTC is not itself an ERC-20 collateral token); every other
+        # symbol resolves via the token metadata dict. Either way we then run
+        # the SAME market validation + verdict assignment below (issue #1178).
+        #
+        # This must NOT return early: the BTC path used to set
+        # collateral_address and return before _check_if_valid_collateral_for_market,
+        # leaving _collateral_directly_supported=None. A caller passing
+        # collateral_symbol="BTC" (e.g. GMXTrading) against a pool that rejects
+        # WBTC then bypassed the fail-loud guard entirely — the swap-path gate
+        # saw "indeterminate", shipped swap_path=[], and reproduced the exact
+        # keeper-cancel/circuit-breaker failure this change prevents.
+        if collateral_token_symbol == "BTC" and self.parameters_dict["chain"] == "arbitrum":
+            collateral_address = "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"
+        else:
+            tokens = _get_token_metadata_dict(self.web3, self.parameters_dict["chain"])
+            collateral_address = self.find_key_by_symbol(tokens, collateral_token_symbol)
 
         # Strict collateral validation with exception CLASSIFICATION (issue
         # #1178). Two very different failures used to be conflated by a bare

@@ -176,6 +176,78 @@ def test_accepted_collateral_sets_flag_true(monkeypatch):
     assert parser._collateral_directly_supported is True
 
 
+def test_arbitrum_btc_collateral_still_runs_validation(monkeypatch):
+    """Arbitrum BTC collateral (mapped to WBTC) must run the SAME validation.
+
+    Adversarial-review finding: the ``collateral_token_symbol == "BTC" and
+    chain == "arbitrum"`` special case used to set the WBTC address and
+    ``return`` early — bypassing ``_check_if_valid_collateral_for_market`` and
+    leaving ``_collateral_directly_supported`` as ``None``. A caller passing
+    ``collateral_symbol="BTC"`` (e.g. GMXTrading) against a pool that rejects
+    WBTC then walked straight around the new guard: the swap-path gate saw
+    ``None`` (indeterminate), shipped ``swap_path=[]``, and reproduced the
+    keeper-cancel failure class this whole change exists to prevent.
+
+    BTC must resolve to WBTC WITHOUT returning early, then run validation like
+    every other collateral.
+    """
+    # BTC index pool that only accepts tBTC (rejects WBTC).
+    parser = _build_parser(monkeypatch, {_SYNTH_BTC_MARKET: _synthetic_market()})
+    parser.parameters_dict = {
+        "chain": "arbitrum",
+        "market_key": _SYNTH_BTC_MARKET,
+        "collateral_token_symbol": "BTC",
+    }
+    parser._handle_missing_collateral_address()
+
+    # WBTC not in (tBTC, tBTC) → DEFINITIVE rejection, not indeterminate.
+    assert parser._collateral_directly_supported is False
+    assert parser.parameters_dict["collateral_address"] == _WBTC
+
+
+def test_arbitrum_btc_collateral_accepted_by_wbtc_pool(monkeypatch):
+    """Arbitrum BTC collateral against the real WBTC-USDC pool → accepted.
+
+    Guards the positive side of the same fix: routing BTC through normal
+    validation must NOT falsely reject the real pool whose long token is WBTC.
+    """
+    parser = _build_parser(monkeypatch, {_REAL_BTC_MARKET: _usdc_market()})
+    parser.parameters_dict = {
+        "chain": "arbitrum",
+        "market_key": _REAL_BTC_MARKET,
+        "collateral_token_symbol": "BTC",
+    }
+    parser._handle_missing_collateral_address()
+
+    assert parser._collateral_directly_supported is True
+    assert parser.parameters_dict["collateral_address"] == _WBTC
+
+
+def test_arbitrum_btc_rejection_blocks_swap_path_gate(monkeypatch):
+    """End-to-end: BTC-on-tBTC-pool + start==collateral raises pre-flight.
+
+    The full path the finding describes: BTC collateral, a pool that rejects
+    WBTC, and start_token == collateral (no swap leg) must now raise
+    InvalidCollateralForMarketError instead of shipping an empty swap path.
+    """
+    from eth_defi.gmx.order.order_argument_parser import (
+        InvalidCollateralForMarketError,
+    )
+
+    parser = _build_parser(monkeypatch, {_SYNTH_BTC_MARKET: _synthetic_market()})
+    parser.parameters_dict = {
+        "chain": "arbitrum",
+        "market_key": _SYNTH_BTC_MARKET,
+        "collateral_token_symbol": "BTC",
+    }
+    parser._handle_missing_collateral_address()
+    assert parser._collateral_directly_supported is False
+
+    parser.parameters_dict["start_token_address"] = _WBTC  # start == collateral
+    with pytest.raises(InvalidCollateralForMarketError):
+        parser._handle_missing_swap_path()
+
+
 def test_unknown_market_key_is_indeterminate_not_rejection(monkeypatch):
     """market_key absent from the RPC snapshot (KeyError) → flag None.
 
