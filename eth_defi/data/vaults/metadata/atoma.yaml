@@ -16,7 +16,10 @@ fee_description: |
   high-water-mark performance fee minted as vault shares to the operator when NAV rises
   above the previous high-water mark. It also has WITHDRAWAL_FEE_BPS = 50, a 0.5%
   withdrawal fee deducted when claimWithdrawal() pays out USDC. No management fee is
-  present in the verified source.
+  present in the verified source. In the shared fee model, Atoma is closest to
+  internalised_minting because the performance fee is internalised through share-supply
+  dilution; the separate withdrawal fee is still modelled explicitly as a net redemption
+  fee.
 links:
   homepage: https://app.atoma.fi/
   app: https://app.atoma.fi/

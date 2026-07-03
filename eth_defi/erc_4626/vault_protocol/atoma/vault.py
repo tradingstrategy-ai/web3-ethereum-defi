@@ -10,6 +10,10 @@ The verified AtomaVault implementation exposes fixed fee constants:
 - ``WITHDRAWAL_FEE_BPS = 50`` (0.5%)
 - ``MIN_DEPOSIT = 100e6`` (100 USDC)
 
+The performance fee is internalised through share minting when NAV exceeds the
+high-water mark. The withdrawal fee is externalised and deducted from the USDC
+payout in ``claimWithdrawal()``.
+
 - App: https://app.atoma.fi/
 - Proxy vault: https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c
 - Verified implementation: https://arbitrum.blockscout.com/address/0xd4242FD8DE6E3128f0435b52DCe29155098CbBFF
@@ -49,7 +53,7 @@ class AtomaVault(ERC4626Vault):
     """
 
     def has_custom_fees(self) -> bool:
-        """Atoma has fixed performance and withdrawal fees in the verified source."""
+        """Atoma has a mixed internalised performance fee and external withdrawal fee."""
         _ = self.vault_address
         return True
 
