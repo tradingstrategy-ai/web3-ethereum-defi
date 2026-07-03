@@ -63,6 +63,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Enzyme": VaultTechnicalRisk.negligible,
     "Lagoon Finance": VaultTechnicalRisk.minimal,
     "IPOR Fusion": VaultTechnicalRisk.minimal,
+    # Kinexys ODA-FACT contracts are permissioned RWA tokens for institutional fund products.
+    "Kinexys": VaultTechnicalRisk.low,
     "Velvet Capital": VaultTechnicalRisk.high,
     "Umami": VaultTechnicalRisk.severe,
     # Unverified contracts, no open source repo
@@ -204,12 +206,12 @@ def get_vault_risk(
 
     from eth_defi.vault.flag import BAD_FLAGS, get_vault_special_flags
 
-    # Check for xUSD incidents
-    flags = get_vault_special_flags(vault_address)
-    if flags & BAD_FLAGS:
-        return VaultTechnicalRisk.blacklisted
-
     if vault_address:
+        # Check for xUSD incidents and other address-specific manual flags.
+        flags = get_vault_special_flags(vault_address)
+        if flags & BAD_FLAGS:
+            return VaultTechnicalRisk.blacklisted
+
         risk = VAULT_SPECIFIC_RISK.get(vault_address.lower())
         if risk:
             return risk

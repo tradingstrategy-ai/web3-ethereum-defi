@@ -1,5 +1,7 @@
 # Current
 
+- feat: Add scan-only Kinexys support for the JPMorgan JLTXX tokenised money market fund using ODA-FACT contracts, with hardcoded production discovery, `VaultBase` adapter routing, historical supply/NAV reads, protocol metadata and unit tests (2026-07-03)
+
 - feat: Upload the exchange-rate DuckDB bundle with the vault data artefacts to both primary and alternative R2 buckets, and include it in alternative daily backups using the same `CURRENCY_API_DB_PATH` / `CURRENCY_API_DATABASE_PATH` path configuration as the currency-rate scanner (2026-07-02)
 
 - fix: Widen the HyperCore vault deposit verification relative tolerance from 1% to 5%. `wait_for_vault_deposit_confirmation` measures the deposit as an equity increase against a baseline snapshotted minutes earlier, but live perp-trading vaults mark-to-market every block, so the vault's own NAV drift over the confirmation window was being subtracted from the apparent deposit. A production incident (trade #1240, Loop Fund vault, 2026-07-01) saw an 8.06806 USDC deposit credited to the cent but reported ~0.22 USDC short after the pre-existing ~750 USDC position marked down, tripping the old 1% band, raising `HypercoreDepositVerificationError` and crashing the whole live trading loop even though the funds were safely in the vault (2026-07-02)

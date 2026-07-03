@@ -31,6 +31,7 @@ LINK_FIELDS = [
     "twitter",
     "github",
     "documentation",
+    "fact_sheet",
     "defillama",
     "audits",
     "fees",
@@ -59,6 +60,9 @@ class VaultProtocolLinks(TypedDict):
 
     #: Link to developer documentation
     documentation: str | None
+
+    #: Link to protocol or product fact sheet
+    fact_sheet: str | None
 
     #: Link to DefiLlama protocol page
     defillama: str | None
