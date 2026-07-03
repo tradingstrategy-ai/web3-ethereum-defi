@@ -44,6 +44,12 @@ class ERC4626Feature(enum.Enum):
     #: https://app.lagoon.finance/
     lagoon_like = "lagoon_like"
 
+    #: Kinexys tokenised fund contract using the ODA-FACT surface.
+    #:
+    #: Routing marker for non-ERC-4626 ODA-FACT instruments that are read
+    #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    oda_fact_like = "oda_fact_like"
+
     #: Ipor protocol
     #:
     #: https://app.ipor.io/fusion
@@ -746,6 +752,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "IPOR Fusion"
     elif ERC4626Feature.lagoon_like in features:
         return "Lagoon Finance"
+    elif ERC4626Feature.oda_fact_like in features:
+        return "Kinexys"
     elif ERC4626Feature.morpho_like in features:
         return "Morpho"
     elif ERC4626Feature.panoptic_like in features:

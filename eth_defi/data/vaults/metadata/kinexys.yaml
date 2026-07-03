@@ -1,0 +1,38 @@
+name: Kinexys
+slug: kinexys
+short_description: |
+  Permissioned tokenised fund contracts using Kinexys Digital Assets Fungible Asset Contract.
+long_description: |
+  Kinexys Digital Assets Fungible Asset Contract, or ODA-FACT, is a standardised
+  token contract surface used for tokenised institutional fund products. The
+  ODA-FACT name comes from J.P. Morgan's token-standard terminology: current
+  Kinexys material calls it Kinexys Digital Assets Fungible Asset Contract,
+  while the ODA prefix reflects the earlier Onyx Digital Assets branding before
+  Onyx was renamed to Kinexys. The initial integration tracks JPMorgan's OnChain
+  Liquidity-Token Money Market Fund token, JLTXX, on Ethereum.
+
+  ODA-FACT contracts are ERC-20-compatible tokenised fund contracts, not
+  ERC-4626 vaults. The integration reads token supply on-chain and currently
+  combines it with an explicitly labelled 1.00 USD NAV estimate for JLTXX until
+  an official NAV source is integrated.
+fee_description: |
+  Fee terms are not readable from the ODA-FACT token contract surface. For the
+  JLTXX Token Class, the May 13, 2026 prospectus advertises 0.71% gross total
+  annual fund operating expenses and 0.16% net total annual fund operating
+  expenses after waivers through June 30, 2028. The adapter maps the current
+  net expense ratio to the shared management-like fee field and reports no
+  separate performance, deposit or withdrawal fee.
+links:
+  homepage: https://www.jpmorgan.com/kinexys
+  app:
+  twitter: https://x.com/ethereuminsti
+  github:
+  documentation: https://www.jpmorgan.com/kinexys/documents/portfolio-management-powered-by-tokenization.pdf
+  fact_sheet: https://am.jpmorgan.com/content/dam/jpm-am-aem/americas/us/en/literature/fact-sheet/money-market/fs-ocltmm-t.pdf
+  defillama:
+  audits:
+  fees: https://www.sec.gov/Archives/edgar/data/1659326/000119312526217424/d44657d485bpos.htm
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/kinexys
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/api/oda_fact/index.html
+example_smart_contracts:
+  - https://eth.blockscout.com/address/0x09864f52B035AE22eE739dFa5c748fA080D07bD8

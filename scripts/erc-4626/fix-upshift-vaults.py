@@ -8,12 +8,14 @@ Upshift tokenized vault API and a baked API snapshot to:
 
 1. Upsert lead entries only for known Upshift vault addresses.
 2. Upsert missing or broken vault metadata rows only for those addresses.
-3. Populate historical price data only for those addresses.
+3. Populate historical price data only for those addresses, scanning each
+   supported chain at most once per run.
 
-The historical price scan is non-destructive for unrelated vaults. Existing
-price rows are preserved by default: vaults that already have price rows are
-continued from their latest known block, while vaults with no rows are scanned
-from their first known Upshift API snapshot block.
+The historical price scan is non-destructive for unrelated vaults. Caught-up
+vaults are skipped. For the remaining target vaults, the chain scan starts from
+the earliest block any selected Upshift vault needs, while parquet deletion
+remains scoped to those selected Upshift addresses. Each supported chain is
+scanned at most once per run.
 
 API documentation:
 
@@ -62,8 +64,8 @@ Useful environment variables:
      - Optional reader-state pickle path. Default: production reader state DB.
 
 JSON-RPC URLs are read per chain using the normal ``JSON_RPC_<CHAIN_NAME>``
-convention where available. For Upshift API chains not yet present in
-``eth_defi.chain.CHAIN_NAMES``, set ``JSON_RPC_CHAIN_<chain_id>``.
+convention where available. Upshift API chains not yet present in
+``eth_defi.chain.CHAIN_NAMES`` are skipped until the project supports them.
 """
 
 import csv
@@ -80,6 +82,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 from atomicwrites import atomic_write
@@ -107,28 +110,6 @@ logger = logging.getLogger(__name__)
 
 UPSHIFT_API_URL = "https://api.upshift.finance/v1/tokenized_vaults"
 USER_AGENT = "web3-ethereum-defi-upshift-maintenance/1.0"
-
-#: Upshift API chain ids that are not yet named in :mod:`eth_defi.chain`.
-#:
-#: Operators can use these explicit environment variable names without waiting
-#: for global chain metadata updates.
-UPSHIFT_EXTRA_RPC_ENV_NAMES: dict[int, tuple[str, ...]] = {
-    14: ("JSON_RPC_FLARE", "JSON_RPC_CHAIN_14"),
-    25363: ("JSON_RPC_CHAIN_25363",),
-    31612: ("JSON_RPC_MEZO", "JSON_RPC_CHAIN_31612"),
-    4114: ("JSON_RPC_CHAIN_4114",),
-}
-
-#: Block-time fallbacks for Upshift API chains missing from ``EVM_BLOCK_TIMES``.
-#:
-#: These values only control historical sampling density. Operators can override
-#: any value with ``BLOCK_TIME_SECONDS_<chain_id>``.
-UPSHIFT_BLOCK_TIME_FALLBACKS: dict[int, float] = {
-    14: 2.0,
-    25363: 1.0,
-    31612: 2.0,
-    4114: 2.0,
-}
 
 #: Baked snapshot from ``GET https://api.upshift.finance/v1/tokenized_vaults``.
 #:
@@ -472,10 +453,25 @@ def get_rpc_env_candidates(chain_id: int) -> list[str]:
     names = []
     if chain_id in CHAIN_NAMES:
         names.append(get_json_rpc_env(chain_id))
-    names.extend(UPSHIFT_EXTRA_RPC_ENV_NAMES.get(chain_id, ()))
     names.append(f"JSON_RPC_CHAIN_{chain_id}")
     names.append(f"JSON_RPC_{chain_id}")
     return list(dict.fromkeys(names))
+
+
+def is_supported_chain(chain_id: int) -> bool:
+    """Check whether the production vault scanner supports a chain.
+
+    Upshift's API includes EVM chains that are not yet configured in
+    :mod:`eth_defi.chain`. Skip those chains instead of inventing partial
+    scanner configuration in this repair script.
+
+    :param chain_id:
+        EVM chain id from the Upshift API.
+
+    :return:
+        ``True`` if the project knows the chain.
+    """
+    return chain_id in CHAIN_NAMES
 
 
 def read_rpc_url_for_chain(chain_id: int) -> tuple[str | None, str | None]:
@@ -502,7 +498,7 @@ def get_step_for_frequency(chain_id: int, frequency: str) -> int:
     if override:
         block_time = float(override)
     else:
-        block_time = float(EVM_BLOCK_TIMES.get(chain_id, UPSHIFT_BLOCK_TIME_FALLBACKS.get(chain_id, 1.0)))
+        block_time = float(EVM_BLOCK_TIMES.get(chain_id, 1.0))
 
     return max(1, int(seconds / block_time))
 
@@ -530,31 +526,38 @@ def write_reader_states(path: Path, states: dict[VaultSpec, dict]) -> None:
         pickle.dump(states, out)
 
 
-def fetch_latest_existing_price_block(price_path: Path, spec: VaultSpec) -> int | None:
-    """Fetch the latest existing price block for one vault from parquet.
+def fetch_latest_existing_price_blocks(price_path: Path, chain_id: int, addresses: set[str]) -> dict[str, int]:
+    """Fetch latest existing price blocks for several vaults in one parquet read.
 
     :param price_path:
         Existing uncleaned price parquet path.
 
-    :param spec:
-        Vault spec to inspect.
+    :param chain_id:
+        Chain id to inspect.
+
+    :param addresses:
+        Lowercase vault addresses.
 
     :return:
-        Latest block number, or ``None`` if the parquet has no rows for the vault.
+        Mapping ``vault address -> latest block number``.
     """
-    if not price_path.exists():
-        return None
+    if not price_path.exists() or not addresses:
+        return {}
 
     table = pq.read_table(price_path, columns=["chain", "address", "block_number"])
     mask = pc.and_(
-        pc.equal(table["chain"], spec.chain_id),
-        pc.equal(table["address"], spec.vault_address.lower()),
+        pc.equal(table["chain"], chain_id),
+        pc.is_in(table["address"], pa.array(sorted(addresses))),
     )
     filtered = table.filter(mask)
     if filtered.num_rows == 0:
-        return None
+        return {}
 
-    return pc.max(filtered["block_number"]).as_py()
+    latest_blocks: dict[str, int] = {}
+    data = filtered.to_pydict()
+    for address, block_number in zip(data["address"], data["block_number"], strict=True):
+        latest_blocks[address] = max(latest_blocks.get(address, 0), block_number)
+    return latest_blocks
 
 
 def upsert_lead(vault_db: VaultDatabase, ref: UpshiftVaultReference, updated_at: datetime.datetime) -> bool:
@@ -640,13 +643,41 @@ def create_price_vault(web3: Web3, vault_db: VaultDatabase, token_cache: TokenDi
     return vault
 
 
-def scan_one_vault_price_history(  # noqa: PLR0917 - explicit operational script arguments keep the call site auditable.
+def fetch_vault_price_start_block(ref: UpshiftVaultReference, latest_existing_blocks: dict[str, int], *, rewrite_targeted: bool) -> int:
+    """Get the historical price repair start block for one vault.
+
+    :param ref:
+        Target Upshift vault.
+
+    :param latest_existing_blocks:
+        Mapping ``vault address -> latest block number`` from the existing
+        price parquet.
+
+    :param rewrite_targeted:
+        If ``True``, start from the first known API block even when the vault
+        already has price rows.
+
+    :return:
+        First block that needs scanning for this vault.
+    """
+    explicit_start_block = parse_optional_int_env("START_BLOCK")
+    if explicit_start_block is not None:
+        return explicit_start_block
+
+    latest_existing_block = latest_existing_blocks.get(ref.address.lower())
+    if rewrite_targeted or latest_existing_block is None:
+        return max(1, ref.first_seen_at_block)
+
+    return latest_existing_block + 1
+
+
+def scan_chain_price_history(  # noqa: PLR0917 - explicit operational script arguments keep the call site auditable.
     web3: Web3,
     json_rpc_url: str,
     token_cache: TokenDiskCache,
     reader_states: dict[VaultSpec, dict],
-    ref: UpshiftVaultReference,
-    vault: VaultBase,
+    refs: list[UpshiftVaultReference],
+    vaults: list[VaultBase],
     price_path: Path,
     end_block: int | None,
     frequency: str,
@@ -654,50 +685,116 @@ def scan_one_vault_price_history(  # noqa: PLR0917 - explicit operational script
     *,
     rewrite_targeted: bool,
 ) -> ParquetScanResult | None:
-    """Scan one vault's historical prices without touching unrelated vaults."""
-    spec = ref.get_spec()
-    latest_existing_block = fetch_latest_existing_price_block(price_path, spec)
-    explicit_start_block = parse_optional_int_env("START_BLOCK")
+    """Scan one chain's Upshift historical prices once.
 
-    if explicit_start_block is not None:
-        start_block = explicit_start_block
-    elif rewrite_targeted or latest_existing_block is None:
-        start_block = max(1, ref.first_seen_at_block)
-    else:
-        start_block = latest_existing_block + 1
+    The underlying parquet writer deletes and rewrites only rows whose address
+    is in ``vault_addresses``. We therefore first drop caught-up vaults, then
+    use the earliest required start block across the remaining target vaults
+    and scan all of those vaults in one pass for the chain, instead of
+    repeatedly walking the same chain once per vault.
+
+    :param web3:
+        Web3 connection for the chain.
+
+    :param json_rpc_url:
+        RPC URL used to create worker connections.
+
+    :param token_cache:
+        Shared token metadata cache.
+
+    :param reader_states:
+        Existing reader states. Target vault states are removed for this scan
+        to force a targeted backfill from ``start_block``.
+
+    :param refs:
+        Upshift vault references that match ``vaults``.
+
+    :param vaults:
+        Supported vault reader instances.
+
+    :param price_path:
+        Raw historical price parquet path.
+
+    :param end_block:
+        End block for this chain scan.
+
+    :param frequency:
+        Historical price frequency, ``1h`` or ``1d``.
+
+    :param max_workers:
+        Historical multicall worker count.
+
+    :param rewrite_targeted:
+        If ``True``, rewrite target vault rows from their first known API
+        block.
+
+    :return:
+        Parquet scan result, or ``None`` if all target vaults are already
+        caught up or unsupported.
+    """
+    if not vaults:
+        return None
+
+    latest_existing_blocks = fetch_latest_existing_price_blocks(price_path, web3.eth.chain_id, {ref.address.lower() for ref in refs})
+    selected_refs: list[UpshiftVaultReference] = []
+    selected_vaults: list[VaultBase] = []
+    selected_start_blocks: list[int] = []
+    caught_up_count = 0
+
+    for ref, vault in zip(refs, vaults, strict=True):
+        vault_start_block = fetch_vault_price_start_block(ref, latest_existing_blocks, rewrite_targeted=rewrite_targeted)
+        if end_block is not None and vault_start_block >= end_block:
+            caught_up_count += 1
+            continue
+        selected_refs.append(ref)
+        selected_vaults.append(vault)
+        selected_start_blocks.append(vault_start_block)
+
+    if not selected_vaults:
+        logger.info("Skipping chain %s price scan: %d Upshift vaults already caught up at block %s", web3.eth.chain_id, len(vaults), end_block)
+        return None
+
+    if caught_up_count:
+        logger.info("Skipping %d caught-up Upshift vaults on chain %s", caught_up_count, web3.eth.chain_id)
+
+    start_block = min(selected_start_blocks)
+    latest_start_block = max(selected_start_blocks)
+    vault_addresses = {ref.address.lower() for ref in selected_refs}
 
     if end_block is not None and start_block >= end_block:
-        logger.info("Skipping %s %s: already caught up at block %s", spec, ref.name, latest_existing_block)
+        logger.info("Skipping chain %s price scan: %d Upshift vaults already caught up at block %s", web3.eth.chain_id, len(selected_vaults), end_block)
         return None
 
     logger.info(
-        "Scanning %s %s from block %d; latest_existing_block=%s, rewrite_targeted=%s",
-        spec,
-        ref.name,
+        "Scanning %d Upshift vaults on chain %s once from block %d; latest per-vault start=%d, rewrite_targeted=%s",
+        len(selected_vaults),
+        web3.eth.chain_id,
         start_block,
-        latest_existing_block,
+        latest_start_block,
         rewrite_targeted,
     )
 
-    # Remove only this vault's reader state. This prevents stale state from
-    # skipping a missing backfill, while preserving every other vault state.
-    scan_reader_states = {state_spec: state for state_spec, state in reader_states.items() if state_spec != spec}
+    # Remove only targeted Upshift vault reader states. This prevents stale
+    # state from skipping a missing backfill, while preserving every other
+    # vault state on this and other chains.
+    target_specs = {ref.get_spec() for ref in selected_refs}
+    scan_reader_states = {state_spec: state for state_spec, state in reader_states.items() if state_spec not in target_specs}
     hypersync_config = configure_hypersync_from_env(web3)
     result = scan_historical_prices_to_parquet(
         output_fname=price_path,
         web3=web3,
         web3factory=MultiProviderWeb3Factory(json_rpc_url, retries=5),
-        vaults=[vault],
+        vaults=selected_vaults,
         token_cache=token_cache,
         start_block=start_block,
         end_block=end_block,
-        step=get_step_for_frequency(ref.chain_id, frequency),
+        step=get_step_for_frequency(refs[0].chain_id, frequency),
         chunk_size=32,
         max_workers=max_workers,
         frequency=frequency,
         reader_states=scan_reader_states,
         hypersync_client=hypersync_config.hypersync_client,
-        vault_addresses={ref.address.lower()},
+        vault_addresses=vault_addresses,
     )
 
     reader_states.clear()
@@ -719,6 +816,15 @@ def repair_chain(  # noqa: PLR0917 - explicit operational script arguments keep 
     """Repair all configured Upshift vaults on one chain."""
     result = ChainRepairResult(chain_id=chain_id)
     updated_at = native_datetime_utc_now()
+
+    if not is_supported_chain(chain_id):
+        result.skipped_unsupported = len(refs)
+        logger.warning(
+            "Skipping unsupported Upshift chain %s with %d API vaults: chain is not configured in eth_defi.chain",
+            chain_id,
+            len(refs),
+        )
+        return result
 
     for ref in refs:
         if upsert_lead(vault_db, ref, updated_at):
@@ -781,33 +887,42 @@ def repair_chain(  # noqa: PLR0917 - explicit operational script arguments keep 
     rewrite_targeted = parse_bool_env("UPSHIFT_REWRITE_TARGETED", default=False)
     reader_states = load_reader_states(reader_state_path)
 
+    price_refs: list[UpshiftVaultReference] = []
+    price_vaults: list[VaultBase] = []
     for ref in refs:
         vault = create_price_vault(web3, vault_db, token_cache, ref)
         if vault is None:
             result.skipped_unsupported += 1
             logger.info("Skipping price scan for unsupported vault %s %s (%s)", ref.get_spec(), ref.name, ref.internal_type)
             continue
+        price_refs.append(ref)
+        price_vaults.append(vault)
 
-        try:
-            scan_result = scan_one_vault_price_history(
-                web3=web3,
-                json_rpc_url=json_rpc_url,
-                token_cache=token_cache,
-                reader_states=reader_states,
-                ref=ref,
-                vault=vault,
-                price_path=price_path,
-                end_block=end_block,
-                frequency=frequency,
-                max_workers=max_workers,
-                rewrite_targeted=rewrite_targeted,
-            )
-            if scan_result is not None:
-                result.price_scans += 1
-                write_reader_states(reader_state_path, reader_states)
-        except (AssertionError, BadFunctionCallOutput, ContractLogicError, ValueError, Web3Exception, TimeoutError, OSError) as e:
-            result.price_failures += 1
-            logger.warning("Could not scan prices for %s %s: %s", ref.get_spec(), ref.name, e)
+    if not price_vaults:
+        logger.info("Skipping chain %s price scan: no supported Upshift vault readers", chain_id)
+        token_cache.commit()
+        return result
+
+    try:
+        scan_result = scan_chain_price_history(
+            web3=web3,
+            json_rpc_url=json_rpc_url,
+            token_cache=token_cache,
+            reader_states=reader_states,
+            refs=price_refs,
+            vaults=price_vaults,
+            price_path=price_path,
+            end_block=end_block,
+            frequency=frequency,
+            max_workers=max_workers,
+            rewrite_targeted=rewrite_targeted,
+        )
+        if scan_result is not None:
+            result.price_scans += 1
+            write_reader_states(reader_state_path, reader_states)
+    except (AssertionError, BadFunctionCallOutput, ContractLogicError, ValueError, Web3Exception, TimeoutError, OSError) as e:
+        result.price_failures += 1
+        logger.warning("Could not scan prices for chain %s Upshift vault batch: %s", chain_id, e)
 
     token_cache.commit()
     return result
