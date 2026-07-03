@@ -5,6 +5,55 @@ yield products. They are not ERC-4626 vault contracts, even though the shared
 scanner stores them in the ERC-4626-flavoured detection envelope for pipeline
 compatibility.
 
+Backfill scan instructions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Mellow discovery is based on Core Vault factory ``Created`` events. The normal
+production scanner is incremental, so Mellow vaults created before Mellow support
+was deployed are not discovered by later incremental scans unless the historical
+lead range is scanned again.
+
+Use ``RESET_LEADS=1`` for the Ethereum discovery backfill. This does not
+truncate the existing vault database and does not wipe existing Ethereum or
+other-chain leads. The scanner builds a fresh in-memory lead set from block 1,
+then merges the new leads and metadata rows into ``vault-metadata-db.pickle``.
+Existing unrelated rows remain in the database. Take a backup first because
+matching rows that are rediscovered can be refreshed.
+
+.. code-block:: shell
+
+    source .local-test.env
+
+    cp ~/.tradingstrategy/vaults/vault-metadata-db.pickle \
+       ~/.tradingstrategy/vaults/vault-metadata-db.before-mellow-reset-leads.pickle
+
+    RESET_LEADS=1 \
+    LOG_LEVEL=info \
+    JSON_RPC_URL=$JSON_RPC_ETHEREUM \
+    poetry run python scripts/erc-4626/scan-vaults.py
+
+The backfill cannot currently be limited to only Mellow factory topics. It
+rescans all configured Ethereum vault discovery event topics from block 1 and
+merges the results back into the existing database.
+
+After the metadata backfill, rescan prices for the known Lido Mellow Core Vaults
+with a targeted ``VAULT_ID`` run. Targeted price scans clear saved reader state
+only for the selected vaults, and parquet deletion is vault-aware, so price data
+for unrelated vaults is preserved.
+
+.. code-block:: shell
+
+    source .local-test.env
+
+    VAULT_ID="1-0x277c6a642564a91ff78b008022d65683cee5ccc5,1-0x6a37725ca7f4ce81c004c955f7280d5c704a249e,1-0x014e6da8f283c4af65b2aa0f201438680a004452" \
+    START_BLOCK=1 \
+    LOG_LEVEL=info \
+    JSON_RPC_URL=$JSON_RPC_ETHEREUM \
+    poetry run python scripts/erc-4626/scan-prices.py
+
+Run the usual post-processing and export steps after the discovery and targeted
+price scans complete.
+
 The current Core Vault factory registry follows Mellow's public Core
 deployments for Ethereum mainnet, Plasma, Arbitrum and Monad. Base remains
 configuration-only until a canonical Core factory is published.
