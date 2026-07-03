@@ -38,17 +38,25 @@ contract_addresses:
   - chain: ethereum
     address: '0xC08512927D12348F6620a698105e1BAac6EcD911'
 slug: gyen
+source_currency: ''
+source_currency_source: ''
+source_currency_usd_rate: ''
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
 coingecko_id: gyen
 coingecko_link: https://www.coingecko.com/en/coins/gyen
 coingecko_id_source: url
-coingecko_id_verified_at: '2026-06-26T12:16:16'
+coingecko_id_verified_at: '2026-07-03T00:52:47'
+coingecko_id_verification_failed_at: ''
+coingecko_id_verification_failed_reason: ''
 usd_rate: 0.00219065
-usd_rate_fetched_at: '2026-06-26T12:16:16'
-usd_rate_updated_at: '2026-06-26T12:14:39'
-peg_rate: 0.354117
-peg_rate_currency: jpy
-rate_fetch_failed_at: ''
-rate_fetch_failed_reason: ''
+usd_rate_fetched_at: '2026-07-03T00:52:47'
+usd_rate_updated_at: '2026-07-03T00:51:58'
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: '2026-07-03T00:52:47'
+rate_fetch_failed_reason: missing_source_currency
 depegged_at: '2026-06-26T12:13:31'
 checks:
   twitter_last_post_at: ''

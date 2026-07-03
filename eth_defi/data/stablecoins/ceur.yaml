@@ -19,8 +19,6 @@ long_description: |
   - [Mento Protocol documentation](https://docs.mento.org/)
   - [DeFiLlama: Celo Euro](https://defillama.com/stablecoin/celo-euro)
 category: stablecoin
-source_currency: eur
-source_currency_source: manual
 links:
   homepage: https://mento.org/
   coingecko: https://www.coingecko.com/en/coins/celo-euro
@@ -30,17 +28,25 @@ slug: ceur
 contract_addresses:
   - chain: celo
     address: '0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73'
+source_currency: eur
+source_currency_source: manual
+source_currency_usd_rate: ''
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
 coingecko_id: celo-euro
 coingecko_link: https://www.coingecko.com/en/coins/celo-euro
 coingecko_id_source: url
-coingecko_id_verified_at: '2026-06-26T12:16:16'
+coingecko_id_verified_at: '2026-07-03T00:52:47'
+coingecko_id_verification_failed_at: ''
+coingecko_id_verification_failed_reason: ''
 usd_rate: 1.14
-usd_rate_fetched_at: '2026-06-26T12:16:16'
-usd_rate_updated_at: '2026-06-26T12:15:19'
-peg_rate: 0.998119
-peg_rate_currency: eur
-rate_fetch_failed_at: ''
-rate_fetch_failed_reason: ''
+usd_rate_fetched_at: '2026-07-03T00:52:47'
+usd_rate_updated_at: '2026-07-03T00:52:37'
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: '2026-07-03T00:52:47'
+rate_fetch_failed_reason: missing_source_currency_rate
 depegged_at: ''
 checks:
   twitter_last_post_at: ''

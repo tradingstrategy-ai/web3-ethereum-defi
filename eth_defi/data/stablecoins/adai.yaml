@@ -33,17 +33,25 @@ slug: adai
 contract_addresses:
   - chain: ethereum
     address: '0x028171bCA77440897B824Ca71D1c56caC55b68A3'
+source_currency: ''
+source_currency_source: ''
+source_currency_usd_rate: ''
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
 coingecko_id: aave-dai
 coingecko_link: https://www.coingecko.com/en/coins/aave-dai
 coingecko_id_source: url
-coingecko_id_verified_at: '2026-06-26T12:16:16'
-usd_rate: 0.998755
-usd_rate_fetched_at: '2026-06-26T12:16:16'
-usd_rate_updated_at: '2026-06-26T12:00:11'
+coingecko_id_verified_at: '2026-07-03T00:52:47'
+coingecko_id_verification_failed_at: ''
+coingecko_id_verification_failed_reason: ''
+usd_rate: 0.998657
+usd_rate_fetched_at: '2026-07-03T00:52:47'
+usd_rate_updated_at: '2026-07-03T00:50:07'
 peg_rate: ''
 peg_rate_currency: ''
-rate_fetch_failed_at: ''
-rate_fetch_failed_reason: ''
+rate_fetch_failed_at: '2026-07-03T00:52:47'
+rate_fetch_failed_reason: missing_source_currency
 depegged_at: ''
 checks:
   twitter_last_post_at: ''

@@ -44,17 +44,25 @@ entries:
     coingecko: https://www.coingecko.com/en/coins/falcon-finance
     defillama: https://defillama.com/stablecoin/falcon-finance
     twitter: https://x.com/FalconStable
+  source_currency: ''
+  source_currency_source: ''
+  source_currency_usd_rate: ''
+  source_currency_usd_rate_date: ''
+  source_currency_usd_rate_fetched_at: ''
+  source_currency_usd_rate_source: ''
   coingecko_id: falcon-finance
   coingecko_link: https://www.coingecko.com/en/coins/falcon-finance
   coingecko_id_source: url
-  coingecko_id_verified_at: '2026-06-26T12:16:16'
-  usd_rate: 0.993101
-  usd_rate_fetched_at: '2026-06-26T12:16:16'
-  usd_rate_updated_at: '2026-06-26T12:15:10'
-  peg_rate: 0.993101
-  peg_rate_currency: usd
-  rate_fetch_failed_at: ''
-  rate_fetch_failed_reason: ''
+  coingecko_id_verified_at: '2026-07-03T00:52:47'
+  coingecko_id_verification_failed_at: ''
+  coingecko_id_verification_failed_reason: ''
+  usd_rate: 0.99548
+  usd_rate_fetched_at: '2026-07-03T00:52:47'
+  usd_rate_updated_at: '2026-07-03T00:52:36'
+  peg_rate: ''
+  peg_rate_currency: ''
+  rate_fetch_failed_at: '2026-07-03T00:52:47'
+  rate_fetch_failed_reason: missing_source_currency
   depegged_at: ''
   checks:
     twitter_last_post_at: '2026-03-17'
@@ -106,7 +114,7 @@ entries:
     coingecko: ''
     defillama: ''
     twitter: https://x.com/USDFConsortium
-  rate_fetch_failed_at: '2026-06-26T12:16:16'
+  rate_fetch_failed_at: '2026-07-03T00:52:47'
   rate_fetch_failed_reason: missing_coingecko_id
   checks:
     twitter_last_post_at: ''
