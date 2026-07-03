@@ -318,7 +318,7 @@ class VaultDatabase:
                 "denomination": row.get("Denomination"),
                 "protocol": protocol,
                 "tvl": row.get("NAV"),
-                "last_block": detection_data.last_scanned_block,
+                "last_block": getattr(detection_data, "last_scanned_block", None),
             }
             data.append(entry)
         return pd.DataFrame(data)
