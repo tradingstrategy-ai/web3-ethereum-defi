@@ -87,6 +87,7 @@ class VaultFlag(str, enum.Enum):
 
 #: Don't touch vaults with these flags
 BAD_FLAGS = {
+    VaultFlag.paused,
     VaultFlag.illiquid,
     VaultFlag.broken,
     VaultFlag.malicious,

@@ -5,8 +5,8 @@ vaults whose final metrics risk is
 :py:data:`eth_defi.vault.risk.VaultTechnicalRisk.blacklisted`.
 
 This script intentionally reads the cleaned parquet and vault metadata database
-instead of ``top_vaults_by_chain.json``. The public JSON export suppresses
-blacklisted rows, so it cannot be used to audit what was removed.
+instead of ``top_vaults_by_chain.json`` so operators can audit blacklist inputs
+before sticky JSON export state is applied.
 
 Usage:
 
