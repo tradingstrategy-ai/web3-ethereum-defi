@@ -5,6 +5,7 @@ import datetime
 from web3 import Web3
 
 from eth_defi.abi import get_topic_signature_from_event
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, is_activity_filter_exempt
 from eth_defi.erc_4626.discovery_base import (
     PotentialVaultMatch,
     VaultEventKind,
@@ -104,3 +105,24 @@ def test_withdraw_only_lead_is_not_candidate():
     )
 
     assert not lead.is_candidate()
+
+
+def test_upshift_multi_asset_detection_is_activity_filter_exempt():
+    """Upshift multi-asset rows are eligible for targeted price rescans.
+
+    A production operator may seed these known vaults by address to avoid a full
+    Ethereum discovery rescan. The price scanner must not drop the rows just
+    because old metadata has a stale low deposit counter.
+    """
+    detection = ERC4262VaultDetection(
+        chain=1,
+        address="0xcd69123b3FBBfC666E1f6a501da27B564C00De54",
+        first_seen_at_block=22_000_000,
+        first_seen_at=_native_datetime(2026, 6, 10),
+        features={ERC4626Feature.upshift_like, ERC4626Feature.upshift_multi_asset_like},
+        updated_at=_native_datetime(2026, 7, 3),
+        deposit_count=0,
+        redeem_count=0,
+    )
+
+    assert is_activity_filter_exempt(detection) is True

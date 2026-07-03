@@ -3,6 +3,20 @@
 `TokenizedAccount.json` is the existing narrow ERC-4626-like interface used by
 the Upshift vault integration.
 
+`MultiAssetVault.json` is the narrow runtime interface used by the Upshift
+multi-asset adapter. It was reduced from the shared verified implementation ABI
+to the read-only methods needed by vault classification and historical pricing:
+
+- `asset()`
+- `assetsWhitelistAddress()`
+- `lpTokenAddress()`
+- `getSharePrice()`
+- `getTotalAssets()`
+- `depositsPaused()`
+- `withdrawalsPaused()`
+- `maxDepositAmount()`
+- `maxWithdrawalAmount()`
+
 `IMultiAssetVaultEvents.json` is an event-only interface for Upshift
 `multiAssetVault` discovery. It contains the custom multi-asset deposit event
 and the matching withdrawal request/processed events:

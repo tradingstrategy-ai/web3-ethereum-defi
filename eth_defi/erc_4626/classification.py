@@ -95,6 +95,7 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "poolId": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
     "wards": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
     "SPOKE_REVISION": {1},  # Aave v4 Tokenization Spoke - Ethereum only
+    "assetsWhitelistAddress": {1},  # Upshift multi-asset vaults - Ethereum only
 }
 
 
@@ -642,6 +643,22 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Upshift multi-asset vaults - RockawayX Tori and Earn ctUSD
+        # These vault proxies do not expose ERC-20 share metadata or the
+        # standard ERC-4626 totalAssets()/convertToAssets() surface directly.
+        # Probe one implementation-specific method only; the adapter reads
+        # ``lpTokenAddress()``, ``getSharePrice()`` and ``getTotalAssets()``
+        # later after this feature flag routes the vault to UpshiftVault.
+        # https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code
+        if _should_yield_probe("assetsWhitelistAddress", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="assetsWhitelistAddress()")[0:4],
+                function="assetsWhitelistAddress",
+                data=b"",
+                extra_data=None,
+            )
+
         # Centrifuge - Ethereum, Base, Arbitrum only
         # LiquidityPool vaults for RWA financing
         # https://etherscan.io/address/0xa702ac7953e6a66d2b10a478eb2f0e2b8c8fd23e
@@ -851,10 +868,14 @@ def identify_vault_features(
     if calls["shareManager"].success and calls["getAssetCount"].success:
         features.add(ERC4626Feature.mellow_like)
 
+    if calls["assetsWhitelistAddress"].success:
+        features.add(ERC4626Feature.upshift_like)
+        features.add(ERC4626Feature.upshift_multi_asset_like)
+
     # Should return uint256 share count. Broken proxies may return 0x or similar response.
     if not calls["convertToShares"].success and len(calls["convertToShares"].result) != 32:
         # Not ERC-4626 vault
-        if ERC4626Feature.mellow_like in features:
+        if ERC4626Feature.mellow_like in features or ERC4626Feature.upshift_multi_asset_like in features:
             return features
         return {ERC4626Feature.broken}
 
@@ -876,7 +897,7 @@ def identify_vault_features(
     if calls["agent"].success:
         features.add(ERC4626Feature.astrolab_like)
 
-    if calls["depositCap"].success:
+    if calls["depositCap"].success and ERC4626Feature.upshift_multi_asset_like not in features:
         features.add(ERC4626Feature.gains_tranche_like)
 
     if calls["maxDiscountP"].success:
