@@ -4,13 +4,20 @@ This module maintains mutable rate metadata in
 ``eth_defi/data/stablecoins/*.yaml``. It fetches stablecoin prices from the
 CoinGecko simple price API, stores the latest USD rate and fetch timestamp, and
 marks a sticky ``depegged_at`` timestamp when a token trades below the
-configured threshold in its inferred peg currency.
+configured threshold in its manually curated source currency. Non-USD source
+currencies are converted through the local
+:py:class:`~eth_defi.currency_api.database.CurrencyRateDatabase` before depeg
+checks are made.
 
 Vault metric calculation should use :class:`StablecoinRateFeeder` instead of
 reading YAML files directly. The feeder owns the in-process lookup caches used
-to resolve a vault denomination token to stablecoin rate metadata.
+to resolve a vault denomination token to stablecoin rate metadata. The returned
+:class:`DenominationTokenRate` is exported by
+:py:func:`eth_defi.research.vault_metrics.calculate_lifetime_metrics` under the
+``denomination_token_rate`` JSON field.
 
-See `CoinGecko simple price documentation <https://docs.coingecko.com/reference/simple-price>`__.
+See `CoinGecko simple price documentation <https://docs.coingecko.com/reference/simple-price>`__
+and `CoinGecko coins list documentation <https://docs.coingecko.com/reference/coins-list>`__.
 """
 
 import datetime
@@ -32,6 +39,8 @@ from strictyaml import YAMLError
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
+from eth_defi.currency_api.constants import SOURCE_NAME
+from eth_defi.currency_api.database import CurrencyRateDatabase
 from eth_defi.stablecoin_metadata import STABLECOINS_DATA_DIR, normalise_token_symbol, read_stablecoin_metadata
 
 try:
@@ -81,16 +90,27 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 COINGECKO_SIMPLE_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price"
+COINGECKO_COINS_LIST_URL = "https://api.coingecko.com/api/v3/coins/list"
 COINGECKO_LINK_PREFIX = "https://www.coingecko.com/en/coins/"
 DEPEG_THRESHOLD = 0.90
 MIN_PLAUSIBLE_STABLECOIN_RATE = 0.01
+MAX_SOURCE_CURRENCY_RATE_AGE_DAYS = 7
+NATIVE_RATE_CROSS_CHECK_RELATIVE_TOLERANCE = 0.02
 STABLECOIN_RATE_SOURCE_COINGECKO = "coingecko"
 
 _RATE_FIELDS = (
+    "source_currency",
+    "source_currency_source",
+    "source_currency_usd_rate",
+    "source_currency_usd_rate_date",
+    "source_currency_usd_rate_fetched_at",
+    "source_currency_usd_rate_source",
     "coingecko_id",
     "coingecko_link",
     "coingecko_id_source",
     "coingecko_id_verified_at",
+    "coingecko_id_verification_failed_at",
+    "coingecko_id_verification_failed_reason",
     "usd_rate",
     "usd_rate_fetched_at",
     "usd_rate_updated_at",
@@ -146,6 +166,28 @@ class StablecoinRateTarget:
     coingecko_link: str | None
     coingecko_id_source: str | None
     coingecko_id_verified_at: datetime.datetime | None
+    coingecko_id_verification_failed_at: datetime.datetime | None
+    coingecko_id_verification_failed_reason: str | None
+
+    #: Curated source currency ticker read from
+    #: :py:class:`eth_defi.stablecoin_metadata.StablecoinMetadata`.
+    source_currency: str | None
+
+    #: Source of ``source_currency``. Only ``manual`` values drive depeg checks.
+    source_currency_source: str | None
+
+    #: USD per one ``source_currency`` unit from the local currency database.
+    source_currency_usd_rate: float | None
+
+    #: Calendar date of ``source_currency_usd_rate``.
+    source_currency_usd_rate_date: datetime.date | None
+
+    #: Naive UTC timestamp when ``source_currency_usd_rate`` was read.
+    source_currency_usd_rate_fetched_at: datetime.datetime | None
+
+    #: Currency API source column used for ``source_currency_usd_rate``.
+    source_currency_usd_rate_source: str | None
+
     peg_currency: str | None
     usd_rate: float | None
     usd_rate_fetched_at: datetime.datetime | None
@@ -162,6 +204,13 @@ class StablecoinRateTarget:
     #: YAML for tickers such as ``sUSD`` or ``USDR`` that several distinct tokens
     #: share, otherwise marking one depegged would blacklist the healthy ones.
     ambiguous_symbol: bool = False
+
+    #: The token has no ERC-20 deployment on any chain we index, so it can never
+    #: denominate an EVM vault and there is nothing to blacklist. Set
+    #: ``non_evm: true`` in the YAML for natively non-EVM tokens (e.g. Acala aUSD
+    #: on Polkadot, Kava USDX on Cosmos) to silence the otherwise-unactionable
+    #: depeg warning, which no ``contract_addresses`` entry could ever resolve.
+    non_evm: bool = False
 
 
 @dataclass(slots=True)
@@ -180,17 +229,99 @@ class StablecoinRateRefreshSummary:
     unactionable_depegged_count: int = 0
     skipped_missing_coingecko: int = 0
     skipped_unknown_peg: int = 0
+
+    #: Entries skipped because no source currency is known.
+    skipped_missing_source_currency: int = 0
+
+    #: Non-USD entries skipped because no usable currency database row existed.
+    skipped_missing_source_currency_rate: int = 0
+
+    #: Entries skipped because ``source_currency`` was not manually curated.
+    skipped_inferred_source_currency: int = 0
+
+    #: Source-currency FX rows accepted from the local currency database.
+    source_currency_rates_fetched: int = 0
+
+    #: Source-currency FX rows rejected because they were older than the allowed delay.
+    source_currency_rates_stale: int = 0
+
     failed_count: int = 0
+    coingecko_ids_checked: int = 0
+    coingecko_ids_valid: int = 0
+    coingecko_id_validation_failed_count: int = 0
+
+
+@dataclass(slots=True)
+class SourceCurrencyRate:
+    """USD/source-currency rate read from the local currency DuckDB."""
+
+    #: Lower-case source currency ticker, e.g. ``eur`` or ``jpy``.
+    source_currency: str
+
+    #: USD per one ``source_currency`` unit.
+    usd_per_source_currency: float
+
+    #: Currency API calendar date for ``usd_per_source_currency``.
+    date: datetime.date
+
+    #: Currency API provider/source column.
+    source: str
+
+    #: ``True`` when the FX row is older than the accepted refresh delay.
+    is_stale: bool
 
 
 @dataclass(slots=True)
 class DenominationTokenRate:
-    """Rate data section exported for a vault denomination token."""
+    """Rate data section exported for a vault denomination token.
 
+    This dataclass is returned by
+    :py:meth:`StablecoinRateFeeder.get_denomination_token_rate_section` and is
+    serialised by :py:func:`eth_defi.research.vault_metrics.export_lifetime_row`
+    for the ``denomination_token_rate`` field in lifetime metrics JSON output.
+    Source-currency values originate from
+    :py:class:`eth_defi.stablecoin_metadata.StablecoinMetadata` and are updated
+    by :py:func:`refresh_stablecoin_rates`.
+    """
+
+    #: CoinGecko coin id used to fetch ``usd_rate``.
     coingecko_id: str | None
+
+    #: Stablecoin source currency ticker, e.g. ``usd``, ``eur`` or ``jpy``.
+    source_currency: str | None
+
+    #: Latest token price in USD from CoinGecko.
     usd_rate: float | None
+
+    #: Naive UTC timestamp when ``usd_rate`` was fetched.
     usd_rate_fetched_at: datetime.datetime | None
+
+    #: Provider/source for ``usd_rate``. Currently ``coingecko`` when present.
     usd_rate_source: str | None
+
+    #: Latest token price in ``source_currency`` for non-USD stablecoins.
+    #:
+    #: This is omitted for ``source_currency == "usd"`` because ``usd_rate``
+    #: already carries the native value.
+    native_rate: float | None
+
+    #: Currency ticker for ``native_rate``. Populated only for non-USD source currencies.
+    native_rate_currency: str | None
+
+    #: Naive UTC timestamp for ``native_rate``. Matches ``usd_rate_fetched_at`` when populated.
+    native_rate_fetched_at: datetime.datetime | None
+
+    #: Provider chain for ``native_rate``, e.g. ``coingecko+fawazahmed0``.
+    native_rate_source: str | None
+
+    #: USD per one ``source_currency`` unit used to derive ``native_rate``.
+    source_currency_usd_rate: float | None
+
+    #: Naive UTC timestamp when ``source_currency_usd_rate`` was read from the currency database.
+    source_currency_usd_rate_fetched_at: datetime.datetime | None
+
+    #: Currency database provider/source for ``source_currency_usd_rate``.
+    source_currency_usd_rate_source: str | None
 
 
 @dataclass(slots=True)
@@ -221,7 +352,20 @@ class StablecoinRateFeeder:
         if normalised_symbol and normalised_symbol in self._rate_symbols:
             return self._rate_symbols[normalised_symbol]
 
-        return DenominationTokenRate(coingecko_id=None, usd_rate=None, usd_rate_fetched_at=None, usd_rate_source=None)
+        return DenominationTokenRate(
+            coingecko_id=None,
+            source_currency=None,
+            usd_rate=None,
+            usd_rate_fetched_at=None,
+            usd_rate_source=None,
+            native_rate=None,
+            native_rate_currency=None,
+            native_rate_fetched_at=None,
+            native_rate_source=None,
+            source_currency_usd_rate=None,
+            source_currency_usd_rate_fetched_at=None,
+            source_currency_usd_rate_source=None,
+        )
 
     @property
     def depegged_contracts(self) -> set[tuple[int, str]]:
@@ -266,7 +410,7 @@ def extract_coingecko_id(url: str | None) -> str | None:
 
 def resolve_coingecko_metadata(entry: dict[str, Any]) -> tuple[str | None, str | None, str | None]:
     """Resolve the CoinGecko id, page link, and id source for one YAML entry."""
-    explicit_id = _clean_string(entry.get("coingecko_id"))
+    explicit_id = _clean_coingecko_id(entry.get("coingecko_id"))
     explicit_link = _clean_string(entry.get("coingecko_link"))
     source = _clean_string(entry.get("coingecko_id_source"))
 
@@ -274,7 +418,7 @@ def resolve_coingecko_metadata(entry: dict[str, Any]) -> tuple[str | None, str |
         return explicit_id, explicit_link or f"{COINGECKO_LINK_PREFIX}{explicit_id}", source or "manual"
 
     for link in (explicit_link, _clean_string((entry.get("links") or {}).get("coingecko"))):
-        parsed_id = extract_coingecko_id(link)
+        parsed_id = _clean_coingecko_id(extract_coingecko_id(link))
         if parsed_id:
             return parsed_id, f"{COINGECKO_LINK_PREFIX}{parsed_id}", "url"
 
@@ -318,10 +462,7 @@ def fetch_stablecoin_rates(targets: Sequence[StablecoinRateTarget], timeout: flo
         return {}
 
     vs_currencies = sorted({"usd"} | {target.peg_currency for target in targets if target.peg_currency})
-    headers = {"User-Agent": "web3-ethereum-defi stablecoin rate refresh"}
-    api_key = os.environ.get("COINGECKO_DEMO_API_KEY")
-    if api_key:
-        headers["x-cg-demo-api-key"] = api_key
+    headers = _coingecko_headers()
 
     result: dict[str, dict[str, Any]] = {}
     batch_size = 200
@@ -346,12 +487,129 @@ def fetch_stablecoin_rates(targets: Sequence[StablecoinRateTarget], timeout: flo
     return result
 
 
+def fetch_valid_coingecko_ids(coin_ids: Sequence[str], timeout: float = 20.0, progress_bar: bool = False) -> set[str]:
+    """Validate CoinGecko coin ids against the canonical coins list endpoint.
+
+    CoinGecko web pages can redirect or fall back to search pages for stale
+    slugs. The collector therefore validates ids with the API before exporting
+    ``coingecko_id`` or deriving a human-readable ``coingecko_link``.
+
+    :param coin_ids:
+        CoinGecko ids to validate.
+
+    :param timeout:
+        HTTP request timeout in seconds.
+
+    :param progress_bar:
+        Show a tqdm progress bar for validation requests.
+
+    :return:
+        Set of ids that resolved to real CoinGecko coins.
+    """
+    requested_ids = {cleaned_id for coin_id in coin_ids if (cleaned_id := _clean_coingecko_id(coin_id))}
+    if not requested_ids:
+        return set()
+    if progress_bar:
+        logger.info("Validating %d CoinGecko ids", len(requested_ids))
+
+    headers = _coingecko_headers()
+    response = requests.get(
+        COINGECKO_COINS_LIST_URL,
+        params={"include_platform": "false"},
+        headers=headers,
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, list):
+        message = "CoinGecko coins list response was not a JSON list"
+        raise ValueError(message)
+
+    listed_ids = {entry.get("id") for entry in payload if isinstance(entry, dict) and isinstance(entry.get("id"), str)}
+    return requested_ids & listed_ids
+
+
+def read_latest_usd_per_source_currency(
+    currency_db_path: Path,
+    source_currency: str,
+    coingecko_fetch_date: datetime.date,
+    source: str = SOURCE_NAME,
+    max_age_days: int = MAX_SOURCE_CURRENCY_RATE_AGE_DAYS,
+) -> SourceCurrencyRate | None:
+    """Read the latest USD/source-currency FX rate from local DuckDB.
+
+    The currency API database stores raw rows as ``quote`` units per one
+    ``base`` unit. With the production base ``usd`` this means, for example,
+    EUR rows are ``EUR per 1 USD``. Stablecoin depeg checks need USD per one
+    source-currency unit, so this helper inverts the stored raw rate.
+
+    :param currency_db_path:
+        DuckDB path populated by :mod:`eth_defi.currency_api`.
+    :param source_currency:
+        Lower-case source currency ticker, e.g. ``eur`` or ``jpy``.
+    :param coingecko_fetch_date:
+        Calendar date of the CoinGecko token price fetch.
+    :param source:
+        Currency API source column to read.
+    :param max_age_days:
+        Maximum allowed age between the token price date and FX row date.
+    :return:
+        USD per one source-currency unit, or ``None`` when no local row exists.
+    """
+    source_currency = source_currency.lower()
+    if source_currency == "usd":
+        return SourceCurrencyRate(
+            source_currency="usd",
+            usd_per_source_currency=1.0,
+            date=coingecko_fetch_date,
+            source=source,
+            is_stale=False,
+        )
+
+    db = CurrencyRateDatabase(currency_db_path)
+    try:
+        row = db.con.execute(
+            """
+            SELECT date, rate, source
+            FROM exchange_rates
+            WHERE base_currency = 'usd'
+              AND quote_currency = ?
+              AND source = ?
+              AND date <= ?
+            ORDER BY date DESC
+            LIMIT 1
+            """,
+            [source_currency, source, coingecko_fetch_date],
+        ).fetchone()
+    finally:
+        db.close()
+
+    if row is None:
+        return None
+
+    row_date, raw_rate, row_source = row
+    raw_rate_float = _parse_price(raw_rate)
+    if raw_rate_float is None:
+        return None
+
+    age_days = (coingecko_fetch_date - row_date).days
+    return SourceCurrencyRate(
+        source_currency=source_currency,
+        usd_per_source_currency=1.0 / raw_rate_float,
+        date=row_date,
+        source=row_source,
+        is_stale=age_days > max_age_days,
+    )
+
+
 def refresh_stablecoin_rates(
     data_dir: Path = STABLECOINS_DATA_DIR,
     now_: datetime.datetime | None = None,
     force: bool = False,
     timeout: float = 20.0,
     progress_bar: bool = False,
+    currency_db_path: Path | None = None,
+    currency_source: str = SOURCE_NAME,
 ) -> StablecoinRateRefreshSummary:
     """Refresh stablecoin rates and persist YAML metadata updates.
 
@@ -388,19 +646,42 @@ def refresh_stablecoin_rates(
             summary.failed_count += 1
             updates[(target.yaml_path, target.entry_index)] = _failure_update(now_, "missing_coingecko_id", target)
 
-    prices: dict[str, dict[str, Any]] = {}
+    valid_targets: list[StablecoinRateTarget] = []
     if due_with_ids:
         try:
-            prices = fetch_stablecoin_rates(due_with_ids, timeout=timeout, progress_bar=progress_bar)
+            valid_coingecko_ids = fetch_valid_coingecko_ids([target.coingecko_id or "" for target in due_with_ids], timeout=timeout, progress_bar=progress_bar)
         except _coingecko_fetch_error_types() as e:
-            logger.warning("CoinGecko stablecoin rate batch failed: %s", e)
+            logger.warning("CoinGecko stablecoin id validation failed: %s", e)
             for target in due_with_ids:
                 summary.failed_count += 1
                 updates[(target.yaml_path, target.entry_index)] = _failure_update(now_, "coingecko_http_error", target)
             return _apply_refresh_updates(updates, summary, progress_bar=progress_bar)
 
+        checked_ids = {target.coingecko_id for target in due_with_ids if target.coingecko_id}
+        summary.coingecko_ids_checked = len(checked_ids)
+        summary.coingecko_ids_valid = len(valid_coingecko_ids)
+
+        for target in due_with_ids:
+            if target.coingecko_id in valid_coingecko_ids:
+                valid_targets.append(target)
+            else:
+                summary.failed_count += 1
+                summary.coingecko_id_validation_failed_count += 1
+                updates[(target.yaml_path, target.entry_index)] = _invalid_coingecko_id_update(now_, target)
+
+    prices: dict[str, dict[str, Any]] = {}
+    if valid_targets:
+        try:
+            prices = fetch_stablecoin_rates(valid_targets, timeout=timeout, progress_bar=progress_bar)
+        except _coingecko_fetch_error_types() as e:
+            logger.warning("CoinGecko stablecoin rate batch failed: %s", e)
+            for target in valid_targets:
+                summary.failed_count += 1
+                updates[(target.yaml_path, target.entry_index)] = _failure_update(now_, "coingecko_http_error", target)
+            return _apply_refresh_updates(updates, summary, progress_bar=progress_bar)
+
     fetched_ids: set[str] = set()
-    for target in _progress(due_with_ids, progress_bar, "Applying CoinGecko prices", "entry"):
+    for target in _progress(valid_targets, progress_bar, "Applying CoinGecko prices", "entry"):
         price_data = prices.get(target.coingecko_id or "")
         if not isinstance(price_data, dict):
             summary.failed_count += 1
@@ -413,13 +694,60 @@ def refresh_stablecoin_rates(
             updates[(target.yaml_path, target.entry_index)] = _failure_update(now_, "coingecko_price_missing", target)
             continue
 
-        peg_currency = target.peg_currency
-        peg_rate = _parse_price(price_data.get(peg_currency)) if peg_currency else None
-        if peg_currency is None or peg_rate is None:
-            summary.skipped_unknown_peg += 1
-
         upstream_updated_at = _parse_upstream_timestamp(price_data.get("last_updated_at"))
-        update = _success_update(target, usd_rate, peg_rate, peg_currency if peg_rate is not None else None, upstream_updated_at, now_)
+        source_currency = target.source_currency
+        source_currency_rate: SourceCurrencyRate | None = None
+        peg_rate: float | None = None
+        peg_currency: str | None = None
+        rate_failure_reason: str | None = None
+
+        if not source_currency:
+            summary.skipped_missing_source_currency += 1
+            summary.skipped_unknown_peg += 1
+            rate_failure_reason = "missing_source_currency"
+        elif target.source_currency_source != "manual":
+            summary.skipped_inferred_source_currency += 1
+            summary.skipped_unknown_peg += 1
+            rate_failure_reason = "inferred_source_currency" if target.source_currency_source == "inferred" else "untrusted_source_currency"
+        elif source_currency == "usd":
+            source_currency_rate = SourceCurrencyRate(
+                source_currency="usd",
+                usd_per_source_currency=1.0,
+                date=now_.date(),
+                source=currency_source,
+                is_stale=False,
+            )
+            peg_rate = usd_rate
+            peg_currency = "usd"
+        elif currency_db_path is None:
+            summary.skipped_missing_source_currency_rate += 1
+            summary.skipped_unknown_peg += 1
+            summary.failed_count += 1
+            rate_failure_reason = "missing_source_currency_rate"
+        else:
+            source_currency_rate = read_latest_usd_per_source_currency(
+                currency_db_path=currency_db_path,
+                source_currency=source_currency,
+                coingecko_fetch_date=now_.date(),
+                source=currency_source,
+            )
+            if source_currency_rate is None:
+                summary.skipped_missing_source_currency_rate += 1
+                summary.skipped_unknown_peg += 1
+                summary.failed_count += 1
+                rate_failure_reason = "missing_source_currency_rate"
+            elif source_currency_rate.is_stale:
+                summary.source_currency_rates_stale += 1
+                summary.skipped_unknown_peg += 1
+                summary.failed_count += 1
+                rate_failure_reason = "stale_source_currency_rate"
+            else:
+                summary.source_currency_rates_fetched += 1
+                peg_rate = usd_rate / source_currency_rate.usd_per_source_currency
+                peg_currency = source_currency
+                _warn_on_native_rate_divergence(target, price_data, usd_rate, source_currency_rate)
+
+        update = _success_update(target, usd_rate, peg_rate, peg_currency, source_currency_rate, upstream_updated_at, now_, rate_failure_reason=rate_failure_reason)
 
         should_check_depeg = peg_rate is not None and target.category == "stablecoin"
         if should_check_depeg and _is_wrong_asset_guard_failure(target, peg_rate):
@@ -429,7 +757,10 @@ def refresh_stablecoin_rates(
         elif should_check_depeg and peg_rate < DEPEG_THRESHOLD:
             update["depegged_at"] = target.depegged_at or now_
             summary.depegged_count += 1
-            if not _target_is_actionable(target):
+            if not target.non_evm and not _target_is_actionable(target):
+                # ``non_evm`` tokens are deliberately unenforceable (no ERC-20 on
+                # any chain we index), so they are expected, not a coverage gap —
+                # do not count or warn about them here.
                 summary.unactionable_depegged_count += 1
                 logger.warning("Depegged stablecoin entry %s/%s is not actionable for vault blacklisting", target.slug, target.name)
 
@@ -478,7 +809,11 @@ def build_depegged_stablecoin_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> 
 
     for target in iter_stablecoin_rate_targets(data_dir):
         normalised_symbol = normalise_token_symbol(target.symbol)
-        symbol_matchable = bool(normalised_symbol) and target.entry_index is None and not target.ambiguous_symbol
+        # ``non_evm`` tokens have no ERC-20 on any indexed chain, so they have no
+        # EVM symbol presence and must never participate in ticker matching —
+        # otherwise a dead off-chain token could blacklist a healthy same-ticker
+        # EVM token. Treat them like ``ambiguous_symbol``: contract-only.
+        symbol_matchable = bool(normalised_symbol) and target.entry_index is None and not target.ambiguous_symbol and not target.non_evm
         if symbol_matchable:
             symbol_owner_counts[normalised_symbol] = symbol_owner_counts.get(normalised_symbol, 0) + 1
 
@@ -496,6 +831,11 @@ def build_depegged_stablecoin_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> 
     # symbol is not an unambiguous single-owner symbol (typically multi-entry
     # tokens such as USDX). These need contract_addresses added to their YAML.
     for target in depegged_without_contract:
+        if target.non_evm:
+            # No ERC-20 on any chain we index, so no EVM vault can be denominated
+            # in it and there is nothing to blacklist — a contract address could
+            # never be added. Skip the warning rather than emit unactionable noise.
+            continue
         normalised_symbol = normalise_token_symbol(target.symbol)
         if normalised_symbol and normalised_symbol in depegged_symbols:
             continue
@@ -520,7 +860,9 @@ def build_stablecoin_rate_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> tupl
             contract_rates[contract_key] = rate
 
         normalised_symbol = normalise_token_symbol(target.symbol)
-        if normalised_symbol and target.entry_index is None and not target.ambiguous_symbol:
+        # ``non_evm`` tokens have no EVM symbol presence — keep them out of the
+        # ticker-based rate lookup as well, mirroring the depeg blacklist path.
+        if normalised_symbol and target.entry_index is None and not target.ambiguous_symbol and not target.non_evm:
             symbol_candidates.setdefault(normalised_symbol, []).append((target, rate))
 
     symbol_rates = {symbol: matches[0][1] for symbol, matches in symbol_candidates.items() if len(matches) == 1}
@@ -577,7 +919,8 @@ def apply_coingecko_mapping_file(data_dir: Path, mapping_path: Path, progress_ba
 
 def _build_target(yaml_path: Path, entry_index: int | None, slug: str, symbol: str, category: str, entry: dict[str, Any]) -> StablecoinRateTarget:
     coingecko_id, coingecko_link, coingecko_id_source = resolve_coingecko_metadata(entry)
-    peg_currency = _guess_peg_currency(symbol, f"{entry.get('name', '')} {entry.get('short_description', '')}")
+    source_currency = _clean_currency_code(entry.get("source_currency"))
+    source_currency_source = _clean_currency_code(entry.get("source_currency_source"))
     return StablecoinRateTarget(
         yaml_path=yaml_path,
         entry_index=entry_index,
@@ -589,7 +932,15 @@ def _build_target(yaml_path: Path, entry_index: int | None, slug: str, symbol: s
         coingecko_link=coingecko_link,
         coingecko_id_source=coingecko_id_source,
         coingecko_id_verified_at=_parse_datetime(entry.get("coingecko_id_verified_at")),
-        peg_currency=peg_currency,
+        coingecko_id_verification_failed_at=_parse_datetime(entry.get("coingecko_id_verification_failed_at")),
+        coingecko_id_verification_failed_reason=_clean_string(entry.get("coingecko_id_verification_failed_reason")),
+        source_currency=source_currency,
+        source_currency_source=source_currency_source,
+        source_currency_usd_rate=_parse_float(entry.get("source_currency_usd_rate")),
+        source_currency_usd_rate_date=_parse_date(entry.get("source_currency_usd_rate_date")),
+        source_currency_usd_rate_fetched_at=_parse_datetime(entry.get("source_currency_usd_rate_fetched_at")),
+        source_currency_usd_rate_source=_clean_string(entry.get("source_currency_usd_rate_source")),
+        peg_currency=source_currency,
         usd_rate=_parse_float(entry.get("usd_rate")),
         usd_rate_fetched_at=_parse_datetime(entry.get("usd_rate_fetched_at")),
         usd_rate_updated_at=_parse_datetime(entry.get("usd_rate_updated_at")),
@@ -600,6 +951,7 @@ def _build_target(yaml_path: Path, entry_index: int | None, slug: str, symbol: s
         depegged_at=_parse_datetime(entry.get("depegged_at")),
         contract_addresses=_parse_contract_addresses(entry),
         ambiguous_symbol=bool(entry.get("ambiguous_symbol", False)),
+        non_evm=bool(entry.get("non_evm", False)),
     )
 
 
@@ -625,6 +977,15 @@ def _coingecko_fetch_error_types() -> tuple[type[BaseException], ...]:
     return base_types
 
 
+def _coingecko_headers() -> dict[str, str]:
+    """Return HTTP headers for CoinGecko API requests."""
+    headers = {"User-Agent": "web3-ethereum-defi stablecoin rate refresh"}
+    api_key = os.environ.get("COINGECKO_DEMO_API_KEY")
+    if api_key:
+        headers["x-cg-demo-api-key"] = api_key
+    return headers
+
+
 def _chain_slug_to_id(chain: Any) -> int | None:
     if chain is None:
         return None
@@ -647,12 +1008,34 @@ def _clean_string(value: Any) -> str | None:
     return value or None
 
 
+def _clean_coingecko_id(value: Any) -> str | None:
+    """Return a canonical CoinGecko id candidate."""
+    text = _clean_string(value)
+    return text.lower() if text else None
+
+
+def _clean_currency_code(value: Any) -> str | None:
+    """Return a lower-case source currency code."""
+    text = _clean_string(value)
+    return text.lower() if text else None
+
+
 def _parse_datetime(value: Any) -> datetime.datetime | None:
     text = _clean_string(value)
     if not text:
         return None
     try:
         return datetime.datetime.fromisoformat(text.replace("Z", ""))
+    except ValueError:
+        return None
+
+
+def _parse_date(value: Any) -> datetime.date | None:
+    text = _clean_string(value)
+    if not text:
+        return None
+    try:
+        return datetime.date.fromisoformat(text)
     except ValueError:
         return None
 
@@ -752,24 +1135,55 @@ def _success_update(
     usd_rate: float,
     peg_rate: float | None,
     peg_currency: str | None,
+    source_currency_rate: SourceCurrencyRate | None,
     upstream_updated_at: datetime.datetime | None,
     now_: datetime.datetime,
+    rate_failure_reason: str | None = None,
 ) -> dict[str, Any]:
     update: dict[str, Any] = {
+        "source_currency": target.source_currency or "",
+        "source_currency_source": target.source_currency_source or "",
+        "source_currency_usd_rate": source_currency_rate.usd_per_source_currency if source_currency_rate is not None else "",
+        "source_currency_usd_rate_date": source_currency_rate.date if source_currency_rate is not None else "",
+        "source_currency_usd_rate_fetched_at": now_ if source_currency_rate is not None else "",
+        "source_currency_usd_rate_source": source_currency_rate.source if source_currency_rate is not None else "",
         "coingecko_id": target.coingecko_id or "",
         "coingecko_link": target.coingecko_link or (f"{COINGECKO_LINK_PREFIX}{target.coingecko_id}" if target.coingecko_id else ""),
         "coingecko_id_source": target.coingecko_id_source or "",
         "coingecko_id_verified_at": now_,
+        "coingecko_id_verification_failed_at": "",
+        "coingecko_id_verification_failed_reason": "",
         "usd_rate": usd_rate,
         "usd_rate_fetched_at": now_,
         "usd_rate_updated_at": upstream_updated_at,
         "peg_rate": peg_rate,
         "peg_rate_currency": peg_currency or "",
-        "rate_fetch_failed_at": "",
-        "rate_fetch_failed_reason": "",
+        "rate_fetch_failed_at": now_ if rate_failure_reason else "",
+        "rate_fetch_failed_reason": rate_failure_reason or "",
         "depegged_at": target.depegged_at,
     }
     return update
+
+
+def _invalid_coingecko_id_update(now_: datetime.datetime, target: StablecoinRateTarget) -> dict[str, Any]:
+    """Clear stale CoinGecko metadata when an id no longer resolves."""
+    coingecko_id = target.coingecko_id or ""
+    return {
+        "coingecko_id": "",
+        "coingecko_link": "",
+        "coingecko_id_source": "",
+        "coingecko_id_verified_at": "",
+        "coingecko_id_verification_failed_at": now_,
+        "coingecko_id_verification_failed_reason": f"CoinGecko id {coingecko_id} not found",
+        "usd_rate": "",
+        "usd_rate_fetched_at": "",
+        "usd_rate_updated_at": "",
+        "peg_rate": "",
+        "peg_rate_currency": "",
+        "rate_fetch_failed_at": now_,
+        "rate_fetch_failed_reason": "coingecko_id_not_found",
+        "links.coingecko": "",
+    }
 
 
 def _failure_update(now_: datetime.datetime, reason: str, target: StablecoinRateTarget) -> dict[str, Any]:
@@ -800,12 +1214,52 @@ def _target_is_actionable(target: StablecoinRateTarget) -> bool:
     return target.entry_index is None and bool(normalise_token_symbol(target.symbol))
 
 
+def _warn_on_native_rate_divergence(target: StablecoinRateTarget, price_data: dict[str, Any], usd_rate: float, source_currency_rate: SourceCurrencyRate) -> None:
+    """Warn if CoinGecko native and locally-derived native rates materially diverge."""
+    if source_currency_rate.source_currency == "usd":
+        return
+
+    native_rate = _parse_price(price_data.get(source_currency_rate.source_currency))
+    if native_rate is None:
+        return
+
+    implied_usd_rate = native_rate * source_currency_rate.usd_per_source_currency
+    relative_diff = abs(usd_rate - implied_usd_rate) / usd_rate
+    if relative_diff > NATIVE_RATE_CROSS_CHECK_RELATIVE_TOLERANCE:
+        logger.warning(
+            "Stablecoin native rate cross-check diverged for %s/%s: usd_rate=%s source_currency=%s native_rate=%s source_currency_usd_rate=%s relative_diff=%s",
+            target.slug,
+            target.name,
+            usd_rate,
+            source_currency_rate.source_currency,
+            native_rate,
+            source_currency_rate.usd_per_source_currency,
+            relative_diff,
+        )
+
+
 def _target_to_denomination_rate(target: StablecoinRateTarget) -> DenominationTokenRate:
+    native_rate_source = None
+    has_native_rate = target.peg_rate is not None and target.peg_rate_currency != "usd"
+    if has_native_rate:
+        if target.source_currency_usd_rate_source:
+            native_rate_source = f"{STABLECOIN_RATE_SOURCE_COINGECKO}+{target.source_currency_usd_rate_source}"
+        else:
+            native_rate_source = STABLECOIN_RATE_SOURCE_COINGECKO
+
     return DenominationTokenRate(
         coingecko_id=target.coingecko_id,
+        source_currency=target.source_currency,
         usd_rate=target.usd_rate,
         usd_rate_fetched_at=target.usd_rate_fetched_at,
         usd_rate_source=STABLECOIN_RATE_SOURCE_COINGECKO if target.usd_rate is not None else None,
+        native_rate=target.peg_rate if has_native_rate else None,
+        native_rate_currency=target.peg_rate_currency if has_native_rate else None,
+        native_rate_fetched_at=target.usd_rate_fetched_at if has_native_rate else None,
+        native_rate_source=native_rate_source,
+        source_currency_usd_rate=target.source_currency_usd_rate,
+        source_currency_usd_rate_fetched_at=target.source_currency_usd_rate_fetched_at,
+        source_currency_usd_rate_source=target.source_currency_usd_rate_source,
     )
 
 
@@ -829,7 +1283,7 @@ def _apply_refresh_updates(updates: dict[tuple[Path, int | None], dict[str, Any]
 
 
 def _mapping_update(mapping: dict[str, Any]) -> dict[str, Any]:
-    coingecko_id = _clean_string(mapping.get("coingecko_id"))
+    coingecko_id = _clean_coingecko_id(mapping.get("coingecko_id"))
     return {
         "coingecko_id": coingecko_id or "",
         "coingecko_link": _clean_string(mapping.get("coingecko_link")) or (f"{COINGECKO_LINK_PREFIX}{coingecko_id}" if coingecko_id else ""),
@@ -842,6 +1296,8 @@ def _format_yaml_value(value: Any) -> str:
         return "''"
     if isinstance(value, datetime.datetime):
         return f"'{_format_datetime(value)}'"
+    if isinstance(value, datetime.date):
+        return f"'{value.isoformat()}'"
     if isinstance(value, float):
         return f"{value:.12g}"
     if isinstance(value, int):
@@ -857,6 +1313,7 @@ def _format_yaml_value(value: Any) -> str:
 def _update_yaml_entry_fields(yaml_path: Path, entry_index: int | None, fields: dict[str, Any]) -> None:
     lines = yaml_path.read_text().splitlines(keepends=True)
     start, end, indent = _find_yaml_entry_block(lines, entry_index)
+    end += _update_yaml_link_fields(lines, start, end, indent, fields)
     existing = _find_existing_field_lines(lines, start, end, indent)
 
     rendered = [f"{indent}{key}: {_format_yaml_value(fields.get(key))}\n" for key in _RATE_FIELDS if key in fields]
@@ -870,6 +1327,32 @@ def _update_yaml_entry_fields(yaml_path: Path, entry_index: int | None, fields: 
         lines.insert(insert_at + offset, line)
 
     _write_text_atomic(yaml_path, "".join(lines))
+
+
+def _update_yaml_link_fields(lines: list[str], start: int, end: int, indent: str, fields: dict[str, Any]) -> int:
+    """Update nested link fields inside a stablecoin YAML entry block."""
+    if "links.coingecko" not in fields:
+        return 0
+
+    links_line = next((i for i in range(start, end) if lines[i].startswith(f"{indent}links:")), None)
+    if links_line is None:
+        return 0
+
+    link_indent = f"{indent}  "
+    link_end = end
+    for i in range(links_line + 1, end):
+        if lines[i].startswith(indent) and not lines[i].startswith(link_indent) and lines[i].strip():
+            link_end = i
+            break
+
+    rendered = f"{link_indent}coingecko: {_format_yaml_value(fields['links.coingecko'])}\n"
+    for i in range(links_line + 1, link_end):
+        if lines[i].startswith(f"{link_indent}coingecko:"):
+            lines[i] = rendered
+            return 0
+
+    lines.insert(link_end, rendered)
+    return 1
 
 
 def _write_text_atomic(path: Path, text: str) -> None:

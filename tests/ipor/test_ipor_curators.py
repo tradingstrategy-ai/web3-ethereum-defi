@@ -298,6 +298,11 @@ class _FakeIPORVault:
         """Return a deterministic vault link."""
         return "https://app.ipor.io/fusion/ethereum/0xdf8a0d3c90462c4c9b5a8697c119fa67cb84a874"
 
+    @staticmethod
+    def fetch_scan_record_extra_data() -> dict[str, object]:
+        """Return no protocol-specific scan columns."""
+        return {}
+
 
 def test_vault_scan_record_sets_manager_name_for_ipor_vault(monkeypatch: pytest.MonkeyPatch) -> None:
     """IPOR atomist flows through scan rows as the vault manager name.

@@ -11,20 +11,30 @@ long_description: |
   SG-FORGE has subsequently deployed EURCV in DeFi protocols including MakerDAO (now Sky) and Aave.
   In 2025, SG-FORGE expanded EURCV to the Stellar blockchain and also announced a USD-denominated stablecoin (USDCV) with BNY as custodian.
 category: stablecoin
+source_currency: eur
+source_currency_source: manual
 links:
   homepage: https://www.sgforge.com/
-  coingecko: https://www.coingecko.com/en/coins/coinvertible
+  coingecko: ''
   defillama: ''
   twitter: https://x.com/SG_FORGE
 contract_addresses:
   - chain: ethereum
     address: '0x5F7827FDeb7c20b443265Fc2F40845B715385Ff2'
 slug: eurcv
-coingecko_id: coinvertible
-coingecko_link: https://www.coingecko.com/en/coins/coinvertible
-coingecko_id_source: url
-rate_fetch_failed_at: '2026-06-26T12:16:16'
-rate_fetch_failed_reason: coingecko_price_missing
+coingecko_id: ''
+coingecko_link: ''
+coingecko_id_source: ''
+coingecko_id_verified_at: ''
+coingecko_id_verification_failed_at: '2026-06-30T10:05:58'
+coingecko_id_verification_failed_reason: "CoinGecko id coinvertible not found"
+usd_rate: ''
+usd_rate_fetched_at: ''
+usd_rate_updated_at: ''
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: '2026-06-30T10:05:58'
+rate_fetch_failed_reason: coingecko_id_not_found
 checks:
   twitter_last_post_at: ''
   domain_up_at: '2026-03-17'

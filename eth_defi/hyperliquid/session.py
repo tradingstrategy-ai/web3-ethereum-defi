@@ -33,6 +33,7 @@ rate allowance independently.
 import logging
 import os
 import tempfile
+import time
 from pathlib import Path
 
 import requests as requests_lib
@@ -62,6 +63,12 @@ DEFAULT_RETRIES = 5
 
 #: Default backoff factor for retries (seconds)
 DEFAULT_BACKOFF_FACTOR = 0.5
+
+#: Extra outer retries for ``/info`` calls after urllib3 exhausts its retry budget.
+DEFAULT_POST_INFO_RETRY_ATTEMPTS = 3
+
+#: Backoff factor for extra outer ``/info`` retries.
+DEFAULT_POST_INFO_RETRY_BACKOFF_FACTOR = 5.0
 
 #: Default rate limit for Hyperliquid API requests per second.
 #:
@@ -147,6 +154,10 @@ class HyperliquidSession(Session):
         self._adapter_config: dict | None = None
         #: Maximum proxy rotations per post_info() call before giving up
         self.max_proxy_rotations: int = MAX_PROXY_ROTATIONS
+        #: Extra outer retry attempts after the HTTP adapter exhausts retries.
+        self.post_info_retry_attempts: int = DEFAULT_POST_INFO_RETRY_ATTEMPTS
+        #: Backoff factor for extra outer retry attempts.
+        self.post_info_retry_backoff_factor: float = DEFAULT_POST_INFO_RETRY_BACKOFF_FACTOR
         #: Total HTTP requests made via post_info()
         self._request_count: int = 0
         #: Total proxy rotations triggered by failures
@@ -265,6 +276,11 @@ class HyperliquidSession(Session):
           ``requests.Timeout``, ``OSError``): rotate AND record the
           current proxy as dead via the state manager, because the
           proxy itself is unreachable.
+        - **Adapter retry exhaustion** (``requests.RetryError``): sleep
+          and retry the whole ``/info`` request a small number of extra
+          times. This handles CI/public-IP bursts where the Hyperliquid
+          API keeps returning HTTP 429 longer than the urllib3 retry
+          budget covers.
 
         After :data:`MAX_PROXY_ROTATIONS` consecutive rotations in a
         single call, returns whatever response comes back (or re-raises
@@ -286,6 +302,7 @@ class HyperliquidSession(Session):
         throttle_statuses = {429, 500, 502, 503, 504}
 
         rotations = 0
+        outer_retries = 0
         while True:
             req_proxies = self._build_proxy_dict()
             self._request_count += 1
@@ -302,15 +319,28 @@ class HyperliquidSession(Session):
                     self._rotation_count += 1
                     # Rotate without failure_reason — the ProxyStateManager
                     # must NOT mark this proxy as dead. It is only throttled
-                    # and will recover within minutes.
-                    self._rotator.rotate(failure_reason=None)
-                    logger.log(
-                        self._rotator.log_level,
-                        "Rotated on HTTP %d (throttled, proxy not marked dead)",
-                        response.status_code,
+                    # and will recover within minutes. The reason is logged by
+                    # rotate() itself.
+                    self._rotator.rotate(
+                        reason=f"HTTP {response.status_code} throttled (proxy not marked dead)",
                     )
                     continue
                 return response
+            except requests_lib.exceptions.RetryError as exc:
+                if outer_retries < self.post_info_retry_attempts:
+                    outer_retries += 1
+                    sleep_seconds = self.post_info_retry_backoff_factor * (2 ** (outer_retries - 1))
+                    logger.warning(
+                        "Hyperliquid /info request type %s exhausted adapter retries: %s. Sleeping %.1f seconds before outer retry %d/%d",
+                        payload.get("type"),
+                        exc,
+                        sleep_seconds,
+                        outer_retries,
+                        self.post_info_retry_attempts,
+                    )
+                    time.sleep(sleep_seconds)
+                    continue
+                raise
             except (requests_lib.ConnectionError, requests_lib.Timeout, OSError) as exc:
                 if self.proxy_enabled and rotations < self.max_proxy_rotations:
                     rotations += 1
@@ -374,6 +404,8 @@ class HyperliquidSession(Session):
 
         # Propagate proxy rotation budget
         clone.max_proxy_rotations = self.max_proxy_rotations
+        clone.post_info_retry_attempts = self.post_info_retry_attempts
+        clone.post_info_retry_backoff_factor = self.post_info_retry_backoff_factor
 
         # Each worker gets its own rotator clone starting at a different proxy,
         # but sharing the same ProxyStateManager for persistent failure tracking
@@ -393,6 +425,8 @@ def create_hyperliquid_session(
     rotator: ProxyRotator | None = None,
     verbose_throttling: bool | None = None,
     proxy_failure_log_level: int | None = None,
+    post_info_retry_attempts: int = DEFAULT_POST_INFO_RETRY_ATTEMPTS,
+    post_info_retry_backoff_factor: float = DEFAULT_POST_INFO_RETRY_BACKOFF_FACTOR,
 ) -> HyperliquidSession:
     """Create a :py:class:`HyperliquidSession` configured for Hyperliquid API.
 
@@ -471,10 +505,17 @@ def create_hyperliquid_session(
           ``logging.WARNING`` otherwise.
         - Pass e.g. ``logging.DEBUG`` to suppress or ``logging.WARNING``
           to always show.
+    :param post_info_retry_attempts:
+        Extra outer retry attempts for ``/info`` calls after the HTTP
+        adapter has exhausted its own retry budget.
+    :param post_info_retry_backoff_factor:
+        Exponential backoff factor, in seconds, for extra outer retries.
     :return:
         Configured :py:class:`HyperliquidSession` with rate limiting and retry logic
     """
     session = HyperliquidSession(api_url=api_url)
+    session.post_info_retry_attempts = post_info_retry_attempts
+    session.post_info_retry_backoff_factor = post_info_retry_backoff_factor
 
     # When proxies are enabled, disable urllib3-level retries so that
     # connection failures go straight to post_info() for proxy rotation
@@ -504,6 +545,8 @@ def create_hyperliquid_session(
         "pool_maxsize": pool_maxsize,
         "rate_limit_db_path": rate_limit_db_path,
         "retry_log_level": proxy_failure_log_level,
+        "post_info_retry_attempts": post_info_retry_attempts,
+        "post_info_retry_backoff_factor": post_info_retry_backoff_factor,
     }
 
     if rotator is not None:

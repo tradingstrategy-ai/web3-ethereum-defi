@@ -10,6 +10,8 @@ Environment variables:
 - ``FORCE``: Optional. Set to ``true`` to bypass per-entry daily gates.
 - ``STABLECOIN_RATE_TIMEOUT``: Optional. CoinGecko timeout in seconds. Default: 20.
 - ``COINGECKO_ID_MAPPING_FILE``: Optional. JSON file with explicit id mappings.
+- ``CURRENCY_API_DB_PATH`` / ``CURRENCY_API_DATABASE_PATH``: Optional. Local FX DuckDB path for non-USD source-currency rates.
+- ``CURRENCY_API_SOURCE``: Optional. FX source column. Default: fawazahmed0.
 - ``COINGECKO_DEMO_API_KEY``: Optional. CoinGecko demo API key read by the rate module.
 - ``PROGRESS``: Optional. Set to ``false`` to hide tqdm progress bars. Default: true.
 - ``LOG_LEVEL``: Optional. Default: info.
@@ -22,6 +24,7 @@ from pathlib import Path
 
 from tabulate import tabulate
 
+from eth_defi.currency_api.constants import SOURCE_NAME
 from eth_defi.feed.stablecoin_rate import apply_coingecko_mapping_file, iter_stablecoin_rate_targets, refresh_stablecoin_rates
 from eth_defi.stablecoin_metadata import STABLECOINS_DATA_DIR
 from eth_defi.utils import setup_console_logging
@@ -49,12 +52,17 @@ def main() -> int:
     force = _env_bool("FORCE")
     progress_bar = _env_bool("PROGRESS", default=True)
     timeout = float(os.environ.get("STABLECOIN_RATE_TIMEOUT", "20"))
+    currency_db_path_raw = os.environ.get("CURRENCY_API_DB_PATH") or os.environ.get("CURRENCY_API_DATABASE_PATH")
+    currency_db_path = Path(currency_db_path_raw).expanduser() if currency_db_path_raw else None
+    currency_source = os.environ.get("CURRENCY_API_SOURCE", SOURCE_NAME)
 
     logger.info("Starting stablecoin rate population")
     logger.info("Stablecoin data directory: %s", data_dir)
     logger.info("Force refresh: %s", force)
     logger.info("CoinGecko timeout: %.1f seconds", timeout)
     logger.info("Progress bars: %s", progress_bar)
+    logger.info("Currency API database: %s", currency_db_path)
+    logger.info("Currency API source: %s", currency_source)
 
     mapping_path_raw = os.environ.get("COINGECKO_ID_MAPPING_FILE")
     mappings_applied = 0
@@ -70,6 +78,8 @@ def main() -> int:
         force=force,
         timeout=timeout,
         progress_bar=progress_bar,
+        currency_db_path=currency_db_path,
+        currency_source=currency_source,
     )
     logger.info(
         "Stablecoin rate population finished: files_scanned=%d entries_seen=%d rates_fetched=%d files_updated=%d failures=%d depegged=%d",
@@ -88,10 +98,18 @@ def main() -> int:
         ["Entries seen", summary.entries_seen],
         ["Rates fetched", summary.rates_fetched],
         ["Files updated", summary.files_updated],
+        ["CoinGecko ids checked", summary.coingecko_ids_checked],
+        ["CoinGecko ids valid", summary.coingecko_ids_valid],
+        ["CoinGecko id validation failures", summary.coingecko_id_validation_failed_count],
         ["Depegged", summary.depegged_count],
         ["Unactionable depegged", summary.unactionable_depegged_count],
         ["Missing CoinGecko ids", summary.skipped_missing_coingecko],
         ["Unknown pegs", summary.skipped_unknown_peg],
+        ["Missing source currency", summary.skipped_missing_source_currency],
+        ["Missing source currency rate", summary.skipped_missing_source_currency_rate],
+        ["Inferred source currency skipped", summary.skipped_inferred_source_currency],
+        ["Source currency rates fetched", summary.source_currency_rates_fetched],
+        ["Source currency rates stale", summary.source_currency_rates_stale],
         ["Failures", summary.failed_count],
     ]
     print(tabulate(rows, headers=["Metric", "Value"], tablefmt="fancy_grid"))

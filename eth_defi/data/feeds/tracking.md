@@ -45,7 +45,7 @@ YAML files are written to:
 | ✅ | decentralized-usd | Decentralized USD | https://usdd.io/ | usddio | | https://medium.com/feed/@usddio |
 | ⚠️ | deltr | Deltr | | | | |
 | ✅ | dolomite | Dolomite | https://dolomite.io/ | dolomite_io | dolomiteio | https://medium.com/feed/dolomite-official |
-| ✅ | ember | Ember | https://ember.so/ | EmberProtocol_ | ember-protocol | |
+| ✅ | ember | Ember | https://ember.so/ | EmberProtocol | ember-protocol | |
 | ✅ | eth-strategy | ETH Strategy | https://www.ethstrat.xyz/ | eth_strategy | | https://blog.ethstrat.xyz/feed |
 | ✅ | ethena | Ethena | https://ethena.fi/ | ethena_labs | ethena-labs | https://ethena.fi/blog/feed |
 | ✅ | euler | Euler | https://www.euler.finance/ | eulerfinance | euler-xyz | https://newsletter.euler.finance/feed |
@@ -145,7 +145,7 @@ YAML files are written to:
 | ✅ | gami | Gami | https://gamilabs.io | GamiLabs | | |
 | ⚠️ | hub-capital | Hub Capital | https://hub.capital | | | |
 | ⚠️ | odyssey-digital-am | Odyssey Digital AM | | | | |
-| ✅ | smardex | SmarDex | https://smardex.io | SmarDex | realsmardex | |
+| ✅ | smardex | SmarDex | https://smardex.io | every_thing | realsmardex | |
 | ✅ | syntropia | Syntropia | https://syntropia.ai | syntropia_ai | syntropiaai | |
 
 ### Hyperliquid vault managers

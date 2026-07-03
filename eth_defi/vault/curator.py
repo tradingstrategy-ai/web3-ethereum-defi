@@ -292,6 +292,32 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
     "lagoon-finance": "lagoon-curator",
 }
 
+#: Exact vault address to curator overrides from Dune dashboards.
+#:
+#: Used when the public vault display name does not carry the curator brand, or
+#: carries a co-branded protocol/issuer name that would otherwise win fuzzy
+#: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
+CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    # RockawayX Dune dashboard, query 6932634, checked 2026-07-01.
+    # https://dune.com/rockawayxvault/rockawayx-dashboard
+    (1, "0xcd69123b3fbbfc666e1f6a501da27b564c00de54"): "rockawayx",
+    (1, "0xc87dbbb8c67e4f19fcd2e297c05937567b2572ce"): "rockawayx",
+    (1329, "0x6137dcfdd3c83fe2922b1cba4105d2e92b327a06"): "rockawayx",
+    (1, "0x953972ea0c1703c58f09fb6fd2477fdcf0fee074"): "rockawayx",
+    (1, "0x8ac91877b93330f52b2979a31a4879506021475c"): "rockawayx",
+    (1, "0xe0181090c22579b6a217f1522cbf8c9f1f0c1965"): "rockawayx",
+    (1, "0x67e1f506b148d0fc95a4e3ffb49068ceb6855c05"): "rockawayx",
+    (1, "0x0f0a9d3f0bc6006143c96e6995572b51413cb3c4"): "rockawayx",
+    # Accountable API maps the Dune loan address above to this ERC-4626 share vault.
+    (1, "0xb9c317cae7dd05ecb0c0925020e529934c96f84d"): "rockawayx",
+    (1, "0x64c18dcc4ccb3b8d27877a4aebb4c3126cb39cb9"): "rockawayx",
+    (56, "0xb5a30e1fa2cf3c8dea882124b3ab5a47a27c5dd2"): "rockawayx",
+    (1, "0xd65d6e8dbc3cd3d12418199e6f4014db3aaa0097"): "rockawayx",
+    (1, "0x5f829b1b473cba86838e1b7bb7e144dbde228e21"): "rockawayx",
+    (1, "0xe99a27169c2aa26a8f2757949d09fa3f9a8f0b3b"): "rockawayx",
+    (8453, "0xae4181cfb5aaa08bbe77d269c6b595672b9f9edc"): "rockawayx",
+}
+
 
 class CuratorInfo(TypedDict):
     """Metadata for a single curator loaded from YAML.
@@ -589,6 +615,32 @@ def _identify_curator_by_patterns(
     return None
 
 
+def _identify_curator_by_address(chain_id: int, vault_address: str | None) -> str | None:
+    """Identify a curator from an exact vault address override.
+
+    Address overrides cover public dashboards and protocol-specific metadata
+    where the vault name alone is not reliable enough for fuzzy matching.
+
+    :param chain_id:
+        Chain ID where the vault is deployed.
+
+    :param vault_address:
+        Vault contract address or synthetic address.
+
+    :return:
+        Curator slug, or ``None`` if no override is configured.
+    """
+    if not vault_address:
+        return None
+
+    try:
+        chain_id_int = int(chain_id)
+    except (TypeError, ValueError):
+        return None
+
+    return CURATOR_ADDRESS_OVERRIDES.get((chain_id_int, vault_address.lower()))
+
+
 def identify_curator(  # noqa: PLR0917
     chain_id: int,
     vault_token_symbol: str,
@@ -644,44 +696,49 @@ def identify_curator(  # noqa: PLR0917
         from third-party curators.
     """
 
-    del chain_id, vault_token_symbol
+    del vault_token_symbol
 
     protocol_slug = PROTOCOL_CURATOR_SLUG_ALIASES.get(protocol_slug, protocol_slug)
 
-    # 1. Blanket protocol-curated protocols (all vaults are protocol-operated)
+    # 1. Exact address overrides, e.g. dashboards where the curator brand is
+    #    external to the vault name.
+    if address_slug := _identify_curator_by_address(chain_id, vault_address):
+        return address_slug
+
+    # 2. Blanket protocol-curated protocols (all vaults are protocol-operated)
     if protocol_slug in PROTOCOL_CURATED_SLUGS:
         return protocol_slug
 
-    # 2. Hyperliquid system vaults (HLP parent, children, Liquidator)
+    # 3. Hyperliquid system vaults (HLP parent, children, Liquidator)
     if protocol_slug == "hyperliquid":
         if vault_address.lower() in HYPERLIQUID_SYSTEM_VAULT_ADDRESSES:
             return "hyperliquid"
 
-    # 3. Lighter system pools (LLP, XLP)
+    # 4. Lighter system pools (LLP, XLP)
     if protocol_slug == "lighter":
         if vault_address in LIGHTER_SYSTEM_POOL_ADDRESSES:
             return "lighter"
 
-    # 4. GRVT system vaults (GLP, the protocol's in-house market maker)
+    # 5. GRVT system vaults (GLP, the protocol's in-house market maker)
     if protocol_slug == "grvt":
         if vault_address.lower() in GRVT_SYSTEM_VAULT_ADDRESSES:
             return "grvt"
 
-    # 5. Priority vault-name matches, e.g. Frax-branded Morpho vaults with a
+    # 6. Priority vault-name matches, e.g. Frax-branded Morpho vaults with a
     #    third-party UI curator.
     patterns = _build_matching_patterns()
     if priority_slug := _identify_curator_by_patterns(vault_name, patterns, include_slugs=PRIORITY_CURATOR_SLUGS):
         return priority_slug
 
-    # 6. Exact protocol-specific manager name mapping from offchain APIs.
+    # 7. Exact protocol-specific manager name mapping from offchain APIs.
     if manager_slug := _identify_curator_by_protocol_manager_name(protocol_slug, manager_name):
         return manager_slug
 
-    # 7. Ordinary vault-name fuzzy matching.
+    # 8. Ordinary vault-name fuzzy matching.
     if vault_slug := _identify_curator_by_patterns(vault_name, patterns, exclude_slugs=PRIORITY_CURATOR_SLUGS):
         return vault_slug
 
-    # 8. Legacy fuzzy matching against manager name for native marketplaces like GRVT.
+    # 9. Legacy fuzzy matching against manager name for native marketplaces like GRVT.
     if manager_slug := _identify_curator_by_patterns(manager_name, patterns):
         return manager_slug
 

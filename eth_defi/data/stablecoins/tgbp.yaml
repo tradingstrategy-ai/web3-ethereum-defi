@@ -1,0 +1,43 @@
+symbol: tGBP
+token_symbols:
+  - TGBP # uppercase casing used by CoinGecko/CoinMarketCap market data
+name: Tokenised GBP
+short_description: |
+  Tokenised GBP (tGBP) is a British Pound stablecoin pegged 1:1 to GBP and issued by BCP Technologies, an FCA-registered
+  cryptoasset firm. Each token is fully backed by cash and short-dated UK government securities held in reserve.
+long_description: |
+  Tokenised GBP (tGBP) is a fiat-backed stablecoin issued by [BCP Technologies](https://www.tokenisedgbp.com/), a UK
+  FCA-registered cryptoasset firm. Launched in 2025, it is positioned as the first live GBP-denominated stablecoin from a
+  regulated UK issuer. Each tGBP is redeemable 1:1 for British Pounds and is fully backed by cash and short-dated UK
+  government securities (such as zero-coupon gilts).
+
+  tGBP is deployed natively across multiple EVM chains — Ethereum, Base, Polygon, BNB Chain and Avalanche — sharing the
+  same token contract address, and is also available on Solana. The issuer is a member of the Digital Pound Foundation.
+category: stablecoin
+source_currency: gbp
+source_currency_source: manual
+links:
+  homepage: https://www.tokenisedgbp.com/
+  coingecko: https://www.coingecko.com/en/coins/tokenised-gbp
+  defillama: ''
+  twitter: https://x.com/tokenGBP
+contract_addresses:
+  - chain: ethereum
+    address: '0x27f6c8289550fCE67f6B50BeD1F519966aFE5287'
+  - chain: base
+    address: '0x27f6c8289550fCE67f6B50BeD1F519966aFE5287'
+  - chain: polygon
+    address: '0x27f6c8289550fCE67f6B50BeD1F519966aFE5287'
+  - chain: binance
+    address: '0x27f6c8289550fCE67f6B50BeD1F519966aFE5287'
+  - chain: avalanche
+    address: '0x27f6c8289550fCE67f6B50BeD1F519966aFE5287'
+slug: tgbp
+coingecko_id: tokenised-gbp
+coingecko_link: https://www.coingecko.com/en/coins/tokenised-gbp
+coingecko_id_source: url
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

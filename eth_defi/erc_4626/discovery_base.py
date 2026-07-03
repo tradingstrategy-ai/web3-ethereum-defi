@@ -6,6 +6,7 @@
 - Supports EmberVault VaultDeposit/RequestRedeemed events
 - Supports TokenGateway Deposit(5-arg)/RedeemRequested/RedeemTokenGatewayDepreciated events
 - Supports Royco tranche Redeem event
+- Supports Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
 """
 
 import abc
@@ -15,7 +16,7 @@ import enum
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Type
+from typing import TYPE_CHECKING, Type
 
 from eth_typing import HexAddress
 from web3.contract.contract import ContractEvent
@@ -23,11 +24,14 @@ from web3.contract.contract import ContractEvent
 from eth_defi.abi import get_contract
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import probe_vaults
-from eth_defi.erc_4626.core import get_erc_4626_contract, ERC4626Feature, ERC4262VaultDetection
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_erc_4626_contract
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from eth_defi.mellow.discovery import MellowFactoryCandidate
 
 
 class VaultEventKind(enum.Enum):
@@ -42,7 +46,7 @@ class VaultEventKind(enum.Enum):
 
 @dataclasses.dataclass(slots=True, frozen=False)
 class PotentialVaultMatch:
-    """Categorise contracts that emit ERC-4626 like events."""
+    """Categorise contracts that emit vault discovery events."""
 
     chain: int
     address: HexAddress
@@ -50,9 +54,27 @@ class PotentialVaultMatch:
     first_seen_at: datetime.datetime
     deposit_count: int = 0
     withdrawal_count: int = 0
+    #: Mellow ``Factory.Created`` metadata when this lead came from a Mellow
+    #: factory event instead of vault-local deposit/withdraw events.
+    #:
+    #: Mellow Core Vault user flow events are emitted by queue contracts, not by
+    #: the canonical Vault. Keep this metadata on the normal lead object so the
+    #: discovery path can still use one lead map and one feature-probe loop.
+    mellow_factory_candidate: "MellowFactoryCandidate | None" = None
 
     def is_candidate(self) -> bool:
-        return self.deposit_count > 0 and self.withdrawal_count > 0
+        # Compatibility shim: older persisted lead objects may not have this slot; remove after reader state migration.
+        if getattr(self, "mellow_factory_candidate", None) is not None:
+            return True
+
+        # Deposit-only event streams are valid vault leads.
+        # Large curated vaults can have deposits but no withdrawals yet because
+        # they are in a pre-deposit phase, have an initial lock-up, or use a
+        # delayed withdrawal process. Requiring withdrawal events made us miss
+        # RockawayX/Upshift vaults such as Tori Ecosystem Vault and Earn ctUSD.
+        # Extra deposit-only matches are still filtered by the later
+        # ``probe_vaults()`` feature-detection stage before export.
+        return self.deposit_count > 0
 
 
 def get_brink_vault_contract(web3):
@@ -102,6 +124,38 @@ def get_royco_tranche_event_contract(web3):
     return get_contract(
         web3,
         "royco/RoycoSeniorTranche.json",
+    )
+
+
+def get_upshift_multi_asset_event_contract(web3):
+    """Get Upshift multi-asset vault interface for custom flow events.
+
+    Upshift ``multiAssetVault`` contracts can accept multiple deposit assets and
+    therefore do not emit the standard ERC-4626
+    ``Deposit(address,address,uint256,uint256)`` event. Their vault-local
+    deposit event is:
+
+    - ``Deposit(address assetIn, uint256 amountIn, uint256 shares, address indexed senderAddr, address indexed receiverAddr)``
+    - ``WithdrawalRequested(uint256 shares, address indexed holderAddr, address indexed receiverAddr)``
+    - ``WithdrawalProcessed(uint256 assetsAmount, address indexed receiverAddr)``
+
+    The deposit event topic is
+    ``0xc436f473cd90c9b4dd731856a14b80f713d384a1688a506d4230140c5b36d5cd``.
+    This was observed on Ethereum mainnet Upshift/RockawayX vaults:
+
+    - `Tori Ecosystem Vault on Etherscan <https://etherscan.io/address/0xcd69123b3FBBfC666E1f6a501da27B564C00De54>`__
+    - `Earn ctUSD on Etherscan <https://etherscan.io/address/0xc87DBBB8C67e4F19fCD2E297c05937567b2572Ce>`__
+    - `Shared implementation on Etherscan <https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code>`__
+    - `Upshift API reference <https://docs.upshift.finance/developer-docs/api-reference>`__
+
+    Both vault addresses are TransparentUpgradeableProxy contracts whose public
+    explorer ABI exposes only proxy events. We keep this event-only ABI so lead
+    discovery can match the implementation-level log topic emitted at the proxy
+    address without depending on a single implementation address.
+    """
+    return get_contract(
+        web3,
+        "upshift/IMultiAssetVaultEvents.json",
     )
 
 
@@ -201,6 +255,35 @@ def get_royco_tranche_discovery_events(web3) -> list[Type[ContractEvent]]:
     ]
 
 
+def get_upshift_multi_asset_discovery_events(web3) -> list[Type[ContractEvent]]:
+    """Get Upshift multi-asset events we use in vault discovery.
+
+    Upshift has two vault families relevant for discovery:
+
+    - Older TokenizedAccount/ERC-4626-like vaults, such as Upshift AZT, emit
+      the standard ERC-4626 ``Deposit``/``Withdraw`` topics and are already
+      covered by :py:func:`get_standard_erc_4626_vault_discovery_events`.
+    - Newer ``multiAssetVault`` vaults emit a custom multi-asset ``Deposit``
+      topic because the event needs to include ``assetIn``. Some large vaults
+      have not emitted withdrawal events yet due to lock-up/pre-deposit
+      mechanics, so the deposit event alone must be enough to seed a lead.
+      When withdrawal request/processed events exist, we still scan them to
+      keep the diagnostic redemption counter useful.
+
+    `Upshift vault API <https://api.upshift.finance/v1/tokenized_vaults/0xcd69123b3FBBfC666E1f6a501da27B564C00De54>`__
+    reports Tori Ecosystem Vault as ``internal_type=multiAssetVault``.
+
+    :return:
+        List of Upshift multi-asset event types used for lead discovery.
+    """
+    IUpshiftMultiAssetVaultEvents = get_upshift_multi_asset_event_contract(web3)
+    return [
+        IUpshiftMultiAssetVaultEvents.events.Deposit,
+        IUpshiftMultiAssetVaultEvents.events.WithdrawalRequested,
+        IUpshiftMultiAssetVaultEvents.events.WithdrawalProcessed,
+    ]
+
+
 def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get all events used in vault discovery, including protocol-specific ones.
 
@@ -210,15 +293,18 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     - EmberVault VaultDeposit/RequestRedeemed events
     - TokenGateway Deposit(5-arg)/RedeemRequested/RedeemTokenGatewayDepreciated events
     - Royco tranche Redeem event
+    - Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
 
     :return:
         List of contract event types in order:
         [ERC4626.Deposit, ERC4626.Withdraw, BrinkVault.Deposited, BrinkVault.Withdrawal,
          EmberVault.VaultDeposit, EmberVault.RequestRedeemed,
          TokenGateway.Deposit, TokenGateway.RedeemRequested, TokenGateway.RedeemTokenGatewayDepreciated,
-         RoycoTranche.Redeem]
+         RoycoTranche.Redeem,
+         UpshiftMultiAsset.Deposit, UpshiftMultiAsset.WithdrawalRequested,
+         UpshiftMultiAsset.WithdrawalProcessed]
     """
-    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3)
+    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3) + get_upshift_multi_asset_discovery_events(web3)
 
 
 def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
@@ -236,6 +322,7 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
     ember_events = get_ember_vault_discovery_events(web3)
     token_gateway_events = get_token_gateway_discovery_events(web3)
     royco_tranche_events = get_royco_tranche_discovery_events(web3)
+    upshift_multi_asset_events = get_upshift_multi_asset_discovery_events(web3)
 
     return {
         get_topic_signature_from_event(erc4626_events[0]): VaultEventKind.deposit,
@@ -248,6 +335,9 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
         get_topic_signature_from_event(token_gateway_events[1]): VaultEventKind.withdraw,
         get_topic_signature_from_event(token_gateway_events[2]): VaultEventKind.withdraw,
         get_topic_signature_from_event(royco_tranche_events[0]): VaultEventKind.withdraw,
+        get_topic_signature_from_event(upshift_multi_asset_events[0]): VaultEventKind.deposit,
+        get_topic_signature_from_event(upshift_multi_asset_events[1]): VaultEventKind.withdraw,
+        get_topic_signature_from_event(upshift_multi_asset_events[2]): VaultEventKind.withdraw,
     }
 
 
@@ -288,6 +378,89 @@ class LeadScanReport:
     start_block: int = 0
     #: Accounting / diagnostics
     end_block: int = 0
+
+
+def _prepare_probe_leads(leads: dict[HexAddress, PotentialVaultMatch]) -> tuple[list[HexAddress], dict[str, PotentialVaultMatch], int]:
+    """Prepare lead data for the shared feature-probe pass.
+
+    :param leads:
+        Vault leads keyed by emitting contract address or canonical Mellow
+        Vault address.
+
+    :return:
+        Probe addresses, lower-case lead lookup and Mellow factory lead count.
+    """
+
+    addresses = []
+    leads_by_address = {}
+    seen_addresses = set()
+    mellow_lead_count = 0
+    for address, lead in leads.items():
+        lowered_address = address.lower()
+        leads_by_address[lowered_address] = lead
+
+        # Compatibility shim: older persisted lead objects may not have this slot; remove after reader state migration.
+        if getattr(lead, "mellow_factory_candidate", None) is not None:
+            mellow_lead_count += 1
+
+        if lowered_address in BROKEN_VAULT_CONTRACTS or lowered_address in seen_addresses:
+            continue
+        addresses.append(address)
+        seen_addresses.add(lowered_address)
+
+    return addresses, leads_by_address, mellow_lead_count
+
+
+def create_mellow_potential_vault_match(candidate: "MellowFactoryCandidate") -> PotentialVaultMatch:
+    """Create a normal lead object from a Mellow factory candidate.
+
+    :param candidate:
+        Decoded Mellow ``Factory.Created`` log.
+
+    :return:
+        Lead compatible with the shared ``probe_vaults()`` path.
+    """
+
+    return PotentialVaultMatch(
+        chain=candidate.chain,
+        address=candidate.address,
+        first_seen_at_block=candidate.created_block,
+        first_seen_at=candidate.created_at,
+        # Mellow flow events are emitted by DepositQueue contracts, not by the
+        # canonical Vault address discovered from Factory.Created. True flow
+        # counts need a second-stage queue scan; initial discovery and price
+        # scanning intentionally use feature-based activity-filter exemption.
+        deposit_count=0,
+        # Mellow redemption events are emitted by RedeemQueue contracts. Keep
+        # an integer zero for compatibility with numeric consumers;
+        # ERC4626Feature.mellow_like prevents these rows from being silently
+        # filtered out as inactive.
+        withdrawal_count=0,
+        mellow_factory_candidate=candidate,
+    )
+
+
+def add_mellow_factory_candidate_lead(
+    report: LeadScanReport,
+    leads: dict[HexAddress, PotentialVaultMatch],
+    candidate: "MellowFactoryCandidate",
+) -> None:
+    """Add a Mellow factory candidate to the shared lead map if new.
+
+    :param report:
+        Mutable scan report whose counters are updated.
+
+    :param leads:
+        Mutable lead map.
+
+    :param candidate:
+        Decoded Mellow ``Factory.Created`` candidate.
+    """
+
+    key = HexAddress(candidate.address.lower())
+    if key not in leads:
+        leads[key] = create_mellow_potential_vault_match(candidate)
+        report.new_leads += 1
 
 
 class VaultDiscoveryBase(abc.ABC):
@@ -344,17 +517,14 @@ class VaultDiscoveryBase(abc.ABC):
 
         assert type(leads) == dict, f"Expected dict, got {type(leads)}"
 
-        logger.info("Found %d leads", len(leads))
-        addresses = list(leads.keys())
+        addresses, leads_by_address, mellow_lead_count = _prepare_probe_leads(leads)
+        logger.info("Found %d vault leads, of which %d are Mellow factory leads", len(leads), mellow_lead_count)
         good_vaults = broken_vaults = 0
 
         if display_progress:
             progress_bar_desc = f"Identifying vaults, using {self.max_workers} workers"
         else:
             progress_bar_desc = None
-
-        # Filter out known bad vaults
-        addresses = [a for a in addresses if a.lower() not in BROKEN_VAULT_CONTRACTS]
 
         for feature_probe in probe_vaults(
             chain,
@@ -366,8 +536,40 @@ class VaultDiscoveryBase(abc.ABC):
         ):
             if feature_probe.address.lower() in BROKEN_VAULT_CONTRACTS:
                 logger.warning(f"Skipping known broken vault {feature_probe.address}")
+                continue
 
-            lead = leads[feature_probe.address]
+            address_key = feature_probe.address.lower()
+            lead = leads_by_address[address_key]
+            # Compatibility shim: older persisted lead objects may not have this slot; remove after reader state migration.
+            candidate = getattr(lead, "mellow_factory_candidate", None)
+            if candidate is not None:
+                features = set(feature_probe.features)
+                features.discard(ERC4626Feature.broken)
+                features.add(ERC4626Feature.mellow_like)
+
+                detection = ERC4262VaultDetection(
+                    chain=chain,
+                    address=feature_probe.address,
+                    features=features,
+                    first_seen_at_block=candidate.created_block,
+                    first_seen_at=candidate.created_at,
+                    updated_at=native_datetime_utc_now(),
+                    # Mellow flow events are emitted by DepositQueue contracts,
+                    # not by the canonical Vault address discovered from
+                    # Factory.Created. True flow counts need a second-stage
+                    # queue scan; initial discovery and price scanning
+                    # intentionally use feature-based activity-filter exemption
+                    # instead.
+                    deposit_count=0,
+                    # Mellow redemption events are emitted by RedeemQueue
+                    # contracts. Keep an integer zero for compatibility with
+                    # numeric consumers; ERC4626Feature.mellow_like prevents
+                    # these rows from being silently filtered out as inactive.
+                    redeem_count=0,
+                )
+                report.detections[feature_probe.address] = detection
+                good_vaults += 1
+                continue
 
             detection = ERC4262VaultDetection(
                 chain=chain,
@@ -387,7 +589,7 @@ class VaultDiscoveryBase(abc.ABC):
                 good_vaults += 1
 
         logger.info(
-            "Found %d good ERC-4626 vaults, %d broken vaults",
+            "Found %d good ERC-4626/Mellow vaults, %d broken vaults",
             good_vaults,
             broken_vaults,
         )

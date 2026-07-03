@@ -85,6 +85,17 @@ Files come in two shapes: *standard* (one project per symbol) and *entries*
     contract_addresses:                   # known on-chain deployments
       - chain: ethereum                   # chain slug (ethereum, arbitrum, base, …)
         address: '0xA0b8...'             # checksummed ERC-20 address
+    source_currency: usd                  # nominal currency this token tracks, e.g. usd, eur, jpy
+    source_currency_source: manual        # manual values can drive depeg checks; inferred/empty values cannot
+    source_currency_usd_rate: 1.0         # USD per one source-currency unit used for native depeg checks
+    source_currency_usd_rate_date: '2026-06-26'  # currency API calendar date for the FX rate
+    source_currency_usd_rate_fetched_at: '2026-06-26T12:00:00'  # when our updater read the FX rate
+    source_currency_usd_rate_source: fawazahmed0 # currency API source column for the FX rate
+    usd_rate: 0.9998                      # latest token price in USD from CoinGecko
+    usd_rate_fetched_at: '2026-06-26T12:00:00' # when our updater fetched the USD rate
+    peg_rate: 0.9998                      # latest token price in source_currency units
+    peg_rate_currency: usd                # currency key used for the native depeg check
+    depegged_at: ''                       # sticky depeg marker, manually cleared by operators
     checks:                               # automated liveness checks (omitted if checks not run yet)
       twitter_last_post_at: '2026-03-17' # YYYY-MM-DD of most recent post, or empty string
       domain_up_at: '2026-03-17'         # YYYY-MM-DD when homepage last responded, or empty string
@@ -113,6 +124,17 @@ The top level holds only ``symbol``, ``slug``, ``category``, and optionally
         contract_addresses:
           - chain: ethereum
             address: '0x09D4...'
+        source_currency: usd
+        source_currency_source: manual
+        source_currency_usd_rate: 1.0
+        source_currency_usd_rate_date: '2026-06-26'
+        source_currency_usd_rate_fetched_at: '2026-06-26T12:00:00'
+        source_currency_usd_rate_source: fawazahmed0
+        usd_rate: 0.9998
+        usd_rate_fetched_at: '2026-06-26T12:00:00'
+        peg_rate: 0.9998
+        peg_rate_currency: usd
+        depegged_at: ''
         checks:
           twitter_last_post_at: ''
           domain_up_at: '2026-03-17'
@@ -279,6 +301,8 @@ STABLECOIN_LIKE = set(
         "SILK",
         "STUSD",
         "SUSD",
+        "tGBP",
+        "TGBP",
         "TCNH",
         "TOR",
         "TRYB",
@@ -506,6 +530,43 @@ class StablecoinMetadata(TypedDict):
     #: Automated liveness checks (``None`` if checks have not been run yet)
     checks: StablecoinChecks | None
 
+    #: Source currency this stablecoin is intended to track, e.g. ``usd`` or ``eur``.
+    #:
+    #: Used by :py:func:`eth_defi.feed.stablecoin_rate.refresh_stablecoin_rates`
+    #: to choose the native depeg-check currency and exported through
+    #: :py:func:`build_stablecoin_metadata_json`.
+    source_currency: str | None
+
+    #: How ``source_currency`` was selected, e.g. ``manual``.
+    #:
+    #: Only manually curated values are allowed to drive depeg decisions in
+    #: :py:func:`eth_defi.feed.stablecoin_rate.refresh_stablecoin_rates`.
+    source_currency_source: str | None
+
+    #: USD per one source-currency unit used for native depeg checks.
+    #:
+    #: For non-USD stablecoins this is read from
+    #: :py:class:`eth_defi.currency_api.database.CurrencyRateDatabase` by
+    #: :py:func:`eth_defi.feed.stablecoin_rate.refresh_stablecoin_rates`.
+    source_currency_usd_rate: float | None
+
+    #: Calendar date of the source-currency FX rate.
+    #:
+    #: Rows older than the refresh policy are ignored by
+    #: :py:func:`eth_defi.feed.stablecoin_rate.read_latest_usd_per_source_currency`.
+    source_currency_usd_rate_date: ISODateString | None
+
+    #: Time when the source-currency FX rate was read by our updater.
+    #:
+    #: Exported as an ISO timestamp by :py:func:`build_stablecoin_metadata_json`.
+    source_currency_usd_rate_fetched_at: ISODateTimeString | None
+
+    #: Provider/source for the source-currency FX rate.
+    #:
+    #: Matches the currency API source column selected by
+    #: :py:func:`eth_defi.feed.stablecoin_rate.refresh_stablecoin_rates`.
+    source_currency_usd_rate_source: str | None
+
     #: CoinGecko API coin id used for price refreshes.
     coingecko_id: str | None
 
@@ -517,6 +578,12 @@ class StablecoinMetadata(TypedDict):
 
     #: Last time the CoinGecko id returned a valid price.
     coingecko_id_verified_at: ISODateTimeString | None
+
+    #: Last time CoinGecko id verification failed.
+    coingecko_id_verification_failed_at: ISODateTimeString | None
+
+    #: Human-readable reason for the latest CoinGecko id verification failure.
+    coingecko_id_verification_failed_reason: str | None
 
     #: Latest USD rate from the stablecoin rate feed.
     usd_rate: float | None
@@ -712,6 +779,11 @@ def get_stablecoin_available_logos(slug: str) -> dict[str, bool]:
 def build_stablecoin_metadata_json(yaml_path: Path, public_url: str = "") -> list[StablecoinMetadata]:
     """Build StablecoinMetadata list from a YAML file.
 
+    The returned dictionaries expose the public
+    :py:class:`StablecoinMetadata` JSON contract, including source-currency
+    fields maintained by
+    :py:func:`eth_defi.feed.stablecoin_rate.refresh_stablecoin_rates`.
+
     :param yaml_path:
         Path to the stablecoin metadata YAML file
 
@@ -719,7 +791,7 @@ def build_stablecoin_metadata_json(yaml_path: Path, public_url: str = "") -> lis
         Public base URL for constructing logo URLs (e.g. ``https://pub-xyz.r2.dev``)
 
     :return:
-        List of StablecoinMetadata dicts ready for JSON export
+        List of :py:class:`StablecoinMetadata` dicts ready for JSON export.
     """
     data = read_stablecoin_metadata(yaml_path)
     symbol = data["symbol"]
@@ -745,10 +817,18 @@ def build_stablecoin_metadata_json(yaml_path: Path, public_url: str = "") -> lis
 
     def parse_rate_fields(source: dict) -> dict[str, str | float | None]:
         return {
+            "source_currency": normalise(source.get("source_currency")),
+            "source_currency_source": normalise(source.get("source_currency_source")),
+            "source_currency_usd_rate": normalise_float(source.get("source_currency_usd_rate")),
+            "source_currency_usd_rate_date": normalise(source.get("source_currency_usd_rate_date")),
+            "source_currency_usd_rate_fetched_at": normalise(source.get("source_currency_usd_rate_fetched_at")),
+            "source_currency_usd_rate_source": normalise(source.get("source_currency_usd_rate_source")),
             "coingecko_id": normalise(source.get("coingecko_id")),
             "coingecko_link": normalise(source.get("coingecko_link")),
             "coingecko_id_source": normalise(source.get("coingecko_id_source")),
             "coingecko_id_verified_at": normalise(source.get("coingecko_id_verified_at")),
+            "coingecko_id_verification_failed_at": normalise(source.get("coingecko_id_verification_failed_at")),
+            "coingecko_id_verification_failed_reason": normalise(source.get("coingecko_id_verification_failed_reason")),
             "usd_rate": normalise_float(source.get("usd_rate")),
             "usd_rate_fetched_at": normalise(source.get("usd_rate_fetched_at")),
             "usd_rate_updated_at": normalise(source.get("usd_rate_updated_at")),

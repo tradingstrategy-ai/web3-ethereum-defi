@@ -24,6 +24,7 @@ def make_metrics_row(
     peak_nav: float = 10_000.0,
     last_updated_at: object | None = None,
     risk: object | None = None,
+    risk_numeric: int | None = None,
     protocol_slug: str | None = "morpho",
     curator_slug: str | None = "gauntlet",
 ) -> dict:
@@ -42,6 +43,7 @@ def make_metrics_row(
         "current_nav": peak_nav,
         "last_updated_at": last_updated_at,
         "risk": risk,
+        "risk_numeric": risk_numeric,
     }
 
 
@@ -376,20 +378,32 @@ def test_sticky_export_structural_suppression_recovers_on_clean_current_row():
     assert "suppressed_at" not in entry
 
 
-def test_sticky_export_blacklisted_rows_are_suppressed():
-    """Blacklisted rows are suppressed using the real exported risk label.
+def test_sticky_export_blacklisted_rows_are_exported():
+    """Blacklisted rows are exported using the real exported risk label.
 
     1. Run a current qualifying row with the blacklist enum
-    2. Assert it is suppressed immediately
-    3. Seed a stale fallback row with the serialised Blacklisted label
-    4. Assert stale fallback is also suppressed
+    2. Assert it is exported immediately
+    3. Seed a clean fallback row and current below-threshold blacklisted row
+    4. Assert current blacklist replaces the clean fallback
+    5. Seed a legacy suppressed blacklist state with a current blacklisted row
+    6. Assert legacy blacklist suppression recovers
+    7. Seed a legacy stale blacklist suppression with no current row
+    8. Assert legacy stale blacklist suppression recovers
+    9. Seed a stale fallback row with the serialised Blacklisted label
+    10. Assert stale blacklisted fallback remains visible
     """
     # 1. Run a current qualifying row with the blacklist enum
     module = get_top_vaults_json_module()
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
     state = module.make_empty_sticky_export_state(now)
     key = "1-0xabcd000000000000000000000000000000000001"
-    df = make_lifetime_df(make_metrics_row(risk=module.VaultTechnicalRisk.blacklisted))
+    assert module.VaultTechnicalRisk.blacklisted.value == 999
+    df = make_lifetime_df(
+        make_metrics_row(
+            risk=module.VaultTechnicalRisk.blacklisted,
+            risk_numeric=module.VaultTechnicalRisk.blacklisted.value,
+        )
+    )
 
     first = module.apply_sticky_export_state(
         df,
@@ -399,11 +413,109 @@ def test_sticky_export_blacklisted_rows_are_suppressed():
         stale_warning_age_days=14,
     )
 
-    # 2. Assert it is suppressed immediately
-    assert first.vaults == []
-    assert first.state["vaults"][key]["suppression_reason"] == "current_blacklisted_record"
+    # 2. Assert it is exported immediately
+    assert len(first.vaults) == 1
+    assert first.vaults[0]["risk"] == "Blacklisted"
+    assert first.vaults[0]["risk_numeric"] == module.VaultTechnicalRisk.blacklisted.value
+    assert first.state["vaults"][key]["status"] == "active"
+    assert "suppression_reason" not in first.state["vaults"][key]
 
-    # 3. Seed a stale fallback row with the serialised Blacklisted label
+    # 3. Seed a clean fallback row and current below-threshold blacklisted row
+    below_threshold_state = module.make_empty_sticky_export_state(now)
+    below_threshold_state["vaults"][key] = {
+        "chain_id": 1,
+        "address": "0xabcd000000000000000000000000000000000001",
+        "status": "active",
+        "first_qualified_at": "2026-06-20T00:00:00Z",
+        "last_qualified_at": "2026-06-20T00:00:00Z",
+        "last_exported_record": make_export_record(module, address="0xabcd000000000000000000000000000000000001", risk=module.VaultTechnicalRisk.low),
+    }
+    below_threshold = module.apply_sticky_export_state(
+        make_lifetime_df(
+            make_metrics_row(
+                address="0xabcd000000000000000000000000000000000001",
+                peak_nav=1_000.0,
+                risk=module.VaultTechnicalRisk.blacklisted,
+                risk_numeric=module.VaultTechnicalRisk.blacklisted.value,
+            )
+        ),
+        below_threshold_state,
+        now=now,
+        threshold_tvl=5_000.0,
+        stale_warning_age_days=14,
+    )
+
+    # 4. Assert current blacklist replaces the clean fallback
+    assert len(below_threshold.vaults) == 1
+    assert below_threshold.vaults[0]["risk"] == "Blacklisted"
+    assert below_threshold.vaults[0]["stale_export"] is False
+
+    # 5. Seed a legacy suppressed blacklist state with a current blacklisted row
+    legacy_state = module.make_empty_sticky_export_state(now)
+    legacy_state["vaults"][key] = {
+        "chain_id": 1,
+        "address": "0xabcd000000000000000000000000000000000001",
+        "status": "suppressed",
+        "suppression_reason": "current_blacklisted_record",
+        "suppressed_at": "2026-06-20T00:00:00Z",
+        "first_qualified_at": "2026-06-20T00:00:00Z",
+        "last_qualified_at": "2026-06-20T00:00:00Z",
+    }
+    legacy = module.apply_sticky_export_state(
+        make_lifetime_df(
+            make_metrics_row(
+                address="0xabcd000000000000000000000000000000000001",
+                peak_nav=1_000.0,
+                risk=module.VaultTechnicalRisk.blacklisted,
+                risk_numeric=module.VaultTechnicalRisk.blacklisted.value,
+            )
+        ),
+        legacy_state,
+        now=now,
+        threshold_tvl=5_000.0,
+        stale_warning_age_days=14,
+    )
+
+    # 6. Assert legacy blacklist suppression recovers
+    assert len(legacy.vaults) == 1
+    assert legacy.vaults[0]["risk"] == "Blacklisted"
+    assert legacy.state["vaults"][key]["status"] == "active"
+    assert "suppression_reason" not in legacy.state["vaults"][key]
+
+    # 7. Seed a legacy stale blacklist suppression with no current row
+    legacy_stale_state = module.make_empty_sticky_export_state(now)
+    legacy_stale_state["vaults"][key] = {
+        "chain_id": 1,
+        "address": "0xabcd000000000000000000000000000000000001",
+        "status": "suppressed",
+        "suppression_reason": "stale_blacklisted_record",
+        "suppressed_at": "2026-06-20T00:00:00Z",
+        "first_qualified_at": "2026-06-20T00:00:00Z",
+        "last_qualified_at": "2026-06-20T00:00:00Z",
+        "last_exported_record": make_export_record(
+            module,
+            address="0xabcd000000000000000000000000000000000001",
+            risk="Blacklisted",
+            risk_numeric=module.VaultTechnicalRisk.blacklisted.value,
+        ),
+    }
+    legacy_stale = module.apply_sticky_export_state(
+        make_lifetime_df(),
+        legacy_stale_state,
+        now=now,
+        threshold_tvl=5_000.0,
+        stale_warning_age_days=14,
+    )
+
+    # 8. Assert legacy stale blacklist suppression recovers
+    assert len(legacy_stale.vaults) == 1
+    assert legacy_stale.vaults[0]["risk"] == "Blacklisted"
+    assert legacy_stale.vaults[0]["risk_numeric"] == module.VaultTechnicalRisk.blacklisted.value
+    assert legacy_stale.vaults[0]["fallback_reason"] == "legacy_blacklist_suppression_recovered"
+    assert legacy_stale.state["vaults"][key]["status"] == "active"
+    assert "suppression_reason" not in legacy_stale.state["vaults"][key]
+
+    # 9. Seed a stale fallback row with the serialised Blacklisted label
     fallback_state = module.make_empty_sticky_export_state(now)
     fallback_state["vaults"][key] = {
         "chain_id": 1,
@@ -411,10 +523,15 @@ def test_sticky_export_blacklisted_rows_are_suppressed():
         "status": "active",
         "first_qualified_at": "2026-06-20T00:00:00Z",
         "last_qualified_at": "2026-06-20T00:00:00Z",
-        "last_exported_record": make_export_record(module, address="0xabcd000000000000000000000000000000000001", risk="Blacklisted"),
+        "last_exported_record": make_export_record(
+            module,
+            address="0xabcd000000000000000000000000000000000001",
+            risk="Blacklisted",
+            risk_numeric=module.VaultTechnicalRisk.blacklisted.value,
+        ),
     }
 
-    # 4. Assert stale fallback is also suppressed
+    # 10. Assert stale blacklisted fallback remains visible
     second = module.apply_sticky_export_state(
         make_lifetime_df(),
         fallback_state,
@@ -422,8 +539,11 @@ def test_sticky_export_blacklisted_rows_are_suppressed():
         threshold_tvl=5_000.0,
         stale_warning_age_days=14,
     )
-    assert second.vaults == []
-    assert second.state["vaults"][key]["suppression_reason"] == "stale_blacklisted_record"
+    assert len(second.vaults) == 1
+    assert second.vaults[0]["risk"] == "Blacklisted"
+    assert second.vaults[0]["risk_numeric"] == module.VaultTechnicalRisk.blacklisted.value
+    assert second.vaults[0]["stale_export"] is True
+    assert second.state["vaults"][key]["status"] == "active"
 
 
 def test_sticky_export_uses_single_state_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

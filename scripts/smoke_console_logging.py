@@ -55,7 +55,7 @@ def emit_sample_logs() -> None:
         message = "Intentional smoke-test exception"
         raise ValueError(message)
     except ValueError:
-        logger.exception("EXCEPTION line with rich traceback")
+        logger.exception("EXCEPTION line with compact traceback")
 
 
 def emit_threaded_logs() -> None:
@@ -165,14 +165,6 @@ def configure_file_logging() -> None:
     logger.info("Plain file log target: %s", log_file)
 
 
-def configure_docker_autodetect() -> None:
-    """Configure logging with Docker autodetection enabled."""
-
-    configure_logging(
-        autodetect_docker_log=True,
-    )
-
-
 def main() -> None:
     """Run all console logging smoke scenarios."""
 
@@ -182,7 +174,6 @@ def main() -> None:
     run_scenario("Scenario 4: simplified Rich output", configure_simplified)
     run_scenario("Scenario 5: Rich output with coloured threads", configure_thread_colours, include_threads=True)
     run_scenario("Scenario 6: Rich console plus plain file log", configure_file_logging)
-    run_scenario("Scenario 7: Docker autodetect", configure_docker_autodetect)
 
 
 if __name__ == "__main__":

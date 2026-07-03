@@ -108,6 +108,10 @@ Environment variables:
     - SKIP_SPARKLINES: "true" to skip sparkline image export to R2 (default: "false")
     - SKIP_METADATA: "true" to skip protocol/stablecoin metadata export to R2 (default: "false")
     - SKIP_DATA: "true" to skip data file (parquet, pickle) export to R2 (default: "false")
+    - REFRESH_STABLECOIN_RATES: "false" to skip CoinGecko stablecoin rate refresh before metadata export (default: "true")
+    - FORCE_STABLECOIN_RATE_REFRESH: "true" to bypass the same-day stablecoin rate gate (default: "false")
+    - STABLECOIN_RATE_TIMEOUT: CoinGecko timeout in seconds for stablecoin rate refresh (default: "20")
+    - COINGECKO_DEMO_API_KEY: Optional CoinGecko demo API key for stablecoin rate refreshes
     - JSON_RPC_<CHAIN>: RPC URL for each chain (required per chain)
     - LOOP_INTERVAL_SECONDS: Seconds between ticks in looped mode (default: "0" = single run)
     - SCAN_CYCLES: Per-chain/protocol cycle overrides, e.g. "Ethereum=8h,Base=8h,Arbitrum=8h,Hypercore=4h,GRVT=4h,Lighter=4h"
@@ -123,7 +127,17 @@ Example CHAIN_ORDER for all chains:
     CHAIN_ORDER="Sonic, Monad, Hyperliquid, Base, Arbitrum, Ethereum, Linea, Gnosis, Zora, Polygon, Avalanche, Berachain, Unichain, Hemi, Plasma, Binance, Mantle, Katana, Ink, Blast, Soneium, Optimism"
 """
 
-from eth_defi.vault.scan_all_chains import main
+import os
+
+
+def _print_early_startup_banner() -> None:
+    """Print a boot marker before importing the scanner implementation."""
+    log_level = os.environ.get("LOG_LEVEL", "warning")
+    print(f"Starting vault scanner, LOG_LEVEL={log_level}", flush=True)
+
 
 if __name__ == "__main__":
+    _print_early_startup_banner()
+    from eth_defi.vault.scan_all_chains import main
+
     main()

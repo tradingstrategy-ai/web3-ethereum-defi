@@ -1,0 +1,47 @@
+name: Mellow
+slug: mellow
+short_description: |
+  Vault infrastructure for curated on-chain structured products and platform Earn programmes.
+long_description: |
+  Mellow provides vault smart contract primitives for deploying curated on-chain structured
+  products with explicit risk constraints. Core Vaults separate depositors from curators:
+  depositors supply capital, while curators operate strategies inside on-chain permissions,
+  limits and execution rules.
+
+  Mellow Core Vaults are not ERC-4626 contracts. A canonical vault coordinates a component
+  graph that includes tokenised share managers, per-asset deposit and redemption queues,
+  an oracle, fee manager, risk manager and controlled subvaults. The shared vault scanner
+  treats Mellow as a sibling EVM vault architecture and routes factory-discovered Core
+  Vaults through the Mellow adapter for metadata, fee and share-price reads.
+
+  Key features:
+
+  - Modular Core Vault architecture for curated on-chain structured products
+  - On-chain risk boundaries through permissions, verifier contracts and asset limits
+  - Oracle-driven share accounting and asynchronous deposit and redemption queues
+  - Tokenised ShareManager support for vault share supply and ERC-20 metadata
+  - Public Core Vault factory deployments on Ethereum mainnet, Plasma, Arbitrum and Monad
+fee_description: |
+  Mellow Core Vault fees are configured per vault in the FeeManager. The architecture
+  supports deposit fees, redeem fees, performance fees and a time-based protocol fee.
+  Fee rates are stored in D6 precision, and fees are paid in vault shares rather than
+  directly in the underlying assets.
+
+  In the shared vault metadata model the adapter maps Mellow's time-based protocol fee
+  to the management-fee field, and maps the configured performance, deposit and redeem
+  fees to their corresponding shared fee fields. Individual vaults can configure these
+  values differently.
+links:
+  homepage: https://mellow.finance/
+  app: https://app.mellow.finance/
+  twitter: https://x.com/Mellowprotocol
+  github: https://github.com/mellow-finance/flexible-vaults
+  documentation: https://docs.mellow.finance/core-vaults
+  defillama: https://defillama.com/protocol/mellow-protocol
+  audits: https://docs.mellow.finance/security
+  fees: https://docs.mellow.finance/core-vaults/architecture
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/mellow
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/mellow/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x014e6DA8F283C4aF65B2AA0f201438680A004452
+  - https://etherscan.io/address/0x0000000f9686896836C39cf721141922Ce42639f

@@ -166,6 +166,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # Aave - v4 Tokenization Spoke; blue-chip lending protocol, audited (ChainSecurity)
     # and a 6-week public security contest, open source contracts.
     "Aave": VaultTechnicalRisk.low,
+    # Mellow - audited Core Vault architecture with verified component contracts.
+    "Mellow": VaultTechnicalRisk.low,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
@@ -322,10 +324,14 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x4D55F76Ce2dBBAE7B48661bef9bD144Ce0C9091b",  # Age old mainnet contract
     "0x2136bbBa2eDcA21AFDddee838fFf19eA70D10F03",  # Age old mainnet contract
     "0x76f586589fc4a15713DB986d97Eb6fDC6ff078F2",  # Age old mainnet contract
+    "0x728974844947E09B77f01BA1eF115230DdC8A9A0",  # DecentrEx, EtherDelta-style DEX from 2017 (block 4,544,275) - probe selectors consume >600M gas and poison the multicall batch
+    "0x7d4D20D71c331dF3d5675112CA5A873b3243D3f2",  # ReciveAndSend, 2017 mainnet contract (block 4,706,802) - burns all forwarded gas before reverting, so batched probe calls exhaust the multicall gas limit
+    "0x9462EEb9124C99731Cc7617348b3937A8f00B11F",  # Radex, EtherDelta-style DEX from 2017 (block 4,710,488) - dead non-vault contract repeatedly probed in the same failing multicall batches
     "0x6a6E4ad4a5ca14B940Cd6949b1A90f947AE21c19",  # Broken Gains vault on Berachain - its open PnL feed contract (0x5705554B) causes multicall failures
     "0x5705554BAa86Da01fF4A82d29a1598c5B3A8B476",  # Open PnL feed helper contract for broken Gains vault on Berachain
     "0x8fF6aDBC653405245B6b686E31b14A7da7000281",  # BNB broken contract
     "0x6949bcab16c0B389095C5b744f6FBF9741A1b3b6",  # Test vault on Monad
+    "0x5a8aFb250525aB8Fa85EF9a5f260Eb11B77a409a",  # Age old mainnet contract from 2017 (block 4,655,173) - burns all forwarded gas before reverting, poisoning the multicall probe batch with out-of-gas (-32003)
 }
 
 #: Cause excessive gas fees, RPC havoc.

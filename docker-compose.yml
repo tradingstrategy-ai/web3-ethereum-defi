@@ -109,6 +109,8 @@ services:
       # Core3 risk intelligence DuckDB path override
       CORE3_API_KEY: ${CORE3_API_KEY:-}
       CORE3_DATABASE_PATH: ${CORE3_DATABASE_PATH:-}
+      CURRENCY_API_DB_PATH: ${CURRENCY_API_DB_PATH:-}
+      CURRENCY_API_DATABASE_PATH: ${CURRENCY_API_DATABASE_PATH:-}
       CORE3_MAX_WORKERS: ${CORE3_MAX_WORKERS:-8}
       CORE3_FETCH_SECTIONS: ${CORE3_FETCH_SECTIONS:-true}
 
@@ -121,6 +123,12 @@ services:
 
       # Hyperliquid backfill script
       WEBSHARE_API_KEY: ${WEBSHARE_API_KEY:-}
+
+      # Stablecoin metadata bundle exchange-rate refresh.
+      REFRESH_STABLECOIN_RATES: ${REFRESH_STABLECOIN_RATES:-true}
+      FORCE_STABLECOIN_RATE_REFRESH: ${FORCE_STABLECOIN_RATE_REFRESH:-false}
+      STABLECOIN_RATE_TIMEOUT: ${STABLECOIN_RATE_TIMEOUT:-20}
+      COINGECKO_DEMO_API_KEY: ${COINGECKO_DEMO_API_KEY:-}
 
       # Hyperliquid manual vault review Google Sheet sync.
       #
@@ -169,6 +177,8 @@ services:
       - ./logs:/usr/src/web3-ethereum-defi/logs:rw
       # Expose token cache files and other cache files reused by the vault scanner
       - ${HOME}/.cache:/root/.cache:rw
+      # Persist daily CoinGecko stablecoin rate refreshes written before metadata upload.
+      - ./eth_defi/data/stablecoins:/usr/src/web3-ethereum-defi/eth_defi/data/stablecoins:rw
 
   # Persistent: looped vault scanner, ticks every 1h, scans chains on configurable cycles.
   # Ethereum/Base/Arbitrum on 8h, Hyperliquid/GRVT/Lighter/Hibachi on 4h, other EVM chains on 24h.
@@ -226,6 +236,10 @@ services:
       MAX_WORKERS: ${MAX_WORKERS:-50}
       HYPERSYNC_CONCURRENCY: ${HYPERSYNC_CONCURRENCY:-1}
       WEBSHARE_API_KEY: ${WEBSHARE_API_KEY:-}
+      REFRESH_STABLECOIN_RATES: ${REFRESH_STABLECOIN_RATES:-true}
+      FORCE_STABLECOIN_RATE_REFRESH: ${FORCE_STABLECOIN_RATE_REFRESH:-false}
+      STABLECOIN_RATE_TIMEOUT: ${STABLECOIN_RATE_TIMEOUT:-20}
+      COINGECKO_DEMO_API_KEY: ${COINGECKO_DEMO_API_KEY:-}
 
       R2_SPARKLINE_BUCKET_NAME: ${R2_SPARKLINE_BUCKET_NAME:-}
       R2_SPARKLINE_ENDPOINT_URL: ${R2_SPARKLINE_ENDPOINT_URL:-}
@@ -258,6 +272,8 @@ services:
       # Core3 risk intelligence DuckDB path override
       CORE3_API_KEY: ${CORE3_API_KEY:-}
       CORE3_DATABASE_PATH: ${CORE3_DATABASE_PATH:-}
+      CURRENCY_API_DB_PATH: ${CURRENCY_API_DB_PATH:-}
+      CURRENCY_API_DATABASE_PATH: ${CURRENCY_API_DATABASE_PATH:-}
       CORE3_MAX_WORKERS: ${CORE3_MAX_WORKERS:-8}
       CORE3_FETCH_SECTIONS: ${CORE3_FETCH_SECTIONS:-true}
 
@@ -293,6 +309,7 @@ services:
       - ${HOME}/.tradingstrategy:/root/.tradingstrategy:rw
       - ./logs:/usr/src/web3-ethereum-defi/logs:rw
       - ${HOME}/.cache:/root/.cache:rw
+      - ./eth_defi/data/stablecoins:/usr/src/web3-ethereum-defi/eth_defi/data/stablecoins:rw
 
   # Persistent: continuously collects vault-related posts from RSS, LinkedIn, and X/Twitter.
   # Started by `docker compose up -d`.
@@ -316,6 +333,10 @@ services:
       LOOP_INTERVAL_SECONDS: ${POST_SCAN_LOOP_INTERVAL:-28800}
       LOG_LEVEL: ${LOG_LEVEL:-warning}
       WEBSHARE_API_KEY: ${WEBSHARE_API_KEY:-}
+      REFRESH_STABLECOIN_RATES: ${REFRESH_STABLECOIN_RATES:-true}
+      FORCE_STABLECOIN_RATE_REFRESH: ${FORCE_STABLECOIN_RATE_REFRESH:-false}
+      STABLECOIN_RATE_TIMEOUT: ${STABLECOIN_RATE_TIMEOUT:-20}
+      COINGECKO_DEMO_API_KEY: ${COINGECKO_DEMO_API_KEY:-}
     mem_limit: 2g
     mem_reservation: 512m
     volumes:
@@ -323,4 +344,6 @@ services:
       # The scanner will update YAML files with failed RSS feeds and Twitter accounts,
       # then we manually push them to github now and then
       - ./eth_defi/data/feeds:/usr/src/web3-ethereum-defi/eth_defi/data/feeds:rw
+      # Persist daily CoinGecko stablecoin rate refreshes written by the post scanner.
+      - ./eth_defi/data/stablecoins:/usr/src/web3-ethereum-defi/eth_defi/data/stablecoins:rw
       - ./logs:/usr/src/web3-ethereum-defi/logs:rw

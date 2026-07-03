@@ -248,6 +248,40 @@ def test_calculate_lifetime_metrics(
     # assert "period_results" not in formatted.columns
 
 
+@pytest.mark.parametrize(
+    ("bad_flag", "expected_note"),
+    [
+        (VaultFlag.unofficial, "Vault has bad scan flags: unofficial"),
+        (VaultFlag.morpho_issues, "Vault has bad scan flags: morpho_issues"),
+    ],
+)
+def test_calculate_lifetime_metrics_blacklists_scanned_bad_flags(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+    bad_flag: VaultFlag,
+    expected_note: str,
+):
+    """Scanned bad flags override a cached non-blacklisted risk classification."""
+    vault_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
+    spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[spec])
+    vault_row["_risk"] = VaultTechnicalRisk.low
+    vault_row["_flags"] = {bad_flag}
+    vault_rows = {spec: vault_row}
+    vault_prices = price_df.loc[price_df["id"] == vault_id]
+
+    metrics = calculate_lifetime_metrics(
+        vault_prices,
+        vault_rows,
+    )
+
+    row = metrics.iloc[0]
+    assert row["risk"] == VaultTechnicalRisk.blacklisted
+    assert row["risk_numeric"] == VaultTechnicalRisk.blacklisted.value
+    assert row["flags"] == {bad_flag}
+    assert row["notes"] == expected_note
+
+
 def test_calculate_period_metrics(
     vault_db: VaultDatabase,
     price_df: pd.DataFrame,

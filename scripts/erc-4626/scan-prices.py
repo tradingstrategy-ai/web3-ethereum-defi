@@ -99,7 +99,7 @@ except ImportError as e:
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
-from eth_defi.erc_4626.core import ERC4262VaultDetection
+from eth_defi.erc_4626.core import ERC4262VaultDetection, is_activity_filter_exempt
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
@@ -215,7 +215,11 @@ def main():
         detection = row["_detection_data"]
         address = detection.address
 
-        if detection.deposit_count < min_deposit_threshold and address.lower() not in HARDCODED_PROTOCOLS:
+        # Mellow Core Vault identities come from Factory.Created, while user
+        # flow events live on DepositQueue/RedeemQueue contracts. The metadata
+        # database stores zero counts for compatibility, so use the central
+        # feature-based exemption instead of looking at count field names.
+        if detection.deposit_count < min_deposit_threshold and address.lower() not in HARDCODED_PROTOCOLS and not is_activity_filter_exempt(detection):
             # print(f"Vault does not have enough deposits: {address}, has: {detection.deposit_count}, threshold {min_deposit_threshold}")
             continue
 

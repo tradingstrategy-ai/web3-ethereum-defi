@@ -179,6 +179,10 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Suppliers earn the Hub interest spread; Aave protocol revenue is taken as a reserve
     # factor on borrow interest, so yield is internalised in the Hub-derived share price.
     "Aave": VaultFeeMode.internalised_skimming,
+    # Mellow Core Vaults - FeeManager charges deposit, redeem, performance and
+    # time-based protocol fees in vault shares. Performance/protocol fees are
+    # minted as shares, while deposit/redeem fees reduce user share amounts.
+    "Mellow": VaultFeeMode.internalised_minting,
 }
 
 

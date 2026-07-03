@@ -53,6 +53,8 @@ def test_stablecoin_rate_side_job_uses_24h_gate(tmp_path: Path, monkeypatch: pyt
         stablecoin_data_dir=tmp_path / "stablecoins",
         stablecoin_rate_gate_path=gate_path,
         stablecoin_rate_timeout=7.5,
+        currency_api_db_path=tmp_path / "exchange-rates.duckdb",
+        currency_api_source="test-source",
     )
 
     first_summary = CollectorRunSummary()
@@ -63,6 +65,8 @@ def test_stablecoin_rate_side_job_uses_24h_gate(tmp_path: Path, monkeypatch: pyt
     assert calls[0]["data_dir"] == tmp_path / "stablecoins"
     assert calls[0]["force"] is False
     assert calls[0]["timeout"] == 7.5
+    assert calls[0]["currency_db_path"] == tmp_path / "exchange-rates.duckdb"
+    assert calls[0]["currency_source"] == "test-source"
     assert json.loads(gate_path.read_text())["last_succeeded_at"]
 
     second_summary = CollectorRunSummary()
@@ -272,6 +276,17 @@ def test_stablecoin_rate_side_job_same_day_failed_attempts_do_not_become_success
             return {}
 
     def fake_missing_price_get(url: str, params: dict[str, str], headers: dict[str, str], timeout: float) -> MissingPriceResponse:
+        if url == stablecoin_rate.COINGECKO_COINS_LIST_URL:
+            assert params["include_platform"] == "false"
+
+            class CoinLookupResponse(MissingPriceResponse):
+                """Small successful CoinGecko coins list response."""
+
+                def json(self) -> list[dict[str, object]]:
+                    """Return known CoinGecko ids."""
+                    return [{"id": "usd-coin"}]
+
+            return CoinLookupResponse()
         assert url == stablecoin_rate.COINGECKO_SIMPLE_PRICE_URL
         assert params["ids"] == "usd-coin"
         assert isinstance(headers, dict)

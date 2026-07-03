@@ -138,6 +138,62 @@ def test_identify_lagoon_curator_by_curator_metadata() -> None:
     assert slug == "722-capital"
 
 
+def test_identify_rockawayx_dashboard_vaults_by_address() -> None:
+    """RockawayX Dune dashboard vaults resolve by exact address.
+
+    Some RockawayX curated vaults carry partner or asset names instead of the
+    RockawayX brand, and two Midas Prime Morpho vaults would otherwise resolve
+    to the Midas curator by fuzzy matching. The address override preserves the
+    dashboard's curator assignment.
+
+    1. Resolve all EVM rows found on the RockawayX Dune dashboard.
+    2. Confirm co-branded and partner rows are overridden to RockawayX.
+    """
+
+    cases = [
+        (1, "Tori Ecosystem Vault", "0xcd69123b3FBBfC666E1f6a501da27B564C00De54", "upshift"),
+        (1, "Upshift ctUSD", "0xc87DBBB8C67e4F19fCD2E297c05937567b2572Ce", "upshift"),
+        (1329, "Feather PYUSD0", "0x6137dcfdd3c83fe2922b1cba4105d2e92b327a06", "feather"),
+        (1, "Y10K", "0x953972ea0C1703c58F09FB6fD2477Fdcf0FEe074", "ember"),
+        (1, "Huma USDC Main", "0x8aC91877b93330f52b2979a31a4879506021475c", "morpho"),
+        (1, "RockawayX YIELD USDC", "0xE0181090c22579B6A217f1522cbf8c9f1F0C1965", "morpho"),
+        (1, "mROX", "0x67E1F506B148d0Fc95a4E3fFb49068ceB6855c05", "midas"),
+        (1, "OnRe Core Vault", "0x0F0a9d3F0bc6006143c96E6995572b51413CB3c4", "accountable"),
+        (1, "OnRe Core Vault", "0xb9c317cAE7dd05eCb0c0925020e529934c96f84D", "accountable"),
+        (1, "RockawayX wETH", "0x64C18DCC4Ccb3b8D27877a4aeBB4C3126CB39cB9", "morpho"),
+        (56, "RockawayX YIELD PT", "0xb5a30e1fa2cf3c8dea882124b3ab5a47a27c5dd2", "lista"),
+        (1, "Figure USDC Main", "0xd65d6E8dbC3Cd3D12418199E6f4014dB3aaa0097", "morpho"),
+        (1, "RockawayX PRIME USDC", "0x5f829B1B473cBA86838E1B7BB7E144DbDE228e21", "morpho"),
+        (1, "Midas USDC Prime (Ethereum)", "0xe99A27169c2aA26a8f2757949d09Fa3f9A8f0B3B", "morpho"),
+        (8453, "Midas USDC Prime (Base)", "0xAE4181CFB5aaA08bbE77d269c6B595672b9F9Edc", "morpho"),
+    ]
+
+    for chain_id, vault_name, vault_address, protocol_slug in cases:
+        slug = identify_curator(
+            chain_id=chain_id,
+            vault_token_symbol="",
+            vault_name=vault_name,
+            vault_address=vault_address,
+            protocol_slug=protocol_slug,
+        )
+        assert slug == "rockawayx", f"{vault_name!r} resolved to {slug!r}"
+
+
+def test_identify_rockawayx_morpho_curator_metadata() -> None:
+    """RockawayX Morpho manager metadata resolves to the RockawayX curator."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="",
+        vault_name="Unbranded USDC Vault",
+        vault_address="0x0000000000000000000000000000000000000012",
+        protocol_slug="morpho",
+        manager_name="RockawayX",
+    )
+
+    assert slug == "rockawayx"
+
+
 def test_identify_smokehouse_as_steakhouse_financial() -> None:
     """Smokehouse vault names resolve to Steakhouse Financial."""
 

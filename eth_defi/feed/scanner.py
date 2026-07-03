@@ -19,15 +19,18 @@ from pathlib import Path
 from strictyaml import YAMLError
 
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.currency_api.constants import SOURCE_NAME
 from eth_defi.feed.collector import CollectorRunSummary, collect_posts, collect_twitter_list_posts, fetch_feed_proxy_rotator
 from eth_defi.feed.constants import DEFAULT_X_LIST_NAME
 from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE, VaultPostDatabase
 from eth_defi.feed.sources import (
     FEEDS_DATA_DIR,
     auto_disable_failed_linkedin_sources,
+    build_twitter_source_file_lookup,
     load_post_sources,
     mark_rss_source_dead,
     mark_rss_source_failure,
+    mark_suspended_twitter_handle,
     mark_twitter_handle_unknown,
     mark_twitter_source_dead,
 )
@@ -109,6 +112,10 @@ class PostScanConfig:
     stablecoin_rate_timeout: float = 20.0
     #: Durable state file for scanner-level 24h stablecoin refresh gate.
     stablecoin_rate_gate_path: Path | None = None
+    #: Local currency API DuckDB path used for non-USD source-currency rates.
+    currency_api_db_path: Path | None = None
+    #: Currency API source column to use for non-USD source-currency rates.
+    currency_api_source: str = SOURCE_NAME
 
 
 def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
@@ -202,6 +209,9 @@ def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
 
     if config.sync_x_list and can_sync_x_list:
         handles = [s.source_key for s in twitter_sources]
+        source_files_by_handle = build_twitter_source_file_lookup(twitter_sources)
+        today_str = native_datetime_utc_now().strftime("%Y-%m-%d")
+
         assert resolved_x_list_id is not None
         db_for_sync = VaultPostDatabase(config.db_path)
         try:
@@ -217,6 +227,12 @@ def run_post_scan_cycle(config: PostScanConfig) -> CollectorRunSummary:
                 db_for_sync,
                 add_delay_seconds=config.x_list_add_delay_seconds,
                 rate_limit_sleep_max_seconds=config.x_list_rate_limit_sleep_max_seconds,
+                suspended_member_callback=lambda handle, user_id: mark_suspended_twitter_handle(
+                    handle,
+                    user_id,
+                    source_files_by_handle,
+                    today_str,
+                ),
             )
             db_for_sync.save()
         except XApiError as e:
@@ -570,6 +586,8 @@ def _run_stablecoin_rate_side_job(config: PostScanConfig, summary: CollectorRunS
             now_=now_,
             force=config.force_stablecoin_rate_refresh,
             timeout=config.stablecoin_rate_timeout,
+            currency_db_path=config.currency_api_db_path,
+            currency_source=config.currency_api_source,
         )
         if _stablecoin_rate_summary_failed(stablecoin_summary):
             _record_stablecoin_rate_side_job_failure(

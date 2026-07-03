@@ -11,6 +11,16 @@ def test_not_in_morpho_api_is_bad_flag():
     assert VaultFlag.not_in_morpho_api in BAD_FLAGS
 
 
+def test_controversial_is_bad_flag():
+    """Controversial vaults are blacklisted."""
+    assert VaultFlag.controversial in BAD_FLAGS
+
+
+def test_paused_is_bad_flag():
+    """Paused vaults are blacklisted."""
+    assert VaultFlag.paused in BAD_FLAGS
+
+
 @pytest.mark.parametrize(
     ("address", "protocol", "expected_flag", "expected_note"),
     [
@@ -22,6 +32,7 @@ def test_not_in_morpho_api_is_bad_flag():
         ("0x3094b241aade60f91f1c82b0628a10d9501462f9", "Morpho", VaultFlag.illiquid, "illiquid"),
         ("0xfa17f7aadbfac2c5d3c8125555404c1ae17df853", "Morpho", VaultFlag.illiquid, "illiquid"),
         ("0xed9278c5188f37670b33ef3b00729e38260cd5d5", "Euler", VaultFlag.illiquid, "illiquid"),
+        ("0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29", "Altura", VaultFlag.controversial, "controversial"),
     ],
 )
 def test_abnormal_main_listing_vaults_are_hidden(

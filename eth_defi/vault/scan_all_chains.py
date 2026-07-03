@@ -35,30 +35,30 @@ from filelock import Timeout as FileLockTimeout
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import resolve_core3_database_path
-from eth_defi.feed.database import resolve_feed_database_path
-from eth_defi.version_info import VersionInfo
 from eth_defi.core3.scanner import scan_projects as core3_scan_projects
 from eth_defi.core3.session import create_core3_session
+from eth_defi.currency_api.constants import (
+    CURRENCY_API_DATABASE,
+    DEFAULT_BASE_CURRENCY,
+    DEFAULT_QUOTE_CURRENCIES,
+    SOURCE_NAME,
+)
+from eth_defi.currency_api.scanner import run_incremental_scan as currency_run_incremental_scan
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
+from eth_defi.erc_4626.core import is_activity_filter_exempt
 from eth_defi.erc_4626.lead_scan_core import scan_leads
-from eth_defi.grvt.constants import GRVT_CHAIN_ID
-from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
+from eth_defi.feed.database import resolve_feed_database_path
 from eth_defi.grvt.daily_metrics import run_daily_scan as grvt_run_daily_scan
 from eth_defi.grvt.vault_data_export import merge_into_vault_database as grvt_merge_vault_db
-from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
-from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
-from eth_defi.hyperliquid.daily_metrics import run_daily_scan as hyperliquid_run_daily_scan
-from eth_defi.hyperliquid.session import create_hyperliquid_session
-from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database as hyperliquid_merge_vault_db
-from eth_defi.hypersync.utils import configure_hypersync_from_env
-from eth_defi.lighter.constants import LIGHTER_CHAIN_ID
-from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
-from eth_defi.lighter.daily_metrics import run_daily_scan as lighter_run_daily_scan
-from eth_defi.lighter.session import create_lighter_session
-from eth_defi.lighter.vault_data_export import merge_into_vault_database as lighter_merge_vault_db
 from eth_defi.hibachi.constants import HIBACHI_DAILY_METRICS_DATABASE
 from eth_defi.hibachi.daily_metrics import run_daily_scan as hibachi_run_daily_scan
 from eth_defi.hibachi.vault_data_export import merge_into_vault_database as hibachi_merge_vault_db
+from eth_defi.hyperliquid.daily_metrics import run_daily_scan as hyperliquid_run_daily_scan
+from eth_defi.hyperliquid.session import create_hyperliquid_session
+from eth_defi.hypersync.utils import configure_hypersync_from_env
+from eth_defi.lighter.daily_metrics import run_daily_scan as lighter_run_daily_scan
+from eth_defi.lighter.session import create_lighter_session
+from eth_defi.lighter.vault_data_export import merge_into_vault_database as lighter_merge_vault_db
 from eth_defi.provider.broken_provider import verify_archive_node
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
@@ -66,11 +66,14 @@ from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
 from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, get_pipeline_data_dir
+from eth_defi.version_info import VersionInfo
 
 #: How many days of backups to keep
 BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "7"))
 
 CORE3_PROTOCOL_NAME = "Core3"
+CURRENCY_RATES_PROTOCOL_NAME = "CurrencyRates"
+CURRENCY_RATES_DEFAULT_CYCLE = datetime.timedelta(hours=24)
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +124,24 @@ def parse_scan_cycles(cycles_str: str) -> dict[str, datetime.timedelta]:
     return result
 
 
+def ensure_default_scan_cycles(cycle_overrides: dict[str, datetime.timedelta]) -> dict[str, datetime.timedelta]:
+    """Apply built-in per-item scan cycle defaults.
+
+    Currency rates are a daily reference data feed. Keep them on a 24h
+    cycle even if the operator sets a shorter ``DEFAULT_CYCLE`` for vault
+    sources, unless ``SCAN_CYCLES`` explicitly overrides
+    ``CurrencyRates``.
+
+    :param cycle_overrides:
+        Parsed operator cycle overrides.
+    :return:
+        Copy of the overrides with built-in defaults applied.
+    """
+    result = dict(cycle_overrides)
+    result.setdefault(CURRENCY_RATES_PROTOCOL_NAME, CURRENCY_RATES_DEFAULT_CYCLE)
+    return result
+
+
 def format_duration(td: datetime.timedelta) -> str:
     """Format a timedelta as a human-friendly duration string.
 
@@ -162,12 +183,31 @@ def should_scan_core3(skip_core3: bool, core3_api_key: str | None) -> bool:
     return True
 
 
+def should_scan_currency_rates(skip_currency_rates: bool) -> bool:
+    """Determine whether currency rate scanning should run.
+
+    Currency rates use a public, no-auth data source, so they are
+    default-on in the all-chain vault pipeline. Operators can disable
+    the fetcher with ``SKIP_CURRENCY_RATES=true``.
+
+    :param skip_currency_rates:
+        Whether the operator explicitly disabled currency rate scans.
+    :return:
+        ``True`` if currency rates should be added to the scheduled item list.
+    """
+    if skip_currency_rates:
+        logger.info("SKIP_CURRENCY_RATES=true - currency rate scan disabled")
+        return False
+    return True
+
+
 def build_active_protocols(
     scan_hypercore: bool,
     scan_grvt: bool,
     scan_lighter: bool,
     scan_hibachi: bool,
     scan_core3: bool,
+    scan_currency_rates: bool,
 ) -> list[str]:
     """Build scheduled non-EVM scan item names.
 
@@ -185,6 +225,8 @@ def build_active_protocols(
         Include Hibachi native vaults.
     :param scan_core3:
         Include Core3 enrichment data.
+    :param scan_currency_rates:
+        Include daily currency exchange rates.
     :return:
         Scheduled non-EVM scan item names.
     """
@@ -199,6 +241,8 @@ def build_active_protocols(
         all_protocols.append("Hibachi")
     if scan_core3:
         all_protocols.append(CORE3_PROTOCOL_NAME)
+    if scan_currency_rates:
+        all_protocols.append(CURRENCY_RATES_PROTOCOL_NAME)
     return all_protocols
 
 
@@ -489,8 +533,11 @@ def scan_prices_for_chain(
         for row in chain_vaults:
             detection = row["_detection_data"]
 
-            # Skip vaults with low activity (but keep hardcoded protocol vaults)
-            if detection.deposit_count < min_deposit_threshold and detection.address.lower() not in HARDCODED_PROTOCOLS:
+            # Skip vaults with low activity (but keep hardcoded protocol vaults
+            # and Mellow factory-discovered vaults). Mellow stores zero counts
+            # because the canonical Vault does not emit user flow events; those
+            # live on queue contracts and need a later second-stage scan.
+            if detection.deposit_count < min_deposit_threshold and detection.address.lower() not in HARDCODED_PROTOCOLS and not is_activity_filter_exempt(detection):
                 continue
 
             vault = create_vault_instance(web3, detection.address, detection.features, token_cache=token_cache)
@@ -1151,6 +1198,152 @@ def scan_core3_fn(
     return result
 
 
+def _parse_optional_date_env(name: str) -> datetime.date | None:
+    """Parse an optional ``YYYY-MM-DD`` environment variable.
+
+    :param name:
+        Environment variable name.
+    :return:
+        Parsed date, or ``None`` when the variable is unset or empty.
+    """
+    value = os.environ.get(name, "").strip()
+    if not value:
+        return None
+    return datetime.date.fromisoformat(value)
+
+
+def _read_currency_quote_currencies() -> tuple[str, ...]:
+    """Read currency rate quote configuration from environment variables.
+
+    The all-chain scanner accepts prefixed ``CURRENCY_API_*`` variables so
+    operators can configure this embedded fetcher without colliding with
+    other pipeline scripts. It also falls back to the standalone
+    ``scan-currencies`` ``QUOTE_CURRENCIES`` variable for compatibility.
+
+    :return:
+        Lower-cased quote currency tuple.
+    """
+    quotes_str = os.environ.get("CURRENCY_API_QUOTE_CURRENCIES") or os.environ.get("QUOTE_CURRENCIES", "")
+    quotes_str = quotes_str.strip()
+    if not quotes_str:
+        return DEFAULT_QUOTE_CURRENCIES
+    return tuple(q.strip().lower() for q in quotes_str.split(",") if q.strip())
+
+
+def resolve_currency_api_database_path(data_dir: Path | None = None) -> Path:
+    """Resolve the embedded currency-rate DuckDB database path.
+
+    The all-chain scanner uses a prefixed path variable to avoid
+    collisions with other scripts that already consume ``DB_PATH``.
+    Without an override the database is colocated with the vault pipeline
+    files, making backups and deployment volumes predictable.
+
+    :param data_dir:
+        Pipeline data directory. ``None`` falls back to the standalone
+        currency API default path.
+    :return:
+        Path from ``CURRENCY_API_DB_PATH`` or ``CURRENCY_API_DATABASE_PATH``,
+        then ``data_dir / "exchange-rates.duckdb"``, then the standalone
+        default.
+    """
+    path = os.environ.get("CURRENCY_API_DB_PATH") or os.environ.get("CURRENCY_API_DATABASE_PATH")
+    if path:
+        return Path(path).expanduser()
+    if data_dir is not None:
+        return data_dir / "exchange-rates.duckdb"
+    return CURRENCY_API_DATABASE
+
+
+def scan_currency_rates_fn(
+    db_path: Path,
+    max_workers: int = 8,
+) -> ChainResult:
+    """Scan daily currency exchange rates.
+
+    This is a best-effort auxiliary data fetch for the vault pipeline.
+    Failures are logged and intentionally downgraded to a successful
+    :class:`ChainResult` so an exchange-rate source outage does not stop
+    vault discovery, price scanning, or post-processing.
+
+    Environment variables mirror
+    :py:mod:`eth_defi.currency_api.cli`, with ``CURRENCY_API_*`` aliases
+    preferred by this embedded scanner:
+
+    - ``CURRENCY_API_BASE_CURRENCY`` / ``BASE_CURRENCY``
+    - ``CURRENCY_API_QUOTE_CURRENCIES`` / ``QUOTE_CURRENCIES``
+    - ``CURRENCY_API_START_DATE`` / ``START_DATE``
+    - ``CURRENCY_API_END_DATE`` / ``END_DATE``
+    - ``CURRENCY_API_REFETCH_TAIL_DAYS`` / ``REFETCH_TAIL_DAYS``
+    - ``CURRENCY_API_UNAVAILABLE_GRACE_DAYS`` / ``UNAVAILABLE_GRACE_DAYS``
+    - ``CURRENCY_API_MAX_TRANSIENT_ATTEMPTS`` / ``MAX_TRANSIENT_ATTEMPTS``
+    - ``CURRENCY_API_SOURCE`` / ``SOURCE``
+
+    :param db_path:
+        DuckDB path for exchange rates.
+    :param max_workers:
+        Number of threaded date fetchers.
+    :return:
+        Successful result even when the underlying fetcher fails.
+    """
+    result = ChainResult(name=CURRENCY_RATES_PROTOCOL_NAME, status="running")
+    start_time = time.time()
+
+    def _get_env(name: str, fallback_name: str, default: str) -> str:
+        return os.environ.get(name) or os.environ.get(fallback_name, default)
+
+    db = None
+
+    try:
+        scan_result = currency_run_incremental_scan(
+            db_path=db_path,
+            base_currency=_get_env("CURRENCY_API_BASE_CURRENCY", "BASE_CURRENCY", DEFAULT_BASE_CURRENCY).strip().lower(),
+            quote_currencies=_read_currency_quote_currencies(),
+            start_date=_parse_optional_date_env("CURRENCY_API_START_DATE") or _parse_optional_date_env("START_DATE"),
+            end_date=_parse_optional_date_env("CURRENCY_API_END_DATE") or _parse_optional_date_env("END_DATE"),
+            source=_get_env("CURRENCY_API_SOURCE", "SOURCE", SOURCE_NAME).strip(),
+            max_workers=max_workers,
+            refetch_tail_days=int(_get_env("CURRENCY_API_REFETCH_TAIL_DAYS", "REFETCH_TAIL_DAYS", "3")),
+            unavailable_grace_days=int(_get_env("CURRENCY_API_UNAVAILABLE_GRACE_DAYS", "UNAVAILABLE_GRACE_DAYS", "2")),
+            max_transient_attempts=int(_get_env("CURRENCY_API_MAX_TRANSIENT_ATTEMPTS", "MAX_TRANSIENT_ATTEMPTS", "5")),
+        )
+        db = scan_result.db
+        result.vault_scan_ok = True
+        result.price_scan_ok = None
+        result.price_rows = scan_result.rows_upserted
+
+        logger.info(
+            "CurrencyRates: fetched %d dates, upserted %d rows, unavailable dates=%d, transient failures=%d",
+            scan_result.dates_requested,
+            scan_result.rows_upserted,
+            scan_result.dates_unavailable,
+            scan_result.transient_failures,
+        )
+        if scan_result.transient_failures:
+            logger.warning(
+                "CurrencyRates: %d dates failed transiently; ignoring in the vault pipeline and retrying on the next 24h cycle",
+                scan_result.transient_failures,
+            )
+            result.error = f"{scan_result.transient_failures} transient currency rate failures ignored"
+        result.status = "success"
+    except Exception as e:
+        logger.warning(
+            "CurrencyRates: scan failed and will be ignored by the vault pipeline: %s",
+            e,
+            exc_info=True,
+        )
+        result.status = "success"
+        result.vault_scan_ok = True
+        result.price_scan_ok = None
+        result.error = f"ignored failure: {e}"
+        result.traceback_str = traceback.format_exc()
+    finally:
+        if db is not None:
+            db.close()
+
+    result.duration = time.time() - start_time
+    return result
+
+
 def _load_last_timestamps(uncleaned_price_path: Path | None = None) -> dict[str, str]:
     """Load the last data timestamp per chain from the uncleaned parquet.
 
@@ -1348,8 +1541,10 @@ def run_scan_tick(
     scan_lighter: bool,
     scan_hibachi: bool,
     scan_core3: bool,
+    scan_currency_rates: bool,
     max_workers: int,
     core3_max_workers: int,
+    currency_api_max_workers: int,
     frequency: str,
     retry_count: int,
     skip_post_processing: bool,
@@ -1379,6 +1574,7 @@ def run_scan_tick(
     core3_fetch_sections: bool = True,
     hypersync_concurrency: int | None = None,
     feed_db_path: Path | None = None,
+    currency_api_db_path: Path | None = None,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -1403,6 +1599,9 @@ def run_scan_tick(
         Path to the vault post feed DuckDB used to enrich the top-vaults
         JSON with curator metadata and recent feed entries. Forwarded to
         :py:func:`~eth_defi.vault.post_processing.run_post_processing`.
+
+    :param currency_api_db_path:
+        Path to the currency API exchange-rate DuckDB.
     """
     # Back up critical pipeline files before any scanning
     backup_pipeline_files(backup_files=bkp_files, backup_dir=bkp_dir)
@@ -1565,6 +1764,33 @@ def run_scan_tick(
             logger.error("Core3: FAILED - %s", r.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
+    if scan_currency_rates and CURRENCY_RATES_PROTOCOL_NAME in active_protocols:
+        logger.info("Scanning CurrencyRates (daily exchange rates)")
+        try:
+            results[CURRENCY_RATES_PROTOCOL_NAME] = scan_currency_rates_fn(
+                db_path=currency_api_db_path or resolve_currency_api_database_path(),
+                max_workers=currency_api_max_workers,
+            )
+        except Exception as e:
+            logger.warning(
+                "CurrencyRates scan crashed with unhandled exception and will be ignored: %s",
+                e,
+                exc_info=True,
+            )
+            results[CURRENCY_RATES_PROTOCOL_NAME] = ChainResult(
+                name=CURRENCY_RATES_PROTOCOL_NAME,
+                status="success",
+                vault_scan_ok=True,
+                price_scan_ok=None,
+                error=f"ignored failure: {e}",
+                traceback_str=traceback.format_exc(),
+            )
+        r = results[CURRENCY_RATES_PROTOCOL_NAME]
+        logger.info("CurrencyRates: SUCCESS - %d rows", r.price_rows or 0)
+        if on_item_success:
+            on_item_success(CURRENCY_RATES_PROTOCOL_NAME)
+        print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
+
     # Retry passes - retry failed EVM chains (native protocols are not retried)
     evm_chain_names = {c.name for c in chains}
     for attempt in range(1, retry_count + 1):
@@ -1680,7 +1906,6 @@ def main():
     log_dir.mkdir(parents=True, exist_ok=True)
     setup_console_logging(
         default_log_level=os.environ.get("LOG_LEVEL", "warning"),
-        autodetect_docker_log=True,
     )
 
     log_file = log_dir / "scan-all-chains.log"
@@ -1708,6 +1933,8 @@ def main():
     scan_hibachi = os.environ.get("SCAN_HIBACHI", "false").lower() == "true"
     skip_core3 = os.environ.get("SKIP_CORE3", "false").lower() == "true"
     scan_core3 = should_scan_core3(skip_core3=skip_core3, core3_api_key=os.environ.get("CORE3_API_KEY"))
+    skip_currency_rates = os.environ.get("SKIP_CURRENCY_RATES", "false").lower() == "true"
+    scan_currency_rates = should_scan_currency_rates(skip_currency_rates=skip_currency_rates)
     force_rescan = os.environ.get("FORCE_RESCAN", "false").lower() == "true"
     max_workers = int(os.environ.get("MAX_WORKERS", "50"))
     # Pipeline default is 1 (sequential) to avoid API pressure when scanning
@@ -1717,6 +1944,7 @@ def main():
     hypersync_concurrency = int(os.environ.get("HYPERSYNC_CONCURRENCY", "1"))
     core3_max_workers = int(os.environ.get("CORE3_MAX_WORKERS", "8"))
     core3_fetch_sections = os.environ.get("CORE3_FETCH_SECTIONS", "true").lower() == "true"
+    currency_api_max_workers = int(os.environ.get("CURRENCY_API_MAX_WORKERS", "8"))
     frequency = os.environ.get("FREQUENCY", "1h")
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"
     skip_cleaning = os.environ.get("SKIP_CLEANING", "false").lower() == "true"
@@ -1740,7 +1968,7 @@ def main():
     looped_mode = loop_interval > 0
 
     if looped_mode:
-        cycle_overrides = parse_scan_cycles(os.environ.get("SCAN_CYCLES", ""))
+        cycle_overrides = ensure_default_scan_cycles(parse_scan_cycles(os.environ.get("SCAN_CYCLES", "")))
         default_cycle = parse_duration(os.environ.get("DEFAULT_CYCLE", "24h"))
         logger.info("Looped mode: tick every %ds, cycles=%s, default=%s", loop_interval, cycle_overrides, default_cycle)
         if max_cycles > 0:
@@ -1762,6 +1990,7 @@ def main():
     hyperliquid_db_path = data_dir / "hyperliquid-vaults.duckdb"
     hyperliquid_hf_db_path = data_dir / "hyperliquid-vaults-hf.duckdb"
     grvt_db_path = data_dir / "grvt-vaults.duckdb"
+    currency_api_db_path = resolve_currency_api_database_path(data_dir=data_dir)
 
     # Core3 risk intelligence database path — resolved from env var or default constant.
     core3_db_path = resolve_core3_database_path()
@@ -1771,7 +2000,18 @@ def main():
     # export reads the same database the feed collector writes.
     feed_db_path = resolve_feed_database_path()
 
-    bkp_files = [uncleaned_price_path, reader_state_path, vault_db_path, hyperliquid_db_path, hyperliquid_hf_db_path, grvt_db_path, lighter_db_path, hibachi_db_path, core3_db_path]
+    bkp_files = [
+        uncleaned_price_path,
+        reader_state_path,
+        vault_db_path,
+        hyperliquid_db_path,
+        hyperliquid_hf_db_path,
+        grvt_db_path,
+        lighter_db_path,
+        hibachi_db_path,
+        core3_db_path,
+        currency_api_db_path,
+    ]
 
     # Test mode - filter chains if TEST_CHAINS is set
     disable_chains_str = os.environ.get("DISABLE_CHAINS")
@@ -1787,7 +2027,7 @@ def main():
     version_info = VersionInfo.read_docker_version()
     logger.info("Docker image version: tag=%s, commit=%s", version_info.tag, version_info.commit_hash)
     logger.info(
-        "SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, SKIP_CORE3: %s, CORE3: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, CORE3_MAX_WORKERS: %d, FREQUENCY: %s",
+        "SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, SKIP_CORE3: %s, CORE3: %s, SKIP_CURRENCY_RATES: %s, CURRENCY_RATES: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, CORE3_MAX_WORKERS: %d, CURRENCY_API_MAX_WORKERS: %d, FREQUENCY: %s",
         scan_prices,
         scan_hypercore,
         scan_grvt,
@@ -1795,13 +2035,17 @@ def main():
         scan_hibachi,
         skip_core3,
         scan_core3,
+        skip_currency_rates,
+        scan_currency_rates,
         retry_count,
         max_workers,
         core3_max_workers,
+        currency_api_max_workers,
         frequency,
     )
     logger.info("PIPELINE_DATA_DIR: %s", data_dir)
     logger.info("Feed post database: %s (exists=%s)", feed_db_path, feed_db_path.exists())
+    logger.info("Currency rate database: %s (exists=%s)", currency_api_db_path, currency_api_db_path.exists())
     if skip_post_processing:
         logger.info("SKIP_POST_PROCESSING: true")
     if test_chain_names:
@@ -1870,6 +2114,7 @@ def main():
         scan_lighter=scan_lighter,
         scan_hibachi=scan_hibachi,
         scan_core3=scan_core3,
+        scan_currency_rates=scan_currency_rates,
     )
 
     # Pre-compute human-readable cycle intervals for all items
@@ -1893,9 +2138,11 @@ def main():
         scan_lighter=scan_lighter,
         scan_hibachi=scan_hibachi,
         scan_core3=scan_core3,
+        scan_currency_rates=scan_currency_rates,
         max_workers=max_workers,
         hypersync_concurrency=hypersync_concurrency,
         core3_max_workers=core3_max_workers,
+        currency_api_max_workers=currency_api_max_workers,
         frequency=frequency,
         retry_count=retry_count,
         skip_post_processing=skip_post_processing,
@@ -1921,6 +2168,7 @@ def main():
         core3_db_path=core3_db_path,
         core3_fetch_sections=core3_fetch_sections,
         feed_db_path=feed_db_path,
+        currency_api_db_path=currency_api_db_path,
     )
 
     # Clear cycle state on disc so the first tick rescans everything.

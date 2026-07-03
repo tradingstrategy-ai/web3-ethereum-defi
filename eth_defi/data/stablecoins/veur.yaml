@@ -17,6 +17,8 @@ long_description: |
   - [DefiLlama — VNX EURO](https://defillama.com/stablecoin/vnx-euro)
   - [CoinGecko — VNX Euro](https://www.coingecko.com/en/coins/vnx-euro)
 category: stablecoin
+source_currency: eur
+source_currency_source: manual
 links:
   homepage: https://vnx.li/
   coingecko: https://www.coingecko.com/en/coins/vnx-euro

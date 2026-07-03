@@ -1,16 +1,21 @@
 symbol: EURA
 name: Angle EURA
-short_description: EURA (formerly agEUR) is a Euro-pegged stablecoin issued by Angle Protocol. It is backed by a combination of overcollateralised loans and yield-bearing reserves. EURA is available on multiple
-  chains including Ethereum, Polygon, and Arbitrum.
+short_description: EURA (formerly agEUR) is a Euro-pegged stablecoin issued by Angle Protocol, but it is being phased out after a February 2026 wind-down announcement. Existing holders should treat EURA as a legacy token and verify redemption options before relying on its Euro peg.
 long_description: |
   [EURA](https://www.angle.money/) (formerly known as agEUR) is a Euro-pegged stablecoin issued by [Angle Protocol](https://www.angle.money/), a decentralised stablecoin framework on Ethereum.
   It was rebranded from agEUR to EURA in 2023.
   The token address on Ethereum did not change with the rebrand.
 
+  Angle Protocol announced in February 2026 that EURA is being phased out through an orderly wind-down.
+  The token may still appear in wallets, vaults, and historical on-chain data, but it should be treated as a legacy stablecoin rather than an actively supported Euro stablecoin.
+  Users should verify current redemption paths and liquidity before assuming EURA trades or redeems at its Euro peg.
+
   Angle Protocol uses a combination of mechanisms to maintain the Euro peg:
   overcollateralised positions (similar to Maker Vaults), yield-bearing reserves, and algorithmic rebalancing across supported chains.
   EURA can be bridged across multiple EVM networks via the LayerZero-based Angle bridge.
 category: stablecoin
+source_currency: eur
+source_currency_source: manual
 links:
   homepage: https://www.angle.money/
   coingecko: https://www.coingecko.com/en/coins/ageur

@@ -1,5 +1,9 @@
 # Agent tricks and troubleshooting
 
+Read this document before invoking Claude CLI or Codex CLI from another agent.
+It contains local invocation details that are easy to get wrong, especially for
+non-interactive Claude review runs.
+
 This note covers practical ways to use Codex CLI and Claude CLI as local engineering agents, especially when one agent is used to review or debug the other agent's work.
 
 ## Codex CLI
@@ -43,8 +47,9 @@ codex exec "Review uncommitted changes for correctness bugs only"
 poetry run pytest tests/foo.py -q 2>&1 \
   | codex exec "Explain the failure and suggest the smallest fix"
 
-# Run with explicit permissions in automation.
-codex exec --sandbox workspace-write --ask-for-approval never "Fix the failing focused test"
+# Run with explicit permissions in automation. `codex exec` selects the sandbox
+# directly and does not take `--ask-for-approval` (that is an interactive flag).
+codex exec --sandbox workspace-write "Fix the failing focused test"
 
 # Debug local setup.
 codex doctor
@@ -53,6 +58,59 @@ codex doctor
 Use `codex exec` for CI-like or scripted work. It streams progress to stderr and final output to stdout, which makes it easier to pipe the result into files or other commands.
 
 Use interactive `codex` when the task needs back-and-forth decisions, screenshots, manual inspection, or careful approval of edits.
+
+### Always run Codex reviews in streaming mode
+
+Run every non-interactive Codex review (plan review, code review, sanity check)
+in streaming mode with `--json`. Plain text mode (`codex exec "..."`) only emits
+the final answer once the model has finished the entire review, and any
+`| tail`, `| head`, or capture-to-file buffers that final block until the pipe
+closes. When the run is backgrounded or captured, the output file then stays
+**0 bytes** until completion — indistinguishable from a hang, and you cannot see
+progress or interim tool calls.
+
+`--json` instead emits a JSONL event stream (reasoning, tool calls, and the final
+message) line-by-line as they happen, so a backgrounded run's file grows live and
+can be tailed for progress.
+
+```shell
+# Streaming read-only review. Note: DO NOT pipe through `tail`/`head` — that
+# reintroduces buffering. Write the raw JSONL stream to a file instead.
+codex exec --json --sandbox read-only \
+  "Review the uncommitted diff for correctness bugs only. Findings first with file:line." \
+  > /tmp/codex-review.jsonl
+
+# Follow progress live from another step (or when backgrounded):
+tail -f /tmp/codex-review.jsonl        # interactive shells only
+
+# Extract just the final assistant message from the JSONL when done:
+#   each line is a JSON event; the final answer is the last agent/message event.
+```
+
+When backgrounding a Codex review, always use `--json` and read the raw output
+file for interim events. If you instead run text mode in the background, the file
+will look empty (0 bytes) the whole time and you will not be able to tell a slow
+review from a stuck one.
+
+Redirect stdin from `/dev/null` for background/non-interactive runs. With an open
+stdin pipe, `codex exec` prints `Reading additional input from stdin...` and waits
+for EOF (it appends piped stdin as a `<stdin>` block), so the run stalls forever
+even though the prompt was passed as an argument. Always append `< /dev/null`:
+
+```shell
+codex exec --json --sandbox read-only "…prompt…" < /dev/null > /tmp/codex-review.jsonl
+```
+
+Approval flags: `codex exec` does **not** accept `--ask-for-approval` (that flag
+belongs to interactive `codex`). For non-interactive review runs pick the sandbox
+directly — `--sandbox read-only` needs no approval and is the correct choice for
+reviews. Use `--sandbox workspace-write` only when the run must edit files.
+
+```shell
+# Correct non-interactive review invocation (streaming, read-only, no approval flag).
+codex exec --json --sandbox read-only "Review uncommitted changes for correctness bugs only" \
+  > /tmp/codex-review.jsonl
+```
 
 ## Claude CLI
 
@@ -64,6 +122,7 @@ Common commands:
 claude
 claude -p "Review the current worktree diff"
 claude -p "Review the current worktree diff" --output-format stream-json --verbose
+claude auth status
 claude ultrareview master --timeout 15
 claude doctor
 claude agents
@@ -86,9 +145,29 @@ Useful capabilities:
 - Debug logging with `--debug` or `--debug-file`.
 - MCP and plugin management.
 
+Important authentication note:
+
+- Do not use `--bare` to check whether Claude is signed in. Bare mode skips
+  keychain/OAuth credentials by design and only uses `ANTHROPIC_API_KEY` or an
+  `apiKeyHelper` from `--settings`. A signed-in Unix user can therefore see
+  `Not logged in` in `--bare` mode even though normal `claude -p` works.
+- Use normal mode for local signed-in accounts:
+
+```shell
+claude auth status
+claude -p "Say OK"
+```
+
+- Use `--safe-mode` instead of `--bare` when debugging broken customisations
+  but you still want normal auth, model selection and built-in permissions to
+  work.
+
 Recommended local patterns:
 
 ```shell
+# Smoke-test non-interactive auth and startup.
+claude -p "Say OK"
+
 # Plain one-shot review. Good when you can wait for final buffered output.
 claude -p "Review the current git diff for correctness bugs"
 
@@ -103,39 +182,32 @@ claude -p "Review the current worktree diff. Do not edit files." \
   --dangerously-skip-permissions \
   --allowedTools "Bash,Read,Grep,Glob"
 
+# Safer read-only review without broad bypass mode.
+claude -p "Review the current worktree diff. Do not edit files. Findings first." \
+  --permission-mode dontAsk \
+  --allowedTools "Bash(git status:*),Bash(git diff:*),Bash(sed:*),Bash(rg:*)"
+
 # Avoid pasting huge diffs into the prompt. Make Claude inspect files itself.
 claude -p "Review uncommitted changes. First run git diff --name-only, then inspect targeted diffs."
-
-# Bounded review with a five minute wall-clock limit and live partial output.
-# `--safe-mode` avoids unnecessary side effects and `--include-partial-messages`
-# streams assistant tokens as they are generated, so the run never looks idle.
-timeout 300s claude --safe-mode \
-  -p "Review the current worktree diff for bugs, regressions, missing tests, and documentation gaps. Focus on actionable findings with file and line references." \
-  --output-format stream-json \
-  --include-partial-messages \
-  --verbose
 
 # Run cloud review when account credits and PR/base context are available.
 claude ultrareview master --timeout 15
 ```
 
-For long-running `claude -p` jobs, prefer `--output-format stream-json --verbose`. Text mode can look idle because useful output may be buffered until the final answer. Wrap review runs in `timeout 300s` (five minutes is a good default) so a stuck review cannot block indefinitely.
+For long-running `claude -p` jobs, prefer `--output-format stream-json --verbose`. Text mode can look idle because useful output may be buffered until the final answer.
 
-### Claude CLI authentication and `--bare`
-
-For normal repository reviews, use the authenticated CLI session that reads the
-local Claude Code login. Do not add `--bare`:
+If a broad review stalls, first verify that basic non-interactive mode and
+read-only Bash tools work before assuming auth is broken:
 
 ```shell
-claude auth status
+claude -p "Say OK"
+claude -p "Run git status --short and summarise it in one sentence." \
+  --allowedTools "Bash(git status:*)"
 ```
 
-`--bare` is a minimal mode that skips hooks, plugin sync, keychain reads, OAuth
-login state, and automatic Claude memory discovery. In bare mode, Anthropic
-authentication must come from `ANTHROPIC_API_KEY` or an explicit API key helper;
-if neither is configured the command fails with `Not logged in · Please run
-/login`. Only use `--bare` when you have deliberately configured an API key for
-that command.
+If these work but the broad review times out, shrink the request: ask Claude to
+inspect `git diff --name-only` first, review one file group at a time, or provide
+a concise summary of the proposed fix instead of embedding a large diff.
 
 ### Reviewing a plan or document with Claude CLI
 
@@ -275,7 +347,7 @@ Avoid it:
 Better prompt:
 
 ```text
-Review only tradeexecutor/cli/testtrade.py and tradeexecutor/strategy/pandas_trader/position_manager.py first.
+Review only eth_defi/research/vault_metrics.py and tests/research/test_vault_metrics.py first.
 Then inspect tests only if needed to validate coverage.
 ```
 
@@ -289,10 +361,11 @@ Symptoms:
 
 Avoid it:
 
-- For Codex, set explicit sandbox and approval flags:
+- For Codex, set the sandbox explicitly (`codex exec` selects the sandbox
+  directly; it has no `--ask-for-approval` flag):
 
 ```shell
-codex exec --sandbox workspace-write --ask-for-approval never "Run the focused test and fix failures"
+codex exec --sandbox workspace-write "Run the focused test and fix failures"
 ```
 
 - For Claude, set explicit permission mode and allowed tools:
@@ -342,10 +415,15 @@ git status --short --branch
 git rev-parse --show-toplevel
 ```
 
-For this repository's worktrees, run tests through the parent Poetry environment but force worktree imports:
+For this repository's worktrees, run commands from the worktree directory and
+use the parent repository Poetry environment unless changing package
+dependencies. Follow the test command rules from `CLAUDE.md` and always verify
+the working directory and branch before trusting review output:
 
 ```shell
-source .local-test.env && PYTHONPATH="$(pwd):$PYTHONPATH" poetry run pytest tests/path/to/test.py
+pwd
+git status --short --branch
+source .local-test.env && poetry run pytest tests/path/to/test.py
 ```
 
 ### The agent misses repository instructions
@@ -432,15 +510,22 @@ Symptoms:
 - `doctor` reports missing auth.
 - MCP servers show `needs-auth`.
 - Tools that depend on external services are absent.
+- `claude --bare -p "Say OK"` says `Not logged in`.
 
 Avoid it:
 
 ```shell
 codex doctor
 codex mcp list
+claude auth status
+claude -p "Say OK"
 claude doctor
 claude mcp
 ```
+
+Do not diagnose normal Claude CLI auth with `--bare`; it intentionally skips
+keychain/OAuth credentials. Use `claude auth status` and a normal `claude -p`
+smoke test instead.
 
 Do not assume missing MCP tools are model limitations. Check installation, auth, workspace policy, and whether the session needs restarting after a config change.
 

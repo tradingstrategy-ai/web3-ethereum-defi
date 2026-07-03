@@ -10,6 +10,7 @@
 import asyncio
 import logging
 
+from eth_abi.exceptions import DecodingError
 from eth_typing import HexAddress, HexStr
 from tqdm_loggable.auto import tqdm
 from web3 import Web3
@@ -17,9 +18,10 @@ from web3 import Web3
 from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_fromtimestamp
-from eth_defi.erc_4626.discovery_base import LeadScanReport, PotentialVaultMatch, VaultDiscoveryBase, get_vault_discovery_events, get_vault_event_topic_map, is_deposit_event
+from eth_defi.erc_4626.discovery_base import LeadScanReport, PotentialVaultMatch, VaultDiscoveryBase, add_mellow_factory_candidate_lead, get_vault_discovery_events, get_vault_event_topic_map, is_deposit_event
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.hypersync.hypersync_timestamp import HypersyncFlaky, get_hypersync_block_height_with_retries, is_hypersync_next_block_range_error, is_hypersync_rate_limit_error, is_hypersync_retryable_runtime_error
+from eth_defi.mellow.discovery import create_mellow_factory_candidate, fetch_mellow_created_event_topic, fetch_mellow_factories_for_chain, is_mellow_factory_log
 
 try:
     import hypersync
@@ -90,13 +92,14 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         self.recv_timeout = recv_timeout
 
     def get_topic_signatures(self) -> list[HexStr]:
-        """Contracts must have at least one event of both these signatures
+        """Get topic signatures that can seed vault leads.
 
         - Find contracts emitting these events
         - Later prod these contracts to see which of them are proper vaults
-        - We are likely having a real ERC-4262 contract if both events match,
-          ``Deposit`` event might have few similar contracts
-        - Also includes BrinkVault DepositFunds/WithdrawFunds events
+        - A deposit event is enough to create a lead. Some large vaults have
+          not emitted withdrawal events yet because funds are still locked or
+          the vault is in a pre-deposit phase.
+        - Also includes protocol-specific vault flow events
         """
         return [get_topic_signature_from_event(e) for e in get_vault_discovery_events(self.web3)]
 
@@ -108,6 +111,14 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
 
         # [['0xdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7'], ['0xfbde797d201c681b91056529119e0b02407c7bb96a4a2c75c01fc9667232c8db']]
         log_selections = [hypersync.LogSelection(topics=[[sig]]) for sig in self.get_topic_signatures()]
+        mellow_factories = fetch_mellow_factories_for_chain(self.web3.eth.chain_id)
+        if mellow_factories:
+            log_selections.append(
+                hypersync.LogSelection(
+                    address=mellow_factories,
+                    topics=[[fetch_mellow_created_event_topic()]],
+                )
+            )
 
         # The query to run
         query = hypersync.Query(
@@ -124,9 +135,14 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
                 ],
                 log=[
                     LogField.BLOCK_NUMBER,
+                    LogField.LOG_INDEX,
                     LogField.ADDRESS,
                     LogField.TRANSACTION_HASH,
                     LogField.TOPIC0,
+                    LogField.TOPIC1,
+                    LogField.TOPIC2,
+                    LogField.TOPIC3,
+                    LogField.DATA,
                 ],
             ),
         )
@@ -171,6 +187,100 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
             )
 
         return clipped_end_block
+
+    def process_log(
+        self,
+        report: LeadScanReport,
+        leads: dict[HexAddress, PotentialVaultMatch],
+        topic_map: dict[str, object],
+        chain: int,
+        log: hypersync.Log,
+        block_timestamp,
+        seen: set[HexAddress],
+    ) -> None:
+        """Process one Hypersync log into the shared lead map.
+
+        Both ERC-4626-like event leads and Mellow factory leads are written to
+        ``leads`` as ``PotentialVaultMatch`` objects. Mellow keeps decoded
+        factory metadata on the lead for the later detection construction step.
+
+        :param report:
+            Mutable scan report.
+
+        :param leads:
+            Mutable lead map keyed by lower-case vault address.
+
+        :param topic_map:
+            ERC-4626-style event topic classification map.
+
+        :param chain:
+            EVM chain id.
+
+        :param log:
+            Hypersync log.
+
+        :param block_timestamp:
+            Naive UTC timestamp for the log block.
+
+        :param seen:
+            Addresses already counted as matched candidates.
+
+        :return:
+            None.
+        """
+
+        if is_mellow_factory_log(chain, log.address, log.topics[0]):
+            try:
+                candidate = create_mellow_factory_candidate(
+                    self.web3,
+                    chain,
+                    log,
+                    block_timestamp,
+                )
+            except (DecodingError, ValueError) as e:
+                logger.warning(
+                    "Could not decode Mellow factory Created log at %s:%s tx %s: %s",
+                    log.block_number,
+                    getattr(log, "log_index", None),
+                    log.transaction_hash,
+                    e,
+                )
+                return
+
+            add_mellow_factory_candidate_lead(report, leads, candidate)
+            return
+
+        address_key = HexAddress(log.address.lower())
+        lead = leads.get(address_key)
+        first_seen_timestamp = None
+
+        if not lead:
+            first_seen_timestamp = block_timestamp
+            lead = PotentialVaultMatch(
+                chain=chain,
+                address=address_key,
+                first_seen_at_block=log.block_number,
+                first_seen_at=first_seen_timestamp,
+            )
+            leads[address_key] = lead
+            report.new_leads += 1
+
+        event_kind = topic_map.get(log.topics[0])
+        if event_kind is not None and is_deposit_event(event_kind):
+            lead.deposit_count += 1
+            report.deposits += 1
+        else:
+            lead.withdrawal_count += 1
+            report.withdrawals += 1
+
+        if address_key not in seen and lead.is_candidate():
+            seen.add(address_key)
+
+    def fetch_log_timestamp(self, block_lookup: dict, log: hypersync.Log):
+        """Resolve a Hypersync log timestamp from the batch block lookup."""
+
+        block = block_lookup[log.block_number]
+        return native_datetime_utc_fromtimestamp(int(block.timestamp, 16) if isinstance(block.timestamp, str) else block.timestamp)
 
     def scan_vaults(
         self,
@@ -281,7 +391,6 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
             progress_bar = None
 
         last_block = start_block
-        timestamp = None
 
         logger.info("Streaming HyperSync")
 
@@ -289,9 +398,7 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
 
         report = LeadScanReport(backend=self)
         report.old_leads = len(self.existing_leads)
-
-        leads: dict[HexAddress, PotentialVaultMatch] = self.existing_leads.copy()
-        matches = 0
+        report.leads = self.existing_leads.copy()
         seen = set()
 
         while True:
@@ -314,35 +421,15 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
                 block_lookup = {b.number: b for b in res.data.blocks}
                 log: hypersync.Log
                 for log in res.data.logs:
-                    lead = leads.get(log.address)
-
-                    if not lead:
-                        # Fresh match
-                        block = block_lookup[log.block_number]
-                        timestamp = native_datetime_utc_fromtimestamp(int(block.timestamp, 16))
-                        lead = PotentialVaultMatch(
-                            chain=chain,
-                            address=log.address.lower(),
-                            first_seen_at_block=log.block_number,
-                            first_seen_at=timestamp,
-                        )
-                        leads[log.address] = lead
-                        report.new_leads += 1
-
-                    # Classify event using topic map (supports ERC-4626 and BrinkVault)
-                    event_kind = topic_map.get(log.topics[0])
-                    if event_kind is not None and is_deposit_event(event_kind):
-                        lead.deposit_count += 1
-                        report.deposits += 1
-                    else:
-                        lead.withdrawal_count += 1
-                        report.withdrawals += 1
-
-                    if log.address not in seen:
-                        if lead.is_candidate():
-                            # Return leads early, even if we still accumulate deposit and withdraw matches for them
-                            matches += 1
-                            seen.add(log.address)
+                    self.process_log(
+                        report,
+                        report.leads,
+                        topic_map,
+                        chain,
+                        log,
+                        self.fetch_log_timestamp(block_lookup, log),
+                        seen,
+                    )
 
             last_synced = res.archive_height
 
@@ -351,18 +438,15 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
                 last_block = current_block
 
                 # Add extra data to the progress bar
-                if timestamp is not None:
-                    progress_bar.set_postfix(
-                        {
-                            "At": timestamp,
-                            "Matches": f"{matches:,}",
-                        }
-                    )
+                progress_bar.set_postfix(
+                    {
+                        "Matches": f"{len(seen):,}",
+                    }
+                )
 
         logger.info(f"HyperSync sees {last_synced} as the last block")
 
         if progress_bar is not None:
             progress_bar.close()
 
-        report.leads = leads
         return report

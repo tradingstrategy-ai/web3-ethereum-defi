@@ -14,6 +14,20 @@ touches the relevant area:
 - `.claude/docs/agent-tricks-and-troubleshooting.md` — Codex CLI and
   Claude CLI usage patterns, including cross-agent review commands,
   streaming Claude review output, and common failure modes.
+  **Read this before invoking Claude CLI or Codex CLI for any review,
+  sanity check, plan review, PR review, or one-off agent run.**
+  Follow its invocation patterns for streaming output, tool restrictions,
+  timeouts, no-tools plan reviews, and silent or hanging agent runs.
+
+## Agent review workflows
+
+- **Blocking requirement: before running any `claude`, `claude -p`, `claude ultrareview`, `codex`, or `codex exec` command, read `.claude/docs/agent-tricks-and-troubleshooting.md` in the current session.** Do not invoke either CLI until you have checked the repo-local guidance.
+- For plan reviews with Claude CLI, default to the no-tools inline review pattern from `.claude/docs/agent-tricks-and-troubleshooting.md` after the primary agent has inspected the relevant code. Only use a grounded tool-using review when fresh repository inspection is actually required.
+- For code and PR reviews with Claude CLI, scope the request to correctness bugs, behavioural regressions, missing tests, security or money-movement risks, and repository instruction compliance. Ask for findings first with file:line references and residual risks.
+- For long Claude CLI reviews, use streaming output (`--output-format stream-json --verbose`) and a wall-clock timeout. If a grounded review produces no output after roughly one minute, stop it and switch to a smaller no-tools or file-group review unless repository inspection is strictly required.
+- Do not paste huge diffs into Claude prompts. Make Claude inspect `git status --short`, `git diff --name-only`, and targeted hunks, or provide only the plan text for no-tools plan reviews.
+- For non-interactive Codex reviews, use `codex exec --json` in read-only mode as described in `.claude/docs/agent-tricks-and-troubleshooting.md`. Plain text mode can buffer output and look hung.
+- Before trusting any external-agent "no findings" result, verify it reviewed the correct worktree and non-empty diff.
 
 ## Skills
 
@@ -302,6 +316,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/abi/uniswap-swap-contracts/README.md` | SwapRouter02 deployment on Base |
 | `eth_defi/cctp/README-cctp.md` | Circle CCTP V2 integration |
 | `eth_defi/core3/README-core3.md` | Core3 risk intelligence integration — modules, database schema, scripts, API reference |
+| `eth_defi/currency_api/README-currency-api.md` | Historical exchange rate ingestion (fawazahmed0 Exchange API) into DuckDB |
 | `eth_defi/data/vaults/README.md` | Vault protocol metadata and logo system |
 | `eth_defi/erc_4626/vault_protocol/README-reader-states.md` | Vault reader states and warmup system |
 | `eth_defi/erc_4626/vault_protocol/README-utilisation.md` | Utilisation and available liquidity metrics for lending vaults |

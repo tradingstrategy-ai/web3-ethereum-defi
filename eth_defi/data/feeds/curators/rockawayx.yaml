@@ -1,10 +1,15 @@
 feeder-id: rockawayx
 name: RockawayX
 role: curator
+morpho-curator: RockawayX
 website: https://www.rockawayx.com
 short_description: 'RockawayX is a digital asset investment and engineering firm spanning venture, liquidity, and blockchain infrastructure.'
 long_description: |
   RockawayX says it runs blockchains and provides liquidity to fuel protocols. Its homepage describes early-stage investing, validator and bare-metal infrastructure, and on-chain liquidity services for blockchain ecosystems, with a focus on building alongside portfolio projects rather than only providing capital.
+  RockawayX also publishes a [Dune dashboard](https://dune.com/rockawayxvault/rockawayx-dashboard) tracking vaults associated with its on-chain vault activity across protocols and chains.
 twitter: Rockaway_X
 linkedin: rockawayx
+other-links:
+  - title: RockawayX Dune dashboard - vault TVL, APY and holder analytics
+    url: https://dune.com/rockawayxvault/rockawayx-dashboard
 linkedin-rss-hub-disabled-at: 2026-06-09

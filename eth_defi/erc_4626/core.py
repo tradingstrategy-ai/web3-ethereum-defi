@@ -319,6 +319,14 @@ class ERC4626Feature(enum.Enum):
     #: Institutional-grade DeFi yield strategies through non-custodial vaults.
     #: https://www.upshift.finance/
     upshift_like = "upshift_like"
+
+    #: Upshift multi-asset vault.
+    #:
+    #: Uses a vault proxy for accounting calls and a separate ``lpTokenAddress()``
+    #: ERC-20 token for share metadata and supply.
+    #: https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code
+    upshift_multi_asset_like = "upshift_multi_asset_like"
+
     #: Sky (formerly MakerDAO)
     #:
     #: stUSDS vault for USDS staking.
@@ -641,6 +649,14 @@ class ERC4626Feature(enum.Enum):
     #: https://aave.com/
     aave_like = "aave_like"
 
+    #: Mellow Core Vault.
+    #:
+    #: Routing marker for Mellow vaults discovered through Core Vault factory
+    #: events. Mellow vaults are not ERC-4626 vault contracts; the primary
+    #: vault address is separate from the ERC-20 ShareManager.
+    #: https://docs.mellow.finance/core-vaults
+    mellow_like = "mellow_like"
+
 
 #: Features that identify lending protocol vaults.
 #:
@@ -676,6 +692,34 @@ def is_lending_protocol(features: set[ERC4626Feature]) -> bool:
     return bool(features & LENDING_PROTOCOL_FEATURES)
 
 
+def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
+    """Check if a vault detection bypasses deposit/redeem count filters.
+
+    Some shared vault database entries are not discovered from canonical
+    ERC-4626 ``Deposit`` and ``Withdraw`` events emitted by the vault address.
+    Mellow Core Vaults are the first EVM example: the vault identity comes from
+    ``Factory.Created`` while user flow events live on per-asset queue
+    contracts. Upshift multi-asset vaults are another exception: older
+    production metadata can be seeded or refreshed by address after the custom
+    event support lands, and targeted price rescans should not be blocked by a
+    stale low deposit counter.
+
+    :param detection:
+        Shared vault detection envelope.
+
+    :return:
+        ``True`` if low activity count filters should not drop this detection.
+    """
+
+    return any(
+        feature in detection.features
+        for feature in (
+            ERC4626Feature.mellow_like,
+            ERC4626Feature.upshift_multi_asset_like,
+        )
+    )
+
+
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
 
@@ -688,6 +732,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """
     if ERC4626Feature.broken in features:
         return "<not ERC-4626>"
+    elif ERC4626Feature.mellow_like in features:
+        return "Mellow"
     elif ERC4626Feature.morpho_v2_like in features:
         return "Morpho"
     elif ERC4626Feature.morpho_like in features:
