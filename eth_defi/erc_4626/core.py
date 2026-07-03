@@ -699,8 +699,10 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     ERC-4626 ``Deposit`` and ``Withdraw`` events emitted by the vault address.
     Mellow Core Vaults are the first EVM example: the vault identity comes from
     ``Factory.Created`` while user flow events live on per-asset queue
-    contracts. The scanner stores integer zero counts for compatibility and
-    uses this feature-based exemption to keep these vaults in price scans.
+    contracts. Upshift multi-asset vaults are another exception: older
+    production metadata can be seeded or refreshed by address after the custom
+    event support lands, and targeted price rescans should not be blocked by a
+    stale low deposit counter.
 
     :param detection:
         Shared vault detection envelope.
@@ -709,7 +711,13 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
         ``True`` if low activity count filters should not drop this detection.
     """
 
-    return ERC4626Feature.mellow_like in detection.features
+    return any(
+        feature in detection.features
+        for feature in (
+            ERC4626Feature.mellow_like,
+            ERC4626Feature.upshift_multi_asset_like,
+        )
+    )
 
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
