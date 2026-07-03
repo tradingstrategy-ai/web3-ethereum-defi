@@ -159,6 +159,7 @@ def test_identify_rockawayx_dashboard_vaults_by_address() -> None:
         (1, "RockawayX YIELD USDC", "0xE0181090c22579B6A217f1522cbf8c9f1F0C1965", "morpho"),
         (1, "mROX", "0x67E1F506B148d0Fc95a4E3fFb49068ceB6855c05", "midas"),
         (1, "OnRe Core Vault", "0x0F0a9d3F0bc6006143c96E6995572b51413CB3c4", "accountable"),
+        (1, "OnRe Core Vault", "0xb9c317cAE7dd05eCb0c0925020e529934c96f84D", "accountable"),
         (1, "RockawayX wETH", "0x64C18DCC4Ccb3b8D27877a4aeBB4C3126CB39cB9", "morpho"),
         (56, "RockawayX YIELD PT", "0xb5a30e1fa2cf3c8dea882124b3ab5a47a27c5dd2", "lista"),
         (1, "Figure USDC Main", "0xd65d6E8dbC3Cd3D12418199E6f4014dB3aaa0097", "morpho"),

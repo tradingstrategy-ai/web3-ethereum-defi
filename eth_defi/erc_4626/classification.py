@@ -78,8 +78,8 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "routerRegistry": {8453},  # Singularity Finance - Base only
     "strategist": {5000},  # Brink - Mantle only
     "vaultManager": {5000},  # Brink - Mantle only
-    "strategy": {143},  # Accountable - Monad only
-    "queue": {143},  # Accountable - Monad only
+    "strategy": {1, 143},  # Accountable - Ethereum, Monad
+    "queue": {1, 143},  # Accountable - Ethereum, Monad
     "POOL": {999},  # Sentiment - HyperEVM only
     "shareManager": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
     "getAssetCount": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
@@ -756,9 +756,10 @@ def create_probe_calls(
                 extra_data=None,
             )
 
-        # Accountable Capital - Monad only
+        # Accountable Capital - Ethereum, Monad
         # AccountableAsyncRedeemVault with ERC-7540 async redemption queue
         # https://monadscan.com/address/0x58ba69b289De313E66A13B7D1F822Fc98b970554
+        # https://etherscan.io/address/0xb9c317cAE7dd05eCb0c0925020e529934c96f84D
         if _should_yield_probe("strategy", chain_id):
             yield EncodedCall.from_keccak_signature(
                 address=address,
