@@ -5810,6 +5810,21 @@ class GMX(ExchangeCompatible):
         # the caller names none — mirrors OrderArgumentParser's USDC_PAIRED
         # default; an explicit ``collateral_symbol`` wins.
         collateral_symbol = (params.get("collateral_symbol") or "USDC").upper()
+        chain = self.config.get_chain() if hasattr(self, "config") and self.config else "arbitrum"
+        if chain == "arbitrum" and collateral_symbol == "BTC":
+            collateral_address = "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"
+        else:
+            collateral_address = None
+            try:
+                collateral_address = get_token_address_normalized(chain, collateral_symbol)
+            except Exception as exc:  # noqa: BLE001 - resolver failure must not block fallback symbol matching
+                logger.warning(
+                    "OPEN: collateral address resolution failed for %s on %s (%r) — falling back to symbol matching",
+                    collateral_symbol,
+                    chain,
+                    exc,
+                )
+                collateral_address = None
 
         try:
             pools = self.fetch_pools_for_symbol(symbol)
@@ -5826,6 +5841,11 @@ class GMX(ExchangeCompatible):
             return default_info
 
         def _accepts(pool: dict) -> bool:
+            if collateral_address is not None and collateral_address.lower() in (
+                (pool.get("long_token") or "").lower(),
+                (pool.get("short_token") or "").lower(),
+            ):
+                return True
             return collateral_symbol in (
                 (pool.get("long_token_symbol") or "").upper(),
                 (pool.get("short_token_symbol") or "").upper(),

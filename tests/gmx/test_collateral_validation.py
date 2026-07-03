@@ -332,6 +332,45 @@ def test_swap_path_default_flag_is_tolerant(monkeypatch):
     assert parser.parameters_dict["swap_path"] == []
 
 
+def test_presupplied_collateral_address_gets_classified_before_tolerating(monkeypatch):
+    """Pre-supplied collateral_address must still run the B3 gate classification.
+
+    Internal callers usually provide collateral symbol, not collateral address,
+    but external SDK users can hand-build parser dicts. In that case
+    ``_handle_missing_collateral_address`` is skipped entirely, so the swap-path
+    gate must classify direct collateral support just-in-time instead of
+    treating the verdict as forever indeterminate.
+    """
+    from eth_defi.gmx.order.order_argument_parser import (
+        InvalidCollateralForMarketError,
+    )
+
+    parser = _build_parser(monkeypatch, {_SYNTH_BTC_MARKET: _synthetic_market()})
+    parser.parameters_dict = {
+        "chain": "arbitrum",
+        "market_key": _SYNTH_BTC_MARKET,
+        "start_token_address": _USDC,
+        "collateral_address": _USDC,
+    }
+
+    with pytest.raises(InvalidCollateralForMarketError):
+        parser._handle_missing_swap_path()
+
+
+def test_presupplied_collateral_address_unknown_market_stays_tolerant(monkeypatch):
+    """Pre-supplied collateral_address + unresolvable market must stay tolerant."""
+    parser = _build_parser(monkeypatch, {_REAL_BTC_MARKET: _usdc_market()})
+    parser.parameters_dict = {
+        "chain": "arbitrum",
+        "market_key": "0x0000000000000000000000000000000000000bad",
+        "start_token_address": _USDC,
+        "collateral_address": _USDC,
+    }
+
+    parser._handle_missing_swap_path()
+    assert parser.parameters_dict["swap_path"] == []
+
+
 def test_rejection_message_survives_missing_metadata_keys(monkeypatch):
     """A definitive rejection must raise even if metadata dicts are entirely absent.
 

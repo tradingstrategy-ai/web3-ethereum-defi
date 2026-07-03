@@ -156,6 +156,52 @@ def test_explicit_collateral_symbol_selects_matching_pool():
     assert info["market_token"] == _SYNTH_BTC_MARKET
 
 
+def test_btc_collateral_resolves_by_address_not_literal_symbol():
+    """BTC collateral must match the WBTC.b pool by token address.
+
+    Symbol-only matching misses the live shape where the pool advertises
+    ``WBTC.b`` while the caller requests ``BTC``.
+    """
+    gmx = _make_exchange()
+    _install(
+        gmx,
+        _synthetic_info(),
+        [
+            {
+                "market_address": _SYNTH_BTC_MARKET,
+                "index_token": _BTC_INDEX,
+                "long_token": _TBTC,
+                "long_token_symbol": "tBTC",
+                "short_token": _TBTC,
+                "short_token_symbol": "tBTC",
+            },
+            {
+                "market_address": _REAL_BTC_MARKET,
+                "index_token": _BTC_INDEX,
+                "long_token": _WBTC,
+                "long_token_symbol": "WBTC.b",
+                "short_token": _USDC,
+                "short_token_symbol": "USDC",
+            },
+        ],
+    )
+
+    info = gmx._resolve_market_info("BTC/USDC:USDC", {"collateral_symbol": "BTC"})
+    assert info["market_token"] == _REAL_BTC_MARKET
+
+
+def test_symbol_fallback_still_works_when_address_resolution_returns_none(monkeypatch):
+    """Address resolution failure must fall back to the existing symbol match."""
+    import eth_defi.gmx.ccxt.exchange as exch_mod
+
+    gmx = _make_exchange()
+    _install(gmx, _synthetic_info(), _pools_both())
+    monkeypatch.setattr(exch_mod, "get_token_address_normalized", lambda chain, symbol: None)
+
+    info = gmx._resolve_market_info("BTC/USDC:USDC", {"collateral_symbol": "tBTC"})
+    assert info["market_token"] == _SYNTH_BTC_MARKET
+
+
 def test_no_accepting_pool_returns_mapped_info(caplog):
     """No sibling accepts USDC → return mapped info unchanged (B3 fails it later)."""
     gmx = _make_exchange()

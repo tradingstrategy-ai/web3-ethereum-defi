@@ -462,22 +462,18 @@ class OrderArgumentParser:
         #   ``None`` and tolerated — never block an order on "couldn't check".
         #
         # Always set collateral_address so the router has a target.
-        try:
-            is_directly_supported = self._check_if_valid_collateral_for_market(collateral_address)
-        except InvalidCollateralForMarketError:
-            is_directly_supported = False
+        is_directly_supported = self._classify_collateral_support(collateral_address)
+        if is_directly_supported is False:
             logger.info(
                 "COLLATERAL_TRACE: collateral %s not directly accepted by market_key %s — a swap_path can convert it only when start_token differs from the collateral",
                 collateral_token_symbol,
                 self.parameters_dict.get("market_key"),
             )
-        except KeyError as exc:
-            is_directly_supported = None
+        elif is_directly_supported is None:
             logger.warning(
-                "COLLATERAL_TRACE: could not verify collateral %s against market_key %s (%r missing from markets snapshot) — proceeding unverified",
+                "COLLATERAL_TRACE: could not verify collateral %s against market_key %s — proceeding unverified",
                 collateral_token_symbol,
                 self.parameters_dict.get("market_key"),
-                exc,
             )
         self._collateral_directly_supported = is_directly_supported
         logger.info(
@@ -511,6 +507,11 @@ class OrderArgumentParser:
 
         # No swap needed if start token == collateral token
         elif self.parameters_dict["start_token_address"] == self.parameters_dict["collateral_address"]:
+            if self._collateral_directly_supported is None:
+                self._collateral_directly_supported = self._classify_collateral_support(
+                    self.parameters_dict["collateral_address"],
+                )
+
             # Fail loud on a definitively-rejected collateral (issue #1178).
             # When start == collateral, NO swap leg will be built below — so the
             # issue-#67 "router converts via swap_path" fallback cannot apply.
@@ -530,6 +531,22 @@ class OrderArgumentParser:
                 self.parameters_dict["collateral_address"],
                 chain=self.parameters_dict["chain"],
             )[0]
+
+    def _classify_collateral_support(self, collateral_address: str) -> bool | None:
+        """Classify whether a collateral is accepted by the selected market.
+
+        :param collateral_address: Collateral token contract address.
+        :returns:
+            ``True`` for a definitive accept,
+            ``False`` for a definitive reject,
+            ``None`` when the market could not be verified.
+        """
+        try:
+            return self._check_if_valid_collateral_for_market(collateral_address)
+        except InvalidCollateralForMarketError:
+            return False
+        except KeyError:
+            return None
 
     @staticmethod
     def _handle_missing_is_long(self):
