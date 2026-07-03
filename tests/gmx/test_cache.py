@@ -158,9 +158,7 @@ def test_cache_schema_version_orphans_pre_fix_rows():
             "BTC/USDC:USDC2": {"info": {"market_token": "0xd620_synthetic_pool"}},
         }
         # Simulate a PRE-fix binary: same entry bytes, legacy unversioned key.
-        cache["markets_rest_api"] = cache._make_cache_entry(
-            poisoned, ttl=3600, loading_mode="rest_api"
-        )
+        cache["markets_rest_api"] = cache._make_cache_entry(poisoned, ttl=3600, loading_mode="rest_api")
 
         # The post-fix reader must treat it as a miss.
         assert cache.get_markets(loading_mode="rest_api") is None

@@ -36,6 +36,7 @@ class InvalidCollateralForMarketError(Exception):
     incident 2026-07-01/02). Failing loudly pre-flight is strictly better.
     """
 
+
 # Module-level cache for token metadata only.  The previous ``_MARKETS_CACHE``
 # was removed in the issue-#67 fix — :class:`Markets` now owns a TTL'd cache
 # that is invalidated centrally via :meth:`Markets.invalidate_cache`, so a
@@ -508,15 +509,7 @@ class OrderArgumentParser:
             # lock. Only ``False`` (definitive rejection) blocks; ``None``
             # (indeterminate / unchecked) and ``True`` proceed as before.
             if self._collateral_directly_supported is False:
-                raise InvalidCollateralForMarketError(
-                    "Collateral is not accepted by the selected market and no "
-                    "swap path can convert it (start_token == collateral_address):\n"
-                    f"  market_key: {self.parameters_dict.get('market_key')}\n"
-                    f"  collateral_address: {self.parameters_dict['collateral_address']}\n"
-                    "  Hint: choose a market that accepts this collateral, or "
-                    "supply a start_token different from the collateral so a "
-                    "swap route can be built."
-                )
+                raise InvalidCollateralForMarketError(f"Collateral is not accepted by the selected market and no swap path can convert it (start_token == collateral_address):\n  market_key: {self.parameters_dict.get('market_key')}\n  collateral_address: {self.parameters_dict['collateral_address']}\n  Hint: choose a market that accepts this collateral, or supply a start_token different from the collateral so a swap route can be built.")
             self.parameters_dict["swap_path"] = []
 
         else:

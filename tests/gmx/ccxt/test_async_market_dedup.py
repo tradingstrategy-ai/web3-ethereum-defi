@@ -101,9 +101,7 @@ async def test_graphql_loader_synthetic_first_does_not_poison_canonical_symbol()
     # The synthetic single-sided pool is excluded (BTC2 is in EXCLUDED_SYMBOLS),
     # so it never appears and never collides.
     assert "BTC2/USDC:USDC" not in markets, markets.keys()
-    assert all(
-        m["info"]["market_token"] != _SYNTH_BTC_MARKET for m in markets.values()
-    ), "synthetic pool must not appear under any symbol"
+    assert all(m["info"]["market_token"] != _SYNTH_BTC_MARKET for m in markets.values()), "synthetic pool must not appear under any symbol"
 
 
 @pytest.mark.asyncio
@@ -178,9 +176,7 @@ async def test_rest_loader_synthetic_first_does_not_poison_canonical_symbol() ->
     # No entry under the old divergent scheme, and the synthetic is excluded.
     assert "BTC/USDC:USDC2" not in markets
     assert "BTC2/USDC:USDC" not in markets
-    assert all(
-        m["info"]["market_token"] != _SYNTH_BTC_MARKET for m in markets.values()
-    )
+    assert all(m["info"]["market_token"] != _SYNTH_BTC_MARKET for m in markets.values())
 
 
 # ---------------------------------------------------------------------------
@@ -198,9 +194,7 @@ async def test_rest_loader_synthetic_first_does_not_poison_canonical_symbol() ->
         ("0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40", ""),  # other side
     ],
 )
-async def test_graphql_loader_skips_records_with_missing_token_fields(
-    long_token: str | None, short_token: str | None
-) -> None:
+async def test_graphql_loader_skips_records_with_missing_token_fields(long_token: str | None, short_token: str | None) -> None:
     """A record missing long/short token fields is skipped, never mislabelled.
 
     Pre-guard, both-missing records satisfied ``"" == ""`` → falsely synthetic
@@ -215,10 +209,7 @@ async def test_graphql_loader_skips_records_with_missing_token_fields(
     markets = await _run_graphql_loader([malformed] + _market_infos_synthetic_first())
 
     # The malformed record never claims any symbol...
-    assert all(
-        m["info"]["market_token"] != malformed["marketTokenAddress"]
-        for m in markets.values()
-    )
+    assert all(m["info"]["market_token"] != malformed["marketTokenAddress"] for m in markets.values())
     # ...and the real pool still resolves the canonical symbol.
     assert markets["BTC/USDC:USDC"]["info"]["market_token"] == _REAL_BTC_MARKET
 
@@ -235,10 +226,7 @@ async def test_rest_loader_skips_records_with_missing_token_fields() -> None:
     }
     markets = await _run_rest_loader([malformed] + _rest_markets_synthetic_first())
 
-    assert all(
-        m["info"]["market_token"] != malformed["marketToken"]
-        for m in markets.values()
-    )
+    assert all(m["info"]["market_token"] != malformed["marketToken"] for m in markets.values())
     assert markets["BTC/USDC:USDC"]["info"]["market_token"] == _REAL_BTC_MARKET
 
 
@@ -255,7 +243,4 @@ async def test_graphql_and_rest_loaders_agree_on_keys() -> None:
 
     assert set(graphql_markets) == set(rest_markets)
     for symbol in graphql_markets:
-        assert (
-            graphql_markets[symbol]["info"]["market_token"]
-            == rest_markets[symbol]["info"]["market_token"]
-        ), symbol
+        assert graphql_markets[symbol]["info"]["market_token"] == rest_markets[symbol]["info"]["market_token"], symbol

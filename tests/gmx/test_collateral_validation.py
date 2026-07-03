@@ -130,9 +130,7 @@ def test_rejection_raises_dedicated_exception_class(monkeypatch):
         InvalidCollateralForMarketError,
     )
 
-    parser = _build_parser(
-        monkeypatch, {_SYNTH_BTC_MARKET: _synthetic_market()}
-    )
+    parser = _build_parser(monkeypatch, {_SYNTH_BTC_MARKET: _synthetic_market()})
     parser.parameters_dict = {"chain": "arbitrum", "market_key": _SYNTH_BTC_MARKET}
 
     with pytest.raises(InvalidCollateralForMarketError) as exc_info:
@@ -152,9 +150,7 @@ def test_rejection_raises_dedicated_exception_class(monkeypatch):
 
 def test_definitive_rejection_sets_flag_false(monkeypatch):
     """Market resolved, collateral matches neither token → flag False."""
-    parser = _build_parser(
-        monkeypatch, {_SYNTH_BTC_MARKET: _synthetic_market()}
-    )
+    parser = _build_parser(monkeypatch, {_SYNTH_BTC_MARKET: _synthetic_market()})
     parser.parameters_dict = {
         "chain": "arbitrum",
         "market_key": _SYNTH_BTC_MARKET,

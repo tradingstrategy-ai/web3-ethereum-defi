@@ -95,9 +95,7 @@ def test_default_overrides_synthetic_mapping_to_usdc_pool(caplog):
         info = gmx._resolve_market_info("BTC/USDC:USDC", {})
 
     assert info["market_token"] == _REAL_BTC_MARKET
-    assert any("overriding" in r.message.lower() for r in caplog.records), [
-        r.message for r in caplog.records
-    ]
+    assert any("overriding" in r.message.lower() for r in caplog.records), [r.message for r in caplog.records]
 
 
 def test_mapped_usdc_pool_is_kept_no_override(caplog):
@@ -284,9 +282,7 @@ def test_explicit_market_address_bypasses_collateral_scan():
     try:
         gmx.config = object()
         gmx.fetch_pools_for_symbol = lambda s: called.__setitem__("scan", True) or []
-        info = gmx._resolve_market_info(
-            "BTC/USDC:USDC", {"market_address": _SYNTH_BTC_MARKET}
-        )
+        info = gmx._resolve_market_info("BTC/USDC:USDC", {"market_address": _SYNTH_BTC_MARKET})
     finally:
         exch_mod.Markets = orig
 

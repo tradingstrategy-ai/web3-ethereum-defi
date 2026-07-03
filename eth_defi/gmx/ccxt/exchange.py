@@ -5844,8 +5844,7 @@ class GMX(ExchangeCompatible):
         accepting = [p for p in pools if _accepts(p)]
         if not accepting:
             logger.warning(
-                "OPEN: no pool for %s accepts collateral %s — using mapped pool %s "
-                "(order may be rejected pre-flight; see InvalidCollateralForMarketError)",
+                "OPEN: no pool for %s accepts collateral %s — using mapped pool %s (order may be rejected pre-flight; see InvalidCollateralForMarketError)",
                 symbol,
                 collateral_symbol,
                 mapped_token or "<none>",
@@ -5862,8 +5861,7 @@ class GMX(ExchangeCompatible):
         accepting.sort(key=lambda p: (p.get("market_address") or "").lower())
         chosen = accepting[0]
         logger.warning(
-            "OPEN: overriding market_key for %s — mapped pool %s does not accept "
-            "collateral %s; using %s (long=%s, short=%s) instead",
+            "OPEN: overriding market_key for %s — mapped pool %s does not accept collateral %s; using %s (long=%s, short=%s) instead",
             symbol,
             mapped_token or "<none>",
             collateral_symbol,
