@@ -23,6 +23,7 @@ import datetime
 import logging
 
 from eth_typing import BlockIdentifier
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Exception
 
 from eth_defi.erc_4626.vault import ERC4626Vault
 
@@ -41,6 +42,20 @@ WITHDRAWAL_FEE_BPS = 50
 
 #: Basis point divisor used by Atoma fee constants.
 BPS_DIVISOR = 10_000
+
+#: Fallback epoch duration if the live contract read is unavailable.
+DEFAULT_EPOCH_DURATION = datetime.timedelta(days=7)
+
+#: Minimal ABI for the Atoma ``epochDuration()`` accessor.
+_EPOCH_DURATION_ABI = [
+    {
+        "inputs": [],
+        "name": "epochDuration",
+        "outputs": [{"internalType": "uint64", "name": "", "type": "uint64"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+]
 
 
 class AtomaVault(ERC4626Vault):
@@ -94,17 +109,21 @@ class AtomaVault(ERC4626Vault):
         return WITHDRAWAL_FEE_BPS / BPS_DIVISOR
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
-        """Return the current public app epoch length as the lock-up estimate.
+        """Return the current epoch length as the lock-up estimate.
 
-        The Atoma app reports weekly epochs for the live vault. A user can
-        request withdrawal after the deposit epoch, then claim after the
-        settlement epoch is processed.
+        Atoma exposes a mutable ``epochDuration()`` value. A user can request
+        withdrawal after the deposit epoch, then claim after the settlement
+        epoch is processed.
 
         :return:
             Estimated withdrawal settlement interval.
         """
-        _ = self.vault_address
-        return datetime.timedelta(days=7)
+        try:
+            contract = self.web3.eth.contract(address=self.vault_address, abi=_EPOCH_DURATION_ABI)
+            duration_seconds = contract.functions.epochDuration().call(block_identifier="latest")
+            return datetime.timedelta(seconds=duration_seconds)
+        except (BadFunctionCallOutput, ContractLogicError, ValueError, Web3Exception):
+            return DEFAULT_EPOCH_DURATION
 
     def get_link(self, referral: str | None = None) -> str:
         """Return the Atoma vault app link."""

@@ -7,7 +7,7 @@
 - Supports TokenGateway Deposit(5-arg)/RedeemRequested/RedeemTokenGatewayDepreciated events
 - Supports Royco tranche Redeem event
 - Supports Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
-- Supports Atoma WithdrawalRequested/WithdrawalClaimed events
+- Supports Atoma WithdrawalClaimed events
 """
 
 import abc
@@ -308,15 +308,18 @@ def get_atoma_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get Atoma custom events we use in vault discovery.
 
     Deposits are covered by the standard ERC-4626 ``Deposit`` event. Atoma's
-    withdrawal flow is asynchronous and emits custom request/claim events
-    instead of the standard ERC-4626 ``Withdraw`` event.
+    withdrawal flow is asynchronous and emits custom request/claim events.
+
+    We only count ``WithdrawalClaimed`` as a redemption-like discovery event.
+    Counting both ``WithdrawalRequested`` and ``WithdrawalClaimed`` would double
+    count completed withdrawals, and would count requested-but-unclaimed shares
+    as redeemed before the USDC payout exists.
 
     :return:
         List of Atoma custom event types used for lead discovery.
     """
     IAtomaVaultEvents = get_atoma_vault_event_contract(web3)
     return [
-        IAtomaVaultEvents.events.WithdrawalRequested,
         IAtomaVaultEvents.events.WithdrawalClaimed,
     ]
 
@@ -331,7 +334,7 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     - TokenGateway Deposit(5-arg)/RedeemRequested/RedeemTokenGatewayDepreciated events
     - Royco tranche Redeem event
     - Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
-    - Atoma WithdrawalRequested/WithdrawalClaimed events
+    - Atoma WithdrawalClaimed event
 
     :return:
         List of contract event types in order:
@@ -341,7 +344,7 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
          RoycoTranche.Redeem,
          UpshiftMultiAsset.Deposit, UpshiftMultiAsset.WithdrawalRequested,
          UpshiftMultiAsset.WithdrawalProcessed,
-         AtomaVault.WithdrawalRequested, AtomaVault.WithdrawalClaimed]
+         AtomaVault.WithdrawalClaimed]
     """
     return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3) + get_upshift_multi_asset_discovery_events(web3) + get_atoma_vault_discovery_events(web3)
 
@@ -379,7 +382,6 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
         get_topic_signature_from_event(upshift_multi_asset_events[1]): VaultEventKind.withdraw,
         get_topic_signature_from_event(upshift_multi_asset_events[2]): VaultEventKind.withdraw,
         get_topic_signature_from_event(atoma_vault_events[0]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(atoma_vault_events[1]): VaultEventKind.withdraw,
     }
 
 
