@@ -8,10 +8,11 @@ This script removes **all** historical rows for affected Royco tranche vaults
 and resets their reader states so the scanner re-populates them from scratch
 with the correct reader.
 
-This is also the reference example for future vault classification migrations:
-changing classifier probes does not update stored ``vault-metadata-db.pickle``
-features or reader-state progress. Operators must explicitly repair/purge the
-database and rescan affected vaults after classification changes.
+This is also the reference example for vault classification migrations that
+corrupted historical price rows or reader-state progress. For metadata-only
+feature drift where ``_detection_data.features`` is populated but the top-level
+``features`` field is missing or empty, use
+``scripts/erc-4626/repair-vault-features.py`` instead.
 
 Usage:
 

@@ -309,7 +309,7 @@ class VaultDatabase:
             detection_data: ERC4262VaultDetection = row.get("_detection_data")
             chain_id = detection_data.chain
             address = detection_data.address
-            features = row.get("features", set())
+            features = row.get("features") or detection_data.features
             protocol = get_vault_protocol_name(features)
             entry = {
                 "chain_id": chain_id,
@@ -318,7 +318,7 @@ class VaultDatabase:
                 "denomination": row.get("Denomination"),
                 "protocol": protocol,
                 "tvl": row.get("NAV"),
-                "last_block": detection_data.last_scanned_block,
+                "last_block": getattr(detection_data, "last_scanned_block", None),
             }
             data.append(entry)
         return pd.DataFrame(data)
