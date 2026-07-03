@@ -412,6 +412,68 @@ def _resolve_reduce_only_size_delta_usd(
     return min(requested_size_usd, actual_size_usd)
 
 
+def _resolve_reduce_only_requested_size_usd(
+    *,
+    close_amount: float,
+    gmx_position: dict,
+    current_price: float,
+) -> float:
+    """Resolve the USD basis for a reduce-only close request.
+
+    Background — the ~1% token-dust incident. GMX's on-chain
+    ``position.sizeInUsd`` (surfaced here as ``gmx_position["position_size"]``)
+    is an ENTRY-priced invariant: it is set when the position is
+    opened/increased and never re-marks to the current price. Pricing the
+    Freqtrade-requested ``close_amount`` at the CURRENT market price (the
+    pre-fix behaviour) therefore compares two values on different price
+    bases whenever price has moved since entry. A short in profit (price
+    fell) or a long in loss (price also fell) both understate
+    ``requested_size_usd`` relative to ``position_size``, so a genuine
+    100%-of-tokens close can compute to *below*
+    ``position_size * full_close_tolerance`` and get misclassified as a
+    PARTIAL close by :func:`_resolve_reduce_only_size_delta_usd` — GMX then
+    reduces the position only proportionally, leaving token dust
+    approximately equal to the price-move percentage.
+
+    Repricing the request at ENTRY price instead removes the basis
+    mismatch entirely: a full-token close now computes to ~=
+    ``position_size`` regardless of how far price has moved since entry. It
+    is also decimals-free — no on-chain raw-int / token-decimals bookkeeping
+    is required, because both sides of the ratio evaluated in
+    :func:`_resolve_reduce_only_size_delta_usd` are then expressed in the
+    same entry-priced USD space that ``position_size`` already uses. A
+    genuine partial close (DCA ``sub_trade_amt``, or a same-pair sibling
+    logical trade) is unaffected: it still resolves to
+    ``close_amount * entry_price``, which is the correct pro-rata
+    ``sizeDeltaUsd`` in GMX's entry-priced ``sizeInUsd`` space.
+
+    Falls back to ``current_price`` when ``gmx_position["entry_price"]`` is
+    missing, ``None``, or ``0`` — this must never raise or block the close;
+    a missing entry price only means we lose the repricing benefit for that
+    one order, not that the order should fail.
+
+    :param close_amount: The token amount being closed — the CCXT caller's
+        authoritative close size (``sub_trade_amt`` if set, else the full
+        requested ``amount``).
+    :param gmx_position: Dict from ``GetOpenPositions``. Uses
+        ``entry_price`` (float USD/token) when present and truthy.
+    :param current_price: The current/order price already resolved by the
+        caller (from the order ``price`` or a ticker fetch), used only as
+        the fallback basis.
+    :returns: ``close_amount`` priced in USD — at entry price when
+        available, else at ``current_price``.
+    """
+    entry_price = gmx_position.get("entry_price")
+    if not entry_price:
+        logger.debug(
+            "_resolve_reduce_only_requested_size_usd: entry_price missing/zero on gmx_position (%s) — falling back to current_price=%s",
+            entry_price,
+            current_price,
+        )
+        entry_price = current_price
+    return close_amount * entry_price
+
+
 def _resolve_close_order_filled_amount(
     *,
     requested_amount: float,
@@ -6059,11 +6121,23 @@ class GMX(ExchangeCompatible):
             close_amount = sub_trade_amt if sub_trade_amt is not None else amount
 
             if price:
-                requested_size_usd = close_amount * price
+                current_price = price
             else:
                 ticker = self.fetch_ticker(symbol)
                 current_price = ticker["last"]
-                requested_size_usd = close_amount * current_price
+
+            # Reprice the close request at ENTRY price, not current price.
+            # GMX's on-chain position_size (sizeInUsd) is an entry-priced
+            # invariant that never re-marks, so comparing a current-priced
+            # request against it misclassifies genuine full closes as
+            # partial whenever price has moved since entry (short in
+            # profit / long in loss), leaving ~price-move% token dust. See
+            # :func:`_resolve_reduce_only_requested_size_usd`.
+            requested_size_usd = _resolve_reduce_only_requested_size_usd(
+                close_amount=close_amount,
+                gmx_position=gmx_position,
+                current_price=current_price,
+            )
 
             size_delta_usd = _resolve_reduce_only_size_delta_usd(
                 requested_size_usd=requested_size_usd,
