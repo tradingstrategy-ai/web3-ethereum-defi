@@ -15,6 +15,7 @@ from eth_defi.erc_4626.core import ERC4626Feature, get_deployed_erc_4626_contrac
 from eth_defi.erc_4626.vault import ERC4626Vault, VaultReaderState
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.token import TokenDetails
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 
 logger = logging.getLogger(__name__)
@@ -275,6 +276,23 @@ class UpshiftVault(ERC4626Vault):
 
         return super().fetch_share_token_address(block_identifier)
 
+    def fetch_total_supply(self, block_identifier: BlockIdentifier) -> Decimal:
+        """Fetch current outstanding share supply.
+
+        For Upshift multi-asset vaults, :py:meth:`fetch_share_token_address`
+        remaps the share token to the LP token returned by ``lpTokenAddress()``.
+        Keeping this method explicit documents that all inherited callers of
+        ``fetch_total_supply()`` use LP token supply, not the vault proxy address.
+
+        :param block_identifier:
+            Block number or ``"latest"``.
+
+        :return:
+            LP token supply in share token units.
+        """
+
+        return super().fetch_total_supply(block_identifier)
+
     def has_custom_fees(self) -> bool:
         """Upshift has withdrawal and instant redemption fees."""
         return True
@@ -363,6 +381,92 @@ class UpshiftVault(ERC4626Vault):
             return self.fetch_total_assets(block_identifier)
 
         return super().fetch_nav(block_identifier)
+
+    def get_deposit_manager(self) -> "eth_defi.erc_4626.deposit_redeem.ERC4626DepositManager":
+        """Get deposit/redeem manager.
+
+        The generic ERC-4626 deposit manager calls ERC-4626 deposit/redeem
+        functions on the vault address. Upshift multi-asset vaults are proxy
+        accounting contracts and use protocol-specific deposit flows through the
+        Upshift app, so exposing the generic manager would be misleading.
+        """
+
+        if self.multi_asset_like:
+            raise NotImplementedError("Upshift multi-asset vault deposits are not supported by the generic ERC-4626 deposit manager")
+
+        return super().get_deposit_manager()
+
+    def can_check_deposit(self) -> bool:
+        """Can the generic ERC-4626 ``maxDeposit(address(0))`` probe be used."""
+
+        if self.multi_asset_like:
+            return False
+
+        return super().can_check_deposit()
+
+    def fetch_deposit_closed_reason(self) -> str | None:
+        """Fetch live deposit closure reason.
+
+        Upshift multi-asset vaults expose deposit availability with
+        ``depositsPaused()`` and ``maxDepositAmount()`` instead of ERC-4626
+        ``maxDeposit(address)``.
+        """
+
+        if not self.multi_asset_like:
+            return super().fetch_deposit_closed_reason()
+
+        if self.upshift_contract.functions.depositsPaused().call():
+            return "Upshift depositsPaused() is true"
+
+        raw_max_deposit = self.upshift_contract.functions.maxDepositAmount().call()
+        if raw_max_deposit == 0:
+            return "Upshift maxDepositAmount() is zero"
+
+        return None
+
+    def fetch_redemption_closed_reason(self) -> str | None:
+        """Fetch live redemption closure reason.
+
+        Upshift multi-asset vaults expose redemption availability with
+        ``withdrawalsPaused()`` and ``maxWithdrawalAmount()`` instead of
+        ERC-4626 ``maxRedeem(address)``.
+        """
+
+        if not self.multi_asset_like:
+            return super().fetch_redemption_closed_reason()
+
+        if self.upshift_contract.functions.withdrawalsPaused().call():
+            return "Upshift withdrawalsPaused() is true"
+
+        raw_max_withdrawal = self.upshift_contract.functions.maxWithdrawalAmount().call()
+        if raw_max_withdrawal == 0:
+            return "Upshift maxWithdrawalAmount() is zero"
+
+        return None
+
+    def fetch_available_liquidity(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch immediately available withdrawal liquidity.
+
+        For Upshift multi-asset vaults, ``maxWithdrawalAmount()`` is denominated
+        in the vault denomination token and mirrors the value exported by the
+        historical reader as ``available_liquidity``.
+
+        :param block_identifier:
+            Block number or ``"latest"``.
+
+        :return:
+            Available withdrawal liquidity in denomination token units.
+        """
+
+        if not self.multi_asset_like:
+            return super().fetch_available_liquidity(block_identifier)
+
+        token: TokenDetails | None = self.denomination_token
+        if token is None:
+            return None
+
+        raw_amount = self.upshift_contract.functions.maxWithdrawalAmount().call(block_identifier=block_identifier)
+        return token.convert_to_decimals(raw_amount)
 
     def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
         """Get the historical reader for this Upshift vault.
