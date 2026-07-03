@@ -12,15 +12,23 @@ pair for 60 minutes.
 
 B3 restores a loud local failure for exactly that case, with exception
 classification so an *indeterminate* lookup (market_key absent from the RPC
-markets snapshot — ``KeyError``) is tolerated, while a *definitive* rejection
-(market resolved, collateral matches neither token) fails pre-flight:
+markets snapshot — ``KeyError``) is distinguished both from a *definitive*
+rejection (market resolved, collateral matches neither token) and from a
+*malformed* market (market present in the snapshot but missing its long/short
+token address fields — also definitive; see the adversarial-review follow-up
+below):
 
 - definitive rejection + ``start == collateral`` (no swap leg will ever be
   built) → raise :class:`InvalidCollateralForMarketError` before submission;
 - definitive rejection + ``start != collateral`` → a real swap route is built
   (issue #67 flow) — unchanged;
-- indeterminate (``KeyError``) → warn and proceed — never block on "couldn't
-  verify";
+- indeterminate (``KeyError``) + ``start == collateral`` → a further
+  adversarial-review follow-up tightened this: tolerating "couldn't verify"
+  forever has zero upside when no swap leg exists (it can only keeper-cancel
+  on-chain), so the parser now performs exactly ONE bounded ``Markets`` cache
+  refresh and re-classifies; if it is STILL indeterminate after that refresh,
+  it FAILS CLOSED with :class:`CollateralVerificationUnavailableError` instead
+  of proceeding with ``swap_path=[]``;
 - decrease orders never run ``_handle_missing_swap_path`` (``swap_path`` is
   not in their required keys), so closes can never be blocked by this guard.
 
@@ -30,9 +38,15 @@ patched, following ``test_order_argument_parser_refresh_on_miss.py``.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
+
+from eth_defi.gmx.core.markets import Markets
+from eth_defi.gmx.order.order_argument_parser import (
+    CollateralVerificationUnavailableError,
+    InvalidCollateralForMarketError,
+)
 
 # Checksummed fixture addresses (same convention as the refresh-on-miss tests).
 _BTC_INDEX = "0x47904963fc8b2340414262125aF798B9655E58Cd"
@@ -114,6 +128,47 @@ def _build_parser(monkeypatch, markets: dict):
     return OrderArgumentParser(_build_config(), is_increase=True)
 
 
+def _build_parser_with_mutable_markets(monkeypatch, initial_markets: dict):
+    """Offline ``OrderArgumentParser`` whose ``Markets.get_available_markets``
+    result can be reconfigured *after* construction.
+
+    Mirrors ``_build_parser`` above, but backs ``get_available_markets`` with a
+    ``MagicMock`` (following the refresh-mocking pattern in
+    ``test_order_argument_parser_refresh_on_miss.py``) so a test can simulate
+    the class-level ``Markets`` cache changing between the parser's initial
+    snapshot and a later forced refresh — e.g. a market that is absent at
+    construction time but present after ``Markets.invalidate_cache`` +
+    re-fetch.
+
+    :param monkeypatch: pytest monkeypatch fixture.
+    :param initial_markets: Markets snapshot returned on the FIRST call.
+    :return: ``(parser, mock_get_available_markets)`` — mutate
+        ``mock_get_available_markets.return_value`` to change what subsequent
+        calls (i.e. the refresh) return.
+    """
+    from eth_defi.gmx.order import order_argument_parser as parser_mod
+    from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
+
+    mock_get_available_markets = MagicMock(return_value=initial_markets)
+    monkeypatch.setattr(
+        parser_mod.Markets,
+        "get_available_markets",
+        lambda self: mock_get_available_markets(),
+    )
+    monkeypatch.setattr(parser_mod, "GMXConfig", MagicMock())
+    monkeypatch.setattr(
+        parser_mod,
+        "_get_token_metadata_dict",
+        lambda web3, chain, use_cache=True: {
+            _USDC: {"symbol": "USDC", "decimals": 6},
+            _WBTC: {"symbol": "WBTC", "decimals": 8},
+            _TBTC: {"symbol": "tBTC", "decimals": 8},
+        },
+    )
+    parser = OrderArgumentParser(_build_config(), is_increase=True)
+    return parser, mock_get_available_markets
+
+
 # ---------------------------------------------------------------------------
 # _check_if_valid_collateral_for_market — dedicated exception class
 # ---------------------------------------------------------------------------
@@ -141,6 +196,39 @@ def test_rejection_raises_dedicated_exception_class(monkeypatch):
     assert _USDC in message
     assert "Hint" in message
     assert isinstance(exc_info.value, Exception)
+
+
+def test_malformed_market_missing_address_fields_is_definitive_rejection(monkeypatch):
+    """Market PRESENT in the snapshot but missing long/short address fields.
+
+    Adversarial-review finding: ``self.markets[market_key]`` succeeding (the
+    market_key IS present) followed by ``market["long_token_address"]`` /
+    ``market["short_token_address"]`` bracket access meant a malformed-but-
+    present market ALSO raised a bare KeyError — which
+    ``_classify_collateral_support`` then swallowed into ``None``
+    (indeterminate), handing a malformed market a free pass identical to a
+    genuinely absent one. This must instead be a DEFINITIVE rejection:
+    ``_check_if_valid_collateral_for_market`` raises
+    ``InvalidCollateralForMarketError`` (not a bare KeyError), so
+    ``_classify_collateral_support`` returns ``False``, not ``None``.
+    """
+    malformed_market = {
+        _SYNTH_BTC_MARKET: {
+            "gmx_market_address": _SYNTH_BTC_MARKET,
+            "market_symbol": "BTC2",
+            "index_token_address": _BTC_INDEX,
+            # long_token_address / short_token_address deliberately ABSENT.
+        }
+    }
+    parser = _build_parser(monkeypatch, malformed_market)
+    parser.parameters_dict = {"chain": "arbitrum", "market_key": _SYNTH_BTC_MARKET}
+
+    with pytest.raises(InvalidCollateralForMarketError) as exc_info:
+        parser._check_if_valid_collateral_for_market(_USDC)
+    assert _SYNTH_BTC_MARKET in str(exc_info.value)
+
+    # And through the classification wrapper: False, NOT None.
+    assert parser._classify_collateral_support(_USDC) is False
 
 
 # ---------------------------------------------------------------------------
@@ -302,11 +390,99 @@ def test_swap_path_raises_on_definitive_rejection(monkeypatch):
     assert "swap_path" not in parser.parameters_dict  # order never completed
 
 
-def test_swap_path_proceeds_when_indeterminate(monkeypatch):
-    """Flag None (couldn't verify) → tolerate, swap_path=[] as before."""
-    parser = _swap_path_parser(monkeypatch, flag=None)
-    parser._handle_missing_swap_path()
+def test_swap_path_indeterminate_refresh_resolves_to_accepting_market(monkeypatch):
+    """Indeterminate at first classify (market absent) + refresh RESOLVES to
+    an ACCEPTING market → proceeds with swap_path=[], no raise.
+
+    This is the "good" outcome of the refresh-once-then-fail-closed gate
+    (issue #1178 follow-up): a genuinely stale snapshot that a refresh fixes.
+    """
+    parser, mock_get_available_markets = _build_parser_with_mutable_markets(monkeypatch, {})
+    # After the forced refresh, the market appears and accepts USDC.
+    mock_get_available_markets.return_value = {_REAL_BTC_MARKET: _usdc_market()}
+
+    parser.parameters_dict = {
+        "chain": "arbitrum",
+        "market_key": _REAL_BTC_MARKET,
+        "start_token_address": _USDC,
+        "collateral_address": _USDC,  # start == collateral -> no swap leg
+    }
+
+    with patch.object(Markets, "invalidate_cache", wraps=Markets.invalidate_cache) as inv:
+        parser._handle_missing_swap_path()
+
     assert parser.parameters_dict["swap_path"] == []
+    assert inv.called, "an indeterminate verdict must trigger the bounded refresh"
+
+
+def test_swap_path_indeterminate_refresh_resolves_to_rejecting_market(monkeypatch):
+    """Indeterminate at first classify + refresh RESOLVES to a REJECTING
+    market → raises InvalidCollateralForMarketError.
+    """
+    parser, mock_get_available_markets = _build_parser_with_mutable_markets(monkeypatch, {})
+    # After the forced refresh, the market appears and rejects USDC.
+    mock_get_available_markets.return_value = {_SYNTH_BTC_MARKET: _synthetic_market()}
+
+    parser.parameters_dict = {
+        "chain": "arbitrum",
+        "market_key": _SYNTH_BTC_MARKET,
+        "start_token_address": _USDC,
+        "collateral_address": _USDC,
+    }
+
+    with pytest.raises(InvalidCollateralForMarketError):
+        parser._handle_missing_swap_path()
+    assert "swap_path" not in parser.parameters_dict
+
+
+def test_swap_path_indeterminate_still_indeterminate_after_refresh_fails_closed(monkeypatch):
+    """Indeterminate + refresh STILL indeterminate (market absent both times)
+    → raises CollateralVerificationUnavailableError, and swap_path is NEVER
+    set to ``[]``.
+
+    Renamed/reworked from the old ``test_swap_path_proceeds_when_indeterminate``:
+    that test asserted the PRE-fix behaviour (None -> tolerate ->
+    swap_path=[]). Under this fix, an indeterminate verdict with
+    start_token == collateral_address now gets exactly ONE bounded Markets
+    refresh; if it is STILL indeterminate afterwards, there is zero upside to
+    shipping the order (it can only keeper-cancel on-chain), so the parser
+    fails closed instead.
+    """
+    parser = _swap_path_parser(monkeypatch, flag=None)
+
+    with pytest.raises(CollateralVerificationUnavailableError):
+        parser._handle_missing_swap_path()
+
+    assert "swap_path" not in parser.parameters_dict
+
+
+def test_swap_path_refresh_bounded_to_one_attempt(monkeypatch):
+    """A second indeterminate pass on the same parser must NOT invalidate or
+    re-fetch the markets cache again — the refresh is a bounded ONE-SHOT per
+    parser instance, mirroring ``_handle_missing_market_key``.
+    """
+    parser, mock_get_available_markets = _build_parser_with_mutable_markets(monkeypatch, {})
+    # The market never appears, even after the (single) refresh.
+    mock_get_available_markets.return_value = {}
+
+    parser.parameters_dict = {
+        "chain": "arbitrum",
+        "market_key": _REAL_BTC_MARKET,
+        "start_token_address": _USDC,
+        "collateral_address": _USDC,
+    }
+
+    with patch.object(Markets, "invalidate_cache", wraps=Markets.invalidate_cache) as inv:
+        with pytest.raises(CollateralVerificationUnavailableError):
+            parser._handle_missing_swap_path()
+        first_refresh_count = inv.call_count
+
+        # Second indeterminate pass on the SAME parser instance.
+        with pytest.raises(CollateralVerificationUnavailableError):
+            parser._handle_missing_swap_path()
+        second_refresh_count = inv.call_count
+
+    assert second_refresh_count == first_refresh_count, "A second indeterminate pass must not trigger another refresh"
 
 
 def test_swap_path_proceeds_when_accepted(monkeypatch):
@@ -316,11 +492,21 @@ def test_swap_path_proceeds_when_accepted(monkeypatch):
     assert parser.parameters_dict["swap_path"] == []
 
 
-def test_swap_path_default_flag_is_tolerant(monkeypatch):
-    """A parser whose collateral handler never ran must behave as indeterminate.
+def test_swap_path_default_flag_fails_closed_after_refresh(monkeypatch):
+    """A parser whose collateral handler never ran, and which has no
+    ``market_key`` at all, still goes through the SAME indeterminate ->
+    refresh -> fail-closed gate.
 
-    Callers may pre-supply collateral_address (so _handle_missing_collateral_address
-    is skipped); the guard must not fire from an unset attribute.
+    Renamed/reworked from the old ``test_swap_path_default_flag_is_tolerant``:
+    that test asserted the PRE-fix "unset attribute -> tolerate" behaviour.
+    Under this fix, "we cannot verify" is treated uniformly regardless of
+    WHY the classification came back indeterminate (absent market_key value,
+    or here, no market_key key at all) — start_token == collateral_address
+    still means no swap leg exists, so there is still zero upside to
+    proceeding, and the parser fails closed with
+    ``CollateralVerificationUnavailableError`` after its one bounded refresh
+    attempt (which is a no-op here, since nothing about a missing
+    ``market_key`` key can be fixed by a Markets cache refresh).
     """
     parser = _build_parser(monkeypatch, {_REAL_BTC_MARKET: _usdc_market()})
     parser.parameters_dict = {
@@ -328,8 +514,10 @@ def test_swap_path_default_flag_is_tolerant(monkeypatch):
         "start_token_address": _USDC,
         "collateral_address": _USDC,
     }
-    parser._handle_missing_swap_path()
-    assert parser.parameters_dict["swap_path"] == []
+
+    with pytest.raises(CollateralVerificationUnavailableError):
+        parser._handle_missing_swap_path()
+    assert "swap_path" not in parser.parameters_dict
 
 
 def test_presupplied_collateral_address_gets_classified_before_tolerating(monkeypatch):
@@ -341,10 +529,6 @@ def test_presupplied_collateral_address_gets_classified_before_tolerating(monkey
     gate must classify direct collateral support just-in-time instead of
     treating the verdict as forever indeterminate.
     """
-    from eth_defi.gmx.order.order_argument_parser import (
-        InvalidCollateralForMarketError,
-    )
-
     parser = _build_parser(monkeypatch, {_SYNTH_BTC_MARKET: _synthetic_market()})
     parser.parameters_dict = {
         "chain": "arbitrum",
@@ -357,8 +541,17 @@ def test_presupplied_collateral_address_gets_classified_before_tolerating(monkey
         parser._handle_missing_swap_path()
 
 
-def test_presupplied_collateral_address_unknown_market_stays_tolerant(monkeypatch):
-    """Pre-supplied collateral_address + unresolvable market must stay tolerant."""
+def test_presupplied_collateral_address_unknown_market_fails_closed_after_refresh(monkeypatch):
+    """Pre-supplied collateral_address + unresolvable market_key.
+
+    Renamed/reworked from the old
+    ``test_presupplied_collateral_address_unknown_market_stays_tolerant``:
+    "market_key present but absent from the Markets snapshot" is EXACTLY the
+    indeterminate case this fix targets. The parser's own ``self.markets``
+    (mocked to a fixed dict here) does not gain the missing key after the
+    bounded refresh, so the verdict stays indeterminate and the parser now
+    fails closed instead of tolerating it.
+    """
     parser = _build_parser(monkeypatch, {_REAL_BTC_MARKET: _usdc_market()})
     parser.parameters_dict = {
         "chain": "arbitrum",
@@ -367,8 +560,9 @@ def test_presupplied_collateral_address_unknown_market_stays_tolerant(monkeypatc
         "collateral_address": _USDC,
     }
 
-    parser._handle_missing_swap_path()
-    assert parser.parameters_dict["swap_path"] == []
+    with pytest.raises(CollateralVerificationUnavailableError):
+        parser._handle_missing_swap_path()
+    assert "swap_path" not in parser.parameters_dict
 
 
 def test_rejection_message_survives_missing_metadata_keys(monkeypatch):
