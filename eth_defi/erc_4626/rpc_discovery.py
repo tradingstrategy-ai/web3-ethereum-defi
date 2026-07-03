@@ -73,7 +73,8 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
     def build_query(self, executor: ThreadPoolExecutor, start_block: int, end_block: int) -> dict:
         """Create a read_events_concurrent arguments to discover new vaults.
 
-        Includes both standard ERC-4626 events and BrinkVault events.
+        Includes standard ERC-4626 events and all configured protocol-specific
+        vault flow events.
 
         See :py:func:`eth_defi.event_reader.reader.read_events_concurrent`
         """
