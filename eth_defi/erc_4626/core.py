@@ -319,6 +319,14 @@ class ERC4626Feature(enum.Enum):
     #: Institutional-grade DeFi yield strategies through non-custodial vaults.
     #: https://www.upshift.finance/
     upshift_like = "upshift_like"
+
+    #: Upshift multi-asset vault.
+    #:
+    #: Uses a vault proxy for accounting calls and a separate ``lpTokenAddress()``
+    #: ERC-20 token for share metadata and supply.
+    #: https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code
+    upshift_multi_asset_like = "upshift_multi_asset_like"
+
     #: Sky (formerly MakerDAO)
     #:
     #: stUSDS vault for USDS staking.

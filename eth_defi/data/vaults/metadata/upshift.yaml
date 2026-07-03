@@ -20,10 +20,20 @@ long_description: |
   The vaults operate as non-custodial structures, meaning users maintain control over their assets.
   The implementation leverages the ERC-4626 Vault Standard, a widely-adopted Ethereum standard
   for tokenised vaults.
+
+  Trading Strategy supports both observed Upshift vault families. Older TokenizedAccount vaults
+  expose the usual ERC-4626 accounting surface directly on the vault contract. Newer multi-asset
+  vaults, including RockawayX curated Tori Ecosystem Vault and Earn ctUSD, expose vault accounting
+  through Upshift-specific read methods and use a separate LP token returned by `lpTokenAddress()`
+  for share metadata and supply.
+
+  Multi-asset Upshift vault discovery uses Upshift's custom `Deposit(address,uint256,uint256,address,address)`
+  event together with the verified implementation ABI, because deposits are emitted at the proxy
+  address while the public proxy ABI only exposes proxy administration events.
 fee_description: |
 links:
   homepage: https://www.upshift.finance/
-  app:
+  app: https://app.upshift.finance/
   twitter: https://x.com/upshift_fi
   github:
   documentation: https://docs.upshift.finance/
@@ -34,4 +44,5 @@ links:
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/upshift/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x69fc3f84fd837217377d9dae0212068ceb65818e
-  -
+  - https://etherscan.io/address/0xcd69123b3FBBfC666E1f6a501da27B564C00De54
+  - https://etherscan.io/address/0xc87DBBB8C67e4F19fCD2E297c05937567b2572Ce

@@ -19,11 +19,26 @@ The vaults operate as non-custodial structures, meaning users maintain control o
 The implementation leverages the ERC-4626 Vault Standard, a widely-adopted Ethereum standard
 for tokenised vaults.
 
+Trading Strategy supports both observed Upshift vault families:
+
+* TokenizedAccount ERC-4626 vaults where the vault contract itself exposes share-token metadata,
+  ``totalAssets()`` and ``convertToAssets()``.
+* Upshift ``multiAssetVault`` proxies where vault accounting is exposed through
+  ``getSharePrice()`` and ``getTotalAssets()``, while ``lpTokenAddress()`` points to the ERC-20
+  share token.
+
+The multi-asset implementation is documented through the verified
+`shared implementation contract <https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code>`__.
+Examples include RockawayX's
+`Tori Ecosystem Vault <https://etherscan.io/address/0xcd69123b3FBBfC666E1f6a501da27B564C00De54>`__
+and `Earn ctUSD <https://etherscan.io/address/0xc87DBBB8C67e4F19fCD2E297c05937567b2572Ce>`__.
+
 Links
 ~~~~~
 
 - `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/upshift>`__
 - `Homepage <https://www.upshift.finance/>`__
+- `App <https://app.upshift.finance/>`__
 - `Documentation <https://docs.upshift.finance/>`__
 - `Twitter <https://x.com/upshift_fi>`__
 - `DefiLlama <https://defillama.com/protocol/upshift>`__
