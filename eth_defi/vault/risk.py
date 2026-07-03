@@ -170,6 +170,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Aave": VaultTechnicalRisk.low,
     # Mellow - audited Core Vault architecture with verified component contracts.
     "Mellow": VaultTechnicalRisk.low,
+    # Atoma - verified Arbitrum ERC1967 proxy implementation, but new protocol and no public audit found.
+    "Atoma": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

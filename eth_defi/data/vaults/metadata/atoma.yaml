@@ -1,0 +1,32 @@
+name: Atoma
+slug: atoma
+short_description: |
+  Delta-neutral USDC yield vault on Arbitrum using perpetual DEX funding-rate strategies.
+long_description: |
+  Atoma is a depositor-facing USDC vault on Arbitrum. Users deposit USDC into the Atoma
+  Vault Share ERC-4626 token, while the protocol allocates capital to delta-neutral
+  perpetual DEX strategies across venues such as Nado and Extended.
+
+  The live app reports weekly epochs. Deposits use the standard ERC-4626 flow, while
+  withdrawals use a request-and-claim process: users request a share withdrawal, the
+  epoch is settled by the operator, and claimWithdrawal() pays out USDC after settlement.
+  Atoma operates the vault itself, so the protocol is also the vault curator.
+fee_description: |
+  The verified AtomaVault implementation has PERFORMANCE_FEE_BPS = 2000, a 20%
+  high-water-mark performance fee minted as vault shares to the operator when NAV rises
+  above the previous high-water mark. It also has WITHDRAWAL_FEE_BPS = 50, a 0.5%
+  withdrawal fee deducted when claimWithdrawal() pays out USDC. No management fee is
+  present in the verified source.
+links:
+  homepage: https://app.atoma.fi/
+  app: https://app.atoma.fi/
+  twitter: https://x.com/atoma_fi
+  documentation:
+  defillama:
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/atoma
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/atoma/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c
+  - https://arbitrum.blockscout.com/address/0xd4242FD8DE6E3128f0435b52DCe29155098CbBFF

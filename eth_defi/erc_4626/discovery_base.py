@@ -7,6 +7,7 @@
 - Supports TokenGateway Deposit(5-arg)/RedeemRequested/RedeemTokenGatewayDepreciated events
 - Supports Royco tranche Redeem event
 - Supports Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
+- Supports Atoma WithdrawalRequested/WithdrawalClaimed events
 """
 
 import abc
@@ -159,6 +160,25 @@ def get_upshift_multi_asset_event_contract(web3):
     )
 
 
+def get_atoma_vault_event_contract(web3):
+    """Get Atoma vault interface for custom flow events.
+
+    Atoma's Arbitrum vault emits the standard ERC-4626 ``Deposit`` event for
+    deposits, but direct ``withdraw()``/``redeem()`` revert with
+    ``UseRequestWithdrawal``. Redemptions use an epoch-based request/claim flow:
+
+    - ``WithdrawalRequested(address indexed user, uint256 shares, uint256 requestEpoch, uint256 settlementEpoch)``
+    - ``WithdrawalClaimed(address indexed user, uint256 indexed epochId, uint256 shares, uint256 assets, uint256 fee)``
+
+    Verified source: https://arbitrum.blockscout.com/address/0xd4242FD8DE6E3128f0435b52DCe29155098CbBFF
+    Proxy vault: https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c
+    """
+    return get_contract(
+        web3,
+        "atoma/IAtomaVaultEvents.json",
+    )
+
+
 def get_standard_erc_4626_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get list of standard ERC-4626 events we use in vault discovery.
 
@@ -284,6 +304,23 @@ def get_upshift_multi_asset_discovery_events(web3) -> list[Type[ContractEvent]]:
     ]
 
 
+def get_atoma_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
+    """Get Atoma custom events we use in vault discovery.
+
+    Deposits are covered by the standard ERC-4626 ``Deposit`` event. Atoma's
+    withdrawal flow is asynchronous and emits custom request/claim events
+    instead of the standard ERC-4626 ``Withdraw`` event.
+
+    :return:
+        List of Atoma custom event types used for lead discovery.
+    """
+    IAtomaVaultEvents = get_atoma_vault_event_contract(web3)
+    return [
+        IAtomaVaultEvents.events.WithdrawalRequested,
+        IAtomaVaultEvents.events.WithdrawalClaimed,
+    ]
+
+
 def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get all events used in vault discovery, including protocol-specific ones.
 
@@ -294,6 +331,7 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     - TokenGateway Deposit(5-arg)/RedeemRequested/RedeemTokenGatewayDepreciated events
     - Royco tranche Redeem event
     - Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
+    - Atoma WithdrawalRequested/WithdrawalClaimed events
 
     :return:
         List of contract event types in order:
@@ -302,9 +340,10 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
          TokenGateway.Deposit, TokenGateway.RedeemRequested, TokenGateway.RedeemTokenGatewayDepreciated,
          RoycoTranche.Redeem,
          UpshiftMultiAsset.Deposit, UpshiftMultiAsset.WithdrawalRequested,
-         UpshiftMultiAsset.WithdrawalProcessed]
+         UpshiftMultiAsset.WithdrawalProcessed,
+         AtomaVault.WithdrawalRequested, AtomaVault.WithdrawalClaimed]
     """
-    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3) + get_upshift_multi_asset_discovery_events(web3)
+    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3) + get_upshift_multi_asset_discovery_events(web3) + get_atoma_vault_discovery_events(web3)
 
 
 def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
@@ -323,6 +362,7 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
     token_gateway_events = get_token_gateway_discovery_events(web3)
     royco_tranche_events = get_royco_tranche_discovery_events(web3)
     upshift_multi_asset_events = get_upshift_multi_asset_discovery_events(web3)
+    atoma_vault_events = get_atoma_vault_discovery_events(web3)
 
     return {
         get_topic_signature_from_event(erc4626_events[0]): VaultEventKind.deposit,
@@ -338,6 +378,8 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
         get_topic_signature_from_event(upshift_multi_asset_events[0]): VaultEventKind.deposit,
         get_topic_signature_from_event(upshift_multi_asset_events[1]): VaultEventKind.withdraw,
         get_topic_signature_from_event(upshift_multi_asset_events[2]): VaultEventKind.withdraw,
+        get_topic_signature_from_event(atoma_vault_events[0]): VaultEventKind.withdraw,
+        get_topic_signature_from_event(atoma_vault_events[1]): VaultEventKind.withdraw,
     }
 
 

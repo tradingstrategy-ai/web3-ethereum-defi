@@ -186,6 +186,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # time-based protocol fees in vault shares. Performance/protocol fees are
     # minted as shares, while deposit/redeem fees reduce user share amounts.
     "Mellow": VaultFeeMode.internalised_minting,
+    # Atoma mints performance-fee shares when NAV exceeds the high-water mark
+    # and charges a fixed withdrawal fee when claimWithdrawal() pays out.
+    "Atoma": VaultFeeMode.externalised,
 }
 
 

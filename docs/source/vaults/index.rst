@@ -38,6 +38,7 @@ Supported protocols
    aera/index
    accountable/index
    altura/index
+   atoma/index
    avant/index
    auto_finance/index
    basevol/index

@@ -663,6 +663,12 @@ class ERC4626Feature(enum.Enum):
     #: https://docs.mellow.finance/core-vaults
     mellow_like = "mellow_like"
 
+    #: Atoma
+    #:
+    #: Delta-neutral USDC vault on Arbitrum with epoch-based withdrawals.
+    #: https://app.atoma.fi/
+    atoma_like = "atoma_like"
+
 
 #: Features that identify lending protocol vaults.
 #:
@@ -740,6 +746,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "<not ERC-4626>"
     elif ERC4626Feature.mellow_like in features:
         return "Mellow"
+    elif ERC4626Feature.atoma_like in features:
+        return "Atoma"
     elif ERC4626Feature.morpho_v2_like in features:
         return "Morpho"
     elif ERC4626Feature.morpho_like in features:

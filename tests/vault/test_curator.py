@@ -367,6 +367,22 @@ def test_identify_3jane_protocol_curator() -> None:
     assert get_curator_name("3jane") == "3Jane"
 
 
+def test_identify_atoma_protocol_curator() -> None:
+    """Atoma protocol vaults resolve to the protocol-managed slug."""
+
+    slug = identify_curator(
+        chain_id=42161,
+        vault_token_symbol="AVS",
+        vault_name="Atoma Vault Share",
+        vault_address="0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c",
+        protocol_slug="atoma",
+    )
+
+    assert slug == "atoma"
+    assert is_protocol_curator("atoma")
+    assert get_curator_name("atoma") == "Atoma"
+
+
 def test_identify_legacy_gtrade_as_gains_network() -> None:
     """Legacy gTrade protocol slug resolves to Gains Network."""
 
