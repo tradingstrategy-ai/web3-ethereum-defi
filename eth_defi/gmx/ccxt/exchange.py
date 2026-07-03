@@ -5778,9 +5778,84 @@ class GMX(ExchangeCompatible):
                 "short_token": m["short_token_address"],
             }
 
-        # Default: use the pool already in self.markets for this symbol
+        # Default branch: collateral-aware pool selection (issue #1178).
+        #
+        # This is the ONLY market-selection logic that runs on the live ccxt
+        # order path — ``market_key`` is injected into ``OrderArgumentParser``
+        # from here, so the parser's own USDC-preference disambiguation
+        # (``_handle_missing_market_key``) never executes. We therefore apply
+        # the same strategy it documents: keep the mapped pool if it accepts
+        # the order's collateral; otherwise pick a sibling pool (same index
+        # token) that does, defaulting to USDC — the ``<base>-USDC`` pools have
+        # orders-of-magnitude deeper liquidity than synthetic single-sided
+        # pools. Any lookup failure falls back to the mapped pool (never crash
+        # the order path here — B3 fails loudly downstream if it is unusable).
         normalized_symbol = self._normalize_symbol(symbol)
-        return self.markets[normalized_symbol].get("info", {})
+        default_info = self.markets.get(normalized_symbol, {}).get("info", {})
+
+        # The order's collateral token. Default USDC (deepest liquidity) when
+        # the caller names none — mirrors OrderArgumentParser's USDC_PAIRED
+        # default; an explicit ``collateral_symbol`` wins.
+        collateral_symbol = (params.get("collateral_symbol") or "USDC").upper()
+
+        try:
+            pools = self.fetch_pools_for_symbol(symbol)
+        except Exception as exc:  # noqa: BLE001 - never block the order on a scan error
+            logger.warning(
+                "OPEN: pool scan failed for %s (%r) — using mapped pool %s unverified",
+                symbol,
+                exc,
+                default_info.get("market_token"),
+            )
+            return default_info
+
+        if not pools:
+            return default_info
+
+        def _accepts(pool: dict) -> bool:
+            return collateral_symbol in (
+                (pool.get("long_token_symbol") or "").upper(),
+                (pool.get("short_token_symbol") or "").upper(),
+            )
+
+        # If the mapped pool already accepts the collateral, keep it — never
+        # override an acceptable pool (avoids churn when several pools qualify).
+        mapped_token = (default_info.get("market_token") or "").lower()
+        mapped_pool = next(
+            (p for p in pools if (p.get("market_address") or "").lower() == mapped_token),
+            None,
+        )
+        if mapped_pool is not None and _accepts(mapped_pool):
+            return default_info
+
+        accepting = [p for p in pools if _accepts(p)]
+        if not accepting:
+            logger.warning(
+                "OPEN: no pool for %s accepts collateral %s — using mapped pool %s "
+                "(order may be rejected pre-flight; see InvalidCollateralForMarketError)",
+                symbol,
+                collateral_symbol,
+                mapped_token or "<none>",
+            )
+            return default_info
+
+        chosen = accepting[0]
+        logger.warning(
+            "OPEN: overriding market_key for %s — mapped pool %s does not accept "
+            "collateral %s; using %s (long=%s, short=%s) instead",
+            symbol,
+            mapped_token or "<none>",
+            collateral_symbol,
+            chosen["market_address"],
+            chosen.get("long_token_symbol"),
+            chosen.get("short_token_symbol"),
+        )
+        return {
+            "market_token": chosen["market_address"],
+            "index_token": chosen["index_token"],
+            "long_token": chosen["long_token"],
+            "short_token": chosen["short_token"],
+        }
 
     def fetch_pools_for_symbol(self, symbol: str) -> list[dict]:
         """Return all available GMX pools for a given market symbol.
