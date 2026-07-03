@@ -141,8 +141,11 @@ unavailable.
 This script does not use `RESET_LEADS` and does not wipe whole-chain discovery
 or price data. It upserts lead rows for the selected Upshift API vaults, repairs
 missing or broken metadata rows for those same vaults, and scans historical
-prices only for those listed vault addresses. Existing price rows are preserved
-by default: vaults that already have rows continue from the latest known block.
+prices only for those listed vault addresses. Historical prices are scanned at
+most once per supported chain per run. Caught-up vaults are skipped. For the
+remaining selected vaults on the chain, the scan starts from the earliest
+missing block any of those vaults needs, and parquet deletion remains scoped to
+those listed Upshift vault addresses.
 
 ```shell
 source .local-test.env && poetry run python scripts/erc-4626/fix-upshift-vaults.py
@@ -166,10 +169,10 @@ source .local-test.env && poetry run python scripts/erc-4626/fix-upshift-vaults.
 | `READER_STATE_DATABASE` | Optional. Reader-state pickle path. Default: production reader state DB. |
 
 The script reads RPC URLs using normal `JSON_RPC_<CHAIN_NAME>` variables where
-the chain is known by `eth_defi.chain`. For Upshift API chains not yet present
-in the global chain metadata, provide `JSON_RPC_CHAIN_<chain_id>`. Lead rows are
-still upserted if an RPC URL is missing; only metadata repair and historical
-price scanning for that chain are skipped.
+the chain is known by `eth_defi.chain`. Upshift API chains not yet present in
+the global chain metadata are skipped. For supported chains, lead rows are still
+upserted if an RPC URL is missing; only metadata repair and historical price
+scanning for that chain are skipped.
 
 ### post-process-prices.py
 
