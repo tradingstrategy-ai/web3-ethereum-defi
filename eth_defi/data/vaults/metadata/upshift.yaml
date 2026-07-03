@@ -1,25 +1,16 @@
 name: Upshift
 slug: upshift
 short_description: |
-  Institutional-grade DeFi yield strategies through non-custodial vaults.
+  Institutional onchain asset-management infrastructure for custom vault products.
 long_description: |
-  Upshift democratises institutional-grade DeFi yield strategies through non-custodial vaults
-  built on August infrastructure. The platform handles three main product offerings:
+  Upshift is infrastructure for institutional onchain asset management. Teams use Upshift
+  to design, launch, integrate and distribute custom vault products for DeFi Earn, PayFi,
+  real-world assets and other yield strategies.
 
-  **Upshift Lend**: An on-chain lending platform providing overcollateralised positions
-  with institutional borrowers, emphasising KYC/KYB verification and real yield opportunities.
-
-  **Upshift DeFi Yield**: Access to yield strategies curated and executed by some of the
-  best-performing DeFi funds, offering institutional-level risk management previously
-  unavailable to retail participants.
-
-  **Vault-as-a-Service (VaaS)**: A streamlined solution for ecosystems and protocols
-  looking to offer tailored vault opportunities, utilising the ERC-4626 standard alongside
-  August smart contracts.
-
-  The vaults operate as non-custodial structures, meaning users maintain control over their assets.
-  The implementation leverages the ERC-4626 Vault Standard, a widely-adopted Ethereum standard
-  for tokenised vaults.
+  Upshift vaults run on August infrastructure. August provides prime-brokerage services,
+  policy-controlled smart contract accounts, risk controls and cross-margining for vault
+  strategy execution. The vault contracts remain non-custodial structures where depositors
+  receive vault receipt tokens and can verify positions onchain.
 
   Trading Strategy supports both observed Upshift vault families. Older TokenizedAccount vaults
   expose the usual ERC-4626 accounting surface directly on the vault contract. Newer multi-asset
