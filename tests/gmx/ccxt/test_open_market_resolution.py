@@ -185,6 +185,79 @@ def test_scan_failure_falls_back_to_mapped_info():
     assert info["market_token"] == _REAL_BTC_MARKET  # mapped info, no crash
 
 
+def test_reduce_only_close_bypasses_collateral_scan_entirely(caplog):
+    """reduceOnly (close) orders must NEVER run B2's collateral-aware scan.
+
+    Adversarial-review finding: closes are resolved authoritatively downstream
+    from the on-chain position (_execute_close_with_position), independent of
+    whatever _resolve_market_info picks here. Running the scan on closes is
+    both wasted RPC-backed work and a residual exposure — if the authoritative
+    on-chain 'market' field is ever falsy, code falls back to THIS value,
+    which was computed with zero knowledge of which position is being closed.
+    Bypass the scan entirely for reduceOnly; return the mapped info unchanged,
+    exactly like the pre-B2 code.
+    """
+    gmx = _make_exchange()
+    scanned = {"called": False}
+
+    def _fetch(_s):
+        scanned["called"] = True
+        return _pools_both()
+
+    gmx.markets = {"BTC/USDC:USDC": {"info": _synthetic_info()}}
+    gmx._normalize_symbol = lambda s: "BTC/USDC:USDC"
+    gmx.fetch_pools_for_symbol = _fetch
+
+    with caplog.at_level(logging.WARNING):
+        info = gmx._resolve_market_info("BTC/USDC:USDC", {"reduceOnly": True})
+
+    assert info["market_token"] == _SYNTH_BTC_MARKET  # mapped info, unchanged
+    assert scanned["called"] is False, "reduceOnly must skip the collateral scan"
+    assert not caplog.records
+
+
+def test_sibling_tie_break_is_deterministic_regardless_of_scan_order():
+    """Multiple sibling pools accepting the collateral must pick the SAME one
+    regardless of ``fetch_pools_for_symbol``'s return order.
+
+    Adversarial-review finding: ``accepting[0]`` depended on dict iteration
+    order from the RPC catalogue — not a correctness signal. Two orderings of
+    the same two USDC-accepting pools must resolve to the identical pool.
+    """
+    gmx = _make_exchange()
+    pool_a = {
+        "market_address": "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "index_token": _BTC_INDEX,
+        "long_token": _WBTC,
+        "long_token_symbol": "WBTC",
+        "short_token": _USDC,
+        "short_token_symbol": "USDC",
+    }
+    pool_b = {
+        "market_address": "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "index_token": _BTC_INDEX,
+        "long_token": _WBTC,
+        "long_token_symbol": "WBTC",
+        "short_token": _USDC,
+        "short_token_symbol": "USDC",
+    }
+    mapped = _synthetic_info()  # mapped pool rejects USDC -> must override
+
+    gmx.markets = {"BTC/USDC:USDC": {"info": mapped}}
+    gmx._normalize_symbol = lambda s: "BTC/USDC:USDC"
+
+    gmx.fetch_pools_for_symbol = lambda s: [pool_a, pool_b]
+    info_ab = gmx._resolve_market_info("BTC/USDC:USDC", {})
+
+    gmx.fetch_pools_for_symbol = lambda s: [pool_b, pool_a]
+    info_ba = gmx._resolve_market_info("BTC/USDC:USDC", {})
+
+    assert info_ab["market_token"] == info_ba["market_token"], (
+        info_ab["market_token"],
+        info_ba["market_token"],
+    )
+
+
 def test_explicit_market_address_bypasses_collateral_scan():
     """An explicit ``market_address`` param must win — B2 never overrides it."""
     gmx = _make_exchange()

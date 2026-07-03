@@ -5793,6 +5793,19 @@ class GMX(ExchangeCompatible):
         normalized_symbol = self._normalize_symbol(symbol)
         default_info = self.markets.get(normalized_symbol, {}).get("info", {})
 
+        # CLOSE orders (reduceOnly) must NEVER run this scan (adversarial-review
+        # finding). Closes are resolved authoritatively from the on-chain
+        # position in ``_execute_close_with_position``, which unconditionally
+        # overrides ``market_key`` whenever the position record has one — so
+        # this branch's output is normally discarded for closes anyway, and
+        # running it is wasted RPC-backed work. Worse, in the rare case the
+        # on-chain record lacks a market address, code falls back to WHATEVER
+        # this branch returns — a value computed with zero knowledge of which
+        # specific position is being closed. Return the plain mapped info,
+        # exactly matching pre-B2 behaviour for closes.
+        if params.get("reduceOnly"):
+            return default_info
+
         # The order's collateral token. Default USDC (deepest liquidity) when
         # the caller names none — mirrors OrderArgumentParser's USDC_PAIRED
         # default; an explicit ``collateral_symbol`` wins.
@@ -5839,6 +5852,14 @@ class GMX(ExchangeCompatible):
             )
             return default_info
 
+        # Deterministic tie-break (adversarial-review finding): ``pools`` order
+        # reflects RPC/API response order, not a correctness signal — picking
+        # accepting[0] made the choice depend on iteration order. Sort by
+        # market address so the same inputs always resolve to the same pool,
+        # regardless of how the underlying catalogue happens to enumerate them.
+        # (No liquidity data is available in fetch_pools_for_symbol's output to
+        # rank by depth directly; determinism is the achievable bar here.)
+        accepting.sort(key=lambda p: (p.get("market_address") or "").lower())
         chosen = accepting[0]
         logger.warning(
             "OPEN: overriding market_key for %s — mapped pool %s does not accept "

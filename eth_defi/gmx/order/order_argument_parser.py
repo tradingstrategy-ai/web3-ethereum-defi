@@ -573,7 +573,16 @@ class OrderArgumentParser:
         ):
             return True
 
-        msg = f"Not a valid collateral for selected market!\n  market_key: {market_key}\n  collateral_address: {collateral_address}\n  valid long_token: {market['long_token_address']} ({market['long_token_metadata'].get('symbol', '?')})\n  valid short_token: {market['short_token_address']} ({market['short_token_metadata'].get('symbol', '?')})\n  Hint: set collateral_symbol to the long or short token symbol of this market."
+        # Rejection is already definitive at this point (address check above
+        # proved it) — metadata is cosmetic for the message only. Use .get()
+        # defensively so a market dict missing long/short_token_metadata
+        # (adversarial-review finding) raises the intended
+        # InvalidCollateralForMarketError instead of a KeyError that the
+        # caller would misclassify as "indeterminate" and let the order
+        # proceed unverified.
+        long_symbol = market.get("long_token_metadata", {}).get("symbol", "?")
+        short_symbol = market.get("short_token_metadata", {}).get("symbol", "?")
+        msg = f"Not a valid collateral for selected market!\n  market_key: {market_key}\n  collateral_address: {collateral_address}\n  valid long_token: {market['long_token_address']} ({long_symbol})\n  valid short_token: {market['short_token_address']} ({short_symbol})\n  Hint: set collateral_symbol to the long or short token symbol of this market."
         raise InvalidCollateralForMarketError(msg)
 
     @staticmethod

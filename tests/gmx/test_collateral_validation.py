@@ -264,6 +264,73 @@ def test_swap_path_default_flag_is_tolerant(monkeypatch):
     assert parser.parameters_dict["swap_path"] == []
 
 
+def test_rejection_message_survives_missing_metadata_keys(monkeypatch):
+    """A definitive rejection must raise even if metadata dicts are entirely absent.
+
+    Adversarial-review finding: the message builder used bracket access
+    (market['long_token_metadata']) on optional metadata AFTER the address
+    check had already proven rejection. A market dict missing that key (not
+    just missing 'symbol' inside it) raised KeyError, which the caller
+    classifies as indeterminate — silently downgrading a definitive rejection
+    to "proceed unverified" and defeating the whole point of B3.
+    """
+    from eth_defi.gmx.order.order_argument_parser import (
+        InvalidCollateralForMarketError,
+    )
+
+    bare_market = {
+        _SYNTH_BTC_MARKET: {
+            "gmx_market_address": _SYNTH_BTC_MARKET,
+            "market_symbol": "BTC2",
+            "index_token_address": _BTC_INDEX,
+            "long_token_address": _TBTC,
+            "short_token_address": _TBTC,
+            # long_token_metadata / short_token_metadata deliberately ABSENT.
+        }
+    }
+    parser = _build_parser(monkeypatch, bare_market)
+    parser.parameters_dict = {"chain": "arbitrum", "market_key": _SYNTH_BTC_MARKET}
+
+    with pytest.raises(InvalidCollateralForMarketError) as exc_info:
+        parser._check_if_valid_collateral_for_market(_USDC)
+
+    assert _SYNTH_BTC_MARKET in str(exc_info.value)
+
+
+def test_missing_metadata_does_not_relax_swap_path_gate(monkeypatch):
+    """End-to-end: missing metadata must still result in a raised swap-path gate.
+
+    Regression for the same finding via the full _handle_missing_collateral_address
+    -> _handle_missing_swap_path path — proves the classification stays
+    "definitive rejection" (False), not silently "indeterminate" (None).
+    """
+    from eth_defi.gmx.order.order_argument_parser import (
+        InvalidCollateralForMarketError,
+    )
+
+    bare_market = {
+        _SYNTH_BTC_MARKET: {
+            "gmx_market_address": _SYNTH_BTC_MARKET,
+            "market_symbol": "BTC2",
+            "index_token_address": _BTC_INDEX,
+            "long_token_address": _TBTC,
+            "short_token_address": _TBTC,
+        }
+    }
+    parser = _build_parser(monkeypatch, bare_market)
+    parser.parameters_dict = {
+        "chain": "arbitrum",
+        "market_key": _SYNTH_BTC_MARKET,
+        "collateral_token_symbol": "USDC",
+    }
+    parser._handle_missing_collateral_address()
+    assert parser._collateral_directly_supported is False  # NOT None
+
+    parser.parameters_dict["start_token_address"] = _USDC
+    with pytest.raises(InvalidCollateralForMarketError):
+        parser._handle_missing_swap_path()
+
+
 def test_real_swap_leg_still_built_when_start_differs(monkeypatch):
     """Rejected collateral + start != collateral → issue-#67 swap flow intact."""
     from eth_defi.gmx.order import order_argument_parser as parser_mod
