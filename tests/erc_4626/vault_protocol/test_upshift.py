@@ -142,7 +142,7 @@ def test_upshift_multi_asset_vault_metadata(
     assert vault.fetch_total_supply(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
     assert vault.fetch_available_liquidity(UPSHIFT_MULTI_ASSET_FORK_BLOCK) is not None
     assert vault.fetch_deposit_closed_reason() is None
-    assert vault.fetch_redemption_closed_reason() is None
+    assert vault.fetch_redemption_closed_reason() == "Upshift withdrawalsPaused() is true"
     assert vault.can_check_deposit() is False
 
     with pytest.raises(NotImplementedError):
