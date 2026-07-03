@@ -1,7 +1,7 @@
 name: Kinexys
 slug: kinexys
 short_description: |
-  Permissioned tokenised fund contracts using Kinexys Digital Assets Fungible Asset Contract.
+  Permissioned tokenised fund contracts from Kinexys by J.P. Morgan.
 long_description: |
   Kinexys Digital Assets Fungible Asset Contract, or ODA-FACT, is a standardised
   token contract surface used for tokenised institutional fund products. The
@@ -23,9 +23,9 @@ fee_description: |
   net expense ratio to the shared management-like fee field and reports no
   separate performance, deposit or withdrawal fee.
 links:
-  homepage: https://www.jpmorgan.com/kinexys
-  app:
-  twitter: https://x.com/ethereuminsti
+  homepage: https://www.jpmorgan.com/kinexys/index
+  app: https://www.jpmorgan.com/kinexys/tokenized-money-market-funds
+  twitter: https://x.com/jpmorgan
   github:
   documentation: https://www.jpmorgan.com/kinexys/documents/portfolio-management-powered-by-tokenization.pdf
   fact_sheet: https://am.jpmorgan.com/content/dam/jpm-am-aem/americas/us/en/literature/fact-sheet/money-market/fs-ocltmm-t.pdf
@@ -33,6 +33,6 @@ links:
   audits:
   fees: https://www.sec.gov/Archives/edgar/data/1659326/000119312526217424/d44657d485bpos.htm
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/kinexys
-  integration_documentation: https://web3-ethereum-defi.readthedocs.io/api/oda_fact/index.html
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/kinexys/index.html
 example_smart_contracts:
   - https://eth.blockscout.com/address/0x09864f52B035AE22eE739dFa5c748fA080D07bD8

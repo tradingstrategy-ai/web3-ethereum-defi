@@ -194,6 +194,22 @@ def test_identify_rockawayx_morpho_curator_metadata() -> None:
     assert slug == "rockawayx"
 
 
+def test_identify_jpmorgan_jltxx_by_address() -> None:
+    """JLTXX resolves to J.P. Morgan by exact contract address."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="JLTXX",
+        vault_name="JPMorgan OnChain Liquidity-Token Money Market Fund",
+        vault_address="0x09864f52B035AE22eE739dFa5c748fA080D07bD8",
+        protocol_slug="kinexys",
+    )
+
+    assert slug == "jpmorgan"
+    assert get_curator_name("jpmorgan") == "J.P. Morgan"
+    assert not is_protocol_curator("jpmorgan")
+
+
 def test_identify_smokehouse_as_steakhouse_financial() -> None:
     """Smokehouse vault names resolve to Steakhouse Financial."""
 
