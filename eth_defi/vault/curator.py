@@ -157,6 +157,7 @@ CURATORS_DATA_DIR: Path = Path(__file__).parent.parent / "data" / "feeds" / "cur
 #: itself operates every vault.  The slug values correspond to
 #: :py:func:`eth_defi.research.vault_metrics.slugify_protocol` output.
 PROTOCOL_CURATED_SLUGS: set[str] = {
+    "atoma",
     "gains-network",
     "ostium",
     "domination-finance",
@@ -186,6 +187,7 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
 #: These names are used by :py:func:`get_curator_name` when the curator
 #: slug matches a protocol rather than a third-party curator YAML file.
 PROTOCOL_CURATOR_NAMES: dict[str, str] = {
+    "atoma": "Atoma",
     "gains-network": "Gains Network",
     "ostium": "Ostium",
     "domination-finance": "Domination Finance",

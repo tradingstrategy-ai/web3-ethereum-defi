@@ -1,0 +1,23 @@
+# Atoma curator - feeds provided by protocols/atoma.yaml
+#
+# Alias rationale:
+# - Atoma operates the Atoma Vault itself. The app exposes a single protocol-run
+#   Arbitrum USDC vault, so there is no separate third-party curator.
+# - The organisation's news source (Twitter @atoma_fi) is carried by the
+#   source-bearing protocol feeder protocols/atoma.yaml, so this curator aliases
+#   that feeder to avoid scanning the account twice.
+# - Official app: https://app.atoma.fi/
+#
+# Description sources:
+# - https://app.atoma.fi/
+# - https://www.hackquest.io/ko/projects/Atoma-Vault
+feeder-id: atoma
+name: Atoma
+role: curator
+canonical-feeder-id: atoma
+short_description: Atoma is a delta-neutral USDC yield vault on Arbitrum using perpetual DEX funding-rate strategies.
+long_description: |
+  Atoma is a protocol-managed USDC vault on Arbitrum. The vault seeks delta-neutral yield
+  from perpetual DEX funding-rate spreads and distributes the resulting vault performance
+  through the Atoma Vault Share token. Because Atoma operates its own vault and controls
+  the vault parameters, it acts as the curator for the Atoma vault.
