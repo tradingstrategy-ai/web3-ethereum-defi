@@ -52,6 +52,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Morpho": VaultFeeMode.internalised_skimming,
     "Enzyme": VaultFeeMode.internalised_skimming,
     "Lagoon": VaultFeeMode.externalised,
+    # Kinexys ODA-FACT JLTXX prospectus expenses are reflected in fund returns, not as
+    # explicit on-chain deposit/withdrawal fees.
+    "Kinexys": VaultFeeMode.internalised_skimming,
     "Velvet Capital": VaultFeeMode.internalised_skimming,
     "Umami": VaultFeeMode.externalised,
     # Unverified contracts, no open source repo

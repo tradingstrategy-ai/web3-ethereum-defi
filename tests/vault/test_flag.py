@@ -21,6 +21,22 @@ def test_paused_is_bad_flag():
     assert VaultFlag.paused in BAD_FLAGS
 
 
+def test_oda_fact_risk_is_low() -> None:
+    """ODA-FACT protocol risk is classified as low."""
+    assert get_vault_risk("Kinexys") == VaultTechnicalRisk.low
+
+
+def test_oda_fact_vault_note_is_not_bad_flag() -> None:
+    """ODA-FACT JLTXX note is descriptive and does not flag the vault."""
+    address = "0x09864f52b035ae22ee739dfa5c748fa080d07bd8"
+    note = get_notes(address)
+
+    assert note is not None
+    assert "**Curator:** J.P. Morgan" in note
+    assert "JLTXX fact sheet" in note
+    assert not is_flagged_vault(address)
+
+
 @pytest.mark.parametrize(
     ("address", "protocol", "expected_flag", "expected_note"),
     [

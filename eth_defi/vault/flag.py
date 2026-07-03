@@ -108,6 +108,25 @@ BAD_FLAGS = {
 _empty_set = set()
 
 
+JLTXX_FACT_SHEET_URL = "https://am.jpmorgan.com/content/dam/jpm-am-aem/americas/us/en/literature/fact-sheet/money-market/fs-ocltmm-t.pdf"
+
+ODA_FACT_JLTXX_NOTE = f"""JPMorgan OnChain Liquidity-Token Money Market Fund (JLTXX).
+
+- **Curator:** J.P. Morgan Asset Management / Kinexys.
+- **Vault strategy:** Registered government money market fund investing in U.S. Treasury securities and overnight repurchase agreements collateralised by U.S. Treasury securities and/or cash.
+- **Fee structure:** Token Class prospectus advertises 0.71% gross total annual fund operating expenses and 0.16% net total annual fund operating expenses after waivers through 2028-06-30. These are off-chain fund expenses, not ODA-FACT token contract methods.
+- **Fact sheet:** [JLTXX fact sheet]({JLTXX_FACT_SHEET_URL}).
+"""
+
+#: Vault-specific notes without special risk flags.
+#:
+#: Unlike :py:data:`VAULT_FLAGS_AND_NOTES`, entries here do not make the vault
+#: "flagged"; they only add descriptive markdown to vault exports.
+VAULT_NOTES: dict[str, str] = {
+    "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": ODA_FACT_JLTXX_NOTE,
+}
+
+
 def get_vault_special_flags(address: str | HexAddress) -> set[VaultFlag]:
     """Get all special vault flags."""
     entry = VAULT_FLAGS_AND_NOTES.get(address.lower())
@@ -118,7 +137,10 @@ def get_vault_special_flags(address: str | HexAddress) -> set[VaultFlag]:
 
 
 def get_notes(address: HexAddress | str, chain_id: int | None = None) -> str | None:
-    """Get notes related to the flags.
+    """Get vault-specific notes.
+
+    Notes can come from the descriptive notes matrix, special vault flags or
+    chain-wide defaults. Descriptive notes do not make a vault flagged.
 
     :param address:
         Vault address (will be lowercased).
@@ -126,7 +148,12 @@ def get_notes(address: HexAddress | str, chain_id: int | None = None) -> str | N
         Chain ID of the vault. Used to apply chain-wide default notes
         (e.g. all Hypercore vaults get :py:data:`HYPERCORE_VAULT_NOTE`).
     """
-    entry = VAULT_FLAGS_AND_NOTES.get(address.lower())
+    address = address.lower()
+    note = VAULT_NOTES.get(address)
+    if note:
+        return note
+
+    entry = VAULT_FLAGS_AND_NOTES.get(address)
     if entry:
         return entry[1]
 

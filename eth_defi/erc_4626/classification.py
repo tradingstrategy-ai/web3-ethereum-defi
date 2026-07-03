@@ -4,6 +4,7 @@
 - Use multicall based apporach to probe contracts
 """
 
+import datetime
 import logging
 from collections import defaultdict
 from collections.abc import Iterable
@@ -22,6 +23,39 @@ from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
 logger = logging.getLogger(__name__)
+
+#: JPMorgan OnChain Liquidity-Token Money Market Fund (JLTXX) ODA-FACT diamond.
+#:
+#: https://eth.blockscout.com/address/0x09864f52B035AE22eE739dFa5c748fA080D07bD8
+ODA_FACT_JLTXX_ADDRESS = HexAddress("0x09864f52b035ae22ee739dfa5c748fa080d07bd8")
+
+#: Ethereum mainnet chain id.
+ODA_FACT_JLTXX_CHAIN_ID = 1
+
+#: JLTXX ODA-FACT deployment block.
+#:
+#: Source: Blockscout creation transaction
+#: ``0xb15855289d18025769583dee24f16e5cdd33be9c0e20586cc9d2c20a103f4f43``.
+ODA_FACT_JLTXX_FIRST_SEEN_AT_BLOCK = 25_042_223
+
+#: JLTXX deployment timestamp, stored as naive UTC.
+ODA_FACT_JLTXX_FIRST_SEEN_AT = datetime.datetime(2026, 5, 7, 9, 20, 11, tzinfo=datetime.UTC).replace(tzinfo=None)
+
+#: Hardcoded ODA-FACT lead data used because the single production contract does
+#: not emit ERC-4626 ``Deposit``/``Withdraw`` discovery events.
+ODA_FACT_HARDCODED_LEADS = (
+    (
+        ODA_FACT_JLTXX_CHAIN_ID,
+        ODA_FACT_JLTXX_ADDRESS,
+        ODA_FACT_JLTXX_FIRST_SEEN_AT_BLOCK,
+        ODA_FACT_JLTXX_FIRST_SEEN_AT,
+    ),
+)
+
+#: ODA-FACT hardcoded classification flags.
+ODA_FACT_HARDCODED_PROTOCOLS = {
+    ODA_FACT_JLTXX_ADDRESS: {ERC4626Feature.oda_fact_like},
+}
 
 
 #: Royco chains that may host WrappedVault or tranche vault markets.
@@ -1390,6 +1424,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 
         return LagoonVault(web3, spec, **kwargs)
+    elif ERC4626Feature.oda_fact_like in features:
+        from eth_defi.oda_fact.vault import OdaFactVault
+
+        return OdaFactVault(web3, spec, **kwargs)
 
     # TODO: Some module deadlock sheningans for Morpho
     elif ERC4626Feature.morpho_like in features:
@@ -1809,6 +1847,7 @@ def create_vault_instance_autodetect(
 #: For these, we need to do by vault contract address whitelisting here.
 #:
 HARDCODED_PROTOCOLS = {
+    **ODA_FACT_HARDCODED_PROTOCOLS,
     # 3Jane - USD3 senior tranche credit vault on Ethereum
     # https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
     "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc": {ERC4626Feature.threejane_like},
