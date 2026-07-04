@@ -179,6 +179,33 @@ def test_disambiguation_result_independent_of_dict_order(ccxt_gmx_arbitrum):
     assert forward_selected is not None, f"Could not find any pool accepting collateral {target_collateral}"
 
 
+def test_fetch_pools_symbol_fallback_excludes_live_prefix_siblings(ccxt_gmx_arbitrum, monkeypatch):
+    """The AR fallback must not return live ARB pools from the GMX catalogue.
+
+    Uses the real Arbitrum market catalogue. Removing the cached CCXT mapping
+    forces :meth:`GMX.fetch_pools_for_symbol` through its symbol fallback,
+    reproducing the degraded state this branch is designed to handle.
+    """
+    all_markets = _load_all_markets(ccxt_gmx_arbitrum)
+    ar_addresses = {address.lower() for address, market in all_markets.items() if market.get("market_symbol", "").upper() in {"AR", "AR2"}}
+    arb_addresses = {address.lower() for address, market in all_markets.items() if market.get("market_symbol", "").upper() in {"ARB", "ARB2"}}
+    assert ar_addresses, "The live GMX catalogue no longer contains an AR market"
+    assert arb_addresses, "The live GMX catalogue no longer contains an ARB market"
+
+    symbol = "AR/USDC:USDC"
+    monkeypatch.delitem(
+        ccxt_gmx_arbitrum.markets,
+        ccxt_gmx_arbitrum._normalize_symbol(symbol),
+        raising=False,
+    )
+
+    pools = ccxt_gmx_arbitrum.fetch_pools_for_symbol(symbol)
+    resolved_addresses = {pool["market_address"].lower() for pool in pools}
+
+    assert resolved_addresses == ar_addresses
+    assert resolved_addresses.isdisjoint(arb_addresses)
+
+
 # ---------------------------------------------------------------------------
 # Error message quality
 # ---------------------------------------------------------------------------

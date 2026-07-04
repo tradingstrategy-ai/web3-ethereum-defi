@@ -21,11 +21,9 @@ Offline: ``fetch_pools_for_symbol`` / ``self.markets`` are stubbed, no RPC.
 from __future__ import annotations
 
 import logging
-from unittest.mock import MagicMock
 
 import pytest
 
-import eth_defi.gmx.ccxt.exchange as exchange_module
 from eth_defi.gmx.ccxt.exchange import GMX
 
 _BTC_INDEX = "0x47904963fc8b2340414262125aF798B9655E58Cd"
@@ -34,21 +32,6 @@ _WBTC = "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"
 _TBTC = "0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40"
 _REAL_BTC_MARKET = "0x47c031236e19d024b42f8AE6780E44A573170703"
 _SYNTH_BTC_MARKET = "0xd62068697bCc92AF253225676D618B0C9f17C663"
-
-
-@pytest.fixture(autouse=True)
-def _stub_token_address_resolution(monkeypatch):
-    """Keep collateral-resolution tests independent of the live GMX token API."""
-    addresses = {
-        "USDC": _USDC,
-        "BTC": _WBTC,
-        "TBTC": _TBTC,
-    }
-    monkeypatch.setattr(
-        exchange_module,
-        "get_token_address_normalized",
-        lambda _chain, symbol: addresses.get(symbol.upper()),
-    )
 
 
 def _make_exchange() -> GMX:
@@ -162,42 +145,6 @@ def test_empty_mapping_selects_usdc_pool():
 
     info = gmx._resolve_market_info("BTC/USDC:USDC", {})
     assert info["market_token"] == _REAL_BTC_MARKET
-
-
-def test_symbol_fallback_excludes_longer_unrelated_symbols(monkeypatch):
-    """An absent ETH mapping must not include an unrelated ETH-prefixed market."""
-    gmx = _make_exchange()
-    gmx.markets = {}
-    gmx._normalize_symbol = lambda _symbol: "ETH/USDC:USDC"
-    gmx.config = object()
-
-    eth2_address = "0x0000000000000000000000000000000000000002"
-    ethfi_address = "0x0000000000000000000000000000000000000003"
-    catalogue = {
-        eth2_address: {
-            "market_symbol": "ETH2",
-            "index_token_address": "0x0000000000000000000000000000000000000012",
-            "long_token_address": "0x0000000000000000000000000000000000000022",
-            "long_token_metadata": {"symbol": "WETH"},
-            "short_token_address": "0x0000000000000000000000000000000000000022",
-            "short_token_metadata": {"symbol": "WETH"},
-        },
-        ethfi_address: {
-            "market_symbol": "ETHFI",
-            "index_token_address": "0x0000000000000000000000000000000000000013",
-            "long_token_address": "0x0000000000000000000000000000000000000023",
-            "long_token_metadata": {"symbol": "ETHFI"},
-            "short_token_address": _USDC,
-            "short_token_metadata": {"symbol": "USDC"},
-        },
-    }
-    markets = MagicMock()
-    markets.get_available_markets.return_value = catalogue
-    monkeypatch.setattr(exchange_module, "Markets", MagicMock(return_value=markets))
-
-    pools = gmx.fetch_pools_for_symbol("ETH/USDC:USDC")
-
-    assert [pool["market_address"] for pool in pools] == [eth2_address]
 
 
 def test_explicit_collateral_symbol_selects_matching_pool():
