@@ -5993,10 +5993,11 @@ class GMX(ExchangeCompatible):
             if index_token_addr:
                 match = m.get("index_token_address", "").lower() == index_token_addr.lower()
             else:
-                # Fallback: match by canonical symbol prefix (e.g. "BTC" matches "BTC" and "BTC2")
+                # Fallback: match only the canonical symbol and its synthetic
+                # variant. A prefix match could misroute ETH to ETHFI.
                 base = symbol.split("/")[0].upper()
                 market_sym = m.get("market_symbol", "").upper()
-                match = market_sym == base or market_sym.startswith(base)
+                match = market_sym in (base, f"{base}2")
             if match:
                 pools.append(
                     {
