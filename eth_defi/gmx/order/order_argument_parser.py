@@ -18,6 +18,47 @@ from eth_defi.gmx.contracts import get_tokens_metadata_dict
 
 logger = logging.getLogger(__name__)
 
+
+class InvalidCollateralForMarketError(Exception):
+    """The selected GMX market definitively does not accept the collateral token.
+
+    Raised by :meth:`OrderArgumentParser._check_if_valid_collateral_for_market`
+    when the market resolved cleanly and the collateral matches neither its
+    long nor short token — a **definitive** rejection, as opposed to an
+    *indeterminate* lookup failure (``KeyError`` — market absent from the
+    markets snapshot), which callers must tolerate.
+
+    Also raised by :meth:`OrderArgumentParser._handle_missing_swap_path` when a
+    definitively rejected collateral has ``start_token == collateral`` — no
+    swap leg will ever be built in that configuration, so shipping the order
+    would burn gas and die on-chain as an ``InvalidCollateralTokenForMarket``
+    keeper cancellation, feeding the circuit breaker (issue #1178, live
+    incident 2026-07-01/02). Failing loudly pre-flight is strictly better.
+    """
+
+
+class CollateralVerificationUnavailableError(InvalidCollateralForMarketError):
+    """Collateral support could not be verified even after a bounded cache refresh.
+
+    Raised by :meth:`OrderArgumentParser._handle_missing_swap_path` when the
+    collateral-acceptance verdict is STILL indeterminate (``None``) after one
+    forced :class:`~eth_defi.gmx.core.markets.Markets` cache refresh, and
+    ``start_token == collateral`` so no swap leg exists to convert the
+    collateral regardless of what the market turns out to accept.
+
+    An indeterminate verdict this late means the market is absent from OUR
+    OWN markets snapshot — the incident's own degraded state (adversarial
+    review of issue #1178, live incident 2026-07-01/02 follow-up). Proceeding
+    in that state has zero upside: it can only keeper-cancel on-chain. This
+    replaces the previous "tolerate + proceed with swap_path=[]" behaviour
+    for that specific configuration with a fail-closed refusal.
+
+    A subclass of :class:`InvalidCollateralForMarketError` so existing
+    ``except InvalidCollateralForMarketError`` call sites keep catching it
+    without any changes.
+    """
+
+
 # Module-level cache for token metadata only.  The previous ``_MARKETS_CACHE``
 # was removed in the issue-#67 fix — :class:`Markets` now owns a TTL'd cache
 # that is invalidated centrally via :meth:`Markets.invalidate_cache`, so a
@@ -128,6 +169,24 @@ class OrderArgumentParser:
         #: instance prevents an infinite loop when the index token is
         #: structurally absent from GMX.
         self._market_key_refresh_attempted: bool = False
+
+        #: True once :meth:`_handle_missing_swap_path` has performed its one
+        #: allowed cache-refresh retry for an indeterminate collateral
+        #: verdict.  Bounding the retry per parser instance prevents an
+        #: infinite loop when the collateral support genuinely cannot be
+        #: verified (see the refresh-then-fail-closed gate in
+        #: :meth:`_handle_missing_swap_path`).
+        self._collateral_refresh_attempted: bool = False
+
+        #: Tri-state collateral-acceptance verdict recorded by
+        #: :meth:`_handle_missing_collateral_address`: ``True`` = the market
+        #: verifiably accepts the collateral; ``False`` = **definitively
+        #: rejected** (market resolved, collateral matches neither token);
+        #: ``None`` = indeterminate (could not verify — e.g. market absent
+        #: from the markets snapshot) or the check never ran (caller supplied
+        #: ``collateral_address`` directly).  Only ``False`` may block an
+        #: order (see :meth:`_handle_missing_swap_path`).
+        self._collateral_directly_supported: bool | None = None
 
         if is_increase:
             self.required_keys = [
@@ -396,33 +455,57 @@ class OrderArgumentParser:
                 collateral_token_symbol,
                 self.parameters_dict["chain"],
             )
-
-            # Special handling for BTC on arbitrum
-            if collateral_token_symbol == "BTC" and self.parameters_dict["chain"] == "arbitrum":
-                self.parameters_dict["collateral_address"] = "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"
-                return
         except KeyError:
             msg = "Collateral Token Address and Symbol not provided!"
             raise Exception(msg)
 
-        tokens = _get_token_metadata_dict(self.web3, self.parameters_dict["chain"])
-        collateral_address = self.find_key_by_symbol(tokens, collateral_token_symbol)
+        # Resolve the collateral token to an address. BTC on Arbitrum maps to
+        # WBTC (BTC is not itself an ERC-20 collateral token); every other
+        # symbol resolves via the token metadata dict. Either way we then run
+        # the SAME market validation + verdict assignment below (issue #1178).
+        #
+        # This must NOT return early: the BTC path used to set
+        # collateral_address and return before _check_if_valid_collateral_for_market,
+        # leaving _collateral_directly_supported=None. A caller passing
+        # collateral_symbol="BTC" (e.g. GMXTrading) against a pool that rejects
+        # WBTC then bypassed the fail-loud guard entirely — the swap-path gate
+        # saw "indeterminate", shipped swap_path=[], and reproduced the exact
+        # keeper-cancel/circuit-breaker failure this change prevents.
+        if collateral_token_symbol == "BTC" and self.parameters_dict["chain"] == "arbitrum":
+            collateral_address = "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"
+        else:
+            tokens = _get_token_metadata_dict(self.web3, self.parameters_dict["chain"])
+            collateral_address = self.find_key_by_symbol(tokens, collateral_token_symbol)
 
-        # Try strict collateral validation.  If the collateral is not directly
-        # held by the market, _check_if_valid_collateral_for_market raises with
-        # context.  We catch that here and continue — the GMX router auto-swaps
-        # via ``swap_path`` so the order is still valid (issue #67, 2026-05-14:
-        # ``Not a valid collateral for selected market!`` BTC/USDC:USDC vs
-        # tBTC-tBTC).  Always set collateral_address so the router has a target.
-        try:
-            is_directly_supported = self._check_if_valid_collateral_for_market(collateral_address)
-        except Exception:
-            is_directly_supported = False
+        # Strict collateral validation with exception CLASSIFICATION (issue
+        # #1178). Two very different failures used to be conflated by a bare
+        # ``except Exception`` here:
+        #
+        # - InvalidCollateralForMarketError — the market resolved and the
+        #   collateral matches neither of its tokens: a DEFINITIVE rejection.
+        #   Recorded as ``False`` so _handle_missing_swap_path can fail loudly
+        #   when no swap leg will be built (start == collateral). When a real
+        #   swap leg exists (start != collateral), the GMX router converts via
+        #   ``swap_path`` and the order is still valid (issue #67 flow).
+        # - KeyError — market_key absent from the markets snapshot: we could
+        #   NOT verify either way (stale/partial snapshot). Recorded as
+        #   ``None`` and tolerated — never block an order on "couldn't check".
+        #
+        # Always set collateral_address so the router has a target.
+        is_directly_supported = self._classify_collateral_support(collateral_address)
+        if is_directly_supported is False:
             logger.info(
-                "COLLATERAL_TRACE: collateral %s not directly accepted by market_key %s — relying on GMX router swap_path to convert at order time",
+                "COLLATERAL_TRACE: collateral %s not directly accepted by market_key %s — a swap_path can convert it only when start_token differs from the collateral",
                 collateral_token_symbol,
                 self.parameters_dict.get("market_key"),
             )
+        elif is_directly_supported is None:
+            logger.warning(
+                "COLLATERAL_TRACE: could not verify collateral %s against market_key %s — proceeding unverified",
+                collateral_token_symbol,
+                self.parameters_dict.get("market_key"),
+            )
+        self._collateral_directly_supported = is_directly_supported
         logger.info(
             "COLLATERAL_TRACE: Resolved collateral address:\n  collateral_token_symbol=%s → collateral_address=%s\n  is_directly_supported_by_market=%s",
             collateral_token_symbol,
@@ -454,6 +537,52 @@ class OrderArgumentParser:
 
         # No swap needed if start token == collateral token
         elif self.parameters_dict["start_token_address"] == self.parameters_dict["collateral_address"]:
+            if self._collateral_directly_supported is None:
+                self._collateral_directly_supported = self._classify_collateral_support(
+                    self.parameters_dict["collateral_address"],
+                )
+
+            if self._collateral_directly_supported is None:
+                # Refresh-once-then-fail-closed (issue #1178 follow-up,
+                # adversarial review). An indeterminate verdict here means the
+                # market is absent from OUR OWN markets snapshot — the
+                # incident's own degraded state. Mirror the bounded one-shot
+                # refresh used by _handle_missing_market_key before treating
+                # "couldn't verify" as permission to proceed with an empty
+                # swap_path: when start == collateral, no swap leg can ever
+                # convert it, so there is zero upside to shipping unverified.
+                if not self._collateral_refresh_attempted:
+                    self._collateral_refresh_attempted = True
+                    chain = self.parameters_dict.get("chain")
+                    logger.warning(
+                        "_handle_missing_swap_path: collateral support indeterminate for market_key=%s — invalidating cache for chain=%s and re-classifying once before failing closed",
+                        self.parameters_dict.get("market_key"),
+                        chain,
+                    )
+                    Markets.invalidate_cache(chain)
+                    self.markets = Markets(self._gmx_config_for_refresh).get_available_markets()
+                    self._collateral_directly_supported = self._classify_collateral_support(
+                        self.parameters_dict["collateral_address"],
+                    )
+
+                if self._collateral_directly_supported is None:
+                    # Still indeterminate after a fresh Markets snapshot, and
+                    # start_token == collateral_address means no swap leg will
+                    # ever be built to convert it. Proceeding has zero upside
+                    # — it can only keeper-cancel on-chain — so refuse to
+                    # submit instead of shipping swap_path=[].
+                    raise CollateralVerificationUnavailableError(f"Could not verify collateral support for the selected market even after a cache refresh, and start_token == collateral_address so no swap leg can convert it — refusing to submit.\n  market_key: {self.parameters_dict.get('market_key')}\n  collateral_address: {self.parameters_dict['collateral_address']}")
+
+            # Fail loud on a definitively-rejected collateral (issue #1178).
+            # When start == collateral, NO swap leg will be built below — so the
+            # issue-#67 "router converts via swap_path" fallback cannot apply.
+            # Shipping the order would burn gas and die on-chain as an
+            # InvalidCollateralTokenForMarket keeper cancel + circuit-breaker
+            # lock. Only ``False`` (definitive rejection) blocks; ``True``
+            # (verified accepted) proceeds as before — ``None`` is handled
+            # above via the bounded refresh-then-fail-closed gate.
+            if self._collateral_directly_supported is False:
+                raise InvalidCollateralForMarketError(f"Collateral is not accepted by the selected market and no swap path can convert it (start_token == collateral_address):\n  market_key: {self.parameters_dict.get('market_key')}\n  collateral_address: {self.parameters_dict['collateral_address']}\n  Hint: choose a market that accepts this collateral, or supply a start_token different from the collateral so a swap route can be built.")
             self.parameters_dict["swap_path"] = []
 
         else:
@@ -464,6 +593,22 @@ class OrderArgumentParser:
                 self.parameters_dict["collateral_address"],
                 chain=self.parameters_dict["chain"],
             )[0]
+
+    def _classify_collateral_support(self, collateral_address: str) -> bool | None:
+        """Classify whether a collateral is accepted by the selected market.
+
+        :param collateral_address: Collateral token contract address.
+        :returns:
+            ``True`` for a definitive accept,
+            ``False`` for a definitive reject,
+            ``None`` when the market could not be verified.
+        """
+        try:
+            return self._check_if_valid_collateral_for_market(collateral_address)
+        except InvalidCollateralForMarketError:
+            return False
+        except KeyError:
+            return None
 
     @staticmethod
     def _handle_missing_is_long(self):
@@ -481,15 +626,24 @@ class OrderArgumentParser:
         """Check whether ``collateral_address`` is directly held by the market.
 
         Returns ``True`` when the collateral matches the market's long or short
-        token.  Raises ``Exception`` with actionable context when it does not —
-        callers that want to soft-fail (e.g. :meth:`_handle_missing_collateral_address`)
-        should catch and continue.
+        token — a **definitive accept**. Raises
+        :class:`InvalidCollateralForMarketError` (a definitive *reject*) when
+        the market resolves but the collateral matches neither token, OR when
+        the market resolves but is **malformed** (present in the snapshot but
+        missing its ``long_token_address`` / ``short_token_address`` fields).
+        Lets a ``KeyError`` propagate ONLY when ``market_key`` itself is absent
+        from the markets snapshot — an *indeterminate* result the caller must
+        distinguish from a reject (see :meth:`_handle_missing_collateral_address`).
 
         :param collateral_address: Collateral token contract address.
         :returns: ``True`` when the collateral is directly accepted.
-        :raises Exception: When ``collateral_address`` is not the long or short
-            token of the selected market, with market_key, valid token addresses,
-            and a hint in the message.
+        :raises InvalidCollateralForMarketError: When ``collateral_address`` is
+            not the long or short token of the selected market (with market_key,
+            valid token addresses, and a hint in the message), or when the
+            resolved market is missing its long/short token address fields
+            (malformed).
+        :raises KeyError: When ``market_key`` is not present in the markets
+            snapshot — the caller treats this as indeterminate, not a reject.
         """
         market_key = self.parameters_dict["market_key"]
 
@@ -497,16 +651,42 @@ class OrderArgumentParser:
         if self.parameters_dict["market_key"] == "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f":
             market_key = "0x47c031236e19d024b42f8AE6780E44A573170703"
 
+        # A bare KeyError here means market_key is ABSENT from the markets
+        # snapshot — genuinely indeterminate (stale/partial Markets cache).
+        # _classify_collateral_support maps this to None and callers tolerate
+        # it. Do NOT wrap this lookup in .get() — losing this KeyError would
+        # misclassify "we don't have this market at all" as a definitive
+        # rejection.
         market = self.markets[market_key]
 
-        if collateral_address in (
-            market["long_token_address"],
-            market["short_token_address"],
-        ):
+        # The market key IS present, but a malformed entry (missing its
+        # long/short token address fields) is a DEFINITIVE failure, not an
+        # indeterminate one (adversarial-review finding): unlike the absent
+        # market_key case above, we resolved the market and it is unusable.
+        # Using .get() here (rather than bracket access, which would raise a
+        # bare KeyError) prevents _classify_collateral_support's
+        # ``except KeyError: return None`` from handing a malformed market a
+        # free pass identical to a genuinely absent one.
+        long_token_address = market.get("long_token_address")
+        short_token_address = market.get("short_token_address")
+        if long_token_address is None or short_token_address is None:
+            msg = f"Market entry is malformed (missing long/short token address fields)!\n  market_key: {market_key}\n  Hint: the markets snapshot for this market is incomplete — this is treated as a definitive rejection, not an indeterminate lookup."
+            raise InvalidCollateralForMarketError(msg)
+
+        if collateral_address in (long_token_address, short_token_address):
             return True
 
-        msg = f"Not a valid collateral for selected market!\n  market_key: {market_key}\n  collateral_address: {collateral_address}\n  valid long_token: {market['long_token_address']} ({market['long_token_metadata'].get('symbol', '?')})\n  valid short_token: {market['short_token_address']} ({market['short_token_metadata'].get('symbol', '?')})\n  Hint: set collateral_symbol to the long or short token symbol of this market."
-        raise Exception(msg)
+        # Rejection is already definitive at this point (address check above
+        # proved it) — metadata is cosmetic for the message only. Use .get()
+        # defensively so a market dict missing long/short_token_metadata
+        # (adversarial-review finding) raises the intended
+        # InvalidCollateralForMarketError instead of a KeyError that the
+        # caller would misclassify as "indeterminate" and let the order
+        # proceed unverified.
+        long_symbol = market.get("long_token_metadata", {}).get("symbol", "?")
+        short_symbol = market.get("short_token_metadata", {}).get("symbol", "?")
+        msg = f"Not a valid collateral for selected market!\n  market_key: {market_key}\n  collateral_address: {collateral_address}\n  valid long_token: {long_token_address} ({long_symbol})\n  valid short_token: {short_token_address} ({short_symbol})\n  Hint: set collateral_symbol to the long or short token symbol of this market."
+        raise InvalidCollateralForMarketError(msg)
 
     @staticmethod
     def find_key_by_symbol(input_dict: dict, search_symbol: str):

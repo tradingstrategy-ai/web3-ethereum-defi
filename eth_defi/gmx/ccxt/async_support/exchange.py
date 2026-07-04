@@ -862,6 +862,9 @@ class GMX(Exchange):
             )
 
             markets_dict = {}
+            # wstETH market has WETH as its index token but must be treated as wstETH
+            # (mirrors the sync loader, exchange.py).
+            _special_wsteth_address = "0x0Cf1fb4d1FF67A3D8Ca92c9d6643F8F9be8e03E5".lower()
             for market_info in market_infos:
                 try:
                     index_token_addr = market_info.get("indexTokenAddress", "").lower()
@@ -876,8 +879,15 @@ class GMX(Exchange):
                         )
                         continue
 
-                    # Look up symbol from GMX API tokens data
-                    raw_symbol = address_to_symbol.get(index_token_addr)
+                    # Special case for the wstETH market — its index token is WETH,
+                    # but it must be labelled wstETH so it does not collide with the
+                    # real ETH market. Mirrors the sync loader (exchange.py).
+                    if market_token_addr_lower == _special_wsteth_address:
+                        raw_symbol = "wstETH"
+                        index_token_addr = "0x5979D7b546E38E414F7E9822514be443A4800529".lower()
+                    else:
+                        # Look up symbol from GMX API tokens data
+                        raw_symbol = address_to_symbol.get(index_token_addr)
 
                     if not raw_symbol:
                         logger.debug(
@@ -885,6 +895,29 @@ class GMX(Exchange):
                             index_token_addr,
                         )
                         continue  # Skip unknown tokens
+
+                    # Synthetic markets (long_token == short_token) get a "2" suffix
+                    # (e.g. BTC2, ETH2) so a synthetic single-sided pool never collides
+                    # with the real USDC-paired pool under one unified symbol. Mirrors
+                    # the sync loader (exchange.py); without it, freqtrade's hourly
+                    # reload copies a collapsed async market map onto the sync
+                    # order-placing client and live orders target a pool that may reject
+                    # USDC collateral (InvalidCollateralTokenForMarket keeper cancels).
+                    long_token_addr = (market_info.get("longTokenAddress") or "").lower()
+                    short_token_addr = (market_info.get("shortTokenAddress") or "").lower()
+
+                    # Malformed record guard: missing token fields would satisfy the
+                    # synthetic check via "" == "" and mislabel the market. Skip loudly
+                    # — a missing market is fail-safe, a mislabelled one misroutes orders.
+                    if not long_token_addr or not short_token_addr:
+                        logger.warning(
+                            "GraphQL: skipping market %s with missing long/short token fields",
+                            market_token_addr,
+                        )
+                        continue
+
+                    if long_token_addr == short_token_addr:
+                        raw_symbol = f"{raw_symbol}2"
 
                     # Normalise versioned symbols to canonical names (e.g. "XAUT.v2" -> "XAUT").
                     symbol_name = SYMBOL_NORMALISE.get(raw_symbol, raw_symbol)
@@ -1131,14 +1164,27 @@ class GMX(Exchange):
             except Exception as e:
                 logger.warning("Failed to pre-fetch market infos from Subsquid: %s", e)
 
+            # wstETH market has WETH as its index token but must be treated as wstETH
+            # (mirrors the sync loader, exchange.py).
+            _special_wsteth_address = "0x0Cf1fb4d1FF67A3D8Ca92c9d6643F8F9be8e03E5".lower()
             for market in markets_list:
                 try:
                     # Get market addresses
                     market_token = market.get("marketToken", "")
                     market_token_lower = market_token.lower()
                     index_token = market.get("indexToken", "").lower()
-                    long_token = market.get("longToken", "").lower()
-                    short_token = market.get("shortToken", "").lower()
+                    long_token = (market.get("longToken") or "").lower()
+                    short_token = (market.get("shortToken") or "").lower()
+
+                    # Malformed record guard: missing token fields would satisfy the
+                    # synthetic check via "" == "" and mislabel the market. Skip loudly
+                    # — a missing market is fail-safe, a mislabelled one misroutes orders.
+                    if not long_token or not short_token:
+                        logger.warning(
+                            "REST API: skipping market %s with missing long/short token fields",
+                            market_token,
+                        )
+                        continue
 
                     # Skip known-deprecated market tokens (address-based filter).
                     if market_token_lower in DEPRECATED_MARKET_TOKENS:
@@ -1154,33 +1200,44 @@ class GMX(Exchange):
                         logger.debug("Skipping unlisted market %s", market_token)
                         continue
 
-                    # Special case: wstETH market
-                    is_wsteth_market = market_token.lower() == "0x0Cf1fb4d1FF67A3D8Ca92c9d6643F8F9be8e03E5".lower()
-
-                    # Get index token metadata
-                    index_meta = self._token_metadata.get(index_token, {})
-                    symbol_name = index_meta.get("symbol")
+                    # Special case: the wstETH market has WETH as its index token but
+                    # must be labelled wstETH so it does not collide with the real ETH
+                    # market. Mirrors the sync loader (exchange.py) and the GraphQL path
+                    # above — the previous ``is_wsteth_market`` exclusion left this market
+                    # labelled "ETH" (from its WETH index metadata), colliding with the
+                    # real ETH market.
+                    if market_token_lower == _special_wsteth_address:
+                        symbol_name = "wstETH"
+                        index_token = "0x5979D7b546E38E414F7E9822514be443A4800529".lower()
+                    else:
+                        # Get index token metadata
+                        index_meta = self._token_metadata.get(index_token, {})
+                        symbol_name = index_meta.get("symbol")
 
                     if not symbol_name:
                         logger.debug("Skipping market with unknown index token: %s", index_token)
                         continue
 
+                    # Synthetic markets (long == short) get a "2" suffix on the BASE symbol
+                    # (e.g. BTC2), which EXCLUDED_SYMBOLS then drops — matching the sync
+                    # loader and the GraphQL path. The previous settle-currency scheme
+                    # (…/USDC:USDC2) diverged from every other loader, so a synthetic pool
+                    # survived under its own tradeable symbol and could reach the sync
+                    # order client via freqtrade's hourly market reload
+                    # (InvalidCollateralTokenForMarket keeper cancels).
+                    is_synthetic = long_token == short_token
+                    if is_synthetic:
+                        symbol_name = f"{symbol_name}2"
+
                     # Normalise versioned symbols to canonical names (e.g. "XAUT.v2" -> "XAUT").
                     symbol_name = SYMBOL_NORMALISE.get(symbol_name, symbol_name)
 
-                    # Skip excluded symbols
+                    # Skip excluded symbols (drops synthetic BTC2/ETH2/… pools).
                     if symbol_name in self.EXCLUDED_SYMBOLS:
                         logger.debug("Skipping excluded symbol: %s", symbol_name)
                         continue
 
-                    # Check if synthetic market (long_token == short_token, not wstETH)
-                    is_synthetic = (long_token == short_token) and not is_wsteth_market
-
-                    # Create unified symbol
-                    if is_synthetic:
-                        unified_symbol = f"{symbol_name}/USDC:USDC2"
-                    else:
-                        unified_symbol = f"{symbol_name}/USDC:USDC"
+                    unified_symbol = f"{symbol_name}/USDC:USDC"
 
                     # Get leverage info from pre-fetched subsquid data
                     max_leverage = 50.0  # Default
