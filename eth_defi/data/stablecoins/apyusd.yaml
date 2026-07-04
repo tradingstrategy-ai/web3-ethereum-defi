@@ -25,17 +25,25 @@ contract_addresses:
     address: '0x38EEb52F0771140d10c4E9A9a72349A329Fe8a6A'
   - chain: base
     address: '0x2c271ddF484aC0386d216eB7eB9Ff02D4Dc0F6AA'
+source_currency: ''
+source_currency_source: ''
+source_currency_usd_rate: ''
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
 coingecko_id: apyusd
 coingecko_link: https://www.coingecko.com/en/coins/apyusd
 coingecko_id_source: url
-coingecko_id_verified_at: '2026-06-26T12:16:16'
-usd_rate: 0.962211
-usd_rate_fetched_at: '2026-06-26T12:16:16'
-usd_rate_updated_at: '2026-06-26T12:15:24'
-peg_rate: 0.962211
-peg_rate_currency: usd
-rate_fetch_failed_at: ''
-rate_fetch_failed_reason: ''
+coingecko_id_verified_at: '2026-07-03T19:11:04'
+coingecko_id_verification_failed_at: ''
+coingecko_id_verification_failed_reason: ''
+usd_rate: 1.2
+usd_rate_fetched_at: '2026-07-03T19:11:04'
+usd_rate_updated_at: '2026-07-03T19:10:59'
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: '2026-07-03T19:11:04'
+rate_fetch_failed_reason: missing_source_currency
 depegged_at: ''
 checks:
   twitter_last_post_at: ''

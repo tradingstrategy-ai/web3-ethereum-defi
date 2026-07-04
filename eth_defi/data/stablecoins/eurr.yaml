@@ -14,8 +14,6 @@ long_description: |
 
   - [CoinGecko — StablR Euro](https://www.coingecko.com/en/coins/stablr-euro)
 category: stablecoin
-source_currency: eur
-source_currency_source: manual
 links:
   homepage: https://stablr.com/
   coingecko: https://www.coingecko.com/en/coins/stablr-euro
@@ -25,17 +23,25 @@ contract_addresses:
   - chain: ethereum
     address: '0x50753cfaf86c094925bf976f218d043f8791e408'
 slug: eurr
+source_currency: eur
+source_currency_source: manual
+source_currency_usd_rate: ''
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
 coingecko_id: stablr-euro
 coingecko_link: https://www.coingecko.com/en/coins/stablr-euro
 coingecko_id_source: manual
-coingecko_id_verified_at: '2026-06-28T00:00:00'
-usd_rate: 0.135679
-usd_rate_fetched_at: '2026-06-28T00:00:00'
-usd_rate_updated_at: '2026-06-28T00:00:00'
-peg_rate: 0.119126
-peg_rate_currency: eur
-rate_fetch_failed_at: ''
-rate_fetch_failed_reason: ''
+coingecko_id_verified_at: '2026-07-03T19:11:04'
+coingecko_id_verification_failed_at: ''
+coingecko_id_verification_failed_reason: ''
+usd_rate: 0.511163
+usd_rate_fetched_at: '2026-07-03T19:11:04'
+usd_rate_updated_at: '2026-07-03T19:10:50'
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: '2026-07-03T19:11:04'
+rate_fetch_failed_reason: missing_source_currency_rate
 depegged_at: '2026-06-28T00:00:00'
 checks:
   twitter_last_post_at: ''

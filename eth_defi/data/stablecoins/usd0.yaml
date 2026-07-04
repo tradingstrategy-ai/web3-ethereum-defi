@@ -46,17 +46,25 @@ slug: usd0
 contract_addresses:
   - chain: ethereum
     address: '0x73A15FeD60Bf67631dC6cd7Bc5B6e8da8190aCF5'
+source_currency: ''
+source_currency_source: ''
+source_currency_usd_rate: ''
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
 coingecko_id: usual-usd
 coingecko_link: https://www.coingecko.com/en/coins/usual-usd
 coingecko_id_source: url
-coingecko_id_verified_at: '2026-06-26T12:16:16'
-usd_rate: 0.998721
-usd_rate_fetched_at: '2026-06-26T12:16:16'
-usd_rate_updated_at: '2026-06-26T12:15:08'
-peg_rate: 0.998721
-peg_rate_currency: usd
-rate_fetch_failed_at: ''
-rate_fetch_failed_reason: ''
+coingecko_id_verified_at: '2026-07-03T19:11:04'
+coingecko_id_verification_failed_at: ''
+coingecko_id_verification_failed_reason: ''
+usd_rate: 0.998633
+usd_rate_fetched_at: '2026-07-03T19:11:04'
+usd_rate_updated_at: '2026-07-03T19:10:53'
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: '2026-07-03T19:11:04'
+rate_fetch_failed_reason: missing_source_currency
 depegged_at: ''
 checks:
   twitter_last_post_at: '2026-03-17'

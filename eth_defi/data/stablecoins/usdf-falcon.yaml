@@ -46,17 +46,25 @@ slug: usdf-falcon
 contract_addresses:
   - chain: ethereum
     address: '0xFa2B947eEc368f42195f24F36d2aF29f7c24CeC2'
+source_currency: ''
+source_currency_source: ''
+source_currency_usd_rate: ''
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
 coingecko_id: falcon-finance
 coingecko_link: https://www.coingecko.com/en/coins/falcon-finance
 coingecko_id_source: url
-coingecko_id_verified_at: '2026-06-26T12:16:16'
-usd_rate: 0.993101
-usd_rate_fetched_at: '2026-06-26T12:16:16'
-usd_rate_updated_at: '2026-06-26T12:15:10'
-peg_rate: 0.993101
-peg_rate_currency: usd
-rate_fetch_failed_at: ''
-rate_fetch_failed_reason: ''
+coingecko_id_verified_at: '2026-07-03T19:11:04'
+coingecko_id_verification_failed_at: ''
+coingecko_id_verification_failed_reason: ''
+usd_rate: 0.995312
+usd_rate_fetched_at: '2026-07-03T19:11:04'
+usd_rate_updated_at: '2026-07-03T19:10:50'
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: '2026-07-03T19:11:04'
+rate_fetch_failed_reason: missing_source_currency
 depegged_at: ''
 checks:
   twitter_last_post_at: '2026-03-17'

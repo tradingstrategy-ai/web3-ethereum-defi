@@ -34,8 +34,6 @@ long_description: |
   - [Etherscan — jEUR token](https://etherscan.io/token/0x0f17BC9a994b87b5225cFb6a2Cd4D667ADb4F20B)
   - [CoinTelegraph — Jarvis jFIAT stablecoins](https://cointelegraph.com/press-releases/jarvis-network-launches-liquid-cad-sgd-and-php-stablecoins-on-polygon)
 category: stablecoin
-source_currency: eur
-source_currency_source: manual
 links:
   homepage: https://www.jarvis.network/
   coingecko: https://www.coingecko.com/en/coins/jarvis-synthetic-euro
@@ -45,17 +43,25 @@ contract_addresses:
   - chain: ethereum
     address: '0x0f17BC9a994b87b5225cFb6a2Cd4D667ADb4F20B'
 slug: jeur
+source_currency: eur
+source_currency_source: manual
+source_currency_usd_rate: ''
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
 coingecko_id: jarvis-synthetic-euro
 coingecko_link: https://www.coingecko.com/en/coins/jarvis-synthetic-euro
 coingecko_id_source: url
-coingecko_id_verified_at: '2026-06-26T12:16:16'
-usd_rate: 0.533557
-usd_rate_fetched_at: '2026-06-26T12:16:16'
-usd_rate_updated_at: '2026-06-26T12:15:12'
-peg_rate: 0.467979
-peg_rate_currency: eur
-rate_fetch_failed_at: ''
-rate_fetch_failed_reason: ''
+coingecko_id_verified_at: '2026-07-03T19:11:04'
+coingecko_id_verification_failed_at: ''
+coingecko_id_verification_failed_reason: ''
+usd_rate: 0.583547
+usd_rate_fetched_at: '2026-07-03T19:11:04'
+usd_rate_updated_at: '2026-07-03T19:10:51'
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: '2026-07-03T19:11:04'
+rate_fetch_failed_reason: missing_source_currency_rate
 depegged_at: '2026-06-26T12:13:31'
 checks:
   twitter_last_post_at: ''

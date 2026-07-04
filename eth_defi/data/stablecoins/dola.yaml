@@ -22,17 +22,25 @@ contract_addresses:
   - chain: ethereum
     address: '0x865377367054516e17014CcdED1e7d814EDC9ce4'
 slug: dola
+source_currency: ''
+source_currency_source: ''
+source_currency_usd_rate: ''
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
 coingecko_id: dola-usd
 coingecko_link: https://www.coingecko.com/en/coins/dola-usd
 coingecko_id_source: url
-coingecko_id_verified_at: '2026-06-26T12:16:16'
-usd_rate: 0.995206
-usd_rate_fetched_at: '2026-06-26T12:16:16'
-usd_rate_updated_at: '2026-06-26T12:15:25'
+coingecko_id_verified_at: '2026-07-03T19:11:04'
+coingecko_id_verification_failed_at: ''
+coingecko_id_verification_failed_reason: ''
+usd_rate: 0.995867
+usd_rate_fetched_at: '2026-07-03T19:11:04'
+usd_rate_updated_at: '2026-07-03T19:11:04'
 peg_rate: ''
 peg_rate_currency: ''
-rate_fetch_failed_at: ''
-rate_fetch_failed_reason: ''
+rate_fetch_failed_at: '2026-07-03T19:11:04'
+rate_fetch_failed_reason: missing_source_currency
 depegged_at: ''
 checks:
   twitter_last_post_at: ''

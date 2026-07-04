@@ -20,7 +20,7 @@ slug: sbold
 coingecko_id: sbold-by-k3-capital
 coingecko_link: https://www.coingecko.com/en/coins/sbold-by-k3-capital
 coingecko_id_source: url
-rate_fetch_failed_at: '2026-06-26T12:16:16'
+rate_fetch_failed_at: '2026-07-03T19:11:04'
 rate_fetch_failed_reason: coingecko_price_missing
 checks:
   twitter_last_post_at: ''

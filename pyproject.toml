@@ -30,6 +30,11 @@ keywords = [
 packages = [
   {include = "eth_defi"},
 ]
+exclude = [
+  "eth_defi/abi/**/*[Tt]est*.json",
+  "eth_defi/data/**/formatted_logos/**",
+  "eth_defi/data/**/original_logos/**",
+]
 readme = "README.md"
 repository = "https://github.com/tradingstrategy-ai/web3-ethereum-defi"
 

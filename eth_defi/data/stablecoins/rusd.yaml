@@ -16,7 +16,7 @@ entries:
     coingecko: ''
     defillama: ''
     twitter: https://x.com/reservoir_xyz
-  rate_fetch_failed_at: '2026-06-26T12:16:16'
+  rate_fetch_failed_at: '2026-07-03T19:11:04'
   rate_fetch_failed_reason: missing_coingecko_id
   checks:
     twitter_last_post_at: ''
@@ -38,7 +38,7 @@ entries:
     coingecko: ''
     defillama: ''
     twitter: https://x.com/protocol_fx
-  rate_fetch_failed_at: '2026-06-26T12:16:16'
+  rate_fetch_failed_at: '2026-07-03T19:11:04'
   rate_fetch_failed_reason: missing_coingecko_id
   checks:
     twitter_last_post_at: ''
@@ -58,7 +58,7 @@ entries:
     coingecko: ''
     defillama: ''
     twitter: https://x.com/realio_network
-  rate_fetch_failed_at: '2026-06-26T12:16:16'
+  rate_fetch_failed_at: '2026-07-03T19:11:04'
   rate_fetch_failed_reason: missing_coingecko_id
   checks:
     twitter_last_post_at: ''
