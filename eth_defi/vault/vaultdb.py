@@ -279,7 +279,7 @@ class VaultDatabase:
         for spec, new_row in new_rows.items():
             existing = self.rows.get(spec)
             if existing is not None and _is_broken_row(new_row) and not _is_broken_row(existing):
-                logger.warning(
+                logger.info(
                     "Skipping broken rescan for %s-%s (name=%s), keeping existing good data (name=%s)",
                     spec.chain_id,
                     spec.vault_address,

@@ -412,6 +412,68 @@ def _resolve_reduce_only_size_delta_usd(
     return min(requested_size_usd, actual_size_usd)
 
 
+def _resolve_reduce_only_requested_size_usd(
+    *,
+    close_amount: float,
+    gmx_position: dict,
+    current_price: float,
+) -> float:
+    """Resolve the USD basis for a reduce-only close request.
+
+    Background — the ~1% token-dust incident. GMX's on-chain
+    ``position.sizeInUsd`` (surfaced here as ``gmx_position["position_size"]``)
+    is an ENTRY-priced invariant: it is set when the position is
+    opened/increased and never re-marks to the current price. Pricing the
+    Freqtrade-requested ``close_amount`` at the CURRENT market price (the
+    pre-fix behaviour) therefore compares two values on different price
+    bases whenever price has moved since entry. A short in profit (price
+    fell) or a long in loss (price also fell) both understate
+    ``requested_size_usd`` relative to ``position_size``, so a genuine
+    100%-of-tokens close can compute to *below*
+    ``position_size * full_close_tolerance`` and get misclassified as a
+    PARTIAL close by :func:`_resolve_reduce_only_size_delta_usd` — GMX then
+    reduces the position only proportionally, leaving token dust
+    approximately equal to the price-move percentage.
+
+    Repricing the request at ENTRY price instead removes the basis
+    mismatch entirely: a full-token close now computes to ~=
+    ``position_size`` regardless of how far price has moved since entry. It
+    is also decimals-free — no on-chain raw-int / token-decimals bookkeeping
+    is required, because both sides of the ratio evaluated in
+    :func:`_resolve_reduce_only_size_delta_usd` are then expressed in the
+    same entry-priced USD space that ``position_size`` already uses. A
+    genuine partial close (DCA ``sub_trade_amt``, or a same-pair sibling
+    logical trade) is unaffected: it still resolves to
+    ``close_amount * entry_price``, which is the correct pro-rata
+    ``sizeDeltaUsd`` in GMX's entry-priced ``sizeInUsd`` space.
+
+    Falls back to ``current_price`` when ``gmx_position["entry_price"]`` is
+    missing, ``None``, or ``0`` — this must never raise or block the close;
+    a missing entry price only means we lose the repricing benefit for that
+    one order, not that the order should fail.
+
+    :param close_amount: The token amount being closed — the CCXT caller's
+        authoritative close size (``sub_trade_amt`` if set, else the full
+        requested ``amount``).
+    :param gmx_position: Dict from ``GetOpenPositions``. Uses
+        ``entry_price`` (float USD/token) when present and truthy.
+    :param current_price: The current/order price already resolved by the
+        caller (from the order ``price`` or a ticker fetch), used only as
+        the fallback basis.
+    :returns: ``close_amount`` priced in USD — at entry price when
+        available, else at ``current_price``.
+    """
+    entry_price = gmx_position.get("entry_price")
+    if not entry_price:
+        logger.debug(
+            "_resolve_reduce_only_requested_size_usd: entry_price missing/zero on gmx_position (%s) — falling back to current_price=%s",
+            entry_price,
+            current_price,
+        )
+        entry_price = current_price
+    return close_amount * entry_price
+
+
 def _resolve_close_order_filled_amount(
     *,
     requested_amount: float,
@@ -942,11 +1004,23 @@ class GMX(ExchangeCompatible):
 
             for market_info in market_infos:
                 try:
-                    index_token_addr = market_info.get("indexTokenAddress", "").lower()
+                    index_token_addr = (market_info.get("indexTokenAddress") or "").lower()
                     market_token_addr = market_info.get("marketTokenAddress", "")
                     market_token_addr_lower = market_token_addr.lower()
-                    long_token_addr = market_info.get("longTokenAddress", "").lower()
-                    short_token_addr = market_info.get("shortTokenAddress", "").lower()
+                    long_token_addr = (market_info.get("longTokenAddress") or "").lower()
+                    short_token_addr = (market_info.get("shortTokenAddress") or "").lower()
+
+                    # Malformed record guard: a market missing either token field
+                    # would satisfy the synthetic check below via "" == "" and be
+                    # silently mislabelled/dropped. Skip loudly instead — a missing
+                    # market means freqtrade skips the pair (fail-safe), while a
+                    # mislabelled one can misroute live orders.
+                    if not long_token_addr or not short_token_addr:
+                        logger.warning(
+                            "GraphQL: skipping market %s with missing long/short token fields",
+                            market_token_addr,
+                        )
+                        continue
 
                     # Skip known-deprecated market tokens (address-based, symbol-name alone
                     # cannot distinguish deprecated from active when both share a canonical name).
@@ -1176,11 +1250,20 @@ class GMX(ExchangeCompatible):
             for market_info in markets_list:
                 try:
                     # Extract addresses
-                    index_token_addr = market_info.get("indexToken", "").lower()
+                    index_token_addr = (market_info.get("indexToken") or "").lower()
                     market_token_addr = market_info.get("marketToken", "")
                     market_token_addr_lower = market_token_addr.lower()
-                    long_token_addr = market_info.get("longToken", "").lower()
-                    short_token_addr = market_info.get("shortToken", "").lower()
+                    long_token_addr = (market_info.get("longToken") or "").lower()
+                    short_token_addr = (market_info.get("shortToken") or "").lower()
+
+                    # Malformed record guard — see GraphQL loader; "" == "" would
+                    # mislabel the market as synthetic.
+                    if not long_token_addr or not short_token_addr:
+                        logger.warning(
+                            "REST API: skipping market %s with missing long/short token fields",
+                            market_token_addr,
+                        )
+                        continue
 
                     # Skip known-deprecated market tokens before any symbol resolution.
                     if market_token_addr_lower in DEPRECATED_MARKET_TOKENS:
@@ -5757,9 +5840,123 @@ class GMX(ExchangeCompatible):
                 "short_token": m["short_token_address"],
             }
 
-        # Default: use the pool already in self.markets for this symbol
+        # Default branch: collateral-aware pool selection (issue #1178).
+        #
+        # This is the ONLY market-selection logic that runs on the live ccxt
+        # order path — ``market_key`` is injected into ``OrderArgumentParser``
+        # from here, so the parser's own USDC-preference disambiguation
+        # (``_handle_missing_market_key``) never executes. We therefore apply
+        # the same strategy it documents: keep the mapped pool if it accepts
+        # the order's collateral; otherwise pick a sibling pool (same index
+        # token) that does, defaulting to USDC — the ``<base>-USDC`` pools have
+        # orders-of-magnitude deeper liquidity than synthetic single-sided
+        # pools. Any lookup failure falls back to the mapped pool (never crash
+        # the order path here — B3 fails loudly downstream if it is unusable).
         normalized_symbol = self._normalize_symbol(symbol)
-        return self.markets[normalized_symbol].get("info", {})
+        default_info = self.markets.get(normalized_symbol, {}).get("info", {})
+
+        # CLOSE orders (reduceOnly) must NEVER run this scan (adversarial-review
+        # finding). Closes are resolved authoritatively from the on-chain
+        # position in ``_execute_close_with_position``, which unconditionally
+        # overrides ``market_key`` whenever the position record has one — so
+        # this branch's output is normally discarded for closes anyway, and
+        # running it is wasted RPC-backed work. Worse, in the rare case the
+        # on-chain record lacks a market address, code falls back to WHATEVER
+        # this branch returns — a value computed with zero knowledge of which
+        # specific position is being closed. Return the plain mapped info,
+        # exactly matching pre-B2 behaviour for closes.
+        if params.get("reduceOnly"):
+            return default_info
+
+        # The order's collateral token. Default USDC (deepest liquidity) when
+        # the caller names none — mirrors OrderArgumentParser's USDC_PAIRED
+        # default; an explicit ``collateral_symbol`` wins.
+        collateral_symbol = (params.get("collateral_symbol") or "USDC").upper()
+        chain = self.config.get_chain() if hasattr(self, "config") and self.config else "arbitrum"
+        if chain == "arbitrum" and collateral_symbol == "BTC":
+            collateral_address = "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"
+        else:
+            collateral_address = None
+            try:
+                collateral_address = get_token_address_normalized(chain, collateral_symbol)
+            except Exception as exc:  # noqa: BLE001 - resolver failure must not block fallback symbol matching
+                logger.warning(
+                    "OPEN: collateral address resolution failed for %s on %s (%r) — falling back to symbol matching",
+                    collateral_symbol,
+                    chain,
+                    exc,
+                )
+                collateral_address = None
+
+        try:
+            pools = self.fetch_pools_for_symbol(symbol)
+        except Exception as exc:  # noqa: BLE001 - never block the order on a scan error
+            logger.warning(
+                "OPEN: pool scan failed for %s (%r) — using mapped pool %s unverified",
+                symbol,
+                exc,
+                default_info.get("market_token"),
+            )
+            return default_info
+
+        if not pools:
+            return default_info
+
+        def _accepts(pool: dict) -> bool:
+            if collateral_address is not None and collateral_address.lower() in (
+                (pool.get("long_token") or "").lower(),
+                (pool.get("short_token") or "").lower(),
+            ):
+                return True
+            return collateral_symbol in (
+                (pool.get("long_token_symbol") or "").upper(),
+                (pool.get("short_token_symbol") or "").upper(),
+            )
+
+        # If the mapped pool already accepts the collateral, keep it — never
+        # override an acceptable pool (avoids churn when several pools qualify).
+        mapped_token = (default_info.get("market_token") or "").lower()
+        mapped_pool = next(
+            (p for p in pools if (p.get("market_address") or "").lower() == mapped_token),
+            None,
+        )
+        if mapped_pool is not None and _accepts(mapped_pool):
+            return default_info
+
+        accepting = [p for p in pools if _accepts(p)]
+        if not accepting:
+            logger.warning(
+                "OPEN: no pool for %s accepts collateral %s — using mapped pool %s (order may be rejected pre-flight; see InvalidCollateralForMarketError)",
+                symbol,
+                collateral_symbol,
+                mapped_token or "<none>",
+            )
+            return default_info
+
+        # Deterministic tie-break (adversarial-review finding): ``pools`` order
+        # reflects RPC/API response order, not a correctness signal — picking
+        # accepting[0] made the choice depend on iteration order. Sort by
+        # market address so the same inputs always resolve to the same pool,
+        # regardless of how the underlying catalogue happens to enumerate them.
+        # (No liquidity data is available in fetch_pools_for_symbol's output to
+        # rank by depth directly; determinism is the achievable bar here.)
+        accepting.sort(key=lambda p: (p.get("market_address") or "").lower())
+        chosen = accepting[0]
+        logger.warning(
+            "OPEN: overriding market_key for %s — mapped pool %s does not accept collateral %s; using %s (long=%s, short=%s) instead",
+            symbol,
+            mapped_token or "<none>",
+            collateral_symbol,
+            chosen["market_address"],
+            chosen.get("long_token_symbol"),
+            chosen.get("short_token_symbol"),
+        )
+        return {
+            "market_token": chosen["market_address"],
+            "index_token": chosen["index_token"],
+            "long_token": chosen["long_token"],
+            "short_token": chosen["short_token"],
+        }
 
     def fetch_pools_for_symbol(self, symbol: str) -> list[dict]:
         """Return all available GMX pools for a given market symbol.
@@ -5796,10 +5993,11 @@ class GMX(ExchangeCompatible):
             if index_token_addr:
                 match = m.get("index_token_address", "").lower() == index_token_addr.lower()
             else:
-                # Fallback: match by canonical symbol prefix (e.g. "BTC" matches "BTC" and "BTC2")
+                # Match only the canonical symbol and its synthetic variant.
+                # Prefix matching misroutes live AR fallback lookups to ARB pools.
                 base = symbol.split("/")[0].upper()
                 market_sym = m.get("market_symbol", "").upper()
-                match = market_sym == base or market_sym.startswith(base)
+                match = market_sym in (base, f"{base}2")
             if match:
                 pools.append(
                     {
@@ -5924,11 +6122,23 @@ class GMX(ExchangeCompatible):
             close_amount = sub_trade_amt if sub_trade_amt is not None else amount
 
             if price:
-                requested_size_usd = close_amount * price
+                current_price = price
             else:
                 ticker = self.fetch_ticker(symbol)
                 current_price = ticker["last"]
-                requested_size_usd = close_amount * current_price
+
+            # Reprice the close request at ENTRY price, not current price.
+            # GMX's on-chain position_size (sizeInUsd) is an entry-priced
+            # invariant that never re-marks, so comparing a current-priced
+            # request against it misclassifies genuine full closes as
+            # partial whenever price has moved since entry (short in
+            # profit / long in loss), leaving ~price-move% token dust. See
+            # :func:`_resolve_reduce_only_requested_size_usd`.
+            requested_size_usd = _resolve_reduce_only_requested_size_usd(
+                close_amount=close_amount,
+                gmx_position=gmx_position,
+                current_price=current_price,
+            )
 
             size_delta_usd = _resolve_reduce_only_size_delta_usd(
                 requested_size_usd=requested_size_usd,

@@ -194,6 +194,22 @@ def test_identify_rockawayx_morpho_curator_metadata() -> None:
     assert slug == "rockawayx"
 
 
+def test_identify_jpmorgan_jltxx_by_address() -> None:
+    """JLTXX resolves to J.P. Morgan by exact contract address."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="JLTXX",
+        vault_name="JPMorgan OnChain Liquidity-Token Money Market Fund",
+        vault_address="0x09864f52B035AE22eE739dFa5c748fA080D07bD8",
+        protocol_slug="kinexys",
+    )
+
+    assert slug == "jpmorgan"
+    assert get_curator_name("jpmorgan") == "J.P. Morgan"
+    assert not is_protocol_curator("jpmorgan")
+
+
 def test_identify_smokehouse_as_steakhouse_financial() -> None:
     """Smokehouse vault names resolve to Steakhouse Financial."""
 
@@ -365,6 +381,22 @@ def test_identify_3jane_protocol_curator() -> None:
     assert slug == "3jane"
     assert is_protocol_curator("3jane")
     assert get_curator_name("3jane") == "3Jane"
+
+
+def test_identify_atoma_protocol_curator() -> None:
+    """Atoma protocol vaults resolve to the protocol-managed slug."""
+
+    slug = identify_curator(
+        chain_id=42161,
+        vault_token_symbol="AVS",
+        vault_name="Atoma Vault Share",
+        vault_address="0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c",
+        protocol_slug="atoma",
+    )
+
+    assert slug == "atoma"
+    assert is_protocol_curator("atoma")
+    assert get_curator_name("atoma") == "Atoma"
 
 
 def test_identify_legacy_gtrade_as_gains_network() -> None:

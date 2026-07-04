@@ -157,6 +157,7 @@ CURATORS_DATA_DIR: Path = Path(__file__).parent.parent / "data" / "feeds" / "cur
 #: itself operates every vault.  The slug values correspond to
 #: :py:func:`eth_defi.research.vault_metrics.slugify_protocol` output.
 PROTOCOL_CURATED_SLUGS: set[str] = {
+    "atoma",
     "gains-network",
     "ostium",
     "domination-finance",
@@ -186,6 +187,7 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
 #: These names are used by :py:func:`get_curator_name` when the curator
 #: slug matches a protocol rather than a third-party curator YAML file.
 PROTOCOL_CURATOR_NAMES: dict[str, str] = {
+    "atoma": "Atoma",
     "gains-network": "Gains Network",
     "ostium": "Ostium",
     "domination-finance": "Domination Finance",
@@ -316,6 +318,10 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     (1, "0x5f829b1b473cba86838e1b7bb7e144dbde228e21"): "rockawayx",
     (1, "0xe99a27169c2aa26a8f2757949d09fa3f9a8f0b3b"): "rockawayx",
     (8453, "0xae4181cfb5aaa08bbe77d269c6b595672b9f9edc"): "rockawayx",
+    # JPMorgan OnChain Liquidity-Token Money Market Fund (JLTXX) is curated by
+    # J.P. Morgan Asset Management / Kinexys, but the token name does not carry
+    # a reusable curator pattern.
+    (1, "0x09864f52b035ae22ee739dfa5c748fa080d07bd8"): "jpmorgan",
 }
 
 

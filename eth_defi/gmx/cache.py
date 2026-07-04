@@ -20,6 +20,14 @@ from eth_defi.sqlite_cache import PersistentKeyValueStore
 
 logger = logging.getLogger(__name__)
 
+#: Schema-version suffix baked into the markets cache key. Bump whenever the
+#: market-loading logic changes what a cached entry means, so stale pre-fix
+#: rows are orphaned instead of served. v2: synthetic single-sided pools are
+#: disambiguated/excluded by the loaders (issue #1178) — pre-v2 rows may map a
+#: unified symbol to a pool that rejects USDC collateral, or carry legacy
+#: ".../USDC:USDC2" symbols, and must never be served to the fixed loaders.
+_MARKETS_CACHE_SCHEMA_SUFFIX = "_v2"
+
 
 class GMXMarketCache(PersistentKeyValueStore):
     """Persistent cache for GMX market data with TTL support.
@@ -170,7 +178,7 @@ class GMXMarketCache(PersistentKeyValueStore):
         :return:
             Market data dict or None if not found/expired
         """
-        cache_key = f"markets_{loading_mode}"
+        cache_key = f"markets_{loading_mode}{_MARKETS_CACHE_SCHEMA_SUFFIX}"
 
         try:
             entry = self.get(cache_key)
@@ -213,7 +221,7 @@ class GMXMarketCache(PersistentKeyValueStore):
         if ttl is None:
             ttl = DISK_CACHE_MARKETS_TTL_SECONDS
 
-        cache_key = f"markets_{loading_mode}"
+        cache_key = f"markets_{loading_mode}{_MARKETS_CACHE_SCHEMA_SUFFIX}"
         entry = self._make_cache_entry(data, ttl, loading_mode)
 
         try:

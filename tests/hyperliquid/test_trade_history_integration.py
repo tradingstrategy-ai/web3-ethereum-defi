@@ -33,6 +33,10 @@ from eth_defi.hyperliquid.trade_history import (
 )
 from eth_defi.hyperliquid.trade_history_db import HyperliquidTradeHistoryDatabase
 
+#: Live Hyperliquid API tests are long-running and can crash xdist workers in
+#: the main parallel CI job. Run them in the serial slow workflow instead.
+pytestmark = pytest.mark.slow
+
 
 #: Growi HF leader wallet — actively trading account used for fill-dependent tests.
 #: The vault address (0x1e37…) has periods of inactivity with zero fills,
@@ -262,4 +266,5 @@ def test_fetch_portfolio_first_activity(session):
     assert portfolio.all_time_volume is not None
 
     # HLP has been active since late 2023
-    assert portfolio.first_activity_at < datetime.datetime(2024, 1, 1), f"HLP first activity {portfolio.first_activity_at} should be before 2024-01-01"
+    before_2024 = datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC).replace(tzinfo=None)
+    assert portfolio.first_activity_at < before_2024, f"HLP first activity {portfolio.first_activity_at} should be before 2024-01-01"

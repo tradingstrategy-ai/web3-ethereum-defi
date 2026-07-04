@@ -1495,6 +1495,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.threejane.vault import ThreeJaneVault
 
         return ThreeJaneVault(web3, spec, **kwargs)
+    elif ERC4626Feature.atoma_like in features:
+        from eth_defi.erc_4626.vault_protocol.atoma.vault import AtomaVault
+
+        return AtomaVault(web3, spec, **kwargs)
     elif ERC4626Feature.cap_like in features:
         # Covered Agent Protocol (CAP) uses Yearn V3 infrastructure
         from eth_defi.erc_4626.vault_protocol.cap.vault import CAPVault
@@ -1856,6 +1860,10 @@ HARDCODED_PROTOCOLS = {
     # 3Jane - sUSD3 junior tranche (staked USD3) credit vault on Ethereum
     # https://etherscan.io/address/0xf689555121e529Ff0463e191F9Bd9d1E496164a7
     "0xf689555121e529ff0463e191f9bd9d1e496164a7": {ERC4626Feature.threejane_like},
+    # Atoma - Atoma Vault Share (AVS) USDC vault on Arbitrum
+    # https://app.atoma.fi/
+    # https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c
+    "0xcc56410e1a136af0eceb7241c6ae394f4d8b581c": {ERC4626Feature.atoma_like},
     # CAP - Covered Agent Protocol
     "0x3ed6aa32c930253fc990de58ff882b9186cd0072": {ERC4626Feature.cap_like},
     # CAP - Covered Agent Protocol - AaveV3Lender USDC vault on Ethereum

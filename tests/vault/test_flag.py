@@ -49,6 +49,8 @@ def test_oda_fact_vault_note_is_not_bad_flag() -> None:
         ("0xfa17f7aadbfac2c5d3c8125555404c1ae17df853", "Morpho", VaultFlag.illiquid, "illiquid"),
         ("0xed9278c5188f37670b33ef3b00729e38260cd5d5", "Euler", VaultFlag.illiquid, "illiquid"),
         ("0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29", "Altura", VaultFlag.controversial, "controversial"),
+        ("0xc9f01b5c6048b064e6d925d1c2d7206d4feef8a3", "Yearn", VaultFlag.subvault, "not intended"),
+        ("0xad755c6c31515aef8d2f830767d846774f7e9ea9", "Morpho", VaultFlag.malicious, "malicious"),
     ],
 )
 def test_abnormal_main_listing_vaults_are_hidden(
