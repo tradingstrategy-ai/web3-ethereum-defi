@@ -336,6 +336,7 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x8fF6aDBC653405245B6b686E31b14A7da7000281",  # BNB broken contract
     "0x6949bcab16c0B389095C5b744f6FBF9741A1b3b6",  # Test vault on Monad
     "0x5a8aFb250525aB8Fa85EF9a5f260Eb11B77a409a",  # Age old mainnet contract from 2017 (block 4,655,173) - burns all forwarded gas before reverting, poisoning the multicall probe batch with out-of-gas (-32003)
+    "0x162428775A4C6c513FF8722B91D1aF45a9Caff41",  # Unverified old mainnet EtherDelta-style DEX from 2018 (block 4,934,650) - deposit/trade/withdraw methods, not a vault
 }
 
 #: Cause excessive gas fees, RPC havoc.
