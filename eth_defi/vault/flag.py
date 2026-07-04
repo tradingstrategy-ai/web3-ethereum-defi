@@ -515,6 +515,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xc38421e5577250eba177bc5bc832e747bea13ee0": (None, LIQUID_ROYALTY_NOTE),
     # sUSDS Lender (Yearn on Ethereum)
     "0x3f2de801629116a83b9734bb72012a554e01cfc1": (VaultFlag.subvault, SUBVAULT),
+    # Spark USDS Compounder (Yearn on Ethereum)
+    "0xc9f01b5c6048b064e6d925d1c2d7206d4feef8a3": (VaultFlag.subvault, SUBVAULT),
     # Inverse Finance sDOLA vault on Ethereum
     "0xb45ad160634c528cc3d2926d9807104fa3157305": (None, INVERSE_SDOLA_FLASH_LOAN_EXPLOIT),
     # Vault Shares (vUSDC) on Ethereum - unidentified protocol
@@ -550,6 +552,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xf0795c47fa58d00f5f77f4d5c01f31ee891e21b4": (VaultFlag.illiquid, RESOLV_USDC_ILLIQUID),
     # Mainstreet USDC (msUSDC, Morpho on Ethereum)
     "0xe3ba8f17fe581dd473e6699cfad04502998a57c7": (VaultFlag.malicious, MALICIOUS_VAULT),
+    # Mainstreet USDC (msUSDC, Morpho on Ethereum)
+    "0xad755c6c31515aef8d2f830767d846774f7e9ea9": (VaultFlag.malicious, MALICIOUS_VAULT),
     # Altura Vault Tokens (AVLT) on Hyperliquid
     "0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29": (VaultFlag.controversial, CONTROVERSIAL_VAULT),
 }
