@@ -127,13 +127,15 @@ Example CHAIN_ORDER for all chains:
     CHAIN_ORDER="Sonic, Monad, Hyperliquid, Base, Arbitrum, Ethereum, Linea, Gnosis, Zora, Polygon, Avalanche, Berachain, Unichain, Hemi, Plasma, Binance, Mantle, Katana, Ink, Blast, Soneium, Optimism"
 """
 
+import datetime
 import os
 
 
 def _print_early_startup_banner() -> None:
     """Print a boot marker before importing the scanner implementation."""
     log_level = os.environ.get("LOG_LEVEL", "warning")
-    print(f"Starting vault scanner, LOG_LEVEL={log_level}", flush=True)
+    timestamp = datetime.datetime.now(datetime.UTC).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+    print(f"{timestamp} Starting vault scanner, LOG_LEVEL={log_level}", flush=True)
 
 
 if __name__ == "__main__":
