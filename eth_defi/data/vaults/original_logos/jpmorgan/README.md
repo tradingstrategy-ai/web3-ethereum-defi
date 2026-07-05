@@ -3,14 +3,16 @@
 ## Source
 
 - **Curator feeder**: `eth_defi/data/feeds/curators/jpmorgan.yaml`
-- **Original asset**: Official JPMorgan Chase octagon brand mark from the media centre Apple touch icon
-- **Public source URL**: https://media.chase.com/etc.clientlibs/settings/wcm/designs/sites/chase/media-center/resources/images/global/favicon-152.png
+- **Original vector asset**: Official J.P. Morgan wordmark SVG from `jpmorgan.com`
+- **Public source URL**: https://www.jpmorgan.com/content/dam/jpmorgan/images/logos/jpm-logo-brown-062322.svg
 
 ## Files
 
-- `jpmorgan.generic.png` - Official JPMorgan Chase octagon brand mark used for the J.P. Morgan curator entry tied to the JLTXX vault-like instrument.
+- `jpmorgan.wordmark.svg` - Official transparent SVG wordmark source.
+- `jpmorgan.generic.png` - 2048px wide transparent PNG rendered from the official SVG source.
 
 ## Notes
 
 - The `jpmorgan` curator uses J.P. Morgan's main website and social accounts directly. Kinexys remains the technology provider for the tokenised asset infrastructure, not the curator business.
-- The formatted `generic.png`, `dark.png` and `light.png` files use the same official octagon brand mark so the curator export has assets under the curator slug.
+- The formatted `generic.png` and `dark.png` files use the official brown J.P. Morgan wordmark for light backgrounds. The formatted `light.png` file uses a white wordmark rendered from the same source for dark backgrounds.
+- The JPMorgan Chase media centre exposes square octagon favicon assets, but the largest official raster found there was 152x152. The curator assets use the J.P. Morgan SVG wordmark instead to avoid upscaling a low-resolution favicon.
