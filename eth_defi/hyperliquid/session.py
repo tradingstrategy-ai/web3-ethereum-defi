@@ -65,10 +65,22 @@ DEFAULT_RETRIES = 5
 DEFAULT_BACKOFF_FACTOR = 0.5
 
 #: Extra outer retries for ``/info`` calls after urllib3 exhausts its retry budget.
-DEFAULT_POST_INFO_RETRY_ATTEMPTS = 3
+#:
+#: Incident note: on 2026-07-04 the live ``hyper-ai`` executor witnessed
+#: repeated Hyperliquid ``/info`` HTTP 502 responses while reading
+#: ``userVaultEquities`` for HyperCore vault accounting. The earlier retry
+#: window was short enough that this read-only account check crashed the live
+#: scheduler. Keep the default outage window above 10 minutes for fast 5xx
+#: storms, while retaining the lower-level per-request timeout for stuck sockets.
+DEFAULT_POST_INFO_RETRY_ATTEMPTS = 6
 
 #: Backoff factor for extra outer ``/info`` retries.
-DEFAULT_POST_INFO_RETRY_BACKOFF_FACTOR = 5.0
+#:
+#: With ``DEFAULT_RETRIES=5`` each outer attempt already performs six HTTP
+#: attempts. A 10 second outer factor gives sleeps of 10, 20, 40, 80, 160 and
+#: 320 seconds, so quick upstream 502/503/504 storms are retried for around
+#: twelve minutes before surfacing to the caller.
+DEFAULT_POST_INFO_RETRY_BACKOFF_FACTOR = 10.0
 
 #: Default rate limit for Hyperliquid API requests per second.
 #:
@@ -277,10 +289,14 @@ class HyperliquidSession(Session):
           current proxy as dead via the state manager, because the
           proxy itself is unreachable.
         - **Adapter retry exhaustion** (``requests.RetryError``): sleep
-          and retry the whole ``/info`` request a small number of extra
-          times. This handles CI/public-IP bursts where the Hyperliquid
-          API keeps returning HTTP 429 longer than the urllib3 retry
-          budget covers.
+          and retry the whole ``/info`` request with a longer outage
+          tolerance than the urllib3 adapter alone can provide. This
+          handles CI/public-IP bursts where the Hyperliquid API keeps
+          returning HTTP 429 longer than the urllib3 retry budget covers.
+          It also covers the 2026-07-04 live ``hyper-ai`` incident, where
+          ``userVaultEquities`` returned repeated HTTP 502 responses during
+          HyperCore vault account checks and the previous short retry window
+          allowed a transient read failure to terminate the scheduler.
 
         After :data:`MAX_PROXY_ROTATIONS` consecutive rotations in a
         single call, returns whatever response comes back (or re-raises
@@ -329,6 +345,11 @@ class HyperliquidSession(Session):
             except requests_lib.exceptions.RetryError as exc:
                 if outer_retries < self.post_info_retry_attempts:
                     outer_retries += 1
+                    # Production incident, 2026-07-04: Hyperliquid returned
+                    # repeated 502 Bad Gateway responses for ``userVaultEquities``.
+                    # Sleep outside the adapter retry loop so live trading can
+                    # ride through short upstream outages instead of crashing
+                    # after a single urllib3 retry budget is exhausted.
                     sleep_seconds = self.post_info_retry_backoff_factor * (2 ** (outer_retries - 1))
                     logger.warning(
                         "Hyperliquid /info request type %s exhausted adapter retries: %s. Sleeping %.1f seconds before outer retry %d/%d",
