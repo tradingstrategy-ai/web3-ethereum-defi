@@ -21,7 +21,7 @@ fee_description: |
   dilution; the separate withdrawal fee is still modelled explicitly as a net redemption
   fee.
 links:
-  homepage: https://app.atoma.fi/
+  homepage: https://atoma.fi/
   app: https://app.atoma.fi/
   twitter: https://x.com/atoma_fi
   documentation:
