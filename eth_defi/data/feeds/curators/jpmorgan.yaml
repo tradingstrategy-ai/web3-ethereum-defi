@@ -1,23 +1,39 @@
-# J.P. Morgan curator - feeds provided by protocols/kinexys.yaml
+# J.P. Morgan curator
 #
-# Alias rationale:
+# Rationale:
 # - JLTXX is JPMorgan's OnChain Liquidity-Token Money Market Fund and is issued
 #   through the Kinexys Digital Assets Fungible Asset Contract surface.
-# - The relevant official feed sources for this on-chain product are already
-#   carried by protocols/kinexys.yaml, so this curator aliases the Kinexys
-#   protocol feeder to avoid scanning the same J.P. Morgan accounts twice.
+# - Kinexys provides the tokenisation and settlement technology. The curator
+#   business for this entry is J.P. Morgan, not Kinexys.
 # - Exact vault-address detection in eth_defi.vault.curator maps the production
 #   JLTXX contract to this curator slug.
 feeder-id: jpmorgan
 name: J.P. Morgan
 role: curator
-canonical-feeder-id: kinexys
-short_description: J.P. Morgan is a global financial services firm that operates Kinexys, its blockchain platform for tokenised assets, programmable payments and settlement.
+website: https://www.jpmorgan.com
+twitter: jpmorgan
+linkedin: jpmorgan
+# rss: not found - J.P. Morgan newsroom pages do not expose RSS/Atom links
+short_description: J.P. Morgan is a global investment bank and financial services firm serving corporate, institutional, government and investor clients.
 long_description: |
-  J.P. Morgan operates Kinexys, a bank-led blockchain platform for programmable payments, tokenised assets and near-real-time settlement. The Kinexys tokenised money market fund product includes JPMorgan's OnChain Liquidity-Token Money Market Fund token, JLTXX, issued through the Kinexys Digital Assets Fungible Asset Contract surface. For this integration, J.P. Morgan is treated as the curator of the JLTXX vault-like instrument because the fund, tokenised product and Kinexys infrastructure are all operated by J.P. Morgan entities.
+  J.P. Morgan is a global investment bank and financial services firm within JPMorgan Chase & Co. The bank provides investment banking, markets, securities services, treasury services, payments, asset management, private banking and wealth-management services for companies, institutions, governments and investors around the world.
+
+  For this integration, J.P. Morgan is treated as the curator of the JLTXX vault-like instrument because JPMorgan's OnChain Liquidity-Token Money Market Fund is a J.P. Morgan fund product. Kinexys is the technology provider for the tokenised asset and settlement infrastructure; it is not the curator business represented by this YAML entry.
 
 # Evidence and background references.
 other-links:
+  - title: J.P. Morgan official website
+    url: https://www.jpmorgan.com
+  - title: J.P. Morgan LinkedIn account
+    url: https://www.linkedin.com/company/jpmorgan
+  - title: J.P. Morgan X account
+    url: https://x.com/jpmorgan
+  - title: J.P. Morgan Instagram account
+    url: https://www.instagram.com/jpmorgan
+  - title: J.P. Morgan YouTube account
+    url: https://www.youtube.com/jpmorgan
+  - title: J.P. Morgan Facebook account
+    url: https://www.facebook.com/jpmorgan
   - title: Kinexys homepage - J.P. Morgan bank-led blockchain platform
     url: https://www.jpmorgan.com/kinexys/index
   - title: Kinexys Tokenized Money Market Funds page - JLTXX product family

@@ -2,15 +2,15 @@
 
 ## Source
 
-- **Canonical feeder**: `eth_defi/data/feeds/protocols/kinexys.yaml`
-- **Original asset**: `eth_defi/data/vaults/original_logos/kinexys/kinexys.favicon.png`
-- **Public source URL**: https://www.jpmorgan.com/kinexys/images/icons/favicon.png
+- **Curator feeder**: `eth_defi/data/feeds/curators/jpmorgan.yaml`
+- **Original asset**: Official JPMorgan Chase octagon brand mark from the media centre Apple touch icon
+- **Public source URL**: https://media.chase.com/etc.clientlibs/settings/wcm/designs/sites/chase/media-center/resources/images/global/favicon-152.png
 
 ## Files
 
-- `jpmorgan.generic.png` - Copy of the official Kinexys favicon brandmark used for the J.P. Morgan curator entry tied to the Kinexys JLTXX vault.
+- `jpmorgan.generic.png` - Official JPMorgan Chase octagon brand mark used for the J.P. Morgan curator entry tied to the JLTXX vault-like instrument.
 
 ## Notes
 
-- The `jpmorgan` curator aliases the `kinexys` protocol feeder, because the relevant official feed sources are already attached to the Kinexys protocol metadata.
-- The formatted `generic.png`, `dark.png` and `light.png` files reuse the same official Kinexys brandmark so the curator export has assets under the curator slug.
+- The `jpmorgan` curator uses J.P. Morgan's main website and social accounts directly. Kinexys remains the technology provider for the tokenised asset infrastructure, not the curator business.
+- The formatted `generic.png`, `dark.png` and `light.png` files use the same official octagon brand mark so the curator export has assets under the curator slug.
