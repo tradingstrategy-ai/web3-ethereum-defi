@@ -3,16 +3,16 @@
 ## Source
 
 - **Curator feeder**: `eth_defi/data/feeds/curators/jpmorgan.yaml`
-- **Original vector asset**: Official J.P. Morgan wordmark SVG from `jpmorgan.com`
-- **Public source URL**: https://www.jpmorgan.com/content/dam/jpmorgan/images/logos/jpm-logo-brown-062322.svg
+- **Original brand mark reference**: Official JPMorgan Chase octagon mark from the J.P. Morgan favicon family
+- **Public source URL**: https://www.jpmorgan.com/etc.clientlibs/cws/clientlibs/clientlib-base/resources/jpm/images/jpm-favicon-152.png
 
 ## Files
 
-- `jpmorgan.wordmark.svg` - Official transparent SVG wordmark source.
-- `jpmorgan.generic.png` - 2048px wide transparent PNG rendered from the official SVG source.
+- `jpmorgan.brandmark.svg` - Transparent SVG brand mark reconstructed from the official favicon geometry and colour so the formatted logo can be rendered without upscaling a 152px raster.
+- `jpmorgan.generic.png` - 2048x2048 transparent PNG rendered from the brand mark SVG.
 
 ## Notes
 
 - The `jpmorgan` curator uses J.P. Morgan's main website and social accounts directly. Kinexys remains the technology provider for the tokenised asset infrastructure, not the curator business.
-- The formatted `generic.png` and `dark.png` files use the official brown J.P. Morgan wordmark for light backgrounds. The formatted `light.png` file uses a white wordmark rendered from the same source for dark backgrounds.
-- The JPMorgan Chase media centre exposes square octagon favicon assets, but the largest official raster found there was 152x152. The curator assets use the J.P. Morgan SVG wordmark instead to avoid upscaling a low-resolution favicon.
+- The formatted `generic.png`, `dark.png` and `light.png` files use the JPMorgan Chase octagon brand mark, not the J.P. Morgan wordmark.
+- The J.P. Morgan and JPMorgan Chase public sites expose the octagon mark only as favicon and Apple touch icon rasters up to 152x152. The SVG source in this folder preserves the same mark as transparent vector geometry for the curator export.
