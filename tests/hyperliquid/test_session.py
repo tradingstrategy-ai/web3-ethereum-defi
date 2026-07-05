@@ -11,7 +11,11 @@ import pytest
 import requests
 
 from eth_defi.event_reader.webshare import ProxyRotator, WebshareProxy
-from eth_defi.hyperliquid.session import create_hyperliquid_session
+from eth_defi.hyperliquid.session import (
+    DEFAULT_POST_INFO_RETRY_ATTEMPTS,
+    DEFAULT_POST_INFO_RETRY_BACKOFF_FACTOR,
+    create_hyperliquid_session,
+)
 
 
 def _make_proxy(idx: int) -> WebshareProxy:
@@ -181,6 +185,36 @@ def test_retry_error_budget_is_respected_without_proxy():
 
     assert m.call_count == 3
     assert sleep.call_count == 2
+
+
+def test_default_post_info_retry_window_covers_ten_minute_502_outage() -> None:
+    """Test the default Hyperliquid /info retry window covers the 2026-07-04 outage class.
+
+    1. Create a default Hyperliquid session using production retry constants.
+    2. Mock repeated adapter retry exhaustion followed by one successful response.
+    3. Verify the outer sleeps keep retrying long enough for a ten minute fast-502 outage.
+    """
+
+    # 1. Create a default Hyperliquid session using production retry constants.
+    session = create_hyperliquid_session()
+    ok_response = MagicMock(status_code=200)
+    retry_error = requests.exceptions.RetryError("too many 502 error responses")
+
+    # 2. Mock repeated adapter retry exhaustion followed by one successful response.
+    side_effects = [retry_error] * DEFAULT_POST_INFO_RETRY_ATTEMPTS + [ok_response]
+    with (
+        patch("eth_defi.hyperliquid.session.time.sleep") as sleep,
+        patch.object(session, "post", side_effect=side_effects) as m,
+    ):
+        resp = session.post_info({"type": "userVaultEquities"})
+
+    # 3. Verify the outer sleeps keep retrying long enough for a ten minute fast-502 outage.
+    expected_sleeps = [DEFAULT_POST_INFO_RETRY_BACKOFF_FACTOR * (2**i) for i in range(DEFAULT_POST_INFO_RETRY_ATTEMPTS)]
+    fast_5xx_outer_sleep_window = sum(expected_sleeps)
+    assert resp is ok_response
+    assert m.call_count == DEFAULT_POST_INFO_RETRY_ATTEMPTS + 1
+    assert [call.args[0] for call in sleep.call_args_list] == expected_sleeps
+    assert fast_5xx_outer_sleep_window >= 600
 
 
 def test_successful_200_short_circuits(session_with_proxies):
