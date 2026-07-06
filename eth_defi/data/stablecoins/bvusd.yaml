@@ -35,7 +35,7 @@ links:
   defillama: ''
   twitter: https://x.com/BitVaultFinance
 slug: bvusd
-rate_fetch_failed_at: '2026-07-03T00:52:47'
+rate_fetch_failed_at: '2026-07-06T00:47:27'
 rate_fetch_failed_reason: missing_coingecko_id
 checks:
   twitter_last_post_at: '2026-02-17'

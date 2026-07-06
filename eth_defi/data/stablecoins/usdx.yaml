@@ -33,15 +33,15 @@ entries:
   coingecko_id: usdx-money-usdx
   coingecko_link: https://www.coingecko.com/en/coins/usdx-money-usdx
   coingecko_id_source: manual
-  coingecko_id_verified_at: '2026-07-03T00:52:47'
+  coingecko_id_verified_at: '2026-07-06T00:47:27'
   coingecko_id_verification_failed_at: ''
   coingecko_id_verification_failed_reason: ''
-  usd_rate: 0.0076158
-  usd_rate_fetched_at: '2026-07-03T00:52:47'
-  usd_rate_updated_at: '2026-07-03T00:52:49'
+  usd_rate: 0.00833181
+  usd_rate_fetched_at: '2026-07-06T00:47:27'
+  usd_rate_updated_at: '2026-07-06T00:47:22'
   peg_rate: ''
   peg_rate_currency: ''
-  rate_fetch_failed_at: '2026-07-03T00:52:47'
+  rate_fetch_failed_at: '2026-07-06T00:47:27'
   rate_fetch_failed_reason: missing_source_currency
   depegged_at: '2026-06-26T12:16:16'
   checks:
@@ -96,15 +96,15 @@ entries:
   coingecko_id: usdx
   coingecko_link: https://www.coingecko.com/en/coins/usdx
   coingecko_id_source: manual
-  coingecko_id_verified_at: '2026-07-03T00:52:47'
+  coingecko_id_verified_at: '2026-07-06T00:47:27'
   coingecko_id_verification_failed_at: ''
   coingecko_id_verification_failed_reason: ''
-  usd_rate: 0.648555
-  usd_rate_fetched_at: '2026-07-03T00:52:47'
-  usd_rate_updated_at: '2026-07-03T00:52:42'
+  usd_rate: 0.703134
+  usd_rate_fetched_at: '2026-07-06T00:47:27'
+  usd_rate_updated_at: '2026-07-06T00:47:19'
   peg_rate: ''
   peg_rate_currency: ''
-  rate_fetch_failed_at: '2026-07-03T00:52:47'
+  rate_fetch_failed_at: '2026-07-06T00:47:27'
   rate_fetch_failed_reason: missing_source_currency
   depegged_at: '2026-06-26T12:15:26'
   checks:

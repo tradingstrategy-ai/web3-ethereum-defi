@@ -41,15 +41,15 @@ source_currency_usd_rate_source: ''
 coingecko_id: bdollar
 coingecko_link: https://www.coingecko.com/en/coins/bdollar
 coingecko_id_source: url
-coingecko_id_verified_at: '2026-07-03T00:52:47'
+coingecko_id_verified_at: '2026-07-06T00:47:27'
 coingecko_id_verification_failed_at: ''
 coingecko_id_verification_failed_reason: ''
-usd_rate: 0.0010445
-usd_rate_fetched_at: '2026-07-03T00:52:47'
-usd_rate_updated_at: '2026-07-03T00:52:17'
+usd_rate: 0.00107914
+usd_rate_fetched_at: '2026-07-06T00:47:27'
+usd_rate_updated_at: '2026-07-06T00:47:26'
 peg_rate: ''
 peg_rate_currency: ''
-rate_fetch_failed_at: '2026-07-03T00:52:47'
+rate_fetch_failed_at: '2026-07-06T00:47:27'
 rate_fetch_failed_reason: missing_source_currency
 depegged_at: ''
 checks:

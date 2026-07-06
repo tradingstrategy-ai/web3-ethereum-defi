@@ -52,7 +52,7 @@ usd_rate_fetched_at: ''
 usd_rate_updated_at: ''
 peg_rate: ''
 peg_rate_currency: ''
-rate_fetch_failed_at: '2026-07-03T00:52:47'
+rate_fetch_failed_at: '2026-07-06T00:47:27'
 rate_fetch_failed_reason: missing_coingecko_id
 checks:
   twitter_last_post_at: '2025-08-28'

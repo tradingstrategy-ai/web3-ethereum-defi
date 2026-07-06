@@ -66,15 +66,15 @@ source_currency_usd_rate_source: ''
 coingecko_id: usd-coin
 coingecko_link: https://www.coingecko.com/en/coins/usd-coin
 coingecko_id_source: url
-coingecko_id_verified_at: '2026-07-03T00:52:47'
+coingecko_id_verified_at: '2026-07-06T00:47:27'
 coingecko_id_verification_failed_at: ''
 coingecko_id_verification_failed_reason: ''
-usd_rate: 0.999826
-usd_rate_fetched_at: '2026-07-03T00:52:47'
-usd_rate_updated_at: '2026-07-03T00:52:40'
+usd_rate: 0.999695
+usd_rate_fetched_at: '2026-07-06T00:47:27'
+usd_rate_updated_at: '2026-07-06T00:47:11'
 peg_rate: ''
 peg_rate_currency: ''
-rate_fetch_failed_at: '2026-07-03T00:52:47'
+rate_fetch_failed_at: '2026-07-06T00:47:27'
 rate_fetch_failed_reason: missing_source_currency
 depegged_at: ''
 checks:

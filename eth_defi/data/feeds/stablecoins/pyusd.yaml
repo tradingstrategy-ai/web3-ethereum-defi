@@ -7,3 +7,5 @@ linkedin: paypal
 # PayPal newsroom RSS moved from the old index.php query endpoint to pagetemplate=rss.
 rss: https://newsroom.paypal-corp.com/news-cryptocurrency?pagetemplate=rss
 linkedin-rss-hub-disabled-at: 2026-06-10
+rss-failure-at: 2026-07-04
+rss-failure-exception-message: "HTTPSConnectionPool(host='newsroom.paypal-corp.com', port=443): Read timed out. (read timeout=20.0)"

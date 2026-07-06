@@ -22,15 +22,15 @@ entries:
   coingecko_id: yusd-stablecoin
   coingecko_link: https://www.coingecko.com/en/coins/yusd-stablecoin
   coingecko_id_source: url
-  coingecko_id_verified_at: '2026-07-03T00:52:47'
+  coingecko_id_verified_at: '2026-07-06T00:47:27'
   coingecko_id_verification_failed_at: ''
   coingecko_id_verification_failed_reason: ''
-  usd_rate: 0.996032
-  usd_rate_fetched_at: '2026-07-03T00:52:47'
-  usd_rate_updated_at: '2026-07-03T00:52:44'
+  usd_rate: 0.995305
+  usd_rate_fetched_at: '2026-07-06T00:47:27'
+  usd_rate_updated_at: '2026-07-06T00:47:22'
   peg_rate: ''
   peg_rate_currency: ''
-  rate_fetch_failed_at: '2026-07-03T00:52:47'
+  rate_fetch_failed_at: '2026-07-06T00:47:27'
   rate_fetch_failed_reason: missing_source_currency
   depegged_at: ''
   checks:
@@ -67,15 +67,15 @@ entries:
   coingecko_id: yieldfi-ytoken
   coingecko_link: https://www.coingecko.com/en/coins/yieldfi-ytoken
   coingecko_id_source: url
-  coingecko_id_verified_at: '2026-07-03T00:52:47'
+  coingecko_id_verified_at: '2026-07-06T00:47:27'
   coingecko_id_verification_failed_at: ''
   coingecko_id_verification_failed_reason: ''
   usd_rate: 0.998454
-  usd_rate_fetched_at: '2026-07-03T00:52:47'
-  usd_rate_updated_at: '2026-07-03T00:45:34'
+  usd_rate_fetched_at: '2026-07-06T00:47:27'
+  usd_rate_updated_at: '2026-07-06T00:45:02'
   peg_rate: ''
   peg_rate_currency: ''
-  rate_fetch_failed_at: '2026-07-03T00:52:47'
+  rate_fetch_failed_at: '2026-07-06T00:47:27'
   rate_fetch_failed_reason: missing_source_currency
   depegged_at: ''
   checks:

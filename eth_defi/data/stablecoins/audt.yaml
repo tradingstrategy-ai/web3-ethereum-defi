@@ -34,7 +34,7 @@ slug: audt
 contract_addresses:
   - chain: ethereum
     address: '0xD7e0F80FB28233bdde0006c50568606A8feb964C'
-rate_fetch_failed_at: '2026-07-03T00:52:47'
+rate_fetch_failed_at: '2026-07-06T00:47:27'
 rate_fetch_failed_reason: missing_coingecko_id
 checks:
   twitter_last_post_at: ''
