@@ -2120,6 +2120,9 @@ HARDCODED_PROTOCOLS = {
     # Ember Protocol - Ember Apollo ACRED (eACRED) on Ethereum
     # https://etherscan.io/address/0x2b13311fd553e74b421d4ccc96e348f71e179dcf
     "0x2b13311fd553e74b421d4ccc96e348f71e179dcf": {ERC4626Feature.ember_like},
+    # Ember Protocol - Ember Y10K (eY10K) on Ethereum
+    # https://etherscan.io/address/0x953972ea0C1703c58F09FB6fD2477Fdcf0FEe074
+    "0x953972ea0c1703c58f09fb6fd2477fdcf0fee074": {ERC4626Feature.ember_like},
     # Inverse Finance - sDOLA vault on Ethereum
     # https://etherscan.io/address/0xb45ad160634c528Cc3D2926d9807104FA3157305
     "0xb45ad160634c528cc3d2926d9807104fa3157305": {ERC4626Feature.inverse_finance_like},
