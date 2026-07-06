@@ -1,0 +1,33 @@
+name: T3tris
+slug: t3tris
+short_description: |
+  Permissionless async ERC-4626 vault infrastructure for asset managers.
+long_description: |
+  T3tris helps asset managers deploy and operate asynchronous ERC-4626 vaults across EVM chains.
+  The protocol is designed for curators who need white-label vaults, async deposits and withdrawals,
+  and support for off-chain or cross-chain execution models such as CEX, RWA, OTC, options,
+  staking and epoch-based strategies.
+
+  T3tris states that it charges zero protocol fees to curators and instead earns on idle capital
+  yield during async settlement windows. The public app lists T3tris vaults and exposes off-chain
+  metadata used by this integration.
+fee_description: |
+  T3tris vault curators configure their own entry, exit, management and performance fee settings
+  at the vault level. Entry and exit fees reduce the user's net deposit or redeem amount,
+  while management and high-water-mark performance fees accrue as fee shares for the fee
+  recipient. T3tris states that it charges zero protocol fees to curators.
+links:
+  homepage: https://t3tris.finance/
+  app: https://app.t3tris.finance/vaults
+  twitter: https://x.com/0xT3tris
+  github: https://github.com/t3tris-finance
+  documentation: https://github.com/t3tris-finance/mdoc-t3tris
+  defillama:
+  audits: https://lfglabs.dev/research/t3tris-hwm-performance-fee
+  fees: https://github.com/t3tris-finance/mdoc-t3tris/blob/main/docs/en/02-liquidity-providers/05-understanding-fees.md
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/t3tris
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/t3tris/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0x9984ad74c5fb6bec3888e14b4e453707d3be7f8f
+  - https://arbiscan.io/address/0x98e43a491a464f0886bc5e57207c340bbed0d01f
+  - https://arbiscan.io/address/0x271cbb50e0af266bf4a3657e8c5b4b895258d306
