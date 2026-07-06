@@ -118,7 +118,6 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "shareManager": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
     "getAssetCount": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
     "getGrossTVL": {42161},  # T3tris - Arbitrum
-    "getCurrentDepositRequestId": {42161},  # T3tris - Arbitrum
     # Two chain protocols
     "claimableKeeper": {137, 42161},  # Untangle Finance - Polygon, Arbitrum
     # Three chain protocols
@@ -428,24 +427,13 @@ def create_probe_calls(
         )
 
         # T3tris - ERC-4626-derived asynchronous vaults on Arbitrum.
-        # Live app ABI exposes protocol-specific accounting getters; both are
-        # required in identify_vault_features() to avoid matching generic
-        # vaults that happen to expose one similarly named accessor.
+        # Live app ABI exposes this protocol-specific accounting getter.
         # https://app.t3tris.finance/vaults
         if _should_yield_probe("getGrossTVL", chain_id):
             yield EncodedCall.from_keccak_signature(
                 address=address,
                 signature=Web3.keccak(text="getGrossTVL()")[0:4],
                 function="getGrossTVL",
-                data=b"",
-                extra_data=None,
-            )
-
-        if _should_yield_probe("getCurrentDepositRequestId", chain_id):
-            yield EncodedCall.from_keccak_signature(
-                address=address,
-                signature=Web3.keccak(text="getCurrentDepositRequestId()")[0:4],
-                function="getCurrentDepositRequestId",
                 data=b"",
                 extra_data=None,
             )
@@ -987,7 +975,7 @@ def identify_vault_features(
             # E.g. 0x7be599a641c6b99a5d7c8beb062fc3915ff9dd4f on Base.
             logger.warning("Vault has MAX_MANAGEMENT_RATE but lacks ERC-7540 isOperator, skipping Lagoon classification: %s", debug_text)
 
-    if calls["getGrossTVL"].success and calls["getCurrentDepositRequestId"].success:
+    if calls["getGrossTVL"].success:
         features.add(ERC4626Feature.t3tris_like)
 
     if calls["GOV"].success:

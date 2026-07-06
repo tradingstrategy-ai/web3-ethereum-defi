@@ -480,8 +480,8 @@ Initial scanner support can start with:
 2. Confirm each vault onchain with `asset()`, `totalAssets()`, `totalSupply()`,
    `getProtocol()` and, if needed, `version()`.
 3. Classify T3tris vaults by `getProtocol()` returning the known T3tris protocol
-   address or by the presence of uniquely T3tris getters such as
-   `getGrossTVL()` and `getCurrentDepositRequestId()`.
+   address or by the presence of a uniquely T3tris getter such as
+   `getGrossTVL()`.
 4. Use onchain values for final TVL/accounting and GraphQL values as metadata
    or sanity checks.
 
