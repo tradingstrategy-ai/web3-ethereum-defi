@@ -8,6 +8,7 @@
 - Supports Royco tranche Redeem event
 - Supports Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
 - Supports Atoma WithdrawalClaimed events
+- Supports T3tris DepositRequest/RedeemRequest events
 """
 
 import abc
@@ -179,6 +180,24 @@ def get_atoma_vault_event_contract(web3):
     )
 
 
+def get_t3tris_vault_event_contract(web3):
+    """Get T3tris vault interface for custom flow events.
+
+    T3tris vaults support the standard ERC-4626 ``Deposit`` and ``Withdraw``
+    events in open vault mode. Closed or asynchronous vault mode can instead
+    emit ERC-7540-like request events before any standard claim event appears:
+
+    - ``DepositRequest(address indexed receiver, address indexed owner, uint256 indexed requestId, address sender, uint256 assets)``
+    - ``RedeemRequest(address indexed receiver, address indexed owner, uint256 indexed requestId, address sender, uint256 shares)``
+
+    ABI source notes: ``eth_defi/abi/t3tris/README.md``.
+    """
+    return get_contract(
+        web3,
+        "t3tris/IVault.json",
+    )
+
+
 def get_standard_erc_4626_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get list of standard ERC-4626 events we use in vault discovery.
 
@@ -324,6 +343,24 @@ def get_atoma_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     ]
 
 
+def get_t3tris_vault_discovery_events(web3) -> list[type[ContractEvent]]:
+    """Get T3tris custom events we use in vault discovery.
+
+    Standard ERC-4626 ``Deposit`` and ``Withdraw`` events are already covered
+    by :py:func:`get_standard_erc_4626_vault_discovery_events`. These request
+    events allow the lead scanner to find T3tris vaults that are operating in
+    asynchronous mode before claims emit the standard flow events.
+
+    :return:
+        List of T3tris custom event types used for lead discovery.
+    """
+    t3tris_vault_events = get_t3tris_vault_event_contract(web3)
+    return [
+        t3tris_vault_events.events.DepositRequest,
+        t3tris_vault_events.events.RedeemRequest,
+    ]
+
+
 def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get all events used in vault discovery, including protocol-specific ones.
 
@@ -335,6 +372,7 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     - Royco tranche Redeem event
     - Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
     - Atoma WithdrawalClaimed event
+    - T3tris DepositRequest/RedeemRequest events
 
     :return:
         List of contract event types in order:
@@ -344,9 +382,10 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
          RoycoTranche.Redeem,
          UpshiftMultiAsset.Deposit, UpshiftMultiAsset.WithdrawalRequested,
          UpshiftMultiAsset.WithdrawalProcessed,
-         AtomaVault.WithdrawalClaimed]
+         AtomaVault.WithdrawalClaimed,
+         T3trisVault.DepositRequest, T3trisVault.RedeemRequest]
     """
-    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3) + get_upshift_multi_asset_discovery_events(web3) + get_atoma_vault_discovery_events(web3)
+    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3) + get_upshift_multi_asset_discovery_events(web3) + get_atoma_vault_discovery_events(web3) + get_t3tris_vault_discovery_events(web3)
 
 
 def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
@@ -366,6 +405,7 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
     royco_tranche_events = get_royco_tranche_discovery_events(web3)
     upshift_multi_asset_events = get_upshift_multi_asset_discovery_events(web3)
     atoma_vault_events = get_atoma_vault_discovery_events(web3)
+    t3tris_vault_events = get_t3tris_vault_discovery_events(web3)
 
     return {
         get_topic_signature_from_event(erc4626_events[0]): VaultEventKind.deposit,
@@ -382,6 +422,8 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
         get_topic_signature_from_event(upshift_multi_asset_events[1]): VaultEventKind.withdraw,
         get_topic_signature_from_event(upshift_multi_asset_events[2]): VaultEventKind.withdraw,
         get_topic_signature_from_event(atoma_vault_events[0]): VaultEventKind.withdraw,
+        get_topic_signature_from_event(t3tris_vault_events[0]): VaultEventKind.deposit,
+        get_topic_signature_from_event(t3tris_vault_events[1]): VaultEventKind.withdraw,
     }
 
 

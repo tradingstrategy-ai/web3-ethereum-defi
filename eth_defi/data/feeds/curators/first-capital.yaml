@@ -1,0 +1,15 @@
+feeder-id: first-capital
+name: First Capital
+role: curator
+t3tris-curator: First Capital
+short_description: First Capital is a new curator without history and online presence yet.
+long_description: |
+  First Capital is a new curator without history and online presence yet.
+  T3tris identifies First Capital as the curator of the First - USDC ERC-4626 vault on Arbitrum.
+  The T3tris vault metadata marks the vault public and verified, but does not currently publish a curator website or social feed for First Capital.
+# website: not published in T3tris metadata
+other-links:
+  - title: T3tris app - First - USDC vault curated by First Capital
+    url: https://app.t3tris.finance/vaults?chainId=42161&address=0x98e43a491a464f0886bc5e57207c340bbed0d01f
+  - title: T3tris API - First - USDC vault metadata on Arbitrum
+    url: https://api.t3tris.finance/api/v1/pages/vault/42161/0x98e43a491a464f0886bc5e57207c340bbed0d01f
