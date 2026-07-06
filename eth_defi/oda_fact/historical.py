@@ -106,4 +106,6 @@ class OdaFactVaultHistoricalReader(VaultHistoricalReader):
             performance_fee=self.vault.get_performance_fee(block_number),
             management_fee=self.vault.get_management_fee(block_number),
             errors=errors or None,
+            deposits_open=False,
+            redemption_open=False,
         )
