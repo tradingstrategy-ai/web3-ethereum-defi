@@ -73,6 +73,15 @@ MAX_VALID_SHARE_PRICE: USDollarAmount = 1_000_000
 #: that produce extreme volatility numbers.
 MAX_VALID_VOLATILITY: Percent = 10_000
 
+#: Human-readable note suffixes for vault scan cycles slower than active hourly scans.
+VAULT_SCAN_CYCLE_NOTES = {
+    "early": "The vault data might be updated infrequently because the vault has low TVL and is still in the initial sampling period.",
+    "small_tvl": "The vault data might be updated infrequently because the vault TVL is below the active-vault threshold.",
+    "peaked": "The vault data might be updated infrequently because the vault TVL has fallen substantially from its historical peak.",
+    "faded": "The vault data might be updated infrequently because the vault has not reached sustained TVL traction.",
+    "tiny_tvl": "The vault data might be updated infrequently because the vault current TVL is very small.",
+}
+
 
 @dataclass(slots=True)
 class PeriodMetrics:
@@ -241,6 +250,9 @@ class VaultMetricsRecord(TypedDict, total=False):
 
     #: Technical risk classification
     risk: str | None
+
+    #: Latest adaptive vault scan cycle, e.g. ``"large_tvl"`` or ``"peaked"``.
+    vault_poll_frequency: str | None
 
     #: Current net asset value in USD
     current_nav: float | None
@@ -1388,6 +1400,88 @@ def format_bad_flag_note(bad_flags: set[VaultFlag]) -> str:
     return f"Vault has bad scan flags: {flag_names}"
 
 
+def normalise_vault_poll_frequency(value: object) -> str | None:
+    """Normalise a raw vault scan cycle value.
+
+    The cleaned price parquet may carry missing values as ``None``, ``NaN`` or
+    ``pd.NA`` depending on how the column was materialised. This helper converts
+    valid scan cycle values to stripped strings and hides missing values from
+    JSON-facing metric records.
+
+    :param value:
+        Raw ``vault_poll_frequency`` cell value from a price row.
+
+    :return:
+        Normalised scan cycle string, or ``None`` when missing.
+    """
+    if value is None or value is pd.NaT:
+        return None
+
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+
+    value_str = str(value).strip()
+    return value_str or None
+
+
+def get_latest_vault_poll_frequency(prices_df: pd.DataFrame) -> str | None:
+    """Get the latest known vault scan cycle from price rows.
+
+    ``vault_poll_frequency`` is produced during the vault scan and persisted in
+    cleaned price data. Some historical rows may be empty, so this helper walks
+    the values backwards and returns the newest non-empty scan cycle.
+
+    :param prices_df:
+        Price DataFrame for one vault, conforming to
+        :py:class:`~eth_defi.research.wrangle_vault_prices.CleanedVaultPriceRow`.
+
+    :return:
+        Latest scan cycle string, or ``None`` if the column is not available.
+    """
+    if "vault_poll_frequency" not in prices_df.columns:
+        return None
+
+    for raw_value in reversed(prices_df["vault_poll_frequency"].tolist()):
+        vault_poll_frequency = normalise_vault_poll_frequency(raw_value)
+        if vault_poll_frequency is not None:
+            return vault_poll_frequency
+
+    return None
+
+
+def extend_notes_with_vault_scan_cycle(notes: str | None, vault_poll_frequency: str | None) -> str | None:
+    """Append lower scan-cycle context to a vault note.
+
+    Frontends use the note field as the short human explanation for unusual
+    vault state. When a vault is intentionally scanned less often, this helper
+    adds that explanation without replacing existing risk or manual notes.
+
+    :param notes:
+        Existing vault note, if any.
+
+    :param vault_poll_frequency:
+        Latest adaptive scan cycle for the vault.
+
+    :return:
+        Existing note plus reduced scan-cycle context when applicable.
+    """
+    vault_poll_frequency = normalise_vault_poll_frequency(vault_poll_frequency)
+    if vault_poll_frequency not in VAULT_SCAN_CYCLE_NOTES:
+        return notes
+
+    scan_cycle_note = VAULT_SCAN_CYCLE_NOTES[vault_poll_frequency]
+    current_notes = notes.strip() if notes else None
+    if current_notes:
+        if scan_cycle_note in current_notes:
+            return current_notes
+        return f"{current_notes}; {scan_cycle_note}"
+
+    return scan_cycle_note
+
+
 def calculate_vault_record(
     prices_df: pd.DataFrame,
     vault_metadata_rows: dict[VaultSpec, VaultRow],
@@ -1491,6 +1585,7 @@ def calculate_vault_record(
 
     risk = vault_metadata.get("_risk") or get_vault_risk(protocol, vault_address)
     notes = get_notes(vault_address, chain_id=chain_id)
+    vault_poll_frequency = get_latest_vault_poll_frequency(prices_df)
 
     flags = set(vault_metadata.get("_flags") or set())
     risk, notes, flags = apply_bad_flag_check(
@@ -1825,6 +1920,8 @@ def calculate_vault_record(
             source="stablecoin",
         )
 
+    notes = extend_notes_with_vault_scan_cycle(notes, vault_poll_frequency)
+
     # Legacy: One month metrics
     if one_month_pm and one_month_pm.error_reason is None:
         one_month_returns = one_month_pm.returns_gross
@@ -1901,6 +1998,7 @@ def calculate_vault_record(
             "protocol": protocol,
             "risk": risk,
             "risk_numeric": risk_numeric,
+            "vault_poll_frequency": vault_poll_frequency,
             "id": id_val,
             "start_date": lifetime_start_date,
             "end_date": lifetime_end_date,
@@ -2541,6 +2639,7 @@ def format_lifetime_table(
             "chain": "Chain",
             "protocol": "Protocol",
             "risk": "Risk",
+            "vault_poll_frequency": "Scan cycle",
             # "end_date": "Latest deposit",
             "name": "Name",
             "lockup": "Lock up est. days",

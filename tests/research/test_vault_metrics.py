@@ -95,6 +95,35 @@ def test_make_vault_display_flags_builds_generic_warning_contract() -> None:
     assert make_vault_display_flags(red_flags=[], yellow_flags=[], source="morpho") == []
 
 
+def test_get_latest_vault_poll_frequency_returns_newest_non_empty_value() -> None:
+    """Latest vault scan cycle is read from the newest populated price row."""
+    prices_df = pd.DataFrame(
+        {
+            "vault_poll_frequency": ["", None, pd.NA, "small_tvl", "peaked"],
+        }
+    )
+
+    assert vault_metrics.get_latest_vault_poll_frequency(prices_df) == "peaked"
+    assert vault_metrics.get_latest_vault_poll_frequency(pd.DataFrame({"share_price": [1.0]})) is None
+
+
+def test_extend_notes_with_vault_scan_cycle_appends_lower_cycle_note() -> None:
+    """Lower scan cycles add context without replacing existing notes."""
+    notes = vault_metrics.extend_notes_with_vault_scan_cycle("Manual note", "peaked")
+
+    assert notes.startswith("Manual note; ")
+    assert "Manual note" in notes
+    assert "The vault data might be updated infrequently because" in notes
+    assert "historical peak" in notes
+
+    small_tvl_notes = vault_metrics.extend_notes_with_vault_scan_cycle(None, "small_tvl")
+    assert "The vault data might be updated infrequently because" in small_tvl_notes
+    assert "active-vault threshold" in small_tvl_notes
+
+    assert vault_metrics.extend_notes_with_vault_scan_cycle("Manual note", "large_tvl") == "Manual note"
+    assert vault_metrics.extend_notes_with_vault_scan_cycle(None, None) is None
+
+
 @pytest.fixture(scope="module")
 def vault_db() -> VaultDatabase:
     """Load sample vault database for testing.
@@ -231,6 +260,7 @@ def test_calculate_lifetime_metrics(
     # (may be None/NaN if not available in test data)
     assert "available_liquidity" in metrics.columns
     assert "utilisation" in metrics.columns
+    assert "vault_poll_frequency" in metrics.columns
 
     # We can get human readable output
     formatted = format_lifetime_table(
@@ -558,6 +588,7 @@ def test_export_lifetime_metrics(
     # Values may be None if not available in test data
     assert "available_liquidity" in r
     assert "utilisation" in r
+    assert "vault_poll_frequency" in r
     # Verify they serialize to JSON properly (None becomes null)
     assert r["available_liquidity"] is None or isinstance(r["available_liquidity"], (int, float))
     assert r["utilisation"] is None or isinstance(r["utilisation"], (int, float))

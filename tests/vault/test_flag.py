@@ -37,6 +37,17 @@ def test_oda_fact_vault_note_is_not_bad_flag() -> None:
     assert not is_flagged_vault(address)
 
 
+def test_summer_fi_protocol_vaults_are_blacklisted() -> None:
+    """Summer.fi vaults are blacklisted after the 2026-07-06 exploit report."""
+    address = "0x98c49e13bf99d7cad8069faa2a370933ec9ecf17"
+    protocol = "Summer.fi"
+
+    assert get_vault_special_flags(address, protocol) == {VaultFlag.illiquid}
+    assert is_flagged_vault(address, protocol)
+    assert "illiquid" in get_notes(address, protocol_name=protocol)
+    assert get_vault_risk(protocol, address) == VaultTechnicalRisk.blacklisted
+
+
 @pytest.mark.parametrize(
     ("address", "protocol", "expected_flag", "expected_note"),
     [
@@ -48,6 +59,7 @@ def test_oda_fact_vault_note_is_not_bad_flag() -> None:
         ("0x3094b241aade60f91f1c82b0628a10d9501462f9", "Morpho", VaultFlag.illiquid, "illiquid"),
         ("0xfa17f7aadbfac2c5d3c8125555404c1ae17df853", "Morpho", VaultFlag.illiquid, "illiquid"),
         ("0xed9278c5188f37670b33ef3b00729e38260cd5d5", "Euler", VaultFlag.illiquid, "illiquid"),
+        ("0xcbc9b61177444a793b85442d3a953b90f6170b7d", "Euler", VaultFlag.illiquid, "illiquid"),
         ("0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29", "Altura", VaultFlag.controversial, "controversial"),
         ("0xc9f01b5c6048b064e6d925d1c2d7206d4feef8a3", "Yearn", VaultFlag.subvault, "not intended"),
         ("0xad755c6c31515aef8d2f830767d846774f7e9ea9", "Morpho", VaultFlag.malicious, "malicious"),

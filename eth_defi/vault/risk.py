@@ -84,7 +84,14 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "AUTO Finance": VaultTechnicalRisk.low,
     "NashPoint": VaultTechnicalRisk.low,
     "Silo Finance": VaultTechnicalRisk.low,
-    "Summer.fi": VaultTechnicalRisk.low,
+    # Summer.fi was blacklisted after 2026-07-06 exploit reporting.
+    #
+    # CryptoBriefing reported that Blockaid flagged an active Summer.fi exploit
+    # with approx. $6M DAI drained from Ethereum contracts including
+    # 0x98C49e13bf99D7CAd8069faa2A370933EC9EcF17.
+    #
+    # Source: https://cryptobriefing.com/blockaid-detects-6m-exploit-summer-fi/
+    "Summer.fi": VaultTechnicalRisk.blacklisted,
     "Llama Lend": VaultTechnicalRisk.low,
     "Foxify": VaultTechnicalRisk.dangerous,
     "Liquid Royalty": VaultTechnicalRisk.severe,
@@ -210,7 +217,7 @@ def get_vault_risk(
 
     if vault_address:
         # Check for xUSD incidents and other address-specific manual flags.
-        flags = get_vault_special_flags(vault_address)
+        flags = get_vault_special_flags(vault_address, protocol_name)
         if flags & BAD_FLAGS:
             return VaultTechnicalRisk.blacklisted
 
@@ -336,6 +343,7 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x8fF6aDBC653405245B6b686E31b14A7da7000281",  # BNB broken contract
     "0x6949bcab16c0B389095C5b744f6FBF9741A1b3b6",  # Test vault on Monad
     "0x5a8aFb250525aB8Fa85EF9a5f260Eb11B77a409a",  # Age old mainnet contract from 2017 (block 4,655,173) - burns all forwarded gas before reverting, poisoning the multicall probe batch with out-of-gas (-32003)
+    "0x162428775A4C6c513FF8722B91D1aF45a9Caff41",  # Unverified old mainnet EtherDelta-style DEX from 2018 (block 4,934,650) - deposit/trade/withdraw methods, not a vault
 }
 
 #: Cause excessive gas fees, RPC havoc.
