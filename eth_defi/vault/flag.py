@@ -127,16 +127,30 @@ VAULT_NOTES: dict[str, str] = {
 }
 
 
-def get_vault_special_flags(address: str | HexAddress) -> set[VaultFlag]:
-    """Get all special vault flags."""
+def get_vault_special_flags(address: str | HexAddress, protocol_name: str | None = None) -> set[VaultFlag]:
+    """Get all special vault flags.
+
+    Vault flags can be address-specific or protocol-wide. Protocol-wide flags
+    are used when all vaults under a detected protocol should inherit the same
+    manual warning, such as the Summer.fi illiquid flag added after the
+    2026-07-06 exploit reporting.
+    """
+    flags = set()
     entry = VAULT_FLAGS_AND_NOTES.get(address.lower())
     if entry:
         if entry[0]:
-            return {entry[0]}
-    return _empty_set
+            flags.add(entry[0])
+
+    if protocol_name:
+        protocol_entry = PROTOCOL_FLAGS_AND_NOTES.get(protocol_name)
+        if protocol_entry:
+            if protocol_entry[0]:
+                flags.add(protocol_entry[0])
+
+    return flags or _empty_set
 
 
-def get_notes(address: HexAddress | str, chain_id: int | None = None) -> str | None:
+def get_notes(address: HexAddress | str, chain_id: int | None = None, protocol_name: str | None = None) -> str | None:
     """Get vault-specific notes.
 
     Notes can come from the descriptive notes matrix, special vault flags or
@@ -157,6 +171,11 @@ def get_notes(address: HexAddress | str, chain_id: int | None = None) -> str | N
     if entry:
         return entry[1]
 
+    if protocol_name:
+        protocol_entry = PROTOCOL_FLAGS_AND_NOTES.get(protocol_name)
+        if protocol_entry:
+            return protocol_entry[1]
+
     # Default note for all Hypercore vaults
     from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 
@@ -166,13 +185,13 @@ def get_notes(address: HexAddress | str, chain_id: int | None = None) -> str | N
     return None
 
 
-def is_flagged_vault(address: HexAddress | str) -> bool:
+def is_flagged_vault(address: HexAddress | str, protocol_name: str | None = None) -> bool:
     """Is this vault flagged for any special reason?
 
     Supports both EVM (``0x``-prefixed) and non-EVM addresses (e.g. GRVT ``vlt:`` prefix).
     """
     address = address.lower()
-    return VAULT_FLAGS_AND_NOTES.get(address) is not None
+    return VAULT_FLAGS_AND_NOTES.get(address) is not None or bool(protocol_name and PROTOCOL_FLAGS_AND_NOTES.get(protocol_name))
 
 
 IRREGULAR_REPORTING = "The share price of this vault is updated too irregularly onchain. This makes it difficult to compare it against other vaults. Having no onchain transparency to the value of the vault poses a risk to users."
@@ -238,6 +257,22 @@ APOSTRO_USDC_FRONTIER_ILLIQUID = "Apostro USDC Frontier is illiquid"
 HYUSDT0_HWHLP_ILLIQUID = "hyUSD₮0 (hwHLP) vault is illiquid"
 
 RESOLV_USDC_ILLIQUID = "Resolv USDC vault is illiquid"
+
+
+#: Protocol-wide flags and notes.
+#:
+#: Unlike :py:data:`VAULT_FLAGS_AND_NOTES`, these entries apply to all vaults
+#: under a protocol name returned by vault detection.
+#:
+#: Summer.fi incident context: CryptoBriefing reported on 2026-07-06 that
+#: Blockaid flagged an active exploit against Summer.fi, with approx. $6M DAI
+#: drained from Ethereum contracts including
+#: 0x98C49e13bf99D7CAd8069faa2A370933EC9EcF17.
+#:
+#: Source: https://cryptobriefing.com/blockaid-detects-6m-exploit-summer-fi/
+PROTOCOL_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
+    "Summer.fi": (VaultFlag.illiquid, SUMMER_FI_ILLIQUID),
+}
 
 YIELDNEST_YNRWAX = """ynRWAx: Tokenized Australian residential real estate credit earning 11% APY, allocated to mortgage-backed loans on verified house-and-land developments. Made safe in collaboration with a fully licensed and insured fund manager, [Kimber Capital](https://kimbercapital.au/) (AFS Licence No. 425278).
 

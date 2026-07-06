@@ -37,6 +37,17 @@ def test_oda_fact_vault_note_is_not_bad_flag() -> None:
     assert not is_flagged_vault(address)
 
 
+def test_summer_fi_protocol_vaults_are_blacklisted() -> None:
+    """Summer.fi vaults are blacklisted after the 2026-07-06 exploit report."""
+    address = "0x98c49e13bf99d7cad8069faa2a370933ec9ecf17"
+    protocol = "Summer.fi"
+
+    assert get_vault_special_flags(address, protocol) == {VaultFlag.illiquid}
+    assert is_flagged_vault(address, protocol)
+    assert "illiquid" in get_notes(address, protocol_name=protocol)
+    assert get_vault_risk(protocol, address) == VaultTechnicalRisk.blacklisted
+
+
 @pytest.mark.parametrize(
     ("address", "protocol", "expected_flag", "expected_note"),
     [
