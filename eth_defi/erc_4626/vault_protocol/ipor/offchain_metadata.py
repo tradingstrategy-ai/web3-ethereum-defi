@@ -123,6 +123,40 @@ class IPORVaultMetadata(TypedDict):
     prospectus_link: str | None
 
 
+class IPORListedVaultMetadata(TypedDict):
+    """Metadata about an IPOR-listed vault from the public vault list.
+
+    Fetched from ``api.ipor.io/fusion/vaults``.
+
+    Unlike ``vaults-customization-list``, this endpoint is the broad public
+    inventory the Fusion app uses for vault metrics. Most production vaults do
+    not have custom descriptions, but they still appear in this list and should
+    not be treated as unofficial merely because no customisation row exists.
+
+    Reference:
+
+    - `IPOR Fusion app <https://app.ipor.io/fusion>`__
+    """
+
+    #: EVM chain ID (e.g. ``1`` for Ethereum, ``8453`` for Base)
+    chain_id: int
+
+    #: Vault contract address (checksummed)
+    vault_address: str
+
+    #: IPOR display name for the vault.
+    name: str | None
+
+    #: Denomination asset symbol, e.g. ``USDC``.
+    asset: str | None
+
+    #: Denomination token address (checksummed), when IPOR exposes it.
+    asset_address: str | None
+
+    #: Current TVL as returned by IPOR, usually a decimal string or ``None``.
+    tvl: str | None
+
+
 def _parse_customisation_entry(raw: dict) -> IPORVaultMetadata:
     """Parse a single vault customisation entry from the API response.
 
@@ -137,6 +171,26 @@ def _parse_customisation_entry(raw: dict) -> IPORVaultMetadata:
         curator_name=raw.get("curatorName"),
         disclaimer_link=raw.get("disclaimerLink"),
         prospectus_link=raw.get("prospectusLink"),
+    )
+
+
+def _parse_listed_vault_entry(raw: dict) -> IPORListedVaultMetadata:
+    """Parse a single vault entry from the IPOR public vault list.
+
+    :param raw:
+        Raw JSON dict from ``/fusion/vaults``.
+
+    :return:
+        Normalised vault list metadata.
+    """
+    asset_address = raw.get("assetAddress")
+    return IPORListedVaultMetadata(
+        chain_id=raw["chainId"],
+        vault_address=Web3.to_checksum_address(raw["address"]),
+        name=raw.get("name"),
+        asset=raw.get("asset"),
+        asset_address=Web3.to_checksum_address(asset_address) if asset_address else None,
+        tvl=raw.get("tvl"),
     )
 
 
@@ -165,6 +219,37 @@ def _read_ipor_customisation_cache(
 
     serialised = _read_json_cache(file)
     result: dict[tuple[int, str], IPORVaultMetadata] = {}
+    for str_key, val in serialised.items():
+        chain_id_str, address = str_key.split(":", 1)
+        result[int(chain_id_str), Web3.to_checksum_address(address)] = val
+    return result
+
+
+def _read_ipor_vault_list_cache(
+    cache_path: Path = DEFAULT_CACHE_PATH,
+) -> dict[tuple[int, str], IPORListedVaultMetadata]:
+    """Read cached IPOR public vault list without network access.
+
+    This helper is an implementation detail for
+    :py:func:`fetch_ipor_vault_list`. It parses only the local JSON cache that
+    the fetcher writes after a successful IPOR API response.
+
+    :param cache_path:
+        Directory for IPOR cache files.
+
+    :return:
+        Dict mapping ``(chain_id, checksummed_address)`` to
+        :py:class:`IPORListedVaultMetadata`. Returns an empty dict if the cache
+        file does not exist or is empty.
+    """
+    assert isinstance(cache_path, Path), "cache_path must be Path instance"
+
+    file = (cache_path / "ipor_vaults.json").resolve()
+    if not file.exists() or file.stat().st_size == 0:
+        return {}
+
+    serialised = _read_json_cache(file)
+    result: dict[tuple[int, str], IPORListedVaultMetadata] = {}
     for str_key, val in serialised.items():
         chain_id_str, address = str_key.split(":", 1)
         result[int(chain_id_str), Web3.to_checksum_address(address)] = val
@@ -537,6 +622,127 @@ def fetch_ipor_customisation_list(
         return _read_ipor_customisation_cache(cache_path)
 
 
+def fetch_ipor_vault_list(
+    cache_path: Path = DEFAULT_CACHE_PATH,
+    api_base_url: str = DEFAULT_API_BASE_URL,
+    now_: datetime.datetime | None = None,
+    max_cache_duration: datetime.timedelta = DEFAULT_CACHE_DURATION,
+) -> dict[tuple[int, str], IPORListedVaultMetadata]:
+    """Fetch and cache IPOR's public vault list.
+
+    The API returns an object whose ``vaults`` array covers all chains. We index
+    by ``(chain_id, checksummed_address)`` for fast lookup.
+
+    This is the broad official IPOR offchain source used for deciding whether a
+    vault is listed by IPOR. Do not use the customisation endpoint for that:
+    customisation rows are sparse and mostly indicate descriptions, logos or
+    prospectus links.
+
+    :param cache_path:
+        Directory for cache files.
+
+    :param api_base_url:
+        IPOR data API base URL.
+
+    :param now_:
+        Override current time for tests.
+
+    :param max_cache_duration:
+        How long before refreshing cache.
+
+    :return:
+        Dict mapping ``(chain_id, checksummed_address)`` to
+        :py:class:`IPORListedVaultMetadata`.
+    """
+    assert isinstance(cache_path, Path), "cache_path must be Path instance"
+
+    cache_path.mkdir(parents=True, exist_ok=True)
+    file = (cache_path / "ipor_vaults.json").resolve()
+
+    if not now_:
+        now_ = native_datetime_utc_now()
+
+    with wait_other_writers(file):
+        if _cache_is_stale(file, now_, max_cache_duration):
+            logger.info("Re-fetching IPOR vault list from %s", api_base_url)
+
+            url = f"{api_base_url}/fusion/vaults"
+            try:
+                resp = requests.get(url, timeout=30)
+                resp.raise_for_status()
+                payload = resp.json()
+            except (requests.RequestException, JSONDecodeError) as e:
+                logger.warning("Failed to fetch IPOR vault list from %s: %s", url, e)
+                return _read_ipor_vault_list_cache(cache_path)
+
+            raw_list = payload.get("vaults") if isinstance(payload, dict) else None
+            if not isinstance(raw_list, list):
+                logger.warning("IPOR vault list from %s did not contain a vaults array", url)
+                return _read_ipor_vault_list_cache(cache_path)
+
+            result: dict[tuple[int, str], IPORListedVaultMetadata] = {}
+            for raw in raw_list:
+                entry = _parse_listed_vault_entry(raw)
+                key = (entry["chain_id"], entry["vault_address"])
+                result[key] = entry
+
+            logger.info("Fetched %d IPOR listed vaults", len(result))
+
+            if not result:
+                logger.warning("IPOR vault list API returned 0 entries, skipping cache write to avoid poisoning the cache")
+                return _read_ipor_vault_list_cache(cache_path)
+
+            serialisable = {f"{k[0]}:{k[1]}": v for k, v in result.items()}
+            with file.open("wt", encoding="utf-8") as f:
+                json.dump(serialisable, f, indent=2)
+
+            logger.info("Wrote IPOR vault list cache %s", file)
+            assert file.stat().st_size > 0, f"File {file} is empty after writing"
+            return result
+
+        return _read_ipor_vault_list_cache(cache_path)
+
+
+def _fetch_ipor_vault_list_cached(
+    cache_path: Path = DEFAULT_CACHE_PATH,
+    api_base_url: str = DEFAULT_API_BASE_URL,
+    now_: datetime.datetime | None = None,
+    max_cache_duration: datetime.timedelta = DEFAULT_CACHE_DURATION,
+) -> dict[tuple[int, str], IPORListedVaultMetadata]:
+    """Fetch IPOR public vault list metadata with a process-local cache.
+
+    :param cache_path:
+        Directory for IPOR cache files.
+
+    :param api_base_url:
+        IPOR data API base URL.
+
+    :param now_:
+        Override current time for tests. Passing this disables the in-process
+        cache so TTL-sensitive tests can exercise the disk cache logic.
+
+    :param max_cache_duration:
+        Cache time-to-live.
+
+    :return:
+        Dict mapping ``(chain_id, checksummed_address)`` to
+        :py:class:`IPORListedVaultMetadata`.
+    """
+    cache_key = (str(cache_path.resolve()), api_base_url, max_cache_duration)
+    if now_ is None and cache_key in _cached_vault_list:
+        return _cached_vault_list[cache_key]
+
+    vaults = fetch_ipor_vault_list(
+        cache_path=cache_path,
+        api_base_url=api_base_url,
+        now_=now_,
+        max_cache_duration=max_cache_duration,
+    )
+    if now_ is None:
+        _cached_vault_list[cache_key] = vaults
+    return vaults
+
+
 def _fetch_ipor_customisation_list_cached(
     cache_path: Path = DEFAULT_CACHE_PATH,
     api_base_url: str = DEFAULT_API_BASE_URL,
@@ -579,6 +785,77 @@ def _fetch_ipor_customisation_list_cached(
     if now_ is None:
         _cached_customisations[cache_key] = customisations
     return customisations
+
+
+def fetch_ipor_vault_is_listed(
+    web3: Web3,
+    vault_address: HexAddress,
+    *,
+    cache_path: Path = DEFAULT_CACHE_PATH,
+    api_base_url: str = DEFAULT_API_BASE_URL,
+    app_base_url: str = DEFAULT_APP_BASE_URL,
+    now_: datetime.datetime | None = None,
+    max_cache_duration: datetime.timedelta = DEFAULT_CACHE_DURATION,
+) -> bool:
+    """Check whether IPOR lists a vault in public offchain sources.
+
+    ``vaults-customization-list`` is intentionally not treated as the sole
+    source of truth because many live IPOR vaults have no custom description.
+    The broad ``/fusion/vaults`` list is checked first, with the customisation
+    API and frontend atomist map as fallbacks for temporary API shape changes.
+
+    :param web3:
+        Web3 instance used to get the EVM chain id.
+
+    :param vault_address:
+        Vault contract address.
+
+    :param cache_path:
+        Directory for IPOR cache files.
+
+    :param api_base_url:
+        IPOR data API base URL.
+
+    :param app_base_url:
+        IPOR Fusion app base URL.
+
+    :param now_:
+        Override current time for tests.
+
+    :param max_cache_duration:
+        Cache time-to-live.
+
+    :return:
+        ``True`` when the vault appears in IPOR public offchain data.
+    """
+    chain_id = web3.eth.chain_id
+    vault_address = Web3.to_checksum_address(vault_address)
+
+    listed_vaults = _fetch_ipor_vault_list_cached(
+        cache_path=cache_path,
+        api_base_url=api_base_url,
+        now_=now_,
+        max_cache_duration=max_cache_duration,
+    )
+    if (chain_id, vault_address) in listed_vaults:
+        return True
+
+    customisations = _fetch_ipor_customisation_list_cached(
+        cache_path=cache_path,
+        api_base_url=api_base_url,
+        now_=now_,
+        max_cache_duration=max_cache_duration,
+    )
+    if (chain_id, vault_address) in customisations:
+        return True
+
+    frontend_atomists = fetch_ipor_frontend_atomists(
+        cache_path=cache_path,
+        app_base_url=app_base_url,
+        now_=now_,
+        max_cache_duration=max_cache_duration,
+    )
+    return vault_address.lower() in frontend_atomists
 
 
 def fetch_ipor_vault_metadata(web3: Web3, vault_address: HexAddress) -> IPORVaultMetadata | None:
@@ -671,6 +948,9 @@ def fetch_ipor_vault_atomist(
 
 #: In-process cache of fetched customisations keyed by source and TTL.
 _cached_customisations: dict[tuple[str, str, datetime.timedelta], dict[tuple[int, str], IPORVaultMetadata]] = {}
+
+#: In-process cache of fetched listed vault metadata keyed by source and TTL.
+_cached_vault_list: dict[tuple[str, str, datetime.timedelta], dict[tuple[int, str], IPORListedVaultMetadata]] = {}
 
 #: In-process cache of fetched frontend atomists keyed by source and TTL.
 _cached_frontend_atomists: dict[tuple[str, str, datetime.timedelta], dict[str, str]] = {}

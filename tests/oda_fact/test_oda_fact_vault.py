@@ -110,6 +110,7 @@ def test_oda_fact_live_supply_nav_and_unsupported_actions(web3: Web3) -> None:
     assert vault.fetch_info()["nav_source"] == "estimated_jltxx_usd_1"
     assert vault.fetch_info()["nav_estimated"] is True
     assert "**Curator:** J.P. Morgan" in vault.get_notes()
+    assert "Equity curve and profit information for this vault are missing" in vault.get_notes()
     assert "JLTXX fact sheet" in vault.get_notes()
 
     with pytest.raises(NotImplementedError):
@@ -200,6 +201,7 @@ def test_oda_fact_scan_record_live_jltxx(web3: Web3) -> None:
     assert record["_redemption_closed_reason"] == KINEXYS_WHITELISTED_FLOW_REASON
     assert record["_short_description"] == "Vaulted strategy investing in U.S. Treasury bills, bonds and overnight repurchase agreements"
     assert "**Curator:** J.P. Morgan" in record["_notes"]
+    assert "Equity curve and profit information for this vault are missing" in record["_notes"]
     assert "JLTXX fact sheet" in record["_notes"]
     assert record["_nav_source"] == "estimated_jltxx_usd_1"
     assert record["_nav_estimated"] is True

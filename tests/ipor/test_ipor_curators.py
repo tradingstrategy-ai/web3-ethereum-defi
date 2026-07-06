@@ -19,6 +19,7 @@ from eth_defi.feed.sources import load_feeder_metadata
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.curator import CURATORS_DATA_DIR, identify_curator
 from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.flag import VaultFlag
 
 TAU_PRIME_HELOC = "0xdf8a0d3c90462c4c9b5a8697c119fa67cb84a874"
 
@@ -198,6 +199,76 @@ def test_fetch_ipor_vault_atomist_falls_back_to_frontend_address_map(monkeypatch
     assert fetch_ipor_vault_atomist(_FakeWeb3(), TAU_PRIME_HELOC, cache_path=tmp_path) == "TAU Labs"
 
 
+def test_fetch_ipor_vault_list_fetches_public_vaults(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """IPOR public vault list cache parses the broad ``/fusion/vaults`` payload."""
+
+    ipor_metadata._cached_vault_list.clear()
+
+    def fake_get(url: str, **_kwargs) -> _FakeResponse:
+        """Return deterministic fake IPOR vault-list response."""
+        assert url == "https://api.example/fusion/vaults"
+        return _FakeResponse(
+            payload={
+                "vaults": [
+                    {
+                        "chainId": 1,
+                        "address": "0xDF8A0d3c90462c4c9B5A8697C119fA67cb84a874",
+                        "name": "Prime HELOC Loop",
+                        "asset": "USDC",
+                        "assetAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+                        "tvl": "1000",
+                    }
+                ],
+            }
+        )
+
+    monkeypatch.setattr(ipor_metadata.requests, "get", fake_get)
+
+    vaults = ipor_metadata.fetch_ipor_vault_list(
+        cache_path=tmp_path,
+        api_base_url="https://api.example",
+    )
+    key = (1, ipor_metadata.Web3.to_checksum_address(TAU_PRIME_HELOC))
+
+    assert vaults[key]["name"] == "Prime HELOC Loop"
+    assert vaults[key]["asset"] == "USDC"
+    assert (tmp_path / "ipor_vaults.json").exists()
+
+
+def test_fetch_ipor_vault_is_listed_uses_public_vault_list(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """IPOR official-list checks use the broad public vault list."""
+
+    checksum_address = ipor_metadata.Web3.to_checksum_address(TAU_PRIME_HELOC)
+    monkeypatch.setattr(
+        ipor_metadata,
+        "_fetch_ipor_vault_list_cached",
+        lambda **_kwargs: {
+            (1, checksum_address): {
+                "chain_id": 1,
+                "vault_address": checksum_address,
+                "name": "Prime HELOC Loop",
+                "asset": "USDC",
+                "asset_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+                "tvl": "1000",
+            }
+        },
+    )
+    monkeypatch.setattr(ipor_metadata, "_fetch_ipor_customisation_list_cached", lambda **_kwargs: {})
+    monkeypatch.setattr(ipor_metadata, "fetch_ipor_frontend_atomists", lambda **_kwargs: {})
+
+    assert ipor_metadata.fetch_ipor_vault_is_listed(_FakeWeb3(), TAU_PRIME_HELOC, cache_path=tmp_path)
+
+
+def test_fetch_ipor_vault_is_listed_returns_false_for_unknown_vault(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Vaults missing from all IPOR offchain sources are not treated as listed."""
+
+    monkeypatch.setattr(ipor_metadata, "_fetch_ipor_vault_list_cached", lambda **_kwargs: {})
+    monkeypatch.setattr(ipor_metadata, "_fetch_ipor_customisation_list_cached", lambda **_kwargs: {})
+    monkeypatch.setattr(ipor_metadata, "fetch_ipor_frontend_atomists", lambda **_kwargs: {})
+
+    assert not ipor_metadata.fetch_ipor_vault_is_listed(_FakeWeb3(), "0x0000000000000000000000000000000000000000", cache_path=tmp_path)
+
+
 def test_ipor_vault_atomist_accessor_uses_dynamic_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
     """IPOR vault instances expose fetched atomist metadata as manager metadata."""
 
@@ -213,6 +284,43 @@ def test_ipor_vault_atomist_accessor_uses_dynamic_metadata(monkeypatch: pytest.M
 
     assert vault.atomist == "TAU Labs"
     assert vault.manager_name == "TAU Labs"
+
+
+def test_ipor_vault_does_not_flag_publicly_listed_vault_as_unofficial(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Listed IPOR vaults without custom descriptions are still official."""
+
+    monkeypatch.setattr(ipor_vault_module.ERC4626Vault, "get_flags", lambda _self: set())
+    monkeypatch.setattr(ipor_vault_module.ERC4626Vault, "get_notes", lambda _self: None)
+    monkeypatch.setattr(ipor_vault_module, "fetch_ipor_vault_is_listed", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(ipor_vault_module, "fetch_ipor_vault_metadata", lambda *_args, **_kwargs: None)
+
+    vault = IPORVault(
+        web3=None,
+        spec=VaultSpec(
+            chain_id=1,
+            vault_address="0xDF8A0d3c90462c4c9B5A8697C119fA67cb84a874",
+        ),
+    )
+
+    assert VaultFlag.unofficial not in vault.get_flags()
+    assert vault.get_notes() is None
+
+
+def test_ipor_vault_flags_unlisted_vault_as_unofficial(monkeypatch: pytest.MonkeyPatch) -> None:
+    """IPOR vaults missing from public offchain data remain flagged."""
+
+    monkeypatch.setattr(ipor_vault_module.ERC4626Vault, "get_flags", lambda _self: set())
+    monkeypatch.setattr(ipor_vault_module, "fetch_ipor_vault_is_listed", lambda *_args, **_kwargs: False)
+
+    vault = IPORVault(
+        web3=None,
+        spec=VaultSpec(
+            chain_id=1,
+            vault_address="0x0000000000000000000000000000000000000000",
+        ),
+    )
+
+    assert vault.get_flags() == {VaultFlag.unofficial}
 
 
 def test_ipor_atomist_curator_yaml_values_resolve() -> None:

@@ -32,6 +32,9 @@ Re-run manual test::
     python scripts/erc-4626/scan-vaults.py
     python scripts/erc-4626/scan-prices.py
 
+    # Deprecated RESET_LEADS fallback. Prefer the recommended targeted
+    # backfill approach in:
+    # scripts/erc-4626/README-vault-scripts.md#recommended-targeted-backfill-for-new-vault-protocols
     export JSON_RPC_URL=$JSON_RPC_HEMI
     RESET_LEADS=true python scripts/erc-4626/scan-vaults.py
     python scripts/erc-4626/scan-prices.py
