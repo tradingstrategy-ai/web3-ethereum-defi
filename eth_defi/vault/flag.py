@@ -256,6 +256,8 @@ APOSTRO_USDC_FRONTIER_ILLIQUID = "Apostro USDC Frontier is illiquid"
 
 HYUSDT0_HWHLP_ILLIQUID = "hyUSD₮0 (hwHLP) vault is illiquid"
 
+RESOLV_ILLIQUID = "Resolv vault is illiquid"
+
 RESOLV_USDC_ILLIQUID = "Resolv USDC vault is illiquid"
 
 
@@ -583,6 +585,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x93c8201c35666f9af8b3b943bad67b42ad0159a1": (VaultFlag.illiquid, XUSD_MESSAGE),
     # hyUSD₮0 (hwHLP) - 11 (Hyperliquid)
     "0x2c910f67dbf81099e6f8e126e7265d7595dc20ad": (VaultFlag.illiquid, HYUSDT0_HWHLP_ILLIQUID),
+    # Resolv (Euler on Ethereum)
+    "0xcbc9b61177444a793b85442d3a953b90f6170b7d": (VaultFlag.illiquid, RESOLV_ILLIQUID),
     # Resolv USDC (Ethereum)
     "0xf0795c47fa58d00f5f77f4d5c01f31ee891e21b4": (VaultFlag.illiquid, RESOLV_USDC_ILLIQUID),
     # Mainstreet USDC (msUSDC, Morpho on Ethereum)
