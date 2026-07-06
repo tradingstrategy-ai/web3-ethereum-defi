@@ -115,6 +115,7 @@ ODA_FACT_JLTXX_NOTE = f"""JPMorgan OnChain Liquidity-Token Money Market Fund (JL
 - **Curator:** J.P. Morgan Asset Management / Kinexys.
 - **Vault strategy:** Registered government money market fund investing in U.S. Treasury securities and overnight repurchase agreements collateralised by U.S. Treasury securities and/or cash.
 - **Fee structure:** Token Class prospectus advertises 0.71% gross total annual fund operating expenses and 0.16% net total annual fund operating expenses after waivers through 2028-06-30. These are off-chain fund expenses, not ODA-FACT token contract methods.
+- Equity curve and profit information for this vault are missing because they are not publicly available and proprietary to J.P. Morgan.
 - **Fact sheet:** [JLTXX fact sheet]({JLTXX_FACT_SHEET_URL}).
 """
 
