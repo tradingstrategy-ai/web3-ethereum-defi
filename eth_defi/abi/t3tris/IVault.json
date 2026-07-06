@@ -1,0 +1,7194 @@
+[
+  {
+    "type": "function",
+    "name": "acceptAdminRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "allowance",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "spender",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "applyAdminBurn",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "approve",
+    "inputs": [
+      {
+        "name": "spender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "asset",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "assetTokenAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "balanceOf",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "cancelGrantAdminRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimDeposit",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "claimedShares_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimFees",
+    "inputs": [
+      {
+        "name": "unsafe",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "sharesFeeToClaim",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minAssetsOut",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "permit2ClaimFees",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "claimedAssets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimRedeem",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "unsafe",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "withdrawnAssets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimSilosPnl",
+    "inputs": [
+      {
+        "name": "claimSync",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "claimDepositSiloPnl",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "unsafe",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "redeemRequestId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "claimedSilosPnl_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.ClaimedSilosPnl",
+        "components": [
+          {
+            "name": "syncSiloPnl",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.SiloPnl",
+            "components": [
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "depositSiloPnl",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.SiloPnl",
+            "components": [
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "redeemSiloPnl",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.SiloPnl",
+            "components": [
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "close",
+    "inputs": [
+      {
+        "name": "unsafe",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "minAssetsOut",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "returnedAssets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "computeEntryFee",
+    "inputs": [
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "entryFeeAssets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "computeEntryFees",
+    "inputs": [
+      {
+        "name": "requestedDepositAssets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "entryFees_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.EntryFees",
+        "components": [
+          {
+            "name": "entryFeeAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "entryFeeShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "computeExitFee",
+    "inputs": [
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "exitFeeShares_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "computeExitFees",
+    "inputs": [
+      {
+        "name": "requestedRedeemShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "exitFees_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.ExitFees",
+        "components": [
+          {
+            "name": "exitFeeAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "exitFeeShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "computeManagementFee",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "feeShares_",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "feeAssets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "computeNetDeposit",
+    "inputs": [
+      {
+        "name": "requestedDepositAssets",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "entryFeeAssets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "netDepositFlowData_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.NetDepositFlowData",
+        "components": [
+          {
+            "name": "netDepositAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "netDepositShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "computeNetRedeem",
+    "inputs": [
+      {
+        "name": "requestedRedeemShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "exitFeeShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "netRedeemFlowData_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.NetRedeemFlowData",
+        "components": [
+          {
+            "name": "netRedeemAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "netRedeemShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "computePerformanceFee",
+    "inputs": [
+      {
+        "name": "pnl",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "performanceFeeOnPnl_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "computeSettleFees",
+    "inputs": [
+      {
+        "name": "requestedDepositAssets",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "requestedRedeemShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "entryFees_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.EntryFees",
+        "components": [
+          {
+            "name": "entryFeeAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "entryFeeShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      },
+      {
+        "name": "exitFees_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.ExitFees",
+        "components": [
+          {
+            "name": "exitFeeAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "exitFeeShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "computeUnclaimedAssetsFee",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "unclaimedAssetFee_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "convertToAssets",
+    "inputs": [
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "convertToShares",
+    "inputs": [
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "decimals",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "decreaseDepositRequest",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "unsafe",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minAmountOut",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "receiverAmount_",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "recoveredSiloShares_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "decreaseRedeemRequest",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "newPendingShares_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "deposit",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "permit2Data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "shares_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "deposit",
+    "inputs": [
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "disableEndOfFund",
+    "inputs": [
+      {
+        "name": "unsafe",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "closeVault",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "minAssetsOut",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "returnedAssets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "enableEndOfFund",
+    "inputs": [
+      {
+        "name": "feeClaimType",
+        "type": "uint8",
+        "internalType": "enum IVaultTypes.FeeClaimType"
+      },
+      {
+        "name": "unsafe",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "permit2DataOpen",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "openResult_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.OpenResult",
+        "components": [
+          {
+            "name": "lastPeriodData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.LastPeriodData",
+            "components": [
+              {
+                "name": "oldTotalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "oldTotalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "periodFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "updatedPps",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "entryFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.EntryFees",
+            "components": [
+              {
+                "name": "entryFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "entryFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "exitFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.ExitFees",
+            "components": [
+              {
+                "name": "exitFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "exitFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netDepositFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetDepositFlowData",
+            "components": [
+              {
+                "name": "netDepositAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netDepositShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netRedeemFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetRedeemFlowData",
+            "components": [
+              {
+                "name": "netRedeemAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netRedeemShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "grossTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.GrossTvlData",
+            "components": [
+              {
+                "name": "totalAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetTvlData",
+            "components": [
+              {
+                "name": "totalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "unclaimedFeesData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.UnclaimedFeesData",
+            "components": [
+              {
+                "name": "settlementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "unclaimedSharesFee",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "sharesToBurn",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToMint",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToT3treasury",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToSilo",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToFeeRecipient",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsFromCurator",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "actualDepositedAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "ppsHighWaterMark",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "forceClaimDeposit",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "claimedShares_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getAllSilosPnl",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "allSilosPnl_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.AllSilosPnl",
+        "components": [
+          {
+            "name": "syncSiloPnl",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.SiloPnl",
+            "components": [
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "depositSiloPnl",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.SiloPnl",
+            "components": [
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "redeemSiloPnl",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.SiloPnl",
+            "components": [
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "totalSiloPnl",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.SiloPnl",
+            "components": [
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCurator",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "curator_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCurrentDepositRequestId",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "currentDepositRequestId_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCurrentRedeemRequestId",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "currentRedeemRequestId_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getDepositSilo",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "depositSilo_",
+        "type": "address",
+        "internalType": "contract IERC4626"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getEntryFee",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "entryFeeWad_",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getExitFee",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "exitFeeWad_",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getFeeRecipient",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "feeRecipient_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getFullBalanceOf",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "fullBalance_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.FullBalance",
+        "components": [
+          {
+            "name": "pendingDepositAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "claimableDepositShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "ownedShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "pendingRedeemShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "claimableRedeemAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "recoverableRedeemSiloShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getGrossTVL",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "breakdown_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.GrossTvlBreakdown",
+        "components": [
+          {
+            "name": "totalManagedAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "pendingDeposits",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "claimableRedeems",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "grossTvl",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getInitialAssets",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "initialAssets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getIpfsHash",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "ipfsHash_",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getLastDepositRequestId",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "lastDepositRequestId_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getLastRedeemRequestId",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "lastRedeemRequestId_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getLastSettlementTimestamp",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "lastSettlementTimestamp_",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getManagementFee",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "managementFeeWad_",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "managementFeeDays_",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNextDefaultAdminRecipient",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "nextDefaultAdminRecipient_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNextEntryFee",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "isPending_",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "nextEntryFeeWad_",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNextExitFee",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "isPending_",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "nextExitFeeWad_",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNextGovernanceAdminRecipient",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "nextGovernanceAdminRecipient_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNextManagementFee",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "nextManagementFee_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.NextManagementFee",
+        "components": [
+          {
+            "name": "isFeePending",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "isDaysPending",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "nextManagementFeeWad",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "nextManagementFeeDays",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNextPerformanceFee",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "isPending_",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "nextPerformanceFeeWad_",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getOracle",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "oracle_",
+        "type": "address",
+        "internalType": "contract IOracle"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPerformanceFee",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "performanceFeeWad_",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPpsHighWaterMark",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "ppsHighWaterMark_",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getProtocol",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "protocol_",
+        "type": "address",
+        "internalType": "contract IT3tris"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getRedeemSilo",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "redeemSilo_",
+        "type": "address",
+        "internalType": "contract IERC4626"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getRequestDepositAmount",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "pendingAssets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getRequestRedeemAmount",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "depositedVaultShares_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getRoleAdmin",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getSettledDepositShares",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "mintedShares_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getSettledRedeemAssets",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "redeemedAssets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getShareName",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "shareName_",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getShareSymbol",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "shareSymbol_",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getSiloSharesBalances",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "siloSharesBalances_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.SiloSharesBalances",
+        "components": [
+          {
+            "name": "syncSiloShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "depositSiloShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "redeemSiloShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getSyncSilo",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "syncSilo_",
+        "type": "address",
+        "internalType": "contract IERC4626"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getT3treasury",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "t3treasury_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getTotalDepositedVaultShares",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "totalDepositedVaultShares_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getTotalRedeemRequestSettled",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "totalAssetsSettled_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getTotalRequestDeposit",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "totalRequestDeposit_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getTotalVaultSharesMinted",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "totalVaultSharesMinted_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getUnclaimedSharesFee",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "unclaimedSharesFee_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "grantRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "hasClaimableDeposit",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "hasClaimable_",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "hasClaimableRedeem",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "hasClaimable_",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "hasRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "initGrantAdminRole",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "initialize",
+    "inputs": [
+      {
+        "name": "params",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.VaultInitParams",
+        "components": [
+          {
+            "name": "shareName",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "shareSymbol",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "ipfsHash",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "globalFeesParams",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.GlobalFeesParams",
+            "components": [
+              {
+                "name": "entryFeeWad",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "exitFeeWad",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "managementFeeWad",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "performanceFeeWad",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "managementFeeDays",
+                "type": "uint32",
+                "internalType": "uint32"
+              }
+            ]
+          },
+          {
+            "name": "underlyingAsset",
+            "type": "address",
+            "internalType": "contract IERC20Metadata"
+          },
+          {
+            "name": "permit2",
+            "type": "address",
+            "internalType": "contract IAllowanceTransfer"
+          },
+          {
+            "name": "t3trisProtocol",
+            "type": "address",
+            "internalType": "contract IT3tris"
+          },
+          {
+            "name": "oracle",
+            "type": "address",
+            "internalType": "contract IOracle"
+          },
+          {
+            "name": "syncSilo",
+            "type": "address",
+            "internalType": "contract IERC4626"
+          },
+          {
+            "name": "depositSilo",
+            "type": "address",
+            "internalType": "contract IERC4626"
+          },
+          {
+            "name": "redeemSilo",
+            "type": "address",
+            "internalType": "contract IERC4626"
+          },
+          {
+            "name": "vaultOwner",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "governanceOwner",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "t3treasury",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "curator",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "feeRecipient",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "transferEnabled",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "depositEnabled",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "depositWhitelistEnabled",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "withdrawWhitelistEnabled",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "vaultOpened",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "version",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "isDepositEnabled",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "depositEnabled_",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isDepositWhitelistEnabled",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "enabled_",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isDepositWhitelisted",
+    "inputs": [
+      {
+        "name": "addr",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "whitelisted_",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isEndOfFund",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "endOfFund_",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isTransferEnabled",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "transferEnabled_",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isVaultOpen",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "isVaultOpen_",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isWithdrawWhitelistEnabled",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "enabled_",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isWithdrawWhitelisted",
+    "inputs": [
+      {
+        "name": "addr",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "whitelisted_",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxDeposit",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "maxAssets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxMint",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "maxShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxRedeem",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "maxShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxWithdraw",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "maxAssets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "mint",
+    "inputs": [
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "mint",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "permit2Data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "assets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "name",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "open",
+    "inputs": [
+      {
+        "name": "feeClaimType",
+        "type": "uint8",
+        "internalType": "enum IVaultTypes.FeeClaimType"
+      },
+      {
+        "name": "unsafe",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "permit2DataOpen",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "openResult_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.OpenResult",
+        "components": [
+          {
+            "name": "lastPeriodData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.LastPeriodData",
+            "components": [
+              {
+                "name": "oldTotalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "oldTotalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "periodFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "updatedPps",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "entryFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.EntryFees",
+            "components": [
+              {
+                "name": "entryFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "entryFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "exitFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.ExitFees",
+            "components": [
+              {
+                "name": "exitFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "exitFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netDepositFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetDepositFlowData",
+            "components": [
+              {
+                "name": "netDepositAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netDepositShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netRedeemFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetRedeemFlowData",
+            "components": [
+              {
+                "name": "netRedeemAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netRedeemShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "grossTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.GrossTvlData",
+            "components": [
+              {
+                "name": "totalAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetTvlData",
+            "components": [
+              {
+                "name": "totalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "unclaimedFeesData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.UnclaimedFeesData",
+            "components": [
+              {
+                "name": "settlementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "unclaimedSharesFee",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "sharesToBurn",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToMint",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToT3treasury",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToSilo",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToFeeRecipient",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsFromCurator",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "actualDepositedAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "ppsHighWaterMark",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "pause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "paused",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "isPaused_",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewClaimDeposit",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "claimableShares_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewClaimFees",
+    "inputs": [
+      {
+        "name": "sharesFeeToClaim",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "claimableAssets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewClaimRedeem",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "withdrawableAssets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "recoverableSiloShares_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewClaimSiloPnl",
+    "inputs": [
+      {
+        "name": "claimSync",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "claimDepositSiloPnl",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "redeemRequestId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "claimedSilosPnl_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.ClaimedSilosPnl",
+        "components": [
+          {
+            "name": "syncSiloPnl",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.SiloPnl",
+            "components": [
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "depositSiloPnl",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.SiloPnl",
+            "components": [
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "redeemSiloPnl",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.SiloPnl",
+            "components": [
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewClose",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "returnableAssets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewDecreaseDepositRequest",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "receiverAmount_",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "recoverableSiloShares_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewDecreaseRedeemRequest",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "newPendingShares_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewDeposit",
+    "inputs": [
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewEnableEndOfFund",
+    "inputs": [
+      {
+        "name": "feeClaimType",
+        "type": "uint8",
+        "internalType": "enum IVaultTypes.FeeClaimType"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "openResult_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.OpenResult",
+        "components": [
+          {
+            "name": "lastPeriodData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.LastPeriodData",
+            "components": [
+              {
+                "name": "oldTotalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "oldTotalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "periodFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "updatedPps",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "entryFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.EntryFees",
+            "components": [
+              {
+                "name": "entryFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "entryFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "exitFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.ExitFees",
+            "components": [
+              {
+                "name": "exitFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "exitFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netDepositFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetDepositFlowData",
+            "components": [
+              {
+                "name": "netDepositAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netDepositShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netRedeemFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetRedeemFlowData",
+            "components": [
+              {
+                "name": "netRedeemAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netRedeemShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "grossTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.GrossTvlData",
+            "components": [
+              {
+                "name": "totalAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetTvlData",
+            "components": [
+              {
+                "name": "totalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "unclaimedFeesData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.UnclaimedFeesData",
+            "components": [
+              {
+                "name": "settlementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "unclaimedSharesFee",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "sharesToBurn",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToMint",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToT3treasury",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToSilo",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToFeeRecipient",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsFromCurator",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "actualDepositedAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "ppsHighWaterMark",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewMint",
+    "inputs": [
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewOpen",
+    "inputs": [
+      {
+        "name": "feeClaimType",
+        "type": "uint8",
+        "internalType": "enum IVaultTypes.FeeClaimType"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "openResult_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.OpenResult",
+        "components": [
+          {
+            "name": "lastPeriodData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.LastPeriodData",
+            "components": [
+              {
+                "name": "oldTotalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "oldTotalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "periodFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "updatedPps",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "entryFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.EntryFees",
+            "components": [
+              {
+                "name": "entryFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "entryFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "exitFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.ExitFees",
+            "components": [
+              {
+                "name": "exitFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "exitFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netDepositFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetDepositFlowData",
+            "components": [
+              {
+                "name": "netDepositAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netDepositShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netRedeemFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetRedeemFlowData",
+            "components": [
+              {
+                "name": "netRedeemAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netRedeemShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "grossTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.GrossTvlData",
+            "components": [
+              {
+                "name": "totalAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetTvlData",
+            "components": [
+              {
+                "name": "totalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "unclaimedFeesData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.UnclaimedFeesData",
+            "components": [
+              {
+                "name": "settlementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "unclaimedSharesFee",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "sharesToBurn",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToMint",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToT3treasury",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToSilo",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToFeeRecipient",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsFromCurator",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "actualDepositedAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "ppsHighWaterMark",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewRedeem",
+    "inputs": [
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewSettle",
+    "inputs": [
+      {
+        "name": "feeClaimType",
+        "type": "uint8",
+        "internalType": "enum IVaultTypes.FeeClaimType"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "result_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.SettleResult",
+        "components": [
+          {
+            "name": "lastPeriodData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.LastPeriodData",
+            "components": [
+              {
+                "name": "oldTotalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "oldTotalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "periodFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "updatedPps",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "entryFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.EntryFees",
+            "components": [
+              {
+                "name": "entryFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "entryFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "exitFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.ExitFees",
+            "components": [
+              {
+                "name": "exitFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "exitFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netDepositFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetDepositFlowData",
+            "components": [
+              {
+                "name": "netDepositAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netDepositShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netRedeemFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetRedeemFlowData",
+            "components": [
+              {
+                "name": "netRedeemAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netRedeemShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "grossTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.GrossTvlData",
+            "components": [
+              {
+                "name": "totalAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetTvlData",
+            "components": [
+              {
+                "name": "totalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "unclaimedFeesData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.UnclaimedFeesData",
+            "components": [
+              {
+                "name": "settlementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "unclaimedSharesFee",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "sharesToBurn",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToMint",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToT3treasury",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToCurator",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToFeeRecipient",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsFromCurator",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "actualDepositedAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "ppsHighWaterMark",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewSettleDeposits",
+    "inputs": [
+      {
+        "name": "feeClaimType",
+        "type": "uint8",
+        "internalType": "enum IVaultTypes.FeeClaimType"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "result_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.SettleDepositsResult",
+        "components": [
+          {
+            "name": "lastPeriodData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.LastPeriodData",
+            "components": [
+              {
+                "name": "oldTotalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "oldTotalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "periodFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "updatedPps",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "entryFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.EntryFees",
+            "components": [
+              {
+                "name": "entryFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "entryFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netDepositFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetDepositFlowData",
+            "components": [
+              {
+                "name": "netDepositAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netDepositShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "grossTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.GrossTvlData",
+            "components": [
+              {
+                "name": "totalAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetTvlData",
+            "components": [
+              {
+                "name": "totalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "unclaimedFeesData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.UnclaimedFeesData",
+            "components": [
+              {
+                "name": "settlementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "unclaimedSharesFee",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "assetsToT3treasury",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToCurator",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToFeeRecipient",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsFromCurator",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToFeeRecipient",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToMint",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToBurn",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewSettleRedemptions",
+    "inputs": [
+      {
+        "name": "fullClaim",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "result_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.SettleRedemptionsResult",
+        "components": [
+          {
+            "name": "lastPeriodData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.LastPeriodData",
+            "components": [
+              {
+                "name": "oldTotalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "oldTotalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "periodFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "updatedPps",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "exitFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.ExitFees",
+            "components": [
+              {
+                "name": "exitFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "exitFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netRedeemFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetRedeemFlowData",
+            "components": [
+              {
+                "name": "netRedeemAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netRedeemShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "grossTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.GrossTvlData",
+            "components": [
+              {
+                "name": "totalAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetTvlData",
+            "components": [
+              {
+                "name": "totalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "unclaimedFeesData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.UnclaimedFeesData",
+            "components": [
+              {
+                "name": "settlementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "unclaimedSharesFee",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "currentRequestId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToRedeem",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsFromCurator",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToMint",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToBurn",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToFeeRecipient",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToSilo",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewUpdateAccruedFees",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "lastPeriodData_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.LastPeriodData",
+        "components": [
+          {
+            "name": "oldTotalNetAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "oldTotalNetSupply",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "managementFeeAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "managementFeeShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "performanceFeeAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "performanceFeeShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "periodFeeShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "pnl",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "updatedPps",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "isProfit",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      },
+      {
+        "name": "netTvlData_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.NetTvlData",
+        "components": [
+          {
+            "name": "totalNetAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "totalNetSupply",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewWithdraw",
+    "inputs": [
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "redeem",
+    "inputs": [
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "renounceRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "callerConfirmation",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "requestDeposit",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "unsafe",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "permit2Data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "requestRedeem",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "previousClaimReceiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "unsafe",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setCurator",
+    "inputs": [
+      {
+        "name": "curator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setDepositEnabled",
+    "inputs": [
+      {
+        "name": "enabled",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setDepositSilo",
+    "inputs": [
+      {
+        "name": "depositSilo",
+        "type": "address",
+        "internalType": "contract IERC4626"
+      },
+      {
+        "name": "unsafeOut",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "unsafeIn",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setDepositWhitelistEnabled",
+    "inputs": [
+      {
+        "name": "enabled",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setDepositWhitelisted",
+    "inputs": [
+      {
+        "name": "addr",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "whitelisted",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setFeeRecipient",
+    "inputs": [
+      {
+        "name": "feeRecipient",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setIpfsHash",
+    "inputs": [
+      {
+        "name": "ipfsHash",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setNextEntryFee",
+    "inputs": [
+      {
+        "name": "entryFeeWad",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setNextExitFee",
+    "inputs": [
+      {
+        "name": "exitFeeWad",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setNextManagementFee",
+    "inputs": [
+      {
+        "name": "managementFeeWad",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "managementFeeDays",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setNextPerformanceFee",
+    "inputs": [
+      {
+        "name": "performanceFeeWad",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setOracle",
+    "inputs": [
+      {
+        "name": "oracle",
+        "type": "address",
+        "internalType": "contract IOracle"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setRedeemSilo",
+    "inputs": [
+      {
+        "name": "redeemSilo",
+        "type": "address",
+        "internalType": "contract IERC4626"
+      },
+      {
+        "name": "unsafeOut",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "unsafeIn",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setShareNameAndSymbol",
+    "inputs": [
+      {
+        "name": "newName",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "newSymbol",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setSyncSilo",
+    "inputs": [
+      {
+        "name": "syncSilo",
+        "type": "address",
+        "internalType": "contract IERC4626"
+      },
+      {
+        "name": "unsafeOut",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "unsafeIn",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setT3treasury",
+    "inputs": [
+      {
+        "name": "t3treasury",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setTransferEnabled",
+    "inputs": [
+      {
+        "name": "enabled",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setWithdrawWhitelistEnabled",
+    "inputs": [
+      {
+        "name": "enabled",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setWithdrawWhitelisted",
+    "inputs": [
+      {
+        "name": "addr",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "whitelisted",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "settle",
+    "inputs": [
+      {
+        "name": "feeClaimType",
+        "type": "uint8",
+        "internalType": "enum IVaultTypes.FeeClaimType"
+      },
+      {
+        "name": "unsafe",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "permit2Data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "result_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.SettleResult",
+        "components": [
+          {
+            "name": "lastPeriodData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.LastPeriodData",
+            "components": [
+              {
+                "name": "oldTotalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "oldTotalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "periodFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "updatedPps",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "entryFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.EntryFees",
+            "components": [
+              {
+                "name": "entryFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "entryFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "exitFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.ExitFees",
+            "components": [
+              {
+                "name": "exitFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "exitFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netDepositFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetDepositFlowData",
+            "components": [
+              {
+                "name": "netDepositAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netDepositShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netRedeemFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetRedeemFlowData",
+            "components": [
+              {
+                "name": "netRedeemAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netRedeemShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "grossTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.GrossTvlData",
+            "components": [
+              {
+                "name": "totalAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetTvlData",
+            "components": [
+              {
+                "name": "totalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "unclaimedFeesData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.UnclaimedFeesData",
+            "components": [
+              {
+                "name": "settlementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "unclaimedSharesFee",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "sharesToBurn",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToMint",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToT3treasury",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToCurator",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToFeeRecipient",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsFromCurator",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "actualDepositedAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "ppsHighWaterMark",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "settleDeposits",
+    "inputs": [
+      {
+        "name": "feeClaimType",
+        "type": "uint8",
+        "internalType": "enum IVaultTypes.FeeClaimType"
+      },
+      {
+        "name": "unsafe",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "permit2Data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "result_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.SettleDepositsResult",
+        "components": [
+          {
+            "name": "lastPeriodData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.LastPeriodData",
+            "components": [
+              {
+                "name": "oldTotalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "oldTotalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "periodFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "updatedPps",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "entryFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.EntryFees",
+            "components": [
+              {
+                "name": "entryFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "entryFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netDepositFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetDepositFlowData",
+            "components": [
+              {
+                "name": "netDepositAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netDepositShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "grossTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.GrossTvlData",
+            "components": [
+              {
+                "name": "totalAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetTvlData",
+            "components": [
+              {
+                "name": "totalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "unclaimedFeesData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.UnclaimedFeesData",
+            "components": [
+              {
+                "name": "settlementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "unclaimedSharesFee",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "assetsToT3treasury",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToCurator",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToFeeRecipient",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsFromCurator",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToFeeRecipient",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToMint",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToBurn",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "settleRedemptions",
+    "inputs": [
+      {
+        "name": "fullClaim",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "unsafe",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "permit2Data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "result_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.SettleRedemptionsResult",
+        "components": [
+          {
+            "name": "lastPeriodData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.LastPeriodData",
+            "components": [
+              {
+                "name": "oldTotalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "oldTotalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "managementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "performanceFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "periodFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "pnl",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "updatedPps",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "isProfit",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "exitFees",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.ExitFees",
+            "components": [
+              {
+                "name": "exitFeeAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "exitFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netRedeemFlowData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetRedeemFlowData",
+            "components": [
+              {
+                "name": "netRedeemAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "netRedeemShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "grossTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.GrossTvlData",
+            "components": [
+              {
+                "name": "totalAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "netTvlData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.NetTvlData",
+            "components": [
+              {
+                "name": "totalNetAssets",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "totalNetSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "unclaimedFeesData",
+            "type": "tuple",
+            "internalType": "struct IVaultTypes.UnclaimedFeesData",
+            "components": [
+              {
+                "name": "settlementFeeShares",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "unclaimedSharesFee",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "currentRequestId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToRedeem",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsFromCurator",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToMint",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sharesToBurn",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToFeeRecipient",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assetsToSilo",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "sharesBalanceInAsset",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "assets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "sweep",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "contract IERC20"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "symbol",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalAssets",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "totalManagedAssets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalNetAssets",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "totalNetAssets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalNetSupply",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "totalNetSupply_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalSupply",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "transfer",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "transferFrom",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "unpause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "unsafeRedeem",
+    "inputs": [
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "assets_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "unsafeWithdraw",
+    "inputs": [
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "shares_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateAccruedFees",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "lastPeriodData_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.LastPeriodData",
+        "components": [
+          {
+            "name": "oldTotalNetAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "oldTotalNetSupply",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "managementFeeAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "managementFeeShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "performanceFeeAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "performanceFeeShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "periodFeeShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "pnl",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "updatedPps",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "isProfit",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      },
+      {
+        "name": "netTvlData_",
+        "type": "tuple",
+        "internalType": "struct IVaultTypes.NetTvlData",
+        "components": [
+          {
+            "name": "totalNetAssets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "totalNetSupply",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateSharesBatched",
+    "inputs": [
+      {
+        "name": "receivers",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "values",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "version",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "withdraw",
+    "inputs": [
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "AdminRoleGrantCancelled",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AdminRoleGrantInitiated",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Approval",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "spender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AssetsRecovered",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "curator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "netRedeemShares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ClaimDeposit",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "assets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ClaimRedeem",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "assets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CuratorUpdated",
+    "inputs": [
+      {
+        "name": "curator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DecreaseDepositRequest",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newRequestedAssets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DecreaseRedeemRequest",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newRequestedShares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Deposit",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "assets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DepositEnabledUpdated",
+    "inputs": [
+      {
+        "name": "enabled",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DepositRequest",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "assets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DepositSiloPnl",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "silo",
+        "type": "address",
+        "indexed": true,
+        "internalType": "contract IERC4626"
+      },
+      {
+        "name": "isProfit",
+        "type": "bool",
+        "indexed": true,
+        "internalType": "bool"
+      },
+      {
+        "name": "pnl",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DepositSiloUpdated",
+    "inputs": [
+      {
+        "name": "depositSilo",
+        "type": "address",
+        "indexed": false,
+        "internalType": "contract IERC4626"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DepositWhitelistStatusUpdated",
+    "inputs": [
+      {
+        "name": "enabled",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DepositWhitelistUpdated",
+    "inputs": [
+      {
+        "name": "addr",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "whitelisted",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DepositsSettled",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "assetsDeposited",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "sharesMinted",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "entryFees",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "unclaimedFees",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "EndOfFundToggled",
+    "inputs": [
+      {
+        "name": "enabled",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "EntryFeeUpdated",
+    "inputs": [
+      {
+        "name": "entryFeeWad",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ExitFeeUpdated",
+    "inputs": [
+      {
+        "name": "exitFeeWad",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FeeRecipientUpdated",
+    "inputs": [
+      {
+        "name": "feeRecipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FeesClaimed",
+    "inputs": [
+      {
+        "name": "claimer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "feeRecipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "sharesFeeClaimed",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "assetsClaimed",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "IpfsHashUpdated",
+    "inputs": [
+      {
+        "name": "ipfsHash",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ManagementFeeDaysUpdated",
+    "inputs": [
+      {
+        "name": "managementFeeDays",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ManagementFeeUpdated",
+    "inputs": [
+      {
+        "name": "managementFeeWad",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NameSymbolUpdated",
+    "inputs": [
+      {
+        "name": "name",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "symbol",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NavUpdated",
+    "inputs": [
+      {
+        "name": "managementFeeShares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "performanceFeeShares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalNetAssets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalNetSupply",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "updatedPps",
+        "type": "uint128",
+        "indexed": false,
+        "internalType": "uint128"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NextEntryFeeSet",
+    "inputs": [
+      {
+        "name": "nextEntryFeeWad",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NextExitFeeSet",
+    "inputs": [
+      {
+        "name": "nextExitFeeWad",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NextManagementFeeDaysSet",
+    "inputs": [
+      {
+        "name": "nextManagementFeeDays",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NextManagementFeeSet",
+    "inputs": [
+      {
+        "name": "nextManagementFeeWad",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NextPerformanceFeeSet",
+    "inputs": [
+      {
+        "name": "nextPerformanceFeeWad",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OracleUpdated",
+    "inputs": [
+      {
+        "name": "oracle",
+        "type": "address",
+        "indexed": false,
+        "internalType": "contract IOracle"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PerformanceFeeUpdated",
+    "inputs": [
+      {
+        "name": "performanceFeeWad",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PpsHighWaterMarkReanchored",
+    "inputs": [],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RedeemRequest",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RedeemSiloMigrationInsolvent",
+    "inputs": [
+      {
+        "name": "oldSilo",
+        "type": "address",
+        "indexed": true,
+        "internalType": "contract IERC4626"
+      },
+      {
+        "name": "newSilo",
+        "type": "address",
+        "indexed": true,
+        "internalType": "contract IERC4626"
+      },
+      {
+        "name": "barrierRequestId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RedeemSiloPnl",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "silo",
+        "type": "address",
+        "indexed": true,
+        "internalType": "contract IERC4626"
+      },
+      {
+        "name": "isProfit",
+        "type": "bool",
+        "indexed": true,
+        "internalType": "bool"
+      },
+      {
+        "name": "pnl",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RedeemSiloUpdated",
+    "inputs": [
+      {
+        "name": "redeemSilo",
+        "type": "address",
+        "indexed": false,
+        "internalType": "contract IERC4626"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RedemptionsSettled",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "sharesToRedeem",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "assetsWithdrawn",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "sharesBurned",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "exitFeeAssets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "unclaimedSharesFee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "feeRecipientAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleAdminChanged",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "previousAdminRole",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newAdminRole",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleGranted",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleRevoked",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SiloAssetsRecovered",
+    "inputs": [
+      {
+        "name": "silo",
+        "type": "address",
+        "indexed": true,
+        "internalType": "contract IERC4626"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "asset",
+        "type": "address",
+        "indexed": true,
+        "internalType": "contract IERC20"
+      },
+      {
+        "name": "assets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SiloSharesRecovered",
+    "inputs": [
+      {
+        "name": "silo",
+        "type": "address",
+        "indexed": true,
+        "internalType": "contract IERC4626"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SiloSharesRecoveryDeferred",
+    "inputs": [
+      {
+        "name": "silo",
+        "type": "address",
+        "indexed": true,
+        "internalType": "contract IERC4626"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Sweep",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "contract IERC20"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SyncSiloPnl",
+    "inputs": [
+      {
+        "name": "silo",
+        "type": "address",
+        "indexed": true,
+        "internalType": "contract IERC4626"
+      },
+      {
+        "name": "isProfit",
+        "type": "bool",
+        "indexed": true,
+        "internalType": "bool"
+      },
+      {
+        "name": "pnl",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SyncSiloUpdated",
+    "inputs": [
+      {
+        "name": "syncSilo",
+        "type": "address",
+        "indexed": false,
+        "internalType": "contract IERC4626"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "T3treasuryUpdated",
+    "inputs": [
+      {
+        "name": "t3treasury",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "T3trisProfit",
+    "inputs": [
+      {
+        "name": "profit",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Transfer",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TransferEnabledUpdated",
+    "inputs": [
+      {
+        "name": "enabled",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "VaultClosed",
+    "inputs": [
+      {
+        "name": "returnedAssets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "VaultCreated",
+    "inputs": [
+      {
+        "name": "vaultAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "oracle",
+        "type": "address",
+        "indexed": false,
+        "internalType": "contract IOracle"
+      },
+      {
+        "name": "referralCode",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "VaultOpened",
+    "inputs": [
+      {
+        "name": "depositedAssets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Withdraw",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "assets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "WithdrawWhitelistStatusUpdated",
+    "inputs": [
+      {
+        "name": "enabled",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "WithdrawWhitelistUpdated",
+    "inputs": [
+      {
+        "name": "addr",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "whitelisted",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AccessControlBadConfirmation",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AccessControlUnauthorizedAccount",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "neededRole",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Vault__ArrayLengthMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__BurnNotInitiated",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__DeceptiveMint",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__DeceptiveRedeem",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__DeceptiveWithdraw",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__DepositAmountMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__DepositDisabled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__DepositZeroSiloSharesMinted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__DowngradeNotAllowed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__EndOfFundActive",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__ExceededAvailableFee",
+    "inputs": [
+      {
+        "name": "sharesToClaim",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "availableShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Vault__ExceedsPendingAssets",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "requested",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "available",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Vault__ExceedsPendingShares",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "requested",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "available",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Vault__ImplementationNotRegistered",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__InsufficientSiloLiquidity",
+    "inputs": [
+      {
+        "name": "assetsToClaim",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "availableLiquidity",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Vault__InvalidAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__InvalidDeltaReceiverConfig",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__InvalidFeeWad",
+    "inputs": [
+      {
+        "name": "feeWad",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Vault__InvalidManagementFee",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__InvalidPendingRecipient",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__InvalidReceiver",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__InvalidSilo",
+    "inputs": [
+      {
+        "name": "silo",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Vault__MigrationDepositZeroShares",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__NoClaimDepositAvailable",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Vault__NoClaimRedeemAvailable",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Vault__NoPendingRequest",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Vault__NotAdminRole",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__NotWhitelisted",
+    "inputs": [
+      {
+        "name": "addr",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Vault__RedeemAmountMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__RedeemZeroSiloAssetsReceived",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__SameSilo",
+    "inputs": [
+      {
+        "name": "silo",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Vault__SettlementAlreadyDoneThisBlock",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__SlippageExceeded",
+    "inputs": [
+      {
+        "name": "actualAssets",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minAssetsOut",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Vault__StaleValuation",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__SuperAdminRoleDirectGrantNotAllowed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__SuperAdminRoleDirectRevokeNotAllowed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__TokenNotSweepable",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__TransferDisabled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__VaultIsClosed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__VaultIsEmpty",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__VaultIsInsolvent",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__VaultIsOpen",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__VersionNotWhitelisted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__WithdrawAmountMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__ZeroAssets",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__ZeroAssetsToClaim",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__ZeroManagementFeeDays",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Vault__ZeroRedeemableShares",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "assets",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Vault__ZeroShares",
+    "inputs": []
+  }
+]

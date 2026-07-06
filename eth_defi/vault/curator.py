@@ -292,6 +292,7 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
     "euler": "euler-entity",
     "morpho": "morpho-curator",
     "lagoon-finance": "lagoon-curator",
+    "t3tris": "t3tris-curator",
 }
 
 #: Exact vault address to curator overrides from Dune dashboards.

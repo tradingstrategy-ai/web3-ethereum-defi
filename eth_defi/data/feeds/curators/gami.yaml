@@ -1,6 +1,7 @@
 feeder-id: gami
 name: Gami
 role: curator
+t3tris-curator: Gami Labs
 website: https://gamilabs.io
 short_description: Gami provides institutional-grade DeFi vaults with on-chain curation and dynamic risk management.
 long_description: |

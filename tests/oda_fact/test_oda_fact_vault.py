@@ -17,13 +17,16 @@ from eth_defi.erc_4626.classification import (
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.oda_fact.historical import OdaFactVaultHistoricalReader
-from eth_defi.oda_fact.vault import OdaFactVault
+from eth_defi.oda_fact.vault import KINEXYS_WHITELISTED_FLOW_REASON, OdaFactVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 JLTXX_EXPECTED_MANAGEMENT_FEE = 0.0016
 JLTXX_EXPECTED_PERFORMANCE_FEE = 0
+JLTXX_EXPECTED_GROSS_EXPENSE_RATIO = 0.0071
+JLTXX_EXPECTED_PROSPECTUS_MANAGEMENT_FEE = 0.0008
+JLTXX_EXPECTED_PROSPECTUS_SERVICE_FEE = 0.001
 
 pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
@@ -193,15 +196,18 @@ def test_oda_fact_scan_record_live_jltxx(web3: Web3) -> None:
     assert record["_denomination_token"]["symbol"] == "USDC"
     assert record["_share_token"]["symbol"] == "JLTXX"
     assert record["_manager_name"] == "J.P. Morgan Kinexys"
+    assert record["_deposit_closed_reason"] == KINEXYS_WHITELISTED_FLOW_REASON
+    assert record["_redemption_closed_reason"] == KINEXYS_WHITELISTED_FLOW_REASON
+    assert record["_short_description"] == "Vaulted strategy investing in U.S. Treasury bills, bonds and overnight repurchase agreements"
     assert "**Curator:** J.P. Morgan" in record["_notes"]
     assert "JLTXX fact sheet" in record["_notes"]
     assert record["_nav_source"] == "estimated_jltxx_usd_1"
     assert record["_nav_estimated"] is True
     assert record["_synthetic_usd_denomination"] is True
-    assert record["_gross_expense_ratio"] == 0.0071
+    assert record["_gross_expense_ratio"] == JLTXX_EXPECTED_GROSS_EXPENSE_RATIO
     assert record["_net_expense_ratio"] == JLTXX_EXPECTED_MANAGEMENT_FEE
-    assert record["_prospectus_management_fee"] == 0.0008
-    assert record["_prospectus_service_fee"] == 0.001
+    assert record["_prospectus_management_fee"] == JLTXX_EXPECTED_PROSPECTUS_MANAGEMENT_FEE
+    assert record["_prospectus_service_fee"] == JLTXX_EXPECTED_PROSPECTUS_SERVICE_FEE
     assert record["_fee_waiver_until"] == "2028-06-30"
     assert record["_fee_source"].startswith("https://www.sec.gov/")
     assert record["_fee_fact_sheet"].endswith("fs-ocltmm-t.pdf")

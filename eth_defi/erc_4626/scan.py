@@ -350,9 +350,9 @@ def create_vault_scan_record(
             "_manager_name": vault.manager_name,
             "_morpho_offchain_data": vault.morpho_offchain_data if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,
         }
-        data.update(vault.fetch_scan_record_extra_data())
         data.update(activity_status)
         data.update(lending_stats)
+        data.update(vault.fetch_scan_record_extra_data())
         return data
     except ExtraValueError:
         # No idea yet

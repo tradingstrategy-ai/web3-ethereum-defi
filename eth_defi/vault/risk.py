@@ -8,6 +8,8 @@ import enum
 
 from eth_typing import HexAddress
 
+from eth_defi.vault.flag import BAD_FLAGS, get_vault_special_flags
+
 
 class VaultTechnicalRisk(enum.Enum):
     """Vault risk profile enum.
@@ -62,6 +64,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Morpho": VaultTechnicalRisk.negligible,
     "Enzyme": VaultTechnicalRisk.negligible,
     "Lagoon Finance": VaultTechnicalRisk.minimal,
+    "T3tris": VaultTechnicalRisk.low,
     "IPOR Fusion": VaultTechnicalRisk.minimal,
     # Kinexys ODA-FACT contracts are permissioned RWA tokens for institutional fund products.
     "Kinexys": VaultTechnicalRisk.low,
@@ -213,8 +216,6 @@ def get_vault_risk(
 ) -> VaultTechnicalRisk | None:
     """Get technical and developer risk associated with a particular vault"""
 
-    from eth_defi.vault.flag import BAD_FLAGS, get_vault_special_flags
-
     if vault_address:
         # Check for xUSD incidents and other address-specific manual flags.
         flags = get_vault_special_flags(vault_address, protocol_name)
@@ -245,7 +246,6 @@ _BROKEN_VAULT_CONTRACTS = {
     "0xd1C54A7896e52D3337A0Acaa41dEA4c66504Eb18",
     "0x2a7C424a06E1483ceb8F895afACf9561F0786a77",
     "0xDB212BB6dD0c9CBC9Fc0c5FFE88Be35b81CBeB92",
-    "0x061Dcb33bba38B2337eb450b89683F0522B1535f",
     "0x33e6ea47f3Dcf45A36FE3e9be1cb9e155D946202",
     "0xf36Fb419A6Bd6eBfe8A16797519deA43e164Ca70",
     "0x37743836B6011D0655cF6608044C705571417371",
@@ -259,7 +259,6 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x71829ed960594f5e764B9854c89A308c70500432",
     "0x9419FBEcFA0a9E38A96bE2d818DAA13dcA72396E",
     "0xbB2Ee36248da67c87777f43Aa19e6158bb319fC7",
-    "0xc5138D4Bd0eC5C51b6B6bDFCB8528aD9c333af97",
     "0xc6b330dF38D6eF288C953F1F2835723531073CE2",
     "0x6Ea91B94BcA202851CCBB73ff4a16a9F879EF414",
     "0xcb804B9ceB413C3940134B1e2a022402F3b35d50",
@@ -344,6 +343,7 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x6949bcab16c0B389095C5b744f6FBF9741A1b3b6",  # Test vault on Monad
     "0x5a8aFb250525aB8Fa85EF9a5f260Eb11B77a409a",  # Age old mainnet contract from 2017 (block 4,655,173) - burns all forwarded gas before reverting, poisoning the multicall probe batch with out-of-gas (-32003)
     "0x162428775A4C6c513FF8722B91D1aF45a9Caff41",  # Unverified old mainnet EtherDelta-style DEX from 2018 (block 4,934,650) - deposit/trade/withdraw methods, not a vault
+    "0xd3F41DAC84594332E4fF3C7fd2242DeAF7857e79",  # HYPE Funding Yield (HFY) HyperEVM USDt0 vault - totalAssets() and convertToAssets() hit HyperCore SpotBalance precompile revert at block 39,542,844, poisoning Multicall3 scanner batches with out-of-gas (-32003)
 }
 
 #: Cause excessive gas fees, RPC havoc.
