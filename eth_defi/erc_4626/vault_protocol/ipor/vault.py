@@ -12,7 +12,7 @@ from web3.types import BlockIdentifier
 from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.ipor.offchain_metadata import IPORVaultMetadata, fetch_ipor_vault_atomist, fetch_ipor_vault_metadata
+from eth_defi.erc_4626.vault_protocol.ipor.offchain_metadata import IPORVaultMetadata, fetch_ipor_vault_atomist, fetch_ipor_vault_is_listed, fetch_ipor_vault_metadata
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
 from eth_defi.vault.base import (
@@ -346,6 +346,11 @@ class IPORVault(ERC4626Vault):
         """
         return fetch_ipor_vault_metadata(self.web3, self.vault_address)
 
+    @cached_property
+    def listed_by_ipor(self) -> bool:
+        """Whether IPOR lists this vault in its public app/offchain data."""
+        return fetch_ipor_vault_is_listed(self.web3, self.vault_address)
+
     @property
     def description(self) -> str | None:
         """Full vault strategy description from IPOR's offchain customisation API.
@@ -386,15 +391,16 @@ class IPORVault(ERC4626Vault):
         return text.rstrip(".") + "."
 
     def get_flags(self) -> set[VaultFlag]:
-        """Get vault flags, auto-flagging vaults missing from IPOR's customisation list.
+        """Get vault flags, auto-flagging vaults missing from IPOR's public list.
 
-        - If the vault has no metadata in the customisation API, it is flagged as ``unofficial``
+        - If the vault is not in IPOR's public API, frontend atomist config or
+          customisation API, it is flagged as ``unofficial``
         - Manual flags from :py:data:`~eth_defi.vault.flag.VAULT_FLAGS_AND_NOTES` take precedence
         """
         flags = super().get_flags()
         if flags:
             return flags
-        if self.ipor_metadata is None:
+        if not self.listed_by_ipor:
             return {VaultFlag.unofficial}
         return flags
 
@@ -402,13 +408,13 @@ class IPORVault(ERC4626Vault):
         """Get notes for this vault.
 
         - Returns manual notes from the vault flags if set
-        - If vault is missing from IPOR's customisation list, returns the missing note
+        - If vault is missing from IPOR's public list, returns the missing note
         - Otherwise falls back to the full description
         """
         manual_notes = super().get_notes()
         if manual_notes:
             return manual_notes
-        if self.ipor_metadata is None:
+        if not self.listed_by_ipor:
             return MISSING_IN_PROTOCOL_FRONTEND
         return self.description
 
