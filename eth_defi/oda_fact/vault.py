@@ -64,6 +64,9 @@ class OdaFactVaultInfo(VaultInfo, total=False):
 #: Human-readable JLTXX product name.
 JLTXX_PRODUCT_NAME = "JPMorgan OnChain Liquidity-Token Money Market Fund"
 
+#: JLTXX fact sheet short product description.
+JLTXX_SHORT_DESCRIPTION = "Vaulted strategy investing in U.S. Treasury bills, bonds and overnight repurchase agreements"
+
 #: JLTXX issuer/platform display name.
 JLTXX_MANAGER_NAME = "J.P. Morgan Kinexys"
 
@@ -218,7 +221,7 @@ class OdaFactVault(VaultBase):
     def short_description(self) -> str | None:
         """Short product description."""
 
-        return "Tokenised JPMorgan money market fund tracked through ODA-FACT ERC-20 supply."
+        return JLTXX_SHORT_DESCRIPTION
 
     @property
     def manager_name(self) -> str | None:
