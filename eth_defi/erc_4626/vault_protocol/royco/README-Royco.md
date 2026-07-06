@@ -268,10 +268,17 @@ cp ~/.tradingstrategy/vaults/reader-state.pickle \
    ~/.tradingstrategy/vaults/backups/reader-state.before-royco-rescan.pickle
 ```
 
-### 2. Rediscover Royco leads
+### 2. Deprecated fallback: rediscover Royco leads
+
+`RESET_LEADS` is deprecated for protocol backfills. Prefer the recommended
+targeted backfill approach in
+[`README-vault-scripts.md`](../../../../scripts/erc-4626/README-vault-scripts.md#recommended-targeted-backfill-for-new-vault-protocols)
+when the protocol has an API, registry, factory query, or operator-curated
+address list.
 
 ```shell
 source .local-test.env && \
+# Deprecated fallback.
 RESET_LEADS=1 \
 SCAN_BACKEND=hypersync \
 LOG_LEVEL=info \

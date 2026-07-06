@@ -24,17 +24,30 @@ JSON_RPC_URL=$JSON_RPC_BASE poetry run python scripts/erc-4626/scan-vaults.py
 | `MAX_GETLOGS_RANGE` | Optional. Max block range for getLogs. |
 | `SCAN_BACKEND` | Optional. Event reader backend (`auto`, `hypersync`, `rpc`). |
 | `END_BLOCK` | Optional. Stop scanning at this block. |
-| `RESET_LEADS` | Optional. Rescan discovery events from block 1. Existing vault database rows are not deleted before the scan; new results are merged back in and matching rows may be overwritten with freshly detected metadata. Use when new protocol event support has been added and historical events need to be re-discovered. Very slow on large chains like Ethereum mainnet (~24M+ blocks). |
+| `RESET_LEADS` | Deprecated. Historical whole-chain lead rediscovery from block 1. Existing vault database rows are not deleted before the scan; new results are merged back in and matching rows may be overwritten with freshly detected metadata. Prefer the [recommended targeted backfill approach](#recommended-targeted-backfill-for-new-vault-protocols). Very slow on large chains like Ethereum mainnet (~24M+ blocks). |
 | `HYPERSYNC_API_KEY` | Optional. Required when using `auto` scan backend. |
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150 (75% of the 200 RPM free-tier limit). Throttling is always on; set this to lower the limit after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Number of Hypersync requests in flight per stream — the main throughput knob. Default: server default (10). Increase for dense workloads, decrease for rate-limited plans. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 
-#### Re-discovering vaults after adding new protocol support
+#### Recommended targeted backfill for new vault protocols
 
 The vault scanner is incremental — it only scans new blocks since the last run.
 When support for a new protocol's custom events is added (e.g. Ember's `VaultDeposit`),
 vaults that emitted events before the code change will not be discovered because the scanner
-has already passed those blocks. Use `RESET_LEADS` to rescan from the beginning.
+has already passed those blocks.
+
+For protocols with an authoritative API or registry of vault addresses, prefer a targeted
+protocol repair script. The current pattern is `fix-t3tris-vaults.py` or
+`fix-upshift-vaults.py`: seed the known vault addresses into the lead database,
+refresh only those metadata rows, and run a vault-address-scoped historical
+price scan.
+
+#### Deprecated RESET_LEADS historical rediscovery
+
+`RESET_LEADS` is deprecated for adding new vault protocols to existing
+production data. Use the [recommended targeted backfill approach](#recommended-targeted-backfill-for-new-vault-protocols)
+above when the protocol has an API, registry, factory query, or operator-curated
+address list.
 
 `RESET_LEADS` does **not** truncate the existing vault database before scanning. The scanner
 builds a fresh in-memory lead set from block 1, then merges those leads and metadata rows back
@@ -51,8 +64,22 @@ The scanner currently cannot limit discovery to only the newly added custom even
 historical custom-event backfill, such as TokenGateway/ForgeYields support, still re-queries all
 configured vault discovery events for the block range.
 
+This has several operational problems on mature chains:
+
+- It scans every configured vault discovery topic from block 1, not only the new protocol.
+- It rebuilds metadata for thousands of unrelated historical leads after discovery finishes.
+- A failure in any unrelated protocol adapter can abort the whole run before the new protocol
+  data is written. For example, adding T3tris event signatures on Arbitrum exposed a separate
+  Lagoon `v0.3.0` adapter gap during metadata extraction.
+- It is slow and expensive on chains with large histories, and retrying after an unrelated
+  metadata failure repeats the same full-chain discovery work.
+
+Use deprecated `RESET_LEADS` only when there is no reliable protocol API,
+registry, factory query, or operator-curated address list to seed targeted leads.
+
 ```shell
-# Re-discover all vaults on Ethereum from block 1
+# Deprecated fallback: re-discover all vaults on Ethereum from block 1
+# Prefer: #recommended-targeted-backfill-for-new-vault-protocols
 # Works with both HyperSync and RPC backends
 RESET_LEADS=1 LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ETHEREUM poetry run python scripts/erc-4626/scan-vaults.py
 ```
@@ -131,6 +158,48 @@ START_BLOCK=1 \
 poetry run python scripts/erc-4626/scan-prices.py
 ```
 
+### fix-t3tris-vaults.py
+
+Targeted repair script for all supported EVM T3tris vaults returned by the
+official T3tris API. The script has a baked API snapshot as a fallback, so
+operators can review the current vault address list in the script even if the
+API is temporarily unavailable.
+
+This follows the [recommended targeted backfill approach](#recommended-targeted-backfill-for-new-vault-protocols)
+for adding T3tris vaults to an existing production database after protocol
+support has been merged. It does not use deprecated `RESET_LEADS` and does not
+wipe whole-chain discovery or price data. It upserts lead rows for the selected
+T3tris API vaults, repairs missing or broken metadata rows for those same vaults,
+and scans historical prices only for those listed vault addresses. Historical
+prices are scanned at most once per supported chain per run. Caught-up vaults
+are skipped. For the remaining selected vaults on the chain, the scan starts
+from the earliest missing block any of those vaults needs, and parquet deletion
+remains scoped to those listed T3tris vault addresses.
+
+```shell
+source .local-test.env && poetry run python scripts/erc-4626/fix-t3tris-vaults.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `DRY_RUN` | Optional. Show planned work without writing metadata or prices. Default: false. |
+| `T3TRIS_FETCH_API` | Optional. Fetch the live T3tris API and prefer it over the baked snapshot. Default: true. |
+| `T3TRIS_VERIFIED_ONLY` | Optional. Process only API-verified vaults. Default: false. |
+| `T3TRIS_SCAN_PRICES` | Optional. Set to `false` to update only leads and metadata. Default: true. |
+| `T3TRIS_REWRITE_TARGETED` | Optional. Rescan every selected T3tris vault from its first known API block and rewrite only that vault's rows. Default: false. |
+| `T3TRIS_REFRESH_EXISTING_METADATA` | Optional. Refresh existing good metadata rows as well as missing or broken rows. Default: false. |
+| `MAX_WORKERS` | Optional. Historical multicall worker count. Default: 8. |
+| `FREQUENCY` | Optional. Historical price frequency, `1h` or `1d`. Default: `1h`. |
+| `START_BLOCK` | Optional. Global start block override. Use only for a carefully scoped targeted backfill. |
+| `END_BLOCK` | Optional. Global end block override. |
+| `VAULT_DB_PATH` | Optional. Metadata DB path. Default: production vault metadata DB. |
+| `UNCLEANED_PRICE_DATABASE` | Optional. Raw price parquet path. Default: production uncleaned price DB. |
+| `READER_STATE_DATABASE` | Optional. Reader-state pickle path. Default: production reader state DB. |
+
+The script reads RPC URLs using normal `JSON_RPC_<CHAIN_NAME>` variables where
+the chain is known by `eth_defi.chain`. T3tris currently returns Arbitrum vaults,
+so set `JSON_RPC_ARBITRUM` in `.local-test.env`.
+
 ### fix-upshift-vaults.py
 
 Targeted repair script for all EVM Upshift vaults returned by the official
@@ -138,7 +207,8 @@ Upshift API. The script has a baked API snapshot as a fallback, so operators can
 review the full vault address list in the script even if the API is temporarily
 unavailable.
 
-This script does not use `RESET_LEADS` and does not wipe whole-chain discovery
+This follows the [recommended targeted backfill approach](#recommended-targeted-backfill-for-new-vault-protocols).
+It does not use deprecated `RESET_LEADS` and does not wipe whole-chain discovery
 or price data. It upserts lead rows for the selected Upshift API vaults, repairs
 missing or broken metadata rows for those same vaults, and scans historical
 prices only for those listed vault addresses. Historical prices are scanned at
@@ -392,12 +462,15 @@ docker compose --profile oneshot run --rm \
   scripts/erc-4626/scan-vaults.py
 ```
 
-### Scan only Ethereum with lead reset (after adding new protocol support)
+### Deprecated: scan only Ethereum with lead reset
 
-This rescans all configured vault discovery event topics from block 1 and merges the results
-back into the existing vault database. It does not delete the database first, but matching rows
-may be refreshed with newly detected metadata. Back up `~/.tradingstrategy/vaults/vault-metadata-db.pickle`
-before running this against production data.
+`RESET_LEADS` is deprecated for adding new vault protocols to existing
+production data. Prefer the [recommended targeted backfill approach](#recommended-targeted-backfill-for-new-vault-protocols).
+This fallback rescans all configured vault discovery event topics from block 1
+and merges the results back into the existing vault database. It does not delete
+the database first, but matching rows may be refreshed with newly detected
+metadata. Back up `~/.tradingstrategy/vaults/vault-metadata-db.pickle` before
+running this against production data.
 
 ```shell
 docker compose --profile oneshot run --rm \

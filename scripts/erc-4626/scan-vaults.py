@@ -85,7 +85,8 @@ def main():
     if max_getlogs_range:
         max_getlogs_range = int(max_getlogs_range)
 
-    # Rescan all leads
+    # Deprecated: prefer the targeted backfill approach documented in
+    # scripts/erc-4626/README-vault-scripts.md#recommended-targeted-backfill-for-new-vault-protocols
     reset_leads = os.environ.get("RESET_LEADS", None)
 
     # Choose a different scan mode

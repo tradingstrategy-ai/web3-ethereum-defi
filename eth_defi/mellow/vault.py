@@ -13,12 +13,16 @@ production scanner is incremental, so Mellow vaults created before Mellow suppor
 was deployed are not discovered by later incremental scans unless the historical
 lead range is scanned again.
 
-Use ``RESET_LEADS=1`` for the Ethereum discovery backfill. This does not
-truncate the existing vault database and does not wipe existing Ethereum or
-other-chain leads. The scanner builds a fresh in-memory lead set from block 1,
-then merges the new leads and metadata rows into ``vault-metadata-db.pickle``.
-Existing unrelated rows remain in the database. Take a backup first because
-matching rows that are rediscovered can be refreshed.
+``RESET_LEADS`` is deprecated for protocol backfills. Prefer a targeted protocol
+repair script following
+``scripts/erc-4626/README-vault-scripts.md#recommended-targeted-backfill-for-new-vault-protocols``.
+The legacy fallback for the Ethereum discovery backfill is ``RESET_LEADS=1``.
+This does not truncate the existing vault database and does not wipe existing
+Ethereum or other-chain leads. The scanner builds a fresh in-memory lead set
+from block 1, then merges the new leads and metadata rows into
+``vault-metadata-db.pickle``. Existing unrelated rows remain in the database.
+Take a backup first because matching rows that are rediscovered can be
+refreshed.
 
 .. code-block:: shell
 
@@ -27,6 +31,8 @@ matching rows that are rediscovered can be refreshed.
     cp ~/.tradingstrategy/vaults/vault-metadata-db.pickle \
        ~/.tradingstrategy/vaults/vault-metadata-db.before-mellow-reset-leads.pickle
 
+    # Deprecated fallback. Prefer the recommended targeted backfill approach
+    # in scripts/erc-4626/README-vault-scripts.md.
     RESET_LEADS=1 \
     LOG_LEVEL=info \
     JSON_RPC_URL=$JSON_RPC_ETHEREUM \
