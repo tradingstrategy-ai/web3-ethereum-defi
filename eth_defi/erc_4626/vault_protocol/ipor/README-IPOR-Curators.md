@@ -92,9 +92,11 @@ from the atomist field.
 
 IPOR manager-name backfill is a targeted metadata update. There is no read-time
 `VaultDatabase.read()` repair step and no committed `vault_atomists.json`
-overlay. Do not use `RESET_LEADS=1` for this: IPOR vaults can exist on multiple
-chains, and a full historical rediscovery is unnecessarily broad for filling
-one offchain metadata field.
+overlay. Do not use deprecated `RESET_LEADS=1` for this. Prefer the recommended
+targeted backfill approach in
+[`README-vault-scripts.md`](../../../../scripts/erc-4626/README-vault-scripts.md#recommended-targeted-backfill-for-new-vault-protocols):
+IPOR vaults can exist on multiple chains, and a full historical rediscovery is
+unnecessarily broad for filling one offchain metadata field.
 
 The IPOR atomist accessor only needs the vault's chain id and address. It reads
 IPOR's API/frontend metadata and local cache, not JSON-RPC state, so one script
