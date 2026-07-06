@@ -20,6 +20,7 @@ FORK_BLOCK = 480_900_000
 
 #: Gami USDC vault on Arbitrum, listed in the T3tris app.
 GAMI_USDC_VAULT = "0x9984ad74c5fb6bec3888e14b4e453707d3be7f8f"
+GAMI_USDC_VAULT_CHECKSUM = Web3.to_checksum_address(GAMI_USDC_VAULT)
 
 pytestmark = pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests")
 
@@ -58,8 +59,8 @@ def test_t3tris_gami_usdc(web3: Web3) -> None:
     assert isinstance(vault, T3trisVault)
     assert vault.get_protocol_name() == "T3tris"
     assert vault.features == {ERC4626Feature.t3tris_like}
-    assert vault.address == GAMI_USDC_VAULT
-    assert vault.vault_address == GAMI_USDC_VAULT
+    assert vault.address == GAMI_USDC_VAULT_CHECKSUM
+    assert vault.vault_address == GAMI_USDC_VAULT_CHECKSUM
 
     assert vault.name == "Gami USDC"
     assert vault.symbol == "gamiusdc"
@@ -87,4 +88,4 @@ def test_t3tris_gami_usdc(web3: Web3) -> None:
     assert gross_pending_deposits >= 0
     assert gross_claimable_redeems >= 0
 
-    assert vault.get_link() == f"https://app.t3tris.finance/vaults?chainId=42161&address={Web3.to_checksum_address(GAMI_USDC_VAULT)}"
+    assert vault.get_link() == f"https://app.t3tris.finance/vaults?chainId=42161&address={GAMI_USDC_VAULT_CHECKSUM}"
