@@ -1,5 +1,10 @@
 name: Summer.fi
 slug: summer-fi
+# Incident note:
+# 2026-07-06: CryptoBriefing reported that Blockaid flagged an active Summer.fi exploit.
+# The report said approx. $6M DAI was drained from Ethereum contracts, including
+# 0x98C49e13bf99D7CAd8069faa2A370933EC9EcF17.
+# Source: https://cryptobriefing.com/blockaid-detects-6m-exploit-summer-fi/
 short_description: |
   Unified frontend for passive lending and advanced DeFi operations.
 long_description: |

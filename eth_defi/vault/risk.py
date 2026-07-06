@@ -84,7 +84,14 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "AUTO Finance": VaultTechnicalRisk.low,
     "NashPoint": VaultTechnicalRisk.low,
     "Silo Finance": VaultTechnicalRisk.low,
-    "Summer.fi": VaultTechnicalRisk.low,
+    # Summer.fi was blacklisted after 2026-07-06 exploit reporting.
+    #
+    # CryptoBriefing reported that Blockaid flagged an active Summer.fi exploit
+    # with approx. $6M DAI drained from Ethereum contracts including
+    # 0x98C49e13bf99D7CAd8069faa2A370933EC9EcF17.
+    #
+    # Source: https://cryptobriefing.com/blockaid-detects-6m-exploit-summer-fi/
+    "Summer.fi": VaultTechnicalRisk.blacklisted,
     "Llama Lend": VaultTechnicalRisk.low,
     "Foxify": VaultTechnicalRisk.dangerous,
     "Liquid Royalty": VaultTechnicalRisk.severe,
@@ -210,7 +217,7 @@ def get_vault_risk(
 
     if vault_address:
         # Check for xUSD incidents and other address-specific manual flags.
-        flags = get_vault_special_flags(vault_address)
+        flags = get_vault_special_flags(vault_address, protocol_name)
         if flags & BAD_FLAGS:
             return VaultTechnicalRisk.blacklisted
 

@@ -1455,11 +1455,11 @@ class VaultBase(ABC):
 
             Do not modify in place.
         """
-        return get_vault_special_flags(self.address)
+        return get_vault_special_flags(self.address, self.get_protocol_name())
 
     def get_notes(self) -> str | None:
         """Get a human readable message if we know somethign special is going on with this vault."""
-        return get_notes(self.address)
+        return get_notes(self.address, protocol_name=self.get_protocol_name())
 
     def get_link(self, referral: str | None = None) -> str:
         """Get a link to the vault dashboard on its native site.

@@ -12,6 +12,15 @@ Summer.fi is an app designed to simplify and enhance users' interactions with le
 and yield generation. The protocol provides access to DeFi yields continually rebalanced by AI
 powered Keepers.
 
+Security note
+~~~~~~~~~~~~~
+
+On 2026-07-06, `CryptoBriefing reported <https://cryptobriefing.com/blockaid-detects-6m-exploit-summer-fi/>`__
+that Blockaid flagged an active Summer.fi exploit on Ethereum, with approximately USD 6 million
+in DAI drained from three contracts including ``0x98C49e13bf99D7CAd8069faa2A370933EC9EcF17``.
+Until the incident is fully resolved and an official post-mortem is available, Summer.fi vaults
+are treated as illiquid and blacklisted in the vault risk metadata.
+
 Links
 ~~~~~
 
@@ -27,4 +36,3 @@ Links
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.summer.vault
-
