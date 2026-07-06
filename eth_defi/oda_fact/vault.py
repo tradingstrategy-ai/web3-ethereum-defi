@@ -84,6 +84,9 @@ JLTXX_FACT_SHEET_URL = "https://am.jpmorgan.com/content/dam/jpm-am-aem/americas/
 #: JLTXX SEC prospectus source URL.
 JLTXX_PROSPECTUS_URL = "https://www.sec.gov/Archives/edgar/data/1659326/000119312526217424/d44657d485bpos.htm"
 
+#: Public availability reason for Kinexys ODA-FACT fund flows.
+KINEXYS_WHITELISTED_FLOW_REASON = "Onchain deposits and redemptions are whitelisted and not available to the general public"
+
 #: Prospectus management fee, ``0.08%`` expressed as a fraction.
 JLTXX_PROSPECTUS_MANAGEMENT_FEE: Percent = 0.0008
 
@@ -362,6 +365,8 @@ class OdaFactVault(VaultBase):
 
         return {
             "_notes": self.get_notes(),
+            "_deposit_closed_reason": self.fetch_deposit_closed_reason(),
+            "_redemption_closed_reason": self.fetch_redemption_closed_reason(),
             "_nav_source": JLTXX_ESTIMATED_NAV_SOURCE,
             "_nav_estimated": True,
             "_synthetic_usd_denomination": True,
@@ -427,6 +432,32 @@ class OdaFactVault(VaultBase):
 
         message = "ODA-FACT active subscription/redemption is not implemented"
         raise NotImplementedError(message)
+
+    def fetch_deposit_closed_reason(self) -> str | None:
+        """Return the Kinexys public deposit availability status.
+
+        Kinexys ODA-FACT contracts are permissioned tokenised fund contracts.
+        On-chain subscriptions are available only to whitelisted parties and
+        are not exposed through a public ERC-4626-style deposit flow.
+
+        :return:
+            Human-readable reason why public deposits are closed.
+        """
+
+        return KINEXYS_WHITELISTED_FLOW_REASON
+
+    def fetch_redemption_closed_reason(self) -> str | None:
+        """Return the Kinexys public redemption availability status.
+
+        Kinexys ODA-FACT contracts are permissioned tokenised fund contracts.
+        On-chain redemptions are available only to whitelisted parties and are
+        not exposed through a public ERC-4626-style redemption flow.
+
+        :return:
+            Human-readable reason why public redemptions are closed.
+        """
+
+        return KINEXYS_WHITELISTED_FLOW_REASON
 
     def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
         """Get ODA-FACT historical reader.

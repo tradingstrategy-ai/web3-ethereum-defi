@@ -67,7 +67,9 @@ poetry run python scripts/logos/post-process-logo.py
 
 ## Running tests
 
-If we have not run tests before make sure the user has created a gitignored file `.local-test.env` in the repository root. This will use `source` shell command to include the actual test secrets which lie outside the repository structure. Note: this file does not contain actual environment variables, just a `source` command to get them from elsewhere. **Never edit this file** and always ask the user to prepare the file for Claude Code.
+If we have not run tests before make sure the user has created a gitignored file `.local-test.env` in the repository root. This will use `source` shell command to include the actual test secrets which lie outside the repository structure. Note: this file does not contain actual environment variables, just a `source` command to get them from elsewhere. **Never edit this file**.
+
+If `.local-test.env` is missing in a git worktree when pytest needs to be run, do not give up. First follow the git worktree instructions below and copy `.local-test.env` from the main repository checkout into the current worktree root. Only ask the user to prepare `.local-test.env` if it is also missing from the main repository checkout or cannot be found.
 
 To run tests you need to use the installed Poetry environment, with given environment secrets file.
 
@@ -107,7 +109,9 @@ poetry run ruff format
 
 ## Git worktrees
 
-- For git worktrees, copy `.local-test.env` from the repo root.
+- For git worktrees, copy `.local-test.env` from the main repository checkout root into the current worktree root.
+- If unsure where the main checkout is, use `git worktree list` and copy from the non-`.omnara/worktrees` checkout that already has `.local-test.env`.
+- Example: `cp /path/to/main/repo/.local-test.env .local-test.env`
 - For worktrees, unless you are changing package dependencies, use `poetry run` from the parent repo virtualenv
 
 ## Commentary format
