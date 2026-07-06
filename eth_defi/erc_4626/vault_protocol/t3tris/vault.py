@@ -7,7 +7,7 @@ lifecycle with protocol-specific method selectors.
 - `Homepage <https://t3tris.finance/>`__
 - `Vault app <https://app.t3tris.finance/vaults>`__
 - `Documentation repository <https://github.com/t3tris-finance/mdoc-t3tris>`__
-- `Local research notes <../../../../vault_protocols/t3tris/README-t3tris.md>`__
+- `Local research notes <README-t3tris.md>`__
 """
 
 import logging

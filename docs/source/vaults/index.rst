@@ -94,6 +94,7 @@ Supported protocols
    spectra/index
    summer/index
    superform/index
+   t3tris/index
    teller/index
    term_finance/index
    threejane/index
