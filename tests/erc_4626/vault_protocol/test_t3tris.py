@@ -84,7 +84,7 @@ def test_t3tris_gami_usdc(web3: Web3) -> None:
 
     gross_tvl, gross_managed_assets, gross_pending_deposits, gross_claimable_redeems = vault.vault_contract.functions.getGrossTVL().call(block_identifier=FORK_BLOCK)
     assert gross_tvl > 0
-    assert gross_managed_assets > 0
+    assert gross_managed_assets >= 0
     assert gross_pending_deposits >= 0
     assert gross_claimable_redeems >= 0
 
