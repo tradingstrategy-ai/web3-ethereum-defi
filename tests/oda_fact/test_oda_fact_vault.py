@@ -198,6 +198,7 @@ def test_oda_fact_scan_record_live_jltxx(web3: Web3) -> None:
     assert record["_manager_name"] == "J.P. Morgan Kinexys"
     assert record["_deposit_closed_reason"] == KINEXYS_WHITELISTED_FLOW_REASON
     assert record["_redemption_closed_reason"] == KINEXYS_WHITELISTED_FLOW_REASON
+    assert record["_short_description"] == "Vaulted strategy investing in U.S. Treasury bills, bonds and overnight repurchase agreements"
     assert "**Curator:** J.P. Morgan" in record["_notes"]
     assert "JLTXX fact sheet" in record["_notes"]
     assert record["_nav_source"] == "estimated_jltxx_usd_1"
