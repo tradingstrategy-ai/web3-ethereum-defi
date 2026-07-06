@@ -33,6 +33,7 @@ def test_oda_fact_vault_note_is_not_bad_flag() -> None:
 
     assert note is not None
     assert "**Curator:** J.P. Morgan" in note
+    assert "Equity curve and profit information for this vault are missing" in note
     assert "JLTXX fact sheet" in note
     assert not is_flagged_vault(address)
 
