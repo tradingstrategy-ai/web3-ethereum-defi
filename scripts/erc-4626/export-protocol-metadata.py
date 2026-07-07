@@ -256,6 +256,7 @@ def main():  # noqa: PLR0914
         table_data.append(
             [
                 slug,
+                "Yes" if logos["generic"] else "No",
                 "Yes" if logos["light"] else "No",
                 "Yes" if logos["dark"] else "No",
             ]
@@ -265,7 +266,7 @@ def main():  # noqa: PLR0914
     print(
         tabulate(
             table_data,
-            headers=["Protocol", "Light logo", "Dark logo"],
+            headers=["Protocol", "Generic logo", "Light logo", "Dark logo"],
             tablefmt="simple",
         )
     )
