@@ -9,7 +9,7 @@ import pytest
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.settlement_data import VaultSettlement, VaultSettlementDatabase
-from eth_defi.vault.settlement_scan import select_lagoon_vault_settlement_scan_ranges, select_vault_settlement_scan_ranges
+from eth_defi.vault.settlement_scan import select_vault_settlement_scan_ranges
 from eth_defi.vault.vaultdb import VaultDatabase
 
 
@@ -83,7 +83,7 @@ def make_vault_db() -> VaultDatabase:
     )
 
 
-def test_select_lagoon_vault_settlement_scan_ranges_incremental(tmp_path: Path) -> None:
+def test_select_vault_settlement_scan_ranges_incremental_lagoon_only(tmp_path: Path) -> None:
     """Scan ranges start after the latest stored settlement block."""
     pytest.importorskip("duckdb")
 
@@ -111,7 +111,12 @@ def test_select_lagoon_vault_settlement_scan_ranges_incremental(tmp_path: Path) 
             ]
         )
 
-        ranges = select_lagoon_vault_settlement_scan_ranges(make_vault_db(), raw_prices, db)
+        ranges = select_vault_settlement_scan_ranges(
+            make_vault_db(),
+            raw_prices,
+            db,
+            supported_features={ERC4626Feature.lagoon_like},
+        )
 
         assert len(ranges) == 1
         assert ranges[0].chain_id == 1
@@ -122,7 +127,7 @@ def test_select_lagoon_vault_settlement_scan_ranges_incremental(tmp_path: Path) 
         db.close()
 
 
-def test_select_lagoon_vault_settlement_scan_ranges_forced_backfill(tmp_path: Path) -> None:
+def test_select_vault_settlement_scan_ranges_forced_lagoon_backfill(tmp_path: Path) -> None:
     """Forced backfill ranges are intersected with raw price block ranges."""
     pytest.importorskip("duckdb")
 
@@ -147,10 +152,11 @@ def test_select_lagoon_vault_settlement_scan_ranges_forced_backfill(tmp_path: Pa
                 )
             ]
         )
-        ranges = select_lagoon_vault_settlement_scan_ranges(
+        ranges = select_vault_settlement_scan_ranges(
             make_vault_db(),
             raw_prices,
             db,
+            supported_features={ERC4626Feature.lagoon_like},
             forced_start_block=120,
             forced_end_block=180,
         )

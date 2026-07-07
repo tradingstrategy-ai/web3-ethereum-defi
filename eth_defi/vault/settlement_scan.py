@@ -110,28 +110,6 @@ def resolve_rpc_urls_by_chain_from_env(rpc_env_vars: list[str]) -> dict[int, str
     return rpc_urls_by_chain
 
 
-def select_lagoon_vault_settlement_scan_ranges(
-    vault_db: VaultDatabase,
-    raw_prices_df: pd.DataFrame,
-    settlement_db: VaultSettlementDatabase,
-    forced_start_block: int | None = None,
-    forced_end_block: int | None = None,
-) -> list[VaultSettlementScanRange]:
-    """Select Lagoon vault block ranges that need settlement scans.
-
-    Kept as a compatibility wrapper for callers and tests that still ask for
-    Lagoon-only settlement scans.
-    """
-    return select_vault_settlement_scan_ranges(
-        vault_db=vault_db,
-        raw_prices_df=raw_prices_df,
-        settlement_db=settlement_db,
-        supported_features={ERC4626Feature.lagoon_like},
-        forced_start_block=forced_start_block,
-        forced_end_block=forced_end_block,
-    )
-
-
 def select_vault_settlement_scan_ranges(
     vault_db: VaultDatabase,
     raw_prices_df: pd.DataFrame,
@@ -333,50 +311,6 @@ def fetch_and_store_vault_settlements(
         )
     finally:
         db.close()
-
-
-def fetch_and_store_lagoon_vault_settlements(
-    vault_db_path: Path = DEFAULT_VAULT_DATABASE,
-    raw_price_path: Path = DEFAULT_UNCLEANED_PRICE_DATABASE,
-    settlement_db_path: Path | None = None,
-    rpc_urls_by_chain: dict[int, str] | None = None,
-    forced_start_block: int | None = None,
-    forced_end_block: int | None = None,
-    use_hypersync: bool | None = None,
-    chunk_size: int = 50_000,
-) -> VaultSettlementScanResult:
-    """Fetch and store Lagoon settlement events for raw price ranges.
-
-    :param vault_db_path:
-        Vault metadata pickle path.
-    :param raw_price_path:
-        Raw price parquet path.
-    :param settlement_db_path:
-        Settlement DuckDB path. ``None`` uses the default pipeline path.
-    :param rpc_urls_by_chain:
-        Mapping ``chain_id -> JSON-RPC configuration string``.
-    :param forced_start_block:
-        Optional inclusive backfill start block.
-    :param forced_end_block:
-        Optional inclusive backfill end block.
-    :param use_hypersync:
-        Passed to the Lagoon reader. ``None`` lets it auto-detect.
-    :param chunk_size:
-        JSON-RPC ``eth_getLogs`` chunk size for fallback reads.
-    :return:
-        Scan summary.
-    """
-    return fetch_and_store_vault_settlements(
-        vault_db_path=vault_db_path,
-        raw_price_path=raw_price_path,
-        settlement_db_path=settlement_db_path,
-        rpc_urls_by_chain=rpc_urls_by_chain,
-        supported_features={ERC4626Feature.lagoon_like},
-        forced_start_block=forced_start_block,
-        forced_end_block=forced_end_block,
-        use_hypersync=use_hypersync,
-        chunk_size=chunk_size,
-    )
 
 
 def _get_vault_features(row: VaultRow) -> set[ERC4626Feature]:

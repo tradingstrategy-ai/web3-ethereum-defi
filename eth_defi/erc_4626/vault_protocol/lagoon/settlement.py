@@ -12,7 +12,7 @@ from web3.datastructures import AttributeDict
 
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.vault.settlement_data import VaultSettlement, VaultSettlementDatabase
-from eth_defi.vault.settlement_event_reader import (
+from eth_defi.vault._settlement_events import (
     build_settlement_rows_from_logs as build_generic_settlement_rows_from_logs,
     fetch_vault_settlement_logs,
     get_event_topic,
