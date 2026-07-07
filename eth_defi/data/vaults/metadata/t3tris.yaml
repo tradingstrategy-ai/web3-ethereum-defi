@@ -1,12 +1,12 @@
 name: T3tris
 slug: t3tris
 short_description: |
-  Permissionless async ERC-4626 vault infrastructure for asset managers.
+  Vault protocol built by curators for curators.
 long_description: |
-  T3tris helps asset managers deploy and operate asynchronous ERC-4626 vaults across EVM chains.
-  The protocol is designed for curators who need white-label vaults, async deposits and withdrawals,
-  and support for off-chain or cross-chain execution models such as CEX, RWA, OTC, options,
-  staking and epoch-based strategies.
+  T3tris is a vault protocol built by curators for curators. It helps professional asset managers
+  deploy and operate asynchronous ERC-4626 vaults across EVM chains, with support for white-label
+  vaults, async deposits and withdrawals, and off-chain or cross-chain execution models such as
+  CEX, RWA, OTC, options, staking and epoch-based strategies.
 
   T3tris states that it charges zero protocol fees to curators and instead earns on idle capital
   yield during async settlement windows. The public app lists T3tris vaults and exposes off-chain
