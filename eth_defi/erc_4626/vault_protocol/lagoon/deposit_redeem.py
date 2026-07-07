@@ -485,10 +485,10 @@ class ERC7540DepositManager(VaultDepositManager):
         return AsyncVaultRequestStatus.none
 
     def can_create_deposit_request(self, owner: HexAddress) -> bool:
-        return True
+        return not self.vault.vault_contract.functions.paused().call()
 
     def can_create_redemption_request(self, owner: HexAddress) -> bool:
-        return True
+        return not self.vault.vault_contract.functions.paused().call()
 
     def has_synchronous_deposit(self) -> bool:
         """Does this vault support synchronous deposits?

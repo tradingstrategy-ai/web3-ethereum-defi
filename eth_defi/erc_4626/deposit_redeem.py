@@ -120,6 +120,9 @@ class ERC4626DepositManager(VaultDepositManager):
         """Synchronous redemptions can be finished immediately."""
         return True
 
+    def can_create_deposit_request(self, owner: HexAddress) -> bool:
+        return True
+
     def can_create_redemption_request(self, owner: HexAddress) -> bool:
         return True
 
