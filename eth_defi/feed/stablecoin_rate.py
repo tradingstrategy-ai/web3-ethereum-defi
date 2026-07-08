@@ -97,6 +97,7 @@ MIN_PLAUSIBLE_STABLECOIN_RATE = 0.01
 MAX_SOURCE_CURRENCY_RATE_AGE_DAYS = 7
 NATIVE_RATE_CROSS_CHECK_RELATIVE_TOLERANCE = 0.02
 STABLECOIN_RATE_SOURCE_COINGECKO = "coingecko"
+STABLECOIN_RATE_SOURCE_FIXED = "fixed"
 
 _RATE_FIELDS = (
     "source_currency",
@@ -328,6 +329,44 @@ class DenominationTokenRate:
 class StablecoinRateFeeder:
     """Cached stablecoin rate/depeg lookup helper for vault metrics."""
 
+    @staticmethod
+    def _get_fixed_usd_rate(address: HexAddress | str | None, symbol: str | None) -> DenominationTokenRate | None:
+        """Return fixed fiat USD rate metadata for synthetic USD denominations.
+
+        Some scan-only integrations, such as ODA-FACT tokenised funds, report
+        accounting values in USD without exposing an ERC-20 denomination token.
+        These rows have no token address, but their USD conversion rate is
+        still known exactly.
+
+        :param symbol:
+            Denomination symbol.
+
+        :param address:
+            Denomination token address. Must be ``None`` for synthetic USD.
+
+        :return:
+            Fixed USD rate section, or ``None`` for non-USD symbols.
+        """
+        if address:
+            return None
+        if normalise_token_symbol(symbol) != "USD":
+            return None
+
+        return DenominationTokenRate(
+            coingecko_id=None,
+            source_currency="usd",
+            usd_rate=1.0,
+            usd_rate_fetched_at=None,
+            usd_rate_source=STABLECOIN_RATE_SOURCE_FIXED,
+            native_rate=None,
+            native_rate_currency=None,
+            native_rate_fetched_at=None,
+            native_rate_source=None,
+            source_currency_usd_rate=1.0,
+            source_currency_usd_rate_fetched_at=None,
+            source_currency_usd_rate_source=STABLECOIN_RATE_SOURCE_FIXED,
+        )
+
     data_dir: Path = STABLECOINS_DATA_DIR
     _depegged_contracts: set[tuple[int, str]] | None = field(default=None, init=False, repr=False)
     _depegged_symbols: set[str] | None = field(default=None, init=False, repr=False)
@@ -341,6 +380,10 @@ class StablecoinRateFeeder:
         symbol: str | None,
     ) -> DenominationTokenRate:
         """Resolve a vault denomination token to exported rate metadata."""
+        fixed_usd_rate = self._get_fixed_usd_rate(address, symbol)
+        if fixed_usd_rate is not None:
+            return fixed_usd_rate
+
         if self._rate_contracts is None or self._rate_symbols is None:
             self._rate_contracts, self._rate_symbols = build_stablecoin_rate_lookups(self.data_dir)
 

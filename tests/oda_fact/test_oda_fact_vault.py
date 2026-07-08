@@ -106,6 +106,9 @@ def test_oda_fact_live_supply_nav_and_unsupported_actions(web3: Web3) -> None:
     assert vault.get_fee_data().deposit == 0
     assert vault.get_fee_data().withdraw == 0
     assert vault.fetch_info()["denomination_token"] is None
+    assert vault.fetch_scan_record_extra_data()["Denomination"] == "USD"
+    assert vault.fetch_scan_record_extra_data()["_denomination_token"]["symbol"] == "USD"
+    assert vault.fetch_scan_record_extra_data()["_denomination_token"]["address"] is None
     assert vault.fetch_info()["nav_source"] == "estimated_jltxx_usd_1"
     assert vault.fetch_info()["nav_estimated"] is True
     assert "**Curator:** J.P. Morgan" in vault.get_notes()
@@ -183,7 +186,7 @@ def test_oda_fact_scan_record_live_jltxx(web3: Web3) -> None:
     assert record["Symbol"] == "JLTXX"
     assert record["Name"] == "JPMorgan OnChain Liquidity-Token Money Market Fund"
     assert record["Protocol"] == "Kinexys"
-    assert record["Denomination"] is None
+    assert record["Denomination"] == "USD"
     assert record["Share token"] == "JLTXX"
     assert record["NAV"] == JLTXX_EXPECTED_TOTAL_SUPPLY
     assert record["Mgmt fee"] == JLTXX_EXPECTED_MANAGEMENT_FEE
@@ -193,7 +196,9 @@ def test_oda_fact_scan_record_live_jltxx(web3: Web3) -> None:
     assert record["Shares"] == JLTXX_EXPECTED_TOTAL_SUPPLY
     assert record["Features"] == "oda_fact_like"
     assert record["_detection_data"] == detection
-    assert record["_denomination_token"] is None
+    assert record["_denomination_token"]["symbol"] == "USD"
+    assert record["_denomination_token"]["address"] is None
+    assert record["_denomination_token"]["decimals"] is None
     assert record["_share_token"]["symbol"] == "JLTXX"
     assert record["_manager_name"] == "J.P. Morgan Kinexys"
     assert record["_deposit_closed_reason"] == KINEXYS_WHITELISTED_FLOW_REASON
