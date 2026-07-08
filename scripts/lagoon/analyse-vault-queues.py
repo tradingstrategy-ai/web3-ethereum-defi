@@ -653,11 +653,7 @@ def analyse_queue_events(
     deposit_queue_lots: deque[QueueLot] = deque()
     redemption_queue_lots: deque[QueueLot] = deque()
     pending_settlement_events: list[QueueEvent] = []
-    deposit_request_keys = {
-        (event.tx_hash, event.args.get("requestId"))
-        for event in events
-        if event.event_name == "DepositRequest"
-    }
+    deposit_request_keys = {(event.tx_hash, event.args.get("requestId")) for event in events if event.event_name == "DepositRequest"}
 
     def flush_settlement_group() -> None:
         nonlocal deposit_queue_raw
@@ -820,6 +816,7 @@ def calculate_weighted_wait_stats(
 
 def settlement_row_to_dict(row: SettlementRow, underlying_symbol: str) -> dict[str, str]:
     """Convert a settlement row for display or CSV."""
+
     def optional_decimal_to_str(value: Decimal | None) -> str:
         """Format optional decimal without treating zero as missing."""
         return "" if value is None else str(value)

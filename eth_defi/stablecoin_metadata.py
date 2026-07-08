@@ -308,6 +308,7 @@ STABLECOIN_LIKE = set(
         "TRYB",
         "TUSD",
         "USC",
+        "USD",
         "USD+",
         "USD0",
         "USD1",

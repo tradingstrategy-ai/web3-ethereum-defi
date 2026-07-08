@@ -27,10 +27,10 @@ from decimal import Decimal
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
-from eth_defi.erc_4626.classification import ODA_FACT_JLTXX_ADDRESS, ODA_FACT_JLTXX_CHAIN_ID
+from eth_defi.erc_4626.classification import ODA_FACT_JLTXX_ADDRESS
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.oda_fact.historical import OdaFactVaultHistoricalReader
-from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails, fetch_erc20_details
+from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData, VaultFeeMode
@@ -48,10 +48,10 @@ class OdaFactVaultInfo(VaultInfo, total=False):
     #: Chain id.
     chain_id: int
 
-    #: Read-only denomination token surrogate used by current pipeline.
+    #: ODA-FACT instruments do not expose an ERC-20 denomination token.
     denomination_token: HexAddress | None
 
-    #: Whether denomination token is a surrogate for USD fund accounting.
+    #: Whether NAV is a USD estimate without an ERC-20 denomination token.
     synthetic_usd_denomination: bool
 
     #: NAV source label.
@@ -122,6 +122,21 @@ JLTXX_FEE_DATA = FeeData(
 #: Hardcoded ODA-FACT fee lookup by lower-case contract address.
 ODA_FACT_FEES_BY_ADDRESS = {
     ODA_FACT_JLTXX_ADDRESS: JLTXX_FEE_DATA,
+}
+
+#: Synthetic accounting denomination exported for ODA-FACT instruments.
+#:
+#: This is intentionally not an ERC-20 token. The ``address`` and ``decimals``
+#: fields stay ``None`` so downstream consumers do not attempt raw token amount
+#: conversions or on-chain transfers.
+ODA_FACT_USD_DENOMINATION = {
+    "address": None,
+    "chain": None,
+    "name": "United States Dollar",
+    "symbol": "USD",
+    "decimals": None,
+    "total_supply": None,
+    "extra_data": {"synthetic": True},
 }
 
 
@@ -258,39 +273,28 @@ class OdaFactVault(VaultBase):
         )
 
     def fetch_denomination_token_address(self) -> HexAddress | None:
-        """Return the read-only denomination token surrogate.
+        """Return the ERC-20 denomination token address.
 
         ODA-FACT fund accounting is USD-denominated but does not expose an
-        ERC-4626 ``asset()`` token. The current pipeline expects a concrete
-        ERC-20 denomination token for cache warmup, so Ethereum USDC is used as
-        a display/aggregation surrogate for the initial implementation.
+        ERC-4626 ``asset()`` token or any other ERC-20 denomination token.
+        Exporting a surrogate token would make the vault appear to accept or
+        redeem that asset, so this adapter reports no denomination token.
 
         :return:
-            Ethereum USDC for the supported JLTXX contract.
+            Always ``None``.
         """
 
-        if self.chain_id == ODA_FACT_JLTXX_CHAIN_ID and self.address.lower() == ODA_FACT_JLTXX_ADDRESS:
-            return HexAddress(Web3.to_checksum_address(USDC_NATIVE_TOKEN[ODA_FACT_JLTXX_CHAIN_ID]))
         return None
 
     def fetch_denomination_token(self) -> TokenDetails | None:
-        """Fetch read-only denomination token metadata.
+        """Fetch ERC-20 denomination token metadata.
 
         :return:
-            Token details for the configured denomination surrogate.
+            Always ``None`` because ODA-FACT instruments do not expose a
+            denomination token.
         """
 
-        token_address = self.fetch_denomination_token_address()
-        if token_address is None:
-            return None
-        return fetch_erc20_details(
-            self.web3,
-            token_address,
-            chain_id=self.chain_id,
-            raise_on_error=False,
-            cache=self.token_cache,
-            cause_diagnostics_message=f"ODA-FACT denomination surrogate for vault {self.address}",
-        )
+        return None
 
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Fetch ODA-FACT share price estimate.
@@ -367,6 +371,8 @@ class OdaFactVault(VaultBase):
         """
 
         return {
+            "Denomination": "USD",
+            "_denomination_token": dict(ODA_FACT_USD_DENOMINATION, chain=self.chain_id),
             "_notes": self.get_notes(),
             "_deposit_closed_reason": self.fetch_deposit_closed_reason(),
             "_redemption_closed_reason": self.fetch_redemption_closed_reason(),

@@ -2028,16 +2028,8 @@ def main():
     skip_data = os.environ.get("SKIP_DATA", "false").lower() == "true"
     skip_samples = os.environ.get("SKIP_SAMPLES", "false").lower() == "true"
     scan_vault_settlements = os.environ.get("SCAN_VAULT_SETTLEMENTS", "false").lower() == "true"
-    settlement_start_block = (
-        int(os.environ["VAULT_SETTLEMENT_START_BLOCK"])
-        if os.environ.get("VAULT_SETTLEMENT_START_BLOCK")
-        else None
-    )
-    settlement_end_block = (
-        int(os.environ["VAULT_SETTLEMENT_END_BLOCK"])
-        if os.environ.get("VAULT_SETTLEMENT_END_BLOCK")
-        else None
-    )
+    settlement_start_block = int(os.environ["VAULT_SETTLEMENT_START_BLOCK"]) if os.environ.get("VAULT_SETTLEMENT_START_BLOCK") else None
+    settlement_end_block = int(os.environ["VAULT_SETTLEMENT_END_BLOCK"]) if os.environ.get("VAULT_SETTLEMENT_END_BLOCK") else None
 
     # Fail-fast: refuse to start the scan loop if the top-vaults R2 upload
     # is not configured. Discovering at the end of a multi-hour scan that

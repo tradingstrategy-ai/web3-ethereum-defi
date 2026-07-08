@@ -170,7 +170,12 @@ checks:
     )
 
 
-def _calculate_bad_stablecoin_vault_metrics(data_dir: Path, token_symbol: str = "USDX", token_address: str = USDX_ADDRESS) -> pd.DataFrame:
+def _calculate_bad_stablecoin_vault_metrics(
+    data_dir: Path,
+    token_symbol: str = "USDX",
+    token_address: str | None = USDX_ADDRESS,
+    token_decimals: int | None = 6,
+) -> pd.DataFrame:
     """Calculate lifetime metrics for a vault that uses a bad stablecoin denomination."""
     chain_id = 1
     vault_id = f"{chain_id}-{VAULT_ADDRESS}"
@@ -209,7 +214,7 @@ def _calculate_bad_stablecoin_vault_metrics(data_dir: Path, token_symbol: str = 
         "Withdraw fee": 0.0,
         "Features": "",
         "_detection_data": detection,
-        "_denomination_token": {"address": token_address, "symbol": token_symbol, "decimals": 6},
+        "_denomination_token": {"address": token_address, "symbol": token_symbol, "decimals": token_decimals},
         "_share_token": {"address": VAULT_ADDRESS, "symbol": f"BAD{token_symbol.upper()}", "decimals": 18},
         "_fees": fee_data,
         "_flags": set(),
@@ -332,6 +337,58 @@ def test_calculate_lifetime_metrics_blacklists_depegged_stablecoin_denomination(
         expected_native_rate_currency=expected_native_rate_currency,
         expected_source_currency_usd_rate=expected_source_currency_usd_rate,
     )
+
+
+def test_calculate_lifetime_metrics_handles_usd_denomination_without_token_address(tmp_path: Path) -> None:
+    """USD-denominated scan-only vaults can omit ERC-20 denomination address.
+
+    Kinexys ODA-FACT instruments expose USD fund accounting but no on-chain
+    denomination token. Metrics must preserve the missing token address and
+    still export a fixed USD rate section.
+    """
+    metrics = _calculate_bad_stablecoin_vault_metrics(
+        tmp_path,
+        token_symbol="USD",
+        token_address=None,
+        token_decimals=None,
+    )
+
+    assert len(metrics) == 1
+    row = metrics.iloc[0]
+    assert row["risk"] != VaultTechnicalRisk.blacklisted
+    assert VaultFlag.depegged_denomination_token not in row["flags"]
+    assert row["denomination"] == "USD"
+    assert row["normalised_denomination"] == "USD"
+    assert row["denomination_slug"] == "usd"
+    assert row["denomination_token_address"] is None
+    assert row["denomination_decimals"] is None
+
+    denomination_token_rate = row["denomination_token_rate"]
+    assert denomination_token_rate.source_currency == "usd"
+    assert denomination_token_rate.usd_rate == pytest.approx(1.0)
+    assert denomination_token_rate.usd_rate_fetched_at is None
+    assert denomination_token_rate.usd_rate_source == "fixed"
+    assert denomination_token_rate.source_currency_usd_rate == pytest.approx(1.0)
+    assert denomination_token_rate.source_currency_usd_rate_fetched_at is None
+    assert denomination_token_rate.source_currency_usd_rate_source == "fixed"
+
+    exported = export_lifetime_row(row)
+    assert exported["denomination_token_address"] is None
+    assert exported["denomination_decimals"] is None
+    assert exported["denomination_token_rate"] == {
+        "coingecko_id": None,
+        "source_currency": "usd",
+        "usd_rate": 1.0,
+        "usd_rate_fetched_at": None,
+        "usd_rate_source": "fixed",
+        "native_rate": None,
+        "native_rate_currency": None,
+        "native_rate_fetched_at": None,
+        "native_rate_source": None,
+        "source_currency_usd_rate": 1.0,
+        "source_currency_usd_rate_fetched_at": None,
+        "source_currency_usd_rate_source": "fixed",
+    }
 
 
 @pytest.mark.live
