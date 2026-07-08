@@ -89,6 +89,9 @@ Environment variables:
     - SCAN_HYPERCORE: "true" to scan Hyperliquid native (Hypercore) vaults via REST API (default: "false")
     - SCAN_GRVT: "true" to scan GRVT native vaults via public endpoints (default: "false")
     - SCAN_LIGHTER: "true" to scan Lighter native pools via public endpoints (default: "false")
+    - SCAN_VAULT_SETTLEMENTS: "false" to skip Lagoon and D2 settlement event scanning before price cleaning (default: "true")
+    - VAULT_SETTLEMENT_START_BLOCK: Optional inclusive settlement scan start block for forced backfills.
+    - VAULT_SETTLEMENT_END_BLOCK: Optional inclusive settlement scan end block for forced backfills.
     - SKIP_CORE3: "true" to skip Core3 risk intelligence enrichment (default: "false").
       Core3 is default-on enrichment data for the top-vaults JSON, unlike optional native
       vault sources that use opt-in SCAN_* flags.

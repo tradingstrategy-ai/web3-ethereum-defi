@@ -70,6 +70,7 @@ services:
       SCAN_GRVT: ${SCAN_GRVT:-false}
       SCAN_LIGHTER: ${SCAN_LIGHTER:-false}
       SCAN_HIBACHI: ${SCAN_HIBACHI:-false}
+      SCAN_VAULT_SETTLEMENTS: ${SCAN_VAULT_SETTLEMENTS:-true}
       LOG_LEVEL: ${LOG_LEVEL:-warning}
 
       # Export vault sparkline images to the frontend
@@ -231,6 +232,7 @@ services:
       SCAN_GRVT: ${SCAN_GRVT:-true}
       SCAN_LIGHTER: ${SCAN_LIGHTER:-true}
       SCAN_HIBACHI: ${SCAN_HIBACHI:-true}
+      SCAN_VAULT_SETTLEMENTS: ${SCAN_VAULT_SETTLEMENTS:-true}
 
       LOG_LEVEL: ${LOG_LEVEL:-warning}
       MAX_WORKERS: ${MAX_WORKERS:-50}
