@@ -387,10 +387,7 @@ def annotate_prices_with_vault_settlements(
     settlements["timestamp"] = pd.to_datetime(settlements["timestamp"])
 
     for (chain_id, address), row_indexes in result.groupby(["chain", "address"]).groups.items():
-        vault_settlements = settlements[
-            (settlements["chain_id"] == chain_id)
-            & (settlements["address"] == address)
-        ].sort_values("timestamp")
+        vault_settlements = settlements[(settlements["chain_id"] == chain_id) & (settlements["address"] == address)].sort_values("timestamp")
         if vault_settlements.empty:
             continue
 
