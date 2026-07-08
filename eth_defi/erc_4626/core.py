@@ -732,17 +732,34 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     )
 
 
+GENERIC_ERC4626_PROTOCOL_NAME = "ERC-4626"
+GENERIC_ERC4626_PROTOCOL_SLUG = "erc-4626"
+GENERIC_ERC4626_PROTOCOL_SLUG_ALIASES = frozenset(
+    {
+        GENERIC_ERC4626_PROTOCOL_SLUG,
+        "erc4626",
+    }
+)
+
+
+def is_generic_erc4626_protocol_slug(protocol_slug: str | None) -> bool:
+    """Is this protocol slug an explicit generic ERC-4626 marker."""
+    return protocol_slug in GENERIC_ERC4626_PROTOCOL_SLUG_ALIASES
+
+
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
 
-    At least one feature must match.
+    Empty features mean a generic synchronous ERC-4626 vault.
 
     See :py:func:`eth_defi.erc_4626.classification.identify_vault_features`.
 
     :param features:
         List of detected features for a vault
     """
-    if ERC4626Feature.broken in features:
+    if not features:
+        return GENERIC_ERC4626_PROTOCOL_NAME
+    elif ERC4626Feature.broken in features:
         return "<not ERC-4626>"
     elif ERC4626Feature.mellow_like in features:
         return "Mellow"
