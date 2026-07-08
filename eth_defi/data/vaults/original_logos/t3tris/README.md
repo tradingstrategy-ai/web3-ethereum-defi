@@ -23,5 +23,5 @@
   prefers brand marks over wordmarks for protocol metadata icons.
 - `formatted_logos/t3tris/generic.png` uses the white icon so the default
   website logo stays visible on dark backgrounds.
-- `formatted_logos/t3tris/dark.png` uses the white icon for dark backgrounds.
-- `formatted_logos/t3tris/light.png` uses the black icon for light backgrounds.
+- `formatted_logos/t3tris/dark.png` uses the black icon.
+- `formatted_logos/t3tris/light.png` uses the white icon.
