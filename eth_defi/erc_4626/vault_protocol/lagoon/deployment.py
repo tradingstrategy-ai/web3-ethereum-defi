@@ -769,6 +769,7 @@ def deploy_fresh_lagoon_protocol(
     forge_sync_delay=4.0,
     cache_dir: Path | None = None,
     deploy_retries: int = 1,
+    use_forge=True,
 ) -> Contract:
     """Deploy a fresh Lagoon implementation from the scratch.
 
@@ -779,6 +780,10 @@ def deploy_fresh_lagoon_protocol(
     :param cache_dir:
         Isolated directory for forge cache and output artifacts.
         Allows concurrent deployments from the same source tree.
+
+    :param use_forge:
+        Use Forge source deployment for the vault implementation.
+        Set to ``False`` in local testing when packaged ABI artefacts are enough.
     """
 
     assert isinstance(deployer, HotWallet), f"Can be only deployed with HotWallet deployer. got: {type(deployer)}: {deployer}"
@@ -787,6 +792,22 @@ def deploy_fresh_lagoon_protocol(
     use_big_blocks = web3.eth.chain_id in (998, 999)
 
     wrapped_native_token_address = WRAPPED_NATIVE_TOKEN[web3.eth.chain_id]
+
+    if not use_forge:
+        fee_registry = deploy_contract(web3, "lagoon/ProtocolRegistry.json", deployer, False, gas=4_000_000)
+        tx_hash = broadcast_func(fee_registry.functions.initialize(safe.address, safe.address))
+        assert_transaction_success_with_explanation(web3, tx_hash)
+        implementation_contract = deploy_contract(web3, "lagoon/v0.5.0/Vault.json", deployer, True, gas=9_000_000)
+        return deploy_contract(
+            web3,
+            "lagoon/BeaconProxyFactory.json",
+            deployer,
+            fee_registry.address,
+            implementation_contract.address,
+            safe.address,
+            wrapped_native_token_address,
+            gas=6_000_000,
+        )
 
     # Deploy fee registry
     fee_registry = deploy_lagoon_protocol_registry(
@@ -2076,7 +2097,6 @@ def deploy_automated_lagoon_vault(
             if from_the_scratch:
                 # Deploy the full Lagoon protocol with fee registry and beacon proxy factory,
                 # setting out Safe as the protocol owner
-                assert use_forge, "Fee registry deployment is only supported with Forge"
                 beacon_proxy_factory_contract = deploy_fresh_lagoon_protocol(
                     web3=web3,
                     deployer=deployer,
@@ -2087,6 +2107,7 @@ def deploy_automated_lagoon_vault(
                     broadcast_func=_broadcast,
                     cache_dir=forge_cache_dir,
                     deploy_retries=deploy_retries,
+                    use_forge=use_forge,
                 )
                 beacon_proxy_factory_address = beacon_proxy_factory_contract.address
             else:
