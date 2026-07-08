@@ -112,6 +112,32 @@ def test_identify_morpho_curator_by_curator_metadata() -> None:
     assert slug == "gauntlet"
 
 
+def test_identify_m11_credit_curator() -> None:
+    """M11 Credit resolves from Morpho manager metadata and M11C vault names."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="",
+        vault_name="Level lvlUSD",
+        vault_address="0x2c3cc1c02856894345797cf6ee76ae76ac0f4031",
+        protocol_slug="morpho",
+        manager_name="M11C",
+    )
+
+    assert slug == "m11-credit"
+    assert get_curator_name("m11-credit") == "M11 Credit"
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="",
+        vault_name="M11C Level lvlUSD",
+        vault_address="0x2c3cc1c02856894345797cf6ee76ae76ac0f4031",
+        protocol_slug="morpho",
+    )
+
+    assert slug == "m11-credit"
+
+
 def test_identify_lagoon_curator_by_curator_metadata() -> None:
     """Lagoon manager names resolve by exact ``lagoon-curator`` YAML metadata."""
 

@@ -1,0 +1,28 @@
+feeder-id: m11-credit
+name: M11 Credit
+role: curator
+morpho-curator: M11C
+website: https://www.m11credit.com/
+short_description: M11 Credit provides institutional credit underwriting and fixed-income opportunities in digital assets.
+long_description: |
+  M11 Credit offers fixed-income opportunities to capital allocators and credit solutions to established crypto-native companies and DeFi protocols. Its official materials describe expertise in off-chain and on-chain deal structuring, underwriting, collateralisation, covenants, and capital introduction. FalconX and M11 Credit identify M11 Credit as the curator, administrator, servicer, and collateral agent for the FalconX Credit Vault on Pareto.
+twitter: M11Credit
+linkedin: m11-credit
+
+# Evidence and background references.
+#
+# M11 Credit's own publication describes the Pareto PB Pool / Credit Vault
+# with M11 Credit acting as administrator and servicer.  FalconX describes
+# M11 Credit as curator for the FalconX Credit Vault and details its role in
+# reporting, epoch cycles, credit evaluation, covenants, and risk monitoring.
+# Morpho vault names use the short M11C brand for at least the M11C Level
+# lvlUSD vault.
+other-links:
+  - title: M11 Credit homepage - institutional credit in digital assets
+    url: https://www.m11credit.com/
+  - title: M11 Credit publication - M11 Credit partners with Pareto to launch the first CeDeFi Private Credit solution
+    url: https://www.m11credit.com/publications/m11-credit-partner-with-pareto-to-launch-the-first-cedefi-private-credit-solution
+  - title: FalconX - FalconX Credit Vault roles identify M11 Credit as curator
+    url: https://www.falconx.io/newsroom/bringing-institutional-lending-on-chain-exploring-falconxs-credit-vault
+  - title: Morpho app - M11C Level lvlUSD vault
+    url: https://app.morpho.org/ethereum/vault/0x2C3Cc1C02856894345797Cf6ee76aE76AC0f4031/m11c-level-lvlusd
