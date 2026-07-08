@@ -13,9 +13,12 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.events import EventLogErrorFlags
 from web3.contract.contract import ContractFunction
+from web3.exceptions import BadFunctionCallOutput
 
 from eth_defi.abi import ZERO_ADDRESS_STR, get_topic_signature_from_event
-from eth_defi.event_reader.conversion import convert_bytes32_to_address, convert_bytes32_to_uint
+from eth_defi.event_reader.conversion import BadAddressError, convert_bytes32_to_address, convert_bytes32_to_uint, convert_int256_bytes_to_int
+from eth_defi.event_reader.multicall_batcher import EncodedCall
+from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
@@ -485,10 +488,30 @@ class ERC7540DepositManager(VaultDepositManager):
         return AsyncVaultRequestStatus.none
 
     def can_create_deposit_request(self, owner: HexAddress) -> bool:
-        return True
+        return not self._is_vault_paused()
 
     def can_create_redemption_request(self, owner: HexAddress) -> bool:
-        return True
+        return not self._is_vault_paused()
+
+    def _is_vault_paused(self) -> bool:
+        """Read Lagoon's optional paused() flag defensively."""
+        paused_call = EncodedCall.from_keccak_signature(
+            address=self.vault.vault_address,
+            signature=Web3.keccak(text="paused()")[0:4],
+            function="paused",
+            data=b"",
+            extra_data=None,
+        )
+        try:
+            result = paused_call.call(
+                self.vault.web3,
+                block_identifier="latest",
+                silent_error=True,
+                ignore_error=True,
+            )
+            return convert_int256_bytes_to_int(result) != 0
+        except (ValueError, BadFunctionCallOutput, BadAddressError, ProbablyNodeHasNoBlock):
+            return False
 
     def has_synchronous_deposit(self) -> bool:
         """Does this vault support synchronous deposits?

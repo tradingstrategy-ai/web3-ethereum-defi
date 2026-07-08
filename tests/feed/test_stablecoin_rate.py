@@ -250,6 +250,36 @@ def test_refresh_stablecoin_rates_updates_usdc_happy_path(tmp_path: Path, monkey
     assert feeder.is_depegged_stablecoin_token(1, USDC_ADDRESS, "USDC") is False
 
 
+def test_get_denomination_token_rate_section_handles_fiat_usd_without_token_address(tmp_path: Path) -> None:
+    """Plain USD accounting denominations have a fixed 1:1 USD rate.
+
+    Some scan-only vault integrations have USD accounting but no ERC-20
+    denomination token address. These rows should still export an explicit
+    rate section for downstream metrics.
+    """
+    feeder = StablecoinRateFeeder(data_dir=tmp_path)
+
+    rate = feeder.get_denomination_token_rate_section(chain_id=1, address=None, symbol="USD")
+
+    assert rate.coingecko_id is None
+    assert rate.source_currency == "usd"
+    assert rate.usd_rate == pytest.approx(1.0)
+    assert rate.usd_rate_fetched_at is None
+    assert rate.usd_rate_source == "fixed"
+    assert rate.native_rate is None
+    assert rate.native_rate_currency is None
+    assert rate.native_rate_fetched_at is None
+    assert rate.native_rate_source is None
+    assert rate.source_currency_usd_rate == pytest.approx(1.0)
+    assert rate.source_currency_usd_rate_fetched_at is None
+    assert rate.source_currency_usd_rate_source == "fixed"
+    assert feeder.is_depegged_stablecoin_token(chain_id=1, address=None, symbol="USD") is False
+
+    erc20_rate = feeder.get_denomination_token_rate_section(chain_id=1, address="0x2222222222222222222222222222222222222222", symbol="USD")
+    assert erc20_rate.usd_rate is None
+    assert erc20_rate.usd_rate_source is None
+
+
 def test_refresh_stablecoin_rates_marks_usdx_depegged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """USDX depeg refresh stamps ``depegged_at`` and blacklisting lookups."""
     _write_usdx_yaml(tmp_path)

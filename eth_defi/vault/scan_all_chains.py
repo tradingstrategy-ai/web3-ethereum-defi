@@ -65,6 +65,15 @@ from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
+from eth_defi.vault.settlement_data import (
+    VAULT_SETTLEMENT_DATABASE_FILENAME,
+    checkpoint_vault_settlement_database_if_exists,
+    get_default_vault_settlement_database_path,
+)
+from eth_defi.vault.settlement_scan import (
+    fetch_and_store_vault_settlements,
+    resolve_rpc_urls_by_chain_from_env,
+)
 from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, get_pipeline_data_dir
 from eth_defi.version_info import VersionInfo
 
@@ -1507,6 +1516,8 @@ def backup_pipeline_files(backup_files: list[Path] | None = None, backup_dir: Pa
         copied = 0
         for src in backup_files:
             if src.exists():
+                if src.name == VAULT_SETTLEMENT_DATABASE_FILENAME:
+                    checkpoint_vault_settlement_database_if_exists(src)
                 dst = daily_dir / src.name
                 shutil.copy2(src, dst)
                 size_mb = dst.stat().st_size / (1024 * 1024)
@@ -1575,6 +1586,11 @@ def run_scan_tick(
     hypersync_concurrency: int | None = None,
     feed_db_path: Path | None = None,
     currency_api_db_path: Path | None = None,
+    settlement_db_path: Path | None = None,
+    scan_vault_settlements: bool = False,
+    settlement_rpc_env_vars: list[str] | None = None,
+    settlement_start_block: int | None = None,
+    settlement_end_block: int | None = None,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -1602,6 +1618,22 @@ def run_scan_tick(
 
     :param currency_api_db_path:
         Path to the currency API exchange-rate DuckDB.
+
+    :param settlement_db_path:
+        Path to the generic vault settlement DuckDB.
+
+    :param scan_vault_settlements:
+        Whether to populate the generic settlement DuckDB before cleaning.
+
+    :param settlement_rpc_env_vars:
+        RPC environment variable names used to resolve chain ids for
+        settlement event scans.
+
+    :param settlement_start_block:
+        Optional inclusive forced start block for settlement backfills.
+
+    :param settlement_end_block:
+        Optional inclusive forced end block for settlement backfills.
     """
     # Back up critical pipeline files before any scanning
     backup_pipeline_files(backup_files=bkp_files, backup_dir=bkp_dir)
@@ -1831,6 +1863,47 @@ def run_scan_tick(
     if skip_post_processing:
         logger.info("Skipping post-processing (SKIP_POST_PROCESSING=true)")
     else:
+        if scan_vault_settlements:
+            logger.info("Scanning vault settlement events before post-processing")
+            start_time = time.time()
+            try:
+                rpc_env_vars = settlement_rpc_env_vars or [chain.env_var for chain in chains]
+                rpc_urls_by_chain = resolve_rpc_urls_by_chain_from_env(rpc_env_vars)
+                settlement_result = fetch_and_store_vault_settlements(
+                    vault_db_path=vault_db_path,
+                    raw_price_path=uncleaned_price_path,
+                    settlement_db_path=settlement_db_path,
+                    rpc_urls_by_chain=rpc_urls_by_chain,
+                    forced_start_block=settlement_start_block,
+                    forced_end_block=settlement_end_block,
+                )
+                results["VaultSettlements"] = ChainResult(
+                    name="VaultSettlements",
+                    status="success",
+                    vault_scan_ok=True,
+                    price_scan_ok=True,
+                    vault_count=settlement_result.candidate_vaults,
+                    price_rows=settlement_result.rows_written,
+                    duration=time.time() - start_time,
+                )
+                logger.info(
+                    "Vault settlement scan complete: %d candidate supported vaults, %d scanned, %d skipped, %d rows written",
+                    settlement_result.candidate_vaults,
+                    settlement_result.scanned_vaults,
+                    settlement_result.skipped_vaults,
+                    settlement_result.rows_written,
+                )
+            except Exception as exc:
+                logger.exception("Vault settlement scan failed")
+                results["VaultSettlements"] = ChainResult(
+                    name="VaultSettlements",
+                    status="failed",
+                    error=str(exc),
+                    traceback_str=traceback.format_exc(),
+                    duration=time.time() - start_time,
+                )
+                raise
+
         # Core3 DuckDB is safe to export in the normal sequential pipeline:
         # scan_projects() checkpoints with db.save(), scan_core3_fn() closes
         # the DuckDB handle, and only then can post-processing upload files.
@@ -1854,6 +1927,7 @@ def run_scan_tick(
             hibachi_db_path=hibachi_db_path,
             vault_db_path=vault_db_path,
             cleaned_path=cleaned_price_path,
+            settlement_db_path=settlement_db_path,
             core3_db_path=core3_db_path,
             feed_db_path=feed_db_path,
         )
@@ -1953,6 +2027,9 @@ def main():
     skip_metadata = os.environ.get("SKIP_METADATA", "false").lower() == "true"
     skip_data = os.environ.get("SKIP_DATA", "false").lower() == "true"
     skip_samples = os.environ.get("SKIP_SAMPLES", "false").lower() == "true"
+    scan_vault_settlements = os.environ.get("SCAN_VAULT_SETTLEMENTS", "false").lower() == "true"
+    settlement_start_block = int(os.environ["VAULT_SETTLEMENT_START_BLOCK"]) if os.environ.get("VAULT_SETTLEMENT_START_BLOCK") else None
+    settlement_end_block = int(os.environ["VAULT_SETTLEMENT_END_BLOCK"]) if os.environ.get("VAULT_SETTLEMENT_END_BLOCK") else None
 
     # Fail-fast: refuse to start the scan loop if the top-vaults R2 upload
     # is not configured. Discovering at the end of a multi-hour scan that
@@ -1990,6 +2067,7 @@ def main():
     hyperliquid_db_path = data_dir / "hyperliquid-vaults.duckdb"
     hyperliquid_hf_db_path = data_dir / "hyperliquid-vaults-hf.duckdb"
     grvt_db_path = data_dir / "grvt-vaults.duckdb"
+    settlement_db_path = get_default_vault_settlement_database_path()
     currency_api_db_path = resolve_currency_api_database_path(data_dir=data_dir)
 
     # Core3 risk intelligence database path — resolved from env var or default constant.
@@ -2009,6 +2087,7 @@ def main():
         grvt_db_path,
         lighter_db_path,
         hibachi_db_path,
+        settlement_db_path,
         core3_db_path,
         currency_api_db_path,
     ]
@@ -2046,8 +2125,15 @@ def main():
     logger.info("PIPELINE_DATA_DIR: %s", data_dir)
     logger.info("Feed post database: %s (exists=%s)", feed_db_path, feed_db_path.exists())
     logger.info("Currency rate database: %s (exists=%s)", currency_api_db_path, currency_api_db_path.exists())
+    logger.info("Vault settlement database: %s (exists=%s)", settlement_db_path, settlement_db_path.exists())
     if skip_post_processing:
         logger.info("SKIP_POST_PROCESSING: true")
+    if scan_vault_settlements:
+        logger.info(
+            "SCAN_VAULT_SETTLEMENTS: true, VAULT_SETTLEMENT_START_BLOCK=%s, VAULT_SETTLEMENT_END_BLOCK=%s",
+            settlement_start_block,
+            settlement_end_block,
+        )
     if test_chain_names:
         logger.info("TEST_CHAINS: %s", ", ".join(sorted(test_chain_names)))
     if disable_chains_str:
@@ -2169,6 +2255,11 @@ def main():
         core3_fetch_sections=core3_fetch_sections,
         feed_db_path=feed_db_path,
         currency_api_db_path=currency_api_db_path,
+        settlement_db_path=settlement_db_path,
+        scan_vault_settlements=scan_vault_settlements,
+        settlement_rpc_env_vars=[chain.env_var for chain in all_chains],
+        settlement_start_block=settlement_start_block,
+        settlement_end_block=settlement_end_block,
     )
 
     # Clear cycle state on disc so the first tick rescans everything.

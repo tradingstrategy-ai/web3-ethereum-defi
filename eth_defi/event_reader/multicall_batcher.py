@@ -1353,7 +1353,13 @@ class MultiprocessMulticallReader:
                         logger.warning("Received HTTP 429: sleeping %f, cause %s", self.too_many_requets_sleep, cause)
                         time.sleep(self.too_many_requets_sleep)
                     else:
-                        logger.warning("Received no-throttle status %s: %s, cause: %s, multicall target addresses: %s...", status_code, pformat(headers), cause, multicall_addresses[0:12])
+                        # Sleep between retries to give RPC nodes time to converge.
+                        # Without this delay, all retries fire within milliseconds and
+                        # transient issues like eRPC consensus failures
+                        # ("not enough agreement among responses") never resolve.
+                        retry_sleep = 2.0 * (i + 1)
+                        logger.warning("Received no-throttle status %s, sleeping %f seconds: %s, cause: %s, multicall target addresses: %s...", status_code, retry_sleep, pformat(headers), cause, multicall_addresses[0:12])
+                        time.sleep(retry_sleep)
 
                     # HyperEVM (chain 999) goldsky eRPC consensus special case.
                     #

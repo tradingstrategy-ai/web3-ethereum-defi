@@ -11,7 +11,6 @@ from typing import TypedDict
 
 from strictyaml import load
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -87,6 +86,9 @@ class VaultProtocolLogos(TypedDict):
     `None` if the logo variant is not available.
     """
 
+    #: Default logo for protocol listing pages
+    generic: str | None
+
     #: Logo for dark backgrounds (light-coloured logo)
     dark: str | None
 
@@ -146,10 +148,11 @@ def get_available_logos(slug: str) -> dict[str, bool]:
         Protocol slug (e.g., "euler", "lagoon-finance")
 
     :return:
-        Dictionary with 'dark' and 'light' keys indicating availability
+        Dictionary with logo variant keys indicating availability
     """
     logo_dir = FORMATTED_LOGOS_DIR / slug
     return {
+        "generic": (logo_dir / "generic.png").exists(),
         "dark": (logo_dir / "dark.png").exists(),
         "light": (logo_dir / "light.png").exists(),
     }
@@ -195,6 +198,7 @@ def build_metadata_json(yaml_path: Path, public_url: str) -> VaultProtocolMetada
     available = get_available_logos(slug)
     public_url = public_url.rstrip("/")
     logos: VaultProtocolLogos = {
+        "generic": f"{public_url}/vault-protocol-metadata/{slug}/generic.png" if available["generic"] else None,
         "dark": f"{public_url}/vault-protocol-metadata/{slug}/dark.png" if available["dark"] else None,
         "light": f"{public_url}/vault-protocol-metadata/{slug}/light.png" if available["light"] else None,
     }
@@ -275,7 +279,7 @@ def process_and_upload_protocol_metadata(
 
     # Upload available logos
     logo_dir = FORMATTED_LOGOS_DIR / slug
-    for variant in ["dark", "light"]:
+    for variant in ["generic", "dark", "light"]:
         logo_path = logo_dir / f"{variant}.png"
         if logo_path.exists():
             logo_uploaded = upload_to_r2_compressed(

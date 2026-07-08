@@ -15,6 +15,10 @@ from eth_defi.cloudflare_r2 import copy_r2_object_daily_backup, create_r2_client
 from eth_defi.core3.constants import resolve_core3_database_path
 from eth_defi.currency_api.constants import CURRENCY_API_DATABASE
 from eth_defi.utils import setup_console_logging
+from eth_defi.vault.settlement_data import (
+    VAULT_SETTLEMENT_DATABASE_FILENAME,
+    checkpoint_vault_settlement_database_if_exists,
+)
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
 logger = logging.getLogger(__name__)
@@ -69,6 +73,7 @@ def get_data_file_paths(
         base_path / "cleaned-vault-prices-1h.parquet",
         base_path / "vault-metadata-db.pickle",
         base_path / "vault-reader-state-1h.pickle",
+        base_path / VAULT_SETTLEMENT_DATABASE_FILENAME,
         core3_db_path or resolve_core3_database_path(),
         exchange_rate_path,
         *sticky_export_state_paths,
@@ -207,6 +212,7 @@ def main() -> None:
 
     base_path = get_pipeline_data_dir()
     paths = get_data_file_paths(base_path)
+    checkpoint_vault_settlement_database_if_exists(base_path / VAULT_SETTLEMENT_DATABASE_FILENAME)
 
     print("\nExporting data files to R2")
     print(f"  Bucket: {bucket_name}")
