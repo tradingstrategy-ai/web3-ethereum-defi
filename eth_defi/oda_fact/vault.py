@@ -124,20 +124,30 @@ ODA_FACT_FEES_BY_ADDRESS = {
     ODA_FACT_JLTXX_ADDRESS: JLTXX_FEE_DATA,
 }
 
-#: Synthetic accounting denomination exported for ODA-FACT instruments.
-#:
-#: This is intentionally not an ERC-20 token. The ``address`` and ``decimals``
-#: fields stay ``None`` so downstream consumers do not attempt raw token amount
-#: conversions or on-chain transfers.
-ODA_FACT_USD_DENOMINATION = {
-    "address": None,
-    "chain": None,
-    "name": "United States Dollar",
-    "symbol": "USD",
-    "decimals": None,
-    "total_supply": None,
-    "extra_data": {"synthetic": True},
-}
+
+def export_oda_fact_usd_denomination(chain_id: int) -> dict[str, object]:
+    """Export synthetic USD accounting denomination metadata.
+
+    ODA-FACT instruments do not expose an ERC-20 denomination token. The
+    ``address`` and ``decimals`` fields stay ``None`` so downstream consumers
+    do not attempt raw token amount conversions or on-chain transfers.
+
+    :param chain_id:
+        Chain id for the scan row.
+
+    :return:
+        Fresh token-like metadata dictionary for export.
+    """
+
+    return {
+        "address": None,
+        "chain": chain_id,
+        "name": "United States Dollar",
+        "symbol": "USD",
+        "decimals": None,
+        "total_supply": None,
+        "extra_data": {"synthetic": True},
+    }
 
 
 class OdaFactVault(VaultBase):
@@ -372,7 +382,7 @@ class OdaFactVault(VaultBase):
 
         return {
             "Denomination": "USD",
-            "_denomination_token": dict(ODA_FACT_USD_DENOMINATION, chain=self.chain_id),
+            "_denomination_token": export_oda_fact_usd_denomination(self.chain_id),
             "_notes": self.get_notes(),
             "_deposit_closed_reason": self.fetch_deposit_closed_reason(),
             "_redemption_closed_reason": self.fetch_redemption_closed_reason(),
