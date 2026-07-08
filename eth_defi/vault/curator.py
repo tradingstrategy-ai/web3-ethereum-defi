@@ -257,6 +257,7 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "felix": ["Felix"],
     "stake-dao": ["StakeDAO"],
     "bizantine": ["Bizantine"],
+    "m11-credit": ["M11C"],
     # New curators discovered from the vault-name sweep (2026-06-09).
     # The vaults are "Keyring zkVerified Cluster", so match the short brand.
     "keyring-network": ["Keyring"],
