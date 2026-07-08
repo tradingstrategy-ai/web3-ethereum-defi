@@ -354,6 +354,7 @@ def clean_prices(
     vault_db_path: Path | None = None,
     uncleaned_path: Path | None = None,
     cleaned_path: Path | None = None,
+    settlement_db_path: Path | None = None,
 ) -> bool:
     """Run the price cleaning pipeline.
 
@@ -369,6 +370,7 @@ def clean_prices(
     :param vault_db_path: Override for the vault database pickle path
     :param uncleaned_path: Override for the uncleaned parquet path
     :param cleaned_path: Override for the cleaned parquet output path
+    :param settlement_db_path: Override for the vault settlement DuckDB path
     :return: True if cleaning succeeded
     """
     try:
@@ -380,6 +382,8 @@ def clean_prices(
             kwargs["price_df_path"] = uncleaned_path
         if cleaned_path is not None:
             kwargs["cleaned_price_df_path"] = cleaned_path
+        if settlement_db_path is not None:
+            kwargs["settlement_db_path"] = settlement_db_path
         generate_cleaned_vault_datasets(**kwargs)
         logger.info("Price cleaning complete")
         return True
@@ -662,6 +666,7 @@ def run_post_processing(
     hibachi_db_path: Path | None = None,
     vault_db_path: Path | None = None,
     cleaned_path: Path | None = None,
+    settlement_db_path: Path | None = None,
     core3_db_path: Path | None = None,
     feed_db_path: Path | None = None,
 ) -> dict[str, bool]:
@@ -694,6 +699,7 @@ def run_post_processing(
     :param hibachi_db_path: Override for the Hibachi DuckDB path
     :param vault_db_path: Override for the vault database pickle path
     :param cleaned_path: Override for the cleaned parquet output path
+    :param settlement_db_path: Override for the vault settlement DuckDB path
     :param core3_db_path: Override for the Core3 risk intelligence DuckDB path
     :param feed_db_path: Override for the vault post feed DuckDB path (curator metadata and feed entries)
     :return: Dictionary mapping step name to success boolean
@@ -723,6 +729,7 @@ def run_post_processing(
             vault_db_path=vault_db_path,
             uncleaned_path=uncleaned_parquet_path,
             cleaned_path=cleaned_path,
+            settlement_db_path=settlement_db_path,
         )
 
     # Determine whether cleaned data is trustworthy for downstream exports.

@@ -30,6 +30,10 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.chain import get_chain_name
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec, verify_parquet_file
+from eth_defi.vault.settlement_data import (
+    merge_vault_settlements_into_raw_prices,
+    preserve_vault_settlement_markers,
+)
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
 
 
@@ -258,6 +262,13 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #: General — present for all protocols.
     written_at: "pd.Timestamp"
 
+    #: Latest asynchronous vault settlement timestamp in the interval ending at this price row.
+    #:
+    #: General — populated by merging ``vault-settlements.duckdb`` before
+    #: cleaning. ``NaT`` means no known settlement occurred since the previous
+    #: raw price row.
+    vault_settlement_at: "pd.Timestamp"
+
     # -- Hypercore only columns --
     # Populated for native Hyperliquid vaults (chain 9999). NaN for all other protocols.
 
@@ -356,6 +367,9 @@ VAULT_STATE_COLUMNS = {
     # When this price row was actually written/fetched (naive UTC).
     # NaT for old data that predates this column.
     "written_at": pd.NaT,
+    # Latest asynchronous vault settlement timestamp in the interval ending at
+    # this raw price row. Merged from vault-settlements.duckdb before cleaning.
+    "vault_settlement_at": pd.NaT,
 }
 
 
@@ -1299,6 +1313,7 @@ def generate_cleaned_vault_datasets(
     vault_db_path=DEFAULT_VAULT_DATABASE,
     price_df_path=DEFAULT_UNCLEANED_PRICE_DATABASE,
     cleaned_price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "cleaned-vault-prices-1h.parquet",
+    settlement_db_path: Path | None = None,
     logger=print,
     display=display,
     diagnose_vault_id: str | None = None,
@@ -1323,6 +1338,7 @@ def generate_cleaned_vault_datasets(
 
     logger(f"Loading prices {price_df_path}")
     prices_df = pd.read_parquet(price_df_path, dtype_backend="pyarrow")
+    prices_df = merge_vault_settlements_into_raw_prices(prices_df, settlement_db_path=settlement_db_path)
 
     logger(f"We have {vault_db.get_lead_count():,} vault leads in the vault database and {len(prices_df):,} price rows in the raw prices DataFrame")
 
@@ -1335,6 +1351,7 @@ def generate_cleaned_vault_datasets(
         display=display,
         diagnose_vault_id=diagnose_vault_id,
     )
+    enhanced_prices_df = preserve_vault_settlement_markers(prices_df, enhanced_prices_df)
 
     # Free the original uncleaned DataFrame to reduce peak memory
     del prices_df
