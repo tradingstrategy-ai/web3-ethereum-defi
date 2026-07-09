@@ -1,0 +1,35 @@
+name: Frankencoin
+slug: frankencoin
+short_description: |
+  Oracle-free, over-collateralised Swiss franc stablecoin protocol with ERC-4626 ZCHF savings vaults.
+long_description: |
+  Frankencoin is an over-collateralised, oracle-free stablecoin protocol whose ZCHF
+  token tracks the value of the Swiss franc. The protocol is fully on-chain and
+  deployed across multiple EVM networks.
+
+  The Frankencoin Savings Vaults wrap the Frankencoin savings module as ERC-20
+  and ERC-4626 vault tokens. Users deposit ZCHF and receive svZCHF shares whose
+  value follows the savings module yield.
+fee_description: |
+  Frankencoin Savings Vaults do not have protocol-wide management, performance,
+  deposit, or withdrawal fees. Yield accrues through the savings module and is
+  reflected in the svZCHF share price.
+
+  The savings contracts support an optional per-account referral fee. If a user
+  configures a referrer, up to 25% of earned interest can be deducted and paid
+  to that referrer. Users can remove or change the referrer.
+links:
+  homepage: https://frankencoin.com/
+  app: https://app.frankencoin.com/
+  twitter: https://x.com/frankencoinzchf
+  github: https://github.com/Frankencoin-ZCHF/Frankencoin
+  documentation: https://docs.frankencoin.com/
+  defillama: https://defillama.com/protocol/frankencoin
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/frankencoin
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/frankencoin/index.html
+example_smart_contracts:
+  - https://etherscan.io/token/0xE5F130253fF137f9917C0107659A4c5262abf6b0
+  - https://basescan.org/address/0xa09EBdf8A01b9ef04149319D64F83b9C01a5b585
+  - https://gnosisscan.io/token/0x6165946250dd04740ab1409217e95a4f38374fe9
