@@ -135,11 +135,7 @@ def test_lagoon_fetch_settlement_events_from_hypersync_live_1000_blocks() -> Non
         use_hypersync=True,
     )
 
-    matching_rows = [
-        row
-        for row in rows
-        if row.block_number == HUB_SETTLEMENT_BLOCK and row.tx_hash == HUB_SETTLEMENT_TX_HASH
-    ]
+    matching_rows = [row for row in rows if row.block_number == HUB_SETTLEMENT_BLOCK and row.tx_hash == HUB_SETTLEMENT_TX_HASH]
 
     assert {row.event_name for row in matching_rows} == {"SettleDeposit", "SettleRedeem"}
     assert all(row.address.lower() == HUB_CAPITAL_USDC_VAULT for row in matching_rows)

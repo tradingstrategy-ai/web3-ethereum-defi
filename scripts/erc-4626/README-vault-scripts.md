@@ -110,6 +110,9 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SCAN_GRVT` | Optional. Enable GRVT native vault scanning. Default: false. |
 | `SCAN_LIGHTER` | Optional. Enable Lighter native pool scanning. Default: false. |
 | `SCAN_HIBACHI` | Optional. Enable Hibachi native vault scanning. Default: false. |
+| `SCAN_VAULT_SETTLEMENTS` | Optional. Scan Lagoon and D2 settlement events before price cleaning. Default: true. Set to `false` only for debugging runs where settlement markers are deliberately skipped. |
+| `VAULT_SETTLEMENT_START_BLOCK` | Optional. Inclusive settlement scan start block for forced backfills. Normally unset so scans continue incrementally from `vault-settlements.duckdb`. |
+| `VAULT_SETTLEMENT_END_BLOCK` | Optional. Inclusive settlement scan end block for forced backfills. Normally unset so scans continue up to the latest raw price block. |
 | `SKIP_CORE3` | Optional. Skip Core3 risk intelligence enrichment. Default: false. Core3 is default-on enrichment for the top-vaults JSON, unlike optional native vault sources that use opt-in `SCAN_*` flags. |
 | `CORE3_API_KEY` | Optional. Core3 API key. If missing, Core3 is disabled for the run with a warning. |
 | `CORE3_DATABASE_PATH` | Optional. Core3 DuckDB path. Default: `~/.tradingstrategy/vaults/core3/core3.duckdb`. |
@@ -446,6 +449,9 @@ poetry run python scripts/erc-4626/scan-vault-posts.py
 
 The vault scanner is packaged as a Docker image via `Dockerfile.vault-scanner`.
 The default entrypoint is `scan-vaults-all-chains.py`, which scans **all chains**.
+Vault settlement scanning is enabled by default in both the one-shot and looped
+Docker Compose services with `SCAN_VAULT_SETTLEMENTS=true`, so Lagoon and D2
+settlement markers are populated before cleaned price data is exported.
 
 To run a **single-chain** script or override the command, you must use `--entrypoint`
 because the Dockerfile sets `ENTRYPOINT` (not just `CMD`). Without `--entrypoint`,

@@ -1540,6 +1540,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.spark.vault import SparkVault
 
         return SparkVault(web3, spec, **kwargs)
+    elif ERC4626Feature.frankencoin_like in features:
+        from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FrankencoinVault
+
+        return FrankencoinVault(web3, spec, **kwargs)
     elif ERC4626Feature.yearn_morpho_compounder_like in features:
         # Yearn V3 vault with Morpho Compounder strategy
         from eth_defi.erc_4626.vault_protocol.yearn.morpho_compounder import YearnMorphoCompounderStrategy
@@ -1920,6 +1924,15 @@ HARDCODED_PROTOCOLS = {
     # Spark - spPYUSD (Spark Savings PYUSD) vault on Ethereum
     # https://etherscan.io/address/0x80128dbb9f07b93dde62a6daeadb69ed14a7d354
     "0x80128dbb9f07b93dde62a6daeadb69ed14a7d354": {ERC4626Feature.spark_like},
+    # Frankencoin - svZCHF Savings Vault on Ethereum
+    # https://etherscan.io/token/0xE5F130253fF137f9917C0107659A4c5262abf6b0
+    "0xe5f130253ff137f9917c0107659a4c5262abf6b0": {ERC4626Feature.frankencoin_like},
+    # Frankencoin - svZCHF Savings Vault on Base
+    # https://basescan.org/address/0xa09EBdf8A01b9ef04149319D64F83b9C01a5b585
+    "0xa09ebdf8a01b9ef04149319d64f83b9c01a5b585": {ERC4626Feature.frankencoin_like},
+    # Frankencoin - svZCHF Savings Vault on Gnosis
+    # https://gnosisscan.io/token/0x6165946250dd04740ab1409217e95a4f38374fe9
+    "0x6165946250dd04740ab1409217e95a4f38374fe9": {ERC4626Feature.frankencoin_like},
     # Deltr - StakeddUSD vault on Ethereum
     # https://etherscan.io/address/0xa7a31e6a81300120b7c4488ec3126bc1ad11f320
     "0xa7a31e6a81300120b7c4488ec3126bc1ad11f320": {ERC4626Feature.deltr_like},

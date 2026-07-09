@@ -264,10 +264,7 @@ def fetch_and_store_vault_settlements(
                 rows_written=0,
             )
 
-        rows_by_key = {
-            (int(row["_detection_data"].chain), str(row["_detection_data"].address).lower()): row
-            for row in vault_db.rows.values()
-        }
+        rows_by_key = {(int(row["_detection_data"].chain), str(row["_detection_data"].address).lower()): row for row in vault_db.rows.values()}
         web3_by_chain = {}
         token_cache = TokenDiskCache()
         rows_written = 0
@@ -275,9 +272,7 @@ def fetch_and_store_vault_settlements(
         for scan_range in ranges:
             rpc_url = rpc_urls_by_chain.get(scan_range.chain_id)
             if not rpc_url:
-                raise RuntimeError(
-                    f"No JSON-RPC URL configured for chain {scan_range.chain_id} needed by vault {scan_range.address}"
-                )
+                raise RuntimeError(f"No JSON-RPC URL configured for chain {scan_range.chain_id} needed by vault {scan_range.address}")
 
             web3 = web3_by_chain.get(scan_range.chain_id)
             if web3 is None:
@@ -325,16 +320,8 @@ def _count_supported_vaults_with_raw_prices(
     supported_features: set[ERC4626Feature] | frozenset[ERC4626Feature] = SUPPORTED_SETTLEMENT_FEATURES,
 ) -> int:
     """Count supported protocol metadata rows that also have raw price rows."""
-    raw_keys = {
-        (int(row["chain"]), str(row["address"]).lower())
-        for row in raw_prices_df[["chain", "address"]].drop_duplicates().to_dict("records")
-    }
-    return sum(
-        1
-        for row in vault_db.rows.values()
-        if _get_vault_features(row).intersection(supported_features)
-        and (int(row["_detection_data"].chain), str(row["_detection_data"].address).lower()) in raw_keys
-    )
+    raw_keys = {(int(row["chain"]), str(row["address"]).lower()) for row in raw_prices_df[["chain", "address"]].drop_duplicates().to_dict("records")}
+    return sum(1 for row in vault_db.rows.values() if _get_vault_features(row).intersection(supported_features) and (int(row["_detection_data"].chain), str(row["_detection_data"].address).lower()) in raw_keys)
 
 
 def _update_settlement_database_for_vault(

@@ -5,6 +5,28 @@ from pathlib import Path
 import pytest
 
 from eth_defi.vault import data_file_export
+from eth_defi.vault.settlement_data import VAULT_SETTLEMENT_DATABASE_FILENAME, VaultSettlementDatabase
+
+
+def write_export_test_file(path: Path) -> None:
+    """Create a valid export fixture file.
+
+    Most export files can be byte placeholders because upload tests mock the
+    R2 calls. The settlement database is checkpointed before export, so it must
+    be a valid DuckDB file instead of arbitrary bytes.
+
+    :param path:
+        File path to create.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.name == VAULT_SETTLEMENT_DATABASE_FILENAME:
+        db = VaultSettlementDatabase(path)
+        try:
+            db.save()
+        finally:
+            db.close()
+    else:
+        path.write_bytes(b"data")
 
 
 def test_core3_duckdb_is_in_data_file_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -106,8 +128,7 @@ def test_core3_duckdb_upload_gets_alternative_daily_backup(
     core3_path.parent.mkdir(parents=True)
 
     for path in data_file_export.get_data_file_paths(tmp_path, core3_db_path=core3_path):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(b"data")
+        write_export_test_file(path)
 
     monkeypatch.setenv("PIPELINE_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("CORE3_DATABASE_PATH", str(core3_path))
@@ -164,8 +185,7 @@ def test_exchange_rate_duckdb_upload_gets_alternative_daily_backup(
         core3_db_path=core3_path,
         exchange_rate_db_path=exchange_rate_path,
     ):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(b"data")
+        write_export_test_file(path)
 
     monkeypatch.setenv("PIPELINE_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("CORE3_DATABASE_PATH", str(core3_path))

@@ -302,6 +302,11 @@ class ERC4626Feature(enum.Enum):
     #: https://spark.fi/
     spark_like = "spark_like"
 
+    #: Frankencoin savings vault
+    #:
+    #: https://frankencoin.com/token/
+    frankencoin_like = "frankencoin_like"
+
     #: Yearn Morpho Compounder strategy
     #:
     #: A Yearn V3 vault that uses MorphoCompounder strategies to invest
@@ -887,6 +892,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.spark_like in features:
         return "Spark"
+
+    elif ERC4626Feature.frankencoin_like in features:
+        return "Frankencoin"
 
     elif ERC4626Feature.yearn_morpho_compounder_like in features:
         return "Yearn"

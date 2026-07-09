@@ -261,6 +261,10 @@ RESOLV_ILLIQUID = "Resolv vault is illiquid"
 
 RESOLV_USDC_ILLIQUID = "Resolv USDC vault is illiquid"
 
+STEAKHOUSE_PRIME_AUSD_ILLIQUID = "Steakhouse Prime AUSD vault is illiquid"
+
+LIQUITY_V2_WETH_STABILITY_POOL_ILLIQUID = "Liquity V2 WETH Stability Pool vault is illiquid"
+
 
 #: Protocol-wide flags and notes.
 #:
@@ -494,6 +498,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x694e47afd14a64661a04eee674fb331bcdef3737": (VaultFlag.subvault, SUBVAULT),
     # Morpho Gauntlet USDC Prime Compounder
     "0x694e47afd14a64661a04eee674fb331bcdef3737": (VaultFlag.subvault, SUBVAULT),
+    # Morpho Gauntlet USDC Prime Compounder
+    "0x8092c20351cf4048b464df2144dc8a4dd49ce71d": (VaultFlag.subvault, SUBVAULT),
     # Aave V3 USDS Lender
     "0xd144eaff17b0308a5154444907781382398aac61": (VaultFlag.subvault, SUBVAULT),
     # AaveV3 USDC.e Lender
@@ -539,6 +545,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b": (VaultFlag.subvault, SUBVAULT),
     # Morpho Yearn OG USDC Compounder 2
     "0x0e297de4005883c757c9f09fdf7cf1363c20e626": (VaultFlag.subvault, SUBVAULT),
+    # USDC To sUSDS Depositor (Yearn on Ethereum)
+    "0xda2f1b3cba732d779cff56f0cf9d3bc8aea6cd8d": (VaultFlag.subvault, SUBVAULT),
     # Morpho Gauntlet USDT Prime Compounder
     "0x6d2981ff9b8d7edbb7604de7a65bac8694ac849f": (VaultFlag.subvault, SUBVAULT),
     # Hyperliquidity Trader (HLT) - irregular share price action due to epoch resets
@@ -576,6 +584,10 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x3094b241aade60f91f1c82b0628a10d9501462f9": (VaultFlag.illiquid, MO_EARN_MAX_USDC_ILLIQUID),
     # Clearstar Yield USDC (Morpho on Ethereum)
     "0xfa17f7aadbfac2c5d3c8125555404c1ae17df853": (VaultFlag.illiquid, CLEARSTAR_YIELD_USDC_ILLIQUID),
+    # Liquity V2 WETH Stability Pool (Ethereum)
+    "0xc5e7d3f76a03006540f17668a0267c668ffb5b75": (VaultFlag.illiquid, LIQUITY_V2_WETH_STABILITY_POOL_ILLIQUID),
+    # Steakhouse Prime AUSD (Morpho on Katana)
+    "0x82c4c641ccc38719ae1f0fbd16a64808d838fdfd": (VaultFlag.illiquid, STEAKHOUSE_PRIME_AUSD_ILLIQUID),
     # Borrowable USDC Deposit, SiloId: 149 (Arbitrum)
     "0xa9a4bd976dbcfc2b89f554467ac85e2c758e2618": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Borrowable USDC Deposit, SiloId: 20 (Sonic)
