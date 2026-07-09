@@ -94,7 +94,6 @@ def _make_t3tris_reader() -> T3trisHistoricalReader:
     reader.vault = _FakeVault()
     reader.reader_state = None
     reader.previous_total_supply = None
-    reader.previous_last_valuation_timestamp = None
     reader.previous_block_number = None
     reader.last_good_share_price = None
     reader.in_stale_nav_gap = False
@@ -353,6 +352,78 @@ def test_t3tris_reader_failed_protocol_call_does_not_poison_gap_baseline() -> No
     assert reader.previous_total_supply == Decimal("200")
 
 
+def test_t3tris_reader_failed_protocol_call_inside_gap_keeps_held_pps() -> None:
+    """Failed T3tris-specific reads inside an active gap still hold PPS."""
+    reader = _make_t3tris_reader()
+
+    _process_t3tris_sample(
+        reader,
+        block_number=1,
+        total_assets=Decimal("100"),
+        total_supply=Decimal("100"),
+        share_price=Decimal("1"),
+        last_valuation_timestamp=10,
+    )
+    _process_t3tris_sample(
+        reader,
+        block_number=2,
+        total_assets=Decimal("100"),
+        total_supply=Decimal("200"),
+        share_price=Decimal("0.5"),
+        last_valuation_timestamp=10,
+    )
+    failed_gap_read = _process_t3tris_sample(
+        reader,
+        block_number=3,
+        total_assets=Decimal("100"),
+        total_supply=Decimal("200"),
+        share_price=Decimal("0.5"),
+        last_valuation_timestamp=10,
+        failed_calls={"isVaultOpen", "lastValuationTimestamp"},
+    )
+
+    assert failed_gap_read.share_price == Decimal("1")
+    assert failed_gap_read.total_assets == Decimal("200")
+    assert "isVaultOpen call failed" in failed_gap_read.errors
+    assert "lastValuationTimestamp call failed" in failed_gap_read.errors
+    assert STALE_NAV_CORRECTED_ERROR in failed_gap_read.errors
+    assert reader.in_stale_nav_gap is True
+    assert reader.last_good_share_price == Decimal("1")
+
+
+def test_t3tris_reader_failed_protocol_call_on_first_collapsed_sample_does_not_seed_baseline() -> None:
+    """Failed T3tris mode read on the first low-PPS sample leaves baseline empty."""
+    reader = _make_t3tris_reader()
+
+    first_read = _process_t3tris_sample(
+        reader,
+        block_number=1,
+        total_assets=Decimal("100"),
+        total_supply=Decimal("200"),
+        share_price=Decimal("0.5"),
+        last_valuation_timestamp=10,
+        failed_calls={"isVaultOpen"},
+    )
+
+    assert first_read.share_price == Decimal("0.5")
+    assert "isVaultOpen call failed" in first_read.errors
+    assert STALE_NAV_FIRST_SAMPLE_ERROR in first_read.errors
+    assert reader.last_good_share_price is None
+
+    recovered_read = _process_t3tris_sample(
+        reader,
+        block_number=2,
+        total_assets=Decimal("200"),
+        total_supply=Decimal("200"),
+        share_price=Decimal("1"),
+        last_valuation_timestamp=11,
+    )
+
+    assert recovered_read.share_price == Decimal("1")
+    assert recovered_read.errors is None
+    assert reader.last_good_share_price == Decimal("1")
+
+
 def test_t3tris_reader_valuation_timestamp_advance_stops_correction() -> None:
     """A fresh oracle valuation must be treated as measured NAV, not stale NAV."""
     reader = _make_t3tris_reader()
@@ -548,7 +619,7 @@ def test_t3tris_gami_usdc(web3: Web3) -> None:
 @flaky.flaky
 @requires_arbitrum_rpc
 def test_t3tris_historical_reader_holds_pps_during_stale_nav_window(archive_web3: Web3) -> None:
-    """T3tris historical reader hides the async settlement phantom drawdown.
+    """T3tris historical reader holds PPS through the async settlement gap.
 
     Real Arbitrum blocks for vault
     ``0x98e43a491a464F0886bC5E57207c340BBed0D01F``:

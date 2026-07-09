@@ -32,13 +32,13 @@ logger = logging.getLogger(__name__)
 
 WAD = 10**18
 
-#: Treat a T3tris PPS collapse larger than this as a stale-NAV window when
-#: async settlement minted shares but the oracle NAV has not yet absorbed the
-#: settled assets.
+#: Treat a T3tris PPS sample below this fraction of the previous good PPS as a
+#: stale-NAV window when async settlement minted shares but the oracle NAV has
+#: not yet absorbed the settled assets.
 STALE_NAV_SHARE_PRICE_DROP_THRESHOLD = Decimal("0.90")
 
-#: Cannot safely correct a stale-NAV window if the first reader sample is
-#: already deep below the expected previous PPS.
+#: Warn when the first reader sample is already below this PPS value and there
+#: is no previous good PPS to hold for correction.
 STALE_NAV_FIRST_SAMPLE_WARNING_THRESHOLD = Decimal("0.90")
 
 #: Marker exported with rows whose PPS/NAV was corrected by this reader.
@@ -64,8 +64,10 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
     This reader follows the conservative "hold last good PPS" strategy for
     async vaults. When supply jumps and raw PPS collapses while the vault is
     closed for async settlement, it keeps the previous good share price and
-    reports effective total assets as ``held_pps * total_supply`` until the raw
-    PPS recovers.
+    reports effective total assets as ``held_pps * total_supply`` while the
+    same stale-NAV window remains open. The hold ends when raw PPS recovers or a
+    later oracle valuation timestamp indicates that the low PPS is now measured
+    NAV instead of stale accounting.
 
     PPS scenarios handled by this reader:
 
@@ -109,7 +111,6 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
     def __init__(self, vault: "T3trisVault", stateful: bool):  # noqa: FBT001
         super().__init__(vault, stateful=stateful)
         self.previous_total_supply: Decimal | None = None
-        self.previous_last_valuation_timestamp: int | None = None
         self.previous_block_number: int | None = None
         self.last_good_share_price: Decimal | None = None
         self.in_stale_nav_gap = False
@@ -122,6 +123,13 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
         T3tris' live ABI exposes ``getOracle()`` even though the minimal oracle
         interface is usually documented as ``oracle()``. The vault method keeps
         the ABI-specific lookup in one place.
+
+        The scanner constructs one multicall set for the whole historical read,
+        so this address is cached for the reader lifetime. This assumes the
+        vault's oracle address is immutable for the scanned deployment history.
+        If a future T3tris vault can migrate oracle contracts, the reader must be
+        extended to split the historical scan at oracle-change boundaries before
+        polling ``lastValuationTimestamp()``.
 
         :return:
             The current oracle contract address.
@@ -248,6 +256,7 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
         self,
         *,
         async_vault: bool,
+        protocol_reads_failed: bool,
         total_supply: Decimal | None,
         share_price: Decimal | None,
         last_valuation_timestamp: int | None,
@@ -266,8 +275,10 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
         - **No previous good PPS:** correction is impossible. If this is the
           first sample and raw PPS is already below
           :py:data:`STALE_NAV_FIRST_SAMPLE_WARNING_THRESHOLD`, the caller gets
-          ``possible_first_gap_sample=True`` and should avoid using this value
-          as a baseline.
+          ``possible_first_gap_sample=True`` and should avoid using this value as
+          a baseline. This also applies when T3tris-specific reads fail, because
+          a missing ``isVaultOpen()`` result means the reader cannot prove the
+          low first sample came from a sync/live vault.
         - **Supply increased + raw PPS collapsed:** this starts a new stale-NAV
           gap. The caller should hold the previous good PPS even if
           ``lastValuationTimestamp()`` advanced in the same sample.
@@ -285,6 +296,10 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
         :param async_vault:
             ``True`` when T3tris reports the vault is in async/oracle mode.
 
+        :param protocol_reads_failed:
+            ``True`` when either T3tris-specific mode or oracle timestamp polling
+            failed for this sample.
+
         :param total_supply:
             Current total share supply.
 
@@ -299,7 +314,7 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
         """
         supply_increased = self.previous_total_supply is not None and total_supply is not None and total_supply > self.previous_total_supply
         raw_price_collapsed = self.last_good_share_price is not None and share_price is not None and share_price < self.last_good_share_price * STALE_NAV_SHARE_PRICE_DROP_THRESHOLD
-        possible_first_gap_sample = self.previous_block_number is None and async_vault and self.last_good_share_price is None and share_price is not None and share_price < STALE_NAV_FIRST_SAMPLE_WARNING_THRESHOLD
+        possible_first_gap_sample = self.previous_block_number is None and (async_vault or protocol_reads_failed) and self.last_good_share_price is None and share_price is not None and share_price < STALE_NAV_FIRST_SAMPLE_WARNING_THRESHOLD
 
         starts_new_gap = supply_increased and raw_price_collapsed
         continues_existing_gap = self.in_stale_nav_gap and raw_price_collapsed and self.stale_nav_gap_started_at_valuation_timestamp is not None and last_valuation_timestamp == self.stale_nav_gap_started_at_valuation_timestamp
@@ -315,9 +330,11 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
         """Process one T3tris historical sample.
 
         The raw ERC-4626 values are decoded first. If the sample is inside a
-        stale-NAV window, ``share_price`` is replaced by the last known good
-        value and ``total_assets`` is recalculated from the corrected price and
-        current total supply.
+        correctable stale-NAV window, ``share_price`` is replaced by the last
+        known good value and ``total_assets`` is recalculated from the corrected
+        price and current total supply. If the first sample already looks like a
+        stale-NAV gap, the reader cannot infer a previous good PPS and therefore
+        only tags the row as suspicious.
 
         PPS handling details:
 
@@ -329,9 +346,9 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
            ``isVaultOpen() == True`` means sync/live accounting. ``False`` means
            async/oracle accounting and may need stale-NAV correction.
         3. Reject out-of-order blocks. The stale-NAV detector depends on the
-           previous supply, previous valuation timestamp, and previous good PPS;
-           processing historical samples backwards would make the state machine
-           unsafe.
+           previous supply, current gap valuation timestamp, and previous good
+           PPS; processing historical samples backwards would make the state
+           machine unsafe.
         4. If a stale-NAV gap is detected, hold ``last_good_share_price`` and
            recompute ``total_assets`` from the held PPS and the current supply.
            The row is tagged with :py:data:`STALE_NAV_CORRECTED_ERROR` so
@@ -342,10 +359,11 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
            ``last_good_share_price``. Without a previous good PPS, any
            correction would be guesswork.
         6. If T3tris-specific protocol reads fail on a collapsed raw PPS, avoid
-           updating ``last_good_share_price`` from the collapsed value. When the
-           failed sample is not already part of a confirmed gap, the previous
-           supply baseline is also preserved so the next successful sample can
-           still detect the supply jump and correct the gap.
+           updating ``last_good_share_price`` from the collapsed value. If this
+           is the first low-PPS sample, tag it as a possible uncorrectable gap.
+           When the failed sample is not already part of a confirmed gap, the
+           previous supply baseline is also preserved so the next successful
+           sample can still detect the supply jump and correct the gap.
         7. Update adaptive reader state exactly once, using the corrected PPS
            and corrected total assets when correction was applied. This prevents
            the adaptive scanner from learning a phantom drawdown and reducing
@@ -361,7 +379,8 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
             Results for calls produced by :py:meth:`construct_multicalls`.
 
         :return:
-            Historical read with T3tris-corrected share price and total assets.
+            Historical read with raw or T3tris-corrected share price and total
+            assets.
         """
         call_by_name = self.dictify_multicall_results(block_number, call_results)
 
@@ -378,6 +397,7 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
 
         stale_nav_gap, possible_first_gap_sample = self._detect_stale_nav_gap(
             async_vault=is_vault_open is False,
+            protocol_reads_failed=protocol_reads_failed,
             total_supply=total_supply,
             share_price=share_price,
             last_valuation_timestamp=last_valuation_timestamp,
@@ -389,6 +409,8 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
             share_price = self.last_good_share_price
             if total_supply is not None:
                 total_assets = share_price * total_supply
+            else:
+                total_assets = None
             if self.stale_nav_gap_started_at_valuation_timestamp is None:
                 self.stale_nav_gap_started_at_valuation_timestamp = last_valuation_timestamp
             self.in_stale_nav_gap = True
@@ -412,8 +434,6 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
         self.previous_block_number = block_number
         if not (uncertain_collapsed_sample and not stale_nav_gap):
             self.previous_total_supply = total_supply
-            if last_valuation_timestamp is not None:
-                self.previous_last_valuation_timestamp = last_valuation_timestamp
 
         return VaultHistoricalRead(
             vault=self.vault,
