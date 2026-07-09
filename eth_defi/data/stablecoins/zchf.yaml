@@ -40,15 +40,15 @@ source_currency_usd_rate_source: ''
 coingecko_id: frankencoin
 coingecko_link: https://www.coingecko.com/en/coins/frankencoin
 coingecko_id_source: url
-coingecko_id_verified_at: '2026-07-06T00:47:27'
+coingecko_id_verified_at: '2026-07-09T01:57:58'
 coingecko_id_verification_failed_at: ''
 coingecko_id_verification_failed_reason: ''
 usd_rate: 1.24
-usd_rate_fetched_at: '2026-07-06T00:47:27'
-usd_rate_updated_at: '2026-07-06T00:47:28'
+usd_rate_fetched_at: '2026-07-09T01:57:58'
+usd_rate_updated_at: '2026-07-09T01:57:48'
 peg_rate: ''
 peg_rate_currency: ''
-rate_fetch_failed_at: '2026-07-06T00:47:27'
+rate_fetch_failed_at: '2026-07-09T01:57:58'
 rate_fetch_failed_reason: missing_source_currency
 depegged_at: ''
 checks:

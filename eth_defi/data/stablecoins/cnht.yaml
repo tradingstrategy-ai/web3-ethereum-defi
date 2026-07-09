@@ -30,7 +30,7 @@ slug: cnht
 contract_addresses:
   - chain: ethereum
     address: '0x6E109E9dD7Fa1a58BC3eff667e8e41fC3cc07AEF'
-rate_fetch_failed_at: '2026-07-06T00:47:27'
+rate_fetch_failed_at: '2026-07-09T01:57:58'
 rate_fetch_failed_reason: missing_coingecko_id
 checks:
   twitter_last_post_at: ''
