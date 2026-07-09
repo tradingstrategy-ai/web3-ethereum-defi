@@ -263,6 +263,8 @@ RESOLV_USDC_ILLIQUID = "Resolv USDC vault is illiquid"
 
 STEAKHOUSE_PRIME_AUSD_ILLIQUID = "Steakhouse Prime AUSD vault is illiquid"
 
+LIQUITY_V2_WETH_STABILITY_POOL_ILLIQUID = "Liquity V2 WETH Stability Pool vault is illiquid"
+
 
 #: Protocol-wide flags and notes.
 #:
@@ -582,6 +584,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x3094b241aade60f91f1c82b0628a10d9501462f9": (VaultFlag.illiquid, MO_EARN_MAX_USDC_ILLIQUID),
     # Clearstar Yield USDC (Morpho on Ethereum)
     "0xfa17f7aadbfac2c5d3c8125555404c1ae17df853": (VaultFlag.illiquid, CLEARSTAR_YIELD_USDC_ILLIQUID),
+    # Liquity V2 WETH Stability Pool (Ethereum)
+    "0xc5e7d3f76a03006540f17668a0267c668ffb5b75": (VaultFlag.illiquid, LIQUITY_V2_WETH_STABILITY_POOL_ILLIQUID),
     # Steakhouse Prime AUSD (Morpho on Katana)
     "0x82c4c641ccc38719ae1f0fbd16a64808d838fdfd": (VaultFlag.illiquid, STEAKHOUSE_PRIME_AUSD_ILLIQUID),
     # Borrowable USDC Deposit, SiloId: 149 (Arbitrum)
