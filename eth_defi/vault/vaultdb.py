@@ -127,6 +127,9 @@ class VaultRow(TypedDict):
     #: vault name itself does not contain the curator brand.
     _manager_name: str | None
 
+    #: Human-readable vault note captured by the vault scanner.
+    _notes: str | None
+
     __annotations__ = {
         "First seen at": datetime.datetime,
         "Mgmt fee": float,
