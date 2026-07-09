@@ -27,6 +27,26 @@ POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
     56,  # BNB Chain
     137,  # Polygon
     43114,  # Avalanche C-chain
+    # Linea needed Clique PoA extraData handling for historical blocks before
+    # the Beta v4.0 Paris upgrade. The upgrade happened at block 24787631
+    # on 2025-10-22 and switched Linea from the Clique proof-of-authority
+    # sequencer mechanism to the Maru/QBFT consensus client.
+    #
+    # Raw JSON-RPC examples from production investigation:
+    # - block 24787631 at 2025-10-22 05:47:11 UTC has 97-byte extraData
+    # - block 24787632 at 2025-10-22 05:47:35 UTC has 32-byte extraData
+    #
+    # Web3.py validates block.extraData as 32 bytes unless
+    # ExtraDataToPOAMiddleware is installed. Without this middleware, historical
+    # Linea reads like web3.eth.get_block(23146362) fail while current block
+    # reads may appear fine because post-upgrade blocks use 32-byte extraData.
+    #
+    # This matters for historical backfills: the ERC-4626 vault settlement
+    # scanner may fetch old Lagoon/D2 logs with Hypersync and then use
+    # eth_getBlockByNumber to fill missing block hashes. Keep Linea here until
+    # all historical Linea block reads avoid Web3.py's fixed extraData
+    # formatter, or until Web3.py handles this chain transition natively.
+    59144,  # Linea historical Clique-era blocks before Maru/QBFT
 }
 
 #: Known testnet chain IDs — used to guard operations that should never

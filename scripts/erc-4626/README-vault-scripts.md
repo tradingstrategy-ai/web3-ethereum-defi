@@ -471,6 +471,23 @@ Vault settlement scanning is enabled by default in both the one-shot and looped
 Docker Compose services with `SCAN_VAULT_SETTLEMENTS=true`, so Lagoon and D2
 settlement markers are populated before cleaned price data is exported.
 
+### Linea historical block headers
+
+Linea changed its block header `extraData` shape during the
+[Beta v4.0 Paris upgrade](https://docs.linea.build/changelog/release-notes#beta-v40)
+on 2025-10-22. The last pre-upgrade block is `24787631`
+(`2025-10-22 05:47:11` UTC) and still has 97-byte Clique-style
+`extraData`; the first post-upgrade block is `24787632`
+(`2025-10-22 05:47:35` UTC) and has 32-byte `extraData`.
+
+The reason is Linea's move from the Clique proof-of-authority sequencer
+mechanism to the Maru/QBFT consensus client, documented in the
+[Linea Maru node guide](https://docs.linea.build/network/how-to/run-a-node/maru).
+When backfilling Linea vault settlement events before block `24787632`, raw
+JSON-RPC block headers may therefore need Web3.py's
+`ExtraDataToPOAMiddleware` or another path that avoids formatting the historical
+`extraData` as a fixed 32-byte field.
+
 To run a **single-chain** script or override the command, you must use `--entrypoint`
 because the Dockerfile sets `ENTRYPOINT` (not just `CMD`). Without `--entrypoint`,
 any command you pass is appended as arguments to the all-chains script.
