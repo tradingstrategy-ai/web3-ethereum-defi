@@ -22,6 +22,8 @@ Environment variables:
     - REFRESH_STABLECOIN_RATES: Refresh stablecoin rates before uploading the stablecoin JSON bundle (default: true)
     - FORCE_STABLECOIN_RATE_REFRESH: Bypass the per-entry same-day stablecoin rate gate (default: false)
     - STABLECOIN_RATE_TIMEOUT: CoinGecko timeout in seconds (default: 20)
+    - CURRENCY_API_DB_PATH / CURRENCY_API_DATABASE_PATH: DuckDB path for non-USD peg FX rates
+    - CURRENCY_API_SOURCE: Currency API source column for non-USD peg FX rates
     - COINGECKO_DEMO_API_KEY: Optional CoinGecko demo API key used by the rate module
 """
 
@@ -34,6 +36,7 @@ from strictyaml import YAMLError
 from tabulate import tabulate
 from tqdm_loggable.auto import tqdm
 
+from eth_defi.currency_api.constants import SOURCE_NAME
 from eth_defi.feed.stablecoin_rate import StablecoinRateRefreshSummary, refresh_stablecoin_rates
 from eth_defi.stablecoin_metadata import STABLECOINS_DATA_DIR, process_and_upload_stablecoin_metadata, upload_stablecoin_index
 from eth_defi.utils import setup_console_logging
@@ -94,6 +97,22 @@ def _env_float(name: str, *, default: float) -> float:
         return default
 
 
+def _env_path(*names: str) -> Path | None:
+    """Resolve a path from the first populated environment variable.
+
+    :param names:
+        Environment variable names to inspect in order.
+
+    :return:
+        Expanded path, or ``None`` when no value is configured.
+    """
+    for name in names:
+        raw_value = os.environ.get(name)
+        if raw_value and raw_value.strip():
+            return Path(raw_value).expanduser()
+    return None
+
+
 def refresh_stablecoin_rates_for_metadata_export() -> StablecoinRateRefreshSummary | None:
     """Refresh stablecoin rates before uploading stablecoin metadata.
 
@@ -112,12 +131,16 @@ def refresh_stablecoin_rates_for_metadata_export() -> StablecoinRateRefreshSumma
 
     timeout = _env_float("STABLECOIN_RATE_TIMEOUT", default=20.0)
     force = _env_flag("FORCE_STABLECOIN_RATE_REFRESH", default=False)
+    currency_db_path = _env_path("CURRENCY_API_DB_PATH", "CURRENCY_API_DATABASE_PATH")
+    currency_source = os.environ.get("CURRENCY_API_SOURCE", SOURCE_NAME)
     try:
         summary = refresh_stablecoin_rates(
             data_dir=STABLECOINS_DATA_DIR,
             force=force,
             timeout=timeout,
             progress_bar=True,
+            currency_db_path=currency_db_path,
+            currency_source=currency_source,
         )
     except _STABLECOIN_RATE_EXPORT_ERROR_TYPES as e:
         logger.warning("Stablecoin rate refresh failed before metadata export, continuing with existing metadata: %s", e)

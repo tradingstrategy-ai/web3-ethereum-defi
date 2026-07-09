@@ -41,6 +41,7 @@ def _coins_list_response() -> DummyCoinGeckoResponse:
         "usdx",
         "usdx-money-usdx",
         "cad-coin",
+        "frankencoin",
         "convertible-jpy-token",
         "tokenised-gbp",
         "magic-internet-money",
@@ -602,6 +603,7 @@ checks:
     ("symbol", "name", "coingecko_id", "peg_currency", "usd_rate"),
     [
         ("CADC", "PayTrie CADC Canadian Dollar stablecoin", "cad-coin", "cad", 0.73),
+        ("ZCHF", "Frankencoin Swiss Franc stablecoin", "frankencoin", "chf", 1.24),
         ("CJPY", "Yamato CJPY Japanese Yen stablecoin", "convertible-jpy-token", "jpy", 0.0064),
         ("tGBP", "Tokenised GBP British Pound stablecoin", "tokenised-gbp", "gbp", 1.32),
     ],
@@ -659,6 +661,28 @@ def test_non_usd_fiat_stablecoins_compare_against_their_peg_currency(
     assert rate.source_currency_usd_rate == pytest.approx(usd_rate)
     assert rate.source_currency_usd_rate_fetched_at == now_
     assert rate.source_currency_usd_rate_source == "fawazahmed0"
+
+
+def test_packaged_chf_stablecoins_have_chf_source_currency() -> None:
+    """Packaged CHF stablecoins carry source-currency metadata for native rate conversion."""
+    targets = {target.symbol: target for target in iter_stablecoin_rate_targets()}
+
+    for symbol in ("JCHF", "ZCHF"):
+        target = targets[symbol]
+
+        assert target.source_currency == "chf"
+        assert target.source_currency_source == "manual"
+
+    feeder = StablecoinRateFeeder()
+    for chain_id, address in (
+        (1, "0xB58E61C3098d85632Df34EecfB899A1Ed80921cB"),
+        (8453, "0xD4dD9e2F021BB459D5A5f6c24C12fE09c5D45553"),
+        (100, "0xD4dD9e2F021BB459D5A5f6c24C12fE09c5D45553"),
+    ):
+        rate = feeder.get_denomination_token_rate_section(chain_id, address, "ZCHF")
+
+        assert rate.source_currency == "chf"
+        assert rate.coingecko_id == "frankencoin"
 
 
 def test_eur_stablecoin_depegs_against_native_currency_from_duckdb(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
