@@ -5,8 +5,22 @@ import os
 import pytest
 from web3 import HTTPProvider, Web3
 
-from eth_defi.chain import has_graphql_support
+from eth_defi.chain import get_chain_homepage, get_chain_id_by_name, get_chain_name, get_evm_block_time, has_graphql_support
 from eth_defi.provider.broken_provider import get_block_tip_latency
+from eth_defi.provider.env import get_json_rpc_env
+
+ROBINHOOD_CHAIN_ID = 4663
+ROBINHOOD_BLOCK_TIME = 0.25
+
+
+def test_robinhood_chain_metadata():
+    """Robinhood chain metadata resolves through public helper APIs."""
+
+    assert get_chain_name(ROBINHOOD_CHAIN_ID) == "Robinhood"
+    assert get_chain_id_by_name("Robinhood") == ROBINHOOD_CHAIN_ID
+    assert get_json_rpc_env(ROBINHOOD_CHAIN_ID) == "JSON_RPC_ROBINHOOD"
+    assert get_evm_block_time(ROBINHOOD_CHAIN_ID) == ROBINHOOD_BLOCK_TIME
+    assert get_chain_homepage(ROBINHOOD_CHAIN_ID) == ("Robinhood", "https://robinhood.com/us/en/chain/")
 
 
 def test_has_not_graphql_support():
