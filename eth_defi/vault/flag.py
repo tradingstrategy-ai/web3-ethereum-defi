@@ -539,6 +539,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b": (VaultFlag.subvault, SUBVAULT),
     # Morpho Yearn OG USDC Compounder 2
     "0x0e297de4005883c757c9f09fdf7cf1363c20e626": (VaultFlag.subvault, SUBVAULT),
+    # USDC To sUSDS Depositor (Yearn on Ethereum)
+    "0xda2f1b3cba732d779cff56f0cf9d3bc8aea6cd8d": (VaultFlag.subvault, SUBVAULT),
     # Morpho Gauntlet USDT Prime Compounder
     "0x6d2981ff9b8d7edbb7604de7a65bac8694ac849f": (VaultFlag.subvault, SUBVAULT),
     # Hyperliquidity Trader (HLT) - irregular share price action due to epoch resets
