@@ -100,6 +100,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Liquid Royalty": VaultTechnicalRisk.severe,
     "cSigma Finance": VaultTechnicalRisk.severe,
     "Spark": VaultTechnicalRisk.negligible,
+    # Frankencoin - open-source, over-collateralised stablecoin protocol with
+    # verified ERC-4626 savings vaults.
+    "Frankencoin": VaultTechnicalRisk.low,
     # 3Jane - uncollateralised credit money market; audited (Veridise, Sherlock, Electisec) and open source
     "3Jane": VaultTechnicalRisk.low,
     "Teller": VaultTechnicalRisk.severe,

@@ -1,0 +1,1 @@
+"""Frankencoin protocol integration."""
