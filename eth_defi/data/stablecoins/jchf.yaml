@@ -33,6 +33,12 @@ contract_addresses:
   - chain: ethereum
     address: '0x53dfEa0A8CC2A2A2e425E1C174Bc162999723ea0'
 slug: jchf
+source_currency: chf
+source_currency_source: manual
+source_currency_usd_rate: ''
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
 depegged_at: '2026-06-26T12:13:31'
 coingecko_id: ''
 coingecko_link: ''

@@ -30,9 +30,13 @@ links:
 contract_addresses:
   - chain: ethereum
     address: '0xB58E61C3098d85632Df34EecfB899A1Ed80921cB'
+  - chain: base
+    address: '0xD4dD9e2F021BB459D5A5f6c24C12fE09c5D45553'
+  - chain: gnosis
+    address: '0xD4dD9e2F021BB459D5A5f6c24C12fE09c5D45553'
 slug: zchf
-source_currency: ''
-source_currency_source: ''
+source_currency: chf
+source_currency_source: manual
 source_currency_usd_rate: ''
 source_currency_usd_rate_date: ''
 source_currency_usd_rate_fetched_at: ''
@@ -48,8 +52,8 @@ usd_rate_fetched_at: '2026-07-09T01:57:58'
 usd_rate_updated_at: '2026-07-09T01:57:48'
 peg_rate: ''
 peg_rate_currency: ''
-rate_fetch_failed_at: '2026-07-09T01:57:58'
-rate_fetch_failed_reason: missing_source_currency
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
 depegged_at: ''
 checks:
   twitter_last_post_at: '2026-03-01'

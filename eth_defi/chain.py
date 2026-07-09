@@ -82,6 +82,11 @@ SEQUENCERS: dict[int, dict[str, str]] = {
         "sequencer": "https://arb1-sequencer.arbitrum.io/rpc",
         "public_rpc": "https://arb1.arbitrum.io/rpc",
     },
+    # Robinhood Chain — Arbitrum Layer 2
+    4663: {
+        "sequencer": "https://sequencer.mainnet.chain.robinhood.com",
+        "public_rpc": "https://rpc.mainnet.chain.robinhood.com",
+    },
     # Arbitrum Sepolia — sequencer is write-only
     421614: {
         "sequencer": "https://sepolia-rollup-sequencer.arbitrum.io/rpc",
@@ -129,6 +134,7 @@ CHAIN_NAMES = {
     999: "Hyperliquid",  # HyperEVM, see https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm
     998: "Hyperliquid_Testnet",  # HyperEVM testnet
     42161: "Arbitrum",
+    4663: "Robinhood",
     11155111: "Ethereum_Sepolia",
     421614: "Arbitrum_Sepolia",
     84532: "Base_Sepolia",
@@ -173,6 +179,7 @@ CHAIN_HOMEPAGES = {
     9998: {"name": "Lighter", "homepage": "https://lighter.xyz"},  # See eth_defi.lighter.constants.LIGHTER_CHAIN_ID for synthetic chain ID for Lighter pools (ZK-rollup)
     9999: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # See eth_defi.hyperliquid.constants.HYPERCORE_CHAIN_ID for synthetic chain ID for Hyperliquid native vaults (non-EVM)
     42161: {"name": "Arbitrum", "homepage": "https://arbitrum.io"},
+    4663: {"name": "Robinhood", "homepage": "https://robinhood.com/us/en/chain/"},
     11155111: {"name": "Ethereum Sepolia", "homepage": "https://ethereum.org"},
     421614: {"name": "Arbitrum Sepolia", "homepage": "https://arbitrum.io"},
     84532: {"name": "Base Sepolia", "homepage": "https://www.base.org"},
@@ -221,6 +228,7 @@ EVM_BLOCK_TIMES = {
     999: 1,  # HyperEVM dual-block: small blocks (2M gas, ~1s), large blocks (30M gas, ~60s). Using shortest.
     998: 1,  # HyperEVM testnet, same dual-block architecture as mainnet
     42161: 0.25,  # Arbitrum (block time ~250ms, though batches vary; reflects Nitro update)
+    4663: 0.25,  # Robinhood Chain, Arbitrum L2; docs promise sub-second soft confirmations, fixed block time not published
     11155111: 12,  # Ethereum Sepolia (same as Ethereum mainnet)
     421614: 0.25,  # Arbitrum Sepolia (same as Arbitrum mainnet)
     84532: 2,  # Base Sepolia (same as Base mainnet)

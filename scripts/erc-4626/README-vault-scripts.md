@@ -17,6 +17,13 @@ Discovery scan for ERC-4626 vaults on a single chain. Stores metadata in the vau
 JSON_RPC_URL=$JSON_RPC_BASE poetry run python scripts/erc-4626/scan-vaults.py
 ```
 
+For Robinhood Chain, set `JSON_RPC_ROBINHOOD` to an archive-capable provider
+endpoint and pass it through as the single-chain `JSON_RPC_URL`:
+
+```shell
+LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ROBINHOOD poetry run python scripts/erc-4626/scan-vaults.py
+```
+
 | Variable | Description |
 |----------|-------------|
 | `JSON_RPC_URL` | Required. RPC endpoint for the chain. |
@@ -122,6 +129,17 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150. Lower after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
+
+Robinhood Chain is scanned when `JSON_RPC_ROBINHOOD` is configured. For a
+focused Robinhood-only dry run:
+
+```shell
+source .local-test.env && \
+TEST_CHAINS=Robinhood \
+SCAN_PRICES=false \
+SKIP_POST_PROCESSING=true \
+poetry run python scripts/erc-4626/scan-vaults-all-chains.py
+```
 
 Core3 runs after EVM and native vault scans and before post-processing. This
 keeps the Core3 DuckDB closed before `eth_defi.vault.top_vaults_json` reads it

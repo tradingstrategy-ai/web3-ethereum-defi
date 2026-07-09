@@ -69,6 +69,11 @@ class _FakeVault:
         return "https://example.com/vault"
 
     @staticmethod
+    def get_notes() -> None:
+        """Return no vault notes."""
+        return None
+
+    @staticmethod
     def fetch_scan_record_extra_data() -> dict:
         """Return no protocol-specific scan fields."""
         return {}

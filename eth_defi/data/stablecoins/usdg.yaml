@@ -33,25 +33,44 @@ long_description: |
   ## Technical details
 
   USDG is an ERC-20 token on Ethereum (contract `0xe343167631d89B6Ffc58B88d6b7fB0228795491D`)
-  and is also available on Solana and several other MAS-approved networks. The Ethereum
-  contract uses OpenZeppelin's UUPS upgradeable proxy pattern. Source code is published at
-  [github.com/paxosglobal/usdg-contract](https://github.com/paxosglobal/usdg-contract).
+  and is also available on Arbitrum, Ink, Robinhood Chain, Solana, and X Layer. Paxos publishes
+  the canonical USDG token addresses in its developer documentation, including the Robinhood
+  Chain deployment at `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`.
+
+  Robinhood Chain support was announced by Global Dollar Network on 1 July 2026. The announcement
+  describes USDG as the first stablecoin natively issued on Robinhood Chain and the default lending
+  asset for Robinhood's onchain self-custodial Earn product.
+
+  The Ethereum contract uses OpenZeppelin's UUPS upgradeable proxy pattern. Source code is published
+  at [github.com/paxosglobal/usdg-contract](https://github.com/paxosglobal/usdg-contract).
 
   ## Sources
 
   - [Paxos newsroom: Introducing Global Dollar (USDG)](https://www.paxos.com/newsroom/paxos-introduces-global-dollar-usdg)
   - [Paxos blog: USDG and Global Dollar Network](https://www.paxos.com/blog/usdg-and-global-dollar-network-reshaping-the-future-of-stablecoins)
   - [globaldollar.com — about USDG](https://globaldollar.com/about-usdg)
+  - [Global Dollar Network: USDG is now available on Robinhood Chain](https://globaldollar.com/newsroom/usdg-is-now-available-on-robinhood-chain-as-the-lending-asset-in-robinhood-s-new-earn-product)
+  - [Paxos docs: USDG on main networks](https://docs.paxos.com/guides/stablecoin/usdg/mainnet)
+  - [Paxos USDG transparency reports](https://www.paxos.com/usdg-transparency)
 category: stablecoin
 links:
   homepage: https://globaldollar.com/
   coingecko: https://www.coingecko.com/en/coins/global-dollar
   defillama: https://defillama.com/stablecoin/global-dollar
   twitter: https://x.com/global_dollar
+  docs: https://docs.paxos.com/guides/stablecoin/usdg/mainnet
+  transparency: https://www.paxos.com/usdg-transparency
+  robinhood_announcement: https://globaldollar.com/newsroom/usdg-is-now-available-on-robinhood-chain-as-the-lending-asset-in-robinhood-s-new-earn-product
 slug: usdg
 contract_addresses:
+  - chain: arbitrum
+    address: '0x004B506865409877C9fA29bfb1ebA929984B9bbC'
   - chain: ethereum
     address: '0xe343167631d89B6Ffc58B88d6b7fB0228795491D'
+  - chain: 4663
+    address: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168'
+  - chain: xlayer
+    address: '0x4ae46a509F6b1D9056937BA4500cb143933D2dc8'
 source_currency: ''
 source_currency_source: ''
 source_currency_usd_rate: ''

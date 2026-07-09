@@ -24,6 +24,7 @@ from eth_defi.research.vault_metrics import (
     format_lifetime_table,
     make_vault_display_flags,
 )
+from eth_defi.erc_4626.vault_protocol.d2.vault import D2_PROTOCOL_NAME, format_d2_vault_note
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
@@ -310,6 +311,55 @@ def test_calculate_lifetime_metrics_blacklists_scanned_bad_flags(
     assert row["risk_numeric"] == VaultTechnicalRisk.blacklisted.value
     assert row["flags"] == {bad_flag}
     assert row["notes"] == expected_note
+
+
+def test_calculate_lifetime_metrics_uses_scanned_d2_notes(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """D2 notes scanned from the vault adapter are included in lifetime metric exports."""
+    vault_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
+    address = "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004"
+    spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[spec])
+    vault_row["Protocol"] = D2_PROTOCOL_NAME
+    vault_row["Address"] = address
+    vault_row["_risk"] = VaultTechnicalRisk.negligible
+    vault_row["_flags"] = set()
+    vault_row["_notes"] = format_d2_vault_note(address)
+    vault_prices = price_df.loc[price_df["id"] == vault_id]
+
+    metrics = calculate_lifetime_metrics(
+        vault_prices,
+        {spec: vault_row},
+    )
+
+    note = metrics.iloc[0]["notes"]
+    assert "D2 Finance strategy vault" in note
+    assert "**Summary:**" in note
+    assert f"[D2 strategy page](https://d2.finance/strategies/{address})" in note
+
+
+def test_calculate_lifetime_metrics_does_not_apply_non_d2_protocol_notes(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Non-D2 protocol-wide notes are not newly applied in lifetime metric exports."""
+    vault_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
+    spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[spec])
+    vault_row["Protocol"] = "Summer.fi"
+    vault_row["_risk"] = VaultTechnicalRisk.negligible
+    vault_row["_flags"] = set()
+    vault_prices = price_df.loc[price_df["id"] == vault_id]
+
+    metrics = calculate_lifetime_metrics(
+        vault_prices,
+        {spec: vault_row},
+    )
+
+    note = metrics.iloc[0]["notes"] or ""
+    assert "Summer.fi vault is illiquid" not in note
 
 
 def test_calculate_period_metrics(
