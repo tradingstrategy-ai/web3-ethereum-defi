@@ -130,6 +130,9 @@ _CHAIN_ALIASES_TO_ID: dict[str, int] = {
     "arbitrum": 42161,
     "arbitrum_one": 42161,
     "arbitrum-one": 42161,
+    "robinhood": 4663,
+    "robinhood_chain": 4663,
+    "robinhood-chain": 4663,
     "polygon": 137,
     "matic": 137,
     "optimism": 10,
@@ -150,6 +153,9 @@ _CHAIN_ALIASES_TO_ID: dict[str, int] = {
     "berachain": 80094,
     "hyperevm": 999,
     "hyperliquid": 999,
+    "xlayer": 196,
+    "x_layer": 196,
+    "x-layer": 196,
 }
 
 
@@ -1035,6 +1041,8 @@ def _chain_slug_to_id(chain: Any) -> int | None:
     if isinstance(chain, int):
         return chain
     slug = str(chain).strip().lower().replace(" ", "_")
+    if slug.isdecimal():
+        return int(slug)
     return _CHAIN_ALIASES_TO_ID.get(slug)
 
 
