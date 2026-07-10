@@ -40,10 +40,14 @@ cached vault metadata to select settlement ranges, avoiding an extra raw price
 parquet read for each chain.
 The DuckDB database also stores per-vault scan watermarks, so successful empty
 event scans do not cause the same historical block range to be queried again.
+During price post-processing, the cleaner reads ``vault-settlements.duckdb``
+and annotates the cleaned price DataFrame with ``vault_settlement_at``. The
+raw price parquet remains settlement-free; settlement markers are derived from
+the sparse event database after row-level cleaning has reduced the price frame.
 A failed settlement read is logged and shown in
 the scanner dashboard, but it does not abort the rest of the scanner cycle or
 price cleaning. If one vault cannot be prepared or decoded, the scanner skips
-that vault and still stores settlement markers for the other vaults in the same
+that vault and still stores settlement events for the other vaults in the same
 chain batch.
 
 Supported protocols

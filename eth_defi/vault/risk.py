@@ -212,6 +212,9 @@ VAULT_SPECIFIC_RISK = {
     # Superform vault - no indication of underlying activity or positions
     # https://app.superform.xyz/vault/1_0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6
     "0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6": VaultTechnicalRisk.blacklisted,
+    # LONGV4 HyperEVM vault - totalAssets() and convertToAssets() run out of gas
+    # with CALL_GAS=2,000,000 and poison historical scanner Multicall3 batches.
+    "0x2eee42a0704dd4c0ff8141f85e24de9085a76093": VaultTechnicalRisk.blacklisted,
 }
 
 
@@ -347,6 +350,7 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x5705554BAa86Da01fF4A82d29a1598c5B3A8B476",  # Open PnL feed helper contract for broken Gains vault on Berachain
     "0x8fF6aDBC653405245B6b686E31b14A7da7000281",  # BNB broken contract
     "0x6949bcab16c0B389095C5b744f6FBF9741A1b3b6",  # Test vault on Monad
+    "0x2eEe42A0704DD4C0fF8141f85E24De9085A76093",  # LONGV4 HyperEVM vault - totalAssets() and convertToAssets() hit BasicOutOfGas(2000000), poisoning historical scanner Multicall3 batches
     "0x5a8aFb250525aB8Fa85EF9a5f260Eb11B77a409a",  # Age old mainnet contract from 2017 (block 4,655,173) - burns all forwarded gas before reverting, poisoning the multicall probe batch with out-of-gas (-32003)
     "0x162428775A4C6c513FF8722B91D1aF45a9Caff41",  # Unverified old mainnet EtherDelta-style DEX from 2018 (block 4,934,650) - deposit/trade/withdraw methods, not a vault
     "0xd3F41DAC84594332E4fF3C7fd2242DeAF7857e79",  # HYPE Funding Yield (HFY) HyperEVM USDt0 vault - totalAssets() and convertToAssets() hit HyperCore SpotBalance precompile revert at block 39,542,844, poisoning Multicall3 scanner batches with out-of-gas (-32003)

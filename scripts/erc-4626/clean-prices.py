@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Clean raw scanned vault data.
 
-- Reads ``vault-prices-1h.parquet`` and generates ``vault-prices-1h-cleaned.parquet``
+- Reads ``vault-prices-1h.parquet`` and generates ``cleaned-vault-prices-1h.parquet``
 - Calculate returns and various performance metrics to be included with prices data
 - Clean returns from abnormalities
 

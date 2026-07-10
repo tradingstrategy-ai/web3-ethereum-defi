@@ -117,9 +117,9 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SCAN_GRVT` | Optional. Enable GRVT native vault scanning. Default: false. |
 | `SCAN_LIGHTER` | Optional. Enable Lighter native pool scanning. Default: false. |
 | `SCAN_HIBACHI` | Optional. Enable Hibachi native vault scanning. Default: false. |
-| `SCAN_VAULT_SETTLEMENTS` | Optional. Scan Lagoon and D2 settlement events during each successful EVM chain cycle, before price cleaning. Default: true. Set to `false` only for debugging runs where settlement markers are deliberately skipped. Settlement scan failures are logged and shown in the dashboard without aborting the rest of the scanner cycle. |
+| `SCAN_VAULT_SETTLEMENTS` | Optional. Scan Lagoon and D2 settlement events during each successful EVM chain cycle. Default: true. The scan fills `vault-settlements.duckdb` before price cleaning; `vault_settlement_at` is then merged into the cleaned price frame during cleaning. Set to `false` only for debugging runs where new settlement event reads are deliberately skipped. Settlement scan failures are logged and shown in the dashboard without aborting the rest of the scanner cycle. |
 | `VAULT_SETTLEMENT_START_BLOCK` | Optional. Inclusive settlement scan start block for forced backfills. Normally unset so scans continue incrementally from `vault-settlements.duckdb`. |
-| `VAULT_SETTLEMENT_END_BLOCK` | Optional. Inclusive settlement scan end block for forced backfills. Normally unset so scans continue up to the latest raw price block. |
+| `VAULT_SETTLEMENT_END_BLOCK` | Optional. Inclusive settlement scan end block for forced backfills. Normally unset so scans continue up to the just-completed chain scan end block. |
 | `SKIP_CORE3` | Optional. Skip Core3 risk intelligence enrichment. Default: false. Core3 is default-on enrichment for the top-vaults JSON, unlike optional native vault sources that use opt-in `SCAN_*` flags. |
 | `CORE3_API_KEY` | Optional. Core3 API key. If missing, Core3 is disabled for the run with a warning. |
 | `CORE3_DATABASE_PATH` | Optional. Core3 DuckDB path. Default: `~/.tradingstrategy/vaults/core3/core3.duckdb`. |
@@ -338,7 +338,7 @@ be purged and rescanned.
 
 ### clean-prices.py
 
-Clean raw scanned vault data. Reads `vault-prices-1h.parquet` and generates `vault-prices-1h-cleaned.parquet`.
+Clean raw scanned vault data. Reads `vault-prices-1h.parquet` and generates `cleaned-vault-prices-1h.parquet`.
 
 ```shell
 poetry run python scripts/erc-4626/clean-prices.py
@@ -469,7 +469,8 @@ The vault scanner is packaged as a Docker image via `Dockerfile.vault-scanner`.
 The default entrypoint is `scan-vaults-all-chains.py`, which scans **all chains**.
 Vault settlement scanning is enabled by default in both the one-shot and looped
 Docker Compose services with `SCAN_VAULT_SETTLEMENTS=true`, so Lagoon and D2
-settlement markers are populated before cleaned price data is exported.
+settlement events are stored before price cleaning and `vault_settlement_at`
+markers are merged into the cleaned price data before export.
 The scanner runs settlements as part of each successful EVM chain cycle. For
 each chain it queries all supported vault addresses as one batch, chunked by
 block range for the JSON-RPC fallback, and then filters the returned logs back
@@ -479,11 +480,13 @@ so it does not re-read the raw price parquet for each chain settlement pass.
 Successful empty settlement scans advance per-vault scan watermarks in
 `vault-settlements.duckdb`, so vaults without settlement events are not
 rescanned from their first price block on every cycle.
+The raw price parquet is not rewritten for settlement markers; the cleaner reads
+the sparse DuckDB event store and annotates the cleaned price frame only.
 If one chain's settlement event read fails, the failure is logged and displayed
 as `<chain> settlements`, while the rest of the scan and post-processing can
 continue with the previously stored `vault-settlements.duckdb` data. If one
-vault in a chain batch cannot be prepared or decoded, it is skipped and the
-other vaults in the batch are still stored.
+vault in a chain batch cannot be prepared or decoded, it is skipped and
+settlement events for the other vaults in the batch are still stored.
 
 ### Linea historical block headers
 
@@ -571,6 +574,56 @@ docker compose --profile oneshot run --rm --entrypoint /bin/bash vault-scanner
 ## Debugging and verification
 
 Scripts for checking individual vault data and diagnosing issues.
+
+### poke-hyperevm-vault-calls.py
+
+Manual HyperEVM diagnostic for finding vault calls that can poison historical
+scanner Multicall3 batches. The script loads HyperEVM vault rows from the local
+vault metadata database, builds the same per-vault historical reader calls as
+`scan-prices.py`, and executes each call as an isolated `eth_call` with an
+optional `eth_estimateGas` preflight.
+
+The script is read-only for pipeline state. It does not mutate reader-state,
+parquet, or the vault metadata database. It writes CSV and JSONL diagnostics and
+prints a tabulated `Problematic vault calls` section for reverts, errors, and
+out-of-gas suspects.
+
+```shell
+source .local-test.env && \
+  poetry run python scripts/erc-4626/poke-hyperevm-vault-calls.py
+```
+
+To retest only the vaults from a failed Multicall3 batch:
+
+```shell
+source .local-test.env && \
+VAULT_ID="999-0x2b37f3566933E4DBe59c6b86BedbC91c1E04D774,999-0x6ED613E86e8D0b6617e445f17323AC0162FF6ce6,999-0xEB71A37713B56646916152F2D063E3251Ef9211D" \
+OUTPUT_CSV=/tmp/hyperevm-vault-call-poke.csv \
+OUTPUT_JSONL=/tmp/hyperevm-vault-call-poke.jsonl \
+poetry run python scripts/erc-4626/poke-hyperevm-vault-calls.py
+```
+
+Use `MIN_DEPOSIT_THRESHOLD=0` to inspect every HyperEVM row in the vault
+database. The default `MIN_DEPOSIT_THRESHOLD=5` mirrors the production scanner
+activity filter so the report focuses on vaults likely to enter historical
+price scanning. When `VAULT_ID` is set, the script bypasses this threshold for
+the explicitly named vaults so failed Multicall3 batches can be retested even
+for fresh or low-activity vaults.
+
+| Variable | Description |
+|----------|-------------|
+| `JSON_RPC_URL` | Optional. HyperEVM RPC endpoint. Defaults to `JSON_RPC_HYPERLIQUID`. |
+| `VAULT_DB_PATH` | Optional. Vault metadata pickle. Default: `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
+| `OUTPUT_CSV` | Optional. CSV diagnostic report. Default: `logs/hyperevm-vault-call-poke.csv`. |
+| `OUTPUT_JSONL` | Optional. JSONL diagnostic report with RPC headers. Default: `logs/hyperevm-vault-call-poke.jsonl`. |
+| `BLOCK_NUMBER` | Optional. Decimal, hex, or `latest`. Default: resolves the latest block once at startup. |
+| `CALL_GAS` | Optional. Gas cap for each isolated `eth_call`. Default: `2000000`. |
+| `MAX_ESTIMATED_GAS` | Optional. Gas-estimate threshold for marking a call as an out-of-gas suspect. Default: `CALL_GAS`. |
+| `ESTIMATE_GAS` | Optional. Run `eth_estimateGas` before the direct call. Default: true. |
+| `MIN_DEPOSIT_THRESHOLD` | Optional. Minimum deposit-event count for generic vaults. Default: `5`. |
+| `VAULT_ID` | Optional. Comma-separated `chain_id-address` filters. HyperEVM uses chain id `999`. |
+| `LIMIT` | Optional. Maximum number of selected vaults to inspect. |
+| `LOG_LEVEL` | Optional. Default: info. |
 
 ### check-price-freshness.py
 

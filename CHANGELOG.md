@@ -2,6 +2,7 @@
 
 - feat: Batch ERC-4626 vault settlement event scans by chain, track empty settlement scan watermarks, avoid per-chain raw price parquet rereads, and make settlement scan failures non-fatal for the vault scanner cycle (2026-07-10)
 - feat: Expand Midas vault scanning to all registry-scannable products with custom feed fallback and explicit unscannable feed exclusions (2026-07-10)
+- feat: Add a manual HyperEVM vault call probe and blacklist out-of-gas vaults that poison historical scanner Multicall3 batches (2026-07-10)
 - feat: Add Midas vault protocol support with registry metadata, live NAV/share-price history scanning and fee-preserving lifetime metrics export (2026-07-10)
 - feat: Add Frankencoin ERC-4626 savings vault protocol support with hardcoded Ethereum, Base and Gnosis svZCHF vault addresses (2026-07-09)
 - feat: Add stale-NAV corrected historical share price reading for T3tris async vaults (2026-07-09)

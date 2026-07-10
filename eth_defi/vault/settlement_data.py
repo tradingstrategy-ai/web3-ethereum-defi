@@ -2,16 +2,18 @@
 
 This module stores sparse asynchronous vault settlement events in a small
 DuckDB database. The settlement data is intentionally kept separate from the
-raw historical price parquet: price rows remain scanner snapshots, while
-settlement events are merged into the in-memory DataFrame before the cleaning
-pipeline runs.
+price parquets: raw price rows remain scanner snapshots, while settlement
+events are merged into the cleaned in-memory price DataFrame during the
+cleaning pipeline.
 """
 
 import datetime
 import logging
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from eth_typing import HexAddress
 from hexbytes import HexBytes
@@ -22,6 +24,7 @@ from eth_defi.vault.vaultdb import get_pipeline_data_dir
 logger = logging.getLogger(__name__)
 
 VAULT_SETTLEMENT_DATABASE_FILENAME = "vault-settlements.duckdb"
+VAULT_SETTLEMENT_COLUMN = "vault_settlement_at"
 
 
 def get_default_vault_settlement_database_path() -> Path:
@@ -437,31 +440,43 @@ def checkpoint_vault_settlement_database_if_exists(path: Path | None = None) -> 
 def annotate_prices_with_vault_settlements(
     prices_df: pd.DataFrame,
     settlements_df: pd.DataFrame,
-    column_name: str = "vault_settlement_at",
 ) -> pd.DataFrame:
-    """Annotate price rows with settlement timestamps.
+    """Annotate cleaned price rows with settlement timestamps.
 
     For each ``(chain, address)`` group, a price row receives the latest
     settlement timestamp in ``(previous_price_timestamp, current_timestamp]``.
     The first row receives the latest settlement timestamp up to its timestamp.
 
+    The production cleaning pipeline calls this after row-level cleaning, so
+    raw price parquet rows remain settlement-free.
+
     :param prices_df:
-        Raw or cleaned vault prices DataFrame. Must contain ``chain`` and
-        ``address`` columns. The row timestamp can be either a ``timestamp``
-        column or a :class:`~pandas.DatetimeIndex` named ``timestamp``.
+        Cleaned vault prices DataFrame. Must contain ``chain``, ``address``
+        and ``timestamp`` columns, or use a datetime index for timestamps.
     :param settlements_df:
         Settlement DataFrame from :class:`VaultSettlementDatabase`.
-    :param column_name:
-        Output timestamp column name.
     :return:
-        Copy of ``prices_df`` with ``column_name`` populated.
+        Copy of ``prices_df`` with ``vault_settlement_at`` populated.
     """
+    started_at = time.perf_counter()
+    logger.info(
+        "Starting vault settlement annotation: %d price rows, %d settlement rows",
+        len(prices_df),
+        len(settlements_df),
+    )
     result = prices_df.copy()
-    result[column_name] = pd.NaT
+    result[VAULT_SETTLEMENT_COLUMN] = pd.NaT
     if result.empty or settlements_df.empty:
+        logger.info(
+            "Skipped vault settlement annotation: %d price rows, %d settlement rows",
+            len(result),
+            len(settlements_df),
+        )
         return result
 
-    if "timestamp" not in result.columns and pd.api.types.is_datetime64_any_dtype(result.index):
+    timestamp_is_index = "timestamp" not in result.columns
+    if timestamp_is_index:
+        assert pd.api.types.is_datetime64_any_dtype(result.index), "Price DataFrame must have a timestamp column or datetime index"
         result = result.reset_index()
         index_column = result.columns[0]
         if index_column != "timestamp":
@@ -482,123 +497,81 @@ def annotate_prices_with_vault_settlements(
     settlements["address"] = settlements["address"].astype(str).str.lower()
     settlements["timestamp"] = pd.to_datetime(settlements["timestamp"])
 
-    for (chain_id, address), row_indexes in result.groupby(["chain", "address"]).groups.items():
-        vault_settlements = settlements[(settlements["chain_id"] == chain_id) & (settlements["address"] == address)].sort_values("timestamp")
-        if vault_settlements.empty:
+    price_groups = result.groupby(["chain", "address"], sort=False).groups
+    settlement_groups = settlements.groupby(["chain_id", "address"], sort=False).groups
+    logger.info(
+        "Prepared vault settlement annotation groups: %d price rows across %d vaults, %d settlement rows across %d vaults",
+        len(result),
+        len(price_groups),
+        len(settlements),
+        len(settlement_groups),
+    )
+
+    matched_vault_count = 0
+    annotated_row_count = 0
+    for (chain_id, address), settlement_indexes in settlement_groups.items():
+        row_indexes = price_groups.get((chain_id, address))
+        if row_indexes is None:
             continue
 
-        sorted_rows = result.loc[row_indexes].sort_values("timestamp")
+        matched_vault_count += 1
+        vault_settlements = settlements.loc[settlement_indexes].sort_values("timestamp")
+        sorted_rows = result.loc[row_indexes, ["timestamp"]].sort_values("timestamp")
         settlement_timestamps = vault_settlements["timestamp"].to_numpy()
         price_timestamps = sorted_rows["timestamp"].to_numpy()
         previous_price_timestamps = pd.Series(sorted_rows["timestamp"]).shift(1).to_numpy()
 
-        for row_index, price_timestamp, previous_price_timestamp in zip(sorted_rows.index, price_timestamps, previous_price_timestamps, strict=True):
-            settlement_pos = settlement_timestamps.searchsorted(price_timestamp, side="right") - 1
-            if settlement_pos < 0:
-                continue
-            settlement_timestamp = settlement_timestamps[settlement_pos]
-            if pd.isna(previous_price_timestamp) or settlement_timestamp > previous_price_timestamp:
-                result.loc[row_index, column_name] = pd.Timestamp(settlement_timestamp)
+        settlement_positions = np.searchsorted(settlement_timestamps, price_timestamps, side="right") - 1
+        has_previous_settlement = settlement_positions >= 0
+        if not has_previous_settlement.any():
+            continue
 
+        candidate_indexes = sorted_rows.index[has_previous_settlement]
+        candidate_settlements = settlement_timestamps[settlement_positions[has_previous_settlement]]
+        candidate_previous_prices = previous_price_timestamps[has_previous_settlement]
+        is_in_price_interval = pd.isna(candidate_previous_prices) | (candidate_settlements > candidate_previous_prices)
+        if not is_in_price_interval.any():
+            continue
+
+        annotated_indexes = candidate_indexes[is_in_price_interval]
+        result.loc[annotated_indexes, VAULT_SETTLEMENT_COLUMN] = pd.to_datetime(candidate_settlements[is_in_price_interval])
+        annotated_row_count += len(annotated_indexes)
+
+    logger.info(
+        "Vault settlement annotation complete: %d price rows annotated across %d vaults in %.1f seconds",
+        annotated_row_count,
+        matched_vault_count,
+        time.perf_counter() - started_at,
+    )
+    if timestamp_is_index:
+        result.set_index("timestamp", inplace=True)
     return result
 
 
-def preserve_vault_settlement_markers(
-    raw_prices_df: pd.DataFrame,
+def merge_vault_settlements_into_cleaned_prices(
     cleaned_prices_df: pd.DataFrame,
-    column_name: str = "vault_settlement_at",
+    settlement_db_path: Path | None = None,
 ) -> pd.DataFrame:
-    """Carry settlement markers from annotated raw prices to cleaned prices.
+    """Merge settlement timestamps into the cleaned price DataFrame.
 
-    Cleaning can remove row-level samples, for example inactive lead-time rows
-    or rows outside the stablecoin scope. If a vault itself survives cleaning,
-    settlement timestamps must not disappear merely because the raw row that
-    carried the marker was removed. This helper rebuilds settlement events from
-    the annotated raw frame and reapplies normal interval annotation to the
-    cleaned frame.
+    The raw ``vault-prices-1h.parquet`` file is not rewritten with settlement
+    markers. Settlement events are stored in ``vault-settlements.duckdb`` and
+    applied here to the cleaned in-memory price frame before
+    ``cleaned-vault-prices-1h.parquet`` is written.
 
-    :param raw_prices_df:
-        Raw price DataFrame after ``vault_settlement_at`` has been merged.
     :param cleaned_prices_df:
-        Cleaned price DataFrame that should keep or carry forward settlement
-        markers.
-    :param column_name:
-        Settlement marker column name.
-    :return:
-        Copy of ``cleaned_prices_df`` with settlement markers re-applied.
-    """
-    result = cleaned_prices_df.copy()
-    if column_name not in result.columns:
-        result[column_name] = pd.NaT
-
-    if raw_prices_df.empty or result.empty or column_name not in raw_prices_df.columns:
-        return result
-
-    required_columns = {"chain", "address", column_name}
-    missing_columns = required_columns - set(raw_prices_df.columns)
-    assert not missing_columns, f"Raw price DataFrame missing columns: {missing_columns}"
-
-    marker_mask = raw_prices_df[column_name].notna()
-    if not marker_mask.any():
-        return result
-
-    settlements_df = raw_prices_df.loc[marker_mask, ["chain", "address", column_name]].rename(
-        columns={
-            "chain": "chain_id",
-            column_name: "timestamp",
-        }
-    )
-    settlements_df = settlements_df.drop_duplicates(subset=["chain_id", "address", "timestamp"])
-    return annotate_prices_with_vault_settlements(result, settlements_df, column_name=column_name)
-
-
-def merge_vault_settlement_data(
-    prices_df: pd.DataFrame,
-    settlement_db_path: Path | None = None,
-    column_name: str = "vault_settlement_at",
-) -> pd.DataFrame:
-    """Merge settlement data from DuckDB into a price DataFrame.
-
-    :param prices_df:
-        Raw or cleaned price DataFrame.
-    :param settlement_db_path:
-        Optional settlement DuckDB path. Missing database means the column is
-        still added but left empty.
-    :param column_name:
-        Output timestamp column name.
-    :return:
-        Annotated DataFrame.
-    """
-    settlements_df = load_vault_settlements(settlement_db_path)
-    annotated = annotate_prices_with_vault_settlements(prices_df, settlements_df, column_name=column_name)
-    non_null_count = int(annotated[column_name].notna().sum()) if column_name in annotated.columns else 0
-    logger.info("Merged vault settlement data: %d price rows annotated", non_null_count)
-    return annotated
-
-
-def merge_vault_settlements_into_raw_prices(
-    raw_prices_df: pd.DataFrame,
-    settlement_db_path: Path | None = None,
-) -> pd.DataFrame:
-    """Merge settlement timestamps into the raw price DataFrame.
-
-    This is the narrow entry point used by the price cleaning pipeline. It keeps
-    all settlement storage and interval annotation logic in this module, while
-    ``wrangle_vault_prices`` only decides where in the cleaning flow the merge
-    happens.
-
-    :param raw_prices_df:
-        Raw scanner price DataFrame loaded from ``vault-prices-1h.parquet``.
+        Cleaned scanner price DataFrame produced by the vault price cleaning
+        pipeline.
     :param settlement_db_path:
         Optional settlement DuckDB path.
     :return:
-        Raw price DataFrame with ``vault_settlement_at`` added.
+        Cleaned price DataFrame with ``vault_settlement_at`` added.
     """
-    return merge_vault_settlement_data(
-        raw_prices_df,
-        settlement_db_path=settlement_db_path,
-        column_name="vault_settlement_at",
-    )
+    settlements_df = load_vault_settlements(settlement_db_path)
+    annotated = annotate_prices_with_vault_settlements(cleaned_prices_df, settlements_df)
+    non_null_count = int(annotated[VAULT_SETTLEMENT_COLUMN].notna().sum())
+    logger.info("Merged vault settlement data: %d price rows annotated", non_null_count)
+    return annotated
 
 
 def _hex_to_string(value: HexBytes | str) -> str:
