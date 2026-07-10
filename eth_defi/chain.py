@@ -153,6 +153,7 @@ CHAIN_NAMES = {
     5000: "Mantle",
     999: "Hyperliquid",  # HyperEVM, see https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm
     998: "Hyperliquid_Testnet",  # HyperEVM testnet
+    4217: "Tempo",
     42161: "Arbitrum",
     4663: "Robinhood",
     11155111: "Ethereum_Sepolia",
@@ -198,6 +199,7 @@ CHAIN_HOMEPAGES = {
     9997: {"name": "Hibachi", "homepage": "https://hibachi.xyz"},  # Synthetic in-house ID, not EVM RPC
     9998: {"name": "Lighter", "homepage": "https://lighter.xyz"},  # See eth_defi.lighter.constants.LIGHTER_CHAIN_ID for synthetic chain ID for Lighter pools (ZK-rollup)
     9999: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # See eth_defi.hyperliquid.constants.HYPERCORE_CHAIN_ID for synthetic chain ID for Hyperliquid native vaults (non-EVM)
+    4217: {"name": "Tempo", "homepage": "https://tempo.xyz"},
     42161: {"name": "Arbitrum", "homepage": "https://arbitrum.io"},
     4663: {"name": "Robinhood", "homepage": "https://robinhood.com/us/en/chain/"},
     11155111: {"name": "Ethereum Sepolia", "homepage": "https://ethereum.org"},
@@ -247,6 +249,7 @@ EVM_BLOCK_TIMES = {
     #: See `HyperEVM dual-block architecture <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture>`__.
     999: 1,  # HyperEVM dual-block: small blocks (2M gas, ~1s), large blocks (30M gas, ~60s). Using shortest.
     998: 1,  # HyperEVM testnet, same dual-block architecture as mainnet
+    4217: 0.5,  # Tempo, measured from recent block-header samples (timestamps have one-second resolution)
     42161: 0.25,  # Arbitrum (block time ~250ms, though batches vary; reflects Nitro update)
     4663: 0.25,  # Robinhood Chain, Arbitrum L2; docs promise sub-second soft confirmations, fixed block time not published
     11155111: 12,  # Ethereum Sepolia (same as Ethereum mainnet)

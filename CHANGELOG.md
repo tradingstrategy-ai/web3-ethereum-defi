@@ -1,6 +1,7 @@
 # 1.2
 
 - feat: Add Midas strategy curator attribution for Fasanara, Apollo Crypto and Edge Capital vault products (2026-07-10)
+- feat: Add Tempo chain metadata, Hypersync lookup, vault scanner scheduling and Docker RPC wiring (2026-07-10)
 - feat: Batch ERC-4626 vault settlement event scans by chain, track empty settlement scan watermarks, avoid per-chain raw price parquet rereads, and make settlement scan failures non-fatal for the vault scanner cycle (2026-07-10)
 - feat: Expand Midas vault scanning to all registry-scannable products with custom feed fallback and explicit unscannable feed exclusions (2026-07-10)
 - feat: Add a manual HyperEVM vault call probe and blacklist out-of-gas vaults that poison historical scanner Multicall3 batches (2026-07-10)

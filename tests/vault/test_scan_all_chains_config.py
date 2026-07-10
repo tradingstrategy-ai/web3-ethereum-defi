@@ -16,6 +16,16 @@ def test_robinhood_chain_is_scheduled_for_vault_scans():
     assert robinhood.scan_vaults is True
 
 
+def test_tempo_chain_is_scheduled_for_vault_scans():
+    """Tempo is available as an EVM vault scanner target."""
+
+    configs = {config.name: config for config in build_chain_configs()}
+
+    tempo = configs["Tempo"]
+    assert tempo.env_var == "JSON_RPC_TEMPO"
+    assert tempo.scan_vaults is True
+
+
 def test_linea_uses_poa_middleware_for_historical_settlement_reads():
     """Linea historical settlement backfills need PoA extra-data handling."""
 
