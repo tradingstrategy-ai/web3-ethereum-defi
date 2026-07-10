@@ -6,5 +6,5 @@ twitter: hyperdrivedefi
 linkedin: delv-tech
 rss: https://blog.delv.tech/rss/
 linkedin-rss-hub-disabled-at: 2026-06-09
-rss-failure-at: 2026-07-09
+rss-failure-at: 2026-07-10
 rss-failure-exception-message: "HTTPSConnectionPool(host='blog.delv.tech', port=443): Max retries exceeded with url: /rss/ (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: "

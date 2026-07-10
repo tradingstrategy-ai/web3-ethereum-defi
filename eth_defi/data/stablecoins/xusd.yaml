@@ -23,7 +23,7 @@ entries:
       address: '0xC08e7E23C235073C6807C2EFE7021304cb7c2815'
     - chain: bsc
       address: '0xF81aC2E1A0373ddE1BcE01E2Fe694a9b7E3bfcB9'
-  rate_fetch_failed_at: '2026-07-09T01:57:58'
+  rate_fetch_failed_at: '2026-07-10T06:52:47'
   rate_fetch_failed_reason: missing_coingecko_id
   checks:
     twitter_last_post_at: '2025-12-16'
@@ -59,7 +59,7 @@ entries:
     coingecko: ''
     defillama: ''
     twitter: https://x.com/xdollarfi
-  rate_fetch_failed_at: '2026-07-09T01:57:58'
+  rate_fetch_failed_at: '2026-07-10T06:52:47'
   rate_fetch_failed_reason: missing_coingecko_id
   checks:
     twitter_last_post_at: ''

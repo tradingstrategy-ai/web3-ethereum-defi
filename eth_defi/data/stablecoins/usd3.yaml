@@ -49,7 +49,7 @@ links:
 contract_addresses:
   - chain: ethereum
     address: '0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc'
-rate_fetch_failed_at: '2026-07-09T01:57:58'
+rate_fetch_failed_at: '2026-07-10T06:52:47'
 rate_fetch_failed_reason: missing_coingecko_id
 checks:
   twitter_last_post_at: ''

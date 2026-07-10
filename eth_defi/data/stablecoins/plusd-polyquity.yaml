@@ -26,7 +26,7 @@ links:
   defillama: https://defillama.com/protocol/polyquity
   twitter: https://x.com/polyquity_org
 slug: plusd-polyquity
-rate_fetch_failed_at: '2026-07-09T01:57:58'
+rate_fetch_failed_at: '2026-07-10T06:52:47'
 rate_fetch_failed_reason: missing_coingecko_id
 checks:
   twitter_last_post_at: ''

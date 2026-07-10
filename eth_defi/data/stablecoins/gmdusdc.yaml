@@ -44,7 +44,7 @@ contract_addresses:
   - chain: arbitrum
     address: '0x3DB4B7DA67dd5aF61Cb9b3C70501B1BdB24b2C22'
 slug: gmdusdc
-rate_fetch_failed_at: '2026-07-09T01:57:58'
+rate_fetch_failed_at: '2026-07-10T06:52:47'
 rate_fetch_failed_reason: missing_coingecko_id
 checks:
   twitter_last_post_at: '2024-01-24'

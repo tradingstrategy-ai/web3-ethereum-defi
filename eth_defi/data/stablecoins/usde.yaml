@@ -62,15 +62,15 @@ source_currency_usd_rate_source: ''
 coingecko_id: ethena-usde
 coingecko_link: https://www.coingecko.com/en/coins/ethena-usde
 coingecko_id_source: url
-coingecko_id_verified_at: '2026-07-09T01:57:58'
+coingecko_id_verified_at: '2026-07-10T06:52:47'
 coingecko_id_verification_failed_at: ''
 coingecko_id_verification_failed_reason: ''
-usd_rate: 0.998486
-usd_rate_fetched_at: '2026-07-09T01:57:58'
-usd_rate_updated_at: '2026-07-09T01:57:41'
+usd_rate: 0.999591
+usd_rate_fetched_at: '2026-07-10T06:52:47'
+usd_rate_updated_at: '2026-07-10T06:52:47'
 peg_rate: ''
 peg_rate_currency: ''
-rate_fetch_failed_at: '2026-07-09T01:57:58'
+rate_fetch_failed_at: '2026-07-10T06:52:47'
 rate_fetch_failed_reason: missing_source_currency
 depegged_at: ''
 checks:
