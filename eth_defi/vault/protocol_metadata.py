@@ -275,7 +275,10 @@ def process_and_upload_protocol_metadata(
         content_type="application/json",
         skip_if_current=True,
     )
-    logger.info("%s metadata for protocol: %s", "Uploaded" if metadata_uploaded else "Skipped unchanged", slug)
+    if metadata_uploaded:
+        logger.info("Uploaded metadata for protocol: %s", slug)
+    else:
+        logger.debug("Skipped unchanged metadata for protocol: %s", slug)
 
     # Upload available logos
     logo_dir = FORMATTED_LOGOS_DIR / slug
