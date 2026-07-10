@@ -3,7 +3,7 @@
 import pytest
 
 from eth_defi.vault.flag import BAD_FLAGS, VaultFlag, get_notes, get_vault_special_flags, is_flagged_vault
-from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
+from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS, VaultTechnicalRisk, get_vault_risk
 
 
 def test_not_in_morpho_api_is_bad_flag():
@@ -47,6 +47,14 @@ def test_summer_fi_protocol_vaults_are_blacklisted() -> None:
     assert is_flagged_vault(address, protocol)
     assert "illiquid" in get_notes(address, protocol_name=protocol)
     assert get_vault_risk(protocol, address) == VaultTechnicalRisk.blacklisted
+
+
+def test_hyperevm_out_of_gas_vault_is_blacklisted() -> None:
+    """HyperEVM vaults that poison Multicall3 batches are blacklisted."""
+    address = "0x2eee42a0704dd4c0ff8141f85e24de9085a76093"
+
+    assert get_vault_risk("ERC-4626", address) == VaultTechnicalRisk.blacklisted
+    assert address in BROKEN_VAULT_CONTRACTS
 
 
 @pytest.mark.parametrize(

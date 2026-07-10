@@ -572,6 +572,56 @@ docker compose --profile oneshot run --rm --entrypoint /bin/bash vault-scanner
 
 Scripts for checking individual vault data and diagnosing issues.
 
+### poke-hyperevm-vault-calls.py
+
+Manual HyperEVM diagnostic for finding vault calls that can poison historical
+scanner Multicall3 batches. The script loads HyperEVM vault rows from the local
+vault metadata database, builds the same per-vault historical reader calls as
+`scan-prices.py`, and executes each call as an isolated `eth_call` with an
+optional `eth_estimateGas` preflight.
+
+The script is read-only for pipeline state. It does not mutate reader-state,
+parquet, or the vault metadata database. It writes CSV and JSONL diagnostics and
+prints a tabulated `Problematic vault calls` section for reverts, errors, and
+out-of-gas suspects.
+
+```shell
+source .local-test.env && \
+  poetry run python scripts/erc-4626/poke-hyperevm-vault-calls.py
+```
+
+To retest only the vaults from a failed Multicall3 batch:
+
+```shell
+source .local-test.env && \
+VAULT_ID="999-0x2b37f3566933E4DBe59c6b86BedbC91c1E04D774,999-0x6ED613E86e8D0b6617e445f17323AC0162FF6ce6,999-0xEB71A37713B56646916152F2D063E3251Ef9211D" \
+OUTPUT_CSV=/tmp/hyperevm-vault-call-poke.csv \
+OUTPUT_JSONL=/tmp/hyperevm-vault-call-poke.jsonl \
+poetry run python scripts/erc-4626/poke-hyperevm-vault-calls.py
+```
+
+Use `MIN_DEPOSIT_THRESHOLD=0` to inspect every HyperEVM row in the vault
+database. The default `MIN_DEPOSIT_THRESHOLD=5` mirrors the production scanner
+activity filter so the report focuses on vaults likely to enter historical
+price scanning. When `VAULT_ID` is set, the script bypasses this threshold for
+the explicitly named vaults so failed Multicall3 batches can be retested even
+for fresh or low-activity vaults.
+
+| Variable | Description |
+|----------|-------------|
+| `JSON_RPC_URL` | Optional. HyperEVM RPC endpoint. Defaults to `JSON_RPC_HYPERLIQUID`. |
+| `VAULT_DB_PATH` | Optional. Vault metadata pickle. Default: `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
+| `OUTPUT_CSV` | Optional. CSV diagnostic report. Default: `logs/hyperevm-vault-call-poke.csv`. |
+| `OUTPUT_JSONL` | Optional. JSONL diagnostic report with RPC headers. Default: `logs/hyperevm-vault-call-poke.jsonl`. |
+| `BLOCK_NUMBER` | Optional. Decimal, hex, or `latest`. Default: resolves the latest block once at startup. |
+| `CALL_GAS` | Optional. Gas cap for each isolated `eth_call`. Default: `2000000`. |
+| `MAX_ESTIMATED_GAS` | Optional. Gas-estimate threshold for marking a call as an out-of-gas suspect. Default: `CALL_GAS`. |
+| `ESTIMATE_GAS` | Optional. Run `eth_estimateGas` before the direct call. Default: true. |
+| `MIN_DEPOSIT_THRESHOLD` | Optional. Minimum deposit-event count for generic vaults. Default: `5`. |
+| `VAULT_ID` | Optional. Comma-separated `chain_id-address` filters. HyperEVM uses chain id `999`. |
+| `LIMIT` | Optional. Maximum number of selected vaults to inspect. |
+| `LOG_LEVEL` | Optional. Default: info. |
+
 ### check-price-freshness.py
 
 Check how fresh the cleaned vault price data is. Prints absolute and median latest timestamps
