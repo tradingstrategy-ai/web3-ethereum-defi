@@ -70,10 +70,13 @@ Manual update process
       poetry run ruff format eth_defi/midas/registry.py
       poetry run ruff check eth_defi/midas/registry.py
 
-The registry is intentionally not used as the active vault scanner allow-list
-by itself. Scanner support still needs product-specific validation, including
-whether the product exposes a suitable Midas datafeed and whether deployment
-metadata has been scanned for its chain.
+The active vault scanner allow-list is generated from this registry. A product
+is promoted to the shared scanner once it has an mToken, a Midas datafeed and
+deployment metadata. Products without a local RPC mapping or deployment scan
+remain visible here, but are not used by the scanner until the missing metadata
+is generated. If a product's registry feeds cannot currently produce a positive
+NAV/share, record it in :data:`MIDAS_PRODUCT_SCAN_EXCLUSIONS` with the observed
+reason instead of silently letting production scans fail.
 """
 
 import datetime
@@ -1995,6 +1998,14 @@ MIDAS_REDEMPTION_VAULT_FIELDS: Final[tuple[str, ...]] = (
     "redemptionVaultBuidl",
 )
 
+#: Custom oracle fields in preference order for share price fallback reads.
+MIDAS_CUSTOM_FEED_FIELDS: Final[tuple[str, ...]] = (
+    "customFeed",
+    "customFeedGrowth",
+    "customFeedDv",
+    "customFeedRv",
+)
+
 #: Deposit vault fields in preference order for scanner diagnostics.
 MIDAS_DEPOSIT_VAULT_FIELDS: Final[tuple[str, ...]] = (
     "depositVault",
@@ -2003,6 +2014,19 @@ MIDAS_DEPOSIT_VAULT_FIELDS: Final[tuple[str, ...]] = (
     "depositVaultAave",
     "depositVaultMorpho",
 )
+
+#: Products whose registry entries are intentionally not promoted to scanning.
+#:
+#: These rows stay in :data:`MIDAS_ADDRESSES_PER_NETWORK`, but the shared vault
+#: adapter cannot produce a reliable NAV/share from their current on-chain
+#: feeds. Re-check this list with:
+#:
+#: .. code-block:: shell
+#:
+#:    source .local-test.env && DAYS=4 REQUIRE_ALL_SUCCESS=true poetry run python scripts/midas/scan-history.py
+MIDAS_PRODUCT_SCAN_EXCLUSIONS: Final[dict[tuple[str, str], str]] = {
+    ("base", "mRE7"): "dataFeed is deprecated and customFeed.latestRoundData() returns a zero answer",
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -2054,6 +2078,12 @@ class MidasRegistryProduct:
 
         return bool(self.token and self.data_feed)
 
+    @property
+    def has_required_adapter_data(self) -> bool:
+        """Can this product be promoted to the shared vault scanner adapter."""
+
+        return bool(self.token and self.data_feed and self.first_seen_at_block and self.first_seen_at and (self.network, self.symbol) not in MIDAS_PRODUCT_SCAN_EXCLUSIONS)
+
 
 def _pick_first_address(raw: dict[str, Any], fields: tuple[str, ...]) -> str | None:
     """Pick the first available address from a registry entry.
@@ -2074,16 +2104,24 @@ def _pick_first_address(raw: dict[str, Any], fields: tuple[str, ...]) -> str | N
     return None
 
 
-def iter_midas_registry_products(*, require_historical_contracts: bool = False) -> Iterator[MidasRegistryProduct]:
+def iter_midas_registry_products(
+    *,
+    require_historical_contracts: bool = False,
+    require_adapter_data: bool = False,
+) -> Iterator[MidasRegistryProduct]:
     """Iterate product-like entries from the Pythonised Midas registry.
 
     Payment token and access-control sections are skipped. If
     ``require_historical_contracts`` is true, only entries with both ``token``
     and ``dataFeed`` are yielded. These are the minimum contracts needed for
-    historical share price and TVL reads.
+    historical share price and TVL reads. If ``require_adapter_data`` is true,
+    deployment metadata is also required so the shared scanner can create a
+    historical lead with a deterministic start block.
 
     :param require_historical_contracts:
         Filter to entries that can be sampled by the Midas datafeed scanner.
+    :param require_adapter_data:
+        Filter to entries that can be exposed through :mod:`eth_defi.midas`.
     :return:
         Iterator of typed registry product entries.
     """
@@ -2109,7 +2147,7 @@ def iter_midas_registry_products(*, require_historical_contracts: bool = False) 
                 symbol=symbol,
                 token=raw.get("token") if isinstance(raw.get("token"), str) else None,
                 data_feed=raw.get("dataFeed") if isinstance(raw.get("dataFeed"), str) else None,
-                custom_feed=raw.get("customFeed") if isinstance(raw.get("customFeed"), str) else None,
+                custom_feed=_pick_first_address(raw, MIDAS_CUSTOM_FEED_FIELDS),
                 deposit_vault=_pick_first_address(raw, MIDAS_DEPOSIT_VAULT_FIELDS),
                 redemption_vault=_pick_first_address(raw, MIDAS_REDEMPTION_VAULT_FIELDS),
                 first_seen_at_block=deployment[0] if deployment else None,
@@ -2120,20 +2158,32 @@ def iter_midas_registry_products(*, require_historical_contracts: bool = False) 
             if require_historical_contracts and not product.has_required_historical_contracts:
                 continue
 
+            if require_adapter_data and not product.has_required_adapter_data:
+                continue
+
             yield product
 
 
-def get_midas_registry_products_by_chain(*, require_historical_contracts: bool = False) -> dict[int, list[MidasRegistryProduct]]:
+def get_midas_registry_products_by_chain(
+    *,
+    require_historical_contracts: bool = False,
+    require_adapter_data: bool = False,
+) -> dict[int, list[MidasRegistryProduct]]:
     """Group Midas registry products by chain id.
 
     :param require_historical_contracts:
         Filter to products with both mToken and datafeed addresses.
+    :param require_adapter_data:
+        Filter to products with token, datafeed and deployment metadata.
     :return:
         Mapping of chain id to products.
     """
 
     products_by_chain: dict[int, list[MidasRegistryProduct]] = {}
-    for product in iter_midas_registry_products(require_historical_contracts=require_historical_contracts):
+    for product in iter_midas_registry_products(
+        require_historical_contracts=require_historical_contracts,
+        require_adapter_data=require_adapter_data,
+    ):
         products_by_chain.setdefault(product.chain_id, []).append(product)
 
     return products_by_chain

@@ -1,8 +1,8 @@
 """Scan Midas product share price and TVL history.
 
 Manual script for validating the Pythonised Midas registry against live
-on-chain data. The script samples all registry products that expose both an
-mToken and a Midas ``dataFeed`` contract, then prints tabulated daily history.
+on-chain data. The script samples every registry product that the Midas vault
+adapter can expose, then prints tabulated daily history.
 
 Configuration is through environment variables:
 
@@ -17,6 +17,9 @@ Configuration is through environment variables:
 
 ``MAX_PRODUCTS``
     Optional cap for debugging.
+
+``REQUIRE_ALL_SUCCESS``
+    If ``true``, exit with an error if any selected product sample fails.
 
 ``LOG_LEVEL``
     Python logging level. Defaults to ``info``.
@@ -42,7 +45,7 @@ from decimal import Decimal
 
 from tabulate import tabulate
 from web3 import Web3
-from web3.exceptions import BadFunctionCallOutput, ContractLogicError
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Exception
 
 from eth_defi.chain import EVM_BLOCK_TIMES
 from eth_defi.midas.registry import MidasRegistryProduct, iter_midas_registry_products
@@ -56,6 +59,29 @@ DATA_FEED_ABI = [
         "inputs": [],
         "name": "getDataInBase18",
         "outputs": [{"internalType": "uint256", "name": "answer", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+]
+
+AGGREGATOR_V3_ABI = [
+    {
+        "inputs": [],
+        "name": "decimals",
+        "outputs": [{"internalType": "uint8", "name": "", "type": "uint8"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "latestRoundData",
+        "outputs": [
+            {"internalType": "uint80", "name": "roundId", "type": "uint80"},
+            {"internalType": "int256", "name": "answer", "type": "int256"},
+            {"internalType": "uint256", "name": "startedAt", "type": "uint256"},
+            {"internalType": "uint256", "name": "updatedAt", "type": "uint256"},
+            {"internalType": "uint80", "name": "answeredInRound", "type": "uint80"},
+        ],
         "stateMutability": "view",
         "type": "function",
     },
@@ -144,7 +170,7 @@ def iter_products() -> Iterator[MidasRegistryProduct]:
     max_products = int(os.environ.get("MAX_PRODUCTS", "0") or "0")
     yielded = 0
 
-    for product in iter_midas_registry_products(require_historical_contracts=True):
+    for product in iter_midas_registry_products(require_historical_contracts=True, require_adapter_data=True):
         if networks and product.network.lower() not in networks:
             continue
         if products and product.symbol.lower() not in products:
@@ -182,6 +208,42 @@ def get_sample_blocks(web3: Web3, chain_id: int, days: int) -> list[int]:
     return [max(1, latest_block - blocks_per_day * day) for day in range(days, -1, -1)]
 
 
+def fetch_share_price(web3: Web3, product: MidasRegistryProduct, block_number: int) -> Decimal:
+    """Fetch Midas share price using the adapter source order.
+
+    The primary source is ``dataFeed.getDataInBase18()``. If this reverts and
+    the product exposes ``customFeed``, fall back to
+    ``customFeed.latestRoundData()`` when the oracle answer is positive.
+
+    :param web3:
+        Web3 connection.
+    :param product:
+        Product to sample.
+    :param block_number:
+        Historical block.
+    :return:
+        NAV/share in product denomination.
+    """
+
+    assert product.data_feed is not None
+
+    data_feed = web3.eth.contract(address=Web3.to_checksum_address(product.data_feed), abi=DATA_FEED_ABI)
+    try:
+        raw_share_price = data_feed.functions.getDataInBase18().call(block_identifier=block_number)
+        return Decimal(raw_share_price) / Decimal(10**18)
+    except (BadFunctionCallOutput, ContractLogicError, ValueError, Web3Exception):
+        if product.custom_feed is None:
+            raise
+
+        custom_feed = web3.eth.contract(address=Web3.to_checksum_address(product.custom_feed), abi=AGGREGATOR_V3_ABI)
+        _round_id, answer, _started_at, updated_at, _answered_in_round = custom_feed.functions.latestRoundData().call(block_identifier=block_number)
+        if answer <= 0 or updated_at == 0:
+            raise
+
+        decimals = custom_feed.functions.decimals().call(block_identifier=block_number)
+        return Decimal(answer) / Decimal(10**decimals)
+
+
 def fetch_product_read(web3: Web3, product: MidasRegistryProduct, block_number: int, decimals: int) -> ProductRead:
     """Fetch one Midas product historical sample.
 
@@ -206,13 +268,11 @@ def fetch_product_read(web3: Web3, product: MidasRegistryProduct, block_number: 
         timestamp = datetime.datetime.fromtimestamp(block["timestamp"], tz=datetime.UTC).replace(tzinfo=None)
 
         token = web3.eth.contract(address=Web3.to_checksum_address(product.token), abi=ERC20_ABI)
-        data_feed = web3.eth.contract(address=Web3.to_checksum_address(product.data_feed), abi=DATA_FEED_ABI)
 
         raw_supply = token.functions.totalSupply().call(block_identifier=block_number)
-        raw_share_price = data_feed.functions.getDataInBase18().call(block_identifier=block_number)
 
         total_supply = Decimal(raw_supply) / Decimal(10**decimals)
-        share_price = Decimal(raw_share_price) / Decimal(10**18)
+        share_price = fetch_share_price(web3, product, block_number)
         tvl = total_supply * share_price
 
         return ProductRead(
@@ -224,7 +284,7 @@ def fetch_product_read(web3: Web3, product: MidasRegistryProduct, block_number: 
             tvl=tvl,
             error=None,
         )
-    except (BadFunctionCallOutput, ContractLogicError, ValueError) as e:
+    except (BadFunctionCallOutput, ContractLogicError, ValueError, Web3Exception) as e:
         return ProductRead(
             product=product,
             block_number=block_number,
@@ -343,6 +403,7 @@ def main() -> None:
     setup_logging()
 
     days = int(os.environ.get("DAYS", "7"))
+    require_all_success = os.environ.get("REQUIRE_ALL_SUCCESS", "").strip().lower() in {"1", "true", "yes", "y", "on"}
     products = list(iter_products())
     logger.info("Scanning %d Midas products for %d days", len(products), days)
 
@@ -380,7 +441,7 @@ def main() -> None:
 
             try:
                 decimals = fetch_token_decimals(web3, product)
-            except (BadFunctionCallOutput, ContractLogicError, ValueError) as e:
+            except (BadFunctionCallOutput, ContractLogicError, ValueError, Web3Exception) as e:
                 logger.warning("Could not read decimals for %s %s: %s", product.network, product.symbol, e)
                 for block_number in sample_blocks:
                     reads.append(
@@ -401,7 +462,13 @@ def main() -> None:
 
     print(tabulate(create_history_rows(reads), headers="keys", tablefmt="simple", disable_numparse=True))
     print()
-    print(tabulate(create_summary_rows(reads), headers="keys", tablefmt="simple", disable_numparse=True))
+    summary_rows = create_summary_rows(reads)
+    print(tabulate(summary_rows, headers="keys", tablefmt="simple", disable_numparse=True))
+
+    failed_products = [row for row in summary_rows if row["errors"]]
+    if require_all_success and failed_products:
+        message = f"{len(failed_products)} Midas products had scan errors"
+        raise RuntimeError(message)
 
 
 if __name__ == "__main__":
