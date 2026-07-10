@@ -130,7 +130,7 @@ class VaultSettlementDatabase:
             self.con = None
 
     def _init_schema(self) -> None:
-        """Create the settlement table if it does not exist."""
+        """Create settlement tables if they do not exist."""
         self.con.execute(
             """
             CREATE TABLE IF NOT EXISTS vault_settlements (
@@ -158,6 +158,16 @@ class VaultSettlementDatabase:
         }
         if "event_name" not in existing_columns:
             self.con.execute("ALTER TABLE vault_settlements ADD COLUMN event_name VARCHAR")
+        self.con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS vault_settlement_scan_state (
+                chain_id INTEGER NOT NULL,
+                address VARCHAR NOT NULL,
+                last_scanned_block BIGINT NOT NULL,
+                updated_at TIMESTAMP NOT NULL
+            )
+            """
+        )
 
     def close(self) -> None:
         """Close the database connection."""
@@ -297,6 +307,85 @@ class VaultSettlementDatabase:
             [chain_id, str(address).lower()],
         ).fetchone()
         return int(result[0]) if result and result[0] is not None else None
+
+    def get_latest_scanned_block_number(self, chain_id: int, address: HexAddress | str) -> int | None:
+        """Return the latest successfully scanned settlement block for a vault.
+
+        Settlement events are sparse, so the event table cannot tell whether a
+        vault has no new events or whether it has never been scanned. This
+        scan-state table records successful empty scans as well.
+
+        :param chain_id:
+            Chain id.
+        :param address:
+            Vault address.
+        :return:
+            Latest scanned block number, or ``None`` if no scan state exists.
+        """
+        result = self.con.execute(
+            """
+            SELECT MAX(last_scanned_block)
+            FROM vault_settlement_scan_state
+            WHERE chain_id = ? AND address = ?
+            """,
+            [chain_id, str(address).lower()],
+        ).fetchone()
+        return int(result[0]) if result and result[0] is not None else None
+
+    def upsert_scan_state(self, scan_states: list[tuple[int, HexAddress | str, int]]) -> int:
+        """Update settlement scan watermarks.
+
+        The stored watermark never moves backwards. Forced historical backfills
+        may scan old ranges, but they must not erase knowledge of newer ranges
+        that already completed successfully.
+
+        :param scan_states:
+            Tuples of ``(chain_id, address, last_scanned_block)``.
+        :return:
+            Number of distinct vault scan-state rows updated.
+        """
+        if not scan_states:
+            return 0
+
+        latest_by_key: dict[tuple[int, str], int] = {}
+        for chain_id, address, last_scanned_block in scan_states:
+            key = (int(chain_id), str(address).lower())
+            latest_by_key[key] = max(latest_by_key.get(key, -1), int(last_scanned_block))
+
+        updated_at = native_datetime_utc_now()
+        rows: list[tuple[int, str, int, datetime.datetime]] = []
+        for (chain_id, address), last_scanned_block in latest_by_key.items():
+            existing_block = self.get_latest_scanned_block_number(chain_id, address)
+            if existing_block is not None:
+                last_scanned_block = max(last_scanned_block, existing_block)
+            rows.append((chain_id, address, last_scanned_block, updated_at))
+
+        keys = [(chain_id, address) for chain_id, address, _last_scanned_block, _updated_at in rows]
+        self.con.execute("BEGIN TRANSACTION")
+        try:
+            self.con.executemany(
+                """
+                DELETE FROM vault_settlement_scan_state
+                WHERE chain_id = ? AND address = ?
+                """,
+                keys,
+            )
+            self.con.executemany(
+                """
+                INSERT INTO vault_settlement_scan_state (
+                    chain_id,
+                    address,
+                    last_scanned_block,
+                    updated_at
+                ) VALUES (?, ?, ?, ?)
+                """,
+                rows,
+            )
+            self.con.execute("COMMIT")
+        except BaseException:
+            self.con.execute("ROLLBACK")
+            raise
+        return len(rows)
 
 
 def load_vault_settlements(path: Path | None = None) -> pd.DataFrame:

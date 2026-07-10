@@ -42,8 +42,27 @@ inserted_at  TIMESTAMP
 Rows are idempotently upserted by logical key:
 
 ```text
-(chain_id, address, tx_hash)
+(chain_id, address, tx_hash, event_name)
 ```
+
+The same database also stores settlement scan progress:
+
+```text
+vault_settlement_scan_state
+```
+
+Schema:
+
+```text
+chain_id           INTEGER
+address            VARCHAR
+last_scanned_block BIGINT
+updated_at         TIMESTAMP
+```
+
+This table records successful empty event scans. Without it, a vault with no
+settlement events would look unscanned and would be queried from its first raw
+price block on every scanner cycle.
 
 No DuckDB primary key is required; use delete-then-insert transactions to avoid
 ART index stability issues seen elsewhere in the project.
@@ -62,8 +81,9 @@ eth_defi/vault/settlement_data.py
 Responsibilities:
 
 - Open/create the DuckDB database.
-- Create `vault_settlements`.
+- Create `vault_settlements` and `vault_settlement_scan_state`.
 - Insert settlement rows idempotently.
+- Update settlement scan watermarks independently from event rows.
 - Query settlement rows as a DataFrame.
 - Annotate a price DataFrame with a nullable `vault_settlement_at` column.
 
@@ -103,22 +123,28 @@ Use Hypersync when available and JSON-RPC `eth_getLogs` as fallback.
 
 Populate `vault-settlements.duckdb` before `clean_prices()` runs.
 
-Initial production support is Lagoon-only, but the storage and annotation code is
-protocol-generic. The scan step should:
+Initial production support was Lagoon-only, but the storage and annotation code
+is protocol-generic and now covers Lagoon and D2 Finance. The scan step should:
 
-- Select Lagoon vaults from the vault metadata database and intersect them with
-  vaults present in the raw price parquet.
-- For each `(chain_id, address)`, choose the scan range from raw price data:
-  start at the greater of the first raw price block and the latest stored
-  settlement block plus one, and end at the latest raw price block for that
-  vault.
+- Select supported vaults from the vault metadata database.
+- For each `(chain_id, address)`, choose the production scan range from the
+  vault first-seen block, the latest known settlement scan watermark, and the
+  just-completed chain scan end block. Existing settlement event rows are used
+  as a migration fallback when the scan-state table does not yet have a
+  watermark.
+- Keep the raw price parquet selector only for standalone/manual settlement
+  scan helpers that do not run inside a chain scan cycle.
 - Allow an operator-forced backfill range for historical repairs. Overlapping
   scans are acceptable because inserts are idempotent by
-  `(chain_id, address, tx_hash)`.
-- Run after raw price scan/native data merge and before cleaned price generation.
-- Fail the post-processing run if settlement scanning is enabled and event
-  reading fails. A partial settlement database is worse than a hard failure
-  because it creates false "no settlement happened" intervals.
+  `(chain_id, address, tx_hash, event_name)`.
+- Run as part of each successful EVM chain scan cycle before cleaned price
+  generation.
+- Query all supported vault addresses on the chain as one event-reader batch,
+  chunked by block range for the JSON-RPC fallback, then filter returned logs
+  back to each vault's incremental block range.
+- Treat settlement scan failures as non-fatal: log the failed chain batch,
+  show it in the scanner dashboard, and continue the scanner cycle using the
+  previously stored `vault-settlements.duckdb` data.
 
 The first implementation can expose this as a small helper called by the vault
 pipeline instead of embedding Lagoon event details in the wrangling module.

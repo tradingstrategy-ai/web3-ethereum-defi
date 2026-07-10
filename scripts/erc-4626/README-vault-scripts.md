@@ -117,7 +117,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SCAN_GRVT` | Optional. Enable GRVT native vault scanning. Default: false. |
 | `SCAN_LIGHTER` | Optional. Enable Lighter native pool scanning. Default: false. |
 | `SCAN_HIBACHI` | Optional. Enable Hibachi native vault scanning. Default: false. |
-| `SCAN_VAULT_SETTLEMENTS` | Optional. Scan Lagoon and D2 settlement events before price cleaning. Default: true. Set to `false` only for debugging runs where settlement markers are deliberately skipped. |
+| `SCAN_VAULT_SETTLEMENTS` | Optional. Scan Lagoon and D2 settlement events during each successful EVM chain cycle, before price cleaning. Default: true. Set to `false` only for debugging runs where settlement markers are deliberately skipped. Settlement scan failures are logged and shown in the dashboard without aborting the rest of the scanner cycle. |
 | `VAULT_SETTLEMENT_START_BLOCK` | Optional. Inclusive settlement scan start block for forced backfills. Normally unset so scans continue incrementally from `vault-settlements.duckdb`. |
 | `VAULT_SETTLEMENT_END_BLOCK` | Optional. Inclusive settlement scan end block for forced backfills. Normally unset so scans continue up to the latest raw price block. |
 | `SKIP_CORE3` | Optional. Skip Core3 risk intelligence enrichment. Default: false. Core3 is default-on enrichment for the top-vaults JSON, unlike optional native vault sources that use opt-in `SCAN_*` flags. |
@@ -470,6 +470,20 @@ The default entrypoint is `scan-vaults-all-chains.py`, which scans **all chains*
 Vault settlement scanning is enabled by default in both the one-shot and looped
 Docker Compose services with `SCAN_VAULT_SETTLEMENTS=true`, so Lagoon and D2
 settlement markers are populated before cleaned price data is exported.
+The scanner runs settlements as part of each successful EVM chain cycle. For
+each chain it queries all supported vault addresses as one batch, chunked by
+block range for the JSON-RPC fallback, and then filters the returned logs back
+to each vault's incremental block range. The loop uses the just-completed
+chain scan's end block and cached vault metadata to select settlement ranges,
+so it does not re-read the raw price parquet for each chain settlement pass.
+Successful empty settlement scans advance per-vault scan watermarks in
+`vault-settlements.duckdb`, so vaults without settlement events are not
+rescanned from their first price block on every cycle.
+If one chain's settlement event read fails, the failure is logged and displayed
+as `<chain> settlements`, while the rest of the scan and post-processing can
+continue with the previously stored `vault-settlements.duckdb` data. If one
+vault in a chain batch cannot be prepared or decoded, it is skipped and the
+other vaults in the batch are still stored.
 
 ### Linea historical block headers
 
