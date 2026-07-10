@@ -1,0 +1,35 @@
+name: Midas
+slug: midas
+short_description: |
+  Tokenised real-world asset and yield products that publish their price on-chain.
+long_description: |
+  Midas offers tokenised investment products that make selected off-chain and on-chain yield strategies
+  available as transferable ERC-20 tokens. Products such as mTBILL and mBASIS are designed to track a
+  published net asset value, giving holders an on-chain token whose price reflects the value of the
+  underlying strategy.
+
+  These products behave differently from standard ERC-4626 vaults. The token itself represents the holder's
+  position, while subscriptions, redemptions and price reporting are handled by separate Midas contracts.
+  For public vault analytics, Midas products can still be tracked like vaults by reading the token supply
+  and the official Midas on-chain price feed over time.
+fee_description: |
+  Midas NAV/share is published through the Midas oracle pipeline after product-level expenses are accounted
+  for. The exact management and performance fee split is product-specific and is not exposed by the mToken
+  interface. Instant issuance and redemption fees are exposed by Midas product vault contracts and can be
+  read by the adapter.
+links:
+  homepage: https://midas.app/
+  app: https://midas.app/products
+  twitter: https://x.com/MidasRWA
+  github: https://github.com/midas-apps/contracts
+  documentation: https://docs.midas.app/
+  defillama: https://defillama.com/protocol/midas-rwa
+  audits: https://docs.midas.app/resources/audits
+  fees: https://docs.midas.app/liquidity-and-composability/open-liquidity-architecture
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/midas/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xdd629e5241cbc5919847783e6c96b2de4754e438
+  - https://etherscan.io/address/0x2a8c22E3b10036f3AEF5875d04f8441d4188b656
+  - https://etherscan.io/address/0x99361435420711723aF805F08187c9E6bF796683
+  - https://etherscan.io/address/0xF6e51d24F4793Ac5e71e0502213a9BBE3A6d4517

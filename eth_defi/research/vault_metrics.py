@@ -3369,9 +3369,4 @@ def export_lifetime_row(row: pd.Series) -> dict:
     out["management_fee"] = out.get("mgmt_fee")
     out["performance_fee"] = out.get("perf_fee")
 
-    # Legacy compatibility: if mgmt fee missing, nullify deposit/withdraw fees
-    if out.get("mgmt_fee") is None:
-        out["deposit_fee"] = None
-        out["withdraw_fee"] = None
-
     return out

@@ -79,6 +79,7 @@ Supported protocols
    mainstreet/index
    maple/index
    mellow/index
+   midas/index
    morpho/index
    nashpoint/index
    plutus/index

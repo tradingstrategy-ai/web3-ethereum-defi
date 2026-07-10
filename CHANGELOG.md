@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add Midas vault protocol support with registry metadata, live NAV/share-price history scanning and fee-preserving lifetime metrics export (2026-07-10)
 - feat: Add Frankencoin ERC-4626 savings vault protocol support with hardcoded Ethereum, Base and Gnosis svZCHF vault addresses (2026-07-09)
 - feat: Add stale-NAV corrected historical share price reading for T3tris async vaults (2026-07-09)
 - feat: Add Robinhood Chain metadata, Hypersync lookup, vault scanner scheduling and Docker RPC wiring (2026-07-09)
