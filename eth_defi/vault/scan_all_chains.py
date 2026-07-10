@@ -45,7 +45,7 @@ from eth_defi.currency_api.constants import (
 )
 from eth_defi.currency_api.scanner import run_incremental_scan as currency_run_incremental_scan
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
-from eth_defi.erc_4626.core import is_activity_filter_exempt
+from eth_defi.erc_4626.core import MIN_PRICE_SCAN_DEPOSIT_COUNT, is_activity_filter_exempt
 from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.erc_4626.settlement_scan import (
     fetch_and_store_vault_settlements_for_chain,
@@ -542,7 +542,7 @@ def scan_prices_for_chain(
 
         # Create vault instances with filtering
         vaults = []
-        min_deposit_threshold = 5
+        min_deposit_threshold = MIN_PRICE_SCAN_DEPOSIT_COUNT
 
         for row in chain_vaults:
             detection = row["_detection_data"]

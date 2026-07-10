@@ -90,6 +90,9 @@ def test_vault_settlement_database_scan_state_upsert(tmp_path: Path) -> None:
 
         assert db.upsert_scan_state([(1, address, 150), (1, address, 250)]) == 1
         assert db.get_latest_scanned_block_number(1, address) == 250
+
+        assert db.upsert_scan_state([(1, address, 100)]) == 1
+        assert db.get_latest_scanned_block_number(1, address) == 250
     finally:
         db.close()
 

@@ -1,9 +1,10 @@
 """Populate generic vault settlement data from ERC-4626 protocol readers.
 
-This module owns the production scan orchestration for sparse settlement
-events. It selects vaults and block ranges from the existing vault metadata and
-raw price parquet, batches event reads by chain, and then routes returned logs
-back to protocol-specific row builders.
+This module owns the scan orchestration for sparse settlement events.
+Production scanner calls select one chain from vault metadata and the
+just-completed price scan end block. Standalone backfill calls can still select
+ranges from the raw price parquet. Both paths batch event reads by chain and
+route returned logs back to protocol-specific row builders.
 """
 
 import logging
@@ -19,7 +20,7 @@ from web3.datastructures import AttributeDict
 from web3.exceptions import Web3Exception
 
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
-from eth_defi.erc_4626.core import ERC4626Feature, is_activity_filter_exempt
+from eth_defi.erc_4626.core import MIN_PRICE_SCAN_DEPOSIT_COUNT, ERC4626Feature, is_activity_filter_exempt
 from eth_defi.erc_4626.settlement_events import (
     fetch_vault_settlement_logs_for_addresses,
     normalise_log_topic,
@@ -58,7 +59,6 @@ SUPPORTED_SETTLEMENT_FEATURES = frozenset(
         ERC4626Feature.d2_like,
     }
 )
-MIN_PRICE_SCAN_DEPOSIT_COUNT = 5
 
 
 @dataclass(slots=True, frozen=True)
@@ -134,6 +134,26 @@ class ChainSettlementUpdateResult:
 
     rows_written: int
     scanned_vaults: int
+
+
+@dataclass(slots=True, frozen=True)
+class SettlementRangeUpdateResult:
+    """Result of executing one or more selected settlement ranges.
+
+    :param rows_written:
+        Settlement rows written to DuckDB.
+    :param scanned_vaults:
+        Vault scan-state rows advanced after completed event batches.
+    :param scanned_chains:
+        Chains whose settlement batch completed.
+    :param failed_chains:
+        Chains whose settlement batch failed and was skipped.
+    """
+
+    rows_written: int
+    scanned_vaults: int
+    scanned_chains: int
+    failed_chains: int
 
 
 def resolve_rpc_urls_by_chain_from_env(rpc_env_vars: list[str]) -> dict[int, str]:
@@ -341,7 +361,11 @@ def fetch_and_store_vault_settlements(
 ) -> VaultSettlementScanResult:
     """Fetch and store settlement/open-state events for supported protocols.
 
-    Currently supported protocol readers are Lagoon and D2 Finance.
+    This standalone/backfill helper reads raw price parquet to bound scan
+    ranges. The production scanner loop uses
+    :py:func:`fetch_and_store_vault_settlements_for_chain` to avoid re-reading
+    raw price parquet during each chain cycle. Currently supported protocol
+    readers are Lagoon and D2 Finance.
 
     :param vault_db_path:
         Vault metadata pickle path.
@@ -362,8 +386,7 @@ def fetch_and_store_vault_settlements(
     :param chunk_size:
         JSON-RPC ``eth_getLogs`` chunk size for fallback reads.
     :param chain_ids:
-        Optional chain id filter. Used by the scanner loop to run settlement
-        scanning as part of each chain cycle.
+        Optional chain id filter for manual or backfill scans.
     :param fail_gracefully:
         If ``True``, one failed chain settlement batch is logged and counted
         without aborting the caller.
@@ -409,56 +432,24 @@ def fetch_and_store_vault_settlements(
                 rows_written=0,
             )
 
-        rows_by_key = {(int(row["_detection_data"].chain), str(row["_detection_data"].address).lower()): row for row in vault_db.rows.values()}
-        web3_by_chain = {}
-        token_cache = TokenDiskCache()
-        rows_written = 0
-        scanned_vaults = 0
-        scanned_chains = 0
-        failed_chains = 0
-
-        ranges_by_chain: dict[int, list[VaultSettlementScanRange]] = defaultdict(list)
-        for scan_range in ranges:
-            ranges_by_chain[scan_range.chain_id].append(scan_range)
-
-        for chain_id, chain_ranges in sorted(ranges_by_chain.items()):
-            try:
-                rpc_url = rpc_urls_by_chain.get(chain_id)
-                if not rpc_url:
-                    raise RuntimeError(f"No JSON-RPC URL configured for chain {chain_id}")
-
-                web3 = web3_by_chain.get(chain_id)
-                if web3 is None:
-                    web3 = create_multi_provider_web3(rpc_url)
-                    web3_by_chain[chain_id] = web3
-
-                chain_update = _update_settlement_database_for_chain(
-                    database=db,
-                    web3=web3,
-                    chain_id=chain_id,
-                    ranges=chain_ranges,
-                    rows_by_key=rows_by_key,
-                    token_cache=token_cache,
-                    use_hypersync=use_hypersync,
-                    chunk_size=chunk_size,
-                )
-                rows_written += chain_update.rows_written
-                scanned_vaults += chain_update.scanned_vaults
-                scanned_chains += 1
-            except Exception:
-                failed_chains += 1
-                logger.exception("Vault settlement scan failed for chain %d", chain_id)
-                if not fail_gracefully:
-                    raise
+        update_result = _fetch_and_store_settlement_ranges(
+            database=db,
+            vault_db=vault_db,
+            ranges=ranges,
+            rpc_urls_by_chain=rpc_urls_by_chain,
+            use_hypersync=use_hypersync,
+            chunk_size=chunk_size,
+            fail_gracefully=fail_gracefully,
+        )
 
         db.save()
         return VaultSettlementScanResult(
             candidate_vaults=candidate_count,
-            scanned_vaults=scanned_vaults,
+            scanned_vaults=update_result.scanned_vaults,
             skipped_vaults=skipped_count,
-            rows_written=rows_written,
-            scanned_chains=scanned_chains,
-            failed_chains=failed_chains,
+            rows_written=update_result.rows_written,
+            scanned_chains=update_result.scanned_chains,
+            failed_chains=update_result.failed_chains,
         )
     finally:
         db.close()
@@ -539,42 +530,24 @@ def fetch_and_store_vault_settlements_for_chain(
                 rows_written=0,
             )
 
-        try:
-            web3 = create_multi_provider_web3(rpc_url)
-            token_cache = TokenDiskCache()
-            rows_by_key = {(int(row["_detection_data"].chain), str(row["_detection_data"].address).lower()): row for row in vault_db.rows.values()}
-            chain_update = _update_settlement_database_for_chain(
-                database=db,
-                web3=web3,
-                chain_id=chain_id,
-                ranges=ranges,
-                rows_by_key=rows_by_key,
-                token_cache=token_cache,
-                use_hypersync=use_hypersync,
-                chunk_size=chunk_size,
-            )
-            db.save()
-            return VaultSettlementScanResult(
-                candidate_vaults=candidate_count,
-                scanned_vaults=chain_update.scanned_vaults,
-                skipped_vaults=skipped_count,
-                rows_written=chain_update.rows_written,
-                scanned_chains=1,
-                failed_chains=0,
-            )
-        except Exception:
-            logger.exception("Vault settlement scan failed for chain %d", chain_id)
-            if not fail_gracefully:
-                raise
-            db.save()
-            return VaultSettlementScanResult(
-                candidate_vaults=candidate_count,
-                scanned_vaults=0,
-                skipped_vaults=skipped_count,
-                rows_written=0,
-                scanned_chains=0,
-                failed_chains=1,
-            )
+        update_result = _fetch_and_store_settlement_ranges(
+            database=db,
+            vault_db=vault_db,
+            ranges=ranges,
+            rpc_urls_by_chain={chain_id: rpc_url},
+            use_hypersync=use_hypersync,
+            chunk_size=chunk_size,
+            fail_gracefully=fail_gracefully,
+        )
+        db.save()
+        return VaultSettlementScanResult(
+            candidate_vaults=candidate_count,
+            scanned_vaults=update_result.scanned_vaults,
+            skipped_vaults=skipped_count,
+            rows_written=update_result.rows_written,
+            scanned_chains=update_result.scanned_chains,
+            failed_chains=update_result.failed_chains,
+        )
     finally:
         db.close()
 
@@ -617,6 +590,90 @@ def _read_raw_price_projection(raw_price_path: Path, chain_ids: set[int] | froze
     if chain_ids is not None:
         read_kwargs["filters"] = [("chain", "in", sorted(chain_ids))]
     return pd.read_parquet(raw_price_path, **read_kwargs)
+
+
+def _fetch_and_store_settlement_ranges(
+    *,
+    database: VaultSettlementDatabase,
+    vault_db: VaultDatabase,
+    ranges: list[VaultSettlementScanRange],
+    rpc_urls_by_chain: dict[int, str],
+    use_hypersync: bool | None,
+    chunk_size: int,
+    fail_gracefully: bool,
+) -> SettlementRangeUpdateResult:
+    """Execute selected settlement ranges grouped by chain.
+
+    Both public settlement scan entry points select ranges differently, but
+    once ranges exist they should share Web3 construction, token-cache reuse
+    and graceful-failure accounting.
+
+    :param database:
+        Generic settlement database.
+    :param vault_db:
+        Vault metadata database.
+    :param ranges:
+        Selected per-vault scan ranges.
+    :param rpc_urls_by_chain:
+        JSON-RPC configuration strings keyed by chain id.
+    :param use_hypersync:
+        Whether to use Hypersync. ``None`` auto-detects.
+    :param chunk_size:
+        JSON-RPC fallback chunk size.
+    :param fail_gracefully:
+        If ``True``, failed chain batches are logged and counted without
+        aborting the caller.
+    :return:
+        Aggregate update summary.
+    """
+    rows_by_key = {(int(row["_detection_data"].chain), str(row["_detection_data"].address).lower()): row for row in vault_db.rows.values()}
+    web3_by_chain: dict[int, Web3] = {}
+    token_cache = TokenDiskCache()
+    rows_written = 0
+    scanned_vaults = 0
+    scanned_chains = 0
+    failed_chains = 0
+
+    ranges_by_chain: dict[int, list[VaultSettlementScanRange]] = defaultdict(list)
+    for scan_range in ranges:
+        ranges_by_chain[scan_range.chain_id].append(scan_range)
+
+    for chain_id, chain_ranges in sorted(ranges_by_chain.items()):
+        try:
+            rpc_url = rpc_urls_by_chain.get(chain_id)
+            if not rpc_url:
+                raise RuntimeError(f"No JSON-RPC URL configured for chain {chain_id}")
+
+            web3 = web3_by_chain.get(chain_id)
+            if web3 is None:
+                web3 = create_multi_provider_web3(rpc_url)
+                web3_by_chain[chain_id] = web3
+
+            chain_update = _update_settlement_database_for_chain(
+                database=database,
+                web3=web3,
+                chain_id=chain_id,
+                ranges=chain_ranges,
+                rows_by_key=rows_by_key,
+                token_cache=token_cache,
+                use_hypersync=use_hypersync,
+                chunk_size=chunk_size,
+            )
+            rows_written += chain_update.rows_written
+            scanned_vaults += chain_update.scanned_vaults
+            scanned_chains += 1
+        except Exception:
+            failed_chains += 1
+            logger.exception("Vault settlement scan failed for chain %d", chain_id)
+            if not fail_gracefully:
+                raise
+
+    return SettlementRangeUpdateResult(
+        rows_written=rows_written,
+        scanned_vaults=scanned_vaults,
+        scanned_chains=scanned_chains,
+        failed_chains=failed_chains,
+    )
 
 
 def _count_supported_vaults_with_raw_prices(
