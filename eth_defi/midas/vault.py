@@ -16,6 +16,7 @@ from decimal import Decimal
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 from web3.contract import Contract
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Exception
 
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.midas.constants import MIDAS_PRODUCTS
@@ -39,6 +40,29 @@ MIDAS_DATA_FEED_ABI = [
         "inputs": [],
         "name": "getDataInBase18",
         "outputs": [{"internalType": "uint256", "name": "answer", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+]
+
+MIDAS_AGGREGATOR_V3_ABI = [
+    {
+        "inputs": [],
+        "name": "decimals",
+        "outputs": [{"internalType": "uint8", "name": "", "type": "uint8"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "latestRoundData",
+        "outputs": [
+            {"internalType": "uint80", "name": "roundId", "type": "uint80"},
+            {"internalType": "int256", "name": "answer", "type": "int256"},
+            {"internalType": "uint256", "name": "startedAt", "type": "uint256"},
+            {"internalType": "uint256", "name": "updatedAt", "type": "uint256"},
+            {"internalType": "uint80", "name": "answeredInRound", "type": "uint80"},
+        ],
         "stateMutability": "view",
         "type": "function",
     },
@@ -68,13 +92,13 @@ class MidasVaultInfo(VaultInfo, total=False):
     data_feed: HexAddress
 
     #: Chainlink-compatible public oracle for NAV/share.
-    oracle: HexAddress
+    oracle: HexAddress | None
 
     #: Midas issuance vault contract.
-    issuance_vault: HexAddress
+    issuance_vault: HexAddress | None
 
     #: Midas redemption vault contract.
-    redemption_vault: HexAddress
+    redemption_vault: HexAddress | None
 
     #: Whether NAV uses a synthetic denomination token in scanner output.
     synthetic_usd_denomination: bool
@@ -123,6 +147,21 @@ def export_midas_usd_denomination(chain_id: int) -> dict[str, object]:
         "total_supply": None,
         "extra_data": {"synthetic": True},
     }
+
+
+def _checksum_or_none(address: HexAddress | None) -> HexAddress | None:
+    """Convert an optional address to its checksum form.
+
+    :param address:
+        Lower-case address or ``None``.
+    :return:
+        Checksum address or ``None``.
+    """
+
+    if address is None:
+        return None
+
+    return HexAddress(Web3.to_checksum_address(address))
 
 
 class MidasVault(VaultBase):
@@ -201,8 +240,23 @@ class MidasVault(VaultBase):
         )
 
     @property
-    def issuance_vault_contract(self) -> Contract:
+    def custom_feed_contract(self) -> Contract | None:
+        """Chainlink-compatible public oracle contract for this product."""
+
+        if self.product.oracle is None:
+            return None
+
+        return self.web3.eth.contract(
+            address=Web3.to_checksum_address(self.product.oracle),
+            abi=MIDAS_AGGREGATOR_V3_ABI,
+        )
+
+    @property
+    def issuance_vault_contract(self) -> Contract | None:
         """Midas issuance vault contract for this product."""
+
+        if self.product.issuance_vault is None:
+            return None
 
         return self.web3.eth.contract(
             address=Web3.to_checksum_address(self.product.issuance_vault),
@@ -210,8 +264,11 @@ class MidasVault(VaultBase):
         )
 
     @property
-    def redemption_vault_contract(self) -> Contract:
+    def redemption_vault_contract(self) -> Contract | None:
         """Midas redemption vault contract for this product."""
+
+        if self.product.redemption_vault is None:
+            return None
 
         return self.web3.eth.contract(
             address=Web3.to_checksum_address(self.product.redemption_vault),
@@ -302,14 +359,33 @@ class MidasVault(VaultBase):
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Fetch Midas NAV per mToken.
 
+        The primary source is Midas ``IDataFeed.getDataInBase18()``. Some
+        registry products expose a datafeed that currently reverts as
+        unhealthy or deprecated, while the paired public ``customFeed`` still
+        exposes a positive Chainlink-style round answer. In that case the
+        adapter falls back to ``latestRoundData()`` so historical TVL scans can
+        still cover the registry-supported product.
+
         :param block_identifier:
             Historical or latest block identifier.
         :return:
             NAV/share in the product denomination.
         """
 
-        raw_price = self.data_feed_contract.functions.getDataInBase18().call(block_identifier=block_identifier)
-        return Decimal(raw_price) / Decimal(10**18)
+        try:
+            raw_price = self.data_feed_contract.functions.getDataInBase18().call(block_identifier=block_identifier)
+            return Decimal(raw_price) / Decimal(10**18)
+        except (BadFunctionCallOutput, ContractLogicError, ValueError, Web3Exception):
+            custom_feed = self.custom_feed_contract
+            if custom_feed is None:
+                raise
+
+            _round_id, answer, _started_at, updated_at, _answered_in_round = custom_feed.functions.latestRoundData().call(block_identifier=block_identifier)
+            if answer <= 0 or updated_at == 0:
+                raise
+
+            decimals = custom_feed.functions.decimals().call(block_identifier=block_identifier)
+            return Decimal(answer) / Decimal(10**decimals)
 
     def fetch_total_supply(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Fetch total outstanding mToken supply.
@@ -356,9 +432,9 @@ class MidasVault(VaultBase):
             token=self.address,
             chain_id=self.chain_id,
             data_feed=Web3.to_checksum_address(self.product.data_feed),
-            oracle=Web3.to_checksum_address(self.product.oracle),
-            issuance_vault=Web3.to_checksum_address(self.product.issuance_vault),
-            redemption_vault=Web3.to_checksum_address(self.product.redemption_vault),
+            oracle=_checksum_or_none(self.product.oracle),
+            issuance_vault=_checksum_or_none(self.product.issuance_vault),
+            redemption_vault=_checksum_or_none(self.product.redemption_vault),
             denomination_token=self.fetch_denomination_token_address(),
             synthetic_usd_denomination=self.product.denomination == "USD",
             nav_source=MIDAS_NAV_SOURCE,
@@ -383,9 +459,9 @@ class MidasVault(VaultBase):
             "_nav_estimated": False,
             "_synthetic_usd_denomination": self.product.denomination == "USD",
             "_midas_data_feed": Web3.to_checksum_address(self.product.data_feed),
-            "_midas_oracle": Web3.to_checksum_address(self.product.oracle),
-            "_midas_issuance_vault": Web3.to_checksum_address(self.product.issuance_vault),
-            "_midas_redemption_vault": Web3.to_checksum_address(self.product.redemption_vault),
+            "_midas_oracle": _checksum_or_none(self.product.oracle),
+            "_midas_issuance_vault": _checksum_or_none(self.product.issuance_vault),
+            "_midas_redemption_vault": _checksum_or_none(self.product.redemption_vault),
         }
 
     def fetch_portfolio(
@@ -514,28 +590,38 @@ class MidasVault(VaultBase):
 
         return None
 
-    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> Percent:
+    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
         """Return instant issuance fee.
 
         :param block_identifier:
             Historical or latest block identifier.
         :return:
-            Instant issuance fee as a fraction.
+            Instant issuance fee as a fraction, if exposed by the registry
+            issuance vault.
         """
 
-        raw_fee = self.issuance_vault_contract.functions.instantFee().call(block_identifier=block_identifier)
+        contract = self.issuance_vault_contract
+        if contract is None:
+            return None
+
+        raw_fee = contract.functions.instantFee().call(block_identifier=block_identifier)
         return convert_midas_fee_to_percent(raw_fee)
 
-    def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> Percent:
+    def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
         """Return instant redemption fee.
 
         :param block_identifier:
             Historical or latest block identifier.
         :return:
-            Instant redemption fee as a fraction.
+            Instant redemption fee as a fraction, if exposed by the registry
+            redemption vault.
         """
 
-        raw_fee = self.redemption_vault_contract.functions.instantFee().call(block_identifier=block_identifier)
+        contract = self.redemption_vault_contract
+        if contract is None:
+            return None
+
+        raw_fee = contract.functions.instantFee().call(block_identifier=block_identifier)
         return convert_midas_fee_to_percent(raw_fee)
 
     def get_link(self, referral: str | None = None) -> str:

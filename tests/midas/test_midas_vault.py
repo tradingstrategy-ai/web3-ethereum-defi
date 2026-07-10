@@ -21,12 +21,13 @@ from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.hypersync.hypersync_timestamp import get_block_timestamps_using_hypersync
 from eth_defi.hypersync.server import get_hypersync_server
 from eth_defi.hypersync.session import ThrottledHypersyncClient, create_throttled_hypersync_client
-from eth_defi.midas.constants import MIDAS_MBASIS_ETHEREUM, MIDAS_MTBILL_ETHEREUM
+from eth_defi.midas.constants import MIDAS_MBASIS_ETHEREUM, MIDAS_MTBILL_ETHEREUM, MIDAS_PRODUCTS
 from eth_defi.midas.historical import MidasVaultHistoricalReader
 from eth_defi.midas.registry import (
     MIDAS_ADDRESSES_PER_NETWORK,
     MIDAS_CHAIN_IDS,
     MIDAS_PRODUCT_DEPLOYMENTS,
+    MIDAS_PRODUCT_SCAN_EXCLUSIONS,
     MIDAS_REGISTRY_SOURCE_COMMIT,
     MIDAS_REGISTRY_SOURCE_URL,
     MIDAS_SANCTION_LIST_CONTRACTS,
@@ -61,8 +62,11 @@ MTBILL_EXPECTED_DECIMALS = 18
 MBASIS_EXPECTED_TOTAL_SUPPLY = Decimal("105365.233087777728658011")
 MBASIS_EXPECTED_SHARE_PRICE = Decimal("1.19665044")
 MBASIS_EXPECTED_WITHDRAW_FEE = 0.03
-MIDAS_EXPECTED_HARDCODED_LEAD_COUNT = 2
+JIV_EXPECTED_FALLBACK_SHARE_PRICE = Decimal("1")
 MIDAS_EXPECTED_SCANNED_DEPLOYMENT_COUNT = 91
+MIDAS_EXPECTED_ADAPTER_PRODUCT_COUNT = 90
+MIDAS_MINIMUM_SUPPORTED_PRODUCT_COUNT = 2
+MIDAS_JIV_ETHEREUM = next(product for product in MIDAS_PRODUCTS.values() if product.chain_id == ETHEREUM_CHAIN_ID and product.symbol == "JIV")
 
 MIDAS_MTBILL_HISTORY_BLOCKS = [
     25_474_179,
@@ -140,6 +144,9 @@ def web3(anvil_ethereum_fork: AnvilLaunch) -> Web3:
 def test_midas_hardcoded_leads_are_added_to_discovery(monkeypatch: pytest.MonkeyPatch) -> None:
     """Add Midas mTokens as scanner leads without ERC-4626 flow events."""
 
+    expected_mainnet_products = {product.token: product for product in MIDAS_PRODUCTS.values() if product.chain_id == ETHEREUM_CHAIN_ID}
+    expected_end_block = max(product.first_seen_at_block for product in expected_mainnet_products.values())
+
     def fake_probe_vaults(
         chain: int,
         web3factory: object,
@@ -153,7 +160,7 @@ def test_midas_hardcoded_leads_are_added_to_discovery(monkeypatch: pytest.Monkey
 
         assert chain == 1
         assert web3factory is DummyMidasDiscovery.web3factory
-        assert block_identifier == MIDAS_MBASIS_ETHEREUM.first_seen_at_block
+        assert block_identifier == expected_end_block
         assert max_workers == 1
         assert progress_bar_desc is None
         assert MIDAS_MTBILL_ETHEREUM.token in addresses
@@ -166,23 +173,18 @@ def test_midas_hardcoded_leads_are_added_to_discovery(monkeypatch: pytest.Monkey
             )
 
     monkeypatch.setattr(discovery_base_module, "probe_vaults", fake_probe_vaults)
+    monkeypatch.setattr(discovery_base_module, "ODA_FACT_HARDCODED_LEADS", ())
 
     discover = DummyMidasDiscovery(max_workers=1)
     report = discover.scan_vaults(
         start_block=0,
-        end_block=MIDAS_MBASIS_ETHEREUM.first_seen_at_block,
+        end_block=expected_end_block,
         display_progress=False,
     )
 
-    assert report.new_leads == MIDAS_EXPECTED_HARDCODED_LEAD_COUNT
-    assert set(report.leads) == {
-        MIDAS_MTBILL_ETHEREUM.token,
-        MIDAS_MBASIS_ETHEREUM.token,
-    }
-    assert set(report.detections) == {
-        MIDAS_MTBILL_ETHEREUM.token,
-        MIDAS_MBASIS_ETHEREUM.token,
-    }
+    assert report.new_leads == len(expected_mainnet_products)
+    assert set(report.leads) == set(expected_mainnet_products)
+    assert set(report.detections) == set(expected_mainnet_products)
     assert report.detections[MIDAS_MTBILL_ETHEREUM.token].features == {ERC4626Feature.midas_like}
     assert report.detections[MIDAS_MBASIS_ETHEREUM.token].features == {ERC4626Feature.midas_like}
 
@@ -206,11 +208,19 @@ def test_midas_hardcoded_classification_is_chain_aware() -> None:
         chain_id=ETHEREUM_CHAIN_ID,
     ) == {ERC4626Feature.midas_like}
 
-    unsupported_chain_features = identify_vault_features(
+    base_chain_features = identify_vault_features(
         MIDAS_MTBILL_ETHEREUM.token,
         calls,
         debug_text="midas base",
         chain_id=8453,
+    )
+    assert base_chain_features == {ERC4626Feature.midas_like}
+
+    unsupported_chain_features = identify_vault_features(
+        MIDAS_MTBILL_ETHEREUM.token,
+        calls,
+        debug_text="midas unsupported",
+        chain_id=31337,
     )
     assert ERC4626Feature.midas_like not in unsupported_chain_features
 
@@ -246,10 +256,15 @@ def test_midas_registry_iterates_scannable_products() -> None:
     """Build a scanner-friendly view of Midas products with token/datafeed pairs."""
 
     products = list(iter_midas_registry_products(require_historical_contracts=True))
+    adapter_products = list(iter_midas_registry_products(require_historical_contracts=True, require_adapter_data=True))
 
-    assert len(products) > MIDAS_EXPECTED_HARDCODED_LEAD_COUNT
+    assert len(products) > MIDAS_MINIMUM_SUPPORTED_PRODUCT_COUNT
+    assert len(MIDAS_PRODUCTS) == MIDAS_EXPECTED_ADAPTER_PRODUCT_COUNT
+    assert len(adapter_products) == len(MIDAS_PRODUCTS)
     assert len(MIDAS_PRODUCT_DEPLOYMENTS) == MIDAS_EXPECTED_SCANNED_DEPLOYMENT_COUNT
+    assert MIDAS_PRODUCT_SCAN_EXCLUSIONS["base", "mRE7"].startswith("dataFeed is deprecated")
     assert all(product.has_required_historical_contracts for product in products)
+    assert all(product.has_required_adapter_data for product in adapter_products)
     assert all(product.symbol != "paymentTokens" for product in products)
 
     by_key = {(product.network, product.symbol): product for product in products}
@@ -377,6 +392,26 @@ def test_midas_live_mbasis_uses_product_metadata(web3: Web3) -> None:
     assert vault.fetch_share_price(MIDAS_TEST_BLOCK) == MBASIS_EXPECTED_SHARE_PRICE
     assert vault.fetch_total_supply(MIDAS_TEST_BLOCK) == MBASIS_EXPECTED_TOTAL_SUPPLY
     assert vault.get_fee_data().withdraw == MBASIS_EXPECTED_WITHDRAW_FEE
+
+
+@flaky.flaky
+def test_midas_anvil_forked_jiv_uses_custom_feed_fallback(web3: Web3) -> None:
+    """Fall back to ``customFeed`` when a Midas datafeed is unhealthy."""
+
+    vault = MidasVault(
+        web3,
+        VaultSpec(
+            chain_id=ETHEREUM_CHAIN_ID,
+            vault_address=MIDAS_JIV_ETHEREUM.token,
+        ),
+        default_block_identifier=MIDAS_TEST_BLOCK,
+    )
+
+    assert vault.custom_feed_contract is not None
+    with pytest.raises(ValueError):
+        vault.data_feed_contract.functions.getDataInBase18().call(block_identifier=MIDAS_TEST_BLOCK)
+
+    assert vault.fetch_share_price(MIDAS_TEST_BLOCK) == JIV_EXPECTED_FALLBACK_SHARE_PRICE
 
 
 @flaky.flaky
