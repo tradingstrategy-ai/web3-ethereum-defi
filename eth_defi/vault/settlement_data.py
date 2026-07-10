@@ -452,7 +452,7 @@ def annotate_prices_with_vault_settlements(
 
     :param prices_df:
         Cleaned vault prices DataFrame. Must contain ``chain``, ``address``
-        and ``timestamp`` columns, or use ``timestamp`` as the index.
+        and ``timestamp`` columns, or use a datetime index for timestamps.
     :param settlements_df:
         Settlement DataFrame from :class:`VaultSettlementDatabase`.
     :return:
@@ -476,8 +476,11 @@ def annotate_prices_with_vault_settlements(
 
     timestamp_is_index = "timestamp" not in result.columns
     if timestamp_is_index:
-        assert result.index.name == "timestamp", "Price DataFrame must have a timestamp column or timestamp index"
+        assert pd.api.types.is_datetime64_any_dtype(result.index), "Price DataFrame must have a timestamp column or datetime index"
         result = result.reset_index()
+        index_column = result.columns[0]
+        if index_column != "timestamp":
+            result.rename(columns={index_column: "timestamp"}, inplace=True)
 
     required_price_columns = {"chain", "address", "timestamp"}
     missing_price_columns = required_price_columns - set(result.columns)

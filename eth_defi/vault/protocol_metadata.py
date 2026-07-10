@@ -292,7 +292,8 @@ def process_and_upload_protocol_metadata(
                 content_type="image/png",
                 skip_if_current=True,
             )
-            logger.info(
+            logo_log = logger.info if logo_uploaded else logger.debug
+            logo_log(
                 "%s %s logo for protocol: %s",
                 "Uploaded" if logo_uploaded else "Skipped unchanged",
                 variant,

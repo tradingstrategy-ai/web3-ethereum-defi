@@ -202,3 +202,33 @@ def test_annotate_prices_accepts_timestamp_index() -> None:
     assert annotated.index.name == "timestamp"
     assert "timestamp" not in annotated.columns
     assert annotated.iloc[0]["vault_settlement_at"] == pd.Timestamp(datetime.datetime(2026, 2, 1, 0, 30, 0))
+
+
+def test_annotate_prices_accepts_unnamed_timestamp_index() -> None:
+    """Timestamp index normalisation should not depend on the index name."""
+    prices = pd.DataFrame(
+        [
+            {
+                "chain": 1,
+                "address": "0xabc0000000000000000000000000000000000000",
+                "timestamp": datetime.datetime(2026, 2, 1, 0, 0, 0),
+                "vault_settlement_at": pd.NaT,
+            },
+        ]
+    ).set_index("timestamp")
+    prices.index.name = None
+    settlements = pd.DataFrame(
+        [
+            {
+                "chain_id": 1,
+                "address": "0xabc0000000000000000000000000000000000000",
+                "timestamp": datetime.datetime(2026, 2, 1, 0, 0, 0),
+            },
+        ]
+    )
+
+    annotated = annotate_prices_with_vault_settlements(prices, settlements)
+
+    assert annotated.index.name == "timestamp"
+    assert "timestamp" not in annotated.columns
+    assert annotated.iloc[0]["vault_settlement_at"] == pd.Timestamp(datetime.datetime(2026, 2, 1, 0, 0, 0))

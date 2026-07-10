@@ -15,6 +15,7 @@ import zstandard as zstd
 
 from eth_defi.research.wrangle_vault_prices import fix_outlier_share_prices, generate_cleaned_vault_datasets
 from eth_defi.vault.base import VaultHistoricalRead
+from eth_defi.vault.settlement_data import VaultSettlement, VaultSettlementDatabase
 
 
 @pytest.fixture()
@@ -87,6 +88,61 @@ def test_clean_vault_price_data(
     # written_at column should always be present in cleaned output
     # (NaT for old data that predates the column)
     assert "written_at" in df.columns
+
+
+def test_clean_vault_price_data_with_settlement_markers(
+    vault_db: Path,
+    raw_price_df: Path,
+    tmp_path: Path,
+) -> None:
+    """Settlement marker preservation works with the cleaner's timestamp index."""
+    logger = logging.getLogger(__name__)
+    baseline_dst = tmp_path / "baseline-cleaned-vault-prices.parquet"
+    generate_cleaned_vault_datasets(
+        vault_db_path=vault_db,
+        price_df_path=raw_price_df,
+        cleaned_price_df_path=baseline_dst,
+        logger=logger.info,
+    )
+
+    baseline_prices = pd.read_parquet(baseline_dst)
+    surviving_price = baseline_prices.iloc[0]
+    surviving_timestamp = surviving_price["timestamp"] if "timestamp" in baseline_prices.columns else surviving_price.name
+
+    settlement_db_path = tmp_path / "vault-settlements.duckdb"
+    settlement_db = VaultSettlementDatabase(settlement_db_path)
+    try:
+        settlement_db.upsert_settlements(
+            [
+                VaultSettlement(
+                    chain_id=int(surviving_price["chain"]),
+                    address=str(surviving_price["address"]),
+                    block_number=int(surviving_price["block_number"]),
+                    protocol="test",
+                    block_hash="0x" + "11" * 32,
+                    timestamp=pd.Timestamp(surviving_timestamp).to_pydatetime(),
+                    tx_hash="0x" + "22" * 32,
+                    event_name="SettleDeposit",
+                )
+            ]
+        )
+    finally:
+        settlement_db.close()
+
+    dst = tmp_path / "cleaned-vault-prices.parquet"
+
+    generate_cleaned_vault_datasets(
+        vault_db_path=vault_db,
+        price_df_path=raw_price_df,
+        cleaned_price_df_path=dst,
+        settlement_db_path=settlement_db_path,
+        logger=logger.info,
+    )
+
+    df = pd.read_parquet(dst)
+    assert "timestamp" in df.columns or df.index.name == "timestamp"
+    assert "vault_settlement_at" in df.columns
+    assert df["vault_settlement_at"].notna().any()
 
 
 def test_remove_inactive_lead_time():
