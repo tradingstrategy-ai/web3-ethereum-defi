@@ -1352,6 +1352,8 @@ def generate_cleaned_vault_datasets(
         diagnose_vault_id=diagnose_vault_id,
     )
     enhanced_prices_df = preserve_vault_settlement_markers(prices_df, enhanced_prices_df)
+    if "timestamp" in enhanced_prices_df.columns:
+        enhanced_prices_df.set_index("timestamp", inplace=True)
 
     # Free the original uncleaned DataFrame to reduce peak memory
     del prices_df

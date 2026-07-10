@@ -222,3 +222,82 @@ def test_preserve_vault_settlement_markers_carries_to_next_cleaned_row() -> None
 
     assert pd.isna(preserved.iloc[0]["vault_settlement_at"])
     assert preserved.iloc[1]["vault_settlement_at"] == pd.Timestamp(datetime.datetime(2026, 2, 1, 0, 30, 0))
+
+
+def test_preserve_vault_settlement_markers_accepts_timestamp_index() -> None:
+    """Cleaned price frames may carry ``timestamp`` as the DatetimeIndex."""
+    raw_prices = pd.DataFrame(
+        [
+            {
+                "chain": 1,
+                "address": "0xabc0000000000000000000000000000000000000",
+                "timestamp": datetime.datetime(2026, 2, 1, 0, 0, 0),
+                "vault_settlement_at": pd.NaT,
+            },
+            {
+                "chain": 1,
+                "address": "0xabc0000000000000000000000000000000000000",
+                "timestamp": datetime.datetime(2026, 2, 1, 1, 0, 0),
+                "vault_settlement_at": pd.Timestamp(datetime.datetime(2026, 2, 1, 0, 30, 0)),
+            },
+            {
+                "chain": 1,
+                "address": "0xabc0000000000000000000000000000000000000",
+                "timestamp": datetime.datetime(2026, 2, 1, 2, 0, 0),
+                "vault_settlement_at": pd.NaT,
+            },
+        ]
+    )
+    cleaned_prices = pd.DataFrame(
+        [
+            {
+                "chain": 1,
+                "address": "0xabc0000000000000000000000000000000000000",
+                "timestamp": datetime.datetime(2026, 2, 1, 0, 0, 0),
+                "vault_settlement_at": pd.NaT,
+            },
+            {
+                "chain": 1,
+                "address": "0xabc0000000000000000000000000000000000000",
+                "timestamp": datetime.datetime(2026, 2, 1, 2, 0, 0),
+                "vault_settlement_at": pd.NaT,
+            },
+        ]
+    ).set_index("timestamp")
+
+    preserved = preserve_vault_settlement_markers(raw_prices, cleaned_prices)
+
+    assert preserved.index.name is None
+    assert "timestamp" in preserved.columns
+    assert pd.isna(preserved.iloc[0]["vault_settlement_at"])
+    assert preserved.iloc[1]["vault_settlement_at"] == pd.Timestamp(datetime.datetime(2026, 2, 1, 0, 30, 0))
+
+
+def test_preserve_vault_settlement_markers_accepts_unnamed_timestamp_index() -> None:
+    """Timestamp index normalisation should not depend on the index name."""
+    raw_prices = pd.DataFrame(
+        [
+            {
+                "chain": 1,
+                "address": "0xabc0000000000000000000000000000000000000",
+                "timestamp": datetime.datetime(2026, 2, 1, 0, 0, 0),
+                "vault_settlement_at": pd.Timestamp(datetime.datetime(2026, 2, 1, 0, 0, 0)),
+            },
+        ]
+    )
+    cleaned_prices = pd.DataFrame(
+        [
+            {
+                "chain": 1,
+                "address": "0xabc0000000000000000000000000000000000000",
+                "timestamp": datetime.datetime(2026, 2, 1, 0, 0, 0),
+                "vault_settlement_at": pd.NaT,
+            },
+        ]
+    ).set_index("timestamp")
+    cleaned_prices.index.name = None
+
+    preserved = preserve_vault_settlement_markers(raw_prices, cleaned_prices)
+
+    assert "timestamp" in preserved.columns
+    assert preserved.iloc[0]["vault_settlement_at"] == pd.Timestamp(datetime.datetime(2026, 2, 1, 0, 0, 0))

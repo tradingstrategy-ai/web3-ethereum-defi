@@ -446,8 +446,9 @@ def annotate_prices_with_vault_settlements(
     The first row receives the latest settlement timestamp up to its timestamp.
 
     :param prices_df:
-        Raw or cleaned vault prices DataFrame. Must contain ``chain``,
-        ``address`` and ``timestamp`` columns.
+        Raw or cleaned vault prices DataFrame. Must contain ``chain`` and
+        ``address`` columns. The row timestamp can be either a ``timestamp``
+        column or a :class:`~pandas.DatetimeIndex` named ``timestamp``.
     :param settlements_df:
         Settlement DataFrame from :class:`VaultSettlementDatabase`.
     :param column_name:
@@ -459,6 +460,12 @@ def annotate_prices_with_vault_settlements(
     result[column_name] = pd.NaT
     if result.empty or settlements_df.empty:
         return result
+
+    if "timestamp" not in result.columns and pd.api.types.is_datetime64_any_dtype(result.index):
+        result = result.reset_index()
+        index_column = result.columns[0]
+        if index_column != "timestamp":
+            result.rename(columns={index_column: "timestamp"}, inplace=True)
 
     required_price_columns = {"chain", "address", "timestamp"}
     missing_price_columns = required_price_columns - set(result.columns)
