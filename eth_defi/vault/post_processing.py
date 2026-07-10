@@ -14,22 +14,29 @@ import os
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+import pyarrow as pa
+import pyarrow.compute as pc
+import pyarrow.parquet as pq
+
 from eth_defi.cloudflare_r2 import calculate_bytes_digest, copy_r2_object_daily_backup, create_r2_client, upload_bytes_to_r2, upload_file_to_r2
 from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
-from eth_defi.grvt.vault_data_export import merge_into_uncleaned_parquet as grvt_merge_parquet
-from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
-from eth_defi.hyperliquid.vault_data_export import open_and_merge_hypercore_prices
-from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_DAILY_METRICS_DATABASE
-from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
-from eth_defi.lighter.vault_data_export import merge_into_uncleaned_parquet as lighter_merge_parquet
+from eth_defi.grvt.vault_data_export import build_raw_prices_dataframe as build_grvt_prices_dataframe
 from eth_defi.hibachi.constants import HIBACHI_CHAIN_ID, HIBACHI_DAILY_METRICS_DATABASE
 from eth_defi.hibachi.daily_metrics import HibachiDailyMetricsDatabase
-from eth_defi.hibachi.vault_data_export import merge_into_uncleaned_parquet as hibachi_merge_parquet
+from eth_defi.hibachi.vault_data_export import build_raw_prices_dataframe as build_hibachi_prices_dataframe
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE, HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE
+from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
+from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
+from eth_defi.hyperliquid.vault_data_export import build_hypercore_prices_dataframe
+from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_DAILY_METRICS_DATABASE
+from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
+from eth_defi.lighter.vault_data_export import build_raw_prices_dataframe as build_lighter_prices_dataframe
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.vault import top_vaults_json
+from eth_defi.vault.base import VaultHistoricalRead
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, get_pipeline_data_dir
-
 
 #: Required env vars for the top-vaults JSON R2 upload.
 #: See :py:func:`validate_top_vaults_config`.
@@ -248,6 +255,105 @@ def _upload_top_vaults_json_to_configured_buckets(
     return primary_success and alternative_success
 
 
+def _create_native_merge_schema(existing_schema: pa.Schema | None, replacements: dict[int, pd.DataFrame]) -> pa.Schema:
+    """Construct a canonical schema for the native partition replacement.
+
+    Canonical raw-price columns use the exact types required by the EVM
+    scanner. Extra native-protocol fields are retained from the existing
+    parquet and unified with fresh source frames, so a native merge cannot
+    discard fields such as Hypercore account metrics.
+
+    :param existing_schema:
+        Existing raw-price Parquet schema, or ``None`` when creating it.
+    :param replacements:
+        Fresh native price frames keyed by their synthetic chain IDs.
+    :return:
+        Canonical schema followed by compatible native-only fields.
+    """
+    canonical_schema = VaultHistoricalRead.to_pyarrow_schema()
+    canonical_names = set(canonical_schema.names)
+    extra_schemas: list[pa.Schema] = []
+
+    if existing_schema is not None:
+        extra_schemas.append(pa.schema(field for field in existing_schema if field.name not in canonical_names))
+
+    for frame in replacements.values():
+        source_schema = pa.Schema.from_pandas(frame, preserve_index=False)
+        extra_schemas.append(pa.schema(field for field in source_schema if field.name not in canonical_names))
+
+    extras = pa.unify_schemas(extra_schemas, promote_options="permissive") if extra_schemas else pa.schema([])
+    return pa.schema([*canonical_schema, *extras])
+
+
+def _align_native_merge_table(table: pa.Table, schema: pa.Schema) -> pa.Table:
+    """Align an Arrow table to the canonical native merge schema.
+
+    Missing columns are null-filled and incompatible source representations
+    are cast before concatenation. This mirrors the canonical type guarantees
+    of :py:meth:`VaultHistoricalRead.write_uncleaned_parquet` without turning
+    the full raw parquet into a pandas DataFrame.
+
+    :param table:
+        Existing or fresh native Arrow table.
+    :param schema:
+        Required output schema.
+    :return:
+        Table with every required field in schema order.
+    """
+    arrays: list[pa.ChunkedArray] = []
+    for field in schema:
+        column_index = table.schema.get_field_index(field.name)
+        if column_index == -1:
+            arrays.append(pa.chunked_array([pa.nulls(len(table), type=field.type)]))
+            continue
+
+        column = table.column(column_index)
+        arrays.append(column if column.type == field.type else column.cast(field.type, safe=False))
+
+    return pa.Table.from_arrays(arrays, schema=schema)
+
+
+def _write_native_partitions_to_uncleaned_parquet(parquet_path: Path, replacements: dict[int, pd.DataFrame]) -> int:
+    """Replace native chain partitions using PyArrow without full pandas conversion.
+
+    The existing file is read as an Arrow table, only the successful native
+    chains are removed, and fresh source frames are converted and aligned once.
+    The combined table is sorted for compression efficiency, verified in a
+    sibling temporary file, and atomically swapped into place.
+
+    :param parquet_path:
+        Raw vault-price parquet to update.
+    :param replacements:
+        Fresh, non-empty source frames keyed by their synthetic chain IDs.
+    :return:
+        Total row count in the new raw parquet.
+    """
+    assert replacements, "At least one native chain replacement is required"
+
+    existing_table = pq.read_table(parquet_path) if parquet_path.exists() else None
+    schema = _create_native_merge_schema(existing_table.schema if existing_table is not None else None, replacements)
+    replacement_tables = [_align_native_merge_table(pa.Table.from_pandas(frame, preserve_index=False), schema) for frame in replacements.values()]
+    native_table = pa.concat_tables(replacement_tables)
+
+    if existing_table is not None:
+        chain_mask = pc.is_in(existing_table["chain"], value_set=pa.array(list(replacements)))
+        retained_table = _align_native_merge_table(existing_table.filter(pc.invert(chain_mask)), schema)
+        combined_table = pa.concat_tables([retained_table, native_table])
+    else:
+        parquet_path.parent.mkdir(parents=True, exist_ok=True)
+        combined_table = native_table
+
+    sort_indices = pc.sort_indices(
+        combined_table,
+        sort_keys=[("chain", "ascending"), ("address", "ascending"), ("timestamp", "ascending")],
+    )
+    combined_table = combined_table.take(sort_indices)
+
+    VaultHistoricalRead.write_uncleaned_arrow_table(combined_table, parquet_path)
+
+    return len(combined_table)
+
+
 def merge_native_protocols(
     merge_hypercore: bool = False,
     merge_grvt: bool = False,
@@ -260,14 +366,22 @@ def merge_native_protocols(
     lighter_db_path: Path | None = None,
     hibachi_db_path: Path | None = None,
 ) -> dict[str, bool]:
-    """Merge native protocol price data into the uncleaned parquet.
+    """Merge native protocol price data into the uncleaned parquet in one pass.
 
     Must run before cleaning so that native protocol data goes through
     the same cleaning pipeline as EVM vaults.
 
     For Hypercore, both the daily and HF DuckDB databases are always
     merged together so that switching between modes never loses
-    historical data.
+    historical data. All enabled native sources are collected before the
+    existing parquet is read, then their chain partitions are replaced and
+    the result is written once. This avoids repeatedly rewriting the much
+    larger EVM data set.
+
+    An unavailable, empty, or failed source leaves its existing chain
+    partition untouched. This preserves the previous per-source failure
+    semantics and prevents a transient database failure from deleting
+    historical native-protocol prices.
 
     :param merge_hypercore: Merge Hyperliquid native (Hypercore) vault data
     :param merge_grvt: Merge GRVT native vault data
@@ -282,18 +396,37 @@ def merge_native_protocols(
     :return: Dictionary mapping step name to success boolean
     """
     parquet_path = uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE
-    steps = {}
+    steps: dict[str, bool] = {}
+    replacements: dict[int, pd.DataFrame] = {}
 
     if merge_hypercore:
         try:
             logger.info("Merging Hypercore prices into uncleaned parquet")
-            combined_df = open_and_merge_hypercore_prices(
-                parquet_path,
-                daily_db_path=hyperliquid_db_path,
-                hf_db_path=hyperliquid_hf_db_path,
-            )
-            hl_rows = len(combined_df[combined_df["chain"] == HYPERCORE_CHAIN_ID]) if len(combined_df) > 0 else 0
-            logger.info("Hypercore price merge: %d Hyperliquid price entries in uncleaned parquet", hl_rows)
+            daily_path = hyperliquid_db_path or HYPERLIQUID_DAILY_METRICS_DATABASE
+            hf_path = hyperliquid_hf_db_path or HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE
+            daily_db = None
+            hf_db = None
+            try:
+                if daily_path.exists():
+                    daily_db = HyperliquidDailyMetricsDatabase(daily_path)
+                if hf_path.exists():
+                    hf_db = HyperliquidHighFreqMetricsDatabase(hf_path)
+                if daily_db is None and hf_db is None:
+                    logger.warning("No Hyperliquid DuckDB databases found")
+                    hypercore_df = pd.DataFrame()
+                else:
+                    hypercore_df = build_hypercore_prices_dataframe(daily_db=daily_db, hf_db=hf_db)
+            finally:
+                if daily_db is not None:
+                    daily_db.close()
+                if hf_db is not None:
+                    hf_db.close()
+
+            if hypercore_df.empty:
+                logger.warning("No Hyperliquid data to merge from either database")
+            else:
+                replacements[HYPERCORE_CHAIN_ID] = hypercore_df
+            logger.info("Hypercore price merge: %d fresh Hyperliquid price entries", len(hypercore_df))
             steps["hypercore-price-merge"] = True
         except Exception:
             logger.exception("Hypercore price merge failed")
@@ -305,11 +438,14 @@ def merge_native_protocols(
             g_db_path = grvt_db_path or GRVT_DAILY_METRICS_DATABASE
             db = GRVTDailyMetricsDatabase(g_db_path)
             try:
-                combined_df = grvt_merge_parquet(db, parquet_path)
-                grvt_rows = len(combined_df[combined_df["chain"] == GRVT_CHAIN_ID]) if len(combined_df) > 0 else 0
-                logger.info("GRVT price merge: %d GRVT price entries in uncleaned parquet", grvt_rows)
+                grvt_df = build_grvt_prices_dataframe(db)
             finally:
                 db.close()
+            if grvt_df.empty:
+                logger.warning("No GRVT data to merge")
+            else:
+                replacements[GRVT_CHAIN_ID] = grvt_df
+            logger.info("GRVT price merge: %d fresh GRVT price entries", len(grvt_df))
             steps["grvt-price-merge"] = True
         except Exception:
             logger.exception("GRVT price merge failed")
@@ -321,11 +457,14 @@ def merge_native_protocols(
             l_db_path = lighter_db_path or LIGHTER_DAILY_METRICS_DATABASE
             db = LighterDailyMetricsDatabase(l_db_path)
             try:
-                combined_df = lighter_merge_parquet(db, parquet_path)
-                lighter_rows = len(combined_df[combined_df["chain"] == LIGHTER_CHAIN_ID]) if len(combined_df) > 0 else 0
-                logger.info("Lighter price merge: %d Lighter price entries in uncleaned parquet", lighter_rows)
+                lighter_df = build_lighter_prices_dataframe(db)
             finally:
                 db.close()
+            if lighter_df.empty:
+                logger.warning("No Lighter data to merge")
+            else:
+                replacements[LIGHTER_CHAIN_ID] = lighter_df
+            logger.info("Lighter price merge: %d fresh Lighter price entries", len(lighter_df))
             steps["lighter-price-merge"] = True
         except Exception:
             logger.exception("Lighter price merge failed")
@@ -337,15 +476,41 @@ def merge_native_protocols(
             h_db_path = hibachi_db_path or HIBACHI_DAILY_METRICS_DATABASE
             db = HibachiDailyMetricsDatabase(h_db_path)
             try:
-                combined_df = hibachi_merge_parquet(db, parquet_path)
-                hibachi_rows = len(combined_df[combined_df["chain"] == HIBACHI_CHAIN_ID]) if len(combined_df) > 0 else 0
-                logger.info("Hibachi price merge: %d Hibachi price entries in uncleaned parquet", hibachi_rows)
+                hibachi_df = build_hibachi_prices_dataframe(db)
             finally:
                 db.close()
+            if hibachi_df.empty:
+                logger.warning("No Hibachi data to merge")
+            else:
+                replacements[HIBACHI_CHAIN_ID] = hibachi_df
+            logger.info("Hibachi price merge: %d fresh Hibachi price entries", len(hibachi_df))
             steps["hibachi-price-merge"] = True
         except Exception:
             logger.exception("Hibachi price merge failed")
             steps["hibachi-price-merge"] = False
+
+    if not replacements:
+        return steps
+
+    try:
+        total_rows = _write_native_partitions_to_uncleaned_parquet(parquet_path, replacements)
+        logger.info(
+            "Merged %d native protocol chain partitions (%d fresh rows, %d total rows) into uncleaned %s in one PyArrow parquet write",
+            len(replacements),
+            sum(len(df) for df in replacements.values()),
+            total_rows,
+            parquet_path,
+        )
+    except Exception:
+        logger.exception("Native protocol batch price merge failed")
+        for step_name, chain_id in (
+            ("hypercore-price-merge", HYPERCORE_CHAIN_ID),
+            ("grvt-price-merge", GRVT_CHAIN_ID),
+            ("lighter-price-merge", LIGHTER_CHAIN_ID),
+            ("hibachi-price-merge", HIBACHI_CHAIN_ID),
+        ):
+            if chain_id in replacements:
+                steps[step_name] = False
 
     return steps
 

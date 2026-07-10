@@ -730,7 +730,7 @@ class VaultHistoricalRead:
         df: "pd.DataFrame",
         path: "pathlib.Path",
         compression: str = "zstd",
-    ):
+    ) -> None:
         """Write a DataFrame to the uncleaned parquet using proper PyArrow types.
 
         Native protocol merge functions (Hyperliquid, GRVT, Lighter) must use
@@ -750,7 +750,6 @@ class VaultHistoricalRead:
             Parquet compression codec.
         """
         import pyarrow as pa
-        import pyarrow.parquet as pq
 
         table = pa.Table.from_pandas(df, preserve_index=False)
 
@@ -767,6 +766,31 @@ class VaultHistoricalRead:
                     table.column(i).cast(target_field.type, safe=False),
                 )
 
+        VaultHistoricalRead.write_uncleaned_arrow_table(table, path, compression=compression)
+
+    @staticmethod
+    def write_uncleaned_arrow_table(
+        table: "pyarrow.Table",
+        path: "pathlib.Path",
+        compression: str = "zstd",
+    ) -> None:
+        """Write a pre-aligned raw-price Arrow table with atomic verification.
+
+        Both the EVM-compatible pandas writer and the direct PyArrow native
+        merge path use this method. The caller is responsible for aligning
+        canonical column types before calling this method; the output is
+        written beside the target, verified, and atomically replaced only on
+        success.
+
+        :param table:
+            Raw price table with its final canonical and native-only schema.
+        :param path:
+            Target uncleaned parquet path.
+        :param compression:
+            Parquet compression codec.
+        """
+        import pyarrow.parquet as pq
+
         # Write to a temp file, verify, then atomically replace the target.
         # If verification fails, the original file is preserved.
         temp_fd, temp_path = tempfile.mkstemp(
@@ -778,7 +802,7 @@ class VaultHistoricalRead:
             pq.write_table(table, temp_path, compression=compression)
             verify_parquet_file(
                 temp_path,
-                expected_rows=len(df),
+                expected_rows=len(table),
                 expected_schema=table.schema,
             )
             os.replace(temp_path, str(path))

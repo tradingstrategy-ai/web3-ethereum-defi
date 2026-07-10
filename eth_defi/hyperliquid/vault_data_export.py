@@ -26,14 +26,13 @@ Example::
 
 import datetime
 import logging
+from collections.abc import Mapping
 from decimal import Decimal
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from eth_typing import HexAddress
-
-from collections.abc import Mapping
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
@@ -613,6 +612,55 @@ def build_raw_prices_dataframe_hf(db: HyperliquidHighFreqMetricsDatabase) -> pd.
     )
 
 
+def build_hypercore_prices_dataframe(
+    daily_db: HyperliquidDailyMetricsDatabase | None = None,
+    hf_db: HyperliquidHighFreqMetricsDatabase | None = None,
+) -> pd.DataFrame:
+    """Build a deduplicated Hypercore price DataFrame from available databases.
+
+    Daily and high-frequency data are combined without writing a Parquet file.
+    This lets the full post-processing pipeline batch Hypercore with other
+    native-protocol sources in one Parquet rewrite, while standalone callers
+    can still use :py:func:`merge_hypercore_prices_to_parquet`.
+
+    When both databases contain a row for the same ``(address, timestamp)``,
+    the high-frequency row wins because it is the more granular source.
+
+    :param daily_db:
+        Open daily metrics database, if available.
+    :param hf_db:
+        Open high-frequency metrics database, if available.
+    :return:
+        Deduplicated Hypercore raw prices, or an empty DataFrame when neither
+        database has price data.
+    """
+    parts: list[pd.DataFrame] = []
+
+    if daily_db is not None:
+        daily_df = build_raw_prices_dataframe(daily_db)
+        if not daily_df.empty:
+            daily_df["_source"] = "daily"
+            parts.append(daily_df)
+            logger.info("Daily DB contributed %d Hypercore rows", len(daily_df))
+
+    if hf_db is not None:
+        hf_df = build_raw_prices_dataframe_hf(hf_db)
+        if not hf_df.empty:
+            hf_df["_source"] = "hf"
+            parts.append(hf_df)
+            logger.info("HF DB contributed %d Hypercore rows", len(hf_df))
+
+    if not parts:
+        return pd.DataFrame()
+
+    hl_df = pd.concat(parts, ignore_index=True)
+
+    # Sort so "hf" comes after "daily", then drop_duplicates keeps last.
+    hl_df = hl_df.sort_values(["address", "timestamp", "_source"])
+    hl_df = hl_df.drop_duplicates(subset=["address", "timestamp"], keep="last")
+    return hl_df.drop(columns=["_source"])
+
+
 def merge_hypercore_prices_to_parquet(
     parquet_path: Path,
     daily_db: HyperliquidDailyMetricsDatabase | None = None,
@@ -641,36 +689,12 @@ def merge_hypercore_prices_to_parquet(
     :return:
         The combined DataFrame (EVM + Hypercore rows).
     """
-    parts: list[pd.DataFrame] = []
-
-    if daily_db is not None:
-        daily_df = build_raw_prices_dataframe(daily_db)
-        if not daily_df.empty:
-            daily_df["_source"] = "daily"
-            parts.append(daily_df)
-            logger.info("Daily DB contributed %d Hypercore rows", len(daily_df))
-
-    if hf_db is not None:
-        hf_df = build_raw_prices_dataframe_hf(hf_db)
-        if not hf_df.empty:
-            hf_df["_source"] = "hf"
-            parts.append(hf_df)
-            logger.info("HF DB contributed %d Hypercore rows", len(hf_df))
-
-    if not parts:
+    hl_df = build_hypercore_prices_dataframe(daily_db=daily_db, hf_db=hf_db)
+    if hl_df.empty:
         logger.warning("No Hyperliquid data to merge from either database")
         if parquet_path.exists():
             return pd.read_parquet(parquet_path)
         return pd.DataFrame()
-
-    hl_df = pd.concat(parts, ignore_index=True)
-
-    # Deduplicate: when both databases have a row for the same
-    # (address, timestamp), keep the HF row (more granular/recent).
-    # Sort so "hf" comes after "daily", then drop_duplicates keeps last.
-    hl_df = hl_df.sort_values(["address", "timestamp", "_source"])
-    hl_df = hl_df.drop_duplicates(subset=["address", "timestamp"], keep="last")
-    hl_df = hl_df.drop(columns=["_source"])
 
     if parquet_path.exists():
         existing_df = pd.read_parquet(parquet_path)
