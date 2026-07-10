@@ -18,8 +18,8 @@ from web3 import Web3
 from web3.datastructures import AttributeDict
 from web3.exceptions import Web3Exception
 
-from eth_defi.erc_4626.classification import create_vault_instance
-from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
+from eth_defi.erc_4626.core import ERC4626Feature, is_activity_filter_exempt
 from eth_defi.erc_4626.settlement_events import (
     fetch_vault_settlement_logs_for_addresses,
     normalise_log_topic,
@@ -58,6 +58,7 @@ SUPPORTED_SETTLEMENT_FEATURES = frozenset(
         ERC4626Feature.d2_like,
     }
 )
+MIN_PRICE_SCAN_DEPOSIT_COUNT = 5
 
 
 @dataclass(slots=True, frozen=True)
@@ -247,6 +248,84 @@ def select_vault_settlement_scan_ranges(
     return sorted(ranges, key=lambda item: (item.chain_id, str(item.address)))
 
 
+def select_vault_settlement_scan_ranges_for_chain(
+    vault_db: VaultDatabase,
+    settlement_db: VaultSettlementDatabase,
+    chain_id: int,
+    end_block: int,
+    supported_features: set[ERC4626Feature] | frozenset[ERC4626Feature] = SUPPORTED_SETTLEMENT_FEATURES,
+    forced_start_block: int | None = None,
+    forced_end_block: int | None = None,
+) -> list[VaultSettlementScanRange]:
+    """Select settlement scan ranges from vault metadata and chain scan state.
+
+    Production per-chain scans already know the latest scanned chain block from
+    the completed price scan. Using that block avoids re-reading the raw price
+    parquet just to rediscover the chain-level end block.
+
+    :param vault_db:
+        Vault metadata database.
+    :param settlement_db:
+        Settlement database used to determine latest scanned settlement block.
+    :param chain_id:
+        Chain id to select.
+    :param end_block:
+        Latest block reached by the successful chain price scan.
+    :param supported_features:
+        Protocol feature flags whose event readers are available.
+    :param forced_start_block:
+        Optional operator-supplied inclusive start block for backfills.
+    :param forced_end_block:
+        Optional operator-supplied inclusive end block for backfills.
+    :return:
+        Scan ranges sorted by address.
+    """
+    assert end_block >= 0, f"Bad end block: {end_block}"
+
+    ranges: list[VaultSettlementScanRange] = []
+    for row in vault_db.rows.values():
+        features = _get_vault_features(row)
+        if not features.intersection(supported_features):
+            continue
+
+        detection = row["_detection_data"]
+        if int(detection.chain) != chain_id:
+            continue
+        if not _is_price_scan_candidate(row):
+            continue
+
+        address = str(detection.address).lower()
+        first_seen_block = int(detection.first_seen_at_block)
+        if first_seen_block > end_block:
+            continue
+
+        latest_scanned_block = settlement_db.get_latest_scanned_block_number(chain_id, address)
+        latest_event_block = settlement_db.get_latest_block_number(chain_id, address)
+        latest_known_block = _max_optional_int(latest_scanned_block, latest_event_block)
+
+        start_block = first_seen_block
+        if forced_start_block is None and latest_known_block is not None:
+            start_block = max(start_block, latest_known_block + 1)
+        if forced_start_block is not None:
+            start_block = max(start_block, forced_start_block)
+
+        range_end_block = end_block
+        if forced_end_block is not None:
+            range_end_block = min(range_end_block, forced_end_block)
+
+        if start_block <= range_end_block:
+            ranges.append(
+                VaultSettlementScanRange(
+                    chain_id=chain_id,
+                    address=address,
+                    start_block=start_block,
+                    end_block=range_end_block,
+                )
+            )
+
+    return sorted(ranges, key=lambda item: str(item.address))
+
+
 def fetch_and_store_vault_settlements(
     vault_db_path: Path = DEFAULT_VAULT_DATABASE,
     raw_price_path: Path = DEFAULT_UNCLEANED_PRICE_DATABASE,
@@ -385,6 +464,121 @@ def fetch_and_store_vault_settlements(
         db.close()
 
 
+def fetch_and_store_vault_settlements_for_chain(
+    *,
+    vault_db: VaultDatabase,
+    chain_id: int,
+    rpc_url: str,
+    end_block: int,
+    settlement_db_path: Path | None = None,
+    supported_features: set[ERC4626Feature] | frozenset[ERC4626Feature] = SUPPORTED_SETTLEMENT_FEATURES,
+    forced_start_block: int | None = None,
+    forced_end_block: int | None = None,
+    use_hypersync: bool | None = None,
+    chunk_size: int = 50_000,
+    fail_gracefully: bool = True,
+) -> VaultSettlementScanResult:
+    """Fetch and store settlement events for one already-scanned chain.
+
+    This helper is used by the production scanner loop. It avoids re-reading the
+    vault pickle and raw price parquet by consuming the already-loaded vault
+    metadata and the end block reported by the just-completed chain scan.
+
+    :param vault_db:
+        Vault metadata database.
+    :param chain_id:
+        Chain id to scan.
+    :param rpc_url:
+        JSON-RPC configuration string for the chain.
+    :param end_block:
+        Latest block reached by the successful chain scan.
+    :param settlement_db_path:
+        Settlement DuckDB path. ``None`` uses the default pipeline path.
+    :param supported_features:
+        Protocol feature flags whose event readers are available.
+    :param forced_start_block:
+        Optional inclusive backfill start block.
+    :param forced_end_block:
+        Optional inclusive backfill end block.
+    :param use_hypersync:
+        Passed to protocol readers. ``None`` lets each reader auto-detect.
+    :param chunk_size:
+        JSON-RPC ``eth_getLogs`` chunk size for fallback reads.
+    :param fail_gracefully:
+        If ``True``, a failed chain settlement batch is logged and counted
+        without aborting the caller.
+    :return:
+        Scan summary.
+    """
+    settlement_db_path = settlement_db_path or get_default_vault_settlement_database_path()
+    db = VaultSettlementDatabase(settlement_db_path)
+    try:
+        ranges = select_vault_settlement_scan_ranges_for_chain(
+            vault_db=vault_db,
+            settlement_db=db,
+            chain_id=chain_id,
+            end_block=end_block,
+            supported_features=supported_features,
+            forced_start_block=forced_start_block,
+            forced_end_block=forced_end_block,
+        )
+        candidate_count = _count_supported_vaults_for_chain(
+            vault_db=vault_db,
+            chain_id=chain_id,
+            end_block=end_block,
+            supported_features=supported_features,
+        )
+        skipped_count = max(0, candidate_count - len(ranges))
+
+        if not ranges:
+            db.save()
+            return VaultSettlementScanResult(
+                candidate_vaults=candidate_count,
+                scanned_vaults=0,
+                skipped_vaults=skipped_count,
+                rows_written=0,
+            )
+
+        try:
+            web3 = create_multi_provider_web3(rpc_url)
+            token_cache = TokenDiskCache()
+            rows_by_key = {(int(row["_detection_data"].chain), str(row["_detection_data"].address).lower()): row for row in vault_db.rows.values()}
+            chain_update = _update_settlement_database_for_chain(
+                database=db,
+                web3=web3,
+                chain_id=chain_id,
+                ranges=ranges,
+                rows_by_key=rows_by_key,
+                token_cache=token_cache,
+                use_hypersync=use_hypersync,
+                chunk_size=chunk_size,
+            )
+            db.save()
+            return VaultSettlementScanResult(
+                candidate_vaults=candidate_count,
+                scanned_vaults=chain_update.scanned_vaults,
+                skipped_vaults=skipped_count,
+                rows_written=chain_update.rows_written,
+                scanned_chains=1,
+                failed_chains=0,
+            )
+        except Exception:
+            logger.exception("Vault settlement scan failed for chain %d", chain_id)
+            if not fail_gracefully:
+                raise
+            db.save()
+            return VaultSettlementScanResult(
+                candidate_vaults=candidate_count,
+                scanned_vaults=0,
+                skipped_vaults=skipped_count,
+                rows_written=0,
+                scanned_chains=0,
+                failed_chains=1,
+            )
+    finally:
+        db.close()
+
+
 def _get_vault_features(row: VaultRow) -> set[ERC4626Feature]:
     """Read feature flags from a vault metadata row."""
     features = row.get("features") or row["_detection_data"].features
@@ -436,6 +630,29 @@ def _count_supported_vaults_with_raw_prices(
     if chain_ids is not None:
         raw_keys = {key for key in raw_keys if key[0] in chain_ids}
     return sum(1 for row in vault_db.rows.values() if _get_vault_features(row).intersection(supported_features) and (int(row["_detection_data"].chain), str(row["_detection_data"].address).lower()) in raw_keys)
+
+
+def _count_supported_vaults_for_chain(
+    *,
+    vault_db: VaultDatabase,
+    chain_id: int,
+    end_block: int,
+    supported_features: set[ERC4626Feature] | frozenset[ERC4626Feature] = SUPPORTED_SETTLEMENT_FEATURES,
+) -> int:
+    """Count supported protocol metadata rows for one scanned chain."""
+    return sum(1 for row in vault_db.rows.values() if _get_vault_features(row).intersection(supported_features) and int(row["_detection_data"].chain) == chain_id and int(row["_detection_data"].first_seen_at_block) <= end_block and _is_price_scan_candidate(row))
+
+
+def _is_price_scan_candidate(row: VaultRow) -> bool:
+    """Return ``True`` if the production price scanner would consider a vault.
+
+    The production settlement selector does not read the raw price parquet, so
+    it mirrors the price scanner's low-activity filter to avoid settlement log
+    reads for vaults that cannot receive price rows in the same chain cycle.
+    """
+    detection = row["_detection_data"]
+    address = str(detection.address).lower()
+    return int(detection.deposit_count) >= MIN_PRICE_SCAN_DEPOSIT_COUNT or address in HARDCODED_PROTOCOLS or is_activity_filter_exempt(detection)
 
 
 def _prepare_settlement_vault(

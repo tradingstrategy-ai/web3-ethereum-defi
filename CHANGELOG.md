@@ -1,6 +1,6 @@
 # 1.2
 
-- feat: Batch ERC-4626 vault settlement event scans by chain, track empty settlement scan watermarks, and make settlement scan failures non-fatal for the vault scanner cycle (2026-07-10)
+- feat: Batch ERC-4626 vault settlement event scans by chain, track empty settlement scan watermarks, avoid per-chain raw price parquet rereads, and make settlement scan failures non-fatal for the vault scanner cycle (2026-07-10)
 - feat: Add T3tris ERC-4626 vault protocol support with custom lead-detection events, offchain metadata, protocol logos, fee/risk metadata and curator mappings (2026-07-06)
 - feat: Mark Kinexys vault onchain deposits and redemptions as whitelist-only and unavailable to the general public (2026-07-06)
 - fix: Treat IPOR Fusion vaults listed in the public app vault API as official even when they do not have sparse customisation metadata (2026-07-06)

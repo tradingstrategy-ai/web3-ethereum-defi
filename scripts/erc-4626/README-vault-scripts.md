@@ -455,10 +455,12 @@ settlement markers are populated before cleaned price data is exported.
 The scanner runs settlements as part of each successful EVM chain cycle. For
 each chain it queries all supported vault addresses as one batch, chunked by
 block range for the JSON-RPC fallback, and then filters the returned logs back
-to each vault's incremental block range. Successful empty settlement scans
-advance per-vault scan watermarks in `vault-settlements.duckdb`, so vaults
-without settlement events are not rescanned from their first price block on
-every cycle.
+to each vault's incremental block range. The loop uses the just-completed
+chain scan's end block and cached vault metadata to select settlement ranges,
+so it does not re-read the raw price parquet for each chain settlement pass.
+Successful empty settlement scans advance per-vault scan watermarks in
+`vault-settlements.duckdb`, so vaults without settlement events are not
+rescanned from their first price block on every cycle.
 If one chain's settlement event read fails, the failure is logged and displayed
 as `<chain> settlements`, while the rest of the scan and post-processing can
 continue with the previously stored `vault-settlements.duckdb` data. If one

@@ -126,13 +126,14 @@ Populate `vault-settlements.duckdb` before `clean_prices()` runs.
 Initial production support was Lagoon-only, but the storage and annotation code
 is protocol-generic and now covers Lagoon and D2 Finance. The scan step should:
 
-- Select supported vaults from the vault metadata database and intersect them
-  with vaults present in the raw price parquet.
-- For each `(chain_id, address)`, choose the scan range from raw price data:
-  start at the greater of the first raw price block and the latest known
-  settlement scan watermark plus one, and end at the latest raw price block for
-  that vault. Existing settlement event rows are used as a migration fallback
-  when the scan-state table does not yet have a watermark.
+- Select supported vaults from the vault metadata database.
+- For each `(chain_id, address)`, choose the production scan range from the
+  vault first-seen block, the latest known settlement scan watermark, and the
+  just-completed chain scan end block. Existing settlement event rows are used
+  as a migration fallback when the scan-state table does not yet have a
+  watermark.
+- Keep the raw price parquet selector only for standalone/manual settlement
+  scan helpers that do not run inside a chain scan cycle.
 - Allow an operator-forced backfill range for historical repairs. Overlapping
   scans are acceptable because inserts are idempotent by
   `(chain_id, address, tx_hash, event_name)`.

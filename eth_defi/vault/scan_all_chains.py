@@ -48,8 +48,7 @@ from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_i
 from eth_defi.erc_4626.core import is_activity_filter_exempt
 from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.erc_4626.settlement_scan import (
-    fetch_and_store_vault_settlements,
-    resolve_rpc_urls_by_chain_from_env,
+    fetch_and_store_vault_settlements_for_chain,
 )
 from eth_defi.feed.database import resolve_feed_database_path
 from eth_defi.grvt.daily_metrics import run_daily_scan as grvt_run_daily_scan
@@ -74,7 +73,7 @@ from eth_defi.vault.settlement_data import (
     checkpoint_vault_settlement_database_if_exists,
     get_default_vault_settlement_database_path,
 )
-from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, get_pipeline_data_dir
+from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, get_pipeline_data_dir
 from eth_defi.version_info import VersionInfo
 
 #: How many days of backups to keep
@@ -388,6 +387,12 @@ class ChainResult:
     #: Last block scanned
     end_block: int | None = None
 
+    #: EVM chain id
+    chain_id: int | None = None
+
+    #: Verified JSON-RPC configuration string used by this scan
+    rpc_url: str | None = None
+
     #: Total vault count
     vault_count: int | None = None
 
@@ -583,6 +588,7 @@ def scan_prices_for_chain(
                 pickle.dump(result["reader_states"], f)
 
         return True, {
+            "chain_id": chain_id,
             "rows_written": result["rows_written"],
             "start_block": result["start_block"],
             "end_block": result["end_block"],
@@ -638,6 +644,7 @@ def scan_chain(
     try:
         rpc_url, latest_block = verify_archive_node(rpc_url, config.name)
         logger.info("%s: RPC archive node verification passed, latest block %s", config.name, f"{latest_block:,}")
+        result.rpc_url = rpc_url
     except RuntimeError as e:
         logger.error("%s: All archive node providers failed: %s", config.name, e)
         result.status = "failed"
@@ -673,6 +680,7 @@ def scan_chain(
         result.price_scan_ok = price_success
 
         if price_success:
+            result.chain_id = price_metrics.get("chain_id")
             result.price_rows = price_metrics.get("rows_written")
             # Update block range if not set by vault scan
             if result.start_block is None:
@@ -708,8 +716,10 @@ def scan_chain(
 def scan_chain_vault_settlements(
     *,
     chain: ChainConfig,
-    vault_db_path: Path,
-    uncleaned_price_path: Path,
+    vault_db: VaultDatabase,
+    chain_id: int,
+    rpc_url: str,
+    end_block: int,
     settlement_db_path: Path | None,
     settlement_start_block: int | None,
     settlement_end_block: int | None,
@@ -723,10 +733,15 @@ def scan_chain_vault_settlements(
 
     :param chain:
         EVM chain configuration.
-    :param vault_db_path:
-        Vault metadata database path.
-    :param uncleaned_price_path:
-        Raw price parquet path.
+    :param vault_db:
+        Already-loaded vault metadata database.
+    :param chain_id:
+        EVM chain id from the just-completed price scan.
+    :param rpc_url:
+        Verified JSON-RPC configuration string from the just-completed chain
+        scan.
+    :param end_block:
+        Latest block reached by the just-completed chain scan.
     :param settlement_db_path:
         Generic vault settlement DuckDB path.
     :param settlement_start_block:
@@ -739,19 +754,14 @@ def scan_chain_vault_settlements(
     start_time = time.time()
     result_name = f"{chain.name} settlements"
     try:
-        rpc_urls_by_chain = resolve_rpc_urls_by_chain_from_env([chain.env_var])
-        if not rpc_urls_by_chain:
-            raise RuntimeError(f"No JSON-RPC URL configured in {chain.env_var}")
-
-        chain_id = next(iter(rpc_urls_by_chain))
-        settlement_result = fetch_and_store_vault_settlements(
-            vault_db_path=vault_db_path,
-            raw_price_path=uncleaned_price_path,
+        settlement_result = fetch_and_store_vault_settlements_for_chain(
+            vault_db=vault_db,
+            chain_id=chain_id,
+            rpc_url=rpc_url,
+            end_block=end_block,
             settlement_db_path=settlement_db_path,
-            rpc_urls_by_chain=rpc_urls_by_chain,
             forced_start_block=settlement_start_block,
             forced_end_block=settlement_end_block,
-            chain_ids={chain_id},
             fail_gracefully=True,
         )
         status = "success" if settlement_result.failed_chains == 0 else "failed"
@@ -1719,9 +1729,16 @@ def run_scan_tick(
 
     results: dict[str, ChainResult] = {}
     _ci = cycle_intervals or {}
+    settlement_vault_db: VaultDatabase | None = None
 
-    def update_chain_settlement_result(chain: ChainConfig, skip_reason: str | None = None) -> None:
+    def update_chain_settlement_result(
+        chain: ChainConfig,
+        chain_result: ChainResult | None = None,
+        skip_reason: str | None = None,
+    ) -> None:
         """Update the dashboard result for one chain's settlement scan."""
+        nonlocal settlement_vault_db
+
         if not scan_vault_settlements or skip_post_processing:
             return
 
@@ -1735,10 +1752,27 @@ def run_scan_tick(
             )
             return
 
+        assert chain_result is not None, "Settlement scan needs a successful chain result"
+        if chain_result.chain_id is None or chain_result.rpc_url is None or chain_result.end_block is None:
+            results[result_name] = ChainResult(
+                name=result_name,
+                status="skipped",
+                error=f"Skipped because {chain.name} scan did not report chain id, RPC URL or end block",
+                cycle_interval=_ci.get(chain.name),
+            )
+            return
+
+        if chain_result.new_vaults:
+            settlement_vault_db = None
+        if settlement_vault_db is None:
+            settlement_vault_db = VaultDatabase.read(vault_db_path)
+
         results[result_name] = scan_chain_vault_settlements(
             chain=chain,
-            vault_db_path=vault_db_path,
-            uncleaned_price_path=uncleaned_price_path,
+            vault_db=settlement_vault_db,
+            chain_id=chain_result.chain_id,
+            rpc_url=chain_result.rpc_url,
+            end_block=chain_result.end_block,
             settlement_db_path=settlement_db_path,
             settlement_start_block=settlement_start_block,
             settlement_end_block=settlement_end_block,
@@ -1809,7 +1843,7 @@ def run_scan_tick(
             # Save cycle state for data fetching progress — not related to post-processing
             if on_item_success:
                 on_item_success(chain.name)
-            update_chain_settlement_result(chain)
+            update_chain_settlement_result(chain, chain_result=r)
         elif r.status == "failed":
             logger.error("%s: FAILED - %s", chain.name, r.error)
             update_chain_settlement_result(chain, skip_reason=f"Skipped because {chain.name} scan failed")
@@ -1969,7 +2003,7 @@ def run_scan_tick(
                 # Save cycle state for data fetching progress — not related to post-processing
                 if on_item_success:
                     on_item_success(chain.name)
-                update_chain_settlement_result(chain)
+                update_chain_settlement_result(chain, chain_result=result)
             else:
                 logger.error("%s (retry %d): FAILED - %s", chain.name, attempt, result.error)
                 update_chain_settlement_result(chain, skip_reason=f"Skipped because {chain.name} retry failed")

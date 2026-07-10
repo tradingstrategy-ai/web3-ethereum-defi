@@ -11,7 +11,7 @@ from web3.datastructures import AttributeDict
 
 from eth_defi.erc_4626 import settlement_scan as settlement_scan_module
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
-from eth_defi.erc_4626.settlement_scan import VaultSettlementScanRange, select_vault_settlement_scan_ranges
+from eth_defi.erc_4626.settlement_scan import VaultSettlementScanRange, select_vault_settlement_scan_ranges, select_vault_settlement_scan_ranges_for_chain
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault import scan_all_chains as scan_all_chains_module
 from eth_defi.vault.base import VaultSpec
@@ -182,6 +182,29 @@ def test_select_vault_settlement_scan_ranges_uses_empty_scan_state(tmp_path: Pat
         )
 
         assert ranges == []
+    finally:
+        db.close()
+
+
+def test_select_vault_settlement_scan_ranges_for_chain_uses_scan_end_block(tmp_path: Path) -> None:
+    """Production chain scans can select ranges without reading raw price parquet."""
+    pytest.importorskip("duckdb")
+
+    db = VaultSettlementDatabase(tmp_path / "vault-settlements.duckdb")
+    try:
+        db.upsert_scan_state([(1, LAGOON_ADDRESS, 150)])
+
+        ranges = select_vault_settlement_scan_ranges_for_chain(
+            make_vault_db(),
+            db,
+            chain_id=1,
+            end_block=200,
+            supported_features={ERC4626Feature.lagoon_like},
+        )
+
+        assert ranges == [
+            VaultSettlementScanRange(chain_id=1, address=LAGOON_ADDRESS, start_block=151, end_block=200),
+        ]
     finally:
         db.close()
 
@@ -380,6 +403,72 @@ def test_update_settlement_database_for_chain_batches_all_vaults_and_skips_bad_v
     ]
 
 
+def test_update_settlement_database_for_chain_advances_empty_scan_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A prepared vault with no matching logs still advances its scan watermark."""
+
+    class FakeLagoonVault:
+        """Minimal LagoonVault stand-in for an empty scan."""
+
+        def __init__(self, address: str) -> None:
+            self.address = address
+            self.chain_id = 1
+            self.web3 = None
+
+    class FakeDatabase:
+        """Capture settlement rows and scan states written by the batch helper."""
+
+        def __init__(self) -> None:
+            self.settlements: list[VaultSettlement] = []
+            self.scan_states: list[tuple[int, str, int]] = []
+
+        def upsert_settlements(self, settlements: list[VaultSettlement]) -> int:
+            """Store rows for assertions."""
+            self.settlements.extend(settlements)
+            return len(settlements)
+
+        def upsert_scan_state(self, scan_states: list[tuple[int, str, int]]) -> int:
+            """Store scan-state updates for assertions."""
+            self.scan_states = scan_states
+            return len(scan_states)
+
+    lagoon_topic = "0x" + "11" * 32
+
+    monkeypatch.setattr(settlement_scan_module, "LagoonVault", FakeLagoonVault)
+
+    def fake_create_vault_instance(_web3, address, _features, token_cache):
+        """Return a fake vault while matching the production call signature."""
+        assert token_cache is not None
+        return FakeLagoonVault(address)
+
+    monkeypatch.setattr(settlement_scan_module, "create_vault_instance", fake_create_vault_instance)
+    monkeypatch.setattr(settlement_scan_module, "get_settlement_events_by_topic", lambda _vault: {lagoon_topic: "SettleDeposit"})
+    monkeypatch.setattr(settlement_scan_module, "fetch_vault_settlement_logs_for_addresses", lambda **_kwargs: [])
+
+    database = FakeDatabase()
+    update_result = settlement_scan_module._update_settlement_database_for_chain(
+        database=database,
+        web3=object(),
+        chain_id=1,
+        ranges=[
+            VaultSettlementScanRange(chain_id=1, address=LAGOON_ADDRESS, start_block=10, end_block=20),
+        ],
+        rows_by_key={
+            (1, LAGOON_ADDRESS): {
+                "features": {ERC4626Feature.lagoon_like},
+                "_detection_data": SimpleNamespace(chain=1, address=LAGOON_ADDRESS),
+            },
+        },
+        token_cache=TokenDiskCache(),
+        use_hypersync=False,
+        chunk_size=50_000,
+    )
+
+    assert update_result.rows_written == 0
+    assert update_result.scanned_vaults == 1
+    assert database.settlements == []
+    assert database.scan_states == [(1, LAGOON_ADDRESS, 20)]
+
+
 def test_fetch_and_store_vault_settlements_filters_chain_ids(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Per-chain settlement scan only processes the requested chain id."""
 
@@ -532,9 +621,12 @@ def test_fetch_and_store_vault_settlements_continues_after_failed_chain(monkeypa
 def test_scan_chain_vault_settlements_marks_failed_dashboard_status(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """A graceful chain batch failure is exposed as a failed dashboard row."""
 
-    def fake_fetch_and_store_vault_settlements(**kwargs):
+    def fake_fetch_and_store_vault_settlements_for_chain(**kwargs):
         """Return a failed settlement scan summary."""
-        assert kwargs["chain_ids"] == {1}
+        assert kwargs["vault_db"] is vault_db
+        assert kwargs["chain_id"] == 1
+        assert kwargs["rpc_url"] == "rpc"
+        assert kwargs["end_block"] == 123
         return settlement_scan_module.VaultSettlementScanResult(
             candidate_vaults=3,
             scanned_vaults=0,
@@ -544,13 +636,15 @@ def test_scan_chain_vault_settlements_marks_failed_dashboard_status(monkeypatch:
             failed_chains=1,
         )
 
-    monkeypatch.setattr(scan_all_chains_module, "resolve_rpc_urls_by_chain_from_env", lambda _env_vars: {1: "rpc"})
-    monkeypatch.setattr(scan_all_chains_module, "fetch_and_store_vault_settlements", fake_fetch_and_store_vault_settlements)
+    vault_db = make_vault_db()
+    monkeypatch.setattr(scan_all_chains_module, "fetch_and_store_vault_settlements_for_chain", fake_fetch_and_store_vault_settlements_for_chain)
 
     result = scan_all_chains_module.scan_chain_vault_settlements(
         chain=scan_all_chains_module.ChainConfig(name="Ethereum", env_var="JSON_RPC_ETHEREUM", scan_vaults=True),
-        vault_db_path=tmp_path / "vault-db.pickle",
-        uncleaned_price_path=tmp_path / "raw-prices.parquet",
+        vault_db=vault_db,
+        chain_id=1,
+        rpc_url="rpc",
+        end_block=123,
         settlement_db_path=tmp_path / "settlements.duckdb",
         settlement_start_block=None,
         settlement_end_block=None,
