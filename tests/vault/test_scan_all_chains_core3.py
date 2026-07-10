@@ -453,18 +453,35 @@ def test_run_scan_tick_continues_when_vault_settlement_scan_fails(tmp_path: Path
 
     Steps:
 
-    1. Mock the settlement scanner to reproduce the Linea historical
+    1. Mock one EVM chain scan to succeed.
+    2. Mock its per-chain settlement scanner to reproduce the Linea historical
        ``extraData`` failure.
-    2. Run a post-processing tick with settlement scanning enabled.
-    3. Assert the settlement step is shown as failed and post-processing still
-       runs.
+    3. Assert the chain settlement row is shown as failed and post-processing
+       still runs.
     """
     post_processing_calls: list[dict[str, object]] = []
     dashboard_snapshots: list[tuple[list[str], dict[str, str]]] = []
     error_message = "Linea historical extraData is 97 bytes"
+    settlement_result_name = "Linea settlements"
 
-    def fake_fetch_and_store_vault_settlements(**_: object) -> object:
-        raise RuntimeError(error_message)
+    def fake_scan_chain(*_: object, **__: object) -> ChainResult:
+        return ChainResult(
+            name="Linea",
+            status="success",
+            vault_scan_ok=True,
+            price_scan_ok=True,
+            end_block=123,
+            chain_id=59144,
+            rpc_url="https://linea.example",
+        )
+
+    def fake_scan_chain_vault_settlements(**_: object) -> ChainResult:
+        return ChainResult(
+            name=settlement_result_name,
+            status="failed",
+            error=error_message,
+            traceback_str=f"RuntimeError: {error_message}",
+        )
 
     def fake_run_post_processing(**kwargs: object) -> dict[str, bool]:
         post_processing_calls.append(kwargs)
@@ -478,14 +495,21 @@ def test_run_scan_tick_continues_when_vault_settlement_scan_fails(tmp_path: Path
             )
         )
 
-    monkeypatch.setattr(scan_all_chains, "resolve_rpc_urls_by_chain_from_env", lambda _: {59144: "https://linea.example"})
-    monkeypatch.setattr(scan_all_chains, "fetch_and_store_vault_settlements", fake_fetch_and_store_vault_settlements)
+    monkeypatch.setattr(scan_all_chains, "scan_chain", fake_scan_chain)
+    monkeypatch.setattr(scan_all_chains, "scan_chain_vault_settlements", fake_scan_chain_vault_settlements)
+    monkeypatch.setattr(scan_all_chains.VaultDatabase, "read", staticmethod(lambda _path: object()))
     monkeypatch.setattr(scan_all_chains, "run_post_processing", fake_run_post_processing)
     monkeypatch.setattr(scan_all_chains, "print_dashboard", fake_print_dashboard)
     monkeypatch.setattr("builtins.print", lambda *_, **__: None)
 
     results = scan_all_chains.run_scan_tick(
-        chains=[],
+        chains=[
+            scan_all_chains.ChainConfig(
+                name="Linea",
+                env_var="JSON_RPC_LINEA",
+                scan_vaults=True,
+            )
+        ],
         active_protocols=[],
         scan_prices=False,
         scan_hypercore=False,
@@ -519,16 +543,14 @@ def test_run_scan_tick_continues_when_vault_settlement_scan_fails(tmp_path: Path
         cleaned_price_path=tmp_path / "cleaned-vault-prices-1h.parquet",
         settlement_db_path=tmp_path / "vault-settlements.duckdb",
         scan_vault_settlements=True,
-        settlement_rpc_env_vars=["JSON_RPC_LINEA"],
     )
 
-    settlement_result = results[scan_all_chains.VAULT_SETTLEMENTS_STEP_NAME]
+    settlement_result = results[settlement_result_name]
     assert settlement_result.status == "failed"
     assert "Linea historical extraData" in settlement_result.error
     assert f"RuntimeError: {error_message}" in settlement_result.traceback_str
     assert post_processing_calls
     assert post_processing_calls[0]["settlement_db_path"] == tmp_path / "vault-settlements.duckdb"
 
-    assert any(scan_all_chains.VAULT_SETTLEMENTS_STEP_NAME in display_order and statuses[scan_all_chains.VAULT_SETTLEMENTS_STEP_NAME] == "pending" for display_order, statuses in dashboard_snapshots)
-    assert any(scan_all_chains.VAULT_SETTLEMENTS_STEP_NAME in display_order and statuses[scan_all_chains.VAULT_SETTLEMENTS_STEP_NAME] == "running" for display_order, statuses in dashboard_snapshots)
-    assert any(scan_all_chains.VAULT_SETTLEMENTS_STEP_NAME in display_order and statuses[scan_all_chains.VAULT_SETTLEMENTS_STEP_NAME] == "failed" for display_order, statuses in dashboard_snapshots)
+    assert any(settlement_result_name in display_order and statuses[settlement_result_name] == "pending" for display_order, statuses in dashboard_snapshots)
+    assert any(settlement_result_name in display_order and statuses[settlement_result_name] == "failed" for display_order, statuses in dashboard_snapshots)
