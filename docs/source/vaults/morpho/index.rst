@@ -19,6 +19,17 @@ across multiple yield sources through smart contract adapters. V2 vaults use
 - Timelocked governance with curator/allocator roles
 - Non-custodial exits via ``forceDeallocate``
 
+Robinhood Chain temporary API workaround
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Robinhood Chain (ID ``4663``) has active Morpho V2 vaults whose public API
+coverage is currently incomplete. Until the API returns every production
+Robinhood vault by address, a missing Morpho API record on that chain does not
+apply the ``not_in_morpho_api`` hard-blacklist flag. The scanner still uses all
+available on-chain metadata, but omits API-provided warning enrichment when no
+record is available. This is intentionally a temporary exception and must be
+removed once Morpho's Robinhood API coverage is complete.
+
 Links
 ~~~~~
 

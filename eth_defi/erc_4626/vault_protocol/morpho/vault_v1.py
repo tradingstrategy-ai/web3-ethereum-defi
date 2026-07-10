@@ -25,6 +25,7 @@ from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
     MorphoVaultAPIStatus,
     MorphoVaultData,
     fetch_morpho_vault_api_result,
+    is_morpho_api_not_found_flag_bypassed,
 )
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
@@ -245,7 +246,7 @@ class MorphoV1Vault(ERC4626Vault):
         note = super().get_notes()
         if note:
             return note
-        if self.morpho_api_result.is_not_found:
+        if self.morpho_api_result.is_not_found and not is_morpho_api_not_found_flag_bypassed(self.chain_id):
             return NOT_IN_MORPHO_API
         data = self.morpho_offchain_data
         if data is not None:
@@ -263,7 +264,7 @@ class MorphoV1Vault(ERC4626Vault):
             Set of :py:class:`~eth_defi.vault.flag.VaultFlag` values.
         """
         flags = super().get_flags()
-        if self.morpho_api_result.is_not_found:
+        if self.morpho_api_result.is_not_found and not is_morpho_api_not_found_flag_bypassed(self.chain_id):
             flags = set(flags)
             flags.add(VaultFlag.not_in_morpho_api)
             return flags
