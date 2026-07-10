@@ -72,6 +72,7 @@ from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
     fetch_morpho_vault_data,
 )
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
@@ -146,11 +147,11 @@ def _patch_morpho_api(monkeypatch: pytest.MonkeyPatch, responses: list[dict]) ->
     return calls
 
 
-def _make_morpho_v1_vault(address: str) -> MorphoV1Vault:
+def _make_morpho_v1_vault(address: str, chain_id: int = 1) -> MorphoV1Vault:
     """Create a Morpho V1 vault with only offchain API dependencies populated."""
     return MorphoV1Vault(
-        web3=_FakeWeb3(),  # type: ignore[arg-type]
-        spec=VaultSpec(chain_id=1, vault_address=address),
+        web3=_FakeWeb3(chain_id),  # type: ignore[arg-type]
+        spec=VaultSpec(chain_id=chain_id, vault_address=address),
         token_cache={},
     )
 
@@ -198,6 +199,35 @@ def test_morpho_not_found_adds_dynamic_flag_and_note(monkeypatch: pytest.MonkeyP
     assert vault.get_flags() == {VaultFlag.not_in_morpho_api}
     assert vault.get_notes() == NOT_IN_MORPHO_API
     assert VaultFlag.morpho_issues not in vault.get_flags()
+
+
+@pytest.mark.parametrize(
+    ("vault_class", "module_path"),
+    [
+        (MorphoV1Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v1"),
+        (MorphoV2Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v2"),
+    ],
+)
+def test_robinhood_morpho_api_not_found_is_temporarily_not_blacklisted(
+    monkeypatch: pytest.MonkeyPatch,
+    vault_class: type[MorphoV1Vault] | type[MorphoV2Vault],
+    module_path: str,
+):
+    """Robinhood API coverage gaps do not hide on-chain-detected Morpho vaults."""
+    _patch_base_vault_flags(monkeypatch)
+
+    def fake_fetch_morpho_vault_api_result(*_args, **_kwargs) -> MorphoVaultAPIResult:
+        return MorphoVaultAPIResult(MorphoVaultAPIStatus.not_found)
+
+    monkeypatch.setattr(f"{module_path}.fetch_morpho_vault_api_result", fake_fetch_morpho_vault_api_result)
+    vault = vault_class(
+        web3=_FakeWeb3(4663),  # type: ignore[arg-type]
+        spec=VaultSpec(chain_id=4663, vault_address=NOT_FOUND_TEST_VAULT),
+        token_cache={},
+    )
+
+    assert vault.get_flags() == set()
+    assert vault.get_notes() is None
 
 
 def test_morpho_not_found_is_not_cached(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):

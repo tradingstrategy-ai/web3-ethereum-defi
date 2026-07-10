@@ -93,7 +93,34 @@ MORPHO_API_SUPPORTED_CHAINS = frozenset(
     }
 )
 
+#: Chains where a missing Morpho API record must not blacklist an otherwise
+#: detected Morpho vault.
+#:
+#: Robinhood Chain launched with active Morpho V2 vaults, but its API coverage
+#: is incomplete: some legitimate vaults do not yet resolve by address. Until
+#: Morpho's API provides complete Robinhood coverage, retain on-chain detected
+#: vaults in the universe and omit only unavailable API warning enrichment.
+#:
+#: Remove Robinhood from this set once all production Robinhood Morpho vaults
+#: reliably resolve through the public API.
+MORPHO_API_NOT_FOUND_FLAG_BYPASS_CHAINS = frozenset({4663})  # Robinhood Chain
+
 logger = logging.getLogger(__name__)
+
+
+def is_morpho_api_not_found_flag_bypassed(chain_id: int) -> bool:
+    """Check whether a missing Morpho API record is temporarily non-fatal.
+
+    This narrowly scopes a temporary Robinhood Chain data-quality workaround.
+    It does not suppress RED-level warnings returned by the API, nor does it
+    affect normal missing-vault handling on any other chain.
+
+    :param chain_id:
+        EVM chain ID of the Morpho vault.
+    :return:
+        ``True`` when an API ``NOT_FOUND`` must not add the hard blacklist flag.
+    """
+    return chain_id in MORPHO_API_NOT_FOUND_FLAG_BYPASS_CHAINS
 
 #: GraphQL query to fetch vault-level and market-level warnings for a single vault
 _VAULT_WARNINGS_QUERY = """
