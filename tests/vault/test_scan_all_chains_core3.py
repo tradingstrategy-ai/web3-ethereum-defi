@@ -448,7 +448,11 @@ def test_run_scan_tick_ignores_currency_rate_failure(tmp_path: Path, monkeypatch
     assert saved_items == [scan_all_chains.CURRENCY_RATES_PROTOCOL_NAME]
 
 
-def test_run_scan_tick_continues_when_vault_settlement_scan_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_run_scan_tick_continues_when_vault_settlement_scan_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
     """Vault settlement failures are reported without blocking exports.
 
     Steps:
@@ -456,11 +460,11 @@ def test_run_scan_tick_continues_when_vault_settlement_scan_fails(tmp_path: Path
     1. Mock one EVM chain scan to succeed.
     2. Mock its per-chain settlement scanner to reproduce the Linea historical
        ``extraData`` failure.
-    3. Assert the chain settlement row is shown as failed and post-processing
-       still runs.
+    3. Assert no settlement dashboard row is shown, the normal chain row
+       carries the error, and post-processing still runs.
     """
     post_processing_calls: list[dict[str, object]] = []
-    dashboard_snapshots: list[tuple[list[str], dict[str, str]]] = []
+    dashboard_snapshots: list[tuple[list[str], dict[str, tuple[str, str | None]]]] = []
     error_message = "Linea historical extraData is 97 bytes"
     settlement_result_name = "Linea settlements"
 
@@ -491,7 +495,7 @@ def test_run_scan_tick_continues_when_vault_settlement_scan_fails(tmp_path: Path
         dashboard_snapshots.append(
             (
                 list(display_order or []),
-                {name: result.status for name, result in results.items()},
+                {name: (result.status, result.error) for name, result in results.items()},
             )
         )
 
@@ -500,7 +504,6 @@ def test_run_scan_tick_continues_when_vault_settlement_scan_fails(tmp_path: Path
     monkeypatch.setattr(scan_all_chains.VaultDatabase, "read", staticmethod(lambda _path: object()))
     monkeypatch.setattr(scan_all_chains, "run_post_processing", fake_run_post_processing)
     monkeypatch.setattr(scan_all_chains, "print_dashboard", fake_print_dashboard)
-    monkeypatch.setattr("builtins.print", lambda *_, **__: None)
 
     results = scan_all_chains.run_scan_tick(
         chains=[
@@ -545,12 +548,17 @@ def test_run_scan_tick_continues_when_vault_settlement_scan_fails(tmp_path: Path
         scan_vault_settlements=True,
     )
 
-    settlement_result = results[settlement_result_name]
-    assert settlement_result.status == "failed"
-    assert "Linea historical extraData" in settlement_result.error
-    assert f"RuntimeError: {error_message}" in settlement_result.traceback_str
+    assert settlement_result_name not in results
+    linea_result = results["Linea"]
+    assert linea_result.status == "success"
+    assert "Settlement scan failed" in linea_result.error
+    assert "Linea historical extraData" in linea_result.error
+    assert f"RuntimeError: {error_message}" in linea_result.traceback_str
     assert post_processing_calls
     assert post_processing_calls[0]["settlement_db_path"] == tmp_path / "vault-settlements.duckdb"
 
-    assert any(settlement_result_name in display_order and statuses[settlement_result_name] == "pending" for display_order, statuses in dashboard_snapshots)
-    assert any(settlement_result_name in display_order and statuses[settlement_result_name] == "failed" for display_order, statuses in dashboard_snapshots)
+    assert all(settlement_result_name not in display_order for display_order, _ in dashboard_snapshots)
+    assert any(statuses["Linea"][0] == "success" and statuses["Linea"][1] and "Linea historical extraData" in statuses["Linea"][1] for _, statuses in dashboard_snapshots)
+    captured = capsys.readouterr()
+    assert "Full tracebacks for failed scans" in captured.out
+    assert f"RuntimeError: {error_message}" in captured.out
