@@ -121,6 +121,20 @@ class PreparedSettlementVault:
     event_by_topic: dict[str, object]
 
 
+@dataclass(slots=True, frozen=True)
+class ChainSettlementUpdateResult:
+    """Result of one per-chain settlement event batch.
+
+    :param rows_written:
+        Settlement rows written to DuckDB.
+    :param scanned_vaults:
+        Vault scan-state rows advanced after the event batch completed.
+    """
+
+    rows_written: int
+    scanned_vaults: int
+
+
 def resolve_rpc_urls_by_chain_from_env(rpc_env_vars: list[str]) -> dict[int, str]:
     """Resolve configured JSON-RPC URLs to chain ids.
 
@@ -159,7 +173,8 @@ def select_vault_settlement_scan_ranges(
 
     The range is bounded by raw price data, because settlement markers are only
     useful where the cleaned price parquet has rows to annotate. Existing rows
-    in ``vault-settlements.duckdb`` make normal scans incremental.
+    in ``vault-settlements.duckdb`` make normal scans incremental. Empty
+    scans are tracked separately from sparse settlement event rows.
 
     :param vault_db:
         Vault metadata database.
@@ -205,11 +220,13 @@ def select_vault_settlement_scan_ranges(
 
         raw_min_block = int(raw_ranges.loc[key, "min"])
         raw_max_block = int(raw_ranges.loc[key, "max"])
-        latest_stored_block = settlement_db.get_latest_block_number(chain_id, address)
+        latest_scanned_block = settlement_db.get_latest_scanned_block_number(chain_id, address)
+        latest_event_block = settlement_db.get_latest_block_number(chain_id, address)
+        latest_known_block = _max_optional_int(latest_scanned_block, latest_event_block)
 
         start_block = raw_min_block
-        if forced_start_block is None and latest_stored_block is not None:
-            start_block = max(start_block, latest_stored_block + 1)
+        if forced_start_block is None and latest_known_block is not None:
+            start_block = max(start_block, latest_known_block + 1)
         if forced_start_block is not None:
             start_block = max(start_block, forced_start_block)
 
@@ -281,7 +298,7 @@ def fetch_and_store_vault_settlements(
     assert raw_price_path.exists(), f"Raw price parquet does not exist: {raw_price_path}"
 
     vault_db = VaultDatabase.read(vault_db_path)
-    raw_prices_df = pd.read_parquet(raw_price_path, columns=["chain", "address", "block_number"])
+    raw_prices_df = _read_raw_price_projection(raw_price_path, chain_ids=chain_ids)
 
     db = VaultSettlementDatabase(settlement_db_path)
     try:
@@ -336,7 +353,7 @@ def fetch_and_store_vault_settlements(
                     web3 = create_multi_provider_web3(rpc_url)
                     web3_by_chain[chain_id] = web3
 
-                rows_written += _update_settlement_database_for_chain(
+                chain_update = _update_settlement_database_for_chain(
                     database=db,
                     web3=web3,
                     chain_id=chain_id,
@@ -346,7 +363,8 @@ def fetch_and_store_vault_settlements(
                     use_hypersync=use_hypersync,
                     chunk_size=chunk_size,
                 )
-                scanned_vaults += len(chain_ranges)
+                rows_written += chain_update.rows_written
+                scanned_vaults += chain_update.scanned_vaults
                 scanned_chains += 1
             except Exception:
                 failed_chains += 1
@@ -371,6 +389,40 @@ def _get_vault_features(row: VaultRow) -> set[ERC4626Feature]:
     """Read feature flags from a vault metadata row."""
     features = row.get("features") or row["_detection_data"].features
     return set(features)
+
+
+def _max_optional_int(*values: int | None) -> int | None:
+    """Return the largest non-null integer value.
+
+    :param values:
+        Values that may include ``None``.
+    :return:
+        Largest integer value, or ``None`` if all values are ``None``.
+    """
+    known_values = [value for value in values if value is not None]
+    return max(known_values) if known_values else None
+
+
+def _read_raw_price_projection(raw_price_path: Path, chain_ids: set[int] | frozenset[int] | None) -> pd.DataFrame:
+    """Read the raw price columns needed for settlement scan selection.
+
+    Per-chain scanner calls pass a single ``chain_ids`` value. Pandas forwards
+    parquet filters to the engine, allowing predicate pushdown where the
+    underlying parquet metadata supports it.
+
+    :param raw_price_path:
+        Raw price parquet path.
+    :param chain_ids:
+        Optional chain id filter.
+    :return:
+        Raw price DataFrame with ``chain``, ``address`` and ``block_number``.
+    """
+    read_kwargs: dict[str, object] = {
+        "columns": ["chain", "address", "block_number"],
+    }
+    if chain_ids is not None:
+        read_kwargs["filters"] = [("chain", "in", sorted(chain_ids))]
+    return pd.read_parquet(raw_price_path, **read_kwargs)
 
 
 def _count_supported_vaults_with_raw_prices(
@@ -457,7 +509,7 @@ def _update_settlement_database_for_chain(
     token_cache: TokenDiskCache,
     use_hypersync: bool | None,
     chunk_size: int,
-) -> int:
+) -> ChainSettlementUpdateResult:
     """Fetch and store settlement events for all supported vaults on one chain.
 
     :param database:
@@ -477,7 +529,7 @@ def _update_settlement_database_for_chain(
     :param chunk_size:
         JSON-RPC fallback chunk size.
     :return:
-        Number of settlement rows written.
+        Settlement row and scan-state update counts.
     """
     assert ranges, "Chain settlement scan needs at least one vault range"
 
@@ -509,10 +561,11 @@ def _update_settlement_database_for_chain(
 
     if not prepared_by_address:
         logger.warning("No vaults could be prepared for settlement scan on chain %d", chain_id)
-        return 0
+        return ChainSettlementUpdateResult(rows_written=0, scanned_vaults=0)
 
-    start_block = min(scan_range.start_block for scan_range in ranges)
-    end_block = max(scan_range.end_block for scan_range in ranges)
+    prepared_ranges = [range_by_address[address] for address in prepared_by_address]
+    start_block = min(scan_range.start_block for scan_range in prepared_ranges)
+    end_block = max(scan_range.end_block for scan_range in prepared_ranges)
     logger.info(
         "Scanning settlement/open-state events for %d vaults on chain %d, blocks %d - %d",
         len(prepared_by_address),
@@ -552,11 +605,13 @@ def _update_settlement_database_for_chain(
         logs_by_address[address].append(log)
 
     settlements = []
+    failed_addresses: set[str] = set()
     for address, vault_logs in sorted(logs_by_address.items()):
         try:
             settlements.extend(_build_settlement_rows_for_prepared_vault(prepared_by_address[address], vault_logs))
         except (RuntimeError, ValueError, KeyError, TypeError, Web3Exception):
             failed_vaults += 1
+            failed_addresses.add(address)
             logger.exception(
                 "Skipping settlement rows for vault %s on chain %d because row building failed",
                 address,
@@ -564,11 +619,14 @@ def _update_settlement_database_for_chain(
             )
 
     inserted = database.upsert_settlements(settlements)
+    scan_states = [(chain_id, address, range_by_address[address].end_block) for address in prepared_by_address if address not in failed_addresses]
+    scanned_vaults = database.upsert_scan_state(scan_states)
     logger.info(
-        "Stored %d settlement/open-state events for %d vaults on chain %d, skipped %d failed vaults",
+        "Stored %d settlement/open-state events for %d vaults on chain %d, advanced %d scan states, skipped %d failed vaults",
         inserted,
         len(prepared_by_address),
         chain_id,
+        scanned_vaults,
         failed_vaults,
     )
-    return inserted
+    return ChainSettlementUpdateResult(rows_written=inserted, scanned_vaults=scanned_vaults)

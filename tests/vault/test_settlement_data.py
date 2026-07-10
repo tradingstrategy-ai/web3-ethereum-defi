@@ -75,6 +75,25 @@ def test_vault_settlement_database_upsert(tmp_path: Path) -> None:
         db.close()
 
 
+def test_vault_settlement_database_scan_state_upsert(tmp_path: Path) -> None:
+    """Store settlement scan progress independently from sparse event rows."""
+    pytest.importorskip("duckdb")
+
+    db = VaultSettlementDatabase(tmp_path / "vault-settlements.duckdb")
+    try:
+        address = "0xabc0000000000000000000000000000000000000"
+
+        assert db.get_latest_scanned_block_number(1, address) is None
+        assert db.upsert_scan_state([(1, address, 200)]) == 1
+        assert db.get_latest_scanned_block_number(1, address) == 200
+        assert db.get_latest_block_number(1, address) is None
+
+        assert db.upsert_scan_state([(1, address, 150), (1, address, 250)]) == 1
+        assert db.get_latest_scanned_block_number(1, address) == 250
+    finally:
+        db.close()
+
+
 def test_annotate_prices_with_vault_settlements() -> None:
     """Annotate price rows with latest settlement in each row interval."""
     prices = pd.DataFrame(

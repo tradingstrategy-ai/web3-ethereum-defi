@@ -31,6 +31,10 @@ class EmptySettlementDb:
         """Return no existing settlement progress."""
         return None
 
+    def get_latest_scanned_block_number(self, _chain_id: int, _address: str) -> int | None:
+        """Return no existing scan progress."""
+        return None
+
 
 def make_vault_db() -> VaultDatabase:
     """Create a minimal vault database with one Lagoon vault and one non-Lagoon vault."""
@@ -156,6 +160,32 @@ def test_select_vault_settlement_scan_ranges_incremental_lagoon_only(tmp_path: P
         db.close()
 
 
+def test_select_vault_settlement_scan_ranges_uses_empty_scan_state(tmp_path: Path) -> None:
+    """Empty settlement scans advance the next range without requiring event rows."""
+    pytest.importorskip("duckdb")
+
+    raw_prices = pd.DataFrame(
+        [
+            {"chain": 1, "address": LAGOON_ADDRESS, "block_number": 100},
+            {"chain": 1, "address": LAGOON_ADDRESS, "block_number": 200},
+        ]
+    )
+    db = VaultSettlementDatabase(tmp_path / "vault-settlements.duckdb")
+    try:
+        db.upsert_scan_state([(1, LAGOON_ADDRESS, 200)])
+
+        ranges = select_vault_settlement_scan_ranges(
+            make_vault_db(),
+            raw_prices,
+            db,
+            supported_features={ERC4626Feature.lagoon_like},
+        )
+
+        assert ranges == []
+    finally:
+        db.close()
+
+
 def test_select_vault_settlement_scan_ranges_forced_lagoon_backfill(tmp_path: Path) -> None:
     """Forced backfill ranges are intersected with raw price block ranges."""
     pytest.importorskip("duckdb")
@@ -247,6 +277,11 @@ def test_update_settlement_database_for_chain_batches_all_vaults_and_skips_bad_v
             self.settlements.extend(settlements)
             return len(settlements)
 
+        def upsert_scan_state(self, scan_states: list[tuple[int, str, int]]) -> int:
+            """Store scan-state updates for assertions."""
+            self.scan_states = scan_states
+            return len(scan_states)
+
     lagoon_topic = "0x" + "11" * 32
     d2_topic = "0x" + "22" * 32
     fetch_calls = []
@@ -313,7 +348,7 @@ def test_update_settlement_database_for_chain_batches_all_vaults_and_skips_bad_v
         },
     }
     database = FakeDatabase()
-    inserted = settlement_scan_module._update_settlement_database_for_chain(
+    update_result = settlement_scan_module._update_settlement_database_for_chain(
         database=database,
         web3=object(),
         chain_id=1,
@@ -328,7 +363,8 @@ def test_update_settlement_database_for_chain_batches_all_vaults_and_skips_bad_v
         chunk_size=50_000,
     )
 
-    assert inserted == 2
+    assert update_result.rows_written == 2
+    assert update_result.scanned_vaults == 2
     assert len(fetch_calls) == 1
     assert set(fetch_calls[0]["addresses"]) == {LAGOON_ADDRESS, D2_ADDRESS}
     assert fetch_calls[0]["topic0_list"] == [lagoon_topic, d2_topic]
@@ -337,6 +373,10 @@ def test_update_settlement_database_for_chain_batches_all_vaults_and_skips_bad_v
     assert [(row.address, row.block_number) for row in database.settlements] == [
         (LAGOON_ADDRESS, 15),
         (D2_ADDRESS, 25),
+    ]
+    assert sorted(database.scan_states) == [
+        (1, LAGOON_ADDRESS, 20),
+        (1, D2_ADDRESS, 30),
     ]
 
 
@@ -351,6 +391,10 @@ def test_fetch_and_store_vault_settlements_filters_chain_ids(monkeypatch: pytest
             self.closed = False
 
         def get_latest_block_number(self, _chain_id: int, _address: str) -> int | None:
+            """Return no incremental progress."""
+            return None
+
+        def get_latest_scanned_block_number(self, _chain_id: int, _address: str) -> int | None:
             """Return no incremental progress."""
             return None
 
@@ -372,10 +416,10 @@ def test_fetch_and_store_vault_settlements_filters_chain_ids(monkeypatch: pytest
         ]
     )
 
-    def fake_update_settlement_database_for_chain(**kwargs) -> int:
+    def fake_update_settlement_database_for_chain(**kwargs) -> settlement_scan_module.ChainSettlementUpdateResult:
         """Capture selected ranges for assertions."""
         update_calls.append(kwargs)
-        return len(kwargs["ranges"])
+        return settlement_scan_module.ChainSettlementUpdateResult(rows_written=len(kwargs["ranges"]), scanned_vaults=len(kwargs["ranges"]))
 
     vault_db_path = tmp_path / "vault-db.pickle"
     raw_price_path = tmp_path / "raw-prices.parquet"
@@ -383,7 +427,14 @@ def test_fetch_and_store_vault_settlements_filters_chain_ids(monkeypatch: pytest
     raw_price_path.touch()
 
     monkeypatch.setattr(settlement_scan_module.VaultDatabase, "read", staticmethod(lambda _path: make_multichain_vault_db()))
-    monkeypatch.setattr(settlement_scan_module.pd, "read_parquet", lambda *_args, **_kwargs: raw_prices)
+    read_parquet_calls = []
+
+    def fake_read_parquet(*_args, **kwargs):
+        """Capture parquet read parameters."""
+        read_parquet_calls.append(kwargs)
+        return raw_prices
+
+    monkeypatch.setattr(settlement_scan_module.pd, "read_parquet", fake_read_parquet)
     monkeypatch.setattr(settlement_scan_module, "VaultSettlementDatabase", FakeSettlementDb)
     monkeypatch.setattr(settlement_scan_module, "create_multi_provider_web3", lambda _rpc_url: object())
     monkeypatch.setattr(settlement_scan_module, "_update_settlement_database_for_chain", fake_update_settlement_database_for_chain)
@@ -401,6 +452,7 @@ def test_fetch_and_store_vault_settlements_filters_chain_ids(monkeypatch: pytest
     assert result.scanned_chains == 1
     assert result.failed_chains == 0
     assert result.rows_written == 1
+    assert read_parquet_calls[0]["filters"] == [("chain", "in", [2])]
     assert [call["chain_id"] for call in update_calls] == [2]
     assert update_calls[0]["ranges"] == [VaultSettlementScanRange(chain_id=2, address=CHAIN2_ADDRESS, start_block=200, end_block=220)]
 
@@ -415,6 +467,10 @@ def test_fetch_and_store_vault_settlements_continues_after_failed_chain(monkeypa
             pass
 
         def get_latest_block_number(self, _chain_id: int, _address: str) -> int | None:
+            """Return no incremental progress."""
+            return None
+
+        def get_latest_scanned_block_number(self, _chain_id: int, _address: str) -> int | None:
             """Return no incremental progress."""
             return None
 
@@ -433,11 +489,11 @@ def test_fetch_and_store_vault_settlements_continues_after_failed_chain(monkeypa
         ]
     )
 
-    def fake_update_settlement_database_for_chain(**kwargs) -> int:
+    def fake_update_settlement_database_for_chain(**kwargs) -> settlement_scan_module.ChainSettlementUpdateResult:
         """Fail chain 1 and succeed chain 2."""
         if kwargs["chain_id"] == 1:
             raise RuntimeError("chain failed")
-        return len(kwargs["ranges"])
+        return settlement_scan_module.ChainSettlementUpdateResult(rows_written=len(kwargs["ranges"]), scanned_vaults=len(kwargs["ranges"]))
 
     vault_db_path = tmp_path / "vault-db.pickle"
     raw_price_path = tmp_path / "raw-prices.parquet"

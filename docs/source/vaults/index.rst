@@ -35,6 +35,8 @@ as part of each successful EVM chain cycle, not as a separate all-vault
 post-processing pass. The event reader queries all supported vault addresses on
 the chain as one batch, chunked by block range for the JSON-RPC fallback, and
 then filters the returned logs back to each vault's incremental block range.
+The DuckDB database also stores per-vault scan watermarks, so successful empty
+event scans do not cause the same historical block range to be queried again.
 A failed settlement read is logged and shown in
 the scanner dashboard, but it does not abort the rest of the scanner cycle or
 price cleaning. If one vault cannot be prepared or decoded, the scanner skips
