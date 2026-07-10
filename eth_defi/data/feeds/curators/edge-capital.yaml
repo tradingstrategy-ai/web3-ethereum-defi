@@ -1,0 +1,21 @@
+# Edge Capital curator — feeds provided by curators/ultrayield.yaml
+#
+# UltraYield is Edge Capital Group's vault-curation product.  This alias keeps
+# Edge Capital's Midas attribution while resolving its posts to the existing
+# UltraYield feeder instead of fetching the organisation's sources twice.
+feeder-id: edge-capital
+name: Edge Capital
+role: curator
+short_description: 'Edge Capital is a market-neutral digital-asset fund and DeFi liquidity provider.'
+long_description: |
+  Edge Capital describes itself as a venture and market-neutral fund that applies a non-directional, multi-strategy approach across CeFi and DeFi trading opportunities. Its strategy materials describe liquidity provision, interest-rate arbitrage, yield farming and basis trading as parts of that approach. Midas identifies Edge Capital as the risk advisor for its mEDGE product.
+canonical-feeder-id: ultrayield
+
+# Evidence and background references.
+other-links:
+  - title: Midas documentation - mEDGE identifies Edge Capital as its risk advisor
+    url: https://docs.midas.app/tokens/medge
+  - title: Midas documentation - appointed strategy managers include Edge Capital
+    url: https://docs.midas.app/
+  - title: Edge Capital - official market-neutral fund and DeFi liquidity provider website
+    url: https://edgecapital.xyz/

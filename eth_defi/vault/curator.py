@@ -263,6 +263,15 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     # New curators discovered from the vault-name sweep (2026-06-09).
     # The vaults are "Keyring zkVerified Cluster", so match the short brand.
     "keyring-network": ["Keyring"],
+    # Midas mF-ONE is managed by Fasanara. The Midas registry uses ``mFONE``
+    # while the product page styles the token as ``mF-ONE``.
+    "fasanara": ["mF-ONE", "mFONE"],
+    # Midas mAPOLLO tracks an Apollo Crypto yield strategy.
+    "apollo-crypto": ["mAPOLLO"],
+    # Midas identifies Edge Capital as mEDGE's risk advisor.  The product is
+    # deployed on several chains, so use its distinctive, exact token name
+    # instead of a chain-specific address override.
+    "edge-capital": ["mEDGE"],
 }
 
 #: Distributor / sponsor curators whose brand is a white-label wrapper.
@@ -874,6 +883,13 @@ def build_curator_metadata_json(yaml_path: Path, public_url: str = "") -> Curato
         linkedin_id = info["linkedin"]
         rss = info["rss"]
 
+    # An alias can intentionally share its canonical feeder's brand assets.
+    # Prefer a dedicated alias logo where it exists, so product brands such as
+    # sBOLD retain their own visual identity.
+    logo_slug = slug
+    if info["canonical_feeder_id"] and not any(get_curator_available_logos(slug).values()):
+        logo_slug = info["canonical_feeder_id"]
+
     twitter_url: str | None = None
     if twitter_handle:
         twitter_url = f"https://x.com/{twitter_handle}"
@@ -892,7 +908,7 @@ def build_curator_metadata_json(yaml_path: Path, public_url: str = "") -> Curato
         twitter=twitter_url,
         linkedin=linkedin_url,
         rss=rss,
-        logos=_build_curator_logo_urls(slug, public_url=public_url),
+        logos=_build_curator_logo_urls(logo_slug, public_url=public_url),
         protocol_curator=info["protocol_curator"],
         canonical_feeder_id=info["canonical_feeder_id"],
     )

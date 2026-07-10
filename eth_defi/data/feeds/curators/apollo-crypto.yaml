@@ -1,0 +1,19 @@
+feeder-id: apollo-crypto
+name: Apollo Crypto
+role: curator
+website: https://apollocrypto.com/
+short_description: Apollo Crypto is an Australian crypto-asset fund manager offering multi-strategy, frontier and market-neutral funds.
+long_description: |
+  Apollo Crypto manages crypto-asset funds for wholesale and institutional investors, with multi-strategy, frontier and market-neutral offerings. Its market-neutral fund seeks to exploit inefficiencies in crypto markets while focusing on capital preservation.
+  Midas' mAPOLLO liquid yield token tracks an Apollo Crypto yield strategy on Ethereum, so Apollo Crypto is recorded as the strategy curator for this product.
+twitter: ApolloCryptoFM
+linkedin: apollo-crypto
+
+# Evidence and background references.
+other-links:
+  - title: Midas documentation - mAPOLLO liquid yield token tracks an Apollo Crypto yield strategy; Ethereum token 0x7CF9DEC92ca9FD46f8d86e7798B72624Bc116C05
+    url: https://docs.midas.app/resources/smart-contracts-addresses
+  - title: Apollo Crypto - official fund overview, including the Apollo Crypto Market Neutral Fund
+    url: https://apollocrypto.com/the-funds/
+  - title: Apollo Crypto - official team and crypto-asset fund-management background
+    url: https://apollocrypto.com/about/
