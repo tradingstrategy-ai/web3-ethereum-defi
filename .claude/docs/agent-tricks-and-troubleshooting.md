@@ -209,6 +209,42 @@ If these work but the broad review times out, shrink the request: ask Claude to
 inspect `git diff --name-only` first, review one file group at a time, or provide
 a concise summary of the proposed fix instead of embedding a large diff.
 
+### Foreground command-window limits
+
+Some agent runners terminate a foreground command after roughly 30 seconds,
+even when Claude is actively reading files and emitting streaming JSON. This
+can leave a review with only tool calls and no final findings. Do not rely on a
+foreground `claude -p` invocation for a non-trivial worktree review in those
+environments.
+
+Start the review in the background and write the raw JSONL stream to a temporary
+file instead. Restrict tools to read-only operations and redirect stdin so the
+CLI cannot wait for additional prompt input:
+
+```shell
+nohup timeout 120 claude -p "Review the current uncommitted worktree diff for correctness bugs only. Do not edit files or run tests. Return findings first with file:line references." \
+  --permission-mode dontAsk \
+  --allowedTools "Read,Grep,Glob,Bash(git status:*),Bash(git diff:*),Bash(sed:*),Bash(rg:*)" \
+  --output-format stream-json \
+  --verbose \
+  --no-session-persistence \
+  < /dev/null > /tmp/claude-review.jsonl 2>&1 &
+```
+
+Poll the process and inspect the raw file from later commands. Do not pipe the
+Claude process through `head` or `tail`, as that can interfere with streaming:
+
+```shell
+ps -p <pid> -o pid=,stat=,etime=,cmd=
+rg '"type":"result"' /tmp/claude-review.jsonl
+tail -n 40 /tmp/claude-review.jsonl
+```
+
+Only trust the review after the JSONL file contains a successful ``result``
+event with the final findings. If the command reaches its timeout without that
+event, narrow the file scope and repeat the background review rather than trying
+to resume a `--no-session-persistence` session.
+
 ### Reviewing a plan or document with Claude CLI
 
 For Markdown plan reviews, default to a no-tools inline text review after the
