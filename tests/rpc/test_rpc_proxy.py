@@ -10,17 +10,18 @@ To run::
 
 import logging
 import shutil
+from types import SimpleNamespace
 
 import pytest
 import requests
 
-from eth_defi.provider.anvil import launch_anvil, AnvilLaunch
+from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.provider.rpc_proxy import (
-    RPCProxy,
+    RPCProxyConfig,
+    _ProxyRequestHandler,  # noqa: PLC2701
     default_failure_handler,
     start_rpc_proxy,
 )
-
 
 pytestmark = pytest.mark.skipif(
     shutil.which("anvil") is None,
@@ -50,6 +51,54 @@ def _rpc_call(proxy_url: str, method: str, params: list | None = None) -> dict:
     }
     resp = requests.post(proxy_url, json=payload, timeout=10)
     return resp.json()
+
+
+def _make_disconnecting_handler(*, suppress_client_disconnect_errors: bool) -> _ProxyRequestHandler:
+    """Create a request handler that raises when writing a response."""
+
+    handler = object.__new__(_ProxyRequestHandler)
+    handler.server = SimpleNamespace(
+        config=RPCProxyConfig(suppress_client_disconnect_errors=suppress_client_disconnect_errors),
+        proxy_name="test-rpc-proxy",
+    )
+    handler.close_connection = False
+
+    def raise_broken_pipe(*_args: object, **_kwargs: object) -> None:
+        """Simulate an already-closed downstream client socket."""
+
+        message = "client disconnected"
+        raise BrokenPipeError(message)
+
+    handler.send_response = raise_broken_pipe
+    return handler
+
+
+def test_proxy_response_write_reraises_client_disconnect_by_default() -> None:
+    """Direct proxy users see downstream client disconnects by default.
+
+    1. Create a handler with disconnect suppression disabled
+    2. Simulate a downstream client disconnect while sending a response
+    3. Assert the original ``BrokenPipeError`` is still raised
+    """
+
+    handler = _make_disconnecting_handler(suppress_client_disconnect_errors=False)
+
+    with pytest.raises(BrokenPipeError):
+        handler._send_json_response(200, b"{}")
+
+
+def test_proxy_response_write_can_suppress_client_disconnect() -> None:
+    """Anvil-managed proxy mode can suppress normal teardown disconnects.
+
+    1. Create a handler with disconnect suppression enabled
+    2. Simulate a downstream client disconnect while sending a response
+    3. Assert the response is reported as unwritten without a traceback
+    """
+
+    handler = _make_disconnecting_handler(suppress_client_disconnect_errors=True)
+
+    assert handler._send_json_response(200, b"{}") is False
+    assert handler.close_connection is True
 
 
 def test_proxy_forwards_request(two_anvil_upstreams: tuple[AnvilLaunch, AnvilLaunch]):

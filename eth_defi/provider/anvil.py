@@ -1043,7 +1043,7 @@ def launch_anvil(
                 # Start a failover proxy that sits between Anvil and multiple
                 # upstream RPCs, providing retry/timeout/switchover handling.
                 config = proxy_multiple_upstream if isinstance(proxy_multiple_upstream, RPCProxyConfigClass) else None
-                proxy = start_rpc_proxy(available_rpcs, config=config)
+                proxy = start_rpc_proxy(available_rpcs, config=config, suppress_client_disconnect_errors=True)
                 cleaned_fork_url = proxy.url
                 logger.info(
                     "Started RPC failover proxy at %s for %d upstream providers",

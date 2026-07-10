@@ -60,6 +60,10 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Kinexys ODA-FACT JLTXX prospectus expenses are reflected in fund returns, not as
     # explicit on-chain deposit/withdrawal fees.
     "Kinexys": VaultFeeMode.internalised_skimming,
+    # Midas NAV/share is published net of product-level expenses through the
+    # Midas oracle pipeline. Instant issuance/redemption fees are read
+    # separately from product vault contracts.
+    "Midas": VaultFeeMode.internalised_skimming,
     "Velvet Capital": VaultFeeMode.internalised_skimming,
     "Umami": VaultFeeMode.externalised,
     # Unverified contracts, no open source repo
