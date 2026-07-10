@@ -418,6 +418,7 @@ def scan_vaults_for_chain(
             hypersync_api_key=os.environ.get("HYPERSYNC_API_KEY"),
             printer=lambda msg: None,  # Suppress output to keep logs clean
             hypersync_concurrency=hypersync_concurrency,
+            max_display_entries=100,
         )
 
         return True, {

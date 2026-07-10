@@ -27,7 +27,11 @@ from eth_defi.vault.vaultdb import VaultDatabase
 logger = logging.getLogger(__name__)
 
 
-def display_vaults_table(df: pd.DataFrame, nav_threshold=Decimal(1.1)) -> None:
+def display_vaults_table(
+    df: pd.DataFrame,
+    nav_threshold: Decimal = Decimal(1.1),
+    max_entries: int | None = None,
+) -> None:
     """Diplay scanned vault leads in the terminal
 
     - Only used for local diagnostics
@@ -48,27 +52,14 @@ def display_vaults_table(df: pd.DataFrame, nav_threshold=Decimal(1.1)) -> None:
     if not os.environ.get("PRINT_ALL_VAULTS"):
         df = df[df["NAV"] > 1_000]
 
-    del df["First seen"]
-    del df["Symbol"]
-    del df["Shares"]
-
-    if "Deposit fee" in df.columns:
-        del df["Deposit fee"]
-    if "Withdraw fee" in df.columns:
-        del df["Withdraw fee"]
-
-    if "Lock up" in df.columns:
-        del df["Lock up"]
-
-    del df["Link"]
-
     # Remove zero entries
     df = df.loc[df["NAV"] >= nav_threshold]
 
-    # df["Mgmt fee"] = df["Mgmt fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")
-    # df["Perf fee"] = df["Perf fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")
-    # df["Address"] = df["Address"].apply(lambda x: x[0:8])  # Address is too wide in terminal
-    df = df.set_index("Address")
+    # Keep operational logs compact and focused on vault identity and size.
+    df = df[["Name", "Protocol", "Share token", "NAV"]]
+
+    if max_entries is not None:
+        df = df.head(max_entries)
 
     # Round dust to zero, drop to 4 decimals
     def round_below_epsilon(x, epsilon=Decimal("0.1"), round_factor=Decimal("0.001")):
@@ -99,7 +90,7 @@ def display_vaults_table(df: pd.DataFrame, nav_threshold=Decimal(1.1)) -> None:
     df = df.apply(lambda col: col.map(round_below_epsilon))
 
     with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 200):
-        logger.info("Vault scan results:\n%s", df.to_string())
+        logger.info("Vault scan results:\n%s", df.to_string(index=False))
 
 
 def scan_leads(
@@ -114,6 +105,7 @@ def scan_leads(
     reset_leads=False,
     hypersync_api_key: str | None = None,
     hypersync_concurrency: int | None = None,
+    max_display_entries: int | None = None,
 ) -> LeadScanReport:
     """Core loop to discover new vaults on a chain.
 
@@ -124,6 +116,9 @@ def scan_leads(
         Number of concurrent Hypersync stream requests.
         ``None`` falls back to the ``HYPERSYNC_CONCURRENCY`` env var,
         then to the Hypersync server default.
+    :param max_display_entries:
+        Maximum number of vaults included in the diagnostic results table.
+        ``None`` displays all matching vaults.
     """
 
     from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
@@ -240,7 +235,7 @@ def scan_leads(
     data_dict = {r["_detection_data"].get_spec(): r for r in rows}
     report.rows = data_dict
 
-    display_vaults_table(df)
+    display_vaults_table(df, max_entries=max_display_entries)
 
     printer(f"Saving vault pickled database to {vault_db_file}")
     # Merge new results
