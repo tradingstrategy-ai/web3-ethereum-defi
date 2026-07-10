@@ -1,12 +1,10 @@
 """Regression tests for on-chain position reconciliation in ``Gmx.fetch_order``.
 
-Replaces the originally-planned periodic watchdog (Task 5.4 in
-``docs/claude-plans/2026-05-14-gmx-market-catalog-fix.md``).  When the parent
-``fetch_order`` returns ``status="open"`` for a limit / stop / take-profit
-order, the wrapper cross-checks against ``fetch_positions`` and flips the
-order to ``"closed"`` if a matching on-chain position exists.  This catches
-the BONK / SHIB stuck-order case where Subsquid 4xx errors blind the primary
-resolver to a keeper-executed fill.
+When the parent ``fetch_order`` returns ``status="open"`` for a limit / stop /
+take-profit order, the wrapper cross-checks against ``fetch_positions`` and
+flips the order to ``"closed"`` if a matching on-chain position exists.  This
+catches the BONK / SHIB stuck-order case where Subsquid 4xx errors blind the
+primary resolver to a keeper-executed fill.
 
 See tradingstrategy-ai/gmx-strategies#67 and the 2026-05-14 logs.
 """

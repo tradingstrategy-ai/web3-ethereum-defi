@@ -1717,7 +1717,9 @@ def run_scan_tick(
         Path to the generic vault settlement DuckDB.
 
     :param scan_vault_settlements:
-        Whether to populate the generic settlement DuckDB before cleaning.
+        Whether to populate the generic settlement DuckDB before price
+        cleaning. The cleaner later annotates the cleaned price frame from
+        this DuckDB, leaving the raw price parquet settlement-free.
 
     :param settlement_start_block:
         Optional inclusive forced start block for settlement backfills.
