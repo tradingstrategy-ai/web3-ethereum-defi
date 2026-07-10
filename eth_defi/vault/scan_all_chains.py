@@ -82,6 +82,7 @@ BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "7"))
 
 CORE3_PROTOCOL_NAME = "Core3"
 CURRENCY_RATES_PROTOCOL_NAME = "CurrencyRates"
+VAULT_SETTLEMENTS_STEP_NAME = "VaultSettlements"
 CURRENCY_RATES_DEFAULT_CYCLE = datetime.timedelta(hours=24)
 
 logger = logging.getLogger(__name__)
@@ -1656,7 +1657,15 @@ def run_scan_tick(
     for name in excluded_chains or []:
         results[name] = ChainResult(name=name, status="disabled", cycle_interval=_ci.get(name))
 
-    display_order = [c.name for c in chains] + active_protocols + list((not_due_items or {}).keys()) + (excluded_chains or [])
+    post_processing_steps = []
+    if not skip_post_processing and scan_vault_settlements:
+        results[VAULT_SETTLEMENTS_STEP_NAME] = ChainResult(
+            name=VAULT_SETTLEMENTS_STEP_NAME,
+            status="pending",
+        )
+        post_processing_steps.append(VAULT_SETTLEMENTS_STEP_NAME)
+
+    display_order = [c.name for c in chains] + active_protocols + post_processing_steps + list((not_due_items or {}).keys()) + (excluded_chains or [])
     print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
     # First pass - scan EVM chains
@@ -1867,6 +1876,11 @@ def run_scan_tick(
         if scan_vault_settlements:
             logger.info("Scanning vault settlement events before post-processing")
             start_time = time.time()
+            results[VAULT_SETTLEMENTS_STEP_NAME] = ChainResult(
+                name=VAULT_SETTLEMENTS_STEP_NAME,
+                status="running",
+            )
+            print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
             try:
                 rpc_env_vars = settlement_rpc_env_vars or [chain.env_var for chain in chains]
                 rpc_urls_by_chain = resolve_rpc_urls_by_chain_from_env(rpc_env_vars)
@@ -1878,8 +1892,8 @@ def run_scan_tick(
                     forced_start_block=settlement_start_block,
                     forced_end_block=settlement_end_block,
                 )
-                results["VaultSettlements"] = ChainResult(
-                    name="VaultSettlements",
+                results[VAULT_SETTLEMENTS_STEP_NAME] = ChainResult(
+                    name=VAULT_SETTLEMENTS_STEP_NAME,
                     status="success",
                     vault_scan_ok=True,
                     price_scan_ok=True,
@@ -1896,14 +1910,15 @@ def run_scan_tick(
                 )
             except Exception as exc:
                 logger.exception("Vault settlement scan failed")
-                results["VaultSettlements"] = ChainResult(
-                    name="VaultSettlements",
+                results[VAULT_SETTLEMENTS_STEP_NAME] = ChainResult(
+                    name=VAULT_SETTLEMENTS_STEP_NAME,
                     status="failed",
                     error=str(exc),
                     traceback_str=traceback.format_exc(),
                     duration=time.time() - start_time,
                 )
-                raise
+                logger.warning("Continuing post-processing despite vault settlement scan failure")
+            print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
         # Core3 DuckDB is safe to export in the normal sequential pipeline:
         # scan_projects() checkpoints with db.save(), scan_core3_fn() closes
