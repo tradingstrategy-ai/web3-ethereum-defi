@@ -1,6 +1,9 @@
 """Test vault curator detection."""
 
-from eth_defi.vault.curator import get_curator_name, identify_curator, is_protocol_curator
+from pathlib import Path
+
+from eth_defi.midas.registry import iter_midas_registry_products
+from eth_defi.vault.curator import build_curator_metadata_json, get_curator_name, identify_curator, is_protocol_curator
 
 
 def test_identify_felix_vault() -> None:
@@ -20,6 +23,83 @@ def test_identify_felix_vault() -> None:
     )
 
     assert slug == "felix"
+
+
+def test_identify_fasanara_midas_mfone_vault() -> None:
+    """Resolve both Midas spellings of the Fasanara-managed mF-ONE product."""
+
+    for vault_name in ("Midas mF-ONE", "Midas mFONE"):
+        slug = identify_curator(
+            chain_id=1,
+            vault_token_symbol="mFONE",
+            vault_name=vault_name,
+            vault_address="0x238a700eD6165261Cf8b2e544ba797BC11e466Ba",
+            protocol_slug="midas",
+        )
+
+        assert slug == "fasanara"
+
+
+def test_identify_apollo_crypto_midas_mapollo_vault() -> None:
+    """Resolve Midas' Apollo Crypto mAPOLLO product by its distinct token name."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="mAPOLLO",
+        vault_name="Midas mAPOLLO",
+        vault_address="0x7CF9DEC92ca9FD46f8d86e7798B72624Bc116C05",
+        protocol_slug="midas",
+    )
+
+    assert slug == "apollo-crypto"
+
+
+def test_identify_edge_capital_midas_medge_vaults() -> None:
+    """Resolve every deployed Midas mEDGE product to the Edge Capital alias.
+
+    Midas names Edge Capital as mEDGE's risk advisor.  The detection is based
+    on the exact product name, rather than an address list, because mEDGE is
+    deployed on multiple chains and may be deployed on additional ones later.
+    """
+
+    medge_products = [product for product in iter_midas_registry_products() if product.symbol == "mEDGE"]
+
+    assert medge_products
+    for product in medge_products:
+        assert product.token is not None
+        slug = identify_curator(
+            chain_id=product.chain_id,
+            vault_token_symbol=product.symbol,
+            vault_name=f"Midas {product.symbol}",
+            vault_address=product.token,
+            protocol_slug="midas",
+        )
+
+        assert slug == "edge-capital", f"{product.network} mEDGE resolved to {slug!r}"
+
+    # Keep the product match exact: ``mEDGE`` must not also claim a similarly
+    # named future Midas product.
+    assert (
+        identify_curator(
+            chain_id=1,
+            vault_token_symbol="mEDGES",
+            vault_name="Midas mEDGES",
+            vault_address="0x0000000000000000000000000000000000000013",
+            protocol_slug="midas",
+        )
+        != "edge-capital"
+    )
+
+
+def test_edge_capital_reuses_ultrayield_logo() -> None:
+    """Use the UltraYield asset when the Edge Capital alias has no separate logo."""
+
+    metadata = build_curator_metadata_json(
+        Path("eth_defi/data/feeds/curators/edge-capital.yaml"),
+        public_url="https://example.com",
+    )
+
+    assert metadata["logos"]["generic"] == "https://example.com/curator-metadata/ultrayield/generic.png"
 
 
 def test_identify_alphagrowth_vault() -> None:

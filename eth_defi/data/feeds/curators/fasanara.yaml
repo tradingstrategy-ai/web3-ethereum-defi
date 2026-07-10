@@ -1,0 +1,17 @@
+feeder-id: fasanara
+name: Fasanara
+role: curator
+website: https://www.fasanara.com/
+short_description: Fasanara Capital is an institutional asset manager and fintech investing firm with a digital asset management business.
+long_description: |
+  Fasanara Capital describes itself as an institutional asset manager and fintech investing pioneer. Its digital business provides a managed-accounts platform for crypto trading strategies, including monitoring, risk management and asset-management services.
+  Midas appoints Fasanara as strategy manager for mF-ONE, the tokenised strategy giving indirect exposure to Fasanara Capital's private-credit and digital-asset strategy.
+
+# Evidence and background references.
+other-links:
+  - title: Midas mF-ONE product page - Fasanara appointed as strategy manager for the Ethereum mF-ONE token
+    url: https://midas.app/mfone
+  - title: Midas documentation - mF-ONE smart-contract addresses, including Ethereum token 0x238a700eD6165261Cf8b2e544ba797BC11e466Ba
+    url: https://docs.midas.app/protocol-mechanics/smart-contracts
+  - title: Fasanara Digital - official managed-accounts platform and digital asset management description
+    url: https://www.fasanara.com/digital/managers
