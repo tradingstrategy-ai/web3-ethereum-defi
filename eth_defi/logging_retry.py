@@ -31,6 +31,18 @@ class LoggingRetry(Retry):
         self.log_level = kwargs.pop("log_level", logging.WARNING)
         super().__init__(*args, **kwargs)
 
+    def new(self, **kw: object) -> "LoggingRetry":
+        """Create a retry clone that preserves custom logging configuration.
+
+        ``urllib3.Retry.increment()`` returns a cloned retry object after each
+        failed attempt. Without carrying these attributes forward, only the
+        first retry uses the caller-provided logger and log level.
+        """
+        retry = super().new(**kw)
+        retry.logger = self.logger
+        retry.log_level = self.log_level
+        return retry
+
     def increment(self, method=None, url=None, response=None, error=None, _pool=None, _stacktrace=None):
         if response:
             status = response.status

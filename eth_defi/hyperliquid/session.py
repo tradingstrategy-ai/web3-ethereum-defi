@@ -383,24 +383,28 @@ class HyperliquidSession(Session):
         :py:class:`~eth_defi.event_reader.webshare.ProxyStateManager` is
         shared, so failures recorded by any worker are persisted globally.
 
-        Each clone gets its own **independent rate limiter** because
-        Hyperliquid rate limits are per IP. When workers use different
-        proxies, each proxy IP gets its full rate allowance.
+        With proxies, each clone gets an independent rate limiter because
+        Hyperliquid rate limits are per IP and each worker should use its
+        proxy IP's full allowance. Without proxies, clones share the parent
+        adapters so all direct workers coordinate through the same limiter.
 
         :param proxy_start_index:
             Starting proxy index for this worker (typically the worker
             ordinal: 0, 1, 2, ...).
         :return:
-            A new :py:class:`HyperliquidSession` with its own proxy
-            rotation state and rate limiter.
+            A new :py:class:`HyperliquidSession` with worker-local proxy
+            rotation state. The rate limiter is independent only when proxy
+            support is enabled.
         """
         clone = HyperliquidSession(api_url=self.api_url)
 
-        # Each worker gets its own rate limiter since rate limits are per IP.
-        # When using proxies, each proxy is a different IP so they need
-        # independent rate limiting.
-        if self._adapter_config is not None:
-            # Create a fresh adapter with a unique SQLite database for this worker
+        # With proxies, each worker should have an independent limiter for its
+        # proxy IP. Without proxies, every worker shares the same public IP, so
+        # clones must share the parent adapter/rate limiter to avoid multiplying
+        # the direct-IP request budget.
+        if self._adapter_config is not None and self.proxy_enabled:
+            # Create a fresh adapter with a unique SQLite database for this
+            # worker/proxy.
             fd, tmp_path = tempfile.mkstemp(
                 suffix=".sqlite",
                 prefix=f"hl-rate-limit-worker-{proxy_start_index}-",
@@ -420,7 +424,8 @@ class HyperliquidSession(Session):
             clone.mount("https://", adapter)
             clone._adapter_config = self._adapter_config
         else:
-            # No adapter config stored — share the parent's adapters (fallback)
+            # Direct-IP mode, or no adapter config stored: share the parent's
+            # adapters so all clones coordinate through one limiter.
             clone.adapters = self.adapters.copy()
 
         # Propagate proxy rotation budget
@@ -429,7 +434,7 @@ class HyperliquidSession(Session):
         clone.post_info_retry_backoff_factor = self.post_info_retry_backoff_factor
 
         # Each worker gets its own rotator clone starting at a different proxy,
-        # but sharing the same ProxyStateManager for persistent failure tracking
+        # but sharing the same ProxyStateManager for persistent failure tracking.
         if self._rotator is not None:
             clone._rotator = self._rotator.clone_for_worker(start_index=proxy_start_index)
 

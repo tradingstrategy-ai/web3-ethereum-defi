@@ -5,6 +5,7 @@ bulk downloads: throttled responses must rotate without marking the
 proxy as dead; connection errors still mark it dead.
 """
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,6 +17,7 @@ from eth_defi.hyperliquid.session import (
     DEFAULT_POST_INFO_RETRY_BACKOFF_FACTOR,
     create_hyperliquid_session,
 )
+from eth_defi.logging_retry import LoggingRetry
 
 
 def _make_proxy(idx: int) -> WebshareProxy:
@@ -231,3 +233,49 @@ def test_successful_200_short_circuits(session_with_proxies):
     assert m.call_count == 1
     assert rotator.current() == initial_proxy
     state_mgr.record_failure.assert_not_called()
+
+
+def test_logging_retry_preserves_logger_when_cloned() -> None:
+    """Retry clones must keep caller-provided logger configuration.
+
+    ``urllib3.Retry`` clones itself after each retry attempt. Hyperliquid
+    sessions pass their module logger and proxy-aware log level to
+    :class:`LoggingRetry`, so those values must survive clone creation.
+    """
+    logger = logging.getLogger("test.hyperliquid.retry")
+    retry = LoggingRetry(total=5, logger=logger, log_level=logging.DEBUG)
+
+    cloned = retry.new(total=4)
+
+    assert cloned.logger is logger
+    assert cloned.log_level == logging.DEBUG
+
+
+def test_direct_worker_clone_shares_rate_limiter_adapter(tmp_path) -> None:
+    """Direct-IP worker clones share one rate limiter.
+
+    Without proxies, all workers use the same public IP. Giving every clone a
+    private limiter would multiply the effective Hyperliquid request budget and
+    cause concurrent 429 bursts.
+    """
+    session = create_hyperliquid_session(rate_limit_db_path=tmp_path / "direct.sqlite")
+
+    clone = session.clone_for_worker(proxy_start_index=1)
+
+    assert not session.proxy_enabled
+    assert clone.get_adapter("https://api.hyperliquid.xyz") is session.get_adapter("https://api.hyperliquid.xyz")
+
+
+def test_proxy_worker_clone_uses_independent_rate_limiter_adapter(tmp_path) -> None:
+    """Proxy worker clones keep independent limiters for independent IPs."""
+    session = create_hyperliquid_session(
+        rate_limit_db_path=tmp_path / "proxy.sqlite",
+        rotator=_fake_rotator(n_proxies=2),
+    )
+
+    clone = session.clone_for_worker(proxy_start_index=1)
+
+    assert session.proxy_enabled
+    assert clone.proxy_enabled
+    assert clone.active_proxy_url != session.active_proxy_url
+    assert clone.get_adapter("https://api.hyperliquid.xyz") is not session.get_adapter("https://api.hyperliquid.xyz")

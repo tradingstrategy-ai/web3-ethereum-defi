@@ -924,7 +924,7 @@ def scan_hypercore_fn(
     """
     from eth_defi.hyperliquid.constants import HYPERLIQUID_DAILY_METRICS_DATABASE
 
-    session = create_hyperliquid_session(requests_per_second=2.75)
+    session = create_hyperliquid_session(requests_per_second=1.0)
     return _run_hypercore_scan(
         name="Hypercore",
         scan_fn=hyperliquid_run_daily_scan,

@@ -1004,12 +1004,10 @@ def process_and_upload_curator_metadata(  # noqa: PLR0917
                 content_type="image/png",
                 skip_if_current=True,
             )
-            logger.info(
-                "%s %s logo for curator: %s",
-                "Uploaded" if logo_uploaded else "Skipped unchanged",
-                variant,
-                slug,
-            )
+            if logo_uploaded:
+                logger.info("Uploaded %s logo for curator: %s", variant, slug)
+            else:
+                logger.debug("Skipped unchanged %s logo for curator: %s", variant, slug)
 
     return metadata
 
