@@ -10,6 +10,7 @@ import pytest
 import zstandard as zstd
 from plotly.graph_objects import Figure
 
+from eth_defi.erc_4626.vault_protocol.d2.vault import D2_PROTOCOL_NAME, format_d2_vault_note
 from eth_defi.research import vault_metrics
 from eth_defi.research.sparkline import export_sparkline_as_png, export_sparkline_as_svg, extract_vault_price_data, render_sparkline_simple
 from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
@@ -312,6 +313,55 @@ def test_calculate_lifetime_metrics_blacklists_scanned_bad_flags(
     assert row["notes"] == expected_note
 
 
+def test_calculate_lifetime_metrics_uses_scanned_d2_notes(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """D2 notes scanned from the vault adapter are included in lifetime metric exports."""
+    vault_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
+    address = "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004"
+    spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[spec])
+    vault_row["Protocol"] = D2_PROTOCOL_NAME
+    vault_row["Address"] = address
+    vault_row["_risk"] = VaultTechnicalRisk.negligible
+    vault_row["_flags"] = set()
+    vault_row["_notes"] = format_d2_vault_note(address)
+    vault_prices = price_df.loc[price_df["id"] == vault_id]
+
+    metrics = calculate_lifetime_metrics(
+        vault_prices,
+        {spec: vault_row},
+    )
+
+    note = metrics.iloc[0]["notes"]
+    assert "D2 Finance strategy vault" in note
+    assert "**Summary:**" in note
+    assert f"[D2 strategy page](https://d2.finance/strategies/{address})" in note
+
+
+def test_calculate_lifetime_metrics_does_not_apply_non_d2_protocol_notes(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Non-D2 protocol-wide notes are not newly applied in lifetime metric exports."""
+    vault_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
+    spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[spec])
+    vault_row["Protocol"] = "Summer.fi"
+    vault_row["_risk"] = VaultTechnicalRisk.negligible
+    vault_row["_flags"] = set()
+    vault_prices = price_df.loc[price_df["id"] == vault_id]
+
+    metrics = calculate_lifetime_metrics(
+        vault_prices,
+        {spec: vault_row},
+    )
+
+    note = metrics.iloc[0]["notes"] or ""
+    assert "Summer.fi vault is illiquid" not in note
+
+
 def test_calculate_period_metrics(
     vault_db: VaultDatabase,
     price_df: pd.DataFrame,
@@ -487,7 +537,6 @@ def test_vault_charts(
 
 
 def test_render_vault_sparkline(
-    vault_db: VaultDatabase,
     price_df: pd.DataFrame,
 ):
     """Render spark line chart."""
@@ -512,7 +561,6 @@ def test_render_vault_sparkline(
 
 @pytest.mark.skipif(os.environ.get("R2_SPARKLINE_BUCKET_NAME") is None, reason="R2_SPARKLINE_BUCKET_NAME not set")
 def test_upload_vault_sparkline(
-    vault_db: VaultDatabase,
     price_df: pd.DataFrame,
 ):
     """Render spark line chart."""
@@ -529,7 +577,6 @@ def test_upload_vault_sparkline(
 
     object_name = f"test-{spec.as_string_id()}.png"
     bucket_name = os.environ.get("R2_SPARKLINE_BUCKET_NAME")
-    account_id = os.environ.get("R2_SPARKLINE_ACCOUNT_ID")
     access_key_id = os.environ.get("R2_SPARKLINE_ACCESS_KEY_ID")
     secret_access_key = os.environ.get("R2_SPARKLINE_SECRET_ACCESS_KEY")
     endpoint_url = os.environ.get("R2_SPARKLINE_ENDPOINT_URL")
@@ -655,3 +702,24 @@ def test_export_lifetime_row_nat_serialization():
     # Verify other fields are still properly serialized
     assert parsed["name"] == "Test Vault"
     assert parsed["current_nav"] == 1000.0
+
+
+def test_export_lifetime_row_preserves_flow_fees_without_annual_fees() -> None:
+    """Export deposit and withdrawal fees even when annual fees are unknown."""
+
+    row = pd.Series(
+        {
+            "name": "Test Vault",
+            "mgmt_fee": None,
+            "perf_fee": None,
+            "deposit_fee": 0.01,
+            "withdraw_fee": 0.02,
+        }
+    )
+
+    result = export_lifetime_row(row)
+
+    assert result["management_fee"] is None
+    assert result["performance_fee"] is None
+    assert result["deposit_fee"] == 0.01
+    assert result["withdraw_fee"] == 0.02

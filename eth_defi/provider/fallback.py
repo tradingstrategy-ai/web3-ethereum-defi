@@ -574,7 +574,7 @@ class FallbackProvider(BaseNamedProvider):
                         raise  # Out of retries
 
                 if not silent_error:
-                    logger.info("Will not retry, method %s, as not a retryable exception %s: %s, params %s", method, e.__class__, e, params)
+                    logger.debug("Will not retry, method %s, as not a retryable exception %s: %s, params %s", method, e.__class__, e, params)
 
                 raise  # Not retryable exception
 

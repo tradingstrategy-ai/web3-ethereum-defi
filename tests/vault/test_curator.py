@@ -425,6 +425,22 @@ def test_identify_atoma_protocol_curator() -> None:
     assert get_curator_name("atoma") == "Atoma"
 
 
+def test_identify_frankencoin_protocol_curator() -> None:
+    """Frankencoin svZCHF vaults resolve to the protocol-managed slug."""
+
+    slug = identify_curator(
+        chain_id=100,
+        vault_token_symbol="svZCHF",
+        vault_name="SavingsVault ZCHF",
+        vault_address="0x6165946250dd04740ab1409217e95a4f38374fe9",
+        protocol_slug="frankencoin",
+    )
+
+    assert slug == "frankencoin"
+    assert is_protocol_curator("frankencoin")
+    assert get_curator_name("frankencoin") == "Frankencoin"
+
+
 def test_identify_legacy_gtrade_as_gains_network() -> None:
     """Legacy gTrade protocol slug resolves to Gains Network."""
 

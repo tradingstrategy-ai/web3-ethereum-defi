@@ -158,6 +158,7 @@ CURATORS_DATA_DIR: Path = Path(__file__).parent.parent / "data" / "feeds" / "cur
 #: :py:func:`eth_defi.research.vault_metrics.slugify_protocol` output.
 PROTOCOL_CURATED_SLUGS: set[str] = {
     "atoma",
+    "frankencoin",
     "gains-network",
     "ostium",
     "domination-finance",
@@ -188,6 +189,7 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
 #: slug matches a protocol rather than a third-party curator YAML file.
 PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "atoma": "Atoma",
+    "frankencoin": "Frankencoin",
     "gains-network": "Gains Network",
     "ostium": "Ostium",
     "domination-finance": "Domination Finance",
@@ -1004,12 +1006,10 @@ def process_and_upload_curator_metadata(  # noqa: PLR0917
                 content_type="image/png",
                 skip_if_current=True,
             )
-            logger.info(
-                "%s %s logo for curator: %s",
-                "Uploaded" if logo_uploaded else "Skipped unchanged",
-                variant,
-                slug,
-            )
+            if logo_uploaded:
+                logger.info("Uploaded %s logo for curator: %s", variant, slug)
+            else:
+                logger.debug("Skipped unchanged %s logo for curator: %s", variant, slug)
 
     return metadata
 

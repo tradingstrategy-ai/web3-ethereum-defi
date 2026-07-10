@@ -60,6 +60,12 @@ class ERC4626Feature(enum.Enum):
     #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     oda_fact_like = "oda_fact_like"
 
+    #: Midas tokenised investment products.
+    #:
+    #: Routing marker for non-ERC-4626 mToken instruments that are read
+    #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    midas_like = "midas_like"
+
     #: Ipor protocol
     #:
     #: https://app.ipor.io/fusion
@@ -306,6 +312,11 @@ class ERC4626Feature(enum.Enum):
     #:
     #: https://spark.fi/
     spark_like = "spark_like"
+
+    #: Frankencoin savings vault
+    #:
+    #: https://frankencoin.com/token/
+    frankencoin_like = "frankencoin_like"
 
     #: Yearn Morpho Compounder strategy
     #:
@@ -791,6 +802,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "T3tris"
     elif ERC4626Feature.oda_fact_like in features:
         return "Kinexys"
+    elif ERC4626Feature.midas_like in features:
+        return "Midas"
     elif ERC4626Feature.morpho_like in features:
         return "Morpho"
     elif ERC4626Feature.panoptic_like in features:
@@ -892,6 +905,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.spark_like in features:
         return "Spark"
+
+    elif ERC4626Feature.frankencoin_like in features:
+        return "Frankencoin"
 
     elif ERC4626Feature.yearn_morpho_compounder_like in features:
         return "Yearn"

@@ -60,6 +60,10 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Kinexys ODA-FACT JLTXX prospectus expenses are reflected in fund returns, not as
     # explicit on-chain deposit/withdrawal fees.
     "Kinexys": VaultFeeMode.internalised_skimming,
+    # Midas NAV/share is published net of product-level expenses through the
+    # Midas oracle pipeline. Instant issuance/redemption fees are read
+    # separately from product vault contracts.
+    "Midas": VaultFeeMode.internalised_skimming,
     "Velvet Capital": VaultFeeMode.internalised_skimming,
     "Umami": VaultFeeMode.externalised,
     # Unverified contracts, no open source repo
@@ -187,6 +191,10 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Suppliers earn the Hub interest spread; Aave protocol revenue is taken as a reserve
     # factor on borrow interest, so yield is internalised in the Hub-derived share price.
     "Aave": VaultFeeMode.internalised_skimming,
+    # Frankencoin svZCHF vault yield accrues in the savings module share price.
+    # Optional per-account referral fees can skim up to 25% of earned interest,
+    # but there are no protocol-wide deposit, withdrawal, management or performance fees.
+    "Frankencoin": VaultFeeMode.internalised_skimming,
     # Mellow Core Vaults - FeeManager charges deposit, redeem, performance and
     # time-based protocol fees in vault shares. Performance/protocol fees are
     # minted as shares, while deposit/redeem fees reduce user share amounts.

@@ -1,23 +1,25 @@
 name: Aave
 slug: aave
 short_description: |
-  The leading decentralised liquidity protocol, with ERC-4626 vaults on Aave v4.
+  Aave Stable Vaults help apps offer simple fixed-rate stablecoin savings powered by onchain yield.
 long_description: |
-  Aave is one of the largest and most established decentralised lending protocols. Suppliers
-  earn interest by providing liquidity and borrowers take over-collateralised loans against it.
+  Aave is one of the largest and most established decentralised lending protocols. Its markets
+  connect people who supply crypto assets with borrowers who use over-collateralised loans.
 
-  Aave v4 (launched on Ethereum mainnet on 30 March 2026) reorganises liquidity around a central
-  Liquidity Hub and modular Spokes. Each supplyable asset is exposed through a Tokenization Spoke,
-  an ERC-4626 compliant vault that tokenises a Hub deposit into fungible ``wa{Hub}{Asset}`` shares
-  (e.g. ``waCoreUSDC``, ``waPrimeWETH``). v4 debuts with three Liquidity Hubs — Core, Prime and Plus.
+  [Aave Stable Vaults](https://aave.com/blog/introducing-stable-vaults) package this kind of
+  onchain lending yield into a simpler savings experience. Instead of exposing end users to changing
+  DeFi rates and cross-chain operations, a product can offer a clear fixed rate on supported
+  stablecoins, while the vault handles the underlying yield strategy, rebalancing, and deposits or
+  withdrawals across supported chains.
 
-  Key features:
+  Businesses can use Stable Vaults as a ready-made backend for stablecoin savings, wallet earn
+  products, exchange balances, merchant settlement balances, or their own stablecoin ecosystems.
+  The operator chooses which stablecoins to accept, which Aave-powered or ERC-4626 yield strategies
+  to use, and what rate to offer different users.
 
-  - ERC-4626 compliant ``deposit``/``mint``/``withdraw``/``redeem`` on every Tokenization Spoke
-  - EIP-712 intent system for gasless, signature-based deposits and redemptions
-  - Yield accrues in the Hub-derived share price; no explicit spoke-level fee
-  - Heavily audited, including a ChainSecurity review of the Tokenization Spoke and a 6-week public
-    security contest
+  In vault listings, Aave v4 vaults are represented as ERC-4626 compatible contracts, so deposits
+  can be tracked as tokenised vault shares while the yield accrues in the share price. These vaults
+  are part of Aave's production Stable Vault system, already used by the Aave mobile savings app.
 fee_description: |
   No explicit deposit, withdrawal or performance fee at the Tokenization Spoke level. Suppliers
   earn the Hub interest spread; Aave protocol revenue is taken as a reserve factor on borrow

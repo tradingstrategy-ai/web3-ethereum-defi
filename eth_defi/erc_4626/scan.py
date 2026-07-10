@@ -242,6 +242,33 @@ def _fetch_lending_stats(
     return stats
 
 
+def _normalise_scan_note(notes: str | None, description: str | None, short_description: str | None) -> str | None:
+    """Drop scan notes that only duplicate description fields.
+
+    Some protocol adapters use :py:meth:`VaultBase.get_notes` as a generic
+    "extra text" hook and fall back to the same off-chain description already
+    exported as ``_description``. Keep distinct notes, warnings and source
+    links, but avoid populating ``_notes`` with duplicate description text.
+
+    :param notes:
+        Raw note from the vault adapter.
+    :param description:
+        Full vault description already exported separately.
+    :param short_description:
+        Short vault description already exported separately.
+    :return:
+        Distinct note, or ``None`` if it duplicates description text.
+    """
+
+    if not notes:
+        return None
+
+    if notes in {description, short_description}:
+        return None
+
+    return notes
+
+
 def create_vault_scan_record(
     web3: Web3,
     detection: ERC4262VaultDetection,
@@ -283,6 +310,7 @@ def create_vault_scan_record(
         "_detection_data": detection,
         "_fees": None,
         "_flags": {},
+        "_notes": None,
     }
 
     if vault is None:
@@ -321,6 +349,9 @@ def create_vault_scan_record(
         protocol_name = get_vault_protocol_name(detection.features)
         activity_status = _fetch_activity_status(vault, total_assets)
         lending_stats = _fetch_lending_stats(vault, detection, total_assets, block_identifier)
+        description = vault.description
+        short_description = vault.short_description
+        notes = _normalise_scan_note(vault.get_notes(), description, short_description)
 
         data = {
             "Symbol": vault.symbol,
@@ -345,8 +376,9 @@ def create_vault_scan_record(
             "_fees": fees,
             "_flags": flags,
             "_lockup": lockup,
-            "_description": vault.description,
-            "_short_description": vault.short_description,
+            "_description": description,
+            "_short_description": short_description,
+            "_notes": notes,
             "_manager_name": vault.manager_name,
             "_morpho_offchain_data": vault.morpho_offchain_data if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,
         }

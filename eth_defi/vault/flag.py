@@ -398,6 +398,75 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x4dc1ce9b9f9ef00c144bfad305f16c62293dc0e8": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x6c09bfdc1df45d6c4ff78dc9f1c13af29eb335d4": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x9a1bf5365edbb99c2c61ca6d9ffad0b705acfc6f": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Euler TelosC Stream/Trevee/Surge blacklist audit.
+    #
+    # Method:
+    # 1. Fetch Euler labels from:
+    #    - https://github.com/euler-xyz/euler-labels/blob/master/1/products.json
+    #    - https://github.com/euler-xyz/euler-labels/blob/master/1/earn-vaults.json
+    #    - https://github.com/euler-xyz/euler-labels/blob/master/9745/products.json
+    #    - https://github.com/euler-xyz/euler-labels/blob/master/9745/earn-vaults.json
+    # 2. Select TelosC products and EulerEarn entries whose deprecationReason
+    #    mentions Stream or insolvent Stream positions.
+    # 3. Join the resulting (chain_id, address) pairs against our exported
+    #    vault universe at ~/.tradingstrategy/vaults/downloads/vault-universe.json.
+    #
+    # Initial TelosC result:
+    # - These 10 exported TelosC vaults matched the Stream-insolvent Euler labels.
+    # - TelosC Almanak, Haven, Reservoir and f(x) did not match Stream-affected
+    #   Euler label metadata and were not blacklisted in this pass.
+    #
+    # Ethereum, TelosC Stream, USDC.
+    "0x01864ae3c7d5f507cc4c24ca67b4cabbdda37ecd": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Ethereum, TelosC Surge USDC, USDC, EulerEarn.
+    "0x49c5733d71511a78a3e12925ea832f49031c97e9": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Ethereum, TelosC Stream, xUSD.
+    "0xf1ba8c5ca5ab011d06f31e64dad313d204acb9eb": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Plasma, TelosC Stream, xUSD.
+    "0x138c289bb8b855cf271305c8bcf91dc31ba30194": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Plasma, TelosC Trevee, plUSD.
+    "0x1ad2d433b5e95077eb2855eab854b72ea9ee9d6c": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Plasma, TelosC Stream, plUSD.
+    "0x27934d4879fc28a74703726edae15f757e45a48a": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Plasma, TelosC Stream, USDT0.
+    "0x57c582346b7d49a46af3745a8278917d1c1311b8": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Plasma, TelosC Surge, USDT0, EulerEarn.
+    "0xa9c251f8304b1b3fc2b9e8fcae78d94eff82ac66": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Plasma, TelosC Trevee, USDT0.
+    "0xb5526491742fee67e9e0d0d8c619a95d422fd398": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Plasma, TelosC Stream, msUSD.
+    "0xf90cf999de728a582e154f926876b70e93a747b7": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Full Euler-label Stream audit.
+    #
+    # Method:
+    # 1. Enumerate all numeric chain directories in euler-xyz/euler-labels.
+    # 2. Select every products.json product and earn-vaults.json entry whose
+    #    deprecationReason mentions Stream.
+    # 3. Join the resulting 29 Euler-label addresses against our exported vault
+    #    universe at ~/.tradingstrategy/vaults/downloads/vault-universe.json.
+    #
+    # Result:
+    # - 17 Stream-deprecated Euler-label addresses existed in our exported vault
+    #   universe.
+    # - 10 TelosC matches are listed above.
+    # - These 7 non-TelosC matches were still unblacklisted and are now flagged.
+    # - The app's /api/internal/labels endpoint returned 403 and says it is not a
+    #   public contract; use the public euler-labels repository as the source.
+    #
+    # Plasma, Frontier Elixir, USDT0, no curator slug in our vault universe.
+    "0x3799251bd81925cfccf2992f10af27a4e62bf3f7": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Plasma, Hyperithm Euler USDT, USDT0, Hyperithm, EulerEarn.
+    "0x66be42a0bda425a8c3b3c2cf4f4cb9edfcaed21d": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Plasma, Re7 Labs xUSD, xUSD, Re7 Labs.
+    "0x8adb906421f65c27155f44f1829ca1e5b024c3f6": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Plasma, Re7 Labs xUSD, USDT0, Re7 Labs.
+    "0xf675fbe777e992f5d5d84adf41161dc0f20104a6": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Plasma, Re7 USDT0 Core, USDT0, Re7 Labs, EulerEarn.
+    "0xa5eed1615cd883dd6883ca3a385f525e3beb4e79": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Avalanche, Re7 AUSD, AUSD, Re7 Labs, EulerEarn.
+    "0x70c329d6f06b33fa6b75e335b35168b1de84217b": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Avalanche, Re7 USDC, USDC, Re7 Labs, EulerEarn.
+    "0xeaf77df5d03306bca4ee8b58b6821e6aca76309d": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Euler Re7
     "0xaba9d2d4b6b93c3dc8976d8eb0690cca56431fe4": (VaultFlag.illiquid, XUSD_MESSAGE),
     # K3

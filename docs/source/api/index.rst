@@ -40,9 +40,11 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    enzyme/index
    aera/index
    atoma/index
+   frankencoin/index
    lagoon/index
    mellow/index
    ipor/index
+   midas/index
    oda_fact/index
    royco/index
    velvet/index

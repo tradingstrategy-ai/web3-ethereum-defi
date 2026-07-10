@@ -1,6 +1,11 @@
 # 1.2
 
 - feat: Batch ERC-4626 vault settlement event scans by chain, track empty settlement scan watermarks, avoid per-chain raw price parquet rereads, and make settlement scan failures non-fatal for the vault scanner cycle (2026-07-10)
+- feat: Add Midas vault protocol support with registry metadata, live NAV/share-price history scanning and fee-preserving lifetime metrics export (2026-07-10)
+- feat: Add Frankencoin ERC-4626 savings vault protocol support with hardcoded Ethereum, Base and Gnosis svZCHF vault addresses (2026-07-09)
+- feat: Add stale-NAV corrected historical share price reading for T3tris async vaults (2026-07-09)
+- feat: Add Robinhood Chain metadata, Hypersync lookup, vault scanner scheduling and Docker RPC wiring (2026-07-09)
+- feat: Add USDG Robinhood Chain metadata, official Paxos links and stablecoin rate chain aliases (2026-07-09)
 - feat: Add T3tris ERC-4626 vault protocol support with custom lead-detection events, offchain metadata, protocol logos, fee/risk metadata and curator mappings (2026-07-06)
 - feat: Mark Kinexys vault onchain deposits and redemptions as whitelist-only and unavailable to the general public (2026-07-06)
 - fix: Treat IPOR Fusion vaults listed in the public app vault API as official even when they do not have sparse customisation metadata (2026-07-06)

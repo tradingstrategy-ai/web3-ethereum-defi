@@ -17,6 +17,13 @@ Discovery scan for ERC-4626 vaults on a single chain. Stores metadata in the vau
 JSON_RPC_URL=$JSON_RPC_BASE poetry run python scripts/erc-4626/scan-vaults.py
 ```
 
+For Robinhood Chain, set `JSON_RPC_ROBINHOOD` to an archive-capable provider
+endpoint and pass it through as the single-chain `JSON_RPC_URL`:
+
+```shell
+LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ROBINHOOD poetry run python scripts/erc-4626/scan-vaults.py
+```
+
 | Variable | Description |
 |----------|-------------|
 | `JSON_RPC_URL` | Required. RPC endpoint for the chain. |
@@ -122,6 +129,17 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150. Lower after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
+
+Robinhood Chain is scanned when `JSON_RPC_ROBINHOOD` is configured. For a
+focused Robinhood-only dry run:
+
+```shell
+source .local-test.env && \
+TEST_CHAINS=Robinhood \
+SCAN_PRICES=false \
+SKIP_POST_PROCESSING=true \
+poetry run python scripts/erc-4626/scan-vaults-all-chains.py
+```
 
 Core3 runs after EVM and native vault scans and before post-processing. This
 keeps the Core3 DuckDB closed before `eth_defi.vault.top_vaults_json` reads it
@@ -466,6 +484,23 @@ as `<chain> settlements`, while the rest of the scan and post-processing can
 continue with the previously stored `vault-settlements.duckdb` data. If one
 vault in a chain batch cannot be prepared or decoded, it is skipped and the
 other vaults in the batch are still stored.
+
+### Linea historical block headers
+
+Linea changed its block header `extraData` shape during the
+[Beta v4.0 Paris upgrade](https://docs.linea.build/changelog/release-notes#beta-v40)
+on 2025-10-22. The last pre-upgrade block is `24787631`
+(`2025-10-22 05:47:11` UTC) and still has 97-byte Clique-style
+`extraData`; the first post-upgrade block is `24787632`
+(`2025-10-22 05:47:35` UTC) and has 32-byte `extraData`.
+
+The reason is Linea's move from the Clique proof-of-authority sequencer
+mechanism to the Maru/QBFT consensus client, documented in the
+[Linea Maru node guide](https://docs.linea.build/network/how-to/run-a-node/maru).
+When backfilling Linea vault settlement events before block `24787632`, raw
+JSON-RPC block headers may therefore need Web3.py's
+`ExtraDataToPOAMiddleware` or another path that avoids formatting the historical
+`extraData` as a fixed 32-byte field.
 
 To run a **single-chain** script or override the command, you must use `--entrypoint`
 because the Dockerfile sets `ENTRYPOINT` (not just `CMD`). Without `--entrypoint`,

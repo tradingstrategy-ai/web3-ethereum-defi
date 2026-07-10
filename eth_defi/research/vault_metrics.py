@@ -1584,7 +1584,7 @@ def calculate_vault_record(
     event_count = prices_df["event_count"].iloc[-1]
 
     risk = vault_metadata.get("_risk") or get_vault_risk(protocol, vault_address)
-    notes = get_notes(vault_address, chain_id=chain_id)
+    notes = vault_metadata.get("_notes") or get_notes(vault_address, chain_id=chain_id)
     vault_poll_frequency = get_latest_vault_poll_frequency(prices_df)
 
     flags = set(vault_metadata.get("_flags") or set())
@@ -3368,10 +3368,5 @@ def export_lifetime_row(row: pd.Series) -> dict:
     # Legacy field mappings
     out["management_fee"] = out.get("mgmt_fee")
     out["performance_fee"] = out.get("perf_fee")
-
-    # Legacy compatibility: if mgmt fee missing, nullify deposit/withdraw fees
-    if out.get("mgmt_fee") is None:
-        out["deposit_fee"] = None
-        out["withdraw_fee"] = None
 
     return out

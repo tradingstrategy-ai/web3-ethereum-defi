@@ -41,6 +41,8 @@ def test_stablecoin_rate_refresh_runs_before_metadata_export(
     monkeypatch.setenv("REFRESH_STABLECOIN_RATES", "true")
     monkeypatch.setenv("FORCE_STABLECOIN_RATE_REFRESH", "true")
     monkeypatch.setenv("STABLECOIN_RATE_TIMEOUT", str(STABLECOIN_RATE_TIMEOUT))
+    monkeypatch.setenv("CURRENCY_API_DB_PATH", str(tmp_path / "exchange-rates.duckdb"))
+    monkeypatch.setenv("CURRENCY_API_SOURCE", "test-source")
     monkeypatch.chdir(tmp_path)
 
     summary = module.refresh_stablecoin_rates_for_metadata_export()
@@ -52,6 +54,8 @@ def test_stablecoin_rate_refresh_runs_before_metadata_export(
     assert calls[0]["force"] is True
     assert calls[0]["timeout"] == STABLECOIN_RATE_TIMEOUT
     assert calls[0]["progress_bar"] is True
+    assert calls[0]["currency_db_path"] == tmp_path / "exchange-rates.duckdb"
+    assert calls[0]["currency_source"] == "test-source"
 
 
 def test_stablecoin_rate_refresh_timeout_falls_back_to_default(monkeypatch: pytest.MonkeyPatch) -> None:

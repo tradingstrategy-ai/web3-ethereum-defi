@@ -79,6 +79,7 @@ Supported protocols
    fluid/index
    forgeyields/index
    foxify/index
+   frankencoin/index
    frax/index
    gains/index
    gearbox/index
@@ -98,6 +99,7 @@ Supported protocols
    mainstreet/index
    maple/index
    mellow/index
+   midas/index
    morpho/index
    nashpoint/index
    plutus/index

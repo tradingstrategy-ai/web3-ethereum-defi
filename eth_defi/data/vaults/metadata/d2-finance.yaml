@@ -1,26 +1,43 @@
 name: D2 Finance
 slug: d2-finance
 short_description: |
-  Real yield at scale with DeFi-native alpha and TradFi expertise.
+  Tokenised, actively managed derivatives strategies executed on-chain.
 long_description: |
-  D2 Finance delivers real yield at scale - combining DeFi-native alpha with TradFi expertise to
-  provide institutional-grade stablecoin, RWA and BTC-backed structured strategies. Powered by
-  Hyperliquid and other EVM chains.
+  D2 Finance is a multi-strategy platform for tokenised derivatives strategies executed on-chain.
+  The protocol combines DeFi-native trading infrastructure with TradFi-style risk controls to
+  offer actively managed stablecoin, BTC, ETH, RWA and tactical strategy vaults.
 
-  The protocol offers high-yield strategies on stablecoins, Bitcoin, and real-world assets,
-  designed for both retail and institutional investors seeking managed yield products.
+  D2 strategy vaults are ERC-4626-compatible user-facing vaults. Strategies run in epochs with
+  funding, trading and withdrawal phases. During the trading phase, the trading engine may take
+  custody of funds to execute the strategy mandate through D2's trader/OMS infrastructure.
+
+  D2's own documentation states that d2.finance is not an investment firm, but a software platform
+  hosting vaults where the trading engine is provided by an external party. These vaults are
+  actively managed, derivative-heavy products and should be treated as high-risk strategy vaults,
+  not passive lending vaults.
 fee_description: |
+  D2 strategy fees are not exposed through standard on-chain ERC-4626 fee methods. D2 documentation
+  says vault fees are shown on the frontend fee tab; examples include 20% performance fees and
+  2% management fees. In this integration D2 share price is treated as fee-inclusive.
 links:
   homepage: https://d2.finance/
-  app:
+  app: https://d2.finance/strategies
   twitter: https://x.com/D2_Finance
   github:
-  documentation:
+  documentation: https://gitbook.d2.finance/
+  fact_sheet: https://docsend.com/view/8i6phi9tnyeevzwf
   defillama: https://defillama.com/protocol/d2-finance
-  audits:
-  fees:
+  audits: https://gitbook.d2.finance/security-and-contracts/smart-contract-audits
+  fees: https://gitbook.d2.finance/protocol/strategies-strategy-vaults
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/d2-finance
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/d2_finance/index.html
+# D2's official links page also lists Medium and Discord, but the current
+# VaultProtocolLinks export schema has no fields for these links.
+# Medium: https://medium.com/@D2.Finance
+# Discord: https://discord.com/invite/XaKt2weT33
 example_smart_contracts:
+  # D2 VaultV1Whitelisted implementation used by the integration tests.
   - https://arbiscan.io/address/0x350856A672e7bF7D7327c8a5e72Ac49833DBfB75
-  -
+  # Public strategy vaults from the D2 app/API.
+  - https://arbiscan.io/address/0x75288264FDFEA8ce68e6D852696aB1cE2f3E5004
+  - https://basescan.org/address/0x2406aacbdF8463176DeB285AdAa81768415B6c7E
