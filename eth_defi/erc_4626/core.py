@@ -17,6 +17,11 @@ from web3.contract import Contract
 from eth_defi.abi import get_contract, get_deployed_contract
 from eth_defi.vault.base import VaultSpec
 
+#: Minimum deposit events for a vault to be included in the price scanner.
+#:
+#: Low-activity vaults are skipped unless protocol-specific exemptions apply.
+MIN_PRICE_SCAN_DEPOSIT_COUNT = 5
+
 
 class ERC4626Feature(enum.Enum):
     """Additional extensionsERc-4626 vault may have.

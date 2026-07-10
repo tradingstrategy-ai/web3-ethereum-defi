@@ -1,4 +1,4 @@
-"""Generic vault event reader helpers for settlement-style events.
+"""ERC-4626 event reader helpers for settlement-style events.
 
 This module contains the chain-log mechanics shared by protocol-specific
 settlement readers. Protocol modules decide which events matter; this helper
@@ -20,7 +20,7 @@ from web3.datastructures import AttributeDict
 from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.hypersync.server import get_hypersync_server
 from eth_defi.timestamp import get_block_timestamp
-from eth_defi.vault.flow_events import IndexedVaultFlowLog, fetch_vault_flow_logs_hypersync
+from eth_defi.vault.flow_events import IndexedVaultFlowLog, fetch_vault_flow_logs_for_addresses_hypersync
 from eth_defi.vault.settlement_data import VaultSettlement
 
 logger = logging.getLogger(__name__)
@@ -93,11 +93,54 @@ def fetch_vault_settlement_logs(
     """
     assert start_block <= end_block, f"Bad block range: {start_block:,} - {end_block:,}"
 
+    return fetch_vault_settlement_logs_for_addresses(
+        web3=web3,
+        addresses=[address],
+        topic0_list=topic0_list,
+        start_block=start_block,
+        end_block=end_block,
+        use_hypersync=use_hypersync,
+        chunk_size=chunk_size,
+    )
+
+
+def fetch_vault_settlement_logs_for_addresses(
+    *,
+    web3: Web3,
+    addresses: list[HexAddress | str],
+    topic0_list: list[str],
+    start_block: int,
+    end_block: int,
+    use_hypersync: bool | None = None,
+    chunk_size: int = 50_000,
+) -> list[AttributeDict]:
+    """Fetch vault settlement-style logs for multiple vaults as one address batch.
+
+    :param web3:
+        Web3 connection for the vault chain.
+    :param addresses:
+        Vault contract addresses.
+    :param topic0_list:
+        Event topic0 values to include.
+    :param start_block:
+        Inclusive start block.
+    :param end_block:
+        Inclusive end block.
+    :param use_hypersync:
+        Whether to use Hypersync. ``None`` auto-detects based on environment.
+    :param chunk_size:
+        JSON-RPC ``eth_getLogs`` chunk size used by the fallback reader.
+    :return:
+        Web3-compatible log objects.
+    """
+    assert start_block <= end_block, f"Bad block range: {start_block:,} - {end_block:,}"
+    assert addresses, "Vault address list cannot be empty"
+
     use_hypersync = should_use_hypersync() if use_hypersync is None else use_hypersync
     if use_hypersync:
-        return fetch_vault_settlement_logs_hypersync(
+        return fetch_vault_settlement_logs_hypersync_for_addresses(
             web3=web3,
-            address=address,
+            addresses=addresses,
             topic0_list=topic0_list,
             start_block=start_block,
             end_block=end_block,
@@ -105,7 +148,7 @@ def fetch_vault_settlement_logs(
 
     return fetch_vault_settlement_logs_rpc(
         web3=web3,
-        address=address,
+        address=addresses,
         topics=topic0_list,
         start_block=start_block,
         end_block=end_block,
@@ -136,6 +179,38 @@ def fetch_vault_settlement_logs_hypersync(
     :return:
         Web3-compatible log objects.
     """
+    return fetch_vault_settlement_logs_hypersync_for_addresses(
+        web3=web3,
+        addresses=[address],
+        topic0_list=topic0_list,
+        start_block=start_block,
+        end_block=end_block,
+    )
+
+
+def fetch_vault_settlement_logs_hypersync_for_addresses(
+    *,
+    web3: Web3,
+    addresses: list[HexAddress | str],
+    topic0_list: list[str],
+    start_block: int,
+    end_block: int,
+) -> list[AttributeDict]:
+    """Fetch vault settlement-style logs for multiple vaults using Hypersync.
+
+    :param web3:
+        Web3 connection for the vault chain.
+    :param addresses:
+        Vault contract addresses.
+    :param topic0_list:
+        Event topic0 values.
+    :param start_block:
+        Inclusive start block.
+    :param end_block:
+        Inclusive end block.
+    :return:
+        Web3-compatible log objects.
+    """
     import hypersync
 
     hypersync_client = hypersync.HypersyncClient(
@@ -144,16 +219,17 @@ def fetch_vault_settlement_logs_hypersync(
             api_token=os.environ["HYPERSYNC_API_KEY"],
         )
     )
-    indexed_logs = fetch_vault_flow_logs_hypersync(
+    indexed_logs = fetch_vault_flow_logs_for_addresses_hypersync(
         hypersync_client=hypersync_client,
-        vault_address=str(address),
+        vault_addresses=addresses,
         topic0_list=topic0_list,
         start_block=start_block,
         end_block=end_block,
     )
     logger.info(
-        "Fetched %d vault settlement logs using Hypersync from blocks %d - %d",
+        "Fetched %d vault settlement logs for %d vaults using Hypersync from blocks %d - %d",
         len(indexed_logs),
+        len(addresses),
         start_block,
         end_block,
     )
@@ -187,7 +263,7 @@ def indexed_log_to_web3_log(log: IndexedVaultFlowLog) -> AttributeDict:
 def fetch_vault_settlement_logs_rpc(
     *,
     web3: Web3,
-    address: HexAddress | str,
+    address: HexAddress | str | list[HexAddress | str],
     topics: list[str],
     start_block: int,
     end_block: int,
@@ -198,7 +274,7 @@ def fetch_vault_settlement_logs_rpc(
     :param web3:
         Web3 connection.
     :param address:
-        Vault contract address.
+        Vault contract address or list of addresses.
     :param topics:
         Event topic0 values.
     :param start_block:
@@ -221,17 +297,21 @@ def fetch_vault_settlement_logs_rpc(
 
 def _fetch_logs_range(
     web3: Web3,
-    address: HexAddress | str,
+    address: HexAddress | str | list[HexAddress | str],
     topics: list[str],
     start_block: int,
     end_block: int,
     chunk_size: int,
 ) -> Iterator[AttributeDict]:
     """Fetch one JSON-RPC log range, splitting on provider range errors."""
+    if isinstance(address, list):
+        checksum_address: str | list[str] = [Web3.to_checksum_address(item) for item in address]
+    else:
+        checksum_address = Web3.to_checksum_address(address)
     params = {
         "fromBlock": start_block,
         "toBlock": end_block,
-        "address": Web3.to_checksum_address(address),
+        "address": checksum_address,
         "topics": [topics],
     }
     try:
