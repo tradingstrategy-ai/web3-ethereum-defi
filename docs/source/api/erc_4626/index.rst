@@ -40,6 +40,8 @@ More info
    eth_defi.erc_4626.discovery_base
    eth_defi.erc_4626.lead_scan_core
    eth_defi.erc_4626.rpc_discovery
+   eth_defi.erc_4626.settlement_events
+   eth_defi.erc_4626.settlement_scan
    eth_defi.erc_4626.warmup
    eth_defi.erc_4626.vault_protocol.lagoon.settlement
    eth_defi.erc_4626.vault_protocol.d2.settlement

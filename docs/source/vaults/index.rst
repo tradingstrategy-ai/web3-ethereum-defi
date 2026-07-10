@@ -26,6 +26,21 @@ enabling you to:
 For the core ERC-4626 functionality shared across all vault protocols, see
 :py:mod:`eth_defi.erc_4626`.
 
+Vault settlement event scanning
+-------------------------------
+
+The production vault scanner stores sparse asynchronous settlement events in
+``vault-settlements.duckdb``. Supported Lagoon and D2 Finance vaults are scanned
+as part of each successful EVM chain cycle, not as a separate all-vault
+post-processing pass. The event reader queries all supported vault addresses on
+the chain as one batch, chunked by block range for the JSON-RPC fallback, and
+then filters the returned logs back to each vault's incremental block range.
+A failed settlement read is logged and shown in
+the scanner dashboard, but it does not abort the rest of the scanner cycle or
+price cleaning. If one vault cannot be prepared or decoded, the scanner skips
+that vault and still stores settlement markers for the other vaults in the same
+chain batch.
+
 Supported protocols
 -------------------
 

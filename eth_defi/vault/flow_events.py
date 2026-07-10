@@ -201,8 +201,51 @@ async def _fetch_vault_flow_logs_hypersync_async(
     :return:
         Raw logs sorted by ``(block_number, log_index)``.
     """
+    return await _fetch_vault_flow_logs_for_addresses_hypersync_async(
+        hypersync_client=hypersync_client,
+        vault_addresses=[vault_address],
+        topic0_list=topic0_list,
+        start_block=start_block,
+        end_block=end_block,
+        recv_timeout=recv_timeout,
+    )
+
+
+async def _fetch_vault_flow_logs_for_addresses_hypersync_async(
+    *,
+    hypersync_client,
+    vault_addresses: list[HexAddress | str],
+    topic0_list: list[str],
+    start_block: int,
+    end_block: int,
+    recv_timeout: float = 90.0,
+) -> list[IndexedVaultFlowLog]:
+    """Fetch raw vault request logs for multiple vaults with Hypersync.
+
+    :param hypersync_client:
+        Configured Hypersync client for the vault chain.
+
+    :param vault_addresses:
+        Vault contract addresses to scan in one chain-level request.
+
+    :param topic0_list:
+        Event signature topics to include.
+
+    :param start_block:
+        Inclusive start block.
+
+    :param end_block:
+        Inclusive end block.
+
+    :param recv_timeout:
+        Timeout for each stream receive.
+
+    :return:
+        Raw logs sorted by ``(block_number, log_index)``.
+    """
     assert hypersync is not None, "hypersync package is required"
     assert start_block <= end_block, f"Bad block range: {start_block} - {end_block}"
+    assert vault_addresses, "Vault address list cannot be empty"
 
     query = hypersync.Query(
         from_block=start_block,
@@ -210,7 +253,7 @@ async def _fetch_vault_flow_logs_hypersync_async(
         to_block=end_block + 1,
         logs=[
             hypersync.LogSelection(
-                address=[vault_address.lower()],
+                address=[str(address).lower() for address in vault_addresses],
                 topics=[topic0_list],
             )
         ],
@@ -367,28 +410,70 @@ def fetch_vault_flow_logs_hypersync(
     :return:
         Raw logs sorted by ``(block_number, log_index)``.
     """
+    return fetch_vault_flow_logs_for_addresses_hypersync(
+        hypersync_client=hypersync_client,
+        vault_addresses=[vault_address],
+        topic0_list=topic0_list,
+        start_block=start_block,
+        end_block=end_block,
+    )
+
+
+def fetch_vault_flow_logs_for_addresses_hypersync(
+    *,
+    hypersync_client,
+    vault_addresses: list[HexAddress | str],
+    topic0_list: list[str],
+    start_block: int,
+    end_block: int,
+) -> list[IndexedVaultFlowLog]:
+    """Fetch raw vault request logs for multiple vaults with Hypersync.
+
+    This synchronous wrapper keeps vault manager APIs threaded and blocking,
+    matching the rest of the vault manager interface.
+
+    :param hypersync_client:
+        Configured Hypersync client for the vault chain.
+
+    :param vault_addresses:
+        Vault contract addresses to scan in one Hypersync request.
+
+    :param topic0_list:
+        Event signature topics to include.
+
+    :param start_block:
+        Inclusive start block.
+
+    :param end_block:
+        Inclusive end block.
+
+    :return:
+        Raw logs sorted by ``(block_number, log_index)``.
+    """
+    coroutine = _fetch_vault_flow_logs_for_addresses_hypersync_async(
+        hypersync_client=hypersync_client,
+        vault_addresses=vault_addresses,
+        topic0_list=topic0_list,
+        start_block=start_block,
+        end_block=end_block,
+    )
+    return run_vault_flow_log_fetch(coroutine)
+
+
+def run_vault_flow_log_fetch(coroutine) -> list[IndexedVaultFlowLog]:
+    """Run a Hypersync log fetch coroutine from sync code.
+
+    :param coroutine:
+        Coroutine returning indexed vault flow logs.
+
+    :return:
+        Raw logs sorted by ``(block_number, log_index)``.
+    """
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(
-            _fetch_vault_flow_logs_hypersync_async(
-                hypersync_client=hypersync_client,
-                vault_address=vault_address,
-                topic0_list=topic0_list,
-                start_block=start_block,
-                end_block=end_block,
-            )
-        )
+        return asyncio.run(coroutine)
 
     with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(
-            asyncio.run,
-            _fetch_vault_flow_logs_hypersync_async(
-                hypersync_client=hypersync_client,
-                vault_address=vault_address,
-                topic0_list=topic0_list,
-                start_block=start_block,
-                end_block=end_block,
-            ),
-        )
+        future = executor.submit(asyncio.run, coroutine)
         return future.result()

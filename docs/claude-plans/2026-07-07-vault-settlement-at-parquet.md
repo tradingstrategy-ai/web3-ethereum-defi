@@ -103,11 +103,11 @@ Use Hypersync when available and JSON-RPC `eth_getLogs` as fallback.
 
 Populate `vault-settlements.duckdb` before `clean_prices()` runs.
 
-Initial production support is Lagoon-only, but the storage and annotation code is
-protocol-generic. The scan step should:
+Initial production support was Lagoon-only, but the storage and annotation code
+is protocol-generic and now covers Lagoon and D2 Finance. The scan step should:
 
-- Select Lagoon vaults from the vault metadata database and intersect them with
-  vaults present in the raw price parquet.
+- Select supported vaults from the vault metadata database and intersect them
+  with vaults present in the raw price parquet.
 - For each `(chain_id, address)`, choose the scan range from raw price data:
   start at the greater of the first raw price block and the latest stored
   settlement block plus one, and end at the latest raw price block for that
@@ -115,10 +115,14 @@ protocol-generic. The scan step should:
 - Allow an operator-forced backfill range for historical repairs. Overlapping
   scans are acceptable because inserts are idempotent by
   `(chain_id, address, tx_hash)`.
-- Run after raw price scan/native data merge and before cleaned price generation.
-- Fail the post-processing run if settlement scanning is enabled and event
-  reading fails. A partial settlement database is worse than a hard failure
-  because it creates false "no settlement happened" intervals.
+- Run as part of each successful EVM chain scan cycle before cleaned price
+  generation.
+- Query all supported vault addresses on the chain as one event-reader batch,
+  chunked by block range for the JSON-RPC fallback, then filter returned logs
+  back to each vault's incremental block range.
+- Treat settlement scan failures as non-fatal: log the failed chain batch,
+  show it in the scanner dashboard, and continue the scanner cycle using the
+  previously stored `vault-settlements.duckdb` data.
 
 The first implementation can expose this as a small helper called by the vault
 pipeline instead of embedding Lagoon event details in the wrangling module.

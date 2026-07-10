@@ -1,28 +1,45 @@
-"""Populate generic vault settlement data from protocol-specific readers.
+"""Populate generic vault settlement data from ERC-4626 protocol readers.
 
 This module owns the production scan orchestration for sparse settlement
-events. Protocol modules know how to read their event logs; this module
-selects vaults and block ranges from the existing vault metadata and raw price
-parquet.
+events. It selects vaults and block ranges from the existing vault metadata and
+raw price parquet, batches event reads by chain, and then routes returned logs
+back to protocol-specific row builders.
 """
 
 import logging
 import os
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
 from eth_typing import HexAddress
+from web3 import Web3
+from web3.datastructures import AttributeDict
+from web3.exceptions import Web3Exception
 
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.d2.settlement import update_d2_settlement_database
+from eth_defi.erc_4626.settlement_events import (
+    fetch_vault_settlement_logs_for_addresses,
+    normalise_log_topic,
+)
+from eth_defi.erc_4626.vault_protocol.d2.settlement import (
+    build_d2_settlement_rows_from_logs,
+    get_d2_settlement_events_by_topic,
+)
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2Vault
-from eth_defi.erc_4626.vault_protocol.lagoon.settlement import update_lagoon_settlement_database
+from eth_defi.erc_4626.vault_protocol.lagoon.settlement import (
+    build_settlement_rows_from_logs as build_lagoon_settlement_rows_from_logs,
+)
+from eth_defi.erc_4626.vault_protocol.lagoon.settlement import (
+    get_settlement_events_by_topic,
+)
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.settlement_data import (
+    VaultSettlement,
     VaultSettlementDatabase,
     get_default_vault_settlement_database_path,
 )
@@ -70,18 +87,38 @@ class VaultSettlementScanResult:
     :param candidate_vaults:
         Supported protocol vaults found in both metadata and raw prices.
     :param scanned_vaults:
-        Vault ranges that were scanned.
+        Vault ranges selected for chain settlement batches.
     :param skipped_vaults:
         Candidate vaults skipped because the existing database was already
         current for the raw price block range.
     :param rows_written:
         Settlement rows written to DuckDB.
+    :param scanned_chains:
+        Chains whose settlement batch completed.
+    :param failed_chains:
+        Chains whose settlement batch failed and was skipped.
     """
 
     candidate_vaults: int
     scanned_vaults: int
     skipped_vaults: int
     rows_written: int
+    scanned_chains: int = 0
+    failed_chains: int = 0
+
+
+@dataclass(slots=True, frozen=True)
+class PreparedSettlementVault:
+    """Vault adapter and event metadata ready for a settlement log scan.
+
+    :param vault:
+        Protocol-specific vault adapter.
+    :param event_by_topic:
+        Normalised event topic to event class/name mapping.
+    """
+
+    vault: LagoonVault | D2Vault
+    event_by_topic: dict[str, object]
 
 
 def resolve_rpc_urls_by_chain_from_env(rpc_env_vars: list[str]) -> dict[int, str]:
@@ -203,6 +240,8 @@ def fetch_and_store_vault_settlements(
     forced_end_block: int | None = None,
     use_hypersync: bool | None = None,
     chunk_size: int = 50_000,
+    chain_ids: set[int] | frozenset[int] | None = None,
+    fail_gracefully: bool = True,
 ) -> VaultSettlementScanResult:
     """Fetch and store settlement/open-state events for supported protocols.
 
@@ -226,6 +265,12 @@ def fetch_and_store_vault_settlements(
         Passed to protocol readers. ``None`` lets each reader auto-detect.
     :param chunk_size:
         JSON-RPC ``eth_getLogs`` chunk size for fallback reads.
+    :param chain_ids:
+        Optional chain id filter. Used by the scanner loop to run settlement
+        scanning as part of each chain cycle.
+    :param fail_gracefully:
+        If ``True``, one failed chain settlement batch is logged and counted
+        without aborting the caller.
     :return:
         Scan summary.
     """
@@ -248,10 +293,14 @@ def fetch_and_store_vault_settlements(
             forced_start_block=forced_start_block,
             forced_end_block=forced_end_block,
         )
+        if chain_ids is not None:
+            ranges = [item for item in ranges if item.chain_id in chain_ids]
+
         candidate_count = _count_supported_vaults_with_raw_prices(
             vault_db,
             raw_prices_df,
             supported_features=supported_features,
+            chain_ids=chain_ids,
         )
         skipped_count = max(0, candidate_count - len(ranges))
 
@@ -268,41 +317,51 @@ def fetch_and_store_vault_settlements(
         web3_by_chain = {}
         token_cache = TokenDiskCache()
         rows_written = 0
+        scanned_vaults = 0
+        scanned_chains = 0
+        failed_chains = 0
 
+        ranges_by_chain: dict[int, list[VaultSettlementScanRange]] = defaultdict(list)
         for scan_range in ranges:
-            rpc_url = rpc_urls_by_chain.get(scan_range.chain_id)
-            if not rpc_url:
-                raise RuntimeError(f"No JSON-RPC URL configured for chain {scan_range.chain_id} needed by vault {scan_range.address}")
+            ranges_by_chain[scan_range.chain_id].append(scan_range)
 
-            web3 = web3_by_chain.get(scan_range.chain_id)
-            if web3 is None:
-                web3 = create_multi_provider_web3(rpc_url)
-                web3_by_chain[scan_range.chain_id] = web3
+        for chain_id, chain_ranges in sorted(ranges_by_chain.items()):
+            try:
+                rpc_url = rpc_urls_by_chain.get(chain_id)
+                if not rpc_url:
+                    raise RuntimeError(f"No JSON-RPC URL configured for chain {chain_id}")
 
-            row = rows_by_key[(scan_range.chain_id, str(scan_range.address).lower())]
-            detection = row["_detection_data"]
-            vault = create_vault_instance(
-                web3,
-                detection.address,
-                _get_vault_features(row),
-                token_cache=token_cache,
-            )
-            if vault is None:
-                raise RuntimeError(f"Could not create vault instance for settlement scan: {detection.address}")
-            rows_written += _update_settlement_database_for_vault(
-                database=db,
-                vault=vault,
-                scan_range=scan_range,
-                use_hypersync=use_hypersync,
-                chunk_size=chunk_size,
-            )
+                web3 = web3_by_chain.get(chain_id)
+                if web3 is None:
+                    web3 = create_multi_provider_web3(rpc_url)
+                    web3_by_chain[chain_id] = web3
+
+                rows_written += _update_settlement_database_for_chain(
+                    database=db,
+                    web3=web3,
+                    chain_id=chain_id,
+                    ranges=chain_ranges,
+                    rows_by_key=rows_by_key,
+                    token_cache=token_cache,
+                    use_hypersync=use_hypersync,
+                    chunk_size=chunk_size,
+                )
+                scanned_vaults += len(chain_ranges)
+                scanned_chains += 1
+            except Exception:
+                failed_chains += 1
+                logger.exception("Vault settlement scan failed for chain %d", chain_id)
+                if not fail_gracefully:
+                    raise
 
         db.save()
         return VaultSettlementScanResult(
             candidate_vaults=candidate_count,
-            scanned_vaults=len(ranges),
+            scanned_vaults=scanned_vaults,
             skipped_vaults=skipped_count,
             rows_written=rows_written,
+            scanned_chains=scanned_chains,
+            failed_chains=failed_chains,
         )
     finally:
         db.close()
@@ -318,48 +377,198 @@ def _count_supported_vaults_with_raw_prices(
     vault_db: VaultDatabase,
     raw_prices_df: pd.DataFrame,
     supported_features: set[ERC4626Feature] | frozenset[ERC4626Feature] = SUPPORTED_SETTLEMENT_FEATURES,
+    chain_ids: set[int] | frozenset[int] | None = None,
 ) -> int:
     """Count supported protocol metadata rows that also have raw price rows."""
     raw_keys = {(int(row["chain"]), str(row["address"]).lower()) for row in raw_prices_df[["chain", "address"]].drop_duplicates().to_dict("records")}
+    if chain_ids is not None:
+        raw_keys = {key for key in raw_keys if key[0] in chain_ids}
     return sum(1 for row in vault_db.rows.values() if _get_vault_features(row).intersection(supported_features) and (int(row["_detection_data"].chain), str(row["_detection_data"].address).lower()) in raw_keys)
 
 
-def _update_settlement_database_for_vault(
+def _prepare_settlement_vault(
+    *,
+    web3: Web3,
+    row: VaultRow,
+    token_cache: TokenDiskCache,
+) -> PreparedSettlementVault:
+    """Create a protocol-specific vault adapter for settlement scanning.
+
+    :param web3:
+        Web3 connection for the vault chain.
+    :param row:
+        Vault metadata row.
+    :param token_cache:
+        Shared token metadata cache.
+    :return:
+        Prepared vault adapter and event topic mapping.
+    """
+    detection = row["_detection_data"]
+    vault = create_vault_instance(
+        web3,
+        detection.address,
+        _get_vault_features(row),
+        token_cache=token_cache,
+    )
+    if vault is None:
+        raise RuntimeError(f"Could not create vault instance for settlement scan: {detection.address}")
+
+    if isinstance(vault, LagoonVault):
+        event_by_topic = get_settlement_events_by_topic(vault)
+    elif isinstance(vault, D2Vault):
+        event_by_topic = get_d2_settlement_events_by_topic(vault)
+    else:
+        raise RuntimeError(f"Unsupported settlement scanner vault type: {type(vault)}")
+
+    return PreparedSettlementVault(
+        vault=vault,
+        event_by_topic=event_by_topic,
+    )
+
+
+def _build_settlement_rows_for_prepared_vault(
+    prepared_vault: PreparedSettlementVault,
+    logs: list[AttributeDict],
+) -> list[VaultSettlement]:
+    """Build settlement rows for one prepared protocol vault.
+
+    :param prepared_vault:
+        Vault adapter and event topic mapping.
+    :param logs:
+        Logs that already match this vault and its incremental block range.
+    :return:
+        Settlement rows ready to upsert.
+    """
+    vault = prepared_vault.vault
+    if isinstance(vault, LagoonVault):
+        return build_lagoon_settlement_rows_from_logs(vault, logs, event_by_topic=prepared_vault.event_by_topic)
+    if isinstance(vault, D2Vault):
+        return build_d2_settlement_rows_from_logs(vault, logs, event_by_topic=prepared_vault.event_by_topic)
+    raise RuntimeError(f"Unsupported settlement scanner vault type: {type(vault)}")
+
+
+def _update_settlement_database_for_chain(
     *,
     database: VaultSettlementDatabase,
-    vault,
-    scan_range: VaultSettlementScanRange,
+    web3: Web3,
+    chain_id: int,
+    ranges: list[VaultSettlementScanRange],
+    rows_by_key: dict[tuple[int, str], VaultRow],
+    token_cache: TokenDiskCache,
     use_hypersync: bool | None,
     chunk_size: int,
 ) -> int:
-    """Route a vault instance to its protocol-specific event reader."""
+    """Fetch and store settlement events for all supported vaults on one chain.
+
+    :param database:
+        Generic settlement database.
+    :param web3:
+        Web3 connection for the scanned chain.
+    :param chain_id:
+        EVM chain id.
+    :param ranges:
+        Per-vault incremental ranges for the chain.
+    :param rows_by_key:
+        Vault metadata rows keyed by ``(chain_id, lowercase_address)``.
+    :param token_cache:
+        Shared token metadata cache for vault adapter creation.
+    :param use_hypersync:
+        Whether to use Hypersync. ``None`` auto-detects.
+    :param chunk_size:
+        JSON-RPC fallback chunk size.
+    :return:
+        Number of settlement rows written.
+    """
+    assert ranges, "Chain settlement scan needs at least one vault range"
+
+    prepared_by_address: dict[str, PreparedSettlementVault] = {}
+    range_by_address = {str(scan_range.address).lower(): scan_range for scan_range in ranges}
+    topic_set: set[str] = set()
+
+    failed_vaults = 0
+    for scan_range in ranges:
+        address = str(scan_range.address).lower()
+        try:
+            row = rows_by_key[scan_range.chain_id, address]
+            prepared_vault = _prepare_settlement_vault(
+                web3=web3,
+                row=row,
+                token_cache=token_cache,
+            )
+        except (RuntimeError, ValueError, KeyError, TypeError, Web3Exception):
+            failed_vaults += 1
+            logger.exception(
+                "Skipping settlement scan for vault %s on chain %d because vault adapter preparation failed",
+                address,
+                chain_id,
+            )
+            continue
+
+        prepared_by_address[address] = prepared_vault
+        topic_set.update(prepared_vault.event_by_topic.keys())
+
+    if not prepared_by_address:
+        logger.warning("No vaults could be prepared for settlement scan on chain %d", chain_id)
+        return 0
+
+    start_block = min(scan_range.start_block for scan_range in ranges)
+    end_block = max(scan_range.end_block for scan_range in ranges)
     logger.info(
-        "Scanning %s settlement/open-state events for %s on chain %d, blocks %d - %d",
-        type(vault).__name__,
-        scan_range.address,
-        scan_range.chain_id,
-        scan_range.start_block,
-        scan_range.end_block,
+        "Scanning settlement/open-state events for %d vaults on chain %d, blocks %d - %d",
+        len(prepared_by_address),
+        chain_id,
+        start_block,
+        end_block,
     )
 
-    if isinstance(vault, LagoonVault):
-        return update_lagoon_settlement_database(
-            database=database,
-            vault=vault,
-            start_block=scan_range.start_block,
-            end_block=scan_range.end_block,
-            use_hypersync=use_hypersync,
-            chunk_size=chunk_size,
-        )
+    logs = fetch_vault_settlement_logs_for_addresses(
+        web3=web3,
+        addresses=list(prepared_by_address.keys()),
+        topic0_list=sorted(topic_set),
+        start_block=start_block,
+        end_block=end_block,
+        use_hypersync=use_hypersync,
+        chunk_size=chunk_size,
+    )
 
-    if isinstance(vault, D2Vault):
-        return update_d2_settlement_database(
-            database=database,
-            vault=vault,
-            start_block=scan_range.start_block,
-            end_block=scan_range.end_block,
-            use_hypersync=use_hypersync,
-            chunk_size=chunk_size,
-        )
+    logs_by_address: dict[str, list[AttributeDict]] = defaultdict(list)
+    for log in logs:
+        address = str(log["address"]).lower()
+        scan_range = range_by_address.get(address)
+        if scan_range is None:
+            continue
 
-    raise RuntimeError(f"Unsupported settlement scanner vault type: {type(vault)}")
+        block_number = int(log["blockNumber"])
+        if not scan_range.start_block <= block_number <= scan_range.end_block:
+            continue
+
+        topics = log.get("topics") or []
+        if not topics:
+            continue
+        topic0 = normalise_log_topic(topics[0])
+        if topic0 not in prepared_by_address[address].event_by_topic:
+            continue
+
+        logs_by_address[address].append(log)
+
+    settlements = []
+    for address, vault_logs in sorted(logs_by_address.items()):
+        try:
+            settlements.extend(_build_settlement_rows_for_prepared_vault(prepared_by_address[address], vault_logs))
+        except (RuntimeError, ValueError, KeyError, TypeError, Web3Exception):
+            failed_vaults += 1
+            logger.exception(
+                "Skipping settlement rows for vault %s on chain %d because row building failed",
+                address,
+                chain_id,
+            )
+
+    inserted = database.upsert_settlements(settlements)
+    logger.info(
+        "Stored %d settlement/open-state events for %d vaults on chain %d, skipped %d failed vaults",
+        inserted,
+        len(prepared_by_address),
+        chain_id,
+        failed_vaults,
+    )
+    return inserted
