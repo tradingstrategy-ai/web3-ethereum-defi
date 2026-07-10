@@ -33,6 +33,7 @@ from pathlib import Path
 from atomicwrites import atomic_write
 from filelock import Timeout as FileLockTimeout
 
+from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import resolve_core3_database_path
 from eth_defi.core3.scanner import scan_projects as core3_scan_projects
@@ -1458,8 +1459,6 @@ def _load_last_timestamps(uncleaned_price_path: Path | None = None) -> dict[str,
     :return:
         Mapping of chain name to formatted date string (YYYY-MM-DD HH:MM).
     """
-    from eth_defi.chain import get_chain_name
-
     path = uncleaned_price_path or DEFAULT_UNCLEANED_PRICE_DATABASE
     if not path.exists():
         return {}
@@ -1485,6 +1484,32 @@ def _load_last_timestamps(uncleaned_price_path: Path | None = None) -> dict[str,
     except Exception as e:
         logger.warning("Could not read last timestamps from parquet: %s", e)
         return {}
+
+
+def _append_result_error(result: ChainResult, error: str, traceback_str: str | None = None) -> None:
+    """Append an error message to a dashboard result.
+
+    Settlement scanning is a secondary per-chain scan. It should not get
+    its own dashboard row, so failures are attached to the nearest normal
+    scan result and shown in the existing error column.
+
+    :param result:
+        Existing dashboard result to update.
+    :param error:
+        Error message to append.
+    :param traceback_str:
+        Optional traceback to append to the result traceback.
+    """
+    if result.error:
+        result.error = f"{result.error}; {error}"
+    else:
+        result.error = error
+
+    if traceback_str:
+        if result.traceback_str:
+            result.traceback_str = f"{result.traceback_str}\n\n{traceback_str}"
+        else:
+            result.traceback_str = traceback_str
 
 
 def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | None = None, uncleaned_price_path: Path | None = None) -> None:
@@ -1532,7 +1557,7 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
         line = f"{result.name:<15} {status:<10} {cycle:<8} {vaults:<8} {new:<6} {blocks:<22} {duration:<10} {retry:<5} {last_data:<18}"
         if result.status == "not due" and result.next_due_in_hours is not None:
             line += f"  due in {result.next_due_in_hours:.1f}h"
-        elif result.status == "failed" and result.error:
+        if result.error:
             # Truncate long error messages to fit the dashboard
             error_msg = result.error[:40]
             line += f"  {error_msg}"
@@ -1562,9 +1587,12 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
     logger.info(dashboard)
 
     # Print full error messages below the dashboard
-    failed_results = [r for r in ordered_results if r.status == "failed" and r.error]
-    for r in failed_results:
-        logger.error("%s: %s", r.name, r.error)
+    error_results = [r for r in ordered_results if r.error]
+    for r in error_results:
+        if r.status == "failed":
+            logger.error("%s: %s", r.name, r.error)
+        else:
+            logger.warning("%s: %s", r.name, r.error)
 
 
 def backup_pipeline_files(backup_files: list[Path] | None = None, backup_dir: Path | None = None):
@@ -1737,29 +1765,22 @@ def run_scan_tick(
         chain_result: ChainResult | None = None,
         skip_reason: str | None = None,
     ) -> None:
-        """Update the dashboard result for one chain's settlement scan."""
+        """Attach one chain's settlement scan outcome to its dashboard row."""
         nonlocal settlement_vault_db
 
         if not scan_vault_settlements or skip_post_processing:
             return
 
-        result_name = f"{chain.name} settlements"
+        dashboard_result = results[chain.name]
         if skip_reason is not None:
-            results[result_name] = ChainResult(
-                name=result_name,
-                status="skipped",
-                error=skip_reason,
-                cycle_interval=_ci.get(chain.name),
-            )
+            logger.info("%s: settlement scan skipped: %s", chain.name, skip_reason)
             return
 
         assert chain_result is not None, "Settlement scan needs a successful chain result"
         if chain_result.chain_id is None or chain_result.rpc_url is None or chain_result.end_block is None:
-            results[result_name] = ChainResult(
-                name=result_name,
-                status="skipped",
-                error=f"Skipped because {chain.name} scan did not report chain id, RPC URL or end block",
-                cycle_interval=_ci.get(chain.name),
+            _append_result_error(
+                dashboard_result,
+                f"Settlement scan skipped because {chain.name} scan did not report chain id, RPC URL or end block",
             )
             return
 
@@ -1768,7 +1789,7 @@ def run_scan_tick(
         if settlement_vault_db is None:
             settlement_vault_db = VaultDatabase.read(vault_db_path)
 
-        results[result_name] = scan_chain_vault_settlements(
+        settlement_result = scan_chain_vault_settlements(
             chain=chain,
             vault_db=settlement_vault_db,
             chain_id=chain_result.chain_id,
@@ -1778,12 +1799,16 @@ def run_scan_tick(
             settlement_start_block=settlement_start_block,
             settlement_end_block=settlement_end_block,
         )
+        if settlement_result.error:
+            _append_result_error(
+                dashboard_result,
+                f"Settlement scan failed: {settlement_result.error}",
+                settlement_result.traceback_str,
+            )
 
     # Initialise results for all items in this tick
     for c in chains:
         results[c.name] = ChainResult(name=c.name, status="pending", retry_attempt=0, cycle_interval=_ci.get(c.name))
-        if scan_vault_settlements and not skip_post_processing:
-            results[f"{c.name} settlements"] = ChainResult(name=f"{c.name} settlements", status="pending", retry_attempt=0, cycle_interval=_ci.get(c.name))
     for proto in active_protocols:
         results[proto] = ChainResult(name=proto, status="pending", cycle_interval=_ci.get(proto))
 
@@ -1795,13 +1820,7 @@ def run_scan_tick(
     for name in excluded_chains or []:
         results[name] = ChainResult(name=name, status="disabled", cycle_interval=_ci.get(name))
 
-    chain_display_order = []
-    for c in chains:
-        chain_display_order.append(c.name)
-        if scan_vault_settlements and not skip_post_processing:
-            chain_display_order.append(f"{c.name} settlements")
-
-    display_order = chain_display_order + active_protocols + list((not_due_items or {}).keys()) + (excluded_chains or [])
+    display_order = [c.name for c in chains] + active_protocols + list((not_due_items or {}).keys()) + (excluded_chains or [])
     print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
     # First pass - scan EVM chains
@@ -2061,13 +2080,13 @@ def run_scan_tick(
                 logger.warning("  - %s: %s", name, r.error)
     logger.info("Scan complete at %s", native_datetime_utc_now().isoformat())
 
-    # Print full tracebacks for failed chains
-    failed_results = [r for r in results.values() if r.status == "failed" and r.traceback_str]
-    if failed_results:
+    # Print full tracebacks for failed scans and attached settlement errors
+    traceback_results = [r for r in results.values() if r.traceback_str and (r.status == "failed" or (r.error is not None and "Settlement scan failed" in r.error))]
+    if traceback_results:
         print("\n" + "=" * 100)
-        print(" " * 30 + "Full tracebacks for failed chains")
+        print(" " * 25 + "Full tracebacks for failed scans")
         print("=" * 100)
-        for r in failed_results:
+        for r in traceback_results:
             print(f"\n--- {r.name} (retry {r.retry_attempt}) ---")
             print(r.traceback_str)
         print("=" * 100)
