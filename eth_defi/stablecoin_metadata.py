@@ -972,7 +972,7 @@ def process_and_upload_stablecoin_metadata(
         content_type="application/json",
         skip_if_current=True,
     )
-    logger.info("%s stablecoin metadata for: %s", "Uploaded" if metadata_uploaded else "Skipped unchanged", slug)
+    logger.debug("%s stablecoin metadata for: %s", "Uploaded" if metadata_uploaded else "Skipped unchanged", slug)
 
     # Upload logo if available
     logo_path = STABLECOIN_FORMATTED_LOGOS_DIR / slug / "light.png"
