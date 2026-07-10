@@ -10,7 +10,6 @@ from eth_defi.vault.settlement_data import (
     VaultSettlement,
     VaultSettlementDatabase,
     annotate_prices_with_vault_settlements,
-    preserve_vault_settlement_markers,
 )
 
 
@@ -177,48 +176,29 @@ def test_annotate_prices_ignores_previous_row_boundary() -> None:
     assert pd.isna(annotated.iloc[1]["vault_settlement_at"])
 
 
-def test_preserve_vault_settlement_markers_carries_to_next_cleaned_row() -> None:
-    """A marker on a dropped raw row is carried to the next surviving row."""
-    raw_prices = pd.DataFrame(
+def test_annotate_prices_accepts_timestamp_index() -> None:
+    """Annotate cleaned price frames that keep timestamp as the index."""
+    prices = pd.DataFrame(
         [
-            {
-                "chain": 1,
-                "address": "0xabc0000000000000000000000000000000000000",
-                "timestamp": datetime.datetime(2026, 2, 1, 0, 0, 0),
-                "vault_settlement_at": pd.NaT,
-            },
             {
                 "chain": 1,
                 "address": "0xabc0000000000000000000000000000000000000",
                 "timestamp": datetime.datetime(2026, 2, 1, 1, 0, 0),
-                "vault_settlement_at": pd.Timestamp(datetime.datetime(2026, 2, 1, 0, 30, 0)),
-            },
-            {
-                "chain": 1,
-                "address": "0xabc0000000000000000000000000000000000000",
-                "timestamp": datetime.datetime(2026, 2, 1, 2, 0, 0),
-                "vault_settlement_at": pd.NaT,
             },
         ]
-    )
-    cleaned_prices = pd.DataFrame(
+    ).set_index("timestamp")
+    settlements = pd.DataFrame(
         [
             {
-                "chain": 1,
+                "chain_id": 1,
                 "address": "0xabc0000000000000000000000000000000000000",
-                "timestamp": datetime.datetime(2026, 2, 1, 0, 0, 0),
-                "vault_settlement_at": pd.NaT,
-            },
-            {
-                "chain": 1,
-                "address": "0xabc0000000000000000000000000000000000000",
-                "timestamp": datetime.datetime(2026, 2, 1, 2, 0, 0),
-                "vault_settlement_at": pd.NaT,
+                "timestamp": datetime.datetime(2026, 2, 1, 0, 30, 0),
             },
         ]
     )
 
-    preserved = preserve_vault_settlement_markers(raw_prices, cleaned_prices)
+    annotated = annotate_prices_with_vault_settlements(prices, settlements)
 
-    assert pd.isna(preserved.iloc[0]["vault_settlement_at"])
-    assert preserved.iloc[1]["vault_settlement_at"] == pd.Timestamp(datetime.datetime(2026, 2, 1, 0, 30, 0))
+    assert annotated.index.name == "timestamp"
+    assert "timestamp" not in annotated.columns
+    assert annotated.iloc[0]["vault_settlement_at"] == pd.Timestamp(datetime.datetime(2026, 2, 1, 0, 30, 0))

@@ -89,7 +89,9 @@ Environment variables:
     - SCAN_HYPERCORE: "true" to scan Hyperliquid native (Hypercore) vaults via REST API (default: "false")
     - SCAN_GRVT: "true" to scan GRVT native vaults via public endpoints (default: "false")
     - SCAN_LIGHTER: "true" to scan Lighter native pools via public endpoints (default: "false")
-    - SCAN_VAULT_SETTLEMENTS: "false" to skip per-chain Lagoon and D2 settlement event scanning before price cleaning (default: "true")
+    - SCAN_VAULT_SETTLEMENTS: "false" to skip per-chain Lagoon and D2 settlement event scanning.
+      When enabled, events are stored in vault-settlements.duckdb before price cleaning;
+      vault_settlement_at is merged into the cleaned price frame during cleaning (default: "true")
     - VAULT_SETTLEMENT_START_BLOCK: Optional inclusive settlement scan start block for forced backfills.
     - VAULT_SETTLEMENT_END_BLOCK: Optional inclusive settlement scan end block for forced backfills.
     - SKIP_CORE3: "true" to skip Core3 risk intelligence enrichment (default: "false").

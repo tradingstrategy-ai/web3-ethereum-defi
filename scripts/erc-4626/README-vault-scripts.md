@@ -117,9 +117,9 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SCAN_GRVT` | Optional. Enable GRVT native vault scanning. Default: false. |
 | `SCAN_LIGHTER` | Optional. Enable Lighter native pool scanning. Default: false. |
 | `SCAN_HIBACHI` | Optional. Enable Hibachi native vault scanning. Default: false. |
-| `SCAN_VAULT_SETTLEMENTS` | Optional. Scan Lagoon and D2 settlement events during each successful EVM chain cycle, before price cleaning. Default: true. Set to `false` only for debugging runs where settlement markers are deliberately skipped. Settlement scan failures are logged and shown in the dashboard without aborting the rest of the scanner cycle. |
+| `SCAN_VAULT_SETTLEMENTS` | Optional. Scan Lagoon and D2 settlement events during each successful EVM chain cycle. Default: true. The scan fills `vault-settlements.duckdb` before price cleaning; `vault_settlement_at` is then merged into the cleaned price frame during cleaning. Set to `false` only for debugging runs where new settlement event reads are deliberately skipped. Settlement scan failures are logged and shown in the dashboard without aborting the rest of the scanner cycle. |
 | `VAULT_SETTLEMENT_START_BLOCK` | Optional. Inclusive settlement scan start block for forced backfills. Normally unset so scans continue incrementally from `vault-settlements.duckdb`. |
-| `VAULT_SETTLEMENT_END_BLOCK` | Optional. Inclusive settlement scan end block for forced backfills. Normally unset so scans continue up to the latest raw price block. |
+| `VAULT_SETTLEMENT_END_BLOCK` | Optional. Inclusive settlement scan end block for forced backfills. Normally unset so scans continue up to the just-completed chain scan end block. |
 | `SKIP_CORE3` | Optional. Skip Core3 risk intelligence enrichment. Default: false. Core3 is default-on enrichment for the top-vaults JSON, unlike optional native vault sources that use opt-in `SCAN_*` flags. |
 | `CORE3_API_KEY` | Optional. Core3 API key. If missing, Core3 is disabled for the run with a warning. |
 | `CORE3_DATABASE_PATH` | Optional. Core3 DuckDB path. Default: `~/.tradingstrategy/vaults/core3/core3.duckdb`. |
@@ -338,7 +338,7 @@ be purged and rescanned.
 
 ### clean-prices.py
 
-Clean raw scanned vault data. Reads `vault-prices-1h.parquet` and generates `vault-prices-1h-cleaned.parquet`.
+Clean raw scanned vault data. Reads `vault-prices-1h.parquet` and generates `cleaned-vault-prices-1h.parquet`.
 
 ```shell
 poetry run python scripts/erc-4626/clean-prices.py
@@ -469,7 +469,8 @@ The vault scanner is packaged as a Docker image via `Dockerfile.vault-scanner`.
 The default entrypoint is `scan-vaults-all-chains.py`, which scans **all chains**.
 Vault settlement scanning is enabled by default in both the one-shot and looped
 Docker Compose services with `SCAN_VAULT_SETTLEMENTS=true`, so Lagoon and D2
-settlement markers are populated before cleaned price data is exported.
+settlement events are stored before price cleaning and `vault_settlement_at`
+markers are merged into the cleaned price data before export.
 The scanner runs settlements as part of each successful EVM chain cycle. For
 each chain it queries all supported vault addresses as one batch, chunked by
 block range for the JSON-RPC fallback, and then filters the returned logs back
@@ -479,11 +480,13 @@ so it does not re-read the raw price parquet for each chain settlement pass.
 Successful empty settlement scans advance per-vault scan watermarks in
 `vault-settlements.duckdb`, so vaults without settlement events are not
 rescanned from their first price block on every cycle.
+The raw price parquet is not rewritten for settlement markers; the cleaner reads
+the sparse DuckDB event store and annotates the cleaned price frame only.
 If one chain's settlement event read fails, the failure is logged and displayed
 as `<chain> settlements`, while the rest of the scan and post-processing can
 continue with the previously stored `vault-settlements.duckdb` data. If one
-vault in a chain batch cannot be prepared or decoded, it is skipped and the
-other vaults in the batch are still stored.
+vault in a chain batch cannot be prepared or decoded, it is skipped and
+settlement events for the other vaults in the batch are still stored.
 
 ### Linea historical block headers
 
