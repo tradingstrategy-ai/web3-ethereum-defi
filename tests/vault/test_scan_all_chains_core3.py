@@ -11,6 +11,9 @@ from eth_defi.currency_api.scanner import ScanResult
 from eth_defi.vault import scan_all_chains
 from eth_defi.vault.scan_all_chains import ChainResult
 
+EXPECTED_TEST_ROW_COUNT = 12
+CURRENCY_SOURCE_DOWN_ERROR = "currency source down"
+
 
 def test_core3_is_scheduled_by_default_with_api_key():
     """Core3 is default-on when ``CORE3_API_KEY`` is configured."""
@@ -173,7 +176,7 @@ def test_scan_core3_fn_closes_database(tmp_path: Path, monkeypatch: pytest.Monke
         closed = False
 
         def get_project_count(self) -> int:
-            return 12
+            return EXPECTED_TEST_ROW_COUNT
 
         def close(self) -> None:
             self.closed = True
@@ -193,7 +196,7 @@ def test_scan_core3_fn_closes_database(tmp_path: Path, monkeypatch: pytest.Monke
     )
 
     assert result.status == "success"
-    assert result.vault_count == 12
+    assert result.vault_count == EXPECTED_TEST_ROW_COUNT
     assert result.price_scan_ok is None
     assert fake_db.closed is True
 
@@ -345,7 +348,7 @@ def test_scan_currency_rates_fn_success_path(tmp_path: Path, monkeypatch: pytest
         return ScanResult(
             db=fake_db,
             dates_requested=2,
-            rows_upserted=12,
+            rows_upserted=EXPECTED_TEST_ROW_COUNT,
             dates_unavailable=1,
             transient_failures=1,
         )
@@ -360,7 +363,7 @@ def test_scan_currency_rates_fn_success_path(tmp_path: Path, monkeypatch: pytest
     assert result.status == "success"
     assert result.vault_scan_ok is True
     assert result.price_scan_ok is None
-    assert result.price_rows == 12
+    assert result.price_rows == EXPECTED_TEST_ROW_COUNT
     assert result.error == "1 transient currency rate failures ignored"
     assert fake_db.closed is True
 
@@ -369,7 +372,7 @@ def test_scan_currency_rates_fn_ignores_scanner_failure(tmp_path: Path, monkeypa
     """Underlying currency API failures are downgraded inside the wrapper."""
 
     def fake_currency_run_incremental_scan(**_: object) -> ScanResult:
-        raise RuntimeError("currency source down")
+        raise RuntimeError(CURRENCY_SOURCE_DOWN_ERROR)
 
     monkeypatch.setattr(scan_all_chains, "currency_run_incremental_scan", fake_currency_run_incremental_scan)
 
@@ -381,8 +384,8 @@ def test_scan_currency_rates_fn_ignores_scanner_failure(tmp_path: Path, monkeypa
     assert result.status == "success"
     assert result.vault_scan_ok is True
     assert result.price_scan_ok is None
-    assert "ignored failure: currency source down" in result.error
-    assert "RuntimeError: currency source down" in result.traceback_str
+    assert f"ignored failure: {CURRENCY_SOURCE_DOWN_ERROR}" in result.error
+    assert f"RuntimeError: {CURRENCY_SOURCE_DOWN_ERROR}" in result.traceback_str
 
 
 def test_run_scan_tick_ignores_currency_rate_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -397,7 +400,7 @@ def test_run_scan_tick_ignores_currency_rate_failure(tmp_path: Path, monkeypatch
     saved_items: list[str] = []
 
     def fake_scan_currency_rates_fn(**_: object) -> ChainResult:
-        raise RuntimeError("currency source down")
+        raise RuntimeError(CURRENCY_SOURCE_DOWN_ERROR)
 
     monkeypatch.setattr(scan_all_chains, "scan_currency_rates_fn", fake_scan_currency_rates_fn)
     monkeypatch.setattr(scan_all_chains, "print_dashboard", lambda *_, **__: None)
@@ -443,3 +446,89 @@ def test_run_scan_tick_ignores_currency_rate_failure(tmp_path: Path, monkeypatch
     assert result.status == "success"
     assert "ignored failure" in result.error
     assert saved_items == [scan_all_chains.CURRENCY_RATES_PROTOCOL_NAME]
+
+
+def test_run_scan_tick_continues_when_vault_settlement_scan_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Vault settlement failures are reported without blocking exports.
+
+    Steps:
+
+    1. Mock the settlement scanner to reproduce the Linea historical
+       ``extraData`` failure.
+    2. Run a post-processing tick with settlement scanning enabled.
+    3. Assert the settlement step is shown as failed and post-processing still
+       runs.
+    """
+    post_processing_calls: list[dict[str, object]] = []
+    dashboard_snapshots: list[tuple[list[str], dict[str, str]]] = []
+    error_message = "Linea historical extraData is 97 bytes"
+
+    def fake_fetch_and_store_vault_settlements(**_: object) -> object:
+        raise RuntimeError(error_message)
+
+    def fake_run_post_processing(**kwargs: object) -> dict[str, bool]:
+        post_processing_calls.append(kwargs)
+        return {"clean-prices": True, "export-top-vaults-json": True}
+
+    def fake_print_dashboard(results: dict[str, ChainResult], display_order: list[str] | None = None, **_: object) -> None:
+        dashboard_snapshots.append(
+            (
+                list(display_order or []),
+                {name: result.status for name, result in results.items()},
+            )
+        )
+
+    monkeypatch.setattr(scan_all_chains, "resolve_rpc_urls_by_chain_from_env", lambda _: {59144: "https://linea.example"})
+    monkeypatch.setattr(scan_all_chains, "fetch_and_store_vault_settlements", fake_fetch_and_store_vault_settlements)
+    monkeypatch.setattr(scan_all_chains, "run_post_processing", fake_run_post_processing)
+    monkeypatch.setattr(scan_all_chains, "print_dashboard", fake_print_dashboard)
+    monkeypatch.setattr("builtins.print", lambda *_, **__: None)
+
+    results = scan_all_chains.run_scan_tick(
+        chains=[],
+        active_protocols=[],
+        scan_prices=False,
+        scan_hypercore=False,
+        scan_grvt=False,
+        scan_lighter=False,
+        scan_hibachi=False,
+        scan_core3=False,
+        scan_currency_rates=False,
+        max_workers=1,
+        core3_max_workers=1,
+        currency_api_max_workers=1,
+        frequency="1h",
+        retry_count=0,
+        skip_post_processing=False,
+        skip_cleaning=True,
+        skip_top_vaults=True,
+        skip_sparklines=True,
+        skip_metadata=True,
+        skip_data=True,
+        skip_samples=True,
+        vault_db_path=tmp_path / "vault-metadata-db.pickle",
+        uncleaned_price_path=tmp_path / "vault-prices-1h.parquet",
+        reader_state_path=tmp_path / "vault-reader-state-1h.pickle",
+        hyperliquid_db_path=tmp_path / "hyperliquid-vaults.duckdb",
+        hyperliquid_hf_db_path=tmp_path / "hyperliquid-vaults-hf.duckdb",
+        grvt_db_path=tmp_path / "grvt-vaults.duckdb",
+        lighter_db_path=tmp_path / "lighter-pools.duckdb",
+        hibachi_db_path=tmp_path / "hibachi-vaults.duckdb",
+        bkp_files=[],
+        bkp_dir=tmp_path / "backups",
+        cleaned_price_path=tmp_path / "cleaned-vault-prices-1h.parquet",
+        settlement_db_path=tmp_path / "vault-settlements.duckdb",
+        scan_vault_settlements=True,
+        settlement_rpc_env_vars=["JSON_RPC_LINEA"],
+    )
+
+    settlement_result = results[scan_all_chains.VAULT_SETTLEMENTS_STEP_NAME]
+    assert settlement_result.status == "failed"
+    assert "Linea historical extraData" in settlement_result.error
+    assert f"RuntimeError: {error_message}" in settlement_result.traceback_str
+    assert post_processing_calls
+    assert post_processing_calls[0]["settlement_db_path"] == tmp_path / "vault-settlements.duckdb"
+
+    assert any(scan_all_chains.VAULT_SETTLEMENTS_STEP_NAME in display_order and statuses[scan_all_chains.VAULT_SETTLEMENTS_STEP_NAME] == "pending" for display_order, statuses in dashboard_snapshots)
+    assert any(scan_all_chains.VAULT_SETTLEMENTS_STEP_NAME in display_order and statuses[scan_all_chains.VAULT_SETTLEMENTS_STEP_NAME] == "running" for display_order, statuses in dashboard_snapshots)
+    assert any(scan_all_chains.VAULT_SETTLEMENTS_STEP_NAME in display_order and statuses[scan_all_chains.VAULT_SETTLEMENTS_STEP_NAME] == "failed" for display_order, statuses in dashboard_snapshots)
