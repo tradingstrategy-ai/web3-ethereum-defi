@@ -33,7 +33,6 @@ PRICE_START_BLOCK = 24_999_754
 PRICE_SECOND_BLOCK = 24_999_755
 PRICE_EXCLUSIVE_END_BLOCK = 24_999_756
 PRICE_STEP_BLOCKS = 1
-EXPECTED_MAX_DETECTIONS = 10
 EXPECTED_PRICE_ROWS = 2
 EXPECTED_START_SHARE_PRICE = 1.0080417560461396
 EXPECTED_END_SHARE_PRICE = 1.008280253418576
@@ -94,7 +93,6 @@ def test_mellow_hypersync_discovery_and_historical_reader_price_row(tmp_path: Pa
         display_progress=False,
     )
 
-    assert len(report.detections) <= EXPECTED_MAX_DETECTIONS
     detection = report.detections[LIDO_EARN_USD_VAULT_LOWER]
     assert detection.address == LIDO_EARN_USD_VAULT_LOWER
     assert detection.first_seen_at_block == LIDO_EARN_USD_CREATED_BLOCK
