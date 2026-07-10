@@ -17,11 +17,12 @@ Discovery scan for ERC-4626 vaults on a single chain. Stores metadata in the vau
 JSON_RPC_URL=$JSON_RPC_BASE poetry run python scripts/erc-4626/scan-vaults.py
 ```
 
-For Robinhood Chain, set `JSON_RPC_ROBINHOOD` to an archive-capable provider
-endpoint and pass it through as the single-chain `JSON_RPC_URL`:
+For Tempo or Robinhood Chain, set `JSON_RPC_TEMPO` or `JSON_RPC_ROBINHOOD` to
+an archive-capable provider endpoint and pass it through as the single-chain
+`JSON_RPC_URL`:
 
 ```shell
-LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ROBINHOOD poetry run python scripts/erc-4626/scan-vaults.py
+LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TEMPO poetry run python scripts/erc-4626/scan-vaults.py
 ```
 
 | Variable | Description |
@@ -130,12 +131,12 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150. Lower after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 
-Robinhood Chain is scanned when `JSON_RPC_ROBINHOOD` is configured. For a
-focused Robinhood-only dry run:
+Tempo and Robinhood Chain are scanned when `JSON_RPC_TEMPO` and
+`JSON_RPC_ROBINHOOD` are configured. For a focused Tempo-only dry run:
 
 ```shell
 source .local-test.env && \
-TEST_CHAINS=Robinhood \
+TEST_CHAINS=Tempo \
 SCAN_PRICES=false \
 SKIP_POST_PROCESSING=true \
 poetry run python scripts/erc-4626/scan-vaults-all-chains.py

@@ -122,6 +122,7 @@ def is_morpho_api_not_found_flag_bypassed(chain_id: int) -> bool:
     """
     return chain_id in MORPHO_API_NOT_FOUND_FLAG_BYPASS_CHAINS
 
+
 #: GraphQL query to fetch vault-level and market-level warnings for a single vault
 _VAULT_WARNINGS_QUERY = """
 query MorphoVaultWarnings($address: String!, $chainId: Int!) {
