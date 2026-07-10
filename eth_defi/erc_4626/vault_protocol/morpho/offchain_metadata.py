@@ -461,7 +461,7 @@ def fetch_morpho_vault_api_result(  # noqa: PLR0917
     address_lower = vault_address.lower()
     cache_key = _get_cache_key(cache_path, chain_id, address_lower, api_version)
 
-    logger.info("Resolving Morpho GraphQL data for vault %s on chain %d", checksum_address, chain_id)
+    logger.debug("Resolving Morpho GraphQL data for vault %s on chain %d", checksum_address, chain_id)
 
     # 1. In-process cache hit
     if cache_key in _cached_vault_data:
@@ -478,7 +478,7 @@ def fetch_morpho_vault_api_result(  # noqa: PLR0917
         if file.exists() and file.stat().st_size > 0:
             age = now_ - native_datetime_utc_fromtimestamp(file.stat().st_mtime)
             if age <= max_cache_duration:
-                logger.info(
+                logger.debug(
                     "Using cached Morpho vault data for %s on chain %d from %s (age %s)",
                     checksum_address,
                     chain_id,
@@ -495,14 +495,14 @@ def fetch_morpho_vault_api_result(  # noqa: PLR0917
                     return MorphoVaultAPIResult(MorphoVaultAPIStatus.found, cached)  # type: ignore[arg-type]
 
         # 3. Fetch from API
-        logger.info("Fetching Morpho vault warnings for %s on chain %d", checksum_address, chain_id)
+        logger.debug("Fetching Morpho vault warnings for %s on chain %d", checksum_address, chain_id)
         result = _query_morpho_api(chain_id, checksum_address, api_version=api_version)
 
         if result.status == MorphoVaultAPIStatus.transient_error:
             return result
 
         if result.status == MorphoVaultAPIStatus.not_found:
-            logger.info("Morpho API: vault %s on chain %d is not indexed (NOT_FOUND)", checksum_address, chain_id)
+            logger.debug("Morpho API: vault %s on chain %d is not indexed (NOT_FOUND)", checksum_address, chain_id)
             file.unlink(missing_ok=True)
             return result
 
