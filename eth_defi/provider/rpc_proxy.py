@@ -53,7 +53,7 @@ from eth_defi.middleware import (
     DEFAULT_RETRYABLE_RPC_ERROR_CODES,
     DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES,
 )
-from eth_defi.utils import find_free_port, get_url_domain, is_localhost_port_listening
+from eth_defi.utils import get_url_domain, is_localhost_port_listening
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +216,13 @@ class RPCProxyConfig:
     #: the battle-tested error classification from
     #: :py:mod:`eth_defi.middleware`.
     failure_handler: FailureHandler = field(default=None)
+
+    #: Suppress downstream client disconnect tracebacks.
+    #:
+    #: Used by Anvil fork tests where Anvil can close in-flight proxy
+    #: requests during process shutdown. Direct proxy users keep the default
+    #: strict behaviour so unexpected client disconnects are still visible.
+    suppress_client_disconnect_errors: bool = False
 
     def __post_init__(self):
         if self.failure_handler is None:
@@ -385,6 +392,36 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
     :py:func:`start_rpc_proxy`.
     """
 
+    def _send_json_response(self, status_code: int, response_body: bytes) -> bool:
+        """Send a JSON response to the downstream client.
+
+        :param status_code:
+            HTTP status code to send.
+        :param response_body:
+            Raw JSON response body.
+        :return:
+            ``True`` if the response was written, ``False`` if the client had
+            already disconnected and suppression is enabled.
+        """
+
+        try:
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(response_body)))
+            self.end_headers()
+            self.wfile.write(response_body)
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            if not self.server.config.suppress_client_disconnect_errors:
+                raise
+            logger.debug(
+                "RPC proxy %r: downstream client disconnected before response was written",
+                self.server.proxy_name,
+            )
+            self.close_connection = True
+            return False
+
+        return True
+
     def do_POST(self) -> None:
         """Handle a JSON-RPC POST request."""
         content_length = int(self.headers.get("Content-Length", 0))
@@ -493,21 +530,13 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
 
             # Success — forward response to caller
             self._maybe_auto_switch()
-            self.send_response(status_code)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(response_body)))
-            self.end_headers()
-            self.wfile.write(response_body)
+            self._send_json_response(status_code, response_body)
             return
 
         # All attempts exhausted — return 502 with JSON-RPC error
         if last_response_body is not None:
             # Forward the last upstream error response as-is
-            self.send_response(last_status or 502)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(last_response_body)))
-            self.end_headers()
-            self.wfile.write(last_response_body)
+            self._send_json_response(last_status or 502, last_response_body)
         else:
             # Connection-level failures — synthesise a JSON-RPC error.
             # Use provider_keys (API-key-stripped domains) not raw URLs.
@@ -522,11 +551,7 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
                     "id": request_id,
                 }
             )
-            self.send_response(502)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(error_body)))
-            self.end_headers()
-            self.wfile.write(error_body)
+            self._send_json_response(502, error_body)
 
     def _try_upstream(self, url: str, body: bytes, timeout: float) -> requests.Response:
         """Make a single POST request to an upstream provider.
@@ -887,7 +912,8 @@ def start_rpc_proxy(
         time.sleep(0.05)
     else:
         server.shutdown()
-        raise RuntimeError(f"RPC proxy {proxy_name!r} failed to start on port {port} within 2 seconds")
+        message = f"RPC proxy {proxy_name!r} failed to start on port {port} within 2 seconds"
+        raise RuntimeError(message)
 
     logger.info(
         "RPC proxy %r started at %s with %d upstream providers: %s, config: %s",

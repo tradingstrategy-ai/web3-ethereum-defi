@@ -28,10 +28,9 @@ from pathlib import Path
 import requests
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
+from tqdm_loggable.tqdm_logging import tqdm_logging
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.core3.constants import CORE3_DATABASE_PATH, CORE3_DEFAULT_TIMEOUT, INDEX_SLUG, SECTIONS
-from eth_defi.core3.database import Core3Database
 from eth_defi.core3.api import (
     fetch_index_pol_history,
     fetch_index_pol_history_incremental,
@@ -43,6 +42,8 @@ from eth_defi.core3.api import (
     fetch_project_list,
     fetch_section_detail,
 )
+from eth_defi.core3.constants import CORE3_DATABASE_PATH, CORE3_DEFAULT_TIMEOUT, INDEX_SLUG, SECTIONS
+from eth_defi.core3.database import Core3Database
 from eth_defi.core3.session import Core3Session
 
 logger = logging.getLogger(__name__)
@@ -280,19 +281,24 @@ def scan_projects(
 
     # Parallel per-project processing
     desc = f"Scanning Core3 projects ({max_workers} workers)"
-    Parallel(n_jobs=max_workers, backend="threading")(
-        delayed(_process_project)(
-            session,
-            db,
-            slug,
-            fetched_at,
-            fetch_pol=fetch_pol_history,
-            fetch_categories=fetch_category_history,
-            fetch_sections_flag=fetch_sections,
-            timeout=timeout,
+    previous_tqdm_log_level = tqdm_logging.log_level
+    tqdm_logging.set_level(logging.DEBUG)
+    try:
+        Parallel(n_jobs=max_workers, backend="threading")(
+            delayed(_process_project)(
+                session,
+                db,
+                slug,
+                fetched_at,
+                fetch_pol=fetch_pol_history,
+                fetch_categories=fetch_category_history,
+                fetch_sections_flag=fetch_sections,
+                timeout=timeout,
+            )
+            for slug in tqdm(slugs, desc=desc)
         )
-        for slug in tqdm(slugs, desc=desc)
-    )
+    finally:
+        tqdm_logging.set_level(previous_tqdm_log_level)
 
     # Index-level PoL history (single request, not parallelised)
     if fetch_index_pol:

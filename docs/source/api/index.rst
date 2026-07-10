@@ -44,6 +44,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    lagoon/index
    mellow/index
    ipor/index
+   midas/index
    oda_fact/index
    royco/index
    velvet/index

@@ -68,6 +68,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "IPOR Fusion": VaultTechnicalRisk.minimal,
     # Kinexys ODA-FACT contracts are permissioned RWA tokens for institutional fund products.
     "Kinexys": VaultTechnicalRisk.low,
+    # Midas is a permissioned tokenised investment product platform with
+    # audited, verified contracts and centralised NAV/oracle operations.
+    "Midas": VaultTechnicalRisk.low,
     "Velvet Capital": VaultTechnicalRisk.high,
     "Umami": VaultTechnicalRisk.severe,
     # Unverified contracts, no open source repo

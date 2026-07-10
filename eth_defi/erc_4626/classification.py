@@ -19,6 +19,7 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
@@ -56,6 +57,35 @@ ODA_FACT_HARDCODED_LEADS = (
 ODA_FACT_HARDCODED_PROTOCOLS = {
     ODA_FACT_JLTXX_ADDRESS: {ERC4626Feature.oda_fact_like},
 }
+
+#: Midas hardcoded classification flags.
+MIDAS_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.midas_like} for token in MIDAS_PRODUCTS_BY_TOKEN}
+
+
+def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | None = None) -> set[ERC4626Feature] | None:
+    """Return hardcoded protocol features for a vault address.
+
+    Midas reuses some mToken addresses across chains. When the caller knows the
+    chain id, require a chain-aware Midas product match so Base/Arbitrum mTBILL
+    is not misclassified as the Ethereum-only adapter product.
+
+    :param address:
+        Vault address.
+    :param chain_id:
+        Optional EVM chain id.
+    :return:
+        Hardcoded feature set, if any.
+    """
+
+    normalised_address = HexAddress(address.lower())
+
+    if chain_id is not None:
+        if (chain_id, normalised_address) in MIDAS_PRODUCTS:
+            return MIDAS_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in MIDAS_HARDCODED_PROTOCOLS:
+            return None
+
+    return HARDCODED_PROTOCOLS.get(normalised_address)
 
 
 #: Royco chains that may host WrappedVault or tranche vault markets.
@@ -872,6 +902,7 @@ def identify_vault_features(
     address: HexAddress,
     calls: dict[str, EncodedCallResult],
     debug_text: str | None,
+    chain_id: int | None = None,
 ) -> set[ERC4626Feature]:
     """Based on multicall results, create the feature flags for the vault..
 
@@ -880,7 +911,7 @@ def identify_vault_features(
     """
 
     # Shortcut for single vault protocols
-    hardcoded_features = HARDCODED_PROTOCOLS.get(address.lower())
+    hardcoded_features = _get_hardcoded_protocol_features(address, chain_id=chain_id)
     if hardcoded_features is not None:
         return hardcoded_features
 
@@ -1233,7 +1264,7 @@ def probe_vaults(
     for address, address_call_results in results_per_address.items():
         # Wrap with _ProbeResultsDict to handle missing probes from chain filtering
         wrapped_results = _ProbeResultsDict(address_call_results)
-        features = identify_vault_features(address, wrapped_results, debug_text=f"vault: {address}")
+        features = identify_vault_features(address, wrapped_results, debug_text=f"vault: {address}", chain_id=chain_id)
         yield VaultFeatureProbe(
             address=address,
             features=features,
@@ -1341,7 +1372,9 @@ def detect_vault_features(
 
     assert address.lower() not in BROKEN_VAULT_CONTRACTS, f"Vault {address} is known broken vault contract like, avoid"
 
-    hardcoded_flags = HARDCODED_PROTOCOLS.get(address.lower())
+    chain_id = web3.eth.chain_id
+
+    hardcoded_flags = _get_hardcoded_protocol_features(address, chain_id=chain_id)
     if hardcoded_flags:
         features = hardcoded_flags
         logger.debug("Using hardcoded vault features for %s: %s", address, features)
@@ -1349,7 +1382,6 @@ def detect_vault_features(
 
     address = Web3.to_checksum_address(address)
     logger.info("Detecting vault features for %s", address)
-    chain_id = web3.eth.chain_id
     probe_calls = list(create_probe_calls([address], chain_id=chain_id))
     block_number = web3.eth.block_number
 
@@ -1366,7 +1398,7 @@ def detect_vault_features(
 
     # Wrap with _ProbeResultsDict to handle missing probes from chain filtering
     wrapped_results = _ProbeResultsDict(results)
-    features = identify_vault_features(address, wrapped_results, debug_text=f"vault: {address}")
+    features = identify_vault_features(address, wrapped_results, debug_text=f"vault: {address}", chain_id=chain_id)
     return features
 
 
@@ -1450,6 +1482,10 @@ def create_vault_instance(
         from eth_defi.oda_fact.vault import OdaFactVault
 
         return OdaFactVault(web3, spec, **kwargs)
+    elif ERC4626Feature.midas_like in features:
+        from eth_defi.midas.vault import MidasVault
+
+        return MidasVault(web3, spec, **kwargs)
 
     # TODO: Some module deadlock sheningans for Morpho
     elif ERC4626Feature.morpho_like in features:
@@ -1878,6 +1914,7 @@ def create_vault_instance_autodetect(
 #:
 HARDCODED_PROTOCOLS = {
     **ODA_FACT_HARDCODED_PROTOCOLS,
+    **MIDAS_HARDCODED_PROTOCOLS,
     # 3Jane - USD3 senior tranche credit vault on Ethereum
     # https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
     "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc": {ERC4626Feature.threejane_like},
