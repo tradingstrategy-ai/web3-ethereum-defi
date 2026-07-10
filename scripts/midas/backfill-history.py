@@ -3,7 +3,8 @@
 
 This script is a targeted production backfill tool for Midas products supported
 by the :mod:`eth_defi.midas` adapter. It avoids whole-chain rediscovery and only
-touches Midas vault ids listed in :data:`eth_defi.midas.constants.MIDAS_PRODUCTS`.
+touches Midas vault ids generated from the Pythonised registry into
+:data:`eth_defi.midas.constants.MIDAS_PRODUCTS`.
 
 The script:
 
@@ -267,7 +268,7 @@ def read_reader_states(path: Path) -> dict[VaultSpec, dict]:
     if not path.exists():
         return {}
     with path.open("rb") as inp:
-        return pickle.load(inp)
+        return pickle.load(inp)  # noqa: S301 - trusted local production reader-state pickle.
 
 
 def write_reader_states(path: Path, states: dict[VaultSpec, dict]) -> None:
@@ -313,7 +314,7 @@ def build_vaults(web3, products: list[MidasProduct], token_cache: TokenDiskCache
     return vaults
 
 
-def backfill_chain(
+def backfill_chain(  # noqa: PLR0914
     chain_id: int,
     products: list[MidasProduct],
     *,

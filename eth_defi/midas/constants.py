@@ -11,6 +11,8 @@ from dataclasses import dataclass
 
 from eth_typing import HexAddress
 
+from eth_defi.midas.registry import MidasRegistryProduct, iter_midas_registry_products
+
 
 @dataclass(slots=True, frozen=True)
 class MidasProduct:
@@ -32,13 +34,13 @@ class MidasProduct:
     data_feed: HexAddress
 
     #: Chainlink-compatible public oracle contract for the same NAV feed.
-    oracle: HexAddress
+    oracle: HexAddress | None
 
     #: Midas issuance vault contract.
-    issuance_vault: HexAddress
+    issuance_vault: HexAddress | None
 
     #: Midas redemption vault contract.
-    redemption_vault: HexAddress
+    redemption_vault: HexAddress | None
 
     #: First block where the mToken bytecode exists.
     first_seen_at_block: int
@@ -50,40 +52,73 @@ class MidasProduct:
     denomination: str = "USD"
 
 
+def _optional_hex_address(address: str | None) -> HexAddress | None:
+    """Convert an optional registry address to a lower-case hex address.
+
+    :param address:
+        Address from the Pythonised Midas registry.
+    :return:
+        Lower-case hex address or ``None``.
+    """
+
+    if address is None:
+        return None
+
+    return HexAddress(address.lower())
+
+
+def create_midas_product_from_registry(product: MidasRegistryProduct) -> MidasProduct:
+    """Create adapter metadata from a registry product row.
+
+    The shared vault scanner only needs the mToken, Midas datafeed and
+    deployment metadata to scan historical share price and TVL. Operational
+    issuance/redemption contracts are kept as optional diagnostics because some
+    registry products use specialised vault variants or omit public vault
+    contracts.
+
+    :param product:
+        Registry product promoted by
+        :py:meth:`eth_defi.midas.registry.MidasRegistryProduct.has_required_adapter_data`.
+    :return:
+        Midas adapter product metadata.
+    """
+
+    assert product.token is not None
+    assert product.data_feed is not None
+    assert product.first_seen_at_block is not None
+    assert product.first_seen_at is not None
+
+    return MidasProduct(
+        chain_id=product.chain_id,
+        token=HexAddress(product.token.lower()),
+        symbol=product.symbol,
+        product_name=f"Midas {product.symbol}",
+        data_feed=HexAddress(product.data_feed.lower()),
+        oracle=_optional_hex_address(product.custom_feed),
+        issuance_vault=_optional_hex_address(product.deposit_vault),
+        redemption_vault=_optional_hex_address(product.redemption_vault),
+        first_seen_at_block=product.first_seen_at_block,
+        first_seen_at=product.first_seen_at,
+    )
+
+
+#: All registry products supported by the Midas vault scanner adapter.
+MIDAS_PRODUCTS: dict[tuple[int, HexAddress], MidasProduct] = {
+    (product.chain_id, product.token): product
+    for product in (
+        create_midas_product_from_registry(registry_product)
+        for registry_product in iter_midas_registry_products(
+            require_historical_contracts=True,
+            require_adapter_data=True,
+        )
+    )
+}
+
 #: mTBILL on Ethereum.
-MIDAS_MTBILL_ETHEREUM = MidasProduct(
-    chain_id=1,
-    token=HexAddress("0xdd629e5241cbc5919847783e6c96b2de4754e438"),
-    symbol="mTBILL",
-    product_name="Midas US Treasury Bill Token",
-    data_feed=HexAddress("0xfcee9754e8c375e145303b7ce7beca3201734a2b"),
-    oracle=HexAddress("0x056339c044055819e8db84e71f5f2e1f536b2e5b"),
-    issuance_vault=HexAddress("0x99361435420711723af805f08187c9e6bf796683"),
-    redemption_vault=HexAddress("0xf6e51d24f4793ac5e71e0502213a9bbe3a6d4517"),
-    first_seen_at_block=18_691_255,
-    first_seen_at=datetime.datetime(2023, 12, 1, 11, 25, 59, tzinfo=datetime.UTC).replace(tzinfo=None),
-)
+MIDAS_MTBILL_ETHEREUM = MIDAS_PRODUCTS[1, HexAddress("0xdd629e5241cbc5919847783e6c96b2de4754e438")]
 
 #: mBASIS on Ethereum.
-MIDAS_MBASIS_ETHEREUM = MidasProduct(
-    chain_id=1,
-    token=HexAddress("0x2a8c22e3b10036f3aef5875d04f8441d4188b656"),
-    symbol="mBASIS",
-    product_name="Midas Basis Trading Token",
-    data_feed=HexAddress("0x1615cbc603192ae8a9ff20e98dd0e40a405d76e4"),
-    oracle=HexAddress("0xe4f2ae539442e1d3fb40f03ceebf4a372a390d24"),
-    issuance_vault=HexAddress("0xa8a5c4ff4c86a459ebbdc39c5be77833b3a15d88"),
-    redemption_vault=HexAddress("0x19ab19e61a930bc5c7b75bf06cdd954218ca9f0b"),
-    first_seen_at_block=20_068_373,
-    first_seen_at=datetime.datetime(2024, 6, 11, 11, 46, 11, tzinfo=datetime.UTC).replace(tzinfo=None),
-)
-
-
-#: Initial set of supported Midas products.
-MIDAS_PRODUCTS: dict[tuple[int, HexAddress], MidasProduct] = {
-    (MIDAS_MTBILL_ETHEREUM.chain_id, MIDAS_MTBILL_ETHEREUM.token): MIDAS_MTBILL_ETHEREUM,
-    (MIDAS_MBASIS_ETHEREUM.chain_id, MIDAS_MBASIS_ETHEREUM.token): MIDAS_MBASIS_ETHEREUM,
-}
+MIDAS_MBASIS_ETHEREUM = MIDAS_PRODUCTS[1, HexAddress("0x2a8c22e3b10036f3aef5875d04f8441d4188b656")]
 
 #: Lookup by token address for single-chain call sites.
 MIDAS_PRODUCTS_BY_TOKEN: dict[HexAddress, MidasProduct] = {product.token: product for product in MIDAS_PRODUCTS.values()}
