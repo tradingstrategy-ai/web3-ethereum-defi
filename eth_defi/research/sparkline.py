@@ -8,10 +8,9 @@ import gzip
 import warnings
 from io import BytesIO
 
+import matplotlib
 import numpy as np
 import pandas as pd
-
-import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -19,6 +18,35 @@ import matplotlib.pyplot as plt
 from eth_defi.cloudflare_r2 import calculate_bytes_digest, create_r2_client, upload_bytes_to_r2
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.vault.base import VaultSpec
+
+
+def _filter_finite_share_prices(vault_prices_df: pd.DataFrame) -> pd.DataFrame:
+    """Return chart data with only finite, float share prices.
+
+    PyArrow-backed parquet data can expose ``share_price`` as a nullable or
+    object-backed pandas series. Matplotlib compares y-axis bounds internally,
+    so passing ``pd.NA`` through causes ``TypeError: boolean value of NA is
+    ambiguous``.
+
+    :param vault_prices_df:
+        Single-vault price data with a ``share_price`` column.
+
+    :return:
+        Copy of the input rows whose share prices are finite Python floats.
+
+    :raise ValueError:
+        If the vault has no finite share-price observations to render.
+    """
+    numeric_prices = pd.to_numeric(vault_prices_df["share_price"], errors="coerce")
+    numeric_values = numeric_prices.to_numpy(dtype=float, na_value=np.nan)
+    finite_mask = np.isfinite(numeric_values)
+    if not finite_mask.any():
+        message = "Cannot render sparkline without finite share prices"
+        raise ValueError(message)
+
+    filtered = vault_prices_df.iloc[finite_mask].copy()
+    filtered["share_price"] = numeric_values[finite_mask]
+    return filtered
 
 
 def extract_vault_price_data(
@@ -118,6 +146,8 @@ def render_sparkline_gradient(
 
     if ffill:
         vault_data = forward_fill_vault(vault_data)
+
+    vault_data = _filter_finite_share_prices(vault_data)
 
     dpi = 100
     fig = plt.figure(figsize=(width / dpi, height / dpi), dpi=dpi)

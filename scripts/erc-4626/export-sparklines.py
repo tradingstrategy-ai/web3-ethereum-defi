@@ -16,16 +16,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
-
+from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
-from joblib import Parallel, delayed
-
+from eth_defi.research.sparkline import export_sparkline_as_png, export_sparkline_as_svg, render_sparkline_gradient
 from eth_defi.token import is_stablecoin_like
-from eth_defi.research.sparkline import export_sparkline_as_svg, render_sparkline_gradient, export_sparkline_as_png
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.vaultdb import VaultDatabase, get_pipeline_data_dir
-
 
 #: What's the threshold to render the spark line for the vault
 #:
@@ -117,39 +114,42 @@ def main():
     def _render_vault(vault_id: str, vault_prices_df: pd.DataFrame) -> list[RenderData]:
         results = []
 
-        # Small SVG sparkline for listings
-        fig_svg = render_sparkline_gradient(
-            vault_prices_df,
-            width=100,
-            height=25,
-            line_width=1,
-            margin_ratio=4,
-        )
-        svg_bytes = export_sparkline_as_svg(fig_svg)
-        results.append(
-            RenderData(
-                vault_id=vault_id,
-                svg_bytes=svg_bytes,
-                content_type="image/svg+xml",
-                extension="svg",
+        try:
+            # Small SVG sparkline for listings
+            fig_svg = render_sparkline_gradient(
+                vault_prices_df,
+                width=100,
+                height=25,
+                line_width=1,
+                margin_ratio=4,
             )
-        )
+            svg_bytes = export_sparkline_as_svg(fig_svg)
+            results.append(
+                RenderData(
+                    vault_id=vault_id,
+                    svg_bytes=svg_bytes,
+                    content_type="image/svg+xml",
+                    extension="svg",
+                )
+            )
 
-        # Large PNG sparkline for Twitter Summary Cards
-        fig_png = render_sparkline_gradient(
-            vault_prices_df,
-            width=300,
-            height=300,
-        )
-        png_bytes = export_sparkline_as_png(fig_png)
-        results.append(
-            RenderData(
-                vault_id=vault_id,
-                svg_bytes=png_bytes,
-                content_type="image/png",
-                extension="png",
+            # Large PNG sparkline for Twitter Summary Cards
+            fig_png = render_sparkline_gradient(
+                vault_prices_df,
+                width=300,
+                height=300,
             )
-        )
+            png_bytes = export_sparkline_as_png(fig_png)
+            results.append(
+                RenderData(
+                    vault_id=vault_id,
+                    svg_bytes=png_bytes,
+                    content_type="image/png",
+                    extension="png",
+                )
+            )
+        except ValueError as e:
+            logger.warning("Skipping sparkline for vault %s: %s", vault_id, e)
 
         return results
 

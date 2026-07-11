@@ -758,7 +758,7 @@ def export_top_vaults_json(
             output_path = base / "top_vaults_by_chain.json"
 
         logger.info("Generating top vaults JSON at %s", output_path)
-        top_vaults_json.main(
+        output_data = top_vaults_json.main(
             data_dir=base,
             vault_db_path=vault_db_path,
             parquet_path=cleaned_path,
@@ -797,6 +797,14 @@ def export_top_vaults_json(
         )
         if uploads_ok:
             logger.info("Top vaults JSON export complete")
+            metadata = output_data.get("metadata", {}) if output_data else {}
+            version = metadata.get("version", {})
+            logger.info(
+                "VAULT_JSON_PUBLISHED: object=%s generated_at=%s commit_hash=%s",
+                object_key,
+                output_data.get("generated_at") if output_data else None,
+                version.get("commit_hash"),
+            )
         else:
             logger.warning("Top vaults JSON export completed with one or more upload failures")
         return uploads_ok
