@@ -8,16 +8,24 @@ import pytest
 from web3 import Web3
 
 from eth_defi.abi import ZERO_ADDRESS_STR
-from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance_autodetect
+from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
+from eth_defi.erc_4626.vault_protocol.spark.vault import SparkVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.erc_4626.vault_protocol.spark.vault import SparkVault
 from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
-pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
+
+def test_spark_spusdg_hardcoded_protocol() -> None:
+    """Classify the Robinhood Chain Spark Savings USDG vault by address."""
+    vault_address = "0xde770c84fe66e063336b31737cfe9790f18c4087"
+
+    features = HARDCODED_PROTOCOLS[vault_address]
+
+    assert features == {ERC4626Feature.spark_like}
+    assert get_vault_protocol_name(features) == "Spark"
 
 
 @pytest.fixture(scope="module")
@@ -36,6 +44,7 @@ def web3(anvil_ethereum_fork):
     return web3
 
 
+@pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run this test")
 @flaky.flaky
 def test_spark(
     web3: Web3,
@@ -71,6 +80,7 @@ def test_spark(
     assert vault.can_check_redeem() is False
 
 
+@pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run this test")
 @flaky.flaky
 def test_spark_pyusd(
     web3: Web3,

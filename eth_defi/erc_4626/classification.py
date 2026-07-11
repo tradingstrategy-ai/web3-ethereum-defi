@@ -1961,6 +1961,9 @@ HARDCODED_PROTOCOLS = {
     # Spark - spPYUSD (Spark Savings PYUSD) vault on Ethereum
     # https://etherscan.io/address/0x80128dbb9f07b93dde62a6daeadb69ed14a7d354
     "0x80128dbb9f07b93dde62a6daeadb69ed14a7d354": {ERC4626Feature.spark_like},
+    # Spark - spUSDG (Spark Savings USDG) vault on Robinhood Chain
+    # https://robinhoodchain.blockscout.com/address/0xde770c84FE66E063336b31737cFE9790f18c4087
+    "0xde770c84fe66e063336b31737cfe9790f18c4087": {ERC4626Feature.spark_like},
     # Frankencoin - svZCHF Savings Vault on Ethereum
     # https://etherscan.io/token/0xE5F130253fF137f9917C0107659A4c5262abf6b0
     "0xe5f130253ff137f9917c0107659a4c5262abf6b0": {ERC4626Feature.frankencoin_like},
