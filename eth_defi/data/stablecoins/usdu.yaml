@@ -1,0 +1,55 @@
+symbol: USDU
+name: USDU Finance
+short_description: USDU is a protocol-issued, non-algorithmic stablecoin on Ethereum. It is backed by assets held through DAO-approved protocol adapters and is designed to be convertible to USDC through on-chain liquidity.
+long_description: |
+  [USDU Finance](https://usdu.finance/) issues USDU as a non-algorithmic stablecoin for
+  on-chain credit and structured finance. The protocol mints USDU only through
+  DAO-approved adapters, rather than user-operated collateralised debt positions.
+
+  ## Mechanism
+
+  USDU is backed by assets held in protocol adapters. Its primary liquidity layer is a
+  USDC/USDU Curve pool, while Morpho and TermMax integrations provide lending and
+  fixed-term funding markets. The protocol's DAO governs the adapter and collateral
+  configuration.
+
+  ## Sources
+
+  - [USDU Finance overview](https://usdu.finance/)
+  - [USDU core contracts and deployment configuration](https://github.com/usdu-finance/usdu-core)
+  - [DeFiLlama - USDU Finance](https://defillama.com/stablecoin/usdu-finance)
+category: stablecoin
+links:
+  homepage: https://usdu.finance/
+  coingecko: ''
+  defillama: https://defillama.com/stablecoin/usdu-finance
+  twitter: https://x.com/USDUfinance
+slug: usdu
+contract_addresses:
+  - chain: ethereum
+    address: '0xdde3eC717f220Fc6A29D6a4Be73F91DA5b718e55'
+source_currency: usd
+source_currency_source: manual
+source_currency_usd_rate: 1.0
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
+coingecko_id: ''
+coingecko_link: ''
+coingecko_id_source: ''
+coingecko_id_verified_at: ''
+coingecko_id_verification_failed_at: ''
+coingecko_id_verification_failed_reason: ''
+usd_rate: ''
+usd_rate_fetched_at: ''
+usd_rate_updated_at: ''
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-07-10'
+  marked_dead_at: ''
+  information_found_missing_at: ''
