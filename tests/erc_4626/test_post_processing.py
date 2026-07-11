@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ from eth_defi.vault import post_processing
 def test_export_top_vaults_json_passes_pipeline_data_dir(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Top-vaults export passes the pipeline data directory to its exporter module.
 
@@ -22,10 +24,19 @@ def test_export_top_vaults_json_passes_pipeline_data_dir(
     3. Assert the JSON exporter receives that directory and output path
     """
     # 1. Stub the top-vaults JSON exporter and R2 upload.
+    caplog.set_level(logging.INFO)
     calls: list[dict] = []
 
-    def fake_main(**kwargs: object) -> None:
+    def fake_main(**kwargs: object) -> dict:
         calls.append(kwargs)
+        return {
+            "generated_at": "2026-07-11T12:00:00Z",
+            "metadata": {
+                "version": {
+                    "commit_hash": "4cea3aa3deadbeef",
+                },
+            },
+        }
 
     upload_calls: list[Path] = []
 
@@ -55,6 +66,7 @@ def test_export_top_vaults_json_passes_pipeline_data_dir(
     assert calls[0]["parquet_path"] == tmp_path / "cleaned-vault-prices-1h.parquet"
     assert calls[0]["output_path"] == tmp_path / "top_vaults_by_chain.json"
     assert upload_calls == [tmp_path / "top_vaults_by_chain.json"]
+    assert "VAULT_JSON_PUBLISHED: object=top_vaults_by_chain.json generated_at=2026-07-11T12:00:00Z commit_hash=4cea3aa3deadbeef" in caplog.text
 
 
 def test_upload_top_vaults_json_to_configured_buckets_continues_after_primary_failure(

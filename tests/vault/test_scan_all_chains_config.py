@@ -1,7 +1,14 @@
 """Test all-chain vault scanner configuration."""
 
+import json
+from pathlib import Path
+
+import pytest
+
 from eth_defi.chain import POA_MIDDLEWARE_NEEDED_CHAIN_IDS
+from eth_defi.vault import scan_all_chains
 from eth_defi.vault.scan_all_chains import build_chain_configs
+from eth_defi.version_info import VersionInfo
 
 LINEA_CHAIN_ID = 59144
 
@@ -30,3 +37,29 @@ def test_linea_uses_poa_middleware_for_historical_settlement_reads():
     """Linea historical settlement backfills need PoA extra-data handling."""
 
     assert LINEA_CHAIN_ID in POA_MIDDLEWARE_NEEDED_CHAIN_IDS
+
+
+def test_cycle_state_is_provenance_stamped_and_reads_legacy_format(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cycle-state saves include a timestamp and Docker commit hash.
+
+    The loader must continue to accept the mapping-only format written by
+    scanner versions before provenance metadata was added.
+    """
+    path = tmp_path / "scan-cycle-state.json"
+    state = {"Ethereum": "2026-07-11T12:00:00"}
+    version = VersionInfo(tag="v0.31", commit_message="fix: stamp JSON", commit_hash="4cea3aa3deadbeef")
+    monkeypatch.setattr(scan_all_chains.VersionInfo, "read_docker_version", lambda: version)
+
+    scan_all_chains.save_cycle_state(state, path)
+
+    document = json.loads(path.read_text())
+    assert document["generated_at"].endswith("Z")
+    assert document["metadata"]["version"] == version.as_dict()
+    assert document["items"] == state
+    assert scan_all_chains.load_cycle_state(path) == state
+
+    path.write_text(json.dumps(state))
+    assert scan_all_chains.load_cycle_state(path) == state

@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 from eth_defi.vault import top_vaults_json
+from eth_defi.version_info import VersionInfo
 
 
 def get_top_vaults_json_module():
@@ -570,6 +571,21 @@ def test_sticky_export_uses_single_state_file(tmp_path: Path, monkeypatch: pytes
     override = tmp_path / "shared-state.json"
     monkeypatch.setenv("VAULT_EXPORT_STATE_PATH", str(override))
     assert module.resolve_sticky_export_state_path(tmp_path) == override
+
+
+def test_sticky_export_state_accepts_provenance_metadata(tmp_path: Path):
+    """Sticky export state keeps the exporter commit stamp when persisted."""
+    module = get_top_vaults_json_module()
+    state = module.make_empty_sticky_export_state(datetime.datetime(2026, 7, 11, 12, 0, 0))
+    version = VersionInfo(tag="v0.31", commit_message="fix: stamp JSON", commit_hash="4cea3aa3deadbeef")
+    state["metadata"] = module.build_export_metadata(version)
+    path = tmp_path / "vault-export-state.json"
+
+    module.save_sticky_export_state(state, path)
+
+    loaded = module.load_sticky_export_state(path, datetime.datetime(2026, 7, 11, 12, 0, 0))
+    assert loaded["updated_at"] == "2026-07-11T12:00:00Z"
+    assert loaded["metadata"]["version"] == version.as_dict()
 
 
 def test_sticky_export_timestamp_normalisation_uses_utc_before_dropping_timezone():

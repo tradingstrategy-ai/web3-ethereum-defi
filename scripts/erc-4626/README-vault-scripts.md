@@ -142,6 +142,30 @@ SKIP_POST_PROCESSING=true \
 poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 ```
 
+#### Pipeline logs and JSON provenance
+
+The all-chains scanner appends its primary operational log to
+`logs/scan-all-chains.log`. Post-processing helpers also append their detailed
+logs to `logs/export-data-files.log`, `logs/export-protocol-metadata.log`, and
+`logs/export-spark-lines.log`.
+
+The exported `top_vaults_by_chain.json` and `stablecoin-vault-metrics.json`
+contain `generated_at` and `metadata.version.commit_hash`. The Ethereum sample
+JSON carries this metadata unchanged. `vault-export-state.json` records the
+same commit under `metadata.version.commit_hash` with its `updated_at`
+timestamp, while `scan-cycle-state.json` contains `generated_at`,
+`metadata.version.commit_hash`, and an `items` mapping.
+
+After the raw and Brotli top-vault JSON objects have been uploaded to every
+configured bucket, the scanner logs one grep-friendly success record:
+
+```text
+VAULT_JSON_PUBLISHED: object=top_vaults_by_chain.json generated_at=... commit_hash=...
+```
+
+Use `rg 'VAULT_JSON_PUBLISHED' logs/scan-all-chains.log` to find the latest
+fully published vault JSON and the exact scanner build that produced it.
+
 Core3 runs after EVM and native vault scans and before post-processing. This
 keeps the Core3 DuckDB closed before `eth_defi.vault.top_vaults_json` reads it
 and before `export-data-files.py` uploads it to R2.

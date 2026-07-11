@@ -357,6 +357,23 @@ def save_sticky_export_state(state: dict, path: Path) -> None:
         json.dump(state, f, indent=2, ensure_ascii=False, allow_nan=False)
 
 
+def build_export_metadata(version_info: VersionInfo | None = None) -> dict:
+    """Build provenance metadata shared by all vault metrics JSON outputs.
+
+    :param version_info:
+        Optional Docker image version stamp. When omitted, read the stamp from
+        the running image.
+
+    :return:
+        JSON-serialisable metadata containing the exporter version information.
+    """
+    if version_info is None:
+        version_info = VersionInfo.read_docker_version()
+    return {
+        "version": version_info.as_dict(),
+    }
+
+
 def find_non_serializable_paths(obj, path=None, results=None):
     """
     Recursively traverses a Python object (dict or list) and collects paths to non-serializable values or invalid keys.
@@ -865,7 +882,7 @@ def main(
     output_path: Path | None = None,
     core3_db_path: Path | None = None,
     feed_db_path: Path | None = None,
-):
+) -> VaultMetricsExport:
     """Main execution function for vault analysis and JSON export.
 
     All four arguments are independently overridable. When a path
@@ -1047,16 +1064,18 @@ def main(
     # 7️⃣ Add metadata and deep sanitize.
     # The git version stamp identifies which exporter build produced the file,
     # so stale-deployment issues are diagnosable from the JSON alone.
-    version_info = VersionInfo.read_docker_version()
+    export_metadata = build_export_metadata()
     output_data: VaultMetricsExport = {
-        "generated_at": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "metadata": {
-            "version": version_info.as_dict(),
-        },
+        "generated_at": format_state_timestamp(now),
+        "metadata": export_metadata,
         "core3_protocols": core3_protocols,
         "curators": curators_export,
         "vaults": vaults,
     }
+
+    # The state file is published with the other scanner data files. Keep its
+    # timestamp and build provenance available for incident investigation.
+    sticky_result.state["metadata"] = export_metadata
 
     validate_strict_json_serialisable(output_data)
     validate_strict_json_serialisable(sticky_result.state)
@@ -1083,6 +1102,7 @@ def main(
     print(f"Missing curator slugs for sticky rows: {sticky_result.stats.missing_curator_slugs:,}")
 
     print(f"Exported {len(vaults):,} vault rows to {output_path}")
+    return output_data
 
 
 if __name__ == "__main__":

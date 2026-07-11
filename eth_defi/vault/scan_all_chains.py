@@ -262,13 +262,22 @@ def load_cycle_state(path: Path) -> dict[str, str]:
         Path to the JSON file.
     :return:
         Mapping of item name to ISO-formatted last-completed timestamp.
-        Empty dict if the file does not exist.
+        Supports both the legacy bare mapping and the provenance-stamped
+        envelope written by :py:func:`save_cycle_state`. Empty dict if the
+        file does not exist.
     """
     if not path.exists():
         return {}
     try:
-        return json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError) as e:
+        state = json.loads(path.read_text())
+        if "items" in state:
+            items = state["items"]
+            if not isinstance(items, dict):
+                message = "Cycle state items must be a JSON object"
+                raise ValueError(message)
+            return items
+        return state
+    except (json.JSONDecodeError, OSError, ValueError) as e:
         logger.warning("Could not read cycle state from %s: %s", path, e)
         return {}
 
@@ -280,13 +289,22 @@ def save_cycle_state(state: dict[str, str], path: Path) -> None:
     atomic rename, and directory sync.
 
     :param state:
-        Mapping of item name to ISO-formatted last-completed timestamp.
+        Mapping of item name to ISO-formatted last-completed timestamp. The
+        serialised document wraps this mapping with generation timestamp and
+        Docker image commit provenance.
     :param path:
         Destination JSON file.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
+    document = {
+        "generated_at": native_datetime_utc_now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "metadata": {
+            "version": VersionInfo.read_docker_version().as_dict(),
+        },
+        "items": state,
+    }
     with atomic_write(str(path), mode="w", overwrite=True) as f:
-        json.dump(state, f, indent=2, sort_keys=True)
+        json.dump(document, f, indent=2, sort_keys=True)
 
 
 def get_due_items(
