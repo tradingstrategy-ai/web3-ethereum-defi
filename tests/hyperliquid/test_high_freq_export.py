@@ -230,6 +230,53 @@ def test_hf_export_forward_fills_sparse_metadata_snapshots(tmp_path):
 
 
 @pytest.mark.timeout(30)
+def test_hf_export_hlp_parent_ignores_leader_fraction(tmp_path):
+    """HLP parent HF rows stay deposit-open even with tiny leader_fraction."""
+    duckdb_path = tmp_path / "hf-hlp-parent.duckdb"
+    db = HyperliquidHighFreqMetricsDatabase(duckdb_path)
+
+    try:
+        vault_addr = "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303"
+        db.upsert_vault_metadata(
+            vault_address=vault_addr,
+            name="Hyperliquidity Provider (HLP)",
+            leader="0x677d831aef5328190852e24f13c46cac05f984e7",
+            description=None,
+            is_closed=False,
+            relationship_type="parent",
+            create_time=None,
+            commission_rate=0.0,
+            follower_count=1000,
+            tvl=1000000.0,
+            apr=0.10,
+        )
+
+        row = HyperliquidHighFreqPriceRow(
+            vault_address=vault_addr,
+            timestamp=datetime.datetime(2026, 3, 9, 0, 0, 0),
+            share_price=1.0,
+            tvl=1000000.0,
+            cumulative_pnl=0.0,
+            is_closed=False,
+            allow_deposits=True,
+            leader_fraction=0.001,
+            leader_commission=0.0,
+            written_at=native_datetime_utc_now(),
+        )
+        db.upsert_high_freq_prices([row])
+        db.save()
+
+        result_df = build_raw_prices_dataframe_hf(db)
+        result_row = result_df.iloc[0]
+
+        assert result_row["deposit_closed_reason"] is None
+        assert result_row["deposits_open"] == "true"
+
+    finally:
+        db.close()
+
+
+@pytest.mark.timeout(30)
 def test_hf_forward_filled_metadata_reaches_cleaned_and_lifetime_outputs(tmp_path):
     """HF metadata forward-fill should reach cleaned data and lifetime exports."""
     duckdb_path = tmp_path / "hf-cleaned-forward-fill.duckdb"
