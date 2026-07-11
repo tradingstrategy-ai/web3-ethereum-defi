@@ -54,7 +54,7 @@ def _make_vault_row(address: str, account_value: float, cum_ledger: float, cum_v
     return f"2026-01-01T00:00:00,{address},{str(is_vault).lower()},{account_value},{cum_vlm},{cum_ledger}"
 
 
-def _setup_metrics_db_with_metadata(db, vault_address):
+def _setup_metrics_db_with_metadata(db, vault_address, relationship_type: str = "normal"):
     """Insert minimal vault metadata so upsert_daily_prices works."""
     db.upsert_vault_metadata(
         vault_address=vault_address,
@@ -62,7 +62,7 @@ def _setup_metrics_db_with_metadata(db, vault_address):
         leader="0x0000000000000000000000000000000000000001",
         description=None,
         is_closed=False,
-        relationship_type="normal",
+        relationship_type=relationship_type,
         create_time=datetime.datetime(2024, 1, 1),
         commission_rate=0.1,
         follower_count=5,
@@ -1077,6 +1077,31 @@ def test_build_raw_prices_deposit_closed_leader_fraction(tmp_path):
         assert row["deposit_closed_reason"] is not None
         assert "Leader share" in row["deposit_closed_reason"]
         assert row["deposits_open"] == "false"
+
+    finally:
+        db.close()
+
+
+def test_build_raw_prices_hlp_parent_ignores_leader_fraction(tmp_path):
+    """HLP parent vault rows stay deposit-open even with tiny leader_fraction."""
+    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
+
+    metrics_db_path = tmp_path / "metrics.duckdb"
+    db = HyperliquidDailyMetricsDatabase(metrics_db_path)
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A, relationship_type="parent")
+
+        rows = [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), is_closed=False, allow_deposits=True, leader_fraction=0.001),
+        ]
+        db.upsert_daily_prices(rows)
+        db.save()
+
+        result = build_raw_prices_dataframe(db)
+        row = result.iloc[0]
+
+        assert row["deposit_closed_reason"] is None
+        assert row["deposits_open"] == "true"
 
     finally:
         db.close()

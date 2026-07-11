@@ -26,14 +26,13 @@ Example::
 
 import datetime
 import logging
+from collections.abc import Mapping
 from decimal import Decimal
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from eth_typing import HexAddress
-
-from collections.abc import Mapping
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
@@ -94,6 +93,40 @@ def _get_deposit_closed_reason(
     if leader_fraction is not None and leader_fraction < LEADER_FRACTION_WARNING_THRESHOLD:
         return "Leader share of the vault capital near allowed Hyperliquid minimum and new capital may not be accepted"
     return None
+
+
+def _attach_relationship_type_from_metadata(
+    prices_df: pd.DataFrame,
+    metadata_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Attach vault relationship type to price rows.
+
+    Hyperliquid stores ``relationship_type`` as vault metadata, while
+    deposit-open markers are computed from price rows.  HLP protocol vaults
+    must carry this metadata into the per-row calculation so their small
+    ``leader_fraction`` is not treated as the legacy leader 5% constraint.
+
+    :param prices_df:
+        Price rows from daily or high-frequency DuckDB tables.
+    :param metadata_df:
+        Vault metadata rows from ``vault_metadata``.
+    :return:
+        Copy of ``prices_df`` with a ``relationship_type`` column when metadata
+        is available.
+    """
+    if prices_df.empty or metadata_df.empty or "relationship_type" not in metadata_df.columns:
+        return prices_df
+
+    relationship_df = metadata_df[["vault_address", "relationship_type"]].copy()
+    relationship_df["vault_address"] = relationship_df["vault_address"].str.lower()
+
+    prices_df = prices_df.copy()
+    prices_df["vault_address"] = prices_df["vault_address"].str.lower()
+
+    if "relationship_type" in prices_df.columns:
+        prices_df = prices_df.drop(columns=["relationship_type"])
+
+    return prices_df.merge(relationship_df, on="vault_address", how="left")
 
 
 def create_hyperliquid_vault_row(
@@ -261,11 +294,13 @@ def _compute_deposit_closed_reason_column(prices_df: pd.DataFrame) -> pd.Series:
             continue
 
         lf = row.get("leader_fraction")
+        relationship_type = row.get("relationship_type", "normal")
         reasons.append(
             _get_deposit_closed_reason(
                 is_closed=bool(is_closed),
                 allow_deposits=bool(allow_deposits),
                 leader_fraction=float(lf) if pd.notna(lf) else None,
+                relationship_type=str(relationship_type) if pd.notna(relationship_type) else "normal",
             )
         )
 
@@ -396,6 +431,8 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
     prices_df = db.get_all_daily_prices()
     if prices_df.empty:
         return pd.DataFrame()
+
+    prices_df = _attach_relationship_type_from_metadata(prices_df, db.get_all_vault_metadata())
 
     return _prepare_hypercore_export(
         prices_df,
@@ -597,6 +634,8 @@ def build_raw_prices_dataframe_hf(db: HyperliquidHighFreqMetricsDatabase) -> pd.
     prices_df = db.get_all_high_freq_prices()
     if prices_df.empty:
         return pd.DataFrame()
+
+    prices_df = _attach_relationship_type_from_metadata(prices_df, db.get_all_vault_metadata())
 
     # Map HF column names (deposit_count etc.) back to daily_* names
     # for downstream compatibility.
