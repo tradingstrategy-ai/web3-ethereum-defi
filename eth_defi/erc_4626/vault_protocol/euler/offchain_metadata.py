@@ -253,7 +253,7 @@ def fetch_euler_vaults_file_for_chain(
         else:
             timestamp = datetime.datetime.fromtimestamp(file.stat().st_mtime, tz=None)
             ago = now_ - timestamp
-            logger.info("Using cached Euler products file for chain %d from %s, last fetched %s ago", chain_id, file, ago)
+            logger.debug("Using cached Euler products file for chain %d from %s, last fetched %s ago", chain_id, file, ago)
 
             if file_size == 0:
                 return {}

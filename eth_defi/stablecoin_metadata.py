@@ -987,7 +987,10 @@ def process_and_upload_stablecoin_metadata(
             content_type="image/png",
             skip_if_current=True,
         )
-        logger.info("%s light logo for stablecoin: %s", "Uploaded" if logo_uploaded else "Skipped unchanged", slug)
+        if logo_uploaded:
+            logger.info("Uploaded light logo for stablecoin: %s", slug)
+        else:
+            logger.debug("Skipped unchanged light logo for stablecoin: %s", slug)
 
     return metadata
 

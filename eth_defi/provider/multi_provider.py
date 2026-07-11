@@ -303,7 +303,7 @@ def create_multi_provider_web3(
             session=session,
             exception_retry_configuration=None,
         )
-        logger.info(
+        logger.debug(
             "Created provider %s, timeout %s",
             get_url_domain(url),
             request_kwargs.get("timeout"),
@@ -367,7 +367,7 @@ def create_multi_provider_web3(
     else:
         provider = fallback_provider
 
-    logger.info(
+    logger.debug(
         "Configuring MultiProviderWeb3. Call providers: %s, transact providers %s",
         [get_provider_name(c) for c in call_providers],
         get_provider_name(transact_provider) if transact_provider else "-",
