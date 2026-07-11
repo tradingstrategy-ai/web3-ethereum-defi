@@ -11,10 +11,11 @@ from eth_defi.currency_api.client import DateRates
 from eth_defi.currency_api.database import CurrencyRateDatabase
 from eth_defi.feed import stablecoin_rate
 from eth_defi.feed.stablecoin_rate import StablecoinRateFeeder, build_depegged_stablecoin_lookups, iter_stablecoin_rate_targets, refresh_stablecoin_rates
-from eth_defi.stablecoin_metadata import build_stablecoin_metadata_json
+from eth_defi.stablecoin_metadata import STABLECOINS_DATA_DIR, build_stablecoin_metadata_json, is_stablecoin_like
 
 USDC_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 USDX_ADDRESS = "0x1111111111111111111111111111111111111111"
+USDU_ADDRESS = "0xdde3eC717f220Fc6A29D6a4Be73F91DA5b718e55"
 
 
 @dataclass(slots=True)
@@ -683,6 +684,24 @@ def test_packaged_chf_stablecoins_have_chf_source_currency() -> None:
 
         assert rate.source_currency == "chf"
         assert rate.coingecko_id == "frankencoin"
+
+
+def test_packaged_usdu_metadata_and_rate_target() -> None:
+    """USDU metadata preserves its verified contract and manual USD denomination.
+
+    USDU does not have a dedicated CoinGecko identifier, so its rate target must
+    retain the curated USD source currency without accidentally using another
+    same-ticker asset.
+    """
+    target = next(target for target in iter_stablecoin_rate_targets() if target.symbol == "USDU")
+    metadata = build_stablecoin_metadata_json(STABLECOINS_DATA_DIR / "usdu.yaml")[0]
+
+    assert is_stablecoin_like("USDU") is True
+    assert target.source_currency == "usd"
+    assert target.source_currency_source == "manual"
+    assert target.coingecko_id is None
+    assert metadata["name"] == "USDU Finance"
+    assert metadata["contract_addresses"] == [{"chain": "ethereum", "address": USDU_ADDRESS}]
 
 
 def test_eur_stablecoin_depegs_against_native_currency_from_duckdb(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
