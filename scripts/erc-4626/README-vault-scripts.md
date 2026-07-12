@@ -246,6 +246,45 @@ The script reads RPC URLs using normal `JSON_RPC_<CHAIN_NAME>` variables where
 the chain is known by `eth_defi.chain`. T3tris currently returns Arbitrum vaults,
 so set `JSON_RPC_ARBITRUM` in `.local-test.env`.
 
+### fix-frankencoin-tvl.py
+
+Manual repair script for Frankencoin savings vault TVL in the uncleaned price
+parquet. Before the Frankencoin-specific historical reader was added, generic
+ERC-4626 reads wrote only `svZCHF.totalAssets()` to `total_assets`. This
+underreported Frankencoin product TVL because most ZCHF is held directly by the
+underlying savings module.
+
+The script updates only hardcoded Frankencoin savings vault rows and preserves
+all other vault rows and columns. It keeps the existing share-price samples and
+replaces `total_assets` with:
+
+```text
+ZCHF.balanceOf(savings_module) + ZCHF.balanceOf(svZCHF_wrapper)
+```
+
+```shell
+source .local-test.env && poetry run python scripts/erc-4626/fix-frankencoin-tvl.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `DRY_RUN` | Optional. Show selected rows without writing. Default: false. |
+| `UNCLEANED_PRICE_DATABASE` | Optional. Path to the uncleaned price parquet. Default: production uncleaned price DB. |
+| `START_BLOCK` | Optional. Inclusive lower block bound for a scoped repair. |
+| `END_BLOCK` | Optional. Inclusive upper block bound for a scoped repair. |
+| `MAX_WORKERS` | Optional. Per-chain parallel RPC workers. Default: 8. |
+| `JSON_RPC_ETHEREUM` | Required if Ethereum Frankencoin rows are present. |
+| `JSON_RPC_BASE` | Required if Base Frankencoin rows are present. |
+| `JSON_RPC_GNOSIS` | Required if Gnosis Frankencoin rows are present. |
+
+After repair, rerun post-processing and data export so cleaned parquet and JSON
+outputs pick up the corrected TVL:
+
+```shell
+poetry run python scripts/erc-4626/post-process-prices.py
+poetry run python scripts/erc-4626/export-data-files.py
+```
+
 ### fix-upshift-vaults.py
 
 Targeted repair script for all EVM Upshift vaults returned by the official

@@ -52,7 +52,8 @@ def test_scan_loop_lighter_single_cycle(tmp_path: Path, monkeypatch: pytest.Monk
     state_file = tmp_path / "scan-cycle-state.json"
     assert state_file.exists(), "Cycle state file not created"
     state = json.loads(state_file.read_text())
-    assert "Lighter" in state, f"Lighter not in cycle state: {state}"
+    cycle_items = state.get("items", state)
+    assert "Lighter" in cycle_items, f"Lighter not in cycle state: {state}"
 
     # 2. Verify Lighter DuckDB has pools
     duckdb_path = tmp_path / "lighter-pools.duckdb"

@@ -17,12 +17,24 @@ deducted from earned interest and paid to the configured referrer.
 
 import datetime
 import logging
+from collections.abc import Iterable
+from decimal import Decimal
+from functools import cached_property
 
-from eth_typing import BlockIdentifier
+from eth_typing import BlockIdentifier, HexAddress
+from web3.contract import Contract
 
-from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 
 logger = logging.getLogger(__name__)
+
+#: Minimal ABI for the svZCHF wrapper contract.
+FRANKENCOIN_SAVINGS_VAULT_ABI = [
+    {"inputs": [], "name": "savings", "outputs": [{"type": "address"}], "stateMutability": "view", "type": "function"},
+]
 
 #: Frankencoin Savings Vault on Ethereum.
 #:
@@ -53,6 +65,178 @@ FRANKENCOIN_SAVINGS_VAULTS = frozenset(
 #: Source: ``AbstractSavings.setReferrer()`` rejects values above 250,000 ppm.
 MAX_REFERRAL_FEE = 0.25
 
+#: Number of ZCHF balance calls needed for Frankencoin savings TVL.
+FRANKENCOIN_SAVINGS_BALANCE_CALL_COUNT = 2
+
+
+class FrankencoinHistoricalReader(ERC4626HistoricalReader):
+    """Read Frankencoin savings TVL across the wrapper and savings module.
+
+    Frankencoin's ERC-4626 ``totalAssets()`` only reports assets attributed to
+    the svZCHF wrapper inside the savings module. Most savings deposits sit
+    directly in the underlying savings module, outside the ERC-4626 wrapper.
+
+    For Trading Strategy vault TVL we treat the savings product as a whole and
+    write ``ZCHF.balanceOf(savings_module) + ZCHF.balanceOf(svZCHF_wrapper)`` to
+    ``total_assets``. The share price and total supply still come from the
+    ERC-4626 wrapper, so performance calculations keep using the wrapper's own
+    exchange rate.
+    """
+
+    def get_warmup_calls(self) -> Iterable[tuple[str, callable, object]]:
+        """Yield warmup calls for Frankencoin vaults.
+
+        Includes the standard ERC-4626 calls plus the ZCHF balances that define
+        the savings product TVL.
+
+        :return:
+            Tuples consumed by the vault warmup scanner.
+        """
+        yield from super().get_warmup_calls()
+
+        denomination_token = self.vault.denomination_token
+        if denomination_token is None:
+            return
+
+        wrapper_balance_call = denomination_token.contract.functions.balanceOf(self.vault.address)
+        yield ("wrapper_balance", wrapper_balance_call.call, wrapper_balance_call)
+
+        savings_balance_call = denomination_token.contract.functions.balanceOf(self.vault.savings_module_address)
+        yield ("savings_module_balance", savings_balance_call.call, savings_balance_call)
+
+    def construct_multicalls(self) -> Iterable[EncodedCall]:
+        """Create calls for Frankencoin historical reads.
+
+        :return:
+            Encoded calls for ERC-4626 state and Frankencoin savings TVL.
+        """
+        yield from self.construct_core_erc_4626_multicall()
+        yield from self.construct_savings_balance_multicalls()
+
+    def construct_savings_balance_multicalls(self) -> Iterable[EncodedCall]:
+        """Create ZCHF balance calls used to calculate savings product TVL.
+
+        :return:
+            Encoded ZCHF ``balanceOf`` calls for the savings module and wrapper.
+        """
+        denomination_token = self.vault.denomination_token
+        if denomination_token is None:
+            return
+
+        wrapper_balance_call = EncodedCall.from_contract_call(
+            denomination_token.contract.functions.balanceOf(self.vault.address),
+            extra_data={
+                "function": "wrapper_balance",
+                "vault": self.vault.address,
+            },
+            first_block_number=self.first_block,
+        )
+        yield wrapper_balance_call
+
+        savings_balance_call = EncodedCall.from_contract_call(
+            denomination_token.contract.functions.balanceOf(self.vault.savings_module_address),
+            extra_data={
+                "function": "savings_module_balance",
+                "vault": self.vault.address,
+                "savings_module": self.vault.savings_module_address,
+            },
+            first_block_number=self.first_block,
+        )
+        yield savings_balance_call
+
+    def process_savings_tvl_result(self, call_by_name: dict[str, EncodedCallResult]) -> tuple[Decimal | None, list[str]]:
+        """Decode Frankencoin savings TVL calls.
+
+        :param call_by_name:
+            Multicall results keyed by ``extra_data["function"]``.
+
+        :return:
+            ``(total_assets, errors)`` where ``total_assets`` is denominated in
+            ZCHF.
+        """
+        errors = []
+        denomination_token = self.vault.denomination_token
+        if denomination_token is None:
+            return None, ["denomination token missing"]
+
+        balances = []
+        for function_name in ("savings_module_balance", "wrapper_balance"):
+            result = call_by_name.get(function_name)
+            if result is None:
+                errors.append(f"{function_name} call missing")
+                continue
+            if not result.success:
+                errors.append(f"{function_name} call failed")
+                continue
+
+            raw_balance = convert_int256_bytes_to_int(result.result)
+            balances.append(denomination_token.convert_to_decimals(raw_balance))
+
+        if len(balances) != FRANKENCOIN_SAVINGS_BALANCE_CALL_COUNT:
+            return None, errors
+
+        return sum(balances, Decimal(0)), errors
+
+    def process_result(
+        self,
+        block_number: int,
+        timestamp: datetime.datetime,
+        call_results: list[EncodedCallResult],
+    ) -> VaultHistoricalRead:
+        """Process a Frankencoin historical read result.
+
+        :param block_number:
+            Block number used for the read.
+        :param timestamp:
+            Naive UTC block timestamp.
+        :param call_results:
+            Multicall results for this vault.
+
+        :return:
+            Historical row with Frankencoin savings product TVL.
+        """
+        call_by_name = self.dictify_multicall_results(block_number, call_results)
+
+        # The generic ERC-4626 decoder updates adaptive reader state from
+        # totalAssets(); Frankencoin needs the state update to use combined TVL.
+        total_assets_result = call_by_name.get("total_assets")
+        original_total_assets_state = total_assets_result.state if total_assets_result is not None else None
+        if total_assets_result is not None:
+            total_assets_result.state = None
+        try:
+            share_price, total_supply, erc4626_total_assets, errors, max_deposit = self.process_core_erc_4626_result(call_by_name)
+        finally:
+            if total_assets_result is not None:
+                total_assets_result.state = original_total_assets_state
+
+        savings_total_assets, savings_errors = self.process_savings_tvl_result(call_by_name)
+        if savings_errors:
+            errors = list(errors or [])
+            errors.extend(savings_errors)
+
+        total_assets = savings_total_assets if savings_total_assets is not None else erc4626_total_assets
+
+        convert_to_assets_result = call_by_name.get("convertToAssets")
+        if convert_to_assets_result is not None and convert_to_assets_result.state is not None:
+            convert_to_assets_result.state.on_called(
+                convert_to_assets_result,
+                total_assets=total_assets,
+                share_price=share_price,
+            )
+
+        return VaultHistoricalRead(
+            vault=self.vault,
+            block_number=block_number,
+            timestamp=timestamp,
+            share_price=share_price,
+            total_assets=total_assets,
+            total_supply=total_supply,
+            performance_fee=None,
+            management_fee=None,
+            errors=errors or None,
+            max_deposit=max_deposit,
+        )
+
 
 class FrankencoinVault(ERC4626Vault):
     """Frankencoin ERC-4626 savings vault support.
@@ -61,6 +245,88 @@ class FrankencoinVault(ERC4626Vault):
     module. The underlying contract source documents an interest delay of up to
     three days before deposits start earning yield.
     """
+
+    @cached_property
+    def frankencoin_vault_contract(self) -> Contract:
+        """Return the svZCHF wrapper contract with Frankencoin-specific ABI.
+
+        :return:
+            Web3 contract instance exposing the ``savings()`` accessor.
+        """
+        return self.web3.eth.contract(
+            address=self.address,
+            abi=FRANKENCOIN_SAVINGS_VAULT_ABI,
+        )
+
+    @cached_property
+    def savings_module_address(self) -> HexAddress:
+        """Return the underlying Frankencoin savings module address.
+
+        :return:
+            Savings module address used by this svZCHF wrapper.
+        """
+        return self.frankencoin_vault_contract.functions.savings().call()
+
+    def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal | None:
+        """Return Frankencoin savings product TVL.
+
+        Frankencoin's ERC-4626 wrapper only reports assets attributed to wrapper
+        shareholders. The public savings product also includes direct deposits
+        in the savings module. For vault discovery TVL, report the ZCHF held by
+        both the module and the wrapper contract.
+
+        :param block_identifier:
+            Block number to read.
+
+        :return:
+            Total ZCHF held by the Frankencoin savings module and wrapper.
+        """
+        denomination_token = self.denomination_token
+        if denomination_token is None:
+            return None
+
+        savings_balance = denomination_token.contract.functions.balanceOf(self.savings_module_address).call(block_identifier=block_identifier)
+        wrapper_balance = denomination_token.contract.functions.balanceOf(self.address).call(block_identifier=block_identifier)
+        return denomination_token.convert_to_decimals(savings_balance + wrapper_balance)
+
+    def fetch_nav(self, block_identifier: BlockIdentifier | None = None) -> Decimal | None:
+        """Fetch the Frankencoin savings product NAV.
+
+        :param block_identifier:
+            Block number to read.
+
+        :return:
+            Same value as :py:meth:`fetch_total_assets`.
+        """
+        return self.fetch_total_assets(block_identifier or "latest")
+
+    def fetch_share_price(self, block_identifier: BlockIdentifier) -> Decimal:
+        """Get the svZCHF wrapper share price.
+
+        The Frankencoin TVL override represents the whole savings product, not
+        only svZCHF shareholders. Therefore share price must still come from
+        ``convertToAssets(1 share)`` instead of ``total_assets / total_supply``.
+
+        :param block_identifier:
+            Block number to read.
+
+        :return:
+            svZCHF share price in ZCHF.
+        """
+        one_share = self.share_token.convert_to_raw(Decimal(1))
+        raw_amount = self.vault_contract.functions.convertToAssets(one_share).call(block_identifier=block_identifier)
+        return self.denomination_token.convert_to_decimals(raw_amount)
+
+    def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:  # noqa: FBT001
+        """Return the Frankencoin historical reader.
+
+        :param stateful:
+            Whether the reader maintains adaptive polling state.
+
+        :return:
+            Frankencoin-specific historical reader.
+        """
+        return FrankencoinHistoricalReader(self, stateful=stateful)
 
     def has_custom_fees(self) -> bool:
         """Frankencoin has an optional per-account referral fee.
