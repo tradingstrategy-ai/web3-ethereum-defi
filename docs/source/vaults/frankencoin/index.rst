@@ -12,6 +12,11 @@ value follows savings module yield. The official `token page
 <https://frankencoin.com/token/>`__ lists savings vault deployments on Ethereum,
 Base and Gnosis.
 
+Trading Strategy reports Frankencoin savings TVL from the whole savings product,
+not only from the ERC-4626 wrapper account. The custom Frankencoin reader sums
+ZCHF held by the underlying savings module and the svZCHF wrapper contract,
+while keeping the ERC-4626 wrapper exchange rate for share-price history.
+
 Fee model
 ~~~~~~~~~
 
