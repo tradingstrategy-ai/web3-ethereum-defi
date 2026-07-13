@@ -332,6 +332,31 @@ def test_identify_jpmorgan_jltxx_by_address() -> None:
     assert not is_protocol_curator("jpmorgan")
 
 
+def test_identify_piku_vaults_by_address() -> None:
+    """Resolve the published Piku token and Morini vaults by exact address.
+
+    Piku's branding is not part of every vault name, so the mappings must stay
+    address-scoped across Inverter, Accountable and Midas infrastructure.
+    """
+
+    cases = [
+        ("USP", "USP", "0x098697bA3Fee4eA76294C5d6A466a4e3b3E95FE6", "inverter"),
+        ("aFXArbUSDTRY", "Morini FXArbUSDTRY", "0x99351BaEd3d8aB544CCb08aF96A105910fdA71E7", "accountable"),
+        ("StockMarketTRBasisTrade", "Morini StockMarketTRBasisTrade Vault", "0x827Ce7E8e35861D9Ac7fE002755767b695A5594a", "midas"),
+        ("CarryTradeUSDTRYLeverage", "Morini CarryTradeUSDTRYLeverage Vault", "0x2bf11d2E04Bc40daa95c24B8b90EC4F5c57Dd326", "midas"),
+    ]
+
+    for vault_token_symbol, vault_name, vault_address, protocol_slug in cases:
+        slug = identify_curator(
+            chain_id=1,
+            vault_token_symbol=vault_token_symbol,
+            vault_name=vault_name,
+            vault_address=vault_address,
+            protocol_slug=protocol_slug,
+        )
+        assert slug == "piku", f"{vault_name!r} resolved to {slug!r}"
+
+
 def test_identify_smokehouse_as_steakhouse_financial() -> None:
     """Smokehouse vault names resolve to Steakhouse Financial."""
 
