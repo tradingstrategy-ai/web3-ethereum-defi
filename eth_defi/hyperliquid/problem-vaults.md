@@ -51,7 +51,7 @@ daily when their timestamp is midnight UTC and HF otherwise. This is valid for
 the historical Hypercore exports, but new data must always use the explicit
 column.
 
-## Crypto Plaza Relative Momentum Edge
+## Crypto plaza relative momentum edge
 
 - Address: `0xdc9955a83218b71713a83ee072055591bd4c7304`
 - Trading Strategy page:
@@ -183,7 +183,7 @@ Hypercore rows for non-empty `hypercore_repair_status`, then grouping by
 `address` and status. Filtering for `share_price != raw_share_price` returns
 only the applied subset and would omit deliberately deferred candidates.
 
-## HODL My Perps
+## HODL my perps
 
 - Address: `0x13b43faa22d854bf43b4e7581c1b3dfcd416f8c3`
 - Trading Strategy page:
