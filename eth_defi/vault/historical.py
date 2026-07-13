@@ -40,6 +40,7 @@ from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details
 from eth_defi.utils import chunked
 from eth_defi.vault.base import VaultBase, VaultHistoricalRead, VaultHistoricalReader, VaultSpec, verify_parquet_file
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
+from eth_defi.version_info import stamp_parquet_schema_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -552,6 +553,8 @@ def scan_historical_prices_to_parquet(
     - Write historical prices to a Parquet file
     - Multiprocess-boosted
     - The same Parquet file can contain data from multiple chains
+    - Stamp the output schema with the current Docker ``metadata.version``
+      provenance, matching vault scanner JSON exports
 
     :param output_fname:
         Path to a destination Parquet file.
@@ -778,6 +781,13 @@ def scan_historical_prices_to_parquet(
             writer_schema = writer_schema.append(field)
     else:
         writer_schema = canonical_schema
+
+    # Store the current scanner build on the file schema. This is done after
+    # combining native-only fields so every rewrite refreshes the provenance.
+    writer_schema = stamp_parquet_schema_metadata(writer_schema)
+
+    if existing_table is not None:
+        existing_table = existing_table.replace_schema_metadata(writer_schema.metadata)
 
     # Perform atomic update of the prices Parquet file.
     #

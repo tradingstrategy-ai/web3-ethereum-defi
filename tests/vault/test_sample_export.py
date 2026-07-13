@@ -3,7 +3,11 @@
 import json
 from pathlib import Path
 
-from eth_defi.vault.sample_export import generate_sample_json
+import pandas as pd
+import pyarrow.parquet as pq
+
+from eth_defi.vault.sample_export import generate_sample_json, generate_sample_parquet
+from eth_defi.version_info import PARQUET_VERSION_METADATA_KEY
 
 
 def test_sample_json_filters_core3_protocols_and_curators(tmp_path: Path):
@@ -102,3 +106,15 @@ def test_sample_json_filters_core3_protocols_and_curators(tmp_path: Path):
             "commit_hash": "4cea3aa3deadbeef",
         },
     }
+
+
+def test_sample_parquet_has_version_metadata(tmp_path: Path) -> None:
+    """Ethereum sample price exports carry scanner build provenance."""
+    source_path = tmp_path / "cleaned-vault-prices.parquet"
+    output_path = tmp_path / "vault-historical.sample.parquet"
+    pd.DataFrame({"chain": [1, 8453], "share_price": [1.0, 1.01]}).to_parquet(source_path)
+
+    row_count = generate_sample_parquet(source_path, output_path)
+
+    assert row_count == 1
+    assert PARQUET_VERSION_METADATA_KEY in pq.read_metadata(output_path).metadata

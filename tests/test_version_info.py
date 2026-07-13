@@ -1,8 +1,11 @@
 """Test Docker git version stamp reading."""
 
+import json
 from pathlib import Path
 
-from eth_defi.version_info import UNSPECIFIED_SENTINEL, VersionInfo
+import pyarrow as pa
+
+from eth_defi.version_info import PARQUET_VERSION_METADATA_KEY, UNSPECIFIED_SENTINEL, VersionInfo, stamp_parquet_schema_metadata
 
 
 def test_read_docker_version(tmp_path: Path):
@@ -50,3 +53,14 @@ def test_read_docker_version(tmp_path: Path):
     assert version.tag is None
     assert version.commit_message is None
     assert version.commit_hash is None
+
+
+def test_stamp_parquet_schema_metadata() -> None:
+    """Parquet provenance preserves existing metadata and the JSON version shape."""
+    version = VersionInfo(tag="v0.31", commit_message="feat: stamp parquet", commit_hash="4cea3aa3deadbeef")
+    schema = pa.schema([pa.field("chain", pa.uint32())], metadata={b"pandas": b"{}"})
+
+    stamped = stamp_parquet_schema_metadata(schema, version)
+
+    assert stamped.metadata[b"pandas"] == b"{}"
+    assert json.loads(stamped.metadata[PARQUET_VERSION_METADATA_KEY]) == version.as_dict()
