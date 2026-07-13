@@ -35,11 +35,10 @@ from eth_defi.vault.vaultdb import VaultDatabase
 def test_get_trading_strategy_links_use_canonical_vault_routes():
     """Generated Trading Strategy links use canonical flat vault routes."""
     vault_link = vault_metrics._get_trading_strategy_vault_link(
-        vault_slug="steakhouse-usdc",
-        vault_address="0x6043828A0cE0FccC6D27eC4848673Ff7F54Ebd0C",
+        vault_slug="texashedge",
     )
 
-    assert vault_link == "https://tradingstrategy.ai/trading-view/vaults/steakhouse-usdc#0x6043828A0cE0FccC6D27eC4848673Ff7F54Ebd0C"
+    assert vault_link == "https://tradingstrategy.ai/trading-view/vaults/texashedge"
     assert vault_metrics._get_trading_strategy_chain_link("Ethereum") == "https://tradingstrategy.ai/trading-view/vaults/chains/ethereum"
     assert vault_metrics._get_trading_strategy_chain_link("Hypercore") == "https://tradingstrategy.ai/trading-view/vaults/chains/hyperliquid"
 

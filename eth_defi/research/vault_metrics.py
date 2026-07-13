@@ -455,14 +455,20 @@ def _get_trading_strategy_protocol_link(protocol_slug: str) -> str:
 
 def _get_trading_strategy_vault_link(
     vault_slug: str,
-    vault_address: str,
 ) -> str:
     """Get the tradingstrategy.ai vault URL.
 
-    The vault address is kept in the URL fragment so the canonical page route
-    avoids the legacy redirect and the address does not affect routing.
+    Vault pages have a canonical flat route based on their generated slug.
+    In particular, this keeps D2 vault links pointed at their Trading Strategy
+    vault page instead of an address fragment.
+
+    :param vault_slug:
+        Canonical vault page slug.
+
+    :return:
+        Canonical Trading Strategy vault page URL.
     """
-    return f"https://tradingstrategy.ai/trading-view/vaults/{vault_slug}#{vault_address}"
+    return f"https://tradingstrategy.ai/trading-view/vaults/{vault_slug}"
 
 
 def create_fee_label(
@@ -1630,7 +1636,6 @@ def calculate_vault_record(
 
     trading_strategy_link = _get_trading_strategy_vault_link(
         vault_slug=vault_slug,
-        vault_address=vault_address,
     )
 
     lockup = vault_metadata.get("_lockup", None)

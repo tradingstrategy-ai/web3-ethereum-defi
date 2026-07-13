@@ -5,6 +5,7 @@ from eth_defi.erc_4626.scan import _normalise_scan_note
 from eth_defi.erc_4626.vault_protocol.d2.vault import (
     D2_TEXAS_HEDGE_ADDRESS,
     D2_VAULT_ADDRESSES,
+    D2_VAULT_LINK_MATRIX,
     D2Vault,
 )
 from eth_defi.vault.base import VaultSpec
@@ -47,6 +48,16 @@ def test_d2_vault_note_handles_checksum_address() -> None:
 
     assert note is not None
     assert "[D2 strategy page](https://d2.finance/strategies/0x75288264fdfea8ce68e6d852696ab1ce2f3e5004)" in note
+
+
+def test_d2_vault_link_matrix_covers_every_known_vault() -> None:
+    """D2 vault links resolve to their native D2 Finance strategy page."""
+    assert set(D2_VAULT_LINK_MATRIX) == D2_VAULT_ADDRESSES
+
+    for address, expected_link in D2_VAULT_LINK_MATRIX.items():
+        assert make_d2_vault(address).get_link() == expected_link
+
+    assert make_d2_vault(D2_TEXAS_HEDGE_ADDRESS).get_link() == "https://d2.finance/strategies/0x208f63a7f60c319597c05fa5ec67fde41839bad6"
 
 
 def test_d2_unknown_protocol_vault_gets_generic_note() -> None:
