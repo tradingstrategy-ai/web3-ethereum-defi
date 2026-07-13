@@ -145,8 +145,10 @@ def test_build_hypercore_prices_dataframe_prefers_high_frequency_duplicate(
     3. Assert the high-frequency share price is retained.
     """
     daily_df = _prices(HYPERCORE_CHAIN_ID, "hypercore-vault", "2025-01-01")
+    daily_df["hypercore_source"] = "daily"
     hf_df = _prices(HYPERCORE_CHAIN_ID, "hypercore-vault", "2025-01-01")
     hf_df["share_price"] = 1.1
+    hf_df["hypercore_source"] = "hf"
     monkeypatch.setattr(vault_data_export, "build_raw_prices_dataframe", lambda _: daily_df)
     monkeypatch.setattr(vault_data_export, "build_raw_prices_dataframe_hf", lambda _: hf_df)
 
