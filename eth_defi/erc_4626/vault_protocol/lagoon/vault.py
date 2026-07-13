@@ -887,6 +887,21 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
 
         return ERC7540DepositManager(self)
 
+    def get_deposit_manager_capability(self) -> "VaultDepositManagerCapability | None":
+        """Declare Lagoon's ERC-7540 request-and-claim lifecycle.
+
+        :return:
+            Two-way asynchronous capability.
+        """
+        from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+
+        return VaultDepositManagerCapability(
+            can_deposit=True,
+            can_redeem=True,
+            deposit_flow="asynchronous",
+            redemption_flow="asynchronous",
+        )
+
     def can_check_deposit(self) -> bool:
         """Lagoon's maxDeposit does not work correctly for deposit availability checks."""
         return False

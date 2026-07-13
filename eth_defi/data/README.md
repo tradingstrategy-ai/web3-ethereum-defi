@@ -10,6 +10,9 @@ No Python files live here — all loading logic is in the source modules listed 
 ```
 eth_defi/data/
 ├── curators.md                          Human-readable curator reference
+├── deposit-status/                      Guarded Anvil vault-deposit evidence
+│   ├── README-deposit-status.md          Manual refresh and review procedure
+│   └── vault-deposit-status.json         Version-controlled probe snapshot
 ├── feeds/                               Feed source YAML files
 │   ├── curators/      (38 YAML)         Curator social/RSS sources
 │   ├── protocols/     (70 YAML)         Vault protocol social/RSS sources

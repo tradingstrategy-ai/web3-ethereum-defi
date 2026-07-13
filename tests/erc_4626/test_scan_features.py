@@ -113,6 +113,7 @@ def test_create_vault_scan_record_persists_machine_readable_features(monkeypatch
     assert record["features"] is not record["_detection_data"].features
     assert record["_detection_data"].features == features
     assert "erc_7575_like" in record["Features"]
+    assert record["_deposit_manager"] is None
 
 
 def test_vault_database_dataframe_falls_back_to_detection_features() -> None:

@@ -283,14 +283,6 @@ def create_vault_scan_record(
         Dict for human-readable tables, with internal columns prefixed with å underscore
     """
 
-    vault = create_vault_instance(
-        web3,
-        detection.address,
-        detection.features,
-        token_cache=token_cache,
-        default_block_identifier=block_identifier,
-    )
-
     empty_record = {
         "Symbol": "",
         "Name": "",
@@ -311,7 +303,16 @@ def create_vault_scan_record(
         "_fees": None,
         "_flags": {},
         "_notes": None,
+        "_deposit_manager": None,
     }
+
+    vault = create_vault_instance(
+        web3,
+        detection.address,
+        detection.features,
+        token_cache=token_cache,
+        default_block_identifier=block_identifier,
+    )
 
     if vault is None:
         # Probably not ERC-4626
@@ -352,6 +353,8 @@ def create_vault_scan_record(
         description = vault.description
         short_description = vault.short_description
         notes = _normalise_scan_note(vault.get_notes(), description, short_description)
+        capability_resolver = getattr(vault, "get_deposit_manager_capability", None)
+        deposit_manager_capability = capability_resolver() if capability_resolver is not None else None
 
         data = {
             "Symbol": vault.symbol,
@@ -381,6 +384,7 @@ def create_vault_scan_record(
             "_notes": notes,
             "_manager_name": vault.manager_name,
             "_morpho_offchain_data": vault.morpho_offchain_data if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,
+            "_deposit_manager": deposit_manager_capability.as_initial_public_schema() if deposit_manager_capability else None,
         }
         data.update(activity_status)
         data.update(lending_stats)

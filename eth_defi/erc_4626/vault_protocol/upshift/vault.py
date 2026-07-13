@@ -396,6 +396,28 @@ class UpshiftVault(ERC4626Vault):
 
         return super().get_deposit_manager()
 
+    def get_deposit_manager_capability(self) -> "VaultDepositManagerCapability | None":
+        """Declare only Upshift's normal ERC-4626 vault shape.
+
+        Multi-asset accounting vaults use a separate application flow and must
+        never be represented as generic deposit-manager support.
+
+        :return:
+            Synchronous two-way capability for the normal shape, or ``None``
+            for multi-asset vaults.
+        """
+        if self.multi_asset_like:
+            return None
+
+        from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+
+        return VaultDepositManagerCapability(
+            can_deposit=True,
+            can_redeem=True,
+            deposit_flow="synchronous",
+            redemption_flow="synchronous",
+        )
+
     def can_check_deposit(self) -> bool:
         """Can the generic ERC-4626 ``maxDeposit(address(0))`` probe be used."""
 

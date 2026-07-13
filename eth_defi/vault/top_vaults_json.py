@@ -597,6 +597,9 @@ def annotate_fallback_record(record: dict, state_entry: dict, fallback_reason: s
         Annotated copy.
     """
     annotated = copy_export_record(record)
+    # A sticky row is not current adapter certification.  Never replay a
+    # previous positive manager capability when the live scan is unavailable.
+    annotated["deposit_manager"] = None
     annotated["sticky_export"] = True
     annotated["sticky_reason"] = "previously_passed_filter"
     annotated["stale_export"] = True

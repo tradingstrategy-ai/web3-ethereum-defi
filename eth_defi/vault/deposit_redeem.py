@@ -8,6 +8,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from decimal import Decimal
 from pprint import pformat
+from typing import Literal
 
 from eth_typing import BlockIdentifier, BlockNumber, HexAddress
 from hexbytes import HexBytes
@@ -19,6 +20,76 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.flow_events import PendingVaultFlow, VaultFlowDirection
 
 logger = logging.getLogger(__name__)
+
+
+VaultDepositFlow = Literal["synchronous", "asynchronous"]
+
+
+@dataclass(frozen=True, slots=True)
+class VaultDepositManagerCapability:
+    """Static public integration capability of a vault deposit manager.
+
+    This describes support implemented by :mod:`eth_defi`, rather than the
+    vault's live cap, pause, allow-list, token balance, or liquidity state.
+    A historical probe cannot establish future acceptance: consumers must make
+    the request against current chain state and handle a current-state revert.
+
+    :param can_deposit:
+        Whether a complete public deposit lifecycle is implemented.
+    :param can_redeem:
+        Whether a complete public redemption lifecycle is implemented.
+    :param deposit_flow:
+        Request lifecycle for deposits when supported.
+    :param redemption_flow:
+        Request lifecycle for redemptions when supported.
+    """
+
+    can_deposit: bool
+    can_redeem: bool
+    deposit_flow: VaultDepositFlow | None = None
+    redemption_flow: VaultDepositFlow | None = None
+
+    def __post_init__(self) -> None:
+        """Validate that supported operations have a lifecycle declaration.
+
+        :raises ValueError:
+            If an operation flag and its flow declaration disagree.
+        """
+        if (self.deposit_flow is not None) != self.can_deposit:
+            raise ValueError("deposit_flow must be present exactly when deposits are supported")
+        if (self.redemption_flow is not None) != self.can_redeem:
+            raise ValueError("redemption_flow must be present exactly when redemptions are supported")
+
+    def as_dict(self) -> dict[str, bool | str]:
+        """Convert the capability to JSON-compatible primitives.
+
+        :return:
+            Directional capability object suitable for internal persistence.
+        """
+        result: dict[str, bool | str] = {
+            "can_deposit": self.can_deposit,
+            "can_redeem": self.can_redeem,
+        }
+        if self.deposit_flow is not None:
+            result["deposit_flow"] = self.deposit_flow
+        if self.redemption_flow is not None:
+            result["redemption_flow"] = self.redemption_flow
+        return result
+
+    def as_initial_public_schema(self) -> dict[str, bool | str] | None:
+        """Return the initial public schema or fail closed for partial support.
+
+        The first export version intentionally advertises only two-way manager
+        support.  Keeping the internal representation directional leaves room
+        for a future schema revision without making a partial manager look
+        depositable today.
+
+        :return:
+            Two-way public capability object, or ``None`` for partial support.
+        """
+        if not (self.can_deposit and self.can_redeem):
+            return None
+        return self.as_dict()
 
 
 class AsyncVaultRequestStatus(enum.Enum):
@@ -465,6 +536,19 @@ class VaultDepositManager(ABC):
         Vault can be full?
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement can_create_deposit_request()")
+
+    def get_deposit_approval_target(self) -> HexAddress:
+        """Return the ERC-20 spender required for a deposit request.
+
+        Standard ERC-4626 and the currently supported async adapters pull
+        denomination tokens from the vault address itself.  An adapter using a
+        different router or silo must override this method; guarded callers use
+        it to whitelist and validate the exact approval calldata.
+
+        :return:
+            ERC-20 approval spender address.
+        """
+        return self.vault.address
 
     def fetch_vault_flow_events(
         self,

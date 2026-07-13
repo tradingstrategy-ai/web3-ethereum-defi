@@ -271,6 +271,12 @@ class VaultMetricsRecord(TypedDict, total=False):
     #: value must NOT be defaulted to 18 (see ``denomination_token_address``).
     denomination_decimals: int | None
 
+    #: Static support for this library's deposit/redemption manager, or ``None``.
+    #:
+    #: This does not mean the vault is currently open or that an account has
+    #: permission, funds, acceptable slippage, spare cap, or liquidity.
+    deposit_manager: dict | None
+
     #: Share token ERC-20 decimals (the vault's own ERC-4626 token).
     share_token_decimals: int | None
 
@@ -2037,6 +2043,10 @@ def calculate_vault_record(
             "redemption_closed_reason": redemption_closed_reason,
             "deposit_next_open": deposit_next_open,
             "redemption_next_open": redemption_next_open,
+            # Static adapter support, distinct from the live closed-reason
+            # fields immediately above.  Old metadata pickles safely export
+            # null until they have been rescanned.
+            "deposit_manager": vault_metadata.get("_deposit_manager"),
             # Lending protocol statistics
             "available_liquidity": available_liquidity,
             "utilisation": utilisation,

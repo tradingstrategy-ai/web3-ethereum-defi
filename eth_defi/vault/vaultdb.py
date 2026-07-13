@@ -121,6 +121,12 @@ class VaultRow(TypedDict):
     #: TypedDict when populated.
     _morpho_offchain_data: dict | None
 
+    #: Static two-way public vault transaction adapter support, or ``None``.
+    #:
+    #: This private scanner value is copied to ``deposit_manager`` in the JSON
+    #: export.  It is deliberately cleared when a rescan is broken.
+    _deposit_manager: dict | None
+
     #: Protocol-supplied vault manager or curator display name.
     #:
     #: Used by :py:func:`eth_defi.vault.curator.identify_curator` when the
@@ -289,6 +295,9 @@ class VaultDatabase:
                     new_row.get("Name"),
                     existing.get("Name"),
                 )
+                retained = existing.copy()
+                retained["_deposit_manager"] = None
+                self.rows[spec] = retained
                 continue
             self.rows[spec] = new_row
 

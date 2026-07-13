@@ -32,7 +32,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
 from eth_defi.utils import is_good_multichain_address
-from eth_defi.vault.deposit_redeem import VaultDepositManager
+from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManagerCapability
 from eth_defi.vault.lower_case_dict import LowercaseDict
 from eth_defi.version_info import stamp_parquet_schema_metadata
 
@@ -1119,6 +1119,20 @@ class VaultBase(ABC):
     def deposit_manager(self) -> VaultDepositManager:
         """Deposit manager assocaited with this vault"""
         return self.get_deposit_manager()
+
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability | None:
+        """Return static public transaction-adapter support, if any.
+
+        This method deliberately does not attempt to construct a manager or
+        query live pause, cap, epoch, balance, allow-list, or liquidity state.
+        Adapters opt in only after their complete deposit and redemption
+        lifecycles have focused coverage.  ``None`` is therefore the safe
+        default for unknown and protocol-specific vaults.
+
+        :return:
+            Adapter-specific capability object, or ``None`` when unsupported.
+        """
+        return None
 
     @abstractmethod
     def has_block_range_event_support(self) -> bool:
