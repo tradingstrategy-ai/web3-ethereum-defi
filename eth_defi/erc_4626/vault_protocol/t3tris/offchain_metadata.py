@@ -87,9 +87,10 @@ def _parse_vault_detail(raw: dict) -> T3trisVaultMetadata:
     """Parse vault metadata from the T3tris page endpoint.
 
     :param raw:
-        Raw JSON dict from ``/api/v1/pages/vault/{chainId}/{vaultAddress}``.
+        Raw JSON dict from ``/api/v1/pages/vault/{chainId}/{vaultAddress}``
+        or a single vault row from ``/api/v1/vaults``.
     """
-    vault = raw.get("vault") or {}
+    vault = raw.get("vault") or raw
     name = _normalise_optional_string(vault.get("displayName")) or _normalise_optional_string(vault.get("name")) or _normalise_optional_string(vault.get("onchainName")) or ""
     symbol = _normalise_optional_string(vault.get("displaySymbol")) or _normalise_optional_string(vault.get("symbol")) or _normalise_optional_string(vault.get("onchainSymbol"))
     attributes = vault.get("attributes")
@@ -110,6 +111,50 @@ def _parse_vault_detail(raw: dict) -> T3trisVaultMetadata:
         visibility=_normalise_optional_string(vault.get("visibility")),
         ipfs_hash=_normalise_optional_string(vault.get("ipfsHash")),
     )
+
+
+def _fetch_vaults_list_entry(
+    chain_id: int,
+    address: str,
+    api_base_url: str = DEFAULT_API_BASE_URL,
+) -> dict | None:
+    """Fetch a single vault row from T3tris' vault list endpoint.
+
+    :param chain_id:
+        EVM chain id.
+
+    :param address:
+        Vault contract address.
+
+    :param api_base_url:
+        T3tris API base URL.
+
+    :return:
+        Raw vault row, or ``None`` if the vault was not listed.
+    """
+    url = f"{api_base_url}/vaults"
+    address_lower = address.lower()
+    logger.debug("Fetching T3tris vault list from %s", url)
+    try:
+        resp = requests.get(url, timeout=30, headers={"Accept": "application/json"})
+        resp.raise_for_status()
+        payload = resp.json()
+    except (requests.RequestException, JSONDecodeError) as e:
+        logger.warning("Failed to fetch T3tris vault list for %s on chain %d: %s", address, chain_id, e)
+        return None
+
+    vaults = payload.get("vaults") if isinstance(payload, dict) else None
+    if not isinstance(vaults, list):
+        logger.warning("Unexpected T3tris vault list response shape: %s", type(payload))
+        return None
+
+    for item in vaults:
+        if not isinstance(item, dict):
+            continue
+        if item.get("chainId") == chain_id and str(item.get("address", "")).lower() == address_lower:
+            return item
+
+    return None
 
 
 def _fetch_vault_detail(
@@ -138,8 +183,8 @@ def _fetch_vault_detail(
         resp.raise_for_status()
         return resp.json()
     except (requests.RequestException, JSONDecodeError) as e:
-        logger.warning("Failed to fetch T3tris vault detail for %s on chain %d: %s", address, chain_id, e)
-        return None
+        logger.warning("Failed to fetch T3tris vault detail for %s on chain %d: %s; falling back to vault list", address, chain_id, e)
+        return _fetch_vaults_list_entry(chain_id, address, api_base_url=api_base_url)
 
 
 def fetch_t3tris_vault_metadata(

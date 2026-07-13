@@ -143,6 +143,15 @@ T3TRIS_VAULT_SNAPSHOT_JSON = """
       "createdAtTs": 1781468480,
       "curatorName": "First Capital",
       "verified": true
+    },
+    {
+      "chainId": 42161,
+      "address": "0xc84cc66300e70acd19500f639bcad7d7a8d34ba9",
+      "name": "Ellen Capital BTC",
+      "createdAtBlock": "481469145",
+      "createdAtTs": 1783458649,
+      "curatorName": null,
+      "verified": true
     }
   ]
 }
@@ -480,7 +489,16 @@ def should_refresh_metadata(vault_db: VaultDatabase, ref: T3trisVaultReference) 
     if row is None:
         return True
 
-    return is_broken_metadata_row(row)
+    if is_broken_metadata_row(row):
+        return True
+
+    expected_curator_name = (ref.curator_name or "").strip()
+    if expected_curator_name:
+        current_manager_name = (row.get("_manager_name") or "").strip()
+        if current_manager_name.casefold() != expected_curator_name.casefold():
+            return True
+
+    return False
 
 
 def upsert_metadata_row(web3: Web3, vault_db: VaultDatabase, token_cache: TokenDiskCache, ref: T3trisVaultReference, updated_at: datetime.datetime) -> bool:
