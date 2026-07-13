@@ -61,6 +61,7 @@ def test_summer_fi_protocol_vaults_are_blacklisted() -> None:
         ("0xfa17f7aadbfac2c5d3c8125555404c1ae17df853", "Morpho", VaultFlag.illiquid, "illiquid"),
         ("0xc5e7d3f76a03006540f17668a0267c668ffb5b75", "Liquity", VaultFlag.illiquid, "illiquid"),
         ("0x82c4c641ccc38719ae1f0fbd16a64808d838fdfd", "Morpho", VaultFlag.illiquid, "illiquid"),
+        ("0x7193794ec82f527efb618ac50c078d348ecba4b6", "Morpho", VaultFlag.illiquid, "illiquid"),
         ("0xed9278c5188f37670b33ef3b00729e38260cd5d5", "Euler", VaultFlag.illiquid, "illiquid"),
         ("0xcbc9b61177444a793b85442d3a953b90f6170b7d", "Euler", VaultFlag.illiquid, "illiquid"),
         ("0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29", "Altura", VaultFlag.controversial, "controversial"),

@@ -592,7 +592,9 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xa9a4bd976dbcfc2b89f554467ac85e2c758e2618": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Borrowable USDC Deposit, SiloId: 20 (Sonic)
     "0x322e1d5384aa4ed66aeca770b95686271de61dc3": (VaultFlag.illiquid, XUSD_MESSAGE),
-    # Etherealm USDC (Morpho on Ethereum)
+    # Etherealm USDC V1 (Morpho on Ethereum)
+    "0x7193794ec82f527efb618ac50c078d348ecba4b6": (VaultFlag.illiquid, ETHEREALM_USDC_ILLIQUID),
+    # Etherealm USDC V2 (Morpho on Ethereum)
     "0xb7305d968ecd8a23a13ec01927e3f9588c7653b5": (VaultFlag.illiquid, ETHEREALM_USDC_ILLIQUID),
     # Borrowable USDC Deposit, SiloId: 178 (Ethereum)
     "0x93c8201c35666f9af8b3b943bad67b42ad0159a1": (VaultFlag.illiquid, XUSD_MESSAGE),
