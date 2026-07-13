@@ -1,0 +1,21 @@
+feeder-id: piku
+name: Piku
+role: curator
+website: https://piku.co/
+twitter: PikuFinance
+short_description: Piku Finance brings global FX, arbitrage and carry opportunities on-chain through curated yield strategies.
+long_description: |
+  Piku Finance provides access to curated Ethereum vault strategies covering global FX arbitrage, basis trades and carry trades. Its USP yield-optimised stablecoin is governed by PikuDAO and starts backed by USD stablecoins, with backing diversified among on-chain and off-chain yield-generating assets.
+
+  For this integration, Piku is the curator for the published USP token and the three Morini Capital vaults. The USP workflow uses Inverter Protocol's modular contract infrastructure, while the Morini vaults are issued through Accountable and Midas infrastructure.
+
+# Evidence and background references.
+other-links:
+  - title: Piku Finance vaults - Ethereum Morini Capital FX arbitrage, basis-trade and carry-trade vaults
+    url: https://piku.co/vaults
+  - title: Piku documentation - USP yield-optimised stablecoin contract address
+    url: https://docs.piku.co/piku/piku/usp
+  - title: Piku documentation - USP workflow contracts built with Inverter Protocol infrastructure
+    url: https://docs.piku.co/piku/piku-platform/token-and-workflow-contracts
+  - title: Piku documentation - security audit reports
+    url: https://docs.piku.co/piku/piku-finance/security-and-risks/audits
