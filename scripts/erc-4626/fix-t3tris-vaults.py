@@ -20,7 +20,7 @@ remains scoped to those selected T3tris addresses.
 API documentation:
 
 - https://api.t3tris.finance/api/v1/vaults
-- https://api.t3tris.finance/api/v1/pages/vault/{chainId}/{vaultAddress}
+- https://api.t3tris.finance/api/v1/vaults/{chainId}/{vaultAddress}
 
 Usage:
 

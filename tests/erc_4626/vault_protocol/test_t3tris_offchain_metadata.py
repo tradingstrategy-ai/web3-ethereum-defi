@@ -47,13 +47,44 @@ def test_t3tris_metadata_parses_vault_list_row() -> None:
     assert metadata["symbol"] == "1ST-USDC"
 
 
-def test_t3tris_metadata_falls_back_to_vault_list(monkeypatch) -> None:
-    """Broken T3tris detail endpoint falls back to the vault list endpoint."""
+def test_t3tris_metadata_fetches_current_detail_endpoint(monkeypatch) -> None:
+    """T3tris metadata uses the detail endpoint used by the live web application."""
     calls: list[str] = []
 
     def fake_get(url: str, **_kwargs) -> _ResponseStub:
         calls.append(url)
-        if url.endswith("/pages/vault/42161/0x98e43a491a464f0886bc5e57207c340bbed0d01f"):
+        if url.endswith("/vaults/42161/0x98e43a491a464f0886bc5e57207c340bbed0d01f"):
+            return _ResponseStub(
+                {
+                    "vault": {
+                        "name": "First - USDC",
+                        "curatorName": "First Capital",
+                    }
+                }
+            )
+        raise AssertionError(f"Unexpected URL {url}")
+
+    monkeypatch.setattr(offchain_metadata.requests, "get", fake_get)
+
+    raw = offchain_metadata._fetch_vault_detail(
+        42161,
+        "0x98e43a491a464f0886bc5e57207c340bbed0d01f",
+    )
+
+    assert raw is not None
+    assert raw["vault"]["curatorName"] == "First Capital"
+    assert calls == [
+        "https://api.t3tris.finance/api/v1/vaults/42161/0x98e43a491a464f0886bc5e57207c340bbed0d01f",
+    ]
+
+
+def test_t3tris_metadata_falls_back_to_vault_list(monkeypatch) -> None:
+    """A broken T3tris detail endpoint falls back to the vault list endpoint."""
+    calls: list[str] = []
+
+    def fake_get(url: str, **_kwargs) -> _ResponseStub:
+        calls.append(url)
+        if url.endswith("/vaults/42161/0x98e43a491a464f0886bc5e57207c340bbed0d01f"):
             return _ResponseStub(should_fail=True)
         if url.endswith("/vaults"):
             return _ResponseStub(
@@ -80,6 +111,6 @@ def test_t3tris_metadata_falls_back_to_vault_list(monkeypatch) -> None:
     assert raw is not None
     assert raw["curatorName"] == "First Capital"
     assert calls == [
-        "https://api.t3tris.finance/api/v1/pages/vault/42161/0x98e43a491a464f0886bc5e57207c340bbed0d01f",
+        "https://api.t3tris.finance/api/v1/vaults/42161/0x98e43a491a464f0886bc5e57207c340bbed0d01f",
         "https://api.t3tris.finance/api/v1/vaults",
     ]
