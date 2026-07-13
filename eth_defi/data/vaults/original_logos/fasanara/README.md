@@ -9,7 +9,11 @@ Fasanara is the appointed strategy manager for Midas mF-ONE.
 
 - `fasanara.generic.png` — first-party Fasanara wordmark from the header of the official website, retrieved 2026-07-10.
   - Source: https://www.fasanara.com/_next/static/media/LOGO_FASANARA_RGB-13.1c6cfcdb.png
+- `fasanara.brandmark.png` — icon-only crop from the official Fasanara logo card
+  hosted on the Fasanara website.
 
 ## Notes
 
-- The source is a transparent 2531×326 wordmark. The formatted square icon is generated from it with the repository logo post-processing script.
+- The transparent wordmark is retained as a source reference. The formatted
+  square icon uses the standalone wave mark extracted from the official logo
+  card, rather than squeezing the wordmark into an icon slot.

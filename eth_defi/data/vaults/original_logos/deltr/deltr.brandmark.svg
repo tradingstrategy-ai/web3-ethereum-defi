@@ -1,0 +1,18 @@
+<svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="circleGradient" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse"
+      gradientTransform="translate(1581.27 1042.73) scale(3996.72)">
+      <stop stop-color="#0F172A" />
+      <stop offset="0.6" stop-color="#020617" />
+      <stop offset="1" />
+    </radialGradient>
+    <linearGradient id="triangleGradient" x1="7.325" y1="3.825" x2="42.675" y2="3.825" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE" />
+      <stop offset="0.9" stop-color="#F97316" />
+      <stop offset="1" stop-color="#FB923C" />
+    </linearGradient>
+  </defs>
+  <circle cx="25" cy="25" r="24.805" fill="url(#circleGradient)" stroke="#E5E7EB" stroke-width="0.35" />
+  <path d="M25 3.825L7.325 39.175H42.675L25 3.825Z" fill="url(#triangleGradient)" stroke="#E5E7EB" stroke-width="0.7"
+    stroke-linejoin="round" />
+</svg>

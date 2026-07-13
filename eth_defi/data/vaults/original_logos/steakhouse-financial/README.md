@@ -17,6 +17,6 @@
 
 ## Notes
 
-- The wordmark SVG was chosen as the generic variant for post-processing
-- The script inverts dark logos automatically, making the dark wordmark visible on dark backgrounds
+- The icon-only SVG is preferred for the formatted metadata logo; the wide
+  wordmark remains here as a source reference.
 - Post-processed to `formatted_logos/steakhouse-financial/generic.png` (256×256 PNG, transparent background)

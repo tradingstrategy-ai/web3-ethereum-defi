@@ -55,6 +55,9 @@ High-resolution @2x PNG versions (226x226px for symbols, 1405x226px for logos) a
 - **Symbol/icon**: `Symbol - Primary.svg` or `Symbol - Primary - Filled - Black.svg`
 - **Full logo**: `Logo - Primary.svg`
 
+The formatted metadata logos use the square symbol assets rather than the
+wide wordmark.
+
 ## Colour reference
 
 - **Primary**: Teal/cyan colour (#00C2A8 approximately)

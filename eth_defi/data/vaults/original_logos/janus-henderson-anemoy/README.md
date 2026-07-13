@@ -11,13 +11,16 @@
 | File | Description |
 |------|-------------|
 | `janus-henderson-anemoy.generic.png` | Anemoy wordmark PNG downloaded from the anemoy.io Webflow CDN. White logotype on transparent background, 2505×511 px, RGBA. |
+| `janus-henderson-anemoy.brandmark.png` | Square Anemoy brandmark from the official Webflow webclip asset, 256×256 RGBA PNG. |
 
 ## Notes
 
 - Anemoy is the tokenised fund issuer affiliated with Janus Henderson.
 - Preferred Anemoy branding over Janus Henderson branding as the on-chain product is under the Anemoy name.
 - Source URL: `https://cdn.prod.website-files.com/64c27655f6c395d4c6a0ed33/64ff550a60f502cae78bc526_anemoy-logo.png`
-- No standalone SVG or icon-only file was found on the website.
+- The webclip is the standalone icon-only source used for the formatted logo;
+  the wide wordmark remains here as a source reference.
+- Webclip source URL: `https://cdn.prod.website-files.com/64c27655f6c395d4c6a0ed33/64c397703b98e1ea0767c55e_webclip.png`
 
 ## Extraction date
 
