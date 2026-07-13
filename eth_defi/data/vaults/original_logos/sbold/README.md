@@ -11,6 +11,8 @@ Logos extracted from the K3 Capital website (https://www.k3.capital/) on 2026-02
 | `k3-logo-light.svg` | K3 Capital wordmark - light (white) text on transparent background | 1282x362 | Website header |
 | `k3-logo.svg` | K3 Capital wordmark - generic version | 1282x362 | Website footer |
 | `sbold.twitter.jpg` | K3 Capital Twitter avatar | 224x224 | Twitter @k3_capital |
+| `k3-capital.brandmark.light.png` | Cropped K3 icon from the official light wordmark | 362x362 | Website header |
+| `k3-capital.brandmark.dark.png` | Cropped K3 icon from the official dark wordmark | 362x362 | Website footer |
 
 ## Notes
 
@@ -19,6 +21,9 @@ Logos extracted from the K3 Capital website (https://www.k3.capital/) on 2026-02
 - The brand mark (icon only) appears to be the "K3" stylised square in the left portion of the logo
 - Light version has white fill, suitable for dark backgrounds
 - No official brand kit or press page was found on the website
+
+The formatted `k3-capital` logos use the cropped K3 icon, not the full
+wordmark, so curator list tiles remain legible at small sizes.
 
 ## Source URLs
 
