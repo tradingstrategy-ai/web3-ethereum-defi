@@ -5,9 +5,12 @@ Anvil-fork deposit probes. It is package data, like ABI files: consumers can
 read the evidence shipped with a release without depending on an operator's
 home-directory state.
 
-Each row records a vault, its manager capability, the fork block, the outcome,
-and any relevant failure details. It never contains private keys, upstream
-transaction hashes, or transaction hashes from temporary Anvil chains.
+Each row records a vault, its manager capability, the outcome, and any relevant
+failure details. Every successful current result includes the positive integer
+Anvil fork block used for the attempt. A legacy success without this evidence
+is automatically invalidated on the next refresh. The file never contains
+private keys, upstream transaction hashes, or transaction hashes from
+temporary Anvil chains.
 
 ## Refreshing the snapshot
 
@@ -43,9 +46,17 @@ poetry run python scripts/erc-4626/probe-vault-deposits.py
 
 Review the resulting JSON and its Git diff before committing. `success` means
 the configured `SimpleVaultV0` completed a guarded deposit on the ephemeral
-fork; it is not a live-chain transaction. `funding_error` and `rpc_error` are
-infrastructure findings, not protocol incompatibility. `reverted` means the
-guarded deposit transaction was attempted and did not succeed.
+fork. For a synchronous manager, it also completed a guarded redemption and
+received denomination tokens back. Asynchronous redemption is recorded as not
+exercised because it needs a later protocol settlement. A success is not a
+live-chain transaction. `funding_error` and `rpc_error` are infrastructure
+findings, not protocol incompatibility. `reverted` means a guarded deposit or
+synchronous redemption transaction was attempted and did not succeed.
+
+Before committing a refreshed artefact, verify that no successful current row
+has a missing or non-integer `fork_block_number`. The writer rejects such new
+successes; this separate review also catches hand-edited or externally supplied
+files.
 
 The `max_deposit_guidance` field and the terminal `maxDeposit guidance` column
 are informational only. ERC-4626 permits conservative `maxDeposit` values, and

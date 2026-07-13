@@ -5,7 +5,7 @@ deposit request from ``SimpleVaultV0`` through its ``GuardV0``.  It never uses a
 private key supplied by an operator and never targets an upstream RPC endpoint.
 
 Large all-protocol runs are intentionally long-lived: each candidate deploys
-and exercises contracts on an isolated Anvil snapshot. Interactive runners
+and exercises contracts on a fresh Anvil fork. Interactive runners
 must run bounded protocol batches and resume from the durable status file,
 rather than imposing one short wall-clock timeout on the complete sweep.
 """
@@ -34,7 +34,7 @@ from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.hotwallet import HotWallet
-from eth_defi.provider.anvil import fork_network_anvil, fund_erc20_on_anvil, is_anvil, revert, set_balance, snapshot
+from eth_defi.provider.anvil import fork_network_anvil, fund_erc20_on_anvil, is_anvil, set_balance
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
@@ -53,6 +53,7 @@ ProbeResult = dict[str, object]
 #: Expected Anvil, RPC, and contract errors from an individual probe attempt.
 PROBE_EXECUTION_EXCEPTIONS = (
     ConnectionError,
+    RuntimeError,
     TimeoutError,
     RequestException,
     ValueError,
@@ -254,11 +255,19 @@ def select_candidates(
         if not vault_ids:
             raise ValueError("vault_ids selection requires VAULT_IDS")  # noqa: EM101
         seen: set[VaultSpec] = set()
+        missing: list[VaultSpec] = []
         for item in vault_ids.split(","):
             spec = VaultSpec.parse_string(item.strip(), separator="-")
-            if spec not in seen and spec in rows:
-                selected.append((spec, rows[spec]))
-                seen.add(spec)
+            if spec in seen:
+                continue
+            seen.add(spec)
+            if spec not in rows:
+                missing.append(spec)
+                continue
+            selected.append((spec, rows[spec]))
+        if missing:
+            missing_ids = ", ".join(spec.as_string_id() for spec in missing)
+            raise ValueError(f"VAULT_IDS entries are missing from the vault database: {missing_ids}")
     else:
         raise ValueError("VAULT_SELECTION must be min_tvl, protocol, all_protocols, or vault_ids")  # noqa: EM101
 
@@ -288,6 +297,45 @@ def select_candidates(
     return candidates
 
 
+def _normalise_legacy_status(state: dict[str, object]) -> dict[str, object]:
+    """Invalidate legacy successes that do not identify their fork block.
+
+    Older probe versions persisted successful outcomes without enough evidence
+    to reproduce the tested chain state. Their complete records remain in the
+    bounded history, while the current outcome fails closed until refreshed.
+
+    :param state:
+        Valid schema-versioned status state.
+    :return:
+        The same state with unverifiable current successes invalidated.
+    :raises ValueError:
+        If an individual vault record is malformed.
+    """
+    vaults = state["vaults"]
+    assert isinstance(vaults, dict)
+    for key, current in tuple(vaults.items()):
+        if not isinstance(current, dict):
+            raise ValueError(f"Malformed vault deposit status record: {key}")
+        fork_block_number = current.get("fork_block_number")
+        valid_fork_block = isinstance(fork_block_number, int) and not isinstance(fork_block_number, bool) and fork_block_number > 0
+        if current.get("outcome") != "success" or valid_fork_block:
+            continue
+        history = list(current.get("history", []))
+        history.append({field: value for field, value in current.items() if field != "history"})
+        identity_fields = ("chain_id", "address", "name", "protocol", "last_attempt_at")
+        invalidated = {field: current[field] for field in identity_fields if field in current}
+        invalidated.update(
+            {
+                "outcome": "invalid_evidence",
+                "message": "Legacy success did not record a valid Anvil fork block; refresh required",
+                "attempt_count": int(current.get("attempt_count", 0)),
+                "history": history[-10:],
+            }
+        )
+        vaults[key] = invalidated
+    return state
+
+
 def _load_status(path: Path) -> dict[str, object]:
     """Load valid local probe state without silently replacing it.
 
@@ -304,14 +352,15 @@ def _load_status(path: Path) -> dict[str, object]:
         state = json.load(f)
     if not isinstance(state, dict) or state.get("schema_version") != STATUS_SCHEMA_VERSION or not isinstance(state.get("vaults"), dict):
         raise ValueError(f"Unsupported or malformed vault deposit status file: {path}")
-    return state
+    return _normalise_legacy_status(state)
 
 
 def update_status(path: Path, key: str, result: ProbeResult) -> None:
-    """Atomically merge one durable, hash-free probe result into local state.
+    """Atomically store one durable, hash-free probe result in local state.
 
-    Re-reading under the lock preserves concurrent writers and unrecognised
-    state fields from later schema versions.
+    Re-reading under the lock preserves concurrent writers. Current-attempt
+    fields are rebuilt from ``result`` so evidence from an older attempt cannot
+    leak into a later failure or success.
 
     :param path:
         Status-file destination.
@@ -319,7 +368,13 @@ def update_status(path: Path, key: str, result: ProbeResult) -> None:
         Canonical vault key.
     :param result:
         Current attempt result without fork-local transaction identifiers.
+    :raises ValueError:
+        If a successful result does not identify a positive integer fork block.
     """
+    if result.get("outcome") == "success":
+        fork_block_number = result.get("fork_block_number")
+        if not isinstance(fork_block_number, int) or isinstance(fork_block_number, bool) or fork_block_number <= 0:
+            raise ValueError("Successful probe result must contain a positive integer fork_block_number")  # noqa: EM101
     path = path.expanduser().absolute()
     with wait_other_writers(path):
         state = _load_status(path)
@@ -327,8 +382,8 @@ def update_status(path: Path, key: str, result: ProbeResult) -> None:
         history = list(existing.get("history", []))
         if existing:
             history.append({k: v for k, v in existing.items() if k != "history"})
-        merged = {**existing, **result, "attempt_count": int(existing.get("attempt_count", 0)) + 1, "history": history[-10:]}
-        state["vaults"][key] = merged
+        current = {**result, "attempt_count": int(existing.get("attempt_count", 0)) + 1, "history": history[-10:]}
+        state["vaults"][key] = current
         state["updated_at"] = _timestamp()
         temporary = path.with_suffix(path.suffix + ".tmp")
         with temporary.open("w", encoding="utf-8") as f:
@@ -546,7 +601,35 @@ def probe_candidate(  # noqa: PLR0914
         shares = vault.vault_contract.functions.balanceOf(simple_vault.address).call()
         if shares <= 0:
             return {**result, "outcome": "adapter_error", "message": "No shares minted to SimpleVaultV0"}
-        result["share_balance_raw"] = str(shares)
+        result["minted_share_amount_raw"] = str(shares)
+        denomination_before_redemption = token.fetch_raw_balance_of(simple_vault.address)
+        try:
+            if isinstance(manager, ERC4626DepositManager):
+                redemption = manager.create_redemption_request(owner=simple_vault.address, raw_shares=shares)
+            else:
+                redemption = manager.create_redemption_request(
+                    owner=simple_vault.address,
+                    shares=vault.share_token.convert_to_decimals(shares),
+                )
+            encoded_redemptions = [encode_simple_vault_transaction(function) for function in redemption.funcs]
+            for target, calldata in encoded_redemptions:
+                guard.functions.validateCall(control.address, target, calldata).call()
+        except (*PROBE_EXECUTION_EXCEPTIONS, AssertionError) as e:
+            return {**result, "outcome": "guard_validation_error", "message": f"Synchronous redemption validation failed: {e}"}
+        try:
+            for target, calldata in encoded_redemptions:
+                _broadcast(control, simple_vault.functions.performCall(target, calldata), web3)
+        except (*PROBE_EXECUTION_EXCEPTIONS, AnvilProbeTransactionError) as e:
+            return {**result, "outcome": "reverted", "message": f"Synchronous redemption failed: {e}", "revert_reason": str(e)}
+        remaining_shares = vault.vault_contract.functions.balanceOf(simple_vault.address).call()
+        denomination_after_redemption = token.fetch_raw_balance_of(simple_vault.address)
+        if remaining_shares >= shares:
+            return {**result, "outcome": "adapter_error", "message": "Synchronous redemption did not reduce the SimpleVaultV0 share balance"}
+        if denomination_after_redemption <= denomination_before_redemption:
+            return {**result, "outcome": "adapter_error", "message": "Synchronous redemption returned no denomination tokens to SimpleVaultV0"}
+        result["redeemed_asset_amount_raw"] = str(denomination_after_redemption - denomination_before_redemption)
+        result["remaining_share_amount_raw"] = str(remaining_shares)
+        result["redemption_status_detail"] = "completed"
     else:
         try:
             ticket = request.parse_deposit_transaction(request_hashes)
@@ -560,6 +643,7 @@ def probe_candidate(  # noqa: PLR0914
         request_id = getattr(ticket, "request_id", getattr(ticket, "settlement_id", None))
         logger.info("Fork-local async request id for %s: %s", candidate.key, request_id)
         result["status_detail"] = "deposit_request_submitted"
+        result["redemption_status_detail"] = "not_exercised_asynchronous"
 
     if token.fetch_raw_balance_of(control.address) != 0 or vault.vault_contract.functions.balanceOf(control.address).call() != 0:
         return {**result, "outcome": "adapter_error", "message": "Control wallet received vault assets or shares"}
@@ -570,11 +654,11 @@ def run_from_environment() -> int:
     """Run the guarded Anvil probe configured through environment variables.
 
     Candidate selection comes from the local vault database. The function
-    launches one isolated fork per chain, reverts every vault attempt, and
-    stores the durable result after each attempt. All-protocol runs can take a
-    long time; interactive callers should invoke bounded protocol batches and
-    resume using the status file instead of terminating the complete sweep
-    early.
+    launches one isolated fork per vault and stores the durable result after
+    each attempt. A fresh process prevents one blocked upstream state read from
+    contaminating later candidates. All-protocol runs can take a long time;
+    interactive callers should invoke bounded protocol batches and resume
+    using the status file instead of terminating the complete sweep early.
 
     :return:
         Process exit status ``0`` after all selected chain batches finish.
@@ -592,7 +676,9 @@ def run_from_environment() -> int:
     chain_id_text = os.environ.get("CHAIN_ID")
     chain_id = int(chain_id_text) if chain_id_text else None
     denomination = os.environ.get("DENOMINATION_TOKEN")
-    denomination_address = Web3.to_checksum_address(denomination) if denomination and Web3.is_address(denomination) else None
+    if denomination and not Web3.is_address(denomination):
+        raise ValueError(f"DENOMINATION_TOKEN is not a valid address: {denomination}")
+    denomination_address = Web3.to_checksum_address(denomination) if denomination else None
     candidates = select_candidates(
         VaultDatabase.read(database_path),
         selection=selection,
@@ -606,48 +692,47 @@ def run_from_environment() -> int:
     )
     if max_vaults > 0 and selection != "all_protocols":
         candidates = candidates[:max_vaults]
+    if not candidates:
+        raise ValueError("Vault selection produced no deposit-capable candidates")  # noqa: EM101
     if len(candidates) > 1 and os.environ.get("CONFIRM_ALL", "").lower() != "true":
         raise RuntimeError("Set CONFIRM_ALL=true to run a multi-vault probe")  # noqa: EM101
     amount = _read_decimal_env("DEPOSIT_AMOUNT")
 
-    grouped: dict[int, list[VaultDepositProbeCandidate]] = defaultdict(list)
-    for candidate in candidates:
-        grouped[candidate.spec.chain_id].append(candidate)
     output_rows: list[VaultDepositProbeOutput] = []
-    for chain_id, chain_candidates in grouped.items():
-        launch = fork_network_anvil(read_json_rpc_url(chain_id))
+    for candidate in candidates:
+        candidate_chain_id = candidate.spec.chain_id
+        launch = None
+        fork_block_number = None
         try:
+            launch = fork_network_anvil(read_json_rpc_url(candidate_chain_id))
             web3 = Web3(HTTPProvider(launch.json_rpc_url))
-            _assert_anvil_target(web3, launch.json_rpc_url, chain_id)
-            if launch.chain_id != chain_id:
-                raise RuntimeError(f"Anvil launch chain id {launch.chain_id} does not match {chain_id}")
-            for candidate in chain_candidates:
-                attempt_snapshot = snapshot(web3)
-                try:
-                    fork_block_number = launch.fork_block_number or web3.eth.block_number
-                    result = probe_candidate(web3, candidate, amount, fork_block_number)
-                except PROBE_EXECUTION_EXCEPTIONS as e:
-                    logger.exception("Probe failed for %s", candidate.key)
-                    result = {"outcome": "rpc_error", "message": str(e)}
-                finally:
-                    if not revert(web3, attempt_snapshot):
-                        raise RuntimeError("Anvil snapshot restoration failed; aborting contaminated chain")  # noqa: EM101
-                result.update({"chain_id": chain_id, "address": candidate.spec.vault_address, "name": candidate.row.get("Name"), "protocol": candidate.row.get("Protocol"), "last_attempt_at": _timestamp()})
-                update_status(status_path, candidate.key, result)
-                output_rows.append(
-                    VaultDepositProbeOutput(
-                        protocol=str(candidate.row.get("Protocol", "<unknown>")),
-                        address=candidate.spec.vault_address,
-                        name=str(candidate.row.get("Name", "")),
-                        denomination_token=candidate.denomination_token_label,
-                        outcome=str(result["outcome"]),
-                        status="Ok (generic ERC-4626)" if result["outcome"] == "success" and result.get("deposit_manager_source") == "generic_erc4626" else "Ok" if result["outcome"] == "success" else str(result["outcome"]),
-                        max_deposit_guidance=str(result.get("max_deposit_guidance", "not available")),
-                        failure_reason=str(result["message"]) if result.get("message") else None,
-                        revert_reason=str(result["revert_reason"]) if result.get("revert_reason") else None,
-                    )
-                )
+            _assert_anvil_target(web3, launch.json_rpc_url, candidate_chain_id)
+            if launch.chain_id != candidate_chain_id:
+                raise RuntimeError(f"Anvil launch chain id {launch.chain_id} does not match {candidate_chain_id}")
+            fork_block_number = launch.fork_block_number or web3.eth.block_number
+            result = probe_candidate(web3, candidate, amount, fork_block_number)
+        except PROBE_EXECUTION_EXCEPTIONS as e:
+            logger.exception("Probe failed for %s", candidate.key)
+            result = {"outcome": "rpc_error", "message": str(e)}
         finally:
-            launch.close()
+            if launch is not None:
+                launch.close()
+        if fork_block_number is not None:
+            result.setdefault("fork_block_number", fork_block_number)
+        result.update({"chain_id": candidate_chain_id, "address": candidate.spec.vault_address, "name": candidate.row.get("Name"), "protocol": candidate.row.get("Protocol"), "last_attempt_at": _timestamp()})
+        update_status(status_path, candidate.key, result)
+        output_rows.append(
+            VaultDepositProbeOutput(
+                protocol=str(candidate.row.get("Protocol", "<unknown>")),
+                address=candidate.spec.vault_address,
+                name=str(candidate.row.get("Name", "")),
+                denomination_token=candidate.denomination_token_label,
+                outcome=str(result["outcome"]),
+                status="Ok (generic ERC-4626)" if result["outcome"] == "success" and result.get("deposit_manager_source") == "generic_erc4626" else "Ok" if result["outcome"] == "success" else str(result["outcome"]),
+                max_deposit_guidance=str(result.get("max_deposit_guidance", "not available")),
+                failure_reason=str(result["message"]) if result.get("message") else None,
+                revert_reason=str(result["revert_reason"]) if result.get("revert_reason") else None,
+            )
+        )
     log_probe_tables(output_rows)
     return 0

@@ -1279,11 +1279,16 @@ JSON_RPC_URL=$JSON_RPC_BASE poetry run python scripts/erc-4626/erc-4626-deposit-
 ### probe-vault-deposits.py
 
 Probe public vault deposit adapters through a freshly deployed
-``SimpleVaultV0`` and its ``GuardV0`` on an Anvil fork. The control wallet is
-ephemeral and pays only gas. The script uses Anvil's ERC-20 storage deal to
-fund the SimpleVault with the denomination token; resulting shares or async
-requests belong to that SimpleVault. The script never broadcasts to the source
-RPC and refuses to run unless ``SIMULATE=true``. The detailed table records
+``SimpleVaultV0`` and its ``GuardV0`` on an Anvil fork. Synchronous adapters
+must also redeem the minted shares through the same guard before the attempt
+is successful; asynchronous redemption remains a separately documented,
+unexercised lifecycle. The control wallet is ephemeral and pays only gas. The
+script uses Anvil's ERC-20 storage deal to fund the SimpleVault with the
+denomination token; resulting shares or async requests belong to that
+SimpleVault. Each candidate receives a fresh Anvil process so a blocked
+upstream state read cannot contaminate the next attempt. The script never
+broadcasts to the source RPC and refuses to run unless ``SIMULATE=true``. The
+detailed table records
 each ERC-4626 ``maxDeposit(address(0))`` response in its **maxDeposit
 guidance** column, but this advisory value never determines whether a vault is
 tested or marked depositable; only the guarded deposit transaction does. This

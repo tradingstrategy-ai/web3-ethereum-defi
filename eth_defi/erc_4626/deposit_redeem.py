@@ -2,6 +2,7 @@
 
 import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from eth_typing import BlockIdentifier, HexAddress
 from hexbytes import HexBytes
@@ -13,6 +14,9 @@ from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.trade import TradeFail, TradeSuccess
 from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis, DepositRedeemEventFailure, DepositRequest, DepositTicket, RedemptionRequest, RedemptionTicket, VaultDepositManager
+
+if TYPE_CHECKING:
+    from eth_defi.erc_4626.vault import ERC4626Vault
 
 
 class ERC4626DepositTicket(DepositRequest):
@@ -40,7 +44,7 @@ class ERC4626RedemptionRequest(RedemptionRequest):
 class ERC4626DepositManager(VaultDepositManager):
     """Abstraction over different deposit/redeem flows of vaults."""
 
-    def __init__(self, vault: "eth_defi.erc_4626.vault.ERC4626Vault"):
+    def __init__(self, vault: "ERC4626Vault"):
         from eth_defi.erc_4626.vault import ERC4626Vault
 
         assert isinstance(vault, ERC4626Vault), f"Got {type(vault)}"
@@ -84,7 +88,7 @@ class ERC4626DepositManager(VaultDepositManager):
         check_max_deposit=True,
         check_enough_token=True,
     ) -> ERC4626RedemptionRequest:
-        assert not raw_shares, f"Unsupported raw_shares={raw_shares}"
+        assert raw_shares or shares, "Either raw_shares or shares must be supplied"
         assert not to, f"Unsupported to={to}"
 
         if not raw_shares:

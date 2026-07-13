@@ -2625,6 +2625,7 @@ def format_lifetime_table(
     # Offchain descriptions and protocol extension data are exported via JSON API, not human-readable table
     _del("description")
     _del("short_description")
+    _del("deposit_manager")
     _del("other_data")
     _del("core3")
     _del("denomination_token_rate")

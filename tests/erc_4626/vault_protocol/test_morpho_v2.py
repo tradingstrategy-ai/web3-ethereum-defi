@@ -103,15 +103,17 @@ def test_morpho_v2_vault(
     assert deposit_next is None
     assert redemption_next is None
 
-    # Check maxDeposit and maxRedeem with address(0)
-    # Morpho uses these as global availability checks
+    # Read the conservative ERC-4626 guidance values without treating them as
+    # global availability checks.
     max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
     max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
     assert max_deposit >= 0
     assert max_redeem >= 0
 
-    # Morpho V2 supports address(0) checks for global deposit/redemption availability
-    assert vault.can_check_redeem() is True
+    # Morpho V2 always reports zero for address(0), so the adapter cannot infer
+    # whether this account can currently redeem.
+    assert vault.can_check_redeem() is False
+    assert redemption_reason is None
 
     # Test lending protocol identification
     assert is_lending_protocol(vault.features) is True

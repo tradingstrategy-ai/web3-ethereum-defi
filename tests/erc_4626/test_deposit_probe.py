@@ -7,7 +7,9 @@ from decimal import Decimal
 import pytest
 from hexbytes import HexBytes
 
-from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositProbeCandidate, VaultDepositProbeOutput, fetch_max_deposit_guidance, log_probe_tables, require_simulation, select_candidates, update_status
+import eth_defi.erc_4626.deposit_redeem as erc_4626_deposit_redeem
+from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositProbeCandidate, VaultDepositProbeOutput, fetch_max_deposit_guidance, log_probe_tables, require_simulation, run_from_environment, select_candidates, update_status
+from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionTicket
 from eth_defi.erc_4626.vault_protocol.summer.vault import SummerVault
@@ -94,6 +96,20 @@ def test_max_deposit_guidance_is_reported_without_deciding_generic_support() -> 
     assert vault.supports_generic_deposit_manager() is True
 
 
+def test_generic_redemption_manager_accepts_raw_shares(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The probe can redeem its exact minted share balance without a decimal read."""
+    vault = object.__new__(ERC4626Vault)
+    manager = ERC4626DepositManager(vault)
+    function = object()
+    monkeypatch.setattr(erc_4626_deposit_redeem, "redeem_4626", lambda *args, **kwargs: function)
+    request = manager.create_redemption_request(
+        owner="0x0000000000000000000000000000000000000001",
+        raw_shares=123,
+    )
+    assert request.raw_shares == 123
+    assert request.funcs == [function]
+
+
 def test_probe_requires_explicit_simulation(monkeypatch: pytest.MonkeyPatch) -> None:
     """The script refuses before any provider can be constructed."""
     monkeypatch.delenv("SIMULATE", raising=False)
@@ -140,6 +156,13 @@ def test_select_candidates_deduplicates_explicit_ids_and_requires_capability() -
         vault_ids=f"{first.as_string_id()},{first.as_string_id()},{second.as_string_id()}",
     )
     assert [candidate.spec for candidate in candidates] == [first]
+
+
+def test_select_candidates_rejects_unknown_explicit_ids() -> None:
+    """An explicit typo must not degrade into a partial or empty probe run."""
+    missing = VaultSpec(8453, "0x0000000000000000000000000000000000000001")
+    with pytest.raises(ValueError, match="missing from the vault database"):
+        select_candidates(VaultDatabase(rows={}), selection="vault_ids", vault_ids=missing.as_string_id())
 
 
 def test_protocol_candidates_are_ranked_by_nav_and_chain_filter() -> None:
@@ -218,17 +241,38 @@ def test_all_protocols_limits_each_protocol_by_top_nav() -> None:
 
 
 def test_probe_status_is_atomic_and_never_requires_transaction_hashes(tmp_path) -> None:
-    """Persistent status keeps bounded history without fork transaction data."""
+    """Persistent status keeps bounded history without stale attempt fields."""
     path = tmp_path / "vault-deposit-status.json"
     key = "8453-0x0000000000000000000000000000000000000001"
-    update_status(path, key, {"chain_id": 8453, "address": key.split("-", 1)[1], "outcome": "success"})
-    update_status(path, key, {"chain_id": 8453, "address": key.split("-", 1)[1], "outcome": "reverted"})
+    address = key.split("-", 1)[1]
+    update_status(path, key, {"chain_id": 8453, "address": address, "outcome": "success", "fork_block_number": 123, "execution_mode": "guarded", "minted_share_amount_raw": "10"})
+    update_status(path, key, {"chain_id": 8453, "address": address, "outcome": "reverted", "revert_reason": "paused"})
     data = json.loads(path.read_text())
     assert data["schema_version"] == 1
     assert data["vaults"][key]["outcome"] == "reverted"
+    assert "execution_mode" not in data["vaults"][key]
+    assert "minted_share_amount_raw" not in data["vaults"][key]
     assert data["vaults"][key]["attempt_count"] == len(data["vaults"][key]["history"]) + 1
     assert data["vaults"][key]["history"][0]["outcome"] == "success"
     assert "transaction_hash" not in data["vaults"][key]
+    update_status(path, key, {"chain_id": 8453, "address": address, "outcome": "success", "fork_block_number": 124})
+    data = json.loads(path.read_text())
+    assert data["vaults"][key]["outcome"] == "success"
+    assert "revert_reason" not in data["vaults"][key]
+
+
+def test_successful_probe_status_requires_fork_block(tmp_path) -> None:
+    """A success without reproducible fork evidence fails closed."""
+    with pytest.raises(ValueError, match="fork_block_number"):
+        update_status(tmp_path / "status.json", "8453-0x1", {"outcome": "success", "fork_block_number": None})
+
+
+def test_invalid_denomination_filter_is_rejected_before_database_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A malformed token filter cannot silently broaden selection."""
+    monkeypatch.setenv("SIMULATE", "true")
+    monkeypatch.setenv("DENOMINATION_TOKEN", "not-an-address")
+    with pytest.raises(ValueError, match="DENOMINATION_TOKEN is not a valid address"):
+        run_from_environment()
 
 
 def test_probe_logs_detailed_and_summary_tables(caplog: pytest.LogCaptureFixture) -> None:
