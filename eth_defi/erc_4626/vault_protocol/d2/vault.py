@@ -126,6 +126,14 @@ D2_VAULT_ADDRESSES: set[str] = {
     "0xfddd73ecd0d0d75e902a567811a70e167a262fab",
 }
 
+#: D2 Finance strategy page for every known D2 vault.
+#:
+#: Keep native vault links on D2's own website. Trading Strategy page links
+#: are generated separately by the vault metrics reporting layer.
+D2_VAULT_LINK_MATRIX: dict[str, str] = {
+    **{address: D2_STRATEGY_URL_TEMPLATE.format(address=address) for address in D2_VAULT_ADDRESSES},
+}
+
 
 def format_d2_strategy_url(address: HexAddress | str) -> str:
     """Format a D2 Finance strategy page URL.
@@ -333,6 +341,23 @@ class D2Vault(ERC4626Vault):
 
     def get_historical_reader(self, stateful) -> VaultHistoricalReader:
         return D2HistoricalReader(self, stateful)
+
+    def get_link(self, referral: str | None = None) -> str:  # noqa: ARG002
+        """Get the canonical public page for this D2 vault.
+
+        The matrix keeps every native vault link on D2 Finance's strategy
+        pages. Trading Strategy links are exported separately by the vault
+        metrics reporting layer.
+
+        :param referral:
+            Unused because neither supported D2 destination accepts a referral
+            parameter.
+
+        :return:
+            D2 Finance strategy page URL.
+        """
+        address = self.address.lower()
+        return D2_VAULT_LINK_MATRIX.get(address, format_d2_strategy_url(address))
 
     def get_notes(self) -> str | None:
         """Get D2-specific vault notes.
