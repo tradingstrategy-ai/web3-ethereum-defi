@@ -101,6 +101,11 @@ class ERC4626Feature(enum.Enum):
     #: https://astrolab.fi/
     astrolab_like = "astrolab_like"
 
+    #: KiloEx Hybrid Vault.
+    #:
+    #: https://www.kiloex.io/
+    kiloex_like = "kiloex_like"
+
     #: Gains network and Ostium
     #: gToken vaults
     #: https://github.com/GainsNetwork
@@ -812,6 +817,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Astrolab"
     elif ERC4626Feature.baklava_space_like in features:
         return "Baklava"
+    elif ERC4626Feature.kiloex_like in features:
+        return "KiloEx"
     elif ERC4626Feature.domination_finance_like in features:
         return "Domination Finance"
     elif ERC4626Feature.gains_like in features:

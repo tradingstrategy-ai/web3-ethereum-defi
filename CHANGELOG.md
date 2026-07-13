@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add KiloEx Hybrid Vault protocol support with hardcoded BNB Chain and Base deployment detection (2026-07-13)
 - feat: Add Midas strategy curator attribution for Fasanara, Apollo Crypto and Edge Capital vault products (2026-07-10)
 - feat: Add Tempo chain metadata, Hypersync lookup, vault scanner scheduling and Docker RPC wiring (2026-07-10)
 - feat: Add USDU Finance stablecoin metadata, Ethereum deployment, feed registration and symbol classification (2026-07-11)

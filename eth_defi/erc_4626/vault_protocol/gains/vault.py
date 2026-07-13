@@ -52,6 +52,45 @@ from eth_defi.vault.risk import VaultTechnicalRisk
 logger = logging.getLogger(__name__)
 
 
+GTRADE_VAULT_APP_URL = "https://gains.trade/vault"
+
+#: Current gTrade vault addresses checked from the Trading Strategy public
+#: vault export on 2026-07-13.
+GTRADE_VAULT_ADDRESSES: set[str] = {
+    "0x1e98b6143a4eaf78ab63de8ea8186eec3dbe5edc",
+    "0x29019fe2e72e8d4d2118e8d0318bef389ffe2c81",
+    "0x46344456f130e9dcdea7f98cdb0e02fb9f4ab72d",
+    "0x91993f2101cc758d0deb7279d41e880f7defe827",
+    "0x992eb7040b66b13abea94e2621d4e61d5ce608bd",
+    "0xad20523a7dc37babc1cc74897e4977232b3d02e5",
+    "0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0",
+    "0xd85e038593d7a098614721eae955ec2022b9b91b",
+    "0xfb34af2138280e13b0759fd322fe63fccc7508a6",
+}
+
+#: Native gTrade pages for every currently known gTrade vault.
+#:
+#: ``gUSDC``, ``gDAI``, and ``gUSDM`` have token-specific pages. The other
+#: gTrade vault tokens do not currently expose individual official URLs, so
+#: they deliberately use the verified native gTrade vault application instead
+#: of a fabricated token route.
+GTRADE_VAULT_LINK_MATRIX: dict[str, str] = {
+    # gUSDC
+    "0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0": "https://gains.trade/vaults/gUSDC",
+    "0xad20523a7dc37babc1cc74897e4977232b3d02e5": "https://gains.trade/vaults/gUSDC",
+    "0x29019fe2e72e8d4d2118e8d0318bef389ffe2c81": "https://gains.trade/vaults/gUSDC",
+    # gDAI
+    "0xd85e038593d7a098614721eae955ec2022b9b91b": "https://gains.trade/vaults/gDAI",
+    "0x91993f2101cc758d0deb7279d41e880f7defe827": "https://gains.trade/vaults/gDAI",
+    # gUSDM
+    "0x46344456f130e9dcdea7f98cdb0e02fb9f4ab72d": "https://gains.trade/vaults/gUSDM",
+    # hsUSD1, mUSDC, and X-Solaris USD
+    "0x1e98b6143a4eaf78ab63de8ea8186eec3dbe5edc": GTRADE_VAULT_APP_URL,
+    "0x992eb7040b66b13abea94e2621d4e61d5ce608bd": GTRADE_VAULT_APP_URL,
+    "0xfb34af2138280e13b0759fd322fe63fccc7508a6": GTRADE_VAULT_APP_URL,
+}
+
+
 class OstiumVersion(enum.Enum):
     """Ostium vault implementation version.
 
@@ -327,6 +366,22 @@ class GainsVault(ERC4626Vault):
     @property
     def name(self) -> str:
         return f"gTrade ({super().name})"
+
+    def get_link(self, referral: str | None = None) -> str:
+        """Get the official gTrade page for a known gTrade vault.
+
+        The matrix distinguishes token-specific pages from the native vault
+        application used for tokens without a published individual route.
+        Gains-like protocols such as Ostium retain the base adapter link.
+
+        :param referral:
+            Referral code passed to the base adapter for non-gTrade vaults.
+
+        :return:
+            Official gTrade vault URL, or the base adapter URL for another
+            Gains-like protocol.
+        """
+        return GTRADE_VAULT_LINK_MATRIX.get(self.address.lower(), super().get_link(referral))
 
     @cached_property
     def vault_contract(self) -> Contract:

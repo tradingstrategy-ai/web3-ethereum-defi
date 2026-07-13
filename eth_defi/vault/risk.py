@@ -78,6 +78,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Peapods": VaultTechnicalRisk.dangerous,
     "Ostium": VaultTechnicalRisk.high,
     "gTrade": VaultTechnicalRisk.high,
+    "KiloEx": None,
     "Domination Finance": VaultTechnicalRisk.severe,
     # No audits
     "Plutus": VaultTechnicalRisk.severe,

@@ -96,6 +96,7 @@ Supported protocols
    infinifi/index
    inverse_finance/index
    ipor/index
+   kiloex/index
    kinexys/index
    lagoon/index
    liquid_royalty/index
