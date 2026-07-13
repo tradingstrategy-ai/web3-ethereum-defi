@@ -234,14 +234,14 @@ The vault detail page uses a separate REST endpoint for the offchain metadata
 shown in the application:
 
 ```text
-GET https://api.t3tris.finance/api/v1/pages/vault/{chainId}/{vaultAddress}
+GET https://api.t3tris.finance/api/v1/vaults/{chainId}/{vaultAddress}
 ```
 
 For example:
 
 ```shell
 curl -sS \
-  "https://api.t3tris.finance/api/v1/pages/vault/42161/0x9984ad74c5fb6bec3888e14b4e453707d3be7f8f" \
+  "https://api.t3tris.finance/api/v1/vaults/42161/0x9984ad74c5fb6bec3888e14b4e453707d3be7f8f" \
   | jq ".vault | {description, curatorName, curatorUrl, verified, depositsDisabled, showComposition, displayName, displaySymbol, category, attributes, rating, ipfsHash, visibility, visibilityLocked}"
 ```
 
@@ -284,7 +284,7 @@ Important REST metadata fields:
 Adding an account query parameter can include account-specific page data:
 
 ```text
-GET https://api.t3tris.finance/api/v1/pages/vault/{chainId}/{vaultAddress}?account={address}
+GET https://api.t3tris.finance/api/v1/vaults/{chainId}/{vaultAddress}?account={address}
 ```
 
 The vault list endpoint also includes the same offchain metadata for discovery:

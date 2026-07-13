@@ -1,7 +1,7 @@
 """T3tris vault offchain metadata.
 
 - T3tris stores vault page descriptions in their backend, not on-chain
-- The detail endpoint ``/api/v1/pages/vault/{chainId}/{vaultAddress}``
+- The detail endpoint ``/api/v1/vaults/{chainId}/{vaultAddress}``
   returns the same page view model shown in the T3tris app
 - We fetch and cache this data locally to avoid repeated API calls
 - Two-level caching: disk (2-day TTL) + in-process dictionary
@@ -35,7 +35,7 @@ class T3trisVaultMetadata(TypedDict):
     """Metadata about a T3tris vault from offchain source.
 
     Fetched from the T3tris REST API endpoint:
-    ``GET /api/v1/pages/vault/{chainId}/{vaultAddress}``.
+    ``GET /api/v1/vaults/{chainId}/{vaultAddress}``.
     """
 
     #: Vault name shown in the app.
@@ -87,7 +87,7 @@ def _parse_vault_detail(raw: dict) -> T3trisVaultMetadata:
     """Parse vault metadata from the T3tris page endpoint.
 
     :param raw:
-        Raw JSON dict from ``/api/v1/pages/vault/{chainId}/{vaultAddress}``
+        Raw JSON dict from ``/api/v1/vaults/{chainId}/{vaultAddress}``
         or a single vault row from ``/api/v1/vaults``.
     """
     vault = raw.get("vault") or raw
@@ -176,7 +176,7 @@ def _fetch_vault_detail(
     :return:
         Raw JSON response dict, or ``None`` if the request fails.
     """
-    url = f"{api_base_url}/pages/vault/{chain_id}/{address}"
+    url = f"{api_base_url}/vaults/{chain_id}/{address}"
     logger.debug("Fetching T3tris vault detail from %s", url)
     try:
         resp = requests.get(url, timeout=30, headers={"Accept": "application/json"})

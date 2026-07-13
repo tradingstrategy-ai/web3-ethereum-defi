@@ -12,4 +12,4 @@ other-links:
   - title: T3tris app - First - USDC vault curated by First Capital
     url: https://app.t3tris.finance/vaults?chainId=42161&address=0x98e43a491a464f0886bc5e57207c340bbed0d01f
   - title: T3tris API - First - USDC vault metadata on Arbitrum
-    url: https://api.t3tris.finance/api/v1/pages/vault/42161/0x98e43a491a464f0886bc5e57207c340bbed0d01f
+    url: https://api.t3tris.finance/api/v1/vaults/42161/0x98e43a491a464f0886bc5e57207c340bbed0d01f
