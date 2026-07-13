@@ -30,13 +30,33 @@ from IPython.display import display
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.token import is_stablecoin_like
+from eth_defi.types import Percent
 from eth_defi.vault.base import VaultSpec, verify_parquet_file
 from eth_defi.vault.settlement_data import (
     merge_vault_settlements_into_cleaned_prices,
 )
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
 from eth_defi.version_info import stamp_parquet_schema_metadata
+
+#: At least two canonical observations are needed to bracket a daily price.
+MIN_HYPERCORE_PRICE_ANCHORS = 2
+
+#: Rows emitted by one daily refresh share practically the same write time.
+HYPERCORE_DAILY_REFRESH_TOLERANCE = pd.Timedelta(minutes=1)
+
+#: Do not estimate a price across a missing weekly Hypercore anchor.
+HYPERCORE_MAX_PRICE_ANCHOR_GAP = pd.Timedelta(days=8)
+
+#: NAV at or below this value counts as a complete Hypercore wipe-out.
+HYPERCORE_ZERO_NAV_EPSILON = 0.000001
+
+#: New capital must reach this NAV before a recapitalised vault is tracked again.
+MIN_HYPERCORE_RECAPITALISATION_ASSETS = 1_000.0
+
+#: Ignore isolated zero-NAV observations that recover before this delay.
+MIN_HYPERCORE_RECAPITALISATION_RECOVERY_DELAY = pd.Timedelta(days=7)
 
 
 class CleanedVaultPriceRow(TypedDict, total=False):
@@ -299,6 +319,25 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #: Hypercore only — NaN for all other protocols.
     cumulative_volume: float
 
+    #: Hypercore scanner source: ``"daily"`` or ``"hf"``.
+    #:
+    #: Used during wrangling to reconcile overlapping synthetic share prices.
+    #: Hypercore only — NaN for all other protocols.
+    hypercore_source: str
+
+    #: The row starts a new performance epoch after a complete wipe-out.
+    #:
+    #: Hypercore only — false for ordinary observations.
+    epoch_reset: bool
+
+    #: Outcome of the conservative Hypercore source-overlap repair.
+    #:
+    #: Values start with ``"repaired_"`` when the cleaned share price was
+    #: changed and ``"deferred_"`` when a candidate was left unchanged because
+    #: it failed the NAV, anchor-gap, or lifecycle-boundary safeguards.
+    #: Hypercore only — empty for ordinary observations and other protocols.
+    hypercore_repair_status: str
+
     # -- Native protocol flow columns --
     # Populated for native protocols with daily deposit/withdrawal data
     # (Hypercore, GRVT, Lighter, Hibachi). NaN for ERC-4626 vaults.
@@ -369,6 +408,11 @@ VAULT_STATE_COLUMNS = {
     # When this price row was actually written/fetched (naive UTC).
     # NaT for old data that predates this column.
     "written_at": pd.NaT,
+    # Hypercore epoch marker. Set when wrangling discards a complete prior
+    # wipe-out epoch and begins from recapitalised capital.
+    "epoch_reset": False,
+    # Source-overlap repair outcome. Empty for ordinary and non-Hypercore rows.
+    "hypercore_repair_status": "",
     # Latest asynchronous vault settlement timestamp in the interval ending at
     # this price row. Merged from vault-settlements.duckdb after cleaning.
     "vault_settlement_at": pd.NaT,
@@ -915,8 +959,6 @@ def cap_hypercore_share_prices(
     :return:
         DataFrame with capped share prices.
     """
-    from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
-
     hypercore_mask = prices_df["chain"] == HYPERCORE_CHAIN_ID
     if not hypercore_mask.any():
         return prices_df
@@ -927,6 +969,379 @@ def cap_hypercore_share_prices(
     if overflow_count > 0:
         logger(f"Capping {overflow_count:,} Hypercore share prices above {max_share_price:,.0f}")
         prices_df.loc[overflow_mask, "share_price"] = max_share_price
+
+    return prices_df
+
+
+def discard_hypercore_pre_recapitalisation_history(
+    prices_df: pd.DataFrame,
+    logger=print,
+    min_recapitalisation_assets: float = MIN_HYPERCORE_RECAPITALISATION_ASSETS,
+    min_recovery_delay: pd.Timedelta = MIN_HYPERCORE_RECAPITALISATION_RECOVERY_DELAY,
+) -> pd.DataFrame:
+    """Start a recapitalised Hypercore vault at its new meaningful capital base.
+
+    A complete wipe-out followed by new deposits cannot be represented by one
+    continuous share-price series. The old investors have a -100% return,
+    while the new investors must not inherit the destroyed share supply. When
+    a vault has meaningful NAV, reaches zero, and does not regain *any* positive
+    NAV until after ``min_recovery_delay``, discard its earlier observations
+    from the *cleaned* output. The raw parquet remains unchanged.
+
+    Recovery duration and the new tracking threshold are intentionally separate.
+    The delay is measured to the first value above
+    :py:data:`HYPERCORE_ZERO_NAV_EPSILON`, even when that value is below
+    ``min_recapitalisation_assets``. This prevents a sequence such as
+    ``$2,000 -> $0 -> $900 next day -> $1,000 after seven days`` from erasing
+    valid history merely because the recovery crossed the display threshold
+    later. Once a durable recovery is established, the first retained
+    observation must have at least ``min_recapitalisation_assets`` in NAV and
+    is marked ``epoch_reset``.
+
+    The July 2026 production snapshot contained four qualifying episodes across
+    569 Hypercore vaults. HODL My Perps, HLP Liquidator, Rehobot LR, and Sifu all
+    still qualify when measuring the delay to the first positive NAV, removing
+    369 rows from cleaned output. The stricter definition was chosen because the
+    same snapshot contained hundreds of transient zero observations which must
+    not reset lifetime performance.
+
+    :param prices_df:
+        Vault price data indexed by timestamp, with ``id``, ``chain``, and
+        ``total_assets`` columns. It must be sorted by vault and timestamp.
+    :param logger:
+        Notebook or console logging function.
+    :param min_recapitalisation_assets:
+        Minimum NAV in USD needed before tracking the new investment epoch.
+    :param min_recovery_delay:
+        Minimum elapsed time between zero NAV and the first later positive NAV.
+    :return:
+        Price data without the superseded pre-recapitalisation epochs.
+    """
+    hypercore_mask = prices_df["chain"] == HYPERCORE_CHAIN_ID
+    if not hypercore_mask.any():
+        return prices_df
+
+    if "epoch_reset" not in prices_df.columns:
+        prices_df = prices_df.copy()
+        prices_df["epoch_reset"] = False
+
+    remove_mask = np.zeros(len(prices_df), dtype=bool)
+    epoch_reset_positions: list[int] = []
+    hypercore_positions = np.flatnonzero(hypercore_mask.to_numpy())
+
+    for _vault_id, row_positions in prices_df.loc[hypercore_mask].groupby("id", sort=False).indices.items():
+        positions = hypercore_positions[np.asarray(row_positions, dtype=int)]
+        group = prices_df.iloc[positions]
+        total_assets = group["total_assets"].to_numpy(dtype=float)
+        timestamp = pd.DatetimeIndex(group.index)
+
+        meaningful_assets = np.isfinite(total_assets) & (total_assets >= min_recapitalisation_assets)
+        zero_assets = np.isfinite(total_assets) & (total_assets <= HYPERCORE_ZERO_NAV_EPSILON)
+        zero_starts = np.flatnonzero(zero_assets & np.r_[True, ~zero_assets[:-1]])
+        zero_ends = np.flatnonzero(zero_assets & np.r_[~zero_assets[1:], True])
+        recapitalisation_position: int | None = None
+
+        for zero_start, zero_end in zip(zero_starts, zero_ends):
+            # A zero before a vault's first meaningful deposit is normal
+            # initialisation, not a loss of an existing investment epoch.
+            if not meaningful_assets[:zero_start].any():
+                continue
+
+            post_zero_positive = np.flatnonzero(np.isfinite(total_assets[zero_end + 1 :]) & (total_assets[zero_end + 1 :] > HYPERCORE_ZERO_NAV_EPSILON))
+            if len(post_zero_positive) == 0:
+                continue
+
+            first_positive = zero_end + 1 + int(post_zero_positive[0])
+            if timestamp[first_positive] - timestamp[zero_start] < min_recovery_delay:
+                continue
+
+            post_zero_meaningful = np.flatnonzero(meaningful_assets[zero_end + 1 :])
+            if len(post_zero_meaningful) == 0:
+                continue
+
+            first_recapitalisation = zero_end + 1 + int(post_zero_meaningful[0])
+
+            # Keep the latest valid reset if a vault has more than one
+            # complete lifecycle. The output must start at its current epoch.
+            recapitalisation_position = first_recapitalisation
+
+        if recapitalisation_position is not None:
+            remove_mask[positions[:recapitalisation_position]] = True
+            epoch_reset_positions.append(int(positions[recapitalisation_position]))
+
+    if not epoch_reset_positions:
+        return prices_df
+
+    epoch_reset_col = prices_df.columns.get_loc("epoch_reset")
+    prices_df.iloc[epoch_reset_positions, epoch_reset_col] = True
+    filtered_prices_df = prices_df.iloc[~remove_mask].copy()
+    logger(f"Discarded {int(remove_mask.sum()):,} pre-recapitalisation Hypercore price rows across {len(epoch_reset_positions):,} vaults; new epochs start once NAV reaches ${min_recapitalisation_assets:,.0f} after {min_recovery_delay}")
+    return filtered_prices_df
+
+
+def fix_hypercore_source_overlap_share_prices(  # noqa: PLR0914
+    prices_df: pd.DataFrame,
+    logger=print,
+    max_anchor_deviation: Percent = 0.50,
+    max_anchor_gap: pd.Timedelta = HYPERCORE_MAX_PRICE_ANCHOR_GAP,
+) -> pd.DataFrame:
+    """Repair corrupted daily Hypercore prices using canonical observations.
+
+    Hypercore daily and high-frequency scanners both derive synthetic share
+    prices from the rolling ``vaultDetails`` portfolio windows. Historical
+    daily rows may have been calculated from a different rolling window than
+    the later HF rows. Mixing the two sources can therefore create temporary
+    multi-day price excursions that are absent from the canonical HF history.
+
+    For periods covered by both sources, use positive HF observations as a
+    time-based anchor curve. Some legacy vaults have daily history only. For
+    these, use the latest batch of refreshed daily rows, identified by their
+    common ``written_at`` value, as the canonical anchors. This handles stale
+    rolling-window rows left between observations refreshed from a later
+    ``allTime`` response.
+
+    A daily observation becomes a repair candidate when its symmetric deviation
+    from the log-linearly interpolated anchor price exceeds
+    ``max_anchor_deviation``. It is changed only when all three conservative
+    safeguards pass:
+
+    - its NAV is within ``max_anchor_deviation`` of the interpolated anchor NAV;
+    - the bracketing anchor gap is no longer than ``max_anchor_gap``; and
+    - the anchor interval contains neither zero NAV nor ``epoch_reset``.
+
+    A July 2026 audit of 848,333 Hypercore rows found 1,051 candidates across
+    181 vaults. These rules automatically repair 747 rows and defer 304
+    ambiguous rows: 260 failed NAV consistency, 60 used a gap over eight days,
+    and 34 crossed a lifecycle boundary, with overlap between the counts. The
+    NAV rule is deliberately applied to HF anchors too. For example, four of
+    six Magixbox candidates are now deferred despite looking suspicious,
+    because the raw data does not preserve enough intra-week information to
+    prove a safe replacement. Avoiding a fabricated investor return takes
+    priority over maximising the number of smooth chart points.
+
+    Canonical anchors, rows outside anchor coverage, all HF rows, and all
+    non-Hypercore rows are left unchanged. Deferred rows also remain unchanged
+    and receive a reason in ``hypercore_repair_status``.
+
+    ``raw_share_price`` always preserves the input value for auditability.
+
+    :param prices_df:
+        Vault prices indexed by timestamp. New Hypercore rows carry the
+        ``hypercore_source`` value ``daily`` or ``hf``. For legacy rows the
+        source is inferred from daily midnight normalisation versus the raw HF
+        API timestamp.
+    :param logger:
+        Notebook or console logging function.
+    :param max_anchor_deviation:
+        Maximum symmetric ratio deviation from the interpolated anchor.
+        ``0.50`` means either price may be at most 50% larger than the other.
+    :param max_anchor_gap:
+        Maximum elapsed time between the two observations used as anchors.
+        Eight days permits the normal historical weekly HF cadence but rejects
+        a missing weekly observation and longer interpolation.
+    :return:
+        Price data with conflicting daily Hypercore prices repaired.
+    """
+    prices_df = prices_df.copy()
+    if "raw_share_price" not in prices_df.columns:
+        prices_df["raw_share_price"] = prices_df["share_price"]
+    if "hypercore_repair_status" not in prices_df.columns:
+        prices_df["hypercore_repair_status"] = ""
+
+    hypercore_mask = prices_df["chain"] == HYPERCORE_CHAIN_ID
+    if not hypercore_mask.any():
+        return prices_df
+
+    if "hypercore_source" not in prices_df.columns:
+        prices_df["hypercore_source"] = pd.NA
+
+    missing_source_mask = hypercore_mask & prices_df["hypercore_source"].isna()
+    if missing_source_mask.any():
+        # Backwards compatibility for Parquet files written before explicit
+        # source provenance was exported. Daily rows are normalised to midnight;
+        # HF rows retain the raw API timestamp, normally including milliseconds.
+        missing_timestamps = pd.DatetimeIndex(prices_df.index[missing_source_mask])
+        inferred_sources = np.where(missing_timestamps == missing_timestamps.normalize(), "daily", "hf")
+        prices_df.loc[missing_source_mask, "hypercore_source"] = inferred_sources
+        logger(f"Inferred Hypercore source provenance for {int(missing_source_mask.sum()):,} legacy price rows")
+
+    share_price_col = prices_df.columns.get_loc("share_price")
+    repair_status_col = prices_df.columns.get_loc("hypercore_repair_status")
+    hf_fixed_count = 0
+    hf_affected_vaults = 0
+    daily_fixed_count = 0
+    daily_affected_vaults = 0
+    deferred_count = 0
+    nav_deferred_count = 0
+    gap_deferred_count = 0
+    boundary_deferred_count = 0
+    deferred_vaults: set[str] = set()
+    hypercore_positions = np.flatnonzero(hypercore_mask.to_numpy())
+
+    for _vault_id, row_positions in prices_df.loc[hypercore_mask].groupby("id", sort=False).indices.items():
+        # ``groupby().indices`` above is relative to the filtered frame. Map
+        # these positions back to the original frame before assigning by iloc.
+        positions = hypercore_positions[np.asarray(row_positions, dtype=int)]
+        group = prices_df.iloc[positions]
+
+        source = group["hypercore_source"].astype("string").fillna("").to_numpy(dtype=str)
+        share_price = group["share_price"].to_numpy(dtype=float)
+        timestamp_ns = pd.DatetimeIndex(group.index).to_numpy(dtype="datetime64[ns]").astype("int64")
+
+        if "total_assets" not in group.columns:
+            continue
+        total_assets = group["total_assets"].to_numpy(dtype=float)
+        positive_assets_mask = np.isfinite(total_assets) & (total_assets > 0)
+
+        positive_price_mask = np.isfinite(share_price) & (share_price > 0)
+        hf_price_mask = (source == "hf") & positive_price_mask
+        daily_mask = source == "daily"
+        if not daily_mask.any():
+            continue
+
+        if hf_price_mask.sum() >= MIN_HYPERCORE_PRICE_ANCHORS:
+            # HF coverage selects the HF repair path even if some observations
+            # have unusable NAV. Never reinterpret such a vault as daily-only.
+            anchor_mask = hf_price_mask & positive_assets_mask
+            candidate_mask = daily_mask
+            anchor_source = "hf"
+        else:
+            # Some legacy vaults were never covered by the HF scanner. A
+            # later daily scan refreshes the canonical allTime observations
+            # in one batch, while stale rows from older rolling windows retain
+            # older or missing write times. Never modify the refresh batch
+            # itself; it is the best available canonical history.
+            if "written_at" not in group.columns:
+                continue
+            written_at = pd.to_datetime(group["written_at"], errors="coerce")
+            latest_written_at = written_at.max()
+            if pd.isna(latest_written_at):
+                continue
+            refreshed_mask = (written_at >= latest_written_at - HYPERCORE_DAILY_REFRESH_TOLERANCE).to_numpy()
+            anchor_mask = daily_mask & refreshed_mask & positive_price_mask & positive_assets_mask
+            candidate_mask = daily_mask & ~anchor_mask
+            anchor_source = "daily"
+
+        anchor_timestamps = timestamp_ns[anchor_mask]
+        anchor_prices = share_price[anchor_mask]
+        anchor_assets = total_assets[anchor_mask]
+        sort_order = np.argsort(anchor_timestamps)
+        anchor_timestamps = anchor_timestamps[sort_order]
+        anchor_prices = anchor_prices[sort_order]
+        anchor_assets = anchor_assets[sort_order]
+
+        # np.interp expects unique x values. Keep the last anchor value for any
+        # duplicate timestamp, matching the export deduplication behaviour.
+        reverse_unique_positions = np.unique(anchor_timestamps[::-1], return_index=True)[1]
+        unique_positions = np.sort(len(anchor_timestamps) - 1 - reverse_unique_positions)
+        anchor_timestamps = anchor_timestamps[unique_positions]
+        anchor_prices = anchor_prices[unique_positions]
+        anchor_assets = anchor_assets[unique_positions]
+        if len(anchor_timestamps) < MIN_HYPERCORE_PRICE_ANCHORS:
+            continue
+
+        expected_log_price = np.interp(
+            timestamp_ns,
+            anchor_timestamps,
+            np.log(anchor_prices),
+            left=np.nan,
+            right=np.nan,
+        )
+        expected_price = np.exp(expected_log_price)
+        valid_expected = np.isfinite(expected_price) & (expected_price > 0)
+
+        expected_assets = np.exp(
+            np.interp(
+                timestamp_ns,
+                anchor_timestamps,
+                np.log(anchor_assets),
+                left=np.nan,
+                right=np.nan,
+            )
+        )
+        with np.errstate(divide="ignore", invalid="ignore"):
+            asset_deviation = (
+                np.maximum(
+                    total_assets / expected_assets,
+                    expected_assets / total_assets,
+                )
+                - 1
+            )
+        nav_safe_mask = positive_assets_mask & np.isfinite(expected_assets) & (asset_deviation <= max_anchor_deviation)
+
+        right_anchor = np.searchsorted(anchor_timestamps, timestamp_ns, side="left")
+        bracketed_mask = (right_anchor > 0) & (right_anchor < len(anchor_timestamps))
+        left_anchor = np.maximum(right_anchor - 1, 0)
+        clipped_right_anchor = np.minimum(right_anchor, len(anchor_timestamps) - 1)
+        anchor_gap_ns = anchor_timestamps[clipped_right_anchor] - anchor_timestamps[left_anchor]
+        gap_safe_mask = bracketed_mask & (anchor_gap_ns <= max_anchor_gap.value)
+
+        epoch_reset = group["epoch_reset"].fillna(False).astype(bool).to_numpy() if "epoch_reset" in group.columns else np.zeros(len(group), dtype=bool)
+        boundary_mask = epoch_reset | (np.isfinite(total_assets) & (total_assets <= HYPERCORE_ZERO_NAV_EPSILON))
+        boundary_timestamps = np.sort(timestamp_ns[boundary_mask])
+        crosses_boundary = np.zeros(len(group), dtype=bool)
+        if len(boundary_timestamps):
+            left_timestamps = anchor_timestamps[left_anchor]
+            right_timestamps = anchor_timestamps[clipped_right_anchor]
+            boundary_start = np.searchsorted(boundary_timestamps, left_timestamps, side="left")
+            boundary_end = np.searchsorted(boundary_timestamps, right_timestamps, side="right")
+            crosses_boundary = bracketed_mask & (boundary_end > boundary_start)
+        boundary_safe_mask = ~crosses_boundary
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            symmetric_deviation = (
+                np.maximum(
+                    share_price / expected_price,
+                    expected_price / share_price,
+                )
+                - 1
+            )
+        repair_candidate_mask = candidate_mask & valid_expected & positive_price_mask & (symmetric_deviation > max_anchor_deviation)
+        repair_mask = repair_candidate_mask & nav_safe_mask & gap_safe_mask & boundary_safe_mask
+        deferred_mask = repair_candidate_mask & ~repair_mask
+
+        status_values = np.full(len(group), "", dtype=object)
+        status_values[repair_mask] = f"repaired_{anchor_source}"
+        if deferred_mask.any():
+            failure_reason = np.select(
+                [
+                    ~boundary_safe_mask & ~gap_safe_mask & ~nav_safe_mask,
+                    ~boundary_safe_mask & ~gap_safe_mask,
+                    ~boundary_safe_mask & ~nav_safe_mask,
+                    ~gap_safe_mask & ~nav_safe_mask,
+                    ~boundary_safe_mask,
+                    ~gap_safe_mask,
+                    ~nav_safe_mask,
+                ],
+                ["boundary_gap_nav", "boundary_gap", "boundary_nav", "gap_nav", "boundary", "gap", "nav"],
+                default="unknown",
+            )
+            status_values[deferred_mask] = np.asarray([f"deferred_{anchor_source}_{reason}" for reason in failure_reason[deferred_mask]], dtype=object)
+            deferred_count += int(deferred_mask.sum())
+            nav_deferred_count += int((deferred_mask & ~nav_safe_mask).sum())
+            gap_deferred_count += int((deferred_mask & ~gap_safe_mask).sum())
+            boundary_deferred_count += int((deferred_mask & ~boundary_safe_mask).sum())
+            deferred_vaults.add(str(_vault_id))
+
+        status_mask = repair_mask | deferred_mask
+        prices_df.iloc[positions[status_mask], repair_status_col] = status_values[status_mask]
+
+        if repair_mask.any():
+            repair_positions = positions[repair_mask]
+            prices_df.iloc[repair_positions, share_price_col] = expected_price[repair_mask]
+            if anchor_source == "hf":
+                hf_fixed_count += int(repair_mask.sum())
+                hf_affected_vaults += 1
+            else:
+                daily_fixed_count += int(repair_mask.sum())
+                daily_affected_vaults += 1
+
+    if hf_fixed_count:
+        logger(f"Repaired {hf_fixed_count:,} conflicting daily Hypercore share prices across {hf_affected_vaults:,} vaults using HF anchors")
+    if daily_fixed_count:
+        logger(f"Repaired {daily_fixed_count:,} stale daily Hypercore share prices across {daily_affected_vaults:,} vaults using refreshed daily anchors")
+    if deferred_count:
+        logger(f"Deferred {deferred_count:,} ambiguous Hypercore share-price repairs across {len(deferred_vaults):,} vaults: {nav_deferred_count:,} failed NAV consistency, {gap_deferred_count:,} exceeded the anchor-gap limit, and {boundary_deferred_count:,} crossed a lifecycle boundary (counts overlap)")
 
     return prices_df
 
@@ -1194,6 +1609,11 @@ def process_raw_vault_scan_data(
 
     prices_df = remove_inactive_lead_time(prices_df, logger)
 
+    # A complete Hypercore wipe-out followed by later deposits is a new
+    # investment epoch, not a recoverable price movement. Begin the cleaned
+    # history from the meaningful recapitalisation point.
+    prices_df = discard_hypercore_pre_recapitalisation_history(prices_df, logger)
+
     if diagnose_vault_id:
         vault_prices_df = prices_df[prices_df["id"] == diagnose_vault_id]
         logger("After remove_inactive_lead_time():")
@@ -1204,20 +1624,21 @@ def process_raw_vault_scan_data(
     # this prevents the smoothing algorithm from being confused by absurd values.
     prices_df = cap_hypercore_share_prices(prices_df, logger)
 
-    # fix_outlier_share_prices() uses row-based shift(look_back=24) designed for
-    # hourly ERC-4626 data (24 rows = 24 hours). For Hypercore vaults with weekly
-    # spacing, 24 rows spans ~6 months, making the comparison meaningless and
-    # incorrectly smoothing legitimate price movements. Hypercore share prices are
-    # synthetic and already cleaned by cap_hypercore_share_prices(), so skip them.
-    from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+    # Hypercore scans may overlap or refresh only a sparse subset of historical
+    # rows. Repair stale daily values that conflict sharply with canonical HF
+    # observations or the latest daily refresh batch.
+    prices_df = fix_hypercore_source_overlap_share_prices(prices_df, logger)
+
+    # The generic fixer derives one row offset from each vault's median polling
+    # interval. Hypercore mixes roughly 20-minute, daily, and weekly rows, so one
+    # offset cannot represent a stable time window. The source-aware repair above
+    # handles Hypercore; keep the generic fixer limited to EVM vaults.
 
     hypercore_mask = prices_df["chain"] == HYPERCORE_CHAIN_ID
     has_hypercore = hypercore_mask.any()
     has_evm = (~hypercore_mask).any()
 
     if has_hypercore and has_evm:
-        # Set raw_share_price for Hypercore rows (they skip outlier fixing)
-        prices_df.loc[hypercore_mask, "raw_share_price"] = prices_df.loc[hypercore_mask, "share_price"]
         # Fix outlier share prices only for EVM rows, operating in-place
         evm_df = prices_df.loc[~hypercore_mask]
         fixed_evm = fix_outlier_share_prices(evm_df, logger)
@@ -1225,7 +1646,6 @@ def process_raw_vault_scan_data(
     elif has_evm:
         prices_df = fix_outlier_share_prices(prices_df, logger)
     else:
-        prices_df["raw_share_price"] = prices_df["share_price"]
         logger("Skipping fix_outlier_share_prices() for Hypercore-only dataset")
 
     if diagnose_vault_id:

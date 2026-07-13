@@ -29,7 +29,6 @@ from eth_defi.hyperliquid.backfill import (
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase, HyperliquidDailyPriceRow, fetch_and_store_vault
 from eth_defi.hyperliquid.vault import PortfolioHistory, VaultInfo, VaultSummary
 
-
 VAULT_A = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 VAULT_B = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 VAULT_C = "0xcccccccccccccccccccccccccccccccccccccccc"
@@ -1210,6 +1209,7 @@ def test_process_raw_vault_scan_data_preserves_hyperliquid_scalars(tmp_path):
         db.save()
 
         raw_df = build_raw_prices_dataframe(db)
+        assert (raw_df["hypercore_source"] == "daily").all()
         spec, vault_row = create_hyperliquid_vault_row(
             vault_address=VAULT_A,
             name="Test Vault",

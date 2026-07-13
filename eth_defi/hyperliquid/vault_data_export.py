@@ -312,6 +312,7 @@ def _prepare_hypercore_export(
     timestamp_values,
     flow_col_map: dict[str, str],
     sort_columns: list[str],
+    hypercore_source: str,
 ) -> pd.DataFrame:
     """Shared helper for building Hypercore export DataFrames.
 
@@ -329,6 +330,10 @@ def _prepare_hypercore_export(
     :param sort_columns:
         Columns to sort by before forward-filling (e.g.
         ``["vault_address", "date"]`` or ``["vault_address", "timestamp"]``).
+    :param hypercore_source:
+        Provenance label for the exported observations: ``"daily"`` or
+        ``"hf"``. This remains in the raw parquet so the wrangle step can
+        reconcile overlapping synthetic share-price histories.
     :return:
         DataFrame matching the uncleaned Parquet schema.
     """
@@ -389,6 +394,7 @@ def _prepare_hypercore_export(
             "daily_withdrawal_count": _col(flow_col_map.get("daily_withdrawal_count", "daily_withdrawal_count")),
             "daily_deposit_usd": _col(flow_col_map.get("daily_deposit_usd", "daily_deposit_usd")),
             "daily_withdrawal_usd": _col(flow_col_map.get("daily_withdrawal_usd", "daily_withdrawal_usd")),
+            "hypercore_source": hypercore_source,
             "epoch_reset": _col("epoch_reset", default=False),
             "written_at": _col("written_at", default=pd.NaT),
         },
@@ -434,12 +440,14 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
 
     prices_df = _attach_relationship_type_from_metadata(prices_df, db.get_all_vault_metadata())
 
-    return _prepare_hypercore_export(
+    result = _prepare_hypercore_export(
         prices_df,
         timestamp_values=pd.to_datetime(prices_df["date"]).values,
         flow_col_map={},  # Daily columns already named daily_*
         sort_columns=["vault_address", "date"],
+        hypercore_source="daily",
     )
+    return result
 
 
 def merge_into_vault_database(
@@ -639,7 +647,7 @@ def build_raw_prices_dataframe_hf(db: HyperliquidHighFreqMetricsDatabase) -> pd.
 
     # Map HF column names (deposit_count etc.) back to daily_* names
     # for downstream compatibility.
-    return _prepare_hypercore_export(
+    result = _prepare_hypercore_export(
         prices_df,
         timestamp_values=prices_df["timestamp"].values,
         flow_col_map={
@@ -649,7 +657,9 @@ def build_raw_prices_dataframe_hf(db: HyperliquidHighFreqMetricsDatabase) -> pd.
             "daily_withdrawal_usd": "withdrawal_usd",
         },
         sort_columns=["vault_address", "timestamp"],
+        hypercore_source="hf",
     )
+    return result
 
 
 def build_hypercore_prices_dataframe(
@@ -679,14 +689,12 @@ def build_hypercore_prices_dataframe(
     if daily_db is not None:
         daily_df = build_raw_prices_dataframe(daily_db)
         if not daily_df.empty:
-            daily_df["_source"] = "daily"
             parts.append(daily_df)
             logger.info("Daily DB contributed %d Hypercore rows", len(daily_df))
 
     if hf_db is not None:
         hf_df = build_raw_prices_dataframe_hf(hf_db)
         if not hf_df.empty:
-            hf_df["_source"] = "hf"
             parts.append(hf_df)
             logger.info("HF DB contributed %d Hypercore rows", len(hf_df))
 
@@ -696,9 +704,9 @@ def build_hypercore_prices_dataframe(
     hl_df = pd.concat(parts, ignore_index=True)
 
     # Sort so "hf" comes after "daily", then drop_duplicates keeps last.
-    hl_df = hl_df.sort_values(["address", "timestamp", "_source"])
+    hl_df = hl_df.sort_values(["address", "timestamp", "hypercore_source"])
     hl_df = hl_df.drop_duplicates(subset=["address", "timestamp"], keep="last")
-    return hl_df.drop(columns=["_source"])
+    return hl_df
 
 
 def merge_hypercore_prices_to_parquet(

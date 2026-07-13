@@ -11,10 +11,10 @@ Tests that build_raw_prices_dataframe_hf() produces correct output:
 
 import datetime
 
-import numpy as np
 import pandas as pd
 import pytest
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.hyperliquid.high_freq_metrics import (
     HyperliquidHighFreqMetricsDatabase,
     HyperliquidHighFreqPriceRow,
@@ -22,7 +22,6 @@ from eth_defi.hyperliquid.high_freq_metrics import (
 from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe_hf, create_hyperliquid_vault_row
 from eth_defi.research.vault_metrics import calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics, export_lifetime_row
 from eth_defi.research.wrangle_vault_prices import process_raw_vault_scan_data
-from eth_defi.compat import native_datetime_utc_now
 
 
 @pytest.mark.timeout(30)
@@ -112,6 +111,7 @@ def test_hf_export_raw_timestamps(tmp_path):
 
         # 3. Export with raw timestamps (no resampling)
         result_df = build_raw_prices_dataframe_hf(db)
+        assert (result_df["hypercore_source"] == "hf").all()
 
         assert len(result_df) > 0, "Export produced empty DataFrame"
 

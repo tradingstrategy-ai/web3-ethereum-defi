@@ -12,7 +12,12 @@ import pyarrow.parquet as pq
 import pytest
 import zstandard as zstd
 
-from eth_defi.research.wrangle_vault_prices import fix_outlier_share_prices, generate_cleaned_vault_datasets
+from eth_defi.research.wrangle_vault_prices import (
+    discard_hypercore_pre_recapitalisation_history,
+    fix_hypercore_source_overlap_share_prices,
+    fix_outlier_share_prices,
+    generate_cleaned_vault_datasets,
+)
 from eth_defi.vault.base import VaultHistoricalRead
 from eth_defi.vault.settlement_data import VaultSettlement, VaultSettlementDatabase
 from eth_defi.version_info import PARQUET_VERSION_METADATA_KEY
@@ -171,6 +176,285 @@ def test_remove_inactive_lead_time():
     assert len(vault2_rows) == 1  # row at index 3 (200)
 
 
+def test_fix_hypercore_source_overlap_share_prices() -> None:
+    """Daily Hypercore excursions are repaired from overlapping HF anchors.
+
+    The daily source contains one synthetic price spike between two stable HF
+    observations. The wrangle repair must replace only that spike, preserve a
+    plausible daily observation, and leave non-Hypercore data untouched.
+    """
+    hypercore_id = "9999-0xhypercore"
+    evm_id = "1-0xevm"
+    timestamps = pd.to_datetime(
+        [
+            "2026-02-01 12:00:00",
+            "2026-02-02 00:00:00",
+            "2026-02-03 00:00:00",
+            "2026-02-04 12:00:00",
+            "2026-02-02 00:00:00",
+        ]
+    )
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999, 9999, 9999, 9999, 1],
+            "id": [hypercore_id, hypercore_id, hypercore_id, hypercore_id, evm_id],
+            "share_price": [1.0, 3.5, 1.1, 1.2, 4.0],
+            "total_assets": [100.0, 105.0, 110.0, 120.0, 400.0],
+            "hypercore_source": ["hf", "daily", "daily", "hf", pd.NA],
+        },
+        index=timestamps,
+    )
+
+    messages: list[str] = []
+    result = fix_hypercore_source_overlap_share_prices(prices_df, logger=messages.append)
+
+    hypercore_rows = result[result["id"] == hypercore_id]
+    repaired = hypercore_rows.loc[pd.Timestamp("2026-02-02"), "share_price"]
+    expected = np.exp(np.interp(pd.Timestamp("2026-02-02").value, [pd.Timestamp("2026-02-01 12:00:00").value, pd.Timestamp("2026-02-04 12:00:00").value], np.log([1.0, 1.2])))
+
+    assert repaired == pytest.approx(expected)
+    assert hypercore_rows.loc[pd.Timestamp("2026-02-02"), "raw_share_price"] == pytest.approx(3.5)
+    assert hypercore_rows.loc[pd.Timestamp("2026-02-02"), "hypercore_repair_status"] == "repaired_hf"
+    assert hypercore_rows.loc[pd.Timestamp("2026-02-03"), "share_price"] == pytest.approx(1.1)
+    assert result[result["id"] == evm_id]["share_price"].iloc[0] == pytest.approx(4.0)
+    assert messages == ["Repaired 1 conflicting daily Hypercore share prices across 1 vaults using HF anchors"]
+
+
+def test_fix_hypercore_source_overlap_preserves_unbracketed_daily_rows() -> None:
+    """Daily observations outside HF coverage cannot be safely repaired."""
+    timestamps = pd.to_datetime(
+        [
+            "2026-01-01 00:00:00",
+            "2026-02-01 12:00:00",
+            "2026-02-04 12:00:00",
+            "2026-03-01 00:00:00",
+        ]
+    )
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 4,
+            "id": ["9999-0xhypercore"] * 4,
+            "share_price": [10.0, 1.0, 1.2, 10.0],
+            "total_assets": [100.0, 100.0, 120.0, 120.0],
+            "hypercore_source": ["daily", "hf", "hf", "daily"],
+        },
+        index=timestamps,
+    )
+
+    result = fix_hypercore_source_overlap_share_prices(prices_df, logger=lambda _message: None)
+
+    assert result["share_price"].tolist() == prices_df["share_price"].tolist()
+
+
+def test_fix_hypercore_source_overlap_infers_legacy_sources() -> None:
+    """Legacy Parquet rows infer daily/HF provenance from timestamp precision."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 3,
+            "id": ["9999-0xhypercore"] * 3,
+            "share_price": [1.0, 3.5, 1.2],
+            "total_assets": [100.0, 110.0, 120.0],
+        },
+        index=pd.to_datetime(
+            [
+                "2026-02-01 12:01:02.003",
+                "2026-02-02 00:00:00",
+                "2026-02-03 12:01:02.003",
+            ],
+            format="mixed",
+        ),
+    )
+
+    messages: list[str] = []
+    result = fix_hypercore_source_overlap_share_prices(prices_df, logger=messages.append)
+
+    assert result["hypercore_source"].tolist() == ["hf", "daily", "hf"]
+    assert result.loc[pd.Timestamp("2026-02-02"), "share_price"] < 1.2
+    assert result.loc[pd.Timestamp("2026-02-02"), "hypercore_repair_status"] == "repaired_hf"
+    assert messages[0] == "Inferred Hypercore source provenance for 3 legacy price rows"
+    assert messages[1] == "Repaired 1 conflicting daily Hypercore share prices across 1 vaults using HF anchors"
+
+
+def test_fix_hypercore_source_overlap_uses_refreshed_daily_anchors() -> None:
+    """Daily-only legacy vaults use the latest refresh batch as anchors.
+
+    Older rolling-window rows may remain between canonical observations from
+    the latest allTime refresh. The repair must interpolate only those stale
+    rows and preserve every row in the latest refresh batch.
+    """
+    latest_refresh = pd.Timestamp("2026-04-10 17:10:32")
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 5,
+            "id": ["9999-0xdaily-only"] * 5,
+            "share_price": [1.0, 2.5, 1.1, 10.0, 1.2],
+            "total_assets": [100.0, 103.0, 105.0, 108.0, 110.0],
+            "hypercore_source": ["daily"] * 5,
+            "written_at": [latest_refresh, pd.NaT, latest_refresh, pd.Timestamp("2026-02-05"), latest_refresh],
+        },
+        index=pd.to_datetime(
+            [
+                "2026-01-21",
+                "2026-01-25",
+                "2026-01-28",
+                "2026-02-01",
+                "2026-02-04",
+            ]
+        ),
+    )
+
+    messages: list[str] = []
+    result = fix_hypercore_source_overlap_share_prices(prices_df, logger=messages.append)
+
+    assert result.loc[pd.Timestamp("2026-01-25"), "share_price"] < 1.1
+    assert result.loc[pd.Timestamp("2026-02-01"), "share_price"] < 1.2
+    assert result.loc[pd.Timestamp("2026-01-25"), "hypercore_repair_status"] == "repaired_daily"
+    assert result.loc[pd.Timestamp("2026-01-25"), "raw_share_price"] == pytest.approx(2.5)
+    assert result.loc[prices_df["written_at"] == latest_refresh, "share_price"].tolist() == [1.0, 1.1, 1.2]
+    assert messages == ["Repaired 2 stale daily Hypercore share prices across 1 vaults using refreshed daily anchors"]
+
+
+def test_fix_hypercore_source_overlap_preserves_daily_lifecycle_change() -> None:
+    """Daily fallback does not interpolate across a genuine NAV boundary."""
+    latest_refresh = pd.Timestamp("2026-04-10 17:10:32")
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 3,
+            "id": ["9999-0xlifecycle"] * 3,
+            "share_price": [1.0, 10.0, 1.1],
+            "total_assets": [100.0, 1_000.0, 110.0],
+            "hypercore_source": ["daily"] * 3,
+            "written_at": [latest_refresh, pd.NaT, latest_refresh],
+        },
+        index=pd.to_datetime(["2026-01-21", "2026-01-25", "2026-01-28"]),
+    )
+
+    result = fix_hypercore_source_overlap_share_prices(prices_df, logger=lambda _message: None)
+
+    assert result.loc[pd.Timestamp("2026-01-25"), "share_price"] == pytest.approx(10.0)
+    assert result.loc[pd.Timestamp("2026-01-25"), "hypercore_repair_status"] == "deferred_daily_nav"
+
+
+def test_fix_hypercore_source_overlap_defers_unsafe_hf_repairs() -> None:
+    """HF candidates remain raw when NAV, gap, or boundary evidence is unsafe."""
+    vault_ids = ["9999-0xnav", "9999-0xgap", "9999-0xepoch", "9999-0xzero"]
+    frames = [
+        pd.DataFrame(
+            {
+                "chain": [9999] * 3,
+                "id": [vault_ids[0]] * 3,
+                "share_price": [1.0, 10.0, 1.1],
+                "total_assets": [100.0, 1_000.0, 110.0],
+                "hypercore_source": ["hf", "daily", "hf"],
+                "epoch_reset": [False] * 3,
+            },
+            index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-03 12:00"], format="mixed"),
+        ),
+        pd.DataFrame(
+            {
+                "chain": [9999] * 4,
+                "id": [vault_ids[3]] * 4,
+                "share_price": [1.0, 10.0, 1.05, 1.1],
+                "total_assets": [100.0, 105.0, 0.0, 110.0],
+                "hypercore_source": ["hf", "daily", "daily", "hf"],
+                "epoch_reset": [False] * 4,
+            },
+            index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-02 12:00", "2026-01-03 12:00"], format="mixed"),
+        ),
+        pd.DataFrame(
+            {
+                "chain": [9999] * 3,
+                "id": [vault_ids[1]] * 3,
+                "share_price": [1.0, 10.0, 1.1],
+                "total_assets": [100.0, 105.0, 110.0],
+                "hypercore_source": ["hf", "daily", "hf"],
+                "epoch_reset": [False] * 3,
+            },
+            index=pd.to_datetime(["2026-01-01 12:00", "2026-01-08", "2026-01-11 12:00"], format="mixed"),
+        ),
+        pd.DataFrame(
+            {
+                "chain": [9999] * 3,
+                "id": [vault_ids[2]] * 3,
+                "share_price": [1.0, 10.0, 1.1],
+                "total_assets": [100.0, 105.0, 110.0],
+                "hypercore_source": ["hf", "daily", "hf"],
+                "epoch_reset": [False, True, False],
+            },
+            index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-03 12:00"], format="mixed"),
+        ),
+    ]
+    prices_df = pd.concat(frames).sort_index(kind="stable")
+
+    result = fix_hypercore_source_overlap_share_prices(prices_df, logger=lambda _message: None)
+
+    for vault_id, expected_status in zip(vault_ids, ["deferred_hf_nav", "deferred_hf_gap", "deferred_hf_boundary", "deferred_hf_boundary"]):
+        candidate = result[(result["id"] == vault_id) & (result["hypercore_source"] == "daily")].iloc[0]
+        assert candidate["share_price"] == pytest.approx(10.0)
+        assert candidate["raw_share_price"] == pytest.approx(10.0)
+        assert candidate["hypercore_repair_status"] == expected_status
+
+
+def test_discard_hypercore_pre_recapitalisation_history() -> None:
+    """A durable wipe-out starts a new cleaned Hypercore performance epoch."""
+    recapitalised_id = "9999-0xrecapitalised"
+    short_blip_id = "9999-0xshort-blip"
+    evm_id = "1-0xevm"
+    timestamps = pd.to_datetime(
+        [
+            "2026-01-01",  # Existing capital
+            "2026-01-02",  # Zero-NAV epoch begins
+            "2026-01-03",
+            "2026-01-09",
+            "2026-01-10",  # New capital exists, but below tracking threshold
+            "2026-01-11",
+            "2026-01-12",  # New epoch becomes meaningful
+            "2026-01-13",
+            "2026-01-01",  # Isolated zero blip must remain untouched
+            "2026-01-02",
+            "2026-01-03",
+            "2026-01-01",  # Non-Hypercore data is untouched
+        ]
+    )
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 11 + [1],
+            "id": [recapitalised_id] * 8 + [short_blip_id] * 3 + [evm_id],
+            "total_assets": [2_000.0, 0.0, 0.0, 0.0, 100.0, 999.0, 1_000.0, 1_050.0, 2_000.0, 0.0, 1_500.0, 0.0],
+            "share_price": [1.0] * 12,
+        },
+        index=timestamps,
+    )
+
+    messages: list[str] = []
+    result = discard_hypercore_pre_recapitalisation_history(prices_df, logger=messages.append)
+
+    recapitalised = result[result["id"] == recapitalised_id]
+    assert recapitalised.index.tolist() == [pd.Timestamp("2026-01-12"), pd.Timestamp("2026-01-13")]
+    assert recapitalised["epoch_reset"].tolist() == [True, False]
+    assert len(result[result["id"] == short_blip_id]) == 3
+    assert len(result[result["id"] == evm_id]) == 1
+    assert messages == ["Discarded 6 pre-recapitalisation Hypercore price rows across 1 vaults; new epochs start once NAV reaches $1,000 after 7 days 00:00:00"]
+
+
+def test_discard_hypercore_history_measures_delay_to_first_positive_nav() -> None:
+    """A prompt small deposit cannot become a delayed recapitalisation reset."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 4,
+            "id": ["9999-0xprompt-recovery"] * 4,
+            "total_assets": [2_000.0, 0.0, 900.0, 1_000.0],
+            "share_price": [1.0] * 4,
+        },
+        index=pd.to_datetime(["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-09"]),
+    )
+
+    result = discard_hypercore_pre_recapitalisation_history(prices_df, logger=lambda _message: None)
+
+    assert result.index.tolist() == prices_df.index.tolist()
+    assert result["epoch_reset"].tolist() == [False] * 4
+
+
 def test_native_protocol_columns_survive_evm_scan_rewrite(tmp_path: Path):
     """Native protocol columns must survive the EVM scanner's parquet rewrite.
 
@@ -211,6 +495,7 @@ def test_native_protocol_columns_survive_evm_scan_rewrite(tmp_path: Path):
             "account_pnl": [100.0, 110.0, np.nan, np.nan],
             "leader_fraction": [0.5, 0.5, np.nan, np.nan],
             "deposit_closed_reason": ["", "", "", ""],
+            "hypercore_source": ["daily", "hf", None, None],
         },
     )
 
@@ -227,6 +512,7 @@ def test_native_protocol_columns_survive_evm_scan_rewrite(tmp_path: Path):
     assert "account_pnl" in table.schema.names
     assert "leader_fraction" in table.schema.names
     assert "deposit_closed_reason" in table.schema.names
+    assert "hypercore_source" in table.schema.names
 
     # 3. Simulate an EVM scanner reading the file and migrating
     migrated = VaultHistoricalRead.migrate_parquet_schema(table)
@@ -240,6 +526,7 @@ def test_native_protocol_columns_survive_evm_scan_rewrite(tmp_path: Path):
     assert "account_pnl" in migrated.schema.names
     assert "leader_fraction" in migrated.schema.names
     assert "deposit_closed_reason" in migrated.schema.names
+    assert "hypercore_source" in migrated.schema.names
     assert migrated.num_rows == 4
 
     # Legacy __index_level_0__ is NOT present
@@ -286,11 +573,13 @@ def test_native_protocol_columns_survive_evm_scan_rewrite(tmp_path: Path):
     hl_rows = final.filter(pc.equal(final["chain"], 9999))
     assert hl_rows.column("account_pnl").to_pylist() == [100.0, 110.0]
     assert hl_rows.column("leader_fraction").to_pylist() == [0.5, 0.5]
+    assert hl_rows.column("hypercore_source").to_pylist() == ["daily", "hf"]
 
     # EVM rows have null for native columns
     evm_rows = final.filter(pc.equal(final["chain"], 1))
     assert all(v is None for v in evm_rows.column("account_pnl").to_pylist())
     assert all(v is None for v in evm_rows.column("leader_fraction").to_pylist())
+    assert all(v is None for v in evm_rows.column("hypercore_source").to_pylist())
 
 
 def test_fix_outlier_ipor_tau_yield_bond_spike():
