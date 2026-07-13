@@ -11,11 +11,25 @@ long_description: |
   supports VUSD quote-asset vault shares such as kUSDT and kUSDC, alongside
   mixed-asset collateral deposits. Withdrawals use three-day epochs and may
   require one to three epochs, depending on the collateral ratio.
+
+  Security notes:
+
+  - KiloEx publishes its [audit index](https://docs.kiloex.io/kiloex/about-kiloex/audit)
+    and audit reports in its [public GitHub audit repository](https://github.com/KiloExPerp/kiloex-audit).
+  - A [ScaleBit HybridVault audit](https://scalebit.xyz/reports/20240802-HybridVault-Final-Audit-Report.pdf)
+    found eight issues, including one major issue marked fixed. Audit coverage
+    should not be assumed to cover every current deployment or upgrade.
+  - On 15 April 2025, KiloEx suffered a multi-chain oracle-price manipulation
+    exploit. [SlowMist's incident recap](https://slowmist.medium.com/slowmist-assists-kiloex-in-recovering-all-stolen-funds-incident-recap-273d10f6d466)
+    attributes the issue to an access-control flaw in the trusted forwarder and
+    reports that all stolen funds were recovered after 3.5 days.
 fee_description: |
-  KiloEx documents trading commissions, execution fees and funding fees, but
-  does not publish a vault-specific ERC-4626 management or performance fee for
-  the known Hybrid Vault deployments. Vault liquidity providers share a portion
-  of platform trading revenue and are exposed to trader profit and loss.
+  KiloEx's [fees and spread documentation](https://docs.kiloex.io/kiloex/trading/fees-and-spread)
+  covers trader commissions, execution fees and funding fees, but does not
+  publish a vault-specific ERC-4626 management or performance fee for the known
+  Hybrid Vault deployments. Vault liquidity providers may receive up to 30% of
+  platform trading revenue and are exposed to trader profit and loss; this is a
+  revenue-sharing mechanism, not a published management or performance-fee rate.
 links:
   homepage: https://www.kiloex.io/
   app: https://app.kiloex.io/earn/
