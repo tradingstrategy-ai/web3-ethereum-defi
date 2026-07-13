@@ -57,15 +57,11 @@ GTRADE_VAULT_APP_URL = "https://gains.trade/vault"
 #: Current gTrade vault addresses checked from the Trading Strategy public
 #: vault export on 2026-07-13.
 GTRADE_VAULT_ADDRESSES: set[str] = {
-    "0x1c3f35f7883fc4ea8c4bca1507144dc6087ad0fb",
     "0x1e98b6143a4eaf78ab63de8ea8186eec3dbe5edc",
     "0x29019fe2e72e8d4d2118e8d0318bef389ffe2c81",
-    "0x43e3e6ffb2e363e64cd480cbb7cd0cf47bc6b477",
     "0x46344456f130e9dcdea7f98cdb0e02fb9f4ab72d",
-    "0x6e7a6eb5feec64bf6401a744757aba89c5c7e813",
     "0x91993f2101cc758d0deb7279d41e880f7defe827",
     "0x992eb7040b66b13abea94e2621d4e61d5ce608bd",
-    "0xa40e085d0584eed39daaa077fcc4cd153ae9a5b0",
     "0xad20523a7dc37babc1cc74897e4977232b3d02e5",
     "0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0",
     "0xd85e038593d7a098614721eae955ec2022b9b91b",
@@ -88,13 +84,9 @@ GTRADE_VAULT_LINK_MATRIX: dict[str, str] = {
     "0x91993f2101cc758d0deb7279d41e880f7defe827": "https://gains.trade/vaults/gDAI",
     # gUSDM
     "0x46344456f130e9dcdea7f98cdb0e02fb9f4ab72d": "https://gains.trade/vaults/gUSDM",
-    # kUSDT, hsUSD1, kUSDC, mUSDC, kREX, kBOX, and X-Solaris USD
-    "0x1c3f35f7883fc4ea8c4bca1507144dc6087ad0fb": GTRADE_VAULT_APP_URL,
+    # hsUSD1, mUSDC, and X-Solaris USD
     "0x1e98b6143a4eaf78ab63de8ea8186eec3dbe5edc": GTRADE_VAULT_APP_URL,
-    "0x43e3e6ffb2e363e64cd480cbb7cd0cf47bc6b477": GTRADE_VAULT_APP_URL,
     "0x992eb7040b66b13abea94e2621d4e61d5ce608bd": GTRADE_VAULT_APP_URL,
-    "0xa40e085d0584eed39daaa077fcc4cd153ae9a5b0": GTRADE_VAULT_APP_URL,
-    "0x6e7a6eb5feec64bf6401a744757aba89c5c7e813": GTRADE_VAULT_APP_URL,
     "0xfb34af2138280e13b0759fd322fe63fccc7508a6": GTRADE_VAULT_APP_URL,
 }
 

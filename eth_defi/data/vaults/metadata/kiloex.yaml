@@ -1,0 +1,34 @@
+name: KiloEx
+slug: kiloex
+short_description: |
+  Multi-chain perpetual DEX whose Hybrid Vaults provide trader counterparty liquidity.
+long_description: |
+  [KiloEx](https://www.kiloex.io/) is a non-custodial multi-chain perpetual DEX.
+  Its Hybrid Vaults pool liquidity that acts as the counterparty to traders, so
+  vault performance is driven by trading fees, funding payments and trader PnL.
+
+  The [Hybrid Vault](https://docs.kiloex.io/kiloex/about-kiloex/hybrid-vault)
+  supports VUSD quote-asset vault shares such as kUSDT and kUSDC, alongside
+  mixed-asset collateral deposits. Withdrawals use three-day epochs and may
+  require one to three epochs, depending on the collateral ratio.
+fee_description: |
+  KiloEx documents trading commissions, execution fees and funding fees, but
+  does not publish a vault-specific ERC-4626 management or performance fee for
+  the known Hybrid Vault deployments. Vault liquidity providers share a portion
+  of platform trading revenue and are exposed to trader profit and loss.
+links:
+  homepage: https://www.kiloex.io/
+  app: https://app.kiloex.io/earn/
+  twitter: https://x.com/KiloEx_perp
+  github: https://github.com/KiloExPerp
+  documentation: https://docs.kiloex.io/
+  defillama: https://defillama.com/protocol/kiloex
+  audits: https://docs.kiloex.io/kiloex/about-kiloex/audit
+  fees: https://docs.kiloex.io/kiloex/trading/fees-and-spread
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/kiloex
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/kiloex/index.html
+example_smart_contracts:
+  - https://bscscan.com/address/0xa40e085d0584eed39daaa077fcc4cd153ae9a5b0
+  - https://bscscan.com/address/0x6e7a6eb5feec64bf6401a744757aba89c5c7e813
+  - https://bscscan.com/address/0x1c3f35f7883fc4ea8c4bca1507144dc6087ad0fb
+  - https://basescan.org/address/0x43e3e6ffb2e363e64cd480cbb7cd0cf47bc6b477

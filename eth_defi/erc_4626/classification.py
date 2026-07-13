@@ -17,6 +17,7 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
@@ -61,6 +62,10 @@ ODA_FACT_HARDCODED_PROTOCOLS = {
 #: Midas hardcoded classification flags.
 MIDAS_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.midas_like} for token in MIDAS_PRODUCTS_BY_TOKEN}
 
+#: KiloEx Hybrid Vaults reuse a Gains-compatible contract surface. Classify
+#: known deployments by address instead of the generic ``maxDiscountP()`` probe.
+KILOEX_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.kiloex_like} for address in KILOEX_VAULT_ADDRESSES}
+
 
 def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | None = None) -> set[ERC4626Feature] | None:
     """Return hardcoded protocol features for a vault address.
@@ -80,6 +85,10 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
     normalised_address = HexAddress(address.lower())
 
     if chain_id is not None:
+        if (chain_id, normalised_address) in KILOEX_VAULTS_BY_CHAIN:
+            return {ERC4626Feature.kiloex_like}
+        if normalised_address in KILOEX_VAULT_ADDRESSES:
+            return None
         if (chain_id, normalised_address) in MIDAS_PRODUCTS:
             return MIDAS_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in MIDAS_HARDCODED_PROTOCOLS:
@@ -1515,6 +1524,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.gains.vault import DominationFinanceVault
 
         return DominationFinanceVault(web3, spec, **kwargs)
+    elif ERC4626Feature.kiloex_like in features:
+        from eth_defi.erc_4626.vault_protocol.kiloex.vault import KiloExVault
+
+        return KiloExVault(web3, spec, **kwargs)
     elif ERC4626Feature.gains_like in features:
         # Gains instance
         from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
@@ -1915,6 +1928,7 @@ def create_vault_instance_autodetect(
 HARDCODED_PROTOCOLS = {
     **ODA_FACT_HARDCODED_PROTOCOLS,
     **MIDAS_HARDCODED_PROTOCOLS,
+    **KILOEX_HARDCODED_PROTOCOLS,
     # 3Jane - USD3 senior tranche credit vault on Ethereum
     # https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
     "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc": {ERC4626Feature.threejane_like},

@@ -33,7 +33,7 @@ def test_gtrade_vault_links_use_verified_specific_and_generic_pages() -> None:
     assert make_gtrade_vault("0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0").get_link() == "https://gains.trade/vaults/gUSDC"
     assert make_gtrade_vault("0xd85e038593d7a098614721eae955ec2022b9b91b").get_link() == "https://gains.trade/vaults/gDAI"
     assert make_gtrade_vault("0x46344456f130e9dcdea7f98cdb0e02fb9f4ab72d").get_link() == "https://gains.trade/vaults/gUSDM"
-    assert make_gtrade_vault("0xa40e085d0584eed39daaa077fcc4cd153ae9a5b0").get_link() == GTRADE_VAULT_APP_URL
+    assert make_gtrade_vault("0xfb34af2138280e13b0759fd322fe63fccc7508a6").get_link() == GTRADE_VAULT_APP_URL
 
 
 def test_unknown_gains_like_vault_retains_base_adapter_link() -> None:
