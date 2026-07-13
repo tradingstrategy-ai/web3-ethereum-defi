@@ -244,6 +244,22 @@ def test_identify_lagoon_curator_by_curator_metadata() -> None:
     assert slug == "722-capital"
 
 
+def test_identify_t3tris_curator_by_curator_metadata() -> None:
+    """T3tris manager names resolve by exact ``t3tris-curator`` YAML metadata."""
+
+    slug = identify_curator(
+        chain_id=42161,
+        vault_token_symbol="",
+        vault_name="First - USDC",
+        vault_address="0x98e43a491a464f0886bc5e57207c340bbed0d01f",
+        protocol_slug="t3tris",
+        manager_name="First Capital",
+    )
+
+    assert slug == "first-capital"
+    assert get_curator_name("first-capital") == "First Capital"
+
+
 def test_identify_rockawayx_dashboard_vaults_by_address() -> None:
     """RockawayX Dune dashboard vaults resolve by exact address.
 
