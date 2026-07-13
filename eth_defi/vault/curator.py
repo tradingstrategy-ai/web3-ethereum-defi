@@ -1006,7 +1006,10 @@ def process_and_upload_curator_metadata(  # noqa: PLR0917
         content_type="application/json",
         skip_if_current=True,
     )
-    logger.info("%s curator metadata for: %s", "Uploaded" if metadata_uploaded else "Skipped unchanged", slug)
+    if metadata_uploaded:
+        logger.info("Uploaded curator metadata for: %s", slug)
+    else:
+        logger.debug("Skipped unchanged curator metadata for: %s", slug)
 
     logo_dir = FORMATTED_LOGOS_DIR / slug
     for variant in LOGO_VARIANTS:
@@ -1081,11 +1084,10 @@ def upload_protocol_curator_metadata(  # noqa: PLR0917
             content_type="application/json",
             skip_if_current=True,
         )
-        logger.info(
-            "%s protocol-curator metadata for: %s",
-            "Uploaded" if metadata_uploaded else "Skipped unchanged",
-            slug,
-        )
+        if metadata_uploaded:
+            logger.info("Uploaded protocol-curator metadata for: %s", slug)
+        else:
+            logger.debug("Skipped unchanged protocol-curator metadata for: %s", slug)
 
         logo_dir = FORMATTED_LOGOS_DIR / slug
         for variant in LOGO_VARIANTS:
