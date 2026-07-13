@@ -10,12 +10,12 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-
 import zstandard as zstd
 
 from eth_defi.research.wrangle_vault_prices import fix_outlier_share_prices, generate_cleaned_vault_datasets
 from eth_defi.vault.base import VaultHistoricalRead
 from eth_defi.vault.settlement_data import VaultSettlement, VaultSettlementDatabase
+from eth_defi.version_info import PARQUET_VERSION_METADATA_KEY
 
 
 @pytest.fixture()
@@ -88,6 +88,8 @@ def test_clean_vault_price_data(
     # written_at column should always be present in cleaned output
     # (NaT for old data that predates the column)
     assert "written_at" in df.columns
+
+    assert PARQUET_VERSION_METADATA_KEY in pq.read_metadata(dst).metadata
 
 
 def test_clean_vault_price_data_with_settlement_markers(
@@ -213,6 +215,8 @@ def test_native_protocol_columns_survive_evm_scan_rewrite(tmp_path: Path):
     )
 
     VaultHistoricalRead.write_uncleaned_parquet(native_df, parquet_path)
+
+    assert PARQUET_VERSION_METADATA_KEY in pq.read_metadata(parquet_path).metadata
 
     # 2. Verify the written file has correct canonical types
     table = pq.read_table(parquet_path)

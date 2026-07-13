@@ -13,9 +13,12 @@ import os
 from pathlib import Path
 
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 from eth_defi.cloudflare_r2 import create_r2_client, upload_file_to_r2
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
+from eth_defi.version_info import stamp_parquet_schema_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +30,9 @@ def generate_sample_parquet(cleaned_path: Path, output_path: Path) -> int:
     """Filter the cleaned vault prices parquet to Ethereum only.
 
     Reads the full multi-chain cleaned parquet and writes an
-    Ethereum-only subset for free download.
+    Ethereum-only subset for free download. The output gets the current
+    Docker ``metadata.version`` provenance stamp, matching scanner JSON
+    exports and the full price Parquet files.
 
     :param cleaned_path:
         Path to the full ``cleaned-vault-prices-1h.parquet``.
@@ -53,7 +58,9 @@ def generate_sample_parquet(cleaned_path: Path, output_path: Path) -> int:
     if len(sample_df) == 0:
         raise ValueError(f"No Ethereum (chain_id={ETHEREUM_CHAIN_ID}) rows found in {cleaned_path}")
 
-    sample_df.to_parquet(output_path, compression="zstd")
+    table = pa.Table.from_pandas(sample_df)
+    table = table.replace_schema_metadata(stamp_parquet_schema_metadata(table.schema).metadata)
+    pq.write_table(table, output_path, compression="zstd")
     logger.info(
         "Generated sample parquet: %d Ethereum rows out of %d total -> %s",
         len(sample_df),

@@ -156,6 +156,21 @@ same commit under `metadata.version.commit_hash` with its `updated_at`
 timestamp, while `scan-cycle-state.json` contains `generated_at`,
 `metadata.version.commit_hash`, and an `items` mapping.
 
+The raw `vault-prices-1h.parquet`, cleaned
+`cleaned-vault-prices-1h.parquet`, and Ethereum sample Parquet carry the same
+Docker version mapping in their file-level `metadata.version` key. The value
+is a UTF-8 JSON object containing `tag`, `commit_message`, and `commit_hash`.
+For example, inspect it with PyArrow:
+
+```python
+import json
+import pyarrow.parquet as pq
+
+metadata = pq.read_metadata("cleaned-vault-prices-1h.parquet").metadata
+version = json.loads(metadata[b"metadata.version"])
+print(version["commit_hash"])
+```
+
 After the raw and Brotli top-vault JSON objects have been uploaded to every
 configured bucket, the scanner logs one grep-friendly success record:
 

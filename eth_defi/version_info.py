@@ -19,10 +19,11 @@ Example::
     print(version.commit_hash)  # None outside Docker
 """
 
+import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,11 @@ VERSION_FILE_ROOT: Path = Path(__file__).parent.parent
 #: ``docker compose build``) stamps this literal string into the files.
 #: :py:meth:`VersionInfo.read_version_file` normalises it to ``None``.
 UNSPECIFIED_SENTINEL = "unspecified"
+
+#: Custom Parquet key containing the same mapping as JSON export
+#: ``metadata.version`` fields.  The value is a UTF-8 JSON object, because
+#: Apache Parquet file metadata is a flat bytes-to-bytes mapping.
+PARQUET_VERSION_METADATA_KEY = b"metadata.version"
 
 
 @dataclass(slots=True, frozen=True)
@@ -121,3 +127,46 @@ class VersionInfo:
             "commit_message": self.commit_message,
             "commit_hash": self.commit_hash,
         }
+
+    def as_parquet_metadata(self) -> dict[bytes, bytes]:
+        """Serialise this version stamp for Parquet file metadata.
+
+        Uses :py:data:`PARQUET_VERSION_METADATA_KEY` with the exact mapping
+        returned by :py:meth:`as_dict`. This is the Parquet equivalent of the
+        ``metadata.version`` object included in vault scanner JSON exports.
+
+        :return:
+            A PyArrow-compatible metadata mapping. The value is UTF-8 JSON so
+            ``None`` fields retain their JSON meaning instead of being
+            conflated with empty strings.
+        """
+        return {
+            PARQUET_VERSION_METADATA_KEY: json.dumps(self.as_dict(), sort_keys=True).encode("utf-8"),
+        }
+
+
+def stamp_parquet_schema_metadata(schema: Any, version_info: VersionInfo | None = None) -> Any:
+    """Add vault-scanner build provenance to a PyArrow schema.
+
+    Preserves existing schema metadata, such as pandas' column-index metadata,
+    while replacing the scanner's version stamp with the version of the code
+    currently writing the file. Use this for every scanner-produced Parquet
+    artefact so raw, cleaned, and sample price data can be traced to the same
+    Docker build as the JSON exports.
+
+    :param schema:
+        PyArrow schema to stamp. ``Any`` avoids imposing a runtime PyArrow
+        dependency on the lightweight version-information module.
+
+    :param version_info:
+        Optional explicit version for tests or specialised callers. When
+        omitted, reads the Docker image stamp of the current process.
+
+    :return:
+        A copy of ``schema`` with ``metadata.version`` provenance metadata.
+    """
+    if version_info is None:
+        version_info = VersionInfo.read_docker_version()
+    metadata = dict(schema.metadata or {})
+    metadata.update(version_info.as_parquet_metadata())
+    return schema.with_metadata(metadata)

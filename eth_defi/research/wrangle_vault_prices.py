@@ -23,6 +23,8 @@ from typing import Callable, TypedDict
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from eth_typing import HexAddress
 from IPython.display import display
 from tqdm_loggable.auto import tqdm
@@ -34,6 +36,7 @@ from eth_defi.vault.settlement_data import (
     merge_vault_settlements_into_cleaned_prices,
 )
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
+from eth_defi.version_info import stamp_parquet_schema_metadata
 
 
 class CleanedVaultPriceRow(TypedDict, total=False):
@@ -1322,6 +1325,8 @@ def generate_cleaned_vault_datasets(
     - Reads ``vault-prices-1h.parquet`` and generates ``cleaned-vault-prices-1h.parquet``
     - Calculate returns and various performance metrics to be included with prices data
     - Clean returns from abnormalities
+    - Stamp the cleaned Parquet with the current Docker ``metadata.version``
+      provenance, matching vault scanner JSON exports
 
     .. note::
 
@@ -1366,7 +1371,9 @@ def generate_cleaned_vault_datasets(
     )
     try:
         os.close(temp_fd)
-        enhanced_prices_df.to_parquet(temp_path, compression="zstd")
+        table = pa.Table.from_pandas(enhanced_prices_df)
+        table = table.replace_schema_metadata(stamp_parquet_schema_metadata(table.schema).metadata)
+        pq.write_table(table, temp_path, compression="zstd")
         verify_parquet_file(
             temp_path,
             expected_rows=len(enhanced_prices_df),

@@ -34,6 +34,7 @@ from eth_defi.types import Percent
 from eth_defi.utils import is_good_multichain_address
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.version_info import stamp_parquet_schema_metadata
 
 from .fee import FeeData, VaultFeeMode, get_vault_fee_mode
 from .flag import VaultFlag, get_notes, get_vault_special_flags
@@ -779,6 +780,7 @@ class VaultHistoricalRead:
         Both the EVM-compatible pandas writer and the direct PyArrow native
         merge path use this method. The caller is responsible for aligning
         canonical column types before calling this method; the output is
+        stamped with the current Docker ``metadata.version`` provenance,
         written beside the target, verified, and atomically replaced only on
         success.
 
@@ -790,6 +792,8 @@ class VaultHistoricalRead:
             Parquet compression codec.
         """
         import pyarrow.parquet as pq
+
+        table = table.replace_schema_metadata(stamp_parquet_schema_metadata(table.schema).metadata)
 
         # Write to a temp file, verify, then atomically replace the target.
         # If verification fails, the original file is preserved.
