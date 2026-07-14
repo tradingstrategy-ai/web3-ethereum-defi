@@ -6,6 +6,7 @@
 import datetime
 from collections.abc import Iterable
 from decimal import Decimal
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 from eth_defi.erc_4626.vault import VaultReaderState
@@ -15,6 +16,26 @@ from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 
 if TYPE_CHECKING:
     from eth_defi.midas.vault import MidasVault
+
+
+class MidasVaultReaderState(VaultReaderState):
+    """Persist adaptive Midas history scan state.
+
+    Midas datafeeds publish share prices in USD and the historical reader
+    already calculates TVL in USD.  Unlike ERC-4626 vaults, an mToken does not
+    expose an ERC-20 denomination token, so the generic exchange-rate lookup
+    cannot be used here.
+    """
+
+    @cached_property
+    def exchange_rate(self) -> Decimal:
+        """Return the USD exchange rate for Midas' USD-denominated NAV.
+
+        :return:
+            One, because Midas reader ``total_assets`` is already in USD.
+        """
+
+        return Decimal(1)
 
 
 class MidasVaultHistoricalReader(VaultHistoricalReader):
@@ -38,7 +59,7 @@ class MidasVaultHistoricalReader(VaultHistoricalReader):
 
         super().__init__(vault)
         if stateful:
-            self.reader_state = VaultReaderState(vault)
+            self.reader_state = MidasVaultReaderState(vault)
         else:
             self.reader_state = None
 
@@ -88,6 +109,7 @@ class MidasVaultHistoricalReader(VaultHistoricalReader):
 
         total_supply: Decimal | None = None
         share_price: Decimal | None = None
+        state_result: EncodedCallResult | None = None
         errors: list[str] = []
 
         for result in call_results:
@@ -104,10 +126,18 @@ class MidasVaultHistoricalReader(VaultHistoricalReader):
                 if result.success:
                     raw_share_price = convert_int256_bytes_to_int(result.result)
                     share_price = Decimal(raw_share_price) / Decimal(10**18)
+                    state_result = result
                 else:
                     errors.append("Midas getDataInBase18 call failed")
 
         total_assets = share_price * total_supply if share_price is not None and total_supply is not None else None
+
+        if self.reader_state is not None and state_result is not None and total_assets is not None:
+            self.reader_state.on_called(
+                state_result,
+                total_assets=total_assets,
+                share_price=share_price,
+            )
 
         return VaultHistoricalRead(
             vault=self.vault,
