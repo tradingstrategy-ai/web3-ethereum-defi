@@ -1,6 +1,7 @@
 """Tests for ERC-4626 settlement scan orchestration."""
 
 import datetime
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,6 +13,7 @@ from web3.datastructures import AttributeDict
 from eth_defi.erc_4626 import settlement_scan as settlement_scan_module
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.settlement_scan import VaultSettlementScanRange, select_vault_settlement_scan_ranges, select_vault_settlement_scan_ranges_for_chain
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault import scan_all_chains as scan_all_chains_module
 from eth_defi.vault.base import VaultSpec
@@ -20,8 +22,12 @@ from eth_defi.vault.vaultdb import VaultDatabase
 
 LAGOON_ADDRESS = "0xabc0000000000000000000000000000000000000"
 D2_ADDRESS = "0xd200000000000000000000000000000000000000"
+EMBER_ADDRESS = "0xe000000000000000000000000000000000000000"
 OTHER_ADDRESS = "0xdef0000000000000000000000000000000000000"
 CHAIN2_ADDRESS = "0x2220000000000000000000000000000000000000"
+JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
+EMBER_SCAN_ADDRESS = "0xf3190a3ecc109f88e7947b849b281918c798a0c4"
+EMBER_SETTLEMENT_BLOCK = 24_290_495
 
 
 class EmptySettlementDb:
@@ -59,6 +65,16 @@ def make_vault_db() -> VaultDatabase:
         deposit_count=10,
         redeem_count=5,
     )
+    ember_detection = ERC4262VaultDetection(
+        chain=1,
+        address=EMBER_ADDRESS,
+        first_seen_at_block=100,
+        first_seen_at=now,
+        features={ERC4626Feature.ember_like},
+        updated_at=now,
+        deposit_count=10,
+        redeem_count=5,
+    )
     other_detection = ERC4262VaultDetection(
         chain=1,
         address=OTHER_ADDRESS,
@@ -88,6 +104,12 @@ def make_vault_db() -> VaultDatabase:
                 "Protocol": "D2 Finance",
                 "features": d2_detection.features,
                 "_detection_data": d2_detection,
+            },
+            VaultSpec(1, EMBER_ADDRESS): {
+                "Address": EMBER_ADDRESS,
+                "Protocol": "Ember",
+                "features": ember_detection.features,
+                "_detection_data": ember_detection,
             },
         }
     )
@@ -251,13 +273,15 @@ def test_select_vault_settlement_scan_ranges_forced_lagoon_backfill(tmp_path: Pa
 
 
 def test_select_vault_settlement_scan_ranges_includes_supported_protocols() -> None:
-    """Generic settlement scans include Lagoon and D2 vaults."""
+    """Generic settlement scans include Lagoon, D2 and Ember vaults."""
     raw_prices = pd.DataFrame(
         [
             {"chain": 1, "address": LAGOON_ADDRESS, "block_number": 100},
             {"chain": 1, "address": LAGOON_ADDRESS, "block_number": 200},
             {"chain": 1, "address": D2_ADDRESS, "block_number": 110},
             {"chain": 1, "address": D2_ADDRESS, "block_number": 210},
+            {"chain": 1, "address": EMBER_ADDRESS, "block_number": 120},
+            {"chain": 1, "address": EMBER_ADDRESS, "block_number": 220},
             {"chain": 1, "address": OTHER_ADDRESS, "block_number": 100},
             {"chain": 1, "address": OTHER_ADDRESS, "block_number": 200},
         ]
@@ -267,7 +291,55 @@ def test_select_vault_settlement_scan_ranges_includes_supported_protocols() -> N
     assert [(item.address, item.start_block, item.end_block) for item in ranges] == [
         (LAGOON_ADDRESS, 100, 200),
         (D2_ADDRESS, 110, 210),
+        (EMBER_ADDRESS, 120, 220),
     ]
+
+
+@pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run this test")
+def test_update_settlement_database_for_chain_scans_ember_to_temporary_duckdb(tmp_path: Path) -> None:
+    """Scan a known Ember settlement into a temporary DuckDB database."""
+    pytest.importorskip("duckdb")
+    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC).replace(tzinfo=None)
+    detection = ERC4262VaultDetection(
+        chain=1,
+        address=EMBER_SCAN_ADDRESS,
+        first_seen_at_block=EMBER_SETTLEMENT_BLOCK,
+        first_seen_at=timestamp,
+        features={ERC4626Feature.ember_like},
+        updated_at=timestamp,
+        deposit_count=1,
+        redeem_count=1,
+    )
+    rows_by_key = {
+        (1, EMBER_SCAN_ADDRESS): {
+            "Address": EMBER_SCAN_ADDRESS,
+            "Protocol": "Ember",
+            "features": detection.features,
+            "_detection_data": detection,
+        },
+    }
+    database = VaultSettlementDatabase(tmp_path / "ember-settlements.duckdb")
+    try:
+        # 1. Run the real scanner over the one known RequestProcessed block.
+        result = settlement_scan_module._update_settlement_database_for_chain(
+            database=database,
+            web3=create_multi_provider_web3(JSON_RPC_ETHEREUM),
+            chain_id=1,
+            ranges=[VaultSettlementScanRange(chain_id=1, address=EMBER_SCAN_ADDRESS, start_block=EMBER_SETTLEMENT_BLOCK, end_block=EMBER_SETTLEMENT_BLOCK)],
+            rows_by_key=rows_by_key,
+            token_cache=TokenDiskCache(),
+            use_hypersync=False,
+            chunk_size=1,
+        )
+
+        # 2. Verify the committed settlement marker and durable scan watermark.
+        assert result.rows_written == 1
+        assert result.scanned_vaults == 1
+        settlements = database.get_settlements(chain_id=1, address=EMBER_SCAN_ADDRESS)
+        assert settlements[["block_number", "event_name"]].to_dict("records") == [{"block_number": EMBER_SETTLEMENT_BLOCK, "event_name": "RequestProcessed"}]
+        assert database.get_latest_scanned_block_number(1, EMBER_SCAN_ADDRESS) == EMBER_SETTLEMENT_BLOCK
+    finally:
+        database.close()
 
 
 def test_update_settlement_database_for_chain_batches_all_vaults_and_skips_bad_vaults(monkeypatch: pytest.MonkeyPatch) -> None:

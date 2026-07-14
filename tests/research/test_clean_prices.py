@@ -16,6 +16,7 @@ import eth_defi.research.wrangle_vault_prices as vault_price_wrangle
 from eth_defi.research.wrangle_vault_prices import (
     clean_returns,
     discard_hypercore_pre_recapitalisation_history,
+    fix_hypercore_flow_reconciled_share_price_paths,
     fix_hypercore_source_overlap_share_prices,
     fix_outlier_share_prices,
     generate_cleaned_vault_datasets,
@@ -467,6 +468,138 @@ def test_fix_hypercore_source_overlap_defers_unsafe_hf_repairs() -> None:
         assert candidate["share_price"] == pytest.approx(10.0)
         assert candidate["raw_share_price"] == pytest.approx(10.0)
         assert candidate["hypercore_repair_status"] == expected_status
+
+
+def test_fix_hypercore_flow_reconciled_share_price_paths() -> None:
+    """Ledger-proven withdrawals repair a synthetic daily price unit.
+
+    The daily price of 20.0 conflicts with both HF anchors, but its $20
+    withdrawal and -$10 PnL exactly explain the NAV change. The following
+    positive-PnL row also reconciles, so the repair must continue through it,
+    preserve raw values, and rescale a non-zero derived supply.
+    """
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 4,
+            "id": ["9999-0xflow-reconciled"] * 4,
+            "hypercore_source": ["hf", "daily", "daily", "hf"],
+            "share_price": [1.0, 20.0, 1.3, 1.0],
+            "total_assets": [100.0, 70.0, 80.0, 80.0],
+            "account_pnl": [0.0, -10.0, 0.0, 0.0],
+            "daily_deposit_usd": [np.nan, 0.0, 0.0, np.nan],
+            "daily_withdrawal_usd": [np.nan, 20.0, 0.0, np.nan],
+            "total_supply": [100.0, 5.0, 5.0, 100.0],
+        },
+        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-03", "2026-01-04 12:00"], format="mixed"),
+    )
+
+    messages: list[str] = []
+    result = fix_hypercore_flow_reconciled_share_price_paths(prices_df, logger=messages.append)
+
+    first_daily = pd.Timestamp("2026-01-02")
+    second_daily = pd.Timestamp("2026-01-03")
+    assert result.loc[first_daily, "raw_share_price"] == pytest.approx(20.0)
+    assert result.loc[first_daily, "share_price"] == pytest.approx(0.9)
+    assert result.loc[second_daily, "share_price"] == pytest.approx(0.9 * (1 + 10.0 / 70.0))
+    assert result.loc[first_daily, "hypercore_repair_status"] == "repaired_hf_pnl_flow"
+    assert result.loc[second_daily, "hypercore_repair_status"] == "repaired_hf_pnl_flow"
+    assert result.loc[second_daily, "share_price"] / result.loc[first_daily, "share_price"] - 1 > 0
+    assert result.loc[first_daily, "total_supply"] > 100.0
+    assert messages == ["Repaired 2 flow-reconciled Hypercore daily prices across 1 vaults using PnL paths"]
+
+
+def test_fix_hypercore_flow_reconciled_paths_require_hf_endpoint_agreement() -> None:
+    """A PnL path that misses its HF endpoint remains available for fallback."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 3,
+            "id": ["9999-0xendpoint"] * 3,
+            "hypercore_source": ["hf", "daily", "hf"],
+            "share_price": [1.0, 20.0, 2.0],
+            "total_assets": [100.0, 70.0, 70.0],
+            "account_pnl": [0.0, -10.0, -10.0],
+            "daily_deposit_usd": [np.nan, 0.0, np.nan],
+            "daily_withdrawal_usd": [np.nan, 20.0, np.nan],
+        },
+        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-03 12:00"], format="mixed"),
+    )
+
+    result = fix_hypercore_flow_reconciled_share_price_paths(prices_df, logger=lambda _message: None)
+
+    assert result.loc[pd.Timestamp("2026-01-02"), "share_price"] == pytest.approx(20.0)
+    assert result.loc[pd.Timestamp("2026-01-02"), "hypercore_repair_status"] == ""
+
+
+def test_fix_hypercore_flow_reconciled_path_keeps_pnl_return_direction() -> None:
+    """A nearby lower HF endpoint cannot turn positive PnL into a loss."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 4,
+            "id": ["9999-0xpositive-pnl"] * 4,
+            "hypercore_source": ["hf", "daily", "daily", "hf"],
+            "share_price": [1.0, 20.0, 20.0, 0.93],
+            "total_assets": [100.0, 101.0, 102.0, 102.0],
+            "account_pnl": [0.0, 1.0, 2.0, 2.0],
+            "daily_deposit_usd": [np.nan, 0.0, 0.0, np.nan],
+            "daily_withdrawal_usd": [np.nan, 0.0, 0.0, np.nan],
+        },
+        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-03", "2026-01-04 12:00"], format="mixed"),
+    )
+
+    result = fix_hypercore_flow_reconciled_share_price_paths(prices_df, logger=lambda _message: None)
+
+    first_price = result.loc[pd.Timestamp("2026-01-02"), "share_price"]
+    second_price = result.loc[pd.Timestamp("2026-01-03"), "share_price"]
+    assert first_price == pytest.approx(1.01)
+    assert second_price == pytest.approx(1.02)
+    assert second_price / first_price - 1 > 0
+
+
+def test_fix_hypercore_flow_reconciled_path_stops_at_unproven_step() -> None:
+    """A repaired PnL segment ends when its next ledger step is missing."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 5,
+            "id": ["9999-0xpartial-flow"] * 5,
+            "hypercore_source": ["hf", "daily", "daily", "daily", "hf"],
+            "share_price": [1.0, 20.0, 1.3, 20.0, 1.1],
+            "total_assets": [100.0, 70.0, 80.0, 90.0, 90.0],
+            "account_pnl": [0.0, -10.0, 0.0, 10.0, 10.0],
+            "daily_deposit_usd": [np.nan, 0.0, np.nan, 0.0, np.nan],
+            "daily_withdrawal_usd": [np.nan, 20.0, np.nan, 0.0, np.nan],
+        },
+        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05 12:00"], format="mixed"),
+    )
+
+    result = fix_hypercore_flow_reconciled_share_price_paths(prices_df, logger=lambda _message: None)
+
+    assert result.loc[pd.Timestamp("2026-01-02"), "hypercore_repair_status"] == "repaired_hf_pnl_flow"
+    assert result.loc[pd.Timestamp("2026-01-03"), "hypercore_repair_status"] == ""
+    assert result.loc[pd.Timestamp("2026-01-04"), "share_price"] == pytest.approx(20.0)
+    assert result.loc[pd.Timestamp("2026-01-04"), "hypercore_repair_status"] == ""
+
+
+def test_fix_hypercore_flow_reconciled_path_rejects_large_nav_mismatch() -> None:
+    """A percentage-sized NAV mismatch is not accepted for a large vault."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 3,
+            "id": ["9999-0xlarge-nav"] * 3,
+            "hypercore_source": ["hf", "daily", "hf"],
+            "share_price": [1.0, 20.0, 1.0],
+            "total_assets": [100_000_000.0, 100_900_000.0, 100_900_000.0],
+            "account_pnl": [0.0, 0.0, 0.0],
+            "daily_deposit_usd": [np.nan, 0.0, np.nan],
+            "daily_withdrawal_usd": [np.nan, 0.0, np.nan],
+        },
+        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-03 12:00"], format="mixed"),
+    )
+
+    result = fix_hypercore_flow_reconciled_share_price_paths(prices_df, logger=lambda _message: None)
+
+    daily = result.loc[pd.Timestamp("2026-01-02")]
+    assert daily["share_price"] == pytest.approx(20.0)
+    assert daily["hypercore_repair_status"] == ""
 
 
 def test_discard_hypercore_pre_recapitalisation_history() -> None:
