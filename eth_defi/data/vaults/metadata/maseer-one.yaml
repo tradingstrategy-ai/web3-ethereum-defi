@@ -1,24 +1,20 @@
 name: Maseer One
 slug: maseer-one
 short_description: |
-  Compliance-gated tokenised real-world assets with on-chain NAV/share.
+  Compliance-gated tokenised real-world assets with transparent pricing.
 long_description: |
   Maseer One is a modular tokenisation framework for real-world assets. Each
-  deployment issues an ERC-20 token while connecting immutable references to a
-  purchase token, price oracle, market gate, issuer registry, compliance guard
-  and output conduit. The initial integration tracks Wren Staked tGBP (wstGBP)
+  product gives eligible holders access to a tokenised asset with transparent
+  value information. The initial integration tracks Wren Staked tGBP (wstGBP)
   on Ethereum.
 
-  Maseer One assets are not ERC-4626 vaults. The token exposes its purchase and
-  redemption asset through `gem()` and a WAD-scaled NAV/share through
-  `navprice()`. Minting and redemption use bespoke, compliance-gated methods,
-  but the adapter can calculate historical TVL as token supply multiplied by
-  NAV/share in the real ERC-20 denomination.
+  Minting and redemption are subject to compliance and eligibility checks.
+  Holders should review the product documentation and redemption terms before
+  investing.
 fee_description: |
-  Maseer One applies its mint and redemption fees by adjusting the on-chain
-  NAV/share. `mintcost()` is the price paid by minters and `burncost()` is the
-  price paid to redeemers. The adapter derives these externalised fee fractions
-  from the current values relative to `navprice()`.
+  Maseer One applies a spread when assets are minted or redeemed. Fees may vary
+  with the current product terms; consult the official mint and redeem guidance
+  before investing.
 links:
   homepage: https://maseer.finance/
   app: https://wstgbp.com/
