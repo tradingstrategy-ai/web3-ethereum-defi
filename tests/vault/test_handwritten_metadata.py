@@ -49,7 +49,8 @@ def test_piku_vaults_have_handwritten_description_and_link(
     assert "**Summary:**" in note
     assert f"[Piku vault page]({metadata.link})" in note
     assert "[portfolio overview](https://morini.capital/)" in note
-    assert get_notes(address) == note
+    assert get_notes(address, chain_id=1) == note
+    assert get_notes(address, chain_id=8453) is None
 
 
 def test_piku_handwritten_metadata_covers_three_published_morini_vaults() -> None:
@@ -71,11 +72,20 @@ def test_midas_adapter_uses_piku_handwritten_metadata(address: str) -> None:
     metadata = get_handwritten_vault_metadata(1, address)
     assert metadata is not None
 
-    vault = type("PikuMidasVault", (), {"chain_id": 1, "address": address})()
+    vault = type(
+        "PikuMidasVault",
+        (),
+        {
+            "chain_id": 1,
+            "address": address,
+            "get_protocol_name": lambda _self: "Midas",
+        },
+    )()
 
     assert MidasVault.description.fget(vault) == metadata.description
     assert MidasVault.short_description.fget(vault) == metadata.short_description
     assert MidasVault.get_link(vault) == metadata.link
+    assert MidasVault.get_notes(vault) == format_handwritten_vault_note(metadata)
 
 
 def test_accountable_adapter_uses_piku_handwritten_metadata() -> None:
