@@ -451,15 +451,16 @@ git status --short --branch
 git rev-parse --show-toplevel
 ```
 
-For this repository's worktrees, run commands from the worktree directory and
-use the parent repository Poetry environment unless changing package
-dependencies. Follow the test command rules from `CLAUDE.md` and always verify
-the working directory and branch before trusting review output:
+For this repository's worktrees, run commands from the target worktree, use the
+parent repository Poetry environment unless changing package dependencies, and
+force imports from the target worktree. Follow the test command rules from
+`AGENTS.md` and always verify the working directory and branch before trusting
+review output:
 
 ```shell
 pwd
 git status --short --branch
-source .local-test.env && poetry run pytest tests/path/to/test.py
+source .local-test.env && PYTHONPATH="$(pwd):$PYTHONPATH" poetry run pytest tests/path/to/test.py
 ```
 
 ### The agent misses repository instructions
