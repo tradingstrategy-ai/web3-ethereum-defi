@@ -36,13 +36,13 @@ Useful environment variables:
      - Optional comma-separated Midas product symbols, e.g. ``mTBILL,mBASIS``.
    * - ``MIDAS_SCAN_PRICES``
      - If ``false``, update only leads and metadata. Default: ``true``.
-   * - ``MIDAS_REWRITE_TARGETED``
-     - If ``true``, clear reader states for selected Midas vaults so history is
-       rewritten from their first deployment block. Default: ``true``.
+   * - ``MIDAS_CLEAN_PRICES``
+     - If ``true``, rebuild and replace only the selected vault histories in
+       the cleaned price Parquet. Default: ``true``.
    * - ``MAX_WORKERS``
      - Historical multicall worker count. Default: ``8``.
    * - ``FREQUENCY``
-     - Historical price frequency, ``1h`` or ``1d``. Default: ``1h``.
+     - Historical price frequency, ``1h`` or ``1d``. Default: ``1d``.
    * - ``START_BLOCK``
      - Optional global minimum start block override.
    * - ``END_BLOCK``
@@ -51,6 +51,8 @@ Useful environment variables:
      - Optional metadata DB path. Default: production vault metadata DB.
    * - ``UNCLEANED_PRICE_DATABASE``
      - Optional uncleaned price parquet path. Default: production price DB.
+   * - ``CLEANED_PRICE_DATABASE``
+     - Optional cleaned price parquet path. Default: production cleaned price DB.
    * - ``READER_STATE_DATABASE``
      - Optional reader-state pickle path. Default: production reader state DB.
 
@@ -64,6 +66,7 @@ import pickle  # noqa: S403 - trusted local production reader-state pickle.
 import sys
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Literal, cast
 
 from atomicwrites import atomic_write
 from eth_typing import HexAddress
@@ -80,11 +83,12 @@ from eth_defi.midas.constants import MIDAS_PRODUCTS, MidasProduct
 from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
+from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histories
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.historical import pformat_scan_result, scan_historical_prices_to_parquet
-from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
+from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +138,46 @@ def parse_optional_int_env(name: str) -> int | None:
     if not value:
         return None
     return int(value)
+
+
+def resolve_frequency() -> Literal["1h", "1d"]:
+    """Read and validate the historical backfill sampling frequency.
+
+    Both the printed execution plan and the scanner must use this one resolved
+    value.  Reading the environment independently inside the chain loop would
+    let their defaults diverge.
+
+    :return:
+        Requested sampling frequency, defaulting to one daily sample.
+    """
+
+    frequency = os.environ.get("FREQUENCY", "1d")
+    if frequency not in {"1h", "1d"}:
+        message = f"Unsupported FREQUENCY: {frequency}"
+        raise ValueError(message)
+    return cast(Literal["1h", "1d"], frequency)
+
+
+def resolve_price_scan_start_block(products: list[MidasProduct]) -> int:
+    """Resolve the first block to read for one chain's Midas backfill.
+
+    A targeted backfill must not inherit the ordinary vault scanner's latest
+    reader state for the chain.  Those states normally point close to the
+    chain head and would silently turn a deployment-history rewrite into a
+    short incremental scan.  Start at the earliest selected Midas deployment
+    unless the operator explicitly pins a start block.
+
+    :param products:
+        Selected Midas products on one EVM chain.
+    :return:
+        Explicit ``START_BLOCK`` value, or the earliest selected deployment block.
+    """
+
+    explicit_start_block = parse_optional_int_env("START_BLOCK")
+    if explicit_start_block is not None:
+        return explicit_start_block
+
+    return min(product.first_seen_at_block for product in products)
 
 
 def parse_path_env(name: str, default: Path) -> Path:
@@ -320,10 +364,12 @@ def backfill_chain(  # noqa: PLR0914
     *,
     dry_run: bool,
     scan_prices: bool,
-    rewrite_targeted: bool,
+    clean_prices: bool,
+    frequency: Literal["1h", "1d"],
     vault_db: VaultDatabase,
     vault_db_path: Path,
     price_database_path: Path,
+    cleaned_price_database_path: Path,
     reader_state_database_path: Path,
     token_cache: TokenDiskCache,
 ) -> dict[str, object]:
@@ -337,14 +383,18 @@ def backfill_chain(  # noqa: PLR0914
         Whether writes are disabled.
     :param scan_prices:
         Whether to scan historical prices.
-    :param rewrite_targeted:
-        Whether to clear selected vault reader states before scanning.
+    :param clean_prices:
+        Whether to replace selected histories in the cleaned price database.
+    :param frequency:
+        Historical sampling frequency shared with the displayed execution plan.
     :param vault_db:
         Vault metadata database.
     :param vault_db_path:
         Vault metadata database path.
     :param price_database_path:
         Historical price parquet path.
+    :param cleaned_price_database_path:
+        Cleaned historical price parquet path.
     :param reader_state_database_path:
         Reader-state pickle path.
     :param token_cache:
@@ -391,29 +441,48 @@ def backfill_chain(  # noqa: PLR0914
             scan_summary = "dry-run"
         else:
             reader_states = read_reader_states(reader_state_database_path)
-            if rewrite_targeted:
-                reader_states = {spec: state for spec, state in reader_states.items() if spec.vault_address.lower() not in vault_ids}
+            # Targeted history scans replace rows from the Midas deployment
+            # block onwards. Retaining a later state would make the adaptive
+            # reader skip those deleted rows instead of restoring them.
+            reader_states = {spec: state for spec, state in reader_states.items() if spec.vault_address.lower() not in vault_ids}
 
             web3factory = MultiProviderWeb3Factory(json_rpc_url, retries=5)
             hypersync_config = configure_hypersync_from_env(web3)
             vaults = build_vaults(web3, products, token_cache)
+            start_block = resolve_price_scan_start_block(products)
+            logger.info(
+                "Backfill price history for %d Midas products on %s from block %d",
+                len(products),
+                chain_name,
+                start_block,
+            )
             scan_result = scan_historical_prices_to_parquet(
                 output_fname=price_database_path,
                 web3=web3,
                 web3factory=web3factory,
                 vaults=vaults,
-                start_block=parse_optional_int_env("START_BLOCK"),
+                start_block=start_block,
                 end_block=end_block,
                 max_workers=int(os.environ.get("MAX_WORKERS", "8")),
                 chunk_size=32,
                 token_cache=token_cache,
-                frequency=os.environ.get("FREQUENCY", "1h"),
+                frequency=frequency,
                 reader_states=reader_states,
                 hypersync_client=hypersync_config.hypersync_client,
                 vault_addresses=vault_ids,
             )
             write_reader_states(reader_state_database_path, scan_result["reader_states"])
             scan_summary = pformat_scan_result(scan_result)
+
+            if clean_prices:
+                cleaned_rows = replace_cleaned_vault_histories(
+                    {VaultSpec(product.chain_id, product.token).as_string_id() for product in products},
+                    vault_db_path=vault_db_path,
+                    raw_price_df_path=price_database_path,
+                    cleaned_price_df_path=cleaned_price_database_path,
+                    logger=logger.info,
+                )
+                scan_summary = f"{scan_summary}; cleaned_rows={cleaned_rows:,}"
 
     return {
         "chain": chain_name,
@@ -432,11 +501,8 @@ def main() -> None:
 
     dry_run = parse_bool_env("DRY_RUN")
     scan_prices = parse_bool_env("MIDAS_SCAN_PRICES", default=True)
-    rewrite_targeted = parse_bool_env("MIDAS_REWRITE_TARGETED", default=True)
-    frequency = os.environ.get("FREQUENCY", "1h")
-    if frequency not in {"1h", "1d"}:
-        message = f"Unsupported FREQUENCY: {frequency}"
-        raise ValueError(message)
+    clean_prices = parse_bool_env("MIDAS_CLEAN_PRICES", default=True)
+    frequency = resolve_frequency()
 
     products = list(iter_selected_products())
     if not products:
@@ -445,6 +511,7 @@ def main() -> None:
 
     vault_db_path = parse_path_env("VAULT_DB_PATH", DEFAULT_VAULT_DATABASE)
     price_database_path = parse_path_env("UNCLEANED_PRICE_DATABASE", DEFAULT_UNCLEANED_PRICE_DATABASE)
+    cleaned_price_database_path = parse_path_env("CLEANED_PRICE_DATABASE", DEFAULT_RAW_PRICE_DATABASE)
     reader_state_database_path = parse_path_env("READER_STATE_DATABASE", DEFAULT_READER_STATE_DATABASE)
 
     products_by_chain: dict[int, list[MidasProduct]] = {}
@@ -466,9 +533,11 @@ def main() -> None:
     print(tabulate(plan, headers="keys", tablefmt="github"))
     print(f"Vault DB: {vault_db_path}")
     print(f"Price DB: {price_database_path}")
+    print(f"Cleaned price DB: {cleaned_price_database_path}")
     print(f"Reader states: {reader_state_database_path}")
     print(f"Frequency: {frequency}")
     print(f"Dry run: {dry_run}")
+    print(f"Update cleaned prices: {clean_prices}")
 
     vault_db = read_vault_database(vault_db_path)
     token_cache = TokenDiskCache()
@@ -481,10 +550,12 @@ def main() -> None:
                 chain_products,
                 dry_run=dry_run,
                 scan_prices=scan_prices,
-                rewrite_targeted=rewrite_targeted,
+                clean_prices=clean_prices,
+                frequency=frequency,
                 vault_db=vault_db,
                 vault_db_path=vault_db_path,
                 price_database_path=price_database_path,
+                cleaned_price_database_path=cleaned_price_database_path,
                 reader_state_database_path=reader_state_database_path,
                 token_cache=token_cache,
             )

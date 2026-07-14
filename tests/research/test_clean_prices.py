@@ -12,11 +12,13 @@ import pyarrow.parquet as pq
 import pytest
 import zstandard as zstd
 
+import eth_defi.research.wrangle_vault_prices as vault_price_wrangle
 from eth_defi.research.wrangle_vault_prices import (
     discard_hypercore_pre_recapitalisation_history,
     fix_hypercore_source_overlap_share_prices,
     fix_outlier_share_prices,
     generate_cleaned_vault_datasets,
+    replace_cleaned_vault_histories,
 )
 from eth_defi.vault.base import VaultHistoricalRead
 from eth_defi.vault.settlement_data import VaultSettlement, VaultSettlementDatabase
@@ -150,6 +152,76 @@ def test_clean_vault_price_data_with_settlement_markers(
     assert "timestamp" in df.columns or df.index.name == "timestamp"
     assert "vault_settlement_at" in df.columns
     assert df["vault_settlement_at"].notna().any()
+
+
+def test_replace_cleaned_vault_histories_preserves_unrelated_vaults(
+    vault_db: Path,
+    raw_price_df: Path,
+    tmp_path: Path,
+) -> None:
+    """A targeted history repair does not re-clean or remove other vault ids."""
+    cleaned_path = tmp_path / "cleaned-vault-prices.parquet"
+    generate_cleaned_vault_datasets(
+        vault_db_path=vault_db,
+        price_df_path=raw_price_df,
+        cleaned_price_df_path=cleaned_path,
+    )
+    before = pd.read_parquet(cleaned_path).reset_index(drop=True)
+    target_id = str(before["id"].drop_duplicates().iloc[1])
+
+    replaced_rows = replace_cleaned_vault_histories(
+        {target_id},
+        vault_db_path=vault_db,
+        raw_price_df_path=raw_price_df,
+        cleaned_price_df_path=cleaned_path,
+    )
+    after = pd.read_parquet(cleaned_path).reset_index(drop=True)
+
+    assert replaced_rows == len(before[before["id"] == target_id])
+    pd.testing.assert_frame_equal(after, before)
+
+
+def test_replace_cleaned_vault_histories_rejects_vault_removed_by_cleaning(
+    vault_db: Path,
+    raw_price_df: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Keep existing history when cleaning would remove a selected vault.
+
+    1. Create a normal cleaned price database and retain its contents.
+    2. Mock the selected-vault cleaner to return no rows.
+    3. Assert that replacement fails and the original Parquet remains intact.
+    """
+
+    # 1. Create a normal cleaned price database and retain its contents.
+    cleaned_path = tmp_path / "cleaned-vault-prices.parquet"
+    generate_cleaned_vault_datasets(
+        vault_db_path=vault_db,
+        price_df_path=raw_price_df,
+        cleaned_price_df_path=cleaned_path,
+    )
+    before = pd.read_parquet(cleaned_path).reset_index(drop=True)
+    target_id = str(before["id"].iloc[0])
+    empty_cleaned_rows = pd.read_parquet(cleaned_path).iloc[0:0].copy()
+
+    # 2. Mock the selected-vault cleaner to return no rows.
+    monkeypatch.setattr(
+        vault_price_wrangle,
+        "process_raw_vault_scan_data",
+        lambda *args, **kwargs: empty_cleaned_rows,
+    )
+
+    # 3. Assert that replacement fails and the original Parquet remains intact.
+    with pytest.raises(ValueError, match="Cleaning removed all rows"):
+        replace_cleaned_vault_histories(
+            {target_id},
+            vault_db_path=vault_db,
+            raw_price_df_path=raw_price_df,
+            cleaned_price_df_path=cleaned_path,
+        )
+    after = pd.read_parquet(cleaned_path).reset_index(drop=True)
+    pd.testing.assert_frame_equal(after, before)
 
 
 def test_remove_inactive_lead_time():

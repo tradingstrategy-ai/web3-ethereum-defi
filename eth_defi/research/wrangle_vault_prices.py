@@ -18,12 +18,14 @@ import os
 import pickle
 import tempfile
 import warnings
+from bisect import bisect_right
 from pathlib import Path
 from typing import Callable, TypedDict
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 from eth_typing import HexAddress
 from IPython.display import display
@@ -37,7 +39,7 @@ from eth_defi.vault.base import VaultSpec, verify_parquet_file
 from eth_defi.vault.settlement_data import (
     merge_vault_settlements_into_cleaned_prices,
 )
-from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
+from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
 from eth_defi.version_info import stamp_parquet_schema_metadata
 
 #: At least two canonical observations are needed to bracket a daily price.
@@ -1807,6 +1809,165 @@ def generate_cleaned_vault_datasets(
 
     fsize = cleaned_price_df_path.stat().st_size
     logger(f"Saved cleaned vault prices to {cleaned_price_df_path}, total {len(enhanced_prices_df):,} rows, file size is {fsize / 1024 / 1024:.2f} MB")
+
+
+def replace_cleaned_vault_histories(  # noqa: PLR0914
+    vault_ids: set[str],
+    *,
+    vault_db_path: Path = DEFAULT_VAULT_DATABASE,
+    raw_price_df_path: Path = DEFAULT_UNCLEANED_PRICE_DATABASE,
+    cleaned_price_df_path: Path = DEFAULT_RAW_PRICE_DATABASE,
+    settlement_db_path: Path | None = None,
+    logger: Callable[[str], None] = print,
+) -> int:
+    """Rebuild and atomically replace cleaned histories for selected vaults.
+
+    The normal cleaner is deliberately whole-dataset: it reads every raw row,
+    applies its transformations, and emits a new Parquet file.  A historical
+    repair only changes a small number of vaults, however, and each cleaner
+    transformation is independent between vault ids.  Recompute the complete
+    raw history for the selected ids, then stream-copy all other cleaned row
+    groups into a replacement Parquet.  This avoids expensive pandas cleaning
+    for unrelated vaults while preserving their existing cleaned rows and
+    physical ``id, timestamp`` order.
+
+    The destination remains a single Parquet file, so its bytes must still be
+    rewritten before the atomic replace.  The function does not silently drop
+    columns: a selected vault whose cleaned columns do not match the existing
+    output raises an error before replacing the original file.
+
+    :param vault_ids:
+        Canonical lower-case ``chain_id-address`` ids to replace.
+    :param vault_db_path:
+        Metadata database used for denormalisation and stablecoin filtering.
+    :param raw_price_df_path:
+        Raw scanner Parquet containing the replacement histories.
+    :param cleaned_price_df_path:
+        Existing cleaned Parquet to update atomically.
+    :param settlement_db_path:
+        Optional settlement database applied to the selected cleaned rows.
+    :param logger:
+        Progress callback.
+    :return:
+        Number of cleaned rows written for the selected vaults.
+    """
+
+    canonical_ids = sorted(vault_id.lower() for vault_id in vault_ids)
+    if not canonical_ids:
+        message = "vault_ids must not be empty"
+        raise ValueError(message)
+
+    assert vault_db_path.exists(), f"Vault metadata database does not exist: {vault_db_path}"
+    assert raw_price_df_path.exists(), f"Raw price database does not exist: {raw_price_df_path}"
+    assert cleaned_price_df_path.exists(), f"Cleaned price database does not exist: {cleaned_price_df_path}"
+
+    vault_specs = [VaultSpec.parse_string(vault_id) for vault_id in canonical_ids]
+    logger(f"Loading raw histories for {len(canonical_ids):,} selected vaults from {raw_price_df_path}")
+    raw_reader = pq.ParquetFile(raw_price_df_path)
+    required_raw_columns = {"chain", "address"}
+    missing_raw_columns = required_raw_columns - set(raw_reader.schema_arrow.names)
+    if missing_raw_columns:
+        raise ValueError(f"Raw price database is missing required columns: {sorted(missing_raw_columns)}")
+
+    selected_raw_batches: list[pa.Table] = []
+    for batch in raw_reader.iter_batches(batch_size=100_000):
+        raw_table = pa.Table.from_batches([batch])
+        pair_mask = pc.and_(
+            pc.equal(raw_table["chain"], vault_specs[0].chain_id),
+            pc.equal(raw_table["address"], vault_specs[0].vault_address),
+        )
+        for spec in vault_specs[1:]:
+            pair_mask = pc.or_(
+                pair_mask,
+                pc.and_(
+                    pc.equal(raw_table["chain"], spec.chain_id),
+                    pc.equal(raw_table["address"], spec.vault_address),
+                ),
+            )
+        selected_raw = raw_table.filter(pair_mask)
+        if selected_raw.num_rows:
+            selected_raw_batches.append(selected_raw)
+
+    raw_prices_df = pa.concat_tables(selected_raw_batches).to_pandas(types_mapper=pd.ArrowDtype) if selected_raw_batches else pd.DataFrame()
+    if raw_prices_df.empty:
+        raise ValueError(f"No raw price rows found for selected vault ids: {', '.join(canonical_ids)}")
+
+    logger(f"Loading vault metadata from {vault_db_path}")
+    vault_db = VaultDatabase.read(vault_db_path)
+    cleaned_selected_df = process_raw_vault_scan_data(vault_db.rows, raw_prices_df, logger=logger)
+    cleaned_selected_df = merge_vault_settlements_into_cleaned_prices(cleaned_selected_df, settlement_db_path=settlement_db_path)
+    if "timestamp" not in cleaned_selected_df.columns and cleaned_selected_df.index.name == "timestamp":
+        cleaned_selected_df = cleaned_selected_df.reset_index()
+
+    missing_cleaned_columns = {"id", "timestamp"} - set(cleaned_selected_df.columns)
+    if missing_cleaned_columns:
+        raise ValueError(f"Selected cleaned histories are missing required columns: {sorted(missing_cleaned_columns)}")
+
+    cleaned_ids = set(cleaned_selected_df["id"].astype(str).str.lower())
+    missing_cleaned_ids = set(canonical_ids) - cleaned_ids
+    if missing_cleaned_ids:
+        raise ValueError(f"Cleaning removed all rows for selected vault ids; refusing to replace existing histories: {', '.join(sorted(missing_cleaned_ids))}")
+    cleaned_selected_df.sort_values(by=["id", "timestamp"], inplace=True)
+
+    existing_reader = pq.ParquetFile(cleaned_price_df_path)
+    output_schema = existing_reader.schema_arrow
+    selected_table = pa.Table.from_pandas(cleaned_selected_df)
+    unexpected_columns = set(selected_table.schema.names) - set(output_schema.names)
+    if unexpected_columns:
+        raise ValueError(f"Selected cleaned histories contain columns missing from {cleaned_price_df_path}: {sorted(unexpected_columns)}")
+
+    selected_columns = []
+    for field in output_schema:
+        if field.name in selected_table.schema.names:
+            column = selected_table[field.name]
+            if column.type != field.type:
+                column = column.cast(field.type)
+        else:
+            column = pa.nulls(len(selected_table), type=field.type)
+        selected_columns.append(column)
+    selected_table = pa.Table.from_arrays(selected_columns, schema=output_schema)
+    selected_sort_keys = list(zip(selected_table["id"].to_pylist(), selected_table["timestamp"].to_pylist(), strict=True))
+
+    value_set = pa.array(canonical_ids, type=pa.string())
+    temp_fd, temp_path = tempfile.mkstemp(suffix=".parquet", dir=str(cleaned_price_df_path.parent))
+    os.close(temp_fd)
+    retained_rows = 0
+    selected_row_offset = 0
+    try:
+        with pq.ParquetWriter(temp_path, output_schema, compression="zstd") as writer:
+            for batch in existing_reader.iter_batches(batch_size=100_000):
+                table = pa.Table.from_batches([batch]).replace_schema_metadata(output_schema.metadata)
+                retained = table.filter(pc.invert(pc.is_in(table["id"], value_set=value_set)))
+                if retained.num_rows:
+                    retained_row_count = retained.num_rows
+                    last_sort_key = (retained["id"][-1].as_py(), retained["timestamp"][-1].as_py())
+                    selected_end = bisect_right(selected_sort_keys, last_sort_key, lo=selected_row_offset)
+                    if selected_end > selected_row_offset:
+                        combined = pa.concat_tables(
+                            [retained, selected_table.slice(selected_row_offset, selected_end - selected_row_offset)],
+                        )
+                        sort_indices = pc.sort_indices(combined, sort_keys=[("id", "ascending"), ("timestamp", "ascending")])
+                        retained = combined.take(sort_indices)
+                        selected_row_offset = selected_end
+                    writer.write_table(retained)
+                    retained_rows += retained_row_count
+            if selected_row_offset < selected_table.num_rows:
+                writer.write_table(selected_table.slice(selected_row_offset))
+
+        expected_rows = retained_rows + selected_table.num_rows
+        verify_parquet_file(
+            temp_path,
+            expected_rows=expected_rows,
+            expected_schema=output_schema,
+        )
+        os.replace(temp_path, cleaned_price_df_path)
+    except BaseException:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+        raise
+
+    logger(f"Replaced {selected_table.num_rows:,} cleaned price rows for {len(canonical_ids):,} vaults; preserved {retained_rows:,} unrelated rows")
+    return selected_table.num_rows
 
 
 def forward_fill_vault(

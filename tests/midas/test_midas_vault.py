@@ -22,7 +22,7 @@ from eth_defi.hypersync.hypersync_timestamp import get_block_timestamps_using_hy
 from eth_defi.hypersync.server import get_hypersync_server
 from eth_defi.hypersync.session import ThrottledHypersyncClient, create_throttled_hypersync_client
 from eth_defi.midas.constants import MIDAS_MBASIS_ETHEREUM, MIDAS_MTBILL_ETHEREUM, MIDAS_PRODUCTS
-from eth_defi.midas.historical import MidasVaultHistoricalReader
+from eth_defi.midas.historical import MidasVaultHistoricalReader, MidasVaultReaderState
 from eth_defi.midas.registry import (
     MIDAS_ADDRESSES_PER_NETWORK,
     MIDAS_CHAIN_IDS,
@@ -451,6 +451,46 @@ def test_midas_historical_reader_live_mtbill(web3: Web3) -> None:
     assert read.performance_fee is None
     assert read.management_fee is None
     assert read.errors is None
+
+
+@flaky.flaky
+def test_midas_historical_reader_updates_state(web3: Web3) -> None:
+    """Persist Midas reader state after a successful historical sample."""
+
+    vault = create_vault_instance_autodetect(
+        web3,
+        vault_address=MIDAS_MTBILL_ETHEREUM.token,
+    )
+    reader = vault.get_historical_reader(stateful=True)
+    assert isinstance(reader, MidasVaultHistoricalReader)
+    assert isinstance(reader.reader_state, MidasVaultReaderState)
+
+    timestamp = datetime.datetime.fromtimestamp(
+        web3.eth.get_block(MIDAS_TEST_BLOCK)["timestamp"],
+        tz=datetime.UTC,
+    ).replace(tzinfo=None)
+    call_results = [
+        call.call_as_result(
+            web3,
+            block_identifier=MIDAS_TEST_BLOCK,
+            ignore_error=True,
+        )
+        for call in reader.construct_multicalls()
+    ]
+    for call_result in call_results:
+        call_result.timestamp = timestamp
+        call_result.state = reader.reader_state
+
+    reader.process_result(
+        block_number=MIDAS_TEST_BLOCK,
+        timestamp=timestamp,
+        call_results=call_results,
+    )
+
+    assert reader.reader_state.last_block == MIDAS_TEST_BLOCK
+    assert reader.reader_state.entry_count == 1
+    assert reader.reader_state.last_tvl == MTBILL_EXPECTED_TOTAL_ASSETS
+    assert reader.reader_state.exchange_rate == 1
 
 
 @flaky.flaky

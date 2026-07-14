@@ -221,8 +221,13 @@ Start the review in the background and write the raw JSONL stream to a temporary
 file instead. Restrict tools to read-only operations and redirect stdin so the
 CLI cannot wait for additional prompt input:
 
+Use a 15-minute wall-clock deadline for an external-agent process, including
+Claude CLI and Codex CLI. This gives a legitimate review enough time to inspect
+the worktree; it does not override the separate one-minute no-output rule for a
+grounded Claude review.
+
 ```shell
-nohup timeout 120 claude -p "Review the current uncommitted worktree diff for correctness bugs only. Do not edit files or run tests. Return findings first with file:line references." \
+nohup timeout 900 claude -p "Review the current uncommitted worktree diff for correctness bugs only. Do not edit files or run tests. Return findings first with file:line references." \
   --permission-mode dontAsk \
   --allowedTools "Read,Grep,Glob,Bash(git status:*),Bash(git diff:*),Bash(sed:*),Bash(rg:*)" \
   --output-format stream-json \
@@ -451,15 +456,16 @@ git status --short --branch
 git rev-parse --show-toplevel
 ```
 
-For this repository's worktrees, run commands from the worktree directory and
-use the parent repository Poetry environment unless changing package
-dependencies. Follow the test command rules from `CLAUDE.md` and always verify
-the working directory and branch before trusting review output:
+For this repository's worktrees, run commands from the target worktree, use the
+parent repository Poetry environment unless changing package dependencies, and
+force imports from the target worktree. Follow the test command rules from
+`AGENTS.md` and always verify the working directory and branch before trusting
+review output:
 
 ```shell
 pwd
 git status --short --branch
-source .local-test.env && poetry run pytest tests/path/to/test.py
+source .local-test.env && PYTHONPATH="$(pwd):$PYTHONPATH" poetry run pytest tests/path/to/test.py
 ```
 
 ### The agent misses repository instructions
