@@ -856,6 +856,11 @@ source .local-test.env && poetry run python scripts/erc-4626/heal-broken-vaults.
 ### prepopulate-timestamps.py
 
 Prepopulate the Hypersync block timestamp DuckDB cache for all scanner chains.
+The cache consists of one file per chain at
+`~/.tradingstrategy/block-timestamp/{chain_id}-timestamps.duckdb`; preserve and
+copy this directory between scanner hosts. The legacy
+`~/.tradingstrategy/block-timestamps.*` path is not read by the current
+timestamp reader.
 Use this to recover chains stuck in a 429 rate-limit spiral — when a chain's
 timestamp cache falls behind, each scan cycle needs more blocks, making it more
 likely to hit 429 again. Running this script during a quiet period (with the

@@ -55,7 +55,7 @@ Copy server-side run results back to the local machine:
 .. code-block:: shell
 
     rsync -av --inplace --progress --exclude="tmp*" "vitalik7-tailscale:.tradingstrategy/vaults/*" ~/.tradingstrategy/vaults/
-    rsync -av --inplace --progress "vitalik7-tailscale:.tradingstrategy/block-timestamps.*" ~/.tradingstrategy
+    rsync -av --inplace --progress "vitalik7-tailscale:.tradingstrategy/block-timestamp/" ~/.tradingstrategy/block-timestamp/
 
 Debug scan of a single vault:
 
