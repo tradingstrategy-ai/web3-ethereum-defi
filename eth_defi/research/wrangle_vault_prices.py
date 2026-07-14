@@ -18,6 +18,7 @@ import os
 import pickle
 import tempfile
 import warnings
+from bisect import bisect_right
 from pathlib import Path
 from typing import Callable, TypedDict
 
@@ -1827,7 +1828,8 @@ def replace_cleaned_vault_histories(  # noqa: PLR0914
     transformation is independent between vault ids.  Recompute the complete
     raw history for the selected ids, then stream-copy all other cleaned row
     groups into a replacement Parquet.  This avoids expensive pandas cleaning
-    for unrelated vaults while preserving their existing cleaned rows.
+    for unrelated vaults while preserving their existing cleaned rows and
+    physical ``id, timestamp`` order.
 
     The destination remains a single Parquet file, so its bytes must still be
     rewritten before the atomic replace.  The function does not silently drop
@@ -1894,6 +1896,17 @@ def replace_cleaned_vault_histories(  # noqa: PLR0914
     vault_db = VaultDatabase.read(vault_db_path)
     cleaned_selected_df = process_raw_vault_scan_data(vault_db.rows, raw_prices_df, logger=logger)
     cleaned_selected_df = merge_vault_settlements_into_cleaned_prices(cleaned_selected_df, settlement_db_path=settlement_db_path)
+    if "timestamp" not in cleaned_selected_df.columns and cleaned_selected_df.index.name == "timestamp":
+        cleaned_selected_df = cleaned_selected_df.reset_index()
+
+    missing_cleaned_columns = {"id", "timestamp"} - set(cleaned_selected_df.columns)
+    if missing_cleaned_columns:
+        raise ValueError(f"Selected cleaned histories are missing required columns: {sorted(missing_cleaned_columns)}")
+
+    cleaned_ids = set(cleaned_selected_df["id"].astype(str).str.lower())
+    missing_cleaned_ids = set(canonical_ids) - cleaned_ids
+    if missing_cleaned_ids:
+        raise ValueError(f"Cleaning removed all rows for selected vault ids; refusing to replace existing histories: {', '.join(sorted(missing_cleaned_ids))}")
     cleaned_selected_df.sort_values(by=["id", "timestamp"], inplace=True)
 
     existing_reader = pq.ParquetFile(cleaned_price_df_path)
@@ -1913,20 +1926,33 @@ def replace_cleaned_vault_histories(  # noqa: PLR0914
             column = pa.nulls(len(selected_table), type=field.type)
         selected_columns.append(column)
     selected_table = pa.Table.from_arrays(selected_columns, schema=output_schema)
+    selected_sort_keys = list(zip(selected_table["id"].to_pylist(), selected_table["timestamp"].to_pylist(), strict=True))
 
     value_set = pa.array(canonical_ids, type=pa.string())
     temp_fd, temp_path = tempfile.mkstemp(suffix=".parquet", dir=str(cleaned_price_df_path.parent))
     os.close(temp_fd)
     retained_rows = 0
+    selected_row_offset = 0
     try:
         with pq.ParquetWriter(temp_path, output_schema, compression="zstd") as writer:
             for batch in existing_reader.iter_batches(batch_size=100_000):
                 table = pa.Table.from_batches([batch]).replace_schema_metadata(output_schema.metadata)
                 retained = table.filter(pc.invert(pc.is_in(table["id"], value_set=value_set)))
                 if retained.num_rows:
+                    retained_row_count = retained.num_rows
+                    last_sort_key = (retained["id"][-1].as_py(), retained["timestamp"][-1].as_py())
+                    selected_end = bisect_right(selected_sort_keys, last_sort_key, lo=selected_row_offset)
+                    if selected_end > selected_row_offset:
+                        combined = pa.concat_tables(
+                            [retained, selected_table.slice(selected_row_offset, selected_end - selected_row_offset)],
+                        )
+                        sort_indices = pc.sort_indices(combined, sort_keys=[("id", "ascending"), ("timestamp", "ascending")])
+                        retained = combined.take(sort_indices)
+                        selected_row_offset = selected_end
                     writer.write_table(retained)
-                    retained_rows += retained.num_rows
-            writer.write_table(selected_table)
+                    retained_rows += retained_row_count
+            if selected_row_offset < selected_table.num_rows:
+                writer.write_table(selected_table.slice(selected_row_offset))
 
         expected_rows = retained_rows + selected_table.num_rows
         verify_parquet_file(

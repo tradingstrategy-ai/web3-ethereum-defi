@@ -53,3 +53,35 @@ def test_resolve_price_scan_start_block_honours_explicit_override(
         )
         == EXPLICIT_START_BLOCK
     )
+
+
+def test_resolve_frequency_defaults_to_daily(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:
+    """Use daily historical samples unless an operator explicitly overrides them.
+
+    1. Clear the optional operator override.
+    2. Resolve the script frequency.
+    3. Assert that the documented daily default is used.
+    """
+
+    # 1. Clear the optional operator override.
+    monkeypatch.delenv("FREQUENCY", raising=False)
+
+    # 2. Resolve the script frequency.
+    # 3. Assert that the documented daily default is used.
+    assert backfill_history_module.resolve_frequency() == "1d"
+
+
+def test_resolve_frequency_honours_hourly_override(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:
+    """Allow an operator to opt into an hourly Midas historical backfill.
+
+    1. Set the explicit hourly operator override.
+    2. Resolve the script frequency.
+    3. Assert that the requested frequency is retained.
+    """
+
+    # 1. Set the explicit hourly operator override.
+    monkeypatch.setenv("FREQUENCY", "1h")
+
+    # 2. Resolve the script frequency.
+    # 3. Assert that the requested frequency is retained.
+    assert backfill_history_module.resolve_frequency() == "1h"

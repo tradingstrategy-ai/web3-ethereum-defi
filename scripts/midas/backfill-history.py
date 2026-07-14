@@ -66,6 +66,7 @@ import pickle  # noqa: S403 - trusted local production reader-state pickle.
 import sys
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Literal, cast
 
 from atomicwrites import atomic_write
 from eth_typing import HexAddress
@@ -137,6 +138,24 @@ def parse_optional_int_env(name: str) -> int | None:
     if not value:
         return None
     return int(value)
+
+
+def resolve_frequency() -> Literal["1h", "1d"]:
+    """Read and validate the historical backfill sampling frequency.
+
+    Both the printed execution plan and the scanner must use this one resolved
+    value.  Reading the environment independently inside the chain loop would
+    let their defaults diverge.
+
+    :return:
+        Requested sampling frequency, defaulting to one daily sample.
+    """
+
+    frequency = os.environ.get("FREQUENCY", "1d")
+    if frequency not in {"1h", "1d"}:
+        message = f"Unsupported FREQUENCY: {frequency}"
+        raise ValueError(message)
+    return cast(Literal["1h", "1d"], frequency)
 
 
 def resolve_price_scan_start_block(products: list[MidasProduct]) -> int:
@@ -346,6 +365,7 @@ def backfill_chain(  # noqa: PLR0914
     dry_run: bool,
     scan_prices: bool,
     clean_prices: bool,
+    frequency: Literal["1h", "1d"],
     vault_db: VaultDatabase,
     vault_db_path: Path,
     price_database_path: Path,
@@ -365,6 +385,8 @@ def backfill_chain(  # noqa: PLR0914
         Whether to scan historical prices.
     :param clean_prices:
         Whether to replace selected histories in the cleaned price database.
+    :param frequency:
+        Historical sampling frequency shared with the displayed execution plan.
     :param vault_db:
         Vault metadata database.
     :param vault_db_path:
@@ -444,7 +466,7 @@ def backfill_chain(  # noqa: PLR0914
                 max_workers=int(os.environ.get("MAX_WORKERS", "8")),
                 chunk_size=32,
                 token_cache=token_cache,
-                frequency=os.environ.get("FREQUENCY", "1h"),
+                frequency=frequency,
                 reader_states=reader_states,
                 hypersync_client=hypersync_config.hypersync_client,
                 vault_addresses=vault_ids,
@@ -480,10 +502,7 @@ def main() -> None:
     dry_run = parse_bool_env("DRY_RUN")
     scan_prices = parse_bool_env("MIDAS_SCAN_PRICES", default=True)
     clean_prices = parse_bool_env("MIDAS_CLEAN_PRICES", default=True)
-    frequency = os.environ.get("FREQUENCY", "1d")
-    if frequency not in {"1h", "1d"}:
-        message = f"Unsupported FREQUENCY: {frequency}"
-        raise ValueError(message)
+    frequency = resolve_frequency()
 
     products = list(iter_selected_products())
     if not products:
@@ -532,6 +551,7 @@ def main() -> None:
                 dry_run=dry_run,
                 scan_prices=scan_prices,
                 clean_prices=clean_prices,
+                frequency=frequency,
                 vault_db=vault_db,
                 vault_db_path=vault_db_path,
                 price_database_path=price_database_path,
