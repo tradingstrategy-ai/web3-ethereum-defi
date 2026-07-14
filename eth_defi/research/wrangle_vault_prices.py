@@ -14,6 +14,7 @@ The output is a cleaned DataFrame conforming to
 :py:func:`~eth_defi.research.vault_metrics.calculate_lifetime_metrics`.
 """
 
+import datetime
 import os
 import pickle
 import tempfile
@@ -63,6 +64,15 @@ MIN_HYPERCORE_RECAPITALISATION_RECOVERY_DELAY = pd.Timedelta(days=7)
 
 #: Never infer a scanner-batch price unit across a longer missing-HF interval.
 HYPERCORE_MAX_HF_BATCH_STITCH_GAP = pd.Timedelta(days=2)
+
+#: A flow-reconciled PnL path must end close to its next trusted HF observation.
+HYPERCORE_MAX_PNL_PATH_ENDPOINT_DEVIATION: Percent = 0.10
+
+#: Permit cents and small API rounding differences when checking NAV accounting.
+HYPERCORE_PNL_PATH_ACCOUNTING_ABSOLUTE_TOLERANCE = 1.0
+
+#: Relative NAV accounting tolerance for the flow-reconciled price path.
+HYPERCORE_PNL_PATH_ACCOUNTING_RELATIVE_TOLERANCE: Percent = 0.01
 
 
 class CleanedVaultPriceRow(TypedDict, total=False):
@@ -1228,6 +1238,227 @@ def stitch_hypercore_high_freq_share_price_batches(
     return prices_df
 
 
+def fix_hypercore_flow_reconciled_share_price_paths(  # noqa: PLR0914, PLR0917
+    prices_df: pd.DataFrame,
+    logger=print,
+    max_anchor_deviation: Percent = 0.50,
+    max_anchor_gap: pd.Timedelta = HYPERCORE_MAX_PRICE_ANCHOR_GAP,
+    max_endpoint_deviation: Percent = HYPERCORE_MAX_PNL_PATH_ENDPOINT_DEVIATION,
+    accounting_absolute_tolerance: float = HYPERCORE_PNL_PATH_ACCOUNTING_ABSOLUTE_TOLERANCE,
+    accounting_relative_tolerance: Percent = HYPERCORE_PNL_PATH_ACCOUNTING_RELATIVE_TOLERANCE,
+) -> pd.DataFrame:
+    """Repair a conflicted Hypercore interval from ledger-reconciled PnL.
+
+    Hyperliquid does not expose a native vault share price. Both scanners derive
+    one from rolling portfolio windows, so a daily observation can be in a
+    different arbitrary unit even though its NAV and cumulative PnL are real.
+    In February 2026 Magixbox reported a daily price of ``26.03541`` between HF
+    observations near ``1.30``. Its $7,614.65 of same-day withdrawals and
+    -$1,386.74 PnL exactly reconcile the NAV change to within two cents. The
+    price spike therefore cannot be an investor return: cash flows change the
+    implied supply, while PnL changes the price.
+
+    When persisted daily ledger flows prove that accounting relationship for a
+    conflicted observation, reconstruct its price from the PnL path between
+    adjacent HF anchors using ``1 + pnl_change / previous_nav``. A small
+    log-linear endpoint correction makes the reconstructed path meet the next
+    HF price without discarding the timing and direction of the observed PnL.
+    This is deliberately narrower than generic smoothing: each changed daily
+    row needs known flow values and must reconcile, there may be no wipe-out
+    boundary, and the uncorrected PnL path must already end within
+    ``max_endpoint_deviation`` of the next HF anchor. If old parquet lacks the
+    ledger flow columns, this function leaves it untouched and the older,
+    conservative source-overlap repair remains the fallback.
+
+    :param prices_df:
+        Timestamp-indexed vault price data. Hypercore rows need ``id``,
+        ``chain``, ``share_price``, ``total_assets``, ``account_pnl`` (or
+        scanner-shaped ``cumulative_pnl``), ``daily_deposit_usd``,
+        ``daily_withdrawal_usd``, and ``hypercore_source``. Each repaired
+        calendar date must have a known flow record, on either its daily or HF
+        observation; zero is required when there was no ledger event. Matching
+        daily/HF copies of the same flow are de-duplicated.
+    :param logger:
+        Notebook or console logging function.
+    :param max_anchor_deviation:
+        Minimum symmetric daily/HF price disagreement required before the
+        interval is considered for this specialised repair.
+    :param max_anchor_gap:
+        Largest interval between consecutive HF anchors.
+    :param max_endpoint_deviation:
+        Largest symmetric difference permitted between the uncorrected PnL
+        path and the right HF anchor.
+    :param accounting_absolute_tolerance:
+        Dollar tolerance for API rounding when reconciling one NAV step.
+    :param accounting_relative_tolerance:
+        Relative NAV tolerance for the same reconciliation.
+    :return:
+        A copy with qualifying daily paths marked ``repaired_hf_pnl_flow``;
+        ``raw_share_price`` remains the scanner-derived value.
+    """
+    hypercore_mask = prices_df["chain"] == HYPERCORE_CHAIN_ID
+    pnl_column = "cumulative_pnl" if "cumulative_pnl" in prices_df.columns else "account_pnl"
+    required_columns = {"total_assets", pnl_column, "daily_deposit_usd", "daily_withdrawal_usd"}
+    if not hypercore_mask.any() or not required_columns.issubset(prices_df.columns):
+        return prices_df
+
+    prices_df = prices_df.copy()
+    if "raw_share_price" not in prices_df.columns:
+        prices_df["raw_share_price"] = prices_df["share_price"]
+    if "hypercore_repair_status" not in prices_df.columns:
+        prices_df["hypercore_repair_status"] = ""
+    if "hypercore_source" not in prices_df.columns:
+        prices_df["hypercore_source"] = pd.NA
+
+    missing_source_mask = hypercore_mask & prices_df["hypercore_source"].isna()
+    if missing_source_mask.any():
+        timestamps = pd.DatetimeIndex(prices_df.index[missing_source_mask])
+        prices_df.loc[missing_source_mask, "hypercore_source"] = np.where(timestamps == timestamps.normalize(), "daily", "hf")
+
+    repaired_rows = 0
+    repaired_vaults: set[str] = set()
+    hypercore_positions = np.flatnonzero(hypercore_mask.to_numpy())
+    share_price_col = prices_df.columns.get_loc("share_price")
+    total_supply_col = prices_df.columns.get_loc("total_supply") if "total_supply" in prices_df.columns else None
+    status_col = prices_df.columns.get_loc("hypercore_repair_status")
+
+    for vault_id, row_positions in prices_df.loc[hypercore_mask].groupby("id", sort=False).indices.items():
+        positions = hypercore_positions[np.asarray(row_positions, dtype=int)]
+        group = prices_df.iloc[positions]
+        source = group["hypercore_source"].astype("string").fillna("").to_numpy(dtype=str)
+        status = group["hypercore_repair_status"].astype("string").fillna("").to_numpy(dtype=str)
+        timestamp = pd.DatetimeIndex(group.index)
+        timestamp_ns = timestamp.to_numpy(dtype="datetime64[ns]").astype("int64")
+        share_price = group["share_price"].to_numpy(dtype=float)
+        total_assets = group["total_assets"].to_numpy(dtype=float)
+        account_pnl = group[pnl_column].to_numpy(dtype=float)
+        deposits = group["daily_deposit_usd"].to_numpy(dtype=float)
+        withdrawals = group["daily_withdrawal_usd"].to_numpy(dtype=float)
+        epoch_reset = group["epoch_reset"].fillna(False).astype(bool).to_numpy() if "epoch_reset" in group.columns else np.zeros(len(group), dtype=bool)
+        daily_flow_by_date: dict[datetime.date, tuple[float, float]] = {}
+        known_flow_mask = np.isfinite(deposits) & np.isfinite(withdrawals)
+        calendar_dates = timestamp.date
+        for day in np.unique(calendar_dates):
+            day_positions = np.flatnonzero(calendar_dates == day)
+            known_positions = day_positions[known_flow_mask[day_positions]]
+            if len(known_positions) == 0:
+                continue
+            known_flows = np.column_stack((deposits[known_positions], withdrawals[known_positions]))
+            non_zero_flows = known_flows[np.sum(np.abs(known_flows), axis=1) > 0]
+            candidate_flows = non_zero_flows if len(non_zero_flows) else known_flows
+            if np.allclose(candidate_flows, candidate_flows[0], rtol=0.0, atol=0.01):
+                daily_flow_by_date[day] = tuple(candidate_flows[0])
+
+        hf_positions = np.flatnonzero((source == "hf") & np.isfinite(share_price) & (share_price > 0) & np.isfinite(total_assets) & (total_assets > 0) & np.isfinite(account_pnl))
+        if len(hf_positions) < MIN_HYPERCORE_PRICE_ANCHORS:
+            continue
+
+        for left_position, right_position in zip(hf_positions[:-1], hf_positions[1:]):
+            if timestamp_ns[right_position] - timestamp_ns[left_position] > max_anchor_gap.value:
+                continue
+
+            inner_positions = np.arange(left_position + 1, right_position)
+            if len(inner_positions) == 0 or not np.all(source[inner_positions] == "daily"):
+                continue
+            if np.any(epoch_reset[left_position : right_position + 1]) or np.any(total_assets[left_position : right_position + 1] <= HYPERCORE_ZERO_NAV_EPSILON):
+                continue
+
+            # Do not change a path that had already been handled by a prior
+            # Hypercore repair in this wrangle run.
+            if np.any(status[inner_positions] != ""):
+                continue
+
+            elapsed = (timestamp_ns[inner_positions] - timestamp_ns[left_position]) / (timestamp_ns[right_position] - timestamp_ns[left_position])
+            expected_anchor_prices = np.exp(np.log(share_price[left_position]) + elapsed * (np.log(share_price[right_position]) - np.log(share_price[left_position])))
+            with np.errstate(divide="ignore", invalid="ignore"):
+                anchor_deviation = (
+                    np.maximum(
+                        share_price[inner_positions] / expected_anchor_prices,
+                        expected_anchor_prices / share_price[inner_positions],
+                    )
+                    - 1
+                )
+            candidate_mask = np.isfinite(anchor_deviation) & (anchor_deviation > max_anchor_deviation)
+            candidate_positions = inner_positions[candidate_mask]
+            if len(candidate_positions) == 0:
+                continue
+
+            required_values = np.concatenate(
+                [
+                    total_assets[[left_position, right_position]],
+                    account_pnl[[left_position, right_position]],
+                    total_assets[inner_positions],
+                    account_pnl[inner_positions],
+                ]
+            )
+            if not np.all(np.isfinite(required_values)) or np.any(total_assets[[left_position, *inner_positions]] <= 0):
+                continue
+
+            provisional_prices: list[float] = []
+            previous_assets = total_assets[left_position]
+            previous_pnl = account_pnl[left_position]
+            previous_price = share_price[left_position]
+            pnl_path_valid = True
+            for position in inner_positions:
+                pnl_change = account_pnl[position] - previous_pnl
+                next_price = previous_price * (1 + pnl_change / previous_assets)
+                if not np.isfinite(next_price) or next_price <= 0:
+                    pnl_path_valid = False
+                    break
+                provisional_prices.append(next_price)
+                previous_assets = total_assets[position]
+                previous_pnl = account_pnl[position]
+                previous_price = next_price
+
+            if not pnl_path_valid:
+                continue
+
+            endpoint_price = previous_price * (1 + (account_pnl[right_position] - previous_pnl) / previous_assets)
+            if not np.isfinite(endpoint_price) or endpoint_price <= 0:
+                continue
+            endpoint_deviation = max(endpoint_price / share_price[right_position], share_price[right_position] / endpoint_price) - 1
+            if endpoint_deviation > max_endpoint_deviation:
+                continue
+
+            endpoint_correction = np.log(share_price[right_position] / endpoint_price)
+            repaired_prices = np.asarray(provisional_prices) * np.exp(endpoint_correction * elapsed)
+            repaired_by_position = dict(zip(inner_positions, repaired_prices))
+            repaired_candidate_count = 0
+            for position in candidate_positions:
+                flow_values = daily_flow_by_date.get(timestamp[position].date())
+                if flow_values is None:
+                    continue
+                deposit, withdrawal = flow_values
+                previous_position = position - 1
+                expected_assets = total_assets[previous_position] + (account_pnl[position] - account_pnl[previous_position]) + deposit - withdrawal
+                tolerance = max(
+                    accounting_absolute_tolerance,
+                    accounting_relative_tolerance * max(abs(expected_assets), abs(total_assets[position])),
+                )
+                if not np.isfinite(deposit) or not np.isfinite(withdrawal) or abs(total_assets[position] - expected_assets) > tolerance:
+                    continue
+
+                repaired_price = repaired_by_position[position]
+                original_price = share_price[position]
+                if not np.isfinite(original_price) or original_price <= 0:
+                    continue
+                factor = repaired_price / original_price
+                prices_df.iloc[positions[position], share_price_col] = repaired_price
+                if total_supply_col is not None:
+                    original_supply = prices_df.iloc[positions[position], total_supply_col]
+                    if pd.notna(original_supply) and original_supply > 0:
+                        prices_df.iloc[positions[position], total_supply_col] = original_supply / factor
+                prices_df.iloc[positions[position], status_col] = "repaired_hf_pnl_flow"
+                repaired_rows += 1
+                repaired_candidate_count += 1
+            if repaired_candidate_count:
+                repaired_vaults.add(str(vault_id))
+
+    if repaired_rows:
+        logger(f"Repaired {repaired_rows:,} flow-reconciled Hypercore daily prices across {len(repaired_vaults):,} vaults using PnL paths")
+    return prices_df
+
+
 def fix_hypercore_source_overlap_share_prices(  # noqa: PLR0914
     prices_df: pd.DataFrame,
     logger=print,
@@ -1334,6 +1565,7 @@ def fix_hypercore_source_overlap_share_prices(  # noqa: PLR0914
         group = prices_df.iloc[positions]
 
         source = group["hypercore_source"].astype("string").fillna("").to_numpy(dtype=str)
+        existing_status = group["hypercore_repair_status"].astype("string").fillna("").to_numpy(dtype=str)
         share_price = group["share_price"].to_numpy(dtype=float)
         timestamp_ns = pd.DatetimeIndex(group.index).to_numpy(dtype="datetime64[ns]").astype("int64")
 
@@ -1352,7 +1584,7 @@ def fix_hypercore_source_overlap_share_prices(  # noqa: PLR0914
             # HF coverage selects the HF repair path even if some observations
             # have unusable NAV. Never reinterpret such a vault as daily-only.
             anchor_mask = hf_price_mask & positive_assets_mask
-            candidate_mask = daily_mask
+            candidate_mask = daily_mask & (existing_status == "")
             anchor_source = "hf"
         else:
             # Some legacy vaults were never covered by the HF scanner. A
@@ -1368,7 +1600,7 @@ def fix_hypercore_source_overlap_share_prices(  # noqa: PLR0914
                 continue
             refreshed_mask = (written_at >= latest_written_at - HYPERCORE_DAILY_REFRESH_TOLERANCE).to_numpy()
             anchor_mask = daily_mask & refreshed_mask & positive_price_mask & positive_assets_mask
-            candidate_mask = daily_mask & ~anchor_mask
+            candidate_mask = daily_mask & ~anchor_mask & (existing_status == "")
             anchor_source = "daily"
 
         anchor_timestamps = timestamp_ns[anchor_mask]
@@ -1776,6 +2008,11 @@ def process_raw_vault_scan_data(
     # Hypercore share prices can overflow when total_supply → 0;
     # this prevents the smoothing algorithm from being confused by absurd values.
     prices_df = cap_hypercore_share_prices(prices_df, logger)
+
+    # Some historic daily/HF overlap conflicts are real capital flows paired
+    # with a synthetic daily price unit. Where persisted ledger flows prove the
+    # NAV accounting, retain the observed PnL path rather than interpolating it.
+    prices_df = fix_hypercore_flow_reconciled_share_price_paths(prices_df, logger)
 
     # Hypercore scans may overlap or refresh only a sparse subset of historical
     # rows. Repair stale daily values that conflict sharply with canonical HF
