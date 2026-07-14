@@ -12,6 +12,24 @@ brotli = pytest.importorskip("brotli", reason="brotli not installed (cloudflare_
 from eth_defi.vault import post_processing
 
 
+def test_clean_prices_uses_structured_logger(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Wrangler progress is emitted through the post-processing logger."""
+    caplog.set_level(logging.INFO)
+
+    def fake_generate_cleaned_vault_datasets(**kwargs: object) -> None:
+        logger_callback = kwargs["logger"]
+        assert callable(logger_callback)
+        logger_callback("Wrangler progress")
+
+    monkeypatch.setattr(post_processing, "generate_cleaned_vault_datasets", fake_generate_cleaned_vault_datasets)
+
+    assert post_processing.clean_prices()
+    assert any(record.name == post_processing.__name__ and record.message == "Wrangler progress" for record in caplog.records)
+
+
 def test_export_top_vaults_json_passes_pipeline_data_dir(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
