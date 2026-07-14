@@ -1,32 +1,28 @@
 name: Vault Street
 slug: vault-street
 short_description: |
-  Permissioned institutional USDC yield products with oracle-published NAV.
+  Permissioned institutional USDC yield products.
 long_description: |
   [Vault Street](https://vaultstreet.com/) is Resolv's institutional platform for
   tokenised investment products. Resolv announced the launch of primeUSD in its
   [launch post](https://x.com/ResolvLabs/status/2077020041128935900).
 
   [primeUSD](https://docs.vaultstreet.com/overview/primeusd.md) is a
-  permissioned, USDC-denominated yield token. It is not an ERC-4626 vault: the
-  [primeUSD token](https://etherscan.io/token/0x7ea76108975ec0998b9bc2db04b4eca986400dd7)
-  provides total supply, while the
-  [PriceStorage oracle](https://etherscan.io/address/0x8cda03e2004c35e07963fb792c6b7511dabee369)
-  publishes NAV/share through ``getPrice()``. The
-  [request manager](https://etherscan.io/address/0x8c14b6e8ec9968cd9c69eedea4a1295aec5e5d6e)
-  handles the permissioned deposit and redemption workflow. Vault Street's
-  [smart-contract documentation](https://docs.vaultstreet.com/resources/smart-contracts.md)
-  lists the deployed contracts.
+  permissioned, USDC-denominated yield product for eligible institutional
+  participants. It aims to provide institutional access to the yield from a
+  leveraged carry strategy backed by tokenised investment-grade fixed-income
+  collateral. Participants should review the product documentation for
+  eligibility, terms and current availability.
 fee_description: |
-  Vault Street does not expose a product fee accessor on the primeUSD token or
-  its public PriceStorage oracle. The applicable fee terms are therefore not
-  available through the on-chain adapter.
+  Vault Street does not publish product fee terms in the sources currently
+  available to this integration. Eligible participants should review the
+  product documentation for applicable terms.
 links:
   homepage: https://vaultstreet.com/
   app:
   twitter: https://x.com/ResolvLabs
   github:
-  documentation: https://docs.vaultstreet.com/
+  documentation: https://docs.vaultstreet.com/resources/smart-contracts.md
   fact_sheet: https://docs.vaultstreet.com/overview/primeusd.md
   defillama:
   audits:
