@@ -20,6 +20,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -274,6 +275,11 @@ class AccountableVault(ERC4626Vault):
     @property
     def description(self) -> str | None:
         """Full vault strategy description from Accountable's offchain metadata."""
+
+        metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
+        if metadata:
+            return metadata.description
+
         if self.accountable_metadata:
             return self.accountable_metadata.get("description")
         return None
@@ -281,6 +287,11 @@ class AccountableVault(ERC4626Vault):
     @property
     def short_description(self) -> str | None:
         """Company/manager description from Accountable's offchain metadata."""
+
+        metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
+        if metadata:
+            return metadata.short_description
+
         if self.accountable_metadata:
             return self.accountable_metadata.get("short_description")
         return None
@@ -315,6 +326,10 @@ class AccountableVault(ERC4626Vault):
         not the ERC-4626 vault (share token) address.
         Falls back to the vault address if metadata is unavailable.
         """
+        metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
+        if metadata:
+            return metadata.link
+
         meta = self.accountable_metadata
         if meta and meta.get("loan_address"):
             return f"https://yield.accountable.capital/vaults/{meta['loan_address']}"
