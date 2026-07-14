@@ -90,9 +90,10 @@ append later dates; do not refresh its complete historical curve on every scan.
 The HF scanner keeps its existing append-only behaviour after applying the same
 alignment.
 
-If the latest stored timestamp is outside the new API curve, skip that vault for
-the scan and log the reason. Guessing a scale without any overlap would recreate
-the original problem.
+If a positive latest stored price has a timestamp outside the new API curve,
+skip that vault for the scan and log the reason. Guessing a scale without any
+overlap would recreate the original problem. A zero price remains the explicit
+unscaled-resume exception described above.
 
 ### 3. Keep Hypercore returns derived from the repaired price
 

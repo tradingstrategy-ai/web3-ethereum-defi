@@ -2,13 +2,15 @@
 
 import datetime
 from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
 
 from eth_defi.hyperliquid.combined_analysis import align_share_price_curve_to_anchor
-from eth_defi.hyperliquid.daily_metrics import _merge_portfolio_periods
-from eth_defi.hyperliquid.vault import PortfolioHistory
+from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase, HyperliquidDailyPriceRow, _merge_portfolio_periods, fetch_and_store_vault
+from eth_defi.hyperliquid.vault import HyperliquidVault, PortfolioHistory, VaultSummary
 
 
 def _portfolio_history(
@@ -77,3 +79,79 @@ def test_align_share_price_curve_treats_zero_anchor_as_lifecycle_boundary() -> N
 
     assert resumed is not curve
     pd.testing.assert_frame_equal(resumed, curve)
+
+
+def test_daily_resume_preserves_zero_price_overlap_return(tmp_path) -> None:
+    """A daily zero-anchor resume must retain its stored wipe-out return."""
+    vault_address = "0x0000000000000000000000000000000000000001"
+    anchor_timestamp = datetime.datetime(2026, 1, 1)
+    db = HyperliquidDailyMetricsDatabase(tmp_path / "daily-zero-anchor.duckdb")
+    db.upsert_daily_prices(
+        [
+            HyperliquidDailyPriceRow(
+                vault_address,
+                anchor_timestamp.date(),
+                0.0,
+                0.0,
+                -100.0,
+                daily_return=-1.0,
+            )
+        ]
+    )
+
+    summary = VaultSummary(
+        name="Recapitalised test vault",
+        vault_address=vault_address,
+        leader="0x0000000000000000000000000000000000000002",
+        tvl=Decimal("100"),
+        is_closed=False,
+        relationship_type="normal",
+    )
+    all_time = _portfolio_history(
+        "allTime",
+        [
+            (anchor_timestamp, 0, -100),
+            (anchor_timestamp + datetime.timedelta(days=1), 100, -100),
+        ],
+    )
+    info = SimpleNamespace(
+        name=summary.name,
+        leader=summary.leader,
+        description="",
+        followers=[],
+        portfolio={"allTime": all_time},
+        commission_rate=None,
+        leader_fraction=None,
+        leader_commission=None,
+        is_closed=False,
+        allow_deposits=True,
+        relationship_type="normal",
+    )
+    reconstructed_curve = pd.DataFrame(
+        {
+            "share_price": [0.0, 1.0],
+            "total_assets": [0.0, 100.0],
+            "cumulative_pnl": [-100.0, -100.0],
+            "pnl_update": [0.0, 0.0],
+            "epoch_reset": [False, True],
+        },
+        index=pd.to_datetime([anchor_timestamp, anchor_timestamp + datetime.timedelta(days=1)]),
+    )
+
+    try:
+        with (
+            patch.object(HyperliquidVault, "fetch_metadata", return_value=info),
+            patch(
+                "eth_defi.hyperliquid.daily_metrics.portfolio_to_combined_dataframe",
+                return_value=reconstructed_curve,
+            ),
+        ):
+            assert fetch_and_store_vault(object(), db, summary, flow_backfill_days=0)
+
+        prices = db.get_vault_daily_prices(vault_address)
+        assert prices["share_price"].tolist() == pytest.approx([0.0, 1.0])
+        assert prices.iloc[0]["daily_return"] == pytest.approx(-1.0)
+        assert prices.iloc[-1]["daily_return"] == pytest.approx(0.0)
+        assert bool(prices.iloc[-1]["epoch_reset"])
+    finally:
+        db.close()

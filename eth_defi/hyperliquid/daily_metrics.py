@@ -1198,8 +1198,11 @@ def fetch_and_store_vault(
 
     existing_prices = db.get_vault_daily_prices(vault_address)
     last_stored_date = db.get_vault_last_date(vault_address)
+    stored_overlap_return: float | None = None
     if last_stored_date is not None:
         stored_anchor = existing_prices.iloc[-1]
+        raw_stored_return = stored_anchor["daily_return"]
+        stored_overlap_return = float(raw_stored_return) if pd.notna(raw_stored_return) else None
         anchor_timestamp = datetime.datetime.combine(last_stored_date, datetime.time())
         combined_df = align_share_price_curve_to_anchor(combined_df, anchor_timestamp, float(stored_anchor["share_price"]))
         if combined_df is None:
@@ -1237,7 +1240,12 @@ def fetch_and_store_vault(
         daily_pnl = row_data.pnl_update
         epoch_reset_val = bool(row_data.epoch_reset) if hasattr(row_data, "epoch_reset") else False
 
-        if prev_share_price is not None and prev_share_price > 0:
+        if last_stored_date is not None and date_val == last_stored_date and stored_overlap_return is not None:
+            # Preserve the return already derived for the idempotent overlap
+            # row. Recomputing it can erase a real -100% wipe-out when no
+            # preceding stored day is available.
+            daily_return = stored_overlap_return
+        elif prev_share_price is not None and prev_share_price > 0:
             daily_return = (share_price - prev_share_price) / prev_share_price
         else:
             daily_return = 0.0
