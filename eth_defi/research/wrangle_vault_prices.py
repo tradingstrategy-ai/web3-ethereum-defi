@@ -71,9 +71,6 @@ HYPERCORE_MAX_PNL_PATH_ENDPOINT_DEVIATION: Percent = 0.10
 #: Permit cents and small API rounding differences when checking NAV accounting.
 HYPERCORE_PNL_PATH_ACCOUNTING_ABSOLUTE_TOLERANCE = 1.0
 
-#: Relative NAV accounting tolerance for the flow-reconciled price path.
-HYPERCORE_PNL_PATH_ACCOUNTING_RELATIVE_TOLERANCE: Percent = 0.01
-
 
 class CleanedVaultPriceRow(TypedDict, total=False):
     """Schema for a single row in the cleaned vault price DataFrame.
@@ -1245,7 +1242,6 @@ def fix_hypercore_flow_reconciled_share_price_paths(  # noqa: PLR0914, PLR0917
     max_anchor_gap: pd.Timedelta = HYPERCORE_MAX_PRICE_ANCHOR_GAP,
     max_endpoint_deviation: Percent = HYPERCORE_MAX_PNL_PATH_ENDPOINT_DEVIATION,
     accounting_absolute_tolerance: float = HYPERCORE_PNL_PATH_ACCOUNTING_ABSOLUTE_TOLERANCE,
-    accounting_relative_tolerance: Percent = HYPERCORE_PNL_PATH_ACCOUNTING_RELATIVE_TOLERANCE,
 ) -> pd.DataFrame:
     """Repair a conflicted Hypercore interval from ledger-reconciled PnL.
 
@@ -1267,14 +1263,15 @@ def fix_hypercore_flow_reconciled_share_price_paths(  # noqa: PLR0914, PLR0917
     February must not remain a negative share-price return after repairing its
     5 February unit change.
 
-    A small log-linear endpoint correction makes the reconstructed path meet
-    the next HF price without discarding the timing and direction of the
-    observed PnL. This is deliberately narrower than generic smoothing: each
-    changed daily row needs known flow values and must reconcile, there may be
-    no wipe-out boundary, and the uncorrected PnL path must already end within
-    ``max_endpoint_deviation`` of the next HF anchor. If old parquet lacks the
-    ledger flow columns, this function leaves it untouched and the older,
-    conservative source-overlap repair remains the fallback.
+    The next HF price is only a plausibility guard: the reconstructed path must
+    end within ``max_endpoint_deviation`` of it. The residual difference is not
+    spread over the daily prices, because doing so can reverse the sign of a
+    genuine PnL return. This is deliberately narrower than generic smoothing:
+    each changed daily row needs known flow values and must reconcile to within
+    a fixed dollar tolerance, there may be no wipe-out boundary, and one
+    missing or inconsistent ledger step ends the interval repair. If old
+    parquet lacks the ledger flow columns, this function leaves it untouched
+    and the older, conservative source-overlap repair remains the fallback.
 
     :param prices_df:
         Timestamp-indexed vault price data. Hypercore rows need ``id``,
@@ -1296,8 +1293,6 @@ def fix_hypercore_flow_reconciled_share_price_paths(  # noqa: PLR0914, PLR0917
         path and the right HF anchor.
     :param accounting_absolute_tolerance:
         Dollar tolerance for API rounding when reconciling one NAV step.
-    :param accounting_relative_tolerance:
-        Relative NAV tolerance for the same reconciliation.
     :return:
         A copy with qualifying daily paths marked ``repaired_hf_pnl_flow``;
         ``raw_share_price`` remains the scanner-derived value.
@@ -1426,29 +1421,24 @@ def fix_hypercore_flow_reconciled_share_price_paths(  # noqa: PLR0914, PLR0917
             if endpoint_deviation > max_endpoint_deviation:
                 continue
 
-            endpoint_correction = np.log(share_price[right_position] / endpoint_price)
-            repaired_prices = np.asarray(provisional_prices) * np.exp(endpoint_correction * elapsed)
+            repaired_prices = np.asarray(provisional_prices)
             repaired_by_position = dict(zip(inner_positions, repaired_prices))
             repair_positions: set[int] = set()
-            for candidate_position in candidate_positions:
-                # The large conflict starts a proven repair segment. Continue
-                # while NAV = previous NAV + PnL + net flow; the first missing
-                # or inconsistent ledger step ends this segment.
-                for position in range(int(candidate_position), int(right_position)):
-                    flow_values = daily_flow_by_date.get(timestamp[position].date())
-                    original_price = share_price[position]
-                    if flow_values is None or not np.isfinite(original_price) or original_price <= 0:
-                        break
-                    deposit, withdrawal = flow_values
-                    previous_position = position - 1
-                    expected_assets = total_assets[previous_position] + (account_pnl[position] - account_pnl[previous_position]) + deposit - withdrawal
-                    tolerance = max(
-                        accounting_absolute_tolerance,
-                        accounting_relative_tolerance * max(abs(expected_assets), abs(total_assets[position])),
-                    )
-                    if not np.isfinite(deposit) or not np.isfinite(withdrawal) or abs(total_assets[position] - expected_assets) > tolerance:
-                        break
-                    repair_positions.add(position)
+            candidate_position = int(candidate_positions[0])
+            # The first large conflict starts the only proven repair segment in
+            # this HF interval. Continue while NAV = previous NAV + PnL + net
+            # flow; the first missing or inconsistent ledger step ends it.
+            for position in range(candidate_position, int(right_position)):
+                flow_values = daily_flow_by_date.get(timestamp[position].date())
+                original_price = share_price[position]
+                if flow_values is None or not np.isfinite(original_price) or original_price <= 0:
+                    break
+                deposit, withdrawal = flow_values
+                previous_position = position - 1
+                expected_assets = total_assets[previous_position] + (account_pnl[position] - account_pnl[previous_position]) + deposit - withdrawal
+                if not np.isfinite(deposit) or not np.isfinite(withdrawal) or abs(total_assets[position] - expected_assets) > accounting_absolute_tolerance:
+                    break
+                repair_positions.add(position)
 
             for position in sorted(repair_positions):
                 repaired_price = repaired_by_position[position]

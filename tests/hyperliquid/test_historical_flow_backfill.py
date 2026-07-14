@@ -61,6 +61,34 @@ def test_update_historical_daily_flows(tmp_path) -> None:
         db.close()
 
 
+def test_metadata_upsert_preserves_earliest_flow_date(tmp_path) -> None:
+    """A routine metadata refresh cannot forget a deeper flow backfill."""
+    address = "0x1764dd740aba4195643bbb6a44648e0306b00cfa"
+    leader = "0x0000000000000000000000000000000000000001"
+    db = HyperliquidDailyMetricsDatabase(tmp_path / "hyperliquid-vaults.duckdb")
+    try:
+        common_metadata = {
+            "vault_address": address,
+            "name": "Magixbox",
+            "leader": leader,
+            "description": None,
+            "is_closed": False,
+            "relationship_type": "normal",
+            "create_time": None,
+            "commission_rate": None,
+            "follower_count": 1,
+            "tvl": 10_000.0,
+            "apr": 0.0,
+        }
+        db.upsert_vault_metadata(**common_metadata, flow_data_earliest_date=datetime.date(2026, 2, 1))
+        db.upsert_vault_metadata(**common_metadata, flow_data_earliest_date=datetime.date(2026, 7, 1))
+
+        metadata = db.get_all_vault_metadata().set_index("vault_address")
+        assert metadata.loc[address, "flow_data_earliest_date"] == pd.Timestamp("2026-02-01")
+    finally:
+        db.close()
+
+
 def test_historical_flow_candidate_selection() -> None:
     """Explicit addresses and autodetection select deferred observations."""
     select_candidates = runpy.run_path(str(SCRIPT_PATH))["select_historical_flow_candidates"]
