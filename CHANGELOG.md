@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add Maseer One wstGBP vault support with hardcoded Ethereum discovery, NAV/share TVL history and Anvil-fork integration tests (2026-07-14)
 - feat: Add Accountable vault synchronous deposits, self-controlled asynchronous redemption claims and historical settlement event scanning (2026-07-14)
 - feat: Add handwritten Piku/Morini vault strategy descriptions and Piku detail links (2026-07-14)
 - feat: Add Ember synchronous deposit and operator-finalised redemption manager, historical `RequestProcessed` settlement collection, and GuardV0/Lagoon Safe lifecycle support (2026-07-14)

@@ -18,7 +18,7 @@ import enum
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING, Type, TypeAlias
 
 from eth_typing import HexAddress
 from web3.contract.contract import ContractEvent
@@ -27,11 +27,23 @@ from eth_defi.abi import get_contract
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import ODA_FACT_HARDCODED_LEADS, probe_vaults
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_erc_4626_contract
+from eth_defi.maseer_one.constants import MASEER_ONE_HARDCODED_LEADS
 from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
 logger = logging.getLogger(__name__)
+
+HardcodedVaultLead: TypeAlias = tuple[int, HexAddress, int, datetime.datetime]
+HardcodedVaultLeadSource: TypeAlias = tuple[str, tuple[HardcodedVaultLead, ...]]
+HardcodedVaultLeadSources: TypeAlias = tuple[HardcodedVaultLeadSource, ...]
+
+#: Protocol deployments that cannot be discovered from supported vault events.
+DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
+    ("ODA-FACT", ODA_FACT_HARDCODED_LEADS),
+    ("Midas", MIDAS_HARDCODED_LEADS),
+    ("Maseer One", MASEER_ONE_HARDCODED_LEADS),
+)
 
 if TYPE_CHECKING:
     from eth_defi.mellow.discovery import MellowFactoryCandidate
@@ -576,11 +588,16 @@ class VaultDiscoveryBase(abc.ABC):
         start_block: int,
         end_block: int,
         display_progress=True,
+        hardcoded_lead_sources: HardcodedVaultLeadSources | None = None,
     ) -> LeadScanReport:
         """Scan vaults.
 
         - Detect vault leads by events using :py:meth:`scan_potential_vaults`
         - Then perform multicall probing for each vault smart contract to detect protocol
+
+        :param hardcoded_lead_sources:
+            Protocol-labelled deployments that cannot be discovered from
+            supported vault events. Uses the production protocol set by default.
         """
 
         chain = self.web3.eth.chain_id
@@ -604,25 +621,14 @@ class VaultDiscoveryBase(abc.ABC):
 
         assert type(leads) == dict, f"Expected dict, got {type(leads)}"
 
-        for lead_chain, address, first_seen_at_block, first_seen_at in ODA_FACT_HARDCODED_LEADS:
-            if lead_chain != chain or end_block < first_seen_at_block:
-                continue
-            if address not in leads:
-                leads[address] = PotentialVaultMatch(
-                    chain=chain,
-                    address=address,
-                    first_seen_at_block=first_seen_at_block,
-                    first_seen_at=first_seen_at,
-                    deposit_count=0,
-                    withdrawal_count=0,
-                )
-                report.new_leads += 1
-                logger.info("Added hardcoded ODA-FACT vault lead %s", address)
+        if hardcoded_lead_sources is None:
+            hardcoded_lead_sources = DEFAULT_HARDCODED_VAULT_LEAD_SOURCES
 
-        for lead_chain, address, first_seen_at_block, first_seen_at in MIDAS_HARDCODED_LEADS:
-            if lead_chain != chain or end_block < first_seen_at_block:
-                continue
-            if address not in leads:
+        for protocol_name, protocol_leads in hardcoded_lead_sources:
+            for lead_chain, address, first_seen_at_block, first_seen_at in protocol_leads:
+                if lead_chain != chain or end_block < first_seen_at_block or address in leads:
+                    continue
+
                 leads[address] = PotentialVaultMatch(
                     chain=chain,
                     address=address,
@@ -632,7 +638,7 @@ class VaultDiscoveryBase(abc.ABC):
                     withdrawal_count=0,
                 )
                 report.new_leads += 1
-                logger.info("Added hardcoded Midas vault lead %s", address)
+                logger.info("Added hardcoded %s vault lead %s", protocol_name, address)
 
         addresses, leads_by_address, mellow_lead_count = _prepare_probe_leads(leads)
         logger.info("Found %d vault leads, of which %d are Mellow factory leads", len(leads), mellow_lead_count)

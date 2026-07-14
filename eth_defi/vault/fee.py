@@ -64,6 +64,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Midas oracle pipeline. Instant issuance/redemption fees are read
     # separately from product vault contracts.
     "Midas": VaultFeeMode.internalised_skimming,
+    # Maseer One applies mint and redemption spreads through mintcost() and
+    # burncost(), reducing the user's issued shares or redeemed assets.
+    "Maseer One": VaultFeeMode.externalised,
     "Velvet Capital": VaultFeeMode.internalised_skimming,
     "Umami": VaultFeeMode.externalised,
     # Unverified contracts, no open source repo

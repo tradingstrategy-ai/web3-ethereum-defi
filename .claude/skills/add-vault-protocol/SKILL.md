@@ -184,6 +184,14 @@ Create `eth_defi/data/vaults/metadata/{protocol-slug}.yaml`.
 - Include name, slug, short description, long description, fee description, links, and example smart contracts
 - Use `eth_defi/data/vaults/README.md` as the schema reference
 - Include `trading_strategy` and `integration_documentation` links even if the Trading Strategy listing is not live yet
+- Write descriptions for a general audience. Explain what the product offers,
+  who can use it, material eligibility or liquidity constraints, and how fees
+  affect holders in plain language.
+- Do not include library implementation, smart-contract interface, or data-pipeline
+  details. In particular, avoid standards and function names such as ERC-4626,
+  `gem()`, `navprice()`, and WAD scaling, as well as adapter, scanner, and TVL
+  calculation internals. Put those details in the technical integration and API
+  documentation instead.
 
 Validate that the metadata can be parsed:
 

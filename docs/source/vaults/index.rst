@@ -120,6 +120,7 @@ Supported protocols
    mainstreet/index
    maple/index
    mellow/index
+   maseer-one/index
    midas/index
    morpho/index
    nashpoint/index
