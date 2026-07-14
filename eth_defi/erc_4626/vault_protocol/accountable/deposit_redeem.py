@@ -43,8 +43,6 @@ from eth_defi.vault.flow_events import (
 if TYPE_CHECKING:
     import hypersync
 
-    from eth_defi.erc_4626.vault_protocol.accountable.vault import AccountableVault
-
 
 @dataclass(slots=True)
 class AccountableRedemptionTicket(RedemptionTicket):
@@ -124,14 +122,6 @@ class AccountableRedemptionRequest(RedemptionRequest):
 
 class AccountableDepositManager(ERC4626DepositManager):
     """Accountable adapter with synchronous deposits and claimed redemptions."""
-
-    def __init__(self, vault: "AccountableVault"):
-        """Create an Accountable manager.
-
-        :param vault:
-            Accountable vault whose ABI exposes the async redemption methods.
-        """
-        self.vault = vault
 
     def create_deposit_request(
         self,
