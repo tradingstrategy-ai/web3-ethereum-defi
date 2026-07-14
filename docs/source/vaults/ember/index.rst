@@ -11,7 +11,11 @@ access to yield-bearing vaults through a unified interface.
 Ember vaults operate on Ethereum and Sui. They follow ERC-4626 principles but use custom events:
 ``VaultDeposit`` instead of the standard ``Deposit`` event, and ``RequestRedeemed``/``RequestProcessed``
 instead of the standard ``Withdraw`` event. Platform fees are embedded in the vault rate updates.
-Withdrawals go through a pending queue with typical T+4 settlement.
+Deposits are synchronous, while withdrawals call ``redeemShares`` to enter a
+pending queue. The Ember operator later processes the request and transfers
+assets directly to its chosen receiver: there is no depositor claim transaction.
+The displayed T+4 period is an off-chain operator service estimate, not an
+on-chain settlement deadline.
 
 Links
 ~~~~~
@@ -30,4 +34,6 @@ Links
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.ember.vault
+   eth_defi.erc_4626.vault_protocol.ember.deposit_redeem
+   eth_defi.erc_4626.vault_protocol.ember.settlement
    eth_defi.erc_4626.vault_protocol.ember.offchain_metadata

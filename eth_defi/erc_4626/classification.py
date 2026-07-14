@@ -17,6 +17,7 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -76,6 +77,9 @@ MASEER_ONE_HARDCODED_PROTOCOLS = {
 #: KiloEx Hybrid Vaults reuse a Gains-compatible contract surface. Classify
 #: known deployments by address instead of the generic ``maxDiscountP()`` probe.
 KILOEX_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.kiloex_like} for address in KILOEX_VAULT_ADDRESSES}
+
+#: Frankencoin hardcoded classification flags.
+FRANKENCOIN_HARDCODED_PROTOCOLS = {HexAddress(address): {ERC4626Feature.frankencoin_like} for address in FRANKENCOIN_SAVINGS_VAULTS}
 
 
 def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | None = None) -> set[ERC4626Feature] | None:
@@ -1945,6 +1949,7 @@ HARDCODED_PROTOCOLS = {
     **MIDAS_HARDCODED_PROTOCOLS,
     **MASEER_ONE_HARDCODED_PROTOCOLS,
     **KILOEX_HARDCODED_PROTOCOLS,
+    **FRANKENCOIN_HARDCODED_PROTOCOLS,
     # 3Jane - USD3 senior tranche credit vault on Ethereum
     # https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
     "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc": {ERC4626Feature.threejane_like},
@@ -1994,15 +1999,6 @@ HARDCODED_PROTOCOLS = {
     # Spark - spUSDG (Spark Savings USDG) vault on Robinhood Chain
     # https://robinhoodchain.blockscout.com/address/0xde770c84FE66E063336b31737cFE9790f18c4087
     "0xde770c84fe66e063336b31737cfe9790f18c4087": {ERC4626Feature.spark_like},
-    # Frankencoin - svZCHF Savings Vault on Ethereum
-    # https://etherscan.io/token/0xE5F130253fF137f9917C0107659A4c5262abf6b0
-    "0xe5f130253ff137f9917c0107659a4c5262abf6b0": {ERC4626Feature.frankencoin_like},
-    # Frankencoin - svZCHF Savings Vault on Base
-    # https://basescan.org/address/0xa09EBdf8A01b9ef04149319D64F83b9C01a5b585
-    "0xa09ebdf8a01b9ef04149319d64f83b9c01a5b585": {ERC4626Feature.frankencoin_like},
-    # Frankencoin - svZCHF Savings Vault on Gnosis
-    # https://gnosisscan.io/token/0x6165946250dd04740ab1409217e95a4f38374fe9
-    "0x6165946250dd04740ab1409217e95a4f38374fe9": {ERC4626Feature.frankencoin_like},
     # Deltr - StakeddUSD vault on Ethereum
     # https://etherscan.io/address/0xa7a31e6a81300120b7c4488ec3126bc1ad11f320
     "0xa7a31e6a81300120b7c4488ec3126bc1ad11f320": {ERC4626Feature.deltr_like},
