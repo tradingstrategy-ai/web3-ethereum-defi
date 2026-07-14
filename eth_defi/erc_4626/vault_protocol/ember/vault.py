@@ -20,6 +20,7 @@ and distributing traditional and onchain financial products through crypto capit
 import datetime
 import logging
 from functools import cached_property
+from typing import TYPE_CHECKING
 
 from eth_typing import BlockIdentifier
 from web3.contract import Contract
@@ -32,6 +33,9 @@ from eth_defi.erc_4626.vault_protocol.ember.offchain_metadata import (
 )
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from eth_defi.erc_4626.vault_protocol.ember.deposit_redeem import EmberDepositManager
 
 
 class EmberVault(ERC4626Vault):
@@ -125,6 +129,39 @@ class EmberVault(ERC4626Vault):
             if days is not None:
                 return datetime.timedelta(days=days)
         return datetime.timedelta(days=4)
+
+    def get_deposit_manager(self) -> "EmberDepositManager":
+        """Create Ember's synchronous-deposit, asynchronous-redemption manager.
+
+        Ember's custom ``redeemShares`` queue cannot use the generic ERC-4626
+        redemption implementation, because final assets are paid by an operator
+        transaction rather than a depositor-owned claim.
+
+        :return:
+            Protocol-specific Ember deposit manager.
+        """
+        from eth_defi.erc_4626.vault_protocol.ember.deposit_redeem import EmberDepositManager
+
+        return EmberDepositManager(self)
+
+    def get_deposit_manager_capability(self):
+        """Declare Ember's complete mixed synchronous/asynchronous lifecycle.
+
+        This static capability states adapter implementation coverage only. It
+        does not promise current deposits, withdrawal capacity or operator
+        processing timing.
+
+        :return:
+            Ember's public deposit-manager capability metadata.
+        """
+        from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+
+        return VaultDepositManagerCapability(
+            can_deposit=True,
+            can_redeem=True,
+            deposit_flow="synchronous",
+            redemption_flow="asynchronous",
+        )
 
     def get_notes(self) -> str | None:
         """Get notes for this vault.
