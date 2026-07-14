@@ -1,7 +1,9 @@
 """DuckDB-based cache for block number -> timestamp mapping.
 
-By default, we manage a database file at ~/.tradingstrategy/block-timestamps.duckdb` where we have chain -> block -> timestamp mapping.
-Getting block numbers and timestamps is a common expensive operation when scanning historical events.
+Each chain has its own database at
+``~/.tradingstrategy/block-timestamp/{chain_id}-timestamps.duckdb``.
+Getting block numbers and timestamps is a common expensive operation when
+scanning historical events.
 """
 
 import pandas as pd

@@ -232,6 +232,17 @@ No test plan or verification section. Use Markdown formatting, headings.
 - To get the latest block number, use given JSON-RPC URL and Python's Web3.py `web3.eth.block_number` call
 - Never try to figure out RPC URL yourself - always use environment variables from the local environment given by the user. See `eth_defi.chain.CHAIN_NAMES` for aliases like chain id 999 -> JSON_RPC_HYPERLIQUD. Stop and ask user if you cannot figure out.
 
+### Block timestamps
+
+- For all bulk or historical blockchain timestamp operations, use the cache-aware
+  Hypersync API: `fetch_block_timestamps_using_hypersync_cached()` or the
+  `fetch_block_timestamps_multiprocess_auto_backend()` wrapper with a Hypersync
+  client. Do not stream timestamps through `get_block_timestamps_using_hypersync*()`
+  directly unless explicitly repairing known cache gaps.
+- Preserve and reuse the per-chain DuckDB cache at
+  `~/.tradingstrategy/block-timestamp/{chain_id}-timestamps.duckdb`. Do not use
+  the legacy `~/.tradingstrategy/block-timestamps.*` location.
+
 For JSON-RPC URL configuration, environment variables. The variables are in the format `JSON_RPC_{CHAIN}` where `{CHAIN}` is the uppercase chain name:
 
 - `JSON_RPC_ETHEREUM` - Ethereum mainnet

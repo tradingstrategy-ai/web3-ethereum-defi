@@ -3,8 +3,10 @@
 import importlib.util
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
+from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
 from eth_defi.midas.constants import MIDAS_MBASIS_ETHEREUM, MIDAS_MTBILL_ETHEREUM
 
 EXPLICIT_START_BLOCK = 123_456
@@ -26,6 +28,7 @@ def backfill_history_module():
 def test_resolve_price_scan_start_block_uses_earliest_midas_deployment(
     monkeypatch: pytest.MonkeyPatch,
     backfill_history_module,
+    tmp_path: Path,
 ) -> None:
     """Start a default Midas rewrite at its earliest selected deployment."""
 
@@ -34,6 +37,7 @@ def test_resolve_price_scan_start_block_uses_earliest_midas_deployment(
     assert (
         backfill_history_module.resolve_price_scan_start_block(
             [MIDAS_MBASIS_ETHEREUM, MIDAS_MTBILL_ETHEREUM],
+            timestamp_cache_folder=tmp_path,
         )
         == MIDAS_MTBILL_ETHEREUM.first_seen_at_block
     )
@@ -42,6 +46,7 @@ def test_resolve_price_scan_start_block_uses_earliest_midas_deployment(
 def test_resolve_price_scan_start_block_honours_explicit_override(
     monkeypatch: pytest.MonkeyPatch,
     backfill_history_module,
+    tmp_path: Path,
 ) -> None:
     """Allow an operator to pin a smaller diagnostic backfill range."""
 
@@ -50,8 +55,41 @@ def test_resolve_price_scan_start_block_honours_explicit_override(
     assert (
         backfill_history_module.resolve_price_scan_start_block(
             [MIDAS_MBASIS_ETHEREUM, MIDAS_MTBILL_ETHEREUM],
+            timestamp_cache_folder=tmp_path,
         )
         == EXPLICIT_START_BLOCK
+    )
+
+
+def test_resolve_price_scan_start_block_uses_first_supported_cache_block(
+    monkeypatch: pytest.MonkeyPatch,
+    backfill_history_module,
+    tmp_path: Path,
+) -> None:
+    """Clip a Midas history rewrite to the first timestamp cache block.
+
+    A sparse cache can be valid for its own existing range but cannot answer a
+    request before its first block.  The backfill must therefore begin at that
+    supported boundary instead of failing while looking up its first timestamp.
+    """
+
+    monkeypatch.delenv("START_BLOCK", raising=False)
+    first_cached_block = MIDAS_MTBILL_ETHEREUM.first_seen_at_block + 1_000
+    cache = BlockTimestampDatabase.create(MIDAS_MTBILL_ETHEREUM.chain_id, tmp_path)
+    try:
+        cache.import_chain_data(
+            MIDAS_MTBILL_ETHEREUM.chain_id,
+            pd.Series(data=[1_700_000_000], index=[first_cached_block]),
+        )
+    finally:
+        cache.close()
+
+    assert (
+        backfill_history_module.resolve_price_scan_start_block(
+            [MIDAS_MBASIS_ETHEREUM, MIDAS_MTBILL_ETHEREUM],
+            timestamp_cache_folder=tmp_path,
+        )
+        == first_cached_block
     )
 
 

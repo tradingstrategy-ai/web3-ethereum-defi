@@ -78,6 +78,7 @@ from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.erc_4626.scan import create_vault_scan_record
+from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampDatabase
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MidasProduct
 from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
@@ -158,26 +159,60 @@ def resolve_frequency() -> Literal["1h", "1d"]:
     return cast(Literal["1h", "1d"], frequency)
 
 
-def resolve_price_scan_start_block(products: list[MidasProduct]) -> int:
+def resolve_price_scan_start_block(
+    products: list[MidasProduct],
+    timestamp_cache_folder: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
+) -> int:
     """Resolve the first block to read for one chain's Midas backfill.
 
     A targeted backfill must not inherit the ordinary vault scanner's latest
     reader state for the chain.  Those states normally point close to the
     chain head and would silently turn a deployment-history rewrite into a
-    short incremental scan.  Start at the earliest selected Midas deployment
-    unless the operator explicitly pins a start block.
+    short incremental scan.  Start at the earliest selected Midas deployment,
+    but do not request timestamps before the first block available in the
+    local per-chain cache.  This avoids an unusable sparse cache causing the
+    historical reader to fail before it can begin its scan.
 
     :param products:
         Selected Midas products on one EVM chain.
+    :param timestamp_cache_folder:
+        Directory containing ``{chain_id}-timestamps.duckdb`` cache files.
     :return:
-        Explicit ``START_BLOCK`` value, or the earliest selected deployment block.
+        Explicit ``START_BLOCK`` value, or the earliest selected deployment
+        block supported by the local timestamp cache.
     """
 
     explicit_start_block = parse_optional_int_env("START_BLOCK")
     if explicit_start_block is not None:
         return explicit_start_block
 
-    return min(product.first_seen_at_block for product in products)
+    assert products, "Cannot resolve a scan start block without Midas products"
+    chain_ids = {product.chain_id for product in products}
+    assert len(chain_ids) == 1, f"Expected products from one chain, got {chain_ids}"
+
+    deployment_start_block = min(product.first_seen_at_block for product in products)
+    chain_id = products[0].chain_id
+    cache_file = BlockTimestampDatabase.get_database_file_chain(chain_id, timestamp_cache_folder)
+    if not cache_file.exists():
+        logger.info("No timestamp cache found for chain %d at %s", chain_id, cache_file)
+        return deployment_start_block
+
+    timestamp_cache = BlockTimestampDatabase.load(chain_id, cache_file)
+    try:
+        first_cached_block = timestamp_cache.get_first_block()
+    finally:
+        timestamp_cache.close()
+
+    if first_cached_block <= deployment_start_block:
+        return deployment_start_block
+
+    logger.warning(
+        "Clipping Midas history start on chain %d from deployment block %d to timestamp cache start block %d",
+        chain_id,
+        deployment_start_block,
+        first_cached_block,
+    )
+    return first_cached_block
 
 
 def parse_path_env(name: str, default: Path) -> Path:
