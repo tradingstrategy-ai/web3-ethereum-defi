@@ -42,7 +42,7 @@ Useful environment variables:
    * - ``MAX_WORKERS``
      - Historical multicall worker count. Default: ``8``.
    * - ``FREQUENCY``
-     - Historical price frequency, ``1h`` or ``1d``. Default: ``1h``.
+     - Historical price frequency, ``1h`` or ``1d``. Default: ``1d``.
    * - ``START_BLOCK``
      - Optional global minimum start block override.
    * - ``END_BLOCK``
@@ -480,7 +480,7 @@ def main() -> None:
     dry_run = parse_bool_env("DRY_RUN")
     scan_prices = parse_bool_env("MIDAS_SCAN_PRICES", default=True)
     clean_prices = parse_bool_env("MIDAS_CLEAN_PRICES", default=True)
-    frequency = os.environ.get("FREQUENCY", "1h")
+    frequency = os.environ.get("FREQUENCY", "1d")
     if frequency not in {"1h", "1d"}:
         message = f"Unsupported FREQUENCY: {frequency}"
         raise ValueError(message)
