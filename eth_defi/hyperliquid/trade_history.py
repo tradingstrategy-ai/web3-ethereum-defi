@@ -712,7 +712,7 @@ def compute_event_share_prices(
     ledger_events: list,
     initial_total_assets: float = 0.0,
 ) -> list[SharePriceEvent]:
-    """Compute event-accurate share prices from actual ledger events.
+    """Compute an event-driven indicative share-price series from available events.
 
     Unlike the portfolio-history-derived share prices (which suffer from
     resolution artefacts — see ``README-hyperliquid-vault-limitations.md``),
@@ -723,8 +723,11 @@ def compute_event_share_prices(
     - **Trading PnL**: Realised PnL from individual fills (``closed_pnl``)
     - **Funding payments**: USD amounts from ``userFunding``
 
-    This eliminates the resolution-dependent netflow derivation that causes
-    share price spikes in the current pipeline.
+    This avoids the resolution-dependent netflow derivation that causes share
+    price spikes in the portfolio-history pipeline. It is still indicative:
+    API retention limits and incomplete historical event coverage can omit
+    older fills or ledger events, so the result is not an authoritative vault
+    share price.
 
     The share price model follows ERC-4626 mechanics:
 

@@ -32,6 +32,7 @@ from IPython.display import display
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
+from eth_defi.hyperliquid.combined_analysis import rescale_share_price_rows
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.token import is_stablecoin_like
 from eth_defi.types import Percent
@@ -59,6 +60,9 @@ MIN_HYPERCORE_RECAPITALISATION_ASSETS = 1_000.0
 
 #: Ignore isolated zero-NAV observations that recover before this delay.
 MIN_HYPERCORE_RECAPITALISATION_RECOVERY_DELAY = pd.Timedelta(days=7)
+
+#: Never infer a scanner-batch price unit across a longer missing-HF interval.
+HYPERCORE_MAX_HF_BATCH_STITCH_GAP = pd.Timedelta(days=2)
 
 
 class CleanedVaultPriceRow(TypedDict, total=False):
@@ -644,7 +648,13 @@ def clean_returns(
 
     returns_df = prices_df
 
+    # Hypercore prices are synthetic. Its source-aware continuity repairs run
+    # before this generic cleaner, and a genuine post-epoch trading return may
+    # exceed the ERC-4626-oriented threshold. Retain it for the downstream
+    # return-based suitability checks instead of replacing it with a false zero.
     high_returns_mask = returns_df[returns_col] > outlier_threshold
+    if "chain" in returns_df.columns:
+        high_returns_mask &= returns_df["chain"] != HYPERCORE_CHAIN_ID
     outlier_returns = returns_df[high_returns_mask]
 
     # Sort by return value (highest first)
@@ -659,7 +669,7 @@ def clean_returns(
         logger(f"Found 0 outlier returns > {outlier_threshold:%}")
 
     # Clean up obv too high returns
-    returns_df.loc[returns_df[returns_col] > outlier_threshold, returns_col] = 0
+    returns_df.loc[high_returns_mask, returns_col] = 0
 
     return returns_df
 
@@ -1023,9 +1033,11 @@ def discard_hypercore_pre_recapitalisation_history(
     if not hypercore_mask.any():
         return prices_df
 
+    prices_df = prices_df.copy()
     if "epoch_reset" not in prices_df.columns:
-        prices_df = prices_df.copy()
         prices_df["epoch_reset"] = False
+    if "raw_share_price" not in prices_df.columns:
+        prices_df["raw_share_price"] = prices_df["share_price"]
 
     remove_mask = np.zeros(len(prices_df), dtype=bool)
     epoch_reset_positions: list[int] = []
@@ -1076,9 +1088,144 @@ def discard_hypercore_pre_recapitalisation_history(
 
     epoch_reset_col = prices_df.columns.get_loc("epoch_reset")
     prices_df.iloc[epoch_reset_positions, epoch_reset_col] = True
+
+    # A new investor epoch must start from a readable unit price. Preserve the
+    # scanner value in raw_share_price, then rescale this vault's retained rows
+    # so the first meaningful recapitalisation observation is exactly 1.0.
+    for epoch_reset_position in epoch_reset_positions:
+        vault_id = prices_df.iloc[epoch_reset_position]["id"]
+        vault_positions = np.flatnonzero((prices_df["id"] == vault_id).to_numpy())
+        retained_positions = vault_positions[vault_positions >= epoch_reset_position]
+        recapitalisation_price = float(prices_df.iloc[epoch_reset_position]["share_price"])
+        if np.isfinite(recapitalisation_price) and recapitalisation_price > 0:
+            rescale_share_price_rows(prices_df, 1.0 / recapitalisation_price, retained_positions)
+
     filtered_prices_df = prices_df.iloc[~remove_mask].copy()
     logger(f"Discarded {int(remove_mask.sum()):,} pre-recapitalisation Hypercore price rows across {len(epoch_reset_positions):,} vaults; new epochs start once NAV reaches ${min_recapitalisation_assets:,.0f} after {min_recovery_delay}")
     return filtered_prices_df
+
+
+def stitch_hypercore_high_freq_share_price_batches(
+    prices_df: pd.DataFrame,
+    logger=print,
+    max_timestamp_gap: pd.Timedelta = HYPERCORE_MAX_HF_BATCH_STITCH_GAP,
+    max_return_deviation: Percent = 0.50,
+) -> pd.DataFrame:
+    """Stitch incompatible Hypercore high-frequency scanner batches.
+
+    The API supplies rolling account-value and cumulative-PnL windows, rather
+    than a share price or supply. A new scan batch can therefore reconstruct
+    the same vault in a different arbitrary unit. At a ``written_at`` batch
+    boundary, the economically expected price change is
+    ``(pnl_now - pnl_before) / nav_before``. When the observed share-price
+    return differs by more than ``max_return_deviation``, rescale the boundary
+    and all later rows. This retains legitimate large trading gains when PnL
+    supports them, while repairing the unit changes seen in HODL My Perps.
+
+    The narrow two-day and consecutive-HF requirements deliberately avoid
+    inferring a price across sparse allTime history, lifecycle resets, or
+    ordinary daily observations. More elaborate capital-flow reconstruction is
+    not justified by the information Hyperliquid currently exposes.
+
+    :param prices_df:
+        Timestamp-indexed vault prices with ``id``, ``chain``,
+        ``share_price``, ``total_assets``, and ``written_at`` columns. The
+        cumulative PnL column is named ``account_pnl`` in exported parquet and
+        ``cumulative_pnl`` in scanner-shaped DataFrames. ``hypercore_source``
+        is used when available; legacy sources are inferred from midnight
+        timestamps.
+    :param logger:
+        Notebook or console logging function.
+    :param max_timestamp_gap:
+        Largest permitted gap between consecutive HF observations.
+    :param max_return_deviation:
+        Symmetric deviation threshold used to distinguish a scale change from
+        an economically supported price movement.
+    :return:
+        A copy with repaired price units and audit columns populated.
+    """
+    hypercore_mask = prices_df["chain"] == HYPERCORE_CHAIN_ID
+    pnl_column = "cumulative_pnl" if "cumulative_pnl" in prices_df.columns else "account_pnl"
+    required_columns = {"total_assets", pnl_column, "written_at"}
+    if not hypercore_mask.any() or not required_columns.issubset(prices_df.columns):
+        return prices_df
+
+    prices_df = prices_df.copy()
+    if "raw_share_price" not in prices_df.columns:
+        prices_df["raw_share_price"] = prices_df["share_price"]
+    if "hypercore_repair_status" not in prices_df.columns:
+        prices_df["hypercore_repair_status"] = ""
+    if "hypercore_source" not in prices_df.columns:
+        prices_df["hypercore_source"] = pd.NA
+
+    missing_source_mask = hypercore_mask & prices_df["hypercore_source"].isna()
+    if missing_source_mask.any():
+        timestamps = pd.DatetimeIndex(prices_df.index[missing_source_mask])
+        prices_df.loc[missing_source_mask, "hypercore_source"] = np.where(timestamps == timestamps.normalize(), "daily", "hf")
+
+    repair_count = 0
+    hypercore_positions = np.flatnonzero(hypercore_mask.to_numpy())
+    status_column = prices_df.columns.get_loc("hypercore_repair_status")
+    for vault_id, row_positions in prices_df.loc[hypercore_mask].groupby("id", sort=False).indices.items():
+        positions = hypercore_positions[np.asarray(row_positions, dtype=int)]
+        group = prices_df.iloc[positions]
+        hf_source_mask = group["hypercore_source"].astype("string").fillna("").to_numpy(dtype=str) == "hf"
+        hf_positions = np.flatnonzero(hf_source_mask)
+        if len(hf_positions) < 2:
+            continue
+
+        hf_written_at = pd.to_datetime(
+            group["written_at"].iloc[hf_positions],
+            errors="coerce",
+        ).to_numpy(dtype="datetime64[ns]")
+        hf_timestamp_ns = (
+            pd.DatetimeIndex(group.index[hf_positions])
+            .to_numpy(
+                dtype="datetime64[ns]",
+            )
+            .astype("int64")
+        )
+        timestamp_gaps = np.diff(hf_timestamp_ns)
+        batch_boundary_mask = np.zeros(len(hf_positions), dtype=bool)
+        has_written_at = ~pd.isna(hf_written_at[:-1]) & ~pd.isna(hf_written_at[1:])
+        changed_batch = hf_written_at[1:] != hf_written_at[:-1]
+        short_forward_gap = (timestamp_gaps > 0) & (timestamp_gaps <= max_timestamp_gap.value)
+        batch_boundary_mask[1:] = has_written_at & changed_batch & short_forward_gap
+        for boundary_position in np.flatnonzero(batch_boundary_mask):
+            previous_position = int(hf_positions[boundary_position - 1])
+            current_position = int(hf_positions[boundary_position])
+            previous_row = prices_df.iloc[positions[previous_position]]
+            current_row = prices_df.iloc[positions[current_position]]
+            previous_epoch_reset = previous_row.get("epoch_reset", False)
+            current_epoch_reset = current_row.get("epoch_reset", False)
+            crosses_epoch_boundary = (pd.notna(previous_epoch_reset) and bool(previous_epoch_reset)) or (pd.notna(current_epoch_reset) and bool(current_epoch_reset))
+            if crosses_epoch_boundary:
+                continue
+
+            previous_nav = float(previous_row["total_assets"])
+            previous_pnl = float(previous_row[pnl_column])
+            current_pnl = float(current_row[pnl_column])
+            previous_price = float(previous_row["share_price"])
+            current_price = float(current_row["share_price"])
+            finite_values = (previous_nav, previous_pnl, current_pnl, previous_price, current_price)
+            if not all(np.isfinite(value) for value in finite_values) or previous_nav <= 0 or previous_price <= 0 or current_price <= 0:
+                continue
+
+            expected_price = previous_price * (1 + (current_pnl - previous_pnl) / previous_nav)
+            if not np.isfinite(expected_price) or expected_price <= 0:
+                continue
+            deviation = max(current_price / expected_price, expected_price / current_price) - 1
+            if deviation > max_return_deviation:
+                factor = expected_price / current_price
+                rescale_share_price_rows(prices_df, factor, positions[current_position:])
+                prices_df.iloc[positions[current_position], status_column] = "repaired_hf_batch_scale"
+                description = "large " if factor > 2 or factor < 0.5 else ""
+                logger(f"Stitched {description}Hypercore HF batch scale for {vault_id} at {current_row.name}: factor {factor:.6f}")
+                repair_count += 1
+
+    if repair_count:
+        logger(f"Stitched {repair_count:,} incompatible Hypercore HF scanner batch boundaries")
+    return prices_df
 
 
 def fix_hypercore_source_overlap_share_prices(  # noqa: PLR0914
@@ -1620,6 +1767,10 @@ def process_raw_vault_scan_data(
         vault_prices_df = prices_df[prices_df["id"] == diagnose_vault_id]
         logger("After remove_inactive_lead_time():")
         display(vault_prices_df)
+
+    # Correct scanner-batch unit changes before using HF observations as
+    # canonical anchors for the daily/HF source-overlap repair.
+    prices_df = stitch_hypercore_high_freq_share_price_batches(prices_df, logger)
 
     # Cap Hypercore share prices before the standard outlier smoothing.
     # Hypercore share prices can overflow when total_supply → 0;

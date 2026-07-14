@@ -52,6 +52,10 @@ Example::
     print(f"Total supply: {combined_df['total_supply'].iloc[-1]:,.2f}")
 """
 
+import datetime
+import math
+from collections.abc import Sequence
+
 import pandas as pd
 
 #: When the computed share price exceeds this threshold, the epoch
@@ -66,6 +70,109 @@ SHARE_PRICE_RESET_THRESHOLD: float = 10_000.0
 #: as zero) to avoid creating phantom shares from negligible dust that
 #: can then produce negative share prices on subsequent losses.
 EPOCH_RESET_MIN_ASSETS: float = 10.0
+
+
+def rescale_share_price_rows(
+    prices_df: pd.DataFrame,
+    factor: float,
+    row_positions: Sequence[int] | None = None,
+) -> pd.DataFrame:
+    """Rescale synthetic share prices without changing the represented NAV.
+
+    Hyperliquid does not publish an investable vault share price or share
+    supply.  The scanners derive both values from rolling portfolio windows,
+    so an otherwise equivalent re-read can use a different arbitrary unit.
+    Multiplying ``share_price`` and dividing ``total_supply`` by the same
+    factor preserves the invariant ``total_assets == share_price *
+    total_supply`` while choosing a consistent unit.
+
+    :param prices_df:
+        DataFrame containing a finite positive ``share_price`` column and,
+        optionally, a ``total_supply`` column. Rows are modified in place.
+    :param factor:
+        Finite positive multiplier applied to ``share_price``.
+    :param row_positions:
+        Optional positional rows to rescale. When omitted every row is
+        rescaled.
+    :return:
+        The same DataFrame instance after the unit rescaling.
+    """
+    if not math.isfinite(factor) or factor <= 0:
+        raise ValueError(f"Share-price scale factor must be finite and positive, got {factor!r}")
+
+    if row_positions is None:
+        prices_df.loc[:, "share_price"] *= factor
+        if "total_supply" in prices_df.columns:
+            prices_df.loc[:, "total_supply"] /= factor
+        return prices_df
+
+    positions = list(row_positions)
+    if not positions:
+        return prices_df
+
+    share_price_column = prices_df.columns.get_loc("share_price")
+    prices_df.iloc[positions, share_price_column] *= factor
+    if "total_supply" in prices_df.columns:
+        total_supply_column = prices_df.columns.get_loc("total_supply")
+        prices_df.iloc[positions, total_supply_column] /= factor
+
+    return prices_df
+
+
+def align_share_price_curve_to_anchor(
+    prices_df: pd.DataFrame,
+    anchor_timestamp: datetime.datetime | pd.Timestamp,
+    anchor_share_price: float,
+) -> pd.DataFrame | None:
+    """Align a newly reconstructed share-price curve to one persisted price.
+
+    The exact timestamp is used when present. For the high-frequency scanner,
+    which may revisit a rolling window with shifted timestamps, the anchor is
+    interpolated in log-price space between bracketing observations. The
+    resulting constant factor is applied with
+    :py:func:`rescale_share_price_rows`, preserving NAV and supply.
+
+    :param prices_df:
+        Chronologically sorted DataFrame with a ``DatetimeIndex`` and finite
+        positive ``share_price`` values.
+    :param anchor_timestamp:
+        Timestamp of the already persisted price.
+    :param anchor_share_price:
+        Finite positive persisted share price to retain.
+    :return:
+        Rescaled DataFrame, or ``None`` when the curve cannot be anchored
+        because the timestamp lies outside it or cannot be interpolated.
+    """
+    if not math.isfinite(anchor_share_price) or anchor_share_price <= 0:
+        raise ValueError(f"Anchor share price must be finite and positive, got {anchor_share_price!r}")
+
+    curve = prices_df.copy()
+    timestamps = pd.DatetimeIndex(curve.index)
+    anchor_timestamp = pd.Timestamp(anchor_timestamp)
+    if len(curve) == 0 or anchor_timestamp < timestamps[0] or anchor_timestamp > timestamps[-1]:
+        return None
+
+    exact_match = timestamps == anchor_timestamp
+    if exact_match.any():
+        curve_price = float(curve.loc[exact_match, "share_price"].iloc[-1])
+    else:
+        right_position = int(timestamps.searchsorted(anchor_timestamp))
+        if right_position == 0 or right_position == len(curve):
+            return None
+        left_position = right_position - 1
+        left_price = float(curve["share_price"].iloc[left_position])
+        right_price = float(curve["share_price"].iloc[right_position])
+        if not all(math.isfinite(price) and price > 0 for price in (left_price, right_price)):
+            return None
+        elapsed = (anchor_timestamp - timestamps[left_position]).total_seconds()
+        span = (timestamps[right_position] - timestamps[left_position]).total_seconds()
+        if span <= 0:
+            return None
+        curve_price = math.exp(math.log(left_price) + (math.log(right_price) - math.log(left_price)) * elapsed / span)
+
+    if not math.isfinite(curve_price) or curve_price <= 0:
+        return None
+    return rescale_share_price_rows(curve, anchor_share_price / curve_price)
 
 
 def analyse_positions_and_deposits(

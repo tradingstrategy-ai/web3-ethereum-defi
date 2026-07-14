@@ -159,8 +159,10 @@ the account Profit and Loss (PnL) on Hyperliquid website".
 
 ### Share price computation
 
-Portfolio history from `vaultDetails` gives `account_value_history` and
-`pnl_history` as daily `(datetime, Decimal)` tuples. We derive:
+Portfolio history from `vaultDetails` gives rolling `account_value_history`
+and `pnl_history` `(datetime, Decimal)` tuples. The merge keeps NAV/PnL pairs
+together and rebases a child PnL window only at an exact shared `allTime`
+timestamp; an unanchored window is skipped. We derive:
 
 ```
 pnl_update[i]     = pnl_history[i] - pnl_history[i-1]
@@ -170,6 +172,14 @@ netflow_update[i] = (account_value[i] - account_value[i-1]) - pnl_update[i]
 These feed into `_calculate_share_price()` from `combined_analysis.py`,
 which uses the proven mint/burn share price logic without needing the
 slow per-fill/per-deposit API calls.
+
+Hyperliquid does not publish a vault share price or share supply. Each API
+read reconstructs an arbitrary but internally consistent unit, so the daily
+and HF scanners align their new curve to the latest stored price before writing
+their one-row overlap. The HF path log-linearly interpolates an anchor when
+the rolling-window timestamps shift. The matching inverse supply scaling keeps
+`total_assets == share_price * total_supply`; if no stored anchor lies within
+the current curve, the scan is skipped rather than creating a discontinuity.
 
 ### Hypercore-specific columns in price data
 
@@ -752,8 +762,8 @@ for v in data['vaults'][:5]:
 ## Trade history reconstruction
 
 Separate from the daily metrics pipeline, we can reconstruct per-account
-trade history (fills, funding payments, ledger events) and compute
-event-accurate share prices.
+trade history (fills, funding payments, ledger events) and compute an
+event-driven indicative share-price series.
 
 This uses the `userFillsByTime`, `userFunding`, `userNonFundingLedgerUpdates`,
 and `clearinghouseState` API endpoints directly.
@@ -809,8 +819,8 @@ The `vault-trade-history.py` script reconstructs and displays:
 3. Open round-trip trades with funding costs
 4. Closed round-trip trades with PnL breakdown
 5. Summary totals (realised, funding, fees, net, unrealised)
-6. Event-accurate share price history (using actual deposit/withdrawal
-   events instead of resolution-dependent portfolio history)
+6. Event-driven indicative share-price history (using available
+   deposit/withdrawal events instead of resolution-dependent portfolio history)
 
 ```shell
 # Basic usage
@@ -891,5 +901,5 @@ source .local-test.env && poetry run pytest \
 | `eth_defi/hyperliquid/combined_analysis.py` | `_calculate_share_price()` -- time-weighted return logic |
 | `eth_defi/hyperliquid/vault.py` | API client (`fetch_all_vaults`, `HyperliquidVault`, `VaultInfo`) |
 | `eth_defi/hyperliquid/session.py` | Rate-limited HTTP session (`create_hyperliquid_session`) |
-| `eth_defi/hyperliquid/trade_history.py` | Trade history reconstruction, round-trip trades, event-accurate share prices |
+| `eth_defi/hyperliquid/trade_history.py` | Trade history reconstruction, round-trip trades, event-driven indicative share prices |
 | `eth_defi/hyperliquid/trade_history_db.py` | DuckDB persistence for fills, funding, ledger with incremental sync |

@@ -14,11 +14,13 @@ import zstandard as zstd
 
 import eth_defi.research.wrangle_vault_prices as vault_price_wrangle
 from eth_defi.research.wrangle_vault_prices import (
+    clean_returns,
     discard_hypercore_pre_recapitalisation_history,
     fix_hypercore_source_overlap_share_prices,
     fix_outlier_share_prices,
     generate_cleaned_vault_datasets,
     replace_cleaned_vault_histories,
+    stitch_hypercore_high_freq_share_price_batches,
 )
 from eth_defi.vault.base import VaultHistoricalRead
 from eth_defi.vault.settlement_data import VaultSettlement, VaultSettlementDatabase
@@ -493,7 +495,7 @@ def test_discard_hypercore_pre_recapitalisation_history() -> None:
             "chain": [9999] * 11 + [1],
             "id": [recapitalised_id] * 8 + [short_blip_id] * 3 + [evm_id],
             "total_assets": [2_000.0, 0.0, 0.0, 0.0, 100.0, 999.0, 1_000.0, 1_050.0, 2_000.0, 0.0, 1_500.0, 0.0],
-            "share_price": [1.0] * 12,
+            "share_price": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 10.0, 10.5, 1.0, 1.0, 1.0, 1.0],
         },
         index=timestamps,
     )
@@ -504,6 +506,9 @@ def test_discard_hypercore_pre_recapitalisation_history() -> None:
     recapitalised = result[result["id"] == recapitalised_id]
     assert recapitalised.index.tolist() == [pd.Timestamp("2026-01-12"), pd.Timestamp("2026-01-13")]
     assert recapitalised["epoch_reset"].tolist() == [True, False]
+    assert recapitalised["raw_share_price"].tolist() == [10.0, 10.5]
+    assert recapitalised["share_price"].iloc[0] == pytest.approx(1.0)
+    assert recapitalised["share_price"].iloc[1] == pytest.approx(1.05)
     assert len(result[result["id"] == short_blip_id]) == 3
     assert len(result[result["id"] == evm_id]) == 1
     assert messages == ["Discarded 6 pre-recapitalisation Hypercore price rows across 1 vaults; new epochs start once NAV reaches $1,000 after 7 days 00:00:00"]
@@ -525,6 +530,66 @@ def test_discard_hypercore_history_measures_delay_to_first_positive_nav() -> Non
 
     assert result.index.tolist() == prices_df.index.tolist()
     assert result["epoch_reset"].tolist() == [False] * 4
+
+
+def test_stitch_hypercore_high_freq_share_price_batches() -> None:
+    """A scanner batch unit jump follows PnL, not a 50x investor return."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 3,
+            "id": ["9999-0xstitch"] * 3,
+            "hypercore_source": ["hf"] * 3,
+            "written_at": pd.to_datetime(["2026-01-01", "2026-01-02", "2026-01-02"]),
+            "total_assets": [100.0, 101.0, 102.01],
+            # Exported Hypercore parquet calls this cumulative metric account_pnl.
+            "account_pnl": [0.0, 1.0, 2.01],
+            "share_price": [1.0, 50.0, 50.5],
+            "total_supply": [100.0, 2.02, 2.02],
+        },
+        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-01 13:00", "2026-01-01 14:00"]),
+    )
+
+    result = stitch_hypercore_high_freq_share_price_batches(prices_df, logger=lambda _message: None)
+
+    assert result["share_price"].tolist() == pytest.approx([1.0, 1.01, 1.0201])
+    assert result["total_supply"].tolist() == pytest.approx([100.0, 100.0, 100.0])
+    assert result["hypercore_repair_status"].tolist() == ["", "repaired_hf_batch_scale", ""]
+
+
+def test_stitch_hypercore_batch_keeps_pnl_supported_return() -> None:
+    """A genuine 50 percent PnL gain must not be mistaken for a unit jump."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999, 9999],
+            "id": ["9999-0xreal-gain"] * 2,
+            "hypercore_source": ["hf", "hf"],
+            "written_at": pd.to_datetime(["2026-01-01", "2026-01-02"]),
+            "total_assets": [100.0, 150.0],
+            "cumulative_pnl": [0.0, 50.0],
+            "share_price": [1.0, 1.5],
+        },
+        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-01 13:00"]),
+    )
+
+    result = stitch_hypercore_high_freq_share_price_batches(prices_df, logger=lambda _message: None)
+
+    assert result["share_price"].tolist() == [1.0, 1.5]
+    assert result["hypercore_repair_status"].tolist() == ["", ""]
+
+
+def test_clean_returns_keeps_large_hypercore_return() -> None:
+    """Hypercore continuity repairs own synthetic prices before generic cleaning."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999, 1],
+            "name": ["Hypercore", "EVM"],
+            "returns_1h": [1.0, 1.0],
+        }
+    )
+
+    result = clean_returns({}, prices_df, logger=lambda _message: None)
+
+    assert result["returns_1h"].tolist() == [1.0, 0.0]
 
 
 def test_native_protocol_columns_survive_evm_scan_rewrite(tmp_path: Path):

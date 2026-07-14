@@ -19,12 +19,20 @@ price reconstruction then invents a share mint or burn, producing a temporary
 price spike which often reverses at the next refreshed observation. This is a
 data artefact, not a realised vault return.
 
-The wrangle repair in
+The scanner and wrangle repairs in
 `eth_defi.research.wrangle_vault_prices.fix_hypercore_source_overlap_share_prices`
-addresses this case:
+and its surrounding continuity steps address these cases:
 
 - The daily and high-frequency exporters label every new row as `daily` or
   `hf` through `hypercore_source`.
+- Before writing an overlapping scan, each exporter scales its reconstructed
+  curve to the last persisted positive price. Daily scans use the shared date;
+  HF scans use log-price interpolation when rolling-window timestamps shift.
+  This preserves `NAV = share_price × total_supply` and never rewrites older
+  stored rows.
+- The period merge only overlays NAV/PnL pairs after rebasing a child PnL
+  series at an exact shared `allTime` timestamp. A period without such a
+  timestamp is skipped rather than nearest-neighbour matching unrelated PnL.
 - Positive-price, positive-NAV HF observations are the preferred canonical
   anchors. A daily point bracketed by them becomes a candidate if its symmetric
   price deviation exceeds 50%.
@@ -44,7 +52,14 @@ addresses this case:
   after a durable zero-NAV event. Durability is measured from zero NAV to the
   first later positive NAV; that recovery must take at least seven days. The
   new epoch starts at the first subsequent observation of at least `$1,000`
-  and is marked `epoch_reset`. The raw parquet is never discarded or rewritten.
+  and is marked `epoch_reset`. Its first retained synthetic price is normalised
+  to `1.0`; `raw_share_price` retains the scanner value. The raw parquet is
+  never discarded or rewritten.
+- A historical HF batch stitch compares consecutive `hf` rows whose
+  `written_at` changes. If their observed share-price change disagrees by more
+  than 50% with the PnL-supported return over a gap of at most two days, it
+  rescales the later batch and records `repaired_hf_batch_scale`. This is the
+  narrow repair path for HODL's post-recapitalisation unit changes.
 
 Legacy parquet rows predate explicit source provenance. They are classified as
 daily when their timestamp is midnight UTC and HF otherwise. This is valid for
@@ -212,10 +227,12 @@ loss. The wrangle pipeline applies a separate recapitalisation policy:
    row `epoch_reset`.
 3. Preserve the raw parquet for audit and historical analysis.
 
-This scopes the cleaned chart and metrics to the current capital epoch. It does
-not by itself reconstruct any remaining post-recapitalisation synthetic-price
-anomaly. The preceding -100% outcome remains available in raw data, but it is
-not chain-linked into a fictitious return on recapitalised capital.
+This scopes the cleaned chart and metrics to the current capital epoch and
+normalises its first retained price to `1.0`. The subsequent HF-batch stitch
+repairs short-gap arbitrary-unit jumps only when the cumulative-PnL change
+contradicts the observed price return; genuine PnL-supported moves remain.
+The preceding -100% outcome remains available in raw data, but it is not
+chain-linked into a fictitious return on recapitalised capital.
 
 At the 13 July 2026 live API check, the vault held a long position of `830.3`
 HYPE, entered at `64.8714`, with unrealised PnL of about `-$945.21` and a
@@ -271,6 +288,12 @@ unbracketed rows, NAV/gap/lifecycle deferrals, recapitalisation epoch filtering,
 and the distinction between first positive NAV and the later `$1,000` tracking
 threshold. A read-only production run removes 369 pre-recapitalisation rows
 across HODL My Perps, Rehobot LR, Sifu, and HLP Liquidator.
+
+The 14 July 2026 production HODL subset was also run through the new paths
+without writing parquet. It discards 161 pre-epoch rows, starts the retained
+epoch at `1.0`, and stitches three May HF batch boundaries. Its largest
+remaining one-step return is 7.68%, rather than the earlier non-economic 54.7x
+unit jump.
 
 See also `scripts/hyperliquid/README-hyperliquid-vaults.md`, in particular
 the *Healing share price data* section, for the scanner-level healing process.
