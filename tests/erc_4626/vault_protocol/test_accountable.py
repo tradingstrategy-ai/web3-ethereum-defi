@@ -17,6 +17,7 @@ from web3 import Web3
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.accountable.deposit_redeem import AccountableDepositManager
 from eth_defi.erc_4626.vault_protocol.accountable.offchain_metadata import (
     fetch_accountable_vaults,
 )
@@ -69,6 +70,13 @@ def test_accountable_susn_vault(
     assert ERC4626Feature.accountable_like in vault.features
     assert vault.get_protocol_name() == "Accountable"
     assert vault.denomination_token.symbol == "USDC"
+    assert isinstance(vault.get_deposit_manager(), AccountableDepositManager)
+    assert vault.get_deposit_manager_capability().as_dict() == {
+        "can_deposit": True,
+        "can_redeem": True,
+        "deposit_flow": "synchronous",
+        "redemption_flow": "asynchronous",
+    }
 
     # Management fee not available, performance fee from offchain metadata
     assert vault.get_management_fee("latest") is None

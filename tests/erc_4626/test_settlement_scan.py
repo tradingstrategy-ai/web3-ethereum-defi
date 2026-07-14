@@ -23,6 +23,7 @@ from eth_defi.vault.vaultdb import VaultDatabase
 LAGOON_ADDRESS = "0xabc0000000000000000000000000000000000000"
 D2_ADDRESS = "0xd200000000000000000000000000000000000000"
 EMBER_ADDRESS = "0xe000000000000000000000000000000000000000"
+ACCOUNTABLE_ADDRESS = "0xa000000000000000000000000000000000000000"
 OTHER_ADDRESS = "0xdef0000000000000000000000000000000000000"
 CHAIN2_ADDRESS = "0x2220000000000000000000000000000000000000"
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -75,6 +76,16 @@ def make_vault_db() -> VaultDatabase:
         deposit_count=10,
         redeem_count=5,
     )
+    accountable_detection = ERC4262VaultDetection(
+        chain=143,
+        address=ACCOUNTABLE_ADDRESS,
+        first_seen_at_block=100,
+        first_seen_at=now,
+        features={ERC4626Feature.accountable_like},
+        updated_at=now,
+        deposit_count=10,
+        redeem_count=5,
+    )
     other_detection = ERC4262VaultDetection(
         chain=1,
         address=OTHER_ADDRESS,
@@ -110,6 +121,12 @@ def make_vault_db() -> VaultDatabase:
                 "Protocol": "Ember",
                 "features": ember_detection.features,
                 "_detection_data": ember_detection,
+            },
+            VaultSpec(143, ACCOUNTABLE_ADDRESS): {
+                "Address": ACCOUNTABLE_ADDRESS,
+                "Protocol": "Accountable",
+                "features": accountable_detection.features,
+                "_detection_data": accountable_detection,
             },
         }
     )
@@ -273,7 +290,7 @@ def test_select_vault_settlement_scan_ranges_forced_lagoon_backfill(tmp_path: Pa
 
 
 def test_select_vault_settlement_scan_ranges_includes_supported_protocols() -> None:
-    """Generic settlement scans include Lagoon, D2 and Ember vaults."""
+    """Generic settlement scans include Lagoon, D2, Ember and Accountable vaults."""
     raw_prices = pd.DataFrame(
         [
             {"chain": 1, "address": LAGOON_ADDRESS, "block_number": 100},
@@ -282,6 +299,8 @@ def test_select_vault_settlement_scan_ranges_includes_supported_protocols() -> N
             {"chain": 1, "address": D2_ADDRESS, "block_number": 210},
             {"chain": 1, "address": EMBER_ADDRESS, "block_number": 120},
             {"chain": 1, "address": EMBER_ADDRESS, "block_number": 220},
+            {"chain": 143, "address": ACCOUNTABLE_ADDRESS, "block_number": 130},
+            {"chain": 143, "address": ACCOUNTABLE_ADDRESS, "block_number": 230},
             {"chain": 1, "address": OTHER_ADDRESS, "block_number": 100},
             {"chain": 1, "address": OTHER_ADDRESS, "block_number": 200},
         ]
@@ -292,6 +311,7 @@ def test_select_vault_settlement_scan_ranges_includes_supported_protocols() -> N
         (LAGOON_ADDRESS, 100, 200),
         (D2_ADDRESS, 110, 210),
         (EMBER_ADDRESS, 120, 220),
+        (ACCOUNTABLE_ADDRESS, 130, 230),
     ]
 
 

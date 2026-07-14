@@ -2,15 +2,16 @@
 
 import datetime
 import logging
+from collections.abc import Iterable
 from decimal import Decimal
 from functools import cached_property
-from typing import Iterable
 
 from eth_typing import BlockIdentifier
 from web3.contract import Contract
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.accountable.deposit_redeem import AccountableDepositManager
 from eth_defi.erc_4626.vault_protocol.accountable.offchain_metadata import (
     AccountableVaultMetadata,
     fetch_accountable_vault_metadata,
@@ -18,6 +19,7 @@ from eth_defi.erc_4626.vault_protocol.accountable.offchain_metadata import (
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 
 logger = logging.getLogger(__name__)
 
@@ -238,6 +240,27 @@ class AccountableVault(ERC4626Vault):
         if nav is None or idle is None or nav == 0:
             return None
         return float((nav - idle) / nav)
+
+    def get_deposit_manager(self) -> AccountableDepositManager:
+        """Create Accountable's synchronous-deposit async-redeem manager.
+
+        :return:
+            Protocol-specific request and claim manager.
+        """
+        return AccountableDepositManager(self)
+
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
+        """Declare Accountable's public request lifecycle.
+
+        :return:
+            Synchronous deposit and asynchronous redemption capability.
+        """
+        return VaultDepositManagerCapability(
+            can_deposit=True,
+            can_redeem=True,
+            deposit_flow="synchronous",
+            redemption_flow="asynchronous",
+        )
 
     @cached_property
     def accountable_metadata(self) -> AccountableVaultMetadata | None:
