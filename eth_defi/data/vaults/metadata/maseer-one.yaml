@@ -1,0 +1,33 @@
+name: Maseer One
+slug: maseer-one
+short_description: |
+  Compliance-gated tokenised real-world assets with on-chain NAV/share.
+long_description: |
+  Maseer One is a modular tokenisation framework for real-world assets. Each
+  deployment issues an ERC-20 token while connecting immutable references to a
+  purchase token, price oracle, market gate, issuer registry, compliance guard
+  and output conduit. The initial integration tracks Wren Staked tGBP (wstGBP)
+  on Ethereum.
+
+  Maseer One assets are not ERC-4626 vaults. The token exposes its purchase and
+  redemption asset through `gem()` and a WAD-scaled NAV/share through
+  `navprice()`. Minting and redemption use bespoke, compliance-gated methods,
+  but the adapter can calculate historical TVL as token supply multiplied by
+  NAV/share in the real ERC-20 denomination.
+fee_description: |
+  Maseer One applies its mint and redemption fees by adjusting the on-chain
+  NAV/share. `mintcost()` is the price paid by minters and `burncost()` is the
+  price paid to redeemers. The adapter derives these externalised fee fractions
+  from the current values relative to `navprice()`.
+links:
+  homepage: https://maseer.finance/
+  app: https://wstgbp.com/
+  github: https://github.com/maseer-finance/maseer-one
+  documentation: https://docs.wstgbp.com/
+  defillama:
+  audits: https://prototechlabs.dev/
+  fees: https://docs.wstgbp.com/guides/mint-redeem
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/maseer-one
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/maseer-one/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x57C3571f10767E49C9d7b60feb6c67804783B7aE

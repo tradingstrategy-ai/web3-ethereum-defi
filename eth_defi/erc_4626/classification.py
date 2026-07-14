@@ -20,6 +20,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.maseer_one.constants import MASEER_ONE_WSTGBP
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
@@ -61,6 +62,16 @@ ODA_FACT_HARDCODED_PROTOCOLS = {
 
 #: Midas hardcoded classification flags.
 MIDAS_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.midas_like} for token in MIDAS_PRODUCTS_BY_TOKEN}
+
+#: Maseer One hardcoded classification flags.
+#:
+#: This is deliberately address-only for the initial rollout. Maseer One does
+#: not yet have a production track record or large vault deployments that
+#: warrant maintaining a chain-specific deployment registry. Revisit this
+#: allow-list when a material multi-chain deployment is added.
+MASEER_ONE_HARDCODED_PROTOCOLS = {
+    MASEER_ONE_WSTGBP.vault: {ERC4626Feature.maseer_one_like},
+}
 
 #: KiloEx Hybrid Vaults reuse a Gains-compatible contract surface. Classify
 #: known deployments by address instead of the generic ``maxDiscountP()`` probe.
@@ -1495,6 +1506,10 @@ def create_vault_instance(
         from eth_defi.midas.vault import MidasVault
 
         return MidasVault(web3, spec, **kwargs)
+    elif ERC4626Feature.maseer_one_like in features:
+        from eth_defi.maseer_one.vault import MaseerOneVault
+
+        return MaseerOneVault(web3, spec, **kwargs)
 
     # TODO: Some module deadlock sheningans for Morpho
     elif ERC4626Feature.morpho_like in features:
@@ -1928,6 +1943,7 @@ def create_vault_instance_autodetect(
 HARDCODED_PROTOCOLS = {
     **ODA_FACT_HARDCODED_PROTOCOLS,
     **MIDAS_HARDCODED_PROTOCOLS,
+    **MASEER_ONE_HARDCODED_PROTOCOLS,
     **KILOEX_HARDCODED_PROTOCOLS,
     # 3Jane - USD3 senior tranche credit vault on Ethereum
     # https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
