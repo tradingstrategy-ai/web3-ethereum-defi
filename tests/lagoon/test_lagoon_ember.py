@@ -87,15 +87,14 @@ def test_lagoon_safe_ember_redemption_cycle(web3: Web3, ember_vault: EmberVault,
     assert lagoon_vault.trading_strategy_module.functions.isAllowedApprovalDestination(ember_vault.address).call()
 
     # 2. Fund and settle the Lagoon vault so its Safe holds USDC.
-    for func in [
-        lagoon_vault.post_new_valuation(Decimal(0)),
-        usdc.contract.functions.approve(lagoon_vault.address, usdc.convert_to_raw(Decimal("100"))),
-        lagoon_vault.request_deposit(depositor, usdc.convert_to_raw(Decimal("100"))),
-        lagoon_vault.post_new_valuation(Decimal(0)),
-        lagoon_vault.settle_via_trading_strategy_module(Decimal(0)),
-    ]:
-        sender = depositor if func.fn_name in {"approve", "requestDeposit"} else asset_manager
-        tx_hash = func.transact({"from": sender, "gas": 1_000_000})
+    valuation_hash = lagoon_vault.post_new_valuation(Decimal(0)).transact({"from": asset_manager, "gas": 1_000_000})
+    assert_transaction_success_with_explanation(web3, valuation_hash)
+    approval_hash = usdc.contract.functions.approve(lagoon_vault.address, usdc.convert_to_raw(Decimal("100"))).transact({"from": depositor, "gas": 1_000_000})
+    assert_transaction_success_with_explanation(web3, approval_hash)
+    deposit_hash = lagoon_vault.request_deposit(depositor, usdc.convert_to_raw(Decimal("100"))).transact({"from": depositor, "gas": 1_000_000})
+    assert_transaction_success_with_explanation(web3, deposit_hash)
+    for func in [lagoon_vault.post_new_valuation(Decimal(0)), lagoon_vault.settle_via_trading_strategy_module(Decimal(0))]:
+        tx_hash = func.transact({"from": asset_manager, "gas": 1_000_000})
         assert_transaction_success_with_explanation(web3, tx_hash)
     assert usdc.fetch_balance_of(safe_address) > 0
 
