@@ -38,15 +38,15 @@ from eth_typing import HexAddress
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
+from eth_defi.compat import native_datetime_utc_now
+from eth_defi.hyperliquid.combined_analysis import align_share_price_curve_to_anchor
 from eth_defi.hyperliquid.constants import (
     HYPERLIQUID_HIGH_FREQ_DEFAULT_INTERVAL,
     HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE,
 )
-from eth_defi.hyperliquid.vault_metrics_db import HyperliquidMetricsDatabaseBase
 from eth_defi.hyperliquid.daily_metrics import (
     portfolio_to_combined_dataframe,
 )
-from eth_defi.hyperliquid.combined_analysis import align_share_price_curve_to_anchor
 from eth_defi.hyperliquid.deposit import (
     aggregate_daily_flows,
     fetch_vault_deposits,
@@ -58,7 +58,7 @@ from eth_defi.hyperliquid.vault import (
     VaultSummary,
     fetch_all_vaults,
 )
-from eth_defi.compat import native_datetime_utc_now
+from eth_defi.hyperliquid.vault_metrics_db import HyperliquidMetricsDatabaseBase
 
 logger = logging.getLogger(__name__)
 
@@ -510,11 +510,12 @@ def fetch_and_store_vault_high_freq(
     now = native_datetime_utc_now()
     prev_share_price = None
     if last_stored_ts is not None and not existing_prices.empty:
-        previous_prices = existing_prices[pd.to_datetime(existing_prices["timestamp"]) < pd.Timestamp(last_stored_ts)]
-        if not previous_prices.empty:
-            prev_share_price = float(previous_prices.iloc[-1]["share_price"])
-        else:
-            prev_share_price = float(existing_prices.iloc[-1]["share_price"])
+        # The reconstructed window can have shifted API timestamps and may
+        # therefore not contain an exact copy of the persisted anchor. The
+        # first appended row is still immediately after that anchor, so its
+        # return must be measured from the latest stored price, not from the
+        # preceding stored observation.
+        prev_share_price = float(existing_prices.iloc[-1]["share_price"])
 
     for i, (ts, row_data) in enumerate(zip(combined_df.index, combined_df.itertuples())):
         raw_ts = ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts

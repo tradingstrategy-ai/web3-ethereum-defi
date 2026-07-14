@@ -14,11 +14,15 @@ concurrency regression test is offline and uses synthetic rows only.
 """
 
 import datetime
+from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import patch
 
+import pandas as pd
 import pytest
 from joblib import Parallel, delayed
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.hyperliquid.deposit import fetch_vault_deposits
 from eth_defi.hyperliquid.high_freq_metrics import (
     HyperliquidHighFreqMetricsDatabase,
@@ -26,8 +30,7 @@ from eth_defi.hyperliquid.high_freq_metrics import (
     fetch_and_store_vault_high_freq,
 )
 from eth_defi.hyperliquid.session import create_hyperliquid_session
-from eth_defi.hyperliquid.vault import HyperliquidVault, fetch_all_vaults
-from eth_defi.compat import native_datetime_utc_now
+from eth_defi.hyperliquid.vault import HyperliquidVault, PortfolioHistory, VaultSummary, fetch_all_vaults
 
 
 @pytest.mark.timeout(180)
@@ -173,6 +176,81 @@ def test_high_freq_lifecycle(tmp_path):
         assert tombstone.iloc[0]["tvl"] == pytest.approx(0.0)
         assert tombstone.iloc[0]["cumulative_pnl"] == pytest.approx(5000.0)
 
+    finally:
+        db.close()
+
+
+def test_high_freq_resume_uses_persisted_anchor_for_shifted_timestamps(tmp_path) -> None:
+    """HF return uses the persisted anchor when the API window timestamps shift.
+
+    The reconstructed curve has observations either side of the last persisted
+    timestamp, but none exactly at it. Its scale is interpolated to the anchor;
+    the first appended row must calculate its return from that anchor rather
+    than the older stored observation.
+    """
+    vault_address = "0x0000000000000000000000000000000000000001"
+    anchor_timestamp = datetime.datetime(2026, 1, 1, 11)
+    db = HyperliquidHighFreqMetricsDatabase(tmp_path / "hf-resume.duckdb")
+    db.upsert_high_freq_prices(
+        [
+            HyperliquidHighFreqPriceRow(vault_address, anchor_timestamp - datetime.timedelta(hours=1), 1.0, 100.0, 0.0),
+            HyperliquidHighFreqPriceRow(vault_address, anchor_timestamp, 1.1, 110.0, 10.0),
+        ]
+    )
+
+    summary = VaultSummary(
+        name="Test vault",
+        vault_address=vault_address,
+        leader="0x0000000000000000000000000000000000000002",
+        tvl=Decimal("120"),
+        is_closed=False,
+        relationship_type="normal",
+    )
+    all_time = PortfolioHistory(
+        period="allTime",
+        account_value_history=[(anchor_timestamp - datetime.timedelta(hours=1), Decimal("100")), (anchor_timestamp, Decimal("110"))],
+        pnl_history=[(anchor_timestamp - datetime.timedelta(hours=1), Decimal("0")), (anchor_timestamp, Decimal("10"))],
+        volume=Decimal("0"),
+    )
+    info = SimpleNamespace(
+        name=summary.name,
+        leader=summary.leader,
+        description="",
+        followers=[],
+        portfolio={"allTime": all_time},
+        commission_rate=None,
+        leader_fraction=None,
+        leader_commission=None,
+        is_closed=False,
+        allow_deposits=True,
+        relationship_type="normal",
+    )
+    reconstructed_curve = pd.DataFrame(
+        {
+            "share_price": [1.0, 1.2],
+            "total_assets": [100.0, 120.0],
+            "cumulative_pnl": [0.0, 20.0],
+            "pnl_update": [0.0, 20.0],
+            "epoch_reset": [False, False],
+        },
+        index=pd.to_datetime([anchor_timestamp - datetime.timedelta(hours=1), anchor_timestamp + datetime.timedelta(hours=1)]),
+    )
+
+    try:
+        with (
+            patch.object(HyperliquidVault, "fetch_metadata", return_value=info),
+            patch(
+                "eth_defi.hyperliquid.high_freq_metrics.portfolio_to_combined_dataframe",
+                return_value=reconstructed_curve,
+            ),
+        ):
+            assert fetch_and_store_vault_high_freq(object(), db, summary, flow_backfill_days=0)
+
+        prices = db.get_vault_high_freq_prices(vault_address)
+        appended = prices.iloc[-1]
+        expected_share_price = 1.2 * 1.1 / (1.0 * 1.2) ** 0.5
+        assert appended["share_price"] == pytest.approx(expected_share_price)
+        assert appended["daily_return"] == pytest.approx((expected_share_price - 1.1) / 1.1)
     finally:
         db.close()
 
