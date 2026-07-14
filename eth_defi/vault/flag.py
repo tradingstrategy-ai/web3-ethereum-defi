@@ -4,6 +4,8 @@ import enum
 
 from eth_typing import HexAddress
 
+from eth_defi.vault.handwritten_metadata import PIKU_VAULT_METADATA, format_handwritten_vault_note
+
 
 class VaultFlag(str, enum.Enum):
     """Flags indicating the status of a vault."""
@@ -125,6 +127,7 @@ ODA_FACT_JLTXX_NOTE = f"""JPMorgan OnChain Liquidity-Token Money Market Fund (JL
 #: "flagged"; they only add descriptive markdown to vault exports.
 VAULT_NOTES: dict[str, str] = {
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": ODA_FACT_JLTXX_NOTE,
+    **{address: format_handwritten_vault_note(metadata) for (chain_id, address), metadata in PIKU_VAULT_METADATA.items() if chain_id == 1},
 }
 
 
