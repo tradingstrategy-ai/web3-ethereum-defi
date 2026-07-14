@@ -59,3 +59,21 @@ def test_align_share_price_curve_interpolates_shifted_high_frequency_anchor() ->
     midpoint = (aligned["share_price"].iloc[0] * aligned["share_price"].iloc[1]) ** 0.5
     assert midpoint == pytest.approx(1.1)
     assert (aligned["share_price"] * aligned["total_supply"]).to_numpy() == pytest.approx(aligned["total_assets"].to_numpy())
+
+
+def test_align_share_price_curve_treats_zero_anchor_as_lifecycle_boundary() -> None:
+    """A wiped-out epoch must not be used to scale a recapitalised curve."""
+    index = pd.to_datetime(["2026-01-01", "2026-01-02"])
+    curve = pd.DataFrame(
+        {
+            "share_price": [0.0, 1.0],
+            "total_supply": [100.0, 100.0],
+            "total_assets": [0.0, 100.0],
+        },
+        index=index,
+    )
+
+    resumed = align_share_price_curve_to_anchor(curve, index[0], 0.0)
+
+    assert resumed is not curve
+    pd.testing.assert_frame_equal(resumed, curve)

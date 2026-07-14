@@ -180,6 +180,11 @@ their one-row overlap. The HF path log-linearly interpolates an anchor when
 the rolling-window timestamps shift. The matching inverse supply scaling keeps
 `total_assets == share_price * total_supply`; if no stored anchor lies within
 the current curve, the scan is skipped rather than creating a discontinuity.
+An exact zero stored price is a valid complete-wipe-out observation, but it
+cannot scale another curve. The scanners therefore resume that reconstructed
+curve without alignment; the wrangle pipeline separately decides whether a
+later recapitalisation qualifies as a new retained performance epoch. Negative
+or non-finite stored prices remain hard errors.
 
 ### Hypercore-specific columns in price data
 

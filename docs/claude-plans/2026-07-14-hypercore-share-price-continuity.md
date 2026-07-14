@@ -56,7 +56,7 @@ unchanged.
 ### 2. Chain a recalculated curve to stored history
 
 Add one small shared helper for the daily and HF scanners. Given a newly
-calculated curve and the latest stored positive share price:
+calculated curve and the latest stored share price:
 
 1. Locate that stored timestamp in the new curve, using exact overlap for daily
    rows and time interpolation for HF rows.
@@ -77,6 +77,12 @@ For a brand-new vault with no stored price, use the newly calculated curve as
 is; the existing synthetic-supply calculation anchors its first funded row at
 `1.0`. A missing stored anchor is therefore a valid bootstrap, whereas an
 existing stored anchor outside the new API curve is an error.
+
+A zero stored price records a complete NAV wipe-out and cannot be used as a
+scale factor. Resume the reconstructed curve unchanged at this boundary; the
+wrangle pipeline applies the stricter duration and NAV thresholds that decide
+whether a later recapitalisation becomes a retained performance epoch. Keep
+negative and non-finite stored prices as hard errors.
 
 For an existing daily vault, only update the overlapping boundary date and
 append later dates; do not refresh its complete historical curve on every scan.

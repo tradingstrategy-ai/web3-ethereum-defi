@@ -255,6 +255,69 @@ def test_high_freq_resume_uses_persisted_anchor_for_shifted_timestamps(tmp_path)
         db.close()
 
 
+def test_high_freq_resume_after_zero_price_lifecycle_boundary(tmp_path) -> None:
+    """A terminal zero price must not abort a later HF scan."""
+    vault_address = "0x0000000000000000000000000000000000000001"
+    anchor_timestamp = datetime.datetime(2026, 1, 1, 11)
+    db = HyperliquidHighFreqMetricsDatabase(tmp_path / "hf-zero-anchor.duckdb")
+    db.upsert_high_freq_prices([HyperliquidHighFreqPriceRow(vault_address, anchor_timestamp, 0.0, 0.0, -100.0)])
+
+    summary = VaultSummary(
+        name="Recapitalised test vault",
+        vault_address=vault_address,
+        leader="0x0000000000000000000000000000000000000002",
+        tvl=Decimal("100"),
+        is_closed=False,
+        relationship_type="normal",
+    )
+    all_time = PortfolioHistory(
+        period="allTime",
+        account_value_history=[(anchor_timestamp, Decimal("0")), (anchor_timestamp + datetime.timedelta(hours=1), Decimal("100"))],
+        pnl_history=[(anchor_timestamp, Decimal("-100")), (anchor_timestamp + datetime.timedelta(hours=1), Decimal("-100"))],
+        volume=Decimal("0"),
+    )
+    info = SimpleNamespace(
+        name=summary.name,
+        leader=summary.leader,
+        description="",
+        followers=[],
+        portfolio={"allTime": all_time},
+        commission_rate=None,
+        leader_fraction=None,
+        leader_commission=None,
+        is_closed=False,
+        allow_deposits=True,
+        relationship_type="normal",
+    )
+    reconstructed_curve = pd.DataFrame(
+        {
+            "share_price": [0.0, 1.0],
+            "total_assets": [0.0, 100.0],
+            "cumulative_pnl": [-100.0, -100.0],
+            "pnl_update": [0.0, 0.0],
+            "epoch_reset": [False, True],
+        },
+        index=pd.to_datetime([anchor_timestamp, anchor_timestamp + datetime.timedelta(hours=1)]),
+    )
+
+    try:
+        with (
+            patch.object(HyperliquidVault, "fetch_metadata", return_value=info),
+            patch(
+                "eth_defi.hyperliquid.high_freq_metrics.portfolio_to_combined_dataframe",
+                return_value=reconstructed_curve,
+            ),
+        ):
+            assert fetch_and_store_vault_high_freq(object(), db, summary, flow_backfill_days=0)
+
+        prices = db.get_vault_high_freq_prices(vault_address)
+        assert prices["share_price"].tolist() == pytest.approx([0.0, 1.0])
+        assert prices.iloc[-1]["daily_return"] == pytest.approx(0.0)
+        assert bool(prices.iloc[-1]["epoch_reset"])
+    finally:
+        db.close()
+
+
 @pytest.mark.timeout(30)
 def test_post_info_proxy_fix():
     """Verify _make_request() and fetch_vault_deposits() route through post_info().
