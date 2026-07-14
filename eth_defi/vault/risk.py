@@ -74,6 +74,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # Maseer One is a new compliance-gated RWA tokenisation framework. The
     # contracts are public, but the framework has limited production history.
     "Maseer One": None,
+    # Vault Street primeUSD is a permissioned institutional product.
+    "Vault Street": VaultTechnicalRisk.low,
     "Velvet Capital": VaultTechnicalRisk.high,
     "Umami": VaultTechnicalRisk.severe,
     # Unverified contracts, no open source repo

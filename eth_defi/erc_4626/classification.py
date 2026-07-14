@@ -25,6 +25,7 @@ from eth_defi.maseer_one.constants import MASEER_ONE_WSTGBP
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
+from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,11 @@ KILOEX_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.kiloex_like} for address 
 #: Frankencoin hardcoded classification flags.
 FRANKENCOIN_HARDCODED_PROTOCOLS = {HexAddress(address): {ERC4626Feature.frankencoin_like} for address in FRANKENCOIN_SAVINGS_VAULTS}
 
+#: Vault Street hardcoded classification flags.
+#:
+#: primeUSD is a non-ERC-4626 token whose NAV comes from a separate oracle.
+VAULT_STREET_HARDCODED_PROTOCOLS = {PRIME_USD_ADDRESS: {ERC4626Feature.vault_street_like}}
+
 
 def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | None = None) -> set[ERC4626Feature] | None:
     """Return hardcoded protocol features for a vault address.
@@ -107,6 +113,10 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if (chain_id, normalised_address) in MIDAS_PRODUCTS:
             return MIDAS_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in MIDAS_HARDCODED_PROTOCOLS:
+            return None
+        if normalised_address == PRIME_USD_ADDRESS:
+            if chain_id == 1:
+                return VAULT_STREET_HARDCODED_PROTOCOLS[normalised_address]
             return None
 
     return HARDCODED_PROTOCOLS.get(normalised_address)
@@ -1514,6 +1524,10 @@ def create_vault_instance(
         from eth_defi.maseer_one.vault import MaseerOneVault
 
         return MaseerOneVault(web3, spec, **kwargs)
+    elif ERC4626Feature.vault_street_like in features:
+        from eth_defi.vault_street.vault import VaultStreetVault
+
+        return VaultStreetVault(web3, spec, **kwargs)
 
     # TODO: Some module deadlock sheningans for Morpho
     elif ERC4626Feature.morpho_like in features:
@@ -1950,6 +1964,7 @@ HARDCODED_PROTOCOLS = {
     **MASEER_ONE_HARDCODED_PROTOCOLS,
     **KILOEX_HARDCODED_PROTOCOLS,
     **FRANKENCOIN_HARDCODED_PROTOCOLS,
+    **VAULT_STREET_HARDCODED_PROTOCOLS,
     # 3Jane - USD3 senior tranche credit vault on Ethereum
     # https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
     "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc": {ERC4626Feature.threejane_like},

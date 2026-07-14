@@ -122,6 +122,7 @@ Supported protocols
    mellow/index
    maseer-one/index
    midas/index
+   vault_street/index
    morpho/index
    nashpoint/index
    plutus/index

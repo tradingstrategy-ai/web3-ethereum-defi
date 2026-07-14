@@ -31,6 +31,7 @@ from eth_defi.maseer_one.constants import MASEER_ONE_HARDCODED_LEADS
 from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
+from eth_defi.vault_street.constants import VAULT_STREET_HARDCODED_LEADS
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
     ("ODA-FACT", ODA_FACT_HARDCODED_LEADS),
     ("Midas", MIDAS_HARDCODED_LEADS),
     ("Maseer One", MASEER_ONE_HARDCODED_LEADS),
+    ("Vault Street", VAULT_STREET_HARDCODED_LEADS),
 )
 
 if TYPE_CHECKING:
