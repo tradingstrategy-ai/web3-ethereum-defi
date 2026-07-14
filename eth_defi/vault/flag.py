@@ -4,6 +4,8 @@ import enum
 
 from eth_typing import HexAddress
 
+from eth_defi.vault.handwritten_metadata import PIKU_VAULT_METADATA, format_handwritten_vault_note
+
 
 class VaultFlag(str, enum.Enum):
     """Flags indicating the status of a vault."""
@@ -127,6 +129,18 @@ VAULT_NOTES: dict[str, str] = {
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": ODA_FACT_JLTXX_NOTE,
 }
 
+#: Vault-specific notes which must only apply on the specified EVM chain.
+#:
+#: An address can be deployed on more than one chain. Keep manager-maintained
+#: Piku metadata chain-scoped so a matching address elsewhere cannot inherit an
+#: unrelated Morini strategy note.
+# fmt: off
+CHAIN_SCOPED_VAULT_NOTES: dict[tuple[int, str], str] = {
+    (chain_id, address): format_handwritten_vault_note(metadata)
+    for (chain_id, address), metadata in PIKU_VAULT_METADATA.items()
+}
+# fmt: on
+
 
 def get_vault_special_flags(address: str | HexAddress, protocol_name: str | None = None) -> set[VaultFlag]:
     """Get all special vault flags.
@@ -164,6 +178,11 @@ def get_notes(address: HexAddress | str, chain_id: int | None = None, protocol_n
         (e.g. all Hypercore vaults get :py:data:`HYPERCORE_VAULT_NOTE`).
     """
     address = address.lower()
+    if chain_id is not None:
+        note = CHAIN_SCOPED_VAULT_NOTES.get((chain_id, address))
+        if note:
+            return note
+
     note = VAULT_NOTES.get(address)
     if note:
         return note

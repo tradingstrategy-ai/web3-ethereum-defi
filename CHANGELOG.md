@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add handwritten Piku/Morini vault strategy descriptions and Piku detail links (2026-07-14)
 - feat: Add Ember synchronous deposit and operator-finalised redemption manager, historical `RequestProcessed` settlement collection, and GuardV0/Lagoon Safe lifecycle support (2026-07-14)
 - feat: Add pathUSD stablecoin classification, Tempo denomination-rate metadata and official packaged logo (2026-07-14)
 - feat: Export vault deposit-manager capabilities, package Anvil fork probe results and provide a guarded deposit-probe refresh script (2026-07-13)
