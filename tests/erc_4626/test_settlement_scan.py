@@ -1,6 +1,7 @@
 """Tests for ERC-4626 settlement scan orchestration."""
 
 import datetime
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,6 +13,7 @@ from web3.datastructures import AttributeDict
 from eth_defi.erc_4626 import settlement_scan as settlement_scan_module
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.settlement_scan import VaultSettlementScanRange, select_vault_settlement_scan_ranges, select_vault_settlement_scan_ranges_for_chain
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault import scan_all_chains as scan_all_chains_module
 from eth_defi.vault.base import VaultSpec
@@ -23,6 +25,9 @@ D2_ADDRESS = "0xd200000000000000000000000000000000000000"
 EMBER_ADDRESS = "0xe000000000000000000000000000000000000000"
 OTHER_ADDRESS = "0xdef0000000000000000000000000000000000000"
 CHAIN2_ADDRESS = "0x2220000000000000000000000000000000000000"
+JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
+EMBER_SCAN_ADDRESS = "0xf3190a3ecc109f88e7947b849b281918c798a0c4"
+EMBER_SETTLEMENT_BLOCK = 24_290_495
 
 
 class EmptySettlementDb:
@@ -290,59 +295,51 @@ def test_select_vault_settlement_scan_ranges_includes_supported_protocols() -> N
     ]
 
 
-def test_update_settlement_database_for_chain_advances_ember_skipped_events(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Skipped Ember processing events write no settlement but advance the watermark."""
-
-    class FakeEmberVault:
-        """Minimal Ember settlement reader stand-in."""
-
-        def __init__(self, address: str) -> None:
-            self.address = address
-            self.chain_id = 1
-            self.web3 = None
-
-    class FakeDatabase:
-        """Capture the scan watermark without requiring DuckDB."""
-
-        def upsert_settlements(self, settlements: list[VaultSettlement]) -> int:
-            self.settlements = settlements
-            return len(settlements)
-
-        def upsert_scan_state(self, scan_states: list[tuple[int, str, int]]) -> int:
-            self.scan_states = scan_states
-            return len(scan_states)
-
-    ember_topic = "0x" + "33" * 32
-    monkeypatch.setattr(settlement_scan_module, "EmberVault", FakeEmberVault)
-    monkeypatch.setattr(
-        settlement_scan_module,
-        "create_vault_instance",
-        lambda web3, address, features, token_cache: FakeEmberVault(address),
+@pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run this test")
+def test_update_settlement_database_for_chain_scans_ember_to_temporary_duckdb(tmp_path: Path) -> None:
+    """Scan a known Ember settlement into a temporary DuckDB database."""
+    pytest.importorskip("duckdb")
+    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC).replace(tzinfo=None)
+    detection = ERC4262VaultDetection(
+        chain=1,
+        address=EMBER_SCAN_ADDRESS,
+        first_seen_at_block=EMBER_SETTLEMENT_BLOCK,
+        first_seen_at=timestamp,
+        features={ERC4626Feature.ember_like},
+        updated_at=timestamp,
+        deposit_count=1,
+        redeem_count=1,
     )
-    monkeypatch.setattr(settlement_scan_module, "get_ember_settlement_events_by_topic", lambda _vault: {ember_topic: "RequestProcessed"})
-    monkeypatch.setattr(
-        settlement_scan_module,
-        "fetch_vault_settlement_logs_for_addresses",
-        lambda **_kwargs: [AttributeDict({"address": EMBER_ADDRESS, "topics": [HexBytes(ember_topic)], "blockNumber": 20})],
-    )
-    monkeypatch.setattr(settlement_scan_module, "build_ember_settlement_rows_from_logs", lambda *_args, **_kwargs: [])
+    rows_by_key = {
+        (1, EMBER_SCAN_ADDRESS): {
+            "Address": EMBER_SCAN_ADDRESS,
+            "Protocol": "Ember",
+            "features": detection.features,
+            "_detection_data": detection,
+        },
+    }
+    database = VaultSettlementDatabase(tmp_path / "ember-settlements.duckdb")
+    try:
+        # 1. Run the real scanner over the one known RequestProcessed block.
+        result = settlement_scan_module._update_settlement_database_for_chain(
+            database=database,
+            web3=create_multi_provider_web3(JSON_RPC_ETHEREUM),
+            chain_id=1,
+            ranges=[VaultSettlementScanRange(chain_id=1, address=EMBER_SCAN_ADDRESS, start_block=EMBER_SETTLEMENT_BLOCK, end_block=EMBER_SETTLEMENT_BLOCK)],
+            rows_by_key=rows_by_key,
+            token_cache=TokenDiskCache(),
+            use_hypersync=False,
+            chunk_size=1,
+        )
 
-    database = FakeDatabase()
-    result = settlement_scan_module._update_settlement_database_for_chain(
-        database=database,
-        web3=object(),
-        chain_id=1,
-        ranges=[VaultSettlementScanRange(chain_id=1, address=EMBER_ADDRESS, start_block=10, end_block=20)],
-        rows_by_key={(1, EMBER_ADDRESS): {"features": {ERC4626Feature.ember_like}, "_detection_data": SimpleNamespace(chain=1, address=EMBER_ADDRESS)}},
-        token_cache=TokenDiskCache(),
-        use_hypersync=False,
-        chunk_size=50_000,
-    )
-
-    assert result.rows_written == 0
-    assert result.scanned_vaults == 1
-    assert database.settlements == []
-    assert database.scan_states == [(1, EMBER_ADDRESS, 20)]
+        # 2. Verify the committed settlement marker and durable scan watermark.
+        assert result.rows_written == 1
+        assert result.scanned_vaults == 1
+        settlements = database.get_settlements(chain_id=1, address=EMBER_SCAN_ADDRESS)
+        assert settlements[["block_number", "event_name"]].to_dict("records") == [{"block_number": EMBER_SETTLEMENT_BLOCK, "event_name": "RequestProcessed"}]
+        assert database.get_latest_scanned_block_number(1, EMBER_SCAN_ADDRESS) == EMBER_SETTLEMENT_BLOCK
+    finally:
+        database.close()
 
 
 def test_update_settlement_database_for_chain_batches_all_vaults_and_skips_bad_vaults(monkeypatch: pytest.MonkeyPatch) -> None:
