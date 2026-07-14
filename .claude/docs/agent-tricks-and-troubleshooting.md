@@ -221,8 +221,13 @@ Start the review in the background and write the raw JSONL stream to a temporary
 file instead. Restrict tools to read-only operations and redirect stdin so the
 CLI cannot wait for additional prompt input:
 
+Use a 15-minute wall-clock deadline for an external-agent process, including
+Claude CLI and Codex CLI. This gives a legitimate review enough time to inspect
+the worktree; it does not override the separate one-minute no-output rule for a
+grounded Claude review.
+
 ```shell
-nohup timeout 120 claude -p "Review the current uncommitted worktree diff for correctness bugs only. Do not edit files or run tests. Return findings first with file:line references." \
+nohup timeout 900 claude -p "Review the current uncommitted worktree diff for correctness bugs only. Do not edit files or run tests. Return findings first with file:line references." \
   --permission-mode dontAsk \
   --allowedTools "Read,Grep,Glob,Bash(git status:*),Bash(git diff:*),Bash(sed:*),Bash(rg:*)" \
   --output-format stream-json \
