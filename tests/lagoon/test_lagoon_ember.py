@@ -62,6 +62,7 @@ def usdc(web3: Web3) -> TokenDetails:
 
 def test_lagoon_safe_ember_redemption_cycle(web3: Web3, ember_vault: EmberVault, usdc: TokenDetails) -> None:
     """Lagoon Safe deposits, queues Ember redemption and receives operator payout."""
+    # 1. Fund a depositor and deploy a Lagoon Safe with Ember whitelisted.
     asset_manager = web3.eth.accounts[1]
     depositor = web3.eth.accounts[5]
     fund_hash = usdc.transfer(depositor, Decimal("500")).transact({"from": USDC_WHALE[1]})
@@ -85,6 +86,7 @@ def test_lagoon_safe_ember_redemption_cycle(web3: Web3, ember_vault: EmberVault,
     safe_address = lagoon_vault.safe_address
     assert lagoon_vault.trading_strategy_module.functions.isAllowedApprovalDestination(ember_vault.address).call()
 
+    # 2. Fund and settle the Lagoon vault so its Safe holds USDC.
     for func in [
         lagoon_vault.post_new_valuation(Decimal(0)),
         usdc.contract.functions.approve(lagoon_vault.address, usdc.convert_to_raw(Decimal("100"))),
@@ -99,6 +101,7 @@ def test_lagoon_safe_ember_redemption_cycle(web3: Web3, ember_vault: EmberVault,
 
     manager = ember_vault.get_deposit_manager()
     assert isinstance(manager, EmberDepositManager)
+    # 3. Deposit into Ember through the trading strategy module.
     deposit_request = manager.create_deposit_request(owner=safe_address, amount=Decimal("100"))
     for func in [usdc.approve(ember_vault.address, Decimal("100")), *deposit_request.funcs]:
         tx_hash = lagoon_vault.transact_via_trading_strategy_module(func).transact({"from": asset_manager, "gas": 1_000_000})
@@ -108,6 +111,7 @@ def test_lagoon_safe_ember_redemption_cycle(web3: Web3, ember_vault: EmberVault,
 
     raw_shares = ember_vault.share_token.fetch_raw_balance_of(safe_address)
     assert raw_shares == 97_218_907
+    # 4. Queue the Safe redemption and retain its restart-safe ticket.
     redemption_request = manager.create_redemption_request(owner=safe_address, raw_shares=raw_shares)
     request_hashes = []
     for func in redemption_request.funcs:
@@ -121,6 +125,7 @@ def test_lagoon_safe_ember_redemption_cycle(web3: Web3, ember_vault: EmberVault,
     assert manager.can_finish_redeem(ticket) is False
     assert manager.finish_redemption(ticket) is None
 
+    # 5. Simulate external operator settlement and verify the Safe payout.
     operator_hash = ember_vault.vault_contract.functions.processWithdrawalRequests(1).transact({"from": EMBER_OPERATOR})
     assert_transaction_success_with_explanation(web3, operator_hash)
     assert manager.fetch_completed_redemption_tx_hash(ticket) == operator_hash

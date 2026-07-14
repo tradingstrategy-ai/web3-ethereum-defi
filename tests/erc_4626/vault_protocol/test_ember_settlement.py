@@ -60,10 +60,12 @@ def _with_terminal_flags(log: AttributeDict, *, skipped: bool, cancelled: bool) 
 
 def test_ember_settlement_conversion_filters_terminal_non_success(vault: EmberVault) -> None:
     """Retain successful processing and exclude skipped/cancelled requests."""
+    # 1. Create successful, skipped and cancelled variants of one known log.
     success = _get_success_log(vault)
     skipped = _with_terminal_flags(success, skipped=True, cancelled=False)
     cancelled = _with_terminal_flags(success, skipped=False, cancelled=True)
 
+    # 2. Persist only the operator transaction that paid assets.
     rows = build_ember_settlement_rows_from_logs(vault, [success, skipped, cancelled])
     assert len(rows) == 1
     row = rows[0]
@@ -78,10 +80,12 @@ def test_ember_settlement_conversion_filters_terminal_non_success(vault: EmberVa
 
 def test_ember_settlement_conversion_deduplicates_per_vault_transaction(vault: EmberVault) -> None:
     """Collapse two successful request logs in one operator transaction only."""
+    # 1. Model batched processing and a distinct transaction in the same block.
     success = _get_success_log(vault)
     second_same_transaction = AttributeDict({**success, "logIndex": int(success["logIndex"]) + 1})
     other_transaction = AttributeDict({**success, "transactionHash": HexBytes("0x" + "11" * 32), "logIndex": int(success["logIndex"]) + 2})
 
+    # 2. Retain one marker per settlement transaction, not per request log.
     rows = build_ember_settlement_rows_from_logs(vault, [success, second_same_transaction, other_transaction])
     assert len(rows) == 2
     assert {str(row.tx_hash) for row in rows} == {PROCESS_TX, "0x" + "11" * 32}

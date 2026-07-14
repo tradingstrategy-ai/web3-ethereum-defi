@@ -63,6 +63,7 @@ def usdc(web3: Web3) -> TokenDetails:
 
 def test_guarded_ember_deposit_and_redemption_cycle(web3: Web3, ember_vault: EmberVault, usdc: TokenDetails) -> None:
     """Guard approves, deposits, queues redemption and accepts only Safe payout."""
+    # 1. Deploy SimpleVaultV0 and whitelist the Ember call surface.
     deployer = web3.eth.accounts[0]
     asset_manager = web3.eth.accounts[1]
     owner = web3.eth.accounts[2]
@@ -75,6 +76,7 @@ def test_guarded_ember_deposit_and_redemption_cycle(web3: Web3, ember_vault: Emb
 
     amount = Decimal("100")
     raw_amount = usdc.convert_to_raw(amount)
+    # 2. Fund and deposit through GuardV0 using manager-generated calls.
     fund_hash = usdc.transfer(simple_vault.address, amount).transact({"from": USDC_WHALE[1]})
     assert_transaction_success_with_explanation(web3, fund_hash)
     manager = ember_vault.get_deposit_manager()
@@ -91,6 +93,7 @@ def test_guarded_ember_deposit_and_redemption_cycle(web3: Web3, ember_vault: Emb
     raw_shares = ember_vault.share_token.fetch_raw_balance_of(simple_vault.address)
     assert raw_shares == 97_218_907
 
+    # 3. Reject a redemption payout receiver that GuardV0 has not approved.
     malicious_request = manager.create_redemption_request(
         owner=simple_vault.address,
         to=web3.eth.accounts[4],
@@ -101,6 +104,7 @@ def test_guarded_ember_deposit_and_redemption_cycle(web3: Web3, ember_vault: Emb
     with pytest.raises(TransactionAssertionError, match="Receiver not whitelisted"):
         assert_transaction_success_with_explanation(web3, malicious_hash)
 
+    # 4. Queue the Safe-owned redemption and prove it has no user claim call.
     redemption_request = manager.create_redemption_request(owner=simple_vault.address, raw_shares=raw_shares)
     approval_target, approval_data = encode_simple_vault_transaction(redemption_request.funcs[0])
     approval_hash = simple_vault.functions.performCall(approval_target, approval_data).transact({"from": asset_manager})
@@ -116,6 +120,7 @@ def test_guarded_ember_deposit_and_redemption_cycle(web3: Web3, ember_vault: Emb
     assert manager.can_finish_redeem(ticket) is False
     assert manager.finish_redemption(ticket) is None
 
+    # 5. Process externally, then recover and analyse the terminal transaction.
     operator_hash = ember_vault.vault_contract.functions.processWithdrawalRequests(1).transact({"from": EMBER_OPERATOR})
     assert_transaction_success_with_explanation(web3, operator_hash)
     assert manager.fetch_completed_redemption_tx_hash(ticket) == operator_hash

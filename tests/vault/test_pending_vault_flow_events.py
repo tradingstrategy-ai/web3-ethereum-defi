@@ -7,8 +7,8 @@ import hypersync
 import pytest
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import OstiumDepositTicket, OstiumRedemptionTicket, OstiumV15DepositManager
 from eth_defi.erc_4626.vault_protocol.ember.deposit_redeem import EmberDepositManager, EmberRedemptionTicket
+from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import OstiumDepositTicket, OstiumRedemptionTicket, OstiumV15DepositManager
 from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import ERC7540DepositManager, ERC7540DepositTicket, ERC7540RedemptionTicket
 from eth_defi.hypersync.server import get_hypersync_server
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -147,11 +147,13 @@ def test_ostium_fetch_vault_flow_events_from_hypersync() -> None:
 @pytest.mark.skipif(not JSON_RPC_ETHEREUM, reason="JSON_RPC_ETHEREUM needed")
 def test_ember_fetch_vault_flow_events_from_hypersync() -> None:
     """Discover a historical Ember redemption and reconstruct its ticket."""
+    # 1. Open the historical Ember vault and its protocol-specific manager.
     web3 = create_multi_provider_web3(JSON_RPC_ETHEREUM)
     vault = create_vault_instance_autodetect(web3, "0xf3190A3ECC109F88e7947b849b281918c798A0C4")
     manager = vault.get_deposit_manager()
     assert isinstance(manager, EmberDepositManager)
 
+    # 2. Fetch the known request event from the shared Hypersync reader.
     flows = list(
         manager.fetch_vault_flow_events(
             hypersync_client=_create_hypersync_client(1),
@@ -160,6 +162,7 @@ def test_ember_fetch_vault_flow_events_from_hypersync() -> None:
         )
     )
 
+    # 3. Verify ticket-compatible pending-flow data and restart reconstruction.
     assert len(flows) == 1
     flow = flows[0]
     assert flow.direction == VaultFlowDirection.redeem

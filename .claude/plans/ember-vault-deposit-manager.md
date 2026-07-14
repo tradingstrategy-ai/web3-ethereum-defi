@@ -352,6 +352,8 @@ multiple successful logs with the same transaction hash to one
 in the same block as separate rows. The per-request sequence, shares, receiver
 and success/failure outcome remain available through the completion lookup and
 receipt analysis paths; do not overload `event_name` with a sequence number.
+This transaction-level collapse is intentional: do not add a per-log
+disambiguator to the generic settlement-table key for Ember.
 
 Wire Ember into `eth_defi/erc_4626/settlement_scan.py`:
 
@@ -367,8 +369,10 @@ upsert used by Lagoon. Advance Ember's scan watermark to the full successfully
 scanned range end regardless of the number of fetched logs or surviving
 settlement rows. This includes both a genuinely empty log range and a non-empty
 range whose `RequestProcessed` logs are all filtered out as skipped/cancelled.
-Only adapter preparation, log fetching or row-building failure may withhold the
-watermark; sparse or unsuccessful request history must not be rescanned
+Advance the watermark only after any surviving settlement rows have been
+successfully committed and the scan-state update itself succeeds. Adapter
+preparation, log fetching, row-building or persistence failure must withhold
+the watermark; sparse or unsuccessful request history must not be rescanned
 indefinitely.
 
 Use the known successful settlement above as the live fixture:

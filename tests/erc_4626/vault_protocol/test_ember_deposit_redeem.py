@@ -63,6 +63,7 @@ def usdc(web3: Web3) -> TokenDetails:
 
 def test_ember_deposit_redeem_lifecycle(web3: Web3, vault: EmberVault, usdc: TokenDetails) -> None:
     """Deposit, request redemption, operator-process and analyse exact Ember amounts."""
+    # 1. Pin the deployed ABI and public mixed-flow capability.
     manager = vault.get_deposit_manager()
     assert isinstance(manager, EmberDepositManager)
     assert vault.vault_contract.functions.version().call() == "v1.1.1"
@@ -94,6 +95,7 @@ def test_ember_deposit_redeem_lifecycle(web3: Web3, vault: EmberVault, usdc: Tok
 
     owner = web3.eth.accounts[0]
     amount = Decimal("100")
+    # 2. Fund the depositor and complete the synchronous Ember deposit.
     transfer_hash = usdc.transfer(owner, amount).transact({"from": USDC_WHALE[1]})
     assert_transaction_success_with_explanation(web3, transfer_hash)
     approve_hash = usdc.approve(vault.address, amount).transact({"from": owner})
@@ -109,6 +111,7 @@ def test_ember_deposit_redeem_lifecycle(web3: Web3, vault: EmberVault, usdc: Tok
     assert raw_shares == 97_218_907
     assert manager.estimate_redeem(owner, Decimal("97.218907"), "latest") > Decimal("99")
 
+    # 3. Queue the redemption and persist its request identity.
     redemption_request = manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
     assert len(redemption_request.funcs) == 2
     ticket = redemption_request.broadcast(from_=owner)
@@ -125,6 +128,7 @@ def test_ember_deposit_redeem_lifecycle(web3: Web3, vault: EmberVault, usdc: Tok
     assert manager.can_finish_redeem(ticket) is False
     assert manager.finish_redemption(ticket) is None
 
+    # 4. Let only the external operator process and pay the request.
     process_hash = vault.vault_contract.functions.processWithdrawalRequests(1).transact({"from": EMBER_OPERATOR})
     assert_transaction_success_with_explanation(web3, process_hash)
     completion_hash = manager.fetch_completed_redemption_tx_hash(ticket)
