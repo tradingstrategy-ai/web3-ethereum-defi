@@ -41,6 +41,14 @@ FRANKENCOIN_SAVINGS_VAULT_ABI = [
 #: https://etherscan.io/token/0xE5F130253fF137f9917C0107659A4c5262abf6b0
 FRANKENCOIN_ETHEREUM_SAVINGS_VAULT = "0xe5f130253ff137f9917c0107659a4c5262abf6b0"
 
+#: Legacy Frankencoin Savings Vault on Ethereum picked up by vault discovery.
+#:
+#: This wrapper points at the same Frankencoin savings module as the official
+#: Ethereum svZCHF wrapper.
+#:
+#: https://etherscan.io/token/0x637F00cAb9665cB07d91bfB9c6f3fa8faBFEF8BC
+FRANKENCOIN_ETHEREUM_LEGACY_SAVINGS_VAULT = "0x637f00cab9665cb07d91bfb9c6f3fa8fabfef8bc"
+
 #: Frankencoin Savings Vault on Base.
 #:
 #: https://basescan.org/address/0xa09EBdf8A01b9ef04149319D64F83b9C01a5b585
@@ -51,14 +59,29 @@ FRANKENCOIN_BASE_SAVINGS_VAULT = "0xa09ebdf8a01b9ef04149319d64f83b9c01a5b585"
 #: https://gnosisscan.io/token/0x6165946250dd04740ab1409217e95a4f38374fe9
 FRANKENCOIN_GNOSIS_SAVINGS_VAULT = "0x6165946250dd04740ab1409217e95a4f38374fe9"
 
-#: Official Frankencoin Savings Vault addresses across supported chains.
-FRANKENCOIN_SAVINGS_VAULTS = frozenset(
-    {
-        FRANKENCOIN_ETHEREUM_SAVINGS_VAULT,
-        FRANKENCOIN_BASE_SAVINGS_VAULT,
-        FRANKENCOIN_GNOSIS_SAVINGS_VAULT,
-    }
-)
+#: ERC-4626 Frankencoin Savings Vault wrappers by chain.
+FRANKENCOIN_SAVINGS_VAULTS_BY_CHAIN = {
+    1: frozenset({FRANKENCOIN_ETHEREUM_SAVINGS_VAULT, FRANKENCOIN_ETHEREUM_LEGACY_SAVINGS_VAULT}),
+    8453: frozenset({FRANKENCOIN_BASE_SAVINGS_VAULT}),
+    100: frozenset({FRANKENCOIN_GNOSIS_SAVINGS_VAULT}),
+}
+
+#: Frankencoin Savings Vault addresses across supported chains.
+FRANKENCOIN_SAVINGS_VAULTS = frozenset(vault_address for vaults in FRANKENCOIN_SAVINGS_VAULTS_BY_CHAIN.values() for vault_address in vaults)
+
+#: Frankencoin wrappers that represent the full savings product TVL.
+#:
+#: Ethereum has two svZCHF wrappers that point at the same savings module. Only
+#: the legacy wrapper is currently discovered in production data, so it is the
+#: canonical row for Ethereum product-level TVL.
+FRANKENCOIN_PRODUCT_TVL_VAULTS_BY_CHAIN = {
+    1: frozenset({FRANKENCOIN_ETHEREUM_LEGACY_SAVINGS_VAULT}),
+    8453: frozenset({FRANKENCOIN_BASE_SAVINGS_VAULT}),
+    100: frozenset({FRANKENCOIN_GNOSIS_SAVINGS_VAULT}),
+}
+
+#: Frankencoin Savings Vault addresses that report full savings product TVL.
+FRANKENCOIN_PRODUCT_TVL_VAULTS = frozenset(vault_address for vaults in FRANKENCOIN_PRODUCT_TVL_VAULTS_BY_CHAIN.values() for vault_address in vaults)
 
 #: Maximum optional referral fee in the Frankencoin savings module.
 #:
@@ -98,6 +121,9 @@ class FrankencoinHistoricalReader(ERC4626HistoricalReader):
         if denomination_token is None:
             return
 
+        if not self.vault.reports_savings_product_tvl:
+            return
+
         wrapper_balance_call = denomination_token.contract.functions.balanceOf(self.vault.address)
         yield ("wrapper_balance", wrapper_balance_call.call, wrapper_balance_call)
 
@@ -111,7 +137,8 @@ class FrankencoinHistoricalReader(ERC4626HistoricalReader):
             Encoded calls for ERC-4626 state and Frankencoin savings TVL.
         """
         yield from self.construct_core_erc_4626_multicall()
-        yield from self.construct_savings_balance_multicalls()
+        if self.vault.reports_savings_product_tvl:
+            yield from self.construct_savings_balance_multicalls()
 
     def construct_savings_balance_multicalls(self) -> Iterable[EncodedCall]:
         """Create ZCHF balance calls used to calculate savings product TVL.
@@ -193,8 +220,12 @@ class FrankencoinHistoricalReader(ERC4626HistoricalReader):
             Multicall results for this vault.
 
         :return:
-            Historical row with Frankencoin savings product TVL.
+            Historical row with Frankencoin savings product TVL for canonical
+            wrappers, or regular ERC-4626 wrapper TVL for duplicate wrappers.
         """
+        if not self.vault.reports_savings_product_tvl:
+            return super().process_result(block_number, timestamp, call_results)
+
         call_by_name = self.dictify_multicall_results(block_number, call_results)
 
         # The generic ERC-4626 decoder updates adaptive reader state from
@@ -267,20 +298,36 @@ class FrankencoinVault(ERC4626Vault):
         """
         return self.frankencoin_vault_contract.functions.savings().call()
 
+    @cached_property
+    def reports_savings_product_tvl(self) -> bool:
+        """Whether this wrapper is the canonical full-product TVL row.
+
+        :return:
+            ``True`` if this wrapper should report savings-module TVL.
+        """
+        return self.address.lower() in FRANKENCOIN_PRODUCT_TVL_VAULTS
+
     def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal | None:
         """Return Frankencoin savings product TVL.
 
         Frankencoin's ERC-4626 wrapper only reports assets attributed to wrapper
         shareholders. The public savings product also includes direct deposits
-        in the savings module. For vault discovery TVL, report the ZCHF held by
-        both the module and the wrapper contract.
+        in the savings module. For canonical vault discovery rows, report the
+        ZCHF held by both the module and the wrapper contract.
+
+        Duplicate wrappers fall back to regular ERC-4626 ``totalAssets()`` so
+        exports do not count the same savings module TVL twice.
 
         :param block_identifier:
             Block number to read.
 
         :return:
-            Total ZCHF held by the Frankencoin savings module and wrapper.
+            Total ZCHF held by the Frankencoin savings module and wrapper, or
+            wrapper-only TVL for duplicate wrappers.
         """
+        if not self.reports_savings_product_tvl:
+            return super().fetch_total_assets(block_identifier)
+
         denomination_token = self.denomination_token
         if denomination_token is None:
             return None
