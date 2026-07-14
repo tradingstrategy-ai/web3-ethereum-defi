@@ -72,6 +72,12 @@ class ERC4626Feature(enum.Enum):
     #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     maseer_one_like = "maseer_one_like"
 
+    #: Vault Street permissioned tokenised investment products.
+    #:
+    #: Routing marker for non-ERC-4626 products read through a
+    #: :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    vault_street_like = "vault_street_like"
+
     #: Ipor protocol
     #:
     #: https://app.ipor.io/fusion
@@ -817,6 +823,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Midas"
     elif ERC4626Feature.maseer_one_like in features:
         return "Maseer One"
+    elif ERC4626Feature.vault_street_like in features:
+        return "Vault Street"
     elif ERC4626Feature.morpho_like in features:
         return "Morpho"
     elif ERC4626Feature.panoptic_like in features:
