@@ -530,6 +530,22 @@ class GainsVault(ERC4626Vault):
 
         return GainsDepositManager(self)
 
+    def get_deposit_manager_capability(self) -> "VaultDepositManagerCapability | None":
+        """Declare Gains' direct deposit and epoch redemption lifecycle.
+
+        :return:
+            Two-way capability with synchronous deposits and asynchronous
+            redemptions.
+        """
+        from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+
+        return VaultDepositManagerCapability(
+            can_deposit=True,
+            can_redeem=True,
+            deposit_flow="synchronous",
+            redemption_flow="asynchronous",
+        )
+
     def fetch_deposit_closed_reason(self) -> str | None:
         """Check if deposits are closed.
 
@@ -756,6 +772,27 @@ class OstiumVault(GainsVault):
         from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager
 
         return GainsDepositManager(self)
+
+    def get_deposit_manager_capability(self) -> "VaultDepositManagerCapability | None":
+        """Declare only the current Ostium V1.5 request lifecycle.
+
+        Legacy V1 remains readable through the adapter but is intentionally not
+        advertised as a public transaction integration.
+
+        :return:
+            V1.5 asynchronous two-way capability, or ``None`` for legacy V1.
+        """
+        if self.version != OstiumVersion.v1_5:
+            return None
+
+        from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+
+        return VaultDepositManagerCapability(
+            can_deposit=True,
+            can_redeem=True,
+            deposit_flow="asynchronous",
+            redemption_flow="asynchronous",
+        )
 
     def get_historical_reader(self, stateful) -> VaultHistoricalReader:
         """Return version-appropriate historical reader."""

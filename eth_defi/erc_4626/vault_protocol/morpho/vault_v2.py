@@ -25,7 +25,6 @@ from typing import Iterable
 from eth_typing import BlockIdentifier
 from web3 import Web3
 
-from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import analyze_morpho_flags
@@ -38,12 +37,7 @@ from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
 )
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
-from eth_defi.vault.base import (
-    DEPOSIT_CLOSED_CAP_REACHED,
-    REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY,
-    VaultHistoricalRead,
-    VaultHistoricalReader,
-)
+from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 
 logger = logging.getLogger(__name__)
@@ -413,29 +407,27 @@ class MorphoV2Vault(ERC4626Vault):
         return int.from_bytes(data[0:32], byteorder="big")
 
     def fetch_deposit_closed_reason(self) -> str | None:
-        """Check maxDeposit to determine if deposits are closed.
+        """Return no static deposit-closure decision for Morpho V2.
 
-        Morpho vaults are utilisation-based.
+        Morpho V2 intentionally returns zero for ``maxDeposit`` regardless of
+        the caller. Its external asset and share gates decide whether the
+        actual deposit succeeds, so a guarded transaction is required.
+
+        :return:
+            Always ``None`` because ERC-4626 ``maxDeposit`` is advisory only.
         """
-        try:
-            max_deposit = self.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
-            if max_deposit == 0:
-                return f"{DEPOSIT_CLOSED_CAP_REACHED} (maxDeposit=0)"
-        except Exception:
-            pass
         return None
 
     def fetch_redemption_closed_reason(self) -> str | None:
-        """Check maxRedeem to determine if redemptions are closed.
+        """Return no static redemption-closure decision for Morpho V2.
 
-        Morpho vaults are utilisation-based.
+        Morpho V2 intentionally returns zero for ``maxRedeem`` regardless of
+        account state.  Its external gates and the actual redemption determine
+        whether an account can exit.
+
+        :return:
+            Always ``None`` because ERC-4626 ``maxRedeem`` is advisory only.
         """
-        try:
-            max_redeem = self.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
-            if max_redeem == 0:
-                return f"{REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY} (maxRedeem=0)"
-        except Exception:
-            pass
         return None
 
     def fetch_deposit_next_open(self) -> datetime.datetime | None:
@@ -447,11 +439,12 @@ class MorphoV2Vault(ERC4626Vault):
         return None
 
     def can_check_redeem(self) -> bool:
-        """Morpho V2 supports address(0) checks for redemption availability.
+        """Report that Morpho V2 ``maxRedeem`` cannot determine availability.
 
-        - maxRedeem(address(0)) returns 0 when redemptions are blocked
+        :return:
+            ``False`` because Morpho V2 always conservatively reports zero.
         """
-        return True
+        return False
 
     def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
         """Get Morpho V2-specific historical reader with utilisation metrics."""

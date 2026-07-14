@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Export vault deposit-manager capabilities, package Anvil fork probe results and provide a guarded deposit-probe refresh script (2026-07-13)
 - feat: Add KiloEx Hybrid Vault protocol support with hardcoded BNB Chain and Base deployment detection (2026-07-13)
 - feat: Add Piku curator attribution for USP and Morini Capital vaults using hardcoded Ethereum contract addresses (2026-07-13)
 - feat: Add Midas strategy curator attribution for Fasanara, Apollo Crypto and Edge Capital vault products (2026-07-10)

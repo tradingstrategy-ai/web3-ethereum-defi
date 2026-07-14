@@ -208,6 +208,43 @@ class GainsDepositManager(ERC4626DepositManager):
             redemption_ticket.to,
         )
 
+    def serialize_redemption_ticket(self, ticket: GainsRedemptionTicket) -> dict:
+        """Serialise Gains' epoch fields alongside the base ticket data.
+
+        The redemption lifecycle survives a process restart only when both
+        epoch numbers are retained: they determine when ``finish_redemption``
+        becomes available.
+
+        :param ticket:
+            Gains epoch redemption ticket to persist.
+        :return:
+            JSON-compatible base and epoch ticket fields.
+        """
+        assert isinstance(ticket, GainsRedemptionTicket)
+        data = super().serialize_redemption_ticket(ticket)
+        data["vault_current_epoch"] = ticket.current_epoch
+        data["vault_unlock_epoch"] = ticket.unlock_epoch
+        return data
+
+    def reconstruct_redemption_ticket(self, data: dict) -> GainsRedemptionTicket:
+        """Rebuild a Gains redemption ticket from persistent JSON data.
+
+        :param data:
+            JSON-compatible data previously returned by
+            :py:meth:`serialize_redemption_ticket`.
+        :return:
+            Ticket suitable for status checks and later redemption.
+        """
+        return GainsRedemptionTicket(
+            vault_address=data["vault_address"],
+            owner=data["vault_owner"],
+            to=data.get("vault_to", data["vault_owner"]),
+            raw_shares=int(data["vault_raw_amount"]),
+            tx_hash=HexBytes(data["vault_request_tx_hash"]),
+            current_epoch=int(data["vault_current_epoch"]),
+            unlock_epoch=int(data["vault_unlock_epoch"]),
+        )
+
     def has_synchronous_redemption(self) -> bool:
         return False
 

@@ -26,6 +26,22 @@ enabling you to:
 For the core ERC-4626 functionality shared across all vault protocols, see
 :py:mod:`eth_defi.erc_4626`.
 
+Deposit manager capability metadata
+-----------------------------------
+
+Each newly scanned vault record in the public metrics JSON contains a nullable
+``deposit_manager`` object. A non-null value means this library has an explicit
+two-way deposit and redemption manager for that vault shape; its
+``deposit_flow`` and ``redemption_flow`` values are either ``synchronous`` or
+``asynchronous``. Asynchronous flows require callers to persist the returned
+ticket and submit the later claim operation.
+
+This is adapter metadata, not live availability. Before submitting a request,
+consumers must use current chain state and handle a live preflight or
+transaction revert, then handle the declared flow type. The field does not
+assert that an account is permissioned, funded, within a vault cap, or able to
+obtain redemption liquidity.
+
 Vault settlement event scanning
 -------------------------------
 

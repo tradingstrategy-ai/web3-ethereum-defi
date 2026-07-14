@@ -4,21 +4,14 @@ import datetime
 import logging
 from decimal import Decimal
 from functools import cached_property
-from typing import Any, Iterable, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, Iterable, Literal, TypeAlias
 
 import eth_abi
 from eth_typing import HexAddress
 from requests.exceptions import HTTPError
 from web3 import Web3
 from web3.contract import Contract
-
-from eth_defi.middleware import ProbablyNodeHasNoBlock
-from eth_defi.provider.broken_provider import get_safe_cached_latest_block_number
-from eth_defi.provider.fallback import ExtraValueError
-from eth_defi.vault.flag import VaultFlag
-
-from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange
-
+from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange, ContractLogicError, Web3Exception
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
@@ -32,14 +25,50 @@ from eth_defi.erc_4626.vault_token import (
 )
 from eth_defi.event_reader.conversion import BadAddressError, convert_int256_bytes_to_int, convert_uint256_bytes_to_address
 from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult
+from eth_defi.middleware import ProbablyNodeHasNoBlock
+from eth_defi.provider.broken_provider import get_safe_cached_latest_block_number
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details, is_stablecoin_like
-from eth_defi.vault.base import DEPOSIT_CLOSED_CAP_REACHED, DEPOSIT_CLOSED_PAUSED, REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY, REDEMPTION_CLOSED_PAUSED, TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalRead, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import DEPOSIT_CLOSED_CAP_REACHED, REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY, TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalRead, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+from eth_defi.vault.flag import VaultFlag
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 
 
 #: The exchange rate we use for all unknown denomination tokens
 UNKNOWN_EXCHANGE_RATE = Decimal(0.99)
+
+#: Protocol reader classes whose guarded fork probes completed a deposit using
+#: their implemented deposit manager.
+#:
+#: The exact-class rule is intentional: a specialised subclass must be
+#: separately certified instead of inheriting public transaction support.
+CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES = frozenset(
+    {
+        "eth_defi.erc_4626.vault_protocol.autopool.vault.AutoPoolVault",
+        "eth_defi.erc_4626.vault_protocol.dolomite.vault.DolomiteVault",
+        "eth_defi.erc_4626.vault_protocol.euler.vault.EulerVault",
+        "eth_defi.erc_4626.vault_protocol.euler.vault.EulerEarnVault",
+        "eth_defi.erc_4626.vault_protocol.fluid.vault.FluidVault",
+        "eth_defi.erc_4626.vault_protocol.gearbox.vault.GearboxVault",
+        "eth_defi.erc_4626.vault_protocol.goat.vault.GoatVault",
+        "eth_defi.erc_4626.vault_protocol.ipor.vault.IPORVault",
+        "eth_defi.erc_4626.vault_protocol.morpho.vault_v1.MorphoV1Vault",
+        "eth_defi.erc_4626.vault_protocol.morpho.vault_v2.MorphoV2Vault",
+        "eth_defi.erc_4626.vault_protocol.plutus.vault.PlutusVault",
+        "eth_defi.erc_4626.vault_protocol.royco.vault.RoycoVault",
+        "eth_defi.erc_4626.vault_protocol.silo.vault.SiloVault",
+        "eth_defi.erc_4626.vault_protocol.summer.vault.SummerVault",
+        "eth_defi.erc_4626.vault_protocol.superform.vault.SuperformVault",
+        "eth_defi.erc_4626.vault_protocol.usdx_money.vault.USDXMoneyVault",
+        "eth_defi.erc_4626.vault_protocol.yearn.vault.YearnV3Vault",
+        "eth_defi.erc_4626.vault_protocol.yo.vault.YoVault",
+    }
+)
 
 #: Known error messages that indicate that share() accessor function
 #: is not accessible and contract is ERC-4626, not ERC-7540.
@@ -830,7 +859,7 @@ class ERC4626Vault(VaultBase):
             :py:exc:`RuntimeError` when the on-chain lookup returns ``None``.
         """
 
-        if type(features) == set:
+        if isinstance(features, set):
             assert len(features) >= 1, "If given, the vault features set should contain at least one feature"
 
         super().__init__(token_cache=token_cache, require_denomination_token=require_denomination_token)
@@ -1128,7 +1157,7 @@ class ERC4626Vault(VaultBase):
             #  {'code': -32603, 'message': 'Failed to call: InvalidTransaction(Revert(RevertError { output: None }))'}
             parsed_error = str(e)
             if not any(msg in parsed_error for msg in KNOWN_SHARE_TOKEN_ERROR_MESSAGES):
-                logger.error(f"fetch_share_token(): Not sure about exception %s", e)
+                logger.error("fetch_share_token(): Not sure about exception %s", e)
                 raise
             # Positively classified: contract is not ERC-7575. Cacheable.
             share_token_address = self.vault_address
@@ -1307,10 +1336,65 @@ class ERC4626Vault(VaultBase):
     def get_flow_manager(self) -> VaultFlowManager:
         return NotImplementedError()
 
-    def get_deposit_manager(self) -> "eth_defi.erc_4626.deposit_redeem.ERC4626DepositManager":
+    def get_deposit_manager(self) -> "ERC4626DepositManager":
         from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 
         return ERC4626DepositManager(self)
+
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability | None:
+        """Declare the exact generic ERC-4626 implementation's two-way flow.
+
+        Subclasses need exact-type inclusion in
+        :data:`CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES`. The guarded probe
+        may separately use :meth:`supports_generic_deposit_manager` as a
+        temporary fallback without advertising it as public metadata.
+
+        :return:
+            Synchronous two-way capability for the exact base class, otherwise
+            ``None``.
+        """
+        class_name = f"{type(self).__module__}.{type(self).__qualname__}"
+        if type(self) is not ERC4626Vault and class_name not in CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES:
+            return None
+        return self.get_synchronous_deposit_manager_capability()
+
+    def get_synchronous_deposit_manager_capability(self) -> VaultDepositManagerCapability:
+        """Build static metadata for a verified synchronous manager.
+
+        A caller must already have established the reader class' guarded fork
+        evidence. This deliberately performs no RPC reads: the capability is
+        static library metadata, not a live vault availability check.
+
+        :return:
+            Synchronous two-way capability.
+        """
+        return VaultDepositManagerCapability(
+            can_deposit=True,
+            can_redeem=True,
+            deposit_flow="synchronous",
+            redemption_flow="synchronous",
+        )
+
+    def supports_generic_deposit_manager(self) -> bool:
+        """Check whether the live vault exposes the standard ERC-4626 surface.
+
+        This is deliberately an interface check, not a public support claim.
+        Callers must still execute a guarded fork probe before relying on the
+        generic manager for a protocol-specific adapter.
+
+        :return:
+            ``True`` when ``asset`` succeeds with a non-zero asset address.
+            Deposit and redemption availability is established only by a guarded
+            fork transaction, not by ERC-4626 ``max*`` advisory values.
+        """
+        try:
+            asset = self.vault_contract.functions.asset().call()
+        except (BadFunctionCallOutput, ContractLogicError, ValueError, Web3Exception):
+            return False
+
+        if not Web3.is_address(asset) or asset == ZERO_ADDRESS_STR:
+            return False
+        return True
 
     def has_block_range_event_support(self):
         raise NotImplementedError()

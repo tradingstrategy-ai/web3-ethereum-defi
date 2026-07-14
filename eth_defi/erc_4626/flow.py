@@ -8,7 +8,6 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.erc_4626.vault import ERC4626Vault
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -221,7 +220,10 @@ def redeem_4626(
         assert amount > 0
         raw_amount = vault.share_token.convert_to_raw(amount)
 
-    raw_available = vault.share_token.fetch_raw_balance_of(owner)
+    # ERC-4626 shares are the vault's own ERC-20 balance. Reading balanceOf()
+    # directly avoids a separate ERC-7575 share-token classification RPC that
+    # can fail even when the standard redemption call is usable.
+    raw_available = contract.functions.balanceOf(owner).call()
 
     # Apply epsilon correction
     # AssertionError: Max redeem 980060998000964315 is less than 980060999302489527, -1301525212 (-1.301525212e-09)
@@ -233,8 +235,7 @@ def redeem_4626(
             raw_amount = raw_available
 
     if check_enough_token:
-        raw_actual_balance = vault.share_token.fetch_raw_balance_of(owner)
-        assert raw_actual_balance >= raw_amount, f"ERC-4626 redemption: {owner} does not have enough tokens to complete redeem from {vault.address}, has {raw_actual_balance}, wanted to redeem {raw_amount}"
+        assert raw_available >= raw_amount, f"ERC-4626 redemption: {owner} does not have enough tokens to complete redeem from {vault.address}, has {raw_available}, wanted to redeem {raw_amount}"
 
     if check_max_redeem:
         max_redeem = contract.functions.maxRedeem(receiver).call()

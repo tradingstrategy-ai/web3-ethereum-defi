@@ -1275,3 +1275,80 @@ ERC-4626 vault deposit and redeem script. Supports simulation mode on Anvil main
 ```shell
 JSON_RPC_URL=$JSON_RPC_BASE poetry run python scripts/erc-4626/erc-4626-deposit-redeem.py
 ```
+
+### probe-vault-deposits.py
+
+Probe public vault deposit adapters through a freshly deployed
+``SimpleVaultV0`` and its ``GuardV0`` on an Anvil fork. Synchronous adapters
+must also redeem the minted shares through the same guard before the attempt
+is successful; asynchronous redemption remains a separately documented,
+unexercised lifecycle. The control wallet is ephemeral and pays only gas. The
+script uses Anvil's ERC-20 storage deal to fund the SimpleVault with the
+denomination token; resulting shares or async requests belong to that
+SimpleVault. Each candidate receives a fresh Anvil process so a blocked
+upstream state read cannot contaminate the next attempt. The script never
+broadcasts to the source RPC and refuses to run unless ``SIMULATE=true``. The
+detailed table records
+each ERC-4626 ``maxDeposit(address(0))`` response in its **maxDeposit
+guidance** column, but this advisory value never determines whether a vault is
+tested or marked depositable; only the guarded deposit transaction does. This
+is required for contracts such as Morpho V2 that intentionally always return
+zero. The saved result is historical adapter evidence, not a permission to
+deposit later: production callers must execute their own current-state
+preflight or handle the live transaction revert.
+
+Start with one explicit vault:
+
+```shell
+SIMULATE=true \
+VAULT_SELECTION=vault_ids \
+VAULT_IDS="8453-0xYourVault" \
+DEPOSIT_AMOUNT=10 \
+poetry run python scripts/erc-4626/probe-vault-deposits.py
+```
+
+For a bounded protocol or same-token NAV run, also set ``CONFIRM_ALL=true``
+when more than one vault is selected:
+
+```shell
+SIMULATE=true VAULT_SELECTION=protocol PROTOCOL=Lagoon CHAIN_ID=42161 MAX_VAULTS=5 \
+CONFIRM_ALL=true DEPOSIT_AMOUNT=10 \
+poetry run python scripts/erc-4626/probe-vault-deposits.py
+```
+
+To test the five largest candidates of every Arbitrum protocol in one fork
+batch, use the explicit legacy-row opt-in until the scanner has regenerated
+the metadata pickle:
+
+```shell
+SIMULATE=true VAULT_SELECTION=all_protocols CHAIN_ID=42161 MAX_VAULTS=5 \
+ALLOW_UNCERTIFIED_CANDIDATES=true CONFIRM_ALL=true DEPOSIT_AMOUNT=10 \
+poetry run python scripts/erc-4626/probe-vault-deposits.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `SIMULATE` | Required. Must be exactly `true`; the script is Anvil-only. |
+| `VAULT_SELECTION` | Exactly one mode: `vault_ids`, `protocol`, `all_protocols`, or `min_tvl`. |
+| `VAULT_IDS` | Comma-separated `chain_id-vault_address` values for `vault_ids`. |
+| `PROTOCOL` | Case-insensitive protocol name for `protocol`. |
+| `CHAIN_ID` | Optional chain filter for every selection mode. |
+| `ALLOW_UNCERTIFIED_CANDIDATES` | Set to `true` only to probe legacy rows lacking scanner metadata; live Anvil capability checks still fail closed. |
+| `MIN_TVL` | Minimum USD NAV for `min_tvl`. |
+| `DENOMINATION_TOKEN` | Optional denomination-token filter for `min_tvl`. |
+| `DEPOSIT_AMOUNT` | Positive, human-readable denomination-token amount. |
+| `VAULT_DATABASE_PATH` | Optional metadata-pickle path. |
+| `VAULT_DEPOSIT_STATUS_PATH` | Optional status-artifact path; default `eth_defi/data/deposit-status/vault-deposit-status.json`. See [`README-deposit-status.md`](../../eth_defi/data/deposit-status/README-deposit-status.md) for the review and refresh procedure. |
+| `MAX_VAULTS` | Optional limit. Protocol mode ranks candidates by descending scanned NAV before truncating; `all_protocols` applies it independently to each protocol. |
+| `CONFIRM_ALL` | Must be `true` when probing more than one selected vault. |
+
+The status file stores durable evidence only: fork block, adapter capability,
+amount, outcome and synchronously minted share amount where applicable. It
+does not store transaction hashes, request IDs, private keys, or addresses of
+the temporary Anvil-deployed contracts.
+
+After every run, the script prints a detailed table with protocol, vault
+address, name, denomination token and failure reason. Successful rows appear
+first with `Ok` as their failure reason. A second table provides outcome counts
+and percentages. For a mined failed call, the separate **Revert reason** column
+contains the reason replayed on the temporary Anvil fork.

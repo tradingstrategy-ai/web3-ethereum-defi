@@ -2,6 +2,7 @@
 
 import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from eth_typing import BlockIdentifier, HexAddress
 from hexbytes import HexBytes
@@ -13,6 +14,9 @@ from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.trade import TradeFail, TradeSuccess
 from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis, DepositRedeemEventFailure, DepositRequest, DepositTicket, RedemptionRequest, RedemptionTicket, VaultDepositManager
+
+if TYPE_CHECKING:
+    from eth_defi.erc_4626.vault import ERC4626Vault
 
 
 class ERC4626DepositTicket(DepositRequest):
@@ -40,7 +44,7 @@ class ERC4626RedemptionRequest(RedemptionRequest):
 class ERC4626DepositManager(VaultDepositManager):
     """Abstraction over different deposit/redeem flows of vaults."""
 
-    def __init__(self, vault: "eth_defi.erc_4626.vault.ERC4626Vault"):
+    def __init__(self, vault: "ERC4626Vault"):
         from eth_defi.erc_4626.vault import ERC4626Vault
 
         assert isinstance(vault, ERC4626Vault), f"Got {type(vault)}"
@@ -84,7 +88,7 @@ class ERC4626DepositManager(VaultDepositManager):
         check_max_deposit=True,
         check_enough_token=True,
     ) -> ERC4626RedemptionRequest:
-        assert not raw_shares, f"Unsupported raw_shares={raw_shares}"
+        assert raw_shares or shares, "Either raw_shares or shares must be supplied"
         assert not to, f"Unsupported to={to}"
 
         if not raw_shares:
@@ -175,14 +179,28 @@ class ERC4626DepositManager(VaultDepositManager):
         claim_tx_hash: HexBytes | str,
         deposit_ticket: DepositTicket | None,
     ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        """Analyse a mined ERC-4626 deposit or guarded SimpleVault wrapper.
+
+        A ticket identifies an expected SimpleVault wrapper by address. The
+        event analyser still filters events by the underlying vault address.
+
+        :param claim_tx_hash:
+            Mined deposit transaction hash.
+        :param deposit_ticket:
+            Optional ticket whose owner identifies a guarded wrapper.
+        :return:
+            Decoded executed deposit quantities or a revert description.
+        """
         vault = self.vault
         tx = vault.web3.eth.get_transaction(claim_tx_hash)
         receipt = vault.web3.eth.get_transaction_receipt(claim_tx_hash)
+        guarded_call = deposit_ticket is not None and tx["to"].lower() == deposit_ticket.owner.lower()
         analysis = analyse_4626_flow_transaction(
             vault=vault,
             tx_hash=claim_tx_hash,
             tx_receipt=receipt,
             direction="deposit",
+            hot_wallet=not guarded_call,
         )
 
         match analysis:
@@ -190,14 +208,14 @@ class ERC4626DepositManager(VaultDepositManager):
                 return DepositRedeemEventAnalysis(
                     from_=None,  # TODO
                     to=None,  # TODO
-                    tx_hash=tx_hash,
+                    tx_hash=HexBytes(claim_tx_hash),
                     block_number=tx["blockNumber"],
-                    block_timestamp=get_block_timestamp(tx["blockNumber"]),
-                    share_count=vault.share_token.convert_to_decimals(vault.analysis.amount_out),
+                    block_timestamp=get_block_timestamp(vault.web3, tx["blockNumber"]),
+                    share_count=vault.share_token.convert_to_decimals(analysis.amount_out),
                     denomination_amount=vault.denomination_token.convert_to_decimals(analysis.amount_in),
                 )
             case TradeFail():
-                return DepositRedeemEventFailure(tx_hash=claim_tx_hash, revert_reason=analysis.revert_reason)
+                return DepositRedeemEventFailure(tx_hash=HexBytes(claim_tx_hash), revert_reason=analysis.revert_reason)
             case _:
                 raise NotImplementedError(f"Unknown {type(analysis)}")
 
@@ -206,4 +224,42 @@ class ERC4626DepositManager(VaultDepositManager):
         claim_tx_hash: HexBytes | str,
         redemption_ticket: RedemptionTicket | None,
     ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
-        return self.analyse_deposit(claim_tx_hash, redemption_ticket=redemption_ticket)
+        """Analyse a mined ERC-4626 redemption or guarded SimpleVault wrapper.
+
+        A ticket identifies the wrapper only for the transaction-target check;
+        the decoded ``Withdraw`` event must still originate from this vault.
+
+        :param claim_tx_hash:
+            Mined redemption transaction hash.
+        :param redemption_ticket:
+            Optional ticket whose owner identifies a guarded wrapper.
+        :return:
+            Decoded executed redemption quantities or a revert description.
+        """
+        vault = self.vault
+        tx = vault.web3.eth.get_transaction(claim_tx_hash)
+        receipt = vault.web3.eth.get_transaction_receipt(claim_tx_hash)
+        guarded_call = redemption_ticket is not None and tx["to"].lower() == redemption_ticket.owner.lower()
+        analysis = analyse_4626_flow_transaction(
+            vault=vault,
+            tx_hash=claim_tx_hash,
+            tx_receipt=receipt,
+            direction="redeem",
+            hot_wallet=not guarded_call,
+        )
+
+        match analysis:
+            case TradeSuccess():
+                return DepositRedeemEventAnalysis(
+                    from_=None,
+                    to=None,
+                    tx_hash=HexBytes(claim_tx_hash),
+                    block_number=tx["blockNumber"],
+                    block_timestamp=get_block_timestamp(vault.web3, tx["blockNumber"]),
+                    share_count=vault.share_token.convert_to_decimals(analysis.amount_in),
+                    denomination_amount=vault.denomination_token.convert_to_decimals(analysis.amount_out),
+                )
+            case TradeFail():
+                return DepositRedeemEventFailure(tx_hash=HexBytes(claim_tx_hash), revert_reason=analysis.revert_reason)
+            case _:
+                raise NotImplementedError(f"Unknown {type(analysis)}")
