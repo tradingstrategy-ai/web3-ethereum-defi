@@ -1,5 +1,6 @@
 """Integration tests for async vault flow event discovery."""
 
+import datetime
 import os
 
 import hypersync
@@ -7,6 +8,7 @@ import pytest
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import OstiumDepositTicket, OstiumRedemptionTicket, OstiumV15DepositManager
+from eth_defi.erc_4626.vault_protocol.ember.deposit_redeem import EmberDepositManager, EmberRedemptionTicket
 from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import ERC7540DepositManager, ERC7540DepositTicket, ERC7540RedemptionTicket
 from eth_defi.hypersync.server import get_hypersync_server
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -14,6 +16,7 @@ from eth_defi.vault.flow_events import VaultFlowDirection
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
+JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 HYPERSYNC_API_KEY = os.environ.get("HYPERSYNC_API_KEY")
 
 LAGOON_EXPECTED_FLOW_COUNT = 4
@@ -139,3 +142,33 @@ def test_ostium_fetch_vault_flow_events_from_hypersync() -> None:
     assert isinstance(deposit_ticket, OstiumDepositTicket)
     assert deposit_ticket.settlement_id == flows[-1].settlement_id
     assert deposit_ticket.raw_amount == flows[-1].raw_assets
+
+
+@pytest.mark.skipif(not JSON_RPC_ETHEREUM, reason="JSON_RPC_ETHEREUM needed")
+def test_ember_fetch_vault_flow_events_from_hypersync() -> None:
+    """Discover a historical Ember redemption and reconstruct its ticket."""
+    web3 = create_multi_provider_web3(JSON_RPC_ETHEREUM)
+    vault = create_vault_instance_autodetect(web3, "0xf3190A3ECC109F88e7947b849b281918c798A0C4")
+    manager = vault.get_deposit_manager()
+    assert isinstance(manager, EmberDepositManager)
+
+    flows = list(
+        manager.fetch_vault_flow_events(
+            hypersync_client=_create_hypersync_client(1),
+            start_block=24_286_355,
+            end_block=24_286_355,
+        )
+    )
+
+    assert len(flows) == 1
+    flow = flows[0]
+    assert flow.direction == VaultFlowDirection.redeem
+    assert flow.status.value == "pending"
+    assert flow.owner == "0x74588DD3661781BFA0b497C613aD861B3Dae6F32"
+    assert flow.request_id == 29
+    assert flow.raw_shares == 30_000_000
+    assert flow.request_block_timestamp == datetime.datetime(2026, 1, 21, 23, 9, 23)
+    ticket = manager.reconstruct_redemption_ticket(flow.ticket_data)
+    assert isinstance(ticket, EmberRedemptionTicket)
+    assert ticket.request_sequence_number == 29
+    assert ticket.block_timestamp == datetime.datetime(2026, 1, 21, 23, 9, 23)

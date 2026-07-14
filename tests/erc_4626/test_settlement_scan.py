@@ -20,6 +20,7 @@ from eth_defi.vault.vaultdb import VaultDatabase
 
 LAGOON_ADDRESS = "0xabc0000000000000000000000000000000000000"
 D2_ADDRESS = "0xd200000000000000000000000000000000000000"
+EMBER_ADDRESS = "0xe000000000000000000000000000000000000000"
 OTHER_ADDRESS = "0xdef0000000000000000000000000000000000000"
 CHAIN2_ADDRESS = "0x2220000000000000000000000000000000000000"
 
@@ -59,6 +60,16 @@ def make_vault_db() -> VaultDatabase:
         deposit_count=10,
         redeem_count=5,
     )
+    ember_detection = ERC4262VaultDetection(
+        chain=1,
+        address=EMBER_ADDRESS,
+        first_seen_at_block=100,
+        first_seen_at=now,
+        features={ERC4626Feature.ember_like},
+        updated_at=now,
+        deposit_count=10,
+        redeem_count=5,
+    )
     other_detection = ERC4262VaultDetection(
         chain=1,
         address=OTHER_ADDRESS,
@@ -88,6 +99,12 @@ def make_vault_db() -> VaultDatabase:
                 "Protocol": "D2 Finance",
                 "features": d2_detection.features,
                 "_detection_data": d2_detection,
+            },
+            VaultSpec(1, EMBER_ADDRESS): {
+                "Address": EMBER_ADDRESS,
+                "Protocol": "Ember",
+                "features": ember_detection.features,
+                "_detection_data": ember_detection,
             },
         }
     )
@@ -251,13 +268,15 @@ def test_select_vault_settlement_scan_ranges_forced_lagoon_backfill(tmp_path: Pa
 
 
 def test_select_vault_settlement_scan_ranges_includes_supported_protocols() -> None:
-    """Generic settlement scans include Lagoon and D2 vaults."""
+    """Generic settlement scans include Lagoon, D2 and Ember vaults."""
     raw_prices = pd.DataFrame(
         [
             {"chain": 1, "address": LAGOON_ADDRESS, "block_number": 100},
             {"chain": 1, "address": LAGOON_ADDRESS, "block_number": 200},
             {"chain": 1, "address": D2_ADDRESS, "block_number": 110},
             {"chain": 1, "address": D2_ADDRESS, "block_number": 210},
+            {"chain": 1, "address": EMBER_ADDRESS, "block_number": 120},
+            {"chain": 1, "address": EMBER_ADDRESS, "block_number": 220},
             {"chain": 1, "address": OTHER_ADDRESS, "block_number": 100},
             {"chain": 1, "address": OTHER_ADDRESS, "block_number": 200},
         ]
@@ -267,7 +286,63 @@ def test_select_vault_settlement_scan_ranges_includes_supported_protocols() -> N
     assert [(item.address, item.start_block, item.end_block) for item in ranges] == [
         (LAGOON_ADDRESS, 100, 200),
         (D2_ADDRESS, 110, 210),
+        (EMBER_ADDRESS, 120, 220),
     ]
+
+
+def test_update_settlement_database_for_chain_advances_ember_skipped_events(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Skipped Ember processing events write no settlement but advance the watermark."""
+
+    class FakeEmberVault:
+        """Minimal Ember settlement reader stand-in."""
+
+        def __init__(self, address: str) -> None:
+            self.address = address
+            self.chain_id = 1
+            self.web3 = None
+
+    class FakeDatabase:
+        """Capture the scan watermark without requiring DuckDB."""
+
+        def upsert_settlements(self, settlements: list[VaultSettlement]) -> int:
+            self.settlements = settlements
+            return len(settlements)
+
+        def upsert_scan_state(self, scan_states: list[tuple[int, str, int]]) -> int:
+            self.scan_states = scan_states
+            return len(scan_states)
+
+    ember_topic = "0x" + "33" * 32
+    monkeypatch.setattr(settlement_scan_module, "EmberVault", FakeEmberVault)
+    monkeypatch.setattr(
+        settlement_scan_module,
+        "create_vault_instance",
+        lambda web3, address, features, token_cache: FakeEmberVault(address),
+    )
+    monkeypatch.setattr(settlement_scan_module, "get_ember_settlement_events_by_topic", lambda _vault: {ember_topic: "RequestProcessed"})
+    monkeypatch.setattr(
+        settlement_scan_module,
+        "fetch_vault_settlement_logs_for_addresses",
+        lambda **_kwargs: [AttributeDict({"address": EMBER_ADDRESS, "topics": [HexBytes(ember_topic)], "blockNumber": 20})],
+    )
+    monkeypatch.setattr(settlement_scan_module, "build_ember_settlement_rows_from_logs", lambda *_args, **_kwargs: [])
+
+    database = FakeDatabase()
+    result = settlement_scan_module._update_settlement_database_for_chain(
+        database=database,
+        web3=object(),
+        chain_id=1,
+        ranges=[VaultSettlementScanRange(chain_id=1, address=EMBER_ADDRESS, start_block=10, end_block=20)],
+        rows_by_key={(1, EMBER_ADDRESS): {"features": {ERC4626Feature.ember_like}, "_detection_data": SimpleNamespace(chain=1, address=EMBER_ADDRESS)}},
+        token_cache=TokenDiskCache(),
+        use_hypersync=False,
+        chunk_size=50_000,
+    )
+
+    assert result.rows_written == 0
+    assert result.scanned_vaults == 1
+    assert database.settlements == []
+    assert database.scan_states == [(1, EMBER_ADDRESS, 20)]
 
 
 def test_update_settlement_database_for_chain_batches_all_vaults_and_skips_bad_vaults(monkeypatch: pytest.MonkeyPatch) -> None:
