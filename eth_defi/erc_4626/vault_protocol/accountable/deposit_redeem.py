@@ -206,6 +206,9 @@ class AccountableDepositManager(ERC4626DepositManager):
             raw_shares = self.vault.share_token.convert_to_raw(shares)
         if raw_shares <= 0:
             raise ValueError("Accountable redemption shares must be positive")
+        minimum = int(self.vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
+        if raw_shares < minimum:
+            raise ValueError(f"Accountable redemption shares {raw_shares} are below minimum {minimum}")
         if self.is_redemption_in_progress(owner):
             raise ValueError("Accountable has a pending or claimable redemption for this controller")
         if check_enough_token:
@@ -266,7 +269,10 @@ class AccountableDepositManager(ERC4626DepositManager):
         :param owner: Prospective controller and share owner.
         :return: ``True`` when a new request is not locally precluded.
         """
-        return not self.is_redemption_in_progress(owner) and int(self.vault.share_token.fetch_raw_balance_of(owner)) > 0
+        if self.is_redemption_in_progress(owner):
+            return False
+        minimum = int(self.vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
+        return int(self.vault.share_token.fetch_raw_balance_of(owner)) >= minimum
 
     def estimate_redemption_delay(self) -> datetime.timedelta:
         """Return no deterministic Accountable queue deadline.
@@ -305,31 +311,32 @@ class AccountableDepositManager(ERC4626DepositManager):
         """Check current aggregate claimability.
 
         :param redemption_ticket: Accountable request ticket.
-        :return: Whether this safe self-controlled ticket has enough claimable shares.
+        :return: Whether this safe self-controlled ticket has claimable shares.
         """
-        return redemption_ticket.controller == redemption_ticket.owner and redemption_ticket.to == redemption_ticket.owner and self._claimable_redeem_shares(redemption_ticket.controller) >= redemption_ticket.raw_shares
+        return redemption_ticket.controller == redemption_ticket.owner and redemption_ticket.to == redemption_ticket.owner and self._claimable_redeem_shares(redemption_ticket.controller) > 0
 
     def finish_redemption(self, redemption_ticket: AccountableRedemptionTicket) -> ContractFunction:
-        """Build a self-controlled claim for the ticket share amount.
+        """Build a self-controlled claim for current claimable shares.
 
         Accountable exposes a controller aggregate rather than a per-request
         claim balance. The public manager therefore only claims self-controlled
         tickets back to their share owner. It never directs an aggregate claim
-        to a custom receiver or auto-claims a delegated-controller ticket.
-        After a race, the caller must re-check status and build a fresh call.
+        to a custom receiver or auto-claims a delegated-controller ticket. A
+        settlement can make only part of the ticket claimable; claim the
+        current amount, then repeat after the remaining shares settle.
 
         :param redemption_ticket: Accountable request ticket.
-        :return: Ticket-sized ``redeem`` function call.
-        :raise ValueError: If this ticket is delegated, has a custom receiver, or is not fully claimable.
+        :return: Current-claimable ``redeem`` function call.
+        :raise ValueError: If this ticket is delegated, has a custom receiver, or has no claimable shares.
         """
         assert isinstance(redemption_ticket, AccountableRedemptionTicket)
         if redemption_ticket.controller != redemption_ticket.owner or redemption_ticket.to != redemption_ticket.owner:
             raise ValueError("Accountable only auto-claims self-controlled redemptions to their share owner")
         claimable = self._claimable_redeem_shares(redemption_ticket.controller)
-        if claimable < redemption_ticket.raw_shares:
-            raise ValueError(f"Accountable claimable aggregate {claimable} is below the ticket's {redemption_ticket.raw_shares} shares")
+        if claimable == 0:
+            raise ValueError("Accountable redemption is not claimable")
         return self.vault.vault_contract.functions.redeem(
-            redemption_ticket.raw_shares,
+            claimable,
             redemption_ticket.to,
             redemption_ticket.controller,
         )

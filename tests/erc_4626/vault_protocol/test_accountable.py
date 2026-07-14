@@ -148,6 +148,27 @@ def test_accountable_deposit_and_redemption_request_lifecycle(web3: Web3) -> Non
 
 @pytest.mark.timeout(180)
 @flaky.flaky
+def test_accountable_redemption_request_rejects_contract_dust(web3: Web3) -> None:
+    """Reject an amount the live Accountable contract would deterministically revert.
+
+    :param web3:
+        Monad Anvil fork connection.
+    """
+    vault = create_vault_instance_autodetect(web3, vault_address="0x58ba69b289De313E66A13B7D1F822Fc98b970554")
+    assert isinstance(vault, AccountableVault)
+    manager = vault.get_deposit_manager()
+    minimum = int(vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
+
+    with pytest.raises(ValueError, match="below minimum"):
+        manager.create_redemption_request(
+            owner=web3.eth.accounts[1],
+            raw_shares=minimum - 1,
+            check_enough_token=False,
+        )
+
+
+@pytest.mark.timeout(180)
+@flaky.flaky
 def test_accountable_yuzu_vault(
     web3: Web3,
     tmp_path: Path,
