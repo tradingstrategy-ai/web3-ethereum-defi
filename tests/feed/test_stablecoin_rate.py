@@ -11,11 +11,12 @@ from eth_defi.currency_api.client import DateRates
 from eth_defi.currency_api.database import CurrencyRateDatabase
 from eth_defi.feed import stablecoin_rate
 from eth_defi.feed.stablecoin_rate import StablecoinRateFeeder, build_depegged_stablecoin_lookups, iter_stablecoin_rate_targets, refresh_stablecoin_rates
-from eth_defi.stablecoin_metadata import STABLECOINS_DATA_DIR, build_stablecoin_metadata_json, is_stablecoin_like
+from eth_defi.stablecoin_metadata import STABLECOINS_DATA_DIR, build_stablecoin_metadata_json, get_stablecoin_available_logos, is_stablecoin_like
 
 USDC_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 USDX_ADDRESS = "0x1111111111111111111111111111111111111111"
 USDU_ADDRESS = "0xdde3eC717f220Fc6A29D6a4Be73F91DA5b718e55"
+PATHUSD_ADDRESS = "0x20C0000000000000000000000000000000000000"
 
 
 @dataclass(slots=True)
@@ -702,6 +703,32 @@ def test_packaged_usdu_metadata_and_rate_target() -> None:
     assert target.coingecko_id is None
     assert metadata["name"] == "USDU Finance"
     assert metadata["contract_addresses"] == [{"chain": "ethereum", "address": USDU_ADDRESS}]
+
+
+def test_packaged_pathusd_metadata_and_rate_target() -> None:
+    """pathUSD metadata preserves its Tempo contract and manual USD denomination.
+
+    Tempo vault scans found pathUSD as a denomination token. The packaged
+    metadata must make the symbol pass stablecoin filtering and resolve by the
+    Tempo contract address for denomination-rate export.
+    """
+    stablecoin_data_dir = Path(__file__).parents[2] / "eth_defi" / "data" / "stablecoins"
+    target = next(target for target in iter_stablecoin_rate_targets(stablecoin_data_dir) if target.symbol == "pathUSD")
+    metadata = build_stablecoin_metadata_json(stablecoin_data_dir / "pathusd.yaml", public_url="https://pub.example")[0]
+    feeder = StablecoinRateFeeder(data_dir=stablecoin_data_dir)
+    rate = feeder.get_denomination_token_rate_section(4217, PATHUSD_ADDRESS, "pathUSD")
+
+    assert is_stablecoin_like("pathUSD") is True
+    assert target.source_currency == "usd"
+    assert target.source_currency_source == "manual"
+    assert target.coingecko_id == "pathusd"
+    assert target.contract_addresses == [(4217, PATHUSD_ADDRESS.lower())]
+    assert metadata["name"] == "pathUSD"
+    assert metadata["contract_addresses"] == [{"chain": "4217", "address": PATHUSD_ADDRESS}]
+    assert get_stablecoin_available_logos("pathusd") == {"light": True}
+    assert metadata["logos"] == {"light": "https://pub.example/stablecoin-metadata/pathusd/light.png"}
+    assert rate.coingecko_id == "pathusd"
+    assert rate.source_currency == "usd"
 
 
 def test_eur_stablecoin_depegs_against_native_currency_from_duckdb(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
