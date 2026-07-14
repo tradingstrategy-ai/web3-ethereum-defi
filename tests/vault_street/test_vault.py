@@ -13,9 +13,10 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_va
 from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS, PRIME_USD_FIRST_SEEN_AT, PRIME_USD_FIRST_SEEN_AT_BLOCK
 from eth_defi.vault_street.historical import VaultStreetHistoricalReader
-from eth_defi.vault_street.vault import VAULT_STREET_PERMISSIONED_FLOW_REASON, VaultStreetVault
+from eth_defi.vault_street.vault import PRIME_USD_PERFORMANCE_FEE, PRIME_USD_PROTOCOL_FEE, VAULT_STREET_PERMISSIONED_FLOW_REASON, VaultStreetVault
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
@@ -74,6 +75,13 @@ def test_vault_street_autodetect_live_prime_usd(web3: Web3) -> None:
     assert vault.fetch_info()["nav_source"] == "vault_street_price_storage_getPrice"
     assert vault.fetch_deposit_closed_reason() == VAULT_STREET_PERMISSIONED_FLOW_REASON
     assert vault.fetch_redemption_closed_reason() == VAULT_STREET_PERMISSIONED_FLOW_REASON
+
+    fee_data = vault.get_fee_data()
+    assert fee_data.fee_mode is VaultFeeMode.internalised_skimming
+    assert fee_data.management == PRIME_USD_PROTOCOL_FEE
+    assert fee_data.performance == PRIME_USD_PERFORMANCE_FEE
+    assert fee_data.deposit is None
+    assert fee_data.withdraw is None
 
     with pytest.raises(NotImplementedError):
         vault.get_deposit_manager()

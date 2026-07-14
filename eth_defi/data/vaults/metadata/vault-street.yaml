@@ -14,9 +14,9 @@ long_description: |
   collateral. Participants should review the product documentation for
   eligibility, terms and current availability.
 fee_description: |
-  Vault Street does not publish product fee terms in the sources currently
-  available to this integration. Eligible participants should review the
-  product documentation for applicable terms.
+  Vault Street lists a 0.5% protocol fee that accrues daily and is deducted
+  from the vault, with no performance fee. It does not list separate entry or
+  redemption fees.
 links:
   homepage: https://vaultstreet.com/
   app:
@@ -26,7 +26,7 @@ links:
   fact_sheet: https://docs.vaultstreet.com/overview/primeusd.md
   defillama:
   audits:
-  fees:
+  fees: https://app.vaultstreet.com/
   trading_strategy:
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/vault_street/index.html
 example_smart_contracts:

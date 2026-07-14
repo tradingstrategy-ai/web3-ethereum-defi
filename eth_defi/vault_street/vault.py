@@ -24,7 +24,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
-from eth_defi.vault.fee import FeeData
+from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
 from eth_defi.vault_street.constants import (
     PRIME_USD_ADDRESS,
@@ -40,6 +40,16 @@ from eth_defi.vault_street.historical import VaultStreetHistoricalReader
 
 #: Public integration restriction for permissioned primeUSD flows.
 VAULT_STREET_PERMISSIONED_FLOW_REASON = "Vault Street primeUSD deposits, transfers and redemptions require an approved KYB/KYC allowlist"
+
+#: primeUSD protocol fee, accrued daily and deducted from the vault.
+#:
+#: https://app.vaultstreet.com/
+PRIME_USD_PROTOCOL_FEE: Percent = 0.005
+
+#: primeUSD performance fee.
+#:
+#: https://app.vaultstreet.com/
+PRIME_USD_PERFORMANCE_FEE: Percent = 0
 
 #: Minimal ABI for the Vault Street ``PriceStorage`` oracle.
 _PRICE_ORACLE_ABI = [
@@ -439,26 +449,27 @@ class VaultStreetVault(VaultBase):
         return VaultStreetHistoricalReader(self, stateful=stateful)
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
-        """Return unknown management fee.
+        """Return the disclosed primeUSD protocol fee.
 
         :param block_identifier:
-            Accepted for shared fee API compatibility.
+            Ignored because the fee is currently static product metadata.
         :return:
-            ``None`` because no on-chain management-fee accessor is exposed.
+            Daily-accrued ``0.5%`` protocol fee represented in the
+            management-like fee field.
         """
 
-        return None
+        return PRIME_USD_PROTOCOL_FEE
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
-        """Return unknown performance fee.
+        """Return the disclosed primeUSD performance fee.
 
         :param block_identifier:
-            Accepted for shared fee API compatibility.
+            Ignored because the fee is currently static product metadata.
         :return:
-            ``None`` because no on-chain performance-fee accessor is exposed.
+            ``0`` because the product page lists no performance fee.
         """
 
-        return None
+        return PRIME_USD_PERFORMANCE_FEE
 
     def get_deposit_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
         """Return unknown deposit fee.
@@ -483,16 +494,20 @@ class VaultStreetVault(VaultBase):
         return None
 
     def get_fee_data(self) -> FeeData:
-        """Return unavailable fee metadata without making unsupported assumptions.
+        """Return disclosed primeUSD fee metadata.
+
+        The product page states that the protocol fee accrues daily and is
+        deducted from the vault. Model it as an internalised management-like
+        fee. It does not disclose explicit entry or redemption fees.
 
         :return:
-            Fee data with each fee unset.
+            Fee data with disclosed protocol and performance fees.
         """
 
         return FeeData(
-            fee_mode=None,
-            management=None,
-            performance=None,
+            fee_mode=VaultFeeMode.internalised_skimming,
+            management=PRIME_USD_PROTOCOL_FEE,
+            performance=PRIME_USD_PERFORMANCE_FEE,
             deposit=None,
             withdraw=None,
         )
