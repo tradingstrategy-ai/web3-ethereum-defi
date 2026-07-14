@@ -1260,12 +1260,18 @@ def fix_hypercore_flow_reconciled_share_price_paths(  # noqa: PLR0914, PLR0917
 
     When persisted daily ledger flows prove that accounting relationship for a
     conflicted observation, reconstruct its price from the PnL path between
-    adjacent HF anchors using ``1 + pnl_change / previous_nav``. A small
-    log-linear endpoint correction makes the reconstructed path meet the next
-    HF price without discarding the timing and direction of the observed PnL.
-    This is deliberately narrower than generic smoothing: each changed daily
-    row needs known flow values and must reconcile, there may be no wipe-out
-    boundary, and the uncorrected PnL path must already end within
+    adjacent HF anchors using ``1 + pnl_change / previous_nav``. Continue the
+    repair through following daily observations while every NAV step remains
+    ledger-reconciled, then stop at the first unproven step. This ensures the
+    return direction follows profit: for example, Magixbox's positive PnL on 7
+    February must not remain a negative share-price return after repairing its
+    5 February unit change.
+
+    A small log-linear endpoint correction makes the reconstructed path meet
+    the next HF price without discarding the timing and direction of the
+    observed PnL. This is deliberately narrower than generic smoothing: each
+    changed daily row needs known flow values and must reconcile, there may be
+    no wipe-out boundary, and the uncorrected PnL path must already end within
     ``max_endpoint_deviation`` of the next HF anchor. If old parquet lacks the
     ledger flow columns, this function leaves it untouched and the older,
     conservative source-overlap repair remains the fallback.
@@ -1423,25 +1429,30 @@ def fix_hypercore_flow_reconciled_share_price_paths(  # noqa: PLR0914, PLR0917
             endpoint_correction = np.log(share_price[right_position] / endpoint_price)
             repaired_prices = np.asarray(provisional_prices) * np.exp(endpoint_correction * elapsed)
             repaired_by_position = dict(zip(inner_positions, repaired_prices))
-            repaired_candidate_count = 0
-            for position in candidate_positions:
-                flow_values = daily_flow_by_date.get(timestamp[position].date())
-                if flow_values is None:
-                    continue
-                deposit, withdrawal = flow_values
-                previous_position = position - 1
-                expected_assets = total_assets[previous_position] + (account_pnl[position] - account_pnl[previous_position]) + deposit - withdrawal
-                tolerance = max(
-                    accounting_absolute_tolerance,
-                    accounting_relative_tolerance * max(abs(expected_assets), abs(total_assets[position])),
-                )
-                if not np.isfinite(deposit) or not np.isfinite(withdrawal) or abs(total_assets[position] - expected_assets) > tolerance:
-                    continue
+            repair_positions: set[int] = set()
+            for candidate_position in candidate_positions:
+                # The large conflict starts a proven repair segment. Continue
+                # while NAV = previous NAV + PnL + net flow; the first missing
+                # or inconsistent ledger step ends this segment.
+                for position in range(int(candidate_position), int(right_position)):
+                    flow_values = daily_flow_by_date.get(timestamp[position].date())
+                    original_price = share_price[position]
+                    if flow_values is None or not np.isfinite(original_price) or original_price <= 0:
+                        break
+                    deposit, withdrawal = flow_values
+                    previous_position = position - 1
+                    expected_assets = total_assets[previous_position] + (account_pnl[position] - account_pnl[previous_position]) + deposit - withdrawal
+                    tolerance = max(
+                        accounting_absolute_tolerance,
+                        accounting_relative_tolerance * max(abs(expected_assets), abs(total_assets[position])),
+                    )
+                    if not np.isfinite(deposit) or not np.isfinite(withdrawal) or abs(total_assets[position] - expected_assets) > tolerance:
+                        break
+                    repair_positions.add(position)
 
+            for position in sorted(repair_positions):
                 repaired_price = repaired_by_position[position]
                 original_price = share_price[position]
-                if not np.isfinite(original_price) or original_price <= 0:
-                    continue
                 factor = repaired_price / original_price
                 prices_df.iloc[positions[position], share_price_col] = repaired_price
                 if total_supply_col is not None:
@@ -1450,8 +1461,7 @@ def fix_hypercore_flow_reconciled_share_price_paths(  # noqa: PLR0914, PLR0917
                         prices_df.iloc[positions[position], total_supply_col] = original_supply / factor
                 prices_df.iloc[positions[position], status_col] = "repaired_hf_pnl_flow"
                 repaired_rows += 1
-                repaired_candidate_count += 1
-            if repaired_candidate_count:
+            if repair_positions:
                 repaired_vaults.add(str(vault_id))
 
     if repaired_rows:

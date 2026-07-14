@@ -615,6 +615,88 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
             .df()
         )
 
+    def update_historical_daily_flows(
+        self,
+        vault_address: HexAddress,
+        daily_flows: dict[datetime.date, tuple[int, int, float, float]],
+        start_date: datetime.date,
+        end_date: datetime.date,
+    ) -> int:
+        """Backfill ledger flows on existing historical price observations.
+
+        A normal scan can only attach flow data to portfolio observations that
+        Hyperliquid still returns. Because the API downsamples old portfolio
+        history, an old daily price row may remain in DuckDB even though a new
+        ``vaultDetails`` response no longer contains that date. This method
+        updates those existing rows directly from separately fetched
+        ``userNonFundingLedgerUpdates`` data. Dates without a ledger event are
+        explicitly stored as zero, which distinguishes a proven zero-flow day
+        from an unknown historical day.
+
+        Existing price, NAV, PnL, and metadata values are never changed. The
+        update is intentionally allowed to replace an old zero withdrawal,
+        because older parser versions read Hyperliquid's zero-valued ``usdc``
+        placeholder instead of ``netWithdrawnUsd``.
+
+        :param vault_address:
+            Lowercase or checksummed Hyperliquid vault address.
+        :param daily_flows:
+            Ledger events aggregated by UTC date as ``(deposit_count,
+            withdrawal_count, deposit_usd, withdrawal_usd)``.
+        :param start_date:
+            First existing daily observation to backfill, inclusive.
+        :param end_date:
+            Last existing daily observation to backfill, inclusive.
+        :return:
+            Number of existing daily price rows updated.
+        """
+        address = vault_address.lower()
+        existing_dates = [
+            row[0]
+            for row in self.con.cursor()
+            .execute(
+                """
+                SELECT date
+                FROM vault_daily_prices
+                WHERE vault_address = ? AND date BETWEEN ? AND ?
+                ORDER BY date
+                """,
+                [address, start_date, end_date],
+            )
+            .fetchall()
+        ]
+        if not existing_dates:
+            return 0
+
+        update_rows = []
+        for date_value in existing_dates:
+            deposit_count, withdrawal_count, deposit_usd, withdrawal_usd = daily_flows.get(date_value, (0, 0, 0.0, 0.0))
+            update_rows.append((deposit_count, withdrawal_count, deposit_usd, withdrawal_usd, address, date_value))
+
+        self.con.cursor().executemany(
+            """
+            UPDATE vault_daily_prices
+            SET daily_deposit_count = ?,
+                daily_withdrawal_count = ?,
+                daily_deposit_usd = ?,
+                daily_withdrawal_usd = ?
+            WHERE vault_address = ? AND date = ?
+            """,
+            update_rows,
+        )
+        self.con.cursor().execute(
+            """
+            UPDATE vault_metadata
+            SET flow_data_earliest_date = LEAST(
+                COALESCE(flow_data_earliest_date, ?),
+                ?
+            )
+            WHERE vault_address = ?
+            """,
+            [start_date, start_date, address],
+        )
+        return len(update_rows)
+
     def get_existing_dates(self, vault_address: HexAddress) -> set[datetime.date]:
         """Get all dates with existing data for a vault.
 
