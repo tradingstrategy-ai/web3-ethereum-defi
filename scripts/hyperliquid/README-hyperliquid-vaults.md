@@ -178,8 +178,15 @@ read reconstructs an arbitrary but internally consistent unit, so the daily
 and HF scanners align their new curve to the latest stored price before writing
 their one-row overlap. The HF path log-linearly interpolates an anchor when
 the rolling-window timestamps shift. The matching inverse supply scaling keeps
-`total_assets == share_price * total_supply`; if no stored anchor lies within
-the current curve, the scan is skipped rather than creating a discontinuity.
+`total_assets == share_price * total_supply`; if no positive stored anchor lies
+within the current curve, the scan is skipped rather than creating a
+discontinuity.
+An exact zero stored price may record a complete wipe-out, but it cannot scale
+another curve. Because the scanner cannot classify the zero as durable or
+transient at resume time, it resumes the reconstructed curve without alignment.
+The wrangle pipeline separately decides whether a later recapitalisation
+qualifies as a new retained performance epoch. Negative or non-finite stored
+prices remain hard errors.
 
 ### Hypercore-specific columns in price data
 
