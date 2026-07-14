@@ -260,7 +260,7 @@ def test_high_freq_resume_after_zero_price_lifecycle_boundary(tmp_path) -> None:
     vault_address = "0x0000000000000000000000000000000000000001"
     anchor_timestamp = datetime.datetime(2026, 1, 1, 11)
     db = HyperliquidHighFreqMetricsDatabase(tmp_path / "hf-zero-anchor.duckdb")
-    db.upsert_high_freq_prices([HyperliquidHighFreqPriceRow(vault_address, anchor_timestamp, 0.0, 0.0, -100.0)])
+    db.upsert_high_freq_prices([HyperliquidHighFreqPriceRow(vault_address, anchor_timestamp, 0.0, 0.0, -100.0, daily_return=-1.0)])
 
     summary = VaultSummary(
         name="Recapitalised test vault",
@@ -312,6 +312,7 @@ def test_high_freq_resume_after_zero_price_lifecycle_boundary(tmp_path) -> None:
 
         prices = db.get_vault_high_freq_prices(vault_address)
         assert prices["share_price"].tolist() == pytest.approx([0.0, 1.0])
+        assert prices.iloc[0]["daily_return"] == pytest.approx(-1.0)
         assert prices.iloc[-1]["daily_return"] == pytest.approx(0.0)
         assert bool(prices.iloc[-1]["epoch_reset"])
     finally:

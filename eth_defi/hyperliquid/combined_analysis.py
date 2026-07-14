@@ -131,13 +131,14 @@ def align_share_price_curve_to_anchor(
     high-frequency scanner. The resulting constant factor is applied with
     :py:func:`rescale_share_price_rows`, preserving NAV and supply.
 
-    A persisted zero is a valid observation for Hyperliquid vaults whose NAV
-    was completely wiped out while synthetic supply remained. Zero cannot be
-    used as a scale factor, so the reconstructed curve is returned unchanged.
-    This avoids linking its scale to destroyed shares; any later
-    recapitalisation epoch is selected and normalised by the wrangle pipeline.
-    Negative and non-finite persisted prices indicate invalid stored data and
-    raise :py:class:`ValueError`.
+    A persisted zero may be a valid observation for a Hyperliquid vault whose
+    NAV was completely wiped out while synthetic supply remained. The scanner
+    cannot classify the zero as durable or transient at resume time, but zero
+    cannot be used as a scale factor in either case. The reconstructed curve
+    is therefore returned unchanged. Any later recapitalisation epoch is
+    selected and normalised by the wrangle pipeline. Negative and non-finite
+    persisted prices indicate invalid stored data and raise
+    :py:class:`ValueError`.
 
     :param prices_df:
         Chronologically sorted DataFrame with a ``DatetimeIndex`` and

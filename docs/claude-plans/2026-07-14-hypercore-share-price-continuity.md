@@ -78,11 +78,12 @@ is; the existing synthetic-supply calculation anchors its first funded row at
 `1.0`. A missing stored anchor is therefore a valid bootstrap, whereas an
 existing stored anchor outside the new API curve is an error.
 
-A zero stored price records a complete NAV wipe-out and cannot be used as a
-scale factor. Resume the reconstructed curve unchanged at this boundary; the
-wrangle pipeline applies the stricter duration and NAV thresholds that decide
-whether a later recapitalisation becomes a retained performance epoch. Keep
-negative and non-finite stored prices as hard errors.
+A zero stored price may record a complete NAV wipe-out and cannot be used as a
+scale factor. The scanner cannot classify it as durable or transient at resume
+time, so resume the reconstructed curve unchanged. The wrangle pipeline applies
+the stricter duration and NAV thresholds that decide whether a later
+recapitalisation becomes a retained performance epoch. Keep negative and
+non-finite stored prices as hard errors.
 
 For an existing daily vault, only update the overlapping boundary date and
 append later dates; do not refresh its complete historical curve on every scan.
