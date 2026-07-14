@@ -38,7 +38,7 @@ from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.hyperliquid.combined_analysis import _calculate_share_price
+from eth_defi.hyperliquid.combined_analysis import _calculate_share_price, align_share_price_curve_to_anchor
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE
 from eth_defi.hyperliquid.vault_metrics_db import HyperliquidMetricsDatabaseBase
 from eth_defi.hyperliquid.deposit import aggregate_daily_flows, fetch_vault_deposits
@@ -149,21 +149,16 @@ def _merge_portfolio_periods(
         Merged :py:class:`~eth_defi.hyperliquid.vault.PortfolioHistory`
         with ``period="merged"``.
     """
-    import bisect
-
     all_time = portfolio.get("allTime")
     if all_time is None:
         raise ValueError("allTime period is required for merge")
 
-    # Start with allTime as the base
-    base_avh = list(all_time.account_value_history)
-    base_pnl = list(all_time.pnl_history)
-    base_avh.sort(key=lambda x: x[0])
-    base_pnl.sort(key=lambda x: x[0])
-
-    # Build the authoritative PnL lookup from allTime (for later reconstruction)
-    alltime_pnl_times = [ts for ts, _ in base_pnl]
-    alltime_pnl_values = [float(val) for _, val in base_pnl]
+    # Keep NAV and PnL as one record throughout the merge.  The consumer
+    # intentionally pairs the two streams by position, so independent merges
+    # would silently turn a PnL change into an apparent capital flow.
+    alltime_pnl_by_timestamp = dict(all_time.pnl_history)
+    base_records = [(ts, av, alltime_pnl_by_timestamp[ts]) for ts, av in all_time.account_value_history if ts in alltime_pnl_by_timestamp]
+    base_records.sort(key=lambda record: record[0])
 
     dedup_seconds = dedup_window_hours * 3600
 
@@ -174,45 +169,42 @@ def _merge_portfolio_periods(
             continue
 
         overlay_avh = sorted(period.account_value_history, key=lambda x: x[0])
-        overlay_timestamps = [ts for ts, _ in overlay_avh]
+        overlay_pnl = sorted(period.pnl_history, key=lambda x: x[0])
+        overlay_pnl_by_timestamp = dict(overlay_pnl)
+
+        # Portfolio PnL is cumulative but each rolling period has its own
+        # origin. Rebase it only at an exact shared timestamp, keeping NAV and
+        # PnL observations paired. Nearest-neighbour allTime PnL made ordinary
+        # trading changes look like deposits and corrupted synthetic prices.
+        shared_timestamps = set(overlay_pnl_by_timestamp).intersection(alltime_pnl_by_timestamp)
+        if not shared_timestamps:
+            continue
+        shared_timestamp = max(shared_timestamps)
+        pnl_offset = alltime_pnl_by_timestamp[shared_timestamp] - overlay_pnl_by_timestamp[shared_timestamp]
+        overlay_pairs = [(ts, av, pnl + pnl_offset) for ts, av in overlay_avh if ts in overlay_pnl_by_timestamp for pnl in (overlay_pnl_by_timestamp[ts],)]
+        if len(overlay_pairs) < 2:
+            continue
+        overlay_timestamps = [ts for ts, _av, _pnl in overlay_pairs]
 
         # Remove base points too close to any overlay point
         filtered_base = []
-        for ts, av in base_avh:
+        for ts, av, pnl in base_records:
             too_close = False
             for ots in overlay_timestamps:
                 if abs((ts - ots).total_seconds()) < dedup_seconds:
                     too_close = True
                     break
             if not too_close:
-                filtered_base.append((ts, av))
+                filtered_base.append((ts, av, pnl))
 
-        base_avh = filtered_base
-        base_avh.extend(overlay_avh)
-        base_avh.sort(key=lambda x: x[0])
-
-    def _nearest_pnl(ts: datetime.datetime) -> float:
-        """Look up the nearest allTime PnL value for a given timestamp."""
-        if not alltime_pnl_times:
-            return 0.0
-        pos = bisect.bisect_left(alltime_pnl_times, ts)
-        if pos == 0:
-            return alltime_pnl_values[0]
-        if pos >= len(alltime_pnl_times):
-            return alltime_pnl_values[-1]
-        before = alltime_pnl_times[pos - 1]
-        after = alltime_pnl_times[pos]
-        if abs((ts - before).total_seconds()) <= abs((ts - after).total_seconds()):
-            return alltime_pnl_values[pos - 1]
-        return alltime_pnl_values[pos]
-
-    # Rebuild pnl_history using nearest allTime PnL values
-    merged_pnl = [(ts, _nearest_pnl(ts)) for ts, _ in base_avh]
+        base_records = filtered_base
+        base_records.extend(overlay_pairs)
+        base_records.sort(key=lambda record: record[0])
 
     return PortfolioHistory(
         period="merged",
-        account_value_history=base_avh,
-        pnl_history=merged_pnl,
+        account_value_history=[(ts, av) for ts, av, _pnl in base_records],
+        pnl_history=[(ts, pnl) for ts, _av, pnl in base_records],
         volume=all_time.volume,
     )
 
@@ -1113,6 +1105,31 @@ def fetch_and_store_vault(
         flow_data_earliest_date=flow_data_earliest_date,
     )
 
+    # Keep one latest portfolio observation per UTC day. This preserves the
+    # daily table's public contract while allowing the curve to be aligned to
+    # its existing daily unit before the overlap date is refreshed.
+    combined_df = combined_df.copy()
+    combined_df["date"] = pd.DatetimeIndex(combined_df.index).date
+    combined_df = combined_df.groupby("date", sort=False).tail(1).copy()
+    combined_df.index = pd.to_datetime(combined_df["date"])
+    combined_df.drop(columns="date", inplace=True)
+
+    existing_prices = db.get_vault_daily_prices(vault_address)
+    last_stored_date = db.get_vault_last_date(vault_address)
+    if last_stored_date is not None:
+        stored_anchor = existing_prices.iloc[-1]
+        anchor_timestamp = datetime.datetime.combine(last_stored_date, datetime.time())
+        combined_df = align_share_price_curve_to_anchor(combined_df, anchor_timestamp, float(stored_anchor["share_price"]))
+        if combined_df is None:
+            logger.warning(
+                "Skipping daily price update for %s (%s): current curve does not overlap stored date %s",
+                info.name,
+                vault_address,
+                last_stored_date,
+            )
+            return False
+        combined_df = combined_df[combined_df.index.date >= last_stored_date]
+
     # Build daily price rows.
     # Only the latest row gets the current API snapshot fields;
     # historical rows get None so we track how these values evolve over time.
@@ -1124,6 +1141,11 @@ def fetch_and_store_vault(
     last_idx = len(combined_df) - 1
     rows: list[HyperliquidDailyPriceRow] = []
     prev_share_price = None
+    if last_stored_date is not None and not existing_prices.empty:
+        first_date = combined_df.index[0].date()
+        prior_prices = existing_prices[pd.to_datetime(existing_prices["date"]).dt.date < first_date]
+        if not prior_prices.empty:
+            prev_share_price = float(prior_prices.iloc[-1]["share_price"])
     for i, (ts, row_data) in enumerate(zip(combined_df.index, combined_df.itertuples())):
         date_val = ts.date() if hasattr(ts, "date") else ts
 

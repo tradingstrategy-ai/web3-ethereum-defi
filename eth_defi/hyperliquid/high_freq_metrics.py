@@ -38,11 +38,12 @@ from eth_typing import HexAddress
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
+from eth_defi.compat import native_datetime_utc_now
+from eth_defi.hyperliquid.combined_analysis import align_share_price_curve_to_anchor
 from eth_defi.hyperliquid.constants import (
     HYPERLIQUID_HIGH_FREQ_DEFAULT_INTERVAL,
     HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE,
 )
-from eth_defi.hyperliquid.vault_metrics_db import HyperliquidMetricsDatabaseBase
 from eth_defi.hyperliquid.daily_metrics import (
     portfolio_to_combined_dataframe,
 )
@@ -57,7 +58,7 @@ from eth_defi.hyperliquid.vault import (
     VaultSummary,
     fetch_all_vaults,
 )
-from eth_defi.compat import native_datetime_utc_now
+from eth_defi.hyperliquid.vault_metrics_db import HyperliquidMetricsDatabaseBase
 
 logger = logging.getLogger(__name__)
 
@@ -483,6 +484,18 @@ def fetch_and_store_vault_high_freq(
     # The merged portfolio history already has the highest available
     # resolution from _merge_portfolio_periods().
     last_stored_ts = db.get_vault_last_timestamp(vault_address)
+    existing_prices = db.get_vault_high_freq_prices(vault_address)
+    if last_stored_ts is not None:
+        stored_anchor = existing_prices.iloc[-1]
+        combined_df = align_share_price_curve_to_anchor(combined_df, last_stored_ts, float(stored_anchor["share_price"]))
+        if combined_df is None:
+            logger.warning(
+                "Skipping HF price update for %s (%s): current curve does not overlap stored timestamp %s",
+                info.name,
+                vault_address,
+                last_stored_ts,
+            )
+            return False
 
     # Precompute the last row index per calendar date so that flow
     # data is only attached once per day (avoiding duplication when
@@ -496,14 +509,19 @@ def fetch_and_store_vault_high_freq(
     rows: list[HyperliquidHighFreqPriceRow] = []
     now = native_datetime_utc_now()
     prev_share_price = None
+    if last_stored_ts is not None and not existing_prices.empty:
+        # The reconstructed window can have shifted API timestamps and may
+        # therefore not contain an exact copy of the persisted anchor. The
+        # first appended row is still immediately after that anchor, so its
+        # return must be measured from the latest stored price, not from the
+        # preceding stored observation.
+        prev_share_price = float(existing_prices.iloc[-1]["share_price"])
 
     for i, (ts, row_data) in enumerate(zip(combined_df.index, combined_df.itertuples())):
         raw_ts = ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts
 
         # Resumable: only store rows >= last stored timestamp
         if last_stored_ts is not None and raw_ts < last_stored_ts:
-            # Still track prev_share_price for return calc
-            prev_share_price = row_data.share_price
             continue
 
         # Cutoff filtering
