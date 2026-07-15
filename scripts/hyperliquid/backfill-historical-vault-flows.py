@@ -1,20 +1,21 @@
-"""Backfill historical Hypercore ledger flows for deferred price repairs.
+"""Backfill historical Hypercore ledger flows for accounting diagnostics.
 
 The normal Hyperliquid scanners fetch only a short rolling flow window. Old
 daily price observations can therefore retain missing or incorrectly parsed
 withdrawals even though ``userNonFundingLedgerUpdates`` still exposes the
-ledger events. This script finds ``deferred_hf_nav`` observations in the
-cleaned Parquet, fetches the surrounding ledger history, and updates the
+ledger events. This script can find legacy ``deferred_hf_nav`` observations in
+a cleaned Parquet, fetch the surrounding ledger history, and update the
 existing daily DuckDB rows. It does not change share price, NAV, or PnL.
 
-After the backfill, run the normal Hyperliquid export and vault-price wrangle.
-The flow-reconciled wrangle step will then repair qualifying share-price paths.
+The current cleaned PnL/NAV economic-performance index does not need these
+flows. Use the script only to investigate raw NAV accounting or maintain a
+legacy database. New cleaned files do not emit ``deferred_hf_nav``.
 
 Usage:
 
 .. code-block:: shell
 
-    # Preview every currently deferred vault.
+    # Preview every deferred vault in a legacy cleaned Parquet.
     AUTODETECT=true \
       poetry run python scripts/hyperliquid/backfill-historical-vault-flows.py
 
@@ -28,7 +29,7 @@ Environment variables:
 - ``DB_PATH``: Daily Hyperliquid DuckDB path.
 - ``CLEANED_PARQUET_PATH``: Cleaned vault-price Parquet used to find candidates.
 - ``VAULT_ADDRESSES``: Comma-separated candidate vaults to repair.
-- ``AUTODETECT``: Select every current ``deferred_hf_nav`` vault. Default: false.
+- ``AUTODETECT``: Select every legacy ``deferred_hf_nav`` vault. Default: false.
   Exactly one of ``VAULT_ADDRESSES`` or ``AUTODETECT=true`` is required.
 - ``MAX_WORKERS``: Parallel API readers. Default: 8.
 - ``ANCHOR_PADDING_DAYS``: Days fetched on both sides of candidates. Default: 8.
@@ -104,7 +105,8 @@ def select_historical_flow_candidates(
     Explicit address selection and autodetection are mutually exclusive so a
     missing environment variable cannot accidentally expand a single-vault
     maintenance operation to every candidate. Autodetection means all rows
-    currently marked ``deferred_hf_nav`` by the production wrangle.
+    marked ``deferred_hf_nav`` in an older cleaned Parquet; the current
+    production wrangle does not emit this status.
 
     :param cleaned:
         Cleaned Hypercore prices with ``address``, ``timestamp``, and
@@ -112,7 +114,7 @@ def select_historical_flow_candidates(
     :param requested_addresses:
         Explicit lowercased Hyperliquid vault addresses.
     :param autodetect:
-        Whether to select all current ``deferred_hf_nav`` vaults.
+        Whether to select all legacy ``deferred_hf_nav`` vaults.
     :return:
         Matching deferred observations, with lowercased addresses and naive
         UTC timestamps.
