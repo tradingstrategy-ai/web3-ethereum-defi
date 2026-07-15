@@ -66,6 +66,161 @@ MIDAS_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.midas_like} for token in MID
 #: known deployments by address instead of the generic ``maxDiscountP()`` probe.
 KILOEX_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.kiloex_like} for address in KILOEX_VAULT_ADDRESSES}
 
+#: Aave V3 ATokenVault deployments, identified by the Aave-specific
+#: ``ATOKEN()`` accessor. Addresses are chain-aware because several addresses
+#: are deployed on more than one chain.
+#:
+#: Smart contract source: https://github.com/aave/aave-vault/blob/main/src/ATokenVault.sol
+AAVE_ATOKEN_VAULTS_BY_CHAIN: dict[int, frozenset[HexAddress]] = {
+    1: frozenset(
+        {
+            "0x010190578dffba6380f30b5c7c0b3b9aee7d9cc1",
+            "0x04da4b99ffc82f0e44ded14c3539a6fdad08e2fe",
+            "0x09a2a86a4570bda567a58c3fc2421678b0b49fc4",
+            "0x16f1894adb7498da9df9b18b99a1777ed72c6419",
+            "0x16fe34a39fd82eda94376b9ca55fe1ecf2802434",
+            "0x2ee1dcb6806daaf883146761d135432d8c1223a4",
+            "0x36b22e03bc9f8d08109ca4bb36241e3bfb7077fa",
+            "0x3aa807b06a496d08a930c9e028248426a1238264",
+            "0x415e5ac92aa395427cc287f0510f3a7beaac9caf",
+            "0x4543bcaf294820ec9d5b973ce557a9a7ce022468",
+            "0x4763d306c0b073dd50fb0907a19cc1f597f04115",
+            "0x53485973afb5f11dfc304776fe762a5f944353c7",
+            "0x6a1800a2ba6a542b015690d5a98959e049d55704",
+            "0x7a69e552616ac38d212cea26467a8afb42d8facd",
+            "0x7c15e25ad5a219030a2f748fbd68eeea36191e29",
+            "0xa5ac3b049d91f46ad5b2eaf46154b6849ef8836b",
+            "0xad0702c6b51689c67b7dd5142da041661c1cd4d1",
+            "0xb1ea329f0b79d0b213957569594ca2a9de637215",
+            "0xb5d3002e79adb74d4a7a5e7bc7923a03fde320db",
+            "0xb829831fd41f3a9b89e16462756c2393651f1c6d",
+            "0xbc370b5b13233e5c7241a750f6a88316a8469d2b",
+            "0xc41a49cfadc574dce1c1255c4669bf00e2ae33f8",
+            "0xdbeb19dfccd30b94df7a122512ffc20aa9101aa3",
+            "0xe9d881f0d5312119b94cf60cb9cf361ee012c1d7",
+            "0xfaccbbe7b83c340db7a416f6155ad8ba9674107a",
+            "0xfbdc620f1410c13dcb1e53db20cdac367790e18b",
+            "0xfdeb3cf6f7ead01d9c6468dce89082021ecb1238",
+            "0xfe2870319b5db8443ed80b717f6a777991a3f625",
+        }
+    ),
+    10: frozenset(
+        {
+            "0x18f831d3d795ac8fc2138f79f9c476c64e0a440d",
+            "0x23be1786d4ca421219acc64f1ca8f7114480f379",
+            "0x50cff7e5c7d76a1e8a089625178614c0de63cbe8",
+            "0x6dcecf33b429feeca46d3a1795094a0b81f7986a",
+            "0xe478fadfc2b8f26fa1c4231069793d007a52d30e",
+        }
+    ),
+    56: frozenset(
+        {
+            "0x010190578dffba6380f30b5c7c0b3b9aee7d9cc1",
+            "0x04d77868f6dbf9d5cc910d149f0622893cb706ba",
+            "0x2c6984c29f0d04438f9c8c9e4b613098776d97b3",
+            "0x2ee1dcb6806daaf883146761d135432d8c1223a4",
+            "0x36b22e03bc9f8d08109ca4bb36241e3bfb7077fa",
+            "0x42fd8d4e5274cac0dacf6fcca80dc5c253a35d0b",
+            "0x43408ba0e12353344b5758c516183b19579589ad",
+            "0x4543bcaf294820ec9d5b973ce557a9a7ce022468",
+            "0x474d27825116fcf617c6ac4da476769fbcbfd62f",
+            "0x4763d306c0b073dd50fb0907a19cc1f597f04115",
+            "0x50cff7e5c7d76a1e8a089625178614c0de63cbe8",
+            "0x5defdde3c35222a1ae3c2ed388a8c0664f461aee",
+            "0x60eba6aba19389f79ee4d974b1a93c3c5c825ee7",
+            "0x7c15e25ad5a219030a2f748fbd68eeea36191e29",
+            "0x8e684882ce2085ba1d0905ea736c44f966ed3b78",
+            "0xad0702c6b51689c67b7dd5142da041661c1cd4d1",
+            "0xc41a49cfadc574dce1c1255c4669bf00e2ae33f8",
+            "0xdfd5f62748eb4f8e16296100e2a80f58b1196e69",
+            "0xebf2ad5e3bcf30228a4caa4485eeb41fa73d6d84",
+            "0xfdeb3cf6f7ead01d9c6468dce89082021ecb1238",
+            "0xfe2870319b5db8443ed80b717f6a777991a3f625",
+        }
+    ),
+    100: frozenset({"0x9f40ca84a70685d2c48003b9dec27b3d98ace348"}),
+    137: frozenset(
+        {
+            "0x04d77868f6dbf9d5cc910d149f0622893cb706ba",
+            "0x1f810098716f47507f6c4fee7a032c5461004db8",
+            "0x2ee1dcb6806daaf883146761d135432d8c1223a4",
+            "0x36b22e03bc9f8d08109ca4bb36241e3bfb7077fa",
+            "0x42fd8d4e5274cac0dacf6fcca80dc5c253a35d0b",
+            "0x548db1b10d62c25cf39f47b980989a0cbee08d66",
+            "0x88f6d430aed64062391d7343024e3fbf55604682",
+            "0x8e684882ce2085ba1d0905ea736c44f966ed3b78",
+            "0xad0702c6b51689c67b7dd5142da041661c1cd4d1",
+            "0xda848e1fa5a5b6fc22cc6563fde4e761ea97e171",
+            "0xdaf742cf0526d190598fea7adbd6c0fab6bf48e5",
+            "0xebf2ad5e3bcf30228a4caa4485eeb41fa73d6d84",
+        }
+    ),
+    8453: frozenset(
+        {
+            "0x05c9bfebe153540fdf2749d20d0903b942887215",
+            "0x09f2675ca6d422ee6bbbca0c156b0ead36dea364",
+            "0x0fa3c7bbc28aae2391effc853b33a77e24db65d8",
+            "0x18ed89d5adac015ec8faaa513f8f4f3abfdc4fb1",
+            "0x21cfee84158fde9ddb89f3404e2ec2148d3f0b91",
+            "0x2a9cff5e49612945813acc1e428e9dfd0a07040b",
+            "0x373f209b719f1e738c7fe4e80997a94ba7a25344",
+            "0x4cc1950a1861caca5af3e46deb541febc30da7a8",
+            "0x5a38d0a4f33d2b352169fe1803898cf0b9c50c1f",
+            "0x5c4a2e6cb536d271aee396409a870abfd42647c4",
+            "0x606eee2c9f86c9f2172b3a8fa6bb249f02a0a396",
+            "0x76924dff2160383d1ffeafe032f3c8a217413c11",
+            "0x9520c52b9a4cf0863c0bf61d88fa6e7f6f8d0cb8",
+            "0xac939fafcdc611cd813a08c47ed1a66fe7798a6e",
+            "0xade93c638474f1197ea37818ee72251b7a7dad18",
+            "0xb3dcf17ab965d3e3eb9976ed233af6461de2dfd6",
+            "0xb75b9fedea62517600711317149d59ba43f4cdfe",
+            "0xbe5e98d89a730520a9bdcaa7d33cf123742945b2",
+            "0xc535f4afca6871610d8b78b83f5537ea9f795c60",
+            "0xc797e22436e5d1e2d646bed8c427f5c76205986b",
+            "0xc90be3abb83c2370a31724fe036deda1d26d1b21",
+            "0xcccae05e8d9cfff2edc75ac4a49b29eb86567425",
+            "0xd120faa78b69a363570aa8c14299fb703020b0a0",
+            "0xd81745a0864733f4ff134be4c7dd94de0d6bf73a",
+            "0xe5c88c0f64a30b2788825909bf659e9e18c72179",
+            "0xf8e36333a43fabd6d6335354d2a88afa4953ad95",
+        }
+    ),
+    42161: frozenset(
+        {
+            "0x03ee88c9769f2c61a93f1cbaffe89549a9405df1",
+            "0x05c9bfebe153540fdf2749d20d0903b942887215",
+            "0x36b22e03bc9f8d08109ca4bb36241e3bfb7077fa",
+            "0x3e7aaeec48fc9197ccf207f1852918c40925a0ff",
+            "0x4543bcaf294820ec9d5b973ce557a9a7ce022468",
+            "0x50cff7e5c7d76a1e8a089625178614c0de63cbe8",
+            "0x68f30a3f6b95c0e7c526d7c480590d86952c7fd9",
+            "0x750763ea6f9135d1035951c7c6f7b46364a2f5c1",
+            "0x8e8ee3b6d44d546618a4f780e8ab4d1b6e09856b",
+            "0xae30d1534a6056425927f22e2314eaf10dbb645f",
+            "0xbf528c77200d82c7536cd7161ff9def6d2e33e09",
+            "0xc64f11e3b6b8ced8fa6930c87b84640352d9a757",
+            "0xcd9d2a2c74e49cfafb024006be614b04c82d5273",
+            "0xfe2870319b5db8443ed80b717f6a777991a3f625",
+            "0xffa8a407f067f44fb06de7fae075c8857346a94e",
+        }
+    ),
+    43114: frozenset(
+        {
+            "0x09a858562f28d5a443e3e13f8a8cf70d7a1d16ed",
+            "0x0f9769fc8fedded4ce61457543bcb8ded621dcf3",
+            "0x2e0d7d85d0a68ed1d7dd17d44419a17b76c5f166",
+            "0x3c9a197cd40873cddede4e30fc1c88fd7817aa18",
+            "0x637ad57ad1a2028f61b72277cdf5d851419f3df9",
+            "0x7433478146a2055ae0c3d426cd2a89f2f0e1dce3",
+            "0x74f6730babb9d2e43f091f0ee3c1d5a071bd7dff",
+            "0x8be669c95cf6c814743b3b6b8941ab3a3b66d2c3",
+            "0x91d83ca9b146cbf2f556d52393b5394c2f22ea34",
+            "0xee9655aee14a8615989fc19016cf217eb536a76e",
+            "0xf371fc948f7e6e2dd431b807d0a68185b696bf18",
+        }
+    ),
+}
+
 
 def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | None = None) -> set[ERC4626Feature] | None:
     """Return hardcoded protocol features for a vault address.
@@ -85,6 +240,11 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
     normalised_address = HexAddress(address.lower())
 
     if chain_id is not None:
+        aave_atoken_vaults = AAVE_ATOKEN_VAULTS_BY_CHAIN.get(chain_id, frozenset())
+        if normalised_address in aave_atoken_vaults:
+            return {ERC4626Feature.aave_like}
+        if any(normalised_address in vaults for vaults in AAVE_ATOKEN_VAULTS_BY_CHAIN.values()):
+            return None
         if (chain_id, normalised_address) in KILOEX_VAULTS_BY_CHAIN:
             return {ERC4626Feature.kiloex_like}
         if normalised_address in KILOEX_VAULT_ADDRESSES:
