@@ -1,299 +1,143 @@
 # Problem vaults
 
-This document records known Hyperliquid / Hypercore vault price-history
-problems investigated in July 2026. It is an operational reference for the
-native-vault scanners and the downstream wrangle step, not an assessment of a
-vault's investment quality.
+This document records known Hyperliquid/Hypercore price-history problems and
+the cleaned economic-performance approximation adopted in July 2026. It is an
+operational data-quality reference, not an assessment of investment quality.
 
-## Data model and failure mode
+## Why the share price is approximate
 
-Hyperliquid's `vaultDetails` endpoint exposes rolling `day`, `week`, `month`,
-and `allTime` account-value and cumulative-PnL series. The native scanner
-derives an ERC-4626-like share price from those series so that vault returns
-can be compared with other vault protocols.
+Hyperliquid's `vaultDetails` API does not expose historical share supply or an
+investable vault unit price. It exposes rolling account-value and cumulative
+PnL windows with different resolutions and retention periods. Daily and
+high-frequency reads can therefore combine observations fetched at different
+times and reconstruct the same vault on different arbitrary synthetic units.
 
-The account-value and PnL samples in different rolling windows are not always
-aligned. Combining a fresh account-value sample with a stale or differently
-resolved cumulative-PnL sample makes the inferred net flow wrong. The share
-price reconstruction then invents a share mint or burn, producing a temporary
-price spike which often reverses at the next refreshed observation. This is a
-data artefact, not a realised vault return.
+The vault ledger does not close this gap. It can explain many NAV changes, but
+historical events may be missing and the order of trading PnL and flows inside
+an observation interval is unknown. Position fills also cannot reconstruct
+complete historical mark-to-market equity and funding at every price time.
+Exact historical time-weighted investor returns are consequently impossible to
+recover from the available API data.
 
-The scanner and wrangle repairs in
-`eth_defi.research.wrangle_vault_prices.fix_hypercore_source_overlap_share_prices`
-and its surrounding continuity steps address these cases:
+Raw Parquet `share_price` remains useful scanner evidence, but it is not an
+authoritative performance series. The wrangle step preserves it as
+`raw_share_price` and publishes a conservative PnL/NAV index instead.
 
-- The daily and high-frequency exporters label every new row as `daily` or
-  `hf` through `hypercore_source`.
-- Before writing an overlapping scan, each exporter scales its reconstructed
-  curve to the last persisted positive price. Daily scans use the shared date;
-  HF scans use log-price interpolation when rolling-window timestamps shift.
-  This preserves `NAV = share_price × total_supply` and never rewrites older
-  stored rows.
-- The period merge only overlays NAV/PnL pairs after rebasing a child PnL
-  series at an exact shared `allTime` timestamp. A period without such a
-  timestamp is skipped rather than nearest-neighbour matching unrelated PnL.
-- Positive-price, positive-NAV HF observations are the preferred canonical
-  anchors. A daily point bracketed by them becomes a candidate if its symmetric
-  price deviation exceeds 50%.
-- For legacy daily-only vaults, the newest common `written_at` batch supplies
-  the canonical anchors.
-- Both paths repair a candidate only when NAV stays within 50% of the
-  interpolated anchor NAV, the anchors are at most eight days apart, and their
-  interval contains neither zero NAV nor an `epoch_reset`. These checks prevent
-  smoothing a genuine deposit, missing observation, wipe-out, or
-  recapitalisation boundary.
-- The input value is retained in `raw_share_price` for auditability. The repair
-  does not extrapolate outside anchor coverage and does not alter anchor rows.
-  `hypercore_repair_status` records `repaired_*` for applied changes and a
-  `deferred_*` reason when the evidence is insufficient and the raw value is
-  kept.
-- A separate recapitalisation filter discards the old cleaned-history epoch
-  after a durable zero-NAV event. Durability is measured from zero NAV to the
-  first later positive NAV; that recovery must take at least seven days. The
-  new epoch starts at the first subsequent observation of at least `$1,000`
-  and is marked `epoch_reset`. Its first retained synthetic price is normalised
-  to `1.0`; `raw_share_price` retains the scanner value. The raw parquet is
-  never discarded or rewritten.
-- A historical HF batch stitch compares consecutive `hf` rows whose
-  `written_at` changes. If their observed share-price change disagrees by more
-  than 50% with the PnL-supported return over a gap of at most two days, it
-  rescales the later batch and records `repaired_hf_batch_scale`. This is the
-  narrow repair path for HODL's post-recapitalisation unit changes.
+## Cleaned economic-performance index
 
-Legacy parquet rows predate explicit source provenance. They are classified as
-daily when their timestamp is midnight UTC and HF otherwise. This is valid for
-the historical Hypercore exports, but new data must always use the explicit
-column.
+For each vault and UTC date, wrangling selects one finite NAV/PnL checkpoint.
+It prefers the newest `written_at` batch, then the latest economic timestamp,
+with HF as the final tie-break. Other rows carry the previous clean price.
 
-## Crypto plaza relative momentum edge
+For consecutive checkpoints:
 
-- Address: `0xdc9955a83218b71713a83ee072055591bd4c7304`
-- Trading Strategy page:
-  [Crypto Plaza Relative Momentum Edge](https://tradingstrategy.ai/trading-view/vaults/crypto-plaza-relative-momentum-edge)
-- Affected period: February 2026
+```text
+pnl_change = account_pnl_now - account_pnl_previous
+capital_base = max(total_assets_previous, total_assets_now, 1.0)
+period_return = pnl_change / capital_base
+clean_price_now = clean_price_previous * (1 + period_return)
+```
 
-This was the original reported example. The large February share-price jump
-and reversal were caused by the rolling-window merge described above, not by
-the vault's positions or a real trading gain/loss. The raw values on 5 and 6
-February were respectively `3.538529` and `3.485236`; the HF-anchor repair
-estimates `1.079443` and `1.029948`.
+Positive period returns are capped at 100%. A return at or below -100% is
+accepted only when NAV is also zero and does not recover in the retained epoch.
+Otherwise the price is carried so that a possible cumulative-PnL baseline
+correction cannot permanently zero a funded vault.
 
-The repair changes ten historical rows for this vault. Its maximum absolute
-return in the late-January to mid-February inspection window falls to about
-16.5% after repair.
+The index starts at `1.0` for each retained capital epoch. This denominator is
+deliberately conservative when capital-flow timing is unknown: deposits and
+withdrawals cannot generate clean performance, and uncertain low NAV cannot
+create an unbounded return. It is still an approximation and must not be
+presented as Hyperliquid's exact share price.
 
-## Magixbox
+`hypercore_repair_status` records the evidence used:
 
-- Address: `0x1764dd740aba4195643bbb6a44648e0306b00cfa`
-- Trading Strategy page: [Magixbox](https://tradingstrategy.ai/trading-view/vaults/magixbox)
-- Affected period: 25 January to 5 February 2026
+- `approximated_pnl_nav`: ordinary daily economic checkpoint;
+- `approximated_pnl_nav_clipped`: positive checkpoint capped at 100%;
+- `approximated_pnl_nav_wipe_out`: terminal NAV-corroborated complete loss;
+- `approximated_pnl_nav_carried`: non-checkpoint daily/HF duplicate;
+- `deferred_pnl_nav`: checkpoint inputs were unavailable; and
+- `deferred_pnl_nav_outlier`: an uncorroborated absorbing loss was carried.
 
-Magixbox has six daily/HF price-discrepancy candidates. The conservative
-policy automatically repairs two. Four remain unchanged because their NAV is
-more than 50% away from the interpolated HF-anchor NAV; although their prices
-look suspicious, the stored observations do not prove that interpolation is
-economically safe.
+Clean Hypercore `total_supply` is recalculated as
+`total_assets / share_price`. It is a synthetic index-unit quantity, not an
+actual share count. `returns_1h` remains a compatibility name: Hypercore
+performance occurs at daily checkpoints, while carried rows have zero change.
+Price level, cumulative profit and drawdown use the clean curve. Cadence-sensitive
+statistics such as volatility and Sharpe must select checkpoint rows. Low NAV
+still sets `tvl_filtering_mask`, but does not rewrite the Hypercore return away
+from its price; suitability consumers use the mask to exclude such rows.
 
-| Date | Raw share price | Anchor estimate | Decision |
-| --- | ---: | ---: | --- |
-| 2026-01-25 | 0.443179 | 0.668308 | Repair |
-| 2026-01-30 | 1.278832 | 0.642874 | Defer: NAV |
-| 2026-01-31 | 1.774786 | 0.724207 | Defer: NAV |
-| 2026-02-01 | 4.605958 | 0.815830 | Defer: NAV |
-| 2026-02-03 | 12.898591 | 1.035319 | Repair |
-| 2026-02-05 | 26.035410 | 1.303902 | Defer: NAV |
+## Verified affected vaults
 
-The four deferred values retain `share_price == raw_share_price` and carry
-`deferred_hf_nav`; downstream consumers can therefore distinguish unresolved
-data from repaired data. The separate large October 2025 move is supported by
-roughly `$12,742.80` of realised PnL on 10 October and must not be removed as a
-data artefact.
+The following results come from a read-only run over the 15 July 2026
+production raw Parquet. Absolute clean index levels depend on the complete
+retained history; the one-period returns demonstrate the repaired economics.
 
-At the 13 July 2026 live API check, Magixbox had no open perpetual positions
-and a perp account value of about `$746.22`.
+| Vault | Address | Affected period or row | Previous/raw symptom | New clean result |
+| --- | --- | --- | ---: | ---: |
+| Crypto Plaza Relative Momentum Edge | `0xdc9955a83218b71713a83ee072055591bd4c7304` | 2–15 February 2026 | Daily prices `3.54`/`3.49` mixed with HF near `1` | Largest inspected move about `+15.8%`; no multi-unit jump/reversal |
+| HODL My Perps | `0x13b43faa22d854bf43b4e7581c1b3dfcd416f8c3` | post-recapitalisation May 2026 | 21 May raw unit jump about `54.7x` | `+2.44%` from PnL/NAV |
+| Magixbox | `0x1764dd740aba4195643bbb6a44648e0306b00cfa` | 30 January–7 February 2026 | Raw prices `1.28`, `1.77`, `4.61`, `12.90`, `26.04` | `+4.45%`, `+27.94%`, `-1.20%`, `+7.49%`, `-7.25%`, `+2.43%` at successive checkpoints |
+| Magixbox | same | 15 October 2025 | `+528.3%` synthetic price move | `+84.08%` conservative economic return |
+| C.A.T | `0xdfb729b4b789de6d13d6ad7ac8e2750909360af9` | 21 January–12 February 2026 | Price rose from about `1.9` to `36` while NAV stayed near `$5,000` | PnL/NAV index stays around `1.16`–`1.23` over the peak raw-price dates |
+| Scared Money | `0x5290ab34acb59cfe1371baa5782eba14433d308f` | 13 August 2025 | `+204.5%` after a stale deferred row | `+44.59%` over the observed PnL interval |
+| Order Block Hunter | `0x0a8499b5e925d95badc893ec7f0b1613e08f6d7c` | 2 February 2026 | Partial repair created `+275.4%` | `-4.87%`, matching PnL direction |
+| HyperBotPro | `0x12e358f38741c07c1e04a8102a3170d40a600f05` | 18 March 2026 | `+285.0%` synthetic move around a withdrawal | `+12.72%` from PnL/NAV |
+| Titan Vault | `0x4b0eab9444a75a03f1ef340c8beac737afa5ab09` | 7 April 2026 | `+82.9%` and `deferred_hf_nav` | `+27.94%` from the freshest daily checkpoint |
 
-## C.A.T
+These replacements do not assert that every retained PnL observation is exact.
+They remove the known mechanism by which share units and flows became
+performance and expose clipping or deferral explicitly for later inspection.
 
-- Address: `0xdfb729b4b789de6d13d6ad7ac8e2750909360af9`
-- Trading Strategy page: [C.A.T](https://tradingstrategy.ai/trading-view/vaults/c-a-t)
-- Affected period: 22 January to 6 February 2026
+## HODL My Perps and recapitalisation
 
-C.A.T has no HF history for the affected period, so this case motivated the
-refreshed-daily-anchor fallback. The canonical weekly observations were about
-`1.019542` on 28 January, `1.893065` on 4 February, and `1.961532` on 11
-February. In contrast, stale daily values rose to `19.672888` on 3 February
-and to `36.320766` on 6 February before reversing near `1.90`.
+HODL is also a real lifecycle boundary. NAV reached zero on 15 October 2025
+with cumulative PnL around `-$326,631` and stayed zero until new capital arrived
+in April 2026. One continuous share price cannot represent both the old
+investors' -100% result and the new investors' performance.
 
-This cannot be an economic return: NAV remained around `$5,000`, and the
-locally synchronised vault ledger records no deposits from 29 January through
-10 February. The repair changes fourteen rows. It reduces the maximum
-one-step return from about 1,814% to 58.1%; for example, the raw values
-`36.239740` and `36.320766` on 5 and 6 February become `1.902698` and
-`1.912379`.
+The cleaned recapitalisation rule requires:
 
-At the 13 July 2026 live API check, C.A.T had no open perpetual positions and
-a perp account value of about `$2,277.49`.
+1. a previous NAV of at least `$1,000`;
+2. zero NAV with no positive recovery for at least seven days; and
+3. a later NAV of at least `$1,000` before tracking restarts.
 
-## Similar price-history candidates
+The old rows remain untouched in raw Parquet. Cleaned history starts the new
+capital epoch at `1.0`, so destroyed old supply is not chain-linked to new
+capital. Raw scanner `epoch_reset` flags are cleared first because they also
+mark arbitrary reconstruction resets in funded vaults.
 
-The repair now records its candidate classification directly in
-`hypercore_repair_status`. A value beginning with `repaired_` means the cleaned
-price differs from `raw_share_price`; `deferred_` means the row exceeded the
-price-discrepancy threshold but failed one or more safety rules and remains
-unchanged. A large price discrepancy is a reason to inspect a row, not by
-itself proof that the raw value is wrong.
+The 15 July production snapshot has four duration/NAV-qualified
+recapitalisations:
 
-The read-only production snapshot contained two non-overlapping populations:
+| Vault | Address | New retained epoch | Rows discarded from clean output |
+| --- | --- | --- | ---: |
+| Rehobot LR | `0x81a20870c5c7558f117166b2a598abaa8ce91f50` | 22 April 2026 | 44 |
+| HODL My Perps | `0x13b43faa22d854bf43b4e7581c1b3dfcd416f8c3` | 20 April 2026 | 161 |
+| Sifu | `0xf967239debef10dbc78e9bbbb2d8a16b72a614eb` | 15 May 2024 | 25 |
+| HLP Liquidator | `0x2e3d94f0562703b25c83308a05046ddaf9a8dd14` | 19 November 2025 | 139 |
 
-| Pattern | Anchor method | Vaults | Candidates | Repaired | Deferred |
-| --- | --- | ---: | ---: | ---: | ---: |
-| Magixbox-style | HF observations | 143 | 759 | 612 | 147 |
-| C.A.T-style | Refreshed daily observations | 38 | 292 | 135 | 157 |
-| Total |  | 181 | 1,051 | 747 | 304 |
+The naive rule "any zero followed by positive NAV" finds hundreds of transient
+scanner zeroes. The duration and capital thresholds are therefore required.
 
-Of the 181 affected vaults, all candidates are automatically repaired for 97;
-84 have at least one deferred row. The latter group requires better source
-data or manual investigation rather than more aggressive interpolation.
+## Production census and validation
 
-The safeguards defer 260 rows for NAV inconsistency, 60 for an anchor gap over
-eight days, and 34 for crossing zero NAV or `epoch_reset`; these counts overlap.
-For example, all 28 deferred rows for BBQ & Tegelwerken BV span fourteen-day
-anchor gaps. Lifecycle-boundary deferrals include 21M, SMM Foundation, and
-Vela Trading. These are real limitations in the evidence available to the
-repair, not proof of genuine investment returns.
+The raw production snapshot contains 874,878 Hypercore rows across 569 vaults.
+After removing 369 superseded recapitalisation rows, the economic-index run
+produces:
 
-### Magixbox-style examples
+- 85,891 daily PnL/NAV checkpoints;
+- 788,618 carried daily/HF duplicate rows;
+- 57 uncorroborated absorbing losses carried for review;
+- 9 positive returns capped at 100%; and
+- 2 terminal NAV-corroborated wipe-outs.
 
-These are the largest per-vault symmetric discrepancies in the HF-anchor
-population. A ratio of 20 means that one of the two prices was twenty times
-the other.
+All resulting one-step clean returns are between -100% and +100%. There are no
+`deferred_hf_*` raw prices in the published clean curve because the index is
+applied to every Hypercore vault rather than only suspicious candidates.
 
-| Vault | Address | Candidates | Repaired | Deferred | Largest ratio |
-| --- | --- | ---: | ---: | ---: | ---: |
-| Tao Hedge | `0x3d848183c406deae93c2641c045a541cf1d4a6cb` | 8 | 5 | 3 | 587.6x |
-| HLP Liquidator 3 | `0x5e177e5e39c0f4e421f5865a6d8beed8d921cb70` | 2 | 0 | 2 | 164.6x |
-| Hyperland | `0x8e108f7c619ab460885edd0f84e313daf119c779` | 12 | 11 | 1 | 94.8x |
-| Long LINK Short XRP | `0x73ce82fb75868af2a687e9889fcf058dd1cf8ce9` | 12 | 10 | 2 | 49.2x |
-| Magixbox | `0x1764dd740aba4195643bbb6a44648e0306b00cfa` | 6 | 2 | 4 | 20.0x |
-| TAPTRADE | `0x5f42236dfb81cba77bf34698b2242826659d1275` | 45 | 26 | 19 | 19.3x |
-
-### C.A.T-style examples
-
-These vaults lack sufficient HF history for the affected interval. Their
-latest daily refresh batch supplies anchors, but each candidate still has to
-pass all three safety checks.
-
-| Vault | Address | Candidates | Repaired | Deferred | Largest ratio |
-| --- | --- | ---: | ---: | ---: | ---: |
-| Automated AI trading vault | `0x87fdbcf7c8fc949e2ddb4f1a50337ee75dc8233a` | 10 | 6 | 4 | 35.5x |
-| PUMP TRADE | `0xafc7b17e3d7b564fcbd1b5220455f16a66857ef0` | 29 | 23 | 6 | 22.8x |
-| C.A.T | `0xdfb729b4b789de6d13d6ad7ac8e2750909360af9` | 14 | 14 | 0 | 19.0x |
-| TA trader | `0x6fe9749eab7f66f002d7541d6c1e3bb3df19c701` | 22 | 17 | 5 | 10.2x |
-| MC Recovery Fund | `0x914434e8a235cb608a94a5f70ab8c40927152a24` | 8 | 8 | 0 | 6.3x |
-| $100K Target | `0xe528531fc82ab104397fe06c550f0bb00720e0ab` | 14 | 6 | 8 | 4.9x |
-
-For any future scan, obtain the complete inventory by filtering cleaned
-Hypercore rows for non-empty `hypercore_repair_status`, then grouping by
-`address` and status. Filtering for `share_price != raw_share_price` returns
-only the applied subset and would omit deliberately deferred candidates.
-
-## HODL my perps
-
-- Address: `0x13b43faa22d854bf43b4e7581c1b3dfcd416f8c3`
-- Trading Strategy page:
-  [HODL My Perps](https://tradingstrategy.ai/trading-view/vaults/hodl-my-perps)
-- Lifecycle boundary: 15 October 2025 to 17 April 2026
-
-HODL My Perps is not a daily/HF overlap problem. Its all-time API history
-shows a real wipe-out on 15 October 2025: NAV became zero and cumulative PnL
-was `-$326,631.13`. NAV remained zero until recapitalisation began on 17 April
-2026.
-
-The post-recapitalisation synthetic share price is not economically continuous
-with the pre-wipe-out shares. It begins near `6.55e-7` for a roughly `$100`
-deposit and later contains non-economic HF jumps, including a roughly 54.7x
-move on 21 May while NAV was near `$31,700`. These values arise because the
-available rolling PnL history begins after a large historical loss, so the
-scanner cannot know the original share base.
-
-Do **not** repair HODL by interpolation: that would hide the real complete
-loss. The wrangle pipeline applies a separate recapitalisation policy:
-
-1. Detect a prior NAV of at least `$1,000`, zero NAV, and no later positive NAV
-   for at least seven days.
-2. After that durable recovery, wait until NAV again reaches `$1,000`, discard
-   all preceding rows from the **cleaned** data, and mark the first retained
-   row `epoch_reset`.
-3. Preserve the raw parquet for audit and historical analysis.
-
-This scopes the cleaned chart and metrics to the current capital epoch and
-normalises its first retained price to `1.0`. The subsequent HF-batch stitch
-repairs short-gap arbitrary-unit jumps only when the cumulative-PnL change
-contradicts the observed price return; genuine PnL-supported moves remain.
-The preceding -100% outcome remains available in raw data, but it is not
-chain-linked into a fictitious return on recapitalised capital.
-
-At the 13 July 2026 live API check, the vault held a long position of `830.3`
-HYPE, entered at `64.8714`, with unrealised PnL of about `-$945.21` and a
-liquidation price of `61.4724294668`.
-
-## Durable zero-NAV and recapitalisation episodes
-
-The raw Hypercore history contains many isolated zero-NAV observations caused
-by scanner or rolling-window artefacts. They must not automatically become
-performance epochs. The exploratory census used NAV above `$10`, followed by
-NAV at or below `$0.000001`, then later NAV above `$10`, with at least one day
-before recovery. The implemented automatic rule is deliberately stricter: the
-old and new tracked epochs must reach `$1,000`, and the zero period must last
-at least seven days before *any* positive NAV reappears.
-
-There are four such episodes across 569 tracked Hypercore vaults. All four
-also satisfy a seven-day recovery-delay threshold; HODL My Perps and Rehobot
-LR exceed thirty days.
-
-| Vault | Address | Zero interval | New tracked epoch | Rows discarded |
-| --- | --- | --- | --- | ---: |
-| Rehobot LR | `0x81a20870c5c7558f117166b2a598abaa8ce91f50` | 15 Oct 2025 – 15 Apr 2026 | 22 Apr 2026, about `$1,012` | 44 |
-| HODL My Perps | `0x13b43faa22d854bf43b4e7581c1b3dfcd416f8c3` | 15 Oct 2025 – 17 Apr 2026 | 20 Apr 2026, about `$7,859` | 161 |
-| Sifu | `0xf967239debef10dbc78e9bbbb2d8a16b72a614eb` | 17 Apr 2024 – 1 May 2024 | 15 May 2024, about `$987,001` | 25 |
-| HLP Liquidator | `0x2e3d94f0562703b25c83308a05046ddaf9a8dd14` | 12 Nov 2025 | 19 Nov 2025, about `$1.00M` | 139 |
-
-HODL first regained positive NAV on 17 April with about `$100`; it crossed the
-tracking threshold on 20 April. Measuring the seven-day delay to 20 April
-would be wrong: for example, `$2,000 -> $0 -> $900 next day -> $1,000 after
-seven days` is a prompt recovery, not a seven-day wipe-out. The code therefore
-tests durability at the first positive value and applies the `$1,000` threshold
-only when choosing where the new chart epoch starts.
-
-The naive rule "any zero followed by a positive value" finds 325 episodes
-across 322 vaults. Of those, 319 vaults recover within roughly one hour and
-are excluded as transient data artefacts. The duration/recovery threshold is
-therefore mandatory for the automated `epoch_reset` policy.
-
-## Validation and operational status
-
-The source-aware repair was run read-only against the production raw parquet
-snapshot containing 848,333 Hypercore rows:
-
-| Repair path | Candidates | Repaired | Deferred | Candidate vaults |
-| --- | ---: | ---: | ---: | ---: |
-| Daily rows compared with HF anchors | 759 | 612 | 147 | 143 |
-| Stale daily rows compared with refreshed daily anchors | 292 | 135 | 157 | 38 |
-| Total | 1,051 | 747 | 304 | 181 |
-
-No production parquet was modified during this validation. Focused tests cover
-HF-source provenance, legacy provenance inference, daily-only repair,
-unbracketed rows, NAV/gap/lifecycle deferrals, recapitalisation epoch filtering,
-and the distinction between first positive NAV and the later `$1,000` tracking
-threshold. A read-only production run removes 369 pre-recapitalisation rows
-across HODL My Perps, Rehobot LR, Sifu, and HLP Liquidator.
-
-The 14 July 2026 production HODL subset was also run through the new paths
-without writing parquet. It discards 161 pre-epoch rows, starts the retained
-epoch at `1.0`, and stitches three May HF batch boundaries. Its largest
-remaining one-step return is 7.68%, rather than the earlier non-economic 54.7x
-unit jump.
-
-See also `scripts/hyperliquid/README-hyperliquid-vaults.md`, in particular
-the *Healing share price data* section, for the scanner-level healing process.
+Historical repair requires no DuckDB or raw-Parquet rewrite. Regenerating
+`cleaned-vault-prices-1h.parquet` from the unchanged raw Parquet applies the
+same deterministic rule to old and future observations. The manual ledger-flow
+backfill remains useful for raw accounting diagnosis but is no longer required
+to obtain a cleaned share price.

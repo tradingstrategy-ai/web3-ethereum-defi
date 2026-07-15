@@ -2,6 +2,12 @@
 
 **Date:** 2026-07-14
 
+> **Superseded for cleaned-price construction:** the scanner continuity work
+> remains useful for raw-data quality, but cleaned Hypercore performance now
+> follows the PnL/NAV economic-index plan in
+> `2026-07-15-hypercore-economic-performance-index.md`. HF anchors and
+> flow-reconciled synthetic units are not authoritative cleaned prices.
+
 ## Goal
 
 Produce a stable, actionable Hypercore share price with the smallest practical

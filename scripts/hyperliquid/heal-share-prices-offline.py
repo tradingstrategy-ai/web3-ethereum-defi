@@ -1,4 +1,4 @@
-"""Heal Hyperliquid vault share prices offline from stored DuckDB data.
+"""Heal synthetic Hyperliquid scanner share prices from stored DuckDB data.
 
 Problem
 -------
@@ -23,6 +23,10 @@ already stored in DuckDB. The stored ``tvl`` (total_assets), ``daily_pnl``
 (pnl_update), and ``cumulative_pnl`` columns contain enough information
 to reconstruct ``netflow_update`` and rerun ``_calculate_share_price()``
 with the fixed chain-linked logic.
+
+This improves raw scanner continuity only. Hyperliquid does not expose an exact
+historical investor share price, and the downstream wrangle constructs its
+cleaned PnL/NAV economic index independently.
 
 Usage
 -----

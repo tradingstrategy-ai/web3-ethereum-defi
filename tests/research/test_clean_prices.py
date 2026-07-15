@@ -14,14 +14,13 @@ import zstandard as zstd
 
 import eth_defi.research.wrangle_vault_prices as vault_price_wrangle
 from eth_defi.research.wrangle_vault_prices import (
+    approximate_hypercore_share_prices_from_pnl_nav,
+    clean_by_tvl,
     clean_returns,
     discard_hypercore_pre_recapitalisation_history,
-    fix_hypercore_flow_reconciled_share_price_paths,
-    fix_hypercore_source_overlap_share_prices,
     fix_outlier_share_prices,
     generate_cleaned_vault_datasets,
     replace_cleaned_vault_histories,
-    stitch_hypercore_high_freq_share_price_batches,
 )
 from eth_defi.vault.base import VaultHistoricalRead
 from eth_defi.vault.settlement_data import VaultSettlement, VaultSettlementDatabase
@@ -251,355 +250,198 @@ def test_remove_inactive_lead_time():
     assert len(vault2_rows) == 1  # row at index 3 (200)
 
 
-def test_fix_hypercore_source_overlap_share_prices() -> None:
-    """Daily Hypercore excursions are repaired from overlapping HF anchors.
+def test_approximate_hypercore_share_prices_from_pnl_nav() -> None:
+    """PnL changes drive the clean index while capital flows leave it flat."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 4,
+            "id": ["9999-0xeconomic"] * 4,
+            "share_price": [1.0, 50.0, 0.01, 500.0],
+            "total_assets": [100.0, 110.0, 200.0, 220.0],
+            "total_supply": [100.0, 2.2, 20_000.0, 0.44],
+            "account_pnl": [0.0, 10.0, 10.0, 30.0],
+            "hypercore_source": ["daily"] * 4,
+            "written_at": pd.to_datetime(["2026-01-05"] * 4),
+        },
+        index=pd.to_datetime(["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"]),
+    )
 
-    The daily source contains one synthetic price spike between two stable HF
-    observations. The wrangle repair must replace only that spike, preserve a
-    plausible daily observation, and leave non-Hypercore data untouched.
-    """
-    hypercore_id = "9999-0xhypercore"
-    evm_id = "1-0xevm"
-    timestamps = pd.to_datetime(
+    messages: list[str] = []
+    result = approximate_hypercore_share_prices_from_pnl_nav(prices_df, logger=messages.append)
+
+    expected_prices = [1.0, 1.0 * (1 + 10.0 / 110.0), 1.0 * (1 + 10.0 / 110.0), 1.0 * (1 + 10.0 / 110.0) * (1 + 20.0 / 220.0)]
+    assert result["share_price"].tolist() == pytest.approx(expected_prices)
+    assert result["raw_share_price"].tolist() == prices_df["share_price"].tolist()
+    assert (result["share_price"] * result["total_supply"]).tolist() == pytest.approx(result["total_assets"].tolist())
+    assert result["hypercore_repair_status"].tolist() == ["approximated_pnl_nav"] * 4
+    assert messages == ["Approximated Hypercore economic share prices for 1 vaults using 4 daily PnL/NAV checkpoints; carried 0 duplicate rows, deferred 0 missing-input rows and 0 uncorroborated losses, capped 0 gains and recorded 0 terminal wipe-outs"]
+
+
+def test_approximate_hypercore_uses_freshest_daily_checkpoint() -> None:
+    """A fresher daily row wins over a stale HF row on the same UTC date."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 3,
+            "id": ["9999-0xfresh"] * 3,
+            "share_price": [1.0, 20.0, 30.0],
+            "total_assets": [100.0, 110.0, 200.0],
+            "total_supply": [100.0, 5.5, 200.0 / 30.0],
+            "account_pnl": [0.0, 10.0, 100.0],
+            "hypercore_source": ["daily", "daily", "hf"],
+            "written_at": pd.to_datetime(["2026-01-01", "2026-01-04", "2026-01-03"]),
+        },
+        index=pd.to_datetime(["2026-01-01", "2026-01-02", "2026-01-02 12:00"], format="mixed"),
+    )
+
+    result = approximate_hypercore_share_prices_from_pnl_nav(prices_df, logger=lambda _message: None)
+
+    expected_price = 1 + 10.0 / 110.0
+    assert result["share_price"].tolist() == pytest.approx([1.0, expected_price, expected_price])
+    assert result["hypercore_repair_status"].tolist() == ["approximated_pnl_nav", "approximated_pnl_nav", "approximated_pnl_nav_carried"]
+
+
+def test_approximate_hypercore_defers_missing_and_absorbing_losses() -> None:
+    """Missing inputs and an uncorroborated loss carry a funded vault's price."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 4,
+            "id": ["9999-0xdeferred"] * 4,
+            "share_price": [1.0, 2.0, 3.0, 4.0],
+            "total_assets": [100.0, np.nan, 50.0, 60.0],
+            "total_supply": [100.0, 100.0, 100.0, 100.0],
+            "account_pnl": [0.0, np.nan, -150.0, -150.0],
+        },
+        index=pd.to_datetime(["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"]),
+    )
+
+    result = approximate_hypercore_share_prices_from_pnl_nav(prices_df, logger=lambda _message: None)
+
+    assert result["share_price"].tolist() == [1.0] * 4
+    assert result["hypercore_repair_status"].tolist() == ["approximated_pnl_nav", "deferred_pnl_nav", "deferred_pnl_nav_outlier", "approximated_pnl_nav"]
+
+
+def test_approximate_hypercore_caps_gain_and_records_terminal_wipe_out() -> None:
+    """Extreme gains are bounded and a terminal zero NAV can end the index."""
+    prices_df = pd.concat(
         [
-            "2026-02-01 12:00:00",
-            "2026-02-02 00:00:00",
-            "2026-02-03 00:00:00",
-            "2026-02-04 12:00:00",
-            "2026-02-02 00:00:00",
+            pd.DataFrame(
+                {
+                    "chain": [9999, 9999],
+                    "id": ["9999-0xgain"] * 2,
+                    "share_price": [1.0, 50.0],
+                    "total_assets": [100.0, 200.0],
+                    "total_supply": [100.0, 4.0],
+                    "account_pnl": [0.0, 500.0],
+                },
+                index=pd.to_datetime(["2026-01-01", "2026-01-02"]),
+            ),
+            pd.DataFrame(
+                {
+                    "chain": [9999, 9999],
+                    "id": ["9999-0xwipe"] * 2,
+                    "share_price": [1.0, 1.0],
+                    "total_assets": [100.0, 0.0],
+                    "total_supply": [100.0, 100.0],
+                    "account_pnl": [0.0, -100.0],
+                },
+                index=pd.to_datetime(["2026-01-01", "2026-01-02"]),
+            ),
+        ]
+    ).sort_values(["id"], kind="stable")
+
+    result = approximate_hypercore_share_prices_from_pnl_nav(prices_df, logger=lambda _message: None)
+    gain = result[result["id"] == "9999-0xgain"]
+    wipe = result[result["id"] == "9999-0xwipe"]
+
+    assert gain["share_price"].tolist() == [1.0, 2.0]
+    assert gain["hypercore_repair_status"].tolist() == ["approximated_pnl_nav", "approximated_pnl_nav_clipped"]
+    assert wipe["share_price"].tolist() == [1.0, 0.0]
+    assert wipe["total_supply"].tolist() == [100.0, 0.0]
+    assert wipe["hypercore_repair_status"].tolist() == ["approximated_pnl_nav", "approximated_pnl_nav_wipe_out"]
+
+
+def test_approximate_hypercore_prevents_partial_repair_spike() -> None:
+    """One repaired and one raw synthetic unit cannot create a clean return."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999, 9999, 9999],
+            "id": ["9999-0xorder-block-hunter"] * 3,
+            "share_price": [1.0, 0.860920, 3.231962],
+            "total_assets": [100.0, 105.0, 100.0],
+            "total_supply": [100.0, 105.0 / 0.860920, 100.0 / 3.231962],
+            "account_pnl": [0.0, 5.0, 0.0],
+            "hypercore_repair_status": ["", "repaired_hf", "deferred_hf_nav"],
+        },
+        index=pd.to_datetime(["2026-01-31", "2026-02-01", "2026-02-02"]),
+    )
+
+    result = approximate_hypercore_share_prices_from_pnl_nav(prices_df, logger=lambda _message: None)
+
+    assert result["share_price"].tolist() == pytest.approx([1.0, 1 + 5.0 / 105.0, (1 + 5.0 / 105.0) * (1 - 5.0 / 105.0)])
+    assert result["share_price"].pct_change().iloc[-1] == pytest.approx(-5.0 / 105.0)
+    assert result["raw_share_price"].tolist() == prices_df["share_price"].tolist()
+
+
+def test_approximate_hypercore_is_idempotent_and_append_stable() -> None:
+    """An identical rerun and a future append preserve earlier checkpoints."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999, 9999],
+            "id": ["9999-0xstable"] * 2,
+            "share_price": [10.0, 20.0],
+            "total_assets": [100.0, 110.0],
+            "total_supply": [10.0, 5.5],
+            "account_pnl": [0.0, 10.0],
+        },
+        index=pd.to_datetime(["2026-01-01", "2026-01-02"]),
+    )
+
+    first = approximate_hypercore_share_prices_from_pnl_nav(prices_df, logger=lambda _message: None)
+    second = approximate_hypercore_share_prices_from_pnl_nav(first, logger=lambda _message: None)
+    appended_input = pd.concat(
+        [
+            prices_df,
+            pd.DataFrame(
+                {
+                    "chain": [9999],
+                    "id": ["9999-0xstable"],
+                    "share_price": [30.0],
+                    "total_assets": [120.0],
+                    "total_supply": [4.0],
+                    "account_pnl": [20.0],
+                },
+                index=pd.to_datetime(["2026-01-03"]),
+            ),
         ]
     )
+    appended = approximate_hypercore_share_prices_from_pnl_nav(appended_input, logger=lambda _message: None)
+
+    pd.testing.assert_series_equal(first["share_price"], second["share_price"])
+    assert first["raw_share_price"].tolist() == second["raw_share_price"].tolist()
+    assert appended["share_price"].iloc[:2].tolist() == first["share_price"].tolist()
+
+
+def test_approximate_hypercore_leaves_other_protocols_unchanged() -> None:
+    """The Hypercore approximation does not alter another protocol's rows."""
     prices_df = pd.DataFrame(
         {
-            "chain": [9999, 9999, 9999, 9999, 1],
-            "id": [hypercore_id, hypercore_id, hypercore_id, hypercore_id, evm_id],
-            "share_price": [1.0, 3.5, 1.1, 1.2, 4.0],
-            "total_assets": [100.0, 105.0, 110.0, 120.0, 400.0],
-            "hypercore_source": ["hf", "daily", "daily", "hf", pd.NA],
+            "chain": [9999, 1],
+            "id": ["9999-0xhypercore", "1-0xevm"],
+            "share_price": [20.0, 5.0],
+            "total_assets": [100.0, 500.0],
+            "total_supply": [5.0, 100.0],
+            "account_pnl": [0.0, np.nan],
+            "hypercore_repair_status": ["old", "evm-status"],
         },
-        index=timestamps,
+        index=pd.to_datetime(["2026-01-01", "2026-01-01"]),
     )
 
-    messages: list[str] = []
-    result = fix_hypercore_source_overlap_share_prices(prices_df, logger=messages.append)
+    result = approximate_hypercore_share_prices_from_pnl_nav(prices_df, logger=lambda _message: None)
+    evm = result[result["chain"] == 1].iloc[0]
 
-    hypercore_rows = result[result["id"] == hypercore_id]
-    repaired = hypercore_rows.loc[pd.Timestamp("2026-02-02"), "share_price"]
-    expected = np.exp(np.interp(pd.Timestamp("2026-02-02").value, [pd.Timestamp("2026-02-01 12:00:00").value, pd.Timestamp("2026-02-04 12:00:00").value], np.log([1.0, 1.2])))
-
-    assert repaired == pytest.approx(expected)
-    assert hypercore_rows.loc[pd.Timestamp("2026-02-02"), "raw_share_price"] == pytest.approx(3.5)
-    assert hypercore_rows.loc[pd.Timestamp("2026-02-02"), "hypercore_repair_status"] == "repaired_hf"
-    assert hypercore_rows.loc[pd.Timestamp("2026-02-03"), "share_price"] == pytest.approx(1.1)
-    assert result[result["id"] == evm_id]["share_price"].iloc[0] == pytest.approx(4.0)
-    assert messages == ["Repaired 1 conflicting daily Hypercore share prices across 1 vaults using HF anchors"]
-
-
-def test_fix_hypercore_source_overlap_preserves_unbracketed_daily_rows() -> None:
-    """Daily observations outside HF coverage cannot be safely repaired."""
-    timestamps = pd.to_datetime(
-        [
-            "2026-01-01 00:00:00",
-            "2026-02-01 12:00:00",
-            "2026-02-04 12:00:00",
-            "2026-03-01 00:00:00",
-        ]
-    )
-    prices_df = pd.DataFrame(
-        {
-            "chain": [9999] * 4,
-            "id": ["9999-0xhypercore"] * 4,
-            "share_price": [10.0, 1.0, 1.2, 10.0],
-            "total_assets": [100.0, 100.0, 120.0, 120.0],
-            "hypercore_source": ["daily", "hf", "hf", "daily"],
-        },
-        index=timestamps,
-    )
-
-    result = fix_hypercore_source_overlap_share_prices(prices_df, logger=lambda _message: None)
-
-    assert result["share_price"].tolist() == prices_df["share_price"].tolist()
-
-
-def test_fix_hypercore_source_overlap_infers_legacy_sources() -> None:
-    """Legacy Parquet rows infer daily/HF provenance from timestamp precision."""
-    prices_df = pd.DataFrame(
-        {
-            "chain": [9999] * 3,
-            "id": ["9999-0xhypercore"] * 3,
-            "share_price": [1.0, 3.5, 1.2],
-            "total_assets": [100.0, 110.0, 120.0],
-        },
-        index=pd.to_datetime(
-            [
-                "2026-02-01 12:01:02.003",
-                "2026-02-02 00:00:00",
-                "2026-02-03 12:01:02.003",
-            ],
-            format="mixed",
-        ),
-    )
-
-    messages: list[str] = []
-    result = fix_hypercore_source_overlap_share_prices(prices_df, logger=messages.append)
-
-    assert result["hypercore_source"].tolist() == ["hf", "daily", "hf"]
-    assert result.loc[pd.Timestamp("2026-02-02"), "share_price"] < 1.2
-    assert result.loc[pd.Timestamp("2026-02-02"), "hypercore_repair_status"] == "repaired_hf"
-    assert messages[0] == "Inferred Hypercore source provenance for 3 legacy price rows"
-    assert messages[1] == "Repaired 1 conflicting daily Hypercore share prices across 1 vaults using HF anchors"
-
-
-def test_fix_hypercore_source_overlap_uses_refreshed_daily_anchors() -> None:
-    """Daily-only legacy vaults use the latest refresh batch as anchors.
-
-    Older rolling-window rows may remain between canonical observations from
-    the latest allTime refresh. The repair must interpolate only those stale
-    rows and preserve every row in the latest refresh batch.
-    """
-    latest_refresh = pd.Timestamp("2026-04-10 17:10:32")
-    prices_df = pd.DataFrame(
-        {
-            "chain": [9999] * 5,
-            "id": ["9999-0xdaily-only"] * 5,
-            "share_price": [1.0, 2.5, 1.1, 10.0, 1.2],
-            "total_assets": [100.0, 103.0, 105.0, 108.0, 110.0],
-            "hypercore_source": ["daily"] * 5,
-            "written_at": [latest_refresh, pd.NaT, latest_refresh, pd.Timestamp("2026-02-05"), latest_refresh],
-        },
-        index=pd.to_datetime(
-            [
-                "2026-01-21",
-                "2026-01-25",
-                "2026-01-28",
-                "2026-02-01",
-                "2026-02-04",
-            ]
-        ),
-    )
-
-    messages: list[str] = []
-    result = fix_hypercore_source_overlap_share_prices(prices_df, logger=messages.append)
-
-    assert result.loc[pd.Timestamp("2026-01-25"), "share_price"] < 1.1
-    assert result.loc[pd.Timestamp("2026-02-01"), "share_price"] < 1.2
-    assert result.loc[pd.Timestamp("2026-01-25"), "hypercore_repair_status"] == "repaired_daily"
-    assert result.loc[pd.Timestamp("2026-01-25"), "raw_share_price"] == pytest.approx(2.5)
-    assert result.loc[prices_df["written_at"] == latest_refresh, "share_price"].tolist() == [1.0, 1.1, 1.2]
-    assert messages == ["Repaired 2 stale daily Hypercore share prices across 1 vaults using refreshed daily anchors"]
-
-
-def test_fix_hypercore_source_overlap_preserves_daily_lifecycle_change() -> None:
-    """Daily fallback does not interpolate across a genuine NAV boundary."""
-    latest_refresh = pd.Timestamp("2026-04-10 17:10:32")
-    prices_df = pd.DataFrame(
-        {
-            "chain": [9999] * 3,
-            "id": ["9999-0xlifecycle"] * 3,
-            "share_price": [1.0, 10.0, 1.1],
-            "total_assets": [100.0, 1_000.0, 110.0],
-            "hypercore_source": ["daily"] * 3,
-            "written_at": [latest_refresh, pd.NaT, latest_refresh],
-        },
-        index=pd.to_datetime(["2026-01-21", "2026-01-25", "2026-01-28"]),
-    )
-
-    result = fix_hypercore_source_overlap_share_prices(prices_df, logger=lambda _message: None)
-
-    assert result.loc[pd.Timestamp("2026-01-25"), "share_price"] == pytest.approx(10.0)
-    assert result.loc[pd.Timestamp("2026-01-25"), "hypercore_repair_status"] == "deferred_daily_nav"
-
-
-def test_fix_hypercore_source_overlap_defers_unsafe_hf_repairs() -> None:
-    """HF candidates remain raw when NAV, gap, or boundary evidence is unsafe."""
-    vault_ids = ["9999-0xnav", "9999-0xgap", "9999-0xepoch", "9999-0xzero"]
-    frames = [
-        pd.DataFrame(
-            {
-                "chain": [9999] * 3,
-                "id": [vault_ids[0]] * 3,
-                "share_price": [1.0, 10.0, 1.1],
-                "total_assets": [100.0, 1_000.0, 110.0],
-                "hypercore_source": ["hf", "daily", "hf"],
-                "epoch_reset": [False] * 3,
-            },
-            index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-03 12:00"], format="mixed"),
-        ),
-        pd.DataFrame(
-            {
-                "chain": [9999] * 4,
-                "id": [vault_ids[3]] * 4,
-                "share_price": [1.0, 10.0, 1.05, 1.1],
-                "total_assets": [100.0, 105.0, 0.0, 110.0],
-                "hypercore_source": ["hf", "daily", "daily", "hf"],
-                "epoch_reset": [False] * 4,
-            },
-            index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-02 12:00", "2026-01-03 12:00"], format="mixed"),
-        ),
-        pd.DataFrame(
-            {
-                "chain": [9999] * 3,
-                "id": [vault_ids[1]] * 3,
-                "share_price": [1.0, 10.0, 1.1],
-                "total_assets": [100.0, 105.0, 110.0],
-                "hypercore_source": ["hf", "daily", "hf"],
-                "epoch_reset": [False] * 3,
-            },
-            index=pd.to_datetime(["2026-01-01 12:00", "2026-01-08", "2026-01-11 12:00"], format="mixed"),
-        ),
-        pd.DataFrame(
-            {
-                "chain": [9999] * 3,
-                "id": [vault_ids[2]] * 3,
-                "share_price": [1.0, 10.0, 1.1],
-                "total_assets": [100.0, 105.0, 110.0],
-                "hypercore_source": ["hf", "daily", "hf"],
-                "epoch_reset": [False, True, False],
-            },
-            index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-03 12:00"], format="mixed"),
-        ),
-    ]
-    prices_df = pd.concat(frames).sort_index(kind="stable")
-
-    result = fix_hypercore_source_overlap_share_prices(prices_df, logger=lambda _message: None)
-
-    for vault_id, expected_status in zip(vault_ids, ["deferred_hf_nav", "deferred_hf_gap", "deferred_hf_boundary", "deferred_hf_boundary"]):
-        candidate = result[(result["id"] == vault_id) & (result["hypercore_source"] == "daily")].iloc[0]
-        assert candidate["share_price"] == pytest.approx(10.0)
-        assert candidate["raw_share_price"] == pytest.approx(10.0)
-        assert candidate["hypercore_repair_status"] == expected_status
-
-
-def test_fix_hypercore_flow_reconciled_share_price_paths() -> None:
-    """Ledger-proven withdrawals repair a synthetic daily price unit.
-
-    The daily price of 20.0 conflicts with both HF anchors, but its $20
-    withdrawal and -$10 PnL exactly explain the NAV change. The following
-    positive-PnL row also reconciles, so the repair must continue through it,
-    preserve raw values, and rescale a non-zero derived supply.
-    """
-    prices_df = pd.DataFrame(
-        {
-            "chain": [9999] * 4,
-            "id": ["9999-0xflow-reconciled"] * 4,
-            "hypercore_source": ["hf", "daily", "daily", "hf"],
-            "share_price": [1.0, 20.0, 1.3, 1.0],
-            "total_assets": [100.0, 70.0, 80.0, 80.0],
-            "account_pnl": [0.0, -10.0, 0.0, 0.0],
-            "daily_deposit_usd": [np.nan, 0.0, 0.0, np.nan],
-            "daily_withdrawal_usd": [np.nan, 20.0, 0.0, np.nan],
-            "total_supply": [100.0, 5.0, 5.0, 100.0],
-        },
-        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-03", "2026-01-04 12:00"], format="mixed"),
-    )
-
-    messages: list[str] = []
-    result = fix_hypercore_flow_reconciled_share_price_paths(prices_df, logger=messages.append)
-
-    first_daily = pd.Timestamp("2026-01-02")
-    second_daily = pd.Timestamp("2026-01-03")
-    assert result.loc[first_daily, "raw_share_price"] == pytest.approx(20.0)
-    assert result.loc[first_daily, "share_price"] == pytest.approx(0.9)
-    assert result.loc[second_daily, "share_price"] == pytest.approx(0.9 * (1 + 10.0 / 70.0))
-    assert result.loc[first_daily, "hypercore_repair_status"] == "repaired_hf_pnl_flow"
-    assert result.loc[second_daily, "hypercore_repair_status"] == "repaired_hf_pnl_flow"
-    assert result.loc[second_daily, "share_price"] / result.loc[first_daily, "share_price"] - 1 > 0
-    assert result.loc[first_daily, "total_supply"] > 100.0
-    assert messages == ["Repaired 2 flow-reconciled Hypercore daily prices across 1 vaults using PnL paths"]
-
-
-def test_fix_hypercore_flow_reconciled_paths_require_hf_endpoint_agreement() -> None:
-    """A PnL path that misses its HF endpoint remains available for fallback."""
-    prices_df = pd.DataFrame(
-        {
-            "chain": [9999] * 3,
-            "id": ["9999-0xendpoint"] * 3,
-            "hypercore_source": ["hf", "daily", "hf"],
-            "share_price": [1.0, 20.0, 2.0],
-            "total_assets": [100.0, 70.0, 70.0],
-            "account_pnl": [0.0, -10.0, -10.0],
-            "daily_deposit_usd": [np.nan, 0.0, np.nan],
-            "daily_withdrawal_usd": [np.nan, 20.0, np.nan],
-        },
-        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-03 12:00"], format="mixed"),
-    )
-
-    result = fix_hypercore_flow_reconciled_share_price_paths(prices_df, logger=lambda _message: None)
-
-    assert result.loc[pd.Timestamp("2026-01-02"), "share_price"] == pytest.approx(20.0)
-    assert result.loc[pd.Timestamp("2026-01-02"), "hypercore_repair_status"] == ""
-
-
-def test_fix_hypercore_flow_reconciled_path_keeps_pnl_return_direction() -> None:
-    """A nearby lower HF endpoint cannot turn positive PnL into a loss."""
-    prices_df = pd.DataFrame(
-        {
-            "chain": [9999] * 4,
-            "id": ["9999-0xpositive-pnl"] * 4,
-            "hypercore_source": ["hf", "daily", "daily", "hf"],
-            "share_price": [1.0, 20.0, 20.0, 0.93],
-            "total_assets": [100.0, 101.0, 102.0, 102.0],
-            "account_pnl": [0.0, 1.0, 2.0, 2.0],
-            "daily_deposit_usd": [np.nan, 0.0, 0.0, np.nan],
-            "daily_withdrawal_usd": [np.nan, 0.0, 0.0, np.nan],
-        },
-        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-03", "2026-01-04 12:00"], format="mixed"),
-    )
-
-    result = fix_hypercore_flow_reconciled_share_price_paths(prices_df, logger=lambda _message: None)
-
-    first_price = result.loc[pd.Timestamp("2026-01-02"), "share_price"]
-    second_price = result.loc[pd.Timestamp("2026-01-03"), "share_price"]
-    assert first_price == pytest.approx(1.01)
-    assert second_price == pytest.approx(1.02)
-    assert second_price / first_price - 1 > 0
-
-
-def test_fix_hypercore_flow_reconciled_path_stops_at_unproven_step() -> None:
-    """A repaired PnL segment ends when its next ledger step is missing."""
-    prices_df = pd.DataFrame(
-        {
-            "chain": [9999] * 5,
-            "id": ["9999-0xpartial-flow"] * 5,
-            "hypercore_source": ["hf", "daily", "daily", "daily", "hf"],
-            "share_price": [1.0, 20.0, 1.3, 20.0, 1.1],
-            "total_assets": [100.0, 70.0, 80.0, 90.0, 90.0],
-            "account_pnl": [0.0, -10.0, 0.0, 10.0, 10.0],
-            "daily_deposit_usd": [np.nan, 0.0, np.nan, 0.0, np.nan],
-            "daily_withdrawal_usd": [np.nan, 20.0, np.nan, 0.0, np.nan],
-        },
-        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05 12:00"], format="mixed"),
-    )
-
-    result = fix_hypercore_flow_reconciled_share_price_paths(prices_df, logger=lambda _message: None)
-
-    assert result.loc[pd.Timestamp("2026-01-02"), "hypercore_repair_status"] == "repaired_hf_pnl_flow"
-    assert result.loc[pd.Timestamp("2026-01-03"), "hypercore_repair_status"] == ""
-    assert result.loc[pd.Timestamp("2026-01-04"), "share_price"] == pytest.approx(20.0)
-    assert result.loc[pd.Timestamp("2026-01-04"), "hypercore_repair_status"] == ""
-
-
-def test_fix_hypercore_flow_reconciled_path_rejects_large_nav_mismatch() -> None:
-    """A percentage-sized NAV mismatch is not accepted for a large vault."""
-    prices_df = pd.DataFrame(
-        {
-            "chain": [9999] * 3,
-            "id": ["9999-0xlarge-nav"] * 3,
-            "hypercore_source": ["hf", "daily", "hf"],
-            "share_price": [1.0, 20.0, 1.0],
-            "total_assets": [100_000_000.0, 100_900_000.0, 100_900_000.0],
-            "account_pnl": [0.0, 0.0, 0.0],
-            "daily_deposit_usd": [np.nan, 0.0, np.nan],
-            "daily_withdrawal_usd": [np.nan, 0.0, np.nan],
-        },
-        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-02", "2026-01-03 12:00"], format="mixed"),
-    )
-
-    result = fix_hypercore_flow_reconciled_share_price_paths(prices_df, logger=lambda _message: None)
-
-    daily = result.loc[pd.Timestamp("2026-01-02")]
-    assert daily["share_price"] == pytest.approx(20.0)
-    assert daily["hypercore_repair_status"] == ""
+    assert evm["share_price"] == pytest.approx(5.0)
+    assert evm["total_supply"] == pytest.approx(100.0)
+    assert evm["hypercore_repair_status"] == "evm-status"
 
 
 def test_discard_hypercore_pre_recapitalisation_history() -> None:
@@ -665,49 +507,23 @@ def test_discard_hypercore_history_measures_delay_to_first_positive_nav() -> Non
     assert result["epoch_reset"].tolist() == [False] * 4
 
 
-def test_stitch_hypercore_high_freq_share_price_batches() -> None:
-    """A scanner batch unit jump follows PnL, not a 50x investor return."""
+def test_discard_hypercore_history_rebuilds_scanner_epoch_markers() -> None:
+    """Synthetic scanner resets cannot split the cleaned economic index."""
     prices_df = pd.DataFrame(
         {
-            "chain": [9999] * 3,
-            "id": ["9999-0xstitch"] * 3,
-            "hypercore_source": ["hf"] * 3,
-            "written_at": pd.to_datetime(["2026-01-01", "2026-01-02", "2026-01-02"]),
-            "total_assets": [100.0, 101.0, 102.01],
-            # Exported Hypercore parquet calls this cumulative metric account_pnl.
-            "account_pnl": [0.0, 1.0, 2.01],
-            "share_price": [1.0, 50.0, 50.5],
-            "total_supply": [100.0, 2.02, 2.02],
+            "chain": [9999, 9999, 9999, 1],
+            "id": ["9999-0xfunded"] * 3 + ["1-0xevm"],
+            "total_assets": [1_000.0, 1_100.0, 1_200.0, 100.0],
+            "share_price": [1.0, 1.0, 1.0, 1.0],
+            "epoch_reset": [False, True, False, True],
         },
-        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-01 13:00", "2026-01-01 14:00"]),
+        index=pd.to_datetime(["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-01"]),
     )
 
-    result = stitch_hypercore_high_freq_share_price_batches(prices_df, logger=lambda _message: None)
+    result = discard_hypercore_pre_recapitalisation_history(prices_df, logger=lambda _message: None)
 
-    assert result["share_price"].tolist() == pytest.approx([1.0, 1.01, 1.0201])
-    assert result["total_supply"].tolist() == pytest.approx([100.0, 100.0, 100.0])
-    assert result["hypercore_repair_status"].tolist() == ["", "repaired_hf_batch_scale", ""]
-
-
-def test_stitch_hypercore_batch_keeps_pnl_supported_return() -> None:
-    """A genuine 50 percent PnL gain must not be mistaken for a unit jump."""
-    prices_df = pd.DataFrame(
-        {
-            "chain": [9999, 9999],
-            "id": ["9999-0xreal-gain"] * 2,
-            "hypercore_source": ["hf", "hf"],
-            "written_at": pd.to_datetime(["2026-01-01", "2026-01-02"]),
-            "total_assets": [100.0, 150.0],
-            "cumulative_pnl": [0.0, 50.0],
-            "share_price": [1.0, 1.5],
-        },
-        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-01 13:00"]),
-    )
-
-    result = stitch_hypercore_high_freq_share_price_batches(prices_df, logger=lambda _message: None)
-
-    assert result["share_price"].tolist() == [1.0, 1.5]
-    assert result["hypercore_repair_status"].tolist() == ["", ""]
+    assert result[result["chain"] == 9999]["epoch_reset"].tolist() == [False, False, False]
+    assert result[result["chain"] == 1]["epoch_reset"].tolist() == [True]
 
 
 def test_clean_returns_keeps_large_hypercore_return() -> None:
@@ -723,6 +539,23 @@ def test_clean_returns_keeps_large_hypercore_return() -> None:
     result = clean_returns({}, prices_df, logger=lambda _message: None)
 
     assert result["returns_1h"].tolist() == [1.0, 0.0]
+
+
+def test_clean_by_tvl_keeps_hypercore_price_return_consistent() -> None:
+    """Low NAV flags Hypercore suitability without rewriting its price return."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999, 1],
+            "id": ["9999-0xhypercore", "1-0xevm"],
+            "total_assets": [100.0, 100.0],
+            "returns_1h": [0.25, 0.25],
+        }
+    )
+
+    result = clean_by_tvl({}, prices_df, logger=lambda _message: None)
+
+    assert result["returns_1h"].tolist() == [0.25, 0.0]
+    assert result["tvl_filtering_mask"].tolist() == [True, True]
 
 
 def test_native_protocol_columns_survive_evm_scan_rewrite(tmp_path: Path):
