@@ -265,6 +265,8 @@ STEAKHOUSE_PRIME_AUSD_ILLIQUID = "Steakhouse Prime AUSD vault is illiquid"
 
 LIQUITY_V2_WETH_STABILITY_POOL_ILLIQUID = "Liquity V2 WETH Stability Pool vault is illiquid"
 
+ODINS_RESERVE_ILLIQUID = "Odins Reserve vault is illiquid"
+
 
 #: Protocol-wide flags and notes.
 #:
@@ -677,6 +679,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xcbc9b61177444a793b85442d3a953b90f6170b7d": (VaultFlag.illiquid, RESOLV_ILLIQUID),
     # Resolv USDC (Ethereum)
     "0xf0795c47fa58d00f5f77f4d5c01f31ee891e21b4": (VaultFlag.illiquid, RESOLV_USDC_ILLIQUID),
+    # Odins Reserve (Centrifuge on Arbitrum)
+    "0xeae33e9f53fc405f834d4678e6c07a2523b2126e": (VaultFlag.illiquid, ODINS_RESERVE_ILLIQUID),
     # Mainstreet USDC (msUSDC, Morpho on Ethereum)
     "0xe3ba8f17fe581dd473e6699cfad04502998a57c7": (VaultFlag.malicious, MALICIOUS_VAULT),
     # Mainstreet USDC (msUSDC, Morpho on Ethereum)
