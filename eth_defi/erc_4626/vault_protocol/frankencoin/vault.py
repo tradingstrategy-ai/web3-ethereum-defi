@@ -277,6 +277,15 @@ class FrankencoinVault(ERC4626Vault):
     three days before deposits start earning yield.
     """
 
+    @property
+    def name(self) -> str:
+        """Return a human-readable name for this vault.
+
+        The on-chain share token name is ``SavingsVault ZCHF``. Use the
+        protocol-facing product name in vault listings.
+        """
+        return "Frankencoin Savings Vault"
+
     @cached_property
     def frankencoin_vault_contract(self) -> Contract:
         """Return the svZCHF wrapper contract with Frankencoin-specific ABI.

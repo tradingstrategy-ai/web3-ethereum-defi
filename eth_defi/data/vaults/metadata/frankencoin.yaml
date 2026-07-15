@@ -1,15 +1,32 @@
 name: Frankencoin
 slug: frankencoin
+# Logo note: Frankencoin's official coin logo is pixel-art/blocky by design.
+# Do not replace it as a low-resolution asset unless a new official smooth
+# brand source is published.
 short_description: |
-  Oracle-free, over-collateralised Swiss franc stablecoin protocol with ERC-4626 ZCHF savings vaults.
+  Frankencoin is a stablecoin maintaining 1:1 value with the Swiss franc.
 long_description: |
-  Frankencoin is an over-collateralised, oracle-free stablecoin protocol whose ZCHF
-  token tracks the value of the Swiss franc. The protocol is fully on-chain and
-  deployed across multiple EVM networks.
+  Frankencoin is a decentralised Swiss franc stablecoin. Its ZCHF token is designed
+  to keep a 1:1 value with the Swiss franc while remaining transparent, on-chain and
+  usable without relying on a single central issuer.
 
-  The Frankencoin Savings Vaults wrap the Frankencoin savings module as ERC-20
-  and ERC-4626 vault tokens. Users deposit ZCHF and receive svZCHF shares whose
-  value follows the savings module yield.
+  The protocol is backed by on-chain collateral that can be liquidated when needed
+  to protect the value of ZCHF. Frankencoin has been live since 2023 and is deployed
+  across multiple blockchains.
+
+  Common ways to use Frankencoin include:
+
+  - Pay with digital Swiss francs through DeFi, payment cards, IBAN integrations,
+    and supported merchants.
+  - Borrow ZCHF by depositing crypto assets as collateral.
+  - Earn market-based yield on ZCHF through DeFi applications and the Frankencoin
+    savings module.
+  - Build applications and financial services that need a programmable Swiss franc
+    settlement layer.
+
+  The Frankencoin Savings Vaults wrap the savings module as ERC-20 and ERC-4626
+  vault tokens. Users deposit ZCHF and receive svZCHF shares whose value follows
+  the savings module yield.
 fee_description: |
   Frankencoin Savings Vaults do not have protocol-wide management, performance,
   deposit, or withdrawal fees. Yield accrues through the savings module and is

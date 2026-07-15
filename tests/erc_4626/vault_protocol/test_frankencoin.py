@@ -164,6 +164,7 @@ def test_frankencoin_create_vault_instance() -> None:
 
     assert isinstance(vault, FrankencoinVault)
     assert vault.get_protocol_name() == "Frankencoin"
+    assert vault.name == "Frankencoin Savings Vault"
 
 
 def test_frankencoin_static_fee_metadata() -> None:
