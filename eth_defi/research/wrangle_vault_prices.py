@@ -45,6 +45,15 @@ from eth_defi.version_info import stamp_parquet_schema_metadata
 #: NAV at or below this value counts as a complete Hypercore wipe-out.
 HYPERCORE_ZERO_NAV_EPSILON = 0.000001
 
+#: Maximum absolute mismatch when recognising a one-day PnL/NAV API lag.
+HYPERCORE_PNL_NAV_LAG_ABSOLUTE_TOLERANCE = 1.0
+
+#: Maximum relative mismatch when recognising a one-day PnL/NAV API lag.
+HYPERCORE_PNL_NAV_LAG_RELATIVE_TOLERANCE = 0.001
+
+#: PnL-first, NAV-confirming API lag needs three consecutive checkpoints.
+MIN_HYPERCORE_PNL_NAV_LAG_CHECKPOINTS = 3
+
 #: New capital must reach this NAV before a recapitalised vault is tracked again.
 MIN_HYPERCORE_RECAPITALISATION_ASSETS = 1_000.0
 
@@ -329,6 +338,8 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #:
     #: ``approximated_pnl_nav`` marks a daily economic checkpoint,
     #: ``approximated_pnl_nav_clipped`` a positive checkpoint capped at 100%,
+    #: ``approximated_pnl_nav_lag_repaired`` a gain whose NAV confirmation
+    #: arrived at the following daily checkpoint,
     #: ``approximated_pnl_nav_wipe_out`` a terminal NAV-corroborated loss, and
     #: ``approximated_pnl_nav_carried`` a row that adds no performance, either
     #: because it is not the daily checkpoint or because the epoch is already
@@ -1020,6 +1031,19 @@ def approximate_hypercore_share_prices_from_pnl_nav(  # noqa: PLR0914
     Non-checkpoint rows are also carried, avoiding duplicate daily/HF returns
     without interpolating future information backwards.
 
+    A July 2026 follow-up found a narrower timestamp problem in Fish Market.
+    Cumulative PnL increased by ``$2,169.43`` on 17 March while NAV remained
+    unchanged; the same ``$2,169.43`` appeared in NAV on 18 March with no
+    additional PnL or capital flow. Treating the first half of this staggered
+    API update as a complete checkpoint produced a clipped ``+100%`` return.
+    When three consecutive daily checkpoints exhibit this exact PnL-then-NAV
+    pattern, within a small numerical tolerance, this function carries the
+    premature checkpoint and applies the return at the confirming checkpoint
+    using the larger opening/confirmed NAV. This gives approximately ``+54.5%``
+    for Fish Market. The narrow consecutive-day and value-matching conditions
+    avoid suppressing large but reconciled gains in Magixbox, IKAGI and Satori
+    Quantum HF Vault.
+
     Input uses a timestamp index and requires ``id`` (string), ``chain``
     (integer), ``share_price`` (float), ``total_assets`` (float), and cumulative
     PnL as either exported ``account_pnl`` (float) or scanner-shaped
@@ -1081,6 +1105,7 @@ def approximate_hypercore_share_prices_from_pnl_nav(  # noqa: PLR0914
     clipped_count = 0
     deferred_outlier_count = 0
     wipe_out_count = 0
+    lag_repaired_count = 0
     affected_vaults = 0
 
     for _vault_id, relative_positions in prices_df.loc[hypercore_mask, ["id"]].groupby("id", sort=False).indices.items():
@@ -1143,6 +1168,41 @@ def approximate_hypercore_share_prices_from_pnl_nav(  # noqa: PLR0914
                 )
                 raw_returns[1:] = np.diff(checkpoint_pnl) / capital_base
 
+            # Hyperliquid can publish cumulative PnL one daily checkpoint
+            # before the matching NAV. Recognise only an exact three-day
+            # stagger: NAV is initially unchanged, PnL is then unchanged, and
+            # the delayed NAV move matches the earlier PnL move.
+            lagged_pnl_checkpoint = np.zeros(len(checkpoints), dtype=bool)
+            lag_confirmed_checkpoint = np.zeros(len(checkpoints), dtype=bool)
+            if len(checkpoints) >= MIN_HYPERCORE_PNL_NAV_LAG_CHECKPOINTS:
+                pnl_changes = np.diff(checkpoint_pnl)
+                nav_changes = np.diff(checkpoint_nav)
+                pnl_move = pnl_changes[:-1]
+                tolerance = np.maximum(
+                    HYPERCORE_PNL_NAV_LAG_ABSOLUTE_TOLERANCE,
+                    np.abs(pnl_move) * HYPERCORE_PNL_NAV_LAG_RELATIVE_TOLERANCE,
+                )
+                one_day_ns = pd.Timedelta(days=1).value
+                consecutive_days = np.diff(checkpoint_days) == one_day_ns
+                lag_pattern = consecutive_days[:-1] & consecutive_days[1:]
+                lag_pattern &= pnl_move > HYPERCORE_PNL_NAV_LAG_ABSOLUTE_TOLERANCE
+                lag_pattern &= np.abs(nav_changes[:-1]) <= tolerance
+                lag_pattern &= np.abs(pnl_changes[1:]) <= tolerance
+                lag_pattern &= np.abs(nav_changes[1:] - pnl_move) <= tolerance
+                lagged_numbers = np.flatnonzero(lag_pattern) + 1
+                confirmed_numbers = lagged_numbers + 1
+                lagged_pnl_checkpoint[lagged_numbers] = True
+                lag_confirmed_checkpoint[confirmed_numbers] = True
+                raw_returns[lagged_numbers] = 0.0
+                confirmed_capital_base = np.maximum.reduce(
+                    [
+                        checkpoint_nav[lagged_numbers - 1],
+                        checkpoint_nav[confirmed_numbers],
+                        np.ones(len(confirmed_numbers), dtype=float),
+                    ]
+                )
+                raw_returns[confirmed_numbers] = pnl_changes[lagged_numbers - 1] / confirmed_capital_base
+
             applied_returns = raw_returns.copy()
             positive_clipped = raw_returns > max_positive_return
             applied_returns[positive_clipped] = max_positive_return
@@ -1175,6 +1235,8 @@ def approximate_hypercore_share_prices_from_pnl_nav(  # noqa: PLR0914
             checkpoint_prices = np.cumprod(1.0 + applied_returns)
 
             checkpoint_status = np.full(len(checkpoints), "approximated_pnl_nav", dtype=object)
+            checkpoint_status[lagged_pnl_checkpoint] = "approximated_pnl_nav_carried"
+            checkpoint_status[lag_confirmed_checkpoint] = "approximated_pnl_nav_lag_repaired"
             checkpoint_status[positive_clipped] = "approximated_pnl_nav_clipped"
             checkpoint_status[deferred_absorbing_loss] = "deferred_pnl_nav_outlier"
             checkpoint_status[corroborated_wipe_out] = "approximated_pnl_nav_wipe_out"
@@ -1189,7 +1251,9 @@ def approximate_hypercore_share_prices_from_pnl_nav(  # noqa: PLR0914
 
             checkpoint_count += len(checkpoints)
             carried_count += int(day_has_checkpoint.sum()) - len(checkpoints) + int(post_wipe_out.sum())
+            carried_count += int(lagged_pnl_checkpoint.sum())
             clipped_count += int(positive_clipped.sum())
+            lag_repaired_count += int(lag_confirmed_checkpoint.sum())
             deferred_outlier_count += int(deferred_absorbing_loss.sum())
             wipe_out_count += int(corroborated_wipe_out.sum())
 
@@ -1209,7 +1273,7 @@ def approximate_hypercore_share_prices_from_pnl_nav(  # noqa: PLR0914
     if synthetic_supplies is not None:
         prices_df["total_supply"] = synthetic_supplies
 
-    logger(f"Approximated Hypercore economic share prices for {affected_vaults:,} vaults using {checkpoint_count:,} daily PnL/NAV checkpoints; carried {carried_count:,} non-performance rows, deferred {missing_count:,} missing-input rows and {deferred_outlier_count:,} uncorroborated losses, capped {clipped_count:,} gains and recorded {wipe_out_count:,} terminal wipe-outs")
+    logger(f"Approximated Hypercore economic share prices for {affected_vaults:,} vaults using {checkpoint_count:,} daily PnL/NAV checkpoints; carried {carried_count:,} non-performance rows, repaired {lag_repaired_count:,} delayed NAV confirmations, deferred {missing_count:,} missing-input rows and {deferred_outlier_count:,} uncorroborated losses, capped {clipped_count:,} gains and recorded {wipe_out_count:,} terminal wipe-outs")
     return prices_df
 
 

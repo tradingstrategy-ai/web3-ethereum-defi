@@ -53,6 +53,9 @@ presented as Hyperliquid's exact share price.
 
 - `approximated_pnl_nav`: ordinary daily economic checkpoint;
 - `approximated_pnl_nav_clipped`: positive checkpoint capped at 100%;
+- `approximated_pnl_nav_lag_repaired`: the matching NAV for a PnL gain
+  arrived at the following daily checkpoint, so the conservative return was
+  applied only once the NAV denominator was available;
 - `approximated_pnl_nav_wipe_out`: terminal NAV-corroborated complete loss;
 - `approximated_pnl_nav_carried`: a non-checkpoint duplicate or a row after a
   terminal loss that adds no further performance;
@@ -85,6 +88,7 @@ retained history; the one-period returns demonstrate the repaired economics.
 | Order Block Hunter | `0x0a8499b5e925d95badc893ec7f0b1613e08f6d7c` | 2 February 2026 | Partial repair created `+275.4%` | `-4.87%`, matching PnL direction |
 | HyperBotPro | `0x12e358f38741c07c1e04a8102a3170d40a600f05` | 18 March 2026 | `+285.0%` synthetic move around a withdrawal | `+12.72%` from PnL/NAV |
 | Titan Vault | `0x4b0eab9444a75a03f1ef340c8beac737afa5ab09` | 7 April 2026 | `+82.9%` and `deferred_hf_nav` | `+27.94%` from the freshest daily checkpoint |
+| Fish Market | `0x61549534dec101179983169644d7929a3d706c97` | 17–18 March 2026 | PnL moved one day before the matching NAV, producing a clipped `+100%` | `+54.48%` on 18 March using the confirmed larger NAV |
 
 These replacements do not assert that every retained PnL observation is exact
 or that every Hypercore curve is suitable for unfiltered backtesting. They
@@ -129,10 +133,11 @@ After removing 369 superseded recapitalisation rows, the economic-index run
 produces:
 
 - 85,891 daily PnL/NAV checkpoints;
-- 788,652 carried non-performance rows, including duplicate daily/HF rows and
-  rows after a terminal wipe-out;
+- 788,695 carried non-performance rows: duplicate daily/HF rows, 43 premature
+  PnL checkpoints, and rows after a terminal wipe-out;
+- 43 delayed NAV confirmations repaired across 29 vaults;
 - 57 uncorroborated absorbing losses carried for review;
-- 7 positive returns capped at 100%; and
+- 6 positive returns capped at 100%; and
 - 1 terminal NAV-corroborated wipe-out. Later rows in that epoch remain at zero
   and are carried rather than recording repeated losses or gains.
 
