@@ -350,6 +350,7 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x2136bbBa2eDcA21AFDddee838fFf19eA70D10F03",  # Age old mainnet contract
     "0x76f586589fc4a15713DB986d97Eb6fDC6ff078F2",  # Age old mainnet contract
     "0x728974844947E09B77f01BA1eF115230DdC8A9A0",  # DecentrEx, EtherDelta-style DEX from 2017 (block 4,544,275) - probe selectors consume >600M gas and poison the multicall batch
+    "0xffAa9F9AA5E4361f552bADA90DCAcDd08E5B41eb",  # Unverified old mainnet contract from 2017 (block 4,654,191) - probe selectors poison Multicall3 batches with out-of-gas (-32003)
     "0x7d4D20D71c331dF3d5675112CA5A873b3243D3f2",  # ReciveAndSend, 2017 mainnet contract (block 4,706,802) - burns all forwarded gas before reverting, so batched probe calls exhaust the multicall gas limit
     "0x9462EEb9124C99731Cc7617348b3937A8f00B11F",  # Radex, EtherDelta-style DEX from 2017 (block 4,710,488) - dead non-vault contract repeatedly probed in the same failing multicall batches
     "0x6a6E4ad4a5ca14B940Cd6949b1A90f947AE21c19",  # Broken Gains vault on Berachain - its open PnL feed contract (0x5705554B) causes multicall failures
