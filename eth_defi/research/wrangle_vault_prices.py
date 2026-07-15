@@ -641,10 +641,9 @@ def clean_returns(
 
     returns_df = prices_df
 
-    # Hypercore prices are synthetic. Its source-aware continuity repairs run
-    # before this generic cleaner, and a genuine post-epoch trading return may
-    # exceed the ERC-4626-oriented threshold. Retain it for the downstream
-    # return-based suitability checks instead of replacing it with a false zero.
+    # Hypercore's bounded PnL/NAV approximation runs before this generic
+    # cleaner. Retain its audited economic return instead of replacing it with
+    # a value that disagrees with the cleaned performance index.
     high_returns_mask = returns_df[returns_col] > outlier_threshold
     if "chain" in returns_df.columns:
         high_returns_mask &= returns_df["chain"] != HYPERCORE_CHAIN_ID
@@ -1295,27 +1294,7 @@ def discard_hypercore_pre_recapitalisation_history(  # noqa: PLR0914
         return prices_df
 
     epoch_reset_values[epoch_reset_positions] = True
-
-    # A new investor epoch must start from a readable unit price. Preserve the
-    # scanner value in raw_share_price, then rescale this vault's retained rows
-    # so the first meaningful recapitalisation observation is exactly 1.0.
-    share_prices = prices_df["share_price"].to_numpy(dtype=float, copy=True)
-    total_supplies = prices_df["total_supply"].to_numpy(dtype=float, copy=True) if "total_supply" in prices_df.columns else None
-    for epoch_reset_position in epoch_reset_positions:
-        vault_id = prices_df.iloc[epoch_reset_position]["id"]
-        vault_positions = np.flatnonzero((prices_df["id"] == vault_id).to_numpy())
-        retained_positions = vault_positions[vault_positions >= epoch_reset_position]
-        recapitalisation_price = share_prices[epoch_reset_position]
-        if np.isfinite(recapitalisation_price) and recapitalisation_price > 0:
-            factor = 1.0 / recapitalisation_price
-            share_prices[retained_positions] *= factor
-            if total_supplies is not None:
-                total_supplies[retained_positions] /= factor
-
     prices_df["epoch_reset"] = epoch_reset_values
-    prices_df["share_price"] = share_prices
-    if total_supplies is not None:
-        prices_df["total_supply"] = total_supplies
     filtered_prices_df = prices_df.iloc[~remove_mask].copy()
     logger(f"Discarded {int(remove_mask.sum()):,} pre-recapitalisation Hypercore price rows across {len(epoch_reset_positions):,} vaults; new epochs start once NAV reaches ${min_recapitalisation_assets:,.0f} after {min_recovery_delay}")
     return filtered_prices_df

@@ -444,6 +444,26 @@ def test_approximate_hypercore_leaves_other_protocols_unchanged() -> None:
     assert evm["hypercore_repair_status"] == "evm-status"
 
 
+def test_approximate_hypercore_rejects_invalid_configuration() -> None:
+    """Invalid approximation inputs fail explicitly instead of publishing data."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999],
+            "id": ["9999-0xinvalid"],
+            "share_price": [1.0],
+            "total_assets": [100.0],
+            "account_pnl": [0.0],
+        },
+        index=pd.to_datetime(["2026-01-01"]),
+    )
+
+    with pytest.raises(ValueError, match="max_positive_return must be positive"):
+        approximate_hypercore_share_prices_from_pnl_nav(prices_df, max_positive_return=0.0)
+
+    with pytest.raises(ValueError, match="missing columns:.*cumulative_pnl"):
+        approximate_hypercore_share_prices_from_pnl_nav(prices_df.drop(columns="account_pnl"))
+
+
 def test_discard_hypercore_pre_recapitalisation_history() -> None:
     """A durable wipe-out starts a new cleaned Hypercore performance epoch."""
     recapitalised_id = "9999-0xrecapitalised"
@@ -482,8 +502,7 @@ def test_discard_hypercore_pre_recapitalisation_history() -> None:
     assert recapitalised.index.tolist() == [pd.Timestamp("2026-01-12"), pd.Timestamp("2026-01-13")]
     assert recapitalised["epoch_reset"].tolist() == [True, False]
     assert recapitalised["raw_share_price"].tolist() == [10.0, 10.5]
-    assert recapitalised["share_price"].iloc[0] == pytest.approx(1.0)
-    assert recapitalised["share_price"].iloc[1] == pytest.approx(1.05)
+    assert recapitalised["share_price"].tolist() == [10.0, 10.5]
     assert len(result[result["id"] == short_blip_id]) == 3
     assert len(result[result["id"] == evm_id]) == 1
     assert messages == ["Discarded 6 pre-recapitalisation Hypercore price rows across 1 vaults; new epochs start once NAV reaches $1,000 after 7 days 00:00:00"]
@@ -527,7 +546,7 @@ def test_discard_hypercore_history_rebuilds_scanner_epoch_markers() -> None:
 
 
 def test_clean_returns_keeps_large_hypercore_return() -> None:
-    """Hypercore continuity repairs own synthetic prices before generic cleaning."""
+    """The Hypercore economic index owns its bounded return cleaning."""
     prices_df = pd.DataFrame(
         {
             "chain": [9999, 1],
