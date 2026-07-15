@@ -48,6 +48,11 @@ A new vault protocol integration is not complete unless it includes:
    ```
 4. Use `eth_defi/abi/lagoon/` as a reference for structure
 
+For a narrowly scoped adapter that only needs stable, no-argument view methods,
+using their canonical four-byte selectors is acceptable instead of storing a
+generated ABI. Link the authoritative ABI in the module docstring and add a
+fork regression test for every decoded value and scale.
+
 ### Step 2: Create the vault class
 
 Create `eth_defi/erc_4626/vault_protocol/{protocol_slug}/vault.py` following the patterns in:

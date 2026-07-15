@@ -22,9 +22,13 @@ from eth_defi.vault.protocol_metadata import build_metadata_json
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
+JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
 KILN_VAULT_ADDRESS = "0x19A0F016Ac3989e754ab8216810beD8503bDA37e"
 KILN_FORK_BLOCK = 484_188_059
+KILN_ETHEREUM_VAULT_ADDRESS = "0xF4918Ef824a242602E0d3e5DB07fFd4DaC4ad3Ea"
+KILN_ETHEREUM_FORK_BLOCK = 23_000_000
+DAI_DECIMALS = 18
 
 
 @pytest.fixture(scope="module")
@@ -45,6 +49,25 @@ def anvil_arbitrum_fork() -> AnvilLaunch:
 def web3(anvil_arbitrum_fork: AnvilLaunch) -> Web3:
     """Create a Web3 client for the deterministic Arbitrum fork."""
     return create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url)
+
+
+@pytest.fixture(scope="module")
+def anvil_ethereum_fee_fork() -> AnvilLaunch:
+    """Fork Ethereum at a block with a 20% Kiln DAI reward fee."""
+    launch = fork_network_anvil(
+        JSON_RPC_ETHEREUM,
+        fork_block_number=KILN_ETHEREUM_FORK_BLOCK,
+    )
+    try:
+        yield launch
+    finally:
+        launch.close()
+
+
+@pytest.fixture(scope="module")
+def ethereum_web3(anvil_ethereum_fee_fork: AnvilLaunch) -> Web3:
+    """Create a Web3 client for the deterministic Ethereum fee fork."""
+    return create_multi_provider_web3(anvil_ethereum_fee_fork.json_rpc_url)
 
 
 @pytest.fixture()
@@ -83,6 +106,17 @@ def test_kiln_omnivault_classification(web3: Web3) -> None:
     assert fee_data.management == 0.0
     assert fee_data.performance == pytest.approx(0.20)
     assert fee_data.deposit is None
+
+
+@pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run this test")
+@flaky.flaky
+def test_kiln_omnivault_reward_fee_uses_asset_decimals(ethereum_web3: Web3) -> None:
+    """Scale the 20e18 DAI vault reward fee to the same 20% ratio as USDC."""
+    vault = create_vault_instance_autodetect(ethereum_web3, vault_address=KILN_ETHEREUM_VAULT_ADDRESS)
+
+    assert isinstance(vault, KilnVault)
+    assert vault.denomination_token.decimals == DAI_DECIMALS
+    assert vault.get_performance_fee(KILN_ETHEREUM_FORK_BLOCK) == pytest.approx(0.20)
 
 
 @pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run this test")
