@@ -1,34 +1,30 @@
 name: Kiln
 slug: kiln
 short_description: |
-  On-chain vault infrastructure for partners to distribute curated DeFi yield products.
+  DeFi yield vaults that give partners a simple way to offer curated earning opportunities.
 long_description: |
-  Kiln OmniVaults is a suite of on-chain vault smart contracts that lets wallets, custodians and
-  other partners integrate selected DeFi strategies into their own products. The current Kiln
-  product name is OmniVaults; it replaces the older Kiln DeFi and Metavault terminology used by
-  some historical vault records.
+  Kiln OmniVaults helps wallets, custodians and other partners offer selected DeFi yield products
+  to their customers. Each vault gives users access to a chosen earning strategy for a specific
+  asset and network. The current Kiln product name is OmniVaults; it replaces the older Kiln DeFi
+  and Metavault terminology used by some historical vault records.
 
-  Deposits and redemptions are synchronous ERC-4626 operations with no Kiln protocol-level queue,
-  cooldown or withdrawal delay. Redemption availability still depends on the selected underlying
-  protocol's liquidity and the vault's pause state.
+  Deposits and redemptions are designed to be completed directly, without a Kiln waiting period.
+  Availability can still depend on market liquidity and the status of the selected strategy.
 
-  A dedicated vault is deployed for each protocol, asset and chain combination. Kiln supplies the
-  vault infrastructure, while partners administer vault-specific roles, including the end-user fee
-  configuration and fee collection. The yield source remains the selected underlying protocol,
-  such as Aave, Compound, Morpho, Spark, Venus, Angle, Fluid, Frax, ZeroLend, Kinetic or Sky.
+  Kiln provides the vault technology, while each partner chooses its supported strategies and
+  customer fees. Returns come from established DeFi platforms such as Aave, Compound, Morpho,
+  Spark, Venus, Angle, Fluid, Frax, ZeroLend, Kinetic and Sky.
 
   Key features:
 
-  - ERC-4626 vault infrastructure for partner-distributed earn products
-  - Per-protocol, asset and chain vault deployments
-  - Partner-controlled vault administration and fee roles
-  - Beacon-proxy architecture with Kiln and third-party multisig upgradability controls
-  - Audits by Quantstamp and Spearbit, plus public bug bounty programmes
+  - Curated DeFi earning opportunities from trusted partners
+  - Support for multiple assets, networks and strategies
+  - Direct deposits and redemptions, subject to available liquidity
+  - Independent security reviews and public bug-bounty programmes
 fee_description: |
-  Kiln OmniVault end-user fees are configured per vault by the partner's `FEE_MANAGER` role and
-  can be split across multiple recipients. The integration reads each vault's fixed asset-denominated
-  deposit fee and reward fee. Reward fees are a percentage of generated rewards and are collected by
-  minting vault shares; the underlying DeFi protocol may also apply its own rate and fee model.
+  Fees are set separately for each vault by the partner offering it. A vault may charge a fixed fee
+  when users deposit and a percentage of rewards generated. The underlying DeFi strategy may also
+  have its own fees or costs.
 links:
   homepage: https://www.kiln.fi/
   app: https://www.kiln.fi/defi
