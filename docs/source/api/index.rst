@@ -41,6 +41,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    aera/index
    atoma/index
    frankencoin/index
+   kiln/index
    lagoon/index
    mellow/index
    ipor/index

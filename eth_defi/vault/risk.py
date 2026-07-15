@@ -79,6 +79,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Ostium": VaultTechnicalRisk.high,
     "gTrade": VaultTechnicalRisk.high,
     "KiloEx": None,
+    # Kiln OmniVault contracts are audited and use verified beacon-proxy deployments.
+    "Kiln": VaultTechnicalRisk.low,
     "Domination Finance": VaultTechnicalRisk.severe,
     # No audits
     "Plutus": VaultTechnicalRisk.severe,

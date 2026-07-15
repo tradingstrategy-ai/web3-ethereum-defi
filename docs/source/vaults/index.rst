@@ -112,6 +112,7 @@ Supported protocols
    infinifi/index
    inverse_finance/index
    ipor/index
+   kiln/index
    kiloex/index
    kinexys/index
    lagoon/index

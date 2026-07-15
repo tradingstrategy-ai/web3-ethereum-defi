@@ -687,7 +687,7 @@ def test_identify_vault_name_sweep_curators() -> None:
     """Curators discovered from the vault-name sweep resolve on their vaults.
 
     These were added by mining unmatched vault names across Morpho, Euler,
-    Lagoon and Kiln Metavault.  Most match via their YAML ``name``; Keyring
+    Lagoon and Kiln.  Most match via their YAML ``name``; Keyring
     matches via an explicit short-brand pattern because its vaults are named
     "Keyring zkVerified Cluster".
 
@@ -702,8 +702,8 @@ def test_identify_vault_name_sweep_curators() -> None:
         ("morpho", "Hyperbeat USDC Lending Optimizer"): "hyperbeat",
         ("euler", "Lista DAO USD1 Vault"): "lista-dao",
         ("euler", "Keyring zkVerified Cluster"): "keyring-network",
-        ("kiln-metavault", "Trust Wallet AAVE v3 USDT"): "trust-wallet",
-        ("kiln-metavault", "Cool Wallet AAVEv3 USDC"): "cool-wallet",
+        ("kiln", "Trust Wallet AAVE v3 USDT"): "trust-wallet",
+        ("kiln", "Cool Wallet AAVEv3 USDC"): "cool-wallet",
         ("lagoon-finance", "Mt Pelerin - USD strategy pool"): "mt-pelerin",
         ("euler", "HypurrFi Earn USDC"): "hypurrfi",
         ("lagoon-finance", "DAMM Stablecoin Fund"): "damm-capital",

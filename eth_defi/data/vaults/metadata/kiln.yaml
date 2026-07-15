@@ -1,0 +1,46 @@
+name: Kiln
+slug: kiln
+short_description: |
+  On-chain vault infrastructure for partners to distribute curated DeFi yield products.
+long_description: |
+  Kiln OmniVaults is a suite of on-chain vault smart contracts that lets wallets, custodians and
+  other partners integrate selected DeFi strategies into their own products. The current Kiln
+  product name is OmniVaults; it replaces the older Kiln DeFi and Metavault terminology used by
+  some historical vault records.
+
+  Deposits and redemptions are synchronous ERC-4626 operations with no Kiln protocol-level queue,
+  cooldown or withdrawal delay. Redemption availability still depends on the selected underlying
+  protocol's liquidity and the vault's pause state.
+
+  A dedicated vault is deployed for each protocol, asset and chain combination. Kiln supplies the
+  vault infrastructure, while partners administer vault-specific roles, including the end-user fee
+  configuration and fee collection. The yield source remains the selected underlying protocol,
+  such as Aave, Compound, Morpho, Spark, Venus, Angle, Fluid, Frax, ZeroLend, Kinetic or Sky.
+
+  Key features:
+
+  - ERC-4626 vault infrastructure for partner-distributed earn products
+  - Per-protocol, asset and chain vault deployments
+  - Partner-controlled vault administration and fee roles
+  - Beacon-proxy architecture with Kiln and third-party multisig upgradability controls
+  - Audits by Quantstamp and Spearbit, plus public bug bounty programmes
+fee_description: |
+  Kiln OmniVault end-user fees are configured per vault by the partner's `FEE_MANAGER` role and
+  can be split across multiple recipients. The integration reads each vault's fixed asset-denominated
+  deposit fee and reward fee. Reward fees are a percentage of generated rewards and are collected by
+  minting vault shares; the underlying DeFi protocol may also apply its own rate and fee model.
+links:
+  homepage: https://www.kiln.fi/
+  app: https://www.kiln.fi/defi
+  twitter: https://x.com/Kiln_finance
+  github:
+  documentation: https://docs.kiln.fi/v1/kiln-products/omnivaults
+  fact_sheet:
+  defillama:
+  audits: https://docs.kiln.fi/v1/kiln-products/omnivaults/security/audits-and-bug-bounty
+  fees: https://docs.kiln.fi/v1/kiln-products/omnivaults/how-to-integrate/governance
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/kiln
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/kiln/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xF4918Ef824a242602E0d3e5DB07fFd4DaC4ad3Ea
+  - https://arbiscan.io/address/0x19A0F016Ac3989e754ab8216810beD8503bDA37e

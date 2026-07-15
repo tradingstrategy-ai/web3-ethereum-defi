@@ -444,9 +444,9 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Kiln metavault
-        # https://basescan.org/address/0x4b2A4368544E276780342750D6678dC30368EF35#readProxyContract
-        # https://github.com/0xZunia/Kiln.MetaVault
+        # Kiln OmniVaults
+        # https://docs.kiln.fi/v1/kiln-products/omnivaults/security/source-code
+        # https://arbiscan.io/address/0x19A0F016Ac3989e754ab8216810beD8503bDA37e#readProxyContract
         yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="additionalRewardsStrategy()")[0:4],
@@ -1528,6 +1528,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.kiloex.vault import KiloExVault
 
         return KiloExVault(web3, spec, **kwargs)
+    elif ERC4626Feature.kiln_metavault_like in features:
+        from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
+
+        return KilnVault(web3, spec, **kwargs)
     elif ERC4626Feature.gains_like in features:
         # Gains instance
         from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
