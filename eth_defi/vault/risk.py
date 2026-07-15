@@ -221,6 +221,32 @@ VAULT_SPECIFIC_RISK = {
     # LONGV4 HyperEVM vault - totalAssets() and convertToAssets() run out of gas
     # with CALL_GAS=2,000,000 and poison historical scanner Multicall3 batches.
     "0x2eee42a0704dd4c0ff8141f85e24de9085a76093": VaultTechnicalRisk.blacklisted,
+    # Rocket Markets Survivor Vaults on Monad.
+    #
+    # Scanner failure context:
+    #
+    # - Chain: Monad (chain id 143).
+    # - Failed scanner block: 87,952,850.
+    # - Contracts advertise themselves as ERC-4626-like vaults:
+    #   name() returns "Rocket Markets Survivor Vault", symbol() returns "RKTSV".
+    # - asset() returns Monad USDC 0x754704Bc059F8C67012fEd69BC8A327a5aafb603.
+    # - totalSupply() and metadata calls work, so the contracts pass enough
+    #   probes to enter the scanner.
+    # - Manual historical replay using JSON_RPC_MONAD reproduced that
+    #   totalAssets() (0x01e1d114) and convertToAssets(uint256) (0x07a2d13a)
+    #   revert with empty data at block 87,952,850.
+    # - The same calls still reverted at the current head when checked, so this
+    #   is not just a transient eRPC or historical-state issue.
+    #
+    # The historical reader batches these calls through Multicall3. On Goldsky
+    # Monad RPC the reverts surface as retryable -32003 "out of gas" failures,
+    # causing the whole batch to be retried and eventually stall. Because the
+    # core valuation calls are broken, these vaults are not useful for the
+    # export pipeline and should be both hidden from end-user reports and
+    # skipped by the Multicall reader.
+    "0xdafeeae1fceec53d30a3534041121a7c1d3b7f9a": VaultTechnicalRisk.blacklisted,
+    "0xf51ddfc0ecdf061f57ce4e2dd4aff2899ae0957c": VaultTechnicalRisk.blacklisted,
+    "0x982cac08b77511b67c296a758668f4a4fe012746": VaultTechnicalRisk.blacklisted,
 }
 
 
@@ -358,6 +384,19 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x8fF6aDBC653405245B6b686E31b14A7da7000281",  # BNB broken contract
     "0x6949bcab16c0B389095C5b744f6FBF9741A1b3b6",  # Test vault on Monad
     "0x2eEe42A0704DD4C0fF8141f85E24De9085A76093",  # LONGV4 HyperEVM vault - totalAssets() and convertToAssets() hit BasicOutOfGas(2000000), poisoning historical scanner Multicall3 batches
+    # Rocket Markets Survivor Vault (RKTSV) on Monad. See the detailed
+    # VAULT_SPECIFIC_RISK comment above. totalAssets() and convertToAssets()
+    # revert at block 87,952,850 and at current head, and the Monad RPC reports
+    # the historical Multicall3 batch as -32003 "out of gas".
+    "0xDaFEEAE1FCEec53D30a3534041121a7C1D3B7f9A",
+    # Same RKTSV/Monad failure mode as above: ERC-4626 metadata works, but
+    # totalAssets() and convertToAssets() are broken, so historical Multicall3
+    # scans should skip this address instead of repeatedly retrying it.
+    "0xf51DDFC0eCDF061F57Ce4e2dD4aff2899AE0957c",
+    # Same RKTSV/Monad failure mode as above. This address appeared in the
+    # reduced failing batch of four addresses and was manually replayed with
+    # JSON_RPC_MONAD at block 87,952,850.
+    "0x982cAC08B77511b67C296a758668f4A4fE012746",
     "0x5a8aFb250525aB8Fa85EF9a5f260Eb11B77a409a",  # Age old mainnet contract from 2017 (block 4,655,173) - burns all forwarded gas before reverting, poisoning the multicall probe batch with out-of-gas (-32003)
     "0x162428775A4C6c513FF8722B91D1aF45a9Caff41",  # Unverified old mainnet EtherDelta-style DEX from 2018 (block 4,934,650) - deposit/trade/withdraw methods, not a vault
     "0xd3F41DAC84594332E4fF3C7fd2242DeAF7857e79",  # HYPE Funding Yield (HFY) HyperEVM USDt0 vault - totalAssets() and convertToAssets() hit HyperCore SpotBalance precompile revert at block 39,542,844, poisoning Multicall3 scanner batches with out-of-gas (-32003)
