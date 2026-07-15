@@ -15,6 +15,7 @@ import zstandard as zstd
 import eth_defi.research.wrangle_vault_prices as vault_price_wrangle
 from eth_defi.research.wrangle_vault_prices import (
     approximate_hypercore_share_prices_from_pnl_nav,
+    calculate_vault_returns,
     clean_by_tvl,
     clean_returns,
     discard_hypercore_pre_recapitalisation_history,
@@ -274,7 +275,7 @@ def test_approximate_hypercore_share_prices_from_pnl_nav() -> None:
     assert result["raw_share_price"].tolist() == prices_df["share_price"].tolist()
     assert (result["share_price"] * result["total_supply"]).tolist() == pytest.approx(result["total_assets"].tolist())
     assert result["hypercore_repair_status"].tolist() == ["approximated_pnl_nav"] * 4
-    assert messages == ["Approximated Hypercore economic share prices for 1 vaults using 4 daily PnL/NAV checkpoints; carried 0 duplicate rows, deferred 0 missing-input rows and 0 uncorroborated losses, capped 0 gains and recorded 0 terminal wipe-outs"]
+    assert messages == ["Approximated Hypercore economic share prices for 1 vaults using 4 daily PnL/NAV checkpoints; carried 0 non-performance rows, deferred 0 missing-input rows and 0 uncorroborated losses, capped 0 gains and recorded 0 terminal wipe-outs"]
 
 
 def test_approximate_hypercore_uses_freshest_daily_checkpoint() -> None:
@@ -360,6 +361,33 @@ def test_approximate_hypercore_caps_gain_and_records_terminal_wipe_out() -> None
     assert wipe["hypercore_repair_status"].tolist() == ["approximated_pnl_nav", "approximated_pnl_nav_wipe_out"]
 
 
+def test_approximate_hypercore_carries_rows_after_terminal_wipe_out() -> None:
+    """Later API baselines cannot add performance after a complete loss."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 4,
+            "id": ["9999-0xterminal"] * 4,
+            "share_price": [1.0] * 4,
+            "total_assets": [100.0, 0.0, 0.0, 0.0],
+            "total_supply": [100.0] * 4,
+            "account_pnl": [0.0, -100.0, 500.0, -200.0],
+        },
+        index=pd.to_datetime(["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"]),
+    )
+
+    result = approximate_hypercore_share_prices_from_pnl_nav(prices_df, logger=lambda _message: None)
+    result = calculate_vault_returns(result, logger=lambda _message: None)
+
+    assert result["share_price"].tolist() == [1.0, 0.0, 0.0, 0.0]
+    assert result["returns_1h"].iloc[1:].tolist() == [-1.0, 0.0, 0.0]
+    assert result["hypercore_repair_status"].tolist() == [
+        "approximated_pnl_nav",
+        "approximated_pnl_nav_wipe_out",
+        "approximated_pnl_nav_carried",
+        "approximated_pnl_nav_carried",
+    ]
+
+
 def test_approximate_hypercore_prevents_partial_repair_spike() -> None:
     """One repaired and one raw synthetic unit cannot create a clean return."""
     prices_df = pd.DataFrame(
@@ -421,6 +449,44 @@ def test_approximate_hypercore_is_idempotent_and_append_stable() -> None:
     assert appended["share_price"].iloc[:2].tolist() == first["share_price"].tolist()
 
 
+def test_approximate_hypercore_future_recovery_revises_terminal_loss() -> None:
+    """Later positive NAV can disprove a provisional terminal wipe-out."""
+    initial = pd.DataFrame(
+        {
+            "chain": [9999, 9999],
+            "id": ["9999-0xrecovery"] * 2,
+            "share_price": [1.0, 1.0],
+            "total_assets": [100.0, 0.0],
+            "total_supply": [100.0, 0.0],
+            "account_pnl": [0.0, -100.0],
+        },
+        index=pd.to_datetime(["2026-01-01", "2026-01-02"]),
+    )
+    recovered = pd.concat(
+        [
+            initial,
+            pd.DataFrame(
+                {
+                    "chain": [9999],
+                    "id": ["9999-0xrecovery"],
+                    "share_price": [1.0],
+                    "total_assets": [50.0],
+                    "total_supply": [50.0],
+                    "account_pnl": [-50.0],
+                },
+                index=pd.to_datetime(["2026-01-03"]),
+            ),
+        ]
+    )
+
+    provisional = approximate_hypercore_share_prices_from_pnl_nav(initial, logger=lambda _message: None)
+    revised = approximate_hypercore_share_prices_from_pnl_nav(recovered, logger=lambda _message: None)
+
+    assert provisional["hypercore_repair_status"].iloc[-1] == "approximated_pnl_nav_wipe_out"
+    assert revised["hypercore_repair_status"].iloc[1] == "deferred_pnl_nav_outlier"
+    assert revised["share_price"].iloc[1] == pytest.approx(1.0)
+
+
 def test_approximate_hypercore_leaves_other_protocols_unchanged() -> None:
     """The Hypercore approximation does not alter another protocol's rows."""
     prices_df = pd.DataFrame(
@@ -460,7 +526,7 @@ def test_approximate_hypercore_rejects_invalid_configuration() -> None:
     with pytest.raises(ValueError, match="max_positive_return must be positive"):
         approximate_hypercore_share_prices_from_pnl_nav(prices_df, max_positive_return=0.0)
 
-    with pytest.raises(ValueError, match="missing columns:.*cumulative_pnl"):
+    with pytest.raises(ValueError, match=r"missing columns:.*cumulative_pnl"):
         approximate_hypercore_share_prices_from_pnl_nav(prices_df.drop(columns="account_pnl"))
 
 

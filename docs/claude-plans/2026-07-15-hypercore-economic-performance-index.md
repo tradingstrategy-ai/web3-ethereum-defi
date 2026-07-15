@@ -139,7 +139,9 @@ units. Build one deterministic economic checkpoint per vault and UTC date:
    last known clean index value through non-checkpoint rows, so no return is
    fabricated from duplicate or stale observations. Mark these rows
    `approximated_pnl_nav_carried` so cadence-sensitive consumers can select
-   only actual checkpoints.
+   only actual performance checkpoints. Rows after a terminal loss use the
+   same carried status because the index is already zero and cannot record
+   further performance within that epoch.
 5. If a date has no usable NAV/PnL pair, carry the last clean price and record
    `deferred_pnl_nav` in `hypercore_repair_status`. Use
    `deferred_pnl_nav_outlier` for an uncorroborated return at or below `-100%`.
@@ -184,7 +186,8 @@ The function must:
 - build and forward-fill the compounded index;
 - set `hypercore_repair_status` to `approximated_pnl_nav` at usable economic
   checkpoints, `approximated_pnl_nav_clipped` at positive capped checkpoints,
-  `approximated_pnl_nav_carried` at ordinary non-checkpoint rows,
+  `approximated_pnl_nav_carried` at ordinary non-checkpoint rows and after a
+  terminal loss,
   `deferred_pnl_nav` where checkpoint inputs are missing, and
   `deferred_pnl_nav_outlier` for an uncorroborated absorbing loss;
 - recompute the synthetic `total_supply` as `total_assets / share_price` for
@@ -273,12 +276,15 @@ This separation is intentional:
 - investigators can still compare the index with `raw_share_price`, NAV, PnL,
   source and write batch.
 
-Re-running wrangle on unchanged input must be idempotent. Appending a new raw
-observation for the current or a future date may add a checkpoint but must not
-alter earlier checkpoint prices. A genuinely late raw observation for a past
-date is allowed to select a fresher checkpoint and deterministically rewrite
-the later compounded index: preserving a known stale point would be worse, and
-the raw file remains the audit trail. Test and document both cases.
+Re-running wrangle on unchanged input must be idempotent. Appending an ordinary
+new raw observation for the current or a future date may add a checkpoint but
+must not alter earlier checkpoint prices. A newly observed recovery after a
+provisional terminal zero is the exception: it can show that the earlier zero
+was not an absorbing loss and deterministically revise that open lifecycle. A
+genuinely late raw observation for a past date may likewise select a fresher
+checkpoint and rewrite the later compounded index. Preserving a known stale
+classification would be worse, and the raw file remains the audit trail. Test
+and document these cases.
 
 ## Vault-level acceptance checks
 
@@ -340,9 +346,10 @@ Replace the specialised anchor/stitch tests in
 9. A production-shaped Order Block Hunter fixture cannot create a spike by
    mixing one repaired row with one deferred raw row.
 10. A second run on the same input produces the same clean prices and statuses.
-11. Appending a future checkpoint leaves all earlier checkpoints byte-for-byte
-    unchanged; adding a fresher past-date row deterministically revises the
-    later index.
+11. Appending an ordinary future checkpoint leaves earlier checkpoints
+    byte-for-byte unchanged. A future recovery may revise a provisional
+    terminal wipe-out, while a fresher past-date row deterministically revises
+    the later index.
 
 Run the focused tests with the repository Poetry environment and
 `.local-test.env`, then run the full `tests/research/test_clean_prices.py` file

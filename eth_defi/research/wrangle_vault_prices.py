@@ -330,7 +330,9 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #: ``approximated_pnl_nav`` marks a daily economic checkpoint,
     #: ``approximated_pnl_nav_clipped`` a positive checkpoint capped at 100%,
     #: ``approximated_pnl_nav_wipe_out`` a terminal NAV-corroborated loss, and
-    #: ``approximated_pnl_nav_carried`` an ordinary non-checkpoint row.
+    #: ``approximated_pnl_nav_carried`` a row that adds no performance, either
+    #: because it is not the daily checkpoint or because the epoch is already
+    #: at zero after a terminal loss.
     #: ``deferred_pnl_nav`` means inputs were missing and
     #: ``deferred_pnl_nav_outlier`` means an uncorroborated negative PnL step
     #: was not allowed to zero a funded vault.
@@ -579,11 +581,17 @@ def filter_vaults_by_stablecoin(
     return prices_df
 
 
-def calculate_vault_returns(prices_df: pd.DataFrame, logger=print):
+def calculate_vault_returns(
+    prices_df: pd.DataFrame,
+    logger: Callable[[str], None] = print,
+) -> pd.DataFrame:
     """Calculate returns for each vault.
 
-    - Filter out reads for which we did not get a proper share price
-    - Add ``returns_1h`` columns
+    Filter out reads without a share price and add the compatibility
+    ``returns_1h`` column. Consecutive zero prices after a complete loss carry
+    a zero return: the loss was already recorded by the first transition to
+    zero, and leaving later ``0 / 0`` changes as NaN makes the terminal curve
+    unnecessarily difficult for downstream consumers to use.
 
     Example of input data:
 
@@ -592,6 +600,13 @@ def calculate_vault_returns(prices_df: pd.DataFrame, logger=print):
              chain                                     address  block_number           timestamp  share_price  ...  errors                                                id  name  event_count            protocol
         207  42161  0x487cdc7d21ac8765eff6c0e681aea36ae1594471      13294721 2022-05-30 19:59:22          1.0  ...          42161-0x487cdc7d21ac8765eff6c0e681aea36ae1594471  LDAI           17  <unknown ERC-4626>
 
+    :param prices_df:
+        Price rows containing string ``id`` and numeric ``share_price``
+        columns, ordered by vault and timestamp.
+    :param logger:
+        Notebook, console, or structured-log adapter accepting one message.
+    :return:
+        Price rows with ``returns_1h`` calculated between consecutive rows.
     """
     assert isinstance(prices_df, pd.DataFrame), "prices_df must be a pandas DataFrame"
 
@@ -609,7 +624,10 @@ def calculate_vault_returns(prices_df: pd.DataFrame, logger=print):
     # spaced at daily or irregular intervals — producing ~24h or
     # variable-interval returns labelled "1h".  Renaming would break
     # every downstream consumer so the name is kept for compatibility.
+    previous_share_price = prices_df.groupby("id")["share_price"].shift(1)
     prices_df["returns_1h"] = prices_df.groupby("id")["share_price"].pct_change()
+    repeated_zero_price = (prices_df["share_price"] == 0) & (previous_share_price == 0)
+    prices_df.loc[repeated_zero_price, "returns_1h"] = 0.0
     return prices_df
 
 
@@ -637,7 +655,7 @@ def clean_returns(
     """
 
     # Kept for API compatibility with notebook and script callers.
-    del display
+    del rows, display
 
     returns_df = prices_df
 
@@ -707,6 +725,9 @@ def clean_by_tvl(
         cleaning applied.
     """
 
+    # Kept for API compatibility with notebook and script callers.
+    del rows
+
     returns_df = prices_df
 
     # TVL based cleaning.
@@ -737,7 +758,7 @@ def clean_by_tvl(
     # so that we zero the returns of the following day
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", FutureWarning)
-        mask = mask | mask.groupby(returns_df["id"]).shift(1).fillna(False)
+        mask |= mask.groupby(returns_df["id"]).shift(1).fillna(False)
 
     # Hypercore returns are already bounded and audited by the PnL/NAV index.
     # Keep its price-derived return internally consistent, while retaining the
@@ -972,7 +993,7 @@ def approximate_hypercore_share_prices_from_pnl_nav(  # noqa: PLR0914
     logger: Callable[[str], None] = print,
     max_positive_return: Percent = 1.0,
 ) -> pd.DataFrame:
-    """Build an actionable Hypercore economic-performance index from PnL and NAV.
+    """Build an approximate Hypercore economic-performance index from PnL and NAV.
 
     Hyperliquid does not expose historical vault share supply or an investable
     unit price through its
@@ -1138,12 +1159,26 @@ def approximate_hypercore_share_prices_from_pnl_nav(  # noqa: PLR0914
             deferred_absorbing_loss = funded_absorbing_loss & ~corroborated_wipe_out
             applied_returns[deferred_absorbing_loss] = 0.0
             applied_returns[corroborated_wipe_out] = -1.0
+
+            # A complete loss is absorbing within one capital epoch. Later API
+            # baseline changes cannot create performance or another wipe-out
+            # after the clean index has reached zero.
+            wipe_out_numbers = np.flatnonzero(corroborated_wipe_out)
+            post_wipe_out = np.zeros(len(checkpoints), dtype=bool)
+            if len(wipe_out_numbers):
+                post_wipe_out[int(wipe_out_numbers[0]) + 1 :] = True
+                applied_returns[post_wipe_out] = 0.0
+                positive_clipped[post_wipe_out] = False
+                deferred_absorbing_loss[post_wipe_out] = False
+                corroborated_wipe_out[post_wipe_out] = False
+
             checkpoint_prices = np.cumprod(1.0 + applied_returns)
 
             checkpoint_status = np.full(len(checkpoints), "approximated_pnl_nav", dtype=object)
             checkpoint_status[positive_clipped] = "approximated_pnl_nav_clipped"
             checkpoint_status[deferred_absorbing_loss] = "deferred_pnl_nav_outlier"
             checkpoint_status[corroborated_wipe_out] = "approximated_pnl_nav_wipe_out"
+            checkpoint_status[post_wipe_out] = "approximated_pnl_nav_carried"
             repair_status[checkpoints] = checkpoint_status
 
             checkpoint_lookup = np.searchsorted(checkpoints, epoch_positions, side="right") - 1
@@ -1153,7 +1188,7 @@ def approximate_hypercore_share_prices_from_pnl_nav(  # noqa: PLR0914
             clean_price[epoch_positions] = epoch_prices
 
             checkpoint_count += len(checkpoints)
-            carried_count += int(day_has_checkpoint.sum()) - len(checkpoints)
+            carried_count += int(day_has_checkpoint.sum()) - len(checkpoints) + int(post_wipe_out.sum())
             clipped_count += int(positive_clipped.sum())
             deferred_outlier_count += int(deferred_absorbing_loss.sum())
             wipe_out_count += int(corroborated_wipe_out.sum())
@@ -1174,7 +1209,7 @@ def approximate_hypercore_share_prices_from_pnl_nav(  # noqa: PLR0914
     if synthetic_supplies is not None:
         prices_df["total_supply"] = synthetic_supplies
 
-    logger(f"Approximated Hypercore economic share prices for {affected_vaults:,} vaults using {checkpoint_count:,} daily PnL/NAV checkpoints; carried {carried_count:,} duplicate rows, deferred {missing_count:,} missing-input rows and {deferred_outlier_count:,} uncorroborated losses, capped {clipped_count:,} gains and recorded {wipe_out_count:,} terminal wipe-outs")
+    logger(f"Approximated Hypercore economic share prices for {affected_vaults:,} vaults using {checkpoint_count:,} daily PnL/NAV checkpoints; carried {carried_count:,} non-performance rows, deferred {missing_count:,} missing-input rows and {deferred_outlier_count:,} uncorroborated losses, capped {clipped_count:,} gains and recorded {wipe_out_count:,} terminal wipe-outs")
     return prices_df
 
 
@@ -1570,7 +1605,7 @@ def process_raw_vault_scan_data(
 
     if diagnose_vault_id:
         vault_prices_df = prices_df[prices_df["id"] == diagnose_vault_id]
-        logger("After remove_inactive_lead_time():")
+        logger("After discard_hypercore_pre_recapitalisation_history():")
         display(vault_prices_df)
 
     # Hyperliquid does not expose an authoritative historical unit price or
@@ -1613,7 +1648,7 @@ def process_raw_vault_scan_data(
 
     if diagnose_vault_id:
         vault_prices_df = prices_df[prices_df["id"] == diagnose_vault_id]
-        print("After clean_returns():")
+        logger("After clean_returns():")
         display(vault_prices_df)
 
     prices_df = clean_by_tvl(

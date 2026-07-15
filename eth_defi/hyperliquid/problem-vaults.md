@@ -54,7 +54,8 @@ presented as Hyperliquid's exact share price.
 - `approximated_pnl_nav`: ordinary daily economic checkpoint;
 - `approximated_pnl_nav_clipped`: positive checkpoint capped at 100%;
 - `approximated_pnl_nav_wipe_out`: terminal NAV-corroborated complete loss;
-- `approximated_pnl_nav_carried`: non-checkpoint daily/HF duplicate;
+- `approximated_pnl_nav_carried`: a non-checkpoint duplicate or a row after a
+  terminal loss that adds no further performance;
 - `deferred_pnl_nav`: checkpoint inputs were unavailable; and
 - `deferred_pnl_nav_outlier`: an uncorroborated absorbing loss was carried.
 
@@ -85,9 +86,10 @@ retained history; the one-period returns demonstrate the repaired economics.
 | HyperBotPro | `0x12e358f38741c07c1e04a8102a3170d40a600f05` | 18 March 2026 | `+285.0%` synthetic move around a withdrawal | `+12.72%` from PnL/NAV |
 | Titan Vault | `0x4b0eab9444a75a03f1ef340c8beac737afa5ab09` | 7 April 2026 | `+82.9%` and `deferred_hf_nav` | `+27.94%` from the freshest daily checkpoint |
 
-These replacements do not assert that every retained PnL observation is exact.
-They remove the known mechanism by which share units and flows became
-performance and expose clipping or deferral explicitly for later inspection.
+These replacements do not assert that every retained PnL observation is exact
+or that every Hypercore curve is suitable for unfiltered backtesting. They
+remove the known mechanism by which share units and flows became performance
+and expose clipping or deferral explicitly for later inspection.
 
 ## HODL My Perps and recapitalisation
 
@@ -127,14 +129,23 @@ After removing 369 superseded recapitalisation rows, the economic-index run
 produces:
 
 - 85,891 daily PnL/NAV checkpoints;
-- 788,618 carried daily/HF duplicate rows;
+- 788,652 carried non-performance rows, including duplicate daily/HF rows and
+  rows after a terminal wipe-out;
 - 57 uncorroborated absorbing losses carried for review;
-- 9 positive returns capped at 100%; and
-- 2 terminal NAV-corroborated wipe-outs.
+- 7 positive returns capped at 100%; and
+- 1 terminal NAV-corroborated wipe-out. Later rows in that epoch remain at zero
+  and are carried rather than recording repeated losses or gains.
 
-All resulting one-step clean returns are between -100% and +100%. There are no
+All finite one-step clean returns are between -100% and +100%. There are no
 `deferred_hf_*` raw prices in the published clean curve because the index is
 applied to every Hypercore vault rather than only suspicious candidates.
+
+This is structural cleaning, not proof that every source PnL change is genuine.
+The same retained production data still contains 225 funded, unmasked daily
+checkpoints over 50% across 100 vaults and 18 rapid opposite-direction moves
+over 50% across 14 vaults. These observations follow the documented PnL/NAV
+approximation and are internally consistent, but they need explicit quality
+filtering or review before return-based backtesting.
 
 Historical repair requires no DuckDB or raw-Parquet rewrite. Regenerating
 `cleaned-vault-prices-1h.parquet` from the unchanged raw Parquet applies the
