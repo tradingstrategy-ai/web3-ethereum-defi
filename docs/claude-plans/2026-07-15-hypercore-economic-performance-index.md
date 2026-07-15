@@ -186,6 +186,8 @@ The function must:
 - build and forward-fill the compounded index;
 - set `hypercore_repair_status` to `approximated_pnl_nav` at usable economic
   checkpoints, `approximated_pnl_nav_clipped` at positive capped checkpoints,
+  `approximated_pnl_nav_lag_repaired` when the following daily checkpoint
+  supplies the matching delayed NAV for a positive PnL move,
   `approximated_pnl_nav_carried` at ordinary non-checkpoint rows and after a
   terminal loss,
   `deferred_pnl_nav` where checkpoint inputs are missing, and
@@ -281,6 +283,9 @@ new raw observation for the current or a future date may add a checkpoint but
 must not alter earlier checkpoint prices. A newly observed recovery after a
 provisional terminal zero is the exception: it can show that the earlier zero
 was not an absorbing loss and deterministically revise that open lifecycle. A
+following daily NAV observation may also show that the previous day's PnL-only
+move was the first half of a staggered API update. In this case the premature
+return is carried and applied at the confirming observation. A
 genuinely late raw observation for a past date may likewise select a fresher
 checkpoint and rewrite the later compounded index. Preserving a known stale
 classification would be worse, and the raw file remains the audit trail. Test
@@ -304,6 +309,7 @@ error in this table.
 | Order Block Hunter, 2 February | `+275.4%` | approximately `-4.9%` |
 | HyperBotPro, 18 March | `+285.0%` | approximately `+12.7%` |
 | Titan Vault, 7 April | `+82.9%` | approximately `+27.9%`; the checked closing NAV is the larger denominator |
+| Fish Market, 17–18 March | clipped `+100%` on the PnL-only checkpoint | approximately `+54.5%` on the following NAV-confirming checkpoint |
 
 Also verify:
 
@@ -389,6 +395,7 @@ an unchanged rerun is identical.
   is appropriate once exact unit performance is acknowledged as unavailable.
 - Update `CleanedVaultPriceRow` and `hypercore_repair_status` documentation to
   describe `approximated_pnl_nav`, `approximated_pnl_nav_clipped`,
+  `approximated_pnl_nav_lag_repaired`,
   `approximated_pnl_nav_carried`, `deferred_pnl_nav` and
   `deferred_pnl_nav_outlier` rather than only `repaired_*`/`deferred_hf_*`
   statuses. Explicitly document that Hypercore `total_supply` is a synthetic
