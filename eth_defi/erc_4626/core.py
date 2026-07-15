@@ -685,11 +685,13 @@ class ERC4626Feature(enum.Enum):
     #: https://www.3jane.xyz/
     threejane_like = "threejane_like"
 
-    #: Aave (v4)
+    #: Aave (v3 and v4)
     #:
-    #: Aave v4 Tokenization Spoke: an ERC-4626 vault that tokenises a deposit of a
-    #: Hub asset into fungible ``wa{Hub}{Asset}`` shares (e.g. ``waCoreUSDC``).
-    #: Identified by the spoke-specific ``SPOKE_REVISION()`` accessor.
+    #: Aave V3 ATokenVault wraps an interest-bearing Aave aToken into ERC-4626
+    #: shares. Aave v4 Tokenization Spokes tokenise Hub assets into fungible
+    #: ``wa{Hub}{Asset}`` shares (e.g. ``waCoreUSDC``). V3 ATokenVaults are
+    #: identified by a chain-aware address registry; v4 spokes expose the
+    #: spoke-specific ``SPOKE_REVISION()`` accessor.
     #: https://aave.com/
     aave_like = "aave_like"
 
