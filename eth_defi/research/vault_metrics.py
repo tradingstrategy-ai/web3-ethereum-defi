@@ -9,6 +9,7 @@ import logging
 import math
 import warnings
 from dataclasses import asdict, dataclass, is_dataclass
+from decimal import Decimal
 from enum import Enum
 from typing import TYPE_CHECKING, Literal, Optional, TypeAlias, TypedDict
 
@@ -3322,6 +3323,7 @@ def export_lifetime_row(row: pd.Series) -> dict:
 
     - Recursively handles nested dicts, lists, tuples, sets, and dataclasses.
     - Normalises pandas, numpy, datetime, and custom types.
+    - Converts finite :class:`~decimal.Decimal` values to JSON number floats.
     - Preserves legacy fee field names.
 
     The ``denomination_token_rate`` dataclass from
@@ -3339,6 +3341,14 @@ def export_lifetime_row(row: pd.Series) -> dict:
         # Numpy scalar
         if isinstance(value, (np.floating, np.integer)):
             return value.item()
+        # Decimal values occur in scanned vault metadata, including fee fields.
+        # JSON has one numeric representation, so retain the public export's
+        # established float convention. JSON cannot represent Decimal NaN or
+        # infinity, which follow the existing float sanitisation rule.
+        if isinstance(value, Decimal):
+            if not value.is_finite():
+                return None
+            return float(value)
         # Pandas timestamp
         if isinstance(value, pd.Timestamp):
             return value.isoformat()

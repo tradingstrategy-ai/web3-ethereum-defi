@@ -25,6 +25,7 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
 MIDAS_HOMEPAGE = "https://midas.app/products"
@@ -292,12 +293,18 @@ class MidasVault(VaultBase):
     def description(self) -> str | None:
         """Human-readable product description."""
 
+        metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
+        if metadata:
+            return metadata.description
         return self.product.product_name
 
     @property
     def short_description(self) -> str | None:
         """Short product description."""
 
+        metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
+        if metadata:
+            return metadata.short_description
         return "Midas tokenised investment product with NAV published through the Midas oracle pipeline"
 
     @property
@@ -633,4 +640,5 @@ class MidasVault(VaultBase):
             Midas product listing URL.
         """
 
-        return MIDAS_HOMEPAGE
+        metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
+        return metadata.link if metadata else MIDAS_HOMEPAGE

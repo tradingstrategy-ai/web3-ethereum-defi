@@ -6,3 +6,13 @@ twitter: frankencoinzchf
 linkedin: frankencoin
 # rss: not found - the public site exposes documentation and social channels, but no RSS or Atom feed.
 linkedin-rss-hub-disabled-at: 2026-07-10
+short_description: Frankencoin is a stablecoin maintaining 1:1 value with the Swiss franc.
+long_description: |
+  Frankencoin is a decentralised Swiss franc stablecoin. Its ZCHF token is designed
+  to keep a 1:1 value with the Swiss franc while remaining transparent, on-chain and
+  usable without relying on a single central issuer.
+
+  The protocol is backed by on-chain collateral that can be liquidated when needed
+  to protect the value of ZCHF. Frankencoin supports payments, borrowing, DeFi yield
+  through the savings module, and integrations that need a programmable Swiss franc
+  settlement layer.

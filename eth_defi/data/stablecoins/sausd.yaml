@@ -17,7 +17,7 @@ contract_addresses:
   - chain: monad
     address: '0xD793c04B87386A6bb84ee61D98e0065FdE7fdA5E'
 slug: sausd
-rate_fetch_failed_at: '2026-07-10T06:52:47'
+rate_fetch_failed_at: '2026-07-15T00:32:48'
 rate_fetch_failed_reason: missing_coingecko_id
 checks:
   twitter_last_post_at: ''

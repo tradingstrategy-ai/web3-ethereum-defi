@@ -19,7 +19,7 @@ contract_addresses:
   - chain: ethereum
     address: '0xA991356d261fbaF194463aF6DF8f0464F8f1c742'
 slug: tfusdc
-rate_fetch_failed_at: '2026-07-10T06:52:47'
+rate_fetch_failed_at: '2026-07-15T00:32:48'
 rate_fetch_failed_reason: missing_coingecko_id
 checks:
   twitter_last_post_at: ''

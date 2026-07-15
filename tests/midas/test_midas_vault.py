@@ -21,7 +21,7 @@ from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.hypersync.hypersync_timestamp import get_block_timestamps_using_hypersync
 from eth_defi.hypersync.server import get_hypersync_server
 from eth_defi.hypersync.session import ThrottledHypersyncClient, create_throttled_hypersync_client
-from eth_defi.midas.constants import MIDAS_MBASIS_ETHEREUM, MIDAS_MTBILL_ETHEREUM, MIDAS_PRODUCTS
+from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS, MIDAS_MBASIS_ETHEREUM, MIDAS_MTBILL_ETHEREUM, MIDAS_PRODUCTS
 from eth_defi.midas.historical import MidasVaultHistoricalReader, MidasVaultReaderState
 from eth_defi.midas.registry import (
     MIDAS_ADDRESSES_PER_NETWORK,
@@ -173,13 +173,13 @@ def test_midas_hardcoded_leads_are_added_to_discovery(monkeypatch: pytest.Monkey
             )
 
     monkeypatch.setattr(discovery_base_module, "probe_vaults", fake_probe_vaults)
-    monkeypatch.setattr(discovery_base_module, "ODA_FACT_HARDCODED_LEADS", ())
 
     discover = DummyMidasDiscovery(max_workers=1)
     report = discover.scan_vaults(
         start_block=0,
         end_block=expected_end_block,
         display_progress=False,
+        hardcoded_lead_sources=(("Midas", MIDAS_HARDCODED_LEADS),),
     )
 
     assert report.new_leads == len(expected_mainnet_products)
@@ -569,16 +569,12 @@ def test_midas_lead_detection_lifetime_metrics_json_export(monkeypatch: pytest.M
         )
 
     monkeypatch.setattr(discovery_base_module, "probe_vaults", fake_probe_vaults)
-    monkeypatch.setattr(
-        discovery_base_module,
-        "MIDAS_HARDCODED_LEADS",
+    midas_hardcoded_leads = (
         (
-            (
-                MIDAS_MTBILL_ETHEREUM.chain_id,
-                MIDAS_MTBILL_ETHEREUM.token,
-                MIDAS_MTBILL_ETHEREUM.first_seen_at_block,
-                MIDAS_MTBILL_ETHEREUM.first_seen_at,
-            ),
+            MIDAS_MTBILL_ETHEREUM.chain_id,
+            MIDAS_MTBILL_ETHEREUM.token,
+            MIDAS_MTBILL_ETHEREUM.first_seen_at_block,
+            MIDAS_MTBILL_ETHEREUM.first_seen_at,
         ),
     )
 
@@ -587,6 +583,7 @@ def test_midas_lead_detection_lifetime_metrics_json_export(monkeypatch: pytest.M
         start_block=MIDAS_MTBILL_ETHEREUM.first_seen_at_block,
         end_block=MIDAS_MTBILL_ETHEREUM.first_seen_at_block,
         display_progress=False,
+        hardcoded_lead_sources=(("Midas", midas_hardcoded_leads),),
     )
     detection = report.detections[MIDAS_MTBILL_ETHEREUM.token]
 

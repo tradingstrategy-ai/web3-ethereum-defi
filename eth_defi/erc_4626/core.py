@@ -66,6 +66,18 @@ class ERC4626Feature(enum.Enum):
     #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     midas_like = "midas_like"
 
+    #: Maseer One tokenised asset contracts.
+    #:
+    #: Routing marker for non-ERC-4626 Maseer One instruments that are read
+    #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    maseer_one_like = "maseer_one_like"
+
+    #: Vault Street permissioned tokenised investment products.
+    #:
+    #: Routing marker for non-ERC-4626 products read through a
+    #: :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    vault_street_like = "vault_street_like"
+
     #: Ipor protocol
     #:
     #: https://app.ipor.io/fusion
@@ -674,11 +686,13 @@ class ERC4626Feature(enum.Enum):
     #: https://www.3jane.xyz/
     threejane_like = "threejane_like"
 
-    #: Aave (v4)
+    #: Aave (v3 and v4)
     #:
-    #: Aave v4 Tokenization Spoke: an ERC-4626 vault that tokenises a deposit of a
-    #: Hub asset into fungible ``wa{Hub}{Asset}`` shares (e.g. ``waCoreUSDC``).
-    #: Identified by the spoke-specific ``SPOKE_REVISION()`` accessor.
+    #: Aave V3 ATokenVault wraps an interest-bearing Aave aToken into ERC-4626
+    #: shares. Aave v4 Tokenization Spokes tokenise Hub assets into fungible
+    #: ``wa{Hub}{Asset}`` shares (e.g. ``waCoreUSDC``). V3 ATokenVaults are
+    #: identified by a chain-aware address registry; v4 spokes expose the
+    #: spoke-specific ``SPOKE_REVISION()`` accessor.
     #: https://aave.com/
     aave_like = "aave_like"
 
@@ -810,6 +824,10 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Kinexys"
     elif ERC4626Feature.midas_like in features:
         return "Midas"
+    elif ERC4626Feature.maseer_one_like in features:
+        return "Maseer One"
+    elif ERC4626Feature.vault_street_like in features:
+        return "Vault Street"
     elif ERC4626Feature.morpho_like in features:
         return "Morpho"
     elif ERC4626Feature.panoptic_like in features:

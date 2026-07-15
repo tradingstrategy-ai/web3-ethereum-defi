@@ -2,6 +2,12 @@
 
 **Date:** 2026-07-14
 
+> **Superseded for cleaned-price construction:** the scanner continuity work
+> remains useful for raw-data quality, but cleaned Hypercore performance now
+> follows the PnL/NAV economic-index plan in
+> `2026-07-15-hypercore-economic-performance-index.md`. HF anchors and
+> flow-reconciled synthetic units are not authoritative cleaned prices.
+
 ## Goal
 
 Produce a stable, actionable Hypercore share price with the smallest practical
@@ -56,7 +62,7 @@ unchanged.
 ### 2. Chain a recalculated curve to stored history
 
 Add one small shared helper for the daily and HF scanners. Given a newly
-calculated curve and the latest stored positive share price:
+calculated curve and the latest stored share price:
 
 1. Locate that stored timestamp in the new curve, using exact overlap for daily
    rows and time interpolation for HF rows.
@@ -78,14 +84,22 @@ is; the existing synthetic-supply calculation anchors its first funded row at
 `1.0`. A missing stored anchor is therefore a valid bootstrap, whereas an
 existing stored anchor outside the new API curve is an error.
 
+A zero stored price may record a complete NAV wipe-out and cannot be used as a
+scale factor. The scanner cannot classify it as durable or transient at resume
+time, so resume the reconstructed curve unchanged. The wrangle pipeline applies
+the stricter duration and NAV thresholds that decide whether a later
+recapitalisation becomes a retained performance epoch. Keep negative and
+non-finite stored prices as hard errors.
+
 For an existing daily vault, only update the overlapping boundary date and
 append later dates; do not refresh its complete historical curve on every scan.
 The HF scanner keeps its existing append-only behaviour after applying the same
 alignment.
 
-If the latest stored timestamp is outside the new API curve, skip that vault for
-the scan and log the reason. Guessing a scale without any overlap would recreate
-the original problem.
+If a positive latest stored price has a timestamp outside the new API curve,
+skip that vault for the scan and log the reason. Guessing a scale without any
+overlap would recreate the original problem. A zero price remains the explicit
+unscaled-resume exception described above.
 
 ### 3. Keep Hypercore returns derived from the repaired price
 
