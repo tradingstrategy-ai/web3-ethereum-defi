@@ -1,0 +1,69 @@
+symbol: pathUSD
+name: pathUSD
+short_description: |
+  pathUSD is a USD-denominated stablecoin on Tempo. It is the first stablecoin
+  deployed on the chain and serves as the default quote token for Tempo's
+  stablecoin exchange and as a fallback gas token.
+long_description: |
+  [pathUSD](https://tempo.xyz/developers/docs/protocol/exchange/quote-tokens/) is
+  a USD-denominated stablecoin on the Tempo blockchain. Tempo documents pathUSD
+  as the first stablecoin deployed to the chain, an optional quote token for the
+  native stablecoin exchange, and the fallback gas token when a user or validator
+  does not specify another gas token.
+
+  ## Mechanism
+
+  pathUSD is issued by Bridge and backed 1:1 by high-quality USD-denominated
+  reserves. Tempo states that pathUSD can be minted by depositing USDC.e and
+  redeemed back to USDC through Bridge. The token is not intended to compete as a
+  consumer-facing stablecoin; it is neutral infrastructure for routing between
+  USD stablecoins on Tempo.
+
+  ## Key properties
+
+  - Predeployed TIP-20 stablecoin on Tempo mainnet
+  - USD-denominated, 6 decimals, with contract currency `USD`
+  - Root quote token for Tempo's stablecoin exchange
+  - Fallback gas token when no other fee asset is selected
+
+  ## Sources
+
+  - [Tempo quote tokens documentation](https://tempo.xyz/developers/docs/protocol/exchange/quote-tokens/)
+  - [Tempo predeployed contracts](https://tempo.xyz/developers/docs/quickstart/predeployed-contracts)
+  - [CoinGecko - pathUSD](https://www.coingecko.com/en/coins/pathusd)
+  - [DefiLlama - Tempo stablecoins](https://defillama.com/stablecoins/tempo)
+category: stablecoin
+links:
+  homepage: https://tempo.xyz/
+  coingecko: https://www.coingecko.com/en/coins/pathusd
+  defillama: https://defillama.com/stablecoins/tempo
+  twitter: https://x.com/tempo
+slug: pathusd
+contract_addresses:
+  - chain: 4217
+    address: '0x20C0000000000000000000000000000000000000'
+source_currency: usd
+source_currency_source: manual
+source_currency_usd_rate: 1.0
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
+coingecko_id: pathusd
+coingecko_link: https://www.coingecko.com/en/coins/pathusd
+coingecko_id_source: manual
+coingecko_id_verified_at: ''
+coingecko_id_verification_failed_at: ''
+coingecko_id_verification_failed_reason: ''
+usd_rate: ''
+usd_rate_fetched_at: ''
+usd_rate_updated_at: ''
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-07-14'
+  marked_dead_at: ''
+  information_found_missing_at: ''

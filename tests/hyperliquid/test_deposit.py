@@ -11,7 +11,7 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
-from eth_defi.hyperliquid.deposit import VaultDepositEvent, VaultEventType, aggregate_daily_flows, create_deposit_dataframe, fetch_vault_deposits, get_deposit_summary
+from eth_defi.hyperliquid.deposit import RawLedgerUpdate, VaultDepositEvent, VaultEventType, _parse_vault_event, aggregate_daily_flows, create_deposit_dataframe, fetch_vault_deposits, get_deposit_summary  # noqa: PLC2701
 
 
 @pytest.fixture(scope="module")
@@ -182,3 +182,25 @@ def test_aggregate_daily_flows_synthetic():
 
     # Distribution event should not create an entry on its own
     assert len(flows) == 2
+
+
+def test_parse_vault_withdraw_uses_net_withdrawn_usd() -> None:
+    """Completed withdrawals use Hyperliquid's realised cash-flow field."""
+    update = RawLedgerUpdate(
+        timestamp_ms=1_770_000_000_000,
+        hash="0xwithdrawal",
+        delta={
+            "type": "vaultWithdraw",
+            "vault": "0xabc",
+            "user": "0xdef",
+            "usdc": "0",
+            "netWithdrawnUsd": "7614.648567",
+        },
+    )
+
+    event = _parse_vault_event(update, "0xabc")
+
+    assert event is not None
+    assert event.event_type == VaultEventType.vault_withdraw
+    assert float(event.usdc) == pytest.approx(-7614.648567)
+    assert float(event.net_withdrawn_usd) == pytest.approx(7614.648567)

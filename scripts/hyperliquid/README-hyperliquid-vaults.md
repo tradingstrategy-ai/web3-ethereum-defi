@@ -178,8 +178,15 @@ read reconstructs an arbitrary but internally consistent unit, so the daily
 and HF scanners align their new curve to the latest stored price before writing
 their one-row overlap. The HF path log-linearly interpolates an anchor when
 the rolling-window timestamps shift. The matching inverse supply scaling keeps
-`total_assets == share_price * total_supply`; if no stored anchor lies within
-the current curve, the scan is skipped rather than creating a discontinuity.
+`total_assets == share_price * total_supply`; if no positive stored anchor lies
+within the current curve, the scan is skipped rather than creating a
+discontinuity.
+An exact zero stored price may record a complete wipe-out, but it cannot scale
+another curve. Because the scanner cannot classify the zero as durable or
+transient at resume time, it resumes the reconstructed curve without alignment.
+The wrangle pipeline separately decides whether a later recapitalisation
+qualifies as a new retained performance epoch. Negative or non-finite stored
+prices remain hard errors.
 
 ### Hypercore-specific columns in price data
 
@@ -239,6 +246,42 @@ so you can backfill as far as the vault has existed.
 
 After a one-time backfill, set `FLOW_BACKFILL_DAYS` back to 7 (or omit it)
 for regular daily runs to avoid unnecessary API calls.
+
+### Repairing retained historical observations
+
+`FLOW_BACKFILL_DAYS` only attaches flows to portfolio observations still
+returned by the current `vaultDetails` response. Hyperliquid downsamples old
+portfolio history, so an exact historical row retained in our DuckDB may no
+longer appear in a fresh response. This affected Magixbox on 5 February 2026:
+the retained daily price had no withdrawal, while
+`userNonFundingLedgerUpdates` still returned $7,614.65 of withdrawals.
+
+Use the manual historical-flow script for these `deferred_hf_nav` rows. It
+fetches the ledger around each candidate and updates only flow columns on
+existing daily DuckDB observations:
+
+```shell
+# Preview all candidates without writing
+AUTODETECT=true \
+  poetry run python scripts/hyperliquid/backfill-historical-vault-flows.py
+
+# Update Magixbox
+DRY_RUN=false \
+  VAULT_ADDRESSES=0x1764dd740aba4195643bbb6a44648e0306b00cfa \
+  poetry run python scripts/hyperliquid/backfill-historical-vault-flows.py
+```
+
+Set exactly one of `VAULT_ADDRESSES` or `AUTODETECT=true`. Every non-dry-run
+execution first creates the next numbered backup beside the daily DuckDB, such
+as `hyperliquid-vaults.duckdb.bak-0001`. Existing backups are never replaced;
+the DuckDB WAL sidecar is copied as well when present. Stop the scanner while
+the backup and update run.
+
+Afterwards run the normal export and vault-price wrangle. The wrangle repairs a
+large daily/HF unit conflict only when the backfilled ledger flow reconciles
+NAV. It follows the PnL-derived share-price path through subsequent reconciled
+observations and stops at the first missing or inconsistent flow step. Raw
+share prices remain available in `raw_share_price` for auditing.
 
 ## Tombstoning stale vaults
 

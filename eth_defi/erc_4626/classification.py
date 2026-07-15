@@ -17,12 +17,15 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.maseer_one.constants import MASEER_ONE_WSTGBP
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
+from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +64,16 @@ ODA_FACT_HARDCODED_PROTOCOLS = {
 
 #: Midas hardcoded classification flags.
 MIDAS_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.midas_like} for token in MIDAS_PRODUCTS_BY_TOKEN}
+
+#: Maseer One hardcoded classification flags.
+#:
+#: This is deliberately address-only for the initial rollout. Maseer One does
+#: not yet have a production track record or large vault deployments that
+#: warrant maintaining a chain-specific deployment registry. Revisit this
+#: allow-list when a material multi-chain deployment is added.
+MASEER_ONE_HARDCODED_PROTOCOLS = {
+    MASEER_ONE_WSTGBP.vault: {ERC4626Feature.maseer_one_like},
+}
 
 #: KiloEx Hybrid Vaults reuse a Gains-compatible contract surface. Classify
 #: known deployments by address instead of the generic ``maxDiscountP()`` probe.
@@ -220,6 +233,13 @@ AAVE_ATOKEN_VAULTS_BY_CHAIN: dict[int, frozenset[HexAddress]] = {
         }
     ),
 }
+#: Frankencoin hardcoded classification flags.
+FRANKENCOIN_HARDCODED_PROTOCOLS = {HexAddress(address): {ERC4626Feature.frankencoin_like} for address in FRANKENCOIN_SAVINGS_VAULTS}
+
+#: Vault Street hardcoded classification flags.
+#:
+#: primeUSD is a non-ERC-4626 token whose NAV comes from a separate oracle.
+VAULT_STREET_HARDCODED_PROTOCOLS = {PRIME_USD_ADDRESS: {ERC4626Feature.vault_street_like}}
 
 
 def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | None = None) -> set[ERC4626Feature] | None:
@@ -252,6 +272,10 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if (chain_id, normalised_address) in MIDAS_PRODUCTS:
             return MIDAS_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in MIDAS_HARDCODED_PROTOCOLS:
+            return None
+        if normalised_address == PRIME_USD_ADDRESS:
+            if chain_id == 1:
+                return VAULT_STREET_HARDCODED_PROTOCOLS[normalised_address]
             return None
 
     return HARDCODED_PROTOCOLS.get(normalised_address)
@@ -1655,6 +1679,14 @@ def create_vault_instance(
         from eth_defi.midas.vault import MidasVault
 
         return MidasVault(web3, spec, **kwargs)
+    elif ERC4626Feature.maseer_one_like in features:
+        from eth_defi.maseer_one.vault import MaseerOneVault
+
+        return MaseerOneVault(web3, spec, **kwargs)
+    elif ERC4626Feature.vault_street_like in features:
+        from eth_defi.vault_street.vault import VaultStreetVault
+
+        return VaultStreetVault(web3, spec, **kwargs)
 
     # TODO: Some module deadlock sheningans for Morpho
     elif ERC4626Feature.morpho_like in features:
@@ -2088,7 +2120,10 @@ def create_vault_instance_autodetect(
 HARDCODED_PROTOCOLS = {
     **ODA_FACT_HARDCODED_PROTOCOLS,
     **MIDAS_HARDCODED_PROTOCOLS,
+    **MASEER_ONE_HARDCODED_PROTOCOLS,
     **KILOEX_HARDCODED_PROTOCOLS,
+    **FRANKENCOIN_HARDCODED_PROTOCOLS,
+    **VAULT_STREET_HARDCODED_PROTOCOLS,
     # 3Jane - USD3 senior tranche credit vault on Ethereum
     # https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
     "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc": {ERC4626Feature.threejane_like},
@@ -2138,15 +2173,6 @@ HARDCODED_PROTOCOLS = {
     # Spark - spUSDG (Spark Savings USDG) vault on Robinhood Chain
     # https://robinhoodchain.blockscout.com/address/0xde770c84FE66E063336b31737cFE9790f18c4087
     "0xde770c84fe66e063336b31737cfe9790f18c4087": {ERC4626Feature.spark_like},
-    # Frankencoin - svZCHF Savings Vault on Ethereum
-    # https://etherscan.io/token/0xE5F130253fF137f9917C0107659A4c5262abf6b0
-    "0xe5f130253ff137f9917c0107659a4c5262abf6b0": {ERC4626Feature.frankencoin_like},
-    # Frankencoin - svZCHF Savings Vault on Base
-    # https://basescan.org/address/0xa09EBdf8A01b9ef04149319D64F83b9C01a5b585
-    "0xa09ebdf8a01b9ef04149319d64f83b9c01a5b585": {ERC4626Feature.frankencoin_like},
-    # Frankencoin - svZCHF Savings Vault on Gnosis
-    # https://gnosisscan.io/token/0x6165946250dd04740ab1409217e95a4f38374fe9
-    "0x6165946250dd04740ab1409217e95a4f38374fe9": {ERC4626Feature.frankencoin_like},
     # Deltr - StakeddUSD vault on Ethereum
     # https://etherscan.io/address/0xa7a31e6a81300120b7c4488ec3126bc1ad11f320
     "0xa7a31e6a81300120b7c4488ec3126bc1ad11f320": {ERC4626Feature.deltr_like},

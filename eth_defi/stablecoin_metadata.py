@@ -386,6 +386,7 @@ STABLECOIN_LIKE = set(
         "mUSD",
         "meUSDT",
         "msUSD",
+        "pathUSD",
         "plUSD",
         "reUSD",
         "sUSDC",

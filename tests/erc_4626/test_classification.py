@@ -6,9 +6,12 @@ Tests for create_probe_calls() chain filtering functionality.
 from eth_defi.erc_4626.classification import (
     CHAIN_RESTRICTED_PROBES,
     ROYCO_CHAIN_IDS,
-    _should_yield_probe,
+    _get_hardcoded_protocol_features,  # noqa: PLC2701
+    _should_yield_probe,  # noqa: PLC2701
     create_probe_calls,
 )
+from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
 
 # Chain IDs for reference
 ETHEREUM_MAINNET = 1
@@ -19,6 +22,13 @@ BSC = 56
 MONAD = 143
 MANTLE = 5000
 AVALANCHE = 43114
+
+
+def test_vault_street_hardcoded_protocol_is_ethereum_only() -> None:
+    """Classify the hardcoded primeUSD address only on its deployment chain."""
+
+    assert _get_hardcoded_protocol_features(PRIME_USD_ADDRESS, chain_id=ETHEREUM_MAINNET) == {ERC4626Feature.vault_street_like}
+    assert _get_hardcoded_protocol_features(PRIME_USD_ADDRESS, chain_id=ARBITRUM) is None
 
 
 def test_chain_probe_filtering():
