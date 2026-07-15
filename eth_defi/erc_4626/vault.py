@@ -57,6 +57,7 @@ CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES = frozenset(
         "eth_defi.erc_4626.vault_protocol.gearbox.vault.GearboxVault",
         "eth_defi.erc_4626.vault_protocol.goat.vault.GoatVault",
         "eth_defi.erc_4626.vault_protocol.ipor.vault.IPORVault",
+        "eth_defi.erc_4626.vault_protocol.kiln.vault.KilnVault",
         "eth_defi.erc_4626.vault_protocol.morpho.vault_v1.MorphoV1Vault",
         "eth_defi.erc_4626.vault_protocol.morpho.vault_v2.MorphoV2Vault",
         "eth_defi.erc_4626.vault_protocol.plutus.vault.PlutusVault",

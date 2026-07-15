@@ -159,8 +159,9 @@ class ERC4626Feature(enum.Enum):
     #: https://docs.fluid.instadapp.io/
     fluid_like = "fluid_like"
 
-    #: Kiln metavault
-    #: https://github.com/0xZunia/Kiln.MetaVault
+    #: Kiln OmniVaults.
+    #:
+    #: https://docs.kiln.fi/v1/kiln-products/omnivaults
     kiln_metavault_like = "kiln_metavault_like"
 
     #: Peopods
@@ -852,7 +853,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.reserve_like in features:
         return "Reserve"
     elif ERC4626Feature.kiln_metavault_like in features:
-        return "Kiln Metavault"
+        return "Kiln"
     elif ERC4626Feature.peapods_like in features:
         return "Peapods"
     elif ERC4626Feature.term_finance_like in features:

@@ -79,6 +79,10 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Ostium": VaultFeeMode.feeless,
     "Gains": VaultFeeMode.feeless,
     "KiloEx": None,
+    # Kiln combines a fixed asset-denominated deposit fee with a reward fee
+    # collected by minting shares. This mixed model has no single enum value.
+    # Per-vault values are read by KilnVault.
+    "Kiln": None,
     "Domination Finance": VaultFeeMode.feeless,
     "Plutus": VaultFeeMode.internalised_skimming,
     "Harvest Finance": VaultFeeMode.internalised_skimming,
