@@ -549,7 +549,7 @@ def clean_prices(
             kwargs["cleaned_price_df_path"] = cleaned_path
         if settlement_db_path is not None:
             kwargs["settlement_db_path"] = settlement_db_path
-        generate_cleaned_vault_datasets(**kwargs)
+        generate_cleaned_vault_datasets(**kwargs, logger=logger.info)
         logger.info("Price cleaning complete")
         return True
     except OSError:

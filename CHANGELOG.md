@@ -1,6 +1,15 @@
 # 1.2
 
 - feat: Add Securitize DS Protocol vault support with BUIDL DSToken detection, historical supply scanning and tokenised-fund vault notes (2026-07-16)
+- feat: Publish Hypercore cleaned economic share prices from retained observations at up to four-hour granularity (2026-07-16)
+- feat: Export Midas issuance-vault payment tokens as scanner denominations and add a manual payment-token audit script (2026-07-16)
+- feat: Add Kiln OmniVault protocol metadata, documentation, feed registration and regression coverage (2026-07-15)
+- feat: Add Maseer One wstGBP vault support with hardcoded Ethereum discovery, NAV/share TVL history and Anvil-fork integration tests (2026-07-14)
+- feat: Add Accountable vault synchronous deposits, self-controlled asynchronous redemption claims and historical settlement event scanning (2026-07-14)
+- feat: Add handwritten Piku/Morini vault strategy descriptions and Piku detail links (2026-07-14)
+- feat: Add Ember synchronous deposit and operator-finalised redemption manager, historical `RequestProcessed` settlement collection, and GuardV0/Lagoon Safe lifecycle support (2026-07-14)
+- feat: Add pathUSD stablecoin classification, Tempo denomination-rate metadata and official packaged logo (2026-07-14)
+- feat: Add Vault Street primeUSD tracking with a direct VaultBase adapter, hardcoded Ethereum discovery and PriceStorage historical NAV reader (2026-07-14)
 - feat: Export vault deposit-manager capabilities, package Anvil fork probe results and provide a guarded deposit-probe refresh script (2026-07-13)
 - feat: Add KiloEx Hybrid Vault protocol support with hardcoded BNB Chain and Base deployment detection (2026-07-13)
 - feat: Add Piku curator attribution for USP and Morini Capital vaults using hardcoded Ethereum contract addresses (2026-07-13)

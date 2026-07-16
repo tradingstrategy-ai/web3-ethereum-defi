@@ -141,7 +141,11 @@ class HyperliquidMetricsDatabaseBase:
                 tvl = EXCLUDED.tvl,
                 apr = EXCLUDED.apr,
                 last_updated = EXCLUDED.last_updated,
-                flow_data_earliest_date = COALESCE(EXCLUDED.flow_data_earliest_date, vault_metadata.flow_data_earliest_date)
+                flow_data_earliest_date = CASE
+                    WHEN EXCLUDED.flow_data_earliest_date IS NULL THEN vault_metadata.flow_data_earliest_date
+                    WHEN vault_metadata.flow_data_earliest_date IS NULL THEN EXCLUDED.flow_data_earliest_date
+                    ELSE LEAST(EXCLUDED.flow_data_earliest_date, vault_metadata.flow_data_earliest_date)
+                END
             """,
             [
                 vault_address.lower(),

@@ -12,6 +12,7 @@ from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositPro
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionTicket
+from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
 from eth_defi.erc_4626.vault_protocol.summer.vault import SummerVault
 from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 from eth_defi.vault.base import VaultSpec
@@ -63,10 +64,12 @@ def test_erc4626_subclass_can_use_probe_generic_fallback_after_interface_check()
     assert subclass.get_deposit_manager_capability() is None
 
 
-def test_successful_summer_and_yearn_readers_are_synchronous_manager_certified() -> None:
+def test_successful_readers_are_synchronous_manager_certified() -> None:
     """Successful guarded deposit probes enable public manager metadata."""
+    assert "eth_defi.erc_4626.vault_protocol.kiln.vault.KilnVault" in CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES
     assert "eth_defi.erc_4626.vault_protocol.summer.vault.SummerVault" in CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES
     assert "eth_defi.erc_4626.vault_protocol.yearn.vault.YearnV3Vault" in CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES
+    assert object.__new__(KilnVault).get_deposit_manager_capability().as_initial_public_schema() is not None
     assert object.__new__(SummerVault).get_deposit_manager_capability().as_initial_public_schema() is not None
     assert object.__new__(YearnV3Vault).get_deposit_manager_capability().as_initial_public_schema() is not None
 

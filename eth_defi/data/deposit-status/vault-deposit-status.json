@@ -1691,14 +1691,14 @@
           "message": "Could not find balance slot for token 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
           "name": "[STAGING_DO_NOT_USE] Kiln Vault (Aave V3 USDT)",
           "outcome": "funding_error",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         }
       ],
       "last_attempt_at": "2026-07-13T18:30:29Z",
       "message": "Could not find balance slot for token 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
       "name": "[STAGING_DO_NOT_USE] Kiln Vault (Aave V3 USDT)",
       "outcome": "funding_error",
-      "protocol": "Kiln Metavault"
+      "protocol": "Kiln"
     },
     "42161-0x1048918cf09290a625bb75f93443f1159e3ce09d": {
       "address": "0x1048918cf09290a625bb75f93443f1159e3ce09d",
@@ -2269,7 +2269,7 @@
           "message": "No configured token holder",
           "name": "Trust Wallet AAVE v3 USDT",
           "outcome": "skipped",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         },
         {
           "address": "0x15dcc1978f68c5e0d7a298a65fcc879e2d673d43",
@@ -2279,7 +2279,7 @@
           "message": "No configured token holder",
           "name": "Trust Wallet AAVE v3 USDT",
           "outcome": "skipped",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         },
         {
           "address": "0x15dcc1978f68c5e0d7a298a65fcc879e2d673d43",
@@ -2295,7 +2295,7 @@
           "message": "Could not find balance slot for token 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
           "name": "Trust Wallet AAVE v3 USDT",
           "outcome": "funding_error",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         },
         {
           "address": "0x15dcc1978f68c5e0d7a298a65fcc879e2d673d43",
@@ -2311,7 +2311,7 @@
           "message": "Could not find balance slot for token 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
           "name": "Trust Wallet AAVE v3 USDT",
           "outcome": "funding_error",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         },
         {
           "address": "0x15dcc1978f68c5e0d7a298a65fcc879e2d673d43",
@@ -2327,7 +2327,7 @@
           "message": "Could not find balance slot for token 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
           "name": "Trust Wallet AAVE v3 USDT",
           "outcome": "funding_error",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         },
         {
           "address": "0x15dcc1978f68c5e0d7a298a65fcc879e2d673d43",
@@ -2343,7 +2343,7 @@
           "message": "Could not find balance slot for token 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
           "name": "Trust Wallet AAVE v3 USDT",
           "outcome": "funding_error",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         },
         {
           "address": "0x15dcc1978f68c5e0d7a298a65fcc879e2d673d43",
@@ -2359,14 +2359,14 @@
           "message": "Could not find balance slot for token 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
           "name": "Trust Wallet AAVE v3 USDT",
           "outcome": "funding_error",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         }
       ],
       "last_attempt_at": "2026-07-13T18:29:22Z",
       "message": "Could not find balance slot for token 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
       "name": "Trust Wallet AAVE v3 USDT",
       "outcome": "funding_error",
-      "protocol": "Kiln Metavault"
+      "protocol": "Kiln"
     },
     "42161-0x1723cb57af58efb35a013870c90fcc3d60174a4e": {
       "address": "0x1723cb57af58efb35a013870c90fcc3d60174a4e",
@@ -2705,7 +2705,7 @@
           "message": null,
           "name": "Crypto.com Defi Wallet Compound USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9296117"
         },
         {
@@ -2726,7 +2726,7 @@
           "message": null,
           "name": "Crypto.com Defi Wallet Compound USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9296112"
         },
         {
@@ -2747,7 +2747,7 @@
           "message": null,
           "name": "Crypto.com Defi Wallet Compound USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9296109"
         },
         {
@@ -2768,7 +2768,7 @@
           "message": null,
           "name": "Crypto.com Defi Wallet Compound USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9296108"
         },
         {
@@ -2790,7 +2790,7 @@
           "message": null,
           "name": "Crypto.com Defi Wallet Compound USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9296095"
         },
         {
@@ -2812,7 +2812,7 @@
           "message": null,
           "name": "Crypto.com Defi Wallet Compound USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9296087"
         },
         {
@@ -2834,7 +2834,7 @@
           "message": null,
           "name": "Crypto.com Defi Wallet Compound USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9296083"
         },
         {
@@ -2856,7 +2856,7 @@
           "message": null,
           "name": "Crypto.com Defi Wallet Compound USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9296082"
         },
         {
@@ -2867,7 +2867,7 @@
           "message": "Legacy success did not record a valid Anvil fork block; refresh required",
           "name": "Crypto.com Defi Wallet Compound USDC",
           "outcome": "invalid_evidence",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         },
         {
           "address": "0x1c107c4233ab3056254e717c7a67f9917079b615",
@@ -2890,7 +2890,7 @@
           "minted_share_amount_raw": "9296043",
           "name": "Crypto.com Defi Wallet Compound USDC",
           "outcome": "guard_validation_error",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         }
       ],
       "last_attempt_at": "2026-07-13T20:14:40Z",
@@ -2899,7 +2899,7 @@
       "minted_share_amount_raw": "9296040",
       "name": "Crypto.com Defi Wallet Compound USDC",
       "outcome": "success",
-      "protocol": "Kiln Metavault",
+      "protocol": "Kiln",
       "redeemed_asset_amount_raw": "9999999",
       "redemption_status_detail": "completed"
     },
@@ -12621,7 +12621,7 @@
           "message": null,
           "name": "Trust Wallet Morpho V2 Steakhouse High Yield USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9866094"
         },
         {
@@ -12642,7 +12642,7 @@
           "message": null,
           "name": "Trust Wallet Morpho V2 Steakhouse High Yield USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9866093"
         },
         {
@@ -12663,7 +12663,7 @@
           "message": null,
           "name": "Trust Wallet Morpho V2 Steakhouse High Yield USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9866085"
         },
         {
@@ -12684,7 +12684,7 @@
           "message": null,
           "name": "Trust Wallet Morpho V2 Steakhouse High Yield USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9866080"
         },
         {
@@ -12705,7 +12705,7 @@
           "message": null,
           "name": "Trust Wallet Morpho V2 Steakhouse High Yield USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9866078"
         },
         {
@@ -12727,7 +12727,7 @@
           "message": null,
           "name": "Trust Wallet Morpho V2 Steakhouse High Yield USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9866059"
         },
         {
@@ -12749,7 +12749,7 @@
           "message": null,
           "name": "Trust Wallet Morpho V2 Steakhouse High Yield USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9866048"
         },
         {
@@ -12771,7 +12771,7 @@
           "message": null,
           "name": "Trust Wallet Morpho V2 Steakhouse High Yield USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9866043"
         },
         {
@@ -12793,7 +12793,7 @@
           "message": null,
           "name": "Trust Wallet Morpho V2 Steakhouse High Yield USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9866042"
         },
         {
@@ -12804,7 +12804,7 @@
           "message": "Legacy success did not record a valid Anvil fork block; refresh required",
           "name": "Trust Wallet Morpho V2 Steakhouse High Yield USDC",
           "outcome": "invalid_evidence",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         }
       ],
       "last_attempt_at": "2026-07-13T20:24:15Z",
@@ -12813,7 +12813,7 @@
       "minted_share_amount_raw": "9865975",
       "name": "Trust Wallet Morpho V2 Steakhouse High Yield USDC",
       "outcome": "success",
-      "protocol": "Kiln Metavault",
+      "protocol": "Kiln",
       "redeemed_asset_amount_raw": "9999999",
       "redemption_status_detail": "completed",
       "remaining_share_amount_raw": "0"
@@ -13097,7 +13097,7 @@
           "message": null,
           "name": "Trust Wallet AAVE v3 USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9388917"
         },
         {
@@ -13118,7 +13118,7 @@
           "message": null,
           "name": "Trust Wallet AAVE v3 USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9388916"
         },
         {
@@ -13139,7 +13139,7 @@
           "message": null,
           "name": "Trust Wallet AAVE v3 USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9388911"
         },
         {
@@ -13160,7 +13160,7 @@
           "message": null,
           "name": "Trust Wallet AAVE v3 USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9388907"
         },
         {
@@ -13181,7 +13181,7 @@
           "message": null,
           "name": "Trust Wallet AAVE v3 USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9388906"
         },
         {
@@ -13203,7 +13203,7 @@
           "message": null,
           "name": "Trust Wallet AAVE v3 USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9388893"
         },
         {
@@ -13225,7 +13225,7 @@
           "message": null,
           "name": "Trust Wallet AAVE v3 USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9388885"
         },
         {
@@ -13247,7 +13247,7 @@
           "message": null,
           "name": "Trust Wallet AAVE v3 USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9388881"
         },
         {
@@ -13269,7 +13269,7 @@
           "message": null,
           "name": "Trust Wallet AAVE v3 USDC",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9388880"
         },
         {
@@ -13280,7 +13280,7 @@
           "message": "Legacy success did not record a valid Anvil fork block; refresh required",
           "name": "Trust Wallet AAVE v3 USDC",
           "outcome": "invalid_evidence",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         }
       ],
       "last_attempt_at": "2026-07-13T20:24:33Z",
@@ -13289,7 +13289,7 @@
       "minted_share_amount_raw": "9388834",
       "name": "Trust Wallet AAVE v3 USDC",
       "outcome": "success",
-      "protocol": "Kiln Metavault",
+      "protocol": "Kiln",
       "redeemed_asset_amount_raw": "9999999",
       "redemption_status_detail": "completed",
       "remaining_share_amount_raw": "0"
@@ -13409,14 +13409,14 @@
           "message": "Could not find balance slot for token 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
           "name": "Trust Wallet Morpho V2 Steakhouse High Yield USDT0",
           "outcome": "funding_error",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         }
       ],
       "last_attempt_at": "2026-07-13T18:29:59Z",
       "message": "Could not find balance slot for token 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
       "name": "Trust Wallet Morpho V2 Steakhouse High Yield USDT0",
       "outcome": "funding_error",
-      "protocol": "Kiln Metavault"
+      "protocol": "Kiln"
     },
     "42161-0x965c05712263f1a81d97ebd7759545ca97a4039f": {
       "address": "0x965c05712263f1a81d97ebd7759545ca97a4039f",
@@ -13486,7 +13486,7 @@
           "message": "No configured token holder",
           "name": "Trust Wallet AAVE v3 DAI",
           "outcome": "skipped",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         },
         {
           "address": "0x96d6c438c704a2de8cdce435803a10d329b72e68",
@@ -13496,7 +13496,7 @@
           "message": "No configured token holder",
           "name": "Trust Wallet AAVE v3 DAI",
           "outcome": "skipped",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         },
         {
           "address": "0x96d6c438c704a2de8cdce435803a10d329b72e68",
@@ -13516,7 +13516,7 @@
           "message": null,
           "name": "Trust Wallet AAVE v3 DAI",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9400666207735581340"
         },
         {
@@ -13537,7 +13537,7 @@
           "message": null,
           "name": "Trust Wallet AAVE v3 DAI",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9400665380109045744"
         },
         {
@@ -13559,7 +13559,7 @@
           "message": null,
           "name": "Trust Wallet AAVE v3 DAI",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9400655694337313119"
         },
         {
@@ -13581,7 +13581,7 @@
           "message": null,
           "name": "Trust Wallet AAVE v3 DAI",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9400649582404955689"
         },
         {
@@ -13603,7 +13603,7 @@
           "message": null,
           "name": "Trust Wallet AAVE v3 DAI",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9400646785104390500"
         },
         {
@@ -13625,7 +13625,7 @@
           "message": null,
           "name": "Trust Wallet AAVE v3 DAI",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9400646258730814337"
         },
         {
@@ -13636,7 +13636,7 @@
           "message": "Legacy success did not record a valid Anvil fork block; refresh required",
           "name": "Trust Wallet AAVE v3 DAI",
           "outcome": "invalid_evidence",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         }
       ],
       "last_attempt_at": "2026-07-13T20:24:31Z",
@@ -13645,7 +13645,7 @@
       "minted_share_amount_raw": "9400611608343920688",
       "name": "Trust Wallet AAVE v3 DAI",
       "outcome": "success",
-      "protocol": "Kiln Metavault",
+      "protocol": "Kiln",
       "redeemed_asset_amount_raw": "10000000015996560023",
       "redemption_status_detail": "completed",
       "remaining_share_amount_raw": "0"
@@ -15695,14 +15695,14 @@
           "message": "Could not find balance slot for token 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
           "name": "Crypto.com Defi Wallet Compound USDC.e",
           "outcome": "funding_error",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         }
       ],
       "last_attempt_at": "2026-07-13T18:30:08Z",
       "message": "Could not find balance slot for token 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
       "name": "Crypto.com Defi Wallet Compound USDC.e",
       "outcome": "funding_error",
-      "protocol": "Kiln Metavault"
+      "protocol": "Kiln"
     },
     "42161-0xaba0cb835f40e7af29f8016a1db401e704f855be": {
       "address": "0xaba0cb835f40e7af29f8016a1db401e704f855be",
@@ -18907,14 +18907,14 @@
           "message": "Could not find balance slot for token 0x0000206329b97DB379d5E1Bf586BbDB969C63274",
           "name": "[STAGING_DO_NOT_USE] Kiln Vault (Angle stUSD)",
           "outcome": "funding_error",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         }
       ],
       "last_attempt_at": "2026-07-13T18:30:24Z",
       "message": "Could not find balance slot for token 0x0000206329b97DB379d5E1Bf586BbDB969C63274",
       "name": "[STAGING_DO_NOT_USE] Kiln Vault (Angle stUSD)",
       "outcome": "funding_error",
-      "protocol": "Kiln Metavault"
+      "protocol": "Kiln"
     },
     "42161-0xd2ee74cd31cd996fc8f3a7ff7479e86d6dfbb3fa": {
       "address": "0xd2ee74cd31cd996fc8f3a7ff7479e86d6dfbb3fa",
@@ -23216,7 +23216,7 @@
           "message": null,
           "name": "[STAGING_DO_NOT_USE] Kiln Vault (Aave V3 USDC)",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9224479"
         },
         {
@@ -23238,7 +23238,7 @@
           "message": null,
           "name": "[STAGING_DO_NOT_USE] Kiln Vault (Aave V3 USDC)",
           "outcome": "success",
-          "protocol": "Kiln Metavault",
+          "protocol": "Kiln",
           "share_balance_raw": "9224478"
         },
         {
@@ -23249,7 +23249,7 @@
           "message": "Legacy success did not record a valid Anvil fork block; refresh required",
           "name": "[STAGING_DO_NOT_USE] Kiln Vault (Aave V3 USDC)",
           "outcome": "invalid_evidence",
-          "protocol": "Kiln Metavault"
+          "protocol": "Kiln"
         }
       ],
       "last_attempt_at": "2026-07-13T20:27:23Z",
@@ -23258,7 +23258,7 @@
       "minted_share_amount_raw": "9224435",
       "name": "[STAGING_DO_NOT_USE] Kiln Vault (Aave V3 USDC)",
       "outcome": "success",
-      "protocol": "Kiln Metavault",
+      "protocol": "Kiln",
       "redeemed_asset_amount_raw": "9999999",
       "redemption_status_detail": "completed",
       "remaining_share_amount_raw": "0"

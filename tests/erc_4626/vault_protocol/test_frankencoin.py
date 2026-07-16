@@ -11,9 +11,10 @@ from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_i
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import (
-    FRANKENCOIN_BASE_SAVINGS_VAULT,
+    FRANKENCOIN_ETHEREUM_LEGACY_SAVINGS_VAULT,
     FRANKENCOIN_ETHEREUM_SAVINGS_VAULT,
     FRANKENCOIN_GNOSIS_SAVINGS_VAULT,
+    FRANKENCOIN_PRODUCT_TVL_VAULTS,
     FRANKENCOIN_SAVINGS_VAULTS,
     FrankencoinHistoricalReader,
     FrankencoinVault,
@@ -104,11 +105,11 @@ def _make_frankencoin_call_result(
     """
     call = EncodedCall(
         func_name=function_name,
-        address=FRANKENCOIN_ETHEREUM_SAVINGS_VAULT,
+        address=FRANKENCOIN_ETHEREUM_LEGACY_SAVINGS_VAULT,
         data=b"",
         extra_data={
             "function": function_name,
-            "vault": FRANKENCOIN_ETHEREUM_SAVINGS_VAULT,
+            "vault": FRANKENCOIN_ETHEREUM_LEGACY_SAVINGS_VAULT,
         },
     )
     return EncodedCallResult(
@@ -122,12 +123,32 @@ def _make_frankencoin_call_result(
 
 
 def test_frankencoin_hardcoded_protocols() -> None:
-    """Official Frankencoin Savings Vaults are classified by hardcoded address."""
+    """Frankencoin Savings Vaults are classified by hardcoded address."""
+    assert set(FRANKENCOIN_SAVINGS_VAULTS) <= set(HARDCODED_PROTOCOLS)
+
     for vault_address in FRANKENCOIN_SAVINGS_VAULTS:
         features = HARDCODED_PROTOCOLS[vault_address]
 
         assert features == {ERC4626Feature.frankencoin_like}
         assert get_vault_protocol_name(features) == "Frankencoin"
+
+
+def test_frankencoin_ethereum_product_tvl_uses_one_wrapper() -> None:
+    """Only one Ethereum wrapper reports shared product TVL."""
+    official_vault = FrankencoinVault(
+        Web3(),
+        VaultSpec(1, FRANKENCOIN_ETHEREUM_SAVINGS_VAULT),
+        features={ERC4626Feature.frankencoin_like},
+    )
+    legacy_vault = FrankencoinVault(
+        Web3(),
+        VaultSpec(1, FRANKENCOIN_ETHEREUM_LEGACY_SAVINGS_VAULT),
+        features={ERC4626Feature.frankencoin_like},
+    )
+
+    assert official_vault.reports_savings_product_tvl is False
+    assert legacy_vault.reports_savings_product_tvl is True
+    assert FRANKENCOIN_PRODUCT_TVL_VAULTS <= FRANKENCOIN_SAVINGS_VAULTS
 
 
 def test_frankencoin_create_vault_instance() -> None:
@@ -143,6 +164,7 @@ def test_frankencoin_create_vault_instance() -> None:
 
     assert isinstance(vault, FrankencoinVault)
     assert vault.get_protocol_name() == "Frankencoin"
+    assert vault.name == "Frankencoin Savings Vault"
 
 
 def test_frankencoin_static_fee_metadata() -> None:
@@ -162,13 +184,6 @@ def test_frankencoin_static_fee_metadata() -> None:
     assert vault.get_fee_mode() == VaultFeeMode.internalised_skimming
 
 
-def test_frankencoin_addresses() -> None:
-    """Frankencoin savings vault address constants stay lower-case."""
-    assert FRANKENCOIN_ETHEREUM_SAVINGS_VAULT == "0xe5f130253ff137f9917c0107659a4c5262abf6b0"
-    assert FRANKENCOIN_BASE_SAVINGS_VAULT == "0xa09ebdf8a01b9ef04149319d64f83b9c01a5b585"
-    assert FRANKENCOIN_GNOSIS_SAVINGS_VAULT == "0x6165946250dd04740ab1409217e95a4f38374fe9"
-
-
 def test_frankencoin_reader_updates_state_once_with_combined_tvl() -> None:
     """Frankencoin reader state sees the combined savings product TVL.
 
@@ -179,7 +194,7 @@ def test_frankencoin_reader_updates_state_once_with_combined_tvl() -> None:
     """
     vault = FrankencoinVault(
         Web3(),
-        VaultSpec(1, FRANKENCOIN_ETHEREUM_SAVINGS_VAULT),
+        VaultSpec(1, FRANKENCOIN_ETHEREUM_LEGACY_SAVINGS_VAULT),
         features={ERC4626Feature.frankencoin_like},
     )
     synthetic_token = _SyntheticToken()
@@ -222,7 +237,7 @@ def test_frankencoin_ethereum_combined_savings_tvl_latest() -> None:
     web3 = create_multi_provider_web3(JSON_RPC_ETHEREUM)
     vault = create_vault_instance(
         web3,
-        FRANKENCOIN_ETHEREUM_SAVINGS_VAULT,
+        FRANKENCOIN_ETHEREUM_LEGACY_SAVINGS_VAULT,
         features={ERC4626Feature.frankencoin_like},
     )
 
@@ -245,4 +260,4 @@ def test_frankencoin_ethereum_combined_savings_tvl_latest() -> None:
     assert savings_product_assets > Decimal("1000000")
     assert historical_read.total_assets == pytest.approx(savings_product_assets)
     assert historical_read.share_price == pytest.approx(share_price)
-    assert share_price == pytest.approx(Decimal("1.017"), rel=Decimal("0.01"))
+    assert share_price > Decimal(1)

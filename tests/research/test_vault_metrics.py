@@ -3,6 +3,7 @@
 import json
 import os.path
 import pickle
+from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
@@ -722,3 +723,28 @@ def test_export_lifetime_row_preserves_flow_fees_without_annual_fees() -> None:
     assert result["performance_fee"] is None
     assert result["deposit_fee"] == 0.01
     assert result["withdraw_fee"] == 0.02
+
+
+def test_export_lifetime_row_converts_nested_decimals_to_strict_json_floats() -> None:
+    """Export Decimal-based vault metadata as strict JSON numeric values."""
+    row = pd.Series(
+        {
+            "deposit_fee": Decimal("0.015"),
+            "withdraw_fee": Decimal("NaN"),
+            "deposit_manager": {
+                "minimum_deposit": Decimal("12.50"),
+                "fee_tiers": [Decimal("0.001"), Decimal("Infinity")],
+            },
+        }
+    )
+
+    result = export_lifetime_row(row)
+
+    assert result["deposit_fee"] == pytest.approx(0.015)
+    assert isinstance(result["deposit_fee"], float)
+    assert result["withdraw_fee"] is None
+    assert result["deposit_manager"] == {
+        "minimum_deposit": 12.5,
+        "fee_tiers": [0.001, None],
+    }
+    json.dumps(result, allow_nan=False)

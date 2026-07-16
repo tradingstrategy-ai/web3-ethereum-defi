@@ -18,7 +18,7 @@ links:
   defillama: ''
   twitter: ''
 slug: usxau
-rate_fetch_failed_at: '2026-07-10T06:52:47'
+rate_fetch_failed_at: '2026-07-15T00:32:48'
 rate_fetch_failed_reason: missing_coingecko_id
 checks:
   twitter_last_post_at: ''

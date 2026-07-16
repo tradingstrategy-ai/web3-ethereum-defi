@@ -5,6 +5,7 @@ import enum
 from eth_typing import HexAddress
 
 from eth_defi.securitize.description import SECURITIZE_PRODUCT_NOTES, SECURITIZE_TOKENISED_FUND_ADDRESSES
+from eth_defi.vault.handwritten_metadata import PIKU_VAULT_METADATA, format_handwritten_vault_note
 
 
 class VaultFlag(str, enum.Enum):
@@ -143,6 +144,18 @@ VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": {VaultFlag.tokenised_fund},
 }
 
+#: Vault-specific notes which must only apply on the specified EVM chain.
+#:
+#: An address can be deployed on more than one chain. Keep manager-maintained
+#: Piku metadata chain-scoped so a matching address elsewhere cannot inherit an
+#: unrelated Morini strategy note.
+# fmt: off
+CHAIN_SCOPED_VAULT_NOTES: dict[tuple[int, str], str] = {
+    (chain_id, address): format_handwritten_vault_note(metadata)
+    for (chain_id, address), metadata in PIKU_VAULT_METADATA.items()
+}
+# fmt: on
+
 
 def get_vault_special_flags(address: str | HexAddress, protocol_name: str | None = None) -> set[VaultFlag]:
     """Get all special vault flags.
@@ -181,6 +194,11 @@ def get_notes(address: HexAddress | str, chain_id: int | None = None, protocol_n
         (e.g. all Hypercore vaults get :py:data:`HYPERCORE_VAULT_NOTE`).
     """
     address = address.lower()
+    if chain_id is not None:
+        note = CHAIN_SCOPED_VAULT_NOTES.get((chain_id, address))
+        if note:
+            return note
+
     note = VAULT_NOTES.get(address)
     if note:
         return note
@@ -281,6 +299,8 @@ RESOLV_USDC_ILLIQUID = "Resolv USDC vault is illiquid"
 STEAKHOUSE_PRIME_AUSD_ILLIQUID = "Steakhouse Prime AUSD vault is illiquid"
 
 LIQUITY_V2_WETH_STABILITY_POOL_ILLIQUID = "Liquity V2 WETH Stability Pool vault is illiquid"
+
+ODINS_RESERVE_ILLIQUID = "Odins Reserve vault is illiquid"
 
 
 #: Protocol-wide flags and notes.
@@ -696,6 +716,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xcbc9b61177444a793b85442d3a953b90f6170b7d": (VaultFlag.illiquid, RESOLV_ILLIQUID),
     # Resolv USDC (Ethereum)
     "0xf0795c47fa58d00f5f77f4d5c01f31ee891e21b4": (VaultFlag.illiquid, RESOLV_USDC_ILLIQUID),
+    # Odins Reserve (Centrifuge on Arbitrum)
+    "0xeae33e9f53fc405f834d4678e6c07a2523b2126e": (VaultFlag.illiquid, ODINS_RESERVE_ILLIQUID),
     # Mainstreet USDC (msUSDC, Morpho on Ethereum)
     "0xe3ba8f17fe581dd473e6699cfad04502998a57c7": (VaultFlag.malicious, MALICIOUS_VAULT),
     # Mainstreet USDC (msUSDC, Morpho on Ethereum)

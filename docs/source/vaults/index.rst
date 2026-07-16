@@ -112,6 +112,7 @@ Supported protocols
    infinifi/index
    inverse_finance/index
    ipor/index
+   kiln/index
    kiloex/index
    kinexys/index
    lagoon/index
@@ -120,7 +121,9 @@ Supported protocols
    mainstreet/index
    maple/index
    mellow/index
+   maseer-one/index
    midas/index
+   vault_street/index
    morpho/index
    nashpoint/index
    plutus/index

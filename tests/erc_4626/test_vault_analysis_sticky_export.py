@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
@@ -90,6 +91,28 @@ def test_sticky_export_first_qualification_creates_state():
     entry = result.state["vaults"]["1-0xabcd000000000000000000000000000000000001"]
     assert entry["status"] == "active"
     assert entry["last_exported_record"]["address"] == "0xAbCd000000000000000000000000000000000001"
+
+
+def test_sticky_export_converts_decimal_current_row_values() -> None:
+    """Persist current Decimal metrics as JSON-safe sticky state values."""
+    module = get_top_vaults_json_module()
+    now = datetime.datetime(2026, 6, 24, 12, 0, 0)
+    state = module.make_empty_sticky_export_state(now)
+    row = make_metrics_row()
+    row["deposit_fee"] = Decimal("0.015")
+
+    result = module.apply_sticky_export_state(
+        make_lifetime_df(row),
+        state,
+        now=now,
+        threshold_tvl=5_000.0,
+        stale_warning_age_days=14,
+    )
+
+    assert result.vaults[0]["deposit_fee"] == pytest.approx(0.015)
+    assert isinstance(result.vaults[0]["deposit_fee"], float)
+    assert result.state["vaults"]["1-0xabcd000000000000000000000000000000000001"]["last_exported_record"]["deposit_fee"] == pytest.approx(0.015)
+    module.validate_strict_json_serialisable(result.state)
 
 
 def test_sticky_export_missing_current_metrics_use_fallback():

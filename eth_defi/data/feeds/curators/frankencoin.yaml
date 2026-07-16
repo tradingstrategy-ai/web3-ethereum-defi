@@ -1,0 +1,38 @@
+# Frankencoin curator - feeds provided by protocols/frankencoin.yaml
+#
+# Alias rationale:
+# - Frankencoin Savings Vaults are protocol-managed; there is no separate
+#   third-party curator for svZCHF vaults.
+# - The organisation's news sources are carried by the source-bearing protocol
+#   feeder protocols/frankencoin.yaml, so this curator aliases that feeder to
+#   avoid scanning the same sources twice.
+# - Official site: https://frankencoin.com/
+#
+# Description sources:
+# - https://frankencoin.com/
+feeder-id: frankencoin
+name: Frankencoin
+role: curator
+canonical-feeder-id: frankencoin
+short_description: Frankencoin is a stablecoin maintaining 1:1 value with the Swiss franc.
+long_description: |
+  Frankencoin is a decentralised Swiss franc stablecoin. Its ZCHF token is designed
+  to keep a 1:1 value with the Swiss franc while remaining transparent, on-chain and
+  usable without relying on a single central issuer.
+
+  The protocol is backed by on-chain collateral that can be liquidated when needed
+  to protect the value of ZCHF.
+
+  Common ways to use Frankencoin include:
+
+  - Pay with digital Swiss francs through DeFi, payment cards, IBAN integrations,
+    and supported merchants.
+  - Borrow ZCHF by depositing crypto assets as collateral.
+  - Earn market-based yield on ZCHF through DeFi applications and the Frankencoin
+    savings module.
+  - Build applications and financial services that need a programmable Swiss franc
+    settlement layer.
+
+  Frankencoin Savings Vaults are protocol-managed ERC-4626 wrappers around the
+  savings module. Because the protocol operates the savings product directly,
+  Frankencoin acts as the curator for svZCHF vaults.

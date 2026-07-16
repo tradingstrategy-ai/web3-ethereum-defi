@@ -66,6 +66,7 @@ bytes4 constant SEL_SETTLE_REDEEM_UINT = 0xa627df66; // settleRedeem(uint256)
 bytes4 constant SEL_DEPOSIT = 0x6e553f65; // deposit(uint256,address)
 bytes4 constant SEL_WITHDRAW = 0xb460af94; // withdraw(uint256,address,address)
 bytes4 constant SEL_REDEEM = 0xba087652; // redeem(uint256,address,address)
+bytes4 constant SEL_REDEEM_SHARES = 0x983c676d; // redeemShares(uint256,address)
 
 // ===== ERC-4626 Umami (non-standard) =====
 bytes4 constant SEL_DEPOSIT_UMAMI = 0x8dbdbe6d; // deposit(uint256,uint256,address)
@@ -675,6 +676,8 @@ abstract contract GuardV0Base is IGuard, Multicall {
             _validate_ERC4626WithdrawOrRedeem(callData);
         } else if (selector == SEL_REDEEM) {
             _validate_ERC4626WithdrawOrRedeem(callData);
+        } else if (selector == SEL_REDEEM_SHARES) {
+            _validate_EmberRedeemShares(callData);
         } else if (selector == SEL_REQUEST_REDEEM) {
             // ERC-7540: same parameters as ERC-4626
             _validate_ERC4626WithdrawOrRedeem(callData);
@@ -755,6 +758,16 @@ abstract contract GuardV0Base is IGuard, Multicall {
         require(isAllowedReceiver(receiver), "Receiver not whitelisted");
     }
 
+    // Ember: redeemShares(uint256 shares, address receiver).
+    //
+    // Ember transfers the denomination assets to receiver later from an
+    // operator processing transaction. Validating the receiver at request time
+    // prevents an asset manager from redirecting that later payout.
+    function _validate_EmberRedeemShares(bytes memory callData) internal view {
+        (, address receiver) = abi.decode(callData, (uint256, address));
+        require(isAllowedReceiver(receiver), "Receiver not whitelisted");
+    }
+
     // ERC-7540: validate deposit(uint256 assets, address receiver, address controller)
     // and requestDeposit(uint256 assets, address controller, address owner).
     //
@@ -810,6 +823,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
         allowCallSite(vault, SEL_DEPOSIT, notes);
         allowCallSite(vault, SEL_WITHDRAW, notes);
         allowCallSite(vault, SEL_REDEEM, notes);
+        allowCallSite(vault, SEL_REDEEM_SHARES, notes);
 
         // Umami non-standard ERC-4626
         allowCallSite(vault, SEL_DEPOSIT_UMAMI, notes);

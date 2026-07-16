@@ -69,6 +69,13 @@ def test_hyperevm_out_of_gas_vault_is_blacklisted() -> None:
     assert address in BROKEN_VAULT_CONTRACTS
 
 
+def test_old_mainnet_out_of_gas_contract_is_skipped_by_multicall_blacklist() -> None:
+    """Old mainnet contracts that poison Multicall3 batches are skipped."""
+    address = "0xffaa9f9aa5e4361f552bada90dcacdd08e5b41eb"
+
+    assert address in BROKEN_VAULT_CONTRACTS
+
+
 @pytest.mark.parametrize(
     ("address", "protocol", "expected_flag", "expected_note"),
     [
