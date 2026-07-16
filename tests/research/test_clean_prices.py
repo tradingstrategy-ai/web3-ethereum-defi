@@ -275,21 +275,21 @@ def test_approximate_hypercore_share_prices_from_pnl_nav() -> None:
     assert result["raw_share_price"].tolist() == prices_df["share_price"].tolist()
     assert (result["share_price"] * result["total_supply"]).tolist() == pytest.approx(result["total_assets"].tolist())
     assert result["hypercore_repair_status"].tolist() == ["approximated_pnl_nav"] * 4
-    assert messages == ["Approximated Hypercore economic share prices for 1 vaults using 4 daily PnL/NAV checkpoints; carried 0 non-performance rows, repaired 0 delayed NAV confirmations, deferred 0 missing-input rows and 0 uncorroborated losses, capped 0 gains and recorded 0 terminal wipe-outs"]
+    assert messages == ["Approximated Hypercore economic share prices for 1 vaults using 4 four-hour PnL/NAV checkpoints; carried 0 non-performance rows, repaired 0 delayed NAV confirmations, deferred 0 missing-input rows and 0 uncorroborated losses, capped 0 gains and recorded 0 terminal wipe-outs"]
 
 
 def test_approximate_hypercore_repairs_delayed_nav_confirmation() -> None:
-    """Fish Market's provisional PnL return moves to its confirmed NAV."""
+    """Fish Market's jittered PnL return moves to its merged daily NAV."""
     prices_df = pd.DataFrame(
         {
-            "chain": [9999] * 4,
-            "id": ["9999-0xfish-market"] * 4,
-            "share_price": [0.180973] * 4,
-            "total_assets": [1812.411674, 1812.411674, 3981.846633, 5171.054434],
-            "total_supply": [10_000.0] * 4,
-            "account_pnl": [-11486.308326, -9316.873367, -9316.873367, -8127.665566],
+            "chain": [9999] * 5,
+            "id": ["9999-0xfish-market"] * 5,
+            "share_price": [0.180973] * 5,
+            "total_assets": [1812.411674, 1812.411674, 3981.846633, 3981.846633, 5171.054434],
+            "total_supply": [10_000.0] * 5,
+            "account_pnl": [-11486.308326, -9316.873367, -9316.873367, -9316.873367, -8127.665566],
         },
-        index=pd.to_datetime(["2026-03-16", "2026-03-17", "2026-03-18", "2026-03-19"]),
+        index=pd.to_datetime(["2026-03-16 23:12:00.091", "2026-03-17 23:32:00.042", "2026-03-18 00:00:00.000", "2026-03-18 22:32:00.010", "2026-03-19 00:00:00.000"]),
     )
 
     provisional = approximate_hypercore_share_prices_from_pnl_nav(prices_df.iloc[:2], logger=lambda _message: None)
@@ -301,14 +301,41 @@ def test_approximate_hypercore_repairs_delayed_nav_confirmation() -> None:
 
     confirmed_return = 2169.434959 / 3981.846633
     following_return = 1189.207801 / 5171.054434
-    assert result["share_price"].tolist() == pytest.approx([1.0, 1.0, 1.0 + confirmed_return, (1.0 + confirmed_return) * (1.0 + following_return)])
+    assert result["share_price"].tolist() == pytest.approx([1.0, 1.0, 1.0 + confirmed_return, 1.0 + confirmed_return, (1.0 + confirmed_return) * (1.0 + following_return)])
     assert result["hypercore_repair_status"].tolist() == [
         "approximated_pnl_nav",
         "approximated_pnl_nav_carried",
         "approximated_pnl_nav_lag_repaired",
         "approximated_pnl_nav",
+        "approximated_pnl_nav",
     ]
-    assert messages == ["Approximated Hypercore economic share prices for 1 vaults using 4 daily PnL/NAV checkpoints; carried 1 non-performance rows, repaired 1 delayed NAV confirmations, deferred 0 missing-input rows and 0 uncorroborated losses, capped 0 gains and recorded 0 terminal wipe-outs"]
+    assert messages == ["Approximated Hypercore economic share prices for 1 vaults using 5 four-hour PnL/NAV checkpoints; carried 1 non-performance rows, repaired 1 delayed NAV confirmations, deferred 0 missing-input rows and 0 uncorroborated losses, capped 0 gains and recorded 0 terminal wipe-outs"]
+
+
+def test_approximate_hypercore_skips_flat_delayed_nav_checkpoints() -> None:
+    """Flat four-hour observations do not block a matching NAV confirmation."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 5,
+            "id": ["9999-0xflat-delay"] * 5,
+            "share_price": [1.0] * 5,
+            "total_assets": [100.0, 100.0, 100.0, 100.0, 200.0],
+            "total_supply": [100.0] * 5,
+            "account_pnl": [0.0, 100.0, 100.0, 100.0, 100.0],
+        },
+        index=pd.to_datetime(["2026-01-01 00:00", "2026-01-01 04:00", "2026-01-01 08:00", "2026-01-01 12:00", "2026-01-01 16:00"]),
+    )
+
+    result = approximate_hypercore_share_prices_from_pnl_nav(prices_df, logger=lambda _message: None)
+
+    assert result["share_price"].tolist() == [1.0, 1.0, 1.0, 1.0, 1.5]
+    assert result["hypercore_repair_status"].tolist() == [
+        "approximated_pnl_nav",
+        "approximated_pnl_nav_carried",
+        "approximated_pnl_nav",
+        "approximated_pnl_nav",
+        "approximated_pnl_nav_lag_repaired",
+    ]
 
 
 def test_approximate_hypercore_does_not_join_weekly_checkpoints() -> None:
@@ -371,8 +398,8 @@ def test_approximate_hypercore_rejects_delayed_nav_mismatch() -> None:
     assert result["hypercore_repair_status"].tolist() == ["approximated_pnl_nav"] * 3
 
 
-def test_approximate_hypercore_uses_freshest_daily_checkpoint() -> None:
-    """A fresher daily row wins over a stale HF row on the same UTC date."""
+def test_approximate_hypercore_uses_freshest_four_hour_checkpoint() -> None:
+    """A fresher daily row wins over a stale HF row in the same UTC bucket."""
     prices_df = pd.DataFrame(
         {
             "chain": [9999] * 3,
@@ -384,7 +411,7 @@ def test_approximate_hypercore_uses_freshest_daily_checkpoint() -> None:
             "hypercore_source": ["daily", "daily", "hf"],
             "written_at": pd.to_datetime(["2026-01-01", "2026-01-04", "2026-01-03"]),
         },
-        index=pd.to_datetime(["2026-01-01", "2026-01-02", "2026-01-02 12:00"], format="mixed"),
+        index=pd.to_datetime(["2026-01-01", "2026-01-02 01:00", "2026-01-02 02:00"], format="mixed"),
     )
 
     result = approximate_hypercore_share_prices_from_pnl_nav(prices_df, logger=lambda _message: None)
@@ -392,6 +419,125 @@ def test_approximate_hypercore_uses_freshest_daily_checkpoint() -> None:
     expected_price = 1 + 10.0 / 110.0
     assert result["share_price"].tolist() == pytest.approx([1.0, expected_price, expected_price])
     assert result["hypercore_repair_status"].tolist() == ["approximated_pnl_nav", "approximated_pnl_nav", "approximated_pnl_nav_carried"]
+
+
+def test_approximate_hypercore_publishes_multiple_four_hour_checkpoints() -> None:
+    """Each occupied four-hour bucket can add one economic price observation."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 5,
+            "id": ["9999-0xfour-hour"] * 5,
+            "share_price": [1.0] * 5,
+            "total_assets": [100.0, 999.0, 110.0, 120.0, 130.0],
+            "total_supply": [100.0] * 5,
+            "account_pnl": [0.0, 999.0, 10.0, 20.0, 30.0],
+            "hypercore_source": ["daily", "hf", "hf", "hf", "hf"],
+            "written_at": pd.to_datetime(["2026-01-02", "2026-01-01", "2026-01-02", "2026-01-02", "2026-01-02"]),
+        },
+        index=pd.to_datetime(["2026-01-01 00:30", "2026-01-01 01:30", "2026-01-01 04:30", "2026-01-01 08:30", "2026-01-01 16:30"]),
+    )
+
+    result = approximate_hypercore_share_prices_from_pnl_nav(prices_df, logger=lambda _message: None)
+
+    first_return = 10.0 / 110.0
+    second_return = 10.0 / 120.0
+    third_return = 10.0 / 130.0
+    expected_prices = [1.0, 1.0, 1.0 + first_return, (1.0 + first_return) * (1.0 + second_return), (1.0 + first_return) * (1.0 + second_return) * (1.0 + third_return)]
+    assert result.index.tolist() == prices_df.index.tolist()
+    assert result["share_price"].tolist() == pytest.approx(expected_prices)
+    assert result["hypercore_repair_status"].tolist() == [
+        "approximated_pnl_nav",
+        "approximated_pnl_nav_carried",
+        "approximated_pnl_nav",
+        "approximated_pnl_nav",
+        "approximated_pnl_nav",
+    ]
+
+
+@pytest.mark.parametrize(
+    "timestamps",
+    [
+        ["2026-01-01 00:00", "2026-01-02 03:00", "2026-01-02 07:00"],
+        ["2026-01-01 00:00", "2026-01-02 00:00", "2026-01-03 03:00"],
+    ],
+)
+def test_approximate_hypercore_bounds_delayed_nav_confirmation(timestamps: list[str]) -> None:
+    """Neither side of a delayed NAV repair may exceed the 26-hour window."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 3,
+            "id": ["9999-0xdelay-boundary"] * 3,
+            "share_price": [1.0] * 3,
+            "total_assets": [100.0, 100.0, 200.0],
+            "total_supply": [100.0] * 3,
+            "account_pnl": [0.0, 100.0, 100.0],
+        },
+        index=pd.to_datetime(timestamps),
+    )
+
+    result = approximate_hypercore_share_prices_from_pnl_nav(prices_df, logger=lambda _message: None)
+
+    assert result["share_price"].tolist() == [1.0, 2.0, 2.0]
+    assert result["hypercore_repair_status"].tolist() == ["approximated_pnl_nav"] * 3
+
+
+def test_approximate_hypercore_does_not_skip_economic_change_for_nav_confirmation() -> None:
+    """An intervening economic change disqualifies a later matching NAV."""
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 4,
+            "id": ["9999-0xintervening-change"] * 4,
+            "share_price": [1.0] * 4,
+            "total_assets": [100.0, 100.0, 110.0, 200.0],
+            "total_supply": [100.0] * 4,
+            "account_pnl": [0.0, 100.0, 100.0, 100.0],
+        },
+        index=pd.to_datetime(["2026-01-01 00:00", "2026-01-02 00:00", "2026-01-02 04:00", "2026-01-02 08:00"]),
+    )
+
+    result = approximate_hypercore_share_prices_from_pnl_nav(prices_df, logger=lambda _message: None)
+
+    assert result["share_price"].tolist() == [1.0, 2.0, 2.0, 2.0]
+    assert "approximated_pnl_nav_lag_repaired" not in result["hypercore_repair_status"].tolist()
+
+
+def test_approximate_hypercore_applies_protections_per_four_hour_bucket() -> None:
+    """Clips and funded-loss deferrals apply independently within one UTC date."""
+    prices_df = pd.concat(
+        [
+            pd.DataFrame(
+                {
+                    "chain": [9999] * 3,
+                    "id": ["9999-0xstacked-gains"] * 3,
+                    "share_price": [1.0] * 3,
+                    "total_assets": [100.0] * 3,
+                    "total_supply": [100.0] * 3,
+                    "account_pnl": [0.0, 200.0, 400.0],
+                },
+                index=pd.to_datetime(["2026-01-01 00:30", "2026-01-01 04:30", "2026-01-01 08:30"]),
+            ),
+            pd.DataFrame(
+                {
+                    "chain": [9999] * 3,
+                    "id": ["9999-0xstacked-losses"] * 3,
+                    "share_price": [1.0] * 3,
+                    "total_assets": [100.0] * 3,
+                    "total_supply": [100.0] * 3,
+                    "account_pnl": [0.0, -150.0, -300.0],
+                },
+                index=pd.to_datetime(["2026-01-01 00:30", "2026-01-01 04:30", "2026-01-01 08:30"]),
+            ),
+        ]
+    ).sort_values(["id"], kind="stable")
+
+    result = approximate_hypercore_share_prices_from_pnl_nav(prices_df, logger=lambda _message: None)
+    gains = result[result["id"] == "9999-0xstacked-gains"]
+    losses = result[result["id"] == "9999-0xstacked-losses"]
+
+    assert gains["share_price"].tolist() == [1.0, 2.0, 4.0]
+    assert gains["hypercore_repair_status"].tolist() == ["approximated_pnl_nav", "approximated_pnl_nav_clipped", "approximated_pnl_nav_clipped"]
+    assert losses["share_price"].tolist() == [1.0, 1.0, 1.0]
+    assert losses["hypercore_repair_status"].tolist() == ["approximated_pnl_nav", "deferred_pnl_nav_outlier", "deferred_pnl_nav_outlier"]
 
 
 def test_approximate_hypercore_defers_missing_and_absorbing_losses() -> None:
