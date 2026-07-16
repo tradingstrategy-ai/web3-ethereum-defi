@@ -2,8 +2,8 @@
 
 Securitize DSTokens share a token contract interface, but their investment
 strategy, fund manager, NAV source and investor terms belong to the individual
-fund. This registry covers the Ethereum products with more than five million
-US dollars of on-chain value as of the initial protocol scan.
+fund. This registry covers selected Ethereum investment funds identified in
+the DSToken scan; it intentionally excludes company securities and test tokens.
 """
 
 from dataclasses import dataclass
@@ -47,6 +47,13 @@ BUIDL_I_FUND_PAGE_URL = "https://www.blackrock.com/corporate/compliance/scams-an
 ACRED_FUND_PAGE_URL = "https://securitize.io/primary-market/apollo-diversified-credit-securitize-fund"
 VBILL_FUND_PAGE_URL = "https://securitize.io/primary-market/vaneck-vbill"
 STAC_FUND_PAGE_URL = "https://www.securitize-stac.com/"
+ARCOIN_FUND_PAGE_URL = "https://www.arcalabs.com/fund-overview"
+SPICE_FUND_PAGE_URL = "https://spicevc.com/"
+HLSCOPE_FUND_PAGE_URL = "https://www.hamiltonlane.com/en-us/strategies/evergreen/global/senior-credit-opportunities-fund"
+BLOCKCHAIN_CAPITAL_FUND_PAGE_URL = "https://www.blockchaincapital.com/about-us"
+COSIMO_X_FUND_PAGE_URL = "https://www.cosimodigital.com/asset-management/cosimo-x"
+SCIENCE_BLOCKCHAIN_FUND_PAGE_URL = "https://www.science-inc.com/blockchain.html"
+PROTOS_FUND_PAGE_URL = "https://protosmanagement.com/2024/05/09/protos-asset-management-releases-march-31-2024-prts-token-nav/"
 
 
 #: BlackRock USD Institutional Digital Liquidity Fund on Ethereum.
@@ -174,7 +181,182 @@ STAC_ETHEREUM = SecuritizeProduct(
     denomination="USD",
 )
 
-#: Supported high-value Securitize funds keyed by chain and DSToken address.
+#: Arca U.S. Treasury Fund shares on Ethereum.
+#:
+#: https://etherscan.io/address/0x252739487c1fa66eaeae7ced41d6358ab2a6bca9
+ARCOIN_ETHEREUM = SecuritizeProduct(
+    chain_id=1,
+    token=HexAddress("0x252739487c1fa66eaeae7ced41d6358ab2a6bca9"),
+    product_name="Arca U.S. Treasury Fund",
+    short_description="Tokenised U.S. Treasury fund shares",
+    description="Tokenised shares in a fund investing primarily in short-term U.S. Treasury securities.",
+    manager_name="Arca",
+    curator_slug="arca",
+    homepage=ARCOIN_FUND_PAGE_URL,
+    notes=f"""Arca U.S. Treasury Fund (ArCoin).
+
+- **Curator:** Arca / Securitize.
+- **Vault strategy:** Tokenised shares in a registered fund investing primarily in short-term U.S. Treasury securities, with cash and other high-quality fixed-income instruments permitted for liquidity and portfolio management.
+- **NAV reporting:** ArCoin's value follows the fund's net asset value and may change with the portfolio. This integration does not model a fixed share price.
+- **Investor access:** The fund makes periodic repurchase offers; eligible investors use the fund's designated process to request repurchase of their shares.
+- **Fund page:** [Arca U.S. Treasury Fund]({ARCOIN_FUND_PAGE_URL}).
+""",
+    estimated_nav_per_share=None,
+    nav_source="unconfigured",
+    denomination="USD",
+)
+
+#: SPiCE Venture Capital Fund shares on Ethereum.
+#:
+#: https://etherscan.io/address/0x0324dd195d0cd53f9f07bee6a48ee7a20bad738f
+SPICE_VC_ETHEREUM = SecuritizeProduct(
+    chain_id=1,
+    token=HexAddress("0x0324dd195d0cd53f9f07bee6a48ee7a20bad738f"),
+    product_name="SPiCE Venture Capital Fund",
+    short_description="Tokenised venture-capital fund focused on tokenisation",
+    description="Tokenised interests in a venture-capital fund investing in blockchain and tokenisation businesses.",
+    manager_name="SPiCE VC",
+    curator_slug="spice-vc",
+    homepage=SPICE_FUND_PAGE_URL,
+    notes=f"""SPiCE Venture Capital Fund (SPICE).
+
+- **Curator:** SPiCE VC / Securitize.
+- **Vault strategy:** Tokenised interests in a venture-capital fund investing in early-stage companies building blockchain and tokenisation infrastructure.
+- **NAV reporting:** SPiCE publishes periodic net-asset-value reports for the fund. The value depends on the underlying venture portfolio, so this integration does not use a fixed share-price estimate.
+- **Investor access:** Fund interests are permissioned digital securities and remain subject to the fund's investor-eligibility and transfer rules.
+- **Fund page:** [SPiCE VC]({SPICE_FUND_PAGE_URL}).
+""",
+    estimated_nav_per_share=None,
+    nav_source="unconfigured",
+    denomination="USD",
+)
+
+#: Hamilton Lane SCOPE Securitize tokenised feeder-fund shares on Ethereum.
+#:
+#: https://etherscan.io/address/0xda2ffa104356688e74d9340519b8c17f00d7752e
+HLSCOPE_ETHEREUM = SecuritizeProduct(
+    chain_id=1,
+    token=HexAddress("0xda2ffa104356688e74d9340519b8c17f00d7752e"),
+    product_name="Hamilton Lane SCOPE Securitize Tokenized Feeder Fund",
+    short_description="Tokenised feeder fund for senior private credit",
+    description="Tokenised feeder-fund interests providing exposure to Hamilton Lane's senior private-credit strategy.",
+    manager_name="Hamilton Lane",
+    curator_slug="hamilton-lane",
+    homepage=HLSCOPE_FUND_PAGE_URL,
+    notes=f"""Hamilton Lane SCOPE Securitize Tokenized Feeder Fund (HLSCOPE).
+
+- **Curator:** Hamilton Lane / Securitize.
+- **Vault strategy:** Tokenised feeder-fund interests providing access to Hamilton Lane's Senior Credit Opportunities Fund, an evergreen private-credit strategy focused on senior secured loans.
+- **NAV reporting:** The underlying strategy's valuations are determined periodically and the share value can change with its private-credit holdings. This integration does not use a fixed share-price estimate.
+- **Investor access:** The fund is a permissioned Securitize offering for eligible investors; subscription and redemption terms follow the feeder-fund documentation.
+- **Fund page:** [Hamilton Lane Senior Credit Opportunities Fund]({HLSCOPE_FUND_PAGE_URL}).
+""",
+    estimated_nav_per_share=None,
+    nav_source="unconfigured",
+    denomination="USD",
+)
+
+#: Blockchain Capital III Digital Liquid Venture Fund shares on Ethereum.
+#:
+#: https://etherscan.io/address/0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9
+BCAP_ETHEREUM = SecuritizeProduct(
+    chain_id=1,
+    token=HexAddress("0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9"),
+    product_name="Blockchain Capital III Digital Liquid Venture Fund",
+    short_description="Tokenised venture-capital fund for blockchain companies",
+    description="Tokenised fund interests in Blockchain Capital's digital liquid venture fund.",
+    manager_name="Blockchain Capital",
+    curator_slug="blockchain-capital",
+    homepage=BLOCKCHAIN_CAPITAL_FUND_PAGE_URL,
+    notes=f"""Blockchain Capital III Digital Liquid Venture Fund (BCAP).
+
+- **Curator:** Blockchain Capital / Securitize.
+- **Vault strategy:** Tokenised fund interests in a venture-capital fund investing in companies building blockchain and cryptocurrency products.
+- **NAV reporting:** The value follows the fund's net asset value and depends on its venture portfolio. This integration does not use a fixed share-price estimate.
+- **Investor access:** BCAP is a permissioned Securitize offering for eligible investors; subscription, redemption and transfer terms follow the fund documentation.
+- **Fund page:** [Blockchain Capital]({BLOCKCHAIN_CAPITAL_FUND_PAGE_URL}).
+""",
+    estimated_nav_per_share=None,
+    nav_source="unconfigured",
+    denomination="USD",
+)
+
+#: COSIMO X fund shares on Ethereum.
+#:
+#: https://etherscan.io/address/0xc0c61c29ef8beabc694987c93e5fe4af647042e7
+COSX_ETHEREUM = SecuritizeProduct(
+    chain_id=1,
+    token=HexAddress("0xc0c61c29ef8beabc694987c93e5fe4af647042e7"),
+    product_name="COSIMO X",
+    short_description="Tokenised venture fund for digital-asset businesses",
+    description="Tokenised interests in COSIMO digital's evergreen venture fund for digital-asset businesses.",
+    manager_name="COSIMO digital",
+    curator_slug="cosimo-digital",
+    homepage=COSIMO_X_FUND_PAGE_URL,
+    notes=f"""COSIMO X (COSX).
+
+- **Curator:** COSIMO digital / Securitize.
+- **Vault strategy:** Tokenised interests in COSIMO X, an evergreen venture fund that invests in digital-asset businesses.
+- **NAV reporting:** The value follows the fund's net asset value and changes with the underlying venture portfolio. This integration does not use a fixed share-price estimate.
+- **Investor access:** COSX is a permissioned Securitize offering for eligible investors; subscription, redemption and transfer terms follow the fund documentation.
+- **Fund page:** [COSIMO X]({COSIMO_X_FUND_PAGE_URL}).
+""",
+    estimated_nav_per_share=None,
+    nav_source="unconfigured",
+    denomination="USD",
+)
+
+#: Science Blockchain fund shares on Ethereum.
+#:
+#: https://etherscan.io/address/0x682ef9cc637ef56577092b29ae9275a629aae7db
+SCI2_ETHEREUM = SecuritizeProduct(
+    chain_id=1,
+    token=HexAddress("0x682ef9cc637ef56577092b29ae9275a629aae7db"),
+    product_name="Science Blockchain",
+    short_description="Tokenised fund for early-stage blockchain companies",
+    description="Tokenised interests in Science Inc.'s investment vehicle for early-stage blockchain companies.",
+    manager_name="Science Inc.",
+    curator_slug="science-inc",
+    homepage=SCIENCE_BLOCKCHAIN_FUND_PAGE_URL,
+    notes=f"""Science Blockchain (SCI2).
+
+- **Curator:** Science Inc. / Securitize.
+- **Vault strategy:** Tokenised interests in Science Blockchain, an investment vehicle that works with early-stage blockchain companies.
+- **NAV reporting:** The value follows the net asset value of the underlying portfolio and can change as the portfolio is valued. This integration does not use a fixed share-price estimate.
+- **Investor access:** SCI2 is a permissioned Securitize offering for eligible investors; subscription, redemption and transfer terms follow the fund documentation.
+- **Fund page:** [Science Blockchain]({SCIENCE_BLOCKCHAIN_FUND_PAGE_URL}).
+""",
+    estimated_nav_per_share=None,
+    nav_source="unconfigured",
+    denomination="USD",
+)
+
+#: Protos Cryptocurrency Fund shares on Ethereum.
+#:
+#: https://etherscan.io/address/0x5e17f6f450dcb0bc69b232ea554e224d7e88067a
+PRTS_ETHEREUM = SecuritizeProduct(
+    chain_id=1,
+    token=HexAddress("0x5e17f6f450dcb0bc69b232ea554e224d7e88067a"),
+    product_name="Protos Cryptocurrency Fund",
+    short_description="Tokenised interests in an actively managed digital-asset fund",
+    description="Tokenised fund interests in Protos Asset Management's actively managed digital-asset fund.",
+    manager_name="Protos Asset Management",
+    curator_slug="protos-asset-management",
+    homepage=PROTOS_FUND_PAGE_URL,
+    notes=f"""Protos Cryptocurrency Fund (PRTS).
+
+- **Curator:** Protos Asset Management / Securitize.
+- **Vault strategy:** Tokenised interests in an actively managed fund investing in digital assets and related instruments.
+- **NAV reporting:** The value follows the fund's net asset value and changes with its investment portfolio. This integration does not use a fixed share-price estimate.
+- **Investor access:** PRTS is a permissioned Securitize offering for eligible investors; subscription, redemption and transfer terms follow the fund documentation.
+- **Fund page:** [Protos Asset Management NAV announcement]({PROTOS_FUND_PAGE_URL}).
+""",
+    estimated_nav_per_share=None,
+    nav_source="unconfigured",
+    denomination="USD",
+)
+
+#: Supported Securitize investment funds keyed by chain and DSToken address.
 SECURITIZE_PRODUCTS: dict[tuple[int, HexAddress], SecuritizeProduct] = {
     (product.chain_id, product.token): product
     for product in (
@@ -183,6 +365,13 @@ SECURITIZE_PRODUCTS: dict[tuple[int, HexAddress], SecuritizeProduct] = {
         ACRED_ETHEREUM,
         VBILL_ETHEREUM,
         STAC_ETHEREUM,
+        ARCOIN_ETHEREUM,
+        SPICE_VC_ETHEREUM,
+        HLSCOPE_ETHEREUM,
+        BCAP_ETHEREUM,
+        COSX_ETHEREUM,
+        SCI2_ETHEREUM,
+        PRTS_ETHEREUM,
     )
 }
 

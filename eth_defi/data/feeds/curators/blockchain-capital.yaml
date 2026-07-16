@@ -1,0 +1,12 @@
+feeder-id: blockchain-capital
+name: Blockchain Capital
+role: curator
+website: https://www.blockchaincapital.com/
+short_description: Blockchain Capital is a venture-capital firm that invests in blockchain and cryptocurrency businesses.
+long_description: |
+  Blockchain Capital is a venture-capital firm focused on businesses building blockchain and cryptocurrency products. It invests in companies at different stages of development and manages investment funds for its investors.
+
+  For this integration, Blockchain Capital is the curator of BCAP, the share class of its Blockchain Capital III Digital Liquid Venture Fund.
+other-links:
+  - title: Blockchain Capital official firm overview and history of BCAP
+    url: https://www.blockchaincapital.com/about-us
