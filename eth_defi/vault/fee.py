@@ -64,6 +64,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Midas oracle pipeline. Instant issuance/redemption fees are read
     # separately from product vault contracts.
     "Midas": VaultFeeMode.internalised_skimming,
+    # Fund fees are internalised in NAV; request fees are read from AoABTManager.
+    "Asseto": VaultFeeMode.internalised_skimming,
     "Velvet Capital": VaultFeeMode.internalised_skimming,
     "Umami": VaultFeeMode.externalised,
     # Unverified contracts, no open source repo

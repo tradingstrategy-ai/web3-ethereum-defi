@@ -1,0 +1,32 @@
+name: Asseto
+slug: asseto
+short_description: |
+  Tokenised investment products with an on-chain NAV/share price and permissioned fund lifecycle.
+long_description: |
+  Asseto issues tokenised investment products whose ERC-20 supply represents ownership in a managed
+  strategy. The initial integration covers the Asseto Orient Arbitrage Token (AoABT) deployment on
+  HashKey Chain, where an Asseto price contract publishes the product's latest NAV/share on-chain.
+
+  Asseto products are not ERC-4626 vaults. Subscriptions and redemptions use separate request-and-claim
+  contracts, with eligibility and settlement controls. For public vault analytics, the integration reads
+  the token supply and official on-chain NAV/share price to calculate historical TVL and share-price data.
+fee_description: |
+  For AoABT, the underlying fund documents a 1.0% annual management fee and a 20% performance fee above
+  a 6% return threshold. These costs are reflected in NAV/share. The Asseto request manager also exposes
+  current entry (mint) and exit (redemption) fees in basis points, which this integration reads on-chain. The
+  underlying fund's redemption fee is lock-up dependent (1% during the first year, then 0%), so it cannot
+  be fully represented by a single generic withdrawal-fee value.
+links:
+  homepage: https://asseto.finance/
+  app: https://asseto.finance/product
+  linkedin: https://www.linkedin.com/company/asseto-finance
+  documentation: https://asseto.gitbook.io/asseto/
+  defillama: https://defillama.com/protocol/asseto-aoabt
+  audits: https://asseto.gitbook.io/asseto/technical-documentation/audits
+  fees: https://asseto.gitbook.io/asseto/products/onboarding
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/asseto/index.html
+example_smart_contracts:
+  - https://hsk.blockscout.com/address/0x80C080acd48ED66a35Ae8A24BC1198672215A9bD
+  - https://hsk.blockscout.com/address/0x6dB7eA55c94fb0F4b22D6b384C18CdAa3B33d746
+  - https://hsk.blockscout.com/address/0xD72529F8b54fcB59010F2141FC328aDa5Aa72abb

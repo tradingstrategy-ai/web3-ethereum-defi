@@ -16,6 +16,7 @@ from web3 import Web3
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
@@ -62,6 +63,9 @@ ODA_FACT_HARDCODED_PROTOCOLS = {
 #: Midas hardcoded classification flags.
 MIDAS_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.midas_like} for token in MIDAS_PRODUCTS_BY_TOKEN}
 
+#: Asseto tokenised fund products require chain-aware address matching.
+ASSETO_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.asseto_like} for token in ASSETO_PRODUCTS_BY_TOKEN}
+
 #: KiloEx Hybrid Vaults reuse a Gains-compatible contract surface. Classify
 #: known deployments by address instead of the generic ``maxDiscountP()`` probe.
 KILOEX_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.kiloex_like} for address in KILOEX_VAULT_ADDRESSES}
@@ -92,6 +96,10 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if (chain_id, normalised_address) in MIDAS_PRODUCTS:
             return MIDAS_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in MIDAS_HARDCODED_PROTOCOLS:
+            return None
+        if (chain_id, normalised_address) in ASSETO_PRODUCTS:
+            return ASSETO_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in ASSETO_HARDCODED_PROTOCOLS:
             return None
 
     return HARDCODED_PROTOCOLS.get(normalised_address)
@@ -1495,6 +1503,10 @@ def create_vault_instance(
         from eth_defi.midas.vault import MidasVault
 
         return MidasVault(web3, spec, **kwargs)
+    elif ERC4626Feature.asseto_like in features:
+        from eth_defi.asseto.vault import AssetoVault
+
+        return AssetoVault(web3, spec, **kwargs)
 
     # TODO: Some module deadlock sheningans for Morpho
     elif ERC4626Feature.morpho_like in features:
@@ -1928,6 +1940,7 @@ def create_vault_instance_autodetect(
 HARDCODED_PROTOCOLS = {
     **ODA_FACT_HARDCODED_PROTOCOLS,
     **MIDAS_HARDCODED_PROTOCOLS,
+    **ASSETO_HARDCODED_PROTOCOLS,
     **KILOEX_HARDCODED_PROTOCOLS,
     # 3Jane - USD3 senior tranche credit vault on Ethereum
     # https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc

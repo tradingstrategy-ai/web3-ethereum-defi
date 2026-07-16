@@ -260,6 +260,15 @@ def test_identify_t3tris_curator_by_curator_metadata() -> None:
     assert get_curator_name("first-capital") == "First Capital"
 
 
+def test_identify_asseto_curator_by_priority_partner_role() -> None:
+    """Asseto investment manager/advisor names resolve through curator YAML."""
+
+    assert identify_curator(1, "", "", "0x0", "asseto", "CMS Asset Management (HK)") == "cms-asset-management-hk"
+    assert identify_curator(1, "", "", "0x0", "asseto", "DL Holdings") == "dl-holdings"
+    assert identify_curator(1, "", "", "0x0", "asseto", "Four Seasons") == "four-seasons"
+    assert identify_curator(1, "", "", "0x0", "asseto", "DFZQ / Orient Securities International") == "dfzq"
+
+
 def test_identify_rockawayx_dashboard_vaults_by_address() -> None:
     """RockawayX Dune dashboard vaults resolve by exact address.
 

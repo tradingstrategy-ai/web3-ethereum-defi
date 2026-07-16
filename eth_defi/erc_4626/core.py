@@ -66,6 +66,12 @@ class ERC4626Feature(enum.Enum):
     #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     midas_like = "midas_like"
 
+    #: Asseto tokenised fund products.
+    #:
+    #: Routing marker for non-ERC-4626 Asseto products that are read through
+    #: a :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    asseto_like = "asseto_like"
+
     #: Ipor protocol
     #:
     #: https://app.ipor.io/fusion
@@ -809,6 +815,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Kinexys"
     elif ERC4626Feature.midas_like in features:
         return "Midas"
+    elif ERC4626Feature.asseto_like in features:
+        return "Asseto"
     elif ERC4626Feature.morpho_like in features:
         return "Morpho"
     elif ERC4626Feature.panoptic_like in features:

@@ -1,0 +1,16 @@
+feeder-id: dl-holdings
+name: DL Holdings
+role: curator
+asseto-role: DL Holdings
+website: https://www.dl-holdings.com/en/
+short_description: DL Holdings is a Hong Kong financial-services group providing investment, asset-management and digital-finance services.
+long_description: |
+  DL Holdings describes itself as a Hong Kong-headquartered integrated financial-services group with securities, asset-management and virtual-asset activities. Its group services include multi-strategy investment fund management and RWA-focused digital-finance operations.
+  Asseto lists DL Holdings as investment manager for the AdDLT tokenised fund product.
+
+# Evidence and background references.
+other-links:
+  - title: DL Holdings - official group and financial-services overview
+    url: https://www.dl-holdings.com/en/
+  - title: Asseto product application - public AdDLT partner roles
+    url: https://asseto.finance/product

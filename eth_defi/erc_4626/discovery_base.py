@@ -24,6 +24,7 @@ from eth_typing import HexAddress
 from web3.contract.contract import ContractEvent
 
 from eth_defi.abi import get_contract
+from eth_defi.asseto.constants import ASSETO_HARDCODED_LEADS
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import ODA_FACT_HARDCODED_LEADS, probe_vaults
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_erc_4626_contract
@@ -633,6 +634,21 @@ class VaultDiscoveryBase(abc.ABC):
                 )
                 report.new_leads += 1
                 logger.info("Added hardcoded Midas vault lead %s", address)
+
+        for lead_chain, address, first_seen_at_block, first_seen_at in ASSETO_HARDCODED_LEADS:
+            if lead_chain != chain or end_block < first_seen_at_block:
+                continue
+            if address not in leads:
+                leads[address] = PotentialVaultMatch(
+                    chain=chain,
+                    address=address,
+                    first_seen_at_block=first_seen_at_block,
+                    first_seen_at=first_seen_at,
+                    deposit_count=0,
+                    withdrawal_count=0,
+                )
+                report.new_leads += 1
+                logger.info("Added hardcoded Asseto vault lead %s", address)
 
         addresses, leads_by_address, mellow_lead_count = _prepare_probe_leads(leads)
         logger.info("Found %d vault leads, of which %d are Mellow factory leads", len(leads), mellow_lead_count)
