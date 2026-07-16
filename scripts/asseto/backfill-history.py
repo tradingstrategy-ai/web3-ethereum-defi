@@ -29,6 +29,9 @@ Useful environment variables:
    * - ``JSON_RPC_<CHAIN>``
      - Archive-capable RPC URL for each selected supported chain, e.g.
        ``JSON_RPC_ETHEREUM``. Products are skipped when this is not set.
+   * - ``HYPERSYNC_API_KEY``
+     - Required for cached HyperSync block-timestamp reads during price
+       backfill.
    * - ``PRODUCTS``
      - Optional comma-separated Asseto symbols, e.g. ``AoABT``.
    * - ``ASSETO_SCAN_PRICES``
@@ -79,6 +82,7 @@ from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampDatabase
 from eth_defi.hypersync.server import is_hypersync_supported_chain
+from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
@@ -596,6 +600,10 @@ def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps 
             reader_states = read_reader_states(reader_state_database_path)
             reader_states = {spec: state for spec, state in reader_states.items() if spec.vault_address.lower() not in vault_ids}
             web3factory = MultiProviderWeb3Factory(json_rpc_url, retries=5)
+            hypersync_config = configure_hypersync_from_env(web3)
+            if hypersync_config.hypersync_client is None:
+                message = "Asseto price backfill requires a HyperSync client for block timestamp reads"
+                raise RuntimeError(message)
             scan_result = scan_historical_prices_to_parquet(
                 output_fname=price_database_path,
                 web3=web3,
@@ -609,10 +617,10 @@ def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps 
                 frequency=frequency,
                 # Asseto's public NAV is sampled daily. Its reader has no
                 # on-chain state result with which to adapt polling, so use
-                # the non-stateful reader: it reads one archive-RPC block
-                # timestamp per daily sample instead of prefetching every
-                # intermediate chain block through HyperSync.
+                # the non-stateful reader. Sampled timestamps are fetched
+                # through the cache-aware HyperSync API, never via RPC.
                 reader_states=None,
+                hypersync_client=hypersync_config.hypersync_client,
                 vault_addresses=vault_ids,
             )
             # The non-stateful reader intentionally has no new Asseto state.

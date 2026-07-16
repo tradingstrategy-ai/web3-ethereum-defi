@@ -1522,7 +1522,9 @@ def read_multicall_historical(
         Set to string to have a progress bar label.
 
     :param hypersync_client:
-        Not used in this reader
+        Optional HyperSync client used to fetch the sampled block timestamps
+        through the shared cache. This keeps timestamp reads out of the
+        archive JSON-RPC workers.
     """
 
     assert type(start_block) == int, f"Got: {start_block}"
@@ -1559,9 +1561,40 @@ def read_multicall_historical(
 
     logger.debug("Per block we need to do %d calls", len(calls_pickle_friendly))
 
+    # Prefetch timestamps once through the cache-aware timestamp reader.
+    #
+    # Do not let each multicall worker make its own ``eth_getBlockByNumber``
+    # call: in production the HyperSync backend supplies these timestamps and
+    # persists them in the shared per-chain cache.
+    timestamps = fetch_block_timestamps_multiprocess_auto_backend(
+        chain_id=chain_id,
+        web3factory=web3factory,
+        start_block=start_block,
+        end_block=end_block,
+        step=step,
+        max_workers=max_workers,
+        timeout=timeout,
+        display_progress=display_progress,
+        hypersync_client=hypersync_client,
+        cache_path=timestamp_cache_file,
+    )
+
+    timestamp_end_block = timestamps.get_last_block()
+    if timestamp_end_block < end_block:
+        logger.warning("Clipping end block by timestamps cache end block %d < %d", timestamp_end_block, end_block)
+        # ``end_block`` is exclusive in the task range below.
+        end_block = timestamp_end_block + 1
+
     def _task_gen() -> Iterable[MulticallHistoricalTask]:
         for block_number in range(start_block, end_block, step):
-            task = MulticallHistoricalTask(chain_id, web3factory, block_number, calls_pickle_friendly, require_multicall_result=require_multicall_result)
+            task = MulticallHistoricalTask(
+                chain_id,
+                web3factory,
+                block_number,
+                calls_pickle_friendly,
+                timestamp=timestamps[block_number],
+                require_multicall_result=require_multicall_result,
+            )
             logger.debug(
                 "Created task for block %d with %d calls",
                 block_number,
@@ -1586,6 +1619,10 @@ def read_multicall_historical(
 
     if progress_bar:
         progress_bar.close()
+
+    timestamp_cache_close = getattr(timestamps, "close", None)
+    if callable(timestamp_cache_close):
+        timestamp_cache_close()
 
 
 def read_multicall_historical_stateful(
