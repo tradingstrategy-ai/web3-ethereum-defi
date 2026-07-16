@@ -27,6 +27,7 @@ BUIDL_PRODUCT_NAME = BUIDL_ETHEREUM.product_name
 BUIDL_HOMEPAGE = BUIDL_ETHEREUM.homepage
 SECURITIZE_HOMEPAGE = "https://securitize.io/"
 SECURITIZE_RESTRICTED_FLOW_REASON = "Securitize DSToken subscriptions, redemptions and transfers require approved investors and compliance checks"
+SECURITIZE_NAV_UNAVAILABLE_ERROR_PREFIX = "No on-chain NAV source configured for Securitize DSToken"
 
 
 class SecuritizeVaultInfo(VaultInfo, total=False):
@@ -72,8 +73,8 @@ class SecuritizeVault(VaultBase):
     """Scan-only adapter for Securitize DS Protocol tokenised securities.
 
     The adapter reads share supply from the ERC-20-compatible DSToken. BUIDL
-    has an explicit one-USD NAV estimate; other recognised DSTokens require a
-    product-specific NAV feed before historical price scanning is enabled.
+    has an explicit one-USD NAV estimate; other recognised DSTokens receive
+    product-specific NAV history through the scanner's off-chain enrichment.
     """
 
     def __init__(
@@ -251,12 +252,12 @@ class SecuritizeVault(VaultBase):
         :return:
             Registered product NAV/share estimate.
         :raises NotImplementedError:
-            If a recognised DSToken has no configured product NAV source.
+            If the DSToken has no on-chain or static adapter NAV source.
         """
 
         if self.product and self.product.estimated_nav_per_share is not None:
             return self.product.estimated_nav_per_share
-        raise NotImplementedError(f"No NAV source configured for Securitize DSToken {self.address}")
+        raise NotImplementedError(f"{SECURITIZE_NAV_UNAVAILABLE_ERROR_PREFIX} {self.address}")
 
     def fetch_total_supply(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Fetch outstanding DSToken supply.

@@ -122,12 +122,12 @@ ACRED_ETHEREUM = SecuritizeProduct(
 
 - **Curator:** Apollo / Securitize.
 - **Vault strategy:** Tokenised feeder fund investing in Apollo Diversified Credit Fund, a diversified global-credit strategy spanning corporate direct lending, asset-backed lending, and performing, dislocated and structured credit.
-- **NAV reporting:** The fund supports subscriptions and redemptions at daily NAV. Its NAV changes with the underlying credit portfolio, so this integration does not model ACRED at a fixed share price.
+- **NAV reporting:** The fund supports subscriptions and redemptions at daily NAV. Its NAV changes with the underlying credit portfolio; historical NAV is read from RedStone's ACRED fundamental feed rather than modelled as a fixed share price.
 - **Investor access:** The product is available to qualifying investors through Securitize Markets.
 - **Fund page:** [Apollo Diversified Credit Securitize Fund]({ACRED_FUND_PAGE_URL}).
 """,
     estimated_nav_per_share=None,
-    nav_source="unconfigured",
+    nav_source="redstone_acred_fundamental",
     denomination="USD",
 )
 
@@ -147,12 +147,12 @@ VBILL_ETHEREUM = SecuritizeProduct(
 
 - **Curator:** VanEck / Securitize.
 - **Vault strategy:** Tokenised fund investing in short-term U.S. Treasury obligations, repurchase agreements collateralised by U.S. Treasury obligations and cash for redemptions.
-- **NAV reporting:** The fund seeks to maintain a stable USD 1 net asset value and has daily NAV calculations. A canonical historical price source has not yet been integrated, so this adapter does not assume a fixed share price.
+- **NAV reporting:** The fund seeks to maintain a stable USD 1 net asset value and has daily NAV calculations. Historical NAV is read from RedStone's Ethereum VBILL fundamental feed, so the adapter does not assume a fixed share price.
 - **Investor access:** The fund is designed for institutional and qualified investors.
 - **Fund page:** [VanEck Treasury Fund]({VBILL_FUND_PAGE_URL}).
 """,
     estimated_nav_per_share=None,
-    nav_source="unconfigured",
+    nav_source="redstone_vbill_ethereum_fundamental",
     denomination="USD",
 )
 
@@ -173,11 +173,11 @@ STAC_ETHEREUM = SecuritizeProduct(
 - **Curator:** BNY Investments / Securitize.
 - **Vault strategy:** Tokenised fund dedicated to U.S. dollar-denominated collateralised loan obligations with AAA-rated tranches.
 - **Fund oversight:** The fund was developed with BNY, which acts as custodian for the underlying assets; BNY Investments is the fund's sub-adviser.
-- **NAV reporting:** The share value follows the NAV of the CLO portfolio and is not a stable-dollar fund. A canonical historical price source has not yet been integrated.
+- **NAV reporting:** The share value follows the NAV of the CLO portfolio and is not a stable-dollar fund. Historical NAV is read from RedStone's STAC fundamental feed; Chronicle separately verifies the fund's assets and valuation inputs through its Proof of Asset dashboard.
 - **Fund page:** [Securitize Tokenized AAA CLO Fund]({STAC_FUND_PAGE_URL}).
 """,
     estimated_nav_per_share=None,
-    nav_source="unconfigured",
+    nav_source="redstone_stac_fundamental",
     denomination="USD",
 )
 
@@ -247,12 +247,12 @@ HLSCOPE_ETHEREUM = SecuritizeProduct(
 
 - **Curator:** Hamilton Lane / Securitize.
 - **Vault strategy:** Tokenised feeder-fund interests providing access to Hamilton Lane's Senior Credit Opportunities Fund, an evergreen private-credit strategy focused on senior secured loans.
-- **NAV reporting:** The underlying strategy's valuations are determined periodically and the share value can change with its private-credit holdings. This integration does not use a fixed share-price estimate.
+- **NAV reporting:** The underlying strategy's valuations are determined periodically and the share value can change with its private-credit holdings. Historical NAV is read from RedStone's HLSCOPE fundamental feed rather than using a fixed share-price estimate.
 - **Investor access:** The fund is a permissioned Securitize offering for eligible investors; subscription and redemption terms follow the feeder-fund documentation.
 - **Fund page:** [Hamilton Lane Senior Credit Opportunities Fund]({HLSCOPE_FUND_PAGE_URL}).
 """,
     estimated_nav_per_share=None,
-    nav_source="unconfigured",
+    nav_source="redstone_hlscope_fundamental",
     denomination="USD",
 )
 
