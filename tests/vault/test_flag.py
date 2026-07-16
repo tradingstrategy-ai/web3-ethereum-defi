@@ -26,16 +26,23 @@ def test_oda_fact_risk_is_low() -> None:
     assert get_vault_risk("Kinexys") == VaultTechnicalRisk.low
 
 
-def test_oda_fact_vault_note_is_not_bad_flag() -> None:
-    """ODA-FACT JLTXX note is descriptive and does not flag the vault."""
-    address = "0x09864f52b035ae22ee739dfa5c748fa080d07bd8"
+@pytest.mark.parametrize(
+    ("address", "expected_note"),
+    [
+        ("0x7712c34205737192402172409a8f7ccef8aa2aec", "**Curator:** BlackRock / Securitize"),
+        ("0x09864f52b035ae22ee739dfa5c748fa080d07bd8", "**Curator:** J.P. Morgan"),
+    ],
+)
+def test_tokenised_fund_vaults_have_descriptive_flag_and_notes(address: str, expected_note: str) -> None:
+    """Known tokenised funds have product notes without becoming bad vaults."""
+
     note = get_notes(address)
 
     assert note is not None
-    assert "**Curator:** J.P. Morgan" in note
-    assert "Equity curve and profit information for this vault are missing" in note
-    assert "JLTXX fact sheet" in note
-    assert not is_flagged_vault(address)
+    assert expected_note in note
+    assert get_vault_special_flags(address) == {VaultFlag.tokenised_fund}
+    assert is_flagged_vault(address)
+    assert VaultFlag.tokenised_fund not in BAD_FLAGS
 
 
 def test_summer_fi_protocol_vaults_are_blacklisted() -> None:

@@ -64,6 +64,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Midas oracle pipeline. Instant issuance/redemption fees are read
     # separately from product vault contracts.
     "Midas": VaultFeeMode.internalised_skimming,
+    # DSToken contracts do not expose product-level fund fees.
+    "Securitize": None,
     "Velvet Capital": VaultFeeMode.internalised_skimming,
     "Umami": VaultFeeMode.externalised,
     # Unverified contracts, no open source repo

@@ -50,6 +50,12 @@ class VaultFlag(str, enum.Enum):
     #: This vault represents an underlying wrapped asset like a share
     wrapped_asset = "wrapped_asset"
 
+    #: This vault represents shares in a tokenised fund.
+    #:
+    #: Fund assets, NAV calculation and investor eligibility can be managed
+    #: off-chain by the fund issuer.
+    tokenised_fund = "tokenised_fund"
+
     #: Vault ls missing in the protocol official website and might be a spoof attempt
     unofficial = "unofficial"
 
@@ -119,13 +125,22 @@ ODA_FACT_JLTXX_NOTE = f"""JPMorgan OnChain Liquidity-Token Money Market Fund (JL
 - **Fact sheet:** [JLTXX fact sheet]({JLTXX_FACT_SHEET_URL}).
 """
 
+BUIDL_FUND_PAGE_URL = "https://www.blackrock.com/us/individual/products/buidl/"
+
+BUIDL_NOTE = f"""BlackRock USD Institutional Digital Liquidity Fund (BUIDL).
+
+- **Curator:** BlackRock / Securitize.
+- **Vault strategy:** Tokenised shares in a fund that invests in cash, U.S. Treasury bills and repurchase agreements.
+- **Token structure:** BUIDL is a permissioned Securitize DSToken. Investors must complete issuer eligibility and compliance checks before subscribing, redeeming or transferring shares.
+- **Stable dollar share value:** BUIDL targets a USD 1 share value. Fund income accrues daily and is distributed monthly as newly issued BUIDL shares to eligible holders, rather than increasing the unit price. The token is therefore modelled at an estimated USD 1 per share and the on-chain share price does not represent total return.
+- **Fund page:** [BlackRock BUIDL]({BUIDL_FUND_PAGE_URL}).
+"""
+
 #: Vault-specific notes without special risk flags.
 #:
 #: Unlike :py:data:`VAULT_FLAGS_AND_NOTES`, entries here do not make the vault
 #: "flagged"; they only add descriptive markdown to vault exports.
-VAULT_NOTES: dict[str, str] = {
-    "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": ODA_FACT_JLTXX_NOTE,
-}
+VAULT_NOTES: dict[str, str] = {}
 
 
 def get_vault_special_flags(address: str | HexAddress, protocol_name: str | None = None) -> set[VaultFlag]:
@@ -321,12 +336,18 @@ The system checks your total equity meets the minimum for your tier when you att
 [More details on the GLP programme](https://help.grvt.io/en/articles/12760192-grvt-liquidity-provider-glp).
 """
 
-#: Vault manual blacklist flags and notes.
+#: Vault-specific flags and notes.
 #:
-#: The reason notes is a guess.
+#: Most entries identify vaults that should not be used. Some entries, such as
+#: tokenised funds, are descriptive classifications and are not in
+#: :py:data:`BAD_FLAGS`.
 #:
 #: Make sure address is lowercased
 VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
+    # BlackRock USD Institutional Digital Liquidity Fund (BUIDL), Ethereum
+    "0x7712c34205737192402172409a8f7ccef8aa2aec": (VaultFlag.tokenised_fund, BUIDL_NOTE),
+    # JPMorgan OnChain Liquidity-Token Money Market Fund (JLTXX), Ethereum
+    "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": (VaultFlag.tokenised_fund, ODA_FACT_JLTXX_NOTE),
     # Borrowable USDC Deposit, SiloId: 127
     "0x2433d6ac11193b4695d9ca73530de93c538ad18a": (VaultFlag.illiquid, XUSD_MESSAGE),
     # https://tradingstrategy.ai/trading-view/sonic/vaults/borrowable-xusd-deposit-siloid-112

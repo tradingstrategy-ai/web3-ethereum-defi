@@ -9,6 +9,7 @@
 - Supports Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
 - Supports Atoma WithdrawalClaimed events
 - Supports T3tris DepositRequest/RedeemRequest events
+- Supports Securitize DSToken Issue events
 """
 
 import abc
@@ -362,6 +363,37 @@ def get_t3tris_vault_discovery_events(web3) -> list[type[ContractEvent]]:
     ]
 
 
+def get_securitize_dstoken_discovery_events(web3) -> list[Type[ContractEvent]]:
+    """Get Securitize DSToken issuance events used for lead discovery.
+
+    DSTokens are non-ERC-4626 security tokens. Their ``Issue`` event identifies
+    token issuance and gives the scanner a candidate lead; ABI probes
+    subsequently reject unrelated contracts that happen to emit a similarly
+    shaped event. Issuance is not necessarily a cash subscription.
+
+    :param web3:
+        Web3 connection used to construct the event ABI.
+    :return:
+        The DSToken ``Issue`` event type.
+    """
+
+    dstoken_contract = web3.eth.contract(
+        abi=[
+            {
+                "anonymous": False,
+                "inputs": [
+                    {"indexed": True, "internalType": "address", "name": "to", "type": "address"},
+                    {"indexed": False, "internalType": "uint256", "name": "value", "type": "uint256"},
+                    {"indexed": False, "internalType": "uint256", "name": "valueLocked", "type": "uint256"},
+                ],
+                "name": "Issue",
+                "type": "event",
+            }
+        ]
+    )
+    return [dstoken_contract.events.Issue]
+
+
 def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get all events used in vault discovery, including protocol-specific ones.
 
@@ -374,6 +406,7 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     - Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
     - Atoma WithdrawalClaimed event
     - T3tris DepositRequest/RedeemRequest events
+    - Securitize DSToken Issue event
 
     :return:
         List of contract event types in order:
@@ -384,9 +417,10 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
          UpshiftMultiAsset.Deposit, UpshiftMultiAsset.WithdrawalRequested,
          UpshiftMultiAsset.WithdrawalProcessed,
          AtomaVault.WithdrawalClaimed,
-         T3trisVault.DepositRequest, T3trisVault.RedeemRequest]
+         T3trisVault.DepositRequest, T3trisVault.RedeemRequest,
+         SecuritizeDSToken.Issue]
     """
-    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3) + get_upshift_multi_asset_discovery_events(web3) + get_atoma_vault_discovery_events(web3) + get_t3tris_vault_discovery_events(web3)
+    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3) + get_upshift_multi_asset_discovery_events(web3) + get_atoma_vault_discovery_events(web3) + get_t3tris_vault_discovery_events(web3) + get_securitize_dstoken_discovery_events(web3)
 
 
 def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
@@ -399,33 +433,18 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
     """
     from eth_defi.abi import get_topic_signature_from_event
 
-    erc4626_events = get_standard_erc_4626_vault_discovery_events(web3)
-    brink_events = get_brink_vault_discovery_events(web3)
-    ember_events = get_ember_vault_discovery_events(web3)
-    token_gateway_events = get_token_gateway_discovery_events(web3)
-    royco_tranche_events = get_royco_tranche_discovery_events(web3)
-    upshift_multi_asset_events = get_upshift_multi_asset_discovery_events(web3)
-    atoma_vault_events = get_atoma_vault_discovery_events(web3)
-    t3tris_vault_events = get_t3tris_vault_discovery_events(web3)
-
-    return {
-        get_topic_signature_from_event(erc4626_events[0]): VaultEventKind.deposit,
-        get_topic_signature_from_event(erc4626_events[1]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(brink_events[0]): VaultEventKind.deposit,
-        get_topic_signature_from_event(brink_events[1]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(ember_events[0]): VaultEventKind.deposit,
-        get_topic_signature_from_event(ember_events[1]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(token_gateway_events[0]): VaultEventKind.deposit,
-        get_topic_signature_from_event(token_gateway_events[1]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(token_gateway_events[2]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(royco_tranche_events[0]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(upshift_multi_asset_events[0]): VaultEventKind.deposit,
-        get_topic_signature_from_event(upshift_multi_asset_events[1]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(upshift_multi_asset_events[2]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(atoma_vault_events[0]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(t3tris_vault_events[0]): VaultEventKind.deposit,
-        get_topic_signature_from_event(t3tris_vault_events[1]): VaultEventKind.withdraw,
-    }
+    event_groups = (
+        (get_standard_erc_4626_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
+        (get_brink_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
+        (get_ember_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
+        (get_token_gateway_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw, VaultEventKind.withdraw)),
+        (get_royco_tranche_discovery_events(web3), (VaultEventKind.withdraw,)),
+        (get_upshift_multi_asset_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw, VaultEventKind.withdraw)),
+        (get_atoma_vault_discovery_events(web3), (VaultEventKind.withdraw,)),
+        (get_t3tris_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
+        (get_securitize_dstoken_discovery_events(web3), (VaultEventKind.deposit,)),
+    )
+    return {get_topic_signature_from_event(event): event_kind for events, event_kinds in event_groups for event, event_kind in zip(events, event_kinds, strict=True)}
 
 
 def is_deposit_event(event_kind: VaultEventKind) -> bool:

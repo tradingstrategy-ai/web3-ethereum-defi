@@ -47,6 +47,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    kiloex/index
    midas/index
    oda_fact/index
+   securitize/index
    royco/index
    velvet/index
    morpho/index
