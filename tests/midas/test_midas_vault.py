@@ -6,6 +6,7 @@ import os
 from collections.abc import Iterable
 from decimal import Decimal
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import flaky
 import hypersync
@@ -13,6 +14,7 @@ import pandas as pd
 import pytest
 from web3 import Web3
 
+from eth_defi.abi import ZERO_ADDRESS
 from eth_defi.erc_4626 import discovery_base as discovery_base_module
 from eth_defi.erc_4626.classification import VaultFeatureProbe, create_vault_instance_autodetect, identify_vault_features
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
@@ -38,6 +40,7 @@ from eth_defi.midas.vault import MIDAS_BESPOKE_FLOW_REASON, MIDAS_NAV_SOURCE, Mi
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.research.vault_metrics import calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics, export_lifetime_row
+from eth_defi.token import TokenDetails
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.top_vaults_json import validate_strict_json_serialisable
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -189,6 +192,48 @@ def test_midas_hardcoded_leads_are_added_to_discovery(monkeypatch: pytest.Monkey
     assert report.detections[MIDAS_MBASIS_ETHEREUM.token].features == {ERC4626Feature.midas_like}
 
 
+def test_midas_manual_fulfilment_token_uses_synthetic_usd(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ignore Midas' zero-address manual-fulfilment sentinel as an ERC-20."""
+
+    vault = MidasVault(
+        MagicMock(),
+        VaultSpec(
+            chain_id=ETHEREUM_CHAIN_ID,
+            vault_address=MIDAS_MTBILL_ETHEREUM.token,
+        ),
+    )
+    issuance_vault = MagicMock()
+    issuance_vault.functions.getPaymentTokens.return_value.call.return_value = [ZERO_ADDRESS]
+    monkeypatch.setattr(MidasVault, "issuance_vault_contract", property(lambda _self: issuance_vault))
+
+    assert vault.fetch_payment_tokens() == []
+    assert vault.fetch_denomination_token() is None
+    assert vault.fetch_info()["denomination_token"] is None
+    assert vault.fetch_info()["synthetic_usd_denomination"] is True
+
+
+def test_midas_primary_payment_token_fulfils_vaultbase_denomination_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Export the first Midas payment token through all VaultBase denomination accessors."""
+
+    vault = MidasVault(
+        MagicMock(),
+        VaultSpec(
+            chain_id=ETHEREUM_CHAIN_ID,
+            vault_address=MIDAS_MTBILL_ETHEREUM.token,
+        ),
+    )
+    primary_payment_token = MagicMock(spec=TokenDetails)
+    primary_payment_token.address = Web3.to_checksum_address("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
+    secondary_payment_token = MagicMock(spec=TokenDetails)
+    secondary_payment_token.address = Web3.to_checksum_address("0xdAC17F958D2ee523a2206206994597C13D831ec7")
+    monkeypatch.setattr(vault, "fetch_payment_tokens", lambda: [primary_payment_token, secondary_payment_token])
+
+    assert vault.fetch_primary_payment_token() is primary_payment_token
+    assert vault.fetch_denomination_token() is primary_payment_token
+    assert vault.fetch_denomination_token_address() == primary_payment_token.address
+    assert vault.denomination_token is primary_payment_token
+
+
 def test_midas_hardcoded_classification_is_chain_aware() -> None:
     """Do not classify same-address Midas mTokens on unsupported chains."""
 
@@ -318,7 +363,7 @@ def test_midas_anvil_forked_mtbill_properties(web3: Web3) -> None:
     assert info["oracle"] == Web3.to_checksum_address(MIDAS_MTBILL_ETHEREUM.oracle)
     assert info["issuance_vault"] == Web3.to_checksum_address(MIDAS_MTBILL_ETHEREUM.issuance_vault)
     assert info["redemption_vault"] == Web3.to_checksum_address(MIDAS_MTBILL_ETHEREUM.redemption_vault)
-    assert info["synthetic_usd_denomination"] is True
+    assert info["synthetic_usd_denomination"] is False
     assert info["nav_source"] == MIDAS_NAV_SOURCE
     assert info["nav_estimated"] is False
 
@@ -339,9 +384,9 @@ def test_midas_autodetect_live_mtbill(web3: Web3) -> None:
     assert vault.share_token.name == "Midas US Treasury Bill Token"
     assert vault.share_token.symbol == "mTBILL"
     assert vault.share_token.decimals == MTBILL_EXPECTED_DECIMALS
-    assert vault.fetch_denomination_token_address() is None
-    assert vault.fetch_denomination_token() is None
-    assert vault.denomination_token is None
+    assert vault.fetch_denomination_token_address() == Web3.to_checksum_address("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
+    assert vault.fetch_denomination_token().symbol == "USDC"
+    assert vault.denomination_token.symbol == "USDC"
 
 
 @flaky.flaky
@@ -364,10 +409,10 @@ def test_midas_live_supply_nav_and_unsupported_actions(web3: Web3) -> None:
     assert vault.get_fee_data().performance is None
     assert vault.get_fee_data().deposit == 0
     assert vault.get_fee_data().withdraw == MTBILL_EXPECTED_WITHDRAW_FEE
-    assert vault.fetch_info()["denomination_token"] is None
-    assert vault.fetch_scan_record_extra_data()["Denomination"] == "USD"
-    assert vault.fetch_scan_record_extra_data()["_denomination_token"]["symbol"] == "USD"
-    assert vault.fetch_scan_record_extra_data()["_denomination_token"]["address"] is None
+    assert vault.fetch_info()["denomination_token"] == Web3.to_checksum_address("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
+    assert vault.fetch_scan_record_extra_data()["Denomination"] == "USDC"
+    assert vault.fetch_scan_record_extra_data()["_denomination_token"]["symbol"] == "USDC"
+    assert vault.fetch_scan_record_extra_data()["_denomination_token"]["address"] == Web3.to_checksum_address("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
     assert vault.fetch_info()["nav_source"] == MIDAS_NAV_SOURCE
     assert vault.fetch_info()["nav_estimated"] is False
 
@@ -518,7 +563,7 @@ def test_midas_scan_record_live_mtbill(web3: Web3) -> None:
     assert record["Symbol"] == "mTBILL"
     assert record["Name"] == "Midas US Treasury Bill Token"
     assert record["Protocol"] == "Midas"
-    assert record["Denomination"] == "USD"
+    assert record["Denomination"] == "USDC"
     assert record["Share token"] == "mTBILL"
     assert record["NAV"] == MTBILL_EXPECTED_TOTAL_ASSETS
     assert record["Mgmt fee"] is None
@@ -528,15 +573,15 @@ def test_midas_scan_record_live_mtbill(web3: Web3) -> None:
     assert record["Shares"] == MTBILL_EXPECTED_TOTAL_SUPPLY
     assert record["Features"] == "midas_like"
     assert record["_detection_data"] == detection
-    assert record["_denomination_token"]["symbol"] == "USD"
-    assert record["_denomination_token"]["address"] is None
+    assert record["_denomination_token"]["symbol"] == "USDC"
+    assert record["_denomination_token"]["address"] == Web3.to_checksum_address("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
     assert record["_share_token"]["symbol"] == "mTBILL"
     assert record["_manager_name"] == "Midas"
     assert record["_deposit_closed_reason"] == MIDAS_BESPOKE_FLOW_REASON
     assert record["_redemption_closed_reason"] == MIDAS_BESPOKE_FLOW_REASON
     assert record["_nav_source"] == MIDAS_NAV_SOURCE
     assert record["_nav_estimated"] is False
-    assert record["_synthetic_usd_denomination"] is True
+    assert record["_synthetic_usd_denomination"] is False
     assert record["_midas_data_feed"] == Web3.to_checksum_address(MIDAS_MTBILL_ETHEREUM.data_feed)
     assert record["_midas_oracle"] == Web3.to_checksum_address(MIDAS_MTBILL_ETHEREUM.oracle)
 
@@ -631,7 +676,7 @@ def test_midas_lead_detection_lifetime_metrics_json_export(monkeypatch: pytest.M
     assert decoded["vaults"][0]["management_fee"] is None
     assert decoded["vaults"][0]["deposit_fee"] == 0
     assert decoded["vaults"][0]["withdraw_fee"] == MTBILL_EXPECTED_WITHDRAW_FEE
-    assert decoded["vaults"][0]["denomination"] == "USD"
+    assert decoded["vaults"][0]["denomination"] == "USDC"
     assert decoded["vaults"][0]["address"] == MIDAS_MTBILL_ETHEREUM.token.lower()
 
 
