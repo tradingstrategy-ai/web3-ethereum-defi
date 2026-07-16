@@ -26,6 +26,11 @@ def test_oda_fact_risk_is_low() -> None:
     assert get_vault_risk("Kinexys") == VaultTechnicalRisk.low
 
 
+def test_securitize_risk_is_low() -> None:
+    """Securitize protocol risk is classified as low."""
+    assert get_vault_risk("Securitize") == VaultTechnicalRisk.low
+
+
 @pytest.mark.parametrize(
     ("address", "expected_note"),
     [

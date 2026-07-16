@@ -71,9 +71,10 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # Midas is a permissioned tokenised investment product platform with
     # audited, verified contracts and centralised NAV/oracle operations.
     "Midas": VaultTechnicalRisk.low,
-    # Securitize DSToken implementations are verified, but product-specific
-    # fund, issuer, custody and compliance risks need separate assessment.
-    "Securitize": None,
+    # Securitize DSToken implementations are verified and the underlying
+    # protocol is open source. Product-specific fund, issuer, custody and
+    # compliance risks need separate assessment.
+    "Securitize": VaultTechnicalRisk.low,
     "Velvet Capital": VaultTechnicalRisk.high,
     "Umami": VaultTechnicalRisk.severe,
     # Unverified contracts, no open source repo
