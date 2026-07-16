@@ -31,6 +31,8 @@ A new vault protocol integration is not complete unless it includes:
 - Original and post-processed protocol logos
 - Vault documentation and API documentation entries
 - Focused tests for the new protocol
+- A generated protocol-specific historical lead migration script that preserves
+  unrelated vault database, reader-state and Parquet entries
 
 ## Step-by-step implementation
 
