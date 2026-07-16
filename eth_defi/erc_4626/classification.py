@@ -517,6 +517,18 @@ def create_probe_calls(
                 extra_data=None,
             )
 
+        # Securitize Digital Securities Protocol (DS Protocol) tokens are
+        # permissioned ERC-20 securities rather than ERC-4626 vaults. The
+        # public service-id constant identifies the DSToken contract surface.
+        # https://github.com/securitize-io/dstoken
+        yield EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="COMPLIANCE_SERVICE()")[0:4],
+            function="COMPLIANCE_SERVICE",
+            data=b"",
+            extra_data=None,
+        )
+
         # ====================
         # Protocol-specific probes - some filtered by chain_id
         # ====================
@@ -1139,6 +1151,12 @@ def identify_vault_features(
     if calls["shareManager"].success and calls["getAssetCount"].success:
         features.add(ERC4626Feature.mellow_like)
 
+    # Securitize DSTokens deliberately extend ERC-20, but do not implement
+    # ERC-4626's convertToShares(). Detect them before the generic ERC-4626
+    # failure branch below.
+    if calls["COMPLIANCE_SERVICE"].success:
+        return {ERC4626Feature.securitize_like}
+
     if calls["assetsWhitelistAddress"].success:
         features.add(ERC4626Feature.upshift_like)
         features.add(ERC4626Feature.upshift_multi_asset_like)
@@ -1655,6 +1673,10 @@ def create_vault_instance(
         from eth_defi.mellow.vault import MellowVault
 
         return MellowVault(web3, spec, **kwargs)
+    elif ERC4626Feature.securitize_like in features:
+        from eth_defi.securitize.vault import SecuritizeVault
+
+        return SecuritizeVault(web3, spec, **kwargs)
     elif ERC4626Feature.broken in features:
         return None
     elif ERC4626Feature.ipor_like in features:

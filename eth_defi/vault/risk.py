@@ -71,6 +71,10 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # Midas is a permissioned tokenised investment product platform with
     # audited, verified contracts and centralised NAV/oracle operations.
     "Midas": VaultTechnicalRisk.low,
+    # Securitize DSToken implementations are verified and the underlying
+    # protocol is open source. Product-specific fund, issuer, custody and
+    # compliance risks need separate assessment.
+    "Securitize": VaultTechnicalRisk.low,
     # Maseer One is a new compliance-gated RWA tokenisation framework. The
     # contracts are public, but the framework has limited production history.
     "Maseer One": None,

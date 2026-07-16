@@ -1,0 +1,17 @@
+feeder-id: bny-investments
+name: BNY Investments
+role: curator
+website: https://www.bny.com/investments/us/en/intermediary/about-us/
+linkedin: bnyinvestments
+short_description: BNY Investments is BNY's global multi-specialist asset-management business.
+long_description: |
+  BNY Investments is BNY's global asset-management business, providing investment solutions through specialist investment firms across public and private markets. It serves institutional, intermediary and individual investors.
+
+  For this integration, BNY Investments is the curator of the Securitize Tokenized AAA CLO Fund (STAC) because it acts as the fund's sub-adviser. BNY acts as custodian for the fund's underlying assets, while Securitize provides the tokenisation platform.
+other-links:
+  - title: BNY Investments official company overview
+    url: https://www.bny.com/investments/us/en/intermediary/about-us/
+  - title: Securitize announcement - STAC expansion with BNY
+    url: https://www.prnewswire.com/news-releases/securitize-expands-stac-tokenized-aaa-clo-fund-to-solana-302798777.html
+  - title: Securitize STAC fund page
+    url: https://www.securitize-stac.com/

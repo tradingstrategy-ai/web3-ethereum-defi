@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add Securitize DS Protocol vault support with BUIDL DSToken detection, historical supply scanning and tokenised-fund vault notes (2026-07-16)
 - feat: Publish Hypercore cleaned economic share prices from retained observations at up to four-hour granularity (2026-07-16)
 - feat: Export Midas issuance-vault payment tokens as scanner denominations and add a manual payment-token audit script (2026-07-16)
 - feat: Add Kiln OmniVault protocol metadata, documentation, feed registration and regression coverage (2026-07-15)

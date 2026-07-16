@@ -132,6 +132,7 @@ Supported protocols
    royco/index
    sbold/index
    secured_finance/index
+   securitize/index
    sentiment/index
    silo/index
    singularity/index
