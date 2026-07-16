@@ -1,7 +1,7 @@
 """Securitize Digital Securities Protocol tokenised-fund adapter."""
 
 # Adapter classes intentionally mirror :class:`VaultBase` method signatures.
-# ruff: noqa: ARG002, FBT001, PLR0904, PLR0917, PLR6301
+# ruff: noqa: ARG002, FBT001, FBT002, PLR0904, PLR0917, PLR6301
 
 import datetime
 from decimal import Decimal
@@ -20,6 +20,7 @@ from eth_defi.vault.lower_case_dict import LowercaseDict
 #: BlackRock USD Institutional Digital Liquidity Fund on Ethereum.
 #:
 #: https://etherscan.io/address/0x7712c34205737192402172409a8f7ccef8aa2aec
+BUIDL_ETHEREUM_CHAIN_ID = 1
 BUIDL_ETHEREUM_ADDRESS = HexAddress("0x7712c34205737192402172409a8f7ccef8aa2aec")
 
 #: BUIDL is designed to maintain a one-US-dollar token value. Dividends are
@@ -148,7 +149,7 @@ class SecuritizeVault(VaultBase):
             ``True`` for the Ethereum BUIDL contract.
         """
 
-        return self.address.lower() == BUIDL_ETHEREUM_ADDRESS
+        return self.chain_id == BUIDL_ETHEREUM_CHAIN_ID and self.address.lower() == BUIDL_ETHEREUM_ADDRESS
 
     @property
     def name(self) -> str:

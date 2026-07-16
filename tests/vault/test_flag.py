@@ -41,7 +41,7 @@ def test_tokenised_fund_vaults_have_descriptive_flag_and_notes(address: str, exp
     assert note is not None
     assert expected_note in note
     assert get_vault_special_flags(address) == {VaultFlag.tokenised_fund}
-    assert is_flagged_vault(address)
+    assert not is_flagged_vault(address)
     assert VaultFlag.tokenised_fund not in BAD_FLAGS
 
 

@@ -17,6 +17,7 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.securitize.historical import SecuritizeVaultHistoricalReader
 from eth_defi.securitize.vault import BUIDL_ESTIMATED_NAV_PER_SHARE, BUIDL_ETHEREUM_ADDRESS, SECURITIZE_RESTRICTED_FLOW_REASON, SecuritizeVault
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.flag import VaultFlag
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -128,3 +129,28 @@ def test_buidl_historical_reader(web3: Web3) -> None:
     assert read.management_fee is None
     assert read.performance_fee is None
     assert read.errors is None
+
+
+def test_unpriced_dstoken_historical_reader_returns_error(web3: Web3) -> None:
+    """Do not abort a shared history scan for a DSToken without a NAV source."""
+
+    vault = SecuritizeVault(
+        web3,
+        VaultSpec(chain_id=8453, vault_address=BUIDL_ETHEREUM_ADDRESS),
+    )
+    reader = vault.get_historical_reader(stateful=False)
+    call_results = [call.call_as_result(web3, block_identifier=BUIDL_TEST_BLOCK, ignore_error=True) for call in reader.construct_multicalls()]
+    timestamp = datetime.datetime.fromtimestamp(
+        web3.eth.get_block(BUIDL_TEST_BLOCK)["timestamp"],
+        tz=datetime.UTC,
+    ).replace(tzinfo=None)
+
+    read = reader.process_result(BUIDL_TEST_BLOCK, timestamp, call_results)
+
+    assert not vault.is_buidl
+    assert read.share_price is None
+    assert read.total_assets is None
+    assert read.total_supply == BUIDL_EXPECTED_TOTAL_SUPPLY
+    assert read.errors == [f"No NAV source configured for Securitize DSToken {vault.address}"]
+    assert read.deposits_open is False
+    assert read.redemption_open is False

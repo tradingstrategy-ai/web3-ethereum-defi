@@ -136,11 +136,21 @@ BUIDL_NOTE = f"""BlackRock USD Institutional Digital Liquidity Fund (BUIDL).
 - **Fund page:** [BlackRock BUIDL]({BUIDL_FUND_PAGE_URL}).
 """
 
-#: Vault-specific notes without special risk flags.
+#: Vault-specific notes and classifications that do not exclude a vault from
+#: research datasets.
 #:
 #: Unlike :py:data:`VAULT_FLAGS_AND_NOTES`, entries here do not make the vault
-#: "flagged"; they only add descriptive markdown to vault exports.
-VAULT_NOTES: dict[str, str] = {}
+#: "flagged" through :py:func:`is_flagged_vault`.
+VAULT_NOTES: dict[str, str] = {
+    "0x7712c34205737192402172409a8f7ccef8aa2aec": BUIDL_NOTE,
+    "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": ODA_FACT_JLTXX_NOTE,
+}
+
+#: Product classification flags that are descriptive rather than exclusionary.
+VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
+    "0x7712c34205737192402172409a8f7ccef8aa2aec": {VaultFlag.tokenised_fund},
+    "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": {VaultFlag.tokenised_fund},
+}
 
 
 def get_vault_special_flags(address: str | HexAddress, protocol_name: str | None = None) -> set[VaultFlag]:
@@ -151,8 +161,9 @@ def get_vault_special_flags(address: str | HexAddress, protocol_name: str | None
     manual warning, such as the Summer.fi illiquid flag added after the
     2026-07-06 exploit reporting.
     """
-    flags = set()
-    entry = VAULT_FLAGS_AND_NOTES.get(address.lower())
+    address = address.lower()
+    flags = set(VAULT_DESCRIPTIVE_FLAGS.get(address, _empty_set))
+    entry = VAULT_FLAGS_AND_NOTES.get(address)
     if entry:
         if entry[0]:
             flags.add(entry[0])
@@ -344,10 +355,6 @@ The system checks your total equity meets the minimum for your tier when you att
 #:
 #: Make sure address is lowercased
 VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
-    # BlackRock USD Institutional Digital Liquidity Fund (BUIDL), Ethereum
-    "0x7712c34205737192402172409a8f7ccef8aa2aec": (VaultFlag.tokenised_fund, BUIDL_NOTE),
-    # JPMorgan OnChain Liquidity-Token Money Market Fund (JLTXX), Ethereum
-    "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": (VaultFlag.tokenised_fund, ODA_FACT_JLTXX_NOTE),
     # Borrowable USDC Deposit, SiloId: 127
     "0x2433d6ac11193b4695d9ca73530de93c538ad18a": (VaultFlag.illiquid, XUSD_MESSAGE),
     # https://tradingstrategy.ai/trading-view/sonic/vaults/borrowable-xusd-deposit-siloid-112
