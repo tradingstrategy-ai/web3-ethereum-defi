@@ -209,6 +209,21 @@ def test_identify_galaxy_morpho_curator_by_curator_metadata() -> None:
     assert slug == "galaxy"
 
 
+def test_galaxy_has_all_curator_logo_variants() -> None:
+    """Galaxy curator metadata publishes generic, dark and light logo URLs."""
+
+    metadata = build_curator_metadata_json(
+        Path("eth_defi/data/feeds/curators/galaxy.yaml"),
+        public_url="https://example.com",
+    )
+
+    assert metadata["logos"] == {
+        "generic": "https://example.com/curator-metadata/galaxy/generic.png",
+        "dark": "https://example.com/curator-metadata/galaxy/dark.png",
+        "light": "https://example.com/curator-metadata/galaxy/light.png",
+    }
+
+
 def test_identify_m11_credit_curator() -> None:
     """M11 Credit resolves from Morpho manager metadata and M11C vault names."""
 

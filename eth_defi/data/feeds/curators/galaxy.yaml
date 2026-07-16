@@ -8,7 +8,7 @@ long_description: |
   Galaxy is a digital asset and blockchain firm serving institutions, startups and qualified individuals.
   Its homepage presents global markets, asset management and infrastructure, blockchain infrastructure, GalaxyOne and data centres as the main business areas.
   The firm provides digital asset trading, lending, derivatives, investment solutions, staking, tokenisation, self-custody technology and AI/HPC data centre infrastructure.
-  In July 2026, Galaxy launched Galaxy Curator, an institutional vault curation offering built on Morpho and distributed through Fireblocks Earn. The service applies Galaxy's institutional risk framework to on-chain yield strategies.
+  In July 2026, Galaxy launched Galaxy Curator, an institutional vault curation offering built on Morpho and distributed through Fireblocks Earn. The service applies Galaxy's institutional risk framework to on-chain yield strategies, with Quality Vaults focused on blue-chip collateral and Enhanced Vaults taking exposure to higher-yielding collateral types.
 twitter: GalaxyHQ
 linkedin: galaxyhq
 
@@ -16,12 +16,14 @@ linkedin: galaxyhq
 #
 # Galaxy Digital is a global digital assets firm.  Galaxy curates Morpho
 # vaults under the "Galaxy Curation" identity — verified by Morpho as a
-# third-party curator.  Known vaults include "Galaxy USDC Quality" and
-# "Galaxy USDT Quality" on Ethereum, with additional vaults on Base.
-# Combined AUM ~$49 M across Ethereum (chain 1) and Base (chain 8453).
+# third-party curator. As of 2026-07-16, Morpho lists five V2 vaults across
+# Ethereum (chain 1) and Base (chain 8453): USDC, USDT and WETH Quality,
+# USDC Enhanced, and Base USDC Quality. Combined deposits are about $79 M.
 other-links:
   - title: Morpho curator page - Galaxy Curation verified curator profile
     url: https://app.morpho.org/curator/galaxy
+  - title: Galaxy Curation - curated vaults and disclosed allocations
+    url: https://curation.galaxy.com
   - title: Galaxy news release - Galaxy launches institutional vault curator
     url: https://investor.galaxy.com/news-releases/news-release-details/galaxy-launches-institutional-vault-curator
   - title: Galaxy Digital official website
