@@ -1162,7 +1162,7 @@ def identify_vault_features(
     # Securitize DSTokens deliberately extend ERC-20, but do not implement
     # ERC-4626's convertToShares(). Detect them before the generic ERC-4626
     # failure branch below.
-    if calls["COMPLIANCE_SERVICE"].success:
+    if (compliance_service := calls.get("COMPLIANCE_SERVICE")) and compliance_service.success:
         return {ERC4626Feature.securitize_like}
 
     if calls["assetsWhitelistAddress"].success:

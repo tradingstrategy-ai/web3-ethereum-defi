@@ -548,7 +548,7 @@ class MaseerOneVault(VaultBase):
         if raw_nav == 0:
             return None
         raw_mint_cost = self.maseer_contract.functions.mintcost().call(block_identifier=block_identifier)
-        return Decimal(raw_mint_cost - raw_nav) / Decimal(raw_nav)
+        return float(Decimal(raw_mint_cost - raw_nav) / Decimal(raw_nav))
 
     def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
         """Calculate the redemption spread below NAV/share.
@@ -563,7 +563,7 @@ class MaseerOneVault(VaultBase):
         if raw_nav == 0:
             return None
         raw_burn_cost = self.maseer_contract.functions.burncost().call(block_identifier=block_identifier)
-        return Decimal(raw_nav - raw_burn_cost) / Decimal(raw_nav)
+        return float(Decimal(raw_nav - raw_burn_cost) / Decimal(raw_nav))
 
     def get_link(self, referral: str | None = None) -> str:
         """Return the Maseer One product documentation link.
