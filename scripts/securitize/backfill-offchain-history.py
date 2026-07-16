@@ -6,6 +6,9 @@ leads, reader state and Parquet rows. It selects ACRED for the RedStone path by
 default. Select STAC and provide Chronicle's signed history JSON export for the
 Chronicle path.
 
+The backfill always uses daily samples because Securitize fundamental NAVs are
+published at daily cadence. This avoids redundant hourly source queries.
+
 Run RedStone ACRED with::
 
     SECURITIZE_NAV_BACKFILL_SOURCE=redstone \\
@@ -37,6 +40,7 @@ def main() -> None:
     """
 
     source = os.environ.get("SECURITIZE_NAV_BACKFILL_SOURCE", "redstone").lower()
+    os.environ["FREQUENCY"] = "1d"
     match source:
         case "redstone":
             os.environ.setdefault("SECURITIZE_PRODUCTS", "0x17418038ecf73ba4026c4f428547bf099706f27b")
