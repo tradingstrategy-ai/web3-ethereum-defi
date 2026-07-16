@@ -39,6 +39,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    erc_4626/index
    enzyme/index
    aera/index
+   asseto/index
    atoma/index
    frankencoin/index
    kiln/index

@@ -65,6 +65,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Midas oracle pipeline. Instant issuance/redemption fees are read
     # separately from product vault contracts.
     "Midas": VaultFeeMode.internalised_skimming,
+    # Fund fees are internalised in NAV; request fees are read from AoABTManager.
+    "Asseto": VaultFeeMode.internalised_skimming,
     # DSToken contracts do not expose product-level fund fees.
     "Securitize": None,
     # Maseer One applies mint and redemption spreads through mintcost() and

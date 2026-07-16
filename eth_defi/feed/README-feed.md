@@ -108,8 +108,8 @@ Notes:
   collected as a feed
 - `short_description` is optional feeder metadata for list and card views
 - `long_description` is optional Markdown feeder metadata for detail views
-- `ipor-atomist`, `euler-entity`, `morpho-curator`, `lagoon-curator`, and
-  `t3tris-curator` are
+- `ipor-atomist`, `euler-entity`, `morpho-curator`, `lagoon-curator`,
+  `t3tris-curator`, and `asseto-role` are
   optional curator metadata fields. They are not collected as feeds; they map
   protocol-native manager names to the canonical curator record
 - `twitter` is a username such as `gauntlet_xyz`, not a full profile URL
@@ -138,6 +138,7 @@ files can store these protocol-native names so vault scans can map
 | `morpho-curator` | `morpho` | Morpho curator display name | `Gauntlet` |
 | `lagoon-curator` | `lagoon-finance` | Lagoon curator display name | `Tulipa Capital` |
 | `t3tris-curator` | `t3tris` | T3tris API curator display name | `Gami Labs` |
+| `asseto-role` | `asseto` | Asseto API investment manager/advisor | `CMS Asset Management (HK)` |
 
 These values are compared case-insensitively after stripping whitespace. They
 must be unique within a protocol. If two curator YAML files declare the same

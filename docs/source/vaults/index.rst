@@ -73,6 +73,7 @@ Supported protocols
    :maxdepth: 1
 
    aave/index
+   asseto/index
    forty_acres/index
    aarna/index
    aera/index

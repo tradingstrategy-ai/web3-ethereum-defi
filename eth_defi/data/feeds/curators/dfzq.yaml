@@ -1,0 +1,16 @@
+feeder-id: dfzq
+name: DFZQ / Orient Securities International
+role: curator
+asseto-role: DFZQ / Orient Securities International
+website: https://www.dfzq.com.hk/
+short_description: DFZQ is Orient Securities' Hong Kong operating brand, providing international securities and asset-management services.
+long_description: |
+  Orient Securities is a Chinese securities firm that operates in Hong Kong under the DFZQ brand. Its official materials describe securities brokerage, futures brokerage, asset management and investment-banking activities through its international business.
+  Asseto lists DFZQ / Orient Securities International as investment advisor for its AoABTd tokenised fund product.
+
+# Evidence and background references.
+other-links:
+  - title: Orient Securities - official English company profile and DFZQ Hong Kong brand notice
+    url: https://www.dfzq.com.cn/osoa/views/english/home/index.shtml
+  - title: Asseto product application - public AoABTd partner roles
+    url: https://asseto.finance/product
