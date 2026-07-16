@@ -79,7 +79,6 @@ from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampDatabase
 from eth_defi.hypersync.server import is_hypersync_supported_chain
-from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
@@ -410,6 +409,12 @@ def build_vaults(web3: Web3, products: list[AssetoProduct], token_cache: TokenDi
 
     vaults: list[VaultBase] = []
     for product in products:
+        if product.collateral is None:
+            logger.warning(
+                "Skipping price history for Asseto product %s: Asseto registry does not publish a denomination-token address",
+                product.symbol,
+            )
+            continue
         vault = create_vault_instance(
             web3,
             product.token,
@@ -602,11 +607,19 @@ def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps 
                 chunk_size=32,
                 token_cache=token_cache,
                 frequency=frequency,
-                reader_states=reader_states,
-                hypersync_client=configure_hypersync_from_env(web3).hypersync_client,
+                # Asseto's public NAV is sampled daily. Its reader has no
+                # on-chain state result with which to adapt polling, so use
+                # the non-stateful reader: it reads one archive-RPC block
+                # timestamp per daily sample instead of prefetching every
+                # intermediate chain block through HyperSync.
+                reader_states=None,
                 vault_addresses=vault_ids,
             )
-            write_reader_states(reader_state_database_path, scan_result["reader_states"])
+            # The non-stateful reader intentionally has no new Asseto state.
+            # Preserve states for all other vaults while removing stale Asseto
+            # entries from earlier runs.
+            scan_result["reader_states"] = reader_states
+            write_reader_states(reader_state_database_path, reader_states)
             scan_summary = pformat_scan_result(scan_result)
             if clean_prices:
                 cleaned_rows = replace_cleaned_vault_histories(

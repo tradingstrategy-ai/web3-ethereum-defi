@@ -53,17 +53,6 @@ DEFAULT_BLACK_LIST = [
 ]
 
 
-class _DummyObject:
-    def __getattr__(self, name):
-        return self
-
-    def __call__(self, *args, **kwargs):
-        return self
-
-    def __iadd__(self, other):
-        return 0
-
-
 class ParquetScanResult(TypedDict):
     """Result of generating historical prices Parquet file."""
 
@@ -475,11 +464,9 @@ class VaultHistoricalReadMulticaller:
 
             last_block_num = combined_result.block_number
             last_block_at = combined_result.timestamp
-            dummy_counter = _DummyObject()
-
             for vault_address, results in vault_data.items():
                 reader = readers[vault_address]
-                state = reader.reader_state or dummy_counter
+                state = reader.reader_state
 
                 last_result: VaultHistoricalRead = last_results.get(vault_address)
                 current_result: VaultHistoricalRead = reader.process_result(
@@ -488,21 +475,24 @@ class VaultHistoricalReadMulticaller:
                     results,
                 )
 
-                current_result.vault_poll_frequency = state.vault_poll_frequency
+                current_result.vault_poll_frequency = state.vault_poll_frequency if state else None
 
                 if current_result.errors:
                     error_count += 1
-                    state.rpc_error_count += 1
-                    state.last_rpc_error = str(current_result.errors)
+                    if state:
+                        state.rpc_error_count += 1
+                        state.last_rpc_error = str(current_result.errors)
 
                 if current_result.is_almost_equal(last_result):
                     # Only yield a new row if the vault state has changed,
                     # to not to unnecessary bloat the dataset
                     skipped_results += 1
-                    state.write_filtered += 1
+                    if state:
+                        state.write_filtered += 1
                 else:
                     last_results[vault_address] = current_result
-                    state.write_done += 1
+                    if state:
+                        state.write_done += 1
                     yield current_result
 
         logger.info("Processed total %d results, total %d combined results, for %d vaults, skipped %d new rows, error count %d", total_results, total_combined_results, len(vaults), skipped_results, error_count)
@@ -695,8 +685,7 @@ def scan_historical_prices_to_parquet(
         timestamp_cache_file=timestamp_cache_file,
     )
 
-    # TODO: Do not use - all is dynamic frequency with stateful reading now
-    reader_func = read_multicall_historical_stateful
+    reader_func = read_multicall_historical_stateful if stateful else read_multicall_historical
     match frequency:
         case "1d":
             step_duration = datetime.timedelta(hours=24)
