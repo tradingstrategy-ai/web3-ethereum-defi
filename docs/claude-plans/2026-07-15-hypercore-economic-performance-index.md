@@ -2,6 +2,14 @@
 
 **Date:** 2026-07-15
 
+> **Cadence update, 16 July 2026:** This plan introduced the PnL/NAV economic
+> index with one checkpoint per UTC date. The follow-up four-hour publication
+> work supersedes only that cadence: the same economic method now selects at
+> most one observation per occupied four-hour UTC bucket, leaves missing and
+> older coarse buckets absent, and retains original API timestamps. References
+> to daily checkpoint selection below describe the initial implementation, not
+> the current cleaned-output contract.
+
 ## Goal
 
 Make the cleaned share-price history of Hypercore vaults reflect the best

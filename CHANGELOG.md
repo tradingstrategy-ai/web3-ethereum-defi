@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Publish Hypercore cleaned economic share prices from retained observations at up to four-hour granularity (2026-07-16)
 - feat: Add Kiln OmniVault protocol metadata, documentation, feed registration and regression coverage (2026-07-15)
 - feat: Add Maseer One wstGBP vault support with hardcoded Ethereum discovery, NAV/share TVL history and Anvil-fork integration tests (2026-07-14)
 - feat: Add Accountable vault synchronous deposits, self-controlled asynchronous redemption claims and historical settlement event scanning (2026-07-14)

@@ -209,15 +209,18 @@ timestamp for the same vault, the HF row is kept (more recent/granular data).
 ### Raw timestamps, no resampling
 
 HF data is written with the original API timestamps (irregular spacing). The
-downstream cleaning pipeline first replaces raw scanner units with one PnL/NAV
-economic checkpoint per UTC date. Non-checkpoint HF rows carry the last clean
-price. It then computes `returns_1h` via `pct_change()` on consecutive rows.
-When consumers need a regular 1h grid, they call `forward_fill_vault()` which
-does `.resample("h").last().ffill()`.
+downstream cleaning pipeline first replaces raw scanner units with at most one
+PnL/NAV economic checkpoint per fixed four-hour UTC bucket. The selected row
+keeps its original API timestamp. Non-checkpoint HF rows carry the last clean
+price, and missing buckets do not create interpolated rows. Daily and weekly
+source history remains naturally coarse. The pipeline then computes
+`returns_1h` via `pct_change()` on consecutive rows. When consumers need a
+regular 1h grid, they call `forward_fill_vault()` which does
+`.resample("h").last().ffill()`.
 
-Note: `returns_1h` is a misnomer — see the comment at
-`wrangle_vault_prices.py:260`.  It is `pct_change()` between consecutive rows
-regardless of actual time delta.
+Note: `returns_1h` is a compatibility name — see
+`calculate_vault_returns()` in `wrangle_vault_prices.py`. It is `pct_change()`
+between consecutive rows regardless of actual time delta.
 
 ### Column name mapping
 
@@ -291,12 +294,20 @@ Both DuckDB paths are always available:
 
 The cleaning pipeline computes `returns_1h = pct_change()` on consecutive rows
 regardless of actual time delta. Hypercore economic returns occur only at the
-selected daily checkpoints; intervening raw rows carry the price and have zero
-change. Price level, cumulative profit and drawdown use this clean curve.
-Volatility, Sharpe and other cadence-sensitive statistics must select
-`hypercore_repair_status` checkpoint rows instead of treating carried rows as
-independent hourly observations. Consumers that need a uniform 1h price grid
-can use `forward_fill_vault()`.
+selected observations in occupied four-hour UTC buckets; intervening raw rows
+carry the price and have zero change. Gaps can be longer where source history
+is missing or already coarse. Price level, cumulative profit and drawdown use
+this clean curve. Volatility, Sharpe and other cadence-sensitive statistics
+must select `hypercore_repair_status` checkpoint rows instead of treating
+carried rows as independent hourly observations. Consumers that need a uniform
+1h price grid can use `forward_fill_vault()`.
+
+A later NAV observation can confirm a recent PnL-only update. In this bounded
+case, the cleaner carries the provisional checkpoint and applies performance
+at the confirmation, revising subsequently compounded recent prices. The
+confirmation window is 26 hours, may skip flat intermediate observations and
+rejects any intervening economic change. This evidence-driven update is the
+only intended exception to append stability for cleaned Hypercore prices.
 
 **2. Flow metrics are attached to one row per calendar date only**
 
