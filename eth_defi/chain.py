@@ -143,6 +143,7 @@ CHAIN_NAMES = {
     1: "Ethereum",
     56: "Binance",
     137: "Polygon",
+    177: "Hashkey",
     43114: "Avalanche",
     80094: "Berachain",
     130: "Unichain",
@@ -186,6 +187,7 @@ CHAIN_HOMEPAGES = {
     1: {"name": "Ethereum", "homepage": "https://ethereum.org"},
     56: {"name": "Binance", "homepage": "https://www.bnbchain.org"},
     137: {"name": "Polygon", "homepage": "https://polygon.technology"},
+    177: {"name": "HashKey Chain", "homepage": "https://hashkey.global/"},
     43114: {"name": "Avalanche", "homepage": "https://www.avax.network"},
     80094: {"name": "Berachain", "homepage": "https://www.berachain.com"},
     130: {"name": "Unichain", "homepage": "https://www.uniswap.org/unichain"},  # Uniswap's Unichain
