@@ -1,0 +1,15 @@
+feeder-id: hamilton-lane
+name: Hamilton Lane
+role: curator
+website: https://www.hamiltonlane.com/
+linkedin: hamilton-lane
+short_description: Hamilton Lane is a private-markets investment manager offering private-equity and private-credit strategies.
+long_description: |
+  Hamilton Lane is a private-markets investment manager providing investment programmes and evergreen fund strategies across private equity, private credit and other private assets. Its offering includes programmes for institutions and private-market investors.
+
+  For this integration, Hamilton Lane is the curator of HLSCOPE, which provides access to its Senior Credit Opportunities Fund.
+other-links:
+  - title: Hamilton Lane official Senior Credit Opportunities Fund overview
+    url: https://www.hamiltonlane.com/en-us/strategies/evergreen/global/senior-credit-opportunities-fund
+  - title: Hamilton Lane announcement of SCOPE via Securitize
+    url: https://www.hamiltonlane.com/en-us/news/scope-available-via-securitize

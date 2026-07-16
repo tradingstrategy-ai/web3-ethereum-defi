@@ -1,0 +1,16 @@
+feeder-id: arca
+name: Arca
+role: curator
+website: https://www.arcalabs.com/
+short_description: Arca develops digital-asset investment products and tokenised fund infrastructure.
+long_description: |
+  Arca develops investment products for digital assets. Its work includes investment funds and services for institutions and other professional investors.
+
+  For this integration, Arca is the curator of ArCoin, the Arca U.S. Treasury Fund's share class.
+other-links:
+  - title: Arca Labs official overview of the Arca U.S. Treasury Fund
+    url: https://www.arcalabs.com/fund-overview
+  - title: Arca Labs official ArCoin frequently asked questions
+    url: https://www.arcalabs.com/arcoin-faqs
+  - title: Arca U.S. Treasury Fund prospectus
+    url: https://www.arcalabs.com/hubfs/Arca%20Labs%20Website/Arca%20Labs%20Fund%20Documents/BG%20-%20Arca%20US%20Treasury%20Fund%205-1-25%20Pro%20-%20v1.pdf?hsLang=en

@@ -232,6 +232,12 @@ No test plan or verification section. Use Markdown formatting, headings.
 - To get the latest block number, use given JSON-RPC URL and Python's Web3.py `web3.eth.block_number` call
 - Never try to figure out RPC URL yourself - always use environment variables from the local environment given by the user. See `eth_defi.chain.CHAIN_NAMES` for aliases like chain id 999 -> JSON_RPC_HYPERLIQUD. Stop and ask user if you cannot figure out.
 
+### Event logs
+
+- **Never use JSON-RPC `eth_getLogs` for event discovery, bulk event reads or historical event reads.** Always use Hypersync, which avoids provider range limits and provides indexed event streaming.
+- Create clients through `eth_defi.hypersync.utils.configure_hypersync_from_env()` and open streams through `eth_defi.hypersync.session.open_hypersync_stream()`. These wrappers apply the repository's configured endpoint, rate limiting and stream tuning.
+- For vault lead discovery, use `eth_defi.erc_4626.hypersync_discovery.HypersyncVaultDiscover`. For a targeted event query, build a `hypersync.Query` with `hypersync.LogSelection` and consume it through `open_hypersync_stream()`; see `eth_defi.vault.flow_events.fetch_vault_flow_logs_hypersync_async()` for the canonical pattern.
+
 ### Block timestamps
 
 - For all bulk or historical blockchain timestamp operations, use the cache-aware

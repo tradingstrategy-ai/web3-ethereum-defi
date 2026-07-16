@@ -15,6 +15,13 @@ def test_identify_securitize_fund_curators() -> None:
         "0x17418038ecf73ba4026c4f428547bf099706f27b": "apollo",
         "0x2255718832bc9fd3be1caf75084f4803da14ff01": "vaneck",
         "0x51c2d74017390cbbd30550179a16a1c28f7210fc": "bny-investments",
+        "0x252739487c1fa66eaeae7ced41d6358ab2a6bca9": "arca",
+        "0x0324dd195d0cd53f9f07bee6a48ee7a20bad738f": "spice-vc",
+        "0xda2ffa104356688e74d9340519b8c17f00d7752e": "hamilton-lane",
+        "0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9": "blockchain-capital",
+        "0xc0c61c29ef8beabc694987c93e5fe4af647042e7": "cosimo-digital",
+        "0x682ef9cc637ef56577092b29ae9275a629aae7db": "science-inc",
+        "0x5e17f6f450dcb0bc69b232ea554e224d7e88067a": "protos-asset-management",
     }
 
     for address, expected_slug in expected_curators.items():
@@ -22,9 +29,9 @@ def test_identify_securitize_fund_curators() -> None:
 
 
 def test_securitize_fund_curator_metadata_includes_logo() -> None:
-    """Export a generic logo URL for each added Securitize fund curator."""
+    """Export generic logo URLs for Securitize curators with verified assets."""
 
-    for slug in ("blackrock", "apollo", "vaneck", "bny-investments"):
+    for slug in ("blackrock", "apollo", "vaneck", "bny-investments", "arca", "spice-vc", "hamilton-lane", "blockchain-capital", "cosimo-digital", "science-inc"):
         metadata = build_curator_metadata_json(
             Path(f"eth_defi/data/feeds/curators/{slug}.yaml"),
             public_url="https://example.com",

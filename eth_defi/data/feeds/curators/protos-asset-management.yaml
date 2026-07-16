@@ -1,0 +1,12 @@
+feeder-id: protos-asset-management
+name: Protos Asset Management
+role: curator
+website: https://protosmanagement.com/2024/05/09/protos-asset-management-releases-march-31-2024-prts-token-nav/
+short_description: Protos Asset Management manages an actively managed investment fund focused on digital assets.
+long_description: |
+  Protos Asset Management manages an actively managed investment fund focused on digital assets. The fund is intended for investors seeking professionally managed exposure to this market.
+
+  For this integration, Protos Asset Management is the curator of PRTS, the fund's share class.
+other-links:
+  - title: Protos Asset Management official PRTS net asset value announcement
+    url: https://protosmanagement.com/2024/05/09/protos-asset-management-releases-march-31-2024-prts-token-nav/

@@ -35,6 +35,13 @@ def test_securitize_risk_is_low() -> None:
     ("address", "expected_note"),
     [
         ("0x7712c34205737192402172409a8f7ccef8aa2aec", "**Curator:** BlackRock / Securitize"),
+        ("0x252739487c1fa66eaeae7ced41d6358ab2a6bca9", "**Curator:** Arca / Securitize"),
+        ("0x0324dd195d0cd53f9f07bee6a48ee7a20bad738f", "**Curator:** SPiCE VC / Securitize"),
+        ("0xda2ffa104356688e74d9340519b8c17f00d7752e", "**Curator:** Hamilton Lane / Securitize"),
+        ("0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9", "**Curator:** Blockchain Capital / Securitize"),
+        ("0xc0c61c29ef8beabc694987c93e5fe4af647042e7", "**Curator:** COSIMO digital / Securitize"),
+        ("0x682ef9cc637ef56577092b29ae9275a629aae7db", "**Curator:** Science Inc. / Securitize"),
+        ("0x5e17f6f450dcb0bc69b232ea554e224d7e88067a", "**Curator:** Protos Asset Management / Securitize"),
         ("0x09864f52b035ae22ee739dfa5c748fa080d07bd8", "**Curator:** J.P. Morgan"),
     ],
 )
