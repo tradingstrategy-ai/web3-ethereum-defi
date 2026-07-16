@@ -638,17 +638,17 @@ def calculate_net_profit(
     if management_fee_annual in (None, "-"):
         # - is legacy
         management_fee_annual = 0.0
-    assert 0 <= management_fee_annual < 1, "Management fee must be between 0 and 1"
+    assert 0 <= management_fee_annual <= 1, "Management fee must be between 0 and 1 inclusive"
     if performance_fee in (None, "-"):
         # - is legacy
         performance_fee = 0.0
-    assert 0 <= performance_fee < 1, "Performance fee must be between 0 and 1"
+    assert 0 <= performance_fee <= 1, "Performance fee must be between 0 and 1 inclusive"
     if deposit_fee is None:
         deposit_fee = 0.0
     if withdrawal_fee is None:
         withdrawal_fee = 0.0
-    assert 0 <= deposit_fee < 1, "Deposit fee must be between 0 and 1"
-    assert 0 <= withdrawal_fee < 1, "Withdrawal fee must be between 0 and 1"
+    assert 0 <= deposit_fee <= 1, "Deposit fee must be between 0 and 1 inclusive"
+    assert 0 <= withdrawal_fee <= 1, "Withdrawal fee must be between 0 and 1 inclusive"
 
     delta = end - start
     years = delta.total_seconds() / seconds_in_year
@@ -705,22 +705,22 @@ def calculate_net_returns_from_price(
 
     if management_fee_annual in (None, "-"):
         management_fee_annual = 0.0
-    assert 0 <= management_fee_annual < 1, "Management fee must be between 0 and 1"
+    assert 0 <= management_fee_annual <= 1, "Management fee must be between 0 and 1 inclusive"
     if performance_fee in (None, "-"):
         performance_fee = 0.0
-    assert 0 <= performance_fee < 1, "Performance fee must be between 0 and 1"
+    assert 0 <= performance_fee <= 1, "Performance fee must be between 0 and 1 inclusive"
     if deposit_fee is None:
         deposit_fee = 0.0
     if withdrawal_fee is None:
         withdrawal_fee = 0.0
-    assert 0 <= deposit_fee < 1, "Deposit fee must be between 0 and 1"
-    assert 0 <= withdrawal_fee < 1, "Withdrawal fee must be between 0 and 1"
+    assert 0 <= deposit_fee <= 1, "Deposit fee must be between 0 and 1 inclusive"
+    assert 0 <= withdrawal_fee <= 1, "Withdrawal fee must be between 0 and 1 inclusive"
     if deposit_fee is None:
         deposit_fee = 0.0
     if withdrawal_fee is None:
         withdrawal_fee = 0.0
-    assert 0 <= deposit_fee < 1, "Deposit fee must be between 0 and 1"
-    assert 0 <= withdrawal_fee < 1, "Withdrawal fee must be between 0 and 1"
+    assert 0 <= deposit_fee <= 1, "Deposit fee must be between 0 and 1 inclusive"
+    assert 0 <= withdrawal_fee <= 1, "Withdrawal fee must be between 0 and 1 inclusive"
 
     if len(share_price) == 0:
         return share_price
@@ -1561,8 +1561,7 @@ def calculate_vault_record(
     current_nav = prices_df["total_assets"].iloc[-1]
     chain_id = prices_df["chain"].iloc[-1]
 
-    fee_data: FeeData = vault_metadata.get("_fees")
-    gross_fee_data = fee_data
+    fee_data: FeeData | None = vault_metadata.get("_fees")
 
     if fee_data is None:
         # Legacy, unit tests,etc.
@@ -1574,6 +1573,19 @@ def calculate_vault_record(
             deposit=vault_metadata.get("Deposit fee", 0),  # Rare: assume 0 if not explicitly set
             withdraw=vault_metadata.get("Withdrawal fee", 0),  # Rare: assume 0 if not explicitly set
         )
+    else:
+        # Pickle deserialisation bypasses ``FeeData.__post_init__``. Rebuild
+        # the record so historical metadata obeys the same validation as a
+        # fresh scan before it reaches the return calculations.
+        fee_data = FeeData(
+            fee_mode=fee_data.fee_mode,
+            management=fee_data.management,
+            performance=fee_data.performance,
+            deposit=fee_data.deposit,
+            withdraw=fee_data.withdraw,
+        )
+
+    gross_fee_data = fee_data
 
     vault_address = vault_metadata["Address"]
     protocol = vault_metadata["Protocol"]
@@ -2130,37 +2142,34 @@ def calculate_lifetime_metrics(
     month_ago = df.index.max() - pd.Timedelta(days=30)
     three_months_ago = df.index.max() - pd.Timedelta(days=90)
 
-    # Enable server-side loggable progress bar for pandas runs.
-    tqdm.pandas(desc="Calculating vault performance metrics")
-
-    slugify_vaults(
-        vaults=vaults_by_id,
-    )
+    slugify_vaults(vaults=vaults_by_id)
 
     if stablecoin_rate_feeder is None:
         stablecoin_rate_feeder = StablecoinRateFeeder()
 
-    # Use progress_apply instead of the for loop
-    # Sort is needed for slug stability
-    # We pass include_groups=False to avoid FutureWarning, and pass id via group.name
-    def _apply_vault_record(group):
-        return calculate_vault_record(
-            group,
-            vaults_by_id,
-            month_ago,
-            three_months_ago,
-            vault_id=group.name,
-            core3_protocols=core3_protocols,
-            stablecoin_rate_feeder=stablecoin_rate_feeder,
-        )
+    # Each vault is an independent export record. A corrupted historical row
+    # must not prevent the remaining vaults from being published.
+    grouped_vaults = df.groupby("id", group_keys=False, sort=True)
+    records: list[pd.Series] = []
+    for vault_id, group in tqdm(grouped_vaults, desc="Calculating vault performance metrics", total=grouped_vaults.ngroups):
+        try:
+            record = calculate_vault_record(
+                group,
+                vaults_by_id,
+                month_ago,
+                three_months_ago,
+                vault_id=vault_id,
+                core3_protocols=core3_protocols,
+                stablecoin_rate_feeder=stablecoin_rate_feeder,
+            )
+        except (ArithmeticError, AssertionError, KeyError, TypeError, ValueError):
+            logger.exception("Skipping invalid vault metrics record for %s", vault_id)
+            continue
+        records.append(record)
 
-    results_df = df.groupby("id", group_keys=False, sort=True).progress_apply(
-        _apply_vault_record,
-        include_groups=False,
-    )
-
-    # Reset index to convert the grouped results to a regular DataFrame
-    results_df = results_df.reset_index(drop=True)
+    results_df = pd.DataFrame(records)
+    if results_df.empty:
+        return results_df
 
     # Add ranking columns
     results_df = calculate_vault_rankings(results_df)

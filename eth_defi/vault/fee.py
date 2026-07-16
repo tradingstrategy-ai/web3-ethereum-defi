@@ -1,7 +1,9 @@
 """Vault fee modes."""
 
 import enum
+import math
 from dataclasses import dataclass
+from numbers import Real
 
 from eth_typing import HexAddress
 
@@ -244,6 +246,32 @@ class FeeData:
 
     #: Fee for this class
     withdraw: float | None
+
+    def __post_init__(self) -> None:
+        """Validate and normalise fee values at the metadata ingestion boundary.
+
+        All four fields use fractional percentages: ``1.0`` is a valid 100%
+        fee.  Rejecting malformed values here lets the scanner replace failed
+        fee reads with :data:`BROKEN_FEE_DATA`, instead of allowing a bad value
+        to be persisted and fail a later JSON export.
+
+        :raise ValueError:
+            If a known fee is not a finite real number in the inclusive
+            ``[0, 1]`` range.
+        """
+        for field_name in ("management", "performance", "deposit", "withdraw"):
+            fee = getattr(self, field_name)
+            if fee is None:
+                continue
+
+            if not isinstance(fee, Real) or isinstance(fee, bool):
+                raise ValueError(f"FeeData.{field_name} must be a real number or None, got {type(fee)}")
+
+            normalised_fee = float(fee)
+            if not math.isfinite(normalised_fee) or not 0 <= normalised_fee <= 1:
+                raise ValueError(f"FeeData.{field_name} must be between 0 and 1 inclusive, got {fee}")
+
+            setattr(self, field_name, normalised_fee)
 
     @property
     def internalised(self) -> bool | None:

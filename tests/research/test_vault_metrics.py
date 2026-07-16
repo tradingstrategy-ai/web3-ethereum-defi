@@ -43,6 +43,59 @@ def test_get_trading_strategy_links_use_canonical_vault_routes():
     assert vault_metrics._get_trading_strategy_chain_link("Hypercore") == "https://tradingstrategy.ai/trading-view/vaults/chains/hyperliquid"
 
 
+def test_calculate_net_profit_accepts_one_hundred_percent_performance_fee() -> None:
+    """Euler vaults may charge the valid 100% performance-fee boundary."""
+    start = pd.Timestamp("2026-01-01").to_pydatetime()
+    end = pd.Timestamp("2026-01-02").to_pydatetime()
+
+    net_profit = vault_metrics.calculate_net_profit(
+        start=start,
+        end=end,
+        share_price_start=100.0,
+        share_price_end=110.0,
+        management_fee_annual=0.0,
+        performance_fee=1.0,
+        deposit_fee=0.0,
+        withdrawal_fee=0.0,
+    )
+
+    assert net_profit == 0.0
+
+
+def test_calculate_lifetime_metrics_skips_invalid_vault_record(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """One persisted malformed fee record does not abort the full export."""
+    valid_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    invalid_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
+    valid_spec = VaultSpec.parse_string(valid_id)
+    invalid_spec = VaultSpec.parse_string(invalid_id)
+    invalid_row = dict(vault_db.rows[invalid_spec])
+    source_fees = invalid_row["_fees"]
+    invalid_fees = FeeData(
+        fee_mode=source_fees.fee_mode,
+        management=source_fees.management,
+        performance=source_fees.performance,
+        deposit=source_fees.deposit,
+        withdraw=source_fees.withdraw,
+    )
+    invalid_fees.performance = 1.01  # Simulate an old pickle that bypassed FeeData validation.
+    invalid_row["_fees"] = invalid_fees
+
+    metrics = calculate_lifetime_metrics(
+        price_df.loc[price_df["id"].isin((valid_id, invalid_id))],
+        {
+            valid_spec: dict(vault_db.rows[valid_spec]),
+            invalid_spec: invalid_row,
+        },
+    )
+
+    assert metrics["id"].tolist() == [valid_id]
+    assert f"Skipping invalid vault metrics record for {invalid_id}" in caplog.text
+
+
 def test_apply_morpho_not_in_api_check_blacklists_vault():
     """Morpho API missing flag blacklists the vault in metrics."""
     risk, notes, flags = apply_morpho_not_in_api_check(
