@@ -1021,7 +1021,7 @@ def process_and_upload_curator_metadata(  # noqa: PLR0917
         skip_if_current=True,
     )
     if metadata_uploaded:
-        logger.info("Uploaded curator metadata for: %s", slug)
+        logger.debug("Uploaded curator metadata for: %s", slug)
     else:
         logger.debug("Skipped unchanged curator metadata for: %s", slug)
 
@@ -1040,7 +1040,7 @@ def process_and_upload_curator_metadata(  # noqa: PLR0917
                 skip_if_current=True,
             )
             if logo_uploaded:
-                logger.info("Uploaded %s logo for curator: %s", variant, slug)
+                logger.debug("Uploaded %s logo for curator: %s", variant, slug)
             else:
                 logger.debug("Skipped unchanged %s logo for curator: %s", variant, slug)
 
@@ -1099,7 +1099,7 @@ def upload_protocol_curator_metadata(  # noqa: PLR0917
             skip_if_current=True,
         )
         if metadata_uploaded:
-            logger.info("Uploaded protocol-curator metadata for: %s", slug)
+            logger.debug("Uploaded protocol-curator metadata for: %s", slug)
         else:
             logger.debug("Skipped unchanged protocol-curator metadata for: %s", slug)
 
@@ -1117,12 +1117,10 @@ def upload_protocol_curator_metadata(  # noqa: PLR0917
                     content_type="image/png",
                     skip_if_current=True,
                 )
-                logger.info(
-                    "%s %s logo for protocol-curator: %s",
-                    "Uploaded" if logo_uploaded else "Skipped unchanged",
-                    variant,
-                    slug,
-                )
+                if logo_uploaded:
+                    logger.debug("Uploaded %s logo for protocol-curator: %s", variant, slug)
+                else:
+                    logger.debug("Skipped unchanged %s logo for protocol-curator: %s", variant, slug)
 
     return entries
 

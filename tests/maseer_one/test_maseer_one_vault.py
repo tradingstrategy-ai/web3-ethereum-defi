@@ -132,7 +132,7 @@ def test_maseer_one_wstgbp_metadata_and_fees(web3: Web3) -> None:
     assert vault.get_fee_data().management is None
     assert vault.get_fee_data().performance is None
     assert vault.get_fee_data().deposit == 0
-    assert vault.get_fee_data().withdraw == WSTGBP_EXPECTED_WITHDRAW_FEE
+    assert vault.get_fee_data().withdraw == pytest.approx(float(WSTGBP_EXPECTED_WITHDRAW_FEE))
     assert vault.fetch_deposit_closed_reason() == MASEER_ONE_BESPOKE_FLOW_REASON
     assert vault.fetch_redemption_closed_reason() == MASEER_ONE_BESPOKE_FLOW_REASON
 
@@ -251,7 +251,7 @@ def test_maseer_one_wstgbp_scan_record(web3: Web3) -> None:
     assert record["Mgmt fee"] is None
     assert record["Perf fee"] is None
     assert record["Deposit fee"] == 0
-    assert record["Withdraw fee"] == WSTGBP_EXPECTED_WITHDRAW_FEE
+    assert record["Withdraw fee"] == pytest.approx(float(WSTGBP_EXPECTED_WITHDRAW_FEE))
     assert record["Features"] == "maseer_one_like"
     assert record["_denomination_token"]["address"] == Web3.to_checksum_address(WSTGBP_EXPECTED_GEM)
     assert record["_denomination_token"]["symbol"] == "tGBP"

@@ -543,7 +543,7 @@ def fetch_morpho_vault_api_result(  # noqa: PLR0917
         }
         with file.open("wt") as f:
             json.dump(serialisable, f, indent=2)
-        logger.info("Wrote Morpho vault data cache %s (%d vault warnings, %d market warnings)", file, len(result.data["vault_warnings"]), len(result.data["market_warnings"]))
+        logger.debug("Wrote Morpho vault data cache %s (%d vault warnings, %d market warnings)", file, len(result.data["vault_warnings"]), len(result.data["market_warnings"]))
 
         _cached_vault_data[cache_key] = result.data
         return result

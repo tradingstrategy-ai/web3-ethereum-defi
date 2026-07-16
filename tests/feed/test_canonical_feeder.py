@@ -5,6 +5,7 @@ canonical feeder, produce no tracked sources, and that metadata
 inheritance works correctly in curator exports.
 """
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -327,3 +328,57 @@ def test_curator_metadata_uploads_logo_files(tmp_path: Path, monkeypatch: pytest
         "curator-metadata/test-gauntlet/generic.png",
         "curator-metadata/test-gauntlet/light.png",
     }
+
+
+def test_curator_upload_result_logs_are_debug(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
+    """Per-curator R2 upload result logs are emitted at debug level."""
+
+    _write_yaml(
+        tmp_path / "curators" / "gauntlet.yaml",
+        "feeder-id: gauntlet\nname: Gauntlet\nrole: curator\ntwitter: gauntlet_xyz\n",
+    )
+
+    logo_root = tmp_path / "logos"
+    curator_logo_dir = logo_root / "gauntlet"
+    curator_logo_dir.mkdir(parents=True)
+    (curator_logo_dir / "generic.png").write_bytes(b"generic")
+
+    protocol_logo_dir = logo_root / "atoma"
+    protocol_logo_dir.mkdir(parents=True)
+    (protocol_logo_dir / "generic.png").write_bytes(b"generic")
+
+    monkeypatch.setattr(curator_module, "CURATORS_DATA_DIR", tmp_path / "curators")
+    monkeypatch.setattr(curator_module, "FORMATTED_LOGOS_DIR", logo_root)
+    monkeypatch.setattr(curator_module, "PROTOCOL_CURATOR_NAMES", {"atoma": "Atoma"})
+
+    def fake_upload_to_r2_compressed(**kwargs):
+        return not kwargs["object_name"].startswith("curator-metadata/atoma/")
+
+    monkeypatch.setattr(curator_module, "upload_to_r2_compressed", fake_upload_to_r2_compressed)
+
+    caplog.set_level(logging.DEBUG, logger=curator_module.logger.name)
+
+    curator_module.process_and_upload_curator_metadata(
+        yaml_path=tmp_path / "curators" / "gauntlet.yaml",
+        bucket_name="bucket",
+        endpoint_url="https://endpoint.example",
+        access_key_id="key",
+        secret_access_key="secret",
+        public_url="https://pub.example/",
+    )
+    curator_module.upload_protocol_curator_metadata(
+        bucket_name="bucket",
+        endpoint_url="https://endpoint.example",
+        access_key_id="key",
+        secret_access_key="secret",
+        public_url="https://pub.example/",
+    )
+
+    curator_records = [record for record in caplog.records if record.name == curator_module.logger.name]
+    curator_messages = [record.getMessage() for record in curator_records]
+
+    assert "Uploaded curator metadata for: gauntlet" in curator_messages
+    assert "Uploaded generic logo for curator: gauntlet" in curator_messages
+    assert "Skipped unchanged protocol-curator metadata for: atoma" in curator_messages
+    assert "Skipped unchanged generic logo for protocol-curator: atoma" in curator_messages
+    assert all(record.levelno == logging.DEBUG for record in curator_records)
