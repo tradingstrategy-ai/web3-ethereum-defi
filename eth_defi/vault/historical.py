@@ -475,7 +475,10 @@ class VaultHistoricalReadMulticaller:
                     results,
                 )
 
-                current_result.vault_poll_frequency = state.vault_poll_frequency if state else None
+                # Stateless scans invoke every selected block. Keep their
+                # exported frequency marker compatible with the historical
+                # reader-state contract without allocating a dummy state.
+                current_result.vault_poll_frequency = state.vault_poll_frequency if state else "first_read"
 
                 if current_result.errors:
                     error_count += 1
