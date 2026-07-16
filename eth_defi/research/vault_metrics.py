@@ -46,6 +46,7 @@ from eth_defi.vault.flag import (
     VaultFlag,
     get_notes,
 )
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
@@ -260,6 +261,9 @@ class VaultMetricsRecord(TypedDict, total=False):
 
     #: Latest adaptive vault scan cycle, e.g. ``"large_tvl"`` or ``"peaked"``.
     vault_poll_frequency: str | None
+
+    #: Source used to produce the share-price series.
+    share_price_source: str | None
 
     #: Current net asset value in USD
     current_nav: float | None
@@ -1638,6 +1642,13 @@ def calculate_vault_record(
     risk = vault_metadata.get("_risk") or get_vault_risk(protocol, vault_address)
     notes = vault_metadata.get("_notes") or get_notes(vault_address, chain_id=chain_id)
     vault_poll_frequency = get_latest_vault_poll_frequency(prices_df)
+    raw_share_price_source = vault_metadata.get("_share_price_source")
+    if raw_share_price_source is None:
+        share_price_source = None
+    elif isinstance(raw_share_price_source, PriceSource):
+        share_price_source = raw_share_price_source.value
+    else:
+        share_price_source = PriceSource(raw_share_price_source).value
 
     flags = set(vault_metadata.get("_flags") or set())
     risk, notes, flags = apply_bad_flag_check(
@@ -2050,6 +2061,7 @@ def calculate_vault_record(
             "risk": risk,
             "risk_numeric": risk_numeric,
             "vault_poll_frequency": vault_poll_frequency,
+            "share_price_source": share_price_source,
             "id": id_val,
             "start_date": lifetime_start_date,
             "end_date": lifetime_end_date,
@@ -2129,7 +2141,11 @@ def calculate_lifetime_metrics(
 
     Lookback based on the last entry.
 
-    Each output row contains a ``denomination_token_rate`` value produced by
+    Each output row contains a ``share_price_source`` string describing how
+    the adapter obtained its share-price observations, or ``None`` for legacy
+    metadata and adapters without a price source.
+
+    Each output row also contains a ``denomination_token_rate`` value produced by
     :py:meth:`eth_defi.feed.stablecoin_rate.StablecoinRateFeeder.get_denomination_token_rate_section`.
     The value is a :py:class:`eth_defi.feed.stablecoin_rate.DenominationTokenRate`
     carrying both USD rate fields and, for non-USD stablecoins, native source
@@ -2693,6 +2709,7 @@ def format_lifetime_table(
             "protocol": "Protocol",
             "risk": "Risk",
             "vault_poll_frequency": "Scan cycle",
+            "share_price_source": "Share price source",
             # "end_date": "Latest deposit",
             "name": "Name",
             "lockup": "Lock up est. days",
@@ -3361,6 +3378,9 @@ def export_lifetime_row(row: pd.Series) -> dict:
     - Normalises pandas, numpy, datetime, and custom types.
     - Converts finite :class:`~decimal.Decimal` values to JSON number floats.
     - Preserves legacy fee field names.
+
+    The ``share_price_source`` column is retained as a stable
+    :py:class:`eth_defi.vault.price_source.PriceSource` string value.
 
     The ``denomination_token_rate`` dataclass from
     :py:class:`eth_defi.feed.stablecoin_rate.DenominationTokenRate` is converted

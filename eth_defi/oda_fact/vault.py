@@ -35,6 +35,7 @@ from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.price_source import PriceSource
 
 logger = logging.getLogger(__name__)
 
@@ -305,6 +306,18 @@ class OdaFactVault(VaultBase):
         """
 
         return None
+
+    def get_share_price_source(self) -> PriceSource:
+        """Return the JLTXX share-price source classification.
+
+        The current JLTXX integration uses an explicitly labelled USD 1 NAV
+        estimate because no public historical NAV feed is available.
+
+        :return:
+            Fixed-price source.
+        """
+
+        return PriceSource.fixed_price
 
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Fetch ODA-FACT share price estimate.

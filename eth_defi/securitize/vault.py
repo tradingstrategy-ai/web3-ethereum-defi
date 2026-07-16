@@ -20,6 +20,7 @@ from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.price_source import PriceSource
 
 #: Backwards-compatible aliases for the first registered Securitize product.
 BUIDL_ETHEREUM_CHAIN_ID = BUIDL_ETHEREUM.chain_id
@@ -31,6 +32,13 @@ BUIDL_HOMEPAGE = BUIDL_ETHEREUM.homepage
 SECURITIZE_HOMEPAGE = "https://securitize.io/"
 SECURITIZE_RESTRICTED_FLOW_REASON = "Securitize DSToken subscriptions, redemptions and transfers require approved investors and compliance checks"
 SECURITIZE_NAV_UNAVAILABLE_ERROR_PREFIX = "No on-chain NAV source configured for Securitize DSToken"
+
+#: Map executable Securitize NAV-source families to public classifications.
+SECURITIZE_PRICE_SOURCE_PREFIXES: dict[str, PriceSource] = {
+    "redstone_": PriceSource.redstone,
+    "chronicle_": PriceSource.chronicle,
+    "estimated_": PriceSource.fixed_price,
+}
 
 
 class SecuritizeVaultInfo(VaultInfo, total=False):
@@ -111,6 +119,21 @@ class SecuritizeVault(VaultBase):
         self.features = features or {ERC4626Feature.securitize_like}
         self.default_block_identifier = default_block_identifier
         self.product = SECURITIZE_PRODUCTS.get((spec.chain_id, HexAddress(spec.vault_address.lower())))
+
+    def get_share_price_source(self) -> PriceSource | None:
+        """Return the reviewed source configured for this Securitize product.
+
+        Source identifiers are mapped by family so newly reviewed RedStone,
+        Chronicle or estimated products do not require address-specific
+        branches in the adapter.
+
+        :return:
+            Product price source, or ``None`` when NAV is unconfigured.
+        """
+
+        if self.product is None:
+            return None
+        return next((source for prefix, source in SECURITIZE_PRICE_SOURCE_PREFIXES.items() if self.product.nav_source.startswith(prefix)), None)
 
     @property
     def chain_id(self) -> int:

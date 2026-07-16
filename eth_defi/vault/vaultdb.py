@@ -19,6 +19,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_va
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
 
 logger = logging.getLogger(__name__)
@@ -135,6 +136,9 @@ class VaultRow(TypedDict):
 
     #: Human-readable vault note captured by the vault scanner.
     _notes: str | None
+
+    #: Source used to produce the vault share-price series.
+    _share_price_source: PriceSource | None
 
     __annotations__ = {
         "First seen at": datetime.datetime,

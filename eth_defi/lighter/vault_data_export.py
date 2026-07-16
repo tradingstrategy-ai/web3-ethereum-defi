@@ -38,6 +38,7 @@ from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
@@ -141,6 +142,7 @@ def create_lighter_pool_row(
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,
         "_risk": get_vault_risk("Lighter", address),
+        "_share_price_source": PriceSource.api,
     }
 
     spec = VaultSpec(chain_id=chain_id, vault_address=address)

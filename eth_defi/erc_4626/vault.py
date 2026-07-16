@@ -32,6 +32,7 @@ from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details, is
 from eth_defi.vault.base import DEPOSIT_CLOSED_CAP_REACHED, REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY, TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalRead, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.price_source import PriceSource
 
 logger = logging.getLogger(__name__)
 
@@ -871,6 +872,19 @@ class ERC4626Vault(VaultBase):
 
     def __repr__(self):
         return f"<{self.__class__.__name__}: {self.spec}>"
+
+    def get_share_price_source(self) -> PriceSource:  # noqa: PLR6301
+        """Return the standard ERC-4626 share-price source.
+
+        ERC-4626 prices are calculated from vault accounting values read at a
+        specific block, including protocol-specific overrides that expose the
+        same state through another contract view.
+
+        :return:
+            Smart-contract state source.
+        """
+
+        return PriceSource.smart_contract_state
 
     def _get_block_identifier(self) -> BlockIdentifier:
         """Resolve which block identifier to use for metadata reads.

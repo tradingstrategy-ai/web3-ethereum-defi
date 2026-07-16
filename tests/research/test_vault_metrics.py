@@ -29,6 +29,7 @@ from eth_defi.research.vault_metrics import (
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -783,6 +784,26 @@ def test_export_lifetime_metrics(
     # Verify they serialize to JSON properly (None becomes null)
     assert r["available_liquidity"] is None or isinstance(r["available_liquidity"], (int, float))
     assert r["utilisation"] is None or isinstance(r["utilisation"], (int, float))
+
+
+def test_calculate_lifetime_metrics_exports_share_price_source(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Adapter price-source metadata reaches the DataFrame and JSON export."""
+
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[spec])
+    vault_row["_share_price_source"] = PriceSource.smart_contract_state
+
+    metrics = calculate_lifetime_metrics(
+        price_df.loc[price_df["id"] == vault_id],
+        {spec: vault_row},
+    )
+
+    assert metrics.iloc[0]["share_price_source"] == "smart-contract-state"
+    assert export_lifetime_row(metrics.iloc[0])["share_price_source"] == "smart-contract-state"
 
 
 def test_export_lifetime_row_nat_serialization():
