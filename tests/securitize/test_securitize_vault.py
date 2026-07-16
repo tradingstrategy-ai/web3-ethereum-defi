@@ -15,7 +15,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import VaultEventKind, get_securitize_dstoken_discovery_events, get_vault_event_topic_map
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.securitize.description import ACRED_ETHEREUM, ARCOIN_ETHEREUM, BCAP_ETHEREUM, BUIDL_ETHEREUM, BUIDL_I_ETHEREUM, COSX_ETHEREUM, HLSCOPE_ETHEREUM, PRTS_ETHEREUM, SCI2_ETHEREUM, SECURITIZE_PRODUCTS, SPICE_VC_ETHEREUM, STAC_ETHEREUM, VBILL_ETHEREUM
+from eth_defi.securitize.description import ACRED_ETHEREUM, ARCOIN_ETHEREUM, BCAP_ETHEREUM, BUIDL_ARBITRUM, BUIDL_AVALANCHE, BUIDL_ETHEREUM, BUIDL_I_ETHEREUM, BUIDL_OPTIMISM, BUIDL_POLYGON, COSX_ETHEREUM, HLSCOPE_ETHEREUM, MI4_MANTLE, PRTS_ETHEREUM, SCI2_ETHEREUM, SECURITIZE_PRODUCTS, SPICE_VC_ETHEREUM, STAC_ETHEREUM, VBILL_ETHEREUM
 from eth_defi.securitize.historical import SecuritizeVaultHistoricalReader
 from eth_defi.securitize.vault import BUIDL_ESTIMATED_NAV_PER_SHARE, BUIDL_ETHEREUM_ADDRESS, SECURITIZE_RESTRICTED_FLOW_REASON, SecuritizeVault
 from eth_defi.vault.base import VaultSpec
@@ -64,7 +64,7 @@ def test_securitize_dstoken_classification_and_issue_lead_event() -> None:
 def test_securitize_product_registry() -> None:
     """Look up every manually-described Securitize fund by DSToken address."""
 
-    products = (BUIDL_ETHEREUM, BUIDL_I_ETHEREUM, ACRED_ETHEREUM, VBILL_ETHEREUM, STAC_ETHEREUM, ARCOIN_ETHEREUM, SPICE_VC_ETHEREUM, HLSCOPE_ETHEREUM, BCAP_ETHEREUM, COSX_ETHEREUM, SCI2_ETHEREUM, PRTS_ETHEREUM)
+    products = (BUIDL_ETHEREUM, BUIDL_POLYGON, BUIDL_AVALANCHE, BUIDL_OPTIMISM, BUIDL_ARBITRUM, BUIDL_I_ETHEREUM, ACRED_ETHEREUM, VBILL_ETHEREUM, STAC_ETHEREUM, ARCOIN_ETHEREUM, SPICE_VC_ETHEREUM, HLSCOPE_ETHEREUM, BCAP_ETHEREUM, COSX_ETHEREUM, SCI2_ETHEREUM, PRTS_ETHEREUM, MI4_MANTLE)
     assert {SECURITIZE_PRODUCTS[product.chain_id, product.token] for product in products} == set(products)
     assert all(product.notes.startswith(product.product_name) for product in products)
     assert all(identify_curator(product.chain_id, "", product.product_name, product.token) == product.curator_slug for product in products)
@@ -153,6 +153,29 @@ def test_buidl_historical_reader(web3: Web3) -> None:
     assert read.total_assets == BUIDL_EXPECTED_TOTAL_SUPPLY
     assert read.management_fee is None
     assert read.performance_fee is None
+    assert read.errors is None
+
+
+@flaky.flaky
+def test_acred_historical_reader_uses_redstone_archive_feed(web3: Web3) -> None:
+    """Read ACRED supply and NAV in one fixed-block historical multicall."""
+
+    vault = SecuritizeVault(web3, VaultSpec(chain_id=ACRED_ETHEREUM.chain_id, vault_address=ACRED_ETHEREUM.token))
+    vault.first_seen_at_block = 1
+    reader = vault.get_historical_reader(stateful=False)
+
+    calls = list(reader.construct_multicalls())
+    assert [call.extra_data["function"] for call in calls] == ["totalSupply", "redstone_latestRoundData"]
+    call_results = [call.call_as_result(web3, block_identifier=BUIDL_TEST_BLOCK, ignore_error=True) for call in calls]
+    timestamp = datetime.datetime.fromtimestamp(
+        web3.eth.get_block(BUIDL_TEST_BLOCK)["timestamp"],
+        tz=datetime.UTC,
+    ).replace(tzinfo=None)
+    read = reader.process_result(BUIDL_TEST_BLOCK, timestamp, call_results)
+
+    assert read.share_price == Decimal("1101.8825")
+    assert read.total_supply == Decimal("34550.708566")
+    assert read.total_assets == Decimal("38070821.1314754950")
     assert read.errors is None
 
 

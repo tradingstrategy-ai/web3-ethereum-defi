@@ -5,13 +5,16 @@
 
 import datetime
 from decimal import Decimal
+from functools import cached_property
 
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
+from web3.contract import Contract
 
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.securitize.description import BUIDL_ETHEREUM, BUIDL_I_ETHEREUM, SECURITIZE_PRODUCTS
+from eth_defi.securitize.description import BUIDL_ETHEREUM, SECURITIZE_PRODUCTS
 from eth_defi.securitize.historical import SecuritizeVaultHistoricalReader
+from eth_defi.securitize.redstone import REDSTONE_SECURITIZE_FEEDS, RedstoneSecuritizeFeed, fetch_redstone_feed_contract, fetch_redstone_price_at
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
@@ -72,9 +75,9 @@ def export_securitize_usd_denomination(chain_id: int) -> dict[str, object]:
 class SecuritizeVault(VaultBase):
     """Scan-only adapter for Securitize DS Protocol tokenised securities.
 
-    The adapter reads share supply from the ERC-20-compatible DSToken. BUIDL
-    has an explicit one-USD NAV estimate; other recognised DSTokens receive
-    product-specific NAV history through the scanner's off-chain enrichment.
+    The adapter reads share supply from the ERC-20-compatible token. BUIDL has
+    an explicit one-USD NAV estimate; recognised variable-NAV funds read a
+    reviewed RedStone on-chain push feed at the same archive block.
     """
 
     def __init__(
@@ -141,13 +144,35 @@ class SecuritizeVault(VaultBase):
 
     @property
     def is_buidl(self) -> bool:
-        """Check whether this DSToken is the supported Ethereum BUIDL share class.
+        """Check whether this token is a supported BUIDL share class.
 
         :return:
-            ``True`` for the Ethereum BUIDL contract.
+            ``True`` for a reviewed BUIDL deployment.
         """
 
-        return self.product in {BUIDL_ETHEREUM, BUIDL_I_ETHEREUM}
+        return self.product is not None and self.product.nav_source == BUIDL_ETHEREUM.nav_source
+
+    @property
+    def redstone_feed(self) -> RedstoneSecuritizeFeed | None:
+        """Return the reviewed RedStone feed for this product.
+
+        :return:
+            Feed configuration, or ``None`` for fixed-price and unpriced
+            products.
+        """
+
+        return REDSTONE_SECURITIZE_FEEDS.get((self.chain_id, HexAddress(self.address.lower())))
+
+    @cached_property
+    def redstone_feed_contract(self) -> Contract | None:
+        """Create the product's RedStone push-feed contract.
+
+        :return:
+            Chainlink-compatible feed contract, or ``None`` when no reviewed
+            feed is configured.
+        """
+
+        return fetch_redstone_feed_contract(self.web3, self.redstone_feed) if self.redstone_feed is not None else None
 
     @property
     def name(self) -> str:
@@ -257,6 +282,8 @@ class SecuritizeVault(VaultBase):
 
         if self.product and self.product.estimated_nav_per_share is not None:
             return self.product.estimated_nav_per_share
+        if self.redstone_feed is not None:
+            return fetch_redstone_price_at(self.web3, self.redstone_feed, block_identifier).share_price
         raise NotImplementedError(f"{SECURITIZE_NAV_UNAVAILABLE_ERROR_PREFIX} {self.address}")
 
     def fetch_total_supply(self, block_identifier: BlockIdentifier = "latest") -> Decimal:

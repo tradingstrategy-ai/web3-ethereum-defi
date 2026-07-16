@@ -18,9 +18,10 @@ try:
     import fcntl
 except ImportError:
     fcntl = None
-from collections import Counter, defaultdict
+from collections import defaultdict
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Callable, Iterable, Literal, TypedDict
+from typing import Callable, Literal, TypedDict
 
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
@@ -77,6 +78,12 @@ class ParquetScanResult(TypedDict):
     chunks_done: int
     start_block: int
     end_block: int
+
+    #: Newly emitted rows keyed by lower-case vault address.
+    rows_written_by_vault: dict[str, int]
+
+    #: Newly emitted rows with a non-null share price keyed by vault address.
+    price_rows_written_by_vault: dict[str, int]
 
     reader_states: dict[VaultSpec, dict] | None
 
@@ -547,8 +554,6 @@ def scan_historical_prices_to_parquet(
     hypersync_client=None,
     timestamp_cache_file=DEFAULT_TIMESTAMP_CACHE_FOLDER,
     vault_addresses: set[str] | None = None,
-    historical_read_transformer: Callable[[VaultHistoricalRead], VaultHistoricalRead] | None = None,
-    historical_read_transformer_factory: Callable[[int, int], Callable[[VaultHistoricalRead], VaultHistoricalRead] | None] | None = None,
 ) -> ParquetScanResult:
     """Scan all historical vault share prices of vaults and save them in to Parquet file.
 
@@ -610,17 +615,6 @@ def scan_historical_prices_to_parquet(
         Addresses must be lowercase. When ``None``, all rows for the chain
         are deleted and rewritten (default behaviour).
 
-    :param historical_read_transformer:
-        Optional pure transformation applied to each completed historical read
-        before it is exported. This lets protocol adapters enrich a read with
-        authoritative off-chain values while keeping the scanner's existing
-        single Parquet read and atomic write.
-
-    :param historical_read_transformer_factory:
-        Optional factory for ``historical_read_transformer``. It receives the
-        resolved inclusive block range after stateful start-block discovery,
-        allowing an off-chain source to fetch only the incremental time range.
-
     :return:
         Scan report.
     """
@@ -680,11 +674,6 @@ def scan_historical_prices_to_parquet(
     if end_block is None:
         end_block = get_almost_latest_block_number(web3)
 
-    if historical_read_transformer_factory is not None:
-        if historical_read_transformer is not None:
-            raise ValueError("Specify either historical_read_transformer or historical_read_transformer_factory, not both")
-        historical_read_transformer = historical_read_transformer_factory(start_block, end_block)
-
     reader = VaultHistoricalReadMulticaller(
         web3factory,
         supported_quote_tokens=None,
@@ -735,11 +724,16 @@ def scan_historical_prices_to_parquet(
         saved_states=reader_states,
     )
 
+    rows_written_by_vault: dict[str, int] = defaultdict(int)
+    price_rows_written_by_vault: dict[str, int] = defaultdict(int)
+
     # Convert VaultHistoricalRead objects to exportable dicts for Parquet
     def converter(entries_iter: Iterable[VaultHistoricalRead]) -> Iterable[dict]:
         for entry in entries_iter:
-            if historical_read_transformer is not None:
-                entry = historical_read_transformer(entry)
+            vault_address = entry.vault.vault_address.lower()
+            rows_written_by_vault[vault_address] += 1
+            if entry.share_price is not None:
+                price_rows_written_by_vault[vault_address] += 1
             yield entry.export()
 
     converted_iter = converter(entries_iter)
@@ -926,4 +920,6 @@ def scan_historical_prices_to_parquet(
         reader_states=reader_states,
         start_block=start_block,
         end_block=end_block,
+        rows_written_by_vault=dict(rows_written_by_vault),
+        price_rows_written_by_vault=dict(price_rows_written_by_vault),
     )

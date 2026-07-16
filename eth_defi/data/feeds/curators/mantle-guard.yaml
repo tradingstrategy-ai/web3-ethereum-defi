@@ -1,0 +1,14 @@
+feeder-id: mantle-guard
+name: Mantle Guard
+role: curator
+website: https://mantleguard.com/
+short_description: Mantle Guard manages a diversified digital-asset investment fund for qualifying investors.
+long_description: |
+  Mantle Guard is the investment manager of Mantle Index Four, a fund providing managed exposure to a basket of major digital assets. The fund periodically rebalances its holdings and may use staking strategies for selected assets.
+
+  For this integration, Mantle Guard is the curator of MI4. Securitize provides the tokenisation, fund administration and investor-services infrastructure for the fund.
+other-links:
+  - title: Mantle Guard official MI4 fund overview and investment-manager details
+    url: https://mantleguard.com/
+  - title: Securitize official announcement of the Mantle Index Four fund
+    url: https://investors.securitize.io/news/news-details/2025/Securitize-and-Mantle-Launch-Institutional-Crypto-Fund-Mantle-Index-Four-MI4-04-24-2025/default.aspx

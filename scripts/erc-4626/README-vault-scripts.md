@@ -55,21 +55,77 @@ database or network changes.
 
 ### securitize/backfill-history.py
 
-Targeted migration for the reviewed Securitize DSToken registry. The script
-locates each product's deployment block through the archive RPC, upserts only
-those lead and metadata rows, and rewrites historical prices only for BUIDL and
-BUIDL-I, whose adapters have an explicit USD 1 share-price estimate. It leaves
-other Securitize products as metadata leads until a canonical NAV source is
-available.
+Single-command migration for the complete reviewed Securitize fund registry.
+The script groups products by chain, locates each deployment through the
+archive RPC, upserts only those lead and metadata rows, and rewrites only the
+selected vault histories. BUIDL deployments use the reviewed USD 1 estimate;
+ACRED, VBILL, STAC, HLSCOPE, BCAP and MI4 read RedStone push feeds through the
+same archive-block multicall as token supply. Funds without an authoritative
+NAV source remain metadata leads and their existing price rows are untouched.
+
+The full run needs archive RPC configuration for Ethereum, Polygon, Avalanche,
+Optimism, Arbitrum and Mantle. Historical block timestamps are fetched through
+the shared Hypersync cache. The default daily frequency is intentional because
+fundamental NAVs do not need hourly sampling.
+
+Before running the migration, provide these environment variables through
+`.local-test.env`:
+
+- `JSON_RPC_ETHEREUM`
+- `JSON_RPC_OPTIMISM`
+- `JSON_RPC_POLYGON`
+- `JSON_RPC_MANTLE`
+- `JSON_RPC_ARBITRUM`
+- `JSON_RPC_AVALANCHE`
+- `HYPERSYNC_API_KEY`
+
+The RPC connections must support archive-state calls. Preserve or restore the
+dense per-chain timestamp databases under
+`~/.tradingstrategy/block-timestamp/{chain_id}-timestamps.duckdb` before the
+price scan. Missing historical ranges are downloaded through Hypersync and a
+large first-time timestamp fill may exceed the API key's rate limit. Diagnose
+existing cache gaps without changing them:
 
 ```shell
-source .local-test.env && poetry run python scripts/securitize/backfill-history.py
+source .local-test.env && \
+  DRY_RUN=true \
+  TEST_CHAINS=Ethereum,Optimism,Polygon,Mantle,Arbitrum,Avalanche \
+  poetry run python scripts/erc-4626/heal-timestamps-all-chains.py
 ```
+
+First verify product discovery and the migration plan. This mode does not scan
+prices and therefore does not validate timestamp-cache coverage:
+
+```shell
+source .local-test.env && \
+  DRY_RUN=true \
+  poetry run python scripts/securitize/backfill-history.py
+```
+
+Run the full daily metadata and price-history backfill with one command:
+
+```shell
+source .local-test.env && \
+  DRY_RUN=false \
+  FREQUENCY=1d \
+  poetry run python scripts/securitize/backfill-history.py
+```
+
+Do not replace the push-feed reads with RedStone's public prices REST endpoint:
+that endpoint rejects history older than 30 days and cannot perform an initial
+vault backfill.
+
+The script prints a final per-product table with total emitted historical rows
+and rows containing a non-null share price. Counts are collected during the
+existing in-memory export pass, without rereading Parquet. A completed scan
+fails if any product with an available estimate or RedStone feed produces no
+share-price rows in the requested block range.
 
 | Variable | Description |
 |----------|-------------|
 | `DRY_RUN` | Optional. Calculate the migration plan without writing data. Default: false. |
 | `SECURITIZE_SCAN_PRICES` | Optional. Set to `false` to upsert leads and metadata only. Default: true. |
+| `SECURITIZE_PRODUCTS` | Optional. Comma-separated token addresses for a scoped repair; unset processes the full registry. |
 | `SECURITIZE_CLEAN_PRICES` | Optional. Set to `false` to retain existing cleaned histories. Default: true. |
 | `FREQUENCY` | Optional. Historical price frequency, `1h` or `1d`. Default: `1d`. |
 | `START_BLOCK` / `END_BLOCK` | Optional. Inclusive scoped historical price range. |
