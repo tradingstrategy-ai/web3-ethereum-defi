@@ -133,6 +133,7 @@ _CHAIN_ALIASES_TO_ID: dict[str, int] = {
     "robinhood": 4663,
     "robinhood_chain": 4663,
     "robinhood-chain": 4663,
+    "tempo": 4217,
     "polygon": 137,
     "matic": 137,
     "optimism": 10,

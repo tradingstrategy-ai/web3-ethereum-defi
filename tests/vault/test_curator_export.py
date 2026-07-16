@@ -132,6 +132,21 @@ def test_build_curators_for_export_protocol_curator_alias():
     assert rec["linkedin"] == "https://www.linkedin.com/company/hyperliquid"
 
 
+def test_build_curators_for_export_frankencoin_protocol_curator_alias():
+    """Frankencoin protocol curator uses its curator alias descriptions."""
+    result = build_curators_for_export(["frankencoin"], feed_db=None)
+
+    assert "frankencoin" in result
+    rec = result["frankencoin"]
+    assert rec["protocol_curator"] is True
+    assert rec["canonical_feeder_id"] == "frankencoin"
+    assert rec["short_description"] == "Frankencoin is a stablecoin maintaining 1:1 value with the Swiss franc."
+    assert "savings module" in rec["long_description"]
+    assert rec["website"] == "https://frankencoin.com/"
+    assert rec["twitter"] == "https://x.com/frankencoinzchf"
+    assert rec["linkedin"] == "https://www.linkedin.com/company/frankencoin"
+
+
 def test_build_curators_for_export_canonical_feeder(tmp_path: Path):
     """Alias curators fetch posts from the canonical feeder.
 

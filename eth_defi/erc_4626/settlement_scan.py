@@ -25,11 +25,21 @@ from eth_defi.erc_4626.settlement_events import (
     fetch_vault_settlement_logs_for_addresses,
     normalise_log_topic,
 )
+from eth_defi.erc_4626.vault_protocol.accountable.settlement import (
+    build_accountable_settlement_rows_from_logs,
+    get_accountable_settlement_events_by_topic,
+)
+from eth_defi.erc_4626.vault_protocol.accountable.vault import AccountableVault
 from eth_defi.erc_4626.vault_protocol.d2.settlement import (
     build_d2_settlement_rows_from_logs,
     get_d2_settlement_events_by_topic,
 )
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2Vault
+from eth_defi.erc_4626.vault_protocol.ember.settlement import (
+    build_ember_settlement_rows_from_logs,
+    get_ember_settlement_events_by_topic,
+)
+from eth_defi.erc_4626.vault_protocol.ember.vault import EmberVault
 from eth_defi.erc_4626.vault_protocol.lagoon.settlement import (
     build_settlement_rows_from_logs as build_lagoon_settlement_rows_from_logs,
 )
@@ -57,6 +67,8 @@ SUPPORTED_SETTLEMENT_FEATURES = frozenset(
     {
         ERC4626Feature.lagoon_like,
         ERC4626Feature.d2_like,
+        ERC4626Feature.ember_like,
+        ERC4626Feature.accountable_like,
     }
 )
 
@@ -118,7 +130,7 @@ class PreparedSettlementVault:
         Normalised event topic to event class/name mapping.
     """
 
-    vault: LagoonVault | D2Vault
+    vault: LagoonVault | D2Vault | EmberVault | AccountableVault
     event_by_topic: dict[str, object]
 
 
@@ -365,7 +377,7 @@ def fetch_and_store_vault_settlements(
     ranges. The production scanner loop uses
     :py:func:`fetch_and_store_vault_settlements_for_chain` to avoid re-reading
     raw price parquet during each chain cycle. Currently supported protocol
-    readers are Lagoon and D2 Finance.
+    readers are Lagoon, D2 Finance and Ember.
 
     :param vault_db_path:
         Vault metadata pickle path.
@@ -743,6 +755,10 @@ def _prepare_settlement_vault(
         event_by_topic = get_settlement_events_by_topic(vault)
     elif isinstance(vault, D2Vault):
         event_by_topic = get_d2_settlement_events_by_topic(vault)
+    elif isinstance(vault, EmberVault):
+        event_by_topic = get_ember_settlement_events_by_topic(vault)
+    elif isinstance(vault, AccountableVault):
+        event_by_topic = get_accountable_settlement_events_by_topic(vault)
     else:
         raise RuntimeError(f"Unsupported settlement scanner vault type: {type(vault)}")
 
@@ -770,6 +786,10 @@ def _build_settlement_rows_for_prepared_vault(
         return build_lagoon_settlement_rows_from_logs(vault, logs, event_by_topic=prepared_vault.event_by_topic)
     if isinstance(vault, D2Vault):
         return build_d2_settlement_rows_from_logs(vault, logs, event_by_topic=prepared_vault.event_by_topic)
+    if isinstance(vault, EmberVault):
+        return build_ember_settlement_rows_from_logs(vault, logs, event_by_topic=prepared_vault.event_by_topic)
+    if isinstance(vault, AccountableVault):
+        return build_accountable_settlement_rows_from_logs(vault, logs, event_by_topic=prepared_vault.event_by_topic)
     raise RuntimeError(f"Unsupported settlement scanner vault type: {type(vault)}")
 
 

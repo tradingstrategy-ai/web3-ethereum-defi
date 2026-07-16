@@ -20,6 +20,7 @@ from eth_defi.oda_fact.historical import OdaFactVaultHistoricalReader
 from eth_defi.oda_fact.vault import KINEXYS_WHITELISTED_FLOW_REASON, OdaFactVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.vault.flag import VaultFlag
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 JLTXX_EXPECTED_MANAGEMENT_FEE = 0.0016
@@ -83,6 +84,7 @@ def test_oda_fact_autodetect_live_jltxx(web3: Web3) -> None:
     assert vault.fetch_denomination_token_address() is None
     assert vault.fetch_denomination_token() is None
     assert vault.denomination_token is None
+    assert vault.get_flags() == {VaultFlag.tokenised_fund}
 
 
 @flaky.flaky

@@ -2,6 +2,7 @@
 
 import enum
 from dataclasses import dataclass
+from numbers import Real
 
 from eth_typing import HexAddress
 
@@ -66,6 +67,15 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Midas": VaultFeeMode.internalised_skimming,
     # Fund fees are internalised in NAV; request fees are read from AoABTManager.
     "Asseto": VaultFeeMode.internalised_skimming,
+    # DSToken contracts do not expose product-level fund fees.
+    "Securitize": None,
+    # Maseer One applies mint and redemption spreads through mintcost() and
+    # burncost(), reducing the user's issued shares or redeemed assets.
+    "Maseer One": VaultFeeMode.externalised,
+    # Vault Street's 0.5% protocol fee accrues daily and is deducted from the
+    # primeUSD vault. The product page lists a 0% performance fee.
+    # https://app.vaultstreet.com/
+    "Vault Street": VaultFeeMode.internalised_skimming,
     "Velvet Capital": VaultFeeMode.internalised_skimming,
     "Umami": VaultFeeMode.externalised,
     # Unverified contracts, no open source repo
@@ -74,6 +84,10 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Ostium": VaultFeeMode.feeless,
     "Gains": VaultFeeMode.feeless,
     "KiloEx": None,
+    # Kiln combines a fixed asset-denominated deposit fee with a reward fee
+    # collected by minting shares. This mixed model has no single enum value.
+    # Per-vault values are read by KilnVault.
+    "Kiln": None,
     "Domination Finance": VaultFeeMode.feeless,
     "Plutus": VaultFeeMode.internalised_skimming,
     "Harvest Finance": VaultFeeMode.internalised_skimming,
@@ -247,6 +261,25 @@ class FeeData:
     #: Fee for this class
     withdraw: float | None
 
+    def __post_init__(self) -> None:
+        """Validate and normalise fee values at the metadata ingestion boundary.
+
+        Vault return calculations operate on floats. In particular, allowing a
+        :class:`decimal.Decimal` into this dataclass causes a later
+        ``Decimal * float`` failure after the metadata has been persisted in
+        the vault database. Accept real numeric values so existing integer
+        zeroes and NumPy floats remain supported, then retain all known fees
+        as Python floats.
+
+        :raises AssertionError:
+            If a fee is not a real number or ``None``.
+        """
+        for field_name in ("management", "performance", "deposit", "withdraw"):
+            fee = getattr(self, field_name)
+            assert fee is None or (isinstance(fee, Real) and not isinstance(fee, bool)), f"FeeData.{field_name} must be a real number or None, got {type(fee)}"
+            if fee is not None:
+                setattr(self, field_name, float(fee))
+
     @property
     def internalised(self) -> bool | None:
         if self.fee_mode is None:
@@ -262,8 +295,8 @@ class FeeData:
         if self.internalised:
             return FeeData(
                 fee_mode=self.fee_mode,
-                management=0,
-                performance=0,
+                management=0.0,
+                performance=0.0,
                 deposit=self.deposit,
                 withdraw=self.withdraw,
             )

@@ -2,14 +2,14 @@
 
 ## Overview
 
-Scans Hyperliquid native (non-EVM) vaults, computes time-weighted share prices,
+Scans Hyperliquid native (non-EVM) vaults, records synthetic scanner prices,
 and merges the data into the existing ERC-4626 vault metrics pipeline so that
 `vault-analysis-json.py` produces a single unified JSON with both EVM and
 Hyperliquid vaults.
 
-Hypercore data goes through the same `process_raw_vault_scan_data()` cleaning
-pipeline as EVM vaults (outlier share price smoothing, return cleaning,
-TVL-based filtering, etc.).
+Hypercore data goes through `process_raw_vault_scan_data()`, where its raw
+scanner price is replaced by a conservative PnL/NAV economic-performance index
+before returns and TVL filters are calculated.
 
 ## Architecture
 
@@ -37,8 +37,8 @@ daily-metrics.duckdb  ----merge----->  vault-metadata-db.pickle
   vault_daily_prices table                   |
                                              v
                                       process_raw_vault_scan_data()
-                                        cap_hypercore_share_prices()
-                                        fix_outlier_share_prices()
+                                        discard durable old epochs
+                                        approximate_hypercore_share_prices_from_pnl_nav()
                                         calculate_vault_returns()
                                              |
                                              v
@@ -173,13 +173,30 @@ These feed into `_calculate_share_price()` from `combined_analysis.py`,
 which uses the proven mint/burn share price logic without needing the
 slow per-fill/per-deposit API calls.
 
-Hyperliquid does not publish a vault share price or share supply. Each API
-read reconstructs an arbitrary but internally consistent unit, so the daily
-and HF scanners align their new curve to the latest stored price before writing
-their one-row overlap. The HF path log-linearly interpolates an anchor when
-the rolling-window timestamps shift. The matching inverse supply scaling keeps
-`total_assets == share_price * total_supply`; if no stored anchor lies within
-the current curve, the scan is skipped rather than creating a discontinuity.
+Hyperliquid does not publish a historical vault share price or share supply.
+Each API read reconstructs an arbitrary but internally consistent scanner unit,
+so the daily and HF scanners align new raw observations to persisted history
+where possible. This improves raw continuity but cannot make rolling NAV/PnL
+windows an exact investor share price.
+
+The wrangle step therefore treats scanner `share_price` as audit evidence only
+and copies it to `raw_share_price`. It selects the freshest finite NAV/PnL
+checkpoint per vault and UTC date, then compounds the change in cumulative PnL
+over the larger of opening and closing NAV. Capital flows do not create clean
+performance, duplicate daily/HF rows carry the last index value, and no future
+observation is interpolated backwards. Clean Hypercore `total_supply` is a
+synthetic index-unit value used to preserve
+`total_assets == share_price * total_supply`; it is not an actual token supply.
+
+Exact historical time-weighted returns remain unobtainable because the API
+does not expose historical share supply or the ordering of PnL and flows inside
+an observation interval. The cleaned curve is the best conservative economic
+approximation and must be labelled as such.
+An exact zero stored price may record a complete wipe-out, but it cannot scale
+another raw curve. The wrangle pipeline separately requires a seven-day zero
+period and a new `$1,000` capital base before retaining a recapitalised epoch.
+Raw scanner `epoch_reset` flags are discarded because they also describe
+arbitrary synthetic-supply resets in funded vaults.
 
 ### Hypercore-specific columns in price data
 
@@ -239,6 +256,42 @@ so you can backfill as far as the vault has existed.
 
 After a one-time backfill, set `FLOW_BACKFILL_DAYS` back to 7 (or omit it)
 for regular daily runs to avoid unnecessary API calls.
+
+### Repairing retained historical observations
+
+`FLOW_BACKFILL_DAYS` only attaches flows to portfolio observations still
+returned by the current `vaultDetails` response. Hyperliquid downsamples old
+portfolio history, so an exact historical row retained in our DuckDB may no
+longer appear in a fresh response. This affected Magixbox on 5 February 2026:
+the retained daily price had no withdrawal, while
+`userNonFundingLedgerUpdates` still returned $7,614.65 of withdrawals.
+
+The manual historical-flow script can still fetch the ledger around selected
+observations and update flow columns in the daily DuckDB for accounting
+diagnostics:
+
+```shell
+# Preview candidates from a legacy cleaned file without writing
+AUTODETECT=true \
+  poetry run python scripts/hyperliquid/backfill-historical-vault-flows.py
+
+# Update Magixbox
+DRY_RUN=false \
+  VAULT_ADDRESSES=0x1764dd740aba4195643bbb6a44648e0306b00cfa \
+  poetry run python scripts/hyperliquid/backfill-historical-vault-flows.py
+```
+
+Set exactly one of `VAULT_ADDRESSES` or `AUTODETECT=true`. Every non-dry-run
+execution first creates the next numbered backup beside the daily DuckDB, such
+as `hyperliquid-vaults.duckdb.bak-0001`. Existing backups are never replaced;
+the DuckDB WAL sidecar is copied as well when present. Stop the scanner while
+the backup and update run.
+
+The cleaned economic-performance index does not depend on this backfill. It
+uses cumulative PnL and NAV for all Hypercore vaults, while ledger flows remain
+useful for explaining raw NAV changes. `AUTODETECT=true` only applies to legacy
+cleaned files containing `deferred_hf_nav`; new cleaned files do not emit that
+status.
 
 ## Tombstoning stale vaults
 
@@ -540,9 +593,11 @@ SCAN_HYPERCORE=true HYPERCORE_MODE=high_freq SCAN_CYCLES="Hypercore=4h" \
 
 ## Healing share price data
 
-The share price computation has evolved over time. If the production DuckDB
-contains data computed with older logic, run the combined healer to fix it
-**with minimal destruction of historical rows**.
+These legacy tools improve the scanner's synthetic DuckDB price and are useful
+for raw-data diagnosis. They do not recover an exact Hyperliquid investor share
+price and are not needed to build the cleaned PnL/NAV index. If the production
+DuckDB contains data computed with older scanner logic, run the combined healer
+with minimal destruction of historical rows.
 
 ```shell
 # Dry run: detect issues without modifying data
@@ -574,8 +629,9 @@ The script runs these steps automatically:
    multi-period merge. Only the stuck vaults are re-fetched; all other
    vaults keep their existing data.
 4. **Verify** — re-run detection and report remaining issues.
-5. **Pipeline** (optional, `RUN_PIPELINE=true`) — push healed data
-   through the downstream cleaning pipeline.
+5. **Pipeline** (optional, `RUN_PIPELINE=true`) — push healed raw data through
+   the downstream cleaning pipeline, which independently constructs the
+   PnL/NAV economic index.
 
 ### What each step fixes
 

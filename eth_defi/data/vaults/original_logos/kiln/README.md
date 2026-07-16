@@ -1,4 +1,4 @@
-# Kiln Metavault logo sources
+# Kiln logo sources
 
 ## Sources
 

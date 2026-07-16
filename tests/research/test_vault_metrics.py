@@ -3,6 +3,7 @@
 import json
 import os.path
 import pickle
+from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
@@ -41,6 +42,97 @@ def test_get_trading_strategy_links_use_canonical_vault_routes():
     assert vault_link == "https://tradingstrategy.ai/trading-view/vaults/texashedge"
     assert vault_metrics._get_trading_strategy_chain_link("Ethereum") == "https://tradingstrategy.ai/trading-view/vaults/chains/ethereum"
     assert vault_metrics._get_trading_strategy_chain_link("Hypercore") == "https://tradingstrategy.ai/trading-view/vaults/chains/hyperliquid"
+
+
+def test_net_return_calculations_accept_decimal_fees() -> None:
+    """Cached Decimal fee metadata is compatible with float price returns."""
+    start = pd.Timestamp("2026-01-01").to_pydatetime()
+    end = pd.Timestamp("2026-01-02").to_pydatetime()
+    expected_return = (1 - 0.01) * (1 + 0.1) * (1 - 0.02) - 1
+
+    net_profit = vault_metrics.calculate_net_profit(
+        start=start,
+        end=end,
+        share_price_start=100.0,
+        share_price_end=110.0,
+        management_fee_annual=Decimal("0"),
+        performance_fee=Decimal("0"),
+        deposit_fee=Decimal("0.01"),
+        withdrawal_fee=Decimal("0.02"),
+    )
+    assert net_profit == pytest.approx(expected_return)
+
+    net_returns = vault_metrics.calculate_net_returns_from_price(
+        name="Decimal fee vault",
+        share_price=pd.Series(
+            [100.0, 110.0],
+            index=pd.date_range("2026-01-01", periods=2, freq="D"),
+        ),
+        management_fee_annual=Decimal("0"),
+        performance_fee=Decimal("0"),
+        deposit_fee=Decimal("0.01"),
+        withdrawal_fee=Decimal("0.02"),
+    )
+    assert net_returns.iloc[-1] == pytest.approx(expected_return)
+
+
+def test_calculate_lifetime_metrics_normalises_pickled_decimal_fees(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Old pickled FeeData with Decimal values exports as floating-point fees."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[vault_spec])
+    legacy_fees = FeeData(
+        fee_mode=VaultFeeMode.externalised,
+        management=0.0,
+        performance=0.0,
+        deposit=0.0,
+        withdraw=0.0,
+    )
+    legacy_fees.management = Decimal("0")
+    legacy_fees.performance = Decimal("0.15")
+    legacy_fees.deposit = Decimal("0.01")
+    legacy_fees.withdraw = Decimal("0.02")
+    vault_row["_fees"] = legacy_fees
+
+    metrics = calculate_lifetime_metrics(
+        price_df.loc[price_df["id"] == vault_id],
+        {vault_spec: vault_row},
+    )
+
+    result = metrics.iloc[0]
+    assert result["mgmt_fee"] == 0.0
+    assert result["perf_fee"] == 0.15
+    assert result["deposit_fee"] == 0.01
+    assert result["withdraw_fee"] == 0.02
+
+
+def test_calculate_lifetime_metrics_normalises_legacy_decimal_fee_columns(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Old metadata columns with Decimal fees can rebuild FeeData safely."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[vault_spec])
+    vault_row["_fees"] = None
+    vault_row["Mgmt fee"] = Decimal("0")
+    vault_row["Perf fee"] = Decimal("0.15")
+    vault_row["Deposit fee"] = Decimal("0.01")
+    vault_row["Withdrawal fee"] = Decimal("0.02")
+
+    metrics = calculate_lifetime_metrics(
+        price_df.loc[price_df["id"] == vault_id],
+        {vault_spec: vault_row},
+    )
+
+    result = metrics.iloc[0]
+    assert result["mgmt_fee"] == 0.0
+    assert result["perf_fee"] == 0.15
+    assert result["deposit_fee"] == 0.01
+    assert result["withdraw_fee"] == 0.02
 
 
 def test_apply_morpho_not_in_api_check_blacklists_vault():
@@ -722,3 +814,28 @@ def test_export_lifetime_row_preserves_flow_fees_without_annual_fees() -> None:
     assert result["performance_fee"] is None
     assert result["deposit_fee"] == 0.01
     assert result["withdraw_fee"] == 0.02
+
+
+def test_export_lifetime_row_converts_nested_decimals_to_strict_json_floats() -> None:
+    """Export Decimal-based vault metadata as strict JSON numeric values."""
+    row = pd.Series(
+        {
+            "deposit_fee": Decimal("0.015"),
+            "withdraw_fee": Decimal("NaN"),
+            "deposit_manager": {
+                "minimum_deposit": Decimal("12.50"),
+                "fee_tiers": [Decimal("0.001"), Decimal("Infinity")],
+            },
+        }
+    )
+
+    result = export_lifetime_row(row)
+
+    assert result["deposit_fee"] == pytest.approx(0.015)
+    assert isinstance(result["deposit_fee"], float)
+    assert result["withdraw_fee"] is None
+    assert result["deposit_manager"] == {
+        "minimum_deposit": 12.5,
+        "fee_tiers": [0.001, None],
+    }
+    json.dumps(result, allow_nan=False)

@@ -39,8 +39,9 @@ def test_hypersync_vault_discovery_clips_end_block_to_available_height():
 
 
 def test_hypersync_vault_discovery_scan_uses_clipped_end_block():
-    """Verify the base discovery workflow sees the clipped end block."""
+    """Verify the base discovery workflow sees the clipped end block and lead sources."""
     discover = _create_discover(rpc_height=200)
+    hardcoded_lead_sources = (("Test protocol", ()),)
 
     with (
         patch(
@@ -57,10 +58,16 @@ def test_hypersync_vault_discovery_scan_uses_clipped_end_block():
             start_block=100,
             end_block=200,
             display_progress=False,
+            hardcoded_lead_sources=hardcoded_lead_sources,
         )
 
     assert report.end_block == 150
-    base_scan.assert_called_once_with(100, 150, display_progress=False)
+    base_scan.assert_called_once_with(
+        100,
+        150,
+        display_progress=False,
+        hardcoded_lead_sources=hardcoded_lead_sources,
+    )
 
 
 def test_hypersync_vault_discovery_scan_noops_when_no_blocks_available():

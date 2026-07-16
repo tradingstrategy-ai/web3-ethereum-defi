@@ -37,6 +37,7 @@ Links
 - `Twitter <https://x.com/frankencoinzchf>`__
 - `DeFiLlama <https://defillama.com/protocol/frankencoin>`__
 - `Ethereum savings vault <https://etherscan.io/token/0xE5F130253fF137f9917C0107659A4c5262abf6b0>`__
+- `Ethereum legacy savings vault <https://etherscan.io/token/0x637F00cAb9665cB07d91bfB9c6f3fa8faBFEF8BC>`__
 - `Base savings vault <https://basescan.org/address/0xa09EBdf8A01b9ef04149319D64F83b9C01a5b585>`__
 - `Gnosis savings vault <https://gnosisscan.io/token/0x6165946250dd04740ab1409217e95a4f38374fe9>`__
 

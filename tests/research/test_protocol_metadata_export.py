@@ -5,7 +5,19 @@ import os
 import pytest
 import requests
 
-from eth_defi.vault.protocol_metadata import process_and_upload_protocol_metadata
+from eth_defi.vault.protocol_metadata import METADATA_DIR, build_metadata_json, process_and_upload_protocol_metadata
+
+HTTP_OK = 200
+REQUEST_TIMEOUT = 30
+
+
+def test_frankencoin_protocol_metadata_description():
+    """Frankencoin protocol metadata uses the public Swiss franc description."""
+    metadata = build_metadata_json(METADATA_DIR / "frankencoin.yaml", public_url="")
+
+    assert metadata["short_description"] == "Frankencoin is a stablecoin maintaining 1:1 value with the Swiss franc."
+    assert "decentralised Swiss franc stablecoin" in metadata["long_description"]
+    assert "Pay with digital Swiss francs" in metadata["long_description"]
 
 
 @pytest.mark.skipif(os.environ.get("R2_VAULT_METADATA_BUCKET_NAME") is None, reason="R2_VAULT_METADATA_BUCKET_NAME not set")
@@ -50,15 +62,15 @@ def test_upload_euler_protocol_metadata():
         # Download and verify metadata JSON
         # URL format: {public_url}/vault-protocol-metadata/{key_prefix}{slug}/metadata.json
         metadata_url = f"{public_url_normalised}/vault-protocol-metadata/{key_prefix}{slug}/metadata.json"
-        response = requests.get(metadata_url)
-        assert response.status_code == 200, f"Failed to fetch {metadata_url}: {response.status_code}"
+        response = requests.get(metadata_url, timeout=REQUEST_TIMEOUT)
+        assert response.status_code == HTTP_OK, f"Failed to fetch {metadata_url}: {response.status_code}"
         downloaded_metadata = response.json()
         assert downloaded_metadata["name"] == "Euler"
         assert downloaded_metadata["slug"] == "euler"
 
         # Download and verify light logo
         logo_url = f"{public_url_normalised}/vault-protocol-metadata/{key_prefix}{slug}/light.png"
-        response = requests.get(logo_url)
-        assert response.status_code == 200, f"Failed to fetch {logo_url}: {response.status_code}"
+        response = requests.get(logo_url, timeout=REQUEST_TIMEOUT)
+        assert response.status_code == HTTP_OK, f"Failed to fetch {logo_url}: {response.status_code}"
         assert response.headers.get("Content-Type") == "image/png"
         assert len(response.content) > 0

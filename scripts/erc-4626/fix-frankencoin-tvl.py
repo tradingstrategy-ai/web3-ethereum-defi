@@ -45,9 +45,7 @@ from web3 import Web3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import (
-    FRANKENCOIN_BASE_SAVINGS_VAULT,
-    FRANKENCOIN_ETHEREUM_SAVINGS_VAULT,
-    FRANKENCOIN_GNOSIS_SAVINGS_VAULT,
+    FRANKENCOIN_PRODUCT_TVL_VAULTS_BY_CHAIN,
     FRANKENCOIN_SAVINGS_VAULT_ABI,
 )
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -68,14 +66,8 @@ ERC4626_ASSET_ABI = [
     {"inputs": [], "name": "asset", "outputs": [{"name": "", "type": "address"}], "stateMutability": "view", "type": "function"},
 ]
 
-#: Official Frankencoin Savings Vault addresses supported by this repository.
-FRANKENCOIN_VAULT_SPECS = frozenset(
-    {
-        VaultSpec(1, FRANKENCOIN_ETHEREUM_SAVINGS_VAULT),
-        VaultSpec(8453, FRANKENCOIN_BASE_SAVINGS_VAULT),
-        VaultSpec(100, FRANKENCOIN_GNOSIS_SAVINGS_VAULT),
-    }
-)
+#: Frankencoin Savings Vault addresses supported by this repository.
+FRANKENCOIN_VAULT_SPECS = frozenset(VaultSpec(chain_id, vault_address) for chain_id, vault_addresses in FRANKENCOIN_PRODUCT_TVL_VAULTS_BY_CHAIN.items() for vault_address in vault_addresses)
 
 
 @dataclass(slots=True, frozen=True)

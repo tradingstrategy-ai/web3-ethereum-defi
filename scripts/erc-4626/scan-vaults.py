@@ -54,6 +54,10 @@ except ImportError as e:
 
 logger = logging.getLogger(__name__)
 
+RESET_LEADS_REMOVED_MESSAGE = "RESET_LEADS has been removed. Use the generated protocol-specific migration script described in eth_defi/erc_4626/README-vault-leads.md"
+
+assert "RESET_LEADS" not in os.environ, RESET_LEADS_REMOVED_MESSAGE
+
 # Read JSON_RPC_CONFIGURATION from the environment
 JSON_RPC_URL = os.environ.get("JSON_RPC_URL")
 if JSON_RPC_URL is None:
@@ -85,10 +89,6 @@ def main():
     if max_getlogs_range:
         max_getlogs_range = int(max_getlogs_range)
 
-    # Deprecated: prefer the targeted backfill approach documented in
-    # scripts/erc-4626/README-vault-scripts.md#recommended-targeted-backfill-for-new-vault-protocols
-    reset_leads = os.environ.get("RESET_LEADS", None)
-
     # Choose a different scan mode
     scan_backend = os.environ.get("SCAN_BACKEND", "auto")
 
@@ -107,7 +107,6 @@ def main():
             printer=print,
             backend=scan_backend,
             max_getlogs_range=max_getlogs_range,
-            reset_leads=reset_leads,
             hypersync_api_key=hypersync_api_key,
         )
 

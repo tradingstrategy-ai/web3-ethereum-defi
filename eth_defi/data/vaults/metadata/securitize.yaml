@@ -1,0 +1,31 @@
+name: Securitize
+slug: securitize
+short_description: |
+  Tokenisation platform for real-world assets, with permissioned on-chain securities infrastructure.
+long_description: |
+  Securitize helps investment firms bring traditional financial products, such as funds and
+  private-market investments, into digital form. It provides the services needed to create,
+  manage and make these products available to eligible investors.
+
+  Securitize works with asset managers, wealth advisers and investors. Its platform can support
+  many investment products. BlackRock USD Institutional Digital Liquidity Fund (BUIDL) is the
+  first Securitize product tracked by this integration, but it is only one example of the funds
+  and securities that can use Securitize's services.
+fee_description: |
+  DSToken does not expose product-level management, performance, subscription or redemption fees.
+  Fee terms are determined by each issuer's fund documents and are therefore reported as unknown
+  by this integration.
+links:
+  homepage: https://securitize.io/
+  app: https://securitize.io/
+  twitter: https://x.com/Securitize
+  github: https://github.com/securitize-io/dstoken
+  documentation: https://github.com/securitize-io/dstoken/blob/master/README.md
+  defillama:
+  audits: https://github.com/securitize-io/dstoken/tree/master/audits
+  fees: https://www.blackrock.com/us/individual/products/buidl/
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/securitize
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/securitize/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x7712c34205737192402172409a8f7ccef8aa2aec
+  - https://etherscan.io/address/0x603Bb6909Be14f83282E03632280D91bE7fB83b2

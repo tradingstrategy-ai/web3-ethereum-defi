@@ -1,7 +1,9 @@
-"""Heal all Hyperliquid vault share prices in a single run.
+"""Heal all synthetic Hyperliquid scanner share prices in a single run.
 
 Combines offline recomputation and API re-fetch into one script
-that fixes share price data with minimal destruction of historical rows.
+that improves raw scanner data with minimal destruction of historical rows.
+Hyperliquid does not expose an exact historical investor share price; the
+downstream wrangle independently builds its cleaned PnL/NAV economic index.
 
 Steps
 -----

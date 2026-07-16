@@ -615,6 +615,88 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
             .df()
         )
 
+    def update_historical_daily_flows(
+        self,
+        vault_address: HexAddress,
+        daily_flows: dict[datetime.date, tuple[int, int, float, float]],
+        start_date: datetime.date,
+        end_date: datetime.date,
+    ) -> int:
+        """Backfill ledger flows on existing historical price observations.
+
+        A normal scan can only attach flow data to portfolio observations that
+        Hyperliquid still returns. Because the API downsamples old portfolio
+        history, an old daily price row may remain in DuckDB even though a new
+        ``vaultDetails`` response no longer contains that date. This method
+        updates those existing rows directly from separately fetched
+        ``userNonFundingLedgerUpdates`` data. Dates without a ledger event are
+        explicitly stored as zero, which distinguishes a proven zero-flow day
+        from an unknown historical day.
+
+        Existing price, NAV, PnL, and metadata values are never changed. The
+        update is intentionally allowed to replace an old zero withdrawal,
+        because older parser versions read Hyperliquid's zero-valued ``usdc``
+        placeholder instead of ``netWithdrawnUsd``.
+
+        :param vault_address:
+            Lowercase or checksummed Hyperliquid vault address.
+        :param daily_flows:
+            Ledger events aggregated by UTC date as ``(deposit_count,
+            withdrawal_count, deposit_usd, withdrawal_usd)``.
+        :param start_date:
+            First existing daily observation to backfill, inclusive.
+        :param end_date:
+            Last existing daily observation to backfill, inclusive.
+        :return:
+            Number of existing daily price rows updated.
+        """
+        address = vault_address.lower()
+        existing_dates = [
+            row[0]
+            for row in self.con.cursor()
+            .execute(
+                """
+                SELECT date
+                FROM vault_daily_prices
+                WHERE vault_address = ? AND date BETWEEN ? AND ?
+                ORDER BY date
+                """,
+                [address, start_date, end_date],
+            )
+            .fetchall()
+        ]
+        if not existing_dates:
+            return 0
+
+        update_rows = []
+        for date_value in existing_dates:
+            deposit_count, withdrawal_count, deposit_usd, withdrawal_usd = daily_flows.get(date_value, (0, 0, 0.0, 0.0))
+            update_rows.append((deposit_count, withdrawal_count, deposit_usd, withdrawal_usd, address, date_value))
+
+        self.con.cursor().executemany(
+            """
+            UPDATE vault_daily_prices
+            SET daily_deposit_count = ?,
+                daily_withdrawal_count = ?,
+                daily_deposit_usd = ?,
+                daily_withdrawal_usd = ?
+            WHERE vault_address = ? AND date = ?
+            """,
+            update_rows,
+        )
+        self.con.cursor().execute(
+            """
+            UPDATE vault_metadata
+            SET flow_data_earliest_date = LEAST(
+                COALESCE(flow_data_earliest_date, ?),
+                ?
+            )
+            WHERE vault_address = ?
+            """,
+            [start_date, start_date, address],
+        )
+        return len(update_rows)
+
     def get_existing_dates(self, vault_address: HexAddress) -> set[datetime.date]:
         """Get all dates with existing data for a vault.
 
@@ -1116,8 +1198,11 @@ def fetch_and_store_vault(
 
     existing_prices = db.get_vault_daily_prices(vault_address)
     last_stored_date = db.get_vault_last_date(vault_address)
+    stored_overlap_return: float | None = None
     if last_stored_date is not None:
         stored_anchor = existing_prices.iloc[-1]
+        raw_stored_return = stored_anchor["daily_return"]
+        stored_overlap_return = float(raw_stored_return) if pd.notna(raw_stored_return) else None
         anchor_timestamp = datetime.datetime.combine(last_stored_date, datetime.time())
         combined_df = align_share_price_curve_to_anchor(combined_df, anchor_timestamp, float(stored_anchor["share_price"]))
         if combined_df is None:
@@ -1155,7 +1240,12 @@ def fetch_and_store_vault(
         daily_pnl = row_data.pnl_update
         epoch_reset_val = bool(row_data.epoch_reset) if hasattr(row_data, "epoch_reset") else False
 
-        if prev_share_price is not None and prev_share_price > 0:
+        if last_stored_date is not None and date_val == last_stored_date and stored_overlap_return is not None:
+            # Preserve the return already derived for the idempotent overlap
+            # row. Recomputing it can erase a real -100% wipe-out when no
+            # preceding stored day is available.
+            daily_return = stored_overlap_return
+        elif prev_share_price is not None and prev_share_price > 0:
             daily_return = (share_price - prev_share_price) / prev_share_price
         else:
             daily_return = 0.0

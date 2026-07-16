@@ -9,8 +9,9 @@ import logging
 import math
 import warnings
 from dataclasses import asdict, dataclass, is_dataclass
+from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Literal, Optional, TypeAlias, TypedDict
+from typing import TYPE_CHECKING, Literal, TypeAlias, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -57,6 +58,12 @@ logger = logging.getLogger(__name__)
 #:
 #: 0.01 = 1%
 Percent: TypeAlias = float
+
+#: Fee values as received from current and legacy vault metadata.
+#:
+#: The exported metadata normally uses floats, but cached database rows can
+#: contain :class:`decimal.Decimal` values after JSON/YAML deserialisation.
+FeeInput: TypeAlias = Percent | Decimal | Literal["-"] | None
 
 Period: TypeAlias = Literal["1W", "1M", "3M", "6M", "1Y", "lifetime"]
 
@@ -573,15 +580,60 @@ def zero_out_near_zero_prices(s: pd.Series, eps: float = 1e-9, clip_negatives: b
     return s
 
 
+def _normalise_fee_for_calculation(
+    fee: FeeInput,
+    fee_name: str,
+) -> Percent:
+    """Convert a vault fee from metadata to the floating-point metrics representation.
+
+    Vault metadata is persisted independently from the metrics code, so old cache
+    rows can contain :class:`~decimal.Decimal` fees. The return calculations use
+    floating-point share prices and returns, therefore all fee inputs must be
+    converted before arithmetic to avoid mixing ``Decimal`` and ``float``.
+
+    :param fee:
+        Fee as stored in vault metadata. ``None`` and the legacy ``"-"`` value
+        both represent a zero fee.
+    :param fee_name:
+        Human-readable fee name used in validation errors.
+    :return:
+        Fee as a float between zero (inclusive) and one (exclusive).
+    """
+    if fee in {None, "-"}:
+        return 0.0
+
+    normalised_fee = float(fee)
+    assert 0 <= normalised_fee < 1, f"{fee_name} must be between 0 and 1"
+    return normalised_fee
+
+
+def _normalise_fee_for_fee_data(
+    fee: FeeInput,
+    fee_name: str,
+) -> Percent | None:
+    """Normalise a historical fee before constructing ``FeeData``.
+
+    :param fee:
+        Historical scalar fee value.
+    :param fee_name:
+        Human-readable fee name used in validation errors.
+    :return:
+        ``None`` for an unknown fee or a validated floating-point fee.
+    """
+    if fee is None:
+        return None
+    return _normalise_fee_for_calculation(fee, fee_name)
+
+
 def calculate_net_profit(
     start: datetime.datetime,
     end: datetime.datetime,
     share_price_start: float,
     share_price_end: float,
-    management_fee_annual: Percent,
-    performance_fee: Percent,
-    deposit_fee: Percent | None,
-    withdrawal_fee: Percent | None,
+    management_fee_annual: FeeInput,
+    performance_fee: FeeInput,
+    deposit_fee: FeeInput,
+    withdrawal_fee: FeeInput,
     seconds_in_year=365.25 * 86400,
     sample_count: int | None = None,
 ) -> Percent:
@@ -635,20 +687,10 @@ def calculate_net_profit(
         return 0
 
     assert share_price_end >= 0, "End share price must be non-negative"
-    if management_fee_annual in (None, "-"):
-        # - is legacy
-        management_fee_annual = 0.0
-    assert 0 <= management_fee_annual < 1, "Management fee must be between 0 and 1"
-    if performance_fee in (None, "-"):
-        # - is legacy
-        performance_fee = 0.0
-    assert 0 <= performance_fee < 1, "Performance fee must be between 0 and 1"
-    if deposit_fee is None:
-        deposit_fee = 0.0
-    if withdrawal_fee is None:
-        withdrawal_fee = 0.0
-    assert 0 <= deposit_fee < 1, "Deposit fee must be between 0 and 1"
-    assert 0 <= withdrawal_fee < 1, "Withdrawal fee must be between 0 and 1"
+    management_fee_annual = _normalise_fee_for_calculation(management_fee_annual, "Management fee")
+    performance_fee = _normalise_fee_for_calculation(performance_fee, "Performance fee")
+    deposit_fee = _normalise_fee_for_calculation(deposit_fee, "Deposit fee")
+    withdrawal_fee = _normalise_fee_for_calculation(withdrawal_fee, "Withdrawal fee")
 
     delta = end - start
     years = delta.total_seconds() / seconds_in_year
@@ -665,10 +707,10 @@ def calculate_net_profit(
 def calculate_net_returns_from_price(
     name: str,
     share_price: pd.Series,
-    management_fee_annual: Percent | None,
-    performance_fee: Percent | None,
-    deposit_fee: Percent | None,
-    withdrawal_fee: Percent | None,
+    management_fee_annual: FeeInput,
+    performance_fee: FeeInput,
+    deposit_fee: FeeInput,
+    withdrawal_fee: FeeInput,
     seconds_in_year=365.25 * 86400,
     zero_epsilon=0.001,
     freq="h",
@@ -703,24 +745,10 @@ def calculate_net_returns_from_price(
     assert isinstance(share_price, pd.Series), f"share_price must be pandas Series, got {type(share_price)}"
     assert isinstance(share_price.index, pd.DatetimeIndex), "share_price must have DatetimeIndex"
 
-    if management_fee_annual in (None, "-"):
-        management_fee_annual = 0.0
-    assert 0 <= management_fee_annual < 1, "Management fee must be between 0 and 1"
-    if performance_fee in (None, "-"):
-        performance_fee = 0.0
-    assert 0 <= performance_fee < 1, "Performance fee must be between 0 and 1"
-    if deposit_fee is None:
-        deposit_fee = 0.0
-    if withdrawal_fee is None:
-        withdrawal_fee = 0.0
-    assert 0 <= deposit_fee < 1, "Deposit fee must be between 0 and 1"
-    assert 0 <= withdrawal_fee < 1, "Withdrawal fee must be between 0 and 1"
-    if deposit_fee is None:
-        deposit_fee = 0.0
-    if withdrawal_fee is None:
-        withdrawal_fee = 0.0
-    assert 0 <= deposit_fee < 1, "Deposit fee must be between 0 and 1"
-    assert 0 <= withdrawal_fee < 1, "Withdrawal fee must be between 0 and 1"
+    management_fee_annual = _normalise_fee_for_calculation(management_fee_annual, "Management fee")
+    performance_fee = _normalise_fee_for_calculation(performance_fee, "Performance fee")
+    deposit_fee = _normalise_fee_for_calculation(deposit_fee, "Deposit fee")
+    withdrawal_fee = _normalise_fee_for_calculation(withdrawal_fee, "Withdrawal fee")
 
     if len(share_price) == 0:
         return share_price
@@ -781,10 +809,10 @@ def calculate_net_returns_from_price(
 def calculate_net_returns_from_gross(
     name: str,
     cumulative_returns: pd.Series,
-    management_fee_annual: Optional[Percent],
-    performance_fee: Optional[Percent],
-    deposit_fee: Optional[Percent],
-    withdrawal_fee: Optional[Percent],
+    management_fee_annual: FeeInput,
+    performance_fee: FeeInput,
+    deposit_fee: FeeInput,
+    withdrawal_fee: FeeInput,
     seconds_in_year=365.25 * 86400,
 ) -> pd.Series:
     """Convert a cumulative gross return series to a cumulative net return series after fees.
@@ -1561,19 +1589,31 @@ def calculate_vault_record(
     current_nav = prices_df["total_assets"].iloc[-1]
     chain_id = prices_df["chain"].iloc[-1]
 
-    fee_data: FeeData = vault_metadata.get("_fees")
-    gross_fee_data = fee_data
+    fee_data: FeeData | None = vault_metadata.get("_fees")
 
     if fee_data is None:
         # Legacy, unit tests,etc.
         # _fees not in the exported pickle we use for testing
         fee_data = FeeData(
             fee_mode=VaultFeeMode.externalised,
-            management=vault_metadata["Mgmt fee"],
-            performance=vault_metadata["Perf fee"],
-            deposit=vault_metadata.get("Deposit fee", 0),  # Rare: assume 0 if not explicitly set
-            withdraw=vault_metadata.get("Withdrawal fee", 0),  # Rare: assume 0 if not explicitly set
+            management=_normalise_fee_for_fee_data(vault_metadata["Mgmt fee"], "management fee"),
+            performance=_normalise_fee_for_fee_data(vault_metadata["Perf fee"], "performance fee"),
+            deposit=_normalise_fee_for_fee_data(vault_metadata.get("Deposit fee", 0), "deposit fee"),  # Rare: assume 0 if not explicitly set
+            withdraw=_normalise_fee_for_fee_data(vault_metadata.get("Withdrawal fee", 0), "withdrawal fee"),  # Rare: assume 0 if not explicitly set
         )
+    else:
+        # Pickle deserialisation does not call FeeData.__post_init__(). Repair
+        # historical fee values before calculations and JSON export, while new
+        # FeeData construction continues to reject unsupported types.
+        fee_data = FeeData(
+            fee_mode=fee_data.fee_mode,
+            management=_normalise_fee_for_fee_data(fee_data.management, "management fee"),
+            performance=_normalise_fee_for_fee_data(fee_data.performance, "performance fee"),
+            deposit=_normalise_fee_for_fee_data(fee_data.deposit, "deposit fee"),
+            withdraw=_normalise_fee_for_fee_data(fee_data.withdraw, "withdrawal fee"),
+        )
+
+    gross_fee_data = fee_data
 
     vault_address = vault_metadata["Address"]
     protocol = vault_metadata["Protocol"]
@@ -3322,6 +3362,7 @@ def export_lifetime_row(row: pd.Series) -> dict:
 
     - Recursively handles nested dicts, lists, tuples, sets, and dataclasses.
     - Normalises pandas, numpy, datetime, and custom types.
+    - Converts finite :class:`~decimal.Decimal` values to JSON number floats.
     - Preserves legacy fee field names.
 
     The ``denomination_token_rate`` dataclass from
@@ -3339,6 +3380,14 @@ def export_lifetime_row(row: pd.Series) -> dict:
         # Numpy scalar
         if isinstance(value, (np.floating, np.integer)):
             return value.item()
+        # Decimal values occur in scanned vault metadata, including fee fields.
+        # JSON has one numeric representation, so retain the public export's
+        # established float convention. JSON cannot represent Decimal NaN or
+        # infinity, which follow the existing float sanitisation rule.
+        if isinstance(value, Decimal):
+            if not value.is_finite():
+                return None
+            return float(value)
         # Pandas timestamp
         if isinstance(value, pd.Timestamp):
             return value.isoformat()

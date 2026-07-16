@@ -72,6 +72,24 @@ class ERC4626Feature(enum.Enum):
     #: a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     asseto_like = "asseto_like"
 
+    #: Securitize Digital Securities Protocol token.
+    #:
+    #: Routing marker for non-ERC-4626 ``DSToken`` instruments that are read
+    #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    securitize_like = "securitize_like"
+
+    #: Maseer One tokenised asset contracts.
+    #:
+    #: Routing marker for non-ERC-4626 Maseer One instruments that are read
+    #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    maseer_one_like = "maseer_one_like"
+
+    #: Vault Street permissioned tokenised investment products.
+    #:
+    #: Routing marker for non-ERC-4626 products read through a
+    #: :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    vault_street_like = "vault_street_like"
+
     #: Ipor protocol
     #:
     #: https://app.ipor.io/fusion
@@ -153,8 +171,9 @@ class ERC4626Feature(enum.Enum):
     #: https://docs.fluid.instadapp.io/
     fluid_like = "fluid_like"
 
-    #: Kiln metavault
-    #: https://github.com/0xZunia/Kiln.MetaVault
+    #: Kiln OmniVaults.
+    #:
+    #: https://docs.kiln.fi/v1/kiln-products/omnivaults
     kiln_metavault_like = "kiln_metavault_like"
 
     #: Peopods
@@ -679,11 +698,13 @@ class ERC4626Feature(enum.Enum):
     #: https://www.3jane.xyz/
     threejane_like = "threejane_like"
 
-    #: Aave (v4)
+    #: Aave (v3 and v4)
     #:
-    #: Aave v4 Tokenization Spoke: an ERC-4626 vault that tokenises a deposit of a
-    #: Hub asset into fungible ``wa{Hub}{Asset}`` shares (e.g. ``waCoreUSDC``).
-    #: Identified by the spoke-specific ``SPOKE_REVISION()`` accessor.
+    #: Aave V3 ATokenVault wraps an interest-bearing Aave aToken into ERC-4626
+    #: shares. Aave v4 Tokenization Spokes tokenise Hub assets into fungible
+    #: ``wa{Hub}{Asset}`` shares (e.g. ``waCoreUSDC``). V3 ATokenVaults are
+    #: identified by a chain-aware address registry; v4 spokes expose the
+    #: spoke-specific ``SPOKE_REVISION()`` accessor.
     #: https://aave.com/
     aave_like = "aave_like"
 
@@ -817,6 +838,12 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Midas"
     elif ERC4626Feature.asseto_like in features:
         return "Asseto"
+    elif ERC4626Feature.securitize_like in features:
+        return "Securitize"
+    elif ERC4626Feature.maseer_one_like in features:
+        return "Maseer One"
+    elif ERC4626Feature.vault_street_like in features:
+        return "Vault Street"
     elif ERC4626Feature.morpho_like in features:
         return "Morpho"
     elif ERC4626Feature.panoptic_like in features:
@@ -842,7 +869,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.reserve_like in features:
         return "Reserve"
     elif ERC4626Feature.kiln_metavault_like in features:
-        return "Kiln Metavault"
+        return "Kiln"
     elif ERC4626Feature.peapods_like in features:
         return "Peapods"
     elif ERC4626Feature.term_finance_like in features:

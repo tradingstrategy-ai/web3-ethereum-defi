@@ -26,16 +26,35 @@ def test_oda_fact_risk_is_low() -> None:
     assert get_vault_risk("Kinexys") == VaultTechnicalRisk.low
 
 
-def test_oda_fact_vault_note_is_not_bad_flag() -> None:
-    """ODA-FACT JLTXX note is descriptive and does not flag the vault."""
-    address = "0x09864f52b035ae22ee739dfa5c748fa080d07bd8"
+def test_securitize_risk_is_low() -> None:
+    """Securitize protocol risk is classified as low."""
+    assert get_vault_risk("Securitize") == VaultTechnicalRisk.low
+
+
+@pytest.mark.parametrize(
+    ("address", "expected_note"),
+    [
+        ("0x7712c34205737192402172409a8f7ccef8aa2aec", "**Curator:** BlackRock / Securitize"),
+        ("0x252739487c1fa66eaeae7ced41d6358ab2a6bca9", "**Curator:** Arca / Securitize"),
+        ("0x0324dd195d0cd53f9f07bee6a48ee7a20bad738f", "**Curator:** SPiCE VC / Securitize"),
+        ("0xda2ffa104356688e74d9340519b8c17f00d7752e", "**Curator:** Hamilton Lane / Securitize"),
+        ("0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9", "**Curator:** Blockchain Capital / Securitize"),
+        ("0xc0c61c29ef8beabc694987c93e5fe4af647042e7", "**Curator:** COSIMO digital / Securitize"),
+        ("0x682ef9cc637ef56577092b29ae9275a629aae7db", "**Curator:** Science Inc. / Securitize"),
+        ("0x5e17f6f450dcb0bc69b232ea554e224d7e88067a", "**Curator:** Protos Asset Management / Securitize"),
+        ("0x09864f52b035ae22ee739dfa5c748fa080d07bd8", "**Curator:** J.P. Morgan"),
+    ],
+)
+def test_tokenised_fund_vaults_have_descriptive_flag_and_notes(address: str, expected_note: str) -> None:
+    """Known tokenised funds have product notes without becoming bad vaults."""
+
     note = get_notes(address)
 
     assert note is not None
-    assert "**Curator:** J.P. Morgan" in note
-    assert "Equity curve and profit information for this vault are missing" in note
-    assert "JLTXX fact sheet" in note
+    assert expected_note in note
+    assert get_vault_special_flags(address) == {VaultFlag.tokenised_fund}
     assert not is_flagged_vault(address)
+    assert VaultFlag.tokenised_fund not in BAD_FLAGS
 
 
 def test_summer_fi_protocol_vaults_are_blacklisted() -> None:
@@ -54,6 +73,13 @@ def test_hyperevm_out_of_gas_vault_is_blacklisted() -> None:
     address = "0x2eee42a0704dd4c0ff8141f85e24de9085a76093"
 
     assert get_vault_risk("ERC-4626", address) == VaultTechnicalRisk.blacklisted
+    assert address in BROKEN_VAULT_CONTRACTS
+
+
+def test_old_mainnet_out_of_gas_contract_is_skipped_by_multicall_blacklist() -> None:
+    """Old mainnet contracts that poison Multicall3 batches are skipped."""
+    address = "0xffaa9f9aa5e4361f552bada90dcacdd08e5b41eb"
+
     assert address in BROKEN_VAULT_CONTRACTS
 
 

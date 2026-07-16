@@ -1,0 +1,18 @@
+feeder-id: blackrock
+name: BlackRock
+role: curator
+website: https://www.blackrock.com/corporate/about-us
+twitter: BlackRock
+linkedin: blackrock
+short_description: BlackRock is a global asset manager and technology provider serving institutional and individual investors.
+long_description: |
+  BlackRock is a global asset manager and technology provider that provides investment products and portfolio technology for institutional and individual investors. Its investment platform covers public and private markets, cash management and related investment services.
+
+  For this integration, BlackRock is the curator of the BUIDL and BUIDL-I fund share classes. Securitize supplies the tokenisation and investor-services infrastructure, while BlackRock manages the underlying liquidity fund.
+other-links:
+  - title: BlackRock official company overview
+    url: https://www.blackrock.com/corporate/about-us
+  - title: BlackRock official BUIDL address list
+    url: https://www.blackrock.com/corporate/compliance/scams-and-fraud/resources
+  - title: BlackRock BUIDL fund page
+    url: https://www.blackrock.com/us/individual/products/buidl/

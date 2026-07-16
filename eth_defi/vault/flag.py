@@ -4,6 +4,9 @@ import enum
 
 from eth_typing import HexAddress
 
+from eth_defi.securitize.description import SECURITIZE_PRODUCT_NOTES, SECURITIZE_TOKENISED_FUND_ADDRESSES
+from eth_defi.vault.handwritten_metadata import PIKU_VAULT_METADATA, format_handwritten_vault_note
+
 
 class VaultFlag(str, enum.Enum):
     """Flags indicating the status of a vault."""
@@ -49,6 +52,12 @@ class VaultFlag(str, enum.Enum):
 
     #: This vault represents an underlying wrapped asset like a share
     wrapped_asset = "wrapped_asset"
+
+    #: This vault represents shares in a tokenised fund.
+    #:
+    #: Fund assets, NAV calculation and investor eligibility can be managed
+    #: off-chain by the fund issuer.
+    tokenised_fund = "tokenised_fund"
 
     #: Vault ls missing in the protocol official website and might be a spoof attempt
     unofficial = "unofficial"
@@ -119,13 +128,33 @@ ODA_FACT_JLTXX_NOTE = f"""JPMorgan OnChain Liquidity-Token Money Market Fund (JL
 - **Fact sheet:** [JLTXX fact sheet]({JLTXX_FACT_SHEET_URL}).
 """
 
-#: Vault-specific notes without special risk flags.
+#: Vault-specific notes and classifications that do not exclude a vault from
+#: research datasets.
 #:
 #: Unlike :py:data:`VAULT_FLAGS_AND_NOTES`, entries here do not make the vault
-#: "flagged"; they only add descriptive markdown to vault exports.
+#: "flagged" through :py:func:`is_flagged_vault`.
 VAULT_NOTES: dict[str, str] = {
+    **SECURITIZE_PRODUCT_NOTES,
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": ODA_FACT_JLTXX_NOTE,
 }
+
+#: Product classification flags that are descriptive rather than exclusionary.
+VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
+    **{address: {VaultFlag.tokenised_fund} for address in SECURITIZE_TOKENISED_FUND_ADDRESSES},
+    "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": {VaultFlag.tokenised_fund},
+}
+
+#: Vault-specific notes which must only apply on the specified EVM chain.
+#:
+#: An address can be deployed on more than one chain. Keep manager-maintained
+#: Piku metadata chain-scoped so a matching address elsewhere cannot inherit an
+#: unrelated Morini strategy note.
+# fmt: off
+CHAIN_SCOPED_VAULT_NOTES: dict[tuple[int, str], str] = {
+    (chain_id, address): format_handwritten_vault_note(metadata)
+    for (chain_id, address), metadata in PIKU_VAULT_METADATA.items()
+}
+# fmt: on
 
 
 def get_vault_special_flags(address: str | HexAddress, protocol_name: str | None = None) -> set[VaultFlag]:
@@ -136,8 +165,9 @@ def get_vault_special_flags(address: str | HexAddress, protocol_name: str | None
     manual warning, such as the Summer.fi illiquid flag added after the
     2026-07-06 exploit reporting.
     """
-    flags = set()
-    entry = VAULT_FLAGS_AND_NOTES.get(address.lower())
+    address = address.lower()
+    flags = set(VAULT_DESCRIPTIVE_FLAGS.get(address, _empty_set))
+    entry = VAULT_FLAGS_AND_NOTES.get(address)
     if entry:
         if entry[0]:
             flags.add(entry[0])
@@ -164,6 +194,11 @@ def get_notes(address: HexAddress | str, chain_id: int | None = None, protocol_n
         (e.g. all Hypercore vaults get :py:data:`HYPERCORE_VAULT_NOTE`).
     """
     address = address.lower()
+    if chain_id is not None:
+        note = CHAIN_SCOPED_VAULT_NOTES.get((chain_id, address))
+        if note:
+            return note
+
     note = VAULT_NOTES.get(address)
     if note:
         return note
@@ -265,6 +300,8 @@ STEAKHOUSE_PRIME_AUSD_ILLIQUID = "Steakhouse Prime AUSD vault is illiquid"
 
 LIQUITY_V2_WETH_STABILITY_POOL_ILLIQUID = "Liquity V2 WETH Stability Pool vault is illiquid"
 
+ODINS_RESERVE_ILLIQUID = "Odins Reserve vault is illiquid"
+
 
 #: Protocol-wide flags and notes.
 #:
@@ -321,9 +358,11 @@ The system checks your total equity meets the minimum for your tier when you att
 [More details on the GLP programme](https://help.grvt.io/en/articles/12760192-grvt-liquidity-provider-glp).
 """
 
-#: Vault manual blacklist flags and notes.
+#: Vault-specific flags and notes.
 #:
-#: The reason notes is a guess.
+#: Most entries identify vaults that should not be used. Some entries, such as
+#: tokenised funds, are descriptive classifications and are not in
+#: :py:data:`BAD_FLAGS`.
 #:
 #: Make sure address is lowercased
 VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
@@ -677,6 +716,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xcbc9b61177444a793b85442d3a953b90f6170b7d": (VaultFlag.illiquid, RESOLV_ILLIQUID),
     # Resolv USDC (Ethereum)
     "0xf0795c47fa58d00f5f77f4d5c01f31ee891e21b4": (VaultFlag.illiquid, RESOLV_USDC_ILLIQUID),
+    # Odins Reserve (Centrifuge on Arbitrum)
+    "0xeae33e9f53fc405f834d4678e6c07a2523b2126e": (VaultFlag.illiquid, ODINS_RESERVE_ILLIQUID),
     # Mainstreet USDC (msUSDC, Morpho on Ethereum)
     "0xe3ba8f17fe581dd473e6699cfad04502998a57c7": (VaultFlag.malicious, MALICIOUS_VAULT),
     # Mainstreet USDC (msUSDC, Morpho on Ethereum)

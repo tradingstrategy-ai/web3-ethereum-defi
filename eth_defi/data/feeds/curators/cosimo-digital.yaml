@@ -1,0 +1,14 @@
+feeder-id: cosimo-digital
+name: COSIMO digital
+role: curator
+website: https://www.cosimodigital.com/
+short_description: COSIMO digital is an investment manager focused on digital-asset businesses and services.
+long_description: |
+  COSIMO digital is an investment manager focused on digital assets and the businesses that support them. It offers investment management, advisory and other services for investors in this market.
+
+  For this integration, COSIMO digital is the curator of COSIMO X, its evergreen venture fund.
+other-links:
+  - title: COSIMO digital official company overview
+    url: https://www.cosimodigital.com/
+  - title: COSIMO digital official COSIMO X fund overview
+    url: https://www.cosimodigital.com/asset-management/cosimo-x
