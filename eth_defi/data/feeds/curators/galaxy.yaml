@@ -1,12 +1,14 @@
 feeder-id: galaxy
 name: Galaxy
 role: curator
+morpho-curator: Galaxy Curation
 website: https://www.galaxy.com
 short_description: Galaxy provides institutional digital asset, blockchain, asset management and data centre infrastructure services.
 long_description: |
   Galaxy is a digital asset and blockchain firm serving institutions, startups and qualified individuals.
   Its homepage presents global markets, asset management and infrastructure, blockchain infrastructure, GalaxyOne and data centres as the main business areas.
   The firm provides digital asset trading, lending, derivatives, investment solutions, staking, tokenisation, self-custody technology and AI/HPC data centre infrastructure.
+  In July 2026, Galaxy launched Galaxy Curator, an institutional vault curation offering built on Morpho and distributed through Fireblocks Earn. The service applies Galaxy's institutional risk framework to on-chain yield strategies.
 twitter: GalaxyHQ
 linkedin: galaxyhq
 
@@ -20,6 +22,8 @@ linkedin: galaxyhq
 other-links:
   - title: Morpho curator page - Galaxy Curation verified curator profile
     url: https://app.morpho.org/curator/galaxy
+  - title: Galaxy news release - Galaxy launches institutional vault curator
+    url: https://investor.galaxy.com/news-releases/news-release-details/galaxy-launches-institutional-vault-curator
   - title: Galaxy Digital official website
     url: https://www.galaxy.com
   - title: Galaxy X account linked from Morpho curator page

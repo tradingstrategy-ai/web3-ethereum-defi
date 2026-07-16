@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from eth_defi.midas.registry import iter_midas_registry_products
-from eth_defi.vault.curator import build_curator_metadata_json, get_curator_name, identify_curator, is_protocol_curator
+from eth_defi.vault.curator import build_curator_metadata_json, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
 
 
 def test_identify_felix_vault() -> None:
@@ -190,6 +190,23 @@ def test_identify_morpho_curator_by_curator_metadata() -> None:
     )
 
     assert slug == "gauntlet"
+
+
+def test_identify_galaxy_morpho_curator_by_curator_metadata() -> None:
+    """Galaxy Curation maps to the Galaxy curator through Morpho manager metadata."""
+
+    assert load_curator_map()["galaxy"]["protocol_manager_names"]["morpho"] == "Galaxy Curation"
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="",
+        vault_name="Institutional USDC Vault",
+        vault_address="0x0000000000000000000000000000000000000014",
+        protocol_slug="morpho",
+        manager_name="Galaxy Curation",
+    )
+
+    assert slug == "galaxy"
 
 
 def test_identify_m11_credit_curator() -> None:
