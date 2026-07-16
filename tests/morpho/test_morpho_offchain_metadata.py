@@ -54,7 +54,9 @@ Because the Morpho Blue API is a live external service these tests are marked
 ``flaky`` and skipped on CI if the required ``JSON_RPC_*`` env var is absent.
 """
 
+import logging
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 import flaky
@@ -96,11 +98,12 @@ GAUNTLET_USDC_PRIME_ETHEREUM = "0xdd0f28e19C1780eb6396170735D45153D261490d"
 NOT_FOUND_TEST_VAULT = "0x000000000000000000000000000000000000dead"
 
 
+@dataclass(slots=True)
 class _FakeEth:
     """Minimal fake Web3.eth object for Morpho API tests."""
 
-    def __init__(self, chain_id: int = 1):
-        self.chain_id = chain_id
+    #: Chain ID reported by the fake Web3 provider.
+    chain_id: int = 1
 
 
 class _FakeWeb3:
@@ -287,7 +290,8 @@ def test_morpho_unsupported_chain_short_circuits(monkeypatch: pytest.MonkeyPatch
 
     # 2. Any HTTP call would mean the short-circuit failed.
     def fail_post(*_args, **_kwargs):
-        raise AssertionError("Morpho API must not be called for unsupported chains")
+        message = "Morpho API must not be called for unsupported chains"
+        raise AssertionError(message)
 
     monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata.requests.post", fail_post)
 
@@ -363,7 +367,7 @@ def test_morpho_transient_error_does_not_add_not_found_flag(monkeypatch: pytest.
     assert not cache_file.exists()
 
 
-def test_morpho_found_data_uses_disk_cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+def test_morpho_found_data_uses_disk_cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture):
     """Successful Morpho warning data still uses the existing disk cache."""
     calls = _patch_morpho_api(
         monkeypatch,
@@ -387,10 +391,13 @@ def test_morpho_found_data_uses_disk_cache(monkeypatch: pytest.MonkeyPatch, tmp_
     )
 
     web3 = _FakeWeb3()  # type: ignore[assignment]
+    caplog.set_level(logging.DEBUG, logger="eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata")
     result_1 = fetch_morpho_vault_data(web3, DUNE_USDC_ETHEREUM, cache_path=tmp_path)
     assert result_1 is not None
     assert result_1["vault_warnings"] == [{"type": "short_timelock", "level": "RED"}]
     assert result_1["manager_name"] == "Gauntlet"
+    cache_write_record = next(record for record in caplog.records if record.getMessage().startswith("Wrote Morpho vault data cache"))
+    assert cache_write_record.levelno == logging.DEBUG
 
     cache_key = f"{tmp_path}:1:{DUNE_USDC_ETHEREUM.lower()}"
     _cached_vault_data.pop(cache_key, None)
