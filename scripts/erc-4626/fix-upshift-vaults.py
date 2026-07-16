@@ -3,7 +3,7 @@
 
 This script is a targeted production repair tool for Upshift vaults.
 
-It avoids deprecated ``RESET_LEADS`` and any whole-chain rediscovery. See the
+It avoids whole-chain rediscovery. See the
 recommended targeted backfill approach in
 ``scripts/erc-4626/README-vault-scripts.md#recommended-targeted-backfill-for-new-vault-protocols``.
 Instead it uses the Upshift tokenized vault API and a baked API snapshot to:
