@@ -2,8 +2,9 @@
 
 Securitize DSTokens share a token contract interface, but their investment
 strategy, fund manager, NAV source and investor terms belong to the individual
-fund. This registry covers selected Ethereum investment funds identified in
-the DSToken scan; it intentionally excludes company securities and test tokens.
+fund. This registry covers reviewed EVM investment-fund deployments identified
+from the DSToken scan and official issuer address lists. It intentionally
+excludes company securities and test tokens.
 """
 
 from dataclasses import dataclass
@@ -54,32 +55,65 @@ BLOCKCHAIN_CAPITAL_FUND_PAGE_URL = "https://www.blockchaincapital.com/about-us"
 COSIMO_X_FUND_PAGE_URL = "https://www.cosimodigital.com/asset-management/cosimo-x"
 SCIENCE_BLOCKCHAIN_FUND_PAGE_URL = "https://www.science-inc.com/blockchain.html"
 PROTOS_FUND_PAGE_URL = "https://protosmanagement.com/2024/05/09/protos-asset-management-releases-march-31-2024-prts-token-nav/"
+MI4_FUND_PAGE_URL = "https://mantleguard.com/"
+
+
+def _create_buidl_product(chain_id: int, token: str, chain_name: str) -> SecuritizeProduct:
+    """Create metadata for an official EVM BUIDL deployment.
+
+    BlackRock lists the same fund on several EVM chains. Keeping the common
+    fund description in one constructor prevents chain copies from drifting.
+
+    :param chain_id:
+        EVM chain id.
+    :param token:
+        Official BlackRock token address.
+    :param chain_name:
+        Human-readable deployment chain.
+    :return:
+        Reviewed BUIDL product metadata.
+    """
+
+    return SecuritizeProduct(
+        chain_id=chain_id,
+        token=HexAddress(token.lower()),
+        product_name="BlackRock USD Institutional Digital Liquidity Fund",
+        short_description="Tokenised U.S. dollar liquidity fund",
+        description="Tokenised fund investing in cash, U.S. Treasury bills and repurchase agreements.",
+        manager_name="BlackRock",
+        curator_slug="blackrock",
+        homepage=BUIDL_FUND_PAGE_URL,
+        notes=f"""BlackRock USD Institutional Digital Liquidity Fund (BUIDL) on {chain_name}.
+
+- **Curator:** BlackRock / Securitize.
+- **Vault strategy:** Tokenised shares in a fund that invests in cash, U.S. Treasury bills and repurchase agreements.
+- **Token structure:** BUIDL is a permissioned Securitize token. Investors must complete issuer eligibility and compliance checks before subscribing, redeeming or transferring shares.
+- **Stable dollar share value:** BUIDL targets a USD 1 share value. Fund income accrues daily and is distributed monthly as newly issued BUIDL shares to eligible holders, rather than increasing the unit price. The token is therefore modelled at an estimated USD 1 per share and the on-chain share price does not represent total return.
+- **Fund page:** [BlackRock BUIDL]({BUIDL_FUND_PAGE_URL}).
+- **Official address list:** [BlackRock BUIDL addresses]({BUIDL_I_FUND_PAGE_URL}).
+""",
+        estimated_nav_per_share=Decimal("1"),
+        nav_source="estimated_buidl_usd_1",
+        denomination="USD",
+    )
 
 
 #: BlackRock USD Institutional Digital Liquidity Fund on Ethereum.
 #:
 #: https://etherscan.io/address/0x7712c34205737192402172409a8f7ccef8aa2aec
-BUIDL_ETHEREUM = SecuritizeProduct(
-    chain_id=1,
-    token=HexAddress("0x7712c34205737192402172409a8f7ccef8aa2aec"),
-    product_name="BlackRock USD Institutional Digital Liquidity Fund",
-    short_description="Tokenised U.S. dollar liquidity fund",
-    description="Tokenised fund investing in cash, U.S. Treasury bills and repurchase agreements.",
-    manager_name="BlackRock",
-    curator_slug="blackrock",
-    homepage=BUIDL_FUND_PAGE_URL,
-    notes=f"""BlackRock USD Institutional Digital Liquidity Fund (BUIDL).
+BUIDL_ETHEREUM = _create_buidl_product(1, "0x7712c34205737192402172409a8f7ccef8aa2aec", "Ethereum")
 
-- **Curator:** BlackRock / Securitize.
-- **Vault strategy:** Tokenised shares in a fund that invests in cash, U.S. Treasury bills and repurchase agreements.
-- **Token structure:** BUIDL is a permissioned Securitize DSToken. Investors must complete issuer eligibility and compliance checks before subscribing, redeeming or transferring shares.
-- **Stable dollar share value:** BUIDL targets a USD 1 share value. Fund income accrues daily and is distributed monthly as newly issued BUIDL shares to eligible holders, rather than increasing the unit price. The token is therefore modelled at an estimated USD 1 per share and the on-chain share price does not represent total return.
-- **Fund page:** [BlackRock BUIDL]({BUIDL_FUND_PAGE_URL}).
-""",
-    estimated_nav_per_share=Decimal("1"),
-    nav_source="estimated_buidl_usd_1",
-    denomination="USD",
-)
+#: BlackRock BUIDL on Polygon.
+BUIDL_POLYGON = _create_buidl_product(137, "0x2893Ef551B6dD69F661Ac00F11D93E5Dc5Dc0e99", "Polygon")
+
+#: BlackRock BUIDL on Avalanche.
+BUIDL_AVALANCHE = _create_buidl_product(43_114, "0x53FC82f14F009009b440a706e31c9021E1196A2F", "Avalanche")
+
+#: BlackRock BUIDL on Optimism.
+BUIDL_OPTIMISM = _create_buidl_product(10, "0xa1CDAb15bBA75a80dF4089CaFbA013e376957cF5", "Optimism")
+
+#: BlackRock BUIDL on Arbitrum.
+BUIDL_ARBITRUM = _create_buidl_product(42_161, "0xA6525Ae43eDCd03dC08E775774dCAbd3bb925872", "Arbitrum")
 
 #: BlackRock BUIDL I Class on Ethereum.
 #:
@@ -272,12 +306,12 @@ BCAP_ETHEREUM = SecuritizeProduct(
 
 - **Curator:** Blockchain Capital / Securitize.
 - **Vault strategy:** Tokenised fund interests in a venture-capital fund investing in companies building blockchain and cryptocurrency products.
-- **NAV reporting:** The value follows the fund's net asset value and depends on its venture portfolio. This integration does not use a fixed share-price estimate.
+- **NAV reporting:** The value follows the fund's net asset value and depends on its venture portfolio. Historical NAV is read from RedStone's BCAP fundamental feed rather than using a fixed share-price estimate.
 - **Investor access:** BCAP is a permissioned Securitize offering for eligible investors; subscription, redemption and transfer terms follow the fund documentation.
 - **Fund page:** [Blockchain Capital]({BLOCKCHAIN_CAPITAL_FUND_PAGE_URL}).
 """,
     estimated_nav_per_share=None,
-    nav_source="unconfigured",
+    nav_source="redstone_bcap_fundamental",
     denomination="USD",
 )
 
@@ -356,11 +390,40 @@ PRTS_ETHEREUM = SecuritizeProduct(
     denomination="USD",
 )
 
+#: Mantle Index Four fund shares on Mantle.
+#:
+#: https://explorer.mantle.xyz/address/0x671642ac281c760e34251d51bc9eef27026f3b7a
+MI4_MANTLE = SecuritizeProduct(
+    chain_id=5_000,
+    token=HexAddress("0x671642ac281c760e34251d51bc9eef27026f3b7a"),
+    product_name="Mantle Index Four",
+    short_description="Tokenised fund tracking a diversified basket of major digital assets",
+    description="Tokenised fund providing managed exposure to a diversified basket of major digital assets and staking strategies.",
+    manager_name="Mantle Guard",
+    curator_slug="mantle-guard",
+    homepage=MI4_FUND_PAGE_URL,
+    notes=f"""Mantle Index Four (MI4).
+
+- **Curator:** Mantle Guard / Securitize.
+- **Vault strategy:** Tokenised fund exposure to a diversified basket of BTC, ETH, SOL and U.S. dollar assets, with selected staking strategies and periodic rebalancing.
+- **NAV reporting:** The share value follows the fund's portfolio and is not stable. Historical NAV is read from RedStone's Mantle MI4 fundamental feed.
+- **Investor access:** MI4 is a permissioned Securitize offering on Mantle for qualifying investors; subscriptions, redemptions and transfers follow the fund terms.
+- **Fund page:** [Mantle Index Four]({MI4_FUND_PAGE_URL}).
+""",
+    estimated_nav_per_share=None,
+    nav_source="redstone_mi4_mantle_fundamental",
+    denomination="USD",
+)
+
 #: Supported Securitize investment funds keyed by chain and DSToken address.
 SECURITIZE_PRODUCTS: dict[tuple[int, HexAddress], SecuritizeProduct] = {
     (product.chain_id, product.token): product
     for product in (
         BUIDL_ETHEREUM,
+        BUIDL_POLYGON,
+        BUIDL_AVALANCHE,
+        BUIDL_OPTIMISM,
+        BUIDL_ARBITRUM,
         BUIDL_I_ETHEREUM,
         ACRED_ETHEREUM,
         VBILL_ETHEREUM,
@@ -372,6 +435,7 @@ SECURITIZE_PRODUCTS: dict[tuple[int, HexAddress], SecuritizeProduct] = {
         COSX_ETHEREUM,
         SCI2_ETHEREUM,
         PRTS_ETHEREUM,
+        MI4_MANTLE,
     )
 }
 

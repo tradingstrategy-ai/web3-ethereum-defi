@@ -1,213 +1,160 @@
-"""Read Securitize fund NAV history from RedStone's public price API.
+"""Read Securitize fund NAV from RedStone on-chain push feeds.
 
-RedStone publishes the Securitize feeds used here as signed fundamental-value
-feeds. The API contains repeated publications of the same daily NAV, so this
-module queries one observation at each requested daily checkpoint rather than
-downloading every relay publication.
+RedStone publishes reviewed Securitize fundamental-value feeds through
+Chainlink-compatible contracts. Reading ``latestRoundData()`` at an archive
+block returns the value that was available at that block, so the vault history
+scanner can backfill NAV without relying on RedStone's 30-day REST retention.
 
-The public endpoint is undocumented. Its response is therefore validated
-strictly and only recognised, reviewed Securitize token addresses are exposed.
-
-Reference: https://app.redstone.finance/app/feeds/
+Feed catalogue: https://app.redstone.finance/app/feeds/
 """
 
 import datetime
-from collections.abc import Iterator
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
-import requests
-from eth_typing import HexAddress
+from eth_typing import BlockIdentifier, HexAddress
+from web3 import Web3
+from web3.contract import Contract
 
-from eth_defi.securitize.description import ACRED_ETHEREUM, HLSCOPE_ETHEREUM, STAC_ETHEREUM, VBILL_ETHEREUM
-
-#: Public RedStone price endpoint used by its feed dashboard.
-REDSTONE_PRICE_API_URL = "https://api.redstone.finance/prices"
-
-#: Timeout for a public RedStone API request in seconds.
-DEFAULT_REDSTONE_API_TIMEOUT = 20.0
+from eth_defi.abi import get_deployed_contract
+from eth_defi.securitize.description import ACRED_ETHEREUM, BCAP_ETHEREUM, HLSCOPE_ETHEREUM, MI4_MANTLE, STAC_ETHEREUM, VBILL_ETHEREUM
 
 
-class RedstoneAPIError(RuntimeError):
-    """Raised when the RedStone public feed API returns malformed data."""
+class RedstoneFeedError(RuntimeError):
+    """Raised when a RedStone NAV feed returns an unusable value."""
 
 
 @dataclass(slots=True, frozen=True)
 class RedstoneSecuritizeFeed:
-    """One reviewed Securitize NAV feed available through RedStone."""
+    """One reviewed Securitize NAV push feed.
 
-    #: EVM chain hosting the Securitize DSToken.
+    RedStone push feeds expose the Chainlink aggregator interface. The
+    ``first_block`` boundary is the first block where ``latestRoundData()``
+    returned a positive observation, which can be later than contract
+    deployment.
+    """
+
+    #: EVM chain hosting both the Securitize token and feed.
     chain_id: int
 
-    #: Lower-case DSToken address.
+    #: Lower-case Securitize token address.
     token: HexAddress
 
     #: RedStone fundamental feed identifier.
     feed_id: str
 
+    #: Chainlink-compatible RedStone push-feed contract.
+    oracle_address: HexAddress
+
+    #: First block with a valid feed observation.
+    first_block: int
+
+    #: Number of decimals used by the oracle answer.
+    decimals: int = 8
+
 
 @dataclass(slots=True, frozen=True)
 class RedstonePricePoint:
-    """One signed RedStone fundamental NAV observation."""
+    """One RedStone on-chain fundamental NAV observation."""
 
-    #: UTC timestamp at which RedStone published the value.
+    #: Naive UTC time at which RedStone published the value.
     timestamp: datetime.datetime
 
     #: Fund NAV per share in USD.
     share_price: Decimal
 
 
-#: Reviewed Securitize products with RedStone fundamental NAV feeds.
+#: Reviewed Securitize products with RedStone fundamental NAV push feeds.
 REDSTONE_SECURITIZE_FEEDS: dict[tuple[int, HexAddress], RedstoneSecuritizeFeed] = {
-    (ACRED_ETHEREUM.chain_id, ACRED_ETHEREUM.token): RedstoneSecuritizeFeed(ACRED_ETHEREUM.chain_id, ACRED_ETHEREUM.token, "ACRED_FUNDAMENTAL"),
-    (HLSCOPE_ETHEREUM.chain_id, HLSCOPE_ETHEREUM.token): RedstoneSecuritizeFeed(HLSCOPE_ETHEREUM.chain_id, HLSCOPE_ETHEREUM.token, "HLScope_FUNDAMENTAL"),
-    (STAC_ETHEREUM.chain_id, STAC_ETHEREUM.token): RedstoneSecuritizeFeed(STAC_ETHEREUM.chain_id, STAC_ETHEREUM.token, "STAC_FUNDAMENTAL"),
-    (VBILL_ETHEREUM.chain_id, VBILL_ETHEREUM.token): RedstoneSecuritizeFeed(VBILL_ETHEREUM.chain_id, VBILL_ETHEREUM.token, "VBILL_ETHEREUM_FUNDAMENTAL"),
+    (ACRED_ETHEREUM.chain_id, ACRED_ETHEREUM.token): RedstoneSecuritizeFeed(
+        ACRED_ETHEREUM.chain_id,
+        ACRED_ETHEREUM.token,
+        "ACRED_FUNDAMENTAL",
+        HexAddress("0xd6bcbbc87bfb6c8964ddc73dc3eae6d08865d51c"),
+        21_888_488,
+    ),
+    (HLSCOPE_ETHEREUM.chain_id, HLSCOPE_ETHEREUM.token): RedstoneSecuritizeFeed(
+        HLSCOPE_ETHEREUM.chain_id,
+        HLSCOPE_ETHEREUM.token,
+        "HLScope_FUNDAMENTAL",
+        HexAddress("0x1f14a50ba904a28cf6088e71b6a15561074398d7"),
+        21_888_488,
+    ),
+    (STAC_ETHEREUM.chain_id, STAC_ETHEREUM.token): RedstoneSecuritizeFeed(
+        STAC_ETHEREUM.chain_id,
+        STAC_ETHEREUM.token,
+        "STAC_FUNDAMENTAL",
+        HexAddress("0xedc6287d3d41b322af600317628d7e226dd3add4"),
+        23_734_437,
+    ),
+    (VBILL_ETHEREUM.chain_id, VBILL_ETHEREUM.token): RedstoneSecuritizeFeed(
+        VBILL_ETHEREUM.chain_id,
+        VBILL_ETHEREUM.token,
+        "VBILL_ETHEREUM_FUNDAMENTAL",
+        HexAddress("0xa569e68b5d110f2a255482c2997dfdbe1b2ab912"),
+        22_537_814,
+    ),
+    (BCAP_ETHEREUM.chain_id, BCAP_ETHEREUM.token): RedstoneSecuritizeFeed(
+        BCAP_ETHEREUM.chain_id,
+        BCAP_ETHEREUM.token,
+        "BCAP_FUNDAMENTAL",
+        HexAddress("0x46f1b5f29a2dc1a730508a1b41a8b5b93e316eb2"),
+        25_494_164,
+    ),
+    (MI4_MANTLE.chain_id, MI4_MANTLE.token): RedstoneSecuritizeFeed(
+        MI4_MANTLE.chain_id,
+        MI4_MANTLE.token,
+        "MI4_MANTLE_FUNDAMENTAL",
+        HexAddress("0x24c8964338deb5204b096039147b8e8c3aea42cc"),
+        86_247_628,
+    ),
 }
 
 
-def _as_naive_utc(value: datetime.datetime) -> datetime.datetime:
-    """Normalise a datetime to a naive UTC value.
+def fetch_redstone_feed_contract(web3: Web3, feed: RedstoneSecuritizeFeed) -> Contract:
+    """Create a contract proxy for a reviewed RedStone push feed.
 
-    :param value:
-        A naive UTC or timezone-aware datetime.
+    :param web3:
+        Connection to ``feed.chain_id``.
+    :param feed:
+        Reviewed Securitize feed configuration.
     :return:
-        Naive UTC datetime.
+        Chainlink-compatible feed contract.
+    :raises ValueError:
+        If the connection is for a different chain.
     """
 
-    if value.tzinfo is None:
-        return value
-    return value.astimezone(datetime.UTC).replace(tzinfo=None)
+    if web3.eth.chain_id != feed.chain_id:
+        raise ValueError(f"RedStone feed {feed.feed_id} is on chain {feed.chain_id}, not {web3.eth.chain_id}")
+    return get_deployed_contract(web3, "ChainlinkAggregatorV2V3Interface.json", feed.oracle_address)
 
 
-def _parse_price_point(raw: object, feed_id: str) -> RedstonePricePoint:
-    """Validate and normalise one RedStone API response row.
+def fetch_redstone_price_at(web3: Web3, feed: RedstoneSecuritizeFeed, block_identifier: BlockIdentifier = "latest") -> RedstonePricePoint:
+    """Fetch the RedStone NAV observation available at an archive block.
 
-    :param raw:
-        Raw JSON row returned by RedStone.
-    :param feed_id:
-        Requested feed identifier, used in diagnostic errors.
+    The push-feed contract stores its current answer. Archive-node state makes
+    the same call point-in-time correct for both initial backfills and normal
+    incremental scans.
+
+    :param web3:
+        Archive-capable connection to the feed chain.
+    :param feed:
+        Reviewed Securitize feed configuration.
+    :param block_identifier:
+        Historical block number or ``latest``.
     :return:
-        Parsed NAV observation.
-    :raise RedstoneAPIError:
-        If a required field is missing or malformed.
+        Positive USD NAV/share and its publication timestamp.
+    :raises RedstoneFeedError:
+        If the feed has not published a valid observation at the block.
     """
 
-    if not isinstance(raw, dict):
-        raise RedstoneAPIError(f"RedStone {feed_id} response row must be an object")
-    try:
-        timestamp_ms = int(raw["timestamp"])
-        share_price = Decimal(str(raw["value"]))
-    except (KeyError, TypeError, ValueError, InvalidOperation) as error:
-        raise RedstoneAPIError(f"RedStone {feed_id} response row is missing a valid timestamp or value") from error
-    if timestamp_ms <= 0 or share_price <= 0:
-        raise RedstoneAPIError(f"RedStone {feed_id} response row has a non-positive timestamp or value")
+    if isinstance(block_identifier, int) and block_identifier < feed.first_block:
+        raise RedstoneFeedError(f"RedStone {feed.feed_id} has no observation before block {feed.first_block}")
+
+    _round_id, answer, _started_at, updated_at, _answered_in_round = fetch_redstone_feed_contract(web3, feed).functions.latestRoundData().call(block_identifier=block_identifier)
+    if answer <= 0 or updated_at <= 0:
+        raise RedstoneFeedError(f"RedStone {feed.feed_id} returned an invalid observation at block {block_identifier}")
     return RedstonePricePoint(
-        timestamp=datetime.datetime.fromtimestamp(timestamp_ms / 1000, tz=datetime.UTC).replace(tzinfo=None),
-        share_price=share_price,
+        timestamp=datetime.datetime.fromtimestamp(updated_at, tz=datetime.UTC).replace(tzinfo=None),
+        share_price=Decimal(answer) / Decimal(10**feed.decimals),
     )
-
-
-def fetch_redstone_price_at(
-    feed: RedstoneSecuritizeFeed,
-    at: datetime.datetime,
-    *,
-    api_url: str = REDSTONE_PRICE_API_URL,
-    timeout: float = DEFAULT_REDSTONE_API_TIMEOUT,
-) -> RedstonePricePoint | None:
-    """Fetch the latest RedStone NAV observation at or before a timestamp.
-
-    The API's ``toTimestamp`` argument is milliseconds since Unix epoch. A
-    one-row request is intentional: Securitize fundamental feeds publish many
-    relays of the same daily NAV and the historical scanner only needs the
-    latest value available at each valuation checkpoint.
-
-    :param feed:
-        Reviewed Securitize RedStone feed.
-    :param at:
-        UTC valuation checkpoint.
-    :param api_url:
-        Override for the public endpoint, primarily for integration tests.
-    :param timeout:
-        HTTP request timeout in seconds.
-    :return:
-        Latest observation at or before ``at``, or ``None`` when the feed had
-        not yet published a value.
-    :raise RedstoneAPIError:
-        If the provider returns a malformed response.
-    """
-
-    at = _as_naive_utc(at)
-    response = requests.get(
-        api_url,
-        params={
-            "symbol": feed.feed_id,
-            "provider": "redstone",
-            "limit": 1,
-            "toTimestamp": int(at.replace(tzinfo=datetime.UTC).timestamp() * 1000),
-        },
-        timeout=timeout,
-    )
-    response.raise_for_status()
-    try:
-        payload = response.json()
-    except ValueError as error:
-        raise RedstoneAPIError(f"RedStone {feed.feed_id} returned invalid JSON") from error
-    if not isinstance(payload, list):
-        raise RedstoneAPIError(f"RedStone {feed.feed_id} response must be a list")
-    if not payload:
-        return None
-    price_point = _parse_price_point(payload[0], feed.feed_id)
-    if price_point.timestamp > at:
-        raise RedstoneAPIError(f"RedStone {feed.feed_id} returned an observation after its requested timestamp")
-    return price_point
-
-
-def fetch_redstone_price_history(
-    feed: RedstoneSecuritizeFeed,
-    start_at: datetime.datetime,
-    end_at: datetime.datetime,
-    *,
-    api_url: str = REDSTONE_PRICE_API_URL,
-    timeout: float = DEFAULT_REDSTONE_API_TIMEOUT,
-) -> Iterator[RedstonePricePoint]:
-    """Fetch a daily checkpointed history for one Securitize RedStone feed.
-
-    This is used for an initial backfill. It includes an anchor observation at
-    ``start_at`` and then asks the provider for the value at each following UTC
-    midnight. Identical provider publications are emitted once, preserving the
-    actual signed timestamp so callers cannot use a NAV before publication.
-
-    :param feed:
-        Reviewed Securitize RedStone feed.
-    :param start_at:
-        Inclusive UTC history boundary.
-    :param end_at:
-        Inclusive UTC history boundary.
-    :param api_url:
-        Override for the public endpoint, primarily for integration tests.
-    :param timeout:
-        HTTP request timeout in seconds.
-    :return:
-        Oldest-to-newest distinct RedStone observations.
-    :raise ValueError:
-        If the requested time range is invalid.
-    """
-
-    start_at = _as_naive_utc(start_at)
-    end_at = _as_naive_utc(end_at)
-    if end_at < start_at:
-        message = "end_at must not be earlier than start_at"
-        raise ValueError(message)
-
-    seen_timestamps: set[datetime.datetime] = set()
-    checkpoint = start_at
-    while True:
-        price_point = fetch_redstone_price_at(feed, checkpoint, api_url=api_url, timeout=timeout)
-        if price_point is not None and price_point.timestamp not in seen_timestamps:
-            seen_timestamps.add(price_point.timestamp)
-            yield price_point
-        if checkpoint == end_at:
-            break
-        next_midnight = datetime.datetime.combine(checkpoint.date() + datetime.timedelta(days=1), datetime.time.min)
-        checkpoint = min(next_midnight, end_at)

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Backfill Securitize DSToken leads and supported price history.
+"""Backfill all reviewed Securitize leads and supported price history.
 
 This migration preserves unrelated vault database rows, reader states and
 Parquet histories. It upserts the reviewed products in
 ``SECURITIZE_PRODUCTS`` and rewrites price history only for products with an
-explicit adapter NAV estimate. DSToken contracts do not expose a universal
-fund-NAV method, so unpriced products are registered as leads but excluded from
+explicit adapter estimate or reviewed on-chain RedStone NAV feed. Products
+without an authoritative NAV source are registered as leads but excluded from
 the price scan.
 
 Run with::
@@ -62,11 +62,11 @@ from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_mu
 from eth_defi.provider.named import get_provider_name
 from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histories
 from eth_defi.securitize.description import SECURITIZE_PRODUCTS, SecuritizeProduct
-from eth_defi.securitize.share_price import create_securitize_share_price_transformer_factory
+from eth_defi.securitize.redstone import REDSTONE_SECURITIZE_FEEDS
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultBase, VaultSpec
-from eth_defi.vault.historical import pformat_scan_result, scan_historical_prices_to_parquet
+from eth_defi.vault.historical import ParquetScanResult, pformat_scan_result, scan_historical_prices_to_parquet
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
 
 logger = logging.getLogger(__name__)
@@ -164,6 +164,86 @@ def iter_products() -> Iterable[SecuritizeProduct]:
         if key not in seen:
             seen.add(key)
             yield product
+
+
+def has_historical_price(product: SecuritizeProduct) -> bool:
+    """Check whether the scanner can produce price history for a product.
+
+    Descriptive source labels are not executable configuration. A product is
+    price-capable only when it has a reviewed static estimate or an actual
+    RedStone feed registry entry.
+
+    :param product:
+        Reviewed Securitize product.
+    :return:
+        ``True`` when the historical reader can calculate NAV and TVL.
+    """
+
+    return product.estimated_nav_per_share is not None or (product.chain_id, product.token) in REDSTONE_SECURITIZE_FEEDS
+
+
+def create_price_row_report(
+    products: Iterable[SecuritizeProduct],
+    scan_result: ParquetScanResult | None,
+    *,
+    scan_enabled: bool,
+) -> list[dict[str, object]]:
+    """Create and validate the per-product historical row report.
+
+    Counts come from the scanner's existing in-memory export pass. The report
+    therefore does not reread the output Parquet file. A completed scan must
+    produce at least one non-null share-price row for every product whose
+    static estimate or RedStone feed is available in the scanned block range.
+
+    :param products:
+        Reviewed products on one chain.
+    :param scan_result:
+        Completed scan result, or ``None`` for a dry run or disabled scan.
+    :param scan_enabled:
+        Whether historical scanning was requested.
+    :return:
+        Tabular rows covering priced and metadata-only products.
+    :raises RuntimeError:
+        If an expected priced product emitted no non-null share-price rows.
+    """
+
+    report: list[dict[str, object]] = []
+    for product in products:
+        address = product.token.lower()
+        price_capable = has_historical_price(product)
+        if scan_result is None:
+            if not scan_enabled:
+                status = "disabled"
+            elif price_capable:
+                status = "planned"
+            else:
+                status = "no NAV source"
+            historical_rows: int | str = "-"
+            price_rows: int | str = "-"
+        else:
+            historical_rows = scan_result["rows_written_by_vault"].get(address, 0)
+            price_rows = scan_result["price_rows_written_by_vault"].get(address, 0)
+            status = "priced" if price_rows else "no price rows"
+            if not price_capable:
+                status = "no NAV source"
+
+            feed = REDSTONE_SECURITIZE_FEEDS.get((product.chain_id, product.token))
+            price_expected = product.estimated_nav_per_share is not None or (feed is not None and scan_result["end_block"] >= feed.first_block)
+            if price_expected and price_rows == 0:
+                raise RuntimeError(f"Securitize historical scan produced no share-price rows for {product.product_name} ({product.chain_id}:{product.token})")
+
+        report.append(
+            {
+                "chain": get_chain_name(product.chain_id),
+                "product": product.product_name,
+                "address": product.token,
+                "NAV source": product.nav_source,
+                "historical_rows": historical_rows,
+                "price_rows": price_rows,
+                "status": status,
+            }
+        )
+    return report
 
 
 def fetch_contract_deployment_block(web3: Web3, address: HexAddress, end_block: int) -> int:
@@ -479,8 +559,9 @@ def backfill_chain(  # noqa: PLR0914
         )
         vault_db.write(vault_db_path)
 
-    priced_products = [(product, deployment_block) for product, (deployment_block, _) in product_state.items() if product.estimated_nav_per_share is not None or product.nav_source != "unconfigured"]
+    priced_products = [(product, deployment_block) for product, (deployment_block, _) in product_state.items() if has_historical_price(product)]
     scan_summary = "-"
+    scan_result: ParquetScanResult | None = None
     if scan_prices and priced_products:
         vault_ids = {product.token.lower() for product, _ in priced_products}
         if dry_run:
@@ -506,7 +587,6 @@ def backfill_chain(  # noqa: PLR0914
                 reader_states=reader_states,
                 hypersync_client=hypersync_config.hypersync_client,
                 vault_addresses=vault_ids,
-                historical_read_transformer_factory=create_securitize_share_price_transformer_factory(priced_vaults, web3),
             )
             write_reader_states(reader_state_database_path, scan_result["reader_states"])
             scan_summary = pformat_scan_result(scan_result)
@@ -528,10 +608,11 @@ def backfill_chain(  # noqa: PLR0914
         "priced_products": len(priced_products),
         "metadata_rows": len(rows),
         "scan": scan_summary,
+        "price_row_report": create_price_row_report(products, scan_result, scan_enabled=scan_prices),
     }
 
 
-def main() -> None:
+def main() -> None:  # noqa: PLR0914
     """Run the targeted Securitize lead and price-history migration.
 
     The full registry is grouped by chain so future Securitize deployments can
@@ -563,7 +644,7 @@ def main() -> None:
             "chain_id": chain_id,
             "rpc": get_json_rpc_env(chain_id),
             "products": len(chain_products),
-            "priced_products": sum(product.estimated_nav_per_share is not None or product.nav_source != "unconfigured" for product in chain_products),
+            "priced_products": sum(has_historical_price(product) for product in chain_products),
         }
         for chain_id, chain_products in sorted(products_by_chain.items())
     ]
@@ -572,8 +653,10 @@ def main() -> None:
 
     vault_db = read_vault_database(vault_db_path)
     token_cache = TokenDiskCache()
-    summaries = [
-        backfill_chain(
+    summaries: list[dict[str, object]] = []
+    price_row_report: list[dict[str, object]] = []
+    for chain_id, chain_products in sorted(products_by_chain.items()):
+        summary = backfill_chain(
             chain_id,
             chain_products,
             dry_run=dry_run,
@@ -587,12 +670,14 @@ def main() -> None:
             reader_state_database_path=reader_state_database_path,
             token_cache=token_cache,
         )
-        for chain_id, chain_products in sorted(products_by_chain.items())
-    ]
+        price_row_report.extend(summary.pop("price_row_report"))
+        summaries.append(summary)
     if not dry_run:
         token_cache.commit()
     print("Securitize backfill summary")
     print(tabulate(summaries, headers="keys", tablefmt="github"))
+    print("Securitize historical rows by product")
+    print(tabulate(price_row_report, headers="keys", tablefmt="github"))
 
 
 if __name__ == "__main__":
