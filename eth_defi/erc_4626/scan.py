@@ -304,6 +304,7 @@ def create_vault_scan_record(
         "_flags": {},
         "_notes": None,
         "_deposit_manager": None,
+        "_share_price_source": None,
     }
 
     vault = create_vault_instance(
@@ -383,6 +384,7 @@ def create_vault_scan_record(
             "_short_description": short_description,
             "_notes": notes,
             "_manager_name": vault.manager_name,
+            "_share_price_source": vault.get_share_price_source(),
             "_morpho_offchain_data": vault.morpho_offchain_data if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,
             "_deposit_manager": deposit_manager_capability.as_initial_public_schema() if deposit_manager_capability else None,
         }

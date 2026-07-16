@@ -26,6 +26,7 @@ from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault_street.constants import (
     PRIME_USD_ADDRESS,
     PRIME_USD_DENOMINATION_TOKEN_ADDRESS,
@@ -284,6 +285,18 @@ class VaultStreetVault(VaultBase):
         """
 
         return Decimal(raw_price) / Decimal(10**PRIME_USD_PRICE_DECIMALS)
+
+    def get_share_price_source(self) -> PriceSource:
+        """Return the primeUSD NAV source classification.
+
+        The adapter reads the deployed ``PriceStorage`` oracle at the requested
+        block.
+
+        :return:
+            Smart-contract state source.
+        """
+
+        return PriceSource.smart_contract_state
 
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Fetch primeUSD NAV per token from the PriceStorage oracle.

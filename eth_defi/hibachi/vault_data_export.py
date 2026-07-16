@@ -38,6 +38,7 @@ from eth_defi.hibachi.daily_metrics import HibachiDailyMetricsDatabase
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
@@ -157,6 +158,7 @@ def create_hibachi_vault_row(
         "_deposit_next_open": None,
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,
+        "_share_price_source": PriceSource.api,
     }
 
     spec = VaultSpec(chain_id=chain_id, vault_address=address)

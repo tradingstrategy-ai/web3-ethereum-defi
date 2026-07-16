@@ -23,6 +23,7 @@ from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.price_source import PriceSource
 
 MASEER_ONE_DOCUMENTATION = "https://docs.wstgbp.com/"
 MASEER_ONE_NAV_SOURCE = "maseer_one_navprice"
@@ -294,6 +295,18 @@ class MaseerOneVault(VaultBase):
             cache=self.token_cache,
             cause_diagnostics_message=f"Maseer One denomination token for vault {self.address}",
         )
+
+    def get_share_price_source(self) -> PriceSource:
+        """Return the Maseer One NAV source classification.
+
+        The adapter reads ``navprice()`` from the product contract at the
+        requested block.
+
+        :return:
+            Smart-contract state source.
+        """
+
+        return PriceSource.smart_contract_state
 
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Read Maseer One NAV/share from ``navprice()``.

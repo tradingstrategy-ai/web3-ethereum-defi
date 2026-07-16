@@ -34,6 +34,7 @@ from eth_defi.types import Percent
 from eth_defi.utils import is_good_multichain_address
 from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManagerCapability
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.version_info import stamp_parquet_schema_metadata
 
 from .fee import FeeData, VaultFeeMode, get_vault_fee_mode
@@ -1093,6 +1094,20 @@ class VaultBase(ABC):
         - Returns None if the protocol does not expose separate manager metadata
         - Override in subclasses that support manager or operator metadata
         """
+        return None
+
+    def get_share_price_source(self) -> PriceSource | None:  # noqa: PLR6301
+        """Return the source used for share-price observations.
+
+        Vault integrations override this method when they expose a share
+        price. Returning ``None`` distinguishes unsupported or unknown pricing
+        from a known source classification.
+
+        :return:
+            Share-price source, or ``None`` when the adapter does not provide
+            one.
+        """
+
         return None
 
     def fetch_scan_record_extra_data(self) -> dict[str, object]:  # noqa: PLR6301

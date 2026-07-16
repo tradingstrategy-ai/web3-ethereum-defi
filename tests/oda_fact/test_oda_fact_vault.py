@@ -21,6 +21,7 @@ from eth_defi.oda_fact.vault import KINEXYS_WHITELISTED_FLOW_REASON, OdaFactVaul
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.price_source import PriceSource
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 JLTXX_EXPECTED_MANAGEMENT_FEE = 0.0016
@@ -211,6 +212,7 @@ def test_oda_fact_scan_record_live_jltxx(web3: Web3) -> None:
     assert "JLTXX fact sheet" in record["_notes"]
     assert record["_nav_source"] == "estimated_jltxx_usd_1"
     assert record["_nav_estimated"] is True
+    assert record["_share_price_source"] is PriceSource.fixed_price
     assert record["_synthetic_usd_denomination"] is True
     assert record["_gross_expense_ratio"] == JLTXX_EXPECTED_GROSS_EXPENSE_RATIO
     assert record["_net_expense_ratio"] == JLTXX_EXPECTED_MANAGEMENT_FEE
