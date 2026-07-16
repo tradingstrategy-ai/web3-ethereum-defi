@@ -124,29 +124,41 @@ def align_share_price_curve_to_anchor(
     anchor_timestamp: datetime.datetime | pd.Timestamp,
     anchor_share_price: float,
 ) -> pd.DataFrame | None:
-    """Align a newly reconstructed share-price curve to one persisted price.
+    """Resume a reconstructed share-price curve from one persisted price.
 
-    The exact timestamp is used when present. For the high-frequency scanner,
-    which may revisit a rolling window with shifted timestamps, the anchor is
-    interpolated in log-price space between bracketing observations. The
-    resulting constant factor is applied with
+    A positive persisted price is aligned at its exact timestamp, or
+    interpolated in log-price space between bracketing observations for the
+    high-frequency scanner. The resulting constant factor is applied with
     :py:func:`rescale_share_price_rows`, preserving NAV and supply.
 
+    A persisted zero may be a valid observation for a Hyperliquid vault whose
+    NAV was completely wiped out while synthetic supply remained. The scanner
+    cannot classify the zero as durable or transient at resume time, but zero
+    cannot be used as a scale factor in either case. The reconstructed curve
+    is therefore returned unchanged. Any later recapitalisation epoch is
+    selected and normalised by the wrangle pipeline. Negative and non-finite
+    persisted prices indicate invalid stored data and raise
+    :py:class:`ValueError`.
+
     :param prices_df:
-        Chronologically sorted DataFrame with a ``DatetimeIndex`` and finite
-        positive ``share_price`` values.
+        Chronologically sorted DataFrame with a ``DatetimeIndex`` and
+        ``share_price``, ``total_supply`` and ``total_assets`` columns.
     :param anchor_timestamp:
         Timestamp of the already persisted price.
     :param anchor_share_price:
-        Finite positive persisted share price to retain.
+        Finite non-negative persisted share price. Zero denotes a lifecycle
+        boundary that cannot anchor the reconstructed scale.
     :return:
-        Rescaled DataFrame, or ``None`` when the curve cannot be anchored
-        because the timestamp lies outside it or cannot be interpolated.
+        Rescaled or unchanged DataFrame, or ``None`` when a positive anchor
+        lies outside the curve or cannot be interpolated.
     """
-    if not math.isfinite(anchor_share_price) or anchor_share_price <= 0:
-        raise ValueError(f"Anchor share price must be finite and positive, got {anchor_share_price!r}")
+    if not math.isfinite(anchor_share_price) or anchor_share_price < 0:
+        raise ValueError(f"Anchor share price must be finite and non-negative, got {anchor_share_price!r}")
 
     curve = prices_df.copy()
+    if anchor_share_price == 0:
+        return curve
+
     timestamps = pd.DatetimeIndex(curve.index)
     anchor_timestamp = pd.Timestamp(anchor_timestamp)
     if len(curve) == 0 or anchor_timestamp < timestamps[0] or anchor_timestamp > timestamps[-1]:

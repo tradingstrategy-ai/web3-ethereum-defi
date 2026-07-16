@@ -65,6 +65,7 @@ from eth_defi.lighter.session import create_lighter_session
 from eth_defi.lighter.vault_data_export import merge_into_vault_database as lighter_merge_vault_db
 from eth_defi.provider.broken_provider import verify_archive_node
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
+from eth_defi.securitize.share_price import create_securitize_share_price_transformer_factory
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
@@ -602,6 +603,7 @@ def scan_prices_for_chain(
             frequency=frequency,
             reader_states=reader_states,
             hypersync_client=hypersync_config.hypersync_client,
+            historical_read_transformer_factory=create_securitize_share_price_transformer_factory(vaults, web3),
         )
 
         # Save reader states atomically to avoid corruption on interruption

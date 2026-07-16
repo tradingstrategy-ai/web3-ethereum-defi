@@ -1,0 +1,1 @@
+"""Asseto tokenised fund integration."""

@@ -39,14 +39,19 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    erc_4626/index
    enzyme/index
    aera/index
+   asseto/index
    atoma/index
    frankencoin/index
+   kiln/index
    lagoon/index
    mellow/index
    ipor/index
    kiloex/index
+   maseer_one/index
    midas/index
    oda_fact/index
+   securitize/index
+   vault_street/index
    royco/index
    velvet/index
    morpho/index

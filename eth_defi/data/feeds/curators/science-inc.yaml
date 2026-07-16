@@ -1,0 +1,14 @@
+feeder-id: science-inc
+name: Science Inc.
+role: curator
+website: https://www.science-inc.com/
+short_description: Science Inc. is a startup studio and investment firm that helps early-stage companies develop and grow.
+long_description: |
+  Science Inc. is a startup studio and investment firm that helps early-stage companies develop and grow. It works with founders on company creation, operations and investment.
+
+  For this integration, Science Inc. is the curator of Science Blockchain, its investment vehicle for early-stage blockchain companies.
+other-links:
+  - title: Science Inc. official entities overview
+    url: https://www.science-inc.com/entities.html
+  - title: Science Inc. official Science Blockchain overview
+    url: https://www.science-inc.com/blockchain.html

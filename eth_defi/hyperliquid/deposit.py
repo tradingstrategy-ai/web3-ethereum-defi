@@ -300,18 +300,28 @@ def _parse_vault_event(
         )
 
     elif delta_type == "vaultWithdraw":
+        # Hyperliquid commonly leaves ``usdc`` at zero for a completed vault
+        # withdrawal and reports the realised cash flow in ``netWithdrawnUsd``.
+        # ``usdc`` is the backwards-compatible signed flow field consumed by
+        # daily aggregation, so prefer the net amount whenever the API supplies
+        # it. This is essential for NAV = previous NAV + PnL + net flow
+        # reconciliation; using the zero placeholder turns real withdrawals
+        # into fictitious losses and makes a synthetic share-price spike look
+        # plausible.
+        net_withdrawn_usd = Decimal(str(delta["netWithdrawnUsd"])) if "netWithdrawnUsd" in delta else None
+        withdrawal_usdc = net_withdrawn_usd if net_withdrawn_usd is not None else Decimal(str(delta.get("usdc", "0")))
         return VaultDepositEvent(
             event_type=VaultEventType.vault_withdraw,
             vault_address=delta.get("vault", vault_address),
             user_address=delta.get("user"),
-            usdc=-abs(Decimal(str(delta.get("usdc", "0")))),  # Negative for outflows
+            usdc=-abs(withdrawal_usdc),  # Negative for outflows
             timestamp=update.timestamp,
             hash=update.hash,
             requested_usd=Decimal(str(delta.get("requestedUsd", "0"))) if "requestedUsd" in delta else None,
             commission=Decimal(str(delta.get("commission", "0"))) if "commission" in delta else None,
             closing_cost=Decimal(str(delta.get("closingCost", "0"))) if "closingCost" in delta else None,
             basis=Decimal(str(delta.get("basis", "0"))) if "basis" in delta else None,
-            net_withdrawn_usd=Decimal(str(delta.get("netWithdrawnUsd", "0"))) if "netWithdrawnUsd" in delta else None,
+            net_withdrawn_usd=net_withdrawn_usd,
         )
 
     elif delta_type == "vaultDistribution":

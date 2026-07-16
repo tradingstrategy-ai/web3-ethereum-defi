@@ -1,0 +1,16 @@
+feeder-id: spice-vc
+name: SPiCE VC
+role: curator
+website: https://spicevc.com/
+short_description: SPiCE VC is a venture-capital firm investing in blockchain and tokenisation businesses.
+long_description: |
+  SPiCE VC is a venture-capital firm that invests in companies building the blockchain and tokenisation ecosystem. It manages a portfolio of early-stage businesses in this market.
+
+  For this integration, SPiCE VC is the curator of the SPiCE Venture Capital Fund.
+other-links:
+  - title: SPiCE VC official firm and fund overview
+    url: https://spicevc.com/about.html
+  - title: SPiCE VC official portfolio overview
+    url: https://spicevc.com/portfolio.html
+  - title: SPiCE VC official NAV reports
+    url: https://spicevc.com/nav-reports.html

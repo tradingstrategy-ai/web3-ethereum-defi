@@ -1,0 +1,16 @@
+feeder-id: cms-asset-management-hk
+name: CMS Asset Management (HK)
+role: curator
+asseto-role: CMS Asset Management (HK)
+website: https://www.cmschina.com.hk/en/AM/Profile
+short_description: CMS Asset Management (HK) is a Hong Kong licensed asset manager providing fund management and investment advisory services.
+long_description: |
+  CMS Asset Management (HK) is the asset-management platform of China Merchants Securities International. Its official profile describes cross-border asset management, investment consulting, fund management and personal wealth-management services under Hong Kong Type 4 and Type 9 licences.
+  Asseto lists CMS Asset Management (HK) in its public product partner data as the investment manager or investment advisor for Asseto tokenised fund products.
+
+# Evidence and background references.
+other-links:
+  - title: CMS Asset Management (HK) - official asset-management profile
+    url: https://www.cmschina.com.hk/en/AM/Profile
+  - title: Asseto product application - public partner roles for Asseto products
+    url: https://asseto.finance/product

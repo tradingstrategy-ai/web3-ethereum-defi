@@ -3,7 +3,41 @@
 from pathlib import Path
 
 from eth_defi.midas.registry import iter_midas_registry_products
-from eth_defi.vault.curator import build_curator_metadata_json, get_curator_name, identify_curator, is_protocol_curator
+from eth_defi.vault.curator import build_curator_metadata_json, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
+
+
+def test_identify_securitize_fund_curators() -> None:
+    """Map high-value DSToken funds to their asset-manager curators."""
+
+    expected_curators = {
+        "0x7712c34205737192402172409a8f7ccef8aa2aec": "blackrock",
+        "0x6a9da2d710bb9b700acde7cb81f10f1ff8c89041": "blackrock",
+        "0x17418038ecf73ba4026c4f428547bf099706f27b": "apollo",
+        "0x2255718832bc9fd3be1caf75084f4803da14ff01": "vaneck",
+        "0x51c2d74017390cbbd30550179a16a1c28f7210fc": "bny-investments",
+        "0x252739487c1fa66eaeae7ced41d6358ab2a6bca9": "arca",
+        "0x0324dd195d0cd53f9f07bee6a48ee7a20bad738f": "spice-vc",
+        "0xda2ffa104356688e74d9340519b8c17f00d7752e": "hamilton-lane",
+        "0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9": "blockchain-capital",
+        "0xc0c61c29ef8beabc694987c93e5fe4af647042e7": "cosimo-digital",
+        "0x682ef9cc637ef56577092b29ae9275a629aae7db": "science-inc",
+        "0x5e17f6f450dcb0bc69b232ea554e224d7e88067a": "protos-asset-management",
+    }
+
+    for address, expected_slug in expected_curators.items():
+        assert identify_curator(1, "", "Securitize DSToken", address, "securitize") == expected_slug
+
+
+def test_securitize_fund_curator_metadata_includes_logo() -> None:
+    """Export generic logo URLs for Securitize curators with verified assets."""
+
+    for slug in ("blackrock", "apollo", "vaneck", "bny-investments", "arca", "spice-vc", "hamilton-lane", "blockchain-capital", "cosimo-digital", "science-inc"):
+        metadata = build_curator_metadata_json(
+            Path(f"eth_defi/data/feeds/curators/{slug}.yaml"),
+            public_url="https://example.com",
+        )
+
+        assert metadata["logos"]["generic"] == f"https://example.com/curator-metadata/{slug}/generic.png"
 
 
 def test_identify_felix_vault() -> None:
@@ -192,6 +226,38 @@ def test_identify_morpho_curator_by_curator_metadata() -> None:
     assert slug == "gauntlet"
 
 
+def test_identify_galaxy_morpho_curator_by_curator_metadata() -> None:
+    """Galaxy Curation maps to the Galaxy curator through Morpho manager metadata."""
+
+    assert load_curator_map()["galaxy"]["protocol_manager_names"]["morpho"] == "Galaxy Curation"
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="",
+        vault_name="Institutional USDC Vault",
+        vault_address="0x0000000000000000000000000000000000000014",
+        protocol_slug="morpho",
+        manager_name="Galaxy Curation",
+    )
+
+    assert slug == "galaxy"
+
+
+def test_galaxy_has_all_curator_logo_variants() -> None:
+    """Galaxy curator metadata publishes generic, dark and light logo URLs."""
+
+    metadata = build_curator_metadata_json(
+        Path("eth_defi/data/feeds/curators/galaxy.yaml"),
+        public_url="https://example.com",
+    )
+
+    assert metadata["logos"] == {
+        "generic": "https://example.com/curator-metadata/galaxy/generic.png",
+        "dark": "https://example.com/curator-metadata/galaxy/dark.png",
+        "light": "https://example.com/curator-metadata/galaxy/light.png",
+    }
+
+
 def test_identify_m11_credit_curator() -> None:
     """M11 Credit resolves from Morpho manager metadata and M11C vault names."""
 
@@ -258,6 +324,15 @@ def test_identify_t3tris_curator_by_curator_metadata() -> None:
 
     assert slug == "first-capital"
     assert get_curator_name("first-capital") == "First Capital"
+
+
+def test_identify_asseto_curator_by_priority_partner_role() -> None:
+    """Asseto investment manager/advisor names resolve through curator YAML."""
+
+    assert identify_curator(1, "", "", "0x0", "asseto", "CMS Asset Management (HK)") == "cms-asset-management-hk"
+    assert identify_curator(1, "", "", "0x0", "asseto", "DL Holdings") == "dl-holdings"
+    assert identify_curator(1, "", "", "0x0", "asseto", "Four Seasons") == "four-seasons"
+    assert identify_curator(1, "", "", "0x0", "asseto", "DFZQ / Orient Securities International") == "dfzq"
 
 
 def test_identify_rockawayx_dashboard_vaults_by_address() -> None:
@@ -687,7 +762,7 @@ def test_identify_vault_name_sweep_curators() -> None:
     """Curators discovered from the vault-name sweep resolve on their vaults.
 
     These were added by mining unmatched vault names across Morpho, Euler,
-    Lagoon and Kiln Metavault.  Most match via their YAML ``name``; Keyring
+    Lagoon and Kiln.  Most match via their YAML ``name``; Keyring
     matches via an explicit short-brand pattern because its vaults are named
     "Keyring zkVerified Cluster".
 
@@ -702,8 +777,8 @@ def test_identify_vault_name_sweep_curators() -> None:
         ("morpho", "Hyperbeat USDC Lending Optimizer"): "hyperbeat",
         ("euler", "Lista DAO USD1 Vault"): "lista-dao",
         ("euler", "Keyring zkVerified Cluster"): "keyring-network",
-        ("kiln-metavault", "Trust Wallet AAVE v3 USDT"): "trust-wallet",
-        ("kiln-metavault", "Cool Wallet AAVEv3 USDC"): "cool-wallet",
+        ("kiln", "Trust Wallet AAVE v3 USDT"): "trust-wallet",
+        ("kiln", "Cool Wallet AAVEv3 USDC"): "cool-wallet",
         ("lagoon-finance", "Mt Pelerin - USD strategy pool"): "mt-pelerin",
         ("euler", "HypurrFi Earn USDC"): "hypurrfi",
         ("lagoon-finance", "DAMM Stablecoin Fund"): "damm-capital",

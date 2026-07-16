@@ -18,6 +18,7 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Exception
 
+from eth_defi.abi import ZERO_ADDRESS
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.midas.constants import MIDAS_PRODUCTS
 from eth_defi.midas.historical import MidasVaultHistoricalReader
@@ -25,6 +26,7 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
 MIDAS_HOMEPAGE = "https://midas.app/products"
@@ -71,6 +73,13 @@ MIDAS_AGGREGATOR_V3_ABI = [
 MIDAS_MANAGEABLE_VAULT_ABI = [
     {
         "inputs": [],
+        "name": "getPaymentTokens",
+        "outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
         "name": "instantFee",
         "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
         "stateMutability": "view",
@@ -100,7 +109,8 @@ class MidasVaultInfo(VaultInfo, total=False):
     #: Midas redemption vault contract.
     redemption_vault: HexAddress | None
 
-    #: Whether NAV uses a synthetic denomination token in scanner output.
+    #: Whether the scanner used the off-chain USD fallback because no payment
+    #: token was available.
     synthetic_usd_denomination: bool
 
     #: NAV source label.
@@ -126,11 +136,11 @@ def convert_midas_fee_to_percent(raw_fee: int) -> Percent:
 
 
 def export_midas_usd_denomination(chain_id: int) -> dict[str, object]:
-    """Export synthetic USD accounting denomination metadata.
+    """Export the off-chain USD fallback denomination metadata.
 
-    Midas USD products publish NAV in USD units but do not expose an ERC-4626
-    ``asset()`` token. The scanner can still label the denomination as USD
-    without pretending that there is a depositable ERC-20 denomination token.
+    This is used only when a Midas issuance vault has no configured ERC-20
+    payment token. It records the product's USD accounting label without
+    inventing an ERC-20 address.
 
     :param chain_id:
         Chain id for the scan row.
@@ -165,11 +175,31 @@ def _checksum_or_none(address: HexAddress | None) -> HexAddress | None:
 
 
 class MidasVault(VaultBase):
-    """Scan-only adapter for Midas mToken products.
+    """Scan-only adapter for Midas ``mToken`` investment products.
 
-    The adapter reads ERC-20 supply from the mToken and NAV/share from the
-    Midas datafeed contract. Active issuance and redemption are intentionally
-    unsupported because Midas does not implement ERC-4626/ERC-7540 flows.
+    Midas product architecture differs materially from ERC-4626. The mToken
+    is the share token, while separate issuance and redemption vault contracts
+    perform deposits and withdrawals. NAV/share is published by Midas'
+    ``IDataFeed`` and is independent of any ERC-20 used to pay for an
+    issuance. Consequently this adapter must not call ERC-4626 ``asset()`` or
+    imply that a payment token controls the mToken's NAV denomination.
+
+    Instead, an issuance vault inherits Midas'
+    `ManageableVault <https://github.com/midas-apps/contracts/blob/main/contracts/abstract/ManageableVault.sol>`__
+    implementation. It maintains a mutable ``_paymentTokens`` set and exposes
+    it through ``getPaymentTokens()``; Midas administrators can add or remove
+    accepted payment tokens. :py:meth:`fetch_payment_tokens` reads this
+    authoritative live list. Since the shared vault schema presently has one
+    ERC-20 denomination field, the adapter exports the first returned payment
+    token as a compatibility choice. That order is not an assertion that Midas
+    regards it as a canonical or preferred settlement currency.
+
+    If an issuance vault is absent, returns no ERC-20 payment tokens, or only
+    returns the zero-address ``MANUAL_FULLFILMENT_TOKEN`` sentinel, the adapter
+    exports synthetic off-chain USD. This preserves the USD accounting label
+    without inventing an ERC-20 address. Active issuance and redemption remain
+    intentionally unsupported because Midas does not implement
+    ERC-4626/ERC-7540 flows.
     """
 
     def __init__(
@@ -292,12 +322,18 @@ class MidasVault(VaultBase):
     def description(self) -> str | None:
         """Human-readable product description."""
 
+        metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
+        if metadata:
+            return metadata.description
         return self.product.product_name
 
     @property
     def short_description(self) -> str | None:
         """Short product description."""
 
+        metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
+        if metadata:
+            return metadata.short_description
         return "Midas tokenised investment product with NAV published through the Midas oracle pipeline"
 
     @property
@@ -333,28 +369,115 @@ class MidasVault(VaultBase):
             cause_diagnostics_message=f"Midas share token for vault {self.address}",
         )
 
-    def fetch_denomination_token_address(self) -> HexAddress | None:
-        """Return the ERC-20 denomination token address.
+    def fetch_payment_tokens(self) -> list[TokenDetails]:
+        """Fetch ERC-20 payment tokens accepted by the Midas issuance vault.
 
-        Midas products use NAV feeds rather than ERC-4626 ``asset()`` tokens.
-        The initial supported products are USD-denominated, represented with a
-        synthetic scanner denomination.
+        Midas products have no ERC-4626 ``asset()`` method. Their separate
+        issuance contracts inherit
+        `ManageableVault <https://github.com/midas-apps/contracts/blob/main/contracts/abstract/ManageableVault.sol>`__,
+        whose ``getPaymentTokens()`` method returns its internal
+        ``_paymentTokens`` set. This is the authoritative on-chain list of
+        ERC-20 tokens accepted to pay for a deposit. The companion
+        `DepositVault implementation <https://github.com/midas-apps/contracts/blob/main/contracts/DepositVault.sol>`__
+        converts the supplied ``tokenIn`` amount to USD before calculating the
+        mToken mint amount. Therefore a returned payment token is a settlement
+        route, not necessarily the currency used by the product's NAV feed.
+
+        The set is mutable: Midas vault administrators may add and remove
+        payment tokens, so this method intentionally performs a live read and
+        does not cache the returned list. The contract uses OpenZeppelin's
+        enumerable set, whose returned order is an implementation order rather
+        than an explicit Midas preference. We preserve it exactly because
+        :py:meth:`fetch_primary_payment_token` must choose one token for the
+        shared single-denomination schema; it selects the first item solely as
+        that compatibility rule.
+
+        Midas also defines ``MANUAL_FULLFILMENT_TOKEN`` as the zero address for
+        an off-chain USD bank-transfer route. Current supported products return
+        ERC-20 addresses, but this method filters a zero-address entry so it
+        cannot be mistaken for a transferable ERC-20. When there is no
+        issuance vault, there are no ERC-20 entries, or the returned list only
+        has the manual-fulfilment sentinel, this method returns an empty list.
+        The scan export then falls back to synthetic off-chain USD instead of
+        inventing a token address.
 
         :return:
-            Always ``None`` for the current Midas adapter.
+            Payment-token details in the contract-returned order, or an empty
+            list when the product has no issuance vault or configured ERC-20
+            payment tokens.
         """
 
-        return None
+        issuance_vault = self.issuance_vault_contract
+        if issuance_vault is None:
+            return []
+
+        block_identifier = self.default_block_identifier or "latest"
+        payment_token_addresses = issuance_vault.functions.getPaymentTokens().call(block_identifier=block_identifier)
+        return [
+            fetch_erc20_details(
+                self.web3,
+                Web3.to_checksum_address(address),
+                chain_id=self.chain_id,
+                raise_on_error=False,
+                cache=self.token_cache,
+                cause_diagnostics_message=f"Midas payment token for vault {self.address}",
+            )
+            for address in payment_token_addresses
+            if address.lower() != ZERO_ADDRESS
+        ]
+
+    def fetch_primary_payment_token(self) -> TokenDetails | None:
+        """Fetch the primary Midas payment token for schema compatibility.
+
+        Midas exposes a set of accepted payment tokens, rather than an
+        ERC-4626 ``asset()`` token. The shared :class:`VaultBase` API has one
+        denomination-token slot, however, so Midas adapters define the first
+        ERC-20 returned by
+        `ManageableVault.getPaymentTokens() <https://github.com/midas-apps/contracts/blob/main/contracts/abstract/ManageableVault.sol>`__
+        as the primary payment token. This is a compatibility convention, not
+        a claim that the token denominates the USD NAV calculated by Midas'
+        `DepositVault <https://github.com/midas-apps/contracts/blob/main/contracts/DepositVault.sol>`__.
+
+        :return:
+            The first non-zero payment token in contract-returned order, or
+            ``None`` when the scanner must use its off-chain USD fallback.
+        """
+
+        payment_tokens = self.fetch_payment_tokens()
+        return payment_tokens[0] if payment_tokens else None
+
+    def fetch_denomination_token_address(self) -> HexAddress | None:
+        """Return the primary Midas payment-token address.
+
+        Midas issuance vaults may accept several payment tokens. The common
+        :class:`VaultBase` schema has one denomination-token field, so this
+        method returns the address of :py:meth:`fetch_primary_payment_token`.
+        If the contract returns no ERC-20 payment tokens, the scan export uses
+        synthetic off-chain USD.
+
+        :return:
+            Primary payment-token address, or ``None`` when no token is
+            configured.
+        """
+
+        denomination_token = self.fetch_denomination_token()
+        return denomination_token.address if denomination_token else None
 
     def fetch_denomination_token(self) -> TokenDetails | None:
-        """Fetch ERC-20 denomination token metadata.
+        """Expose the primary Midas payment token through :class:`VaultBase`.
+
+        This override fulfils the :class:`VaultBase` denomination-token API for
+        a non-ERC-4626 Midas product. It deliberately returns
+        :py:meth:`fetch_primary_payment_token`, allowing the shared scanner to
+        cache and export the primary accepted payment token in
+        :py:attr:`VaultBase.denomination_token`.
 
         :return:
-            Always ``None`` because Midas products do not expose an ERC-4626
-            denomination token.
+            Primary payment token, or ``None`` when the scanner must use the
+            off-chain USD fallback.
         """
 
-        return None
+        return self.fetch_primary_payment_token()
 
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Fetch Midas NAV per mToken.
@@ -428,6 +551,7 @@ class MidasVault(VaultBase):
             Token and NAV-source metadata.
         """
 
+        denomination_token = self.denomination_token
         return MidasVaultInfo(
             token=self.address,
             chain_id=self.chain_id,
@@ -435,8 +559,8 @@ class MidasVault(VaultBase):
             oracle=_checksum_or_none(self.product.oracle),
             issuance_vault=_checksum_or_none(self.product.issuance_vault),
             redemption_vault=_checksum_or_none(self.product.redemption_vault),
-            denomination_token=self.fetch_denomination_token_address(),
-            synthetic_usd_denomination=self.product.denomination == "USD",
+            denomination_token=denomination_token.address if denomination_token else None,
+            synthetic_usd_denomination=denomination_token is None,
             nav_source=MIDAS_NAV_SOURCE,
             nav_estimated=False,
         )
@@ -449,15 +573,17 @@ class MidasVault(VaultBase):
             Midas contracts.
         """
 
+        denomination_token = self.denomination_token
+        synthetic_usd_denomination = denomination_token is None
         return {
-            "Denomination": self.product.denomination,
-            "_denomination_token": export_midas_usd_denomination(self.chain_id),
+            "Denomination": denomination_token.symbol if denomination_token else "USD",
+            "_denomination_token": denomination_token.export() if denomination_token else export_midas_usd_denomination(self.chain_id),
             "_notes": self.get_notes(),
             "_deposit_closed_reason": self.fetch_deposit_closed_reason(),
             "_redemption_closed_reason": self.fetch_redemption_closed_reason(),
             "_nav_source": MIDAS_NAV_SOURCE,
             "_nav_estimated": False,
-            "_synthetic_usd_denomination": self.product.denomination == "USD",
+            "_synthetic_usd_denomination": synthetic_usd_denomination,
             "_midas_data_feed": Web3.to_checksum_address(self.product.data_feed),
             "_midas_oracle": _checksum_or_none(self.product.oracle),
             "_midas_issuance_vault": _checksum_or_none(self.product.issuance_vault),
@@ -633,4 +759,5 @@ class MidasVault(VaultBase):
             Midas product listing URL.
         """
 
-        return MIDAS_HOMEPAGE
+        metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
+        return metadata.link if metadata else MIDAS_HOMEPAGE

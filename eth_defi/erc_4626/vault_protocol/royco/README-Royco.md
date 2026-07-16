@@ -268,23 +268,12 @@ cp ~/.tradingstrategy/vaults/reader-state.pickle \
    ~/.tradingstrategy/vaults/backups/reader-state.before-royco-rescan.pickle
 ```
 
-### 2. Deprecated fallback: rediscover Royco leads
+### 2. Rediscover Royco leads
 
-`RESET_LEADS` is deprecated for protocol backfills. Prefer the recommended
-targeted backfill approach in
-[`README-vault-scripts.md`](../../../../scripts/erc-4626/README-vault-scripts.md#recommended-targeted-backfill-for-new-vault-protocols)
-when the protocol has an API, registry, factory query, or operator-curated
-address list.
-
-```shell
-source .local-test.env && \
-# Deprecated fallback.
-RESET_LEADS=1 \
-SCAN_BACKEND=hypersync \
-LOG_LEVEL=info \
-JSON_RPC_URL="$JSON_RPC_ETHEREUM" \
-poetry run python scripts/erc-4626/scan-vaults.py
-```
+Historical lead recovery requires a generated, Royco-specific migration script
+that upserts only Royco addresses. The incremental scanner never rereads old
+events and no longer supports whole-chain lead resets. See
+[`README-vault-leads.md`](../../README-vault-leads.md).
 
 ### 3. Build Royco API vault ids
 

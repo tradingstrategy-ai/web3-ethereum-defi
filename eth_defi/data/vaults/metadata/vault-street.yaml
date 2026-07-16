@@ -1,0 +1,35 @@
+name: Vault Street
+slug: vault-street
+short_description: |
+  Permissioned institutional USDC yield products.
+long_description: |
+  [Vault Street](https://vaultstreet.com/) is Resolv's institutional platform for
+  tokenised investment products. Resolv announced the launch of primeUSD in its
+  [launch post](https://x.com/ResolvLabs/status/2077020041128935900).
+
+  [primeUSD](https://docs.vaultstreet.com/overview/primeusd.md) is a
+  permissioned, USDC-denominated yield product for eligible institutional
+  participants. It aims to provide institutional access to the yield from a
+  leveraged carry strategy backed by tokenised investment-grade fixed-income
+  collateral. Participants should review the product documentation for
+  eligibility, terms and current availability.
+fee_description: |
+  Vault Street lists a 0.5% protocol fee that accrues daily and is deducted
+  from the vault, with no performance fee. It does not list separate entry or
+  redemption fees.
+links:
+  homepage: https://vaultstreet.com/
+  app:
+  twitter: https://x.com/ResolvLabs
+  github:
+  documentation: https://docs.vaultstreet.com/resources/smart-contracts.md
+  fact_sheet: https://docs.vaultstreet.com/overview/primeusd.md
+  defillama:
+  audits:
+  fees: https://app.vaultstreet.com/
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/vault_street/index.html
+example_smart_contracts:
+  - https://etherscan.io/token/0x7ea76108975ec0998b9bc2db04b4eca986400dd7
+  - https://etherscan.io/address/0x8cda03e2004c35e07963fb792c6b7511dabee369
+  - https://etherscan.io/address/0x8c14b6e8ec9968cd9c69eedea4a1295aec5e5d6e

@@ -628,7 +628,20 @@ class VaultDepositManager(ABC):
     def finish_redemption(
         self,
         redemption_ticket: RedemptionTicket,
-    ) -> ContractFunction:
+    ) -> ContractFunction | None:
+        """Build the depositor-owned final redemption transaction when one exists.
+
+        Some asynchronous vaults, such as Ember, transfer funds directly from
+        an operator transaction. They deliberately return ``None`` here: an
+        asset manager must not attempt to invoke an operator-only settlement
+        method on behalf of its depositor.
+
+        :param redemption_ticket:
+            Persisted asynchronous redemption request.
+        :return:
+            Bound depositor claim call, or ``None`` when the protocol has no
+            depositor-owned finish action.
+        """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement settle_redemption()")
 
     @abstractmethod
@@ -653,7 +666,7 @@ class VaultDepositManager(ABC):
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay()")
 
     @abstractmethod
-    def get_redemption_delay_over(self, address: HexAddress | str) -> datetime.datetime:
+    def get_redemption_delay_over(self, address: HexAddress | str) -> datetime.datetime | None:
         """Get the redemption timer left for an address.
 
         - How long it takes before a redemption request is allowed
@@ -666,12 +679,31 @@ class VaultDepositManager(ABC):
         :return:
             UTC timestamp when the account can redeem.
 
-            Naive datetime.
+            Naive datetime, or ``None`` when the protocol has no deterministic
+            on-chain deadline.
 
         :raises NotImplementedError:
             If not implemented for this vault protocoll.
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay_over()")
+
+    def fetch_completed_redemption_tx_hash(
+        self,
+        ticket: RedemptionTicket,
+    ) -> HexBytes | None:
+        """Find an operator-owned terminal redemption transaction when available.
+
+        Claim-based protocols finish through :meth:`finish_redemption` and do
+        not need this lookup. Operator-finalised protocols override the hook to
+        find and validate the transaction that paid the requested receiver.
+
+        :param ticket:
+            Persisted redemption request to locate.
+        :return:
+            Terminal transaction hash, or ``None`` if the protocol has not
+            observed one yet.
+        """
+        return None
 
     def get_deposit_delay_over(self, address: HexAddress | str) -> datetime.datetime | None:
         """Estimate when a pending async deposit request will settle.

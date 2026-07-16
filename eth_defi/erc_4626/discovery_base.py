@@ -9,6 +9,7 @@
 - Supports Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
 - Supports Atoma WithdrawalClaimed events
 - Supports T3tris DepositRequest/RedeemRequest events
+- Supports Securitize DSToken Issue events
 """
 
 import abc
@@ -18,20 +19,35 @@ import enum
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING, Type, TypeAlias
 
 from eth_typing import HexAddress
 from web3.contract.contract import ContractEvent
 
 from eth_defi.abi import get_contract
+from eth_defi.asseto.constants import ASSETO_HARDCODED_LEADS
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import ODA_FACT_HARDCODED_LEADS, probe_vaults
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_erc_4626_contract
+from eth_defi.maseer_one.constants import MASEER_ONE_HARDCODED_LEADS
 from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
+from eth_defi.vault_street.constants import VAULT_STREET_HARDCODED_LEADS
 
 logger = logging.getLogger(__name__)
+
+HardcodedVaultLead: TypeAlias = tuple[int, HexAddress, int, datetime.datetime]
+HardcodedVaultLeadSource: TypeAlias = tuple[str, tuple[HardcodedVaultLead, ...]]
+HardcodedVaultLeadSources: TypeAlias = tuple[HardcodedVaultLeadSource, ...]
+
+#: Protocol deployments that cannot be discovered from supported vault events.
+DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
+    ("ODA-FACT", ODA_FACT_HARDCODED_LEADS),
+    ("Midas", MIDAS_HARDCODED_LEADS),
+    ("Maseer One", MASEER_ONE_HARDCODED_LEADS),
+    ("Vault Street", VAULT_STREET_HARDCODED_LEADS),
+)
 
 if TYPE_CHECKING:
     from eth_defi.mellow.discovery import MellowFactoryCandidate
@@ -362,6 +378,37 @@ def get_t3tris_vault_discovery_events(web3) -> list[type[ContractEvent]]:
     ]
 
 
+def get_securitize_dstoken_discovery_events(web3) -> list[Type[ContractEvent]]:
+    """Get Securitize DSToken issuance events used for lead discovery.
+
+    DSTokens are non-ERC-4626 security tokens. Their ``Issue`` event identifies
+    token issuance and gives the scanner a candidate lead; ABI probes
+    subsequently reject unrelated contracts that happen to emit a similarly
+    shaped event. Issuance is not necessarily a cash subscription.
+
+    :param web3:
+        Web3 connection used to construct the event ABI.
+    :return:
+        The DSToken ``Issue`` event type.
+    """
+
+    dstoken_contract = web3.eth.contract(
+        abi=[
+            {
+                "anonymous": False,
+                "inputs": [
+                    {"indexed": True, "internalType": "address", "name": "to", "type": "address"},
+                    {"indexed": False, "internalType": "uint256", "name": "value", "type": "uint256"},
+                    {"indexed": False, "internalType": "uint256", "name": "valueLocked", "type": "uint256"},
+                ],
+                "name": "Issue",
+                "type": "event",
+            }
+        ]
+    )
+    return [dstoken_contract.events.Issue]
+
+
 def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get all events used in vault discovery, including protocol-specific ones.
 
@@ -374,6 +421,7 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     - Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
     - Atoma WithdrawalClaimed event
     - T3tris DepositRequest/RedeemRequest events
+    - Securitize DSToken Issue event
 
     :return:
         List of contract event types in order:
@@ -384,9 +432,10 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
          UpshiftMultiAsset.Deposit, UpshiftMultiAsset.WithdrawalRequested,
          UpshiftMultiAsset.WithdrawalProcessed,
          AtomaVault.WithdrawalClaimed,
-         T3trisVault.DepositRequest, T3trisVault.RedeemRequest]
+         T3trisVault.DepositRequest, T3trisVault.RedeemRequest,
+         SecuritizeDSToken.Issue]
     """
-    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3) + get_upshift_multi_asset_discovery_events(web3) + get_atoma_vault_discovery_events(web3) + get_t3tris_vault_discovery_events(web3)
+    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3) + get_upshift_multi_asset_discovery_events(web3) + get_atoma_vault_discovery_events(web3) + get_t3tris_vault_discovery_events(web3) + get_securitize_dstoken_discovery_events(web3)
 
 
 def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
@@ -399,33 +448,18 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
     """
     from eth_defi.abi import get_topic_signature_from_event
 
-    erc4626_events = get_standard_erc_4626_vault_discovery_events(web3)
-    brink_events = get_brink_vault_discovery_events(web3)
-    ember_events = get_ember_vault_discovery_events(web3)
-    token_gateway_events = get_token_gateway_discovery_events(web3)
-    royco_tranche_events = get_royco_tranche_discovery_events(web3)
-    upshift_multi_asset_events = get_upshift_multi_asset_discovery_events(web3)
-    atoma_vault_events = get_atoma_vault_discovery_events(web3)
-    t3tris_vault_events = get_t3tris_vault_discovery_events(web3)
-
-    return {
-        get_topic_signature_from_event(erc4626_events[0]): VaultEventKind.deposit,
-        get_topic_signature_from_event(erc4626_events[1]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(brink_events[0]): VaultEventKind.deposit,
-        get_topic_signature_from_event(brink_events[1]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(ember_events[0]): VaultEventKind.deposit,
-        get_topic_signature_from_event(ember_events[1]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(token_gateway_events[0]): VaultEventKind.deposit,
-        get_topic_signature_from_event(token_gateway_events[1]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(token_gateway_events[2]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(royco_tranche_events[0]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(upshift_multi_asset_events[0]): VaultEventKind.deposit,
-        get_topic_signature_from_event(upshift_multi_asset_events[1]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(upshift_multi_asset_events[2]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(atoma_vault_events[0]): VaultEventKind.withdraw,
-        get_topic_signature_from_event(t3tris_vault_events[0]): VaultEventKind.deposit,
-        get_topic_signature_from_event(t3tris_vault_events[1]): VaultEventKind.withdraw,
-    }
+    event_groups = (
+        (get_standard_erc_4626_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
+        (get_brink_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
+        (get_ember_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
+        (get_token_gateway_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw, VaultEventKind.withdraw)),
+        (get_royco_tranche_discovery_events(web3), (VaultEventKind.withdraw,)),
+        (get_upshift_multi_asset_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw, VaultEventKind.withdraw)),
+        (get_atoma_vault_discovery_events(web3), (VaultEventKind.withdraw,)),
+        (get_t3tris_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
+        (get_securitize_dstoken_discovery_events(web3), (VaultEventKind.deposit,)),
+    )
+    return {get_topic_signature_from_event(event): event_kind for events, event_kinds in event_groups for event, event_kind in zip(events, event_kinds, strict=True)}
 
 
 def is_deposit_event(event_kind: VaultEventKind) -> bool:
@@ -576,11 +610,16 @@ class VaultDiscoveryBase(abc.ABC):
         start_block: int,
         end_block: int,
         display_progress=True,
+        hardcoded_lead_sources: HardcodedVaultLeadSources | None = None,
     ) -> LeadScanReport:
         """Scan vaults.
 
         - Detect vault leads by events using :py:meth:`scan_potential_vaults`
         - Then perform multicall probing for each vault smart contract to detect protocol
+
+        :param hardcoded_lead_sources:
+            Protocol-labelled deployments that cannot be discovered from
+            supported vault events. Uses the production protocol set by default.
         """
 
         chain = self.web3.eth.chain_id
@@ -604,22 +643,26 @@ class VaultDiscoveryBase(abc.ABC):
 
         assert type(leads) == dict, f"Expected dict, got {type(leads)}"
 
-        for lead_chain, address, first_seen_at_block, first_seen_at in ODA_FACT_HARDCODED_LEADS:
-            if lead_chain != chain or end_block < first_seen_at_block:
-                continue
-            if address not in leads:
-                leads[address] = PotentialVaultMatch(
-                    chain=chain,
-                    address=address,
-                    first_seen_at_block=first_seen_at_block,
-                    first_seen_at=first_seen_at,
-                    deposit_count=0,
-                    withdrawal_count=0,
-                )
-                report.new_leads += 1
-                logger.info("Added hardcoded ODA-FACT vault lead %s", address)
+        if hardcoded_lead_sources is None:
+            hardcoded_lead_sources = DEFAULT_HARDCODED_VAULT_LEAD_SOURCES
 
-        for lead_chain, address, first_seen_at_block, first_seen_at in MIDAS_HARDCODED_LEADS:
+        for protocol_name, protocol_leads in hardcoded_lead_sources:
+            for lead_chain, address, first_seen_at_block, first_seen_at in protocol_leads:
+                if lead_chain != chain or end_block < first_seen_at_block or address in leads:
+                    continue
+
+                leads[address] = PotentialVaultMatch(
+                    chain=chain,
+                    address=address,
+                    first_seen_at_block=first_seen_at_block,
+                    first_seen_at=first_seen_at,
+                    deposit_count=0,
+                    withdrawal_count=0,
+                )
+                report.new_leads += 1
+                logger.info("Added hardcoded %s vault lead %s", protocol_name, address)
+
+        for lead_chain, address, first_seen_at_block, first_seen_at in ASSETO_HARDCODED_LEADS:
             if lead_chain != chain or end_block < first_seen_at_block:
                 continue
             if address not in leads:
@@ -632,7 +675,7 @@ class VaultDiscoveryBase(abc.ABC):
                     withdrawal_count=0,
                 )
                 report.new_leads += 1
-                logger.info("Added hardcoded Midas vault lead %s", address)
+                logger.info("Added hardcoded Asseto vault lead %s", address)
 
         addresses, leads_by_address, mellow_lead_count = _prepare_probe_leads(leads)
         logger.info("Found %d vault leads, of which %d are Mellow factory leads", len(leads), mellow_lead_count)

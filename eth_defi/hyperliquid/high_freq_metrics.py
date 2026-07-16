@@ -509,6 +509,7 @@ def fetch_and_store_vault_high_freq(
     rows: list[HyperliquidHighFreqPriceRow] = []
     now = native_datetime_utc_now()
     prev_share_price = None
+    stored_overlap_return: float | None = None
     if last_stored_ts is not None and not existing_prices.empty:
         # The reconstructed window can have shifted API timestamps and may
         # therefore not contain an exact copy of the persisted anchor. The
@@ -516,6 +517,8 @@ def fetch_and_store_vault_high_freq(
         # return must be measured from the latest stored price, not from the
         # preceding stored observation.
         prev_share_price = float(existing_prices.iloc[-1]["share_price"])
+        raw_stored_return = existing_prices.iloc[-1]["daily_return"]
+        stored_overlap_return = float(raw_stored_return) if pd.notna(raw_stored_return) else None
 
     for i, (ts, row_data) in enumerate(zip(combined_df.index, combined_df.itertuples())):
         raw_ts = ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts
@@ -534,7 +537,12 @@ def fetch_and_store_vault_high_freq(
         daily_pnl = row_data.pnl_update
         epoch_reset_val = bool(row_data.epoch_reset) if hasattr(row_data, "epoch_reset") else False
 
-        if prev_share_price is not None and prev_share_price > 0:
+        if last_stored_ts is not None and raw_ts == last_stored_ts and stored_overlap_return is not None:
+            # Preserve the return already derived for the idempotent overlap
+            # row. Recomputing it against its own stored price would replace
+            # both ordinary returns and a real -100% wipe-out with zero.
+            daily_return = stored_overlap_return
+        elif prev_share_price is not None and prev_share_price > 0:
             daily_return = (share_price - prev_share_price) / prev_share_price
         else:
             daily_return = 0.0

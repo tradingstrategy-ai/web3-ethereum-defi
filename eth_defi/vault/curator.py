@@ -132,6 +132,7 @@ from eth_defi.grvt.constants import GRVT_SYSTEM_VAULT_ADDRESSES
 from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
 from eth_defi.lighter.constants import LIGHTER_SYSTEM_POOL_ADDRESSES
 from eth_defi.research.sparkline import upload_to_r2_compressed
+from eth_defi.securitize.description import SECURITIZE_PRODUCTS
 
 logger = logging.getLogger(__name__)
 
@@ -305,6 +306,7 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
     "morpho": "morpho-curator",
     "lagoon-finance": "lagoon-curator",
     "t3tris": "t3tris-curator",
+    "asseto": "asseto-role",
 }
 
 #: Exact vault address to curator overrides from Dune dashboards.
@@ -335,6 +337,11 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # J.P. Morgan Asset Management / Kinexys, but the token name does not carry
     # a reusable curator pattern.
     (1, "0x09864f52b035ae22ee739dfa5c748fa080d07bd8"): "jpmorgan",
+    # Securitize DSToken fund shares use issuer-specific names and may not
+    # contain the full asset-manager brand. Keep the fund-manager mapping
+    # address-specific, as for JLTXX, to avoid claiming unrelated DSTokens.
+    # The shared product registry owns the manager-to-address associations.
+    **{key: product.curator_slug for key, product in SECURITIZE_PRODUCTS.items()},
     # Piku publishes these as its USP token and curated Morini Capital vaults.
     # The vault names do not consistently include Piku, so keep their explicit
     # Ethereum contract addresses rather than using a fuzzy name pattern.
@@ -1014,7 +1021,7 @@ def process_and_upload_curator_metadata(  # noqa: PLR0917
         skip_if_current=True,
     )
     if metadata_uploaded:
-        logger.info("Uploaded curator metadata for: %s", slug)
+        logger.debug("Uploaded curator metadata for: %s", slug)
     else:
         logger.debug("Skipped unchanged curator metadata for: %s", slug)
 
@@ -1033,7 +1040,7 @@ def process_and_upload_curator_metadata(  # noqa: PLR0917
                 skip_if_current=True,
             )
             if logo_uploaded:
-                logger.info("Uploaded %s logo for curator: %s", variant, slug)
+                logger.debug("Uploaded %s logo for curator: %s", variant, slug)
             else:
                 logger.debug("Skipped unchanged %s logo for curator: %s", variant, slug)
 
@@ -1092,7 +1099,7 @@ def upload_protocol_curator_metadata(  # noqa: PLR0917
             skip_if_current=True,
         )
         if metadata_uploaded:
-            logger.info("Uploaded protocol-curator metadata for: %s", slug)
+            logger.debug("Uploaded protocol-curator metadata for: %s", slug)
         else:
             logger.debug("Skipped unchanged protocol-curator metadata for: %s", slug)
 
@@ -1110,12 +1117,10 @@ def upload_protocol_curator_metadata(  # noqa: PLR0917
                     content_type="image/png",
                     skip_if_current=True,
                 )
-                logger.info(
-                    "%s %s logo for protocol-curator: %s",
-                    "Uploaded" if logo_uploaded else "Skipped unchanged",
-                    variant,
-                    slug,
-                )
+                if logo_uploaded:
+                    logger.debug("Uploaded %s logo for protocol-curator: %s", variant, slug)
+                else:
+                    logger.debug("Skipped unchanged %s logo for protocol-curator: %s", variant, slug)
 
     return entries
 

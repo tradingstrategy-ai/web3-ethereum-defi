@@ -1,0 +1,13 @@
+feeder-id: four-seasons
+name: Four Seasons
+role: curator
+asseto-role: Four Seasons
+short_description: Four Seasons is listed by Asseto as the investment manager for the AdDLE tokenised fund series.
+long_description: |
+  Asseto's public product partner data identifies Four Seasons as investment manager for the AdDLE token series, which represents shares in CMF FS Asia Equity Opportunity SP.
+  Asseto supplies this partner identity as a logo and role label only; it does not publish a linked corporate profile or social account for Four Seasons.
+
+# Evidence and background references.
+other-links:
+  - title: Asseto product application - public AdDLE partner roles
+    url: https://asseto.finance/product

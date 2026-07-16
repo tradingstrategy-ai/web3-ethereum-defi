@@ -66,6 +66,17 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Midas oracle pipeline. Instant issuance/redemption fees are read
     # separately from product vault contracts.
     "Midas": VaultFeeMode.internalised_skimming,
+    # Fund fees are internalised in NAV; request fees are read from AoABTManager.
+    "Asseto": VaultFeeMode.internalised_skimming,
+    # DSToken contracts do not expose product-level fund fees.
+    "Securitize": None,
+    # Maseer One applies mint and redemption spreads through mintcost() and
+    # burncost(), reducing the user's issued shares or redeemed assets.
+    "Maseer One": VaultFeeMode.externalised,
+    # Vault Street's 0.5% protocol fee accrues daily and is deducted from the
+    # primeUSD vault. The product page lists a 0% performance fee.
+    # https://app.vaultstreet.com/
+    "Vault Street": VaultFeeMode.internalised_skimming,
     "Velvet Capital": VaultFeeMode.internalised_skimming,
     "Umami": VaultFeeMode.externalised,
     # Unverified contracts, no open source repo
@@ -74,6 +85,10 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Ostium": VaultFeeMode.feeless,
     "Gains": VaultFeeMode.feeless,
     "KiloEx": None,
+    # Kiln combines a fixed asset-denominated deposit fee with a reward fee
+    # collected by minting shares. This mixed model has no single enum value.
+    # Per-vault values are read by KilnVault.
+    "Kiln": None,
     "Domination Finance": VaultFeeMode.feeless,
     "Plutus": VaultFeeMode.internalised_skimming,
     "Harvest Finance": VaultFeeMode.internalised_skimming,
@@ -250,28 +265,26 @@ class FeeData:
     def __post_init__(self) -> None:
         """Validate and normalise fee values at the metadata ingestion boundary.
 
-        All four fields use fractional percentages: ``1.0`` is a valid 100%
-        fee.  Rejecting malformed values here lets the scanner replace failed
-        fee reads with :data:`BROKEN_FEE_DATA`, instead of allowing a bad value
-        to be persisted and fail a later JSON export.
+        Vault return calculations operate on floats. In particular, allowing a
+        :class:`decimal.Decimal` into this dataclass causes a later
+        ``Decimal * float`` failure after the metadata has been persisted in
+        the vault database. Accept real numeric values so existing integer
+        zeroes and NumPy floats remain supported, then retain all known fees
+        as Python floats.
 
-        :raise ValueError:
-            If a known fee is not a finite real number in the inclusive
-            ``[0, 1]`` range.
+        :raises AssertionError:
+            If a fee is not a real number or ``None``.
+        :raises ValueError:
+            If a fee is not finite or outside the inclusive ``[0, 1]`` range.
         """
         for field_name in ("management", "performance", "deposit", "withdraw"):
             fee = getattr(self, field_name)
-            if fee is None:
-                continue
-
-            if not isinstance(fee, Real) or isinstance(fee, bool):
-                raise ValueError(f"FeeData.{field_name} must be a real number or None, got {type(fee)}")
-
-            normalised_fee = float(fee)
-            if not math.isfinite(normalised_fee) or not 0 <= normalised_fee <= 1:
-                raise ValueError(f"FeeData.{field_name} must be between 0 and 1 inclusive, got {fee}")
-
-            setattr(self, field_name, normalised_fee)
+            assert fee is None or (isinstance(fee, Real) and not isinstance(fee, bool)), f"FeeData.{field_name} must be a real number or None, got {type(fee)}"
+            if fee is not None:
+                normalised_fee = float(fee)
+                if not math.isfinite(normalised_fee) or not 0 <= normalised_fee <= 1:
+                    raise ValueError(f"FeeData.{field_name} must be between 0 and 1 inclusive, got {fee}")
+                setattr(self, field_name, normalised_fee)
 
     @property
     def internalised(self) -> bool | None:
@@ -288,8 +301,8 @@ class FeeData:
         if self.internalised:
             return FeeData(
                 fee_mode=self.fee_mode,
-                management=0,
-                performance=0,
+                management=0.0,
+                performance=0.0,
                 deposit=self.deposit,
                 withdraw=self.withdraw,
             )

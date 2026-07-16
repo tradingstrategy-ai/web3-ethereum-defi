@@ -25,11 +25,14 @@ A new vault protocol integration is not complete unless it includes:
 
 - Protocol detection or hardcoded address classification
 - Vault class and `create_vault_instance()` wiring
+- Deposit manager and public deposit/redemption flow capability, backed by a guarded fork transaction test
 - Risk and fee matrix entries
 - Protocol metadata YAML under `eth_defi/data/vaults/metadata/`
 - Original and post-processed protocol logos
 - Vault documentation and API documentation entries
 - Focused tests for the new protocol
+- A generated protocol-specific historical lead migration script that preserves
+  unrelated vault database, reader-state and Parquet entries
 
 ## Step-by-step implementation
 
@@ -46,6 +49,11 @@ A new vault protocol integration is not complete unless it includes:
    eth_defi/abi/{protocol_slug}/{ContractName}.json
    ```
 4. Use `eth_defi/abi/lagoon/` as a reference for structure
+
+For a narrowly scoped adapter that only needs stable, no-argument view methods,
+using their canonical four-byte selectors is acceptable instead of storing a
+generated ABI. Link the authoritative ABI in the module docstring and add a
+fork regression test for every decoded value and scale.
 
 ### Step 2: Create the vault class
 
@@ -163,7 +171,67 @@ elif ERC4626Feature.{protocol_slug}_like in features:
     return {ProtocolName}Vault(web3, spec, token_cache=token_cache, features=features)
 ```
 
-### Step 6: Update risk and fee information
+### Step 6: Certify deposit and redemption flows
+
+Every vault adapter must explicitly declare whether it supports deposits and
+redemptions. Do not treat ERC-4626 interface detection alone as permission to
+advertise deposit-manager support: public support requires a complete tested
+lifecycle.
+
+1. Determine the flow from the vault contract and protocol documentation:
+   - **Synchronous**: the user approves the denomination token and directly calls
+     ERC-4626 `deposit()` / `mint()` and `withdraw()` / `redeem()`.
+   - **Asynchronous**: the vault uses a request, queue, epoch, settlement, claim,
+     cooldown, or redemption-delay flow. Implement a protocol-specific deposit
+     manager instead of certifying the generic manager.
+   - **Unsupported**: do not expose a partial manager. Leave the public capability
+     as `None` until both directions are implemented and tested.
+2. For a standard synchronous ERC-4626 adapter, certify the inherited
+   `ERC4626DepositManager` by adding the exact fully-qualified class name to
+   `CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES` in
+   `eth_defi/erc_4626/vault.py`:
+
+   ```python
+   "eth_defi.erc_4626.vault_protocol.{protocol_slug}.vault.{ProtocolName}Vault",
+   ```
+
+   The inherited `get_deposit_manager()` then returns `ERC4626DepositManager`, and
+   `get_deposit_manager_capability()` exports the public fields:
+
+   ```python
+   {
+       "can_deposit": True,
+       "can_redeem": True,
+       "deposit_flow": "synchronous",
+       "redemption_flow": "synchronous",
+   }
+   ```
+
+3. Add a guarded Anvil fork test that uses an unlocked token holder to transfer the
+   denomination token to an Anvil account, approves the vault, deposits through
+   `vault.get_deposit_manager()`, and redeems the exact minted share balance. Assert
+   that the manager is `ERC4626DepositManager`, both flow methods are synchronous,
+   the public capability fields match the schema above, and the final share balance
+   is zero.
+4. Add or update a no-RPC unit test for the exact-class allowlist. This prevents a
+   future refactor from silently removing the advertised capability when RPC-backed
+   tests are skipped.
+
+Reference implementations:
+
+- Generic manager and capability implementation:
+  `eth_defi/erc_4626/deposit_redeem.py` and `eth_defi/erc_4626/vault.py`
+- Full synchronous approval/deposit/redeem fork flow:
+  `tests/erc_4626/test_4626_deposit_redeem.py`
+- Protocol-specific certified generic manager example:
+  `tests/erc_4626/vault_protocol/test_kiln.py`
+- No-RPC allowlist capability test:
+  `tests/erc_4626/test_deposit_probe.py`
+- Custom or non-generic manager examples:
+  `eth_defi/erc_4626/vault_protocol/gains/` and
+  `eth_defi/erc_4626/vault_protocol/upshift/vault.py`
+
+### Step 7: Update risk and fee information
 
 Update `eth_defi/vault/risk.py` with the protocol stub.
 
@@ -176,7 +244,7 @@ Set `VAULT_PROTOCOL_FEE_MATRIX` to `None` for newly added protocol.
 
 Match `get_vault_protocol_name()` for the protocol name spelling.
 
-### Step 7: Add protocol metadata YAML
+### Step 8: Add protocol metadata YAML
 
 Create `eth_defi/data/vaults/metadata/{protocol-slug}.yaml`.
 
@@ -184,6 +252,14 @@ Create `eth_defi/data/vaults/metadata/{protocol-slug}.yaml`.
 - Include name, slug, short description, long description, fee description, links, and example smart contracts
 - Use `eth_defi/data/vaults/README.md` as the schema reference
 - Include `trading_strategy` and `integration_documentation` links even if the Trading Strategy listing is not live yet
+- Write descriptions for a general audience. Explain what the product offers,
+  who can use it, material eligibility or liquidity constraints, and how fees
+  affect holders in plain language.
+- Do not include library implementation, smart-contract interface, or data-pipeline
+  details. In particular, avoid standards and function names such as ERC-4626,
+  `gem()`, `navprice()`, and WAD scaling, as well as adapter, scanner, and TVL
+  calculation internals. Put those details in the technical integration and API
+  documentation instead.
 
 Validate that the metadata can be parsed:
 
@@ -195,7 +271,7 @@ print(build_metadata_json(Path("eth_defi/data/vaults/metadata/{protocol-slug}.ya
 PY
 ```
 
-### Step 8: Extract and post-process protocol logos
+### Step 9: Extract and post-process protocol logos
 
 Protocol logos are required for vault protocol metadata and frontend listings.
 Do not skip this step unless no official or defensible logo source can be found
@@ -222,7 +298,7 @@ print(metadata["logos"])
 PY
 ```
 
-### Step 9: Create test file
+### Step 10: Create test file
 
 First the latest block number for the selected chain using `get-block-number` skill.
 
@@ -303,7 +379,7 @@ def test_{protocol_slug}(
 
 After adding it, run the test module and fix any issues.
 
-### Step 10: Add module **init**.py
+### Step 11: Add module **init**.py
 
 Create `eth_defi/erc_4626/vault_protocol/{protocol_slug}/__init__.py`:
 
@@ -311,7 +387,7 @@ Create `eth_defi/erc_4626/vault_protocol/{protocol_slug}/__init__.py`:
 """{Protocol Name} protocol integration."""
 ```
 
-## Step 11: Update documentation
+## Step 12: Update documentation
 
 - Add protocol to `docs/source/vaults`
 - Add protocol to `docs/source/vaults/index.rst`
@@ -332,7 +408,7 @@ Examples include
 
 - `docs/source/vaults/plutus/index.rst`, `docs/source/vaults/truefi/index.rst`, `docs/source/api/vaults/index.rst`,
 
-## Step 12: Run all vault protocol detection tests
+## Step 13: Run all vault protocol detection tests
 
 Check that all ERC-4626 tests pass after adding a new vault protocol by running all testse in `tests/erc_4626/vault_protocol` folder.
 
@@ -344,11 +420,11 @@ source .local-test.env && poetry run pytest -n auto -k vault_protocol
 
 Fix any issues if found.
 
-## Step 13: Format the codebase
+## Step 14: Format the codebase
 
 Format the newly added files with `poetry run ruff format`.
 
-## Step 14: Add feed protocol YAML entry
+## Step 15: Add feed protocol YAML entry
 
 Create a feed YAML file at `eth_defi/data/feeds/protocols/{protocol-slug}.yaml` so the protocol's social media posts are collected by the feed scanner. For full schema documentation and collection behaviour details, see `eth_defi/feed/README-feed.md`.
 
@@ -403,7 +479,7 @@ linkedin: lagoon-finance
 # rss: not found — blog is at lagoon.finance/blog but has no RSS feed
 ```
 
-## Step 15: Verification checklist
+## Step 16: Verification checklist
 
 After implementation, verify:
 
@@ -426,11 +502,11 @@ After implementation, verify:
 
 If there are problems with the checklist, ask for human assistance.
 
-## Step 16: Changelog
+## Step 17: Changelog
 
 - Update changelog line in `CHANGELOG.md` and add a note of added new protocol
 
-## Step 17: Pull request (optional)
+## Step 18: Pull request (optional)
 
 After everything is done, open a pull request, but only if the user asks you to.
 

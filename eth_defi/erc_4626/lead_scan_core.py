@@ -102,7 +102,6 @@ def scan_leads(
     printer=print,
     backend: Literal["auto", "hypersync", "rpc"] = "auto",
     max_getlogs_range: int | None = None,
-    reset_leads=False,
     hypersync_api_key: str | None = None,
     hypersync_concurrency: int | None = None,
     max_display_entries: int | None = None,
@@ -180,11 +179,7 @@ def scan_leads(
         if not end_block:
             end_block = web3.eth.block_number
 
-    if not reset_leads:
-        vault_discover.seed_existing_leads(existing_db.get_existing_leads_by_chain(chain_id))
-    else:
-        # Rescan all vaults since the beginning of the chat
-        start_block = 1
+    vault_discover.seed_existing_leads(existing_db.get_existing_leads_by_chain(chain_id))
 
     printer(f"Chain: {name}: scan range {start_block:,} - {end_block:,}")
 
