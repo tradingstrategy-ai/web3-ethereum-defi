@@ -68,6 +68,20 @@ class DummyAssetoVault:
         return 0.01
 
 
+class DummyOffchainAssetoVault(DummyAssetoVault):
+    """Synthetic registry product with an Asseto display-price history."""
+
+    def uses_onchain_pricer(self) -> bool:
+        """Disable the HashKey-specific pricer call."""
+
+        return False
+
+    def fetch_offchain_share_price(self, _timestamp: datetime.datetime) -> Decimal:
+        """Return a cached daily NAV/share point."""
+
+        return Decimal("1.25")
+
+
 class DummyAssetoReaderState:
     """Record state updates issued by the Asseto historical reader."""
 
@@ -290,6 +304,24 @@ def test_asseto_historical_reader_calculates_tvl_and_updates_state() -> None:
             "share_price": Decimal("1.0123456789"),
         }
     ]
+
+
+def test_asseto_historical_reader_uses_offchain_nav_without_pricer() -> None:
+    """Combine historical ERC-20 supply with a registry product's display NAV."""
+
+    reader, _state = make_asseto_historical_reader(stateful=False)
+    reader.vault = DummyOffchainAssetoVault()
+
+    read = reader.process_result(
+        123,
+        SYNTHETIC_TIMESTAMP,
+        [make_asseto_call_result("totalSupply", 2_500_000)],
+    )
+
+    assert read.total_supply == Decimal("2.5")
+    assert read.share_price == Decimal("1.25")
+    assert read.total_assets == Decimal("3.125")
+    assert read.errors is None
 
 
 def test_asseto_historical_reader_records_partial_call_failure() -> None:

@@ -8,7 +8,9 @@ not ERC-4626 or ERC-7540, but can be read through :class:`VaultBase`.
 #: Adapter classes intentionally mirror :class:`VaultBase` method signatures.
 # ruff: noqa: ARG002, FBT001, FBT002, PLR0904, PLR0917, PLR6301
 
+import datetime
 import logging
+from bisect import bisect_right
 from collections.abc import Iterator
 from decimal import Decimal
 
@@ -19,7 +21,7 @@ from web3.contract import Contract
 
 from eth_defi.asseto.constants import ASSETO_PRODUCTS, AssetoProduct
 from eth_defi.asseto.historical import AssetoVaultHistoricalReader
-from eth_defi.asseto.offchain_api import AssetoAPIError, AssetoRoleInfo, fetch_asseto_product_roles
+from eth_defi.asseto.offchain_api import AssetoAPIError, AssetoPricePoint, AssetoRoleInfo, fetch_asseto_price_history, fetch_asseto_product_roles
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
@@ -108,13 +110,13 @@ class AssetoVaultInfo(VaultInfo, total=False):
     chain_id: int
 
     #: Asseto request/claim manager contract.
-    manager: HexAddress
+    manager: HexAddress | None
 
     #: Asseto NAV/share price contract.
-    pricer: HexAddress
+    pricer: HexAddress | None
 
     #: Subscription and redemption collateral token.
-    collateral: HexAddress
+    collateral: HexAddress | None
 
     #: NAV source label.
     nav_source: str
@@ -166,6 +168,8 @@ class AssetoVault(VaultBase):
             self.product: AssetoProduct = ASSETO_PRODUCTS[key]
         except KeyError as error:
             raise RuntimeError(f"Unsupported Asseto product: chain={spec.chain_id}, token={spec.vault_address}") from error
+        self._offchain_price_history: tuple[AssetoPricePoint, ...] | None = None
+        self._offchain_price_timestamps: tuple[int, ...] | None = None
 
     @property
     def chain_id(self) -> int:
@@ -189,12 +193,16 @@ class AssetoVault(VaultBase):
     def pricer_contract(self) -> Contract:
         """Return the Asseto NAV/share pricer contract."""
 
+        if self.product.pricer is None:
+            raise RuntimeError(f"Asseto product {self.product.symbol} has no published on-chain pricer")
         return self.web3.eth.contract(address=Web3.to_checksum_address(self.product.pricer), abi=ASSETO_PRICER_ABI)
 
     @property
     def manager_contract(self) -> Contract:
         """Return the Asseto request/claim manager fee contract."""
 
+        if self.product.manager is None:
+            raise RuntimeError(f"Asseto product {self.product.symbol} has no published manager contract")
         return self.web3.eth.contract(address=Web3.to_checksum_address(self.product.manager), abi=ASSETO_MANAGER_FEE_ABI)
 
     @property
@@ -213,13 +221,13 @@ class AssetoVault(VaultBase):
     def description(self) -> str | None:
         """Return a short Asseto product description."""
 
-        return "Tokenised fund share backed by Asseto Orient Arbitrage strategy exposure"
+        return self.product.description or "Tokenised fund share published through Asseto"
 
     @property
     def short_description(self) -> str | None:
         """Return the concise product description used in vault listings."""
 
-        return "KYC-gated tokenised fund share with on-chain NAV pricing"
+        return "KYC-gated tokenised fund share with Asseto-published NAV"
 
     @property
     def manager_name(self) -> str | None:
@@ -231,6 +239,12 @@ class AssetoVault(VaultBase):
         and optional API failures yield ``None`` rather than attributing the
         Asseto technology provider as the strategy curator.
         """
+
+        if self.product.offchain_product_id is not None:
+            # The registry endpoint already exposes these products, but its
+            # detail endpoint does not consistently accept the registry key.
+            # Do not turn metadata scans into noisy failed role requests.
+            return None
 
         try:
             return self.fetch_curator_name()
@@ -254,7 +268,7 @@ class AssetoVault(VaultBase):
             If the public application request fails.
         """
 
-        yield from fetch_asseto_product_roles(self.product.symbol)
+        yield from fetch_asseto_product_roles(self.product.offchain_product_name or self.product.symbol)
 
     def fetch_curator_name(self) -> str | None:
         """Resolve the strategy curator from Asseto's priority partner roles.
@@ -311,14 +325,19 @@ class AssetoVault(VaultBase):
             USDT collateral address for the registered Asseto product.
         """
 
+        if self.product.collateral is None:
+            raise NotImplementedError(f"Asseto product {self.product.symbol} does not publish a collateral token")
         return HexAddress(Web3.to_checksum_address(self.product.collateral))
 
-    def fetch_denomination_token(self) -> TokenDetails:
+    def fetch_denomination_token(self) -> TokenDetails | None:
         """Fetch Asseto's collateral token metadata.
 
         :return:
             Product collateral token details.
         """
+
+        if self.product.collateral is None:
+            return None
 
         return fetch_erc20_details(
             self.web3,
@@ -329,17 +348,72 @@ class AssetoVault(VaultBase):
             cause_diagnostics_message=f"Asseto collateral token for vault {self.address}",
         )
 
-    def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
+    def uses_onchain_pricer(self) -> bool:
+        """Return whether the product has a verified on-chain NAV contract.
+
+        :return:
+            ``True`` for products with an Asseto ``Pricer`` contract.
+        """
+
+        return self.product.pricer is not None
+
+    def fetch_offchain_price_history(self) -> tuple[AssetoPricePoint, ...]:
+        """Fetch and cache Asseto's public daily NAV/share history.
+
+        Registry products without a published on-chain ``Pricer`` use this
+        informational source for their historical backfill. The cache avoids
+        making a network request for every historical scanner row.
+
+        :return:
+            Chronologically ordered Asseto display-price observations.
+        :raise RuntimeError:
+            If this product has no public Asseto registry identifier.
+        """
+
+        if self.product.offchain_product_id is None:
+            raise RuntimeError(f"Asseto product {self.product.symbol} has no off-chain price source")
+        if self._offchain_price_history is None:
+            self._offchain_price_history = tuple(sorted(fetch_asseto_price_history(self.product.offchain_product_id), key=lambda point: point.timestamp))
+            self._offchain_price_timestamps = tuple(point.timestamp for point in self._offchain_price_history)
+        return self._offchain_price_history
+
+    def fetch_offchain_share_price(self, timestamp: datetime.datetime) -> Decimal | None:
+        """Look up the latest published display NAV at a historical timestamp.
+
+        Asseto publishes daily observations, while the shared scanner samples
+        at approximate chain blocks. Use the most recent observation at or
+        before the sample timestamp and return ``None`` before history starts.
+
+        :param timestamp:
+            Naive UTC scanner timestamp.
+        :return:
+            Asseto display NAV/share, or ``None`` when unavailable.
+        """
+
+        history = self.fetch_offchain_price_history()
+        assert self._offchain_price_timestamps is not None
+        target = int(timestamp.replace(tzinfo=datetime.UTC).timestamp())
+        index = bisect_right(self._offchain_price_timestamps, target) - 1
+        return history[index].value if index >= 0 else None
+
+    def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
         """Fetch the latest Asseto NAV/share in collateral denomination.
 
         :param block_identifier:
             Historical or latest block identifier.
         :return:
-            NAV for one human-readable AoABT token.
+            NAV for one human-readable token, or ``None`` when Asseto has not
+            published a display-price observation.
         """
 
-        raw_price = self.pricer_contract.functions.getLatestPrice().call(block_identifier=block_identifier)
-        return Decimal(raw_price) / Decimal(10**18)
+        if self.uses_onchain_pricer():
+            raw_price = self.pricer_contract.functions.getLatestPrice().call(block_identifier=block_identifier)
+            return Decimal(raw_price) / Decimal(10**18)
+
+        history = self.fetch_offchain_price_history()
+        if not history:
+            return None
+        return history[-1].value
 
     def fetch_total_supply(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Fetch the outstanding AoABT share supply.
@@ -353,7 +427,7 @@ class AssetoVault(VaultBase):
         raw_supply = self.share_token.contract.functions.totalSupply().call(block_identifier=block_identifier)
         return self.share_token.convert_to_decimals(raw_supply)
 
-    def fetch_total_assets(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
+    def fetch_total_assets(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
         """Calculate TVL from AoABT supply and the administrator-published NAV.
 
         :param block_identifier:
@@ -362,9 +436,10 @@ class AssetoVault(VaultBase):
             Total assets in collateral denomination.
         """
 
-        return self.fetch_total_supply(block_identifier) * self.fetch_share_price(block_identifier)
+        share_price = self.fetch_share_price(block_identifier)
+        return self.fetch_total_supply(block_identifier) * share_price if share_price is not None else None
 
-    def fetch_nav(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
+    def fetch_nav(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
         """Fetch Asseto product NAV.
 
         :param block_identifier:
@@ -385,10 +460,10 @@ class AssetoVault(VaultBase):
         return AssetoVaultInfo(
             token=self.address,
             chain_id=self.chain_id,
-            manager=Web3.to_checksum_address(self.product.manager),
-            pricer=Web3.to_checksum_address(self.product.pricer),
-            collateral=self.fetch_denomination_token_address(),
-            nav_source=ASSETO_NAV_SOURCE,
+            manager=Web3.to_checksum_address(self.product.manager) if self.product.manager else None,
+            pricer=Web3.to_checksum_address(self.product.pricer) if self.product.pricer else None,
+            collateral=self.fetch_denomination_token_address() if self.product.collateral else None,
+            nav_source=ASSETO_NAV_SOURCE if self.uses_onchain_pricer() else "asseto_offchain_price_history",
         )
 
     def fetch_scan_record_extra_data(self) -> dict[str, object]:
@@ -399,15 +474,15 @@ class AssetoVault(VaultBase):
         """
 
         return {
-            "Denomination": self.denomination_token.symbol,
+            "Denomination": self.denomination_token.symbol if self.denomination_token else None,
             "_notes": self.get_notes(),
             "_deposit_closed_reason": self.fetch_deposit_closed_reason(),
             "_redemption_closed_reason": self.fetch_redemption_closed_reason(),
-            "_nav_source": ASSETO_NAV_SOURCE,
-            "_nav_estimated": False,
-            "_asseto_manager": Web3.to_checksum_address(self.product.manager),
-            "_asseto_pricer": Web3.to_checksum_address(self.product.pricer),
-            "_asseto_collateral": self.fetch_denomination_token_address(),
+            "_nav_source": ASSETO_NAV_SOURCE if self.uses_onchain_pricer() else "asseto_offchain_price_history",
+            "_nav_estimated": not self.uses_onchain_pricer(),
+            "_asseto_manager": Web3.to_checksum_address(self.product.manager) if self.product.manager else None,
+            "_asseto_pricer": Web3.to_checksum_address(self.product.pricer) if self.product.pricer else None,
+            "_asseto_collateral": self.fetch_denomination_token_address() if self.product.collateral else None,
         }
 
     def fetch_portfolio(
@@ -546,7 +621,7 @@ class AssetoVault(VaultBase):
 
         return self.product.performance_fee
 
-    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> Percent:
+    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
         """Read the current entry fee from the manager's ``mintFee``.
 
         ``AoABTManager`` deducts this fee from subscribed collateral before the
@@ -558,12 +633,14 @@ class AssetoVault(VaultBase):
             Entry/deposit fee as a fraction.
         """
 
+        if self.product.manager is None:
+            return None
         manager = self.manager_contract.functions
         raw_fee = manager.mintFee().call(block_identifier=block_identifier)
         denominator = manager.BPS_DENOMINATOR().call(block_identifier=block_identifier)
         return convert_asseto_basis_points_to_percent(raw_fee, denominator)
 
-    def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> Percent:
+    def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
         """Read the current exit fee from the manager's ``redemptionFee``.
 
         ``AoABTManager`` deducts this fee from collateral after calculating the
@@ -575,6 +652,8 @@ class AssetoVault(VaultBase):
             Exit/withdraw fee as a fraction.
         """
 
+        if self.product.manager is None:
+            return None
         manager = self.manager_contract.functions
         raw_fee = manager.redemptionFee().call(block_identifier=block_identifier)
         denominator = manager.BPS_DENOMINATOR().call(block_identifier=block_identifier)

@@ -23,11 +23,13 @@ class AssetoProduct:
     :param token:
         ERC-20 tokenised fund share address.
     :param manager:
-        Asseto ``AoABTManager`` request/claim contract.
+        Asseto ``AoABTManager`` request/claim contract, when published.
     :param pricer:
-        Asseto ``Pricer`` contract that publishes NAV/share in base-18 USD.
+        Asseto ``Pricer`` contract that publishes NAV/share in base-18 USD,
+        when published.
     :param collateral:
-        Stablecoin used by the manager for subscriptions and redemptions.
+        Stablecoin used by the manager for subscriptions and redemptions, when
+        the product publishes it.
     :param first_seen_at_block:
         Token proxy deployment block.
     :param first_seen_at:
@@ -45,14 +47,20 @@ class AssetoProduct:
     token: HexAddress
     symbol: str
     product_name: str
-    manager: HexAddress
-    pricer: HexAddress
-    collateral: HexAddress
+    manager: HexAddress | None
+    pricer: HexAddress | None
+    collateral: HexAddress | None
     first_seen_at_block: int
     first_seen_at: datetime.datetime
     management_fee: Percent | None = None
     performance_fee: Percent | None = None
     has_custom_fees: bool = False
+    #: Asseto public product-registry identifier for its display NAV history.
+    offchain_product_id: int | None = None
+    #: Product key required by Asseto's off-chain product endpoints.
+    offchain_product_name: str | None = None
+    #: Informational public product description.
+    description: str | None = None
 
 
 #: HashKey Chain EVM chain id.

@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Backfill all supported Asseto products from its live registry using daily NAV history and skip chains without configured RPCs (2026-07-16)
 - feat: Add read-only Asseto vault protocol support, public product, fee and role extraction, curator metadata, and blocked deposit manager (2026-07-16)
 - feat: Add Securitize fund descriptions and curator attribution for selected DSTokens, including BCAP, COSX, SCI2 and PRTS (2026-07-16)
 - feat: Replace whole-chain vault lead resets with generated protocol-specific migrations and add the targeted Securitize DSToken backfill helper (2026-07-16)

@@ -49,11 +49,12 @@ class AssetoVaultHistoricalReader(VaultHistoricalReader):
             extra_data={"function": "totalSupply", "vault": self.vault.address},
             first_block_number=self.first_block,
         )
-        yield EncodedCall.from_contract_call(
-            self.vault.pricer_contract.functions.getLatestPrice(),
-            extra_data={"function": "getLatestPrice", "vault": self.vault.address},
-            first_block_number=self.first_block,
-        )
+        if self.vault.uses_onchain_pricer():
+            yield EncodedCall.from_contract_call(
+                self.vault.pricer_contract.functions.getLatestPrice(),
+                extra_data={"function": "getLatestPrice", "vault": self.vault.address},
+                first_block_number=self.first_block,
+            )
 
     def process_result(
         self,
@@ -89,6 +90,11 @@ class AssetoVaultHistoricalReader(VaultHistoricalReader):
             elif function == "getLatestPrice":
                 share_price = Decimal(convert_int256_bytes_to_int(result.result)) / Decimal(10**18)
                 state_result = result
+
+        if share_price is None and not self.vault.uses_onchain_pricer():
+            share_price = self.vault.fetch_offchain_share_price(timestamp)
+            if share_price is None:
+                errors.append("Asseto off-chain price history is not available for this timestamp")
 
         total_assets = share_price * total_supply if share_price is not None and total_supply is not None else None
         if self.reader_state is not None and state_result is not None and total_assets is not None:
