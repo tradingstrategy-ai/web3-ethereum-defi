@@ -12,7 +12,7 @@ Usage:
 .. code-block:: shell
 
     source .local-test.env
-    export JSON_RPC_HASHKEY="https://your-archive-hashkey-rpc"
+    export JSON_RPC_ETHEREUM="https://your-archive-ethereum-rpc"
     poetry run python scripts/asseto/backfill-history.py
 
 Useful environment variables:
@@ -25,7 +25,10 @@ Useful environment variables:
    * - ``DRY_RUN``
      - If ``true``, print and validate the planned work without database writes.
    * - ``NETWORKS``
-     - Optional comma-separated chain ids or names, e.g. ``177,hashkey``.
+     - Optional comma-separated chain ids or known names, e.g. ``177,hashkey``.
+   * - ``JSON_RPC_<CHAIN>``
+     - Archive-capable RPC URL for each selected supported chain, e.g.
+       ``JSON_RPC_ETHEREUM``. Products are skipped when this is not set.
    * - ``PRODUCTS``
      - Optional comma-separated Asseto symbols, e.g. ``AoABT``.
    * - ``ASSETO_SCAN_PRICES``
@@ -47,6 +50,9 @@ Useful environment variables:
 The backfill removes stale reader state only for selected Asseto vaults. This
 is required because the targeted scanner replaces those rows from its explicit
 start block onwards; retained later state would otherwise skip the rewrite.
+Only chains registered by the shared project registry and supported by
+HyperSync are included. Asseto products on unsupported chains, such as HashKey
+or Pharos until they are added to the project, are reported and skipped.
 """
 
 import logging
@@ -61,14 +67,17 @@ from atomicwrites import atomic_write
 from eth_typing import HexAddress
 from tabulate import tabulate
 
-from eth_defi.asseto.constants import ASSETO_PRODUCTS, HASHKEY_CHAIN_ID, AssetoProduct
+from eth_defi.asseto.constants import ASSETO_PRODUCTS, AssetoProduct
+from eth_defi.chain import CHAIN_NAMES, get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampDatabase
+from eth_defi.hypersync.server import is_hypersync_supported_chain
 from eth_defi.hypersync.utils import configure_hypersync_from_env
+from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
 from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histories
@@ -79,15 +88,6 @@ from eth_defi.vault.historical import pformat_scan_result, scan_historical_price
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
 
 logger = logging.getLogger(__name__)
-
-#: Asseto's currently supported HashKey Chain RPC environment variable.
-#:
-#: Kept local to this script because the shared project chain registry does not
-#: otherwise support HashKey Chain.
-ASSETO_RPC_ENV_VAR = "JSON_RPC_HASHKEY"
-
-#: Human-readable name for the currently supported Asseto deployment chain.
-ASSETO_CHAIN_NAME = "HashKey Chain"
 
 
 def parse_bool_env(name: str, *, default: bool = False) -> bool:
@@ -169,26 +169,33 @@ def get_chain_selector_names(chain_id: int) -> set[str]:
         Numeric and configured textual selector values.
     """
 
-    if chain_id == HASHKEY_CHAIN_ID:
-        return {str(chain_id), "hashkey", "hashkey chain"}
-    return {str(chain_id)}
+    chain_name = CHAIN_NAMES.get(chain_id)
+    return {str(chain_id), chain_name.lower()} if chain_name else {str(chain_id)}
 
 
-def get_asseto_rpc_env(chain_id: int) -> str:
-    """Return the script-local RPC environment variable for Asseto.
+def is_supported_asseto_chain(chain_id: int) -> bool:
+    """Check whether a chain is eligible for the shared Asseto backfill.
 
     :param chain_id:
         Asseto product chain id.
     :return:
-        ``JSON_RPC_HASHKEY`` for the currently supported HashKey deployment.
-    :raise ValueError:
-        If a future registry entry uses an unsupported chain.
+        ``True`` when the project registers the chain and HyperSync supports it.
     """
 
-    if chain_id != HASHKEY_CHAIN_ID:
-        message = f"Unsupported Asseto chain id: {chain_id}"
-        raise ValueError(message)
-    return ASSETO_RPC_ENV_VAR
+    return chain_id in CHAIN_NAMES and is_hypersync_supported_chain(chain_id)
+
+
+def get_asseto_rpc_env(chain_id: int) -> str:
+    """Return the normal RPC environment variable for a supported chain.
+
+    :param chain_id:
+        Asseto product chain id.
+    :return:
+        The project-standard ``JSON_RPC_<CHAIN>`` environment variable.
+    """
+
+    assert is_supported_asseto_chain(chain_id), f"Unsupported Asseto chain {chain_id}"
+    return get_json_rpc_env(chain_id)
 
 
 def read_asseto_json_rpc_url(chain_id: int) -> str:
@@ -197,17 +204,12 @@ def read_asseto_json_rpc_url(chain_id: int) -> str:
     :param chain_id:
         Asseto product chain id.
     :return:
-        Configured archive-capable HashKey Chain RPC URL.
+        Configured archive-capable RPC URL for a supported chain.
     :raise ValueError:
-        If the RPC variable is unset or the chain is unsupported.
+        If the standard RPC variable is unset.
     """
 
-    rpc_env_var = get_asseto_rpc_env(chain_id)
-    json_rpc_url = os.environ.get(rpc_env_var)
-    if not json_rpc_url:
-        message = f"Environment variable {rpc_env_var} is not set for Asseto chain {chain_id}"
-        raise ValueError(message)
-    return json_rpc_url
+    return read_json_rpc_url(chain_id)
 
 
 def iter_selected_products() -> Iterable[AssetoProduct]:
@@ -229,6 +231,29 @@ def iter_selected_products() -> Iterable[AssetoProduct]:
         if networks and not (get_chain_selector_names(product.chain_id) & networks):
             continue
         if products and product.symbol.lower() not in products:
+            continue
+        if product.chain_id not in CHAIN_NAMES:
+            logger.warning(
+                "Skipping Asseto product %s on unsupported chain %d: chain is not configured in eth_defi.chain",
+                product.symbol,
+                product.chain_id,
+            )
+            continue
+        if not is_hypersync_supported_chain(product.chain_id):
+            logger.warning(
+                "Skipping Asseto product %s on chain %d: HyperSync is not supported",
+                product.symbol,
+                product.chain_id,
+            )
+            continue
+        rpc_env_var = get_asseto_rpc_env(product.chain_id)
+        if not os.environ.get(rpc_env_var):
+            logger.warning(
+                "Skipping Asseto product %s on chain %d: %s is not set",
+                product.symbol,
+                product.chain_id,
+                rpc_env_var,
+            )
             continue
         yield product
 
@@ -444,7 +469,7 @@ def backfill_chain(
     rpc_env_var = get_asseto_rpc_env(chain_id)
     json_rpc_url = read_asseto_json_rpc_url(chain_id)
     web3 = create_multi_provider_web3(json_rpc_url)
-    chain_name = ASSETO_CHAIN_NAME
+    chain_name = get_chain_name(chain_id)
     logger.info("Backfilling %d Asseto products on %s using %s", len(products), chain_name, get_provider_name(web3.provider))
 
     end_block = parse_optional_int_env("END_BLOCK") or web3.eth.block_number
@@ -478,7 +503,6 @@ def backfill_chain(
             reader_states = read_reader_states(reader_state_database_path)
             reader_states = {spec: state for spec, state in reader_states.items() if spec.vault_address.lower() not in vault_ids}
             web3factory = MultiProviderWeb3Factory(json_rpc_url, retries=5)
-            hypersync_config = configure_hypersync_from_env(web3)
             scan_result = scan_historical_prices_to_parquet(
                 output_fname=price_database_path,
                 web3=web3,
@@ -491,7 +515,7 @@ def backfill_chain(
                 token_cache=token_cache,
                 frequency=frequency,
                 reader_states=reader_states,
-                hypersync_client=hypersync_config.hypersync_client,
+                hypersync_client=configure_hypersync_from_env(web3).hypersync_client,
                 vault_addresses=vault_ids,
             )
             write_reader_states(reader_state_database_path, scan_result["reader_states"])
@@ -529,8 +553,8 @@ def main() -> None:
     frequency = resolve_frequency()
     products = list(iter_selected_products())
     if not products:
-        message = "No Asseto products selected"
-        raise RuntimeError(message)
+        logger.warning("No eligible Asseto products selected; nothing to backfill")
+        return
 
     vault_db_path = parse_path_env("VAULT_DB_PATH", DEFAULT_VAULT_DATABASE)
     price_database_path = parse_path_env("UNCLEANED_PRICE_DATABASE", DEFAULT_UNCLEANED_PRICE_DATABASE)
@@ -542,7 +566,7 @@ def main() -> None:
 
     plan = [
         {
-            "chain": ASSETO_CHAIN_NAME,
+            "chain": get_chain_name(chain_id),
             "chain_id": chain_id,
             "rpc": get_asseto_rpc_env(chain_id),
             "products": ", ".join(product.symbol for product in chain_products),

@@ -1,6 +1,7 @@
 """Regression tests for the Asseto historical backfill script helpers."""
 
 import importlib.util
+from dataclasses import replace
 from pathlib import Path
 
 import pandas as pd
@@ -26,11 +27,33 @@ def backfill_history_module():
     return module
 
 
-def test_hashkey_rpc_support_is_local_to_the_asseto_backfill(backfill_history_module) -> None:
-    """Use a script-local RPC variable without registering HashKey globally."""
+def test_unsupported_asseto_chain_is_excluded_from_backfill(backfill_history_module) -> None:
+    """Exclude HashKey until it is supported by project and HyperSync mappings."""
 
     assert ASSETO_AOABT_HASHKEY.chain_id not in CHAIN_NAMES
-    assert backfill_history_module.get_asseto_rpc_env(ASSETO_AOABT_HASHKEY.chain_id) == "JSON_RPC_HASHKEY"
+    assert not backfill_history_module.is_supported_asseto_chain(ASSETO_AOABT_HASHKEY.chain_id)
+    assert list(backfill_history_module.iter_selected_products()) == []
+
+
+def test_supported_asseto_chain_uses_standard_rpc_configuration(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:
+    """Select a registered HyperSync chain with its normal RPC environment variable."""
+
+    ethereum_product = replace(ASSETO_AOABT_HASHKEY, chain_id=1)
+    monkeypatch.setattr(backfill_history_module, "ASSETO_PRODUCTS", {(1, ethereum_product.token): ethereum_product})
+    monkeypatch.setenv("JSON_RPC_ETHEREUM", "https://ethereum-rpc.example")
+
+    assert backfill_history_module.get_asseto_rpc_env(ethereum_product.chain_id) == "JSON_RPC_ETHEREUM"
+    assert list(backfill_history_module.iter_selected_products()) == [ethereum_product]
+
+
+def test_missing_rpc_excludes_supported_asseto_chain(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:
+    """Avoid partial backfills when the normal RPC variable is unset."""
+
+    ethereum_product = replace(ASSETO_AOABT_HASHKEY, chain_id=1)
+    monkeypatch.setattr(backfill_history_module, "ASSETO_PRODUCTS", {(1, ethereum_product.token): ethereum_product})
+    monkeypatch.delenv("JSON_RPC_ETHEREUM", raising=False)
+
+    assert list(backfill_history_module.iter_selected_products()) == []
 
 
 def test_resolve_price_scan_start_block_uses_asseto_deployment(
@@ -79,12 +102,15 @@ def test_resolve_price_scan_start_block_honours_explicit_override(
 
 
 def test_iter_selected_products_honours_symbol_filter(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:
-    """Select only the requested Asseto product symbol."""
+    """Select a requested product when its chain meets all backfill requirements."""
 
+    ethereum_product = replace(ASSETO_AOABT_HASHKEY, chain_id=1)
+    monkeypatch.setattr(backfill_history_module, "ASSETO_PRODUCTS", {(1, ethereum_product.token): ethereum_product})
     monkeypatch.setenv("PRODUCTS", "aoabt")
-    monkeypatch.setenv("NETWORKS", "hashkey")
+    monkeypatch.setenv("NETWORKS", "ethereum")
+    monkeypatch.setenv("JSON_RPC_ETHEREUM", "https://ethereum-rpc.example")
 
-    assert list(backfill_history_module.iter_selected_products()) == [ASSETO_AOABT_HASHKEY]
+    assert list(backfill_history_module.iter_selected_products()) == [ethereum_product]
 
 
 def test_resolve_frequency_defaults_to_daily(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:
