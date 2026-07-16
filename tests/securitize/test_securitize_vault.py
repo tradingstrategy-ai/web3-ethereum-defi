@@ -177,6 +177,6 @@ def test_unpriced_dstoken_historical_reader_returns_error(web3: Web3) -> None:
     assert read.share_price is None
     assert read.total_assets is None
     assert read.total_supply == BUIDL_EXPECTED_TOTAL_SUPPLY
-    assert read.errors == [f"No NAV source configured for Securitize DSToken {vault.address}"]
+    assert read.errors == [f"No on-chain NAV source configured for Securitize DSToken {vault.address}"]
     assert read.deposits_open is False
     assert read.redemption_open is False

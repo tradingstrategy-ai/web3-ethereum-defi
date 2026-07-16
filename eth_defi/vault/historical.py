@@ -547,6 +547,8 @@ def scan_historical_prices_to_parquet(
     hypersync_client=None,
     timestamp_cache_file=DEFAULT_TIMESTAMP_CACHE_FOLDER,
     vault_addresses: set[str] | None = None,
+    historical_read_transformer: Callable[[VaultHistoricalRead], VaultHistoricalRead] | None = None,
+    historical_read_transformer_factory: Callable[[int, int], Callable[[VaultHistoricalRead], VaultHistoricalRead] | None] | None = None,
 ) -> ParquetScanResult:
     """Scan all historical vault share prices of vaults and save them in to Parquet file.
 
@@ -608,6 +610,17 @@ def scan_historical_prices_to_parquet(
         Addresses must be lowercase. When ``None``, all rows for the chain
         are deleted and rewritten (default behaviour).
 
+    :param historical_read_transformer:
+        Optional pure transformation applied to each completed historical read
+        before it is exported. This lets protocol adapters enrich a read with
+        authoritative off-chain values while keeping the scanner's existing
+        single Parquet read and atomic write.
+
+    :param historical_read_transformer_factory:
+        Optional factory for ``historical_read_transformer``. It receives the
+        resolved inclusive block range after stateful start-block discovery,
+        allowing an off-chain source to fetch only the incremental time range.
+
     :return:
         Scan report.
     """
@@ -667,6 +680,11 @@ def scan_historical_prices_to_parquet(
     if end_block is None:
         end_block = get_almost_latest_block_number(web3)
 
+    if historical_read_transformer_factory is not None:
+        if historical_read_transformer is not None:
+            raise ValueError("Specify either historical_read_transformer or historical_read_transformer_factory, not both")
+        historical_read_transformer = historical_read_transformer_factory(start_block, end_block)
+
     reader = VaultHistoricalReadMulticaller(
         web3factory,
         supported_quote_tokens=None,
@@ -720,6 +738,8 @@ def scan_historical_prices_to_parquet(
     # Convert VaultHistoricalRead objects to exportable dicts for Parquet
     def converter(entries_iter: Iterable[VaultHistoricalRead]) -> Iterable[dict]:
         for entry in entries_iter:
+            if historical_read_transformer is not None:
+                entry = historical_read_transformer(entry)
             yield entry.export()
 
     converted_iter = converter(entries_iter)

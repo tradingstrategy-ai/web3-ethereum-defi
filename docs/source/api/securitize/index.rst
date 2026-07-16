@@ -13,3 +13,6 @@ maintained separately from the shared DSToken adapter.
    eth_defi.securitize.vault
    eth_defi.securitize.historical
    eth_defi.securitize.description
+   eth_defi.securitize.redstone
+   eth_defi.securitize.chronicle
+   eth_defi.securitize.share_price

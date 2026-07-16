@@ -17,7 +17,10 @@ Environment variables:
 ``DRY_RUN``
     Show the plan without writing data. Default: ``false``.
 ``SECURITIZE_SCAN_PRICES``
-    Scan BUIDL and any future priced DSTokens. Default: ``true``.
+    Scan DSTokens with a reviewed estimated or external NAV source. Default:
+    ``true``.
+``SECURITIZE_PRODUCTS``
+    Optional comma-separated DSToken addresses to backfill.
 ``SECURITIZE_CLEAN_PRICES``
     Rebuild selected cleaned histories after the raw scan. Default: ``true``.
 ``FREQUENCY``
@@ -59,6 +62,7 @@ from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_mu
 from eth_defi.provider.named import get_provider_name
 from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histories
 from eth_defi.securitize.description import SECURITIZE_PRODUCTS, SecuritizeProduct
+from eth_defi.securitize.share_price import create_securitize_share_price_transformer_factory
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultBase, VaultSpec
@@ -151,8 +155,11 @@ def iter_products() -> Iterable[SecuritizeProduct]:
         Unique registry products.
     """
 
+    selected_addresses = {address.strip().lower() for address in os.environ.get("SECURITIZE_PRODUCTS", "").split(",") if address.strip()}
     seen: set[tuple[int, HexAddress]] = set()
     for product in SECURITIZE_PRODUCTS.values():
+        if selected_addresses and product.token.lower() not in selected_addresses:
+            continue
         key = product.chain_id, product.token
         if key not in seen:
             seen.add(key)
@@ -388,7 +395,7 @@ def build_priced_vaults(web3: Web3, products: Iterable[tuple[SecuritizeProduct, 
     return vaults
 
 
-def backfill_chain(
+def backfill_chain(  # noqa: PLR0914
     chain_id: int,
     products: list[SecuritizeProduct],
     *,
@@ -472,7 +479,7 @@ def backfill_chain(
         )
         vault_db.write(vault_db_path)
 
-    priced_products = [(product, deployment_block) for product, (deployment_block, _) in product_state.items() if product.estimated_nav_per_share is not None]
+    priced_products = [(product, deployment_block) for product, (deployment_block, _) in product_state.items() if product.estimated_nav_per_share is not None or product.nav_source != "unconfigured"]
     scan_summary = "-"
     if scan_prices and priced_products:
         vault_ids = {product.token.lower() for product, _ in priced_products}
@@ -482,13 +489,14 @@ def backfill_chain(
             reader_states = read_reader_states(reader_state_database_path)
             reader_states = {spec: state for spec, state in reader_states.items() if spec.vault_address.lower() not in vault_ids}
             start_block = resolve_price_scan_start_block(chain_id, (deployment_block for _, deployment_block in priced_products))
-            logger.info("Backfilling %d priced Securitize products on %s from block %d", len(priced_products), chain_name, start_block)
+            logger.info("Backfilling %d Securitize products with a NAV source on %s from block %d", len(priced_products), chain_name, start_block)
             hypersync_config = configure_hypersync_from_env(web3)
+            priced_vaults = build_priced_vaults(web3, priced_products, token_cache)
             scan_result = scan_historical_prices_to_parquet(
                 output_fname=price_database_path,
                 web3=web3,
                 web3factory=MultiProviderWeb3Factory(json_rpc_url, retries=5),
-                vaults=build_priced_vaults(web3, priced_products, token_cache),
+                vaults=priced_vaults,
                 start_block=start_block,
                 end_block=end_block,
                 max_workers=int(os.environ.get("MAX_WORKERS", "8")),
@@ -498,6 +506,7 @@ def backfill_chain(
                 reader_states=reader_states,
                 hypersync_client=hypersync_config.hypersync_client,
                 vault_addresses=vault_ids,
+                historical_read_transformer_factory=create_securitize_share_price_transformer_factory(priced_vaults, web3),
             )
             write_reader_states(reader_state_database_path, scan_result["reader_states"])
             scan_summary = pformat_scan_result(scan_result)
@@ -554,7 +563,7 @@ def main() -> None:
             "chain_id": chain_id,
             "rpc": get_json_rpc_env(chain_id),
             "products": len(chain_products),
-            "priced_products": sum(product.estimated_nav_per_share is not None for product in chain_products),
+            "priced_products": sum(product.estimated_nav_per_share is not None or product.nav_source != "unconfigured" for product in chain_products),
         }
         for chain_id, chain_products in sorted(products_by_chain.items())
     ]
