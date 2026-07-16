@@ -2,6 +2,7 @@
 
 import enum
 from dataclasses import dataclass
+from numbers import Real
 
 from eth_typing import HexAddress
 
@@ -245,6 +246,25 @@ class FeeData:
     #: Fee for this class
     withdraw: float | None
 
+    def __post_init__(self) -> None:
+        """Validate and normalise fee values at the metadata ingestion boundary.
+
+        Vault return calculations operate on floats. In particular, allowing a
+        :class:`decimal.Decimal` into this dataclass causes a later
+        ``Decimal * float`` failure after the metadata has been persisted in
+        the vault database. Accept real numeric values so existing integer
+        zeroes and NumPy floats remain supported, then retain all known fees
+        as Python floats.
+
+        :raises AssertionError:
+            If a fee is not a real number or ``None``.
+        """
+        for field_name in ("management", "performance", "deposit", "withdraw"):
+            fee = getattr(self, field_name)
+            assert fee is None or (isinstance(fee, Real) and not isinstance(fee, bool)), f"FeeData.{field_name} must be a real number or None, got {type(fee)}"
+            if fee is not None:
+                setattr(self, field_name, float(fee))
+
     @property
     def internalised(self) -> bool | None:
         if self.fee_mode is None:
@@ -260,8 +280,8 @@ class FeeData:
         if self.internalised:
             return FeeData(
                 fee_mode=self.fee_mode,
-                management=0,
-                performance=0,
+                management=0.0,
+                performance=0.0,
                 deposit=self.deposit,
                 withdraw=self.withdraw,
             )

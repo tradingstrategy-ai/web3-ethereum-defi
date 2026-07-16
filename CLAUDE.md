@@ -128,6 +128,9 @@ No test plan or verification section. Use Markdown formatting, headings.
 
 ## Pull requests
 
+- GitHub plugins are not needed for pull-request work. Prefer the local `git`
+  and `gh` command-line tools to create, inspect, update, cancel CI for, and
+  merge pull requests.
 - Only push changes to remote when asked, never update pull requess automatically.
 - Never push directly to a master if not told explicitly
 - If the user ask to open a pull request as feature then start the PR title with "feat:" prefix and also add one line about the feature into `CHANGELOG.md`
