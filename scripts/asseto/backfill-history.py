@@ -61,8 +61,7 @@ from atomicwrites import atomic_write
 from eth_typing import HexAddress
 from tabulate import tabulate
 
-from eth_defi.asseto.constants import ASSETO_PRODUCTS, AssetoProduct
-from eth_defi.chain import CHAIN_NAMES, get_chain_name
+from eth_defi.asseto.constants import ASSETO_PRODUCTS, HASHKEY_CHAIN_ID, AssetoProduct
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
@@ -70,7 +69,6 @@ from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampDatabase
 from eth_defi.hypersync.utils import configure_hypersync_from_env
-from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
 from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histories
@@ -81,6 +79,15 @@ from eth_defi.vault.historical import pformat_scan_result, scan_historical_price
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
 
 logger = logging.getLogger(__name__)
+
+#: Asseto's currently supported HashKey Chain RPC environment variable.
+#:
+#: Kept local to this script because the shared project chain registry does not
+#: otherwise support HashKey Chain.
+ASSETO_RPC_ENV_VAR = "JSON_RPC_HASHKEY"
+
+#: Human-readable name for the currently supported Asseto deployment chain.
+ASSETO_CHAIN_NAME = "HashKey Chain"
 
 
 def parse_bool_env(name: str, *, default: bool = False) -> bool:
@@ -162,11 +169,45 @@ def get_chain_selector_names(chain_id: int) -> set[str]:
         Numeric and configured textual selector values.
     """
 
-    selectors = {str(chain_id)}
-    chain_name = CHAIN_NAMES.get(chain_id)
-    if chain_name:
-        selectors.add(chain_name.lower())
-    return selectors
+    if chain_id == HASHKEY_CHAIN_ID:
+        return {str(chain_id), "hashkey", "hashkey chain"}
+    return {str(chain_id)}
+
+
+def get_asseto_rpc_env(chain_id: int) -> str:
+    """Return the script-local RPC environment variable for Asseto.
+
+    :param chain_id:
+        Asseto product chain id.
+    :return:
+        ``JSON_RPC_HASHKEY`` for the currently supported HashKey deployment.
+    :raise ValueError:
+        If a future registry entry uses an unsupported chain.
+    """
+
+    if chain_id != HASHKEY_CHAIN_ID:
+        message = f"Unsupported Asseto chain id: {chain_id}"
+        raise ValueError(message)
+    return ASSETO_RPC_ENV_VAR
+
+
+def read_asseto_json_rpc_url(chain_id: int) -> str:
+    """Read the script-local Asseto JSON-RPC URL from its environment variable.
+
+    :param chain_id:
+        Asseto product chain id.
+    :return:
+        Configured archive-capable HashKey Chain RPC URL.
+    :raise ValueError:
+        If the RPC variable is unset or the chain is unsupported.
+    """
+
+    rpc_env_var = get_asseto_rpc_env(chain_id)
+    json_rpc_url = os.environ.get(rpc_env_var)
+    if not json_rpc_url:
+        message = f"Environment variable {rpc_env_var} is not set for Asseto chain {chain_id}"
+        raise ValueError(message)
+    return json_rpc_url
 
 
 def iter_selected_products() -> Iterable[AssetoProduct]:
@@ -400,10 +441,10 @@ def backfill_chain(
         Summary row for operator output.
     """
 
-    rpc_env_var = get_json_rpc_env(chain_id)
-    json_rpc_url = read_json_rpc_url(chain_id)
+    rpc_env_var = get_asseto_rpc_env(chain_id)
+    json_rpc_url = read_asseto_json_rpc_url(chain_id)
     web3 = create_multi_provider_web3(json_rpc_url)
-    chain_name = get_chain_name(chain_id)
+    chain_name = ASSETO_CHAIN_NAME
     logger.info("Backfilling %d Asseto products on %s using %s", len(products), chain_name, get_provider_name(web3.provider))
 
     end_block = parse_optional_int_env("END_BLOCK") or web3.eth.block_number
@@ -501,9 +542,9 @@ def main() -> None:
 
     plan = [
         {
-            "chain": get_chain_name(chain_id),
+            "chain": ASSETO_CHAIN_NAME,
             "chain_id": chain_id,
-            "rpc": get_json_rpc_env(chain_id),
+            "rpc": get_asseto_rpc_env(chain_id),
             "products": ", ".join(product.symbol for product in chain_products),
             "first_block": min(product.first_seen_at_block for product in chain_products),
         }

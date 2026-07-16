@@ -7,8 +7,8 @@ import pandas as pd
 import pytest
 
 from eth_defi.asseto.constants import ASSETO_AOABT_HASHKEY
+from eth_defi.chain import CHAIN_NAMES
 from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
-from eth_defi.provider.env import get_json_rpc_env
 
 EXPLICIT_START_BLOCK = 123_456
 
@@ -26,10 +26,11 @@ def backfill_history_module():
     return module
 
 
-def test_hashkey_uses_the_standard_rpc_environment_variable() -> None:
-    """Expose HashKey Chain through the standard JSON-RPC environment helper."""
+def test_hashkey_rpc_support_is_local_to_the_asseto_backfill(backfill_history_module) -> None:
+    """Use a script-local RPC variable without registering HashKey globally."""
 
-    assert get_json_rpc_env(ASSETO_AOABT_HASHKEY.chain_id) == "JSON_RPC_HASHKEY"
+    assert ASSETO_AOABT_HASHKEY.chain_id not in CHAIN_NAMES
+    assert backfill_history_module.get_asseto_rpc_env(ASSETO_AOABT_HASHKEY.chain_id) == "JSON_RPC_HASHKEY"
 
 
 def test_resolve_price_scan_start_block_uses_asseto_deployment(
