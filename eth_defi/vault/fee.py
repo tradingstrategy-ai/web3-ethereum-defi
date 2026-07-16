@@ -1,6 +1,7 @@
 """Vault fee modes."""
 
 import enum
+import math
 from dataclasses import dataclass
 from numbers import Real
 
@@ -273,12 +274,17 @@ class FeeData:
 
         :raises AssertionError:
             If a fee is not a real number or ``None``.
+        :raises ValueError:
+            If a fee is not finite or outside the inclusive ``[0, 1]`` range.
         """
         for field_name in ("management", "performance", "deposit", "withdraw"):
             fee = getattr(self, field_name)
             assert fee is None or (isinstance(fee, Real) and not isinstance(fee, bool)), f"FeeData.{field_name} must be a real number or None, got {type(fee)}"
             if fee is not None:
-                setattr(self, field_name, float(fee))
+                normalised_fee = float(fee)
+                if not math.isfinite(normalised_fee) or not 0 <= normalised_fee <= 1:
+                    raise ValueError(f"FeeData.{field_name} must be between 0 and 1 inclusive, got {fee}")
+                setattr(self, field_name, normalised_fee)
 
     @property
     def internalised(self) -> bool | None:

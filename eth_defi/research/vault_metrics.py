@@ -597,13 +597,13 @@ def _normalise_fee_for_calculation(
     :param fee_name:
         Human-readable fee name used in validation errors.
     :return:
-        Fee as a float between zero (inclusive) and one (exclusive).
+        Fee as a float between zero and one (both inclusive).
     """
     if fee in {None, "-"}:
         return 0.0
 
     normalised_fee = float(fee)
-    assert 0 <= normalised_fee < 1, f"{fee_name} must be between 0 and 1"
+    assert 0 <= normalised_fee <= 1, f"{fee_name} must be between 0 and 1 inclusive"
     return normalised_fee
 
 
@@ -2170,37 +2170,34 @@ def calculate_lifetime_metrics(
     month_ago = df.index.max() - pd.Timedelta(days=30)
     three_months_ago = df.index.max() - pd.Timedelta(days=90)
 
-    # Enable server-side loggable progress bar for pandas runs.
-    tqdm.pandas(desc="Calculating vault performance metrics")
-
-    slugify_vaults(
-        vaults=vaults_by_id,
-    )
+    slugify_vaults(vaults=vaults_by_id)
 
     if stablecoin_rate_feeder is None:
         stablecoin_rate_feeder = StablecoinRateFeeder()
 
-    # Use progress_apply instead of the for loop
-    # Sort is needed for slug stability
-    # We pass include_groups=False to avoid FutureWarning, and pass id via group.name
-    def _apply_vault_record(group):
-        return calculate_vault_record(
-            group,
-            vaults_by_id,
-            month_ago,
-            three_months_ago,
-            vault_id=group.name,
-            core3_protocols=core3_protocols,
-            stablecoin_rate_feeder=stablecoin_rate_feeder,
-        )
+    # Each vault is an independent export record. A corrupted historical row
+    # must not prevent the remaining vaults from being published.
+    grouped_vaults = df.groupby("id", group_keys=False, sort=True)
+    records: list[pd.Series] = []
+    for vault_id, group in tqdm(grouped_vaults, desc="Calculating vault performance metrics", total=grouped_vaults.ngroups):
+        try:
+            record = calculate_vault_record(
+                group,
+                vaults_by_id,
+                month_ago,
+                three_months_ago,
+                vault_id=vault_id,
+                core3_protocols=core3_protocols,
+                stablecoin_rate_feeder=stablecoin_rate_feeder,
+            )
+        except (ArithmeticError, AssertionError, KeyError, TypeError, ValueError):
+            logger.exception("Skipping invalid vault metrics record for %s", vault_id)
+            continue
+        records.append(record)
 
-    results_df = df.groupby("id", group_keys=False, sort=True).progress_apply(
-        _apply_vault_record,
-        include_groups=False,
-    )
-
-    # Reset index to convert the grouped results to a regular DataFrame
-    results_df = results_df.reset_index(drop=True)
+    results_df = pd.DataFrame(records)
+    if results_df.empty:
+        return results_df
 
     # Add ranking columns
     results_df = calculate_vault_rankings(results_df)
