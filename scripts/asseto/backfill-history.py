@@ -29,6 +29,9 @@ Useful environment variables:
    * - ``JSON_RPC_<CHAIN>``
      - Archive-capable RPC URL for each selected supported chain, e.g.
        ``JSON_RPC_ETHEREUM``. Products are skipped when this is not set.
+   * - ``HYPERSYNC_API_KEY``
+     - Required for cached HyperSync block-timestamp reads during price
+       backfill.
    * - ``PRODUCTS``
      - Optional comma-separated Asseto symbols, e.g. ``AoABT``.
    * - ``ASSETO_SCAN_PRICES``
@@ -410,6 +413,12 @@ def build_vaults(web3: Web3, products: list[AssetoProduct], token_cache: TokenDi
 
     vaults: list[VaultBase] = []
     for product in products:
+        if product.collateral is None:
+            logger.warning(
+                "Skipping price history for Asseto product %s: Asseto registry does not publish a denomination-token address",
+                product.symbol,
+            )
+            continue
         vault = create_vault_instance(
             web3,
             product.token,
@@ -591,6 +600,10 @@ def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps 
             reader_states = read_reader_states(reader_state_database_path)
             reader_states = {spec: state for spec, state in reader_states.items() if spec.vault_address.lower() not in vault_ids}
             web3factory = MultiProviderWeb3Factory(json_rpc_url, retries=5)
+            hypersync_config = configure_hypersync_from_env(web3)
+            if hypersync_config.hypersync_client is None:
+                message = "Asseto price backfill requires a HyperSync client for block timestamp reads"
+                raise RuntimeError(message)
             scan_result = scan_historical_prices_to_parquet(
                 output_fname=price_database_path,
                 web3=web3,
@@ -602,11 +615,19 @@ def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps 
                 chunk_size=32,
                 token_cache=token_cache,
                 frequency=frequency,
-                reader_states=reader_states,
-                hypersync_client=configure_hypersync_from_env(web3).hypersync_client,
+                # Asseto's public NAV is sampled daily. Its reader has no
+                # on-chain state result with which to adapt polling, so use
+                # the non-stateful reader. Sampled timestamps are fetched
+                # through the cache-aware HyperSync API, never via RPC.
+                reader_states=None,
+                hypersync_client=hypersync_config.hypersync_client,
                 vault_addresses=vault_ids,
             )
-            write_reader_states(reader_state_database_path, scan_result["reader_states"])
+            # The non-stateful reader intentionally has no new Asseto state.
+            # Preserve states for all other vaults while removing stale Asseto
+            # entries from earlier runs.
+            scan_result["reader_states"] = reader_states
+            write_reader_states(reader_state_database_path, reader_states)
             scan_summary = pformat_scan_result(scan_result)
             if clean_prices:
                 cleaned_rows = replace_cleaned_vault_histories(

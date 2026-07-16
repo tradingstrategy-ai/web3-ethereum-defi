@@ -1,7 +1,9 @@
 """Regression tests for the Asseto historical backfill script helpers."""
 
 import importlib.util
+from dataclasses import replace
 from pathlib import Path
+from typing import NoReturn
 
 import pandas as pd
 import pytest
@@ -99,6 +101,20 @@ def test_create_runtime_product_uses_registry_price_source(backfill_history_modu
     assert runtime_product.offchain_product_name == registry_product.product_name
     assert runtime_product.manager is None
     assert runtime_product.pricer is None
+
+
+def test_build_vaults_skips_product_without_denomination_address(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:
+    """Do not initialise a historical reader when Asseto omits collateral metadata."""
+
+    product_without_collateral = replace(ASSETO_AOABT_HASHKEY, collateral=None)
+
+    def unexpected_vault_creation(*_args: object, **_kwargs: object) -> NoReturn:
+        message = "Products without denomination addresses must be skipped before adapter creation"
+        raise AssertionError(message)
+
+    monkeypatch.setattr(backfill_history_module, "create_vault_instance", unexpected_vault_creation)
+
+    assert backfill_history_module.build_vaults(object(), [product_without_collateral], object()) == []
 
 
 def test_resolve_price_scan_start_block_uses_asseto_deployment(
