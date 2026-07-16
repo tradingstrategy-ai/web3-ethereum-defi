@@ -15,6 +15,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import VaultEventKind, get_securitize_dstoken_discovery_events, get_vault_event_topic_map
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.securitize.description import ACRED_ETHEREUM, BUIDL_ETHEREUM, BUIDL_I_ETHEREUM, SECURITIZE_PRODUCTS, STAC_ETHEREUM, VBILL_ETHEREUM
 from eth_defi.securitize.historical import SecuritizeVaultHistoricalReader
 from eth_defi.securitize.vault import BUIDL_ESTIMATED_NAV_PER_SHARE, BUIDL_ETHEREUM_ADDRESS, SECURITIZE_RESTRICTED_FLOW_REASON, SecuritizeVault
 from eth_defi.vault.base import VaultSpec
@@ -59,6 +60,27 @@ def test_securitize_dstoken_classification_and_issue_lead_event() -> None:
     assert topic_map[get_topic_signature_from_event(securitize_events[0])] == VaultEventKind.deposit
 
 
+def test_securitize_product_registry() -> None:
+    """Look up every manually-described Securitize fund by DSToken address."""
+
+    products = (BUIDL_ETHEREUM, BUIDL_I_ETHEREUM, ACRED_ETHEREUM, VBILL_ETHEREUM, STAC_ETHEREUM)
+    assert {SECURITIZE_PRODUCTS[product.chain_id, product.token] for product in products} == set(products)
+    assert all(product.notes.startswith(product.product_name) for product in products)
+
+
+def test_only_priced_dstokens_export_synthetic_usd_denomination() -> None:
+    """Keep NAV-following funds out of the synthetic stablecoin classification."""
+
+    web3 = Web3()
+    for product, expected_synthetic_denomination in ((BUIDL_ETHEREUM, True), (ACRED_ETHEREUM, False), (STAC_ETHEREUM, False)):
+        vault = SecuritizeVault(web3, VaultSpec(chain_id=product.chain_id, vault_address=product.token))
+        scan_extra_data = vault.fetch_scan_record_extra_data()
+
+        assert vault.fetch_info()["synthetic_usd_denomination"] is expected_synthetic_denomination
+        assert scan_extra_data["_synthetic_usd_denomination"] is expected_synthetic_denomination
+        assert (scan_extra_data["_denomination_token"] is not None) is expected_synthetic_denomination
+
+
 @pytest.fixture(scope="module")
 def anvil_ethereum_fork() -> AnvilLaunch:
     """Fork Ethereum mainnet at the fixed BUIDL test block."""
@@ -87,6 +109,7 @@ def test_buidl_autodetect_and_read_supply(web3: Web3) -> None:
     vault = create_vault_instance_autodetect(web3, vault_address=BUIDL_ETHEREUM_ADDRESS)
 
     assert isinstance(vault, SecuritizeVault)
+    assert vault.product == BUIDL_ETHEREUM
     assert vault.features == {ERC4626Feature.securitize_like}
     assert vault.get_protocol_name() == "Securitize"
     assert vault.name == "BlackRock USD Institutional Digital Liquidity Fund"
@@ -148,6 +171,7 @@ def test_unpriced_dstoken_historical_reader_returns_error(web3: Web3) -> None:
     read = reader.process_result(BUIDL_TEST_BLOCK, timestamp, call_results)
 
     assert not vault.is_buidl
+    assert vault.product is None
     assert read.share_price is None
     assert read.total_assets is None
     assert read.total_supply == BUIDL_EXPECTED_TOTAL_SUPPLY

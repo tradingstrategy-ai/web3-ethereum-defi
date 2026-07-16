@@ -6,6 +6,33 @@ from eth_defi.midas.registry import iter_midas_registry_products
 from eth_defi.vault.curator import build_curator_metadata_json, get_curator_name, identify_curator, is_protocol_curator
 
 
+def test_identify_securitize_fund_curators() -> None:
+    """Map high-value DSToken funds to their asset-manager curators."""
+
+    expected_curators = {
+        "0x7712c34205737192402172409a8f7ccef8aa2aec": "blackrock",
+        "0x6a9da2d710bb9b700acde7cb81f10f1ff8c89041": "blackrock",
+        "0x17418038ecf73ba4026c4f428547bf099706f27b": "apollo",
+        "0x2255718832bc9fd3be1caf75084f4803da14ff01": "vaneck",
+        "0x51c2d74017390cbbd30550179a16a1c28f7210fc": "bny-investments",
+    }
+
+    for address, expected_slug in expected_curators.items():
+        assert identify_curator(1, "", "Securitize DSToken", address, "securitize") == expected_slug
+
+
+def test_securitize_fund_curator_metadata_includes_logo() -> None:
+    """Export a generic logo URL for each added Securitize fund curator."""
+
+    for slug in ("blackrock", "apollo", "vaneck", "bny-investments"):
+        metadata = build_curator_metadata_json(
+            Path(f"eth_defi/data/feeds/curators/{slug}.yaml"),
+            public_url="https://example.com",
+        )
+
+        assert metadata["logos"]["generic"] == f"https://example.com/curator-metadata/{slug}/generic.png"
+
+
 def test_identify_felix_vault() -> None:
     """Felix Morpho vault names resolve to the Felix curator.
 

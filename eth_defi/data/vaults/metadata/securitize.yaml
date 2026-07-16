@@ -3,17 +3,14 @@ slug: securitize
 short_description: |
   Tokenisation platform for real-world assets, with permissioned on-chain securities infrastructure.
 long_description: |
-  Securitize is a platform for tokenising real-world assets. Its products and infrastructure are
-  designed for asset managers, Web3 firms and DAOs, advisers and investors. The platform's
-  Digital Securities Protocol (DS Protocol) provides the on-chain layer for issuing, managing
-  and transferring permissioned digital securities.
+  Securitize helps investment firms bring traditional financial products, such as funds and
+  private-market investments, into digital form. It provides the services needed to create,
+  manage and make these products available to eligible investors.
 
-  A DS Protocol token, known as a DSToken, is ERC-20-compatible but connects issuance and
-  transfers to registry, trust and compliance services. This lets an issuer apply investor
-  eligibility checks, transfer restrictions, lock-ups and administrative controls while keeping
-  the token compatible with normal EVM wallets and integrations. The protocol can support many
-  tokenised products; BlackRock USD Institutional Digital Liquidity Fund (BUIDL) on Ethereum is
-  the first product tracked by this integration, not the definition of the protocol.
+  Securitize works with asset managers, wealth advisers and investors. Its platform can support
+  many investment products. BlackRock USD Institutional Digital Liquidity Fund (BUIDL) is the
+  first Securitize product tracked by this integration, but it is only one example of the funds
+  and securities that can use Securitize's services.
 fee_description: |
   DSToken does not expose product-level management, performance, subscription or redemption fees.
   Fee terms are determined by each issuer's fund documents and are therefore reported as unknown

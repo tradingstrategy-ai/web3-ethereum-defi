@@ -4,6 +4,8 @@ import enum
 
 from eth_typing import HexAddress
 
+from eth_defi.securitize.description import SECURITIZE_PRODUCT_NOTES, SECURITIZE_TOKENISED_FUND_ADDRESSES
+
 
 class VaultFlag(str, enum.Enum):
     """Flags indicating the status of a vault."""
@@ -125,30 +127,19 @@ ODA_FACT_JLTXX_NOTE = f"""JPMorgan OnChain Liquidity-Token Money Market Fund (JL
 - **Fact sheet:** [JLTXX fact sheet]({JLTXX_FACT_SHEET_URL}).
 """
 
-BUIDL_FUND_PAGE_URL = "https://www.blackrock.com/us/individual/products/buidl/"
-
-BUIDL_NOTE = f"""BlackRock USD Institutional Digital Liquidity Fund (BUIDL).
-
-- **Curator:** BlackRock / Securitize.
-- **Vault strategy:** Tokenised shares in a fund that invests in cash, U.S. Treasury bills and repurchase agreements.
-- **Token structure:** BUIDL is a permissioned Securitize DSToken. Investors must complete issuer eligibility and compliance checks before subscribing, redeeming or transferring shares.
-- **Stable dollar share value:** BUIDL targets a USD 1 share value. Fund income accrues daily and is distributed monthly as newly issued BUIDL shares to eligible holders, rather than increasing the unit price. The token is therefore modelled at an estimated USD 1 per share and the on-chain share price does not represent total return.
-- **Fund page:** [BlackRock BUIDL]({BUIDL_FUND_PAGE_URL}).
-"""
-
 #: Vault-specific notes and classifications that do not exclude a vault from
 #: research datasets.
 #:
 #: Unlike :py:data:`VAULT_FLAGS_AND_NOTES`, entries here do not make the vault
 #: "flagged" through :py:func:`is_flagged_vault`.
 VAULT_NOTES: dict[str, str] = {
-    "0x7712c34205737192402172409a8f7ccef8aa2aec": BUIDL_NOTE,
+    **SECURITIZE_PRODUCT_NOTES,
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": ODA_FACT_JLTXX_NOTE,
 }
 
 #: Product classification flags that are descriptive rather than exclusionary.
 VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
-    "0x7712c34205737192402172409a8f7ccef8aa2aec": {VaultFlag.tokenised_fund},
+    **{address: {VaultFlag.tokenised_fund} for address in SECURITIZE_TOKENISED_FUND_ADDRESSES},
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": {VaultFlag.tokenised_fund},
 }
 

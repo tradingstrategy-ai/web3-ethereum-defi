@@ -1,0 +1,17 @@
+feeder-id: vaneck
+name: VanEck
+role: curator
+website: https://www.vaneck.com/us/en/our-firm/about-us/
+linkedin: vaneck
+short_description: VanEck is an investment manager offering exchange-traded funds, mutual funds and private-market investment strategies.
+long_description: |
+  VanEck is an investment manager that provides investment products and strategies for institutional and individual investors. Its offerings include exchange-traded funds, mutual funds and private-market investment strategies.
+
+  For this integration, VanEck is the curator of the VanEck Treasury Fund (VBILL). Securitize provides fund administration, transfer-agent and placement-agent services for the tokenised fund.
+other-links:
+  - title: VanEck official company overview
+    url: https://www.vaneck.com/us/en/our-firm/about-us/
+  - title: Securitize announcement - VanEck Treasury Fund VBILL launch
+    url: https://investors.securitize.io/news/news-details/2025/VanEck-Launches-First-Tokenized-Fund-VBILL-on-Securitize-05-13-2025/default.aspx
+  - title: Securitize VBILL fund page
+    url: https://securitize.io/primary-market/vaneck-vbill

@@ -15,11 +15,18 @@ This avoids an Ethereum-specific allow-list and prevents generic ERC-20 transfer
 from becoming vault leads. ``Issue`` identifies token issuance, not necessarily
 a cash subscription.
 
-The initial product adapter is BlackRock USD Institutional Digital Liquidity Fund
-(BUIDL) on Ethereum. BUIDL is not ERC-4626: it is a permissioned DSToken proxy,
-and its fund NAV is not exposed through an ERC-4626 conversion method. The adapter
-uses ERC-20 ``totalSupply()`` and explicitly labels BUIDL's one-USD share-price
-estimate. Public subscriptions and redemptions are intentionally unsupported.
+The adapter includes manual product metadata and notes for the significant
+Ethereum DSToken funds discovered during the initial scan: BlackRock BUIDL and
+BUIDL-I, Apollo ACRED, VanEck VBILL and the Securitize Tokenized AAA CLO Fund
+(STAC). These products share the contract framework but have distinct investment
+strategies and NAV arrangements.
+
+BUIDL and BUIDL-I are not ERC-4626: they are permissioned DSToken proxies and
+their fund NAV is not exposed through an ERC-4626 conversion method. The adapter
+uses ERC-20 ``totalSupply()`` and explicitly labels their one-USD share-price
+estimate. The other registered products require a canonical NAV source before
+historical price scanning is enabled. Public subscriptions and redemptions are
+intentionally unsupported.
 
 .. autosummary::
    :toctree: _autosummary_securitize
@@ -27,3 +34,4 @@ estimate. Public subscriptions and redemptions are intentionally unsupported.
 
    eth_defi.securitize.vault
    eth_defi.securitize.historical
+   eth_defi.securitize.description
