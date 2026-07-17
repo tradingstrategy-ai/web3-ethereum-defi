@@ -161,6 +161,41 @@ def write_reader_states(path: Path, reader_states: dict[VaultSpec, dict]) -> Non
         pickle.dump(reader_states, out)
 
 
+def upsert_ustb_metadata(vault_db: VaultDatabase, row: dict, end_block: int) -> None:
+    """Upsert only USTB metadata without changing shared discovery cursors.
+
+    :meth:`VaultDatabase.update_leads_and_rows` is the shared merge path, but
+    it also advances the chain-wide discovery cursor. A targeted migration
+    must not make unrelated Ethereum discovery skip blocks, so retain the
+    exact pre-existing cursor value, including the case where no cursor was
+    present, around this single-address upsert.
+
+    :param vault_db:
+        Existing shared vault database.
+    :param row:
+        Fresh USTB scanner metadata row.
+    :param end_block:
+        Metadata read block supplied to the underlying merge operation.
+    :return:
+        None.
+    """
+
+    had_ethereum_cursor = SUPERSTATE_ETHEREUM_CHAIN_ID in vault_db.last_scanned_block
+    previous_ethereum_cursor = vault_db.last_scanned_block.get(SUPERSTATE_ETHEREUM_CHAIN_ID)
+    spec = VaultSpec(SUPERSTATE_ETHEREUM_CHAIN_ID, USTB_ETHEREUM_ADDRESS)
+    vault_db.update_leads_and_rows(
+        chain_id=SUPERSTATE_ETHEREUM_CHAIN_ID,
+        last_scanned_block=end_block,
+        leads={USTB_ETHEREUM_ADDRESS: create_lead()},
+        rows={spec: row},
+    )
+    if had_ethereum_cursor:
+        assert previous_ethereum_cursor is not None
+        vault_db.last_scanned_block[SUPERSTATE_ETHEREUM_CHAIN_ID] = previous_ethereum_cursor
+    else:
+        vault_db.last_scanned_block.pop(SUPERSTATE_ETHEREUM_CHAIN_ID, None)
+
+
 def main() -> None:  # noqa: PLR0914
     """Run the USTB-only lead and NAV-history migration.
 
@@ -200,12 +235,7 @@ def main() -> None:  # noqa: PLR0914
         return
 
     vault_db_path.parent.mkdir(parents=True, exist_ok=True)
-    vault_db.update_leads_and_rows(
-        chain_id=SUPERSTATE_ETHEREUM_CHAIN_ID,
-        last_scanned_block=end_block,
-        leads={USTB_ETHEREUM_ADDRESS: create_lead()},
-        rows={spec: row},
-    )
+    upsert_ustb_metadata(vault_db, row, end_block)
     vault_db.write(vault_db_path)
 
     if scan_prices:
