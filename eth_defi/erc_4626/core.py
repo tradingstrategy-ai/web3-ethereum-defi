@@ -31,6 +31,12 @@ class ERC4626Feature(enum.Enum):
 
     - Flag ERC-4626 matches in the scan with features detected from the smart contract probes
     - Use name/known calls to flag the protocol for which the vault belongs
+
+    Feature values are persisted in :class:`eth_defi.vault.vaultdb.VaultDatabase`
+    pickles. Removing or renaming a value breaks existing vault databases at
+    unpickling time. Any such migration must add a value-level compatibility
+    case in :meth:`_missing_` that maps the retired value to its canonical
+    replacement; see `PR #1318 <https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1318>`__.
     """
 
     #: Failed when probing with multicall, Deposit() event likely for other protocol
