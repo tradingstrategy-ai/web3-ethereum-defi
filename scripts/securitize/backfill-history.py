@@ -8,6 +8,70 @@ explicit adapter estimate or reviewed on-chain RedStone NAV feed. Products
 without an authoritative NAV source are registered as leads but excluded from
 the price scan.
 
+Important operational note: RedStone push feeds do not necessarily contain
+the oldest available Securitize NAV observations.
+
+This script intentionally uses reviewed on-chain RedStone push feeds for
+variable-NAV products because archive-state calls to ``latestRoundData()`` are
+reproducible. They can be re-run months later from any archive node and do not
+depend on RedStone's short-lived HTTP cache. See the RedStone feed catalogue:
+
+https://app.redstone.finance/app/feeds/
+
+However, the push-feed deployment date can be later than the first NAV value
+RedStone collected off-chain from Securitize. The BCAP integration is the
+canonical example and should be treated as a warning for future Securitize
+products:
+
+- Product: Blockchain Capital III Digital Liquid Venture Fund (BCAP).
+- DSToken: ``0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9``.
+- RedStone feed id: ``BCAP_FUNDAMENTAL``.
+- On-chain push feed:
+  ``0x46f1b5f29a2dc1a730508a1b41a8b5b93e316eb2``.
+- Feed contract first has code at Ethereum block ``25_493_848``
+  (``2026-07-09 08:32:11 UTC``).
+- ``latestRoundData()`` first returns a valid value at block ``25_494_164``
+  (``2026-07-09 09:35:35 UTC``), value ``106.63``.
+- ``eth_getLogs`` from deployment onward only returned setup/proxy logs
+  (``Upgraded(address)``, ``Initialized(uint8)`` and one admin/setup event)
+  during the 2026-07-17 investigation. There were no Chainlink-style
+  ``AnswerUpdated`` or ``NewRound`` NAV events to replay.
+- Before block ``25_494_164`` archive calls either see no feed contract code or
+  ``latestRoundData()`` reverts, so this script cannot reconstruct older BCAP
+  NAV from Ethereum chain state alone.
+
+At the time of the 2026-07-17 investigation, RedStone's public HTTP cache did
+contain older ``BCAP_FUNDAMENTAL`` observations sourced from
+``securitize-api`` and ``securitize-tsso``. Example endpoint:
+
+https://api.redstone.finance/prices?symbol=BCAP_FUNDAMENTAL&provider=redstone
+
+Observed older cache points included:
+
+- ``2026-06-17 12:59 UTC``: ``107.07``.
+- ``2026-06-22 23:59 UTC``: ``107.03``.
+- ``2026-06-29 23:59 UTC``: ``106.97``.
+- ``2026-07-06 23:59 UTC``: ``106.63``.
+
+The same HTTP API rejected older requests with
+``{"error":"Data older than 30 days is not available"}``, which is why the
+production backfill in this script does not depend on it. This means a newly
+registered Securitize feed may have a one-time recoverable pre-push-feed REST
+window that will disappear if it is not imported quickly. For BCAP, a pure
+``scripts/securitize/backfill-history.py`` run starts around 2026-07-09/10
+because the script only trusts the archive-readable push feed.
+
+If future operators need maximum history for a new Securitize RedStone feed,
+run a separate, explicitly documented one-off importer for the RedStone REST
+``*_FUNDAMENTAL`` symbol before the 30-day cache expires, then let this script
+take over from the push feed's first valid block. Do not silently extend this
+script to depend on REST history for normal production backfills unless the
+retention, failure and provenance semantics are made explicit. The PRs that
+introduced the current behaviour are:
+
+https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1299
+https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1306
+
 Run with::
 
     source .local-test.env && poetry run python scripts/securitize/backfill-history.py
