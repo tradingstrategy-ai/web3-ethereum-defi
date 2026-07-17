@@ -422,6 +422,7 @@ def test_identify_superstate_ustb_by_address() -> None:
     assert get_curator_name("superstate") == "Superstate"
     assert not is_protocol_curator("superstate")
 
+
 def test_identify_jpmorgan_mony_by_address() -> None:
     """MONY resolves to J.P. Morgan through its exact FACT Diamond address."""
 

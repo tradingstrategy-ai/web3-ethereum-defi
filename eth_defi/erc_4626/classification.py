@@ -29,9 +29,9 @@ from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_PRODUCTS, FRANKL
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS, LIBEARA_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS, ONDO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.spiko.constants import USTBL_TOKEN_ADDRESS
+from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_PRODUCTS_BY_CHAIN
 from eth_defi.tokenised_fund.sygnum.constants import SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.tokenised_fund.theo.constants import THEO_ITOKEN_PRODUCTS, THEO_ITOKEN_PRODUCTS_BY_TOKEN
-from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_PRODUCTS_BY_CHAIN
 from eth_defi.tokenised_fund.usyc.constants import USYC_TOKEN_ADDRESS
 from eth_defi.tokenised_fund.wisdomtree.constants import WISDOMTREE_PRODUCTS, WISDOMTREE_PRODUCTS_BY_TOKEN
 from eth_defi.vault.base import VaultBase, VaultSpec
