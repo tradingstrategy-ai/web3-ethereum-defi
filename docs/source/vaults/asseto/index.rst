@@ -48,7 +48,7 @@ historical metrics instead.
 Off-chain product metadata
 --------------------------
 
-The :mod:`eth_defi.asseto.offchain_api` module reads descriptions, displayed
+The :mod:`eth_defi.tokenised_fund.asseto.offchain_api` module reads descriptions, displayed
 TVL/APY and product registry data from the public Asseto web-application API.
 It is optional enrichment only: Asseto does not document this as a stable,
 versioned developer API, and the on-chain ``Pricer`` remains the source for
@@ -68,6 +68,6 @@ roles do not create a curator attribution.
    :toctree: _autosummary_asseto
    :recursive:
 
-   eth_defi.asseto.vault
-   eth_defi.asseto.historical
-   eth_defi.asseto.offchain_api
+   eth_defi.tokenised_fund.asseto.vault
+   eth_defi.tokenised_fund.asseto.historical
+   eth_defi.tokenised_fund.asseto.offchain_api

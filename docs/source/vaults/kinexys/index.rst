@@ -29,4 +29,4 @@ Links
 
 - `Tokenized Money Market Funds page <https://www.jpmorgan.com/kinexys/tokenized-money-market-funds>`__
 - `Fact sheet <https://am.jpmorgan.com/content/dam/jpm-am-aem/americas/us/en/literature/fact-sheet/money-market/fs-ocltmm-t.pdf>`__
-- :doc:`Kinexys ODA-FACT API documentation </api/oda_fact/index>`
+- :doc:`Kinexys ODA-FACT API documentation </api/kinexys/index>`

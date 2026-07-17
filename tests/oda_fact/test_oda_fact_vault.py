@@ -16,10 +16,10 @@ from eth_defi.erc_4626.classification import (
 )
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.scan import create_vault_scan_record
-from eth_defi.oda_fact.historical import OdaFactVaultHistoricalReader
-from eth_defi.oda_fact.vault import KINEXYS_WHITELISTED_FLOW_REASON, OdaFactVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.tokenised_fund.kinexys.historical import OdaFactVaultHistoricalReader
+from eth_defi.tokenised_fund.kinexys.vault import KINEXYS_WHITELISTED_FLOW_REASON, OdaFactVault
 from eth_defi.vault.flag import VaultFlag
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")

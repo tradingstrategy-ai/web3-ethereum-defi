@@ -4,8 +4,8 @@ from decimal import Decimal
 
 import pytest
 
-from eth_defi.asseto import offchain_api
-from eth_defi.asseto.constants import HASHKEY_CHAIN_ID
+from eth_defi.tokenised_fund.asseto import offchain_api
+from eth_defi.tokenised_fund.asseto.constants import HASHKEY_CHAIN_ID
 
 
 class ResponseStub:

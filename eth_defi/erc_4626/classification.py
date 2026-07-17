@@ -16,7 +16,6 @@ from web3 import Web3
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
-from eth_defi.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
@@ -24,6 +23,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.maseer_one.constants import MASEER_ONE_WSTGBP
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
@@ -1682,7 +1682,7 @@ def create_vault_instance(
 
         return MellowVault(web3, spec, **kwargs)
     elif ERC4626Feature.securitize_like in features:
-        from eth_defi.securitize.vault import SecuritizeVault
+        from eth_defi.tokenised_fund.securitize.vault import SecuritizeVault
 
         return SecuritizeVault(web3, spec, **kwargs)
     elif ERC4626Feature.broken in features:
@@ -1702,7 +1702,7 @@ def create_vault_instance(
 
         return T3trisVault(web3, spec, **kwargs)
     elif ERC4626Feature.oda_fact_like in features:
-        from eth_defi.oda_fact.vault import OdaFactVault
+        from eth_defi.tokenised_fund.kinexys.vault import OdaFactVault
 
         return OdaFactVault(web3, spec, **kwargs)
     elif ERC4626Feature.midas_like in features:
@@ -1710,7 +1710,7 @@ def create_vault_instance(
 
         return MidasVault(web3, spec, **kwargs)
     elif ERC4626Feature.asseto_like in features:
-        from eth_defi.asseto.vault import AssetoVault
+        from eth_defi.tokenised_fund.asseto.vault import AssetoVault
 
         return AssetoVault(web3, spec, **kwargs)
     elif ERC4626Feature.maseer_one_like in features:

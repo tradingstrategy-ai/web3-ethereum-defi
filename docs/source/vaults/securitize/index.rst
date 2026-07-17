@@ -32,6 +32,6 @@ intentionally unsupported.
    :toctree: _autosummary_securitize
    :recursive:
 
-   eth_defi.securitize.vault
-   eth_defi.securitize.historical
-   eth_defi.securitize.description
+   eth_defi.tokenised_fund.securitize.vault
+   eth_defi.tokenised_fund.securitize.historical
+   eth_defi.tokenised_fund.securitize.description

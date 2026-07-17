@@ -29,8 +29,8 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import ODA_FACT_JLTXX_ADDRESS
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.oda_fact.historical import OdaFactVaultHistoricalReader
 from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.tokenised_fund.kinexys.historical import OdaFactVaultHistoricalReader
 from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData, VaultFeeMode

@@ -19,11 +19,11 @@ from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.asseto.constants import ASSETO_PRODUCTS, AssetoProduct
-from eth_defi.asseto.historical import AssetoVaultHistoricalReader
-from eth_defi.asseto.offchain_api import AssetoAPIError, AssetoPricePoint, AssetoRoleInfo, fetch_asseto_price_history, fetch_asseto_product_roles
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, AssetoProduct
+from eth_defi.tokenised_fund.asseto.historical import AssetoVaultHistoricalReader
+from eth_defi.tokenised_fund.asseto.offchain_api import AssetoAPIError, AssetoPricePoint, AssetoRoleInfo, fetch_asseto_price_history, fetch_asseto_product_roles
 from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode

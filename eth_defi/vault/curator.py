@@ -132,7 +132,7 @@ from eth_defi.grvt.constants import GRVT_SYSTEM_VAULT_ADDRESSES
 from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
 from eth_defi.lighter.constants import LIGHTER_SYSTEM_POOL_ADDRESSES
 from eth_defi.research.sparkline import upload_to_r2_compressed
-from eth_defi.securitize.description import SECURITIZE_PRODUCTS
+from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCTS
 
 logger = logging.getLogger(__name__)
 

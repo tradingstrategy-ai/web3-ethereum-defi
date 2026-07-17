@@ -13,7 +13,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 
 if TYPE_CHECKING:
-    from eth_defi.oda_fact.vault import OdaFactVault
+    from eth_defi.tokenised_fund.kinexys.vault import OdaFactVault
 
 
 class OdaFactVaultHistoricalReader(VaultHistoricalReader):

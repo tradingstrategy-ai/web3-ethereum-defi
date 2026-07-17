@@ -125,9 +125,9 @@ from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
 from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histories
-from eth_defi.securitize.description import SECURITIZE_PRODUCTS, SecuritizeProduct
-from eth_defi.securitize.redstone import REDSTONE_SECURITIZE_FEEDS
 from eth_defi.token import TokenDiskCache
+from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCTS, SecuritizeProduct
+from eth_defi.tokenised_fund.securitize.redstone import REDSTONE_SECURITIZE_FEEDS
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.historical import ParquetScanResult, pformat_scan_result, scan_historical_prices_to_parquet

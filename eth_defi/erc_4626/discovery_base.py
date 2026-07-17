@@ -25,12 +25,12 @@ from eth_typing import HexAddress
 from web3.contract.contract import ContractEvent
 
 from eth_defi.abi import get_contract
-from eth_defi.asseto.constants import ASSETO_HARDCODED_LEADS
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import ODA_FACT_HARDCODED_LEADS, probe_vaults
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_erc_4626_contract
 from eth_defi.maseer_one.constants import MASEER_ONE_HARDCODED_LEADS
 from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
+from eth_defi.tokenised_fund.asseto.constants import ASSETO_HARDCODED_LEADS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault_street.constants import VAULT_STREET_HARDCODED_LEADS

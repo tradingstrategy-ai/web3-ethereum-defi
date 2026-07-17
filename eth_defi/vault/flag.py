@@ -4,7 +4,7 @@ import enum
 
 from eth_typing import HexAddress
 
-from eth_defi.securitize.description import SECURITIZE_PRODUCT_NOTES, SECURITIZE_TOKENISED_FUND_ADDRESSES
+from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCT_NOTES, SECURITIZE_TOKENISED_FUND_ADDRESSES
 from eth_defi.vault.handwritten_metadata import PIKU_VAULT_METADATA, format_handwritten_vault_note
 
 
