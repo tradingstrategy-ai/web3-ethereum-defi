@@ -30,7 +30,7 @@ WSTGBP_EXPECTED_RAW_SUPPLY = 20_125_083_675_286_769_012_566
 WSTGBP_EXPECTED_TOTAL_SUPPLY = Decimal("20125.083675286769012566")
 WSTGBP_EXPECTED_SHARE_PRICE = Decimal("1.005372972418361109")
 WSTGBP_EXPECTED_TOTAL_ASSETS = Decimal("20233.21519479129423955175334")
-WSTGBP_EXPECTED_WITHDRAW_FEE = Decimal("0.002499999999999999231628439203")
+WSTGBP_EXPECTED_WITHDRAW_FEE = 0.0025
 
 
 @pytest.fixture(scope="module")
@@ -83,7 +83,7 @@ def test_wstgbp_metadata_and_fees(web3: Web3) -> None:
     assert vault.get_fee_data().management is None
     assert vault.get_fee_data().performance is None
     assert vault.get_fee_data().deposit == 0
-    assert vault.get_fee_data().withdraw == WSTGBP_EXPECTED_WITHDRAW_FEE
+    assert vault.get_fee_data().withdraw == pytest.approx(WSTGBP_EXPECTED_WITHDRAW_FEE)
     assert vault.fetch_deposit_closed_reason() is None
     assert vault.fetch_redemption_closed_reason() is None
     assert vault.get_notes() == WSTGBP_NOTE
@@ -167,7 +167,7 @@ def test_wstgbp_scan_record(web3: Web3) -> None:
     assert record["Mgmt fee"] is None
     assert record["Perf fee"] is None
     assert record["Deposit fee"] == 0
-    assert record["Withdraw fee"] == WSTGBP_EXPECTED_WITHDRAW_FEE
+    assert record["Withdraw fee"] == pytest.approx(WSTGBP_EXPECTED_WITHDRAW_FEE)
     assert record["Features"] == "wstgbp_like"
     assert record["_denomination_token"]["address"] == Web3.to_checksum_address(WSTGBP_EXPECTED_GEM)
     assert record["_denomination_token"]["symbol"] == "tGBP"

@@ -25,8 +25,8 @@ from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
-from eth_defi.wstgbp.constants import WSTGBP
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
+from eth_defi.wstgbp.constants import WSTGBP
 
 logger = logging.getLogger(__name__)
 

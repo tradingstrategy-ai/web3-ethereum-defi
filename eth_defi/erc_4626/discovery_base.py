@@ -32,8 +32,8 @@ from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_HARDCODED_LEADS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
-from eth_defi.wstgbp.constants import WSTGBP_HARDCODED_LEADS
 from eth_defi.vault_street.constants import VAULT_STREET_HARDCODED_LEADS
+from eth_defi.wstgbp.constants import WSTGBP_HARDCODED_LEADS
 
 logger = logging.getLogger(__name__)
 
