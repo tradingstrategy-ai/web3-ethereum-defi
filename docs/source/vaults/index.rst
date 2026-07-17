@@ -77,6 +77,7 @@ Supported protocols
    ondo/index
    wisdomtree/index
    libeara/index
+   spiko/index
    forty_acres/index
    aarna/index
    aera/index

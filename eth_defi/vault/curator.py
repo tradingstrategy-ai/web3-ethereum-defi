@@ -132,9 +132,10 @@ from eth_defi.grvt.constants import GRVT_SYSTEM_VAULT_ADDRESSES
 from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
 from eth_defi.lighter.constants import LIGHTER_SYSTEM_POOL_ADDRESSES
 from eth_defi.research.sparkline import upload_to_r2_compressed
-from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
+from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCTS
+from eth_defi.tokenised_fund.spiko.constants import USTBL_TOKEN_ADDRESS
 from eth_defi.tokenised_fund.wisdomtree.constants import WTGXX_ETHEREUM
 
 logger = logging.getLogger(__name__)
@@ -186,6 +187,7 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
     "hyperliquid",
     "lighter",
     "grvt",
+    "spiko-curator",
 }
 
 #: Human-readable names for protocol-curator slugs.
@@ -203,6 +205,7 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "grvt": "GRVT",
     "3jane": "3Jane",
     "usyc": "Circle USYC",
+    "spiko-curator": "Spiko",
 }
 
 #: Additional name patterns for curator matching.
@@ -372,6 +375,8 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # CUMIU and BELIF are platform-managed Libeara CMTAT deployments. Keep the
     # mapping address-scoped because the issuer name varies between products.
     **{key: "libeara" for key in LIBEARA_PRODUCTS},
+    # Spiko operates the eligibility-gated USTBL servicing and oracle.
+    (1, USTBL_TOKEN_ADDRESS): "spiko-curator",
     # Piku publishes these as its USP token and curated Morini Capital vaults.
     # The vault names do not consistently include Piku, so keep their explicit
     # Ethereum contract addresses rather than using a fuzzy name pattern.

@@ -6,6 +6,7 @@ from eth_typing import HexAddress
 
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCT_NOTES, ONDO_TOKENISED_FUND_ADDRESSES
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCT_NOTES, SECURITIZE_TOKENISED_FUND_ADDRESSES
+from eth_defi.tokenised_fund.spiko.constants import USTBL_TOKEN_ADDRESS
 from eth_defi.vault.handwritten_metadata import PIKU_VAULT_METADATA, format_handwritten_vault_note
 
 
@@ -155,6 +156,15 @@ ODA_FACT_MONY_NOTE = """My OnChain Net Yield Fund (MONY).
 - **Operations:** J.P. Morgan's launch announcement says the fund is powered by Kinexys Digital Assets and distributed through Morgan Money.
 """
 
+SPIKO_USTBL_NOTE = """Spiko US T-Bills Money Market Fund (USTBL).
+
+- **Curator:** Spiko.
+- **Vault strategy:** Permissioned tokenised share in Spiko's U.S. Treasury-bill money-market fund.
+- **Valuation:** Spiko's verified Chainlink-compatible Oracle publishes NAV/share; fund holdings are off-chain.
+- **Dealing:** Subscriptions, transfers and redemptions require eligibility checks and issuer-operated servicing.
+- **Fees:** Spiko states a 0.25% annual management fee, reflected in NAV/share.
+"""
+
 #: Vault-specific notes and classifications that do not exclude a vault from
 #: research datasets.
 #:
@@ -167,6 +177,7 @@ VAULT_NOTES: dict[str, str] = {
     "0x1fecf3d9d4fee7f2c02917a66028a48c6706c179": WISDOMTREE_WTGXX_NOTE,
     "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e": SUPERSTATE_USTB_NOTE,
     "0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46": ODA_FACT_MONY_NOTE,
+    USTBL_TOKEN_ADDRESS: SPIKO_USTBL_NOTE,
 }
 
 #: Product classification flags that are descriptive rather than exclusionary.
@@ -177,6 +188,7 @@ VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
     "0x1fecf3d9d4fee7f2c02917a66028a48c6706c179": {VaultFlag.tokenised_fund},
     "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e": {VaultFlag.tokenised_fund},
     "0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46": {VaultFlag.tokenised_fund},
+    USTBL_TOKEN_ADDRESS: {VaultFlag.tokenised_fund},
 }
 
 #: Vault-specific notes which must only apply on the specified EVM chain.

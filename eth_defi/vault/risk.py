@@ -78,6 +78,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Franklin Templeton": None,
     # Permissioned, upgradeable CMTAT proxies with issuer-controlled rule engines.
     "Libeara": None,
+    # Permissioned issuer-operated token and NAV oracle infrastructure.
+    "Spiko": VaultTechnicalRisk.low,
     # Securitize DSToken implementations are verified and the underlying
     # protocol is open source. Product-specific fund, issuer, custody and
     # compliance risks need separate assessment.

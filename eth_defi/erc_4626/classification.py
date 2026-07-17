@@ -26,11 +26,12 @@ from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_PRODUCTS, CENTRIFUGE_TRANCHE_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_PRODUCTS, FRANKLIN_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS, LIBEARA_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS, ONDO_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.spiko.constants import USTBL_TOKEN_ADDRESS
 from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_PRODUCTS_BY_CHAIN
 from eth_defi.tokenised_fund.usyc.constants import USYC_TOKEN_ADDRESS
 from eth_defi.tokenised_fund.wisdomtree.constants import WISDOMTREE_PRODUCTS, WISDOMTREE_PRODUCTS_BY_TOKEN
-from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS, LIBEARA_PRODUCTS_BY_TOKEN
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
@@ -118,6 +119,9 @@ SUPERSTATE_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.superstate_like} for to
 #: CMTAT is shared by unrelated security tokens, so only reviewed Libeara
 #: products are classified through this chain-aware allow-list.
 LIBEARA_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.libeara_like} for token in LIBEARA_PRODUCTS_BY_TOKEN}
+
+#: Spiko USTBL is a single reviewed permissioned fund token on Ethereum.
+SPIKO_HARDCODED_PROTOCOLS = {USTBL_TOKEN_ADDRESS: {ERC4626Feature.spiko_like}}
 
 #: Maseer One hardcoded classification flags.
 #:
@@ -359,9 +363,14 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if normalised_address in superstate_products:
             return SUPERSTATE_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in SUPERSTATE_HARDCODED_PROTOCOLS:
+            return None
         if (chain_id, normalised_address) in LIBEARA_PRODUCTS:
             return LIBEARA_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in LIBEARA_HARDCODED_PROTOCOLS:
+            return None
+        if normalised_address in SPIKO_HARDCODED_PROTOCOLS:
+            if chain_id == 1:
+                return SPIKO_HARDCODED_PROTOCOLS[normalised_address]
             return None
         if normalised_address == PRIME_USD_ADDRESS:
             if chain_id == 1:
@@ -1823,6 +1832,10 @@ def create_vault_instance(
         from eth_defi.tokenised_fund.libeara.vault import LibearaVault
 
         return LibearaVault(web3, spec, **kwargs)
+    elif ERC4626Feature.spiko_like in features:
+        from eth_defi.tokenised_fund.spiko.vault import SpikoVault
+
+        return SpikoVault(web3, spec, **kwargs)
     elif ERC4626Feature.maseer_one_like in features:
         from eth_defi.maseer_one.vault import MaseerOneVault
 
@@ -2276,6 +2289,7 @@ HARDCODED_PROTOCOLS = {
     **WISDOMTREE_HARDCODED_PROTOCOLS,
     **SUPERSTATE_HARDCODED_PROTOCOLS,
     **LIBEARA_HARDCODED_PROTOCOLS,
+    **SPIKO_HARDCODED_PROTOCOLS,
     **MASEER_ONE_HARDCODED_PROTOCOLS,
     **KILOEX_HARDCODED_PROTOCOLS,
     **FRANKENCOIN_HARDCODED_PROTOCOLS,

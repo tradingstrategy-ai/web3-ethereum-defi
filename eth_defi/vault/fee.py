@@ -72,6 +72,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Franklin Templeton": None,
     # Product fee schedules are not published by the reviewed CMTAT token contracts.
     "Libeara": None,
+    # USTBL's disclosed management cost is reflected in issuer-published NAV.
+    "Spiko": VaultFeeMode.internalised_skimming,
     # DSToken contracts do not expose product-level fund fees.
     "Securitize": None,
     # USDY and OUSG reflect issuer fund expenses in the published NAV. OUSG's

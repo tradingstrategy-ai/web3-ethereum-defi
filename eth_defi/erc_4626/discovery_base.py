@@ -33,10 +33,11 @@ from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_HARDCODED_LEADS
 from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_HARDCODED_LEADS
+from eth_defi.tokenised_fund.libeara.constants import LIBEARA_HARDCODED_LEADS
 from eth_defi.tokenised_fund.ondo.constants import ONDO_HARDCODED_LEADS
+from eth_defi.tokenised_fund.spiko.constants import SPIKO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.usyc.constants import USYC_HARDCODED_LEADS
 from eth_defi.tokenised_fund.wisdomtree.constants import WISDOMTREE_HARDCODED_LEADS
-from eth_defi.tokenised_fund.libeara.constants import LIBEARA_HARDCODED_LEADS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault_street.constants import VAULT_STREET_HARDCODED_LEADS
@@ -59,6 +60,7 @@ DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
     ("Centrifuge Tranche", CENTRIFUGE_TRANCHE_HARDCODED_LEADS),
     ("WisdomTree", WISDOMTREE_HARDCODED_LEADS),
     ("Libeara", LIBEARA_HARDCODED_LEADS),
+    ("Spiko", SPIKO_HARDCODED_LEADS),
 )
 
 if TYPE_CHECKING:
