@@ -311,6 +311,7 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if (chain_id, normalised_address) in FRANKLIN_PRODUCTS:
             return FRANKLIN_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in FRANKLIN_HARDCODED_PROTOCOLS:
+            return None
         if (chain_id, normalised_address) in CENTRIFUGE_TRANCHE_PRODUCTS:
             return CENTRIFUGE_TRANCHE_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in CENTRIFUGE_TRANCHE_HARDCODED_PROTOCOLS:
