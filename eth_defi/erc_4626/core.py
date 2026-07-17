@@ -84,6 +84,26 @@ class ERC4626Feature(enum.Enum):
     #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     wstgbp_like = "wstgbp_like"
 
+    @classmethod
+    def _missing_(cls, value: object) -> "ERC4626Feature | None":
+        """Map retired feature values retained in persisted vault databases.
+
+        Vault discovery state is pickled, and enum unpickling resolves members
+        by their value. ``maseer_one_like`` was renamed to ``wstgbp_like``;
+        retain this value-level migration so existing scan databases remain
+        readable without reclassification or data loss.
+
+        :param value:
+            Serialised enum value.
+        :return:
+            Canonical enum member for a retired value, or ``None`` when the
+            value is unknown.
+        """
+
+        if value == "maseer_one_like":
+            return cls.wstgbp_like
+        return None
+
     #: Vault Street permissioned tokenised investment products.
     #:
     #: Routing marker for non-ERC-4626 products read through a
