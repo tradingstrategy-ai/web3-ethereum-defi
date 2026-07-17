@@ -1,0 +1,18 @@
+name: Libeara
+slug: libeara
+short_description: Permissioned digital fund shares recorded through Libeara's tokenisation platform.
+long_description: |
+  Libeara provides infrastructure for tokenised capital-market products. This integration covers the ChinaAMC USD Digital Money Market Fund Class I USD (CUMIU) and Bosera Liquidity Income Fund SP (BELIF) shares on Ethereum.
+
+  These products are permissioned interests. Eligibility, subscriptions, transfers and redemptions are subject to issuer and platform controls, so holding a token address alone does not make the funds publicly accessible or liquid.
+fee_description: |
+  The reviewed token contracts publish an issuer-maintained fund value but do not publish product fee schedules. Fees, dealing costs and eligibility terms must be checked in each fund's official offering documents; they are not represented as zero by this integration.
+links:
+  homepage: https://libeara.com/
+  documentation: https://www.chinaamc.com.hk/product/chinaamc-usd-digital-money-market-fund-listedclass/
+  github: https://github.com/libeara
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/libeara/index.html
+example_smart_contracts:
+  - https://etherscan.io/token/0x85d38585c3ac08268f598282a84b7c0ddfc0d04f
+  - https://etherscan.io/token/0x237c717df1b60501f8d029d3fe7385fd090df180

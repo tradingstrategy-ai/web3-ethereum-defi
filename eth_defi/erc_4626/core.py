@@ -111,6 +111,8 @@ class ERC4626Feature(enum.Enum):
     #: Routing marker for non-ERC-4626 allowlisted fund tokens that are read
     #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     superstate_like = "superstate_like"
+    #: Libeara CMTAT tokenised fund shares.
+    libeara_like = "libeara_like"
 
     #: Maseer One tokenised asset contracts.
     #:
@@ -886,6 +888,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "WisdomTree"
     elif ERC4626Feature.superstate_like in features:
         return "Superstate"
+    elif ERC4626Feature.libeara_like in features:
+        return "Libeara"
     elif ERC4626Feature.maseer_one_like in features:
         return "Maseer One"
     elif ERC4626Feature.vault_street_like in features:

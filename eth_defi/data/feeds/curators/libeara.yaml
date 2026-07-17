@@ -1,0 +1,15 @@
+# Libeara platform curator — feeds are provided by protocols/libeara.yaml.
+feeder-id: libeara
+name: Libeara
+role: curator
+canonical-feeder-id: libeara
+short_description: Libeara is a tokenisation platform for regulated capital-market products.
+long_description: |
+  Libeara develops blockchain infrastructure for tokenised real-world assets and capital-market products. Its platform supports issuance and lifecycle administration for regulated digital fund shares, including the reviewed CUMIU and BELIF CMTAT products.
+
+  The curator mapping represents Libeara's platform and administration role, not a claim that it is the investment manager of every underlying fund.
+other-links:
+  - title: Libeara homepage — tokenised capital-market platform
+    url: https://libeara.com/
+  - title: ChinaAMC USD Digital Money Market Fund — Libeara tokenisation FAQ
+    url: https://www.chinaamc.com.hk/product/chinaamc-usd-digital-money-market-fund-listedclass/

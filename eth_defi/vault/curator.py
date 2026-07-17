@@ -133,6 +133,7 @@ from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
 from eth_defi.lighter.constants import LIGHTER_SYSTEM_POOL_ADDRESSES
 from eth_defi.research.sparkline import upload_to_r2_compressed
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS
+from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCTS
 from eth_defi.tokenised_fund.wisdomtree.constants import WTGXX_ETHEREUM
 
@@ -368,6 +369,9 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # Superstate's official contract registry identifies USTB as a Superstate
     # fund token, while the token name itself carries no reusable curator name.
     (1, "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e"): "superstate",
+    # CUMIU and BELIF are platform-managed Libeara CMTAT deployments. Keep the
+    # mapping address-scoped because the issuer name varies between products.
+    **{key: "libeara" for key in LIBEARA_PRODUCTS},
     # Piku publishes these as its USP token and curated Morini Capital vaults.
     # The vault names do not consistently include Piku, so keep their explicit
     # Ethereum contract addresses rather than using a fuzzy name pattern.

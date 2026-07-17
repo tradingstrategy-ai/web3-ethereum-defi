@@ -76,6 +76,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # Franklin Templeton Benji is a permissioned, proprietary fund-token
     # platform. Product and operational risks need human assessment.
     "Franklin Templeton": None,
+    # Permissioned, upgradeable CMTAT proxies with issuer-controlled rule engines.
+    "Libeara": None,
     # Securitize DSToken implementations are verified and the underlying
     # protocol is open source. Product-specific fund, issuer, custody and
     # compliance risks need separate assessment.

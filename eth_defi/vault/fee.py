@@ -70,6 +70,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Asseto": VaultFeeMode.internalised_skimming,
     # Benji token contracts do not expose a fund fee schedule.
     "Franklin Templeton": None,
+    # Product fee schedules are not published by the reviewed CMTAT token contracts.
+    "Libeara": None,
     # DSToken contracts do not expose product-level fund fees.
     "Securitize": None,
     # USDY and OUSG reflect issuer fund expenses in the published NAV. OUSG's
