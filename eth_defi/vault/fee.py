@@ -73,6 +73,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # USDY and OUSG reflect issuer fund expenses in the published NAV. OUSG's
     # documented management fee is surfaced per product by the Ondo adapter.
     "Ondo": VaultFeeMode.internalised_skimming,
+    # USYC subscriptions and redemptions charge Teller fees; the product also
+    # discloses a performance fee that is reflected in the NAV/share price.
+    "Circle USYC": VaultFeeMode.externalised,
     # Maseer One applies mint and redemption spreads through mintcost() and
     # burncost(), reducing the user's issued shares or redeemed assets.
     "Maseer One": VaultFeeMode.externalised,

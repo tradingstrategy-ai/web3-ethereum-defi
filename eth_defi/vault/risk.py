@@ -80,6 +80,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # Ondo share-token and oracle contracts are verified but issuer-operated,
     # permissioned infrastructure with product-specific eligibility controls.
     "Ondo": VaultTechnicalRisk.low,
+    # Circle USYC is a permissioned fund token with verified proxy contracts
+    # and a centrally operated NAV oracle.
+    "Circle USYC": VaultTechnicalRisk.low,
     # Maseer One is a new compliance-gated RWA tokenisation framework. The
     # contracts are public, but the framework has limited production history.
     "Maseer One": None,

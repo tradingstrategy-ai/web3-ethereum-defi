@@ -126,6 +126,7 @@ Supported protocols
    maseer-one/index
    midas/index
    vault_street/index
+   usyc/index
    morpho/index
    nashpoint/index
    plutus/index

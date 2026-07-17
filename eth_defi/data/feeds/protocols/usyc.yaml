@@ -1,0 +1,5 @@
+# Circle USYC protocol — feeds provided by stablecoins/usdc.yaml
+feeder-id: usyc
+name: Circle USYC
+role: protocol
+canonical-feeder-id: usdc

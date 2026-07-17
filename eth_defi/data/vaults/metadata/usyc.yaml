@@ -1,0 +1,25 @@
+name: Circle USYC
+slug: usyc
+short_description: |
+  Permissioned tokenised money market fund offering yield-bearing exposure to short-term U.S. government securities.
+long_description: |
+  Circle USYC is the on-chain representation of shares in the Hashnote International Short Duration Yield Fund Ltd. The fund invests in U.S. Treasury bills and reverse repurchase agreements backed by short-term U.S. government securities.
+
+  USYC is designed for institutional use and is available only to eligible non-U.S. persons, subject to further onboarding and entitlement checks. It uses USDC for subscriptions and redemptions; the token price changes with the fund's net asset value rather than through staking or token rebases.
+fee_description: |
+  Circle publishes a standard 0.04% subscription fee and 0.03% redemption fee. Eligible investors receive a zero-fee tier for combined daily subscription and redemption volume up to $1 million, with standard fees applying above that threshold. Circle also publishes a 10% performance fee on yield; these costs affect the fund's net asset value.
+links:
+  homepage: https://www.circle.com/usyc
+  app: https://usyc.hashnote.com/
+  twitter: https://x.com/circle
+  github:
+  documentation: https://usyc.docs.hashnote.com/
+  defillama:
+  audits:
+  fees: https://usyc.docs.hashnote.com/overview/fees
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/usyc/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x136471a34f6ef19fe571effc1ca711fdb8e49f2b
+  - https://etherscan.io/address/0x74f2199aeb743f68f05943e5715a33eaf2b61f53
+  - https://etherscan.io/address/0xee35f963bfc71b51ec95147f26c030d674ea30e6

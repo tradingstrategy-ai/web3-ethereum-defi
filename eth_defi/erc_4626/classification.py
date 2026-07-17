@@ -25,6 +25,7 @@ from eth_defi.maseer_one.constants import MASEER_ONE_WSTGBP
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS, ONDO_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.usyc.constants import USYC_TOKEN_ADDRESS
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
@@ -73,6 +74,11 @@ ASSETO_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.asseto_like} for token in A
 #: Ondo issuer share tokens are chain-aware, non-ERC-4626 products whose NAV
 #: is published by separate issuer oracles.
 ONDO_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.ondo_like} for token in ONDO_PRODUCTS_BY_TOKEN}
+
+#: Circle USYC is a single permissioned ERC-20 fund token on Ethereum.
+#:
+#: https://usyc.docs.hashnote.com/overview/smart-contracts
+USYC_HARDCODED_PROTOCOLS = {USYC_TOKEN_ADDRESS: {ERC4626Feature.usyc_like}}
 
 #: Maseer One hardcoded classification flags.
 #:
@@ -289,6 +295,10 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if (chain_id, normalised_address) in ONDO_PRODUCTS:
             return ONDO_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in ONDO_HARDCODED_PROTOCOLS:
+            return None
+        if normalised_address in USYC_HARDCODED_PROTOCOLS:
+            if chain_id == 1:
+                return USYC_HARDCODED_PROTOCOLS[normalised_address]
             return None
         if normalised_address == PRIME_USD_ADDRESS:
             if chain_id == 1:
@@ -1694,6 +1704,10 @@ def create_vault_instance(
         from eth_defi.tokenised_fund.securitize.vault import SecuritizeVault
 
         return SecuritizeVault(web3, spec, **kwargs)
+    elif ERC4626Feature.usyc_like in features:
+        from eth_defi.tokenised_fund.usyc.vault import USYCVault
+
+        return USYCVault(web3, spec, **kwargs)
     elif ERC4626Feature.broken in features:
         return None
     elif ERC4626Feature.ipor_like in features:
@@ -2173,6 +2187,7 @@ HARDCODED_PROTOCOLS = {
     **MIDAS_HARDCODED_PROTOCOLS,
     **ASSETO_HARDCODED_PROTOCOLS,
     **ONDO_HARDCODED_PROTOCOLS,
+    **USYC_HARDCODED_PROTOCOLS,
     **MASEER_ONE_HARDCODED_PROTOCOLS,
     **KILOEX_HARDCODED_PROTOCOLS,
     **FRANKENCOIN_HARDCODED_PROTOCOLS,

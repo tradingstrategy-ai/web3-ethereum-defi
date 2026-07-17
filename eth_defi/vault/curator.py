@@ -165,6 +165,7 @@ PROTOCOL_CURATED_SLUGS: set[str] = {
     "ostium",
     "domination-finance",
     "3jane",
+    "usyc",
 }
 
 #: Legacy protocol slug aliases that should resolve to the canonical
@@ -199,6 +200,7 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "lighter": "Lighter",
     "grvt": "GRVT",
     "3jane": "3Jane",
+    "usyc": "Circle USYC",
 }
 
 #: Additional name patterns for curator matching.
