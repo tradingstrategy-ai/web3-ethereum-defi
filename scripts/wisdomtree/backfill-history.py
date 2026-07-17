@@ -11,7 +11,6 @@ Run with::
     source .local-test.env && WISDOMTREE_DATASPAN_API_KEY=... poetry run python scripts/wisdomtree/backfill-history.py
 """
 
-
 import datetime
 import logging
 import os
@@ -170,6 +169,32 @@ def create_lead(deployment_block: int, first_seen_at: datetime.datetime) -> Pote
     return PotentialVaultMatch(WTGXX_ETHEREUM.chain_id, WTGXX_ETHEREUM.token, deployment_block, first_seen_at)
 
 
+def upsert_selected_metadata(vault_db: VaultDatabase, *, end_block: int, row: dict) -> None:
+    """Upsert WTGXX metadata without changing the Ethereum discovery watermark.
+
+    ``VaultDatabase.update_leads_and_rows()`` also maintains the ordinary
+    chain-wide scan cursor. A one-address migration must leave that cursor
+    untouched because it says nothing about unrelated Ethereum discovery.
+
+    :param vault_db: Existing metadata database to update.
+    :param end_block: Block used to build WTGXX metadata.
+    :param row: WTGXX scan row.
+    """
+
+    chain_id = WTGXX_ETHEREUM.chain_id
+    previous_watermark = vault_db.last_scanned_block.get(chain_id)
+    vault_db.update_leads_and_rows(
+        chain_id,
+        end_block,
+        {WTGXX_ETHEREUM.token: create_lead(WTGXX_ETHEREUM.first_seen_at_block, WTGXX_ETHEREUM.first_seen_at)},
+        {VaultSpec(chain_id, WTGXX_ETHEREUM.token): row},
+    )
+    if previous_watermark is None:
+        del vault_db.last_scanned_block[chain_id]
+    else:
+        vault_db.last_scanned_block[chain_id] = previous_watermark
+
+
 def resolve_start_block(timestamp_cache_folder: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER) -> int:
     """Choose a timestamp-cache-compatible WTGXX history start block.
 
@@ -220,10 +245,10 @@ def run_backfill(
     detection = create_detection(WTGXX_ETHEREUM.first_seen_at_block, WTGXX_ETHEREUM.first_seen_at)
     row = create_vault_scan_record(web3, detection=detection, block_identifier=end_block, token_cache=token_cache)
     if not dry_run:
-        vault_db.update_leads_and_rows(WTGXX_ETHEREUM.chain_id, end_block, {WTGXX_ETHEREUM.token: create_lead(WTGXX_ETHEREUM.first_seen_at_block, WTGXX_ETHEREUM.first_seen_at)}, {VaultSpec(WTGXX_ETHEREUM.chain_id, WTGXX_ETHEREUM.token): row})
+        upsert_selected_metadata(vault_db, end_block=end_block, row=row)
         vault_db_path.parent.mkdir(parents=True, exist_ok=True)
         vault_db.write(vault_db_path)
-    if not scan_prices:
+    if not scan_prices or dry_run:
         return
     vault = create_vault_instance(web3, WTGXX_ETHEREUM.token, features={ERC4626Feature.wisdomtree_like}, token_cache=token_cache)
     if vault is None:

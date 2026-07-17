@@ -1,6 +1,6 @@
 """Test WisdomTree WTGXX routing, read-only flows and issuer NAV parsing."""
 
-# ruff: noqa: ARG001, ARG002, DTZ001, PLC2701, PLR6301
+# ruff: noqa: ARG001, ARG002, ARG005, DTZ001, PLC2701, PLR6301, PLW0108
 
 import datetime
 import importlib.util
@@ -18,6 +18,7 @@ from eth_defi.tokenised_fund.wisdomtree.vault import WISDOMTREE_RESTRICTED_FLOW_
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
+from eth_defi.vault.vaultdb import VaultDatabase
 
 
 @pytest.fixture
@@ -97,3 +98,28 @@ def test_wisdomtree_migration_cleaning_scope_is_single_vault(backfill_module) ->
 
     assert backfill_module.selected_vault_addresses() == {WTGXX_ETHEREUM.token}
     assert len(backfill_module.selected_vault_spec_ids()) == 1
+
+
+def test_wisdomtree_metadata_upsert_preserves_ethereum_watermark(backfill_module) -> None:
+    """A one-token migration cannot claim the full chain has been scanned."""
+
+    database = VaultDatabase(last_scanned_block={1: 12_345, 8453: 99})
+    backfill_module.upsert_selected_metadata(database, end_block=99_999, row={"Name": "WTGXX"})
+    assert database.last_scanned_block == {1: 12_345, 8453: 99}
+    assert VaultSpec(1, WTGXX_ETHEREUM.token) in database.rows
+
+
+def test_wisdomtree_dry_run_skips_history_writer(monkeypatch: pytest.MonkeyPatch, backfill_module, tmp_path: Path) -> None:
+    """Do not invoke raw or cleaned Parquet writers in a dry run."""
+
+    calls: list[str] = []
+    monkeypatch.setattr(backfill_module, "require_price_scan_key", lambda: None)
+    monkeypatch.setattr(backfill_module, "read_json_rpc_url", lambda _chain_id: "http://example.invalid")
+    monkeypatch.setattr(backfill_module, "create_multi_provider_web3", lambda _url: SimpleNamespace(eth=SimpleNamespace(block_number=99)))
+    monkeypatch.setattr(backfill_module, "TokenDiskCache", lambda: object())
+    monkeypatch.setattr(backfill_module, "create_vault_scan_record", lambda *args, **kwargs: {})
+    monkeypatch.setattr(backfill_module, "scan_historical_prices_to_parquet", lambda *args, **kwargs: calls.append("scanner"))
+    monkeypatch.setattr(backfill_module, "replace_cleaned_vault_histories", lambda *args, **kwargs: calls.append("cleaner"))
+    backfill_module.run_backfill(dry_run=True, scan_prices=True, clean_prices=True, frequency="1d", vault_db_path=tmp_path / "vaults.pickle", raw_price_path=tmp_path / "raw.parquet", cleaned_price_path=tmp_path / "cleaned.parquet", reader_state_path=tmp_path / "state.pickle")
+    assert calls == []
+    assert not list(tmp_path.iterdir())
