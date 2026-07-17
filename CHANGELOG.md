@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Start hardcoded tokenised-fund protocol coverage with an EVM integration roadmap (2026-07-17)
 - feat: Backfill all reviewed Securitize funds with archive-block RedStone NAV reads and official cross-chain BUIDL deployments (2026-07-16)
 - feat: Add off-chain Securitize NAV, share-price and TVL history sources with in-memory scanner enrichment (2026-07-16)
 - feat: Backfill all supported Asseto products from its live registry using daily NAV history and skip chains without configured RPCs (2026-07-16)
