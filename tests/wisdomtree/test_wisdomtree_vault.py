@@ -3,7 +3,9 @@
 # ruff: noqa: ARG001, ARG002, DTZ001, PLC2701, PLR6301
 
 import datetime
+import importlib.util
 from decimal import Decimal
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -13,8 +15,21 @@ from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.tokenised_fund.wisdomtree.constants import ETHEREUM_CHAIN_ID, WTGXX_ETHEREUM
 from eth_defi.tokenised_fund.wisdomtree.nav import WisdomTreeAPIError, WisdomTreeNAVPoint, fetch_wisdomtree_nav_history
 from eth_defi.tokenised_fund.wisdomtree.vault import WISDOMTREE_RESTRICTED_FLOW_REASON, WisdomTreeVault
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
+
+
+@pytest.fixture
+def backfill_module():
+    """Load the address-scoped migration module."""
+
+    script = Path(__file__).parents[2] / "scripts" / "wisdomtree" / "backfill-history.py"
+    spec = importlib.util.spec_from_file_location("wisdomtree_backfill", script)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_wisdomtree_hardcoded_classification_is_chain_aware() -> None:
@@ -66,3 +81,19 @@ def test_wisdomtree_nav_requires_explicit_key(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.delenv("WISDOMTREE_DATASPAN_API_KEY", raising=False)
     with pytest.raises(WisdomTreeAPIError, match="WISDOMTREE_DATASPAN_API_KEY"):
         list(fetch_wisdomtree_nav_history("WTGXX"))
+
+
+def test_wisdomtree_migration_preserves_unrelated_reader_state(backfill_module) -> None:
+    """Drop only WTGXX state before rebuilding its raw history."""
+
+    other = VaultSpec(1, "0x0000000000000000000000000000000000000001")
+    selected = VaultSpec(1, WTGXX_ETHEREUM.token)
+    states = {other: {"keep": True}, selected: {"replace": True}}
+    assert backfill_module.remove_selected_reader_states(states) == {other: {"keep": True}}
+
+
+def test_wisdomtree_migration_cleaning_scope_is_single_vault(backfill_module) -> None:
+    """Pass only WTGXX to the cleaned-history replacement helper."""
+
+    assert backfill_module.selected_vault_addresses() == {WTGXX_ETHEREUM.token}
+    assert len(backfill_module.selected_vault_spec_ids()) == 1
