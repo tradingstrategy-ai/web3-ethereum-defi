@@ -149,7 +149,7 @@ def test_wstgbp_metadata_and_fees(web3: Web3) -> None:
 @flaky.flaky
 @pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 def test_wstgbp_historical_reader(web3: Web3) -> None:
-    """Calculate historical wstGBP TVL from supply and the on-chain NAV/share."""
+    """Calculate historical wstGBP TVL from supply and the onchain NAV/share."""
 
     vault = create_vault_instance_autodetect(web3, WSTGBP.vault)
     reader = vault.get_historical_reader(stateful=False)

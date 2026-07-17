@@ -27,7 +27,7 @@ from eth_defi.wstgbp.historical import WSTGBPVaultHistoricalReader
 WSTGBP_DOCUMENTATION = "https://docs.wstgbp.com/"
 WSTGBP_NAV_SOURCE = "wstgbp_navprice"
 WSTGBP_BESPOKE_FLOW_REASON = "wstGBP minting and redemption use bespoke contract methods"
-WSTGBP_NOTE = "wstGBP (Wren Staked tGBP) is a non-custodial, non-rebasing ERC-20 wrapper around tGBP, a pound sterling stablecoin issued by BCP Technologies, an FCA-registered cryptoasset firm, backed 1:1 by sterling reserves. Users mint and redeem permissionlessly on Ethereum at the on-chain exchange rate. Balances stay fixed and rewards, when applied, are reflected in the wstGBP to tGBP exchange rate through periodic NAV updates. Minting is free and instant redemption carries a 25 bps fee, with no cooldown."
+WSTGBP_NOTE = "wstGBP (Wren Staked tGBP) is a non-custodial, non-rebasing ERC-20 wrapper around tGBP, a pound sterling stablecoin issued by BCP Technologies, an FCA-registered cryptoasset firm, backed 1:1 by sterling reserves. Users mint and redeem permissionlessly on Ethereum at the onchain exchange rate. Balances stay fixed and rewards, when applied, are reflected in the wstGBP to tGBP exchange rate through periodic NAV updates. Minting is free and instant redemption carries a 25 bps fee, with no cooldown."
 WAD = Decimal(10**18)
 
 WSTGBP_ABI = [
@@ -221,7 +221,7 @@ class WSTGBPVault(VaultBase):
             Short explanation of the Wren Staked tGBP product shape.
         """
 
-        return "Non-custodial tokenised sterling wrapper with on-chain NAV/share"
+        return "Non-custodial tokenised sterling wrapper with onchain NAV/share"
 
     @property
     def short_description(self) -> str:
@@ -231,7 +231,7 @@ class WSTGBPVault(VaultBase):
             Short product description.
         """
 
-        return "Non-custodial tokenised sterling wrapper with on-chain NAV"
+        return "Non-custodial tokenised sterling wrapper with onchain NAV"
 
     def get_notes(self) -> str:
         """Return the wstGBP product description for vault exports.
@@ -380,7 +380,7 @@ class WSTGBPVault(VaultBase):
         """Return Wren Staked tGBP metadata and current market status.
 
         :return:
-            On-chain denomination token, NAV-source and gate data.
+            Onchain denomination token, NAV-source and gate data.
         """
 
         block_identifier = self.default_block_identifier or "latest"
@@ -514,7 +514,7 @@ class WSTGBPVault(VaultBase):
         """Return current Wren Staked tGBP mint and redemption spread fees.
 
         :return:
-            Externalised entry and exit fees derived from on-chain prices.
+            Externalised entry and exit fees derived from onchain prices.
         """
 
         block_identifier = self.default_block_identifier or "latest"

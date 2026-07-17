@@ -1,10 +1,10 @@
 name: wstGBP
 slug: wstgbp
 short_description: |
-  Non-custodial tokenised sterling with on-chain NAV and permissionless minting and redemption.
+  Non-custodial tokenised sterling with onchain NAV and permissionless minting and redemption.
 long_description: |
   wstGBP is a non-custodial smart-contract wrapper for tokenised sterling with
-  on-chain NAV and permissionless minting and redemption.
+  onchain NAV and permissionless minting and redemption.
 fee_description: |
   Minting is free and instant redemption carries a 25 bps fee, with no cooldown.
 links:

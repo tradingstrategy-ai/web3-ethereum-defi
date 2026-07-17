@@ -21,7 +21,7 @@ class WSTGBPVaultHistoricalReader(VaultHistoricalReader):
     """Read historical supply and NAV/share for Wren Staked tGBP.
 
     wstGBP does not implement ERC-4626 ``convertToAssets()`` or
-    ``totalAssets()``. Its canonical on-chain share price is
+    ``totalAssets()``. Its canonical onchain share price is
     ``navprice()``. Historical TVL is therefore ``totalSupply() * navprice()``
     in the ERC-20 denomination returned by ``gem()``.
     """
