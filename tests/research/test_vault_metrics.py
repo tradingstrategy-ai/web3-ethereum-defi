@@ -457,6 +457,54 @@ def test_calculate_lifetime_metrics_blacklists_scanned_bad_flags(
     assert row["notes"] == expected_note
 
 
+def test_calculate_lifetime_metrics_nullifies_period_net_returns_when_fee_mode_unknown(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Unknown Securitize fee data never produces implied zero-fee net returns."""
+    source_vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_address = "0x671642Ac281C760e34251d51bC9eEF27026F3B7a"
+    vault_spec = VaultSpec(5000, vault_address)
+    vault_row = dict(vault_db.rows[VaultSpec.parse_string(source_vault_id)])
+    vault_row.update(
+        {
+            "Name": "Mantle Index Four",
+            "Address": vault_address,
+            "Protocol": "Securitize",
+            "_fees": FeeData(
+                fee_mode=None,
+                management=None,
+                performance=None,
+                deposit=None,
+                withdraw=None,
+            ),
+        }
+    )
+    vault_prices = price_df.loc[price_df["id"] == source_vault_id].copy()
+    vault_prices["id"] = vault_spec.as_string_id()
+    vault_prices["chain"] = 5000
+
+    metrics = calculate_lifetime_metrics(vault_prices, {vault_spec: vault_row})
+    row = metrics.iloc[0]
+
+    assert row["fee_mode"] is None
+    assert row["cagr_net"] is None
+    assert row["lifetime_return_net"] is None
+    assert row["one_month_returns_net"] is None
+    assert row["three_months_returns_net"] is None
+
+    period_results = row["period_results"]
+    assert all(period.returns_net is None for period in period_results)
+    assert all(period.cagr_net is None for period in period_results)
+    assert any(period.returns_gross is not None for period in period_results)
+    assert any(period.cagr_gross is not None for period in period_results)
+
+    exported = export_lifetime_row(row)
+    json.dumps(exported)
+    assert all(period["returns_net"] is None for period in exported["period_results"])
+    assert all(period["cagr_net"] is None for period in exported["period_results"])
+
+
 def test_calculate_lifetime_metrics_uses_scanned_d2_notes(
     vault_db: VaultDatabase,
     price_df: pd.DataFrame,

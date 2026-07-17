@@ -309,6 +309,26 @@ class FeeData:
         else:
             return self
 
+    def can_calculate_investor_net_performance(self) -> bool:
+        """Check whether fee data is sufficient for investor net-return calculations.
+
+        Net return calculations require a known fee mode and every fee that can
+        affect an investor's deposit-to-redemption return.  In particular,
+        unknown values must not be treated as zero fees.
+
+        :return:
+            ``True`` when the fee mode and all investor-facing fees are known.
+        """
+        return self.fee_mode is not None and all(
+            fee is not None
+            for fee in (
+                self.management,
+                self.performance,
+                self.deposit,
+                self.withdraw,
+            )
+        )
+
 
 #: Could not read fee data from the smart contract / unsupported protocol
 BROKEN_FEE_DATA = FeeData(

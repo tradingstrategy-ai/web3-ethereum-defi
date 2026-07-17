@@ -1133,26 +1133,31 @@ def calculate_period_metrics(
     else:
         returns_gross = (share_price_end / share_price_start) - 1
 
-    # Calculate net returns using calculate_net_profit()
-    returns_net = calculate_net_profit(
-        start=samples_start_at,
-        end=samples_end_at,
-        share_price_start=share_price_start,
-        share_price_end=share_price_end,
-        management_fee_annual=net_fee_data.management,
-        performance_fee=net_fee_data.performance,
-        deposit_fee=net_fee_data.deposit,
-        withdrawal_fee=net_fee_data.withdraw,
-        sample_count=raw_samples,
-    )
+    # Do not turn unknown fees into zero fees. ``calculate_net_profit()``
+    # deliberately accepts ``None`` for legacy callers, but an exported net
+    # return is only meaningful when the investor-facing fee model is known.
+    net_performance_known = gross_fee_data.fee_mode is not None and net_fee_data.can_calculate_investor_net_performance()
+    returns_net = None
+    if net_performance_known:
+        returns_net = calculate_net_profit(
+            start=samples_start_at,
+            end=samples_end_at,
+            share_price_start=share_price_start,
+            share_price_end=share_price_end,
+            management_fee_annual=net_fee_data.management,
+            performance_fee=net_fee_data.performance,
+            deposit_fee=net_fee_data.deposit,
+            withdrawal_fee=net_fee_data.withdraw,
+            sample_count=raw_samples,
+        )
 
     # Calculate CAGR (gross and net)
     # CAGR formula: (1 + return) ^ (1/years) - 1
     years = sample_duration.days / 365.25
     base_gross = 1 + returns_gross
-    base_net = 1 + returns_net
+    base_net = 1 + returns_net if returns_net is not None else None
 
-    if base_gross < 0 or base_net < 0:
+    if base_gross < 0 or (base_net is not None and base_net < 0):
         return PeriodMetrics(
             period=period,
             raw_samples=raw_samples,
@@ -1190,13 +1195,16 @@ def calculate_period_metrics(
     except OverflowError:
         cagr_gross = max_cagr
 
-    try:
-        cagr_net = base_net ** (1 / years) - 1
-    except OverflowError:
-        cagr_net = max_cagr
+    cagr_net = None
+    if base_net is not None:
+        try:
+            cagr_net = base_net ** (1 / years) - 1
+        except OverflowError:
+            cagr_net = max_cagr
 
     cagr_gross = min(cagr_gross, max_cagr)
-    cagr_net = min(cagr_net, max_cagr)
+    if cagr_net is not None:
+        cagr_net = min(cagr_net, max_cagr)
 
     # Calculate daily returns for volatility.
     # Drop NaN prices first so pct_change works across sparse data
@@ -1873,8 +1881,10 @@ def calculate_vault_record(
         symbol=normalised_denomination,
     )
 
-    # Do we know fees for this vault
-    known_fee = mgmt_fee is not None and perf_fee is not None
+    # Do we know enough to calculate an investor-facing net return?
+    # This uses the fee-mode-adjusted fees, because internalised management
+    # and performance fees are already reflected in the share price.
+    known_fee = net_fee_data.can_calculate_investor_net_performance()
 
     # Ensure prices_df index is monotonic and clean
     prices_df = prices_df.loc[~prices_df.index.isna()].sort_index(kind="stable")
