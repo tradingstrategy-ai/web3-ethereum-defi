@@ -1,0 +1,31 @@
+name: Theo
+slug: theo
+short_description: |
+  Tokenised financial products including a KYC-restricted basket of U.S. Treasury bills.
+long_description: |
+  Theo issues tokenised financial products intended to make real-world assets more accessible on public
+  blockchain networks. This integration covers thBILL, a basket of institutional-grade tokenised U.S.
+  Treasury bills held through Theo's iToken product structure.
+
+  Direct thBILL minting and redemption are available only to participants who complete Theo's KYC process.
+  Redemptions are settled in USDC under the product's servicing terms, while the public token can also be
+  traded through supported third-party venues. Eligibility, settlement timing and liquidity constraints may
+  affect an investor's ability to subscribe or redeem.
+fee_description: |
+  Theo's public thBILL documentation describes the product composition and direct dealing eligibility, but
+  does not publish a universal management, performance, subscription or redemption fee schedule. Holders
+  should obtain current product terms from Theo before transacting; this integration does not infer fees
+  from token supply or basket composition.
+links:
+  homepage: https://theo.xyz/
+  app: https://app.theo.xyz/
+  twitter: https://x.com/Theo_Network
+  github: https://github.com/theo-network
+  documentation: https://docs.theo.xyz/thbill
+  audits: https://docs.theo.xyz/audits
+  fees: https://docs.theo.xyz/thbill
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/theo/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x5fa487bca6158c64046b2813623e20755091da0b
+  - https://etherscan.io/address/0x325478a069b0dbbdfbee909fa3741f84259ba519

@@ -151,6 +151,7 @@ Supported protocols
    summer/index
    superform/index
    t3tris/index
+   theo/index
    teller/index
    term_finance/index
    threejane/index
