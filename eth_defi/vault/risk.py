@@ -77,6 +77,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # protocol is open source. Product-specific fund, issuer, custody and
     # compliance risks need separate assessment.
     "Securitize": VaultTechnicalRisk.low,
+    # Ondo share-token and oracle contracts are verified but issuer-operated,
+    # permissioned infrastructure with product-specific eligibility controls.
+    "Ondo": VaultTechnicalRisk.low,
     # Maseer One is a new compliance-gated RWA tokenisation framework. The
     # contracts are public, but the framework has limited production history.
     "Maseer One": None,

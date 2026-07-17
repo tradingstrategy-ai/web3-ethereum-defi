@@ -1,0 +1,15 @@
+# Ondo protocol-managed tokenised fund curator - feeds provided by protocols/ondo.yaml
+feeder-id: ondo
+name: Ondo Finance
+role: curator
+canonical-feeder-id: ondo
+short_description: Ondo Finance provides tokenised investment products and infrastructure for eligible investors.
+long_description: |
+  Ondo Finance issues and operates tokenised investment products, including USDY and OUSG.
+  Its products use issuer-managed onboarding, investor-eligibility checks and transfer controls.
+  For this integration, Ondo Finance is the curator and issuer of the reviewed USDY and OUSG tokenised fund products.
+other-links:
+  - title: Ondo official smart contract address registry for USDY and OUSG
+    url: https://docs.ondo.finance/addresses
+  - title: Ondo official OUSG overview describing its issuer-managed fund and NAV process
+    url: https://docs.ondo.finance/qualified-access-products/ousg/overview

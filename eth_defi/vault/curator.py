@@ -132,6 +132,7 @@ from eth_defi.grvt.constants import GRVT_SYSTEM_VAULT_ADDRESSES
 from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
 from eth_defi.lighter.constants import LIGHTER_SYSTEM_POOL_ADDRESSES
 from eth_defi.research.sparkline import upload_to_r2_compressed
+from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCTS
 
 logger = logging.getLogger(__name__)
@@ -342,6 +343,9 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # address-specific, as for JLTXX, to avoid claiming unrelated DSTokens.
     # The shared product registry owns the manager-to-address associations.
     **{key: product.curator_slug for key, product in SECURITIZE_PRODUCTS.items()},
+    # Ondo itself manages the reviewed USDY and OUSG products. Their token
+    # names do not expose a reusable third-party curator name pattern.
+    **dict.fromkeys(ONDO_PRODUCTS, "ondo"),
     # Piku publishes these as its USP token and curated Morini Capital vaults.
     # The vault names do not consistently include Piku, so keep their explicit
     # Ethereum contract addresses rather than using a fuzzy name pattern.

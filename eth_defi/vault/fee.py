@@ -70,6 +70,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Asseto": VaultFeeMode.internalised_skimming,
     # DSToken contracts do not expose product-level fund fees.
     "Securitize": None,
+    # USDY and OUSG reflect issuer fund expenses in the published NAV. OUSG's
+    # documented management fee is surfaced per product by the Ondo adapter.
+    "Ondo": VaultFeeMode.internalised_skimming,
     # Maseer One applies mint and redemption spreads through mintcost() and
     # burncost(), reducing the user's issued shares or redeemed assets.
     "Maseer One": VaultFeeMode.externalised,

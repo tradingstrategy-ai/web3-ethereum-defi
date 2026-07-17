@@ -31,6 +31,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_er
 from eth_defi.maseer_one.constants import MASEER_ONE_HARDCODED_LEADS
 from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_HARDCODED_LEADS
+from eth_defi.tokenised_fund.ondo.constants import ONDO_HARDCODED_LEADS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault_street.constants import VAULT_STREET_HARDCODED_LEADS
@@ -47,6 +48,7 @@ DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
     ("Midas", MIDAS_HARDCODED_LEADS),
     ("Maseer One", MASEER_ONE_HARDCODED_LEADS),
     ("Vault Street", VAULT_STREET_HARDCODED_LEADS),
+    ("Ondo", ONDO_HARDCODED_LEADS),
 )
 
 if TYPE_CHECKING:

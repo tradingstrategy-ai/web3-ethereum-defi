@@ -4,6 +4,7 @@ import enum
 
 from eth_typing import HexAddress
 
+from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCT_NOTES, ONDO_TOKENISED_FUND_ADDRESSES
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCT_NOTES, SECURITIZE_TOKENISED_FUND_ADDRESSES
 from eth_defi.vault.handwritten_metadata import PIKU_VAULT_METADATA, format_handwritten_vault_note
 
@@ -135,12 +136,14 @@ ODA_FACT_JLTXX_NOTE = f"""JPMorgan OnChain Liquidity-Token Money Market Fund (JL
 #: "flagged" through :py:func:`is_flagged_vault`.
 VAULT_NOTES: dict[str, str] = {
     **SECURITIZE_PRODUCT_NOTES,
+    **ONDO_PRODUCT_NOTES,
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": ODA_FACT_JLTXX_NOTE,
 }
 
 #: Product classification flags that are descriptive rather than exclusionary.
 VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
     **{address: {VaultFlag.tokenised_fund} for address in SECURITIZE_TOKENISED_FUND_ADDRESSES},
+    **{address: {VaultFlag.tokenised_fund} for address in ONDO_TOKENISED_FUND_ADDRESSES},
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": {VaultFlag.tokenised_fund},
 }
 

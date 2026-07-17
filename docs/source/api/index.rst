@@ -40,6 +40,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    enzyme/index
    aera/index
    asseto/index
+   ondo/index
    atoma/index
    frankencoin/index
    kiln/index

@@ -74,6 +74,7 @@ Supported protocols
 
    aave/index
    asseto/index
+   ondo/index
    forty_acres/index
    aarna/index
    aera/index
