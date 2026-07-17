@@ -93,6 +93,7 @@ def test_hyperevm_out_of_gas_vault_is_blacklisted() -> None:
         ("0xda2f1b3cba732d779cff56f0cf9d3bc8aea6cd8d", "Yearn", VaultFlag.subvault, "not intended"),
         ("0x8092c20351cf4048b464df2144dc8a4dd49ce71d", "Morpho", VaultFlag.subvault, "not intended"),
         ("0xc9f01b5c6048b064e6d925d1c2d7206d4feef8a3", "Yearn", VaultFlag.subvault, "not intended"),
+        ("0x93fec6639717b6215a48e5a72a162c50dcc40d68", "Yearn", VaultFlag.subvault, "not intended"),
         ("0xad755c6c31515aef8d2f830767d846774f7e9ea9", "Morpho", VaultFlag.malicious, "malicious"),
     ],
 )
