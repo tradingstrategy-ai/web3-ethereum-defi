@@ -117,6 +117,9 @@ class ERC4626Feature(enum.Enum):
     #: Spiko permissioned tokenised fund shares.
     spiko_like = "spiko_like"
 
+    #: Sygnum permissioned FILQ share tokens.
+    sygnum_like = "sygnum_like"
+
     #: Maseer One tokenised asset contracts.
     #:
     #: Routing marker for non-ERC-4626 Maseer One instruments that are read
@@ -895,6 +898,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Libeara"
     elif ERC4626Feature.spiko_like in features:
         return "Spiko"
+    elif ERC4626Feature.sygnum_like in features:
+        return "Sygnum"
     elif ERC4626Feature.maseer_one_like in features:
         return "Maseer One"
     elif ERC4626Feature.vault_street_like in features:

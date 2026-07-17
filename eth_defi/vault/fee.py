@@ -74,6 +74,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Libeara": None,
     # USTBL's disclosed management cost is reflected in issuer-published NAV.
     "Spiko": VaultFeeMode.internalised_skimming,
+    # FILQ token contracts do not expose product-level fees.
+    "Sygnum": None,
     # DSToken contracts do not expose product-level fund fees.
     "Securitize": None,
     # USDY and OUSG reflect issuer fund expenses in the published NAV. OUSG's

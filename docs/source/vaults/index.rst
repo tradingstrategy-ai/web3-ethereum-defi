@@ -78,6 +78,7 @@ Supported protocols
    wisdomtree/index
    libeara/index
    spiko/index
+   sygnum/index
    forty_acres/index
    aarna/index
    aera/index

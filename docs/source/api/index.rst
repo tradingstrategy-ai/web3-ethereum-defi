@@ -57,6 +57,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    wisdomtree/index
    superstate/index
    spiko/index
+   sygnum/index
    libeara/index
    vault_street/index
    usyc/index
