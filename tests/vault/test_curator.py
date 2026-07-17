@@ -605,6 +605,27 @@ def test_identify_gains_network_protocol_curator() -> None:
     assert get_curator_name("gains-network") == "Gains Network"
 
 
+def test_identify_d2_finance_protocol_curator() -> None:
+    """D2 HYPE++ resolves to the D2 Finance protocol curator.
+
+    D2 Finance's documented strategy vault architecture has the D2 trading
+    team execute each vault's strategy through the protocol's trader/OMS
+    infrastructure, so D2 protocol vaults are not inferred from their names.
+    """
+
+    slug = identify_curator(
+        chain_id=42161,
+        vault_token_symbol="HYPE++",
+        vault_name="HYPE++",
+        vault_address="0x75288264fdfea8ce68e6d852696ab1ce2f3e5004",
+        protocol_slug="d2-finance",
+    )
+
+    assert slug == "d2-finance"
+    assert get_curator_name(slug) == "D2 Finance"
+    assert is_protocol_curator(slug)
+
+
 def test_identify_3jane_protocol_curator() -> None:
     """3Jane protocol vaults (USD3/sUSD3) resolve to the protocol-managed slug."""
 

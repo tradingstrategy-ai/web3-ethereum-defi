@@ -147,6 +147,29 @@ def test_build_curators_for_export_frankencoin_protocol_curator_alias():
     assert rec["linkedin"] == "https://www.linkedin.com/company/frankencoin"
 
 
+def test_build_curators_for_export_d2_finance_protocol_curator():
+    """D2 Finance protocol curator metadata uses its protocol feeder and logos."""
+
+    result = build_curators_for_export(
+        ["d2-finance"],
+        feed_db=None,
+        public_url="https://example.com",
+    )
+
+    rec = result["d2-finance"]
+    assert rec["name"] == "D2 Finance"
+    assert rec["website"] == "https://d2.finance/"
+    assert rec["twitter"] == "https://x.com/D2_Finance"
+    assert rec["linkedin"] == "https://www.linkedin.com/company/d2finance"
+    assert rec["protocol_curator"] is True
+    assert rec["canonical_feeder_id"] is None
+    assert rec["logos"] == {
+        "generic": "https://example.com/curator-metadata/d2-finance/generic.png",
+        "dark": "https://example.com/curator-metadata/d2-finance/dark.png",
+        "light": "https://example.com/curator-metadata/d2-finance/light.png",
+    }
+
+
 def test_build_curators_for_export_canonical_feeder(tmp_path: Path):
     """Alias curators fetch posts from the canonical feeder.
 
