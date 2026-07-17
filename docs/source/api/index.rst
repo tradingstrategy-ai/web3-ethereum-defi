@@ -55,6 +55,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    kinexys/index
    securitize/index
    wisdomtree/index
+   superstate/index
    vault_street/index
    usyc/index
    royco/index

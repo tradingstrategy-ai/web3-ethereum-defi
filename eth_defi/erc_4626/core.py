@@ -106,6 +106,11 @@ class ERC4626Feature(enum.Enum):
     #: Routing marker for non-ERC-4626 compliance ERC-20 fund shares read
     #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     wisdomtree_like = "wisdomtree_like"
+    #: Superstate tokenised fund products.
+    #:
+    #: Routing marker for non-ERC-4626 allowlisted fund tokens that are read
+    #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    superstate_like = "superstate_like"
 
     #: Maseer One tokenised asset contracts.
     #:
@@ -879,6 +884,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Centrifuge"
     elif ERC4626Feature.wisdomtree_like in features:
         return "WisdomTree"
+    elif ERC4626Feature.superstate_like in features:
+        return "Superstate"
     elif ERC4626Feature.maseer_one_like in features:
         return "Maseer One"
     elif ERC4626Feature.vault_street_like in features:

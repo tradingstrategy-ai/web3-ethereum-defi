@@ -138,6 +138,7 @@ Supported protocols
    sbold/index
    secured_finance/index
    securitize/index
+   superstate/index
    sentiment/index
    silo/index
    singularity/index

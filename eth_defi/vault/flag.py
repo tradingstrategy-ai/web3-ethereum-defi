@@ -138,6 +138,15 @@ WISDOMTREE_WTGXX_NOTE = """WisdomTree Treasury Money Market Digital Fund (WTGXX)
 - **Fund page:** [WisdomTree WTGXX](https://www.wisdomtreeconnect.com/digital-funds/money-market/wtgxx).
 """
 
+SUPERSTATE_USTB_NOTE = """Invesco Short Duration US Government Securities Fund (USTB).
+
+- **Curator:** Superstate.
+- **Vault strategy:** Tokenised shares in a short-duration U.S. government-securities fund.
+- **NAV and liquidity:** The tracked NAV/share is Superstate's issuer-published continuous price. It is not an exchange price and does not by itself guarantee redeemable USDC liquidity.
+- **Eligibility:** USTB is a permissioned instrument. Transfers, subscriptions and redemptions require Superstate approval and can be paused or subject to issuer settlement conditions.
+- **Fund documentation:** [Superstate USTB](https://docs.superstate.com/superstate-funds/ustb).
+"""
+
 #: Vault-specific notes and classifications that do not exclude a vault from
 #: research datasets.
 #:
@@ -148,6 +157,7 @@ VAULT_NOTES: dict[str, str] = {
     **ONDO_PRODUCT_NOTES,
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": ODA_FACT_JLTXX_NOTE,
     "0x1fecf3d9d4fee7f2c02917a66028a48c6706c179": WISDOMTREE_WTGXX_NOTE,
+    "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e": SUPERSTATE_USTB_NOTE,
 }
 
 #: Product classification flags that are descriptive rather than exclusionary.
@@ -156,6 +166,7 @@ VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
     **{address: {VaultFlag.tokenised_fund} for address in ONDO_TOKENISED_FUND_ADDRESSES},
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": {VaultFlag.tokenised_fund},
     "0x1fecf3d9d4fee7f2c02917a66028a48c6706c179": {VaultFlag.tokenised_fund},
+    "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e": {VaultFlag.tokenised_fund},
 }
 
 #: Vault-specific notes which must only apply on the specified EVM chain.

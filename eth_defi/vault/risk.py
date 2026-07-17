@@ -88,6 +88,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Circle USYC": VaultTechnicalRisk.low,
     # WisdomTree's WTGXX deployment is a verified, permissioned compliance token.
     "WisdomTree": VaultTechnicalRisk.low,
+    # Superstate USTB uses a verified permissioned fund-token implementation
+    # and issuer-operated oracle/allowlist infrastructure.
+    "Superstate": VaultTechnicalRisk.low,
     # Maseer One is a new compliance-gated RWA tokenisation framework. The
     # contracts are public, but the framework has limited production history.
     "Maseer One": None,

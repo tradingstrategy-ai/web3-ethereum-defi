@@ -407,6 +407,22 @@ def test_identify_jpmorgan_jltxx_by_address() -> None:
     assert not is_protocol_curator("jpmorgan")
 
 
+def test_identify_superstate_ustb_by_address() -> None:
+    """Resolve USTB to its Superstate curator metadata."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="USTB",
+        vault_name="Superstate Short Duration US Government Securities Fund",
+        vault_address="0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e",
+        protocol_slug="superstate",
+    )
+
+    assert slug == "superstate"
+    assert get_curator_name("superstate") == "Superstate"
+    assert not is_protocol_curator("superstate")
+
+
 def test_identify_piku_vaults_by_address() -> None:
     """Resolve the published Piku token and Morini vaults by exact address.
 

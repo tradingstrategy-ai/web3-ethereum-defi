@@ -1,0 +1,19 @@
+# Superstate curator - feeds provided by protocols/superstate.yaml
+feeder-id: superstate
+name: Superstate
+role: curator
+canonical-feeder-id: superstate
+short_description: Superstate is a regulated asset manager and tokenisation platform for on-chain investment products.
+long_description: |
+  Superstate develops tokenised investment products and the on-chain infrastructure used to issue, administer and settle them. Its funds combine regulated fund operations with public blockchain records and are available only through the eligibility and onboarding processes specified for each product.
+
+  Superstate is the curator for the tracked USTB fund token because its official smart-contract registry and product documentation identify the token, its oracle and its investor lifecycle as Superstate-operated infrastructure. The underlying portfolio is a short-duration U.S. government-securities strategy, but this entry describes Superstate rather than making an investment recommendation.
+
+# Evidence and background references.
+other-links:
+  - title: Superstate homepage - tokenised investment products and platform overview
+    url: https://superstate.com/
+  - title: Superstate smart-contract registry - official USTB token and oracle addresses
+    url: https://docs.superstate.com/welcome-to-superstate/smart-contracts
+  - title: Superstate USTB fund documentation - product eligibility and operations
+    url: https://docs.superstate.com/superstate-funds/ustb

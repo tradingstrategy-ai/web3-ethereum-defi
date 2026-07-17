@@ -361,6 +361,9 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     **dict.fromkeys(ONDO_PRODUCTS, "ondo"),
     # WisdomTree is issuer and fund manager for its permissioned WTGXX shares.
     (WTGXX_ETHEREUM.chain_id, WTGXX_ETHEREUM.token): "wisdomtree",
+    # Superstate's official contract registry identifies USTB as a Superstate
+    # fund token, while the token name itself carries no reusable curator name.
+    (1, "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e"): "superstate",
     # Piku publishes these as its USP token and curated Morini Capital vaults.
     # The vault names do not consistently include Piku, so keep their explicit
     # Ethereum contract addresses rather than using a fuzzy name pattern.

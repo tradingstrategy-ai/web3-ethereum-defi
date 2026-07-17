@@ -80,6 +80,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Circle USYC": VaultFeeMode.externalised,
     # WTGXX's published annual expense ratio is reflected in the fund NAV.
     "WisdomTree": VaultFeeMode.internalised_skimming,
+    # USTB product-level fees are governed by fund documents, not exposed by
+    # the permissioned token contract.
+    "Superstate": None,
     # Maseer One applies mint and redemption spreads through mintcost() and
     # burncost(), reducing the user's issued shares or redeemed assets.
     "Maseer One": VaultFeeMode.externalised,
