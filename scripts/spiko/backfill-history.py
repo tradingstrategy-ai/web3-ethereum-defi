@@ -14,6 +14,7 @@ Set ``DRY_RUN=true`` to inspect the plan first. ``START_BLOCK``, ``END_BLOCK``,
 
 # ruff: noqa: PLR0914
 
+import logging
 import os
 import pickle  # noqa: S403 - only trusted local scanner state is loaded.
 from pathlib import Path
@@ -36,6 +37,8 @@ from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import pformat_scan_result, scan_historical_prices_to_parquet
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
+
+logger = logging.getLogger(__name__)
 
 
 def parse_bool_env(name: str, *, default: bool = False) -> bool:
@@ -126,7 +129,7 @@ def main() -> None:
     uncleaned_price_path = parse_path_env("UNCLEANED_PRICE_DATABASE", DEFAULT_UNCLEANED_PRICE_DATABASE)
     cleaned_price_path = parse_path_env("CLEANED_PRICE_DATABASE", DEFAULT_RAW_PRICE_DATABASE)
     reader_state_path = parse_path_env("READER_STATE_DATABASE", DEFAULT_READER_STATE_DATABASE)
-    print(f"Spiko USTBL backfill: {USTBL_TOKEN_ADDRESS} blocks {start_block:,}..{end_block:,}; dry-run={dry_run}")
+    logger.info("Spiko USTBL backfill: %s blocks %s..%s; dry-run=%s", USTBL_TOKEN_ADDRESS, start_block, end_block, dry_run)
     if dry_run:
         return
 
@@ -159,9 +162,9 @@ def main() -> None:
     # USTBL's daily oracle reader does not need an adaptive state; remove only
     # an obsolete state for this address and leave all other vaults untouched.
     write_reader_states(reader_state_path, retained_states)
-    replace_cleaned_vault_histories({selected_id.as_string_id()}, vault_db_path=vault_db_path, raw_price_df_path=uncleaned_price_path, cleaned_price_df_path=cleaned_price_path, logger=print)
+    replace_cleaned_vault_histories({selected_id.as_string_id()}, vault_db_path=vault_db_path, raw_price_df_path=uncleaned_price_path, cleaned_price_df_path=cleaned_price_path, logger=logger.info)
     token_cache.commit()
-    print(pformat_scan_result(result))
+    logger.info("%s", pformat_scan_result(result))
 
 
 if __name__ == "__main__":
