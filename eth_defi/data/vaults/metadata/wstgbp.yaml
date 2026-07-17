@@ -1,0 +1,20 @@
+name: wstGBP
+slug: wstgbp
+short_description: |
+  Non-custodial tokenised sterling with on-chain NAV and permissionless minting and redemption.
+long_description: |
+  wstGBP is a non-custodial smart-contract wrapper for tokenised sterling with
+  on-chain NAV and permissionless minting and redemption.
+fee_description: |
+  Minting is free and instant redemption carries a 25 bps fee, with no cooldown.
+links:
+  homepage: https://wstgbp.com
+  app: https://wstgbp.com/
+  documentation: https://docs.wstgbp.com/
+  defillama:
+  audits: https://prototechlabs.dev/
+  fees: https://docs.wstgbp.com/guides/mint-redeem
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/wstgbp
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/wstgbp/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x57C3571f10767E49C9d7b60feb6c67804783B7aE

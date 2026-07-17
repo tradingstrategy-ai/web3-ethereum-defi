@@ -40,6 +40,22 @@ def test_securitize_fund_curator_metadata_includes_logo() -> None:
         assert metadata["logos"]["generic"] == f"https://example.com/curator-metadata/{slug}/generic.png"
 
 
+def test_identify_wstgbp_as_protocol_curated() -> None:
+    """wstGBP has no third-party curator."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="wstGBP",
+        vault_name="wstGBP",
+        vault_address="0x57c3571f10767e49c9d7b60feb6c67804783b7ae",
+        protocol_slug="wstgbp",
+    )
+
+    assert slug == "wstgbp"
+    assert is_protocol_curator(slug)
+    assert get_curator_name(slug) == "wstGBP"
+
+
 def test_identify_felix_vault() -> None:
     """Felix Morpho vault names resolve to the Felix curator.
 

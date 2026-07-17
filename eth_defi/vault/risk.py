@@ -77,9 +77,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # protocol is open source. Product-specific fund, issuer, custody and
     # compliance risks need separate assessment.
     "Securitize": VaultTechnicalRisk.low,
-    # Maseer One is a new compliance-gated RWA tokenisation framework. The
-    # contracts are public, but the framework has limited production history.
-    "Maseer One": None,
+    # wstGBP is a non-custodial tokenised sterling wrapper with public contracts.
+    "wstGBP": VaultTechnicalRisk.low,
     # Vault Street primeUSD is a permissioned institutional product.
     "Vault Street": VaultTechnicalRisk.low,
     "Velvet Capital": VaultTechnicalRisk.high,

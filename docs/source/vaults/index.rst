@@ -122,7 +122,7 @@ Supported protocols
    mainstreet/index
    maple/index
    mellow/index
-   maseer-one/index
+   wstgbp/index
    midas/index
    vault_street/index
    morpho/index

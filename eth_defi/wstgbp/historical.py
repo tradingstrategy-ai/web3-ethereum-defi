@@ -1,4 +1,4 @@
-"""Historical reader for Maseer One tokenised assets."""
+"""Historical reader for Wren Staked tGBP."""
 
 # Reader classes intentionally mirror :class:`VaultHistoricalReader` signatures.
 # ruff: noqa: FBT001
@@ -14,23 +14,23 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 
 if TYPE_CHECKING:
-    from eth_defi.maseer_one.vault import MaseerOneVault
+    from eth_defi.wstgbp.vault import WSTGBPVault
 
 
-class MaseerOneVaultHistoricalReader(VaultHistoricalReader):
-    """Read historical supply and NAV/share for Maseer One assets.
+class WSTGBPVaultHistoricalReader(VaultHistoricalReader):
+    """Read historical supply and NAV/share for Wren Staked tGBP.
 
-    Maseer One does not implement ERC-4626 ``convertToAssets()`` or
+    wstGBP does not implement ERC-4626 ``convertToAssets()`` or
     ``totalAssets()``. Its canonical on-chain share price is
     ``navprice()``. Historical TVL is therefore ``totalSupply() * navprice()``
     in the ERC-20 denomination returned by ``gem()``.
     """
 
-    def __init__(self, vault: "MaseerOneVault", stateful: bool):
-        """Create a Maseer One historical reader.
+    def __init__(self, vault: "WSTGBPVault", stateful: bool):
+        """Create a Wren Staked tGBP historical reader.
 
         :param vault:
-            Maseer One vault adapter.
+            Wren Staked tGBP vault adapter.
         :param stateful:
             Whether to attach adaptive reader state used by the shared
             historical multicaller.
@@ -43,10 +43,10 @@ class MaseerOneVaultHistoricalReader(VaultHistoricalReader):
             self.reader_state = None
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
-        """Construct Maseer One historical multicalls.
+        """Construct Wren Staked tGBP historical multicalls.
 
         :return:
-            Multicall batch reading ERC-20 ``totalSupply()`` and Maseer One
+            Multicall batch reading ERC-20 ``totalSupply()`` and wstGBP
             ``navprice()``.
         """
 
@@ -59,7 +59,7 @@ class MaseerOneVaultHistoricalReader(VaultHistoricalReader):
             first_block_number=self.first_block,
         )
         yield EncodedCall.from_contract_call(
-            self.vault.maseer_contract.functions.navprice(),
+            self.vault.wstgbp_contract.functions.navprice(),
             extra_data={
                 "function": "navprice",
                 "vault": self.vault.address,
@@ -67,7 +67,7 @@ class MaseerOneVaultHistoricalReader(VaultHistoricalReader):
             first_block_number=self.first_block,
         )
         yield EncodedCall.from_contract_call(
-            self.vault.maseer_contract.functions.mintable(),
+            self.vault.wstgbp_contract.functions.mintable(),
             extra_data={
                 "function": "mintable",
                 "vault": self.vault.address,
@@ -75,7 +75,7 @@ class MaseerOneVaultHistoricalReader(VaultHistoricalReader):
             first_block_number=self.first_block,
         )
         yield EncodedCall.from_contract_call(
-            self.vault.maseer_contract.functions.burnable(),
+            self.vault.wstgbp_contract.functions.burnable(),
             extra_data={
                 "function": "burnable",
                 "vault": self.vault.address,
@@ -89,7 +89,7 @@ class MaseerOneVaultHistoricalReader(VaultHistoricalReader):
         timestamp: datetime.datetime,
         call_results: list[EncodedCallResult],
     ) -> VaultHistoricalRead:
-        """Convert Maseer One multicall results to a vault price row.
+        """Convert Wren Staked tGBP multicall results to a vault price row.
 
         :param block_number:
             Historical block number.
@@ -115,24 +115,24 @@ class MaseerOneVaultHistoricalReader(VaultHistoricalReader):
                     raw_total_supply = convert_int256_bytes_to_int(result.result)
                     total_supply = self.vault.share_token.convert_to_decimals(raw_total_supply)
                 else:
-                    errors.append("Maseer One totalSupply call failed")
+                    errors.append("wstGBP totalSupply call failed")
             elif function == "navprice":
                 if result.success:
                     raw_share_price = convert_int256_bytes_to_int(result.result)
                     share_price = Decimal(raw_share_price) / Decimal(10**18)
                     state_result = result
                 else:
-                    errors.append("Maseer One navprice call failed")
+                    errors.append("wstGBP navprice call failed")
             elif function == "mintable":
                 if result.success:
                     deposits_open = bool(convert_int256_bytes_to_int(result.result))
                 else:
-                    errors.append("Maseer One mintable call failed")
+                    errors.append("wstGBP mintable call failed")
             elif function == "burnable":
                 if result.success:
                     redemption_open = bool(convert_int256_bytes_to_int(result.result))
                 else:
-                    errors.append("Maseer One burnable call failed")
+                    errors.append("wstGBP burnable call failed")
 
         total_assets = share_price * total_supply if share_price is not None and total_supply is not None else None
 
