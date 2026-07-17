@@ -22,6 +22,7 @@ accepted by design, preventing this supply-only migration from altering those
 datasets.
 """
 
+import logging
 import os
 from pathlib import Path
 
@@ -40,6 +41,8 @@ from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase
+
+logger = logging.getLogger(__name__)
 
 
 def parse_bool_env(name: str, *, default: bool = False) -> bool:
@@ -171,10 +174,13 @@ def main() -> None:
     if not dry_run:
         token_cache.commit()
 
-    print(f"MONY metadata {'validated' if dry_run else 'written'}: {spec.as_string_id()}")
-    print(f"Snapshot block: {end_block}")
-    print(f"Vault database: {database_path}")
-    print("Raw and cleaned price Parquet plus reader state were intentionally left unchanged: MONY has no verified public NAV history.")
+    logger.info(
+        "MONY metadata %s: vault=%s block=%d database=%s; raw and cleaned price Parquet plus reader state were intentionally left unchanged because MONY has no verified public NAV history",
+        "validated" if dry_run else "written",
+        spec.as_string_id(),
+        end_block,
+        database_path,
+    )
 
 
 if __name__ == "__main__":
