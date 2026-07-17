@@ -325,6 +325,7 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if (chain_id, normalised_address) in WISDOMTREE_PRODUCTS:
             return WISDOMTREE_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in WISDOMTREE_HARDCODED_PROTOCOLS:
+            return None
         superstate_products = SUPERSTATE_PRODUCTS_BY_CHAIN.get(chain_id, frozenset())
         if normalised_address in superstate_products:
             return SUPERSTATE_HARDCODED_PROTOCOLS[normalised_address]
