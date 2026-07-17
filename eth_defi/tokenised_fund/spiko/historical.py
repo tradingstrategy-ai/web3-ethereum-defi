@@ -5,6 +5,7 @@
 import datetime
 from collections.abc import Iterable
 from decimal import Decimal
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 from eth_abi import decode
@@ -16,6 +17,20 @@ from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 
 if TYPE_CHECKING:
     from eth_defi.tokenised_fund.spiko.vault import SpikoVault
+
+
+class SpikoVaultReaderState(VaultReaderState):
+    """Persist Spiko history state with synthetic USD accounting."""
+
+    @cached_property
+    def exchange_rate(self) -> Decimal:
+        """Return the USD exchange rate for USTBL NAV observations.
+
+        :return:
+            One because Spiko's issuer oracle reports USD NAV per share.
+        """
+
+        return Decimal(1)
 
 
 class SpikoHistoricalReader(VaultHistoricalReader):
@@ -33,7 +48,7 @@ class SpikoHistoricalReader(VaultHistoricalReader):
         :param stateful: Whether to retain the shared adaptive reader state.
         """
         super().__init__(vault)
-        self.reader_state = VaultReaderState(vault) if stateful else None
+        self.reader_state = SpikoVaultReaderState(vault) if stateful else None
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         """Construct USTBL supply and official oracle calls.

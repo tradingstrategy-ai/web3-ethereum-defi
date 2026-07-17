@@ -25,6 +25,7 @@ import pickle  # noqa: S403 - trusted local production reader-state pickle.
 from pathlib import Path
 
 from atomicwrites import atomic_write
+from eth_typing import HexAddress
 from tabulate import tabulate
 
 from eth_defi.chain import get_chain_name
@@ -41,7 +42,7 @@ from eth_defi.tokenised_fund.franklin.constants import ETHEREUM_CHAIN_ID, FRANKL
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import pformat_scan_result, scan_historical_prices_to_parquet
-from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
+from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,31 @@ def create_lead(product: FranklinProduct) -> PotentialVaultMatch:
     )
 
 
+def upsert_franklin_metadata_preserving_discovery_cursor(
+    vault_db: VaultDatabase,
+    leads: dict[HexAddress, PotentialVaultMatch],
+    rows: dict[VaultSpec, VaultRow],
+) -> None:
+    """Upsert reviewed Benji metadata without changing discovery state.
+
+    A targeted migration must preserve both an existing Ethereum discovery
+    cursor and the absence of one. Advancing or initialising that chain-wide
+    cursor could skip unrelated contracts that have not yet been discovered.
+
+    :param vault_db:
+        Existing vault metadata database.
+    :param leads:
+        Reviewed Benji leads keyed by token address.
+    :param rows:
+        Fresh Benji scan rows keyed by :class:`VaultSpec`.
+    :return:
+        None.
+    """
+
+    vault_db.leads.update({VaultSpec(ETHEREUM_CHAIN_ID, address): lead for address, lead in leads.items()})
+    vault_db._merge_rows(rows)
+
+
 def read_reader_states(path: Path) -> dict[VaultSpec, dict]:
     """Load saved reader states without altering unrelated entries.
 
@@ -186,7 +212,7 @@ def main() -> None:  # noqa: PLR0914
     leads = {product.token: create_lead(product) for product in products}
     rows = {VaultSpec(product.chain_id, product.token): create_vault_scan_record(web3, create_detection(product), block_identifier=end_block, token_cache=token_cache) for product in products}
     vault_db_path.parent.mkdir(parents=True, exist_ok=True)
-    vault_db.update_leads_and_rows(chain_id=ETHEREUM_CHAIN_ID, last_scanned_block=end_block, leads=leads, rows=rows)
+    upsert_franklin_metadata_preserving_discovery_cursor(vault_db, leads, rows)
     vault_db.write(vault_db_path)
 
     scan_summary = "disabled"

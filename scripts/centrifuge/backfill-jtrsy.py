@@ -29,7 +29,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
 from eth_defi.tokenised_fund.centrifuge.constants import JTRSY_ETHEREUM
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase
+from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,32 @@ def read_vault_database(path: Path) -> VaultDatabase:
     """
 
     return VaultDatabase.read(path) if path.exists() else VaultDatabase()
+
+
+def upsert_jtrsy_metadata_preserving_discovery_cursor(
+    vault_db: VaultDatabase,
+    lead: PotentialVaultMatch,
+    row: VaultRow,
+) -> None:
+    """Upsert JTRSY metadata without changing chain-wide discovery state.
+
+    A targeted migration must not advance or initialise the Ethereum discovery
+    cursor because unrelated contracts may still need to be discovered below
+    the metadata block used for this repair.
+
+    :param vault_db:
+        Existing vault metadata database.
+    :param lead:
+        Reviewed JTRSY hardcoded lead.
+    :param row:
+        Fresh JTRSY scan row.
+    :return:
+        None.
+    """
+
+    spec = VaultSpec(JTRSY_ETHEREUM.chain_id, JTRSY_ETHEREUM.token)
+    vault_db.leads[spec] = lead
+    vault_db._merge_rows({spec: row})
 
 
 def main() -> None:
@@ -105,12 +131,7 @@ def main() -> None:
         token_cache=TokenDiskCache(),
     )
     vault_db_path.parent.mkdir(parents=True, exist_ok=True)
-    vault_db.update_leads_and_rows(
-        chain_id=product.chain_id,
-        last_scanned_block=metadata_block,
-        leads={product.token: lead},
-        rows={VaultSpec(product.chain_id, product.token): row},
-    )
+    upsert_jtrsy_metadata_preserving_discovery_cursor(vault_db, lead, row)
     vault_db.write(vault_db_path)
     logger.info("Added JTRSY lead and metadata to %s; price and reader-state files were not changed", vault_db_path)
 

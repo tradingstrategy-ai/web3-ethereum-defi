@@ -41,3 +41,13 @@ USTB_ETHEREUM_ORACLE_DECIMALS = 6
 SUPERSTATE_PRODUCTS_BY_CHAIN: dict[int, frozenset[HexAddress]] = {
     SUPERSTATE_ETHEREUM_CHAIN_ID: frozenset({USTB_ETHEREUM_ADDRESS}),
 }
+
+#: Hardcoded discovery leads for reviewed Superstate fund-token deployments.
+SUPERSTATE_HARDCODED_LEADS = (
+    (
+        SUPERSTATE_ETHEREUM_CHAIN_ID,
+        USTB_ETHEREUM_ADDRESS,
+        USTB_ETHEREUM_FIRST_SEEN_AT_BLOCK,
+        USTB_ETHEREUM_FIRST_SEEN_AT,
+    ),
+)

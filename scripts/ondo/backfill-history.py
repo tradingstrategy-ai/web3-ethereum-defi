@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Literal, cast
 
 from atomicwrites import atomic_write
+from eth_typing import HexAddress
 from tabulate import tabulate
 
 from eth_defi.compat import native_datetime_utc_now
@@ -40,7 +41,7 @@ from eth_defi.tokenised_fund.ondo.constants import ETHEREUM_CHAIN_ID, ONDO_PRODU
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
-from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
+from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
 
 
 def parse_bool_env(name: str, default: bool) -> bool:
@@ -101,6 +102,31 @@ def create_lead(product: OndoProduct) -> PotentialVaultMatch:
     )
 
 
+def upsert_ondo_metadata_preserving_discovery_cursor(
+    vault_db: VaultDatabase,
+    leads: dict[HexAddress, PotentialVaultMatch],
+    rows: dict[VaultSpec, VaultRow],
+) -> None:
+    """Upsert reviewed Ondo metadata without changing discovery state.
+
+    A targeted migration must preserve both an existing Ethereum discovery
+    cursor and the absence of one. Advancing or initialising that chain-wide
+    cursor could skip unrelated contracts that have not yet been discovered.
+
+    :param vault_db:
+        Existing vault metadata database.
+    :param leads:
+        Reviewed Ondo leads keyed by token address.
+    :param rows:
+        Fresh Ondo scan rows keyed by :class:`VaultSpec`.
+    :return:
+        None.
+    """
+
+    vault_db.leads.update({VaultSpec(ETHEREUM_CHAIN_ID, address): lead for address, lead in leads.items()})
+    vault_db._merge_rows(rows)
+
+
 def main() -> None:
     """Run the safe, address-scoped Ondo lead and price-history migration."""
 
@@ -129,7 +155,7 @@ def main() -> None:
     leads = {product.token: create_lead(product) for product in products}
     rows = {VaultSpec(product.chain_id, product.token): create_vault_scan_record(web3, create_detection(product), block_identifier=end_block, token_cache=token_cache) for product in products}
     if not dry_run:
-        vault_db.update_leads_and_rows(chain_id=ETHEREUM_CHAIN_ID, last_scanned_block=end_block, leads=leads, rows=rows)
+        upsert_ondo_metadata_preserving_discovery_cursor(vault_db, leads, rows)
         vault_db_path.parent.mkdir(parents=True, exist_ok=True)
         vault_db.write(vault_db_path)
 

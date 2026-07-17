@@ -147,6 +147,19 @@ def test_build_curators_for_export_frankencoin_protocol_curator_alias():
     assert rec["linkedin"] == "https://www.linkedin.com/company/frankencoin"
 
 
+def test_build_curators_for_export_ondo_protocol_curator_alias() -> None:
+    """Ondo's curator alias is exported as protocol-managed metadata."""
+
+    result = build_curators_for_export(["ondo"], feed_db=None)
+
+    assert "ondo" in result
+    rec = result["ondo"]
+    assert rec["name"] == "Ondo Finance"
+    assert rec["protocol_curator"] is True
+    assert rec["canonical_feeder_id"] == "ondo"
+    assert "tokenised investment products" in rec["short_description"]
+
+
 def test_build_curators_for_export_canonical_feeder(tmp_path: Path):
     """Alias curators fetch posts from the canonical feeder.
 

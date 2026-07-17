@@ -423,6 +423,22 @@ def test_identify_superstate_ustb_by_address() -> None:
     assert not is_protocol_curator("superstate")
 
 
+def test_identify_ondo_usdy_as_protocol_curator() -> None:
+    """Resolve USDY to Ondo acting as its own protocol curator."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="USDY",
+        vault_name="Ondo U.S. Dollar Yield",
+        vault_address="0x96F6eF951840721AdBF46Ac996b59E0235CB985C",
+        protocol_slug="ondo",
+    )
+
+    assert slug == "ondo"
+    assert get_curator_name("ondo") == "Ondo Finance"
+    assert is_protocol_curator("ondo")
+
+
 def test_identify_jpmorgan_mony_by_address() -> None:
     """MONY resolves to J.P. Morgan through its exact FACT Diamond address."""
 

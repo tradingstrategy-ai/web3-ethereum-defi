@@ -166,13 +166,22 @@ class WisdomTreeVault(VaultBase):
         return history[index].nav
 
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
-        """Fetch the newest issuer-published NAV.
+        """Fetch the issuer-published NAV matching an on-chain block.
 
-        :param block_identifier: Ignored; the official NAV API is date-based.
-        :return: Latest official NAV per share.
+        The WisdomTree API is date-based rather than block-based. Historical
+        block reads therefore resolve the block timestamp before selecting the
+        latest official NAV published on or before that time.
+
+        :param block_identifier: Block whose timestamp selects the NAV observation.
+        :return: Official NAV per share matching the requested block.
         """
 
-        return self._fetch_nav_history()[-1].nav
+        if block_identifier == "latest":
+            return self._fetch_nav_history()[-1].nav
+
+        block = self.web3.eth.get_block(block_identifier)
+        timestamp = datetime.datetime.fromtimestamp(block["timestamp"], tz=datetime.UTC).replace(tzinfo=None)
+        return self.fetch_share_price_at(timestamp)
 
     def fetch_total_supply(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Fetch total ERC-20 supply.

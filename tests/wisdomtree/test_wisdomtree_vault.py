@@ -84,6 +84,30 @@ def test_wisdomtree_nav_requires_explicit_key(monkeypatch: pytest.MonkeyPatch) -
         list(fetch_wisdomtree_nav_history("WTGXX"))
 
 
+def test_wisdomtree_historical_total_assets_uses_block_timestamp_nav(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Combine historical supply only with the NAV available at that block."""
+
+    first_nav_at = datetime.datetime(2026, 7, 1)
+    second_nav_at = datetime.datetime(2026, 7, 2)
+    historical_block = 22_900_000
+
+    def fetch_block(block_identifier: int) -> dict[str, int]:
+        assert block_identifier == historical_block
+        return {"timestamp": int((first_nav_at + datetime.timedelta(hours=12)).replace(tzinfo=datetime.UTC).timestamp())}
+
+    web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1, get_block=fetch_block))
+    vault = WisdomTreeVault(web3, VaultSpec(ETHEREUM_CHAIN_ID, WTGXX_ETHEREUM.token))
+    vault._nav_history = (
+        WisdomTreeNAVPoint(first_nav_at, Decimal("1.01")),
+        WisdomTreeNAVPoint(second_nav_at, Decimal("1.25")),
+    )
+    monkeypatch.setattr(vault, "fetch_total_supply", lambda block_identifier="latest": Decimal("10"))
+
+    assert vault.fetch_share_price(historical_block) == Decimal("1.01")
+    assert vault.fetch_total_assets(historical_block) == Decimal("10.10")
+    assert vault.fetch_total_assets("latest") == Decimal("12.50")
+
+
 def test_wisdomtree_migration_preserves_unrelated_reader_state(backfill_module) -> None:
     """Drop only WTGXX state before rebuilding its raw history."""
 

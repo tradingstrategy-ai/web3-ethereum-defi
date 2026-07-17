@@ -14,13 +14,12 @@ from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.tokenised_fund.spiko.constants import USTBL_FIRST_SEEN_AT, USTBL_FIRST_SEEN_AT_BLOCK, USTBL_TOKEN_ADDRESS
-from eth_defi.tokenised_fund.spiko.historical import SpikoHistoricalReader
+from eth_defi.tokenised_fund.spiko.historical import SpikoHistoricalReader, SpikoVaultReaderState
 from eth_defi.tokenised_fund.spiko.vault import SPIKO_PERMISSIONED_FLOW_REASON, USTBL_MANAGEMENT_FEE, SpikoVault
 from eth_defi.vault.curator import identify_curator, is_protocol_curator
 from eth_defi.vault.fee import VaultFeeMode
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
-pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
 SPIKO_TEST_BLOCK = 25_550_000
 EXPECTED_TOTAL_SUPPLY = Decimal("53782226.27927")
@@ -34,6 +33,8 @@ def anvil_ethereum_fork() -> AnvilLaunch:
 
     :return: Running Anvil fork.
     """
+    if JSON_RPC_ETHEREUM is None:
+        pytest.skip("JSON_RPC_ETHEREUM needed to run Spiko integration tests")
     launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=SPIKO_TEST_BLOCK)
     try:
         yield launch
@@ -78,15 +79,22 @@ def test_spiko_adapter_and_historical_reader(web3: Web3) -> None:
     with pytest.raises(NotImplementedError):
         vault.get_deposit_manager()
 
-    reader = vault.get_historical_reader(stateful=False)
+    reader = vault.get_historical_reader(stateful=True)
     assert isinstance(reader, SpikoHistoricalReader)
+    assert isinstance(reader.reader_state, SpikoVaultReaderState)
     results = [call.call_as_result(web3, block_identifier=SPIKO_TEST_BLOCK, ignore_error=True) for call in reader.construct_multicalls()]
     timestamp = datetime.datetime.fromtimestamp(web3.eth.get_block(SPIKO_TEST_BLOCK)["timestamp"], tz=datetime.UTC).replace(tzinfo=None)
+    for result in results:
+        result.timestamp = timestamp
     read = reader.process_result(SPIKO_TEST_BLOCK, timestamp, results)
     assert read.share_price == EXPECTED_SHARE_PRICE
     assert read.total_supply == EXPECTED_TOTAL_SUPPLY
     assert read.total_assets == EXPECTED_TOTAL_ASSETS
     assert read.errors is None
+    assert reader.reader_state.exchange_rate == Decimal(1)
+    assert reader.reader_state.last_block == SPIKO_TEST_BLOCK
+    assert reader.reader_state.last_tvl == EXPECTED_TOTAL_ASSETS
+    assert reader.reader_state.last_share_price == EXPECTED_SHARE_PRICE
 
 
 @flaky.flaky

@@ -6,6 +6,7 @@
 import datetime
 from collections.abc import Iterable
 from decimal import Decimal
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 import eth_abi
@@ -17,6 +18,20 @@ from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 
 if TYPE_CHECKING:
     from eth_defi.tokenised_fund.superstate.vault import SuperstateVault
+
+
+class SuperstateVaultReaderState(VaultReaderState):
+    """Persist Superstate reader state for USD-denominated NAV results."""
+
+    @cached_property
+    def exchange_rate(self) -> Decimal:
+        """Return the USD exchange rate used by Superstate NAV results.
+
+        :return:
+            One because the continuous-price oracle reports USD per share.
+        """
+
+        return Decimal(1)
 
 
 class SuperstateVaultHistoricalReader(VaultHistoricalReader):
@@ -38,7 +53,7 @@ class SuperstateVaultHistoricalReader(VaultHistoricalReader):
         """
 
         super().__init__(vault)
-        self.reader_state = VaultReaderState(vault) if stateful else None
+        self.reader_state = SuperstateVaultReaderState(vault) if stateful else None
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         """Construct the supply and NAV calls for each historical sample.
@@ -81,6 +96,7 @@ class SuperstateVaultHistoricalReader(VaultHistoricalReader):
 
         total_supply: Decimal | None = None
         share_price: Decimal | None = None
+        price_result: EncodedCallResult | None = None
         errors: list[str] = []
         for result in call_results:
             function = result.call.extra_data.get("function")
@@ -95,8 +111,12 @@ class SuperstateVaultHistoricalReader(VaultHistoricalReader):
                     errors.append("Superstate getChainlinkPrice reported stale or invalid oracle data")
                 else:
                     share_price = self.vault.convert_oracle_price(raw_price)
+                    price_result = result
 
         total_assets = share_price * total_supply if share_price is not None and total_supply is not None else None
+        if self.reader_state is not None and price_result is not None and total_assets is not None:
+            self.reader_state.on_called(price_result, total_assets=total_assets, share_price=share_price)
+
         return VaultHistoricalRead(
             vault=self.vault,
             block_number=block_number,

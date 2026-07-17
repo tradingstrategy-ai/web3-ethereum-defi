@@ -27,7 +27,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_ETHEREUM_CHAIN_ID, USTB_ETHEREUM_ADDRESS, USTB_ETHEREUM_CONTINUOUS_PRICE_ORACLE, USTB_ETHEREUM_ORACLE_DECIMALS
+from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_ETHEREUM_CHAIN_ID, USTB_ETHEREUM_ADDRESS, USTB_ETHEREUM_CONTINUOUS_PRICE_ORACLE, USTB_ETHEREUM_FIRST_SEEN_AT_BLOCK, USTB_ETHEREUM_ORACLE_DECIMALS
 from eth_defi.tokenised_fund.superstate.historical import SuperstateVaultHistoricalReader
 from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
@@ -125,6 +125,7 @@ class SuperstateVault(VaultBase):
         self.spec = spec
         self.features = features or {ERC4626Feature.superstate_like}
         self.default_block_identifier = default_block_identifier
+        self.first_seen_at_block = USTB_ETHEREUM_FIRST_SEEN_AT_BLOCK
 
     @property
     def chain_id(self) -> int:
