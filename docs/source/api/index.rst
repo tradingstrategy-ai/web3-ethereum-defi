@@ -30,6 +30,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    lighter/index
    hibachi/index
    cctp/index
+   centrifuge/index
    orderly/index
    one_delta/index
    safe/index

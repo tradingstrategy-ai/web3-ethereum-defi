@@ -96,6 +96,11 @@ class ERC4626Feature(enum.Enum):
     #: Routing marker for the non-ERC-4626, permissioned USYC ERC-20 token
     #: read through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     usyc_like = "usyc_like"
+    #: Centrifuge permissioned ``Tranche`` share token.
+    #:
+    #: This marks a direct share token, not Centrifuge's separate ERC-7540
+    #: LiquidityPool vault contract.
+    centrifuge_tranche_like = "centrifuge_tranche_like"
 
     #: Maseer One tokenised asset contracts.
     #:
@@ -865,6 +870,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Ondo"
     elif ERC4626Feature.usyc_like in features:
         return "Circle USYC"
+    elif ERC4626Feature.centrifuge_tranche_like in features:
+        return "Centrifuge"
     elif ERC4626Feature.maseer_one_like in features:
         return "Maseer One"
     elif ERC4626Feature.vault_street_like in features:

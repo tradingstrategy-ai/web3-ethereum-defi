@@ -346,6 +346,10 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # https://digitalassets.franklintempleton.com/benji/benji-contracts/
     (1, "0x90276e9d4a023b5229e0c2e9d4b2a83fe3a2b48c"): "franklin-templeton",
     (1, "0x3ddc84940ab509c11b20b76b466933f40b750dc9"): "franklin-templeton",
+    # JTRSY's direct Centrifuge Tranche token is managed by the verified Janus
+    # Henderson/Anemoy fund relationship, not a generic transfer-token label.
+    # https://www.anemoy.io/funds/jtrsy
+    (1, "0x8c213ee79581ff4984583c6a801e5263418c4b86"): "janus-henderson-anemoy",
     # Securitize DSToken fund shares use issuer-specific names and may not
     # contain the full asset-manager brand. Keep the fund-manager mapping
     # address-specific, as for JLTXX, to avoid claiming unrelated DSTokens.

@@ -34,6 +34,7 @@ from eth_defi.tokenised_fund.asseto.constants import ASSETO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_HARDCODED_LEADS
 from eth_defi.tokenised_fund.ondo.constants import ONDO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.usyc.constants import USYC_HARDCODED_LEADS
+from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_HARDCODED_LEADS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault_street.constants import VAULT_STREET_HARDCODED_LEADS
@@ -53,6 +54,7 @@ DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
     ("Ondo", ONDO_HARDCODED_LEADS),
     ("Circle USYC", USYC_HARDCODED_LEADS),
     ("Franklin Templeton", FRANKLIN_HARDCODED_LEADS),
+    ("Centrifuge Tranche", CENTRIFUGE_TRANCHE_HARDCODED_LEADS),
 )
 
 if TYPE_CHECKING:
