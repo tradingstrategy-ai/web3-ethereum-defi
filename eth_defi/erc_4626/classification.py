@@ -24,12 +24,12 @@ from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.maseer_one.constants import MASEER_ONE_WSTGBP
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_PRODUCTS, CENTRIFUGE_TRANCHE_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_PRODUCTS, FRANKLIN_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS, ONDO_PRODUCTS_BY_TOKEN
-from eth_defi.tokenised_fund.usyc.constants import USYC_TOKEN_ADDRESS
-from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_PRODUCTS, CENTRIFUGE_TRANCHE_PRODUCTS_BY_TOKEN
-from eth_defi.tokenised_fund.wisdomtree.constants import WISDOMTREE_PRODUCTS, WISDOMTREE_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_PRODUCTS_BY_CHAIN
+from eth_defi.tokenised_fund.usyc.constants import USYC_TOKEN_ADDRESS
+from eth_defi.tokenised_fund.wisdomtree.constants import WISDOMTREE_PRODUCTS, WISDOMTREE_PRODUCTS_BY_TOKEN
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS

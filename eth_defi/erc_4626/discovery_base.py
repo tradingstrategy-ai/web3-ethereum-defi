@@ -31,10 +31,10 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_er
 from eth_defi.maseer_one.constants import MASEER_ONE_HARDCODED_LEADS
 from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_HARDCODED_LEADS
+from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_HARDCODED_LEADS
 from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_HARDCODED_LEADS
 from eth_defi.tokenised_fund.ondo.constants import ONDO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.usyc.constants import USYC_HARDCODED_LEADS
-from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_HARDCODED_LEADS
 from eth_defi.tokenised_fund.wisdomtree.constants import WISDOMTREE_HARDCODED_LEADS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
