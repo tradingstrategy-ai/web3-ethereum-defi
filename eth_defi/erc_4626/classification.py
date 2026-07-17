@@ -44,6 +44,11 @@ ODA_FACT_JLTXX_ADDRESS = HexAddress("0x09864f52b035ae22ee739dfa5c748fa080d07bd8"
 #: Ethereum mainnet chain id.
 ODA_FACT_JLTXX_CHAIN_ID = 1
 
+#: J.P. Morgan My OnChain Net Yield Fund (MONY) FACT diamond.
+#:
+#: https://etherscan.io/address/0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46
+ODA_FACT_MONY_ADDRESS = HexAddress("0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46")
+
 #: JLTXX ODA-FACT deployment block.
 #:
 #: Source: Blockscout creation transaction
@@ -52,6 +57,15 @@ ODA_FACT_JLTXX_FIRST_SEEN_AT_BLOCK = 25_042_223
 
 #: JLTXX deployment timestamp, stored as naive UTC.
 ODA_FACT_JLTXX_FIRST_SEEN_AT = datetime.datetime(2026, 5, 7, 9, 20, 11, tzinfo=datetime.UTC).replace(tzinfo=None)
+
+#: MONY Diamond deployment block.
+#:
+#: Determined from the first Ethereum block containing runtime bytecode for
+#: the exact Sourcify-verified deployment.
+ODA_FACT_MONY_FIRST_SEEN_AT_BLOCK = 23_890_166
+
+#: MONY Diamond deployment timestamp, stored as naive UTC.
+ODA_FACT_MONY_FIRST_SEEN_AT = datetime.datetime(2025, 11, 27, 12, 52, 11, tzinfo=datetime.UTC).replace(tzinfo=None)
 
 #: Hardcoded ODA-FACT lead data used because the single production contract does
 #: not emit ERC-4626 ``Deposit``/``Withdraw`` discovery events.
@@ -62,11 +76,18 @@ ODA_FACT_HARDCODED_LEADS = (
         ODA_FACT_JLTXX_FIRST_SEEN_AT_BLOCK,
         ODA_FACT_JLTXX_FIRST_SEEN_AT,
     ),
+    (
+        ODA_FACT_JLTXX_CHAIN_ID,
+        ODA_FACT_MONY_ADDRESS,
+        ODA_FACT_MONY_FIRST_SEEN_AT_BLOCK,
+        ODA_FACT_MONY_FIRST_SEEN_AT,
+    ),
 )
 
 #: ODA-FACT hardcoded classification flags.
 ODA_FACT_HARDCODED_PROTOCOLS = {
     ODA_FACT_JLTXX_ADDRESS: {ERC4626Feature.oda_fact_like},
+    ODA_FACT_MONY_ADDRESS: {ERC4626Feature.oda_fact_like},
 }
 
 #: Midas hardcoded classification flags.
@@ -289,6 +310,10 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
     normalised_address = HexAddress(address.lower())
 
     if chain_id is not None:
+        if normalised_address in ODA_FACT_HARDCODED_PROTOCOLS:
+            if chain_id == ODA_FACT_JLTXX_CHAIN_ID:
+                return ODA_FACT_HARDCODED_PROTOCOLS[normalised_address]
+            return None
         aave_atoken_vaults = AAVE_ATOKEN_VAULTS_BY_CHAIN.get(chain_id, frozenset())
         if normalised_address in aave_atoken_vaults:
             return {ERC4626Feature.aave_like}

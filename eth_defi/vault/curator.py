@@ -351,6 +351,10 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # Henderson/Anemoy fund relationship, not a generic transfer-token label.
     # https://www.anemoy.io/funds/jtrsy
     (1, "0x8c213ee79581ff4984583c6a801e5263418c4b86"): "janus-henderson-anemoy",
+    # MONY is J.P. Morgan Asset Management's My OnChain Net Yield Fund. Its
+    # token name does not contain a reusable J.P. Morgan curator pattern.
+    # https://www.prnewswire.com/news-releases/jp-morgan-asset-management-launches-its-first-tokenized-money-market-fund-302642262.html
+    (1, "0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46"): "jpmorgan",
     # Securitize DSToken fund shares use issuer-specific names and may not
     # contain the full asset-manager brand. Keep the fund-manager mapping
     # address-specific, as for JLTXX, to avoid claiming unrelated DSTokens.

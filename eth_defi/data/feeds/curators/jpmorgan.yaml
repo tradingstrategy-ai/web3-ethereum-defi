@@ -6,7 +6,7 @@
 # - Kinexys provides the tokenisation and settlement technology. The curator
 #   business for this entry is J.P. Morgan, not Kinexys.
 # - Exact vault-address detection in eth_defi.vault.curator maps the production
-#   JLTXX contract to this curator slug.
+#   JLTXX and MONY contracts to this curator slug.
 feeder-id: jpmorgan
 name: J.P. Morgan
 role: curator
@@ -18,7 +18,7 @@ short_description: J.P. Morgan is a global investment bank and financial service
 long_description: |
   J.P. Morgan is a global investment bank and financial services firm within JPMorgan Chase & Co. The bank provides investment banking, markets, securities services, treasury services, payments, asset management, private banking and wealth-management services for companies, institutions, governments and investors around the world.
 
-  For this integration, J.P. Morgan is treated as the curator of the JLTXX vault-like instrument because JPMorgan's OnChain Liquidity-Token Money Market Fund is a J.P. Morgan fund product. Kinexys is the technology provider for the tokenised asset and settlement infrastructure; it is not the curator business represented by this YAML entry.
+  For this integration, J.P. Morgan is treated as the curator of the JLTXX and MONY vault-like instruments because both are J.P. Morgan fund products. Kinexys is the technology provider for the tokenised asset and settlement infrastructure; it is not the curator business represented by this YAML entry. J.P. Morgan's MONY launch announcement identifies the fund as powered by Kinexys Digital Assets and distributed through Morgan Money.
 
 # Evidence and background references.
 other-links:
@@ -40,4 +40,6 @@ other-links:
     url: https://www.jpmorgan.com/kinexys/tokenized-money-market-funds
   - title: JLTXX fact sheet - JPMorgan OnChain Liquidity-Token Money Market Fund
     url: https://am.jpmorgan.com/content/dam/jpm-am-aem/americas/us/en/literature/fact-sheet/money-market/fs-ocltmm-t.pdf
+  - title: J.P. Morgan Asset Management launch announcement - My OnChain Net Yield Fund (MONY)
+    url: https://www.prnewswire.com/news-releases/jp-morgan-asset-management-launches-its-first-tokenized-money-market-fund-302642262.html
 linkedin-rss-hub-disabled-at: 2026-07-06

@@ -8,20 +8,24 @@ long_description: |
   ODA-FACT name comes from J.P. Morgan's token-standard terminology: current
   Kinexys material calls it Kinexys Digital Assets Fungible Asset Contract,
   while the ODA prefix reflects the earlier Onyx Digital Assets branding before
-  Onyx was renamed to Kinexys. The initial integration tracks JPMorgan's OnChain
-  Liquidity-Token Money Market Fund token, JLTXX, on Ethereum.
+  Onyx was renamed to Kinexys. The integration tracks JPMorgan's OnChain
+  Liquidity-Token Money Market Fund token, JLTXX, and My OnChain Net Yield Fund
+  token, MONY, on Ethereum.
 
   ODA-FACT contracts are ERC-20-compatible tokenised fund contracts, not
   ERC-4626 vaults. The integration reads token supply on-chain and currently
   combines it with an explicitly labelled 1.00 USD NAV estimate for JLTXX until
-  an official NAV source is integrated.
+  an official NAV source is integrated. MONY exposes token supply but no
+  on-chain NAV or share-price source, so it is recorded without a valuation.
 fee_description: |
   Fee terms are not readable from the ODA-FACT token contract surface. For the
   JLTXX Token Class, the May 13, 2026 prospectus advertises 0.71% gross total
   annual fund operating expenses and 0.16% net total annual fund operating
   expenses after waivers through June 30, 2028. The adapter maps the current
   net expense ratio to the shared management-like fee field and reports no
-  separate performance, deposit or withdrawal fee.
+  separate performance, deposit or withdrawal fee. MONY has no verified public
+  fee schedule in its token contract and is exported with fee information
+  unavailable.
 links:
   homepage: https://www.jpmorgan.com/kinexys/index
   app: https://www.jpmorgan.com/kinexys/tokenized-money-market-funds
@@ -36,3 +40,4 @@ links:
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/kinexys/index.html
 example_smart_contracts:
   - https://eth.blockscout.com/address/0x09864f52B035AE22eE739dFa5c748fA080D07bD8
+  - https://etherscan.io/address/0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46

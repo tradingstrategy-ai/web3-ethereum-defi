@@ -147,6 +147,14 @@ SUPERSTATE_USTB_NOTE = """Invesco Short Duration US Government Securities Fund (
 - **Fund documentation:** [Superstate USTB](https://docs.superstate.com/superstate-funds/ustb).
 """
 
+ODA_FACT_MONY_NOTE = """My OnChain Net Yield Fund (MONY).
+
+- **Curator:** J.P. Morgan Asset Management / Kinexys.
+- **Fund access:** The Ethereum token is a permissioned FACT Diamond. Its account activation, stop-code, lock and role controls mean an ERC-20 transfer or burn interface does not establish general investor eligibility or public redemption access.
+- **Valuation:** The deployed token exposes no on-chain NAV or share-price function. Supply is tracked as an on-chain diagnostic only; do not derive fund value from it.
+- **Operations:** J.P. Morgan's launch announcement says the fund is powered by Kinexys Digital Assets and distributed through Morgan Money.
+"""
+
 #: Vault-specific notes and classifications that do not exclude a vault from
 #: research datasets.
 #:
@@ -158,6 +166,7 @@ VAULT_NOTES: dict[str, str] = {
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": ODA_FACT_JLTXX_NOTE,
     "0x1fecf3d9d4fee7f2c02917a66028a48c6706c179": WISDOMTREE_WTGXX_NOTE,
     "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e": SUPERSTATE_USTB_NOTE,
+    "0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46": ODA_FACT_MONY_NOTE,
 }
 
 #: Product classification flags that are descriptive rather than exclusionary.
@@ -167,6 +176,7 @@ VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": {VaultFlag.tokenised_fund},
     "0x1fecf3d9d4fee7f2c02917a66028a48c6706c179": {VaultFlag.tokenised_fund},
     "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e": {VaultFlag.tokenised_fund},
+    "0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46": {VaultFlag.tokenised_fund},
 }
 
 #: Vault-specific notes which must only apply on the specified EVM chain.

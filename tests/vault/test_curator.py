@@ -422,6 +422,19 @@ def test_identify_superstate_ustb_by_address() -> None:
     assert get_curator_name("superstate") == "Superstate"
     assert not is_protocol_curator("superstate")
 
+def test_identify_jpmorgan_mony_by_address() -> None:
+    """MONY resolves to J.P. Morgan through its exact FACT Diamond address."""
+
+    slug = identify_curator(
+        vault_token_symbol="MONY",
+        vault_name="My OnChain Net Yield Fund",
+        vault_address="0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46",
+        protocol_slug="kinexys",
+        chain_id=1,
+    )
+
+    assert slug == "jpmorgan"
+
 
 def test_identify_piku_vaults_by_address() -> None:
     """Resolve the published Piku token and Morini vaults by exact address.

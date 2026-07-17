@@ -94,7 +94,7 @@ class OdaFactVaultHistoricalReader(VaultHistoricalReader):
                 errors.append("ODA-FACT totalSupply call failed")
 
         share_price = self.vault.fetch_share_price(block_number)
-        total_assets = share_price * total_supply if total_supply is not None else None
+        total_assets = share_price * total_supply if share_price is not None and total_supply is not None else None
 
         return VaultHistoricalRead(
             vault=self.vault,

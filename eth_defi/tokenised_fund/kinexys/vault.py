@@ -5,8 +5,9 @@ permissioned ERC-20-compatible tokenised fund contracts. They are not ERC-4626
 vaults, but the shared vault database and price scanner can track them through
 the :class:`eth_defi.vault.base.VaultBase` interface.
 
-The first supported production contract is JPMorgan's OnChain Liquidity-Token
-Money Market Fund token ``JLTXX``:
+The supported production contracts are JPMorgan's OnChain Liquidity-Token
+Money Market Fund token ``JLTXX`` and My OnChain Net Yield Fund token
+``MONY``. Both use a FACT Diamond dispatcher:
 
 - Ethereum address: ``0x09864f52B035AE22eE739dFa5c748fA080D07bD8``
 - Contract architecture: EIP-2535 diamond
@@ -27,7 +28,7 @@ from decimal import Decimal
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
-from eth_defi.erc_4626.classification import ODA_FACT_JLTXX_ADDRESS
+from eth_defi.erc_4626.classification import ODA_FACT_JLTXX_ADDRESS, ODA_FACT_MONY_ADDRESS
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.tokenised_fund.kinexys.historical import OdaFactVaultHistoricalReader
@@ -70,6 +71,15 @@ JLTXX_SHORT_DESCRIPTION = "Vaulted strategy investing in U.S. Treasury bills, bo
 #: JLTXX issuer/platform display name.
 JLTXX_MANAGER_NAME = "J.P. Morgan Kinexys"
 
+#: Human-readable MONY product name.
+MONY_PRODUCT_NAME = "My OnChain Net Yield Fund"
+
+#: MONY public product description.
+MONY_SHORT_DESCRIPTION = "Permissioned tokenised money-market fund distributed through Morgan Money"
+
+#: MONY issuer/platform display name.
+MONY_MANAGER_NAME = "J.P. Morgan Kinexys"
+
 #: Public Kinexys platform URL.
 JLTXX_HOMEPAGE = "https://www.jpmorgan.com/kinexys"
 
@@ -80,6 +90,9 @@ JLTXX_ESTIMATED_NAV_PER_SHARE = Decimal("1")
 
 #: Diagnostic label for the temporary NAV estimate.
 JLTXX_ESTIMATED_NAV_SOURCE = "estimated_jltxx_usd_1"
+
+#: MONY's FACT Diamond has no on-chain NAV or share-price view.
+MONY_NAV_SOURCE = "unavailable_mony_no_onchain_nav"
 
 #: JLTXX prospectus/fact sheet source URL.
 JLTXX_FACT_SHEET_URL = "https://am.jpmorgan.com/content/dam/jpm-am-aem/americas/us/en/literature/fact-sheet/money-market/fs-ocltmm-t.pdf"
@@ -123,6 +136,19 @@ JLTXX_FEE_DATA = FeeData(
 ODA_FACT_FEES_BY_ADDRESS = {
     ODA_FACT_JLTXX_ADDRESS: JLTXX_FEE_DATA,
 }
+
+
+def is_mony(address: HexAddress | str) -> bool:
+    """Check whether an address is the supported MONY FACT Diamond.
+
+    :param address:
+        Candidate EVM contract address.
+
+    :return:
+        ``True`` for the exact Ethereum MONY token address.
+    """
+
+    return address.lower() == ODA_FACT_MONY_ADDRESS
 
 
 def export_oda_fact_usd_denomination(chain_id: int) -> dict[str, object]:
@@ -228,7 +254,7 @@ class OdaFactVault(VaultBase):
         """Token name, falling back to static product metadata."""
 
         token_name = self.share_token.name
-        return token_name or JLTXX_PRODUCT_NAME
+        return token_name or self._get_product_name()
 
     @property
     def symbol(self) -> str:
@@ -240,19 +266,28 @@ class OdaFactVault(VaultBase):
     def description(self) -> str | None:
         """Human-readable product description."""
 
-        return JLTXX_PRODUCT_NAME
+        return self._get_product_name()
 
     @property
     def short_description(self) -> str | None:
         """Short product description."""
 
-        return JLTXX_SHORT_DESCRIPTION
+        return MONY_SHORT_DESCRIPTION if is_mony(self.address) else JLTXX_SHORT_DESCRIPTION
 
     @property
     def manager_name(self) -> str | None:
         """Issuer or platform display name."""
 
-        return JLTXX_MANAGER_NAME
+        return MONY_MANAGER_NAME if is_mony(self.address) else JLTXX_MANAGER_NAME
+
+    def _get_product_name(self) -> str:
+        """Return the static name for a supported FACT product.
+
+        :return:
+            MONY or JLTXX product name, depending on the exact token address.
+        """
+
+        return MONY_PRODUCT_NAME if is_mony(self.address) else JLTXX_PRODUCT_NAME
 
     def fetch_share_token_address(self, block_identifier: BlockIdentifier = "latest") -> HexAddress:
         """Return the ODA-FACT token address.
@@ -306,17 +341,20 @@ class OdaFactVault(VaultBase):
 
         return None
 
-    def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
-        """Fetch ODA-FACT share price estimate.
+    def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch ODA-FACT share price when an authorised source is available.
 
         :param block_identifier:
             Historical or latest block identifier. The current implementation
             does not have block-specific NAV data.
 
         :return:
-            Estimated NAV per one human-readable ODA-FACT share.
+            Estimated JLTXX NAV per one human-readable share, or ``None`` for
+            MONY because its FACT Diamond has no on-chain price or NAV view.
         """
 
+        if is_mony(self.address):
+            return None
         return JLTXX_ESTIMATED_NAV_PER_SHARE
 
     def fetch_total_supply(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
@@ -332,26 +370,31 @@ class OdaFactVault(VaultBase):
         raw_supply = self.share_token.contract.functions.totalSupply().call(block_identifier=block_identifier)
         return self.share_token.convert_to_decimals(raw_supply)
 
-    def fetch_total_assets(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
-        """Fetch ODA-FACT TVL using supply multiplied by NAV per share.
+    def fetch_total_assets(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch ODA-FACT TVL when a share NAV is available.
 
         :param block_identifier:
             Historical or latest block identifier.
 
         :return:
-            Estimated total assets in USD-denomination units.
+            Estimated total assets in USD-denomination units, or ``None`` when
+            the product provides no verified NAV.
         """
 
-        return self.fetch_total_supply(block_identifier) * self.fetch_share_price(block_identifier)
+        share_price = self.fetch_share_price(block_identifier)
+        if share_price is None:
+            return None
+        return self.fetch_total_supply(block_identifier) * share_price
 
-    def fetch_nav(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
+    def fetch_nav(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
         """Fetch ODA-FACT NAV.
 
         :param block_identifier:
             Historical or latest block identifier.
 
         :return:
-            Estimated total assets in USD-denomination units.
+            Estimated total assets in USD-denomination units, or ``None`` when
+            the product provides no verified NAV.
         """
 
         return self.fetch_total_assets(block_identifier)
@@ -368,8 +411,8 @@ class OdaFactVault(VaultBase):
             chain_id=self.chain_id,
             denomination_token=self.fetch_denomination_token_address(),
             synthetic_usd_denomination=True,
-            nav_source=JLTXX_ESTIMATED_NAV_SOURCE,
-            nav_estimated=True,
+            nav_source=MONY_NAV_SOURCE if is_mony(self.address) else JLTXX_ESTIMATED_NAV_SOURCE,
+            nav_estimated=not is_mony(self.address),
         )
 
     def fetch_scan_record_extra_data(self) -> dict[str, object]:
@@ -380,23 +423,31 @@ class OdaFactVault(VaultBase):
             denomination assumptions explicit.
         """
 
-        return {
+        nav_source = MONY_NAV_SOURCE if is_mony(self.address) else JLTXX_ESTIMATED_NAV_SOURCE
+        nav_estimated = not is_mony(self.address)
+        extra_data: dict[str, object] = {
             "Denomination": "USD",
             "_denomination_token": export_oda_fact_usd_denomination(self.chain_id),
             "_notes": self.get_notes(),
             "_deposit_closed_reason": self.fetch_deposit_closed_reason(),
             "_redemption_closed_reason": self.fetch_redemption_closed_reason(),
-            "_nav_source": JLTXX_ESTIMATED_NAV_SOURCE,
-            "_nav_estimated": True,
+            "_nav_source": nav_source,
+            "_nav_estimated": nav_estimated,
             "_synthetic_usd_denomination": True,
-            "_fee_source": JLTXX_PROSPECTUS_URL,
-            "_fee_fact_sheet": JLTXX_FACT_SHEET_URL,
-            "_fee_waiver_until": JLTXX_PROSPECTUS_FEE_WAIVER_UNTIL.isoformat(),
-            "_gross_expense_ratio": JLTXX_PROSPECTUS_GROSS_EXPENSE_RATIO,
-            "_net_expense_ratio": JLTXX_PROSPECTUS_NET_EXPENSE_RATIO,
-            "_prospectus_management_fee": JLTXX_PROSPECTUS_MANAGEMENT_FEE,
-            "_prospectus_service_fee": JLTXX_PROSPECTUS_SERVICE_FEE,
         }
+        if not is_mony(self.address):
+            extra_data.update(
+                {
+                    "_fee_source": JLTXX_PROSPECTUS_URL,
+                    "_fee_fact_sheet": JLTXX_FACT_SHEET_URL,
+                    "_fee_waiver_until": JLTXX_PROSPECTUS_FEE_WAIVER_UNTIL.isoformat(),
+                    "_gross_expense_ratio": JLTXX_PROSPECTUS_GROSS_EXPENSE_RATIO,
+                    "_net_expense_ratio": JLTXX_PROSPECTUS_NET_EXPENSE_RATIO,
+                    "_prospectus_management_fee": JLTXX_PROSPECTUS_MANAGEMENT_FEE,
+                    "_prospectus_service_fee": JLTXX_PROSPECTUS_SERVICE_FEE,
+                }
+            )
+        return extra_data
 
     def fetch_portfolio(
         self,
@@ -573,4 +624,4 @@ class OdaFactVault(VaultBase):
 
         if self.address.lower() == ODA_FACT_JLTXX_ADDRESS:
             return JLTXX_HOMEPAGE
-        return f"https://eth.blockscout.com/address/{self.address}"
+        return f"https://etherscan.io/address/{self.address}"
