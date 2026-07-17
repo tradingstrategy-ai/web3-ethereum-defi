@@ -1,4 +1,4 @@
-"""Historical reader for Libeara CMTAT fund shares."""
+"""Historical reader for reviewed Libeara fund shares."""
 
 import datetime
 from collections.abc import Iterable
@@ -10,32 +10,35 @@ from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 
 
 class LibearaVaultHistoricalReader(VaultHistoricalReader):
-    """Read CMTAT supply, issuer NAV and scaling factor at historical blocks."""
+    """Read supply and any reviewed issuer NAV fields at historical blocks."""
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
-        """Construct all stable CMTAT value calls.
+        """Construct the reviewed value calls for this product.
 
-        :return: Supply, NAV and NAV scaling calls for each sample block.
+        :return: Supply plus CMTAT NAV calls, or supply only for ULTRA.
         """
 
-        for name, call in (
+        calls = (
             ("totalSupply", self.vault.share_token.contract.functions.totalSupply()),
             ("latestNAV", self.vault.cmtat_contract.functions.latestNAV()),
             ("NAVScalingFactor", self.vault.cmtat_contract.functions.NAVScalingFactor()),
-        ):
+        )
+        if self.vault.is_ultra:
+            calls = calls[:1]
+        for name, call in calls:
             yield EncodedCall.from_contract_call(call, extra_data={"function": name}, first_block_number=self.first_block)
 
     def process_result(self, block_number: int, timestamp: datetime.datetime, call_results: list[EncodedCallResult]) -> VaultHistoricalRead:
-        """Convert CMTAT values to a scan row.
+        """Convert available Libeara values to a scan row.
 
-        :param block_number: Sampled Ethereum block.
+        :param block_number: Sampled EVM block.
         :param timestamp: Naive UTC block timestamp.
         :param call_results: Results for :meth:`construct_multicalls`.
         :return: Supply and NAV-derived USD total assets, or errors.
         """
 
         values: dict[str, int] = {}
-        errors: list[str] = []
+        errors: list[str] = ["No verified on-chain ULTRA NAV/share source is configured"] if self.vault.is_ultra else []
         for result in call_results:
             name = result.call.extra_data["function"]
             if result.success:

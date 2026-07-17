@@ -29,6 +29,7 @@ class LibearaProduct:
 
 
 ETHEREUM_CHAIN_ID = 1
+ARBITRUM_CHAIN_ID = 42161
 
 #: ChinaAMC USD Digital Money Market Fund Class I USD.
 #: Source: https://etherscan.io/token/0x85d38585c3ac08268f598282a84b7c0ddfc0d04f
@@ -54,6 +55,17 @@ BELIF_ETHEREUM = LibearaProduct(
     datetime.datetime(2025, 10, 17, 9, 1, 23),
 )
 
-LIBEARA_PRODUCTS = {(p.chain_id, p.token): p for p in (CUMIU_ETHEREUM, BELIF_ETHEREUM)}
+#: Delta Wellington Ultra Short Treasury On-Chain Fund on Arbitrum.
+LIBEARA_ULTRA_ARBITRUM = LibearaProduct(
+    ARBITRUM_CHAIN_ID,
+    HexAddress("0xc26af85ede9cc25d449bcebef866bb85afd5d346"),
+    "ULTRA",
+    "Delta Wellington Ultra Short Treasury On-Chain Fund",
+    "Permissioned tokenised units in the Delta Wellington ultra-short Treasury fund.",
+    358_954_981,
+    datetime.datetime(2025, 7, 18, 7, 9, 32, tzinfo=datetime.UTC).replace(tzinfo=None),
+)
+
+LIBEARA_PRODUCTS = {(p.chain_id, p.token): p for p in (CUMIU_ETHEREUM, BELIF_ETHEREUM, LIBEARA_ULTRA_ARBITRUM)}
 LIBEARA_PRODUCTS_BY_TOKEN = {p.token: p for p in LIBEARA_PRODUCTS.values()}
 LIBEARA_HARDCODED_LEADS = tuple((p.chain_id, p.token, p.first_seen_at_block, p.first_seen_at) for p in LIBEARA_PRODUCTS.values())

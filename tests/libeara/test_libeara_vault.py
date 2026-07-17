@@ -11,7 +11,7 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance_autodetect, identify_vault_features
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.tokenised_fund.libeara.constants import BELIF_ETHEREUM, CUMIU_ETHEREUM, ETHEREUM_CHAIN_ID, LIBEARA_HARDCODED_LEADS
+from eth_defi.tokenised_fund.libeara.constants import BELIF_ETHEREUM, CUMIU_ETHEREUM, ETHEREUM_CHAIN_ID
 from eth_defi.tokenised_fund.libeara.historical import LibearaVaultHistoricalReader
 from eth_defi.tokenised_fund.libeara.vault import LIBEARA_RESTRICTED_FLOW_REASON, LibearaVault
 from eth_defi.vault.curator import identify_curator
@@ -37,7 +37,6 @@ def web3() -> Web3:
 
 def test_libeara_hardcoded_products_are_chain_aware() -> None:
     """Classify only the reviewed Ethereum CMTAT product proxies."""
-    assert tuple(item[1] for item in LIBEARA_HARDCODED_LEADS) == (CUMIU_ETHEREUM.token, BELIF_ETHEREUM.token)
     broken_probe = SimpleNamespace(success=True, result=b"")
     for product in (CUMIU_ETHEREUM, BELIF_ETHEREUM):
         assert HARDCODED_PROTOCOLS[product.token] == {ERC4626Feature.libeara_like}

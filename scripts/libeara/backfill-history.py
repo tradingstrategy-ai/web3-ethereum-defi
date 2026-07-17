@@ -119,9 +119,7 @@ def main() -> None:  # noqa: PLR0914
     :return: None.
     """
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
-    products = tuple(LIBEARA_PRODUCTS.values())
-    if any(product.chain_id != ETHEREUM_CHAIN_ID for product in products):
-        raise RuntimeError("Libeara CMTAT migration supports reviewed Ethereum products only")
+    products = tuple(product for product in LIBEARA_PRODUCTS.values() if product.chain_id == ETHEREUM_CHAIN_ID)
     dry_run = _bool("DRY_RUN", True)
     frequency = os.environ.get("FREQUENCY", "1d")
     if frequency not in {"1h", "1d"}:

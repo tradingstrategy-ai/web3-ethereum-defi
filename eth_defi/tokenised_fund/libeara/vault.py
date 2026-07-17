@@ -1,9 +1,10 @@
-"""Read-only adapter for Libeara CMTAT tokenised fund shares.
+"""Read-only adapter for reviewed Libeara tokenised fund shares.
 
 The reviewed CUMIU and BELIF Ethereum proxies use CMTA's CMTAT framework. They
 provide an issuer-maintained NAV record but their transfer rule engine and
 off-chain eligibility process mean that neither public subscriptions nor
-redemptions are implemented here.
+redemptions are implemented here. ULTRA on Arbitrum is tracked as supply-only
+because no verified public NAV/share source has been identified.
 """
 
 from decimal import Decimal
@@ -28,11 +29,12 @@ CMTAT_NAV_ABI = [
     {"inputs": [], "name": "currencyNAV", "outputs": [{"type": "string"}], "stateMutability": "view", "type": "function"},
 ]
 
-LIBEARA_RESTRICTED_FLOW_REASON = "Libeara CMTAT fund subscriptions, redemptions and transfers require issuer approval and rule-engine compliance"
+LIBEARA_RESTRICTED_FLOW_REASON = "Libeara fund subscriptions, redemptions and transfers require approved investors and issuer-controlled settlement"
+LIBEARA_NAV_UNAVAILABLE_ERROR_PREFIX = "No verified on-chain ULTRA NAV/share source is configured"
 
 
 class LibearaVaultInfo(VaultInfo, total=False):
-    """Libeara CMTAT scan metadata."""
+    """Libeara fund scan metadata."""
 
     token: HexAddress
     chain_id: int
@@ -41,13 +43,13 @@ class LibearaVaultInfo(VaultInfo, total=False):
 
 
 class LibearaVault(VaultBase):
-    """Read supply and CMTAT's latest NAV for reviewed Libeara fund shares."""
+    """Read supply and any reviewed NAV for Libeara fund shares."""
 
     def __init__(self, web3: Web3, spec: VaultSpec, token_cache: dict | None = None, features: set[ERC4626Feature] | None = None, default_block_identifier: BlockIdentifier | None = None, require_denomination_token: bool = False):
         """Create a CMTAT fund-share adapter.
 
-        :param web3: Web3 connection to Ethereum.
-        :param spec: Chain and reviewed CMTAT proxy address.
+        :param web3: Web3 connection to the deployment chain.
+        :param spec: Chain and reviewed fund-share address.
         :param token_cache: Optional ERC-20 metadata cache.
         :param features: Shared classification features.
         :param default_block_identifier: Default archive block for metadata reads.
@@ -67,8 +69,14 @@ class LibearaVault(VaultBase):
         return self.spec.chain_id
 
     @property
+    def is_ultra(self) -> bool:
+        """Return whether this is the Arbitrum ULTRA deployment."""
+
+        return self.product.symbol == "ULTRA"
+
+    @property
     def address(self) -> HexAddress:
-        """Return the CMTAT proxy address."""
+        """Return the fund-share token address."""
         return HexAddress(Web3.to_checksum_address(self.spec.vault_address))
 
     @property
@@ -103,7 +111,7 @@ class LibearaVault(VaultBase):
     @property
     def short_description(self) -> str:
         """Return the listing description."""
-        return "Permissioned Libeara CMTAT tokenised fund share"
+        return "Permissioned Libeara tokenised fund share"
 
     @property
     def manager_name(self) -> str:
@@ -116,7 +124,7 @@ class LibearaVault(VaultBase):
         return "libeara"
 
     def fetch_share_token_address(self, block_identifier: BlockIdentifier = "latest") -> HexAddress:
-        """Return the CMTAT share token.
+        """Return the fund share token.
 
         :param block_identifier: Accepted for historical reader compatibility.
         :return: Token proxy address.
@@ -126,9 +134,9 @@ class LibearaVault(VaultBase):
     def fetch_share_token(self) -> TokenDetails:
         """Fetch ERC-20 share-token metadata.
 
-        :return: CMTAT share token details.
+        :return: Fund-share token details.
         """
-        return fetch_erc20_details(self.web3, self.address, chain_id=self.chain_id, raise_on_error=False, cache=self.token_cache, cause_diagnostics_message=f"Libeara CMTAT token {self.address}")
+        return fetch_erc20_details(self.web3, self.address, chain_id=self.chain_id, raise_on_error=False, cache=self.token_cache, cause_diagnostics_message=f"Libeara fund token {self.address}")
 
     def fetch_denomination_token_address(self) -> HexAddress | None:
         """Return no transferable denomination token.
@@ -147,10 +155,12 @@ class LibearaVault(VaultBase):
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Read CMTAT's issuer-maintained NAV/share.
 
-        :param block_identifier: Ethereum archive block.
+        :param block_identifier: EVM archive block.
         :return: NAV divided by the contract-declared scale.
         :raise ValueError: If the reported scale is zero.
         """
+        if self.is_ultra:
+            raise NotImplementedError(f"{LIBEARA_NAV_UNAVAILABLE_ERROR_PREFIX} {self.address}")
         raw = self.cmtat_contract.functions.latestNAV().call(block_identifier=block_identifier)
         scale = self.cmtat_contract.functions.NAVScalingFactor().call(block_identifier=block_identifier)
         if not scale:
@@ -186,14 +196,16 @@ class LibearaVault(VaultBase):
 
         :return: Token identity and issuer-NAV source information.
         """
-        return LibearaVaultInfo(token=self.address, chain_id=self.chain_id, nav_source="cmtat_latest_nav", synthetic_usd_denomination=True)
+        nav_source = "unconfigured_external_ultra_manager" if self.is_ultra else "cmtat_latest_nav"
+        return LibearaVaultInfo(token=self.address, chain_id=self.chain_id, nav_source=nav_source, synthetic_usd_denomination=not self.is_ultra)
 
     def fetch_scan_record_extra_data(self) -> dict[str, object]:
         """Export restricted-flow and valuation diagnostics.
 
         :return: Data compatible with the vault scanner.
         """
-        return {"Denomination": "USD", "_notes": self.get_notes(), "_deposit_closed_reason": self.fetch_deposit_closed_reason(), "_redemption_closed_reason": self.fetch_redemption_closed_reason(), "_nav_source": "cmtat_latest_nav", "_curator_slug": self.curator_slug}
+        nav_source = "unconfigured_external_ultra_manager" if self.is_ultra else "cmtat_latest_nav"
+        return {"Denomination": None if self.is_ultra else "USD", "_notes": self.get_notes(), "_deposit_closed_reason": self.fetch_deposit_closed_reason(), "_redemption_closed_reason": self.fetch_redemption_closed_reason(), "_nav_source": nav_source, "_nav_estimated": False, "_curator_slug": self.curator_slug}
 
     def fetch_portfolio(self, universe: TradingUniverse, block_identifier: BlockIdentifier | None = None) -> VaultPortfolio:
         """Return no token-held on-chain portfolio.
@@ -223,14 +235,14 @@ class LibearaVault(VaultBase):
 
         :raise NotImplementedError: Always.
         """
-        raise NotImplementedError("Libeara CMTAT flow accounting is not implemented")
+        raise NotImplementedError("Libeara fund flow accounting is not implemented")
 
     def get_deposit_manager(self) -> VaultDepositManager:
         """Reject public dealing operations.
 
         :raise NotImplementedError: Always.
         """
-        raise NotImplementedError("Libeara CMTAT subscriptions and redemptions are not implemented")
+        raise NotImplementedError("Libeara fund subscriptions and redemptions are not implemented")
 
     def fetch_deposit_closed_reason(self) -> str:
         """Explain unavailable subscriptions.
@@ -247,10 +259,10 @@ class LibearaVault(VaultBase):
         return LIBEARA_RESTRICTED_FLOW_REASON
 
     def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
-        """Create a CMTAT supply-and-NAV reader.
+        """Create the product-specific supply and valuation reader.
 
         :param stateful: Retained shared-reader API parameter.
-        :return: CMTAT historical reader.
+        :return: Libeara historical reader.
         """
         return LibearaVaultHistoricalReader(self)
 
@@ -280,8 +292,10 @@ class LibearaVault(VaultBase):
     def get_notes(self) -> str:
         """Describe the integration boundary.
 
-        :return: CMTAT NAV and transfer-compliance caveat.
+        :return: Valuation and transfer-compliance caveat.
         """
+        if self.is_ultra:
+            return f"{self.product.product_name} is a permissioned fund unit. The adapter does not fabricate NAV and does not certify investor eligibility or public dealing availability."
         return f"{self.product.product_name} uses a permissioned CMTAT share token. The adapter reads issuer-maintained NAV and does not certify price freshness, investor eligibility or public dealing availability."
 
     def get_link(self, referral: str | None = None) -> str:
@@ -290,4 +304,6 @@ class LibearaVault(VaultBase):
         :param referral: Ignored.
         :return: Official platform homepage.
         """
+        if self.is_ultra:
+            return "https://libeara.com/libeara-partners-with-wellington-and-fundbridge-capital-to-launch-a-u-s-treasuries-fund-tokenised-on-public-blockchain/"
         return "https://libeara.com/"
