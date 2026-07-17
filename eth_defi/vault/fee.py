@@ -78,6 +78,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # USYC subscriptions and redemptions charge Teller fees; the product also
     # discloses a performance fee that is reflected in the NAV/share price.
     "Circle USYC": VaultFeeMode.externalised,
+    # WTGXX's published annual expense ratio is reflected in the fund NAV.
+    "WisdomTree": VaultFeeMode.internalised_skimming,
     # Maseer One applies mint and redemption spreads through mintcost() and
     # burncost(), reducing the user's issued shares or redeemed assets.
     "Maseer One": VaultFeeMode.externalised,

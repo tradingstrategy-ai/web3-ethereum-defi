@@ -129,6 +129,15 @@ ODA_FACT_JLTXX_NOTE = f"""JPMorgan OnChain Liquidity-Token Money Market Fund (JL
 - **Fact sheet:** [JLTXX fact sheet]({JLTXX_FACT_SHEET_URL}).
 """
 
+WISDOMTREE_WTGXX_NOTE = """WisdomTree Treasury Money Market Digital Fund (WTGXX).
+
+- **Curator:** WisdomTree.
+- **Token structure:** Permissioned, revocable compliance ERC-20 shares; not an ERC-4626 vault.
+- **NAV source:** WisdomTree DataSpan's documented issuer NAV endpoint, which requires an operator API key.
+- **Investor access:** Wallets must be approved by WisdomTree Connect; public deposit and redemption managers are intentionally unsupported.
+- **Fund page:** [WisdomTree WTGXX](https://www.wisdomtreeconnect.com/digital-funds/money-market/wtgxx).
+"""
+
 #: Vault-specific notes and classifications that do not exclude a vault from
 #: research datasets.
 #:
@@ -138,6 +147,7 @@ VAULT_NOTES: dict[str, str] = {
     **SECURITIZE_PRODUCT_NOTES,
     **ONDO_PRODUCT_NOTES,
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": ODA_FACT_JLTXX_NOTE,
+    "0x1fecf3d9d4fee7f2c02917a66028a48c6706c179": WISDOMTREE_WTGXX_NOTE,
 }
 
 #: Product classification flags that are descriptive rather than exclusionary.
@@ -145,6 +155,7 @@ VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
     **{address: {VaultFlag.tokenised_fund} for address in SECURITIZE_TOKENISED_FUND_ADDRESSES},
     **{address: {VaultFlag.tokenised_fund} for address in ONDO_TOKENISED_FUND_ADDRESSES},
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": {VaultFlag.tokenised_fund},
+    "0x1fecf3d9d4fee7f2c02917a66028a48c6706c179": {VaultFlag.tokenised_fund},
 }
 
 #: Vault-specific notes which must only apply on the specified EVM chain.

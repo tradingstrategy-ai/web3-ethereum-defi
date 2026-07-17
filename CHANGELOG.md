@@ -5,6 +5,7 @@
 - feat: Add Circle USYC tokenised money-market fund support with official oracle NAV history and permissioned Teller flow metadata (2026-07-17)
 - feat: Add Franklin Templeton Benji Ethereum tokenised-fund discovery, issuer reference-price history and curator metadata (2026-07-17)
 - feat: Add read-only Centrifuge JTRSY Tranche tokenised-fund support (2026-07-17)
+- feat: Add read-only WisdomTree WTGXX tokenised-fund coverage (2026-07-17)
 - feat: Backfill all reviewed Securitize funds with archive-block RedStone NAV reads and official cross-chain BUIDL deployments (2026-07-16)
 - feat: Add off-chain Securitize NAV, share-price and TVL history sources with in-memory scanner enrichment (2026-07-16)
 - feat: Backfill all supported Asseto products from its live registry using daily NAV history and skip chains without configured RPCs (2026-07-16)

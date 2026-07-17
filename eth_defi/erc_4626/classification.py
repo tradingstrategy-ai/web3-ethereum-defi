@@ -28,6 +28,7 @@ from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_PRODUCTS, FRANKL
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS, ONDO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.usyc.constants import USYC_TOKEN_ADDRESS
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_PRODUCTS, CENTRIFUGE_TRANCHE_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.wisdomtree.constants import WISDOMTREE_PRODUCTS, WISDOMTREE_PRODUCTS_BY_TOKEN
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
@@ -87,6 +88,8 @@ FRANKLIN_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.franklin_like} for token 
 #: Centrifuge Tranche tokens are permissioned ERC-20 shares. They must be
 #: routed separately from Centrifuge's ERC-7540 LiquidityPool vaults.
 CENTRIFUGE_TRANCHE_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.centrifuge_tranche_like} for token in CENTRIFUGE_TRANCHE_PRODUCTS_BY_TOKEN}
+#: WisdomTree compliance ERC-20 fund shares require chain-aware routing.
+WISDOMTREE_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.wisdomtree_like} for token in WISDOMTREE_PRODUCTS_BY_TOKEN}
 
 #: Maseer One hardcoded classification flags.
 #:
@@ -315,6 +318,9 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if (chain_id, normalised_address) in CENTRIFUGE_TRANCHE_PRODUCTS:
             return CENTRIFUGE_TRANCHE_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in CENTRIFUGE_TRANCHE_HARDCODED_PROTOCOLS:
+        if (chain_id, normalised_address) in WISDOMTREE_PRODUCTS:
+            return WISDOMTREE_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in WISDOMTREE_HARDCODED_PROTOCOLS:
             return None
         if normalised_address == PRIME_USD_ADDRESS:
             if chain_id == 1:
@@ -1764,6 +1770,10 @@ def create_vault_instance(
         from eth_defi.tokenised_fund.centrifuge.vault import CentrifugeTrancheVault
 
         return CentrifugeTrancheVault(web3, spec, **kwargs)
+    elif ERC4626Feature.wisdomtree_like in features:
+        from eth_defi.tokenised_fund.wisdomtree.vault import WisdomTreeVault
+
+        return WisdomTreeVault(web3, spec, **kwargs)
     elif ERC4626Feature.maseer_one_like in features:
         from eth_defi.maseer_one.vault import MaseerOneVault
 
@@ -2214,6 +2224,7 @@ HARDCODED_PROTOCOLS = {
     **USYC_HARDCODED_PROTOCOLS,
     **FRANKLIN_HARDCODED_PROTOCOLS,
     **CENTRIFUGE_TRANCHE_HARDCODED_PROTOCOLS,
+    **WISDOMTREE_HARDCODED_PROTOCOLS,
     **MASEER_ONE_HARDCODED_PROTOCOLS,
     **KILOEX_HARDCODED_PROTOCOLS,
     **FRANKENCOIN_HARDCODED_PROTOCOLS,

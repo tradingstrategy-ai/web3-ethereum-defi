@@ -1,0 +1,21 @@
+# WisdomTree curator
+#
+# WTGXX is a WisdomTree fund. Its official product page names WisdomTree as the
+# product provider; the same page lists the Ethereum token address represented
+# by the exact curator override in eth_defi.vault.curator.
+feeder-id: wisdomtree
+name: WisdomTree
+role: curator
+canonical-feeder-id: wisdomtree
+short_description: WisdomTree is a global asset manager that offers exchange-traded products, models, private-market investments and digital funds.
+long_description: |
+  WisdomTree is a global asset manager offering exchange-traded products, model portfolios, private-market investments and digital-asset products. Its WisdomTree Connect platform provides eligible, permissioned clients with access to WisdomTree-issued tokenised fund shares across supported blockchains.
+
+  WisdomTree is the curator represented by this entry for WTGXX because it issues and manages the WisdomTree Treasury Money Market Digital Fund. WisdomTree Connect supplies the onboarding, wallet permissioning and settlement platform for the fund's digital representations.
+other-links:
+  - title: WisdomTree Connect - WTGXX official fund page and Ethereum token address
+    url: https://www.wisdomtreeconnect.com/digital-funds/money-market/wtgxx
+  - title: WisdomTree Connect - permissioned wallets and subscription/redemption information
+    url: https://www.wisdomtreeconnect.com/
+  - title: WisdomTree official company website
+    url: https://www.wisdomtree.com/

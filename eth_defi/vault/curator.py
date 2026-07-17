@@ -134,6 +134,7 @@ from eth_defi.lighter.constants import LIGHTER_SYSTEM_POOL_ADDRESSES
 from eth_defi.research.sparkline import upload_to_r2_compressed
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCTS
+from eth_defi.tokenised_fund.wisdomtree.constants import WTGXX_ETHEREUM
 
 logger = logging.getLogger(__name__)
 
@@ -358,6 +359,8 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # Ondo itself manages the reviewed USDY and OUSG products. Their token
     # names do not expose a reusable third-party curator name pattern.
     **dict.fromkeys(ONDO_PRODUCTS, "ondo"),
+    # WisdomTree is issuer and fund manager for its permissioned WTGXX shares.
+    (WTGXX_ETHEREUM.chain_id, WTGXX_ETHEREUM.token): "wisdomtree",
     # Piku publishes these as its USP token and curated Morini Capital vaults.
     # The vault names do not consistently include Piku, so keep their explicit
     # Ethereum contract addresses rather than using a fuzzy name pattern.

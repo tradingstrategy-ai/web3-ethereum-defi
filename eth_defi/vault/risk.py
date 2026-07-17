@@ -86,6 +86,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # Circle USYC is a permissioned fund token with verified proxy contracts
     # and a centrally operated NAV oracle.
     "Circle USYC": VaultTechnicalRisk.low,
+    # WisdomTree's WTGXX deployment is a verified, permissioned compliance token.
+    "WisdomTree": VaultTechnicalRisk.low,
     # Maseer One is a new compliance-gated RWA tokenisation framework. The
     # contracts are public, but the framework has limited production history.
     "Maseer One": None,

@@ -101,6 +101,11 @@ class ERC4626Feature(enum.Enum):
     #: This marks a direct share token, not Centrifuge's separate ERC-7540
     #: LiquidityPool vault contract.
     centrifuge_tranche_like = "centrifuge_tranche_like"
+    #: WisdomTree permissioned tokenised-fund products.
+    #:
+    #: Routing marker for non-ERC-4626 compliance ERC-20 fund shares read
+    #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    wisdomtree_like = "wisdomtree_like"
 
     #: Maseer One tokenised asset contracts.
     #:
@@ -872,6 +877,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Circle USYC"
     elif ERC4626Feature.centrifuge_tranche_like in features:
         return "Centrifuge"
+    elif ERC4626Feature.wisdomtree_like in features:
+        return "WisdomTree"
     elif ERC4626Feature.maseer_one_like in features:
         return "Maseer One"
     elif ERC4626Feature.vault_street_like in features:
