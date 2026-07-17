@@ -7,11 +7,13 @@ BELIF rows after their known deployment blocks.  It defaults to ``DRY_RUN``;
 set ``DRY_RUN=false`` only after reviewing the displayed plan.
 """
 
+import logging
 import os
 import pickle  # noqa: S403 - reader state is trusted, local operator data.
 from pathlib import Path
 
 from atomicwrites import atomic_write
+from tabulate import tabulate
 
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
@@ -27,6 +29,8 @@ from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
+
+logger = logging.getLogger(__name__)
 
 
 def _bool(name: str, default: bool) -> bool:
@@ -92,6 +96,23 @@ def _write_states(path: Path, states: dict) -> None:
         pickle.dump(states, out)
 
 
+def upsert_libeara_metadata_preserving_discovery_cursor(vault_db: VaultDatabase, leads: dict, rows: dict) -> None:
+    """Upsert reviewed rows without changing the Ethereum discovery cursor.
+
+    ``VaultDatabase.update_leads_and_rows`` is intentionally unsuitable here:
+    it advances the chain-wide discovery watermark, which would skip unrelated
+    vault discovery after a targeted repair.  Updating these known addresses
+    directly preserves both an existing cursor and an absent cursor.
+
+    :param vault_db: Existing vault metadata database.
+    :param leads: CUMIU and BELIF hardcoded leads keyed by token address.
+    :param rows: Fresh CUMIU and BELIF scan rows keyed by :class:`VaultSpec`.
+    :return: None.
+    """
+    vault_db.leads.update({VaultSpec(ETHEREUM_CHAIN_ID, address): lead for address, lead in leads.items()})
+    vault_db._merge_rows(rows)
+
+
 def main() -> None:  # noqa: PLR0914
     """Run the address-scoped metadata and price-history migration.
 
@@ -113,15 +134,15 @@ def main() -> None:  # noqa: PLR0914
     web3 = create_multi_provider_web3(web3_url)
     end_block = int(os.environ.get("END_BLOCK", web3.eth.block_number))
     start_block = int(os.environ.get("START_BLOCK", min(p.first_seen_at_block for p in products)))
-    plan = ", ".join(f"{p.symbol}@{p.token}" for p in products)
-    print(f"Libeara CMTAT backfill: {plan}; blocks {start_block:,}-{end_block:,}; dry_run={dry_run}")
+    plan = [{"symbol": p.symbol, "token": p.token, "first_block": p.first_seen_at_block} for p in products]
+    logger.info("Libeara CMTAT backfill plan; blocks %s-%s; dry_run=%s\n%s", start_block, end_block, dry_run, tabulate(plan, headers="keys", tablefmt="github"))
     if dry_run:
         return
     cache = TokenDiskCache()
     vault_db = VaultDatabase.read(vault_db_path) if vault_db_path.exists() else VaultDatabase()
     leads = {p.token: _lead(p) for p in products}
     rows = {VaultSpec(p.chain_id, p.token): create_vault_scan_record(web3, _detection(p), block_identifier=end_block, token_cache=cache) for p in products}
-    vault_db.update_leads_and_rows(chain_id=ETHEREUM_CHAIN_ID, last_scanned_block=end_block, leads=leads, rows=rows)
+    upsert_libeara_metadata_preserving_discovery_cursor(vault_db, leads, rows)
     vault_db.write(vault_db_path)
     addresses = {p.token.lower() for p in products}
     states = {spec: state for spec, state in _read_states(state_path).items() if spec.vault_address.lower() not in addresses}
