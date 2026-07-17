@@ -122,8 +122,8 @@ def remove_selected_reader_states(states: dict[VaultSpec, dict]) -> dict[VaultSp
     :return: Mapping without the selected WTGXX state.
     """
 
-    addresses = selected_vault_addresses()
-    return {spec: state for spec, state in states.items() if spec.vault_address.lower() not in addresses}
+    selected_spec = VaultSpec(WTGXX_ETHEREUM.chain_id, WTGXX_ETHEREUM.token)
+    return {spec: state for spec, state in states.items() if spec != selected_spec}
 
 
 def write_reader_states(path: Path, states: dict[VaultSpec, dict]) -> None:

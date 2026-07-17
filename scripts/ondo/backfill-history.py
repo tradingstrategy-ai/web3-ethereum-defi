@@ -74,6 +74,17 @@ def write_reader_states(path: Path, states: dict[VaultSpec, dict]) -> None:
         pickle.dump(states, out)
 
 
+def remove_ondo_reader_states(states: dict[VaultSpec, dict]) -> dict[VaultSpec, dict]:
+    """Remove only reviewed Ondo states while retaining cross-chain matches.
+
+    :param states: Complete shared reader-state mapping.
+    :return: Mapping without the exact reviewed Ondo vault specs.
+    """
+
+    selected_specs = {VaultSpec(product.chain_id, product.token) for product in ONDO_PRODUCTS.values()}
+    return {spec: state for spec, state in states.items() if spec not in selected_specs}
+
+
 def create_detection(product: OndoProduct) -> ERC4262VaultDetection:
     """Create a scanner detection from the reviewed deployment registry."""
 
@@ -161,7 +172,7 @@ def main() -> None:
 
     if scan_prices and not dry_run:
         vault_ids = {product.token.lower() for product in products}
-        states = {spec: state for spec, state in read_reader_states(reader_state_path).items() if spec.vault_address.lower() not in vault_ids}
+        states = remove_ondo_reader_states(read_reader_states(reader_state_path))
         vaults = []
         for product in products:
             vault = create_vault_instance(web3, product.token, features={ERC4626Feature.ondo_like}, token_cache=token_cache)

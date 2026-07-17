@@ -156,6 +156,17 @@ def read_reader_states(path: Path) -> dict[VaultSpec, dict]:
         return pickle.load(inp)  # noqa: S301 - trusted local production reader-state pickle.
 
 
+def remove_franklin_reader_states(states: dict[VaultSpec, dict]) -> dict[VaultSpec, dict]:
+    """Remove only reviewed Benji states while retaining cross-chain matches.
+
+    :param states: Complete shared reader-state mapping.
+    :return: Mapping without the exact reviewed Franklin vault specs.
+    """
+
+    selected_specs = {VaultSpec(product.chain_id, product.token) for product in FRANKLIN_PRODUCTS.values()}
+    return {spec: state for spec, state in states.items() if spec not in selected_specs}
+
+
 def write_reader_states(path: Path, states: dict[VaultSpec, dict]) -> None:
     """Write complete reader state atomically.
 
@@ -218,7 +229,7 @@ def main() -> None:  # noqa: PLR0914
     scan_summary = "disabled"
     if scan_prices:
         vault_ids = {product.token.lower() for product in products}
-        reader_states = {spec: state for spec, state in read_reader_states(reader_state_database_path).items() if spec.vault_address.lower() not in vault_ids}
+        reader_states = remove_franklin_reader_states(read_reader_states(reader_state_database_path))
         vaults = []
         for product in products:
             vault = create_vault_instance(web3, product.token, features={ERC4626Feature.franklin_like}, token_cache=token_cache)

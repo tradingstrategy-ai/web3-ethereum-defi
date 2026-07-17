@@ -12,7 +12,9 @@ import pytest
 
 from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.tokenised_fund.wisdomtree.constants import ETHEREUM_CHAIN_ID, WTGXX_ETHEREUM
+from eth_defi.tokenised_fund.wisdomtree.historical import WisdomTreeVaultHistoricalReader, WisdomTreeVaultReaderState
 from eth_defi.tokenised_fund.wisdomtree.nav import WisdomTreeAPIError, WisdomTreeNAVPoint, fetch_wisdomtree_nav_history
 from eth_defi.tokenised_fund.wisdomtree.vault import WISDOMTREE_RESTRICTED_FLOW_REASON, WisdomTreeVault
 from eth_defi.vault.base import VaultSpec
@@ -113,8 +115,39 @@ def test_wisdomtree_migration_preserves_unrelated_reader_state(backfill_module) 
 
     other = VaultSpec(1, "0x0000000000000000000000000000000000000001")
     selected = VaultSpec(1, WTGXX_ETHEREUM.token)
-    states = {other: {"keep": True}, selected: {"replace": True}}
-    assert backfill_module.remove_selected_reader_states(states) == {other: {"keep": True}}
+    cross_chain_twin = VaultSpec(8453, WTGXX_ETHEREUM.token)
+    states = {other: {"keep": True}, selected: {"replace": True}, cross_chain_twin: {"keep_twin": True}}
+    assert backfill_module.remove_selected_reader_states(states) == {other: {"keep": True}, cross_chain_twin: {"keep_twin": True}}
+
+
+def test_wisdomtree_stateful_reader_updates_without_denomination_token() -> None:
+    """Persist successful USD NAV observations during stateful backfills."""
+
+    class DummyShareToken:
+        @staticmethod
+        def convert_to_decimals(raw_amount: int) -> Decimal:
+            return Decimal(raw_amount) / Decimal(100)
+
+    timestamp = datetime.datetime(2026, 7, 2, tzinfo=datetime.UTC).replace(tzinfo=None)
+    web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=ETHEREUM_CHAIN_ID))
+    vault = WisdomTreeVault(web3, VaultSpec(ETHEREUM_CHAIN_ID, WTGXX_ETHEREUM.token))
+    vault.first_seen_at_block = 1
+    vault.__dict__["share_token"] = DummyShareToken()
+    vault.fetch_share_price_at = lambda _timestamp: Decimal("1.25")
+    reader = WisdomTreeVaultHistoricalReader(vault, stateful=True)
+    call = EncodedCall(func_name="totalSupply", address=WTGXX_ETHEREUM.token, data=b"", extra_data={"function": "totalSupply"})
+    result = EncodedCallResult(call=call, success=True, result=(1_000).to_bytes(32, "big"), block_identifier=123)
+    result.timestamp = timestamp
+
+    read = reader.process_result(123, timestamp, [result])
+
+    assert read.total_supply == Decimal(10)
+    assert read.share_price == Decimal("1.25")
+    assert read.total_assets == Decimal("12.50")
+    assert isinstance(reader.reader_state, WisdomTreeVaultReaderState)
+    assert reader.reader_state.last_block == 123
+    assert reader.reader_state.last_tvl == Decimal("12.50")
+    assert reader.reader_state.last_share_price == Decimal("1.25")
 
 
 def test_wisdomtree_migration_cleaning_scope_is_single_vault(backfill_module) -> None:

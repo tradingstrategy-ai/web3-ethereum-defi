@@ -48,3 +48,15 @@ def test_franklin_metadata_upsert_preserves_discovery_cursor(backfill_history_mo
     assert vault_db.rows[unrelated_spec] == unrelated_row
     assert set(rows).issubset(vault_db.rows)
     assert {VaultSpec(ETHEREUM_CHAIN_ID, address) for address in leads}.issubset(vault_db.leads)
+
+
+def test_franklin_reader_state_filter_is_chain_aware(backfill_history_module: ModuleType) -> None:
+    """Remove reviewed Ethereum states without deleting address twins elsewhere."""
+
+    product = next(iter(FRANKLIN_PRODUCTS.values()))
+    selected = VaultSpec(product.chain_id, product.token)
+    cross_chain_twin = VaultSpec(8453, product.token)
+    unrelated = VaultSpec(product.chain_id, "0x0000000000000000000000000000000000000002")
+    states = {selected: {"replace": True}, cross_chain_twin: {"keep_twin": True}, unrelated: {"keep": True}}
+
+    assert backfill_history_module.remove_franklin_reader_states(states) == {cross_chain_twin: {"keep_twin": True}, unrelated: {"keep": True}}
