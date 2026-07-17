@@ -76,6 +76,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Spiko": VaultFeeMode.internalised_skimming,
     # FILQ token contracts do not expose product-level fees.
     "Sygnum": None,
+    # Theo does not publish a universal product-level thBILL fee schedule.
+    "Theo": None,
     # DSToken contracts do not expose product-level fund fees.
     "Securitize": None,
     # USDY and OUSG reflect issuer fund expenses in the published NAV. OUSG's

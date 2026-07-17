@@ -82,6 +82,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Spiko": VaultTechnicalRisk.low,
     # Permissioned proprietary SygToken contracts require human risk review.
     "Sygnum": None,
+    # Verified upgradeable multi-asset iToken with issuer and basket risks.
+    "Theo": VaultTechnicalRisk.low,
     # Securitize DSToken implementations are verified and the underlying
     # protocol is open source. Product-specific fund, issuer, custody and
     # compliance risks need separate assessment.

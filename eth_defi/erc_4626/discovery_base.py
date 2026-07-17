@@ -37,6 +37,7 @@ from eth_defi.tokenised_fund.libeara.constants import LIBEARA_HARDCODED_LEADS
 from eth_defi.tokenised_fund.ondo.constants import ONDO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.spiko.constants import SPIKO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.sygnum.constants import SYGNUM_HARDCODED_LEADS
+from eth_defi.tokenised_fund.theo.constants import THEO_ITOKEN_HARDCODED_LEADS
 from eth_defi.tokenised_fund.usyc.constants import USYC_HARDCODED_LEADS
 from eth_defi.tokenised_fund.wisdomtree.constants import WISDOMTREE_HARDCODED_LEADS
 from eth_defi.vault.base import VaultSpec
@@ -63,6 +64,7 @@ DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
     ("Libeara", LIBEARA_HARDCODED_LEADS),
     ("Spiko", SPIKO_HARDCODED_LEADS),
     ("Sygnum", SYGNUM_HARDCODED_LEADS),
+    ("Theo iToken", THEO_ITOKEN_HARDCODED_LEADS),
 )
 
 if TYPE_CHECKING:

@@ -58,6 +58,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    superstate/index
    spiko/index
    sygnum/index
+   theo/index
    libeara/index
    vault_street/index
    usyc/index

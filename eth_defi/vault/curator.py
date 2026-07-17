@@ -189,6 +189,7 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
     "lighter",
     "grvt",
     "spiko-curator",
+    "theo-curator",
 }
 
 #: Human-readable names for protocol-curator slugs.
@@ -208,6 +209,7 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "usyc": "Circle USYC",
     "spiko-curator": "Spiko",
     "sygnum": "Sygnum",
+    "theo-curator": "Theo",
 }
 
 #: Additional name patterns for curator matching.
@@ -379,6 +381,8 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     **{key: "libeara" for key in LIBEARA_PRODUCTS},
     # Spiko operates the eligibility-gated USTBL servicing and oracle.
     (1, USTBL_TOKEN_ADDRESS): "spiko-curator",
+    # Theo operates thBILL's KYC-gated direct dealing workflow.
+    (1, "0x5fa487bca6158c64046b2813623e20755091da0b"): "theo-curator",
     # Piku publishes these as its USP token and curated Morini Capital vaults.
     # The vault names do not consistently include Piku, so keep their explicit
     # Ethereum contract addresses rather than using a fuzzy name pattern.
