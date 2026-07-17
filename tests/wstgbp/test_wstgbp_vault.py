@@ -6,10 +6,9 @@ from decimal import Decimal
 
 import flaky
 import pytest
-from eth_typing import BlockIdentifier
 from web3 import Web3
 
-from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance, create_vault_instance_autodetect
+from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
@@ -18,7 +17,7 @@ from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.wstgbp.constants import WSTGBP
 from eth_defi.wstgbp.historical import WSTGBPVaultHistoricalReader
-from eth_defi.wstgbp.vault import WSTGBP_BESPOKE_FLOW_REASON, WSTGBP_NAV_SOURCE, WSTGBP_NOTE, WSTGBPVault
+from eth_defi.wstgbp.vault import WSTGBP_NAV_SOURCE, WSTGBP_NOTE, WSTGBPVault
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
@@ -60,52 +59,6 @@ def test_wstgbp_hardcoded_detection() -> None:
 
 @flaky.flaky
 @pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
-def test_wstgbp_closed_reasons_use_default_block_identifier(
-    web3: Web3,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Use the pinned vault block when evaluating mint and burn availability.
-
-    The historical reader needs availability flags from the same block as its
-    TVL and share-price reads. This confirms the user-facing reason methods
-    do not silently read the latest state.
-
-    :param web3:
-        Anvil Ethereum mainnet fork connection.
-    :param monkeypatch:
-        Pytest fixture for replacing RPC-backed availability reads.
-    """
-
-    vault = create_vault_instance(
-        web3,
-        WSTGBP.vault,
-        features={ERC4626Feature.wstgbp_like},
-        default_block_identifier=WSTGBP_TEST_BLOCK,
-    )
-    assert isinstance(vault, WSTGBPVault)
-
-    mint_blocks: list[BlockIdentifier] = []
-    burn_blocks: list[BlockIdentifier] = []
-
-    def fetch_mintable(block_identifier: BlockIdentifier) -> bool:
-        mint_blocks.append(block_identifier)
-        return False
-
-    def fetch_burnable(block_identifier: BlockIdentifier) -> bool:
-        burn_blocks.append(block_identifier)
-        return False
-
-    monkeypatch.setattr(vault, "fetch_mintable", fetch_mintable)
-    monkeypatch.setattr(vault, "fetch_burnable", fetch_burnable)
-
-    assert vault.fetch_deposit_closed_reason() == "wstGBP minting is currently disabled"
-    assert vault.fetch_redemption_closed_reason() == "wstGBP redemption is currently disabled"
-    assert mint_blocks == [WSTGBP_TEST_BLOCK]
-    assert burn_blocks == [WSTGBP_TEST_BLOCK]
-
-
-@flaky.flaky
-@pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 def test_wstgbp_metadata_and_fees(web3: Web3) -> None:
     """Read wstGBP metadata, market state and mint/redeem fees."""
 
@@ -126,17 +79,13 @@ def test_wstgbp_metadata_and_fees(web3: Web3) -> None:
     assert info["denomination_token"] == Web3.to_checksum_address(WSTGBP_EXPECTED_GEM)
     assert info["nav_source"] == WSTGBP_NAV_SOURCE
     assert info["nav_estimated"] is False
-    assert info["mintable"] is True
-    assert info["burnable"] is True
-    assert info["cooldown"] == 0
-
     assert vault.get_fee_data().fee_mode == VaultFeeMode.externalised
     assert vault.get_fee_data().management is None
     assert vault.get_fee_data().performance is None
     assert vault.get_fee_data().deposit == 0
     assert vault.get_fee_data().withdraw == WSTGBP_EXPECTED_WITHDRAW_FEE
-    assert vault.fetch_deposit_closed_reason() == WSTGBP_BESPOKE_FLOW_REASON
-    assert vault.fetch_redemption_closed_reason() == WSTGBP_BESPOKE_FLOW_REASON
+    assert vault.fetch_deposit_closed_reason() is None
+    assert vault.fetch_redemption_closed_reason() is None
     assert vault.get_notes() == WSTGBP_NOTE
 
     with pytest.raises(NotImplementedError):
@@ -167,8 +116,6 @@ def test_wstgbp_historical_reader(web3: Web3) -> None:
     assert {result.call.extra_data["function"] for result in call_results} == {
         "totalSupply",
         "navprice",
-        "mintable",
-        "burnable",
     }
     timestamp = datetime.datetime.fromtimestamp(web3.eth.get_block(WSTGBP_TEST_BLOCK)["timestamp"], tz=datetime.UTC).replace(tzinfo=None)
     read = reader.process_result(
@@ -189,40 +136,6 @@ def test_wstgbp_historical_reader(web3: Web3) -> None:
 
 @flaky.flaky
 @pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
-def test_wstgbp_historical_reader_records_market_gate_failures(web3: Web3) -> None:
-    """Keep historical TVL rows when the market-gate calls revert.
-
-    Historical reads use an error-tolerant multicall batch. Market-gate
-    failures must be represented as unavailable status and error text rather
-    than making the whole scanner cycle fail.
-
-    :param web3:
-        Anvil Ethereum mainnet fork connection.
-    """
-
-    vault = create_vault_instance_autodetect(web3, WSTGBP.vault)
-    reader = vault.get_historical_reader(stateful=False)
-    assert isinstance(reader, WSTGBPVaultHistoricalReader)
-
-    call_results = [call.call_as_result(web3, block_identifier=WSTGBP_TEST_BLOCK, ignore_error=True) for call in reader.construct_multicalls()]
-    for result in call_results:
-        if result.call.extra_data["function"] in {"mintable", "burnable"}:
-            result.success = False
-            result.result = b""
-
-    timestamp = datetime.datetime.fromtimestamp(web3.eth.get_block(WSTGBP_TEST_BLOCK)["timestamp"], tz=datetime.UTC).replace(tzinfo=None)
-    read = reader.process_result(
-        block_number=WSTGBP_TEST_BLOCK,
-        timestamp=timestamp,
-        call_results=call_results,
-    )
-
-    assert read.total_assets == WSTGBP_EXPECTED_TOTAL_ASSETS
-    assert read.deposits_open is None
-    assert read.redemption_open is None
-    assert read.errors == ["wstGBP mintable call failed", "wstGBP burnable call failed"]
-
-
 @flaky.flaky
 @pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 def test_wstgbp_scan_record(web3: Web3) -> None:
@@ -258,6 +171,6 @@ def test_wstgbp_scan_record(web3: Web3) -> None:
     assert record["Features"] == "wstgbp_like"
     assert record["_denomination_token"]["address"] == Web3.to_checksum_address(WSTGBP_EXPECTED_GEM)
     assert record["_denomination_token"]["symbol"] == "tGBP"
-    assert record["_wstgbp_mintable"] is True
-    assert record["_wstgbp_burnable"] is True
-    assert record["_wstgbp_cooldown"] == 0
+    assert "_wstgbp_mintable" not in record
+    assert "_wstgbp_burnable" not in record
+    assert "_wstgbp_cooldown" not in record

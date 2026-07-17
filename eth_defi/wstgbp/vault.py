@@ -26,7 +26,6 @@ from eth_defi.wstgbp.historical import WSTGBPVaultHistoricalReader
 
 WSTGBP_DOCUMENTATION = "https://docs.wstgbp.com/"
 WSTGBP_NAV_SOURCE = "wstgbp_navprice"
-WSTGBP_BESPOKE_FLOW_REASON = "wstGBP minting and redemption use bespoke contract methods"
 WSTGBP_NOTE = "wstGBP (Wren Staked tGBP) is a non-custodial, non-rebasing ERC-20 wrapper around tGBP, a pound sterling stablecoin issued by BCP Technologies, an FCA-registered cryptoasset firm, backed 1:1 by sterling reserves. Users mint and redeem permissionlessly on Ethereum at the onchain exchange rate. Balances stay fixed and rewards, when applied, are reflected in the wstGBP to tGBP exchange rate through periodic NAV updates. Minting is free and instant redemption carries a 25 bps fee, with no cooldown."
 WAD = Decimal(10**18)
 
@@ -59,27 +58,6 @@ WSTGBP_ABI = [
         "stateMutability": "view",
         "type": "function",
     },
-    {
-        "inputs": [],
-        "name": "mintable",
-        "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
-        "stateMutability": "view",
-        "type": "function",
-    },
-    {
-        "inputs": [],
-        "name": "burnable",
-        "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
-        "stateMutability": "view",
-        "type": "function",
-    },
-    {
-        "inputs": [],
-        "name": "cooldown",
-        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function",
-    },
 ]
 
 
@@ -100,15 +78,6 @@ class WSTGBPVaultInfo(VaultInfo, total=False):
 
     #: Whether NAV is estimated.
     nav_estimated: bool
-
-    #: Whether minting is open at the selected block.
-    mintable: bool
-
-    #: Whether redemption is open at the selected block.
-    burnable: bool
-
-    #: Required wait before a redemption can be exited, in seconds.
-    cooldown: int
 
 
 class WSTGBPVault(VaultBase):
@@ -354,66 +323,35 @@ class WSTGBPVault(VaultBase):
 
         return self.fetch_total_assets(block_identifier)
 
-    def fetch_mintable(self, block_identifier: BlockIdentifier = "latest") -> bool:
-        """Read whether Wren Staked tGBP minting is open.
-
-        :param block_identifier:
-            Historical block identifier.
-        :return:
-            ``True`` when the market gate currently permits minting.
-        """
-
-        return self.wstgbp_contract.functions.mintable().call(block_identifier=block_identifier)
-
-    def fetch_burnable(self, block_identifier: BlockIdentifier = "latest") -> bool:
-        """Read whether Wren Staked tGBP redemption is open.
-
-        :param block_identifier:
-            Historical block identifier.
-        :return:
-            ``True`` when the market gate currently permits redemption.
-        """
-
-        return self.wstgbp_contract.functions.burnable().call(block_identifier=block_identifier)
-
     def fetch_info(self) -> WSTGBPVaultInfo:
-        """Return Wren Staked tGBP metadata and current market status.
+        """Return Wren Staked tGBP metadata and NAV source.
 
         :return:
-            Onchain denomination token, NAV-source and gate data.
+            Onchain denomination token and NAV-source data.
         """
 
-        block_identifier = self.default_block_identifier or "latest"
         return WSTGBPVaultInfo(
             token=self.address,
             chain_id=self.chain_id,
             denomination_token=self.fetch_denomination_token_address(),
             nav_source=WSTGBP_NAV_SOURCE,
             nav_estimated=False,
-            mintable=self.fetch_mintable(block_identifier),
-            burnable=self.fetch_burnable(block_identifier),
-            cooldown=self.wstgbp_contract.functions.cooldown().call(block_identifier=block_identifier),
         )
 
     def fetch_scan_record_extra_data(self) -> dict[str, object]:
         """Return Wren Staked tGBP-specific scanner diagnostics.
 
         :return:
-            NAV source, market state and bespoke-flow annotations.
+            NAV source and mint/redemption information.
         """
 
         info = self.fetch_info()
         return {
             "Denomination": self.denomination_token.symbol,
             "_notes": self.get_notes(),
-            "_deposit_closed_reason": self.fetch_deposit_closed_reason(),
-            "_redemption_closed_reason": self.fetch_redemption_closed_reason(),
             "_nav_source": WSTGBP_NAV_SOURCE,
             "_nav_estimated": False,
             "_wstgbp_gem": info["denomination_token"],
-            "_wstgbp_mintable": info["mintable"],
-            "_wstgbp_burnable": info["burnable"],
-            "_wstgbp_cooldown": info["cooldown"],
         }
 
     def fetch_portfolio(
@@ -474,30 +412,6 @@ class WSTGBPVault(VaultBase):
 
         message = "Wren Staked tGBP active minting and redemption are not implemented"
         raise NotImplementedError(message)
-
-    def fetch_deposit_closed_reason(self) -> str | None:
-        """Return the generic-deposit availability status.
-
-        :return:
-            Bespoke-flow or market-closed reason at the selected block.
-        """
-
-        block_identifier = self.default_block_identifier or "latest"
-        if not self.fetch_mintable(block_identifier):
-            return "wstGBP minting is currently disabled"
-        return WSTGBP_BESPOKE_FLOW_REASON
-
-    def fetch_redemption_closed_reason(self) -> str | None:
-        """Return the generic-redemption availability status.
-
-        :return:
-            Bespoke-flow or market-closed reason at the selected block.
-        """
-
-        block_identifier = self.default_block_identifier or "latest"
-        if not self.fetch_burnable(block_identifier):
-            return "wstGBP redemption is currently disabled"
-        return WSTGBP_BESPOKE_FLOW_REASON
 
     def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
         """Create a Wren Staked tGBP historical reader.

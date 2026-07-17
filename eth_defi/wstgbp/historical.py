@@ -66,22 +66,6 @@ class WSTGBPVaultHistoricalReader(VaultHistoricalReader):
             },
             first_block_number=self.first_block,
         )
-        yield EncodedCall.from_contract_call(
-            self.vault.wstgbp_contract.functions.mintable(),
-            extra_data={
-                "function": "mintable",
-                "vault": self.vault.address,
-            },
-            first_block_number=self.first_block,
-        )
-        yield EncodedCall.from_contract_call(
-            self.vault.wstgbp_contract.functions.burnable(),
-            extra_data={
-                "function": "burnable",
-                "vault": self.vault.address,
-            },
-            first_block_number=self.first_block,
-        )
 
     def process_result(
         self,
@@ -103,8 +87,6 @@ class WSTGBPVaultHistoricalReader(VaultHistoricalReader):
 
         total_supply: Decimal | None = None
         share_price: Decimal | None = None
-        deposits_open: bool | None = None
-        redemption_open: bool | None = None
         state_result: EncodedCallResult | None = None
         errors: list[str] = []
 
@@ -123,16 +105,6 @@ class WSTGBPVaultHistoricalReader(VaultHistoricalReader):
                     state_result = result
                 else:
                     errors.append("wstGBP navprice call failed")
-            elif function == "mintable":
-                if result.success:
-                    deposits_open = bool(convert_int256_bytes_to_int(result.result))
-                else:
-                    errors.append("wstGBP mintable call failed")
-            elif function == "burnable":
-                if result.success:
-                    redemption_open = bool(convert_int256_bytes_to_int(result.result))
-                else:
-                    errors.append("wstGBP burnable call failed")
 
         total_assets = share_price * total_supply if share_price is not None and total_supply is not None else None
 
@@ -153,6 +125,6 @@ class WSTGBPVaultHistoricalReader(VaultHistoricalReader):
             performance_fee=self.vault.get_performance_fee(block_number),
             management_fee=self.vault.get_management_fee(block_number),
             errors=errors or None,
-            deposits_open=deposits_open,
-            redemption_open=redemption_open,
+            deposits_open=True,
+            redemption_open=True,
         )
