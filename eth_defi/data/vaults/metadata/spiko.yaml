@@ -1,0 +1,30 @@
+name: Spiko
+slug: spiko
+short_description: |
+  Permissioned tokenised money-market fund shares with issuer-published NAV.
+long_description: |
+  Spiko offers tokenised shares in regulated money-market funds, including the U.S. Treasury-bill
+  fund represented by USTBL. The fund is designed for cash management and its share value is published
+  each business day by the fund administrator.
+
+  USTBL is subject to investor eligibility and transfer controls. Subscription and redemption requests
+  are handled through Spiko's servicing process rather than as public, immediate token transactions;
+  holders should consult Spiko's official fund documentation for dealing terms and applicable constraints.
+fee_description: |
+  Spiko states that USTBL carries a 0.25% annual management fee, reflected in its published NAV/share.
+  The public token contract does not publish a universal subscription or redemption fee, and investor
+  dealing follows Spiko's eligibility-checked servicing process.
+links:
+  homepage: https://www.spiko.io/
+  app: https://www.spiko.io/use-cases/web3
+  twitter: https://x.com/spiko_finance
+  github: https://github.com/spiko-tech/contracts
+  documentation: https://tech.spiko.io/posts/spiko-smart-contracts/
+  defillama: https://defillama.com/protocol/spiko
+  audits: https://github.com/spiko-tech/contracts
+  fees: https://www.spiko.io/use-cases/web3
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/spiko/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xe4880249745eac5f1ed9d8f7df844792d560e750
+  - https://etherscan.io/address/0x021289588cd81dc1ac87ea91e91607eef68303f5

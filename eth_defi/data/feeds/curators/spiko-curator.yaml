@@ -1,0 +1,19 @@
+# Spiko protocol-managed curator - feeds provided by protocols/spiko.yaml
+feeder-id: spiko-curator
+name: Spiko
+role: curator
+canonical-feeder-id: spiko
+short_description: Spiko operates tokenised money-market funds and their permissioned on-chain servicing infrastructure.
+long_description: |
+  Spiko provides tokenised money-market fund products and the associated on-chain infrastructure for
+  issuance, transfer permissions, NAV publication and redemption servicing. Its technology documentation
+  identifies an in-house operator model for the token contracts, NAV oracle and redemption process.
+  This curator record covers the issuer-operated USTBL product integration, rather than an independent
+  investment manager attribution.
+
+# Evidence and background references.
+other-links:
+  - title: Spiko technology blog - smart contracts, NAV oracle and issuer-operated redemption flow
+    url: https://tech.spiko.io/posts/spiko-smart-contracts/
+  - title: Spiko contracts repository - USTBL token and Oracle deployment configuration
+    url: https://github.com/spiko-tech/contracts/blob/main/subgraph/config/mainnet.json
