@@ -205,18 +205,22 @@ def test_morpho_not_found_adds_dynamic_flag_and_note(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.parametrize(
-    ("vault_class", "module_path"),
+    ("chain_id", "chain_name", "vault_class", "module_path"),
     [
-        (MorphoV1Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v1"),
-        (MorphoV2Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v2"),
+        (4217, "Tempo", MorphoV1Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v1"),
+        (4217, "Tempo", MorphoV2Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v2"),
+        (4663, "Robinhood", MorphoV1Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v1"),
+        (4663, "Robinhood", MorphoV2Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v2"),
     ],
 )
-def test_robinhood_morpho_api_not_found_is_temporarily_not_blacklisted(
+def test_morpho_api_not_found_bypass_chains_are_temporarily_not_blacklisted(
     monkeypatch: pytest.MonkeyPatch,
+    chain_id: int,
+    chain_name: str,
     vault_class: type[MorphoV1Vault] | type[MorphoV2Vault],
     module_path: str,
 ):
-    """Robinhood API coverage gaps do not hide on-chain-detected Morpho vaults."""
+    """Tempo and Robinhood API coverage gaps do not hide detected Morpho vaults."""
     _patch_base_vault_flags(monkeypatch)
 
     def fake_fetch_morpho_vault_api_result(*_args, **_kwargs) -> MorphoVaultAPIResult:
@@ -224,13 +228,13 @@ def test_robinhood_morpho_api_not_found_is_temporarily_not_blacklisted(
 
     monkeypatch.setattr(f"{module_path}.fetch_morpho_vault_api_result", fake_fetch_morpho_vault_api_result)
     vault = vault_class(
-        web3=_FakeWeb3(4663),  # type: ignore[arg-type]
-        spec=VaultSpec(chain_id=4663, vault_address=NOT_FOUND_TEST_VAULT),
+        web3=_FakeWeb3(chain_id),  # type: ignore[arg-type]
+        spec=VaultSpec(chain_id=chain_id, vault_address=NOT_FOUND_TEST_VAULT),
         token_cache={},
     )
 
-    assert vault.get_flags() == set()
-    assert vault.get_notes() is None
+    assert vault.get_flags() == set(), chain_name
+    assert vault.get_notes() is None, chain_name
 
 
 def test_morpho_not_found_is_not_cached(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
