@@ -1,0 +1,19 @@
+name: Sygnum
+slug: sygnum
+short_description: |
+  Permissioned tokenised fund shares issued and administered through Sygnum's Desygnate platform.
+long_description: |
+  Sygnum's Desygnate platform provides the on-chain registry and settlement infrastructure for tokenised investment products. The initial integration tracks the Ethereum FILQ-A share class of Fidelity International's USD Digital Liquidity Fund.
+
+  FILQ shares are available only to eligible, approved investors. Subscription, transfer and redemption are subject to the issuer's onboarding, compliance and settlement processes, so token ownership does not provide an unrestricted public dealing route.
+fee_description: |
+  The reviewed FILQ token contract does not expose the underlying fund's management, performance, subscription or redemption fees. Fund costs and dealing charges, where applicable, are determined by the product documentation and investor agreement rather than inferred from the ERC-20 share token.
+links:
+  homepage: https://www.sygnum.com/
+  documentation: https://www.sygnum.com/filq/
+  github: https://github.com/sygnumbank/solidity-equity-token-contracts
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/sygnum/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x54a4fc78431f9201824643e99bec891bb7462a1d
+  - https://sourcify.dev/server/v2/contract/1/0x7030fe438be6ed196b8886616bbf5a245c267339?fields=all
