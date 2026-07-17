@@ -12,6 +12,7 @@ Set ``DRY_RUN=true`` to inspect the address-scoped plan without writing.
 ``VAULT_DB_PATH`` and ``END_BLOCK`` may be overridden for controlled runs.
 """
 
+import logging
 import os
 from pathlib import Path
 
@@ -28,6 +29,8 @@ from eth_defi.tokenised_fund.sygnum.constants import FILQ_A_ETHEREUM_ADDRESS, FI
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase
+
+logger = logging.getLogger(__name__)
 
 
 def parse_bool_env(name: str, *, default: bool) -> bool:
@@ -93,9 +96,14 @@ def main() -> None:
     end_block = int(os.environ.get("END_BLOCK", web3.eth.block_number))
     if end_block < FILQ_A_ETHEREUM_FIRST_SEEN_AT_BLOCK:
         raise ValueError(f"END_BLOCK must be at least {FILQ_A_ETHEREUM_FIRST_SEEN_AT_BLOCK}")
-    print(tabulate([{"chain": "Ethereum", "address": FILQ_A_ETHEREUM_ADDRESS, "end_block": end_block, "write_prices": False, "dry_run": dry_run}], headers="keys", tablefmt="github"))
+    plan = tabulate(
+        [{"chain": "Ethereum", "address": FILQ_A_ETHEREUM_ADDRESS, "end_block": end_block, "write_prices": False, "dry_run": dry_run}],
+        headers="keys",
+        tablefmt="github",
+    )
+    logger.info("Sygnum FILQ migration plan:\n%s", plan)
     if dry_run:
-        print("DRY RUN: would upsert only FILQ-A metadata; reader state and Parquet files remain untouched")
+        logger.info("DRY RUN: would upsert only FILQ-A metadata; reader state and Parquet files remain untouched")
         return
     vault_db = VaultDatabase.read(vault_db_path) if vault_db_path.exists() else VaultDatabase()
     row = create_vault_scan_record(web3, detection=create_detection(), block_identifier=end_block, token_cache=TokenDiskCache())
