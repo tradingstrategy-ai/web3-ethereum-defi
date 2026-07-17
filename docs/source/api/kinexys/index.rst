@@ -25,8 +25,8 @@ vault fee model exposes the current net expense ratio as the management-like
 annual fee.
 
 .. autosummary::
-   :toctree: _autosummary_oda_fact
+   :toctree: _autosummary_kinexys
    :recursive:
 
-   eth_defi.oda_fact.vault
-   eth_defi.oda_fact.historical
+   eth_defi.tokenised_fund.kinexys.vault
+   eth_defi.tokenised_fund.kinexys.historical

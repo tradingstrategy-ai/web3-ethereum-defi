@@ -14,7 +14,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 
 if TYPE_CHECKING:
-    from eth_defi.securitize.vault import SecuritizeVault
+    from eth_defi.tokenised_fund.securitize.vault import SecuritizeVault
 
 
 class SecuritizeVaultReaderState(VaultReaderState):

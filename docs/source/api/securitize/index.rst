@@ -10,8 +10,8 @@ are maintained separately from the shared adapter.
    :toctree: _autosummary_securitize
    :recursive:
 
-   eth_defi.securitize.vault
-   eth_defi.securitize.historical
-   eth_defi.securitize.description
-   eth_defi.securitize.redstone
-   eth_defi.securitize.chronicle
+   eth_defi.tokenised_fund.securitize.vault
+   eth_defi.tokenised_fund.securitize.historical
+   eth_defi.tokenised_fund.securitize.description
+   eth_defi.tokenised_fund.securitize.redstone
+   eth_defi.tokenised_fund.securitize.chronicle

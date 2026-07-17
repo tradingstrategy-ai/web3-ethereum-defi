@@ -15,9 +15,9 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import VaultEventKind, get_securitize_dstoken_discovery_events, get_vault_event_topic_map
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.securitize.description import ACRED_ETHEREUM, ARCOIN_ETHEREUM, BCAP_ETHEREUM, BUIDL_ARBITRUM, BUIDL_AVALANCHE, BUIDL_ETHEREUM, BUIDL_I_ETHEREUM, BUIDL_OPTIMISM, BUIDL_POLYGON, COSX_ETHEREUM, HLSCOPE_ETHEREUM, MI4_MANTLE, PRTS_ETHEREUM, SCI2_ETHEREUM, SECURITIZE_PRODUCTS, SPICE_VC_ETHEREUM, STAC_ETHEREUM, VBILL_ETHEREUM
-from eth_defi.securitize.historical import SecuritizeVaultHistoricalReader
-from eth_defi.securitize.vault import BUIDL_ESTIMATED_NAV_PER_SHARE, BUIDL_ETHEREUM_ADDRESS, SECURITIZE_RESTRICTED_FLOW_REASON, SecuritizeVault
+from eth_defi.tokenised_fund.securitize.description import ACRED_ETHEREUM, ARCOIN_ETHEREUM, BCAP_ETHEREUM, BUIDL_ARBITRUM, BUIDL_AVALANCHE, BUIDL_ETHEREUM, BUIDL_I_ETHEREUM, BUIDL_OPTIMISM, BUIDL_POLYGON, COSX_ETHEREUM, HLSCOPE_ETHEREUM, MI4_MANTLE, PRTS_ETHEREUM, SCI2_ETHEREUM, SECURITIZE_PRODUCTS, SPICE_VC_ETHEREUM, STAC_ETHEREUM, VBILL_ETHEREUM
+from eth_defi.tokenised_fund.securitize.historical import SecuritizeVaultHistoricalReader
+from eth_defi.tokenised_fund.securitize.vault import BUIDL_ESTIMATED_NAV_PER_SHARE, BUIDL_ETHEREUM_ADDRESS, SECURITIZE_RESTRICTED_FLOW_REASON, SecuritizeVault
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.curator import identify_curator
 from eth_defi.vault.flag import VaultFlag

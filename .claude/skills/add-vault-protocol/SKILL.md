@@ -7,6 +7,16 @@ description: Add support for a new ERC-4626 vault protocol. Use when the user wa
 
 This skill guides you through adding support for a new ERC-4626 vault protocol to the eth_defi library.
 
+## Tokenised fund protocols
+
+Tokenised fund protocols belong under
+`eth_defi/tokenised_fund/{protocol_slug}/`, rather than
+`eth_defi/erc_4626/vault_protocol/`. Use
+`eth_defi/tokenised_fund/asseto/` and
+`eth_defi/tokenised_fund/securitize/` as the reference integrations. These
+protocols commonly expose permissioned ERC-20 token shares and bespoke
+subscription and redemption flows instead of ERC-4626 vault contracts.
+
 ## Required inputs
 
 Before starting, gather the following information from the user:

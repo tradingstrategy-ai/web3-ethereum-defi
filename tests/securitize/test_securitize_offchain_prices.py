@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from eth_defi.securitize import chronicle, redstone
-from eth_defi.securitize.description import ACRED_ETHEREUM, BCAP_ETHEREUM, HLSCOPE_ETHEREUM, MI4_MANTLE, STAC_ETHEREUM, VBILL_ETHEREUM
+from eth_defi.tokenised_fund.securitize import chronicle, redstone
+from eth_defi.tokenised_fund.securitize.description import ACRED_ETHEREUM, BCAP_ETHEREUM, HLSCOPE_ETHEREUM, MI4_MANTLE, STAC_ETHEREUM, VBILL_ETHEREUM
 
 
 def utc_datetime(year: int, month: int, day: int, hour: int = 0) -> datetime.datetime:

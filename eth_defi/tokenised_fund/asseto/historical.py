@@ -14,7 +14,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 
 if TYPE_CHECKING:
-    from eth_defi.asseto.vault import AssetoVault
+    from eth_defi.tokenised_fund.asseto.vault import AssetoVault
 
 
 class AssetoVaultHistoricalReader(VaultHistoricalReader):

@@ -3,8 +3,8 @@
 import datetime
 
 from eth_defi.erc_4626.classification import ODA_FACT_JLTXX_ADDRESS, ODA_FACT_JLTXX_CHAIN_ID
-from eth_defi.oda_fact.historical import OdaFactVaultHistoricalReader
-from eth_defi.oda_fact.vault import KINEXYS_WHITELISTED_FLOW_REASON, OdaFactVault
+from eth_defi.tokenised_fund.kinexys.historical import OdaFactVaultHistoricalReader
+from eth_defi.tokenised_fund.kinexys.vault import KINEXYS_WHITELISTED_FLOW_REASON, OdaFactVault
 from eth_defi.vault.base import VaultSpec
 
 

@@ -20,7 +20,7 @@ from decimal import Decimal, InvalidOperation
 import requests
 from eth_typing import HexAddress
 
-from eth_defi.securitize.description import STAC_ETHEREUM
+from eth_defi.tokenised_fund.securitize.description import STAC_ETHEREUM
 
 #: Timeout for a public Chronicle history request in seconds.
 DEFAULT_CHRONICLE_API_TIMEOUT = 20.0

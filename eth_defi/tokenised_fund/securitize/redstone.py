@@ -17,7 +17,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.securitize.description import ACRED_ETHEREUM, BCAP_ETHEREUM, HLSCOPE_ETHEREUM, MI4_MANTLE, STAC_ETHEREUM, VBILL_ETHEREUM
+from eth_defi.tokenised_fund.securitize.description import ACRED_ETHEREUM, BCAP_ETHEREUM, HLSCOPE_ETHEREUM, MI4_MANTLE, STAC_ETHEREUM, VBILL_ETHEREUM
 
 
 class RedstoneFeedError(RuntimeError):

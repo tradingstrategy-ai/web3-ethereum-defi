@@ -10,15 +10,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from eth_defi.asseto import vault as asseto_vault_module
-from eth_defi.asseto.constants import ASSETO_AOABT_HASHKEY, ASSETO_HARDCODED_LEADS, HASHKEY_CHAIN_ID
-from eth_defi.asseto.historical import AssetoVaultHistoricalReader
-from eth_defi.asseto.vault import ASSETO_BLOCKED_FLOW_REASON, AssetoRoleInfo, AssetoVault, convert_asseto_basis_points_to_percent
 from eth_defi.erc_4626 import discovery_base as discovery_base_module
 from eth_defi.erc_4626.classification import VaultFeatureProbe, create_vault_instance, identify_vault_features
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.discovery_base import LeadScanReport, VaultDiscoveryBase
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.tokenised_fund.asseto import vault as asseto_vault_module
+from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY, ASSETO_HARDCODED_LEADS, HASHKEY_CHAIN_ID
+from eth_defi.tokenised_fund.asseto.historical import AssetoVaultHistoricalReader
+from eth_defi.tokenised_fund.asseto.vault import ASSETO_BLOCKED_FLOW_REASON, AssetoRoleInfo, AssetoVault, convert_asseto_basis_points_to_percent
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
 

@@ -72,8 +72,6 @@ from eth_typing import HexAddress
 from tabulate import tabulate
 from web3 import Web3
 
-from eth_defi.asseto.constants import ASSETO_PRODUCTS, AssetoProduct
-from eth_defi.asseto.offchain_api import AssetoOffchainProduct, fetch_asseto_products
 from eth_defi.chain import CHAIN_NAMES, get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import create_vault_instance
@@ -88,6 +86,8 @@ from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_mu
 from eth_defi.provider.named import get_provider_name
 from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histories
 from eth_defi.token import TokenDiskCache
+from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, AssetoProduct
+from eth_defi.tokenised_fund.asseto.offchain_api import AssetoOffchainProduct, fetch_asseto_products
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.historical import pformat_scan_result, scan_historical_prices_to_parquet

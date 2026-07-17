@@ -8,8 +8,8 @@ import pandas as pd
 import pytest
 
 from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
-from eth_defi.securitize.description import ACRED_ETHEREUM, ARCOIN_ETHEREUM, SECURITIZE_PRODUCTS
-from eth_defi.securitize.redstone import REDSTONE_SECURITIZE_FEEDS
+from eth_defi.tokenised_fund.securitize.description import ACRED_ETHEREUM, ARCOIN_ETHEREUM, SECURITIZE_PRODUCTS
+from eth_defi.tokenised_fund.securitize.redstone import REDSTONE_SECURITIZE_FEEDS
 
 DEPLOYMENT_BLOCK = 100
 FIRST_CACHED_BLOCK = 150

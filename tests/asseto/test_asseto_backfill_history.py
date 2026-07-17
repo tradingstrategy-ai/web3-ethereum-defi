@@ -8,10 +8,10 @@ from typing import NoReturn
 import pandas as pd
 import pytest
 
-from eth_defi.asseto.constants import ASSETO_AOABT_HASHKEY
-from eth_defi.asseto.offchain_api import AssetoOffchainProduct
 from eth_defi.chain import CHAIN_NAMES
 from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
+from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY
+from eth_defi.tokenised_fund.asseto.offchain_api import AssetoOffchainProduct
 
 EXPLICIT_START_BLOCK = 123_456
 
