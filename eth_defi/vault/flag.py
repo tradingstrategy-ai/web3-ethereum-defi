@@ -661,6 +661,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xf7ede5332c6b4a235be4aa3c019222cfe72e984f": (VaultFlag.subvault, SUBVAULT),
     # Morpho Steakhouse Prime AUSD Compounder
     "0xc1ec6d26902949bf6cbb0c9859dbead1e87fb243": (VaultFlag.subvault, SUBVAULT),
+    # AUSD yVault (Yearn on Katana)
+    "0x93fec6639717b6215a48e5a72a162c50dcc40d68": (VaultFlag.subvault, SUBVAULT),
     # Hyperliquidity Trader (HLT) - irregular share price action due to epoch resets
     "0x5a733b25a17dc0f26b862ca9e32b439801b1a8c7": (VaultFlag.abnormal_share_price, HLT_IRREGULAR_SHARE_PRICE),
     # Secured Finance JPYC Lender
