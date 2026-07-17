@@ -1,0 +1,18 @@
+feeder-id: apollo
+name: Apollo
+role: curator
+website: https://www.apollo.com/
+short_description: Apollo is a global alternative asset manager with private credit strategies.
+long_description: |
+  Apollo is a global alternative asset manager. The vault metrics JSON uses
+  ``apollo`` as the curator identity for Ember Apollo ACRED, an Ember vault
+  linked to Apollo credit exposure.
+
+  This is intentionally distinct from ``apollo-crypto``, the separate
+  Australian crypto-asset fund manager that curates Midas mAPOLLO products.
+  The two identities have different official websites and logos.
+other-links:
+  - title: Apollo credit strategy overview
+    url: https://www.apollo.com/strategies/asset-management/credit
+  - title: Ember Apollo ACRED vault
+    url: https://ember.so/earn

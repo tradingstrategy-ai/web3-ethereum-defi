@@ -224,6 +224,15 @@ class VaultMetricsRecord(TypedDict, total=False):
     #: Protocol slug, e.g. ``"morpho"``
     protocol_slug: str
 
+    #: Curator slug, e.g. ``"gauntlet"``. ``None`` when no curator is known.
+    curator_slug: str | None
+
+    #: Curator display name, e.g. ``"Gauntlet"``.
+    curator_name: str | None
+
+    #: Whether the curator is the vault protocol itself.
+    protocol_curator: bool | None
+
     #: Vault contract address (checksummed hex)
     address: str
 

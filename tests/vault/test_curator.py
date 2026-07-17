@@ -54,6 +54,20 @@ def test_identify_apollo_crypto_midas_mapollo_vault() -> None:
     assert slug == "apollo-crypto"
 
 
+def test_identify_apollo_ember_acred_vault() -> None:
+    """Keep Apollo's Ember ACRED identity distinct from Apollo Crypto."""
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="eACRED",
+        vault_name="Ember Apollo ACRED",
+        vault_address="0x2b13311fd553e74b421d4ccc96e348f71e179dcf",
+        protocol_slug="ember",
+    )
+
+    assert slug == "apollo"
+    assert get_curator_name(slug) == "Apollo"
+
+
 def test_identify_edge_capital_midas_medge_vaults() -> None:
     """Resolve every deployed Midas mEDGE product to the Edge Capital alias.
 
