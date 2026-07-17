@@ -78,11 +78,11 @@ class ERC4626Feature(enum.Enum):
     #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     securitize_like = "securitize_like"
 
-    #: Maseer One tokenised asset contracts.
+    #: wstGBP tokenised asset contracts.
     #:
-    #: Routing marker for non-ERC-4626 Maseer One instruments that are read
+    #: Routing marker for the non-ERC-4626 wstGBP instrument that is read
     #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
-    maseer_one_like = "maseer_one_like"
+    wstgbp_like = "wstgbp_like"
 
     #: Vault Street permissioned tokenised investment products.
     #:
@@ -840,8 +840,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Asseto"
     elif ERC4626Feature.securitize_like in features:
         return "Securitize"
-    elif ERC4626Feature.maseer_one_like in features:
-        return "Maseer One"
+    elif ERC4626Feature.wstgbp_like in features:
+        return "wstGBP"
     elif ERC4626Feature.vault_street_like in features:
         return "Vault Street"
     elif ERC4626Feature.morpho_like in features:

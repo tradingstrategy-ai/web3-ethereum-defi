@@ -21,12 +21,12 @@ from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVIN
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
-from eth_defi.maseer_one.constants import MASEER_ONE_WSTGBP
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
+from eth_defi.wstgbp.constants import WSTGBP
 
 logger = logging.getLogger(__name__)
 
@@ -69,14 +69,14 @@ MIDAS_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.midas_like} for token in MID
 #: Asseto tokenised fund products require chain-aware address matching.
 ASSETO_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.asseto_like} for token in ASSETO_PRODUCTS_BY_TOKEN}
 
-#: Maseer One hardcoded classification flags.
+#: wstGBP hardcoded classification flags.
 #:
-#: This is deliberately address-only for the initial rollout. Maseer One does
+#: This is deliberately address-only for the initial rollout. wstGBP does
 #: not yet have a production track record or large vault deployments that
 #: warrant maintaining a chain-specific deployment registry. Revisit this
 #: allow-list when a material multi-chain deployment is added.
-MASEER_ONE_HARDCODED_PROTOCOLS = {
-    MASEER_ONE_WSTGBP.vault: {ERC4626Feature.maseer_one_like},
+WSTGBP_HARDCODED_PROTOCOLS = {
+    WSTGBP.vault: {ERC4626Feature.wstgbp_like},
 }
 
 #: KiloEx Hybrid Vaults reuse a Gains-compatible contract surface. Classify
@@ -1713,10 +1713,10 @@ def create_vault_instance(
         from eth_defi.tokenised_fund.asseto.vault import AssetoVault
 
         return AssetoVault(web3, spec, **kwargs)
-    elif ERC4626Feature.maseer_one_like in features:
-        from eth_defi.maseer_one.vault import MaseerOneVault
+    elif ERC4626Feature.wstgbp_like in features:
+        from eth_defi.wstgbp.vault import WSTGBPVault
 
-        return MaseerOneVault(web3, spec, **kwargs)
+        return WSTGBPVault(web3, spec, **kwargs)
     elif ERC4626Feature.vault_street_like in features:
         from eth_defi.vault_street.vault import VaultStreetVault
 
@@ -2159,7 +2159,7 @@ HARDCODED_PROTOCOLS = {
     **ODA_FACT_HARDCODED_PROTOCOLS,
     **MIDAS_HARDCODED_PROTOCOLS,
     **ASSETO_HARDCODED_PROTOCOLS,
-    **MASEER_ONE_HARDCODED_PROTOCOLS,
+    **WSTGBP_HARDCODED_PROTOCOLS,
     **KILOEX_HARDCODED_PROTOCOLS,
     **FRANKENCOIN_HARDCODED_PROTOCOLS,
     **VAULT_STREET_HARDCODED_PROTOCOLS,
