@@ -15,6 +15,7 @@ from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.fee import VaultFeeMode
+from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.wstgbp.constants import WSTGBP
 from eth_defi.wstgbp.historical import WSTGBPVaultHistoricalReader
 from eth_defi.wstgbp.vault import WSTGBP_BESPOKE_FLOW_REASON, WSTGBP_NAV_SOURCE, WSTGBP_NOTE, WSTGBPVault
@@ -113,6 +114,7 @@ def test_wstgbp_metadata_and_fees(web3: Web3) -> None:
     assert isinstance(vault, WSTGBPVault)
     assert vault.features == {ERC4626Feature.wstgbp_like}
     assert vault.get_protocol_name() == "wstGBP"
+    assert vault.get_risk() is VaultTechnicalRisk.low
     assert vault.name == "Wren Staked tGBP"
     assert vault.symbol == "wstGBP"
     assert vault.share_token.decimals == WSTGBP_EXPECTED_DECIMALS
