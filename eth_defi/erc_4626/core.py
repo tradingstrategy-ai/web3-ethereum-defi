@@ -72,6 +72,13 @@ class ERC4626Feature(enum.Enum):
     #: a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     asseto_like = "asseto_like"
 
+    #: Franklin Templeton Benji tokenised fund share.
+    #:
+    #: https://digitalassets.franklintempleton.com/benji/
+    #: Routing marker for non-ERC-4626 permissioned Benji instruments read
+    #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    franklin_like = "franklin_like"
+
     #: Securitize Digital Securities Protocol token.
     #:
     #: Routing marker for non-ERC-4626 ``DSToken`` instruments that are read
@@ -850,6 +857,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Midas"
     elif ERC4626Feature.asseto_like in features:
         return "Asseto"
+    elif ERC4626Feature.franklin_like in features:
+        return "Franklin Templeton"
     elif ERC4626Feature.securitize_like in features:
         return "Securitize"
     elif ERC4626Feature.ondo_like in features:

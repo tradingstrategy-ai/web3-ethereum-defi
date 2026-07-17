@@ -24,6 +24,7 @@ from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.maseer_one.constants import MASEER_ONE_WSTGBP
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_PRODUCTS, FRANKLIN_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS, ONDO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.usyc.constants import USYC_TOKEN_ADDRESS
 from eth_defi.vault.base import VaultBase, VaultSpec
@@ -79,6 +80,9 @@ ONDO_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.ondo_like} for token in ONDO_
 #:
 #: https://usyc.docs.hashnote.com/overview/smart-contracts
 USYC_HARDCODED_PROTOCOLS = {USYC_TOKEN_ADDRESS: {ERC4626Feature.usyc_like}}
+
+#: Franklin Templeton Benji fund shares require chain-aware address matching.
+FRANKLIN_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.franklin_like} for token in FRANKLIN_PRODUCTS_BY_TOKEN}
 
 #: Maseer One hardcoded classification flags.
 #:
@@ -299,6 +303,10 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if normalised_address in USYC_HARDCODED_PROTOCOLS:
             if chain_id == 1:
                 return USYC_HARDCODED_PROTOCOLS[normalised_address]
+            return None
+        if (chain_id, normalised_address) in FRANKLIN_PRODUCTS:
+            return FRANKLIN_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in FRANKLIN_HARDCODED_PROTOCOLS:
             return None
         if normalised_address == PRIME_USD_ADDRESS:
             if chain_id == 1:
@@ -1708,6 +1716,10 @@ def create_vault_instance(
         from eth_defi.tokenised_fund.usyc.vault import USYCVault
 
         return USYCVault(web3, spec, **kwargs)
+    elif ERC4626Feature.franklin_like in features:
+        from eth_defi.tokenised_fund.franklin.vault import FranklinVault
+
+        return FranklinVault(web3, spec, **kwargs)
     elif ERC4626Feature.broken in features:
         return None
     elif ERC4626Feature.ipor_like in features:
@@ -2188,6 +2200,7 @@ HARDCODED_PROTOCOLS = {
     **ASSETO_HARDCODED_PROTOCOLS,
     **ONDO_HARDCODED_PROTOCOLS,
     **USYC_HARDCODED_PROTOCOLS,
+    **FRANKLIN_HARDCODED_PROTOCOLS,
     **MASEER_ONE_HARDCODED_PROTOCOLS,
     **KILOEX_HARDCODED_PROTOCOLS,
     **FRANKENCOIN_HARDCODED_PROTOCOLS,

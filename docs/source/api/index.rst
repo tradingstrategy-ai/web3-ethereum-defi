@@ -41,6 +41,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    aera/index
    asseto/index
    ondo/index
+   franklin/index
    atoma/index
    frankencoin/index
    kiln/index

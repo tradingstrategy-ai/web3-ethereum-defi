@@ -340,6 +340,12 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # J.P. Morgan Asset Management / Kinexys, but the token name does not carry
     # a reusable curator pattern.
     (1, "0x09864f52b035ae22ee739dfa5c748fa080d07bd8"): "jpmorgan",
+    # Franklin Templeton's official Benji registry identifies these Ethereum
+    # fund-token proxies. The token names do not contain a reliable curator
+    # pattern, so retain explicit issuer attribution by address.
+    # https://digitalassets.franklintempleton.com/benji/benji-contracts/
+    (1, "0x90276e9d4a023b5229e0c2e9d4b2a83fe3a2b48c"): "franklin-templeton",
+    (1, "0x3ddc84940ab509c11b20b76b466933f40b750dc9"): "franklin-templeton",
     # Securitize DSToken fund shares use issuer-specific names and may not
     # contain the full asset-manager brand. Keep the fund-manager mapping
     # address-specific, as for JLTXX, to avoid claiming unrelated DSTokens.

@@ -101,6 +101,7 @@ Supported protocols
    fluid/index
    forgeyields/index
    foxify/index
+   franklin/index
    frankencoin/index
    frax/index
    gains/index

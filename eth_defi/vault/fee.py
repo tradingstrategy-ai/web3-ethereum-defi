@@ -68,6 +68,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Midas": VaultFeeMode.internalised_skimming,
     # Fund fees are internalised in NAV; request fees are read from AoABTManager.
     "Asseto": VaultFeeMode.internalised_skimming,
+    # Benji token contracts do not expose a fund fee schedule.
+    "Franklin Templeton": None,
     # DSToken contracts do not expose product-level fund fees.
     "Securitize": None,
     # USDY and OUSG reflect issuer fund expenses in the published NAV. OUSG's

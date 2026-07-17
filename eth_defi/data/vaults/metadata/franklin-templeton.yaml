@@ -1,0 +1,32 @@
+name: Franklin Templeton
+slug: franklin-templeton
+short_description: |
+  Permissioned tokenised money-market fund shares issued through Franklin Templeton's Benji platform.
+long_description: |
+  Franklin Templeton's Benji platform provides blockchain-integrated recordkeeping and transfer-agent
+  services for tokenised fund shares. This integration covers the issuer-published Ethereum addresses for
+  the Franklin OnChain U.S. Government Money Fund (BENJI) and Franklin OnChain Institutional Liquidity
+  Fund Ltd. (iBENJI).
+
+  These products are regulated, permissioned fund shares rather than public deposit vaults. Investors must
+  satisfy the issuer's eligibility and compliance requirements; subscriptions, redemptions and transfers
+  are subject to the fund's servicing and transfer-agent controls. The library reads the share supply and
+  issuer-maintained reference price, which should be checked for freshness against current fund materials.
+fee_description: |
+  The Ethereum share-token contracts do not publish a general fund fee schedule. Fund expenses and any
+  subscription or redemption terms are product-specific and governed by the issuer's current fund documents;
+  they are not represented as generic on-chain deposit, withdrawal or performance fees in this integration.
+links:
+  homepage: https://digitalassets.franklintempleton.com/benji/
+  app: https://digitalassets.franklintempleton.com/benji/
+  twitter: https://x.com/fti_da
+  github:
+  documentation: https://digitalassets.franklintempleton.com/benji/benji-contracts/
+  defillama:
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/franklin-templeton
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/franklin/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x3ddc84940ab509c11b20b76b466933f40b750dc9
+  - https://etherscan.io/address/0x90276e9d4a023b5229e0c2e9d4b2a83fe3a2b48c

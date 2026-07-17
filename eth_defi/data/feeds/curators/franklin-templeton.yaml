@@ -1,0 +1,17 @@
+feeder-id: franklin-templeton
+name: Franklin Templeton
+role: curator
+website: https://www.franklintempleton.com/
+twitter: FTInvest
+linkedin: franklin-templeton
+short_description: Franklin Templeton is the global investment manager and issuer of the Benji tokenised money-market fund shares covered by this integration.
+long_description: |
+  Franklin Templeton is a global investment manager offering investment strategies and services to
+  individual and institutional investors. Through its Benji platform, Franklin Templeton provides
+  blockchain-integrated recordkeeping and transfer-agent services for tokenised fund shares. The issuer's
+  contract registry identifies Franklin's Ethereum BENJI and iBENJI tokens as fund-token deployments.
+other-links:
+  - title: Franklin Templeton Benji contracts - official Ethereum BENJI and iBENJI fund-token registry
+    url: https://digitalassets.franklintempleton.com/benji/benji-contracts/
+  - title: Franklin Templeton Digital Assets technology - Benji recordkeeping and transfer-agent overview
+    url: https://www.franklintempleton.com/about-us/our-teams/specialist-investment-managers/digital-assets/digital-assets-technology
