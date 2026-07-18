@@ -13,3 +13,4 @@ are deliberately not exposed as public vault operations.
    eth_defi.tokenised_fund.spiko.vault
    eth_defi.tokenised_fund.spiko.historical
    eth_defi.tokenised_fund.spiko.constants
+   eth_defi.tokenised_fund.spiko.backfill

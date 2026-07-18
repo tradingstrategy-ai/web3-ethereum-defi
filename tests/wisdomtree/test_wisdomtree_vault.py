@@ -1,9 +1,8 @@
 """Test WisdomTree WTGXX routing, read-only flows and issuer NAV parsing."""
 
-# ruff: noqa: ARG001, ARG002, ARG005, DTZ001, PLC2701, PLR6301, PLW0108
+# ruff: noqa: ARG001, ARG002, ARG005, DTZ001, PLC2701, PLR2004, PLR6301, PLW0108
 
 import datetime
-import importlib.util
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,6 +12,7 @@ import pytest
 from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.tokenised_fund.wisdomtree import backfill
 from eth_defi.tokenised_fund.wisdomtree.constants import ETHEREUM_CHAIN_ID, WTGXX_ETHEREUM
 from eth_defi.tokenised_fund.wisdomtree.historical import WisdomTreeVaultHistoricalReader, WisdomTreeVaultReaderState
 from eth_defi.tokenised_fund.wisdomtree.nav import WisdomTreeAPIError, WisdomTreeNAVPoint, fetch_wisdomtree_nav_history
@@ -25,14 +25,9 @@ from eth_defi.vault.vaultdb import VaultDatabase
 
 @pytest.fixture
 def backfill_module():
-    """Load the address-scoped migration module."""
+    """Return the WisdomTree backfill module."""
 
-    script = Path(__file__).parents[2] / "scripts" / "wisdomtree" / "backfill-history.py"
-    spec = importlib.util.spec_from_file_location("wisdomtree_backfill", script)
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return backfill
 
 
 def test_wisdomtree_hardcoded_classification_is_chain_aware() -> None:
@@ -55,7 +50,9 @@ def test_wisdomtree_vault_is_read_only() -> None:
     assert vault.get_fee_data().fee_mode == VaultFeeMode.internalised_skimming
     assert vault.get_management_fee("latest") == pytest.approx(0.0025)
     assert get_vault_protocol_name({ERC4626Feature.wisdomtree_like}) == "WisdomTree"
-    assert vault.get_risk() == VaultTechnicalRisk.low
+    assert vault.get_risk() == VaultTechnicalRisk.dangerous
+    assert "Historical NAV data is not publicly available" in vault.get_notes()
+    assert "permissioned DataSpan API" in vault.fetch_scan_record_extra_data()["_notes"]
 
 
 def test_wisdomtree_nav_history_uses_documented_api(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -157,6 +154,15 @@ def test_wisdomtree_migration_cleaning_scope_is_single_vault(backfill_module) ->
     assert len(backfill_module.selected_vault_spec_ids()) == 1
 
 
+def test_wisdomtree_backfill_starts_at_deployment(monkeypatch: pytest.MonkeyPatch, backfill_module) -> None:
+    """Fetch maximum history unless an operator explicitly narrows the scan."""
+
+    monkeypatch.delenv("START_BLOCK", raising=False)
+    assert backfill_module.resolve_start_block() == WTGXX_ETHEREUM.first_seen_at_block
+    monkeypatch.setenv("START_BLOCK", "123")
+    assert backfill_module.resolve_start_block() == 123
+
+
 def test_wisdomtree_metadata_upsert_preserves_ethereum_watermark(backfill_module) -> None:
     """A one-token migration cannot claim the full chain has been scanned."""
 
@@ -170,7 +176,7 @@ def test_wisdomtree_dry_run_skips_history_writer(monkeypatch: pytest.MonkeyPatch
     """Do not invoke raw or cleaned Parquet writers in a dry run."""
 
     calls: list[str] = []
-    monkeypatch.setattr(backfill_module, "require_price_scan_key", lambda: None)
+    monkeypatch.setattr(backfill_module, "require_price_scan_key", lambda: calls.append("api-key-check"))
     monkeypatch.setattr(backfill_module, "read_json_rpc_url", lambda _chain_id: "http://example.invalid")
     monkeypatch.setattr(backfill_module, "create_multi_provider_web3", lambda _url: SimpleNamespace(eth=SimpleNamespace(block_number=99)))
     monkeypatch.setattr(backfill_module, "TokenDiskCache", lambda: object())
@@ -179,4 +185,22 @@ def test_wisdomtree_dry_run_skips_history_writer(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(backfill_module, "replace_cleaned_vault_histories", lambda *args, **kwargs: calls.append("cleaner"))
     backfill_module.run_backfill(dry_run=True, scan_prices=True, clean_prices=True, frequency="1d", vault_db_path=tmp_path / "vaults.pickle", raw_price_path=tmp_path / "raw.parquet", cleaned_price_path=tmp_path / "cleaned.parquet", reader_state_path=tmp_path / "state.pickle")
     assert calls == []
+    assert not list(tmp_path.iterdir())
+
+
+def test_wisdomtree_missing_api_key_fails_before_metadata_write(monkeypatch: pytest.MonkeyPatch, backfill_module, tmp_path: Path) -> None:
+    """Validate the private API key before reading or writing vault metadata."""
+
+    calls: list[str] = []
+
+    def fail_api_key_check() -> None:
+        calls.append("api-key-check")
+        message = "Missing WisdomTree API key"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(backfill_module, "require_price_scan_key", fail_api_key_check)
+    monkeypatch.setattr(backfill_module, "read_json_rpc_url", lambda _chain_id: calls.append("rpc-read"))
+    with pytest.raises(RuntimeError, match="Missing WisdomTree API key"):
+        backfill_module.run_backfill(dry_run=False, scan_prices=True, clean_prices=True, frequency="1d", vault_db_path=tmp_path / "vaults.pickle", raw_price_path=tmp_path / "raw.parquet", cleaned_price_path=tmp_path / "cleaned.parquet", reader_state_path=tmp_path / "state.pickle")
+    assert calls == ["api-key-check"]
     assert not list(tmp_path.iterdir())

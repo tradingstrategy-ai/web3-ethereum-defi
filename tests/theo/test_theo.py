@@ -15,6 +15,7 @@ from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
+from eth_defi.tokenised_fund.theo import backfill
 from eth_defi.tokenised_fund.theo.constants import ETHEREUM_CHAIN_ID, THBILL_ETHEREUM
 from eth_defi.tokenised_fund.theo.historical import TheoITokenHistoricalReader
 from eth_defi.tokenised_fund.theo.vault import THEO_ITOKEN_RESTRICTED_FLOW_REASON, TheoITokenVault
@@ -116,7 +117,7 @@ def test_thbill_scan_record_is_unpriced_not_broken() -> None:
 def test_thbill_migration_preserves_unrelated_scanner_data() -> None:
     """Require the targeted migration to retain global scanner state."""
 
-    source = (Path(__file__).parents[2] / "scripts" / "theo" / "backfill-thbill.py").read_text()
+    source = Path(backfill.__file__).read_text(encoding="utf-8")
     assert "prior_watermark" in source
     assert "last_scanned_block.pop" in source
     assert "reader state and price Parquet files were not changed" in source

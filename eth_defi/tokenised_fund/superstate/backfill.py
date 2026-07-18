@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Backfill the reviewed Superstate USTB lead and its NAV history.
 
 This migration is intentionally address-scoped. It upserts only the Ethereum
@@ -8,7 +7,7 @@ all Ethereum vaults, or deletes unrelated Parquet rows.
 
 Run with::
 
-    source .local-test.env && poetry run python scripts/superstate/backfill-history.py
+    source .local-test.env && PROTOCOLS=superstate poetry run python scripts/backfill-tokenised-funds.py
 
 Environment variables:
 
@@ -25,6 +24,7 @@ and ``READER_STATE_DATABASE``
     Optional state-path overrides for an isolated or production run.
 """
 
+import logging
 import os
 import pickle  # noqa: S403 - trusted local reader-state pickle.
 from pathlib import Path
@@ -48,6 +48,8 @@ from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
+
+logger = logging.getLogger(__name__)
 
 
 def parse_bool_env(name: str, *, default: bool) -> bool:
@@ -223,7 +225,7 @@ def main() -> None:  # noqa: PLR0914
         raise ValueError(message)
 
     plan = [{"chain": "Ethereum", "address": USTB_ETHEREUM_ADDRESS, "start_block": start_block, "end_block": end_block, "scan_prices": scan_prices, "dry_run": dry_run}]
-    print(tabulate(plan, headers="keys", tablefmt="github"))
+    logger.info("Superstate backfill plan\n%s", tabulate(plan, headers="keys", tablefmt="github"))
     token_cache = TokenDiskCache()
     vault_db = VaultDatabase.read(vault_db_path) if vault_db_path.exists() else VaultDatabase()
     detection = create_detection()
@@ -231,7 +233,7 @@ def main() -> None:  # noqa: PLR0914
     spec = VaultSpec(SUPERSTATE_ETHEREUM_CHAIN_ID, USTB_ETHEREUM_ADDRESS)
 
     if dry_run:
-        print("DRY RUN: would upsert only USTB metadata and lead; no files changed")
+        logger.info("DRY RUN: would upsert only USTB metadata and lead; no files changed")
         return
 
     vault_db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -247,6 +249,9 @@ def main() -> None:  # noqa: PLR0914
             raise RuntimeError(message)
         vault.first_seen_at_block = USTB_ETHEREUM_FIRST_SEEN_AT_BLOCK
         hypersync_config = configure_hypersync_from_env(web3)
+        if hypersync_config.hypersync_client is None:
+            message = "Superstate history backfill requires HyperSync on Ethereum"
+            raise RuntimeError(message)
         result = scan_historical_prices_to_parquet(
             output_fname=uncleaned_price_path,
             web3=web3,
@@ -264,7 +269,7 @@ def main() -> None:  # noqa: PLR0914
         )
         write_reader_states(reader_state_path, result["reader_states"])
         replace_cleaned_vault_histories({spec.as_string_id()}, vault_db_path=vault_db_path, raw_price_df_path=uncleaned_price_path, cleaned_price_df_path=cleaned_price_path)
-        print(tabulate([{"historical_rows": result["rows_written_by_vault"].get(USTB_ETHEREUM_ADDRESS, 0), "price_rows": result["price_rows_written_by_vault"].get(USTB_ETHEREUM_ADDRESS, 0)}], headers="keys", tablefmt="github"))
+        logger.info("%s", tabulate([{"historical_rows": result["rows_written_by_vault"].get(USTB_ETHEREUM_ADDRESS, 0), "price_rows": result["price_rows_written_by_vault"].get(USTB_ETHEREUM_ADDRESS, 0)}], headers="keys", tablefmt="github"))
     token_cache.commit()
 
 

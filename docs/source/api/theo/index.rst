@@ -12,3 +12,4 @@ token rather than treating it as a conventional single-asset ERC-4626 vault.
    eth_defi.tokenised_fund.theo.constants
    eth_defi.tokenised_fund.theo.vault
    eth_defi.tokenised_fund.theo.historical
+   eth_defi.tokenised_fund.theo.backfill

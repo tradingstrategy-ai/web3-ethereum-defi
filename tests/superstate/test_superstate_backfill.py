@@ -1,10 +1,8 @@
 """Regression tests for the scoped Superstate backfill migration."""
 
-import importlib.util
-from pathlib import Path
-
 import pytest
 
+from eth_defi.tokenised_fund.superstate import backfill
 from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_ETHEREUM_CHAIN_ID, USTB_ETHEREUM_ADDRESS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -17,15 +15,9 @@ METADATA_BLOCK = 25_553_227
 
 @pytest.fixture
 def backfill_history_module():
-    """Load the hyphenated Superstate backfill script as a Python module."""
+    """Return the Superstate backfill module."""
 
-    script_path = Path(__file__).parents[2] / "scripts" / "superstate" / "backfill-history.py"
-    spec = importlib.util.spec_from_file_location("superstate_backfill_history", script_path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return backfill
 
 
 @pytest.mark.parametrize("ethereum_cursor", [EXISTING_ETHEREUM_CURSOR, None])

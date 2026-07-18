@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Register the reviewed JTRSY Tranche token without rewriting price history.
 
 The direct JTRSY ``Tranche`` token has no authoritative NAV/share-price
@@ -8,7 +7,7 @@ reader-state pickle. Existing unrelated vault records remain untouched.
 
 Run with::
 
-    source .local-test.env && poetry run python scripts/centrifuge/backfill-jtrsy.py
+    source .local-test.env && PROTOCOLS=centrifuge poetry run python scripts/backfill-tokenised-funds.py
 
 Set ``DRY_RUN=true`` to inspect the planned write. Set ``VAULT_DB_PATH`` to
 use an alternative metadata database, and ``END_BLOCK`` to choose the metadata

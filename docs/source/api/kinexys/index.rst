@@ -39,3 +39,4 @@ request-based burn functions as a public subscription or redemption path.
 
    eth_defi.tokenised_fund.kinexys.vault
    eth_defi.tokenised_fund.kinexys.historical
+   eth_defi.tokenised_fund.kinexys.backfill

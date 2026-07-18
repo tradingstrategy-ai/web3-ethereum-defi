@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Register canonical Ethereum thBILL without rewriting price history.
 
 thBILL has no reviewed scalar NAV/share source: Theo's iToken accounting uses
@@ -7,7 +6,7 @@ thBILL discovery lead and scan metadata. It intentionally leaves raw and
 cleaned price Parquet files plus reader-state data untouched, and restores the
 existing Ethereum discovery watermark after the metadata write.
 
-Run with ``source .local-test.env && poetry run python scripts/theo/backfill-thbill.py``.
+Run with ``source .local-test.env && PROTOCOLS=theo poetry run python scripts/backfill-tokenised-funds.py``.
 Set ``DRY_RUN=true`` to inspect the plan. ``VAULT_DB_PATH`` and ``END_BLOCK``
 are optional overrides.
 """

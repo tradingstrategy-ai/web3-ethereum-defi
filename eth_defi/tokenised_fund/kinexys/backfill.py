@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Register the MONY FACT Diamond in the shared vault metadata database.
 
 MONY has no public, verified NAV or share-price source. This migration therefore
@@ -13,7 +12,7 @@ Usage:
 
     source .local-test.env
     export JSON_RPC_ETHEREUM="https://your-archive-ethereum-rpc"
-    poetry run python scripts/kinexys/backfill-mony.py
+    PROTOCOLS=kinexys poetry run python scripts/backfill-tokenised-funds.py
 
 Set ``DRY_RUN=true`` to validate the planned MONY row without writing. Optional
 ``END_BLOCK`` selects the metadata snapshot block and ``VAULT_DB_PATH`` selects

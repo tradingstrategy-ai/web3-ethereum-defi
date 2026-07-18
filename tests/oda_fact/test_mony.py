@@ -1,7 +1,6 @@
 """Test MONY FACT Diamond registration and unavailable public valuation."""
 
 import datetime
-import importlib.util
 import os
 from decimal import Decimal
 from pathlib import Path
@@ -19,6 +18,7 @@ from eth_defi.erc_4626.classification import (
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.tokenised_fund.kinexys import backfill
 from eth_defi.tokenised_fund.kinexys.vault import KINEXYS_WHITELISTED_FLOW_REASON, MONY_NAV_SOURCE, OdaFactVault
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.flag import VaultFlag
@@ -132,19 +132,13 @@ def test_mony_live_erc20_supply_and_unavailable_nav(web3: Web3) -> None:
 
 @pytest.fixture
 def backfill_mony_module():
-    """Load the hyphenated MONY migration script as a Python module.
+    """Return the Kinexys backfill module.
 
     :return:
         Loaded migration module.
     """
 
-    script_path = Path(__file__).parents[2] / "scripts" / "kinexys" / "backfill-mony.py"
-    spec = importlib.util.spec_from_file_location("kinexys_backfill_mony", script_path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return backfill
 
 
 def test_mony_backfill_preserves_discovery_cursor_when_writing_metadata(tmp_path: Path, backfill_mony_module) -> None:

@@ -19,3 +19,4 @@ invalid produces an explicit historical error instead of an estimated price.
    eth_defi.tokenised_fund.superstate.constants
    eth_defi.tokenised_fund.superstate.vault
    eth_defi.tokenised_fund.superstate.historical
+   eth_defi.tokenised_fund.superstate.backfill

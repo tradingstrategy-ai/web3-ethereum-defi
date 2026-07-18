@@ -1,10 +1,8 @@
 """Regression tests for the scoped Libeara CMTAT backfill helper."""
 
-import importlib.util
-from pathlib import Path
-
 import pytest
 
+from eth_defi.tokenised_fund.libeara import backfill
 from eth_defi.tokenised_fund.libeara.constants import BELIF_ETHEREUM, CUMIU_ETHEREUM, ETHEREUM_CHAIN_ID
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -12,17 +10,11 @@ from eth_defi.vault.vaultdb import VaultDatabase
 
 @pytest.fixture
 def backfill_history_module():
-    """Load the hyphenated Libeara backfill script as a module.
+    """Return the Libeara backfill module.
 
     :return: Loaded script module.
     """
-    script_path = Path(__file__).parents[2] / "scripts" / "libeara" / "backfill-history.py"
-    spec = importlib.util.spec_from_file_location("libeara_backfill_history", script_path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return backfill
 
 
 @pytest.mark.parametrize("existing_cursor", [None, 25_000_000])

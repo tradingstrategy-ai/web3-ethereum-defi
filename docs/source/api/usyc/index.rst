@@ -12,3 +12,4 @@ feed, instead of treating USYC as an ERC-4626 vault.
    eth_defi.tokenised_fund.usyc.constants
    eth_defi.tokenised_fund.usyc.vault
    eth_defi.tokenised_fund.usyc.historical
+   eth_defi.tokenised_fund.usyc.backfill

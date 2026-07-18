@@ -1,11 +1,10 @@
 """Regression tests for the scoped Franklin Benji migration."""
 
-import importlib.util
-from pathlib import Path
 from types import ModuleType
 
 import pytest
 
+from eth_defi.tokenised_fund.franklin import backfill
 from eth_defi.tokenised_fund.franklin.constants import ETHEREUM_CHAIN_ID, FRANKLIN_PRODUCTS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -17,15 +16,9 @@ OTHER_CHAIN_CURSOR = 25_000_000
 
 @pytest.fixture
 def backfill_history_module() -> ModuleType:
-    """Load the hyphenated Franklin migration as a Python module."""
+    """Return the Franklin backfill module."""
 
-    script_path = Path(__file__).parents[2] / "scripts" / "franklin" / "backfill-history.py"
-    spec = importlib.util.spec_from_file_location("franklin_backfill_history", script_path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return backfill
 
 
 @pytest.mark.parametrize("existing_cursor", [None, EXISTING_ETHEREUM_CURSOR])

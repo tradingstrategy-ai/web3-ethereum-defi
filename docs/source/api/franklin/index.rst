@@ -13,3 +13,4 @@ as the authoritative address source.
    eth_defi.tokenised_fund.franklin.constants
    eth_defi.tokenised_fund.franklin.vault
    eth_defi.tokenised_fund.franklin.historical
+   eth_defi.tokenised_fund.franklin.backfill

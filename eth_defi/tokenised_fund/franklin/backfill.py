@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Backfill reviewed Franklin Templeton Benji Ethereum fund-token history.
 
 The migration only touches the two addresses in ``FRANKLIN_PRODUCTS``. It
@@ -9,7 +8,7 @@ their saved reader states before scanning.
 
 Run with::
 
-    source .local-test.env && poetry run python scripts/franklin/backfill-history.py
+    source .local-test.env && PROTOCOLS=franklin poetry run python scripts/backfill-tokenised-funds.py
 
 Set ``DRY_RUN=false`` to apply changes. Optional environment variables are
 ``FRANKLIN_SCAN_PRICES`` (default ``true``), ``FRANKLIN_CLEAN_PRICES``
@@ -214,8 +213,7 @@ def main() -> None:  # noqa: PLR0914
     token_cache = TokenDiskCache()
 
     plan = [{"symbol": product.symbol, "token": product.token, "start_block": start_block, "end_block": end_block} for product in products]
-    print("Franklin Templeton Benji backfill plan")
-    print(tabulate(plan, headers="keys", tablefmt="github"))
+    logger.info("Franklin Templeton Benji backfill plan\n%s", tabulate(plan, headers="keys", tablefmt="github"))
     if dry_run:
         return
 
@@ -238,6 +236,9 @@ def main() -> None:  # noqa: PLR0914
             vault.first_seen_at_block = product.first_seen_at_block
             vaults.append(vault)
         hypersync_config = configure_hypersync_from_env(web3)
+        if hypersync_config.hypersync_client is None:
+            message = "Franklin history backfill requires HyperSync on Ethereum"
+            raise RuntimeError(message)
         result = scan_historical_prices_to_parquet(
             output_fname=price_database_path,
             web3=web3,
@@ -265,7 +266,7 @@ def main() -> None:  # noqa: PLR0914
             )
             scan_summary = f"{scan_summary}; cleaned_rows={changed_rows:,}"
     token_cache.commit()
-    print(tabulate([{"chain": get_chain_name(ETHEREUM_CHAIN_ID), "products": len(products), "scan": scan_summary}], headers="keys", tablefmt="github"))
+    logger.info("%s", tabulate([{"chain": get_chain_name(ETHEREUM_CHAIN_ID), "products": len(products), "scan": scan_summary}], headers="keys", tablefmt="github"))
 
 
 if __name__ == "__main__":

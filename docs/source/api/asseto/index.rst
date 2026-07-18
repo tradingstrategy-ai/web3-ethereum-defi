@@ -18,3 +18,4 @@ It also exposes public partner roles through
    eth_defi.tokenised_fund.asseto.historical
    eth_defi.tokenised_fund.asseto.constants
    eth_defi.tokenised_fund.asseto.offchain_api
+   eth_defi.tokenised_fund.asseto.backfill

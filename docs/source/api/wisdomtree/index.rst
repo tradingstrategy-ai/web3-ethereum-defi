@@ -14,3 +14,4 @@ ERC-4626 vault.
    eth_defi.tokenised_fund.wisdomtree.historical
    eth_defi.tokenised_fund.wisdomtree.nav
    eth_defi.tokenised_fund.wisdomtree.constants
+   eth_defi.tokenised_fund.wisdomtree.backfill

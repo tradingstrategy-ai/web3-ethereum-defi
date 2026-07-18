@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Backfill historical Asseto vault data into the shared vault pipeline.
 
 This is a targeted production tool for the EVM products currently published by
@@ -13,7 +12,7 @@ Usage:
 
     source .local-test.env
     export JSON_RPC_ETHEREUM="https://your-archive-ethereum-rpc"
-    poetry run python scripts/asseto/backfill-history.py
+    PROTOCOLS=asseto poetry run python scripts/backfill-tokenised-funds.py
 
 Useful environment variables:
 
@@ -78,7 +77,6 @@ from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.erc_4626.scan import create_vault_scan_record
-from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampDatabase
 from eth_defi.hypersync.server import is_hypersync_supported_chain
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
@@ -269,21 +267,19 @@ def iter_selected_products() -> Iterable[AssetoOffchainProduct]:
 
 def resolve_price_scan_start_block(
     products: list[AssetoProduct],
-    timestamp_cache_folder: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
 ) -> int:
-    """Resolve a safe explicit history start for selected Asseto products.
+    """Resolve the earliest history start for selected Asseto products.
 
     The normal scanner's incremental reader state must not decide the start of
-    a targeted rewrite. Begin at the earliest Asseto deployment, unless a
-    user supplied ``START_BLOCK`` or the local timestamp cache cannot serve
-    that early block.
+    a targeted rewrite. Begin at the earliest Asseto deployment unless the
+    operator supplied ``START_BLOCK``. HyperSync populates any missing block
+    timestamps, so an existing local timestamp cache must never truncate the
+    requested history.
 
     :param products:
         Selected products on one EVM chain.
-    :param timestamp_cache_folder:
-        Directory containing per-chain timestamp cache databases.
     :return:
-        Explicit, deployment, or timestamp-cache-supported first block.
+        Explicit override or the earliest deployment block.
     """
 
     explicit_start_block = parse_optional_int_env("START_BLOCK")
@@ -294,27 +290,7 @@ def resolve_price_scan_start_block(
     chain_ids = {product.chain_id for product in products}
     assert len(chain_ids) == 1, f"Expected products from one chain, got {chain_ids}"
     deployment_start_block = min(product.first_seen_at_block for product in products)
-    chain_id = products[0].chain_id
-    cache_file = BlockTimestampDatabase.get_database_file_chain(chain_id, timestamp_cache_folder)
-    if not cache_file.exists():
-        return deployment_start_block
-
-    timestamp_cache = BlockTimestampDatabase.load(chain_id, cache_file)
-    try:
-        first_cached_block = timestamp_cache.get_first_block()
-    finally:
-        timestamp_cache.close()
-
-    if first_cached_block <= deployment_start_block:
-        return deployment_start_block
-
-    logger.warning(
-        "Clipping Asseto history start on chain %d from deployment block %d to timestamp cache start block %d",
-        chain_id,
-        deployment_start_block,
-        first_cached_block,
-    )
-    return first_cached_block
+    return deployment_start_block
 
 
 def create_asseto_detection(product: AssetoProduct) -> ERC4262VaultDetection:
@@ -581,12 +557,8 @@ def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps 
 
     if not dry_run:
         vault_db_path.parent.mkdir(parents=True, exist_ok=True)
-        vault_db.update_leads_and_rows(
-            chain_id=chain_id,
-            last_scanned_block=end_block,
-            leads=leads,
-            rows=rows,
-        )
+        vault_db.leads.update({VaultSpec(chain_id, address): lead for address, lead in leads.items()})
+        vault_db._merge_rows(rows)
         vault_db.write(vault_db_path)
 
     scan_summary = "-"
@@ -598,7 +570,8 @@ def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps 
             scan_summary = f"dry-run ({len(scanned_products)} products with price history)"
         elif vaults:
             reader_states = read_reader_states(reader_state_database_path)
-            reader_states = {spec: state for spec, state in reader_states.items() if spec.vault_address.lower() not in vault_ids}
+            target_specs = {VaultSpec(chain_id, address) for address in vault_ids}
+            reader_states = {spec: state for spec, state in reader_states.items() if spec not in target_specs}
             web3factory = MultiProviderWeb3Factory(json_rpc_url, retries=5)
             hypersync_config = configure_hypersync_from_env(web3)
             if hypersync_config.hypersync_client is None:
@@ -682,15 +655,14 @@ def main() -> None:
         }
         for chain_id, chain_products in sorted(products_by_chain.items())
     ]
-    print("Asseto backfill plan")
-    print(tabulate(plan, headers="keys", tablefmt="github"))
-    print(f"Vault DB: {vault_db_path}")
-    print(f"Price DB: {price_database_path}")
-    print(f"Cleaned price DB: {cleaned_price_database_path}")
-    print(f"Reader states: {reader_state_database_path}")
-    print(f"Frequency: {frequency}")
-    print(f"Dry run: {dry_run}")
-    print(f"Update cleaned prices: {clean_prices}")
+    logger.info("Asseto backfill plan\n%s", tabulate(plan, headers="keys", tablefmt="github"))
+    logger.info("Vault DB: %s", vault_db_path)
+    logger.info("Price DB: %s", price_database_path)
+    logger.info("Cleaned price DB: %s", cleaned_price_database_path)
+    logger.info("Reader states: %s", reader_state_database_path)
+    logger.info("Frequency: %s", frequency)
+    logger.info("Dry run: %s", dry_run)
+    logger.info("Update cleaned prices: %s", clean_prices)
 
     vault_db = read_vault_database(vault_db_path)
     token_cache = TokenDiskCache()
@@ -714,9 +686,8 @@ def main() -> None:
     if not dry_run:
         token_cache.commit()
 
-    print("Asseto backfill summary")
-    print(tabulate(summaries, headers="keys", tablefmt="github"))
-    print("All ok")
+    logger.info("Asseto backfill summary\n%s", tabulate(summaries, headers="keys", tablefmt="github"))
+    logger.info("All ok")
 
 
 if __name__ == "__main__":

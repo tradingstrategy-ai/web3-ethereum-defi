@@ -10,3 +10,6 @@ reported as supply-only because it has no verified public NAV/share source.
 
 .. automodule:: eth_defi.tokenised_fund.libeara.constants
    :members:
+
+.. automodule:: eth_defi.tokenised_fund.libeara.backfill
+   :members:

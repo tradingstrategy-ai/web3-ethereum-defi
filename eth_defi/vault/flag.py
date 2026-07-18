@@ -134,7 +134,7 @@ WISDOMTREE_WTGXX_NOTE = """WisdomTree Treasury Money Market Digital Fund (WTGXX)
 
 - **Curator:** WisdomTree.
 - **Token structure:** Permissioned, revocable compliance ERC-20 shares; not an ERC-4626 vault.
-- **NAV source:** WisdomTree DataSpan's documented issuer NAV endpoint, which requires an operator API key.
+- **NAV source:** Historical NAV data is not publicly available. WisdomTree provides it through the permissioned DataSpan API, which requires an API key issued after approval.
 - **Investor access:** Wallets must be approved by WisdomTree Connect; public deposit and redemption managers are intentionally unsupported.
 - **Fund page:** [WisdomTree WTGXX](https://www.wisdomtreeconnect.com/digital-funds/money-market/wtgxx).
 """

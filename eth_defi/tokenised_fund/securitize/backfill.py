@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Backfill all reviewed Securitize leads and supported price history.
 
 This migration preserves unrelated vault database rows, reader states and
@@ -58,7 +57,7 @@ The same HTTP API rejected older requests with
 production backfill in this script does not depend on it. This means a newly
 registered Securitize feed may have a one-time recoverable pre-push-feed REST
 window that will disappear if it is not imported quickly. For BCAP, a pure
-``scripts/securitize/backfill-history.py`` run starts around 2026-07-09/10
+``PROTOCOLS=securitize scripts/backfill-tokenised-funds.py`` run starts around 2026-07-09/10
 because the script only trusts the archive-readable push feed.
 
 If future operators need maximum history for a new Securitize RedStone feed,
@@ -74,7 +73,7 @@ https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1306
 
 Run with::
 
-    source .local-test.env && poetry run python scripts/securitize/backfill-history.py
+    source .local-test.env && PROTOCOLS=securitize poetry run python scripts/backfill-tokenised-funds.py
 
 Environment variables:
 
@@ -119,7 +118,6 @@ from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.erc_4626.scan import create_vault_scan_record
-from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampDatabase
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
@@ -470,41 +468,25 @@ def write_reader_states(path: Path, states: dict[VaultSpec, dict]) -> None:
 
 
 def resolve_price_scan_start_block(
-    chain_id: int,
     deployment_blocks: Iterable[int],
-    timestamp_cache_folder: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
 ) -> int:
-    """Choose a timestamp-cache-compatible start block for selected products.
+    """Choose the earliest history start block for selected products.
 
     A targeted rewrite must begin at deployment, not at the ordinary scanner's
-    latest cursor. If the local timestamp cache begins later, clip to its first
-    supported block instead of issuing an impossible timestamp lookup.
+    latest cursor. HyperSync fills missing block timestamps, so a partial local
+    timestamp cache must never truncate the requested history.
 
-    :param chain_id:
-        EVM chain containing the selected products.
     :param deployment_blocks:
         Deployment blocks for products with a configured price source.
-    :param timestamp_cache_folder:
-        Directory containing the per-chain timestamp cache.
     :return:
-        Explicit override, or the earliest timestamp-cache-compatible block.
+        Explicit override or the earliest deployment block.
     """
 
     explicit_start_block = parse_optional_int_env("START_BLOCK")
     if explicit_start_block is not None:
         return explicit_start_block
 
-    deployment_start_block = min(deployment_blocks)
-    cache_file = BlockTimestampDatabase.get_database_file_chain(chain_id, timestamp_cache_folder)
-    if not cache_file.exists():
-        return deployment_start_block
-
-    timestamp_cache = BlockTimestampDatabase.load(chain_id, cache_file)
-    try:
-        first_cached_block = timestamp_cache.get_first_block()
-    finally:
-        timestamp_cache.close()
-    return max(deployment_start_block, first_cached_block)
+    return min(deployment_blocks)
 
 
 def build_priced_vaults(web3: Web3, products: Iterable[tuple[SecuritizeProduct, int]], token_cache: TokenDiskCache) -> list[VaultBase]:
@@ -615,12 +597,8 @@ def backfill_chain(  # noqa: PLR0914
 
     if not dry_run:
         vault_db_path.parent.mkdir(parents=True, exist_ok=True)
-        vault_db.update_leads_and_rows(
-            chain_id=chain_id,
-            last_scanned_block=end_block,
-            leads=leads,
-            rows=rows,
-        )
+        vault_db.leads.update({VaultSpec(chain_id, address): lead for address, lead in leads.items()})
+        vault_db._merge_rows(rows)
         vault_db.write(vault_db_path)
 
     priced_products = [(product, deployment_block) for product, (deployment_block, _) in product_state.items() if has_historical_price(product)]
@@ -632,10 +610,14 @@ def backfill_chain(  # noqa: PLR0914
             scan_summary = "dry-run"
         else:
             reader_states = read_reader_states(reader_state_database_path)
-            reader_states = {spec: state for spec, state in reader_states.items() if spec.vault_address.lower() not in vault_ids}
-            start_block = resolve_price_scan_start_block(chain_id, (deployment_block for _, deployment_block in priced_products))
+            target_specs = {VaultSpec(chain_id, address) for address in vault_ids}
+            reader_states = {spec: state for spec, state in reader_states.items() if spec not in target_specs}
+            start_block = resolve_price_scan_start_block(deployment_block for _, deployment_block in priced_products)
             logger.info("Backfilling %d Securitize products with a NAV source on %s from block %d", len(priced_products), chain_name, start_block)
             hypersync_config = configure_hypersync_from_env(web3)
+            if hypersync_config.hypersync_client is None:
+                message = f"Securitize history backfill requires HyperSync on {chain_name}"
+                raise RuntimeError(message)
             priced_vaults = build_priced_vaults(web3, priced_products, token_cache)
             scan_result = scan_historical_prices_to_parquet(
                 output_fname=price_database_path,
@@ -712,8 +694,7 @@ def main() -> None:  # noqa: PLR0914
         }
         for chain_id, chain_products in sorted(products_by_chain.items())
     ]
-    print("Securitize backfill plan")
-    print(tabulate(plan, headers="keys", tablefmt="github"))
+    logger.info("Securitize backfill plan\n%s", tabulate(plan, headers="keys", tablefmt="github"))
 
     vault_db = read_vault_database(vault_db_path)
     token_cache = TokenDiskCache()
@@ -738,10 +719,8 @@ def main() -> None:  # noqa: PLR0914
         summaries.append(summary)
     if not dry_run:
         token_cache.commit()
-    print("Securitize backfill summary")
-    print(tabulate(summaries, headers="keys", tablefmt="github"))
-    print("Securitize historical rows by product")
-    print(tabulate(price_row_report, headers="keys", tablefmt="github"))
+    logger.info("Securitize backfill summary\n%s", tabulate(summaries, headers="keys", tablefmt="github"))
+    logger.info("Securitize historical rows by product\n%s", tabulate(price_row_report, headers="keys", tablefmt="github"))
 
 
 if __name__ == "__main__":

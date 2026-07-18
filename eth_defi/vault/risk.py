@@ -94,8 +94,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # Circle USYC is a permissioned fund token with verified proxy contracts
     # and a centrally operated NAV oracle.
     "Circle USYC": VaultTechnicalRisk.low,
-    # WisdomTree's WTGXX deployment is a verified, permissioned compliance token.
-    "WisdomTree": VaultTechnicalRisk.low,
+    # WisdomTree's WTGXX deployment depends on permissioned issuer operations
+    # and private off-chain NAV data that cannot be independently verified.
+    "WisdomTree": VaultTechnicalRisk.dangerous,
     # Superstate USTB uses a verified permissioned fund-token implementation
     # and issuer-operated oracle/allowlist infrastructure.
     "Superstate": VaultTechnicalRisk.low,

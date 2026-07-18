@@ -12,3 +12,4 @@ unavailable until a public, verified historical price route is available.
    eth_defi.tokenised_fund.sygnum.vault
    eth_defi.tokenised_fund.sygnum.historical
    eth_defi.tokenised_fund.sygnum.constants
+   eth_defi.tokenised_fund.sygnum.backfill

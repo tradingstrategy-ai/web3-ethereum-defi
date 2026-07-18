@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Backfill Circle USYC metadata and oracle-backed price history.
 
 This targeted migration touches only the Ethereum USYC identifier. It preserves
@@ -8,7 +7,7 @@ the prior token deployment has no compatible oracle history.
 
 Run with::
 
-    source .local-test.env && poetry run python scripts/usyc/backfill-history.py
+    source .local-test.env && PROTOCOLS=usyc poetry run python scripts/backfill-tokenised-funds.py
 
 Set ``DRY_RUN=true`` to validate the plan without writes. Optional overrides:
 ``START_BLOCK``, ``END_BLOCK``, ``FREQUENCY`` (``1d`` only), ``MAX_WORKERS``,
@@ -18,6 +17,7 @@ and ``READER_STATE_DATABASE``.
 
 # ruff: noqa: PLR0914
 
+import logging
 import os
 import pickle  # noqa: S403 - trusted local production reader-state pickle.
 from pathlib import Path
@@ -40,6 +40,8 @@ from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import pformat_scan_result, scan_historical_prices_to_parquet
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
+
+logger = logging.getLogger(__name__)
 
 
 def parse_bool_env(name: str, *, default: bool = False) -> bool:
@@ -148,10 +150,10 @@ def main() -> None:
         raise RuntimeError(message)
     vault.first_seen_at_block = start_block
 
-    print(f"USYC backfill: {USYC_TOKEN_ADDRESS} blocks {start_block:,}..{end_block:,}; dry-run={dry_run}")
-    print(f"Vault DB: {vault_db_path}")
-    print(f"Raw prices: {uncleaned_price_path}")
-    print(f"Cleaned prices: {cleaned_price_path}")
+    logger.info("USYC backfill: %s blocks %d..%d; dry-run=%s", USYC_TOKEN_ADDRESS, start_block, end_block, dry_run)
+    logger.info("Vault DB: %s", vault_db_path)
+    logger.info("Raw prices: %s", uncleaned_price_path)
+    logger.info("Cleaned prices: %s", cleaned_price_path)
     if dry_run:
         return
 
@@ -202,7 +204,7 @@ def main() -> None:
     if clean_prices:
         replace_cleaned_vault_histories({selected_id.as_string_id()}, vault_db_path=vault_db_path, raw_price_df_path=uncleaned_price_path, cleaned_price_df_path=cleaned_price_path, logger=print)
     token_cache.commit()
-    print(pformat_scan_result(result))
+    logger.info("%s", pformat_scan_result(result))
 
 
 if __name__ == "__main__":

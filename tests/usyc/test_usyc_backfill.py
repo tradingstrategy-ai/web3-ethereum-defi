@@ -1,25 +1,20 @@
 """Regression tests for the targeted Circle USYC backfill script."""
 
-import importlib.util
 from pathlib import Path
 
 import pytest
 
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.tokenised_fund.usyc import backfill
 from eth_defi.tokenised_fund.usyc.constants import USYC_ORACLE_FIRST_SEEN_AT_BLOCK
 from eth_defi.vault.base import VaultSpec
 
 
 @pytest.fixture
 def backfill_history_module():
-    """Load the hyphenated USYC backfill script as a Python module."""
-    script_path = Path(__file__).parents[2] / "scripts" / "usyc" / "backfill-history.py"
-    spec = importlib.util.spec_from_file_location("usyc_backfill_history", script_path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    """Return the USYC backfill module."""
+
+    return backfill
 
 
 def test_usyc_backfill_defaults_to_oracle_deployment(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:

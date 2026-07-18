@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Add the reviewed Sygnum FILQ-A lead without touching unrelated histories.
 
 FILQ currently has no public, verified NAV-history route. This generated
@@ -7,7 +6,7 @@ does not reset reader state or alter raw/cleaned Parquet files: creating price
 rows without NAV would be misleading, and retaining those files prevents an
 accidental full-chain rescan.
 
-Run with ``source .local-test.env && poetry run python scripts/sygnum/backfill-history.py``.
+Run with ``source .local-test.env && PROTOCOLS=sygnum poetry run python scripts/backfill-tokenised-funds.py``.
 Set ``DRY_RUN=true`` to inspect the address-scoped plan without writing.
 ``VAULT_DB_PATH`` and ``END_BLOCK`` may be overridden for controlled runs.
 """

@@ -1,11 +1,10 @@
 """Regression tests for the scoped Ondo migration."""
 
-import importlib.util
-from pathlib import Path
 from types import ModuleType
 
 import pytest
 
+from eth_defi.tokenised_fund.ondo import backfill
 from eth_defi.tokenised_fund.ondo.constants import ETHEREUM_CHAIN_ID, ONDO_PRODUCTS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -17,15 +16,9 @@ OTHER_CHAIN_CURSOR = 25_000_000
 
 @pytest.fixture
 def backfill_history_module() -> ModuleType:
-    """Load the hyphenated Ondo migration as a Python module."""
+    """Return the Ondo backfill module."""
 
-    script_path = Path(__file__).parents[2] / "scripts" / "ondo" / "backfill-history.py"
-    spec = importlib.util.spec_from_file_location("ondo_backfill_history", script_path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return backfill
 
 
 @pytest.mark.parametrize("existing_cursor", [None, EXISTING_ETHEREUM_CURSOR])

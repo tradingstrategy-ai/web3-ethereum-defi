@@ -53,10 +53,14 @@ The scanner does not support whole-chain lead resets. `RESET_LEADS` has been
 removed and setting it causes `scan-vaults.py` to fail before it makes any
 database or network changes.
 
-### securitize/backfill-history.py
+### backfill-tokenised-funds.py
 
-Single-command migration for the complete reviewed Securitize fund registry.
-The script groups products by chain, locates each deployment through the
+Generic dispatcher for all reviewed tokenised-fund protocols. Set `PROTOCOLS`
+to a comma-separated list such as `securitize,ondo`; leaving it unset runs all
+registered integrations. Each protocol owns its implementation beside its
+vault adapter under `eth_defi/tokenised_fund/<protocol>/backfill.py`.
+
+The Securitize backfill groups products by chain, locates each deployment through the
 archive RPC, upserts only those lead and metadata rows, and rewrites only the
 selected vault histories. BUIDL deployments use the reviewed USD 1 estimate;
 ACRED, VBILL, STAC, HLSCOPE, BCAP and MI4 read RedStone push feeds through the
@@ -99,7 +103,8 @@ prices and therefore does not validate timestamp-cache coverage:
 ```shell
 source .local-test.env && \
   DRY_RUN=true \
-  poetry run python scripts/securitize/backfill-history.py
+  PROTOCOLS=securitize \
+  poetry run python scripts/backfill-tokenised-funds.py
 ```
 
 Run the full daily metadata and price-history backfill with one command:
@@ -108,7 +113,8 @@ Run the full daily metadata and price-history backfill with one command:
 source .local-test.env && \
   DRY_RUN=false \
   FREQUENCY=1d \
-  poetry run python scripts/securitize/backfill-history.py
+  PROTOCOLS=securitize \
+  poetry run python scripts/backfill-tokenised-funds.py
 ```
 
 Do not replace the push-feed reads with RedStone's public prices REST endpoint:
@@ -123,7 +129,8 @@ share-price rows in the requested block range.
 
 | Variable | Description |
 |----------|-------------|
-| `DRY_RUN` | Optional. Calculate the migration plan without writing data. Default: false. |
+| `PROTOCOLS` | Optional. Comma-separated tokenised-fund protocol slugs; unset runs all registered protocols. |
+| `DRY_RUN` | Optional. Calculate the migration plan without writing data. The generic dispatcher defaults to true. |
 | `SECURITIZE_SCAN_PRICES` | Optional. Set to `false` to upsert leads and metadata only. Default: true. |
 | `SECURITIZE_PRODUCTS` | Optional. Comma-separated token addresses for a scoped repair; unset processes the full registry. |
 | `SECURITIZE_CLEAN_PRICES` | Optional. Set to `false` to retain existing cleaned histories. Default: true. |

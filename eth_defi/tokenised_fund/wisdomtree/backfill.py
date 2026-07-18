@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Backfill only WisdomTree WTGXX metadata and price history.
 
 This migration never removes an Ethereum-wide scan range. It upserts only the
@@ -8,7 +7,7 @@ history replacement is likewise restricted to its one ``VaultSpec`` id.
 
 Run with::
 
-    source .local-test.env && WISDOMTREE_DATASPAN_API_KEY=... poetry run python scripts/wisdomtree/backfill-history.py
+    source .local-test.env && WISDOMTREE_DATASPAN_API_KEY=... PROTOCOLS=wisdomtree poetry run python scripts/backfill-tokenised-funds.py
 """
 
 import datetime
@@ -25,7 +24,6 @@ from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.erc_4626.scan import create_vault_scan_record
-from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampDatabase
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
@@ -195,21 +193,16 @@ def upsert_selected_metadata(vault_db: VaultDatabase, *, end_block: int, row: di
         vault_db.last_scanned_block[chain_id] = previous_watermark
 
 
-def resolve_start_block(timestamp_cache_folder: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER) -> int:
-    """Choose a timestamp-cache-compatible WTGXX history start block.
+def resolve_start_block() -> int:
+    """Choose the earliest WTGXX history start block.
 
-    :param timestamp_cache_folder: Timestamp-cache directory.
-    :return: WTGXX deployment block or later cache boundary.
+    HyperSync fills any missing timestamp cache entries, so the scan starts at
+    deployment unless the operator explicitly supplies ``START_BLOCK``.
+
+    :return: Explicit override or the WTGXX deployment block.
     """
 
-    cache_file = BlockTimestampDatabase.get_database_file_chain(WTGXX_ETHEREUM.chain_id, timestamp_cache_folder)
-    if not cache_file.exists():
-        return WTGXX_ETHEREUM.first_seen_at_block
-    cache = BlockTimestampDatabase.load(WTGXX_ETHEREUM.chain_id, cache_file)
-    try:
-        return max(WTGXX_ETHEREUM.first_seen_at_block, cache.get_first_block())
-    finally:
-        cache.close()
+    return int(os.environ["START_BLOCK"]) if os.environ.get("START_BLOCK") else WTGXX_ETHEREUM.first_seen_at_block
 
 
 def run_backfill(
@@ -235,7 +228,7 @@ def run_backfill(
     :param reader_state_path: Reader-state pickle path.
     """
 
-    if scan_prices:
+    if not dry_run:
         require_price_scan_key()
     rpc_url = read_json_rpc_url(WTGXX_ETHEREUM.chain_id)
     web3 = create_multi_provider_web3(rpc_url)

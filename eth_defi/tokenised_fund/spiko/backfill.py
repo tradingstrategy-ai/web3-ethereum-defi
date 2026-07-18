@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Backfill only Ethereum Spiko USTBL metadata and NAV history.
 
 This generated migration is address-scoped: it merges the USTBL discovery row,
@@ -6,7 +5,7 @@ preserves the existing Ethereum discovery watermark and retains every unrelated
 reader-state, raw-Parquet and cleaned-Parquet entry. The supported daily NAV
 history starts with Spiko's official Oracle deployment.
 
-Run with ``source .local-test.env && poetry run python scripts/spiko/backfill-history.py``.
+Run with ``source .local-test.env && PROTOCOLS=spiko poetry run python scripts/backfill-tokenised-funds.py``.
 Set ``DRY_RUN=true`` to inspect the plan first. ``START_BLOCK``, ``END_BLOCK``,
 ``MAX_WORKERS``, ``VAULT_DB_PATH``, ``UNCLEANED_PRICE_DATABASE``,
 ``CLEANED_PRICE_DATABASE`` and ``READER_STATE_DATABASE`` are optional overrides.

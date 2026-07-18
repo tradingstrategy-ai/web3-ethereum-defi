@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Backfill only reviewed Libeara CMTAT fund histories.
 
 This migration preserves all unrelated vault metadata, discovery cursors,
@@ -24,6 +23,7 @@ from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histories
 from eth_defi.token import TokenDiskCache
+from eth_defi.tokenised_fund.libeara.backfill_ultra import main as backfill_ultra
 from eth_defi.tokenised_fund.libeara.constants import ETHEREUM_CHAIN_ID, LIBEARA_PRODUCTS, LibearaProduct
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
@@ -33,7 +33,7 @@ from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_ST
 logger = logging.getLogger(__name__)
 
 
-def _bool(name: str, default: bool) -> bool:
+def _bool(name: str, *, default: bool) -> bool:
     """Read an environment boolean.
 
     :param name: Variable name.
@@ -113,17 +113,18 @@ def upsert_libeara_metadata_preserving_discovery_cursor(vault_db: VaultDatabase,
     vault_db._merge_rows(rows)
 
 
-def main() -> None:  # noqa: PLR0914
+def backfill_cmtat() -> None:  # noqa: PLR0914
     """Run the address-scoped metadata and price-history migration.
 
     :return: None.
     """
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
     products = tuple(product for product in LIBEARA_PRODUCTS.values() if product.chain_id == ETHEREUM_CHAIN_ID)
-    dry_run = _bool("DRY_RUN", True)
+    dry_run = _bool("DRY_RUN", default=True)
     frequency = os.environ.get("FREQUENCY", "1d")
     if frequency not in {"1h", "1d"}:
-        raise ValueError("FREQUENCY must be 1h or 1d")
+        message = "FREQUENCY must be 1h or 1d"
+        raise ValueError(message)
     vault_db_path = _path("VAULT_DB_PATH", DEFAULT_VAULT_DATABASE)
     raw_path = _path("UNCLEANED_PRICE_DATABASE", DEFAULT_UNCLEANED_PRICE_DATABASE)
     clean_path = _path("CLEANED_PRICE_DATABASE", DEFAULT_RAW_PRICE_DATABASE)
@@ -143,7 +144,8 @@ def main() -> None:  # noqa: PLR0914
     upsert_libeara_metadata_preserving_discovery_cursor(vault_db, leads, rows)
     vault_db.write(vault_db_path)
     addresses = {p.token.lower() for p in products}
-    states = {spec: state for spec, state in _read_states(state_path).items() if spec.vault_address.lower() not in addresses}
+    target_specs = {VaultSpec(p.chain_id, p.token) for p in products}
+    states = {spec: state for spec, state in _read_states(state_path).items() if spec not in target_specs}
     vaults = []
     for product in products:
         vault = create_vault_instance(web3, product.token, features={ERC4626Feature.libeara_like}, token_cache=cache)
@@ -152,10 +154,26 @@ def main() -> None:  # noqa: PLR0914
         vault.first_seen_at_block = product.first_seen_at_block
         vaults.append(vault)
     hypersync = configure_hypersync_from_env(web3)
+    if hypersync.hypersync_client is None:
+        message = "Libeara history backfill requires HyperSync on Ethereum"
+        raise RuntimeError(message)
     result = scan_historical_prices_to_parquet(output_fname=raw_path, web3=web3, web3factory=MultiProviderWeb3Factory(web3_url, retries=5), vaults=vaults, start_block=start_block, end_block=end_block, max_workers=int(os.environ.get("MAX_WORKERS", "8")), chunk_size=32, token_cache=cache, frequency=frequency, reader_states=states, hypersync_client=hypersync.hypersync_client, vault_addresses=addresses)
     _write_states(state_path, result["reader_states"])
     replace_cleaned_vault_histories({VaultSpec(p.chain_id, p.token).as_string_id() for p in products}, vault_db_path=vault_db_path, raw_price_df_path=raw_path, cleaned_price_df_path=clean_path)
     cache.commit()
+
+
+def main() -> None:
+    """Backfill all reviewed Libeara products.
+
+    CUMIU and BELIF use their reviewed CMTAT NAV history. ULTRA is registered
+    separately because no verified public NAV/share source is available.
+
+    :return: None.
+    """
+
+    backfill_cmtat()
+    backfill_ultra()
 
 
 if __name__ == "__main__":

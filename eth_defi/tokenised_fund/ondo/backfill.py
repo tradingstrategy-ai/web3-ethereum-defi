@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Backfill reviewed Ondo tokenised-fund leads and NAV history.
 
 This is a targeted migration for the reviewed Ethereum USDY and OUSG tokens.
@@ -6,8 +5,8 @@ It upserts only those two leads and rewrites only their raw and cleaned price
 histories. Existing vault database rows and reader states belonging to other
 protocols are retained.
 
-Run with ``source .local-test.env && poetry run python
-scripts/ondo/backfill-history.py``. Set ``DRY_RUN=true`` to print the plan
+Run with ``source .local-test.env && PROTOCOLS=ondo poetry run python
+scripts/backfill-tokenised-funds.py``. Set ``DRY_RUN=true`` to print the plan
 without writes. ``ONDO_SCAN_PRICES=false`` updates metadata only;
 ``ONDO_CLEAN_PRICES=false`` skips the selected cleaned-history replacement.
 ``START_BLOCK``, ``END_BLOCK``, ``MAX_WORKERS``, ``FREQUENCY`` and the normal
@@ -18,6 +17,7 @@ targeted vault migrations.
 # The operational entry point keeps its environment-backed parameters local.
 # ruff: noqa: FBT001, PLR0914
 
+import logging
 import os
 import pickle  # noqa: S403 - trusted local production reader-state pickle.
 from pathlib import Path
@@ -42,6 +42,8 @@ from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
+
+logger = logging.getLogger(__name__)
 
 
 def parse_bool_env(name: str, default: bool) -> bool:
@@ -159,7 +161,7 @@ def main() -> None:
     end_block = int(os.environ.get("END_BLOCK", web3.eth.block_number))
     start_block = int(os.environ.get("START_BLOCK", min(product.first_seen_at_block for product in products)))
     plan = [{"product": product.product_name, "token": product.token, "start_block": start_block, "oracle_start": product.oracle_first_seen_at_block} for product in products]
-    print(tabulate(plan, headers="keys", tablefmt="github"))
+    logger.info("Ondo backfill plan\n%s", tabulate(plan, headers="keys", tablefmt="github"))
 
     token_cache = TokenDiskCache()
     vault_db = VaultDatabase.read(vault_db_path) if vault_db_path.exists() else VaultDatabase()
@@ -179,6 +181,10 @@ def main() -> None:
             assert vault is not None
             vault.first_seen_at_block = product.first_seen_at_block
             vaults.append(vault)
+        hypersync_config = configure_hypersync_from_env(web3)
+        if hypersync_config.hypersync_client is None:
+            message = "Ondo history backfill requires HyperSync on Ethereum"
+            raise RuntimeError(message)
         result = scan_historical_prices_to_parquet(
             output_fname=raw_price_path,
             web3=web3,
@@ -191,7 +197,7 @@ def main() -> None:
             token_cache=token_cache,
             frequency=frequency,
             reader_states=states,
-            hypersync_client=configure_hypersync_from_env(web3).hypersync_client,
+            hypersync_client=hypersync_config.hypersync_client,
             vault_addresses=vault_ids,
         )
         write_reader_states(reader_state_path, result["reader_states"])

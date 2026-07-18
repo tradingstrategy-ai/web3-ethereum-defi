@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Register reviewed Libeara ULTRA metadata without inventing price history.
 
 ULTRA has no verified public NAV/share source. This address-scoped migration

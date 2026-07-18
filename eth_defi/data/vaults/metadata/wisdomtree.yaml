@@ -6,6 +6,8 @@ long_description: |
   WisdomTree issues digital representations of fund shares through its WisdomTree Connect platform. The initial integration covers WTGXX, a Treasury money market fund that seeks current income while preserving capital and liquidity and maintaining a stable one-dollar net asset value per share.
 
   WTGXX is available only through WisdomTree's eligibility and wallet-permissioning processes. Token holders should not treat ordinary blockchain transfers as a complete subscription, redemption or settlement process; the transfer agent remains the official recordkeeper and the fund can impose compliance controls.
+
+  WisdomTree's historical net asset value data is not publicly available. Access requires approval from WisdomTree and a private DataSpan API key.
 fee_description: |
   WisdomTree publishes a 0.25% annual expense ratio for WTGXX. The cost is reflected in the fund's returns and net asset value rather than exposed as a public on-chain deposit or withdrawal fee. Investors may also incur blockchain transaction costs and any charges imposed by their payment or custody arrangements.
 links:

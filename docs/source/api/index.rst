@@ -38,6 +38,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    core3/index
    feed/index
    erc_4626/index
+   tokenised_fund/index
    enzyme/index
    aera/index
    asseto/index

@@ -1,28 +1,22 @@
 """Regression tests for the address-scoped Spiko USTBL migration."""
 
-import importlib.util
 from pathlib import Path
 
 import pytest
 
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.tokenised_fund.spiko import backfill
 from eth_defi.tokenised_fund.spiko.constants import USTBL_ORACLE_FIRST_SEEN_AT_BLOCK
 from eth_defi.vault.base import VaultSpec
 
 
 @pytest.fixture
 def backfill_history_module():
-    """Load the migration script as a module.
+    """Return the Spiko backfill module.
 
     :return: Imported script module.
     """
-    script_path = Path(__file__).parents[2] / "scripts" / "spiko" / "backfill-history.py"
-    spec = importlib.util.spec_from_file_location("spiko_backfill_history", script_path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return backfill
 
 
 def test_spiko_backfill_starts_at_oracle(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:

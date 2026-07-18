@@ -1,10 +1,8 @@
 """Test Libeara ULTRA classification and supply-only behaviour."""
 
 import datetime
-import importlib.util
 import os
 from decimal import Decimal
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -13,6 +11,7 @@ from eth_defi.erc_4626.classification import create_vault_instance, identify_vau
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.tokenised_fund.libeara import backfill_ultra
 from eth_defi.tokenised_fund.libeara.constants import ARBITRUM_CHAIN_ID, LIBEARA_HARDCODED_LEADS, LIBEARA_ULTRA_ARBITRUM
 from eth_defi.tokenised_fund.libeara.historical import LibearaVaultHistoricalReader
 from eth_defi.tokenised_fund.libeara.vault import LIBEARA_NAV_UNAVAILABLE_ERROR_PREFIX, LIBEARA_RESTRICTED_FLOW_REASON, LibearaVault
@@ -44,18 +43,12 @@ class DummyUltraVault:
 
 @pytest.fixture
 def backfill_ultra_module():
-    """Load the hyphenated ULTRA migration as a module.
+    """Return the Libeara ULTRA backfill module.
 
     :return: Imported migration module.
     """
 
-    script_path = Path(__file__).parents[2] / "scripts" / "libeara" / "backfill-ultra.py"
-    spec = importlib.util.spec_from_file_location("libeara_backfill_ultra", script_path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return backfill_ultra
 
 
 def test_libeara_ultra_hardcoded_classification_is_chain_aware() -> None:

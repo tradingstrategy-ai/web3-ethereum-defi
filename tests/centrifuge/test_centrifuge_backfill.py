@@ -1,12 +1,11 @@
 """Regression tests for the scoped Centrifuge JTRSY migration."""
 
-import importlib.util
-from pathlib import Path
 from types import ModuleType
 
 import pytest
 
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
+from eth_defi.tokenised_fund.centrifuge import backfill
 from eth_defi.tokenised_fund.centrifuge.constants import ETHEREUM_CHAIN_ID, JTRSY_ETHEREUM
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -18,15 +17,9 @@ OTHER_CHAIN_CURSOR = 25_000_000
 
 @pytest.fixture
 def backfill_jtrsy_module() -> ModuleType:
-    """Load the hyphenated JTRSY migration as a Python module."""
+    """Return the Centrifuge backfill module."""
 
-    script_path = Path(__file__).parents[2] / "scripts" / "centrifuge" / "backfill-jtrsy.py"
-    spec = importlib.util.spec_from_file_location("centrifuge_backfill_jtrsy", script_path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return backfill
 
 
 @pytest.mark.parametrize("existing_cursor", [None, EXISTING_ETHEREUM_CURSOR])
