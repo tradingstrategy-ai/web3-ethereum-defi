@@ -31,6 +31,12 @@ class ERC4626Feature(enum.Enum):
 
     - Flag ERC-4626 matches in the scan with features detected from the smart contract probes
     - Use name/known calls to flag the protocol for which the vault belongs
+
+    Feature values are persisted in :class:`eth_defi.vault.vaultdb.VaultDatabase`
+    pickles. Removing or renaming a value breaks existing vault databases at
+    unpickling time. Any such migration must add a value-level compatibility
+    case in :meth:`_missing_` that maps the retired value to its canonical
+    replacement; see `PR #1318 <https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1318>`__.
     """
 
     #: Failed when probing with multicall, Deposit() event likely for other protocol
@@ -123,11 +129,31 @@ class ERC4626Feature(enum.Enum):
     #: Theo multi-asset iToken tokenised funds.
     theo_itoken_like = "theo_itoken_like"
 
-    #: Maseer One tokenised asset contracts.
+    #: wstGBP tokenised asset contracts.
     #:
-    #: Routing marker for non-ERC-4626 Maseer One instruments that are read
+    #: Routing marker for the non-ERC-4626 wstGBP instrument that is read
     #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
-    maseer_one_like = "maseer_one_like"
+    wstgbp_like = "wstgbp_like"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "ERC4626Feature | None":
+        """Map retired feature values retained in persisted vault databases.
+
+        Vault discovery state is pickled, and enum unpickling resolves members
+        by their value. ``maseer_one_like`` was renamed to ``wstgbp_like``;
+        retain this value-level migration so existing scan databases remain
+        readable without reclassification or data loss.
+
+        :param value:
+            Serialised enum value.
+        :return:
+            Canonical enum member for a retired value, or ``None`` when the
+            value is unknown.
+        """
+
+        if value == "maseer_one_like":
+            return cls.wstgbp_like
+        return None
 
     #: Vault Street permissioned tokenised investment products.
     #:
@@ -905,8 +931,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Sygnum"
     elif ERC4626Feature.theo_itoken_like in features:
         return "Theo"
-    elif ERC4626Feature.maseer_one_like in features:
-        return "Maseer One"
+    elif ERC4626Feature.wstgbp_like in features:
+        return "wstGBP"
     elif ERC4626Feature.vault_street_like in features:
         return "Vault Street"
     elif ERC4626Feature.morpho_like in features:

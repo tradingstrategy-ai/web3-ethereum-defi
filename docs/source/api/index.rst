@@ -51,7 +51,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    mellow/index
    ipor/index
    kiloex/index
-   maseer_one/index
+   wstgbp/index
    midas/index
    kinexys/index
    securitize/index

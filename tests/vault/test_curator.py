@@ -40,6 +40,22 @@ def test_securitize_fund_curator_metadata_includes_logo() -> None:
         assert metadata["logos"]["generic"] == f"https://example.com/curator-metadata/{slug}/generic.png"
 
 
+def test_identify_wstgbp_as_protocol_curated() -> None:
+    """wstGBP has no third-party curator."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="wstGBP",
+        vault_name="wstGBP",
+        vault_address="0x57c3571f10767e49c9d7b60feb6c67804783b7ae",
+        protocol_slug="wstgbp",
+    )
+
+    assert slug == "wstgbp"
+    assert is_protocol_curator(slug)
+    assert get_curator_name(slug) == "wstGBP"
+
+
 def test_identify_felix_vault() -> None:
     """Felix Morpho vault names resolve to the Felix curator.
 
@@ -633,6 +649,27 @@ def test_identify_gains_network_protocol_curator() -> None:
     assert slug == "gains-network"
     assert is_protocol_curator("gains-network")
     assert get_curator_name("gains-network") == "Gains Network"
+
+
+def test_identify_d2_finance_protocol_curator() -> None:
+    """D2 HYPE++ resolves to the D2 Finance protocol curator.
+
+    D2 Finance's documented strategy vault architecture has the D2 trading
+    team execute each vault's strategy through the protocol's trader/OMS
+    infrastructure, so D2 protocol vaults are not inferred from their names.
+    """
+
+    slug = identify_curator(
+        chain_id=42161,
+        vault_token_symbol="HYPE++",
+        vault_name="HYPE++",
+        vault_address="0x75288264fdfea8ce68e6d852696ab1ce2f3e5004",
+        protocol_slug="d2-finance",
+    )
+
+    assert slug == "d2-finance"
+    assert get_curator_name(slug) == "D2 Finance"
+    assert is_protocol_curator(slug)
 
 
 def test_identify_3jane_protocol_curator() -> None:

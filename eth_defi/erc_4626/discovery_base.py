@@ -28,7 +28,6 @@ from eth_defi.abi import get_contract
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import ODA_FACT_HARDCODED_LEADS, probe_vaults
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_erc_4626_contract
-from eth_defi.maseer_one.constants import MASEER_ONE_HARDCODED_LEADS
 from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_HARDCODED_LEADS
@@ -44,6 +43,7 @@ from eth_defi.tokenised_fund.wisdomtree.constants import WISDOMTREE_HARDCODED_LE
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault_street.constants import VAULT_STREET_HARDCODED_LEADS
+from eth_defi.wstgbp.constants import WSTGBP_HARDCODED_LEADS
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ HardcodedVaultLeadSources: TypeAlias = tuple[HardcodedVaultLeadSource, ...]
 DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
     ("ODA-FACT", ODA_FACT_HARDCODED_LEADS),
     ("Midas", MIDAS_HARDCODED_LEADS),
-    ("Maseer One", MASEER_ONE_HARDCODED_LEADS),
+    ("wstGBP", WSTGBP_HARDCODED_LEADS),
     ("Vault Street", VAULT_STREET_HARDCODED_LEADS),
     ("Ondo", ONDO_HARDCODED_LEADS),
     ("Circle USYC", USYC_HARDCODED_LEADS),

@@ -91,9 +91,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # USTB product-level fees are governed by fund documents, not exposed by
     # the permissioned token contract.
     "Superstate": None,
-    # Maseer One applies mint and redemption spreads through mintcost() and
+    # wstGBP applies mint and redemption spreads through mintcost() and
     # burncost(), reducing the user's issued shares or redeemed assets.
-    "Maseer One": VaultFeeMode.externalised,
+    "wstGBP": VaultFeeMode.externalised,
     # Vault Street's 0.5% protocol fee accrues daily and is deducted from the
     # primeUSD vault. The product page lists a 0% performance fee.
     # https://app.vaultstreet.com/

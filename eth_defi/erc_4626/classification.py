@@ -21,7 +21,6 @@ from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVIN
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
-from eth_defi.maseer_one.constants import MASEER_ONE_WSTGBP
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_PRODUCTS, CENTRIFUGE_TRANCHE_PRODUCTS_BY_TOKEN
@@ -37,6 +36,7 @@ from eth_defi.tokenised_fund.wisdomtree.constants import WISDOMTREE_PRODUCTS, WI
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
+from eth_defi.wstgbp.constants import WSTGBP
 
 logger = logging.getLogger(__name__)
 
@@ -131,14 +131,14 @@ SYGNUM_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.sygnum_like} for products i
 #: Theo iTokens are multi-asset fund tokens, not standard ERC-4626 vaults.
 THEO_ITOKEN_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.theo_itoken_like} for token in THEO_ITOKEN_PRODUCTS_BY_TOKEN}
 
-#: Maseer One hardcoded classification flags.
+#: wstGBP hardcoded classification flags.
 #:
-#: This is deliberately address-only for the initial rollout. Maseer One does
+#: This is deliberately address-only for the initial rollout. wstGBP does
 #: not yet have a production track record or large vault deployments that
 #: warrant maintaining a chain-specific deployment registry. Revisit this
 #: allow-list when a material multi-chain deployment is added.
-MASEER_ONE_HARDCODED_PROTOCOLS = {
-    MASEER_ONE_WSTGBP.vault: {ERC4626Feature.maseer_one_like},
+WSTGBP_HARDCODED_PROTOCOLS = {
+    WSTGBP.vault: {ERC4626Feature.wstgbp_like},
 }
 
 #: KiloEx Hybrid Vaults reuse a Gains-compatible contract surface. Classify
@@ -1861,10 +1861,10 @@ def create_vault_instance(
         from eth_defi.tokenised_fund.theo.vault import TheoITokenVault
 
         return TheoITokenVault(web3, spec, **kwargs)
-    elif ERC4626Feature.maseer_one_like in features:
-        from eth_defi.maseer_one.vault import MaseerOneVault
+    elif ERC4626Feature.wstgbp_like in features:
+        from eth_defi.wstgbp.vault import WSTGBPVault
 
-        return MaseerOneVault(web3, spec, **kwargs)
+        return WSTGBPVault(web3, spec, **kwargs)
     elif ERC4626Feature.vault_street_like in features:
         from eth_defi.vault_street.vault import VaultStreetVault
 
@@ -2317,7 +2317,7 @@ HARDCODED_PROTOCOLS = {
     **SPIKO_HARDCODED_PROTOCOLS,
     **SYGNUM_HARDCODED_PROTOCOLS,
     **THEO_ITOKEN_HARDCODED_PROTOCOLS,
-    **MASEER_ONE_HARDCODED_PROTOCOLS,
+    **WSTGBP_HARDCODED_PROTOCOLS,
     **KILOEX_HARDCODED_PROTOCOLS,
     **FRANKENCOIN_HARDCODED_PROTOCOLS,
     **VAULT_STREET_HARDCODED_PROTOCOLS,

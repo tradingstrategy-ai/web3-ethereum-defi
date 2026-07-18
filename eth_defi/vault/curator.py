@@ -164,6 +164,7 @@ CURATORS_DATA_DIR: Path = Path(__file__).parent.parent / "data" / "feeds" / "cur
 PROTOCOL_CURATED_SLUGS: set[str] = {
     "sygnum",
     "atoma",
+    "d2-finance",
     "frankencoin",
     "gains-network",
     "ostium",
@@ -171,6 +172,7 @@ PROTOCOL_CURATED_SLUGS: set[str] = {
     "domination-finance",
     "3jane",
     "usyc",
+    "wstgbp",
 }
 
 #: Legacy protocol slug aliases that should resolve to the canonical
@@ -199,6 +201,7 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
 #: slug matches a protocol rather than a third-party curator YAML file.
 PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "atoma": "Atoma",
+    "d2-finance": "D2 Finance",
     "frankencoin": "Frankencoin",
     "gains-network": "Gains Network",
     "ostium": "Ostium",
@@ -212,6 +215,7 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "spiko-curator": "Spiko",
     "sygnum": "Sygnum",
     "theo-curator": "Theo",
+    "wstgbp": "wstGBP",
 }
 
 #: Additional name patterns for curator matching.
