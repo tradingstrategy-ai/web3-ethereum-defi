@@ -33,6 +33,9 @@ def test_implicit_all_skips_private_wisdomtree_history_without_key(monkeypatch: 
     """Keep the one-command all-protocol workflow usable without private data."""
 
     monkeypatch.delenv(backfill.WISDOMTREE_DATASPAN_API_KEY_ENV, raising=False)
+    # Register an original value before deleting it so direct os.environ writes
+    # made by the function under test are removed during monkeypatch teardown.
+    monkeypatch.setenv("WISDOMTREE_SCAN_PRICES", "test-original")
     monkeypatch.delenv("WISDOMTREE_SCAN_PRICES", raising=False)
 
     backfill.configure_optional_private_backfills(None, tuple(backfill.PROTOCOL_BACKFILLS))
