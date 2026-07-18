@@ -4,6 +4,35 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import ast
+
+
+# Sphinx 4.5 still checks for ``ast.Str`` when extracting attribute docstrings.
+# Python 3.14 removed that compatibility alias and the legacy ``.s`` field from
+# string constants. Keep this shim local to documentation builds until Sphinx
+# can be upgraded together with the other pinned documentation dependencies.
+if not hasattr(ast, "Str"):
+
+    class _AstStrCompatibilityMeta(type):
+        """Recognise only string-valued Python 3.14 AST constants."""
+
+        def __instancecheck__(cls, instance: object) -> bool:
+            """Emulate the legacy ``isinstance(node, ast.Str)`` check.
+
+            :param instance:
+                AST value inspected by Sphinx.
+            :return:
+                ``True`` only for string-valued constants.
+            """
+
+            return isinstance(instance, ast.Constant) and isinstance(instance.value, str)
+
+    class _AstStrCompatibility(metaclass=_AstStrCompatibilityMeta):
+        """Stand in for the removed ``ast.Str`` runtime type."""
+
+    ast.Str = _AstStrCompatibility  # type: ignore[attr-defined,misc]
+    ast.Constant.s = property(lambda node: node.value)  # type: ignore[attr-defined]
+
 # -- Project information -----------------------------------------------------
 
 
