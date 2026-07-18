@@ -1,17 +1,18 @@
 feeder-id: apollo
 name: Apollo
 role: curator
-website: https://www.apollo.com/aboutus
-linkedin: apollo-global-management-inc
-short_description: Apollo is a global alternative asset manager and capital provider offering credit, private equity and retirement solutions.
+website: https://www.apollo.com/
+short_description: Apollo is a global alternative asset manager with private credit strategies.
 long_description: |
-  Apollo is a global alternative asset manager and capital provider. Its investment platform spans credit, private equity and real assets, alongside retirement-services businesses.
+  Apollo is a global alternative asset manager. The vault metrics JSON uses
+  ``apollo`` as the curator identity for Ember Apollo ACRED, an Ember vault
+  linked to Apollo credit exposure.
 
-  For this integration, Apollo is the curator of the Apollo Diversified Credit Securitize Fund (ACRED). ACRED is a Securitize-managed feeder fund that provides qualifying investors with exposure to Apollo Diversified Credit Fund.
+  This is intentionally distinct from ``apollo-crypto``, the separate
+  Australian crypto-asset fund manager that curates Midas mAPOLLO products.
+  The two identities have different official websites and logos.
 other-links:
-  - title: Apollo official company overview
-    url: https://www.apollo.com/aboutus
-  - title: Securitize announcement - Apollo partnership and ACRED launch
-    url: https://investors.securitize.io/news/news-details/2025/Apollo-and-Securitize-Announce-Partnership-and-Launch-Tokenized-Access-to-Credit-Fund-on-Aptos-Avalanche-Ethereum-Ink-Polygon-and-Solana-Networks-01-30-2025/default.aspx
-  - title: Securitize ACRED fund page
-    url: https://securitize.io/primary-market/apollo-diversified-credit-securitize-fund
+  - title: Apollo credit strategy overview
+    url: https://www.apollo.com/strategies/asset-management/credit
+  - title: Ember Apollo ACRED vault
+    url: https://ember.so/earn
