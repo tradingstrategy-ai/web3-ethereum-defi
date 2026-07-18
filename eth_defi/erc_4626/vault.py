@@ -514,6 +514,36 @@ class VaultReaderState(BatchCallState):
         # Diagnostics counter
         self.entry_count += 1
 
+    def on_unpriced_call(self, result: "EncodedCallResult") -> None:
+        """Update adaptive scan state for a successful supply-only read.
+
+        Some tokenised funds expose their share supply but no reviewed scalar
+        NAV or TVL. They still need persistent reader state so the stateful
+        scanner can cache token metadata, advance its last-read block and
+        throttle historical calls. Zero values are internal scheduling
+        sentinels only; the exported historical row must continue to expose
+        ``None`` for its share price and total assets.
+
+        :param result:
+            Successful supply call carrying a block number and timestamp.
+        """
+
+        assert result.success, f"Cannot update unpriced reader state from failed call: {result}"
+        assert result.timestamp, f"EncodedCallResult {result} has no timestamp, cannot update state"
+
+        timestamp = result.timestamp
+        if self.first_read_at is None:
+            self.first_read_at = timestamp
+        if self.first_block is None:
+            self.first_block = result.block_identifier
+
+        # Scheduling sentinels only: unpriced rows still export NAV and TVL as None.
+        self.last_tvl = Decimal(0)
+        self.last_share_price = Decimal(0)
+        self.last_call_at = timestamp
+        self.last_block = result.block_identifier
+        self.entry_count += 1
+
     def pformat(self) -> str:
         """Pretty print the current state."""
         lines = []

@@ -12,6 +12,7 @@ import pytest
 from eth_defi.erc_4626.classification import create_vault_instance, create_vault_instance_autodetect, identify_vault_features
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.scan import create_vault_scan_record
+from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
@@ -49,6 +50,8 @@ def test_thbill_adapter_blocks_unreviewed_public_flows() -> None:
     assert vault.get_deposit_manager_capability() is None
     with pytest.raises(NotImplementedError, match="KYC approval"):
         vault.get_deposit_manager()
+    reader = vault.get_historical_reader(stateful=True)
+    assert isinstance(reader.reader_state, VaultReaderState)
 
 
 def test_thbill_history_never_invents_price_or_tvl() -> None:
@@ -56,6 +59,7 @@ def test_thbill_history_never_invents_price_or_tvl() -> None:
 
     reader = TheoITokenHistoricalReader.__new__(TheoITokenHistoricalReader)
     reader.vault = SimpleNamespace(address=THBILL_ETHEREUM.token, share_token=SimpleNamespace(convert_to_decimals=lambda raw_amount: Decimal(raw_amount) / Decimal(10**6)))
+    reader.reader_state = None
     call = EncodedCall(func_name="totalSupply", address=THBILL_ETHEREUM.token, data=b"", extra_data={"function": "totalSupply", "vault": THBILL_ETHEREUM.token})
     read = reader.process_result(123, datetime.datetime(2026, 7, 17, tzinfo=datetime.UTC).replace(tzinfo=None), [EncodedCallResult(call=call, success=True, result=(123_456_789).to_bytes(32, "big"), block_identifier=123)])
     assert read.total_supply == Decimal("123.456789")

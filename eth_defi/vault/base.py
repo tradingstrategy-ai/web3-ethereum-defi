@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Iterable, Tuple, TypedDict
 from eth_typing import BlockIdentifier, BlockNumber, HexAddress
 from web3 import Web3
 
-from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult
 from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
 from eth_defi.utils import is_good_multichain_address
@@ -838,6 +838,7 @@ class VaultHistoricalReader(ABC):
     def __init__(self, vault: "VaultBase"):
         assert isinstance(vault, VaultBase)
         self.vault = vault
+        self.reader_state: BatchCallState | None = None
 
     @property
     def first_block(self) -> int | None:

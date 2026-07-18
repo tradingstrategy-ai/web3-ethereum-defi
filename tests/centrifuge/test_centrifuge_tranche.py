@@ -14,6 +14,7 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance, create_vault_instance_autodetect, identify_vault_features
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.scan import create_vault_scan_record
+from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
@@ -104,6 +105,8 @@ def test_jtrsy_adapter_blocks_public_flows() -> None:
 
     with pytest.raises(NotImplementedError, match="not the subscription/redemption vault"):
         vault.get_deposit_manager()
+    reader = vault.get_historical_reader(stateful=True)
+    assert isinstance(reader.reader_state, VaultReaderState)
 
 
 def test_jtrsy_history_never_invents_price_or_tvl() -> None:
@@ -111,6 +114,7 @@ def test_jtrsy_history_never_invents_price_or_tvl() -> None:
 
     reader = CentrifugeTrancheHistoricalReader.__new__(CentrifugeTrancheHistoricalReader)
     reader.vault = DummyTrancheVault()
+    reader.reader_state = None
     call = EncodedCall(
         func_name="totalSupply",
         address=JTRSY_ETHEREUM.token,

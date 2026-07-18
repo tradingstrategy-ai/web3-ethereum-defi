@@ -1,13 +1,14 @@
 """Historical reads for Centrifuge permissioned tranche tokens."""
 
 # Reader classes intentionally mirror :class:`VaultHistoricalReader` signatures.
-# ruff: noqa: ARG002, FBT001
+# ruff: noqa: FBT001
 
 import datetime
 from collections.abc import Iterable
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
@@ -35,7 +36,7 @@ class CentrifugeTrancheHistoricalReader(VaultHistoricalReader):
         """
 
         super().__init__(vault)
-        self.reader_state = None
+        self.reader_state = VaultReaderState(vault) if stateful else None
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         """Construct the ERC-20 supply read.
@@ -69,12 +70,17 @@ class CentrifugeTrancheHistoricalReader(VaultHistoricalReader):
         """
 
         total_supply: Decimal | None = None
+        state_result: EncodedCallResult | None = None
         errors = ["Centrifuge Tranche token has no on-chain NAV/share source; linked vault valuation is not configured"]
         for result in call_results:
             if result.call.extra_data.get("function") == "totalSupply" and result.success:
                 total_supply = self.vault.share_token.convert_to_decimals(convert_int256_bytes_to_int(result.result))
+                state_result = result
             elif result.call.extra_data.get("function") == "totalSupply":
                 errors.append("Centrifuge Tranche totalSupply call failed")
+
+        if self.reader_state is not None and state_result is not None:
+            self.reader_state.on_unpriced_call(state_result)
 
         return VaultHistoricalRead(
             vault=self.vault,

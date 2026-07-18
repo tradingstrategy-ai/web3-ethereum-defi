@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
@@ -27,12 +28,11 @@ class TheoITokenHistoricalReader(VaultHistoricalReader):
         """Create a supply-only iToken reader.
 
         :param vault: Theo iToken adapter.
-        :param stateful: Ignored as no scalar price call can update reader state.
+        :param stateful: Whether to retain supply-only adaptive reader state.
         """
 
         super().__init__(vault)
-        _ = stateful
-        self.reader_state = None
+        self.reader_state = VaultReaderState(vault) if stateful else None
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         """Construct the ERC-20 supply read.
@@ -56,14 +56,19 @@ class TheoITokenHistoricalReader(VaultHistoricalReader):
         """
 
         total_supply: Decimal | None = None
+        state_result: EncodedCallResult | None = None
         errors = ["Theo thBILL iToken has no reviewed scalar NAV/share source; basket valuation is not configured"]
         for result in call_results:
             if result.call.extra_data.get("function") != "totalSupply":
                 continue
             if result.success:
                 total_supply = self.vault.share_token.convert_to_decimals(convert_int256_bytes_to_int(result.result))
+                state_result = result
             else:
                 errors.append("Theo thBILL totalSupply call failed")
+
+        if self.reader_state is not None and state_result is not None:
+            self.reader_state.on_unpriced_call(state_result)
 
         return VaultHistoricalRead(
             vault=self.vault,

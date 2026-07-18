@@ -148,8 +148,31 @@ class VaultHistoricalReadMulticaller:
                     raise VaultReadNotSupported(f"Vault {vault} has denomination token {denomination_token} which is not supported denomination token set: {self.supported_quote_tokens}")
 
     def _prepare_reader(self, vault: VaultBase, stateful=False) -> VaultHistoricalReader:
-        """Run in subprocess"""
-        return vault.get_historical_reader(stateful=stateful)
+        """Create a historical reader and validate its state contract.
+
+        Stateful multicall filtering requires every call to have a
+        :class:`~eth_defi.event_reader.multicall_batcher.BatchCallState`.
+        Validate this at construction so a new protocol reader cannot fail
+        later in token preparation or inside a joblib worker with an obscure
+        missing-attribute error.
+
+        :param vault:
+            Vault adapter creating the protocol-specific reader.
+        :param stateful:
+            Whether persistent adaptive scan state is required.
+        :return:
+            Validated protocol-specific historical reader.
+        :raise TypeError:
+            If a stateful reader does not initialise ``reader_state``.
+        """
+
+        reader = vault.get_historical_reader(stateful=stateful)
+        vault_id = f"{vault.__class__.__name__} at {vault.address}"
+        if not isinstance(reader, VaultHistoricalReader):
+            raise TypeError(f"{vault_id} returned invalid historical reader {reader!r}")
+        if stateful and not isinstance(reader.reader_state, BatchCallState):
+            raise TypeError(f"{reader.__class__.__name__} did not initialise a BatchCallState reader_state for a stateful scan of {vault_id}")
+        return reader
 
     def _prepare_denomination_token(self, reader: "eth_defi.erc_4626.vault.ERC4626HistoricalReader") -> HexAddress:
         """Run in subprocess"""
