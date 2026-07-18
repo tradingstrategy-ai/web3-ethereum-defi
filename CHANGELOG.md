@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Backfill HKD exchange rates and keep HKD-denominated Asseto histories out of the stablecoin-only cleaned dataset (2026-07-18)
 - feat: Add a protocol-selectable generic HyperSync backfill command for tokenised funds (2026-07-17)
 - feat: Start hardcoded tokenised-fund protocol coverage with an EVM integration roadmap (2026-07-17)
 - feat: Add Ondo USDY and OUSG tokenised-fund support with issuer NAV history and curator attribution (2026-07-17)

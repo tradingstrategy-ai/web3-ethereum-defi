@@ -83,7 +83,7 @@ from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
 from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histories
-from eth_defi.token import TokenDiskCache
+from eth_defi.token import TokenDiskCache, is_stablecoin_like
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, AssetoProduct
 from eth_defi.tokenised_fund.asseto.offchain_api import AssetoOffchainProduct, fetch_asseto_products
 from eth_defi.utils import setup_console_logging
@@ -411,6 +411,32 @@ def build_vaults(web3: Web3, products: list[AssetoProduct], token_cache: TokenDi
     return vaults
 
 
+def select_cleanable_vault_ids(products: Iterable[AssetoProduct], rows: dict[VaultSpec, dict]) -> set[str]:
+    """Select Asseto histories supported by the stablecoin-only cleaner.
+
+    Asseto publishes products denominated in currencies such as HKD. Their raw
+    NAV histories are valid, but the shared cleaned-price pipeline deliberately
+    filters out denominations not recognised by :func:`is_stablecoin_like`.
+    Passing those identifiers to the strict replacement helper would make it
+    interpret the expected filtering as accidental data loss.
+
+    :param products:
+        Asseto products whose raw histories were scanned.
+    :param rows:
+        Fresh vault metadata rows keyed by vault specification.
+    :return:
+        Canonical vault identifiers eligible for cleaned-history replacement.
+    """
+
+    cleanable_ids: set[str] = set()
+    for product in products:
+        spec = VaultSpec(product.chain_id, product.token)
+        denomination = rows[spec].get("Denomination")
+        if is_stablecoin_like(denomination):
+            cleanable_ids.add(spec.as_string_id())
+    return cleanable_ids
+
+
 def fetch_contract_deployment_block(web3: Web3, address: HexAddress, end_block: int) -> int:
     """Find the first block containing runtime code for an Asseto token.
 
@@ -603,12 +629,25 @@ def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps 
             write_reader_states(reader_state_database_path, reader_states)
             scan_summary = pformat_scan_result(scan_result)
             if clean_prices:
-                cleaned_rows = replace_cleaned_vault_histories(
-                    {VaultSpec(product.chain_id, product.token).as_string_id() for product in scanned_products},
-                    vault_db_path=vault_db_path,
-                    raw_price_df_path=price_database_path,
-                    cleaned_price_df_path=cleaned_price_database_path,
-                    logger=logger.info,
+                cleanable_ids = select_cleanable_vault_ids(scanned_products, rows)
+                scanned_ids = {VaultSpec(product.chain_id, product.token).as_string_id() for product in scanned_products}
+                skipped_ids = scanned_ids - cleanable_ids
+                if skipped_ids:
+                    logger.warning(
+                        "Keeping raw history but skipping cleaned-history replacement for %d Asseto vaults with unsupported denominations: %s",
+                        len(skipped_ids),
+                        ", ".join(sorted(skipped_ids)),
+                    )
+                cleaned_rows = (
+                    replace_cleaned_vault_histories(
+                        cleanable_ids,
+                        vault_db_path=vault_db_path,
+                        raw_price_df_path=price_database_path,
+                        cleaned_price_df_path=cleaned_price_database_path,
+                        logger=logger.info,
+                    )
+                    if cleanable_ids
+                    else 0
                 )
                 scan_summary = f"{scan_summary}; cleaned_rows={cleaned_rows:,}"
 

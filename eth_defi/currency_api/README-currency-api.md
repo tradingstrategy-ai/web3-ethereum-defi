@@ -3,7 +3,7 @@
 ## Overview
 
 Incrementally scans daily historical exchange rates for a configurable set of
-named currencies (default: EUR, GBP, JPY, AUD, SGD, TRY, CHF, CAD, BTC, ETH
+named currencies (default: EUR, GBP, JPY, AUD, SGD, HKD, TRY, CHF, CAD, BTC, ETH
 against USD) and stores them in a DuckDB database. The data is sourced from the **fawazahmed0 Exchange API**
 (`@fawazahmed0/currency-api`).
 
@@ -178,7 +178,7 @@ LOG_LEVEL=info START_DATE=2026-06-01 END_DATE=2026-06-05 \
   poetry run scan-currencies
 
 # Add more currencies (no schema change; history backfills automatically)
-QUOTE_CURRENCIES=eur,gbp,jpy,aud,sgd,try,chf,cad,btc,eth,sol \
+QUOTE_CURRENCIES=eur,gbp,jpy,aud,sgd,hkd,try,chf,cad,btc,eth,sol \
   poetry run scan-currencies
 
 # Use a non-USD base
@@ -196,7 +196,7 @@ poetry run python -m eth_defi.currency_api.cli
 | `LOG_LEVEL` | `warning` | Logging level |
 | `DB_PATH` | `~/.tradingstrategy/currency-api/exchange-rates.duckdb` | DuckDB database path |
 | `BASE_CURRENCY` | `usd` | Base currency |
-| `QUOTE_CURRENCIES` | `eur,gbp,jpy,aud,sgd,try,chf,cad,btc,eth` | Comma-separated quote currencies |
+| `QUOTE_CURRENCIES` | `eur,gbp,jpy,aud,sgd,hkd,try,chf,cad,btc,eth` | Comma-separated quote currencies |
 | `START_DATE` | *(resume / earliest)* | `YYYY-MM-DD` lower bound (small-batch testing) |
 | `END_DATE` | *(today, UTC)* | `YYYY-MM-DD` upper bound (small-batch testing) |
 | `MAX_WORKERS` | `8` | Parallel date fetchers (threaded) |

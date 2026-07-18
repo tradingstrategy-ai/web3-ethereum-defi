@@ -9,6 +9,7 @@ from eth_defi.chain import CHAIN_NAMES
 from eth_defi.tokenised_fund.asseto import backfill
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY
 from eth_defi.tokenised_fund.asseto.offchain_api import AssetoOffchainProduct
+from eth_defi.vault.base import VaultSpec
 
 EXPLICIT_START_BLOCK = 123_456
 
@@ -106,6 +107,19 @@ def test_build_vaults_skips_product_without_denomination_address(monkeypatch: py
     monkeypatch.setattr(backfill_history_module, "create_vault_instance", unexpected_vault_creation)
 
     assert backfill_history_module.build_vaults(object(), [product_without_collateral], object()) == []
+
+
+def test_select_cleanable_vault_ids_excludes_hkd_products(backfill_history_module) -> None:
+    """Keep HKD Asseto histories raw without passing them to the USD cleaner."""
+
+    usdc_product = replace(ASSETO_AOABT_HASHKEY, chain_id=1, token="0x4867ad1a74b38b0aeff4fff251ed0dadae4f4630", symbol="CFSRS")
+    hkd_product = replace(ASSETO_AOABT_HASHKEY, chain_id=1, token="0x6dc4674573380aff6c3359e19da5cbb6afceb5c3", symbol="CFSAI")
+    rows = {
+        VaultSpec(usdc_product.chain_id, usdc_product.token): {"Denomination": "USDC"},
+        VaultSpec(hkd_product.chain_id, hkd_product.token): {"Denomination": "HKD"},
+    }
+
+    assert backfill_history_module.select_cleanable_vault_ids([usdc_product, hkd_product], rows) == {VaultSpec(usdc_product.chain_id, usdc_product.token).as_string_id()}
 
 
 def test_resolve_price_scan_start_block_uses_asseto_deployment(

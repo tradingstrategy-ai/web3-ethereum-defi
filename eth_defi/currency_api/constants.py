@@ -28,7 +28,7 @@ SOURCE_NAME = "fawazahmed0"
 DEFAULT_BASE_CURRENCY = "usd"
 
 #: Default set of named quote currencies to scan.
-DEFAULT_QUOTE_CURRENCIES = ("eur", "gbp", "jpy", "aud", "sgd", "try", "chf", "cad", "btc", "eth")
+DEFAULT_QUOTE_CURRENCIES = ("eur", "gbp", "jpy", "aud", "sgd", "hkd", "try", "chf", "cad", "btc", "eth")
 
 #: Earliest date for which the source publishes data: 2024-03-02.
 #:

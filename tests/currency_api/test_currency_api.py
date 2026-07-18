@@ -50,6 +50,7 @@ RATE_BOUNDS = {
     "jpy": (50.0, 500.0),
     "aud": (1.0, 2.5),
     "sgd": (1.0, 2.0),
+    "hkd": (5.0, 10.0),
     "try": (10.0, 100.0),
     "chf": (0.5, 1.5),
     "cad": (1.0, 2.5),
@@ -68,7 +69,7 @@ def test_limited_end_to_end_scan(db_path: Path):
     """Limited real-network end-to-end scan stores and is idempotent.
 
     1. Run a 3-day scan (2026-06-01..03) for the default currencies into a temp DB.
-    2. Assert every (date, quote) cell is present (3 dates x 10 quotes = 30 rows),
+    2. Assert every (date, quote) cell is present (3 dates x 11 quotes = 33 rows),
        the source column is populated, rates are within loose sanity bounds, and
        there were no transient failures.
     3. Re-run the identical scan and assert the row count is unchanged (idempotent
