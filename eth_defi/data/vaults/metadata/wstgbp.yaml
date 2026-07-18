@@ -3,7 +3,7 @@ slug: wstgbp
 short_description: |
   Non-custodial tokenised sterling with onchain NAV and permissionless minting and redemption.
 long_description: |
-  wstGBP (Wren Staked tGBP) is a non-custodial, non-rebasing ERC-20 wrapper around tGBP, a pound sterling stablecoin issued by BCP Technologies, an FCA-registered cryptoasset firm, backed 1:1 by sterling reserves. Users mint and redeem permissionlessly on Ethereum at the on-chain exchange rate. Balances stay fixed and rewards, when applied, are reflected in the wstGBP to tGBP exchange rate through periodic NAV updates. Minting is free and instant redemption carries a 25 bps fee, with no cooldown.
+  wstGBP (Wren Staked tGBP) is a non-custodial, non-rebasing ERC-20 wrapper around tGBP, a pound sterling stablecoin issued by BCP Technologies, an FCA-registered cryptoasset firm, backed 1:1 by sterling reserves. Users mint and redeem permissionlessly on Ethereum at the onchain exchange rate. Balances stay fixed and rewards, when applied, are reflected in the wstGBP to tGBP exchange rate through periodic NAV updates. Minting is free and instant redemption carries a 25 bps fee, with no cooldown.
 fee_description: |
   Minting is free and instant redemption carries a 25 bps fee, with no cooldown.
 links:
