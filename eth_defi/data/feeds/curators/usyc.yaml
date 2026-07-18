@@ -1,0 +1,15 @@
+# Circle USYC curator — feeds provided by stablecoins/usdc.yaml
+#
+# Circle International Bermuda Limited administers USYC on behalf of the
+# Hashnote International Short Duration Yield Fund Ltd. USYC is a single
+# Circle-operated fund product, so no independent strategy curator applies.
+# Sources: https://www.circle.com/usyc and https://usyc.docs.hashnote.com/
+feeder-id: usyc
+name: Circle USYC
+role: curator
+canonical-feeder-id: usdc
+short_description: Circle administers the permissioned USYC tokenised money market fund for eligible institutional investors.
+long_description: |
+  Circle International Bermuda Limited administers USYC on behalf of the Hashnote International Short Duration Yield Fund Ltd. USYC represents fund shares invested in short-term U.S. government securities and reverse repurchase agreements.
+
+  Circle operates the USYC token, oracle and entitlement-gated subscription and redemption infrastructure. The product is available only to eligible non-U.S. persons and does not have a separate third-party strategy curator.

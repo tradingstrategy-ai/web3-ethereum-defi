@@ -1,15 +1,12 @@
 """Regression tests for the Asseto historical backfill script helpers."""
 
-import importlib.util
 from dataclasses import replace
-from pathlib import Path
 from typing import NoReturn
 
-import pandas as pd
 import pytest
 
 from eth_defi.chain import CHAIN_NAMES
-from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
+from eth_defi.tokenised_fund.asseto import backfill
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY
 from eth_defi.tokenised_fund.asseto.offchain_api import AssetoOffchainProduct
 
@@ -47,15 +44,9 @@ def make_registry_product(chain_id: int, *, symbol: str = "AoABT") -> AssetoOffc
 
 @pytest.fixture
 def backfill_history_module():
-    """Load the hyphenated Asseto backfill script as a Python module."""
+    """Return the Asseto backfill module."""
 
-    script_path = Path(__file__).parents[2] / "scripts" / "asseto" / "backfill-history.py"
-    spec = importlib.util.spec_from_file_location("asseto_backfill_history", script_path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return backfill
 
 
 def test_unsupported_asseto_chain_is_excluded_from_backfill(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:
@@ -120,46 +111,23 @@ def test_build_vaults_skips_product_without_denomination_address(monkeypatch: py
 def test_resolve_price_scan_start_block_uses_asseto_deployment(
     monkeypatch: pytest.MonkeyPatch,
     backfill_history_module,
-    tmp_path: Path,
 ) -> None:
     """Rewrite Asseto history from the registered product deployment by default."""
 
     monkeypatch.delenv("START_BLOCK", raising=False)
 
-    assert backfill_history_module.resolve_price_scan_start_block([ASSETO_AOABT_HASHKEY], tmp_path) == ASSETO_AOABT_HASHKEY.first_seen_at_block
-
-
-def test_resolve_price_scan_start_block_clips_to_timestamp_cache(
-    monkeypatch: pytest.MonkeyPatch,
-    backfill_history_module,
-    tmp_path: Path,
-) -> None:
-    """Do not ask a sparse local timestamp cache for unavailable early blocks."""
-
-    monkeypatch.delenv("START_BLOCK", raising=False)
-    first_cached_block = ASSETO_AOABT_HASHKEY.first_seen_at_block + 1_000
-    cache = BlockTimestampDatabase.create(ASSETO_AOABT_HASHKEY.chain_id, tmp_path)
-    try:
-        cache.import_chain_data(
-            ASSETO_AOABT_HASHKEY.chain_id,
-            pd.Series(data=[1_700_000_000], index=[first_cached_block]),
-        )
-    finally:
-        cache.close()
-
-    assert backfill_history_module.resolve_price_scan_start_block([ASSETO_AOABT_HASHKEY], tmp_path) == first_cached_block
+    assert backfill_history_module.resolve_price_scan_start_block([ASSETO_AOABT_HASHKEY]) == ASSETO_AOABT_HASHKEY.first_seen_at_block
 
 
 def test_resolve_price_scan_start_block_honours_explicit_override(
     monkeypatch: pytest.MonkeyPatch,
     backfill_history_module,
-    tmp_path: Path,
 ) -> None:
     """Allow operators to run a narrowly scoped diagnostic backfill."""
 
     monkeypatch.setenv("START_BLOCK", str(EXPLICIT_START_BLOCK))
 
-    assert backfill_history_module.resolve_price_scan_start_block([ASSETO_AOABT_HASHKEY], tmp_path) == EXPLICIT_START_BLOCK
+    assert backfill_history_module.resolve_price_scan_start_block([ASSETO_AOABT_HASHKEY]) == EXPLICIT_START_BLOCK
 
 
 def test_iter_selected_products_honours_symbol_filter(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:

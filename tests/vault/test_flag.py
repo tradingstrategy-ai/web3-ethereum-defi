@@ -31,6 +31,12 @@ def test_securitize_risk_is_low() -> None:
     assert get_vault_risk("Securitize") == VaultTechnicalRisk.low
 
 
+def test_superstate_risk_is_low() -> None:
+    """Superstate protocol risk is classified as low."""
+
+    assert get_vault_risk("Superstate") == VaultTechnicalRisk.low
+
+
 @pytest.mark.parametrize(
     ("address", "expected_note"),
     [
@@ -43,6 +49,7 @@ def test_securitize_risk_is_low() -> None:
         ("0x682ef9cc637ef56577092b29ae9275a629aae7db", "**Curator:** Science Inc. / Securitize"),
         ("0x5e17f6f450dcb0bc69b232ea554e224d7e88067a", "**Curator:** Protos Asset Management / Securitize"),
         ("0x09864f52b035ae22ee739dfa5c748fa080d07bd8", "**Curator:** J.P. Morgan"),
+        ("0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e", "**Curator:** Superstate"),
     ],
 )
 def test_tokenised_fund_vaults_have_descriptive_flag_and_notes(address: str, expected_note: str) -> None:

@@ -4,7 +4,9 @@ import enum
 
 from eth_typing import HexAddress
 
+from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCT_NOTES, ONDO_TOKENISED_FUND_ADDRESSES
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCT_NOTES, SECURITIZE_TOKENISED_FUND_ADDRESSES
+from eth_defi.tokenised_fund.spiko.constants import USTBL_TOKEN_ADDRESS
 from eth_defi.vault.handwritten_metadata import PIKU_VAULT_METADATA, format_handwritten_vault_note
 
 
@@ -128,6 +130,41 @@ ODA_FACT_JLTXX_NOTE = f"""JPMorgan OnChain Liquidity-Token Money Market Fund (JL
 - **Fact sheet:** [JLTXX fact sheet]({JLTXX_FACT_SHEET_URL}).
 """
 
+WISDOMTREE_WTGXX_NOTE = """WisdomTree Treasury Money Market Digital Fund (WTGXX).
+
+- **Curator:** WisdomTree.
+- **Token structure:** Permissioned, revocable compliance ERC-20 shares; not an ERC-4626 vault.
+- **NAV source:** Historical NAV data is not publicly available. WisdomTree provides it through the permissioned DataSpan API, which requires an API key issued after approval.
+- **Investor access:** Wallets must be approved by WisdomTree Connect; public deposit and redemption managers are intentionally unsupported.
+- **Fund page:** [WisdomTree WTGXX](https://www.wisdomtreeconnect.com/digital-funds/money-market/wtgxx).
+"""
+
+SUPERSTATE_USTB_NOTE = """Invesco Short Duration US Government Securities Fund (USTB).
+
+- **Curator:** Superstate.
+- **Vault strategy:** Tokenised shares in a short-duration U.S. government-securities fund.
+- **NAV and liquidity:** The tracked NAV/share is Superstate's issuer-published continuous price. It is not an exchange price and does not by itself guarantee redeemable USDC liquidity.
+- **Eligibility:** USTB is a permissioned instrument. Transfers, subscriptions and redemptions require Superstate approval and can be paused or subject to issuer settlement conditions.
+- **Fund documentation:** [Superstate USTB](https://docs.superstate.com/superstate-funds/ustb).
+"""
+
+ODA_FACT_MONY_NOTE = """My OnChain Net Yield Fund (MONY).
+
+- **Curator:** J.P. Morgan Asset Management / Kinexys.
+- **Fund access:** The Ethereum token is a permissioned FACT Diamond. Its account activation, stop-code, lock and role controls mean an ERC-20 transfer or burn interface does not establish general investor eligibility or public redemption access.
+- **Valuation:** The deployed token exposes no on-chain NAV or share-price function. Supply is tracked as an on-chain diagnostic only; do not derive fund value from it.
+- **Operations:** J.P. Morgan's launch announcement says the fund is powered by Kinexys Digital Assets and distributed through Morgan Money.
+"""
+
+SPIKO_USTBL_NOTE = """Spiko US T-Bills Money Market Fund (USTBL).
+
+- **Curator:** Spiko.
+- **Vault strategy:** Permissioned tokenised share in Spiko's U.S. Treasury-bill money-market fund.
+- **Valuation:** Spiko's verified Chainlink-compatible Oracle publishes NAV/share; fund holdings are off-chain.
+- **Dealing:** Subscriptions, transfers and redemptions require eligibility checks and issuer-operated servicing.
+- **Fees:** Spiko states a 0.25% annual management fee, reflected in NAV/share.
+"""
+
 #: Vault-specific notes and classifications that do not exclude a vault from
 #: research datasets.
 #:
@@ -135,13 +172,23 @@ ODA_FACT_JLTXX_NOTE = f"""JPMorgan OnChain Liquidity-Token Money Market Fund (JL
 #: "flagged" through :py:func:`is_flagged_vault`.
 VAULT_NOTES: dict[str, str] = {
     **SECURITIZE_PRODUCT_NOTES,
+    **ONDO_PRODUCT_NOTES,
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": ODA_FACT_JLTXX_NOTE,
+    "0x1fecf3d9d4fee7f2c02917a66028a48c6706c179": WISDOMTREE_WTGXX_NOTE,
+    "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e": SUPERSTATE_USTB_NOTE,
+    "0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46": ODA_FACT_MONY_NOTE,
+    USTBL_TOKEN_ADDRESS: SPIKO_USTBL_NOTE,
 }
 
 #: Product classification flags that are descriptive rather than exclusionary.
 VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
     **{address: {VaultFlag.tokenised_fund} for address in SECURITIZE_TOKENISED_FUND_ADDRESSES},
+    **{address: {VaultFlag.tokenised_fund} for address in ONDO_TOKENISED_FUND_ADDRESSES},
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": {VaultFlag.tokenised_fund},
+    "0x1fecf3d9d4fee7f2c02917a66028a48c6706c179": {VaultFlag.tokenised_fund},
+    "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e": {VaultFlag.tokenised_fund},
+    "0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46": {VaultFlag.tokenised_fund},
+    USTBL_TOKEN_ADDRESS: {VaultFlag.tokenised_fund},
 }
 
 #: Vault-specific notes which must only apply on the specified EVM chain.

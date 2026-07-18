@@ -30,6 +30,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    lighter/index
    hibachi/index
    cctp/index
+   centrifuge/index
    orderly/index
    one_delta/index
    safe/index
@@ -37,9 +38,12 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    core3/index
    feed/index
    erc_4626/index
+   tokenised_fund/index
    enzyme/index
    aera/index
    asseto/index
+   ondo/index
+   franklin/index
    atoma/index
    frankencoin/index
    kiln/index
@@ -51,7 +55,14 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    midas/index
    kinexys/index
    securitize/index
+   wisdomtree/index
+   superstate/index
+   spiko/index
+   sygnum/index
+   theo/index
+   libeara/index
    vault_street/index
+   usyc/index
    royco/index
    velvet/index
    morpho/index

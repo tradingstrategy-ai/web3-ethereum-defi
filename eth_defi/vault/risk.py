@@ -73,10 +73,33 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Midas": VaultTechnicalRisk.low,
     # Asseto's AoABT deployment has verified contracts and a public audit.
     "Asseto": VaultTechnicalRisk.low,
+    # Franklin Templeton Benji is a permissioned, proprietary fund-token
+    # platform. Product and operational risks need human assessment.
+    "Franklin Templeton": None,
+    # Permissioned, upgradeable CMTAT proxies with issuer-controlled rule engines.
+    "Libeara": None,
+    # Permissioned issuer-operated token and NAV oracle infrastructure.
+    "Spiko": VaultTechnicalRisk.low,
+    # Permissioned proprietary SygToken contracts require human risk review.
+    "Sygnum": None,
+    # Verified upgradeable multi-asset iToken with issuer and basket risks.
+    "Theo": VaultTechnicalRisk.low,
     # Securitize DSToken implementations are verified and the underlying
     # protocol is open source. Product-specific fund, issuer, custody and
     # compliance risks need separate assessment.
     "Securitize": VaultTechnicalRisk.low,
+    # Ondo share-token and oracle contracts are verified but issuer-operated,
+    # permissioned infrastructure with product-specific eligibility controls.
+    "Ondo": VaultTechnicalRisk.low,
+    # Circle USYC is a permissioned fund token with verified proxy contracts
+    # and a centrally operated NAV oracle.
+    "Circle USYC": VaultTechnicalRisk.low,
+    # WisdomTree's WTGXX deployment depends on permissioned issuer operations
+    # and private off-chain NAV data that cannot be independently verified.
+    "WisdomTree": VaultTechnicalRisk.dangerous,
+    # Superstate USTB uses a verified permissioned fund-token implementation
+    # and issuer-operated oracle/allowlist infrastructure.
+    "Superstate": VaultTechnicalRisk.low,
     # wstGBP is a non-custodial tokenised sterling wrapper with public contracts.
     "wstGBP": VaultTechnicalRisk.low,
     # Vault Street primeUSD is a permissioned institutional product.

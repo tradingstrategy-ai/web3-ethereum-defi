@@ -78,11 +78,56 @@ class ERC4626Feature(enum.Enum):
     #: a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     asseto_like = "asseto_like"
 
+    #: Franklin Templeton Benji tokenised fund share.
+    #:
+    #: https://digitalassets.franklintempleton.com/benji/
+    #: Routing marker for non-ERC-4626 permissioned Benji instruments read
+    #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    franklin_like = "franklin_like"
+
     #: Securitize Digital Securities Protocol token.
     #:
     #: Routing marker for non-ERC-4626 ``DSToken`` instruments that are read
     #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     securitize_like = "securitize_like"
+
+    #: Ondo permissioned tokenised fund products.
+    #:
+    #: Routing marker for non-ERC-4626 issuer share tokens read through a
+    #: :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    ondo_like = "ondo_like"
+
+    #: Circle USYC tokenised money market fund.
+    #:
+    #: Routing marker for the non-ERC-4626, permissioned USYC ERC-20 token
+    #: read through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    usyc_like = "usyc_like"
+    #: Centrifuge permissioned ``Tranche`` share token.
+    #:
+    #: This marks a direct share token, not Centrifuge's separate ERC-7540
+    #: LiquidityPool vault contract.
+    centrifuge_tranche_like = "centrifuge_tranche_like"
+    #: WisdomTree permissioned tokenised-fund products.
+    #:
+    #: Routing marker for non-ERC-4626 compliance ERC-20 fund shares read
+    #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    wisdomtree_like = "wisdomtree_like"
+    #: Superstate tokenised fund products.
+    #:
+    #: Routing marker for non-ERC-4626 allowlisted fund tokens that are read
+    #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
+    superstate_like = "superstate_like"
+    #: Libeara CMTAT tokenised fund shares.
+    libeara_like = "libeara_like"
+
+    #: Spiko permissioned tokenised fund shares.
+    spiko_like = "spiko_like"
+
+    #: Sygnum permissioned FILQ share tokens.
+    sygnum_like = "sygnum_like"
+
+    #: Theo multi-asset iToken tokenised funds.
+    theo_itoken_like = "theo_itoken_like"
 
     #: wstGBP tokenised asset contracts.
     #:
@@ -864,8 +909,28 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Midas"
     elif ERC4626Feature.asseto_like in features:
         return "Asseto"
+    elif ERC4626Feature.franklin_like in features:
+        return "Franklin Templeton"
     elif ERC4626Feature.securitize_like in features:
         return "Securitize"
+    elif ERC4626Feature.ondo_like in features:
+        return "Ondo"
+    elif ERC4626Feature.usyc_like in features:
+        return "Circle USYC"
+    elif ERC4626Feature.centrifuge_tranche_like in features:
+        return "Centrifuge"
+    elif ERC4626Feature.wisdomtree_like in features:
+        return "WisdomTree"
+    elif ERC4626Feature.superstate_like in features:
+        return "Superstate"
+    elif ERC4626Feature.libeara_like in features:
+        return "Libeara"
+    elif ERC4626Feature.spiko_like in features:
+        return "Spiko"
+    elif ERC4626Feature.sygnum_like in features:
+        return "Sygnum"
+    elif ERC4626Feature.theo_itoken_like in features:
+        return "Theo"
     elif ERC4626Feature.wstgbp_like in features:
         return "wstGBP"
     elif ERC4626Feature.vault_street_like in features:

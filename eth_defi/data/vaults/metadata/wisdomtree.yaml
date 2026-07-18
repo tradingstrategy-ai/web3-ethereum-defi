@@ -1,0 +1,25 @@
+name: WisdomTree
+slug: wisdomtree
+short_description: |
+  Permissioned digital representations of WisdomTree fund shares, beginning with the Treasury Money Market Digital Fund.
+long_description: |
+  WisdomTree issues digital representations of fund shares through its WisdomTree Connect platform. The initial integration covers WTGXX, a Treasury money market fund that seeks current income while preserving capital and liquidity and maintaining a stable one-dollar net asset value per share.
+
+  WTGXX is available only through WisdomTree's eligibility and wallet-permissioning processes. Token holders should not treat ordinary blockchain transfers as a complete subscription, redemption or settlement process; the transfer agent remains the official recordkeeper and the fund can impose compliance controls.
+
+  WisdomTree's historical net asset value data is not publicly available. Access requires approval from WisdomTree and a private DataSpan API key.
+fee_description: |
+  WisdomTree publishes a 0.25% annual expense ratio for WTGXX. The cost is reflected in the fund's returns and net asset value rather than exposed as a public on-chain deposit or withdrawal fee. Investors may also incur blockchain transaction costs and any charges imposed by their payment or custody arrangements.
+links:
+  homepage: https://www.wisdomtreeconnect.com/
+  app: https://www.wisdomtreeconnect.com/digital-funds/money-market/wtgxx
+  twitter: https://x.com/WisdomTreeFunds
+  linkedin: https://www.linkedin.com/company/wisdomtree-asset-management
+  documentation: https://docs.wisdomtreeconnect.com/
+  audits: https://www.openzeppelin.com/news/wisdomtree-digital-whitelist-contexts-audit
+  fees: https://www.wisdomtreeconnect.com/digital-funds/money-market/wtgxx
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/wisdomtree/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x1fecf3d9d4fee7f2c02917a66028a48c6706c179
+  - https://etherscan.io/address/0xc2a8ca84bc363605c36757f9409b214b6ee710c9

@@ -132,7 +132,11 @@ from eth_defi.grvt.constants import GRVT_SYSTEM_VAULT_ADDRESSES
 from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
 from eth_defi.lighter.constants import LIGHTER_SYSTEM_POOL_ADDRESSES
 from eth_defi.research.sparkline import upload_to_r2_compressed
+from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
+from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCTS
+from eth_defi.tokenised_fund.spiko.constants import USTBL_TOKEN_ADDRESS
+from eth_defi.tokenised_fund.wisdomtree.constants import WTGXX_ETHEREUM
 
 logger = logging.getLogger(__name__)
 
@@ -158,13 +162,16 @@ CURATORS_DATA_DIR: Path = Path(__file__).parent.parent / "data" / "feeds" / "cur
 #: itself operates every vault.  The slug values correspond to
 #: :py:func:`eth_defi.research.vault_metrics.slugify_protocol` output.
 PROTOCOL_CURATED_SLUGS: set[str] = {
+    "sygnum",
     "atoma",
     "d2-finance",
     "frankencoin",
     "gains-network",
     "ostium",
+    "ondo",
     "domination-finance",
     "3jane",
+    "usyc",
     "wstgbp",
 }
 
@@ -184,6 +191,8 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
     "hyperliquid",
     "lighter",
     "grvt",
+    "spiko-curator",
+    "theo-curator",
 }
 
 #: Human-readable names for protocol-curator slugs.
@@ -196,11 +205,16 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "frankencoin": "Frankencoin",
     "gains-network": "Gains Network",
     "ostium": "Ostium",
+    "ondo": "Ondo Finance",
     "domination-finance": "Domination Finance",
     "hyperliquid": "Hyperliquid",
     "lighter": "Lighter",
     "grvt": "GRVT",
     "3jane": "3Jane",
+    "usyc": "Circle USYC",
+    "spiko-curator": "Spiko",
+    "sygnum": "Sygnum",
+    "theo-curator": "Theo",
     "wstgbp": "wstGBP",
 }
 
@@ -341,11 +355,40 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # J.P. Morgan Asset Management / Kinexys, but the token name does not carry
     # a reusable curator pattern.
     (1, "0x09864f52b035ae22ee739dfa5c748fa080d07bd8"): "jpmorgan",
+    # Franklin Templeton's official Benji registry identifies these Ethereum
+    # fund-token proxies. The token names do not contain a reliable curator
+    # pattern, so retain explicit issuer attribution by address.
+    # https://digitalassets.franklintempleton.com/benji/benji-contracts/
+    (1, "0x90276e9d4a023b5229e0c2e9d4b2a83fe3a2b48c"): "franklin-templeton",
+    (1, "0x3ddc84940ab509c11b20b76b466933f40b750dc9"): "franklin-templeton",
+    # JTRSY's direct Centrifuge Tranche token is managed by the verified Janus
+    # Henderson/Anemoy fund relationship, not a generic transfer-token label.
+    # https://www.anemoy.io/funds/jtrsy
+    (1, "0x8c213ee79581ff4984583c6a801e5263418c4b86"): "janus-henderson-anemoy",
+    # MONY is J.P. Morgan Asset Management's My OnChain Net Yield Fund. Its
+    # token name does not contain a reusable J.P. Morgan curator pattern.
+    # https://www.prnewswire.com/news-releases/jp-morgan-asset-management-launches-its-first-tokenized-money-market-fund-302642262.html
+    (1, "0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46"): "jpmorgan",
     # Securitize DSToken fund shares use issuer-specific names and may not
     # contain the full asset-manager brand. Keep the fund-manager mapping
     # address-specific, as for JLTXX, to avoid claiming unrelated DSTokens.
     # The shared product registry owns the manager-to-address associations.
     **{key: product.curator_slug for key, product in SECURITIZE_PRODUCTS.items()},
+    # Ondo itself manages the reviewed USDY and OUSG products. Their token
+    # names do not expose a reusable third-party curator name pattern.
+    **dict.fromkeys(ONDO_PRODUCTS, "ondo"),
+    # WisdomTree is issuer and fund manager for its permissioned WTGXX shares.
+    (WTGXX_ETHEREUM.chain_id, WTGXX_ETHEREUM.token): "wisdomtree",
+    # Superstate's official contract registry identifies USTB as a Superstate
+    # fund token, while the token name itself carries no reusable curator name.
+    (1, "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e"): "superstate",
+    # CUMIU and BELIF are platform-managed Libeara CMTAT deployments. Keep the
+    # mapping address-scoped because the issuer name varies between products.
+    **{key: "libeara" for key in LIBEARA_PRODUCTS},
+    # Spiko operates the eligibility-gated USTBL servicing and oracle.
+    (1, USTBL_TOKEN_ADDRESS): "spiko-curator",
+    # Theo operates thBILL's KYC-gated direct dealing workflow.
+    (1, "0x5fa487bca6158c64046b2813623e20755091da0b"): "theo-curator",
     # Piku publishes these as its USP token and curated Morini Capital vaults.
     # The vault names do not consistently include Piku, so keep their explicit
     # Ethereum contract addresses rather than using a fuzzy name pattern.

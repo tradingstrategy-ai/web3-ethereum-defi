@@ -1,0 +1,20 @@
+# Theo protocol-managed curator - feeds provided by protocols/theo.yaml
+feeder-id: theo-curator
+name: Theo
+role: curator
+canonical-feeder-id: theo
+short_description: Theo builds on-chain financial products that make real-world assets tradable and globally accessible.
+long_description: |
+  Theo is a financial-products platform connecting on-chain capital to global markets. Its product
+  documentation identifies thBILL as a Theo iToken basket of tokenised U.S. Treasury bills, with
+  issuer-operated KYC, minting and redemption processes. This curator record is limited to the
+  supported thBILL product, for which Theo operates the iToken and direct servicing workflow.
+
+# Evidence and background references.
+other-links:
+  - title: Theo overview - platform building on-chain access to global financial markets
+    url: https://docs.theo.xyz/
+  - title: Theo thBILL documentation - iToken product, KYC minting and redemption terms
+    url: https://docs.theo.xyz/thbill
+  - title: Theo deployment registry - canonical Ethereum thBILL iToken address
+    url: https://docs.theo.xyz/technical-reference/deployments

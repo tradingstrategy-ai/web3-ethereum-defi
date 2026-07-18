@@ -1,0 +1,24 @@
+name: Superstate
+slug: superstate
+short_description: |
+  Tokenised investment products with issuer-operated eligibility, settlement and fund accounting.
+long_description: |
+  Superstate issues tokenised fund shares that represent interests in regulated investment products. The initial integration tracks USTB, tokenised shares in the Invesco Short Duration US Government Securities Fund, which invests in short-duration U.S. government securities.
+
+  USTB is available only to investors who meet Superstate's eligibility requirements. Transfers, subscriptions and redemptions are subject to compliance checks, issuer controls and the fund's redemption terms, so holding the token does not create a permissionless ability to transact or redeem at any time.
+fee_description: |
+  The USTB token contract does not publish the fund's management, performance, subscription or redemption fee schedule. Fees and redemption terms are set in the applicable fund documents and issuer process, so this integration reports them as unknown rather than inferring them from token activity.
+links:
+  homepage: https://superstate.com/
+  app: https://app.superstate.com/
+  twitter: https://x.com/superstateinc
+  github: https://github.com/superstateinc/ustb
+  documentation: https://docs.superstate.com/superstate-funds/ustb
+  defillama:
+  audits: https://github.com/superstateinc/ustb/tree/main/audits
+  fees: https://docs.superstate.com/superstate-funds/ustb
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/superstate
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/superstate/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e
+  - https://etherscan.io/address/0xe4fa682f94610ccd170680cc3b045d77d9e528a8

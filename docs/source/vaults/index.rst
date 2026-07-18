@@ -74,6 +74,11 @@ Supported protocols
 
    aave/index
    asseto/index
+   ondo/index
+   wisdomtree/index
+   libeara/index
+   spiko/index
+   sygnum/index
    forty_acres/index
    aarna/index
    aera/index
@@ -100,6 +105,7 @@ Supported protocols
    fluid/index
    forgeyields/index
    foxify/index
+   franklin/index
    frankencoin/index
    frax/index
    gains/index
@@ -125,6 +131,7 @@ Supported protocols
    wstgbp/index
    midas/index
    vault_street/index
+   usyc/index
    morpho/index
    nashpoint/index
    plutus/index
@@ -134,6 +141,7 @@ Supported protocols
    sbold/index
    secured_finance/index
    securitize/index
+   superstate/index
    sentiment/index
    silo/index
    singularity/index
@@ -143,6 +151,7 @@ Supported protocols
    summer/index
    superform/index
    t3tris/index
+   theo/index
    teller/index
    term_finance/index
    threejane/index

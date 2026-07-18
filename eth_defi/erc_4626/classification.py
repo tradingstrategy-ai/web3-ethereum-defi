@@ -23,6 +23,16 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_PRODUCTS, CENTRIFUGE_TRANCHE_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_PRODUCTS, FRANKLIN_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS, LIBEARA_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS, ONDO_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.spiko.constants import USTBL_TOKEN_ADDRESS
+from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_PRODUCTS_BY_CHAIN
+from eth_defi.tokenised_fund.sygnum.constants import SYGNUM_PRODUCTS_BY_CHAIN
+from eth_defi.tokenised_fund.theo.constants import THEO_ITOKEN_PRODUCTS, THEO_ITOKEN_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.usyc.constants import USYC_TOKEN_ADDRESS
+from eth_defi.tokenised_fund.wisdomtree.constants import WISDOMTREE_PRODUCTS, WISDOMTREE_PRODUCTS_BY_TOKEN
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
@@ -38,6 +48,11 @@ ODA_FACT_JLTXX_ADDRESS = HexAddress("0x09864f52b035ae22ee739dfa5c748fa080d07bd8"
 #: Ethereum mainnet chain id.
 ODA_FACT_JLTXX_CHAIN_ID = 1
 
+#: J.P. Morgan My OnChain Net Yield Fund (MONY) FACT diamond.
+#:
+#: https://etherscan.io/address/0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46
+ODA_FACT_MONY_ADDRESS = HexAddress("0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46")
+
 #: JLTXX ODA-FACT deployment block.
 #:
 #: Source: Blockscout creation transaction
@@ -46,6 +61,15 @@ ODA_FACT_JLTXX_FIRST_SEEN_AT_BLOCK = 25_042_223
 
 #: JLTXX deployment timestamp, stored as naive UTC.
 ODA_FACT_JLTXX_FIRST_SEEN_AT = datetime.datetime(2026, 5, 7, 9, 20, 11, tzinfo=datetime.UTC).replace(tzinfo=None)
+
+#: MONY Diamond deployment block.
+#:
+#: Determined from the first Ethereum block containing runtime bytecode for
+#: the exact Sourcify-verified deployment.
+ODA_FACT_MONY_FIRST_SEEN_AT_BLOCK = 23_890_166
+
+#: MONY Diamond deployment timestamp, stored as naive UTC.
+ODA_FACT_MONY_FIRST_SEEN_AT = datetime.datetime(2025, 11, 27, 12, 52, 11, tzinfo=datetime.UTC).replace(tzinfo=None)
 
 #: Hardcoded ODA-FACT lead data used because the single production contract does
 #: not emit ERC-4626 ``Deposit``/``Withdraw`` discovery events.
@@ -56,11 +80,18 @@ ODA_FACT_HARDCODED_LEADS = (
         ODA_FACT_JLTXX_FIRST_SEEN_AT_BLOCK,
         ODA_FACT_JLTXX_FIRST_SEEN_AT,
     ),
+    (
+        ODA_FACT_JLTXX_CHAIN_ID,
+        ODA_FACT_MONY_ADDRESS,
+        ODA_FACT_MONY_FIRST_SEEN_AT_BLOCK,
+        ODA_FACT_MONY_FIRST_SEEN_AT,
+    ),
 )
 
 #: ODA-FACT hardcoded classification flags.
 ODA_FACT_HARDCODED_PROTOCOLS = {
     ODA_FACT_JLTXX_ADDRESS: {ERC4626Feature.oda_fact_like},
+    ODA_FACT_MONY_ADDRESS: {ERC4626Feature.oda_fact_like},
 }
 
 #: Midas hardcoded classification flags.
@@ -68,6 +99,37 @@ MIDAS_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.midas_like} for token in MID
 
 #: Asseto tokenised fund products require chain-aware address matching.
 ASSETO_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.asseto_like} for token in ASSETO_PRODUCTS_BY_TOKEN}
+
+#: Ondo issuer share tokens are chain-aware, non-ERC-4626 products whose NAV
+#: is published by separate issuer oracles.
+ONDO_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.ondo_like} for token in ONDO_PRODUCTS_BY_TOKEN}
+
+#: Circle USYC is a single permissioned ERC-20 fund token on Ethereum.
+#:
+#: https://usyc.docs.hashnote.com/overview/smart-contracts
+USYC_HARDCODED_PROTOCOLS = {USYC_TOKEN_ADDRESS: {ERC4626Feature.usyc_like}}
+
+#: Franklin Templeton Benji fund shares require chain-aware address matching.
+FRANKLIN_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.franklin_like} for token in FRANKLIN_PRODUCTS_BY_TOKEN}
+#: Centrifuge Tranche tokens are permissioned ERC-20 shares. They must be
+#: routed separately from Centrifuge's ERC-7540 LiquidityPool vaults.
+CENTRIFUGE_TRANCHE_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.centrifuge_tranche_like} for token in CENTRIFUGE_TRANCHE_PRODUCTS_BY_TOKEN}
+#: WisdomTree compliance ERC-20 fund shares require chain-aware routing.
+WISDOMTREE_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.wisdomtree_like} for token in WISDOMTREE_PRODUCTS_BY_TOKEN}
+#: Superstate tokenised fund products require chain-aware address matching.
+SUPERSTATE_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.superstate_like} for tokens in SUPERSTATE_PRODUCTS_BY_CHAIN.values() for token in tokens}
+#: CMTAT is shared by unrelated security tokens, so only reviewed Libeara
+#: products are classified through this chain-aware allow-list.
+LIBEARA_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.libeara_like} for token in LIBEARA_PRODUCTS_BY_TOKEN}
+
+#: Spiko USTBL is a single reviewed permissioned fund token on Ethereum.
+SPIKO_HARDCODED_PROTOCOLS = {USTBL_TOKEN_ADDRESS: {ERC4626Feature.spiko_like}}
+
+#: Sygnum FILQ share tokens are reviewed permissioned SygToken proxies.
+SYGNUM_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.sygnum_like} for products in SYGNUM_PRODUCTS_BY_CHAIN.values() for token in products}
+
+#: Theo iTokens are multi-asset fund tokens, not standard ERC-4626 vaults.
+THEO_ITOKEN_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.theo_itoken_like} for token in THEO_ITOKEN_PRODUCTS_BY_TOKEN}
 
 #: wstGBP hardcoded classification flags.
 #:
@@ -264,6 +326,10 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
     normalised_address = HexAddress(address.lower())
 
     if chain_id is not None:
+        if normalised_address in ODA_FACT_HARDCODED_PROTOCOLS:
+            if chain_id == ODA_FACT_JLTXX_CHAIN_ID:
+                return ODA_FACT_HARDCODED_PROTOCOLS[normalised_address]
+            return None
         aave_atoken_vaults = AAVE_ATOKEN_VAULTS_BY_CHAIN.get(chain_id, frozenset())
         if normalised_address in aave_atoken_vaults:
             return {ERC4626Feature.aave_like}
@@ -280,6 +346,48 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if (chain_id, normalised_address) in ASSETO_PRODUCTS:
             return ASSETO_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in ASSETO_HARDCODED_PROTOCOLS:
+            return None
+        if (chain_id, normalised_address) in ONDO_PRODUCTS:
+            return ONDO_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in ONDO_HARDCODED_PROTOCOLS:
+            return None
+        if normalised_address in USYC_HARDCODED_PROTOCOLS:
+            if chain_id == 1:
+                return USYC_HARDCODED_PROTOCOLS[normalised_address]
+            return None
+        if (chain_id, normalised_address) in FRANKLIN_PRODUCTS:
+            return FRANKLIN_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in FRANKLIN_HARDCODED_PROTOCOLS:
+            return None
+        if (chain_id, normalised_address) in CENTRIFUGE_TRANCHE_PRODUCTS:
+            return CENTRIFUGE_TRANCHE_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in CENTRIFUGE_TRANCHE_HARDCODED_PROTOCOLS:
+            return None
+        if (chain_id, normalised_address) in WISDOMTREE_PRODUCTS:
+            return WISDOMTREE_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in WISDOMTREE_HARDCODED_PROTOCOLS:
+            return None
+        superstate_products = SUPERSTATE_PRODUCTS_BY_CHAIN.get(chain_id, frozenset())
+        if normalised_address in superstate_products:
+            return SUPERSTATE_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in SUPERSTATE_HARDCODED_PROTOCOLS:
+            return None
+        if (chain_id, normalised_address) in LIBEARA_PRODUCTS:
+            return LIBEARA_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in LIBEARA_HARDCODED_PROTOCOLS:
+            return None
+        if normalised_address in SPIKO_HARDCODED_PROTOCOLS:
+            if chain_id == 1:
+                return SPIKO_HARDCODED_PROTOCOLS[normalised_address]
+            return None
+        sygnum_products = SYGNUM_PRODUCTS_BY_CHAIN.get(chain_id, frozenset())
+        if normalised_address in sygnum_products:
+            return SYGNUM_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in SYGNUM_HARDCODED_PROTOCOLS:
+            return None
+        if (chain_id, normalised_address) in THEO_ITOKEN_PRODUCTS:
+            return THEO_ITOKEN_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in THEO_ITOKEN_HARDCODED_PROTOCOLS:
             return None
         if normalised_address == PRIME_USD_ADDRESS:
             if chain_id == 1:
@@ -1685,6 +1793,18 @@ def create_vault_instance(
         from eth_defi.tokenised_fund.securitize.vault import SecuritizeVault
 
         return SecuritizeVault(web3, spec, **kwargs)
+    elif ERC4626Feature.usyc_like in features:
+        from eth_defi.tokenised_fund.usyc.vault import USYCVault
+
+        return USYCVault(web3, spec, **kwargs)
+    elif ERC4626Feature.franklin_like in features:
+        from eth_defi.tokenised_fund.franklin.vault import FranklinVault
+
+        return FranklinVault(web3, spec, **kwargs)
+    elif ERC4626Feature.superstate_like in features:
+        from eth_defi.tokenised_fund.superstate.vault import SuperstateVault
+
+        return SuperstateVault(web3, spec, **kwargs)
     elif ERC4626Feature.broken in features:
         return None
     elif ERC4626Feature.ipor_like in features:
@@ -1713,6 +1833,34 @@ def create_vault_instance(
         from eth_defi.tokenised_fund.asseto.vault import AssetoVault
 
         return AssetoVault(web3, spec, **kwargs)
+    elif ERC4626Feature.ondo_like in features:
+        from eth_defi.tokenised_fund.ondo.vault import OndoVault
+
+        return OndoVault(web3, spec, **kwargs)
+    elif ERC4626Feature.centrifuge_tranche_like in features:
+        from eth_defi.tokenised_fund.centrifuge.vault import CentrifugeTrancheVault
+
+        return CentrifugeTrancheVault(web3, spec, **kwargs)
+    elif ERC4626Feature.wisdomtree_like in features:
+        from eth_defi.tokenised_fund.wisdomtree.vault import WisdomTreeVault
+
+        return WisdomTreeVault(web3, spec, **kwargs)
+    elif ERC4626Feature.libeara_like in features:
+        from eth_defi.tokenised_fund.libeara.vault import LibearaVault
+
+        return LibearaVault(web3, spec, **kwargs)
+    elif ERC4626Feature.spiko_like in features:
+        from eth_defi.tokenised_fund.spiko.vault import SpikoVault
+
+        return SpikoVault(web3, spec, **kwargs)
+    elif ERC4626Feature.sygnum_like in features:
+        from eth_defi.tokenised_fund.sygnum.vault import SygnumVault
+
+        return SygnumVault(web3, spec, **kwargs)
+    elif ERC4626Feature.theo_itoken_like in features:
+        from eth_defi.tokenised_fund.theo.vault import TheoITokenVault
+
+        return TheoITokenVault(web3, spec, **kwargs)
     elif ERC4626Feature.wstgbp_like in features:
         from eth_defi.wstgbp.vault import WSTGBPVault
 
@@ -2159,6 +2307,16 @@ HARDCODED_PROTOCOLS = {
     **ODA_FACT_HARDCODED_PROTOCOLS,
     **MIDAS_HARDCODED_PROTOCOLS,
     **ASSETO_HARDCODED_PROTOCOLS,
+    **ONDO_HARDCODED_PROTOCOLS,
+    **USYC_HARDCODED_PROTOCOLS,
+    **FRANKLIN_HARDCODED_PROTOCOLS,
+    **CENTRIFUGE_TRANCHE_HARDCODED_PROTOCOLS,
+    **WISDOMTREE_HARDCODED_PROTOCOLS,
+    **SUPERSTATE_HARDCODED_PROTOCOLS,
+    **LIBEARA_HARDCODED_PROTOCOLS,
+    **SPIKO_HARDCODED_PROTOCOLS,
+    **SYGNUM_HARDCODED_PROTOCOLS,
+    **THEO_ITOKEN_HARDCODED_PROTOCOLS,
     **WSTGBP_HARDCODED_PROTOCOLS,
     **KILOEX_HARDCODED_PROTOCOLS,
     **FRANKENCOIN_HARDCODED_PROTOCOLS,

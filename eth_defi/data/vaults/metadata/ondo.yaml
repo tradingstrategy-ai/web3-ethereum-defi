@@ -1,0 +1,33 @@
+name: Ondo
+slug: ondo
+short_description: |
+  Tokenised U.S. dollar yield and short-term government-securities products for eligible investors.
+long_description: |
+  Ondo issues tokenised products that give eligible investors access to U.S. dollar yield and
+  short-term U.S. government-securities strategies. This integration covers the Ethereum USDY
+  and OUSG share tokens, whose issuers publish their redemption value through on-chain price oracles.
+
+  These products have investor eligibility, onboarding and transfer restrictions. USDY and OUSG
+  are not general-purpose public deposit accounts: subscriptions and redemptions use Ondo's
+  issuer-managed process, and the availability of those processes depends on the investor and product terms.
+fee_description: |
+  Fund expenses affect the published NAV or redemption price. OUSG documents a 0.15% management
+  fee, waived until 1 January 2027. USDY and OUSG issuer terms, including any subscription or
+  redemption costs, should be checked with Ondo before investing because the token contracts do
+  not provide a complete public product-fee schedule.
+links:
+  homepage: https://ondo.finance/
+  app: https://app.ondo.finance/
+  twitter: https://x.com/OndoFinance
+  github: https://github.com/ondoprotocol/usdy
+  documentation: https://docs.ondo.finance/
+  defillama: https://defillama.com/protocol/ondo-finance
+  audits: https://docs.ondo.finance/smart-contracts/audits
+  fees: https://docs.ondo.finance/qualified-access-products/ousg/overview
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/ondo/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x96f6ef951840721adbf46ac996b59e0235cb985c
+  - https://etherscan.io/address/0x1b19c19393e2d034d8ff31ff34c81252fcbbee92
+  - https://etherscan.io/address/0xa0219aa5b31e65bc920b5b6dfb8edf0988121de0
+  - https://etherscan.io/address/0x9cad45a8bf0ed41ff33074449b357c7a1fab4094

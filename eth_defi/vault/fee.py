@@ -68,8 +68,29 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Midas": VaultFeeMode.internalised_skimming,
     # Fund fees are internalised in NAV; request fees are read from AoABTManager.
     "Asseto": VaultFeeMode.internalised_skimming,
+    # Benji token contracts do not expose a fund fee schedule.
+    "Franklin Templeton": None,
+    # Product fee schedules are not published by the reviewed CMTAT token contracts.
+    "Libeara": None,
+    # USTBL's disclosed management cost is reflected in issuer-published NAV.
+    "Spiko": VaultFeeMode.internalised_skimming,
+    # FILQ token contracts do not expose product-level fees.
+    "Sygnum": None,
+    # Theo does not publish a universal product-level thBILL fee schedule.
+    "Theo": None,
     # DSToken contracts do not expose product-level fund fees.
     "Securitize": None,
+    # USDY and OUSG reflect issuer fund expenses in the published NAV. OUSG's
+    # documented management fee is surfaced per product by the Ondo adapter.
+    "Ondo": VaultFeeMode.internalised_skimming,
+    # USYC subscriptions and redemptions charge Teller fees; the product also
+    # discloses a performance fee that is reflected in the NAV/share price.
+    "Circle USYC": VaultFeeMode.externalised,
+    # WTGXX's published annual expense ratio is reflected in the fund NAV.
+    "WisdomTree": VaultFeeMode.internalised_skimming,
+    # USTB product-level fees are governed by fund documents, not exposed by
+    # the permissioned token contract.
+    "Superstate": None,
     # wstGBP applies mint and redemption spreads through mintcost() and
     # burncost(), reducing the user's issued shares or redeemed assets.
     "wstGBP": VaultFeeMode.externalised,

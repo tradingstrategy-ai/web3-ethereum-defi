@@ -1,0 +1,18 @@
+# Sygnum curator - feeds provided by protocols/sygnum.yaml
+feeder-id: sygnum
+name: Sygnum
+role: curator
+canonical-feeder-id: sygnum
+short_description: Sygnum is a digital-asset bank and tokenisation platform that administers permissioned investment products.
+long_description: |
+  Sygnum provides digital-asset banking and tokenisation infrastructure, including its Desygnate platform for issuing and administering permissioned tokenised products. The tracked FILQ share token uses Sygnum's permission manager, price-feed configuration and settlement infrastructure.
+
+  Sygnum is recorded as the protocol-managed curator for FILQ because its official product announcement identifies Desygnate as the platform providing the fund registry, smart-contract settlement and stablecoin subscription and redemption infrastructure. This describes the operational role of the platform and is not investment advice.
+
+other-links:
+  - title: Sygnum FILQ page - Fidelity International USD Digital Liquidity Fund tokenisation
+    url: https://www.sygnum.com/filq/
+  - title: Sygnum launch announcement - Desygnate fund registry and settlement architecture
+    url: https://www.sygnum.com/news/sygnum-powers-fidelity-internationals-first-tokenized-product-launch-with-moodys-aaa-mf-assessment/
+  - title: Sourcify exact-match SygToken implementation used by FILQ
+    url: https://sourcify.dev/server/v2/contract/1/0x7030fe438be6ed196b8886616bbf5a245c267339?fields=all

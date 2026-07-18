@@ -15,3 +15,4 @@ are maintained separately from the shared adapter.
    eth_defi.tokenised_fund.securitize.description
    eth_defi.tokenised_fund.securitize.redstone
    eth_defi.tokenised_fund.securitize.chronicle
+   eth_defi.tokenised_fund.securitize.backfill

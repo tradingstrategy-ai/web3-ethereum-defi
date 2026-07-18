@@ -423,6 +423,52 @@ def test_identify_jpmorgan_jltxx_by_address() -> None:
     assert not is_protocol_curator("jpmorgan")
 
 
+def test_identify_superstate_ustb_by_address() -> None:
+    """Resolve USTB to its Superstate curator metadata."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="USTB",
+        vault_name="Superstate Short Duration US Government Securities Fund",
+        vault_address="0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e",
+        protocol_slug="superstate",
+    )
+
+    assert slug == "superstate"
+    assert get_curator_name("superstate") == "Superstate"
+    assert not is_protocol_curator("superstate")
+
+
+def test_identify_ondo_usdy_as_protocol_curator() -> None:
+    """Resolve USDY to Ondo acting as its own protocol curator."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="USDY",
+        vault_name="Ondo U.S. Dollar Yield",
+        vault_address="0x96F6eF951840721AdBF46Ac996b59E0235CB985C",
+        protocol_slug="ondo",
+    )
+
+    assert slug == "ondo"
+    assert get_curator_name("ondo") == "Ondo Finance"
+    assert is_protocol_curator("ondo")
+
+
+def test_identify_jpmorgan_mony_by_address() -> None:
+    """MONY resolves to J.P. Morgan through its exact FACT Diamond address."""
+
+    slug = identify_curator(
+        vault_token_symbol="MONY",
+        vault_name="My OnChain Net Yield Fund",
+        vault_address="0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46",
+        protocol_slug="kinexys",
+        chain_id=1,
+    )
+
+    assert slug == "jpmorgan"
+
+
 def test_identify_piku_vaults_by_address() -> None:
     """Resolve the published Piku token and Morini vaults by exact address.
 

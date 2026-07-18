@@ -17,6 +17,9 @@ long_description: |
 
   One of the most popular Centrifuge users is Anemoy, which offers tokenised US assets
   like S&P 500 index, Janus Henderson AAA collateralised loan obligation ETF and US treasuries.
+  The integration also recognises JTRSY share tokens for the Janus Henderson Anemoy
+  Treasury Fund. These shares are not themselves subscription or redemption vaults;
+  eligible dealing takes place through separate Centrifuge pool infrastructure.
 fee_description: |
 links:
   homepage: https://centrifuge.io/
@@ -30,5 +33,6 @@ links:
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/centrifuge
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/centrifuge/index.html
 example_smart_contracts:
+  - https://etherscan.io/address/0x8c213ee79581ff4984583c6a801e5263418c4b86
   - https://etherscan.io/address/0xa702ac7953e6a66d2b10a478eb2f0e2b8c8fd23e
   -
