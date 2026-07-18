@@ -78,8 +78,16 @@ class ParquetScanResult(TypedDict):
 
 
 def pformat_scan_result(self) -> str:
-    """Format the result as a string."""
-    return f"ParquetScanResult(chain_id={self['chain_id']}, \nstart_block={self['start_block']:,}, \nend_block={self['end_block']:,}, \nrows_written={self['rows_written']:,}, \nrows_deleted={self['rows_deleted']:,}, \nexisting_row_count={self['existing_row_count']:,}, \nreader_state_count={len(self['reader_states'])}, \noutput_fname={self['output_fname']}, \nfile_size={self['file_size']:,} bytes, \nchunks_done={self['chunks_done']:,})"
+    """Format a stateful or stateless Parquet scan result.
+
+    :param self:
+        Result returned by :func:`scan_historical_prices_to_parquet`.
+    :return:
+        Multi-line operator summary.
+    """
+
+    reader_state_count = len(self["reader_states"] or {})
+    return f"ParquetScanResult(chain_id={self['chain_id']}, \nstart_block={self['start_block']:,}, \nend_block={self['end_block']:,}, \nrows_written={self['rows_written']:,}, \nrows_deleted={self['rows_deleted']:,}, \nexisting_row_count={self['existing_row_count']:,}, \nreader_state_count={reader_state_count}, \noutput_fname={self['output_fname']}, \nfile_size={self['file_size']:,} bytes, \nchunks_done={self['chunks_done']:,})"
 
 
 class VaultReadNotSupported(Exception):

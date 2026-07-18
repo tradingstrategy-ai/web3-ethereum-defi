@@ -635,3 +635,167 @@ def fetch_block_timestamps_using_hypersync_cached(
                 await asyncio.sleep(backoff)
 
     return asyncio.run(_hypersync_asyncio_wrapper())
+
+
+async def fetch_sparse_block_timestamps_using_hypersync_cached_async(
+    client: hypersync.HypersyncClient,
+    chain_id: int,
+    start_block: int,
+    end_block: int,
+    step: int,
+    cache_path=DEFAULT_TIMESTAMP_CACHE_FOLDER,
+    display_progress: bool = True,
+    checkpoint_frequency: int = 25,
+    max_concurrency: int = 5,
+) -> BlockTimestampSlicer:
+    """Fetch only exact sampled timestamps through Hypersync and the shared cache.
+
+    Historical state readers may sample one block per hour or day from chains
+    that produce millions of blocks per month. Fetching every intervening
+    header wastes Hypersync quota and can make the first backfill impossible
+    under a rate-limited API key. This path anti-joins the sampled block
+    numbers against the persistent DuckDB cache, fetches only misses, and
+    checkpoints them incrementally.
+
+    :param client:
+        Hypersync client for the requested chain.
+    :param chain_id:
+        Expected EVM chain id.
+    :param start_block:
+        First sampled block, inclusive.
+    :param end_block:
+        Historical reader end block, exclusive.
+    :param step:
+        Number of blocks between historical samples.
+    :param cache_path:
+        Shared per-chain timestamp cache directory.
+    :param display_progress:
+        Whether to display sampled timestamp progress.
+    :param checkpoint_frequency:
+        Maximum number of new timestamps held before a durable cache write.
+    :param max_concurrency:
+        Maximum one-block streams awaited together. The shared client limiter
+        still governs total request starts across the batch.
+    :return:
+        Cache-backed timestamp slicer containing every requested sample.
+    """
+
+    assert start_block <= end_block
+    assert step > 1
+    assert checkpoint_frequency > 0
+    assert max_concurrency > 0
+
+    timestamp_db = load_timestamp_cache(chain_id, cache_path) if cache_path.exists() else BlockTimestampDatabase.create(chain_id, cache_path)
+    requested_blocks = tuple(range(start_block, end_block, step))
+    required_blocks = requested_blocks
+    missing_blocks = timestamp_db.get_missing_block_numbers(required_blocks)
+    if not missing_blocks:
+        logger.info("Chain %d: timestamp cache contains all %d sampled blocks", chain_id, len(requested_blocks))
+        return timestamp_db.get_slicer()
+
+    if is_hypersync_client(client):
+        await _validate_hypersync_chain_id_async(client, chain_id, reason="sparse-timestamp-cache-validate")
+        hypersync_height = await _fetch_hypersync_block_height_async(client, reason="sparse-timestamp-cache-height")
+        required_blocks = tuple(block_number for block_number in requested_blocks if block_number <= hypersync_height)
+        missing_blocks = [block_number for block_number in missing_blocks if block_number <= hypersync_height]
+
+    logger.info(
+        "Chain %d: fetching %d/%d sampled block timestamps through Hypersync (step %d)",
+        chain_id,
+        len(missing_blocks),
+        len(requested_blocks),
+        step,
+    )
+    progress_bar = tqdm(total=len(missing_blocks), desc=f"Reading sampled timestamps (hypersync) on {chain_id}") if display_progress else None
+    pending_index: list[int] = []
+    pending_values: list[int] = []
+
+    def _checkpoint() -> None:
+        """Persist the current sampled timestamp batch."""
+
+        if pending_index:
+            timestamp_db.import_chain_data(chain_id, pd.Series(data=pending_values, index=pending_index))
+            pending_index.clear()
+            pending_values.clear()
+
+    async def _fetch_sample(sample_idx: int, block_number: int) -> BlockHeader:
+        """Fetch and validate one exact sampled block header."""
+
+        headers = [
+            header
+            async for header in get_block_timestamps_using_hypersync_async(
+                client,
+                chain_id,
+                start_block=block_number,
+                end_block=block_number,
+                display_progress=False,
+                validate_chain_id=False,
+                reason=f"sampled-timestamp {sample_idx}/{len(missing_blocks)}",
+            )
+        ]
+        if len(headers) != 1 or headers[0].block_number != block_number:
+            raise HypersyncFlaky(f"Chain {chain_id}: Hypersync did not return sampled block {block_number:,}")
+        return headers[0]
+
+    try:
+        for batch_start in range(0, len(missing_blocks), max_concurrency):
+            batch = missing_blocks[batch_start : batch_start + max_concurrency]
+            headers = await asyncio.gather(*(_fetch_sample(batch_start + batch_offset + 1, block_number) for batch_offset, block_number in enumerate(batch)))
+            pending_index.extend(batch)
+            pending_values.extend(header.timestamp for header in headers)
+            if len(pending_index) >= checkpoint_frequency:
+                _checkpoint()
+            if progress_bar:
+                progress_bar.update(len(batch))
+                progress_bar.set_postfix({"block": f"{batch[-1]:,}"})
+    finally:
+        _checkpoint()
+        if progress_bar:
+            progress_bar.close()
+
+    remaining = timestamp_db.get_missing_block_numbers(required_blocks)
+    if remaining:
+        raise HypersyncFlaky(f"Chain {chain_id}: timestamp cache still lacks {len(remaining)} sampled blocks")
+    return timestamp_db.get_slicer()
+
+
+def fetch_sparse_block_timestamps_using_hypersync_cached(
+    client: hypersync.HypersyncClient,
+    chain_id: int,
+    start_block: int,
+    end_block: int,
+    step: int,
+    cache_path=DEFAULT_TIMESTAMP_CACHE_FOLDER,
+    display_progress: bool = True,
+    attempts: int = 5,
+) -> BlockTimestampSlicer:
+    """Synchronously fetch sparse sampled timestamps with retry/backoff.
+
+    :param attempts:
+        Maximum Hypersync attempts; completed checkpoints survive retries.
+    :return:
+        Cache-backed timestamp slicer containing every requested sample.
+    """
+
+    async def _hypersync_asyncio_wrapper() -> BlockTimestampSlicer:
+        for attempt in range(attempts):
+            try:
+                return await fetch_sparse_block_timestamps_using_hypersync_cached_async(
+                    client=client,
+                    chain_id=chain_id,
+                    start_block=start_block,
+                    end_block=end_block,
+                    step=step,
+                    cache_path=cache_path,
+                    display_progress=display_progress,
+                )
+            except HypersyncFlaky as error:
+                logger.warning("Chain %d: sparse Hypersync fetch flaky on attempt %d/%d: %s", chain_id, attempt + 1, attempts, error)
+                if attempt + 1 >= attempts:
+                    raise
+                backoff = 30 * (2**attempt)
+                logger.info("Chain %d: backing off %ds before sparse retry %d/%d", chain_id, backoff, attempt + 2, attempts)
+                await asyncio.sleep(backoff)
+        raise RuntimeError("Sparse Hypersync timestamp fetch exhausted without returning or raising")
+
+    return asyncio.run(_hypersync_asyncio_wrapper())

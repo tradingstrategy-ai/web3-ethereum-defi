@@ -81,6 +81,7 @@ def test_libeara_ultra_historical_reader_keeps_supply_without_nav() -> None:
 
     reader = LibearaVaultHistoricalReader.__new__(LibearaVaultHistoricalReader)
     reader.vault = DummyUltraVault()
+    reader.reader_state = None
     call = EncodedCall(func_name="totalSupply", address=DummyUltraVault.address, data=b"", extra_data={"function": "totalSupply"})
     result = EncodedCallResult(call=call, success=True, result=(36_192_127_917_021).to_bytes(32, "big"), block_identifier=123)
     timestamp = datetime.datetime(2025, 7, 18, 7, 9, 32, tzinfo=datetime.UTC).replace(tzinfo=None)

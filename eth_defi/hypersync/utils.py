@@ -68,10 +68,11 @@ def configure_hypersync_from_env(
     def _make_client(url: str) -> ThrottledHypersyncClient:
         """Create a throttled client, lazily building the limiter on first use."""
         nonlocal limiter
+        requests_per_minute = get_hypersync_rpm_from_env()
         if limiter is None:
-            limiter = _create_limiter(requests_per_minute=get_hypersync_rpm_from_env())
+            limiter = _create_limiter(requests_per_minute=requests_per_minute)
         config = hypersync.ClientConfig(url=url, bearer_token=hypersync_api_key)
-        return create_throttled_hypersync_client(config, limiter=limiter, concurrency=concurrency)
+        return create_throttled_hypersync_client(config, requests_per_minute=requests_per_minute, limiter=limiter, concurrency=concurrency)
 
     match scan_backend:
         case "auto":

@@ -14,9 +14,10 @@ from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, BlockTim
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.timestamp import get_block_timestamp
 
-
 logger = logging.getLogger(__name__)
 
+#: Use exact sampled Hypersync reads when less than one per 100 blocks is needed.
+HYPERSYNC_SPARSE_TIMESTAMP_MIN_STEP = 100
 
 _timestamp_instance = threading.local()
 
@@ -190,14 +191,26 @@ def fetch_block_timestamps_multiprocess_auto_backend(
     For arguments see :py:func:`fetch_block_timestamps_multiprocess`.
 
     :param step:
-        Hypersync does not respect `step` but gets all blocks.
+        Sampling interval. Wide intervals use a sparse, cache-aware Hypersync
+        path instead of downloading every intervening block header.
 
     :return:
         Pandas series block number (int) -> block timestamp (datetime)
     """
 
     if hypersync_client:
-        from eth_defi.hypersync.hypersync_timestamp import fetch_block_timestamps_using_hypersync_cached
+        from eth_defi.hypersync.hypersync_timestamp import fetch_block_timestamps_using_hypersync_cached, fetch_sparse_block_timestamps_using_hypersync_cached
+
+        if step >= HYPERSYNC_SPARSE_TIMESTAMP_MIN_STEP:
+            return fetch_sparse_block_timestamps_using_hypersync_cached(
+                client=hypersync_client,
+                chain_id=chain_id,
+                start_block=start_block,
+                end_block=end_block,
+                step=step,
+                cache_path=cache_path,
+                display_progress=display_progress,
+            )
 
         return fetch_block_timestamps_using_hypersync_cached(
             client=hypersync_client,

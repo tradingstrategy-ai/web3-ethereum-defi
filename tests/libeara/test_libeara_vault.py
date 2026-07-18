@@ -12,7 +12,7 @@ from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_i
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.tokenised_fund.libeara.constants import BELIF_ETHEREUM, CUMIU_ETHEREUM, ETHEREUM_CHAIN_ID
-from eth_defi.tokenised_fund.libeara.historical import LibearaVaultHistoricalReader
+from eth_defi.tokenised_fund.libeara.historical import LibearaVaultHistoricalReader, LibearaVaultReaderState
 from eth_defi.tokenised_fund.libeara.vault import LIBEARA_RESTRICTED_FLOW_REASON, LibearaVault
 from eth_defi.vault.curator import identify_curator
 
@@ -82,3 +82,25 @@ def test_libeara_historical_reader_uses_nav_scale(web3: Web3) -> None:
     assert read.total_supply == EXPECTED[CUMIU_ETHEREUM.token][0]
     assert read.share_price == EXPECTED[CUMIU_ETHEREUM.token][1]
     assert read.total_assets == EXPECTED[CUMIU_ETHEREUM.token][0] * EXPECTED[CUMIU_ETHEREUM.token][1]
+
+
+def test_libeara_stateful_historical_reader_updates_scanner_state(web3: Web3) -> None:
+    """Construct and update the state required by the production multicaller.
+
+    :param web3:
+        Archive-connected Ethereum client.
+    """
+
+    vault = create_vault_instance_autodetect(web3, CUMIU_ETHEREUM.token)
+    reader = vault.get_historical_reader(stateful=True)
+    assert isinstance(reader.reader_state, LibearaVaultReaderState)
+    calls = list(reader.construct_multicalls())
+    assert all(call.extra_data["vault"] == vault.address for call in calls)
+    results = [call.call_as_result(web3, block_identifier=TEST_BLOCK, ignore_error=True) for call in calls]
+    timestamp = datetime.datetime.fromtimestamp(web3.eth.get_block(TEST_BLOCK)["timestamp"], tz=datetime.UTC).replace(tzinfo=None)
+    for result in results:
+        result.timestamp = timestamp
+    read = reader.process_result(TEST_BLOCK, timestamp, results)
+    assert reader.reader_state.last_block == TEST_BLOCK
+    assert reader.reader_state.last_share_price == read.share_price
+    assert reader.reader_state.last_tvl == read.total_assets

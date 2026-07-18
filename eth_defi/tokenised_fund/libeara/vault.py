@@ -264,7 +264,7 @@ class LibearaVault(VaultBase):
         :param stateful: Retained shared-reader API parameter.
         :return: Libeara historical reader.
         """
-        return LibearaVaultHistoricalReader(self)
+        return LibearaVaultHistoricalReader(self, stateful=stateful)
 
     def get_fee_data(self) -> FeeData:
         """Return unavailable product fee data.

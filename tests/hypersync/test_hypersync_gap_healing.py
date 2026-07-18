@@ -14,11 +14,15 @@ import asyncio
 import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pandas as pd
+
 from eth_defi.event_reader.block_header import BlockHeader
+from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
 from eth_defi.hypersync.hypersync_timestamp import (
     HypersyncFlaky,
     fetch_block_timestamps_using_hypersync_cached,
     fetch_block_timestamps_using_hypersync_cached_async,
+    fetch_sparse_block_timestamps_using_hypersync_cached_async,
     get_hypersync_block_height_with_retries,
     is_hypersync_next_block_range_error,
     is_hypersync_rate_limit_error,
@@ -201,6 +205,48 @@ def test_hypersync_gap_healing_no_gaps(tmp_path):
     # Only the initial fetch, no healing needed
     assert call_count == 1
 
+    slicer.close()
+
+
+def test_sparse_hypersync_timestamp_fetch_reads_only_sampled_cache_misses(tmp_path):
+    """Wide historical scans fetch only exact missing sample blocks.
+
+    1. Seed one of four requested samples in the shared DuckDB cache.
+    2. Run the sparse Hypersync fetch with a 100-block step.
+    3. Verify only the three cache misses were requested and all samples resolve.
+    """
+
+    chain_id = 1
+    cached_block = 1_100
+    timestamp_db = BlockTimestampDatabase.create(chain_id, tmp_path)
+    timestamp_db.import_chain_data(chain_id, pd.Series([1_700_001_100], index=[cached_block]))
+    timestamp_db.close()
+    fetch_calls: list[tuple[int, int]] = []
+
+    async def mock_get_timestamps(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000, validate_chain_id=True, reason=None):
+        fetch_calls.append((start_block, end_block))
+        yield _make_block_header(start_block)
+
+    async def _run():
+        with patch(
+            "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+            side_effect=mock_get_timestamps,
+        ):
+            return await fetch_sparse_block_timestamps_using_hypersync_cached_async(
+                client=MagicMock(),
+                chain_id=chain_id,
+                start_block=1_000,
+                end_block=1_400,
+                step=100,
+                cache_path=tmp_path,
+                display_progress=False,
+                checkpoint_frequency=2,
+            )
+
+    slicer = asyncio.run(_run())
+
+    assert fetch_calls == [(1_000, 1_000), (1_200, 1_200), (1_300, 1_300)]
+    assert all(slicer[block_number] is not None for block_number in (1_000, 1_100, 1_200, 1_300))
     slicer.close()
 
 

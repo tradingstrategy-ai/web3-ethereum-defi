@@ -104,6 +104,9 @@ def test_spiko_scan_record_and_curator(web3: Web3) -> None:
     record = create_vault_scan_record(web3, detection, block_identifier=SPIKO_TEST_BLOCK, token_cache={})
     assert record["Protocol"] == "Spiko"
     assert record["NAV"] == EXPECTED_TOTAL_ASSETS
+    assert record["Denomination"] == "USD"
+    assert record["_synthetic_usd_denomination"] is True
+    assert record["_denomination_token"]["address"] is None
     assert record["_nav_source"] == "spiko_ustbl_oracle_latestRoundData"
     assert record["_deposit_closed_reason"] == SPIKO_PERMISSIONED_FLOW_REASON
     curator = identify_curator(1, "USTBL", "Spiko US T-Bills Money Market Fund", USTBL_TOKEN_ADDRESS, "spiko")

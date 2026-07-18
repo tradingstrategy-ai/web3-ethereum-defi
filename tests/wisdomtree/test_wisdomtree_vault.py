@@ -204,3 +204,25 @@ def test_wisdomtree_missing_api_key_fails_before_metadata_write(monkeypatch: pyt
         backfill_module.run_backfill(dry_run=False, scan_prices=True, clean_prices=True, frequency="1d", vault_db_path=tmp_path / "vaults.pickle", raw_price_path=tmp_path / "raw.parquet", cleaned_price_path=tmp_path / "cleaned.parquet", reader_state_path=tmp_path / "state.pickle")
     assert calls == ["api-key-check"]
     assert not list(tmp_path.iterdir())
+
+
+def test_wisdomtree_metadata_only_does_not_require_api_key(monkeypatch: pytest.MonkeyPatch, backfill_module, tmp_path: Path) -> None:
+    """Write public metadata without requiring private DataSpan access."""
+
+    calls: list[str] = []
+
+    class DummyTokenCache:
+        def commit(self) -> None:
+            calls.append("token-cache-commit")
+
+    monkeypatch.setattr(backfill_module, "require_price_scan_key", lambda: calls.append("api-key-check"))
+    monkeypatch.setattr(backfill_module, "read_json_rpc_url", lambda _chain_id: "http://example.invalid")
+    monkeypatch.setattr(backfill_module, "create_multi_provider_web3", lambda _url: SimpleNamespace(eth=SimpleNamespace(block_number=99)))
+    monkeypatch.setattr(backfill_module, "TokenDiskCache", DummyTokenCache)
+    monkeypatch.setattr(backfill_module, "create_vault_scan_record", lambda *args, **kwargs: {"Name": "WisdomTree WTGXX"})
+
+    backfill_module.run_backfill(dry_run=False, scan_prices=False, clean_prices=True, frequency="1d", vault_db_path=tmp_path / "vaults.pickle", raw_price_path=tmp_path / "raw.parquet", cleaned_price_path=tmp_path / "cleaned.parquet", reader_state_path=tmp_path / "state.pickle")
+
+    assert calls == ["token-cache-commit"]
+    assert (tmp_path / "vaults.pickle").exists()
+    assert not (tmp_path / "raw.parquet").exists()
