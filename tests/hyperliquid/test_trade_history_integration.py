@@ -23,6 +23,7 @@ Requires network access to the Hyperliquid API.
 
 import datetime
 
+import flaky
 import pytest
 
 from eth_defi.hyperliquid.api import fetch_portfolio
@@ -55,6 +56,8 @@ def session():
     return create_hyperliquid_session()
 
 
+# Flaky: Hyperliquid API retries exceeded the 60-second timeout in PR #1313 CI on 2026-07-18; the immediate rerun passed.
+@flaky.flaky
 @pytest.mark.timeout(60)
 def test_fetch_account_funding(session):
     """Fetch funding payments for a known active account."""
