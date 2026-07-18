@@ -22,6 +22,7 @@ from eth_defi.tokenised_fund.sygnum.backfill import main as backfill_sygnum
 from eth_defi.tokenised_fund.theo.backfill import main as backfill_theo
 from eth_defi.tokenised_fund.usyc.backfill import main as backfill_usyc
 from eth_defi.tokenised_fund.wisdomtree.backfill import main as backfill_wisdomtree
+from eth_defi.tokenised_fund.wisdomtree.nav import WISDOMTREE_DATASPAN_API_KEY_ENV
 from eth_defi.utils import setup_console_logging
 
 logger = logging.getLogger(__name__)
@@ -87,6 +88,31 @@ def run_protocol_backfills(protocols: Iterable[str]) -> tuple[str, ...]:
     return tuple(completed)
 
 
+def configure_optional_private_backfills(protocols_value: str | None, protocols: tuple[str, ...]) -> None:
+    """Make the default all-protocol run tolerate unavailable private data.
+
+    WisdomTree metadata is public on-chain, but its official NAV history needs
+    a private DataSpan API key. The implicit all-protocol workflow therefore
+    registers its metadata and skips only the private price scan when neither
+    the key nor an explicit price-scan choice is present. Explicit WisdomTree
+    selections continue to fail closed without the credential.
+
+    :param protocols_value: Raw ``PROTOCOLS`` environment value.
+    :param protocols: Validated protocol selection.
+    :return: None.
+    """
+
+    is_implicit_all = not (protocols_value or "").strip()
+    scan_choice_is_explicit = "WISDOMTREE_SCAN_PRICES" in os.environ
+    has_api_key = bool(os.environ.get(WISDOMTREE_DATASPAN_API_KEY_ENV))
+    if is_implicit_all and "wisdomtree" in protocols and not scan_choice_is_explicit and not has_api_key:
+        os.environ["WISDOMTREE_SCAN_PRICES"] = "false"
+        logger.warning(
+            "Skipping WisdomTree private NAV history because %s is not set; public on-chain metadata will still be updated",
+            WISDOMTREE_DATASPAN_API_KEY_ENV,
+        )
+
+
 def main() -> None:
     """Run tokenised-fund backfills selected through environment variables.
 
@@ -100,7 +126,9 @@ def main() -> None:
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
     if not os.environ.get("DRY_RUN", "").strip():
         os.environ["DRY_RUN"] = "true"
-    protocols = parse_protocols(os.environ.get("PROTOCOLS"))
+    protocols_value = os.environ.get("PROTOCOLS")
+    protocols = parse_protocols(protocols_value)
+    configure_optional_private_backfills(protocols_value, protocols)
     logger.info("Tokenised-fund backfill plan: protocols=%s dry_run=%s", ",".join(protocols), os.environ["DRY_RUN"])
     completed = run_protocol_backfills(protocols)
     logger.info("Tokenised-fund backfill finished: %s", ",".join(completed))

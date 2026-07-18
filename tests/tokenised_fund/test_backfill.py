@@ -29,6 +29,28 @@ def test_run_protocol_backfills_in_selection_order(monkeypatch: pytest.MonkeyPat
     assert calls == ["spiko", "ondo"]
 
 
+def test_implicit_all_skips_private_wisdomtree_history_without_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the one-command all-protocol workflow usable without private data."""
+
+    monkeypatch.delenv(backfill.WISDOMTREE_DATASPAN_API_KEY_ENV, raising=False)
+    monkeypatch.delenv("WISDOMTREE_SCAN_PRICES", raising=False)
+
+    backfill.configure_optional_private_backfills(None, tuple(backfill.PROTOCOL_BACKFILLS))
+
+    assert backfill.os.environ["WISDOMTREE_SCAN_PRICES"] == "false"
+
+
+def test_explicit_wisdomtree_keeps_price_scan_fail_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Do not silently weaken an explicit WisdomTree history request."""
+
+    monkeypatch.delenv(backfill.WISDOMTREE_DATASPAN_API_KEY_ENV, raising=False)
+    monkeypatch.delenv("WISDOMTREE_SCAN_PRICES", raising=False)
+
+    backfill.configure_optional_private_backfills("wisdomtree", ("wisdomtree",))
+
+    assert "WISDOMTREE_SCAN_PRICES" not in backfill.os.environ
+
+
 def test_main_defaults_blank_dry_run_to_true(monkeypatch: pytest.MonkeyPatch) -> None:
     """Never turn a blank aggregate dry-run setting into permission to write."""
 

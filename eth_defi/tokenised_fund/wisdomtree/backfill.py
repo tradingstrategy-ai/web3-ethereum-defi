@@ -228,7 +228,7 @@ def run_backfill(
     :param reader_state_path: Reader-state pickle path.
     """
 
-    if not dry_run:
+    if not dry_run and scan_prices:
         require_price_scan_key()
     rpc_url = read_json_rpc_url(WTGXX_ETHEREUM.chain_id)
     web3 = create_multi_provider_web3(rpc_url)
@@ -242,6 +242,8 @@ def run_backfill(
         vault_db_path.parent.mkdir(parents=True, exist_ok=True)
         vault_db.write(vault_db_path)
     if not scan_prices or dry_run:
+        if not dry_run:
+            token_cache.commit()
         return
     vault = create_vault_instance(web3, WTGXX_ETHEREUM.token, features={ERC4626Feature.wisdomtree_like}, token_cache=token_cache)
     if vault is None:

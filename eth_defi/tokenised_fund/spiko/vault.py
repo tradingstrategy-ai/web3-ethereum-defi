@@ -48,6 +48,27 @@ class SpikoVaultInfo(VaultInfo, total=False):
     chain_id: int
     price_oracle: HexAddress
     nav_source: str
+    synthetic_usd_denomination: bool
+
+
+def export_spiko_usd_denomination(chain_id: int) -> dict[str, object]:
+    """Export USTBL's non-transferable USD accounting denomination.
+
+    :param chain_id:
+        EVM chain id of the USTBL deployment.
+    :return:
+        Token-like USD metadata without an ERC-20 address.
+    """
+
+    return {
+        "address": None,
+        "chain": chain_id,
+        "name": "United States Dollar",
+        "symbol": "USD",
+        "decimals": None,
+        "total_supply": None,
+        "extra_data": {"synthetic": True},
+    }
 
 
 class SpikoVault(VaultBase):
@@ -243,14 +264,21 @@ class SpikoVault(VaultBase):
 
         :return: Token, oracle and price-source identifiers.
         """
-        return SpikoVaultInfo(token=self.address, chain_id=self.chain_id, price_oracle=HexAddress(Web3.to_checksum_address(USTBL_PRICE_ORACLE_ADDRESS)), nav_source=USTBL_NAV_SOURCE)
+        return SpikoVaultInfo(token=self.address, chain_id=self.chain_id, price_oracle=HexAddress(Web3.to_checksum_address(USTBL_PRICE_ORACLE_ADDRESS)), nav_source=USTBL_NAV_SOURCE, synthetic_usd_denomination=True)
 
     def fetch_scan_record_extra_data(self) -> dict[str, object]:
         """Expose valuation and restricted-flow diagnostics.
 
         :return: Data recorded with USTBL scan results.
         """
-        return {"_nav_source": USTBL_NAV_SOURCE, "_nav_estimated": False, "_spiko_price_oracle": HexAddress(Web3.to_checksum_address(USTBL_PRICE_ORACLE_ADDRESS))}
+        return {
+            "Denomination": "USD",
+            "_denomination_token": export_spiko_usd_denomination(self.chain_id),
+            "_nav_source": USTBL_NAV_SOURCE,
+            "_nav_estimated": False,
+            "_spiko_price_oracle": HexAddress(Web3.to_checksum_address(USTBL_PRICE_ORACLE_ADDRESS)),
+            "_synthetic_usd_denomination": True,
+        }
 
     def fetch_portfolio(self, universe: TradingUniverse, block_identifier: BlockIdentifier | None = None) -> VaultPortfolio:
         """Return no directly observable underlying portfolio.

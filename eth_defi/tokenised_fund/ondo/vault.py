@@ -38,6 +38,27 @@ class OndoVaultInfo(VaultInfo, total=False):
     chain_id: int
     oracle: HexAddress
     nav_source: str
+    synthetic_usd_denomination: bool
+
+
+def export_ondo_usd_denomination(chain_id: int) -> dict[str, object]:
+    """Export Ondo's non-transferable USD accounting denomination.
+
+    :param chain_id:
+        EVM chain id of the fund token.
+    :return:
+        Token-like USD metadata without an ERC-20 address.
+    """
+
+    return {
+        "address": None,
+        "chain": chain_id,
+        "name": "United States Dollar",
+        "symbol": "USD",
+        "decimals": None,
+        "total_supply": None,
+        "extra_data": {"synthetic": True},
+    }
 
 
 class OndoVault(VaultBase):
@@ -179,18 +200,20 @@ class OndoVault(VaultBase):
     def fetch_info(self) -> OndoVaultInfo:
         """Export product and NAV-source metadata."""
 
-        return OndoVaultInfo(token=self.address, chain_id=self.chain_id, oracle=self.product.oracle, nav_source=f"ondo_{self.product.oracle_method}")
+        return OndoVaultInfo(token=self.address, chain_id=self.chain_id, oracle=self.product.oracle, nav_source=f"ondo_{self.product.oracle_method}", synthetic_usd_denomination=True)
 
     def fetch_scan_record_extra_data(self) -> dict[str, object]:
         """Export scanner metadata for permissioning and NAV provenance."""
 
         return {
+            "Denomination": "USD",
+            "_denomination_token": export_ondo_usd_denomination(self.chain_id),
             "_notes": self.get_notes(),
             "_deposit_closed_reason": self.fetch_deposit_closed_reason(),
             "_redemption_closed_reason": self.fetch_redemption_closed_reason(),
             "_nav_source": f"ondo_{self.product.oracle_method}",
             "_nav_estimated": False,
-            "_synthetic_usd_denomination": False,
+            "_synthetic_usd_denomination": True,
         }
 
     def fetch_portfolio(self, universe: TradingUniverse, block_identifier: BlockIdentifier | None = None) -> VaultPortfolio:

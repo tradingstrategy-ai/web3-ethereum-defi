@@ -6,10 +6,12 @@ Getting block numbers and timestamps is a common expensive operation when
 scanning historical events.
 """
 
-import pandas as pd
 import datetime
 import logging
+from collections.abc import Iterable
 from pathlib import Path
+
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -264,6 +266,38 @@ class BlockTimestampDatabase:
             SELECT COUNT(*) FROM block_timestamps
             """
         ).fetchone()[0]
+
+    def get_missing_block_numbers(self, block_numbers: Iterable[int]) -> list[int]:
+        """Return requested block numbers absent from this cache.
+
+        The lookup is performed as a DuckDB anti-join so sparse historical
+        scans do not need to materialise a multi-million-row cache in Pandas.
+
+        :param block_numbers:
+            Exact EVM block numbers needed by a caller.
+        :return:
+            Missing block numbers in ascending order.
+        """
+
+        requested = tuple(dict.fromkeys(block_numbers))
+        if not requested:
+            return []
+        requested_df = pd.DataFrame({"block_number": requested})
+        self.con.register("requested_block_numbers", requested_df)
+        try:
+            rows = self.con.execute(
+                """
+                SELECT requested.block_number
+                FROM requested_block_numbers AS requested
+                LEFT JOIN block_timestamps AS cached
+                    ON cached.block_number = requested.block_number
+                WHERE cached.block_number IS NULL
+                ORDER BY requested.block_number
+                """
+            ).fetchall()
+        finally:
+            self.con.unregister("requested_block_numbers")
+        return [int(row[0]) for row in rows]
 
     def find_gaps(self) -> list[tuple[int, int, int]]:
         """Find all gaps in the block timestamp database.
