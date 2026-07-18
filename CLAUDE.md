@@ -47,6 +47,7 @@ Skill discovery rules:
 
 - Use UK/British English instead of US English
 - Say things like `visualise` instead of `visualize`
+- Always spell `onchain` without a hyphen; correct `on-chain` to `onchain`
 - For headings, only capitalise the first letter of heading, do not use title case
 
 ## Installing dependencies
