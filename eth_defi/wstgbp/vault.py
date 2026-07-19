@@ -24,7 +24,7 @@ from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
 from eth_defi.wstgbp.historical import WSTGBPVaultHistoricalReader
 
-WSTGBP_DOCUMENTATION = "https://docs.wstgbp.com/"
+WSTGBP_HOMEPAGE = "https://wstgbp.com"
 WSTGBP_NAV_SOURCE = "wstgbp_navprice"
 WSTGBP_NOTE = "wstGBP (Wren Staked tGBP) is a non-custodial, non-rebasing ERC-20 wrapper around tGBP, a pound sterling stablecoin issued by BCP Technologies, an FCA-registered cryptoasset firm, backed 1:1 by sterling reserves. Users mint and redeem permissionlessly on Ethereum at the onchain exchange rate. Balances stay fixed and rewards, when applied, are reflected in the wstGBP to tGBP exchange rate through periodic NAV updates. Minting is free and instant redemption carries a 25 bps fee, with no cooldown."
 WAD = Decimal(10**18)
@@ -493,12 +493,12 @@ class WSTGBPVault(VaultBase):
         return float(Decimal(raw_nav - raw_burn_cost) / Decimal(raw_nav))
 
     def get_link(self, referral: str | None = None) -> str:
-        """Return the Wren Staked tGBP product documentation link.
+        """Return the Wren Staked tGBP homepage.
 
         :param referral:
             Ignored because Wren Staked tGBP links do not use referral parameters.
         :return:
-            Public wstGBP documentation URL.
+            Public wstGBP homepage URL.
         """
 
-        return WSTGBP_DOCUMENTATION
+        return WSTGBP_HOMEPAGE
