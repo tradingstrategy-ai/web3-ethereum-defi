@@ -73,7 +73,7 @@ def test_wstgbp_metadata_and_fees(web3: Web3) -> None:
     assert vault.share_token.decimals == WSTGBP_EXPECTED_DECIMALS
     assert vault.fetch_denomination_token_address() == Web3.to_checksum_address(WSTGBP_EXPECTED_GEM)
     assert vault.denomination_token.symbol == "tGBP"
-    assert vault.get_link() == "https://docs.wstgbp.com/"
+    assert vault.get_link() == "https://wstgbp.com"
 
     info = vault.fetch_info()
     assert info["denomination_token"] == Web3.to_checksum_address(WSTGBP_EXPECTED_GEM)
