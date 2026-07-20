@@ -15,9 +15,10 @@ liquid staking (frxETH/sfrxETH), and lending markets (Fraxlend).
 import datetime
 import logging
 
-from eth_typing import BlockIdentifier
+from eth_typing import BlockIdentifier, HexAddress
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_METADATA_BY_CHAIN
 from eth_defi.types import Percent
 from eth_defi.vault.fee import VaultFeeMode
 
@@ -85,6 +86,38 @@ class FraxlendPairVault(FraxVault):
     while inheriting the legacy Fraxlend behaviour from :class:`FraxVault`.
     """
 
+    @property
+    def short_description(self) -> str:
+        """Return a concise explanation of the Fraxlend lender product.
+
+        Fraxlend does not expose curated per-pair prose through an off-chain
+        metadata API. The vault name already identifies the pair assets, while
+        this family-level summary explains what the ERC-4626 share represents.
+
+        :return:
+            One-line description for vault listings.
+        """
+
+        return "Earn interest by lending assets to an isolated Fraxlend borrowing market."
+
+    def get_notes(self) -> str | None:
+        """Return Fraxlend-specific lender mechanics and risk notes.
+
+        Manual shared notes retain priority, following the same precedence as
+        Lagoon and D2 adapters. Otherwise explain the isolated-market model,
+        liquidity constraint and lender bad-debt exposure common to every
+        Fraxlend pair.
+
+        :return:
+            Manual notes when configured, otherwise a Markdown Fraxlend note.
+        """
+
+        manual_notes = super().get_notes()
+        if manual_notes:
+            return manual_notes
+
+        return """Fraxlend pairs are isolated lending markets: lenders supply the pair's asset token and borrowers post its collateral token. Interest and collateral risk are not pooled across pairs. Redemptions depend on available, unborrowed liquidity, and lenders can absorb bad debt if liquidated collateral does not fully cover unhealthy loans. The share price internalises borrower interest and Fraxlend's protocol fee. See the [Fraxlend technical documentation](https://docs.frax.com/protocol/subprotocols/fraxlend/technical)."""
+
 
 class FraxStakingVault(FraxVault):
     """Frax stablecoin staking vault.
@@ -99,6 +132,44 @@ class FraxStakingVault(FraxVault):
     - Verified sFRAX contract: https://etherscan.io/address/0xa663b02cf0a4b149d2ad41910cb81e23e1c41c32#code
     - Verified sfrxUSD implementation: https://eth.blockscout.com/address/0xAad4A1D92053a62cE7a787641d8b4E5883e96700?tab=contract
     """
+
+    @property
+    def short_description(self) -> str:
+        """Return the hardcoded product summary for this staking deployment.
+
+        The reviewed contracts share a generic linear-reward implementation,
+        so their product identity cannot be recovered reliably through ABI
+        probes. Address-specific metadata distinguishes legacy sFRAX, current
+        sFRAX and sfrxUSD.
+
+        :return:
+            One-line description for vault listings.
+        """
+
+        metadata = FRAX_STAKING_VAULT_METADATA_BY_CHAIN.get(self.chain_id, {}).get(HexAddress(self.address.lower()))
+        if metadata:
+            return metadata.short_description
+        return "Stake a Frax stablecoin in an ERC-4626 vault to earn protocol-distributed yield."
+
+    def get_notes(self) -> str | None:
+        """Return address-specific Frax staking notes.
+
+        Manual shared notes retain priority. The fallback copy is hardcoded
+        because the staking ABI does not distinguish the Frax product or expose
+        lifecycle and strategy descriptions.
+
+        :return:
+            Manual notes when configured, otherwise a Markdown staking note.
+        """
+
+        manual_notes = super().get_notes()
+        if manual_notes:
+            return manual_notes
+
+        metadata = FRAX_STAKING_VAULT_METADATA_BY_CHAIN.get(self.chain_id, {}).get(HexAddress(self.address.lower()))
+        if metadata:
+            return metadata.notes
+        return "Frax stablecoin staking vault. Yield is distributed through an increasing ERC-4626 share price, with no explicit vault fee or time lock in the reviewed contract."
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> Percent:  # noqa: PLR6301, ARG002
         """Return the explicit annual management fee.

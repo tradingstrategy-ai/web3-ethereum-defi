@@ -64,6 +64,9 @@ def test_frax(
     assert vault.get_performance_fee("latest") == FRAXLEND_PROTOCOL_FEE
     assert vault.has_custom_fees() is False
     assert vault.get_risk() == VaultTechnicalRisk.low
+    assert vault.short_description == "Earn interest by lending assets to an isolated Fraxlend borrowing market."
+    assert "lenders can absorb bad debt" in vault.get_notes()
+    assert "Fraxlend technical documentation" in vault.get_notes()
 
     # Check maxDeposit and maxRedeem with address(0)
     max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
@@ -94,17 +97,31 @@ def test_frax_fraxlend_pair_is_detected_without_hardcoded_address(
 
 
 @pytest.mark.parametrize(
-    "vault_address",
+    ("vault_address", "expected_short_description", "expected_note_fragment"),
     (
-        "0x03cb4438d015b9646d666316b617a694410c216d",
-        "0xa663b02cf0a4b149d2ad41910cb81e23e1c41c32",
-        "0xcf62f905562626cfcdd2261162a51fd02fc9c5b6",
+        (
+            "0x03cb4438d015b9646d666316b617a694410c216d",
+            "Legacy sFRAX vault that distributed Frax protocol yield to staked FRAX.",
+            "Legacy sFRAX deployment",
+        ),
+        (
+            "0xa663b02cf0a4b149d2ad41910cb81e23e1c41c32",
+            "Stake FRAX to receive weekly Frax protocol yield through sFRAX.",
+            "IORB benchmark rate",
+        ),
+        (
+            "0xcf62f905562626cfcdd2261162a51fd02fc9c5b6",
+            "Stake frxUSD in Frax's benchmark-strategy savings vault to earn automatically compounded yield.",
+            "Benchmark Yield Strategy",
+        ),
     ),
 )
 @flaky.flaky
 def test_frax_staking_vaults_use_their_own_reader(
     web3: Web3,
     vault_address: HexAddress,
+    expected_short_description: str,
+    expected_note_fragment: str,
 ) -> None:
     """Route reviewed sFRAX and sfrxUSD deployments to the staking reader."""
 
@@ -119,3 +136,6 @@ def test_frax_staking_vaults_use_their_own_reader(
     assert vault.get_fee_mode() == VaultFeeMode.feeless
     assert vault.get_estimated_lock_up().days == 0
     assert vault.get_link() == "https://frax.com/earn"
+    assert vault.short_description == expected_short_description
+    assert expected_note_fragment in vault.get_notes()
+    assert vault.get_notes() != vault.short_description
