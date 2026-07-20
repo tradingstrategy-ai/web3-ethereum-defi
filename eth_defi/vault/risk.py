@@ -405,7 +405,30 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x4D55F76Ce2dBBAE7B48661bef9bD144Ce0C9091b",  # Age old mainnet contract
     "0x2136bbBa2eDcA21AFDddee838fFf19eA70D10F03",  # Age old mainnet contract
     "0x76f586589fc4a15713DB986d97Eb6fDC6ff078F2",  # Age old mainnet contract
+    # EtherDelta exchange deployment from early Ethereum mainnet, code present
+    # from block 2,500,744. This is a token order-book contract, not an
+    # ERC-4626-like vault. A vault-scanner-looped batch at block 25,559,512
+    # failed with only this address in the reduced address set, and manual
+    # selector replay showed the vault probe calls reverting with
+    # "invalid jump destination", so keep it out of historical Multicall3
+    # scanner probes.
+    "0x373C55C277b866A69dC047cAd488154AB9759466",
+    # Unverified old Ethereum mainnet contract, code present from block
+    # 2,960,073. The reduced scanner batch at block 25,559,512 contained only
+    # this address and failed with -32003 "out of gas: gas required exceeds:
+    # 600000000"; direct replay of all decoded probe selectors reverted with
+    # "invalid jump destination". It is not a productive vault candidate and
+    # should be skipped before it poisons future Multicall3 batches.
+    "0x2A575f3B0CE5ad9002c6FF7A24d275761F44AF2d",
     "0x728974844947E09B77f01BA1eF115230DdC8A9A0",  # DecentrEx, EtherDelta-style DEX from 2017 (block 4,544,275) - probe selectors consume >600M gas and poison the multicall batch
+    # Old Ethereum mainnet contract, code present from block 4,593,226. A
+    # single-address vault-scanner-looped Multicall3 batch at block 25,559,512
+    # failed with -32003 "out of gas: gas required exceeds: 1000000000", and
+    # the paired batch failed as soon as this address was present. Manual
+    # selector replay for the decoded vault probes reverted with
+    # "invalid jump destination", matching the legacy bad-contract failure
+    # mode already quarantined by this blacklist.
+    "0x59044D260EBdB51BBa52855E27dD73c18C780D17",
     "0xffAa9F9AA5E4361f552bADA90DCAcDd08E5B41eb",  # Unverified old mainnet contract from 2017 (block 4,654,191) - probe selectors poison Multicall3 batches with out-of-gas (-32003)
     "0x7d4D20D71c331dF3d5675112CA5A873b3243D3f2",  # ReciveAndSend, 2017 mainnet contract (block 4,706,802) - burns all forwarded gas before reverting, so batched probe calls exhaust the multicall gas limit
     "0x9462EEb9124C99731Cc7617348b3937A8f00B11F",  # Radex, EtherDelta-style DEX from 2017 (block 4,710,488) - dead non-vault contract repeatedly probed in the same failing multicall batches
