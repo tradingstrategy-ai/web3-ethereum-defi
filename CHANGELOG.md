@@ -1,6 +1,7 @@
 # 1.2
 
 - feat: Complete Asseto live-feed discovery, standardise tokenised-fund vault flags and add verified curator logo coverage (2026-07-20)
+- feat: Fill supported-chain tokenised-fund discovery gaps for mTBILL, FDIT, CASHx, TBILL, FILQ-D and Ethereum ULTRA (2026-07-20)
 - feat: Backfill HKD exchange rates and keep HKD-denominated Asseto histories out of the stablecoin-only cleaned dataset (2026-07-18)
 - feat: Add a protocol-selectable generic HyperSync backfill command for tokenised funds (2026-07-17)
 - feat: Start hardcoded tokenised-fund protocol coverage with an EVM integration roadmap (2026-07-17)

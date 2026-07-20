@@ -24,9 +24,12 @@ from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_PRODUCTS, CENTRIFUGE_TRANCHE_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.fdit.constants import FDIT_PRODUCTS, FDIT_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_PRODUCTS, FRANKLIN_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.kaio.constants import KAIO_PRODUCTS, KAIO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS, LIBEARA_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS, ONDO_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.openeden.constants import OPENEDEN_CHAIN_ID, OPENEDEN_TBILL_ADDRESS
 from eth_defi.tokenised_fund.spiko.constants import USTBL_TOKEN_ADDRESS
 from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_PRODUCTS_BY_CHAIN
 from eth_defi.tokenised_fund.sygnum.constants import SYGNUM_PRODUCTS_BY_CHAIN
@@ -127,6 +130,11 @@ SPIKO_HARDCODED_PROTOCOLS = {USTBL_TOKEN_ADDRESS: {ERC4626Feature.spiko_like}}
 
 #: Sygnum FILQ share tokens are reviewed permissioned SygToken proxies.
 SYGNUM_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.sygnum_like} for products in SYGNUM_PRODUCTS_BY_CHAIN.values() for token in products}
+
+#: FDIT and CASHx are reviewed Ethereum-only permissioned fund-share tokens.
+FDIT_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.fdit_like} for token in FDIT_PRODUCTS_BY_TOKEN}
+KAIO_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.kaio_like} for token in KAIO_PRODUCTS_BY_TOKEN}
+OPENEDEN_HARDCODED_PROTOCOLS = {OPENEDEN_TBILL_ADDRESS: {ERC4626Feature.openeden_like}}
 
 #: Theo iTokens are multi-asset fund tokens, not standard ERC-4626 vaults.
 THEO_ITOKEN_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.theo_itoken_like} for token in THEO_ITOKEN_PRODUCTS_BY_TOKEN}
@@ -342,6 +350,18 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if (chain_id, normalised_address) in MIDAS_PRODUCTS:
             return MIDAS_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in MIDAS_HARDCODED_PROTOCOLS:
+            return None
+        if (chain_id, normalised_address) in FDIT_PRODUCTS:
+            return FDIT_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in FDIT_HARDCODED_PROTOCOLS:
+            return None
+        if (chain_id, normalised_address) in KAIO_PRODUCTS:
+            return KAIO_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in KAIO_HARDCODED_PROTOCOLS:
+            return None
+        if normalised_address in OPENEDEN_HARDCODED_PROTOCOLS:
+            if chain_id == OPENEDEN_CHAIN_ID:
+                return OPENEDEN_HARDCODED_PROTOCOLS[normalised_address]
             return None
         if (chain_id, normalised_address) in ASSETO_PRODUCTS:
             return ASSETO_HARDCODED_PROTOCOLS[normalised_address]
@@ -1829,6 +1849,18 @@ def create_vault_instance(
         from eth_defi.midas.vault import MidasVault
 
         return MidasVault(web3, spec, **kwargs)
+    elif ERC4626Feature.fdit_like in features:
+        from eth_defi.tokenised_fund.fdit.vault import FditVault
+
+        return FditVault(web3, spec, **kwargs)
+    elif ERC4626Feature.kaio_like in features:
+        from eth_defi.tokenised_fund.kaio.vault import KaioVault
+
+        return KaioVault(web3, spec, **kwargs)
+    elif ERC4626Feature.openeden_like in features:
+        from eth_defi.tokenised_fund.openeden.vault import OpenEdenVault
+
+        return OpenEdenVault(web3, spec, **kwargs)
     elif ERC4626Feature.asseto_like in features:
         from eth_defi.tokenised_fund.asseto.vault import AssetoVault
 

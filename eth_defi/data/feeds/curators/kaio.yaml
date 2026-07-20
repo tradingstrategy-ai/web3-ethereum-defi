@@ -1,0 +1,13 @@
+feeder-id: kaio
+name: KAIO
+role: curator
+website: https://www.kaio.xyz/
+linkedin: kaio-digital
+short_description: KAIO provides permissioned tokenisation infrastructure and operational workflows for institutional fund shares.
+long_description: |
+  KAIO operates a regulated digital-asset platform for tokenised alternative and money-market fund products. For CASHx, KAIO provides the tokenisation, investor-registry and settlement infrastructure, while BlackRock is the investment manager of the underlying liquidity fund.
+other-links:
+  - title: KAIO smart-contract overview
+    url: https://docs.kaio.xyz/how-kaio-works/smart-contracts
+  - title: KAIO architecture overview
+    url: https://docs.kaio.xyz/how-kaio-works/architecture

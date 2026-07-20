@@ -31,9 +31,12 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_er
 from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_HARDCODED_LEADS
+from eth_defi.tokenised_fund.fdit.constants import FDIT_HARDCODED_LEADS
 from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_HARDCODED_LEADS
+from eth_defi.tokenised_fund.kaio.constants import KAIO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_HARDCODED_LEADS
 from eth_defi.tokenised_fund.ondo.constants import ONDO_HARDCODED_LEADS
+from eth_defi.tokenised_fund.openeden.constants import OPENEDEN_TBILL_HARDCODED_LEADS
 from eth_defi.tokenised_fund.spiko.constants import SPIKO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_HARDCODED_LEADS
 from eth_defi.tokenised_fund.sygnum.constants import SYGNUM_HARDCODED_LEADS
@@ -55,6 +58,9 @@ HardcodedVaultLeadSources: TypeAlias = tuple[HardcodedVaultLeadSource, ...]
 DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
     ("ODA-FACT", ODA_FACT_HARDCODED_LEADS),
     ("Midas", MIDAS_HARDCODED_LEADS),
+    ("Fidelity FDIT", FDIT_HARDCODED_LEADS),
+    ("KAIO", KAIO_HARDCODED_LEADS),
+    ("OpenEden", OPENEDEN_TBILL_HARDCODED_LEADS),
     ("wstGBP", WSTGBP_HARDCODED_LEADS),
     ("Vault Street", VAULT_STREET_HARDCODED_LEADS),
     ("Ondo", ONDO_HARDCODED_LEADS),

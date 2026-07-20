@@ -66,6 +66,21 @@ LIBEARA_ULTRA_ARBITRUM = LibearaProduct(
     datetime.datetime(2025, 7, 18, 7, 9, 32, tzinfo=datetime.UTC).replace(tzinfo=None),
 )
 
-LIBEARA_PRODUCTS = {(p.chain_id, p.token): p for p in (CUMIU_ETHEREUM, BELIF_ETHEREUM, LIBEARA_ULTRA_ARBITRUM)}
+#: Delta Wellington Ultra Short Treasury On-Chain Fund on Ethereum.
+#:
+#: This is a distinct deployment from the Arbitrum representation.  In
+#: particular, it must retain its own history reader state and must not reuse
+#: Arbitrum's external manager assumptions.
+LIBEARA_ULTRA_ETHEREUM = LibearaProduct(
+    ETHEREUM_CHAIN_ID,
+    HexAddress("0x50293dd8889b931eb3441d2664dce8396640b419"),
+    "ULTRA",
+    "Delta Wellington Ultra Short Treasury Fund",
+    "Permissioned tokenised units in the Delta Wellington ultra-short Treasury fund.",
+    21_469_784,
+    datetime.datetime(2024, 12, 24, 3, 55, 23, tzinfo=datetime.UTC).replace(tzinfo=None),
+)
+
+LIBEARA_PRODUCTS = {(p.chain_id, p.token): p for p in (CUMIU_ETHEREUM, BELIF_ETHEREUM, LIBEARA_ULTRA_ETHEREUM, LIBEARA_ULTRA_ARBITRUM)}
 LIBEARA_PRODUCTS_BY_TOKEN = {p.token: p for p in LIBEARA_PRODUCTS.values()}
 LIBEARA_HARDCODED_LEADS = tuple((p.chain_id, p.token, p.first_seen_at_block, p.first_seen_at) for p in LIBEARA_PRODUCTS.values())
