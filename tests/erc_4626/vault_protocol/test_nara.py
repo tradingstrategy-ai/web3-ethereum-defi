@@ -8,6 +8,7 @@ import flaky
 import pytest
 from web3 import Web3
 
+from eth_defi.abi import get_abi_by_filename
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
@@ -30,6 +31,18 @@ def test_narausd_plus_hardcoded_protocol() -> None:
 
     assert features == {ERC4626Feature.nara_like}
     assert get_vault_protocol_name(features) == "Nara"
+
+
+def test_narausd_plus_abi() -> None:
+    """Package NaraUSD+'s complete custom cooldown interface as JSON."""
+    abi = get_abi_by_filename("nara/NaraUSDPlus.json")
+
+    assert {entry["name"] for entry in abi} == {
+        "cooldownDuration",
+        "cooldownShares",
+        "cooldowns",
+        "unstake",
+    }
 
 
 @pytest.fixture(scope="module")

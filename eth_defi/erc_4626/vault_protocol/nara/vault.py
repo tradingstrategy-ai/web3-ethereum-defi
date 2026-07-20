@@ -14,46 +14,10 @@ from functools import cached_property
 from eth_typing import BlockIdentifier
 from web3.contract import Contract
 
+from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.nara.deposit_redeem import NaraDepositManager
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
-
-#: NaraUSD+ methods outside the standard ERC-4626 surface.
-#:
-#: ABI recovered from https://app.nara.io/swap and covered by the fork test.
-NARAUSD_PLUS_ABI = [
-    {
-        "inputs": [],
-        "name": "cooldownDuration",
-        "outputs": [{"internalType": "uint24", "name": "", "type": "uint24"}],
-        "stateMutability": "view",
-        "type": "function",
-    },
-    {
-        "inputs": [{"internalType": "uint256", "name": "shares", "type": "uint256"}],
-        "name": "cooldownShares",
-        "outputs": [{"internalType": "uint256", "name": "assets", "type": "uint256"}],
-        "stateMutability": "nonpayable",
-        "type": "function",
-    },
-    {
-        "inputs": [{"internalType": "address", "name": "", "type": "address"}],
-        "name": "cooldowns",
-        "outputs": [
-            {"internalType": "uint104", "name": "cooldownEnd", "type": "uint104"},
-            {"internalType": "uint152", "name": "sharesAmount", "type": "uint152"},
-        ],
-        "stateMutability": "view",
-        "type": "function",
-    },
-    {
-        "inputs": [{"internalType": "address", "name": "receiver", "type": "address"}],
-        "name": "unstake",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function",
-    },
-]
 
 
 class NaraVault(ERC4626Vault):
@@ -69,9 +33,13 @@ class NaraVault(ERC4626Vault):
         """Return the NaraUSD+-specific contract interface.
 
         :return:
-            Contract bound to the vault address and cooldown ABI.
+            Contract bound to the vault address and NaraUSD+ interface.
         """
-        return self.web3.eth.contract(address=self.vault_address, abi=NARAUSD_PLUS_ABI)
+        return get_deployed_erc_4626_contract(
+            self.web3,
+            self.vault_address,
+            abi_fname="nara/NaraUSDPlus.json",
+        )
 
     def has_custom_fees(self) -> bool:
         """Return whether the NaraUSD+ contract exposes entry or exit fees.
