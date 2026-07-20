@@ -642,15 +642,12 @@ def test_identify_pangolins_vault() -> None:
     assert get_curator_name("pangolins") == "Pangolins"
 
 
-def test_identify_frax_usd_vaults() -> None:
-    """Frax USD and frxUSD vault names resolve to Frax Finance."""
+def test_identify_frax_protocol_vaults() -> None:
+    """Only identified Frax protocol vaults resolve to Frax Finance."""
 
     cases = (
-        ("euler", "Euler Yield frxUSD"),
-        ("frax-finance", "Stable Frax USD Pre-Deposit"),
-        ("morpho", "Stake DAO frxUSD V2"),
-        ("morpho", "Alpha Frax USD Enhanced V2"),
-        ("morpho", "Steakhouse Prime frxUSD"),
+        ("frax", "FRAX (LDO) - 29"),
+        ("frax-finance", "Staked FRAX"),
     )
     for protocol_slug, vault_name in cases:
         slug = identify_curator(
@@ -662,10 +659,57 @@ def test_identify_frax_usd_vaults() -> None:
         )
 
         assert slug == "frax-finance", f"{vault_name!r} -> {slug!r}"
+        assert is_protocol_curator(slug)
+        assert get_curator_name(slug) == "Frax Finance"
+
+    assert load_curator_map()["frax-finance"]["protocol_curator"] is True
 
 
-def test_identify_frax_usd_vault_name_precedes_manager_name() -> None:
-    """Frax-branded vault names win over third-party protocol manager names."""
+def test_frax_asset_names_do_not_create_frax_curator_attribution() -> None:
+    """Third-party vaults using Frax assets retain their actual curator."""
+
+    cases = (
+        ("euler", "Euler Yield frxUSD", "", None),
+        ("concrete", "Stable Frax USD Pre-Deposit", "", None),
+        ("morpho", "Stake DAO frxUSD V2", "", "stake-dao"),
+        ("morpho", "Alpha Frax USD Enhanced V2", "", None),
+        ("morpho", "Steakhouse Prime frxUSD", "Steakhouse Financial", "steakhouse-financial"),
+    )
+    for protocol_slug, vault_name, manager_name, expected_slug in cases:
+        slug = identify_curator(
+            chain_id=1,
+            vault_token_symbol="",
+            vault_name=vault_name,
+            vault_address="0x0000000000000000000000000000000000000005",
+            protocol_slug=protocol_slug,
+            manager_name=manager_name,
+        )
+
+        assert slug != "frax-finance", f"{vault_name!r} was incorrectly attributed to Frax"
+        assert slug == expected_slug, f"{vault_name!r} -> {slug!r}"
+
+    additional_third_party_cases = (
+        ("sturdy", "Sturdy crvUSD/Yearn Curve FRAX-crvUSD LP silo"),
+        ("sommelier", "FRAXIMAL"),
+        ("sentiment", "LFrax"),
+        ("rebalance", "Rebalance FRAX"),
+        ("premia", "Short Volatility - FXS/FRAX-P"),
+        ("aave", "ERC4626-Wrapped Aave v3 FRAX"),
+    )
+    for protocol_slug, vault_name in additional_third_party_cases:
+        slug = identify_curator(
+            chain_id=1,
+            vault_token_symbol="",
+            vault_name=vault_name,
+            vault_address="0x0000000000000000000000000000000000000005",
+            protocol_slug=protocol_slug,
+        )
+
+        assert slug != "frax-finance", f"{vault_name!r} was incorrectly attributed to Frax"
+
+
+def test_frax_asset_name_does_not_override_manager_name() -> None:
+    """A Frax asset name does not override third-party manager metadata."""
 
     slug = identify_curator(
         chain_id=1,
@@ -676,7 +720,7 @@ def test_identify_frax_usd_vault_name_precedes_manager_name() -> None:
         manager_name="Steakhouse Financial",
     )
 
-    assert slug == "frax-finance"
+    assert slug == "steakhouse-financial"
 
 
 def test_identify_gains_network_protocol_curator() -> None:
