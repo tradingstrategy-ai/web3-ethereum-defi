@@ -88,6 +88,8 @@ Protocol-curated vaults are identified before name matching:
 
 - **Ostium** and **Gains Network** — all vaults on these protocols are
   protocol-curated (no external curator)
+- **Frax** — only vaults whose identified protocol is Frax are attributed to
+  the Frax Finance curator; holding FRAX or frxUSD is not curator evidence
 - **Hyperliquid** — system vaults (HLP parent, HLP children, Liquidator)
   are identified by address against
   :py:data:`eth_defi.hyperliquid.constants.HYPERLIQUID_SYSTEM_VAULT_ADDRESSES`
@@ -159,12 +161,13 @@ CURATORS_DATA_DIR: Path = Path(__file__).parent.parent / "data" / "feeds" / "cur
 #: Protocol slugs where **all** vaults are protocol-curated.
 #:
 #: For these protocols there is no external curator — the protocol
-#: itself operates every vault.  The slug values correspond to
-#: :py:func:`eth_defi.research.vault_metrics.slugify_protocol` output.
+#: itself operates every vault. Values use the canonical curator slug after
+#: applying :py:data:`PROTOCOL_CURATOR_SLUG_ALIASES`.
 PROTOCOL_CURATED_SLUGS: set[str] = {
     "sygnum",
     "atoma",
     "d2-finance",
+    "frax-finance",
     "frankencoin",
     "gains-network",
     "ostium",
@@ -175,9 +178,10 @@ PROTOCOL_CURATED_SLUGS: set[str] = {
     "wstgbp",
 }
 
-#: Legacy protocol slug aliases that should resolve to the canonical
+#: Protocol slug aliases that should resolve to the canonical
 #: protocol-curator slug emitted by :py:func:`identify_curator`.
 PROTOCOL_CURATOR_SLUG_ALIASES: dict[str, str] = {
+    "frax": "frax-finance",
     "gtrade": "gains-network",
 }
 
@@ -202,6 +206,7 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
 PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "atoma": "Atoma",
     "d2-finance": "D2 Finance",
+    "frax-finance": "Frax Finance",
     "frankencoin": "Frankencoin",
     "gains-network": "Gains Network",
     "ostium": "Ostium",
@@ -252,7 +257,6 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "llama-risk": ["LlamaRisk", "Llama Risk"],
     "9summits": ["9 Summits"],
     "sentora": ["IntoTheBlock"],
-    "frax-finance": ["Frax USD", "frxUSD", "Frax", "FRAX"],
     "usdai": ["USD.AI", "USDai"],
     "agora-finance": ["Agora"],
     "tangent-finance": ["Tangent"],
@@ -307,13 +311,12 @@ SPONSOR_CURATOR_SLUGS: set[str] = {
     "cool-wallet",
 }
 
-#: Curators whose asset issuer match should win over co-branded vault names.
+#: Protocol curator slugs that must never be inferred from a name alone.
 #:
-#: Frax USD vaults on Morpho can include a third-party UI curator brand
-#: while the actual product family is Frax-managed.
-#: Stake DAO frxUSD V2, Alpha Frax USD Enhanced V2 and Steakhouse Prime
-#: frxUSD are Frax-based vaults based on the conversation with Frax (2026-06).
-PRIORITY_CURATOR_SLUGS: set[str] = {
+#: Frax assets are widely used by third-party protocols and curators. A vault
+#: name containing FRAX or frxUSD establishes its denomination or strategy,
+#: not that Frax operates the vault.
+PROTOCOL_BOUND_CURATOR_SLUGS: set[str] = {
     "frax-finance",
 }
 
@@ -384,7 +387,7 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     (1, "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e"): "superstate",
     # CUMIU and BELIF are platform-managed Libeara CMTAT deployments. Keep the
     # mapping address-scoped because the issuer name varies between products.
-    **{key: "libeara" for key in LIBEARA_PRODUCTS},
+    **dict.fromkeys(LIBEARA_PRODUCTS, "libeara"),
     # Spiko operates the eligibility-gated USTBL servicing and oracle.
     (1, USTBL_TOKEN_ADDRESS): "spiko-curator",
     # Theo operates thBILL's KYC-gated direct dealing workflow.
@@ -620,9 +623,9 @@ def _build_matching_patterns() -> list[tuple[re.Pattern, str]]:
         for extra in CURATOR_NAME_PATTERNS.get(slug, []):
             raw_pairs.append((extra, slug))
 
-    # Sort so that priority curators win over co-branded vault names, sponsor
-    # patterns are matched last, and the longest pattern wins within each group.
-    raw_pairs.sort(key=lambda pair: (pair[1] not in PRIORITY_CURATOR_SLUGS, pair[1] in SPONSOR_CURATOR_SLUGS, -len(pair[0])))
+    # Sponsor patterns are matched last, while longer patterns win within each
+    # group.
+    raw_pairs.sort(key=lambda pair: (pair[1] in SPONSOR_CURATOR_SLUGS, -len(pair[0])))
 
     patterns = []
     for pattern_text, slug in raw_pairs:
@@ -740,9 +743,9 @@ def identify_curator(  # noqa: PLR0917
     name — the vault name there is the strategy name (e.g.
     ``"Ethereum Moving Average Long/Short"``) while the curator identity
     (e.g. ``"Gerhard - Bitcoin Strategy"``) is the manager.  Pass
-    ``manager_name`` so these curators are detected.  Priority vault-name
-    matches run first, then exact protocol manager metadata, then ordinary
-    vault-name and manager-name fuzzy matching.
+    ``manager_name`` so these curators are detected. Exact protocol manager
+    metadata runs before ordinary vault-name and manager-name fuzzy matching.
+    Protocol-bound curators such as Frax are never inferred from asset names.
 
     :param chain_id:
         Chain ID where the vault is deployed.
@@ -804,22 +807,18 @@ def identify_curator(  # noqa: PLR0917
         if vault_address.lower() in GRVT_SYSTEM_VAULT_ADDRESSES:
             return "grvt"
 
-    # 6. Priority vault-name matches, e.g. Frax-branded Morpho vaults with a
-    #    third-party UI curator.
+    # 6. Exact protocol-specific manager name mapping from offchain APIs.
     patterns = _build_matching_patterns()
-    if priority_slug := _identify_curator_by_patterns(vault_name, patterns, include_slugs=PRIORITY_CURATOR_SLUGS):
-        return priority_slug
-
-    # 7. Exact protocol-specific manager name mapping from offchain APIs.
     if manager_slug := _identify_curator_by_protocol_manager_name(protocol_slug, manager_name):
         return manager_slug
 
-    # 8. Ordinary vault-name fuzzy matching.
-    if vault_slug := _identify_curator_by_patterns(vault_name, patterns, exclude_slugs=PRIORITY_CURATOR_SLUGS):
+    # 7. Ordinary vault-name fuzzy matching. Protocol-bound curators must have
+    #    already matched by protocol slug and cannot be inferred from an asset.
+    if vault_slug := _identify_curator_by_patterns(vault_name, patterns, exclude_slugs=PROTOCOL_BOUND_CURATOR_SLUGS):
         return vault_slug
 
-    # 9. Legacy fuzzy matching against manager name for native marketplaces like GRVT.
-    if manager_slug := _identify_curator_by_patterns(manager_name, patterns):
+    # 8. Legacy fuzzy matching against manager name for native marketplaces like GRVT.
+    if manager_slug := _identify_curator_by_patterns(manager_name, patterns, exclude_slugs=PROTOCOL_BOUND_CURATOR_SLUGS):
         return manager_slug
 
     return None

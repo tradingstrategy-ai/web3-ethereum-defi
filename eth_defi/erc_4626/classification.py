@@ -18,6 +18,7 @@ from web3.types import BlockIdentifier
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
+from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -315,6 +316,10 @@ FRANKENCOIN_HARDCODED_PROTOCOLS = {HexAddress(address): {ERC4626Feature.frankenc
 #: primeUSD is a non-ERC-4626 token whose NAV comes from a separate oracle.
 VAULT_STREET_HARDCODED_PROTOCOLS = {PRIME_USD_ADDRESS: {ERC4626Feature.vault_street_like}}
 
+#: Frax stablecoin staking vaults use shared linear-reward implementations, so
+#: the reviewed sFRAX and sfrxUSD deployments are routed by address.
+FRAX_STAKING_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.frax_staking_like} for address in FRAX_STAKING_VAULT_ADDRESSES}
+
 
 def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | None = None) -> set[ERC4626Feature] | None:
     """Return hardcoded protocol features for a vault address.
@@ -413,6 +418,11 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
             if chain_id == 1:
                 return VAULT_STREET_HARDCODED_PROTOCOLS[normalised_address]
             return None
+        frax_staking_vaults = FRAX_STAKING_VAULTS_BY_CHAIN.get(chain_id, frozenset())
+        if normalised_address in frax_staking_vaults:
+            return FRAX_STAKING_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in FRAX_STAKING_VAULT_ADDRESSES:
+            return None
 
     return HARDCODED_PROTOCOLS.get(normalised_address)
 
@@ -474,6 +484,7 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "strategy": {1, 143},  # Accountable - Ethereum, Monad
     "queue": {1, 143},  # Accountable - Ethereum, Monad
     "POOL": {999},  # Sentiment - HyperEVM only
+    "DEPLOYER_ADDRESS": {1, 42161},  # Fraxlend - Ethereum, Arbitrum
     "shareManager": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
     "getAssetCount": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
     "getGrossTVL": {42161},  # T3tris - Arbitrum
@@ -1226,6 +1237,21 @@ def create_probe_calls(
                 extra_data=None,
             )
 
+        # Frax Fraxlend lending pairs. FraxlendPairDeployer emits LogDeploy for
+        # event discovery and seeds every pair through a standard Deposit event.
+        # DEPLOYER_ADDRESS() is the pair's single immutable family discriminator.
+        # https://github.com/FraxFinance/fraxlend/blob/main/src/contracts/FraxlendPairAccessControl.sol
+        # https://github.com/FraxFinance/fraxlend/blob/main/src/contracts/FraxlendPairDeployer.sol
+        # https://etherscan.io/address/0x0601b72bef2b3f09e9f48b7d60a8d7d2d3800c6e#code
+        if _should_yield_probe("DEPLOYER_ADDRESS", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="DEPLOYER_ADDRESS()")[0:4],
+                function="DEPLOYER_ADDRESS",
+                data=b"",
+                extra_data=None,
+            )
+
         # Aave (v4) Tokenization Spoke - Ethereum only
         # ERC-4626 spoke wrapping a Hub asset; SPOKE_REVISION() is a spoke-specific accessor.
         # https://etherscan.io/address/0x531E90a2376902DE8915789Fcc1075e3B0c153E7#readProxyContract
@@ -1505,6 +1531,17 @@ def identify_vault_features(
     # https://hyperevmscan.io/address/0xe45e7272da7208c7a137505dfb9491e330bf1a4e
     if calls["POOL"].success:
         features.add(ERC4626Feature.sentiment_like)
+
+    # Frax Fraxlend lending pairs. DEPLOYER_ADDRESS() is immutable and shared
+    # across historical FraxlendPair versions. Match its result against deployers
+    # recovered from official LogDeploy events so third-party forks do not inherit
+    # the Frax protocol attribution.
+    fraxlend_deployer_result = calls["DEPLOYER_ADDRESS"]
+    if fraxlend_deployer_result.success and len(fraxlend_deployer_result.result) == 32:
+        (fraxlend_deployer,) = eth_abi.decode(["address"], fraxlend_deployer_result.result)
+        reviewed_fraxlend_deployers = FRAXLEND_DEPLOYERS_BY_CHAIN.get(chain_id, frozenset())
+        if HexAddress(fraxlend_deployer.lower()) in reviewed_fraxlend_deployers:
+            features.add(ERC4626Feature.frax_like)
 
     # # TODO: No way separate from Goat Protocol, see test_superform
     # if calls["PROFIT_UNLOCK_TIME"].success:
@@ -2263,10 +2300,15 @@ def create_vault_instance(
 
         return YoVault(web3, spec, **kwargs)
 
-    elif ERC4626Feature.frax_like in features:
-        from eth_defi.erc_4626.vault_protocol.frax.vault import FraxVault
+    elif ERC4626Feature.frax_staking_like in features:
+        from eth_defi.erc_4626.vault_protocol.frax.vault import FraxStakingVault
 
-        return FraxVault(web3, spec, **kwargs)
+        return FraxStakingVault(web3, spec, **kwargs)
+
+    elif ERC4626Feature.frax_like in features:
+        from eth_defi.erc_4626.vault_protocol.frax.vault import FraxlendPairVault
+
+        return FraxlendPairVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.hyperdrive_hl_like in features:
         from eth_defi.erc_4626.vault_protocol.hyperdrive_hl.vault import HyperdriveVault
@@ -2353,6 +2395,7 @@ HARDCODED_PROTOCOLS = {
     **KILOEX_HARDCODED_PROTOCOLS,
     **FRANKENCOIN_HARDCODED_PROTOCOLS,
     **VAULT_STREET_HARDCODED_PROTOCOLS,
+    **FRAX_STAKING_HARDCODED_PROTOCOLS,
     # 3Jane - USD3 senior tranche credit vault on Ethereum
     # https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
     "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc": {ERC4626Feature.threejane_like},
@@ -2532,9 +2575,6 @@ HARDCODED_PROTOCOLS = {
     # Same address also deployed on Base:
     # https://basescan.org/address/0x0000000f2eb9f69274678c76222b35eec7588a65
     "0x0000000f2eb9f69274678c76222b35eec7588a65": {ERC4626Feature.yo_like},
-    # Frax - Fraxlend USDC lending pair on Ethereum
-    # https://etherscan.io/address/0xee847a804b67f4887c9e8fe559a2da4278defb52
-    "0xee847a804b67f4887c9e8fe559a2da4278defb52": {ERC4626Feature.frax_like},
     # BaseVol - onchain options protocol on Base
     # Vault addresses sourced from DefiLlama adapters and BaseVol documentation:
     # https://github.com/DefiLlama/DefiLlama-Adapters/blob/3a63c0665de8d6a89f85ff360c5dc61fd40e72dd/projects/basevol/index.js#L6
