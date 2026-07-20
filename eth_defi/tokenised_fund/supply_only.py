@@ -152,29 +152,29 @@ class SupplyOnlyTokenisedFundVault(TokenisedFundVault):
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Reject unverified NAV reads.
 
-        :param block_identifier: Requested block identifier.
-        :raise RuntimeError: Always, until a public NAV source is configured.
+            :param block_identifier: Requested block identifier.
+        :raise NotImplementedError: Always, until a public NAV source is configured.
         """
 
-        raise RuntimeError(self.nav_unavailable_reason)
+        raise NotImplementedError(self.nav_unavailable_reason)
 
     def fetch_total_assets(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Reject TVL calculation without a verified NAV.
 
-        :param block_identifier: Requested block identifier.
-        :raise RuntimeError: Always.
+            :param block_identifier: Requested block identifier.
+        :raise NotImplementedError: Always.
         """
 
-        raise RuntimeError(self.nav_unavailable_reason)
+        raise NotImplementedError(self.nav_unavailable_reason)
 
     def fetch_nav(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Reject NAV calculation without a verified price source.
 
-        :param block_identifier: Requested block identifier.
-        :raise RuntimeError: Always.
+            :param block_identifier: Requested block identifier.
+        :raise NotImplementedError: Always.
         """
 
-        raise RuntimeError(self.nav_unavailable_reason)
+        raise NotImplementedError(self.nav_unavailable_reason)
 
     def fetch_info(self) -> VaultInfo:
         """Export conservative token and NAV-availability metadata.

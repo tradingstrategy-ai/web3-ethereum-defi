@@ -14,4 +14,7 @@ class KaioVault(SupplyOnlyTokenisedFundVault):
     curator = "kaio"
     homepage = "https://www.kaio.xyz/"
     restricted_flow_reason = "CASHx transfers, issuance and redemption require KAIO-approved investors and book-controlled settlement"
+    # TODO: CASHx exposes ERC-20 supply, but KAIO has not published a verified
+    # on-chain NAV oracle or historical issuer NAV endpoint for this share class.
+    # Do not infer one-dollar NAV or TVL from the token supply.
     nav_unavailable_reason = "CASHx has no verified public on-chain or historical NAV/share interface"

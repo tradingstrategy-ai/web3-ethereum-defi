@@ -2,8 +2,11 @@
 
 from types import SimpleNamespace
 
+import pytest
+
 from eth_defi.erc_4626.classification import create_vault_instance, identify_vault_features
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
+from eth_defi.erc_4626.scan import OPTIONAL_READ_EXCEPTIONS
 from eth_defi.midas.constants import MIDAS_MBASIS_ETHEREUM, MIDAS_MTBILL_ETHEREUM
 from eth_defi.midas.vault import MidasVault
 from eth_defi.tokenised_fund.fdit.constants import FDIT_ETHEREUM, FDIT_HARDCODED_LEADS
@@ -54,3 +57,22 @@ def test_new_chain_scoped_leads_keep_separate_share_classes() -> None:
     assert LIBEARA_ULTRA_ETHEREUM.token != LIBEARA_ULTRA_ARBITRUM.token
     assert FDIT_HARDCODED_LEADS[0][1] == FDIT_ETHEREUM.token
     assert KAIO_HARDCODED_LEADS[0][1] == CASHX_ETHEREUM.token
+
+
+def test_supply_only_funds_expose_unavailable_nav_as_optional() -> None:
+    """Keep FDIT metadata valid while FILQ exposes its reviewed NAV source."""
+
+    web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1))
+    fdit = create_vault_instance(web3, FDIT_ETHEREUM.token, features={ERC4626Feature.fdit_like})
+    filq = create_vault_instance(web3, FILQ_D_ETHEREUM_ADDRESS, features={ERC4626Feature.sygnum_like})
+
+    with pytest.raises(NotImplementedError):
+        fdit.fetch_nav()
+    with pytest.raises(NotImplementedError):
+        fdit.fetch_total_assets()
+
+    filq_info = filq.fetch_info()
+    assert filq_info["nav_available"] is True
+    assert filq_info["nav_source"] == "chainlink_bundle_aggregator"
+
+    assert NotImplementedError in OPTIONAL_READ_EXCEPTIONS
