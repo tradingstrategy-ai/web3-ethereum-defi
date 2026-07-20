@@ -10,6 +10,7 @@ not ERC-4626 or ERC-7540, but can be read through :class:`VaultBase`.
 
 import datetime
 import logging
+import re
 from bisect import bisect_right
 from collections.abc import Iterator
 from decimal import Decimal
@@ -72,6 +73,31 @@ ASSETO_MANAGER_FEE_ABI = [
 
 #: Generic manager reason used to keep Asseto outside public transaction flows.
 ASSETO_BLOCKED_FLOW_REASON = "Asseto deposit manager is blocked: KYC-gated request/claim subscriptions and redemptions are not supported"
+
+
+def create_asseto_short_description(description: str | None) -> str | None:
+    """Create a product-specific one-line summary from Asseto metadata.
+
+    Asseto registry introductions usually contain several sentences. Vault
+    listings use the opening product sentence and, when needed, the next
+    sentence describing investments so that the underlying strategy is visible
+    instead of generic token-wrapper details.
+
+    :param description: Asseto registry introduction or curated product text.
+    :return: Normalised strategy summary, or ``None`` when no meaningful
+        source description is available.
+    """
+
+    if not description or not description.strip():
+        return None
+    normalised = " ".join(description.split())
+    sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z])", normalised)
+    opening = sentences[0]
+    if re.search(r"\binvest(?:s|ed|ing|ment)", opening, flags=re.IGNORECASE):
+        return opening
+    investment_sentence = next((sentence for sentence in sentences[1:] if re.search(r"\binvest(?:s|ed|ing|ment)", sentence, flags=re.IGNORECASE)), None)
+    return f"{opening} {investment_sentence}" if investment_sentence else opening
+
 
 #: NAV/share source diagnostic exported with scan rows.
 ASSETO_NAV_SOURCE = "asseto_pricer_getLatestPrice"
@@ -260,7 +286,7 @@ class AssetoVault(TokenisedFundVault):
     def short_description(self) -> str | None:
         """Return the concise product description used in vault listings."""
 
-        return "KYC-gated tokenised fund share with Asseto-published NAV"
+        return create_asseto_short_description(self.product.description)
 
     @property
     def manager_name(self) -> str | None:

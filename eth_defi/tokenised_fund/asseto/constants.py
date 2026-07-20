@@ -93,6 +93,7 @@ ASSETO_AOABT_HASHKEY = AssetoProduct(
     performance_fee=0.20,
     has_custom_fees=True,
     denomination_symbol="USDT",
+    description="AoABT tokenises the Asseto Orient Arbitrage Strategy and offers daily U.S. dollar yields backed one-to-one by the underlying strategy.",
 )
 
 #: Product lookup used by the adapter and chain-aware classification.

@@ -19,7 +19,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.tokenised_fund.asseto import vault as asseto_vault_module
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY, ASSETO_HARDCODED_LEADS, HASHKEY_CHAIN_ID
 from eth_defi.tokenised_fund.asseto.historical import AssetoVaultHistoricalReader
-from eth_defi.tokenised_fund.asseto.vault import ASSETO_BLOCKED_FLOW_REASON, AssetoRoleInfo, AssetoVault, convert_asseto_basis_points_to_percent
+from eth_defi.tokenised_fund.asseto.vault import ASSETO_BLOCKED_FLOW_REASON, AssetoRoleInfo, AssetoVault, convert_asseto_basis_points_to_percent, create_asseto_short_description
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -251,6 +251,18 @@ def test_asseto_vault_uses_product_metadata_when_token_metadata_is_unavailable(m
 
     assert vault.name == "Asseto Orient Arbitrage Token"
     assert vault.symbol == "AoABT"
+    assert vault.short_description == "AoABT tokenises the Asseto Orient Arbitrage Strategy and offers daily U.S. dollar yields backed one-to-one by the underlying strategy."
+
+
+def test_asseto_short_description_uses_product_strategy() -> None:
+    """Expose the underlying Asseto strategy instead of token-wrapper boilerplate."""
+
+    introduction = "AMCASH+ is a 1:1 asset-backed token collateralized by the ChinaAMC USD Digital Money Market Fund Class B USD, which invests in short-term deposits and high quality money market instruments. Investors receive daily NAV updates."
+
+    assert create_asseto_short_description(introduction) == "AMCASH+ is a 1:1 asset-backed token collateralized by the ChinaAMC USD Digital Money Market Fund Class B USD, which invests in short-term deposits and high quality money market instruments."
+    assert create_asseto_short_description("  Tokenised   fixed-income fund.  More detail follows. ") == "Tokenised fixed-income fund."
+    assert create_asseto_short_description("CFSRS is backed by Stable Return SP. Its objective is stable returns. The fund primarily invests in international fixed-income securities. Further marketing text.") == "CFSRS is backed by Stable Return SP. The fund primarily invests in international fixed-income securities."
+    assert create_asseto_short_description(None) is None
 
 
 def test_asseto_vault_resolves_curator_from_priority_partner_roles(monkeypatch: pytest.MonkeyPatch) -> None:
