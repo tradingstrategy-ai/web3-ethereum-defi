@@ -4,7 +4,6 @@
 import datetime
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import TYPE_CHECKING
 
 from eth_typing import HexAddress
 from hexbytes import HexBytes
@@ -15,36 +14,29 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, RedemptionRequest, RedemptionTicket
 
-if TYPE_CHECKING:
-    from eth_defi.erc_4626.vault_protocol.nara.vault import NaraVault
-
 
 @dataclass(slots=True)
 class NaraRedemptionTicket(RedemptionTicket):
     """Persist a NaraUSD+ cooldown redemption request.
 
-    The vault keeps one active cooldown per owner. The cooldown completion
-    timestamp is captured from the request transaction so callers can schedule
-    a later ``unstake`` claim without reinterpreting the original request.
+    The vault keeps one active cooldown per owner and does not assign request
+    identifiers, so the request transaction hash provides a stable identity.
     """
 
-    #: Naive UTC time at which the claim becomes available.
-    cooldown_end: datetime.datetime
-
     def get_request_id(self) -> int:
-        """Return the cooldown completion timestamp as the request identity.
+        """Return the request transaction hash as an integer identity.
 
         :return:
-            Unix timestamp at which the requested cooldown becomes claimable.
+            Unique integer derived from the request transaction hash.
         """
-        return int(self.cooldown_end.replace(tzinfo=datetime.UTC).timestamp())
+        return int.from_bytes(self.tx_hash, byteorder="big")
 
 
 class NaraRedemptionRequest(RedemptionRequest):
     """Parse a completed NaraUSD+ ``cooldownShares`` transaction."""
 
     def parse_redeem_transaction(self, tx_hashes: list[HexBytes]) -> NaraRedemptionTicket:
-        """Capture the owner cooldown state after the request succeeds.
+        """Create a persistent ticket after the request succeeds.
 
         :param tx_hashes:
             Broadcast transaction hashes; the final hash is ``cooldownShares``.
@@ -52,34 +44,17 @@ class NaraRedemptionRequest(RedemptionRequest):
             Persistable ticket for the later ``unstake`` claim.
         """
         tx_hash = tx_hashes[-1]
-        receipt = self.web3.eth.get_transaction_receipt(tx_hash)
-        assert receipt is not None, f"Transaction is not yet mined: {tx_hash.hex()}"
-        assert receipt["status"] == 1, f"Transaction reverted: {tx_hash.hex()}"
-
-        cooldown_end, _pending_amount = self.vault.narausd_plus_contract.functions.cooldowns(self.owner).call()
-        if int(cooldown_end) == 0:
-            raise RuntimeError(f"NaraUSD+ cooldown was not created for {self.owner}")
-
         return NaraRedemptionTicket(
             vault_address=Web3.to_checksum_address(self.vault.address),
             owner=Web3.to_checksum_address(self.owner),
             to=Web3.to_checksum_address(self.to),
             raw_shares=self.raw_shares,
             tx_hash=HexBytes(tx_hash),
-            cooldown_end=datetime.datetime.fromtimestamp(int(cooldown_end), tz=datetime.UTC).replace(tzinfo=None),
         )
 
 
 class NaraDepositManager(ERC4626DepositManager):
     """NaraUSD+ manager with direct deposits and claimed cooldown redemptions."""
-
-    def __init__(self, vault: "NaraVault"):
-        """Create a NaraUSD+ deposit manager.
-
-        :param vault:
-            The NaraUSD+ vault adapter.
-        """
-        self.vault = vault
 
     def create_redemption_request(
         self,
@@ -135,31 +110,12 @@ class NaraDepositManager(ERC4626DepositManager):
             funcs=[self.vault.narausd_plus_contract.functions.cooldownShares(raw_shares)],
         )
 
-    def has_synchronous_deposit(self) -> bool:
-        """Return whether NaraUSD+ deposits settle immediately.
-
-        :return:
-            Always ``True`` because deposits use the standard vault entry point.
-        """
-        return True
-
     def has_synchronous_redemption(self) -> bool:
         """Return whether NaraUSD+ redemptions settle immediately.
 
         :return:
             Always ``False`` because the owner must complete a cooldown first.
         """
-        return False
-
-    def is_deposit_in_progress(self, owner: HexAddress) -> bool:
-        """Return whether NaraUSD+ has an asynchronous deposit state.
-
-        :param owner:
-            Ignored because NaraUSD+ deposits are synchronous.
-        :return:
-            Always ``False``.
-        """
-        del owner
         return False
 
     def is_redemption_in_progress(self, owner: HexAddress) -> bool:
@@ -170,8 +126,7 @@ class NaraDepositManager(ERC4626DepositManager):
         :return:
             ``True`` when the vault records a non-zero cooldown deadline.
         """
-        cooldown_end, _pending_amount = self.vault.narausd_plus_contract.functions.cooldowns(owner).call()
-        return int(cooldown_end) > 0
+        return self.get_redemption_delay_over(owner) is not None
 
     def can_create_deposit_request(self, owner: HexAddress) -> bool:
         """Check NaraUSD+'s current ERC-4626 deposit maximum.
@@ -224,23 +179,7 @@ class NaraDepositManager(ERC4626DepositManager):
         :return:
             ``True`` when the current chain timestamp has reached the deadline.
         """
-        cooldown_end = self.get_redemption_delay_over(redemption_ticket.owner)
-        if cooldown_end is None:
-            return False
-        latest_timestamp = int(self.web3.eth.get_block("latest")["timestamp"])
-        return latest_timestamp >= int(cooldown_end.replace(tzinfo=datetime.UTC).timestamp())
-
-    def serialize_redemption_ticket(self, ticket: NaraRedemptionTicket) -> dict:
-        """Serialise a NaraUSD+ cooldown ticket for later claim submission.
-
-        :param ticket:
-            NaraUSD+ cooldown ticket.
-        :return:
-            JSON-compatible ticket data.
-        """
-        data = super().serialize_redemption_ticket(ticket)
-        data["nara_cooldown_end"] = ticket.cooldown_end.isoformat()
-        return data
+        return self.get_redemption_request_status(redemption_ticket) == AsyncVaultRequestStatus.claimable
 
     def reconstruct_redemption_ticket(self, data: dict) -> NaraRedemptionTicket:
         """Reconstruct a NaraUSD+ cooldown ticket after a process restart.
@@ -250,16 +189,12 @@ class NaraDepositManager(ERC4626DepositManager):
         :return:
             NaraUSD+ cooldown ticket.
         """
-        cooldown_end = data.get("nara_cooldown_end")
-        if cooldown_end is None:
-            raise ValueError("NaraUSD+ redemption ticket is missing cooldown end")
         return NaraRedemptionTicket(
             vault_address=data["vault_address"],
             owner=data["vault_owner"],
             to=data.get("vault_to", data["vault_owner"]),
             raw_shares=int(data["vault_raw_amount"]),
             tx_hash=HexBytes(data["vault_request_tx_hash"]),
-            cooldown_end=datetime.datetime.fromisoformat(cooldown_end),
         )
 
     def get_redemption_request_status(self, ticket: NaraRedemptionTicket) -> AsyncVaultRequestStatus:
@@ -268,9 +203,14 @@ class NaraDepositManager(ERC4626DepositManager):
         :param ticket:
             NaraUSD+ cooldown ticket.
         :return:
-            ``pending`` before maturity and ``claimable`` afterwards.
+            ``pending`` before maturity, ``claimable`` afterwards, or ``none``
+            when no owner cooldown remains.
         """
-        if self.can_finish_redeem(ticket):
+        cooldown_end = self.get_redemption_delay_over(ticket.owner)
+        if cooldown_end is None:
+            return AsyncVaultRequestStatus.none
+        latest_timestamp = int(self.web3.eth.get_block("latest")["timestamp"])
+        if latest_timestamp >= int(cooldown_end.replace(tzinfo=datetime.UTC).timestamp()):
             return AsyncVaultRequestStatus.claimable
         return AsyncVaultRequestStatus.pending
 

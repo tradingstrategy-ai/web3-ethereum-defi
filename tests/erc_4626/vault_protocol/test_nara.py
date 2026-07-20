@@ -121,3 +121,4 @@ def test_narausd_plus_deposit_and_cooldown_redemption(web3: Web3) -> None:
     claim_hash = manager.finish_redemption(redemption_ticket).transact({"from": owner})
     assert_transaction_success_with_explanation(web3, claim_hash)
     assert narausd.fetch_raw_balance_of(owner) > 0
+    assert manager.get_redemption_request_status(redemption_ticket) == AsyncVaultRequestStatus.none

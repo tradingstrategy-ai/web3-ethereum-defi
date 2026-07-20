@@ -41,14 +41,6 @@ class NaraVault(ERC4626Vault):
             abi_fname="nara/NaraUSDPlus.json",
         )
 
-    def has_custom_fees(self) -> bool:
-        """Return whether the NaraUSD+ contract exposes entry or exit fees.
-
-        :return:
-            ``False``; no such fee accessor exists in the reviewed surface.
-        """
-        return False
-
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Return the NaraUSD+ management fee when published on-chain.
 
@@ -100,14 +92,6 @@ class NaraVault(ERC4626Vault):
             deposit_flow="synchronous",
             redemption_flow="asynchronous",
         )
-
-    def can_check_redeem(self) -> bool:
-        """Disable generic ERC-4626 ``maxRedeem`` availability checks.
-
-        :return:
-            ``False`` because NaraUSD+ redemption is controlled by cooldown state.
-        """
-        return False
 
     def get_link(self, referral: str | None = None) -> str:
         """Return Nara's public staking interface.
