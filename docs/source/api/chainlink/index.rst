@@ -15,4 +15,5 @@ and creating your own.
    :recursive:
 
    eth_defi.chainlink.round_data
+   eth_defi.chainlink.bundle_aggregator
    eth_defi.chainlink.token_price

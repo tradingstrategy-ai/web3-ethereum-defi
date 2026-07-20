@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add Hypersync-backed Chainlink bundle aggregator history and FILQ NAV support (2026-07-20)
 - feat: Backfill OpenEden TBILL oracle price history while preserving supply-only FDIT and CASHx metadata (2026-07-20)
 - feat: Complete Asseto live-feed discovery, standardise tokenised-fund vault flags and add verified curator logo coverage (2026-07-20)
 - feat: Fill supported-chain tokenised-fund discovery gaps for mTBILL, FDIT, CASHx, TBILL, FILQ-D and Ethereum ULTRA (2026-07-20)

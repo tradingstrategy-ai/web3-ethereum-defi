@@ -774,9 +774,17 @@ not locate a public issuer repository containing this implementation.
 
 At 2026-07-17, `totalSupply()` returned **448,264.28 FILQ-A** and
 **300,377.53 FILQ-D** on Ethereum (both 2 decimals). The `SygToken` ABI exposes
-`getPrice()` and configured Chainlink/bundle-feed accessors, so a price route is
-available on-chain; validate the selected class's oracle address and feed
-decimals before consumption.
+configured Chainlink bundle-feed accessors. FILQ-A uses proxy
+`0x0c6c...ac5c` and data id `02000001220700030000000000000000`; FILQ-D uses
+proxy `0x7484...866a` and data id `02000001230700030000000000000000`.
+Both proxies resolve to DataFeedsCache `0x16b5...1433`, which emits
+`BundleReportUpdated(bytes16,uint256,bytes)` for every accepted daily report.
+
+`getPrice()` is the single-value AggregatorV3 route and reverts for these
+bundle feeds. In both reviewed schemas NAV/share is the second 32-byte bundle
+word. `bundleDecimals()` scales it by four decimals for FILQ-A and two for
+FILQ-D. Current and fixed-block reads use `latestBundle()`; historical report
+discovery uses the cache event through Hypersync.
 
 ## Integration implications
 
@@ -795,14 +803,16 @@ decimals before consumption.
   settlement behaviour and potential out-of-hours queueing or fees.
 - Resolve proxy implementations at integration time and monitor timelocked
   upgrades, the external permission-manager address, role membership, pause
-  state, and each class's configured oracle. `totalSupply` alone neither
-  establishes NAV nor independent redeemability.
+  state, each class's configured oracle, data id, bundle decimals and cache
+  aggregator. Chainlink NAV establishes valuation but does not establish
+  independent redeemability.
 
 ## Primary sources
 
 - [Sourcify exact-match FILQ-A `UUPSProxy`](https://sourcify.dev/server/v2/contract/1/0x54a4fc78431f9201824643e99bec891bb7462a1d?fields=all)
 - [Sourcify exact-match FILQ-D `UUPSProxy`](https://sourcify.dev/server/v2/contract/1/0xf0db6f529581e7f6ebac7a7f6882923c00fc3a66?fields=all)
 - [Sourcify exact-match `SygToken` implementation](https://sourcify.dev/server/v2/contract/1/0x7030fe438be6ed196b8886616bbf5a245c267339?fields=all)
+- [Verified Chainlink DataFeedsCache](https://etherscan.io/address/0x16b53825c8ceaea593507274d4c1aaec9e261433#code)
 - [Sygnum FILQ page](https://www.sygnum.com/filq/)
 - [Sygnum's FILQ launch and Desygnate architecture](https://www.sygnum.com/news/sygnum-powers-fidelity-internationals-first-tokenized-product-launch-with-moodys-aaa-mf-assessment/)
 - [Fidelity International Strategies Funds SPC prospectus](https://www.fidelityinternational.com/legal/documents/FISGF/en/pr.fisgf.en.xx.pdf)
