@@ -88,15 +88,15 @@ class RPCRequestStats:
     ``calls`` is keyed by ``(rpc_provider_domain, api_call)`` and ``errors`` by
     ``(rpc_provider_domain, error_code, error_message)``. The lock is excluded
     from pickle state and recreated in subprocesses.
-
-    :param calls:
-        Initial provider-domain and method counts.
-    :param errors:
-        Initial provider-domain and error counts.
     """
 
+    #: Provider-domain and JSON-RPC method counts.
     calls: Counter[tuple[str, str]] = field(default_factory=Counter)
+
+    #: Provider-domain, error-code and error-message counts.
     errors: Counter[tuple[str, str, str]] = field(default_factory=Counter)
+
+    #: Synchronises counter updates between worker threads.
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False, compare=False)
 
     def record_call(self, rpc_provider_domain: str, api_call: str, count: int = 1) -> None:
