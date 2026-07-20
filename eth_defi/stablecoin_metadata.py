@@ -284,6 +284,7 @@ STABLECOIN_LIKE = set(
         "MIMATIC",
         "MKUSD",
         "MUSD",
+        "NaraUSD",
         "NUSD",
         "ONC",
         "OUSD",

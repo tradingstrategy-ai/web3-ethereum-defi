@@ -1,0 +1,37 @@
+name: Nara
+slug: nara
+short_description: |
+  NaraUSD+ is Nara's yield-accruing staking product for the NaraUSD synthetic dollar.
+long_description: |
+  Nara provides a synthetic dollar and a yield-accruing savings product for users who
+  hold it. NaraUSD+ is issued when NaraUSD is staked and represents the holder's share
+  of the product's payment-financing returns. Nara describes the underlying activity as
+  short-term financing of cross-border payment transactions.
+
+  Deposits of NaraUSD into NaraUSD+ settle immediately. To leave, a holder starts a
+  cooldown and then claims NaraUSD after the configured delay, which is currently seven
+  days on Ethereum. Direct NaraUSD minting and redemption are limited to authorised users
+  who have completed the protocol's KYC/KYB process; NaraUSD can otherwise be acquired
+  on secondary markets.
+
+  Nara's documentation says public audit reports are still outstanding. Users should
+  consider the protocol's payment-financing, operational, liquidity and smart-contract
+  risks before using the product.
+fee_description: |
+  Nara does not publish a universal management or performance fee schedule for NaraUSD+.
+  The reviewed vault contract does not expose a public entry, exit, management or
+  performance fee accessor. This does not establish that the product is fee-free: users
+  should review Nara's current terms and transaction quotes before depositing or claiming.
+links:
+  homepage: https://www.nara.io/
+  app: https://app.nara.io/swap
+  twitter: https://x.com/narausd
+  github: ''
+  documentation: https://docs.nara.io/
+  defillama: ''
+  audits: https://docs.nara.io/resources/code-audits
+  fees: ''
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/nara
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/nara/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x1aa23CDFC941f6b54251C72012A9Bfa4bF5394D6

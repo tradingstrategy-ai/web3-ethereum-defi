@@ -178,6 +178,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Fluid": VaultTechnicalRisk.low,
     "ZeroLend": VaultTechnicalRisk.dangerous,
     "USDX Money": None,
+    # Nara's documentation states that public audit reports are still outstanding.
+    "Nara": None,
     "Hyperlend": VaultTechnicalRisk.severe,
     "Sentiment": VaultTechnicalRisk.low,
     "infiniFi": None,

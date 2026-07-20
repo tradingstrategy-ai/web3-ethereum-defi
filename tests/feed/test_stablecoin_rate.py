@@ -16,6 +16,7 @@ from eth_defi.stablecoin_metadata import STABLECOINS_DATA_DIR, build_stablecoin_
 USDC_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 USDX_ADDRESS = "0x1111111111111111111111111111111111111111"
 USDU_ADDRESS = "0xdde3eC717f220Fc6A29D6a4Be73F91DA5b718e55"
+NARAUSD_ADDRESS = "0x5C6263904CCFD3Bcf1aAa6e7063dDd29743b3Bb7"
 PATHUSD_ADDRESS = "0x20C0000000000000000000000000000000000000"
 
 
@@ -703,6 +704,25 @@ def test_packaged_usdu_metadata_and_rate_target() -> None:
     assert target.coingecko_id is None
     assert metadata["name"] == "USDU Finance"
     assert metadata["contract_addresses"] == [{"chain": "ethereum", "address": USDU_ADDRESS}]
+
+
+def test_packaged_narausd_metadata_and_rate_target() -> None:
+    """NaraUSD metadata preserves its verified contract and manual USD denomination.
+
+    NaraUSD has no dedicated CoinGecko identifier, so its rate target must retain
+    the curated USD source currency without resolving another asset by ticker.
+    """
+    target = next(target for target in iter_stablecoin_rate_targets() if target.symbol == "NaraUSD")
+    metadata = build_stablecoin_metadata_json(STABLECOINS_DATA_DIR / "narausd.yaml", public_url="https://pub.example")[0]
+
+    assert is_stablecoin_like("NaraUSD") is True
+    assert target.source_currency == "usd"
+    assert target.source_currency_source == "manual"
+    assert target.coingecko_id is None
+    assert metadata["name"] == "NaraUSD"
+    assert metadata["contract_addresses"] == [{"chain": "ethereum", "address": NARAUSD_ADDRESS}]
+    assert get_stablecoin_available_logos("narausd") == {"light": True}
+    assert metadata["logos"] == {"light": "https://pub.example/stablecoin-metadata/narausd/light.png"}
 
 
 def test_packaged_pathusd_metadata_and_rate_target() -> None:

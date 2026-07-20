@@ -28,6 +28,7 @@ from eth_defi.abi import get_contract
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import ODA_FACT_HARDCODED_LEADS, probe_vaults
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_erc_4626_contract
+from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_HARDCODED_LEADS
 from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_HARDCODED_LEADS
@@ -73,6 +74,7 @@ DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
     ("Superstate", SUPERSTATE_HARDCODED_LEADS),
     ("Sygnum", SYGNUM_HARDCODED_LEADS),
     ("Theo iToken", THEO_ITOKEN_HARDCODED_LEADS),
+    ("Nara", NARAUSD_PLUS_HARDCODED_LEADS),
 )
 
 if TYPE_CHECKING:

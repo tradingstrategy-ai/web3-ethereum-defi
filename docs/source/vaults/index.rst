@@ -134,6 +134,7 @@ Supported protocols
    usyc/index
    morpho/index
    nashpoint/index
+   nara/index
    plutus/index
    renalta/index
    resolv/index

@@ -168,6 +168,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # USDX Money sUSDX - yield is distributed through value appreciation (internalised)
     # Management and performance fees are both 0%
     "USDX Money": VaultFeeMode.internalised_skimming,
+    # NaraUSD+ does not publish a universal management or performance fee schedule.
+    "Nara": None,
     # Hyperlend WHLP - 10% performance fee on yield, internalised in share price
     "Hyperlend": VaultFeeMode.internalised_skimming,
     # Sentiment SuperPools - fees taken from interest earned

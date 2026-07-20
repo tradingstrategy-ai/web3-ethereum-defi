@@ -636,6 +636,12 @@ class ERC4626Feature(enum.Enum):
     #: https://usdx.money/
     usdx_money_like = "usdx_money_like"
 
+    #: Nara
+    #:
+    #: PayFi-backed NaraUSD+ staking vault.
+    #: https://www.nara.io/
+    nara_like = "nara_like"
+
     #: Hyperlend
     #:
     #: Wrapped HLP vault for HyperLiquidity Provider on HyperEVM.
@@ -1155,6 +1161,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.usdx_money_like in features:
         return "USDX Money"
+
+    elif ERC4626Feature.nara_like in features:
+        return "Nara"
 
     elif ERC4626Feature.hyperlend_like in features:
         return "Hyperlend"
