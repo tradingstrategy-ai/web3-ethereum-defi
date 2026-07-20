@@ -11,7 +11,8 @@ class KaioVault(SupplyOnlyTokenisedFundVault):
     product = CASHX_ETHEREUM
     feature = ERC4626Feature.kaio_like
     protocol_name = "KAIO"
-    curator = "kaio"
+    curator = "blackrock"
+    manager = "BlackRock"
     homepage = "https://www.kaio.xyz/"
     restricted_flow_reason = "CASHx transfers, issuance and redemption require KAIO-approved investors and book-controlled settlement"
     # TODO: CASHx exposes ERC-20 supply, but KAIO has not published a verified

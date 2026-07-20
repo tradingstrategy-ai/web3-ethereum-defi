@@ -1,0 +1,20 @@
+feeder-id: gaoteng-global-asset-management
+name: GaoTeng Global Asset Management
+role: curator
+asseto-role: GaoTeng Global Asset Management Limited
+website: https://www.gaotengasset.com/en-US/
+short_description: GaoTeng Global Asset Management is a Hong Kong asset manager offering fixed-income, money-market and other investment strategies.
+long_description: |
+  GaoTeng Global Asset Management is a Hong Kong investment manager strategically invested in by Hillhouse Capital and Tencent. The firm offers active investment strategies and manages GaoTeng WeFund, whose sub-funds include the GaoTeng WeValue USD Money Market Fund underlying Asseto's GTCASH+ tokenised fund.
+linkedin: gaotengasset
+
+# Evidence and background references.
+other-links:
+  - title: GaoTeng - official company homepage and investment-manager profile
+    url: https://www.gaotengasset.com/en-US/
+  - title: GaoTeng - official product list including the GaoTeng WeValue USD Money Market Fund
+    url: https://www.gaotengasset.com/en-US/product-services
+  - title: GaoTeng WeValue USD Money Market Fund - annual report naming GaoTeng Global Asset Management Limited as manager
+    url: https://www.gaotengasset.com/website/709576674429108224.pdf
+  - title: Asseto - GTCASH+ tokenised fund product application
+    url: https://asseto.finance/product

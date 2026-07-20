@@ -1,0 +1,17 @@
+feeder-id: cncb-capital
+name: CNCB (Hong Kong) Capital Limited
+role: curator
+asseto-role: CNCB (Hong Kong) Capital Limited
+website: https://www.cncbinvestment.com/
+short_description: CNCB (Hong Kong) Capital Limited is a Hong Kong SFC-regulated asset manager and securities firm in the CITIC group.
+long_description: |
+  CNCB (Hong Kong) Capital Limited provides asset management and other financial services as a subsidiary of CNCB (Hong Kong) Investment Limited. It is licensed for Type 9 asset management in Hong Kong, and the Hong Kong Exchanges and Clearing fund portal identifies it as manager of the CNCB Capital US Dollar Money Market Fund.
+
+# Evidence and background references.
+other-links:
+  - title: HKEX fund portal - CNCB Capital US Dollar Money Market Fund and its fund manager
+    url: https://ifp.hkex.com.hk/fund/BWC041
+  - title: CNCB Capital - official climate disclosure for its fund-management business
+    url: https://www.cncbinvestment.com/content.asp?langcode=en&pageid=75
+  - title: Asseto product application - CNCASH+ tokenised fund product
+    url: https://asseto.finance/product

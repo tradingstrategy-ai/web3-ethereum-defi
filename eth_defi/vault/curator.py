@@ -134,10 +134,14 @@ from eth_defi.grvt.constants import GRVT_SYSTEM_VAULT_ADDRESSES
 from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
 from eth_defi.lighter.constants import LIGHTER_SYSTEM_POOL_ADDRESSES
 from eth_defi.research.sparkline import upload_to_r2_compressed
+from eth_defi.tokenised_fund.asseto.constants import ASSETO_CURATORS
+from eth_defi.tokenised_fund.fdit.constants import FDIT_ETHEREUM
+from eth_defi.tokenised_fund.kaio.constants import CASHX_ETHEREUM
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCTS
 from eth_defi.tokenised_fund.spiko.constants import USTBL_TOKEN_ADDRESS
+from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.tokenised_fund.wisdomtree.constants import WTGXX_ETHEREUM
 
 logger = logging.getLogger(__name__)
@@ -164,7 +168,6 @@ CURATORS_DATA_DIR: Path = Path(__file__).parent.parent / "data" / "feeds" / "cur
 #: itself operates every vault. Values use the canonical curator slug after
 #: applying :py:data:`PROTOCOL_CURATOR_SLUG_ALIASES`.
 PROTOCOL_CURATED_SLUGS: set[str] = {
-    "sygnum",
     "atoma",
     "d2-finance",
     "frax-finance",
@@ -218,7 +221,6 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "3jane": "3Jane",
     "usyc": "Circle USYC",
     "spiko-curator": "Spiko",
-    "sygnum": "Sygnum",
     "theo-curator": "Theo",
     "wstgbp": "wstGBP",
 }
@@ -385,9 +387,19 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # Superstate's official contract registry identifies USTB as a Superstate
     # fund token, while the token name itself carries no reusable curator name.
     (1, "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e"): "superstate",
-    # CUMIU and BELIF are platform-managed Libeara CMTAT deployments. Keep the
-    # mapping address-scoped because the issuer name varies between products.
-    **dict.fromkeys(LIBEARA_PRODUCTS, "libeara"),
+    # Libeara provides tokenisation infrastructure for these products; the
+    # underlying investment managers remain the exported vault curators.
+    **{key: product.curator_slug for key, product in LIBEARA_PRODUCTS.items()},
+    # FILQ's portfolio is managed by Fidelity International. Sygnum provides
+    # its Desygnate tokenisation, settlement and distribution infrastructure.
+    **{(chain_id, token): FILQ_CURATOR_SLUG for chain_id, tokens in SYGNUM_PRODUCTS_BY_CHAIN.items() for token in tokens},
+    # Supply-only fund shares still need exact manager attribution because
+    # their token names and protocol labels identify the infrastructure layer.
+    (FDIT_ETHEREUM.chain_id, FDIT_ETHEREUM.token): "fidelity-investments",
+    (CASHX_ETHEREUM.chain_id, CASHX_ETHEREUM.token): "blackrock",
+    # Asseto supplies the tokenisation layer. Export the reviewed underlying
+    # manager or strategy adviser for each supported product share instead.
+    **{key: curator.curator_slug for key, curator in ASSETO_CURATORS.items()},
     # Spiko operates the eligibility-gated USTBL servicing and oracle.
     (1, USTBL_TOKEN_ADDRESS): "spiko-curator",
     # Theo operates thBILL's KYC-gated direct dealing workflow.
@@ -731,6 +743,7 @@ def identify_curator(  # noqa: PLR0917
     vault_address: str,
     protocol_slug: str = "",
     manager_name: str | None = "",
+    declared_curator_slug: str | None = None,
 ) -> str | None:
     """Identify the curator managing a vault.
 
@@ -771,6 +784,11 @@ def identify_curator(  # noqa: PLR0917
         in the manager field rather than the vault name.  Empty string
         or ``None`` when unknown.
 
+    :param declared_curator_slug:
+        Optional curator slug exported directly by a reviewed vault adapter.
+        Exact chain/address overrides still take precedence so corrected
+        attribution also applies to stale cached scan metadata.
+
     :return:
         Curator slug (e.g. ``"gauntlet"``, ``"ostium"``, ``"hyperliquid"``),
         or ``None`` if no curator could be identified.
@@ -788,36 +806,41 @@ def identify_curator(  # noqa: PLR0917
     if address_slug := _identify_curator_by_address(chain_id, vault_address):
         return address_slug
 
-    # 2. Blanket protocol-curated protocols (all vaults are protocol-operated)
+    # 2. A reviewed adapter may declare its manager directly. Address-specific
+    #    corrections above remain authoritative over stale cached metadata.
+    if declared_curator_slug:
+        return declared_curator_slug
+
+    # 3. Blanket protocol-curated protocols (all vaults are protocol-operated)
     if protocol_slug in PROTOCOL_CURATED_SLUGS:
         return protocol_slug
 
-    # 3. Hyperliquid system vaults (HLP parent, children, Liquidator)
+    # 4. Hyperliquid system vaults (HLP parent, children, Liquidator)
     if protocol_slug == "hyperliquid":
         if vault_address.lower() in HYPERLIQUID_SYSTEM_VAULT_ADDRESSES:
             return "hyperliquid"
 
-    # 4. Lighter system pools (LLP, XLP)
+    # 5. Lighter system pools (LLP, XLP)
     if protocol_slug == "lighter":
         if vault_address in LIGHTER_SYSTEM_POOL_ADDRESSES:
             return "lighter"
 
-    # 5. GRVT system vaults (GLP, the protocol's in-house market maker)
+    # 6. GRVT system vaults (GLP, the protocol's in-house market maker)
     if protocol_slug == "grvt":
         if vault_address.lower() in GRVT_SYSTEM_VAULT_ADDRESSES:
             return "grvt"
 
-    # 6. Exact protocol-specific manager name mapping from offchain APIs.
+    # 7. Exact protocol-specific manager name mapping from offchain APIs.
     patterns = _build_matching_patterns()
     if manager_slug := _identify_curator_by_protocol_manager_name(protocol_slug, manager_name):
         return manager_slug
 
-    # 7. Ordinary vault-name fuzzy matching. Protocol-bound curators must have
+    # 8. Ordinary vault-name fuzzy matching. Protocol-bound curators must have
     #    already matched by protocol slug and cannot be inferred from an asset.
     if vault_slug := _identify_curator_by_patterns(vault_name, patterns, exclude_slugs=PROTOCOL_BOUND_CURATOR_SLUGS):
         return vault_slug
 
-    # 8. Legacy fuzzy matching against manager name for native marketplaces like GRVT.
+    # 9. Legacy fuzzy matching against manager name for native marketplaces like GRVT.
     if manager_slug := _identify_curator_by_patterns(manager_name, patterns, exclude_slugs=PROTOCOL_BOUND_CURATOR_SLUGS):
         return manager_slug
 

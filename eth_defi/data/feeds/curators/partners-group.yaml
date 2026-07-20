@@ -1,0 +1,21 @@
+feeder-id: partners-group
+name: Partners Group
+role: curator
+asseto-role: Partners Group
+website: https://www.partnersgroup.com/en
+twitter: partnersgroup
+linkedin: partners-group
+short_description: Partners Group is a global private-markets investment firm active across private equity, infrastructure, real estate, private credit and royalties.
+long_description: |
+  Partners Group is a global private-markets investment firm that invests and manages assets across private equity, infrastructure, real estate, private credit and royalties. Its integrated investment platform provides portfolio management and investment solutions for institutional and private-wealth clients.
+
+  Partners Group manages the private-infrastructure strategy underlying Asseto's NGI+ tokens. Asseto provides the tokenisation and token administration infrastructure rather than investment management.
+other-links:
+  - title: Partners Group official company overview
+    url: https://www.partnersgroup.com/en
+  - title: Asseto public product registry listing the NGI+ Ethereum and BNB Chain share addresses
+    url: https://asseto.finance/api/home/products?tsOffset=0
+  - title: Asseto official NGI+ launch announcement naming Partners Group as strategy manager
+    url: https://www.linkedin.com/posts/asseto-finance_ngi-is-now-live-bringing-the-partners-group-activity-7480094011207229440-01QB
+  - title: SEC filing naming Partners Group (USA) Inc. as investment manager of Partners Group Next Generation Infrastructure
+    url: https://www.sec.gov/Archives/edgar/data/1989393/000139834426007391/fp0098690-1_sctoi.htm

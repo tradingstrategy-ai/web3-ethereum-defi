@@ -22,7 +22,7 @@ from web3.contract import Contract
 
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_USD_DENOMINATIONS, AssetoProduct
+from eth_defi.tokenised_fund.asseto.constants import ASSETO_CURATORS, ASSETO_PRODUCTS, ASSETO_USD_DENOMINATIONS, AssetoProduct
 from eth_defi.tokenised_fund.asseto.historical import AssetoVaultHistoricalReader
 from eth_defi.tokenised_fund.asseto.offchain_api import AssetoAPIError, AssetoPricePoint, AssetoRoleInfo, fetch_asseto_price_history, fetch_asseto_product_roles
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
@@ -299,6 +299,9 @@ class AssetoVault(TokenisedFundVault):
         Asseto technology provider as the strategy curator.
         """
 
+        if curator := ASSETO_CURATORS.get((self.chain_id, HexAddress(self.address.lower()))):
+            return curator.manager_name
+
         if self.product.offchain_product_id is not None:
             # The registry endpoint already exposes these products, but its
             # detail endpoint does not consistently accept the registry key.
@@ -310,6 +313,13 @@ class AssetoVault(TokenisedFundVault):
         except (AssetoAPIError, requests.RequestException) as error:
             logger.warning("Could not read Asseto product roles for %s: %s", self.product.symbol, error)
             return None
+
+    @property
+    def curator_slug(self) -> str | None:
+        """Return the reviewed fund manager's curator metadata identifier."""
+
+        curator = ASSETO_CURATORS.get((self.chain_id, HexAddress(self.address.lower())))
+        return curator.curator_slug if curator else None
 
     def fetch_roles(self) -> Iterator[AssetoRoleInfo]:
         """Fetch public Asseto partner roles for this vault product.
@@ -609,6 +619,7 @@ class AssetoVault(TokenisedFundVault):
             "_asseto_source_denomination": self.product.denomination_symbol,
             "_asseto_usd_converted": self.converts_denomination_to_usd(),
             "_synthetic_usd_denomination": synthetic_usd,
+            "_curator_slug": self.curator_slug,
         }
 
     def fetch_portfolio(

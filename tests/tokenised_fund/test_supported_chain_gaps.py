@@ -51,6 +51,13 @@ def test_missing_erc20_fund_products_have_chain_scoped_adapters() -> None:
     openeden = create_vault_instance(web3, OPENEDEN_TBILL_ADDRESS, features={ERC4626Feature.openeden_like})
     assert openeden.fetch_denomination_token_address().lower() == OPENEDEN_TBILL_DENOMINATION_TOKEN_ADDRESS
 
+    fdit = create_vault_instance(web3, FDIT_ETHEREUM.token, features={ERC4626Feature.fdit_like})
+    cashx = create_vault_instance(web3, CASHX_ETHEREUM.token, features={ERC4626Feature.kaio_like})
+    assert fdit.manager_name == "Fidelity Investments"
+    assert fdit.curator_slug == "fidelity-investments"
+    assert cashx.manager_name == "BlackRock"
+    assert cashx.curator_slug == "blackrock"
+
 
 def test_new_chain_scoped_leads_keep_separate_share_classes() -> None:
     """Register distinct FILQ and ULTRA representations independently."""

@@ -1,0 +1,21 @@
+feeder-id: haitong-international-asset-management
+name: Haitong International Asset Management (HK)
+role: curator
+asseto-role: Haitong International Asset Management (HK) Limited
+website: https://gthtam.com.hk/asm/en-us
+short_description: Haitong International Asset Management (HK) is a Hong Kong licensed investment manager offering traditional and alternative investment funds and portfolio-management services.
+long_description: |
+  Haitong International Asset Management (HK) Limited is licensed by Hong Kong's Securities and Futures Commission for securities advice, futures advice and asset management. It issues and manages investment funds and provides portfolio-management and advisory services to institutional clients.
+
+  The company manages the Haitong US Dollar Money Market Fund underlying Asseto's HTCASH+ token. Its ultimate controlling shareholder became Guotai Haitong Securities following the 2025 merger, while the manager's legal name and Haitong fund branding remain unchanged in its 2026 official materials.
+
+# Evidence and background references.
+other-links:
+  - title: Haitong International Asset Management - official company overview and regulated activities
+    url: https://gthtam.com.hk/asm/en-us/home/about
+  - title: Haitong US Dollar Money Market Fund - official factsheet naming Haitong International Asset Management (HK) Limited as investment manager
+    url: https://gthtam.com.hk/hti_content/images/funds/Haitong_US_Dollar_Money_Market_Fund/FundDocument/208/en-US/Haitong%20US%20Dollar%20Money%20Market%20Fund%20-%20Fund%20Factsheet.pdf
+  - title: Official 2026 unitholder notice - Guotai Haitong became the manager's ultimate controlling shareholder
+    url: https://gthtam.com.hk/hti_content/images/funds/Haitong_Global_RMB_Fixed_Income_Fund/Announcement/169/en-US/Haitong%20Global%20RMB%20Fixed%20Income%20Fund%20-%20Notice%20to%20Unitholders%20-%2020260129.pdf
+  - title: Asseto product application - HTCASH+ public product metadata
+    url: https://asseto.finance/product

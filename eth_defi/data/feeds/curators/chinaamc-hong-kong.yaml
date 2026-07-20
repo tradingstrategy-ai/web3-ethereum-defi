@@ -1,0 +1,20 @@
+feeder-id: chinaamc-hong-kong
+name: China Asset Management (Hong Kong)
+role: curator
+asseto-role: China Asset Management (Hong Kong)
+website: https://www.chinaamc.com.hk/
+linkedin: chinaamchk
+short_description: China Asset Management (Hong Kong) is a Hong Kong asset manager offering funds, ETFs, mandates and investment advisory services.
+long_description: |
+  China Asset Management (Hong Kong) Limited is a wholly owned subsidiary of China Asset Management Co. Limited and was incorporated in Hong Kong in 2008. Its investment platform covers equity and fixed-income funds, ETFs, mandates and advisory services for individual and institutional investors.
+
+  The company manages the ChinaAMC USD Digital Money Market Fund, whose reviewed tokenised share deployments include CUMIU through Libeara and AMCASH+ through Asseto.
+
+# Evidence and background references.
+other-links:
+  - title: ChinaAMC (HK) - official company profile
+    url: https://www.chinaamc.com.hk/
+  - title: ChinaAMC USD Digital Money Market Fund - official product page and tokenisation information
+    url: https://www.chinaamc.com.hk/product/chinaamc-usd-digital-money-market-fund-listedclass/
+  - title: Asseto product application - AMCASH+ public product metadata
+    url: https://asseto.finance/product

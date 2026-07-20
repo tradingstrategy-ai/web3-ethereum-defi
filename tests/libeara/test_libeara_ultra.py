@@ -67,6 +67,8 @@ def test_libeara_ultra_adapter_blocks_public_flows_and_unknown_nav() -> None:
     web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=ARBITRUM_CHAIN_ID))
     vault = create_vault_instance(web3, LIBEARA_ULTRA_ARBITRUM.token, features={ERC4626Feature.libeara_like})
     assert isinstance(vault, LibearaVault)
+    assert vault.manager_name == "Wellington Management"
+    assert vault.curator_slug == "wellington-management"
     assert vault.get_deposit_manager_capability() is None
     assert vault.fetch_deposit_closed_reason() == LIBEARA_RESTRICTED_FLOW_REASON
     assert vault.fetch_redemption_closed_reason() == LIBEARA_RESTRICTED_FLOW_REASON

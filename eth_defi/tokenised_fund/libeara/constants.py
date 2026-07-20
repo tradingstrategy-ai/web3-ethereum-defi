@@ -15,6 +15,8 @@ class LibearaProduct:
     :param symbol: ERC-20 token symbol.
     :param product_name: Issuer-provided product name.
     :param description: Short public product description.
+    :param manager_name: Organisation responsible for portfolio management.
+    :param curator_slug: Curator metadata slug used by vault exports.
     :param first_seen_at_block: First block with proxy bytecode.
     :param first_seen_at: Proxy deployment timestamp as naive UTC.
     """
@@ -24,6 +26,8 @@ class LibearaProduct:
     symbol: str
     product_name: str
     description: str
+    manager_name: str
+    curator_slug: str
     first_seen_at_block: int
     first_seen_at: datetime.datetime
 
@@ -39,8 +43,10 @@ CUMIU_ETHEREUM = LibearaProduct(
     "CUMIU",
     "ChinaAMC USD Digital Money Market Fund Class I USD",
     "Permissioned tokenised shares in ChinaAMC's USD digital money market fund.",
+    "China Asset Management (Hong Kong)",
+    "chinaamc-hong-kong",
     23_038_326,
-    datetime.datetime(2025, 7, 31, 6, 34, 35),
+    datetime.datetime(2025, 7, 31, 6, 34, 35, tzinfo=datetime.UTC).replace(tzinfo=None),
 )
 
 #: Bosera Liquidity Income Fund SP.
@@ -51,8 +57,10 @@ BELIF_ETHEREUM = LibearaProduct(
     "BELIF",
     "Bosera Liquidity Income Fund SP",
     "Permissioned tokenised shares in Bosera's liquidity income fund.",
+    "Bosera Asset Management (International)",
+    "bosera-asset-management-international",
     23_595_754,
-    datetime.datetime(2025, 10, 17, 9, 1, 23),
+    datetime.datetime(2025, 10, 17, 9, 1, 23, tzinfo=datetime.UTC).replace(tzinfo=None),
 )
 
 #: Delta Wellington Ultra Short Treasury On-Chain Fund on Arbitrum.
@@ -62,6 +70,8 @@ LIBEARA_ULTRA_ARBITRUM = LibearaProduct(
     "ULTRA",
     "Delta Wellington Ultra Short Treasury On-Chain Fund",
     "Permissioned tokenised units in the Delta Wellington ultra-short Treasury fund.",
+    "Wellington Management",
+    "wellington-management",
     358_954_981,
     datetime.datetime(2025, 7, 18, 7, 9, 32, tzinfo=datetime.UTC).replace(tzinfo=None),
 )
@@ -77,6 +87,8 @@ LIBEARA_ULTRA_ETHEREUM = LibearaProduct(
     "ULTRA",
     "Delta Wellington Ultra Short Treasury Fund",
     "Permissioned tokenised units in the Delta Wellington ultra-short Treasury fund.",
+    "Wellington Management",
+    "wellington-management",
     21_469_784,
     datetime.datetime(2024, 12, 24, 3, 55, 23, tzinfo=datetime.UTC).replace(tzinfo=None),
 )

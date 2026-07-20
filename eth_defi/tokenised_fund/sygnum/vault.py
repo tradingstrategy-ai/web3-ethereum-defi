@@ -21,7 +21,7 @@ from web3.contract import Contract
 from eth_defi.chainlink.bundle_aggregator import create_bundle_aggregator_proxy, decode_bundle_decimal, fetch_chainlink_latest_bundle
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.tokenised_fund.sygnum.constants import FILQ_BUNDLE_AGGREGATOR_ADDRESS, FILQ_BUNDLE_DATA_ID_BY_TOKEN, FILQ_BUNDLE_DECIMALS_BY_TOKEN, FILQ_BUNDLE_FIRST_SEEN_AT_BLOCK_BY_TOKEN, FILQ_BUNDLE_PROXY_BY_TOKEN, FILQ_FIRST_SEEN_AT_BLOCK_BY_TOKEN, FILQ_NAV_BUNDLE_INDEX, SYGNUM_ETHEREUM_CHAIN_ID
+from eth_defi.tokenised_fund.sygnum.constants import FILQ_BUNDLE_AGGREGATOR_ADDRESS, FILQ_BUNDLE_DATA_ID_BY_TOKEN, FILQ_BUNDLE_DECIMALS_BY_TOKEN, FILQ_BUNDLE_FIRST_SEEN_AT_BLOCK_BY_TOKEN, FILQ_BUNDLE_PROXY_BY_TOKEN, FILQ_CURATOR_SLUG, FILQ_FIRST_SEEN_AT_BLOCK_BY_TOKEN, FILQ_MANAGER_NAME, FILQ_NAV_BUNDLE_INDEX, SYGNUM_ETHEREUM_CHAIN_ID
 from eth_defi.tokenised_fund.sygnum.historical import SygnumVaultHistoricalReader
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
@@ -141,8 +141,13 @@ class SygnumVault(TokenisedFundVault):
 
     @property
     def manager_name(self) -> str | None:
-        """Return the tokenisation platform and settlement operator."""
-        return "Sygnum"
+        """Return FILQ's investment manager."""
+        return FILQ_MANAGER_NAME
+
+    @property
+    def curator_slug(self) -> str:
+        """Return FILQ's curator metadata identifier."""
+        return FILQ_CURATOR_SLUG
 
     def fetch_share_token_address(self, block_identifier: BlockIdentifier = "latest") -> HexAddress:
         """Return the FILQ ERC-20 address.
@@ -277,6 +282,7 @@ class SygnumVault(TokenisedFundVault):
             "_chainlink_bundle_proxy": self.price_feed_address,
             "_chainlink_bundle_aggregator": FILQ_BUNDLE_AGGREGATOR_ADDRESS,
             "_chainlink_bundle_data_id": "0x" + self.bundle_data_id.hex(),
+            "_curator_slug": self.curator_slug,
         }
 
     def fetch_portfolio(self, universe: TradingUniverse, block_identifier: BlockIdentifier | None = None) -> VaultPortfolio:

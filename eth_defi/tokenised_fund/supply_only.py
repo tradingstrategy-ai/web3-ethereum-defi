@@ -34,6 +34,7 @@ class SupplyOnlyTokenisedFundVault(TokenisedFundVault):
     feature: ERC4626Feature
     protocol_name: str
     curator: str
+    manager: str | None = None
     homepage: str
     restricted_flow_reason: str
     nav_unavailable_reason: str
@@ -97,9 +98,9 @@ class SupplyOnlyTokenisedFundVault(TokenisedFundVault):
 
     @property
     def manager_name(self) -> str:
-        """Return the tokenisation platform or issuing organisation."""
+        """Return the fund manager's display name."""
 
-        return self.curator
+        return self.manager or self.curator
 
     @property
     def curator_slug(self) -> str:

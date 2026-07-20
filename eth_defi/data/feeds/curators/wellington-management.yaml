@@ -1,0 +1,17 @@
+feeder-id: wellington-management
+name: Wellington Management
+role: curator
+website: https://www.wellington.com/en
+linkedin: wellington-management
+short_description: Wellington Management is an independent investment manager serving institutional and private-market clients worldwide.
+long_description: |
+  Wellington Management is a privately held global investment manager whose research-led capabilities span fixed income, equities, multi-asset strategies and alternatives. The firm traces its roots to 1928 and operates through investment teams supported by a shared research platform.
+
+  For this integration, Wellington acts as sub-adviser to the Delta Wellington Ultra Short Treasury Onchain Fund (ULTRA) and manages its US Treasury portfolio. FundBridge established the fund under its Delta Master Trust structure, while Libeara supplies the tokenisation platform used for subscriptions, issuance, transfers and redemptions.
+other-links:
+  - title: Wellington Management official company overview
+    url: https://www.wellington.com/en/about-us/learn-more-about-our-firm
+  - title: Wellington Management CEO letter - Wellington identifies itself as ULTRA sub-adviser
+    url: https://www.wellington.com/en-us/institutional/insights/wellington-management-annual-ceo-letter-2026
+  - title: Libeara launch announcement - Wellington named ULTRA sub-adviser and FundBridge and Libeara roles explained
+    url: https://libeara.com/libeara-partners-with-wellington-and-fundbridge-capital-to-launch-a-u-s-treasuries-fund-tokenised-on-public-blockchain/
