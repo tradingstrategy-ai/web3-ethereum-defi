@@ -1,0 +1,55 @@
+symbol: NaraUSD
+name: NaraUSD
+short_description: |
+  NaraUSD is a synthetic digital dollar issued by Nara and designed to track the US
+  dollar. It is backed by short-term payment financing (PayFi) assets sourced from
+  cross-border payment transactions.
+long_description: |
+  [NaraUSD](https://docs.nara.io/nara-protocol/narausd) is Nara's synthetic digital
+  dollar. Nara states that its reserve is backed by a diversified portfolio of
+  real-world, short-term payment-financing (PayFi) assets sourced from cross-border
+  transactions and that the token is designed to maintain a 1:1 USD value.
+
+  Minting and direct redemption are available to authorised, KYC/KYB-completed users.
+  The protocol maintains a liquid reserve for redemptions and may queue larger
+  redemption requests while its short-term financing positions mature.
+
+  ## Sources
+
+  - [NaraUSD documentation](https://docs.nara.io/nara-protocol/narausd)
+  - [Nara application](https://app.nara.io/swap)
+category: stablecoin
+links:
+  homepage: https://www.nara.io/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/narausd
+slug: narausd
+contract_addresses:
+  - chain: ethereum
+    address: '0x5C6263904CCFD3Bcf1aAa6e7063dDd29743b3Bb7'
+source_currency: usd
+source_currency_source: manual
+source_currency_usd_rate: 1.0
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
+coingecko_id: ''
+coingecko_link: ''
+coingecko_id_source: ''
+coingecko_id_verified_at: ''
+coingecko_id_verification_failed_at: ''
+coingecko_id_verification_failed_reason: ''
+usd_rate: ''
+usd_rate_fetched_at: ''
+usd_rate_updated_at: ''
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

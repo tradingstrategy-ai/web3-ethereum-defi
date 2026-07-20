@@ -20,6 +20,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
@@ -320,6 +321,9 @@ VAULT_STREET_HARDCODED_PROTOCOLS = {PRIME_USD_ADDRESS: {ERC4626Feature.vault_str
 #: the reviewed sFRAX and sfrxUSD deployments are routed by address.
 FRAX_STAKING_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.frax_staking_like} for address in FRAX_STAKING_VAULT_ADDRESSES}
 
+#: NaraUSD+ is Nara's only reviewed production staking vault.
+NARA_HARDCODED_PROTOCOLS = {NARAUSD_PLUS_VAULT: {ERC4626Feature.nara_like}}
+
 
 def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | None = None) -> set[ERC4626Feature] | None:
     """Return hardcoded protocol features for a vault address.
@@ -422,6 +426,11 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if normalised_address in frax_staking_vaults:
             return FRAX_STAKING_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in FRAX_STAKING_VAULT_ADDRESSES:
+            return None
+
+        if normalised_address in NARA_HARDCODED_PROTOCOLS:
+            if chain_id == 1:
+                return NARA_HARDCODED_PROTOCOLS[normalised_address]
             return None
 
     return HARDCODED_PROTOCOLS.get(normalised_address)
@@ -2260,6 +2269,11 @@ def create_vault_instance(
 
         return USDXMoneyVault(web3, spec, **kwargs)
 
+    elif ERC4626Feature.nara_like in features:
+        from eth_defi.erc_4626.vault_protocol.nara.vault import NaraVault
+
+        return NaraVault(web3, spec, **kwargs)
+
     elif ERC4626Feature.hyperlend_like in features:
         from eth_defi.erc_4626.vault_protocol.hyperlend.vault import WrappedHLPVault
 
@@ -2396,6 +2410,7 @@ HARDCODED_PROTOCOLS = {
     **FRANKENCOIN_HARDCODED_PROTOCOLS,
     **VAULT_STREET_HARDCODED_PROTOCOLS,
     **FRAX_STAKING_HARDCODED_PROTOCOLS,
+    **NARA_HARDCODED_PROTOCOLS,
     # 3Jane - USD3 senior tranche credit vault on Ethereum
     # https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
     "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc": {ERC4626Feature.threejane_like},

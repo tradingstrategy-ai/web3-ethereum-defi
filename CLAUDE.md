@@ -267,7 +267,12 @@ You chan find these in `CHAIN_NAMES` and in `eth_defi.provider.env`
 ## Building integrated smart contracts
 
 You can use `Makefile` commands `make guard safe-integration` to rebuild smart contracts for Satfe and Lagoon integration.
-**Never edit ABI JSON FILES directly**. Always build them with a compiler.
+
+### ABIs
+
+- Store contract ABIs in ``eth_defi/abi/<protocol>/`` as JSON files and load them through the shared ABI helpers.
+- Do not define inline ABIs in Python unless the fragment contains at most one or two functions.
+- Regenerate ABI JSON for this repository's integrated smart contracts with the compiler. For external deployments, commit the verified or application-exported interface JSON and record its canonical source alongside it.
 
 ## Documentation
 

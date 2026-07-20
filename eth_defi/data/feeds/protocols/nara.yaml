@@ -1,0 +1,6 @@
+# Nara protocol - same issuer and social source as NaraUSD.
+feeder-id: nara
+name: Nara
+role: protocol
+website: https://www.nara.io/
+canonical-feeder-id: narausd

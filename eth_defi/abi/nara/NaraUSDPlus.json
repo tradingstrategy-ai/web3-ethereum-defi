@@ -1,0 +1,33 @@
+[
+  {
+    "inputs": [],
+    "name": "cooldownDuration",
+    "outputs": [{"internalType": "uint24", "name": "", "type": "uint24"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "uint256", "name": "shares", "type": "uint256"}],
+    "name": "cooldownShares",
+    "outputs": [{"internalType": "uint256", "name": "assets", "type": "uint256"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "address", "name": "", "type": "address"}],
+    "name": "cooldowns",
+    "outputs": [
+      {"internalType": "uint104", "name": "cooldownEnd", "type": "uint104"},
+      {"internalType": "uint152", "name": "sharesAmount", "type": "uint152"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "address", "name": "receiver", "type": "address"}],
+    "name": "unstake",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]
