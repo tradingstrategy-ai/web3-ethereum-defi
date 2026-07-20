@@ -10,8 +10,10 @@ from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
-from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampSlicer
+from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampDatabase, BlockTimestampSlicer, load_timestamp_cache
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.provider.multi_provider import MultiProviderWeb3Factory
+from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.timestamp import get_block_timestamp
 
 logger = logging.getLogger(__name__)
@@ -26,20 +28,37 @@ def _read_timestamp_subprocess(
     web3factory: Web3Factory,
     chain_id: int,
     block_number: int,
-) -> tuple[int, datetime.datetime]:
+    collect_rpc_request_stats: bool = False,
+) -> tuple[int, datetime.datetime, RPCRequestStats | None]:
     # Initialise web3 connection when called for the first time.
     # We will recycle the same connection instance and it is kept open
     # until shutdown.
     per_chain_web3 = getattr(_timestamp_instance, "per_chain_web3", None)
     if per_chain_web3 is None:
-        per_chain_web3 = _timestamp_instance.per_chain_readers = {}
+        per_chain_web3 = _timestamp_instance.per_chain_web3 = {}
+
+    task_rpc_request_stats = RPCRequestStats() if collect_rpc_request_stats else None
 
     web3 = per_chain_web3.get(chain_id)
     if web3 is None:
-        web3 = per_chain_web3[chain_id] = web3factory()
+        if isinstance(web3factory, MultiProviderWeb3Factory):
+            # Include provider verification requests made on the worker's
+            # first process-local connection in this task's returned totals.
+            web3 = web3factory(rpc_request_stats=task_rpc_request_stats)
+        else:
+            web3 = web3factory()
+        per_chain_web3[chain_id] = web3
 
-    assert web3.eth.chain_id == chain_id, f"Web3 chain ID mismatch: {web3.eth.chain_id} != {chain_id}"
-    return block_number, get_block_timestamp(web3, block_number, raw=True)
+    set_rpc_request_stats = getattr(web3, "set_rpc_request_stats", None)
+    if callable(set_rpc_request_stats):
+        set_rpc_request_stats(task_rpc_request_stats)
+
+    try:
+        assert web3.eth.chain_id == chain_id, f"Web3 chain ID mismatch: {web3.eth.chain_id} != {chain_id}"
+        return block_number, get_block_timestamp(web3, block_number, raw=True), task_rpc_request_stats
+    finally:
+        if callable(set_rpc_request_stats):
+            set_rpc_request_stats(None)
 
 
 def fetch_block_timestamps_multiprocess(
@@ -53,6 +72,7 @@ def fetch_block_timestamps_multiprocess(
     timeout=120,
     cache_path: Path | None = DEFAULT_TIMESTAMP_CACHE_FOLDER,
     checkpoint_freq: int = 20_000,
+    rpc_request_stats: RPCRequestStats | None = None,
 ) -> BlockTimestampSlicer:
     """Extract timestamps using fast multiprocessing.
 
@@ -74,6 +94,9 @@ def fetch_block_timestamps_multiprocess(
         .
     :param checkpoint_freq:
         Block number frequency how often to save.
+
+    :param rpc_request_stats:
+        Optional parent accumulator receiving successful subprocess task calls.
     """
 
     assert start_block <= end_block, f"Start block {start_block} must be less than or equal to end block {end_block}"
@@ -113,7 +136,7 @@ def fetch_block_timestamps_multiprocess(
         first_block_to_check = max(start_block, timestamp_db.get_last_block())
         for _block_number in range(first_block_to_check, end_block + 1, step):
             if result.get(_block_number) is None:
-                yield web3factory, chain_id, _block_number
+                yield web3factory, chain_id, _block_number, rpc_request_stats is not None
 
     last_save = block_number = 0
 
@@ -139,7 +162,9 @@ def fetch_block_timestamps_multiprocess(
     # Because of asyncrhonoisty issues with new DuckDB cache, we need to buffer all tasks and reads in one go
     tasks = list(_task_gen())
     for completed_task in worker_processor(delayed(_read_timestamp_subprocess)(*args) for args in tasks):
-        block_number, timestamp = completed_task
+        block_number, timestamp, task_rpc_request_stats = completed_task
+        if rpc_request_stats is not None and task_rpc_request_stats is not None:
+            rpc_request_stats.merge(task_rpc_request_stats)
 
         index.append(block_number)
         values.append(timestamp)
@@ -183,6 +208,7 @@ def fetch_block_timestamps_multiprocess_auto_backend(
     cache_path: Path | None = DEFAULT_TIMESTAMP_CACHE_FOLDER,
     checkpoint_freq: int = 20_000,
     hypersync_client: "hypersync.HypersyncClient | None" = None,
+    rpc_request_stats: RPCRequestStats | None = None,
 ) -> BlockTimestampSlicer:
     """Fetch block timestamps, choose backend.
 
@@ -232,4 +258,5 @@ def fetch_block_timestamps_multiprocess_auto_backend(
             timeout=timeout,
             cache_path=cache_path,
             checkpoint_freq=checkpoint_freq,
+            rpc_request_stats=rpc_request_stats,
         )

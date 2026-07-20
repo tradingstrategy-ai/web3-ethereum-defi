@@ -527,6 +527,8 @@ class LeadScanReport:
     start_block: int = 0
     #: Accounting / diagnostics
     end_block: int = 0
+    #: Unique candidate addresses submitted to on-chain feature probing
+    items_scanned: int = 0
 
 
 def _prepare_probe_leads(leads: dict[HexAddress, PotentialVaultMatch]) -> tuple[list[HexAddress], dict[str, PotentialVaultMatch], int]:
@@ -706,6 +708,7 @@ class VaultDiscoveryBase(abc.ABC):
                 logger.info("Added hardcoded Asseto vault lead %s", address)
 
         addresses, leads_by_address, mellow_lead_count = _prepare_probe_leads(leads)
+        report.items_scanned = len(addresses)
         logger.info("Found %d vault leads, of which %d are Mellow factory leads", len(leads), mellow_lead_count)
         good_vaults = broken_vaults = 0
 

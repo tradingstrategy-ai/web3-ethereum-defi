@@ -87,8 +87,11 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
+import duckdb
 from atomicwrites import atomic_write
+from filelock import Timeout as FileLockTimeout
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.named import get_provider_name
 
@@ -100,12 +103,13 @@ except ImportError as e:
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection, is_activity_filter_exempt
-from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
+from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
+from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
 from eth_defi.token import TokenDiskCache
-from eth_defi.utils import setup_console_logging
+from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.historical import scan_historical_prices_to_parquet, pformat_scan_result
-from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE
+from eth_defi.vault.historical import pformat_scan_result, scan_historical_prices_to_parquet
+from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, get_pipeline_data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +122,9 @@ if JSON_RPC_URL is None:
         raise ValueError(f"Invalid JSON_RPC URL: {JSON_RPC_URL}") from e
 
 
-def main():
+def _run_scan(stats: RPCRequestStats, metrics: dict) -> None:
+    """Run historical price scanning while updating accounting metadata."""
+
     token_cache = TokenDiskCache()
 
     # How many CPUs / subprocess we use
@@ -126,8 +132,8 @@ def main():
     max_workers = int(max_workers)
     # max_workers = 1  # To debug, set workers to 1
 
-    web3 = create_multi_provider_web3(JSON_RPC_URL)
-    web3factory = MultiProviderWeb3Factory(JSON_RPC_URL, retries=5)
+    web3 = create_multi_provider_web3(JSON_RPC_URL, rpc_request_stats=stats)
+    web3factory = MultiProviderWeb3Factory(JSON_RPC_URL, retries=5, skip_verification=True, expected_chain_id=web3.eth.chain_id, rpc_request_stats=stats)
     name = get_chain_name(web3.eth.chain_id)
 
     default_log_level = os.environ.get("LOG_LEVEL", "info")
@@ -155,6 +161,7 @@ def main():
         end_block = int(end_block)
 
     chain_id = web3.eth.chain_id
+    metrics["chain_id"] = chain_id
 
     output_folder = os.environ.get("OUTPUT_FOLDER")
     if output_folder is None:
@@ -237,6 +244,7 @@ def main():
             pass
 
     print(f"After filtering vaults for non-interesting entries, we have {len(vaults):,} vaults left")
+    metrics["items_scanned"] = len(vaults)
 
     if vault_addresses is not None and reader_states:
         # Fresh scan for selected vaults - remove their saved state
@@ -276,6 +284,7 @@ def main():
             reader_states=reader_states,
             hypersync_client=hypersync_config.hypersync_client,
             vault_addresses=vault_addresses,
+            rpc_request_stats=stats,
         )
     finally:
         if pr:
@@ -303,9 +312,44 @@ def main():
     print("All ok")
 
 
+def main() -> None:
+    """Run price scanning under the shared pipeline and DuckDB writer lock."""
+
+    pipeline_lock_path = get_pipeline_data_dir() / "scan-pipeline"
+    database_path = resolve_rpc_tracking_database_path()
+    with wait_other_writers(pipeline_lock_path, timeout=60):
+        with RPCUsageDatabase(database_path) as database:
+            cycle_started = native_datetime_utc_now().date()
+            cycle_number = database.allocate_cycle()
+            stats = RPCRequestStats()
+            metrics = {"chain_id": None, "items_scanned": 0}
+            try:
+                _run_scan(stats, metrics)
+            finally:
+                chain_id = metrics["chain_id"]
+                if chain_id is not None:
+                    try:
+                        database.record_scan(
+                            chain=chain_id,
+                            phase="price_scan",
+                            cycle_started=cycle_started,
+                            cycle_number=cycle_number,
+                            stats=stats,
+                            items_scanned=metrics["items_scanned"],
+                        )
+                        report = format_rpc_usage_report(database, chain_id, cycle_started, cycle_number)
+                        print(report)
+                        logger.info("%s", report)
+                    except (duckdb.Error, RuntimeError, AssertionError, TypeError, ValueError):
+                        logger.exception("Could not persist price-scan RPC usage")
+
+
 if __name__ == "__main__":
     try:
         main()
+    except FileLockTimeout:
+        logger.error("Vault scan pipeline is locked by another scanner; stop it or retry after it finishes")
+        raise SystemExit(1) from None
     except Exception as e:
         logger.exception("Fatal error: %s", e, exc_info=e)
         raise e

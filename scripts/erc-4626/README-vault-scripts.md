@@ -35,6 +35,7 @@ LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TEMPO poetry run python scripts/erc-4626/s
 | `HYPERSYNC_API_KEY` | Optional. Required when using `auto` scan backend. |
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150 (75% of the 200 RPM free-tier limit). Throttling is always on; set this to lower the limit after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Number of Hypersync requests in flight per stream — the main throughput knob. Default: server default (10). Increase for dense workloads, decrease for rate-limited plans. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
+| `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
 
 #### Required protocol-specific lead migrations
 
@@ -180,6 +181,71 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150. Lower after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
+| `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB used by all EVM vault scanners. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
+
+#### JSON-RPC usage accounting
+
+The all-chain scanner, `scan-vaults.py`, and `scan-prices.py` store physical
+EVM JSON-RPC attempts in `~/.tradingstrategy/rpc-tracking.duckdb`. Override the
+path for an isolated run with `RPC_TRACKING_DATABASE_PATH`. The scanners hold
+the normal pipeline writer lock for the complete DuckDB connection lifetime,
+so standalone and daemon scans cannot write concurrently. A standalone command
+exits with an operator-readable error if another scanner still holds the lock
+after 60 seconds; stop the daemon or retry when its tick has finished.
+
+Calls are separated into `lead_discovery` and `price_scan` phases. For lead
+discovery, `items_scanned` is the number of unique candidate addresses sent to
+on-chain feature probing. For price scans it is the number of filtered,
+supported vault readers sent to the historical scan. A retry appends its calls
+to the same cycle; daily aggregation sums calls but takes the maximum item count
+for the cycle so the retried population is not multiplied.
+
+Each physical fallback-provider attempt is counted under its concrete provider
+hostname, including failed attempts and provider-switch `eth_chainId` checks.
+Stored hostnames omit schemes, credentials, URL paths, query strings, and API
+keys. A Multicall3 batch is one `eth_call`; its inner encoded contract calls are
+not counted separately. Transport retries hidden below
+`HTTPProvider.make_request()` cannot be observed. Failed or terminated
+subprocess tasks may also leave a lower-bound count because their in-memory
+counter cannot be returned to the parent.
+
+The separate `vault_rpc_api_errors` table stores a sanitised breakdown by chain,
+phase, cycle, provider domain, error code, and message. JSON-RPC codes use their
+decimal value, HTTP failures use values such as `http_429`, and transport
+failures use the exception class name. Request parameters, endpoint secrets,
+and request identifiers are excluded or redacted.
+
+Hypersync, archive-node preflight, native protocol APIs, settlement scanning,
+post-processing, Core3, currency-rate, and export traffic are excluded. A scan
+crossing midnight remains attributed to the UTC date on which its cycle began.
+After each EVM chain the scanner displays current-cycle method totals, daily
+phase/provider totals, and any current-cycle RPC errors.
+
+Daily calls and item counts can be queried without double-counting methods or
+retries:
+
+```sql
+WITH cycles AS (
+    SELECT
+        chain,
+        phase,
+        cycle_started,
+        cycle_number,
+        SUM(call_count) AS calls,
+        MAX(items_scanned) AS items_scanned
+    FROM vault_rpc_api_calls
+    WHERE cycle_started = CURRENT_DATE
+    GROUP BY chain, phase, cycle_started, cycle_number
+)
+SELECT
+    chain,
+    phase,
+    SUM(calls) AS calls,
+    SUM(items_scanned) AS items_scanned
+FROM cycles
+GROUP BY chain, phase
+ORDER BY chain, phase;
+```
 
 Tempo and Robinhood Chain are scanned when `JSON_RPC_TEMPO` and
 `JSON_RPC_ROBINHOOD` are configured. For a focused Tempo-only dry run:

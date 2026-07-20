@@ -37,6 +37,7 @@ from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall,
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
+from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details
 from eth_defi.utils import chunked
 from eth_defi.vault.base import VaultBase, VaultHistoricalRead, VaultHistoricalReader, VaultSpec, verify_parquet_file
@@ -106,6 +107,7 @@ class VaultHistoricalReadMulticaller:
         require_multicall_result=False,
         hypersync_client: "hypersync.HypersyncClient | None" = None,
         timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
+        rpc_request_stats: RPCRequestStats | None = None,
     ):
         """
         :param supported_quote_tokens:
@@ -121,6 +123,7 @@ class VaultHistoricalReadMulticaller:
         self.max_workers = max_workers
         self.hypersync_client = hypersync_client
         self.timestamp_cache_file = timestamp_cache_file
+        self.rpc_request_stats = rpc_request_stats
 
         if token_cache is None:
             token_cache = TokenDiskCache()
@@ -490,6 +493,7 @@ class VaultHistoricalReadMulticaller:
             require_multicall_result=self.require_multicall_result,
             hypersync_client=self.hypersync_client,
             timestamp_cache_file=self.timestamp_cache_file,
+            rpc_request_stats=self.rpc_request_stats,
         ):
             total_combined_results += 1
 
@@ -589,6 +593,7 @@ def scan_historical_prices_to_parquet(
     hypersync_client=None,
     timestamp_cache_file=DEFAULT_TIMESTAMP_CACHE_FOLDER,
     vault_addresses: set[str] | None = None,
+    rpc_request_stats: RPCRequestStats | None = None,
 ) -> ParquetScanResult:
     """Scan all historical vault share prices of vaults and save them in to Parquet file.
 
@@ -649,6 +654,9 @@ def scan_historical_prices_to_parquet(
 
         Addresses must be lowercase. When ``None``, all rows for the chain
         are deleted and rewritten (default behaviour).
+
+    :param rpc_request_stats:
+        Optional phase accumulator for physical JSON-RPC request accounting.
 
     :return:
         Scan report.
@@ -717,6 +725,7 @@ def scan_historical_prices_to_parquet(
         require_multicall_result=require_multicall_result,
         hypersync_client=hypersync_client,
         timestamp_cache_file=timestamp_cache_file,
+        rpc_request_stats=rpc_request_stats,
     )
 
     reader_func = read_multicall_historical_stateful if stateful else read_multicall_historical

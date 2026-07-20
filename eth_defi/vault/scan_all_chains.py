@@ -30,6 +30,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+import duckdb
 from atomicwrites import atomic_write
 from filelock import Timeout as FileLockTimeout
 
@@ -65,6 +66,7 @@ from eth_defi.lighter.session import create_lighter_session
 from eth_defi.lighter.vault_data_export import merge_into_vault_database as lighter_merge_vault_db
 from eth_defi.provider.broken_provider import verify_archive_node
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
+from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
@@ -479,6 +481,7 @@ def scan_vaults_for_chain(
     max_workers: int,
     vault_db_path: Path = DEFAULT_VAULT_DATABASE,
     hypersync_concurrency: int | None = None,
+    rpc_request_stats: RPCRequestStats | None = None,
 ) -> tuple[bool, dict]:
     """Scan vaults for a single chain by calling scan_leads() directly.
 
@@ -488,7 +491,12 @@ def scan_vaults_for_chain(
     :param hypersync_concurrency: Hypersync stream concurrency limit
     :return: Tuple of (success, metrics_dict)
     """
+    stats = rpc_request_stats or RPCRequestStats()
+    chain_id = None
+    items_scanned = 0
     try:
+        web3 = create_multi_provider_web3(rpc_url, rpc_request_stats=stats)
+        chain_id = web3.eth.chain_id
         report = scan_leads(
             json_rpc_urls=rpc_url,
             vault_db_file=vault_db_path,
@@ -498,18 +506,28 @@ def scan_vaults_for_chain(
             printer=lambda msg: None,  # Suppress output to keep logs clean
             hypersync_concurrency=hypersync_concurrency,
             max_display_entries=100,
+            rpc_request_stats=stats,
+            web3=web3,
         )
+        items_scanned = report.items_scanned
 
         return True, {
+            "chain_id": chain_id,
             "start_block": report.start_block,
             "end_block": report.end_block,
             "vault_count": len(report.rows),
             "new_vaults": report.new_leads,
+            "items_scanned": items_scanned,
         }
 
     except Exception as e:
         logger.exception("Vault scan failed")
-        return False, {"error": str(e), "traceback": traceback.format_exc()}
+        return False, {
+            "chain_id": chain_id,
+            "items_scanned": items_scanned,
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+        }
 
 
 def scan_prices_for_chain(
@@ -520,6 +538,7 @@ def scan_prices_for_chain(
     uncleaned_price_path: Path = DEFAULT_UNCLEANED_PRICE_DATABASE,
     reader_state_path: Path = DEFAULT_READER_STATE_DATABASE,
     hypersync_concurrency: int | None = None,
+    rpc_request_stats: RPCRequestStats | None = None,
 ) -> tuple[bool, dict]:
     """Scan historical prices for a single chain.
 
@@ -532,21 +551,27 @@ def scan_prices_for_chain(
     :param hypersync_concurrency: Hypersync stream concurrency limit
     :return: Tuple of (success, metrics_dict)
     """
+    stats = rpc_request_stats or RPCRequestStats()
+    metrics = {
+        "chain_id": None,
+        "items_scanned": 0,
+    }
     try:
         # Setup Web3 connection
-        web3 = create_multi_provider_web3(rpc_url)
+        web3 = create_multi_provider_web3(rpc_url, rpc_request_stats=stats)
         token_cache = TokenDiskCache()
         chain_id = web3.eth.chain_id
+        metrics["chain_id"] = chain_id
         # Subprocess price-reading workers rebuild Web3 from this factory; the
         # parent already verified the chain ID, so skip per-worker re-verification
         # to avoid storming the primary provider with eth_chainId probes (HTTP 429).
         # Seed the verified chain ID so worker switchover still rejects wrong-chain endpoints.
-        web3factory = MultiProviderWeb3Factory(rpc_url, retries=5, skip_verification=True, expected_chain_id=chain_id)
+        web3factory = MultiProviderWeb3Factory(rpc_url, retries=5, skip_verification=True, expected_chain_id=chain_id, rpc_request_stats=stats)
 
         # Load vault database
         if not vault_db_path.exists():
             logger.warning("Vault database does not exist, skipping price scan")
-            return True, {"rows_written": 0}
+            return True, {**metrics, "rows_written": 0}
 
         vault_db = pickle.load(vault_db_path.open("rb"))
 
@@ -560,7 +585,7 @@ def scan_prices_for_chain(
 
         if len(chain_vaults) == 0:
             logger.info("No vaults on chain %d, skipping price scan", chain_id)
-            return True, {"rows_written": 0}
+            return True, {**metrics, "rows_written": 0}
 
         # Create vault instances with filtering
         vaults = []
@@ -583,7 +608,9 @@ def scan_prices_for_chain(
 
         if len(vaults) == 0:
             logger.info("No vaults to scan on chain %d after filtering", chain_id)
-            return True, {"rows_written": 0}
+            return True, {**metrics, "rows_written": 0}
+
+        metrics["items_scanned"] = len(vaults)
 
         # Configure HyperSync (shares throttle with vault lead discovery)
         hypersync_config = configure_hypersync_from_env(web3, concurrency=hypersync_concurrency)
@@ -602,6 +629,7 @@ def scan_prices_for_chain(
             frequency=frequency,
             reader_states=reader_states,
             hypersync_client=hypersync_config.hypersync_client,
+            rpc_request_stats=stats,
         )
 
         # Save reader states atomically to avoid corruption on interruption
@@ -610,7 +638,7 @@ def scan_prices_for_chain(
                 pickle.dump(result["reader_states"], f)
 
         return True, {
-            "chain_id": chain_id,
+            **metrics,
             "rows_written": result["rows_written"],
             "start_block": result["start_block"],
             "end_block": result["end_block"],
@@ -618,7 +646,7 @@ def scan_prices_for_chain(
 
     except Exception as e:
         logger.exception("Price scan failed")
-        return False, {"error": str(e), "traceback": traceback.format_exc()}
+        return False, {**metrics, "error": str(e), "traceback": traceback.format_exc()}
 
 
 def scan_chain(
@@ -631,6 +659,9 @@ def scan_chain(
     uncleaned_price_path: Path = DEFAULT_UNCLEANED_PRICE_DATABASE,
     reader_state_path: Path = DEFAULT_READER_STATE_DATABASE,
     hypersync_concurrency: int | None = None,
+    rpc_usage_database: RPCUsageDatabase | None = None,
+    rpc_cycle_started: datetime.date | None = None,
+    rpc_cycle_number: int | None = None,
 ) -> ChainResult:
     """Scan a single chain (vaults and optionally prices).
 
@@ -646,6 +677,27 @@ def scan_chain(
     :return: Scan result
     """
     result = ChainResult(name=config.name, status="running", retry_attempt=retry_attempt)
+
+    def record_rpc_usage(phase: str, stats: RPCRequestStats, metrics: dict) -> None:
+        """Persist one phase attempt without turning observability into a retry."""
+
+        if rpc_usage_database is None or rpc_cycle_started is None or rpc_cycle_number is None:
+            return
+        chain_id = metrics.get("chain_id")
+        if chain_id is None:
+            logger.warning("Cannot attribute %s RPC usage for %s because chain id is unavailable", phase, config.name)
+            return
+        try:
+            rpc_usage_database.record_scan(
+                chain=chain_id,
+                phase=phase,
+                cycle_started=rpc_cycle_started,
+                cycle_number=rpc_cycle_number,
+                stats=stats,
+                items_scanned=int(metrics.get("items_scanned", 0)),
+            )
+        except (duckdb.Error, RuntimeError, AssertionError, TypeError, ValueError):
+            logger.exception("Could not persist %s RPC usage for %s", phase, config.name)
 
     # Check if RPC URL is configured
     rpc_url = os.environ.get(config.env_var)
@@ -676,8 +728,11 @@ def scan_chain(
 
     # Scan vaults
     if config.scan_vaults:
-        vault_success, vault_metrics = scan_vaults_for_chain(rpc_url, max_workers, vault_db_path=vault_db_path, hypersync_concurrency=hypersync_concurrency)
+        vault_stats = RPCRequestStats()
+        vault_success, vault_metrics = scan_vaults_for_chain(rpc_url, max_workers, vault_db_path=vault_db_path, hypersync_concurrency=hypersync_concurrency, rpc_request_stats=vault_stats)
+        record_rpc_usage("lead_discovery", vault_stats, vault_metrics)
         result.vault_scan_ok = vault_success
+        result.chain_id = vault_metrics.get("chain_id")
 
         if vault_success:
             result.start_block = vault_metrics.get("start_block")
@@ -690,6 +745,7 @@ def scan_chain(
 
     # Scan prices
     if scan_prices:
+        price_stats = RPCRequestStats()
         price_success, price_metrics = scan_prices_for_chain(
             rpc_url,
             max_workers,
@@ -698,11 +754,13 @@ def scan_chain(
             uncleaned_price_path=uncleaned_price_path,
             reader_state_path=reader_state_path,
             hypersync_concurrency=hypersync_concurrency,
+            rpc_request_stats=price_stats,
         )
+        record_rpc_usage("price_scan", price_stats, price_metrics)
         result.price_scan_ok = price_success
+        result.chain_id = price_metrics.get("chain_id") or result.chain_id
 
         if price_success:
-            result.chain_id = price_metrics.get("chain_id")
             result.price_rows = price_metrics.get("rows_written")
             # Update block range if not set by vault scan
             if result.start_block is None:
@@ -1733,6 +1791,7 @@ def run_scan_tick(
     scan_vault_settlements: bool = True,
     settlement_start_block: int | None = None,
     settlement_end_block: int | None = None,
+    rpc_tracking_database_path: Path | None = None,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -1774,9 +1833,38 @@ def run_scan_tick(
 
     :param settlement_end_block:
         Optional inclusive forced end block for settlement backfills.
+
+    :param rpc_tracking_database_path:
+        Shared JSON-RPC accounting DuckDB path. Defaults to
+        :func:`eth_defi.provider.rpcdb.resolve_rpc_tracking_database_path`.
     """
     # Back up critical pipeline files before any scanning
-    backup_pipeline_files(backup_files=bkp_files, backup_dir=bkp_dir)
+    rpc_tracking_database_path = rpc_tracking_database_path or resolve_rpc_tracking_database_path()
+    backup_pipeline_files(backup_files=[*bkp_files, rpc_tracking_database_path], backup_dir=bkp_dir)
+
+    rpc_usage_database: RPCUsageDatabase | None = None
+    rpc_cycle_started = native_datetime_utc_now().date()
+    rpc_cycle_number: int | None = None
+    if chains:
+        try:
+            rpc_usage_database = RPCUsageDatabase(rpc_tracking_database_path)
+            rpc_cycle_number = rpc_usage_database.allocate_cycle()
+            logger.info("Tracking JSON-RPC usage in %s, cycle %d", rpc_tracking_database_path, rpc_cycle_number)
+        except (duckdb.Error, OSError):
+            logger.exception("Could not open JSON-RPC usage database %s; continuing without accounting", rpc_tracking_database_path)
+            rpc_usage_database = None
+
+    def display_rpc_report(result: ChainResult) -> None:
+        """Display accounting without failing an otherwise completed scan."""
+
+        if rpc_usage_database is None or rpc_cycle_number is None or result.chain_id is None:
+            return
+        try:
+            rpc_report = format_rpc_usage_report(rpc_usage_database, result.chain_id, rpc_cycle_started, rpc_cycle_number)
+            print(rpc_report)
+            logger.info("%s", rpc_report)
+        except (duckdb.Error, RuntimeError):
+            logger.exception("Could not display JSON-RPC usage for chain %s", result.chain_id)
 
     results: dict[str, ChainResult] = {}
     _ci = cycle_intervals or {}
@@ -1860,6 +1948,9 @@ def run_scan_tick(
                 uncleaned_price_path=uncleaned_price_path,
                 reader_state_path=reader_state_path,
                 hypersync_concurrency=hypersync_concurrency,
+                rpc_usage_database=rpc_usage_database,
+                rpc_cycle_started=rpc_cycle_started,
+                rpc_cycle_number=rpc_cycle_number,
             )
         except Exception as e:
             logger.exception("Chain %s crashed with unhandled exception", chain.name)
@@ -1892,6 +1983,7 @@ def run_scan_tick(
         elif r.status == "skipped":
             logger.warning("%s: SKIPPED - %s", chain.name, r.error)
             update_chain_settlement_result(chain, skip_reason=f"Skipped because {chain.name} scan was skipped")
+        display_rpc_report(r)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
     # Native protocol scans
@@ -2035,6 +2127,9 @@ def run_scan_tick(
                     uncleaned_price_path=uncleaned_price_path,
                     reader_state_path=reader_state_path,
                     hypersync_concurrency=hypersync_concurrency,
+                    rpc_usage_database=rpc_usage_database,
+                    rpc_cycle_started=rpc_cycle_started,
+                    rpc_cycle_number=rpc_cycle_number,
                 )
             except Exception as e:
                 logger.exception("Chain %s crashed with unhandled exception (retry %d)", chain.name, attempt)
@@ -2049,7 +2144,14 @@ def run_scan_tick(
             else:
                 logger.error("%s (retry %d): FAILED - %s", chain.name, attempt, result.error)
                 update_chain_settlement_result(chain, skip_reason=f"Skipped because {chain.name} retry failed")
+            display_rpc_report(result)
             print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
+
+    if rpc_usage_database is not None:
+        try:
+            rpc_usage_database.close()
+        except duckdb.Error:
+            logger.exception("Could not close JSON-RPC usage database %s", rpc_tracking_database_path)
 
     # Post-processing
     if skip_post_processing:

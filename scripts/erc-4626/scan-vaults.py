@@ -42,9 +42,15 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 
+import duckdb
+from filelock import Timeout as FileLockTimeout
+
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.lead_scan_core import scan_leads
-from eth_defi.utils import setup_console_logging
-from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE
+from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
+from eth_defi.utils import setup_console_logging, wait_other_writers
+from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, get_pipeline_data_dir
 
 try:
     import hypersync
@@ -67,7 +73,9 @@ if JSON_RPC_URL is None:
         raise ValueError(f"Invalid JSON_RPC URL: {JSON_RPC_URL}") from e
 
 
-def main():
+def _run_scan(stats: RPCRequestStats, metrics: dict) -> None:
+    """Run lead discovery while updating outer accounting metadata."""
+
     # How many CPUs / subprocess we use
     max_workers = int(os.environ.get("MAX_WORKERS", "16"))
     # max_workers = 1  # To debug, set workers to 1
@@ -98,7 +106,9 @@ def main():
         assert hypersync_api_key, f"HYPERSYNC_API_KEY must be set to use auto scan backend"
 
     try:
-        scan_leads(
+        web3 = create_multi_provider_web3(JSON_RPC_URL, rpc_request_stats=stats)
+        metrics["chain_id"] = web3.eth.chain_id
+        report = scan_leads(
             json_rpc_urls=JSON_RPC_URL,
             vault_db_file=vault_db_file,
             max_workers=max_workers,
@@ -108,7 +118,10 @@ def main():
             backend=scan_backend,
             max_getlogs_range=max_getlogs_range,
             hypersync_api_key=hypersync_api_key,
+            rpc_request_stats=stats,
+            web3=web3,
         )
+        metrics["items_scanned"] = report.items_scanned
 
         print("All ok")
     except Exception as e:
@@ -116,9 +129,44 @@ def main():
         raise
 
 
+def main() -> None:
+    """Run lead discovery under the shared pipeline and DuckDB writer lock."""
+
+    pipeline_lock_path = get_pipeline_data_dir() / "scan-pipeline"
+    database_path = resolve_rpc_tracking_database_path()
+    with wait_other_writers(pipeline_lock_path, timeout=60):
+        with RPCUsageDatabase(database_path) as database:
+            cycle_started = native_datetime_utc_now().date()
+            cycle_number = database.allocate_cycle()
+            stats = RPCRequestStats()
+            metrics = {"chain_id": None, "items_scanned": 0}
+            try:
+                _run_scan(stats, metrics)
+            finally:
+                chain_id = metrics["chain_id"]
+                if chain_id is not None:
+                    try:
+                        database.record_scan(
+                            chain=chain_id,
+                            phase="lead_discovery",
+                            cycle_started=cycle_started,
+                            cycle_number=cycle_number,
+                            stats=stats,
+                            items_scanned=metrics["items_scanned"],
+                        )
+                        report = format_rpc_usage_report(database, chain_id, cycle_started, cycle_number)
+                        print(report)
+                        logger.info("%s", report)
+                    except (duckdb.Error, RuntimeError, AssertionError, TypeError, ValueError):
+                        logger.exception("Could not persist lead-discovery RPC usage")
+
+
 if __name__ == "__main__":
     try:
         main()
+    except FileLockTimeout:
+        logger.error("Vault scan pipeline is locked by another scanner; stop it or retry after it finishes")
+        raise SystemExit(1) from None
     except Exception as e:
         logger.exception("Fatal error: %s", e, exc_info=e)
         raise e

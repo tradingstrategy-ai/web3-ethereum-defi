@@ -18,6 +18,7 @@ from web3.types import RPCEndpoint, RPCResponse
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.middleware import DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock, SomeCrappyRPCProviderException, is_retryable_http_exception
 from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
+from eth_defi.provider.rpcdb import RPCRequestStats, normalise_rpc_error
 from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
@@ -116,6 +117,7 @@ class FallbackProvider(BaseNamedProvider):
         retries: int = 6,
         state_missing_switch_over_delay: float = 12.0,
         switchover_noisiness=logging.WARNING,
+        rpc_request_stats: RPCRequestStats | None = None,
     ):
         """
         :param providers:
@@ -158,6 +160,23 @@ class FallbackProvider(BaseNamedProvider):
 
         self.providers = providers
 
+        #: Optional physical request accounting accumulator.
+        self.rpc_request_stats = rpc_request_stats
+
+        #: Safe provider domains cached before any request attempts.
+        #:
+        #: Custom Web3 providers are not required to expose ``endpoint_uri``.
+        #: Keep them usable when accounting is disabled and attribute any later
+        #: attached accounting to a stable, credential-free fallback label.
+        self.rpc_provider_domains: dict[int, str] = {}
+        for provider in providers:
+            endpoint_uri = getattr(provider, "endpoint_uri", None)
+            try:
+                provider_domain = get_url_domain(str(endpoint_uri)) if endpoint_uri else None
+            except (TypeError, ValueError):
+                provider_domain = None
+            self.rpc_provider_domains[id(provider)] = provider_domain or "unknown"
+
         # Use compatibility function instead of direct assertion
         for provider in providers:
             _check_provider_middlewares_compat(provider)
@@ -191,6 +210,45 @@ class FallbackProvider(BaseNamedProvider):
         #: response.  Used to verify that a provider switch did not land us on
         #: a different chain.
         self.expected_chain_id: int | None = None
+
+    def set_rpc_request_stats(self, stats: RPCRequestStats | None) -> None:
+        """Attach or detach a request accumulator on a cached provider.
+
+        Subprocess readers reuse one Web3 connection for several jobs. They
+        swap a fresh task-local accumulator in before each job and detach it in
+        ``finally`` so a later task cannot mutate an already-returned object.
+
+        :param stats:
+            Task or phase accumulator, or ``None`` to disable accounting.
+        """
+
+        assert stats is None or isinstance(stats, RPCRequestStats), f"Expected RPCRequestStats or None, got {type(stats)}"
+        self.rpc_request_stats = stats
+
+    def _get_rpc_provider_domain(self, provider: NamedProvider) -> str:
+        """Return the pre-sanitised domain for a concrete provider.
+
+        :param provider:
+            Provider handling the physical request.
+
+        :return:
+            Hostname with an optional non-default port.
+        """
+
+        return self.rpc_provider_domains[id(provider)]
+
+    def _record_rpc_call(self, provider: NamedProvider, method: str) -> None:
+        """Record one physical request when accounting is enabled."""
+
+        if self.rpc_request_stats is not None:
+            self.rpc_request_stats.record_call(self._get_rpc_provider_domain(provider), method)
+
+    def _record_rpc_error(self, provider: NamedProvider, error: BaseException | dict[str, Any]) -> None:
+        """Record one normalised physical request failure when enabled."""
+
+        if self.rpc_request_stats is not None:
+            error_code, error_message = normalise_rpc_error(error)
+            self.rpc_request_stats.record_error(self._get_rpc_provider_domain(provider), error_code, error_message)
 
     def __repr__(self):
         names = [get_provider_name(p) for p in self.providers]
@@ -287,12 +345,23 @@ class FallbackProvider(BaseNamedProvider):
         :raises Exception:
             If the RPC call fails or returns an empty result.
         """
-        resp = provider.make_request("eth_chainId", [])
-        result = resp.get("result")
-        if not result:
-            name = get_provider_name(provider)
-            raise ValueError(f"Provider {name} returned empty eth_chainId response: {resp}")
-        return int(result, 16)
+        self._record_rpc_call(provider, "eth_chainId")
+        error_recorded = False
+        try:
+            resp = provider.make_request("eth_chainId", [])
+            error_payload = resp.get("error")
+            if error_payload:
+                self._record_rpc_error(provider, error_payload)
+                error_recorded = True
+            result = resp.get("result")
+            if not result:
+                name = get_provider_name(provider)
+                raise ValueError(f"Provider {name} returned empty eth_chainId response: {resp}")
+            return int(result, 16)
+        except Exception as e:
+            if not error_recorded:
+                self._record_rpc_error(provider, e)
+            raise
 
     def switch_provider(self, log_level: int = None, randomise=False, cause: str = "<not specified>"):
         """Switch to next available provider.
@@ -486,6 +555,8 @@ class FallbackProvider(BaseNamedProvider):
         current_sleep = self.sleep
         for i in range(self.retries + 1):
             provider = self.get_active_provider()
+            self._record_rpc_call(provider, str(method))
+            error_recorded = False
             try:
                 # Call the underlying provider
                 resp_data = provider.make_request(method, params)
@@ -496,6 +567,10 @@ class FallbackProvider(BaseNamedProvider):
                 # we should replace this with a custom exception.
                 # Might be also related to EthereumTester only code paths.
                 error_json_payload = resp_data.get("error")
+
+                if error_json_payload:
+                    self._record_rpc_error(provider, error_json_payload)
+                    error_recorded = True
 
                 if _is_tac_provider_madness(error_json_payload):
                     raise SomeCrappyRPCProviderException(str(error_json_payload))
@@ -523,6 +598,8 @@ class FallbackProvider(BaseNamedProvider):
                 return resp_data
 
             except Exception as e:
+                if not error_recorded:
+                    self._record_rpc_error(provider, e)
                 # dRPC hack, as it is giving out it's custom error messages
                 if isinstance(e, HTTPError):
                     if e.response is not None and e.response.status_code == 400:
