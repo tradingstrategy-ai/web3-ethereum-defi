@@ -1,27 +1,27 @@
 """Test Frax vault metadata"""
 
 import os
-from pathlib import Path
 
+import flaky
 import pytest
 from web3 import Web3
-import flaky
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.frax.vault import FraxVault
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
+FRAXLEND_PROTOCOL_FEE = 0.10
 
 pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
 
 @pytest.fixture(scope="module")
-def anvil_ethereum_fork(request) -> AnvilLaunch:
+def anvil_ethereum_fork() -> AnvilLaunch:
     """Fork Ethereum at a specific block for reproducibility."""
     launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=24_331_904)
     try:
@@ -39,7 +39,6 @@ def web3(anvil_ethereum_fork):
 @flaky.flaky
 def test_frax(
     web3: Web3,
-    tmp_path: Path,
 ):
     """Read Frax Fraxlend vault metadata."""
 
@@ -52,7 +51,7 @@ def test_frax(
     assert vault.get_protocol_name() == "Frax"
     assert vault.features == {ERC4626Feature.frax_like}
     assert vault.get_management_fee("latest") == 0.0
-    assert vault.get_performance_fee("latest") == 0.10
+    assert vault.get_performance_fee("latest") == FRAXLEND_PROTOCOL_FEE
     assert vault.has_custom_fees() is False
     assert vault.get_risk() == VaultTechnicalRisk.low
 
@@ -62,3 +61,23 @@ def test_frax(
     assert max_deposit >= 0
     assert max_redeem >= 0
     assert vault.can_check_redeem() is False
+
+
+@flaky.flaky
+def test_frax_fraxlend_pair_is_detected_without_hardcoded_address(
+    web3: Web3,
+) -> None:
+    """Classify a second Fraxlend pair through its shared contract interface.
+
+    This pair was previously exported as a generic ERC-4626 vault. It proves
+    Fraxlend support is not limited to the historical USDC/sfrxETH example.
+    """
+
+    vault = create_vault_instance_autodetect(
+        web3,
+        vault_address="0x0601b72bef2b3f09e9f48b7d60a8d7d2d3800c6e",
+    )
+
+    assert isinstance(vault, FraxVault)
+    assert vault.get_protocol_name() == "Frax"
+    assert vault.features == {ERC4626Feature.frax_like}

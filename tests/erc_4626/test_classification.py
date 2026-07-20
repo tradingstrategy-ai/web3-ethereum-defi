@@ -58,6 +58,11 @@ def test_chain_probe_filtering():
     assert _should_yield_probe("convertToShares", ETHEREUM_MAINNET) is True
     assert _should_yield_probe("name", ARBITRUM) is True
 
+    # Fraxlend is currently deployed on Ethereum and Arbitrum.
+    assert _should_yield_probe("currentRateInfo", ETHEREUM_MAINNET) is True
+    assert _should_yield_probe("collateralContract", ARBITRUM) is True
+    assert _should_yield_probe("rateContract", BASE) is False
+
     # IPOR restricted to Ethereum, Base, Arbitrum
     assert _should_yield_probe("getPerformanceFeeData", ETHEREUM_MAINNET) is True
     assert _should_yield_probe("getPerformanceFeeData", BASE) is True
@@ -95,6 +100,9 @@ def test_chain_probe_filtering():
     royco_tranche_probe_names = ["getRawNAV"]
     assert sum(1 for func_name in func_names_eth if func_name in royco_tranche_probe_names) == 1
     assert "getRawNAV" in func_names_eth
+    assert "currentRateInfo" in func_names_eth
+    assert "collateralContract" in func_names_eth
+    assert "rateContract" in func_names_eth
     assert _should_yield_probe("getRawNAV", ARBITRUM) is True
     assert _should_yield_probe("getRawNAV", AVALANCHE) is True
 

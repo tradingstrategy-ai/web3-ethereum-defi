@@ -474,6 +474,9 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "strategy": {1, 143},  # Accountable - Ethereum, Monad
     "queue": {1, 143},  # Accountable - Ethereum, Monad
     "POOL": {999},  # Sentiment - HyperEVM only
+    "currentRateInfo": {1, 42161},  # Fraxlend - Ethereum, Arbitrum
+    "collateralContract": {1, 42161},  # Fraxlend - Ethereum, Arbitrum
+    "rateContract": {1, 42161},  # Fraxlend - Ethereum, Arbitrum
     "shareManager": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
     "getAssetCount": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
     "getGrossTVL": {42161},  # T3tris - Arbitrum
@@ -1226,6 +1229,38 @@ def create_probe_calls(
                 extra_data=None,
             )
 
+        # Frax Fraxlend lending pairs.
+        # A FraxlendPair exposes all three accessors; requiring the combined
+        # interface prevents a generic lending vault from being misclassified.
+        # https://github.com/FraxFinance/fraxlend/blob/master/src/contracts/FraxlendPair.sol
+        # https://etherscan.io/address/0x0601b72bef2b3f09e9f48b7d60a8d7d2d3800c6e#code
+        if _should_yield_probe("currentRateInfo", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="currentRateInfo()")[0:4],
+                function="currentRateInfo",
+                data=b"",
+                extra_data=None,
+            )
+
+        if _should_yield_probe("collateralContract", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="collateralContract()")[0:4],
+                function="collateralContract",
+                data=b"",
+                extra_data=None,
+            )
+
+        if _should_yield_probe("rateContract", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="rateContract()")[0:4],
+                function="rateContract",
+                data=b"",
+                extra_data=None,
+            )
+
         # Aave (v4) Tokenization Spoke - Ethereum only
         # ERC-4626 spoke wrapping a Hub asset; SPOKE_REVISION() is a spoke-specific accessor.
         # https://etherscan.io/address/0x531E90a2376902DE8915789Fcc1075e3B0c153E7#readProxyContract
@@ -1505,6 +1540,13 @@ def identify_vault_features(
     # https://hyperevmscan.io/address/0xe45e7272da7208c7a137505dfb9491e330bf1a4e
     if calls["POOL"].success:
         features.add(ERC4626Feature.sentiment_like)
+
+    # Frax Fraxlend lending pairs.
+    # The pair's rate accounting, collateral and rate-model accessors form a
+    # protocol-specific contract surface shared by the Ethereum and Arbitrum
+    # deployments.
+    if calls["currentRateInfo"].success and calls["collateralContract"].success and calls["rateContract"].success:
+        features.add(ERC4626Feature.frax_like)
 
     # # TODO: No way separate from Goat Protocol, see test_superform
     # if calls["PROFIT_UNLOCK_TIME"].success:
@@ -2532,9 +2574,6 @@ HARDCODED_PROTOCOLS = {
     # Same address also deployed on Base:
     # https://basescan.org/address/0x0000000f2eb9f69274678c76222b35eec7588a65
     "0x0000000f2eb9f69274678c76222b35eec7588a65": {ERC4626Feature.yo_like},
-    # Frax - Fraxlend USDC lending pair on Ethereum
-    # https://etherscan.io/address/0xee847a804b67f4887c9e8fe559a2da4278defb52
-    "0xee847a804b67f4887c9e8fe559a2da4278defb52": {ERC4626Feature.frax_like},
     # BaseVol - onchain options protocol on Base
     # Vault addresses sourced from DefiLlama adapters and BaseVol documentation:
     # https://github.com/DefiLlama/DefiLlama-Adapters/blob/3a63c0665de8d6a89f85ff360c5dc61fd40e72dd/projects/basevol/index.js#L6
