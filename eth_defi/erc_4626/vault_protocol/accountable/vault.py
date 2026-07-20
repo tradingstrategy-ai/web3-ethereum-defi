@@ -286,7 +286,7 @@ class AccountableVault(ERC4626Vault):
 
     @property
     def short_description(self) -> str | None:
-        """Company/manager description from Accountable's offchain metadata."""
+        """First sentence of the vault strategy from Accountable's offchain metadata."""
 
         metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
         if metadata:

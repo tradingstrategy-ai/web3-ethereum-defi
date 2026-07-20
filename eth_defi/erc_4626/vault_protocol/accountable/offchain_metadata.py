@@ -14,19 +14,18 @@
 import datetime
 import json
 import logging
+import re
 from json import JSONDecodeError
 from pathlib import Path
 from typing import TypedDict
 
 import requests
-
 from eth_typing import HexAddress
 from web3 import Web3
 
-from eth_defi.compat import native_datetime_utc_now, native_datetime_utc_fromtimestamp
+from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
 from eth_defi.disk_cache import DEFAULT_CACHE_ROOT
 from eth_defi.utils import wait_other_writers
-
 
 #: Where we cache fetched Accountable metadata files
 DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "accountable"
@@ -56,7 +55,7 @@ class AccountableVaultMetadata(TypedDict):
     #: Full vault strategy description (may contain markdown formatting)
     description: str | None
 
-    #: Company/manager description used as a short summary
+    #: First sentence of the full vault strategy description
     short_description: str | None
 
     #: Company/manager name, e.g. ``Aegis``
@@ -144,6 +143,30 @@ def _fetch_vault_detail(
         return None
 
 
+def _extract_first_sentence(text: str | None) -> str | None:
+    """Extract a listing-friendly first sentence from a vault strategy.
+
+    Accountable's API provides only a full ``vault_strategy`` field. Its
+    ``company_info`` field describes the manager, rather than the individual
+    vault, so it must not be used for the vault listing summary.
+
+    :param text:
+        Full strategy description supplied by Accountable, or ``None``.
+
+    :return:
+        The first sentence when a sentence boundary exists, otherwise the
+        stripped complete text.
+    """
+    if not text:
+        return None
+
+    stripped = text.strip()
+    boundary = re.search(r"(?<=[.!?])\s+", stripped)
+    if boundary:
+        return stripped[: boundary.start()]
+    return stripped
+
+
 def _parse_vault_metadata(listing_item: dict, detail: dict | None) -> AccountableVaultMetadata:
     """Parse vault metadata from listing and detail API responses.
 
@@ -154,6 +177,7 @@ def _parse_vault_metadata(listing_item: dict, detail: dict | None) -> Accountabl
         Raw dict from the detail endpoint ``/api/loan/{id}``, or None if fetch failed
     """
     loan = detail.get("loan", {}) if detail else {}
+    vault_strategy = loan.get("vault_strategy")
 
     # Performance fee from listing is in basis points (e.g. 200000 = 20%)
     raw_fee = listing_item.get("performance_fee")
@@ -161,8 +185,8 @@ def _parse_vault_metadata(listing_item: dict, detail: dict | None) -> Accountabl
 
     return AccountableVaultMetadata(
         name=listing_item.get("loan_name", ""),
-        description=loan.get("vault_strategy"),
-        short_description=loan.get("company_info"),
+        description=vault_strategy,
+        short_description=_extract_first_sentence(vault_strategy),
         company_name=loan.get("company_name") or listing_item.get("company_name"),
         company_url=loan.get("company_url"),
         net_apy=listing_item.get("net_apy"),
