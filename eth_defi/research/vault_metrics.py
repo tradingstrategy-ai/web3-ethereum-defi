@@ -1694,6 +1694,7 @@ def calculate_vault_record(
         vault_address=vault_address,
         protocol_slug=protocol_slug,
         manager_name=vault_metadata.get("_manager_name") or "",
+        declared_curator_slug=vault_metadata.get("_curator_slug"),
     )
     curator_name = get_curator_name(curator_slug) if curator_slug else None
 

@@ -1,0 +1,18 @@
+feeder-id: muzinich
+name: "Muzinich & Co."
+role: curator
+asseto-role: Muzinich & Co.
+website: https://www.muzinich.com/
+short_description: Muzinich & Co. is a privately owned, institutionally focused investment firm specialising in public and private corporate credit.
+long_description: |
+  Muzinich & Co. is a global credit specialist across public and private markets. Its Irish affiliate, Muzinich & Co. (Ireland) Limited, manages the Muzinich Enhancedyield Short-Term Fund, a short-duration global credit strategy that combines investment-grade and high-yield corporate bonds.
+linkedin: muzinich-co
+
+# Evidence and background references.
+other-links:
+  - title: Muzinich & Co. - official Muzinich Enhancedyield Short-Term Fund product page
+    url: https://www.muzinich.com/funds/muzinich-enhancedyield-short-term-fund
+  - title: Hong Kong Exchanges and Clearing - Muzinich Enhancedyield Short-Term Fund manager record
+    url: https://ifp.hkex.com.hk/fund/BWF861
+  - title: Asseto - public product registry listing mYIELD+ as backed one-to-one by the Muzinich Enhancedyield Short-Term Fund
+    url: https://asseto.finance/product

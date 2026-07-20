@@ -238,6 +238,11 @@ class FranklinVault(TokenisedFundVault):
     def fetch_denomination_token_address(self) -> HexAddress | None:
         """Return no transferable denomination token.
 
+        The verified ``MoneyMarketFund_V6`` share-token implementation exposes
+        an issuer-maintained USD price but no ERC-20 asset or settlement-token
+        getter. Benji servicing takes place outside this share-token contract,
+        so the adapter must not substitute a stablecoin address.
+
         :return:
             ``None`` because the servicing flow does not expose an ERC-4626 asset.
         """

@@ -142,7 +142,7 @@ class OndoVault(TokenisedFundVault):
     def short_description(self) -> str:
         """Return a compact product description."""
 
-        return self.product.description
+        return self.product.short_description
 
     @property
     def manager_name(self) -> str:
@@ -161,7 +161,18 @@ class OndoVault(TokenisedFundVault):
         return fetch_erc20_details(self.web3, self.address, chain_id=self.chain_id, raise_on_error=False, cache=self.token_cache, cause_diagnostics_message=f"Ondo tokenised fund share token for vault {self.address}")
 
     def fetch_denomination_token_address(self) -> HexAddress | None:
-        """Return no single ERC-20 denomination token for issuer fund NAV."""
+        """Return no single ERC-20 denomination token for issuer fund NAV.
+
+        Ondo accepts multiple settlement routes, currently including USDC,
+        PYUSD, RLUSD and USD bank wire. None of these is the unique asset that
+        denominates the issuer's USD NAV, so selecting one would be misleading.
+
+        See `Ondo minting and redemption documentation
+        <https://docs.ondo.finance/qualified-access-products/minting-and-redeeming>`__.
+
+        :return:
+            Always ``None`` because the products have USD accounting NAV.
+        """
 
         return None
 

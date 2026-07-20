@@ -1,4 +1,4 @@
-# Libeara platform curator — feeds are provided by protocols/libeara.yaml.
+# Libeara tokenisation-platform metadata — feeds are provided by protocols/libeara.yaml.
 feeder-id: libeara
 name: Libeara
 role: curator
@@ -7,7 +7,7 @@ short_description: Libeara is a tokenisation platform for regulated capital-mark
 long_description: |
   Libeara develops blockchain infrastructure for tokenised real-world assets and capital-market products. Its platform supports issuance and lifecycle administration for regulated digital fund shares, including the reviewed CUMIU and BELIF CMTAT products.
 
-  The curator mapping represents Libeara's platform and administration role, not a claim that it is the investment manager of every underlying fund.
+  This record represents Libeara's platform and administration role. Vault exports attribute CUMIU, BELIF and ULTRA to their respective investment managers instead.
 other-links:
   - title: Libeara homepage — tokenised capital-market platform
     url: https://libeara.com/

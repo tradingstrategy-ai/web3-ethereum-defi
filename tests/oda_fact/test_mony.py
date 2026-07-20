@@ -9,6 +9,9 @@ import pytest
 from web3 import Web3
 
 from eth_defi.erc_4626.classification import (
+    ODA_FACT_JLTXX_ADDRESS,
+    ODA_FACT_JLTXX_FIRST_SEEN_AT,
+    ODA_FACT_JLTXX_FIRST_SEEN_AT_BLOCK,
     ODA_FACT_MONY_ADDRESS,
     ODA_FACT_MONY_FIRST_SEEN_AT,
     ODA_FACT_MONY_FIRST_SEEN_AT_BLOCK,
@@ -185,3 +188,35 @@ def test_mony_backfill_dry_run_does_not_write_metadata(tmp_path: Path, backfill_
     assert not output_path.exists()
     assert database.rows == {}
     assert database.leads == {}
+
+
+def test_kinexys_backfill_refreshes_jltxx_and_mony_without_discovery_cursor_change(tmp_path: Path, backfill_mony_module) -> None:
+    """Refresh both persisted FACT rows while retaining shared scan state.
+
+    :param tmp_path:
+        Isolated metadata database output directory.
+    :param backfill_mony_module:
+        Loaded Kinexys migration module.
+    :return:
+        None.
+    """
+
+    database = VaultDatabase(last_scanned_block={1: 25_500_000, 42161: 400_000_000})
+    output_path = tmp_path / "vault-metadata-db.pickle"
+    jltxx_spec = VaultSpec(1, ODA_FACT_JLTXX_ADDRESS)
+    mony_spec = VaultSpec(1, ODA_FACT_MONY_ADDRESS)
+    rows = {
+        jltxx_spec: {"Name": "JPMorgan OnChain Liquidity-Token Money Market Fund", "Denomination": "USD"},
+        mony_spec: {"Name": "My OnChain Net Yield Fund", "Denomination": "USD"},
+    }
+
+    specs = backfill_mony_module.update_kinexys_metadata(database, rows, dry_run=False, output_path=output_path)
+
+    assert set(specs) == {jltxx_spec, mony_spec}
+    assert database.last_scanned_block == {1: 25_500_000, 42161: 400_000_000}
+    assert database.leads[jltxx_spec].first_seen_at_block == ODA_FACT_JLTXX_FIRST_SEEN_AT_BLOCK
+    assert database.leads[jltxx_spec].first_seen_at == ODA_FACT_JLTXX_FIRST_SEEN_AT
+    assert database.leads[mony_spec].first_seen_at_block == ODA_FACT_MONY_FIRST_SEEN_AT_BLOCK
+    assert database.leads[mony_spec].first_seen_at == ODA_FACT_MONY_FIRST_SEEN_AT
+    assert database.rows == rows
+    assert VaultDatabase.read(output_path).last_scanned_block == database.last_scanned_block

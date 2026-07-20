@@ -11,7 +11,8 @@ class FditVault(SupplyOnlyTokenisedFundVault):
     product = FDIT_ETHEREUM
     feature = ERC4626Feature.fdit_like
     protocol_name = "Fidelity FDIT"
-    curator = "fidelity-investments"
+    curator = "fidelity"
+    manager = "Fidelity Investments"
     homepage = "https://institutional.fidelity.com/app/funds-and-products/9053/fidelity-treasury-digital-fund-onchain-class-fyoxx.html"
     restricted_flow_reason = "FDIT transfers, issuance and redemption are controlled by Fidelity and DTCC compliance workflows"
     # TODO: Fidelity's public FDIT token contract exposes ERC-20 supply but no

@@ -545,6 +545,29 @@ def test_calculate_lifetime_metrics_uses_scanned_d2_notes(
     assert exported["protocol_curator"] is True
 
 
+def test_calculate_lifetime_metrics_uses_declared_curator_slug(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Carry a reviewed adapter curator declaration into the public export."""
+
+    vault_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
+    spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[spec])
+    vault_row["Name"] = "Unbranded tokenised fund"
+    vault_row["Share token"] = "TEST"
+    vault_row["Protocol"] = "Tokenisation platform"
+    vault_row["protocol_slug"] = "tokenisation-platform"
+    vault_row["_manager_name"] = None
+    vault_row["_curator_slug"] = "wellington-management"
+    vault_prices = price_df.loc[price_df["id"] == vault_id]
+
+    metrics = calculate_lifetime_metrics(vault_prices, {spec: vault_row})
+
+    assert metrics.iloc[0]["curator_slug"] == "wellington-management"
+    assert metrics.iloc[0]["curator_name"] == "Wellington Management"
+
+
 def test_calculate_lifetime_metrics_does_not_apply_non_d2_protocol_notes(
     vault_db: VaultDatabase,
     price_df: pd.DataFrame,

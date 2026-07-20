@@ -1,0 +1,19 @@
+feeder-id: epoch-rwa
+name: Epoch RWA
+role: curator
+asseto-role: Epoch RWA
+website: https://www.epochrwa.com/
+twitter: EpochRWA
+rss: https://epochrwa.substack.com/feed
+short_description: Epoch RWA is a Hong Kong-based platform for structuring, managing and issuing tokenised real-world assets.
+long_description: |
+  Epoch RWA is operated by Epoch Datatech (HK) Limited and provides infrastructure for screening, structuring, managing and issuing real-world assets. The firm launched Epoch Stable Credit Notes with Asseto, using cross-border e-commerce receivables as the underlying credit assets.
+
+  Epoch RWA is treated as the curator of EPOCH+ because its official launch materials describe Epoch as performing risk screening and asset management, while Asseto supplies the tokenisation and onchain circulation platform.
+other-links:
+  - title: Epoch RWA official product launch - Epoch Datatech and Asseto complete the first Epoch Stable Credit Notes issuance
+    url: https://epochrwa.substack.com/p/hong-kongs-first-tokenized-receivables
+  - title: Epoch RWA official platform homepage
+    url: https://www.epochrwa.com/
+  - title: Hong Kong Companies Registry - Epoch Datatech (HK) Limited incorporation record
+    url: https://www.cr.gov.hk/docs/wrpt/RNC063_2025.07.14-2025.07.20.pdf

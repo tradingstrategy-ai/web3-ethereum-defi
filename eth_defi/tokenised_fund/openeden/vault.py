@@ -9,7 +9,8 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.tokenised_fund.openeden.constants import OPENEDEN_CHAIN_ID, OPENEDEN_TBILL_ADDRESS, OPENEDEN_TBILL_FIRST_SEEN_AT_BLOCK, OPENEDEN_TBILL_ORACLE_FIRST_SEEN_AT_BLOCK, OPENEDEN_TBILL_PRICE_ORACLE_ADDRESS
+from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.tokenised_fund.openeden.constants import OPENEDEN_CHAIN_ID, OPENEDEN_TBILL_ADDRESS, OPENEDEN_TBILL_DENOMINATION_TOKEN_ADDRESS, OPENEDEN_TBILL_FIRST_SEEN_AT_BLOCK, OPENEDEN_TBILL_ORACLE_FIRST_SEEN_AT_BLOCK, OPENEDEN_TBILL_PRICE_ORACLE_ADDRESS
 from eth_defi.tokenised_fund.usyc.vault import _USYC_ORACLE_ABI, USYCVault
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
@@ -43,6 +44,35 @@ class OpenEdenVault(USYCVault):
         """Return the TBILL ERC-20 token address."""
 
         return HexAddress(Web3.to_checksum_address(OPENEDEN_TBILL_ADDRESS))
+
+    def fetch_denomination_token_address(self) -> HexAddress:
+        """Return OpenEden TBILL's reviewed USDC subscription asset.
+
+        :return:
+            Native Ethereum USDC address.
+        """
+
+        return HexAddress(Web3.to_checksum_address(OPENEDEN_TBILL_DENOMINATION_TOKEN_ADDRESS))
+
+    def fetch_denomination_token(self) -> TokenDetails:
+        """Fetch OpenEden TBILL's USDC denomination metadata.
+
+        Keeping this implementation local avoids coupling OpenEden metadata to
+        the separate USYC product merely because the adapters share oracle
+        mechanics.
+
+        :return:
+            Native Ethereum USDC token details.
+        """
+
+        return fetch_erc20_details(
+            self.web3,
+            self.fetch_denomination_token_address(),
+            chain_id=self.chain_id,
+            raise_on_error=False,
+            cache=self.token_cache,
+            cause_diagnostics_message=f"OpenEden TBILL denomination token for vault {self.address}",
+        )
 
     @cached_property
     def price_oracle_contract(self) -> Contract:

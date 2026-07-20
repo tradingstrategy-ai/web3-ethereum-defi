@@ -1,0 +1,19 @@
+feeder-id: bosera-asset-management-international
+name: Bosera Asset Management (International)
+role: curator
+website: https://www.bosera.com.hk/
+linkedin: bosera-asset-management-international-co
+short_description: Bosera Asset Management (International) is a Hong Kong asset manager providing fixed-income, equity and index investment products.
+long_description: |
+  Bosera Asset Management (International) Co., Limited is the Hong Kong subsidiary of Bosera Asset Management Co., Limited and China Merchants Fund Management Co., Ltd. Its official profile describes a product range focused primarily on fixed-income investments alongside active equity and passive index strategies, serving investors across major international financial markets.
+
+  Bosera Asset Management (International) manages the BELIF tokenised share of the Bosera Liquidity Income Fund SP, while Libeara provides the tokenisation platform.
+
+# Evidence and background references.
+other-links:
+  - title: Bosera International official company profile and regulated asset-management activities
+    url: https://www.bosera.com.hk/en-US/about
+  - title: Etherscan verified BELIF token contract for Bosera Liquidity Income Fund SP
+    url: https://etherscan.io/token/0x237c717df1b60501f8d029d3fe7385fd090df180
+  - title: RWA.xyz BELIF record identifying Bosera Asset Management (International) as manager and Libeara as platform
+    url: https://app.rwa.xyz/assets/BELIF

@@ -43,7 +43,7 @@ def test_libeara_hardcoded_products_are_chain_aware() -> None:
         assert get_vault_protocol_name(HARDCODED_PROTOCOLS[product.token]) == "Libeara"
         assert identify_vault_features(product.token, calls={"EVM IS BROKEN SHIT": broken_probe}, debug_text="libeara", chain_id=ETHEREUM_CHAIN_ID) == {ERC4626Feature.libeara_like}
         assert identify_vault_features(product.token, calls={"EVM IS BROKEN SHIT": broken_probe}, debug_text="libeara", chain_id=31337) != {ERC4626Feature.libeara_like}
-        assert identify_curator(ETHEREUM_CHAIN_ID, product.symbol, product.product_name, product.token, "libeara") == "libeara"
+        assert identify_curator(ETHEREUM_CHAIN_ID, product.symbol, product.product_name, product.token, "libeara") == product.curator_slug
 
 
 @pytest.mark.parametrize("product", [CUMIU_ETHEREUM, BELIF_ETHEREUM])
@@ -56,6 +56,8 @@ def test_libeara_adapter_reads_cmtat_nav(web3: Web3, product) -> None:
     expected_supply, expected_price = EXPECTED[product.token]
     vault = create_vault_instance_autodetect(web3, product.token)
     assert isinstance(vault, LibearaVault)
+    assert vault.manager_name == product.manager_name
+    assert vault.curator_slug == product.curator_slug
     assert vault.fetch_total_supply(TEST_BLOCK) == expected_supply
     assert vault.fetch_share_price(TEST_BLOCK) == expected_price
     assert vault.fetch_total_assets(TEST_BLOCK) == expected_supply * expected_price

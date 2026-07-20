@@ -71,6 +71,17 @@ class AssetoProduct:
     description: str | None = None
 
 
+@dataclass(slots=True, frozen=True)
+class AssetoCurator:
+    """Reviewed investment-manager attribution for an Asseto share token."""
+
+    #: Human-readable manager name exported in vault scan metadata.
+    manager_name: str
+
+    #: Curator feeder identifier used by the public vault export.
+    curator_slug: str
+
+
 #: HashKey Chain EVM chain id.
 HASHKEY_CHAIN_ID = 177
 
@@ -93,6 +104,7 @@ ASSETO_AOABT_HASHKEY = AssetoProduct(
     performance_fee=0.20,
     has_custom_fees=True,
     denomination_symbol="USDT",
+    description="AoABT tokenises the Asseto Orient Arbitrage Strategy and offers daily U.S. dollar yields backed one-to-one by the underlying strategy.",
 )
 
 #: Product lookup used by the adapter and chain-aware classification.
@@ -102,6 +114,35 @@ ASSETO_PRODUCTS: dict[tuple[int, HexAddress], AssetoProduct] = {
 
 #: Address-only lookup used for hardcoded protocol routing.
 ASSETO_PRODUCTS_BY_TOKEN: dict[HexAddress, AssetoProduct] = {product.token: product for product in ASSETO_PRODUCTS.values()}
+
+#: Reviewed manager attribution for Asseto products on supported EVM chains.
+#:
+#: Asseto is the tokenisation and administration platform, not the portfolio
+#: manager. These exact mappings deliberately exclude HashKey, Pharos and
+#: Prospero deployments, which are not supported by the shared vault export.
+ASSETO_CURATORS: dict[tuple[int, HexAddress], AssetoCurator] = {
+    # ChinaAMC USD Digital Money Market Fund Class B USD.
+    (1, HexAddress("0x78e80da0616887b46a31f39310c2a8b0fbd6a42d")): AssetoCurator("China Asset Management (Hong Kong)", "chinaamc-hong-kong"),
+    (56, HexAddress("0x1ec3aa07e3898f1e6d4f23b5dce1bdbecb5c1fe1")): AssetoCurator("China Asset Management (Hong Kong)", "chinaamc-hong-kong"),
+    # CMS USD Money Market Fund share classes and CMS-managed CFSAI.
+    (1, HexAddress("0x907c00d587daff16d028fe1e131d6dd3c6bf2f4b")): AssetoCurator("CMS Asset Management (HK)", "cms-asset-management-hk"),
+    (1, HexAddress("0x498d9329555471bf6073a5f2d047f746d522a373")): AssetoCurator("CMS Asset Management (HK)", "cms-asset-management-hk"),
+    (56, HexAddress("0x1775504c5873e179ea2f8abfce3861ec74d159bc")): AssetoCurator("CMS Asset Management (HK)", "cms-asset-management-hk"),
+    (1, HexAddress("0x4867ad1a74b38b0aeff4fff251ed0dadae4f4630")): AssetoCurator("CMS Asset Management (HK)", "cms-asset-management-hk"),
+    (1, HexAddress("0x6dc4674573380aff6c3359e19da5cbb6afceb5c3")): AssetoCurator("CMS Asset Management (HK)", "cms-asset-management-hk"),
+    # Additional Asseto-backed fund managers reviewed from the underlying fund.
+    (1, HexAddress("0x286d9f099587f567ece2b70ebb64b94acd672d76")): AssetoCurator("CNCB (Hong Kong) Capital Limited", "cncb-capital"),
+    (1, HexAddress("0x63e19fb814eb737730ac0afbb52b351695b97176")): AssetoCurator("GaoTeng Global Asset Management Limited", "gaoteng-global-asset-management"),
+    (1, HexAddress("0x50bdaff4bceb852f006f657f47c68fcc417f7beb")): AssetoCurator("Haitong International Asset Management (HK) Limited", "haitong-international-asset-management"),
+    (1, HexAddress("0xf3a2a5de306b063d75c86b6352832639b7263a3b")): AssetoCurator("Muzinich & Co.", "muzinich"),
+    (56, HexAddress("0xfb8cb7630bc3cb34a6a9846ec03de3a32393ee65")): AssetoCurator("Muzinich & Co.", "muzinich"),
+    (1, HexAddress("0xf252c5bd43907a6cab079e990845a37a7c5730d9")): AssetoCurator("Partners Group", "partners-group"),
+    (56, HexAddress("0x50bf2924cee59737ead76e881643ed8569bae6e8")): AssetoCurator("Partners Group", "partners-group"),
+    (1, HexAddress("0x3be5dd4a34f1c6a112048b9df908ced4372d5049")): AssetoCurator("Epoch RWA", "epoch-rwa"),
+    # Existing reviewed Asseto strategy advisers/managers.
+    (43114, HexAddress("0xb2ea3e7b80317c4e20d1927034162176e25834e2")): AssetoCurator("DFZQ / Orient Securities International", "dfzq"),
+    (1, HexAddress("0x383730608d98b82470d733369a839f6b7e8cfda5")): AssetoCurator("DL Holdings", "dl-holdings"),
+}
 
 #: Hardcoded leads for tokenised funds that do not emit ERC-4626 events.
 ASSETO_HARDCODED_LEADS = tuple(

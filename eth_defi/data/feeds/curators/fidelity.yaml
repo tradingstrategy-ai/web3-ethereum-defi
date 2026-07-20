@@ -1,0 +1,25 @@
+feeder-id: fidelity
+name: Fidelity
+role: curator
+website: https://www.fidelity.com/
+twitter: fidelity
+short_description: Fidelity is the shared curator identity for tokenised funds managed by Fidelity Investments and Fidelity International.
+long_description: |
+  Fidelity groups the tokenised-fund products managed by Fidelity Investments and Fidelity International under one curator identity in the vault export. The two investment managers are independent organisations, and each vault retains its specific manager attribution.
+
+  Fidelity International manages the Fidelity USD Digital Liquidity Fund represented by FILQ, while Sygnum supplies its tokenisation, settlement and distribution infrastructure. Fidelity Investments manages the Fidelity Treasury Digital Fund represented by FDIT, while DTCC supplies its tokenisation and compliance infrastructure.
+other-links:
+  - title: Fidelity Investments official website
+    url: https://www.fidelity.com/
+  - title: Fidelity Treasury Digital Fund OnChain class prospectus
+    url: https://www.actionsxchangerepository.fidelity.com/ShowDocument/documentPDF.htm?applicationId=FIIS&clientId=Fidelity&collectionId=1079405&criticalIndicator=N&docFormat=pdf&docName=4.B-CTDLO-SUM.PDF&docType=SUMS&pdfReaderStatus=Y&securityId=09053&securityIdType=SASFN
+  - title: DTCC Digital Assets tokenisation service
+    url: https://www.dtcc.com/digital-assets/tokenization
+  - title: Fidelity International official company overview
+    url: https://careers.fidelityinternational.com/about-us/
+  - title: Fidelity International Strategies Funds SPC prospectus - FIL Fund Management Limited named as investment manager
+    url: https://www.fidelityinternational.com/legal/documents/FISGF/en/pr.fisgf.en.xx.pdf
+  - title: Sygnum FILQ launch announcement - Fidelity International identified as the product manager
+    url: https://www.sygnum.com/news/sygnum-powers-fidelity-internationals-first-tokenized-product-launch-with-moodys-aaa-mf-assessment/
+  - title: Sygnum FILQ product page - Fidelity USD Digital Liquidity Fund accumulating and distributing share classes
+    url: https://www.sygnum.com/filq/

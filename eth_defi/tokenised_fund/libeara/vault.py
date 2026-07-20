@@ -116,13 +116,13 @@ class LibearaVault(TokenisedFundVault):
 
     @property
     def manager_name(self) -> str:
-        """Return the tokenisation platform name."""
-        return "Libeara"
+        """Return the organisation responsible for portfolio management."""
+        return self.product.manager_name
 
     @property
     def curator_slug(self) -> str:
-        """Return the platform-curator feeder identifier."""
-        return "libeara"
+        """Return the fund manager's curator metadata identifier."""
+        return self.product.curator_slug
 
     def fetch_share_token_address(self, block_identifier: BlockIdentifier = "latest") -> HexAddress:
         """Return the fund share token.

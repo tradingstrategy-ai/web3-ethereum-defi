@@ -3,7 +3,83 @@
 from pathlib import Path
 
 from eth_defi.midas.registry import iter_midas_registry_products
+from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY, ASSETO_CURATORS
+from eth_defi.tokenised_fund.fdit.constants import FDIT_ETHEREUM
+from eth_defi.tokenised_fund.kaio.constants import CASHX_ETHEREUM
+from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
+from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.vault.curator import build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
+
+
+def test_identify_supported_tokenised_fund_curators() -> None:
+    """Export the underlying fund manager instead of its tokenisation platform."""
+
+    expected = {
+        **{key: curator.curator_slug for key, curator in ASSETO_CURATORS.items()},
+        **{key: product.curator_slug for key, product in LIBEARA_PRODUCTS.items()},
+        **{(chain_id, token): FILQ_CURATOR_SLUG for chain_id, tokens in SYGNUM_PRODUCTS_BY_CHAIN.items() for token in tokens},
+        (FDIT_ETHEREUM.chain_id, FDIT_ETHEREUM.token): "fidelity",
+        (CASHX_ETHEREUM.chain_id, CASHX_ETHEREUM.token): "blackrock",
+    }
+
+    for (chain_id, address), expected_slug in expected.items():
+        slug = identify_curator(
+            chain_id=chain_id,
+            vault_token_symbol="",
+            vault_name="",
+            vault_address=address,
+            protocol_slug="tokenised-fund-platform",
+        )
+
+        assert slug == expected_slug, (chain_id, address)
+        assert get_curator_name(slug), slug
+
+    assert (ASSETO_AOABT_HASHKEY.chain_id, ASSETO_AOABT_HASHKEY.token) not in ASSETO_CURATORS
+    assert not is_protocol_curator(FILQ_CURATOR_SLUG)
+    assert not is_protocol_curator("sygnum")
+    filq_chain_id, filq_token = next((chain_id, token) for chain_id, tokens in SYGNUM_PRODUCTS_BY_CHAIN.items() for token in tokens)
+    assert identify_curator(filq_chain_id, "FILQ", "FILQ", filq_token, "sygnum", declared_curator_slug="sygnum") == FILQ_CURATOR_SLUG
+
+
+def test_identify_curator_uses_reviewed_adapter_declaration() -> None:
+    """Use adapter attribution when an address needs no correction override."""
+
+    assert (
+        identify_curator(
+            chain_id=1,
+            vault_token_symbol="TEST",
+            vault_name="Unbranded tokenised fund",
+            vault_address="0x0000000000000000000000000000000000000001",
+            protocol_slug="tokenisation-platform",
+            declared_curator_slug="wellington-management",
+        )
+        == "wellington-management"
+    )
+
+
+def test_tokenised_fund_curator_metadata_has_logos() -> None:
+    """Export a usable logo variant for every newly added fund manager."""
+
+    slugs = (
+        "bosera-asset-management-international",
+        "chinaamc-hong-kong",
+        "cncb-capital",
+        "epoch-rwa",
+        "fidelity",
+        "gaoteng-global-asset-management",
+        "haitong-international-asset-management",
+        "muzinich",
+        "partners-group",
+        "wellington-management",
+    )
+
+    for slug in slugs:
+        metadata = build_curator_metadata_json(
+            Path(f"eth_defi/data/feeds/curators/{slug}.yaml"),
+            public_url="https://example.com",
+        )
+
+        assert any(metadata["logos"].values()), slug
 
 
 def test_identify_securitize_fund_curators() -> None:
