@@ -16,8 +16,9 @@ from web3 import Web3
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.tokenised_fund.sygnum.historical import SygnumVaultHistoricalReader
+from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -45,7 +46,7 @@ def export_sygnum_usd_denomination(chain_id: int) -> dict[str, object]:
     return {"address": None, "chain": chain_id, "name": "United States Dollar", "symbol": "USD", "decimals": None, "total_supply": None, "extra_data": {"synthetic": True}}
 
 
-class SygnumVault(VaultBase):
+class SygnumVault(TokenisedFundVault):
     """Scan-only adapter for reviewed Sygnum FILQ share classes.
 
     The public token surface provides ERC-20 supply and price-feed metadata,

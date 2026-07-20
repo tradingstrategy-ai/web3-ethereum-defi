@@ -17,11 +17,12 @@ from web3 import Web3
 
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.tokenised_fund.wisdomtree.constants import WISDOMTREE_PRODUCTS, WisdomTreeProduct
 from eth_defi.tokenised_fund.wisdomtree.historical import WisdomTreeVaultHistoricalReader
 from eth_defi.tokenised_fund.wisdomtree.nav import WisdomTreeNAVPoint, fetch_wisdomtree_nav_history
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -37,7 +38,7 @@ class WisdomTreeVaultInfo(VaultInfo, total=False):
     nav_source: str
 
 
-class WisdomTreeVault(VaultBase):
+class WisdomTreeVault(TokenisedFundVault):
     """Read WTGXX supply and issuer-published NAV without public flow support."""
 
     def __init__(self, web3: Web3, spec: VaultSpec, token_cache: dict | None = None, features: set[ERC4626Feature] | None = None, default_block_identifier: BlockIdentifier | None = None, require_denomination_token: bool = False):

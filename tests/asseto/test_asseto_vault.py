@@ -5,6 +5,7 @@
 
 import datetime
 from collections.abc import Iterator
+from dataclasses import replace
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -20,6 +21,7 @@ from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY, ASSET
 from eth_defi.tokenised_fund.asseto.historical import AssetoVaultHistoricalReader
 from eth_defi.tokenised_fund.asseto.vault import ASSETO_BLOCKED_FLOW_REASON, AssetoRoleInfo, AssetoVault, convert_asseto_basis_points_to_percent
 from eth_defi.vault.fee import VaultFeeMode
+from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.risk import VaultTechnicalRisk
 
 SYNTHETIC_TIMESTAMP = datetime.datetime(2026, 7, 16, 12, 0, tzinfo=datetime.UTC).replace(tzinfo=None)
@@ -56,6 +58,11 @@ class DummyAssetoVault:
 
     address = "0x0000000000000000000000000000000000000001"
     share_token = DummyAssetoToken()
+
+    def convert_denomination_to_usd(self, value: Decimal, _timestamp: datetime.datetime) -> Decimal:
+        """Pass through already-USD synthetic NAV values."""
+
+        return value
 
     def get_performance_fee(self, _block_number: int) -> float:
         """Return the fixed strategy performance fee."""
@@ -220,6 +227,7 @@ def test_asseto_vault_is_read_only() -> None:
 
     assert isinstance(vault, AssetoVault)
     assert vault.get_protocol_name() == "Asseto"
+    assert vault.get_flags() == {VaultFlag.tokenised_fund}
     assert get_vault_protocol_name({ERC4626Feature.asseto_like}) == "Asseto"
     assert vault.fetch_deposit_closed_reason() == ASSETO_BLOCKED_FLOW_REASON
     assert vault.fetch_redemption_closed_reason() == ASSETO_BLOCKED_FLOW_REASON
@@ -322,6 +330,27 @@ def test_asseto_historical_reader_uses_offchain_nav_without_pricer() -> None:
     assert read.share_price == Decimal("1.25")
     assert read.total_assets == Decimal("3.125")
     assert read.errors is None
+
+
+def test_asseto_vault_converts_hkd_nav_to_usd() -> None:
+    """Use the latest currency observation on or before an Asseto NAV point."""
+
+    first_timestamp = int(datetime.datetime(2026, 7, 15, tzinfo=datetime.UTC).timestamp())
+    second_timestamp = int(datetime.datetime(2026, 7, 16, tzinfo=datetime.UTC).timestamp())
+    product = replace(
+        ASSETO_AOABT_HASHKEY,
+        denomination_symbol="HKD",
+        usd_exchange_rates=((first_timestamp, Decimal("7.80")), (second_timestamp, Decimal("7.81"))),
+    )
+    vault = AssetoVault.__new__(AssetoVault)
+    vault.product = product
+    vault._usd_exchange_rate_timestamps = (first_timestamp, second_timestamp)
+
+    converted = vault.convert_denomination_to_usd(Decimal("781"), SYNTHETIC_TIMESTAMP)
+
+    assert converted == Decimal("100")
+    assert vault.converts_denomination_to_usd()
+    assert vault.uses_synthetic_usd_denomination()
 
 
 def test_asseto_historical_reader_records_partial_call_failure() -> None:

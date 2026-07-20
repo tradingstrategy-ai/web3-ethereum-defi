@@ -19,8 +19,9 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.tokenised_fund.theo.constants import THEO_ITOKEN_PRODUCTS, TheoITokenProduct
 from eth_defi.tokenised_fund.theo.historical import TheoITokenHistoricalReader
+from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -40,7 +41,7 @@ class TheoITokenVaultInfo(VaultInfo, total=False):
     nav_source: str
 
 
-class TheoITokenVault(VaultBase):
+class TheoITokenVault(TokenisedFundVault):
     """Read-only adapter for the canonical Ethereum thBILL iToken.
 
     This adapter deliberately leaves its denomination and price unset. The

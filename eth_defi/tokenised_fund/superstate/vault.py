@@ -29,8 +29,9 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_ETHEREUM_CHAIN_ID, USTB_ETHEREUM_ADDRESS, USTB_ETHEREUM_CONTINUOUS_PRICE_ORACLE, USTB_ETHEREUM_FIRST_SEEN_AT_BLOCK, USTB_ETHEREUM_ORACLE_DECIMALS
 from eth_defi.tokenised_fund.superstate.historical import SuperstateVaultHistoricalReader
+from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -84,7 +85,7 @@ def export_superstate_usd_denomination(chain_id: int) -> dict[str, object]:
     }
 
 
-class SuperstateVault(VaultBase):
+class SuperstateVault(TokenisedFundVault):
     """Scan-only adapter for reviewed Superstate tokenised fund shares.
 
     The adapter deliberately has no deposit, redemption or flow manager.  The

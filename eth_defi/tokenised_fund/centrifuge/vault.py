@@ -19,8 +19,9 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_PRODUCTS, CentrifugeTrancheProduct
 from eth_defi.tokenised_fund.centrifuge.historical import CentrifugeTrancheHistoricalReader
+from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -58,7 +59,7 @@ class CentrifugeTrancheVaultInfo(VaultInfo, total=False):
     nav_source: str
 
 
-class CentrifugeTrancheVault(VaultBase):
+class CentrifugeTrancheVault(TokenisedFundVault):
     """Read-only adapter for direct Centrifuge permissioned share tokens.
 
     It reads ERC-20 metadata and the live compliance hook address. It neither

@@ -34,6 +34,10 @@ ASSETO_API_SUCCESS_CODE = 10_000
 #: Timeout for a public Asseto API request.
 DEFAULT_ASSETO_API_TIMEOUT = 20.0
 
+#: Lookback large enough to request the complete history of every current
+#: Asseto product instead of silently truncating older products to one year.
+MAX_ASSETO_PRICE_HISTORY_DAYS = 10_000
+
 #: Partner organisation names resolved from the public product API's logo URLs.
 #:
 #: Asseto exposes a partner role and logo URL, but not a text organisation name.
@@ -454,7 +458,7 @@ def fetch_asseto_product_roles(
 
 def fetch_asseto_price_history(
     product_id: int,
-    days: int = 365,
+    days: int = MAX_ASSETO_PRICE_HISTORY_DAYS,
     api_base_url: str = ASSETO_API_BASE_URL,
     timeout: float = DEFAULT_ASSETO_API_TIMEOUT,
 ) -> Iterator[AssetoPricePoint]:
@@ -466,8 +470,8 @@ def fetch_asseto_price_history(
     :param product_id:
         Asseto registry product identifier.
     :param days:
-        Requested lookback period. Asseto currently serves a one-year history
-        for AoABT.
+        Requested lookback period. The default requests all history Asseto can
+        currently return, including products with more than one year of NAV.
     :param api_base_url:
         Asseto application API origin. Override in tests only.
     :param timeout:

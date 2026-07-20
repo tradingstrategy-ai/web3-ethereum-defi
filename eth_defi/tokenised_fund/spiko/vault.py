@@ -23,8 +23,9 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.tokenised_fund.spiko.constants import SPIKO_CHAIN_ID, USTBL_FIRST_SEEN_AT_BLOCK, USTBL_NAV_SOURCE, USTBL_ORACLE_FIRST_SEEN_AT_BLOCK, USTBL_PRICE_ORACLE_ADDRESS, USTBL_TOKEN_ADDRESS
 from eth_defi.tokenised_fund.spiko.historical import SpikoHistoricalReader
+from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -71,7 +72,7 @@ def export_spiko_usd_denomination(chain_id: int) -> dict[str, object]:
     }
 
 
-class SpikoVault(VaultBase):
+class SpikoVault(TokenisedFundVault):
     """Read-only Ethereum adapter for Spiko USTBL.
 
     The adapter calculates NAV from ERC-20 supply and the official issuer

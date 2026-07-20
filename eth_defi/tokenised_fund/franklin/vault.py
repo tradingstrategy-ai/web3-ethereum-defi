@@ -23,8 +23,9 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_PRODUCTS
 from eth_defi.tokenised_fund.franklin.historical import FranklinVaultHistoricalReader
+from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -74,7 +75,7 @@ def export_franklin_usd_denomination(chain_id: int) -> dict[str, object]:
     }
 
 
-class FranklinVault(VaultBase):
+class FranklinVault(TokenisedFundVault):
     """Read-only adapter for Franklin Templeton Benji Ethereum fund shares.
 
     The issuer-managed ``lastKnownPrice`` is a base-18 USD reference price.
