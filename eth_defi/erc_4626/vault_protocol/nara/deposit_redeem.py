@@ -21,7 +21,14 @@ class NaraRedemptionTicket(RedemptionTicket):
 
     The vault keeps one active cooldown per owner and does not assign request
     identifiers, so the request transaction hash provides a stable identity.
+    The observed cooldown state binds the ticket to that specific request.
     """
+
+    #: Naive UTC deadline recorded by the vault after ``cooldownShares``.
+    cooldown_end: datetime.datetime
+
+    #: Raw NaraUSD assets escrowed for this cooldown.
+    raw_assets: int
 
     def get_request_id(self) -> int:
         """Return the request transaction hash as an integer identity.
@@ -44,12 +51,19 @@ class NaraRedemptionRequest(RedemptionRequest):
             Persistable ticket for the later ``unstake`` claim.
         """
         tx_hash = tx_hashes[-1]
+        cooldown_end, raw_assets = self.vault.narausd_plus_contract.functions.cooldowns(self.owner).call()
+        cooldown_end = int(cooldown_end)
+        raw_assets = int(raw_assets)
+        if cooldown_end == 0 or raw_assets <= 0:
+            raise RuntimeError(f"NaraUSD+ cooldown state was not created for {self.owner}")
         return NaraRedemptionTicket(
             vault_address=Web3.to_checksum_address(self.vault.address),
             owner=Web3.to_checksum_address(self.owner),
             to=Web3.to_checksum_address(self.to),
             raw_shares=self.raw_shares,
             tx_hash=HexBytes(tx_hash),
+            cooldown_end=datetime.datetime.fromtimestamp(cooldown_end, tz=datetime.UTC).replace(tzinfo=None),
+            raw_assets=raw_assets,
         )
 
 
@@ -154,9 +168,19 @@ class NaraDepositManager(ERC4626DepositManager):
         :return:
             Current cooldown as a timedelta.
         """
-        lock_up = self.vault.get_estimated_lock_up()
-        assert lock_up is not None, "NaraUSD+ exposes cooldownDuration()"
-        return lock_up
+        duration = int(self.vault.narausd_plus_contract.functions.cooldownDuration().call())
+        return datetime.timedelta(seconds=duration)
+
+    def fetch_cooldown(self, address: HexAddress | str) -> tuple[int, int]:
+        """Read an owner's current NaraUSD+ cooldown state.
+
+        :param address:
+            NaraUSD+ share owner.
+        :return:
+            Cooldown expiry timestamp and raw escrowed NaraUSD assets.
+        """
+        cooldown_end, raw_assets = self.vault.narausd_plus_contract.functions.cooldowns(address).call()
+        return int(cooldown_end), int(raw_assets)
 
     def get_redemption_delay_over(self, address: HexAddress | str) -> datetime.datetime | None:
         """Return an owner's cooldown expiry, when one exists.
@@ -166,10 +190,10 @@ class NaraDepositManager(ERC4626DepositManager):
         :return:
             Naive UTC cooldown expiry, or ``None`` when no claim is pending.
         """
-        cooldown_end, _pending_amount = self.vault.narausd_plus_contract.functions.cooldowns(address).call()
-        if int(cooldown_end) == 0:
+        cooldown_end, _raw_assets = self.fetch_cooldown(address)
+        if cooldown_end == 0:
             return None
-        return datetime.datetime.fromtimestamp(int(cooldown_end), tz=datetime.UTC).replace(tzinfo=None)
+        return datetime.datetime.fromtimestamp(cooldown_end, tz=datetime.UTC).replace(tzinfo=None)
 
     def can_finish_redeem(self, redemption_ticket: NaraRedemptionTicket) -> bool:
         """Check whether a NaraUSD+ cooldown claim can now be submitted.
@@ -195,7 +219,22 @@ class NaraDepositManager(ERC4626DepositManager):
             to=data.get("vault_to", data["vault_owner"]),
             raw_shares=int(data["vault_raw_amount"]),
             tx_hash=HexBytes(data["vault_request_tx_hash"]),
+            cooldown_end=datetime.datetime.fromisoformat(data["nara_cooldown_end"]),
+            raw_assets=int(data["nara_raw_assets"]),
         )
+
+    def serialize_redemption_ticket(self, ticket: NaraRedemptionTicket) -> dict:
+        """Serialise a NaraUSD+ ticket with its exact cooldown identity.
+
+        :param ticket:
+            NaraUSD+ cooldown ticket.
+        :return:
+            JSON-compatible persistent ticket data.
+        """
+        data = super().serialize_redemption_ticket(ticket)
+        data["nara_cooldown_end"] = ticket.cooldown_end.isoformat()
+        data["nara_raw_assets"] = str(ticket.raw_assets)
+        return data
 
     def get_redemption_request_status(self, ticket: NaraRedemptionTicket) -> AsyncVaultRequestStatus:
         """Report whether a NaraUSD+ cooldown is pending or claimable.
@@ -204,13 +243,15 @@ class NaraDepositManager(ERC4626DepositManager):
             NaraUSD+ cooldown ticket.
         :return:
             ``pending`` before maturity, ``claimable`` afterwards, or ``none``
-            when no owner cooldown remains.
+            when the cooldown was claimed, removed, or superseded by another
+            cooldown for the same owner.
         """
-        cooldown_end = self.get_redemption_delay_over(ticket.owner)
-        if cooldown_end is None:
+        cooldown_end, raw_assets = self.fetch_cooldown(ticket.owner)
+        ticket_cooldown_end = int(ticket.cooldown_end.replace(tzinfo=datetime.UTC).timestamp())
+        if cooldown_end == 0 or cooldown_end != ticket_cooldown_end or raw_assets != ticket.raw_assets:
             return AsyncVaultRequestStatus.none
         latest_timestamp = int(self.web3.eth.get_block("latest")["timestamp"])
-        if latest_timestamp >= int(cooldown_end.replace(tzinfo=datetime.UTC).timestamp()):
+        if latest_timestamp >= cooldown_end:
             return AsyncVaultRequestStatus.claimable
         return AsyncVaultRequestStatus.pending
 
@@ -223,5 +264,5 @@ class NaraDepositManager(ERC4626DepositManager):
             ``unstake`` contract call that sends NaraUSD to the requested receiver.
         """
         if not self.can_finish_redeem(redemption_ticket):
-            raise ValueError("NaraUSD+ cooldown has not matured")
+            raise ValueError("NaraUSD+ cooldown is not claimable for this ticket")
         return self.vault.narausd_plus_contract.functions.unstake(redemption_ticket.to)
