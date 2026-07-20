@@ -1021,6 +1021,7 @@ def test_build_raw_prices_deposits_open_healthy(tmp_path):
         latest = result.iloc[-1]
         assert latest["deposit_closed_reason"] is None
         assert latest["deposits_open"] == "true"
+        assert result["performance_fee"].tolist() == pytest.approx([0.1] * len(result))
 
     finally:
         db.close()
@@ -1101,6 +1102,7 @@ def test_build_raw_prices_hlp_parent_ignores_leader_fraction(tmp_path):
 
         assert row["deposit_closed_reason"] is None
         assert row["deposits_open"] == "true"
+        assert row["performance_fee"] == pytest.approx(0.0)
 
     finally:
         db.close()

@@ -128,6 +128,7 @@ def test_hf_export_raw_timestamps(tmp_path):
         assert sorted_df.loc[0, "share_price"] == pytest.approx(1.000)
         assert sorted_df.loc[1, "share_price"] == pytest.approx(1.010)
         assert sorted_df.loc[2, "share_price"] == pytest.approx(1.020)
+        assert sorted_df["performance_fee"].tolist() == pytest.approx([0.1, 0.1, 0.1])
 
         # 6. Verify flow columns use daily_* naming
         assert "daily_deposit_count" in result_df.columns
@@ -271,6 +272,7 @@ def test_hf_export_hlp_parent_ignores_leader_fraction(tmp_path):
 
         assert result_row["deposit_closed_reason"] is None
         assert result_row["deposits_open"] == "true"
+        assert result_row["performance_fee"] == pytest.approx(0.0)
 
     finally:
         db.close()

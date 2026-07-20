@@ -48,15 +48,14 @@ HYPERLIQUID_VAULT_PERFORMANCE_FEE: float = 0.10
 #: Fee mode for Hyperliquid native vaults.
 #:
 #: The leader's 10% profit share is deducted from depositor profits at withdrawal time.
-#: The PnL history returned by the ``vaultDetails`` API already reflects the
-#: depositor's net returns (after the leader's cut), so the share price we compute
-#: from portfolio history is a net-of-fees price. This matches
-#: :py:attr:`~eth_defi.vault.fee.VaultFeeMode.internalised_skimming` —
-#: gross and net returns are identical from the pipeline's perspective.
+#: The vault account value and PnL history therefore represent the return before
+#: this investor-facing withdrawal fee. This matches
+#: :py:attr:`~eth_defi.vault.fee.VaultFeeMode.externalised`, allowing the
+#: analytics pipeline to calculate the investor's net return from the 10% share.
 #:
 #: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults
-#: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders
-HYPERLIQUID_VAULT_FEE_MODE: VaultFeeMode = VaultFeeMode.internalised_skimming
+#: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-depositors-legacy
+HYPERLIQUID_VAULT_FEE_MODE: VaultFeeMode = VaultFeeMode.externalised
 
 #: Lockup period for user-created Hyperliquid vaults.
 #:
