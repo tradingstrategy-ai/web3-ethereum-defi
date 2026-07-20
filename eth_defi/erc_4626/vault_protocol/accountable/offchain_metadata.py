@@ -9,6 +9,9 @@
 - We fetch and cache this data locally to avoid repeated API calls
 - Two-level caching: disk (2-day TTL) + in-process dictionary
 - Single cache file for all chains (Accountable has ~7 vaults total)
+- Accountable may remove a vault from its API after it has been discovered. The
+  durable vault database must retain its latest available metadata copy; an API
+  omission must not erase previously stored descriptions.
 """
 
 import datetime
