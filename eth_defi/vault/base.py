@@ -1193,10 +1193,17 @@ class VaultBase(ABC):
             None if unsupported
         """
 
-    def fetch_denomination_token_address(self) -> HexAddress:
-        """Get the address for the denomination token.
+    def fetch_denomination_token_address(self) -> HexAddress | None:
+        """Get the address for the denomination token when one exists.
 
-        Triggers RCP call
+        Synthetic accounting units used by some tokenised funds do not have
+        an ERC-20 denomination token and return ``None``.
+
+        This may trigger an RPC call.
+
+        :return:
+            ERC-20 denomination token address, or ``None`` for a synthetic
+            accounting unit.
         """
         raise NotImplementedError()
 

@@ -174,8 +174,19 @@ class VaultHistoricalReadMulticaller:
             raise TypeError(f"{reader.__class__.__name__} did not initialise a BatchCallState reader_state for a stateful scan of {vault_id}")
         return reader
 
-    def _prepare_denomination_token(self, reader: "eth_defi.erc_4626.vault.ERC4626HistoricalReader") -> HexAddress:
-        """Run in subprocess"""
+    def _prepare_denomination_token(self, reader: VaultHistoricalReader) -> HexAddress | None:
+        """Prepare an optional denomination token address in a worker.
+
+        Synthetic accounting units, such as Asseto's collateral-less USD
+        products, intentionally return ``None`` because there is no ERC-20
+        token metadata to prepare.
+
+        :param reader:
+            Historical vault reader being prepared.
+        :return:
+            ERC-20 denomination token address, or ``None`` for a synthetic
+            accounting unit.
+        """
 
         state = reader.reader_state
         if state:

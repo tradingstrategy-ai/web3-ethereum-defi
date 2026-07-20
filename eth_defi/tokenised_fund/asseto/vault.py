@@ -351,15 +351,20 @@ class AssetoVault(TokenisedFundVault):
             cause_diagnostics_message=f"Asseto share token for vault {self.address}",
         )
 
-    def fetch_denomination_token_address(self) -> HexAddress:
-        """Return the manager's collateral token address.
+    def fetch_denomination_token_address(self) -> HexAddress | None:
+        """Return the manager's collateral token address when published.
+
+        Collateral-less Asseto products use a synthetic USD accounting unit.
+        They do not have an ERC-20 denomination token, so historical scanners
+        must receive ``None`` instead of attempting to load token metadata.
 
         :return:
-            USDT collateral address for the registered Asseto product.
+            Collateral address for the registered Asseto product, or ``None``
+            for a synthetic denomination.
         """
 
         if self.product.collateral is None:
-            raise NotImplementedError(f"Asseto product {self.product.symbol} does not publish a collateral token")
+            return None
         return HexAddress(Web3.to_checksum_address(self.product.collateral))
 
     def fetch_denomination_token(self) -> TokenDetails | None:

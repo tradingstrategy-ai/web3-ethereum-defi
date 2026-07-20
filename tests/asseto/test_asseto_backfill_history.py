@@ -16,7 +16,9 @@ from eth_defi.currency_api.database import CurrencyRateDatabase
 from eth_defi.tokenised_fund.asseto import backfill
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY
 from eth_defi.tokenised_fund.asseto.offchain_api import AssetoOffchainProduct
+from eth_defi.tokenised_fund.asseto.vault import AssetoVault
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.historical import VaultHistoricalReadMulticaller
 
 EXPLICIT_START_BLOCK = 123_456
 
@@ -141,6 +143,19 @@ def test_build_vaults_includes_synthetic_usd_product(monkeypatch: pytest.MonkeyP
 
     assert backfill_history_module.build_vaults(object(), [product], object()) == [vault]
     assert vault.first_seen_at_block == product.first_seen_at_block
+
+
+def test_historical_reader_accepts_synthetic_usd_denomination() -> None:
+    """Prepare collateral-less Asseto readers without loading ERC-20 metadata."""
+
+    product = replace(ASSETO_AOABT_HASHKEY, collateral=None, denomination_symbol="USD", pricer=None)
+    vault = AssetoVault.__new__(AssetoVault)
+    vault.product = product
+    reader = SimpleNamespace(vault=vault, reader_state=None)
+    multicaller = VaultHistoricalReadMulticaller.__new__(VaultHistoricalReadMulticaller)
+
+    assert vault.fetch_denomination_token_address() is None
+    assert multicaller._prepare_denomination_token(reader) is None
 
 
 def test_select_cleanable_vault_ids_excludes_unconverted_and_inactive_products(backfill_history_module) -> None:
