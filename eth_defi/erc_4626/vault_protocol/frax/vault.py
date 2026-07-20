@@ -18,7 +18,7 @@ import logging
 from eth_typing import BlockIdentifier, HexAddress
 
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_METADATA_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_METADATA_BY_CHAIN, FRAXLEND_NOTES, FRAXLEND_PROTOCOL_FEE, FRAXLEND_SHORT_DESCRIPTION
 from eth_defi.types import Percent
 from eth_defi.vault.fee import VaultFeeMode
 
@@ -66,7 +66,7 @@ class FraxVault(ERC4626Vault):
 
         - https://docs.frax.finance/fraxlend/fraxlend-overview
         """
-        return 0.10
+        return FRAXLEND_PROTOCOL_FEE
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:  # noqa: PLR6301
         """No lock-up for Fraxlend lenders.
@@ -98,7 +98,7 @@ class FraxlendPairVault(FraxVault):
             One-line description for vault listings.
         """
 
-        return "Earn interest by lending assets to an isolated Fraxlend borrowing market."
+        return FRAXLEND_SHORT_DESCRIPTION
 
     def get_notes(self) -> str | None:
         """Return Fraxlend-specific lender mechanics and risk notes.
@@ -116,7 +116,7 @@ class FraxlendPairVault(FraxVault):
         if manual_notes:
             return manual_notes
 
-        return """Fraxlend pairs are isolated lending markets: lenders supply the pair's asset token and borrowers post its collateral token. Interest and collateral risk are not pooled across pairs. Redemptions depend on available, unborrowed liquidity, and lenders can absorb bad debt if liquidated collateral does not fully cover unhealthy loans. The share price internalises borrower interest and Fraxlend's protocol fee. See the [Fraxlend technical documentation](https://docs.frax.com/protocol/subprotocols/fraxlend/technical)."""
+        return FRAXLEND_NOTES
 
 
 class FraxStakingVault(FraxVault):

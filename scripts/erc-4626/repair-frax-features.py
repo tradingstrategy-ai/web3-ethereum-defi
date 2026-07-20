@@ -3,7 +3,9 @@
 Fraxlend pairs and stablecoin staking vaults discovered before their Frax
 routing was added were persisted as generic ERC-4626 vaults. Their price
 history remains valid because all readers obtain NAV through ``totalAssets()``.
-This migration updates only the persisted feature sets and protocol label.
+This migration updates the persisted feature sets, protocol label, fee data,
+links and protocol-owned descriptive metadata. It does not alter vault leads,
+reader state or any price-history Parquet file.
 
 Usage:
 
@@ -17,6 +19,7 @@ Environment variables:
 - ``DRY_RUN``: Set to ``true`` to report without writing.
 """
 
+import datetime
 import logging
 import os
 import shutil
@@ -24,10 +27,18 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULTS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.frax.constants import (
+    FRAX_STAKING_VAULT_METADATA_BY_CHAIN,
+    FRAX_STAKING_VAULTS_BY_CHAIN,
+    FRAXLEND_NOTES,
+    FRAXLEND_PROTOCOL_FEE,
+    FRAXLEND_SHORT_DESCRIPTION,
+)
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase
+from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.flag import get_notes
+from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
 
@@ -132,11 +143,129 @@ class FraxFeatureRepairResult:
     repaired_rows: int
 
 
+@dataclass(slots=True, frozen=True)
+class FraxCachedMetadata:
+    """Protocol-owned metadata persisted by a Frax vault scan.
+
+    This structure mirrors the static values returned by the two Frax reader
+    families without requiring RPC access during a metadata-only repair.
+
+    :param fees:
+        Structured vault fees used by return calculations.
+    :param link:
+        Native Frax product page.
+    :param short_description:
+        One-line vault listing description.
+    :param notes:
+        Longer Markdown vault note.
+    """
+
+    #: Structured vault fees used by return calculations.
+    fees: FeeData
+
+    #: Native Frax product page.
+    link: str
+
+    #: One-line vault listing description.
+    short_description: str
+
+    #: Longer Markdown vault note.
+    notes: str
+
+
+def create_frax_cached_metadata(spec: VaultSpec, feature: ERC4626Feature, protocol_name: str) -> FraxCachedMetadata:
+    """Create the static scan metadata for one reviewed Frax vault.
+
+    Fraxlend uses family-level lending copy and an internalised protocol fee.
+    Staking products use address-specific hardcoded copy and are feeless. Any
+    shared manual safety note retains priority over the protocol-owned note.
+
+    :param spec:
+        Reviewed Frax vault identifier.
+    :param feature:
+        Concrete Frax product-family feature.
+    :param protocol_name:
+        Display protocol name used for shared manual-note lookup.
+    :return:
+        Cached values equivalent to a fresh protocol reader scan.
+    """
+
+    manual_notes = get_notes(spec.vault_address, chain_id=spec.chain_id, protocol_name=protocol_name)
+    if feature == ERC4626Feature.frax_like:
+        return FraxCachedMetadata(
+            fees=FeeData(
+                fee_mode=VaultFeeMode.internalised_skimming,
+                management=0.0,
+                performance=FRAXLEND_PROTOCOL_FEE,
+                deposit=0.0,
+                withdraw=0.0,
+            ),
+            link=f"https://app.frax.finance/fraxlend/pair/{spec.vault_address}",
+            short_description=FRAXLEND_SHORT_DESCRIPTION,
+            notes=manual_notes or FRAXLEND_NOTES,
+        )
+
+    staking_metadata = FRAX_STAKING_VAULT_METADATA_BY_CHAIN[spec.chain_id][spec.vault_address]
+    return FraxCachedMetadata(
+        fees=FeeData(
+            fee_mode=VaultFeeMode.feeless,
+            management=0.0,
+            performance=0.0,
+            deposit=0.0,
+            withdraw=0.0,
+        ),
+        link="https://frax.com/earn",
+        short_description=staking_metadata.short_description,
+        notes=manual_notes or staking_metadata.notes,
+    )
+
+
+def update_row_value(row: VaultRow, key: str, value: object) -> bool:
+    """Set a cached vault row value when it differs.
+
+    :param row:
+        Mutable vault metadata row.
+    :param key:
+        Persisted row field name.
+    :param value:
+        Expected Frax metadata value.
+    :return:
+        ``True`` when the row changed.
+    """
+
+    if row.get(key) == value:
+        return False
+    row[key] = value
+    return True
+
+
+def create_backup_path(vault_db_path: Path) -> Path:
+    """Choose a non-overwriting backup path for the vault database.
+
+    :param vault_db_path:
+        Existing metadata pickle to protect before repair.
+    :return:
+        A sibling backup path that does not already exist.
+    """
+
+    backup_path = vault_db_path.with_suffix(".pickle.bak-frax-repair")
+    if not backup_path.exists():
+        return backup_path
+
+    backup_index = 1
+    while True:
+        indexed_backup_path = Path(f"{backup_path}.{backup_index}")
+        if not indexed_backup_path.exists():
+            return indexed_backup_path
+        backup_index += 1
+
+
 def repair_frax_features(vault_db_path: Path = DEFAULT_VAULT_DATABASE, *, dry_run: bool) -> FraxFeatureRepairResult:
     """Mark known historical Fraxlend and staking vaults as Frax.
 
-    Both the top-level feature field and the stored discovery object are
-    updated so exports and subsequent price scans use the Frax adapter.
+    The protocol identity and all static metadata supplied by the Frax readers
+    are updated together. This prevents exports from combining the new Frax
+    label with stale generic-reader fees, links, descriptions or notes.
 
     :param vault_db_path: Vault metadata database to repair.
     :param dry_run: Report changes without writing the database.
@@ -154,21 +283,32 @@ def repair_frax_features(vault_db_path: Path = DEFAULT_VAULT_DATABASE, *, dry_ru
             continue
 
         matched_rows += 1
-        changed = False
-        features = set(row.get("features") or set())
-        if feature not in features:
-            features.add(feature)
-            row["features"] = features
-            changed = True
+        expected_features = {feature}
+        changed = update_row_value(row, "features", expected_features)
 
         detection = row.get("_detection_data")
-        if isinstance(detection, ERC4262VaultDetection) and feature not in detection.features:
-            detection.features.add(feature)
+        if isinstance(detection, ERC4262VaultDetection) and detection.features != expected_features:
+            detection.features.clear()
+            detection.features.update(expected_features)
             changed = True
 
-        if row.get("Protocol") != protocol_name:
-            row["Protocol"] = protocol_name
-            changed = True
+        cached_metadata = create_frax_cached_metadata(spec, feature, protocol_name)
+        fee_data = cached_metadata.fees
+        updates = {
+            "Protocol": protocol_name,
+            "Features": ", ".join(sorted(item.name for item in expected_features)),
+            "Mgmt fee": fee_data.management,
+            "Perf fee": fee_data.performance,
+            "Deposit fee": fee_data.deposit,
+            "Withdraw fee": fee_data.withdraw,
+            "_fees": fee_data,
+            "Link": cached_metadata.link,
+            "_lockup": datetime.timedelta(0),
+            "_short_description": cached_metadata.short_description,
+            "_notes": cached_metadata.notes,
+        }
+        metadata_changes = [update_row_value(row, key, value) for key, value in updates.items()]
+        changed = any(metadata_changes) or changed
 
         if changed:
             repaired_rows += 1
@@ -183,7 +323,7 @@ def repair_frax_features(vault_db_path: Path = DEFAULT_VAULT_DATABASE, *, dry_ru
         logger.info("DRY RUN: would repair %d Frax rows in %s", result.repaired_rows, vault_db_path)
         return result
 
-    backup_path = vault_db_path.with_suffix(".pickle.bak-frax-repair")
+    backup_path = create_backup_path(vault_db_path)
     logger.info("Creating vault DB backup at %s", backup_path)
     shutil.copy2(vault_db_path, backup_path)
     db.write(vault_db_path)

@@ -4,6 +4,17 @@ from dataclasses import dataclass
 
 from eth_typing import HexAddress
 
+from eth_defi.types import Percent
+
+#: Fraxlend's share-price-internalised cut of lender interest revenue.
+FRAXLEND_PROTOCOL_FEE: Percent = 0.10
+
+#: Family-level Fraxlend listing copy.
+FRAXLEND_SHORT_DESCRIPTION = "Earn interest by lending assets to an isolated Fraxlend borrowing market."
+
+#: Family-level Fraxlend detail-page note.
+FRAXLEND_NOTES = """Fraxlend pairs are isolated lending markets: lenders supply the pair's asset token and borrowers post its collateral token. Interest and collateral risk are not pooled across pairs. Redemptions depend on available, unborrowed liquidity, and lenders can absorb bad debt if liquidated collateral does not fully cover unhealthy loans. The share price internalises borrower interest and Fraxlend's protocol fee. See the [Fraxlend technical documentation](https://docs.frax.com/protocol/subprotocols/fraxlend/technical)."""
+
 #: Reviewed FraxlendPairDeployer contracts recovered from ``LogDeploy`` events.
 #:
 #: ``FraxlendPair.DEPLOYER_ADDRESS()`` must resolve to one of these addresses
