@@ -465,6 +465,36 @@ be purged and rescanned.
 | `DRY_RUN` | Optional. Set to `true` to report without modifying the pickle. |
 | `LOG_LEVEL` | Optional. Default: info. |
 
+### migrate-lagoon-fee-mode.py
+
+Repair stale fee-accounting modes on Lagoon metadata rows. Older rows contain
+the correct management and performance percentages but no fee mode because the
+fee matrix previously used the non-canonical protocol name `Lagoon`. The
+migration sets the mode to `externalised`, allowing the export pipeline to
+calculate net investor returns. It only changes the metadata pickle; vault
+prices, reader state, and the stored fee percentages remain unchanged.
+
+Inspect the proposed migration first:
+
+```shell
+source .local-test.env && \
+DRY_RUN=true \
+poetry run python scripts/erc-4626/migrate-lagoon-fee-mode.py
+```
+
+Then persist the repair:
+
+```shell
+source .local-test.env && \
+DRY_RUN=false \
+poetry run python scripts/erc-4626/migrate-lagoon-fee-mode.py
+```
+
+Set `VAULT_DB_PATH` to target a downloaded or test metadata pickle. The script
+defaults to dry-run mode and creates a non-overwriting
+`*.bak-lagoon-fee-mode` backup before writing. Run `export-data-files.py`
+afterwards to publish regenerated fee-adjusted metrics.
+
 ### clean-prices.py
 
 Clean raw scanned vault data. Reads `vault-prices-1h.parquet` and generates `cleaned-vault-prices-1h.parquet`.

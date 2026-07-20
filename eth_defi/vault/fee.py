@@ -53,6 +53,10 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Euler": VaultFeeMode.internalised_skimming,
     "Morpho": VaultFeeMode.internalised_skimming,
     "Enzyme": VaultFeeMode.internalised_skimming,
+    # ``get_vault_protocol_name()`` returns this display name for
+    # ``lagoon_like`` vaults. Keep the historical short matrix key as a
+    # compatibility alias for callers of ``get_vault_fee_mode()``.
+    "Lagoon Finance": VaultFeeMode.externalised,
     "Lagoon": VaultFeeMode.externalised,
     # T3tris fees are represented as fee shares. Entry/exit fees reduce the
     # user's net deposit/redeem, while management and high-water-mark
