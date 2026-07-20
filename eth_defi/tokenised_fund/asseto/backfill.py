@@ -48,6 +48,9 @@ Useful environment variables:
      - Optional production database path overrides.
    * - ``CLEANED_PRICE_DATABASE`` / ``READER_STATE_DATABASE``
      - Optional cleaned price and reader-state path overrides.
+   * - ``CURRENCY_API_DB_PATH``
+     - Exchange-rate DuckDB used to convert HKD products to USD. Run
+       ``scan-currencies`` first to populate it.
 
 The backfill removes stale reader state only for selected Asseto vaults. This
 is required because the targeted scanner replaces those rows from its explicit
@@ -63,6 +66,7 @@ import os
 import pickle  # noqa: S403 - trusted local production reader-state pickle.
 import sys
 from collections.abc import Iterable
+from decimal import Decimal
 from pathlib import Path
 from typing import Literal, cast
 
@@ -73,6 +77,8 @@ from web3 import Web3
 
 from eth_defi.chain import CHAIN_NAMES, get_chain_name
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.currency_api.constants import SOURCE_NAME
+from eth_defi.currency_api.database import CurrencyRateDatabase
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
@@ -84,10 +90,11 @@ from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_mu
 from eth_defi.provider.named import get_provider_name
 from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histories
 from eth_defi.token import TokenDiskCache, is_stablecoin_like
-from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, AssetoProduct
+from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_USD_DENOMINATIONS, AssetoProduct
 from eth_defi.tokenised_fund.asseto.offchain_api import AssetoOffchainProduct, fetch_asseto_products
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultBase, VaultSpec
+from eth_defi.vault.data_file_export import resolve_exchange_rate_database_path
 from eth_defi.vault.historical import pformat_scan_result, scan_historical_prices_to_parquet
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
 
@@ -389,9 +396,9 @@ def build_vaults(web3: Web3, products: list[AssetoProduct], token_cache: TokenDi
 
     vaults: list[VaultBase] = []
     for product in products:
-        if product.collateral is None:
+        if product.collateral is None and product.denomination_symbol is None:
             logger.warning(
-                "Skipping price history for Asseto product %s: Asseto registry does not publish a denomination-token address",
+                "Skipping price history for Asseto product %s: Asseto registry does not publish an accounting denomination",
                 product.symbol,
             )
             continue
@@ -412,13 +419,12 @@ def build_vaults(web3: Web3, products: list[AssetoProduct], token_cache: TokenDi
 
 
 def select_cleanable_vault_ids(products: Iterable[AssetoProduct], rows: dict[VaultSpec, dict]) -> set[str]:
-    """Select Asseto histories supported by the stablecoin-only cleaner.
+    """Select active Asseto histories supported by the USD-only cleaner.
 
-    Asseto publishes products denominated in currencies such as HKD. Their raw
-    NAV histories are valid, but the shared cleaned-price pipeline deliberately
-    filters out denominations not recognised by :func:`is_stablecoin_like`.
-    Passing those identifiers to the strict replacement helper would make it
-    interpret the expected filtering as accidental data loss.
+    HKD histories are converted to USD by the adapter before reaching this
+    point. Inactive zero-supply products remain mapped in metadata and may keep
+    raw observations, but are not passed to the strict replacement helper
+    because normal cleaning intentionally removes every zero-NAV row.
 
     :param products:
         Asseto products whose raw histories were scanned.
@@ -431,10 +437,140 @@ def select_cleanable_vault_ids(products: Iterable[AssetoProduct], rows: dict[Vau
     cleanable_ids: set[str] = set()
     for product in products:
         spec = VaultSpec(product.chain_id, product.token)
-        denomination = rows[spec].get("Denomination")
-        if is_stablecoin_like(denomination):
+        row = rows[spec]
+        denomination = row.get("Denomination")
+        nav = row.get("NAV")
+        if is_stablecoin_like(denomination) and nav is not None and nav > 0:
             cleanable_ids.add(spec.as_string_id())
     return cleanable_ids
+
+
+def resolve_active_asseto_product_ids(
+    registry_products: Iterable[AssetoOffchainProduct],
+    runtime_products: Iterable[AssetoProduct],
+    rows: dict[VaultSpec, dict],
+) -> set[str]:
+    """Resolve active products from both registry TVL and on-chain supply.
+
+    Using both sources prevents a missing or stale registry TVL field from
+    hiding a positive-supply product from live-feed coverage validation.
+
+    :param registry_products:
+        Current public Asseto registry entries.
+    :param runtime_products:
+        Corresponding products with on-chain deployment metadata.
+    :param rows:
+        Fresh current vault metadata rows.
+    :return:
+        Lower-case token addresses considered active.
+    """
+
+    active_ids = {product.contract_address.lower() for product in registry_products if product.tvl is not None and product.tvl > 0}
+    active_ids.update(product.token.lower() for product in runtime_products if (rows[VaultSpec(product.chain_id, product.token)].get("Shares") or 0) > 0)
+    return active_ids
+
+
+def validate_active_asseto_coverage(
+    chain_id: int,
+    active_product_ids: set[str],
+    runtime_products: Iterable[AssetoProduct],
+    rows: dict[VaultSpec, dict],
+    price_history_ids: set[str],
+) -> None:
+    """Reject a backfill that would leave an active Asseto fund out of live data.
+
+    :param chain_id:
+        EVM chain being validated.
+    :param active_product_ids:
+        Lower-case active token addresses.
+    :param runtime_products:
+        Products represented by the current metadata scan.
+    :param rows:
+        Fresh metadata rows.
+    :param price_history_ids:
+        Lower-case addresses whose adapters found NAV history.
+    :raise RuntimeError:
+        If an active product lacks price history or positive USD-compatible
+        live metadata.
+    """
+
+    missing_active_price_ids = active_product_ids - price_history_ids
+    if missing_active_price_ids:
+        raise RuntimeError(f"Active Asseto registry products are missing price history on chain {chain_id}: {', '.join(sorted(missing_active_price_ids))}")
+
+    invalid_active_rows = [VaultSpec(product.chain_id, product.token).as_string_id() for product in runtime_products if product.token.lower() in active_product_ids and (rows[VaultSpec(product.chain_id, product.token)].get("NAV") is None or rows[VaultSpec(product.chain_id, product.token)].get("NAV") <= 0 or not is_stablecoin_like(rows[VaultSpec(product.chain_id, product.token)].get("Denomination")))]
+    if invalid_active_rows:
+        raise RuntimeError(f"Active Asseto products do not have positive USD-compatible live metadata: {', '.join(sorted(invalid_active_rows))}")
+
+
+def resolve_asseto_denomination_symbol(product: AssetoOffchainProduct) -> str | None:
+    """Resolve the currency in which Asseto publishes a product's NAV.
+
+    Asseto omits ``tokenSymbol`` for its ``stoken`` products even though their
+    product pages and NAV series use United States dollars. Treat this registry
+    category as synthetic USD accounting, while retaining explicit symbols for
+    UDA products such as USDC, USDT and HKD.
+
+    :param product:
+        Public Asseto registry entry.
+    :return:
+        Upper-case accounting denomination, or ``None`` if Asseto publishes
+        neither a symbol nor a recognised product category.
+    """
+
+    if product.denomination_symbol:
+        return product.denomination_symbol.upper()
+    if product.product_type and product.product_type.casefold() == "stoken":
+        return "USD"
+    return None
+
+
+def load_usd_exchange_rates(
+    database_path: Path,
+    denomination_symbols: Iterable[str | None],
+) -> dict[str, tuple[tuple[int, Decimal], ...]]:
+    """Load historical fiat conversion rates needed by selected products.
+
+    Stored rates are units of quote currency per one USD. Asseto NAV values in
+    a non-USD currency are consequently divided by the matching rate before
+    they enter the shared USD-denominated cleaned history.
+
+    :param database_path:
+        Currency API DuckDB produced by ``scan-currencies``.
+    :param denomination_symbols:
+        Asseto accounting currencies selected for this run.
+    :return:
+        Rates keyed by upper-case quote currency, each ordered by UTC day.
+    :raise RuntimeError:
+        If a required database or currency history is missing.
+    """
+
+    required = {symbol.upper() for symbol in denomination_symbols if symbol and symbol.upper() not in ASSETO_USD_DENOMINATIONS}
+    if not required:
+        return {}
+    if not database_path.exists():
+        currencies = ", ".join(sorted(required))
+        raise RuntimeError(f"Asseto products require {currencies}/USD history, but the currency database does not exist at {database_path}; run scan-currencies first")
+
+    database = CurrencyRateDatabase(database_path)
+    try:
+        rates_df = database.get_rates_dataframe(base_currency="usd", source=SOURCE_NAME)
+    finally:
+        database.close()
+
+    result: dict[str, tuple[tuple[int, Decimal], ...]] = {}
+    for symbol in sorted(required):
+        selected = rates_df.loc[rates_df["quote_currency"].str.casefold() == symbol.casefold()].sort_values("date")
+        if selected.empty:
+            raise RuntimeError(f"Asseto product history requires {symbol}/USD rates in {database_path}; run scan-currencies with QUOTE_CURRENCIES including {symbol.lower()}")
+        result[symbol] = tuple(
+            (
+                int(datetime.datetime.combine(row.date, datetime.time.min, tzinfo=datetime.UTC).timestamp()),
+                Decimal(str(row.rate)),
+            )
+            for row in selected.itertuples(index=False)
+        )
+    return result
 
 
 def fetch_contract_deployment_block(web3: Web3, address: HexAddress, end_block: int) -> int:
@@ -471,6 +607,7 @@ def create_runtime_product(
     product: AssetoOffchainProduct,
     deployment_block: int,
     first_seen_at: datetime.datetime,
+    usd_exchange_rates: tuple[tuple[int, Decimal], ...] = (),
 ) -> AssetoProduct:
     """Convert one public registry entry to a temporary scanner product.
 
@@ -485,6 +622,9 @@ def create_runtime_product(
         First token-code block found on-chain.
     :param first_seen_at:
         Naive UTC deployment timestamp.
+    :param usd_exchange_rates:
+        Historical units of the product denomination per USD. Empty for
+        products already denominated in USD or a USD stablecoin.
     :return:
         Runtime Asseto adapter product metadata.
     """
@@ -499,6 +639,8 @@ def create_runtime_product(
         collateral=product.denomination_address,
         first_seen_at_block=deployment_block,
         first_seen_at=first_seen_at,
+        denomination_symbol=resolve_asseto_denomination_symbol(product),
+        usd_exchange_rates=usd_exchange_rates,
         offchain_product_id=product.product_id,
         offchain_product_name=product.product_name,
         description=product.introduction,
@@ -519,6 +661,7 @@ def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps 
     cleaned_price_database_path: Path,
     reader_state_database_path: Path,
     token_cache: TokenDiskCache,
+    usd_exchange_rates_by_symbol: dict[str, tuple[tuple[int, Decimal], ...]],
 ) -> dict[str, object]:
     """Backfill one Asseto EVM chain.
 
@@ -550,6 +693,8 @@ def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps 
         Reader-state pickle path.
     :param token_cache:
         Shared token metadata cache.
+    :param usd_exchange_rates_by_symbol:
+        Historical fiat conversion rates for non-USD product denominations.
     :return:
         Summary row for operator output.
     """
@@ -566,7 +711,9 @@ def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps 
         deployment_block = fetch_contract_deployment_block(web3, product.contract_address, end_block)
         timestamp = web3.eth.get_block(deployment_block)["timestamp"]
         first_seen_at = datetime.datetime.fromtimestamp(timestamp, tz=datetime.UTC).replace(tzinfo=None)
-        runtime_product = create_runtime_product(product, deployment_block, first_seen_at)
+        denomination_symbol = resolve_asseto_denomination_symbol(product)
+        exchange_rates = usd_exchange_rates_by_symbol.get(denomination_symbol or "", ())
+        runtime_product = create_runtime_product(product, deployment_block, first_seen_at, exchange_rates)
         ASSETO_PRODUCTS[runtime_product.chain_id, runtime_product.token] = runtime_product
         runtime_products.append(runtime_product)
 
@@ -588,10 +735,14 @@ def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps 
         vault_db.write(vault_db_path)
 
     scan_summary = "-"
+    active_product_ids = resolve_active_asseto_product_ids(products, runtime_products, rows)
+    cleanable_count = 0
     if scan_prices:
         vaults = build_vaults(web3, runtime_products, token_cache)
         vault_ids = {vault.address.lower() for vault in vaults}
         scanned_products = [product for product in runtime_products if product.token.lower() in vault_ids]
+        validate_active_asseto_coverage(chain_id, active_product_ids, runtime_products, rows, vault_ids)
+        cleanable_count = len(select_cleanable_vault_ids(scanned_products, rows))
         if dry_run:
             scan_summary = f"dry-run ({len(scanned_products)} products with price history)"
         elif vaults:
@@ -634,7 +785,7 @@ def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps 
                 skipped_ids = scanned_ids - cleanable_ids
                 if skipped_ids:
                     logger.warning(
-                        "Keeping raw history but skipping cleaned-history replacement for %d Asseto vaults with unsupported denominations: %s",
+                        "Keeping raw history but skipping cleaned-history replacement for %d inactive or unsupported-denomination Asseto vaults: %s",
                         len(skipped_ids),
                         ", ".join(sorted(skipped_ids)),
                     )
@@ -657,11 +808,13 @@ def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps 
         "rpc": rpc_env_var,
         "products": ", ".join(product.symbol or product.product_name for product in products),
         "metadata_rows": len(rows),
+        "active_products": len(active_product_ids),
+        "cleanable_histories": cleanable_count,
         "scan": scan_summary,
     }
 
 
-def main() -> None:
+def main() -> None:  # noqa: PLR0914 - keep production path configuration explicit.
     """Run the targeted Asseto historical backfill."""
 
     setup_console_logging(
@@ -681,6 +834,9 @@ def main() -> None:
     price_database_path = parse_path_env("UNCLEANED_PRICE_DATABASE", DEFAULT_UNCLEANED_PRICE_DATABASE)
     cleaned_price_database_path = parse_path_env("CLEANED_PRICE_DATABASE", DEFAULT_RAW_PRICE_DATABASE)
     reader_state_database_path = parse_path_env("READER_STATE_DATABASE", DEFAULT_READER_STATE_DATABASE)
+    exchange_rate_database_path = resolve_exchange_rate_database_path(vault_db_path.parent)
+    denomination_symbols = [resolve_asseto_denomination_symbol(product) for product in products]
+    usd_exchange_rates_by_symbol = load_usd_exchange_rates(exchange_rate_database_path, denomination_symbols)
     products_by_chain: dict[int, list[AssetoOffchainProduct]] = {}
     for product in products:
         products_by_chain.setdefault(product.chain_id, []).append(product)
@@ -699,6 +855,7 @@ def main() -> None:
     logger.info("Price DB: %s", price_database_path)
     logger.info("Cleaned price DB: %s", cleaned_price_database_path)
     logger.info("Reader states: %s", reader_state_database_path)
+    logger.info("Exchange rates: %s", exchange_rate_database_path)
     logger.info("Frequency: %s", frequency)
     logger.info("Dry run: %s", dry_run)
     logger.info("Update cleaned prices: %s", clean_prices)
@@ -719,6 +876,7 @@ def main() -> None:
             cleaned_price_database_path=cleaned_price_database_path,
             reader_state_database_path=reader_state_database_path,
             token_cache=token_cache,
+            usd_exchange_rates_by_symbol=usd_exchange_rates_by_symbol,
         )
         for chain_id, chain_products in sorted(products_by_chain.items())
     ]

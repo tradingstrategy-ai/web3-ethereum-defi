@@ -2,26 +2,33 @@ Asseto
 ======
 
 `Asseto <https://asseto.finance/>`__ issues tokenised investment products. The
-initial integration supports the Asseto Orient Arbitrage Token (AoABT) on
-HashKey Chain. AoABT is an ERC-20 token, but it is not an ERC-4626 or ERC-7540
-vault: its permissioned subscriptions and redemptions are administered through
-a separate request-and-claim manager.
+integration maps every EVM product returned by Asseto's current public registry
+on chains supported by the shared vault pipeline. This presently includes
+Ethereum, BNB Chain and Avalanche products. Asseto fund shares are ERC-20
+tokens, but they are not ERC-4626 or ERC-7540 vaults: their permissioned
+subscriptions and redemptions are administered separately.
 
-The adapter therefore uses :class:`eth_defi.vault.base.VaultBase` directly.
-It reads the AoABT token supply and the official Asseto ``Pricer`` contract's
-``getLatestPrice()`` value to calculate NAV/share and TVL.
+The backfill discovers product addresses from the registry on every run and
+combines on-chain token supply with Asseto's published NAV/share history.
+Products remain present in vault metadata even when they currently have zero
+supply or Asseto has not published a price history.
 
 Historical prices
 -----------------
 
 For each sampled block, the historical reader obtains:
 
-- ``AoABT.totalSupply()`` for outstanding shares
-- ``Pricer.getLatestPrice()`` for the published NAV/share, in base-18 USD
+- the product ERC-20 ``totalSupply()`` for outstanding shares
+- ``Pricer.getLatestPrice()`` for the hardcoded AoABT deployment, or the
+  product's full public daily NAV history for registry-discovered products
 
-TVL is calculated as ``totalSupply * NAV/share`` in USDT. This applies only to
-the supported, hardcoded AoABT deployment; it does not claim coverage of every
-Asseto product or chain.
+TVL is calculated as ``totalSupply * NAV/share``. Registry ``stoken`` products
+omit a collateral-token address but publish USD fund-unit values, so they are
+exported with a synthetic USD accounting denomination. HKD-denominated products
+are converted to USD using the shared historical currency-rate database before
+they enter cleaned live-feed history. The backfill stops with an error if any
+active supported-chain registry product lacks price history or positive,
+USD-compatible current metadata.
 
 Fees
 ----
@@ -48,11 +55,19 @@ historical metrics instead.
 Off-chain product metadata
 --------------------------
 
-The :mod:`eth_defi.tokenised_fund.asseto.offchain_api` module reads descriptions, displayed
-TVL/APY and product registry data from the public Asseto web-application API.
-It is optional enrichment only: Asseto does not document this as a stable,
-versioned developer API, and the on-chain ``Pricer`` remains the source for
-valuation in this integration.
+The :mod:`eth_defi.tokenised_fund.asseto.offchain_api` module reads descriptions,
+displayed TVL/APY, product registry data and the complete available NAV history
+from the public Asseto web-application API. Asseto does not document this as a
+stable, versioned developer API, so production runs validate current active
+products rather than silently accepting a coverage gap.
+
+Chain coverage
+--------------
+
+The live pipeline requires both a project chain mapping and cache-aware
+HyperSync timestamp support. Asseto EVM products on HashKey Chain and Pharos
+are therefore reported but skipped until those chains are supported. XRPL
+products are outside the EVM scope of this library.
 
 Partner roles and curators
 --------------------------
@@ -71,3 +86,4 @@ roles do not create a curator attribution.
    eth_defi.tokenised_fund.asseto.vault
    eth_defi.tokenised_fund.asseto.historical
    eth_defi.tokenised_fund.asseto.offchain_api
+   eth_defi.tokenised_fund.asseto.backfill

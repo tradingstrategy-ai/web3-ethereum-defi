@@ -8,10 +8,14 @@ introspection.
 
 import datetime
 from dataclasses import dataclass
+from decimal import Decimal
 
 from eth_typing import HexAddress
 
 from eth_defi.types import Percent
+
+#: Fiat and stablecoin denominations which already represent USD accounting.
+ASSETO_USD_DENOMINATIONS = frozenset({"USD", "USDC", "USDT"})
 
 
 @dataclass(slots=True, frozen=True)
@@ -55,6 +59,10 @@ class AssetoProduct:
     management_fee: Percent | None = None
     performance_fee: Percent | None = None
     has_custom_fees: bool = False
+    #: Currency in which Asseto publishes NAV/share.
+    denomination_symbol: str | None = None
+    #: Historical units of denomination currency per USD, keyed by UTC timestamp.
+    usd_exchange_rates: tuple[tuple[int, Decimal], ...] = ()
     #: Asseto public product-registry identifier for its display NAV history.
     offchain_product_id: int | None = None
     #: Product key required by Asseto's off-chain product endpoints.
@@ -84,6 +92,7 @@ ASSETO_AOABT_HASHKEY = AssetoProduct(
     management_fee=0.01,
     performance_fee=0.20,
     has_custom_fees=True,
+    denomination_symbol="USDT",
 )
 
 #: Product lookup used by the adapter and chain-aware classification.

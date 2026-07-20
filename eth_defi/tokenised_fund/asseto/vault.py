@@ -1,7 +1,7 @@
 """Asseto tokenised fund vault adapter.
 
-Asseto AoABT is a KYC-gated tokenised fund share, issued and redeemed through
-a separate request/claim manager using an administrator-published NAV.  It is
+Asseto products are KYC-gated tokenised fund shares, issued and redeemed
+outside the generic ERC-4626 flow using administrator-published NAV. They are
 not ERC-4626 or ERC-7540, but can be read through :class:`VaultBase`.
 """
 
@@ -21,11 +21,12 @@ from web3.contract import Contract
 
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, AssetoProduct
+from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_USD_DENOMINATIONS, AssetoProduct
 from eth_defi.tokenised_fund.asseto.historical import AssetoVaultHistoricalReader
 from eth_defi.tokenised_fund.asseto.offchain_api import AssetoAPIError, AssetoPricePoint, AssetoRoleInfo, fetch_asseto_price_history, fetch_asseto_product_roles
+from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -100,6 +101,31 @@ def convert_asseto_basis_points_to_percent(raw_fee: int, basis_point_denominator
     return raw_fee / basis_point_denominator
 
 
+def export_asseto_usd_denomination(chain_id: int) -> dict[str, object]:
+    """Export non-transferable USD accounting metadata.
+
+    Asseto ``stoken`` products publish USD NAV without an ERC-20 collateral
+    address. Products whose source NAV is HKD are also converted to USD before
+    entering the shared live feed. This token-like record makes that accounting
+    denomination explicit without implying a transferable USD token.
+
+    :param chain_id:
+        EVM chain id for the fund record.
+    :return:
+        Synthetic USD token metadata.
+    """
+
+    return {
+        "address": None,
+        "chain": chain_id,
+        "name": "United States Dollar",
+        "symbol": "USD",
+        "decimals": None,
+        "total_supply": None,
+        "extra_data": {"synthetic": True},
+    }
+
+
 class AssetoVaultInfo(VaultInfo, total=False):
     """Asseto product metadata exported by :class:`AssetoVault`."""
 
@@ -121,14 +147,20 @@ class AssetoVaultInfo(VaultInfo, total=False):
     #: NAV source label.
     nav_source: str
 
+    #: Currency in which Asseto publishes the source NAV.
+    source_denomination: str | None
 
-class AssetoVault(VaultBase):
-    """Read-only adapter for Asseto AoABT tokenised fund products.
+    #: Whether source NAV is converted to USD for the shared feed.
+    usd_converted: bool
 
-    The adapter reads NAV/share from Asseto's verified ``Pricer`` contract and
-    calculates TVL from that NAV and the AoABT ERC-20 supply.  It intentionally
-    blocks the deposit manager because the on-chain request flow requires
-    off-chain KYC, fund dealing-cycle processing and administrator actions.
+
+class AssetoVault(TokenisedFundVault):
+    """Read-only adapter for Asseto tokenised fund products.
+
+    The adapter reads NAV/share from Asseto's verified ``Pricer`` contract or
+    public product history and calculates TVL from NAV and ERC-20 supply. It
+    intentionally blocks deposits because product flows require off-chain KYC,
+    fund dealing-cycle processing and administrator actions.
     """
 
     def __init__(
@@ -170,6 +202,7 @@ class AssetoVault(VaultBase):
             raise RuntimeError(f"Unsupported Asseto product: chain={spec.chain_id}, token={spec.vault_address}") from error
         self._offchain_price_history: tuple[AssetoPricePoint, ...] | None = None
         self._offchain_price_timestamps: tuple[int, ...] | None = None
+        self._usd_exchange_rate_timestamps = tuple(timestamp for timestamp, _rate in self.product.usd_exchange_rates)
 
     @property
     def chain_id(self) -> int:
@@ -357,6 +390,59 @@ class AssetoVault(VaultBase):
 
         return self.product.pricer is not None
 
+    def converts_denomination_to_usd(self) -> bool:
+        """Return whether a non-USD Asseto NAV is converted for the live feed.
+
+        :return:
+            ``True`` when historical fiat exchange rates are configured.
+        """
+
+        return bool(self.product.usd_exchange_rates)
+
+    def uses_synthetic_usd_denomination(self) -> bool:
+        """Return whether scanner metadata must expose accounting-only USD.
+
+        :return:
+            ``True`` for collateral-less USD products and fiat-converted NAV.
+        """
+
+        return self.converts_denomination_to_usd() or (self.product.collateral is None and self.product.denomination_symbol == "USD")
+
+    def convert_denomination_to_usd(self, value: Decimal, timestamp: datetime.datetime | None = None) -> Decimal:
+        """Convert an Asseto NAV value from its source currency to USD.
+
+        Currency API rates are stored as units of quote currency per one USD,
+        so a source value is divided by the latest observation on or before the
+        NAV timestamp. USD and USD-stablecoin products pass through unchanged.
+
+        :param value:
+            Share price or total value in the Asseto source denomination.
+        :param timestamp:
+            Naive UTC NAV timestamp. ``None`` selects the latest available rate.
+        :return:
+            Value in USD.
+        :raise RuntimeError:
+            If a non-USD product lacks a rate at the requested timestamp.
+        """
+
+        symbol = (self.product.denomination_symbol or "").upper()
+        if symbol in ASSETO_USD_DENOMINATIONS:
+            return value
+        rates = self.product.usd_exchange_rates
+        if not rates:
+            raise RuntimeError(f"Asseto product {self.product.symbol} has {symbol or 'unknown'} NAV but no USD exchange-rate history")
+        if timestamp is None:
+            rate = rates[-1][1]
+        else:
+            target = int(timestamp.replace(tzinfo=datetime.UTC).timestamp())
+            index = bisect_right(self._usd_exchange_rate_timestamps, target) - 1
+            if index < 0:
+                raise RuntimeError(f"No {symbol}/USD rate on or before {timestamp.isoformat()} for Asseto product {self.product.symbol}")
+            rate = rates[index][1]
+        if rate <= 0:
+            raise RuntimeError(f"Invalid {symbol}/USD rate {rate} for Asseto product {self.product.symbol}")
+        return value / rate
+
     def fetch_offchain_price_history(self) -> tuple[AssetoPricePoint, ...]:
         """Fetch and cache Asseto's public daily NAV/share history.
 
@@ -397,7 +483,7 @@ class AssetoVault(VaultBase):
         return history[index].value if index >= 0 else None
 
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
-        """Fetch the latest Asseto NAV/share in collateral denomination.
+        """Fetch the latest Asseto NAV/share in USD accounting units.
 
         :param block_identifier:
             Historical or latest block identifier.
@@ -408,12 +494,14 @@ class AssetoVault(VaultBase):
 
         if self.uses_onchain_pricer():
             raw_price = self.pricer_contract.functions.getLatestPrice().call(block_identifier=block_identifier)
-            return Decimal(raw_price) / Decimal(10**18)
+            return self.convert_denomination_to_usd(Decimal(raw_price) / Decimal(10**18))
 
         history = self.fetch_offchain_price_history()
         if not history:
             return None
-        return history[-1].value
+        latest = history[-1]
+        timestamp = datetime.datetime.fromtimestamp(latest.timestamp, tz=datetime.UTC).replace(tzinfo=None)
+        return self.convert_denomination_to_usd(latest.value, timestamp)
 
     def fetch_total_supply(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Fetch the outstanding AoABT share supply.
@@ -433,7 +521,7 @@ class AssetoVault(VaultBase):
         :param block_identifier:
             Historical or latest block identifier.
         :return:
-            Total assets in collateral denomination.
+            Total assets in USD accounting units.
         """
 
         share_price = self.fetch_share_price(block_identifier)
@@ -445,7 +533,7 @@ class AssetoVault(VaultBase):
         :param block_identifier:
             Historical or latest block identifier.
         :return:
-            Total assets in the collateral denomination.
+            Total assets in USD accounting units.
         """
 
         return self.fetch_total_assets(block_identifier)
@@ -464,6 +552,8 @@ class AssetoVault(VaultBase):
             pricer=Web3.to_checksum_address(self.product.pricer) if self.product.pricer else None,
             collateral=self.fetch_denomination_token_address() if self.product.collateral else None,
             nav_source=ASSETO_NAV_SOURCE if self.uses_onchain_pricer() else "asseto_offchain_price_history",
+            source_denomination=self.product.denomination_symbol,
+            usd_converted=self.converts_denomination_to_usd(),
         )
 
     def fetch_scan_record_extra_data(self) -> dict[str, object]:
@@ -473,8 +563,10 @@ class AssetoVault(VaultBase):
             Product contract addresses, NAV source and blocked-flow status.
         """
 
+        synthetic_usd = self.uses_synthetic_usd_denomination()
         return {
-            "Denomination": self.denomination_token.symbol if self.denomination_token else None,
+            "Denomination": "USD" if synthetic_usd else (self.denomination_token.symbol if self.denomination_token else self.product.denomination_symbol),
+            "_denomination_token": export_asseto_usd_denomination(self.chain_id) if synthetic_usd else (self.denomination_token.export() if self.denomination_token else None),
             "_notes": self.get_notes(),
             "_deposit_closed_reason": self.fetch_deposit_closed_reason(),
             "_redemption_closed_reason": self.fetch_redemption_closed_reason(),
@@ -483,6 +575,9 @@ class AssetoVault(VaultBase):
             "_asseto_manager": Web3.to_checksum_address(self.product.manager) if self.product.manager else None,
             "_asseto_pricer": Web3.to_checksum_address(self.product.pricer) if self.product.pricer else None,
             "_asseto_collateral": self.fetch_denomination_token_address() if self.product.collateral else None,
+            "_asseto_source_denomination": self.product.denomination_symbol,
+            "_asseto_usd_converted": self.converts_denomination_to_usd(),
+            "_synthetic_usd_denomination": synthetic_usd,
         }
 
     def fetch_portfolio(

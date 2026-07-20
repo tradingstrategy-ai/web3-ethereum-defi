@@ -22,8 +22,9 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.tokenised_fund.usyc.constants import USYC_CHAIN_ID, USYC_DENOMINATION_TOKEN_ADDRESS, USYC_FIRST_SEEN_AT_BLOCK, USYC_NAV_SOURCE, USYC_ORACLE_FIRST_SEEN_AT_BLOCK, USYC_PRICE_ORACLE_ADDRESS, USYC_TELLER_ADDRESS, USYC_TOKEN_ADDRESS
 from eth_defi.tokenised_fund.usyc.historical import USYCHistoricalReader
+from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -58,7 +59,7 @@ class USYCVaultInfo(VaultInfo, total=False):
     nav_source: str
 
 
-class USYCVault(VaultBase):
+class USYCVault(TokenisedFundVault):
     """Read-only adapter for Circle USYC on Ethereum.
 
     The adapter derives USYC TVL from ERC-20 supply and the official,

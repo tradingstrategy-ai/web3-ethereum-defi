@@ -20,9 +20,10 @@ if TYPE_CHECKING:
 class AssetoVaultHistoricalReader(VaultHistoricalReader):
     """Read Asseto historical supply and NAV/share.
 
-    Asseto's ``Pricer`` contract stores NAV/share in 18 decimal USD units.
-    The token proxy exposes ERC-20 supply but is not an ERC-4626 vault, so the
-    product TVL is calculated as ``totalSupply() * getLatestPrice()``.
+    Asseto's hardcoded ``Pricer`` products store NAV/share in base-18 units;
+    other registry products use public daily NAV observations. The token proxy
+    exposes ERC-20 supply but is not an ERC-4626 vault, so TVL is calculated as
+    ``totalSupply() * NAV/share`` after any required fiat-to-USD conversion.
     """
 
     def __init__(self, vault: "AssetoVault", stateful: bool):
@@ -95,6 +96,9 @@ class AssetoVaultHistoricalReader(VaultHistoricalReader):
             share_price = self.vault.fetch_offchain_share_price(timestamp)
             if share_price is None:
                 errors.append("Asseto off-chain price history is not available for this timestamp")
+
+        if share_price is not None:
+            share_price = self.vault.convert_denomination_to_usd(share_price, timestamp)
 
         total_assets = share_price * total_supply if share_price is not None and total_supply is not None else None
         if self.reader_state is not None and state_result is not None and total_assets is not None:

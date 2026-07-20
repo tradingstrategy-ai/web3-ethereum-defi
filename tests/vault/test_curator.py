@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from eth_defi.midas.registry import iter_midas_registry_products
-from eth_defi.vault.curator import build_curator_metadata_json, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
+from eth_defi.vault.curator import build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
 
 
 def test_identify_securitize_fund_curators() -> None:
@@ -38,6 +38,36 @@ def test_securitize_fund_curator_metadata_includes_logo() -> None:
         )
 
         assert metadata["logos"]["generic"] == f"https://example.com/curator-metadata/{slug}/generic.png"
+
+
+def test_live_curators_with_verified_artwork_include_generic_logo() -> None:
+    """Export the newly processed curator artwork through metadata URLs."""
+
+    slugs = (
+        "722-capital",
+        "bizantine",
+        "btcd-labs",
+        "candle-effect",
+        "cassa",
+        "franklin-templeton",
+        "gtsy",
+        "libeara",
+        "ondo",
+        "sentinel",
+        "spiko-curator",
+        "superstate",
+        "wisdomtree",
+    )
+
+    for slug in slugs:
+        metadata = build_curator_metadata_json(
+            Path(f"eth_defi/data/feeds/curators/{slug}.yaml"),
+            public_url="https://example.com",
+        )
+
+        assert metadata["logos"]["generic"] == f"https://example.com/curator-metadata/{slug}/generic.png"
+
+    assert get_curator_available_logos("wstgbp")["generic"]
 
 
 def test_identify_wstgbp_as_protocol_curated() -> None:

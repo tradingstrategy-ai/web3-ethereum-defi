@@ -1,11 +1,18 @@
 """Regression tests for the Asseto historical backfill script helpers."""
 
+import datetime
 from dataclasses import replace
+from decimal import Decimal
+from pathlib import Path
+from types import SimpleNamespace
 from typing import NoReturn
 
 import pytest
 
 from eth_defi.chain import CHAIN_NAMES
+from eth_defi.currency_api.client import DateRates
+from eth_defi.currency_api.constants import SOURCE_NAME
+from eth_defi.currency_api.database import CurrencyRateDatabase
 from eth_defi.tokenised_fund.asseto import backfill
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY
 from eth_defi.tokenised_fund.asseto.offchain_api import AssetoOffchainProduct
@@ -93,15 +100,27 @@ def test_create_runtime_product_uses_registry_price_source(backfill_history_modu
     assert runtime_product.offchain_product_name == registry_product.product_name
     assert runtime_product.manager is None
     assert runtime_product.pricer is None
+    assert runtime_product.denomination_symbol == "USDT"
 
 
-def test_build_vaults_skips_product_without_denomination_address(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:
-    """Do not initialise a historical reader when Asseto omits collateral metadata."""
+def test_stoken_registry_product_uses_synthetic_usd(backfill_history_module) -> None:
+    """Map collateral-less Asseto stoken products to their USD accounting unit."""
 
-    product_without_collateral = replace(ASSETO_AOABT_HASHKEY, collateral=None)
+    registry_product = replace(make_registry_product(1), product_type="stoken", denomination_symbol=None, denomination_address=None)
+    runtime_product = backfill_history_module.create_runtime_product(registry_product, EXPLICIT_START_BLOCK, ASSETO_AOABT_HASHKEY.first_seen_at)
+
+    assert backfill_history_module.resolve_asseto_denomination_symbol(registry_product) == "USD"
+    assert runtime_product.collateral is None
+    assert runtime_product.denomination_symbol == "USD"
+
+
+def test_build_vaults_skips_product_without_accounting_denomination(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:
+    """Do not initialise history when Asseto omits all denomination metadata."""
+
+    product_without_collateral = replace(ASSETO_AOABT_HASHKEY, collateral=None, denomination_symbol=None)
 
     def unexpected_vault_creation(*_args: object, **_kwargs: object) -> NoReturn:
-        message = "Products without denomination addresses must be skipped before adapter creation"
+        message = "Products without accounting denominations must be skipped before adapter creation"
         raise AssertionError(message)
 
     monkeypatch.setattr(backfill_history_module, "create_vault_instance", unexpected_vault_creation)
@@ -109,17 +128,77 @@ def test_build_vaults_skips_product_without_denomination_address(monkeypatch: py
     assert backfill_history_module.build_vaults(object(), [product_without_collateral], object()) == []
 
 
-def test_select_cleanable_vault_ids_excludes_hkd_products(backfill_history_module) -> None:
-    """Keep HKD Asseto histories raw without passing them to the USD cleaner."""
+def test_build_vaults_includes_synthetic_usd_product(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:
+    """Include stoken history even though Asseto publishes no collateral address."""
+
+    product = replace(ASSETO_AOABT_HASHKEY, collateral=None, denomination_symbol="USD", pricer=None)
+    vault = SimpleNamespace(
+        address=product.token,
+        uses_onchain_pricer=lambda: False,
+        fetch_offchain_price_history=lambda: (SimpleNamespace(value=Decimal("1")),),
+    )
+    monkeypatch.setattr(backfill_history_module, "create_vault_instance", lambda *_args, **_kwargs: vault)
+
+    assert backfill_history_module.build_vaults(object(), [product], object()) == [vault]
+    assert vault.first_seen_at_block == product.first_seen_at_block
+
+
+def test_select_cleanable_vault_ids_excludes_unconverted_and_inactive_products(backfill_history_module) -> None:
+    """Clean only positive-NAV histories already expressed in USD units."""
 
     usdc_product = replace(ASSETO_AOABT_HASHKEY, chain_id=1, token="0x4867ad1a74b38b0aeff4fff251ed0dadae4f4630", symbol="CFSRS")
     hkd_product = replace(ASSETO_AOABT_HASHKEY, chain_id=1, token="0x6dc4674573380aff6c3359e19da5cbb6afceb5c3", symbol="CFSAI")
     rows = {
-        VaultSpec(usdc_product.chain_id, usdc_product.token): {"Denomination": "USDC"},
-        VaultSpec(hkd_product.chain_id, hkd_product.token): {"Denomination": "HKD"},
+        VaultSpec(usdc_product.chain_id, usdc_product.token): {"Denomination": "USDC", "NAV": Decimal("1")},
+        VaultSpec(hkd_product.chain_id, hkd_product.token): {"Denomination": "HKD", "NAV": Decimal("1")},
     }
 
     assert backfill_history_module.select_cleanable_vault_ids([usdc_product, hkd_product], rows) == {VaultSpec(usdc_product.chain_id, usdc_product.token).as_string_id()}
+
+    rows[VaultSpec(usdc_product.chain_id, usdc_product.token)]["NAV"] = Decimal(0)
+    assert backfill_history_module.select_cleanable_vault_ids([usdc_product, hkd_product], rows) == set()
+
+
+def test_load_usd_exchange_rates_reads_hkd_history(tmp_path: Path, backfill_history_module) -> None:
+    """Load the shared currency database in quote-units-per-USD order."""
+
+    database_path = tmp_path / "exchange-rates.duckdb"
+    database = CurrencyRateDatabase(database_path)
+    try:
+        database.upsert_rates(DateRates(date=datetime.date(2026, 7, 18), base_currency="usd", source=SOURCE_NAME, rows=[("hkd", 7.81)]))
+    finally:
+        database.close()
+
+    rates = backfill_history_module.load_usd_exchange_rates(database_path, ["HKD", "USDC"])
+
+    assert rates == {
+        "HKD": (
+            (
+                int(datetime.datetime(2026, 7, 18, tzinfo=datetime.UTC).timestamp()),
+                Decimal("7.81"),
+            ),
+        )
+    }
+
+
+def test_active_asseto_coverage_requires_live_history(backfill_history_module) -> None:
+    """Fail closed when an active registry or positive-supply fund has a gap."""
+
+    registry_product = replace(make_registry_product(1), tvl=Decimal("100"))
+    runtime_product = backfill_history_module.create_runtime_product(registry_product, EXPLICIT_START_BLOCK, ASSETO_AOABT_HASHKEY.first_seen_at)
+    spec = VaultSpec(runtime_product.chain_id, runtime_product.token)
+    rows = {spec: {"Shares": Decimal("100"), "NAV": Decimal("100"), "Denomination": "USD"}}
+    active_ids = backfill_history_module.resolve_active_asseto_product_ids([registry_product], [runtime_product], rows)
+
+    assert active_ids == {runtime_product.token.lower()}
+    backfill_history_module.validate_active_asseto_coverage(1, active_ids, [runtime_product], rows, active_ids)
+
+    with pytest.raises(RuntimeError, match="missing price history"):
+        backfill_history_module.validate_active_asseto_coverage(1, active_ids, [runtime_product], rows, set())
+
+    rows[spec]["Denomination"] = "HKD"
+    with pytest.raises(RuntimeError, match="USD-compatible live metadata"):
+        backfill_history_module.validate_active_asseto_coverage(1, active_ids, [runtime_product], rows, active_ids)
 
 
 def test_resolve_price_scan_start_block_uses_asseto_deployment(

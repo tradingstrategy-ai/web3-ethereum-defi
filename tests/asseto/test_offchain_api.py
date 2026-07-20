@@ -200,9 +200,12 @@ def test_fetch_asseto_product_roles_resolves_known_partner_logos(monkeypatch: py
 def test_fetch_asseto_price_history_and_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     """Parse valid price rows and reject invalid API application responses."""
 
-    def fake_get(_url: str, **_kwargs) -> ResponseStub:
+    calls: list[dict] = []
+
+    def fake_get(url: str, **kwargs) -> ResponseStub:
         """Return valid history with one malformed row."""
 
+        calls.append({"url": url, **kwargs})
         return ResponseStub(
             {
                 "code": 10_000,
@@ -216,9 +219,10 @@ def test_fetch_asseto_price_history_and_errors(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(offchain_api.requests, "get", fake_get)
 
-    history = list(offchain_api.fetch_asseto_price_history(2, days=365, api_base_url="https://api.example"))
+    history = list(offchain_api.fetch_asseto_price_history(2, api_base_url="https://api.example"))
 
     assert history == [offchain_api.AssetoPricePoint(timestamp=1_753_891_200, value=Decimal("1015.4502"))]
+    assert calls[0]["params"] == {"productId": 2, "day": offchain_api.MAX_ASSETO_PRICE_HISTORY_DAYS}
 
     with pytest.raises(ValueError, match="days must be positive"):
         list(offchain_api.fetch_asseto_price_history(2, days=0))

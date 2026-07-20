@@ -19,8 +19,9 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS, OndoProduct
 from eth_defi.tokenised_fund.ondo.historical import OndoVaultHistoricalReader
+from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -61,7 +62,7 @@ def export_ondo_usd_denomination(chain_id: int) -> dict[str, object]:
     }
 
 
-class OndoVault(VaultBase):
+class OndoVault(TokenisedFundVault):
     """Read token supply and official on-chain NAV for Ondo funds."""
 
     def __init__(

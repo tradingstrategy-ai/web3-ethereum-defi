@@ -1,15 +1,15 @@
 name: Asseto
 slug: asseto
 short_description: |
-  Tokenised investment products with an on-chain NAV/share price and permissioned fund lifecycle.
+  Tokenised investment products with published NAV/share prices and a permissioned fund lifecycle.
 long_description: |
   Asseto issues tokenised investment products whose ERC-20 supply represents ownership in a managed
-  strategy. The initial integration covers the Asseto Orient Arbitrage Token (AoABT) deployment on
-  HashKey Chain, where an Asseto price contract publishes the product's latest NAV/share on-chain.
+  strategy. The integration covers Asseto's EVM product registry on supported chains, including active
+  products on Ethereum, BNB Chain and Avalanche.
 
   Asseto products are not ERC-4626 vaults. Subscriptions and redemptions use separate request-and-claim
   contracts, with eligibility and settlement controls. For public vault analytics, the integration reads
-  the token supply and official on-chain NAV/share price to calculate historical TVL and share-price data.
+  token supply and Asseto-published NAV/share data to calculate historical TVL and share-price data.
 fee_description: |
   For AoABT, the underlying fund documents a 1.0% annual management fee and a 20% performance fee above
   a 6% return threshold. These costs are reflected in NAV/share. The Asseto request manager also exposes
