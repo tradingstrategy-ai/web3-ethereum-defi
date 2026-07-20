@@ -10,8 +10,8 @@ SYGNUM_ETHEREUM_CHAIN_ID = 1
 #: FILQ's portfolio manager, distinct from the Sygnum tokenisation platform.
 FILQ_MANAGER_NAME = "Fidelity International"
 
-#: Curator metadata identifier for both reviewed FILQ share classes.
-FILQ_CURATOR_SLUG = "fidelity-international"
+#: Shared Fidelity curator identifier for both reviewed FILQ share classes.
+FILQ_CURATOR_SLUG = "fidelity"
 
 #: Fidelity USD Digital Liquidity Fund accumulating share class (FILQ-A).
 #:

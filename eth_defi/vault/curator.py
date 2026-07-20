@@ -392,10 +392,11 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     **{key: product.curator_slug for key, product in LIBEARA_PRODUCTS.items()},
     # FILQ's portfolio is managed by Fidelity International. Sygnum provides
     # its Desygnate tokenisation, settlement and distribution infrastructure.
+    # Group both Fidelity organisations under one public curator identity.
     **{(chain_id, token): FILQ_CURATOR_SLUG for chain_id, tokens in SYGNUM_PRODUCTS_BY_CHAIN.items() for token in tokens},
     # Supply-only fund shares still need exact manager attribution because
     # their token names and protocol labels identify the infrastructure layer.
-    (FDIT_ETHEREUM.chain_id, FDIT_ETHEREUM.token): "fidelity-investments",
+    (FDIT_ETHEREUM.chain_id, FDIT_ETHEREUM.token): "fidelity",
     (CASHX_ETHEREUM.chain_id, CASHX_ETHEREUM.token): "blackrock",
     # Asseto supplies the tokenisation layer. Export the reviewed underlying
     # manager or strategy adviser for each supported product share instead.

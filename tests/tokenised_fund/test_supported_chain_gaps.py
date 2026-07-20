@@ -54,7 +54,7 @@ def test_missing_erc20_fund_products_have_chain_scoped_adapters() -> None:
     fdit = create_vault_instance(web3, FDIT_ETHEREUM.token, features={ERC4626Feature.fdit_like})
     cashx = create_vault_instance(web3, CASHX_ETHEREUM.token, features={ERC4626Feature.kaio_like})
     assert fdit.manager_name == "Fidelity Investments"
-    assert fdit.curator_slug == "fidelity-investments"
+    assert fdit.curator_slug == "fidelity"
     assert cashx.manager_name == "BlackRock"
     assert cashx.curator_slug == "blackrock"
 

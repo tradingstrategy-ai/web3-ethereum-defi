@@ -18,7 +18,7 @@ def test_identify_supported_tokenised_fund_curators() -> None:
         **{key: curator.curator_slug for key, curator in ASSETO_CURATORS.items()},
         **{key: product.curator_slug for key, product in LIBEARA_PRODUCTS.items()},
         **{(chain_id, token): FILQ_CURATOR_SLUG for chain_id, tokens in SYGNUM_PRODUCTS_BY_CHAIN.items() for token in tokens},
-        (FDIT_ETHEREUM.chain_id, FDIT_ETHEREUM.token): "fidelity-investments",
+        (FDIT_ETHEREUM.chain_id, FDIT_ETHEREUM.token): "fidelity",
         (CASHX_ETHEREUM.chain_id, CASHX_ETHEREUM.token): "blackrock",
     }
 
@@ -65,7 +65,7 @@ def test_tokenised_fund_curator_metadata_has_logos() -> None:
         "chinaamc-hong-kong",
         "cncb-capital",
         "epoch-rwa",
-        "fidelity-international",
+        "fidelity",
         "gaoteng-global-asset-management",
         "haitong-international-asset-management",
         "muzinich",

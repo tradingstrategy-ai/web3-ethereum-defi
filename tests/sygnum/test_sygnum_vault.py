@@ -95,8 +95,8 @@ def test_sygnum_vault_blocks_public_flows_and_decodes_bundle_nav() -> None:
     assert vault.fetch_deposit_closed_reason() == SYGNUM_RESTRICTED_FLOW_REASON
     assert vault.fetch_redemption_closed_reason() == SYGNUM_RESTRICTED_FLOW_REASON
     assert vault.manager_name == "Fidelity International"
-    assert vault.curator_slug == "fidelity-international"
-    assert vault.fetch_scan_record_extra_data()["_curator_slug"] == "fidelity-international"
+    assert vault.curator_slug == "fidelity"
+    assert vault.fetch_scan_record_extra_data()["_curator_slug"] == "fidelity"
     assert vault.get_deposit_manager_capability() is None
     with pytest.raises(NotImplementedError, match="Sygnum-approved"):
         vault.get_deposit_manager()
@@ -205,9 +205,9 @@ def test_sygnum_hardcoded_lead_is_discovered(monkeypatch: pytest.MonkeyPatch) ->
     assert report.detections[FILQ_A_ETHEREUM_ADDRESS].features == {ERC4626Feature.sygnum_like}
 
 
-def test_filq_exports_fidelity_international_as_curator() -> None:
-    """Keep FILQ's investment manager distinct from Sygnum infrastructure."""
+def test_filq_exports_shared_fidelity_curator() -> None:
+    """Group FILQ under Fidelity while keeping Sygnum as infrastructure."""
 
-    assert identify_curator(SYGNUM_ETHEREUM_CHAIN_ID, "FILQ-A", "Fidelity USD Digital Liquidity Fund-Acc", FILQ_A_ETHEREUM_ADDRESS, protocol_slug="sygnum") == "fidelity-international"
-    assert not is_protocol_curator("fidelity-international")
-    assert get_curator_name("fidelity-international") == "Fidelity International"
+    assert identify_curator(SYGNUM_ETHEREUM_CHAIN_ID, "FILQ-A", "Fidelity USD Digital Liquidity Fund-Acc", FILQ_A_ETHEREUM_ADDRESS, protocol_slug="sygnum") == "fidelity"
+    assert not is_protocol_curator("fidelity")
+    assert get_curator_name("fidelity") == "Fidelity"
