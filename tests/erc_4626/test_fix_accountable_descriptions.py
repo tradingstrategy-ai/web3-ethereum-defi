@@ -3,8 +3,6 @@
 import importlib.util
 from pathlib import Path
 
-import pytest
-
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -75,37 +73,56 @@ def test_refresh_accountable_descriptions_updates_only_accountable_rows() -> Non
     assert vault_db.rows[other_spec]["_short_description"] == "Unchanged summary."
 
 
-def test_refresh_accountable_descriptions_does_not_partially_update() -> None:
-    """Reject incomplete API metadata before mutating persisted rows.
+def test_refresh_accountable_descriptions_uses_stored_strategy_for_delisted_vault() -> None:
+    """Repair the short summary if the Accountable API has delisted a vault.
 
     :return:
-        None. Assertions validate atomic in-memory update preparation.
+        None. Assertions validate the stored-strategy fallback.
     """
     module = _load_fix_accountable_descriptions_module()
-    first_spec = VaultSpec(chain_id=143, vault_address="0x23b148d8f389c5821739381f1ff87bb7e1162566")
-    second_spec = VaultSpec(chain_id=143, vault_address="0x3a2c4aaae6776dc1c31316de559598f2f952e2cb")
+    spec = VaultSpec(chain_id=143, vault_address="0x4c0d041889281531ff060290d71091401caa786d")
     vault_db = VaultDatabase(
         rows={
-            first_spec: {
+            spec: {
                 "Protocol": "Accountable",
-                "Address": first_spec.vault_address,
-                "_description": "First old description.",
-                "_short_description": "First old summary.",
-            },
-            second_spec: {
-                "Protocol": "Accountable",
-                "Address": second_spec.vault_address,
-                "_description": "Second old description.",
-                "_short_description": "Second old summary.",
+                "Address": spec.vault_address,
+                "_description": "Asia Credit Yield Vault lends to regional borrowers. It has a second sentence.",
+                "_short_description": "Outdated manager description.",
             },
         }
     )
 
-    with pytest.raises(ValueError, match="missing vault"):
-        module.refresh_accountable_descriptions(vault_db, {})
+    updates = module.refresh_accountable_descriptions(vault_db, {})
 
-    assert vault_db.rows[first_spec]["_description"] == "First old description."
-    assert vault_db.rows[second_spec]["_short_description"] == "Second old summary."
+    assert len(updates) == 1
+    assert vault_db.rows[spec]["_description"] == "Asia Credit Yield Vault lends to regional borrowers. It has a second sentence."
+    assert vault_db.rows[spec]["_short_description"] == "Asia Credit Yield Vault lends to regional borrowers."
+
+
+def test_refresh_accountable_descriptions_skips_delisted_vault_without_strategy() -> None:
+    """Leave a delisted vault untouched when no strategy text is available.
+
+    :return:
+        None. Assertions validate that stale historical rows do not block the backfill.
+    """
+    module = _load_fix_accountable_descriptions_module()
+    spec = VaultSpec(chain_id=143, vault_address="0x4c0d041889281531ff060290d71091401caa786d")
+    vault_db = VaultDatabase(
+        rows={
+            spec: {
+                "Protocol": "Accountable",
+                "Address": spec.vault_address,
+                "_description": None,
+                "_short_description": "Outdated manager description.",
+            },
+        }
+    )
+
+    updates = module.refresh_accountable_descriptions(vault_db, {})
+
+    assert updates == []
+    assert vault_db.rows[spec]["_description"] is None
+    assert vault_db.rows[spec]["_short_description"] == "Outdated manager description."
 
 
 def test_refresh_accountable_descriptions_preserves_handwritten_metadata() -> None:

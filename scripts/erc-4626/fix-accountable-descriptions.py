@@ -26,7 +26,11 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from eth_defi.erc_4626.vault_protocol.accountable.offchain_metadata import AccountableVaultMetadata, fetch_accountable_vaults
+from eth_defi.erc_4626.vault_protocol.accountable.offchain_metadata import (
+    AccountableVaultMetadata,
+    extract_first_sentence,
+    fetch_accountable_vaults,
+)
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
@@ -91,9 +95,9 @@ def refresh_accountable_descriptions(
 ) -> list[AccountableDescriptionUpdate]:
     """Update all persisted Accountable vault descriptions from fresh API metadata.
 
-    All new values are validated before the database is mutated. This prevents
-    a partial metadata update if Accountable no longer returns one of the vaults
-    stored in the production database.
+    All new values are validated before the database is mutated. When
+    Accountable has delisted a vault, its existing full strategy description is
+    retained and used to regenerate the short description instead.
 
     :param vault_db:
         Vault metadata database loaded from pickle.
@@ -118,10 +122,22 @@ def refresh_accountable_descriptions(
         else:
             metadata = normalised_metadata.get(spec.vault_address.lower())
             if metadata is None:
-                raise ValueError(f"Accountable API metadata is missing vault {spec.as_string_id()}")
-
-            description = metadata.get("description")
-            short_description = metadata.get("short_description")
+                description = row.get("_description")
+                short_description = extract_first_sentence(description)
+                if description and short_description:
+                    logger.warning(
+                        "Accountable API metadata is missing vault %s; using its stored strategy description",
+                        spec.as_string_id(),
+                    )
+                else:
+                    logger.warning(
+                        "Skipping Accountable vault %s because neither API nor stored strategy metadata is available",
+                        spec.as_string_id(),
+                    )
+                    continue
+            else:
+                description = metadata.get("description")
+                short_description = metadata.get("short_description")
         if not description or not short_description:
             raise ValueError(f"Accountable API metadata has no strategy description for {spec.as_string_id()}")
 
@@ -139,8 +155,8 @@ def refresh_accountable_descriptions(
         )
 
     if not pending_updates:
-        msg = "No Accountable vault rows found in the metadata database"
-        raise ValueError(msg)
+        logger.warning("No Accountable vault rows have a usable strategy description")
+        return []
 
     for row, update in pending_updates:
         row["_description"] = update.new_description
@@ -169,6 +185,10 @@ def main() -> None:
     logger.info("Fetching fresh Accountable vault strategy metadata")
     metadata_by_address = fetch_accountable_vaults(max_cache_duration=datetime.timedelta(0))
     updates = refresh_accountable_descriptions(vault_db, metadata_by_address)
+
+    if not updates:
+        logger.info("No Accountable vault descriptions available to refresh")
+        return
 
     changed = [update for update in updates if update.changed]
     logger.info("Refreshed descriptions for %d Accountable vaults, %d changed", len(updates), len(changed))

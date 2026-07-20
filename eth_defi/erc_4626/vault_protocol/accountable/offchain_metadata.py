@@ -143,7 +143,7 @@ def _fetch_vault_detail(
         return None
 
 
-def _extract_first_sentence(text: str | None) -> str | None:
+def extract_first_sentence(text: str | None) -> str | None:
     """Extract a listing-friendly first sentence from a vault strategy.
 
     Accountable's API provides only a full ``vault_strategy`` field. Its
@@ -186,7 +186,7 @@ def _parse_vault_metadata(listing_item: dict, detail: dict | None) -> Accountabl
     return AccountableVaultMetadata(
         name=listing_item.get("loan_name", ""),
         description=vault_strategy,
-        short_description=_extract_first_sentence(vault_strategy),
+        short_description=extract_first_sentence(vault_strategy),
         company_name=loan.get("company_name") or listing_item.get("company_name"),
         company_url=loan.get("company_url"),
         net_apy=listing_item.get("net_apy"),
