@@ -371,6 +371,19 @@ def _prepare_hypercore_export(
     def _col(name: str, default=np.nan):
         return prices_df[name].values if name in prices_df.columns else default
 
+    # Normal Hyperliquid vaults charge the fixed 10% leader profit share.
+    # HLP and its child vaults are protocol-operated and do not charge it.
+    relationship_type = prices_df.get(
+        "relationship_type",
+        pd.Series(index=prices_df.index, dtype=object),
+    )
+    is_protocol_vault = relationship_type.isin(("parent", "child"))
+    performance_fee = np.where(
+        is_protocol_vault,
+        0.0,
+        HYPERLIQUID_VAULT_PERFORMANCE_FEE,
+    )
+
     result = pd.DataFrame(
         {
             "chain": chain_id,
@@ -383,7 +396,7 @@ def _prepare_hypercore_export(
             "follower_count": _col("follower_count"),
             "cumulative_volume": _col("cumulative_volume"),
             "total_supply": 0.0,
-            "performance_fee": 0.0,
+            "performance_fee": performance_fee,
             "management_fee": 0.0,
             "errors": "",
             "deposits_open": deposits_open.values,
