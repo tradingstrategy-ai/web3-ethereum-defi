@@ -17,7 +17,6 @@ from eth_defi.provider.rpcdb import (
     format_rpc_usage_report,
     normalise_rpc_error,
     resolve_rpc_tracking_database_path,
-    sanitise_rpc_error_message,
 )
 
 
@@ -56,26 +55,19 @@ def test_rpc_request_stats_threaded_and_pickle_safe() -> None:
     assert calls[("rpc.example.com", "eth_blockNumber")] == 1
 
 
-def test_rpc_error_normalisation_and_sanitisation() -> None:
-    """Stored errors retain diagnostics without endpoint secrets."""
+def test_rpc_error_normalisation() -> None:
+    """Stored errors retain provider diagnostics and stable error codes."""
 
     code, message = normalise_rpc_error({"code": -32005, "message": "limit trace_id=abc123"})
     assert code == "-32005"
-    assert "abc123" not in message
+    assert message == "limit trace_id=abc123"
 
     response = requests.Response()
     response.status_code = 429
     http_error = requests.HTTPError("429 from https://user:pass@rpc.example.com/private/api-key?token=secret", response=response)
     code, message = normalise_rpc_error(http_error)
     assert code == "http_429"
-    assert "user" not in message
-    assert "pass" not in message
-    assert "private" not in message
-    assert "secret" not in message
-    assert "rpc.example.com" in message
-
-    assert sanitise_rpc_error_message("API_KEY=top-secret") == "API_KEY=<redacted>"
-    assert sanitise_rpc_error_message(f"execution reverted: 0x{'ab' * 64}") == "execution reverted: <hex-data>"
+    assert message == "429 from https://user:pass@rpc.example.com/private/api-key?token=secret"
 
 
 def test_rpc_tracking_database_path_override(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -153,7 +145,7 @@ def test_fallback_provider_records_json_rpc_error_once(monkeypatch: pytest.Monke
 
     calls, errors = stats.export()
     assert calls == {("rpc.example", "eth_call"): 1}
-    assert errors == {("rpc.example", "-32005", "rate limited request_id=<redacted>"): 1}
+    assert errors == {("rpc.example", "-32005", "rate limited request_id=secret"): 1}
 
 
 def test_rpc_usage_database_append_only_aggregates(rpc_usage_database: RPCUsageDatabase) -> None:

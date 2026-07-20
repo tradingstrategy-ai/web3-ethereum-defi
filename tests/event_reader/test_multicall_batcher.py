@@ -149,9 +149,7 @@ def test_chunked_multicall_counts_batch_once_without_double_merge(
     parent_stats = RPCRequestStats()
 
     class FakeFactory:
-        """Carry the shared accumulator expected by the thread path."""
-
-        rpc_request_stats = parent_stats
+        """Provide a worker factory without an attached accumulator."""
 
         def __call__(self) -> None:
             """Satisfy the worker factory protocol; the mocked executor does not call it."""
@@ -169,7 +167,8 @@ def test_chunked_multicall_counts_batch_once_without_double_merge(
     def execute_task(task: multicall_batcher.MulticallHistoricalTask) -> multicall_batcher.CombinedEncodedCallResult:
         """Model the one outbound Multicall3 request made by a task batch."""
 
-        task_stats = RPCRequestStats() if task.collect_rpc_request_stats else parent_stats
+        task_stats = RPCRequestStats() if task.collect_rpc_request_stats else task.rpc_request_stats
+        assert task_stats is not None
         task_stats.record_call("rpc.example", "eth_call")
         return multicall_batcher.CombinedEncodedCallResult(
             block_number=100,

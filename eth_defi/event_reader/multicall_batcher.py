@@ -1956,6 +1956,10 @@ def read_multicall_chunked(
 
         Either "loky" or "threading".
 
+    :param rpc_request_stats:
+        Optional accumulator receiving physical JSON-RPC calls from either
+        worker backend.
+
     :return:
         Iterable of results.
 
@@ -2009,6 +2013,7 @@ def read_multicall_chunked(
                 chunk,
                 timestamp=ts,
                 collect_rpc_request_stats=backend == "loky" and rpc_request_stats is not None,
+                rpc_request_stats=rpc_request_stats if backend == "threading" else None,
             )
 
     performed_calls = success_calls = failed_calls = 0
@@ -2080,6 +2085,9 @@ class MulticallHistoricalTask:
     #: Return a task-local counter to the parent when running under ``loky``.
     collect_rpc_request_stats: bool = False
 
+    #: Shared parent counter when running under the threading backend.
+    rpc_request_stats: RPCRequestStats | None = None
+
     def __post_init__(self):
         assert callable(self.web3factory)
         assert type(self.block_number) in (int, str), f"Got: {self.block_number}"
@@ -2114,7 +2122,7 @@ def _execute_multicall_subprocess(
     if task.collect_rpc_request_stats:
         task_rpc_request_stats = RPCRequestStats()
     else:
-        task_rpc_request_stats = getattr(task.web3factory, "rpc_request_stats", None)
+        task_rpc_request_stats = task.rpc_request_stats if task.rpc_request_stats is not None else getattr(task.web3factory, "rpc_request_stats", None)
 
     reader = per_chain_readers.get(task.chain_id)
     if reader is None:

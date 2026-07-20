@@ -162,9 +162,11 @@ Normalise errors once at the provider boundary:
 - Transport failure: concrete exception class, for example `ReadTimeout`.
 - Otherwise: `unknown`.
 
-Sanitise the message by removing endpoint credentials, URL paths and query
-strings, excluding request parameters, collapsing whitespace, and truncating
-to a documented limit. This prevents secret leakage and bounds cardinality.
+Store the provider error message as received so the database retains its full
+diagnostic context. Raw messages may contain endpoint credentials and
+request-specific values, producing sensitive data and high-cardinality rows.
+Treat the database and reports as sensitive operational data and monitor their
+size during sustained provider failures.
 
 ## Provider instrumentation
 
@@ -309,8 +311,8 @@ Add offline pytest coverage for:
 - Every physical fallback attempt increments the correct provider-domain and
   method counter; errors are recorded once and existing success counters are
   unchanged.
-- JSON-RPC, HTTP, transport, and unknown error codes are normalised, and
-  messages do not expose endpoint secrets or request parameters.
+- JSON-RPC, HTTP, transport, and unknown error codes are normalised, while
+  messages retain the provider's diagnostic text.
 - A shared accumulator records threaded calls exactly once.
 - Several `loky` tasks return and merge the exact sum of their calls and
   errors; one Multicall batch remains one `eth_call`.
@@ -345,7 +347,7 @@ Update `scripts/erc-4626/README-vault-scripts.md` with:
   `~/.tradingstrategy/rpc-tracking.duckdb` location.
 - The two phases and their `items_scanned` definitions.
 - Provider-domain attribution, physical-attempt and Multicall semantics.
-- Error sanitisation and the transport-retry limitation.
+- Error normalisation and the transport-retry limitation.
 - Excluded traffic and examples of both reports.
 - A simple DuckDB daily-total query.
 

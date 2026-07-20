@@ -209,11 +209,14 @@ not counted separately. Transport retries hidden below
 subprocess tasks may also leave a lower-bound count because their in-memory
 counter cannot be returned to the parent.
 
-The separate `vault_rpc_api_errors` table stores a sanitised breakdown by chain,
-phase, cycle, provider domain, error code, and message. JSON-RPC codes use their
-decimal value, HTTP failures use values such as `http_429`, and transport
-failures use the exception class name. Request parameters, endpoint secrets,
-and request identifiers are excluded or redacted.
+The separate `vault_rpc_api_errors` table stores the provider error-message
+breakdown by chain, phase, cycle, provider domain, error code, and message.
+JSON-RPC codes use their decimal value, HTTP failures use values such as
+`http_429`, and transport failures use the exception class name. Error messages
+are stored as received from the provider. They may contain endpoint credentials
+or request-specific values, and distinct messages create distinct database
+rows. Treat the tracking database and scanner logs as sensitive operational
+data and monitor their size during sustained provider failures.
 
 Hypersync, archive-node preflight, native protocol APIs, settlement scanning,
 post-processing, Core3, currency-rate, and export traffic are excluded. A scan

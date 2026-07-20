@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import datetime
 import os
-import re
 import threading
 from collections import Counter
 from dataclasses import dataclass, field
@@ -29,25 +28,14 @@ try:
 except ImportError:
     duckdb = None
 
-from eth_defi.utils import get_url_domain
-
 #: Default shared DuckDB path for JSON-RPC request accounting.
 DEFAULT_RPC_TRACKING_DATABASE = Path.home() / ".tradingstrategy" / "rpc-tracking.duckdb"
 
 #: Environment variable overriding :data:`DEFAULT_RPC_TRACKING_DATABASE`.
 RPC_TRACKING_DATABASE_PATH_ENV = "RPC_TRACKING_DATABASE_PATH"
 
-#: Maximum stored error-message length after sanitisation.
-MAX_RPC_ERROR_MESSAGE_LENGTH = 500
-
 #: Marker values used to preserve a completed zero-call scan iteration.
 ZERO_CALL_MARKER = "none"
-
-_URL_RE = re.compile(r"https?://[^\s'\"<>]+", re.IGNORECASE)
-_SECRET_RE = re.compile(r"(?i)\b(api[-_ ]?key|token|authorization|secret)\b\s*[:=]\s*[^\s,;}]+")
-_TRACE_RE = re.compile(r"(?i)\b(trace[-_ ]?id|request[-_ ]?id)\b\s*[:=]\s*['\"]?[^\s,'\";}]+")
-_HEX_DATA_RE = re.compile(r"\b0x[a-fA-F0-9]{64,}\b")
-_WHITESPACE_RE = re.compile(r"\s+")
 
 
 def resolve_rpc_tracking_database_path() -> Path:
@@ -65,43 +53,12 @@ def resolve_rpc_tracking_database_path() -> Path:
     return Path(path).expanduser() if path else DEFAULT_RPC_TRACKING_DATABASE
 
 
-def sanitise_rpc_error_message(message: str) -> str:
-    """Remove secrets and high-cardinality identifiers from an RPC error.
-
-    Endpoint URLs are reduced to their provider domain, common secret fields
-    and request identifiers are redacted, whitespace is collapsed, and the
-    stored value is capped to a stable maximum length.
-
-    :param message:
-        Raw exception or JSON-RPC response message. Request parameters should
-        not be included by callers.
-
-    :return:
-        Safe, compact message suitable for a DuckDB aggregation key.
-    """
-
-    def _replace_url(match: re.Match[str]) -> str:
-        raw_url = match.group(0).rstrip(".,);]}")
-        try:
-            domain = get_url_domain(raw_url)
-        except (TypeError, ValueError):
-            domain = None
-        return f"<rpc:{domain}>" if domain else "<rpc-url>"
-
-    clean = _URL_RE.sub(_replace_url, str(message))
-    clean = _SECRET_RE.sub(lambda match: f"{match.group(1)}=<redacted>", clean)
-    clean = _TRACE_RE.sub(lambda match: f"{match.group(1)}=<redacted>", clean)
-    clean = _HEX_DATA_RE.sub("<hex-data>", clean)
-    clean = _WHITESPACE_RE.sub(" ", clean).strip()
-    return clean[:MAX_RPC_ERROR_MESSAGE_LENGTH] or "unknown"
-
-
 def normalise_rpc_error(error: BaseException | dict[str, Any]) -> tuple[str, str]:
     """Convert heterogeneous provider failures to stable aggregation values.
 
     JSON-RPC response dictionaries use their numeric error code. HTTP failures
     use ``http_<status>``. Other Python failures use the concrete exception
-    class name. The returned message is always sanitised.
+    class name. The provider's original error message is retained.
 
     :param error:
         A JSON-RPC error dictionary or an exception raised by the provider.
@@ -118,7 +75,7 @@ def normalise_rpc_error(error: BaseException | dict[str, Any]) -> tuple[str, str
     if payload is not None:
         code = str(payload.get("code", "unknown"))
         message = str(payload.get("message", payload))
-        return code, sanitise_rpc_error_message(message)
+        return code, message
 
     if isinstance(error, HTTPError) and error.response is not None:
         code = f"http_{error.response.status_code}"
@@ -127,7 +84,7 @@ def normalise_rpc_error(error: BaseException | dict[str, Any]) -> tuple[str, str
     else:
         code = "unknown"
 
-    return code, sanitise_rpc_error_message(str(error))
+    return code, str(error)
 
 
 @dataclass(slots=True)
@@ -173,7 +130,7 @@ class RPCRequestStats:
         :param error_code:
             Stable JSON-RPC, HTTP, or exception-class error code.
         :param error_message:
-            Sanitised error message.
+            Provider error message.
         :param count:
             Positive number of matching failures to add.
         """
@@ -181,9 +138,8 @@ class RPCRequestStats:
         assert rpc_provider_domain, "RPC provider domain must not be empty"
         assert error_code, "RPC error code must not be empty"
         assert count > 0, f"Count must be positive: {count}"
-        safe_message = sanitise_rpc_error_message(error_message)
         with self._lock:
-            self.errors[rpc_provider_domain, str(error_code), safe_message] += count
+            self.errors[rpc_provider_domain, str(error_code), str(error_message)] += count
 
     def merge(self, other: RPCRequestStats) -> None:
         """Merge another worker or phase aggregate exactly once.
