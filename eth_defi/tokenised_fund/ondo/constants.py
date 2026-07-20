@@ -12,18 +12,33 @@ from eth_defi.types import Percent
 class OndoProduct:
     """Metadata needed to read an Ondo share token and its issuer NAV oracle."""
 
+    #: EVM chain hosting the share token.
     chain_id: int
+    #: Permissioned ERC-20 share-token address.
     token: HexAddress
+    #: ERC-20 share-token symbol.
     symbol: str
+    #: Public product name.
     product_name: str
+    #: Issuer-published NAV oracle.
     oracle: HexAddress
+    #: Price method exposed by the configured oracle.
     oracle_method: str
+    #: First block at which the configured oracle can be queried.
     oracle_first_seen_at_block: int
+    #: First block containing the share-token deployment.
     first_seen_at_block: int
+    #: Share-token deployment timestamp as naive UTC.
     first_seen_at: datetime.datetime
+    #: Official Ondo product page.
     homepage: str
+    #: Compact description used in vault listings.
+    short_description: str
+    #: Longer public product description.
     description: str
+    #: Detailed Markdown notes about strategy, NAV and access.
     notes: str
+    #: Annual management fee as a fractional percentage.
     management_fee: Percent | None = None
 
 
@@ -44,7 +59,8 @@ ONDO_USDY_ETHEREUM = OndoProduct(
     first_seen_at_block=17_672_244,
     first_seen_at=datetime.datetime(2023, 7, 11, 18, 46, 23, tzinfo=datetime.UTC).replace(tzinfo=None),
     homepage="https://docs.ondo.finance/general-access-products/usdy/basics",
-    description="Permissioned tokenised note whose redemption price accumulates U.S. dollar yield.",
+    short_description="Yield-bearing tokenised note backed by short-term U.S. Treasuries",
+    description="Ondo U.S. Dollar Yield is a permissioned, yield-bearing tokenised note backed by short-term U.S. Treasuries, Treasury fund investments and bank demand deposits. Its redemption price increases as yield accrues and is published through Ondo's on-chain oracle.",
     notes="""Ondo U.S. Dollar Yield (USDY).
 
 - **Curator:** Ondo Finance.
@@ -70,7 +86,8 @@ ONDO_OUSG_ETHEREUM = OndoProduct(
     first_seen_at_block=16_234_210,
     first_seen_at=datetime.datetime(2022, 12, 21, 16, 16, 23, tzinfo=datetime.UTC).replace(tzinfo=None),
     homepage="https://docs.ondo.finance/qualified-access-products/ousg/overview",
-    description="Permissioned tokenised fund share providing short-term U.S. government-securities exposure.",
+    short_description="Tokenised short-term U.S. government securities fund",
+    description="The Ondo Short-Term U.S. Government Bond Fund is a permissioned tokenised fund providing exposure primarily to short-term U.S. Treasuries and government-sponsored-enterprise securities, alongside cash-management holdings. Ondo publishes its daily NAV through an on-chain price oracle.",
     notes="""Ondo Short-Term U.S. Government Bond Fund (OUSG).
 
 - **Curator:** Ondo Finance.

@@ -192,8 +192,15 @@ class CentrifugeTrancheVault(TokenisedFundVault):
     def fetch_denomination_token_address(self) -> HexAddress | None:
         """Return no denomination token for the direct share token.
 
+        JTRSY has separate linked ERC-7540 vaults for USDC and USDS on
+        Ethereum. The direct Tranche token therefore has no unique asset that
+        can truthfully occupy the shared single-denomination field.
+
+        See `Centrifuge deployment documentation
+        <https://docs.centrifuge.io/developer/protocol/deployments/>`__.
+
         :return:
-            Always ``None``: subscription assets belong to a linked vault.
+            Always ``None``: subscription assets belong to linked vaults.
         """
 
         return None

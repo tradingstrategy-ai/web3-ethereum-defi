@@ -82,6 +82,9 @@ def test_ondo_vault_blocks_generic_transactions() -> None:
     assert vault.get_deposit_manager_capability() is None
     assert isinstance(vault.get_historical_reader(stateful=False), OndoVaultHistoricalReader)
     assert vault.get_flags() == {VaultFlag.tokenised_fund}
+    assert vault.short_description == ONDO_USDY_ETHEREUM.short_description
+    assert vault.description == ONDO_USDY_ETHEREUM.description
+    assert vault.short_description != vault.description
     metadata = vault.fetch_scan_record_extra_data()
     assert metadata["Denomination"] == "USD"
     assert metadata["_synthetic_usd_denomination"] is True

@@ -104,6 +104,9 @@ def test_franklin_benji_adapter_reads_issuer_price(web3: Web3, token: str) -> No
     assert vault.get_protocol_name() == "Franklin Templeton"
     assert vault.name == expected["name"]
     assert vault.symbol == expected["symbol"]
+    assert vault.short_description == vault.product.short_description
+    assert vault.description == vault.product.description
+    assert vault.short_description != vault.description
     assert vault.fetch_total_supply(FRANKLIN_TEST_BLOCK) == expected["supply"]
     assert vault.fetch_share_price(FRANKLIN_TEST_BLOCK) == Decimal(1)
     assert vault.fetch_total_assets(FRANKLIN_TEST_BLOCK) == expected["supply"]

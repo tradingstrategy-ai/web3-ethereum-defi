@@ -182,7 +182,7 @@ class SupplyOnlyTokenisedFundVault(TokenisedFundVault):
         :return: Scanner-compatible metadata mapping.
         """
 
-        return {"token": self.address, "chain_id": self.chain_id, "denomination_token": None, "synthetic_usd_denomination": True, "nav_source": "unavailable", "nav_available": False}
+        return {"token": self.address, "chain_id": self.chain_id, "denomination_token": None, "synthetic_usd_denomination": False, "nav_source": "unavailable", "nav_available": False}
 
     def fetch_scan_record_extra_data(self) -> dict[str, object]:
         """Export restrictions and explicit unavailable-NAV diagnostics.
@@ -190,7 +190,16 @@ class SupplyOnlyTokenisedFundVault(TokenisedFundVault):
         :return: Private scanner columns.
         """
 
-        return {"Denomination": "USD", "_deposit_closed_reason": self.restricted_flow_reason, "_redemption_closed_reason": self.restricted_flow_reason, "_nav_source": "unavailable", "_nav_available": False, "_curator_slug": self.curator_slug}
+        return {
+            "Denomination": None,
+            "_denomination_token": None,
+            "_deposit_closed_reason": self.restricted_flow_reason,
+            "_redemption_closed_reason": self.restricted_flow_reason,
+            "_nav_source": "unavailable",
+            "_nav_available": False,
+            "_synthetic_usd_denomination": False,
+            "_curator_slug": self.curator_slug,
+        }
 
     def fetch_portfolio(self, universe: TradingUniverse, block_identifier: BlockIdentifier | None = None) -> VaultPortfolio:
         """Return no on-chain asset portfolio.

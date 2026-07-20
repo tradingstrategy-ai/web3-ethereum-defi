@@ -6,6 +6,8 @@ from eth_typing import HexAddress
 
 OPENEDEN_CHAIN_ID = 1
 OPENEDEN_TBILL_ADDRESS = HexAddress("0xdd50c053c096cb04a3e3362e2b622529ec5f2e8a")
+#: Native Ethereum USDC accepted by OpenEden's TBILL subscription flow.
+OPENEDEN_TBILL_DENOMINATION_TOKEN_ADDRESS = HexAddress("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")
 OPENEDEN_TBILL_PRICE_ORACLE_ADDRESS = HexAddress("0xce9a6626eb99eaea829d7fa613d5d0a2eae45f40")
 OPENEDEN_TBILL_FIRST_SEEN_AT_BLOCK = 18_376_020
 OPENEDEN_TBILL_FIRST_SEEN_AT = datetime.datetime(2023, 10, 18, 8, 21, 47, tzinfo=datetime.UTC).replace(tzinfo=None)

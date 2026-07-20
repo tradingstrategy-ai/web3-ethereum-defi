@@ -14,7 +14,7 @@ from eth_defi.tokenised_fund.fdit.vault import FditVault
 from eth_defi.tokenised_fund.kaio.constants import CASHX_ETHEREUM, KAIO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.kaio.vault import KaioVault
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_ULTRA_ARBITRUM, LIBEARA_ULTRA_ETHEREUM
-from eth_defi.tokenised_fund.openeden.constants import OPENEDEN_TBILL_ADDRESS
+from eth_defi.tokenised_fund.openeden.constants import OPENEDEN_TBILL_ADDRESS, OPENEDEN_TBILL_DENOMINATION_TOKEN_ADDRESS
 from eth_defi.tokenised_fund.openeden.vault import OpenEdenVault
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_D_ETHEREUM_ADDRESS, SYGNUM_HARDCODED_LEADS
 from eth_defi.vault.flag import VaultFlag
@@ -48,6 +48,9 @@ def test_missing_erc20_fund_products_have_chain_scoped_adapters() -> None:
         assert isinstance(create_vault_instance(web3, address, features={feature}), vault_class)
         assert get_vault_protocol_name({feature}) == protocol_name
 
+    openeden = create_vault_instance(web3, OPENEDEN_TBILL_ADDRESS, features={ERC4626Feature.openeden_like})
+    assert openeden.fetch_denomination_token_address().lower() == OPENEDEN_TBILL_DENOMINATION_TOKEN_ADDRESS
+
 
 def test_new_chain_scoped_leads_keep_separate_share_classes() -> None:
     """Register distinct FILQ and ULTRA representations independently."""
@@ -70,6 +73,13 @@ def test_supply_only_funds_expose_unavailable_nav_as_optional() -> None:
         fdit.fetch_nav()
     with pytest.raises(NotImplementedError):
         fdit.fetch_total_assets()
+
+    fdit_info = fdit.fetch_info()
+    fdit_scan_data = fdit.fetch_scan_record_extra_data()
+    assert fdit_info["denomination_token"] is None
+    assert fdit_info["synthetic_usd_denomination"] is False
+    assert fdit_scan_data["Denomination"] is None
+    assert fdit_scan_data["_denomination_token"] is None
 
     filq_info = filq.fetch_info()
     assert filq_info["nav_available"] is True
