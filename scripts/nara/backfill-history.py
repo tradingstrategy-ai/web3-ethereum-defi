@@ -16,7 +16,7 @@ Environment variables:
 - ``DRY_RUN``: Report planned work without writing data. Defaults to ``false``.
 - ``NARA_SCAN_PRICES``: Scan NaraUSD+ price history. Defaults to ``true``.
 - ``NARA_CLEAN_PRICES``: Rebuild only NaraUSD+ cleaned history. Defaults to ``true``.
-- ``FREQUENCY``: Historical price frequency, ``1h`` or ``1d``. Defaults to ``1d``.
+- ``FREQUENCY``: Historical price frequency, ``1h`` or ``1d``. Defaults to ``1h``.
 - ``MAX_WORKERS``: Historical multicall worker count. Defaults to ``8``.
 - ``END_BLOCK``: Optional Ethereum end block override.
 - ``VAULT_DB_PATH``: Vault metadata database path.
@@ -166,7 +166,7 @@ def resolve_frequency() -> Literal["1h", "1d"]:
     :raise ValueError:
         If ``FREQUENCY`` is unsupported.
     """
-    frequency = os.environ.get("FREQUENCY", "1d")
+    frequency = os.environ.get("FREQUENCY", "1h")
     if frequency not in {"1h", "1d"}:
         raise ValueError(f"Unsupported FREQUENCY: {frequency}")
     return cast(Literal["1h", "1d"], frequency)
