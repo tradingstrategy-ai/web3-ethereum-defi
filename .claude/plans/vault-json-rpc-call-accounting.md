@@ -20,8 +20,8 @@ operator documentation.
 - Count by the actual method, such as `eth_call`, `eth_chainId`, and
   `eth_getBlockByNumber`.
 - Attribute each attempt to the domain of the concrete provider that handled
-  it. Store only the hostname, never its scheme, credentials, path, query
-  string, or API key.
+  it. In `rpc_provider_domain`, store only the hostname, never its scheme,
+  credentials, path, query string, or API key.
 - Count failed attempts and every `FallbackProvider` retry or provider switch.
   HTTP retries hidden below `HTTPProvider.make_request()` are not observable
   and are outside the exactness guarantee.
@@ -37,9 +37,9 @@ operator documentation.
 - For price scanning, `items_scanned` is the number of filtered, supported
   vault readers submitted to the historical scan.
 
-## Minimal reusable API
+## Provider API
 
-Put generic collection and DuckDB support in `eth_defi/provider/rpcdb.py`. It
+Put collection and DuckDB support in `eth_defi/provider/rpcdb.py`. It
 must not import vault, ERC-4626, protocol, or scanner modules.
 
 Expose two classes:
@@ -58,11 +58,10 @@ to return stats through joblib.
 Do not add `RPCUsageSchema`, record/context wrapper classes, configurable table
 names, dynamic SQL identifiers, phase enums, or vault report labels to the
 provider module. `RPCUsageDatabase(path)` always uses the two tables defined
-below. Its free-form `phase` and generic `items_scanned` values make it usable
-by another indexer or scanner despite the historical vault table names required
-here.
+below. `phase` and `items_scanned` are caller-defined, and the module does not
+import scanner or vault code.
 
-The main persistence call is deliberately direct:
+The main persistence call is:
 
 ```python
 database.record_scan(
@@ -288,7 +287,7 @@ After each EVM chain finishes, display with `tabulate()` and log:
 2. Daily-to-date totals for that chain grouped separately by phase and provider
    domain.
 3. A compact current-cycle error table when errors exist, grouped by phase,
-   provider domain, error code, and normalised message.
+   provider domain, error code, and message.
 
 Daily totals sum method rows directly. First group append-only attempts to one
 cycle:
@@ -299,10 +298,6 @@ cycle_items = max(items_scanned across method or zero-marker rows)
 daily_calls = sum(cycle_calls)
 daily_items = sum(cycle_items)
 ```
-
-Do not add calls-per-item ratios, configurable report labels, a second daily
-error report, or an all-chain end-of-tick report in the first implementation.
-They are not required to answer how many calls each phase and chain spent.
 
 ## Focused tests
 
@@ -336,8 +331,7 @@ source .local-test.env && poetry run pytest \
   tests/vault/test_scan_all_chains_rpc_usage.py
 ```
 
-Use the exact final paths selected during implementation and a three-minute
-timeout. Do not run the full suite.
+Use a three-minute timeout. Do not run the full suite.
 
 ## Documentation
 
@@ -352,17 +346,15 @@ Update `scripts/erc-4626/README-vault-scripts.md` with:
 - A simple DuckDB daily-total query.
 
 Add the required API stub for `eth_defi.provider.rpcdb` under
-`docs/source/api/provider/` and link it from the provider API index. Show one
-non-vault example that uses `RPCRequestStats` and `RPCUsageDatabase` with a
-different phase and item meaning. Do not export this operational database to
-public R2 storage.
+`docs/source/api/provider/` and link it from the provider API index. Do not
+export this operational database to public R2 storage.
 
 ## Acceptance criteria
 
 - Every completed EVM lead-discovery and price-scan attempt records method rows
   or a zero-call marker.
 - Calls and errors include failed fallback attempts and the concrete provider
-  domain, without storing credentials or URL paths.
+  domain. Provider-domain values do not store credentials or URL paths.
 - Lead discovery and price scanning are independently queryable and displayed
   per chain for the current cycle and UTC day.
 - Retry attempts append to the same cycle without multiplying

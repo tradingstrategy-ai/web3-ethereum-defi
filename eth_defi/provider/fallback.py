@@ -163,7 +163,7 @@ class FallbackProvider(BaseNamedProvider):
         #: Optional physical request accounting accumulator.
         self.rpc_request_stats = rpc_request_stats
 
-        #: Safe provider domains cached before any request attempts.
+        #: Provider domains cached before any request attempts.
         #:
         #: Custom Web3 providers are not required to expose ``endpoint_uri``.
         #: Keep them usable when accounting is disabled and attribute any later
@@ -226,7 +226,7 @@ class FallbackProvider(BaseNamedProvider):
         self.rpc_request_stats = stats
 
     def _get_rpc_provider_domain(self, provider: NamedProvider) -> str:
-        """Return the pre-sanitised domain for a concrete provider.
+        """Return the cached domain for a concrete provider.
 
         :param provider:
             Provider handling the physical request.
@@ -244,7 +244,7 @@ class FallbackProvider(BaseNamedProvider):
             self.rpc_request_stats.record_call(self._get_rpc_provider_domain(provider), method)
 
     def _record_rpc_error(self, provider: NamedProvider, error: BaseException | dict[str, Any]) -> None:
-        """Record one normalised physical request failure when enabled."""
+        """Record one physical request failure when enabled."""
 
         if self.rpc_request_stats is not None:
             error_code, error_message = normalise_rpc_error(error)

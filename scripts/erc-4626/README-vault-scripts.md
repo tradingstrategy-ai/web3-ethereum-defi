@@ -202,9 +202,9 @@ for the cycle so the retried population is not multiplied.
 
 Each physical fallback-provider attempt is counted under its concrete provider
 hostname, including failed attempts and provider-switch `eth_chainId` checks.
-Stored hostnames omit schemes, credentials, URL paths, query strings, and API
-keys. A Multicall3 batch is one `eth_call`; its inner encoded contract calls are
-not counted separately. Transport retries hidden below
+Provider-domain values omit schemes, credentials, URL paths, query strings,
+and API keys. A Multicall3 batch is one `eth_call`; its inner encoded contract
+calls are not counted separately. Transport retries hidden below
 `HTTPProvider.make_request()` cannot be observed. Failed or terminated
 subprocess tasks may also leave a lower-bound count because their in-memory
 counter cannot be returned to the parent.

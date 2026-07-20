@@ -1,13 +1,7 @@
-"""Reusable JSON-RPC request accounting and DuckDB persistence.
+"""JSON-RPC request accounting and DuckDB persistence.
 
-The counters in this module sit below any particular scanner. A caller creates
-one :class:`RPCRequestStats` for a logical phase, passes it to Web3 providers,
-and persists the completed aggregate with :class:`RPCUsageDatabase`.
-
-The fixed DuckDB schema retains the historical ``vault_rpc_api_*`` table names,
-but ``phase`` and ``items_scanned`` are intentionally generic. For example, a
-block indexer may use ``phase="block_index"`` and define ``items_scanned`` as
-the number of indexed blocks without importing any vault package.
+A caller creates one :class:`RPCRequestStats` for a phase, passes it to Web3
+providers, and persists the aggregate with :class:`RPCUsageDatabase`.
 """
 
 from __future__ import annotations
@@ -34,7 +28,7 @@ DEFAULT_RPC_TRACKING_DATABASE = Path.home() / ".tradingstrategy" / "rpc-tracking
 #: Environment variable overriding :data:`DEFAULT_RPC_TRACKING_DATABASE`.
 RPC_TRACKING_DATABASE_PATH_ENV = "RPC_TRACKING_DATABASE_PATH"
 
-#: Marker values used to preserve a completed zero-call scan iteration.
+#: Marker value used to preserve a completed zero-call scan iteration.
 ZERO_CALL_MARKER = "none"
 
 
@@ -98,7 +92,7 @@ class RPCRequestStats:
     :param calls:
         Initial provider-domain and method counts.
     :param errors:
-        Initial provider-domain and normalised error counts.
+        Initial provider-domain and error counts.
     """
 
     calls: Counter[tuple[str, str]] = field(default_factory=Counter)
@@ -109,7 +103,7 @@ class RPCRequestStats:
         """Record physical JSON-RPC request attempts.
 
         :param rpc_provider_domain:
-            Safe provider hostname, optionally including a non-default port.
+            Provider hostname, optionally including a non-default port.
         :param api_call:
             JSON-RPC method name such as ``eth_call``.
         :param count:
@@ -123,10 +117,10 @@ class RPCRequestStats:
             self.calls[rpc_provider_domain, str(api_call)] += count
 
     def record_error(self, rpc_provider_domain: str, error_code: str, error_message: str, count: int = 1) -> None:
-        """Record normalised JSON-RPC request failures.
+        """Record JSON-RPC request failures.
 
         :param rpc_provider_domain:
-            Safe provider hostname, optionally including a non-default port.
+            Provider hostname, optionally including a non-default port.
         :param error_code:
             Stable JSON-RPC, HTTP, or exception-class error code.
         :param error_message:
@@ -405,7 +399,7 @@ class RPCUsageDatabase:
         )
 
     def fetch_cycle_errors(self, chain: int, cycle_started: datetime.date, cycle_number: int) -> list[tuple[str, str, str, str, int]]:
-        """Fetch current-cycle normalised error totals for one chain.
+        """Fetch current-cycle error totals for one chain.
 
         :return:
             Rows of ``(phase, provider_domain, error_code, error_message,

@@ -1,4 +1,4 @@
-"""Tests for reusable JSON-RPC request accounting."""
+"""Tests for JSON-RPC request accounting."""
 
 import datetime
 import pickle
