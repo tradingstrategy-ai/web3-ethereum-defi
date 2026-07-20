@@ -18,8 +18,9 @@ long_description: |
   With Frax v3, the protocol moved to 100% collateralisation, removing dependence on USDC.
   Governance is handled through Frax Shares (FXS) and a vetokenomics model (veFXS).
 fee_description: |
-  Fraxlend takes 10% of interest revenue as a protocol fee.
-  This fee is internalised in the share price and not charged to lenders directly on deposit or withdrawal.
+  Each Fraxlend pair sets its own protocol share of interest revenue, so the percentage can vary between markets
+  and change over time. Fraxlend internalises this fee by minting shares to the protocol, diluting lenders as interest
+  accrues; it is not charged directly on deposit or withdrawal.
   Lenders receive the net yield after the protocol fee is deducted from borrower interest.
 
   The reviewed sFRAX and sfrxUSD staking vaults do not charge explicit management, performance, deposit

@@ -4,10 +4,11 @@ from dataclasses import dataclass
 
 from eth_typing import HexAddress
 
-from eth_defi.types import Percent
+#: Scale used by Fraxlend's ``feeToProtocolRate`` field, where 100,000 is 100%.
+FRAXLEND_FEE_PRECISION = 100_000
 
-#: Fraxlend's share-price-internalised cut of lender interest revenue.
-FRAXLEND_PROTOCOL_FEE: Percent = 0.10
+#: Maximum value accepted by Fraxlend's timelock-controlled ``changeFee()``.
+FRAXLEND_MAX_PROTOCOL_FEE_RAW = 50_000
 
 #: Family-level Fraxlend listing copy.
 FRAXLEND_SHORT_DESCRIPTION = "Earn interest by lending assets to an isolated Fraxlend borrowing market."

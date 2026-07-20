@@ -17,12 +17,15 @@ Environment variables:
 
 - ``VAULT_DB``: Vault metadata pickle path.
 - ``DRY_RUN``: Set to ``true`` to report without writing.
+- ``JSON_RPC_ETHEREUM`` and ``JSON_RPC_ARBITRUM``: Archive-capable RPC URLs
+  for chains containing matched Fraxlend pairs.
 """
 
 import datetime
 import logging
 import os
 import shutil
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,9 +34,12 @@ from eth_defi.erc_4626.vault_protocol.frax.constants import (
     FRAX_STAKING_VAULT_METADATA_BY_CHAIN,
     FRAX_STAKING_VAULTS_BY_CHAIN,
     FRAXLEND_NOTES,
-    FRAXLEND_PROTOCOL_FEE,
     FRAXLEND_SHORT_DESCRIPTION,
 )
+from eth_defi.erc_4626.vault_protocol.frax.vault import fetch_fraxlend_protocol_fee
+from eth_defi.provider.env import read_json_rpc_url
+from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.types import Percent
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
@@ -145,10 +151,10 @@ class FraxFeatureRepairResult:
 
 @dataclass(slots=True, frozen=True)
 class FraxCachedMetadata:
-    """Protocol-owned metadata persisted by a Frax vault scan.
+    """Metadata persisted by a repaired Frax vault scan.
 
-    This structure mirrors the static values returned by the two Frax reader
-    families without requiring RPC access during a metadata-only repair.
+    This structure combines protocol-owned copy with the separately fetched
+    per-pair fee snapshot used by the Fraxlend reader.
 
     :param fees:
         Structured vault fees used by return calculations.
@@ -173,8 +179,14 @@ class FraxCachedMetadata:
     notes: str
 
 
-def create_frax_cached_metadata(spec: VaultSpec, feature: ERC4626Feature, protocol_name: str) -> FraxCachedMetadata:
-    """Create the static scan metadata for one reviewed Frax vault.
+def create_frax_cached_metadata(
+    spec: VaultSpec,
+    feature: ERC4626Feature,
+    protocol_name: str,
+    *,
+    fraxlend_performance_fee: Percent | None = None,
+) -> FraxCachedMetadata:
+    """Create repaired scan metadata for one reviewed Frax vault.
 
     Fraxlend uses family-level lending copy and an internalised protocol fee.
     Staking products use address-specific hardcoded copy and are feeless. Any
@@ -186,17 +198,21 @@ def create_frax_cached_metadata(spec: VaultSpec, feature: ERC4626Feature, protoc
         Concrete Frax product-family feature.
     :param protocol_name:
         Display protocol name used for shared manual-note lookup.
+    :param fraxlend_performance_fee:
+        Per-pair fee read from ``currentRateInfo()``. Required for Fraxlend.
     :return:
         Cached values equivalent to a fresh protocol reader scan.
     """
 
     manual_notes = get_notes(spec.vault_address, chain_id=spec.chain_id, protocol_name=protocol_name)
     if feature == ERC4626Feature.frax_like:
+        if fraxlend_performance_fee is None:
+            raise ValueError(f"Onchain Fraxlend fee is required for {spec}")
         return FraxCachedMetadata(
             fees=FeeData(
-                fee_mode=VaultFeeMode.internalised_skimming,
+                fee_mode=VaultFeeMode.internalised_minting,
                 management=0.0,
-                performance=FRAXLEND_PROTOCOL_FEE,
+                performance=fraxlend_performance_fee,
                 deposit=0.0,
                 withdraw=0.0,
             ),
@@ -218,6 +234,53 @@ def create_frax_cached_metadata(spec: VaultSpec, feature: ERC4626Feature, protoc
         short_description=staking_metadata.short_description,
         notes=manual_notes or staking_metadata.notes,
     )
+
+
+def fetch_fraxlend_fees(specs: Iterable[VaultSpec]) -> dict[VaultSpec, Percent]:
+    """Fetch a consistent on-chain fee snapshot for Fraxlend repair rows.
+
+    Each chain is pinned to its current head before any pair reads begin, so
+    all fees from that chain describe the same block. RPC URLs use the standard
+    ``JSON_RPC_<CHAIN>`` environment-variable convention.
+
+    :param specs:
+        Fraxlend pairs whose cached metadata will be repaired.
+    :return:
+        Per-pair protocol fee fractions keyed by vault specification.
+    """
+
+    specs_by_chain: dict[int, list[VaultSpec]] = {}
+    for spec in specs:
+        specs_by_chain.setdefault(spec.chain_id, []).append(spec)
+
+    fees: dict[VaultSpec, Percent] = {}
+    for chain_id, chain_specs in sorted(specs_by_chain.items()):
+        web3 = create_multi_provider_web3(read_json_rpc_url(chain_id))
+        block_number = web3.eth.block_number
+        logger.info("Reading %d Fraxlend fees on chain %d at block %d", len(chain_specs), chain_id, block_number)
+        fees.update({spec: fetch_fraxlend_protocol_fee(web3, spec.vault_address, block_number) for spec in chain_specs})
+
+    return fees
+
+
+def validate_fraxlend_fee_coverage(
+    vault_rows: Mapping[VaultSpec, VaultRow],
+    fraxlend_fees: Mapping[VaultSpec, Percent] | None,
+) -> None:
+    """Reject a repair that lacks on-chain fees for matched Fraxlend rows.
+
+    :param vault_rows:
+        Persisted vault metadata keyed by vault specification.
+    :param fraxlend_fees:
+        On-chain fee snapshot supplied to the repair.
+    :raise ValueError:
+        If any matched Fraxlend row lacks an on-chain value.
+    """
+
+    missing_fee_specs = set(vault_rows).intersection(FRAXLEND_SPECS).difference(fraxlend_fees or {})
+    if missing_fee_specs:
+        missing_list = ", ".join(sorted(spec.as_string_id() for spec in missing_fee_specs))
+        raise ValueError(f"Missing onchain fees for Fraxlend repair rows: {missing_list}")
 
 
 def update_row_value(row: VaultRow, key: str, value: object) -> bool:
@@ -260,7 +323,12 @@ def create_backup_path(vault_db_path: Path) -> Path:
         backup_index += 1
 
 
-def repair_frax_features(vault_db_path: Path = DEFAULT_VAULT_DATABASE, *, dry_run: bool) -> FraxFeatureRepairResult:
+def repair_frax_features(
+    vault_db_path: Path = DEFAULT_VAULT_DATABASE,
+    *,
+    dry_run: bool,
+    fraxlend_fees: Mapping[VaultSpec, Percent] | None = None,
+) -> FraxFeatureRepairResult:
     """Mark known historical Fraxlend and staking vaults as Frax.
 
     The protocol identity and all static metadata supplied by the Frax readers
@@ -269,6 +337,8 @@ def repair_frax_features(vault_db_path: Path = DEFAULT_VAULT_DATABASE, *, dry_ru
 
     :param vault_db_path: Vault metadata database to repair.
     :param dry_run: Report changes without writing the database.
+    :param fraxlend_fees:
+        Per-pair on-chain fee snapshot. Required for every matched Fraxlend row.
     :return: Matching and repair counters.
     """
 
@@ -276,6 +346,7 @@ def repair_frax_features(vault_db_path: Path = DEFAULT_VAULT_DATABASE, *, dry_ru
     matched_rows = 0
     repaired_rows = 0
     protocol_name = get_vault_protocol_name({ERC4626Feature.frax_like})
+    validate_fraxlend_fee_coverage(db.rows, fraxlend_fees)
 
     for spec, row in db.rows.items():
         feature = FRAX_FEATURE_BY_SPEC.get(spec)
@@ -292,7 +363,13 @@ def repair_frax_features(vault_db_path: Path = DEFAULT_VAULT_DATABASE, *, dry_ru
             detection.features.update(expected_features)
             changed = True
 
-        cached_metadata = create_frax_cached_metadata(spec, feature, protocol_name)
+        fraxlend_performance_fee = fraxlend_fees[spec] if feature == ERC4626Feature.frax_like and fraxlend_fees is not None else None
+        cached_metadata = create_frax_cached_metadata(
+            spec,
+            feature,
+            protocol_name,
+            fraxlend_performance_fee=fraxlend_performance_fee,
+        )
         fee_data = cached_metadata.fees
         updates = {
             "Protocol": protocol_name,
@@ -339,7 +416,10 @@ def main() -> None:
     dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
     assert vault_db_path.exists(), f"Vault database not found: {vault_db_path}"
 
-    result = repair_frax_features(vault_db_path, dry_run=dry_run)
+    vault_db = VaultDatabase.read(vault_db_path)
+    fraxlend_specs = set(vault_db.rows).intersection(FRAXLEND_SPECS)
+    fraxlend_fees = fetch_fraxlend_fees(fraxlend_specs)
+    result = repair_frax_features(vault_db_path, dry_run=dry_run, fraxlend_fees=fraxlend_fees)
     print(f"Matched {result.matched_rows:,} Frax rows, repaired {result.repaired_rows:,}")
     if dry_run:
         print("Dry run - no changes written.")

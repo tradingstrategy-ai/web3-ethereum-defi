@@ -184,10 +184,11 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Aera": VaultFeeMode.internalised_skimming,
     # Yo - has deposit and withdrawal fees, externalised
     "Yo": None,
-    # Frax - Fraxlend takes 10% of interest revenue as an internalised protocol fee.
+    # Frax - Fraxlend's per-pair protocol share of interest is read on-chain and
+    # internalised by minting fee shares, diluting lenders.
     # FraxStakingVault overrides this protocol default because reviewed sFRAX/sfrxUSD
     # staking deployments have no explicit vault fees.
-    "Frax": VaultFeeMode.internalised_skimming,
+    "Frax": VaultFeeMode.internalised_minting,
     # Hyperdrive - fee mode unknown (unverified contracts)
     "Hyperdrive": None,
     # BaseVol - fee mode unknown

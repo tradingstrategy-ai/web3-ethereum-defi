@@ -9,8 +9,10 @@ liquid staking derivatives (frxETH/sfrxETH), lending markets (Fraxlend), an auto
 and its own Layer 2 chain (Fraxtal).
 
 Fraxlend is the lending component of Frax Finance, providing isolated lending pairs where lenders deposit assets
-and earn interest from borrowers. Each Fraxlend pair is an ERC-4626 compatible vault. The protocol takes 10%
-of interest revenue as a fee, which is internalised in the share price.
+and earn interest from borrowers. Each Fraxlend pair is an ERC-4626 compatible vault. Every pair exposes its own
+timelock-controlled share of interest revenue as ``feeToProtocolRate``. The integration reads this value on-chain
+at the requested block because the fee varies between pairs. Fraxlend internalises the fee by minting shares to
+the protocol, diluting lenders when interest accrues.
 
 Frax also operates sFRAX and sfrxUSD stablecoin staking vaults. These products distribute protocol yield through
 an increasing share redemption value, have no time lock and do not charge explicit vault-level management,

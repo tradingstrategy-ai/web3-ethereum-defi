@@ -5,13 +5,15 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.frax.constants import FRAXLEND_PROTOCOL_FEE
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.vaultdb import VaultDatabase
 
 EXPECTED_REPAIRED_FAMILY_ROWS = 2
+EXPECTED_FRAXLEND_FEE = 0.09
 
 
 def load_frax_repair_module() -> ModuleType:
@@ -99,7 +101,10 @@ def test_repair_frax_features_routes_each_family(tmp_path: Path) -> None:
     first_backup_path = vault_db_path.with_suffix(".pickle.bak-frax-repair")
     first_backup_path.write_bytes(b"existing backup")
 
-    result = repair.repair_frax_features(vault_db_path, dry_run=False)
+    with pytest.raises(ValueError, match="Missing onchain fees"):
+        repair.repair_frax_features(vault_db_path, dry_run=True)
+
+    result = repair.repair_frax_features(vault_db_path, dry_run=False, fraxlend_fees={fraxlend_spec: EXPECTED_FRAXLEND_FEE})
 
     assert result.matched_rows == EXPECTED_REPAIRED_FAMILY_ROWS
     assert result.repaired_rows == EXPECTED_REPAIRED_FAMILY_ROWS
@@ -110,8 +115,8 @@ def test_repair_frax_features_routes_each_family(tmp_path: Path) -> None:
     assert repaired_row["_detection_data"].features == {ERC4626Feature.frax_like}
     assert repaired_row["Features"] == "frax_like"
     assert repaired_row["Mgmt fee"] == 0.0
-    assert repaired_row["Perf fee"] == FRAXLEND_PROTOCOL_FEE
-    assert repaired_row["_fees"] == FeeData(VaultFeeMode.internalised_skimming, 0.0, FRAXLEND_PROTOCOL_FEE, 0.0, 0.0)
+    assert repaired_row["Perf fee"] == EXPECTED_FRAXLEND_FEE
+    assert repaired_row["_fees"] == FeeData(VaultFeeMode.internalised_minting, 0.0, EXPECTED_FRAXLEND_FEE, 0.0, 0.0)
     assert repaired_row["Link"] == f"https://app.frax.finance/fraxlend/pair/{fraxlend_spec.vault_address}"
     assert repaired_row["_lockup"] == datetime.timedelta(0)
     assert repaired_row["_short_description"] == "Earn interest by lending assets to an isolated Fraxlend borrowing market."
@@ -143,7 +148,7 @@ def test_repair_frax_features_routes_each_family(tmp_path: Path) -> None:
     backup_db = VaultDatabase.read(numbered_backup_path)
     assert backup_db.rows[fraxlend_spec]["Protocol"] == "ERC-4626"
 
-    second_result = repair.repair_frax_features(vault_db_path, dry_run=False)
+    second_result = repair.repair_frax_features(vault_db_path, dry_run=False, fraxlend_fees={fraxlend_spec: EXPECTED_FRAXLEND_FEE})
     assert second_result.matched_rows == EXPECTED_REPAIRED_FAMILY_ROWS
     assert second_result.repaired_rows == 0
     assert not Path(f"{first_backup_path}.2").exists()

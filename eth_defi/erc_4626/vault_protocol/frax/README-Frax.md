@@ -11,7 +11,7 @@
 - **DefiLlama:** https://defillama.com/protocol/frax-finance
 - **Audits and bounty:** https://docs.frax.finance/smart-contracts/bug-bounty
 - **Twitter:** https://x.com/fraxfinance
-- **Fees:** Fraxlend takes 10% of lender interest revenue through an internalised protocol fee. The reviewed sFRAX and sfrxUSD vaults expose no explicit management or performance fee; Frax documents sfrxUSD as having no staking or unstaking fees.
+- **Fees:** Each Fraxlend pair exposes a timelock-controlled protocol share of lender interest revenue through `currentRateInfo()`. The adapter reads it on-chain because the value varies by pair. Fraxlend internalises the fee by minting shares to the protocol, diluting lenders as interest accrues. The reviewed sFRAX and sfrxUSD vaults expose no explicit management or performance fee; Frax documents sfrxUSD as having no staking or unstaking fees.
 
 ## Classification evidence
 
@@ -47,7 +47,7 @@ as having no lock-up or staking/unstaking fees.
 Both product families report the protocol name `Frax`, but use different
 concrete readers:
 
-- `FraxlendPairVault` reports the internalised Fraxlend interest fee and links to the pair page.
+- `FraxlendPairVault` reads the pair-specific internalised Fraxlend interest fee on-chain and links to the pair page.
 - `FraxStakingVault` reports the reviewed staking contracts as feeless and links to Frax Earn.
 
 `FraxVault` remains the shared protocol-level base class so callers can group

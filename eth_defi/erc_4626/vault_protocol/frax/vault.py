@@ -16,13 +16,59 @@ import datetime
 import logging
 
 from eth_typing import BlockIdentifier, HexAddress
+from web3 import Web3
 
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_METADATA_BY_CHAIN, FRAXLEND_NOTES, FRAXLEND_PROTOCOL_FEE, FRAXLEND_SHORT_DESCRIPTION
+from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_METADATA_BY_CHAIN, FRAXLEND_FEE_PRECISION, FRAXLEND_MAX_PROTOCOL_FEE_RAW, FRAXLEND_NOTES, FRAXLEND_SHORT_DESCRIPTION
 from eth_defi.types import Percent
 from eth_defi.vault.fee import VaultFeeMode
 
 logger = logging.getLogger(__name__)
+
+#: ``currentRateInfo()`` returns five ABI words in every reviewed Fraxlend version.
+FRAXLEND_CURRENT_RATE_INFO_RETURN_SIZE = 32 * 5
+
+#: Canonical selector for Fraxlend's packed interest-rate and fee state.
+FRAXLEND_CURRENT_RATE_INFO_SELECTOR = Web3.keccak(text="currentRateInfo()")[0:4]
+
+
+def fetch_fraxlend_protocol_fee(web3: Web3, vault_address: HexAddress | str, block_identifier: BlockIdentifier) -> Percent:
+    """Read a Fraxlend pair's active share of borrower interest.
+
+    Fraxlend stores the per-pair fee in the second ABI word returned by
+    ``currentRateInfo()``. The timelock may change this value independently for
+    each pair, so callers must not substitute a protocol-wide default.
+
+    - https://github.com/FraxFinance/fraxlend/blob/main/src/contracts/FraxlendPairCore.sol
+    - https://github.com/FraxFinance/fraxlend/blob/main/src/contracts/FraxlendPair.sol#L437-L451
+
+    :param web3:
+        Web3 connection for the pair's chain.
+    :param vault_address:
+        Fraxlend pair contract address.
+    :param block_identifier:
+        Block at which to read the active fee.
+    :return:
+        Protocol share of borrower interest as a fraction, such as ``0.09``.
+    :raise ValueError:
+        If the return data does not match the reviewed Fraxlend ABI or exceeds
+        the contract's 50% maximum.
+    """
+
+    result = web3.eth.call(
+        {
+            "to": Web3.to_checksum_address(vault_address),
+            "data": FRAXLEND_CURRENT_RATE_INFO_SELECTOR,
+        },
+        block_identifier=block_identifier,
+    )
+    if len(result) != FRAXLEND_CURRENT_RATE_INFO_RETURN_SIZE:
+        raise ValueError(f"Unexpected currentRateInfo() return size for Fraxlend pair {vault_address}: {len(result)} bytes")
+
+    raw_fee = int.from_bytes(result[32:64], byteorder="big")
+    if raw_fee > FRAXLEND_MAX_PROTOCOL_FEE_RAW:
+        raise ValueError(f"Fraxlend pair {vault_address} returned invalid protocol fee {raw_fee}")
+    return raw_fee / FRAXLEND_FEE_PRECISION
 
 
 class FraxVault(ERC4626Vault):
@@ -52,21 +98,25 @@ class FraxVault(ERC4626Vault):
     def get_management_fee(self, block_identifier: BlockIdentifier) -> Percent:  # noqa: PLR6301, ARG002
         """Fraxlend has no management fee for lenders.
 
-        The protocol takes a 10% cut of interest revenue via ``feeToProtocolRate``
-        in the ``currentRateInfo`` struct, but this is already internalised
-        in the share price.
+        Any per-pair protocol cut of interest revenue is exposed separately as
+        the performance fee and is already internalised in the share price.
         """
         return 0.0
 
-    def get_performance_fee(self, block_identifier: BlockIdentifier) -> Percent | None:  # noqa: PLR6301, ARG002
-        """Fraxlend protocol fee.
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> Percent:
+        """Read this pair's active Fraxlend protocol fee.
 
-        The protocol takes 10% of interest earned as a fee.
-        This is internalised in the share price via the ``feeToProtocolRate`` field.
+        The timelock-controlled ``feeToProtocolRate`` is a per-pair share of
+        borrower interest. It is internalised in the share price by minting fee
+        shares and can vary between pairs and over time.
 
-        - https://docs.frax.finance/fraxlend/fraxlend-overview
+        :param block_identifier:
+            Block at which to read the active fee.
+        :return:
+            Protocol share of borrower interest as a fraction.
         """
-        return FRAXLEND_PROTOCOL_FEE
+
+        return fetch_fraxlend_protocol_fee(self.web3, self.vault_address, block_identifier)
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:  # noqa: PLR6301
         """No lock-up for Fraxlend lenders.

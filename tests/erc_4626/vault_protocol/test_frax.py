@@ -1,23 +1,26 @@
 """Test Frax vault metadata"""
 
 import os
+from unittest.mock import Mock
 
 import flaky
 import pytest
 from eth_typing import HexAddress
+from hexbytes import HexBytes
 from web3 import Web3
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.frax.vault import FraxlendPairVault, FraxStakingVault, FraxVault
+from eth_defi.erc_4626.vault_protocol.frax.vault import FRAXLEND_CURRENT_RATE_INFO_SELECTOR, FraxlendPairVault, FraxStakingVault, FraxVault, fetch_fraxlend_protocol_fee
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
 from eth_defi.vault.fee import VaultFeeMode
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
-FRAXLEND_PROTOCOL_FEE = 0.10
+EXPECTED_NINE_PERCENT_FEE = 0.09
+EXPECTED_TEN_PERCENT_FEE = 0.10
 
 pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
@@ -61,7 +64,8 @@ def test_frax(
     assert vault.get_protocol_name() == "Frax"
     assert vault.features == {ERC4626Feature.frax_like}
     assert vault.get_management_fee("latest") == 0.0
-    assert vault.get_performance_fee("latest") == FRAXLEND_PROTOCOL_FEE
+    assert vault.get_performance_fee("latest") == EXPECTED_NINE_PERCENT_FEE
+    assert vault.get_fee_mode() == VaultFeeMode.internalised_minting
     assert vault.has_custom_fees() is False
     assert vault.get_risk() == VaultTechnicalRisk.low
     assert vault.short_description == "Earn interest by lending assets to an isolated Fraxlend borrowing market."
@@ -94,6 +98,24 @@ def test_frax_fraxlend_pair_is_detected_without_hardcoded_address(
     assert isinstance(vault, FraxlendPairVault)
     assert vault.get_protocol_name() == "Frax"
     assert vault.features == {ERC4626Feature.frax_like}
+    assert vault.get_performance_fee(24_331_904) == EXPECTED_TEN_PERCENT_FEE
+
+
+def test_frax_fraxlend_fee_decoder_supports_zero() -> None:
+    """Decode a zero per-pair fee without applying a family default."""
+
+    web3 = Mock()
+    web3.eth.call.return_value = HexBytes(bytes(32 * 5))
+    address = "0x1c0c222989a37247d974937782cebc8bf4f25733"
+
+    assert fetch_fraxlend_protocol_fee(web3, address, 24_331_904) == 0.0
+    web3.eth.call.assert_called_once_with(
+        {
+            "to": Web3.to_checksum_address(address),
+            "data": FRAXLEND_CURRENT_RATE_INFO_SELECTOR,
+        },
+        block_identifier=24_331_904,
+    )
 
 
 @pytest.mark.parametrize(
