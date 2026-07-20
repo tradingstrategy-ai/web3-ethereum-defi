@@ -691,6 +691,13 @@ class ERC4626Feature(enum.Enum):
     #: https://frax.com/
     frax_like = "frax_like"
 
+    #: Frax stablecoin staking vault.
+    #:
+    #: Address-routed sFRAX and sfrxUSD vaults. This is separate from
+    #: :py:attr:`frax_like`, which is retained for Fraxlend compatibility.
+    #: https://frax.com/earn
+    frax_staking_like = "frax_staking_like"
+
     #: Hyperdrive (HyperEVM)
     #:
     #: Stablecoin money market and yield hub on Hyperliquid (HyperEVM).
@@ -1173,7 +1180,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.yo_like in features:
         return "Yo"
 
-    elif ERC4626Feature.frax_like in features:
+    elif ERC4626Feature.frax_like in features or ERC4626Feature.frax_staking_like in features:
         return "Frax"
 
     elif ERC4626Feature.hyperdrive_hl_like in features:

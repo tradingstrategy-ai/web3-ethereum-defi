@@ -1,7 +1,7 @@
 name: Frax
 slug: frax-finance
 short_description: |
-  Decentralised stablecoin and lending protocol with Fraxlend lending pairs.
+  Decentralised stablecoin protocol with lending markets and stablecoin savings vaults.
 long_description: |
   Frax Finance is a decentralised finance protocol that originated as the first fractional-algorithmic
   stablecoin. The protocol has evolved into a comprehensive DeFi ecosystem encompassing stablecoins
@@ -9,19 +9,25 @@ long_description: |
   an automated market maker (Fraxswap), and its own Layer 2 chain (Fraxtal).
 
   Fraxlend is the lending component of Frax Finance, providing isolated lending pairs where lenders
-  deposit assets and earn variable interest from borrowers. Each Fraxlend pair is an ERC-4626 compatible
-  vault with its own collateral type, interest rate model, and risk parameters. The protocol uses
-  Algorithmic Market Operations (AMOs) to perform autonomous market operations and maintain stablecoin pegs.
+  deposit assets and earn variable interest from borrowers. Each pair has its own collateral type,
+  interest rate model, and risk parameters. Frax also offers sFRAX and sfrxUSD savings products, where
+  deposited stablecoins earn yield distributed by the protocol and remain redeemable without a time lock.
+  The protocol uses Algorithmic Market Operations (AMOs) to perform autonomous market operations and
+  maintain stablecoin pegs.
 
   With Frax v3, the protocol moved to 100% collateralisation, removing dependence on USDC.
   Governance is handled through Frax Shares (FXS) and a vetokenomics model (veFXS).
 fee_description: |
-  Fraxlend takes 10% of interest revenue as a protocol fee (via the `feeToProtocolRate` parameter).
+  Fraxlend takes 10% of interest revenue as a protocol fee.
   This fee is internalised in the share price and not charged to lenders directly on deposit or withdrawal.
   Lenders receive the net yield after the protocol fee is deducted from borrower interest.
+
+  The reviewed sFRAX and sfrxUSD staking vaults do not charge explicit management, performance, deposit
+  or withdrawal fees. Their yield is distributed through an increasing redemption value. The underlying
+  protocol strategies may themselves earn returns net of their own operating costs.
 links:
   homepage: https://frax.com/
-  app: https://app.frax.finance/fraxlend/available-pairs
+  app: https://frax.com/earn
   twitter: https://x.com/fraxfinance
   github: https://github.com/FraxFinance/fraxlend
   documentation: https://docs.frax.finance/
@@ -32,3 +38,5 @@ links:
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/frax/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0xee847a804b67f4887c9e8fe559a2da4278defb52
+  - https://etherscan.io/address/0xa663b02cf0a4b149d2ad41910cb81e23e1c41c32
+  - https://etherscan.io/address/0xcf62f905562626cfcdd2261162a51fd02fc9c5b6

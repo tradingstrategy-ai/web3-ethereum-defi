@@ -1,23 +1,26 @@
-"""Test the historical Fraxlend metadata migration."""
+"""Test the historical Frax metadata migration."""
 
 import datetime
 import importlib.util
 from pathlib import Path
+from types import ModuleType
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
 
+EXPECTED_REPAIRED_FAMILY_ROWS = 2
 
-def load_fraxlend_repair_module():
-    """Load the Fraxlend repair script as an importable module.
+
+def load_frax_repair_module() -> ModuleType:
+    """Load the Frax repair script as an importable module.
 
     :return: Loaded repair script module.
     """
 
     repo_root = Path(__file__).resolve().parents[3]
-    script_path = repo_root / "scripts" / "erc-4626" / "repair-fraxlend-features.py"
-    spec = importlib.util.spec_from_file_location("repair_fraxlend_features", script_path)
+    script_path = repo_root / "scripts" / "erc-4626" / "repair-frax-features.py"
+    spec = importlib.util.spec_from_file_location("repair_frax_features", script_path)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -45,11 +48,12 @@ def create_detection(spec: VaultSpec) -> ERC4262VaultDetection:
     )
 
 
-def test_repair_fraxlend_features_updates_only_known_pairs(tmp_path: Path) -> None:
-    """Repair known Fraxlend pairs without changing unrelated metadata rows."""
+def test_repair_frax_features_routes_each_family(tmp_path: Path) -> None:
+    """Repair known Fraxlend and staking rows without changing unrelated data."""
 
-    repair = load_fraxlend_repair_module()
+    repair = load_frax_repair_module()
     fraxlend_spec = VaultSpec(1, "0x0601b72bef2b3f09e9f48b7d60a8d7d2d3800c6e")
+    staking_spec = VaultSpec(1, "0xa663b02cf0a4b149d2ad41910cb81e23e1c41c32")
     unrelated_spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
     vault_db = VaultDatabase(
         rows={
@@ -58,6 +62,12 @@ def test_repair_fraxlend_features_updates_only_known_pairs(tmp_path: Path) -> No
                 "Protocol": "ERC-4626",
                 "features": set(),
                 "_detection_data": create_detection(fraxlend_spec),
+            },
+            staking_spec: {
+                "Name": "Staked FRAX",
+                "Protocol": "ERC-4626",
+                "features": set(),
+                "_detection_data": create_detection(staking_spec),
             },
             unrelated_spec: {
                 "Name": "Unrelated vault",
@@ -70,15 +80,20 @@ def test_repair_fraxlend_features_updates_only_known_pairs(tmp_path: Path) -> No
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
     vault_db.write(vault_db_path)
 
-    result = repair.repair_fraxlend_features(vault_db_path, dry_run=False)
+    result = repair.repair_frax_features(vault_db_path, dry_run=False)
 
-    assert result.matched_rows == 1
-    assert result.repaired_rows == 1
+    assert result.matched_rows == EXPECTED_REPAIRED_FAMILY_ROWS
+    assert result.repaired_rows == EXPECTED_REPAIRED_FAMILY_ROWS
     repaired_db = VaultDatabase.read(vault_db_path)
     repaired_row = repaired_db.rows[fraxlend_spec]
     assert repaired_row["Protocol"] == "Frax"
     assert ERC4626Feature.frax_like in repaired_row["features"]
     assert ERC4626Feature.frax_like in repaired_row["_detection_data"].features
+
+    staking_row = repaired_db.rows[staking_spec]
+    assert staking_row["Protocol"] == "Frax"
+    assert staking_row["features"] == {ERC4626Feature.frax_staking_like}
+    assert staking_row["_detection_data"].features == {ERC4626Feature.frax_staking_like}
 
     unrelated_row = repaired_db.rows[unrelated_spec]
     assert unrelated_row["Protocol"] == "ERC-4626"

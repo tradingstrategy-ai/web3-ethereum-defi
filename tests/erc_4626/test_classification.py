@@ -3,14 +3,21 @@
 Tests for create_probe_calls() chain filtering functionality.
 """
 
+from types import SimpleNamespace
+
+import eth_abi
+
 from eth_defi.erc_4626.classification import (
     CHAIN_RESTRICTED_PROBES,
     ROYCO_CHAIN_IDS,
     _get_hardcoded_protocol_features,  # noqa: PLC2701
+    _ProbeResultsDict,  # noqa: PLC2701
     _should_yield_probe,  # noqa: PLC2701
     create_probe_calls,
+    identify_vault_features,
 )
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULTS_BY_CHAIN
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
 
 # Chain IDs for reference
@@ -29,6 +36,45 @@ def test_vault_street_hardcoded_protocol_is_ethereum_only() -> None:
 
     assert _get_hardcoded_protocol_features(PRIME_USD_ADDRESS, chain_id=ETHEREUM_MAINNET) == {ERC4626Feature.vault_street_like}
     assert _get_hardcoded_protocol_features(PRIME_USD_ADDRESS, chain_id=ARBITRUM) is None
+
+
+def test_frax_staking_vaults_are_hardcoded_on_ethereum() -> None:
+    """Route reviewed Frax staking vaults only on their deployment chain."""
+
+    for address in FRAX_STAKING_VAULTS_BY_CHAIN[ETHEREUM_MAINNET]:
+        assert _get_hardcoded_protocol_features(address, chain_id=ETHEREUM_MAINNET) == {ERC4626Feature.frax_staking_like}
+        assert _get_hardcoded_protocol_features(address, chain_id=ARBITRUM) is None
+
+
+def test_fraxlend_probe_requires_event_derived_deployer() -> None:
+    """Accept the single Fraxlend probe only for a reviewed Frax deployer."""
+
+    address = "0x0000000000000000000000000000000000000001"
+    core_probe = SimpleNamespace(success=True, result=eth_abi.encode(["uint256"], [1]))
+
+    reviewed_calls = _ProbeResultsDict(
+        {
+            "convertToShares": core_probe,
+            "DEPLOYER_ADDRESS": SimpleNamespace(
+                success=True,
+                result=eth_abi.encode(["address"], ["0x7ab788d0483551428f2291232477f1818952998c"]),
+            ),
+        }
+    )
+    reviewed_features = identify_vault_features(address, reviewed_calls, debug_text=None, chain_id=ETHEREUM_MAINNET)
+    assert ERC4626Feature.frax_like in reviewed_features
+
+    fork_calls = _ProbeResultsDict(
+        {
+            "convertToShares": core_probe,
+            "DEPLOYER_ADDRESS": SimpleNamespace(
+                success=True,
+                result=eth_abi.encode(["address"], ["0x0000000000000000000000000000000000000002"]),
+            ),
+        }
+    )
+    fork_features = identify_vault_features(address, fork_calls, debug_text=None, chain_id=ETHEREUM_MAINNET)
+    assert ERC4626Feature.frax_like not in fork_features
 
 
 def test_chain_probe_filtering():
@@ -59,9 +105,9 @@ def test_chain_probe_filtering():
     assert _should_yield_probe("name", ARBITRUM) is True
 
     # Fraxlend is currently deployed on Ethereum and Arbitrum.
-    assert _should_yield_probe("currentRateInfo", ETHEREUM_MAINNET) is True
-    assert _should_yield_probe("collateralContract", ARBITRUM) is True
-    assert _should_yield_probe("rateContract", BASE) is False
+    assert _should_yield_probe("DEPLOYER_ADDRESS", ETHEREUM_MAINNET) is True
+    assert _should_yield_probe("DEPLOYER_ADDRESS", ARBITRUM) is True
+    assert _should_yield_probe("DEPLOYER_ADDRESS", BASE) is False
 
     # IPOR restricted to Ethereum, Base, Arbitrum
     assert _should_yield_probe("getPerformanceFeeData", ETHEREUM_MAINNET) is True
@@ -100,9 +146,9 @@ def test_chain_probe_filtering():
     royco_tranche_probe_names = ["getRawNAV"]
     assert sum(1 for func_name in func_names_eth if func_name in royco_tranche_probe_names) == 1
     assert "getRawNAV" in func_names_eth
-    assert "currentRateInfo" in func_names_eth
-    assert "collateralContract" in func_names_eth
-    assert "rateContract" in func_names_eth
+    fraxlend_probe_names = ["DEPLOYER_ADDRESS"]
+    assert sum(1 for func_name in func_names_eth if func_name in fraxlend_probe_names) == 1
+    assert "DEPLOYER_ADDRESS" in func_names_eth
     assert _should_yield_probe("getRawNAV", ARBITRUM) is True
     assert _should_yield_probe("getRawNAV", AVALANCHE) is True
 

@@ -4,20 +4,29 @@ import os
 
 import flaky
 import pytest
+from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.frax.vault import FraxVault
+from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
+from eth_defi.erc_4626.vault_protocol.frax.vault import FraxlendPairVault, FraxStakingVault, FraxVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
+from eth_defi.vault.fee import VaultFeeMode
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 FRAXLEND_PROTOCOL_FEE = 0.10
 
 pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
+
+
+def test_frax_product_features_share_protocol_name() -> None:
+    """Map both concrete Frax product families to one protocol."""
+
+    assert get_vault_protocol_name({ERC4626Feature.frax_like}) == "Frax"
+    assert get_vault_protocol_name({ERC4626Feature.frax_staking_like}) == "Frax"
 
 
 @pytest.fixture(scope="module")
@@ -47,6 +56,7 @@ def test_frax(
         vault_address="0xeE847a804b67f4887c9e8fe559a2da4278defb52",
     )
 
+    assert isinstance(vault, FraxlendPairVault)
     assert isinstance(vault, FraxVault)
     assert vault.get_protocol_name() == "Frax"
     assert vault.features == {ERC4626Feature.frax_like}
@@ -78,6 +88,34 @@ def test_frax_fraxlend_pair_is_detected_without_hardcoded_address(
         vault_address="0x0601b72bef2b3f09e9f48b7d60a8d7d2d3800c6e",
     )
 
-    assert isinstance(vault, FraxVault)
+    assert isinstance(vault, FraxlendPairVault)
     assert vault.get_protocol_name() == "Frax"
     assert vault.features == {ERC4626Feature.frax_like}
+
+
+@pytest.mark.parametrize(
+    "vault_address",
+    (
+        "0x03cb4438d015b9646d666316b617a694410c216d",
+        "0xa663b02cf0a4b149d2ad41910cb81e23e1c41c32",
+        "0xcf62f905562626cfcdd2261162a51fd02fc9c5b6",
+    ),
+)
+@flaky.flaky
+def test_frax_staking_vaults_use_their_own_reader(
+    web3: Web3,
+    vault_address: HexAddress,
+) -> None:
+    """Route reviewed sFRAX and sfrxUSD deployments to the staking reader."""
+
+    vault = create_vault_instance_autodetect(web3, vault_address=vault_address)
+
+    assert isinstance(vault, FraxStakingVault)
+    assert isinstance(vault, FraxVault)
+    assert vault.get_protocol_name() == "Frax"
+    assert vault.features == {ERC4626Feature.frax_staking_like}
+    assert vault.get_management_fee("latest") == 0.0
+    assert vault.get_performance_fee("latest") == 0.0
+    assert vault.get_fee_mode() == VaultFeeMode.feeless
+    assert vault.get_estimated_lock_up().days == 0
+    assert vault.get_link() == "https://frax.com/earn"
