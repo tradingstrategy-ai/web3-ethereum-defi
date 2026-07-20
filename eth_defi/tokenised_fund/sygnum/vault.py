@@ -152,26 +152,26 @@ class SygnumVault(TokenisedFundVault):
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Reject unavailable NAV reads rather than returning a synthetic price.
 
-        :param block_identifier: Requested block identifier.
-        :raise RuntimeError: Always, until a public, verified NAV route exists.
+            :param block_identifier: Requested block identifier.
+        :raise NotImplementedError: Always, until a public, verified NAV route exists.
         """
-        raise RuntimeError(self.nav_unavailable_reason)
+        raise NotImplementedError(self.nav_unavailable_reason)
 
     def fetch_total_assets(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Reject TVL calculation without a verified NAV.
 
-        :param block_identifier: Requested block identifier.
-        :raise RuntimeError: Always, because NAV is unavailable.
+            :param block_identifier: Requested block identifier.
+        :raise NotImplementedError: Always, because NAV is unavailable.
         """
-        raise RuntimeError(self.nav_unavailable_reason)
+        raise NotImplementedError(self.nav_unavailable_reason)
 
     def fetch_nav(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Reject NAV calculation without a verified price source.
 
-        :param block_identifier: Requested block identifier.
-        :raise RuntimeError: Always, because NAV is unavailable.
+            :param block_identifier: Requested block identifier.
+        :raise NotImplementedError: Always, because NAV is unavailable.
         """
-        raise RuntimeError(self.nav_unavailable_reason)
+        raise NotImplementedError(self.nav_unavailable_reason)
 
     def fetch_info(self) -> SygnumVaultInfo:
         """Return conservative FILQ scan metadata.
