@@ -11,10 +11,14 @@ from collections.abc import Callable, Iterable
 
 from eth_defi.tokenised_fund.asseto.backfill import main as backfill_asseto
 from eth_defi.tokenised_fund.centrifuge.backfill import main as backfill_centrifuge
+from eth_defi.tokenised_fund.fdit.backfill import main as backfill_fdit
 from eth_defi.tokenised_fund.franklin.backfill import main as backfill_franklin
 from eth_defi.tokenised_fund.kinexys.backfill import main as backfill_kinexys
+from eth_defi.tokenised_fund.kaio.backfill import main as backfill_kaio
 from eth_defi.tokenised_fund.libeara.backfill import main as backfill_libeara
+from eth_defi.tokenised_fund.midas.backfill import main as backfill_midas
 from eth_defi.tokenised_fund.ondo.backfill import main as backfill_ondo
+from eth_defi.tokenised_fund.openeden.backfill import main as backfill_openeden
 from eth_defi.tokenised_fund.securitize.backfill import main as backfill_securitize
 from eth_defi.tokenised_fund.spiko.backfill import main as backfill_spiko
 from eth_defi.tokenised_fund.superstate.backfill import main as backfill_superstate
@@ -33,10 +37,14 @@ BackfillFunction = Callable[[], None]
 PROTOCOL_BACKFILLS: dict[str, BackfillFunction] = {
     "asseto": backfill_asseto,
     "centrifuge": backfill_centrifuge,
+    "fdit": backfill_fdit,
     "franklin": backfill_franklin,
     "kinexys": backfill_kinexys,
+    "kaio": backfill_kaio,
     "libeara": backfill_libeara,
+    "midas": backfill_midas,
     "ondo": backfill_ondo,
+    "openeden": backfill_openeden,
     "securitize": backfill_securitize,
     "spiko": backfill_spiko,
     "superstate": backfill_superstate,

@@ -126,6 +126,15 @@ class ERC4626Feature(enum.Enum):
     #: Sygnum permissioned FILQ share tokens.
     sygnum_like = "sygnum_like"
 
+    #: Fidelity Digital Interest Token permissioned fund shares.
+    fdit_like = "fdit_like"
+
+    #: KAIO permissioned CASHx fund shares.
+    kaio_like = "kaio_like"
+
+    #: OpenEden permissioned TBILL fund shares.
+    openeden_like = "openeden_like"
+
     #: Theo multi-asset iToken tokenised funds.
     theo_itoken_like = "theo_itoken_like"
 
@@ -929,6 +938,12 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Spiko"
     elif ERC4626Feature.sygnum_like in features:
         return "Sygnum"
+    elif ERC4626Feature.fdit_like in features:
+        return "Fidelity FDIT"
+    elif ERC4626Feature.kaio_like in features:
+        return "KAIO"
+    elif ERC4626Feature.openeden_like in features:
+        return "OpenEden"
     elif ERC4626Feature.theo_itoken_like in features:
         return "Theo"
     elif ERC4626Feature.wstgbp_like in features:

@@ -26,6 +26,7 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -341,6 +342,21 @@ class MidasVault(VaultBase):
         """Issuer or platform display name."""
 
         return "Midas"
+
+    def get_flags(self) -> set[VaultFlag]:
+        """Return the product-specific vault classification flags.
+
+        Midas serves both regulated tokenised funds and crypto strategy
+        products through the same contract family.  Only reviewed ``mTBILL``
+        product records receive the tokenised-fund listing flag.
+
+        :return: Generic flags, with ``tokenised_fund`` for mTBILL only.
+        """
+
+        flags = set(super().get_flags())
+        if self.product.is_tokenised_fund:
+            flags.add(VaultFlag.tokenised_fund)
+        return flags
 
     def fetch_share_token_address(self, block_identifier: BlockIdentifier = "latest") -> HexAddress:
         """Return the mToken address.

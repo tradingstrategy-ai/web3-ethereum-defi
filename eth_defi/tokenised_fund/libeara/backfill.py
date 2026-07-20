@@ -119,7 +119,7 @@ def backfill_cmtat() -> None:  # noqa: PLR0914
     :return: None.
     """
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
-    products = tuple(product for product in LIBEARA_PRODUCTS.values() if product.chain_id == ETHEREUM_CHAIN_ID)
+    products = tuple(product for product in LIBEARA_PRODUCTS.values() if product.chain_id == ETHEREUM_CHAIN_ID and not product.symbol == "ULTRA")
     dry_run = _bool("DRY_RUN", default=True)
     frequency = os.environ.get("FREQUENCY", "1d")
     if frequency not in {"1h", "1d"}:

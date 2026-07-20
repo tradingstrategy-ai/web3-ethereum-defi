@@ -1,0 +1,14 @@
+feeder-id: fidelity-investments
+name: Fidelity Investments
+role: curator
+website: https://www.fidelity.com/
+twitter: fidelity
+linkedin: fidelity-investments
+short_description: Fidelity Investments is a financial-services company and the investment manager of the Fidelity Treasury Digital Fund.
+long_description: |
+  Fidelity Investments provides investment management and financial services to individual and institutional clients. Its Fidelity Treasury Digital Fund includes an OnChain share class represented by FDIT, while DTCC supplies the tokenisation and compliance infrastructure rather than acting as the fund manager.
+other-links:
+  - title: Fidelity Treasury Digital Fund OnChain class prospectus
+    url: https://www.actionsxchangerepository.fidelity.com/ShowDocument/documentPDF.htm?applicationId=FIIS&clientId=Fidelity&collectionId=1079405&criticalIndicator=N&docFormat=pdf&docName=4.B-CTDLO-SUM.PDF&docType=SUMS&pdfReaderStatus=Y&securityId=09053&securityIdType=SASFN
+  - title: DTCC Digital Assets tokenisation service
+    url: https://www.dtcc.com/digital-assets/tokenization
