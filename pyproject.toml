@@ -158,6 +158,8 @@ gspread = {version = "^6.2.1", optional = true}
 python-slugify = "^8.0.4"
 requests-ratelimiter = "^0.7.0"
 strictyaml = "^1.7.3"
+# Render JSON-RPC usage reports from the core provider accounting module
+tabulate = "^0.10.0"
 
 [tool.poetry.group.dev.dependencies]
 flaky = "^3.7.0"

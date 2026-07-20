@@ -21,6 +21,7 @@ from eth_defi.provider.broken_provider import set_block_tip_latency
 from eth_defi.provider.fallback import ChainIdMismatch, FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import NamedProvider, get_provider_name
+from eth_defi.provider.rpcdb import RPCRequestStats, normalise_rpc_error
 from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
@@ -100,6 +101,15 @@ class MultiProviderWeb3(Web3):
         """
         return self.get_fallback_provider().get_total_api_call_counts()
 
+    def set_rpc_request_stats(self, stats: RPCRequestStats | None) -> None:
+        """Attach request accounting to the fallback call provider.
+
+        :param stats:
+            Phase or subprocess-task accumulator, or ``None`` to detach it.
+        """
+
+        self.get_fallback_provider().set_rpc_request_stats(stats)
+
 
 def _apply_anvil_launch_metadata(provider: HTTPProvider) -> None:
     """Attach Anvil launch metadata to a provider when available.
@@ -136,6 +146,7 @@ def create_multi_provider_web3(
     add_signing_middleware: LocalAccount | None = None,
     skip_verification: bool = False,
     expected_chain_id: int | None = None,
+    rpc_request_stats: RPCRequestStats | None = None,
 ) -> MultiProviderWeb3:
     """Create a Web3 instance with multi-provider support.
 
@@ -322,6 +333,7 @@ def create_multi_provider_web3(
         backoff=fallback_backoff,
         switchover_noisiness=switchover_noisiness,
         retries=retries,
+        rpc_request_stats=rpc_request_stats,
     )
 
     # Verify all call providers report the same chain ID before proceeding.
@@ -346,8 +358,14 @@ def create_multi_provider_web3(
 
         # Verify transact provider is on the same chain as call providers
         if fallback_provider.expected_chain_id is not None:
+            transact_domain = get_url_domain(str(transact_provider.endpoint_uri))
+            if rpc_request_stats is not None:
+                rpc_request_stats.record_call(transact_domain, "eth_chainId")
             try:
                 resp = transact_provider.make_request("eth_chainId", [])
+                if rpc_request_stats is not None and resp.get("error"):
+                    error_code, error_message = normalise_rpc_error(resp["error"])
+                    rpc_request_stats.record_error(transact_domain, error_code, error_message)
                 result = resp.get("result")
                 if result:
                     transact_chain_id = int(result, 16)
@@ -357,6 +375,9 @@ def create_multi_provider_web3(
             except ChainIdMismatch:
                 raise
             except Exception as e:
+                if rpc_request_stats is not None:
+                    error_code, error_message = normalise_rpc_error(e)
+                    rpc_request_stats.record_error(transact_domain, error_code, error_message)
                 transact_name = get_provider_name(transact_provider)
                 raise ChainIdMismatch(f"Could not call eth_chainId on {transact_name} provider. Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits. Hint is {e}") from e
 
@@ -413,7 +434,7 @@ class MultiProviderWeb3Factory:
     - Allows creating web3 connections from a config line in multiprocessing worker pools
     """
 
-    def __init__(self, rpc_url: str, retries=6, hint: str | None = "", skip_verification: bool = False, expected_chain_id: int | None = None):
+    def __init__(self, rpc_url: str, retries=6, hint: str | None = "", skip_verification: bool = False, expected_chain_id: int | None = None, rpc_request_stats: RPCRequestStats | None = None):
         self.rpc_url = rpc_url
         self.retries = retries
         self.hint = hint
@@ -430,8 +451,10 @@ class MultiProviderWeb3Factory:
         #: :py:attr:`skip_verification` is set, preserving the runtime
         #: switchover chain-id safety check.
         self.expected_chain_id = expected_chain_id
+        #: Optional accumulator shared by parent-process worker threads.
+        self.rpc_request_stats = rpc_request_stats
 
-    def __call__(self, context: Optional[Any] = None) -> Web3:
+    def __call__(self, context: Optional[Any] = None, rpc_request_stats: RPCRequestStats | None = None) -> Web3:
         """CAlled by the subprocess.
 
         :param context:
@@ -443,4 +466,5 @@ class MultiProviderWeb3Factory:
             hint=self.hint,
             skip_verification=self.skip_verification,
             expected_chain_id=self.expected_chain_id,
+            rpc_request_stats=rpc_request_stats if rpc_request_stats is not None else self.rpc_request_stats,
         )

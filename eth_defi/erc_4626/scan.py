@@ -446,15 +446,22 @@ def create_vault_scan_record_subprocess(
     if web3 is None:
         web3 = _subprocess_web3_cache.web3 = web3factory()
 
+    rpc_request_stats = getattr(web3factory, "rpc_request_stats", None)
+    set_rpc_request_stats = getattr(web3, "set_rpc_request_stats", None)
+    if callable(set_rpc_request_stats):
+        set_rpc_request_stats(rpc_request_stats)
+
     token_cache = getattr(_subprocess_web3_cache, "token_cache", None)
     if token_cache is None:
         token_cache = _subprocess_web3_cache.token_cache = TokenDiskCache()
 
-    record = create_vault_scan_record(
-        web3,
-        detection,
-        block_number,
-        token_cache=token_cache,
-    )
-
-    return record
+    try:
+        return create_vault_scan_record(
+            web3,
+            detection,
+            block_number,
+            token_cache=token_cache,
+        )
+    finally:
+        if callable(set_rpc_request_stats):
+            set_rpc_request_stats(None)

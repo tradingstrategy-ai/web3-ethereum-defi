@@ -50,7 +50,9 @@ from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.middleware import ProbablyNodeHasNoBlock, is_retryable_http_exception
 from eth_defi.provider.fallback import ChainIdMismatch, FallbackProvider
+from eth_defi.provider.multi_provider import MultiProviderWeb3Factory
 from eth_defi.provider.named import get_provider_name
+from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
@@ -852,6 +854,9 @@ class CombinedEncodedCallResult:
     timestamp: datetime.datetime
     results: list[EncodedCallResult]
 
+    #: Physical JSON-RPC calls made by this subprocess task.
+    rpc_request_stats: RPCRequestStats | None = None
+
 
 #: F**k EVM
 WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES = {
@@ -1026,6 +1031,7 @@ class MultiprocessMulticallReader:
         batch_size=40,
         backswitch_threshold=100,
         too_many_requets_sleep=61.0,
+        rpc_request_stats: RPCRequestStats | None = None,
     ):
         """Create subprocess worker instance.
 
@@ -1041,6 +1047,10 @@ class MultiprocessMulticallReader:
         if isinstance(web3factory, Web3):
             # Directly passed
             self.web3 = web3factory
+        elif isinstance(web3factory, MultiProviderWeb3Factory):
+            # Account for provider verification requests made while the
+            # process-local cached Web3 is first constructed.
+            self.web3 = web3factory(rpc_request_stats=rpc_request_stats)
         else:
             # Construct new RPC connection in every subprocess
             self.web3 = web3factory()
@@ -1484,6 +1494,7 @@ def read_multicall_historical(
     require_multicall_result=False,
     hypersync_client: "HypersyncClient | None" = None,
     timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
+    rpc_request_stats: RPCRequestStats | None = None,
 ) -> Iterable[CombinedEncodedCallResult]:
     """Read historical data using multiple threads in parallel for speedup.
 
@@ -1580,6 +1591,7 @@ def read_multicall_historical(
             display_progress=display_progress,
             hypersync_client=hypersync_client,
             cache_path=timestamp_cache_file,
+            rpc_request_stats=rpc_request_stats,
         )
 
         timestamp_end_block = timestamps.get_last_block()
@@ -1597,6 +1609,7 @@ def read_multicall_historical(
                 calls_pickle_friendly,
                 timestamp=timestamps[block_number] if timestamps is not None else None,
                 require_multicall_result=require_multicall_result,
+                collect_rpc_request_stats=rpc_request_stats is not None,
             )
             logger.debug(
                 "Created task for block %d with %d calls",
@@ -1609,6 +1622,8 @@ def read_multicall_historical(
 
     try:
         for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in _task_gen()):
+            if rpc_request_stats is not None and completed_task.rpc_request_stats is not None:
+                rpc_request_stats.merge(completed_task.rpc_request_stats)
             completed_task_count += 1
             if progress_bar:
                 progress_bar.update(1)
@@ -1644,6 +1659,7 @@ def read_multicall_historical_stateful(
     chunk_size=48,
     hypersync_client: "HypersyncClient | None" = None,
     timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
+    rpc_request_stats: RPCRequestStats | None = None,
 ) -> Iterable[CombinedEncodedCallResult]:
     """Read historical data using multicall with reading state and adaptive frequency filtering.
 
@@ -1711,6 +1727,7 @@ def read_multicall_historical_stateful(
         display_progress=display_progress,
         hypersync_client=hypersync_client,
         cache_path=timestamp_cache_file,
+        rpc_request_stats=rpc_request_stats,
     )
 
     chunk = []
@@ -1723,6 +1740,8 @@ def read_multicall_historical_stateful(
             return
 
         for combined_result in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in chunk):
+            if rpc_request_stats is not None and combined_result.rpc_request_stats is not None:
+                rpc_request_stats.merge(combined_result.rpc_request_stats)
             for r in combined_result.results:
                 # Retrofit states to the result objects
                 assert r.timestamp, f"Got bad result: {r}"
@@ -1784,6 +1803,7 @@ def read_multicall_historical_stateful(
             accepted_calls,
             timestamp=timestamp,
             require_multicall_result=require_multicall_result,
+            collect_rpc_request_stats=rpc_request_stats is not None,
         )
 
         chunk.append(task)
@@ -1837,6 +1857,7 @@ def read_multicall_chunked(
     progress_bar_desc: str | None = None,
     timestamped_results=True,
     backend="loky",
+    rpc_request_stats: RPCRequestStats | None = None,
 ) -> Iterable[EncodedCallResult]:
     """Read current data using multiple processes in parallel for speedup.
 
@@ -1935,6 +1956,10 @@ def read_multicall_chunked(
 
         Either "loky" or "threading".
 
+    :param rpc_request_stats:
+        Optional accumulator receiving physical JSON-RPC calls from either
+        worker backend.
+
     :return:
         Iterable of results.
 
@@ -1944,6 +1969,9 @@ def read_multicall_chunked(
     """
 
     assert type(chain_id) == int, f"Got: {chain_id}"
+
+    if rpc_request_stats is None:
+        rpc_request_stats = getattr(web3factory, "rpc_request_stats", None)
 
     if max_workers == 1:
         timeout = None  # No timeout for single process
@@ -1978,10 +2006,20 @@ def read_multicall_chunked(
             ts = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
         for i in range(0, len(calls), chunk_size):
             chunk = calls[i : i + chunk_size]
-            yield MulticallHistoricalTask(chain_id, web3factory, block_identifier, chunk, timestamp=ts)
+            yield MulticallHistoricalTask(
+                chain_id,
+                web3factory,
+                block_identifier,
+                chunk,
+                timestamp=ts,
+                collect_rpc_request_stats=backend == "loky" and rpc_request_stats is not None,
+                rpc_request_stats=rpc_request_stats if backend == "threading" else None,
+            )
 
     performed_calls = success_calls = failed_calls = 0
     for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in _task_gen()):
+        if backend == "loky" and rpc_request_stats is not None and completed_task.rpc_request_stats is not None:
+            rpc_request_stats.merge(completed_task.rpc_request_stats)
         if progress_bar:
             progress_bar.update(1)
 
@@ -2044,6 +2082,12 @@ class MulticallHistoricalTask:
     #: Running counter for task ids, for serialisation checks
     task_id: int = field(default_factory=_create_task_id)
 
+    #: Return a task-local counter to the parent when running under ``loky``.
+    collect_rpc_request_stats: bool = False
+
+    #: Shared parent counter when running under the threading backend.
+    rpc_request_stats: RPCRequestStats | None = None
+
     def __post_init__(self):
         assert callable(self.web3factory)
         assert type(self.block_number) in (int, str), f"Got: {self.block_number}"
@@ -2075,29 +2119,46 @@ def _execute_multicall_subprocess(
 
     assert task.chain_id
 
+    if task.collect_rpc_request_stats:
+        task_rpc_request_stats = RPCRequestStats()
+    else:
+        task_rpc_request_stats = task.rpc_request_stats if task.rpc_request_stats is not None else getattr(task.web3factory, "rpc_request_stats", None)
+
     reader = per_chain_readers.get(task.chain_id)
     if reader is None:
-        reader = per_chain_readers[task.chain_id] = MultiprocessMulticallReader(task.web3factory)
+        reader = per_chain_readers[task.chain_id] = MultiprocessMulticallReader(
+            task.web3factory,
+            rpc_request_stats=task_rpc_request_stats,
+        )
 
-    # Read block timestan for this batch
-    assert task.chain_id == reader.web3.eth.chain_id, f"chain_id mismatch. Wanted: {task.chain_id}, reader has: {reader.web3.eth.chain_id}"
+    set_rpc_request_stats = getattr(reader.web3, "set_rpc_request_stats", None)
+    if callable(set_rpc_request_stats):
+        set_rpc_request_stats(task_rpc_request_stats)
 
-    if task.timestamp is None:
-        timestamp = reader.get_block_timestamp(task.block_number)
-    else:
-        timestamp = task.timestamp
+    try:
+        # Read block timestamp for this batch
+        assert task.chain_id == reader.web3.eth.chain_id, f"chain_id mismatch. Wanted: {task.chain_id}, reader has: {reader.web3.eth.chain_id}"
 
-    # Perform multicall to read share prices
-    call_results = reader.process_calls(
-        task.block_number,
-        task.calls,
-        require_multicall_result=task.require_multicall_result,
-        timestamp=timestamp,
-    )
+        if task.timestamp is None:
+            timestamp = reader.get_block_timestamp(task.block_number)
+        else:
+            timestamp = task.timestamp
 
-    # Pass results back to the main process
-    return CombinedEncodedCallResult(
-        block_number=task.block_number,
-        timestamp=timestamp,
-        results=[c for c in call_results],
-    )
+        # Perform multicall to read share prices
+        call_results = reader.process_calls(
+            task.block_number,
+            task.calls,
+            require_multicall_result=task.require_multicall_result,
+            timestamp=timestamp,
+        )
+
+        # Pass results back to the main process
+        return CombinedEncodedCallResult(
+            block_number=task.block_number,
+            timestamp=timestamp,
+            results=[c for c in call_results],
+            rpc_request_stats=task_rpc_request_stats if task.collect_rpc_request_stats else None,
+        )
+    finally:
+        if callable(set_rpc_request_stats):
+            set_rpc_request_stats(None)

@@ -13,6 +13,7 @@ from typing import Literal
 import pandas as pd
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
+from web3 import Web3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.discovery_base import LeadScanReport
@@ -22,6 +23,7 @@ from eth_defi.hypersync.hypersync_timestamp import get_hypersync_block_height
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
+from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.vault.vaultdb import VaultDatabase
 
 logger = logging.getLogger(__name__)
@@ -105,6 +107,8 @@ def scan_leads(
     hypersync_api_key: str | None = None,
     hypersync_concurrency: int | None = None,
     max_display_entries: int | None = None,
+    rpc_request_stats: RPCRequestStats | None = None,
+    web3: Web3 | None = None,
 ) -> LeadScanReport:
     """Core loop to discover new vaults on a chain.
 
@@ -118,13 +122,18 @@ def scan_leads(
     :param max_display_entries:
         Maximum number of vaults included in the diagnostic results table.
         ``None`` displays all matching vaults.
+    :param rpc_request_stats:
+        Optional phase accumulator for physical JSON-RPC request accounting.
+    :param web3:
+        Optional phase-owned Web3 connection. Supplying it lets an outer
+        scanner establish the chain id before entering exception-handled work.
     """
 
     from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
 
     assert isinstance(vault_db_file, Path)
 
-    web3 = create_multi_provider_web3(json_rpc_urls)
+    web3 = web3 or create_multi_provider_web3(json_rpc_urls, rpc_request_stats=rpc_request_stats)
     chain_id = web3.eth.chain_id
 
     # The parent process verified provider chain IDs above. Subprocess workers
@@ -132,7 +141,7 @@ def scan_leads(
     # storm the primary provider with eth_chainId probes and trip HTTP 429. Seed
     # the verified chain ID so worker-side provider switchover still rejects an
     # endpoint that mis-routes to the wrong chain.
-    web3factory = MultiProviderWeb3Factory(json_rpc_urls, retries=5, skip_verification=True, expected_chain_id=chain_id)
+    web3factory = MultiProviderWeb3Factory(json_rpc_urls, retries=5, skip_verification=True, expected_chain_id=chain_id, rpc_request_stats=rpc_request_stats)
 
     name = get_chain_name(chain_id)
     rpcs = get_provider_name(web3.provider)
@@ -203,7 +212,7 @@ def scan_leads(
 
     if len(rows) == 0:
         printer(f"No vaults found on chain {chain}, not generating any database updates")
-        return LeadScanReport()
+        return report
 
     df = pd.DataFrame(rows)
     # Parquet cannot export the raw Python objects,
