@@ -67,8 +67,7 @@ The Bulla Factoring repository includes its audit scope and audit reports:
 The vault was already detected and stored in the local vault database. It was
 first seen on 2026-04-24 and had 43 deposits and 3 redemptions in the reviewed
 record, but it was originally labelled only as **`ERC-4626`**. Bulla Network is
-now a recognised protocol integration with metadata, documentation and a
-targeted historical reclassification helper.
+now a recognised protocol integration with metadata and documentation.
 
 Detection intentionally uses one Bulla-specific ABI probe only:
 ``bullaDao()``. This no-argument public getter is present on Bulla Factoring
