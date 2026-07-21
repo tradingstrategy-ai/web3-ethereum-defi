@@ -133,7 +133,7 @@ class TheoITokenVault(TokenisedFundVault):
         :return: Compact product summary.
         """
 
-        return "KYC-restricted multi-asset tokenised U.S. Treasury-bill basket"
+        return "Diversified basket of institutional U.S. Treasury-bill strategies"
 
     @property
     def manager_name(self) -> str:

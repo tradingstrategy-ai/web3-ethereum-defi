@@ -171,7 +171,7 @@ class SpikoVault(TokenisedFundVault):
 
         :return: USTBL eligibility-aware product summary.
         """
-        return "Permissioned tokenised U.S. Treasury-bill money market fund"
+        return "U.S. Treasury-bill money-market strategy"
 
     @property
     def manager_name(self) -> str:
@@ -375,4 +375,4 @@ class SpikoVault(TokenisedFundVault):
         :return: Official Spiko product page.
         """
         _ = referral
-        return "https://www.spiko.io/use-cases/web3"
+        return "https://www.spiko.io/spiko-treasury-bills-dollar"

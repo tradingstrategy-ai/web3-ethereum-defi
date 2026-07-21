@@ -131,7 +131,7 @@ class USYCVault(TokenisedFundVault):
     @property
     def short_description(self) -> str:
         """Return a concise USYC product description."""
-        return "Permissioned tokenised U.S. Treasury money market fund"
+        return "Short-term U.S. government securities and reverse-repurchase strategy"
 
     @property
     def manager_name(self) -> str:

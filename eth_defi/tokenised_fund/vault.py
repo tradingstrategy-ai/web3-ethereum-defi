@@ -25,3 +25,26 @@ class TokenisedFundVault(VaultBase):
         """
 
         return super().get_flags() | {VaultFlag.tokenised_fund}
+
+    def get_link(self, referral: str | None = None) -> str:
+        """Return the issuer's most useful public fund link.
+
+        Tokenised-fund adapters must provide a product landing page where one
+        exists, then fall back to an official announcement, curator page or
+        protocol page.  A block-explorer address is technical contract
+        metadata, not an investor-facing product link, and is never a valid
+        fallback for these products.
+
+        :param referral:
+            Optional referral code. Tokenised-fund products currently do not
+            use it.
+        :return:
+            An official issuer, curator or protocol URL.
+        :raise NotImplementedError:
+            Always. Concrete adapters must select the appropriate official
+            link rather than inheriting :class:`VaultBase`'s explorer URL.
+        """
+
+        _ = self, referral
+        message = "Tokenised fund adapters must define an official product, announcement, curator or protocol link"
+        raise NotImplementedError(message)

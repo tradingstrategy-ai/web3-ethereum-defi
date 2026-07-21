@@ -44,7 +44,10 @@ class SecuritizeProduct:
 
 
 BUIDL_FUND_PAGE_URL = "https://www.blackrock.com/us/individual/products/buidl/"
-BUIDL_I_FUND_PAGE_URL = "https://www.blackrock.com/corporate/compliance/scams-and-fraud/resources"
+#: I Class belongs to the BUIDL product family. BlackRock does not publish a
+#: separate public I Class landing page, so use the family product page rather
+#: than a non-product compliance page.
+BUIDL_I_FUND_PAGE_URL = BUIDL_FUND_PAGE_URL
 ACRED_FUND_PAGE_URL = "https://securitize.io/primary-market/apollo-diversified-credit-securitize-fund"
 VBILL_FUND_PAGE_URL = "https://securitize.io/primary-market/vaneck-vbill"
 STAC_FUND_PAGE_URL = "https://www.securitize-stac.com/"
@@ -78,7 +81,7 @@ def _create_buidl_product(chain_id: int, token: str, chain_name: str) -> Securit
         chain_id=chain_id,
         token=HexAddress(token.lower()),
         product_name="BlackRock USD Institutional Digital Liquidity Fund",
-        short_description="Tokenised U.S. dollar liquidity fund",
+        short_description="U.S.-dollar liquidity strategy investing in cash, Treasury bills and repurchase agreements",
         description="Tokenised fund investing in cash, U.S. Treasury bills and repurchase agreements.",
         manager_name="BlackRock",
         curator_slug="blackrock",
@@ -90,7 +93,6 @@ def _create_buidl_product(chain_id: int, token: str, chain_name: str) -> Securit
 - **Token structure:** BUIDL is a permissioned Securitize token. Investors must complete issuer eligibility and compliance checks before subscribing, redeeming or transferring shares.
 - **Stable dollar share value:** BUIDL targets a USD 1 share value. Fund income accrues daily and is distributed monthly as newly issued BUIDL shares to eligible holders, rather than increasing the unit price. The token is therefore modelled at an estimated USD 1 per share and the on-chain share price does not represent total return.
 - **Fund page:** [BlackRock BUIDL]({BUIDL_FUND_PAGE_URL}).
-- **Official address list:** [BlackRock BUIDL addresses]({BUIDL_I_FUND_PAGE_URL}).
 """,
         estimated_nav_per_share=Decimal("1"),
         nav_source="estimated_buidl_usd_1",
@@ -122,7 +124,7 @@ BUIDL_I_ETHEREUM = SecuritizeProduct(
     chain_id=1,
     token=HexAddress("0x6a9da2d710bb9b700acde7cb81f10f1ff8c89041"),
     product_name="BlackRock USD Institutional Digital Liquidity Fund - I Class",
-    short_description="Tokenised U.S. dollar liquidity fund share class",
+    short_description="U.S.-dollar liquidity strategy investing in cash, Treasury bills and repurchase agreements",
     description="I Class tokenised shares in BlackRock's U.S. dollar liquidity fund.",
     manager_name="BlackRock",
     curator_slug="blackrock",
@@ -133,7 +135,7 @@ BUIDL_I_ETHEREUM = SecuritizeProduct(
 - **Vault strategy:** I Class tokenised shares in the same BlackRock liquidity-fund product family as BUIDL, investing in cash, U.S. Treasury bills and repurchase agreements.
 - **Token structure:** BUIDL-I is a permissioned Securitize DSToken. Investors must complete issuer eligibility and compliance checks before subscribing, redeeming or transferring shares.
 - **Stable dollar share value:** BUIDL-I targets a USD 1 share value. Fund income accrues daily and is distributed monthly as newly issued shares, rather than increasing the unit price. The token is therefore modelled at an estimated USD 1 per share and the on-chain share price does not represent total return.
-- **Official address list:** [BlackRock BUIDL addresses]({BUIDL_I_FUND_PAGE_URL}).
+- **Fund page:** [BlackRock BUIDL]({BUIDL_I_FUND_PAGE_URL}).
 """,
     estimated_nav_per_share=Decimal("1"),
     nav_source="estimated_buidl_usd_1",
@@ -147,7 +149,7 @@ ACRED_ETHEREUM = SecuritizeProduct(
     chain_id=1,
     token=HexAddress("0x17418038ecf73ba4026c4f428547bf099706f27b"),
     product_name="Apollo Diversified Credit Securitize Fund",
-    short_description="Tokenised private-credit feeder fund",
+    short_description="Diversified global private-credit strategy",
     description="Tokenised feeder fund providing access to Apollo's diversified global credit strategy.",
     manager_name="Apollo",
     curator_slug="apollo",
@@ -172,7 +174,7 @@ VBILL_ETHEREUM = SecuritizeProduct(
     chain_id=1,
     token=HexAddress("0x2255718832bc9fd3be1caf75084f4803da14ff01"),
     product_name="VanEck Treasury Fund",
-    short_description="Tokenised short-term U.S. Treasury fund",
+    short_description="Short-term U.S. Treasury cash-management strategy",
     description="Tokenised fund designed to provide U.S. Treasury-backed cash management.",
     manager_name="VanEck",
     curator_slug="vaneck",
@@ -197,7 +199,7 @@ STAC_ETHEREUM = SecuritizeProduct(
     chain_id=1,
     token=HexAddress("0x51c2d74017390cbbd30550179a16a1c28f7210fc"),
     product_name="Securitize Tokenized AAA CLO Fund",
-    short_description="Tokenised AAA-rated CLO fund",
+    short_description="AAA-rated collateralised-loan-obligation strategy",
     description="Tokenised fund providing exposure to a portfolio of AAA-rated collateralised loan obligations.",
     manager_name="BNY Investments",
     curator_slug="bny-investments",
@@ -222,7 +224,7 @@ ARCOIN_ETHEREUM = SecuritizeProduct(
     chain_id=1,
     token=HexAddress("0x252739487c1fa66eaeae7ced41d6358ab2a6bca9"),
     product_name="Arca U.S. Treasury Fund",
-    short_description="Tokenised U.S. Treasury fund shares",
+    short_description="Short-term U.S. Treasury strategy",
     description="Tokenised shares in a fund investing primarily in short-term U.S. Treasury securities.",
     manager_name="Arca",
     curator_slug="arca",
@@ -247,7 +249,7 @@ SPICE_VC_ETHEREUM = SecuritizeProduct(
     chain_id=1,
     token=HexAddress("0x0324dd195d0cd53f9f07bee6a48ee7a20bad738f"),
     product_name="SPiCE Venture Capital Fund",
-    short_description="Tokenised venture-capital fund focused on tokenisation",
+    short_description="Venture-capital strategy investing in blockchain and tokenisation businesses",
     description="Tokenised interests in a venture-capital fund investing in blockchain and tokenisation businesses.",
     manager_name="SPiCE VC",
     curator_slug="spice-vc",
@@ -272,7 +274,7 @@ HLSCOPE_ETHEREUM = SecuritizeProduct(
     chain_id=1,
     token=HexAddress("0xda2ffa104356688e74d9340519b8c17f00d7752e"),
     product_name="Hamilton Lane SCOPE Securitize Tokenized Feeder Fund",
-    short_description="Tokenised feeder fund for senior private credit",
+    short_description="Senior secured private-credit strategy",
     description="Tokenised feeder-fund interests providing exposure to Hamilton Lane's senior private-credit strategy.",
     manager_name="Hamilton Lane",
     curator_slug="hamilton-lane",
@@ -297,7 +299,7 @@ BCAP_ETHEREUM = SecuritizeProduct(
     chain_id=1,
     token=HexAddress("0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9"),
     product_name="Blockchain Capital III Digital Liquid Venture Fund",
-    short_description="Tokenised venture-capital fund for blockchain companies",
+    short_description="Digital-liquid venture strategy for blockchain and cryptocurrency companies",
     description="Tokenised fund interests in Blockchain Capital's digital liquid venture fund.",
     manager_name="Blockchain Capital",
     curator_slug="blockchain-capital",
@@ -322,7 +324,7 @@ COSX_ETHEREUM = SecuritizeProduct(
     chain_id=1,
     token=HexAddress("0xc0c61c29ef8beabc694987c93e5fe4af647042e7"),
     product_name="COSIMO X",
-    short_description="Tokenised venture fund for digital-asset businesses",
+    short_description="Evergreen venture strategy for digital-asset businesses",
     description="Tokenised interests in COSIMO digital's evergreen venture fund for digital-asset businesses.",
     manager_name="COSIMO digital",
     curator_slug="cosimo-digital",
@@ -347,7 +349,7 @@ SCI2_ETHEREUM = SecuritizeProduct(
     chain_id=1,
     token=HexAddress("0x682ef9cc637ef56577092b29ae9275a629aae7db"),
     product_name="Science Blockchain",
-    short_description="Tokenised fund for early-stage blockchain companies",
+    short_description="Early-stage venture strategy for blockchain companies",
     description="Tokenised interests in Science Inc.'s investment vehicle for early-stage blockchain companies.",
     manager_name="Science Inc.",
     curator_slug="science-inc",
@@ -372,7 +374,7 @@ PRTS_ETHEREUM = SecuritizeProduct(
     chain_id=1,
     token=HexAddress("0x5e17f6f450dcb0bc69b232ea554e224d7e88067a"),
     product_name="Protos Cryptocurrency Fund",
-    short_description="Tokenised interests in an actively managed digital-asset fund",
+    short_description="Actively managed digital-asset strategy",
     description="Tokenised fund interests in Protos Asset Management's actively managed digital-asset fund.",
     manager_name="Protos Asset Management",
     curator_slug="protos-asset-management",
@@ -397,7 +399,7 @@ MI4_MANTLE = SecuritizeProduct(
     chain_id=5_000,
     token=HexAddress("0x671642ac281c760e34251d51bc9eef27026f3b7a"),
     product_name="Mantle Index Four",
-    short_description="Tokenised fund tracking a diversified basket of major digital assets",
+    short_description="Diversified major-digital-asset and staking strategy",
     description="Tokenised fund providing managed exposure to a diversified basket of major digital assets and staking strategies.",
     manager_name="Mantle Guard",
     curator_slug="mantle-guard",

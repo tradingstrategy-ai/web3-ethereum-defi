@@ -59,7 +59,7 @@ ONDO_USDY_ETHEREUM = OndoProduct(
     first_seen_at_block=17_672_244,
     first_seen_at=datetime.datetime(2023, 7, 11, 18, 46, 23, tzinfo=datetime.UTC).replace(tzinfo=None),
     homepage="https://docs.ondo.finance/general-access-products/usdy/basics",
-    short_description="Yield-bearing tokenised note backed by short-term U.S. Treasuries",
+    short_description="U.S.-dollar yield strategy backed by short-term Treasuries, Treasury ETFs and bank deposits",
     description="Ondo U.S. Dollar Yield is a permissioned, yield-bearing tokenised note backed by short-term U.S. Treasuries, Treasury fund investments and bank demand deposits. Its redemption price increases as yield accrues and is published through Ondo's on-chain oracle.",
     notes="""Ondo U.S. Dollar Yield (USDY).
 
@@ -86,7 +86,7 @@ ONDO_OUSG_ETHEREUM = OndoProduct(
     first_seen_at_block=16_234_210,
     first_seen_at=datetime.datetime(2022, 12, 21, 16, 16, 23, tzinfo=datetime.UTC).replace(tzinfo=None),
     homepage="https://docs.ondo.finance/qualified-access-products/ousg/overview",
-    short_description="Tokenised short-term U.S. government securities fund",
+    short_description="Short-term U.S. Treasury and government-agency securities strategy",
     description="The Ondo Short-Term U.S. Government Bond Fund is a permissioned tokenised fund providing exposure primarily to short-term U.S. Treasuries and government-sponsored-enterprise securities, alongside cash-management holdings. Ondo publishes its daily NAV through an on-chain price oracle.",
     notes="""Ondo Short-Term U.S. Government Bond Fund (OUSG).
 
