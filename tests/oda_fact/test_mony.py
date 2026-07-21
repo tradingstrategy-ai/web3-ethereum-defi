@@ -86,7 +86,7 @@ def test_mony_does_not_invent_a_nav_or_public_flow() -> None:
     vault = OdaFactVault(web3=None, spec=VaultSpec(1, ODA_FACT_MONY_ADDRESS))
 
     assert vault.description == "My OnChain Net Yield Fund"
-    assert vault.short_description == "Permissioned tokenised money-market fund distributed through Morgan Money"
+    assert vault.short_description == "U.S. Treasury and Treasury-backed repurchase-agreement money-market strategy"
     assert vault.fetch_share_price() is None
     assert vault.fetch_total_assets() is None
     assert vault.fetch_nav() is None
