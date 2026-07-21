@@ -14,12 +14,16 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.fee import VaultFeeMode
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
+JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
 pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
 HYPERITHM_VAULT = "0xba8704c18b55f60f5d84b53c3f39a0189a0965b3"
 HYPERITHM_FORK_BLOCK = 24_140_000
 HYPERITHM_PERFORMANCE_FEE = 0.2
+MOONWELL_WETH_BORROWER_VAULT = "0xfdb431e661372fa1146efb70bf120ecded944a78"
+MOONWELL_FORK_BLOCK = 48_900_000
+MOONWELL_PERFORMANCE_FEE = 0.1
 
 
 @pytest.fixture(scope="module")
@@ -72,3 +76,23 @@ def test_yearn_legacy_compounder_fee_data(web3: Web3) -> None:
     assert fee_data.performance == HYPERITHM_PERFORMANCE_FEE
     assert fee_data.deposit == 0.0
     assert fee_data.withdraw == 0.0
+
+
+@flaky.flaky
+@pytest.mark.skipif(JSON_RPC_BASE is None, reason="JSON_RPC_BASE needed to run this test")
+def test_yearn_modern_compounder_fee_data() -> None:
+    """Read Yearn modern compounder fees from Moonwell USDC Lender WETH Borrower.
+
+    The modern proxy exposes ``tokenizedStrategyAddress()`` and must therefore
+    be detected independently of the legacy ``apiVersion()`` path.
+    """
+    launch = fork_network_anvil(JSON_RPC_BASE, fork_block_number=MOONWELL_FORK_BLOCK)
+    try:
+        base_web3 = create_multi_provider_web3(launch.json_rpc_url)
+        vault = create_vault_instance_autodetect(base_web3, vault_address=MOONWELL_WETH_BORROWER_VAULT)
+
+        assert isinstance(vault, YearnCompounderVault)
+        assert vault.features == {ERC4626Feature.yearn_compounder_like}
+        assert vault.get_fee_data().performance == MOONWELL_PERFORMANCE_FEE
+    finally:
+        launch.close()

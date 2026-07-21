@@ -17,11 +17,17 @@ from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import TokenDetails
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
+from eth_defi.vault.fee import VaultFeeMode
 
 logger = logging.getLogger(__name__)
 
-#: Upshift fee values are stored as basis points, where 10_000 is 100%.
-UPSHIFT_FEE_DENOMINATOR = 10_000
+#: Upshift management, withdrawal and instant-redemption fees use basis points.
+UPSHIFT_BASIS_POINTS_DENOMINATOR = 10_000
+
+#: Upshift performance fees use parts per million. The verified implementation
+#: calculates ``totalAssetsIncrease * performanceFeeRate / 1e6``.
+#: https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code
+UPSHIFT_PERFORMANCE_FEE_DENOMINATOR = 1_000_000
 
 
 class UpshiftMultiAssetHistoricalReader(VaultHistoricalReader):
@@ -301,6 +307,22 @@ class UpshiftVault(ERC4626Vault):
         """Upshift has withdrawal and instant redemption fees."""
         return True
 
+    def get_fee_mode(self) -> VaultFeeMode | None:
+        """Return the fee-accounting model when the vault exposes it.
+
+        Multi-asset vaults accrue management and performance fees against vault
+        assets, making the share price net of those fees.  TokenizedAccount
+        vaults do not expose those configuration values, so their overall fee
+        mode remains unknown.
+
+        :return:
+            ``internalised_skimming`` for multi-asset vaults, otherwise
+            ``None``.
+        """
+        if self.multi_asset_like:
+            return VaultFeeMode.internalised_skimming
+        return None
+
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Get management fee.
 
@@ -318,12 +340,13 @@ class UpshiftVault(ERC4626Vault):
             return None
 
         raw_bps = self.upshift_contract.functions.managementFeePercent().call(block_identifier=block_identifier)
-        return raw_bps / UPSHIFT_FEE_DENOMINATOR
+        return raw_bps / UPSHIFT_BASIS_POINTS_DENOMINATOR
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Get performance fee.
 
-        Multi-asset vaults expose ``performanceFeeRate()`` in basis points.
+        Multi-asset vaults expose ``performanceFeeRate()`` in parts per
+        million.
         TokenizedAccount contracts do not expose an equivalent fee getter, so
         their performance fee remains unknown rather than being treated as zero.
 
@@ -336,8 +359,8 @@ class UpshiftVault(ERC4626Vault):
         if not self.multi_asset_like:
             return None
 
-        raw_bps = self.upshift_contract.functions.performanceFeeRate().call(block_identifier=block_identifier)
-        return raw_bps / UPSHIFT_FEE_DENOMINATOR
+        raw_ppm = self.upshift_contract.functions.performanceFeeRate().call(block_identifier=block_identifier)
+        return raw_ppm / UPSHIFT_PERFORMANCE_FEE_DENOMINATOR
 
     def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> float:
         """Read the standard queued-redemption fee.
@@ -353,7 +376,7 @@ class UpshiftVault(ERC4626Vault):
             Decimal withdrawal-fee fraction, e.g. ``0.002`` for 20 bps.
         """
         raw_bps = self.upshift_contract.functions.withdrawalFee().call(block_identifier=block_identifier)
-        return raw_bps / UPSHIFT_FEE_DENOMINATOR
+        return raw_bps / UPSHIFT_BASIS_POINTS_DENOMINATOR
 
     def fetch_instant_redemption_fee(self, block_identifier: BlockIdentifier) -> float:
         """Read the extra instant-redemption fee outside the shared fee schema.
@@ -369,7 +392,7 @@ class UpshiftVault(ERC4626Vault):
             Decimal instant-redemption fee fraction, e.g. ``0.002`` for 20 bps.
         """
         raw_bps = self.upshift_contract.functions.instantRedemptionFee().call(block_identifier=block_identifier)
-        return raw_bps / UPSHIFT_FEE_DENOMINATOR
+        return raw_bps / UPSHIFT_BASIS_POINTS_DENOMINATOR
 
     def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal | None:
         """Fetch vault NAV in denomination token units.
