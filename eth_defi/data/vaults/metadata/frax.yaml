@@ -1,0 +1,24 @@
+name: Frax
+slug: frax
+short_description: |
+  Decentralised stablecoin protocol with lending markets and stablecoin savings products.
+long_description: |
+  Frax provides stablecoin products, lending markets, liquid staking derivatives and related decentralised finance services. Its Fraxlend markets allow users to lend to isolated borrowing pairs, while its savings products distribute protocol yield through token redemption value.
+
+  The risks and terms differ by product, collateral type and market. Users should review the relevant application documentation before depositing.
+fee_description: |
+  Fraxlend markets set their own protocol share of borrower interest, which is internalised by minting shares to the protocol. Savings products can have different terms, and the underlying strategies may have their own operating costs.
+links:
+  homepage: https://frax.com/
+  app: https://frax.com/earn
+  twitter: https://x.com/fraxfinance
+  github: https://github.com/FraxFinance/fraxlend
+  documentation: https://docs.frax.finance/
+  fact_sheet:
+  defillama: https://defillama.com/protocol/frax-finance
+  audits: https://docs.frax.finance/other/audits
+  fees: https://docs.frax.finance/fraxlend/fraxlend-overview
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/frax
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/frax/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xee847a804b67f4887c9e8fe559a2da4278defb52
