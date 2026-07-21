@@ -63,6 +63,14 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # performance fees accrue as shares for the fee recipient.
     # https://github.com/t3tris-finance/mdoc-t3tris/blob/main/docs/en/02-liquidity-providers/05-understanding-fees.md
     "T3tris": VaultFeeMode.internalised_minting,
+    # Bulla Factoring's V2.1 reconciliation adds only LP net interest to its
+    # capital account; administrator fees and invoice-specific underwriting
+    # spreads accrue separately before ERC-4626 share value is calculated.
+    # The protocol fee is also reserved when the invoice is funded, not at LP
+    # deposit or redemption. Thus a holder receives a fees-net share value:
+    # internalised skimming. The native Bulla adapter exposes the individual
+    # components. Source: https://arbiscan.io/address/0xc099773267308D8e9E805f47EABf9ab13bBc9e37#code
+    "Bulla Network": VaultFeeMode.internalised_skimming,
     # Kinexys ODA-FACT JLTXX prospectus expenses are reflected in fund returns, not as
     # explicit on-chain deposit/withdrawal fees.
     "Kinexys": VaultFeeMode.internalised_skimming,

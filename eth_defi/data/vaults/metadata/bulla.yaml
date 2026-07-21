@@ -1,0 +1,36 @@
+name: Bulla Network
+slug: bulla
+short_description: |
+  Permissioned stablecoin liquidity pools for financing trade invoices and loans.
+long_description: |
+  [Bulla Network](https://www.bulla.network/) helps finance trade invoices and
+  loan offers. Its pools bring together stablecoin liquidity from participants
+  and businesses seeking financing against amounts they expect to receive.
+
+  Access to a pool may be restricted. Withdrawals can also be delayed if cash
+  is committed to outstanding financing or other participants are ahead in the
+  withdrawal queue. Returns depend on borrowers paying the financed invoices,
+  so participants remain exposed to credit, collection, liquidity and
+  underwriter-selection risk.
+
+  Bulla publishes [audit reports](https://github.com/bulla-network/factoring-contracts/tree/main/audits).
+  Audits are useful security evidence, but do not remove the risk that a
+  borrower does not pay or that a pool cannot meet a withdrawal promptly.
+fee_description: |
+  Fees can include a Bulla protocol charge, a pool administrator charge and an
+  underwriter spread. They vary by pool and financing arrangement, so there is
+  no single all-in fee that applies to every Bulla pool. Review the selected
+  pool's terms and current fees before participating.
+links:
+  homepage: https://www.bulla.network/
+  app: https://banker.bulla.network/#/yield
+  twitter: https://x.com/BullaNetwork
+  github: https://github.com/bulla-network/factoring-contracts
+  documentation: https://docs.bulla.network/
+  defillama: ""
+  audits: https://github.com/bulla-network/factoring-contracts/tree/main/audits
+  fees: https://github.com/bulla-network/factoring-contracts/blob/main/contracts/BullaFactoring.sol
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/bulla
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/bulla/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0xc099773267308D8e9E805f47EABf9ab13bBc9e37

@@ -922,6 +922,19 @@ def create_probe_calls(
                 extra_data=None,
             )
 
+        # Bulla Network Factoring V2
+        # https://arbiscan.io/address/0xc099773267308D8e9E805f47EABf9ab13bBc9e37#code
+        #
+        # The Bulla DAO fee-recipient getter is specific to Bulla Factoring
+        # vaults. This is intentionally the only Bulla-specific ABI probe.
+        yield EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="bullaDao()")[0:4],
+            function="bullaDao",
+            data=b"",
+            extra_data=None,
+        )
+
         # D2 Finance
         # https://arbiscan.io/address/0x75288264fdfea8ce68e6d852696ab1ce2f3e5004#code
         yield EncodedCall.from_keccak_signature(
@@ -1419,6 +1432,9 @@ def identify_vault_features(
     # https://arbiscan.io/address/0x0f49730bc6ba3a3024d32131c1da7168d226e737#code
     if calls["SAY_TRADER_ROLE"].success:
         features.add(ERC4626Feature.plutus_like)
+
+    if calls["bullaDao"].success:
+        features.add(ERC4626Feature.bulla_like)
 
     if calls["getCurrentEpochInfo"].success:
         features.add(ERC4626Feature.d2_like)
@@ -2002,6 +2018,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusVault
 
         return PlutusVault(web3, spec, **kwargs)
+
+    elif ERC4626Feature.bulla_like in features:
+        from eth_defi.erc_4626.vault_protocol.bulla.vault import BullaVault
+
+        return BullaVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.harvest_finance in features:
         from eth_defi.erc_4626.vault_protocol.harvest.vault import HarvestVault
