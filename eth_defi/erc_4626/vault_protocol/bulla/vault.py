@@ -24,7 +24,7 @@ from web3 import Web3
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultDepositManager
-from eth_defi.vault.fee import FeeData
+from eth_defi.vault.fee import FeeData, VaultFeeMode
 
 #: Public transaction flows need a pool-specific permission and redemption-queue adapter.
 BULLA_BLOCKED_FLOW_REASON = "Bulla Network deposit manager is blocked: permissioned deposits and queued redemptions are not implemented"
@@ -122,25 +122,55 @@ class BullaFeeData:
         return self.target_yield_bps / BULLA_BASIS_POINT_DENOMINATOR
 
     def as_generic_fee_data(self) -> FeeData:
-        """Map only safely comparable Bulla fields to :class:`FeeData`.
+        """Map Bulla fees to the shared schema as internalised skimming.
 
         ``adminFeeBps`` is time-prorated over invoice financing and is the only
-        pool-level rate that has the same shape as a generic management fee.
-        There is no Bulla performance fee, deposit fee, or withdrawal fee in
-        the reviewed V2.1 contract. The protocol fee is an invoice-funding
-        charge and the underwriter spread is invoice-specific, so neither can
-        be represented honestly by the shared four-field model.
+        pool-level rate with the same shape as a generic management fee. The
+        protocol fee and the underwriter's ``spreadBps`` are financing terms,
+        not LP entry, exit or vault performance fees. The spread is also set
+        separately for each approved invoice, so it has no truthful pool-wide
+        percentage to place in :class:`FeeData`.
 
-        ``fee_mode`` remains ``None``: the generic enum cannot express both
-        off-the-top protocol withholding and invoice-specific spread allocation.
+        Bulla accounts for these charges before calculating the value backing
+        LP shares. In the verified V2.1 implementation,
+        ``reconcileSingleInvoice()`` passes realised interest, admin fee and
+        underwriter spread to ``incrementProfitAndFeeBalances()``. That helper
+        records the admin fee and spread in ``adminFeeBalance`` but adds only
+        the LP's net interest to ``paidInvoicesGain``. ``calculateCapitalAccount()``
+        then derives the capital account from deposits, ``paidInvoicesGain``
+        and withdrawals; ERC-4626 ``previewRedeem()`` and ``previewWithdraw()``
+        use that capital account. Thus the fee amounts are already excluded
+        from the amount supporting shares, rather than deducted at redemption.
 
-        :return: Conservative generic fee record retaining the known admin rate.
+        The protocol fee follows the same investor-facing pattern: Bulla
+        reserves it when funding an invoice and tracks it in
+        ``protocolFeeBalance``. It is not an ERC-4626 deposit or withdrawal
+        charge. See the verified `BullaFactoringV2_1 source
+        <https://arbiscan.io/address/0xc099773267308D8e9E805f47EABf9ab13bBc9e37#code>`__
+        and `FeeCalculations.sol
+        <https://github.com/bulla-network/factoring-contracts/blob/main/contracts/libraries/FeeCalculations.sol>`__.
+
+        Therefore the generic record uses
+        :attr:`~eth_defi.vault.fee.VaultFeeMode.internalised_skimming`. The
+        known administrator rate remains in ``management``; the unsupported
+        performance, deposit and withdrawal fee fields are known to be zero.
+        Call :meth:`fetch_bulla_invoice_fee_data` when native protocol-fee or
+        invoice-spread detail is required.
+
+        :return: Generic fee record for Bulla's fees-net share value.
         """
 
         return FeeData(
-            fee_mode=None,
+            # Fees are excluded from invoice profit before the capital account
+            # (and therefore the share value) is calculated; see the source
+            # walkthrough in this method's docstring.
+            fee_mode=VaultFeeMode.internalised_skimming,
             management=self.admin_fee,
-            performance=None,
+            # Bulla does not expose a vault-wide performance-fee percentage.
+            # The invoice-specific underwriter spread remains Bulla-native.
+            performance=0.0,
+            # Invoice funding charges do not alter ERC-4626 deposit or
+            # redemption amounts, so both investor transaction fees are zero.
             deposit=0.0,
             withdraw=0.0,
         )
@@ -354,8 +384,15 @@ class BullaVault(ERC4626Vault):
     def get_fee_data(self) -> FeeData:
         """Map Bulla's pool configuration into the shared fee-data schema.
 
-        :return: Generic fee data with a known administrator management rate and
-            deliberately unknown unsupported fee components.
+        This is an internalised-skimming record: Bulla removes financing fees
+        before they contribute to the capital account backing the share price.
+        The administrator rate is retained as management; performance, deposit
+        and withdrawal rates are explicitly zero. See
+        :meth:`BullaFeeData.as_generic_fee_data` for the source-linked
+        accounting rationale and the Bulla-native fields that remain outside
+        the shared model.
+
+        :return: Generic fee data with a fees-net share price.
         """
 
         return self.fetch_bulla_fee_data().as_generic_fee_data()
@@ -372,17 +409,23 @@ class BullaVault(ERC4626Vault):
 
         return self.fetch_bulla_fee_data(block_identifier).admin_fee
 
-    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:  # noqa: PLR6301
-        """Return no performance-fee estimate for the selected vault state.
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float:  # noqa: PLR6301
+        """Return zero because Bulla has no vault-wide performance fee.
 
-        Bulla's per-invoice spreads and fee withholding do not map to a shared
-        vault-level performance-fee percentage.
+        An underwriter can set an invoice-specific ``spreadBps``, but this is
+        part of the invoice financing calculation, not a percentage of vault
+        investment profits. The V2.1 reconciliation logic puts that spread in
+        ``adminFeeBalance`` before it calculates the capital account used for
+        share redemptions. It is therefore represented by the
+        ``internalised_skimming`` mode rather than this generic field. See the
+        `verified BullaFactoringV2_1 source
+        <https://arbiscan.io/address/0xc099773267308D8e9E805f47EABf9ab13bBc9e37#code>`__.
 
-        :param block_identifier: Block at which the fee would be read.
-        :return: ``None`` because the fee cannot be represented safely.
+        :param block_identifier: Unused because this fee is structurally zero.
+        :return: Always ``0.0``.
         """
         del block_identifier
-        return None
+        return 0.0
 
     def get_deposit_fee(self, block_identifier: BlockIdentifier) -> float:  # noqa: PLR6301
         """Return zero because Bulla V2.1 does not charge an ERC-4626 entry fee.
@@ -413,9 +456,11 @@ class BullaVault(ERC4626Vault):
     def has_custom_fees(self) -> bool:  # noqa: PLR6301
         """Report that Bulla invoice-financing fees exceed the shared model.
 
-        The protocol supports distinct protocol, administrator and
-        underwriter-spread components, which may differ between financing
-        operations.
+        The generic zero performance/deposit/withdraw values do not mean Bulla
+        has no fees. The protocol supports distinct protocol, administrator
+        and underwriter-spread components, and the latter differs between
+        financing operations. Those charges are reflected in the fees-net
+        share value and can be inspected through the Bulla-native data classes.
 
         :return: Always ``True`` for Bulla Factoring vaults.
         """

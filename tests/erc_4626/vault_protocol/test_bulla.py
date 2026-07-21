@@ -13,7 +13,7 @@ from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault_protocol.bulla.vault import BullaFeeData, BullaVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.vault.fee import get_vault_fee_mode
+from eth_defi.vault.fee import VaultFeeMode, get_vault_fee_mode
 from eth_defi.vault.protocol_metadata import build_metadata_json
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 
@@ -83,13 +83,15 @@ def test_bulla_factoring_classification(web3: Web3) -> None:
     assert invoice_fees.protocol_fee_amount == Decimal("4.5")
 
     assert vault.get_management_fee(BULLA_FORK_BLOCK) == 0.0
-    assert vault.get_performance_fee(BULLA_FORK_BLOCK) is None
+    assert vault.get_performance_fee(BULLA_FORK_BLOCK) == 0.0
     assert vault.get_deposit_fee(BULLA_FORK_BLOCK) == 0.0
     assert vault.get_withdraw_fee(BULLA_FORK_BLOCK) == 0.0
-    assert vault.get_fee_data().management == 0.0
-    assert vault.get_fee_data().performance is None
-    assert vault.get_fee_data().deposit == 0.0
-    assert vault.get_fee_data().withdraw == 0.0
+    generic_fees = vault.get_fee_data()
+    assert generic_fees.fee_mode == VaultFeeMode.internalised_skimming
+    assert generic_fees.management == 0.0
+    assert generic_fees.performance == 0.0
+    assert generic_fees.deposit == 0.0
+    assert generic_fees.withdraw == 0.0
     assert vault.has_custom_fees() is True
     assert vault.get_estimated_lock_up() is None
     assert vault.get_deposit_manager_capability() is None
@@ -98,8 +100,8 @@ def test_bulla_factoring_classification(web3: Web3) -> None:
     assert vault.get_link() == "https://banker.bulla.network/#/yield"
 
 
-def test_bulla_fee_data_maps_only_the_comparable_administrator_rate() -> None:
-    """Keep invoice protocol and spread economics out of generic fee fields."""
+def test_bulla_fee_data_maps_to_internalised_skimming() -> None:
+    """Keep invoice fees native while exposing Bulla's fees-net share-value model."""
     bulla_fees = BullaFeeData(
         block_identifier=1,
         protocol_fee_bps=30,
@@ -110,11 +112,14 @@ def test_bulla_fee_data_maps_only_the_comparable_administrator_rate() -> None:
     )
 
     generic_fees = bulla_fees.as_generic_fee_data()
-    assert generic_fees.fee_mode is None
+    assert generic_fees.fee_mode == VaultFeeMode.internalised_skimming
     assert generic_fees.management == pytest.approx(0.0125)
-    assert generic_fees.performance is None
+    assert generic_fees.performance == 0.0
     assert generic_fees.deposit == 0.0
     assert generic_fees.withdraw == 0.0
+    # Internalised skimming leaves no fees to deduct at deposit or redemption.
+    assert generic_fees.get_net_fees().management == 0.0
+    assert generic_fees.get_net_fees().performance == 0.0
 
 
 def test_bulla_protocol_metadata_risk_and_fee_data() -> None:
@@ -128,4 +133,4 @@ def test_bulla_protocol_metadata_risk_and_fee_data() -> None:
     assert metadata["logos"]["dark"] == "https://example.invalid/vault-protocol-metadata/bulla/dark.png"
     assert get_vault_protocol_name({ERC4626Feature.bulla_like}) == "Bulla Network"
     assert get_vault_risk("Bulla Network") == VaultTechnicalRisk.low
-    assert get_vault_fee_mode("Bulla Network", BULLA_VAULT_ADDRESS) is None
+    assert get_vault_fee_mode("Bulla Network", BULLA_VAULT_ADDRESS) == VaultFeeMode.internalised_skimming
