@@ -839,6 +839,17 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Yearn TokenizedStrategy compounders (Solidity).
+        # Both legacy and modern strategy instances expose this version marker.
+        # https://etherscan.io/address/0xD377919FA87120584B21279a491F82D5265A139c#code
+        yield EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="apiVersion()")[0:4],
+            function="apiVersion",
+            data=b"",
+            extra_data=None,
+        )
+
         # Yearn V3 (Vyper)
         # https://polygonscan.com/address/0xa013fbd4b711f9ded6fb09c1c0d358e2fbc2eaa0#readContract
         yield EncodedCall.from_keccak_signature(
@@ -1404,7 +1415,7 @@ def identify_vault_features(
     if calls["getGrossTVL"].success:
         features.add(ERC4626Feature.t3tris_like)
 
-    if calls["GOV"].success:
+    if calls["GOV"].success or calls["apiVersion"].success:
         features.add(ERC4626Feature.yearn_compounder_like)
 
     if calls["get_default_queue"].success:
@@ -2070,6 +2081,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FrankencoinVault
 
         return FrankencoinVault(web3, spec, **kwargs)
+    elif ERC4626Feature.term_finance_like in features:
+        from eth_defi.erc_4626.vault_protocol.term_finance.vault import TermFinanceVault
+
+        return TermFinanceVault(web3, spec, **kwargs)
     elif ERC4626Feature.yearn_morpho_compounder_like in features:
         # Yearn V3 vault with Morpho Compounder strategy
         from eth_defi.erc_4626.vault_protocol.yearn.morpho_compounder import YearnMorphoCompounderStrategy
@@ -2080,6 +2095,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 
         return YearnV3Vault(web3, spec, **kwargs)
+    elif ERC4626Feature.yearn_compounder_like in features:
+        from eth_defi.erc_4626.vault_protocol.yearn.compounder import YearnCompounderVault
+
+        return YearnCompounderVault(web3, spec, **kwargs)
     elif ERC4626Feature.goat_like in features:
         # Both of these have fees internatilised
         from eth_defi.erc_4626.vault_protocol.goat.vault import GoatVault
@@ -2179,11 +2198,6 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.usdd.vault import USSDVault
 
         return USSDVault(web3, spec, **kwargs)
-
-    elif ERC4626Feature.term_finance_like in features:
-        from eth_defi.erc_4626.vault_protocol.term_finance.vault import TermFinanceVault
-
-        return TermFinanceVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.zerolend_like in features:
         from eth_defi.erc_4626.vault_protocol.zerolend.vault import ZeroLendVault
