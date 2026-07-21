@@ -1,0 +1,22 @@
+name: Arcadia Finance
+slug: arcadia-finance
+short_description: |
+  Non-custodial margin protocol for leveraged onchain liquidity strategies.
+long_description: |
+  Arcadia Finance is an application built on the Arcadia Protocol, which lets users manage collateral and debt through smart-contract accounts. It is designed for strategies involving automated market maker liquidity positions, including concentrated liquidity.
+
+  Depositors and traders remain responsible for the risks of leverage, changing asset prices and liquidation. Products and supported networks can change as the protocol evolves.
+fee_description: |
+  Fees may include a share of interest paid by borrowers, liquidation charges, and yield success fees on selected strategies. The applicable fee depends on the account and strategy, and is reflected in the protocol's user interface.
+links:
+  homepage: https://arcadia.finance/
+  app: https://app.arcadia.finance/
+  twitter: https://x.com/arcadiafinance
+  github: https://github.com/arcadia-finance
+  documentation: https://docs.arcadia.finance/
+  fact_sheet:
+  defillama: https://defillama.com/protocol/arcadia-finance
+  audits: https://docs.arcadia.finance/security-and-risk
+  fees: https://docs.arcadia.finance/protocol/fees
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/arcadia-finance
+  integration_documentation:
