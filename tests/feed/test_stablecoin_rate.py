@@ -22,6 +22,7 @@ AEGIS_YUSD_ADDRESS = "0x4274cD7277C7bb0806Bd5FE84b9aDAE466a8DA0a"
 AEGIS_YUSD_BINANCE_ADDRESS = "0xAB3dBcD9B096C3fF76275038bf58eAC10D22C61f"
 AEGIS_YUSD_AVALANCHE_ADDRESS = "0xca2671Dcd031a72359f456C212F62A9bDa737cD7"
 AEGIS_JUSD_ADDRESS = "0xc86168d2424d28942EE0866F043c1206bc9E4900"
+NOON_SUSN_ADDRESS = "0xE24a3DC889621612422A64E6388927901608B91D"
 
 
 @dataclass(slots=True)
@@ -745,6 +746,18 @@ def test_packaged_aegis_stablecoin_metadata_and_rate_targets() -> None:
     ]
     assert jusd_metadata["name"] == "Aegis jUSD"
     assert jusd_metadata["contract_addresses"] == [{"chain": "ethereum", "address": AEGIS_JUSD_ADDRESS}]
+
+
+def test_packaged_noon_susn_metadata_and_rate_target() -> None:
+    """sUSN is classified as Noon's yield-bearing USN staking token."""
+    target = next(target for target in iter_stablecoin_rate_targets() if target.contract_addresses == [(1, NOON_SUSN_ADDRESS.lower())])
+    metadata = build_stablecoin_metadata_json(STABLECOINS_DATA_DIR / "susn.yaml")[0]
+
+    assert is_stablecoin_like("sUSN") is True
+    assert target.symbol == "sUSN"
+    assert target.category == "yield_bearing"
+    assert metadata["name"] == "Noon Staked USN"
+    assert metadata["contract_addresses"] == [{"chain": "ethereum", "address": NOON_SUSN_ADDRESS}]
 
 
 def test_packaged_narausd_metadata_and_rate_target() -> None:

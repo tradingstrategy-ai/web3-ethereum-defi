@@ -146,6 +146,7 @@ def test_real_yaml_files_load_without_errors():
     assert alias_map["sfrax", "stablecoin"] == "frax"
     assert alias_map["aegis-yusd", "stablecoin"] == "aegis"
     assert alias_map["jusd", "stablecoin"] == "aegis"
+    assert alias_map["susn", "stablecoin"] == "noon"
 
     # Cross-role curator -> stablecoin
     assert alias_map["ethena", "curator"] == "usde"
