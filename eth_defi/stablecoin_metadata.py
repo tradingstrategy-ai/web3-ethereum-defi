@@ -381,6 +381,7 @@ STABLECOIN_LIKE = set(
         "ftUSD",
         "gmUSD",
         "iUSD",
+        "jUSD",
         "jEUR",
         "kUSD",
         "lvlUSD",

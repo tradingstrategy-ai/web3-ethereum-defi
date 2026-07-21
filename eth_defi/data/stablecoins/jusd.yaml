@@ -1,0 +1,47 @@
+symbol: jUSD
+name: Aegis jUSD
+short_description: Aegis jUSD is a dollar-pegged token backed by hedged JLP positions.
+long_description: |
+  [Aegis](https://aegis.im/yield-as-a-service) issues jUSD as a digital dollar.
+  Its backing uses JLP, the liquidity-provider token for Jupiter's perpetual futures
+  exchange, together with hedges intended to reduce the effect of market-price
+  movements. Aegis publishes information about the product's reserves and positions.
+
+  jUSD holders may receive rewards from the underlying strategy. The token is not a
+  claim on a bank deposit, and its ability to maintain a dollar value depends on
+  Aegis's collateral, hedging, and operational arrangements.
+category: stablecoin
+links:
+  homepage: https://aegis.im/
+  coingecko: ''
+  defillama: https://defillama.com/protocol/aegis
+  twitter: https://x.com/aegis_im
+slug: jusd
+contract_addresses:
+  - chain: ethereum
+    address: '0xc86168d2424d28942EE0866F043c1206bc9E4900'
+source_currency: usd
+source_currency_source: manual
+source_currency_usd_rate: 1.0
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
+coingecko_id: ''
+coingecko_link: ''
+coingecko_id_source: ''
+coingecko_id_verified_at: ''
+coingecko_id_verification_failed_at: ''
+coingecko_id_verification_failed_reason: ''
+usd_rate: ''
+usd_rate_fetched_at: ''
+usd_rate_updated_at: ''
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

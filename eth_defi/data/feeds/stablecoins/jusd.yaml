@@ -1,0 +1,5 @@
+# Aegis jUSD - news sources are provided by curators/aegis.yaml.
+feeder-id: jusd
+name: Aegis jUSD
+role: stablecoin
+canonical-feeder-id: aegis

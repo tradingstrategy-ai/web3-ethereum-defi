@@ -18,6 +18,10 @@ USDX_ADDRESS = "0x1111111111111111111111111111111111111111"
 USDU_ADDRESS = "0xdde3eC717f220Fc6A29D6a4Be73F91DA5b718e55"
 NARAUSD_ADDRESS = "0x5C6263904CCFD3Bcf1aAa6e7063dDd29743b3Bb7"
 PATHUSD_ADDRESS = "0x20C0000000000000000000000000000000000000"
+AEGIS_YUSD_ADDRESS = "0x4274cD7277C7bb0806Bd5FE84b9aDAE466a8DA0a"
+AEGIS_YUSD_BINANCE_ADDRESS = "0xAB3dBcD9B096C3fF76275038bf58eAC10D22C61f"
+AEGIS_YUSD_AVALANCHE_ADDRESS = "0xca2671Dcd031a72359f456C212F62A9bDa737cD7"
+AEGIS_JUSD_ADDRESS = "0xc86168d2424d28942EE0866F043c1206bc9E4900"
 
 
 @dataclass(slots=True)
@@ -704,6 +708,43 @@ def test_packaged_usdu_metadata_and_rate_target() -> None:
     assert target.coingecko_id is None
     assert metadata["name"] == "USDU Finance"
     assert metadata["contract_addresses"] == [{"chain": "ethereum", "address": USDU_ADDRESS}]
+
+
+def test_packaged_aegis_stablecoin_metadata_and_rate_targets() -> None:
+    """Aegis YUSD and jUSD retain their verified Ethereum deployments.
+
+    YUSD is shared by unrelated issuers, so only its contract address may identify
+    the Aegis denomination token. jUSD is a separate Aegis dollar token.
+    """
+    targets = list(iter_stablecoin_rate_targets())
+    yusd_target = next(
+        target
+        for target in targets
+        if target.contract_addresses
+        == [
+            (1, AEGIS_YUSD_ADDRESS.lower()),
+            (56, AEGIS_YUSD_BINANCE_ADDRESS.lower()),
+            (43114, AEGIS_YUSD_AVALANCHE_ADDRESS.lower()),
+        ]
+    )
+    jusd_target = next(target for target in targets if target.contract_addresses == [(1, AEGIS_JUSD_ADDRESS.lower())])
+    yusd_metadata = build_stablecoin_metadata_json(STABLECOINS_DATA_DIR / "yusd.yaml")
+    jusd_metadata = build_stablecoin_metadata_json(STABLECOINS_DATA_DIR / "jusd.yaml")[0]
+
+    assert is_stablecoin_like("YUSD") is True
+    assert is_stablecoin_like("jUSD") is True
+    assert yusd_target.symbol == "YUSD"
+    assert yusd_target.ambiguous_symbol is True
+    assert yusd_target.source_currency == "usd"
+    assert jusd_target.symbol == "jUSD"
+    assert jusd_target.source_currency == "usd"
+    assert next(metadata for metadata in yusd_metadata if metadata["name"] == "Aegis YUSD")["contract_addresses"] == [
+        {"chain": "ethereum", "address": AEGIS_YUSD_ADDRESS},
+        {"chain": "binance", "address": AEGIS_YUSD_BINANCE_ADDRESS},
+        {"chain": "avalanche", "address": AEGIS_YUSD_AVALANCHE_ADDRESS},
+    ]
+    assert jusd_metadata["name"] == "Aegis jUSD"
+    assert jusd_metadata["contract_addresses"] == [{"chain": "ethereum", "address": AEGIS_JUSD_ADDRESS}]
 
 
 def test_packaged_narausd_metadata_and_rate_target() -> None:
