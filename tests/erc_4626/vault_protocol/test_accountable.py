@@ -351,6 +351,7 @@ def test_accountable_metadata(
     assert len(vault.description) > 10
     assert vault.short_description is not None
     assert vault.accountable_metadata.get("company_name") is not None
+    assert vault.manager_name == vault.accountable_metadata["company_name"]
     assert vault.accountable_metadata.get("performance_fee") is not None
 
 

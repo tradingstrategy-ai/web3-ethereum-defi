@@ -614,6 +614,49 @@ def test_identify_piku_vaults_by_address() -> None:
         assert slug == "piku", f"{vault_name!r} resolved to {slug!r}"
 
 
+def test_identify_accountable_curators_by_public_company_metadata() -> None:
+    """Resolve every Accountable public-vault manager through ``company_name``.
+
+    Accountable's public ``/api/loan`` listing and per-loan details expose a
+    company name that is independent from the ERC-4626 share-token name.  The
+    API listed these vault families on 2026-07-21; repeated managers cover all
+    17 public vaults.
+    """
+
+    cases = [
+        ("RWA Backed Lending by Valos", "Valos", "valos"),
+        ("Hyperithm Delta Neutral Vault", "Hyperithm", "hyperithm"),
+        ("sUSN Delta Neutral Yield Vault", "Noon", "noon"),
+        ("Ouroboros 90D Fixed Term Vault", "Ouroboros Capital", "ouroboros-capital"),
+        ("aHYPER Looping Vault", "Hyperithm", "hyperithm"),
+        ("Hyperithm Delta Neutral cbBTC Vault", "Hyperithm", "hyperithm"),
+        ("Morini FXArbUSDTRY", "Morini Capital", "piku"),
+        ("Noon wcBTC Yield Vault", "Noon", "noon"),
+        ("OnRe Core Vault", "RockawayX", "rockawayx"),
+        ("Yuzu Money Vault", "Yuzu Money", "yuzu-money"),
+        ("SPICE Credit", "SPICE", "spice-protocol"),
+        ("Noon tBTC Yield Vault", "Noon", "noon"),
+        ("Tenbin tGLD", "JPEG Trading", "jpeg-trading"),
+        ("Keyrock cBTC", "Keyrock", "keyrock"),
+        ("Aegis Yield Vault", "Aegis", "aegis"),
+        ("Neutrl Ecosystem Vault", "Neutrl ", "neutrl"),
+        # The public API currently provides the placeholder company name
+        # ``Name Template``; the vault title remains the reliable source.
+        ("K3 Capital Credit", "Name Template", "k3-capital"),
+    ]
+
+    for vault_name, company_name, expected_slug in cases:
+        slug = identify_curator(
+            chain_id=143,
+            vault_token_symbol="",
+            vault_name=vault_name,
+            vault_address="0x0",
+            protocol_slug="accountable",
+            manager_name=company_name,
+        )
+        assert slug == expected_slug, f"{vault_name!r} resolved to {slug!r}"
+
+
 def test_identify_smokehouse_as_steakhouse_financial() -> None:
     """Smokehouse vault names resolve to Steakhouse Financial."""
 

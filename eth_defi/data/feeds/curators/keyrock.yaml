@@ -1,6 +1,7 @@
 feeder-id: keyrock
 name: Keyrock
 role: curator
+accountable-company: Keyrock
 website: https://keyrock.com
 short_description: 'Keyrock is a digital asset market maker and investment firm building financial services for tokenised markets.'
 long_description: |

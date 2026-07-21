@@ -1,0 +1,15 @@
+feeder-id: ouroboros-capital
+name: Ouroboros Capital
+role: curator
+accountable-company: Ouroboros Capital
+website: https://ourocap.io/
+short_description: Ouroboros Capital is a digital-asset investment firm offering tailored yield strategies, venture investing and advisory services.
+long_description: |
+  Ouroboros Capital offers investment, venture capital and advisory services for digital assets.
+  Its yield offering is designed for investment and cash-management needs and uses a range of market strategies to seek returns.
+  Accountable's public vault data identifies Ouroboros Capital as the manager of its 90-day fixed-term vault.
+other-links:
+  - title: Accountable YieldApp - Ouroboros Capital vault manager metadata
+    url: https://yield.accountable.capital/api/loan/604081476
+  - title: Ouroboros Capital
+    url: https://ourocap.io/

@@ -1,0 +1,5 @@
+# Aegis YUSD - news sources are provided by curators/aegis.yaml.
+feeder-id: aegis-yusd
+name: Aegis YUSD
+role: stablecoin
+canonical-feeder-id: aegis

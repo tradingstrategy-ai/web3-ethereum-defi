@@ -2,6 +2,7 @@ feeder-id: valos
 name: Valos
 role: curator
 euler-entity: valos
+accountable-company: Valos
 website: https://valos.io/
 curatorwatch: https://curatorwatch.com/curator/valos
 short_description: Valos is a digital asset manager providing institutional-grade yield and secured lending solutions.

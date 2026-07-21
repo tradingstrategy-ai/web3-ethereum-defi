@@ -1,0 +1,14 @@
+feeder-id: noon
+name: Noon
+role: curator
+accountable-company: Noon
+website: https://noon.capital/
+twitter: noon_capital
+short_description: Noon is a stablecoin protocol offering USN and its yield-bearing counterpart, sUSN.
+long_description: |
+  Noon offers USN, a stablecoin designed to track the US dollar, and sUSN, a token users can receive by staking USN. The protocol allocates collateral across a range of strategies and shares part of the resulting return with sUSN holders. Noon is listed as the manager for its USN and sUSN vaults on Accountable.
+other-links:
+  - title: Accountable YieldApp - Noon listed as manager of the sUSN Delta Neutral Yield Vault
+    url: https://yield.accountable.capital/api/loan/512021430
+  - title: Noon documentation - how USN and sUSN work
+    url: https://docs.noon.capital/noon-the-basics/how-it-works

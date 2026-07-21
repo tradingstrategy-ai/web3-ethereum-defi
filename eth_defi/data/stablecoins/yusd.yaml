@@ -2,6 +2,7 @@ symbol: YUSD
 category: stablecoin
 entries:
 - name: Yeti Finance YUSD
+  ambiguous_symbol: true
   short_description: YUSD was a decentralised stablecoin issued by Yeti Finance on Avalanche. It was overcollateralised by yield-bearing assets including LP tokens and staked AVAX. Yeti Finance wound down in early 2024.
   long_description: |
     YUSD was issued by [Yeti Finance](https://yeti.finance/) on Avalanche. Users could
@@ -39,6 +40,7 @@ entries:
     marked_dead_at: '2026-03-17'
     information_found_missing_at: ''
 - name: YieldFi yUSD
+  ambiguous_symbol: true
   short_description: yUSD is a yield-bearing stablecoin from YieldFi, a DeFi yield aggregator. It allocates USDC deposits across blue-chip DeFi protocols including Pendle, Aave, Morpho, and Ethena to generate optimised yield. yUSD is deployed on Ethereum, Arbitrum, and Base.
   long_description: |
     yUSD is issued by [YieldFi](https://yield.fi/), a multi-chain yield aggregator.
@@ -81,6 +83,55 @@ entries:
   checks:
     twitter_last_post_at: '2025-10-28'
     domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: ''
+- name: Aegis YUSD
+  ambiguous_symbol: true
+  short_description: Aegis YUSD is a dollar-pegged token backed by Bitcoin positions whose price exposure is hedged.
+  long_description: |
+    [Aegis](https://aegis.im/) issues YUSD as a digital dollar. It combines Bitcoin
+    held in the spot market with matching futures positions designed to reduce the
+    effect of Bitcoin price movements. Aegis describes this as a delta-neutral
+    strategy and publishes reserve and market-position information for the product.
+
+    YUSD holders may receive rewards from the underlying strategy. The token is not
+    a claim on a bank deposit, and its ability to maintain a dollar value depends on
+    Aegis's collateral, hedging, and operational arrangements.
+  links:
+    homepage: https://aegis.im/
+    coingecko: ''
+    defillama: https://defillama.com/protocol/aegis
+    twitter: https://x.com/aegis_im
+  contract_addresses:
+    - chain: ethereum
+      address: '0x4274cD7277C7bb0806Bd5FE84b9aDAE466a8DA0a'
+    - chain: binance
+      address: '0xAB3dBcD9B096C3fF76275038bf58eAC10D22C61f'
+    - chain: avalanche
+      address: '0xca2671Dcd031a72359f456C212F62A9bDa737cD7'
+  source_currency: usd
+  source_currency_source: manual
+  source_currency_usd_rate: 1.0
+  source_currency_usd_rate_date: ''
+  source_currency_usd_rate_fetched_at: ''
+  source_currency_usd_rate_source: ''
+  coingecko_id: ''
+  coingecko_link: ''
+  coingecko_id_source: ''
+  coingecko_id_verified_at: ''
+  coingecko_id_verification_failed_at: ''
+  coingecko_id_verification_failed_reason: ''
+  usd_rate: ''
+  usd_rate_fetched_at: ''
+  usd_rate_updated_at: ''
+  peg_rate: ''
+  peg_rate_currency: ''
+  rate_fetch_failed_at: ''
+  rate_fetch_failed_reason: ''
+  depegged_at: ''
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: ''
     marked_dead_at: ''
     information_found_missing_at: ''
 slug: yusd

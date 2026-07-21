@@ -1,0 +1,5 @@
+# sUSN - news sources are provided by curators/noon.yaml.
+feeder-id: susn
+name: Noon Staked USN
+role: stablecoin
+canonical-feeder-id: noon
