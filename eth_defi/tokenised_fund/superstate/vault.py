@@ -168,7 +168,7 @@ class SuperstateVault(TokenisedFundVault):
     def short_description(self) -> str | None:
         """Return a compact product description."""
 
-        return "Permissioned tokenised U.S. government-securities fund"
+        return "Short-duration U.S. Treasury-bill strategy targeting income and principal stability"
 
     @property
     def manager_name(self) -> str | None:

@@ -213,7 +213,7 @@ class SecuritizeVault(TokenisedFundVault):
             Short product description.
         """
 
-        return self.product.short_description if self.product else "Permissioned tokenised security"
+        return self.product.short_description if self.product else "Unclassified Securitize fund strategy"
 
     @property
     def manager_name(self) -> str | None:

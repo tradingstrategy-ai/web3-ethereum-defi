@@ -67,7 +67,7 @@ class OdaFactVaultInfo(VaultInfo, total=False):
 JLTXX_PRODUCT_NAME = "JPMorgan OnChain Liquidity-Token Money Market Fund"
 
 #: JLTXX fact sheet short product description.
-JLTXX_SHORT_DESCRIPTION = "Vaulted strategy investing in U.S. Treasury bills, bonds and overnight repurchase agreements"
+JLTXX_SHORT_DESCRIPTION = "U.S. Treasury bills, bonds and overnight repurchase-agreement strategy"
 
 #: JLTXX issuer/platform display name.
 JLTXX_MANAGER_NAME = "J.P. Morgan Kinexys"
@@ -76,7 +76,7 @@ JLTXX_MANAGER_NAME = "J.P. Morgan Kinexys"
 MONY_PRODUCT_NAME = "My OnChain Net Yield Fund"
 
 #: MONY public product description.
-MONY_SHORT_DESCRIPTION = "Permissioned tokenised money-market fund distributed through Morgan Money"
+MONY_SHORT_DESCRIPTION = "U.S. Treasury and Treasury-backed repurchase-agreement money-market strategy"
 
 #: MONY issuer/platform display name.
 MONY_MANAGER_NAME = "J.P. Morgan Kinexys"

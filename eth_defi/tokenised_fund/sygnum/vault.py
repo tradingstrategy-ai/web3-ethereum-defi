@@ -137,7 +137,7 @@ class SygnumVault(TokenisedFundVault):
     @property
     def short_description(self) -> str | None:
         """Return the compact listing description."""
-        return "Permissioned Fidelity International USD liquidity-fund share"
+        return "Short-duration US-dollar liquidity strategy targeting capital preservation and liquidity"
 
     @property
     def manager_name(self) -> str | None:

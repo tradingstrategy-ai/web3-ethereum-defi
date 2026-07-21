@@ -171,7 +171,7 @@ class SpikoVault(TokenisedFundVault):
 
         :return: USTBL eligibility-aware product summary.
         """
-        return "Permissioned tokenised U.S. Treasury-bill money market fund"
+        return "U.S. Treasury-bill money-market strategy"
 
     @property
     def manager_name(self) -> str:

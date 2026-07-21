@@ -193,7 +193,7 @@ class FranklinVault(TokenisedFundVault):
             Product short description, if available.
         """
 
-        return self.product.short_description if self.product else "Permissioned tokenised fund share"
+        return self.product.short_description if self.product else "Unclassified Franklin Templeton fund strategy"
 
     @property
     def manager_name(self) -> str | None:

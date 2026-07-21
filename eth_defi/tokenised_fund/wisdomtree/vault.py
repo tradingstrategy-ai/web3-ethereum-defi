@@ -103,7 +103,7 @@ class WisdomTreeVault(TokenisedFundVault):
     def short_description(self) -> str | None:
         """Return concise product description."""
 
-        return "Permissioned tokenised U.S. Treasury money market fund shares"
+        return "U.S. Treasury money-market strategy targeting income, capital preservation and liquidity"
 
     @property
     def manager_name(self) -> str | None:

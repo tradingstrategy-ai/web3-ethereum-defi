@@ -3,7 +3,7 @@ name: Fidelity
 role: curator
 website: https://www.fidelity.com/
 twitter: fidelity
-short_description: Fidelity is the shared curator identity for tokenised funds managed by Fidelity Investments and Fidelity International.
+short_description: Fidelity is a financial-services brand offering investment management, retirement planning and digital-asset products.
 long_description: |
   Fidelity groups the tokenised-fund products managed by Fidelity Investments and Fidelity International under one curator identity in the vault export. The two investment managers are independent organisations, and each vault retains its specific manager attribution.
 

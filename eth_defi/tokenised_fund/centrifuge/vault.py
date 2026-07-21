@@ -145,7 +145,7 @@ class CentrifugeTrancheVault(TokenisedFundVault):
     def short_description(self) -> str:
         """Return a concise token structure description."""
 
-        return "Permissioned Centrifuge tranche shares in a U.S. Treasury fund"
+        return "Short-duration U.S. Treasury-bill strategy"
 
     @property
     def manager_name(self) -> str:

@@ -112,7 +112,7 @@ class LibearaVault(TokenisedFundVault):
     @property
     def short_description(self) -> str:
         """Return the listing description."""
-        return "Permissioned Libeara tokenised fund share"
+        return self.product.description
 
     @property
     def manager_name(self) -> str:
