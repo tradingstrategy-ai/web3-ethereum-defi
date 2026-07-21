@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add Noon sUSN yield-bearing stablecoin metadata and feed coverage (2026-07-21)
 - feat: Track per-chain vault scanner JSON-RPC calls and errors in DuckDB (2026-07-20)
 - feat: Add Hypersync-backed Chainlink bundle aggregator history and FILQ NAV support (2026-07-20)
 - feat: Backfill OpenEden TBILL oracle price history while preserving supply-only FDIT and CASHx metadata (2026-07-20)

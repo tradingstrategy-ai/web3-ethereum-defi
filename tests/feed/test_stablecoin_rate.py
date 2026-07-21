@@ -18,6 +18,7 @@ USDX_ADDRESS = "0x1111111111111111111111111111111111111111"
 USDU_ADDRESS = "0xdde3eC717f220Fc6A29D6a4Be73F91DA5b718e55"
 NARAUSD_ADDRESS = "0x5C6263904CCFD3Bcf1aAa6e7063dDd29743b3Bb7"
 PATHUSD_ADDRESS = "0x20C0000000000000000000000000000000000000"
+SUSN_ADDRESS = "0xE24a3DC889621612422A64E6388927901608B91D"
 
 
 @dataclass(slots=True)
@@ -723,6 +724,17 @@ def test_packaged_narausd_metadata_and_rate_target() -> None:
     assert metadata["contract_addresses"] == [{"chain": "ethereum", "address": NARAUSD_ADDRESS}]
     assert get_stablecoin_available_logos("narausd") == {"light": True}
     assert metadata["logos"] == {"light": "https://pub.example/stablecoin-metadata/narausd/light.png"}
+
+
+def test_packaged_susn_metadata() -> None:
+    """sUSN classification and metadata identify Noon's Ethereum staking token."""
+
+    metadata = build_stablecoin_metadata_json(STABLECOINS_DATA_DIR / "susn.yaml")[0]
+
+    assert is_stablecoin_like("sUSN") is True
+    assert metadata["name"] == "Noon Staked USN"
+    assert metadata["category"] == "yield_bearing"
+    assert metadata["contract_addresses"] == [{"chain": "ethereum", "address": SUSN_ADDRESS}]
 
 
 def test_packaged_pathusd_metadata_and_rate_target() -> None:

@@ -1,0 +1,49 @@
+symbol: sUSN
+name: Noon Staked USN
+slug: susn
+category: yield_bearing
+short_description: |
+  sUSN is Noon's yield-bearing staking token for the USN dollar stablecoin. It represents staked USN and appreciates as Noon allocates protocol returns to the staking pool.
+long_description: |
+  [sUSN](https://noon.capital/) is the staked form of Noon's USN stablecoin. Users stake USN through the Noon application or acquire sUSN in decentralised-exchange pools. Each sUSN represents a pro-rata share of the USN held by the staking pool, so its value can rise above one dollar as returns accrue.
+
+  Noon states that USN is backed one-to-one by USDT, USDC or short-term U.S. Treasury bills. It directs 80% of daily protocol returns to the USN staking pool by minting USN, which increases the USN backing per sUSN; unstaking is subject to a cooldown period.
+
+  ## Sources
+
+  - [Noon documentation — USN and sUSN](https://docs.noon.capital/built-for-high-yields/our-stablecoin-usn-and-susn)
+  - [Noon documentation — contracts and addresses](https://docs.noon.capital/additional-resources/contracts-and-addresses)
+  - [CoinGecko — Staked USN](https://www.coingecko.com/en/coins/staked-usn)
+links:
+  homepage: https://noon.capital/
+  coingecko: https://www.coingecko.com/en/coins/staked-usn
+  defillama: https://defillama.com/protocol/noon
+  twitter: https://x.com/noon_capital
+contract_addresses:
+  - chain: ethereum
+    address: "0xE24a3DC889621612422A64E6388927901608B91D"
+source_currency: ''
+source_currency_source: ''
+source_currency_usd_rate: ''
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
+coingecko_id: staked-usn
+coingecko_link: https://www.coingecko.com/en/coins/staked-usn
+coingecko_id_source: url
+coingecko_id_verified_at: '2026-07-21T00:00:00'
+coingecko_id_verification_failed_at: ''
+coingecko_id_verification_failed_reason: ''
+usd_rate: ''
+usd_rate_fetched_at: ''
+usd_rate_updated_at: ''
+peg_rate: ''
+peg_rate_currency: ''
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+depegged_at: ''
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-07-21'
+  marked_dead_at: ''
+  information_found_missing_at: ''
