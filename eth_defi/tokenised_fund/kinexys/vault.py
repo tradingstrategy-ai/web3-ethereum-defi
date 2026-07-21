@@ -81,8 +81,10 @@ MONY_SHORT_DESCRIPTION = "U.S. Treasury and Treasury-backed repurchase-agreement
 #: MONY issuer/platform display name.
 MONY_MANAGER_NAME = "J.P. Morgan Kinexys"
 
-#: Public Kinexys platform URL.
-JLTXX_HOMEPAGE = "https://www.jpmorgan.com/kinexys"
+#: Official J.P. Morgan Asset Management announcement for the JLTXX and MONY
+#: tokenised money-market funds. Neither fund currently has a public
+#: individual landing page, so this is preferred over a generic Kinexys page.
+KINEXYS_MONEY_MARKET_FUND_ANNOUNCEMENT_URL = "https://am.jpmorgan.com/us/en/asset-management/per/about-us/media/press-releases/jp-morgan-asset-management-launches-second-tokenized-fund-on-ethereum/"
 
 #: Temporary JLTXX NAV estimate used until an official historical NAV source is
 #: wired in. JLTXX is a tokenised money-market fund share, but the ODA-FACT
@@ -614,15 +616,13 @@ class OdaFactVault(TokenisedFundVault):
         return None
 
     def get_link(self, referral: str | None = None) -> str:
-        """Return product/platform link.
+        """Return the official fund-announcement link.
 
         :param referral:
             Ignored.
 
         :return:
-            Kinexys platform URL.
+            J.P. Morgan Asset Management announcement covering the product.
         """
 
-        if self.address.lower() == ODA_FACT_JLTXX_ADDRESS:
-            return JLTXX_HOMEPAGE
-        return f"https://etherscan.io/address/{self.address}"
+        return KINEXYS_MONEY_MARKET_FUND_ANNOUNCEMENT_URL

@@ -44,7 +44,10 @@ class SecuritizeProduct:
 
 
 BUIDL_FUND_PAGE_URL = "https://www.blackrock.com/us/individual/products/buidl/"
-BUIDL_I_FUND_PAGE_URL = "https://www.blackrock.com/corporate/compliance/scams-and-fraud/resources"
+#: I Class belongs to the BUIDL product family. BlackRock does not publish a
+#: separate public I Class landing page, so use the family product page rather
+#: than a non-product compliance page.
+BUIDL_I_FUND_PAGE_URL = BUIDL_FUND_PAGE_URL
 ACRED_FUND_PAGE_URL = "https://securitize.io/primary-market/apollo-diversified-credit-securitize-fund"
 VBILL_FUND_PAGE_URL = "https://securitize.io/primary-market/vaneck-vbill"
 STAC_FUND_PAGE_URL = "https://www.securitize-stac.com/"
@@ -90,7 +93,6 @@ def _create_buidl_product(chain_id: int, token: str, chain_name: str) -> Securit
 - **Token structure:** BUIDL is a permissioned Securitize token. Investors must complete issuer eligibility and compliance checks before subscribing, redeeming or transferring shares.
 - **Stable dollar share value:** BUIDL targets a USD 1 share value. Fund income accrues daily and is distributed monthly as newly issued BUIDL shares to eligible holders, rather than increasing the unit price. The token is therefore modelled at an estimated USD 1 per share and the on-chain share price does not represent total return.
 - **Fund page:** [BlackRock BUIDL]({BUIDL_FUND_PAGE_URL}).
-- **Official address list:** [BlackRock BUIDL addresses]({BUIDL_I_FUND_PAGE_URL}).
 """,
         estimated_nav_per_share=Decimal("1"),
         nav_source="estimated_buidl_usd_1",
@@ -133,7 +135,7 @@ BUIDL_I_ETHEREUM = SecuritizeProduct(
 - **Vault strategy:** I Class tokenised shares in the same BlackRock liquidity-fund product family as BUIDL, investing in cash, U.S. Treasury bills and repurchase agreements.
 - **Token structure:** BUIDL-I is a permissioned Securitize DSToken. Investors must complete issuer eligibility and compliance checks before subscribing, redeeming or transferring shares.
 - **Stable dollar share value:** BUIDL-I targets a USD 1 share value. Fund income accrues daily and is distributed monthly as newly issued shares, rather than increasing the unit price. The token is therefore modelled at an estimated USD 1 per share and the on-chain share price does not represent total return.
-- **Official address list:** [BlackRock BUIDL addresses]({BUIDL_I_FUND_PAGE_URL}).
+- **Fund page:** [BlackRock BUIDL]({BUIDL_I_FUND_PAGE_URL}).
 """,
     estimated_nav_per_share=Decimal("1"),
     nav_source="estimated_buidl_usd_1",

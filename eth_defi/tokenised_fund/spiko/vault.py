@@ -375,4 +375,4 @@ class SpikoVault(TokenisedFundVault):
         :return: Official Spiko product page.
         """
         _ = referral
-        return "https://www.spiko.io/use-cases/web3"
+        return "https://www.spiko.io/spiko-treasury-bills-dollar"
