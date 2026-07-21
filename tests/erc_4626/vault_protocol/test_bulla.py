@@ -10,6 +10,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_probe_calls, create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
+from eth_defi.erc_4626.vault_protocol.bulla.offchain_metadata import get_bulla_vault_metadata
 from eth_defi.erc_4626.vault_protocol.bulla.vault import BullaFeeData, BullaVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -61,6 +62,10 @@ def test_bulla_factoring_classification(web3: Web3) -> None:
     assert vault.get_protocol_name() == "Bulla Network"
     assert vault.name == "TCS Settlement Pool Token V2.1"
     assert vault.denomination_token.symbol == "PYUSD"
+    assert vault.short_description == "Permissioned stablecoin pool financing short-term freight receivables through TCS Blockchain."
+    assert vault.manager_name == "Bulla and TCS Blockchain"
+    assert vault.description is not None
+    assert "30-day redemption period" in vault.description
     bulla_fees = vault.fetch_bulla_fee_data(BULLA_FORK_BLOCK)
     assert bulla_fees.protocol_fee_bps == BULLA_PROTOCOL_FEE_BPS
     assert bulla_fees.admin_fee_bps == 0
@@ -120,6 +125,18 @@ def test_bulla_fee_data_maps_to_internalised_skimming() -> None:
     # Internalised skimming leaves no fees to deduct at deposit or redemption.
     assert generic_fees.get_net_fees().management == 0.0
     assert generic_fees.get_net_fees().performance == 0.0
+
+
+def test_bulla_public_metadata_is_address_scoped() -> None:
+    """Do not apply TCS marketing information to unreviewed Bulla pools."""
+    tcs_metadata = get_bulla_vault_metadata(42161, BULLA_VAULT_ADDRESS)
+
+    assert tcs_metadata is not None
+    assert tcs_metadata.short_description == "Permissioned stablecoin pool financing short-term freight receivables through TCS Blockchain."
+    assert tcs_metadata.manager_name == "Bulla and TCS Blockchain"
+    assert "accredited investors" in tcs_metadata.description
+    assert get_bulla_vault_metadata(42161, "0x0000000000000000000000000000000000000000") is None
+    assert get_bulla_vault_metadata(1, BULLA_VAULT_ADDRESS) is None
 
 
 def test_bulla_protocol_metadata_risk_and_fee_data() -> None:

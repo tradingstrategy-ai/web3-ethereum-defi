@@ -22,6 +22,7 @@ from eth_typing import BlockIdentifier
 from web3 import Web3
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.bulla.offchain_metadata import BullaVaultMetadata, get_bulla_vault_metadata
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultDepositManager
 from eth_defi.vault.fee import FeeData, VaultFeeMode
@@ -326,6 +327,41 @@ class BullaVault(ERC4626Vault):
     queue contracts. This adapter supplies safe read support only until a
     permissioned end-to-end transaction flow can be certified.
     """
+
+    @property
+    def bulla_metadata(self) -> BullaVaultMetadata | None:
+        """Return the reviewed public metadata for this exact Bulla pool.
+
+        Bulla does not provide a public, per-pool metadata API comparable to
+        Lagoon's. The address-scoped lookup uses only Bulla's public TCS pages
+        and returns ``None`` for every unreviewed pool, avoiding incorrect
+        reuse of the TCS description or manager name.
+
+        :return: Public Bulla pool metadata, if available.
+        """
+
+        return get_bulla_vault_metadata(self.chain_id, self.vault_address)
+
+    @property
+    def description(self) -> str | None:
+        """Return the public long description for this reviewed Bulla pool."""
+
+        metadata = self.bulla_metadata
+        return metadata.description if metadata else None
+
+    @property
+    def short_description(self) -> str | None:
+        """Return the public one-line summary for this reviewed Bulla pool."""
+
+        metadata = self.bulla_metadata
+        return metadata.short_description if metadata else None
+
+    @property
+    def manager_name(self) -> str | None:
+        """Return Bulla's published pool-manager attribution, if available."""
+
+        metadata = self.bulla_metadata
+        return metadata.manager_name if metadata else None
 
     def _fetch_bulla_result(self, function_signature: str, block_identifier: BlockIdentifier, data: bytes = b"") -> bytes:
         """Call a documented Bulla view selector without committing a full ABI.
