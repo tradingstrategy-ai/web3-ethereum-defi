@@ -11,7 +11,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.erc_4626.core import ERC4626Feature, get_deployed_erc_4626_contract
+from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault, VaultReaderState
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
@@ -19,6 +19,9 @@ from eth_defi.token import TokenDetails
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 
 logger = logging.getLogger(__name__)
+
+#: Upshift fee values are stored as basis points, where 10_000 is 100%.
+UPSHIFT_FEE_DENOMINATOR = 10_000
 
 
 class UpshiftMultiAssetHistoricalReader(VaultHistoricalReader):
@@ -246,8 +249,9 @@ class UpshiftVault(ERC4626Vault):
                 self.spec.vault_address,
             )
 
-        return get_deployed_erc_4626_contract(
+        return get_deployed_contract(
             self.web3,
+            "upshift/TokenizedAccount.json",
             self.spec.vault_address,
         )
 
@@ -300,30 +304,72 @@ class UpshiftVault(ERC4626Vault):
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Get management fee.
 
-        The supported Upshift ABIs expose fee charging hooks, but not a single
-        protocol-wide management-fee convention that maps cleanly to the shared
-        historical schema.
+        Multi-asset vaults expose ``managementFeePercent()`` in basis points.
+        TokenizedAccount contracts do not expose an equivalent fee getter, so
+        their management fee remains unknown rather than being treated as zero.
 
         :param block_identifier:
             Block number or ``"latest"``.
 
         :return:
-            ``None`` because fee extraction is not yet implemented.
+            Decimal management-fee fraction, or ``None`` when unavailable.
         """
+        if not self.multi_asset_like:
+            return None
 
-        return None
+        raw_bps = self.upshift_contract.functions.managementFeePercent().call(block_identifier=block_identifier)
+        return raw_bps / UPSHIFT_FEE_DENOMINATOR
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Get performance fee.
 
+        Multi-asset vaults expose ``performanceFeeRate()`` in basis points.
+        TokenizedAccount contracts do not expose an equivalent fee getter, so
+        their performance fee remains unknown rather than being treated as zero.
+
         :param block_identifier:
             Block number or ``"latest"``.
 
         :return:
-            ``None`` because fee extraction is not yet implemented.
+            Decimal performance-fee fraction, or ``None`` when unavailable.
         """
+        if not self.multi_asset_like:
+            return None
 
-        return None
+        raw_bps = self.upshift_contract.functions.performanceFeeRate().call(block_identifier=block_identifier)
+        return raw_bps / UPSHIFT_FEE_DENOMINATOR
+
+    def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> float:
+        """Read the standard queued-redemption fee.
+
+        ``withdrawalFee()`` excludes the separate fee for the optional instant
+        redemption path.  That additional fee remains represented by
+        :py:meth:`has_custom_fees`.
+
+        :param block_identifier:
+            Block number or ``"latest"`` at which to read the configuration.
+
+        :return:
+            Decimal withdrawal-fee fraction, e.g. ``0.002`` for 20 bps.
+        """
+        raw_bps = self.upshift_contract.functions.withdrawalFee().call(block_identifier=block_identifier)
+        return raw_bps / UPSHIFT_FEE_DENOMINATOR
+
+    def fetch_instant_redemption_fee(self, block_identifier: BlockIdentifier) -> float:
+        """Read the extra instant-redemption fee outside the shared fee schema.
+
+        Upshift supports a queued redemption flow and an optional immediate
+        redemption.  The latter fee cannot be substituted for the standard
+        withdrawal fee because it applies only when a user chooses that path.
+
+        :param block_identifier:
+            Block number or ``"latest"`` at which to read the configuration.
+
+        :return:
+            Decimal instant-redemption fee fraction, e.g. ``0.002`` for 20 bps.
+        """
+        raw_bps = self.upshift_contract.functions.instantRedemptionFee().call(block_identifier=block_identifier)
+        return raw_bps / UPSHIFT_FEE_DENOMINATOR
 
     def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal | None:
         """Fetch vault NAV in denomination token units.

@@ -839,6 +839,33 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Yearn TokenizedStrategy compounders (Solidity).
+        # ``tokenizedStrategyAddress()`` identifies modern proxy instances,
+        # while the older v2 implementation exposes ``apiVersion()`` and the
+        # same basis-point ``performanceFee()`` accessor.
+        # https://etherscan.io/address/0xD377919FA87120584B21279a491F82D5265A139c#code
+        yield EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="tokenizedStrategyAddress()")[0:4],
+            function="tokenizedStrategyAddress",
+            data=b"",
+            extra_data=None,
+        )
+        yield EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="apiVersion()")[0:4],
+            function="apiVersion",
+            data=b"",
+            extra_data=None,
+        )
+        yield EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="performanceFee()")[0:4],
+            function="performanceFee",
+            data=b"",
+            extra_data=None,
+        )
+
         # Yearn V3 (Vyper)
         # https://polygonscan.com/address/0xa013fbd4b711f9ded6fb09c1c0d358e2fbc2eaa0#readContract
         yield EncodedCall.from_keccak_signature(
@@ -1391,7 +1418,7 @@ def identify_vault_features(
     if calls["getGrossTVL"].success:
         features.add(ERC4626Feature.t3tris_like)
 
-    if calls["GOV"].success:
+    if calls["GOV"].success or calls["tokenizedStrategyAddress"].success or (calls["apiVersion"].success and calls["performanceFee"].success):
         features.add(ERC4626Feature.yearn_compounder_like)
 
     if calls["get_default_queue"].success:
@@ -2054,6 +2081,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.yearn.morpho_compounder import YearnMorphoCompounderStrategy
 
         return YearnMorphoCompounderStrategy(web3, spec, **kwargs)
+    elif ERC4626Feature.yearn_compounder_like in features:
+        from eth_defi.erc_4626.vault_protocol.yearn.compounder import YearnCompounderVault
+
+        return YearnCompounderVault(web3, spec, **kwargs)
     elif ERC4626Feature.yearn_v3_like in features or ERC4626Feature.yearn_tokenised_strategy in features:
         # Both of these have fees internatilised
         from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault

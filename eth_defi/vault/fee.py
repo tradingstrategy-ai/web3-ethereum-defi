@@ -120,6 +120,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "D2 Finance": VaultFeeMode.internalised_skimming,
     "Untangle Finance": VaultFeeMode.externalised,
     "Yearn": VaultFeeMode.internalised_skimming,
+    # Upshift multi-asset vaults accrue management/performance fees against
+    # vault assets, so the reported share price is already net of those fees.
+    "Upshift": VaultFeeMode.internalised_skimming,
     "Goat Protocol": VaultFeeMode.internalised_skimming,
     "USDai": VaultFeeMode.internalised_skimming,
     "AUTO Finance": VaultFeeMode.internalised_minting,
