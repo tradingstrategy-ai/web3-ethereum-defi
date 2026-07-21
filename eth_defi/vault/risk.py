@@ -66,10 +66,10 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Lagoon Finance": VaultTechnicalRisk.minimal,
     "T3tris": VaultTechnicalRisk.low,
     "IPOR Fusion": VaultTechnicalRisk.minimal,
-    # Bulla Network Factoring pools are permissioned, underwriter-operated
-    # invoice-finance products. Their smart-contract and credit risk need a
-    # dedicated human assessment before a numerical risk level is assigned.
-    "Bulla Network": None,
+    # Bulla Network has verified, publicly maintained Factoring contracts and
+    # published audits. Pool-specific borrower, collection and liquidity risks
+    # remain outside this technical smart-contract-risk classification.
+    "Bulla Network": VaultTechnicalRisk.low,
     # Kinexys ODA-FACT contracts are permissioned RWA tokens for institutional fund products.
     "Kinexys": VaultTechnicalRisk.low,
     # Midas is a permissioned tokenised investment product platform with

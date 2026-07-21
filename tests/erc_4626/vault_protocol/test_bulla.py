@@ -15,7 +15,7 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.fee import get_vault_fee_mode
 from eth_defi.vault.protocol_metadata import build_metadata_json
-from eth_defi.vault.risk import get_vault_risk
+from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 BULLA_VAULT_ADDRESS = "0xc099773267308D8e9E805f47EABf9ab13bBc9e37"
@@ -127,5 +127,5 @@ def test_bulla_protocol_metadata_risk_and_fee_data() -> None:
     assert metadata["logos"]["light"] == "https://example.invalid/vault-protocol-metadata/bulla/light.png"
     assert metadata["logos"]["dark"] == "https://example.invalid/vault-protocol-metadata/bulla/dark.png"
     assert get_vault_protocol_name({ERC4626Feature.bulla_like}) == "Bulla Network"
-    assert get_vault_risk("Bulla Network") is None
+    assert get_vault_risk("Bulla Network") == VaultTechnicalRisk.low
     assert get_vault_fee_mode("Bulla Network", BULLA_VAULT_ADDRESS) is None
