@@ -840,28 +840,12 @@ def create_probe_calls(
         )
 
         # Yearn TokenizedStrategy compounders (Solidity).
-        # ``tokenizedStrategyAddress()`` identifies modern proxy instances,
-        # while the older v2 implementation exposes ``apiVersion()`` and the
-        # same basis-point ``performanceFee()`` accessor.
+        # Both legacy and modern strategy instances expose this version marker.
         # https://etherscan.io/address/0xD377919FA87120584B21279a491F82D5265A139c#code
-        yield EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="tokenizedStrategyAddress()")[0:4],
-            function="tokenizedStrategyAddress",
-            data=b"",
-            extra_data=None,
-        )
         yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="apiVersion()")[0:4],
             function="apiVersion",
-            data=b"",
-            extra_data=None,
-        )
-        yield EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="performanceFee()")[0:4],
-            function="performanceFee",
             data=b"",
             extra_data=None,
         )
@@ -1418,7 +1402,7 @@ def identify_vault_features(
     if calls["getGrossTVL"].success:
         features.add(ERC4626Feature.t3tris_like)
 
-    if calls["GOV"].success or calls["tokenizedStrategyAddress"].success or (calls["apiVersion"].success and calls["performanceFee"].success):
+    if calls["GOV"].success or calls["apiVersion"].success:
         features.add(ERC4626Feature.yearn_compounder_like)
 
     if calls["get_default_queue"].success:

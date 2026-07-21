@@ -57,9 +57,9 @@ def web3(anvil_ethereum_fork: AnvilLaunch) -> Web3:
 def test_yearn_legacy_compounder_fee_data(web3: Web3) -> None:
     """Read Yearn legacy compounder fees from the Hyperithm USDC strategy.
 
-    The vault implements the older Yearn TokenizedStrategy surface: it does
-    not expose ``GOV()`` or ``tokenizedStrategyAddress()``, so classification
-    must recognise the joint ``apiVersion()`` and ``performanceFee()`` probe.
+    The vault implements the older Yearn TokenizedStrategy surface and does
+    not expose ``GOV()``. Classification therefore uses the single shared
+    ``apiVersion()`` marker.
 
     :param web3:
         Web3 client connected to the deterministic Ethereum fork.
@@ -83,8 +83,8 @@ def test_yearn_legacy_compounder_fee_data(web3: Web3) -> None:
 def test_yearn_modern_compounder_fee_data() -> None:
     """Read Yearn modern compounder fees from Moonwell USDC Lender WETH Borrower.
 
-    The modern proxy exposes ``tokenizedStrategyAddress()`` and must therefore
-    be detected independently of the legacy ``apiVersion()`` path.
+    The modern proxy also exposes the same ``apiVersion()`` marker as the
+    legacy strategy, so one protocol probe covers both contract variants.
     """
     launch = fork_network_anvil(JSON_RPC_BASE, fork_block_number=MOONWELL_FORK_BLOCK)
     try:
