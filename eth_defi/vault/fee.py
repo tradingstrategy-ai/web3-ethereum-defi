@@ -63,6 +63,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # performance fees accrue as shares for the fee recipient.
     # https://github.com/t3tris-finance/mdoc-t3tris/blob/main/docs/en/02-liquidity-providers/05-understanding-fees.md
     "T3tris": VaultFeeMode.internalised_minting,
+    # Factoring pools configure protocol, administrator and underwriting
+    # spreads per pool. These do not map to one universal vault fee mode.
+    "Bulla Network": None,
     # Kinexys ODA-FACT JLTXX prospectus expenses are reflected in fund returns, not as
     # explicit on-chain deposit/withdrawal fees.
     "Kinexys": VaultFeeMode.internalised_skimming,

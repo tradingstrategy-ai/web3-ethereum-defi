@@ -1,0 +1,39 @@
+name: Bulla Network
+slug: bulla
+short_description: |
+  Permissioned stablecoin liquidity pools for financing trade invoices and loans.
+long_description: |
+  [Bulla Network](https://www.bulla.network/) provides onchain infrastructure
+  for financing real-world invoices and loan offers. Its Bulla Factoring pools
+  use ERC-4626 share accounting while financing receivables through Bulla Claim
+  and BullaFrendLend contracts.
+
+  Pool access is not necessarily public. Bulla Factoring contracts can apply
+  separate deposit, redemption and factoring permission managers, and a
+  redemption queue may delay withdrawals when the pool does not have available
+  liquidity. Depositors remain exposed to the creditworthiness and collection
+  of financed receivables, as well as smart-contract, administrator and
+  underwriter risks.
+
+  The public [factoring-contracts repository](https://github.com/bulla-network/factoring-contracts)
+  contains the BullaFactoring contracts and published audit reports. Audit
+  coverage does not remove pool-specific credit, liquidity or permission risk.
+fee_description: |
+  Bulla Factoring pools can configure protocol, administrator and underwriting
+  fees around financing operations. These charges do not map safely to a
+  protocol-wide ERC-4626 management or performance fee, and can differ by pool
+  and financing arrangement. Review the selected pool's onchain configuration
+  and financing terms before depositing.
+links:
+  homepage: https://www.bulla.network/
+  app: https://banker.bulla.network/#/yield
+  twitter: https://x.com/BullaNetwork
+  github: https://github.com/bulla-network/factoring-contracts
+  documentation: https://docs.bulla.network/
+  defillama: ""
+  audits: https://github.com/bulla-network/factoring-contracts/tree/main/audits
+  fees: https://github.com/bulla-network/factoring-contracts/blob/main/contracts/BullaFactoring.sol
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/bulla
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/bulla/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0xc099773267308D8e9E805f47EABf9ab13bBc9e37
