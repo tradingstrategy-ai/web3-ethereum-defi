@@ -2,18 +2,14 @@ Bulla Network
 -------------
 
 `Bulla Network <https://www.bulla.network/>`__ provides infrastructure for
-financing trade invoices and direct loan offers. Its Bulla Factoring pools use
-ERC-4626 accounting for shares while funding receivables through Bulla Claim
-and BullaFrendLend contracts. The public `factoring-contracts repository
-<https://github.com/bulla-network/factoring-contracts>`__ contains the
-contracts, including the BullaFactoring implementation.
+financing trade invoices and direct loan offers. Its pools bring together
+stablecoin liquidity from participants and businesses seeking financing
+against amounts they expect to receive.
 
-This integration recognises Bulla Factoring vaults and supplies safe read
-support. It deliberately does not advertise a generic deposit manager: Bulla
-pools can restrict deposits, redemptions and factoring to separate permission
-managers, and withdrawals may enter a liquidity-dependent redemption queue.
-Depositors must assess pool-specific credit, collection, liquidity and
-underwriter risk. Published `audit reports
+Some pools restrict who can participate. Withdrawals may also be delayed when
+cash is committed to outstanding financing or other participants are ahead in
+the queue. Participants should assess borrower repayment, collection,
+liquidity and underwriter-selection risk. Published `audit reports
 <https://github.com/bulla-network/factoring-contracts/tree/main/audits>`__
 are useful security evidence, but do not cover those economic risks.
 
